@@ -79,3 +79,18 @@ $RECYCLE.BIN/
 *.msm
 *.msp
 *.lnk
+
+# Expo / React Native
+mobile/.expo/
+mobile/.expo-shared/
+mobile/expo-env.d.ts
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.orig.*
+web-build/
+
+# Metro
+.metro-health-check*
