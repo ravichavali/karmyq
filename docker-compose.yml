@@ -1,0 +1,104 @@
+version: '3.9'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: karmyq-postgres
+    environment:
+      POSTGRES_USER: karmyq_user
+      POSTGRES_PASSWORD: karmyq_password_dev
+      POSTGRES_DB: karmyq_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infrastructure/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U karmyq_user -d karmyq_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - karmyq-network
+
+  # Redis for events and caching
+  redis:
+    image: redis:7-alpine
+    container_name: karmyq-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - karmyq-network
+
+  # Redis Commander (for debugging)
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: karmyq-redis-commander
+    environment:
+      - REDIS_HOSTS=local:redis:6379
+    ports:
+      - "8081:8081"
+    depends_on:
+      - redis
+    networks:
+      - karmyq-network
+
+  # Auth Service
+  auth-service:
+    build:
+      context: ./services/auth-service
+      dockerfile: Dockerfile
+    container_name: karmyq-auth-service
+    environment:
+      NODE_ENV: development
+      PORT: 3001
+      DATABASE_URL: postgresql://karmyq_user:karmyq_password_dev@postgres:5432/karmyq_db
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: dev_jwt_secret_change_in_production
+    ports:
+      - "3001:3001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./services/auth-service/src:/app/src
+      - ./shared:/app/shared
+    networks:
+      - karmyq-network
+    command: npm run dev
+
+  # Frontend
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: karmyq-frontend
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:3001
+      NODE_ENV: development
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend/src:/app/src
+      - ./frontend/public:/app/public
+    networks:
+      - karmyq-network
+    command: npm run dev
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  karmyq-network:
+    driver: bridge
