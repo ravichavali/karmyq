@@ -75,6 +75,31 @@ services:
       - karmyq-network
     command: npm run dev
 
+  # Community Service
+  community-service:
+    build:
+      context: ./services/community-service
+      dockerfile: Dockerfile
+    container_name: karmyq-community-service
+    environment:
+      NODE_ENV: development
+      PORT: 3002
+      DATABASE_URL: postgresql://karmyq_user:karmyq_password_dev@postgres:5432/karmyq_db
+      REDIS_URL: redis://redis:6379
+    ports:
+      - "3002:3002"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./services/community-service/src:/app/src
+      - ./shared:/app/shared
+    networks:
+      - karmyq-network
+    command: npm run dev
+
   # Frontend
   frontend:
     build:

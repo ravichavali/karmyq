@@ -108,9 +108,9 @@ class ApiClient {
     return response.data;
   }
 
-  // Community endpoints (to be implemented)
-  async getCommunities() {
-    const response = await this.client.get('/communities');
+  // Community endpoints
+  async getCommunities(params?: { status?: string; limit?: number; offset?: number }) {
+    const response = await this.client.get('/communities', { params });
     return response.data;
   }
 
@@ -119,8 +119,65 @@ class ApiClient {
     return response.data;
   }
 
-  async createCommunity(data: { name: string; description: string; max_members?: number }) {
+  async createCommunity(data: { name: string; description: string; max_members?: number; creator_id: string }) {
     const response = await this.client.post('/communities', data);
+    return response.data;
+  }
+
+  async updateCommunity(communityId: string, data: { name?: string; description?: string; max_members?: number; status?: string; user_id: string }) {
+    const response = await this.client.put(`/communities/${communityId}`, data);
+    return response.data;
+  }
+
+  async archiveCommunity(communityId: string, userId: string) {
+    const response = await this.client.delete(`/communities/${communityId}`, { data: { user_id: userId } });
+    return response.data;
+  }
+
+  // Member endpoints
+  async getCommunityMembers(communityId: string, status?: string) {
+    const response = await this.client.get(`/communities/${communityId}/members`, { params: { status } });
+    return response.data;
+  }
+
+  async addCommunityMember(communityId: string, data: { user_id: string; invited_by?: string; role?: string }) {
+    const response = await this.client.post(`/communities/${communityId}/members`, data);
+    return response.data;
+  }
+
+  async updateCommunityMember(communityId: string, userId: string, data: { role?: string; status?: string; admin_user_id: string }) {
+    const response = await this.client.put(`/communities/${communityId}/members/${userId}`, data);
+    return response.data;
+  }
+
+  async removeCommunityMember(communityId: string, userId: string, adminUserId: string) {
+    const response = await this.client.delete(`/communities/${communityId}/members/${userId}`, { data: { admin_user_id: adminUserId } });
+    return response.data;
+  }
+
+  // Norms endpoints
+  async getCommunityNorms(communityId: string, status?: string) {
+    const response = await this.client.get(`/communities/${communityId}/norms`, { params: { status } });
+    return response.data;
+  }
+
+  async getCommunityNorm(communityId: string, normId: string) {
+    const response = await this.client.get(`/communities/${communityId}/norms/${normId}`);
+    return response.data;
+  }
+
+  async createCommunityNorm(communityId: string, data: { description: string; rationale?: string; created_by: string }) {
+    const response = await this.client.post(`/communities/${communityId}/norms`, data);
+    return response.data;
+  }
+
+  async approveCommunityNorm(communityId: string, normId: string, userId: string) {
+    const response = await this.client.post(`/communities/${communityId}/norms/${normId}/approve`, { user_id: userId });
+    return response.data;
+  }
+
+  async archiveCommunityNorm(communityId: string, normId: string, userId: string) {
+    const response = await this.client.delete(`/communities/${communityId}/norms/${normId}`, { data: { user_id: userId } });
     return response.data;
   }
 
