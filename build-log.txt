@@ -1,0 +1,167 @@
+#1 [internal] load local bake definitions
+#1 reading from stdin 1.13kB done
+#1 DONE 0.0s
+
+#2 [frontend internal] load build definition from Dockerfile
+#2 transferring dockerfile: 160B 0.0s done
+#2 DONE 0.0s
+
+#3 [auth-service internal] load build definition from Dockerfile
+#3 transferring dockerfile: 160B done
+#3 DONE 0.0s
+
+#4 [auth-service internal] load metadata for docker.io/library/node:18-alpine
+#4 DONE 0.5s
+
+#5 [auth-service internal] load .dockerignore
+#5 transferring context: 2B done
+#5 DONE 0.0s
+
+#6 [frontend internal] load .dockerignore
+#6 transferring context: 2B done
+#6 DONE 0.0s
+
+#7 [auth-service internal] load build context
+#7 transferring context: 470B 0.0s done
+#7 DONE 0.0s
+
+#8 [frontend internal] load build context
+#8 transferring context: 692B 0.0s done
+#8 DONE 0.0s
+
+#9 [frontend 1/5] FROM docker.io/library/node:18-alpine@sha256:8d6421d663b4c28fd3ebc498332f249011d118945588d0a35cb9bc4b8ca09d9e
+#9 resolve docker.io/library/node:18-alpine@sha256:8d6421d663b4c28fd3ebc498332f249011d118945588d0a35cb9bc4b8ca09d9e 0.1s done
+#9 resolve docker.io/library/node:18-alpine@sha256:8d6421d663b4c28fd3ebc498332f249011d118945588d0a35cb9bc4b8ca09d9e 0.1s done
+#9 DONE 0.1s
+
+#10 [auth-service 3/5] COPY package*.json ./
+#10 CACHED
+
+#11 [auth-service 4/5] RUN npm install
+#11 CACHED
+
+#12 [auth-service 5/5] COPY . .
+#12 CACHED
+
+#13 [frontend 2/5] WORKDIR /app
+#13 CACHED
+
+#14 [frontend 4/5] RUN npm install
+#14 CACHED
+
+#15 [frontend 3/5] COPY package*.json ./
+#15 CACHED
+
+#16 [frontend 5/5] COPY . .
+#16 CACHED
+
+#17 [frontend] exporting to image
+#17 exporting layers done
+#17 exporting manifest sha256:4407d8110da565dd4cb45c8a289328f05a51fbe208a6f346c1caa89cd3e854e4 0.0s done
+#17 exporting config sha256:0ed46f0576204cb5fdd11c8fbd58c04bd2570a91afb4945fb95d534ca90aaf15 0.0s done
+#17 exporting attestation manifest sha256:b6d4600e23acf05557db876a6247d94fb1b252adf1aae7af15a701e92188f34c
+#17 exporting attestation manifest sha256:b6d4600e23acf05557db876a6247d94fb1b252adf1aae7af15a701e92188f34c 0.1s done
+#17 exporting manifest list sha256:6f580bdff5fdd2503d722d085a024c4ec8380a00c0cbfa00df4aeab2ea9b792b 0.1s done
+#17 naming to docker.io/library/karmyq-frontend:latest
+#17 naming to docker.io/library/karmyq-frontend:latest 0.0s done
+#17 unpacking to docker.io/library/karmyq-frontend:latest 0.0s done
+#17 DONE 0.3s
+
+#18 [auth-service] exporting to image
+#18 exporting layers done
+#18 exporting manifest sha256:e3be92c5a1bd657c3c9783ef7099fb9442d8d440100b0a5071f8f8a5848f5faf 0.0s done
+#18 exporting config sha256:4b16d45ae24a4f11ae68d25dbf40647b7ea3698b12e065945c2127a816300f28 0.0s done
+#18 exporting attestation manifest sha256:0c5b13997adfc7ca3556204e808a41132ccd9e227068139b1c0cdfe6fc302008 0.1s done
+#18 exporting manifest list sha256:de6244be8cdf3be3e9f550d616d09d3b7e9f1c91a07606c70d664b7f4152f3c5 0.1s done
+#18 naming to docker.io/library/karmyq-auth-service:latest done
+#18 unpacking to docker.io/library/karmyq-auth-service:latest 0.0s done
+#18 DONE 0.3s
+
+#19 [frontend] resolving provenance for metadata file
+#19 DONE 0.0s
+
+#20 [auth-service] resolving provenance for metadata file
+#20 DONE 0.0s
+ karmyq-frontend  Built
+ karmyq-auth-service  Built
+ Container karmyq-redis  Running
+ Container karmyq-postgres  Recreate
+ Container karmyq-redis-commander  Running
+ Container karmyq-frontend  Recreate
+ Container karmyq-frontend  Recreated
+ Container karmyq-postgres  Recreated
+ Container karmyq-auth-service  Recreate
+ Container karmyq-auth-service  Recreated
+Attaching to karmyq-auth-service, karmyq-frontend, karmyq-postgres, karmyq-redis, karmyq-redis-commander
+karmyq-postgres  | 
+karmyq-postgres  | PostgreSQL Database directory appears to contain a database; Skipping initialization
+karmyq-postgres  | 
+karmyq-postgres  | 2025-11-04 05:00:10.397 UTC [1] LOG:  starting PostgreSQL 15.14 on x86_64-pc-linux-musl, compiled by gcc (Alpine 14.2.0) 14.2.0, 64-bit
+karmyq-postgres  | 2025-11-04 05:00:10.397 UTC [1] LOG:  listening on IPv4 address "0.0.0.0", port 5432
+karmyq-postgres  | 2025-11-04 05:00:10.397 UTC [1] LOG:  listening on IPv6 address "::", port 5432
+karmyq-postgres  | 2025-11-04 05:00:10.411 UTC [1] LOG:  listening on Unix socket "/var/run/postgresql/.s.PGSQL.5432"
+karmyq-postgres  | 2025-11-04 05:00:10.425 UTC [29] LOG:  database system was shut down at 2025-11-04 05:00:07 UTC
+karmyq-postgres  | 2025-11-04 05:00:10.462 UTC [1] LOG:  database system is ready to accept connections
+karmyq-frontend  | 
+karmyq-frontend  | > karmyq-frontend@1.0.0 dev
+karmyq-frontend  | > next dev
+karmyq-frontend  | 
+karmyq-frontend  |    ▲ Next.js 14.0.4
+karmyq-frontend  |    - Local:        http://localhost:3000
+karmyq-frontend  | 
+karmyq-frontend  | Attention: Next.js now collects completely anonymous telemetry regarding usage.
+karmyq-frontend  | This information is used to shape Next.js' roadmap and prioritize features.
+karmyq-frontend  | You can learn more, including how to opt-out if you'd not like to participate in this anonymous program, by visiting the following URL:
+karmyq-frontend  | https://nextjs.org/telemetry
+karmyq-frontend  | 
+karmyq-frontend  |  ✓ Ready in 6.1s
+karmyq-frontend  |  ○ Compiling / ...
+karmyq-auth-service  | 
+karmyq-auth-service  | > karmyq-auth-service@1.0.0 dev
+karmyq-auth-service  | > nodemon src/index.ts
+karmyq-auth-service  | 
+karmyq-auth-service  | [33m[nodemon] 3.1.10[39m
+karmyq-auth-service  | [33m[nodemon] to restart at any time, enter `rs`[39m
+karmyq-auth-service  | [33m[nodemon] watching path(s): *.*[39m
+karmyq-auth-service  | [33m[nodemon] watching extensions: ts,json[39m
+karmyq-auth-service  | [32m[nodemon] starting `ts-node src/index.ts`[39m
+karmyq-frontend      |  ✓ Compiled / in 4.8s (235 modules)
+karmyq-frontend      |  ⚠ Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+karmyq-auth-service  | /app/node_modules/ts-node/src/index.ts:859
+karmyq-auth-service  |     return new TSError(diagnosticText, diagnosticCodes, diagnostics);
+karmyq-auth-service  |            ^
+karmyq-auth-service  | TSError: ⨯ Unable to compile TypeScript:
+karmyq-auth-service  | src/database/db.ts(1,22): error TS7016: Could not find a declaration file for module 'pg'. '/app/node_modules/pg/lib/index.js' implicitly has an 'any' type.
+karmyq-auth-service  |   Try `npm i --save-dev @types/pg` if it exists or add a new declaration (.d.ts) file containing `declare module 'pg';`
+karmyq-auth-service  | 
+karmyq-auth-service  |     at createTSError (/app/node_modules/ts-node/src/index.ts:859:12)
+karmyq-auth-service  |     at reportTSError (/app/node_modules/ts-node/src/index.ts:863:19)
+karmyq-auth-service  |     at getOutput (/app/node_modules/ts-node/src/index.ts:1077:36)
+karmyq-auth-service  |     at Object.compile (/app/node_modules/ts-node/src/index.ts:1433:41)
+karmyq-auth-service  |     at Module.m._compile (/app/node_modules/ts-node/src/index.ts:1617:30)
+karmyq-auth-service  |     at Module._extensions..js (node:internal/modules/cjs/loader:1422:10)
+karmyq-auth-service  |     at Object.require.extensions.<computed> [as .ts] (/app/node_modules/ts-node/src/index.ts:1621:12)
+karmyq-auth-service  |     at Module.load (node:internal/modules/cjs/loader:1203:32)
+karmyq-auth-service  |     at Function.Module._load (node:internal/modules/cjs/loader:1019:12)
+karmyq-auth-service  |     at Module.require (node:internal/modules/cjs/loader:1231:19) {
+karmyq-auth-service  |   diagnosticCodes: [ 7016 ]
+karmyq-auth-service  | }
+karmyq-auth-service  | [31m[nodemon] app crashed - waiting for file changes before starting...[39m
+karmyq-frontend      | [?25h
+[Kkarmyq-redis-commander exited with code 143
+[Kkarmyq-frontend exited with code 0
+[Kkarmyq-auth-service exited with code 143
+karmyq-redis            | 1:signal-handler (1762232459) Received SIGTERM scheduling shutdown...
+karmyq-postgres         | 2025-11-04 05:00:59.484 UTC [1] LOG:  received fast shutdown request
+karmyq-postgres         | 2025-11-04 05:00:59.492 UTC [1] LOG:  aborting any active transactions
+karmyq-postgres         | 2025-11-04 05:00:59.495 UTC [1] LOG:  background worker "logical replication launcher" (PID 32) exited with exit code 1
+karmyq-redis            | 1:M 04 Nov 2025 05:00:59.498 * User requested shutdown...
+karmyq-postgres         | 2025-11-04 05:00:59.499 UTC [27] LOG:  shutting down
+karmyq-redis            | 1:M 04 Nov 2025 05:00:59.499 * Saving the final RDB snapshot before exiting.
+karmyq-postgres         | 2025-11-04 05:00:59.505 UTC [27] LOG:  checkpoint starting: shutdown immediate
+karmyq-redis            | 1:M 04 Nov 2025 05:00:59.518 * DB saved on disk
+karmyq-redis            | 1:M 04 Nov 2025 05:00:59.518 # Redis is now ready to exit, bye bye...
+karmyq-postgres         | 2025-11-04 05:00:59.550 UTC [27] LOG:  checkpoint complete: wrote 3 buffers (0.0%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.009 s, sync=0.005 s, total=0.052 s; sync files=2, longest=0.003 s, average=0.002 s; distance=0 kB, estimate=0 kB
+karmyq-postgres         | 2025-11-04 05:00:59.559 UTC [1] LOG:  database system is shut down
+[Kkarmyq-redis exited with code 0
+[Kkarmyq-postgres exited with code 0
