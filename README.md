@@ -51,26 +51,16 @@ docker-compose up --build
 
 ```
 karmyq/
-├── services/
-│   └── auth-service/          # Authentication microservice
-│       ├── src/
-│       │   ├── routes/        # API routes
-│       │   ├── database/      # Database connection
-│       │   └── events/        # Event publisher
-│       └── Dockerfile
-├── frontend/                  # Next.js frontend
-│   ├── src/
-│   │   ├── pages/            # Next.js pages
-│   │   ├── lib/              # API client
-│   │   └── styles/           # Global styles
-│   └── Dockerfile
-├── infrastructure/
-│   └── postgres/
-│       └── init.sql          # Database schemas
-├── shared/
-│   └── types/                # Shared TypeScript types
-└── docker-compose.yml        # Service orchestration
+├── services/              # Microservices
+│   └── auth-service/      # ✅ Complete - User authentication
+├── frontend/              # ✅ Complete - Next.js PWA
+├── infrastructure/        # Database & gateway configs
+├── shared/                # Shared TypeScript types
+├── docs/                  # 📚 All documentation (moved here)
+└── docker-compose.yml     # Service orchestration
 ```
+
+**See [STRUCTURE.md](STRUCTURE.md) for detailed organization**
 
 ## Development
 
@@ -158,3 +148,35 @@ MIT (or your chosen license)
 ## Built with Community
 
 Karmyq is designed for community-driven development. Each service is independent, making it easy for multiple contributors to work in parallel.
+
+## Documentation
+
+All guides are now in the [docs/](docs/) folder:
+
+| Guide | Purpose |
+|-------|---------|
+| [GETTING_STARTED.md](docs/GETTING_STARTED.md) | Complete setup guide |
+| [DOCKER_SETUP.md](docs/DOCKER_SETUP.md) | Docker troubleshooting |
+| [START_WINDOWS.md](docs/START_WINDOWS.md) | Windows-specific guide |
+| [NEXT_STEPS.md](docs/NEXT_STEPS.md) | What to build next |
+| [RUN_TESTS.md](docs/RUN_TESTS.md) | How to run tests |
+| [PUSH_TO_GITHUB.md](docs/PUSH_TO_GITHUB.md) | Push to GitHub |
+| [PROJECT_STATUS.md](docs/PROJECT_STATUS.md) | Current status |
+
+## Testing
+
+```bash
+cd services/auth-service
+npm test
+```
+
+See [docs/RUN_TESTS.md](docs/RUN_TESTS.md) for complete testing guide.
+
+## Contributing
+
+1. Write tests first (TDD)
+2. Ensure 80%+ code coverage
+3. Follow existing patterns
+4. Update documentation
+
+See [Context/CONTRIBUTING.md](Context/CONTRIBUTING.md) for guidelines.
