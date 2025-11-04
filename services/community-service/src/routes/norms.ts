@@ -232,7 +232,7 @@ router.post('/:communityId/norms/:normId/approve', async (req: Request, res: Res
       [normId, user_id]
     );
 
-    if (existingApproval.rowCount > 0) {
+    if (existingApproval.rowCount && existingApproval.rowCount > 0) {
       return res.status(400).json({
         success: false,
         message: 'You have already approved this norm',
@@ -334,7 +334,7 @@ router.delete('/:communityId/norms/:normId', async (req: Request, res: Response)
       });
     }
 
-    const isAdmin = memberCheck.rowCount > 0 && memberCheck.rows[0].role === 'admin';
+    const isAdmin = memberCheck.rowCount && memberCheck.rowCount > 0 && memberCheck.rows[0].role === 'admin';
     const isCreator = normCheck.rows[0].created_by === user_id;
 
     if (!isAdmin && !isCreator) {

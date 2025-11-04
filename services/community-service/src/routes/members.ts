@@ -90,7 +90,7 @@ router.post('/:communityId/members', async (req: Request, res: Response) => {
       [communityId, user_id]
     );
 
-    if (existingMember.rowCount > 0) {
+    if (existingMember.rowCount && existingMember.rowCount > 0) {
       return res.status(400).json({
         success: false,
         message: 'User is already a member of this community',
