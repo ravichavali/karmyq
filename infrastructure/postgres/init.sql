@@ -199,31 +199,76 @@ CREATE INDEX idx_messages_sender_id ON messaging.messages(sender_id);
 -- ============= NOTIFICATION SERVICE SCHEMA =============
 CREATE SCHEMA IF NOT EXISTS notifications;
 
-CREATE TABLE notifications.notification_preferences (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id UUID NOT NULL UNIQUE REFERENCES auth.users(id) ON DELETE CASCADE,
-    email_on_new_request BOOLEAN DEFAULT TRUE,
-    email_on_request_match BOOLEAN DEFAULT TRUE,
-    email_on_message BOOLEAN DEFAULT TRUE,
-    email_digest BOOLEAN DEFAULT TRUE,
-    push_enabled BOOLEAN DEFAULT TRUE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+-- Notifications table (in-app notifications)
+CREATE TABLE notifications.notifications (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  type VARCHAR(50) NOT NULL,
+  title VARCHAR(255) NOT NULL,
+  body TEXT NOT NULL,
+  data JSONB DEFAULT '{}',
+  read BOOLEAN DEFAULT FALSE,
+  action_url VARCHAR(500),
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  read_at TIMESTAMP
 );
 
-CREATE TABLE notifications.notification_log (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-    type VARCHAR(100) NOT NULL,
-    subject VARCHAR(255) NOT NULL,
-    content TEXT,
-    channel VARCHAR(50), -- 'email', 'push', 'in_app'
-    status VARCHAR(50), -- 'sent', 'delivered', 'failed'
-    sent_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+-- Notification preferences table (event-specific)
+CREATE TABLE notifications.preferences (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  community_id UUID REFERENCES communities.communities(id) ON DELETE CASCADE,
+  event_type VARCHAR(50) NOT NULL,
+  in_app_enabled BOOLEAN DEFAULT TRUE,
+  push_enabled BOOLEAN DEFAULT TRUE,
+  email_enabled BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(user_id, community_id, event_type)
 );
 
-CREATE INDEX idx_notification_preferences_user_id ON notifications.notification_preferences(user_id);
-CREATE INDEX idx_notification_log_user_id ON notifications.notification_log(user_id);
+-- Global preferences (user-level settings)
+CREATE TABLE notifications.global_preferences (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID NOT NULL UNIQUE REFERENCES auth.users(id) ON DELETE CASCADE,
+  in_app_enabled BOOLEAN DEFAULT TRUE,
+  push_enabled BOOLEAN DEFAULT TRUE,
+  email_enabled BOOLEAN DEFAULT FALSE,
+  quiet_hours_start TIME,
+  quiet_hours_end TIME,
+  timezone VARCHAR(50) DEFAULT 'UTC',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Indexes for performance
+CREATE INDEX idx_notifications_user_id ON notifications.notifications(user_id);
+CREATE INDEX idx_notifications_type ON notifications.notifications(type);
+CREATE INDEX idx_notifications_created_at ON notifications.notifications(created_at DESC);
+CREATE INDEX idx_notifications_unread ON notifications.notifications(user_id, read) WHERE read = FALSE;
+CREATE INDEX idx_preferences_user_id ON notifications.preferences(user_id);
+CREATE INDEX idx_preferences_event_type ON notifications.preferences(event_type);
+
+-- Function to update updated_at timestamp
+CREATE OR REPLACE FUNCTION notifications.update_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = CURRENT_TIMESTAMP;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Trigger for preferences table
+CREATE TRIGGER preferences_updated_at
+  BEFORE UPDATE ON notifications.preferences
+  FOR EACH ROW
+  EXECUTE FUNCTION notifications.update_updated_at();
+
+-- Trigger for global_preferences table
+CREATE TRIGGER global_preferences_updated_at
+  BEFORE UPDATE ON notifications.global_preferences
+  FOR EACH ROW
+  EXECUTE FUNCTION notifications.update_updated_at();
 
 -- ============= FEEDBACK SCHEMA =============
 CREATE SCHEMA IF NOT EXISTS feedback;

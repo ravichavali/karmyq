@@ -1,10 +1,44 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/router'
 import Head from 'next/head'
+import Link from 'next/link'
+import { communityService, requestService } from '@/lib/api'
+
+interface Community {
+  id: string
+  name: string
+  description: string
+  current_members: number
+  max_members: number
+}
+
+interface HelpRequest {
+  id: string
+  title: string
+  status: string
+  urgency: string
+  community_name: string
+  created_at: string
+}
+
+interface HelpOffer {
+  id: string
+  title: string
+  status: string
+  category: string
+  community_name: string
+  created_at: string
+}
 
 export default function Dashboard() {
   const router = useRouter()
   const [user, setUser] = useState<any>(null)
+  const [communities, setCommunities] = useState<Community[]>([])
+  const [requests, setRequests] = useState<HelpRequest[]>([])
+  const [offers, setOffers] = useState<HelpOffer[]>([])
+  const [loadingCommunities, setLoadingCommunities] = useState(true)
+  const [loadingRequests, setLoadingRequests] = useState(true)
+  const [loadingOffers, setLoadingOffers] = useState(true)
 
   useEffect(() => {
     const token = localStorage.getItem('token')
@@ -18,7 +52,44 @@ export default function Dashboard() {
     if (userData) {
       setUser(JSON.parse(userData))
     }
+
+    fetchCommunities()
+    fetchRequests()
+    fetchOffers()
   }, [router])
+
+  const fetchCommunities = async () => {
+    try {
+      const response = await communityService.getCommunities({ limit: 10 })
+      setCommunities(response.data.data)
+    } catch (err) {
+      console.error('Failed to load communities:', err)
+    } finally {
+      setLoadingCommunities(false)
+    }
+  }
+
+  const fetchRequests = async () => {
+    try {
+      const response = await requestService.getRequests({ status: 'open', limit: 5 })
+      setRequests(response.data.data)
+    } catch (err) {
+      console.error('Failed to load requests:', err)
+    } finally {
+      setLoadingRequests(false)
+    }
+  }
+
+  const fetchOffers = async () => {
+    try {
+      const response = await requestService.getOffers({ status: 'active', limit: 5 })
+      setOffers(response.data.data)
+    } catch (err) {
+      console.error('Failed to load offers:', err)
+    } finally {
+      setLoadingOffers(false)
+    }
+  }
 
   const handleLogout = () => {
     localStorage.removeItem('token')
@@ -39,12 +110,23 @@ export default function Dashboard() {
         <nav className="bg-white shadow">
           <div className="container mx-auto px-4 py-4 flex justify-between items-center">
             <h1 className="text-2xl font-bold text-blue-600">Karmyq</h1>
-            <button
-              onClick={handleLogout}
-              className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
-            >
-              Logout
-            </button>
+            <div className="flex gap-4 items-center">
+              <Link href="/communities" className="px-4 py-2 text-gray-700 hover:text-blue-600">
+                Communities
+              </Link>
+              <Link href="/requests" className="px-4 py-2 text-gray-700 hover:text-blue-600">
+                Requests
+              </Link>
+              <Link href="/offers" className="px-4 py-2 text-gray-700 hover:text-blue-600">
+                Offers
+              </Link>
+              <button
+                onClick={handleLogout}
+                className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+              >
+                Logout
+              </button>
+            </div>
           </div>
         </nav>
 
@@ -56,13 +138,43 @@ export default function Dashboard() {
 
           <div className="grid md:grid-cols-2 gap-6">
             <div className="bg-white rounded-lg shadow-md p-6">
-              <h3 className="text-xl font-semibold mb-4">Communities</h3>
-              <p className="text-gray-600 mb-4">
-                Join or create communities to start helping others and receiving help.
-              </p>
-              <button className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-xl font-semibold">Communities</h3>
+                <Link
+                  href="/communities"
+                  className="text-sm text-blue-600 hover:text-blue-800"
+                >
+                  View All
+                </Link>
+              </div>
+              {loadingCommunities ? (
+                <p className="text-gray-500">Loading...</p>
+              ) : communities.length === 0 ? (
+                <p className="text-gray-600 mb-4">
+                  No communities yet. Be the first to create one!
+                </p>
+              ) : (
+                <div className="space-y-2 mb-4">
+                  {communities.slice(0, 3).map((community) => (
+                    <Link
+                      key={community.id}
+                      href={`/communities/${community.id}`}
+                      className="block p-3 bg-gray-50 rounded hover:bg-gray-100"
+                    >
+                      <div className="font-medium">{community.name}</div>
+                      <div className="text-sm text-gray-600">
+                        {community.current_members} members
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              )}
+              <Link
+                href="/communities/new"
+                className="block text-center px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+              >
                 Create Community
-              </button>
+              </Link>
             </div>
 
             <div className="bg-white rounded-lg shadow-md p-6">
@@ -74,13 +186,78 @@ export default function Dashboard() {
             </div>
 
             <div className="bg-white rounded-lg shadow-md p-6">
-              <h3 className="text-xl font-semibold mb-4">Active Requests</h3>
-              <p className="text-gray-600">No active requests yet</p>
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-xl font-semibold">Recent Requests</h3>
+                <Link
+                  href="/requests"
+                  className="text-sm text-blue-600 hover:text-blue-800"
+                >
+                  View All
+                </Link>
+              </div>
+              {loadingRequests ? (
+                <p className="text-gray-500">Loading...</p>
+              ) : requests.length === 0 ? (
+                <p className="text-gray-600 mb-4">No open requests yet</p>
+              ) : (
+                <div className="space-y-2 mb-4">
+                  {requests.slice(0, 3).map((request) => (
+                    <Link
+                      key={request.id}
+                      href={`/requests/${request.id}`}
+                      className="block p-3 bg-gray-50 rounded hover:bg-gray-100"
+                    >
+                      <div className="font-medium">{request.title}</div>
+                      <div className="text-sm text-gray-600">
+                        {request.community_name} • {request.urgency} urgency
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              )}
+              <Link
+                href="/requests/new"
+                className="block text-center px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+              >
+                Create Request
+              </Link>
             </div>
 
             <div className="bg-white rounded-lg shadow-md p-6">
-              <h3 className="text-xl font-semibold mb-4">Your Offers</h3>
-              <p className="text-gray-600">No offers posted yet</p>
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-xl font-semibold">Available Offers</h3>
+                <Link
+                  href="/offers"
+                  className="text-sm text-blue-600 hover:text-blue-800"
+                >
+                  View All
+                </Link>
+              </div>
+              {loadingOffers ? (
+                <p className="text-gray-500">Loading...</p>
+              ) : offers.length === 0 ? (
+                <p className="text-gray-600 mb-4">No active offers yet</p>
+              ) : (
+                <div className="space-y-2 mb-4">
+                  {offers.slice(0, 3).map((offer) => (
+                    <div
+                      key={offer.id}
+                      className="block p-3 bg-gray-50 rounded"
+                    >
+                      <div className="font-medium">{offer.title}</div>
+                      <div className="text-sm text-gray-600 capitalize">
+                        {offer.community_name} • {offer.category.replace(/_/g, ' ')}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <Link
+                href="/offers/new"
+                className="block text-center px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+              >
+                Create Offer
+              </Link>
             </div>
           </div>
         </div>

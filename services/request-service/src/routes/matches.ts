@@ -1,0 +1,376 @@
+import { Router, Request, Response } from 'express';
+import { query } from '../database/db';
+import { publishEvent } from '../events/publisher';
+
+const router = Router();
+
+// GET /matches - Get all matches
+router.get('/', async (req: Request, res: Response) => {
+  try {
+    const { request_id, offer_id, status, limit = 50, offset = 0 } = req.query;
+
+    let queryText = `
+      SELECT
+        m.id, m.request_id, m.offer_id, m.responder_id, m.status, m.created_at, m.completed_at,
+        r.title as request_title, r.category as request_category,
+        r.requester_id, req_user.name as requester_name,
+        o.title as offer_title,
+        o.offerer_id, help_user.name as helper_name
+      FROM requests.matches m
+      LEFT JOIN requests.help_requests r ON m.request_id = r.id
+      LEFT JOIN requests.help_offers o ON m.offer_id = o.id
+      LEFT JOIN auth.users req_user ON r.requester_id = req_user.id
+      LEFT JOIN auth.users help_user ON o.offerer_id = help_user.id
+      WHERE 1=1
+    `;
+
+    const params: any[] = [];
+    let paramCount = 1;
+
+    if (request_id) {
+      queryText += ` AND m.request_id = $${paramCount}`;
+      params.push(request_id);
+      paramCount++;
+    }
+
+    if (offer_id) {
+      queryText += ` AND m.offer_id = $${paramCount}`;
+      params.push(offer_id);
+      paramCount++;
+    }
+
+    if (status) {
+      queryText += ` AND m.status = $${paramCount}`;
+      params.push(status);
+      paramCount++;
+    }
+
+    queryText += ` ORDER BY m.created_at DESC LIMIT $${paramCount} OFFSET $${paramCount + 1}`;
+    params.push(limit, offset);
+
+    const result = await query(queryText, params);
+
+    res.json({
+      success: true,
+      data: result.rows,
+      count: result.rowCount,
+    });
+  } catch (error: any) {
+    console.error('Error fetching matches:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch matches',
+      error: error.message,
+    });
+  }
+});
+
+// GET /matches/:id - Get specific match
+router.get('/:id', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    const result = await query(
+      `SELECT
+        m.id, m.request_id, m.offer_id, m.responder_id, m.status, m.created_at, m.completed_at,
+        r.title as request_title, r.description as request_description,
+        r.category as request_category, r.requester_id,
+        req_user.name as requester_name, req_user.email as requester_email,
+        o.title as offer_title, o.description as offer_description,
+        o.offerer_id,
+        help_user.name as helper_name, help_user.email as helper_email
+      FROM requests.matches m
+      LEFT JOIN requests.help_requests r ON m.request_id = r.id
+      LEFT JOIN requests.help_offers o ON m.offer_id = o.id
+      LEFT JOIN auth.users req_user ON r.requester_id = req_user.id
+      LEFT JOIN auth.users help_user ON o.offerer_id = help_user.id
+      WHERE m.id = $1`,
+      [id]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Match not found',
+      });
+    }
+
+    res.json({
+      success: true,
+      data: result.rows[0],
+    });
+  } catch (error: any) {
+    console.error('Error fetching match:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch match',
+      error: error.message,
+    });
+  }
+});
+
+// POST /matches - Create a match
+router.post('/', async (req: Request, res: Response) => {
+  try {
+    const { request_id, offer_id, responder_id } = req.body;
+
+    if (!request_id || !responder_id) {
+      return res.status(400).json({
+        success: false,
+        message: 'request_id and responder_id are required',
+      });
+    }
+
+    // Verify request exists and is open
+    const requestCheck = await query(
+      `SELECT id, status, requester_id FROM requests.help_requests WHERE id = $1`,
+      [request_id]
+    );
+
+    if (requestCheck.rowCount === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Request not found',
+      });
+    }
+
+    if (requestCheck.rows[0].status !== 'open') {
+      return res.status(400).json({
+        success: false,
+        message: 'Request is not open',
+      });
+    }
+
+    // Verify offer exists and is active (if provided)
+    let offerCheck = null;
+    if (offer_id) {
+      offerCheck = await query(
+        `SELECT id, status, offerer_id FROM requests.help_offers WHERE id = $1`,
+        [offer_id]
+      );
+
+      if (offerCheck.rowCount === 0) {
+        return res.status(404).json({
+          success: false,
+          message: 'Offer not found',
+        });
+      }
+
+      if (offerCheck.rows[0].status !== 'active') {
+        return res.status(400).json({
+          success: false,
+          message: 'Offer is not active',
+        });
+      }
+
+      // Verify responder is the offerer
+      if (offerCheck.rows[0].offerer_id !== responder_id) {
+        return res.status(403).json({
+          success: false,
+          message: 'responder_id must match the offerer_id',
+        });
+      }
+    }
+
+    // Create match
+    const matchResult = await query(
+      `INSERT INTO requests.matches
+        (request_id, offer_id, responder_id, status)
+      VALUES ($1, $2, $3, 'proposed')
+      RETURNING *`,
+      [request_id, offer_id, responder_id]
+    );
+
+    const match = matchResult.rows[0];
+
+    // Update request status
+    await query(
+      `UPDATE requests.help_requests SET status = 'matched' WHERE id = $1`,
+      [request_id]
+    );
+
+    // Update offer status if provided
+    if (offer_id) {
+      await query(
+        `UPDATE requests.help_offers SET status = 'matched' WHERE id = $1`,
+        [offer_id]
+      );
+    }
+
+    // Publish event
+    await publishEvent('match_created', {
+      match_id: match.id,
+      request_id,
+      offer_id,
+      requester_id: requestCheck.rows[0].requester_id,
+      responder_id,
+    });
+
+    res.status(201).json({
+      success: true,
+      data: match,
+      message: 'Match created successfully',
+    });
+  } catch (error: any) {
+    console.error('Error creating match:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to create match',
+      error: error.message,
+    });
+  }
+});
+
+// PUT /matches/:id/complete - Mark match as completed
+router.put('/:id/complete', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { user_id } = req.body;
+
+    // Get match details
+    const matchCheck = await query(
+      `SELECT
+        m.id, m.request_id, m.offer_id, m.responder_id, m.status,
+        r.requester_id,
+        o.offerer_id
+      FROM requests.matches m
+      LEFT JOIN requests.help_requests r ON m.request_id = r.id
+      LEFT JOIN requests.help_offers o ON m.offer_id = o.id
+      WHERE m.id = $1`,
+      [id]
+    );
+
+    if (matchCheck.rowCount === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Match not found',
+      });
+    }
+
+    const match = matchCheck.rows[0];
+
+    // Verify user is requester or responder
+    if (match.requester_id !== user_id && match.responder_id !== user_id) {
+      return res.status(403).json({
+        success: false,
+        message: 'Only the requester or responder can complete this match',
+      });
+    }
+
+    // Complete match
+    await query(
+      `UPDATE requests.matches
+       SET status = 'completed', completed_at = CURRENT_TIMESTAMP
+       WHERE id = $1`,
+      [id]
+    );
+
+    // Update request status
+    await query(
+      `UPDATE requests.help_requests SET status = 'completed' WHERE id = $1`,
+      [match.request_id]
+    );
+
+    // Publish event (for karma tracking)
+    await publishEvent('match_completed', {
+      match_id: id,
+      request_id: match.request_id,
+      offer_id: match.offer_id,
+      requester_id: match.requester_id,
+      responder_id: match.responder_id,
+    });
+
+    res.json({
+      success: true,
+      message: 'Match completed successfully',
+    });
+  } catch (error: any) {
+    console.error('Error completing match:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to complete match',
+      error: error.message,
+    });
+  }
+});
+
+// DELETE /matches/:id - Cancel match
+router.delete('/:id', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { user_id } = req.body;
+
+    // Get match details
+    const matchCheck = await query(
+      `SELECT
+        m.id, m.request_id, m.offer_id, m.responder_id,
+        r.requester_id,
+        o.offerer_id
+      FROM requests.matches m
+      LEFT JOIN requests.help_requests r ON m.request_id = r.id
+      LEFT JOIN requests.help_offers o ON m.offer_id = o.id
+      WHERE m.id = $1`,
+      [id]
+    );
+
+    if (matchCheck.rowCount === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Match not found',
+      });
+    }
+
+    const match = matchCheck.rows[0];
+
+    // Verify user is requester or responder
+    if (match.requester_id !== user_id && match.responder_id !== user_id) {
+      return res.status(403).json({
+        success: false,
+        message: 'Only the requester or responder can cancel this match',
+      });
+    }
+
+    // Cancel match
+    await query(
+      `UPDATE requests.matches
+       SET status = 'cancelled'
+       WHERE id = $1`,
+      [id]
+    );
+
+    // Reopen request
+    await query(
+      `UPDATE requests.help_requests SET status = 'open' WHERE id = $1`,
+      [match.request_id]
+    );
+
+    // Reopen offer if it exists
+    if (match.offer_id) {
+      await query(
+        `UPDATE requests.help_offers SET status = 'active' WHERE id = $1`,
+        [match.offer_id]
+      );
+    }
+
+    // Publish event
+    await publishEvent('match_cancelled', {
+      match_id: id,
+      request_id: match.request_id,
+      offer_id: match.offer_id,
+    });
+
+    res.json({
+      success: true,
+      message: 'Match cancelled successfully',
+    });
+  } catch (error: any) {
+    console.error('Error cancelling match:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to cancel match',
+      error: error.message,
+    });
+  }
+});
+
+export default router;

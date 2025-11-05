@@ -100,6 +100,81 @@ services:
       - karmyq-network
     command: npm run dev
 
+  # Request Service
+  request-service:
+    build:
+      context: ./services/request-service
+      dockerfile: Dockerfile
+    container_name: karmyq-request-service
+    environment:
+      NODE_ENV: development
+      PORT: 3003
+      DATABASE_URL: postgresql://karmyq_user:karmyq_password_dev@postgres:5432/karmyq_db
+      REDIS_URL: redis://redis:6379
+    ports:
+      - "3003:3003"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./services/request-service/src:/app/src
+      - ./shared:/app/shared
+    networks:
+      - karmyq-network
+    command: npm run dev
+
+  # Reputation Service
+  reputation-service:
+    build:
+      context: ./services/reputation-service
+      dockerfile: Dockerfile
+    container_name: karmyq-reputation-service
+    environment:
+      NODE_ENV: development
+      PORT: 3004
+      DATABASE_URL: postgresql://karmyq_user:karmyq_password_dev@postgres:5432/karmyq_db
+      REDIS_URL: redis://redis:6379
+    ports:
+      - "3004:3004"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./services/reputation-service/src:/app/src
+      - ./shared:/app/shared
+    networks:
+      - karmyq-network
+    command: npm run dev
+
+  # Notification Service
+  notification-service:
+    build:
+      context: ./services/notification-service
+      dockerfile: Dockerfile
+    container_name: karmyq-notification-service
+    environment:
+      NODE_ENV: development
+      PORT: 3005
+      DATABASE_URL: postgresql://karmyq_user:karmyq_password_dev@postgres:5432/karmyq_db
+      REDIS_URL: redis://redis:6379
+    ports:
+      - "3005:3005"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./services/notification-service/src:/app/src
+      - ./shared:/app/shared
+    networks:
+      - karmyq-network
+    command: npm run dev
+
   # Frontend
   frontend:
     build:
