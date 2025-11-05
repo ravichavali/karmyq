@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/router'
+import Head from 'next/head'
 import Link from 'next/link'
 import { requestService } from '../../lib/api'
+import Layout from '@/components/Layout'
 
 interface HelpOffer {
   id: string
@@ -57,14 +59,17 @@ export default function OffersPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header */}
-        <div className="flex justify-between items-center mb-8">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">Help Offers</h1>
-            <p className="text-gray-600 mt-2">Browse available help offers from community members</p>
-          </div>
+    <>
+      <Head>
+        <title>Help Offers - Karmyq</title>
+      </Head>
+      <Layout title="Help Offers">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          {/* Header */}
+          <div className="flex justify-between items-center mb-8">
+            <div>
+              <p className="text-gray-600 mt-2">Browse available help offers from community members</p>
+            </div>
           <Link
             href="/offers/new"
             className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition"
@@ -176,7 +181,8 @@ export default function OffersPage() {
             ))}
           </div>
         )}
-      </div>
-    </div>
+        </div>
+      </Layout>
+    </>
   )
 }

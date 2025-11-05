@@ -175,6 +175,28 @@ services:
       - karmyq-network
     command: npm run dev
 
+  # Messaging Service
+  messaging-service:
+    build:
+      context: ./services/messaging-service
+      dockerfile: Dockerfile
+    container_name: karmyq-messaging-service
+    environment:
+      NODE_ENV: development
+      PORT: 3006
+      DATABASE_URL: postgresql://karmyq_user:karmyq_password_dev@postgres:5432/karmyq_db
+    ports:
+      - "3006:3006"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./services/messaging-service/src:/app/src
+      - ./shared:/app/shared
+    networks:
+      - karmyq-network
+    command: npm run dev
+
   # Frontend
   frontend:
     build:

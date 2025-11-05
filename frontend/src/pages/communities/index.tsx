@@ -3,6 +3,7 @@ import { useRouter } from 'next/router'
 import Head from 'next/head'
 import Link from 'next/link'
 import { communityService } from '@/lib/api'
+import Layout from '@/components/Layout'
 
 interface Community {
   id: string
@@ -46,32 +47,18 @@ export default function CommunitiesPage() {
       <Head>
         <title>Communities - Karmyq</title>
       </Head>
-      <div className="min-h-screen bg-gray-50">
-        <nav className="bg-white shadow">
-          <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-            <Link href="/dashboard" className="text-2xl font-bold text-blue-600">
-              Karmyq
-            </Link>
-            <div className="flex gap-4">
-              <Link href="/dashboard" className="px-4 py-2 text-gray-700 hover:text-blue-600">
-                Dashboard
-              </Link>
-              <Link
-                href="/communities/new"
-                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-              >
-                Create Community
-              </Link>
-            </div>
-          </div>
-        </nav>
-
+      <Layout title="Communities">
         <div className="container mx-auto px-4 py-8">
-          <div className="mb-8">
-            <h1 className="text-4xl font-bold mb-2">Communities</h1>
+          <div className="mb-8 flex justify-between items-center">
             <p className="text-gray-600">
               Join communities to help others and receive help. Each community can have up to 150 members.
             </p>
+            <Link
+              href="/communities/new"
+              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+            >
+              Create Community
+            </Link>
           </div>
 
           {error && (
@@ -125,7 +112,7 @@ export default function CommunitiesPage() {
             </div>
           )}
         </div>
-      </div>
+      </Layout>
     </>
   )
 }

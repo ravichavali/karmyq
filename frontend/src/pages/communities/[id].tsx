@@ -3,6 +3,7 @@ import { useRouter } from 'next/router'
 import Head from 'next/head'
 import Link from 'next/link'
 import { communityService } from '@/lib/api'
+import Layout from '@/components/Layout'
 
 interface Member {
   id: string
@@ -179,29 +180,12 @@ export default function CommunityDetailPage() {
       <Head>
         <title>{community.name} - Karmyq</title>
       </Head>
-      <div className="min-h-screen bg-gray-50">
-        <nav className="bg-white shadow">
-          <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-            <Link href="/dashboard" className="text-2xl font-bold text-blue-600">
-              Karmyq
-            </Link>
-            <div className="flex gap-4">
-              <Link href="/communities" className="px-4 py-2 text-gray-700 hover:text-blue-600">
-                All Communities
-              </Link>
-              <Link href="/dashboard" className="px-4 py-2 text-gray-700 hover:text-blue-600">
-                Dashboard
-              </Link>
-            </div>
-          </div>
-        </nav>
-
+      <Layout title={community.name}>
         <div className="container mx-auto px-4 py-8">
           {/* Community Header */}
           <div className="bg-white rounded-lg shadow-md p-8 mb-6">
             <div className="flex justify-between items-start mb-4">
               <div>
-                <h1 className="text-4xl font-bold mb-2">{community.name}</h1>
                 <p className="text-gray-600">{community.description}</p>
               </div>
               {!isMember && (
@@ -491,7 +475,8 @@ export default function CommunityDetailPage() {
             </div>
           </div>
         )}
-      </div>
+        </div>
+      </Layout>
     </>
   )
 }

@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/router'
+import Head from 'next/head'
 import Link from 'next/link'
 import { requestService, communityService } from '../../lib/api'
+import Layout from '@/components/Layout'
 
 interface Community {
   id: string
@@ -82,14 +84,13 @@ export default function NewOfferPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <Link href="/offers" className="text-blue-600 hover:underline mb-6 inline-block">
-          ← Back to offers
-        </Link>
-
-        <div className="bg-white rounded-lg shadow-sm p-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-6">Create Help Offer</h1>
+    <>
+      <Head>
+        <title>Create Help Offer - Karmyq</title>
+      </Head>
+      <Layout title="Create Help Offer">
+        <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="bg-white rounded-lg shadow-sm p-8">
 
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Community Selection */}
@@ -201,8 +202,9 @@ export default function NewOfferPage() {
               <li>• You can create multiple offers for different skills</li>
             </ul>
           </div>
+          </div>
         </div>
-      </div>
-    </div>
+      </Layout>
+    </>
   )
 }

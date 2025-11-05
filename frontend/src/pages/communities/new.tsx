@@ -3,6 +3,7 @@ import { useRouter } from 'next/router'
 import Head from 'next/head'
 import Link from 'next/link'
 import { communityService } from '@/lib/api'
+import Layout from '@/components/Layout'
 
 export default function NewCommunityPage() {
   const router = useRouter()
@@ -50,27 +51,10 @@ export default function NewCommunityPage() {
       <Head>
         <title>Create Community - Karmyq</title>
       </Head>
-      <div className="min-h-screen bg-gray-50">
-        <nav className="bg-white shadow">
-          <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-            <Link href="/dashboard" className="text-2xl font-bold text-blue-600">
-              Karmyq
-            </Link>
-            <div className="flex gap-4">
-              <Link href="/communities" className="px-4 py-2 text-gray-700 hover:text-blue-600">
-                All Communities
-              </Link>
-              <Link href="/dashboard" className="px-4 py-2 text-gray-700 hover:text-blue-600">
-                Dashboard
-              </Link>
-            </div>
-          </div>
-        </nav>
-
+      <Layout title="Create New Community">
         <div className="container mx-auto px-4 py-8">
           <div className="max-w-2xl mx-auto">
             <div className="bg-white rounded-lg shadow-md p-8">
-              <h1 className="text-3xl font-bold mb-6">Create New Community</h1>
 
               {error && (
                 <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
@@ -161,7 +145,7 @@ export default function NewCommunityPage() {
             </div>
           </div>
         </div>
-      </div>
+      </Layout>
     </>
   )
 }

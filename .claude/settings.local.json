@@ -12,7 +12,11 @@
       "Bash(timeout 3 docker logs:*)",
       "Bash(docker-compose restart:*)",
       "Bash(docker-compose down:*)",
-      "Bash(git add .)"
+      "Bash(git add .)",
+      "Bash(git commit -m \"$(cat <<''EOF''\nfeat: implement Reputation and Notification services\n\n## Reputation Service (Port 3004)\n- Karma tracking system with points for helping and receiving help\n- First help bonus (15 points) and milestone bonuses (10, 50, 100 exchanges)\n- Trust score calculation (0-100 based on karma)\n- Event-driven karma awarding via Redis/Bull queue\n- REST API endpoints for karma, trust scores, leaderboards, and history\n- Listens to match_completed events and awards karma automatically\n\n## Notification Service (Port 3005)\n- Template-based notification system for uniform cross-platform messaging\n- 12 notification types: match_created, match_completed, karma_awarded, new_request, etc.\n- Event-driven architecture listening to Redis/Bull queue\n- REST API for fetching, marking read/unread, and managing notifications\n- Server-Sent Events (SSE) for real-time notification delivery\n- User preferences system for customizing notification channels\n- Database schema with notifications, preferences, and global_preferences tables\n\n## Database Changes\n- Added reputation schema with karma_records, trust_scores, and badges tables\n- Added notifications schema with notifications, preferences, and global_preferences tables\n- Updated init.sql with proper indexes and triggers\n\n## Frontend Updates\n- Added communities pages (list, detail, create)\n- Added requests pages (list, detail, create)\n- Added offers pages (list, create)\n- Updated API client with community, request, and offer services\n\n## Infrastructure\n- Updated docker-compose.yml with reputation-service and notification-service\n- Both services use shared PostgreSQL (separate schemas) and Redis\n- Event-driven communication via karmyq-events queue\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(docker-compose ps:*)",
+      "Bash(timeout 10 docker logs:*)",
+      "Bash(timeout 15 docker logs:*)"
     ],
     "deny": [],
     "ask": []

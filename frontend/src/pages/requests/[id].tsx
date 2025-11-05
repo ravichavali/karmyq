@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/router'
 import Link from 'next/link'
-import { requestService } from '../../lib/api'
+import { requestService, messagingService } from '../../lib/api'
+import { useMessaging } from '../../contexts/MessagingContext'
 
 interface HelpRequest {
   id: string
@@ -31,6 +32,8 @@ interface HelpOffer {
 
 interface Match {
   id: string
+  request_id: string
+  responder_id: string
   status: string
   created_at: string
   completed_at?: string
@@ -48,6 +51,7 @@ export default function RequestDetailPage() {
   const [showOfferModal, setShowOfferModal] = useState(false)
   const [responding, setResponding] = useState(false)
   const [currentUser, setCurrentUser] = useState<any>(null)
+  const { createConversation } = useMessaging()
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -151,6 +155,22 @@ export default function RequestDetailPage() {
     } catch (error: any) {
       console.error('Error cancelling match:', error)
       alert(error.response?.data?.message || 'Failed to cancel match')
+    }
+  }
+
+  const handleStartConversation = async (match: Match) => {
+    if (!currentUser || !request) return
+
+    try {
+      // Create or get conversation for this match
+      const participantIds = [request.requester_id, match.responder_id]
+      const conversation = await createConversation(match.id, participantIds)
+
+      // Navigate to the conversation
+      router.push(`/messages/${conversation.id}`)
+    } catch (error: any) {
+      console.error('Error starting conversation:', error)
+      alert('Failed to start conversation')
     }
   }
 
@@ -282,20 +302,34 @@ export default function RequestDetailPage() {
                     )}
                   </div>
 
-                  {match.status === 'proposed' && currentUser && (
+                  {currentUser && (
                     <div className="flex gap-3">
                       <button
-                        onClick={() => handleCompleteMatch(match.id)}
-                        className="flex-1 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition"
+                        onClick={() => handleStartConversation(match)}
+                        className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition flex items-center justify-center gap-2"
                       >
-                        Mark as Completed
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                          <path d="M2 2h12a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H4l-3 3V3a1 1 0 0 1 1-1z" />
+                        </svg>
+                        Message
                       </button>
-                      <button
-                        onClick={() => handleCancelMatch(match.id)}
-                        className="flex-1 bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition"
-                      >
-                        Cancel
-                      </button>
+
+                      {match.status === 'proposed' && (
+                        <>
+                          <button
+                            onClick={() => handleCompleteMatch(match.id)}
+                            className="flex-1 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition"
+                          >
+                            Complete
+                          </button>
+                          <button
+                            onClick={() => handleCancelMatch(match.id)}
+                            className="flex-1 bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition"
+                          >
+                            Cancel
+                          </button>
+                        </>
+                      )}
                     </div>
                   )}
                 </div>

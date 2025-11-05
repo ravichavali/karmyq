@@ -3,6 +3,8 @@ import axios from 'axios'
 const AUTH_API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
 const COMMUNITY_API_URL = process.env.NEXT_PUBLIC_COMMUNITY_API_URL || 'http://localhost:3002'
 const REQUEST_API_URL = process.env.NEXT_PUBLIC_REQUEST_API_URL || 'http://localhost:3003'
+const NOTIFICATION_API_URL = process.env.NEXT_PUBLIC_NOTIFICATION_API_URL || 'http://localhost:3005'
+const MESSAGING_API_URL = process.env.NEXT_PUBLIC_MESSAGING_API_URL || 'http://localhost:3006'
 
 // Auth Service API
 export const api = axios.create({
@@ -28,6 +30,22 @@ export const requestApi = axios.create({
   }
 })
 
+// Notification Service API
+export const notificationApi = axios.create({
+  baseURL: NOTIFICATION_API_URL,
+  headers: {
+    'Content-Type': 'application/json'
+  }
+})
+
+// Messaging Service API
+export const messagingApi = axios.create({
+  baseURL: MESSAGING_API_URL,
+  headers: {
+    'Content-Type': 'application/json'
+  }
+})
+
 // Add auth token to requests if available
 const authInterceptor = (config: any) => {
   if (typeof window !== 'undefined') {
@@ -42,6 +60,8 @@ const authInterceptor = (config: any) => {
 api.interceptors.request.use(authInterceptor)
 communityApi.interceptors.request.use(authInterceptor)
 requestApi.interceptors.request.use(authInterceptor)
+notificationApi.interceptors.request.use(authInterceptor)
+messagingApi.interceptors.request.use(authInterceptor)
 
 // Handle auth errors
 const errorInterceptor = (error: any) => {
@@ -58,6 +78,8 @@ const errorInterceptor = (error: any) => {
 api.interceptors.response.use((response) => response, errorInterceptor)
 communityApi.interceptors.response.use((response) => response, errorInterceptor)
 requestApi.interceptors.response.use((response) => response, errorInterceptor)
+notificationApi.interceptors.response.use((response) => response, errorInterceptor)
+messagingApi.interceptors.response.use((response) => response, errorInterceptor)
 
 // Community API Methods
 export const communityService = {
@@ -184,4 +206,79 @@ export const requestService = {
 
   cancelMatch: (id: string, user_id: string) =>
     requestApi.delete(`/matches/${id}`, { data: { user_id } }),
+}
+
+// Notification Service API Methods
+export const notificationService = {
+  // Get user notifications
+  getNotifications: (userId: string, params?: { limit?: number; offset?: number }) =>
+    notificationApi.get(`/notifications/${userId}`, { params }),
+
+  // Get unread count
+  getUnreadCount: (userId: string) =>
+    notificationApi.get(`/notifications/${userId}/unread-count`),
+
+  // Mark notification as read
+  markAsRead: (notificationId: string, user_id: string) =>
+    notificationApi.put(`/notifications/${notificationId}/read`, { user_id }),
+
+  // Mark all as read
+  markAllAsRead: (userId: string) =>
+    notificationApi.put(`/notifications/${userId}/read-all`),
+
+  // Delete notification
+  deleteNotification: (notificationId: string, user_id: string) =>
+    notificationApi.delete(`/notifications/${notificationId}`, { data: { user_id } }),
+
+  // Get preferences
+  getPreferences: (userId: string) =>
+    notificationApi.get(`/notifications/${userId}/preferences`),
+
+  // Update preferences
+  updatePreferences: (userId: string, preferences: {
+    in_app_enabled?: boolean;
+    push_enabled?: boolean;
+    email_enabled?: boolean;
+  }) =>
+    notificationApi.put(`/notifications/${userId}/preferences`, preferences),
+
+  // SSE connection URL
+  getStreamUrl: (userId: string) =>
+    `${NOTIFICATION_API_URL}/notifications/stream/${userId}`,
+}
+
+// Messaging Service API Methods
+export const messagingService = {
+  // Get user's conversations
+  getConversations: (userId: string) =>
+    messagingApi.get('/messages/conversations', { params: { user_id: userId } }),
+
+  // Get or create conversation for a match
+  createConversation: (matchId: string, participantIds: string[]) =>
+    messagingApi.post('/messages/conversations', {
+      match_id: matchId,
+      participant_ids: participantIds,
+    }),
+
+  // Get conversation details
+  getConversation: (conversationId: string, userId: string) =>
+    messagingApi.get(`/messages/conversations/${conversationId}`, {
+      params: { user_id: userId },
+    }),
+
+  // Get messages for a conversation
+  getMessages: (conversationId: string, userId: string, params?: { limit?: number; offset?: number }) =>
+    messagingApi.get(`/messages/conversations/${conversationId}/messages`, {
+      params: { user_id: userId, ...params },
+    }),
+
+  // Send message (REST fallback)
+  sendMessage: (conversationId: string, senderId: string, content: string) =>
+    messagingApi.post(`/messages/conversations/${conversationId}/messages`, {
+      sender_id: senderId,
+      content,
+    }),
+
+  // WebSocket URL
+  getSocketUrl: () => MESSAGING_API_URL,
 }

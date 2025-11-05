@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/router'
+import Head from 'next/head'
 import Link from 'next/link'
 import { requestService } from '../../lib/api'
+import Layout from '@/components/Layout'
 
 interface HelpRequest {
   id: string
@@ -68,12 +70,15 @@ export default function RequestsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <>
+      <Head>
+        <title>Help Requests - Karmyq</title>
+      </Head>
+      <Layout title="Help Requests">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="flex justify-between items-center mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Help Requests</h1>
             <p className="text-gray-600 mt-2">Browse and respond to community help requests</p>
           </div>
           <Link
@@ -194,7 +199,8 @@ export default function RequestsPage() {
             ))}
           </div>
         )}
-      </div>
-    </div>
+        </div>
+      </Layout>
+    </>
   )
 }
