@@ -7,7 +7,7 @@ services:
       - "3100:3100"
     command: -config.file=/etc/loki/local-config.yaml
     volumes:
-      - ../../infrastructure/loki/loki-config.yml:/etc/loki/local-config.yaml
+      - ../../infrastructure/observability/loki/loki-config.yml:/etc/loki/local-config.yaml
       - loki-data:/loki
     networks:
       - karmyq-network
@@ -18,7 +18,7 @@ services:
     container_name: karmyq-promtail
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - ../../infrastructure/loki/promtail-config.yml:/etc/promtail/config.yml
+      - ../../infrastructure/observability/loki/promtail-config.yml:/etc/promtail/config.yml
       - ../../services/auth-service/logs:/var/log/services/auth-service:ro
       - ../../services/community-service/logs:/var/log/services/community-service:ro
       - ../../services/request-service/logs:/var/log/services/request-service:ro
@@ -44,7 +44,7 @@ services:
       - GF_USERS_ALLOW_SIGN_UP=false
     volumes:
       - grafana-data:/var/lib/grafana
-      - ../../infrastructure/grafana/provisioning:/etc/grafana/provisioning
+      - ../../infrastructure/observability/grafana/provisioning:/etc/grafana/provisioning
     depends_on:
       - loki
     networks:
@@ -57,7 +57,7 @@ services:
     ports:
       - "9090:9090"
     volumes:
-      - ../../infrastructure/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ../../infrastructure/observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
       - prometheus-data:/prometheus
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
