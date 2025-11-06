@@ -41,6 +41,7 @@ CREATE TABLE communities.communities (
     max_members INTEGER DEFAULT 150,
     current_members INTEGER DEFAULT 0,
     creator_id UUID NOT NULL REFERENCES auth.users(id),
+    access_type VARCHAR(50) DEFAULT 'public',
     status VARCHAR(50) DEFAULT 'active',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -366,6 +367,15 @@ CREATE TABLE events.event_log (
 CREATE INDEX idx_event_log_type ON events.event_log(event_type);
 CREATE INDEX idx_event_log_processed ON events.event_log(processed);
 CREATE INDEX idx_event_log_created_at ON events.event_log(created_at);
+
+-- Create karmyq role if it doesn't exist
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'karmyq') THEN
+        CREATE ROLE karmyq WITH LOGIN PASSWORD 'karmyq_password';
+    END IF;
+END
+$$;
 
 -- Grant schema permissions
 GRANT USAGE ON SCHEMA auth, communities, requests, reputation, messaging, notifications, feedback, governance, events TO karmyq;

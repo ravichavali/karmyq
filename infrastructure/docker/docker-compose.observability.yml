@@ -1,0 +1,76 @@
+services:
+  # Grafana Loki - Log aggregation
+  loki:
+    image: grafana/loki:2.9.0
+    container_name: karmyq-loki
+    ports:
+      - "3100:3100"
+    command: -config.file=/etc/loki/local-config.yaml
+    volumes:
+      - ../../infrastructure/loki/loki-config.yml:/etc/loki/local-config.yaml
+      - loki-data:/loki
+    networks:
+      - karmyq-network
+
+  # Promtail - Log shipper (collects from Docker containers)
+  promtail:
+    image: grafana/promtail:2.9.0
+    container_name: karmyq-promtail
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ../../infrastructure/loki/promtail-config.yml:/etc/promtail/config.yml
+      - ../../services/auth-service/logs:/var/log/services/auth-service:ro
+      - ../../services/community-service/logs:/var/log/services/community-service:ro
+      - ../../services/request-service/logs:/var/log/services/request-service:ro
+      - ../../services/matching-service/logs:/var/log/services/matching-service:ro
+      - ../../services/reputation-service/logs:/var/log/services/reputation-service:ro
+      - ../../services/notification-service/logs:/var/log/services/notification-service:ro
+      - ../../services/messaging-service/logs:/var/log/services/messaging-service:ro
+    command: -config.file=/etc/promtail/config.yml
+    depends_on:
+      - loki
+    networks:
+      - karmyq-network
+
+  # Grafana - Visualization
+  grafana:
+    image: grafana/grafana:10.2.0
+    container_name: karmyq-grafana
+    ports:
+      - "3007:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ../../infrastructure/grafana/provisioning:/etc/grafana/provisioning
+    depends_on:
+      - loki
+    networks:
+      - karmyq-network
+
+  # Prometheus - Metrics (optional but recommended)
+  prometheus:
+    image: prom/prometheus:v2.48.0
+    container_name: karmyq-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ../../infrastructure/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+    networks:
+      - karmyq-network
+
+networks:
+  karmyq-network:
+    name: karmyq_karmyq-network
+    external: true
+
+volumes:
+  loki-data:
+  grafana-data:
+  prometheus-data:

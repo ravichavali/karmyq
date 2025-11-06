@@ -17,7 +17,10 @@
       "Bash(docker-compose ps:*)",
       "Bash(timeout 10 docker logs:*)",
       "Bash(timeout 15 docker logs:*)",
-      "Bash(git log:*)"
+      "Bash(git log:*)",
+      "Bash(bash scripts/setup-logging.sh:*)",
+      "Bash(bash scripts/dev/start.sh:*)",
+      "Bash(timeout 10 docker-compose logs:*)"
     ],
     "deny": [],
     "ask": []
