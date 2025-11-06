@@ -4,25 +4,19 @@ import dotenv from 'dotenv';
 import { initDatabase } from './database/db';
 import { initEventSubscriber } from './events/subscriber';
 import reputationRouter from './routes/reputation';
+import { createLogger, requestLoggingMiddleware } from '../../../packages/shared/utils/logger';
 
 // Load environment variables
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3004;
+const logger = createLogger('reputation-service');
 
 // Middleware
 app.use(cors());
 app.use(express.json());
-
-// Request logging middleware
-app.use((req: Request, res: Response, next: NextFunction) => {
-  console.log(`${req.method} ${req.path}`, {
-    body: req.body,
-    query: req.query,
-  });
-  next();
-});
+app.use(requestLoggingMiddleware(logger));
 
 // Health check
 app.get('/health', (req: Request, res: Response) => {
@@ -47,7 +41,11 @@ app.use((req: Request, res: Response) => {
 
 // Error handling middleware
 app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
-  console.error('Error:', err);
+  req.logger?.error('Unhandled error', err instanceof Error ? err : new Error(String(err)), {
+    method: req.method,
+    path: req.path,
+    body: req.body
+  });
   res.status(500).json({
     success: false,
     message: 'Internal server error',
@@ -58,15 +56,25 @@ app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
 // Start server
 async function start() {
   try {
+    const dbTimer = logger.timer('database_connection');
     await initDatabase();
+    dbTimer();
+    logger.info('Database connected successfully');
+
+    const eventTimer = logger.timer('event_subscriber_init');
     await initEventSubscriber();
+    eventTimer();
+    logger.info('Event subscriber initialized successfully');
 
     app.listen(PORT, () => {
-      console.log(`🚀 Reputation Service running on port ${PORT}`);
-      console.log(`📍 http://localhost:${PORT}`);
+      logger.info('Service started', {
+        port: PORT,
+        environment: process.env.NODE_ENV || 'development',
+        url: `http://localhost:${PORT}`
+      });
     });
   } catch (error) {
-    console.error('Failed to start server:', error);
+    logger.error('Failed to start server', error instanceof Error ? error : new Error(String(error)));
     process.exit(1);
   }
 }

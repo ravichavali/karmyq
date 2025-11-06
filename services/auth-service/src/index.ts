@@ -5,15 +5,18 @@ import authRoutes from './routes/auth';
 import userRoutes from './routes/users';
 import { initDatabase } from './database/db';
 import { initEventPublisher } from './events/publisher';
+import { createLogger, requestLoggingMiddleware } from '../../../packages/shared/utils/logger';
 
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+const logger = createLogger('auth-service');
 
 // Middleware
 app.use(cors());
 app.use(express.json());
+app.use(requestLoggingMiddleware(logger));
 
 // Health check
 app.get('/health', (req, res) => {
@@ -25,27 +28,39 @@ app.use('/auth', authRoutes);
 app.use('/users', userRoutes);
 
 // Error handling
-app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
-  console.error('Error:', err);
+app.use((err: any, req: any, res: express.Response, next: express.NextFunction) => {
+  req.logger?.error('Unhandled error', err instanceof Error ? err : new Error(String(err)), {
+    method: req.method,
+    path: req.path,
+    body: req.body
+  });
   res.status(err.status || 500).json({
-    error: err.message || 'Internal Server Error'
+    error: process.env.NODE_ENV === 'development' ? err.message : 'Internal Server Error'
   });
 });
 
 // Initialize and start server
 async function start() {
   try {
+    const dbTimer = logger.timer('database_connection');
     await initDatabase();
-    console.log('✅ Database connected');
-    
+    dbTimer();
+    logger.info('Database connected successfully');
+
+    const eventTimer = logger.timer('event_publisher_init');
     await initEventPublisher();
-    console.log('✅ Event publisher initialized');
-    
+    eventTimer();
+    logger.info('Event publisher initialized successfully');
+
     app.listen(PORT, () => {
-      console.log(`🚀 Auth Service running on port ${PORT}`);
+      logger.info('Service started', {
+        port: PORT,
+        environment: process.env.NODE_ENV || 'development',
+        url: `http://localhost:${PORT}`
+      });
     });
   } catch (error) {
-    console.error('Failed to start server:', error);
+    logger.error('Failed to start server', error instanceof Error ? error : new Error(String(error)));
     process.exit(1);
   }
 }

@@ -9,16 +9,18 @@ const JWT_SECRET = process.env.JWT_SECRET || 'dev_jwt_secret_change_in_productio
 const SALT_ROUNDS = 10;
 
 // POST /auth/register - Register new user
-router.post('/register', async (req, res) => {
+router.post('/register', async (req: any, res) => {
   try {
     const { email, name, password } = req.body;
 
     // Validation
     if (!email || !name || !password) {
+      req.logger?.warn('Registration attempt with missing fields', { email, hasName: !!name });
       return res.status(400).json({ error: 'Email, name, and password are required' });
     }
 
     if (password.length < 8) {
+      req.logger?.warn('Registration attempt with weak password', { email });
       return res.status(400).json({ error: 'Password must be at least 8 characters' });
     }
 
@@ -29,6 +31,7 @@ router.post('/register', async (req, res) => {
     );
 
     if (existingUser.rows.length > 0) {
+      req.logger?.warn('Registration attempt with existing email', { email });
       return res.status(409).json({ error: 'User with this email already exists' });
     }
 
@@ -36,9 +39,10 @@ router.post('/register', async (req, res) => {
     const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
 
     // Create user
+    const timer = req.logger?.timer('user_registration');
     const result = await query(
-      `INSERT INTO auth.users (email, name, password_hash) 
-       VALUES ($1, $2, $3) 
+      `INSERT INTO auth.users (email, name, password_hash)
+       VALUES ($1, $2, $3)
        RETURNING id, email, name, created_at`,
       [email, name, passwordHash]
     );
@@ -52,6 +56,7 @@ router.post('/register', async (req, res) => {
       name: user.name,
       createdAt: user.created_at
     });
+    req.logger?.event('user_created', { userId: user.id, email: user.email });
 
     // Generate JWT token
     const token = jwt.sign(
@@ -59,6 +64,12 @@ router.post('/register', async (req, res) => {
       JWT_SECRET,
       { expiresIn: '7d' }
     );
+
+    timer?.();
+    req.logger?.info('User registered successfully', {
+      userId: user.id,
+      email: user.email
+    });
 
     res.status(201).json({
       user: {
@@ -70,19 +81,24 @@ router.post('/register', async (req, res) => {
       token
     });
   } catch (error: any) {
-    console.error('Registration error:', error);
+    req.logger?.error('Registration failed', error instanceof Error ? error : new Error(String(error)), {
+      email: req.body?.email
+    });
     res.status(500).json({ error: 'Failed to register user' });
   }
 });
 
 // POST /auth/login - Login user
-router.post('/login', async (req, res) => {
+router.post('/login', async (req: any, res) => {
   try {
     const { email, password } = req.body;
 
     if (!email || !password) {
+      req.logger?.warn('Login attempt with missing credentials');
       return res.status(400).json({ error: 'Email and password are required' });
     }
+
+    const timer = req.logger?.timer('user_login');
 
     // Find user
     const result = await query(
@@ -91,6 +107,7 @@ router.post('/login', async (req, res) => {
     );
 
     if (result.rows.length === 0) {
+      req.logger?.warn('Login attempt with unknown email', { email });
       return res.status(401).json({ error: 'Invalid email or password' });
     }
 
@@ -100,6 +117,10 @@ router.post('/login', async (req, res) => {
     const isValidPassword = await bcrypt.compare(password, user.password_hash);
 
     if (!isValidPassword) {
+      req.logger?.warn('Login attempt with incorrect password', {
+        userId: user.id,
+        email
+      });
       return res.status(401).json({ error: 'Invalid email or password' });
     }
 
@@ -119,6 +140,12 @@ router.post('/login', async (req, res) => {
       [user.id, token, expiresAt]
     );
 
+    timer?.();
+    req.logger?.info('User logged in successfully', {
+      userId: user.id,
+      email: user.email
+    });
+
     res.json({
       user: {
         id: user.id,
@@ -129,7 +156,9 @@ router.post('/login', async (req, res) => {
       token
     });
   } catch (error: any) {
-    console.error('Login error:', error);
+    req.logger?.error('Login failed', error instanceof Error ? error : new Error(String(error)), {
+      email: req.body?.email
+    });
     res.status(500).json({ error: 'Failed to login' });
   }
 });

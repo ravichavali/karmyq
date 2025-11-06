@@ -6,25 +6,19 @@ import { initEventPublisher } from './events/publisher';
 import communitiesRouter from './routes/communities';
 import membersRouter from './routes/members';
 import normsRouter from './routes/norms';
+import { createLogger, requestLoggingMiddleware } from '../../../packages/shared/utils/logger';
 
 // Load environment variables
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3002;
+const logger = createLogger('community-service');
 
 // Middleware
 app.use(cors());
 app.use(express.json());
-
-// Request logging middleware
-app.use((req: Request, res: Response, next: NextFunction) => {
-  console.log(`${req.method} ${req.path}`, {
-    body: req.body,
-    query: req.query,
-  });
-  next();
-});
+app.use(requestLoggingMiddleware(logger));
 
 // Health check
 app.get('/health', (req: Request, res: Response) => {
@@ -50,8 +44,11 @@ app.use((req: Request, res: Response) => {
 });
 
 // Error handling middleware
-app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
-  console.error('Error:', err);
+app.use((err: Error, req: any, res: Response, next: NextFunction) => {
+  req.logger?.error('Unhandled error', err, {
+    method: req.method,
+    path: req.path
+  });
   res.status(500).json({
     success: false,
     message: 'Internal server error',
@@ -62,15 +59,25 @@ app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
 // Start server
 async function start() {
   try {
+    const dbTimer = logger.timer('database_connection');
     await initDatabase();
+    dbTimer();
+    logger.info('Database connected successfully');
+
+    const eventTimer = logger.timer('event_publisher_init');
     await initEventPublisher();
+    eventTimer();
+    logger.info('Event publisher initialized successfully');
 
     app.listen(PORT, () => {
-      console.log(`🚀 Community Service running on port ${PORT}`);
-      console.log(`📍 http://localhost:${PORT}`);
+      logger.info('Service started', {
+        port: PORT,
+        environment: process.env.NODE_ENV || 'development',
+        url: `http://localhost:${PORT}`
+      });
     });
   } catch (error) {
-    console.error('Failed to start server:', error);
+    logger.error('Failed to start server', error instanceof Error ? error : new Error(String(error)));
     process.exit(1);
   }
 }

@@ -6,11 +6,13 @@ import dotenv from 'dotenv';
 import pool from './database/db';
 import messageRoutes from './routes/messages';
 import { initializeMessageSocket } from './socket/messageHandler';
+import { createLogger, requestLoggingMiddleware } from '../../../packages/shared/utils/logger';
 
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3006;
+const logger = createLogger('messaging-service');
 
 // Create HTTP server
 const httpServer = createServer(app);
@@ -26,6 +28,7 @@ const io = new Server(httpServer, {
 // Middleware
 app.use(cors());
 app.use(express.json());
+app.use(requestLoggingMiddleware(logger));
 
 // Health check
 app.get('/health', (req, res) => {
@@ -35,24 +38,39 @@ app.get('/health', (req, res) => {
 // Routes
 app.use('/messages', messageRoutes);
 
+// Error handling middleware
+app.use((err: any, req: any, res: express.Response, next: express.NextFunction) => {
+  req.logger?.error('Unhandled error', err instanceof Error ? err : new Error(String(err)), {
+    method: req.method,
+    path: req.path,
+    body: req.body
+  });
+  res.status(err.status || 500).json({
+    error: process.env.NODE_ENV === 'development' ? err.message : 'Internal Server Error'
+  });
+});
+
 // Initialize Socket.IO handlers
 initializeMessageSocket(io);
 
 // Initialize database and start server
 async function initialize() {
   try {
-    // Test database connection
+    const dbTimer = logger.timer('database_connection');
     await pool.query('SELECT NOW()');
-    console.log('✅ PostgreSQL connected');
+    dbTimer();
+    logger.info('Database connected successfully');
 
-    // Start server
     httpServer.listen(PORT, () => {
-      console.log(`🚀 Messaging Service running on port ${PORT}`);
-      console.log(`📍 HTTP: http://localhost:${PORT}`);
-      console.log(`🔌 WebSocket: ws://localhost:${PORT}`);
+      logger.info('Service started', {
+        port: PORT,
+        environment: process.env.NODE_ENV || 'development',
+        http_url: `http://localhost:${PORT}`,
+        websocket_url: `ws://localhost:${PORT}`
+      });
     });
   } catch (error) {
-    console.error('❌ Initialization failed:', error);
+    logger.error('Failed to start server', error instanceof Error ? error : new Error(String(error)));
     process.exit(1);
   }
 }
