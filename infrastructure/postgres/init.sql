@@ -36,6 +36,8 @@ CREATE TABLE communities.communities (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     name VARCHAR(255) NOT NULL,
     description TEXT,
+    location VARCHAR(255),
+    category VARCHAR(100),
     max_members INTEGER DEFAULT 150,
     current_members INTEGER DEFAULT 0,
     creator_id UUID NOT NULL REFERENCES auth.users(id),
@@ -75,6 +77,9 @@ CREATE TABLE communities.norm_approvals (
 );
 
 CREATE INDEX idx_communities_creator_id ON communities.communities(creator_id);
+CREATE INDEX idx_communities_location ON communities.communities(location);
+CREATE INDEX idx_communities_category ON communities.communities(category);
+CREATE INDEX idx_communities_status ON communities.communities(status);
 CREATE INDEX idx_members_community_id ON communities.members(community_id);
 CREATE INDEX idx_members_user_id ON communities.members(user_id);
 CREATE INDEX idx_norms_community_id ON communities.norms(community_id);

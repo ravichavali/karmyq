@@ -84,16 +84,19 @@ messagingApi.interceptors.response.use((response) => response, errorInterceptor)
 // Community API Methods
 export const communityService = {
   // Communities
-  getCommunities: (params?: { status?: string; limit?: number; offset?: number }) =>
+  getCommunities: (params?: { status?: string; limit?: number; offset?: number; search?: string; location?: string; category?: string; has_space?: string; sort?: string }) =>
     communityApi.get('/communities', { params }),
+
+  getMyCommunities: (user_id: string) =>
+    communityApi.get('/communities/my/communities', { params: { user_id } }),
 
   getCommunity: (id: string) =>
     communityApi.get(`/communities/${id}`),
 
-  createCommunity: (data: { name: string; description: string; creator_id: string; max_members?: number }) =>
+  createCommunity: (data: { name: string; description: string; location?: string; category?: string; creator_id: string; max_members?: number }) =>
     communityApi.post('/communities', data),
 
-  updateCommunity: (id: string, data: { name?: string; description?: string; max_members?: number; user_id: string }) =>
+  updateCommunity: (id: string, data: { name?: string; description?: string; location?: string; category?: string; max_members?: number; user_id: string }) =>
     communityApi.put(`/communities/${id}`, data),
 
   archiveCommunity: (id: string, user_id: string) =>
@@ -127,6 +130,17 @@ export const communityService = {
 
   archiveNorm: (communityId: string, normId: string, user_id: string) =>
     communityApi.delete(`/communities/${communityId}/norms/${normId}`, { data: { user_id } }),
+
+  // Join/Leave Community
+  joinCommunity: (communityId: string, data: { user_id: string; message?: string }) =>
+    communityApi.post(`/communities/${communityId}/join`, data),
+
+  leaveCommunity: (communityId: string, userId: string, admin_user_id: string) =>
+    communityApi.delete(`/communities/${communityId}/members/${userId}`, { data: { admin_user_id } }),
+
+  // Check membership status
+  checkMembership: (communityId: string, userId: string) =>
+    communityApi.get(`/communities/${communityId}/members`, { params: { user_id: userId } }),
 }
 
 // Request Service API Methods
@@ -134,6 +148,9 @@ export const requestService = {
   // Help Requests
   getRequests: (params?: { community_id?: string; status?: string; type?: string; limit?: number; offset?: number }) =>
     requestApi.get('/requests', { params }),
+
+  getMatchedRequests: (user_id: string, limit?: number) =>
+    requestApi.get('/requests/matched/for-user', { params: { user_id, limit } }),
 
   getRequest: (id: string) =>
     requestApi.get(`/requests/${id}`),

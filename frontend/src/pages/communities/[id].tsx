@@ -32,6 +32,7 @@ interface Community {
   description: string
   current_members: number
   max_members: number
+  access_type: 'public' | 'private'
   creator_id: string
   creator_name: string
   status: string
@@ -122,18 +123,21 @@ export default function CommunityDetailPage() {
   }
 
   const handleJoinCommunity = async () => {
-    if (!currentUser || !id) return
+    if (!currentUser || !id || !community) return
 
     setJoiningCommunity(true)
     try {
-      // For now, allow self-join (in production, you'd want invitation-only)
-      await communityService.addMember(id as string, {
-        user_id: currentUser.id,
-        // invited_by: optional - could be passed from URL params or modal
+      await communityService.joinCommunity(id as string, {
+        user_id: currentUser.id
       })
       // Refresh community data to show updated member list
       await fetchCommunity()
-      alert('Successfully joined the community!')
+
+      if (community.access_type === 'public') {
+        alert('Successfully joined the community!')
+      } else {
+        alert('Join request submitted! Waiting for admin approval.')
+      }
     } catch (err: any) {
       alert(err.response?.data?.message || 'Failed to join community')
     } finally {
@@ -156,8 +160,10 @@ export default function CommunityDetailPage() {
     }
   }
 
-  const isMember = community?.members.some((m: Member) => m.user_id === currentUser?.id && m.status === 'active')
-  const isAdmin = community?.members.some((m: Member) => m.user_id === currentUser?.id && m.role === 'admin' && m.status === 'active')
+  const membershipRecord = community?.members.find((m: Member) => m.user_id === currentUser?.id)
+  const isMember = membershipRecord?.status === 'active'
+  const isPending = membershipRecord?.status === 'pending'
+  const isAdmin = membershipRecord?.role === 'admin' && membershipRecord?.status === 'active'
 
   if (loading) {
     return (
@@ -188,14 +194,31 @@ export default function CommunityDetailPage() {
               <div>
                 <p className="text-gray-600">{community.description}</p>
               </div>
-              {!isMember && (
+              {!isMember && !isPending && (
                 <button
                   onClick={handleJoinCommunity}
-                  disabled={joiningCommunity}
-                  className="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                  disabled={joiningCommunity || community.current_members >= community.max_members}
+                  className={`px-6 py-2 rounded disabled:cursor-not-allowed ${
+                    joiningCommunity || community.current_members >= community.max_members
+                      ? 'bg-gray-400 text-white'
+                      : community.access_type === 'private'
+                      ? 'bg-purple-600 text-white hover:bg-purple-700'
+                      : 'bg-blue-600 text-white hover:bg-blue-700'
+                  }`}
                 >
-                  {joiningCommunity ? 'Joining...' : 'Join Community'}
+                  {joiningCommunity
+                    ? 'Joining...'
+                    : community.current_members >= community.max_members
+                    ? 'Community Full'
+                    : community.access_type === 'private'
+                    ? 'Request to Join'
+                    : 'Join Community'}
                 </button>
+              )}
+              {isPending && (
+                <div className="px-6 py-2 bg-yellow-100 text-yellow-800 rounded font-medium">
+                  ⏳ Join Request Pending
+                </div>
               )}
             </div>
             <div className="flex items-center gap-6 text-sm text-gray-600">

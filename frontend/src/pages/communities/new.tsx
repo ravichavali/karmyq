@@ -5,11 +5,26 @@ import Link from 'next/link'
 import { communityService } from '@/lib/api'
 import Layout from '@/components/Layout'
 
+const CATEGORIES = [
+  'Neighborhood',
+  'Professional',
+  'Hobby',
+  'Faith-based',
+  'Educational',
+  'Health & Wellness',
+  'Environmental',
+  'Social Justice',
+  'Arts & Culture',
+  'Other'
+]
+
 export default function NewCommunityPage() {
   const router = useRouter()
   const [formData, setFormData] = useState({
     name: '',
     description: '',
+    location: '',
+    category: '',
     max_members: 150,
   })
   const [loading, setLoading] = useState(false)
@@ -35,6 +50,8 @@ export default function NewCommunityPage() {
       const response = await communityService.createCommunity({
         name: formData.name,
         description: formData.description,
+        location: formData.location,
+        category: formData.category,
         creator_id: user.id,
         max_members: formData.max_members,
       })
@@ -96,6 +113,45 @@ export default function NewCommunityPage() {
                   <p className="mt-1 text-sm text-gray-500">
                     Help others understand what your community is for
                   </p>
+                </div>
+
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div>
+                    <label htmlFor="location" className="block text-sm font-medium text-gray-700 mb-2">
+                      Location
+                    </label>
+                    <input
+                      type="text"
+                      id="location"
+                      value={formData.location}
+                      onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="e.g., Seattle, WA or Downtown"
+                    />
+                    <p className="mt-1 text-sm text-gray-500">
+                      Help people find geographically relevant communities
+                    </p>
+                  </div>
+
+                  <div>
+                    <label htmlFor="category" className="block text-sm font-medium text-gray-700 mb-2">
+                      Category
+                    </label>
+                    <select
+                      id="category"
+                      value={formData.category}
+                      onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    >
+                      <option value="">Select a category...</option>
+                      {CATEGORIES.map((cat) => (
+                        <option key={cat} value={cat}>{cat}</option>
+                      ))}
+                    </select>
+                    <p className="mt-1 text-sm text-gray-500">
+                      Choose the category that best fits your community
+                    </p>
+                  </div>
                 </div>
 
                 <div>

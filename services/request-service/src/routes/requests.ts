@@ -56,6 +56,80 @@ router.get('/', async (req: Request, res: Response) => {
   }
 });
 
+// GET /requests/matched/for-user - Get requests matching user's skills
+router.get('/matched/for-user', async (req: Request, res: Response) => {
+  try {
+    const { user_id, limit = 10 } = req.query;
+
+    if (!user_id) {
+      return res.status(400).json({
+        success: false,
+        message: 'user_id is required',
+      });
+    }
+
+    // Get requests from user's communities that match their skills
+    // Skills match is based on category mapping to skills
+    const result = await query(
+      `SELECT DISTINCT
+        r.id, r.community_id, r.requester_id, r.title, r.description,
+        r.category, r.urgency, r.status, r.created_at, r.updated_at,
+        u.name as requester_name,
+        c.name as community_name,
+        CASE
+          WHEN r.urgency = 'high' THEN 3
+          WHEN r.urgency = 'medium' THEN 2
+          ELSE 1
+        END as urgency_priority
+      FROM requests.help_requests r
+      LEFT JOIN auth.users u ON r.requester_id = u.id
+      LEFT JOIN communities.communities c ON r.community_id = c.id
+      -- Only from communities the user is a member of
+      INNER JOIN communities.members m ON r.community_id = m.community_id
+      WHERE r.status = 'open'
+        AND m.user_id = $1
+        AND m.status = 'active'
+        AND r.requester_id != $1
+        AND EXISTS (
+          -- Match request category to user skills
+          SELECT 1 FROM auth.user_skills s
+          WHERE s.user_id = $1
+          AND (
+            -- Direct category matches
+            (r.category = 'transportation' AND s.skill = 'driving')
+            OR (r.category = 'moving' AND s.skill IN ('moving', 'handyman'))
+            OR (r.category = 'childcare' AND s.skill = 'childcare')
+            OR (r.category = 'pet_care' AND s.skill = 'pet_care')
+            OR (r.category = 'tech_support' AND s.skill IN ('tech_support', 'coding'))
+            OR (r.category = 'home_repair' AND s.skill IN ('home_repair', 'handyman', 'electrical', 'plumbing', 'carpentry'))
+            OR (r.category = 'gardening' AND s.skill = 'gardening')
+            OR (r.category = 'cooking' AND s.skill IN ('cooking', 'baking'))
+            OR (r.category = 'tutoring' AND s.skill = 'tutoring')
+            OR (r.category = 'language' AND s.skill = 'languages')
+            OR (r.category = 'professional_advice' AND s.skill = 'career_advice')
+            OR (r.category = 'cleaning' AND s.skill IN ('cleaning', 'organizing'))
+          )
+        )
+      ORDER BY urgency_priority DESC, r.created_at DESC
+      LIMIT $2`,
+      [user_id, limit]
+    );
+
+    res.json({
+      success: true,
+      data: result.rows,
+      count: result.rowCount,
+    });
+  } catch (error: any) {
+    console.error('Error fetching matched requests:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch matched requests',
+      error: error.message,
+    });
+  }
+});
+
 // GET /requests/:id - Get specific request
 router.get('/:id', async (req: Request, res: Response) => {
   try {

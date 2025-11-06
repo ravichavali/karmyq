@@ -58,7 +58,9 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
                   <>
                     <NotificationBell />
                     <div className="border-l border-gray-300 h-6 mx-2"></div>
-                    <span className="text-sm text-gray-600">Hi, {user.name}</span>
+                    <Link href="/profile" className="text-sm text-gray-600 hover:text-blue-600 transition-colors">
+                      Hi, {user.name}
+                    </Link>
                     <button
                       onClick={handleLogout}
                       className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors"

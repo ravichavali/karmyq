@@ -4,22 +4,117 @@ import { publishEvent } from '../events/publisher';
 
 const router = Router();
 
-// GET /communities - Get all communities (with optional filters)
+// GET /communities - Get all communities (with optional filters and search)
 router.get('/', async (req: Request, res: Response) => {
   try {
-    const { status = 'active', limit = 50, offset = 0 } = req.query;
+    const {
+      status = 'active',
+      limit = 50,
+      offset = 0,
+      search = '',
+      location = '',
+      category = '',
+      has_space = '',
+      sort = 'newest'
+    } = req.query;
+
+    // Build WHERE conditions dynamically
+    const conditions: string[] = ['c.status = $1'];
+    const params: any[] = [status];
+    let paramCount = 2;
+
+    // Search in name and description
+    if (search) {
+      conditions.push(`(c.name ILIKE $${paramCount} OR c.description ILIKE $${paramCount})`);
+      params.push(`%${search}%`);
+      paramCount++;
+    }
+
+    // Filter by location
+    if (location) {
+      conditions.push(`c.location ILIKE $${paramCount}`);
+      params.push(`%${location}%`);
+      paramCount++;
+    }
+
+    // Filter by category
+    if (category) {
+      conditions.push(`c.category = $${paramCount}`);
+      params.push(category);
+      paramCount++;
+    }
+
+    // Filter communities with available space
+    if (has_space === 'true') {
+      conditions.push('c.current_members < c.max_members');
+    }
+
+    // Determine sort order
+    let orderBy = 'c.created_at DESC';
+    if (sort === 'members') {
+      orderBy = 'c.current_members DESC, c.created_at DESC';
+    } else if (sort === 'alphabetical') {
+      orderBy = 'c.name ASC';
+    }
+
+    // Add limit and offset to params
+    params.push(limit, offset);
 
     const result = await query(
       `SELECT
-        c.id, c.name, c.description, c.max_members, c.current_members,
+        c.id, c.name, c.description, c.location, c.category,
+        c.max_members, c.current_members, c.access_type,
         c.creator_id, c.status, c.created_at, c.updated_at,
         u.name as creator_name
       FROM communities.communities c
       LEFT JOIN auth.users u ON c.creator_id = u.id
-      WHERE c.status = $1
-      ORDER BY c.created_at DESC
-      LIMIT $2 OFFSET $3`,
-      [status, limit, offset]
+      WHERE ${conditions.join(' AND ')}
+      ORDER BY ${orderBy}
+      LIMIT $${paramCount} OFFSET $${paramCount + 1}`,
+      params
+    );
+
+    res.json({
+      success: true,
+      data: result.rows,
+      count: result.rowCount,
+      total: result.rowCount, // In production, you'd do a separate COUNT query
+    });
+  } catch (error: any) {
+    console.error('Error fetching communities:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch communities',
+      error: error.message,
+    });
+  }
+});
+
+// GET /communities/my - Get communities the user is a member of
+router.get('/my/communities', async (req: Request, res: Response) => {
+  try {
+    const { user_id } = req.query;
+
+    if (!user_id) {
+      return res.status(400).json({
+        success: false,
+        message: 'user_id is required',
+      });
+    }
+
+    const result = await query(
+      `SELECT
+        c.id, c.name, c.description, c.location, c.category,
+        c.max_members, c.current_members, c.access_type,
+        c.creator_id, c.status, c.created_at, c.updated_at,
+        u.name as creator_name,
+        m.role, m.joined_at
+      FROM communities.members m
+      JOIN communities.communities c ON m.community_id = c.id
+      LEFT JOIN auth.users u ON c.creator_id = u.id
+      WHERE m.user_id = $1 AND m.status = 'active' AND c.status = 'active'
+      ORDER BY m.joined_at DESC`,
+      [user_id]
     );
 
     res.json({
@@ -28,10 +123,10 @@ router.get('/', async (req: Request, res: Response) => {
       count: result.rowCount,
     });
   } catch (error: any) {
-    console.error('Error fetching communities:', error);
+    console.error('Error fetching user communities:', error);
     res.status(500).json({
       success: false,
-      message: 'Failed to fetch communities',
+      message: 'Failed to fetch user communities',
       error: error.message,
     });
   }
@@ -45,7 +140,8 @@ router.get('/:id', async (req: Request, res: Response) => {
     // Get community details
     const communityResult = await query(
       `SELECT
-        c.id, c.name, c.description, c.max_members, c.current_members,
+        c.id, c.name, c.description, c.location, c.category,
+        c.max_members, c.current_members, c.access_type,
         c.creator_id, c.status, c.created_at, c.updated_at,
         u.name as creator_name
       FROM communities.communities c
@@ -93,7 +189,7 @@ router.get('/:id', async (req: Request, res: Response) => {
 // POST /communities - Create new community
 router.post('/', async (req: Request, res: Response) => {
   try {
-    const { name, description, max_members = 150, creator_id } = req.body;
+    const { name, description, location, category, max_members = 150, creator_id } = req.body;
 
     // Validation
     if (!name || !creator_id) {
@@ -120,10 +216,10 @@ router.post('/', async (req: Request, res: Response) => {
     // Create community
     const result = await query(
       `INSERT INTO communities.communities
-        (name, description, max_members, current_members, creator_id, status)
-      VALUES ($1, $2, $3, 1, $4, 'active')
+        (name, description, location, category, max_members, current_members, creator_id, status)
+      VALUES ($1, $2, $3, $4, $5, 1, $6, 'active')
       RETURNING *`,
-      [name, description, max_members, creator_id]
+      [name, description, location, category, max_members, creator_id]
     );
 
     const community = result.rows[0];
@@ -162,7 +258,7 @@ router.post('/', async (req: Request, res: Response) => {
 router.put('/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { name, description, max_members, status, user_id } = req.body;
+    const { name, description, location, category, max_members, status, user_id } = req.body;
 
     // Check if user is admin of this community
     const memberCheck = await query(
@@ -190,6 +286,14 @@ router.put('/:id', async (req: Request, res: Response) => {
     if (description !== undefined) {
       updates.push(`description = $${paramCount++}`);
       values.push(description);
+    }
+    if (location !== undefined) {
+      updates.push(`location = $${paramCount++}`);
+      values.push(location);
+    }
+    if (category !== undefined) {
+      updates.push(`category = $${paramCount++}`);
+      values.push(category);
     }
     if (max_members !== undefined) {
       updates.push(`max_members = $${paramCount++}`);

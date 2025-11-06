@@ -39,6 +39,125 @@ router.get('/:communityId/members', async (req: Request, res: Response) => {
   }
 });
 
+// POST /communities/:communityId/join - Join a community (handles public/private)
+router.post('/:communityId/join', async (req: Request, res: Response) => {
+  try {
+    const { communityId } = req.params;
+    const { user_id, message } = req.body;
+
+    if (!user_id) {
+      return res.status(400).json({
+        success: false,
+        message: 'user_id is required',
+      });
+    }
+
+    // Check if community exists and get access_type
+    const communityResult = await query(
+      `SELECT id, name, max_members, current_members, status, access_type
+       FROM communities.communities
+       WHERE id = $1`,
+      [communityId]
+    );
+
+    if (communityResult.rowCount === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Community not found',
+      });
+    }
+
+    const community = communityResult.rows[0];
+
+    if (community.status !== 'active') {
+      return res.status(400).json({
+        success: false,
+        message: 'Community is not active',
+      });
+    }
+
+    if (community.current_members >= community.max_members) {
+      return res.status(400).json({
+        success: false,
+        message: 'Community is full (Dunbar\'s number limit reached)',
+      });
+    }
+
+    // Check if user is already a member or has pending request
+    const existingMember = await query(
+      `SELECT id, status FROM communities.members
+       WHERE community_id = $1 AND user_id = $2`,
+      [communityId, user_id]
+    );
+
+    if (existingMember.rowCount && existingMember.rowCount > 0) {
+      const status = existingMember.rows[0].status;
+      if (status === 'active') {
+        return res.status(400).json({
+          success: false,
+          message: 'You are already a member of this community',
+        });
+      } else if (status === 'pending') {
+        return res.status(400).json({
+          success: false,
+          message: 'You already have a pending join request for this community',
+        });
+      }
+    }
+
+    // Determine status based on access_type
+    const memberStatus = community.access_type === 'public' ? 'active' : 'pending';
+
+    // Add member
+    const memberResult = await query(
+      `INSERT INTO communities.members
+        (community_id, user_id, role, status, join_request_message)
+      VALUES ($1, $2, 'member', $3, $4)
+      RETURNING *`,
+      [communityId, user_id, memberStatus, message || null]
+    );
+
+    // If public, increment current_members count immediately
+    if (memberStatus === 'active') {
+      await query(
+        `UPDATE communities.communities
+         SET current_members = current_members + 1
+         WHERE id = $1`,
+        [communityId]
+      );
+
+      // Publish event
+      await publishEvent('user_joined_community', {
+        community_id: communityId,
+        user_id,
+        role: 'member',
+      });
+    } else {
+      // Publish join request event for private communities
+      await publishEvent('join_request_created', {
+        community_id: communityId,
+        user_id,
+        message,
+      });
+    }
+
+    res.status(201).json({
+      success: true,
+      data: memberResult.rows[0],
+      message: memberStatus === 'active'
+        ? 'Joined community successfully'
+        : 'Join request submitted. Waiting for approval.',
+    });
+  } catch (error: any) {
+    console.error('Error joining community:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to join community',
+      error: error.message,
+    });
+  }
+});
+
 // POST /communities/:communityId/members - Add member to community (join or invite)
 router.post('/:communityId/members', async (req: Request, res: Response) => {
   try {
