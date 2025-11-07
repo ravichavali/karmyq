@@ -24,6 +24,7 @@ Complete documentation for the Karmyq mutual aid platform.
 ### 🔧 Operations
 - **[Logging & Monitoring](operations/logging-and-monitoring.md)** - Complete observability guide
 - **[Log Levels](operations/log-levels.md)** - Configure log verbosity
+- **[CI/CD Pipeline](operations/ci-cd.md)** - Continuous integration and deployment
 
 ### 📱 Platform-Specific Guides
 - **[Windows Setup](START_WINDOWS.md)** - Running Karmyq on Windows

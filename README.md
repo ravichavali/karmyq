@@ -2,6 +2,8 @@
 
 [![Version](https://img.shields.io/badge/version-2.0-blue.svg)](https://github.com/ravichavali/karmyq/releases/tag/v2.0)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![Tests](https://github.com/ravichavali/karmyq/actions/workflows/test.yml/badge.svg)](https://github.com/ravichavali/karmyq/actions/workflows/test.yml)
+[![E2E Tests](https://github.com/ravichavali/karmyq/actions/workflows/e2e-tests.yml/badge.svg)](https://github.com/ravichavali/karmyq/actions/workflows/e2e-tests.yml)
 
 A trust-based community platform where people help each other without money, building reputation through karma. Communities are limited to 150 members (Dunbar's number) for authentic connections.
 
