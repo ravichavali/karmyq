@@ -14,11 +14,8 @@ RUN npm install
 # Copy source code
 COPY . .
 
-# Build TypeScript
-RUN npm run build
-
 # Expose port
 EXPOSE 3002
 
-# Start service
+# Start service (dev mode with ts-node, no build needed)
 CMD ["npm", "run", "dev"]
