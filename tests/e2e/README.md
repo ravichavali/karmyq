@@ -81,7 +81,10 @@ tests/e2e/
 │   ├── 02-communities.spec.ts # Community management tests
 │   ├── 03-requests.spec.ts  # Help request tests
 │   ├── 04-messaging.spec.ts # Messaging tests
-│   └── 05-notifications.spec.ts # Notification tests
+│   ├── 05-notifications.spec.ts # Notification tests
+│   ├── 06-karma-system.spec.ts # Karma and reputation tests
+│   ├── 07-advanced-matching.spec.ts # Advanced matching tests
+│   └── 08-edge-cases.spec.ts # Edge cases and error handling tests
 ├── playwright.config.ts     # Playwright configuration
 └── package.json
 ```
@@ -118,6 +121,49 @@ tests/e2e/
 - Dropdown/panel
 - Mark as read
 - Notification types
+
+### 06-karma-system.spec.ts
+- Karma score display on profile
+- Trust score calculations (0-100)
+- Karma awards on match completion
+- Karma leaderboard
+- Karma history/transaction log
+- First help bonus (15 points)
+- Milestone bonuses (10, 50, 100 exchanges)
+- Karma badges and achievements
+- Activity type breakdown
+- Point value validation
+
+### 07-advanced-matching.spec.ts
+- Create and view offers for requests
+- Multiple offers on a single request
+- Accept offers and create matches
+- Match status transitions (proposed → accepted → completed)
+- Complete matches with ratings and feedback
+- Filter matches by status
+- Match cancellation and rejection
+- Urgency-based prioritization
+- Sort requests by urgency
+- Location-based matching
+- Skills-based matching
+
+### 08-edge-cases.spec.ts
+- Form validation (required fields, email format)
+- Authentication errors (wrong password, duplicate email)
+- Input validation (very long text, special characters)
+- XSS prevention and sanitization
+- API error handling (404, 400 errors)
+- Concurrent operations
+- Session expiration
+- Malformed localStorage data
+- Missing API parameters
+- Pagination edge cases (page 999999)
+- Empty search results
+- Rapid button clicks (double submission prevention)
+- Back button navigation
+- Network timeouts
+- Date validation
+- Browser refresh during form submission
 
 ## Writing New Tests
 

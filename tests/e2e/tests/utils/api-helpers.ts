@@ -122,4 +122,98 @@ export class ApiHelpers {
 
     return await response.json();
   }
+
+  /**
+   * Create an offer for a request
+   */
+  async createTestOffer(data: {
+    request_id: string;
+    message: string;
+  }): Promise<any> {
+    const user = await this.getCurrentUser();
+    const response = await this.makeAuthenticatedRequest(
+      `${process.env.REQUEST_API_URL || 'http://localhost:3003'}/offers`,
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          ...data,
+          responder_id: user.id,
+        }),
+      }
+    );
+
+    const result = await response.json();
+    return result.data;
+  }
+
+  /**
+   * Create a match between requester and responder
+   */
+  async createTestMatch(data: {
+    request_id: string;
+    offer_id: string;
+    responder_id: string;
+  }): Promise<any> {
+    const user = await this.getCurrentUser();
+    const response = await this.makeAuthenticatedRequest(
+      `${process.env.REQUEST_API_URL || 'http://localhost:3003'}/matches`,
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          ...data,
+          requester_id: user.id,
+        }),
+      }
+    );
+
+    const result = await response.json();
+    return result.data;
+  }
+
+  /**
+   * Complete a match with rating and feedback
+   */
+  async completeMatch(matchId: string, rating: number, feedback: string): Promise<any> {
+    const user = await this.getCurrentUser();
+    const response = await this.makeAuthenticatedRequest(
+      `${process.env.REQUEST_API_URL || 'http://localhost:3003'}/matches/${matchId}/complete`,
+      {
+        method: 'PATCH',
+        body: JSON.stringify({
+          user_id: user.id,
+          rating,
+          feedback,
+        }),
+      }
+    );
+
+    const result = await response.json();
+    return result.data;
+  }
+
+  /**
+   * Get user's karma score
+   */
+  async getUserKarma(userId?: string): Promise<any> {
+    const user = userId ? { id: userId } : await this.getCurrentUser();
+    const response = await this.makeAuthenticatedRequest(
+      `${process.env.REPUTATION_API_URL || 'http://localhost:3004'}/karma/${user.id}`
+    );
+
+    const result = await response.json();
+    return result.data;
+  }
+
+  /**
+   * Get user's karma history
+   */
+  async getUserKarmaHistory(userId?: string): Promise<any> {
+    const user = userId ? { id: userId } : await this.getCurrentUser();
+    const response = await this.makeAuthenticatedRequest(
+      `${process.env.REPUTATION_API_URL || 'http://localhost:3004'}/karma/${user.id}/history`
+    );
+
+    const result = await response.json();
+    return result.data;
+  }
 }
