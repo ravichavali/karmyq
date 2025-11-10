@@ -2,18 +2,15 @@ import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import { initDatabase } from './database/db';
-import { initEventPublisher } from './events/publisher';
-import requestsRouter from './routes/requests';
-import offersRouter from './routes/offers';
-import matchesRouter from './routes/matches';
+import feedRouter from './routes/feed';
 import { createLogger, requestLoggingMiddleware } from '../shared/utils/logger';
 
 // Load environment variables
 dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 3003;
-const logger = createLogger('request-service');
+const PORT = process.env.PORT || 3007;
+const logger = createLogger('feed-service');
 
 // Middleware
 app.use(cors());
@@ -23,16 +20,14 @@ app.use(requestLoggingMiddleware(logger));
 // Health check
 app.get('/health', (req: Request, res: Response) => {
   res.json({
-    service: 'request-service',
+    service: 'feed-service',
     status: 'healthy',
     timestamp: new Date().toISOString(),
   });
 });
 
 // Routes
-app.use('/requests', requestsRouter);
-app.use('/offers', offersRouter);
-app.use('/matches', matchesRouter);
+app.use('/feed', feedRouter);
 
 // 404 handler
 app.use((req: Request, res: Response) => {
@@ -44,10 +39,11 @@ app.use((req: Request, res: Response) => {
 });
 
 // Error handling middleware
-app.use((err: Error, req: any, res: Response, next: NextFunction) => {
-  req.logger?.error('Unhandled error', err, {
+app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
+  (req as any).logger?.error('Unhandled error', err instanceof Error ? err : new Error(String(err)), {
     method: req.method,
-    path: req.path
+    path: req.path,
+    body: req.body
   });
   res.status(500).json({
     success: false,
@@ -63,11 +59,6 @@ async function start() {
     await initDatabase();
     dbTimer();
     logger.info('Database connected successfully');
-
-    const eventTimer = logger.timer('event_publisher_init');
-    await initEventPublisher();
-    eventTimer();
-    logger.info('Event publisher initialized successfully');
 
     app.listen(PORT, () => {
       logger.info('Service started', {

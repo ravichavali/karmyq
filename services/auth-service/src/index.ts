@@ -5,7 +5,7 @@ import authRoutes from './routes/auth';
 import userRoutes from './routes/users';
 import { initDatabase } from './database/db';
 import { initEventPublisher } from './events/publisher';
-import { createLogger, requestLoggingMiddleware } from '../../../packages/shared/utils/logger';
+import { createLogger, requestLoggingMiddleware } from '../shared/utils/logger';
 
 dotenv.config();
 

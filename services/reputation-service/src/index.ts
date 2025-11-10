@@ -4,7 +4,7 @@ import dotenv from 'dotenv';
 import { initDatabase } from './database/db';
 import { initEventSubscriber } from './events/subscriber';
 import reputationRouter from './routes/reputation';
-import { createLogger, requestLoggingMiddleware } from '../../../packages/shared/utils/logger';
+import { createLogger, requestLoggingMiddleware } from '../shared/utils/logger';
 
 // Load environment variables
 dotenv.config();
@@ -41,7 +41,7 @@ app.use((req: Request, res: Response) => {
 
 // Error handling middleware
 app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
-  req.logger?.error('Unhandled error', err instanceof Error ? err : new Error(String(err)), {
+  (req as any).logger?.error('Unhandled error', err instanceof Error ? err : new Error(String(err)), {
     method: req.method,
     path: req.path,
     body: req.body

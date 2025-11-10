@@ -6,7 +6,7 @@ import { initEventPublisher } from './events/publisher';
 import communitiesRouter from './routes/communities';
 import membersRouter from './routes/members';
 import normsRouter from './routes/norms';
-import { createLogger, requestLoggingMiddleware } from '../../../packages/shared/utils/logger';
+import { createLogger, requestLoggingMiddleware } from '../shared/utils/logger';
 
 // Load environment variables
 dotenv.config();

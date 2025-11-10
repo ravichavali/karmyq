@@ -368,6 +368,39 @@ CREATE INDEX idx_event_log_type ON events.event_log(event_type);
 CREATE INDEX idx_event_log_processed ON events.event_log(processed);
 CREATE INDEX idx_event_log_created_at ON events.event_log(created_at);
 
+-- ============= FEED SERVICE SCHEMA =============
+CREATE SCHEMA IF NOT EXISTS feed;
+
+-- User feed preferences
+CREATE TABLE feed.preferences (
+    user_id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+    show_community_activity BOOLEAN DEFAULT true,
+    show_open_requests BOOLEAN DEFAULT true,
+    show_completed_exchanges BOOLEAN DEFAULT false,
+    suggest_adjacent_requests BOOLEAN DEFAULT true,
+    exploration_level VARCHAR(20) DEFAULT 'balanced' CHECK (exploration_level IN ('conservative', 'balanced', 'adventurous')),
+    show_explanations BOOLEAN DEFAULT true,
+    show_broader_stories BOOLEAN DEFAULT true,
+    allow_public_featuring BOOLEAN DEFAULT true,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Dismissed feed items (to avoid showing again)
+CREATE TABLE feed.dismissed_items (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    item_type VARCHAR(50) NOT NULL,
+    item_id VARCHAR(255) NOT NULL,
+    dismissed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(user_id, item_type, item_id)
+);
+
+-- Indexes for feed service
+CREATE INDEX idx_feed_preferences_user_id ON feed.preferences(user_id);
+CREATE INDEX idx_feed_dismissed_user_id ON feed.dismissed_items(user_id);
+CREATE INDEX idx_feed_dismissed_at ON feed.dismissed_items(dismissed_at);
+
 -- Create karmyq role if it doesn't exist
 DO $$
 BEGIN
@@ -378,5 +411,5 @@ END
 $$;
 
 -- Grant schema permissions
-GRANT USAGE ON SCHEMA auth, communities, requests, reputation, messaging, notifications, feedback, governance, events TO karmyq;
-GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA auth, communities, requests, reputation, messaging, notifications, feedback, governance, events TO karmyq;
+GRANT USAGE ON SCHEMA auth, communities, requests, reputation, messaging, notifications, feedback, governance, events, feed TO karmyq;
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA auth, communities, requests, reputation, messaging, notifications, feedback, governance, events, feed TO karmyq;

@@ -6,7 +6,7 @@ import dotenv from 'dotenv';
 import pool from './database/db';
 import messageRoutes from './routes/messages';
 import { initializeMessageSocket } from './socket/messageHandler';
-import { createLogger, requestLoggingMiddleware } from '../../../packages/shared/utils/logger';
+import { createLogger, requestLoggingMiddleware } from '../shared/utils/logger';
 
 dotenv.config();
 

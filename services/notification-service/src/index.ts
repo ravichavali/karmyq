@@ -4,7 +4,7 @@ import dotenv from 'dotenv';
 import pool from './database/db';
 import { initEventSubscriber } from './events/subscriber';
 import notificationRoutes from './routes/notifications';
-import { createLogger, requestLoggingMiddleware } from '../../../packages/shared/utils/logger';
+import { createLogger, requestLoggingMiddleware } from '../shared/utils/logger';
 
 dotenv.config();
 

@@ -5,6 +5,17 @@ const COMMUNITY_API_URL = process.env.NEXT_PUBLIC_COMMUNITY_API_URL || 'http://l
 const REQUEST_API_URL = process.env.NEXT_PUBLIC_REQUEST_API_URL || 'http://localhost:3003'
 const NOTIFICATION_API_URL = process.env.NEXT_PUBLIC_NOTIFICATION_API_URL || 'http://localhost:3005'
 const MESSAGING_API_URL = process.env.NEXT_PUBLIC_MESSAGING_API_URL || 'http://localhost:3006'
+const FEED_API_URL = process.env.NEXT_PUBLIC_FEED_API_URL || 'http://localhost:3007'
+
+// Export API configuration
+export const API_CONFIG = {
+  BASE_URL: AUTH_API_URL,
+  COMMUNITY_API_URL,
+  REQUEST_API_URL,
+  NOTIFICATION_API_URL,
+  MESSAGING_API_URL,
+  FEED_API_URL,
+}
 
 // Auth Service API
 export const api = axios.create({
