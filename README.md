@@ -1,6 +1,6 @@
 # Karmyq - Community Mutual Aid Platform 🤝
 
-[![Version](https://img.shields.io/badge/version-2.0-blue.svg)](https://github.com/ravichavali/karmyq/releases/tag/v2.0)
+[![Version](https://img.shields.io/badge/version-4.0.0-blue.svg)](https://github.com/ravichavali/karmyq/releases/tag/v4.0.0)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Tests](https://github.com/ravichavali/karmyq/actions/workflows/test.yml/badge.svg)](https://github.com/ravichavali/karmyq/actions/workflows/test.yml)
 [![E2E Tests](https://github.com/ravichavali/karmyq/actions/workflows/e2e-tests.yml/badge.svg)](https://github.com/ravichavali/karmyq/actions/workflows/e2e-tests.yml)
@@ -65,11 +65,14 @@ See [Turborepo Guide](docs/development/turborepo.md) for more.
 
 ## ✨ Features
 
-- **Communities** - Create and manage communities (max 150 members)
+- **Communities** - Create and manage communities (max 150 members, Dunbar's number)
 - **Help System** - Post requests and offers, auto-matched by skills
-- **Karma & Reputation** - Earn karma by helping, build trust scores
+- **Karma & Reputation** - Earn karma by helping, build trust scores and badges
 - **Real-time Chat** - Socket.IO messaging between matched users
 - **Notifications** - Server-Sent Events for instant updates
+- **Personalized Feed** - Adaptive feed balancing exploration and exploitation
+- **Federation Protocol** - Distributed instances with local sovereignty
+- **Mobile Apps** - React Native + Expo for iOS and Android
 - **Observability** - Grafana dashboards for logs and metrics
 
 ## 🤝 Contributing

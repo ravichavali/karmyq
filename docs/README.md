@@ -66,12 +66,13 @@ Each service has its own README with:
 - Related services
 
 ### Services
-- [Auth Service](../services/auth-service/README.md)
-- [Community Service](../services/community-service/README.md)
-- [Request Service](../services/request-service/README.md)
-- [Reputation Service](../services/reputation-service/README.md)
-- [Notification Service](../services/notification-service/README.md)
-- [Messaging Service](../services/messaging-service/README.md)
+- [Auth Service](../services/auth-service/README.md) | [Context](../services/auth-service/CONTEXT.md)
+- [Community Service](../services/community-service/README.md) | [Context](../services/community-service/CONTEXT.md)
+- [Request Service](../services/request-service/README.md) | [Context](../services/request-service/CONTEXT.md)
+- [Reputation Service](../services/reputation-service/README.md) | [Context](../services/reputation-service/CONTEXT.md)
+- [Notification Service](../services/notification-service/README.md) | [Context](../services/notification-service/CONTEXT.md)
+- [Messaging Service](../services/messaging-service/README.md) | [Context](../services/messaging-service/CONTEXT.md)
+- [Feed Service](../services/feed-service/README.md) | [Context](../services/feed-service/CONTEXT.md)
 
 ## Testing
 
@@ -79,19 +80,22 @@ Each service has its own README with:
 - **[Testing Guide](development/testing-guide.md)** - Complete testing strategy
 - **[Testing & Observability](../TESTING_AND_OBSERVABILITY.md)** - Overview
 
-## Project Status
+## Project Status (v4.0.0)
 
-- ✅ Microservices Architecture
+- ✅ Microservices Architecture (7 services)
 - ✅ Frontend (Next.js)
-- ✅ Database (PostgreSQL)
+- ✅ Mobile App (React Native + Expo)
+- ✅ Database (PostgreSQL with 9 schemas)
 - ✅ Event Queue (Redis/Bull)
 - ✅ Real-time Messaging (Socket.IO)
 - ✅ Notifications (SSE)
+- ✅ Personalized Feed Service
+- ✅ Federation Protocol (designed)
 - ✅ Observability Stack (Grafana/Loki/Prometheus)
 - ✅ Structured Logging
 - ✅ E2E Testing Framework
-- ⏳ CI/CD Pipeline (in progress)
-- ⏳ Matching Service (planned)
+- ✅ CI/CD Pipeline (GitHub Actions)
+- ✅ Service CONTEXT.md docs (for context-efficient development)
 
 ## Contributing
 
@@ -116,6 +120,17 @@ See [CONTRIBUTING.md](../CONTRIBUTING.md) for:
 - [Grafana Docs](https://grafana.com/docs/)
 - [Docker Docs](https://docs.docker.com/)
 
+## Federation & Distribution
+
+- **[Federation Protocol](FEDERATION_PROTOCOL.md)** - Complete federation specification
+- **[Federation Implementation](FEDERATION_IMPLEMENTATION.md)** - Implementation guide
+- **[Self-Hosting Guide](SELF_HOSTING_GUIDE.md)** - Deploy your own instance
+
+## Mobile Development
+
+- **[Mobile Development Guide](MOBILE_DEVELOPMENT.md)** - React Native + Expo setup
+- **[Mobile App README](../apps/mobile/README.md)** - Mobile app documentation
+
 ---
 
-**Last Updated**: 2025-11-06 (v3.1)
+**Last Updated**: 2025-01-10 (v4.0.0)
