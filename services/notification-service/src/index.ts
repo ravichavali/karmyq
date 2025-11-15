@@ -5,6 +5,11 @@ import pool from './database/db';
 import { initEventSubscriber } from './events/subscriber';
 import notificationRoutes from './routes/notifications';
 import { createLogger, requestLoggingMiddleware } from '../shared/utils/logger';
+import {
+  authMiddleware,
+  optionalTenantMiddleware,
+  dbContextMiddleware,
+} from '../../packages/shared/middleware';
 
 dotenv.config();
 
@@ -17,13 +22,19 @@ app.use(cors());
 app.use(express.json());
 app.use(requestLoggingMiddleware(logger));
 
-// Health check
+// Health check (no auth required)
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', service: 'notification-service' });
 });
 
-// Routes
-app.use('/notifications', notificationRoutes);
+// Routes with authentication (notifications can be cross-community)
+app.use(
+  '/notifications',
+  authMiddleware,
+  optionalTenantMiddleware,  // Notifications can span multiple communities
+  dbContextMiddleware(pool),
+  notificationRoutes
+);
 
 // Error handling middleware
 app.use((err: any, req: any, res: express.Response, next: express.NextFunction) => {

@@ -3,10 +3,16 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import { initDatabase } from './database/db';
 import { initEventPublisher } from './events/publisher';
+import pool from './database/db';
 import requestsRouter from './routes/requests';
 import offersRouter from './routes/offers';
 import matchesRouter from './routes/matches';
 import { createLogger, requestLoggingMiddleware } from '../shared/utils/logger';
+import {
+  authMiddleware,
+  tenantMiddleware,
+  dbContextMiddleware,
+} from '../../packages/shared/middleware';
 
 // Load environment variables
 dotenv.config();
@@ -20,7 +26,7 @@ app.use(cors());
 app.use(express.json());
 app.use(requestLoggingMiddleware(logger));
 
-// Health check
+// Health check (no auth required)
 app.get('/health', (req: Request, res: Response) => {
   res.json({
     service: 'request-service',
@@ -29,10 +35,30 @@ app.get('/health', (req: Request, res: Response) => {
   });
 });
 
-// Routes
-app.use('/requests', requestsRouter);
-app.use('/offers', offersRouter);
-app.use('/matches', matchesRouter);
+// Routes with authentication and tenant context
+app.use(
+  '/requests',
+  authMiddleware,
+  tenantMiddleware,
+  dbContextMiddleware(pool),
+  requestsRouter
+);
+
+app.use(
+  '/offers',
+  authMiddleware,
+  tenantMiddleware,
+  dbContextMiddleware(pool),
+  offersRouter
+);
+
+app.use(
+  '/matches',
+  authMiddleware,
+  tenantMiddleware,
+  dbContextMiddleware(pool),
+  matchesRouter
+);
 
 // 404 handler
 app.use((req: Request, res: Response) => {

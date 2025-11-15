@@ -7,6 +7,11 @@ import pool from './database/db';
 import messageRoutes from './routes/messages';
 import { initializeMessageSocket } from './socket/messageHandler';
 import { createLogger, requestLoggingMiddleware } from '../shared/utils/logger';
+import {
+  authMiddleware,
+  tenantMiddleware,
+  dbContextMiddleware,
+} from '../../packages/shared/middleware';
 
 dotenv.config();
 
@@ -30,13 +35,19 @@ app.use(cors());
 app.use(express.json());
 app.use(requestLoggingMiddleware(logger));
 
-// Health check
+// Health check (no auth required)
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', service: 'messaging-service' });
 });
 
-// Routes
-app.use('/messages', messageRoutes);
+// Routes with authentication and tenant context
+app.use(
+  '/messages',
+  authMiddleware,
+  tenantMiddleware,
+  dbContextMiddleware(pool),
+  messageRoutes
+);
 
 // Error handling middleware
 app.use((err: any, req: any, res: express.Response, next: express.NextFunction) => {
