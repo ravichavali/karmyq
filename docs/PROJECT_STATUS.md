@@ -1,12 +1,22 @@
-# Karmyq Project Status (v4.0.0)
+# Karmyq Project Status (v5.0.0)
 
 **Last Updated**: 2025-01-15
-**Current Version**: v4.0.0
-**Status**: Production-Ready Multi-Tenant Platform
+**Current Version**: v5.0.0
+**Status**: Production-Ready Multi-Tenant Platform with Comprehensive Test Suite
 
 ## 🎉 Major Milestones Achieved
 
-### v4.0.0 - Multi-Tenant Architecture (Current)
+### v5.0.0 - Comprehensive Test Suite (Current)
+- ✅ Complete integration test suite for multi-tenant architecture
+- ✅ Authentication & JWT multi-community tests
+- ✅ Tenant isolation verification tests
+- ✅ Row-Level Security (RLS) policy tests
+- ✅ Multi-community user flow integration tests
+- ✅ Test configuration with Jest, TypeScript, Supertest
+- ✅ Test documentation and running guides
+- ✅ Shared middleware package (`packages/shared/middleware`)
+
+### v4.0.0 - Multi-Tenant Architecture
 - ✅ Multi-tenant SaaS architecture with Row-Level Security (RLS)
 - ✅ Multi-community JWT with community memberships
 - ✅ Database-enforced tenant isolation (19 tables with RLS)
@@ -174,18 +184,46 @@
 - Docker build pipeline
 - Automated testing on PR
 
-### 4. Federation & Distribution
+### 4. Test Suite
+
+#### Integration Tests
+**Status**: ✅ Complete
+- **Authentication Tests** - JWT multi-community functionality
+  - User registration/login with communities
+  - JWT payload validation
+  - Token refresh strategy
+- **Tenant Isolation Tests** - Multi-tenant data isolation
+  - Community-scoped data access
+  - Cross-tenant access prevention
+  - Direct database RLS verification
+- **RLS Policy Tests** - Database-level security
+  - All 19 tables verified
+  - Session variable enforcement
+  - Policy completeness checks
+- **Multi-Community Flow Tests** - Complete user journeys
+  - Creating/joining multiple communities
+  - Context switching
+  - Separate reputation per community
+  - Complete help exchange flows
+
+**Location**: `tests/integration/`
+**Configuration**: Jest + TypeScript + Supertest
+**Documentation**: `tests/README.md`
+
+**Run Tests**:
+```bash
+cd tests && npm install && npm test
+```
+
+### 5. Federation & Distribution
 
 #### Federation Protocol
-**Status**: ✅ Designed, Not Implemented
-- Complete protocol specification (docs/FEDERATION_PROTOCOL.md)
-- ActivityPub-inspired design
-- Cryptographic signatures for trust
-- User migration support
-- Instance discovery
-- Federated data caching
+**Status**: ⚠️ Deprecated (Replaced by Multi-Tenant SaaS)
+- Federation service removed in favor of multi-tenant architecture
+- Federation schema preserved for future "trust bridges" feature
+- Protocol documentation archived (docs/FEDERATION_PROTOCOL.md)
 
-**Database**: Federation schema ready in PostgreSQL
+**Rationale**: Multi-tenant SaaS provides lower friction for users than federated self-hosting. Communities can still export their data (data sovereignty).
 
 #### Self-Hosting
 **Status**: ✅ Documentation Complete
@@ -195,7 +233,7 @@
 - Security hardening guide
 - Backup strategies
 
-### 5. Documentation
+### 6. Documentation
 
 **Status**: ✅ Comprehensive
 
@@ -223,15 +261,18 @@
 - ✅ docs/operations/logging-and-monitoring.md
 - ✅ docs/operations/ci-cd.md
 
-## 📊 Project Statistics (v4.0.0)
+## 📊 Project Statistics (v5.0.0)
 
 - **Total Services**: 7 backend microservices
 - **Total Apps**: 2 (web frontend + mobile)
-- **Database Schemas**: 9 (all production-ready)
+- **Database Schemas**: 9 (all production-ready with RLS)
+- **RLS-Protected Tables**: 19 (multi-tenant isolation)
 - **API Endpoints**: 80+ across all services
 - **Frontend Pages**: 10+ (web), 8+ (mobile)
-- **Lines of Code**: ~20,000+
-- **Documentation Files**: 30+
+- **Integration Tests**: 4 comprehensive test suites
+- **Test Coverage**: Authentication, tenant isolation, RLS, user flows
+- **Lines of Code**: ~25,000+
+- **Documentation Files**: 35+
 - **Setup Time**: < 5 minutes
 - **Build Time**: ~3 minutes
 
@@ -239,18 +280,20 @@
 
 You can:
 1. ✅ Start entire platform with `docker-compose up --build`
-2. ✅ Register and login users
-3. ✅ Create and join communities (Dunbar's number enforced)
-4. ✅ Post help requests and offers
-5. ✅ Match requests with helpers based on skills
-6. ✅ Complete exchanges and earn karma
-7. ✅ Build trust scores and earn badges
-8. ✅ Receive real-time notifications (SSE)
-9. ✅ Chat with matched users (WebSocket)
-10. ✅ View personalized activity feed
-11. ✅ Monitor system with Grafana dashboards
-12. ✅ Run E2E tests with Playwright
-13. ✅ Deploy via CI/CD pipeline
+2. ✅ Register and login users with multi-community JWT
+3. ✅ Create and join multiple communities (Dunbar's number enforced)
+4. ✅ Switch context between communities seamlessly
+5. ✅ Post help requests and offers (scoped to community)
+6. ✅ Match requests with helpers based on skills
+7. ✅ Complete exchanges and earn karma (per-community)
+8. ✅ Build separate trust scores per community
+9. ✅ Receive real-time notifications (SSE)
+10. ✅ Chat with matched users (WebSocket)
+11. ✅ View personalized activity feed
+12. ✅ Monitor system with Grafana dashboards
+13. ✅ Run comprehensive integration tests
+14. ✅ Run E2E tests with Playwright
+15. ✅ Deploy via CI/CD pipeline
 
 ## 🚧 Known Issues & TODOs
 
@@ -268,24 +311,31 @@ You can:
 - **Fix**: `cd apps/mobile && npm install && npm run start`
 
 ### Federation Service
-- ❌ Federation service not implemented
-- ✅ Protocol designed
-- ✅ Database schema ready
-- **Next**: Implement `services/federation-service/`
+- ⚠️ Deprecated in favor of multi-tenant SaaS architecture
+- ✅ Protocol designed (archived as reference)
+- ✅ Database schema ready for future "trust bridges" feature
+- **Decision**: Multi-tenant SaaS with data export provides better UX than federation
 
 ### Matching Service (Placeholder)
 - ❌ Exists as placeholder only
 - **Note**: Matching logic currently in request-service
 - **Decision**: May not need separate service
 
-## 🚀 Next Steps (v4.1+)
+## 🚀 Next Steps (v5.1+)
+
+### Phase 3: Ephemeral Data & Reputation Decay (Next)
+1. **Ephemeral Data (TTL)** - Add `expires_at` columns to requests and messages
+2. **Cleanup Job** - Scheduled job to delete expired data
+3. **Activity Tracking** - Add `last_activity_at` to trust_scores
+4. **Reputation Decay** - Half-life algorithm for inactive users
+5. **Data Export API** - Community data export functionality
 
 ### Immediate Priorities
 1. **Fix Feed Service Schema** - Update feedComposer.ts to use correct table/column names
 2. **Test Mobile App** - Install deps and test on iOS/Android simulators
-3. **Implement Federation Service** - Build actual federation implementation
 
 ### Future Enhancements
+- [ ] Trust bridges between communities (selective data sharing)
 - [ ] User feedback/rating system
 - [ ] Advanced search and filtering
 - [ ] Community analytics dashboard

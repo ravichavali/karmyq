@@ -1,6 +1,6 @@
 # Karmyq - Community Mutual Aid Platform 🤝
 
-[![Version](https://img.shields.io/badge/version-4.0.0-blue.svg)](https://github.com/ravichavali/karmyq/releases/tag/v4.0.0)
+[![Version](https://img.shields.io/badge/version-5.0.0-blue.svg)](https://github.com/ravichavali/karmyq/releases/tag/v5.0.0)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Tests](https://github.com/ravichavali/karmyq/actions/workflows/test.yml/badge.svg)](https://github.com/ravichavali/karmyq/actions/workflows/test.yml)
 [![E2E Tests](https://github.com/ravichavali/karmyq/actions/workflows/e2e-tests.yml/badge.svg)](https://github.com/ravichavali/karmyq/actions/workflows/e2e-tests.yml)
@@ -35,13 +35,28 @@ open http://localhost:3000
 
 **That's it!** The first startup takes 60-90 seconds. You'll see "Ready in X.Xs" when it's ready.
 
+### Testing
+
+```bash
+# Run integration tests
+npm run test:integration
+
+# Run tests in watch mode
+npm run test:watch
+
+# Generate coverage report
+npm run test:coverage
+```
+
+See [Test Suite Documentation](tests/README.md) for more.
+
 ### Turborepo Commands
 
 ```bash
 # Build all packages
 npm run build
 
-# Run tests across all services
+# Run unit tests across all services
 npm run test
 
 # Lint everything
