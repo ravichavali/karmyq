@@ -1,17 +1,21 @@
 # Karmyq Project Status (v4.0.0)
 
-**Last Updated**: 2025-01-10
+**Last Updated**: 2025-01-15
 **Current Version**: v4.0.0
-**Status**: Production-Ready Platform with Federation Support
+**Status**: Production-Ready Multi-Tenant Platform
 
 ## 🎉 Major Milestones Achieved
 
-### v4.0.0 - Federation & Mobile (Current)
-- ✅ Complete federation protocol designed
+### v4.0.0 - Multi-Tenant Architecture (Current)
+- ✅ Multi-tenant SaaS architecture with Row-Level Security (RLS)
+- ✅ Multi-community JWT with community memberships
+- ✅ Database-enforced tenant isolation (19 tables with RLS)
+- ✅ Middleware chain (auth → tenant → dbContext)
+- ✅ All 7 services enforce multi-tenancy
 - ✅ Mobile app structure (React Native + Expo)
 - ✅ Feed service with adaptive algorithms
-- ✅ Self-hosting guide
 - ✅ Service CONTEXT.md files for efficient development
+- ✅ Comprehensive multi-tenant guide documentation
 
 ### v3.1 - Testing & Observability
 - ✅ E2E test framework (Playwright)
@@ -34,9 +38,10 @@
 ### 1. Backend Services (7 Total)
 
 #### Auth Service (Port 3001)
-**Status**: ✅ Complete
+**Status**: ✅ Complete with Multi-Tenant Support
 - User registration and authentication
-- JWT token management
+- **Multi-community JWT** with communities array
+- **POST /auth/refresh** to update communities in JWT
 - Password hashing (bcrypt)
 - User profile management
 - Event publishing (user_created)
@@ -122,15 +127,21 @@
 ### 3. Infrastructure
 
 #### Database (PostgreSQL)
-**Status**: ✅ Complete - 9 Schemas
-- `auth` - Users, sessions, skills
-- `communities` - Communities, members, norms, norm_approvals
-- `requests` - Help requests, offers, matches
-- `reputation` - Karma records, trust scores, badges
-- `messaging` - Conversations, participants, messages
-- `notifications` - Notifications, preferences, push_tokens
-- `feed` - Feed preferences, dismissed items
-- `federation` - Federated instances, users, requests (ready for implementation)
+**Status**: ✅ Complete with Row-Level Security (RLS)
+- **9 Schemas** - All production-ready
+- **19 Tables with RLS** - Database-enforced tenant isolation
+- **Session Variables** - `app.current_user_id`, `app.current_community_id`
+- **Automatic Filtering** - All queries scoped to current community
+
+**Schemas:**
+- `auth` - Users, sessions, skills (NOT isolated - users span communities)
+- `communities` - Communities, members, norms (✅ RLS enabled)
+- `requests` - Help requests, offers, matches (✅ RLS enabled)
+- `reputation` - Karma records, trust scores, badges (✅ RLS enabled per-community)
+- `messaging` - Conversations, participants, messages (✅ RLS enabled)
+- `notifications` - Notifications, preferences (✅ RLS enabled)
+- `feed` - Feed preferences, dismissed items (✅ RLS enabled)
+- `federation` - For future trust bridges (schema ready)
 - `events` - Event log for audit trail
 
 #### Event Queue (Redis/Bull)
