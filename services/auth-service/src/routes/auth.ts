@@ -3,10 +3,50 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { query } from '../database/db';
 import { publishEvent } from '../events/publisher';
+import { JWTPayload } from '../../../packages/shared/middleware/auth';
 
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'dev_jwt_secret_change_in_production';
 const SALT_ROUNDS = 10;
+
+/**
+ * Fetch user's community memberships
+ */
+async function getUserCommunities(userId: string) {
+  const result = await query(
+    `SELECT
+      cm.community_id as id,
+      cm.role,
+      c.name
+     FROM communities.members cm
+     JOIN communities.communities c ON cm.community_id = c.id
+     WHERE cm.user_id = $1 AND cm.status = 'active'
+     ORDER BY cm.joined_at DESC`,
+    [userId]
+  );
+
+  return result.rows.map(row => ({
+    id: row.id,
+    role: row.role,
+    name: row.name,
+  }));
+}
+
+/**
+ * Generate JWT token with community memberships
+ */
+async function generateJWT(userId: string, email: string): Promise<string> {
+  const communities = await getUserCommunities(userId);
+
+  const payload: JWTPayload = {
+    userId,
+    email,
+    communities,
+    currentCommunityId: communities.length > 0 ? communities[0].id : undefined,
+  };
+
+  return jwt.sign(payload, JWT_SECRET, { expiresIn: '7d' });
+}
 
 // POST /auth/register - Register new user
 router.post('/register', async (req: any, res) => {
@@ -58,12 +98,8 @@ router.post('/register', async (req: any, res) => {
     });
     req.logger?.event('user_created', { userId: user.id, email: user.email });
 
-    // Generate JWT token
-    const token = jwt.sign(
-      { userId: user.id, email: user.email },
-      JWT_SECRET,
-      { expiresIn: '7d' }
-    );
+    // Generate JWT token with communities (new user has no communities yet)
+    const token = await generateJWT(user.id, user.email);
 
     timer?.();
     req.logger?.info('User registered successfully', {
@@ -76,7 +112,8 @@ router.post('/register', async (req: any, res) => {
         id: user.id,
         email: user.email,
         name: user.name,
-        createdAt: user.created_at
+        createdAt: user.created_at,
+        communities: [] // New user has no communities
       },
       token
     });
@@ -124,12 +161,11 @@ router.post('/login', async (req: any, res) => {
       return res.status(401).json({ error: 'Invalid email or password' });
     }
 
-    // Generate JWT token
-    const token = jwt.sign(
-      { userId: user.id, email: user.email },
-      JWT_SECRET,
-      { expiresIn: '7d' }
-    );
+    // Fetch user's communities
+    const communities = await getUserCommunities(user.id);
+
+    // Generate JWT token with communities
+    const token = await generateJWT(user.id, user.email);
 
     // Create session
     const expiresAt = new Date();
@@ -143,7 +179,8 @@ router.post('/login', async (req: any, res) => {
     timer?.();
     req.logger?.info('User logged in successfully', {
       userId: user.id,
-      email: user.email
+      email: user.email,
+      communitiesCount: communities.length
     });
 
     res.json({
@@ -151,7 +188,8 @@ router.post('/login', async (req: any, res) => {
         id: user.id,
         email: user.email,
         name: user.name,
-        createdAt: user.created_at
+        createdAt: user.created_at,
+        communities // Include communities in response
       },
       token
     });
@@ -188,7 +226,7 @@ router.get('/verify', async (req, res) => {
       return res.status(401).json({ error: 'No token provided' });
     }
 
-    const decoded: any = jwt.verify(token, JWT_SECRET);
+    const decoded = jwt.verify(token, JWT_SECRET) as JWTPayload;
 
     // Check if session exists
     const session = await query(
@@ -200,13 +238,67 @@ router.get('/verify', async (req, res) => {
       return res.status(401).json({ error: 'Invalid or expired token' });
     }
 
-    res.json({ 
-      valid: true, 
+    // Return full JWT payload including communities
+    res.json({
+      valid: true,
       userId: decoded.userId,
-      email: decoded.email 
+      email: decoded.email,
+      communities: decoded.communities || [],
+      currentCommunityId: decoded.currentCommunityId
     });
   } catch (error) {
     res.status(401).json({ error: 'Invalid token' });
+  }
+});
+
+// POST /auth/refresh - Refresh JWT with updated communities
+router.post('/refresh', async (req: any, res) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+
+    if (!token) {
+      return res.status(401).json({ error: 'No token provided' });
+    }
+
+    const decoded = jwt.verify(token, JWT_SECRET) as JWTPayload;
+
+    // Check if session exists
+    const session = await query(
+      'SELECT * FROM auth.sessions WHERE token = $1 AND expires_at > NOW()',
+      [token]
+    );
+
+    if (session.rows.length === 0) {
+      return res.status(401).json({ error: 'Invalid or expired token' });
+    }
+
+    // Generate new token with fresh community data
+    const newToken = await generateJWT(decoded.userId, decoded.email);
+
+    // Update session
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 7);
+
+    await query(
+      'UPDATE auth.sessions SET token = $1, expires_at = $2 WHERE user_id = $3',
+      [newToken, expiresAt, decoded.userId]
+    );
+
+    // Fetch updated communities
+    const communities = await getUserCommunities(decoded.userId);
+
+    req.logger?.info('Token refreshed', {
+      userId: decoded.userId,
+      communitiesCount: communities.length
+    });
+
+    res.json({
+      token: newToken,
+      communities
+    });
+  } catch (error: any) {
+    req.logger?.error('Token refresh failed', error instanceof Error ? error : new Error(String(error)));
+    res.status(401).json({ error: 'Failed to refresh token' });
   }
 });
 

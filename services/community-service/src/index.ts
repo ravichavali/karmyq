@@ -3,10 +3,18 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import { initDatabase } from './database/db';
 import { initEventPublisher } from './events/publisher';
+import pool from './database/db';
 import communitiesRouter from './routes/communities';
 import membersRouter from './routes/members';
 import normsRouter from './routes/norms';
 import { createLogger, requestLoggingMiddleware } from '../shared/utils/logger';
+import {
+  authMiddleware,
+  optionalAuthMiddleware,
+  tenantMiddleware,
+  optionalTenantMiddleware,
+  dbContextMiddleware,
+} from '../../packages/shared/middleware';
 
 // Load environment variables
 dotenv.config();
@@ -20,7 +28,7 @@ app.use(cors());
 app.use(express.json());
 app.use(requestLoggingMiddleware(logger));
 
-// Health check
+// Health check (no auth required)
 app.get('/health', (req: Request, res: Response) => {
   res.json({
     service: 'community-service',
@@ -29,10 +37,32 @@ app.get('/health', (req: Request, res: Response) => {
   });
 });
 
-// Routes
-app.use('/communities', communitiesRouter);
-app.use('/communities', membersRouter);  // Member routes are nested under /communities/:communityId/members
-app.use('/communities', normsRouter);    // Norms routes are nested under /communities/:communityId/norms
+// Routes with authentication and tenant context
+// All community routes require authentication
+// Tenant context is set based on X-Community-ID header or community_id param
+app.use(
+  '/communities',
+  authMiddleware,                  // 1. Verify JWT token
+  optionalTenantMiddleware,        // 2. Set community context (optional for listing communities)
+  dbContextMiddleware(pool),       // 3. Set PostgreSQL session variables for RLS
+  communitiesRouter
+);
+
+app.use(
+  '/communities',
+  authMiddleware,
+  optionalTenantMiddleware,
+  dbContextMiddleware(pool),
+  membersRouter  // Member routes nested under /communities/:communityId/members
+);
+
+app.use(
+  '/communities',
+  authMiddleware,
+  tenantMiddleware,                // Norms require community context
+  dbContextMiddleware(pool),
+  normsRouter    // Norms routes nested under /communities/:communityId/norms
+);
 
 // 404 handler
 app.use((req: Request, res: Response) => {
