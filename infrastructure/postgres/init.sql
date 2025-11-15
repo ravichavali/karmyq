@@ -401,6 +401,182 @@ CREATE INDEX idx_feed_preferences_user_id ON feed.preferences(user_id);
 CREATE INDEX idx_feed_dismissed_user_id ON feed.dismissed_items(user_id);
 CREATE INDEX idx_feed_dismissed_at ON feed.dismissed_items(dismissed_at);
 
+-- ========================================
+-- ROW-LEVEL SECURITY (RLS) POLICIES
+-- ========================================
+-- Multi-tenant isolation via RLS
+-- Session variables:
+--   - app.current_user_id: Current authenticated user
+--   - app.current_community_id: Current community context
+
+-- Enable RLS on community-scoped tables
+ALTER TABLE communities.communities ENABLE ROW LEVEL SECURITY;
+ALTER TABLE communities.members ENABLE ROW LEVEL SECURITY;
+ALTER TABLE communities.norms ENABLE ROW LEVEL SECURITY;
+ALTER TABLE communities.norm_approvals ENABLE ROW LEVEL SECURITY;
+
+ALTER TABLE requests.help_requests ENABLE ROW LEVEL SECURITY;
+ALTER TABLE requests.help_offers ENABLE ROW LEVEL SECURITY;
+ALTER TABLE requests.matches ENABLE ROW LEVEL SECURITY;
+
+ALTER TABLE reputation.karma_records ENABLE ROW LEVEL SECURITY;
+ALTER TABLE reputation.trust_scores ENABLE ROW LEVEL SECURITY;
+ALTER TABLE reputation.badges ENABLE ROW LEVEL SECURITY;
+
+ALTER TABLE messaging.conversations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE messaging.conversation_participants ENABLE ROW LEVEL SECURITY;
+ALTER TABLE messaging.messages ENABLE ROW LEVEL SECURITY;
+
+ALTER TABLE notifications.notifications ENABLE ROW LEVEL SECURITY;
+ALTER TABLE notifications.preferences ENABLE ROW LEVEL SECURITY;
+
+ALTER TABLE feedback.feedback ENABLE ROW LEVEL SECURITY;
+
+ALTER TABLE governance.proposals ENABLE ROW LEVEL SECURITY;
+ALTER TABLE governance.votes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE governance.conflicts ENABLE ROW LEVEL SECURITY;
+
+ALTER TABLE feed.preferences ENABLE ROW LEVEL SECURITY;
+ALTER TABLE feed.dismissed_items ENABLE ROW LEVEL SECURITY;
+
+-- Community isolation policies
+-- Only show data from communities the user is a member of
+
+CREATE POLICY community_isolation ON communities.communities
+  USING (
+    id IN (
+      SELECT community_id
+      FROM communities.members
+      WHERE user_id = current_setting('app.current_user_id', true)::uuid
+    )
+  );
+
+CREATE POLICY community_isolation ON communities.members
+  USING (
+    community_id IN (
+      SELECT community_id
+      FROM communities.members
+      WHERE user_id = current_setting('app.current_user_id', true)::uuid
+    )
+  );
+
+CREATE POLICY community_isolation ON communities.norms
+  USING (
+    community_id = current_setting('app.current_community_id', true)::uuid
+  );
+
+CREATE POLICY community_isolation ON communities.norm_approvals
+  USING (
+    norm_id IN (
+      SELECT id FROM communities.norms
+      WHERE community_id = current_setting('app.current_community_id', true)::uuid
+    )
+  );
+
+CREATE POLICY community_isolation ON requests.help_requests
+  USING (
+    community_id = current_setting('app.current_community_id', true)::uuid
+  );
+
+CREATE POLICY community_isolation ON requests.help_offers
+  USING (
+    community_id = current_setting('app.current_community_id', true)::uuid
+  );
+
+CREATE POLICY community_isolation ON requests.matches
+  USING (
+    request_id IN (
+      SELECT id FROM requests.help_requests
+      WHERE community_id = current_setting('app.current_community_id', true)::uuid
+    )
+  );
+
+CREATE POLICY community_isolation ON reputation.karma_records
+  USING (
+    community_id = current_setting('app.current_community_id', true)::uuid
+  );
+
+CREATE POLICY community_isolation ON reputation.trust_scores
+  USING (
+    community_id = current_setting('app.current_community_id', true)::uuid
+  );
+
+CREATE POLICY community_isolation ON reputation.badges
+  USING (
+    community_id = current_setting('app.current_community_id', true)::uuid
+  );
+
+CREATE POLICY community_isolation ON messaging.conversations
+  USING (
+    community_id = current_setting('app.current_community_id', true)::uuid
+  );
+
+CREATE POLICY community_isolation ON messaging.conversation_participants
+  USING (
+    conversation_id IN (
+      SELECT id FROM messaging.conversations
+      WHERE community_id = current_setting('app.current_community_id', true)::uuid
+    )
+  );
+
+CREATE POLICY community_isolation ON messaging.messages
+  USING (
+    conversation_id IN (
+      SELECT id FROM messaging.conversations
+      WHERE community_id = current_setting('app.current_community_id', true)::uuid
+    )
+  );
+
+CREATE POLICY community_isolation ON notifications.notifications
+  USING (
+    user_id = current_setting('app.current_user_id', true)::uuid
+    AND (
+      community_id IS NULL
+      OR community_id = current_setting('app.current_community_id', true)::uuid
+    )
+  );
+
+CREATE POLICY community_isolation ON notifications.preferences
+  USING (
+    user_id = current_setting('app.current_user_id', true)::uuid
+  );
+
+CREATE POLICY community_isolation ON feedback.feedback
+  USING (
+    community_id = current_setting('app.current_community_id', true)::uuid
+  );
+
+CREATE POLICY community_isolation ON governance.proposals
+  USING (
+    community_id = current_setting('app.current_community_id', true)::uuid
+  );
+
+CREATE POLICY community_isolation ON governance.votes
+  USING (
+    proposal_id IN (
+      SELECT id FROM governance.proposals
+      WHERE community_id = current_setting('app.current_community_id', true)::uuid
+    )
+  );
+
+CREATE POLICY community_isolation ON governance.conflicts
+  USING (
+    community_id = current_setting('app.current_community_id', true)::uuid
+  );
+
+CREATE POLICY community_isolation ON feed.preferences
+  USING (
+    user_id = current_setting('app.current_user_id', true)::uuid
+  );
+
+CREATE POLICY community_isolation ON feed.dismissed_items
+  USING (
+    user_id = current_setting('app.current_user_id', true)::uuid
+  );
+
+-- Note: auth.users table does NOT have RLS
+-- Users can belong to multiple communities, so user data is shared across communities
+
 -- Create karmyq role if it doesn't exist
 DO $$
 BEGIN
