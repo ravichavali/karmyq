@@ -5,7 +5,9 @@
 [![Tests](https://github.com/ravichavali/karmyq/actions/workflows/test.yml/badge.svg)](https://github.com/ravichavali/karmyq/actions/workflows/test.yml)
 [![E2E Tests](https://github.com/ravichavali/karmyq/actions/workflows/e2e-tests.yml/badge.svg)](https://github.com/ravichavali/karmyq/actions/workflows/e2e-tests.yml)
 
-A trust-based community platform where people help each other without money, building reputation through karma. Communities are limited to 150 members (Dunbar's number) for authentic connections.
+A trust-based mutual aid platform where people help each other without money, building reputation through karma. Communities are limited to 150 members (Dunbar's number) for authentic connections.
+
+**Multi-Tenant SaaS** - Users join communities with one click. No server setup required. Each community owns their data and can export anytime.
 
 ## 🚀 Quick Start
 
@@ -51,10 +53,21 @@ See [Turborepo Guide](docs/development/turborepo.md) for more.
 ## 📚 Documentation
 
 - **[Full Documentation](docs/README.md)** - Complete guide
+- **[Multi-Tenant Guide](docs/MULTI_TENANT_GUIDE.md)** - How multi-tenancy works
 - **[Getting Started](docs/getting-started/)** - Installation and setup
 - **[Architecture](docs/architecture/)** - System design
 - **[Development](docs/development/)** - Contributing guide
 - **[Operations](docs/operations/)** - Deployment and monitoring
+
+### For Developers
+Each service has a `CONTEXT.md` file for context-efficient development:
+- [Auth Service](services/auth-service/CONTEXT.md) - JWT with multi-community support
+- [Community Service](services/community-service/CONTEXT.md) - Community CRUD
+- [Request Service](services/request-service/CONTEXT.md) - Help requests/offers
+- [Reputation Service](services/reputation-service/CONTEXT.md) - Karma & trust scores
+- [Notification Service](services/notification-service/CONTEXT.md) - SSE notifications
+- [Messaging Service](services/messaging-service/CONTEXT.md) - Real-time chat
+- [Feed Service](services/feed-service/CONTEXT.md) - Personalized activity feed
 
 ## 🏗️ Tech Stack
 
@@ -65,13 +78,21 @@ See [Turborepo Guide](docs/development/turborepo.md) for more.
 
 ## ✨ Features
 
+### Core Features
+- **Multi-Community Membership** - Join multiple communities, different reputation in each
 - **Communities** - Create and manage communities (max 150 members, Dunbar's number)
 - **Help System** - Post requests and offers, auto-matched by skills
 - **Karma & Reputation** - Earn karma by helping, build trust scores and badges
 - **Real-time Chat** - Socket.IO messaging between matched users
 - **Notifications** - Server-Sent Events for instant updates
 - **Personalized Feed** - Adaptive feed balancing exploration and exploitation
-- **Federation Protocol** - Distributed instances with local sovereignty
+
+### Platform Features
+- **Multi-Tenant Architecture** - Database-enforced isolation between communities
+- **Low-Friction Onboarding** - Sign up once, join communities instantly
+- **Community Data Sovereignty** - Each community controls and can export their data
+- **Ephemeral Data** - Requests and messages fade like memory (configurable TTL)
+- **Reputation Decay** - Trust scores decay for inactive users (half-life algorithm)
 - **Mobile Apps** - React Native + Expo for iOS and Android
 - **Observability** - Grafana dashboards for logs and metrics
 
