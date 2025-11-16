@@ -2,135 +2,216 @@
 
 Complete documentation for the Karmyq mutual aid platform.
 
-## Quick Links
+**Current Version**: v5.1.0
+**Last Updated**: 2025-01-15
 
-- **[Main README](../README.md)** - Project overview and quick start
-- **[Getting Started](GETTING_STARTED.md)** - Set up and run Karmyq
-- **[Contributing](../CONTRIBUTING.md)** - How to contribute to the project
-- **[Testing & Observability](../TESTING_AND_OBSERVABILITY.md)** - Complete testing and monitoring guide
+## 🚀 Quick Start
 
-## Documentation Structure
+- **[Getting Started](GETTING_STARTED.md)** - Set up and run Karmyq locally
+- **[Project Status](PROJECT_STATUS.md)** - Current features, roadmap, and statistics
+- **[Main README](../README.md)** - Project overview
+- **[Contributing](../CONTRIBUTING.md)** - How to contribute
 
-### 🏗️ Architecture
+## 📚 Core Guides
+
+### Multi-Tenant Architecture (v4.0.0+)
+- **[Multi-Tenant Guide](MULTI_TENANT_GUIDE.md)** - Complete guide to multi-tenant SaaS architecture
+  - Row-Level Security (RLS)
+  - Multi-community JWT
+  - Middleware chain
+  - Developer workflows
+
+### Ephemeral Data & Reputation Decay (v5.1.0+)
+- **[Phase 3 Guide](PHASE3_EPHEMERAL_DATA_DECAY.md)** - Ephemeral data and reputation decay
+  - TTL configuration
+  - Reputation decay formula
+  - Activity tracking
+  - Cleanup jobs
+
+### Platform-Specific
+- **[Docker Setup](DOCKER_SETUP.md)** - Docker configuration and troubleshooting
+- **[Cross-Platform Guide](CROSS_PLATFORM_GUIDE.md)** - Development on different platforms
+- **[Mobile Development](MOBILE_DEVELOPMENT.md)** - React Native + Expo guide
+- **[Self-Hosting Guide](SELF_HOSTING_GUIDE.md)** - Deploy your own instance
+
+## 🏗️ Architecture
+
 - **[Overview](architecture/overview.md)** - High-level system architecture
 - **[Service Architecture](architecture/review.md)** - Microservices design and communication
+- **[Proposed Structure](architecture/proposed-structure.md)** - Architecture proposals
 
-### 💻 Development
+## 💻 Development
+
 - **[Creating a Service](development/creating-a-service.md)** - Step-by-step guide to create new services
 - **[Implementing Logging](development/implementing-logging.md)** - Add structured logging to services
 - **[Testing Guide](development/testing-guide.md)** - Comprehensive testing strategy
 - **[Development Workflow](development/workflow.md)** - Git workflow and best practices
+- **[Turborepo](development/turborepo.md)** - Monorepo tooling guide
 
-### 🔧 Operations
+## 🔧 Operations
+
 - **[Logging & Monitoring](operations/logging-and-monitoring.md)** - Complete observability guide
 - **[Log Levels](operations/log-levels.md)** - Configure log verbosity
 - **[CI/CD Pipeline](operations/ci-cd.md)** - Continuous integration and deployment
 
-### 📱 Platform-Specific Guides
-- **[Windows Setup](START_WINDOWS.md)** - Running Karmyq on Windows
-- **[Cross-Platform Guide](CROSS_PLATFORM_GUIDE.md)** - Development on different platforms
-- **[Docker Setup](DOCKER_SETUP.md)** - Docker configuration and troubleshooting
+## 🧪 Testing
 
-## Common Tasks
-
-### First Time Setup
-1. Read [Getting Started](GETTING_STARTED.md)
-2. Follow platform-specific guide ([Windows](START_WINDOWS.md) or [Cross-Platform](CROSS_PLATFORM_GUIDE.md))
-3. Run `bash scripts/dev/start.sh`
-
-### Development
-1. Review [Development Workflow](development/workflow.md)
-2. Create a feature branch
-3. Make changes with [structured logging](development/implementing-logging.md)
-4. Write tests ([Testing Guide](development/testing-guide.md))
-5. Submit PR
-
-### Creating a New Service
-1. Follow [Creating a Service](development/creating-a-service.md)
-2. Implement [structured logging](development/implementing-logging.md) from day one
-3. Write tests for your service
-4. Update documentation
-
-### Debugging Issues
-1. Check logs in [Grafana](http://localhost:3007)
-2. Review [Logging & Monitoring](operations/logging-and-monitoring.md)
-3. Adjust [log levels](operations/log-levels.md) for more detail
-4. Use E2E tests to reproduce issues
-
-## Service-Specific Documentation
-
-Each service has its own README with:
-- API endpoints
-- Database schema
-- Environment variables
-- Related services
-
-### Services
-- [Auth Service](../services/auth-service/README.md) | [Context](../services/auth-service/CONTEXT.md)
-- [Community Service](../services/community-service/README.md) | [Context](../services/community-service/CONTEXT.md)
-- [Request Service](../services/request-service/README.md) | [Context](../services/request-service/CONTEXT.md)
-- [Reputation Service](../services/reputation-service/README.md) | [Context](../services/reputation-service/CONTEXT.md)
-- [Notification Service](../services/notification-service/README.md) | [Context](../services/notification-service/CONTEXT.md)
-- [Messaging Service](../services/messaging-service/README.md) | [Context](../services/messaging-service/CONTEXT.md)
-- [Feed Service](../services/feed-service/README.md) | [Context](../services/feed-service/CONTEXT.md)
-
-## Testing
-
+- **[Integration Tests](../tests/README.md)** - Multi-tenant integration test suite
 - **[E2E Tests](../tests/e2e/README.md)** - Playwright end-to-end tests
 - **[Testing Guide](development/testing-guide.md)** - Complete testing strategy
 - **[Testing & Observability](../TESTING_AND_OBSERVABILITY.md)** - Overview
 
-## Project Status (v4.0.0)
+## 📦 Service Documentation
 
-- ✅ Microservices Architecture (7 services)
-- ✅ Frontend (Next.js)
-- ✅ Mobile App (React Native + Expo)
-- ✅ Database (PostgreSQL with 9 schemas)
-- ✅ Event Queue (Redis/Bull)
-- ✅ Real-time Messaging (Socket.IO)
-- ✅ Notifications (SSE)
-- ✅ Personalized Feed Service
-- ✅ Federation Protocol (designed)
-- ✅ Observability Stack (Grafana/Loki/Prometheus)
-- ✅ Structured Logging
-- ✅ E2E Testing Framework
-- ✅ CI/CD Pipeline (GitHub Actions)
-- ✅ Service CONTEXT.md docs (for context-efficient development)
+Each service has comprehensive CONTEXT.md and README.md files:
 
-## Contributing
+### Backend Services (8 Total)
+1. **[Auth Service](../services/auth-service/CONTEXT.md)** (Port 3001) - Authentication & JWT
+2. **[Community Service](../services/community-service/CONTEXT.md)** (Port 3002) - Communities & members
+3. **[Request Service](../services/request-service/CONTEXT.md)** (Port 3003) - Help requests & offers
+4. **[Reputation Service](../services/reputation-service/CONTEXT.md)** (Port 3004) - Karma & trust scores
+5. **[Notification Service](../services/notification-service/CONTEXT.md)** (Port 3005) - Real-time notifications
+6. **[Messaging Service](../services/messaging-service/CONTEXT.md)** (Port 3006) - Chat & conversations
+7. **[Feed Service](../services/feed-service/CONTEXT.md)** (Port 3007) - Personalized activity feed
+8. **[Cleanup Service](../services/cleanup-service/CONTEXT.md)** (Port 3008) - Data expiration & decay
 
-See [CONTRIBUTING.md](../CONTRIBUTING.md) for:
-- Code of conduct
-- Development workflow
-- Pull request process
-- Coding standards
+### Frontend Applications
+- **[Web Frontend](../apps/frontend/README.md)** (Port 3000) - Next.js web app
+- **[Mobile App](../apps/mobile/README.md)** - React Native + Expo
 
-## Getting Help
+## 🗂️ Documentation Organization
+
+```
+docs/
+├── README.md (this file)
+├── PROJECT_STATUS.md          # Current status & roadmap
+├── GETTING_STARTED.md         # Quick start guide
+├── MULTI_TENANT_GUIDE.md      # Multi-tenant architecture
+├── PHASE3_EPHEMERAL_DATA_DECAY.md  # Ephemeral data guide
+├── DOCKER_SETUP.md            # Docker guide
+├── SELF_HOSTING_GUIDE.md      # Self-hosting guide
+├── MOBILE_DEVELOPMENT.md      # Mobile dev guide
+├── CROSS_PLATFORM_GUIDE.md    # Cross-platform guide
+├── architecture/              # Architecture docs
+│   ├── overview.md
+│   ├── review.md
+│   └── proposed-structure.md
+├── development/               # Development guides
+│   ├── creating-a-service.md
+│   ├── implementing-logging.md
+│   ├── testing-guide.md
+│   ├── workflow.md
+│   └── turborepo.md
+├── operations/                # Operations guides
+│   ├── logging-and-monitoring.md
+│   ├── log-levels.md
+│   └── ci-cd.md
+└── archive/                   # Archived/outdated docs
+    ├── README.md
+    ├── FEDERATION_PROTOCOL.md (archived - replaced by multi-tenant)
+    └── ...
+```
+
+## 🎯 Common Tasks
+
+### First Time Setup
+1. Read [Getting Started](GETTING_STARTED.md)
+2. Follow [Docker Setup](DOCKER_SETUP.md) for your platform
+3. Run `bash scripts/dev/start.sh` (or `npm run dev`)
+4. Access app at http://localhost:3000
+
+### Development Workflow
+1. Review [Development Workflow](development/workflow.md)
+2. Create a feature branch
+3. Make changes with [structured logging](development/implementing-logging.md)
+4. Write [tests](development/testing-guide.md)
+5. Submit PR
+
+### Creating a New Service
+1. Follow [Creating a Service](development/creating-a-service.md)
+2. Implement multi-tenant middleware (see [Multi-Tenant Guide](MULTI_TENANT_GUIDE.md))
+3. Add [structured logging](development/implementing-logging.md)
+4. Write tests
+5. Create CONTEXT.md and README.md
+
+### Debugging Issues
+1. Check logs in Grafana: http://localhost:3007
+2. Review [Logging & Monitoring](operations/logging-and-monitoring.md)
+3. Adjust [log levels](operations/log-levels.md) for more detail
+4. Use integration tests to reproduce issues
+5. Check service CONTEXT.md for common issues
+
+### Running Tests
+```bash
+# Integration tests
+cd tests && npm run test:integration
+
+# Specific test suite
+npm run test:auth        # Authentication tests
+npm run test:tenant      # Tenant isolation tests
+npm run test:rls         # RLS policy tests
+npm run test:flows       # Multi-community flows
+
+# E2E tests
+cd tests/e2e && npm run test
+```
+
+## 📊 Current Status (v5.1.0)
+
+- ✅ **8 Backend Services** - All production-ready with multi-tenant support
+- ✅ **Multi-Tenant SaaS** - Row-Level Security, community isolation
+- ✅ **Ephemeral Data** - Configurable TTL (60 days default)
+- ✅ **Reputation Decay** - Time-based karma decay (6-month half-life)
+- ✅ **Cleanup Service** - 5 automated jobs for data management
+- ✅ **Frontend** - Next.js web app
+- ✅ **Mobile App** - React Native + Expo (structure complete)
+- ✅ **Database** - PostgreSQL with 9 schemas, 19 RLS-protected tables
+- ✅ **Observability** - Grafana/Loki/Prometheus stack
+- ✅ **Testing** - Integration tests + E2E tests
+- ✅ **CI/CD** - GitHub Actions pipeline
+
+See [PROJECT_STATUS.md](PROJECT_STATUS.md) for detailed status and roadmap.
+
+## 🚧 Known Issues
+
+- **Feed Service**: Schema mismatches in feedComposer.ts (see PROJECT_STATUS.md)
+- **Mobile App**: Not tested on simulators (needs `npm install`)
+
+## 🔮 Next Steps (v5.2+)
+
+1. **Data Export API** - Community data export (JSON/CSV)
+2. **Admin UI** - Community settings management
+3. **Fix Feed Service** - Update schema references
+4. **Test Mobile App** - Run on iOS/Android simulators
+
+See [PROJECT_STATUS.md](PROJECT_STATUS.md) for complete roadmap.
+
+## 🗃️ Archived Documentation
+
+Outdated documentation has been moved to `archive/`:
+- Federation docs (replaced by multi-tenant SaaS)
+- Old setup guides (superseded by current docs)
+- Historical planning documents
+
+See [archive/README.md](archive/README.md) for details.
+
+## 💡 Getting Help
 
 - **Documentation Issues**: Open an issue on GitHub
-- **Questions**: Check existing documentation first
+- **Questions**: Check CONTEXT.md files and this documentation first
 - **Bugs**: Include logs from Grafana and steps to reproduce
-- **Feature Requests**: Describe the use case and benefit
+- **Feature Requests**: Describe the use case and benefit to the community
 
-## External Resources
+## 📖 External Resources
 
-- [Playwright Docs](https://playwright.dev)
-- [Next.js Docs](https://nextjs.org/docs)
-- [PostgreSQL Docs](https://www.postgresql.org/docs/)
-- [Grafana Docs](https://grafana.com/docs/)
-- [Docker Docs](https://docs.docker.com/)
-
-## Federation & Distribution
-
-- **[Federation Protocol](FEDERATION_PROTOCOL.md)** - Complete federation specification
-- **[Federation Implementation](FEDERATION_IMPLEMENTATION.md)** - Implementation guide
-- **[Self-Hosting Guide](SELF_HOSTING_GUIDE.md)** - Deploy your own instance
-
-## Mobile Development
-
-- **[Mobile Development Guide](MOBILE_DEVELOPMENT.md)** - React Native + Expo setup
-- **[Mobile App README](../apps/mobile/README.md)** - Mobile app documentation
+- [PostgreSQL Docs](https://www.postgresql.org/docs/) - Database
+- [Next.js Docs](https://nextjs.org/docs) - Web frontend
+- [React Native Docs](https://reactnative.dev/) - Mobile app
+- [Expo Docs](https://docs.expo.dev/) - Mobile platform
+- [Grafana Docs](https://grafana.com/docs/) - Observability
+- [Docker Docs](https://docs.docker.com/) - Containerization
+- [Playwright Docs](https://playwright.dev) - E2E testing
 
 ---
 
-**Last Updated**: 2025-01-10 (v4.0.0)
+**For the latest updates, see [PROJECT_STATUS.md](PROJECT_STATUS.md)**
