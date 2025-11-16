@@ -1,4 +1,5 @@
 import { query } from '../database/db';
+import { recordActivity, ActivityType } from '../utils/activityTracker';
 
 interface MatchCompletionData {
   match_id: string;
@@ -101,6 +102,10 @@ export async function awardKarmaForCompletedMatch(data: MatchCompletionData) {
   // Update trust scores for both users
   await updateTrustScore(responder_id, community_id);
   await updateTrustScore(requester_id, community_id);
+
+  // Track activity for reputation decay (resets last_activity_at)
+  await recordActivity(responder_id, community_id, ActivityType.COMPLETE_REQUEST, match_id);
+  await recordActivity(requester_id, community_id, ActivityType.COMPLETE_OFFER, match_id);
 
   console.log(`Karma awarded: ${helperKarma}pts to helper, ${requesterKarma}pts to requester`);
 }

@@ -104,7 +104,7 @@ async function shouldSendNotification(
 export async function getUserNotifications(user_id: string, limit: number = 50, offset: number = 0) {
   const result = await query(
     `SELECT * FROM notifications.notifications
-     WHERE user_id = $1
+     WHERE user_id = $1 AND expired = FALSE
      ORDER BY created_at DESC
      LIMIT $2 OFFSET $3`,
     [user_id, limit, offset]
@@ -118,7 +118,7 @@ export async function getUnreadCount(user_id: string) {
   const result = await query(
     `SELECT COUNT(*) as count
      FROM notifications.notifications
-     WHERE user_id = $1 AND read = FALSE`,
+     WHERE user_id = $1 AND read = FALSE AND expired = FALSE`,
     [user_id]
   );
 

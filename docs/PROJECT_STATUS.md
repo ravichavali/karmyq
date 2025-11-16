@@ -1,12 +1,22 @@
-# Karmyq Project Status (v5.0.0)
+# Karmyq Project Status (v5.1.0)
 
 **Last Updated**: 2025-01-15
-**Current Version**: v5.0.0
-**Status**: Production-Ready Multi-Tenant Platform with Comprehensive Test Suite
+**Current Version**: v5.1.0
+**Status**: Production-Ready Multi-Tenant Platform with Ephemeral Data & Reputation Decay
 
 ## 🎉 Major Milestones Achieved
 
-### v5.0.0 - Comprehensive Test Suite (Current)
+### v5.1.0 - Ephemeral Data & Reputation Decay (Current)
+- ✅ Ephemeral data with configurable TTL (60 days default)
+- ✅ Database migration for expires_at columns and community settings
+- ✅ Cleanup Service (Port 3008) with 5 scheduled jobs
+- ✅ Reputation decay with 6-month half-life (configurable)
+- ✅ Activity tracking system for decay reset
+- ✅ Automated soft delete → hard delete workflow (7-day grace)
+- ✅ Service APIs updated to filter expired data
+- ✅ Activity tracking integrated with reputation service
+
+### v5.0.0 - Comprehensive Test Suite
 - ✅ Complete integration test suite for multi-tenant architecture
 - ✅ Authentication & JWT multi-community tests
 - ✅ Tenant isolation verification tests
@@ -34,7 +44,7 @@
 - ✅ Grafana/Loki/Prometheus stack
 
 ### v3.0 - Core Services
-- ✅ 7 microservices fully implemented
+- ✅ 8 microservices fully implemented
 - ✅ Event-driven architecture
 - ✅ Real-time features (SSE, WebSocket)
 
@@ -45,7 +55,7 @@
 
 ## ✅ What's Completed
 
-### 1. Backend Services (7 Total)
+### 1. Backend Services (8 Total)
 
 #### Auth Service (Port 3001)
 **Status**: ✅ Complete with Multi-Tenant Support
@@ -107,6 +117,21 @@
 - Adjacent community discovery
 
 **Note**: Feed service currently returns empty feed due to schema mismatch (TODO in feedComposer.ts)
+
+#### Cleanup Service (Port 3008)
+**Status**: ✅ Complete
+- **Ephemeral Data Management** - TTL-based expiration
+- **Reputation Decay** - Time-based karma decay (6-month half-life)
+- **Activity Tracking** - User activity logging for decay reset
+- **Scheduled Jobs** - 5 automated cron jobs:
+  - Mark expired data (hourly)
+  - Hard delete expired data (daily 2 AM)
+  - Update reputation decay (daily 3 AM)
+  - Cleanup activity logs (weekly Sunday 4 AM)
+  - Generate decay reports (weekly Monday 9 AM)
+- **Manual triggers** - REST API for admin/testing
+- **Configurable TTL** - Per-community settings (default 60 days)
+- **7-day grace period** - Soft delete before permanent removal
 
 ### 2. Frontend Applications
 
@@ -261,18 +286,20 @@ cd tests && npm install && npm test
 - ✅ docs/operations/logging-and-monitoring.md
 - ✅ docs/operations/ci-cd.md
 
-## 📊 Project Statistics (v5.0.0)
+## 📊 Project Statistics (v5.1.0)
 
-- **Total Services**: 7 backend microservices
+- **Total Services**: 8 backend microservices
 - **Total Apps**: 2 (web frontend + mobile)
 - **Database Schemas**: 9 (all production-ready with RLS)
 - **RLS-Protected Tables**: 19 (multi-tenant isolation)
-- **API Endpoints**: 80+ across all services
+- **Database Functions**: 2 (expiration calc, decay calc)
+- **Scheduled Jobs**: 5 (cleanup service)
+- **API Endpoints**: 85+ across all services
 - **Frontend Pages**: 10+ (web), 8+ (mobile)
 - **Integration Tests**: 4 comprehensive test suites
 - **Test Coverage**: Authentication, tenant isolation, RLS, user flows
-- **Lines of Code**: ~25,000+
-- **Documentation Files**: 35+
+- **Lines of Code**: ~27,000+
+- **Documentation Files**: 38+
 - **Setup Time**: < 5 minutes
 - **Build Time**: ~3 minutes
 
@@ -321,14 +348,14 @@ You can:
 - **Note**: Matching logic currently in request-service
 - **Decision**: May not need separate service
 
-## 🚀 Next Steps (v5.1+)
+## 🚀 Next Steps (v5.2+)
 
-### Phase 3: Ephemeral Data & Reputation Decay (Next)
-1. **Ephemeral Data (TTL)** - Add `expires_at` columns to requests and messages
-2. **Cleanup Job** - Scheduled job to delete expired data
-3. **Activity Tracking** - Add `last_activity_at` to trust_scores
-4. **Reputation Decay** - Half-life algorithm for inactive users
-5. **Data Export API** - Community data export functionality
+### Phase 4: Data Export & Admin UI (Next)
+1. **Data Export API** - Community data export functionality (JSON/CSV)
+2. **Admin UI** - Community settings management interface
+3. **TTL Configuration** - UI for per-community TTL settings
+4. **Decay Configuration** - UI for reputation decay parameters
+5. **Activity Type Selection** - UI for configuring tracked activities
 
 ### Immediate Priorities
 1. **Fix Feed Service Schema** - Update feedComposer.ts to use correct table/column names

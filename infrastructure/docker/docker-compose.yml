@@ -228,6 +228,28 @@ services:
       - karmyq-network
     command: npm run dev
 
+  # Cleanup Service
+  cleanup-service:
+    build:
+      context: ../../services/cleanup-service
+      dockerfile: Dockerfile
+    container_name: karmyq-cleanup-service
+    environment:
+      NODE_ENV: development
+      PORT: 3008
+      DATABASE_URL: postgresql://karmyq_user:karmyq_password_dev@postgres:5432/karmyq_db
+      LOG_LEVEL: info
+    ports:
+      - "3008:3008"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ../../services/cleanup-service/src:/app/src
+    networks:
+      - karmyq-network
+    command: npm run dev
+
   # Frontend
   frontend:
     build:

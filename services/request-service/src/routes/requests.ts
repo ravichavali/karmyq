@@ -18,7 +18,7 @@ router.get('/', async (req: Request, res: Response) => {
       FROM requests.help_requests r
       LEFT JOIN auth.users u ON r.requester_id = u.id
       LEFT JOIN communities.communities c ON r.community_id = c.id
-      WHERE r.status = $1
+      WHERE r.status = $1 AND r.expired = FALSE
     `;
 
     const params: any[] = [status];
@@ -87,6 +87,7 @@ router.get('/matched/for-user', async (req: Request, res: Response) => {
       -- Only from communities the user is a member of
       INNER JOIN communities.members m ON r.community_id = m.community_id
       WHERE r.status = 'open'
+        AND r.expired = FALSE
         AND m.user_id = $1
         AND m.status = 'active'
         AND r.requester_id != $1
@@ -144,7 +145,7 @@ router.get('/:id', async (req: Request, res: Response) => {
       FROM requests.help_requests r
       LEFT JOIN auth.users u ON r.requester_id = u.id
       LEFT JOIN communities.communities c ON r.community_id = c.id
-      WHERE r.id = $1`,
+      WHERE r.id = $1 AND r.expired = FALSE`,
       [id]
     );
 
