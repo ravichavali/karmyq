@@ -88,6 +88,7 @@ services:
       PORT: 3002
       DATABASE_URL: postgresql://karmyq_user:karmyq_password_dev@postgres:5432/karmyq_db
       REDIS_URL: redis://redis:6379
+      JWT_SECRET: dev_jwt_secret_change_in_production
     ports:
       - "3002:3002"
     depends_on:
@@ -113,6 +114,7 @@ services:
       PORT: 3003
       DATABASE_URL: postgresql://karmyq_user:karmyq_password_dev@postgres:5432/karmyq_db
       REDIS_URL: redis://redis:6379
+      JWT_SECRET: dev_jwt_secret_change_in_production
     ports:
       - "3003:3003"
     depends_on:
@@ -138,6 +140,7 @@ services:
       PORT: 3004
       DATABASE_URL: postgresql://karmyq_user:karmyq_password_dev@postgres:5432/karmyq_db
       REDIS_URL: redis://redis:6379
+      JWT_SECRET: dev_jwt_secret_change_in_production
     ports:
       - "3004:3004"
     depends_on:
@@ -163,6 +166,7 @@ services:
       PORT: 3005
       DATABASE_URL: postgresql://karmyq_user:karmyq_password_dev@postgres:5432/karmyq_db
       REDIS_URL: redis://redis:6379
+      JWT_SECRET: dev_jwt_secret_change_in_production
     ports:
       - "3005:3005"
     depends_on:
@@ -187,6 +191,7 @@ services:
       NODE_ENV: development
       PORT: 3006
       DATABASE_URL: postgresql://karmyq_user:karmyq_password_dev@postgres:5432/karmyq_db
+      JWT_SECRET: dev_jwt_secret_change_in_production
     ports:
       - "3006:3006"
     depends_on:
@@ -210,6 +215,7 @@ services:
       PORT: 3007
       DATABASE_URL: postgresql://karmyq_user:karmyq_password_dev@postgres:5432/karmyq_db
       REDIS_URL: redis://redis:6379
+      JWT_SECRET: dev_jwt_secret_change_in_production
       COMMUNITY_API_URL: http://community-service:3002
       REQUEST_API_URL: http://request-service:3003
       REPUTATION_API_URL: http://reputation-service:3004
