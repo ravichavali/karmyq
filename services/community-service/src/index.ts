@@ -14,7 +14,7 @@ import {
   tenantMiddleware,
   optionalTenantMiddleware,
   dbContextMiddleware,
-} from '../../packages/shared/middleware';
+} from '../shared/middleware';
 
 // Load environment variables
 dotenv.config();

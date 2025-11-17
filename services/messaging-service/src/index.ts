@@ -11,7 +11,7 @@ import {
   authMiddleware,
   tenantMiddleware,
   dbContextMiddleware,
-} from '../../packages/shared/middleware';
+} from '../shared/middleware';
 
 dotenv.config();
 

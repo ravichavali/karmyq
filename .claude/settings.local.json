@@ -21,7 +21,16 @@
       "Bash(bash scripts/setup-logging.sh:*)",
       "Bash(bash scripts/dev/start.sh:*)",
       "Bash(timeout 10 docker-compose logs:*)",
-      "Bash(docker-compose:*)"
+      "Bash(docker-compose:*)",
+      "Bash(git commit -m \"$(cat <<''EOF''\ndocs: reorganize and archive outdated documentation\n\n## Documentation Cleanup\n- Moved 8 outdated documents to docs/archive/\n- Created archive/README.md explaining archival reasons\n- Completely rewrote docs/README.md for v5.1.0\n\n## Archived Documents\n\n### Federation Protocol (Replaced by Multi-Tenant SaaS)\n- FEDERATION_PROTOCOL.md\n- FEDERATION_IMPLEMENTATION.md\n- Project pivoted to multi-tenant SaaS architecture in v4.0.0\n- Federation may be revisited in future phases\n\n### Outdated Setup Guides (Superseded by Current Docs)\n- START_WINDOWS.md → Replaced by GETTING_STARTED.md\n- GITHUB_SETUP.md → Covered in CONTRIBUTING.md\n- PUSH_TO_GITHUB.md → Covered in development/workflow.md\n- RUN_TESTS.md → Replaced by development/testing-guide.md\n- NEXT_STEPS.md → Replaced by PROJECT_STATUS.md roadmap\n- FINAL_SUMMARY.md → Historical summary, superseded by current docs\n\n## New Documentation Structure\n\n### docs/README.md\n- Updated to v5.1.0\n- Clean organization by category (Guides, Architecture, Development, Operations, Testing)\n- All 8 backend services listed (including Cleanup Service)\n- Documentation tree diagram for easy navigation\n- Current status, known issues, and roadmap\n- Archive section pointing to historical docs\n\n### docs/archive/README.md\n- Explains why each document was archived\n- Points to current replacement documentation\n- Preserves context for historical reference\n\n## Benefits\n- Clear, organized documentation structure\n- No confusion from outdated federation docs\n- Single source of truth for each topic\n- Historical docs preserved with git history\n- Easy onboarding for new developers\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(find:*)",
+      "Bash(for img in karmyq-reputation-service karmyq-notification-service karmyq-messaging-service karmyq-feed-service)",
+      "Bash(do docker rmi $img)",
+      "Bash(done)",
+      "Bash(docker rmi:*)",
+      "Bash(docker rm:*)"
     ],
     "deny": [],
     "ask": []

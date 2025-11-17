@@ -9,7 +9,7 @@ import {
   authMiddleware,
   optionalTenantMiddleware,
   dbContextMiddleware,
-} from '../../packages/shared/middleware';
+} from '../shared/middleware';
 
 dotenv.config();
 

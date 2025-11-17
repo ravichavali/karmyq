@@ -1,5 +1,7 @@
 import { query } from '../database/db';
-import { logger } from './logger';
+import { createLogger } from '../../shared/utils/logger';
+
+const logger = createLogger('reputation-service');
 
 /**
  * Record user activity for reputation decay tracking
@@ -53,7 +55,7 @@ export async function recordActivity(
 
     logger.info('Activity recorded', { userId, communityId, activityType, relatedEntityId });
   } catch (error) {
-    logger.error('Error recording activity', { error, userId, communityId, activityType });
+    logger.error('Error recording activity', error as Error, { userId, communityId, activityType });
     // Don't throw - activity logging shouldn't break the main flow
   }
 }

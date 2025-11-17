@@ -3,7 +3,7 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { query } from '../database/db';
 import { publishEvent } from '../events/publisher';
-import { JWTPayload } from '../../../packages/shared/middleware/auth';
+import { JWTPayload } from '../../shared/middleware/auth';
 
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'dev_jwt_secret_change_in_production';

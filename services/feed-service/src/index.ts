@@ -1,15 +1,14 @@
 import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import { initDatabase } from './database/db';
-import pool from './database/db';
+import { initDatabase, getPool } from './database/db';
 import feedRouter from './routes/feed';
 import { createLogger, requestLoggingMiddleware } from '../shared/utils/logger';
 import {
   authMiddleware,
   optionalTenantMiddleware,
   dbContextMiddleware,
-} from '../../packages/shared/middleware';
+} from '../shared/middleware';
 
 // Load environment variables
 dotenv.config();
@@ -32,38 +31,6 @@ app.get('/health', (req: Request, res: Response) => {
   });
 });
 
-// Routes with authentication (feed can aggregate across communities)
-app.use(
-  '/feed',
-  authMiddleware,
-  optionalTenantMiddleware,  // Feed can show cross-community content
-  dbContextMiddleware(pool),
-  feedRouter
-);
-
-// 404 handler
-app.use((req: Request, res: Response) => {
-  res.status(404).json({
-    success: false,
-    message: 'Route not found',
-    path: req.path,
-  });
-});
-
-// Error handling middleware
-app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
-  (req as any).logger?.error('Unhandled error', err instanceof Error ? err : new Error(String(err)), {
-    method: req.method,
-    path: req.path,
-    body: req.body
-  });
-  res.status(500).json({
-    success: false,
-    message: 'Internal server error',
-    error: process.env.NODE_ENV === 'development' ? err.message : undefined,
-  });
-});
-
 // Start server
 async function start() {
   try {
@@ -71,6 +38,39 @@ async function start() {
     await initDatabase();
     dbTimer();
     logger.info('Database connected successfully');
+
+    // Routes with authentication (feed can aggregate across communities)
+    // Set up after database is initialized
+    app.use(
+      '/feed',
+      authMiddleware,
+      optionalTenantMiddleware,  // Feed can show cross-community content
+      dbContextMiddleware(getPool()),
+      feedRouter
+    );
+
+    // 404 handler
+    app.use((req: Request, res: Response) => {
+      res.status(404).json({
+        success: false,
+        message: 'Route not found',
+        path: req.path,
+      });
+    });
+
+    // Error handling middleware
+    app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
+      (req as any).logger?.error('Unhandled error', err instanceof Error ? err : new Error(String(err)), {
+        method: req.method,
+        path: req.path,
+        body: req.body
+      });
+      res.status(500).json({
+        success: false,
+        message: 'Internal server error',
+        error: process.env.NODE_ENV === 'development' ? err.message : undefined,
+      });
+    });
 
     app.listen(PORT, () => {
       logger.info('Service started', {
