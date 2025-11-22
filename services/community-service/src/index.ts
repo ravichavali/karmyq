@@ -14,6 +14,8 @@ import {
   tenantMiddleware,
   optionalTenantMiddleware,
   dbContextMiddleware,
+  globalRateLimiter,
+  rateLimiters,
 } from '../shared/middleware';
 
 // Load environment variables
@@ -27,9 +29,10 @@ const logger = createLogger('community-service');
 app.use(cors());
 app.use(express.json());
 app.use(requestLoggingMiddleware(logger));
+app.use(globalRateLimiter);
 
 // Health check (no auth required)
-app.get('/health', (req: Request, res: Response) => {
+app.get('/health', (_req: Request, res: Response) => {
   res.json({
     service: 'community-service',
     status: 'healthy',
@@ -42,6 +45,7 @@ app.get('/health', (req: Request, res: Response) => {
 // Tenant context is set based on X-Community-ID header or community_id param
 app.use(
   '/communities',
+  rateLimiters.standard,           // Rate limit
   authMiddleware,                  // 1. Verify JWT token
   optionalTenantMiddleware,        // 2. Set community context (optional for listing communities)
   dbContextMiddleware(pool),       // 3. Set PostgreSQL session variables for RLS

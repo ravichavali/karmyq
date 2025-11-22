@@ -9,6 +9,8 @@ import {
   authMiddleware,
   optionalTenantMiddleware,
   dbContextMiddleware,
+  globalRateLimiter,
+  rateLimiters,
 } from '../shared/middleware';
 
 dotenv.config();
@@ -21,15 +23,17 @@ const logger = createLogger('notification-service');
 app.use(cors());
 app.use(express.json());
 app.use(requestLoggingMiddleware(logger));
+app.use(globalRateLimiter);
 
 // Health check (no auth required)
-app.get('/health', (req, res) => {
+app.get('/health', (_req, res) => {
   res.json({ status: 'ok', service: 'notification-service' });
 });
 
 // Routes with authentication (notifications can be cross-community)
 app.use(
   '/notifications',
+  rateLimiters.relaxed,  // Higher limit for notifications (polling/SSE)
   authMiddleware,
   optionalTenantMiddleware,  // Notifications can span multiple communities
   dbContextMiddleware(pool),

@@ -6,6 +6,7 @@ import userRoutes from './routes/users';
 import { initDatabase } from './database/db';
 import { initEventPublisher } from './events/publisher';
 import { createLogger, requestLoggingMiddleware } from '../shared/utils/logger';
+import { globalRateLimiter, rateLimiters } from '../shared/middleware';
 
 dotenv.config();
 
@@ -18,14 +19,17 @@ app.use(cors());
 app.use(express.json());
 app.use(requestLoggingMiddleware(logger));
 
-// Health check
+// Global rate limiting
+app.use(globalRateLimiter);
+
+// Health check (no rate limit)
 app.get('/health', (req, res) => {
   res.json({ status: 'healthy', service: 'auth-service' });
 });
 
-// Routes
-app.use('/auth', authRoutes);
-app.use('/users', userRoutes);
+// Routes with specific rate limits
+app.use('/auth', rateLimiters.auth, authRoutes); // Stricter limit for auth
+app.use('/users', rateLimiters.standard, userRoutes);
 
 // Error handling
 app.use((err: any, req: any, res: express.Response, next: express.NextFunction) => {

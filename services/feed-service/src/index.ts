@@ -8,6 +8,8 @@ import {
   authMiddleware,
   optionalTenantMiddleware,
   dbContextMiddleware,
+  globalRateLimiter,
+  rateLimiters,
 } from '../shared/middleware';
 
 // Load environment variables
@@ -21,9 +23,10 @@ const logger = createLogger('feed-service');
 app.use(cors());
 app.use(express.json());
 app.use(requestLoggingMiddleware(logger));
+app.use(globalRateLimiter);
 
 // Health check (no auth required)
-app.get('/health', (req: Request, res: Response) => {
+app.get('/health', (_req: Request, res: Response) => {
   res.json({
     service: 'feed-service',
     status: 'healthy',
@@ -43,6 +46,7 @@ async function start() {
     // Set up after database is initialized
     app.use(
       '/feed',
+      rateLimiters.relaxed,  // Higher limit for feed reads
       authMiddleware,
       optionalTenantMiddleware,  // Feed can show cross-community content
       dbContextMiddleware(getPool()),

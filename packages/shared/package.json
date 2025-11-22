@@ -7,5 +7,12 @@
   "scripts": {
     "lint": "echo 'No linting configured yet'",
     "test": "echo 'No tests configured yet'"
+  },
+  "dependencies": {
+    "express-rate-limit": "^7.1.5",
+    "zod": "^3.22.4"
+  },
+  "peerDependencies": {
+    "express": "^4.18.0"
   }
 }

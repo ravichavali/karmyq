@@ -8,7 +8,7 @@ import pool from './database/db';
 import messageRoutes from './routes/messages';
 import { initializeMessageSocket } from './socket/messageHandler';
 import { createLogger, requestLoggingMiddleware } from '../shared/utils/logger';
-import { authMiddleware } from '../shared/middleware';
+import { authMiddleware, globalRateLimiter, rateLimiters } from '../shared/middleware';
 
 dotenv.config();
 
@@ -66,9 +66,10 @@ io.use((socket, next) => {
 app.use(cors());
 app.use(express.json());
 app.use(requestLoggingMiddleware(logger));
+app.use(globalRateLimiter);
 
 // Health check (no auth required)
-app.get('/health', (req, res) => {
+app.get('/health', (_req, res) => {
   res.json({ status: 'ok', service: 'messaging-service' });
 });
 
@@ -76,6 +77,7 @@ app.get('/health', (req, res) => {
 // Messaging is user-scoped, not community-scoped
 app.use(
   '/messages',
+  rateLimiters.standard,
   authMiddleware,
   messageRoutes
 );
