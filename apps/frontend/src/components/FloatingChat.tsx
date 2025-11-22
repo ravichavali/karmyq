@@ -43,7 +43,7 @@ export default function FloatingChat() {
 
     try {
       setLoading(true)
-      const response = await messagingService.getConversations(user.id)
+      const response = await messagingService.getConversations()
       const convos = response.data.data || []
       setConversations(convos)
 

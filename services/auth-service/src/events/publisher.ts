@@ -31,8 +31,7 @@ export async function initEventPublisher() {
 
 export async function publishEvent(eventType: string, payload: any) {
   if (!eventQueue) {
-    console.error('Event queue not initialized');
-    return;
+    throw new Error('Event queue not initialized - cannot publish events');
   }
 
   try {
@@ -46,5 +45,6 @@ export async function publishEvent(eventType: string, payload: any) {
     console.log(`📤 Published event: ${eventType}`, payload);
   } catch (error) {
     console.error(`Failed to publish event ${eventType}:`, error);
+    throw error; // Re-throw to ensure callers handle the failure
   }
 }

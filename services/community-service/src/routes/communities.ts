@@ -187,15 +187,25 @@ router.get('/:id', async (req: Request, res: Response) => {
 });
 
 // POST /communities - Create new community
+// SECURITY: creator_id comes from verified JWT token, not from request body
 router.post('/', async (req: Request, res: Response) => {
   try {
-    const { name, description, location, category, max_members = 150, creator_id } = req.body;
+    const { name, description, location, category, max_members = 150 } = req.body;
+    // SECURITY: Always use verified userId from JWT, never trust client-provided creator_id
+    const creator_id = (req as any).user?.userId;
 
     // Validation
-    if (!name || !creator_id) {
+    if (!creator_id) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required',
+      });
+    }
+
+    if (!name) {
       return res.status(400).json({
         success: false,
-        message: 'Name and creator_id are required',
+        message: 'Name is required',
       });
     }
 

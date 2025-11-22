@@ -2,6 +2,10 @@ auth_enabled: false
 
 server:
   http_listen_port: 3100
+  grpc_listen_port: 9096
+
+# Run in single-binary/monolithic mode
+target: all
 
 common:
   path_prefix: /loki
@@ -11,8 +15,37 @@ common:
       rules_directory: /loki/rules
   replication_factor: 1
   ring:
+    instance_addr: 127.0.0.1
     kvstore:
       store: inmemory
+
+# Disable query-scheduler (not needed for single instance)
+query_scheduler:
+  max_outstanding_requests_per_tenant: 2048
+
+# Querier configuration
+querier:
+  max_concurrent: 4
+
+# Ingester configuration
+ingester:
+  lifecycler:
+    address: 127.0.0.1
+    ring:
+      kvstore:
+        store: inmemory
+      replication_factor: 1
+    final_sleep: 0s
+  chunk_idle_period: 5m
+  chunk_retain_period: 30s
+  max_chunk_age: 1h
+  chunk_target_size: 1048576
+  chunk_encoding: snappy
+
+# Frontend worker configuration (disable query-scheduler use)
+frontend_worker:
+  grpc_client_config:
+    max_send_msg_size: 104857600
 
 schema_config:
   configs:

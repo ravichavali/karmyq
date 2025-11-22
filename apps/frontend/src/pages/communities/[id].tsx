@@ -498,7 +498,6 @@ export default function CommunityDetailPage() {
             </div>
           </div>
         )}
-        </div>
       </Layout>
     </>
   )

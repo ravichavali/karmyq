@@ -257,10 +257,20 @@ router.post('/:communityId/members', async (req: Request, res: Response) => {
 });
 
 // PUT /communities/:communityId/members/:userId - Update member role/status
+// SECURITY: admin_user_id comes from verified JWT token, not from request body
 router.put('/:communityId/members/:userId', async (req: Request, res: Response) => {
   try {
     const { communityId, userId } = req.params;
-    const { role, status, admin_user_id } = req.body;
+    const { role, status } = req.body;
+    // SECURITY: Always use verified userId from JWT, never trust client-provided admin_user_id
+    const admin_user_id = (req as any).user?.userId;
+
+    if (!admin_user_id) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required',
+      });
+    }
 
     // Verify admin permission
     const adminCheck = await query(

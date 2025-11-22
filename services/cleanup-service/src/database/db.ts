@@ -3,6 +3,9 @@ import { logger } from '../utils/logger';
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
+  max: 10, // Standardized to prevent connection exhaustion (8 services × 10 = 80 max connections)
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 2000,
 });
 
 pool.on('error', (err) => {

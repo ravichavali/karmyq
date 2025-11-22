@@ -2,26 +2,40 @@ import { Router, Request, Response } from 'express';
 import { FeedComposer } from '../services/feedComposer';
 import { query } from '../database/db';
 
+// AuthenticatedRequest type - matches the shared middleware
+interface AuthenticatedRequest extends Request {
+  user?: {
+    userId: string;
+    email: string;
+    communities?: Array<{ id: string; name: string; role: string }>;
+  };
+  logger?: {
+    info: (msg: string, ctx?: Record<string, unknown>) => void;
+    error: (msg: string, err?: Error, ctx?: Record<string, unknown>) => void;
+  };
+}
+
 const router = Router();
 const feedComposer = new FeedComposer();
 
 /**
  * GET /feed
  * Get personalized feed for user
+ * SECURITY: userId comes from verified JWT token via authMiddleware
  */
-router.get('/', async (req: Request, res: Response) => {
+router.get('/', async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const userId = req.headers['x-user-id'];
+    const userId = req.user?.userId;
     const limit = parseInt(req.query.limit as string) || 20;
 
     if (!userId) {
       return res.status(401).json({
         success: false,
-        message: 'User ID required in x-user-id header'
+        message: 'Authentication required'
       });
     }
 
-    (req as any).logger?.info('Fetching feed', { userId, limit });
+    req.logger?.info('Fetching feed', { userId, limit });
 
     // TODO: Fix feed composer to match actual database schema
     // For now, return empty feed to prevent frontend crashes
@@ -35,7 +49,7 @@ router.get('/', async (req: Request, res: Response) => {
       }
     });
   } catch (error) {
-    (req as any).logger?.error('Error fetching feed', error instanceof Error ? error : new Error(String(error)));
+    (req as AuthenticatedRequest).logger?.error('Error fetching feed', error instanceof Error ? error : new Error(String(error)));
     res.status(500).json({
       success: false,
       message: 'Failed to fetch feed',
@@ -47,17 +61,18 @@ router.get('/', async (req: Request, res: Response) => {
 /**
  * GET /feed/requests
  * Get just open requests (for quick browse)
+ * SECURITY: userId comes from verified JWT token via authMiddleware
  */
-router.get('/requests', async (req: Request, res: Response) => {
+router.get('/requests', async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const userId = req.headers['x-user-id'];
+    const userId = req.user?.userId;
     const communityId = req.query.community_id;
     const limit = parseInt(req.query.limit as string) || 10;
 
     if (!userId) {
       return res.status(401).json({
         success: false,
-        message: 'User ID required in x-user-id header'
+        message: 'Authentication required'
       });
     }
 
@@ -126,7 +141,7 @@ router.get('/requests', async (req: Request, res: Response) => {
       }
     });
   } catch (error) {
-    (req as any).logger?.error('Error fetching requests', error instanceof Error ? error : new Error(String(error)));
+    (req as AuthenticatedRequest).logger?.error('Error fetching requests', error instanceof Error ? error : new Error(String(error)));
     res.status(500).json({
       success: false,
       message: 'Failed to fetch requests',
@@ -138,16 +153,17 @@ router.get('/requests', async (req: Request, res: Response) => {
 /**
  * POST /feed/dismiss/:itemId
  * Dismiss a feed item
+ * SECURITY: userId comes from verified JWT token via authMiddleware
  */
-router.post('/dismiss/:itemId', async (req: Request, res: Response) => {
+router.post('/dismiss/:itemId', async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const userId = req.headers['x-user-id'];
+    const userId = req.user?.userId;
     const { itemId } = req.params;
 
     if (!userId) {
       return res.status(401).json({
         success: false,
-        message: 'User ID required in x-user-id header'
+        message: 'Authentication required'
       });
     }
 
@@ -163,14 +179,14 @@ router.post('/dismiss/:itemId', async (req: Request, res: Response) => {
       DO UPDATE SET dismissed_at = NOW()
     `, [userId, itemType, itemIdValue]);
 
-    (req as any).logger?.info('Feed item dismissed', { userId, itemId });
+    req.logger?.info('Feed item dismissed', { userId, itemId });
 
     res.json({
       success: true,
       message: 'Item dismissed'
     });
   } catch (error) {
-    (req as any).logger?.error('Error dismissing item', error instanceof Error ? error : new Error(String(error)));
+    (req as AuthenticatedRequest).logger?.error('Error dismissing item', error instanceof Error ? error : new Error(String(error)));
     res.status(500).json({
       success: false,
       message: 'Failed to dismiss item',
@@ -182,15 +198,16 @@ router.post('/dismiss/:itemId', async (req: Request, res: Response) => {
 /**
  * GET /feed/preferences
  * Get user's feed preferences
+ * SECURITY: userId comes from verified JWT token via authMiddleware
  */
-router.get('/preferences', async (req: Request, res: Response) => {
+router.get('/preferences', async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const userId = req.headers['x-user-id'];
+    const userId = req.user?.userId;
 
     if (!userId) {
       return res.status(401).json({
         success: false,
-        message: 'User ID required in x-user-id header'
+        message: 'Authentication required'
       });
     }
 
@@ -220,7 +237,7 @@ router.get('/preferences', async (req: Request, res: Response) => {
       data: result.rows[0]
     });
   } catch (error) {
-    (req as any).logger?.error('Error fetching preferences', error instanceof Error ? error : new Error(String(error)));
+    (req as AuthenticatedRequest).logger?.error('Error fetching preferences', error instanceof Error ? error : new Error(String(error)));
     res.status(500).json({
       success: false,
       message: 'Failed to fetch preferences',
@@ -232,16 +249,17 @@ router.get('/preferences', async (req: Request, res: Response) => {
 /**
  * PUT /feed/preferences
  * Update user's feed preferences
+ * SECURITY: userId comes from verified JWT token via authMiddleware
  */
-router.put('/preferences', async (req: Request, res: Response) => {
+router.put('/preferences', async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const userId = req.headers['x-user-id'];
+    const userId = req.user?.userId;
     const preferences = req.body;
 
     if (!userId) {
       return res.status(401).json({
         success: false,
-        message: 'User ID required in x-user-id header'
+        message: 'Authentication required'
       });
     }
 
@@ -281,14 +299,14 @@ router.put('/preferences', async (req: Request, res: Response) => {
       preferences.allow_public_featuring ?? true
     ]);
 
-    (req as any).logger?.info('Feed preferences updated', { userId });
+    req.logger?.info('Feed preferences updated', { userId });
 
     res.json({
       success: true,
       data: result.rows[0]
     });
   } catch (error) {
-    (req as any).logger?.error('Error updating preferences', error instanceof Error ? error : new Error(String(error)));
+    (req as AuthenticatedRequest).logger?.error('Error updating preferences', error instanceof Error ? error : new Error(String(error)));
     res.status(500).json({
       success: false,
       message: 'Failed to update preferences',

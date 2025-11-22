@@ -2,7 +2,7 @@ import { Pool } from 'pg';
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  max: 20,
+  max: 10, // Reduced to prevent connection exhaustion (8 services × 10 = 80 max connections)
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 2000,
 });

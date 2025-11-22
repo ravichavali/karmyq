@@ -7,17 +7,27 @@ import {
   sendMessage,
 } from '../services/messageService';
 
+// AuthenticatedRequest type - matches the shared middleware
+interface AuthenticatedRequest extends Request {
+  user?: {
+    userId: string;
+    email: string;
+    communities?: Array<{ id: string; name: string; role: string }>;
+  };
+}
+
 const router = Router();
 
 // Get user's conversations
-router.get('/conversations', async (req: Request, res: Response) => {
+// SECURITY: userId comes from verified JWT token via authMiddleware, not from query params
+router.get('/conversations', async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const userId = req.query.user_id as string;
+    const userId = req.user?.userId;
 
     if (!userId) {
-      return res.status(400).json({
+      return res.status(401).json({
         success: false,
-        message: 'user_id is required',
+        message: 'Authentication required',
       });
     }
 
@@ -37,14 +47,31 @@ router.get('/conversations', async (req: Request, res: Response) => {
 });
 
 // Get or create conversation for a match
-router.post('/conversations', async (req: Request, res: Response) => {
+// SECURITY: Validates that current user is one of the participants
+router.post('/conversations', async (req: AuthenticatedRequest, res: Response) => {
   try {
+    const userId = req.user?.userId;
     const { match_id, participant_ids } = req.body;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required',
+      });
+    }
 
     if (!match_id || !participant_ids || !Array.isArray(participant_ids)) {
       return res.status(400).json({
         success: false,
         message: 'match_id and participant_ids are required',
+      });
+    }
+
+    // SECURITY: Ensure the authenticated user is one of the participants
+    if (!participant_ids.includes(userId)) {
+      return res.status(403).json({
+        success: false,
+        message: 'You must be a participant in the conversation',
       });
     }
 
@@ -64,15 +91,16 @@ router.post('/conversations', async (req: Request, res: Response) => {
 });
 
 // Get specific conversation
-router.get('/conversations/:conversationId', async (req: Request, res: Response) => {
+// SECURITY: userId comes from verified JWT token via authMiddleware
+router.get('/conversations/:conversationId', async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { conversationId } = req.params;
-    const userId = req.query.user_id as string;
+    const userId = req.user?.userId;
 
     if (!userId) {
-      return res.status(400).json({
+      return res.status(401).json({
         success: false,
-        message: 'user_id is required',
+        message: 'Authentication required',
       });
     }
 
@@ -92,17 +120,18 @@ router.get('/conversations/:conversationId', async (req: Request, res: Response)
 });
 
 // Get messages for a conversation
-router.get('/conversations/:conversationId/messages', async (req: Request, res: Response) => {
+// SECURITY: userId comes from verified JWT token via authMiddleware
+router.get('/conversations/:conversationId/messages', async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { conversationId } = req.params;
-    const userId = req.query.user_id as string;
+    const userId = req.user?.userId;
     const limit = parseInt(req.query.limit as string) || 50;
     const offset = parseInt(req.query.offset as string) || 0;
 
     if (!userId) {
-      return res.status(400).json({
+      return res.status(401).json({
         success: false,
-        message: 'user_id is required',
+        message: 'Authentication required',
       });
     }
 
@@ -122,19 +151,29 @@ router.get('/conversations/:conversationId/messages', async (req: Request, res: 
 });
 
 // Send message (REST API fallback - Socket.IO is preferred)
-router.post('/conversations/:conversationId/messages', async (req: Request, res: Response) => {
+// SECURITY: sender_id is taken from verified JWT token, not from request body
+router.post('/conversations/:conversationId/messages', async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { conversationId } = req.params;
-    const { sender_id, content } = req.body;
+    const userId = req.user?.userId;
+    const { content } = req.body;
 
-    if (!sender_id || !content) {
-      return res.status(400).json({
+    if (!userId) {
+      return res.status(401).json({
         success: false,
-        message: 'sender_id and content are required',
+        message: 'Authentication required',
       });
     }
 
-    const message = await sendMessage(conversationId, sender_id, content);
+    if (!content) {
+      return res.status(400).json({
+        success: false,
+        message: 'content is required',
+      });
+    }
+
+    // SECURITY: Always use verified userId from JWT, never trust client-provided sender_id
+    const message = await sendMessage(conversationId, userId, content);
 
     res.json({
       success: true,

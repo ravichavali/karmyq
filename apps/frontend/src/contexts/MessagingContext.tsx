@@ -167,7 +167,7 @@ export const MessagingProvider: React.FC<MessagingProviderProps> = ({ children }
     }
   }, [userId])
 
-  // Fetch user's conversations
+  // Fetch user's conversations (userId is extracted from JWT on backend)
   const fetchConversations = useCallback(async () => {
     if (!userId) return
 
@@ -175,7 +175,7 @@ export const MessagingProvider: React.FC<MessagingProviderProps> = ({ children }
     setError(null)
 
     try {
-      const response = await messagingService.getConversations(userId)
+      const response = await messagingService.getConversations()
       setConversations(response.data.data)
     } catch (err: any) {
       console.error('Failed to fetch conversations:', err)
@@ -198,12 +198,12 @@ export const MessagingProvider: React.FC<MessagingProviderProps> = ({ children }
         socket.emit('leave_conversation', currentConversation.id)
       }
 
-      // Fetch conversation details
-      const convResponse = await messagingService.getConversation(conversationId, userId)
+      // Fetch conversation details (userId from JWT)
+      const convResponse = await messagingService.getConversation(conversationId)
       const conversation = convResponse.data.data
 
-      // Fetch messages
-      const messagesResponse = await messagingService.getMessages(conversationId, userId, { limit: 50 })
+      // Fetch messages (userId from JWT)
+      const messagesResponse = await messagingService.getMessages(conversationId, { limit: 50 })
       const messagesList = messagesResponse.data.data
 
       setCurrentConversation(conversation)

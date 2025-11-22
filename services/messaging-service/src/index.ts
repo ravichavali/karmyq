@@ -3,31 +3,63 @@ import { createServer } from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import jwt from 'jsonwebtoken';
 import pool from './database/db';
 import messageRoutes from './routes/messages';
 import { initializeMessageSocket } from './socket/messageHandler';
 import { createLogger, requestLoggingMiddleware } from '../shared/utils/logger';
-import {
-  authMiddleware,
-  tenantMiddleware,
-  dbContextMiddleware,
-} from '../shared/middleware';
+import { authMiddleware } from '../shared/middleware';
 
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3006;
 const logger = createLogger('messaging-service');
+const JWT_SECRET = process.env.JWT_SECRET;
+
+if (!JWT_SECRET) {
+  logger.error('JWT_SECRET not configured - Socket.IO authentication will fail');
+  process.exit(1);
+}
 
 // Create HTTP server
 const httpServer = createServer(app);
 
-// Initialize Socket.IO
+// Allowed origins for CORS
+const ALLOWED_ORIGINS = process.env.CORS_ORIGINS?.split(',') || [
+  'http://localhost:3000',
+  'http://localhost:3001',
+];
+
+// Initialize Socket.IO with proper CORS and JWT authentication
 const io = new Server(httpServer, {
   cors: {
-    origin: '*', // In production, restrict this to your frontend domain
+    origin: ALLOWED_ORIGINS,
     methods: ['GET', 'POST'],
+    credentials: true,
   },
+});
+
+// Socket.IO authentication middleware - verify JWT before connection
+io.use((socket, next) => {
+  const token = socket.handshake.auth.token || socket.handshake.query.token;
+
+  if (!token) {
+    logger.warn('Socket connection rejected - no token provided', { socketId: socket.id });
+    return next(new Error('Authentication required'));
+  }
+
+  try {
+    const decoded = jwt.verify(token as string, JWT_SECRET) as { userId: string; email: string };
+    // Attach verified user data to socket
+    socket.data.userId = decoded.userId;
+    socket.data.email = decoded.email;
+    logger.info('Socket authenticated', { socketId: socket.id, userId: decoded.userId });
+    next();
+  } catch (error) {
+    logger.warn('Socket connection rejected - invalid token', { socketId: socket.id });
+    return next(new Error('Invalid token'));
+  }
 });
 
 // Middleware
@@ -40,12 +72,11 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', service: 'messaging-service' });
 });
 
-// Routes with authentication and tenant context
+// Routes with authentication (no tenant context required for messaging)
+// Messaging is user-scoped, not community-scoped
 app.use(
   '/messages',
   authMiddleware,
-  tenantMiddleware,
-  dbContextMiddleware(pool),
   messageRoutes
 );
 

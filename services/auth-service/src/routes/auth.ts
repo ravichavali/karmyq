@@ -6,8 +6,12 @@ import { publishEvent } from '../events/publisher';
 import { JWTPayload } from '../../shared/middleware/auth';
 
 const router = express.Router();
-const JWT_SECRET = process.env.JWT_SECRET || 'dev_jwt_secret_change_in_production';
+const JWT_SECRET = process.env.JWT_SECRET;
 const SALT_ROUNDS = 10;
+
+if (!JWT_SECRET) {
+  throw new Error('JWT_SECRET environment variable is required');
+}
 
 /**
  * Fetch user's community memberships

@@ -171,15 +171,25 @@ router.get('/:id', async (req: Request, res: Response) => {
 });
 
 // POST /requests - Create new help request
+// SECURITY: requester_id comes from verified JWT token, not from request body
 router.post('/', async (req: Request, res: Response) => {
   try {
-    const { community_id, requester_id, title, description, type, urgency, location } = req.body;
+    const { community_id, title, description, type, urgency, location } = req.body;
+    // SECURITY: Always use verified userId from JWT, never trust client-provided requester_id
+    const requester_id = (req as any).user?.userId;
 
     // Validation
-    if (!community_id || !requester_id || !title || !type) {
+    if (!requester_id) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required',
+      });
+    }
+
+    if (!community_id || !title || !type) {
       return res.status(400).json({
         success: false,
-        message: 'community_id, requester_id, title, and type are required',
+        message: 'community_id, title, and type are required',
       });
     }
 
@@ -233,10 +243,20 @@ router.post('/', async (req: Request, res: Response) => {
 });
 
 // PUT /requests/:id - Update request
+// SECURITY: user_id comes from verified JWT token, not from request body
 router.put('/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { title, description, status, urgency, user_id } = req.body;
+    const { title, description, status, urgency } = req.body;
+    // SECURITY: Always use verified userId from JWT, never trust client-provided user_id
+    const user_id = (req as any).user?.userId;
+
+    if (!user_id) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required',
+      });
+    }
 
     // Check if user is the requester
     const requestCheck = await query(

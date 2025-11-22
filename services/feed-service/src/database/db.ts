@@ -11,6 +11,9 @@ export async function initDatabase(): Promise<void> {
 
   pool = new Pool({
     connectionString: databaseUrl,
+    max: 10, // Standardized to prevent connection exhaustion (8 services × 10 = 80 max connections)
+    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 2000,
   });
 
   // Test connection

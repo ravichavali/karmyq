@@ -276,10 +276,11 @@ export const notificationService = {
 }
 
 // Messaging Service API Methods
+// Note: userId is extracted from JWT token on the backend, not passed as parameter
 export const messagingService = {
-  // Get user's conversations
-  getConversations: (userId: string) =>
-    messagingApi.get('/messages/conversations', { params: { user_id: userId } }),
+  // Get user's conversations (userId from JWT)
+  getConversations: () =>
+    messagingApi.get('/messages/conversations'),
 
   // Get or create conversation for a match
   createConversation: (matchId: string, participantIds: string[]) =>
@@ -288,22 +289,19 @@ export const messagingService = {
       participant_ids: participantIds,
     }),
 
-  // Get conversation details
-  getConversation: (conversationId: string, userId: string) =>
-    messagingApi.get(`/messages/conversations/${conversationId}`, {
-      params: { user_id: userId },
-    }),
+  // Get conversation details (userId from JWT)
+  getConversation: (conversationId: string) =>
+    messagingApi.get(`/messages/conversations/${conversationId}`),
 
-  // Get messages for a conversation
-  getMessages: (conversationId: string, userId: string, params?: { limit?: number; offset?: number }) =>
+  // Get messages for a conversation (userId from JWT)
+  getMessages: (conversationId: string, params?: { limit?: number; offset?: number }) =>
     messagingApi.get(`/messages/conversations/${conversationId}/messages`, {
-      params: { user_id: userId, ...params },
+      params: params,
     }),
 
-  // Send message (REST fallback)
-  sendMessage: (conversationId: string, senderId: string, content: string) =>
+  // Send message (REST fallback) - senderId from JWT
+  sendMessage: (conversationId: string, content: string) =>
     messagingApi.post(`/messages/conversations/${conversationId}/messages`, {
-      sender_id: senderId,
       content,
     }),
 

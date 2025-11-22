@@ -434,7 +434,7 @@ ALTER TABLE feedback.feedback ENABLE ROW LEVEL SECURITY;
 
 ALTER TABLE governance.proposals ENABLE ROW LEVEL SECURITY;
 ALTER TABLE governance.votes ENABLE ROW LEVEL SECURITY;
-ALTER TABLE governance.conflicts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE governance.conflict_cases ENABLE ROW LEVEL SECURITY;
 
 ALTER TABLE feed.preferences ENABLE ROW LEVEL SECURITY;
 ALTER TABLE feed.dismissed_items ENABLE ROW LEVEL SECURITY;
@@ -559,7 +559,7 @@ CREATE POLICY community_isolation ON governance.votes
     )
   );
 
-CREATE POLICY community_isolation ON governance.conflicts
+CREATE POLICY community_isolation ON governance.conflict_cases
   USING (
     community_id = current_setting('app.current_community_id', true)::uuid
   );

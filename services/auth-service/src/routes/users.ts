@@ -1,26 +1,8 @@
 import express from 'express';
 import { query } from '../database/db';
-import jwt from 'jsonwebtoken';
+import { authMiddleware, AuthenticatedRequest } from '../../shared/middleware';
 
 const router = express.Router();
-const JWT_SECRET = process.env.JWT_SECRET || 'dev_jwt_secret_change_in_production';
-
-// Middleware to verify JWT
-const authenticateToken = (req: any, res: express.Response, next: express.NextFunction) => {
-  const token = req.headers.authorization?.split(' ')[1];
-
-  if (!token) {
-    return res.status(401).json({ error: 'No token provided' });
-  }
-
-  try {
-    const decoded = jwt.verify(token, JWT_SECRET);
-    req.user = decoded;
-    next();
-  } catch (error) {
-    return res.status(401).json({ error: 'Invalid token' });
-  }
-};
 
 // GET /users/:userId - Get user profile
 router.get('/:userId', async (req, res) => {
@@ -44,7 +26,7 @@ router.get('/:userId', async (req, res) => {
 });
 
 // PUT /users/:userId - Update user profile
-router.put('/:userId', authenticateToken, async (req: any, res) => {
+router.put('/:userId', authMiddleware, async (req: AuthenticatedRequest, res) => {
   try {
     const { userId } = req.params;
     const { name, bio, avatar_url } = req.body;
@@ -100,7 +82,7 @@ router.get('/:userId/skills', async (req, res) => {
 });
 
 // POST /users/:userId/skills - Add a skill to user
-router.post('/:userId/skills', authenticateToken, async (req: any, res) => {
+router.post('/:userId/skills', authMiddleware, async (req: AuthenticatedRequest, res) => {
   try {
     const { userId } = req.params;
     const { skill } = req.body;
@@ -149,7 +131,7 @@ router.post('/:userId/skills', authenticateToken, async (req: any, res) => {
 });
 
 // DELETE /users/:userId/skills/:skillId - Remove a skill from user
-router.delete('/:userId/skills/:skillId', authenticateToken, async (req: any, res) => {
+router.delete('/:userId/skills/:skillId', authMiddleware, async (req: AuthenticatedRequest, res) => {
   try {
     const { userId, skillId } = req.params;
 

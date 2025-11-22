@@ -7,13 +7,26 @@ const socketUsers = new Map<string, string>(); // socketId -> userId
 
 export function initializeMessageSocket(io: Server) {
   io.on('connection', (socket: Socket) => {
-    console.log('Client connected:', socket.id);
+    // User ID is already verified via JWT in the io.use() middleware
+    const userId = socket.data.userId as string;
 
-    // Handle user authentication
-    socket.on('authenticate', (userId: string) => {
-      userSockets.set(userId, socket.id);
-      socketUsers.set(socket.id, userId);
-      console.log(`User ${userId} authenticated with socket ${socket.id}`);
+    if (!userId) {
+      console.error('Socket connected without verified userId - this should not happen');
+      socket.disconnect(true);
+      return;
+    }
+
+    // Register the authenticated user's socket
+    userSockets.set(userId, socket.id);
+    socketUsers.set(socket.id, userId);
+    console.log(`User ${userId} connected with socket ${socket.id}`);
+
+    // Legacy 'authenticate' event - now just acknowledges (user already authenticated via JWT)
+    socket.on('authenticate', () => {
+      // User is already authenticated via JWT middleware
+      // This event is kept for backward compatibility but no longer accepts userId
+      socket.emit('authenticated', { userId, message: 'Already authenticated via token' });
+      console.log(`User ${userId} re-confirmed authentication`);
     });
 
     // Join conversation room
@@ -28,14 +41,16 @@ export function initializeMessageSocket(io: Server) {
       console.log(`Socket ${socket.id} left conversation ${conversationId}`);
     });
 
-    // Handle send message
+    // Handle send message - senderId is taken from verified JWT, not from client data
     socket.on('send_message', async (data: {
       conversationId: string;
-      senderId: string;
       content: string;
+      senderId?: string; // Deprecated: ignored, using verified userId from JWT
     }) => {
       try {
-        const { conversationId, senderId, content } = data;
+        const { conversationId, content } = data;
+        // SECURITY: Always use verified userId from JWT, never trust client-provided senderId
+        const senderId = userId;
 
         // Save message to database
         const message = await sendMessage(conversationId, senderId, content);
@@ -50,28 +65,29 @@ export function initializeMessageSocket(io: Server) {
       }
     });
 
-    // Handle typing indicator
-    socket.on('typing', (data: { conversationId: string; userId: string; userName: string }) => {
+    // Handle typing indicator - uses verified userId from JWT
+    socket.on('typing', (data: { conversationId: string; userName: string }) => {
       socket.to(data.conversationId).emit('user_typing', {
-        userId: data.userId,
+        userId: userId, // Use verified userId from JWT
         userName: data.userName,
       });
     });
 
-    // Handle stop typing
-    socket.on('stop_typing', (data: { conversationId: string; userId: string }) => {
+    // Handle stop typing - uses verified userId from JWT
+    socket.on('stop_typing', (data: { conversationId: string }) => {
       socket.to(data.conversationId).emit('user_stop_typing', {
-        userId: data.userId,
+        userId: userId, // Use verified userId from JWT
       });
     });
 
-    // Handle mark as read
-    socket.on('mark_as_read', async (data: { conversationId: string; userId: string }) => {
+    // Handle mark as read - uses verified userId from JWT
+    socket.on('mark_as_read', async (data: { conversationId: string }) => {
       try {
-        await markMessagesAsRead(data.conversationId, data.userId);
+        // SECURITY: Always use verified userId from JWT
+        await markMessagesAsRead(data.conversationId, userId);
         io.to(data.conversationId).emit('messages_read', {
           conversationId: data.conversationId,
-          userId: data.userId,
+          userId: userId,
         });
       } catch (error: any) {
         console.error('Error marking messages as read:', error);
