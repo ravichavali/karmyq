@@ -221,12 +221,22 @@ export default function CommunityDetailPage() {
                 </div>
               )}
             </div>
-            <div className="flex items-center gap-6 text-sm text-gray-600">
-              <span>Created by {community.creator_name}</span>
-              <span>•</span>
-              <span>
-                {community.current_members} / {community.max_members} members
-              </span>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-6 text-sm text-gray-600">
+                <span>Created by {community.creator_name}</span>
+                <span>•</span>
+                <span>
+                  {community.current_members} / {community.max_members} members
+                </span>
+              </div>
+              {isAdmin && (
+                <Link
+                  href={`/communities/${id}/admin`}
+                  className="px-4 py-2 bg-gray-800 text-white rounded hover:bg-gray-900 text-sm font-medium"
+                >
+                  Admin Settings
+                </Link>
+              )}
             </div>
             <div className="mt-4">
               <div className="w-full bg-gray-200 rounded-full h-2">

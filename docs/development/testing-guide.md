@@ -158,24 +158,85 @@ describe('calculateKarma', () => {
 
 ## Test Data Management
 
-### Fixtures
+### Test Fixtures (Factory Pattern)
 
-Create reusable test data:
+The project uses a comprehensive factory pattern for test data management located in `tests/fixtures/`:
 
 ```typescript
-// tests/fixtures/users.ts
-export const testUsers = {
-  validUser: {
-    email: 'test@example.com',
-    password: 'password123',
-    name: 'Test User'
-  },
-  adminUser: {
-    email: 'admin@example.com',
-    password: 'admin123',
-    name: 'Admin User'
+// tests/fixtures/index.ts - Main exports
+import { ServiceUrls, TestScenario } from './config';
+import { UserFactory, TestUser } from './users';
+import { CommunityFactory, TestCommunity } from './communities';
+import { RequestFactory, TestRequest } from './requests';
+import { OfferFactory, TestOffer } from './offers';
+```
+
+### Using Test Factories
+
+```typescript
+import {
+  TestScenario,
+  UserFactory,
+  CommunityFactory,
+  RequestFactory
+} from '../fixtures';
+
+let scenario: TestScenario;
+let testUser: TestUser | null;
+let testCommunity: TestCommunity | null;
+
+beforeAll(async () => {
+  scenario = new TestScenario();
+
+  // Create test user via API
+  testUser = await UserFactory.create({
+    prefix: 'my-test',
+    name: 'Test User',
+  });
+
+  // Create test community
+  if (testUser) {
+    testCommunity = await CommunityFactory.create({
+      creatorToken: testUser.token,
+      creatorId: testUser.id,
+      name: 'Test Community',
+      description: 'For testing',
+    });
   }
-};
+});
+
+afterAll(async () => {
+  // Cleanup in correct order (respect foreign keys)
+  // 1. Communities first (reference users via creator_id)
+  if (testCommunity) {
+    await CommunityFactory.delete(scenario.pool, testCommunity.id);
+  }
+  // 2. Then users
+  if (testUser) {
+    await UserFactory.delete(scenario.pool, testUser.id);
+  }
+  await scenario.pool.end();
+});
+```
+
+### Available Factories
+
+| Factory | Creates | Cleanup Order |
+|---------|---------|---------------|
+| `UserFactory` | User via auth service | Last |
+| `CommunityFactory` | Community with membership | Before users |
+| `RequestFactory` | Help request | Before communities |
+| `OfferFactory` | Help offer | Before communities |
+
+### Multi-Tenant Testing
+
+All requests require proper community context via headers:
+
+```typescript
+const response = await request(ServiceUrls.REQUEST)
+  .get('/requests')
+  .set('Authorization', `Bearer ${token}`)
+  .set('X-Community-ID', communityId);  // Required for multi-tenant
 ```
 
 ### Database Seeding
@@ -196,14 +257,26 @@ afterAll(async () => {
 });
 ```
 
-### Cleanup
+### Cleanup Order (Important!)
 
-Always clean up test data:
+Due to foreign key constraints, cleanup must follow this order:
 
 ```typescript
-afterEach(async () => {
-  // Delete test data created during test
-  await pool.query('DELETE FROM communities WHERE name LIKE "Test%"');
+afterAll(async () => {
+  try {
+    // 1. Delete requests/offers (reference communities)
+    if (testRequest) await RequestFactory.delete(pool, testRequest.id);
+    if (testOffer) await OfferFactory.delete(pool, testOffer.id);
+
+    // 2. Delete communities (reference users via creator_id)
+    if (testCommunity) await CommunityFactory.delete(pool, testCommunity.id);
+
+    // 3. Delete users last
+    if (testUser) await UserFactory.delete(pool, testUser.id);
+  } catch (error) {
+    console.log('Cleanup error:', error);
+  }
+  await pool.end();
 });
 ```
 
@@ -453,7 +526,83 @@ npm test -- --verbose
 
 ## Performance Testing
 
-### Load Testing with Artillery
+### Load Testing with Built-in Tool
+
+The project includes a custom load testing tool at `tests/load/`:
+
+```bash
+# Install dependencies
+cd tests/load
+npm install
+
+# Run default load test (10 users, 30 seconds)
+npm test
+
+# Light load test (5 users, 15 seconds)
+npm run test:light
+
+# Heavy load test (50 users, 60 seconds)
+npm run test:heavy
+
+# Stress test (100 users, 120 seconds)
+npm run test:stress
+```
+
+### Configuration
+
+Configure via environment variables:
+
+```bash
+# .env
+LOAD_TEST_USERS=10        # Concurrent users
+LOAD_TEST_DURATION=30     # Duration in seconds
+LOAD_TEST_RAMP_UP=5       # Ramp-up time
+```
+
+### Load Test Output
+
+```
+🚀 Karmyq Load Testing Tool
+============================================================
+Configuration:
+  Concurrent Users: 10
+  Duration:         30s
+  Ramp-up:          5s
+============================================================
+
+📈 Request Statistics:
+   Total Requests:     1,234
+   Successful:         1,180 (95.6%)
+   Failed:             54 (4.4%)
+
+⏱️  Latency Statistics:
+   Average:            145ms
+   Min:                23ms
+   Max:                892ms
+
+📊 Status Code Distribution:
+   200: 1,100 (89.1%)
+   201: 80 (6.5%)
+   429: 54 (4.4%)   # Rate limiting
+
+✅ PASSED: System performing well under load
+📋 Rate limiting triggered 54 times (expected behavior)
+```
+
+### Testing with Rate Limiting Disabled
+
+For integration tests, rate limiting can be disabled:
+
+```bash
+# Using docker-compose test overlay
+docker compose -f infrastructure/docker/docker-compose.yml \
+  -f infrastructure/docker/docker-compose.test.yml up -d
+
+# Or via environment variable
+RATE_LIMIT_DISABLED=true npm test
+```
+
+### Load Testing with Artillery (Alternative)
 
 ```yaml
 # load-test.yml

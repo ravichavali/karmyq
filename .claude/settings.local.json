@@ -30,7 +30,11 @@
       "Bash(do docker rmi $img)",
       "Bash(done)",
       "Bash(docker rmi:*)",
-      "Bash(docker rm:*)"
+      "Bash(docker rm:*)",
+      "Bash(npm install:*)",
+      "Bash(npm run type-check:*)",
+      "Bash(git reset:*)",
+      "Bash(apps/mobile/.gitignore)"
     ],
     "deny": [],
     "ask": []

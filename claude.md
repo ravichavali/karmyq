@@ -1,0 +1,79 @@
+# Karmyq - Mutual Aid Platform
+
+## Project Overview
+Karmyq is a multi-tenant SaaS mutual aid platform where community members help each other. Version 5.1.0 with ephemeral data and reputation decay features.
+
+## Architecture
+- **Microservices**: 8 backend services communicating via REST and Redis queues
+- **Multi-Tenant**: Row-Level Security (RLS) with community_id isolation
+- **Event-Driven**: Bull/Redis queues for async processing (karmyq-events)
+
+## Tech Stack
+- **Backend**: Node.js/Express/TypeScript (all services)
+- **Frontend**: Next.js 14 with Tailwind CSS
+- **Mobile**: React Native + Expo
+- **Database**: PostgreSQL 15 with schemas (auth, community, requests, reputation, notifications, messaging)
+- **Cache/Queue**: Redis + Bull
+- **Monorepo**: Turborepo
+
+## Service Ports
+| Service | Port | Schema |
+|---------|------|--------|
+| Frontend | 3000 | - |
+| Auth | 3001 | auth |
+| Community | 3002 | community |
+| Request | 3003 | requests |
+| Reputation | 3004 | reputation |
+| Notification | 3005 | notifications |
+| Messaging | 3006 | messaging |
+| Feed | 3007 | - (reads all) |
+| Cleanup | 3008 | - (writes all) |
+
+## Key Patterns
+
+### Authentication
+- JWT tokens with `userId` and `communityMemberships` array
+- Middleware chain: `authenticateToken` -> `extractCommunityContext` -> `requireRole`
+- All requests require Bearer token in Authorization header
+
+### Database Schema Conventions
+- Tables use schema prefixes: `requests.help_requests`, `community.memberships`
+- Foreign keys to users: `requester_id`, `responder_id` (not `user_id`, `helper_id`)
+- All tables have `community_id` for RLS
+- Timestamps: `created_at`, `updated_at`, `expires_at`
+
+### API Response Format
+```json
+{
+  "success": true,
+  "data": { ... },
+  "message": "Optional message"
+}
+```
+
+## Development Commands
+```bash
+# Start all services
+docker-compose up -d
+
+# Run tests
+cd tests && npm test
+
+# Frontend dev
+cd apps/frontend && npm run dev
+
+# Single service logs
+docker logs karmyq-auth-service -f
+```
+
+## Important Files
+- `infrastructure/docker/docker-compose.yml` - Service orchestration
+- `infrastructure/postgres/init.sql` - Database schema
+- `packages/shared/` - Shared utilities, middleware, types
+- `tests/` - Integration and E2E tests
+
+## Current Status (v5.1.0)
+- Multi-tenant SaaS with RLS
+- Ephemeral data with configurable TTLs
+- Reputation decay system
+- Full test suite (integration, E2E, load)

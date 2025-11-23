@@ -337,7 +337,7 @@ You can:
 - ❌ Dependencies not installed
 - **Fix**: `cd apps/mobile && npm install && npm run start`
 
-### Federation Service
+# ## Federation Service
 - ⚠️ Deprecated in favor of multi-tenant SaaS architecture
 - ✅ Protocol designed (archived as reference)
 - ✅ Database schema ready for future "trust bridges" feature

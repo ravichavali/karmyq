@@ -47,10 +47,12 @@ export class FeedComposer {
    */
   private async getUserBehavior(userId: string): Promise<UserBehavior> {
     // Get recent helps count (last 30 days)
+    // Note: responder_id is used in matches table, not helper_id
     const helpsResult = await query(`
       SELECT COUNT(*) as count
       FROM requests.matches m
-      WHERE (m.helper_id = $1 OR m.helpee_id = $1)
+      JOIN requests.help_requests r ON m.request_id = r.id
+      WHERE (m.responder_id = $1 OR r.requester_id = $1)
         AND m.status = 'completed'
         AND m.completed_at > NOW() - INTERVAL '30 days'
     `, [userId]);
@@ -62,12 +64,13 @@ export class FeedComposer {
       WHERE user_id = $1
     `, [userId]);
 
-    // Get user's skills (inferred from completed helps)
+    // Get user's skills (inferred from completed helps by category)
+    // Note: help_requests uses 'category' not 'required_skills'
     const skillsResult = await query(`
-      SELECT DISTINCT unnest(r.required_skills) as skill
+      SELECT DISTINCT r.category as skill
       FROM requests.matches m
-      JOIN requests.requests r ON m.request_id = r.id
-      WHERE m.helper_id = $1 AND m.status = 'completed'
+      JOIN requests.help_requests r ON m.request_id = r.id
+      WHERE m.responder_id = $1 AND m.status = 'completed'
       LIMIT 10
     `, [userId]);
 
@@ -166,23 +169,25 @@ export class FeedComposer {
 
     for (const community of communities.rows) {
       // Get community activity stats
+      // Note: Table is help_requests, not requests
       const statsResult = await query(`
         SELECT
           COUNT(DISTINCT CASE WHEN m.completed_at > NOW() - INTERVAL '7 days' THEN m.id END) as exchanges_week,
           COUNT(DISTINCT CASE WHEN cm.joined_at > NOW() - INTERVAL '7 days' THEN cm.user_id END) as new_members
         FROM communities.communities c
-        LEFT JOIN requests.requests r ON r.community_id = c.id
+        LEFT JOIN requests.help_requests r ON r.community_id = c.id
         LEFT JOIN requests.matches m ON m.request_id = r.id AND m.status = 'completed'
         LEFT JOIN communities.members cm ON cm.community_id = c.id
         WHERE c.id = $1
       `, [community.id]);
 
       // Get recent helpers
+      // Note: Column is responder_id, not helper_id
       const helpersResult = await query(`
         SELECT u.name, COUNT(*) as help_count
         FROM requests.matches m
-        JOIN requests.requests r ON m.request_id = r.id
-        JOIN auth.users u ON m.helper_id = u.id
+        JOIN requests.help_requests r ON m.request_id = r.id
+        JOIN auth.users u ON m.responder_id = u.id
         WHERE r.community_id = $1
           AND m.status = 'completed'
           AND m.completed_at > NOW() - INTERVAL '7 days'
@@ -192,9 +197,10 @@ export class FeedComposer {
       `, [community.id]);
 
       // Get open requests count
+      // Note: Table is help_requests, not requests
       const openRequestsResult = await query(`
         SELECT COUNT(*) as count
-        FROM requests.requests r
+        FROM requests.help_requests r
         WHERE r.community_id = $1
           AND r.status = 'open'
           AND NOT EXISTS (
@@ -255,22 +261,22 @@ export class FeedComposer {
    * Get open requests for a community
    */
   private async getOpenRequestsForCommunity(communityId: string, limit: number): Promise<OpenRequest[]> {
+    // Note: Table is help_requests, column is requester_id, no required_skills column
     const result = await query(`
       SELECT
         r.id as request_id,
         r.title,
         r.description,
-        r.user_id as author_id,
+        r.requester_id as author_id,
         u.name as author_name,
         r.community_id,
         c.name as community_name,
         r.urgency,
-        r.expected_duration,
+        r.category,
         r.created_at,
-        r.required_skills,
         COUNT(DISTINCT m.id) as offers_count
-      FROM requests.requests r
-      JOIN auth.users u ON r.user_id = u.id
+      FROM requests.help_requests r
+      JOIN auth.users u ON r.requester_id = u.id
       JOIN communities.communities c ON r.community_id = c.id
       LEFT JOIN requests.matches m ON r.id = m.request_id AND m.status = 'proposed'
       WHERE r.community_id = $1
@@ -300,10 +306,10 @@ export class FeedComposer {
       community_id: row.community_id,
       community_name: row.community_name,
       urgency: row.urgency,
-      expected_duration: row.expected_duration,
+      expected_duration: null, // Column doesn't exist, use null
       created_at: row.created_at,
       offers_count: parseInt(row.offers_count || '0'),
-      required_skills: row.required_skills || []
+      required_skills: row.category ? [row.category] : [] // Use category as skill proxy
     }));
   }
 
@@ -324,6 +330,7 @@ export class FeedComposer {
 
     for (const adjCommunity of adjacentCommunities) {
       // Get open requests from this adjacent community
+      // Note: Table is help_requests, column is requester_id, use category instead of required_skills
       const requests = await query(`
         SELECT
           r.id as request_id,
@@ -332,14 +339,14 @@ export class FeedComposer {
           r.community_id,
           c.name as community_name,
           r.urgency,
-          r.required_skills,
+          r.category,
           COUNT(DISTINCT m.id) as offers_count
-        FROM requests.requests r
+        FROM requests.help_requests r
         JOIN communities.communities c ON r.community_id = c.id
         LEFT JOIN requests.matches m ON r.id = m.request_id AND m.status = 'proposed'
         WHERE r.community_id = $1
           AND r.status = 'open'
-          AND r.user_id != $2
+          AND r.requester_id != $2
           AND NOT EXISTS (
             SELECT 1 FROM requests.matches m2
             WHERE m2.request_id = r.id AND m2.status IN ('accepted', 'completed')
@@ -351,8 +358,10 @@ export class FeedComposer {
       `, [adjCommunity.community_id, userId]);
 
       for (const row of requests.rows) {
+        // Use category as skill proxy
+        const requiredSkills = row.category ? [row.category] : [];
         const matchScore = this.calculateSkillMatchScore(
-          row.required_skills || [],
+          requiredSkills,
           userBehavior.skills
         );
 
@@ -367,7 +376,7 @@ export class FeedComposer {
           urgency: row.urgency,
           reason: reason,
           match_score: matchScore,
-          required_skills: row.required_skills || []
+          required_skills: requiredSkills
         };
 
         const itemId = `suggested_request_${row.request_id}`;
@@ -483,6 +492,7 @@ export class FeedComposer {
     const items: FeedItem[] = [];
 
     // Get first-time helpers (last 7 days)
+    // Note: Column is responder_id, table is help_requests
     const firstTimers = await query(`
       SELECT
         u.name as helper_name,
@@ -490,15 +500,15 @@ export class FeedComposer {
         c.id as community_id,
         m.completed_at
       FROM requests.matches m
-      JOIN auth.users u ON m.helper_id = u.id
-      JOIN requests.requests r ON m.request_id = r.id
+      JOIN auth.users u ON m.responder_id = u.id
+      JOIN requests.help_requests r ON m.request_id = r.id
       JOIN communities.communities c ON r.community_id = c.id
       WHERE m.status = 'completed'
         AND m.completed_at > NOW() - INTERVAL '7 days'
-        AND m.helper_id != $1
+        AND m.responder_id != $1
         AND (
           SELECT COUNT(*) FROM requests.matches m2
-          WHERE m2.helper_id = m.helper_id AND m2.status = 'completed'
+          WHERE m2.responder_id = m.responder_id AND m2.status = 'completed'
         ) = 1
       ORDER BY m.completed_at DESC
       LIMIT 2
@@ -527,15 +537,16 @@ export class FeedComposer {
     }
 
     // Get milestone achievements
+    // Note: Column is responder_id, not helper_id
     const milestones = await query(`
       SELECT
         u.name as helper_name,
         COUNT(*) as help_count,
         MAX(m.completed_at) as latest_help
       FROM requests.matches m
-      JOIN auth.users u ON m.helper_id = u.id
+      JOIN auth.users u ON m.responder_id = u.id
       WHERE m.status = 'completed'
-        AND m.helper_id != $1
+        AND m.responder_id != $1
         AND m.completed_at > NOW() - INTERVAL '7 days'
       GROUP BY u.id, u.name
       HAVING COUNT(*) IN (10, 50, 100)

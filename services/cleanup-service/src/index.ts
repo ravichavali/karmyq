@@ -1,6 +1,8 @@
-import express from 'express';
+import express, { Request, Response, NextFunction } from 'express';
 import cron from 'node-cron';
 import dotenv from 'dotenv';
+import jwt from 'jsonwebtoken';
+import rateLimit from 'express-rate-limit';
 import { logger } from './utils/logger';
 import { markExpiredData, hardDeleteExpiredData } from './jobs/expirationJob';
 import {
@@ -14,11 +16,74 @@ dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3008;
+const JWT_SECRET = process.env.JWT_SECRET;
+
+if (!JWT_SECRET) {
+  logger.error('JWT_SECRET not configured - admin authentication will fail');
+  process.exit(1);
+}
+
+// Rate limiter for admin endpoints (strict)
+const adminRateLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 10, // 10 requests per hour per IP
+  message: { success: false, error: 'Too many admin requests, please try again later' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Admin authentication middleware
+interface JwtPayload {
+  userId: string;
+  email: string;
+}
+
+const adminAuthMiddleware = async (req: Request, res: Response, next: NextFunction) => {
+  const authHeader = req.headers.authorization;
+
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ success: false, error: 'Authentication required' });
+  }
+
+  const token = authHeader.split(' ')[1];
+
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET!) as JwtPayload;
+
+    // Check if user is an admin in at least one community
+    const adminCheck = await pool.query(
+      `SELECT EXISTS(
+        SELECT 1 FROM communities.members
+        WHERE user_id = $1 AND role = 'admin' AND status = 'active'
+      ) as is_admin`,
+      [decoded.userId]
+    );
+
+    if (!adminCheck.rows[0]?.is_admin) {
+      logger.warn('Non-admin user attempted to access admin endpoint', { userId: decoded.userId });
+      return res.status(403).json({ success: false, error: 'Admin privileges required' });
+    }
+
+    // Attach user info to request
+    (req as any).user = decoded;
+    logger.info('Admin authenticated', { userId: decoded.userId, endpoint: req.path });
+    next();
+  } catch (error) {
+    if (error instanceof jwt.TokenExpiredError) {
+      return res.status(401).json({ success: false, error: 'Token expired' });
+    }
+    if (error instanceof jwt.JsonWebTokenError) {
+      return res.status(401).json({ success: false, error: 'Invalid token' });
+    }
+    logger.error('Admin auth error', { error });
+    return res.status(500).json({ success: false, error: 'Authentication failed' });
+  }
+};
 
 app.use(express.json());
 
 // ============= HEALTH CHECK =============
-app.get('/health', (req, res) => {
+app.get('/health', (_req, res) => {
   res.json({
     status: 'healthy',
     service: 'cleanup-service',
@@ -27,9 +92,9 @@ app.get('/health', (req, res) => {
   });
 });
 
-// ============= MANUAL TRIGGER ENDPOINTS (for testing/admin) =============
+// ============= ADMIN JOB ENDPOINTS (protected) =============
 
-app.post('/jobs/mark-expired', async (req, res) => {
+app.post('/jobs/mark-expired', adminRateLimiter, adminAuthMiddleware, async (_req, res) => {
   try {
     logger.info('Manual trigger: mark expired data');
     await markExpiredData();
@@ -40,7 +105,7 @@ app.post('/jobs/mark-expired', async (req, res) => {
   }
 });
 
-app.post('/jobs/hard-delete', async (req, res) => {
+app.post('/jobs/hard-delete', adminRateLimiter, adminAuthMiddleware, async (_req, res) => {
   try {
     logger.info('Manual trigger: hard delete expired data');
     await hardDeleteExpiredData();
@@ -51,7 +116,7 @@ app.post('/jobs/hard-delete', async (req, res) => {
   }
 });
 
-app.post('/jobs/update-decay', async (req, res) => {
+app.post('/jobs/update-decay', adminRateLimiter, adminAuthMiddleware, async (_req, res) => {
   try {
     logger.info('Manual trigger: update reputation decay');
     await updateDecayedTrustScores();
@@ -62,7 +127,7 @@ app.post('/jobs/update-decay', async (req, res) => {
   }
 });
 
-app.post('/jobs/cleanup-activity-logs', async (req, res) => {
+app.post('/jobs/cleanup-activity-logs', adminRateLimiter, adminAuthMiddleware, async (_req, res) => {
   try {
     logger.info('Manual trigger: cleanup activity logs');
     await cleanupActivityLogs();
@@ -73,7 +138,7 @@ app.post('/jobs/cleanup-activity-logs', async (req, res) => {
   }
 });
 
-app.get('/jobs/decay-report', async (req, res) => {
+app.get('/jobs/decay-report', adminRateLimiter, adminAuthMiddleware, async (_req, res) => {
   try {
     logger.info('Manual trigger: generate decay report');
     await generateDecayReport();

@@ -244,6 +244,7 @@ services:
       NODE_ENV: development
       PORT: 3008
       DATABASE_URL: postgresql://karmyq_user:karmyq_password_dev@postgres:5432/karmyq_db
+      JWT_SECRET: dev_jwt_secret_change_in_production
       LOG_LEVEL: info
     ports:
       - "3008:3008"

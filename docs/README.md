@@ -44,9 +44,10 @@ Complete documentation for the Karmyq mutual aid platform.
 
 - **[Creating a Service](development/creating-a-service.md)** - Step-by-step guide to create new services
 - **[Implementing Logging](development/implementing-logging.md)** - Add structured logging to services
-- **[Testing Guide](development/testing-guide.md)** - Comprehensive testing strategy
+- **[Testing Guide](development/testing-guide.md)** - Comprehensive testing strategy (fixtures, E2E, load testing)
 - **[Development Workflow](development/workflow.md)** - Git workflow and best practices
 - **[Turborepo](development/turborepo.md)** - Monorepo tooling guide
+- **[Environment Variables](ENVIRONMENT_VARIABLES.md)** - Complete environment variable reference
 
 ## 🔧 Operations
 
@@ -58,7 +59,8 @@ Complete documentation for the Karmyq mutual aid platform.
 
 - **[Integration Tests](../tests/README.md)** - Multi-tenant integration test suite
 - **[E2E Tests](../tests/e2e/README.md)** - Playwright end-to-end tests
-- **[Testing Guide](development/testing-guide.md)** - Complete testing strategy
+- **[Load Tests](../tests/load/README.md)** - Performance and stress testing
+- **[Testing Guide](development/testing-guide.md)** - Complete testing strategy (fixtures, E2E, load)
 - **[Testing & Observability](../TESTING_AND_OBSERVABILITY.md)** - Overview
 
 ## 📦 Service Documentation

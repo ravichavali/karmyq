@@ -7,6 +7,8 @@ import pool from './database/db';
 import communitiesRouter from './routes/communities';
 import membersRouter from './routes/members';
 import normsRouter from './routes/norms';
+import settingsRouter from './routes/settings';
+import exportRouter from './routes/export';
 import { createLogger, requestLoggingMiddleware } from '../shared/utils/logger';
 import {
   authMiddleware,
@@ -66,6 +68,22 @@ app.use(
   tenantMiddleware,                // Norms require community context
   dbContextMiddleware(pool),
   normsRouter    // Norms routes nested under /communities/:communityId/norms
+);
+
+app.use(
+  '/communities',
+  authMiddleware,
+  optionalTenantMiddleware,        // Settings routes use communityId param
+  dbContextMiddleware(pool),
+  settingsRouter  // Settings routes nested under /communities/:communityId/settings
+);
+
+app.use(
+  '/communities',
+  authMiddleware,
+  optionalTenantMiddleware,        // Export routes use communityId param
+  dbContextMiddleware(pool),
+  exportRouter    // Export routes: /communities/:communityId/export
 );
 
 // 404 handler

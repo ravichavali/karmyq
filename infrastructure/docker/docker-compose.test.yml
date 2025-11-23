@@ -1,0 +1,38 @@
+# Test-specific overrides for docker-compose
+# Usage: docker compose -f docker-compose.yml -f docker-compose.test.yml up -d
+#
+# This configuration disables rate limiting for integration tests
+name: karmyq
+
+services:
+  auth-service:
+    environment:
+      RATE_LIMIT_DISABLED: "true"
+
+  community-service:
+    environment:
+      RATE_LIMIT_DISABLED: "true"
+
+  request-service:
+    environment:
+      RATE_LIMIT_DISABLED: "true"
+
+  reputation-service:
+    environment:
+      RATE_LIMIT_DISABLED: "true"
+
+  notification-service:
+    environment:
+      RATE_LIMIT_DISABLED: "true"
+
+  messaging-service:
+    environment:
+      RATE_LIMIT_DISABLED: "true"
+
+  feed-service:
+    environment:
+      RATE_LIMIT_DISABLED: "true"
+
+  cleanup-service:
+    environment:
+      RATE_LIMIT_DISABLED: "true"

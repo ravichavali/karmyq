@@ -4,7 +4,12 @@ import { registerForPushNotificationsAsync, setupNotificationHandlers } from '@/
 import { useAuthStore } from '@/store/auth';
 
 export default function RootLayout() {
-  const { user } = useAuthStore();
+  const { user, checkAuth } = useAuthStore();
+
+  // Check for existing auth session on app start
+  useEffect(() => {
+    checkAuth();
+  }, []);
 
   useEffect(() => {
     if (user) {

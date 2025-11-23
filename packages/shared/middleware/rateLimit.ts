@@ -1,5 +1,5 @@
 import rateLimit, { RateLimitRequestHandler } from 'express-rate-limit';
-import { Request, Response } from 'express';
+import { Request, Response, NextFunction } from 'express';
 
 /**
  * Rate Limit Configuration Options
@@ -11,6 +11,23 @@ export interface RateLimitConfig {
   skipSuccessfulRequests?: boolean;
   skipFailedRequests?: boolean;
 }
+
+/**
+ * Environment-based rate limiting configuration
+ *
+ * Set these environment variables to control rate limiting:
+ * - RATE_LIMIT_DISABLED=true - Completely disable rate limiting (for testing)
+ * - RATE_LIMIT_MULTIPLIER=10 - Multiply all limits by this factor (e.g., 10x for load testing)
+ * - NODE_ENV=test - Automatically increases limits 10x
+ */
+const isRateLimitDisabled = process.env.RATE_LIMIT_DISABLED === 'true';
+const rateLimitMultiplier = parseFloat(process.env.RATE_LIMIT_MULTIPLIER || '1') ||
+  (process.env.NODE_ENV === 'test' ? 10 : 1);
+
+/**
+ * No-op middleware when rate limiting is disabled
+ */
+const noOpMiddleware = (_req: Request, _res: Response, next: NextFunction) => next();
 
 /**
  * Default rate limit configurations for different endpoint types
@@ -44,8 +61,14 @@ export const RateLimitPresets = {
 
 /**
  * Create a rate limiter with custom configuration
+ * Respects environment variables for testing/load testing scenarios
  */
 export function createRateLimiter(config: RateLimitConfig = {}): RateLimitRequestHandler {
+  // Return no-op middleware if rate limiting is disabled
+  if (isRateLimitDisabled) {
+    return noOpMiddleware as unknown as RateLimitRequestHandler;
+  }
+
   const {
     windowMs = RateLimitPresets.standard.windowMs,
     max = RateLimitPresets.standard.max,
@@ -54,9 +77,12 @@ export function createRateLimiter(config: RateLimitConfig = {}): RateLimitReques
     skipFailedRequests = false,
   } = config;
 
+  // Apply multiplier to max requests (useful for testing)
+  const effectiveMax = Math.ceil(max * rateLimitMultiplier);
+
   return rateLimit({
     windowMs,
-    max,
+    max: effectiveMax,
     message: { success: false, error: message },
     standardHeaders: true, // Return rate limit info in headers
     legacyHeaders: false, // Disable X-RateLimit-* headers
@@ -67,7 +93,7 @@ export function createRateLimiter(config: RateLimitConfig = {}): RateLimitReques
       const userId = (req as any).user?.userId;
       return userId || req.ip || 'unknown';
     },
-    handler: (req: Request, res: Response) => {
+    handler: (_req: Request, res: Response) => {
       res.status(429).json({
         success: false,
         error: message,

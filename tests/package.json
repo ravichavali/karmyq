@@ -12,7 +12,10 @@
     "test:auth": "jest integration/auth.test.ts",
     "test:tenant": "jest integration/tenant-isolation.test.ts",
     "test:rls": "jest integration/rls-policies.test.ts",
-    "test:flows": "jest integration/multi-community-flows.test.ts"
+    "test:flows": "jest integration/multi-community-flows.test.ts",
+    "test:ephemeral": "jest integration/ephemeral-data.test.ts",
+    "test:decay": "jest integration/reputation-decay.test.ts",
+    "test:phase3": "jest integration/ephemeral-data.test.ts integration/reputation-decay.test.ts"
   },
   "devDependencies": {
     "@jest/globals": "^29.7.0",

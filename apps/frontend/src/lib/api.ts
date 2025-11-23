@@ -3,6 +3,7 @@ import axios from 'axios'
 const AUTH_API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
 const COMMUNITY_API_URL = process.env.NEXT_PUBLIC_COMMUNITY_API_URL || 'http://localhost:3002'
 const REQUEST_API_URL = process.env.NEXT_PUBLIC_REQUEST_API_URL || 'http://localhost:3003'
+const REPUTATION_API_URL = process.env.NEXT_PUBLIC_REPUTATION_API_URL || 'http://localhost:3004'
 const NOTIFICATION_API_URL = process.env.NEXT_PUBLIC_NOTIFICATION_API_URL || 'http://localhost:3005'
 const MESSAGING_API_URL = process.env.NEXT_PUBLIC_MESSAGING_API_URL || 'http://localhost:3006'
 const FEED_API_URL = process.env.NEXT_PUBLIC_FEED_API_URL || 'http://localhost:3007'
@@ -12,6 +13,7 @@ export const API_CONFIG = {
   BASE_URL: AUTH_API_URL,
   COMMUNITY_API_URL,
   REQUEST_API_URL,
+  REPUTATION_API_URL,
   NOTIFICATION_API_URL,
   MESSAGING_API_URL,
   FEED_API_URL,
@@ -57,6 +59,22 @@ export const messagingApi = axios.create({
   }
 })
 
+// Reputation Service API
+export const reputationApi = axios.create({
+  baseURL: REPUTATION_API_URL,
+  headers: {
+    'Content-Type': 'application/json'
+  }
+})
+
+// Feed Service API
+export const feedApi = axios.create({
+  baseURL: FEED_API_URL,
+  headers: {
+    'Content-Type': 'application/json'
+  }
+})
+
 // Add auth token to requests if available
 const authInterceptor = (config: any) => {
   if (typeof window !== 'undefined') {
@@ -73,6 +91,8 @@ communityApi.interceptors.request.use(authInterceptor)
 requestApi.interceptors.request.use(authInterceptor)
 notificationApi.interceptors.request.use(authInterceptor)
 messagingApi.interceptors.request.use(authInterceptor)
+reputationApi.interceptors.request.use(authInterceptor)
+feedApi.interceptors.request.use(authInterceptor)
 
 // Handle auth errors
 const errorInterceptor = (error: any) => {
@@ -91,6 +111,8 @@ communityApi.interceptors.response.use((response) => response, errorInterceptor)
 requestApi.interceptors.response.use((response) => response, errorInterceptor)
 notificationApi.interceptors.response.use((response) => response, errorInterceptor)
 messagingApi.interceptors.response.use((response) => response, errorInterceptor)
+reputationApi.interceptors.response.use((response) => response, errorInterceptor)
+feedApi.interceptors.response.use((response) => response, errorInterceptor)
 
 // Community API Methods
 export const communityService = {
@@ -152,6 +174,55 @@ export const communityService = {
   // Check membership status
   checkMembership: (communityId: string, userId: string) =>
     communityApi.get(`/communities/${communityId}/members`, { params: { user_id: userId } }),
+
+  // Settings (Admin only)
+  getSettings: (communityId: string) =>
+    communityApi.get(`/communities/${communityId}/settings`),
+
+  updateSettings: (communityId: string, data: {
+    request_ttl_days?: number;
+    offer_ttl_days?: number;
+    match_ttl_days?: number;
+    notification_ttl_days?: number;
+    message_ttl_days?: number;
+    session_ttl_days?: number;
+    karma_decay_enabled?: boolean;
+    karma_half_life_months?: number;
+    user_id: string;
+  }) =>
+    communityApi.patch(`/communities/${communityId}/settings`, data),
+
+  getDecayPreview: (communityId: string) =>
+    communityApi.get(`/communities/${communityId}/settings/decay-preview`),
+
+  // Data Export (Admin only)
+  exportCommunityData: (communityId: string, params?: {
+    format?: 'json' | 'csv';
+    members?: boolean;
+    requests?: boolean;
+    matches?: boolean;
+    norms?: boolean;
+    settings?: boolean;
+    karma?: boolean;
+    date_start?: string;
+    date_end?: string;
+  }) =>
+    communityApi.get(`/communities/${communityId}/export`, {
+      params,
+      responseType: params?.format === 'csv' ? 'blob' : 'json',
+    }),
+
+  exportMembers: (communityId: string, format: 'json' | 'csv' = 'csv') =>
+    communityApi.get(`/communities/${communityId}/export/members`, {
+      params: { format },
+      responseType: format === 'csv' ? 'blob' : 'json',
+    }),
+
+  exportActivity: (communityId: string, format: 'json' | 'csv' = 'csv') =>
+    communityApi.get(`/communities/${communityId}/export/activity`, {
+      params: { format },
+      responseType: format === 'csv' ? 'blob' : 'json',
+    }),
 }
 
 // Request Service API Methods
@@ -307,4 +378,62 @@ export const messagingService = {
 
   // WebSocket URL
   getSocketUrl: () => MESSAGING_API_URL,
+}
+
+// Reputation Service API Methods
+export const reputationService = {
+  // Get user karma
+  getKarma: (userId: string, communityId?: string) =>
+    reputationApi.get(`/reputation/karma/${userId}`, {
+      headers: communityId ? { 'X-Community-ID': communityId } : {},
+    }),
+
+  // Get karma history
+  getKarmaHistory: (userId: string, params?: { limit?: number; offset?: number }, communityId?: string) =>
+    reputationApi.get(`/reputation/karma/${userId}/history`, {
+      params,
+      headers: communityId ? { 'X-Community-ID': communityId } : {},
+    }),
+
+  // Get trust score
+  getTrustScore: (userId: string, communityId?: string) =>
+    reputationApi.get(`/reputation/trust/${userId}`, {
+      headers: communityId ? { 'X-Community-ID': communityId } : {},
+    }),
+
+  // Get leaderboard
+  getLeaderboard: (communityId: string, params?: { limit?: number }) =>
+    reputationApi.get('/reputation/leaderboard', {
+      params: { ...params, community_id: communityId },
+      headers: { 'X-Community-ID': communityId },
+    }),
+}
+
+// Feed Service API Methods
+export const feedService = {
+  // Get user feed
+  getFeed: (params?: { limit?: number; offset?: number }, communityId?: string) =>
+    feedApi.get('/feed', {
+      params,
+      headers: communityId ? { 'X-Community-ID': communityId } : {},
+    }),
+
+  // Dismiss feed item
+  dismissItem: (feedItemId: string, communityId?: string) =>
+    feedApi.post(`/feed/${feedItemId}/dismiss`, {}, {
+      headers: communityId ? { 'X-Community-ID': communityId } : {},
+    }),
+
+  // Get feed preferences
+  getPreferences: () =>
+    feedApi.get('/feed/preferences'),
+
+  // Update feed preferences
+  updatePreferences: (preferences: {
+    show_requests?: boolean;
+    show_offers?: boolean;
+    show_matches?: boolean;
+    show_community_updates?: boolean;
+  }) =>
+    feedApi.put('/feed/preferences', preferences),
 }

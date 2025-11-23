@@ -11,6 +11,19 @@ tests/
 │   ├── tenant-isolation.test.ts          # Multi-tenant isolation
 │   ├── rls-policies.test.ts              # Row-Level Security policies
 │   └── multi-community-flows.test.ts     # Complete user journeys
+├── fixtures/             # Test data factories
+│   ├── index.ts                          # Main exports
+│   ├── config.ts                         # Service URLs & test scenario
+│   ├── users.ts                          # UserFactory
+│   ├── communities.ts                    # CommunityFactory
+│   ├── requests.ts                       # RequestFactory
+│   └── offers.ts                         # OfferFactory
+├── e2e/                  # End-to-end tests (Playwright)
+│   ├── tests/                            # E2E test specs
+│   └── playwright.config.ts              # Playwright config
+├── load/                 # Performance/load tests
+│   ├── load-test.ts                      # Load test runner
+│   └── README.md                         # Load test docs
 ├── unit/                 # Unit tests (future)
 ├── jest.config.js        # Jest configuration
 ├── setup.ts              # Test setup and globals
@@ -297,10 +310,43 @@ describe('Feature Name', () => {
 - Check token expiration hasn't passed
 - Ensure `/auth/refresh` is called after community changes
 
-## Next Steps
+## Test Fixtures (Factory Pattern)
 
-After completing the test suite:
-1. **Phase 3**: Implement ephemeral data (TTL) and reputation decay
-2. **Phase 4**: Add data export API for communities
-3. **Phase 5**: Create E2E tests for frontend
-4. **Phase 6**: Performance and load testing
+The project uses comprehensive test factories for data management:
+
+```typescript
+import {
+  TestScenario,
+  UserFactory,
+  CommunityFactory,
+  RequestFactory,
+  OfferFactory
+} from '../fixtures';
+
+// Create test scenario and pool
+const scenario = new TestScenario();
+
+// Create test user via API
+const user = await UserFactory.create({
+  prefix: 'my-test',
+  name: 'Test User',
+});
+
+// Create community
+const community = await CommunityFactory.create({
+  creatorToken: user.token,
+  creatorId: user.id,
+  name: 'Test Community',
+});
+
+// Cleanup in correct order (respect foreign keys)
+await CommunityFactory.delete(scenario.pool, community.id);
+await UserFactory.delete(scenario.pool, user.id);
+```
+
+## Related Documentation
+
+- **[Testing Guide](../docs/development/testing-guide.md)** - Complete testing strategy
+- **[E2E Tests](e2e/README.md)** - Playwright end-to-end tests
+- **[Load Tests](load/README.md)** - Performance and stress testing
+- **[Environment Variables](../docs/ENVIRONMENT_VARIABLES.md)** - All config variables
