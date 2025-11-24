@@ -22,11 +22,22 @@
   },
   "devDependencies": {
     "@types/jsonwebtoken": "^9.0.10",
+    "ajv": "^8.17.1",
+    "ajv-keywords": "^5.1.0",
     "prettier": "^3.1.0",
     "turbo": "^2.6.0"
   },
   "engines": {
     "node": ">=18.0.0",
     "npm": ">=9.0.0"
+  },
+  "dependencies": {
+    "react-native-worklets": "^0.6.1"
+  },
+  "overrides": {
+    "@karmyq/mobile": {
+      "react": "18.3.1",
+      "react-dom": "18.3.1"
+    }
   }
 }

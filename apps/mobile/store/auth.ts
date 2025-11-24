@@ -1,72 +1,103 @@
 import { create } from 'zustand';
-import { api } from '@/services/api';
+import * as SecureStore from 'expo-secure-store';
 
 interface User {
   id: string;
-  name: string;
   email: string;
+  name: string;
 }
 
-interface AuthStore {
+interface AuthState {
   user: User | null;
+  token: string | null;
   isLoading: boolean;
   error: string | null;
-
   login: (email: string, password: string) => Promise<void>;
   register: (name: string, email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   checkAuth: () => Promise<void>;
 }
 
-export const useAuthStore = create<AuthStore>((set) => ({
+const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3001';
+
+export const useAuthStore = create<AuthState>((set) => ({
   user: null,
-  isLoading: true,
+  token: null,
+  isLoading: false,
   error: null,
 
   login: async (email: string, password: string) => {
     try {
-      set({ isLoading: true, error: null });
-      const data = await api.login(email, password);
-      set({ user: data.user, isLoading: false });
-    } catch (error: any) {
-      set({
-        error: error.response?.data?.message || 'Login failed',
-        isLoading: false,
+      const response = await fetch(`${API_URL}/api/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
       });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Login failed');
+      }
+
+      await SecureStore.setItemAsync('token', data.token);
+      set({ user: data.user, token: data.token });
+    } catch (error) {
+      console.error('Login error:', error);
       throw error;
     }
   },
 
   register: async (name: string, email: string, password: string) => {
     try {
-      set({ isLoading: true, error: null });
-      const data = await api.register({ name, email, password });
-      set({ user: data.user, isLoading: false });
-    } catch (error: any) {
-      set({
-        error: error.response?.data?.message || 'Registration failed',
-        isLoading: false,
+      const response = await fetch(`${API_URL}/api/auth/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, email, password }),
       });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Registration failed');
+      }
+
+      await SecureStore.setItemAsync('token', data.token);
+      set({ user: data.user, token: data.token });
+    } catch (error) {
+      console.error('Register error:', error);
       throw error;
     }
   },
 
   logout: async () => {
-    try {
-      await api.logout();
-      set({ user: null, error: null });
-    } catch (error) {
-      console.error('Logout error:', error);
-    }
+    await SecureStore.deleteItemAsync('token');
+    set({ user: null, token: null });
   },
 
   checkAuth: async () => {
     try {
-      set({ isLoading: true });
-      const user = await api.getCurrentUser();
-      set({ user, isLoading: false });
+      const token = await SecureStore.getItemAsync('token');
+
+      if (!token) {
+        set({ isLoading: false });
+        return;
+      }
+
+      const response = await fetch(`${API_URL}/api/auth/me`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        set({ user: data.user, token, isLoading: false });
+      } else {
+        await SecureStore.deleteItemAsync('token');
+        set({ user: null, token: null, isLoading: false });
+      }
     } catch (error) {
-      set({ user: null, isLoading: false });
+      console.error('Auth check error:', error);
+      set({ isLoading: false });
     }
   },
 }));

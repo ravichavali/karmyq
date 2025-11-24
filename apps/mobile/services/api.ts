@@ -1,180 +1,88 @@
-import axios, { AxiosInstance } from 'axios';
+import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
-import Constants from 'expo-constants';
 
-// API configuration - can be overridden in app.json extra config
-const API_BASE_URL = Constants.expoConfig?.extra?.apiUrl || 'http://localhost:3001';
+const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3001';
 
-class ApiService {
-  private authApi: AxiosInstance;
-  private communityApi: AxiosInstance;
-  private requestApi: AxiosInstance;
-  private reputationApi: AxiosInstance;
-  private notificationApi: AxiosInstance;
-  private messagingApi: AxiosInstance;
-  private feedApi: AxiosInstance;
+const apiClient = axios.create({
+  baseURL: API_URL,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
 
-  constructor() {
-    // Create API instances for each service
-    this.authApi = this.createApiInstance(API_BASE_URL);
-    this.communityApi = this.createApiInstance(`${API_BASE_URL.replace(':3001', ':3002')}`);
-    this.requestApi = this.createApiInstance(`${API_BASE_URL.replace(':3001', ':3003')}`);
-    this.reputationApi = this.createApiInstance(`${API_BASE_URL.replace(':3001', ':3004')}`);
-    this.notificationApi = this.createApiInstance(`${API_BASE_URL.replace(':3001', ':3005')}`);
-    this.messagingApi = this.createApiInstance(`${API_BASE_URL.replace(':3001', ':3006')}`);
-    this.feedApi = this.createApiInstance(`${API_BASE_URL.replace(':3001', ':3007')}`);
+// Add auth token to requests
+apiClient.interceptors.request.use(async (config) => {
+  const token = await SecureStore.getItemAsync('token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
   }
+  return config;
+});
 
-  private createApiInstance(baseURL: string): AxiosInstance {
-    const instance = axios.create({
-      baseURL,
-      timeout: 10000,
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
+export const api = {
+  // Auth
+  login: (email: string, password: string) =>
+    apiClient.post('/api/auth/login', { email, password }),
 
-    // Add auth token to requests
-    instance.interceptors.request.use(
-      async (config) => {
-        const token = await SecureStore.getItemAsync('auth_token');
-        if (token) {
-          config.headers.Authorization = `Bearer ${token}`;
-        }
-        return config;
-      },
-      (error) => Promise.reject(error)
-    );
+  register: (name: string, email: string, password: string) =>
+    apiClient.post('/api/auth/register', { name, email, password }),
 
-    // Handle auth errors
-    instance.interceptors.response.use(
-      (response) => response,
-      async (error) => {
-        if (error.response?.status === 401) {
-          await SecureStore.deleteItemAsync('auth_token');
-          await SecureStore.deleteItemAsync('user');
-          // Redirect to login handled by app navigation
-        }
-        return Promise.reject(error);
-      }
-    );
+  getProfile: () => apiClient.get('/api/auth/me'),
 
-    return instance;
-  }
+  // Feed
+  getFeed: (userId: string) =>
+    apiClient.get(`/api/feed/user/${userId}`),
 
-  // Auth methods
-  async login(email: string, password: string) {
-    const response = await this.authApi.post('/login', { email, password });
-    if (response.data.token) {
-      await SecureStore.setItemAsync('auth_token', response.data.token);
-      await SecureStore.setItemAsync('user', JSON.stringify(response.data.user));
-    }
-    return response.data;
-  }
+  // Communities
+  getCommunities: () => apiClient.get('/api/communities'),
 
-  async register(data: { name: string; email: string; password: string }) {
-    const response = await this.authApi.post('/register', data);
-    if (response.data.token) {
-      await SecureStore.setItemAsync('auth_token', response.data.token);
-      await SecureStore.setItemAsync('user', JSON.stringify(response.data.user));
-    }
-    return response.data;
-  }
+  getCommunity: (id: string) => apiClient.get(`/api/communities/${id}`),
 
-  async logout() {
-    await SecureStore.deleteItemAsync('auth_token');
-    await SecureStore.deleteItemAsync('user');
-  }
+  joinCommunity: (id: string) =>
+    apiClient.post(`/api/communities/${id}/join`),
 
-  async getCurrentUser() {
-    const userJson = await SecureStore.getItemAsync('user');
-    return userJson ? JSON.parse(userJson) : null;
-  }
+  leaveCommunity: (id: string) =>
+    apiClient.post(`/api/communities/${id}/leave`),
 
-  // Community methods
-  async getCommunities(params?: any) {
-    const response = await this.communityApi.get('/communities', { params });
-    return response.data;
-  }
+  // Requests
+  getRequests: (communityId?: string) => {
+    const params = communityId ? { community_id: communityId } : {};
+    return apiClient.get('/api/requests', { params });
+  },
 
-  async getCommunity(id: string) {
-    const response = await this.communityApi.get(`/communities/${id}`);
-    return response.data;
-  }
+  getRequest: (id: string) => apiClient.get(`/api/requests/${id}`),
 
-  async joinCommunity(communityId: string, userId: string) {
-    const response = await this.communityApi.post(`/communities/${communityId}/join`, {
-      user_id: userId,
-    });
-    return response.data;
-  }
+  createRequest: (data: {
+    title: string;
+    description: string;
+    community_id: string;
+    category?: string;
+  }) => apiClient.post('/api/requests', data),
 
-  // Request methods
-  async getRequests(params?: any) {
-    const response = await this.requestApi.get('/requests', { params });
-    return response.data;
-  }
+  offerHelp: (requestId: string, message?: string) =>
+    apiClient.post(`/api/requests/${requestId}/offer`, { message }),
 
-  async createRequest(data: any) {
-    const response = await this.requestApi.post('/requests', data);
-    return response.data;
-  }
+  // Messages
+  getConversations: () => apiClient.get('/api/messages/conversations'),
 
-  async respondToRequest(requestId: string, data: any) {
-    const response = await this.requestApi.post(`/matches`, {
-      request_id: requestId,
-      ...data,
-    });
-    return response.data;
-  }
+  getMessages: (conversationId: string) =>
+    apiClient.get(`/api/messages/conversations/${conversationId}`),
 
-  // Feed methods
-  async getFeed(userId: string, limit = 20) {
-    const response = await this.feedApi.get('/feed', {
-      params: { limit },
-      headers: { 'x-user-id': userId },
-    });
-    return response.data;
-  }
+  sendMessage: (conversationId: string, content: string) =>
+    apiClient.post(`/api/messages/conversations/${conversationId}`, { content }),
 
-  // Messaging methods
-  async getConversations(userId: string) {
-    const response = await this.messagingApi.get('/messages/conversations', {
-      params: { user_id: userId },
-    });
-    return response.data;
-  }
+  // Notifications
+  getNotifications: () => apiClient.get('/api/notifications'),
 
-  async getMessages(conversationId: string, userId: string) {
-    const response = await this.messagingApi.get(
-      `/messages/conversations/${conversationId}/messages`,
-      { params: { user_id: userId } }
-    );
-    return response.data;
-  }
+  markNotificationRead: (id: string) =>
+    apiClient.put(`/api/notifications/${id}/read`),
 
-  async sendMessage(conversationId: string, senderId: string, content: string) {
-    const response = await this.messagingApi.post(
-      `/messages/conversations/${conversationId}/messages`,
-      { sender_id: senderId, content }
-    );
-    return response.data;
-  }
+  // Reputation
+  getKarma: (userId: string) =>
+    apiClient.get(`/api/reputation/karma/${userId}`),
 
-  // Reputation methods
-  async getReputation(userId: string) {
-    const response = await this.reputationApi.get(`/reputation/karma/${userId}`);
-    return response.data;
-  }
+  getTrustScore: (userId: string) =>
+    apiClient.get(`/api/reputation/trust/${userId}`),
+};
 
-  // Notification methods
-  async registerPushToken(userId: string, pushToken: string) {
-    // TODO: Add endpoint to backend to store push tokens
-    const response = await this.notificationApi.post(`/notifications/${userId}/push-token`, {
-      token: pushToken,
-    });
-    return response.data;
-  }
-}
-
-export const api = new ApiService();
+export default api;
