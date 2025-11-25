@@ -31,31 +31,48 @@ const noOpMiddleware = (_req: Request, _res: Response, next: NextFunction) => ne
 
 /**
  * Default rate limit configurations for different endpoint types
+ *
+ * Production-ready limits designed for scalability:
+ * - Read operations: Higher limits (users browse/search frequently)
+ * - Write operations: Moderate limits (prevent spam/abuse)
+ * - Auth operations: Strict limits (prevent brute force)
  */
 export const RateLimitPresets = {
   // Strict limit for auth endpoints (login, register)
   auth: {
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 10, // 10 requests per 15 minutes
+    max: 10, // 10 requests per 15 minutes per IP
     message: 'Too many authentication attempts, please try again later',
   },
-  // Standard API limit
+  // Standard write operations (POST/PUT/DELETE)
   standard: {
     windowMs: 60 * 1000, // 1 minute
-    max: 100, // 100 requests per minute
+    max: 60, // 60 write operations per minute per user
     message: 'Too many requests, please slow down',
   },
-  // Relaxed limit for read-heavy endpoints
-  relaxed: {
+  // Read-heavy endpoints (GET - lists, searches)
+  readHeavy: {
     windowMs: 60 * 1000, // 1 minute
-    max: 200, // 200 requests per minute
+    max: 300, // 300 read operations per minute per user
+    message: 'Too many requests, please slow down',
+  },
+  // Detail/single resource reads (GET - specific items)
+  readLight: {
+    windowMs: 60 * 1000, // 1 minute
+    max: 500, // 500 single-item reads per minute per user
     message: 'Too many requests, please slow down',
   },
   // Very strict limit for sensitive operations
   strict: {
     windowMs: 60 * 60 * 1000, // 1 hour
-    max: 5, // 5 requests per hour
+    max: 5, // 5 requests per hour per user
     message: 'Rate limit exceeded for this operation',
+  },
+  // Legacy: Relaxed (deprecated - use readHeavy instead)
+  relaxed: {
+    windowMs: 60 * 1000, // 1 minute
+    max: 300, // 300 requests per minute
+    message: 'Too many requests, please slow down',
   },
 } as const;
 
@@ -105,12 +122,22 @@ export function createRateLimiter(config: RateLimitConfig = {}): RateLimitReques
 
 /**
  * Pre-configured rate limiters for common use cases
+ *
+ * Usage:
+ * - auth: Login, register, password reset
+ * - standard: Write operations (POST/PUT/DELETE)
+ * - readHeavy: List endpoints (GET /communities, /requests)
+ * - readLight: Detail endpoints (GET /communities/:id)
+ * - strict: Sensitive operations (delete account, admin actions)
  */
 export const rateLimiters = {
   auth: createRateLimiter(RateLimitPresets.auth),
   standard: createRateLimiter(RateLimitPresets.standard),
-  relaxed: createRateLimiter(RateLimitPresets.relaxed),
+  readHeavy: createRateLimiter(RateLimitPresets.readHeavy),
+  readLight: createRateLimiter(RateLimitPresets.readLight),
   strict: createRateLimiter(RateLimitPresets.strict),
+  // Legacy
+  relaxed: createRateLimiter(RateLimitPresets.relaxed),
 };
 
 /**

@@ -94,3 +94,4 @@ web-build/
 
 # Metro
 .metro-health-check*
+.claude/settings.local.json

@@ -47,7 +47,7 @@ app.get('/health', (_req: Request, res: Response) => {
 // Tenant context is set based on X-Community-ID header or community_id param
 app.use(
   '/communities',
-  rateLimiters.standard,           // Rate limit
+  rateLimiters.readHeavy,          // Rate limit (300/min for read-heavy endpoints)
   authMiddleware,                  // 1. Verify JWT token
   optionalTenantMiddleware,        // 2. Set community context (optional for listing communities)
   dbContextMiddleware(pool),       // 3. Set PostgreSQL session variables for RLS

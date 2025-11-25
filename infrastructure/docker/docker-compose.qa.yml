@@ -1,0 +1,323 @@
+name: karmyq-qa
+
+# QA Environment Configuration
+# Optimized for Ubuntu server deployment with production-like settings
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: karmyq-qa-postgres
+    environment:
+      POSTGRES_USER: karmyq_user
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-karmyq_password_qa}
+      POSTGRES_DB: karmyq_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ../../infrastructure/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U karmyq_user -d karmyq_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - karmyq-network
+    restart: unless-stopped
+
+  # Redis for events and caching
+  redis:
+    image: redis:7-alpine
+    container_name: karmyq-qa-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - karmyq-network
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+
+  # Auth Service
+  auth-service:
+    build:
+      context: ../../services/auth-service
+      dockerfile: Dockerfile
+    image: karmyq-auth-service:qa
+    container_name: karmyq-qa-auth-service
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      DATABASE_URL: postgresql://karmyq_user:${POSTGRES_PASSWORD:-karmyq_password_qa}@postgres:5432/karmyq_db
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: ${JWT_SECRET}
+    ports:
+      - "3001:3001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - karmyq-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Community Service
+  community-service:
+    build:
+      context: ../../services/community-service
+      dockerfile: Dockerfile
+    image: karmyq-community-service:qa
+    container_name: karmyq-qa-community-service
+    environment:
+      NODE_ENV: production
+      PORT: 3002
+      DATABASE_URL: postgresql://karmyq_user:${POSTGRES_PASSWORD:-karmyq_password_qa}@postgres:5432/karmyq_db
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: ${JWT_SECRET}
+    ports:
+      - "3002:3002"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - karmyq-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Request Service
+  request-service:
+    build:
+      context: ../../services/request-service
+      dockerfile: Dockerfile
+    image: karmyq-request-service:qa
+    container_name: karmyq-qa-request-service
+    environment:
+      NODE_ENV: production
+      PORT: 3003
+      DATABASE_URL: postgresql://karmyq_user:${POSTGRES_PASSWORD:-karmyq_password_qa}@postgres:5432/karmyq_db
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: ${JWT_SECRET}
+    ports:
+      - "3003:3003"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - karmyq-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3003/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Reputation Service
+  reputation-service:
+    build:
+      context: ../../services/reputation-service
+      dockerfile: Dockerfile
+    image: karmyq-reputation-service:qa
+    container_name: karmyq-qa-reputation-service
+    environment:
+      NODE_ENV: production
+      PORT: 3004
+      DATABASE_URL: postgresql://karmyq_user:${POSTGRES_PASSWORD:-karmyq_password_qa}@postgres:5432/karmyq_db
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: ${JWT_SECRET}
+    ports:
+      - "3004:3004"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - karmyq-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3004/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Notification Service
+  notification-service:
+    build:
+      context: ../../services/notification-service
+      dockerfile: Dockerfile
+    image: karmyq-notification-service:qa
+    container_name: karmyq-qa-notification-service
+    environment:
+      NODE_ENV: production
+      PORT: 3005
+      DATABASE_URL: postgresql://karmyq_user:${POSTGRES_PASSWORD:-karmyq_password_qa}@postgres:5432/karmyq_db
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: ${JWT_SECRET}
+    ports:
+      - "3005:3005"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - karmyq-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3005/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Messaging Service
+  messaging-service:
+    build:
+      context: ../../services/messaging-service
+      dockerfile: Dockerfile
+    image: karmyq-messaging-service:qa
+    container_name: karmyq-qa-messaging-service
+    environment:
+      NODE_ENV: production
+      PORT: 3006
+      DATABASE_URL: postgresql://karmyq_user:${POSTGRES_PASSWORD:-karmyq_password_qa}@postgres:5432/karmyq_db
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: ${JWT_SECRET}
+    ports:
+      - "3006:3006"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - karmyq-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3006/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Feed Service
+  feed-service:
+    build:
+      context: ../../services/feed-service
+      dockerfile: Dockerfile
+    image: karmyq-feed-service:qa
+    container_name: karmyq-qa-feed-service
+    environment:
+      NODE_ENV: production
+      PORT: 3007
+      DATABASE_URL: postgresql://karmyq_user:${POSTGRES_PASSWORD:-karmyq_password_qa}@postgres:5432/karmyq_db
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: ${JWT_SECRET}
+    ports:
+      - "3007:3007"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - karmyq-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3007/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Cleanup Service
+  cleanup-service:
+    build:
+      context: ../../services/cleanup-service
+      dockerfile: Dockerfile
+    image: karmyq-cleanup-service:qa
+    container_name: karmyq-qa-cleanup-service
+    environment:
+      NODE_ENV: production
+      PORT: 3008
+      DATABASE_URL: postgresql://karmyq_user:${POSTGRES_PASSWORD:-karmyq_password_qa}@postgres:5432/karmyq_db
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: ${JWT_SECRET}
+    ports:
+      - "3008:3008"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - karmyq-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3008/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Frontend (Next.js)
+  frontend:
+    build:
+      context: ../../apps/frontend
+      dockerfile: Dockerfile
+    image: karmyq-frontend:qa
+    container_name: karmyq-qa-frontend
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      NEXT_PUBLIC_API_URL: http://localhost:3001
+    ports:
+      - "3000:3000"
+    depends_on:
+      - auth-service
+      - community-service
+    networks:
+      - karmyq-network
+    restart: unless-stopped
+
+  # Nginx Reverse Proxy (optional but recommended for QA)
+  nginx:
+    image: nginx:alpine
+    container_name: karmyq-qa-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ../../infrastructure/nginx/qa.conf:/etc/nginx/nginx.conf:ro
+      - ../../infrastructure/nginx/ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - frontend
+      - auth-service
+      - community-service
+    networks:
+      - karmyq-network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  karmyq-network:
+    driver: bridge

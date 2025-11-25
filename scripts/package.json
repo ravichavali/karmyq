@@ -1,0 +1,12 @@
+{
+  "name": "karmyq-scripts",
+  "version": "1.0.0",
+  "description": "Utility scripts for Karmyq development",
+  "scripts": {
+    "seed": "node seed-test-data.js"
+  },
+  "dependencies": {
+    "pg": "^8.11.3",
+    "bcrypt": "^5.1.1"
+  }
+}

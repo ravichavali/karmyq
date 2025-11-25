@@ -15,8 +15,8 @@ import { useAuthStore } from '@/store/auth';
 
 interface Conversation {
   id: string;
-  other_user_name: string;
-  last_message: string;
+  other_user_name: string | null;
+  last_message: string | { id: string; content: string; sender_id: string; created_at: string };
   last_message_at: string;
   unread_count: number;
 }
@@ -92,7 +92,7 @@ export default function MessagesScreen() {
           style={[styles.lastMessage, item.unread_count > 0 && styles.unreadMessage]}
           numberOfLines={1}
         >
-          {item.last_message}
+          {typeof item.last_message === 'string' ? item.last_message : (item.last_message?.content || 'No messages yet')}
         </Text>
       </View>
     </TouchableOpacity>
