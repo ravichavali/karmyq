@@ -18,7 +18,8 @@ interface AuthState {
   checkAuth: () => Promise<void>;
 }
 
-const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3001';
+// 10.0.2.2 is the special IP for Android emulator to reach host machine
+const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://10.0.2.2:3001';
 
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
@@ -28,7 +29,7 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   login: async (email: string, password: string) => {
     try {
-      const response = await fetch(`${API_URL}/api/auth/login`, {
+      const response = await fetch(`${API_URL}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
@@ -50,7 +51,7 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   register: async (name: string, email: string, password: string) => {
     try {
-      const response = await fetch(`${API_URL}/api/auth/register`, {
+      const response = await fetch(`${API_URL}/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, email, password }),
@@ -84,7 +85,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         return;
       }
 
-      const response = await fetch(`${API_URL}/api/auth/me`, {
+      const response = await fetch(`${API_URL}/auth/verify`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 

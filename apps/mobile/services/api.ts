@@ -1,88 +1,118 @@
-import axios from 'axios';
+import axios, { AxiosInstance } from 'axios';
 import * as SecureStore from 'expo-secure-store';
 
-const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3001';
+// 10.0.2.2 is the special IP for Android emulator to reach host machine
+const BASE_HOST = process.env.EXPO_PUBLIC_API_HOST || '10.0.2.2';
 
-const apiClient = axios.create({
-  baseURL: API_URL,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-});
+// Service ports matching docker-compose
+const SERVICES = {
+  auth: `http://${BASE_HOST}:3001`,
+  community: `http://${BASE_HOST}:3002`,
+  request: `http://${BASE_HOST}:3003`,
+  reputation: `http://${BASE_HOST}:3004`,
+  notification: `http://${BASE_HOST}:3005`,
+  messaging: `http://${BASE_HOST}:3006`,
+  feed: `http://${BASE_HOST}:3007`,
+};
 
-// Add auth token to requests
-apiClient.interceptors.request.use(async (config) => {
-  const token = await SecureStore.getItemAsync('token');
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
-});
+// Create axios instance with auth interceptor
+const createClient = (baseURL: string): AxiosInstance => {
+  const client = axios.create({
+    baseURL,
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
+
+  client.interceptors.request.use(async (config) => {
+    const token = await SecureStore.getItemAsync('token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  });
+
+  return client;
+};
+
+// Create clients for each service
+const authClient = createClient(SERVICES.auth);
+const communityClient = createClient(SERVICES.community);
+const requestClient = createClient(SERVICES.request);
+const reputationClient = createClient(SERVICES.reputation);
+const notificationClient = createClient(SERVICES.notification);
+const messagingClient = createClient(SERVICES.messaging);
+const feedClient = createClient(SERVICES.feed);
 
 export const api = {
-  // Auth
+  // Auth (port 3001)
   login: (email: string, password: string) =>
-    apiClient.post('/api/auth/login', { email, password }),
+    authClient.post('/auth/login', { email, password }),
 
   register: (name: string, email: string, password: string) =>
-    apiClient.post('/api/auth/register', { name, email, password }),
+    authClient.post('/auth/register', { name, email, password }),
 
-  getProfile: () => apiClient.get('/api/auth/me'),
+  getProfile: () => authClient.get('/auth/verify'),
 
-  // Feed
-  getFeed: (userId: string) =>
-    apiClient.get(`/api/feed/user/${userId}`),
+  // Feed (port 3007) - userId comes from JWT token
+  getFeed: () =>
+    feedClient.get('/feed'),
 
-  // Communities
-  getCommunities: () => apiClient.get('/api/communities'),
+  // Communities (port 3002)
+  getCommunities: () => communityClient.get('/communities'),
 
-  getCommunity: (id: string) => apiClient.get(`/api/communities/${id}`),
+  getCommunity: (id: string) => communityClient.get(`/communities/${id}`),
 
   joinCommunity: (id: string) =>
-    apiClient.post(`/api/communities/${id}/join`),
+    communityClient.post(`/communities/${id}/join`),
 
   leaveCommunity: (id: string) =>
-    apiClient.post(`/api/communities/${id}/leave`),
+    communityClient.post(`/communities/${id}/leave`),
 
-  // Requests
-  getRequests: (communityId?: string) => {
-    const params = communityId ? { community_id: communityId } : {};
-    return apiClient.get('/api/requests', { params });
+  // Requests (port 3003)
+  getRequests: (params?: { community_id?: string; status?: string; requester_id?: string }) => {
+    return requestClient.get('/requests', { params: params || {} });
   },
 
-  getRequest: (id: string) => apiClient.get(`/api/requests/${id}`),
+  getRequest: (id: string) => requestClient.get(`/requests/${id}`),
 
   createRequest: (data: {
     title: string;
     description: string;
     community_id: string;
     category?: string;
-  }) => apiClient.post('/api/requests', data),
+  }) => requestClient.post('/requests', data),
 
   offerHelp: (requestId: string, message?: string) =>
-    apiClient.post(`/api/requests/${requestId}/offer`, { message }),
+    requestClient.post(`/requests/${requestId}/offer`, { message }),
 
-  // Messages
-  getConversations: () => apiClient.get('/api/messages/conversations'),
+  // Messages (port 3006) - backend route is /messages, not /messaging
+  getConversations: () => messagingClient.get('/messages/conversations'),
 
   getMessages: (conversationId: string) =>
-    apiClient.get(`/api/messages/conversations/${conversationId}`),
+    messagingClient.get(`/messages/conversations/${conversationId}/messages`),
 
   sendMessage: (conversationId: string, content: string) =>
-    apiClient.post(`/api/messages/conversations/${conversationId}`, { content }),
+    messagingClient.post(`/messages/conversations/${conversationId}/messages`, { content }),
 
-  // Notifications
-  getNotifications: () => apiClient.get('/api/notifications'),
+  // Notifications (port 3005)
+  getNotifications: () => notificationClient.get('/notifications'),
 
   markNotificationRead: (id: string) =>
-    apiClient.put(`/api/notifications/${id}/read`),
+    notificationClient.put(`/notifications/${id}/read`),
 
-  // Reputation
+  // Reputation (port 3004)
   getKarma: (userId: string) =>
-    apiClient.get(`/api/reputation/karma/${userId}`),
+    reputationClient.get(`/reputation/karma/${userId}`),
 
-  getTrustScore: (userId: string) =>
-    apiClient.get(`/api/reputation/trust/${userId}`),
+  getTrustScore: (userId: string, communityId: string) =>
+    reputationClient.get(`/reputation/trust/${userId}/${communityId}`),
+
+  getReputationHistory: (userId: string) =>
+    reputationClient.get(`/reputation/history/${userId}`),
+
+  getBadges: (userId: string) =>
+    reputationClient.get(`/reputation/badges/${userId}`),
 };
 
 export default api;

@@ -30,8 +30,8 @@ export default function FeedScreen() {
     if (!user) return;
 
     try {
-      const response = await api.getFeed(user.id);
-      setFeedItems(response.data.items || []);
+      const response = await api.getFeed();
+      setFeedItems(response.data.data?.items || []);
     } catch (error) {
       console.error('Failed to load feed:', error);
     } finally {

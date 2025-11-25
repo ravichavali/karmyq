@@ -30,8 +30,8 @@ export default function MessagesScreen() {
   const loadConversations = async () => {
     if (!user) return;
     try {
-      const response = await api.getConversations(user.id);
-      setConversations(response.data || []);
+      const response = await api.getConversations();
+      setConversations(response.data.data || []);
     } catch (error) {
       console.error('Failed to load conversations:', error);
     } finally {
@@ -73,7 +73,7 @@ export default function MessagesScreen() {
     >
       <View style={styles.avatar}>
         <Text style={styles.avatarText}>
-          {item.other_user_name.charAt(0).toUpperCase()}
+          {(item.other_user_name || 'U').charAt(0).toUpperCase()}
         </Text>
         {item.unread_count > 0 && (
           <View style={styles.unreadBadge}>
@@ -84,7 +84,7 @@ export default function MessagesScreen() {
       <View style={styles.conversationInfo}>
         <View style={styles.conversationHeader}>
           <Text style={[styles.userName, item.unread_count > 0 && styles.unreadName]}>
-            {item.other_user_name}
+            {item.other_user_name || 'Unknown User'}
           </Text>
           <Text style={styles.time}>{formatTime(item.last_message_at)}</Text>
         </View>

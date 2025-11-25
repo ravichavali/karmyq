@@ -13,32 +13,30 @@ import { router } from 'expo-router';
 import { api } from '@/services/api';
 import { useAuthStore } from '@/store/auth';
 
-interface Reputation {
-  karma: number;
-  trust_score: number;
-  helps_given: number;
-  helps_received: number;
+interface KarmaData {
+  total_karma: number;
+  by_community: Array<{ community_id: string; community_name: string; total_karma: string }>;
 }
 
 export default function ProfileScreen() {
   const { user, logout } = useAuthStore();
-  const [reputation, setReputation] = useState<Reputation | null>(null);
+  const [karmaData, setKarmaData] = useState<KarmaData | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const loadReputation = async () => {
+  const loadKarma = async () => {
     if (!user) return;
     try {
-      const response = await api.getReputation(user.id);
-      setReputation(response.data);
+      const response = await api.getKarma(user.id);
+      setKarmaData(response.data.data);
     } catch (error) {
-      console.error('Failed to load reputation:', error);
+      console.error('Failed to load karma:', error);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    loadReputation();
+    loadKarma();
   }, [user]);
 
   const handleLogout = () => {
@@ -82,29 +80,27 @@ export default function ProfileScreen() {
       <View style={styles.statsContainer}>
         <View style={styles.statCard}>
           <Ionicons name="star" size={24} color="#F59E0B" />
-          <Text style={styles.statValue}>{reputation?.karma || 0}</Text>
-          <Text style={styles.statLabel}>Karma</Text>
+          <Text style={styles.statValue}>{karmaData?.total_karma || 0}</Text>
+          <Text style={styles.statLabel}>Total Karma</Text>
         </View>
         <View style={styles.statCard}>
-          <Ionicons name="shield-checkmark" size={24} color="#10B981" />
-          <Text style={styles.statValue}>{reputation?.trust_score || 0}</Text>
-          <Text style={styles.statLabel}>Trust Score</Text>
+          <Ionicons name="people" size={24} color="#10B981" />
+          <Text style={styles.statValue}>{karmaData?.by_community?.length || 0}</Text>
+          <Text style={styles.statLabel}>Communities</Text>
         </View>
       </View>
 
-      <View style={styles.statsRow}>
-        <View style={styles.statItem}>
-          <Ionicons name="hand-right" size={20} color="#3B82F6" />
-          <Text style={styles.statItemValue}>{reputation?.helps_given || 0}</Text>
-          <Text style={styles.statItemLabel}>Helps Given</Text>
+      {karmaData?.by_community && karmaData.by_community.length > 0 && (
+        <View style={styles.communitySection}>
+          <Text style={styles.sectionTitle}>Karma by Community</Text>
+          {karmaData.by_community.map((item) => (
+            <View key={item.community_id} style={styles.communityItem}>
+              <Text style={styles.communityName}>{item.community_name || 'Unknown'}</Text>
+              <Text style={styles.communityKarma}>{item.total_karma} karma</Text>
+            </View>
+          ))}
         </View>
-        <View style={styles.statDivider} />
-        <View style={styles.statItem}>
-          <Ionicons name="heart" size={20} color="#EF4444" />
-          <Text style={styles.statItemValue}>{reputation?.helps_received || 0}</Text>
-          <Text style={styles.statItemLabel}>Helps Received</Text>
-        </View>
-      </View>
+      )}
 
       <View style={styles.menuSection}>
         <Text style={styles.menuTitle}>Settings</Text>
@@ -211,32 +207,35 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     marginTop: 4,
   },
-  statsRow: {
-    flexDirection: 'row',
+  communitySection: {
     backgroundColor: '#FFFFFF',
     marginHorizontal: 16,
     borderRadius: 12,
     padding: 16,
     marginBottom: 16,
   },
-  statItem: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  statDivider: {
-    width: 1,
-    backgroundColor: '#E5E7EB',
-  },
-  statItemValue: {
-    fontSize: 20,
+  sectionTitle: {
+    fontSize: 14,
     fontWeight: '600',
     color: '#111827',
-    marginTop: 8,
+    marginBottom: 12,
   },
-  statItemLabel: {
-    fontSize: 12,
-    color: '#6B7280',
-    marginTop: 4,
+  communityItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  communityName: {
+    fontSize: 14,
+    color: '#374151',
+  },
+  communityKarma: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#F59E0B',
   },
   menuSection: {
     backgroundColor: '#FFFFFF',

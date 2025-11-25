@@ -39,7 +39,7 @@ export default function RequestsScreen() {
       if (filter === 'mine') params.requester_id = user.id;
 
       const response = await api.getRequests(params);
-      setRequests(response.data || []);
+      setRequests(response.data.data || []);
     } catch (error) {
       console.error('Failed to load requests:', error);
     } finally {
