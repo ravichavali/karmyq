@@ -153,14 +153,45 @@ lsof -i :3001
 ## Security Checklist
 
 - [ ] Change default passwords
-- [ ] Use strong JWT secrets (32+ chars)
+- [ ] Use strong JWT secrets (64+ chars)
 - [ ] Enable HTTPS/SSL
 - [ ] Configure firewall
 - [ ] Set up backups
 - [ ] Enable logging limits
-- [ ] Use secrets management
+- [ ] Implement secrets rotation (see below)
+
+## Secrets Management
+
+Karmyq includes enterprise-grade secrets rotation with zero-downtime updates.
+
+### Initial Setup
+```bash
+# Generate strong secrets
+openssl rand -base64 64  # JWT_SECRET
+openssl rand -base64 32  # POSTGRES_PASSWORD
+
+# Store in .env.qa (never commit!)
+```
+
+### Automated Rotation
+```bash
+# Rotate secrets monthly (recommended)
+./scripts/secrets-rotate.sh qa
+
+# Rollback if issues occur
+./scripts/secrets-rollback.sh qa
+```
+
+### Features
+- ✅ Zero-downtime JWT rotation with 24h grace period
+- ✅ AES-256-CBC encryption for secrets at rest
+- ✅ Automated backup and rollback capability
+- ✅ Comprehensive audit logging
+- ✅ Health validation after rotation
+
+📖 **Full Documentation:** [docs/secrets-management.md](docs/secrets-management.md)
 
 ---
 
-**Version**: 5.1.0
+**Version**: 5.2.0
 **Last Updated**: November 2025

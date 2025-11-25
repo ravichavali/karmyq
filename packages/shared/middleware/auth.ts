@@ -25,9 +25,49 @@ export interface AuthenticatedRequest extends Request {
 }
 
 /**
+ * Verify JWT token with dual-key support for zero-downtime rotation
+ *
+ * During rotation, tokens signed with either the current or previous secret are valid.
+ * This allows a grace period where old tokens continue working while new ones are issued.
+ *
+ * @param token - JWT token to verify
+ * @returns Decoded JWT payload
+ * @throws JsonWebTokenError if token is invalid with both keys
+ */
+function verifyTokenWithRotation(token: string): JWTPayload {
+  const JWT_SECRET = process.env.JWT_SECRET;
+  const JWT_SECRET_PREVIOUS = process.env.JWT_SECRET_PREVIOUS;
+
+  if (!JWT_SECRET) {
+    throw new Error('JWT_SECRET not configured');
+  }
+
+  // Try current secret first
+  try {
+    return jwt.verify(token, JWT_SECRET) as JWTPayload;
+  } catch (error: any) {
+    // If we have a previous secret, try that (rotation grace period)
+    if (JWT_SECRET_PREVIOUS && error.name === 'JsonWebTokenError') {
+      try {
+        const decoded = jwt.verify(token, JWT_SECRET_PREVIOUS) as JWTPayload;
+        // Log that we're using the old secret (for monitoring)
+        console.warn('Token verified with previous JWT secret (rotation grace period)');
+        return decoded;
+      } catch (previousError) {
+        // Token invalid with both keys, throw original error
+        throw error;
+      }
+    }
+    // No previous secret or different error type, throw original error
+    throw error;
+  }
+}
+
+/**
  * Authentication Middleware
  *
  * Verifies JWT token and attaches user information to request.
+ * Supports dual-key rotation for zero-downtime secret updates.
  * Does NOT verify community access - that's done by tenant middleware.
  *
  * Usage:
@@ -35,6 +75,10 @@ export interface AuthenticatedRequest extends Request {
  *
  * Token Format:
  *   Authorization: Bearer <jwt-token>
+ *
+ * Rotation Support:
+ *   During rotation, both JWT_SECRET and JWT_SECRET_PREVIOUS are accepted.
+ *   This allows a grace period where old tokens remain valid.
  */
 export function authMiddleware(
   req: AuthenticatedRequest,
@@ -56,13 +100,8 @@ export function authMiddleware(
 
     const token = authHeader.substring(7); // Remove 'Bearer ' prefix
 
-    // Verify token
-    const JWT_SECRET = process.env.JWT_SECRET;
-    if (!JWT_SECRET) {
-      throw new Error('JWT_SECRET not configured');
-    }
-
-    const decoded = jwt.verify(token, JWT_SECRET) as JWTPayload;
+    // Verify token with rotation support
+    const decoded = verifyTokenWithRotation(token);
 
     // Attach user to request
     req.user = decoded;
@@ -102,6 +141,7 @@ export function authMiddleware(
  * Optional Authentication Middleware
  *
  * Same as authMiddleware but allows requests without tokens.
+ * Supports dual-key rotation for zero-downtime secret updates.
  * Useful for endpoints that work differently for authenticated vs anonymous users.
  *
  * Usage:
@@ -109,7 +149,7 @@ export function authMiddleware(
  */
 export function optionalAuthMiddleware(
   req: AuthenticatedRequest,
-  res: Response,
+  _res: Response,
   next: NextFunction
 ): void {
   try {
@@ -121,13 +161,9 @@ export function optionalAuthMiddleware(
     }
 
     const token = authHeader.substring(7);
-    const JWT_SECRET = process.env.JWT_SECRET;
 
-    if (!JWT_SECRET) {
-      throw new Error('JWT_SECRET not configured');
-    }
-
-    const decoded = jwt.verify(token, JWT_SECRET) as JWTPayload;
+    // Verify token with rotation support
+    const decoded = verifyTokenWithRotation(token);
     req.user = decoded;
 
     next();
