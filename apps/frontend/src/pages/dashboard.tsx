@@ -27,6 +27,13 @@ export default function Dashboard() {
   const [suggestedRequests, setSuggestedRequests] = useState<HelpRequest[]>([])
   const [loading, setLoading] = useState(true)
 
+  const scrollToSection = (sectionId: string) => {
+    const element = document.getElementById(sectionId)
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+  }
+
   useEffect(() => {
     const token = localStorage.getItem('token')
     const userData = localStorage.getItem('user')
@@ -48,10 +55,11 @@ export default function Dashboard() {
       setLoading(true)
 
       // Fetch all data in parallel
-      const [myRequestsRes, matchedRequestsRes, suggestedRes] = await Promise.all([
+      const [myRequestsRes, matchedRequestsRes, suggestedRes, allMatchesRes] = await Promise.all([
         requestService.getRequests({ limit: 10 }),
         requestService.getMatchedRequests(userId, 10),
-        requestService.getRequests({ status: 'open', limit: 6 }),
+        requestService.getRequests({ status: 'open', limit: 20 }),
+        requestService.getMatches({ limit: 100 }), // Get all matches to filter
       ])
 
       // Filter my requests
@@ -61,8 +69,17 @@ export default function Dashboard() {
       // Set matched requests (I'm helping with these)
       setHelpingWith(matchedRequestsRes.data.data)
 
-      // Set suggested requests (exclude my own)
-      const suggested = suggestedRes.data.data.filter((r: HelpRequest) => r.requester_id !== userId)
+      // Get all request IDs that the user has responded to
+      const respondedRequestIds = new Set(
+        allMatchesRes.data.data
+          .filter((m: any) => m.responder_id === userId)
+          .map((m: any) => m.request_id)
+      )
+
+      // Set suggested requests (exclude my own AND requests I've already responded to)
+      const suggested = suggestedRes.data.data.filter((r: HelpRequest) =>
+        r.requester_id !== userId && !respondedRequestIds.has(r.id)
+      )
       setSuggestedRequests(suggested)
     } catch (err) {
       console.error('Failed to load dashboard data:', err)
@@ -127,7 +144,10 @@ export default function Dashboard() {
 
             {/* Stats Cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-              <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100 hover:shadow-md transition-shadow">
+              <button
+                onClick={() => scrollToSection('my-requests')}
+                className="bg-white rounded-xl shadow-sm p-6 border border-gray-100 hover:shadow-md hover:border-blue-300 transition-all cursor-pointer text-left"
+              >
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium text-gray-600">My Requests</p>
@@ -139,9 +159,12 @@ export default function Dashboard() {
                     </svg>
                   </div>
                 </div>
-              </div>
+              </button>
 
-              <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100 hover:shadow-md transition-shadow">
+              <button
+                onClick={() => scrollToSection('helping-with')}
+                className="bg-white rounded-xl shadow-sm p-6 border border-gray-100 hover:shadow-md hover:border-purple-300 transition-all cursor-pointer text-left"
+              >
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium text-gray-600">Helping With</p>
@@ -153,9 +176,12 @@ export default function Dashboard() {
                     </svg>
                   </div>
                 </div>
-              </div>
+              </button>
 
-              <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100 hover:shadow-md transition-shadow">
+              <button
+                onClick={() => scrollToSection('available-to-help')}
+                className="bg-white rounded-xl shadow-sm p-6 border border-gray-100 hover:shadow-md hover:border-green-300 transition-all cursor-pointer text-left"
+              >
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium text-gray-600">Available to Help</p>
@@ -167,13 +193,13 @@ export default function Dashboard() {
                     </svg>
                   </div>
                 </div>
-              </div>
+              </button>
             </div>
 
             {/* Main Content */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
               {/* My Requests Section */}
-              <div>
+              <div id="my-requests">
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="text-2xl font-bold text-gray-900">My Requests</h2>
                   <Link
@@ -233,7 +259,7 @@ export default function Dashboard() {
               </div>
 
               {/* Helping With Section */}
-              <div>
+              <div id="helping-with">
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="text-2xl font-bold text-gray-900">Helping With</h2>
                   <Link
@@ -300,7 +326,7 @@ export default function Dashboard() {
 
             {/* Suggested Requests Section */}
             {suggestedRequests.length > 0 && (
-              <div className="mt-8">
+              <div id="available-to-help" className="mt-8">
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="text-2xl font-bold text-gray-900">Ways You Can Help</h2>
                   <Link
