@@ -126,9 +126,21 @@ export const MessagingProvider: React.FC<MessagingProviderProps> = ({ children }
       }
 
       // Add message to current conversation if it matches
-      if (currentConversation && message.conversation_id === currentConversation.id) {
-        setMessages((prev) => [...prev, message])
-      }
+      // Use setMessages callback to access latest state without closure issues
+      setMessages((prev) => {
+        // Only add if we're viewing this conversation
+        // Check by seeing if we already have messages from this conversation
+        if (prev.length === 0) {
+          console.log('No messages yet, not adding to view')
+          return prev
+        }
+        if (prev[0]?.conversation_id === message.conversation_id) {
+          console.log('Adding message to current conversation view')
+          return [...prev, message]
+        }
+        console.log('Message is for different conversation, not adding to view')
+        return prev
+      })
 
       // Update conversation list with new last message
       setConversations((prev) =>
