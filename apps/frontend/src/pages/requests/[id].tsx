@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/router'
 import Link from 'next/link'
-import { requestService, messagingService } from '../../lib/api'
+import { requestService } from '../../lib/api'
 import { useMessaging } from '../../contexts/MessagingContext'
 
 interface HelpRequest {
@@ -20,16 +20,6 @@ interface HelpRequest {
   updated_at: string
 }
 
-interface HelpOffer {
-  id: string
-  offerer_id: string
-  helper_name: string
-  title: string
-  description: string
-  category: string
-  status: string
-}
-
 interface Match {
   id: string
   request_id: string
@@ -46,9 +36,7 @@ export default function RequestDetailPage() {
   const { id } = router.query
   const [request, setRequest] = useState<HelpRequest | null>(null)
   const [matches, setMatches] = useState<Match[]>([])
-  const [availableOffers, setAvailableOffers] = useState<HelpOffer[]>([])
   const [loading, setLoading] = useState(true)
-  const [showOfferModal, setShowOfferModal] = useState(false)
   const [responding, setResponding] = useState(false)
   const [currentUser, setCurrentUser] = useState<any>(null)
   const { createConversation } = useMessaging()
@@ -66,7 +54,6 @@ export default function RequestDetailPage() {
     if (id) {
       fetchRequest()
       fetchMatches()
-      fetchAvailableOffers()
     }
   }, [id])
 
@@ -91,38 +78,22 @@ export default function RequestDetailPage() {
     }
   }
 
-  const fetchAvailableOffers = async () => {
-    if (!request) return
-
-    try {
-      const response = await requestService.getOffers({
-        community_id: request.community_id,
-        status: 'active',
-        type: request.category,
-      })
-      setAvailableOffers(response.data.data)
-    } catch (error) {
-      console.error('Error fetching offers:', error)
-    }
-  }
-
-  const handleRespondToRequest = async (offerId?: string) => {
+  const handleOfferToHelp = async () => {
     if (!currentUser || !request) return
 
     try {
       setResponding(true)
       await requestService.createMatch({
         request_id: request.id,
-        offer_id: offerId,
         responder_id: currentUser.id,
       })
 
-      alert('Response submitted successfully!')
-      setShowOfferModal(false)
+      // Silently refresh - no alert popup
       await fetchRequest()
       await fetchMatches()
     } catch (error: any) {
       console.error('Error responding to request:', error)
+      // Only show error if something went wrong
       alert(error.response?.data?.message || 'Failed to respond to request')
     } finally {
       setResponding(false)
@@ -134,7 +105,7 @@ export default function RequestDetailPage() {
 
     try {
       await requestService.completeMatch(matchId, currentUser.id)
-      alert('Match marked as completed!')
+      // Silently refresh
       await fetchRequest()
       await fetchMatches()
     } catch (error: any) {
@@ -149,7 +120,7 @@ export default function RequestDetailPage() {
 
     try {
       await requestService.cancelMatch(matchId, currentUser.id)
-      alert('Match cancelled successfully!')
+      // Silently refresh
       await fetchRequest()
       await fetchMatches()
     } catch (error: any) {
@@ -195,7 +166,7 @@ export default function RequestDetailPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
           <p className="text-gray-600 mt-4">Loading request...</p>
@@ -206,11 +177,11 @@ export default function RequestDetailPage() {
 
   if (!request) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center">
         <div className="text-center">
           <p className="text-gray-600 text-lg">Request not found</p>
-          <Link href="/requests" className="text-blue-600 hover:underline mt-4 inline-block">
-            Back to requests
+          <Link href="/dashboard" className="text-blue-600 hover:underline mt-4 inline-block">
+            Back to dashboard
           </Link>
         </div>
       </div>
@@ -218,17 +189,21 @@ export default function RequestDetailPage() {
   }
 
   const canRespond = request.status === 'open' && currentUser && currentUser.id !== request.requester_id
+  const userHasResponded = matches.some(m => m.responder_id === currentUser?.id)
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Back Button */}
-        <Link href="/requests" className="text-blue-600 hover:underline mb-6 inline-block">
-          ← Back to requests
+        <Link href="/dashboard" className="text-blue-600 hover:text-blue-700 font-medium mb-6 inline-flex items-center gap-2">
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          </svg>
+          Back to Dashboard
         </Link>
 
         {/* Request Details */}
-        <div className="bg-white rounded-lg shadow-sm p-8 mb-6">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8 mb-6">
           <div className="flex justify-between items-start mb-6">
             <div className="flex-1">
               <h1 className="text-3xl font-bold text-gray-900 mb-4">{request.title}</h1>
@@ -244,7 +219,7 @@ export default function RequestDetailPage() {
           </div>
 
           <div className="prose max-w-none mb-6">
-            <p className="text-gray-700 whitespace-pre-wrap">{request.description}</p>
+            <p className="text-gray-700 text-lg whitespace-pre-wrap leading-relaxed">{request.description}</p>
           </div>
 
           <div className="border-t pt-6 grid grid-cols-2 gap-6">
@@ -266,28 +241,42 @@ export default function RequestDetailPage() {
             </div>
           </div>
 
-          {canRespond && (
+          {canRespond && !userHasResponded && (
             <div className="mt-6 pt-6 border-t">
               <button
-                onClick={() => setShowOfferModal(true)}
-                className="w-full bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition font-semibold"
+                onClick={handleOfferToHelp}
+                disabled={responding}
+                className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 rounded-lg hover:from-blue-700 hover:to-purple-700 transition font-semibold shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Offer to Help
+                {responding ? 'Offering to Help...' : 'Offer to Help'}
               </button>
+            </div>
+          )}
+
+          {userHasResponded && (
+            <div className="mt-6 pt-6 border-t">
+              <div className="flex items-center gap-2 text-green-600 bg-green-50 px-4 py-3 rounded-lg">
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                </svg>
+                <span className="font-medium">You've offered to help with this request</span>
+              </div>
             </div>
           )}
         </div>
 
         {/* Matches Section */}
         {matches.length > 0 && (
-          <div className="bg-white rounded-lg shadow-sm p-8">
-            <h2 className="text-2xl font-bold text-gray-900 mb-6">Responses</h2>
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8">
+            <h2 className="text-2xl font-bold text-gray-900 mb-6">
+              {matches.length === 1 ? '1 Response' : `${matches.length} Responses`}
+            </h2>
             <div className="space-y-4">
               {matches.map((match) => (
-                <div key={match.id} className="border rounded-lg p-6">
+                <div key={match.id} className="border border-gray-200 rounded-xl p-6 hover:border-blue-200 transition-colors">
                   <div className="flex justify-between items-start mb-4">
                     <div>
-                      <h3 className="font-semibold text-gray-900">{match.helper_name}</h3>
+                      <h3 className="font-semibold text-gray-900 text-lg">{match.helper_name}</h3>
                       <p className="text-gray-600 text-sm">{match.helper_email}</p>
                     </div>
                     <span className={`px-3 py-1 rounded-full text-sm font-semibold ${getStatusColor(match.status)}`}>
@@ -298,7 +287,7 @@ export default function RequestDetailPage() {
                   <div className="text-sm text-gray-500 mb-4">
                     Responded on {new Date(match.created_at).toLocaleDateString()}
                     {match.completed_at && (
-                      <span> • Completed on {new Date(match.completed_at).toLocaleDateString()}</span>
+                      <span className="text-green-600 font-medium"> • Completed on {new Date(match.completed_at).toLocaleDateString()}</span>
                     )}
                   </div>
 
@@ -306,7 +295,7 @@ export default function RequestDetailPage() {
                     <div className="flex gap-3">
                       <button
                         onClick={() => handleStartConversation(match)}
-                        className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition flex items-center justify-center gap-2"
+                        className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition flex items-center justify-center gap-2 font-medium"
                       >
                         <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
                           <path d="M2 2h12a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H4l-3 3V3a1 1 0 0 1 1-1z" />
@@ -314,21 +303,22 @@ export default function RequestDetailPage() {
                         Message
                       </button>
 
-                      {match.status === 'proposed' && (
-                        <>
-                          <button
-                            onClick={() => handleCompleteMatch(match.id)}
-                            className="flex-1 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition"
-                          >
-                            Complete
-                          </button>
-                          <button
-                            onClick={() => handleCancelMatch(match.id)}
-                            className="flex-1 bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition"
-                          >
-                            Cancel
-                          </button>
-                        </>
+                      {match.status === 'proposed' && currentUser.id === request.requester_id && (
+                        <button
+                          onClick={() => handleCompleteMatch(match.id)}
+                          className="flex-1 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition font-medium"
+                        >
+                          Mark Complete
+                        </button>
+                      )}
+
+                      {match.status === 'proposed' && (currentUser.id === request.requester_id || currentUser.id === match.responder_id) && (
+                        <button
+                          onClick={() => handleCancelMatch(match.id)}
+                          className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition font-medium"
+                        >
+                          Cancel
+                        </button>
                       )}
                     </div>
                   )}
@@ -338,50 +328,6 @@ export default function RequestDetailPage() {
           </div>
         )}
       </div>
-
-      {/* Offer Selection Modal */}
-      {showOfferModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[80vh] overflow-y-auto p-8">
-            <h2 className="text-2xl font-bold text-gray-900 mb-6">Offer to Help</h2>
-
-            {availableOffers.length > 0 && (
-              <div className="mb-6">
-                <h3 className="font-semibold text-gray-900 mb-4">Use an existing offer:</h3>
-                <div className="space-y-3">
-                  {availableOffers.map((offer) => (
-                    <button
-                      key={offer.id}
-                      onClick={() => handleRespondToRequest(offer.id)}
-                      disabled={responding}
-                      className="w-full text-left border border-gray-300 rounded-lg p-4 hover:border-blue-500 hover:bg-blue-50 transition disabled:opacity-50"
-                    >
-                      <h4 className="font-semibold text-gray-900">{offer.title}</h4>
-                      <p className="text-gray-600 text-sm mt-1">{offer.description}</p>
-                    </button>
-                  ))}
-                </div>
-                <div className="my-6 text-center text-gray-500">or</div>
-              </div>
-            )}
-
-            <button
-              onClick={() => handleRespondToRequest()}
-              disabled={responding}
-              className="w-full bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition font-semibold disabled:opacity-50"
-            >
-              {responding ? 'Submitting...' : 'Respond without an existing offer'}
-            </button>
-
-            <button
-              onClick={() => setShowOfferModal(false)}
-              className="w-full mt-3 bg-gray-200 text-gray-700 px-6 py-3 rounded-lg hover:bg-gray-300 transition"
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   )
 }
