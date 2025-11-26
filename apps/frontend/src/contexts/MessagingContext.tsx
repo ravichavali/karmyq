@@ -81,16 +81,25 @@ export const MessagingProvider: React.FC<MessagingProviderProps> = ({ children }
   useEffect(() => {
     if (!userId) return
 
+    // Get JWT token from localStorage
+    const token = localStorage.getItem('token')
+    if (!token) {
+      console.error('No token found - cannot connect to messaging socket')
+      return
+    }
+
     const socketUrl = messagingService.getSocketUrl()
     const newSocket = io(socketUrl, {
       transports: ['websocket', 'polling'],
+      auth: {
+        token: token, // Send JWT token for authentication
+      },
     })
 
     newSocket.on('connect', () => {
       console.log('Socket.IO connected')
       setConnected(true)
-      // Authenticate with user ID
-      newSocket.emit('authenticate', userId)
+      // No need to emit 'authenticate' - already authenticated via JWT in handshake
     })
 
     newSocket.on('disconnect', () => {
