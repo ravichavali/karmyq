@@ -270,6 +270,18 @@ async function seedTestData() {
     }
     console.log(`✅ Created ${membershipCount} memberships\n`);
 
+    // Update current_members count for all communities
+    console.log('🔄 Updating community member counts...');
+    await client.query(`
+      UPDATE communities.communities c
+      SET current_members = (
+        SELECT COUNT(*)
+        FROM communities.members m
+        WHERE m.community_id = c.id AND m.status = 'active'
+      )
+    `);
+    console.log(`✅ Updated member counts for all communities\n`);
+
     // 4. Create help requests (10% of users create 1-3 requests)
     console.log('📝 Creating help requests...');
     const requestTitles = [

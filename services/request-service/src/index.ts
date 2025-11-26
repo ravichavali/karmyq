@@ -10,7 +10,7 @@ import matchesRouter from './routes/matches';
 import { createLogger, requestLoggingMiddleware } from '../shared/utils/logger';
 import {
   authMiddleware,
-  tenantMiddleware,
+  optionalTenantMiddleware,
   dbContextMiddleware,
   globalRateLimiter,
   rateLimiters,
@@ -38,12 +38,13 @@ app.get('/health', (_req: Request, res: Response) => {
   });
 });
 
-// Routes with authentication and tenant context
+// Routes with authentication and optional tenant context
+// Tenant context is optional because requests themselves contain community_id
 app.use(
   '/requests',
   rateLimiters.standard,
   authMiddleware,
-  tenantMiddleware,
+  optionalTenantMiddleware,
   dbContextMiddleware(pool),
   requestsRouter
 );
@@ -52,7 +53,7 @@ app.use(
   '/offers',
   rateLimiters.standard,
   authMiddleware,
-  tenantMiddleware,
+  optionalTenantMiddleware,
   dbContextMiddleware(pool),
   offersRouter
 );
@@ -61,7 +62,7 @@ app.use(
   '/matches',
   rateLimiters.standard,
   authMiddleware,
-  tenantMiddleware,
+  optionalTenantMiddleware,
   dbContextMiddleware(pool),
   matchesRouter
 );
