@@ -162,7 +162,7 @@ DECLARE
     v_community_id UUID;
 BEGIN
     -- Get community_id from conversation's match
-    SELECT c.community_id INTO v_community_id
+    SELECT r.community_id INTO v_community_id
     FROM messaging.conversations conv
     JOIN requests.matches m ON conv.request_match_id = m.id
     JOIN requests.help_requests r ON m.request_id = r.id
