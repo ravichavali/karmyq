@@ -3,6 +3,7 @@ import { useRouter } from 'next/router'
 import Head from 'next/head'
 import { requestService, communityService } from '@/lib/api'
 import Layout from '@/components/Layout'
+import InlineChat from '@/components/InlineChat'
 
 interface HelpRequest {
   id: string
@@ -368,7 +369,16 @@ export default function Dashboard() {
                                       </span>
                                     )}
                                   </div>
-                                  {/* TODO: Inline messages will go here */}
+                                  {/* Inline Chat */}
+                                  {(match.status === 'proposed' || match.status === 'matched') && (
+                                    <InlineChat
+                                      matchId={match.id}
+                                      currentUserId={user.id}
+                                      isRequester={true}
+                                      matchStatus={match.status}
+                                      otherParticipantName={match.responder_name || 'Unknown'}
+                                    />
+                                  )}
                                 </div>
                               ))}
                             </div>

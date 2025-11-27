@@ -384,6 +384,19 @@ export const messagingService = {
 
   // WebSocket URL
   getSocketUrl: () => MESSAGING_API_URL,
+
+  // Match-based messaging
+  getMatchConversation: (matchId: string) =>
+    messagingApi.get(`/messages/match/${matchId}`),
+
+  sendMatchMessage: (matchId: string, content: string) =>
+    messagingApi.post(`/messages/match/${matchId}/messages`, { content }),
+
+  getMatchUnreadCount: (matchId: string) =>
+    messagingApi.get(`/messages/match/${matchId}/unread`),
+
+  markMatchRead: (matchId: string) =>
+    messagingApi.put(`/messages/match/${matchId}/read`),
 }
 
 // Reputation Service API Methods

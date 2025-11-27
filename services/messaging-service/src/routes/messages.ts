@@ -189,4 +189,82 @@ router.post('/conversations/:conversationId/messages', async (req: Authenticated
   }
 });
 
+// Match-based messaging endpoints
+// GET /match/:matchId - Get or create conversation for a match and return messages
+router.get('/match/:matchId', async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { matchId } = req.params;
+    const userId = req.user?.userId;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required',
+      });
+    }
+
+    // Get match details from request service to validate access
+    // For now, we'll just get or create conversation and let messageService handle validation
+    const conversation = await getOrCreateConversation(matchId, [userId]);
+
+    // Get messages for this conversation
+    const messages = await getMessages(conversation.id, userId, 50, 0);
+
+    res.json({
+      success: true,
+      data: {
+        conversation_id: conversation.id,
+        messages: messages,
+      },
+    });
+  } catch (error: any) {
+    console.error('Error fetching match conversation:', error);
+    res.status(error.message.includes('not a participant') ? 403 : 500).json({
+      success: false,
+      message: error.message || 'Failed to fetch match conversation',
+    });
+  }
+});
+
+// POST /match/:matchId/messages - Send message in match conversation
+router.post('/match/:matchId/messages', async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { matchId } = req.params;
+    const userId = req.user?.userId;
+    const { content } = req.body;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required',
+      });
+    }
+
+    if (!content) {
+      return res.status(400).json({
+        success: false,
+        message: 'content is required',
+      });
+    }
+
+    // Get or create conversation for this match
+    const conversation = await getOrCreateConversation(matchId, [userId]);
+
+    // Send message
+    const message = await sendMessage(conversation.id, userId, content);
+
+    res.json({
+      success: true,
+      data: message,
+      message: 'Message sent successfully',
+    });
+  } catch (error: any) {
+    console.error('Error sending match message:', error);
+    res.status(error.message.includes('not a participant') ? 403 : 500).json({
+      success: false,
+      message: error.message || 'Failed to send message',
+    });
+  }
+});
+
 export default router;
