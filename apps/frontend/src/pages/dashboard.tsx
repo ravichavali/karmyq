@@ -79,9 +79,20 @@ export default function Dashboard() {
       ])
 
       // Filter my active requests (open or matched status)
-      const myReqs = myRequestsRes.data.data.filter(
+      const allMyReqs = myRequestsRes.data.data.filter(
         (r: HelpRequest) => r.requester_id === userId && (r.status === 'open' || r.status === 'matched')
       )
+
+      // Deduplicate multi-community requests (same description + similar timestamp)
+      // Keep only one representative request per group
+      const seenRequests = new Map<string, HelpRequest>()
+      allMyReqs.forEach((req: HelpRequest) => {
+        const key = `${req.description}_${new Date(req.created_at).getTime()}`
+        if (!seenRequests.has(key)) {
+          seenRequests.set(key, req)
+        }
+      })
+      const myReqs = Array.from(seenRequests.values())
       setMyActiveRequests(myReqs)
 
       // Group matches by request_id
@@ -148,15 +159,19 @@ export default function Dashboard() {
     if (!user) return
 
     try {
-      await requestService.createMatch({
+      console.log('Offering to help for request:', requestId)
+      const response = await requestService.createMatch({
         request_id: requestId,
         responder_id: user.id,
       })
+      console.log('Match created:', response.data)
 
       // Refresh data
       await fetchDashboardData(user.id)
+      alert('Offer sent successfully!')
     } catch (error: any) {
       console.error('Error offering to help:', error)
+      console.error('Error details:', error.response?.data)
       alert(error.response?.data?.message || 'Failed to offer help')
     }
   }
