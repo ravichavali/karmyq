@@ -187,6 +187,19 @@ export default function Dashboard() {
     }
   }
 
+  const handleCompleteMatch = async (matchId: string) => {
+    if (!user) return
+
+    try {
+      await requestService.completeMatch(matchId, user.id)
+      // Refresh data to show completed status
+      await fetchDashboardData(user.id)
+    } catch (error: any) {
+      console.error('Error completing match:', error)
+      alert(error.response?.data?.message || 'Failed to mark complete')
+    }
+  }
+
   const formatTime = (timestamp: string) => {
     const date = new Date(timestamp)
     const now = new Date()
@@ -364,8 +377,21 @@ export default function Dashboard() {
                                       </div>
                                     )}
                                     {match.status === 'matched' && (
-                                      <span className="px-3 py-1.5 bg-green-100 text-green-700 text-sm rounded-lg font-medium">
-                                        ✓ Accepted
+                                      <div className="flex items-center gap-2">
+                                        <span className="px-3 py-1.5 bg-green-100 text-green-700 text-sm rounded-lg font-medium">
+                                          ✓ Accepted
+                                        </span>
+                                        <button
+                                          onClick={() => handleCompleteMatch(match.id)}
+                                          className="px-4 py-1.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                                        >
+                                          Mark Complete
+                                        </button>
+                                      </div>
+                                    )}
+                                    {match.status === 'completed' && (
+                                      <span className="px-3 py-1.5 bg-purple-100 text-purple-700 text-sm rounded-lg font-medium">
+                                        ✓ Completed
                                       </span>
                                     )}
                                   </div>
