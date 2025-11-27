@@ -48,6 +48,7 @@ export default function Dashboard() {
   // Request data
   const [myActiveRequests, setMyActiveRequests] = useState<HelpRequest[]>([])
   const [requestMatches, setRequestMatches] = useState<{ [key: string]: Match[] }>({})
+  const [myOffers, setMyOffers] = useState<Match[]>([]) // Requests where I offered to help
   const [communityRequests, setCommunityRequests] = useState<HelpRequest[]>([])
 
   useEffect(() => {
@@ -105,6 +106,12 @@ export default function Dashboard() {
       })
       setRequestMatches(matchesByRequest)
 
+      // Get matches where I'm the helper (proposed or matched)
+      const myOfferMatches = allMatchesRes.data.data.filter(
+        (m: Match) => m.responder_id === userId && (m.status === 'proposed' || m.status === 'matched')
+      )
+      setMyOffers(myOfferMatches)
+
       // Get request IDs user has responded to
       const respondedRequestIds = new Set(
         allMatchesRes.data.data
@@ -113,9 +120,19 @@ export default function Dashboard() {
       )
 
       // Community feed (exclude my requests and responded requests)
-      const suggested = suggestedRes.data.data.filter(
+      const allSuggested = suggestedRes.data.data.filter(
         (r: HelpRequest) => r.requester_id !== userId && !respondedRequestIds.has(r.id)
       )
+
+      // Deduplicate global requests (same description + timestamp)
+      const seenSuggested = new Map<string, HelpRequest>()
+      allSuggested.forEach((req: HelpRequest) => {
+        const key = `${req.description}_${new Date(req.created_at).getTime()}`
+        if (!seenSuggested.has(key)) {
+          seenSuggested.set(key, req)
+        }
+      })
+      const suggested = Array.from(seenSuggested.values())
       setCommunityRequests(suggested)
 
       // Set user communities
@@ -424,6 +441,69 @@ export default function Dashboard() {
                               ))}
                             </div>
                           </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* My Offers (where I offered to help) */}
+            {myOffers.length > 0 && (
+              <div className="mb-8">
+                <h2 className="text-lg font-semibold text-gray-900 mb-4 px-1">My Offers</h2>
+                <div className="space-y-4">
+                  {myOffers.map((match) => (
+                    <div
+                      key={match.id}
+                      className="bg-blue-50 rounded-lg shadow-sm border border-blue-200 overflow-hidden"
+                    >
+                      <div className="p-6">
+                        <div className="mb-4">
+                          <div className="flex items-center gap-3 mb-2">
+                            <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-teal-600 rounded-full flex items-center justify-center text-white font-semibold flex-shrink-0">
+                              {match.requester_name?.charAt(0).toUpperCase() || '?'}
+                            </div>
+                            <div>
+                              <p className="font-medium text-gray-900">{match.requester_name || 'Unknown'}</p>
+                              <p className="text-xs text-gray-500">needs help</p>
+                            </div>
+                          </div>
+                          <p className="text-gray-700 whitespace-pre-wrap">{match.request_description || 'No description'}</p>
+                        </div>
+
+                        {/* Status Badge */}
+                        <div className="mb-3">
+                          {match.status === 'proposed' && (
+                            <span className="px-3 py-1.5 bg-yellow-100 text-yellow-700 text-sm rounded-lg font-medium">
+                              ⏳ Waiting for Response
+                            </span>
+                          )}
+                          {match.status === 'matched' && (
+                            <div className="flex items-center gap-2">
+                              <span className="px-3 py-1.5 bg-green-100 text-green-700 text-sm rounded-lg font-medium">
+                                ✓ Accepted
+                              </span>
+                              <button
+                                onClick={() => handleCompleteMatch(match.id)}
+                                className="px-4 py-1.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                              >
+                                Mark Complete
+                              </button>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Inline Chat */}
+                        {(match.status === 'proposed' || match.status === 'matched') && (
+                          <InlineChat
+                            matchId={match.id}
+                            currentUserId={user.id}
+                            isRequester={false}
+                            matchStatus={match.status}
+                            otherParticipantName={match.requester_name || 'Unknown'}
+                          />
                         )}
                       </div>
                     </div>
