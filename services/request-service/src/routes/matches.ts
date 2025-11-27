@@ -221,6 +221,163 @@ router.post('/', async (req: Request, res: Response) => {
   }
 });
 
+// PUT /matches/:id/accept - Accept a proposed match
+router.put('/:id/accept', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { user_id } = req.body;
+
+    // Get match details
+    const matchCheck = await query(
+      `SELECT
+        m.id, m.request_id, m.offer_id, m.responder_id, m.status,
+        r.requester_id
+      FROM requests.matches m
+      LEFT JOIN requests.help_requests r ON m.request_id = r.id
+      WHERE m.id = $1`,
+      [id]
+    );
+
+    if (matchCheck.rowCount === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Match not found',
+      });
+    }
+
+    const match = matchCheck.rows[0];
+
+    // Verify user is the requester
+    if (match.requester_id !== user_id) {
+      return res.status(403).json({
+        success: false,
+        message: 'Only the requester can accept this match',
+      });
+    }
+
+    // Verify match is in proposed state
+    if (match.status !== 'proposed') {
+      return res.status(400).json({
+        success: false,
+        message: 'Match must be in proposed state to accept',
+      });
+    }
+
+    // Accept match
+    await query(
+      `UPDATE requests.matches
+       SET status = 'matched'
+       WHERE id = $1`,
+      [id]
+    );
+
+    // Reject all other proposed matches for this request
+    await query(
+      `UPDATE requests.matches
+       SET status = 'rejected'
+       WHERE request_id = $1 AND id != $2 AND status = 'proposed'`,
+      [match.request_id, id]
+    );
+
+    // Publish event
+    await publishEvent('match_accepted', {
+      match_id: id,
+      request_id: match.request_id,
+      requester_id: match.requester_id,
+      responder_id: match.responder_id,
+    });
+
+    res.json({
+      success: true,
+      message: 'Match accepted successfully',
+    });
+  } catch (error: any) {
+    console.error('Error accepting match:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to accept match',
+      error: error.message,
+    });
+  }
+});
+
+// PUT /matches/:id/reject - Reject a proposed match
+router.put('/:id/reject', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { user_id } = req.body;
+
+    // Get match details
+    const matchCheck = await query(
+      `SELECT
+        m.id, m.request_id, m.status,
+        r.requester_id
+      FROM requests.matches m
+      LEFT JOIN requests.help_requests r ON m.request_id = r.id
+      WHERE m.id = $1`,
+      [id]
+    );
+
+    if (matchCheck.rowCount === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Match not found',
+      });
+    }
+
+    const match = matchCheck.rows[0];
+
+    // Verify user is the requester
+    if (match.requester_id !== user_id) {
+      return res.status(403).json({
+        success: false,
+        message: 'Only the requester can reject this match',
+      });
+    }
+
+    // Reject match
+    await query(
+      `UPDATE requests.matches
+       SET status = 'rejected'
+       WHERE id = $1`,
+      [id]
+    );
+
+    // Check if there are any remaining proposed matches
+    const remainingMatches = await query(
+      `SELECT COUNT(*) as count FROM requests.matches
+       WHERE request_id = $1 AND status = 'proposed'`,
+      [match.request_id]
+    );
+
+    // If no more proposed matches, reopen the request
+    if (remainingMatches.rows[0].count === '0') {
+      await query(
+        `UPDATE requests.help_requests SET status = 'open' WHERE id = $1`,
+        [match.request_id]
+      );
+    }
+
+    // Publish event
+    await publishEvent('match_rejected', {
+      match_id: id,
+      request_id: match.request_id,
+    });
+
+    res.json({
+      success: true,
+      message: 'Match rejected successfully',
+    });
+  } catch (error: any) {
+    console.error('Error rejecting match:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to reject match',
+      error: error.message,
+    });
+  }
+});
+
 // PUT /matches/:id/complete - Mark match as completed
 router.put('/:id/complete', async (req: Request, res: Response) => {
   try {

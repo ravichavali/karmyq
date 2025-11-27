@@ -238,9 +238,9 @@ export const requestService = {
     requestApi.get(`/requests/${id}`),
 
   createRequest: (data: {
-    community_id: string;
-    requester_id: string;
-    title: string;
+    community_id?: string;
+    post_to_all_communities?: boolean;
+    title?: string;
     description: string;
     type: string;
     urgency?: string;
@@ -299,6 +299,12 @@ export const requestService = {
     responder_id: string;
   }) =>
     requestApi.post('/matches', data),
+
+  acceptMatch: (id: string, user_id: string) =>
+    requestApi.put(`/matches/${id}/accept`, { user_id }),
+
+  rejectMatch: (id: string, user_id: string) =>
+    requestApi.put(`/matches/${id}/reject`, { user_id }),
 
   completeMatch: (id: string, user_id: string) =>
     requestApi.put(`/matches/${id}/complete`, { user_id }),

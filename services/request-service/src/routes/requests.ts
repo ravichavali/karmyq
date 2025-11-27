@@ -172,9 +172,10 @@ router.get('/:id', async (req: Request, res: Response) => {
 
 // POST /requests - Create new help request
 // SECURITY: requester_id comes from verified JWT token, not from request body
+// Supports posting to a single community or all user's communities
 router.post('/', async (req: Request, res: Response) => {
   try {
-    const { community_id, title, description, type, urgency, location } = req.body;
+    const { community_id, post_to_all_communities, title, description, type, urgency } = req.body;
     // SECURITY: Always use verified userId from JWT, never trust client-provided requester_id
     const requester_id = (req as any).user?.userId;
 
@@ -186,51 +187,88 @@ router.post('/', async (req: Request, res: Response) => {
       });
     }
 
-    if (!community_id || !title || !type) {
+    if (!type) {
       return res.status(400).json({
         success: false,
-        message: 'community_id, title, and type are required',
+        message: 'type is required',
       });
     }
 
-    // Verify user is a member of the community
-    const memberCheck = await query(
-      `SELECT id FROM communities.members
-       WHERE community_id = $1 AND user_id = $2 AND status = 'active'`,
-      [community_id, requester_id]
-    );
+    // Determine which communities to post to
+    let targetCommunityIds: string[] = [];
 
-    if (memberCheck.rowCount === 0) {
-      return res.status(403).json({
-        success: false,
-        message: 'Only community members can post requests',
-      });
+    if (post_to_all_communities) {
+      // Get all active communities for this user
+      const userCommunitiesResult = await query(
+        `SELECT community_id FROM communities.members
+         WHERE user_id = $1 AND status = 'active'`,
+        [requester_id]
+      );
+
+      if (userCommunitiesResult.rowCount === 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'You are not a member of any communities',
+        });
+      }
+
+      targetCommunityIds = userCommunitiesResult.rows.map(row => row.community_id);
+    } else {
+      // Post to specific community
+      if (!community_id) {
+        return res.status(400).json({
+          success: false,
+          message: 'community_id is required when not posting to all communities',
+        });
+      }
+
+      // Verify user is a member of the community
+      const memberCheck = await query(
+        `SELECT id FROM communities.members
+         WHERE community_id = $1 AND user_id = $2 AND status = 'active'`,
+        [community_id, requester_id]
+      );
+
+      if (memberCheck.rowCount === 0) {
+        return res.status(403).json({
+          success: false,
+          message: 'Only community members can post requests',
+        });
+      }
+
+      targetCommunityIds = [community_id];
     }
 
-    // Create request
-    const result = await query(
-      `INSERT INTO requests.help_requests
-        (community_id, requester_id, title, description, category, urgency, status)
-      VALUES ($1, $2, $3, $4, $5, $6, 'open')
-      RETURNING *`,
-      [community_id, requester_id, title, description, type, urgency || 'medium']
-    );
+    // Create requests for all target communities
+    const createdRequests = [];
 
-    const request = result.rows[0];
+    for (const targetCommunityId of targetCommunityIds) {
+      const result = await query(
+        `INSERT INTO requests.help_requests
+          (community_id, requester_id, title, description, category, urgency, status)
+        VALUES ($1, $2, $3, $4, $5, $6, 'open')
+        RETURNING *`,
+        [targetCommunityId, requester_id, title || '', description, type, urgency || 'medium']
+      );
 
-    // Publish event
-    await publishEvent('request_created', {
-      request_id: request.id,
-      community_id,
-      requester_id,
-      type,
-      urgency: request.urgency,
-    });
+      const request = result.rows[0];
+      createdRequests.push(request);
+
+      // Publish event for each created request
+      await publishEvent('request_created', {
+        request_id: request.id,
+        community_id: targetCommunityId,
+        requester_id,
+        type,
+        urgency: request.urgency,
+      });
+    }
 
     res.status(201).json({
       success: true,
-      data: request,
-      message: 'Request created successfully',
+      data: post_to_all_communities ? createdRequests : createdRequests[0],
+      message: `Request${post_to_all_communities ? 's' : ''} created successfully`,
+      count: createdRequests.length,
     });
   } catch (error: any) {
     console.error('Error creating request:', error);
