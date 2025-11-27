@@ -63,6 +63,7 @@ services:
       DATABASE_URL: postgresql://karmyq_user:karmyq_password_dev@postgres:5432/karmyq_db
       REDIS_URL: redis://redis:6379
       JWT_SECRET: dev_jwt_secret_change_in_production
+      RATE_LIMIT_MULTIPLIER: 10
     ports:
       - "3001:3001"
     depends_on:
@@ -89,6 +90,7 @@ services:
       DATABASE_URL: postgresql://karmyq_user:karmyq_password_dev@postgres:5432/karmyq_db
       REDIS_URL: redis://redis:6379
       JWT_SECRET: dev_jwt_secret_change_in_production
+      RATE_LIMIT_MULTIPLIER: 10
     ports:
       - "3002:3002"
     depends_on:
@@ -115,6 +117,7 @@ services:
       DATABASE_URL: postgresql://karmyq_user:karmyq_password_dev@postgres:5432/karmyq_db
       REDIS_URL: redis://redis:6379
       JWT_SECRET: dev_jwt_secret_change_in_production
+      RATE_LIMIT_MULTIPLIER: 10
     ports:
       - "3003:3003"
     depends_on:
