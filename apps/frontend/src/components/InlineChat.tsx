@@ -1,12 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { messagingService } from '@/lib/api'
-
-interface Message {
-  id: string
-  sender_id: string
-  content: string
-  created_at: string
-}
+import { useMessaging } from '@/hooks/useMessaging'
 
 interface InlineChatProps {
   matchId: string
@@ -19,35 +13,63 @@ interface InlineChatProps {
 export default function InlineChat({
   matchId,
   currentUserId,
-  isRequester,
-  matchStatus,
   otherParticipantName,
 }: InlineChatProps) {
-  const [messages, setMessages] = useState<Message[]>([])
   const [newMessage, setNewMessage] = useState('')
-  const [loading, setLoading] = useState(true)
   const [sending, setSending] = useState(false)
   const [isExpanded, setIsExpanded] = useState(false)
+  const [conversationId, setConversationId] = useState<string | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
-  // Fetch messages on mount and when expanded
+  // Use the WebSocket messaging hook
+  const {
+    messages,
+    loading,
+    connected,
+    sendMessage: sendMessageWS,
+    refreshMessages,
+    startTyping,
+    stopTyping,
+    isTyping,
+    typingUser,
+  } = useMessaging({
+    matchId,
+    conversationId,
+    enabled: isExpanded, // Only connect when expanded
+  })
+
+  // Fetch conversation ID and initial messages when expanded
   useEffect(() => {
-    if (isExpanded) {
-      fetchMessages()
+    if (isExpanded && !conversationId) {
+      fetchConversation()
     }
   }, [isExpanded, matchId])
 
-  const fetchMessages = async () => {
+  // Auto-scroll when new messages arrive
+  useEffect(() => {
+    if (messages.length > 0) {
+      scrollToBottom()
+    }
+  }, [messages])
+
+  const fetchConversation = async () => {
     try {
-      setLoading(true)
       const response = await messagingService.getMatchConversation(matchId)
-      setMessages(response.data.messages || [])
+      setConversationId(response.data.conversation_id)
+      // Messages will be loaded by the hook after conversationId is set
     } catch (error) {
-      console.error('Error fetching messages:', error)
-    } finally {
-      setLoading(false)
+      console.error('Error fetching conversation:', error)
     }
   }
+
+  // Refresh messages when conversationId is available
+  useEffect(() => {
+    if (conversationId && isExpanded) {
+      refreshMessages()
+    }
+  }, [conversationId, isExpanded, refreshMessages])
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -55,17 +77,39 @@ export default function InlineChat({
 
     try {
       setSending(true)
-      await messagingService.sendMatchMessage(matchId, newMessage.trim())
+      stopTyping() // Stop typing indicator before sending
+
+      await sendMessageWS(newMessage.trim())
       setNewMessage('')
-      // Refresh messages
-      await fetchMessages()
-      // Scroll to bottom
-      scrollToBottom()
+
+      // Scroll to bottom after sending
+      setTimeout(() => scrollToBottom(), 100)
     } catch (error: any) {
       console.error('Error sending message:', error)
-      alert(error.response?.data?.message || 'Failed to send message')
+      alert(error.message || 'Failed to send message')
     } finally {
       setSending(false)
+    }
+  }
+
+  const handleTyping = (value: string) => {
+    setNewMessage(value)
+
+    // Start typing indicator
+    if (value.trim()) {
+      startTyping()
+
+      // Clear existing timeout
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current)
+      }
+
+      // Stop typing indicator after 1 second of inactivity
+      typingTimeoutRef.current = setTimeout(() => {
+        stopTyping()
+      }, 1000)
+    } else {
+      stopTyping()
     }
   }
 
@@ -109,6 +153,12 @@ export default function InlineChat({
           </span>
           {messageCount > 0 && (
             <span className="text-xs text-gray-500">({messageCount} message{messageCount !== 1 ? 's' : ''})</span>
+          )}
+          {connected && isExpanded && (
+            <span className="flex items-center gap-1 text-xs text-green-600">
+              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+              Live
+            </span>
           )}
         </div>
         <svg
@@ -170,15 +220,32 @@ export default function InlineChat({
                 <div ref={messagesEndRef} />
               </>
             )}
+
+            {/* Typing Indicator */}
+            {isTyping && typingUser && (
+              <div className="flex justify-start">
+                <div className="bg-gray-200 rounded-lg px-4 py-2">
+                  <div className="flex items-center gap-1">
+                    <div className="flex gap-1">
+                      <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                      <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                      <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                    </div>
+                    <span className="text-xs text-gray-600 ml-2">{typingUser} is typing...</span>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Message Input */}
           <form onSubmit={handleSendMessage} className="border-t border-gray-200 p-3 bg-white">
             <div className="flex gap-2">
               <input
+                ref={inputRef}
                 type="text"
                 value={newMessage}
-                onChange={(e) => setNewMessage(e.target.value)}
+                onChange={(e) => handleTyping(e.target.value)}
                 placeholder="Type your message..."
                 className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
                 disabled={sending}
