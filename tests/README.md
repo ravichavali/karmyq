@@ -156,13 +156,15 @@ Complete user journey tests across multiple communities:
 5. Now has access to Portland data
 6. Different roles in different communities (admin in Oakland, member in Portland)
 
-**Complete Help Exchange Flow:**
-1. Alice posts request in Portland
-2. Bob (now in Portland) creates offer
-3. Bob accepts Alice's request (match created)
-4. Match completed, karma awarded
-5. Bob's karma increases in Portland only (not Oakland)
-6. Alice and Bob message about the exchange
+**Complete Help Exchange Flow (Updated Workflow):**
+1. Alice posts request in Portland (can post to all communities or specific one)
+2. Bob (now in Portland) offers to help (creates match with status='proposed')
+3. Alice reviews Bob's offer on her dashboard
+4. Alice accepts Bob's offer (match status changes to 'matched', other offers auto-rejected)
+5. Alice and Bob exchange messages within the request
+6. Either party marks match as complete
+7. Karma awarded to both parties
+8. Bob's karma increases in Portland only (not Oakland)
 
 ## Environment Variables
 

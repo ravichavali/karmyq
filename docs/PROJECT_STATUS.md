@@ -1,12 +1,23 @@
-# Karmyq Project Status (v5.1.0)
+# Karmyq Project Status (v5.2.0)
 
-**Last Updated**: 2025-01-15
-**Current Version**: v5.1.0
-**Status**: Production-Ready Multi-Tenant Platform with Ephemeral Data & Reputation Decay
+**Last Updated**: 2025-01-27
+**Current Version**: v5.2.0
+**Status**: Production-Ready Multi-Tenant Platform with Modern Dashboard Workflow
 
 ## 🎉 Major Milestones Achieved
 
-### v5.1.0 - Ephemeral Data & Reputation Decay (Current)
+### v5.2.0 - Dashboard Workflow Redesign (Current)
+- ✅ Complete dashboard UX redesign with post-style interface
+- ✅ Quick create component (description-only, multi-community support)
+- ✅ Multi-community request posting (all communities or specific)
+- ✅ Accept/reject flow for help offers
+- ✅ Inline offer display within active requests
+- ✅ Modern card-based UI with gradient avatars
+- ✅ Backend endpoints for match acceptance and rejection
+- ✅ Auto-rejection of other offers when one is accepted
+- ✅ Request reopening when all offers are declined
+
+### v5.1.0 - Ephemeral Data & Reputation Decay
 - ✅ Ephemeral data with configurable TTL (60 days default)
 - ✅ Database migration for expires_at columns and community settings
 - ✅ Cleanup Service (Port 3008) with 5 scheduled jobs
@@ -75,13 +86,18 @@
 - Event publishing (community_created, member_joined, norm_established)
 
 #### Request Service (Port 3003)
-**Status**: ✅ Complete
-- Help request posting
+**Status**: ✅ Complete with Enhanced Workflow
+- **Multi-community request posting** (post to all communities or specific)
+- Help request posting (title optional, description-based)
 - Help offer posting
-- Request-offer matching
+- Request-offer matching with explicit accept/reject
+- **Match acceptance flow** (PUT /matches/:id/accept)
+- **Match rejection flow** (PUT /matches/:id/reject)
+- Auto-rejection of competing offers
+- Request reopening logic
 - Skill-based request matching
 - Request lifecycle management
-- Event publishing (request_created, match_created, match_completed)
+- Event publishing (request_created, match_created, match_completed, match_accepted, match_rejected)
 
 #### Reputation Service (Port 3004)
 **Status**: ✅ Complete
@@ -310,17 +326,20 @@ You can:
 2. ✅ Register and login users with multi-community JWT
 3. ✅ Create and join multiple communities (Dunbar's number enforced)
 4. ✅ Switch context between communities seamlessly
-5. ✅ Post help requests and offers (scoped to community)
-6. ✅ Match requests with helpers based on skills
-7. ✅ Complete exchanges and earn karma (per-community)
-8. ✅ Build separate trust scores per community
-9. ✅ Receive real-time notifications (SSE)
-10. ✅ Chat with matched users (WebSocket)
-11. ✅ View personalized activity feed
-12. ✅ Monitor system with Grafana dashboards
-13. ✅ Run comprehensive integration tests
-14. ✅ Run E2E tests with Playwright
-15. ✅ Deploy via CI/CD pipeline
+5. ✅ **Post help requests to all communities or specific one** (new quick create)
+6. ✅ **Browse community requests in modern card-based feed**
+7. ✅ **Offer to help on requests** (creates match with proposed status)
+8. ✅ **Accept or decline offers** (explicit requester control)
+9. ✅ **View all offers inline within active requests**
+10. ✅ Complete exchanges and earn karma (per-community)
+11. ✅ Build separate trust scores per community
+12. ✅ Receive real-time notifications (SSE)
+13. ✅ Chat with matched users via separate messages page (WebSocket)
+14. ✅ View personalized activity feed
+15. ✅ Monitor system with Grafana dashboards
+16. ✅ Run comprehensive integration tests
+17. ✅ Run E2E tests with Playwright
+18. ✅ Deploy via CI/CD pipeline
 
 ## 🚧 Known Issues & TODOs
 
@@ -348,16 +367,26 @@ You can:
 - **Note**: Matching logic currently in request-service
 - **Decision**: May not need separate service
 
-## 🚀 Next Steps (v5.2+)
+## 🚀 Next Steps (v5.3+)
 
-### Phase 4: Data Export & Admin UI (Next)
+### Immediate - Inline Messaging (v5.3)
+1. **Inline Messaging in Requests** - Chat directly within request cards
+   - Message component embedded in offer cards
+   - Real-time messaging via WebSocket
+   - Requester sees all offer conversations
+   - Helpers see only their own until accepted
+   - After acceptance: Only requester + accepted helper see messages
+2. **Update Tests** - Update multi-community-flows.test.ts for new workflow
+3. **Test Multi-Community Posting** - Add tests for posting to all communities
+
+### Phase 4: Data Export & Admin UI
 1. **Data Export API** - Community data export functionality (JSON/CSV)
 2. **Admin UI** - Community settings management interface
 3. **TTL Configuration** - UI for per-community TTL settings
 4. **Decay Configuration** - UI for reputation decay parameters
 5. **Activity Type Selection** - UI for configuring tracked activities
 
-### Immediate Priorities
+### Other Priorities
 1. **Fix Feed Service Schema** - Update feedComposer.ts to use correct table/column names
 2. **Test Mobile App** - Install deps and test on iOS/Android simulators
 
