@@ -1,8 +1,25 @@
 import axios, { AxiosInstance } from 'axios';
+import { Platform } from 'react-native';
 import { storage } from '@/utils/storage';
 
-// 10.0.2.2 is the special IP for Android emulator to reach host machine
-const BASE_HOST = process.env.EXPO_PUBLIC_API_HOST || '10.0.2.2';
+// Platform-specific API host configuration
+// - Web: localhost (or custom EXPO_PUBLIC_API_HOST)
+// - Android: 10.0.2.2 (emulator's special IP to reach host)
+// - iOS: localhost (or custom EXPO_PUBLIC_API_HOST)
+const getBaseHost = () => {
+  if (process.env.EXPO_PUBLIC_API_HOST) {
+    return process.env.EXPO_PUBLIC_API_HOST;
+  }
+
+  // Default hosts by platform
+  if (Platform.OS === 'android') {
+    return '10.0.2.2'; // Android emulator → host machine
+  }
+
+  return 'localhost'; // Web and iOS
+};
+
+const BASE_HOST = getBaseHost();
 
 // Service ports matching docker-compose
 const SERVICES = {
