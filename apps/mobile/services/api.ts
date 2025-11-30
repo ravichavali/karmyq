@@ -1,5 +1,5 @@
 import axios, { AxiosInstance } from 'axios';
-import * as SecureStore from 'expo-secure-store';
+import { storage } from '@/utils/storage';
 
 // 10.0.2.2 is the special IP for Android emulator to reach host machine
 const BASE_HOST = process.env.EXPO_PUBLIC_API_HOST || '10.0.2.2';
@@ -25,7 +25,7 @@ const createClient = (baseURL: string): AxiosInstance => {
   });
 
   client.interceptors.request.use(async (config) => {
-    const token = await SecureStore.getItemAsync('token');
+    const token = await storage.getItem('token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }

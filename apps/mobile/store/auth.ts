@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import * as SecureStore from 'expo-secure-store';
+import { storage } from '@/utils/storage';
 
 interface User {
   id: string;
@@ -41,7 +41,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         throw new Error(data.message || 'Login failed');
       }
 
-      await SecureStore.setItemAsync('token', data.token);
+      await storage.setItem('token', data.token);
       set({ user: data.user, token: data.token });
     } catch (error) {
       console.error('Login error:', error);
@@ -63,7 +63,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         throw new Error(data.message || 'Registration failed');
       }
 
-      await SecureStore.setItemAsync('token', data.token);
+      await storage.setItem('token', data.token);
       set({ user: data.user, token: data.token });
     } catch (error) {
       console.error('Register error:', error);
@@ -72,13 +72,13 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   logout: async () => {
-    await SecureStore.deleteItemAsync('token');
+    await storage.deleteItem('token');
     set({ user: null, token: null });
   },
 
   checkAuth: async () => {
     try {
-      const token = await SecureStore.getItemAsync('token');
+      const token = await storage.getItem('token');
 
       if (!token) {
         set({ isLoading: false });
@@ -93,7 +93,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         const data = await response.json();
         set({ user: data.user, token, isLoading: false });
       } else {
-        await SecureStore.deleteItemAsync('token');
+        await storage.deleteItem('token');
         set({ user: null, token: null, isLoading: false });
       }
     } catch (error) {
