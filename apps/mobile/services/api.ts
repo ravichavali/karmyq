@@ -3,23 +3,13 @@ import { Platform } from 'react-native';
 import { storage } from '@/utils/storage';
 
 // Platform-specific API host configuration
-// - Web: localhost (or custom EXPO_PUBLIC_API_HOST)
-// - Android: 10.0.2.2 (emulator's special IP to reach host)
-// - iOS: localhost (or custom EXPO_PUBLIC_API_HOST)
-const getBaseHost = () => {
-  if (process.env.EXPO_PUBLIC_API_HOST) {
-    return process.env.EXPO_PUBLIC_API_HOST;
-  }
-
-  // Default hosts by platform
-  if (Platform.OS === 'android') {
-    return '10.0.2.2'; // Android emulator → host machine
-  }
-
-  return 'localhost'; // Web and iOS
-};
-
-const BASE_HOST = getBaseHost();
+// Use EXPO_PUBLIC_API_HOST from .env (set to your computer's local IP)
+// This works for: web, iOS simulator, iOS device, Android emulator, Android device
+// Default fallbacks if env var not set:
+// - Android emulator: 10.0.2.2
+// - Everything else: localhost
+const BASE_HOST = process.env.EXPO_PUBLIC_API_HOST ||
+  (Platform.OS === 'android' ? '10.0.2.2' : 'localhost');
 
 // Service ports matching docker-compose
 const SERVICES = {
