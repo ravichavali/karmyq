@@ -46,6 +46,8 @@ export interface TestCommunity {
   name: string;
   description: string;
   creatorId: string;
+  invite_code?: string;  // Optional invite code for joining
+  location?: string;
 }
 
 export interface TestRequest {
@@ -208,6 +210,8 @@ export class CommunityFactory {
         name: community.name,
         description: community.description,
         creatorId,
+        invite_code: community.invite_code,
+        location: community.location,
       };
     } catch (error) {
       console.log('Community creation error:', error);
@@ -485,13 +489,33 @@ export class TestScenario {
    * Cleanup all created test data
    */
   async cleanup(): Promise<void> {
-    // Delete in reverse dependency order
-    for (const community of this.communities) {
-      await CommunityFactory.delete(this.pool, community.id);
+    // Delete in correct dependency order:
+    // 1. Requests (depend on users and communities)
+    // 2. Communities (depend on users)
+    // 3. Users (no dependencies)
+
+    try {
+      // Delete all help requests for test users
+      for (const user of this.users) {
+        await this.pool.query(
+          'DELETE FROM requests.help_requests WHERE requester_id = $1',
+          [user.id]
+        );
+      }
+
+      // Delete all communities
+      for (const community of this.communities) {
+        await CommunityFactory.delete(this.pool, community.id);
+      }
+
+      // Delete all users
+      for (const user of this.users) {
+        await UserFactory.delete(this.pool, user.id);
+      }
+    } catch (error) {
+      console.log('Error during test cleanup:', error);
     }
-    for (const user of this.users) {
-      await UserFactory.delete(this.pool, user.id);
-    }
+
     await this.pool.end();
   }
 }

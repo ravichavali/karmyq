@@ -17,6 +17,11 @@ import {
   TestCommunity,
   TestRequest,
 } from '../fixtures';
+import {
+  getRequestsByCommunity,
+  getRequestCommunities,
+  isRequestInCommunity,
+} from '../helpers/junctionTableQueries';
 
 let scenario: TestScenario;
 
@@ -240,10 +245,11 @@ describe('Community Isolation - Help Requests', () => {
     if (user1Response.status === 200) {
       const requests = user1Response.body.data || user1Response.body.requests || [];
 
-      // All requests should be from Portland
-      requests.forEach((r: any) => {
-        expect(r.community_id).toBe(portlandCommunity?.id);
-      });
+      // All requests should be from Portland (check via junction table)
+      for (const r of requests) {
+        const communities = await getRequestCommunities(scenario.pool, r.id);
+        expect(communities).toContain(portlandCommunity?.id);
+      }
 
       // Should contain Portland request if it was created
       if (portlandRequest) {
@@ -395,13 +401,14 @@ describe('Direct Database Access (RLS Verification)', () => {
     await scenario.pool.query(`SELECT set_config('app.current_user_id', $1, true)`, [user1.id]);
     await scenario.pool.query(`SELECT set_config('app.current_community_id', $1, true)`, [portlandCommunity.id]);
 
-    const portlandRequests = await scenario.pool.query(
-      'SELECT * FROM requests.help_requests WHERE community_id = $1',
-      [portlandCommunity.id]
+    // Use junction table to get Portland requests
+    const portlandRequestsData = await getRequestsByCommunity(
+      scenario.pool,
+      portlandCommunity.id
     );
 
     // Should see Portland request
-    const requestIds = portlandRequests.rows.map(r => r.id);
+    const requestIds = portlandRequestsData.map(r => r.id);
     expect(requestIds).toContain(portlandRequest.id);
     expect(requestIds).not.toContain(oaklandRequest.id);
 
@@ -409,13 +416,14 @@ describe('Direct Database Access (RLS Verification)', () => {
     await scenario.pool.query(`SELECT set_config('app.current_user_id', $1, true)`, [user2.id]);
     await scenario.pool.query(`SELECT set_config('app.current_community_id', $1, true)`, [oaklandCommunity.id]);
 
-    const oaklandRequests = await scenario.pool.query(
-      'SELECT * FROM requests.help_requests WHERE community_id = $1',
-      [oaklandCommunity.id]
+    // Use junction table to get Oakland requests
+    const oaklandRequestsData = await getRequestsByCommunity(
+      scenario.pool,
+      oaklandCommunity.id
     );
 
     // Should see Oakland request
-    const oaklandRequestIds = oaklandRequests.rows.map(r => r.id);
+    const oaklandRequestIds = oaklandRequestsData.map(r => r.id);
     expect(oaklandRequestIds).toContain(oaklandRequest.id);
     expect(oaklandRequestIds).not.toContain(portlandRequest.id);
   });

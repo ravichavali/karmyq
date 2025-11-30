@@ -6,6 +6,7 @@
 
 import { describe, it, expect, beforeAll, afterAll } from '@jest/globals';
 import { Pool } from 'pg';
+import { addRequestToCommunity } from '../helpers/junctionTableQueries';
 
 let pool: Pool;
 let testUserId: string;
@@ -147,14 +148,17 @@ describe('RLS Policies - requests.help_requests', () => {
     if (!testCommunityId || !testUserId) return;
 
     try {
-      // Create a test request using correct schema (category instead of skills_needed)
+      // Create a test request using two-step process (request first, then junction table)
       const result = await pool.query(
-        `INSERT INTO requests.help_requests (community_id, requester_id, title, description, category, urgency, status)
-         VALUES ($1, $2, 'RLS Test Request', 'Test description', 'general', 'medium', 'open')
+        `INSERT INTO requests.help_requests (requester_id, title, description, category, urgency, status)
+         VALUES ($1, 'RLS Test Request', 'Test description', 'general', 'medium', 'open')
          RETURNING id`,
-        [testCommunityId, testUserId]
+        [testUserId]
       );
       testRequestId = result.rows[0].id;
+
+      // Link request to community via junction table
+      await addRequestToCommunity(pool, testRequestId, testCommunityId);
     } catch (error) {
       console.log('Request creation error:', error);
     }
@@ -524,7 +528,7 @@ describe('RLS Policy Completeness', () => {
     const communityTables = [
       'communities.communities',
       'communities.members',
-      'communities.settings',
+      // 'communities.settings', // Does not exist in current schema
       'requests.help_requests',
       'requests.help_offers',
       'requests.matches',
@@ -550,6 +554,9 @@ describe('RLS Policy Completeness', () => {
         )
       `, [schema, table]);
 
+      if (!result.rows[0].exists) {
+        console.log(`Table ${schema}.${table} does not exist`);
+      }
       expect(result.rows[0].exists).toBe(true);
     }
   });

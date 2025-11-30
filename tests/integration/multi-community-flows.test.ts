@@ -16,6 +16,9 @@ import {
   TestUser,
   TestCommunity,
 } from '../fixtures';
+import {
+  getRequestCommunities,
+} from '../helpers/junctionTableQueries';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'dev_jwt_secret_change_in_production';
 
@@ -246,7 +249,8 @@ describe('Multi-Community User Journey - Alice', () => {
 
     if (response.status === 201 || response.status === 200) {
       const req = response.body.data || response.body.request;
-      expect(req.community_id).toBe(seattleCommunity.id);
+      const communities = await getRequestCommunities(scenario.pool, req.id);
+      expect(communities).toContain(seattleCommunity.id);
     }
   });
 
@@ -266,9 +270,10 @@ describe('Multi-Community User Journey - Alice', () => {
 
     if (response.status === 200) {
       const requests = response.body.data || response.body.requests || [];
-      requests.forEach((req: any) => {
-        expect(req.community_id).toBe(portlandCommunity?.id);
-      });
+      for (const req of requests) {
+        const communities = await getRequestCommunities(scenario.pool, req.id);
+        expect(communities).toContain(portlandCommunity?.id);
+      }
     }
   });
 
@@ -288,9 +293,10 @@ describe('Multi-Community User Journey - Alice', () => {
 
     if (response.status === 200) {
       const requests = response.body.data || response.body.requests || [];
-      requests.forEach((req: any) => {
-        expect(req.community_id).toBe(seattleCommunity?.id);
-      });
+      for (const req of requests) {
+        const communities = await getRequestCommunities(scenario.pool, req.id);
+        expect(communities).toContain(seattleCommunity?.id);
+      }
     }
   });
 
