@@ -70,23 +70,64 @@ export const api = {
     communityClient.post(`/communities/${id}/leave`),
 
   // Requests (port 3003)
-  getRequests: (params?: { community_id?: string; status?: string; requester_id?: string }) => {
+  getRequests: (params?: { community_id?: string; status?: string; type?: string; requester_id?: string; limit?: number; offset?: number }) => {
     return requestClient.get('/requests', { params: params || {} });
   },
 
   getRequest: (id: string) => requestClient.get(`/requests/${id}`),
 
   createRequest: (data: {
-    title: string;
+    title?: string;
     description: string;
-    community_id: string;
-    category?: string;
+    community_id?: string;
+    post_to_all_communities?: boolean;
+    type: string;
+    urgency?: string;
   }) => requestClient.post('/requests', data),
+
+  updateRequest: (id: string, data: {
+    title?: string;
+    description?: string;
+    status?: string;
+    urgency?: string;
+    user_id: string;
+  }) => requestClient.put(`/requests/${id}`, data),
+
+  cancelRequest: (id: string, user_id: string) =>
+    requestClient.delete(`/requests/${id}`, { data: { user_id } }),
 
   offerHelp: (requestId: string, message?: string) =>
     requestClient.post(`/requests/${requestId}/offer`, { message }),
 
-  // Messages (port 3006) - backend route is /messages, not /messaging
+  // Matches (port 3003)
+  getMatches: (params?: { request_id?: string; offer_id?: string; status?: string; limit?: number; offset?: number }) =>
+    requestClient.get('/matches', { params }),
+
+  getMatch: (id: string) => requestClient.get(`/matches/${id}`),
+
+  acceptMatch: (id: string, user_id: string) =>
+    requestClient.put(`/matches/${id}/accept`, { user_id }),
+
+  declineMatch: (id: string, user_id: string) =>
+    requestClient.put(`/matches/${id}/reject`, { user_id }),
+
+  completeMatch: (id: string, user_id: string) =>
+    requestClient.put(`/matches/${id}/complete`, { user_id }),
+
+  cancelMatch: (id: string, user_id: string) =>
+    requestClient.delete(`/matches/${id}`, { data: { user_id } }),
+
+  // Messages (port 3006) - Match-based messaging
+  getMatchMessages: (matchId: string) =>
+    messagingClient.get(`/match/${matchId}/messages`),
+
+  sendMatchMessage: (matchId: string, content: string, senderId: string) =>
+    messagingClient.post(`/match/${matchId}/messages`, { content, sender_id: senderId }),
+
+  markMatchMessagesRead: (matchId: string, userId: string) =>
+    messagingClient.put(`/match/${matchId}/messages/read`, { user_id: userId }),
+
+  // Legacy conversation-based messaging (kept for backwards compatibility)
   getConversations: () => messagingClient.get('/messages/conversations'),
 
   getMessages: (conversationId: string) =>
