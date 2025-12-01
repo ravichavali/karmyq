@@ -79,7 +79,7 @@ export async function getUserConversations(userId: string) {
             'created_at', m.created_at
           )
           FROM messaging.messages m
-          WHERE m.conversation_id = c.id AND m.expired = FALSE
+          WHERE m.conversation_id = c.id
           ORDER BY m.created_at DESC
           LIMIT 1
         ) as last_message
@@ -163,7 +163,7 @@ export async function getMessages(conversationId: string, userId: string, limit:
         ) as sender
        FROM messaging.messages m
        JOIN auth.users u ON m.sender_id = u.id
-       WHERE m.conversation_id = $1 AND m.expired = FALSE
+       WHERE m.conversation_id = $1
        ORDER BY m.created_at DESC
        LIMIT $2 OFFSET $3`,
       [conversationId, limit, offset]

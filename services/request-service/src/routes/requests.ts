@@ -7,26 +7,40 @@ const router = Router();
 // GET /requests - Get all requests (with filters)
 router.get('/', async (req: Request, res: Response) => {
   try {
-    const { community_id, status = 'open', type, limit = 50, offset = 0 } = req.query;
+    const { community_id, status, type, requester_id, limit = 50, offset = 0 } = req.query;
 
     let queryText = `
-      SELECT
-        r.id, r.community_id, r.requester_id, r.title, r.description,
+      SELECT DISTINCT
+        r.id, r.requester_id, r.title, r.description,
         r.category, r.urgency, r.status, r.created_at, r.updated_at,
         u.name as requester_name,
-        c.name as community_name
+        STRING_AGG(DISTINCT c.name, ', ') as community_name,
+        STRING_AGG(DISTINCT rc.community_id::text, ',') as community_ids
       FROM requests.help_requests r
       LEFT JOIN auth.users u ON r.requester_id = u.id
-      LEFT JOIN communities.communities c ON r.community_id = c.id
-      WHERE r.status = $1 AND r.expired = FALSE
+      LEFT JOIN requests.request_communities rc ON r.id = rc.request_id
+      LEFT JOIN communities.communities c ON rc.community_id = c.id
+      WHERE r.expired = FALSE
     `;
 
-    const params: any[] = [status];
-    let paramCount = 2;
+    const params: any[] = [];
+    let paramCount = 1;
+
+    if (status) {
+      queryText += ` AND r.status = $${paramCount}`;
+      params.push(status);
+      paramCount++;
+    }
 
     if (community_id) {
-      queryText += ` AND r.community_id = $${paramCount}`;
+      queryText += ` AND rc.community_id = $${paramCount}`;
       params.push(community_id);
+      paramCount++;
+    }
+
+    if (requester_id) {
+      queryText += ` AND r.requester_id = $${paramCount}`;
+      params.push(requester_id);
       paramCount++;
     }
 
@@ -36,7 +50,10 @@ router.get('/', async (req: Request, res: Response) => {
       paramCount++;
     }
 
-    queryText += ` ORDER BY r.created_at DESC LIMIT $${paramCount} OFFSET $${paramCount + 1}`;
+    queryText += `
+      GROUP BY r.id, r.requester_id, r.title, r.description, r.category, r.urgency, r.status, r.created_at, r.updated_at, u.name
+      ORDER BY r.created_at DESC
+      LIMIT $${paramCount} OFFSET $${paramCount + 1}`;
     params.push(limit, offset);
 
     const result = await query(queryText, params);
@@ -138,14 +155,17 @@ router.get('/:id', async (req: Request, res: Response) => {
 
     const result = await query(
       `SELECT
-        r.id, r.community_id, r.requester_id, r.title, r.description,
+        r.id, r.requester_id, r.title, r.description,
         r.category, r.urgency, r.status, r.created_at, r.updated_at,
         u.name as requester_name, u.email as requester_email,
-        c.name as community_name
+        STRING_AGG(DISTINCT c.name, ', ') as community_name,
+        STRING_AGG(DISTINCT rc.community_id::text, ',') as community_ids
       FROM requests.help_requests r
       LEFT JOIN auth.users u ON r.requester_id = u.id
-      LEFT JOIN communities.communities c ON r.community_id = c.id
-      WHERE r.id = $1 AND r.expired = FALSE`,
+      LEFT JOIN requests.request_communities rc ON r.id = rc.request_id
+      LEFT JOIN communities.communities c ON rc.community_id = c.id
+      WHERE r.id = $1 AND r.expired = FALSE
+      GROUP BY r.id, r.requester_id, r.title, r.description, r.category, r.urgency, r.status, r.created_at, r.updated_at, u.name, u.email`,
       [id]
     );
 
@@ -239,36 +259,41 @@ router.post('/', async (req: Request, res: Response) => {
       targetCommunityIds = [community_id];
     }
 
-    // Create requests for all target communities
-    const createdRequests = [];
+    // Create ONE request (not multiple duplicates)
+    const result = await query(
+      `INSERT INTO requests.help_requests
+        (requester_id, title, description, category, urgency, status)
+      VALUES ($1, $2, $3, $4, $5, 'open')
+      RETURNING *`,
+      [requester_id, title || '', description, type, urgency || 'medium']
+    );
 
+    const request = result.rows[0];
+
+    // Link the request to all target communities via junction table
     for (const targetCommunityId of targetCommunityIds) {
-      const result = await query(
-        `INSERT INTO requests.help_requests
-          (community_id, requester_id, title, description, category, urgency, status)
-        VALUES ($1, $2, $3, $4, $5, $6, 'open')
-        RETURNING *`,
-        [targetCommunityId, requester_id, title || '', description, type, urgency || 'medium']
+      await query(
+        `INSERT INTO requests.request_communities (request_id, community_id)
+        VALUES ($1, $2)`,
+        [request.id, targetCommunityId]
       );
 
-      const request = result.rows[0];
-      createdRequests.push(request);
-
-      // Publish event for each created request
+      // Publish event for each community
       await publishEvent('request_created', {
         request_id: request.id,
         community_id: targetCommunityId,
         requester_id,
         type,
         urgency: request.urgency,
+        title: request.title,
       });
     }
 
     res.status(201).json({
       success: true,
-      data: post_to_all_communities ? createdRequests : createdRequests[0],
-      message: `Request${post_to_all_communities ? 's' : ''} created successfully`,
-      count: createdRequests.length,
+      data: request,
+      message: 'Request created successfully',
+      communities: targetCommunityIds,
     });
   } catch (error: any) {
     console.error('Error creating request:', error);

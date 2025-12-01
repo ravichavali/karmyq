@@ -180,6 +180,7 @@ async function seedTestData() {
         city: city.city,
         state: city.state,
         region: city.region,
+        location: `${city.city}, ${city.state}`, // Store in memory for request descriptions
       });
 
       if ((i + 1) % 200 === 0) {
@@ -321,16 +322,92 @@ async function seedTestData() {
         const title = randomElement(requestTitles);
         const categories = ['household', 'pet_care', 'transportation', 'education', 'technical', 'childcare', 'errands', 'professional', 'food'];
         const category = randomElement(categories);
-        const description = `I need help with this task. I'm located in ${user.location}. Would appreciate any assistance from the community!`;
+
+        // Generate varied descriptions based on category
+        const descriptionTemplates = {
+          household: [
+            `Need help moving some furniture this weekend. I'm in ${user.location}. Have a couch and dining table that need to go upstairs.`,
+            `Looking for someone to help with yard work. I'm located in ${user.location}. Mainly need help raking leaves and trimming hedges.`,
+            `Could use a hand with some painting. I'm in ${user.location}. Have 2 bedrooms that need fresh coats.`,
+            `Need help assembling IKEA furniture. Located in ${user.location}. Instructions are in Swedish and I'm lost!`,
+          ],
+          pet_care: [
+            `Need someone to walk my dog this Thursday. I'm in ${user.location}. She's a friendly golden retriever who loves long walks.`,
+            `Looking for cat sitting help next week. Located in ${user.location}. Just need feeding and litter box cleaning once a day.`,
+            `Can anyone help with pet transportation to vet? I'm in ${user.location} and don't have a car.`,
+          ],
+          transportation: [
+            `Need a ride to the airport tomorrow morning. I'm in ${user.location}. Flight is at 8am, so would need to leave around 6am.`,
+            `Looking for carpool buddy for daily commute. I'm in ${user.location} and work downtown. Can split gas costs.`,
+            `Need help picking up groceries. I'm in ${user.location} and my car is in the shop.`,
+          ],
+          education: [
+            `Looking for help with calculus homework. I'm a student in ${user.location} and struggling with derivatives.`,
+            `Need a tutor for Spanish conversation practice. I'm in ${user.location} and intermediate level.`,
+            `Can anyone help explain how to use Excel pivot tables? I'm in ${user.location} and have a project due.`,
+          ],
+          technical: [
+            `Need help setting up my new router. I'm in ${user.location} and not very tech savvy.`,
+            `Looking for someone to help fix my laptop. I'm in ${user.location}. It's running super slow lately.`,
+            `Can anyone help me back up my phone? I'm in ${user.location} and worried about losing my photos.`,
+          ],
+          childcare: [
+            `Need babysitter for Friday evening. I'm in ${user.location}. Two kids, ages 6 and 8, very well behaved.`,
+            `Looking for someone to pick up my daughter from school. I'm in ${user.location} and have a work conflict next Tuesday.`,
+            `Need help with homework supervision. I'm in ${user.location}. My son needs someone to keep him focused after school.`,
+          ],
+          errands: [
+            `Can someone help me return items to the post office? I'm in ${user.location} and have mobility issues.`,
+            `Need help picking up prescription. I'm in ${user.location} and recovering from surgery.`,
+            `Looking for someone to help with grocery shopping. I'm in ${user.location} and don't drive.`,
+          ],
+          professional: [
+            `Need help reviewing my resume. I'm in ${user.location} and applying for jobs. Would love feedback.`,
+            `Looking for someone to practice interview questions with. I'm in ${user.location} and have an interview next week.`,
+            `Can anyone help with my LinkedIn profile? I'm in ${user.location} and want to improve my professional presence.`,
+          ],
+          food: [
+            `Looking for meal prep help this Sunday. I'm in ${user.location}. Want to cook healthy meals for the week.`,
+            `Need someone to teach me how to make bread. I'm in ${user.location} and all my attempts have been disasters!`,
+            `Can anyone share their chili recipe? I'm in ${user.location} and hosting a potluck soon.`,
+          ],
+        };
+
+        const templates = descriptionTemplates[category] || [`I need help with ${title.toLowerCase()}. I'm in ${user.location}. Would really appreciate the support!`];
+        const description = randomElement(templates);
         const status = Math.random() > 0.7 ? 'completed' : Math.random() > 0.5 ? 'matched' : 'open';
         const createdDaysAgo = randomInt(0, 30);
         const createdAt = new Date(Date.now() - createdDaysAgo * 24 * 60 * 60 * 1000);
 
-        await client.query(
-          `INSERT INTO requests.help_requests (requester_id, community_id, title, description, category, status, created_at)
-           VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-          [user.id, membership.community_id, title, description, category, status, createdAt]
+        // Insert request without community_id (new schema)
+        const requestResult = await client.query(
+          `INSERT INTO requests.help_requests (requester_id, title, description, category, status, created_at)
+           VALUES ($1, $2, $3, $4, $5, $6)
+           RETURNING id`,
+          [user.id, title, description, category, status, createdAt]
         );
+
+        const requestId = requestResult.rows[0].id;
+
+        // Get all communities for this user
+        const userCommunitiesResult = await client.query(
+          `SELECT community_id FROM communities.members WHERE user_id = $1`,
+          [user.id]
+        );
+
+        // Decide how many communities to post to (30% to all, 70% to 1-3)
+        const allUserCommunities = userCommunitiesResult.rows.map(r => r.community_id);
+        const numCommunities = Math.random() < 0.3 ? allUserCommunities.length : randomInt(1, Math.min(3, allUserCommunities.length));
+        const selectedCommunities = allUserCommunities.slice(0, numCommunities);
+
+        // Link request to selected communities via junction table
+        for (const communityId of selectedCommunities) {
+          await client.query(
+            `INSERT INTO requests.request_communities (request_id, community_id, created_at)
+             VALUES ($1, $2, $3)`,
+            [requestId, communityId, createdAt]
+          );
+        }
 
         requestCount++;
       }

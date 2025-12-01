@@ -34,7 +34,7 @@ export function useMessaging({
   enabled,
 }: UseMessagingOptions): UseMessagingReturn {
   const [messages, setMessages] = useState<Message[]>([])
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false) // Start as false, will be set to true when fetching
   const [connected, setConnected] = useState(false)
   const [isTyping, setIsTyping] = useState(false)
   const [typingUser, setTypingUser] = useState<string | null>(null)
@@ -161,7 +161,7 @@ export function useMessaging({
       setLoading(true)
       const token = getToken()
       const response = await fetch(
-        `${MESSAGING_SERVICE_URL}/messages/match/${matchId}`,
+        `${MESSAGING_SERVICE_URL}/match/${matchId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -201,7 +201,7 @@ export function useMessaging({
         try {
           const token = getToken()
           const response = await fetch(
-            `${MESSAGING_SERVICE_URL}/messages/match/${matchId}/messages`,
+            `${MESSAGING_SERVICE_URL}/match/${matchId}/messages`,
             {
               method: 'POST',
               headers: {

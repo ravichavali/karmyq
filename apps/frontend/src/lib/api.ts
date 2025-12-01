@@ -228,7 +228,7 @@ export const communityService = {
 // Request Service API Methods
 export const requestService = {
   // Help Requests
-  getRequests: (params?: { community_id?: string; status?: string; type?: string; limit?: number; offset?: number }) =>
+  getRequests: (params?: { community_id?: string; status?: string; type?: string; requester_id?: string; limit?: number; offset?: number }) =>
     requestApi.get('/requests', { params }),
 
   getMatchedRequests: (user_id: string, limit?: number) =>
@@ -357,28 +357,28 @@ export const notificationService = {
 export const messagingService = {
   // Get user's conversations (userId from JWT)
   getConversations: () =>
-    messagingApi.get('/messages/conversations'),
+    messagingApi.get('/conversations'),
 
   // Get or create conversation for a match
   createConversation: (matchId: string, participantIds: string[]) =>
-    messagingApi.post('/messages/conversations', {
+    messagingApi.post('/conversations', {
       match_id: matchId,
       participant_ids: participantIds,
     }),
 
   // Get conversation details (userId from JWT)
   getConversation: (conversationId: string) =>
-    messagingApi.get(`/messages/conversations/${conversationId}`),
+    messagingApi.get(`/conversations/${conversationId}`),
 
   // Get messages for a conversation (userId from JWT)
   getMessages: (conversationId: string, params?: { limit?: number; offset?: number }) =>
-    messagingApi.get(`/messages/conversations/${conversationId}/messages`, {
+    messagingApi.get(`/conversations/${conversationId}/messages`, {
       params: params,
     }),
 
   // Send message (REST fallback) - senderId from JWT
   sendMessage: (conversationId: string, content: string) =>
-    messagingApi.post(`/messages/conversations/${conversationId}/messages`, {
+    messagingApi.post(`/conversations/${conversationId}/messages`, {
       content,
     }),
 
@@ -387,16 +387,16 @@ export const messagingService = {
 
   // Match-based messaging
   getMatchConversation: (matchId: string) =>
-    messagingApi.get(`/messages/match/${matchId}`),
+    messagingApi.get(`/match/${matchId}`),
 
   sendMatchMessage: (matchId: string, content: string) =>
-    messagingApi.post(`/messages/match/${matchId}/messages`, { content }),
+    messagingApi.post(`/match/${matchId}/messages`, { content }),
 
   getMatchUnreadCount: (matchId: string) =>
-    messagingApi.get(`/messages/match/${matchId}/unread`),
+    messagingApi.get(`/match/${matchId}/unread`),
 
   markMatchRead: (matchId: string) =>
-    messagingApi.put(`/messages/match/${matchId}/read`),
+    messagingApi.put(`/match/${matchId}/read`),
 }
 
 // Reputation Service API Methods

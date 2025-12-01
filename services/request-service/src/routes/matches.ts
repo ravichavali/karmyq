@@ -12,15 +12,17 @@ router.get('/', async (req: Request, res: Response) => {
     let queryText = `
       SELECT
         m.id, m.request_id, m.offer_id, m.responder_id, m.status, m.created_at, m.completed_at,
-        r.title as request_title, r.category as request_category,
+        r.title as request_title, r.description as request_description, r.category as request_category,
         r.requester_id, req_user.name as requester_name,
         o.title as offer_title,
-        o.offerer_id, help_user.name as helper_name
+        o.offerer_id, help_user.name as helper_name,
+        resp_user.name as responder_name
       FROM requests.matches m
       LEFT JOIN requests.help_requests r ON m.request_id = r.id
       LEFT JOIN requests.help_offers o ON m.offer_id = o.id
       LEFT JOIN auth.users req_user ON r.requester_id = req_user.id
       LEFT JOIN auth.users help_user ON o.offerer_id = help_user.id
+      LEFT JOIN auth.users resp_user ON m.responder_id = resp_user.id
       WHERE 1=1
     `;
 
@@ -49,6 +51,16 @@ router.get('/', async (req: Request, res: Response) => {
     params.push(limit, offset);
 
     const result = await query(queryText, params);
+
+    // Debug: Log first match to verify data structure
+    if (result.rows.length > 0) {
+      console.log('Sample match data:', {
+        id: result.rows[0].id,
+        requester_name: result.rows[0].requester_name,
+        responder_name: result.rows[0].responder_name,
+        request_description: result.rows[0].request_description ? 'present' : 'missing'
+      });
+    }
 
     res.json({
       success: true,
@@ -183,11 +195,8 @@ router.post('/', async (req: Request, res: Response) => {
 
     const match = matchResult.rows[0];
 
-    // Update request status
-    await query(
-      `UPDATE requests.help_requests SET status = 'matched' WHERE id = $1`,
-      [request_id]
-    );
+    // Don't update request status here - only update when match is accepted
+    // (Request stays 'open' until someone accepts an offer)
 
     // Update offer status if provided
     if (offer_id) {
@@ -269,6 +278,14 @@ router.put('/:id/accept', async (req: Request, res: Response) => {
        SET status = 'matched'
        WHERE id = $1`,
       [id]
+    );
+
+    // Update request status to matched
+    await query(
+      `UPDATE requests.help_requests
+       SET status = 'matched'
+       WHERE id = $1`,
+      [match.request_id]
     );
 
     // Reject all other proposed matches for this request

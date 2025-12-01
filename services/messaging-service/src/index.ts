@@ -76,7 +76,7 @@ app.get('/health', (_req, res) => {
 // Routes with authentication (no tenant context required for messaging)
 // Messaging is user-scoped, not community-scoped
 app.use(
-  '/messages',
+  '/',
   rateLimiters.standard,
   authMiddleware,
   messageRoutes

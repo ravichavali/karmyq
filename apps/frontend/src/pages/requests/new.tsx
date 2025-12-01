@@ -71,7 +71,6 @@ export default function NewRequestPage() {
       setSubmitting(true)
       const response = await requestService.createRequest({
         ...formData,
-        requester_id: currentUser.id,
       })
 
       alert('Request created successfully!')

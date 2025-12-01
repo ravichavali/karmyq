@@ -90,7 +90,6 @@ CREATE SCHEMA IF NOT EXISTS requests;
 
 CREATE TABLE requests.help_requests (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    community_id UUID NOT NULL REFERENCES communities.communities(id),
     requester_id UUID NOT NULL REFERENCES auth.users(id),
     title VARCHAR(255) NOT NULL,
     description TEXT NOT NULL,
@@ -99,8 +98,19 @@ CREATE TABLE requests.help_requests (
     preferred_start_date TIMESTAMP,
     preferred_end_date TIMESTAMP,
     status VARCHAR(50) DEFAULT 'open',
+    expired BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Junction table: Links requests to communities (many-to-many)
+-- A single request can be posted to multiple communities
+CREATE TABLE requests.request_communities (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    request_id UUID NOT NULL REFERENCES requests.help_requests(id) ON DELETE CASCADE,
+    community_id UUID NOT NULL REFERENCES communities.communities(id) ON DELETE CASCADE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT unique_request_community UNIQUE (request_id, community_id)
 );
 
 CREATE TABLE requests.help_offers (
@@ -128,8 +138,9 @@ CREATE TABLE requests.matches (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_requests_community_id ON requests.help_requests(community_id);
 CREATE INDEX idx_requests_requester_id ON requests.help_requests(requester_id);
+CREATE INDEX idx_request_communities_request ON requests.request_communities(request_id);
+CREATE INDEX idx_request_communities_community ON requests.request_communities(community_id);
 CREATE INDEX idx_offers_community_id ON requests.help_offers(community_id);
 CREATE INDEX idx_matches_request_id ON requests.matches(request_id);
 CREATE INDEX idx_matches_responder_id ON requests.matches(responder_id);
@@ -473,9 +484,14 @@ CREATE POLICY community_isolation ON communities.norm_approvals
     )
   );
 
+-- RLS for help_requests: Check if request is linked to the current community via junction table
 CREATE POLICY community_isolation ON requests.help_requests
   USING (
-    community_id = current_setting('app.current_community_id', true)::uuid
+    EXISTS (
+      SELECT 1 FROM requests.request_communities rc
+      WHERE rc.request_id = help_requests.id
+      AND rc.community_id = current_setting('app.current_community_id', true)::uuid
+    )
   );
 
 CREATE POLICY community_isolation ON requests.help_offers
@@ -483,11 +499,12 @@ CREATE POLICY community_isolation ON requests.help_offers
     community_id = current_setting('app.current_community_id', true)::uuid
   );
 
+-- RLS for matches: Check if match's request is linked to the current community
 CREATE POLICY community_isolation ON requests.matches
   USING (
     request_id IN (
-      SELECT id FROM requests.help_requests
-      WHERE community_id = current_setting('app.current_community_id', true)::uuid
+      SELECT rc.request_id FROM requests.request_communities rc
+      WHERE rc.community_id = current_setting('app.current_community_id', true)::uuid
     )
   );
 
@@ -501,39 +518,56 @@ CREATE POLICY community_isolation ON reputation.trust_scores
     community_id = current_setting('app.current_community_id', true)::uuid
   );
 
+-- Badges are global to users, not community-specific
 CREATE POLICY community_isolation ON reputation.badges
-  USING (
-    community_id = current_setting('app.current_community_id', true)::uuid
-  );
+  USING (true); -- All badges visible (they're user-specific, not community-specific)
 
+-- RLS for conversations: Check via match -> request -> request_communities
 CREATE POLICY community_isolation ON messaging.conversations
   USING (
-    community_id = current_setting('app.current_community_id', true)::uuid
+    request_match_id IN (
+      SELECT m.id FROM requests.matches m
+      WHERE m.request_id IN (
+        SELECT rc.request_id FROM requests.request_communities rc
+        WHERE rc.community_id = current_setting('app.current_community_id', true)::uuid
+      )
+    )
   );
 
+-- RLS for conversation_participants: Check via conversation RLS
 CREATE POLICY community_isolation ON messaging.conversation_participants
   USING (
     conversation_id IN (
-      SELECT id FROM messaging.conversations
-      WHERE community_id = current_setting('app.current_community_id', true)::uuid
+      SELECT c.id FROM messaging.conversations c
+      WHERE c.request_match_id IN (
+        SELECT m.id FROM requests.matches m
+        WHERE m.request_id IN (
+          SELECT rc.request_id FROM requests.request_communities rc
+          WHERE rc.community_id = current_setting('app.current_community_id', true)::uuid
+        )
+      )
     )
   );
 
+-- RLS for messages: Check via conversation RLS
 CREATE POLICY community_isolation ON messaging.messages
   USING (
     conversation_id IN (
-      SELECT id FROM messaging.conversations
-      WHERE community_id = current_setting('app.current_community_id', true)::uuid
+      SELECT c.id FROM messaging.conversations c
+      WHERE c.request_match_id IN (
+        SELECT m.id FROM requests.matches m
+        WHERE m.request_id IN (
+          SELECT rc.request_id FROM requests.request_communities rc
+          WHERE rc.community_id = current_setting('app.current_community_id', true)::uuid
+        )
+      )
     )
   );
 
+-- Notifications are user-specific, not community-specific
 CREATE POLICY community_isolation ON notifications.notifications
   USING (
     user_id = current_setting('app.current_user_id', true)::uuid
-    AND (
-      community_id IS NULL
-      OR community_id = current_setting('app.current_community_id', true)::uuid
-    )
   );
 
 CREATE POLICY community_isolation ON notifications.preferences

@@ -59,16 +59,6 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
                 >
                   Communities
                 </Link>
-                <Link
-                  href="/messages"
-                  className={`px-4 py-2 font-medium rounded-lg transition-all ${
-                    router.pathname.startsWith('/messages')
-                      ? 'bg-blue-50 text-blue-600'
-                      : 'text-gray-700 hover:bg-gray-50'
-                  }`}
-                >
-                  Messages
-                </Link>
 
                 {user && (
                   <>

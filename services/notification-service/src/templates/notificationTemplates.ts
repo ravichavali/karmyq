@@ -38,7 +38,7 @@ export const notificationTemplates: Record<NotificationType, NotificationTemplat
     title: (data) => 'New Match for Your Request',
     body: (data) => `${data.responder_name} wants to help with "${data.request_title}"`,
     icon: 'handshake',
-    actionUrl: (data) => `/matches/${data.match_id}`,
+    actionUrl: (data) => `/dashboard`,
     channels: { in_app: true, push: true, email: false },
   },
 
@@ -48,7 +48,7 @@ export const notificationTemplates: Record<NotificationType, NotificationTemplat
     title: (data) => 'Match Accepted',
     body: (data) => `${data.requester_name} accepted your offer to help with "${data.request_title}"`,
     icon: 'check-circle',
-    actionUrl: (data) => `/matches/${data.match_id}`,
+    actionUrl: (data) => `/dashboard`,
     channels: { in_app: true, push: true, email: false },
   },
 
@@ -58,7 +58,7 @@ export const notificationTemplates: Record<NotificationType, NotificationTemplat
     title: (data) => 'Match Completed',
     body: (data) => `Your match for "${data.request_title}" has been completed`,
     icon: 'star',
-    actionUrl: (data) => `/matches/${data.match_id}`,
+    actionUrl: (data) => `/dashboard`,
     channels: { in_app: true, push: true, email: false },
   },
 
@@ -68,7 +68,7 @@ export const notificationTemplates: Record<NotificationType, NotificationTemplat
     title: (data) => 'Match Cancelled',
     body: (data) => `The match for "${data.request_title}" has been cancelled`,
     icon: 'x-circle',
-    actionUrl: (data) => `/requests/${data.request_id}`,
+    actionUrl: (data) => `/dashboard`,
     channels: { in_app: true, push: false, email: false },
   },
 
@@ -98,7 +98,7 @@ export const notificationTemplates: Record<NotificationType, NotificationTemplat
     title: (data) => 'New Request in Your Community',
     body: (data) => `${data.requester_name}: "${data.request_title}"`,
     icon: 'bell',
-    actionUrl: (data) => `/requests/${data.request_id}`,
+    actionUrl: (data) => `/dashboard`,
     channels: { in_app: true, push: false, email: false },
   },
 
@@ -108,7 +108,7 @@ export const notificationTemplates: Record<NotificationType, NotificationTemplat
     title: (data) => 'Someone Responded to Your Request',
     body: (data) => `${data.responder_name} responded to "${data.request_title}"`,
     icon: 'message-circle',
-    actionUrl: (data) => `/requests/${data.request_id}`,
+    actionUrl: (data) => `/dashboard`,
     channels: { in_app: true, push: true, email: false },
   },
 
@@ -118,7 +118,7 @@ export const notificationTemplates: Record<NotificationType, NotificationTemplat
     title: (data) => `New Message from ${data.sender_name}`,
     body: (data) => data.message_preview || 'You have a new message',
     icon: 'mail',
-    actionUrl: (data) => `/messages/${data.conversation_id}`,
+    actionUrl: (data) => `/dashboard`,
     channels: { in_app: true, push: true, email: false },
   },
 
