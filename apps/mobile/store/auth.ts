@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { storage } from '@/utils/storage';
+import { API_CONFIG } from '@/config/api';
 
 interface User {
   id: string;
@@ -18,8 +19,7 @@ interface AuthState {
   checkAuth: () => Promise<void>;
 }
 
-// 10.0.2.2 is the special IP for Android emulator to reach host machine
-const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://10.0.2.2:3001';
+const API_URL = API_CONFIG.AUTH_URL;
 
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,

@@ -3,8 +3,9 @@ import { AppState, AppStateStatus } from 'react-native'
 import { io, Socket } from 'socket.io-client'
 import * as SecureStore from 'expo-secure-store'
 import { api } from '@/services/api'
+import { API_CONFIG } from '@/config/api'
 
-const MESSAGING_SERVICE_URL = process.env.EXPO_PUBLIC_MESSAGING_SERVICE_URL || 'http://10.0.2.2:3006'
+const MESSAGING_SERVICE_URL = API_CONFIG.MESSAGING_URL
 
 interface Message {
   id: string

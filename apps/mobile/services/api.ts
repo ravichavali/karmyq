@@ -1,25 +1,16 @@
 import axios, { AxiosInstance } from 'axios';
-import { Platform } from 'react-native';
 import { storage } from '@/utils/storage';
+import { API_CONFIG } from '@/config/api';
 
-// Platform-specific API host configuration
-// Use EXPO_PUBLIC_API_HOST from .env (set to your computer's local IP)
-// This works for: web, iOS simulator, iOS device, Android emulator, Android device
-// Default fallbacks if env var not set:
-// - Android emulator: 10.0.2.2
-// - Everything else: localhost
-const BASE_HOST = process.env.EXPO_PUBLIC_API_HOST ||
-  (Platform.OS === 'android' ? '10.0.2.2' : 'localhost');
-
-// Service ports matching docker-compose
+// Service URLs from centralized config
 const SERVICES = {
-  auth: `http://${BASE_HOST}:3001`,
-  community: `http://${BASE_HOST}:3002`,
-  request: `http://${BASE_HOST}:3003`,
-  reputation: `http://${BASE_HOST}:3004`,
-  notification: `http://${BASE_HOST}:3005`,
-  messaging: `http://${BASE_HOST}:3006`,
-  feed: `http://${BASE_HOST}:3007`,
+  auth: API_CONFIG.AUTH_URL,
+  community: API_CONFIG.COMMUNITY_URL,
+  request: API_CONFIG.REQUEST_URL,
+  reputation: API_CONFIG.REPUTATION_URL,
+  notification: API_CONFIG.NOTIFICATION_URL,
+  messaging: API_CONFIG.MESSAGING_URL,
+  feed: API_CONFIG.FEED_URL,
 };
 
 // Create axios instance with auth interceptor
