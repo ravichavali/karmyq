@@ -2,8 +2,8 @@
 
 Complete documentation for the Karmyq mutual aid platform.
 
-**Current Version**: v5.1.0
-**Last Updated**: 2025-01-15
+**Current Version**: v6.0.0
+**Last Updated**: 2025-12-02
 
 ## 🚀 Quick Start
 
@@ -158,15 +158,16 @@ npm run test:flows       # Multi-community flows
 cd tests/e2e && npm run test
 ```
 
-## 📊 Current Status (v5.1.0)
+## 📊 Current Status (v6.0.0)
 
 - ✅ **8 Backend Services** - All production-ready with multi-tenant support
 - ✅ **Multi-Tenant SaaS** - Row-Level Security, community isolation
 - ✅ **Ephemeral Data** - Configurable TTL (60 days default)
 - ✅ **Reputation Decay** - Time-based karma decay (6-month half-life)
 - ✅ **Cleanup Service** - 5 automated jobs for data management
-- ✅ **Frontend** - Next.js web app
-- ✅ **Mobile App** - React Native + Expo (structure complete)
+- ✅ **Frontend** - Next.js web app with inline messaging
+- ✅ **Mobile App** - React Native + Expo SDK 52 (100% functional on web)
+- ✅ **Feed Service** - Schema properly aligned with database
 - ✅ **Database** - PostgreSQL with 9 schemas, 19 RLS-protected tables
 - ✅ **Observability** - Grafana/Loki/Prometheus stack
 - ✅ **Testing** - Integration tests + E2E tests
@@ -176,14 +177,13 @@ See [PROJECT_STATUS.md](PROJECT_STATUS.md) for detailed status and roadmap.
 
 ## 🚧 Known Issues
 
-- **Feed Service**: Schema mismatches in feedComposer.ts (see PROJECT_STATUS.md)
-- **Mobile App**: Not tested on simulators (needs `npm install`)
+- **Mobile App**: Not tested on native simulators (web version fully functional)
 
-## 🔮 Next Steps (v5.2+)
+## 🔮 Next Steps (Phase 4+)
 
-1. **Data Export API** - Community data export (JSON/CSV)
-2. **Admin UI** - Community settings management
-3. **Fix Feed Service** - Update schema references
+1. **Update Integration Tests** - Add tests for v5.3+ workflow (accept/reject flow)
+2. **Data Export API** - Community data export (JSON/CSV)
+3. **Admin UI** - Community settings management
 4. **Test Mobile App** - Run on iOS/Android simulators
 
 See [PROJECT_STATUS.md](PROJECT_STATUS.md) for complete roadmap.

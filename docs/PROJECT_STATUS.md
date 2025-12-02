@@ -1,12 +1,19 @@
-# Karmyq Project Status (v5.3.0)
+# Karmyq Project Status (v6.0.0)
 
-**Last Updated**: 2025-01-27
-**Current Version**: v5.3.0
+**Last Updated**: 2025-12-02
+**Current Version**: v6.0.0
 **Status**: Production-Ready Multi-Tenant Platform with Inline Messaging
 
 ## 🎉 Major Milestones Achieved
 
-### v5.3.0 - Inline Messaging (Current)
+### v6.0.0 - Mobile App & Schema Fixes (Current)
+- ✅ Mobile app 100% functional on web platform (Expo SDK 52)
+- ✅ Centralized API configuration (cross-platform support)
+- ✅ Feed Service schema alignment completed
+- ✅ All database references use correct table/column names
+- ✅ Repository tagged and stable
+
+### v5.3.0 - Inline Messaging
 - ✅ InlineChat component with expand/collapse UI
 - ✅ Match-based messaging endpoints in messaging service
 - ✅ Chat directly within request cards (no separate page needed)
@@ -137,14 +144,13 @@
 - Participant validation and access control
 
 #### Feed Service (Port 3007)
-**Status**: ✅ Complete (needs schema fixes)
+**Status**: ✅ Complete
 - Personalized activity feed
 - Adaptive feed composition (explore/exploit balance)
 - User behavior tracking
 - Feed preferences
 - Adjacent community discovery
-
-**Note**: Feed service currently returns empty feed due to schema mismatch (TODO in feedComposer.ts)
+- Schema properly aligned with database (uses requests.help_requests, responder_id/requester_id)
 
 #### Cleanup Service (Port 3008)
 **Status**: ✅ Complete
@@ -355,14 +361,6 @@ You can:
 
 ## 🚧 Known Issues & TODOs
 
-### Feed Service
-- ❌ Feed composer has schema mismatches
-  - References `requests.requests` (should be `requests.help_requests`)
-  - Uses `helper_id`/`helpee_id` (should be `responder_id`/`requester_id`)
-  - References `matching.matches` (should be `requests.matches`)
-- ❌ Currently returns empty feed
-- **Fix**: Update `services/feed-service/src/services/feedComposer.ts`
-
 ### Mobile App
 - ❌ Not tested on simulator/device
 - ❌ Dependencies not installed
@@ -399,8 +397,7 @@ You can:
 5. **Activity Type Selection** - UI for configuring tracked activities
 
 ### Other Priorities
-1. **Fix Feed Service Schema** - Update feedComposer.ts to use correct table/column names
-2. **Test Mobile App** - Install deps and test on iOS/Android simulators
+1. **Test Mobile App** - Install deps and test on iOS/Android simulators
 
 ### Future Enhancements
 - [ ] Trust bridges between communities (selective data sharing)
