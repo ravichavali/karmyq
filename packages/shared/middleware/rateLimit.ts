@@ -105,10 +105,14 @@ export function createRateLimiter(config: RateLimitConfig = {}): RateLimitReques
     legacyHeaders: false, // Disable X-RateLimit-* headers
     skipSuccessfulRequests,
     skipFailedRequests,
+    // Use user ID if authenticated, otherwise use default IP-based key generation
     keyGenerator: (req: Request) => {
-      // Use user ID if authenticated, otherwise use IP
       const userId = (req as any).user?.userId;
-      return userId || req.ip || 'unknown';
+      if (userId) {
+        return `user:${userId}`;
+      }
+      // Return undefined to use default IP-based key generation (IPv6-aware)
+      return undefined as any;
     },
     handler: (_req: Request, res: Response) => {
       res.status(429).json({
