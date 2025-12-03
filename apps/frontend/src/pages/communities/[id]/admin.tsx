@@ -48,10 +48,12 @@ export default function CommunityAdminPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [currentUser, setCurrentUser] = useState<any>(null)
-  const [activeTab, setActiveTab] = useState<'members' | 'pending' | 'settings' | 'export'>('members')
+  const [activeTab, setActiveTab] = useState<'members' | 'pending' | 'settings' | 'stats' | 'export'>('members')
   const [exporting, setExporting] = useState(false)
   const [saving, setSaving] = useState(false)
   const [editedSettings, setEditedSettings] = useState<CommunitySettings | null>(null)
+  const [stats, setStats] = useState<any>(null)
+  const [loadingStats, setLoadingStats] = useState(false)
 
   useEffect(() => {
     const token = localStorage.getItem('token')
@@ -104,6 +106,18 @@ export default function CommunityAdminPage() {
       }
       setSettings(defaults)
       setEditedSettings(defaults)
+    }
+  }
+
+  const fetchStats = async () => {
+    try {
+      setLoadingStats(true)
+      const response = await communityService.getStats(id as string)
+      setStats(response.data.data)
+    } catch (err: any) {
+      console.error('Failed to load statistics:', err)
+    } finally {
+      setLoadingStats(false)
     }
   }
 
@@ -340,6 +354,19 @@ export default function CommunityAdminPage() {
                   }`}
                 >
                   Settings
+                </button>
+                <button
+                  onClick={() => {
+                    setActiveTab('stats')
+                    if (!stats) fetchStats()
+                  }}
+                  className={`px-6 py-4 font-medium ${
+                    activeTab === 'stats'
+                      ? 'border-b-2 border-blue-600 text-blue-600'
+                      : 'text-gray-600 hover:text-gray-800'
+                  }`}
+                >
+                  Statistics
                 </button>
                 <button
                   onClick={() => setActiveTab('export')}
@@ -622,6 +649,273 @@ export default function CommunityAdminPage() {
                       </button>
                     </div>
                   </div>
+                </div>
+              )}
+
+              {/* Statistics Tab */}
+              {activeTab === 'stats' && (
+                <div>
+                  <div className="flex items-center justify-between mb-6">
+                    <h3 className="text-xl font-semibold">Community Statistics</h3>
+                    <button
+                      onClick={fetchStats}
+                      disabled={loadingStats}
+                      className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-blue-400"
+                    >
+                      {loadingStats ? 'Refreshing...' : 'Refresh'}
+                    </button>
+                  </div>
+
+                  {loadingStats && !stats && (
+                    <div className="text-center py-12">
+                      <div className="text-gray-500">Loading statistics...</div>
+                    </div>
+                  )}
+
+                  {stats && (
+                    <div className="space-y-6">
+                      {/* Community Health Score */}
+                      <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-6">
+                        <h4 className="text-lg font-semibold mb-4 text-blue-900">Community Health Score</h4>
+                        <div className="flex items-center gap-6">
+                          <div className="flex-shrink-0">
+                            <div className="w-32 h-32 rounded-full bg-white shadow-lg flex items-center justify-center">
+                              <div className="text-center">
+                                <div className="text-4xl font-bold text-blue-600">
+                                  {Math.min(100, Math.round(
+                                    (stats.matches?.completed_matches || 0) * 2 +
+                                    (stats.requests?.open_requests || 0) * 0.5 +
+                                    (stats.members?.active_members || 0) * 1.5
+                                  ))}
+                                </div>
+                                <div className="text-sm text-gray-600">/ 100</div>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-gray-700 mb-3">
+                              Your community health is calculated based on member engagement, help exchanges, and active requests.
+                            </p>
+                            <div className="grid grid-cols-3 gap-3">
+                              <div className="bg-white rounded p-3">
+                                <div className="text-xs text-gray-600">Engagement</div>
+                                <div className="text-lg font-bold text-green-600">
+                                  {stats.matches?.matches_completed_this_month > 5 ? 'High' : stats.matches?.matches_completed_this_month > 2 ? 'Medium' : 'Low'}
+                                </div>
+                              </div>
+                              <div className="bg-white rounded p-3">
+                                <div className="text-xs text-gray-600">Activity</div>
+                                <div className="text-lg font-bold text-blue-600">
+                                  {stats.requests?.requests_this_week > 3 ? 'High' : stats.requests?.requests_this_week > 1 ? 'Medium' : 'Low'}
+                                </div>
+                              </div>
+                              <div className="bg-white rounded p-3">
+                                <div className="text-xs text-gray-600">Growth</div>
+                                <div className="text-lg font-bold text-purple-600">
+                                  {stats.members?.active_members > community.current_members * 0.8 ? 'Strong' : 'Steady'}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Key Metrics Grid */}
+                      <div className="grid md:grid-cols-4 gap-4">
+                        <div className="bg-white rounded-lg shadow p-4 border-l-4 border-blue-500">
+                          <div className="text-sm text-gray-600 mb-1">Total Exchanges</div>
+                          <div className="text-3xl font-bold text-blue-600">{stats.matches?.completed_matches || 0}</div>
+                          <div className="text-xs text-gray-500 mt-1">
+                            {stats.matches?.matches_completed_this_month || 0} this month
+                          </div>
+                        </div>
+                        <div className="bg-white rounded-lg shadow p-4 border-l-4 border-green-500">
+                          <div className="text-sm text-gray-600 mb-1">Active Requests</div>
+                          <div className="text-3xl font-bold text-green-600">{stats.requests?.open_requests || 0}</div>
+                          <div className="text-xs text-gray-500 mt-1">
+                            {stats.requests?.matched_requests || 0} matched
+                          </div>
+                        </div>
+                        <div className="bg-white rounded-lg shadow p-4 border-l-4 border-purple-500">
+                          <div className="text-sm text-gray-600 mb-1">Avg Karma</div>
+                          <div className="text-3xl font-bold text-purple-600">{stats.karma?.avg_karma || 0}</div>
+                          <div className="text-xs text-gray-500 mt-1">
+                            Max: {stats.karma?.max_karma || 0}
+                          </div>
+                        </div>
+                        <div className="bg-white rounded-lg shadow p-4 border-l-4 border-orange-500">
+                          <div className="text-sm text-gray-600 mb-1">This Week</div>
+                          <div className="text-3xl font-bold text-orange-600">{stats.matches?.matches_completed_this_week || 0}</div>
+                          <div className="text-xs text-gray-500 mt-1">
+                            {stats.requests?.requests_this_week || 0} requests
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Top Contributors */}
+                      <div className="grid md:grid-cols-2 gap-6">
+                        {/* Top Helpers */}
+                        <div className="bg-white rounded-lg shadow p-6">
+                          <h4 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                            <span className="text-2xl">🏆</span>
+                            Top Helpers This Month
+                          </h4>
+                          {stats.topHelpers && stats.topHelpers.length > 0 ? (
+                            <div className="space-y-3">
+                              {stats.topHelpers.map((helper: any, index: number) => (
+                                <div key={helper.user_id} className="flex items-center justify-between p-3 bg-gray-50 rounded">
+                                  <div className="flex items-center gap-3">
+                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-white ${
+                                      index === 0 ? 'bg-yellow-500' :
+                                      index === 1 ? 'bg-gray-400' :
+                                      index === 2 ? 'bg-orange-600' :
+                                      'bg-gray-300'
+                                    }`}>
+                                      {index + 1}
+                                    </div>
+                                    <div>
+                                      <div className="font-semibold">{helper.name}</div>
+                                      <div className="text-sm text-gray-600">{helper.help_count} helps</div>
+                                    </div>
+                                  </div>
+                                  {helper.avg_karma && (
+                                    <div className="text-sm text-purple-600 font-semibold">
+                                      {helper.avg_karma} karma
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-gray-500">No helpers this month yet.</p>
+                          )}
+                        </div>
+
+                        {/* Top Requesters */}
+                        <div className="bg-white rounded-lg shadow p-6">
+                          <h4 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                            <span className="text-2xl">📋</span>
+                            Top Requesters This Month
+                          </h4>
+                          {stats.topRequesters && stats.topRequesters.length > 0 ? (
+                            <div className="space-y-3">
+                              {stats.topRequesters.map((requester: any, index: number) => (
+                                <div key={requester.user_id} className="flex items-center justify-between p-3 bg-gray-50 rounded">
+                                  <div className="flex items-center gap-3">
+                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-white ${
+                                      index === 0 ? 'bg-blue-500' :
+                                      index === 1 ? 'bg-blue-400' :
+                                      index === 2 ? 'bg-blue-300' :
+                                      'bg-gray-300'
+                                    }`}>
+                                      {index + 1}
+                                    </div>
+                                    <div>
+                                      <div className="font-semibold">{requester.name}</div>
+                                      <div className="text-sm text-gray-600">{requester.request_count} requests</div>
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-gray-500">No requests this month yet.</p>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Activity Chart - Last 30 Days */}
+                      <div className="bg-white rounded-lg shadow p-6">
+                        <h4 className="text-lg font-semibold mb-4">Activity Trend (Last 30 Days)</h4>
+                        {stats.dailyActivity && stats.dailyActivity.length > 0 ? (
+                          <div className="space-y-4">
+                            <div className="flex gap-4 text-sm">
+                              <div className="flex items-center gap-2">
+                                <div className="w-4 h-4 bg-blue-500 rounded"></div>
+                                <span>Requests</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <div className="w-4 h-4 bg-green-500 rounded"></div>
+                                <span>Matches</span>
+                              </div>
+                            </div>
+                            <div className="h-64 flex items-end justify-between gap-1">
+                              {stats.dailyActivity.slice(0, 30).reverse().map((day: any, index: number) => {
+                                const maxValue = Math.max(
+                                  ...stats.dailyActivity.map((d: any) => Math.max(d.requests || 0, d.matches || 0))
+                                );
+                                const requestHeight = maxValue > 0 ? ((day.requests || 0) / maxValue) * 100 : 0;
+                                const matchHeight = maxValue > 0 ? ((day.matches || 0) / maxValue) * 100 : 0;
+
+                                return (
+                                  <div key={index} className="flex-1 flex flex-col items-center gap-1 group relative">
+                                    <div className="w-full flex flex-col justify-end h-56 gap-0.5">
+                                      <div
+                                        className="w-full bg-blue-500 rounded-t hover:bg-blue-600 transition-all"
+                                        style={{ height: `${requestHeight}%`, minHeight: day.requests > 0 ? '4px' : '0' }}
+                                        title={`${day.requests} requests`}
+                                      ></div>
+                                      <div
+                                        className="w-full bg-green-500 hover:bg-green-600 transition-all"
+                                        style={{ height: `${matchHeight}%`, minHeight: day.matches > 0 ? '4px' : '0' }}
+                                        title={`${day.matches} matches`}
+                                      ></div>
+                                    </div>
+                                    {index % 5 === 0 && (
+                                      <div className="text-xs text-gray-500 transform rotate-45 origin-top-left mt-1">
+                                        {new Date(day.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                      </div>
+                                    )}
+                                    <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 translate-y-full mt-12 hidden group-hover:block bg-gray-800 text-white text-xs rounded px-2 py-1 whitespace-nowrap z-10">
+                                      {new Date(day.date).toLocaleDateString()}<br/>
+                                      Requests: {day.requests || 0}<br/>
+                                      Matches: {day.matches || 0}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        ) : (
+                          <p className="text-gray-500">No activity data available.</p>
+                        )}
+                      </div>
+
+                      {/* Summary Stats */}
+                      <div className="bg-gray-50 rounded-lg p-6">
+                        <h4 className="text-lg font-semibold mb-4">Summary</h4>
+                        <div className="grid md:grid-cols-3 gap-4 text-sm">
+                          <div>
+                            <div className="font-medium text-gray-700 mb-2">Members</div>
+                            <ul className="space-y-1 text-gray-600">
+                              <li>• {stats.members?.active_members || 0} active</li>
+                              <li>• {stats.members?.pending_members || 0} pending</li>
+                              <li>• {stats.members?.admin_count || 0} admins</li>
+                              <li>• {stats.members?.moderator_count || 0} moderators</li>
+                            </ul>
+                          </div>
+                          <div>
+                            <div className="font-medium text-gray-700 mb-2">Requests</div>
+                            <ul className="space-y-1 text-gray-600">
+                              <li>• {stats.requests?.total_requests || 0} total</li>
+                              <li>• {stats.requests?.open_requests || 0} open</li>
+                              <li>• {stats.requests?.matched_requests || 0} matched</li>
+                              <li>• {stats.requests?.completed_requests || 0} completed</li>
+                            </ul>
+                          </div>
+                          <div>
+                            <div className="font-medium text-gray-700 mb-2">Matches</div>
+                            <ul className="space-y-1 text-gray-600">
+                              <li>• {stats.matches?.total_matches || 0} total</li>
+                              <li>• {stats.matches?.proposed_matches || 0} proposed</li>
+                              <li>• {stats.matches?.active_matches || 0} active</li>
+                              <li>• {stats.matches?.completed_matches || 0} completed</li>
+                            </ul>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
