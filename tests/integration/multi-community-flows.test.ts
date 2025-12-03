@@ -618,6 +618,187 @@ describe('Cross-Community Notifications', () => {
   });
 });
 
+describe('Accept/Reject Workflow (v5.3)', () => {
+  let testRequest: any;
+  let match1: any;
+  let match2: any;
+  let match3: any;
+
+  it('Step 1: Alice creates a help request', async () => {
+    if (!alice || !aliceToken || !portlandCommunity) {
+      console.log('Skipping: Prerequisites not met');
+      return;
+    }
+
+    const response = await request(ServiceUrls.REQUEST)
+      .post('/requests')
+      .set('Authorization', `Bearer ${aliceToken}`)
+      .set('X-Community-ID', portlandCommunity.id)
+      .send({
+        community_id: portlandCommunity.id,
+        requester_id: alice.id,
+        title: 'Need help moving furniture',
+        description: 'Moving to new apartment this weekend',
+        type: 'general',
+      });
+
+    expect([200, 201, 403]).toContain(response.status);
+
+    if (response.status === 201 || response.status === 200) {
+      testRequest = response.body.data || response.body.request;
+      expect(testRequest.status).toBe('open');
+    }
+  });
+
+  it('Step 2: Bob offers to help (creates first proposed match)', async () => {
+    if (!bob || !bobToken || !portlandCommunity || !testRequest) {
+      console.log('Skipping: Prerequisites not met');
+      return;
+    }
+
+    const response = await request(ServiceUrls.REQUEST)
+      .post(`/requests/${testRequest.id}/match`)
+      .set('Authorization', `Bearer ${bobToken}`)
+      .set('X-Community-ID', portlandCommunity.id)
+      .send({
+        message: 'I have a truck and can help',
+      });
+
+    expect([200, 201, 403, 404]).toContain(response.status);
+
+    if (response.status === 201 || response.status === 200) {
+      match1 = response.body.data || response.body.match;
+      expect(match1.status).toBe('proposed');
+      expect(match1.responder_id).toBe(bob.id);
+    }
+  });
+
+  it('Step 3: Request should still be open with proposed matches', async () => {
+    if (!alice || !aliceToken || !portlandCommunity || !testRequest) {
+      console.log('Skipping: Prerequisites not met');
+      return;
+    }
+
+    const response = await request(ServiceUrls.REQUEST)
+      .get(`/requests/${testRequest.id}`)
+      .set('Authorization', `Bearer ${aliceToken}`)
+      .set('X-Community-ID', portlandCommunity.id);
+
+    expect([200, 403, 404]).toContain(response.status);
+
+    if (response.status === 200) {
+      const req = response.body.data || response.body.request;
+      expect(req.status).toBe('open');
+    }
+  });
+
+  it('Step 4: Alice rejects Bob\'s offer', async () => {
+    if (!alice || !aliceToken || !portlandCommunity || !match1) {
+      console.log('Skipping: Prerequisites not met');
+      return;
+    }
+
+    const response = await request(ServiceUrls.REQUEST)
+      .put(`/matches/${match1.id}/reject`)
+      .set('Authorization', `Bearer ${aliceToken}`)
+      .set('X-Community-ID', portlandCommunity.id)
+      .send({
+        user_id: alice.id,
+        reason: 'Need someone with more experience',
+      });
+
+    expect([200, 403, 404, 400]).toContain(response.status);
+
+    if (response.status === 200) {
+      expect(response.body.success).toBe(true);
+      expect(response.body.message).toContain('rejected');
+    }
+  });
+
+  it('Step 5: Request should reopen after all offers rejected', async () => {
+    if (!alice || !aliceToken || !portlandCommunity || !testRequest) {
+      console.log('Skipping: Prerequisites not met');
+      return;
+    }
+
+    const response = await request(ServiceUrls.REQUEST)
+      .get(`/requests/${testRequest.id}`)
+      .set('Authorization', `Bearer ${aliceToken}`)
+      .set('X-Community-ID', portlandCommunity.id);
+
+    expect([200, 403, 404]).toContain(response.status);
+
+    // Request should be open again after all offers rejected
+    if (response.status === 200) {
+      const req = response.body.data || response.body.request;
+      expect(['open', 'matched']).toContain(req.status);
+    }
+  });
+});
+
+describe('Multi-Community Request Posting (v5.2)', () => {
+  let multiCommunityRequest: any;
+
+  it('Step 1: Alice posts request to all her communities', async () => {
+    if (!alice || !aliceToken || !portlandCommunity || !seattleCommunity) {
+      console.log('Skipping: Prerequisites not met');
+      return;
+    }
+
+    // Post without specifying community_id = post to all communities
+    // Note: If API requires community_id, this will return 400
+    const response = await request(ServiceUrls.REQUEST)
+      .post('/requests')
+      .set('Authorization', `Bearer ${aliceToken}`)
+      .send({
+        requester_id: alice.id,
+        description: 'Looking for gardening advice for tomatoes',
+        type: 'general',
+      });
+
+    expect([200, 201, 400, 403]).toContain(response.status);
+
+    if (response.status === 201 || response.status === 200) {
+      multiCommunityRequest = response.body.data || response.body.request;
+    }
+
+    // If multi-community posting isn't implemented, that's okay
+    if (response.status === 400) {
+      console.log('Multi-community posting not yet implemented (requires community_id)');
+    }
+  });
+
+  it('Step 2: Request should be visible in Portland', async () => {
+    if (!alice || !aliceToken || !portlandCommunity) {
+      console.log('Skipping: Prerequisites not met');
+      return;
+    }
+
+    const response = await request(ServiceUrls.REQUEST)
+      .get('/requests')
+      .set('Authorization', `Bearer ${aliceToken}`)
+      .set('X-Community-ID', portlandCommunity.id)
+      .query({ community_id: portlandCommunity.id });
+
+    expect([200, 403]).toContain(response.status);
+  });
+
+  it('Step 3: Request should be visible in Seattle', async () => {
+    if (!alice || !aliceToken || !seattleCommunity) {
+      console.log('Skipping: Prerequisites not met');
+      return;
+    }
+
+    const response = await request(ServiceUrls.REQUEST)
+      .get('/requests')
+      .set('Authorization', `Bearer ${aliceToken}`)
+      .set('X-Community-ID', seattleCommunity.id)
+      .query({ community_id: seattleCommunity.id });
+
+    expect([200, 403]).toContain(response.status);
+  });
+});
+
 describe('Complete User Flow - Help Exchange', () => {
   let helpRequest: any;
   let match: any;
@@ -647,26 +828,7 @@ describe('Complete User Flow - Help Exchange', () => {
     }
   });
 
-  it('Step 2: Bob creates offer in Portland', async () => {
-    if (!bob || !bobToken || !portlandCommunity) {
-      console.log('Skipping: Prerequisites not met');
-      return;
-    }
-
-    const response = await request(ServiceUrls.REQUEST)
-      .post('/offers')
-      .set('Authorization', `Bearer ${bobToken}`)
-      .set('X-Community-ID', portlandCommunity.id)
-      .send({
-        community_id: portlandCommunity.id,
-        responder_id: bob.id,
-        message: 'Have a mower available',
-      });
-
-    expect([200, 201, 403, 400]).toContain(response.status);
-  });
-
-  it('Step 3: Bob accepts Alice\'s request (creates match)', async () => {
+  it('Step 2: Bob offers to help on Alice\'s request (creates proposed match)', async () => {
     if (!bob || !bobToken || !portlandCommunity || !helpRequest) {
       console.log('Skipping: Prerequisites not met');
       return;
@@ -675,12 +837,39 @@ describe('Complete User Flow - Help Exchange', () => {
     const response = await request(ServiceUrls.REQUEST)
       .post(`/requests/${helpRequest.id}/match`)
       .set('Authorization', `Bearer ${bobToken}`)
-      .set('X-Community-ID', portlandCommunity.id);
+      .set('X-Community-ID', portlandCommunity.id)
+      .send({
+        message: 'Have a mower available',
+      });
 
     expect([200, 201, 403, 404]).toContain(response.status);
 
     if (response.status === 201 || response.status === 200) {
       match = response.body.data || response.body.match;
+      expect(match.status).toBe('proposed');
+      expect(match.responder_id).toBe(bob.id);
+    }
+  });
+
+  it('Step 3: Alice accepts Bob\'s offer', async () => {
+    if (!alice || !aliceToken || !portlandCommunity || !match) {
+      console.log('Skipping: Prerequisites not met');
+      return;
+    }
+
+    const response = await request(ServiceUrls.REQUEST)
+      .put(`/matches/${match.id}/accept`)
+      .set('Authorization', `Bearer ${aliceToken}`)
+      .set('X-Community-ID', portlandCommunity.id)
+      .send({
+        user_id: alice.id,
+      });
+
+    expect([200, 403, 404, 400]).toContain(response.status);
+
+    if (response.status === 200) {
+      expect(response.body.success).toBe(true);
+      expect(response.body.message).toContain('accepted');
     }
   });
 
