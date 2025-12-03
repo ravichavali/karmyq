@@ -26,6 +26,7 @@ export default function NewCommunityPage() {
     location: '',
     category: '',
     max_members: 150,
+    access_type: 'public' as 'public' | 'private',
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -54,6 +55,7 @@ export default function NewCommunityPage() {
         category: formData.category,
         creator_id: user.id,
         max_members: formData.max_members,
+        access_type: formData.access_type,
       })
       router.push(`/communities/${response.data.data.id}`)
     } catch (err: any) {
@@ -154,22 +156,42 @@ export default function NewCommunityPage() {
                   </div>
                 </div>
 
-                <div>
-                  <label htmlFor="max_members" className="block text-sm font-medium text-gray-700 mb-2">
-                    Maximum Members
-                  </label>
-                  <input
-                    type="number"
-                    id="max_members"
-                    min="1"
-                    max="150"
-                    value={formData.max_members}
-                    onChange={(e) => setFormData({ ...formData, max_members: parseInt(e.target.value) })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                  <p className="mt-1 text-sm text-gray-500">
-                    Based on Dunbar's number, communities work best with up to 150 members
-                  </p>
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div>
+                    <label htmlFor="max_members" className="block text-sm font-medium text-gray-700 mb-2">
+                      Maximum Members
+                    </label>
+                    <input
+                      type="number"
+                      id="max_members"
+                      min="1"
+                      max="150"
+                      value={formData.max_members}
+                      onChange={(e) => setFormData({ ...formData, max_members: parseInt(e.target.value) })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                    <p className="mt-1 text-sm text-gray-500">
+                      Based on Dunbar's number (max 150)
+                    </p>
+                  </div>
+
+                  <div>
+                    <label htmlFor="access_type" className="block text-sm font-medium text-gray-700 mb-2">
+                      Access Type
+                    </label>
+                    <select
+                      id="access_type"
+                      value={formData.access_type}
+                      onChange={(e) => setFormData({ ...formData, access_type: e.target.value as 'public' | 'private' })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    >
+                      <option value="public">Public</option>
+                      <option value="private">Private (invite only)</option>
+                    </select>
+                    <p className="mt-1 text-sm text-gray-500">
+                      {formData.access_type === 'public' ? 'Anyone can join' : 'Requires admin approval'}
+                    </p>
+                  </div>
                 </div>
 
                 <div className="bg-blue-50 border border-blue-200 rounded p-4">
