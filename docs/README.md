@@ -181,10 +181,11 @@ See [PROJECT_STATUS.md](PROJECT_STATUS.md) for detailed status and roadmap.
 
 ## 🔮 Next Steps (Phase 4+)
 
-1. **Update Integration Tests** - Add tests for v5.3+ workflow (accept/reject flow)
-2. **Data Export API** - Community data export (JSON/CSV)
-3. **Admin UI** - Community settings management
-4. **Test Mobile App** - Run on iOS/Android simulators
+1. **Admin UI** - Community settings management interface
+2. **TTL Configuration UI** - Per-community ephemeral data settings
+3. **Decay Configuration UI** - Per-community reputation decay
+4. **Activity Tracking Configuration** - Configure which activities are tracked
+5. **Community Analytics Dashboard** - Insights, trends, health metrics
 
 See [PROJECT_STATUS.md](PROJECT_STATUS.md) for complete roadmap.
 

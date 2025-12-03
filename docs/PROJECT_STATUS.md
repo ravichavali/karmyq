@@ -377,38 +377,42 @@ You can:
 - **Note**: Matching logic currently in request-service
 - **Decision**: May not need separate service
 
-## 🚀 Next Steps (v5.3+)
+## 🚀 Next Steps (v6.1+)
 
-### Immediate - Inline Messaging (v5.3)
-1. **Inline Messaging in Requests** - Chat directly within request cards
-   - Message component embedded in offer cards
-   - Real-time messaging via WebSocket
-   - Requester sees all offer conversations
-   - Helpers see only their own until accepted
-   - After acceptance: Only requester + accepted helper see messages
-2. **Update Tests** - Update multi-community-flows.test.ts for new workflow
-3. **Test Multi-Community Posting** - Add tests for posting to all communities
-
-### Phase 4: Data Export & Admin UI
-1. **Data Export API** - Community data export functionality (JSON/CSV)
-2. **Admin UI** - Community settings management interface
-3. **TTL Configuration** - UI for per-community TTL settings
-4. **Decay Configuration** - UI for reputation decay parameters
-5. **Activity Type Selection** - UI for configuring tracked activities
+### Phase 4: Admin UI & Configuration
+**Priority: High** - Enable community admins to manage their communities
+1. **Admin UI** - Community settings management interface
+   - Community profile editing
+   - Member management (approve/remove members)
+   - Norm management (create/edit/archive norms)
+   - View community statistics
+2. **TTL Configuration UI** - Per-community ephemeral data settings
+   - Configure request expiration (default 60 days)
+   - Configure match expiration
+   - Preview impact on existing data
+3. **Decay Configuration UI** - Per-community reputation decay
+   - Configure decay half-life (default 6 months)
+   - Configure decay minimum threshold
+   - Select which activities reset decay timer
+4. **Activity Type Selection** - Configure which activities are tracked
+   - Enable/disable specific activity types
+   - Configure activity weights for decay reset
 
 ### Other Priorities
-1. **Test Mobile App** - Install deps and test on iOS/Android simulators
+1. **Mobile App Testing** - Test on iOS/Android simulators (deprioritized - web version works)
+2. **Multi-Community Posting** - Enable posting requests to all communities at once (API support needed)
 
 ### Future Enhancements
-- [ ] Trust bridges between communities (selective data sharing)
-- [ ] User feedback/rating system
-- [ ] Advanced search and filtering
-- [ ] Community analytics dashboard
+- [ ] Community analytics dashboard (insights, trends, health metrics)
+- [ ] Advanced search and filtering (by skill, urgency, location)
+- [ ] User feedback/rating system (beyond karma)
 - [ ] Email notifications (currently SSE and push only)
-- [ ] Request recurring/scheduled
-- [ ] Multi-language support
-- [ ] Accessibility improvements
+- [ ] Request templates (recurring/scheduled requests)
+- [ ] Multi-language support (i18n)
+- [ ] Accessibility improvements (WCAG 2.1 AA)
 - [ ] Performance optimizations (caching, query optimization)
+- [ ] Trust bridges between communities (selective data sharing - federation-lite)
+- [ ] Data export API (JSON/CSV - federation-era feature, deprioritized for SaaS model)
 
 ---
 
