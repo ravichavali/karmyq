@@ -14,6 +14,7 @@ interface Member {
   status: string
   joined_at: string
   invited_by_name?: string
+  join_request_message?: string
 }
 
 interface CommunitySettings {
@@ -443,14 +444,19 @@ export default function CommunityAdminPage() {
                           key={member.id}
                           className="flex items-center justify-between p-4 bg-yellow-50 border border-yellow-200 rounded-lg"
                         >
-                          <div>
+                          <div className="flex-1">
                             <div className="font-semibold">{member.user_name}</div>
                             <div className="text-sm text-gray-600">{member.user_email}</div>
                             <div className="text-xs text-gray-500">
                               Requested {new Date(member.joined_at).toLocaleDateString()}
                             </div>
+                            {member.join_request_message && (
+                              <div className="mt-2 text-sm text-gray-700 bg-white p-2 rounded border border-yellow-300">
+                                <span className="font-medium">Message:</span> {member.join_request_message}
+                              </div>
+                            )}
                           </div>
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 ml-4">
                             <button
                               onClick={() => handleApproveMember(member.user_id)}
                               className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"

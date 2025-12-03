@@ -157,15 +157,15 @@ router.get('/:id', async (req: Request, res: Response) => {
       });
     }
 
-    // Get members
+    // Get members (include both active and pending for admin view)
     const membersResult = await query(
       `SELECT
-        m.id, m.user_id, m.role, m.status, m.joined_at,
+        m.id, m.user_id, m.role, m.status, m.joined_at, m.join_request_message,
         u.name as user_name, u.email as user_email
       FROM communities.members m
       LEFT JOIN auth.users u ON m.user_id = u.id
-      WHERE m.community_id = $1 AND m.status = 'active'
-      ORDER BY m.joined_at ASC`,
+      WHERE m.community_id = $1 AND m.status IN ('active', 'pending')
+      ORDER BY m.status DESC, m.joined_at ASC`,
       [id]
     );
 
