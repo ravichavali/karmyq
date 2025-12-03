@@ -15,7 +15,10 @@
     "test:flows": "jest integration/multi-community-flows.test.ts",
     "test:ephemeral": "jest integration/ephemeral-data.test.ts",
     "test:decay": "jest integration/reputation-decay.test.ts",
-    "test:phase3": "jest integration/ephemeral-data.test.ts integration/reputation-decay.test.ts"
+    "test:phase3": "jest integration/ephemeral-data.test.ts integration/reputation-decay.test.ts",
+    "cleanup-test-data": "ts-node scripts/cleanup-test-data.ts",
+    "cleanup-test-data:dry-run": "ts-node scripts/cleanup-test-data.ts --dry-run",
+    "cleanup-test-data:force": "ts-node scripts/cleanup-test-data.ts --force"
   },
   "devDependencies": {
     "@jest/globals": "^29.7.0",
