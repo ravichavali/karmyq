@@ -46,29 +46,15 @@ app.get('/health', (_req: Request, res: Response) => {
 // Routes with authentication and tenant context
 // All community routes require authentication
 // Tenant context is set based on X-Community-ID header or community_id param
-app.use(
-  '/communities',
-  rateLimiters.readHeavy,          // Rate limit (300/min for read-heavy endpoints)
-  authMiddleware,                  // 1. Verify JWT token
-  optionalTenantMiddleware,        // 2. Set community context (optional for listing communities)
-  dbContextMiddleware(pool),       // 3. Set PostgreSQL session variables for RLS
-  communitiesRouter
-);
+// IMPORTANT: Register specific routes BEFORE generic /:id routes to avoid path conflicts
 
+// Specific nested routes (must come before /:id routes)
 app.use(
   '/communities',
   authMiddleware,
-  optionalTenantMiddleware,
+  optionalTenantMiddleware,        // Stats routes use communityId param
   dbContextMiddleware(pool),
-  membersRouter  // Member routes nested under /communities/:communityId/members
-);
-
-app.use(
-  '/communities',
-  authMiddleware,
-  tenantMiddleware,                // Norms require community context
-  dbContextMiddleware(pool),
-  normsRouter    // Norms routes nested under /communities/:communityId/norms
+  statsRouter     // Stats routes: /communities/:communityId/stats
 );
 
 app.use(
@@ -90,9 +76,27 @@ app.use(
 app.use(
   '/communities',
   authMiddleware,
-  optionalTenantMiddleware,        // Stats routes use communityId param
+  tenantMiddleware,                // Norms require community context
   dbContextMiddleware(pool),
-  statsRouter     // Stats routes: /communities/:communityId/stats
+  normsRouter    // Norms routes nested under /communities/:communityId/norms
+);
+
+app.use(
+  '/communities',
+  authMiddleware,
+  optionalTenantMiddleware,
+  dbContextMiddleware(pool),
+  membersRouter  // Member routes nested under /communities/:communityId/members
+);
+
+// Generic community routes (must come AFTER specific nested routes)
+app.use(
+  '/communities',
+  rateLimiters.readHeavy,          // Rate limit (300/min for read-heavy endpoints)
+  authMiddleware,                  // 1. Verify JWT token
+  optionalTenantMiddleware,        // 2. Set community context (optional for listing communities)
+  dbContextMiddleware(pool),       // 3. Set PostgreSQL session variables for RLS
+  communitiesRouter
 );
 
 // 404 handler
