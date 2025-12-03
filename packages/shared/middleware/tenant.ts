@@ -45,17 +45,19 @@ export function tenantMiddleware(
       return;
     }
 
-    // Extract community ID from header, query, or body
+    // Extract community ID from header, query, body, or URL params
     const communityId =
       (req.headers['x-community-id'] as string) ||
       (req.query.community_id as string) ||
-      req.body?.community_id;
+      req.body?.community_id ||
+      (req.params as any)?.communityId ||
+      (req.params as any)?.id; // Some routes use :id instead of :communityId
 
     if (!communityId) {
       res.status(400).json({
         success: false,
         error: 'Missing community context',
-        message: 'Community ID must be provided via X-Community-ID header, query param, or request body',
+        message: 'Community ID must be provided via X-Community-ID header, query param, request body, or URL parameter',
       });
       return;
     }
@@ -109,11 +111,13 @@ export function optionalTenantMiddleware(
       return next();
     }
 
-    // Extract community ID
+    // Extract community ID from header, query, body, or URL params
     const communityId =
       (req.headers['x-community-id'] as string) ||
       (req.query.community_id as string) ||
-      req.body?.community_id;
+      req.body?.community_id ||
+      (req.params as any)?.communityId ||
+      (req.params as any)?.id; // Some routes use :id instead of :communityId
 
     // No community ID? That's okay for optional middleware
     if (!communityId) {
