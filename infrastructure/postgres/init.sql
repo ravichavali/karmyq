@@ -54,6 +54,7 @@ CREATE TABLE communities.members (
     role VARCHAR(50) DEFAULT 'member',
     invited_by UUID REFERENCES auth.users(id),
     status VARCHAR(50) DEFAULT 'active',
+    join_request_message TEXT,
     joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(community_id, user_id)
 );
