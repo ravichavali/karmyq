@@ -102,7 +102,7 @@ export default function Dashboard() {
           allMatches.some((m: Match) => m.request_id === r.id && m.status === 'matched')
       )
 
-      myRequestsMatched.forEach((request) => {
+      myRequestsMatched.forEach((request: HelpRequest) => {
         const matches = allMatches.filter((m: Match) => m.request_id === request.id)
         feed.push({
           type: 'post',
@@ -124,7 +124,7 @@ export default function Dashboard() {
       const acceptedOfferRequestIds = new Set(myAcceptedOffers.map((m: Match) => m.request_id))
       const acceptedOfferRequests = allRequestsCombined.filter((r: HelpRequest) => acceptedOfferRequestIds.has(r.id))
 
-      acceptedOfferRequests.forEach((request) => {
+      acceptedOfferRequests.forEach((request: HelpRequest) => {
         const myMatch = allMatches.find(
           (m: Match) => m.request_id === request.id && m.responder_id === userId && m.status === 'matched'
         )
@@ -150,7 +150,7 @@ export default function Dashboard() {
           !allMatches.some((m: Match) => m.request_id === r.id && m.status === 'matched')
       )
 
-      myRequestsPending.forEach((request) => {
+      myRequestsPending.forEach((request: HelpRequest) => {
         const matches = allMatches.filter((m: Match) => m.request_id === request.id)
         feed.push({
           type: 'post',
@@ -171,7 +171,7 @@ export default function Dashboard() {
       const pendingOfferRequestIds = new Set(myPendingOffers.map((m: Match) => m.request_id))
       const pendingOfferRequests = allRequestsCombined.filter((r: HelpRequest) => pendingOfferRequestIds.has(r.id))
 
-      pendingOfferRequests.forEach((request) => {
+      pendingOfferRequests.forEach((request: HelpRequest) => {
         const myMatch = allMatches.find(
           (m: Match) => m.request_id === request.id && m.responder_id === userId && m.status === 'proposed'
         )
@@ -198,7 +198,7 @@ export default function Dashboard() {
         (r: HelpRequest) => r.requester_id !== userId && !respondedRequestIds.has(r.id)
       )
 
-      communityReqs.forEach((request) => {
+      communityReqs.forEach((request: HelpRequest) => {
         feed.push({
           type: 'post',
           priority: 5,
