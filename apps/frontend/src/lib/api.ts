@@ -126,7 +126,7 @@ export const communityService = {
   getCommunity: (id: string) =>
     communityApi.get(`/communities/${id}`),
 
-  createCommunity: (data: { name: string; description: string; location?: string; category?: string; creator_id: string; max_members?: number }; description: string; location?: string; category?: string; creator_id: string; max_members?: number; access_type?: 'public' | 'private' }) =>
+  createCommunity: (data: { name: string; description: string; location?: string; category?: string; creator_id: string; max_members?: number; access_type?: 'public' | 'private' }) =>
     communityApi.post('/communities', data),
 
   updateCommunity: (id: string, data: { name?: string; description?: string; location?: string; category?: string; max_members?: number; user_id: string }) =>
