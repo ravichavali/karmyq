@@ -33,11 +33,17 @@ router.get('/:communityId/stats', async (req: Request, res: Response) => {
       });
     }
 
-    // Get comprehensive community statistics
-    const statsQuery = `
-      WITH
-      -- Basic member counts
-      member_stats AS (
+    // Begin transaction and disable RLS for admin stats query
+    // This is safe because we've already verified the user is a community admin
+    await query('BEGIN');
+    await query('SET LOCAL row_security = off');
+
+    try {
+      // Get comprehensive community statistics
+      const statsQuery = `
+        WITH
+        -- Basic member counts
+        member_stats AS (
         SELECT
           COUNT(*)::int AS total_members,
           COUNT(CASE WHEN status = 'active' THEN 1 END)::int AS active_members,
@@ -158,30 +164,39 @@ router.get('/:communityId/stats', async (req: Request, res: Response) => {
         (SELECT json_agg(d) FROM daily_activity d) as daily_activity
     `;
 
-    const result = await query(statsQuery, [communityId]);
+      const result = await query(statsQuery, [communityId]);
 
-    if (result.rowCount === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'Community not found',
+      if (result.rowCount === 0) {
+        await query('ROLLBACK');
+        return res.status(404).json({
+          success: false,
+          message: 'Community not found',
+        });
+      }
+
+      const stats = result.rows[0];
+
+      // Commit transaction
+      await query('COMMIT');
+
+      res.json({
+        success: true,
+        data: {
+          members: stats.member_stats || {},
+          requests: stats.request_stats || {},
+          matches: stats.match_stats || {},
+          karma: stats.karma_stats || {},
+          topHelpers: stats.top_helpers || [],
+          topRequesters: stats.top_requesters || [],
+          dailyActivity: stats.daily_activity || [],
+          generatedAt: new Date().toISOString(),
+        },
       });
+    } catch (error: any) {
+      // Rollback transaction on error
+      await query('ROLLBACK');
+      throw error;
     }
-
-    const stats = result.rows[0];
-
-    res.json({
-      success: true,
-      data: {
-        members: stats.member_stats || {},
-        requests: stats.request_stats || {},
-        matches: stats.match_stats || {},
-        karma: stats.karma_stats || {},
-        topHelpers: stats.top_helpers || [],
-        topRequesters: stats.top_requesters || [],
-        dailyActivity: stats.daily_activity || [],
-        generatedAt: new Date().toISOString(),
-      },
-    });
   } catch (error: any) {
     console.error('Error fetching community statistics:', error);
     res.status(500).json({
