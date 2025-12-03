@@ -11,6 +11,7 @@ export type NotificationType =
   | 'request_responded'
   | 'message_received'
   | 'community_invite'
+  | 'join_request'
   | 'norm_proposed'
   | 'feedback_received';
 
@@ -130,6 +131,16 @@ export const notificationTemplates: Record<NotificationType, NotificationTemplat
     icon: 'users',
     actionUrl: (data) => `/communities/${data.community_id}/invite`,
     channels: { in_app: true, push: true, email: true },
+  },
+
+  join_request: {
+    type: 'join_request',
+    priority: 'high',
+    title: (data) => 'New Join Request',
+    body: (data) => `${data.user_name} wants to join "${data.community_name}"${data.message ? `: ${data.message}` : ''}`,
+    icon: 'user-plus',
+    actionUrl: (data) => `/communities/${data.community_id}/admin`,
+    channels: { in_app: true, push: true, email: false },
   },
 
   norm_proposed: {

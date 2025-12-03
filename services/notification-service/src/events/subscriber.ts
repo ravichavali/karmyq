@@ -187,6 +187,59 @@ export async function initEventSubscriber() {
       }
     });
 
+    // Process join_request_created events
+    eventQueue.process('join_request_created', async (job) => {
+      console.log('Processing join_request_created event:', job.data);
+
+      const { payload } = job.data;
+      const { community_id, user_id, message } = payload;
+
+      try {
+        // Get community and user details
+        const communityResult = await query(
+          `SELECT name FROM communities.communities WHERE id = $1`,
+          [community_id]
+        );
+
+        const userResult = await query(
+          `SELECT name, email FROM auth.users WHERE id = $1`,
+          [user_id]
+        );
+
+        if (communityResult.rows.length > 0 && userResult.rows.length > 0) {
+          const community = communityResult.rows[0];
+          const user = userResult.rows[0];
+
+          // Notify all community admins
+          const adminsResult = await query(
+            `SELECT user_id FROM communities.members
+             WHERE community_id = $1 AND role = 'admin' AND status = 'active'`,
+            [community_id]
+          );
+
+          for (const admin of adminsResult.rows) {
+            await createNotification({
+              user_id: admin.user_id,
+              type: 'join_request',
+              data: {
+                community_id,
+                community_name: community.name,
+                user_id,
+                user_name: user.name,
+                user_email: user.email,
+                message: message || null,
+              },
+            });
+          }
+
+          console.log(`✅ join_request_created notifications sent to ${adminsResult.rows.length} admins`);
+        }
+      } catch (error) {
+        console.error('❌ Failed to process join_request_created event:', error);
+        throw error;
+      }
+    });
+
     console.log('✅ Event subscriber initialized');
   } catch (error) {
     console.error('❌ Event subscriber initialization failed:', error);
