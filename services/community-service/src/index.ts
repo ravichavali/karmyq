@@ -9,6 +9,7 @@ import membersRouter from './routes/members';
 import normsRouter from './routes/norms';
 import settingsRouter from './routes/settings';
 import exportRouter from './routes/export';
+import statsRouter from './routes/stats';
 import { createLogger, requestLoggingMiddleware } from '../shared/utils/logger';
 import {
   authMiddleware,
@@ -84,6 +85,14 @@ app.use(
   optionalTenantMiddleware,        // Export routes use communityId param
   dbContextMiddleware(pool),
   exportRouter    // Export routes: /communities/:communityId/export
+);
+
+app.use(
+  '/communities',
+  authMiddleware,
+  optionalTenantMiddleware,        // Stats routes use communityId param
+  dbContextMiddleware(pool),
+  statsRouter     // Stats routes: /communities/:communityId/stats
 );
 
 // 404 handler

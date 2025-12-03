@@ -194,6 +194,7 @@ export const communityService = {
 
   getDecayPreview: (communityId: string) =>
     communityApi.get(`/communities/${communityId}/settings/decay-preview`),
+// Statistics (Admin only)  getStats: (communityId: string) =>    communityApi.get(`/communities/${communityId}/stats`),
 
   // Data Export (Admin only)
   exportCommunityData: (communityId: string, params?: {
