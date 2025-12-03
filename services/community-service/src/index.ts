@@ -14,7 +14,6 @@ import { createLogger, requestLoggingMiddleware } from '../shared/utils/logger';
 import {
   authMiddleware,
   optionalAuthMiddleware,
-  tenantMiddleware,
   optionalTenantMiddleware,
   dbContextMiddleware,
   globalRateLimiter,
@@ -76,7 +75,7 @@ app.use(
 app.use(
   '/communities',
   authMiddleware,
-  tenantMiddleware,                // Norms require community context
+  optionalTenantMiddleware,        // Norms routes use communityId param
   dbContextMiddleware(pool),
   normsRouter    // Norms routes nested under /communities/:communityId/norms
 );
