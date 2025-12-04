@@ -58,14 +58,15 @@ router.get('/:communityId/stats', async (req: Request, res: Response) => {
       request_stats AS (
         SELECT
           COUNT(*)::int AS total_requests,
-          COUNT(CASE WHEN status = 'open' THEN 1 END)::int AS open_requests,
-          COUNT(CASE WHEN status = 'matched' THEN 1 END)::int AS matched_requests,
-          COUNT(CASE WHEN status = 'completed' THEN 1 END)::int AS completed_requests,
-          COUNT(CASE WHEN created_at > NOW() - INTERVAL '7 days' THEN 1 END)::int AS requests_this_week,
-          COUNT(CASE WHEN created_at > NOW() - INTERVAL '30 days' THEN 1 END)::int AS requests_this_month
-        FROM requests.help_requests
-        WHERE community_id = $1
-          AND (expires_at IS NULL OR expires_at > NOW())
+          COUNT(CASE WHEN r.status = 'open' THEN 1 END)::int AS open_requests,
+          COUNT(CASE WHEN r.status = 'matched' THEN 1 END)::int AS matched_requests,
+          COUNT(CASE WHEN r.status = 'completed' THEN 1 END)::int AS completed_requests,
+          COUNT(CASE WHEN r.created_at > NOW() - INTERVAL '7 days' THEN 1 END)::int AS requests_this_week,
+          COUNT(CASE WHEN r.created_at > NOW() - INTERVAL '30 days' THEN 1 END)::int AS requests_this_month
+        FROM requests.help_requests r
+        JOIN requests.request_communities rc ON r.id = rc.request_id
+        WHERE rc.community_id = $1
+          AND (r.expires_at IS NULL OR r.expires_at > NOW())
       ),
 
       -- Match statistics
@@ -79,7 +80,8 @@ router.get('/:communityId/stats', async (req: Request, res: Response) => {
           COUNT(CASE WHEN m.completed_at > NOW() - INTERVAL '30 days' THEN 1 END)::int AS matches_completed_this_month
         FROM requests.matches m
         JOIN requests.help_requests r ON m.request_id = r.id
-        WHERE r.community_id = $1
+        JOIN requests.request_communities rc ON r.id = rc.request_id
+        WHERE rc.community_id = $1
       ),
 
       -- Top helpers this month
@@ -91,9 +93,10 @@ router.get('/:communityId/stats', async (req: Request, res: Response) => {
           AVG(kr.points)::int as avg_karma
         FROM requests.matches m
         JOIN requests.help_requests r ON m.request_id = r.id
+        JOIN requests.request_communities rc ON r.id = rc.request_id
         JOIN auth.users u ON m.responder_id = u.id
-        LEFT JOIN reputation.karma_records kr ON kr.user_id = u.id AND kr.community_id = r.community_id
-        WHERE r.community_id = $1
+        LEFT JOIN reputation.karma_records kr ON kr.user_id = u.id AND kr.community_id = rc.community_id
+        WHERE rc.community_id = $1
           AND m.status = 'completed'
           AND m.completed_at > NOW() - INTERVAL '30 days'
         GROUP BY u.id, u.name
@@ -108,8 +111,9 @@ router.get('/:communityId/stats', async (req: Request, res: Response) => {
           u.id as user_id,
           COUNT(*)::int as request_count
         FROM requests.help_requests r
+        JOIN requests.request_communities rc ON r.id = rc.request_id
         JOIN auth.users u ON r.requester_id = u.id
-        WHERE r.community_id = $1
+        WHERE rc.community_id = $1
           AND r.created_at > NOW() - INTERVAL '30 days'
         GROUP BY u.id, u.name
         ORDER BY request_count DESC
@@ -124,17 +128,19 @@ router.get('/:communityId/stats', async (req: Request, res: Response) => {
           COALESCE(match_count, 0)::int as matches
         FROM generate_series(NOW() - INTERVAL '30 days', NOW(), '1 day'::interval) date
         LEFT JOIN (
-          SELECT DATE(created_at) as day, COUNT(*)::int as request_count
-          FROM requests.help_requests
-          WHERE community_id = $1
-            AND created_at > NOW() - INTERVAL '30 days'
+          SELECT DATE(r.created_at) as day, COUNT(*)::int as request_count
+          FROM requests.help_requests r
+          JOIN requests.request_communities rc ON r.id = rc.request_id
+          WHERE rc.community_id = $1
+            AND r.created_at > NOW() - INTERVAL '30 days'
           GROUP BY day
         ) r ON DATE(date) = r.day
         LEFT JOIN (
           SELECT DATE(m.created_at) as day, COUNT(*)::int as match_count
           FROM requests.matches m
           JOIN requests.help_requests req ON m.request_id = req.id
-          WHERE req.community_id = $1
+          JOIN requests.request_communities rc ON req.id = rc.request_id
+          WHERE rc.community_id = $1
             AND m.created_at > NOW() - INTERVAL '30 days'
           GROUP BY day
         ) m ON DATE(date) = m.day

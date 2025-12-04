@@ -72,12 +72,13 @@ const NotificationDropdown: React.FC<NotificationDropdownProps> = ({ onClose }) 
         )}
 
         {filteredNotifications.map((notification) => (
-          <NotificationItem
-            key={notification.id}
-            notification={notification}
-            onMarkAsRead={markAsRead}
-            onDelete={deleteNotification}
-          />
+          <div key={notification.id} onClick={onClose}>
+            <NotificationItem
+              notification={notification}
+              onMarkAsRead={markAsRead}
+              onDelete={deleteNotification}
+            />
+          </div>
         ))}
       </div>
 
