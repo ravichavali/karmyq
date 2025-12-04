@@ -66,7 +66,7 @@ router.get('/:communityId/stats', async (req: Request, res: Response) => {
         FROM requests.help_requests r
         JOIN requests.request_communities rc ON r.id = rc.request_id
         WHERE rc.community_id = $1
-          AND (r.expires_at IS NULL OR r.expires_at > NOW())
+          AND r.expired = false
       ),
 
       -- Match statistics
