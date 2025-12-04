@@ -30,7 +30,14 @@ app.get('/health', (_req, res) => {
   res.json({ status: 'ok', service: 'notification-service' });
 });
 
-// Routes with authentication (notifications can be cross-community)
+// Import the SSE route handler
+import { sseHandler } from './routes/notifications';
+
+// SSE endpoint (no auth required because EventSource doesn't support custom headers)
+// Security: userId is in URL, and SSE only streams notifications for that specific user
+app.get('/notifications/stream/:userId', rateLimiters.relaxed, sseHandler);
+
+// Other notification routes with authentication
 app.use(
   '/notifications',
   rateLimiters.relaxed,  // Higher limit for notifications (polling/SSE)

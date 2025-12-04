@@ -13,7 +13,7 @@ import {
 const router = Router();
 
 // Server-Sent Events (SSE) endpoint for real-time notifications
-router.get('/stream/:userId', (req: Request, res: Response) => {
+export const sseHandler = (req: Request, res: Response) => {
   const { userId } = req.params;
 
   // Set headers for SSE
@@ -47,7 +47,10 @@ router.get('/stream/:userId', (req: Request, res: Response) => {
   });
 
   console.log(`SSE connection established for user ${userId}`);
-});
+};
+
+// Also register it on the router for completeness
+router.get('/stream/:userId', sseHandler);
 
 // Get user's notifications
 router.get('/:userId', async (req: Request, res: Response) => {
