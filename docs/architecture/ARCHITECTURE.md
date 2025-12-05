@@ -458,7 +458,7 @@ Strategic indexes on:
 - Timestamps (`created_at` for sorting)
 - Lookup fields (`email` for login)
 
-See [architecture/DATA_MODEL.md](DATA_MODEL.md) for complete schema documentation.
+See [DATA_MODEL.md](DATA_MODEL.md) for complete schema documentation with ERD diagram.
 
 ---
 

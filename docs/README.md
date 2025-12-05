@@ -39,6 +39,8 @@ Complete documentation for the Karmyq mutual aid platform.
 
 - **[Architecture](architecture/ARCHITECTURE.md)** - Complete system architecture (500+ lines)
 - **[Service Dependencies](architecture/SERVICE_DEPENDENCIES.md)** - Service dependency graph and failure modes
+- **[Data Model](architecture/DATA_MODEL.md)** - Database schema with ERD diagram (29 tables, 9 schemas)
+- **[RLS Policies](architecture/RLS_POLICIES.md)** - Row-Level Security policies explained
 - **[Architectural Review](V6_ARCHITECTURAL_REVIEW.md)** - v6.0 architectural review and decisions
 
 ## 💻 Development
@@ -100,7 +102,9 @@ docs/
 ├── CROSS_PLATFORM_GUIDE.md    # Cross-platform guide
 ├── architecture/              # Architecture docs
 │   ├── ARCHITECTURE.md        # Complete system architecture
-│   └── SERVICE_DEPENDENCIES.md # Service dependency graph
+│   ├── SERVICE_DEPENDENCIES.md # Service dependency graph
+│   ├── DATA_MODEL.md          # Database schema with ERD
+│   └── RLS_POLICIES.md        # Row-Level Security policies
 ├── development/               # Development guides
 │   ├── creating-a-service.md
 │   ├── implementing-logging.md
