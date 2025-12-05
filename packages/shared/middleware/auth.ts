@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
+import { sendUnauthorized, sendInternalError } from '../utils/response';
 
 /**
  * Enhanced JWT Payload with multi-community support
@@ -90,12 +91,7 @@ export function authMiddleware(
     const authHeader = req.headers.authorization;
 
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      res.status(401).json({
-        success: false,
-        error: 'Unauthorized',
-        message: 'No authentication token provided',
-      });
-      return;
+      return sendUnauthorized(res, 'No authentication token provided', { requestId: (req as any).id });
     }
 
     const token = authHeader.substring(7); // Remove 'Bearer ' prefix
@@ -110,30 +106,21 @@ export function authMiddleware(
     next();
   } catch (error: any) {
     if (error.name === 'TokenExpiredError') {
-      res.status(401).json({
-        success: false,
-        error: 'Token expired',
-        message: 'Your session has expired. Please log in again.',
-      });
-      return;
+      return sendUnauthorized(res, 'Your session has expired. Please log in again.', { requestId: (req as any).id });
     }
 
     if (error.name === 'JsonWebTokenError') {
-      res.status(401).json({
-        success: false,
-        error: 'Invalid token',
-        message: 'Authentication token is invalid',
-      });
-      return;
+      return sendUnauthorized(res, 'Authentication token is invalid', { requestId: (req as any).id });
     }
 
     // Log unexpected errors
     console.error('Authentication error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Authentication failed',
-      message: 'An error occurred during authentication',
-    });
+    return sendInternalError(
+      res,
+      'An error occurred during authentication',
+      error instanceof Error ? error : undefined,
+      { requestId: (req as any).id }
+    );
   }
 }
 
