@@ -1,7 +1,7 @@
 # Karmyq - Mutual Aid Platform
 
 ## Project Overview
-Karmyq is a multi-tenant SaaS mutual aid platform where community members help each other. Version 5.1.0 with ephemeral data and reputation decay features.
+Karmyq is a multi-tenant SaaS mutual aid platform where community members help each other. Version 6.0.0 with clean architecture, comprehensive documentation, and production-ready services.
 
 ## Architecture
 - **Microservices**: 8 backend services communicating via REST and Redis queues
@@ -71,9 +71,20 @@ docker logs karmyq-auth-service -f
 - `infrastructure/postgres/init.sql` - Database schema
 - `packages/shared/` - Shared utilities, middleware, types
 - `tests/` - Integration and E2E tests
+- `docs/architecture/ARCHITECTURE.md` - Complete system architecture
+- `docs/V6_ARCHITECTURAL_REVIEW.md` - v6.0 architectural review
 
-## Current Status (v5.1.0)
-- Multi-tenant SaaS with RLS
-- Ephemeral data with configurable TTLs
-- Reputation decay system
-- Full test suite (integration, E2E, load)
+## Service Documentation
+Each service has complete context documentation:
+- `services/{service-name}/CONTEXT.md` - Complete service documentation
+- `services/{service-name}/README.md` - Quick reference
+- Standardized format across all services
+
+## Current Status (v6.0)
+- **8 Production-Ready Services** - All services with complete documentation
+- **Multi-Tenant SaaS** - Row-Level Security (RLS) with community isolation
+- **Ephemeral Data** - Configurable TTL (60 days default)
+- **Reputation Decay** - Time-based karma decay (6-month half-life)
+- **Clean Architecture** - Consolidated documentation, service templates
+- **Comprehensive Testing** - Integration, E2E, and load tests
+- **Full Observability** - Grafana/Loki/Prometheus stack

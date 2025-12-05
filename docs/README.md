@@ -3,12 +3,13 @@
 Complete documentation for the Karmyq mutual aid platform.
 
 **Current Version**: v6.0.0
-**Last Updated**: 2025-12-02
+**Last Updated**: 2025-12-05
 
 ## 🚀 Quick Start
 
 - **[Getting Started](GETTING_STARTED.md)** - Set up and run Karmyq locally
 - **[Project Status](PROJECT_STATUS.md)** - Current features, roadmap, and statistics
+- **[v6.0 Migration Guide](V6_MIGRATION_GUIDE.md)** - Upgrade from v5.1.0 to v6.0
 - **[Main README](../README.md)** - Project overview
 - **[Contributing](../CONTRIBUTING.md)** - How to contribute
 
@@ -22,7 +23,7 @@ Complete documentation for the Karmyq mutual aid platform.
   - Developer workflows
 
 ### Ephemeral Data & Reputation Decay (v5.1.0+)
-- **[Phase 3 Guide](PHASE3_EPHEMERAL_DATA_DECAY.md)** - Ephemeral data and reputation decay
+- **[Ephemeral Data Guide](guides/EPHEMERAL_DATA_GUIDE.md)** - Ephemeral data and reputation decay
   - TTL configuration
   - Reputation decay formula
   - Activity tracking
@@ -36,9 +37,9 @@ Complete documentation for the Karmyq mutual aid platform.
 
 ## 🏗️ Architecture
 
-- **[Overview](architecture/overview.md)** - High-level system architecture
-- **[Service Architecture](architecture/review.md)** - Microservices design and communication
-- **[Proposed Structure](architecture/proposed-structure.md)** - Architecture proposals
+- **[Architecture](architecture/ARCHITECTURE.md)** - Complete system architecture (500+ lines)
+- **[Service Dependencies](architecture/SERVICE_DEPENDENCIES.md)** - Service dependency graph and failure modes
+- **[Architectural Review](V6_ARCHITECTURAL_REVIEW.md)** - v6.0 architectural review and decisions
 
 ## 💻 Development
 
@@ -88,16 +89,18 @@ docs/
 ├── README.md (this file)
 ├── PROJECT_STATUS.md          # Current status & roadmap
 ├── GETTING_STARTED.md         # Quick start guide
+├── V6_MIGRATION_GUIDE.md      # v6.0 migration guide
+├── V6_ARCHITECTURAL_REVIEW.md # v6.0 architectural review
 ├── MULTI_TENANT_GUIDE.md      # Multi-tenant architecture
-├── PHASE3_EPHEMERAL_DATA_DECAY.md  # Ephemeral data guide
+├── guides/
+│   └── EPHEMERAL_DATA_GUIDE.md  # Ephemeral data guide
 ├── DOCKER_SETUP.md            # Docker guide
 ├── SELF_HOSTING_GUIDE.md      # Self-hosting guide
 ├── MOBILE_DEVELOPMENT.md      # Mobile dev guide
 ├── CROSS_PLATFORM_GUIDE.md    # Cross-platform guide
 ├── architecture/              # Architecture docs
-│   ├── overview.md
-│   ├── review.md
-│   └── proposed-structure.md
+│   ├── ARCHITECTURE.md        # Complete system architecture
+│   └── SERVICE_DEPENDENCIES.md # Service dependency graph
 ├── development/               # Development guides
 │   ├── creating-a-service.md
 │   ├── implementing-logging.md
@@ -108,10 +111,12 @@ docs/
 │   ├── logging-and-monitoring.md
 │   ├── log-levels.md
 │   └── ci-cd.md
-└── archive/                   # Archived/outdated docs
-    ├── README.md
-    ├── FEDERATION_PROTOCOL.md (archived - replaced by multi-tenant)
-    └── ...
+└── archive/                   # Historical docs
+    ├── README.md              # Archive index
+    ├── federation/            # Federation protocol (archived)
+    ├── releases/              # Version-specific fix docs
+    ├── planning/              # Historical planning docs
+    └── session-summaries/     # Development session notes
 ```
 
 ## 🎯 Common Tasks
