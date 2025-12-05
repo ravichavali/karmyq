@@ -7,6 +7,7 @@ import { initDatabase } from './database/db';
 import { initEventPublisher } from './events/publisher';
 import { createLogger, requestLoggingMiddleware } from '../shared/utils/logger';
 import { globalRateLimiter, rateLimiters } from '../shared/middleware';
+import { requestIdMiddleware, sendSuccess, sendInternalError } from '../shared/utils/response';
 
 dotenv.config();
 
@@ -17,14 +18,15 @@ const logger = createLogger('auth-service');
 // Middleware
 app.use(cors());
 app.use(express.json());
+app.use(requestIdMiddleware);
 app.use(requestLoggingMiddleware(logger));
 
 // Global rate limiting
 app.use(globalRateLimiter);
 
 // Health check (no rate limit)
-app.get('/health', (req, res) => {
-  res.json({ status: 'healthy', service: 'auth-service' });
+app.get('/health', (req: any, res) => {
+  sendSuccess(res, { status: 'healthy', service: 'auth-service' }, 200, { requestId: req.id });
 });
 
 // Routes with specific rate limits
@@ -32,15 +34,18 @@ app.use('/auth', rateLimiters.auth, authRoutes); // Stricter limit for auth
 app.use('/users', rateLimiters.standard, userRoutes);
 
 // Error handling
-app.use((err: any, req: any, res: express.Response, next: express.NextFunction) => {
+app.use((err: any, req: any, res: express.Response) => {
   req.logger?.error('Unhandled error', err instanceof Error ? err : new Error(String(err)), {
     method: req.method,
     path: req.path,
     body: req.body
   });
-  res.status(err.status || 500).json({
-    error: process.env.NODE_ENV === 'development' ? err.message : 'Internal Server Error'
-  });
+  sendInternalError(
+    res,
+    process.env.NODE_ENV === 'development' ? err.message : 'Internal Server Error',
+    err instanceof Error ? err : undefined,
+    { requestId: req.id }
+  );
 });
 
 // Initialize and start server

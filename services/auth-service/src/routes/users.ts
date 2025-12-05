@@ -1,11 +1,19 @@
 import express from 'express';
 import { query } from '../database/db';
 import { authMiddleware, AuthenticatedRequest } from '../../shared/middleware';
+import {
+  sendSuccess,
+  sendNotFound,
+  sendForbidden,
+  sendValidationError,
+  sendInternalError,
+  HTTP_STATUS
+} from '../../shared/utils/response';
 
 const router = express.Router();
 
 // GET /users/:userId - Get user profile
-router.get('/:userId', async (req, res) => {
+router.get('/:userId', async (req: any, res) => {
   try {
     const { userId } = req.params;
 
@@ -15,13 +23,13 @@ router.get('/:userId', async (req, res) => {
     );
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'User not found' });
+      return sendNotFound(res, 'User', { requestId: req.id });
     }
 
-    res.json(result.rows[0]);
+    sendSuccess(res, result.rows[0], HTTP_STATUS.OK, { requestId: req.id });
   } catch (error) {
     console.error('Error fetching user:', error);
-    res.status(500).json({ error: 'Failed to fetch user' });
+    sendInternalError(res, 'Failed to fetch user', error instanceof Error ? error : undefined, { requestId: req.id });
   }
 });
 
@@ -33,7 +41,7 @@ router.put('/:userId', authMiddleware, async (req: AuthenticatedRequest, res) =>
 
     // Check if user is updating their own profile
     if (req.user.userId !== userId) {
-      return res.status(403).json({ error: 'You can only update your own profile' });
+      return sendForbidden(res, 'You can only update your own profile', { requestId: (req as any).id });
     }
 
     const result = await query(
@@ -48,18 +56,18 @@ router.put('/:userId', authMiddleware, async (req: AuthenticatedRequest, res) =>
     );
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'User not found' });
+      return sendNotFound(res, 'User', { requestId: (req as any).id });
     }
 
-    res.json(result.rows[0]);
+    sendSuccess(res, result.rows[0], HTTP_STATUS.OK, { requestId: (req as any).id });
   } catch (error) {
     console.error('Error updating user:', error);
-    res.status(500).json({ error: 'Failed to update user' });
+    sendInternalError(res, 'Failed to update user', error instanceof Error ? error : undefined, { requestId: (req as any).id });
   }
 });
 
 // GET /users/:userId/skills - Get user's skills
-router.get('/:userId/skills', async (req, res) => {
+router.get('/:userId/skills', async (req: any, res) => {
   try {
     const { userId } = req.params;
 
@@ -68,16 +76,10 @@ router.get('/:userId/skills', async (req, res) => {
       [userId]
     );
 
-    res.json({
-      success: true,
-      data: result.rows
-    });
+    sendSuccess(res, result.rows, HTTP_STATUS.OK, { requestId: req.id });
   } catch (error) {
     console.error('Error fetching user skills:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to fetch user skills'
-    });
+    sendInternalError(res, 'Failed to fetch user skills', error instanceof Error ? error : undefined, { requestId: req.id });
   }
 });
 
@@ -89,17 +91,11 @@ router.post('/:userId/skills', authMiddleware, async (req: AuthenticatedRequest,
 
     // Check if user is updating their own skills
     if (req.user.userId !== userId) {
-      return res.status(403).json({
-        success: false,
-        error: 'You can only update your own skills'
-      });
+      return sendForbidden(res, 'You can only update your own skills', { requestId: (req as any).id });
     }
 
     if (!skill) {
-      return res.status(400).json({
-        success: false,
-        error: 'Skill is required'
-      });
+      return sendValidationError(res, 'Skill is required', undefined, { requestId: (req as any).id });
     }
 
     const result = await query(
@@ -111,22 +107,13 @@ router.post('/:userId/skills', authMiddleware, async (req: AuthenticatedRequest,
     );
 
     if (result.rows.length === 0) {
-      return res.status(400).json({
-        success: false,
-        error: 'Skill already exists'
-      });
+      return sendValidationError(res, 'Skill already exists', undefined, { requestId: (req as any).id });
     }
 
-    res.status(201).json({
-      success: true,
-      data: result.rows[0]
-    });
+    sendSuccess(res, result.rows[0], HTTP_STATUS.CREATED, { requestId: (req as any).id });
   } catch (error) {
     console.error('Error adding skill:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to add skill'
-    });
+    sendInternalError(res, 'Failed to add skill', error instanceof Error ? error : undefined, { requestId: (req as any).id });
   }
 });
 
@@ -137,10 +124,7 @@ router.delete('/:userId/skills/:skillId', authMiddleware, async (req: Authentica
 
     // Check if user is updating their own skills
     if (req.user.userId !== userId) {
-      return res.status(403).json({
-        success: false,
-        error: 'You can only update your own skills'
-      });
+      return sendForbidden(res, 'You can only update your own skills', { requestId: (req as any).id });
     }
 
     const result = await query(
@@ -149,22 +133,13 @@ router.delete('/:userId/skills/:skillId', authMiddleware, async (req: Authentica
     );
 
     if (result.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        error: 'Skill not found'
-      });
+      return sendNotFound(res, 'Skill', { requestId: (req as any).id });
     }
 
-    res.json({
-      success: true,
-      message: 'Skill removed successfully'
-    });
+    sendSuccess(res, { message: 'Skill removed successfully' }, HTTP_STATUS.OK, { requestId: (req as any).id });
   } catch (error) {
     console.error('Error removing skill:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to remove skill'
-    });
+    sendInternalError(res, 'Failed to remove skill', error instanceof Error ? error : undefined, { requestId: (req as any).id });
   }
 });
 

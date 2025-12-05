@@ -1,11 +1,21 @@
 import { Router, Request, Response } from 'express';
 import { query } from '../database/db';
 import { publishEvent } from '../events/publisher';
+import {
+  sendSuccess,
+  sendError,
+  sendValidationError,
+  sendNotFound,
+  sendForbidden,
+  sendConflict,
+  sendInternalError,
+  HTTP_STATUS
+} from '../../shared/utils/response';
 
 const router = Router();
 
 // GET /communities - Get all communities (with optional filters and search)
-router.get('/', async (req: Request, res: Response) => {
+router.get('/', async (req: any, res: Response) => {
   try {
     const {
       status = 'active',
@@ -74,19 +84,14 @@ router.get('/', async (req: Request, res: Response) => {
       params
     );
 
-    res.json({
-      success: true,
-      data: result.rows,
+    sendSuccess(res, {
+      communities: result.rows,
       count: result.rowCount,
       total: result.rowCount, // In production, you'd do a separate COUNT query
-    });
+    }, HTTP_STATUS.OK, { requestId: req.id });
   } catch (error: any) {
     console.error('Error fetching communities:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to fetch communities',
-      error: error.message,
-    });
+    sendInternalError(res, 'Failed to fetch communities', error, { requestId: req.id });
   }
 });
 

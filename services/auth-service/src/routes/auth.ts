@@ -4,6 +4,14 @@ import jwt from 'jsonwebtoken';
 import { query } from '../database/db';
 import { publishEvent } from '../events/publisher';
 import { JWTPayload } from '../../shared/middleware/auth';
+import {
+  sendSuccess,
+  sendValidationError,
+  sendUnauthorized,
+  sendConflict,
+  sendInternalError,
+  HTTP_STATUS
+} from '../../shared/utils/response';
 
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -60,12 +68,12 @@ router.post('/register', async (req: any, res) => {
     // Validation
     if (!email || !name || !password) {
       req.logger?.warn('Registration attempt with missing fields', { email, hasName: !!name });
-      return res.status(400).json({ error: 'Email, name, and password are required' });
+      return sendValidationError(res, 'Email, name, and password are required', undefined, { requestId: req.id });
     }
 
     if (password.length < 8) {
       req.logger?.warn('Registration attempt with weak password', { email });
-      return res.status(400).json({ error: 'Password must be at least 8 characters' });
+      return sendValidationError(res, 'Password must be at least 8 characters', undefined, { requestId: req.id });
     }
 
     // Check if user already exists
@@ -76,7 +84,7 @@ router.post('/register', async (req: any, res) => {
 
     if (existingUser.rows.length > 0) {
       req.logger?.warn('Registration attempt with existing email', { email });
-      return res.status(409).json({ error: 'User with this email already exists' });
+      return sendConflict(res, 'User with this email already exists', { email }, { requestId: req.id });
     }
 
     // Hash password
@@ -111,7 +119,7 @@ router.post('/register', async (req: any, res) => {
       email: user.email
     });
 
-    res.status(201).json({
+    sendSuccess(res, {
       user: {
         id: user.id,
         email: user.email,
@@ -120,12 +128,12 @@ router.post('/register', async (req: any, res) => {
         communities: [] // New user has no communities
       },
       token
-    });
+    }, HTTP_STATUS.CREATED, { requestId: req.id });
   } catch (error: any) {
     req.logger?.error('Registration failed', error instanceof Error ? error : new Error(String(error)), {
       email: req.body?.email
     });
-    res.status(500).json({ error: 'Failed to register user' });
+    sendInternalError(res, 'Failed to register user', error, { requestId: req.id });
   }
 });
 
@@ -136,7 +144,7 @@ router.post('/login', async (req: any, res) => {
 
     if (!email || !password) {
       req.logger?.warn('Login attempt with missing credentials');
-      return res.status(400).json({ error: 'Email and password are required' });
+      return sendValidationError(res, 'Email and password are required', undefined, { requestId: req.id });
     }
 
     const timer = req.logger?.timer('user_login');
@@ -149,7 +157,7 @@ router.post('/login', async (req: any, res) => {
 
     if (result.rows.length === 0) {
       req.logger?.warn('Login attempt with unknown email', { email });
-      return res.status(401).json({ error: 'Invalid email or password' });
+      return sendUnauthorized(res, 'Invalid email or password', { requestId: req.id });
     }
 
     const user = result.rows[0];
@@ -162,7 +170,7 @@ router.post('/login', async (req: any, res) => {
         userId: user.id,
         email
       });
-      return res.status(401).json({ error: 'Invalid email or password' });
+      return sendUnauthorized(res, 'Invalid email or password', { requestId: req.id });
     }
 
     // Fetch user's communities
@@ -187,7 +195,7 @@ router.post('/login', async (req: any, res) => {
       communitiesCount: communities.length
     });
 
-    res.json({
+    sendSuccess(res, {
       user: {
         id: user.id,
         email: user.email,
@@ -196,17 +204,17 @@ router.post('/login', async (req: any, res) => {
         communities // Include communities in response
       },
       token
-    });
+    }, HTTP_STATUS.OK, { requestId: req.id });
   } catch (error: any) {
     req.logger?.error('Login failed', error instanceof Error ? error : new Error(String(error)), {
       email: req.body?.email
     });
-    res.status(500).json({ error: 'Failed to login' });
+    sendInternalError(res, 'Failed to login', error, { requestId: req.id });
   }
 });
 
 // POST /auth/logout - Logout user
-router.post('/logout', async (req, res) => {
+router.post('/logout', async (req: any, res) => {
   try {
     const token = req.headers.authorization?.split(' ')[1];
 
@@ -214,20 +222,20 @@ router.post('/logout', async (req, res) => {
       await query('DELETE FROM auth.sessions WHERE token = $1', [token]);
     }
 
-    res.json({ message: 'Logged out successfully' });
+    sendSuccess(res, { message: 'Logged out successfully' }, HTTP_STATUS.OK, { requestId: req.id });
   } catch (error) {
     console.error('Logout error:', error);
-    res.status(500).json({ error: 'Failed to logout' });
+    sendInternalError(res, 'Failed to logout', error instanceof Error ? error : undefined, { requestId: req.id });
   }
 });
 
 // GET /auth/verify - Verify token
-router.get('/verify', async (req, res) => {
+router.get('/verify', async (req: any, res) => {
   try {
     const token = req.headers.authorization?.split(' ')[1];
 
     if (!token) {
-      return res.status(401).json({ error: 'No token provided' });
+      return sendUnauthorized(res, 'No token provided', { requestId: req.id });
     }
 
     const decoded = jwt.verify(token, JWT_SECRET) as JWTPayload;
@@ -239,19 +247,19 @@ router.get('/verify', async (req, res) => {
     );
 
     if (session.rows.length === 0) {
-      return res.status(401).json({ error: 'Invalid or expired token' });
+      return sendUnauthorized(res, 'Invalid or expired token', { requestId: req.id });
     }
 
     // Return full JWT payload including communities
-    res.json({
+    sendSuccess(res, {
       valid: true,
       userId: decoded.userId,
       email: decoded.email,
       communities: decoded.communities || [],
       currentCommunityId: decoded.currentCommunityId
-    });
+    }, HTTP_STATUS.OK, { requestId: req.id });
   } catch (error) {
-    res.status(401).json({ error: 'Invalid token' });
+    sendUnauthorized(res, 'Invalid token', { requestId: req.id });
   }
 });
 
@@ -261,7 +269,7 @@ router.post('/refresh', async (req: any, res) => {
     const token = req.headers.authorization?.split(' ')[1];
 
     if (!token) {
-      return res.status(401).json({ error: 'No token provided' });
+      return sendUnauthorized(res, 'No token provided', { requestId: req.id });
     }
 
     const decoded = jwt.verify(token, JWT_SECRET) as JWTPayload;
@@ -273,7 +281,7 @@ router.post('/refresh', async (req: any, res) => {
     );
 
     if (session.rows.length === 0) {
-      return res.status(401).json({ error: 'Invalid or expired token' });
+      return sendUnauthorized(res, 'Invalid or expired token', { requestId: req.id });
     }
 
     // Generate new token with fresh community data
@@ -296,13 +304,13 @@ router.post('/refresh', async (req: any, res) => {
       communitiesCount: communities.length
     });
 
-    res.json({
+    sendSuccess(res, {
       token: newToken,
       communities
-    });
+    }, HTTP_STATUS.OK, { requestId: req.id });
   } catch (error: any) {
     req.logger?.error('Token refresh failed', error instanceof Error ? error : new Error(String(error)));
-    res.status(401).json({ error: 'Failed to refresh token' });
+    sendUnauthorized(res, 'Failed to refresh token', { requestId: req.id });
   }
 });
 

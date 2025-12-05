@@ -62,21 +62,23 @@ describe('Authentication Service', () => {
       expect([201, 429]).toContain(response.status);
 
       if (response.status === 201) {
-        expect(response.body).toHaveProperty('user');
-        expect(response.body).toHaveProperty('token');
+        expect(response.body).toHaveProperty('success', true);
+        expect(response.body).toHaveProperty('data');
+        expect(response.body.data).toHaveProperty('user');
+        expect(response.body.data).toHaveProperty('token');
 
         // User may have empty communities array
-        const communities = response.body.user.communities || [];
+        const communities = response.body.data.user.communities || [];
         expect(Array.isArray(communities)).toBe(true);
 
         // Save for later tests
         testUser = {
-          id: response.body.user.id,
-          email: response.body.user.email,
-          name: response.body.user.name,
-          token: response.body.token,
+          id: response.body.data.user.id,
+          email: response.body.data.user.email,
+          name: response.body.data.user.name,
+          token: response.body.data.token,
         };
-        testToken = response.body.token;
+        testToken = response.body.data.token;
       } else {
         console.log('Skipping: Rate limited');
         return;
@@ -133,11 +135,13 @@ describe('Authentication Service', () => {
         });
 
       expect(response.status).toBe(200);
-      expect(response.body).toHaveProperty('token');
+      expect(response.body).toHaveProperty('success', true);
+      expect(response.body).toHaveProperty('data');
+      expect(response.body.data).toHaveProperty('token');
 
       // Update token from login
-      if (response.body.token) {
-        testToken = response.body.token;
+      if (response.body.data.token) {
+        testToken = response.body.data.token;
       }
     });
 
@@ -172,8 +176,10 @@ describe('Authentication Service', () => {
       expect([200, 401]).toContain(response.status);
 
       if (response.status === 200) {
-        expect(response.body.valid).toBe(true);
-        expect(response.body.userId).toBe(testUser.id);
+        expect(response.body).toHaveProperty('success', true);
+        expect(response.body).toHaveProperty('data');
+        expect(response.body.data.valid).toBe(true);
+        expect(response.body.data.userId).toBe(testUser.id);
       }
     });
 
@@ -238,11 +244,11 @@ describe('Multi-Community JWT Flow', () => {
 
       expect([200, 401]).toContain(response.status);
 
-      if (response.status === 200 && response.body.token) {
-        testToken = response.body.token;
+      if (response.status === 200 && response.body.data?.token) {
+        testToken = response.body.data.token;
 
         // Check communities if available
-        const communities = response.body.communities || [];
+        const communities = response.body.data.communities || [];
         if (communities.length > 0) {
           const hasPortland = communities.some((c: any) => c.id === portlandCommunity?.id);
           expect(hasPortland).toBe(true);
@@ -300,10 +306,10 @@ describe('Multi-Community JWT Flow', () => {
 
       expect([200, 401]).toContain(response.status);
 
-      if (response.status === 200 && response.body.token) {
-        testToken = response.body.token;
+      if (response.status === 200 && response.body.data?.token) {
+        testToken = response.body.data.token;
 
-        const communities = response.body.communities || [];
+        const communities = response.body.data.communities || [];
         if (portlandCommunity && oaklandCommunity && communities.length >= 2) {
           const communityIds = communities.map((c: any) => c.id);
           expect(communityIds).toContain(portlandCommunity.id);
@@ -386,11 +392,11 @@ describe('JWT Refresh Strategy', () => {
         .post('/auth/refresh')
         .set('Authorization', `Bearer ${testToken}`);
 
-      if (response.status === 200 && response.body.token) {
-        const newDecoded: any = jwt.verify(response.body.token, JWT_SECRET);
+      if (response.status === 200 && response.body.data?.token) {
+        const newDecoded: any = jwt.verify(response.body.data.token, JWT_SECRET);
         expect(newDecoded.userId).toBe(oldDecoded.userId);
         expect(newDecoded.email).toBe(oldDecoded.email);
-        testToken = response.body.token;
+        testToken = response.body.data.token;
       }
     } catch (error) {
       console.log('JWT verification skipped');
@@ -413,10 +419,10 @@ describe('JWT Refresh Strategy', () => {
         .post('/auth/refresh')
         .set('Authorization', `Bearer ${testToken}`);
 
-      if (response.status === 200 && response.body.token) {
-        const newDecoded: any = jwt.verify(response.body.token, JWT_SECRET);
+      if (response.status === 200 && response.body.data?.token) {
+        const newDecoded: any = jwt.verify(response.body.data.token, JWT_SECRET);
         expect(newDecoded.exp).toBeGreaterThanOrEqual(oldDecoded.exp);
-        testToken = response.body.token;
+        testToken = response.body.data.token;
       }
     } catch (error) {
       console.log('JWT verification skipped');
@@ -436,7 +442,8 @@ describe('JWT Refresh Strategy', () => {
     expect([200, 401]).toContain(response.status);
 
     if (response.status === 200) {
-      expect(response.body.token).toBeDefined();
+      expect(response.body).toHaveProperty('success', true);
+      expect(response.body.data?.token).toBeDefined();
     }
   });
 });
