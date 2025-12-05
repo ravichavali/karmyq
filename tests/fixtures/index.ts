@@ -99,16 +99,21 @@ export class UserFactory {
         .post('/auth/register')
         .send({ email, name, password });
 
-      if (response.status !== 201 || !response.body.user) {
+      // Handle both old and new response formats
+      const data = response.body.data || response.body;
+      const user = data.user;
+      const token = data.token;
+
+      if (response.status !== 201 || !user) {
         console.log(`User creation failed: ${JSON.stringify(response.body)}`);
         return null;
       }
 
       return {
-        id: response.body.user.id,
-        email: response.body.user.email,
-        name: response.body.user.name,
-        token: response.body.token,
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        token: token,
       };
     } catch (error) {
       console.log('User creation error:', error);
