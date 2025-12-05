@@ -94,8 +94,32 @@ messagingApi.interceptors.request.use(authInterceptor)
 reputationApi.interceptors.request.use(authInterceptor)
 feedApi.interceptors.request.use(authInterceptor)
 
+// Unwrap standardized API response format
+// The backend now returns: { success: true, data: {...}, meta: {...} }
+// We unwrap it so the frontend can access response.data.token instead of response.data.data.token
+const responseInterceptor = (response: any) => {
+  // If response has the standardized format, unwrap the data
+  if (response.data && typeof response.data === 'object' && 'success' in response.data && 'data' in response.data) {
+    return {
+      ...response,
+      data: response.data.data, // Unwrap the data property
+      meta: response.data.meta, // Preserve meta for debugging
+      success: response.data.success
+    }
+  }
+  return response
+}
+
 // Handle auth errors
 const errorInterceptor = (error: any) => {
+  // Transform error response to match expected format
+  if (error.response?.data && typeof error.response.data === 'object') {
+    // New format: { success: false, error: { code, message } }
+    if ('error' in error.response.data && error.response.data.error) {
+      error.response.data.error = error.response.data.error.message || error.response.data.error
+    }
+  }
+
   if (error.response?.status === 401) {
     if (typeof window !== 'undefined') {
       localStorage.removeItem('token')
@@ -106,13 +130,13 @@ const errorInterceptor = (error: any) => {
   return Promise.reject(error)
 }
 
-api.interceptors.response.use((response) => response, errorInterceptor)
-communityApi.interceptors.response.use((response) => response, errorInterceptor)
-requestApi.interceptors.response.use((response) => response, errorInterceptor)
-notificationApi.interceptors.response.use((response) => response, errorInterceptor)
-messagingApi.interceptors.response.use((response) => response, errorInterceptor)
-reputationApi.interceptors.response.use((response) => response, errorInterceptor)
-feedApi.interceptors.response.use((response) => response, errorInterceptor)
+api.interceptors.response.use(responseInterceptor, errorInterceptor)
+communityApi.interceptors.response.use(responseInterceptor, errorInterceptor)
+requestApi.interceptors.response.use(responseInterceptor, errorInterceptor)
+notificationApi.interceptors.response.use(responseInterceptor, errorInterceptor)
+messagingApi.interceptors.response.use(responseInterceptor, errorInterceptor)
+reputationApi.interceptors.response.use(responseInterceptor, errorInterceptor)
+feedApi.interceptors.response.use(responseInterceptor, errorInterceptor)
 
 // Community API Methods
 export const communityService = {
