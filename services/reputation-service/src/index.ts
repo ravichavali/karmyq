@@ -1,4 +1,4 @@
-import express, { Request, Response, NextFunction } from 'express';
+import express, { Response } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import { initDatabase } from './database/db';
@@ -13,6 +13,7 @@ import {
   globalRateLimiter,
   rateLimiters,
 } from '../shared/middleware';
+import { requestIdMiddleware, sendSuccess, sendError, sendInternalError } from '../shared/utils/response';
 
 // Load environment variables
 dotenv.config();
@@ -24,16 +25,17 @@ const logger = createLogger('reputation-service');
 // Middleware
 app.use(cors());
 app.use(express.json());
+app.use(requestIdMiddleware);
 app.use(requestLoggingMiddleware(logger));
 app.use(globalRateLimiter);
 
 // Health check (no auth required)
-app.get('/health', (_req: Request, res: Response) => {
-  res.json({
+app.get('/health', (req: any, res: Response) => {
+  sendSuccess(res, {
     service: 'reputation-service',
     status: 'healthy',
     timestamp: new Date().toISOString(),
-  });
+  }, 200, { requestId: req.id });
 });
 
 // Routes with authentication and tenant context
@@ -47,26 +49,23 @@ app.use(
 );
 
 // 404 handler
-app.use((req: Request, res: Response) => {
-  res.status(404).json({
-    success: false,
-    message: 'Route not found',
-    path: req.path,
-  });
+app.use((req: any, res: Response) => {
+  sendError(res, 'NOT_FOUND', 'Route not found', 404, { path: req.path }, { requestId: req.id });
 });
 
 // Error handling middleware
-app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
-  (req as any).logger?.error('Unhandled error', err instanceof Error ? err : new Error(String(err)), {
+app.use((err: Error, req: any, res: Response) => {
+  req.logger?.error('Unhandled error', err, {
     method: req.method,
     path: req.path,
     body: req.body
   });
-  res.status(500).json({
-    success: false,
-    message: 'Internal server error',
-    error: process.env.NODE_ENV === 'development' ? err.message : undefined,
-  });
+  sendInternalError(
+    res,
+    process.env.NODE_ENV === 'development' ? err.message : 'Internal server error',
+    err,
+    { requestId: req.id }
+  );
 });
 
 // Start server

@@ -12,6 +12,7 @@ import {
   globalRateLimiter,
   rateLimiters,
 } from '../shared/middleware';
+import { requestIdMiddleware, sendSuccess, sendInternalError } from '../shared/utils/response';
 
 dotenv.config();
 
@@ -22,12 +23,13 @@ const logger = createLogger('notification-service');
 // Middleware
 app.use(cors());
 app.use(express.json());
+app.use(requestIdMiddleware);
 app.use(requestLoggingMiddleware(logger));
 app.use(globalRateLimiter);
 
 // Health check (no auth required)
-app.get('/health', (_req, res) => {
-  res.json({ status: 'ok', service: 'notification-service' });
+app.get('/health', (req: any, res) => {
+  sendSuccess(res, { status: 'healthy', service: 'notification-service' }, 200, { requestId: req.id });
 });
 
 // Import the SSE route handler
@@ -48,15 +50,18 @@ app.use(
 );
 
 // Error handling middleware
-app.use((err: any, req: any, res: express.Response, next: express.NextFunction) => {
+app.use((err: any, req: any, res: express.Response) => {
   req.logger?.error('Unhandled error', err instanceof Error ? err : new Error(String(err)), {
     method: req.method,
     path: req.path,
     body: req.body
   });
-  res.status(err.status || 500).json({
-    error: process.env.NODE_ENV === 'development' ? err.message : 'Internal Server Error'
-  });
+  sendInternalError(
+    res,
+    process.env.NODE_ENV === 'development' ? err.message : 'Internal server error',
+    err,
+    { requestId: req.id }
+  );
 });
 
 // Initialize database and event subscriber

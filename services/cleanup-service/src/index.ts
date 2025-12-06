@@ -1,4 +1,4 @@
-import express, { Request, Response, NextFunction } from 'express';
+import express from 'express';
 import cron from 'node-cron';
 import dotenv from 'dotenv';
 import jwt from 'jsonwebtoken';
@@ -11,6 +11,7 @@ import {
   generateDecayReport,
 } from './jobs/reputationDecayJob';
 import pool from './database/db';
+import { requestIdMiddleware, sendSuccess, sendUnauthorized, sendForbidden, sendInternalError } from '../../packages/shared/utils/response';
 
 dotenv.config();
 
@@ -27,7 +28,7 @@ if (!JWT_SECRET) {
 const adminRateLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
   max: 10, // 10 requests per hour per IP
-  message: { success: false, error: 'Too many admin requests, please try again later' },
+  message: { success: false, error: { code: 'RATE_LIMIT_EXCEEDED', message: 'Too many admin requests, please try again later' } },
   standardHeaders: true,
   legacyHeaders: false,
 });
@@ -38,11 +39,11 @@ interface JwtPayload {
   email: string;
 }
 
-const adminAuthMiddleware = async (req: Request, res: Response, next: NextFunction) => {
+const adminAuthMiddleware = async (req: any, res: express.Response, next: express.NextFunction) => {
   const authHeader = req.headers.authorization;
 
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ success: false, error: 'Authentication required' });
+    return sendUnauthorized(res, 'Authentication required', { requestId: req.id });
   }
 
   const token = authHeader.split(' ')[1];
@@ -53,7 +54,7 @@ const adminAuthMiddleware = async (req: Request, res: Response, next: NextFuncti
     // Check if user is an admin in at least one community
     const adminCheck = await pool.query(
       `SELECT EXISTS(
-        SELECT 1 FROM communities.members
+        SELECT 1 FROM community.members
         WHERE user_id = $1 AND role = 'admin' AND status = 'active'
       ) as is_admin`,
       [decoded.userId]
@@ -61,91 +62,92 @@ const adminAuthMiddleware = async (req: Request, res: Response, next: NextFuncti
 
     if (!adminCheck.rows[0]?.is_admin) {
       logger.warn('Non-admin user attempted to access admin endpoint', { userId: decoded.userId });
-      return res.status(403).json({ success: false, error: 'Admin privileges required' });
+      return sendForbidden(res, 'Admin privileges required', { requestId: req.id });
     }
 
     // Attach user info to request
-    (req as any).user = decoded;
+    req.user = decoded;
     logger.info('Admin authenticated', { userId: decoded.userId, endpoint: req.path });
     next();
   } catch (error) {
     if (error instanceof jwt.TokenExpiredError) {
-      return res.status(401).json({ success: false, error: 'Token expired' });
+      return sendUnauthorized(res, 'Token expired', { requestId: req.id });
     }
     if (error instanceof jwt.JsonWebTokenError) {
-      return res.status(401).json({ success: false, error: 'Invalid token' });
+      return sendUnauthorized(res, 'Invalid token', { requestId: req.id });
     }
     logger.error('Admin auth error', { error });
-    return res.status(500).json({ success: false, error: 'Authentication failed' });
+    return sendInternalError(res, 'Authentication failed', error instanceof Error ? error : undefined, { requestId: req.id });
   }
 };
 
 app.use(express.json());
+app.use(requestIdMiddleware);
 
 // ============= HEALTH CHECK =============
-app.get('/health', (_req, res) => {
-  res.json({
+app.get('/health', (req: any, res) => {
+  sendSuccess(res, {
     status: 'healthy',
     service: 'cleanup-service',
     uptime: process.uptime(),
     timestamp: new Date().toISOString(),
-  });
+  }, 200, { requestId: req.id });
 });
 
 // ============= ADMIN JOB ENDPOINTS (protected) =============
 
-app.post('/jobs/mark-expired', adminRateLimiter, adminAuthMiddleware, async (_req, res) => {
+app.post('/jobs/mark-expired', adminRateLimiter, adminAuthMiddleware, async (req: any, res) => {
   try {
     logger.info('Manual trigger: mark expired data');
     await markExpiredData();
-    res.json({ success: true, message: 'Expired data marked successfully' });
+    sendSuccess(res, { message: 'Expired data marked successfully' }, 200, { requestId: req.id });
   } catch (error: any) {
     logger.error('Manual expiration job failed', { error });
-    res.status(500).json({ success: false, error: error.message });
+    sendInternalError(res, error.message, error, { requestId: req.id });
   }
 });
 
-app.post('/jobs/hard-delete', adminRateLimiter, adminAuthMiddleware, async (_req, res) => {
+app.post('/jobs/hard-delete', adminRateLimiter, adminAuthMiddleware, async (req: any, res) => {
   try {
     logger.info('Manual trigger: hard delete expired data');
     await hardDeleteExpiredData();
-    res.json({ success: true, message: 'Expired data deleted successfully' });
+    sendSuccess(res, { message: 'Expired data deleted successfully' }, 200, { requestId: req.id });
   } catch (error: any) {
     logger.error('Manual hard delete job failed', { error });
-    res.status(500).json({ success: false, error: error.message });
+    sendInternalError(res, error.message, error, { requestId: req.id });
   }
 });
 
-app.post('/jobs/update-decay', adminRateLimiter, adminAuthMiddleware, async (_req, res) => {
+app.post('/jobs/update-decay', adminRateLimiter, adminAuthMiddleware, async (req: any, res) => {
   try {
     logger.info('Manual trigger: update reputation decay');
     await updateDecayedTrustScores();
-    res.json({ success: true, message: 'Trust scores updated successfully' });
+    sendSuccess(res, { message: 'Trust scores updated successfully' }, 200, { requestId: req.id });
   } catch (error: any) {
     logger.error('Manual decay update job failed', { error });
-    res.status(500).json({ success: false, error: error.message });
+    sendInternalError(res, error.message, error, { requestId: req.id });
   }
 });
 
-app.post('/jobs/cleanup-activity-logs', adminRateLimiter, adminAuthMiddleware, async (_req, res) => {
+app.post('/jobs/cleanup-activity-logs', adminRateLimiter, adminAuthMiddleware, async (req: any, res) => {
   try {
     logger.info('Manual trigger: cleanup activity logs');
     await cleanupActivityLogs();
-    res.json({ success: true, message: 'Activity logs cleaned up successfully' });
+    sendSuccess(res, { message: 'Activity logs cleaned up successfully' }, 200, { requestId: req.id });
   } catch (error: any) {
     logger.error('Manual activity log cleanup failed', { error });
-    res.status(500).json({ success: false, error: error.message });
+    sendInternalError(res, error.message, error, { requestId: req.id });
   }
 });
 
-app.get('/jobs/decay-report', adminRateLimiter, adminAuthMiddleware, async (_req, res) => {
+app.get('/jobs/decay-report', adminRateLimiter, adminAuthMiddleware, async (req: any, res) => {
   try {
     logger.info('Manual trigger: generate decay report');
     await generateDecayReport();
-    res.json({ success: true, message: 'Decay report generated (check logs)' });
+    sendSuccess(res, { message: 'Decay report generated (check logs)' }, 200, { requestId: req.id });
   } catch (error: any) {
     logger.error('Manual decay report generation failed', { error });
-    res.status(500).json({ success: false, error: error.message });
+    sendInternalError(res, error.message, error, { requestId: req.id });
   }
 });
 
