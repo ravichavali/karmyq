@@ -1,6 +1,14 @@
 import { Router, Request, Response } from 'express';
 import { query } from '../database/db';
 import { publishEvent } from '../events/publisher';
+import {
+  sendSuccess,
+  sendError,
+  sendValidationError,
+  sendNotFound,
+  sendInternalError,
+  HTTP_STATUS
+} from '../../shared/utils/response';
 
 const router = Router();
 
@@ -58,18 +66,14 @@ router.get('/', async (req: Request, res: Response) => {
 
     const result = await query(queryText, params);
 
-    res.json({
-      success: true,
-      data: result.rows,
+    sendSuccess(res, {
+      requests: result.rows,
       count: result.rowCount,
-    });
+      total: result.rowCount,
+    }, HTTP_STATUS.OK, { requestId: (req as any).id });
   } catch (error: any) {
     console.error('Error fetching requests:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to fetch requests',
-      error: error.message,
-    });
+    sendInternalError(res, 'Failed to fetch requests', error instanceof Error ? error : undefined, { requestId: (req as any).id });
   }
 });
 

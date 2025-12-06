@@ -80,10 +80,10 @@ export default function Dashboard() {
         communityService.getCommunities(),
       ])
 
-      const allRequests = myRequestsRes.data.data
-      const allMatches = allMatchesRes.data.data
-      const suggestedRequests = suggestedRes.data.data
-      const matchedRequests = matchedRequestsRes.data.data
+      const allRequests = myRequestsRes.data.requests
+      const allMatches = allMatchesRes.data.matches
+      const suggestedRequests = suggestedRes.data.requests
+      const matchedRequests = matchedRequestsRes.data.requests
 
       // Combine all requests (my requests + open requests + matched requests) for lookup
       const allRequestsCombined = [...allRequests, ...suggestedRequests, ...matchedRequests]

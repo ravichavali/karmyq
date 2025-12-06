@@ -1,6 +1,11 @@
 import { Router, Request, Response } from 'express';
 import { query } from '../database/db';
 import { publishEvent } from '../events/publisher';
+import {
+  sendSuccess,
+  sendInternalError,
+  HTTP_STATUS
+} from '../../shared/utils/response';
 
 const router = Router();
 
@@ -62,18 +67,14 @@ router.get('/', async (req: Request, res: Response) => {
       });
     }
 
-    res.json({
-      success: true,
-      data: result.rows,
+    sendSuccess(res, {
+      matches: result.rows,
       count: result.rowCount,
-    });
+      total: result.rowCount,
+    }, HTTP_STATUS.OK, { requestId: (req as any).id });
   } catch (error: any) {
     console.error('Error fetching matches:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to fetch matches',
-      error: error.message,
-    });
+    sendInternalError(res, 'Failed to fetch matches', error instanceof Error ? error : undefined, { requestId: (req as any).id });
   }
 });
 

@@ -82,13 +82,13 @@ export default function CommunitiesPage() {
       if (hasSpaceFilter) params.has_space = 'true'
 
       const response = await communityService.getCommunities(params)
-      setCommunities(response.data.data)
+      setCommunities(response.data.communities)
 
       // Fetch user's memberships to check status
       const userData = localStorage.getItem('user')
       if (userData) {
         const user = JSON.parse(userData)
-        await fetchMembershipStatus(user.id, response.data.data)
+        await fetchMembershipStatus(user.id, response.data.communities)
       }
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to load communities')
