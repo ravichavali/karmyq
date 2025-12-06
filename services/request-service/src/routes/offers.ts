@@ -25,7 +25,7 @@ router.get('/', async (req: Request, res: Response) => {
       FROM requests.help_offers o
       LEFT JOIN auth.users u ON o.offerer_id = u.id
       LEFT JOIN communities.communities c ON o.community_id = c.id
-      WHERE o.status = $1 AND o.expired = FALSE
+      WHERE o.status = $1
     `;
 
     const params: any[] = [status];
@@ -73,7 +73,7 @@ router.get('/:id', async (req: Request, res: Response) => {
       FROM requests.help_offers o
       LEFT JOIN auth.users u ON o.offerer_id = u.id
       LEFT JOIN communities.communities c ON o.community_id = c.id
-      WHERE o.id = $1 AND o.expired = FALSE`,
+      WHERE o.id = $1`,
       [id]
     );
 
