@@ -3,6 +3,7 @@ import cron from 'node-cron';
 import dotenv from 'dotenv';
 import jwt from 'jsonwebtoken';
 import rateLimit from 'express-rate-limit';
+import { v4 as uuidv4 } from 'uuid';
 import { logger } from './utils/logger';
 import { markExpiredData, hardDeleteExpiredData } from './jobs/expirationJob';
 import {
@@ -11,7 +12,6 @@ import {
   generateDecayReport,
 } from './jobs/reputationDecayJob';
 import pool from './database/db';
-import { requestIdMiddleware, sendSuccess, sendUnauthorized, sendForbidden, sendInternalError } from '../../packages/shared/utils/response';
 
 dotenv.config();
 
@@ -23,6 +23,44 @@ if (!JWT_SECRET) {
   logger.error('JWT_SECRET not configured - admin authentication will fail');
   process.exit(1);
 }
+
+// Inline response helpers (cleanup-service doesn't use shared package)
+const requestIdMiddleware = (req: any, res: any, next: any) => {
+  req.id = uuidv4();
+  next();
+};
+
+const sendSuccess = (res: any, data: any, status = 200, meta: any = {}) => {
+  res.status(status).json({
+    success: true,
+    data,
+    meta: { timestamp: new Date().toISOString(), ...meta }
+  });
+};
+
+const sendUnauthorized = (res: any, message: string, meta: any = {}) => {
+  res.status(401).json({
+    success: false,
+    error: { code: 'UNAUTHORIZED', message },
+    meta: { timestamp: new Date().toISOString(), ...meta }
+  });
+};
+
+const sendForbidden = (res: any, message: string, meta: any = {}) => {
+  res.status(403).json({
+    success: false,
+    error: { code: 'FORBIDDEN', message },
+    meta: { timestamp: new Date().toISOString(), ...meta }
+  });
+};
+
+const sendInternalError = (res: any, message: string, error?: Error, meta: any = {}) => {
+  res.status(500).json({
+    success: false,
+    error: { code: 'INTERNAL_SERVER_ERROR', message },
+    meta: { timestamp: new Date().toISOString(), ...meta }
+  });
+};
 
 // Rate limiter for admin endpoints (strict)
 const adminRateLimiter = rateLimit({
