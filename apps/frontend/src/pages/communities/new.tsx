@@ -57,7 +57,7 @@ export default function NewCommunityPage() {
         max_members: formData.max_members,
         access_type: formData.access_type,
       })
-      router.push(`/communities/${response.data.data.id}`)
+      router.push(`/communities/${response.data.id}`)
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to create community')
     } finally {
@@ -89,6 +89,7 @@ export default function NewCommunityPage() {
                   <input
                     type="text"
                     id="name"
+                    name="name"
                     required
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
@@ -106,6 +107,7 @@ export default function NewCommunityPage() {
                   </label>
                   <textarea
                     id="description"
+                    name="description"
                     value={formData.description}
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                     className="w-full px-4 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -125,6 +127,7 @@ export default function NewCommunityPage() {
                     <input
                       type="text"
                       id="location"
+                      name="location"
                       value={formData.location}
                       onChange={(e) => setFormData({ ...formData, location: e.target.value })}
                       className="w-full px-4 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"

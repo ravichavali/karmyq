@@ -92,7 +92,7 @@ test.describe('Authentication Flow', () => {
 
     // Should be on register page
     await expect(page).toHaveURL(/\/register/);
-    await expect(page.locator('h1')).toContainText(/Register|Sign Up/i);
+    await expect(page.locator('h1')).toContainText(/Create Account|Register|Sign Up/i);
   });
 
   test('should redirect to login when accessing protected route without auth', async ({ page }) => {

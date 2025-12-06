@@ -20,13 +20,30 @@ export default function Login() {
 
     try {
       const response = await api.post('/auth/login', formData)
+      console.log('Login response:', response)
+      console.log('Response data:', response.data)
+      console.log('Token:', response.data?.token)
+      console.log('User:', response.data?.user)
+
+      if (!response.data || !response.data.token || !response.data.user) {
+        console.error('Invalid response structure:', response)
+        setError('Invalid response from server')
+        setLoading(false)
+        return
+      }
 
       localStorage.setItem('token', response.data.token)
       localStorage.setItem('user', JSON.stringify(response.data.user))
-      
+
+      console.log('Redirecting to dashboard...')
       router.push('/dashboard')
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Login failed')
+      console.error('Login error:', err)
+      console.error('Error response:', err.response)
+      console.error('Error data:', err.response?.data)
+      const errorMessage = err.response?.data?.error || err.message || 'Login failed'
+      console.error('Setting error:', errorMessage)
+      setError(errorMessage)
     } finally {
       setLoading(false)
     }

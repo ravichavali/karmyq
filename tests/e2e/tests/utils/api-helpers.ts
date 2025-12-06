@@ -55,12 +55,13 @@ export class ApiHelpers {
 
   /**
    * Make authenticated API request with multi-tenant support
+   * Returns unwrapped data from standardized response format
    */
   async makeAuthenticatedRequest(
     url: string,
     options: RequestInit = {},
     communityId?: string
-  ): Promise<Response> {
+  ): Promise<any> {
     const token = await this.getAuthToken();
     const effectiveCommunityId = communityId || this.currentCommunityId;
 
@@ -75,10 +76,17 @@ export class ApiHelpers {
       headers['X-Community-ID'] = effectiveCommunityId;
     }
 
-    return await this.page.request.fetch(url, {
+    const response = await this.page.request.fetch(url, {
       ...options,
       headers,
     });
+
+    const result: any = await response.json();
+
+    // Unwrap standardized response: { success: true, data: {...}, meta: {...} }
+    // If response has standardized format, return the data property
+    // Otherwise return the whole result (for backwards compatibility)
+    return result.success && result.data ? result.data : result;
   }
 
   /**
@@ -90,7 +98,7 @@ export class ApiHelpers {
     location?: string;
   }): Promise<any> {
     const user = await this.getCurrentUser();
-    const response = await this.makeAuthenticatedRequest(
+    const community = await this.makeAuthenticatedRequest(
       `${API_URLS.COMMUNITY}/communities`,
       {
         method: 'POST',
@@ -101,12 +109,11 @@ export class ApiHelpers {
       }
     );
 
-    const result = await response.json();
     // Set community context for subsequent requests
-    if (result.data?.id) {
-      this.setCommunityContext(result.data.id);
+    if (community?.id) {
+      this.setCommunityContext(community.id);
     }
-    return result.data;
+    return community;
   }
 
   /**
@@ -119,7 +126,7 @@ export class ApiHelpers {
     type: string;
   }): Promise<any> {
     const user = await this.getCurrentUser();
-    const response = await this.makeAuthenticatedRequest(
+    return await this.makeAuthenticatedRequest(
       `${API_URLS.REQUEST}/requests`,
       {
         method: 'POST',
@@ -130,9 +137,6 @@ export class ApiHelpers {
       },
       data.community_id
     );
-
-    const result = await response.json();
-    return result.data;
   }
 
   /**
@@ -176,7 +180,7 @@ export class ApiHelpers {
     community_id?: string;
   }): Promise<any> {
     const user = await this.getCurrentUser();
-    const response = await this.makeAuthenticatedRequest(
+    return await this.makeAuthenticatedRequest(
       `${API_URLS.REQUEST}/offers`,
       {
         method: 'POST',
@@ -187,9 +191,6 @@ export class ApiHelpers {
       },
       data.community_id
     );
-
-    const result = await response.json();
-    return result.data;
   }
 
   /**
@@ -202,7 +203,7 @@ export class ApiHelpers {
     community_id?: string;
   }): Promise<any> {
     const user = await this.getCurrentUser();
-    const response = await this.makeAuthenticatedRequest(
+    return await this.makeAuthenticatedRequest(
       `${API_URLS.REQUEST}/matches`,
       {
         method: 'POST',
@@ -213,9 +214,6 @@ export class ApiHelpers {
       },
       data.community_id
     );
-
-    const result = await response.json();
-    return result.data;
   }
 
   /**
@@ -223,7 +221,7 @@ export class ApiHelpers {
    */
   async completeMatch(matchId: string, rating: number, feedback: string, communityId?: string): Promise<any> {
     const user = await this.getCurrentUser();
-    const response = await this.makeAuthenticatedRequest(
+    return await this.makeAuthenticatedRequest(
       `${API_URLS.REQUEST}/matches/${matchId}/complete`,
       {
         method: 'PATCH',
@@ -235,9 +233,6 @@ export class ApiHelpers {
       },
       communityId
     );
-
-    const result = await response.json();
-    return result.data;
   }
 
   /**
@@ -245,14 +240,11 @@ export class ApiHelpers {
    */
   async getUserKarma(userId?: string, communityId?: string): Promise<any> {
     const user = userId ? { id: userId } : await this.getCurrentUser();
-    const response = await this.makeAuthenticatedRequest(
+    return await this.makeAuthenticatedRequest(
       `${API_URLS.REPUTATION}/reputation/karma/${user.id}`,
       {},
       communityId
     );
-
-    const result = await response.json();
-    return result.data;
   }
 
   /**
@@ -260,14 +252,11 @@ export class ApiHelpers {
    */
   async getUserKarmaHistory(userId?: string, communityId?: string): Promise<any> {
     const user = userId ? { id: userId } : await this.getCurrentUser();
-    const response = await this.makeAuthenticatedRequest(
+    return await this.makeAuthenticatedRequest(
       `${API_URLS.REPUTATION}/reputation/karma/${user.id}/history`,
       {},
       communityId
     );
-
-    const result = await response.json();
-    return result.data;
   }
 
   /**
@@ -280,10 +269,7 @@ export class ApiHelpers {
     if (params?.offset) queryParams.set('offset', String(params.offset));
 
     const url = `${API_URLS.NOTIFICATION}/notifications/${user.id}${queryParams.toString() ? '?' + queryParams : ''}`;
-    const response = await this.makeAuthenticatedRequest(url);
-
-    const result = await response.json();
-    return result.data;
+    return await this.makeAuthenticatedRequest(url);
   }
 
   /**
@@ -295,38 +281,29 @@ export class ApiHelpers {
     if (params?.offset) queryParams.set('offset', String(params.offset));
 
     const url = `${API_URLS.FEED}/feed${queryParams.toString() ? '?' + queryParams : ''}`;
-    const response = await this.makeAuthenticatedRequest(url, {}, communityId);
-
-    const result = await response.json();
-    return result.data;
+    return await this.makeAuthenticatedRequest(url, {}, communityId);
   }
 
   /**
    * Get user's conversations
    */
   async getUserConversations(): Promise<any> {
-    const response = await this.makeAuthenticatedRequest(
+    return await this.makeAuthenticatedRequest(
       `${API_URLS.MESSAGING}/messages/conversations`
     );
-
-    const result = await response.json();
-    return result.data;
   }
 
   /**
    * Send a message in a conversation
    */
   async sendMessage(conversationId: string, content: string): Promise<any> {
-    const response = await this.makeAuthenticatedRequest(
+    return await this.makeAuthenticatedRequest(
       `${API_URLS.MESSAGING}/messages/conversations/${conversationId}/messages`,
       {
         method: 'POST',
         body: JSON.stringify({ content }),
       }
     );
-
-    const result = await response.json();
-    return result.data;
   }
 }
 

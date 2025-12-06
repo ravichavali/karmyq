@@ -2,41 +2,16 @@ name: E2E Tests
 
 on:
   push:
-    branches: [ main, master, develop ]
+    branches: [master, develop]
   pull_request:
-    branches: [ main, master, develop ]
-  workflow_dispatch:  # Allow manual trigger
+    branches: [master, develop]
+  workflow_dispatch:  # Allow manual triggering
 
 jobs:
   e2e-tests:
-    name: End-to-End Tests
-    runs-on: ubuntu-latest
+    runs-on: self-hosted  # Use self-hosted runner on your local machine
+
     timeout-minutes: 30
-
-    services:
-      postgres:
-        image: postgres:15-alpine
-        env:
-          POSTGRES_USER: karmyq_user
-          POSTGRES_PASSWORD: karmyq_password_dev
-          POSTGRES_DB: karmyq_db
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
-      redis:
-        image: redis:7-alpine
-        ports:
-          - 6379:6379
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
 
     steps:
       - name: Checkout code
@@ -48,205 +23,29 @@ jobs:
           node-version: '18'
           cache: 'npm'
 
-      - name: Initialize database schema
-        run: |
-          PGPASSWORD=karmyq_password_dev psql -h localhost -U karmyq_user -d karmyq_db -f infrastructure/postgres/init.sql
-        env:
-          PGPASSWORD: karmyq_password_dev
+      - name: Install dependencies
+        run: npm install
 
-      - name: Install shared package dependencies
-        working-directory: packages/shared
-        run: npm ci
+      - name: Start Docker services
+        run: docker-compose -f infrastructure/docker/docker-compose.yml up -d
+        timeout-minutes: 5
 
-      - name: Install auth-service dependencies
-        working-directory: services/auth-service
-        run: npm ci
-
-      - name: Install community-service dependencies
-        working-directory: services/community-service
-        run: npm ci
-
-      - name: Install request-service dependencies
-        working-directory: services/request-service
-        run: npm ci
-
-      - name: Install reputation-service dependencies
-        working-directory: services/reputation-service
-        run: npm ci
-
-      - name: Install notification-service dependencies
-        working-directory: services/notification-service
-        run: npm ci
-
-      - name: Install messaging-service dependencies
-        working-directory: services/messaging-service
-        run: npm ci
-
-      - name: Install frontend dependencies
-        working-directory: apps/frontend
-        run: npm ci
-
-      - name: Build shared package
-        working-directory: packages/shared
-        run: npm run build || echo "No build step for shared package"
-
-      - name: Start auth-service
-        working-directory: services/auth-service
-        run: |
-          nohup npm start > auth.log 2>&1 &
-          echo $! > auth.pid
-        env:
-          NODE_ENV: development
-          PORT: 3001
-          DATABASE_URL: postgresql://karmyq_user:karmyq_password_dev@localhost:5432/karmyq_db
-          REDIS_URL: redis://localhost:6379
-          JWT_SECRET: test_jwt_secret_for_ci
-          LOG_LEVEL: info
-
-      - name: Start community-service
-        working-directory: services/community-service
-        run: |
-          nohup npm start > community.log 2>&1 &
-          echo $! > community.pid
-        env:
-          NODE_ENV: development
-          PORT: 3002
-          DATABASE_URL: postgresql://karmyq_user:karmyq_password_dev@localhost:5432/karmyq_db
-          REDIS_URL: redis://localhost:6379
-          LOG_LEVEL: info
-
-      - name: Start request-service
-        working-directory: services/request-service
-        run: |
-          nohup npm start > request.log 2>&1 &
-          echo $! > request.pid
-        env:
-          NODE_ENV: development
-          PORT: 3003
-          DATABASE_URL: postgresql://karmyq_user:karmyq_password_dev@localhost:5432/karmyq_db
-          REDIS_URL: redis://localhost:6379
-          LOG_LEVEL: info
-
-      - name: Start reputation-service
-        working-directory: services/reputation-service
-        run: |
-          nohup npm start > reputation.log 2>&1 &
-          echo $! > reputation.pid
-        env:
-          NODE_ENV: development
-          PORT: 3004
-          DATABASE_URL: postgresql://karmyq_user:karmyq_password_dev@localhost:5432/karmyq_db
-          REDIS_URL: redis://localhost:6379
-          LOG_LEVEL: info
-
-      - name: Start notification-service
-        working-directory: services/notification-service
-        run: |
-          nohup npm start > notification.log 2>&1 &
-          echo $! > notification.pid
-        env:
-          NODE_ENV: development
-          PORT: 3005
-          DATABASE_URL: postgresql://karmyq_user:karmyq_password_dev@localhost:5432/karmyq_db
-          REDIS_URL: redis://localhost:6379
-          LOG_LEVEL: info
-
-      - name: Start messaging-service
-        working-directory: services/messaging-service
-        run: |
-          nohup npm start > messaging.log 2>&1 &
-          echo $! > messaging.pid
-        env:
-          NODE_ENV: development
-          PORT: 3006
-          DATABASE_URL: postgresql://karmyq_user:karmyq_password_dev@localhost:5432/karmyq_db
-          REDIS_URL: redis://localhost:6379
-          LOG_LEVEL: info
-
-      - name: Start frontend
-        working-directory: apps/frontend
-        run: |
-          nohup npm run dev > frontend.log 2>&1 &
-          echo $! > frontend.pid
-        env:
-          NODE_ENV: development
-          PORT: 3000
-          NEXT_PUBLIC_API_URL: http://localhost:3001
-          NEXT_PUBLIC_COMMUNITY_API_URL: http://localhost:3002
-          NEXT_PUBLIC_REQUEST_API_URL: http://localhost:3003
-          NEXT_PUBLIC_REPUTATION_API_URL: http://localhost:3004
-          NEXT_PUBLIC_NOTIFICATION_API_URL: http://localhost:3005
-          NEXT_PUBLIC_MESSAGING_API_URL: http://localhost:3006
-
-      - name: Wait for services to be ready
+      - name: Wait for services to be healthy
         run: |
           echo "Waiting for services to start..."
-          sleep 15
-
-          # Check service health endpoints
-          for i in {1..30}; do
-            echo "Health check attempt $i/30..."
-
-            auth_health=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3001/health || echo "000")
-            community_health=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3002/health || echo "000")
-            request_health=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3003/health || echo "000")
-            reputation_health=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3004/health || echo "000")
-            notification_health=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3005/health || echo "000")
-            messaging_health=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3006/health || echo "000")
-            frontend_health=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3000 || echo "000")
-
-            echo "Auth: $auth_health, Community: $community_health, Request: $request_health"
-            echo "Reputation: $reputation_health, Notification: $notification_health, Messaging: $messaging_health"
-            echo "Frontend: $frontend_health"
-
-            if [ "$auth_health" = "200" ] && [ "$community_health" = "200" ] && \
-               [ "$request_health" = "200" ] && [ "$reputation_health" = "200" ] && \
-               [ "$notification_health" = "200" ] && [ "$messaging_health" = "200" ] && \
-               [ "$frontend_health" = "200" ]; then
-              echo "All services are healthy!"
-              break
-            fi
-
-            if [ $i -eq 30 ]; then
-              echo "Services failed to become healthy"
-              exit 1
-            fi
-
-            sleep 2
-          done
-
-      - name: Seed test data
-        run: |
-          # Create test user via auth service
-          curl -X POST http://localhost:3001/auth/register \
-            -H "Content-Type: application/json" \
-            -d '{
-              "email": "isabella.thomas0@example.com",
-              "password": "password123",
-              "name": "Isabella Thomas"
-            }' || echo "User may already exist"
-
-      - name: Install Playwright dependencies
-        working-directory: tests/e2e
-        run: npm ci
-
-      - name: Install Playwright browsers
-        working-directory: tests/e2e
-        run: npx playwright install --with-deps chromium
+          sleep 30
+          docker-compose -f infrastructure/docker/docker-compose.yml ps
+        timeout-minutes: 2
 
       - name: Run E2E tests
-        working-directory: tests/e2e
-        run: npm test
+        run: |
+          cd tests/e2e
+          npm install
+          npx playwright install --with-deps chromium
+          npm test -- --project=chromium --workers=1 --reporter=list
+        timeout-minutes: 15
         env:
-          BASE_URL: http://localhost:3000
-          AUTH_API_URL: http://localhost:3001
-          COMMUNITY_API_URL: http://localhost:3002
-          REQUEST_API_URL: http://localhost:3003
-          REPUTATION_API_URL: http://localhost:3004
-          NOTIFICATION_API_URL: http://localhost:3005
-          MESSAGING_API_URL: http://localhost:3006
-          TEST_USER_EMAIL: isabella.thomas0@example.com
-          TEST_USER_PASSWORD: password123
+          CI: true
 
       - name: Upload test results
         if: always()
@@ -254,48 +53,17 @@ jobs:
         with:
           name: playwright-report
           path: tests/e2e/playwright-report/
-          retention-days: 30
+          retention-days: 7
 
-      - name: Upload test videos
-        if: always()
+      - name: Upload test screenshots
+        if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-videos
+          name: playwright-screenshots
           path: tests/e2e/test-results/
           retention-days: 7
 
-      - name: Show service logs on failure
-        if: failure()
-        run: |
-          echo "=== Auth Service Logs ==="
-          cat services/auth-service/auth.log || echo "No auth logs"
-
-          echo "=== Community Service Logs ==="
-          cat services/community-service/community.log || echo "No community logs"
-
-          echo "=== Request Service Logs ==="
-          cat services/request-service/request.log || echo "No request logs"
-
-          echo "=== Reputation Service Logs ==="
-          cat services/reputation-service/reputation.log || echo "No reputation logs"
-
-          echo "=== Notification Service Logs ==="
-          cat services/notification-service/notification.log || echo "No notification logs"
-
-          echo "=== Messaging Service Logs ==="
-          cat services/messaging-service/messaging.log || echo "No messaging logs"
-
-          echo "=== Frontend Logs ==="
-          cat apps/frontend/frontend.log || echo "No frontend logs"
-
-      - name: Cleanup
+      - name: Cleanup Docker services
         if: always()
-        run: |
-          # Kill all service processes
-          [ -f services/auth-service/auth.pid ] && kill $(cat services/auth-service/auth.pid) || true
-          [ -f services/community-service/community.pid ] && kill $(cat services/community-service/community.pid) || true
-          [ -f services/request-service/request.pid ] && kill $(cat services/request-service/request.pid) || true
-          [ -f services/reputation-service/reputation.pid ] && kill $(cat services/reputation-service/reputation.pid) || true
-          [ -f services/notification-service/notification.pid ] && kill $(cat services/notification-service/notification.pid) || true
-          [ -f services/messaging-service/messaging.pid ] && kill $(cat services/messaging-service/messaging.pid) || true
-          [ -f apps/frontend/frontend.pid ] && kill $(cat apps/frontend/frontend.pid) || true
+        run: docker-compose -f infrastructure/docker/docker-compose.yml down
+        timeout-minutes: 2

@@ -63,7 +63,7 @@ services:
       DATABASE_URL: postgresql://karmyq_user:karmyq_password_dev@postgres:5432/karmyq_db
       REDIS_URL: redis://redis:6379
       JWT_SECRET: dev_jwt_secret_change_in_production
-      RATE_LIMIT_MULTIPLIER: 10
+      RATE_LIMIT_DISABLED: true
     ports:
       - "3001:3001"
     depends_on:
@@ -90,7 +90,7 @@ services:
       DATABASE_URL: postgresql://karmyq_user:karmyq_password_dev@postgres:5432/karmyq_db
       REDIS_URL: redis://redis:6379
       JWT_SECRET: dev_jwt_secret_change_in_production
-      RATE_LIMIT_MULTIPLIER: 10
+      RATE_LIMIT_DISABLED: true
     ports:
       - "3002:3002"
     depends_on:
@@ -117,7 +117,7 @@ services:
       DATABASE_URL: postgresql://karmyq_user:karmyq_password_dev@postgres:5432/karmyq_db
       REDIS_URL: redis://redis:6379
       JWT_SECRET: dev_jwt_secret_change_in_production
-      RATE_LIMIT_MULTIPLIER: 10
+      RATE_LIMIT_DISABLED: true
     ports:
       - "3003:3003"
     depends_on:
@@ -144,6 +144,7 @@ services:
       DATABASE_URL: postgresql://karmyq_user:karmyq_password_dev@postgres:5432/karmyq_db
       REDIS_URL: redis://redis:6379
       JWT_SECRET: dev_jwt_secret_change_in_production
+      RATE_LIMIT_DISABLED: true
     ports:
       - "3004:3004"
     depends_on:
@@ -170,6 +171,7 @@ services:
       DATABASE_URL: postgresql://karmyq_user:karmyq_password_dev@postgres:5432/karmyq_db
       REDIS_URL: redis://redis:6379
       JWT_SECRET: dev_jwt_secret_change_in_production
+      RATE_LIMIT_DISABLED: true
     ports:
       - "3005:3005"
     depends_on:
@@ -195,6 +197,7 @@ services:
       PORT: 3006
       DATABASE_URL: postgresql://karmyq_user:karmyq_password_dev@postgres:5432/karmyq_db
       JWT_SECRET: dev_jwt_secret_change_in_production
+      RATE_LIMIT_DISABLED: true
     ports:
       - "3006:3006"
     depends_on:
@@ -219,6 +222,7 @@ services:
       DATABASE_URL: postgresql://karmyq_user:karmyq_password_dev@postgres:5432/karmyq_db
       REDIS_URL: redis://redis:6379
       JWT_SECRET: dev_jwt_secret_change_in_production
+      RATE_LIMIT_DISABLED: true
       COMMUNITY_API_URL: http://community-service:3002
       REQUEST_API_URL: http://request-service:3003
       REPUTATION_API_URL: http://reputation-service:3004
@@ -248,6 +252,7 @@ services:
       PORT: 3008
       DATABASE_URL: postgresql://karmyq_user:karmyq_password_dev@postgres:5432/karmyq_db
       JWT_SECRET: dev_jwt_secret_change_in_production
+      RATE_LIMIT_DISABLED: true
       LOG_LEVEL: info
     ports:
       - "3008:3008"

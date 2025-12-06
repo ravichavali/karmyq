@@ -17,7 +17,7 @@ test.describe('Community Management', () => {
     await authenticatedPage.goto('/communities');
 
     await expect(authenticatedPage).toHaveTitle(/Communities/i);
-    await expect(authenticatedPage.locator('h1')).toContainText(/Communities/i);
+    await expect(authenticatedPage.locator('h1').first()).toContainText(/Communities/i);
 
     // Should have a "Create Community" button
     const createButton = authenticatedPage.locator('text=/Create Community|New Community/i');
@@ -43,16 +43,17 @@ test.describe('Community Management', () => {
     await authenticatedPage.waitForURL(/\/communities\/[a-f0-9-]+/);
 
     // Verify community was created
-    await expect(authenticatedPage.locator('h1')).toContainText(`Test Community ${timestamp}`);
-    await expect(authenticatedPage.locator('text=This is a test community')).toBeVisible();
+    await expect(authenticatedPage.locator('h1').first()).toContainText(`Test Community ${timestamp}`);
+    await expect(authenticatedPage.locator('text=This is a test community').first()).toBeVisible();
   });
 
   test('should view community details', async ({ authenticatedPage }) => {
     const api = new ApiHelpers(authenticatedPage);
 
     // Create a test community via API
+    const communityName = `E2E Test Community ${Date.now()}`;
     const community = await api.createTestCommunity({
-      name: `E2E Test Community ${Date.now()}`,
+      name: communityName,
       description: 'Test community for viewing details',
       location: 'Test City',
     });
@@ -61,7 +62,7 @@ test.describe('Community Management', () => {
     await authenticatedPage.goto(`/communities/${community.id}`);
 
     // Verify community details are displayed
-    await expect(authenticatedPage.locator('h1')).toContainText(community.name);
+    await expect(authenticatedPage.locator('h1').first()).toContainText(communityName);
     await expect(authenticatedPage.locator('text=Test community for viewing details')).toBeVisible();
     await expect(authenticatedPage.locator('text=Test City')).toBeVisible();
 
