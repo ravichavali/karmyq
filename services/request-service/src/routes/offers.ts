@@ -1,6 +1,13 @@
 import { Router, Request, Response } from 'express';
 import { query } from '../database/db';
 import { publishEvent } from '../events/publisher';
+import {
+  sendSuccess,
+  sendNotFound,
+  sendValidationError,
+  sendInternalError,
+  HTTP_STATUS
+} from '../../shared/utils/response';
 
 const router = Router();
 
@@ -41,18 +48,14 @@ router.get('/', async (req: Request, res: Response) => {
 
     const result = await query(queryText, params);
 
-    res.json({
-      success: true,
-      data: result.rows,
+    sendSuccess(res, {
+      offers: result.rows,
       count: result.rowCount,
-    });
+      total: result.rowCount,
+    }, HTTP_STATUS.OK, { requestId: (req as any).id });
   } catch (error: any) {
     console.error('Error fetching offers:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to fetch offers',
-      error: error.message,
-    });
+    sendInternalError(res, 'Failed to fetch offers', error instanceof Error ? error : undefined, { requestId: (req as any).id });
   }
 });
 
@@ -75,23 +78,13 @@ router.get('/:id', async (req: Request, res: Response) => {
     );
 
     if (result.rowCount === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'Offer not found',
-      });
+      return sendNotFound(res, 'Offer not found', { requestId: (req as any).id });
     }
 
-    res.json({
-      success: true,
-      data: result.rows[0],
-    });
+    sendSuccess(res, result.rows[0], HTTP_STATUS.OK, { requestId: (req as any).id });
   } catch (error: any) {
     console.error('Error fetching offer:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to fetch offer',
-      error: error.message,
-    });
+    sendInternalError(res, 'Failed to fetch offer', error instanceof Error ? error : undefined, { requestId: (req as any).id });
   }
 });
 
