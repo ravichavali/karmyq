@@ -77,7 +77,7 @@ export default function CommunityDetailPage() {
     try {
       setLoading(true)
       const response = await communityService.getCommunity(id as string)
-      setCommunity(response.data.data)
+      setCommunity(response.data)
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to load community')
     } finally {
@@ -88,7 +88,7 @@ export default function CommunityDetailPage() {
   const fetchNorms = async () => {
     try {
       const response = await communityService.getNorms(id as string)
-      setNorms(response.data.data)
+      setNorms(response.data.norms || response.data)
     } catch (err: any) {
       console.error('Failed to load norms:', err)
     }

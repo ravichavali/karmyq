@@ -6,6 +6,7 @@ import {
   sendError,
   sendValidationError,
   sendNotFound,
+  sendUnauthorized,
   sendForbidden,
   sendConflict,
   sendInternalError,
@@ -101,10 +102,7 @@ router.get('/my/communities', async (req: Request, res: Response) => {
     const { user_id } = req.query;
 
     if (!user_id) {
-      return res.status(400).json({
-        success: false,
-        message: 'user_id is required',
-      });
+      return sendValidationError(res, 'user_id is required', { requestId: (req as any).id });
     }
 
     const result = await query(
@@ -122,18 +120,14 @@ router.get('/my/communities', async (req: Request, res: Response) => {
       [user_id]
     );
 
-    res.json({
-      success: true,
-      data: result.rows,
+    sendSuccess(res, {
+      communities: result.rows,
       count: result.rowCount,
-    });
+      total: result.rowCount,
+    }, HTTP_STATUS.OK, { requestId: (req as any).id });
   } catch (error: any) {
     console.error('Error fetching user communities:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to fetch user communities',
-      error: error.message,
-    });
+    sendInternalError(res, 'Failed to fetch user communities', error instanceof Error ? error : undefined, { requestId: (req as any).id });
   }
 });
 
@@ -156,10 +150,7 @@ router.get('/:id', async (req: Request, res: Response) => {
     );
 
     if (communityResult.rowCount === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'Community not found',
-      });
+      return sendNotFound(res, 'Community not found', { requestId: (req as any).id });
     }
 
     // Get members (include both active and pending for admin view)
@@ -177,17 +168,10 @@ router.get('/:id', async (req: Request, res: Response) => {
     const community = communityResult.rows[0];
     community.members = membersResult.rows;
 
-    res.json({
-      success: true,
-      data: community,
-    });
+    sendSuccess(res, community, HTTP_STATUS.OK, { requestId: (req as any).id });
   } catch (error: any) {
     console.error('Error fetching community:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to fetch community',
-      error: error.message,
-    });
+    sendInternalError(res, 'Failed to fetch community', error instanceof Error ? error : undefined, { requestId: (req as any).id });
   }
 });
 
@@ -201,31 +185,19 @@ router.post('/', async (req: Request, res: Response) => {
 
     // Validation
     if (!creator_id) {
-      return res.status(401).json({
-        success: false,
-        message: 'Authentication required',
-      });
+      return sendUnauthorized(res, 'Authentication required', { requestId: (req as any).id });
     }
 
     if (!name) {
-      return res.status(400).json({
-        success: false,
-        message: 'Name is required',
-      });
+      return sendValidationError(res, 'Name is required', { requestId: (req as any).id });
     }
 
     if (name.length < 3 || name.length > 255) {
-      return res.status(400).json({
-        success: false,
-        message: 'Community name must be between 3 and 255 characters',
-      });
+      return sendValidationError(res, 'Community name must be between 3 and 255 characters', { requestId: (req as any).id });
     }
 
     if (max_members < 1 || max_members > 150) {
-      return res.status(400).json({
-        success: false,
-        message: 'Max members must be between 1 and 150 (Dunbar\'s number)',
-      });
+      return sendValidationError(res, 'Max members must be between 1 and 150 (Dunbar\'s number)', { requestId: (req as any).id });
     }
 
     // Create community
@@ -254,18 +226,10 @@ router.post('/', async (req: Request, res: Response) => {
       name,
     });
 
-    res.status(201).json({
-      success: true,
-      data: community,
-      message: 'Community created successfully',
-    });
+    sendSuccess(res, community, HTTP_STATUS.CREATED, { requestId: (req as any).id });
   } catch (error: any) {
     console.error('Error creating community:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to create community',
-      error: error.message,
-    });
+    sendInternalError(res, 'Failed to create community', error instanceof Error ? error : undefined, { requestId: (req as any).id });
   }
 });
 
@@ -283,10 +247,7 @@ router.put('/:id', async (req: Request, res: Response) => {
     );
 
     if (memberCheck.rowCount === 0 || memberCheck.rows[0].role !== 'admin') {
-      return res.status(403).json({
-        success: false,
-        message: 'Only community admins can update community details',
-      });
+      return sendForbidden(res, 'Only community admins can update community details', { requestId: (req as any).id });
     }
 
     // Build update query dynamically
@@ -331,24 +292,13 @@ router.put('/:id', async (req: Request, res: Response) => {
     );
 
     if (result.rowCount === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'Community not found',
-      });
+      return sendNotFound(res, 'Community not found', { requestId: (req as any).id });
     }
 
-    res.json({
-      success: true,
-      data: result.rows[0],
-      message: 'Community updated successfully',
-    });
+    sendSuccess(res, result.rows[0], HTTP_STATUS.OK, { requestId: (req as any).id });
   } catch (error: any) {
     console.error('Error updating community:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to update community',
-      error: error.message,
-    });
+    sendInternalError(res, 'Failed to update community', error instanceof Error ? error : undefined, { requestId: (req as any).id });
   }
 });
 
@@ -366,10 +316,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
     );
 
     if (memberCheck.rowCount === 0 || memberCheck.rows[0].role !== 'admin') {
-      return res.status(403).json({
-        success: false,
-        message: 'Only community admins can archive the community',
-      });
+      return sendForbidden(res, 'Only community admins can archive the community', { requestId: (req as any).id });
     }
 
     // Archive community
@@ -382,10 +329,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
     );
 
     if (result.rowCount === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'Community not found',
-      });
+      return sendNotFound(res, 'Community not found', { requestId: (req as any).id });
     }
 
     // Publish event
@@ -394,17 +338,10 @@ router.delete('/:id', async (req: Request, res: Response) => {
       archived_by: user_id,
     });
 
-    res.json({
-      success: true,
-      message: 'Community archived successfully',
-    });
+    sendSuccess(res, { message: 'Community archived successfully' }, HTTP_STATUS.OK, { requestId: (req as any).id });
   } catch (error: any) {
     console.error('Error archiving community:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to archive community',
-      error: error.message,
-    });
+    sendInternalError(res, 'Failed to archive community', error instanceof Error ? error : undefined, { requestId: (req as any).id });
   }
 });
 
