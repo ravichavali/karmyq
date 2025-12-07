@@ -12,24 +12,14 @@ import { ApiHelpers } from './utils/api-helpers';
  */
 
 test.describe('Help Requests', () => {
-  let testCommunity: any;
-
-  test.beforeAll(async ({ authenticatedPage }) => {
-    // Create a test community for all request tests
+  // Helper function to create test community for tests that need it
+  async function createTestCommunity(authenticatedPage: any) {
     const api = new ApiHelpers(authenticatedPage);
-    testCommunity = await api.createTestCommunity({
+    return await api.createTestCommunity({
       name: `Request Test Community ${Date.now()}`,
       description: 'Community for testing requests',
     });
-  });
-
-  test.afterAll(async ({ authenticatedPage }) => {
-    // Cleanup test community
-    if (testCommunity) {
-      const api = new ApiHelpers(authenticatedPage);
-      await api.deleteTestCommunity(testCommunity.id);
-    }
-  });
+  }
 
   test('should create a help request', async ({ authenticatedPage }) => {
     await authenticatedPage.goto('/requests/new');
@@ -69,6 +59,9 @@ test.describe('Help Requests', () => {
   test('should view request details', async ({ authenticatedPage }) => {
     const api = new ApiHelpers(authenticatedPage);
 
+    // Create a test community
+    const testCommunity = await createTestCommunity(authenticatedPage);
+
     // Create a test request via API
     const request = await api.createTestRequest({
       community_id: testCommunity.id,
@@ -83,6 +76,9 @@ test.describe('Help Requests', () => {
     // Verify request details are displayed
     await expect(authenticatedPage.locator('h1, h2')).toContainText(request.title);
     await expect(authenticatedPage.locator('text=Testing request details view')).toBeVisible();
+
+    // Cleanup
+    await api.deleteTestCommunity(testCommunity.id);
   });
 
   test('should browse all requests', async ({ authenticatedPage }) => {
@@ -132,6 +128,9 @@ test.describe('Help Requests', () => {
   test('should show request urgency levels', async ({ authenticatedPage }) => {
     const api = new ApiHelpers(authenticatedPage);
 
+    // Create a test community
+    const testCommunity = await createTestCommunity(authenticatedPage);
+
     // Create requests with different urgency levels
     const urgentRequest = await api.createTestRequest({
       community_id: testCommunity.id,
@@ -148,5 +147,8 @@ test.describe('Help Requests', () => {
       (await authenticatedPage.locator('[data-urgency], .urgency, .badge').count()) > 0;
 
     expect(hasUrgencyIndicator).toBeTruthy();
+
+    // Cleanup
+    await api.deleteTestCommunity(testCommunity.id);
   });
 });

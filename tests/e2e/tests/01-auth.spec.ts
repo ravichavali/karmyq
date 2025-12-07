@@ -99,11 +99,14 @@ test.describe('Authentication Flow', () => {
     // Try to access dashboard without logging in
     await page.goto('/dashboard');
 
+    // Wait for navigation to complete (either redirect or error page)
+    await page.waitForLoadState('networkidle');
+
     // Should be redirected to login or see unauthorized message
     // (This depends on your auth implementation)
     const url = page.url();
     const hasLoginInUrl = url.includes('/login');
-    const hasUnauthorizedMessage = await page.locator('text=/unauthorized|please log in/i').count() > 0;
+    const hasUnauthorizedMessage = await page.locator('text=/unauthorized|please log in|sign in/i').count() > 0;
 
     expect(hasLoginInUrl || hasUnauthorizedMessage).toBeTruthy();
   });

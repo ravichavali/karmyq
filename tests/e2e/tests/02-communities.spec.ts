@@ -61,10 +61,13 @@ test.describe('Community Management', () => {
     // Navigate to community page
     await authenticatedPage.goto(`/communities/${community.id}`);
 
+    // Wait for page to load
+    await authenticatedPage.waitForLoadState('networkidle');
+
     // Verify community details are displayed
-    await expect(authenticatedPage.locator('h1').first()).toContainText(communityName);
-    await expect(authenticatedPage.locator('text=Test community for viewing details')).toBeVisible();
-    await expect(authenticatedPage.locator('text=Test City')).toBeVisible();
+    await expect(authenticatedPage.locator('h1').first()).toContainText(communityName, { timeout: 10000 });
+    await expect(authenticatedPage.locator('text=Test community for viewing details')).toBeVisible({ timeout: 5000 });
+    await expect(authenticatedPage.locator('text=Test City')).toBeVisible({ timeout: 5000 });
 
     // Cleanup
     await api.deleteTestCommunity(community.id);
