@@ -51,6 +51,8 @@ coverage/
 .nyc_output/
 *.coverage
 .jest-cache/
+test-results/
+playwright-report/
 
 # TypeScript
 *.tsbuildinfo
@@ -95,3 +97,8 @@ web-build/
 # Metro
 .metro-health-check*
 .claude/settings.local.json
+
+# GitHub Actions
+actions-runner/
+.runner/
+_work/

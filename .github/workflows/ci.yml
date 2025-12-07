@@ -13,7 +13,7 @@ jobs:
   # Test backend services
   test-backend:
     name: Test Backend Services
-    runs-on: self-hosted  # Use self-hosted runner on your local machine
+    runs-on: ubuntu-latest  # Service containers require Linux runner
 
     services:
       postgres:
@@ -69,7 +69,7 @@ jobs:
   # Lint and type-check
   lint:
     name: Lint & Type Check
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v4
@@ -95,7 +95,7 @@ jobs:
   # Build Docker images
   build-images:
     name: Build Docker Images
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     needs: [test-backend, lint]
 
     strategy:
@@ -128,7 +128,7 @@ jobs:
   # Deploy to QA environment with secrets rotation
   deploy-qa:
     name: Deploy to QA
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     needs: [build-images]
     if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
     environment:
@@ -233,7 +233,7 @@ jobs:
   # Deploy to Production (manual approval required)
   deploy-prod:
     name: Deploy to Production
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     needs: [build-images]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     environment:

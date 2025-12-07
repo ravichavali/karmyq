@@ -9,7 +9,7 @@ on:
 jobs:
   test-auth-service:
     name: Test Auth Service
-    runs-on: self-hosted  # Use self-hosted runner on your local machine
+    runs-on: ubuntu-latest  # Service containers require Linux runner
 
     services:
       postgres:
@@ -73,7 +73,7 @@ jobs:
 
   test-frontend:
     name: Test Frontend
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
@@ -100,7 +100,7 @@ jobs:
 
   docker-build:
     name: Test Docker Build
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
