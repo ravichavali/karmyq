@@ -100,6 +100,7 @@ export default function NewRequestPage() {
               </label>
               <select
                 id="community"
+                name="community_id"
                 value={formData.community_id}
                 onChange={(e) => setFormData({ ...formData, community_id: e.target.value })}
                 className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -125,6 +126,7 @@ export default function NewRequestPage() {
               <input
                 type="text"
                 id="title"
+                name="title"
                 value={formData.title}
                 onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                 className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -141,6 +143,7 @@ export default function NewRequestPage() {
               </label>
               <select
                 id="type"
+                name="type"
                 value={formData.type}
                 onChange={(e) => setFormData({ ...formData, type: e.target.value })}
                 className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -180,6 +183,7 @@ export default function NewRequestPage() {
               </label>
               <textarea
                 id="description"
+                name="description"
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                 className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"

@@ -192,6 +192,7 @@ export default function CommunityDetailPage() {
           <div className="bg-white rounded-lg shadow-md p-8 mb-6">
             <div className="flex justify-between items-start mb-4">
               <div>
+                <h1 className="text-3xl font-bold mb-2">{community.name}</h1>
                 <p className="text-gray-600">{community.description}</p>
               </div>
               {!isMember && !isPending && (
