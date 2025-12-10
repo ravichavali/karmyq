@@ -32,6 +32,12 @@ jobs:
           docker-compose -f infrastructure/docker/docker-compose.yml ps
         timeout-minutes: 2
 
+      - name: Seed test data
+        run: |
+          echo "Seeding E2E test data..."
+          cat infrastructure/postgres/seed-e2e.sql | docker exec -i karmyq-postgres psql -U karmyq_user -d karmyq_db
+        timeout-minutes: 1
+
       - name: Run E2E tests
         run: |
           cd tests/e2e
