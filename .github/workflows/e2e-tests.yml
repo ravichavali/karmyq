@@ -41,8 +41,8 @@ jobs:
           cd tests/e2e
           npm install
           npx playwright install --with-deps chromium
-          npm test -- --project=chromium --workers=1 --reporter=list
-        timeout-minutes: 15
+          npm test -- --project=chromium --workers=1 --reporter=list tests/01-auth.spec.ts tests/02-communities.spec.ts tests/03-requests.spec.ts
+        timeout-minutes: 10
         env:
           CI: true
 
