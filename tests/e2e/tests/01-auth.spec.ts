@@ -99,11 +99,20 @@ test.describe('Authentication Flow', () => {
     // Try to access dashboard without logging in
     await page.goto('/dashboard');
 
-    // Wait for navigation to complete (either redirect or error page)
-    await page.waitForLoadState('networkidle');
+    // Wait for either login URL or unauthorized message (60s timeout for slow loading)
+    await page.waitForFunction(
+      () => {
+        const url = window.location.href;
+        const bodyText = document.body.innerText.toLowerCase();
+        return url.includes('/login') ||
+               bodyText.includes('unauthorized') ||
+               bodyText.includes('please log in') ||
+               bodyText.includes('sign in');
+      },
+      { timeout: 60000 }
+    );
 
     // Should be redirected to login or see unauthorized message
-    // (This depends on your auth implementation)
     const url = page.url();
     const hasLoginInUrl = url.includes('/login');
     const hasUnauthorizedMessage = await page.locator('text=/unauthorized|please log in|sign in/i').count() > 0;

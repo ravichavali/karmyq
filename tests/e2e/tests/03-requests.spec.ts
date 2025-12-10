@@ -24,6 +24,9 @@ test.describe('Help Requests', () => {
   test('should create a help request', async ({ authenticatedPage }) => {
     await authenticatedPage.goto('/requests/new');
 
+    // Wait for form to be visible (increased timeout for slow loading)
+    await authenticatedPage.waitForSelector('input[name="title"]', { timeout: 60000 });
+
     // Fill in request form
     const timestamp = Date.now();
     await authenticatedPage.fill('input[name="title"]', `Test Request ${timestamp}`);

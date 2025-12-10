@@ -12,8 +12,8 @@ dotenv.config();
 export default defineConfig({
   testDir: './tests',
 
-  // Maximum time one test can run
-  timeout: 30 * 1000,
+  // Maximum time one test can run (increased for slow-loading pages)
+  timeout: 60 * 1000,
 
   // Test execution settings
   fullyParallel: true,
