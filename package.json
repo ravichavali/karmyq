@@ -1,8 +1,8 @@
 {
   "name": "karmyq",
-  "version": "5.1.0",
+  "version": "7.0.0",
   "private": true,
-  "description": "Community Mutual Aid Platform - Multi-Tenant SaaS",
+  "description": "Community Mutual Aid Platform - Privacy-First Community Health Platform",
   "workspaces": [
     "apps/*",
     "services/*",
