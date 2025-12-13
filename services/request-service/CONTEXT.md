@@ -64,6 +64,57 @@ CREATE INDEX idx_matches_request_id ON requests.matches(request_id);
 CREATE INDEX idx_matches_status ON requests.matches(status);
 ```
 
+**Social Karma v2.0 Schema Extensions:**
+
+```sql
+-- Privacy controls for help_requests
+ALTER TABLE requests.help_requests
+ADD COLUMN is_public BOOLEAN DEFAULT false,
+ADD COLUMN requester_visibility_consent BOOLEAN DEFAULT false;
+
+-- Privacy controls for help_offers
+ALTER TABLE requests.help_offers
+ADD COLUMN is_public BOOLEAN DEFAULT false,
+ADD COLUMN offerer_visibility_consent BOOLEAN DEFAULT false;
+
+-- Privacy and interaction tracking for matches
+ALTER TABLE requests.matches
+ADD COLUMN requester_visible BOOLEAN DEFAULT false,
+ADD COLUMN responder_visible BOOLEAN DEFAULT false,
+ADD COLUMN interaction_category VARCHAR(100);
+
+-- requests.interaction_feedback (NEW)
+CREATE TABLE requests.interaction_feedback (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    match_id UUID NOT NULL REFERENCES requests.matches(id) ON DELETE CASCADE,
+    from_user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    to_user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+
+    -- Interaction quality ratings (1-5)
+    helpfulness INTEGER CHECK (helpfulness BETWEEN 1 AND 5),
+    responsiveness INTEGER CHECK (responsiveness BETWEEN 1 AND 5),
+    clarity INTEGER CHECK (clarity BETWEEN 1 AND 5),
+
+    -- Optional comment about the exchange (not the person)
+    comment TEXT,
+
+    -- Visibility consent for featuring in stories
+    allow_featuring BOOLEAN DEFAULT false,
+
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    UNIQUE(match_id, from_user_id)
+);
+
+CREATE INDEX idx_interaction_feedback_match ON requests.interaction_feedback(match_id);
+CREATE INDEX idx_interaction_feedback_to_user ON requests.interaction_feedback(to_user_id);
+```
+
+**Privacy Design Principles:**
+- **Privacy First**: All new requests/offers default to `is_public = false`
+- **Two-Way Consent**: Both requester and responder must consent (`*_visibility_consent = true`) for names to appear in featured stories
+- **Interaction Ratings**: Feedback rates the exchange quality (helpfulness, responsiveness, clarity), not the individual
+
 ### Tables Read by This Service
 - `auth.users` - User details for requester/helper names and emails
 - `auth.user_skills` - User skills for skill-based matching
@@ -464,6 +515,160 @@ Update match status.
 
 **Events Published:** `match_completed`
 
+---
+
+## Social Karma v2.0 API Endpoints
+
+### PUT /requests/:id/privacy
+Update privacy settings for a request.
+
+**Request:**
+```json
+{
+  "user_id": "uuid",
+  "is_public": true,
+  "requester_visibility_consent": true
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "id": "uuid",
+    "is_public": true,
+    "requester_visibility_consent": true
+  },
+  "message": "Privacy settings updated"
+}
+```
+
+**Validation:**
+- Only requester can update their request privacy settings
+
+**Implementation:** `src/routes/requests.ts` (NEW)
+
+### PUT /offers/:id/privacy
+Update privacy settings for an offer.
+
+**Request:**
+```json
+{
+  "user_id": "uuid",
+  "is_public": false,
+  "offerer_visibility_consent": false
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "id": "uuid",
+    "is_public": false,
+    "offerer_visibility_consent": false
+  },
+  "message": "Privacy settings updated"
+}
+```
+
+**Validation:**
+- Only offerer can update their offer privacy settings
+
+**Implementation:** `src/routes/offers.ts` (NEW)
+
+### POST /matches/:id/feedback
+Submit interaction feedback for a completed match.
+
+**Request:**
+```json
+{
+  "from_user_id": "uuid",
+  "helpfulness": 5,
+  "responsiveness": 4,
+  "clarity": 5,
+  "comment": "Great communication, very helpful exchange!",
+  "allow_featuring": true
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "id": "uuid",
+    "match_id": "uuid",
+    "helpfulness": 5,
+    "responsiveness": 4,
+    "clarity": 5,
+    "allow_featuring": true,
+    "created_at": "2025-01-10T15:30:00Z"
+  },
+  "message": "Feedback submitted successfully"
+}
+```
+
+**Validation:**
+- Match must be completed
+- from_user_id must be requester or responder
+- Can only submit feedback once per match
+- All ratings must be 1-5
+
+**Implementation:** `src/routes/feedback.ts` (NEW)
+
+**Events Published:** `interaction_feedback_submitted`
+
+**Two-Way Consent Logic:**
+When both parties submit feedback with `allow_featuring = true`:
+1. Check `requester_visibility_consent` and `responder_visibility_consent`
+2. If both true: Names visible in featured story
+3. If either false: Anonymous story only
+4. Update `matches.requester_visible` and `matches.responder_visible` accordingly
+
+### GET /matches/:id/feedback
+Get feedback for a match.
+
+**Query Parameters:**
+- `user_id` - User requesting feedback (must be requester or responder)
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "feedback_from_requester": {
+      "id": "uuid",
+      "helpfulness": 5,
+      "responsiveness": 4,
+      "clarity": 5,
+      "comment": "Very helpful!",
+      "created_at": "2025-01-10T15:30:00Z"
+    },
+    "feedback_from_responder": {
+      "id": "uuid",
+      "helpfulness": 4,
+      "responsiveness": 5,
+      "clarity": 4,
+      "comment": "Clear communication",
+      "created_at": "2025-01-10T15:35:00Z"
+    },
+    "both_allow_featuring": true,
+    "requester_visible": true,
+    "responder_visible": true
+  }
+}
+```
+
+**Validation:**
+- Only requester or responder can view feedback
+
+**Implementation:** `src/routes/feedback.ts` (NEW)
+
+---
+
 ### GET /health
 Service health check.
 
@@ -493,6 +698,8 @@ Service health check.
 - `offer_created` - When new offer is created
 - `match_created` - When request and responder are matched
 - `match_completed` - When match is marked as completed
+- `interaction_feedback_submitted` - When user submits feedback on interaction (Social Karma v2.0)
+- `privacy_settings_updated` - When request/offer privacy settings change (Social Karma v2.0)
 
 ### Events Consumed
 - None
@@ -527,6 +734,7 @@ LOG_LEVEL=info                   # debug, info, warn, error
 - `src/routes/requests.ts` - Help request CRUD and skill-based matching
 - `src/routes/offers.ts` - Help offer CRUD operations
 - `src/routes/matches.ts` - Match creation and status updates
+- `src/routes/feedback.ts` - Interaction feedback (Social Karma v2.0) - NEW
 
 ### Database
 - `src/database/db.ts` - PostgreSQL connection pool

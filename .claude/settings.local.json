@@ -36,7 +36,10 @@
       "Bash(git reset:*)",
       "Bash(apps/mobile/.gitignore)",
       "Bash(\"C:/Users/ravic/AppData/Local/Android/Sdk/platform-tools/adb.exe\" install -r -d \"https://expo.dev/artifacts/eas/bzKHrp7HDaRd5CxbZNSxk4.apk\")",
-      "Bash(npm run:*)"
+      "Bash(npm run:*)",
+      "Bash(gh run:*)",
+      "Bash(gh workflow:*)",
+      "Bash(npm test:*)"
     ],
     "deny": [],
     "ask": []

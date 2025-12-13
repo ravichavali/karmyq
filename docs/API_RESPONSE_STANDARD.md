@@ -141,21 +141,36 @@ const name = response.data.name;
 
 ### ✅ Completed
 - auth-service (all routes)
-- community-service (all routes in communities.ts)
-- request-service (partial: requests.ts GET /, matches.ts GET /)
+- community-service (communities.ts: ALL CRUD routes)
+- request-service:
+  - requests.ts: GET / (list)
+  - matches.ts: GET / (list)
+  - offers.ts: GET / (list), GET /:id (detail)
+- All service health endpoints (GET /health)
 
 ### 🔄 In Progress
 - request-service:
   - requests.ts: POST, PUT, DELETE routes
   - matches.ts: GET /:id, POST, PUT, DELETE routes
-  - offers.ts: ALL routes
+  - offers.ts: POST, PUT, DELETE routes
+- community-service:
+  - members.ts: ALL routes
+  - norms.ts: ALL routes
+  - settings.ts: ALL routes
 
 ### ⏳ Not Started
 - reputation-service routes (beyond index.ts)
 - notification-service routes (beyond index.ts)
 - messaging-service routes (beyond index.ts)
 - feed-service routes (beyond index.ts)
-- community-service: members.ts, norms.ts, settings.ts, etc.
+
+### 🧪 E2E Test Status
+- **410 total tests** across 9 test files
+- **Auth flows**: ✅ Login working, session persistence working
+- **Dashboard**: ✅ Most critical flows passing
+- **Communities**: ⚠️ Some failures in list/create (under investigation)
+- **Requests**: ⚠️ Creation failing (needs investigation)
+- See [E2E Test Report](../tests/e2e/README.md) for details
 
 ## Testing Requirements
 

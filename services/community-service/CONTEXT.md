@@ -70,6 +70,30 @@ CREATE INDEX idx_members_community_id ON communities.members(community_id);
 CREATE INDEX idx_norms_community_id ON communities.norms(community_id);
 ```
 
+**Social Karma v2.0 Schema Extensions:**
+
+```sql
+-- communities.health_summary (NEW)
+CREATE TABLE communities.health_summary (
+    community_id UUID PRIMARY KEY REFERENCES communities.communities(id) ON DELETE CASCADE,
+
+    -- Latest metrics (from reputation.community_health_metrics)
+    total_exchanges INTEGER DEFAULT 0,
+    active_members INTEGER DEFAULT 0,
+    network_strength NUMERIC(5,2) DEFAULT 0,
+
+    -- Trend indicators (7-day vs previous 7-day)
+    trend_direction VARCHAR(20) DEFAULT 'stable',
+    trend_percentage NUMERIC(5,2) DEFAULT 0,
+
+    -- Last updated
+    last_calculated TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+COMMENT ON TABLE communities.health_summary IS 'Cached summary of community health for quick access';
+COMMENT ON COLUMN communities.health_summary.network_strength IS 'Composite score: activity + quality + density';
+```
+
 ### Tables Read by This Service
 - `auth.users` - User details for member profiles and creator names
 

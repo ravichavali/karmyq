@@ -197,7 +197,18 @@ export async function getUserKarma(user_id: string, community_id?: string) {
 
 export async function getUserTrustScore(user_id: string, community_id: string) {
   const result = await query(
-    `SELECT * FROM reputation.trust_scores
+    `SELECT
+       user_id,
+       community_id,
+       score,
+       requests_completed,
+       offers_accepted,
+       avg_helpfulness,
+       avg_responsiveness,
+       avg_clarity,
+       total_feedback_received,
+       last_updated
+     FROM reputation.trust_scores
      WHERE user_id = $1 AND community_id = $2`,
     [user_id, community_id]
   );
@@ -208,6 +219,10 @@ export async function getUserTrustScore(user_id: string, community_id: string) {
     score: 50, // Default score
     requests_completed: 0,
     offers_accepted: 0,
+    avg_helpfulness: 0,
+    avg_responsiveness: 0,
+    avg_clarity: 0,
+    total_feedback_received: 0,
   };
 }
 

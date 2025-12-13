@@ -273,4 +273,98 @@ router.delete('/:id', async (req: Request, res: Response) => {
   }
 });
 
+/**
+ * PUT /offers/:id/privacy
+ * Update privacy settings for an offer (Social Karma v2.0)
+ */
+router.put('/:id/privacy', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { is_public, offerer_visibility_consent } = req.body;
+    const user_id = (req as any).user?.userId;
+
+    if (!user_id) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required',
+      });
+    }
+
+    // Check if user is the offerer
+    const offerCheck = await query(
+      `SELECT offerer_id FROM requests.help_offers WHERE id = $1`,
+      [id]
+    );
+
+    if (offerCheck.rowCount === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Offer not found',
+      });
+    }
+
+    if (offerCheck.rows[0].offerer_id !== user_id) {
+      return res.status(403).json({
+        success: false,
+        message: 'Only the offerer can update privacy settings',
+      });
+    }
+
+    // Build update query
+    const updates: string[] = [];
+    const values: any[] = [];
+    let paramCount = 1;
+
+    if (typeof is_public !== 'undefined') {
+      updates.push(`is_public = $${paramCount++}`);
+      values.push(is_public);
+    }
+
+    if (typeof offerer_visibility_consent !== 'undefined') {
+      updates.push(`offerer_visibility_consent = $${paramCount++}`);
+      values.push(offerer_visibility_consent);
+    }
+
+    if (updates.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'No privacy settings provided to update',
+      });
+    }
+
+    updates.push(`updated_at = CURRENT_TIMESTAMP`);
+    values.push(id);
+
+    const result = await query(
+      `UPDATE requests.help_offers
+       SET ${updates.join(', ')}
+       WHERE id = $${paramCount}
+       RETURNING id, is_public, offerer_visibility_consent`,
+      values
+    );
+
+    // Publish privacy settings updated event
+    await publishEvent('privacy_settings_updated', {
+      entity_type: 'offer',
+      entity_id: id,
+      user_id,
+      is_public,
+      offerer_visibility_consent,
+    });
+
+    res.json({
+      success: true,
+      data: result.rows[0],
+      message: 'Privacy settings updated',
+    });
+  } catch (error: any) {
+    console.error('Error updating privacy settings:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update privacy settings',
+      error: error.message,
+    });
+  }
+});
+
 export default router;

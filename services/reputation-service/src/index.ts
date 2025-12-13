@@ -3,8 +3,11 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import { initDatabase } from './database/db';
 import { initEventSubscriber } from './events/subscriber';
+import { initEventPublisher } from './events/publisher';
 import pool from './database/db';
 import reputationRouter from './routes/reputation';
+import healthRouter from './routes/health';
+import { initHealthMetricsCalculator } from './cron/healthMetricsCalculator';
 import { createLogger, requestLoggingMiddleware } from '../shared/utils/logger';
 import {
   authMiddleware,
@@ -48,6 +51,15 @@ app.use(
   reputationRouter
 );
 
+app.use(
+  '/reputation',
+  rateLimiters.standard,
+  authMiddleware,
+  tenantMiddleware,
+  dbContextMiddleware(pool),
+  healthRouter
+);
+
 // 404 handler
 app.use((req: any, res: Response) => {
   sendError(res, 'NOT_FOUND', 'Route not found', 404, { path: req.path }, { requestId: req.id });
@@ -76,10 +88,18 @@ async function start() {
     dbTimer();
     logger.info('Database connected successfully');
 
+    const publisherTimer = logger.timer('event_publisher_init');
+    await initEventPublisher();
+    publisherTimer();
+    logger.info('Event publisher initialized successfully');
+
     const eventTimer = logger.timer('event_subscriber_init');
     await initEventSubscriber();
     eventTimer();
     logger.info('Event subscriber initialized successfully');
+
+    initHealthMetricsCalculator();
+    logger.info('Health metrics calculator initialized successfully');
 
     app.listen(PORT, () => {
       logger.info('Service started', {

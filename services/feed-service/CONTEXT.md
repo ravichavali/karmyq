@@ -41,6 +41,48 @@ CREATE TABLE feed.dismissed_items (
 CREATE INDEX idx_dismissed_items_user ON feed.dismissed_items(user_id);
 ```
 
+**Social Karma v2.0 Schema Extensions:**
+
+```sql
+-- Add new privacy and metrics preferences
+ALTER TABLE feed.preferences
+ADD COLUMN show_community_metrics BOOLEAN DEFAULT true,
+ADD COLUMN show_milestone_celebrations BOOLEAN DEFAULT true,
+ADD COLUMN show_anonymous_stories BOOLEAN DEFAULT true;
+
+-- feed.featured_stories (NEW)
+CREATE TABLE feed.featured_stories (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    community_id UUID NOT NULL REFERENCES communities.communities(id) ON DELETE CASCADE,
+
+    -- Story type
+    story_type VARCHAR(50) NOT NULL,
+
+    -- Story content
+    title VARCHAR(255) NOT NULL,
+    description TEXT NOT NULL,
+
+    -- Referenced entities (nullable depending on story type)
+    match_id UUID REFERENCES requests.matches(id) ON DELETE CASCADE,
+    category VARCHAR(100),
+
+    -- Privacy controls
+    is_anonymous BOOLEAN DEFAULT true,
+    requester_name VARCHAR(255),
+    responder_name VARCHAR(255),
+
+    -- Featuring controls
+    is_public BOOLEAN DEFAULT false,
+
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    expires_at TIMESTAMP
+);
+
+CREATE INDEX idx_featured_stories_community ON feed.featured_stories(community_id);
+CREATE INDEX idx_featured_stories_type ON feed.featured_stories(story_type);
+CREATE INDEX idx_featured_stories_created ON feed.featured_stories(created_at);
+```
+
 ### Tables Read by This Service
 - `communities.members` - User's communities
 - `requests.help_requests` - Open requests

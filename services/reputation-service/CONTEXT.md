@@ -52,6 +52,76 @@ CREATE INDEX idx_karma_records_community_id ON reputation.karma_records(communit
 CREATE INDEX idx_trust_scores_user_community ON reputation.trust_scores(user_id, community_id);
 ```
 
+**Social Karma v2.0 Schema Extensions:**
+
+```sql
+-- Add interaction quality metrics to trust_scores
+ALTER TABLE reputation.trust_scores
+ADD COLUMN avg_helpfulness NUMERIC(3,2) DEFAULT 0,
+ADD COLUMN avg_responsiveness NUMERIC(3,2) DEFAULT 0,
+ADD COLUMN avg_clarity NUMERIC(3,2) DEFAULT 0,
+ADD COLUMN total_feedback_received INTEGER DEFAULT 0;
+
+-- reputation.community_health_metrics (NEW)
+CREATE TABLE reputation.community_health_metrics (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    community_id UUID NOT NULL REFERENCES communities.communities(id) ON DELETE CASCADE,
+
+    -- Snapshot date (daily aggregation)
+    snapshot_date DATE NOT NULL DEFAULT CURRENT_DATE,
+
+    -- Network strength metrics
+    total_matches_completed INTEGER DEFAULT 0,
+    total_active_requesters INTEGER DEFAULT 0,
+    total_active_helpers INTEGER DEFAULT 0,
+    unique_participant_count INTEGER DEFAULT 0,
+
+    -- Interaction quality aggregates (community-wide averages)
+    avg_helpfulness NUMERIC(3,2) DEFAULT 0,
+    avg_responsiveness NUMERIC(3,2) DEFAULT 0,
+    avg_clarity NUMERIC(3,2) DEFAULT 0,
+
+    -- Network density (connections per member)
+    network_density NUMERIC(5,4) DEFAULT 0,
+
+    -- Growth metrics (vs previous period)
+    growth_rate_matches NUMERIC(5,2) DEFAULT 0,
+    growth_rate_participants NUMERIC(5,2) DEFAULT 0,
+
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    UNIQUE(community_id, snapshot_date)
+);
+
+CREATE INDEX idx_health_metrics_community ON reputation.community_health_metrics(community_id);
+CREATE INDEX idx_health_metrics_date ON reputation.community_health_metrics(snapshot_date);
+
+-- reputation.milestone_events (NEW)
+CREATE TABLE reputation.milestone_events (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    community_id UUID NOT NULL REFERENCES communities.communities(id) ON DELETE CASCADE,
+
+    -- Milestone type
+    milestone_type VARCHAR(100) NOT NULL,
+    milestone_value INTEGER NOT NULL,
+    description TEXT NOT NULL,
+
+    -- Privacy control
+    is_featured BOOLEAN DEFAULT true,
+
+    achieved_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_milestone_events_community ON reputation.milestone_events(community_id);
+CREATE INDEX idx_milestone_events_type ON reputation.milestone_events(milestone_type);
+```
+
+**Social Karma v2.0 Design Principles:**
+- **Metrics Over Individuals**: Focus on community health metrics, not individual rankings
+- **Collective Prestige**: Track community-level achievements and growth
+- **Interaction Quality**: Incorporate feedback ratings into trust scores
+- **Growth Visibility**: Show network strength trends and milestone achievements
+
 ### Tables Read by This Service
 - `auth.users` - User names for leaderboards
 - `communities.communities` - Community names for karma history
@@ -238,6 +308,124 @@ Get all badges earned by a user.
 
 **Implementation:** `src/routes/reputation.ts:129`
 
+---
+
+## Social Karma v2.0 API Endpoints
+
+### GET /reputation/community-health/:communityId
+Get community health metrics and trends.
+
+**Query Parameters:**
+- `period` - Time period for trend calculation ('7d', '30d', '90d', default: '7d')
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "current": {
+      "total_matches_completed": 127,
+      "unique_participants": 45,
+      "total_active_requesters": 28,
+      "total_active_helpers": 35,
+      "avg_helpfulness": 4.6,
+      "avg_responsiveness": 4.8,
+      "avg_clarity": 4.5,
+      "network_density": 0.342,
+      "network_strength": 78.5
+    },
+    "trend": {
+      "matches_growth": 15.2,
+      "participants_growth": 8.5,
+      "direction": "growing"
+    },
+    "period": "7d",
+    "snapshot_date": "2025-01-13"
+  }
+}
+```
+
+**Implementation:** `src/routes/health.ts` (NEW)
+
+**Network Strength Calculation:**
+```
+network_strength = weighted_average(
+  activity_score * 0.4,      // matches per member
+  quality_score * 0.4,       // avg interaction ratings
+  density_score * 0.2        // connection diversity
+)
+```
+
+### GET /reputation/milestones/:communityId
+Get community milestone achievements.
+
+**Query Parameters:**
+- `limit` - Max results (default: 10)
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "uuid",
+      "milestone_type": "100_matches",
+      "milestone_value": 100,
+      "description": "Reached 100 successful help exchanges!",
+      "is_featured": true,
+      "achieved_at": "2025-01-10T12:00:00Z"
+    },
+    {
+      "id": "uuid",
+      "milestone_type": "50_participants",
+      "milestone_value": 50,
+      "description": "50 unique members have participated in help exchanges",
+      "is_featured": true,
+      "achieved_at": "2025-01-08T09:30:00Z"
+    }
+  ],
+  "count": 2
+}
+```
+
+**Implementation:** `src/routes/health.ts` (NEW)
+
+**Milestone Types:**
+- `10_matches`, `50_matches`, `100_matches`, `500_matches`, `1000_matches`
+- `10_participants`, `25_participants`, `50_participants`, `100_participants`
+- `avg_quality_4.5` - Average quality rating reaches 4.5+
+
+### GET /reputation/trust/:userId/:communityId
+Enhanced trust score with interaction quality (UPDATED).
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "user_id": "uuid",
+    "community_id": "uuid",
+    "score": 75,
+    "requests_completed": 8,
+    "offers_accepted": 12,
+    "average_feedback": 4.5,
+    "interaction_quality": {
+      "avg_helpfulness": 4.6,
+      "avg_responsiveness": 4.8,
+      "avg_clarity": 4.5,
+      "total_feedback_received": 12
+    },
+    "last_updated": "2025-01-10T12:00:00Z"
+  }
+}
+```
+
+**Implementation:** `src/routes/reputation.ts:37` (UPDATED)
+
+**Note:** Now includes detailed interaction quality metrics from Social Karma v2.0 feedback system.
+
+---
+
 ### GET /health
 Service health check.
 
@@ -293,10 +481,12 @@ When a match is completed, the reputation service:
 - Feed Service (to get user reputation for feed explanations)
 
 ### Events Published
-- None (reputation service only consumes events)
+- `milestone_achieved` - When community reaches a milestone (Social Karma v2.0)
+- `health_metrics_calculated` - Daily metric calculation complete (Social Karma v2.0)
 
 ### Events Consumed
 - `match_completed` - Award karma when help exchange completed
+- `interaction_feedback_submitted` - Update trust scores with interaction quality (Social Karma v2.0)
 
 ### External Dependencies
 - PostgreSQL (reputation schema)
@@ -326,12 +516,18 @@ LOG_LEVEL=info                   # debug, info, warn, error
 
 ### Routes
 - `src/routes/reputation.ts` - Karma, trust score, leaderboard, badges endpoints
+- `src/routes/health.ts` - Community health metrics and milestones (Social Karma v2.0) - NEW
 
 ### Services
 - `src/services/karmaService.ts` - Karma award logic, trust score calculation
+- `src/services/healthMetricsService.ts` - Community health calculation (Social Karma v2.0) - NEW
+- `src/services/milestoneDetector.ts` - Milestone detection logic (Social Karma v2.0) - NEW
 
 ### Events
-- `src/events/subscriber.ts` - Listens to match_completed events
+- `src/events/subscriber.ts` - Listens to match_completed and interaction_feedback_submitted events
+
+### Background Jobs
+- `src/cron/healthMetricsCalculator.ts` - Daily health metrics aggregation (Social Karma v2.0) - NEW
 
 ### Database
 - `src/database/db.ts` - PostgreSQL connection pool

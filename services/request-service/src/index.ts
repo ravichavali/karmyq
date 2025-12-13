@@ -7,6 +7,7 @@ import pool from './database/db';
 import requestsRouter from './routes/requests';
 import offersRouter from './routes/offers';
 import matchesRouter from './routes/matches';
+import feedbackRouter from './routes/feedback';
 import { createLogger, requestLoggingMiddleware } from '../shared/utils/logger';
 import {
   authMiddleware,
@@ -67,6 +68,15 @@ app.use(
   optionalTenantMiddleware,
   dbContextMiddleware(pool),
   matchesRouter
+);
+
+app.use(
+  '/matches',
+  rateLimiters.standard,
+  authMiddleware,
+  optionalTenantMiddleware,
+  dbContextMiddleware(pool),
+  feedbackRouter
 );
 
 // 404 handler
