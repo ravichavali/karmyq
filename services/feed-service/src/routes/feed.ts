@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { FeedComposer } from '../services/feedComposer';
+import { SocialKarmaFeedComposer } from '../services/socialKarmaFeedComposer';
 import { query } from '../database/db';
 
 // AuthenticatedRequest type - matches the shared middleware
@@ -17,6 +18,7 @@ interface AuthenticatedRequest extends Request {
 
 const router = Router();
 const feedComposer = new FeedComposer();
+const socialKarmaComposer = new SocialKarmaFeedComposer();
 
 /**
  * GET /feed
@@ -310,6 +312,179 @@ router.put('/preferences', async (req: AuthenticatedRequest, res: Response) => {
     res.status(500).json({
       success: false,
       message: 'Failed to update preferences',
+      error: process.env.NODE_ENV === 'development' ? (error as Error).message : undefined
+    });
+  }
+});
+
+/**
+ * GET /feed/milestones
+ * Get milestone posts for community
+ * SECURITY: userId comes from verified JWT token via authMiddleware
+ */
+router.get('/milestones', async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = req.user?.userId;
+    const communityId = req.query.community_id as string;
+    const limit = parseInt(req.query.limit as string) || 5;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required'
+      });
+    }
+
+    if (!communityId) {
+      return res.status(400).json({
+        success: false,
+        message: 'community_id is required'
+      });
+    }
+
+    const milestones = await socialKarmaComposer.getMilestonePosts(communityId, limit);
+
+    res.json({
+      success: true,
+      data: milestones
+    });
+  } catch (error) {
+    (req as AuthenticatedRequest).logger?.error('Error fetching milestones', error instanceof Error ? error : new Error(String(error)));
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch milestones',
+      error: process.env.NODE_ENV === 'development' ? (error as Error).message : undefined
+    });
+  }
+});
+
+/**
+ * GET /feed/featured-stories
+ * Get featured stories for community
+ * SECURITY: userId comes from verified JWT token via authMiddleware
+ */
+router.get('/featured-stories', async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = req.user?.userId;
+    const communityId = req.query.community_id as string;
+    const limit = parseInt(req.query.limit as string) || 10;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required'
+      });
+    }
+
+    if (!communityId) {
+      return res.status(400).json({
+        success: false,
+        message: 'community_id is required'
+      });
+    }
+
+    const stories = await socialKarmaComposer.getFeaturedStories(communityId, limit);
+
+    res.json({
+      success: true,
+      data: stories
+    });
+  } catch (error) {
+    (req as AuthenticatedRequest).logger?.error('Error fetching featured stories', error instanceof Error ? error : new Error(String(error)));
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch featured stories',
+      error: process.env.NODE_ENV === 'development' ? (error as Error).message : undefined
+    });
+  }
+});
+
+/**
+ * GET /feed/community-health
+ * Get community health summary for dashboard hero
+ * SECURITY: userId comes from verified JWT token via authMiddleware
+ */
+router.get('/community-health', async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = req.user?.userId;
+    const communityId = req.query.community_id as string;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required'
+      });
+    }
+
+    if (!communityId) {
+      return res.status(400).json({
+        success: false,
+        message: 'community_id is required'
+      });
+    }
+
+    const healthSummary = await socialKarmaComposer.getCommunityHealthSummary(communityId);
+
+    if (!healthSummary) {
+      return res.status(404).json({
+        success: false,
+        message: 'Community not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: healthSummary
+    });
+  } catch (error) {
+    (req as AuthenticatedRequest).logger?.error('Error fetching community health', error instanceof Error ? error : new Error(String(error)));
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch community health',
+      error: process.env.NODE_ENV === 'development' ? (error as Error).message : undefined
+    });
+  }
+});
+
+/**
+ * GET /feed/mixed
+ * Get mixed feed with milestones, featured stories, and requests
+ * SECURITY: userId comes from verified JWT token via authMiddleware
+ */
+router.get('/mixed', async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = req.user?.userId;
+    const communityId = req.query.community_id as string;
+    const limit = parseInt(req.query.limit as string) || 20;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required'
+      });
+    }
+
+    if (!communityId) {
+      return res.status(400).json({
+        success: false,
+        message: 'community_id is required'
+      });
+    }
+
+    const feed = await socialKarmaComposer.composeMixedFeed(communityId, userId, limit);
+
+    res.json({
+      success: true,
+      data: {
+        items: feed,
+        count: feed.length
+      }
+    });
+  } catch (error) {
+    (req as AuthenticatedRequest).logger?.error('Error fetching mixed feed', error instanceof Error ? error : new Error(String(error)));
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch mixed feed',
       error: process.env.NODE_ENV === 'development' ? (error as Error).message : undefined
     });
   }
