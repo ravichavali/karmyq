@@ -2,8 +2,11 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/router'
 import Head from 'next/head'
 import { requestService, communityService } from '@/lib/api'
+import { feedApi } from '@/lib/api'
 import Layout from '@/components/Layout'
 import InlineChat from '@/components/InlineChat'
+import CommunityHealthHero from '@/components/CommunityHealthHero'
+import MilestonePost from '@/components/MilestonePost'
 
 interface HelpRequest {
   id: string
@@ -49,6 +52,7 @@ export default function Dashboard() {
 
   // Unified feed
   const [feedItems, setFeedItems] = useState<any[]>([])
+  const [milestones, setMilestones] = useState<any[]>([])
   const [expandedPosts, setExpandedPosts] = useState<Set<string>>(new Set())
 
   useEffect(() => {
@@ -79,6 +83,18 @@ export default function Dashboard() {
         requestService.getRequests({ status: 'matched', limit: 50 }), // Get matched requests (for offers I'm helping with)
         communityService.getCommunities(),
       ])
+
+      // Fetch milestones for first community
+      try {
+        const communities = communitiesRes.data.data || []
+        if (communities.length > 0) {
+          const milestonesRes = await feedApi.get(`/feed/milestones?community_id=${communities[0].id}&limit=5`)
+          setMilestones(milestonesRes.data || [])
+        }
+      } catch (err) {
+        console.error('Failed to fetch milestones:', err)
+        setMilestones([])
+      }
 
       const allRequests = myRequestsRes.data.requests
       const allMatches = allMatchesRes.data.matches
@@ -347,6 +363,11 @@ export default function Dashboard() {
       <Layout>
         <div className="min-h-screen bg-gray-50">
           <div className="container mx-auto px-4 py-6 max-w-4xl">
+            {/* Community Health Hero */}
+            {user?.communities && user.communities.length > 0 && (
+              <CommunityHealthHero communityId={user.communities[0].id} />
+            )}
+
             {/* Quick Create */}
             <div className="bg-white rounded-xl shadow-sm p-6 mb-6 border border-gray-200">
               <div className="flex items-start gap-4">
@@ -415,6 +436,19 @@ export default function Dashboard() {
             {/* Unified Post Feed */}
             <div>
               <h2 className="text-xl font-bold text-gray-900 mb-4 px-1">Your Feed</h2>
+
+              {/* Milestone Posts */}
+              {milestones.length > 0 && (
+                <div className="space-y-4 mb-6">
+                  {milestones.map((milestone: any) => (
+                    <MilestonePost
+                      key={milestone.id}
+                      {...milestone}
+                    />
+                  ))}
+                </div>
+              )}
+
               {feedItems.length === 0 ? (
                 <div className="bg-white rounded-xl p-12 text-center border border-gray-200">
                   <div className="text-5xl mb-4">🤝</div>
