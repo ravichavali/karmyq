@@ -1,6 +1,6 @@
 # Karmyq - Community Mutual Aid Platform 🤝
 
-[![Version](https://img.shields.io/badge/version-5.1.0-blue.svg)](https://github.com/ravichavali/karmyq/releases/tag/v5.1.0)
+[![Version](https://img.shields.io/badge/version-8.0.0-blue.svg)](https://github.com/ravichavali/karmyq/releases/tag/v8.0.0)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Tests](https://github.com/ravichavali/karmyq/actions/workflows/test.yml/badge.svg)](https://github.com/ravichavali/karmyq/actions/workflows/test.yml)
 [![E2E Tests](https://github.com/ravichavali/karmyq/actions/workflows/e2e-tests.yml/badge.svg)](https://github.com/ravichavali/karmyq/actions/workflows/e2e-tests.yml)
@@ -38,14 +38,24 @@ open http://localhost:3000
 ### Testing
 
 ```bash
-# Run integration tests
-npm run test:integration
+# Generate realistic test data (one-time setup)
+cd tests
+npm run generate-test-data
+npm run load-test-data
 
-# Run tests in watch mode
-npm run test:watch
+# Run full test suite
+./scripts/test-all.sh      # Mac/Linux
+scripts\test-all.bat        # Windows
 
-# Generate coverage report
-npm run test:coverage
+# Install git hooks (enforces testing)
+./scripts/install-git-hooks.sh      # Mac/Linux
+scripts\install-git-hooks.bat       # Windows
+
+# Run individual test suites
+cd tests
+npm run test:integration    # Integration tests
+cd e2e && npm run test      # E2E tests
+cd performance && npm test  # Performance tests
 ```
 
 See [Test Suite Documentation](tests/README.md) for more.

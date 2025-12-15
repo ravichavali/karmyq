@@ -1,0 +1,85 @@
+{
+  "generated_at": "2025-12-15T04:09:38.992Z",
+  "version": "8.0.0",
+  "statistics": {
+    "users": 2007,
+    "communities": 200,
+    "memberships": 5330,
+    "requests": 2746,
+    "offers": 4427,
+    "matches": 284,
+    "messages": 1966,
+    "karma_records": 384,
+    "milestones": 258
+  },
+  "test_personas": [
+    {
+      "email": "new.user@test.com",
+      "name": "New User",
+      "password": "password123",
+      "type": "new",
+      "description": "Brand new user with no karma, no requests yet"
+    },
+    {
+      "email": "power.helper@test.com",
+      "name": "Power Helper",
+      "password": "password123",
+      "type": "power_helper",
+      "description": "Very active helper with high karma and trust score"
+    },
+    {
+      "email": "frequent.requester@test.com",
+      "name": "Frequent Requester",
+      "password": "password123",
+      "type": "frequent_requester",
+      "description": "Often asks for help, moderate karma"
+    },
+    {
+      "email": "community.moderator@test.com",
+      "name": "Community Moderator",
+      "password": "password123",
+      "type": "moderator",
+      "description": "Moderator role with multiple communities"
+    },
+    {
+      "email": "balanced.user@test.com",
+      "name": "Balanced User",
+      "password": "password123",
+      "type": "balanced",
+      "description": "Equal giving and receiving, good trust score"
+    },
+    {
+      "email": "occasional.user@test.com",
+      "name": "Occasional User",
+      "password": "password123",
+      "type": "occasional",
+      "description": "Logs in rarely, low activity"
+    },
+    {
+      "email": "multi.community@test.com",
+      "name": "Multi Community Member",
+      "password": "password123",
+      "type": "multi_community",
+      "description": "Member of 10+ communities"
+    }
+  ],
+  "distribution": {
+    "community_sizes": {
+      "large": 20,
+      "medium": 60,
+      "small": 120
+    },
+    "user_activity": {
+      "very_active": 101,
+      "active": 400,
+      "moderate": 905,
+      "occasional": 601
+    },
+    "request_status": {
+      "open": 266,
+      "matched": 406,
+      "expired": 1818,
+      "cancelled": 256
+    }
+  }
+}

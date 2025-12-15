@@ -2,8 +2,8 @@
 
 Complete documentation for the Karmyq mutual aid platform.
 
-**Current Version**: v6.0.0
-**Last Updated**: 2025-12-05
+**Current Version**: v8.0.0
+**Last Updated**: 2025-12-14
 
 ## 🚀 Quick Start
 
@@ -41,10 +41,12 @@ Complete documentation for the Karmyq mutual aid platform.
 - **[Service Dependencies](architecture/SERVICE_DEPENDENCIES.md)** - Service dependency graph and failure modes
 - **[Data Model](architecture/DATA_MODEL.md)** - Database schema with ERD diagram (29 tables, 9 schemas)
 - **[RLS Policies](architecture/RLS_POLICIES.md)** - Row-Level Security policies explained
-- **[Architectural Review](V6_ARCHITECTURAL_REVIEW.md)** - v6.0 architectural review and decisions
+- **[V7 UI Architecture](architecture/V7_UI_ARCHITECTURE.md)** - Social Karma v2.0 3-column dashboard architecture
+- **[V6 Architectural Review](V6_ARCHITECTURAL_REVIEW.md)** - v6.0 architectural review and decisions
 
 ## 💻 Development
 
+- **[Dashboard Development Guide](DASHBOARD_GUIDE.md)** - Quick reference for dashboard development
 - **[Creating a Service](development/creating-a-service.md)** - Step-by-step guide to create new services
 - **[Implementing Logging](development/implementing-logging.md)** - Add structured logging to services
 - **[Testing Guide](development/testing-guide.md)** - Comprehensive testing strategy (fixtures, E2E, load testing)
@@ -60,9 +62,10 @@ Complete documentation for the Karmyq mutual aid platform.
 
 ## 🧪 Testing
 
+- **[V8 Testing Guide](testing/V8_TESTING_GUIDE.md)** - Comprehensive v8.0 testing guide (realistic data, personas, performance)
 - **[Integration Tests](../tests/README.md)** - Multi-tenant integration test suite
 - **[E2E Tests](../tests/e2e/README.md)** - Playwright end-to-end tests
-- **[Load Tests](../tests/load/README.md)** - Performance and stress testing
+- **[Performance Tests](../tests/performance/)** - API response time benchmarks
 - **[Testing Guide](development/testing-guide.md)** - Complete testing strategy (fixtures, E2E, load)
 - **[Testing & Observability](../TESTING_AND_OBSERVABILITY.md)** - Overview
 
@@ -91,6 +94,7 @@ docs/
 ├── README.md (this file)
 ├── PROJECT_STATUS.md          # Current status & roadmap
 ├── GETTING_STARTED.md         # Quick start guide
+├── DASHBOARD_GUIDE.md         # Dashboard development quick reference
 ├── V6_MIGRATION_GUIDE.md      # v6.0 migration guide
 ├── V6_ARCHITECTURAL_REVIEW.md # v6.0 architectural review
 ├── MULTI_TENANT_GUIDE.md      # Multi-tenant architecture
@@ -104,7 +108,8 @@ docs/
 │   ├── ARCHITECTURE.md        # Complete system architecture
 │   ├── SERVICE_DEPENDENCIES.md # Service dependency graph
 │   ├── DATA_MODEL.md          # Database schema with ERD
-│   └── RLS_POLICIES.md        # Row-Level Security policies
+│   ├── RLS_POLICIES.md        # Row-Level Security policies
+│   └── V7_UI_ARCHITECTURE.md  # Social Karma v2.0 UI architecture
 ├── development/               # Development guides
 │   ├── creating-a-service.md
 │   ├── implementing-logging.md
@@ -167,8 +172,11 @@ npm run test:flows       # Multi-community flows
 cd tests/e2e && npm run test
 ```
 
-## 📊 Current Status (v6.0.0)
+## 📊 Current Status (v8.0.0)
 
+- ✅ **Comprehensive Testing** - Realistic data (2000 users, 200 communities), test personas, performance benchmarks
+- ✅ **Git Hooks** - Automated testing enforcement (pre-commit, pre-push)
+- ✅ **Social Karma v2.0 UI** - Modern 3-column dashboard with interactive widgets
 - ✅ **8 Backend Services** - All production-ready with multi-tenant support
 - ✅ **Multi-Tenant SaaS** - Row-Level Security, community isolation
 - ✅ **Ephemeral Data** - Configurable TTL (60 days default)
@@ -179,7 +187,7 @@ cd tests/e2e && npm run test
 - ✅ **Feed Service** - Schema properly aligned with database
 - ✅ **Database** - PostgreSQL with 9 schemas, 19 RLS-protected tables
 - ✅ **Observability** - Grafana/Loki/Prometheus stack
-- ✅ **Testing** - Integration tests + E2E tests
+- ✅ **Testing** - Integration + E2E + Performance tests
 - ✅ **CI/CD** - GitHub Actions pipeline
 
 See [PROJECT_STATUS.md](PROJECT_STATUS.md) for detailed status and roadmap.

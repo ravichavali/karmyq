@@ -36,6 +36,8 @@ jobs:
         run: |
           echo "Seeding E2E test data..."
           cat infrastructure/postgres/seed-e2e.sql | docker exec -i karmyq-postgres psql -U karmyq_user -d karmyq_db
+          echo "Seeding Social Karma v2 test data..."
+          cat tests/e2e/seed-social-karma-v2-simple.sql | docker exec -i karmyq-postgres psql -U karmyq_user -d karmyq_db
         timeout-minutes: 1
 
       - name: Run E2E tests
@@ -43,10 +45,13 @@ jobs:
           cd tests/e2e
           npm install
           npx playwright install --with-deps chromium
-          npm test -- --project=chromium --workers=1 --reporter=list tests/01-auth.spec.ts tests/02-communities.spec.ts tests/03-requests.spec.ts
+          npm test -- --project=chromium --workers=1 --reporter=list tests/01-auth.spec.ts tests/02-communities.spec.ts tests/03-requests.spec.ts tests/10-social-karma-v2.spec.ts
         timeout-minutes: 10
         env:
           CI: true
+          FEED_API_URL: http://localhost:3007
+          AUTH_API_URL: http://localhost:3001
+          COMMUNITY_API_URL: http://localhost:3002
 
       - name: Upload test results
         if: always()

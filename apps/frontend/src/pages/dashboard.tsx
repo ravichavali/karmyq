@@ -5,7 +5,8 @@ import { requestService, communityService } from '@/lib/api'
 import { feedApi } from '@/lib/api'
 import Layout from '@/components/Layout'
 import InlineChat from '@/components/InlineChat'
-import CommunityHealthHero from '@/components/CommunityHealthHero'
+import LeftSidebar from '@/components/LeftSidebar'
+import RightSidebar from '@/components/RightSidebar'
 import MilestonePost from '@/components/MilestonePost'
 
 interface HelpRequest {
@@ -54,6 +55,7 @@ export default function Dashboard() {
   const [feedItems, setFeedItems] = useState<any[]>([])
   const [milestones, setMilestones] = useState<any[]>([])
   const [expandedPosts, setExpandedPosts] = useState<Set<string>>(new Set())
+  const [activeCommunityId, setActiveCommunityId] = useState<string>('')
 
   useEffect(() => {
     const token = localStorage.getItem('token')
@@ -71,6 +73,24 @@ export default function Dashboard() {
     }
   }, [router])
 
+  const handleCommunityChange = (communityId: string) => {
+    setActiveCommunityId(communityId)
+    // Refresh milestones for the new community
+    if (communityId) {
+      fetchMilestonesForCommunity(communityId)
+    }
+  }
+
+  const fetchMilestonesForCommunity = async (communityId: string) => {
+    try {
+      const milestonesRes = await feedApi.get(`/feed/milestones?community_id=${communityId}&limit=5`)
+      setMilestones(milestonesRes.data || [])
+    } catch (err) {
+      console.error('Failed to fetch milestones:', err)
+      setMilestones([])
+    }
+  }
+
   const fetchDashboardData = async (userId: string) => {
     try {
       setLoading(true)
@@ -86,9 +106,14 @@ export default function Dashboard() {
 
       // Fetch milestones for first community
       try {
-        const communities = communitiesRes.data.data || []
+        const communities = communitiesRes.data.communities || []
         if (communities.length > 0) {
-          const milestonesRes = await feedApi.get(`/feed/milestones?community_id=${communities[0].id}&limit=5`)
+          // Set the first community as active if not already set
+          if (!activeCommunityId) {
+            setActiveCommunityId(communities[0].id)
+          }
+          const communityToUse = activeCommunityId || communities[0].id
+          const milestonesRes = await feedApi.get(`/feed/milestones?community_id=${communityToUse}&limit=5`)
           setMilestones(milestonesRes.data || [])
         }
       } catch (err) {
@@ -96,10 +121,10 @@ export default function Dashboard() {
         setMilestones([])
       }
 
-      const allRequests = myRequestsRes.data.requests
-      const allMatches = allMatchesRes.data.matches
-      const suggestedRequests = suggestedRes.data.requests
-      const matchedRequests = matchedRequestsRes.data.requests
+      const allRequests = myRequestsRes.data.requests || []
+      const allMatches = allMatchesRes.data.matches || []
+      const suggestedRequests = suggestedRes.data.requests || []
+      const matchedRequests = matchedRequestsRes.data.requests || []
 
       // Combine all requests (my requests + open requests + matched requests) for lookup
       const allRequestsCombined = [...allRequests, ...suggestedRequests, ...matchedRequests]
@@ -235,7 +260,7 @@ export default function Dashboard() {
       })
 
       setFeedItems(feed)
-      setUserCommunities(communitiesRes.data.data)
+      setUserCommunities(communitiesRes.data.communities || [])
     } catch (err) {
       console.error('Failed to load dashboard data:', err)
     } finally {
@@ -362,14 +387,25 @@ export default function Dashboard() {
       </Head>
       <Layout>
         <div className="min-h-screen bg-gray-50">
-          <div className="container mx-auto px-4 py-6 max-w-4xl">
-            {/* Community Health Hero */}
-            {user?.communities && user.communities.length > 0 && (
-              <CommunityHealthHero communityId={user.communities[0].id} />
-            )}
+          {/* 3-Column Layout */}
+          <div className="container mx-auto px-4 py-4 max-w-7xl">
+            <div className="grid grid-cols-12 gap-4">
+              {/* Left Sidebar - 25% */}
+              <div className="col-span-12 lg:col-span-3 hidden lg:block">
+                <div className="sticky top-4">
+                  <LeftSidebar
+                    user={user}
+                    communities={userCommunities}
+                    activeCommunityId={activeCommunityId || userCommunities[0]?.id}
+                    onCommunityChange={handleCommunityChange}
+                  />
+                </div>
+              </div>
 
-            {/* Quick Create */}
-            <div className="bg-white rounded-xl shadow-sm p-6 mb-6 border border-gray-200">
+              {/* Center Feed - 50% */}
+              <div className="col-span-12 lg:col-span-6">
+                {/* Quick Create - Compact */}
+                <div className="bg-white rounded-xl shadow-sm p-4 mb-4 border border-gray-200">
               <div className="flex items-start gap-4">
                 <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-semibold flex-shrink-0">
                   {user.name?.charAt(0).toUpperCase()}
@@ -379,46 +415,46 @@ export default function Dashboard() {
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
                     placeholder="What do you need help with?"
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-                    rows={3}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none text-sm"
+                    rows={2}
                   />
-                  <div className="flex items-center justify-between mt-3">
-                    <div className="flex items-center gap-3">
+                  <div className="flex items-center justify-between mt-2">
+                    <div className="flex items-center gap-2">
                       <button
                         onClick={() => setPostingMode('all')}
-                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                        className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
                           postingMode === 'all'
                             ? 'bg-blue-100 text-blue-700'
                             : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                         }`}
                       >
-                        All My Communities
+                        All Communities
                       </button>
                       <button
                         onClick={() => setPostingMode('specific')}
-                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                        className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
                           postingMode === 'specific'
                             ? 'bg-blue-100 text-blue-700'
                             : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                         }`}
                       >
-                        Specific Community
+                        Specific
                       </button>
                     </div>
                     <button
                       onClick={handleCreateRequest}
                       disabled={!description.trim() || creating}
-                      className="px-6 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      className="px-4 py-1.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                     >
                       {creating ? 'Posting...' : 'Post'}
                     </button>
                   </div>
                   {postingMode === 'specific' && (
-                    <div className="mt-3">
+                    <div className="mt-2">
                       <select
                         value={selectedCommunity}
                         onChange={(e) => setSelectedCommunity(e.target.value)}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="w-full px-3 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
                       >
                         <option value="">Select a community...</option>
                         {userCommunities.map((community) => (
@@ -433,32 +469,36 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {/* Unified Post Feed */}
-            <div>
-              <h2 className="text-xl font-bold text-gray-900 mb-4 px-1">Your Feed</h2>
-
-              {/* Milestone Posts */}
-              {milestones.length > 0 && (
-                <div className="space-y-4 mb-6">
-                  {milestones.map((milestone: any) => (
-                    <MilestonePost
-                      key={milestone.id}
-                      {...milestone}
-                    />
-                  ))}
+                {/* Feed Header */}
+                <div className="flex items-center justify-between mb-3">
+                  <h2 className="text-lg font-bold text-gray-900">Your Feed</h2>
+                  <button className="text-xs text-gray-500 hover:text-gray-700">
+                    Filter
+                  </button>
                 </div>
-              )}
 
-              {feedItems.length === 0 ? (
-                <div className="bg-white rounded-xl p-12 text-center border border-gray-200">
-                  <div className="text-5xl mb-4">🤝</div>
-                  <h3 className="text-xl font-semibold text-gray-700 mb-2">No activity yet</h3>
-                  <p className="text-gray-500">
-                    Create a request above or check back later to see community requests
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-4">
+                {/* Milestone Posts - Compact */}
+                {milestones.length > 0 && (
+                  <div className="space-y-3 mb-4">
+                    {milestones.map((milestone: any) => (
+                      <MilestonePost
+                        key={milestone.id}
+                        {...milestone}
+                      />
+                    ))}
+                  </div>
+                )}
+
+                {feedItems.length === 0 ? (
+                  <div className="bg-white rounded-xl p-8 text-center border border-gray-200">
+                    <div className="text-4xl mb-3">🤝</div>
+                    <h3 className="text-lg font-semibold text-gray-700 mb-2">No activity yet</h3>
+                    <p className="text-sm text-gray-500">
+                      Create a request above or check back later
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
                   {feedItems.map((item, index) => {
                     const { post, comments, isMyPost, isMyOffer, hasAcceptedOffer, myMatch, priority } = item
 
@@ -495,30 +535,30 @@ export default function Dashboard() {
                         key={`post-${post.id}-${index}`}
                         className={`${bgColor} ${borderColor} rounded-lg shadow-sm overflow-hidden hover:shadow-md transition-shadow`}
                       >
-                        <div className="p-6">
+                        <div className="p-4">
                           {/* Post Header */}
-                          <div className="flex items-start justify-between mb-3">
-                            <div className="flex items-center gap-3 flex-1">
-                              <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-semibold flex-shrink-0">
+                          <div className="flex items-start justify-between mb-2">
+                            <div className="flex items-center gap-2 flex-1">
+                              <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-xs font-semibold flex-shrink-0">
                                 {post.requester_name?.charAt(0).toUpperCase() || '?'}
                               </div>
-                              <div className="flex-1">
-                                <p className="font-medium text-gray-900">{post.requester_name || 'Unknown'}</p>
-                                <p className="text-sm text-gray-500">{formatTime(post.created_at)}</p>
+                              <div className="flex-1 min-w-0">
+                                <p className="font-medium text-sm text-gray-900 truncate">{post.requester_name || 'Unknown'}</p>
+                                <p className="text-xs text-gray-500">{formatTime(post.created_at)}</p>
                               </div>
                             </div>
                             {badgeText && (
-                              <span className={`text-xs font-medium px-2 py-1 rounded ${badgeColor}`}>{badgeText}</span>
+                              <span className={`text-xs font-medium px-2 py-0.5 rounded ${badgeColor} whitespace-nowrap`}>{badgeText}</span>
                             )}
                           </div>
 
                           {/* Post Content */}
-                          <p className="text-gray-900 text-base leading-relaxed mb-3">{post.description}</p>
+                          <p className="text-gray-900 text-sm leading-relaxed mb-2">{post.description}</p>
 
                           {/* Post Meta */}
-                          <div className="flex items-center gap-4 text-sm text-gray-600 mb-3">
+                          <div className="flex items-center gap-3 text-xs text-gray-600 mb-2">
                             <span className="flex items-center gap-1">
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path
                                   strokeLinecap="round"
                                   strokeLinejoin="round"
@@ -539,7 +579,7 @@ export default function Dashboard() {
                           {!isMyPost && !isMyOffer && (
                             <button
                               onClick={() => handleOfferToHelp(post.id)}
-                              className="w-full px-4 py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
+                              className="w-full px-3 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
                             >
                               💬 Offer to Help
                             </button>
@@ -658,8 +698,16 @@ export default function Dashboard() {
                       </div>
                     )
                   })}
+                  </div>
+                )}
+              </div>
+
+              {/* Right Sidebar - 25% */}
+              <div className="col-span-12 lg:col-span-3 hidden lg:block">
+                <div className="sticky top-4">
+                  <RightSidebar communityId={activeCommunityId || userCommunities[0]?.id} />
                 </div>
-              )}
+              </div>
             </div>
           </div>
         </div>

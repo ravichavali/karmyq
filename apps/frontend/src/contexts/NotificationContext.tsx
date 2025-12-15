@@ -69,11 +69,14 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
         notificationService.getUnreadCount(userId),
       ])
 
-      setNotifications(notificationsRes.data.data.notifications)
-      setUnreadCount(unreadCountRes.data.data.count)
+      setNotifications(notificationsRes.data?.notifications || [])
+      setUnreadCount(unreadCountRes.data?.count || 0)
     } catch (err: any) {
       console.error('Failed to fetch notifications:', err)
       setError(err.message || 'Failed to fetch notifications')
+      // Set empty state on error
+      setNotifications([])
+      setUnreadCount(0)
     } finally {
       setLoading(false)
     }

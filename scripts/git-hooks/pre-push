@@ -1,0 +1,68 @@
+#!/bin/bash
+#
+# Karmyq Pre-Push Hook
+# Runs before every push to ensure comprehensive testing
+#
+
+set -e
+
+echo "🚀 Running pre-push checks..."
+
+# Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+# Check if we're in the right directory
+if [ ! -f "package.json" ]; then
+  echo -e "${RED}❌ Error: Not in project root directory${NC}"
+  exit 1
+fi
+
+# 1. Full integration test suite
+echo ""
+echo "🧪 Running full integration test suite..."
+cd tests
+if npm run test:integration; then
+  echo -e "${GREEN}✓ Integration tests passed${NC}"
+else
+  echo -e "${RED}❌ Integration tests failed${NC}"
+  echo -e "${YELLOW}Fix failing tests before pushing${NC}"
+  cd ..
+  exit 1
+fi
+cd ..
+
+# 2. E2E tests
+echo ""
+echo "🎭 Running E2E tests..."
+cd tests/e2e
+if npm run test; then
+  echo -e "${GREEN}✓ E2E tests passed${NC}"
+else
+  echo -e "${RED}❌ E2E tests failed${NC}"
+  echo -e "${YELLOW}Fix failing E2E tests before pushing${NC}"
+  cd ../..
+  exit 1
+fi
+cd ../..
+
+# 3. Optional: Performance tests (only if --performance flag is set)
+# This is optional because performance tests can take longer
+# Uncomment to enforce performance tests on every push
+# echo ""
+# echo "📊 Running performance tests..."
+# cd tests/performance
+# if npm test; then
+#   echo -e "${GREEN}✓ Performance tests passed${NC}"
+# else
+#   echo -e "${YELLOW}⚠️  Performance tests failed (non-blocking)${NC}"
+# fi
+# cd ../..
+
+echo ""
+echo -e "${GREEN}✅ All pre-push checks passed!${NC}"
+echo -e "${BLUE}ℹ️  To run performance tests: cd tests/performance && npm test${NC}"
+echo ""

@@ -19,11 +19,14 @@
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:headed": "playwright test --headed",
+    "generate-test-data": "ts-node fixtures/generate-realistic-data.ts",
+    "load-test-data": "cat fixtures/realistic-test-data.sql | docker exec -i karmyq-postgres psql -U karmyq_user -d karmyq_db",
     "cleanup-test-data": "ts-node scripts/cleanup-test-data.ts",
     "cleanup-test-data:dry-run": "ts-node scripts/cleanup-test-data.ts --dry-run",
     "cleanup-test-data:force": "ts-node scripts/cleanup-test-data.ts --force"
   },
   "devDependencies": {
+    "@faker-js/faker": "^10.1.0",
     "@jest/globals": "^29.7.0",
     "@playwright/test": "^1.40.0",
     "@types/jest": "^29.5.11",

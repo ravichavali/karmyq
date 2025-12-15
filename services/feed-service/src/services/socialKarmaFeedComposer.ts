@@ -61,8 +61,7 @@ export class SocialKarmaFeedComposer {
         m.description,
         m.achieved_at,
         m.community_id,
-        c.name as community_name,
-        c.health_summary
+        c.name as community_name
       FROM reputation.milestone_events m
       JOIN communities.communities c ON m.community_id = c.id
       WHERE m.community_id = $1
@@ -71,8 +70,43 @@ export class SocialKarmaFeedComposer {
       [communityId, limit]
     );
 
+    // Get latest health metrics for this community
+    const metricsResult = await query(
+      `SELECT
+        total_matches_completed,
+        network_density,
+        avg_helpfulness,
+        avg_responsiveness,
+        avg_clarity,
+        growth_rate_matches
+      FROM reputation.community_health_metrics
+      WHERE community_id = $1
+      ORDER BY snapshot_date DESC
+      LIMIT 1`,
+      [communityId]
+    );
+
+    // Calculate current network strength
+    let networkStrength = 0;
+    let strengthChange = 0;
+
+    if (metricsResult.rowCount > 0) {
+      const metrics = metricsResult.rows[0];
+      const totalMatches = Number(metrics.total_matches_completed) || 0;
+      const avgHelpfulness = Number(metrics.avg_helpfulness) || 0;
+      const avgResponsiveness = Number(metrics.avg_responsiveness) || 0;
+      const avgClarity = Number(metrics.avg_clarity) || 0;
+      const networkDensity = Number(metrics.network_density) || 0;
+
+      const activityScore = Math.min(100, totalMatches * 2);
+      const qualityScore = ((avgHelpfulness + avgResponsiveness + avgClarity) / 3) * 20;
+      const densityScore = networkDensity * 100;
+
+      networkStrength = activityScore * 0.4 + qualityScore * 0.4 + densityScore * 0.2;
+      strengthChange = Number(metrics.growth_rate_matches) || 0;
+    }
+
     return result.rows.map(row => {
-      const healthSummary = row.health_summary || {};
       const isPinned = this.isMilestonePinned(row.achieved_at);
 
       return {
@@ -81,8 +115,8 @@ export class SocialKarmaFeedComposer {
         milestoneType: row.milestone_type,
         description: row.description,
         achievedAt: new Date(row.achieved_at),
-        networkStrength: healthSummary.network_strength || 0,
-        strengthChange: healthSummary.growth_7d || 0,
+        networkStrength: Math.round(networkStrength * 10) / 10,
+        strengthChange: Math.round(strengthChange * 10) / 10,
         celebrationCount: 0, // TODO: Implement celebration reactions
         isPinned,
         communityId: row.community_id,
@@ -161,39 +195,78 @@ export class SocialKarmaFeedComposer {
    * Get community health summary for dashboard hero
    */
   async getCommunityHealthSummary(communityId: string): Promise<CommunityHealthSummary | null> {
-    const result = await query(
-      `SELECT
-        c.id as community_id,
-        c.name as community_name,
-        c.health_summary
-      FROM communities.communities c
-      WHERE c.id = $1`,
+    // Get community name
+    const communityResult = await query(
+      `SELECT id, name FROM communities.communities WHERE id = $1`,
       [communityId]
     );
 
-    if (result.rowCount === 0) {
+    if (communityResult.rowCount === 0) {
       return null;
     }
 
-    const row = result.rows[0];
-    const healthSummary = row.health_summary || {};
+    const community = communityResult.rows[0];
 
-    // Calculate network strength label
-    const networkStrength = healthSummary.network_strength || 0;
+    // Get latest health metrics
+    const metricsResult = await query(
+      `SELECT
+        total_matches_completed,
+        total_active_helpers,
+        network_density,
+        avg_helpfulness,
+        avg_responsiveness,
+        avg_clarity,
+        growth_rate_matches
+      FROM reputation.community_health_metrics
+      WHERE community_id = $1
+      ORDER BY snapshot_date DESC
+      LIMIT 1`,
+      [communityId]
+    );
+
+    // If no metrics yet, return default values
+    if (metricsResult.rowCount === 0) {
+      return {
+        communityId: community.id,
+        communityName: community.name,
+        networkStrength: 0,
+        networkStrengthLabel: this.getNetworkStrengthLabel(0),
+        totalMatches: 0,
+        activeHelpers: 0,
+        growthRate: 0,
+        trendDirection: 'stable' as const,
+      };
+    }
+
+    const metrics = metricsResult.rows[0];
+
+    // Calculate network strength (0-100)
+    // Formula: weighted average of activity (40%), quality (40%), density (20%)
+    const totalMatches = Number(metrics.total_matches_completed) || 0;
+    const avgHelpfulness = Number(metrics.avg_helpfulness) || 0;
+    const avgResponsiveness = Number(metrics.avg_responsiveness) || 0;
+    const avgClarity = Number(metrics.avg_clarity) || 0;
+    const networkDensity = Number(metrics.network_density) || 0;
+
+    const activityScore = Math.min(100, totalMatches * 2); // 50 matches = 100
+    const qualityScore = ((avgHelpfulness + avgResponsiveness + avgClarity) / 3) * 20; // 5-star avg = 100
+    const densityScore = networkDensity * 100;
+
+    const networkStrength = activityScore * 0.4 + qualityScore * 0.4 + densityScore * 0.2;
     const networkStrengthLabel = this.getNetworkStrengthLabel(networkStrength);
 
-    // Determine trend direction
-    const growthRate = healthSummary.growth_7d || 0;
+    // Get growth rate and trend
+    const growthRate = metrics.growth_rate_matches || 0;
     const trendDirection = this.getTrendDirection(growthRate);
 
     return {
-      communityId: row.community_id,
-      communityName: row.community_name,
-      networkStrength,
+      communityId: community.id,
+      communityName: community.name,
+      networkStrength: Math.round(networkStrength * 10) / 10, // Round to 1 decimal
       networkStrengthLabel,
-      totalMatches: healthSummary.total_matches || 0,
-      activeHelpers: healthSummary.active_helpers || 0,
-      growthRate,
+      totalMatches: metrics.total_matches_completed || 0,
+      activeHelpers: metrics.total_active_helpers || 0,
+      growthRate: Math.round(growthRate * 10) / 10,
       trendDirection,
     };
   }

@@ -56,14 +56,52 @@ Karmyq is a multi-tenant SaaS mutual aid platform where community members help e
 # Start all services
 docker-compose up -d
 
-# Run tests
-cd tests && npm test
-
 # Frontend dev
 cd apps/frontend && npm run dev
 
 # Single service logs
 docker logs karmyq-auth-service -f
+```
+
+## Testing Requirements
+
+**IMPORTANT**: Run the complete test suite before committing changes to prevent regressions.
+
+### Before Every Commit
+```bash
+# Windows
+scripts\test-all.bat
+
+# Mac/Linux
+./scripts/test-all.sh
+```
+
+This runs:
+1. **Integration tests** - API tests for all services (~1-2 minutes)
+2. **Unit tests** - Jest tests for services that have them (~1 minute)
+3. **E2E tests** - Playwright tests for UI and full workflows (~3-5 minutes)
+
+**Total time**: ~5-10 minutes
+
+### Quick Testing (During Development)
+```bash
+# Windows
+scripts\test-local.bat quick
+
+# Mac/Linux
+./scripts/test-local.sh quick
+```
+
+**Time**: ~30 seconds (type-check + integration tests only)
+
+### Test Documentation
+- **[LOCAL_TESTING.md](docs/testing/LOCAL_TESTING.md)** - Complete local testing guide
+- **[SOCIAL_KARMA_V2_TESTING.md](docs/testing/SOCIAL_KARMA_V2_TESTING.md)** - Test coverage reference
+
+### Git Hooks (Optional)
+Automatically run tests on commit/push:
+```bash
+./scripts/setup-git-hooks.sh
 ```
 
 ## Important Files
