@@ -97,8 +97,8 @@ class PerformanceTest {
     this.token = loginRes.data.data.token
     this.userId = loginRes.data.data.user.id
 
-    // Get user's first community
-    const communitiesRes = await axios.get(`http://localhost:3002/communities/user/${this.userId}`, {
+    // Get user's communities
+    const communitiesRes = await axios.get(`http://localhost:3002/communities`, {
       headers: { Authorization: `Bearer ${this.token}` }
     })
 

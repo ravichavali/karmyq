@@ -19,10 +19,13 @@ Karmyq v8.0 introduces a comprehensive testing infrastructure with:
 ## Quick Start
 
 ```bash
-# Generate realistic test data (one-time setup)
+# Generate large-scale test data (2000 users, 200 communities)
 cd tests
-npm run generate-test-data
-npm run load-test-data
+npx ts-node fixtures/generate-large-dataset.ts
+cat fixtures/large-dataset.sql | docker exec -i karmyq-postgres psql -U karmyq_user -d karmyq_db
+
+# OR use quick seed (7 personas, 3 communities) for faster setup
+cat tests/fixtures/quick-seed.sql | docker exec -i karmyq-postgres psql -U karmyq_user -d karmyq_db
 
 # Run all tests locally
 ./scripts/test-all.sh      # Mac/Linux
@@ -68,42 +71,41 @@ The test data generator creates a production-like dataset with:
 ### Generate and Load Data
 
 ```bash
-# 1. Generate SQL file
+# 1. Generate large-scale SQL file (2000 users, 200 communities)
 cd tests
-npm run generate-test-data
+npx ts-node fixtures/generate-large-dataset.ts
 
 # This creates:
-# - fixtures/realistic-test-data.sql (SQL insert statements)
-# - fixtures/realistic-test-data.json (metadata and statistics)
+# - fixtures/large-dataset.sql (SQL insert statements)
+# - fixtures/large-dataset.json (metadata and statistics)
 
 # 2. Load into database
-npm run load-test-data
+cat fixtures/large-dataset.sql | docker exec -i karmyq-postgres psql -U karmyq_user -d karmyq_db
 
-# Or manually:
-cat fixtures/realistic-test-data.sql | docker exec -i karmyq-postgres psql -U karmyq_user -d karmyq_db
+# Alternative: Use quick seed for faster testing (7 personas, 3 communities)
+cat fixtures/quick-seed.sql | docker exec -i karmyq-postgres psql -U karmyq_user -d karmyq_db
 ```
 
 ### Data Generation Statistics
 
-After generation, check `fixtures/realistic-test-data.json` for:
+After generation, check `fixtures/large-dataset.json` for:
 
 ```json
 {
   "statistics": {
     "users": 2000,
     "communities": 200,
-    "memberships": ~8000,
-    "requests": ~15000,
-    "offers": ~9000,
-    "matches": ~3000,
-    "messages": ~18000,
-    "karma_records": ~7000,
-    "milestones": ~400
+    "members": 4790,
+    "requests": 5320,
+    "offers": 3592,
+    "matches": 258,
+    "messages": 1623,
+    "karma_records": 453,
+    "milestones": 21
   },
   "distribution": {
     "community_sizes": { "large": 20, "medium": 60, "small": 120 },
-    "user_activity": { "very_active": 100, "active": 400, "moderate": 900, "occasional": 600 },
-    "request_status": { "open": ~500, "matched": ~2000, "expired": ~12000, "cancelled": ~500 }
+    "user_activity": { "very_active": 100, "active": 400, "moderate": 900, "occasional": 600 }
   }
 }
 ```
@@ -381,11 +383,11 @@ Tests run automatically on:
 
 ### 1. Use Realistic Data
 
-Always test with the realistic dataset:
+Always test with the large-scale dataset:
 ```bash
 cd tests
-npm run generate-test-data
-npm run load-test-data
+npx ts-node fixtures/generate-large-dataset.ts
+cat fixtures/large-dataset.sql | docker exec -i karmyq-postgres psql -U karmyq_user -d karmyq_db
 ```
 
 ### 2. Test All Personas
@@ -424,8 +426,8 @@ If P95 exceeds thresholds, investigate:
 Regenerate test data monthly or after schema changes:
 ```bash
 cd tests
-npm run generate-test-data
-npm run load-test-data
+npx ts-node fixtures/generate-large-dataset.ts
+cat fixtures/large-dataset.sql | docker exec -i karmyq-postgres psql -U karmyq_user -d karmyq_db
 ```
 
 ---
@@ -447,8 +449,8 @@ docker exec -it karmyq-postgres psql -U karmyq_user -d karmyq_db -c "SELECT COUN
 **Regenerate test data:**
 ```bash
 cd tests
-npm run generate-test-data
-npm run load-test-data
+npx ts-node fixtures/generate-large-dataset.ts
+cat fixtures/large-dataset.sql | docker exec -i karmyq-postgres psql -U karmyq_user -d karmyq_db
 ```
 
 ### E2E Tests Timeout
@@ -535,8 +537,12 @@ npm run cleanup-test-data:force    # Force clean
 ### Common Commands
 
 ```bash
-# Generate test data
-cd tests && npm run generate-test-data && npm run load-test-data
+# Generate large-scale test data
+cd tests && npx ts-node fixtures/generate-large-dataset.ts
+cat fixtures/large-dataset.sql | docker exec -i karmyq-postgres psql -U karmyq_user -d karmyq_db
+
+# Quick seed (7 personas, 3 communities)
+cat tests/fixtures/quick-seed.sql | docker exec -i karmyq-postgres psql -U karmyq_user -d karmyq_db
 
 # Run all tests
 ./scripts/test-all.sh
@@ -556,9 +562,10 @@ cd tests/e2e && npx playwright test tests/11-comprehensive-flow.spec.ts
 
 ### Test Data Files
 
-- **Generator**: `tests/fixtures/generate-realistic-data.ts`
-- **SQL Output**: `tests/fixtures/realistic-test-data.sql`
-- **Metadata**: `tests/fixtures/realistic-test-data.json`
+- **Large Dataset Generator**: `tests/fixtures/generate-large-dataset.ts`
+- **Large Dataset SQL**: `tests/fixtures/large-dataset.sql`
+- **Large Dataset Metadata**: `tests/fixtures/large-dataset.json`
+- **Quick Seed SQL**: `tests/fixtures/quick-seed.sql`
 
 ### Documentation
 

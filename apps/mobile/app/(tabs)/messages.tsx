@@ -69,7 +69,7 @@ export default function MessagesScreen() {
   const renderConversation = ({ item }: { item: Conversation }) => (
     <TouchableOpacity
       style={styles.conversationCard}
-      onPress={() => router.push(`/messages/${item.id}`)}
+      onPress={() => router.push(`/messages/${item.id}` as any)}
     >
       <View style={styles.avatar}>
         <Text style={styles.avatarText}>
