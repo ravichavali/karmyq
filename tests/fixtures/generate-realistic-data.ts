@@ -211,11 +211,16 @@ class RealisticDataGenerator {
 
   private sql: string[] = []
 
+  // Helper to escape SQL strings (handle apostrophes)
+  private escapeSql(str: string): string {
+    return str.replace(/'/g, "''")
+  }
+
   generate() {
     console.log('🚀 Generating realistic test data for Karmyq v8.0...\n')
 
-    this.generateCommunities()
-    this.generateUsers()
+    this.generateUsers()         // Generate users first
+    this.generateCommunities()   // Then communities (need users for creator_id)
     this.generateMemberships()
     this.generateTestPersonas()
     this.generateRequestsAndOffers()
@@ -238,10 +243,12 @@ class RealisticDataGenerator {
 
     // Large communities
     for (let i = 0; i < large.count; i++) {
+      const creator = faker.helpers.arrayElement(this.users)
       this.communities.push({
         id: faker.string.uuid(),
         name: generateCommunityName(),
         description: faker.lorem.sentence(),
+        creator_id: creator.id,
         targetMembers: faker.number.int({ min: large.minMembers, max: large.maxMembers }),
         size: 'large'
       })
@@ -250,10 +257,12 @@ class RealisticDataGenerator {
 
     // Medium communities
     for (let i = 0; i < medium.count; i++) {
+      const creator = faker.helpers.arrayElement(this.users)
       this.communities.push({
         id: faker.string.uuid(),
         name: generateCommunityName(),
         description: faker.lorem.sentence(),
+        creator_id: creator.id,
         targetMembers: faker.number.int({ min: medium.minMembers, max: medium.maxMembers }),
         size: 'medium'
       })
@@ -262,10 +271,12 @@ class RealisticDataGenerator {
 
     // Small communities
     for (let i = 0; i < small.count; i++) {
+      const creator = faker.helpers.arrayElement(this.users)
       this.communities.push({
         id: faker.string.uuid(),
         name: generateCommunityName(),
         description: faker.lorem.sentence(),
+        creator_id: creator.id,
         targetMembers: faker.number.int({ min: small.minMembers, max: small.maxMembers }),
         size: 'small'
       })
@@ -649,7 +660,7 @@ class RealisticDataGenerator {
               milestone_value: threshold,
               description: `${threshold} successful exchanges completed!`,
               achieved_at: milestoneMatch.completed_at || milestoneMatch.matched_at,
-              is_pinned: threshold >= 50 // Pin major milestones
+              is_featured: threshold >= 50 // Pin major milestones
             })
             milestoneCount++
           }
@@ -667,7 +678,7 @@ class RealisticDataGenerator {
             milestone_value: threshold,
             description: `${threshold} unique members have participated!`,
             achieved_at: milestoneDate,
-            is_pinned: threshold >= 50
+            is_featured: threshold >= 50
           })
           milestoneCount++
         }
@@ -691,8 +702,8 @@ class RealisticDataGenerator {
     this.sql.push('TRUNCATE TABLE requests.help_requests CASCADE;')
     this.sql.push('TRUNCATE TABLE reputation.karma_records CASCADE;')
     this.sql.push('TRUNCATE TABLE reputation.milestone_events CASCADE;')
-    this.sql.push('TRUNCATE TABLE community.memberships CASCADE;')
-    this.sql.push('TRUNCATE TABLE community.communities CASCADE;')
+    this.sql.push('TRUNCATE TABLE communities.members CASCADE;')
+    this.sql.push('TRUNCATE TABLE communities.communities CASCADE;')
     this.sql.push('TRUNCATE TABLE auth.users CASCADE;\n')
 
     // Users
@@ -700,7 +711,7 @@ class RealisticDataGenerator {
     for (const user of this.users) {
       this.sql.push(
         `INSERT INTO auth.users (id, email, name, password_hash, created_at) VALUES ` +
-        `('${user.id}', '${user.email}', '${user.name}', '${user.password_hash}', '${user.created_at.toISOString()}');`
+        `('${user.id}', '${this.escapeSql(user.email)}', '${this.escapeSql(user.name)}', '${user.password_hash}', '${user.created_at.toISOString()}');`
       )
     }
     this.sql.push('')
@@ -709,8 +720,8 @@ class RealisticDataGenerator {
     this.sql.push('-- Insert communities')
     for (const community of this.communities) {
       this.sql.push(
-        `INSERT INTO community.communities (id, name, description, created_at) VALUES ` +
-        `('${community.id}', '${community.name}', '${community.description}', NOW());`
+        `INSERT INTO communities.communities (id, name, description, creator_id, created_at) VALUES ` +
+        `('${community.id}', '${this.escapeSql(community.name)}', '${this.escapeSql(community.description)}', '${community.creator_id}', NOW());`
       )
     }
     this.sql.push('')
@@ -719,7 +730,7 @@ class RealisticDataGenerator {
     this.sql.push('-- Insert memberships')
     for (const membership of this.memberships) {
       this.sql.push(
-        `INSERT INTO community.memberships (id, community_id, user_id, role, joined_at) VALUES ` +
+        `INSERT INTO communities.members (id, community_id, user_id, role, joined_at) VALUES ` +
         `('${membership.id}', '${membership.community_id}', '${membership.user_id}', '${membership.role}', '${membership.joined_at.toISOString()}');`
       )
     }
@@ -730,7 +741,7 @@ class RealisticDataGenerator {
     for (const request of this.requests) {
       this.sql.push(
         `INSERT INTO requests.help_requests (id, community_id, requester_id, description, status, created_at, expires_at, updated_at) VALUES ` +
-        `('${request.id}', '${request.community_id}', '${request.requester_id}', '${request.description.replace(/'/g, "''")}', '${request.status}', '${request.created_at.toISOString()}', '${request.expires_at.toISOString()}', '${request.updated_at.toISOString()}');`
+        `('${request.id}', '${request.community_id}', '${request.requester_id}', '${this.escapeSql(request.description)}', '${request.status}', '${request.created_at.toISOString()}', '${request.expires_at.toISOString()}', '${request.updated_at.toISOString()}');`
       )
     }
     this.sql.push('')
@@ -740,7 +751,7 @@ class RealisticDataGenerator {
     for (const offer of this.offers) {
       this.sql.push(
         `INSERT INTO requests.help_offers (id, request_id, helper_id, message, status, created_at) VALUES ` +
-        `('${offer.id}', '${offer.request_id}', '${offer.helper_id}', '${offer.message.replace(/'/g, "''")}', '${offer.status}', '${offer.created_at.toISOString()}');`
+        `('${offer.id}', '${offer.request_id}', '${offer.helper_id}', '${this.escapeSql(offer.message)}', '${offer.status}', '${offer.created_at.toISOString()}');`
       )
     }
     this.sql.push('')
@@ -761,7 +772,7 @@ class RealisticDataGenerator {
     for (const message of this.messages) {
       this.sql.push(
         `INSERT INTO messaging.messages (id, match_id, sender_id, content, created_at) VALUES ` +
-        `('${message.id}', '${message.match_id}', '${message.sender_id}', '${message.content.replace(/'/g, "''")}', '${message.created_at.toISOString()}');`
+        `('${message.id}', '${message.match_id}', '${message.sender_id}', '${this.escapeSql(message.content)}', '${message.created_at.toISOString()}');`
       )
     }
     this.sql.push('')
@@ -769,7 +780,7 @@ class RealisticDataGenerator {
     // Karma
     this.sql.push('-- Insert karma records')
     for (const karma of this.karmaRecords) {
-      const description = karma.description ? `'${karma.description}'` : 'NULL'
+      const description = karma.description ? `'${this.escapeSql(karma.description)}'` : 'NULL'
       this.sql.push(
         `INSERT INTO reputation.karma_records (id, user_id, community_id, event_type, points_awarded, match_id, description, created_at) VALUES ` +
         `('${karma.id}', '${karma.user_id}', '${karma.community_id}', '${karma.event_type}', ${karma.points_awarded}, '${karma.match_id}', ${description}, '${karma.created_at.toISOString()}');`
@@ -781,8 +792,8 @@ class RealisticDataGenerator {
     this.sql.push('-- Insert milestones')
     for (const milestone of this.milestones) {
       this.sql.push(
-        `INSERT INTO reputation.milestone_events (id, community_id, milestone_type, milestone_value, description, achieved_at, is_pinned) VALUES ` +
-        `('${milestone.id}', '${milestone.community_id}', '${milestone.milestone_type}', ${milestone.milestone_value}, '${milestone.description}', '${milestone.achieved_at.toISOString()}', ${milestone.is_pinned});`
+        `INSERT INTO reputation.milestone_events (id, community_id, milestone_type, milestone_value, description, achieved_at, is_featured) VALUES ` +
+        `('${milestone.id}', '${milestone.community_id}', '${milestone.milestone_type}', ${milestone.milestone_value}, '${this.escapeSql(milestone.description)}', '${milestone.achieved_at.toISOString()}', ${milestone.is_featured});`
       )
     }
 

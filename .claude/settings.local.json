@@ -40,7 +40,8 @@
       "Bash(gh run:*)",
       "Bash(gh workflow:*)",
       "Bash(npm test:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(bash:*)"
     ],
     "deny": [],
     "ask": []

@@ -1,0 +1,32 @@
+--- a/generate-realistic-data.ts
++++ b/generate-realistic-data.ts
+@@ -234,6 +234,11 @@ class RealisticDataGenerator {
+ 
+   private sql: string[] = []
+ 
++  // Helper to escape SQL strings
++  private escapeSql(str: string): string {
++    return str.replace(/'/g, "''")
++  }
++
+   generate() {
+     console.log('🚀 Generating realistic test data for Karmyq v8.0...\n')
+ 
+@@ -679,7 +684,7 @@ class RealisticDataGenerator {
+     for (const user of this.users) {
+       this.sql.push(
+         \`INSERT INTO auth.users (id, email, name, password_hash, created_at) VALUES \` +
+-        \`('\${user.id}', '\${user.email}', '\${user.name}', '\${user.password_hash}', '\${user.created_at.toISOString()}');\`
++        \`('\${user.id}', '\${this.escapeSql(user.email)}', '\${this.escapeSql(user.name)}', '\${user.password_hash}', '\${user.created_at.toISOString()}');\`
+       )
+     }
+     this.sql.push('')
+@@ -689,7 +694,7 @@ class RealisticDataGenerator {
+     for (const community of this.communities) {
+       this.sql.push(
+         \`INSERT INTO communities.communities (id, name, description, created_at) VALUES \` +
+-        \`('\${community.id}', '\${community.name}', '\${community.description}', NOW());\`
++        \`('\${community.id}', '\${this.escapeSql(community.name)}', '\${this.escapeSql(community.description)}', NOW());\`
+       )
+     }
+     this.sql.push('')

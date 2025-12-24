@@ -1,16 +1,16 @@
 {
-  "generated_at": "2025-12-15T04:09:38.992Z",
+  "generated_at": "2025-12-15T04:43:58.153Z",
   "version": "8.0.0",
   "statistics": {
     "users": 2007,
     "communities": 200,
-    "memberships": 5330,
-    "requests": 2746,
-    "offers": 4427,
-    "matches": 284,
-    "messages": 1966,
-    "karma_records": 384,
-    "milestones": 258
+    "memberships": 5281,
+    "requests": 2955,
+    "offers": 4929,
+    "matches": 280,
+    "messages": 1976,
+    "karma_records": 388,
+    "milestones": 259
   },
   "test_personas": [
     {
@@ -76,10 +76,10 @@
       "occasional": 601
     },
     "request_status": {
-      "open": 266,
-      "matched": 406,
-      "expired": 1818,
-      "cancelled": 256
+      "open": 308,
+      "matched": 394,
+      "expired": 2015,
+      "cancelled": 238
     }
   }
 }
