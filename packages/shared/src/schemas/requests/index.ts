@@ -25,10 +25,14 @@ export * from './base';
 export * from './generic';
 export * from './ride';
 export * from './borrow';
+export * from './service';
+export * from './event';
 
 import { GenericRequestSchema } from './generic';
 import { RideRequestSchema } from './ride';
 import { BorrowRequestSchema } from './borrow';
+import { ServiceRequestSchema } from './service';
+import { EventRequestSchema } from './event';
 
 /**
  * Discriminated Union - Type-safe polymorphic request schema
@@ -45,9 +49,8 @@ export const CreateRequestSchema = z.discriminatedUnion('request_type', [
   GenericRequestSchema,
   RideRequestSchema,
   BorrowRequestSchema,
-  // Add more types here as they're implemented:
-  // ServiceRequestSchema,
-  // EventRequestSchema,
+  ServiceRequestSchema,
+  EventRequestSchema,
 ]);
 
 /**
@@ -72,6 +75,14 @@ export function isRideRequest(request: CreateRequestInput): request is z.infer<t
 
 export function isBorrowRequest(request: CreateRequestInput): request is z.infer<typeof BorrowRequestSchema> {
   return request.request_type === 'borrow';
+}
+
+export function isServiceRequest(request: CreateRequestInput): request is z.infer<typeof ServiceRequestSchema> {
+  return request.request_type === 'service';
+}
+
+export function isEventRequest(request: CreateRequestInput): request is z.infer<typeof EventRequestSchema> {
+  return request.request_type === 'event';
 }
 
 export function isGenericRequest(request: CreateRequestInput): request is z.infer<typeof GenericRequestSchema> {

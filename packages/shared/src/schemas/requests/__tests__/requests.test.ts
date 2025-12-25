@@ -9,6 +9,8 @@ import {
   validateRequest,
   isRideRequest,
   isBorrowRequest,
+  isServiceRequest,
+  isEventRequest,
   isGenericRequest,
 } from '../index';
 
@@ -259,3 +261,146 @@ describe('Request Schemas', () => {
     });
   });
 });
+
+  describe('Service Request', () => {
+    it('should validate a valid service request', () => {
+      const data = {
+        request_type: 'service',
+        title: 'Need a plumber to fix leak',
+        description: 'Kitchen sink is leaking, need professional help',
+        urgency: 'high',
+        payload: {
+          service_category: 'plumbing',
+          skill_level_required: 'expert',
+          estimated_duration_hours: 2,
+          budget_range: {
+            min: 100,
+            max: 300,
+            currency: 'USD',
+          },
+          location_type: 'on_site',
+        },
+      };
+
+      const result = CreateRequestSchema.safeParse(data);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.request_type).toBe('service');
+        expect(isServiceRequest(result.data)).toBe(true);
+        if (isServiceRequest(result.data)) {
+          expect(result.data.payload.service_category).toBe('plumbing');
+          expect(result.data.payload.budget_range?.max).toBe(300);
+        }
+      }
+    });
+
+    it('should reject service request with invalid duration', () => {
+      const data = {
+        request_type: 'service',
+        title: 'Need tutoring',
+        description: 'Math tutoring needed',
+        urgency: 'medium',
+        payload: {
+          service_category: 'tutoring',
+          estimated_duration_hours: 100, // Too long
+        },
+      };
+
+      const result = CreateRequestSchema.safeParse(data);
+      expect(result.success).toBe(false);
+    });
+  });
+
+  describe('Event Request', () => {
+    it('should validate a valid event request', () => {
+      const data = {
+        request_type: 'event',
+        title: 'Community cleanup volunteers needed',
+        description: 'Looking for volunteers to help clean up the park',
+        urgency: 'medium',
+        payload: {
+          event_type: 'community_cleanup',
+          event_date: '2025-07-15T09:00:00Z',
+          event_duration_hours: 3,
+          location: {
+            address: '123 Park Ave, San Francisco, CA',
+            lat: 37.7749,
+            lng: -122.4194,
+            is_virtual: false,
+          },
+          participants_needed: 15,
+          roles: [
+            {
+              role_name: 'Cleanup Crew',
+              count: 10,
+              description: 'Help pick up trash',
+            },
+            {
+              role_name: 'Coordinator',
+              count: 2,
+            },
+          ],
+        },
+      };
+
+      const result = CreateRequestSchema.safeParse(data);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.request_type).toBe('event');
+        expect(isEventRequest(result.data)).toBe(true);
+        if (isEventRequest(result.data)) {
+          expect(result.data.payload.participants_needed).toBe(15);
+          expect(result.data.payload.roles).toHaveLength(2);
+        }
+      }
+    });
+
+    it('should reject event with too many participants', () => {
+      const data = {
+        request_type: 'event',
+        title: 'Huge event',
+        description: 'Need tons of people',
+        urgency: 'low',
+        payload: {
+          event_type: 'social',
+          event_date: '2025-08-01T10:00:00Z',
+          event_duration_hours: 4,
+          location: {
+            address: 'Convention Center',
+            is_virtual: false,
+          },
+          participants_needed: 5000, // Too many
+        },
+      };
+
+      const result = CreateRequestSchema.safeParse(data);
+      expect(result.success).toBe(false);
+    });
+
+    it('should validate virtual event', () => {
+      const data = {
+        request_type: 'event',
+        title: 'Online workshop facilitators needed',
+        description: 'Looking for facilitators for virtual workshop',
+        urgency: 'low',
+        payload: {
+          event_type: 'workshop',
+          event_date: '2025-06-20T14:00:00Z',
+          event_duration_hours: 2,
+          location: {
+            address: 'Online',
+            is_virtual: true,
+            virtual_link: 'https://zoom.us/meeting123',
+          },
+          participants_needed: 3,
+        },
+      };
+
+      const result = CreateRequestSchema.safeParse(data);
+      expect(result.success).toBe(true);
+      if (result.success && isEventRequest(result.data)) {
+        expect(result.data.payload.location.is_virtual).toBe(true);
+        expect(result.data.payload.location.virtual_link).toBeDefined();
+      }
+    });
+  });
