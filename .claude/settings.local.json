@@ -41,7 +41,9 @@
       "Bash(gh workflow:*)",
       "Bash(npm test:*)",
       "Bash(cat:*)",
-      "Bash(bash:*)"
+      "Bash(bash:*)",
+      "Bash(New-Item -ItemType SymbolicLink -Name \"shared\" -Target \"..\\\\..\\\\packages\\\\shared\")",
+      "Bash(Out-String)"
     ],
     "deny": [],
     "ask": []

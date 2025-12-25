@@ -393,3 +393,9 @@ export const HTTP_STATUS = {
   INTERNAL_SERVER_ERROR: 500,
   SERVICE_UNAVAILABLE: 503,
 } as const;
+
+/**
+ * Re-export schema validation functions (v9.0)
+ * This allows services to import both response utilities and validation from one place
+ */
+export { validateRequest } from '../src/schemas';

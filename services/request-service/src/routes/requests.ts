@@ -7,7 +7,8 @@ import {
   sendValidationError,
   sendNotFound,
   sendInternalError,
-  HTTP_STATUS
+  HTTP_STATUS,
+  validateRequest,
 } from '../../shared/utils/response';
 
 const router = Router();
@@ -21,6 +22,7 @@ router.get('/', async (req: Request, res: Response) => {
       SELECT DISTINCT
         r.id, r.requester_id, r.title, r.description,
         r.category, r.urgency, r.status, r.created_at, r.updated_at,
+        r.request_type, r.payload, r.requirements,
         u.name as requester_name,
         STRING_AGG(DISTINCT c.name, ', ') as community_name,
         STRING_AGG(DISTINCT rc.community_id::text, ',') as community_ids
@@ -59,7 +61,7 @@ router.get('/', async (req: Request, res: Response) => {
     }
 
     queryText += `
-      GROUP BY r.id, r.requester_id, r.title, r.description, r.category, r.urgency, r.status, r.created_at, r.updated_at, u.name
+      GROUP BY r.id, r.requester_id, r.title, r.description, r.category, r.urgency, r.status, r.created_at, r.updated_at, r.request_type, r.payload, r.requirements, u.name
       ORDER BY r.created_at DESC
       LIMIT $${paramCount} OFFSET $${paramCount + 1}`;
     params.push(limit, offset);
@@ -161,6 +163,7 @@ router.get('/:id', async (req: Request, res: Response) => {
       `SELECT
         r.id, r.requester_id, r.title, r.description,
         r.category, r.urgency, r.status, r.created_at, r.updated_at,
+        r.request_type, r.payload, r.requirements,
         u.name as requester_name, u.email as requester_email,
         STRING_AGG(DISTINCT c.name, ', ') as community_name,
         STRING_AGG(DISTINCT rc.community_id::text, ',') as community_ids
@@ -169,7 +172,7 @@ router.get('/:id', async (req: Request, res: Response) => {
       LEFT JOIN requests.request_communities rc ON r.id = rc.request_id
       LEFT JOIN communities.communities c ON rc.community_id = c.id
       WHERE r.id = $1 AND r.expired = FALSE
-      GROUP BY r.id, r.requester_id, r.title, r.description, r.category, r.urgency, r.status, r.created_at, r.updated_at, u.name, u.email`,
+      GROUP BY r.id, r.requester_id, r.title, r.description, r.category, r.urgency, r.status, r.created_at, r.updated_at, r.request_type, r.payload, r.requirements, u.name, u.email`,
       [id]
     );
 
@@ -197,9 +200,10 @@ router.get('/:id', async (req: Request, res: Response) => {
 // POST /requests - Create new help request
 // SECURITY: requester_id comes from verified JWT token, not from request body
 // Supports posting to a single community or all user's communities
+// v9.0: Supports polymorphic requests (generic, ride, borrow, service, event)
 router.post('/', async (req: Request, res: Response) => {
   try {
-    const { community_id, post_to_all_communities, title, description, type, urgency } = req.body;
+    const { community_id, post_to_all_communities, request_type, title, description, urgency, payload, requirements } = req.body;
     // SECURITY: Always use verified userId from JWT, never trust client-provided requester_id
     const requester_id = (req as any).user?.userId;
 
@@ -211,12 +215,26 @@ router.post('/', async (req: Request, res: Response) => {
       });
     }
 
-    if (!type) {
+    // Validate request using Zod schema (polymorphic validation)
+    const requestData = {
+      request_type: request_type || 'generic', // Default to generic for backward compatibility
+      title,
+      description,
+      urgency: urgency || 'medium',
+      ...(payload && { payload }),
+      ...(requirements && { requirements }),
+    };
+
+    const validation = validateRequest(requestData);
+    if (!validation.success) {
       return res.status(400).json({
         success: false,
-        message: 'type is required',
+        message: 'Invalid request data',
+        errors: validation.error.format(),
       });
     }
+
+    const validatedData = validation.data;
 
     // Determine which communities to post to
     let targetCommunityIds: string[] = [];
@@ -264,12 +282,22 @@ router.post('/', async (req: Request, res: Response) => {
     }
 
     // Create ONE request (not multiple duplicates)
+    // v9.0: Store polymorphic data in request_type, payload, requirements columns
     const result = await query(
       `INSERT INTO requests.help_requests
-        (requester_id, title, description, category, urgency, status)
-      VALUES ($1, $2, $3, $4, $5, 'open')
+        (requester_id, title, description, category, urgency, status, request_type, payload, requirements)
+      VALUES ($1, $2, $3, $4, $5, 'open', $6, $7, $8)
       RETURNING *`,
-      [requester_id, title || '', description, type, urgency || 'medium']
+      [
+        requester_id,
+        validatedData.title,
+        validatedData.description,
+        validatedData.request_type, // Store in legacy category field for backward compatibility
+        validatedData.urgency,
+        validatedData.request_type, // Store in new request_type column
+        'payload' in validatedData ? JSON.stringify(validatedData.payload) : '{}',
+        requirements ? JSON.stringify(requirements) : '{}',
+      ]
     );
 
     const request = result.rows[0];
@@ -282,12 +310,12 @@ router.post('/', async (req: Request, res: Response) => {
         [request.id, targetCommunityId]
       );
 
-      // Publish event for each community
+      // Publish event for each community (v9.0: includes request_type)
       await publishEvent('request_created', {
         request_id: request.id,
         community_id: targetCommunityId,
         requester_id,
-        type,
+        request_type: validatedData.request_type,
         urgency: request.urgency,
         title: request.title,
       });
