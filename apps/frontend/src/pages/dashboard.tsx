@@ -292,8 +292,6 @@ export default function Dashboard() {
     // Show autocomplete suggestions and extract search query
     const pos = cursorPos ?? newDescription.length
     const { suggestions, trigger } = getSuggestions(newDescription, pos, requestType)
-    setAutocompleteSuggestions(suggestions)
-    setAutocompleteTrigger(trigger)
 
     // Extract search query for async geocoding
     // Detect location context even without @ trigger
@@ -301,6 +299,9 @@ export default function Dashboard() {
 
     if (trigger === '@') {
       // User explicitly used @ for location
+      setAutocompleteSuggestions(suggestions)
+      setAutocompleteTrigger(trigger)
+
       const triggerIndex = beforeCursor.lastIndexOf(trigger)
       if (triggerIndex !== -1) {
         const query = beforeCursor.slice(triggerIndex + trigger.length).trim()
@@ -318,15 +319,32 @@ export default function Dashboard() {
         const locationText = (fromMatch?.[1] || toMatch?.[1] || '').trim()
         if (locationText.length >= 2) {
           // Trigger geocoding for location context
-          setSearchQuery(locationText)
+          // Provide minimal initial suggestions to show the autocomplete
+          setAutocompleteSuggestions([
+            { value: '@loading', label: 'Searching...', description: 'Loading addresses', icon: '🔍', category: 'location' }
+          ])
           setAutocompleteTrigger('@') // Pretend it's @ trigger for autocomplete
+          setSearchQuery(locationText)
+        } else if (locationText.length > 0) {
+          // Show placeholder while typing
+          setAutocompleteSuggestions([
+            { value: '@typing', label: 'Keep typing...', description: 'Type 2+ characters', icon: '⌨️', category: 'location' }
+          ])
+          setAutocompleteTrigger('@')
+          setSearchQuery('')
         } else {
+          setAutocompleteSuggestions([])
+          setAutocompleteTrigger(null)
           setSearchQuery('')
         }
       } else {
+        setAutocompleteSuggestions(suggestions)
+        setAutocompleteTrigger(trigger)
         setSearchQuery('')
       }
     } else {
+      setAutocompleteSuggestions(suggestions)
+      setAutocompleteTrigger(trigger)
       setSearchQuery('')
     }
   }
