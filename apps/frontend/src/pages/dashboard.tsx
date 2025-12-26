@@ -396,9 +396,18 @@ export default function Dashboard() {
       finalValue = value.replace(/^@/, '') // Remove @ prefix for natural language
     } else {
       // Explicit @ trigger or other shortcuts
-      triggerStart = cursorPos - 1
-      if (autocompleteTrigger === '..' || autocompleteTrigger === '>>') {
+      if (autocompleteTrigger === '@') {
+        // Find the @ symbol position
+        const atIndex = beforeCursor.lastIndexOf('@')
+        if (atIndex !== -1) {
+          triggerStart = atIndex
+        } else {
+          triggerStart = cursorPos - 1
+        }
+      } else if (autocompleteTrigger === '..' || autocompleteTrigger === '>>') {
         triggerStart = cursorPos - 2
+      } else {
+        triggerStart = cursorPos - 1
       }
     }
 

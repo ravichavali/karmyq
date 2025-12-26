@@ -16,7 +16,7 @@ interface Suggestion {
   icon?: string
   lat?: number
   lng?: number
-  category?: 'time' | 'location' | 'count' | 'budget' | 'urgency'
+  category?: 'time' | 'location' | 'count' | 'budget' | 'urgency' | 'navigation'
 }
 
 interface EnhancedAutocompleteProps {
