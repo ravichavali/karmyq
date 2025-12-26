@@ -281,6 +281,7 @@ export default function Dashboard() {
   }
 
   const handleDescriptionChange = (newDescription: string, cursorPos?: number) => {
+    console.log('📝 handleDescriptionChange called:', { text: newDescription, cursorPos, requestType })
     setDescription(newDescription)
 
     // Parse in real-time
@@ -294,10 +295,12 @@ export default function Dashboard() {
     // Show autocomplete suggestions and extract search query
     const pos = cursorPos ?? newDescription.length
     const { suggestions, trigger } = getSuggestions(newDescription, pos, requestType)
+    console.log('💡 getSuggestions returned:', { trigger, suggestionsCount: suggestions.length })
 
     // Extract search query for async geocoding
     // Detect location context even without @ trigger
     const beforeCursor = newDescription.slice(0, pos)
+    console.log('🔎 beforeCursor:', beforeCursor)
 
     if (trigger === '@') {
       // User explicitly used @ for location
@@ -634,7 +637,10 @@ export default function Dashboard() {
                     <textarea
                       ref={setTextareaRef}
                       value={description}
-                      onChange={(e) => handleDescriptionChange(e.target.value, e.target.selectionStart)}
+                      onChange={(e) => {
+                        console.log('⌨️ Textarea onChange fired:', e.target.value)
+                        handleDescriptionChange(e.target.value, e.target.selectionStart)
+                      }}
                       onKeyDown={(e) => {
                         // Close autocomplete on Escape
                         if (e.key === 'Escape' && autocompleteSuggestions.length > 0) {
