@@ -57,9 +57,9 @@ export default function EnhancedAutocomplete({
     setSuggestions(initialSuggestions)
   }, [initialSuggestions])
 
-  // Async address lookup when user types after @
+  // Async address lookup when user types after @ or in location context (from/to)
   useEffect(() => {
-    if (triggerChar === '@' && searchQuery.length >= 3) {
+    if (triggerChar === '@' && searchQuery.length >= 2) {
       const performSearch = async () => {
         setLoading(true)
         try {

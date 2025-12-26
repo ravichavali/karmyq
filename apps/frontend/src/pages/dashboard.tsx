@@ -8,6 +8,9 @@ import InlineChat from '@/components/InlineChat'
 import LeftSidebar from '@/components/LeftSidebar'
 import RightSidebar from '@/components/RightSidebar'
 import MilestonePost from '@/components/MilestonePost'
+import ExtractedDataChips from '@/components/ExtractedDataChips'
+import EnhancedAutocomplete from '@/components/EnhancedAutocomplete'
+import { parseRequestDescription, buildPayloadFromParsed, updateLocationCoordinates, getSuggestions, type ParsedRequest, type AutocompleteSuggestion } from '@/lib/requestParser'
 
 interface HelpRequest {
   id: string
@@ -50,6 +53,13 @@ export default function Dashboard() {
   const [selectedCommunity, setSelectedCommunity] = useState<string>('')
   const [userCommunities, setUserCommunities] = useState<Community[]>([])
   const [creating, setCreating] = useState(false)
+  const [requestType, setRequestType] = useState<'generic' | 'ride' | 'service' | 'event' | 'borrow'>('generic')
+  const [showTypeOptions, setShowTypeOptions] = useState(false)
+  const [parsedRequest, setParsedRequest] = useState<ParsedRequest | null>(null)
+  const [autocompleteSuggestions, setAutocompleteSuggestions] = useState<AutocompleteSuggestion[]>([])
+  const [autocompleteTrigger, setAutocompleteTrigger] = useState<'@' | '#' | '$' | '!' | '..' | '>>' | null>(null)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [textareaRef, setTextareaRef] = useState<HTMLTextAreaElement | null>(null)
 
   // Unified feed
   const [feedItems, setFeedItems] = useState<any[]>([])
@@ -268,29 +278,184 @@ export default function Dashboard() {
     }
   }
 
+  const handleDescriptionChange = (newDescription: string, cursorPos?: number) => {
+    setDescription(newDescription)
+
+    // Parse in real-time
+    if (newDescription.trim()) {
+      const parsed = parseRequestDescription(newDescription, requestType)
+      setParsedRequest(parsed)
+    } else {
+      setParsedRequest(null)
+    }
+
+    // Show autocomplete suggestions and extract search query
+    const pos = cursorPos ?? newDescription.length
+    const { suggestions, trigger } = getSuggestions(newDescription, pos, requestType)
+    setAutocompleteSuggestions(suggestions)
+    setAutocompleteTrigger(trigger)
+
+    // Extract search query for async geocoding
+    // Detect location context even without @ trigger
+    const beforeCursor = newDescription.slice(0, pos)
+
+    if (trigger === '@') {
+      // User explicitly used @ for location
+      const triggerIndex = beforeCursor.lastIndexOf(trigger)
+      if (triggerIndex !== -1) {
+        const query = beforeCursor.slice(triggerIndex + trigger.length).trim()
+        setSearchQuery(query)
+      } else {
+        setSearchQuery('')
+      }
+    } else if (requestType === 'ride') {
+      // Smart detection: look for location keywords like "from", "to"
+      // Match patterns like: "from San" or "to San" where cursor is after the word
+      const fromMatch = beforeCursor.match(/from\s+([a-zA-Z0-9\s\-]*)$/i)
+      const toMatch = beforeCursor.match(/to\s+([a-zA-Z0-9\s\-]*)$/i)
+
+      if (fromMatch || toMatch) {
+        const locationText = (fromMatch?.[1] || toMatch?.[1] || '').trim()
+        if (locationText.length >= 2) {
+          // Trigger geocoding for location context
+          setSearchQuery(locationText)
+          setAutocompleteTrigger('@') // Pretend it's @ trigger for autocomplete
+        } else {
+          setSearchQuery('')
+        }
+      } else {
+        setSearchQuery('')
+      }
+    } else {
+      setSearchQuery('')
+    }
+  }
+
+  const handleSelectSuggestion = (value: string, lat?: number, lng?: number) => {
+    if (!textareaRef) return
+
+    const cursorPos = textareaRef.selectionStart
+    const beforeCursor = description.slice(0, cursorPos)
+    const afterCursor = description.slice(cursorPos)
+
+    // Find where the text to replace starts
+    let triggerStart = cursorPos
+    let finalValue = value
+
+    // Check if this is from location context (from/to keywords) vs explicit @ trigger
+    const fromMatch = beforeCursor.match(/from\s+([a-zA-Z0-9\s\-]*)$/i)
+    const toMatch = beforeCursor.match(/to\s+([a-zA-Z0-9\s\-]*)$/i)
+
+    if (fromMatch) {
+      // Replace from "from " onwards
+      triggerStart = beforeCursor.lastIndexOf('from ') + 5 // 5 = length of "from "
+      finalValue = value.replace(/^@/, '') // Remove @ prefix for natural language
+    } else if (toMatch) {
+      // Replace from "to " onwards
+      triggerStart = beforeCursor.lastIndexOf('to ') + 3 // 3 = length of "to "
+      finalValue = value.replace(/^@/, '') // Remove @ prefix for natural language
+    } else {
+      // Explicit @ trigger or other shortcuts
+      triggerStart = cursorPos - 1
+      if (autocompleteTrigger === '..' || autocompleteTrigger === '>>') {
+        triggerStart = cursorPos - 2
+      }
+    }
+
+    // Replace from trigger to cursor with the selected value
+    const newDescription = beforeCursor.slice(0, triggerStart) + finalValue + ' ' + afterCursor
+
+    handleDescriptionChange(newDescription, triggerStart + finalValue.length + 1)
+
+    // Store coordinates if this is a geocoded location
+    if (lat !== undefined && lng !== undefined && parsedRequest) {
+      // Extract the address from the value (remove @ prefix)
+      const address = value.replace(/^@/, '').trim()
+      const updatedRequest = updateLocationCoordinates(parsedRequest, address, lat, lng)
+      setParsedRequest(updatedRequest)
+      console.log(`Stored coordinates for "${address}": ${lat}, ${lng}`)
+    }
+
+    // Clear autocomplete
+    setAutocompleteSuggestions([])
+    setAutocompleteTrigger(null)
+    setSearchQuery('')
+
+    // Focus back on textarea
+    setTimeout(() => {
+      textareaRef.focus()
+      const newPos = triggerStart + finalValue.length + 1
+      textareaRef.setSelectionRange(newPos, newPos)
+    }, 0)
+  }
+
+  const handleCloseAutocomplete = () => {
+    setAutocompleteSuggestions([])
+    setAutocompleteTrigger(null)
+  }
+
+  const handleRemoveExtractedData = (type: string, index: number) => {
+    // Remove extracted data chip (just visual feedback for now)
+    // User can manually edit description to remove
+    console.log('Remove', type, index)
+  }
+
   const handleCreateRequest = async () => {
     if (!description.trim()) return
 
     try {
       setCreating(true)
-      await requestService.createRequest({
+
+      // Build payload from parsed data
+      const payload = parsedRequest
+        ? buildPayloadFromParsed(parsedRequest, requestType)
+        : {}
+
+      // Use urgency from parsed data if available
+      const urgency = parsedRequest?.extractedData.urgency || 'medium'
+
+      const requestData = {
         post_to_all_communities: postingMode === 'all',
         community_id: postingMode === 'specific' ? selectedCommunity : undefined,
-        description: description.trim(),
-        type: 'general',
-        urgency: 'medium',
-      })
+        title: description.trim().slice(0, 100), // Use first 100 chars as title
+        description: parsedRequest?.cleanDescription || description.trim(),
+        request_type: requestType,
+        urgency,
+        payload: Object.keys(payload).length > 0 ? payload : undefined,
+      }
+
+      // DEBUG: Log what we're sending
+      console.log('=== CREATE REQUEST DEBUG ===')
+      console.log('Original description:', description)
+      console.log('Request type:', requestType)
+      console.log('Parsed request:', parsedRequest)
+      console.log('Built payload:', payload)
+      console.log('Final request data:', requestData)
+      console.log('===========================')
+
+      await requestService.createRequest(requestData)
 
       // Clear form and refresh
       setDescription('')
+      setParsedRequest(null)
       setPostingMode('all')
       setSelectedCommunity('')
+      setRequestType('generic')
+      setShowTypeOptions(false)
       if (user) {
         await fetchDashboardData(user.id)
       }
     } catch (error: any) {
       console.error('Error creating request:', error)
-      alert(error.response?.data?.message || 'Failed to create request')
+      console.error('Error response:', error.response?.data)
+
+      // Show detailed validation errors
+      const errorMessage = error.response?.data?.message || 'Failed to create request'
+      const errorDetails = error.response?.data?.errors
+        ? '\n\nValidation errors:\n' + JSON.stringify(error.response.data.errors, null, 2)
+        : ''
+
+      alert(errorMessage + errorDetails)
     } finally {
       setCreating(false)
     }
@@ -411,13 +576,73 @@ export default function Dashboard() {
                   {user.name?.charAt(0).toUpperCase()}
                 </div>
                 <div className="flex-1">
-                  <textarea
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    placeholder="What do you need help with?"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none text-sm"
-                    rows={2}
-                  />
+                  {/* Request Type Selector */}
+                  <div className="flex items-center gap-2 mb-2 flex-wrap">
+                    {[
+                      { value: 'generic', label: 'General', icon: '🤝' },
+                      { value: 'ride', label: 'Ride', icon: '🚗' },
+                      { value: 'service', label: 'Service', icon: '🔧' },
+                      { value: 'event', label: 'Event', icon: '🎉' },
+                      { value: 'borrow', label: 'Borrow', icon: '📦' }
+                    ].map((type) => (
+                      <button
+                        key={type.value}
+                        type="button"
+                        onClick={() => setRequestType(type.value as any)}
+                        className={`px-2 py-1 rounded-md text-xs font-medium transition-all ${
+                          requestType === type.value
+                            ? 'bg-blue-500 text-white shadow-sm'
+                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        }`}
+                      >
+                        <span className="mr-1">{type.icon}</span>
+                        {type.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="relative">
+                    <textarea
+                      ref={setTextareaRef}
+                      value={description}
+                      onChange={(e) => handleDescriptionChange(e.target.value, e.target.selectionStart)}
+                      onKeyDown={(e) => {
+                        // Close autocomplete on Escape
+                        if (e.key === 'Escape' && autocompleteSuggestions.length > 0) {
+                          e.preventDefault()
+                          handleCloseAutocomplete()
+                        }
+                      }}
+                      placeholder={
+                        requestType === 'ride' ? 'e.g., Need ride from SF Marina to SFO @tomorrow 3:30 PM #2seats' :
+                        requestType === 'service' ? 'e.g., Need plumber @home $50-100 !urgent' :
+                        requestType === 'event' ? 'e.g., Beach cleanup @Ocean Beach @saturday 9am #20volunteers' :
+                        requestType === 'borrow' ? 'e.g., Borrow power drill for 3 days' :
+                        'What do you need help with? Tip: Use @time, @location, #count, $budget, !urgent'
+                      }
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none text-sm"
+                      rows={2}
+                    />
+
+                    {/* Enhanced Autocomplete with Geocoding */}
+                    {autocompleteSuggestions.length > 0 && (
+                      <EnhancedAutocomplete
+                        suggestions={autocompleteSuggestions}
+                        onSelect={handleSelectSuggestion}
+                        onClose={handleCloseAutocomplete}
+                        triggerChar={autocompleteTrigger}
+                        searchQuery={searchQuery}
+                      />
+                    )}
+                  </div>
+
+                  {/* Show extracted data chips */}
+                  {parsedRequest && (
+                    <ExtractedDataChips
+                      parsed={parsedRequest}
+                      onRemove={handleRemoveExtractedData}
+                    />
+                  )}
                   <div className="flex items-center justify-between mt-2">
                     <div className="flex items-center gap-2">
                       <button

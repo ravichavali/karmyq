@@ -29,8 +29,8 @@ const MIN_REQUEST_INTERVAL = 1000 // 1 second between requests
  * Caches results for 24 hours
  */
 export async function searchAddresses(query: string): Promise<AddressSuggestion[]> {
-  // Input validation
-  if (!query || query.length < 3) return []
+  // Input validation (minimum 2 chars to support airport codes like "SJ")
+  if (!query || query.length < 2) return []
 
   // Sanitize input (prevent injection attacks)
   const sanitized = query.trim().slice(0, 200) // Max 200 chars
