@@ -438,7 +438,9 @@ export function getSuggestions(
   }
 
   // @ suggestions (locations and times)
-  if (lastChar === '@') {
+  // Check if we're typing after an @ symbol (not just immediately after)
+  const atMatch = beforeCursor.match(/@([a-zA-Z0-9\s\-]*)$/i)
+  if (lastChar === '@' || atMatch) {
     const suggestions: AutocompleteSuggestion[] = [
       // Times (always show)
       { value: '@tomorrow', label: 'tomorrow', description: 'Next day', icon: '📅', category: 'time' },
