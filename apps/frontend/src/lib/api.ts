@@ -270,8 +270,11 @@ export const requestService = {
     post_to_all_communities?: boolean;
     title?: string;
     description: string;
-    type: string;
+    type?: string; // Legacy field for backward compatibility
+    request_type?: string; // New polymorphic type field
     urgency?: string;
+    payload?: any; // Type-specific payload (e.g., ride origin/destination)
+    requirements?: any; // Type-specific requirements
   }) =>
     requestApi.post('/requests', data),
 

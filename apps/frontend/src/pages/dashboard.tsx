@@ -315,8 +315,17 @@ export default function Dashboard() {
       const fromMatch = beforeCursor.match(/from\s+([a-zA-Z0-9\s\-]*)$/i)
       const toMatch = beforeCursor.match(/to\s+([a-zA-Z0-9\s\-]*)$/i)
 
+      console.log('🔍 Smart detection:', {
+        beforeCursor,
+        fromMatch: fromMatch?.[0],
+        toMatch: toMatch?.[0],
+        requestType
+      })
+
       if (fromMatch || toMatch) {
         const locationText = (fromMatch?.[1] || toMatch?.[1] || '').trim()
+        console.log('📍 Location text detected:', locationText, 'Length:', locationText.length)
+
         if (locationText.length >= 2) {
           // Trigger geocoding for location context
           // Provide minimal initial suggestions to show the autocomplete

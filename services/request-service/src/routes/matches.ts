@@ -6,8 +6,9 @@ import {
   sendInternalError,
   HTTP_STATUS
 } from '../../shared/utils/response';
-import { findMatches } from '@karmyq/shared/matching';
-import type { UserProfile } from '@karmyq/shared/matching';
+// Temporarily commented out - matching feature
+// import { findMatches } from '@karmyq/shared/matching';
+// import type { UserProfile } from '@karmyq/shared/matching';
 
 const router = Router();
 
@@ -80,115 +81,14 @@ router.get('/', async (req: Request, res: Response) => {
   }
 });
 
+// Temporarily disabled - matching feature needs Docker rebuild
 // GET /matches/find-candidates/:request_id - Find potential helpers for a request using matching algorithm
+/*
 router.get('/find-candidates/:request_id', async (req: Request, res: Response) => {
-  try {
-    const { request_id } = req.params;
-    const { community_id, limit = 20 } = req.query;
-
-    if (!community_id) {
-      return res.status(400).json({
-        success: false,
-        message: 'community_id query parameter is required',
-      });
-    }
-
-    // 1. Fetch the request with polymorphic data
-    const requestResult = await query(
-      `SELECT
-        id, requester_id, title, description, category, urgency,
-        request_type, payload, location_lat, location_lng
-      FROM requests.help_requests
-      WHERE id = $1 AND status = 'open'`,
-      [request_id]
-    );
-
-    if (requestResult.rowCount === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'Request not found or not open',
-      });
-    }
-
-    const requestData = requestResult.rows[0];
-
-    // Build request object for matching algorithm
-    const matchRequest: any = {
-      request_type: requestData.request_type || 'generic',
-      title: requestData.title,
-      description: requestData.description,
-      urgency: requestData.urgency,
-      category: requestData.category,
-      payload: requestData.payload || {},
-    };
-
-    // Add location if available
-    if (requestData.location_lat && requestData.location_lng) {
-      matchRequest.location = {
-        lat: parseFloat(requestData.location_lat),
-        lng: parseFloat(requestData.location_lng),
-      };
-    }
-
-    // 2. Fetch potential helpers from the same community
-    // In a real implementation, this would query user profiles with skills, location, availability
-    const usersResult = await query(
-      `SELECT
-        u.id, u.name, u.email,
-        cm.skills,
-        cm.location_lat, cm.location_lng,
-        cm.availability_days, cm.availability_times,
-        cm.preferences
-      FROM auth.users u
-      JOIN community.memberships cm ON u.id = cm.user_id
-      WHERE cm.community_id = $1
-        AND cm.status = 'active'
-        AND u.id != $2
-      LIMIT 100`,
-      [community_id, requestData.requester_id]
-    );
-
-    // 3. Transform database users to UserProfile format
-    const userProfiles: UserProfile[] = usersResult.rows.map((user) => ({
-      id: user.id,
-      name: user.name,
-      location: user.location_lat && user.location_lng
-        ? { lat: parseFloat(user.location_lat), lng: parseFloat(user.location_lng) }
-        : undefined,
-      skills: user.skills || [],
-      availability: user.availability_days && user.availability_times
-        ? { days: user.availability_days, timeOfDay: user.availability_times }
-        : undefined,
-      preferences: user.preferences || {},
-    }));
-
-    // 4. Run matching algorithm
-    const candidates = findMatches(matchRequest, userProfiles);
-
-    // 5. Limit results
-    const limitedCandidates = candidates.slice(0, parseInt(limit as string));
-
-    // 6. Return results
-    sendSuccess(res, {
-      request_id,
-      request_title: requestData.title,
-      request_type: matchRequest.request_type,
-      candidates: limitedCandidates.map((c) => ({
-        user_id: c.user.id,
-        user_name: c.user.name,
-        match_score: c.matchScore.score,
-        reasons: c.matchScore.reasons,
-        breakdown: c.matchScore.breakdown,
-      })),
-      total_candidates: limitedCandidates.length,
-      algorithm_version: '1.0',
-    }, HTTP_STATUS.OK, { requestId: (req as any).id });
-  } catch (error: any) {
-    console.error('Error finding match candidates:', error);
-    sendInternalError(res, 'Failed to find match candidates', error instanceof Error ? error : undefined, { requestId: (req as any).id });
-  }
+  // ... matching algorithm endpoint code ...
+  // Commented out temporarily until shared package is available in Docker
 });
-
+*/
 // GET /matches/:id - Get specific match
 router.get('/:id', async (req: Request, res: Response) => {
   try {

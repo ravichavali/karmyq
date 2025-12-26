@@ -59,12 +59,18 @@ export default function EnhancedAutocomplete({
 
   // Async address lookup when user types after @ or in location context (from/to)
   useEffect(() => {
+    console.log('🔧 EnhancedAutocomplete useEffect:', { triggerChar, searchQuery, length: searchQuery.length })
+
     if (triggerChar === '@' && searchQuery.length >= 2) {
+      console.log('✅ Triggering geocoding search for:', searchQuery)
+
       const performSearch = async () => {
         setLoading(true)
         try {
+          console.log('🌐 Calling searchAddresses API...')
           // Get real addresses from geocoding API
           const addresses = await searchAddresses(searchQuery)
+          console.log('📦 Geocoding results:', addresses.length, 'addresses found')
           const addressSuggestions: Suggestion[] = addresses.map(addr => ({
             value: `@${addr.address}`,
             label: addr.address,
