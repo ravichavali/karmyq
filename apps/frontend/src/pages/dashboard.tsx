@@ -122,9 +122,11 @@ export default function Dashboard() {
           if (!activeCommunityId) {
             setActiveCommunityId(communities[0].id)
           }
-          const communityToUse = activeCommunityId || communities[0].id
-          const milestonesRes = await feedApi.get(`/feed/milestones?community_id=${communityToUse}&limit=5`)
-          setMilestones(milestonesRes.data || [])
+          // TODO: Re-enable when milestone_events table is created
+          // const communityToUse = activeCommunityId || communities[0].id
+          // const milestonesRes = await feedApi.get(`/feed/milestones?community_id=${communityToUse}&limit=5`)
+          // setMilestones(milestonesRes.data || [])
+          setMilestones([]) // Temporarily disabled
         }
       } catch (err) {
         console.error('Failed to fetch milestones:', err)

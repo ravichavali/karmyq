@@ -32,13 +32,16 @@ export default function RightSidebar({ communityId }: RightSidebarProps) {
 
       try {
         setLoading(true)
-        const [healthRes, milestonesRes] = await Promise.all([
-          feedApi.get(`/feed/community-health?community_id=${communityId}`),
-          feedApi.get(`/feed/milestones?community_id=${communityId}&limit=3`)
-        ])
-
-        setHealthData(healthRes.data || null)
-        setMilestones(milestonesRes.data || [])
+        // TODO: Re-enable when milestone_events and community_health_metrics tables are created
+        // const [healthRes, milestonesRes] = await Promise.all([
+        //   feedApi.get(`/feed/community-health?community_id=${communityId}`),
+        //   feedApi.get(`/feed/milestones?community_id=${communityId}&limit=3`)
+        // ])
+        //
+        // setHealthData(healthRes.data || null)
+        // setMilestones(milestonesRes.data || [])
+        setHealthData(null) // Temporarily disabled
+        setMilestones([]) // Temporarily disabled
       } catch (err) {
         console.error('Failed to fetch sidebar data:', err)
       } finally {

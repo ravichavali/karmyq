@@ -33,13 +33,14 @@ export default function LeftSidebar({ user, communities, activeCommunityId, onCo
 
       try {
         setLoading(true)
-        const karmaRes = await reputationService.getKarma(user.id, activeCommunityId)
-        const trustRes = await reputationService.getTrustScore(user.id, activeCommunityId)
+        // TODO: Re-enable when reputation service auth is fixed
+        // const karmaRes = await reputationService.getKarma(user.id, activeCommunityId)
+        // const trustRes = await reputationService.getTrustScore(user.id, activeCommunityId)
 
         setKarmaData({
-          total_karma: karmaRes.data?.total_karma || 0,
-          trust_score: trustRes.data?.trust_score || 0,
-          rank: karmaRes.data?.rank
+          total_karma: 0, // karmaRes.data?.total_karma || 0,
+          trust_score: 0, // trustRes.data?.trust_score || 0,
+          rank: undefined // karmaRes.data?.rank
         })
       } catch (err) {
         console.error('Failed to fetch karma:', err)
