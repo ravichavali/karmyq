@@ -309,9 +309,17 @@ export default function Dashboard() {
 
       const triggerIndex = beforeCursor.lastIndexOf(trigger)
       if (triggerIndex !== -1) {
-        const query = beforeCursor.slice(triggerIndex + trigger.length).trim()
+        const rawQuery = beforeCursor.slice(triggerIndex + trigger.length)
+        const query = rawQuery.trim()
+        console.log('🔑 @ trigger detected! Query extracted:', {
+          triggerIndex,
+          rawQuery: `"${rawQuery}"`,
+          query: `"${query}"`,
+          queryLength: query.length
+        })
         setSearchQuery(query)
       } else {
+        console.log('❌ @ trigger found but no triggerIndex')
         setSearchQuery('')
       }
     } else if (requestType === 'ride') {
