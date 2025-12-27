@@ -24,9 +24,12 @@ let lastRequestTime = 0
 const MIN_REQUEST_INTERVAL = 1000 // 1 second between requests
 
 /**
- * Search for addresses using OpenStreetMap Nominatim
- * Rate limit: 1 request per second for free tier
- * Caches results for 24 hours
+ * Search for addresses using local IndexedDB first, then OpenStreetMap Nominatim
+ *
+ * Priority:
+ * 1. Check IndexedDB common locations (instant, ~5ms)
+ * 2. Check IndexedDB API cache (instant, ~5ms)
+ * 3. Call Nominatim API and cache result (slow, ~500ms)
  */
 export async function searchAddresses(query: string): Promise<AddressSuggestion[]> {
   // Input validation (minimum 2 chars to support airport codes like "SJ")
@@ -39,13 +42,56 @@ export async function searchAddresses(query: string): Promise<AddressSuggestion[
     return []
   }
 
-  // Check cache first
+  // STEP 1: Check IndexedDB common locations (airports, cities)
+  const { searchCommonLocations, getCachedResult, cacheAPIResult } = await import('./geocodingCache')
+
+  const commonResults = await searchCommonLocations(sanitized, 5)
+  if (commonResults.length > 0) {
+    console.debug(`✅ IndexedDB common locations hit for: ${sanitized}`)
+    return commonResults
+  }
+
+  // STEP 2: Check IndexedDB API cache
+  const indexedDBCached = await getCachedResult(sanitized)
+  if (indexedDBCached && indexedDBCached.length > 0) {
+    console.debug(`✅ Tier 1: IndexedDB API cache hit for: ${sanitized}`)
+    return indexedDBCached
+  }
+
+  // STEP 3: Check backend PostgreSQL cache
+  try {
+    const backendResponse = await fetch(
+      `http://localhost:3009/search?q=${encodeURIComponent(sanitized)}`,
+      { signal: AbortSignal.timeout(2000) } // 2 second timeout for backend
+    )
+
+    if (backendResponse.ok) {
+      const backendData = await backendResponse.json()
+      if (backendData.results && backendData.results.length > 0) {
+        console.debug(`✅ Tier 2: Backend DB ${backendData.cached ? 'CACHE HIT' : 'API call'} for: ${sanitized}`)
+
+        // Cache locally in IndexedDB for next time (even if it came from backend API call)
+        await cacheAPIResult(sanitized, backendData.results)
+
+        // If backend made an API call and got results, we're done (backend already cached it)
+        return backendData.results
+      }
+    }
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    console.warn(`⚠️ Backend geocoding unavailable (${errorMessage}), falling back to direct API`)
+  }
+
+  // STEP 4: Fallback to localStorage cache (legacy)
   const cacheKey = createCacheKey('geocode', sanitized.toLowerCase())
   const cached = await cache.get<AddressSuggestion[]>(cacheKey)
   if (cached) {
-    console.debug(`Cache hit for geocoding: ${sanitized}`)
+    console.debug(`✅ Tier 3: localStorage cache hit for: ${sanitized}`)
     return cached
   }
+
+  // STEP 5: Direct API call (only if all tiers failed)
+  console.debug(`⚠️ Tier 4: Calling external Nominatim API for: ${sanitized}`)
 
   // Rate limiting
   const now = Date.now()
@@ -92,9 +138,19 @@ export async function searchAddresses(query: string): Promise<AddressSuggestion[
       type: result.type || 'place'
     }))
 
-    // Cache the results (24 hours)
-    await cache.set(cacheKey, suggestions, 24 * 60 * 60 * 1000)
-    console.debug(`Cached geocoding results for: ${sanitized}`)
+    // Cache everywhere (fire-and-forget, don't wait)
+    Promise.all([
+      // IndexedDB (local browser cache)
+      cacheAPIResult(sanitized, suggestions),
+      // Backend cache (shared across all users)
+      fetch('http://localhost:3009/cache', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: sanitized, results: suggestions })
+      }).catch(() => console.warn('Backend cache update failed (non-fatal)')),
+      // localStorage (legacy support)
+      cache.set(cacheKey, suggestions, 24 * 60 * 60 * 1000)
+    ]).then(() => console.debug(`✅ Cached "${sanitized}" to all tiers`))
 
     return suggestions
   } catch (error) {

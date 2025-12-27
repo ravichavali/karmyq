@@ -21,7 +21,7 @@ interface Suggestion {
 
 interface EnhancedAutocompleteProps {
   suggestions: Suggestion[]
-  onSelect: (value: string, lat?: number, lng?: number) => void
+  onSelect: (value: string, lat?: number, lng?: number, displayName?: string) => void
   onClose: () => void
   triggerChar: '@' | '#' | '$' | '!' | '..' | '>>' | null
   position?: { top: number; left: number }
@@ -127,7 +127,7 @@ export default function EnhancedAutocomplete({
         case 'Tab':
           e.preventDefault()
           const selected = suggestions[selectedIndex]
-          onSelect(selected.value, selected.lat, selected.lng)
+          onSelect(selected.value, selected.lat, selected.lng, selected.description)
           break
         case 'Escape':
           e.preventDefault()
@@ -197,7 +197,7 @@ export default function EnhancedAutocomplete({
           <button
             key={`${suggestion.value}-${index}`}
             type="button"
-            onClick={() => onSelect(suggestion.value, suggestion.lat, suggestion.lng)}
+            onClick={() => onSelect(suggestion.value, suggestion.lat, suggestion.lng, suggestion.description)}
             className={`w-full text-left px-3 py-2.5 flex items-start gap-3 transition-colors ${
               index === selectedIndex
                 ? 'bg-blue-100 text-blue-900 border-l-4 border-blue-600'

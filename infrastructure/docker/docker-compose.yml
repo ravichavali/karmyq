@@ -265,6 +265,31 @@ services:
       - karmyq-network
     command: npm run dev
 
+  # Geocoding Cache Service (Port 3009)
+  geocoding-service:
+    build:
+      context: ../../services/geocoding-service
+      dockerfile: Dockerfile
+    container_name: karmyq-geocoding-service
+    environment:
+      NODE_ENV: development
+      PORT: 3009
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: karmyq_db
+      DB_USER: karmyq
+      DB_PASSWORD: karmyq_password
+    ports:
+      - "3009:3009"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ../../services/geocoding-service:/app
+      - /app/node_modules
+    networks:
+      - karmyq-network
+
   # Frontend
   frontend:
     build:
@@ -330,7 +355,7 @@ services:
     image: grafana/grafana:10.2.0
     container_name: karmyq-grafana
     ports:
-      - "3009:3000"
+      - "3011:3000"
     environment:
       - GF_SECURITY_ADMIN_USER=admin
       - GF_SECURITY_ADMIN_PASSWORD=admin

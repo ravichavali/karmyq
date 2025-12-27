@@ -60,7 +60,12 @@ playwright-report/
 # Temporary files
 *.tmp
 *.temp
+nul
 check-docker.sh
+
+# Claude Code transcripts (commit these for documentation)
+# Uncomment to exclude from git:
+# docs/claude-sessions/
 
 # macOS
 .AppleDouble

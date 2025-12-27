@@ -13,7 +13,8 @@
  */
 
 export interface LocationData {
-  text: string
+  text: string // Short version for parsing (e.g., "San Francisco")
+  display_name?: string // Full human-readable address (e.g., "San Francisco, California, USA")
   type: 'origin' | 'destination' | 'general'
   lat?: number
   lng?: number
@@ -32,23 +33,42 @@ export interface ParsedRequest {
 }
 
 /**
- * Update location coordinates in parsed request
+ * Update location coordinates and display name in parsed request
+ * Also updates cleanDescription to use full display names
  */
 export function updateLocationCoordinates(
   parsed: ParsedRequest,
   address: string,
   lat: number,
-  lng: number
+  lng: number,
+  displayName?: string
 ): ParsedRequest {
   if (!parsed.extractedData.locations) return parsed
 
   const updated = { ...parsed }
   updated.extractedData = { ...parsed.extractedData }
   updated.extractedData.locations = parsed.extractedData.locations.map(loc =>
-    loc.text === address ? { ...loc, lat, lng } : loc
+    loc.text === address ? { ...loc, lat, lng, display_name: displayName } : loc
   )
 
+  // Update cleanDescription to use full display names where available
+  let cleanDescription = parsed.cleanDescription
+  if (displayName && address) {
+    // Replace the short address with full display name in cleanDescription
+    // This handles patterns like "from San Francisco" -> "from San Francisco, California, USA"
+    const addressPattern = new RegExp(`\\b${escapeRegex(address)}\\b`, 'gi')
+    cleanDescription = cleanDescription.replace(addressPattern, displayName)
+  }
+  updated.cleanDescription = cleanDescription
+
   return updated
+}
+
+/**
+ * Escape special regex characters in a string
+ */
+function escapeRegex(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 
 export function parseRequestDescription(text: string, requestType: string): ParsedRequest {

@@ -37,7 +37,7 @@ export default function ExtractedDataChips({ parsed, onRemove, onEdit }: Extract
       {extractedData.locations?.map((location, idx) => (
         <Chip
           key={`location-${idx}`}
-          label={location.text}
+          label={location.display_name || location.text}
           icon="📍"
           badge={location.type === 'origin' ? 'From' : location.type === 'destination' ? 'To' : undefined}
           color="blue"

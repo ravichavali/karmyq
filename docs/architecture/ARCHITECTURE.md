@@ -1,7 +1,7 @@
 # Karmyq Architecture
 
-**Version**: 6.0.0
-**Last Updated**: 2025-12-05
+**Version**: 8.0.0
+**Last Updated**: 2025-12-27
 **Status**: Production
 
 ---
@@ -722,10 +722,11 @@ import { logger } from '@shared/utils';
 - **Tracing**: OpenTelemetry (planned)
 
 ### Testing
-- **Unit Tests**: Jest
-- **Integration Tests**: Jest + Supertest
-- **E2E Tests**: Playwright
-- **Load Tests**: K6
+- **Unit Tests**: Jest + TypeScript (163 tests, 98%+ coverage on business logic)
+- **Integration Tests**: Jest + Supertest (126 passing)
+- **E2E Tests**: Playwright (full user journeys)
+- **Load Tests**: K6 (performance benchmarks)
+- **TDD Workflow**: Red → Green → Refactor methodology
 
 ### CI/CD
 - **Platform**: GitHub Actions
@@ -1019,6 +1020,6 @@ See [operations/logging-and-monitoring.md](../operations/logging-and-monitoring.
 
 ---
 
-**Version**: 6.0.0
-**Last Updated**: 2025-12-05
+**Version**: 8.0.0
+**Last Updated**: 2025-12-27
 **Maintained by**: Karmyq Development Team

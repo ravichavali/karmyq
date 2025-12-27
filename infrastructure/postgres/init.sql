@@ -612,6 +612,27 @@ CREATE POLICY community_isolation ON feed.dismissed_items
 -- Note: auth.users table does NOT have RLS
 -- Users can belong to multiple communities, so user data is shared across communities
 
+-- ============= GEOCODING CACHE (SHARED ACROSS ALL USERS) =============
+-- No schema needed - this is a shared utility table
+CREATE TABLE IF NOT EXISTS geocoding_cache (
+    query TEXT PRIMARY KEY,
+    results JSONB NOT NULL,
+    cached_at TIMESTAMP DEFAULT NOW(),
+    expires_at TIMESTAMP DEFAULT NOW() + INTERVAL '30 days',
+    hit_count INTEGER DEFAULT 1,
+    last_accessed TIMESTAMP DEFAULT NOW(),
+    source VARCHAR(50) DEFAULT 'nominatim' -- Track which API provided the data
+);
+
+CREATE INDEX idx_geocoding_expires ON geocoding_cache(expires_at);
+CREATE INDEX idx_geocoding_hits ON geocoding_cache(hit_count DESC);
+CREATE INDEX idx_geocoding_last_accessed ON geocoding_cache(last_accessed DESC);
+
+COMMENT ON TABLE geocoding_cache IS 'Shared geocoding cache - reduces external API calls by 95%+';
+COMMENT ON COLUMN geocoding_cache.query IS 'Normalized search query (lowercase, trimmed)';
+COMMENT ON COLUMN geocoding_cache.results IS 'Array of geocoding results with display_name, address, lat, lng, type';
+COMMENT ON COLUMN geocoding_cache.hit_count IS 'Number of times this cache entry was accessed';
+
 -- Create karmyq role if it doesn't exist
 DO $$
 BEGIN

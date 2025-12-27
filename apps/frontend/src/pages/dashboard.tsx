@@ -325,7 +325,8 @@ export default function Dashboard() {
     } else if (requestType === 'ride') {
       // Smart detection: look for location keywords like "from", "to"
       // Match patterns like: "from San" or "to San" where cursor is after the word
-      const fromMatch = beforeCursor.match(/from\s+([a-zA-Z0-9\s\-]*)$/i)
+      // IMPORTANT: Use negative lookahead to stop at " to " for origin
+      const fromMatch = beforeCursor.match(/from\s+([a-zA-Z0-9\s\-]*?)(?:\s+to\s|$)/i)
       const toMatch = beforeCursor.match(/to\s+([a-zA-Z0-9\s\-]*)$/i)
 
       console.log('🔍 Smart detection:', {
@@ -371,7 +372,7 @@ export default function Dashboard() {
     }
   }
 
-  const handleSelectSuggestion = (value: string, lat?: number, lng?: number) => {
+  const handleSelectSuggestion = (value: string, lat?: number, lng?: number, displayName?: string) => {
     if (!textareaRef) return
 
     const cursorPos = textareaRef.selectionStart
@@ -416,13 +417,13 @@ export default function Dashboard() {
 
     handleDescriptionChange(newDescription, triggerStart + finalValue.length + 1)
 
-    // Store coordinates if this is a geocoded location
+    // Store coordinates and display_name if this is a geocoded location
     if (lat !== undefined && lng !== undefined && parsedRequest) {
       // Extract the address from the value (remove @ prefix)
       const address = value.replace(/^@/, '').trim()
-      const updatedRequest = updateLocationCoordinates(parsedRequest, address, lat, lng)
+      const updatedRequest = updateLocationCoordinates(parsedRequest, address, lat, lng, displayName)
       setParsedRequest(updatedRequest)
-      console.log(`Stored coordinates for "${address}": ${lat}, ${lng}`)
+      console.log(`Stored location: "${address}" (${displayName}) at ${lat}, ${lng}`)
     }
 
     // Clear autocomplete

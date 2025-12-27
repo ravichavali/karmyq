@@ -43,7 +43,10 @@
       "Bash(cat:*)",
       "Bash(bash:*)",
       "Bash(New-Item -ItemType SymbolicLink -Name \"shared\" -Target \"..\\\\..\\\\packages\\\\shared\")",
-      "Bash(Out-String)"
+      "Bash(Out-String)",
+      "Bash(ls:*)",
+      "Bash(rm:*)",
+      "Bash(mv:*)"
     ],
     "deny": [],
     "ask": []

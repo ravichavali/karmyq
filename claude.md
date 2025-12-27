@@ -1,10 +1,10 @@
 # Karmyq - Mutual Aid Platform
 
 ## Project Overview
-Karmyq is a multi-tenant SaaS mutual aid platform where community members help each other. Version 6.0.0 with clean architecture, comprehensive documentation, and production-ready services.
+Karmyq is a multi-tenant SaaS mutual aid platform where community members help each other. Version 8.0.0 with comprehensive testing infrastructure, clean architecture, and production-ready services.
 
 ## Architecture
-- **Microservices**: 8 backend services communicating via REST and Redis queues
+- **Microservices**: 9 backend services communicating via REST and Redis queues
 - **Multi-Tenant**: Row-Level Security (RLS) with community_id isolation
 - **Event-Driven**: Bull/Redis queues for async processing (karmyq-events)
 
@@ -28,6 +28,8 @@ Karmyq is a multi-tenant SaaS mutual aid platform where community members help e
 | Messaging | 3006 | messaging |
 | Feed | 3007 | - (reads all) |
 | Cleanup | 3008 | - (writes all) |
+| Geocoding | 3009 | - (shared cache) |
+| Grafana | 3011 | - (observability) |
 
 ## Key Patterns
 
@@ -118,11 +120,12 @@ Each service has complete context documentation:
 - `services/{service-name}/README.md` - Quick reference
 - Standardized format across all services
 
-## Current Status (v6.0)
+## Current Status (v8.0)
 - **8 Production-Ready Services** - All services with complete documentation
 - **Multi-Tenant SaaS** - Row-Level Security (RLS) with community isolation
 - **Ephemeral Data** - Configurable TTL (60 days default)
 - **Reputation Decay** - Time-based karma decay (6-month half-life)
 - **Clean Architecture** - Consolidated documentation, service templates
-- **Comprehensive Testing** - Integration, E2E, and load tests
+- **Comprehensive Testing** - Integration, E2E, unit tests (163 passing), and load tests
 - **Full Observability** - Grafana/Loki/Prometheus stack
+- **TDD Framework** - Jest with TypeScript, 98%+ coverage on business logic
