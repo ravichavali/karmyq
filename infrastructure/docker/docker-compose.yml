@@ -277,8 +277,8 @@ services:
       DB_HOST: postgres
       DB_PORT: 5432
       DB_NAME: karmyq_db
-      DB_USER: karmyq
-      DB_PASSWORD: karmyq_password
+      DB_USER: karmyq_user
+      DB_PASSWORD: karmyq_password_dev
     ports:
       - "3009:3009"
     depends_on:
@@ -289,6 +289,35 @@ services:
       - /app/node_modules
     networks:
       - karmyq-network
+
+  # Social Graph Service (Port 3010)
+  social-graph-service:
+    build:
+      context: ../../services/social-graph-service
+      dockerfile: Dockerfile
+    container_name: karmyq-social-graph-service
+    environment:
+      NODE_ENV: development
+      PORT: 3010
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: karmyq_db
+      DB_USER: karmyq_user
+      DB_PASSWORD: karmyq_password_dev
+      JWT_SECRET: dev_jwt_secret_change_in_production
+      FRONTEND_URL: http://localhost:3000
+      LOG_LEVEL: info
+    ports:
+      - "3010:3010"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ../../services/social-graph-service/src:/app/src
+      - ../../packages/shared:/app/shared
+    networks:
+      - karmyq-network
+    command: npm run dev
 
   # Frontend
   frontend:

@@ -1,0 +1,628 @@
+# Social Graph Service Context
+
+> **Quick Start**: `cd services/social-graph-service && npm run dev`
+> **Port**: 3010 | **Health**: http://localhost:3010/health
+
+## Purpose
+
+Manages invitation tracking, social graph computation, and trust path visualization. Enables users to see how they're connected through invitation chains and prioritize help requests from their extended network.
+
+## Core Principles
+
+**"Trust flows through relationships"** - The service makes social connections visible and uses invitation paths as a primary trust signal for feed ranking and request matching.
+
+## Database Schema
+
+### Tables Owned by This Service
+
+```sql
+-- Invitation tracking
+auth.user_invitations
+auth.inviter_stats
+
+-- Precomputed paths (cache)
+auth.social_distances
+
+-- User table extensions
+auth.users.invited_by
+auth.users.invitation_accepted_at
+auth.users.show_connection_path
+auth.users.show_who_invited_me
+auth.users.show_who_i_invited
+```
+
+See [migration 009_social_graph.sql](../../infrastructure/postgres/migrations/009_social_graph.sql) for complete schema.
+
+### Tables Read by This Service
+
+- `auth.users` - User information for path display
+- `communities.members` - Community membership for RLS
+- `reputation.karma_records` - Karma scores for trust path calculation
+
+## Architecture
+
+### Invitation Flow
+
+```
+1. User generates invitation code
+   ↓
+2. Code shared via link/email/SMS/QR
+   ↓
+3. New user accepts code during signup
+   ↓
+4. Invitation recorded in graph
+   ↓
+5. Paths recomputed (lazy, on-demand)
+```
+
+### Path Computation Strategy
+
+```
+Cache Hit (< 7 days old):
+  - Return from auth.social_distances
+  - ~50ms response time
+
+Cache Miss:
+  - Run BFS algorithm
+  - Max depth: 4 degrees
+  - Cache result for 7 days
+  - ~500ms response time (first time)
+```
+
+## API Endpoints
+
+### POST /invitations/generate
+
+Generate a new invitation code for current user.
+
+**Request** (authenticated):
+```json
+{
+  // No body required - uses current user from JWT
+}
+```
+
+**Response**:
+```json
+{
+  "success": true,
+  "data": {
+    "code": "KARMYQ-MIKE-2024-A7B3",
+    "url": "http://localhost:3000/invite/KARMYQ-MIKE-2024-A7B3",
+    "created_at": "2025-12-27T10:30:00Z",
+    "expires_at": null
+  }
+}
+```
+
+**Implementation**: [src/routes/invitations.ts:11](src/routes/invitations.ts#L11)
+
+**Key Features**:
+- Invitation codes follow format: `KARMYQ-{NAME}-{YEAR}-{RANDOM}`
+- Uses database function `auth.generate_invitation_code()`
+- Automatically updates `inviter_stats.total_invitations_sent`
+
+---
+
+### POST /invitations/accept
+
+Accept an invitation code during user signup.
+
+**Request** (authenticated):
+```json
+{
+  "invitation_code": "KARMYQ-MIKE-2024-A7B3"
+}
+```
+
+**Response**:
+```json
+{
+  "success": true,
+  "data": {
+    "inviter_id": "uuid-123",
+    "community_id": "uuid-456",
+    "accepted_at": "2025-12-27T10:35:00Z"
+  }
+}
+```
+
+**Implementation**: [src/routes/invitations.ts:91](src/routes/invitations.ts#L91)
+
+**Side Effects**:
+1. Updates `user_invitations.invitation_accepted_at`
+2. Sets `users.invited_by` for the new user
+3. Triggers `update_inviter_stats_on_acceptance()` (increments `total_invitations_accepted`)
+
+---
+
+### GET /invitations
+
+Get invitation history for current user.
+
+**Response**:
+```json
+{
+  "success": true,
+  "data": {
+    "sent": [
+      {
+        "id": "uuid-789",
+        "invitation_code": "KARMYQ-MIKE-2024-A7B3",
+        "invited_at": "2025-12-20T00:00:00Z",
+        "accepted_at": "2025-12-21T00:00:00Z",
+        "invitee": {
+          "id": "uuid-abc",
+          "name": "Sarah Rodriguez",
+          "karma": 92
+        }
+      }
+    ],
+    "received": {
+      "id": "uuid-def",
+      "invitation_code": "KARMYQ-JOHN-2024-X1Y2",
+      "invited_at": "2025-11-15T00:00:00Z",
+      "accepted_at": "2025-11-15T00:00:00Z",
+      "inviter": {
+        "id": "uuid-ghi",
+        "name": "Mike Chen"
+      }
+    }
+  }
+}
+```
+
+**Implementation**: [src/routes/invitations.ts:170](src/routes/invitations.ts#L170)
+
+---
+
+### GET /invitations/stats
+
+Get inviter statistics for current user (gamification metrics).
+
+**Response**:
+```json
+{
+  "success": true,
+  "data": {
+    "total_invitations_sent": 8,
+    "total_invitations_accepted": 7,
+    "acceptance_rate": 87.5,
+    "avg_invitee_karma": 78.5,
+    "avg_invitee_trust_score": 82.3,
+    "total_invitee_exchanges": 45,
+    "total_network_size": 87,
+    "bridge_score": 3,
+    "inviter_tier": "gold",
+    "tier_updated_at": "2025-12-20T00:00:00Z"
+  }
+}
+```
+
+**Implementation**: [src/routes/invitations.ts:237](src/routes/invitations.ts#L237)
+
+**Inviter Tiers**:
+- **Bronze**: Default
+- **Silver**: 3+ accepted, 60+ avg karma, 50%+ acceptance
+- **Gold**: 5+ accepted, 70+ avg karma, 60%+ acceptance
+- **Platinum**: 10+ accepted, 80+ avg karma, 70%+ acceptance
+
+---
+
+### GET /paths/:targetUserId
+
+Get shortest path between current user and target user.
+
+**Parameters**:
+- `targetUserId` (URL param): UUID of target user
+
+**Response** (path found):
+```json
+{
+  "success": true,
+  "data": {
+    "degrees_of_separation": 2,
+    "path": [
+      { "id": "user-123", "name": "You" },
+      { "id": "user-456", "name": "Mike Chen", "karma": 87, "invited_at": "2024-11-15" },
+      { "id": "user-789", "name": "Sarah Rodriguez" }
+    ],
+    "trust_score": 87,
+    "cached": true,
+    "computed_at": "2025-12-27T10:00:00Z"
+  }
+}
+```
+
+**Response** (no path):
+```json
+{
+  "success": true,
+  "data": {
+    "degrees_of_separation": null,
+    "path": null,
+    "message": "No connection found (4+ degrees or unconnected)"
+  }
+}
+```
+
+**Implementation**: [src/routes/paths.ts:12](src/routes/paths.ts#L12)
+
+**Algorithm**: Bidirectional BFS (see [src/services/pathComputation.ts](src/services/pathComputation.ts))
+
+**Performance**:
+- Cache hit: ~50ms
+- Cache miss: ~500ms (first computation)
+- Cache TTL: 7 days
+
+---
+
+### POST /paths/batch
+
+Get paths for multiple target users (optimized for feed ranking).
+
+**Request**:
+```json
+{
+  "target_user_ids": ["uuid-1", "uuid-2", "uuid-3", ...]
+}
+```
+
+**Response**:
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "target_user_id": "uuid-1",
+      "degrees_of_separation": 1,
+      "trust_score": 92,
+      "cached": true
+    },
+    {
+      "target_user_id": "uuid-2",
+      "degrees_of_separation": 2,
+      "trust_score": 179,
+      "cached": false
+    }
+  ]
+}
+```
+
+**Implementation**: [src/routes/paths.ts:95](src/routes/paths.ts#L95)
+
+**Limits**:
+- Max 50 users per request
+- Automatically caches newly computed paths
+
+**Use Case**: Feed Service calls this endpoint to get social proximity scores for all requesters in the feed, then ranks requests accordingly.
+
+---
+
+## Key Features
+
+### 1. Invitation Code Generation
+
+Codes follow format: `KARMYQ-{NAME}-{YEAR}-{RANDOM}`
+
+**Example**: `KARMYQ-MIKE-2024-A7B3`
+
+- `KARMYQ`: Prefix
+- `MIKE`: Inviter's name (sanitized, alphanumeric only)
+- `2024`: Year
+- `A7B3`: Random 4-character suffix
+
+**Database Function**:
+```sql
+SELECT auth.generate_invitation_code('Mike Chen', 2024);
+-- Returns: KARMYQ-MIKECHEN-2024-A7B3
+```
+
+**Collision Prevention**: Loop until unique code is generated.
+
+---
+
+### 2. Bidirectional BFS Path Computation
+
+**Algorithm**: `computeShortestPath(sourceUserId, targetUserId, communityId)`
+
+**Steps**:
+1. Build adjacency list from `auth.user_invitations`
+2. Treat graph as bidirectional (trust flows both ways)
+3. BFS from source to target
+4. Max depth: 4 degrees
+5. Return `null` if no path found
+
+**Optimization**: Bidirectional search reduces search space from O(b^d) to O(2 * b^(d/2))
+
+**Example Output**:
+```typescript
+{
+  degrees: 2,
+  userIds: ['user-a', 'user-b', 'user-c'],
+  path: [
+    { id: 'user-a', name: 'You' },
+    { id: 'user-b', name: 'Mike', karma: 87, invited_at: '2024-11-15' },
+    { id: 'user-c', name: 'Sarah' }
+  ],
+  trustScore: 87 // Sum of intermediate karma (87 for Mike)
+}
+```
+
+**Implementation**: [src/services/pathComputation.ts:23](src/services/pathComputation.ts#L23)
+
+---
+
+### 3. Path Caching
+
+**Cache Table**: `auth.social_distances`
+
+**TTL**: 7 days
+
+**Invalidation**:
+- Automatic (expires_at timestamp)
+- No manual invalidation (yet)
+
+**Cache Hit Rate Target**: >95% (most paths precomputed)
+
+**Query**:
+```sql
+SELECT degrees_of_separation, shortest_path, path_trust_score
+FROM auth.social_distances
+WHERE user_a_id = $1 AND user_b_id = $2 AND community_id = $3
+  AND expires_at > NOW()
+```
+
+---
+
+### 4. Privacy Controls
+
+Users can control social graph visibility via `auth.users` columns:
+
+```sql
+show_connection_path BOOLEAN DEFAULT true;      -- Others can see path to me
+show_who_invited_me BOOLEAN DEFAULT true;       -- Show "Invited by X" on profile
+show_who_i_invited BOOLEAN DEFAULT false;       -- Hide my invitees from public
+```
+
+**Default Posture**: Transparent (all visible)
+
+**Rationale**: Transparency builds trust, which is the core value proposition.
+
+---
+
+## Integration with Other Services
+
+### Feed Service
+
+**Use Case**: Rank feed requests by social proximity
+
+**Integration**:
+```javascript
+// Feed Service calls:
+POST /paths/batch
+{
+  "target_user_ids": ["requester-1", "requester-2", ...]
+}
+
+// Social Graph Service returns:
+[
+  { "target_user_id": "requester-1", "degrees_of_separation": 1, "trust_score": 92 },
+  { "target_user_id": "requester-2", "degrees_of_separation": 3, "trust_score": 234 }
+]
+
+// Feed Service uses this for ranking:
+score += (degrees === 1 ? 30 : degrees === 2 ? 20 : degrees === 3 ? 10 : 0)
+```
+
+**Benefit**: Requests from 1° connections rank 30 points higher.
+
+---
+
+### Request Service
+
+**Use Case**: Show "Connected through X" badge on request cards
+
+**Integration**:
+```javascript
+// Request Service enriches requests with social context
+const path = await fetch(`/paths/${requesterId}`);
+
+// Returns:
+{
+  "degrees_of_separation": 2,
+  "path": [
+    { "name": "You" },
+    { "name": "Mike Chen", "relation": "invited you" },
+    { "name": "Sarah Rodriguez", "relation": "invited by Mike" }
+  ]
+}
+```
+
+**Display**: Show connection path directly on request card.
+
+---
+
+### Auth Service
+
+**Use Case**: Accept invitation code during signup
+
+**Flow**:
+1. User signs up with invitation code
+2. Auth Service calls `POST /invitations/accept`
+3. Social Graph Service links inviter → invitee
+4. User's `invited_by` field is set
+
+---
+
+## Events Published
+
+None currently. Future consideration:
+
+- `invitation.sent` - When code is generated
+- `invitation.accepted` - When code is used
+- `path.computed` - When new path is calculated
+
+---
+
+## Events Consumed
+
+None currently.
+
+---
+
+## Performance Targets
+
+| Metric | Target | Max Acceptable |
+|--------|--------|----------------|
+| Path computation (cached) | <50ms | <100ms |
+| Path computation (uncached) | <500ms | <1s |
+| Batch path computation (50 users) | <2s | <5s |
+| Invitation code generation | <100ms | <200ms |
+
+---
+
+## Common Tasks
+
+### Generate Invitation Code
+
+```bash
+curl -X POST http://localhost:3010/invitations/generate \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json"
+```
+
+### Accept Invitation
+
+```bash
+curl -X POST http://localhost:3010/invitations/accept \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"invitation_code": "KARMYQ-MIKE-2024-A7B3"}'
+```
+
+### Get Path Between Users
+
+```bash
+curl http://localhost:3010/paths/{targetUserId} \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+### Get Batch Paths (Feed Ranking)
+
+```bash
+curl -X POST http://localhost:3010/paths/batch \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"target_user_ids": ["uuid-1", "uuid-2", "uuid-3"]}'
+```
+
+### View Service Logs
+
+```bash
+docker logs karmyq-social-graph-service -f
+```
+
+---
+
+## Environment Variables
+
+```bash
+# Server
+PORT=3010
+NODE_ENV=development
+
+# Database
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=karmyq_db
+DB_USER=karmyq_user
+DB_PASSWORD=your_password_here
+
+# Auth
+JWT_SECRET=dev_jwt_secret_change_in_production
+
+# Frontend
+FRONTEND_URL=http://localhost:3000
+
+# Logging
+LOG_LEVEL=info
+```
+
+---
+
+## Testing
+
+### Unit Tests
+
+**Status**: Not yet implemented
+
+**Planned Coverage**:
+- BFS algorithm correctness
+- Path selection logic (shortest path, tie-breaking by trust score)
+- Privacy controls (hide path when `show_connection_path = false`)
+- Invitation code generation (uniqueness, format validation)
+
+### Integration Tests
+
+**Status**: Not yet implemented
+
+**Planned Coverage**:
+- End-to-end path computation
+- Cache hit/miss scenarios
+- Batch path computation
+- Invitation acceptance flow
+
+### Manual Testing
+
+```bash
+# 1. Generate invitation code
+curl -X POST http://localhost:3010/invitations/generate \
+  -H "Authorization: Bearer $USER_A_TOKEN"
+
+# 2. Accept invitation (as different user)
+curl -X POST http://localhost:3010/invitations/accept \
+  -H "Authorization: Bearer $USER_B_TOKEN" \
+  -d '{"invitation_code": "KARMYQ-ALICE-2024-A7B3"}'
+
+# 3. Compute path
+curl http://localhost:3010/paths/$USER_B_ID \
+  -H "Authorization: Bearer $USER_A_TOKEN"
+```
+
+---
+
+## Known Issues & TODOs
+
+### Current Limitations
+
+- No invitation code expiration
+- No rate limiting on invitation generation
+- No detection of "invitation farms" (fake accounts)
+- Cache invalidation is time-based only (no manual purge)
+- No support for cross-community paths (yet)
+
+### Future Enhancements
+
+- [ ] Invitation code expiration (30-day default)
+- [ ] Single-use vs. multi-use invitation codes
+- [ ] Detect and flag suspicious invitation patterns
+- [ ] Precompute paths for active users (background job)
+- [ ] Support cross-community trust paths
+- [ ] Network visualization API (graph view)
+- [ ] "Introduce me" feature (request introduction through mutual connection)
+- [ ] Trust endorsements (let users vouch for connections)
+
+---
+
+## Related Documentation
+
+- **Design Document**: [docs/features/SOCIAL_GRAPH_TRUST_PATHS.md](../../docs/features/SOCIAL_GRAPH_TRUST_PATHS.md)
+- **Migration**: [infrastructure/postgres/migrations/009_social_graph.sql](../../infrastructure/postgres/migrations/009_social_graph.sql)
+- **Feed Integration**: [services/feed-service/CONTEXT.md](../feed-service/CONTEXT.md)
+
+---
+
+**Status**: ✅ MVP Complete (v9.1.0)
+**Version**: 9.1.0
+**Last Updated**: 2025-12-27
