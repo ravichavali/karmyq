@@ -1,5 +1,7 @@
 import React from 'react';
 import Link from 'next/link';
+import TrustPathBadge, { TrustPathBadgeSkeleton } from '../TrustPathBadge';
+import { useTrustPath } from '../../hooks/useTrustPath';
 
 interface FeedItemProps {
   item: {
@@ -116,6 +118,9 @@ function OpenRequestItem({ data, itemId, onDismiss }: any) {
     low: 'bg-green-100 text-green-800 border-green-200'
   };
 
+  // Fetch trust path to the requester
+  const { trustPath, loading: loadingPath } = useTrustPath(data.requester_id);
+
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-4 hover:shadow-md transition-shadow">
       <div className="flex justify-between items-start mb-3">
@@ -152,6 +157,10 @@ function OpenRequestItem({ data, itemId, onDismiss }: any) {
           </button>
         )}
       </div>
+
+      {/* Trust Path Badge */}
+      {loadingPath && <TrustPathBadgeSkeleton className="mb-4" />}
+      {!loadingPath && trustPath && <TrustPathBadge trustPath={trustPath} className="mb-4" />}
 
       {data.required_skills && data.required_skills.length > 0 && (
         <div className="flex flex-wrap gap-2 mb-4">

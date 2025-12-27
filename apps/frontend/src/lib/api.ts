@@ -7,6 +7,7 @@ const REPUTATION_API_URL = process.env.NEXT_PUBLIC_REPUTATION_API_URL || 'http:/
 const NOTIFICATION_API_URL = process.env.NEXT_PUBLIC_NOTIFICATION_API_URL || 'http://localhost:3005'
 const MESSAGING_API_URL = process.env.NEXT_PUBLIC_MESSAGING_API_URL || 'http://localhost:3006'
 const FEED_API_URL = process.env.NEXT_PUBLIC_FEED_API_URL || 'http://localhost:3007'
+const SOCIAL_GRAPH_API_URL = process.env.NEXT_PUBLIC_SOCIAL_GRAPH_API_URL || 'http://localhost:3010'
 
 // Export API configuration
 export const API_CONFIG = {
@@ -17,6 +18,7 @@ export const API_CONFIG = {
   NOTIFICATION_API_URL,
   MESSAGING_API_URL,
   FEED_API_URL,
+  SOCIAL_GRAPH_API_URL,
 }
 
 // Auth Service API
@@ -75,6 +77,14 @@ export const feedApi = axios.create({
   }
 })
 
+// Social Graph Service API
+export const socialGraphApi = axios.create({
+  baseURL: SOCIAL_GRAPH_API_URL,
+  headers: {
+    'Content-Type': 'application/json'
+  }
+})
+
 // Add auth token to requests if available
 const authInterceptor = (config: any) => {
   if (typeof window !== 'undefined') {
@@ -93,6 +103,7 @@ notificationApi.interceptors.request.use(authInterceptor)
 messagingApi.interceptors.request.use(authInterceptor)
 reputationApi.interceptors.request.use(authInterceptor)
 feedApi.interceptors.request.use(authInterceptor)
+socialGraphApi.interceptors.request.use(authInterceptor)
 
 // Unwrap standardized API response format
 // The backend now returns: { success: true, data: {...}, meta: {...} }
@@ -136,6 +147,7 @@ requestApi.interceptors.response.use(responseInterceptor, errorInterceptor)
 notificationApi.interceptors.response.use(responseInterceptor, errorInterceptor)
 messagingApi.interceptors.response.use(responseInterceptor, errorInterceptor)
 reputationApi.interceptors.response.use(responseInterceptor, errorInterceptor)
+socialGraphApi.interceptors.response.use(responseInterceptor, errorInterceptor)
 feedApi.interceptors.response.use(responseInterceptor, errorInterceptor)
 
 // Community API Methods
@@ -486,4 +498,31 @@ export const feedService = {
     show_community_updates?: boolean;
   }) =>
     feedApi.put('/feed/preferences', preferences),
+}
+
+// Social Graph API Methods
+export const socialGraphService = {
+  // Generate invitation code
+  generateInvitationCode: () =>
+    socialGraphApi.post('/invitations/generate'),
+
+  // Accept invitation code
+  acceptInvitationCode: (invitationCode: string) =>
+    socialGraphApi.post('/invitations/accept', { invitation_code: invitationCode }),
+
+  // Get invitation history
+  getInvitations: () =>
+    socialGraphApi.get('/invitations'),
+
+  // Get inviter statistics
+  getInviterStats: () =>
+    socialGraphApi.get('/invitations/stats'),
+
+  // Get trust path to a specific user
+  getTrustPath: (targetUserId: string) =>
+    socialGraphApi.get(`/paths/${targetUserId}`),
+
+  // Get trust paths to multiple users (for feed ranking)
+  getBatchTrustPaths: (targetUserIds: string[]) =>
+    socialGraphApi.post('/paths/batch', { target_user_ids: targetUserIds }),
 }
