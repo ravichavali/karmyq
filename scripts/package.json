@@ -1,12 +1,23 @@
 {
-  "name": "karmyq-scripts",
-  "version": "1.0.0",
-  "description": "Utility scripts for Karmyq development",
+  "name": "@karmyq/scripts",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Data generation and management scripts for Karmyq",
   "scripts": {
-    "seed": "node seed-test-data.js"
+    "generate:realistic": "tsx generate-realistic-data.ts",
+    "truncate": "node -e \"console.log('Use truncate-database.bat on Windows or ./truncate-database.sh on Mac/Linux')\"",
+    "seed:test": "echo 'Use seed-test-data.bat on Windows or ./seed-test-data.sh on Mac/Linux'",
+    "seed:realistic": "npm run generate:realistic"
   },
   "dependencies": {
+    "@faker-js/faker": "^8.3.1",
     "pg": "^8.11.3",
     "bcrypt": "^5.1.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.6",
+    "@types/pg": "^8.10.9",
+    "tsx": "^4.7.0",
+    "typescript": "^5.3.3"
   }
 }
