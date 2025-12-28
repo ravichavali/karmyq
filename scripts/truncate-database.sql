@@ -2,18 +2,6 @@
 -- WARNING: This will DELETE ALL DATA from the database
 -- Use with caution - only for development/testing environments
 
-\echo '⚠️  WARNING: This will DELETE ALL DATA from the database!'
-\echo 'Press Ctrl+C to cancel, or press Enter to continue...'
-\prompt 'Type YES to confirm: ' confirmation
-
--- Check confirmation
-DO $$
-BEGIN
-  IF :'confirmation' != 'YES' THEN
-    RAISE EXCEPTION 'Operation cancelled by user';
-  END IF;
-END $$;
-
 \echo ''
 \echo '🗑️  Truncating all tables...'
 \echo ''

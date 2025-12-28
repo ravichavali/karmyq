@@ -16,21 +16,18 @@ echo.
 echo Running truncation script...
 echo.
 
-REM Run via Docker if postgres is in container
-docker exec -i karmyq-postgres psql -U karmyq_user -d karmyq_db -f /tmp/truncate-database.sql 2>nul
+REM Copy SQL file to container
+echo Copying SQL file to container...
+docker cp truncate-database.sql karmyq-postgres:/tmp/
 
-if %ERRORLEVEL% EQU 0 (
-    echo Done! Use docker cp to copy SQL file first:
-    echo docker cp scripts\truncate-database.sql karmyq-postgres:/tmp/
-    echo Then run: docker exec -i karmyq-postgres psql -U karmyq_user -d karmyq_db -f /tmp/truncate-database.sql
-) else (
-    REM Try direct approach
-    echo Copying SQL file to container...
-    docker cp scripts\truncate-database.sql karmyq-postgres:/tmp/
-
-    echo Running truncation...
-    docker exec -i karmyq-postgres psql -U karmyq_user -d karmyq_db -f /tmp/truncate-database.sql
+if %ERRORLEVEL% NEQ 0 (
+    echo ❌ Error copying SQL file to container
+    echo Make sure you're running this from the scripts directory
+    exit /b 1
 )
+
+echo Running truncation...
+docker exec -i karmyq-postgres psql -U karmyq_user -d karmyq_db -f /tmp/truncate-database.sql
 
 if %ERRORLEVEL% EQU 0 (
     echo.
