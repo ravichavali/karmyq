@@ -11,7 +11,7 @@ router.get('/:targetUserId', async (req: AuthenticatedRequest, res: Response) =>
   try {
     const currentUserId = req.user?.userId;
     const targetUserId = req.params.targetUserId;
-    const communityId = req.communityId;
+    const communityId = req.headers['x-community-id'] as string || req.user?.currentCommunityId;
 
     if (!currentUserId || !communityId) {
       return res.status(401).json({
@@ -136,7 +136,7 @@ router.get('/:targetUserId', async (req: AuthenticatedRequest, res: Response) =>
 router.post('/batch', async (req: AuthenticatedRequest, res: Response) => {
   try {
     const currentUserId = req.user?.userId;
-    const communityId = req.communityId;
+    const communityId = req.headers['x-community-id'] as string || req.user?.currentCommunityId;
     const { target_user_ids } = req.body;
 
     if (!currentUserId || !communityId) {

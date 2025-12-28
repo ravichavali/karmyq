@@ -9,7 +9,7 @@ const router = express.Router();
 router.post('/generate', async (req: AuthenticatedRequest, res: Response) => {
   try {
     const userId = req.user?.userId;
-    const communityId = req.communityId;
+    const communityId = req.headers['x-community-id'] as string || req.user?.currentCommunityId;
 
     if (!userId || !communityId) {
       return res.status(401).json({
@@ -174,7 +174,7 @@ router.post('/accept', async (req: AuthenticatedRequest, res: Response) => {
 router.get('/', async (req: AuthenticatedRequest, res: Response) => {
   try {
     const userId = req.user?.userId;
-    const communityId = req.communityId;
+    const communityId = req.headers['x-community-id'] as string || req.user?.currentCommunityId;
 
     if (!userId || !communityId) {
       return res.status(401).json({
@@ -256,7 +256,7 @@ router.get('/', async (req: AuthenticatedRequest, res: Response) => {
 router.get('/stats', async (req: AuthenticatedRequest, res: Response) => {
   try {
     const userId = req.user?.userId;
-    const communityId = req.communityId;
+    const communityId = req.headers['x-community-id'] as string || req.user?.currentCommunityId;
 
     if (!userId || !communityId) {
       return res.status(401).json({

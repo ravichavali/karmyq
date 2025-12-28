@@ -1,6 +1,6 @@
 import express, { Request, Response } from 'express';
 import { Pool } from 'pg';
-import { authenticateToken, extractCommunityContext } from '@karmyq/shared/middleware/auth';
+import { authMiddleware } from '@karmyq/shared/middleware';
 import { logger } from './config/logger';
 import invitationRoutes from './routes/invitations';
 import pathRoutes from './routes/paths';
@@ -30,8 +30,7 @@ app.get('/health', (req: Request, res: Response) => {
 });
 
 // All routes require authentication
-app.use(authenticateToken);
-app.use(extractCommunityContext);
+app.use(authMiddleware);
 
 // Routes
 app.use('/invitations', invitationRoutes);
