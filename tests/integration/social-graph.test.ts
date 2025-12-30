@@ -205,6 +205,12 @@ describe('Social Graph Service - Integration Tests', () => {
     });
 
     it('should cache computed paths', async () => {
+      // Clear cache for this path to ensure fresh computation
+      await pool.query(
+        'DELETE FROM auth.social_distances WHERE user_a_id = $1 AND user_b_id = $2 AND community_id = $3',
+        [userId, inviteeUserId, communityId]
+      );
+
       // First request - should compute
       const response1 = await axios.get(
         `${SOCIAL_GRAPH_API_URL}/paths/${inviteeUserId}`,

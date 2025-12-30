@@ -44,7 +44,7 @@ CREATE INDEX idx_auth_user_skills_user_id ON auth.user_skills(user_id);
 CREATE TABLE auth.user_invitations (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     inviter_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-    invitee_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    invitee_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,  -- Nullable until invitation is accepted
     invited_at TIMESTAMP NOT NULL DEFAULT NOW(),
     invitation_code TEXT UNIQUE NOT NULL,
     invitation_accepted_at TIMESTAMP,
@@ -53,6 +53,12 @@ CREATE TABLE auth.user_invitations (
     inviter_note TEXT,
     UNIQUE(inviter_id, invitee_id, community_id)
 );
+
+-- Constraint: prevent self-invitations (allow NULL invitee_id for pending invitations)
+ALTER TABLE auth.user_invitations ADD CONSTRAINT no_self_invitation CHECK (invitee_id IS NULL OR inviter_id <> invitee_id);
+
+-- Constraint: validate invitation code format
+ALTER TABLE auth.user_invitations ADD CONSTRAINT invitation_code_format CHECK (invitation_code ~ '^KARMYQ-[A-Z0-9]+-[0-9]{4}-[A-Z0-9]{4}$');
 
 CREATE TABLE auth.social_distances (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),

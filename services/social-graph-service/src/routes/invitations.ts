@@ -46,7 +46,7 @@ router.post('/generate', async (req: AuthenticatedRequest, res: Response) => {
     const invitationResult = await pool.query(
       `INSERT INTO auth.user_invitations
        (inviter_id, invitee_id, community_id, invitation_code, invitation_method)
-       VALUES ($1, $1, $2, $3, 'link')
+       VALUES ($1, NULL, $2, $3, 'link')
        ON CONFLICT (invitation_code) DO UPDATE SET invitation_code = EXCLUDED.invitation_code
        RETURNING id, invitation_code, invited_at`,
       [userId, communityId, invitationCode]

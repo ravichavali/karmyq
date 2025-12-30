@@ -126,9 +126,12 @@ export async function computeShortestPath(
     `SELECT
        u.id,
        u.name,
-       COALESCE(kr.current_karma, 0) as karma
+       COALESCE((
+         SELECT SUM(points)
+         FROM reputation.karma_records
+         WHERE user_id = u.id AND community_id = $1
+       ), 0) as karma
      FROM auth.users u
-     LEFT JOIN reputation.karma_records kr ON (kr.user_id = u.id AND kr.community_id = $1)
      WHERE u.id = ANY($2)`,
     [communityId, pathUserIds]
   );
