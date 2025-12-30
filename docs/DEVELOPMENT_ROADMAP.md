@@ -9,11 +9,11 @@
 
 ## 🎯 Current Focus
 
-**Primary Objective**: Ready for next priority - Choose from backlog
+**Primary Objective**: Test Fixing & Feature Implementation
 
-**Active Work Stream**: None (ADR documentation complete ✅)
-**Completed**: 2025-12-29
-**Next**: Review backlog and select next priority
+**Active Work Stream**: Integration Test Fixes (Phase 1 Complete ✅)
+**Completed**: 2025-12-29 - Phase 1 (API response format, TypeScript errors)
+**Next**: Phase 2 - Implement missing API endpoints or skip unimplemented features
 
 ---
 
@@ -174,9 +174,18 @@
 
 | ID | Tangent | Parent Stream | Status | Priority | Blocker |
 |----|---------|---------------|--------|----------|---------|
-| None | - | - | - | - | - |
+| T-006 | Integration Test Fixes | Testing Infrastructure | Phase 1 Complete | P0 | - |
 
-**Note**: All tangents from initial session have been completed. New tangents will be added here as they arise.
+**Tangent T-006 Details**:
+- **Goal**: Fix 22 failing integration tests
+- **Phase 1 Complete**: API response format fixes, TypeScript errors fixed
+- **Finding**: Many "failing tests" are actually correct tests revealing missing API features
+- **Results**: 11 tests still fail due to API bugs (not test bugs)
+  - 3 tests: Community-service endpoints don't exist (ADR-009/011 not implemented)
+  - 1 test: Request-service doesn't set expires_at
+  - 12 tests: Social-graph authentication issues
+- **Documentation**: [docs/testing/PHASE_1_RESULTS.md](../testing/PHASE_1_RESULTS.md)
+- **Next**: Phase 2 - Implement missing endpoints or skip tests until features built
 
 ### Completed Tangents
 
@@ -199,18 +208,23 @@
 
 ### High Priority (P0 - Critical)
 
-1. **Fix Failing Integration Tests** - 🎯 CURRENT PRIORITY
+1. **Fix Failing Integration Tests** - 🎯 PHASE 1 COMPLETE
    - Stream: Testing Infrastructure
-   - Issue: 18/149 integration tests failing (87.9% passing)
-   - Problems:
-     - Tenant isolation tests (3 failures)
-     - Ephemeral data tests (5 failures)
-     - Jest worker circular JSON errors (multiple tests)
-     - Feed service test suite failures
-   - Solution: Fix test expectations and resolve circular reference issues
-   - Estimate: 4-6 hours
-   - Blocking: Commit workflow (pre-commit hook)
-   - **Status**: In progress - schema fixes applied, test expectations need updating
+   - Issue: 22/149 integration tests failing (85.2% passing)
+   - **Phase 1 Complete** (2025-12-29):
+     - ✅ Fixed API response format checks (6 files)
+     - ✅ Fixed TypeScript compilation errors (2 files)
+     - ✅ Documented findings in PHASE_1_RESULTS.md
+   - **Key Finding**: Most failing tests are CORRECT - they reveal missing API features
+   - **Remaining Issues** (11 tests):
+     - 3 tests: Community-service endpoints don't exist (ADR-009/011)
+     - 1 test: Request-service doesn't set expires_at
+     - 12 tests: Social-graph authentication issues
+   - **Phase 2 Options**:
+     - Option A: Implement missing endpoints (8-12 hours)
+     - Option B: Skip tests until features implemented (.skip)
+     - Option C: Continue down backlog, implement endpoints later
+   - **Status**: Awaiting user decision on Phase 2 approach
    - **User Request**: "I like to continue down the backlog, but with fixing the tests first"
 
 2. **Test Data Determinism & Time Travel** - HIGH PRIORITY
