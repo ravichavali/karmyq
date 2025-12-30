@@ -797,6 +797,104 @@
       - Requires established user base for meaningful data
       - Notification service must support nudge templates
 
+45. **Trust Paths Based on Interactions (Not Invitations)**
+    - Stream: Social Graph Features
+    - Issue: Current trust path uses invitation chain (static), not interaction graph (dynamic)
+    - Context: Trust paths should show "who vouches for this person" based on completed exchanges
+    - Current Implementation:
+      - Uses `auth.user_invitations` table (invitation chain)
+      - Shows path A invited B, B invited C (static, never changes)
+      - Same path in both directions (symmetric)
+    - Correct Implementation:
+      - Use `requests.matches` table (completed interactions)
+      - Show path A helped C, B helped C (dynamic, based on karma)
+      - Different paths per direction (asymmetric: Trust(A→B) ≠ Trust(B→A))
+      - Moderator fallback when no mutual interactions exist
+    - Goal: Rewrite trust path computation to use interaction graph
+    - Features:
+      - **Direct Interaction** (Degree 0): A and B completed match together
+      - **Mutual Helper** (Degree 2): A and B both helped/were helped by C
+      - **Moderator Bridge** (Degree 2): Fallback when no mutual helpers
+      - **Extended Network** (Degree 3+): BFS through interaction graph
+      - **Asymmetric Paths**: Path A→B ≠ Path B→A
+      - **Trust Scoring**: Weight edges by karma + ratings
+    - Technical Details:
+      - Create `reputation.interaction_graph` materialized view
+      - Rewrite `services/social-graph-service/src/services/pathComputation.ts`
+      - Update cache structure to include direction
+      - Add moderator fallback logic
+      - Optimize with indexes and batch queries
+    - Database Schema:
+      ```sql
+      -- Materialized view for fast interaction lookups
+      CREATE MATERIALIZED VIEW reputation.interaction_graph AS
+      SELECT
+        hr.requester_id as user_a,
+        m.responder_id as user_b,
+        hr.community_id,
+        COUNT(*) as interaction_count,
+        SUM(kr.points) as total_karma,
+        AVG(CASE WHEN kr.event_type = 'match_completed' THEN kr.points ELSE 0 END) as avg_rating,
+        MAX(m.completed_at) as last_interaction
+      FROM requests.matches m
+      JOIN requests.help_requests hr ON m.request_id = hr.id
+      LEFT JOIN reputation.karma_records kr ON kr.match_id = m.id
+      WHERE m.status = 'completed'
+      GROUP BY hr.requester_id, m.responder_id, hr.community_id;
+
+      -- Asymmetric trust path cache
+      CREATE TABLE reputation.trust_paths (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        source_user_id UUID NOT NULL,  -- Person viewing
+        target_user_id UUID NOT NULL,  -- Person being viewed
+        community_id UUID NOT NULL,
+        degrees INTEGER NOT NULL,
+        path_user_ids UUID[] NOT NULL,  -- Array of user IDs in path
+        bridge_user_id UUID,            -- The key person connecting them
+        bridge_user_name TEXT,
+        trust_score INTEGER,
+        computed_at TIMESTAMPTZ DEFAULT NOW(),
+        expires_at TIMESTAMPTZ DEFAULT NOW() + INTERVAL '7 days',
+        UNIQUE(source_user_id, target_user_id, community_id)
+      );
+      ```
+    - UI Changes:
+      - Update `TrustPathBadge` to show bridge person
+      - Example: "2° via Carol who you both helped"
+      - Different colors based on trust score
+      - Distinguish moderator bridges: "2° via Moderator Alice"
+    - Algorithm Pseudocode:
+      ```typescript
+      1. Check direct interaction (degree 0)
+      2. Find mutual helpers with highest combined trust
+      3. Fallback to moderator as bridge
+      4. Extended BFS for degrees 3+ (limited)
+      5. Cache with direction (A→B separate from B→A)
+      ```
+    - User Stories:
+      - "As a user viewing a request, I want to know who can vouch for this person based on real interactions"
+      - "As a requester, I want to see helpers who are trusted by people I've actually helped"
+      - "As a cautious user, I want to know if someone is only connected via moderator (weaker trust)"
+    - Acceptance Criteria:
+      - Trust paths based on completed matches, not invitations
+      - Asymmetric paths (A→B ≠ B→A)
+      - Moderator fallback for same-community members with no mutual interactions
+      - Cache with 7-day TTL
+      - UI shows bridge person name
+      - Performance: <100ms for single path, <500ms for batch (10 users)
+    - Status: **Planned** - Implement after invitation chain is working
+    - Estimate: 6-8 hours
+    - Priority: Medium (post-social-graph-UI)
+    - Related: ADR-019 (Referral Chain Trust), Social Graph Service (Port 3010)
+    - Dependencies:
+      - Invitation chain must be working and tested
+      - Reputation service must have karma records
+      - Need materialized view refresh strategy
+    - Notes:
+      - **Invitation chain (static)** stays on profile page
+      - **Trust path (dynamic)** shows on request/offer tiles
+      - These are distinct concepts serving different purposes
+
 20. **Permission Testing (Mobile)**
     - Stream: Mobile Testing Infrastructure
     - Issue: Camera, location, notification permissions not tested
