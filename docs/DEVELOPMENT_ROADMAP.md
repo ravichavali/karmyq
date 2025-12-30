@@ -597,6 +597,63 @@
     - Issue: No snapshot tests for components
     - Solution: Jest snapshot tests for component output
     - Status: Planned (Phase 2)
+
+### DevOps & Infrastructure (P2 - Important)
+
+38. **Multi-Environment Deployment Strategy**
+    - Stream: DevOps & Infrastructure
+    - Requirements:
+      - Dev environment: Laptop (local development)
+      - Staging environment: Linux box (testing before production)
+      - Production environment: Oracle Cloud Infrastructure (OCI) free tier
+    - Domain: karmyq.com (registered via Namecheap)
+    - Goals:
+      - Configure karmyq.com → OCI production
+      - CI/CD pipeline for dev → staging → production
+      - Environment-specific configs (.env files)
+    - Considerations:
+      - Kubernetes for scaling (multi-instance services)
+      - Service mesh for microservices communication
+      - Database migrations across environments
+      - SSL/TLS certificates (Let's Encrypt)
+    - Status: **User Priority** - Needs planning
+    - Estimate: 20-30 hours
+    - Related: See ADR-021 (to be created)
+
+39. **Documentation Migration to GitHub Wiki**
+    - Stream: Documentation
+    - Issue: Docs currently in `/docs` folder
+    - Goal: Move all documentation to GitHub Wiki
+    - Benefits:
+      - Better discoverability
+      - Community contributions easier
+      - Versioning via Git
+      - Integrated with GitHub
+    - Migration Plan:
+      - Audit current docs structure
+      - Create wiki page hierarchy
+      - Migrate content (preserve links)
+      - Update README with wiki links
+    - Status: **User Priority** - Needs planning
+    - Estimate: 8-12 hours
+
+40. **Kubernetes Architecture for Scaling**
+    - Stream: DevOps & Infrastructure
+    - Issue: Current Docker Compose not production-ready
+    - Goal: K8s manifests for horizontal scaling
+    - Requirements:
+      - Helm charts for each service
+      - Service mesh (Istio or Linkerd)
+      - Auto-scaling based on load
+      - Rolling updates with zero downtime
+      - StatefulSets for databases
+    - Considerations:
+      - OCI Kubernetes Engine (OKE) compatibility
+      - Resource limits for free tier
+      - Multi-instance service coordination (Redis Pub/Sub)
+    - Status: **User Priority** - Needs ADR
+    - Estimate: 30-40 hours
+    - Related: See ADR-022 (to be created)
     - Estimate: 3-4 hours
 
 20. **Permission Testing (Mobile)**
