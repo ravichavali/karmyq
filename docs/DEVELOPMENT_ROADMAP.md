@@ -3,7 +3,7 @@
 **Last Updated**: 2025-12-30
 **Version**: 8.0.0
 **Status**: Active Development
-**Latest Session**: Social Graph UI Implementation
+**Latest Session**: Social Graph Invitation Fixes + ADR-022 (Multi-Tier Feed Architecture)
 
 ---
 
@@ -190,6 +190,7 @@
 | T-009 | Architecture Decision Records (ADRs) | Documentation | 2025-12-29 | Created docs/adr/ with 15 ADRs documenting all major architectural decisions |
 | T-010 | Integration Test Fixes Phase 1 | Testing Infrastructure | 2025-12-29 | Fixed API response format, TypeScript errors, documented missing features |
 | T-011 | Social Graph UI Implementation | Social Features | 2025-12-30 | Created invite acceptance page, trust path badges, invitation chain, ADR-021 |
+| T-012 | Invitation acceptance bug fixes | Social Features | 2025-12-30 | Fixed community membership, JWT refresh, circular dependency. Added integration test. ADR-022 created. |
 
 ---
 
