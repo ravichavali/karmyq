@@ -95,8 +95,22 @@ export default function InviteAcceptance() {
       // Accept the invitation
       try {
         await socialGraphService.acceptInvitationCode(invitationCode);
+
+        // Re-login to get updated JWT with community memberships
+        const loginResponse = await api.post('/auth/login', {
+          email: formData.email,
+          password: formData.password,
+        });
+
+        const newToken = loginResponse.data.token;
+        const updatedUser = loginResponse.data.user;
+
+        // Update stored token and user with community membership
+        localStorage.setItem('token', newToken);
+        localStorage.setItem('user', JSON.stringify(updatedUser));
+        api.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
       } catch (acceptErr) {
-        console.error('Failed to accept invitation:', acceptErr);
+        console.error('Failed to accept invitation or refresh session:', acceptErr);
         // Don't fail the signup if invitation acceptance fails
         // User is already registered at this point
       }

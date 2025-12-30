@@ -1,5 +1,5 @@
 import express, { Request, Response } from 'express';
-import { pool } from '../index';
+import { pool } from '../config/database';
 import { logger } from '../config/logger';
 import { AuthenticatedRequest } from '@karmyq/shared/middleware/auth';
 import { computeShortestPath, TrustPath } from '../services/pathComputation';

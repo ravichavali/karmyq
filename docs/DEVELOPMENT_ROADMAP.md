@@ -1,9 +1,9 @@
 # KarmyQ Development Roadmap
 
-**Last Updated**: 2025-12-29
+**Last Updated**: 2025-12-30
 **Version**: 8.0.0
 **Status**: Active Development
-**Latest Session**: UI Testing & Polymorphic Data Display
+**Latest Session**: Social Graph UI Implementation
 
 ---
 
@@ -172,20 +172,7 @@
 
 ### Current Tangents (Open)
 
-| ID | Tangent | Parent Stream | Status | Priority | Blocker |
-|----|---------|---------------|--------|----------|---------|
-| T-006 | Integration Test Fixes | Testing Infrastructure | Phase 1 Complete | P0 | - |
-
-**Tangent T-006 Details**:
-- **Goal**: Fix 22 failing integration tests
-- **Phase 1 Complete**: API response format fixes, TypeScript errors fixed
-- **Finding**: Many "failing tests" are actually correct tests revealing missing API features
-- **Results**: 11 tests still fail due to API bugs (not test bugs)
-  - 3 tests: Community-service endpoints don't exist (ADR-009/011 not implemented)
-  - 1 test: Request-service doesn't set expires_at
-  - 12 tests: Social-graph authentication issues
-- **Documentation**: [docs/testing/PHASE_1_RESULTS.md](../testing/PHASE_1_RESULTS.md)
-- **Next**: Phase 2 - Implement missing endpoints or skip tests until features built
+*No active tangents - ready for next work stream*
 
 ### Completed Tangents
 
@@ -201,6 +188,8 @@
 | T-007 | Backend stability crisis fix | Bug Fixes | 2025-12-29 | Created missing auth.user_skills table, fixed 500 errors |
 | T-008 | TODO comment tracking | Technical Debt | 2025-12-29 | Scanned 6 TODOs, created backlog items #24-27, updated all comments |
 | T-009 | Architecture Decision Records (ADRs) | Documentation | 2025-12-29 | Created docs/adr/ with 15 ADRs documenting all major architectural decisions |
+| T-010 | Integration Test Fixes Phase 1 | Testing Infrastructure | 2025-12-29 | Fixed API response format, TypeScript errors, documented missing features |
+| T-011 | Social Graph UI Implementation | Social Features | 2025-12-30 | Created invite acceptance page, trust path badges, invitation chain, ADR-021 |
 
 ---
 
@@ -655,23 +644,34 @@
     - Estimate: 30-40 hours
     - Related: See ADR-022 (to be created)
 
-41. **Social Graph UI Pages**
+41. **Social Graph UI Pages** - ✅ COMPLETE (2025-12-30)
     - Stream: Frontend Features
     - Issue: Social graph backend complete, no UI
     - Goal: Create UI for invitation system and trust path visualization
-    - Features:
-      - `/dashboard/invitations` - Generate codes, view invitation history
-      - `/invite/[code]` - Accept invitation page (public, no auth)
-      - User profile: Show trust path visualization
-      - User profile: Show invitation chain (how user arrived on platform)
-    - Components:
-      - Invitation code generator with copy button
-      - Invitation history table with acceptance status
-      - Trust path graph visualization (D3.js or React Flow)
-      - Invitation chain tree view
-    - Status: **User Priority** - Backend ready (12/12 tests passing)
-    - Estimate: 8-12 hours
-    - Related: Social Graph Service (Port 3010)
+    - Completed Features:
+      - ✅ `/invite/[code]` - Public invitation acceptance with signup (310 lines)
+      - ✅ Dashboard: Trust path badges on offers (OfferItem component)
+      - ✅ User profile: Invitation chain showing ancestry
+      - ✅ Public validation endpoint (no auth required)
+    - Components Created:
+      - ✅ InvitationChain.tsx (152 lines) - Gradient design with avatars
+      - ✅ useInvitationChain.ts (72 lines) - Custom hook for API calls
+      - ✅ OfferItem.tsx (107 lines) - Fixed React hooks violation
+      - ✅ /invite/[code].tsx (310 lines) - Complete signup flow
+    - Backend Fixes:
+      - ✅ Added CORS middleware to social-graph-service
+      - ✅ Moved validation endpoint before authMiddleware (public access)
+      - ✅ Fixed schema reference (communities.communities)
+    - Frontend Fixes:
+      - ✅ Fixed React hooks violation (useTrustPath in map)
+      - ✅ Type narrowing for router.query (TypeScript fix)
+    - Related ADR: ADR-021 (Trust Path Filtering)
+    - Tangent: T-011 (Social Graph UI Implementation)
+    - Remaining Work (Future Backlog):
+      - Trust path graph visualization (D3.js - Item #45)
+      - `/dashboard/invitations` page (invitation management - nice-to-have)
+    - Time Spent: ~6 hours
+    - Status: **Complete** - Core features implemented and tested
 
 42. **Expo SDK Upgrade**
     - Stream: Mobile Infrastructure
@@ -894,6 +894,176 @@
       - **Invitation chain (static)** stays on profile page
       - **Trust path (dynamic)** shows on request/offer tiles
       - These are distinct concepts serving different purposes
+
+46. **Multi-Tier Feed Architecture - Phase 1: Database Schema** ⭐ NEW (2025-12-30)
+    - Stream: Feed Features, Platform Architecture
+    - Issue: ADR-003 (strict RLS) prevents trust paths from working in small communities
+    - Context: Explore-exploit balance needed - communities for cohesion, platform for growth
+    - Goal: Implement database schema for three-tier feed architecture
+    - Related ADR: ADR-022 (Multi-Tier Feed Architecture)
+    - Features:
+      - **Tier 1**: My Communities (exploit - high trust, always shown)
+      - **Tier 2**: Trust Network (balanced - N-degree connections across communities)
+      - **Tier 3**: Platform Network (explore - all users, opt-in, low-risk tasks)
+    - Database Changes:
+      ```sql
+      -- Origin community tracking
+      ALTER TABLE auth.users
+      ADD COLUMN origin_community_id UUID REFERENCES communities.communities(id);
+      ADD COLUMN invited_at TIMESTAMPTZ;
+
+      -- Request visibility control (requester chooses scope)
+      ALTER TABLE requests.help_requests
+      ADD COLUMN visibility_scope VARCHAR(50) DEFAULT 'community'
+        CHECK (visibility_scope IN ('community', 'trust_network', 'platform'));
+      ADD COLUMN visibility_max_degrees INTEGER DEFAULT 3
+        CHECK (visibility_max_degrees BETWEEN 1 AND 6);
+
+      -- Feed filter preferences (responder chooses what to see)
+      ALTER TABLE auth.user_preferences
+      ADD COLUMN feed_show_trust_network BOOLEAN DEFAULT true;
+      ADD COLUMN feed_trust_network_max_degrees INTEGER DEFAULT 3;
+      ADD COLUMN feed_show_platform BOOLEAN DEFAULT false; -- Opt-in to explore
+      ADD COLUMN feed_platform_categories JSONB DEFAULT '["digital", "questions"]'::jsonb;
+
+      -- Per-community defaults
+      ALTER TABLE communities.communities
+      ADD COLUMN default_request_scope VARCHAR(50) DEFAULT 'trust_network';
+      ADD COLUMN encourage_platform_participation BOOLEAN DEFAULT false;
+      ```
+    - Tasks:
+      - Add database columns with safe defaults
+      - Backfill origin_community_id for existing users (first community joined)
+      - Update social-graph-service to set origin_community_id on invitation acceptance
+      - Document schema changes in migration
+    - Status: **High Priority** - Enables trust paths to work globally
+    - Estimate: 2-3 hours
+    - Priority: P0 (Critical for social graph features)
+    - Related: ADR-022, ADR-003 (evolved), ADR-019 (trust paths), ADR-021 (filtering)
+    - Dependencies: None (safe schema additions)
+
+47. **Multi-Tier Feed Architecture - Phase 2: Feed Query Logic** (2025-12-30)
+    - Stream: Feed Features
+    - Issue: Feed currently only shows community-scoped requests (ADR-003)
+    - Goal: Implement three-tier feed query with tunable explore-exploit balance
+    - Related ADR: ADR-022
+    - Features:
+      - Combine Tier 1 (community) + Tier 2 (trust network) + Tier 3 (platform)
+      - Respect user feed preferences (degrees, categories, opt-ins)
+      - Prioritize community requests first, then trust network, then platform
+      - Trust paths computed globally across communities
+    - Feed Query:
+      ```sql
+      -- Combines all three tiers based on user preferences
+      SELECT r.*,
+        CASE
+          WHEN community THEN 'community'
+          WHEN trust_network THEN 'trust_network'
+          ELSE 'platform'
+        END as source_tier,
+        tp.degrees as trust_distance
+      FROM requests.help_requests r
+      LEFT JOIN trust_paths tp ON ...
+      WHERE
+        (my_communities) OR
+        (trust_network AND enabled AND within_degrees) OR
+        (platform AND opt_in AND category_match)
+      ORDER BY source_tier, created_at DESC;
+      ```
+    - Files Affected:
+      - `services/feed-service/src/index.ts` - Implement query logic
+      - `services/social-graph-service/src/services/pathComputation.ts` - Global paths
+      - Update RLS policies (relax for reads, keep strict for writes)
+    - Tasks:
+      - Rewrite feed query to support three tiers
+      - Update trust path computation to span communities
+      - Relax RLS policies for reads (maintain strict for writes)
+      - Add source_tier to feed response
+      - Performance testing (index optimization)
+    - Status: **Planned** - Implement after Phase 1 schema
+    - Estimate: 8-12 hours
+    - Priority: P1 (High)
+    - Related: ADR-022, Item #46 (Phase 1)
+    - Dependencies: Item #46 must be complete
+
+48. **Multi-Tier Feed Architecture - Phase 3: UI for Visibility & Preferences** (2025-12-30)
+    - Stream: Frontend Features
+    - Issue: No UI for request visibility scope or feed preferences
+    - Goal: Let users control explore-exploit balance via UI
+    - Related ADR: ADR-022
+    - Features:
+      - **Create Request**: Visibility scope selector (community/trust_network/platform)
+      - **Profile Settings**: Feed preferences (show trust network, max degrees, platform opt-in)
+      - **Feed UI**: Visual indicators for source tier (community badge, trust path badge, platform badge)
+      - **Help Text**: Explain when to use each scope (task complexity guidance)
+    - UI Components:
+      - Visibility scope selector (radio buttons with descriptions)
+      - Trust network slider (1-6 degrees)
+      - Platform opt-in toggle with category checkboxes
+      - Source tier badges on feed items
+    - Files Affected:
+      - `apps/frontend/src/components/CreateRequest.tsx` - Add visibility_scope field
+      - `apps/frontend/src/pages/profile.tsx` - Feed preferences section
+      - `apps/frontend/src/components/FeedItem.tsx` - Source tier badges
+      - `apps/frontend/src/lib/api.ts` - Update request creation API
+    - Tasks:
+      - Design visibility scope selector UI
+      - Implement feed preferences UI
+      - Add source tier badges to feed items
+      - Update request creation form
+      - User testing and iteration
+    - Status: **Planned** - Implement after Phase 2 feed logic
+    - Estimate: 6-8 hours
+    - Priority: P1 (High)
+    - Related: ADR-022, Item #47 (Phase 2)
+    - Dependencies: Item #47 must be complete
+
+49. **Explore-Exploit Metrics & Tuning** (2025-12-30)
+    - Stream: Analytics, Platform Optimization
+    - Issue: Need data to tune explore-exploit balance
+    - Goal: Track metrics and optimize platform defaults
+    - Related ADR: ADR-022
+    - Metrics to Track:
+      - Feed composition (% community / trust network / platform)
+      - Match completion rates by source tier
+      - Explore ratio per user/community
+      - User engagement by tier
+    - Database:
+      ```sql
+      CREATE TABLE platform.explore_exploit_metrics (
+        date DATE,
+        user_id UUID,
+        community_id UUID,
+        community_requests_seen INTEGER,
+        trust_network_requests_seen INTEGER,
+        platform_requests_seen INTEGER,
+        community_matches_completed INTEGER,
+        trust_network_matches_completed INTEGER,
+        platform_matches_completed INTEGER,
+        explore_ratio FLOAT,
+        PRIMARY KEY (date, user_id, community_id)
+      );
+      ```
+    - Healthy Balance Targets:
+      - 60-70% community matches (strong cohesion)
+      - 20-30% trust network matches (building bridges)
+      - 10-20% platform matches (exploration/growth)
+    - Tuning Levers:
+      - Adjust default visibility scopes per request category
+      - Adjust default feed preferences for new users
+      - Per-community tuning (privacy vs. growth focused)
+      - A/B test different defaults
+    - Tasks:
+      - Create metrics table
+      - Implement daily aggregation job
+      - Build analytics dashboard (Grafana)
+      - Set up alerts for unhealthy ratios
+      - A/B testing framework
+    - Status: **Post-Launch** - Need user base first
+    - Estimate: 12-16 hours
+    - Priority: P2 (Medium - post-launch)
+    - Related: ADR-022, Grafana/Loki/Prometheus stack
+    - Dependencies: Items #46-48 must be complete, need active user base
 
 20. **Permission Testing (Mobile)**
     - Stream: Mobile Testing Infrastructure
