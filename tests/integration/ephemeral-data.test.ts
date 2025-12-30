@@ -215,7 +215,7 @@ describe('Ephemeral Data - Request Expiration', () => {
     expect(response.status).toBe(200);
 
     // The expired request should not appear
-    const requests = response.body.data || response.body.requests || [];
+    const requests = response.body.data?.requests || response.body.data || response.body.requests || [];
     const found = requests.find((r: any) => r.id === testRequest?.id);
     expect(found).toBeUndefined();
   });

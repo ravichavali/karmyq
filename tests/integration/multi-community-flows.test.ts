@@ -269,7 +269,7 @@ describe('Multi-Community User Journey - Alice', () => {
     expect([200, 403]).toContain(response.status);
 
     if (response.status === 200) {
-      const requests = response.body.data || response.body.requests || [];
+      const requests = response.body.data?.requests || response.body.data || response.body.requests || [];
       for (const req of requests) {
         const communities = await getRequestCommunities(scenario.pool, req.id);
         expect(communities).toContain(portlandCommunity?.id);
@@ -292,7 +292,7 @@ describe('Multi-Community User Journey - Alice', () => {
     expect([200, 403]).toContain(response.status);
 
     if (response.status === 200) {
-      const requests = response.body.data || response.body.requests || [];
+      const requests = response.body.data?.requests || response.body.data || response.body.requests || [];
       for (const req of requests) {
         const communities = await getRequestCommunities(scenario.pool, req.id);
         expect(communities).toContain(seattleCommunity?.id);
@@ -565,8 +565,8 @@ describe('Context Switching Between Communities', () => {
 
     // Data should be different if both succeed
     if (portlandResponse.status === 200 && seattleResponse.status === 200) {
-      const portlandRequests = portlandResponse.body.data || portlandResponse.body.requests || [];
-      const seattleRequests = seattleResponse.body.data || seattleResponse.body.requests || [];
+      const portlandRequests = portlandResponse.body.data?.requests || portlandResponse.body.data || portlandResponse.body.requests || [];
+      const seattleRequests = seattleResponse.body.data?.requests || seattleResponse.body.data || seattleResponse.body.requests || [];
 
       const portlandIds = portlandRequests.map((r: any) => r.id);
       const seattleIds = seattleRequests.map((r: any) => r.id);

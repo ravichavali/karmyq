@@ -106,7 +106,7 @@ describe('Complete Help Exchange Workflow', () => {
     expect([200, 201]).toContain(response.status);
 
     if (response.status === 201 || response.status === 200) {
-      community = response.body.data || response.body.community;
+      community = response.body.data?.community || response.body.data || response.body.community;
       expect(community).toBeTruthy();
       expect(community?.creatorId).toBe(requester.id);
 

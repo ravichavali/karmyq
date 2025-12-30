@@ -133,7 +133,7 @@ describe('Community Isolation - Communities', () => {
     expect([200, 403]).toContain(user1Response.status);
 
     if (user1Response.status === 200) {
-      const communities = user1Response.body.data || user1Response.body.communities || [];
+      const communities = user1Response.body.data?.communities || user1Response.body.data || user1Response.body.communities || [];
       expect(communities.length).toBeGreaterThanOrEqual(1);
 
       if (portlandCommunity) {
@@ -243,7 +243,7 @@ describe('Community Isolation - Help Requests', () => {
     expect([200, 403]).toContain(user1Response.status);
 
     if (user1Response.status === 200) {
-      const requests = user1Response.body.data || user1Response.body.requests || [];
+      const requests = user1Response.body.data?.requests || user1Response.body.data || user1Response.body.requests || [];
 
       // All requests should be from Portland (check via junction table)
       for (const r of requests) {

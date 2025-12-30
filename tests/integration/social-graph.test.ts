@@ -1,5 +1,7 @@
 import axios from 'axios';
-import { pool } from '../fixtures';
+import { createPool } from '../fixtures';
+
+const pool = createPool();
 
 const SOCIAL_GRAPH_API_URL = process.env.SOCIAL_GRAPH_API_URL || 'http://localhost:3010';
 
