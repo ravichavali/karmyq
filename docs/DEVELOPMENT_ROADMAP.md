@@ -597,7 +597,122 @@
     - Estimate: 4-6 hours
     - **Status**: Nice to have - not blocking core functionality
     - **Location**: services/feed-service/src/services/socialKarmaFeedComposer.ts:120
-    - Estimate: 8-10 hours
+
+### Future Features (P3 - Social Architecture) - FROM ONEDRIVE PROPOSAL
+
+**Context**: Discovered comprehensive vision documents in OneDrive Desktop folder with advanced social architecture features not yet in codebase. These align with the core philosophy of "rebuilding trust through community networks."
+
+28. **Prestige-Based Recognition System**
+    - Stream: Social Architecture
+    - Source: ADR-016, OneDrive/Context/prestige_analysis.md
+    - Issue: Current karma system focused on accumulation, not contribution
+    - Vision: Anthropologically-inspired prestige categories (Connector, Reliable, Teacher, Catalyst, Caregiver)
+    - Features:
+      - Peer nomination system
+      - Story-based recognition (not just points)
+      - 6-month prestige half-life (like karma)
+      - Prestige-weighted governance
+      - "Humility Principle": high prestige = more responsibility
+    - Database: reputation.prestige_categories, prestige_nominations, prestige_awards
+    - Estimate: 20-30 hours
+    - **Status**: Proposed (v9.0+)
+    - **Philosophy**: "People are fundamentally good" - recognize contribution over accumulation
+
+29. **Cohort-Based Community Layers**
+    - Stream: Social Architecture
+    - Source: ADR-017, OneDrive/Context/karmyq_comprehensive_proposal.md
+    - Issue: All members treated equally, doesn't model natural social structures
+    - Vision: Natural layers based on interaction frequency
+      - Inner Circle (5-7): Weekly+ interactions, deep trust
+      - Active Community (~50): Monthly interactions, medium trust
+      - Extended Network (~150): Quarterly interactions, baseline trust
+    - Implementation: Calculated from interaction history (not manual)
+    - Features:
+      - Layer-based notification priority
+      - "Inner circle only" request option
+      - Layer-weighted governance
+    - Database: Computed function, no new tables
+    - Estimate: 15-20 hours
+    - **Status**: Proposed (v9.0+)
+    - **Philosophy**: Models Dunbar's Number and natural human social organization
+
+30. **Community Splitting Mechanics**
+    - Stream: Social Architecture
+    - Source: ADR-018, OneDrive/Context/karmyq_comprehensive_proposal.md
+    - Issue: No mechanism for communities to gracefully split at scale limit
+    - Vision: Cell division-like splitting at 130-140 members
+    - Process:
+      - Discussion phase (1-2 months)
+      - Planning phase (member assignment, 1 month)
+      - Transition phase (cross-posting, 1 month)
+      - Independence phase (sister communities)
+    - Features:
+      - Split proposals with community voting
+      - Sister community relationships (parent-child or sibling)
+      - Trust transfer between sister communities (configurable %)
+      - Shared history preservation
+    - Database: community_relationships, split_proposals
+    - Estimate: 25-35 hours
+    - **Status**: Proposed (v10.0+)
+    - **Philosophy**: Biological scaling - communities split like cells, not expand infinitely
+
+31. **Referral Chain Trust System**
+    - Stream: Social Architecture
+    - Source: ADR-019, OneDrive/Context/karmyq_comprehensive_proposal.md
+    - Issue: Open communities vulnerable to bad actors, but zero-trust creates hostile environment
+    - Vision: Seed group + wave-based growth with vouching accountability
+    - Model:
+      - Wave 1: 5-7 founders (high trust, in-person)
+      - Wave 2-4: 2-3 invites per member (exponential growth)
+      - Referral requirements: 3+ months membership, 5+ exchanges, prestige threshold
+    - Features:
+      - Vouch statements (visible chain of trust)
+      - Shared reputation during 6-month accountability period
+      - Community veto for concerning referrals
+      - Progressive trust for new members
+    - Database: referrals, referral_flags, invitation_codes
+    - Estimate: 20-25 hours
+    - **Status**: Proposed (v9.0+)
+    - **Philosophy**: Trust-first, not zero-trust - vouchers have skin in the game
+
+32. **Recognition Rituals & Cultural Architecture**
+    - Stream: Social Architecture
+    - Source: OneDrive/Context/prestige_analysis.md, karmyq_comprehensive_proposal.md
+    - Issue: Digital communities lack cultural cohesion rituals
+    - Vision: Structured rituals that build community identity
+    - Rituals:
+      - Monthly "Gratitude Circles" (highlight contributions)
+      - Annual "Legend" ceremonies (honor long-term contributors)
+      - Seasonal "Skill Shares" (experts demonstrate)
+      - "First Help" ceremonies (newcomer mentorship)
+    - Features:
+      - Event scheduling system
+      - Ritual templates per community
+      - Story collection and sharing
+      - Cross-community ritual exchange
+    - Estimate: 15-20 hours
+    - **Status**: Proposed (v11.0+)
+    - **Philosophy**: Shared rituals create emotional bonds (like traditional societies)
+
+33. **Network of Networks Federation**
+    - Stream: Social Architecture
+    - Source: OneDrive/Context/karmyq_comprehensive_proposal.md (Part II, Section 3)
+    - Issue: Individual communities limited to 150, need cross-community coordination
+    - Vision: "Sister communities" maintain connections with trust bridging
+    - Model:
+      - Communities split when approaching 150 (Dunbar limit)
+      - Sister communities share culture/norms but operate independently
+      - Trust transfers between connected communities with gradual decay
+      - Cross-community exchanges with trust multiplier
+    - Features:
+      - Community family tree visualization
+      - Cross-community request posting
+      - Shared tool libraries (optional)
+      - Joint events and reunions
+    - Related: ADR-018 (Community Splitting)
+    - Estimate: 30-40 hours
+    - **Status**: Proposed (v11.0+)
+    - **Philosophy**: Scale through federation, not centralization
 
 ---
 

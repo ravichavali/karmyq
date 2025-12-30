@@ -40,6 +40,13 @@ Each ADR follows this structure:
 - [ADR-014: Testing Strategy (Integration + E2E + Unit)](ADR-014-testing-strategy.md)
 - [ADR-015: Observability Stack (Grafana/Loki/Prometheus)](ADR-015-observability-stack.md)
 
+### Social Architecture (Proposed)
+- [ADR-016: Prestige-Based Recognition System](ADR-016-prestige-based-recognition.md) ⭐ NEW
+- [ADR-017: Cohort-Based Community Layers](ADR-017-cohort-based-community-layers.md) ⭐ NEW
+- [ADR-018: Community Splitting Mechanics](ADR-018-community-splitting-mechanics.md) ⭐ NEW
+- [ADR-019: Referral Chain Trust System](ADR-019-referral-chain-trust.md) ⭐ NEW
+- [ADR-020: Trust-First Design Philosophy](ADR-020-trust-first-design.md) ⭐ NEW
+
 ## Creating a New ADR
 
 1. Copy `template.md` to a new file: `ADR-XXX-short-title.md`
