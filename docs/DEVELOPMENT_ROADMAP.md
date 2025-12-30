@@ -199,7 +199,78 @@
 
 ### High Priority (P0 - Critical)
 
-1. **Fix Message Object Rendering Errors** - NEW FROM PREVIOUS SESSION
+1. **Fix Failing Integration Tests** - 🎯 CURRENT PRIORITY
+   - Stream: Testing Infrastructure
+   - Issue: 18/149 integration tests failing (87.9% passing)
+   - Problems:
+     - Tenant isolation tests (3 failures)
+     - Ephemeral data tests (5 failures)
+     - Jest worker circular JSON errors (multiple tests)
+     - Feed service test suite failures
+   - Solution: Fix test expectations and resolve circular reference issues
+   - Estimate: 4-6 hours
+   - Blocking: Commit workflow (pre-commit hook)
+   - **Status**: In progress - schema fixes applied, test expectations need updating
+   - **User Request**: "I like to continue down the backlog, but with fixing the tests first"
+
+2. **Test Data Determinism & Time Travel** - HIGH PRIORITY
+   - Stream: Data Generation & Integrity
+   - Issue: Can't test time-based features (karma decay, ephemeral data, trust growth)
+   - Problems:
+     - Data generation scripts create "now" timestamps only
+     - Integration tests can't simulate 6-month-old karma
+     - Ephemeral data tests need expired records to verify cleanup
+     - No way to test reputation decay over time
+   - Solution:
+     - Add "backdated" test data factories
+     - Support creating records with custom timestamps
+     - Test helpers: `createBackdatedKarma(monthsAgo)`, `createExpiredRequest(daysAgo)`
+   - Examples:
+     ```typescript
+     // Create karma from 6 months ago to test decay
+     await createBackdatedKarma(userId, communityId, { monthsAgo: 6, points: 100 });
+
+     // Create expired request to test cleanup
+     await createExpiredRequest(communityId, { daysAgo: 65 });
+     ```
+   - Estimate: 8-12 hours
+   - **Status**: P0 - Blocking ephemeral data and reputation testing
+   - **User Feedback**: "We need to figure out how to mock year old data"
+
+3. **Consolidate Data Generation Scripts** - HIGH PRIORITY
+   - Stream: Data Generation & Integrity
+   - Issue: 5+ different scripts creating data inconsistently
+   - Current scripts causing conflicts:
+     - seed-test-data.js (old approach)
+     - generate-realistic-data.ts (new, most complete)
+     - populate-polymorphic-data.js (specific use case)
+     - create-test-feed-data.js (deprecated?)
+     - generate-large-dataset.js (performance testing)
+   - Solution: Single source of truth
+     - Keep: generate-realistic-data.ts as master script
+     - Archive or refactor others to call generate-realistic-data
+     - Add CLI flags: --fresh, --aged, --large, --polymorphic
+   - Estimate: 4-6 hours
+   - **Status**: P0 - Causing "weird inconsistencies"
+   - **User Feedback**: "The data load via data scripts seems to be causing some weird inconsistencies"
+
+4. **Parallel Development Infrastructure** - 🆙 MOVED UP
+   - Stream: Developer Experience
+   - Issue: Need support for multiple developers (Antigravity IDE + Gemini models)
+   - Problems:
+     - Database migrations: Multiple devs changing schema → conflicts
+     - Shared package changes: Affect all services simultaneously
+     - Integration test conflicts: Tests hit same database
+   - Solution:
+     - Migration versioning system (Flyway or Knex migrations)
+     - Separate test databases per developer/CI runner
+     - Shared package change notification system
+     - Developer environment isolation (Docker Compose override files)
+   - Estimate: 8-12 hours
+   - **Status**: P0 - User wants parallel development
+   - **User Request**: "I also want to run parallel development using antigravity ide and some gemini models"
+
+5. **Fix Message Object Rendering Errors** - FROM PREVIOUS SESSION
    - Stream: Bug Fixes
    - Issue: React crashes when message objects rendered as children instead of strings
    - Context: `{id, content, sender_id, created_at}` being rendered, not message.content
@@ -208,23 +279,21 @@
    - Estimate: 2-3 hours
    - Blocking: Messaging feature stability
    - **Source**: Previous session (session 8e414c6e)
-   - **Analysis**: See CONTEXT_LOSS_ANALYSIS.md Pattern 4
 
-2. **Install Frontend Testing Dependencies**
+6. **Install Frontend Testing Dependencies**
    - Stream: UI Testing Infrastructure
    - Issue: Jest/RTL not installed yet
    - Action: User needs to run `npm install` in apps/frontend
    - Estimate: 5 minutes
    - Blocking: Running component tests
 
-3. **Polymorphic Data Display Verification** - COMPLETED, NEEDS TESTING
+7. **Polymorphic Data Display Verification** - COMPLETED, NEEDS TESTING
    - Stream: UI Testing Infrastructure
    - Issue: Data exists in DB but UI doesn't show it
    - Solution: ✅ Built RequestPayloadRenderer component
    - **Status**: ✅ Integrated into FeedItem component
    - **Next**: User needs to verify it displays correctly
    - Estimate: 15 minutes (user testing)
-   - Blocking: Full UI testing completion
    - **Analysis**: See CONTEXT_LOSS_ANALYSIS.md Pattern 5 (resolved)
 
 ### Medium Priority (P1 - High)
@@ -713,6 +782,65 @@
     - Estimate: 30-40 hours
     - **Status**: Proposed (v11.0+)
     - **Philosophy**: Scale through federation, not centralization
+
+### Mobile App Features (P2) - NEEDS ATTENTION
+
+**Context**: Mobile app exists (Expo React Native, 23 files, 7 Maestro tests) but missing critical features for production use.
+
+34. **Mobile App State Management**
+    - Stream: Mobile Development
+    - Issue: No centralized state management
+    - Current: Each screen fetches data independently, no global state
+    - Impact: Data duplication, unnecessary API calls, poor UX
+    - Solution: Add Zustand for global state management
+    - Features:
+      - User session state
+      - Community list cache
+      - Request/offer cache
+      - Optimistic updates
+    - Estimate: 6-8 hours
+    - **Status**: P2 - Nice to have but app works without it
+    - **User Awareness**: "I haven't seen much about mobile apps do we need to figure this out"
+
+35. **Mobile Offline Support**
+    - Stream: Mobile Development
+    - Issue: No offline capability, app breaks without network
+    - Current: All operations require network connection
+    - Solution: React Query with persistence + IndexedDB/AsyncStorage
+    - Features:
+      - Offline read access to cached data
+      - Queue failed mutations for retry
+      - Sync on reconnection
+      - Offline indicator in UI
+    - Estimate: 12-15 hours
+    - **Status**: P2 - Important for mobile UX but not critical
+
+36. **Mobile Push Notifications**
+    - Stream: Mobile Development
+    - Issue: No real-time updates on mobile (unlike web SSE)
+    - Current: Users must manually refresh to see new requests/offers
+    - Solution: Expo Notifications + backend push service
+    - Features:
+      - Push on new request in community
+      - Push on offer received
+      - Push on match completion
+      - Notification preferences
+    - Database: Add push_tokens table
+    - Estimate: 10-12 hours
+    - **Status**: P2 - Nice to have, SSE works on web
+
+37. **API Mocking Layer for E2E Tests**
+    - Stream: Testing Infrastructure
+    - Issue: E2E tests hit live APIs, causing flakiness and data pollution
+    - Current: Playwright/Maestro tests use real backend
+    - Solution: MSW (Mock Service Worker) for frontend, similar for mobile
+    - Benefits:
+      - Deterministic responses
+      - Test error states reliably
+      - No backend dependency for UI tests
+      - Faster test execution
+    - Estimate: 10-12 hours
+    - **Status**: P2 - Nice to have but not critical
 
 ---
 
