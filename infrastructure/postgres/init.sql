@@ -14,6 +14,8 @@ CREATE TABLE auth.users (
     password_hash VARCHAR(255) NOT NULL,
     bio TEXT,
     avatar_url VARCHAR(255),
+    invited_by UUID REFERENCES auth.users(id),
+    invitation_accepted_at TIMESTAMP,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -75,6 +77,61 @@ CREATE INDEX idx_social_distances_user_b ON auth.social_distances(user_b_id);
 CREATE INDEX idx_social_distances_community ON auth.social_distances(community_id);
 CREATE INDEX idx_social_distances_degrees ON auth.social_distances(degrees_of_separation);
 CREATE INDEX idx_social_distances_expires ON auth.social_distances(expires_at);
+
+-- Inviter stats table for gamification
+CREATE TABLE auth.inviter_stats (
+    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    community_id UUID,  -- Will reference communities.communities after it's created
+    total_invitations_sent INTEGER DEFAULT 0,
+    total_invitations_accepted INTEGER DEFAULT 0,
+    acceptance_rate DECIMAL(5,2) DEFAULT 0,
+    avg_invitee_karma DECIMAL(5,2) DEFAULT 0,
+    avg_invitee_trust_score DECIMAL(5,2) DEFAULT 0,
+    total_invitee_exchanges INTEGER DEFAULT 0,
+    total_network_size INTEGER DEFAULT 0,
+    bridge_score INTEGER DEFAULT 0,
+    inviter_tier VARCHAR(20) DEFAULT 'bronze',
+    tier_updated_at TIMESTAMP,
+    last_computed TIMESTAMP DEFAULT NOW(),
+    PRIMARY KEY (user_id, community_id)
+);
+
+CREATE INDEX idx_inviter_stats_tier ON auth.inviter_stats(inviter_tier);
+CREATE INDEX idx_inviter_stats_community ON auth.inviter_stats(community_id);
+
+-- Function to generate unique invitation codes
+CREATE OR REPLACE FUNCTION auth.generate_invitation_code(
+    user_name TEXT,
+    year INTEGER
+)
+RETURNS TEXT AS $$
+DECLARE
+    random_suffix TEXT;
+    invitation_code TEXT;
+    code_exists BOOLEAN;
+BEGIN
+    LOOP
+        -- Generate random 4-character suffix
+        random_suffix := upper(substring(md5(random()::text) from 1 for 4));
+
+        -- Format: KARMYQ-NAME-YEAR-XXXX
+        invitation_code := 'KARMYQ-' ||
+                          upper(substring(replace(user_name, ' ', '') from 1 for 8)) ||
+                          '-' || year || '-' || random_suffix;
+
+        -- Check if code already exists
+        SELECT EXISTS(
+            SELECT 1 FROM auth.user_invitations
+            WHERE invitation_code = invitation_code
+        ) INTO code_exists;
+
+        -- Exit loop if unique code found
+        EXIT WHEN NOT code_exists;
+    END LOOP;
+
+    RETURN invitation_code;
+END;
+$$ LANGUAGE plpgsql;
 
 -- ============= COMMUNITY SERVICE SCHEMA =============
 CREATE SCHEMA IF NOT EXISTS communities;

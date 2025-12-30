@@ -192,10 +192,13 @@ router.get('/', async (req: AuthenticatedRequest, res: Response) => {
          ui.invitation_accepted_at,
          u.id as invitee_id,
          u.name as invitee_name,
-         COALESCE(r.current_karma, 0) as invitee_karma
+         COALESCE((
+           SELECT SUM(points)
+           FROM reputation.karma_records
+           WHERE user_id = u.id AND community_id = ui.community_id
+         ), 0) as invitee_karma
        FROM auth.user_invitations ui
        LEFT JOIN auth.users u ON ui.invitee_id = u.id
-       LEFT JOIN reputation.karma_records r ON (r.user_id = u.id AND r.community_id = ui.community_id)
        WHERE ui.inviter_id = $1 AND ui.community_id = $2
        ORDER BY ui.invited_at DESC`,
       [userId, communityId]
