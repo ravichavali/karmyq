@@ -29,7 +29,7 @@ describe('Social Graph Service - Integration Tests', () => {
     inviteeUserId = inviteeResult.rows[0].id;
 
     const communityResult = await pool.query(
-      `INSERT INTO communities.communities (name, description, admin_id)
+      `INSERT INTO communities.communities (name, description, creator_id)
        VALUES ('Test Community', 'Test community for social graph', $1)
        RETURNING id`,
       [userId]

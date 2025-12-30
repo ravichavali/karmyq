@@ -38,6 +38,44 @@ CREATE INDEX idx_auth_users_email ON auth.users(email);
 CREATE INDEX idx_auth_sessions_user_id ON auth.sessions(user_id);
 CREATE INDEX idx_auth_user_skills_user_id ON auth.user_skills(user_id);
 
+-- Social Graph tables (Social Graph Service - Port 3010)
+CREATE TABLE auth.user_invitations (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    inviter_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    invitee_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    invited_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    invitation_code TEXT UNIQUE NOT NULL,
+    invitation_accepted_at TIMESTAMP,
+    community_id UUID,  -- Will reference communities.communities after it's created
+    invitation_method VARCHAR(50),
+    inviter_note TEXT,
+    UNIQUE(inviter_id, invitee_id, community_id)
+);
+
+CREATE TABLE auth.social_distances (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_a_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    user_b_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    community_id UUID,  -- Will reference communities.communities after it's created
+    degrees_of_separation INTEGER NOT NULL CHECK (degrees_of_separation >= 1 AND degrees_of_separation <= 4),
+    shortest_path JSONB NOT NULL,
+    highest_trust_path JSONB,
+    path_trust_score INTEGER,
+    computed_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    expires_at TIMESTAMP NOT NULL DEFAULT NOW() + INTERVAL '7 days',
+    UNIQUE(user_a_id, user_b_id, community_id)
+);
+
+CREATE INDEX idx_invitations_inviter ON auth.user_invitations(inviter_id);
+CREATE INDEX idx_invitations_invitee ON auth.user_invitations(invitee_id);
+CREATE INDEX idx_invitations_community ON auth.user_invitations(community_id);
+CREATE INDEX idx_invitations_accepted ON auth.user_invitations(invitation_accepted_at);
+CREATE INDEX idx_social_distances_user_a ON auth.social_distances(user_a_id);
+CREATE INDEX idx_social_distances_user_b ON auth.social_distances(user_b_id);
+CREATE INDEX idx_social_distances_community ON auth.social_distances(community_id);
+CREATE INDEX idx_social_distances_degrees ON auth.social_distances(degrees_of_separation);
+CREATE INDEX idx_social_distances_expires ON auth.social_distances(expires_at);
+
 -- ============= COMMUNITY SERVICE SCHEMA =============
 CREATE SCHEMA IF NOT EXISTS communities;
 
