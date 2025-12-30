@@ -1065,6 +1065,138 @@
     - Related: ADR-022, Grafana/Loki/Prometheus stack
     - Dependencies: Items #46-48 must be complete, need active user base
 
+50. **Deep Invitation Chain Visualization** ⭐ NEW (2025-12-30)
+    - Stream: Social Graph Features
+    - Issue: Current invitation chain only shows immediate inviter (1 level)
+    - Context: Need multi-level chain for trust verification and abuse detection
+    - Current Implementation:
+      - Profile page shows "Invited by Alice" (1 degree only)
+      - Uses `auth.users.invited_by` field
+      - Static, never changes after signup
+    - Goal: Show full invitation ancestry (N levels deep)
+    - Use Cases:
+      - **Trust verification**: "Who vouches for this person?" (view requester/helper ancestry)
+      - **Abuse detection**: Identify invitation patterns from bad actors
+      - **Community quality**: Track invitation quality per inviter
+      - **Network effects**: Visualize how communities grow through invitations
+    - Features:
+      - Recursive query to fetch full invitation chain (up to 6 degrees)
+      - Visual tree/graph display (D3.js or similar)
+      - Show chain on user profile page (private - own chain only)
+      - Show chain on request/offer tiles (public - for trust verification)
+      - Click-through to view any ancestor's public profile
+      - Highlight "bad invitation practices" (e.g., inviter with low karma, many rejected invitees)
+    - Technical Details:
+      - Recursive CTE query:
+        ```sql
+        WITH RECURSIVE invitation_chain AS (
+          -- Base case: current user
+          SELECT id, name, invited_by, 0 as depth
+          FROM auth.users WHERE id = $1
+          UNION ALL
+          -- Recursive case: follow invited_by links
+          SELECT u.id, u.name, u.invited_by, ic.depth + 1
+          FROM auth.users u
+          JOIN invitation_chain ic ON u.id = ic.invited_by
+          WHERE ic.depth < 6
+        )
+        SELECT * FROM invitation_chain ORDER BY depth;
+        ```
+      - Cache with 30-day TTL (invitation chains are static)
+      - API endpoint: `GET /social-graph/invitation-chain/:userId`
+    - UI Components:
+      - InvitationChainGraph component (D3.js tree visualization)
+      - Compact badge on request/offer tiles showing chain depth
+      - Expandable view on click
+    - Privacy Considerations:
+      - Full chain only visible to user themselves
+      - Public view shows limited info (names only, no sensitive data)
+      - Option to hide invitation chain (privacy setting)
+    - User Stories:
+      - "As a user viewing a request, I want to see how this person joined to assess trust"
+      - "As a community admin, I want to identify bad invitation practices"
+      - "As a user, I want to see my invitation lineage and who brought me here"
+    - Acceptance Criteria:
+      - Recursive query fetches full chain (up to 6 degrees)
+      - Visual tree display on profile page
+      - Compact badge on request/offer tiles
+      - Performance: <200ms for chain query
+      - Privacy: Full chain only visible to self, limited view for others
+    - Status: **Planned** - Not critical, but valuable for trust & abuse detection
+    - Estimate: 6-8 hours
+    - Priority: P1 (High - post-social-graph-UI)
+    - Related: ADR-021 (Invitation Chain), Item #45 (Trust Paths), Item #51 (Public Profiles)
+    - Dependencies: Social graph UI must be complete
+
+51. **Public User Profiles & Navigation** ⭐ NEW (2025-12-30)
+    - Stream: Social Graph Features
+    - Issue: No way to view other users' profiles from request/offer tiles
+    - Context: Users need context about who they're helping or receiving help from
+    - Current State:
+      - Request/offer tiles show names but no profile links
+      - No public profile page exists
+      - All profile data is private (only viewable by self)
+    - Goal: Create public user profile pages with privacy controls
+    - Features:
+      - **Public Profile Page**: `/users/[userId]` or `/users/[username]`
+      - **Clickable Names**: All user names on request/offer tiles link to profile
+      - **Public Fields** (visible to all community members):
+        - Name, bio, avatar
+        - Joined date, origin community
+        - Public skills (user can mark skills as public/private)
+        - Karma & trust score (aggregated, no detailed history)
+        - Invitation chain (limited depth)
+        - Communities (only public communities shown)
+      - **Private Fields** (only visible to self):
+        - Email, phone
+        - Private skills
+        - Full karma history
+        - Full invitation chain
+        - Private communities
+        - Personal settings
+      - **Privacy Controls**:
+        - Toggle profile visibility (public/members-only/private)
+        - Choose which skills are public
+        - Choose which communities are public
+        - Hide invitation chain
+    - Technical Details:
+      - New route: `apps/frontend/src/pages/users/[id].tsx`
+      - API endpoint: `GET /auth/users/:userId/profile` (returns public fields only)
+      - Privacy middleware checks relationship (same community, trust path, etc.)
+      - Database: Add `profile_visibility` enum to `auth.users`
+    - Database Schema:
+      ```sql
+      ALTER TABLE auth.users
+      ADD COLUMN profile_visibility VARCHAR(50) DEFAULT 'members_only'
+        CHECK (profile_visibility IN ('public', 'members_only', 'private'));
+
+      ALTER TABLE auth.user_skills
+      ADD COLUMN is_public BOOLEAN DEFAULT true;
+
+      ALTER TABLE communities.members
+      ADD COLUMN is_public BOOLEAN DEFAULT true;
+      ```
+    - UI Components:
+      - PublicProfile.tsx (public profile page)
+      - ProfilePrivacySettings.tsx (privacy control panel)
+      - UserLink.tsx (clickable name component with profile link)
+    - User Stories:
+      - "As a user viewing a request, I want to click the requester's name to see their profile"
+      - "As a helper, I want to see if this person has relevant skills before offering help"
+      - "As a privacy-conscious user, I want to control what others see on my profile"
+      - "As a community member, I want to see basic info about other members"
+    - Acceptance Criteria:
+      - Public profile page displays appropriate fields based on privacy settings
+      - Names on request/offer tiles link to profiles
+      - Privacy controls work (public/members-only/private)
+      - Performance: <100ms for profile page load
+      - Responsive design (mobile + desktop)
+    - Status: **Planned** - Important for trust & transparency
+    - Estimate: 8-10 hours
+    - Priority: P1 (High - post-social-graph-UI)
+    - Related: Item #50 (Invitation Chain), ADR-021 (Trust Path), Item #45 (Trust Paths)
+    - Dependencies: Social graph UI must be complete
+
 20. **Permission Testing (Mobile)**
     - Stream: Mobile Testing Infrastructure
     - Issue: Camera, location, notification permissions not tested
