@@ -31,12 +31,14 @@ export default function InviteAcceptance() {
   useEffect(() => {
     if (!code || typeof code !== 'string') return;
 
+    const invitationCode = code as string; // Type narrowing
+
     async function validateCode() {
       setValidating(true);
       setValidationError('');
 
       try {
-        const response = await socialGraphService.validateInvitationCode(code);
+        const response = await socialGraphService.validateInvitationCode(invitationCode);
         setInvitationInfo(response.data.data);
       } catch (err: any) {
         setValidationError(
@@ -69,6 +71,7 @@ export default function InviteAcceptance() {
       return;
     }
 
+    const invitationCode = code as string; // Type narrowing
     setLoading(true);
 
     try {
@@ -91,7 +94,7 @@ export default function InviteAcceptance() {
 
       // Accept the invitation
       try {
-        await socialGraphService.acceptInvitationCode(code);
+        await socialGraphService.acceptInvitationCode(invitationCode);
       } catch (acceptErr) {
         console.error('Failed to accept invitation:', acceptErr);
         // Don't fail the signup if invitation acceptance fails
