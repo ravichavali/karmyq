@@ -115,13 +115,21 @@ router.post('/', async (req: Request, res: Response) => {
       });
     }
 
+    // Get TTL settings to calculate expires_at
+    const settingsResult = await query(
+      `SELECT offer_ttl_days FROM communities.settings WHERE community_id = $1`,
+      [community_id]
+    );
+    const ttlDays = settingsResult.rows[0]?.offer_ttl_days || 60; // Default to 60 days
+    const expiresAt = new Date(Date.now() + ttlDays * 24 * 60 * 60 * 1000);
+
     // Create offer
     const result = await query(
       `INSERT INTO requests.help_offers
-        (community_id, offerer_id, title, description, category, status)
-      VALUES ($1, $2, $3, $4, $5, 'active')
+        (community_id, offerer_id, title, description, category, status, expires_at)
+      VALUES ($1, $2, $3, $4, $5, 'active', $6)
       RETURNING *`,
-      [community_id, offerer_id, title, description, type]
+      [community_id, offerer_id, title, description, type, expiresAt]
     );
 
     const offer = result.rows[0];

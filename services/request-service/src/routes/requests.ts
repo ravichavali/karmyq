@@ -281,12 +281,20 @@ router.post('/', async (req: Request, res: Response) => {
       targetCommunityIds = [community_id];
     }
 
+    // Get TTL settings from the first community to calculate expires_at
+    const settingsResult = await query(
+      `SELECT request_ttl_days FROM communities.settings WHERE community_id = $1`,
+      [targetCommunityIds[0]]
+    );
+    const ttlDays = settingsResult.rows[0]?.request_ttl_days || 60; // Default to 60 days
+    const expiresAt = new Date(Date.now() + ttlDays * 24 * 60 * 60 * 1000);
+
     // Create ONE request (not multiple duplicates)
     // v9.0: Store polymorphic data in request_type, payload, requirements columns
     const result = await query(
       `INSERT INTO requests.help_requests
-        (requester_id, title, description, category, urgency, status, request_type, payload, requirements)
-      VALUES ($1, $2, $3, $4, $5, 'open', $6, $7, $8)
+        (requester_id, title, description, category, urgency, status, request_type, payload, requirements, expires_at)
+      VALUES ($1, $2, $3, $4, $5, 'open', $6, $7, $8, $9)
       RETURNING *`,
       [
         requester_id,
@@ -297,6 +305,7 @@ router.post('/', async (req: Request, res: Response) => {
         validatedData.request_type, // Store in new request_type column
         'payload' in validatedData ? JSON.stringify(validatedData.payload) : '{}',
         requirements ? JSON.stringify(requirements) : '{}',
+        expiresAt,
       ]
     );
 

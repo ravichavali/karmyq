@@ -87,6 +87,20 @@ CREATE TABLE communities.norm_approvals (
     UNIQUE(norm_id, approved_by)
 );
 
+-- Community settings for ephemeral data and reputation decay (ADR-009, ADR-011)
+CREATE TABLE communities.settings (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    community_id UUID NOT NULL REFERENCES communities.communities(id) ON DELETE CASCADE UNIQUE,
+    request_ttl_days INTEGER DEFAULT 60,
+    offer_ttl_days INTEGER DEFAULT 60,
+    message_ttl_days INTEGER DEFAULT 90,
+    notification_ttl_days INTEGER DEFAULT 30,
+    reputation_half_life_months INTEGER DEFAULT 6,
+    activity_types JSONB DEFAULT '["complete_request", "complete_offer"]'::jsonb,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE INDEX idx_communities_creator_id ON communities.communities(creator_id);
 CREATE INDEX idx_communities_location ON communities.communities(location);
 CREATE INDEX idx_communities_category ON communities.communities(category);
@@ -195,6 +209,29 @@ CREATE TABLE reputation.badges (
 CREATE INDEX idx_karma_user_id ON reputation.karma_records(user_id);
 CREATE INDEX idx_karma_community_id ON reputation.karma_records(community_id);
 CREATE INDEX idx_trust_scores_user_id ON reputation.trust_scores(user_id);
+
+-- Reputation decay function (ADR-011)
+CREATE OR REPLACE FUNCTION reputation.calculate_decayed_karma(
+    original_karma INTEGER,
+    earned_date TIMESTAMPTZ,
+    half_life_months INTEGER DEFAULT 6
+)
+RETURNS NUMERIC AS $$
+DECLARE
+    months_elapsed NUMERIC;
+    decay_factor NUMERIC;
+BEGIN
+    -- Calculate months since karma was earned
+    months_elapsed := EXTRACT(EPOCH FROM (NOW() - earned_date)) / (30.44 * 24 * 60 * 60);
+
+    -- Calculate decay factor using exponential decay formula
+    -- decay_factor = 2^(-months_elapsed / half_life_months)
+    decay_factor := POWER(2, -months_elapsed / half_life_months);
+
+    -- Return decayed karma
+    RETURN decay_factor;
+END;
+$$ LANGUAGE plpgsql IMMUTABLE;
 
 -- ============= MESSAGING SERVICE SCHEMA =============
 CREATE SCHEMA IF NOT EXISTS messaging;
