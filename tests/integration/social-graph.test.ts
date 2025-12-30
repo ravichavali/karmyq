@@ -117,6 +117,76 @@ describe('Social Graph Service - Integration Tests', () => {
       expect(response.data.data.inviter_id).toBe(userId);
     });
 
+    it('should add user to community on invitation acceptance', async () => {
+      // Create a new user who hasn't been added to community yet
+      const newUserResult = await pool.query(
+        `INSERT INTO auth.users (name, email, password_hash)
+         VALUES ('New Invitee', 'newinvitee@example.com', 'hash999')
+         RETURNING id`
+      );
+      const newUserId = newUserResult.rows[0].id;
+
+      // Generate a fresh invitation code
+      const jwt = require('jsonwebtoken');
+      const freshInviteResponse = await axios.post(
+        `${SOCIAL_GRAPH_API_URL}/invitations/generate`,
+        {},
+        {
+          headers: {
+            Authorization: `Bearer ${authToken}`,
+            'X-Community-ID': communityId,
+          },
+        }
+      );
+      const freshCode = freshInviteResponse.data.data.code;
+
+      // Get initial member count
+      const beforeResult = await pool.query(
+        'SELECT current_members FROM communities.communities WHERE id = $1',
+        [communityId]
+      );
+      const memberCountBefore = beforeResult.rows[0].current_members;
+
+      // Accept invitation
+      const newUserToken = jwt.sign(
+        { userId: newUserId, communityMemberships: [] }, // Empty initially
+        process.env.JWT_SECRET || 'dev_jwt_secret_change_in_production'
+      );
+
+      await axios.post(
+        `${SOCIAL_GRAPH_API_URL}/invitations/accept`,
+        { invitation_code: freshCode },
+        {
+          headers: {
+            Authorization: `Bearer ${newUserToken}`,
+            'X-Community-ID': communityId,
+          },
+        }
+      );
+
+      // Verify user was added to community
+      const membershipResult = await pool.query(
+        `SELECT role FROM communities.members
+         WHERE community_id = $1 AND user_id = $2`,
+        [communityId, newUserId]
+      );
+      expect(membershipResult.rows.length).toBe(1);
+      expect(membershipResult.rows[0].role).toBe('member');
+
+      // Verify member count was incremented
+      const afterResult = await pool.query(
+        'SELECT current_members FROM communities.communities WHERE id = $1',
+        [communityId]
+      );
+      const memberCountAfter = afterResult.rows[0].current_members;
+      expect(memberCountAfter).toBe(memberCountBefore + 1);
+
+      // Cleanup
+      await pool.query('DELETE FROM auth.user_invitations WHERE invitee_id = $1', [newUserId]);
+      await pool.query('DELETE FROM communities.members WHERE user_id = $1', [newUserId]);
+      await pool.query('DELETE FROM auth.users WHERE id = $1', [newUserId]);
+    });
+
     it('should reject invalid invitation code', async () => {
       const jwt = require('jsonwebtoken');
       const inviteeToken = jwt.sign(
