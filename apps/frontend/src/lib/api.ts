@@ -506,6 +506,10 @@ export const socialGraphService = {
   generateInvitationCode: () =>
     socialGraphApi.post('/invitations/generate'),
 
+  // Validate invitation code (public endpoint)
+  validateInvitationCode: (invitationCode: string) =>
+    axios.get(`http://localhost:3010/invitations/validate/${invitationCode}`),
+
   // Accept invitation code
   acceptInvitationCode: (invitationCode: string) =>
     socialGraphApi.post('/invitations/accept', { invitation_code: invitationCode }),

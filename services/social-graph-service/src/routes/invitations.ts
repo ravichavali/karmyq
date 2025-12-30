@@ -90,6 +90,74 @@ router.post('/generate', async (req: AuthenticatedRequest, res: Response) => {
   }
 });
 
+// GET /invitations/validate/:code - Validate invitation code (public endpoint)
+router.get('/validate/:code', async (req: Request, res: Response) => {
+  try {
+    const { code } = req.params;
+
+    if (!code) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invitation code required',
+      });
+    }
+
+    // Find the invitation
+    const invitationResult = await pool.query(
+      `SELECT
+         ui.id,
+         ui.inviter_id,
+         ui.community_id,
+         ui.invitation_accepted_at,
+         u.name as inviter_name,
+         c.name as community_name
+       FROM auth.user_invitations ui
+       JOIN auth.users u ON ui.inviter_id = u.id
+       LEFT JOIN community.communities c ON ui.community_id = c.id
+       WHERE ui.invitation_code = $1`,
+      [code]
+    );
+
+    if (invitationResult.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Invalid invitation code',
+      });
+    }
+
+    const invitation = invitationResult.rows[0];
+
+    // Check if already accepted
+    if (invitation.invitation_accepted_at) {
+      return res.status(400).json({
+        success: false,
+        message: 'This invitation code has already been used',
+      });
+    }
+
+    logger.info('Invitation validated', {
+      invitationCode: code,
+      inviterId: invitation.inviter_id,
+      communityId: invitation.community_id,
+    });
+
+    res.json({
+      success: true,
+      data: {
+        inviter_name: invitation.inviter_name,
+        community_id: invitation.community_id,
+        community_name: invitation.community_name || 'Karmyq Community',
+      },
+    });
+  } catch (error) {
+    logger.error('Error validating invitation', { error });
+    res.status(500).json({
+      success: false,
+      message: 'Failed to validate invitation code',
+    });
+  }
+});
+
 // POST /invitations/accept - Accept an invitation code during signup
 router.post('/accept', async (req: AuthenticatedRequest, res: Response) => {
   try {

@@ -654,7 +654,148 @@
     - Status: **User Priority** - Needs ADR
     - Estimate: 30-40 hours
     - Related: See ADR-022 (to be created)
-    - Estimate: 3-4 hours
+
+41. **Social Graph UI Pages**
+    - Stream: Frontend Features
+    - Issue: Social graph backend complete, no UI
+    - Goal: Create UI for invitation system and trust path visualization
+    - Features:
+      - `/dashboard/invitations` - Generate codes, view invitation history
+      - `/invite/[code]` - Accept invitation page (public, no auth)
+      - User profile: Show trust path visualization
+      - User profile: Show invitation chain (how user arrived on platform)
+    - Components:
+      - Invitation code generator with copy button
+      - Invitation history table with acceptance status
+      - Trust path graph visualization (D3.js or React Flow)
+      - Invitation chain tree view
+    - Status: **User Priority** - Backend ready (12/12 tests passing)
+    - Estimate: 8-12 hours
+    - Related: Social Graph Service (Port 3010)
+
+42. **Expo SDK Upgrade**
+    - Stream: Mobile Infrastructure
+    - Issue: Stuck on older Expo version due to React compatibility bug
+    - Current: Expo SDK version needs verification
+    - Goal: Upgrade to latest stable Expo SDK
+    - Blockers:
+      - React version incompatibility
+      - Breaking changes in newer Expo versions
+    - Tasks:
+      - Research current Expo/React compatibility matrix
+      - Identify which Expo version we're on
+      - Test upgrade path in separate branch
+      - Update all Expo-dependent packages
+      - Test on iOS and Android
+    - Status: Blocked - Needs investigation
+    - Estimate: 4-8 hours (depending on breaking changes)
+    - Priority: Medium (technical debt)
+
+43. **Trust Path Filtering (Static Preferences)**
+    - Stream: Feed Features
+    - Issue: No control over how many degrees of separation users see in feeds
+    - Context: As communities grow, feeds become overwhelming; users need control
+    - Goal: Allow communities and users to configure trust path filtering
+    - Features:
+      - Community default setting (1-6 degrees, default: 3)
+      - User preference override slider
+      - Feed API filters by `trust_path.degrees <= user_preference`
+      - Settings UI in profile and community admin
+      - Badge on feed items showing degree number (e.g., "2° connection")
+    - Technical Details:
+      - Add `default_trust_path_filter` to `community.communities` table
+      - Add `trust_path_filter_preference` to `auth.user_preferences` table
+      - Modify Feed API query to filter trust paths by preference
+      - Update TrustPathBadge to show degree number prominently
+    - Database Schema:
+      ```sql
+      ALTER TABLE community.communities
+      ADD COLUMN default_trust_path_filter INTEGER DEFAULT 3 CHECK (default_trust_path_filter BETWEEN 1 AND 6);
+
+      ALTER TABLE auth.user_preferences
+      ADD COLUMN trust_path_filter_preference INTEGER CHECK (trust_path_filter_preference BETWEEN 1 AND 6);
+      -- NULL means use community default
+      ```
+    - API Changes:
+      - `GET /feed/requests?trust_filter=true` (respects user preference)
+      - `GET/PATCH /communities/:id/settings` (admin sets default)
+      - `GET/PATCH /users/me/preferences` (user override)
+    - User Stories:
+      - "As a user, I want to control how far out in my trust network I see requests"
+      - "As an admin, I want to set a sensible default for my community"
+      - "As a cautious helper, I only want to see requests from close connections (1-2 degrees)"
+    - Acceptance Criteria:
+      - Admin can set community default (1-6)
+      - Users can override with personal preference
+      - Feed respects filters (doesn't show requests beyond threshold)
+      - Clear UI indication of current filter setting
+      - Trust path badges show degree number
+    - Status: **Planned** - Implement after social graph UI is complete
+    - Estimate: 4-6 hours
+    - Priority: High (post-social-graph-UI)
+    - Related: ADR-021 (Trust Path Filtering), Social Graph Service (Port 3010)
+    - Dependencies: Social graph UI must be complete and tested
+
+44. **Adaptive Trust Ladder (Behavioral Nudging)**
+    - Stream: Reputation & Engagement
+    - Issue: Users start cautious and never expand; need intelligent growth
+    - Context: Static filtering helps, but users need guidance on when to trust more/less
+    - Goal: Intelligently nudge users to adjust trust settings based on interaction history
+    - Features:
+      - Track interaction outcomes (matches completed, abandoned, rated)
+      - Calculate "trust comfort score" based on history
+      - After 5 successful exchanges → nudge to expand by 1 degree
+      - After 2 negative experiences → suggest contracting by 1 degree
+      - Non-intrusive notifications (max once per month)
+      - User can dismiss, accept, or opt-out entirely
+      - A/B test nudge effectiveness
+    - Technical Details:
+      - Add `interaction_outcomes` tracking table
+      - Add `trust_comfort_score` JSONB field to `auth.users`
+      - Background job (daily cron) calculates trust comfort scores
+      - Notification service sends nudges via user preferences
+      - Analytics track nudge acceptance rate and effectiveness
+    - Database Schema:
+      ```sql
+      CREATE TABLE reputation.interaction_outcomes (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id UUID REFERENCES auth.users(id),
+        community_id UUID REFERENCES community.communities(id),
+        match_id UUID REFERENCES requests.matches(id),
+        outcome VARCHAR(50) CHECK (outcome IN ('completed', 'abandoned', 'rated_positive', 'rated_negative')),
+        trust_path_degree INTEGER,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+
+      ALTER TABLE auth.users
+      ADD COLUMN trust_comfort_score JSONB DEFAULT '{"current_level": 3, "successful_exchanges": 0, "negative_exchanges": 0, "last_nudge_at": null}'::jsonb;
+      ```
+    - Nudge Examples:
+      - Expand: "You've had 5 great exchanges! Would you like to help people 3 degrees away?"
+      - Contract: "We noticed some recent challenges. Want to focus on closer connections for now?"
+    - Privacy Considerations:
+      - Don't store detailed negative interaction data (just counts)
+      - Users can opt out of nudging entirely
+      - Transparent about why nudge is happening (show trust score breakdown)
+      - GDPR compliant (users can request deletion)
+    - User Stories:
+      - "As a new user, I want the system to help me gradually expand my comfort zone"
+      - "As an experienced user, I want feedback if my trust level doesn't match my experiences"
+      - "As a privacy-conscious user, I want to opt out of behavioral nudging"
+    - Acceptance Criteria:
+      - System tracks interaction outcomes without storing PII
+      - Nudges sent at appropriate times (not spammy)
+      - Users can accept, dismiss, or opt-out
+      - Analytics show nudge effectiveness (A/B test)
+      - Privacy policy updated to reflect tracking
+    - Status: **Planned** - Implement after launch (requires user base)
+    - Estimate: 12-20 hours
+    - Priority: Medium (post-launch feature)
+    - Related: ADR-021 (Trust Path Filtering), Reputation Service (Port 3004)
+    - Dependencies:
+      - Item #43 (Static Filtering) must be complete
+      - Requires established user base for meaningful data
+      - Notification service must support nudge templates
 
 20. **Permission Testing (Mobile)**
     - Stream: Mobile Testing Infrastructure

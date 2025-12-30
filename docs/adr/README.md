@@ -46,6 +46,7 @@ Each ADR follows this structure:
 - [ADR-018: Community Splitting Mechanics](ADR-018-community-splitting-mechanics.md) ⭐ NEW
 - [ADR-019: Referral Chain Trust System](ADR-019-referral-chain-trust.md) ⭐ NEW
 - [ADR-020: Trust-First Design Philosophy](ADR-020-trust-first-design.md) ⭐ NEW
+- [ADR-021: Configurable Trust Path Filtering & Adaptive Trust Preferences](ADR-021-trust-path-filtering.md) ⭐ NEW
 
 ## Creating a New ADR
 

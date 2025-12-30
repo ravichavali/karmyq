@@ -1,0 +1,277 @@
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/router';
+import Head from 'next/head';
+import Link from 'next/link';
+import { api, socialGraphService } from '@/lib/api';
+
+interface InvitationInfo {
+  inviter_name: string;
+  community_name: string;
+  community_id: string;
+}
+
+export default function InviteAcceptance() {
+  const router = useRouter();
+  const { code } = router.query;
+
+  const [invitationInfo, setInvitationInfo] = useState<InvitationInfo | null>(null);
+  const [validating, setValidating] = useState(true);
+  const [validationError, setValidationError] = useState('');
+
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    password: '',
+    confirmPassword: ''
+  });
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  // Validate invitation code on mount
+  useEffect(() => {
+    if (!code || typeof code !== 'string') return;
+
+    async function validateCode() {
+      setValidating(true);
+      setValidationError('');
+
+      try {
+        const response = await socialGraphService.validateInvitationCode(code);
+        setInvitationInfo(response.data.data);
+      } catch (err: any) {
+        setValidationError(
+          err.response?.data?.message || 'Invalid or expired invitation code'
+        );
+      } finally {
+        setValidating(false);
+      }
+    }
+
+    validateCode();
+  }, [code]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+
+    if (formData.password !== formData.confirmPassword) {
+      setError('Passwords do not match');
+      return;
+    }
+
+    if (formData.password.length < 8) {
+      setError('Password must be at least 8 characters');
+      return;
+    }
+
+    if (!code || typeof code !== 'string') {
+      setError('Invalid invitation code');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      // Register the user
+      const registerResponse = await api.post('/auth/register', {
+        name: formData.name,
+        email: formData.email,
+        password: formData.password,
+      });
+
+      const token = registerResponse.data.token;
+      const user = registerResponse.data.user;
+
+      // Store token and user
+      localStorage.setItem('token', token);
+      localStorage.setItem('user', JSON.stringify(user));
+
+      // Set token for next request
+      api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+
+      // Accept the invitation
+      try {
+        await socialGraphService.acceptInvitationCode(code);
+      } catch (acceptErr) {
+        console.error('Failed to accept invitation:', acceptErr);
+        // Don't fail the signup if invitation acceptance fails
+        // User is already registered at this point
+      }
+
+      // Redirect to dashboard
+      router.push('/dashboard');
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Registration failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Loading state
+  if (validating) {
+    return (
+      <>
+        <Head>
+          <title>Join Karmyq</title>
+        </Head>
+        <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white flex items-center justify-center px-4">
+          <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-8">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+              <p className="text-gray-600">Validating invitation...</p>
+            </div>
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  // Error state
+  if (validationError) {
+    return (
+      <>
+        <Head>
+          <title>Invalid Invitation - Karmyq</title>
+        </Head>
+        <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white flex items-center justify-center px-4">
+          <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-8">
+            <div className="text-center">
+              <svg className="w-16 h-16 text-red-500 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <h1 className="text-2xl font-bold text-gray-900 mb-2">Invalid Invitation</h1>
+              <p className="text-gray-600 mb-6">{validationError}</p>
+              <Link href="/" className="text-blue-600 hover:underline">
+                Return to Home
+              </Link>
+            </div>
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  // Success state - show signup form
+  return (
+    <>
+      <Head>
+        <title>Join {invitationInfo?.community_name || 'Karmyq'}</title>
+      </Head>
+      <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white flex items-center justify-center px-4 py-8">
+        <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-8">
+          {/* Invitation Info Banner */}
+          <div className="bg-gradient-to-r from-blue-100 to-purple-100 rounded-lg p-4 mb-6 border border-blue-200">
+            <div className="flex items-center mb-2">
+              <svg className="w-6 h-6 text-blue-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+              </svg>
+              <h2 className="text-lg font-semibold text-gray-900">You've been invited!</h2>
+            </div>
+            <p className="text-sm text-gray-700">
+              <span className="font-medium text-blue-700">{invitationInfo?.inviter_name}</span>
+              {' '}has invited you to join{' '}
+              <span className="font-medium text-purple-700">{invitationInfo?.community_name}</span>
+            </p>
+          </div>
+
+          <h1 className="text-3xl font-bold text-center mb-2">Create Your Account</h1>
+          <p className="text-center text-gray-600 mb-8">
+            Join the community and start helping others
+          </p>
+
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4">
+              {error}
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Full Name
+              </label>
+              <input
+                type="text"
+                required
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="John Doe"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Email Address
+              </label>
+              <input
+                type="email"
+                required
+                value={formData.email}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="john@example.com"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Password
+              </label>
+              <input
+                type="password"
+                required
+                value={formData.password}
+                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="At least 8 characters"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Confirm Password
+              </label>
+              <input
+                type="password"
+                required
+                value={formData.confirmPassword}
+                onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="Re-enter your password"
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 transition disabled:opacity-50 font-medium"
+            >
+              {loading ? 'Creating Account...' : 'Join Community'}
+            </button>
+          </form>
+
+          <div className="mt-6 pt-6 border-t border-gray-200">
+            <p className="text-center text-sm text-gray-600">
+              By creating an account, you agree to our{' '}
+              <Link href="/terms" className="text-blue-600 hover:underline">
+                Terms of Service
+              </Link>{' '}
+              and{' '}
+              <Link href="/privacy" className="text-blue-600 hover:underline">
+                Privacy Policy
+              </Link>
+            </p>
+          </div>
+
+          <p className="text-center mt-4 text-gray-600">
+            Already have an account?{' '}
+            <Link href="/login" className="text-blue-600 hover:underline font-medium">
+              Login
+            </Link>
+          </p>
+        </div>
+      </div>
+    </>
+  );
+}

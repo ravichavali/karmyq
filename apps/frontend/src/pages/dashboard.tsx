@@ -10,6 +10,7 @@ import RightSidebar from '@/components/RightSidebar'
 import MilestonePost from '@/components/MilestonePost'
 import ExtractedDataChips from '@/components/ExtractedDataChips'
 import EnhancedAutocomplete from '@/components/EnhancedAutocomplete'
+import OfferItem from '@/components/OfferItem'
 import { parseRequestDescription, buildPayloadFromParsed, updateLocationCoordinates, getSuggestions, type ParsedRequest, type AutocompleteSuggestion } from '@/lib/requestParser'
 
 interface HelpRequest {
@@ -903,66 +904,16 @@ export default function Dashboard() {
                               </h3>
                               <div className="space-y-3">
                                 {visibleComments.map((comment: Match) => (
-                                  <div key={comment.id} className="bg-white rounded-lg p-4 border border-gray-200">
-                                    <div className="flex items-start justify-between mb-3">
-                                      <div className="flex items-center gap-3">
-                                        <div className="w-8 h-8 bg-gradient-to-br from-green-500 to-teal-600 rounded-full flex items-center justify-center text-white text-sm font-semibold">
-                                          {comment.responder_name?.charAt(0).toUpperCase() || '?'}
-                                        </div>
-                                        <div>
-                                          <p className="font-medium text-gray-900">{comment.responder_name || 'Unknown'}</p>
-                                          <p className="text-xs text-gray-500">offered {formatTime(comment.created_at)}</p>
-                                        </div>
-                                      </div>
-                                      {/* Action buttons for poster */}
-                                      {isMyPost && comment.status === 'proposed' && (
-                                        <div className="flex gap-2">
-                                          <button
-                                            onClick={() => handleAcceptMatch(comment.id)}
-                                            className="px-3 py-1 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 transition-colors font-medium"
-                                          >
-                                            Accept
-                                          </button>
-                                          <button
-                                            onClick={() => handleRejectMatch(comment.id)}
-                                            className="px-3 py-1 bg-gray-200 text-gray-700 text-sm rounded-lg hover:bg-gray-300 transition-colors font-medium"
-                                          >
-                                            Decline
-                                          </button>
-                                        </div>
-                                      )}
-                                      {/* Status badges */}
-                                      {comment.status === 'matched' && (
-                                        <div className="flex items-center gap-2">
-                                          <span className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-lg font-medium">
-                                            ✓ Accepted
-                                          </span>
-                                          <button
-                                            onClick={() => handleCompleteMatch(comment.id)}
-                                            className="px-3 py-1 bg-blue-600 text-white text-xs rounded-lg hover:bg-blue-700 transition-colors font-medium"
-                                          >
-                                            Mark Complete
-                                          </button>
-                                        </div>
-                                      )}
-                                      {comment.status === 'completed' && (
-                                        <span className="px-2 py-1 bg-purple-100 text-purple-700 text-xs rounded-lg font-medium">
-                                          ✓ Completed
-                                        </span>
-                                      )}
-                                    </div>
-
-                                    {/* Inline Chat */}
-                                    {(comment.status === 'proposed' || comment.status === 'matched') && (
-                                      <InlineChat
-                                        matchId={comment.id}
-                                        currentUserId={user.id}
-                                        isRequester={isMyPost}
-                                        matchStatus={comment.status}
-                                        otherParticipantName={comment.responder_name || 'Unknown'}
-                                      />
-                                    )}
-                                  </div>
+                                  <OfferItem
+                                    key={comment.id}
+                                    comment={comment}
+                                    isMyPost={isMyPost}
+                                    currentUserId={user.id}
+                                    onAccept={handleAcceptMatch}
+                                    onReject={handleRejectMatch}
+                                    onComplete={handleCompleteMatch}
+                                    formatTime={formatTime}
+                                  />
                                 ))}
 
                                 {/* Show More/Less Button */}

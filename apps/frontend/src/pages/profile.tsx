@@ -4,6 +4,8 @@ import Head from 'next/head'
 import Link from 'next/link'
 import Layout from '@/components/Layout'
 import { api, communityService } from '@/lib/api'
+import InvitationChain, { InvitationChainSkeleton } from '@/components/InvitationChain'
+import { useInvitationChain } from '@/hooks/useInvitationChain'
 
 const AVAILABLE_SKILLS = [
   'driving',
@@ -63,6 +65,9 @@ export default function ProfilePage() {
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [bio, setBio] = useState('')
+
+  // Fetch invitation chain
+  const { chain: invitationChain, loading: loadingChain } = useInvitationChain({ enabled: !!user })
 
   useEffect(() => {
     const token = localStorage.getItem('token')
@@ -399,6 +404,37 @@ export default function ProfilePage() {
                 ))}
               </div>
             )}
+          </div>
+
+          {/* Invitation Chain Section */}
+          <div className="mb-6">
+            <div className="mb-3">
+              <h2 className="text-xl font-semibold mb-1">How You Joined</h2>
+              <p className="text-sm text-gray-600">
+                Your invitation chain shows how you became part of the community
+              </p>
+            </div>
+
+            {loadingChain ? (
+              <InvitationChainSkeleton />
+            ) : (
+              <InvitationChain
+                chain={invitationChain}
+                currentUserId={user?.id || ''}
+              />
+            )}
+
+            <div className="mt-4 flex items-start gap-2 bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <svg className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <div className="text-sm">
+                <p className="font-medium text-blue-900 mb-1">Want to invite others?</p>
+                <p className="text-blue-800">
+                  Visit the <Link href="/invitations" className="underline font-medium">invitations page</Link> to generate invite codes and grow the network.
+                </p>
+              </div>
+            </div>
           </div>
 
           {/* Skills Section */}
