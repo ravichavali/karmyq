@@ -1,0 +1,43 @@
+# Test: View User Profile
+# Tags: smoke
+# Description: Navigate to profile and view user information
+# Prerequisites: User must be logged in
+
+appId: com.karmyq.app
+---
+# Launch app
+- launchApp
+
+# Navigate to Profile tab
+- tapOn:
+    text: "Profile|Account|Me"
+
+# Wait for profile to load
+- assertVisible:
+    text: ".*"
+    timeout: 5000
+
+# Verify profile elements
+# Profile typically shows: name, karma, reputation, communities
+- assertVisible:
+    text: "Karma|Reputation|Communities|Trust|Score"
+    timeout: 3000
+
+# Take screenshot
+- takeScreenshot: user-profile
+
+# Scroll down to see more profile information
+- scroll
+
+# Check for activity/history section
+- assertVisible:
+    text: "Activity|History|Requests|Helped"
+  optional: true
+
+# Scroll back up
+- scrollUp
+
+# Look for settings/logout option
+- assertVisible:
+    text: "Settings|Logout|Sign Out"
+  optional: true

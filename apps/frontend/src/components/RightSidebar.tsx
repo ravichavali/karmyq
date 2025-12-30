@@ -32,7 +32,7 @@ export default function RightSidebar({ communityId }: RightSidebarProps) {
 
       try {
         setLoading(true)
-        // TODO: Re-enable when milestone_events and community_health_metrics tables are created
+        // TODO: Re-enable when milestone_events and community_health_metrics tables are created (See ROADMAP.md Backlog #24)
         // const [healthRes, milestonesRes] = await Promise.all([
         //   feedApi.get(`/feed/community-health?community_id=${communityId}`),
         //   feedApi.get(`/feed/milestones?community_id=${communityId}&limit=3`)

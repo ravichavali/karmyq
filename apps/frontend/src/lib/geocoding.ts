@@ -187,15 +187,48 @@ export function debounce<T extends (...args: any[]) => any>(
  */
 export function getCommonLocations(query: string): AddressSuggestion[] {
   const common = [
+    // Bay Area Airports
     { display_name: 'San Francisco International Airport (SFO)', address: 'SFO Airport', lat: 37.6213, lng: -122.3790, type: 'airport' },
     { display_name: 'San Jose International Airport (SJC)', address: 'SJC Airport', lat: 37.3639, lng: -121.9289, type: 'airport' },
     { display_name: 'Oakland International Airport (OAK)', address: 'OAK Airport', lat: 37.7213, lng: -122.2208, type: 'airport' },
+
+    // Major US Airports
+    { display_name: 'Los Angeles International Airport (LAX)', address: 'LAX Airport', lat: 33.9416, lng: -118.4085, type: 'airport' },
+    { display_name: 'John F. Kennedy International Airport (JFK)', address: 'JFK Airport', lat: 40.6413, lng: -73.7781, type: 'airport' },
+    { display_name: 'O\'Hare International Airport (ORD)', address: 'ORD Airport', lat: 41.9742, lng: -87.9073, type: 'airport' },
+    { display_name: 'Dallas/Fort Worth International Airport (DFW)', address: 'DFW Airport', lat: 32.8998, lng: -97.0403, type: 'airport' },
+    { display_name: 'Denver International Airport (DEN)', address: 'DEN Airport', lat: 39.8561, lng: -104.6737, type: 'airport' },
+    { display_name: 'Hartsfield-Jackson Atlanta Airport (ATL)', address: 'ATL Airport', lat: 33.6407, lng: -84.4277, type: 'airport' },
+    { display_name: 'Seattle-Tacoma International Airport (SEA)', address: 'SEA Airport', lat: 47.4502, lng: -122.3088, type: 'airport' },
+
+    // Bay Area Cities
     { display_name: 'Downtown San Francisco', address: 'Downtown SF', lat: 37.7875, lng: -122.4081, type: 'city' },
     { display_name: 'Downtown Oakland', address: 'Downtown Oakland', lat: 37.8044, lng: -122.2712, type: 'city' },
     { display_name: 'Downtown San Jose', address: 'Downtown SJ', lat: 37.3382, lng: -121.8863, type: 'city' },
+    { display_name: 'Berkeley, CA', address: 'Berkeley', lat: 37.8715, lng: -122.2730, type: 'city' },
+    { display_name: 'Palo Alto, CA', address: 'Palo Alto', lat: 37.4419, lng: -122.1430, type: 'city' },
+
+    // Major US Cities
+    { display_name: 'New York, NY', address: 'New York', lat: 40.7128, lng: -74.0060, type: 'city' },
+    { display_name: 'Los Angeles, CA', address: 'Los Angeles', lat: 34.0522, lng: -118.2437, type: 'city' },
+    { display_name: 'Chicago, IL', address: 'Chicago', lat: 41.8781, lng: -87.6298, type: 'city' },
+    { display_name: 'Houston, TX', address: 'Houston', lat: 29.7604, lng: -95.3698, type: 'city' },
+    { display_name: 'Phoenix, AZ', address: 'Phoenix', lat: 33.4484, lng: -112.0740, type: 'city' },
+    { display_name: 'Philadelphia, PA', address: 'Philadelphia', lat: 39.9526, lng: -75.1652, type: 'city' },
+    { display_name: 'San Antonio, TX', address: 'San Antonio', lat: 29.4241, lng: -98.4936, type: 'city' },
+    { display_name: 'San Diego, CA', address: 'San Diego', lat: 32.7157, lng: -117.1611, type: 'city' },
+    { display_name: 'Dallas, TX', address: 'Dallas', lat: 32.7767, lng: -96.7970, type: 'city' },
+    { display_name: 'Austin, TX', address: 'Austin', lat: 30.2672, lng: -97.7431, type: 'city' },
+    { display_name: 'Seattle, WA', address: 'Seattle', lat: 47.6062, lng: -122.3321, type: 'city' },
+    { display_name: 'Denver, CO', address: 'Denver', lat: 39.7392, lng: -104.9903, type: 'city' },
+    { display_name: 'Boston, MA', address: 'Boston', lat: 42.3601, lng: -71.0589, type: 'city' },
+    { display_name: 'Portland, OR', address: 'Portland', lat: 45.5152, lng: -122.6784, type: 'city' },
+    { display_name: 'Las Vegas, NV', address: 'Las Vegas', lat: 36.1699, lng: -115.1398, type: 'city' },
+    { display_name: 'Miami, FL', address: 'Miami', lat: 25.7617, lng: -80.1918, type: 'city' },
+    { display_name: 'Atlanta, GA', address: 'Atlanta', lat: 33.7490, lng: -84.3880, type: 'city' },
   ]
 
-  if (!query) return common.slice(0, 3)
+  if (!query) return common.slice(0, 10) // Return more by default
 
   return common.filter(loc =>
     loc.display_name.toLowerCase().includes(query.toLowerCase()) ||

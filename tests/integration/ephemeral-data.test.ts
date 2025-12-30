@@ -294,7 +294,9 @@ describe('Ephemeral Data - Cleanup Service', () => {
     expect([401, 429]).toContain(response.status);
 
     if (response.status === 401) {
-      expect(response.body.error).toContain('Authentication required');
+      // Check if error is in error field or message field
+      const errorMessage = response.body.error || response.body.message;
+      expect(errorMessage).toContain('Authentication required');
     }
   });
 
@@ -330,8 +332,9 @@ describe('Ephemeral Data - Cleanup Service', () => {
       .get('/health');
 
     expect(response.status).toBe(200);
-    expect(response.body.status).toBe('healthy');
-    expect(response.body.service).toBe('cleanup-service');
+    expect(response.body.success).toBe(true);
+    expect(response.body.data.status).toBe('healthy');
+    expect(response.body.data.service).toBe('cleanup-service');
   });
 });
 

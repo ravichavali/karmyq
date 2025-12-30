@@ -117,7 +117,7 @@ export class SocialKarmaFeedComposer {
         achievedAt: new Date(row.achieved_at),
         networkStrength: Math.round(networkStrength * 10) / 10,
         strengthChange: Math.round(strengthChange * 10) / 10,
-        celebrationCount: 0, // TODO: Implement celebration reactions
+        celebrationCount: 0, // TODO: Implement celebration reactions (See ROADMAP.md Backlog #27)
         isPinned,
         communityId: row.community_id,
         communityName: row.community_name,

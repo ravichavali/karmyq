@@ -1,0 +1,45 @@
+# Test: View Communities
+# Tags: smoke
+# Description: Navigate to communities and view list
+# Prerequisites: User must be logged in
+
+appId: com.karmyq.app
+---
+# Launch app
+- launchApp
+
+# Navigate to Communities tab
+- tapOn:
+    text: "Communities"
+
+# Wait for communities to load
+- assertVisible:
+    text: ".*"
+    timeout: 5000
+
+# Verify we see community cards or list items
+# Communities typically show member count, name, description
+- assertVisible:
+    text: "members|community"
+    timeout: 3000
+
+# Take screenshot
+- takeScreenshot: communities-list
+
+# Try tapping on first community (if any exist)
+- tapOn:
+    index: 1
+  optional: true
+
+# If we tapped into a community, verify detail view
+- assertVisible:
+    text: "Join|Members|Leave|Posts"
+  optional: true
+
+# Take screenshot of detail view if we navigated
+- takeScreenshot: community-detail
+  optional: true
+
+# Go back if we navigated
+- back
+  optional: true

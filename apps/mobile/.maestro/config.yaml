@@ -1,0 +1,29 @@
+# Maestro Configuration for KarmyQ Mobile App
+# https://maestro.mobile.dev/
+
+appId: com.karmyq.app
+
+env:
+  # API Configuration
+  API_URL: http://localhost:3000
+
+  # Test Users (from realistic data generation)
+  # Note: Use actual generated users or create dedicated test users
+  TEST_USER_EMAIL: test@karmyq.com
+  TEST_USER_PASSWORD: password123
+
+  TEST_ADMIN_EMAIL: admin@karmyq.com
+  TEST_ADMIN_PASSWORD: password123
+
+  # Test Data
+  TEST_COMMUNITY_NAME: Seattle - Tech Professionals
+  TEST_REQUEST_TITLE: Need help moving furniture
+
+# Tags for organizing tests
+tags:
+  - smoke     # Critical path tests
+  - auth      # Authentication flows
+  - feed      # Feed functionality
+  - requests  # Help requests
+  - messages  # Messaging
+  - e2e       # Full end-to-end flows

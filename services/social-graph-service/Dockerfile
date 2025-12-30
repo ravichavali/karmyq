@@ -2,20 +2,21 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-# Copy package files
-COPY package*.json ./
+# Copy shared package first
+COPY packages/shared ./node_modules/@karmyq/shared
+
+# Copy service package files
+COPY services/social-graph-service/package*.json ./
 
 # Install dependencies
 RUN npm install
 
-# Copy source code
-COPY . .
-
-# Build TypeScript
-RUN npm run build
+# Copy service source code
+COPY services/social-graph-service/src ./src
+COPY services/social-graph-service/tsconfig.json* ./
 
 # Expose port
 EXPOSE 3010
 
-# Start service
-CMD ["npm", "start"]
+# Start service (dev mode with tsx)
+CMD ["npm", "run", "dev"]

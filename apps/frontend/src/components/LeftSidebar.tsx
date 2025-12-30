@@ -33,7 +33,7 @@ export default function LeftSidebar({ user, communities, activeCommunityId, onCo
 
       try {
         setLoading(true)
-        // TODO: Re-enable when reputation service auth is fixed
+        // TODO: Re-enable when reputation service auth is fixed (See ROADMAP.md Backlog #24)
         // const karmaRes = await reputationService.getKarma(user.id, activeCommunityId)
         // const trustRes = await reputationService.getTrustScore(user.id, activeCommunityId)
 

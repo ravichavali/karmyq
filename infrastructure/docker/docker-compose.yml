@@ -293,8 +293,8 @@ services:
   # Social Graph Service (Port 3010)
   social-graph-service:
     build:
-      context: ../../services/social-graph-service
-      dockerfile: Dockerfile
+      context: ../..
+      dockerfile: services/social-graph-service/Dockerfile
     container_name: karmyq-social-graph-service
     environment:
       NODE_ENV: development

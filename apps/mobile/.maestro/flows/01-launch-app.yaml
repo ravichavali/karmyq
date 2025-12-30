@@ -1,0 +1,17 @@
+# Test: Launch App (Smoke Test)
+# Tags: smoke
+# Description: Verify app launches successfully
+
+appId: com.karmyq.app
+---
+# Launch the app
+- launchApp
+
+# Verify splash screen or initial screen appears
+# Adjust selector based on actual initial screen
+- assertVisible:
+    text: "KarmyQ|Login|Welcome"
+    enabled: true
+
+# Take screenshot for verification
+- takeScreenshot: app-launched

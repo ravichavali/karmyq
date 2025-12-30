@@ -1,0 +1,42 @@
+# Test: User Login Flow
+# Tags: smoke, auth
+# Description: Test user login with valid credentials
+
+appId: com.karmyq.app
+---
+# Launch app
+- launchApp
+
+# Navigate to login if not already there
+- tapOn:
+    text: "Login|Sign In"
+  optional: true
+
+# Enter email
+- tapOn:
+    text: "Email|email"
+    index: 0
+- inputText: "${TEST_USER_EMAIL}"
+
+# Enter password
+- tapOn:
+    text: "Password|password"
+    index: 0
+- inputText: "${TEST_USER_PASSWORD}"
+
+# Submit login
+- tapOn:
+    text: "Sign In|Login|Submit"
+
+# Wait for navigation to complete
+- assertVisible:
+    text: "Feed|Dashboard|Home"
+    timeout: 5000
+
+# Verify user is logged in (check for profile/logout option)
+- assertVisible:
+    text: "Profile|Logout|Account"
+    timeout: 3000
+
+# Take screenshot of logged-in state
+- takeScreenshot: logged-in-home

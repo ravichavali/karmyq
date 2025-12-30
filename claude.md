@@ -1,5 +1,22 @@
 # Karmyq - Mutual Aid Platform
 
+## ⚠️ REQUIRED READING FOR AI ASSISTANTS
+
+**Before starting ANY work session, you MUST read**:
+1. **[DEVELOPMENT_ROADMAP.md](docs/DEVELOPMENT_ROADMAP.md)** - Current focus, active work streams, tangent tracking
+2. **[DEVELOPMENT_PROCESS.md](docs/DEVELOPMENT_PROCESS.md)** - Mandatory development workflow, testing requirements, and checklists
+3. **[DATA_FLOWS.md](docs/architecture/DATA_FLOWS.md)** - How data flows through the system, impact analysis
+
+**Before making code changes**:
+- Check DEVELOPMENT_ROADMAP.md for current focus and active tangents
+- If starting a tangent, document it in Active Tangents table
+- Follow DEVELOPMENT_PROCESS.md checklists
+- Use DATA_FLOWS.md to understand impact
+
+**These documents define the authoritative process**. Following them prevents regressions, tracks work, and maintains system quality.
+
+---
+
 ## Project Overview
 Karmyq is a multi-tenant SaaS mutual aid platform where community members help each other. Version 8.0.0 with comprehensive testing infrastructure, clean architecture, and production-ready services.
 
@@ -113,12 +130,25 @@ Automatically run tests on commit/push:
 - `tests/` - Integration and E2E tests
 - `docs/architecture/ARCHITECTURE.md` - Complete system architecture
 - `docs/V6_ARCHITECTURAL_REVIEW.md` - v6.0 architectural review
+- **`docs/adr/`** - Architecture Decision Records (why we made key decisions)
 
-## Service Documentation
+## Documentation
+
+### Service Documentation
 Each service has complete context documentation:
 - `services/{service-name}/CONTEXT.md` - Complete service documentation
 - `services/{service-name}/README.md` - Quick reference
 - Standardized format across all services
+
+### Architecture Decision Records (ADRs)
+Key architectural decisions documented in `docs/adr/`:
+- **ADR-001**: Natural Language Parsing for Location Input
+- **ADR-002**: 3-Tier Geocoding Cache Architecture
+- **ADR-003**: Multi-Tenant RLS Database Design
+- **ADR-004**: Microservices Event-Driven Architecture
+- **ADR-005**: Minimalist Dashboard Design
+
+See [docs/adr/README.md](docs/adr/README.md) for complete index and how to create new ADRs.
 
 ## Current Status (v8.0)
 - **8 Production-Ready Services** - All services with complete documentation

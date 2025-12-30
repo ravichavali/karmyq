@@ -39,7 +39,7 @@ router.get('/', async (req: AuthenticatedRequest, res: Response) => {
 
     req.logger?.info('Fetching feed', { userId, limit });
 
-    // TODO: Fix feed composer to match actual database schema
+    // TODO: Fix feed composer to match actual database schema (See ROADMAP.md Backlog #26)
     // For now, return empty feed to prevent frontend crashes
     const feed: any[] = [];
 

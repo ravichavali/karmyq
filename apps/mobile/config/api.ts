@@ -17,7 +17,7 @@ import { Platform } from 'react-native';
  */
 
 // TEMPORARY: Hardcoded for development
-// TODO: Switch back to environment variable when Metro bundler env var issue is resolved
+// TODO: Switch back to environment variable when Metro bundler env var issue is resolved (See ROADMAP.md Backlog #25)
 const API_HOST = '192.168.0.163';
 
 // Alternative: Use environment variable with platform-specific fallback

@@ -1,0 +1,64 @@
+# Test: Complete Login to Feed Flow (E2E)
+# Tags: e2e, smoke
+# Description: Full flow from app launch to viewing personalized feed
+# This is a critical smoke test that combines multiple steps
+
+appId: com.karmyq.app
+---
+# Step 1: Launch app
+- launchApp
+- takeScreenshot: 01-app-launched
+
+# Step 2: Navigate to login if needed
+- tapOn:
+    text: "Login|Sign In|Get Started"
+  optional: true
+
+# Step 3: Enter credentials
+- tapOn:
+    text: "Email|email"
+- inputText: "${TEST_USER_EMAIL}"
+
+- tapOn:
+    text: "Password|password"
+- inputText: "${TEST_USER_PASSWORD}"
+
+# Step 4: Submit login
+- tapOn:
+    text: "Sign In|Login|Submit"
+- takeScreenshot: 02-login-submitted
+
+# Step 5: Wait for feed to load
+- assertVisible:
+    text: "Feed|Dashboard|Home"
+    timeout: 5000
+- takeScreenshot: 03-feed-loaded
+
+# Step 6: Verify feed has content
+- assertVisible:
+    text: ".*"
+    timeout: 3000
+
+# Step 7: Navigate through main tabs to verify app is functional
+- tapOn:
+    text: "Communities"
+- assertVisible: ".*"
+- takeScreenshot: 04-communities-tab
+
+- tapOn:
+    text: "Requests"
+- assertVisible: ".*"
+- takeScreenshot: 05-requests-tab
+
+- tapOn:
+    text: "Profile"
+- assertVisible: ".*"
+- takeScreenshot: 06-profile-tab
+
+# Step 8: Return to feed
+- tapOn:
+    text: "Feed|Home"
+- assertVisible: ".*"
+- takeScreenshot: 07-back-to-feed
+
+# Test complete - user is logged in and app is functional

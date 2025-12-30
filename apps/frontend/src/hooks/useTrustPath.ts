@@ -28,6 +28,8 @@ export function useTrustPath(targetUserId: string | null | undefined, options: U
     let cancelled = false;
 
     async function fetchTrustPath() {
+      if (!targetUserId) return; // Type guard
+
       setLoading(true);
       setError(null);
 

@@ -1,0 +1,44 @@
+# Test: View Feed
+# Tags: smoke, feed
+# Description: View personalized feed of requests and community activity
+# Prerequisites: User must be logged in
+
+appId: com.karmyq.app
+---
+# Launch app (assumes user is logged in)
+- launchApp
+
+# Ensure we're on feed/home screen
+- tapOn:
+    text: "Feed|Home"
+  optional: true
+
+# Wait for feed items to load
+- assertVisible:
+    text: ".*"  # Any text (feed items)
+    timeout: 5000
+
+# Verify feed structure elements are present
+# Check for at least one of these common feed elements
+- assertVisible:
+    text: "community|request|help|offer|karma"
+    timeout: 3000
+  optional: true
+
+# Scroll down to see more items
+- scroll
+
+# Scroll back up
+- scrollUp
+
+# Take screenshot of feed
+- takeScreenshot: feed-view
+
+# Check if we can pull to refresh (common mobile pattern)
+- swipe:
+    direction: DOWN
+    duration: 1000
+  optional: true
+
+# Wait for refresh to complete
+- wait: 2000

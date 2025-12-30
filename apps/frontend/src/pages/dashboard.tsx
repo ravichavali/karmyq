@@ -58,6 +58,7 @@ export default function Dashboard() {
   const [parsedRequest, setParsedRequest] = useState<ParsedRequest | null>(null)
   const [autocompleteSuggestions, setAutocompleteSuggestions] = useState<AutocompleteSuggestion[]>([])
   const [autocompleteTrigger, setAutocompleteTrigger] = useState<'@' | '#' | '$' | '!' | '..' | '>>' | null>(null)
+  const [autocompleteTriggerPosition, setAutocompleteTriggerPosition] = useState<number>(-1)
   const [searchQuery, setSearchQuery] = useState('')
   const [textareaRef, setTextareaRef] = useState<HTMLTextAreaElement | null>(null)
 
@@ -122,7 +123,7 @@ export default function Dashboard() {
           if (!activeCommunityId) {
             setActiveCommunityId(communities[0].id)
           }
-          // TODO: Re-enable when milestone_events table is created
+          // TODO: Re-enable when milestone_events table is created (See ROADMAP.md Backlog #24)
           // const communityToUse = activeCommunityId || communities[0].id
           // const milestonesRes = await feedApi.get(`/feed/milestones?community_id=${communityToUse}&limit=5`)
           // setMilestones(milestonesRes.data || [])
@@ -318,16 +319,20 @@ export default function Dashboard() {
           queryLength: query.length
         })
         setSearchQuery(query)
+        setAutocompleteTriggerPosition(triggerIndex)
       } else {
         console.log('❌ @ trigger found but no triggerIndex')
         setSearchQuery('')
+        setAutocompleteTriggerPosition(-1)
       }
     } else if (requestType === 'ride') {
       // Smart detection: look for location keywords like "from", "to"
       // Match patterns like: "from San" or "to San" where cursor is after the word
-      // IMPORTANT: Use negative lookahead to stop at " to " for origin
-      const fromMatch = beforeCursor.match(/from\s+([a-zA-Z0-9\s\-]*?)(?:\s+to\s|$)/i)
-      const toMatch = beforeCursor.match(/to\s+([a-zA-Z0-9\s\-]*)$/i)
+      // IMPORTANT: Both patterns should stop at keywords
+      // Use word boundary to ensure " to" is a complete word
+      const fromMatch = beforeCursor.match(/from\s+([a-zA-Z0-9\s\-]+?)(?:\s+to(?:\s|$)|$)/i)
+      // Fixed: "to" pattern should stop at time keywords (tomorrow, today, at, @) or end
+      const toMatch = beforeCursor.match(/to\s+([a-zA-Z0-9\s\-]*?)(?:\s+(?:tomorrow|today|tonight|at|@)|\s*$)/i)
 
       console.log('🔍 Smart detection:', {
         beforeCursor,
@@ -337,8 +342,19 @@ export default function Dashboard() {
       })
 
       if (fromMatch || toMatch) {
-        const locationText = (fromMatch?.[1] || toMatch?.[1] || '').trim()
+        // IMPORTANT: Prefer "to" match over "from" match when both exist
+        // This ensures that when typing "from X to Y", we autocomplete Y, not X
+        const locationText = (toMatch?.[1] || fromMatch?.[1] || '').trim()
         console.log('📍 Location text detected:', locationText, 'Length:', locationText.length)
+
+        // Calculate trigger position for natural language
+        // IMPORTANT: Check "to" first since it's closer to cursor in "from X to Y" pattern
+        let naturalTriggerPos = -1
+        if (toMatch) {
+          naturalTriggerPos = beforeCursor.lastIndexOf('to ') + 3 // Start of location text after "to "
+        } else if (fromMatch) {
+          naturalTriggerPos = beforeCursor.lastIndexOf('from ') + 5 // Start of location text after "from "
+        }
 
         if (locationText.length >= 2) {
           // Trigger geocoding for location context
@@ -347,6 +363,7 @@ export default function Dashboard() {
             { value: '@loading', label: 'Searching...', description: 'Loading addresses', icon: '🔍', category: 'location' }
           ])
           setAutocompleteTrigger('@') // Pretend it's @ trigger for autocomplete
+          setAutocompleteTriggerPosition(naturalTriggerPos)
           setSearchQuery(locationText)
         } else if (locationText.length > 0) {
           // Show placeholder while typing
@@ -354,10 +371,12 @@ export default function Dashboard() {
             { value: '@typing', label: 'Keep typing...', description: 'Type 2+ characters', icon: '⌨️', category: 'location' }
           ])
           setAutocompleteTrigger('@')
+          setAutocompleteTriggerPosition(naturalTriggerPos)
           setSearchQuery('')
         } else {
           setAutocompleteSuggestions([])
           setAutocompleteTrigger(null)
+          setAutocompleteTriggerPosition(-1)
           setSearchQuery('')
         }
       } else {
@@ -372,7 +391,7 @@ export default function Dashboard() {
     }
   }
 
-  const handleSelectSuggestion = (value: string, lat?: number, lng?: number, displayName?: string) => {
+  const handleSelectSuggestion = (value: string, lat?: number, lng?: number, displayName?: string, category?: string) => {
     if (!textareaRef) return
 
     const cursorPos = textareaRef.selectionStart
@@ -383,33 +402,25 @@ export default function Dashboard() {
     let triggerStart = cursorPos
     let finalValue = value
 
-    // Check if this is from location context (from/to keywords) vs explicit @ trigger
-    const fromMatch = beforeCursor.match(/from\s+([a-zA-Z0-9\s\-]*)$/i)
-    const toMatch = beforeCursor.match(/to\s+([a-zA-Z0-9\s\-]*)$/i)
-
-    if (fromMatch) {
-      // Replace from "from " onwards
-      triggerStart = beforeCursor.lastIndexOf('from ') + 5 // 5 = length of "from "
-      finalValue = value.replace(/^@/, '') // Remove @ prefix for natural language
-    } else if (toMatch) {
-      // Replace from "to " onwards
-      triggerStart = beforeCursor.lastIndexOf('to ') + 3 // 3 = length of "to "
-      finalValue = value.replace(/^@/, '') // Remove @ prefix for natural language
-    } else {
-      // Explicit @ trigger or other shortcuts
-      if (autocompleteTrigger === '@') {
-        // Find the @ symbol position
-        const atIndex = beforeCursor.lastIndexOf('@')
-        if (atIndex !== -1) {
-          triggerStart = atIndex
-        } else {
-          triggerStart = cursorPos - 1
-        }
-      } else if (autocompleteTrigger === '..' || autocompleteTrigger === '>>') {
-        triggerStart = cursorPos - 2
+    // IMPORTANT: Use the saved autocompleteTriggerPosition for all cases
+    // This position was calculated correctly during detection and handles "from X to Y" patterns
+    if (autocompleteTrigger === '@' && autocompleteTriggerPosition !== -1) {
+      // Use the saved trigger position for all @ triggers (including natural language)
+      triggerStart = autocompleteTriggerPosition
+      // Remove @ prefix for natural language contexts (from/to)
+      finalValue = value.replace(/^@/, '')
+    } else if (autocompleteTrigger === '..' || autocompleteTrigger === '>>') {
+      triggerStart = cursorPos - 2
+    } else if (autocompleteTrigger === '@') {
+      // Fallback for @ trigger without saved position
+      const atIndex = beforeCursor.lastIndexOf('@')
+      if (atIndex !== -1) {
+        triggerStart = atIndex
       } else {
         triggerStart = cursorPos - 1
       }
+    } else {
+      triggerStart = cursorPos - 1
     }
 
     // Replace from trigger to cursor with the selected value
@@ -429,6 +440,7 @@ export default function Dashboard() {
     // Clear autocomplete
     setAutocompleteSuggestions([])
     setAutocompleteTrigger(null)
+    setAutocompleteTriggerPosition(-1)
     setSearchQuery('')
 
     // Focus back on textarea
@@ -442,6 +454,7 @@ export default function Dashboard() {
   const handleCloseAutocomplete = () => {
     setAutocompleteSuggestions([])
     setAutocompleteTrigger(null)
+    setAutocompleteTriggerPosition(-1)
   }
 
   const handleRemoveExtractedData = (type: string, index: number) => {
@@ -492,8 +505,12 @@ export default function Dashboard() {
       setSelectedCommunity('')
       setRequestType('generic')
       setShowTypeOptions(false)
+
+      // Add small delay to ensure backend has processed the request before refreshing
       if (user) {
-        await fetchDashboardData(user.id)
+        setTimeout(async () => {
+          await fetchDashboardData(user.id)
+        }, 500)
       }
     } catch (error: any) {
       console.error('Error creating request:', error)

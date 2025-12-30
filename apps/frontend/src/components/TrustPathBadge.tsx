@@ -123,17 +123,17 @@ export default function TrustPathBadge({ trustPath, compact = false, className =
 /**
  * Loading skeleton for TrustPathBadge
  */
-export function TrustPathBadgeSkeleton({ compact = false }: { compact?: boolean }) {
+export function TrustPathBadgeSkeleton({ compact = false, className = '' }: { compact?: boolean; className?: string }) {
   if (compact) {
     return (
-      <div className="inline-flex items-center">
+      <div className={`inline-flex items-center ${className}`}>
         <div className="h-5 w-24 bg-gray-200 rounded-full animate-pulse"></div>
       </div>
     );
   }
 
   return (
-    <div className="border-l-4 border-gray-300 bg-gray-50 rounded-md p-3 animate-pulse">
+    <div className={`border-l-4 border-gray-300 bg-gray-50 rounded-md p-3 animate-pulse ${className}`}>
       <div className="h-4 w-32 bg-gray-200 rounded mb-2"></div>
       <div className="h-3 w-48 bg-gray-200 rounded"></div>
     </div>

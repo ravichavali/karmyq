@@ -21,7 +21,7 @@ interface Suggestion {
 
 interface EnhancedAutocompleteProps {
   suggestions: Suggestion[]
-  onSelect: (value: string, lat?: number, lng?: number, displayName?: string) => void
+  onSelect: (value: string, lat?: number, lng?: number, displayName?: string, category?: string) => void
   onClose: () => void
   triggerChar: '@' | '#' | '$' | '!' | '..' | '>>' | null
   position?: { top: number; left: number }
@@ -73,8 +73,8 @@ export default function EnhancedAutocomplete({
           console.log('📦 Geocoding results:', addresses.length, 'addresses found')
           const addressSuggestions: Suggestion[] = addresses.map(addr => ({
             value: `@${addr.address}`,
-            label: addr.address,
-            description: addr.display_name,
+            label: addr.display_name, // Show full address in autocomplete
+            description: addr.address, // Show short name in description
             icon: addr.type === 'airport' ? '✈️' : '📍',
             lat: addr.lat,
             lng: addr.lng,
@@ -84,8 +84,8 @@ export default function EnhancedAutocomplete({
           // Combine with common locations and time suggestions
           const commonLocations = getCommonLocations(searchQuery).map(loc => ({
             value: `@${loc.address}`,
-            label: loc.address,
-            description: loc.display_name,
+            label: loc.display_name, // Show full name in autocomplete
+            description: loc.address, // Show short name in description
             icon: loc.type === 'airport' ? '✈️' : '🏙️',
             lat: loc.lat,
             lng: loc.lng,
@@ -127,7 +127,7 @@ export default function EnhancedAutocomplete({
         case 'Tab':
           e.preventDefault()
           const selected = suggestions[selectedIndex]
-          onSelect(selected.value, selected.lat, selected.lng, selected.description)
+          onSelect(selected.value, selected.lat, selected.lng, selected.description, selected.category)
           break
         case 'Escape':
           e.preventDefault()
@@ -197,7 +197,7 @@ export default function EnhancedAutocomplete({
           <button
             key={`${suggestion.value}-${index}`}
             type="button"
-            onClick={() => onSelect(suggestion.value, suggestion.lat, suggestion.lng, suggestion.description)}
+            onClick={() => onSelect(suggestion.value, suggestion.lat, suggestion.lng, suggestion.description, suggestion.category)}
             className={`w-full text-left px-3 py-2.5 flex items-start gap-3 transition-colors ${
               index === selectedIndex
                 ? 'bg-blue-100 text-blue-900 border-l-4 border-blue-600'

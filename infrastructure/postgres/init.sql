@@ -26,8 +26,17 @@ CREATE TABLE auth.sessions (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE auth.user_skills (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    skill VARCHAR(100) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(user_id, skill)
+);
+
 CREATE INDEX idx_auth_users_email ON auth.users(email);
 CREATE INDEX idx_auth_sessions_user_id ON auth.sessions(user_id);
+CREATE INDEX idx_auth_user_skills_user_id ON auth.user_skills(user_id);
 
 -- ============= COMMUNITY SERVICE SCHEMA =============
 CREATE SCHEMA IF NOT EXISTS communities;
@@ -100,6 +109,7 @@ CREATE TABLE requests.help_requests (
     preferred_end_date TIMESTAMP,
     status VARCHAR(50) DEFAULT 'open',
     expired BOOLEAN DEFAULT FALSE,
+    expires_at TIMESTAMP,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -124,6 +134,8 @@ CREATE TABLE requests.help_offers (
     availability_start_date TIMESTAMP,
     availability_end_date TIMESTAMP,
     status VARCHAR(50) DEFAULT 'active',
+    expired BOOLEAN DEFAULT FALSE,
+    expires_at TIMESTAMP,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

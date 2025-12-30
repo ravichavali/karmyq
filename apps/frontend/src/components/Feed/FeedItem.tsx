@@ -2,6 +2,7 @@ import React from 'react';
 import Link from 'next/link';
 import TrustPathBadge, { TrustPathBadgeSkeleton } from '../TrustPathBadge';
 import { useTrustPath } from '../../hooks/useTrustPath';
+import RequestPayloadRenderer from './RequestPayloadRenderer';
 
 interface FeedItemProps {
   item: {
@@ -161,6 +162,17 @@ function OpenRequestItem({ data, itemId, onDismiss }: any) {
       {/* Trust Path Badge */}
       {loadingPath && <TrustPathBadgeSkeleton className="mb-4" />}
       {!loadingPath && trustPath && <TrustPathBadge trustPath={trustPath} className="mb-4" />}
+
+      {/* Polymorphic Request Data */}
+      {data.request_type && data.payload && (
+        <RequestPayloadRenderer
+          type={data.request_type}
+          payload={data.payload}
+          requirements={data.requirements}
+          preferredStartDate={data.preferred_start_date}
+          className="mb-4"
+        />
+      )}
 
       {data.required_skills && data.required_skills.length > 0 && (
         <div className="flex flex-wrap gap-2 mb-4">

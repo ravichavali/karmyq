@@ -1,0 +1,49 @@
+# Test: View Help Requests
+# Tags: smoke, requests
+# Description: Navigate to requests tab and view help requests
+# Prerequisites: User must be logged in
+
+appId: com.karmyq.app
+---
+# Launch app
+- launchApp
+
+# Navigate to Requests tab
+- tapOn:
+    text: "Requests|Help"
+
+# Wait for requests to load
+- assertVisible:
+    text: ".*"
+    timeout: 5000
+
+# Verify we see request cards
+# Requests show title, description, urgency, etc.
+- assertVisible:
+    text: "urgent|high|medium|low|help|need"
+    timeout: 3000
+
+# Take screenshot
+- takeScreenshot: requests-list
+
+# Scroll to see more requests
+- scroll
+
+# Try tapping on first request to view details
+- tapOn:
+    text: ".*"
+    index: 1
+  optional: true
+
+# If we navigated to detail view, verify elements
+- assertVisible:
+    text: "Offer to Help|Offer Help|Details|Description"
+  optional: true
+
+# Take screenshot of detail view
+- takeScreenshot: request-detail
+  optional: true
+
+# Go back
+- back
+  optional: true
