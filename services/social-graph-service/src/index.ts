@@ -1,4 +1,5 @@
 import express, { Request, Response } from 'express';
+import cors from 'cors';
 import { Pool } from 'pg';
 import { authMiddleware } from '@karmyq/shared/middleware';
 import { logger } from './config/logger';
@@ -18,6 +19,10 @@ export const pool = new Pool({
 });
 
 // Middleware
+app.use(cors({
+  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  credentials: true,
+}));
 app.use(express.json());
 
 // Health check (unauthenticated)
