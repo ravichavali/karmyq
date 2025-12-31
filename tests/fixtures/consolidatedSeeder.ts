@@ -41,7 +41,6 @@ const PROFILES: Record<DataProfile, Omit<SeedConfig, 'password'>> = {
     communities: 5,
     requestsPerUser: 2,
     ageMonths: 1,
-    password: '', // Set at runtime
     batchSize: 10,
     includeTestPersonas: true
   },
@@ -52,7 +51,6 @@ const PROFILES: Record<DataProfile, Omit<SeedConfig, 'password'>> = {
     communities: 200,
     requestsPerUser: 5,
     ageMonths: 6,
-    password: '', // Set at runtime
     batchSize: 50,
     includeTestPersonas: true
   },
@@ -63,7 +61,6 @@ const PROFILES: Record<DataProfile, Omit<SeedConfig, 'password'>> = {
     communities: 200,
     requestsPerUser: 5,
     ageMonths: 6,
-    password: '', // Set via environment variable
     batchSize: 50,
     includeTestPersonas: false
   }

@@ -62,20 +62,19 @@ export class TimeTravelFactory {
     communityId: string,
     options: BackdateOptions & {
       points: number;
-      eventType: string;
-      matchId?: string;
-      description?: string;
+      reason: string;
+      relatedEntityId?: string;
     }
   ): Promise<string> {
     const createdAt = this.calculatePastDate(options);
-    const { points, eventType, matchId, description } = options;
+    const { points, reason, relatedEntityId } = options;
 
     const result = await this.pool.query(
       `INSERT INTO reputation.karma_records
-       (user_id, community_id, event_type, points_awarded, match_id, description, created_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       (user_id, community_id, points, reason, related_entity_id, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6)
        RETURNING id`,
-      [userId, communityId, eventType, points, matchId || null, description || null, createdAt]
+      [userId, communityId, points, reason, relatedEntityId || null, createdAt]
     );
 
     return result.rows[0].id;
@@ -223,9 +222,8 @@ export class TimeTravelFactory {
     const helperKarmaId = await this.createBackdatedKarma(helper.id, community.id, {
       daysAgo: matchCompletedDaysAgo,
       points: 10,
-      eventType: 'help_given',
-      matchId,
-      description: 'Completed help request'
+      reason: 'Completed help request',
+      relatedEntityId: matchId
     });
     karmaRecords.push(helperKarmaId);
 
@@ -233,9 +231,8 @@ export class TimeTravelFactory {
     const requesterKarmaId = await this.createBackdatedKarma(requester.id, community.id, {
       daysAgo: matchCompletedDaysAgo,
       points: 5,
-      eventType: 'help_received',
-      matchId,
-      description: 'Received help'
+      reason: 'Received help',
+      relatedEntityId: matchId
     });
     karmaRecords.push(requesterKarmaId);
 

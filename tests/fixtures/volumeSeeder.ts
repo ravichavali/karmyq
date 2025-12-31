@@ -227,7 +227,7 @@ export class VolumeSeeder {
 
       for (let i = 0; i < memberPool.length; i++) {
         const user = memberPool[i];
-        const role = i === 0 ? 'moderator' : (i < 3 ? 'helper' : 'member');
+        const role = i === 0 ? 'moderator' : 'member';
 
         const success = await CommunityFactory.addMember(
           community.id,
