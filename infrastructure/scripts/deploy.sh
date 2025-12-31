@@ -41,28 +41,7 @@ if [ -f /etc/nginx/conf.d/ssl.conf ]; then
     sudo rm /etc/nginx/conf.d/ssl.conf
 fi
 
-# Enable site if not already enabled
-if [ ! -L /etc/nginx/sites-enabled/karmyq ]; then
-    sudo ln -s /etc/nginx/sites-available/karmyq /etc/nginx/sites-enabled/
-fi
-# Remove default if exists
-if [ -f /etc/nginx/sites-enabled/default ]; then
-    sudo rm /etc/nginx/sites-enabled/default
-fi
-
-# Test Nginx config
-echo "🧪 Testing Nginx configuration..."
-sudo nginx -t
-
-if [ $? -eq 0 ]; then
-    echo "✅ Nginx configuration valid. Reloading..."
-    sudo systemctl reload nginx
-else
-    echo "❌ Nginx configuration failed! Check logs."
-    # Don't exit, we might still want to deploy containers
-fi
-
-# 2.5 Configure SSL Certificates
+# 2.5 Configure SSL Certificates (Must happen before Nginx Test)
 echo "🔒 Configuring SSL Certificates..."
 SSL_SNIPPET="/etc/nginx/snippets/ssl-certificates.conf"
 SSL_DIR="/etc/nginx/ssl"
@@ -116,6 +95,29 @@ else
         fi
     fi
 fi
+
+# Enable site if not already enabled
+if [ ! -L /etc/nginx/sites-enabled/karmyq ]; then
+    sudo ln -s /etc/nginx/sites-available/karmyq /etc/nginx/sites-enabled/
+fi
+# Remove default if exists
+if [ -f /etc/nginx/sites-enabled/default ]; then
+    sudo rm /etc/nginx/sites-enabled/default
+fi
+
+# Test Nginx config
+echo "🧪 Testing Nginx configuration..."
+sudo nginx -t
+
+if [ $? -eq 0 ]; then
+    echo "✅ Nginx configuration valid. Reloading..."
+    sudo systemctl reload nginx
+else
+    echo "❌ Nginx configuration failed! Check logs."
+    # Don't exit, we might still want to deploy containers
+fi
+
+
 
 # Reload Nginx again to apply SSL config
 sudo systemctl reload nginx
