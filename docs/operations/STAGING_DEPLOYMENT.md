@@ -23,11 +23,24 @@ chmod +x setup-server.sh
 4.  **Ports**: Staging deployment exposes ports to the local network.
 
 **Accessing Staging**:
--   You can access via Nginx: `http://192.168.0.148`
--   OR direct port access:
-    -   Frontend: http://192.168.0.148:3000
-    -   Auth API: http://192.168.0.148:3001
-    -   Grafana: http://192.168.0.148:3011
+
+You can use a friendly name like `http://karmyq-staging` instead of the IP.
+
+**1. Configure Local DNS (Windows)**:
+1.  Open **Notepad** as Administrator.
+2.  Open file: `C:\Windows\System32\drivers\etc\hosts`
+3.  Add this line at the bottom:
+    ```text
+    192.168.0.148 karmyq-staging
+    ```
+4.  Save the file.
+
+**2. Access Links**:
+-   **Main Site**: [http://karmyq-staging](http://karmyq-staging)
+-   **Direct Port Access** (if needed):
+    -   Frontend: http://karmyq-staging:3000
+    -   Auth API: http://karmyq-staging:3001
+    -   Grafana: http://karmyq-staging:3011
 
 ## 3. Deploying
 
