@@ -1,0 +1,91 @@
+version: '3.8'
+
+services:
+  # Staging Overrides - Expose ports for local network access
+  # and use less strict resource limits
+
+  auth-service:
+    restart: unless-stopped
+    environment:
+      NODE_ENV: staging
+    ports:
+      - "3001:3001"
+
+  community-service:
+    restart: unless-stopped
+    environment:
+      NODE_ENV: staging
+    ports:
+      - "3002:3002"
+
+  request-service:
+    restart: unless-stopped
+    environment:
+      NODE_ENV: staging
+    ports:
+      - "3003:3003"
+
+  reputation-service:
+    restart: unless-stopped
+    environment:
+      NODE_ENV: staging
+    ports:
+      - "3004:3004"
+
+  notification-service:
+    restart: unless-stopped
+    environment:
+      NODE_ENV: staging
+    ports:
+      - "3005:3005"
+
+  messaging-service:
+    restart: unless-stopped
+    environment:
+      NODE_ENV: staging
+    ports:
+      - "3006:3006"
+
+  feed-service:
+    restart: unless-stopped
+    environment:
+      NODE_ENV: staging
+    ports:
+      - "3007:3007"
+
+  cleanup-service:
+    restart: unless-stopped
+    environment:
+      NODE_ENV: staging
+      LOG_LEVEL: debug
+
+  geocoding-service:
+    restart: unless-stopped
+    environment:
+      NODE_ENV: staging
+    ports:
+      - "3009:3009"
+
+  social-graph-service:
+    restart: unless-stopped
+    environment:
+      NODE_ENV: staging
+    ports:
+      - "3010:3010"
+
+  frontend:
+    restart: unless-stopped
+    environment:
+      NODE_ENV: staging
+    ports:
+      - "3000:3000"
+
+  postgres:
+    restart: unless-stopped
+    ports:
+      - "5432:5432" # Allow direct DB access in staging
+
+  redis:
+    restart: unless-stopped
+    ports:
+      - "6379:6379" # Allow direct Redis access in staging
