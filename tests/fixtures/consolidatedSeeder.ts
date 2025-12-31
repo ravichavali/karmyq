@@ -150,27 +150,37 @@ export class ConsolidatedSeeder {
   private async truncateData(): Promise<void> {
     this.log(`🗑️  Truncating existing data...`);
 
-    try {
-      await this.pool.query(`
-        TRUNCATE TABLE messaging.messages CASCADE;
-        TRUNCATE TABLE messaging.conversations CASCADE;
-        TRUNCATE TABLE requests.matches CASCADE;
-        TRUNCATE TABLE requests.help_offers CASCADE;
-        TRUNCATE TABLE requests.request_communities CASCADE;
-        TRUNCATE TABLE requests.help_requests CASCADE;
-        TRUNCATE TABLE reputation.karma_records CASCADE;
-        TRUNCATE TABLE reputation.milestone_events CASCADE;
-        TRUNCATE TABLE reputation.trust_scores CASCADE;
-        TRUNCATE TABLE communities.members CASCADE;
-        TRUNCATE TABLE communities.communities CASCADE;
-        TRUNCATE TABLE auth.users CASCADE;
-      `);
+    // Truncate in dependency order (child tables first)
+    const tablesToTruncate = [
+      'messaging.messages',
+      'messaging.conversations',
+      'requests.matches',
+      'requests.help_offers',
+      'requests.request_communities',
+      'requests.help_requests',
+      'reputation.karma_records',
+      'reputation.trust_scores',
+      'communities.members',
+      'communities.communities',
+      'auth.users'
+    ];
 
-      this.log(`   ✓ Data truncated`);
-    } catch (error: any) {
-      this.log(`   ⚠️  Truncation warning: ${error.message}`);
-      // Continue anyway - tables might not exist yet
+    for (const table of tablesToTruncate) {
+      try {
+        await this.pool.query(`TRUNCATE TABLE ${table} CASCADE`);
+      } catch (error: any) {
+        // Only ignore "table does not exist" errors
+        if (error.code === '42P01') {
+          // Table doesn't exist - skip it
+          continue;
+        }
+        // For all other errors, log and re-throw
+        this.log(`   ❌ Failed to truncate ${table}: ${error.message}`);
+        throw error;
+      }
     }
+
+    this.log(`   ✓ Data truncated successfully`);
   }
 
   /**
