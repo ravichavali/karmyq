@@ -13,9 +13,10 @@ echo "🚀 Deploying to $ENV environment..."
 if [ -d "$APP_DIR/.git" ]; then
     echo "⬇️  Pulling latest code..."
     cd $APP_DIR
-    git pull origin feature/docker-compose-production
+    # Pull the currently checked out branch
+    git pull origin $(git rev-parse --abbrev-ref HEAD)
 else
-    echo "⚠️  Git repository not found in $APP_DIR. Assuming manual copy."
+    echo "⚠️  Git repository not found in $APP_DIR. Assuming initial deployment or manual copy."
     cd $APP_DIR
 fi
 
@@ -28,7 +29,17 @@ fi
 
 # Copy new config
 sudo cp infrastructure/nginx/nginx.conf /etc/nginx/sites-available/karmyq
-sudo cp infrastructure/nginx/ssl.conf /etc/nginx/conf.d/ssl.conf
+
+# Check if snippets directory exists, create if not
+if [ ! -d "/etc/nginx/snippets" ]; then
+    sudo mkdir -p /etc/nginx/snippets
+fi
+sudo cp infrastructure/nginx/ssl.conf /etc/nginx/snippets/ssl-hardening.conf
+
+# Cleanup old conflicting config if it exists
+if [ -f /etc/nginx/conf.d/ssl.conf ]; then
+    sudo rm /etc/nginx/conf.d/ssl.conf
+fi
 
 # Enable site if not already enabled
 if [ ! -L /etc/nginx/sites-enabled/karmyq ]; then
