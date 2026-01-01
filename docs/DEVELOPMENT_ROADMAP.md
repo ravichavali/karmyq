@@ -172,7 +172,9 @@
 
 ### Current Tangents (Open)
 
-*No active tangents - ready for next work stream*
+| ID | Tangent | Parent Stream | Started | Priority | Blocker | Return Path |
+|----|---------|---------------|---------|----------|---------|-------------|
+| T-013 | API-Based Test Data Generator with Time Travel | Track B: Production Deployment | 2025-12-31 | P0 | None | Seed staging environment with aged data, then resume Track B infrastructure work |
 
 ### Completed Tangents
 
