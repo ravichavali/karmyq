@@ -111,35 +111,52 @@ export class VolumeSeeder {
     const users: TestUser[] = [];
     const batches = Math.ceil(count / batchSize);
 
+    // Reduce concurrent requests to avoid rate limiting
+    const concurrentLimit = 5; // Only 5 parallel requests at a time
+
     for (let batch = 0; batch < batches; batch++) {
       const batchStart = batch * batchSize;
       const batchEnd = Math.min(batchStart + batchSize, count);
       const batchCount = batchEnd - batchStart;
 
-      const batchPromises: Promise<TestUser | null>[] = [];
+      // Process in smaller concurrent chunks
+      for (let chunk = 0; chunk < batchCount; chunk += concurrentLimit) {
+        const chunkEnd = Math.min(chunk + concurrentLimit, batchCount);
+        const chunkPromises: Promise<TestUser | null>[] = [];
 
-      for (let i = 0; i < batchCount; i++) {
-        const userIndex = batchStart + i;
-        const name = generateRealisticName();
-        const activityLevel = getActivityLevel(userIndex, count);
+        for (let i = chunk; i < chunkEnd; i++) {
+          const userIndex = batchStart + i;
+          const name = generateRealisticName();
+          const activityLevel = getActivityLevel(userIndex, count);
 
-        batchPromises.push(
-          UserFactory.create({
-            name: name.fullName,
-            email: `user${userIndex}@test.karmyq.com`,
-            password
-          })
-        );
+          chunkPromises.push(
+            UserFactory.create({
+              name: name.fullName,
+              email: `user${userIndex}@test.karmyq.com`,
+              password
+            })
+          );
+        }
+
+        const chunkUsers = await Promise.all(chunkPromises);
+        const validUsers = chunkUsers.filter((u): u is TestUser => u !== null);
+        users.push(...validUsers);
+
+        this.progress.usersCreated += validUsers.length;
+        if (onProgress) onProgress(this.progress);
+
+        process.stdout.write(`   Progress: ${this.progress.usersCreated}/${count}\r`);
+
+        // Small delay between chunks to avoid bursts
+        if (chunk + concurrentLimit < batchCount) {
+          await new Promise(resolve => setTimeout(resolve, 200));
+        }
       }
 
-      const batchUsers = await Promise.all(batchPromises);
-      const validUsers = batchUsers.filter((u): u is TestUser => u !== null);
-      users.push(...validUsers);
-
-      this.progress.usersCreated += validUsers.length;
-      if (onProgress) onProgress(this.progress);
-
-      process.stdout.write(`   Progress: ${this.progress.usersCreated}/${count}\r`);
+      // Delay between batches
+      if (batch < batches - 1) {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
     }
 
     console.log(); // New line after progress

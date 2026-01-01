@@ -80,7 +80,7 @@ export class UserFactory {
   }
 
   /**
-   * Create a new user via the auth service
+   * Create a new user via the auth service with retry logic for rate limiting
    */
   static async create(options: {
     name?: string;
@@ -94,31 +94,57 @@ export class UserFactory {
       password = 'TestPassword123!',
     } = options;
 
-    try {
-      const response = await request(ServiceUrls.AUTH)
-        .post('/auth/register')
-        .send({ email, name, password });
+    const maxRetries = 5;
+    const baseDelay = 2000; // 2 seconds
 
-      // Handle both old and new response formats
-      const data = response.body.data || response.body;
-      const user = data.user;
-      const token = data.token;
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        const response = await request(ServiceUrls.AUTH)
+          .post('/auth/register')
+          .send({ email, name, password });
 
-      if (response.status !== 201 || !user) {
-        console.log(`User creation failed: ${JSON.stringify(response.body)}`);
+        // Handle both old and new response formats
+        const data = response.body.data || response.body;
+        const user = data.user;
+        const token = data.token;
+
+        if (response.status !== 201 || !user) {
+          // Check for rate limit error
+          if (response.body && response.body.error &&
+              (response.body.error.includes('Too many') || response.body.retryAfter)) {
+
+            if (attempt < maxRetries) {
+              const retryAfter = response.body.retryAfter || (baseDelay / 1000);
+              const delay = Math.min(retryAfter * 1000 * Math.pow(2, attempt), 60000); // Max 60s
+              console.log(`Rate limited. Retrying in ${delay/1000}s... (attempt ${attempt + 1}/${maxRetries})`);
+              await new Promise(resolve => setTimeout(resolve, delay));
+              continue;
+            }
+          }
+
+          console.log(`User creation failed: ${JSON.stringify(response.body)}`);
+          return null;
+        }
+
+        return {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          token: token,
+        };
+      } catch (error) {
+        if (attempt < maxRetries) {
+          const delay = baseDelay * Math.pow(2, attempt);
+          console.log(`User creation error. Retrying in ${delay/1000}s... (attempt ${attempt + 1}/${maxRetries})`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          continue;
+        }
+        console.log('User creation error:', error);
         return null;
       }
-
-      return {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        token: token,
-      };
-    } catch (error) {
-      console.log('User creation error:', error);
-      return null;
     }
+
+    return null;
   }
 
   /**
