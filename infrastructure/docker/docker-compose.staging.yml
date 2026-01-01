@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # Staging Overrides - Expose ports for local network access
   # and use less strict resource limits
