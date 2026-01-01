@@ -95,10 +95,10 @@ router.get('/matched/for-user', async (req: Request, res: Response) => {
     // Skills match is based on category mapping to skills
     const result = await query(
       `SELECT DISTINCT
-        r.id, r.community_id, r.requester_id, r.title, r.description,
+        r.id, r.requester_id, r.title, r.description,
         r.category, r.urgency, r.status, r.created_at, r.updated_at,
         u.name as requester_name,
-        c.name as community_name,
+        STRING_AGG(DISTINCT c.name, ', ') as community_name,
         CASE
           WHEN r.urgency = 'high' THEN 3
           WHEN r.urgency = 'medium' THEN 2
@@ -106,9 +106,10 @@ router.get('/matched/for-user', async (req: Request, res: Response) => {
         END as urgency_priority
       FROM requests.help_requests r
       LEFT JOIN auth.users u ON r.requester_id = u.id
-      LEFT JOIN communities.communities c ON r.community_id = c.id
+      LEFT JOIN requests.request_communities rc ON r.id = rc.request_id
+      LEFT JOIN communities.communities c ON rc.community_id = c.id
       -- Only from communities the user is a member of
-      INNER JOIN communities.members m ON r.community_id = m.community_id
+      INNER JOIN communities.members m ON rc.community_id = m.community_id
       WHERE r.status = 'open'
         AND r.expired = FALSE
         AND m.user_id = $1
@@ -134,6 +135,7 @@ router.get('/matched/for-user', async (req: Request, res: Response) => {
             OR (r.category = 'cleaning' AND s.skill IN ('cleaning', 'organizing'))
           )
         )
+      GROUP BY r.id, r.requester_id, r.title, r.description, r.category, r.urgency, r.status, r.created_at, r.updated_at, u.name
       ORDER BY urgency_priority DESC, r.created_at DESC
       LIMIT $2`,
       [user_id, limit]
