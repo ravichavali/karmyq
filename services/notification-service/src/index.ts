@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { NextFunction } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import pool from './database/db';
@@ -50,7 +50,7 @@ app.use(
 );
 
 // Error handling middleware
-app.use((err: any, req: any, res: express.Response) => {
+app.use((err: any, req: any, res: express.Response, next: NextFunction) => {
   req.logger?.error('Unhandled error', err instanceof Error ? err : new Error(String(err)), {
     method: req.method,
     path: req.path,

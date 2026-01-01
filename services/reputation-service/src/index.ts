@@ -1,4 +1,4 @@
-import express, { Response } from 'express';
+import express, { Response, NextFunction } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import { initDatabase } from './database/db';
@@ -66,7 +66,7 @@ app.use((req: any, res: Response) => {
 });
 
 // Error handling middleware
-app.use((err: Error, req: any, res: Response) => {
+app.use((err: Error, req: any, res: Response, next: NextFunction) => {
   req.logger?.error('Unhandled error', err, {
     method: req.method,
     path: req.path,
