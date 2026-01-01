@@ -8,8 +8,14 @@ DOMAIN="karmyq.com"
 DOMAIN2="www.karmyq.com"
 EMAIL="kvpal@karmyq.com" # Replace or generic? Using user's implicit email or just ask. I'll use a placeholder or prompt? I'll hardcode for now or auto-detect.
 
-echo "--- Installing Nginx ---"
-sudo apt-get install -y nginx
+echo "--- Installing Nginx & SSL Utilities ---"
+sudo apt-get install -y nginx ssl-cert
+
+# Ensure snakeoil certs exist (needed for bootstrap)
+if [ ! -f /etc/ssl/certs/ssl-cert-snakeoil.pem ]; then
+    echo "Generating snakeoil cert..."
+    sudo make-ssl-cert generate-default-snakeoil
+fi
 
 echo "--- Configuring Nginx ---"
 # Remove default site
