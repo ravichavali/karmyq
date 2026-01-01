@@ -1,4 +1,4 @@
-import express, { Request, Response } from 'express';
+import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import { authMiddleware } from '@karmyq/shared/middleware';
 import { logger } from './config/logger';
@@ -101,7 +101,7 @@ app.use('/invitations', invitationRoutes);
 app.use('/paths', pathRoutes);
 
 // Error handling
-app.use((err: Error, req: Request, res: Response, next: Function) => {
+app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
   logger.error('Unhandled error', {
     error: err.message,
     stack: err.stack,

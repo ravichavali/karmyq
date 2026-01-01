@@ -25,6 +25,7 @@ const pool = new Pool({
   database: process.env.DB_NAME || 'karmyq',
   user: process.env.DB_USER || 'karmyq',
   password: process.env.DB_PASSWORD || 'karmyq_password',
+  max: 5, // Reduced to 5 for multi-instance production support
 })
 
 // Middleware

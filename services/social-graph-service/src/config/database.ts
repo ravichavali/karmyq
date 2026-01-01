@@ -6,4 +6,5 @@ export const pool = new Pool({
   database: process.env.DB_NAME || 'karmyq_db',
   user: process.env.DB_USER || 'karmyq_user',
   password: process.env.DB_PASSWORD,
+  max: 5, // Reduced to 5 for multi-instance production support
 });

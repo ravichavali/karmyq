@@ -647,7 +647,23 @@
     - Estimate: 30-40 hours
     - Related: See ADR-022 (to be created)
 
-41. **Social Graph UI Pages** - ✅ COMPLETE (2025-12-30)
+41. **Infrastructure as Code (IaC) Migration**
+    - Stream: DevOps & Infrastructure
+    - Issue: Manual provisioning of OCI infrastructure
+    - Goal: Transition to Terraform/OpenTofu
+    - Requirements:
+      - Define VCN, Subnets, Security Groups, and Resources as code
+      - State stored in OCI Object Storage
+      - Automated application of changes
+    - Benefits:
+      - Reproducible environments (Dev/Staging/Prod equality)
+      - Disaster recovery speed
+      - Change tracking/review for infrastructure
+    - Status: **Planned** - Future milestone
+    - Estimate: 12-16 hours
+    - Prioritized by User Request (2025-12-31)
+
+42. **Social Graph UI Pages** - ✅ COMPLETE (2025-12-30)
     - Stream: Frontend Features
     - Issue: Social graph backend complete, no UI
     - Goal: Create UI for invitation system and trust path visualization
@@ -676,7 +692,7 @@
     - Time Spent: ~6 hours
     - Status: **Complete** - Core features implemented and tested
 
-42. **Expo SDK Upgrade**
+43. **Expo SDK Upgrade**
     - Stream: Mobile Infrastructure
     - Issue: Stuck on older Expo version due to React compatibility bug
     - Current: Expo SDK version needs verification
@@ -694,7 +710,7 @@
     - Estimate: 4-8 hours (depending on breaking changes)
     - Priority: Medium (technical debt)
 
-43. **Trust Path Filtering (Static Preferences)**
+44. **Trust Path Filtering (Static Preferences)**
     - Stream: Feed Features
     - Issue: No control over how many degrees of separation users see in feeds
     - Context: As communities grow, feeds become overwhelming; users need control
@@ -739,7 +755,7 @@
     - Related: ADR-021 (Trust Path Filtering), Social Graph Service (Port 3010)
     - Dependencies: Social graph UI must be complete and tested
 
-44. **Adaptive Trust Ladder (Behavioral Nudging)**
+45. **Adaptive Trust Ladder (Behavioral Nudging)**
     - Stream: Reputation & Engagement
     - Issue: Users start cautious and never expand; need intelligent growth
     - Context: Static filtering helps, but users need guidance on when to trust more/less
@@ -800,7 +816,7 @@
       - Requires established user base for meaningful data
       - Notification service must support nudge templates
 
-45. **Trust Paths Based on Interactions (Not Invitations)**
+46. **Trust Paths Based on Interactions (Not Invitations)**
     - Stream: Social Graph Features
     - Issue: Current trust path uses invitation chain (static), not interaction graph (dynamic)
     - Context: Trust paths should show "who vouches for this person" based on completed exchanges
@@ -898,7 +914,7 @@
       - **Trust path (dynamic)** shows on request/offer tiles
       - These are distinct concepts serving different purposes
 
-46. **Multi-Tier Feed Architecture - Phase 1: Database Schema** ⭐ NEW (2025-12-30)
+47. **Multi-Tier Feed Architecture - Phase 1: Database Schema** ⭐ NEW (2025-12-30)
     - Stream: Feed Features, Platform Architecture
     - Issue: ADR-003 (strict RLS) prevents trust paths from working in small communities
     - Context: Explore-exploit balance needed - communities for cohesion, platform for growth
@@ -945,7 +961,7 @@
     - Related: ADR-022, ADR-003 (evolved), ADR-019 (trust paths), ADR-021 (filtering)
     - Dependencies: None (safe schema additions)
 
-47. **Multi-Tier Feed Architecture - Phase 2: Feed Query Logic** (2025-12-30)
+48. **Multi-Tier Feed Architecture - Phase 2: Feed Query Logic** (2025-12-30)
     - Stream: Feed Features
     - Issue: Feed currently only shows community-scoped requests (ADR-003)
     - Goal: Implement three-tier feed query with tunable explore-exploit balance
@@ -989,7 +1005,7 @@
     - Related: ADR-022, Item #46 (Phase 1)
     - Dependencies: Item #46 must be complete
 
-48. **Multi-Tier Feed Architecture - Phase 3: UI for Visibility & Preferences** (2025-12-30)
+49. **Multi-Tier Feed Architecture - Phase 3: UI for Visibility & Preferences** (2025-12-30)
     - Stream: Frontend Features
     - Issue: No UI for request visibility scope or feed preferences
     - Goal: Let users control explore-exploit balance via UI
@@ -1021,7 +1037,7 @@
     - Related: ADR-022, Item #47 (Phase 2)
     - Dependencies: Item #47 must be complete
 
-49. **Explore-Exploit Metrics & Tuning** (2025-12-30)
+50. **Explore-Exploit Metrics & Tuning** (2025-12-30)
     - Stream: Analytics, Platform Optimization
     - Issue: Need data to tune explore-exploit balance
     - Goal: Track metrics and optimize platform defaults
@@ -1068,7 +1084,7 @@
     - Related: ADR-022, Grafana/Loki/Prometheus stack
     - Dependencies: Items #46-48 must be complete, need active user base
 
-50. **Deep Invitation Chain Visualization** ⭐ NEW (2025-12-30)
+51. **Deep Invitation Chain Visualization** ⭐ NEW (2025-12-30)
     - Stream: Social Graph Features
     - Issue: Current invitation chain only shows immediate inviter (1 level)
     - Context: Need multi-level chain for trust verification and abuse detection
@@ -1131,7 +1147,7 @@
     - Related: ADR-021 (Invitation Chain), Item #45 (Trust Paths), Item #51 (Public Profiles)
     - Dependencies: Social graph UI must be complete
 
-51. **Public User Profiles & Navigation** ⭐ NEW (2025-12-30)
+52. **Public User Profiles & Navigation** ⭐ NEW (2025-12-30)
     - Stream: Social Graph Features
     - Issue: No way to view other users' profiles from request/offer tiles
     - Context: Users need context about who they're helping or receiving help from

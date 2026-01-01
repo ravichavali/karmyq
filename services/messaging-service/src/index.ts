@@ -85,7 +85,7 @@ app.use(
 );
 
 // Error handling middleware
-app.use((err: any, req: any, res: express.Response) => {
+app.use((err: any, req: any, res: express.Response, next: express.NextFunction) => {
   req.logger?.error('Unhandled error', err instanceof Error ? err : new Error(String(err)), {
     method: req.method,
     path: req.path,
