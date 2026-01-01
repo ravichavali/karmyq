@@ -146,6 +146,7 @@ services:
     restart: always
     environment:
       NODE_ENV: production
+    command: node .next/standalone/server.js
     deploy:
       resources:
         limits:
