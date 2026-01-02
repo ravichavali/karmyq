@@ -59,9 +59,10 @@ export async function searchAddresses(query: string): Promise<AddressSuggestion[
   }
 
   // STEP 3: Check backend PostgreSQL cache
+  const geocodingApiUrl = process.env.NEXT_PUBLIC_GEOCODING_API_URL || 'http://localhost:3009'
   try {
     const backendResponse = await fetch(
-      `http://localhost:3009/search?q=${encodeURIComponent(sanitized)}`,
+      `${geocodingApiUrl}/search?q=${encodeURIComponent(sanitized)}`,
       { signal: AbortSignal.timeout(2000) } // 2 second timeout for backend
     )
 
@@ -143,7 +144,7 @@ export async function searchAddresses(query: string): Promise<AddressSuggestion[
       // IndexedDB (local browser cache)
       cacheAPIResult(sanitized, suggestions),
       // Backend cache (shared across all users)
-      fetch('http://localhost:3009/cache', {
+      fetch(`${geocodingApiUrl}/cache`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ query: sanitized, results: suggestions })
