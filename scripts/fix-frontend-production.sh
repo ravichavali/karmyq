@@ -51,6 +51,13 @@ echo ""
 
 cd apps/frontend
 
+# Install dependencies if needed
+if [ ! -d "node_modules" ]; then
+    echo "Installing dependencies..."
+    npm install
+    echo ""
+fi
+
 # Frontend rebuild will use .env.production automatically in production mode
 echo "Building frontend (this may take 3-5 minutes)..."
 npm run build
