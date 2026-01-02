@@ -47,12 +47,31 @@ if ! grep -q "RATE_LIMIT_DISABLED" .env; then
     echo "RATE_LIMIT_DISABLED=true" >> .env
 fi
 
-# Restart services to pick up new environment variable
-docker compose -f docker-compose.yml -f docker-compose.prod.yml restart auth-service community-service request-service messaging-service
+# Force recreate services to pick up new environment variable
+# NOTE: 'restart' does NOT reload .env changes - must use 'up -d --force-recreate'
+echo "Force recreating services to load RATE_LIMIT_DISABLED..."
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --force-recreate auth-service community-service request-service messaging-service
 
 # Wait for services to come back up
 echo "Waiting for services to restart..."
-sleep 10
+sleep 15
+
+# Verify rate limiting is disabled
+echo "Verifying rate limit disabled..."
+RATE_LIMIT_STATUS=$(docker exec karmyq-auth-service env | grep RATE_LIMIT_DISABLED || echo "NOT_SET")
+echo "Auth service: $RATE_LIMIT_STATUS"
+
+if [[ ! "$RATE_LIMIT_STATUS" == *"true"* ]]; then
+    echo ""
+    echo "⚠️  WARNING: RATE_LIMIT_DISABLED is not set to true in the container!"
+    echo "This may cause seeding to fail due to rate limiting."
+    echo ""
+    read -p "Continue anyway? (yes/no): " continue_confirm
+    if [ "$continue_confirm" != "yes" ]; then
+        echo "Cancelled."
+        exit 1
+    fi
+fi
 
 echo "✅ Rate limiting disabled"
 echo ""
@@ -99,8 +118,11 @@ cd ~/karmyq/infrastructure/docker
 sed -i '/# Temporary - for seeding/d' .env
 sed -i '/RATE_LIMIT_DISABLED/d' .env
 
-# Restart services to restore rate limiting
-docker compose -f docker-compose.yml -f docker-compose.prod.yml restart auth-service community-service request-service messaging-service
+# Force recreate services to restore rate limiting
+echo "Force recreating services to restore rate limiting..."
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --force-recreate auth-service community-service request-service messaging-service
+
+sleep 10
 
 echo "✅ Rate limiting restored"
 echo ""

@@ -48,11 +48,13 @@ From your local machine (not the production server):
 
 ### What Happens:
 
-1. **Disable Rate Limiting** (~10 seconds)
+1. **Disable Rate Limiting** (~20 seconds)
    - SSHs to production server
    - Adds `RATE_LIMIT_DISABLED=true` to `.env`
-   - Restarts auth, community, request, and messaging services
+   - **Force recreates** auth, community, request, and messaging services (not just restart!)
+   - Verifies `RATE_LIMIT_DISABLED=true` is set in containers
    - Waits for services to come back up
+   - **Important**: Docker `restart` does NOT reload `.env` changes - must use `up -d --force-recreate`
 
 2. **Seed Data** (~15-30 minutes, possibly longer depending on network)
    - Creates users via `POST /auth/register`
@@ -64,10 +66,10 @@ From your local machine (not the production server):
    - Awards karma through reputation service
    - **Note**: Script includes waits between API calls for safety - may run overnight if needed
 
-3. **Re-enable Rate Limiting** (~10 seconds)
+3. **Re-enable Rate Limiting** (~20 seconds)
    - SSHs to production server
    - Removes `RATE_LIMIT_DISABLED` from `.env`
-   - Restarts services to restore normal rate limiting
+   - **Force recreates** services to restore normal rate limiting
 
 **Total Duration**: ~20-40 minutes (could be longer with waits - safe to run overnight)
 
@@ -166,16 +168,29 @@ Expected output:
 
 **Cause**: Rate limiting wasn't disabled properly.
 
+**CRITICAL**: Docker `restart` does NOT reload environment variables from `.env`! You must use `up -d --force-recreate`.
+
 **Fix**:
 ```bash
 ssh ubuntu@karmyq.com
 cd ~/karmyq/infrastructure/docker
 
-# Manually add to .env
-echo "RATE_LIMIT_DISABLED=true" >> .env
+# Manually add to .env if not present
+if ! grep -q "RATE_LIMIT_DISABLED" .env; then
+    echo "" >> .env
+    echo "# Temporary - for seeding" >> .env
+    echo "RATE_LIMIT_DISABLED=true" >> .env
+fi
 
-# Restart services
-docker compose -f docker-compose.yml -f docker-compose.prod.yml restart auth-service community-service request-service messaging-service
+# IMPORTANT: Use --force-recreate, not restart!
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --force-recreate auth-service community-service request-service messaging-service
+
+# Wait for services
+sleep 15
+
+# Verify it worked
+docker exec karmyq-auth-service env | grep RATE_LIMIT_DISABLED
+# Should show: RATE_LIMIT_DISABLED=true
 ```
 
 Then re-run the seeding script.
