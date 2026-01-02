@@ -1,296 +1,336 @@
-# Production Data Seeding Plan
+# Production Database Seeding
 
-**Environment**: Production (karmyq.com)
-**Database**: karmyq_prod
-**Purpose**: Populate with realistic demo data for launch
+**Date**: 2026-01-01
+**Target**: karmyq.com (132.226.89.171)
+**Method**: API-based seeding via HTTPS
 
 ## Overview
 
-Seed production with enough data to demonstrate platform capabilities while maintaining realistic patterns.
+This guide explains how to seed the production database with demo data using API endpoints. The seeding process creates realistic test data through actual API calls, ensuring all business logic and event handlers are triggered correctly.
 
-## Data Volumes
+## Prerequisites
 
-### Communities (5 total)
-1. **Oakland Mutual Aid** - Large, active
-2. **Berkeley Neighbors** - Medium, active
-3. **SF Bay Area Help** - Large, newer
-4. **East Bay Support Network** - Small, tight-knit
-5. **Peninsula Community Care** - Medium, growing
+1. **SSH Access**: You must have SSH access to `ubuntu@karmyq.com`
+2. **DEMO_PASSWORD**: Set a secure password for all demo accounts
+3. **Services Running**: All backend services must be healthy
+4. **Network Access**: Your machine must be able to reach https://karmyq.com
 
-### Users (100 total)
-- 30 users in Oakland Mutual Aid
-- 25 users in Berkeley Neighbors
-- 25 users in SF Bay Area Help
-- 10 users in East Bay Support Network
-- 10 users in Peninsula Community Care
+## What Gets Created
 
-### Help Requests (150 total)
-- 50 active (open, matched)
-- 75 completed (historical, with karma awarded)
-- 25 expired (showing cleanup process)
+The production seeding profile creates:
+- **2000 users** - Realistic names and emails (user1@test.karmyq.com through user2000@test.karmyq.com)
+- **200 communities** - Various types (neighborhoods, workplaces, schools, interest groups)
+- **~10,000 help requests** - Polymorphic requests (rides, events, services, questions, items)
+- **~3,000 matches** - Complete request-to-match workflows
+- **~12,000 messages** - Realistic conversation threads
+- **Karma records** - Reputation and trust scores
+- **Aged data** - 6 months of historical data with realistic time distributions
 
-### Time Distribution
-- Use `timeTravelFactory.ts` to create data across time periods:
-  - 30 days ago: Initial community formation
-  - 21 days ago: First wave of requests
-  - 14 days ago: Community growth
-  - 7 days ago: Recent activity
-  - Today: Current active requests
+## Seeding Process
 
-## Seeding Strategy
+### Step 1: Choose Password
 
-### Use Existing Test Data Generators
-
-We have comprehensive test data factories in `tests/fixtures/`:
-
-1. **realisticDataFactory.ts**
-   - Age distributions (18-75 years, normal distribution)
-   - Realistic karma profiles (helper/receiver patterns)
-   - Request categories and content
-   - Geographic locations (Bay Area)
-
-2. **timeTravelFactory.ts**
-   - Create historical data with proper timestamps
-   - Backdate requests, matches, completions
-   - Set up realistic karma accumulation over time
-
-3. **volumeSeeder.ts**
-   - Bulk data generation
-   - Maintains referential integrity
-   - Configurable volumes
-
-4. **consolidatedSeeder.ts**
-   - Complete workflow seeding
-   - End-to-end scenarios (user joins → posts request → gets help → earns karma)
-
-### Seeding Script
-
-Use the existing `tests/scripts/seed-data.ts`:
+Choose a secure password for all demo accounts:
 
 ```bash
-# From the repository root
-cd tests
-
-# Seed production (requires DATABASE_URL to be set for production)
-npm run seed:prod -- --profile realistic --size large
-
-# Or customize volumes
-npm run seed:prod -- \
-  --communities 5 \
-  --users 100 \
-  --requests 150 \
-  --timespan 30d
+export DEMO_PASSWORD="YourSecurePassword123!"
 ```
 
-## Detailed Seeding Plan
+**Security Note**: This password will be used for all 2000 demo accounts. Use a strong password and store it securely.
 
-### Phase 1: Communities & Initial Users (Day -30)
-```typescript
-// Create 5 communities with founders
-- Oakland Mutual Aid (founder: alice@example.com)
-- Berkeley Neighbors (founder: bob@example.com)
-- SF Bay Area Help (founder: carol@example.com)
-- East Bay Support Network (founder: david@example.com)
-- Peninsula Community Care (founder: eve@example.com)
+### Step 2: Run Seeding Script
 
-// Add 5-10 early members to each community
-```
-
-### Phase 2: Community Growth (Days -21 to -14)
-```typescript
-// Add remaining members
-// Create first wave of requests (mostly completed now)
-// Award karma for historical help
-// Build trust scores
-```
-
-### Phase 3: Active Period (Days -7 to today)
-```typescript
-// Recent requests (some active, some completed)
-// Recent karma awards
-// Active conversations
-// Current matches in progress
-```
-
-### Phase 4: Current State (Today)
-```typescript
-// 20-30 active open requests
-// 10-15 in-progress matches
-// Active community members
-```
-
-## Production Seeding Command
-
-Create a production-specific seeding script:
+From your local machine (not the production server):
 
 ```bash
-#!/bin/bash
-# scripts/seed-production.sh
-
-echo "======================================"
-echo "Production Data Seeding"
-echo "======================================"
-echo ""
-
-# Get production database URL
-DB_URL=$(docker exec karmyq-postgres env | grep POSTGRES_PASSWORD | cut -d= -f2)
-export DATABASE_URL="postgresql://karmyq_prod:${DB_URL}@localhost:5432/karmyq_prod"
-
-echo "Database: karmyq_prod"
-echo "Seeding with realistic demo data..."
-echo ""
-
-cd ~/karmyq/tests
-
-# Run seeding script with production profile
-npm run seed -- \
-  --profile realistic \
-  --communities 5 \
-  --users-per-community "30,25,25,10,10" \
-  --requests 150 \
-  --timespan 30d \
-  --categories "transportation,groceries,errands,tech-support,companionship,home-repair,childcare" \
-  --verify
-
-echo ""
-echo "✓ Production seeding complete"
-echo ""
-echo "Verification:"
-echo "  Communities: SELECT COUNT(*) FROM communities.communities;"
-echo "  Users: SELECT COUNT(*) FROM auth.users;"
-echo "  Requests: SELECT COUNT(*) FROM requests.help_requests;"
-echo "  Karma: SELECT COUNT(*) FROM reputation.karma_records;"
+./scripts/seed-production-remote.sh
 ```
 
-## Data Characteristics
+### What Happens:
 
-### User Profiles
-Using `realisticDataFactory.ts` age distributions:
-- Helpers (give more than receive): 30% of users
-  - Age: Skewed older (35-65)
-  - High karma scores (100-500)
-  - Many completed helps
+1. **Disable Rate Limiting** (~10 seconds)
+   - SSHs to production server
+   - Adds `RATE_LIMIT_DISABLED=true` to `.env`
+   - Restarts auth, community, request, and messaging services
+   - Waits for services to come back up
 
-- Receivers (receive more than give): 20% of users
-  - Age: Varied
-  - Lower karma scores (10-50)
-  - Fewer completed helps
+2. **Seed Data** (~15-30 minutes, possibly longer depending on network)
+   - Creates users via `POST /auth/register`
+   - Creates communities via `POST /communities`
+   - Joins users to communities via `POST /communities/:id/members`
+   - Creates requests via `POST /requests`
+   - Creates offers and matches
+   - Sends messages through messaging service
+   - Awards karma through reputation service
+   - **Note**: Script includes waits between API calls for safety - may run overnight if needed
 
-- Balanced (equal give/receive): 50% of users
-  - Age: Normal distribution (25-55)
-  - Medium karma scores (50-200)
-  - Mix of helping and receiving
+3. **Re-enable Rate Limiting** (~10 seconds)
+   - SSHs to production server
+   - Removes `RATE_LIMIT_DISABLED` from `.env`
+   - Restarts services to restore normal rate limiting
 
-### Request Categories Distribution
-- Transportation: 20%
-- Groceries/Errands: 25%
-- Tech Support: 15%
-- Home Repair: 10%
-- Companionship: 10%
-- Childcare: 10%
-- Other: 10%
+**Total Duration**: ~20-40 minutes (could be longer with waits - safe to run overnight)
 
-### Geographic Distribution (Bay Area)
-- Oakland: 30%
-- Berkeley: 25%
-- San Francisco: 20%
-- Other East Bay: 15%
-- Peninsula: 10%
+## Progress Monitoring
 
-## Verification Queries
+The script provides verbose output showing:
+- Users created (batch progress: 1/40, 2/40, etc.)
+- Communities created
+- Memberships assigned
+- Requests and workflows generated
+- Match and message counts
 
-After seeding, run these to verify:
+Example output:
+```
+👥 Creating 2000 users...
+  Batch 1/40: Creating 50 users...
+  ✓ Created 50 users (total: 50/2000)
+  Batch 2/40: Creating 50 users...
+  ✓ Created 50 users (total: 100/2000)
+  ...
 
-```sql
--- Community counts
-SELECT name,
-  (SELECT COUNT(*) FROM communities.members WHERE community_id = c.id) as member_count
-FROM communities.communities c;
+📍 Creating 200 communities...
+  ✓ Created TechCo Engineering Team
+  ✓ Created Downtown Food Co-op
+  ...
 
--- Request status distribution
-SELECT status, COUNT(*)
-FROM requests.help_requests
-GROUP BY status;
-
--- Karma distribution
-SELECT
-  CASE
-    WHEN total_karma < 50 THEN 'Low (0-49)'
-    WHEN total_karma < 200 THEN 'Medium (50-199)'
-    ELSE 'High (200+)'
-  END as karma_level,
-  COUNT(*) as user_count
-FROM reputation.trust_scores
-GROUP BY karma_level;
-
--- Request completion rate
-SELECT
-  COUNT(*) FILTER (WHERE status = 'completed') * 100.0 / COUNT(*) as completion_rate
-FROM requests.help_requests;
-
--- Recent activity (last 7 days)
-SELECT DATE(created_at) as date, COUNT(*) as requests_created
-FROM requests.help_requests
-WHERE created_at > NOW() - INTERVAL '7 days'
-GROUP BY DATE(created_at)
-ORDER BY date DESC;
+🤝 Assigning community memberships...
+  ✓ Assigned 2000 users to communities
 ```
 
-## Maintenance
+## Verification
 
-### Regular Cleanup
-The cleanup service will automatically:
-- Expire old requests (after 60 days by default)
-- Archive completed requests
-- Clean up stale data
+After seeding completes, verify data was created:
 
-### Monitoring
-Check data health:
+### Via Frontend
+
+1. Navigate to https://karmyq.com
+2. Log in with any demo account:
+   - Email: `user1@test.karmyq.com` (or user2, user3, ... user2000)
+   - Password: `$DEMO_PASSWORD`
+3. You should see:
+   - Communities you're a member of
+   - Help requests from community members
+   - Your karma/reputation scores
+
+### Via Database
+
+SSH to production and check counts:
+
 ```bash
-# Active requests
+ssh ubuntu@karmyq.com
+
+# Check users
 docker exec -i karmyq-postgres psql -U karmyq_prod -d karmyq_prod \
-  -c "SELECT COUNT(*) FROM requests.help_requests WHERE status IN ('open', 'matched');"
+  -c "SELECT COUNT(*) FROM auth.users;"
 
-# User activity (users who acted in last 7 days)
+# Check communities
 docker exec -i karmyq-postgres psql -U karmyq_prod -d karmyq_prod \
-  -c "SELECT COUNT(DISTINCT requester_id) FROM requests.help_requests WHERE created_at > NOW() - INTERVAL '7 days';"
+  -c "SELECT COUNT(*) FROM community.communities;"
+
+# Check requests
+docker exec -i karmyq-postgres psql -U karmyq_prod -d karmyq_prod \
+  -c "SELECT COUNT(*) FROM requests.help_requests;"
+
+# Check matches
+docker exec -i karmyq-postgres psql -U karmyq_prod -d karmyq_prod \
+  -c "SELECT COUNT(*) FROM requests.matches;"
 ```
 
-## Safety
+Expected output:
+```
+ count
+-------
+  2000
+(1 row)
 
-### Before Seeding
+ count
+-------
+   200
+(1 row)
+
+ count
+-------
+ ~10000
+(1 row)
+
+ count
+-------
+  ~3000
+(1 row)
+```
+
+## Troubleshooting
+
+### Error: "Too many authentication attempts"
+
+**Cause**: Rate limiting wasn't disabled properly.
+
+**Fix**:
 ```bash
-# Backup current database
-docker exec karmyq-postgres pg_dump -U karmyq_prod karmyq_prod > backup-pre-seed-$(date +%Y%m%d).sql
+ssh ubuntu@karmyq.com
+cd ~/karmyq/infrastructure/docker
+
+# Manually add to .env
+echo "RATE_LIMIT_DISABLED=true" >> .env
+
+# Restart services
+docker compose -f docker-compose.yml -f docker-compose.prod.yml restart auth-service community-service request-service messaging-service
 ```
 
-### Rollback if Needed
+Then re-run the seeding script.
+
+### Error: "Network request failed" or "ECONNREFUSED"
+
+**Cause**: Services aren't running or nginx isn't routing correctly.
+
+**Fix**:
 ```bash
-# Restore from backup
-cat backup-pre-seed-YYYYMMDD.sql | docker exec -i karmyq-postgres psql -U karmyq_prod karmyq_prod
+ssh ubuntu@karmyq.com
+cd ~/karmyq/infrastructure/docker
+
+# Check service health
+docker compose -f docker-compose.yml -f docker-compose.prod.yml ps
+
+# Check nginx
+sudo systemctl status nginx
+
+# Check logs
+docker compose -f docker-compose.yml -f docker-compose.prod.yml logs auth-service
 ```
 
-## Timeline
+### Error: SSL/Certificate Issues
 
-1. **Backup database** (5 min)
-2. **Run seeding script** (10-15 min for 100 users, 150 requests)
-3. **Verify data** (5 min)
-4. **Test application** (10 min)
+**Cause**: SSL certificate expired or invalid.
 
-**Total time**: ~30-40 minutes
+**Fix**:
+```bash
+ssh ubuntu@karmyq.com
 
-## Next Steps After Seeding
+# Check certificate status
+sudo certbot certificates
 
-1. Test user flows in production
-2. Verify karma calculations
-3. Test matching algorithm with real data
-4. Check notification delivery
-5. Verify feed generation
-6. Test search and filtering
+# Renew if needed
+sudo certbot renew --nginx
+```
 
-## Notes
+### Seeding Times Out or Takes Too Long
 
-- Use realistic but obviously fake data (emails like test1@example.com, names like "Demo User 1")
-- Make it clear this is demo data for platform demonstration
-- Can be cleared and re-seeded as needed
-- Consider adding a banner "Demo Data - Not Real Users" to production if showing to stakeholders
+**Cause**: Network latency or slow API responses.
+
+**Note**: This is expected and okay! The script is designed to be safe and can run overnight if needed.
+
+**Solutions**:
+1. **Let it run**: Script can safely run for hours if needed (includes automatic waits)
+2. **Run from production server**: SSH to production and run seeding locally (change URLs to http://localhost)
+3. **Use smaller batch size**: Edit [tests/fixtures/consolidatedSeeder.ts](../../tests/fixtures/consolidatedSeeder.ts:64) and change `batchSize` from 50 to 10
+4. **Use direct SQL seeding**: Use `scripts/seed-direct-sql.sh` instead (faster but skips business logic)
+
+## Re-seeding
+
+To clear existing data and re-seed:
+
+### Option 1: Truncate and Re-seed
+
+The seeding script automatically truncates existing data before seeding. Just run it again:
+
+```bash
+export DEMO_PASSWORD="YourNewPassword123!"
+./scripts/seed-production-remote.sh
+```
+
+### Option 2: Manual Database Reset
+
+```bash
+ssh ubuntu@karmyq.com
+
+# Truncate all tables (preserves schema)
+docker exec -i karmyq-postgres psql -U karmyq_prod -d karmyq_prod << EOF
+TRUNCATE TABLE messaging.messages CASCADE;
+TRUNCATE TABLE requests.matches CASCADE;
+TRUNCATE TABLE requests.help_requests CASCADE;
+TRUNCATE TABLE community.memberships CASCADE;
+TRUNCATE TABLE community.communities CASCADE;
+TRUNCATE TABLE reputation.karma_records CASCADE;
+TRUNCATE TABLE auth.users CASCADE;
+EOF
+```
+
+Then run seeding script.
+
+## Data Profiles
+
+The seeder supports three profiles:
+
+### Quick (Development)
+```bash
+npm run seed -- --profile quick
+```
+- 20 users
+- 5 communities
+- 1 month of aged data
+- Duration: ~30 seconds
+
+### Staging
+```bash
+npm run seed -- --profile staging
+```
+- 2000 users
+- 200 communities
+- 6 months of aged data
+- Includes test personas for E2E testing
+- Duration: ~5-10 minutes (local), ~15-20 minutes (remote)
+
+### Production (Current)
+```bash
+npm run seed -- --profile production
+```
+- 2000 users
+- 200 communities
+- 6 months of aged data
+- No test personas (realistic data only)
+- Duration: ~15-30 minutes (could run overnight)
+
+## Custom Sizes
+
+You can adjust volume with `--size` parameter:
+
+```bash
+# 10% volume (200 users, 20 communities)
+npm run seed -- --profile production --size small
+
+# 50% volume (1000 users, 100 communities)
+npm run seed -- --profile production --size medium
+
+# 100% volume (2000 users, 200 communities) - DEFAULT
+npm run seed -- --profile production --size large
+```
+
+## Security Notes
+
+1. **DEMO_PASSWORD**: All demo accounts use the same password. Don't use production user data.
+2. **Rate Limiting**: Script automatically restores rate limiting after seeding (even if seeding fails)
+3. **Test Accounts**: All accounts use `@test.karmyq.com` domain to distinguish from real users
+4. **SSH Access**: Script requires SSH access to production - keep SSH keys secure
+
+## Related Documentation
+
+- [FRONTEND_FIXES_SUMMARY.md](FRONTEND_FIXES_SUMMARY.md) - Frontend deployment fixes
+- [../../tests/fixtures/consolidatedSeeder.ts](../../tests/fixtures/consolidatedSeeder.ts) - Seeder implementation
+- [../../tests/fixtures/volumeSeeder.ts](../../tests/fixtures/volumeSeeder.ts) - Volume seeding logic
+- [../../packages/shared/middleware/rateLimit.ts](../../packages/shared/middleware/rateLimit.ts) - Rate limiting config
+
+## Next Steps
+
+After seeding completes:
+
+1. ✅ **Test Login**: Log in at https://karmyq.com with demo accounts
+2. ✅ **Verify Data**: Check communities, requests, and messages load correctly
+3. ✅ **Test Workflows**: Create a new request, make an offer, send messages
+4. ⏳ **SSL Auto-Renewal**: Setup certbot cron job
+5. ⏳ **GitHub Actions**: Setup CI/CD pipelines
+
+---
+
+**Last Updated**: 2026-01-01
+**Status**: Ready for use
