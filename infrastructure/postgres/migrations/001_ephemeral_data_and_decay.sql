@@ -162,20 +162,25 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Function to set expires_at on new messages
+-- Note: Requests use junction table (request_communities), not direct community_id
 CREATE OR REPLACE FUNCTION messaging.set_message_expires_at()
 RETURNS TRIGGER AS $$
 DECLARE
     v_community_id UUID;
 BEGIN
-    -- Get community_id from conversation's match
-    SELECT r.community_id INTO v_community_id
+    -- Get community_id from conversation's match via request_communities junction table
+    SELECT rc.community_id INTO v_community_id
     FROM messaging.conversations conv
     JOIN requests.matches m ON conv.request_match_id = m.id
-    JOIN requests.help_requests r ON m.request_id = r.id
-    WHERE conv.id = NEW.conversation_id;
+    JOIN requests.request_communities rc ON m.request_id = rc.request_id
+    WHERE conv.id = NEW.conversation_id
+    LIMIT 1; -- Take first community if request is in multiple
 
     IF v_community_id IS NOT NULL AND NEW.expires_at IS NULL THEN
         NEW.expires_at := communities.calculate_expires_at(v_community_id, 'message', NEW.created_at);
+    ELSIF NEW.expires_at IS NULL THEN
+        -- Fallback to default 60 days if no community found
+        NEW.expires_at := NEW.created_at + INTERVAL '60 days';
     END IF;
     RETURN NEW;
 END;
