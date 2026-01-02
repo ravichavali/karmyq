@@ -590,6 +590,37 @@
     - Solution: Jest snapshot tests for component output
     - Status: Planned (Phase 2)
 
+### Demo & Production Environment (P2 - Important)
+
+37. **Synthetic User Simulation System** 🔮 NEW
+    - Stream: Demo Environment Automation
+    - **ADR**: [ADR-006: Synthetic User Simulation](adr/ADR-006-synthetic-user-simulation.md)
+    - Requirements:
+      - 10-100 simulated users active during business hours
+      - Realistic user behavior profiles (helper, requester, browser, community builder, social)
+      - Complete workflows: browse, create requests, offer help, message, complete matches
+      - Respects production rate limits (no bypass needed)
+      - Extensible for new features
+    - Architecture Options:
+      - **Recommended**: Dedicated simulation service (containerized)
+      - Alternative: Scheduled cron scripts
+    - Implementation Phases:
+      - Phase 1 (v1.0): Basic simulation (3 workflows, 5 profiles) - 2 weeks
+      - Phase 2 (v2.0): Realistic behavior (timing, sessions, conversations) - 1 week
+      - Phase 3 (v3.0): Advanced features (communities, karma, metrics) - 2 weeks
+      - Phase 4 (v4.0): Self-healing & ML adaptation - 3 weeks
+    - Benefits:
+      - Living demo with realistic, recent activity
+      - Continuous testing and bug detection
+      - Data maturation (karma, relationships, patterns)
+      - Investor appeal (active platform demo)
+    - Blockers:
+      - Must complete production seeding first
+      - Must validate production stability
+    - Status: **Proposed** - Awaiting production readiness
+    - Estimate: 8-10 weeks total (all phases)
+    - Priority: P2 (Important - defer until after production is stable)
+
 ### DevOps & Infrastructure (P2 - Important)
 
 38. **Multi-Environment Deployment Strategy**
