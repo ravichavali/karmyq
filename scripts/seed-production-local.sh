@@ -69,6 +69,13 @@ if [ ! -d "node_modules" ]; then
     echo ""
 fi
 
+# Get production database password from .env
+cd ~/karmyq/infrastructure/docker
+POSTGRES_PASSWORD=$(grep POSTGRES_PASSWORD .env | cut -d '=' -f2)
+
+# Set DATABASE_URL for production
+export DATABASE_URL="postgresql://karmyq_prod:${POSTGRES_PASSWORD}@localhost:5432/karmyq_prod"
+
 # Run seeding with localhost URLs (faster than going through nginx)
 export API_BASE_URL="http://localhost"
 export AUTH_SERVICE_URL="http://localhost:3001"
