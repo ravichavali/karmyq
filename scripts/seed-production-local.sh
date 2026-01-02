@@ -70,8 +70,7 @@ if [ ! -d "node_modules" ]; then
 fi
 
 # Get production database password from .env
-cd ~/karmyq/infrastructure/docker
-POSTGRES_PASSWORD=$(grep POSTGRES_PASSWORD .env | cut -d '=' -f2)
+POSTGRES_PASSWORD=$(grep POSTGRES_PASSWORD ~/karmyq/infrastructure/docker/.env | cut -d '=' -f2)
 
 # Set DATABASE_URL for production
 export DATABASE_URL="postgresql://karmyq_prod:${POSTGRES_PASSWORD}@localhost:5432/karmyq_prod"
@@ -85,7 +84,7 @@ export MESSAGING_SERVICE_URL="http://localhost:3006"
 export REPUTATION_SERVICE_URL="http://localhost:3004"
 export SKIP_CONFIRMATION="true"
 
-# Use production profile with verbose output
+# Use production profile with verbose output (run from tests directory)
 npm run seed -- --profile production --verbose
 
 SEED_EXIT_CODE=$?
