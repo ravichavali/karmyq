@@ -25,6 +25,12 @@ ssh ubuntu@karmyq.com  # or ssh ubuntu@132.226.89.171
 # Navigate to karmyq directory
 cd ~/karmyq
 
+# Pull latest changes (includes the deployment script)
+git pull origin master
+
+# Make scripts executable
+chmod +x scripts/*.sh
+
 # Run deployment script (all-in-one)
 ./scripts/deploy-frontend-fixes.sh
 ```

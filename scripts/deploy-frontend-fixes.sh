@@ -1,17 +1,21 @@
 #!/bin/bash
 # Deploy frontend API fixes to production
 # This script should be run on the production server (132.226.89.171)
+#
+# IMPORTANT: Run git pull and chmod +x first:
+#   git pull origin master
+#   chmod +x scripts/*.sh
+#   ./scripts/deploy-frontend-fixes.sh
 
 echo "=========================================="
 echo "Deploying Frontend API Fixes"
 echo "=========================================="
 echo ""
 echo "This script will:"
-echo "1. Pull latest changes from git"
-echo "2. Setup git hooks for automatic chmod +x"
-echo "3. Deploy nginx configuration updates"
-echo "4. Rebuild frontend with production environment"
-echo "5. Restart services"
+echo "1. Setup git hooks for automatic chmod +x"
+echo "2. Deploy nginx configuration updates"
+echo "3. Rebuild frontend with production environment"
+echo "4. Restart services"
 echo ""
 echo "Duration: ~5-10 minutes"
 echo ""
@@ -25,35 +29,14 @@ if [ "$SKIP_CONFIRMATION" != "true" ]; then
 fi
 
 echo ""
-echo "Step 1: Pulling latest changes..."
-echo ""
-
-git pull origin master
-
-if [ $? -ne 0 ]; then
-    echo "❌ Git pull failed!"
-    exit 1
-fi
-
-echo "✓ Changes pulled successfully"
-echo ""
-
-echo "Step 2: Making scripts executable..."
-echo ""
-
-chmod +x scripts/*.sh
-
-echo "✓ Scripts are now executable"
-echo ""
-
-echo "Step 3: Setting up git hooks..."
+echo "Step 1: Setting up git hooks..."
 echo ""
 
 ./scripts/setup-production-hooks.sh
 
 echo ""
 
-echo "Step 4: Deploying frontend fixes..."
+echo "Step 2: Deploying frontend fixes..."
 echo ""
 
 # Run with SKIP_CONFIRMATION to avoid double confirmation
