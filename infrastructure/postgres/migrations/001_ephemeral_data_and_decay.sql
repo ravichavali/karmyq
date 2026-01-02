@@ -134,22 +134,28 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Function to set expires_at on new help requests
+-- Note: Requests use junction table (request_communities), not direct community_id
+-- So we use a default TTL here instead of community-specific TTL
 CREATE OR REPLACE FUNCTION requests.set_request_expires_at()
 RETURNS TRIGGER AS $$
 BEGIN
     IF NEW.expires_at IS NULL THEN
-        NEW.expires_at := communities.calculate_expires_at(NEW.community_id, 'request', NEW.created_at);
+        -- Default to 60 days from creation (production default TTL)
+        -- Community-specific TTL can be set via application logic if needed
+        NEW.expires_at := NEW.created_at + INTERVAL '60 days';
     END IF;
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 
 -- Function to set expires_at on new help offers
+-- Note: Offers also don't have direct community_id, they're linked via request
 CREATE OR REPLACE FUNCTION requests.set_offer_expires_at()
 RETURNS TRIGGER AS $$
 BEGIN
     IF NEW.expires_at IS NULL THEN
-        NEW.expires_at := communities.calculate_expires_at(NEW.community_id, 'offer', NEW.created_at);
+        -- Default to 60 days from creation (production default TTL)
+        NEW.expires_at := NEW.created_at + INTERVAL '60 days';
     END IF;
     RETURN NEW;
 END;
