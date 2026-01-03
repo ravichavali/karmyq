@@ -1,18 +1,27 @@
-# Deploy Geocoding Fix to Production
+# Deploy All Localhost URL Fixes to Production
 
 ## What This Fixes
 
-**Problem**: Frontend was making requests to `http://localhost:3009` for geocoding, causing `ERR_CONNECTION_REFUSED` errors in production browser console.
+**Problem**: Frontend had **4 different hardcoded localhost URLs** causing `ERR_CONNECTION_REFUSED` errors in production.
 
-**Solution**: Use environment variable `NEXT_PUBLIC_GEOCODING_API_URL=/api/geocoding` to route requests through nginx proxy.
+**Solution**: All services now use environment variables to route requests through nginx proxy.
+
+### Issues Fixed:
+1. ✅ **Geocoding Service** (localhost:3009) - Search and cache endpoints
+2. ✅ **Social Graph Service** (localhost:3010) - Invitation validation
+3. ✅ **Messaging Service** - Wrong environment variable name
+4. ✅ **Feed Service** (localhost:3007) - Redundant fallback removed
+
+See [LOCALHOST_FIXES_SUMMARY.md](LOCALHOST_FIXES_SUMMARY.md) for complete details.
 
 ## Changes Made
 
-✅ Added `NEXT_PUBLIC_GEOCODING_API_URL` environment variable
-✅ Updated [geocoding.ts](apps/frontend/src/lib/geocoding.ts) to use environment variable
-✅ Updated both `.env.production` and `.env.local.example`
-✅ Created deployment script
-✅ Committed and pushed to master branch
+✅ Fixed geocoding service (localhost:3009)
+✅ Fixed social graph invitation validation (localhost:3010)
+✅ Fixed messaging service environment variable
+✅ Fixed feed service redundant fallbacks
+✅ Added comprehensive testing documentation
+✅ Committed and pushed to master (commits: dafd64b, 5ee7d18)
 
 ## Deployment Commands
 
