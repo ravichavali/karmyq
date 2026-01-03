@@ -24,7 +24,7 @@ export default function Feed({ userId, limit = 20 }: FeedProps) {
     try {
       const token = localStorage.getItem('token');
       const response = await fetch(
-        `${API_CONFIG.FEED_API_URL || 'http://localhost:3007'}/feed?limit=${limit}`,
+        `${API_CONFIG.FEED_API_URL}/feed?limit=${limit}`,
         {
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -53,7 +53,7 @@ export default function Feed({ userId, limit = 20 }: FeedProps) {
     try {
       const token = localStorage.getItem('token');
       const response = await fetch(
-        `${API_CONFIG.FEED_API_URL || 'http://localhost:3007'}/feed/dismiss/${itemId}`,
+        `${API_CONFIG.FEED_API_URL}/feed/dismiss/${itemId}`,
         {
           method: 'POST',
           headers: {

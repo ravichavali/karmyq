@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { io, Socket } from 'socket.io-client'
 
-const MESSAGING_SERVICE_URL = process.env.NEXT_PUBLIC_MESSAGING_SERVICE_URL || 'http://localhost:3006'
+const MESSAGING_SERVICE_URL = process.env.NEXT_PUBLIC_MESSAGING_API_URL || 'http://localhost:3006'
 
 interface Message {
   id: string
