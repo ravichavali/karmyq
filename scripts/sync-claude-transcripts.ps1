@@ -18,7 +18,7 @@ Write-Host "Step 1: Capturing Claude sessions..." -ForegroundColor Yellow
 Write-Host ""
 
 $tempDir = ".claude-transcripts"
-& ".\scripts\capture-claude-sessions.ps1" -DaysBack $DaysBack -OutputDir $tempDir
+& ".\scripts\capture-claude-sessions-v2.ps1" -DaysBack $DaysBack -OutputDir $tempDir -NonInteractive
 
 if ($LASTEXITCODE -ne 0) {
     Write-Host "❌ Session capture failed" -ForegroundColor Red

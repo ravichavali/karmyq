@@ -96,25 +96,48 @@ git push origin main
 
 ## Daily Workflow
 
-### Manual Capture (Recommended)
+### Initial Capture (First Time)
 
-Run at end of day to capture that day's sessions:
+Capture last 90 days of sessions to get full history:
 
 ```powershell
-# In main karmyq repo
+# Non-interactive mode (processes all sessions automatically)
+.\scripts\capture-claude-sessions.bat 90 auto
+
+# Then sync to separate repo
+.\scripts\sync-claude-transcripts.ps1 -DaysBack 90
+```
+
+This will:
+1. Find all sessions from last 90 days
+2. Automatically export all of them (no prompts)
+3. Save to `.claude-transcripts/` directory
+4. Sync to `karmyq-claude-transcripts` repo
+
+### Daily Capture (Ongoing)
+
+**Option A: Interactive** (recommended for manual review)
+```powershell
+# In main karmyq repo - shows selection menu
 .\scripts\capture-claude-sessions.bat 1
 
 # This will:
-# 1. Capture last 1 day of sessions
-# 2. Prompt you to select which sessions to export
-# 3. Save to .claude-transcripts/ directory
+# 1. Find sessions from last day
+# 2. Let you select which to export (Space to select, Enter to confirm)
+# 3. Save to .claude-transcripts/
+
+# Then sync to separate repo
+.\scripts\sync-claude-transcripts.ps1 -DaysBack 1
 ```
 
-Then sync to separate repo:
-
+**Option B: Automated** (for cron jobs)
 ```powershell
-# Run sync script
-.\scripts\sync-claude-transcripts.ps1 -DaysBack 1
+# Non-interactive - captures all automatically
+.\scripts\capture-claude-sessions.bat 2 auto
+
+# Use 2 days instead of 1 to ensure no sessions missed
+# Then sync
+.\scripts\sync-claude-transcripts.ps1 -DaysBack 2
 ```
 
 ### Automated Capture (Optional)
