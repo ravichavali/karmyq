@@ -51,18 +51,19 @@ Write-Host ""
 $startDate = (Get-Date).AddDays(-$DaysBack)
 $startDateStr = $startDate.ToString("yyyy-MM-dd")
 
-Write-Host "Start date: $startDateStr" -ForegroundColor White
+Write-Host "Capturing sessions from last $DaysBack day(s)" -ForegroundColor White
 Write-Host ""
 
 # Run claude-code-transcripts
-# Note: The tool will prompt to select sessions if multiple are found
+# Note: The tool is interactive and will prompt you to select sessions
 try {
     Write-Host "Running claude-code-transcripts..." -ForegroundColor Yellow
-    Write-Host "You may be prompted to select which sessions to export." -ForegroundColor Yellow
+    Write-Host "You will be prompted to select which sessions to export." -ForegroundColor Yellow
+    Write-Host "TIP: Use arrow keys to navigate, Space to select, Enter to confirm." -ForegroundColor Cyan
     Write-Host ""
 
-    # Run the command
-    & claude-code-transcripts --output $fullPath --since $startDateStr
+    # Run the command (interactive)
+    & claude-code-transcripts local --output $fullPath --output-auto --json --limit 20
 
     if ($LASTEXITCODE -eq 0) {
         Write-Host ""
