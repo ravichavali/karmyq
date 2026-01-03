@@ -497,7 +497,9 @@ export default function Dashboard() {
       console.log('Final request data:', requestData)
       console.log('===========================')
 
-      await requestService.createRequest(requestData)
+      console.log('About to call requestService.createRequest...')
+      const result = await requestService.createRequest(requestData)
+      console.log('Request created successfully!', result)
 
       // Clear form and refresh
       setDescription('')
