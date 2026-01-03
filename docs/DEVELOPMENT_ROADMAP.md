@@ -1,23 +1,87 @@
 # KarmyQ Development Roadmap
 
-**Last Updated**: 2025-12-30
+**Last Updated**: 2026-01-03
 **Version**: 8.0.0
 **Status**: Active Development
-**Latest Session**: Social Graph Invitation Fixes + ADR-022 (Multi-Tier Feed Architecture)
+**Latest Session**: Production Deployment Fixes + Operations Setup
 
 ---
 
 ## 🎯 Current Focus
 
-**Primary Objective**: Test Fixing & Feature Implementation
+**Primary Objective**: Return to Core Features after Production Stabilization
 
-**Active Work Stream**: Integration Test Fixes (Phase 1 Complete ✅)
-**Completed**: 2025-12-29 - Phase 1 (API response format, TypeScript errors)
-**Next**: Phase 2 - Implement missing API endpoints or skip unimplemented features
+**Active Work Stream**: Production Deployment Complete ✅
+**Completed**: 2026-01-03 - Production fixes, operations documentation, Claude transcript workflow
+**Next**: Synthetic Data Generation → Core Feature Development
 
 ---
 
 ## 📊 Work Streams
+
+### 0. Production Deployment & Operations Setup ✅ COMPLETE
+
+**Goal**: Stabilize production deployment and establish operations workflows
+**Priority**: P0 (Critical - Blocking)
+**Owner**: Development Team
+**Started**: 2026-01-02
+**Completed**: 2026-01-03
+
+#### Completed
+- ✅ Fixed nginx routing issues (301 redirects → regex patterns)
+- ✅ Fixed request creation on production (karmyq.com)
+- ✅ Added all missing API routes (matches, offers, conversations, invitations, paths)
+- ✅ Fixed Loki crash loop (retention config, version upgrade to 3.3.2)
+- ✅ Set up observability stack (Loki + Promtail + Grafana)
+- ✅ Exposed Grafana with basic auth (port 3011)
+- ✅ Created comprehensive operations documentation
+  - [DEPLOYMENT_GUIDE.md](operations/DEPLOYMENT_GUIDE.md) - Complete deployment procedures
+  - [JANUARY_2026_DEPLOYMENT.md](operations/JANUARY_2026_DEPLOYMENT.md) - Deployment timeline
+  - [GRAFANA_ACCESS.md](operations/GRAFANA_ACCESS.md) - Observability access guide
+  - [POST_DEPLOYMENT_CHECKLIST.md](operations/POST_DEPLOYMENT_CHECKLIST.md) - Verification checklist
+  - [CLAUDE_TRANSCRIPT_SETUP.md](operations/CLAUDE_TRANSCRIPT_SETUP.md) - Session capture workflow
+- ✅ Set up Claude transcript capture workflow
+  - PowerShell scripts with emoji encoding fix
+  - Separate karmyq-claude-transcripts repository
+  - Automated and manual workflows
+  - Initial capture: 117 prompts across 24 pages
+- ✅ Documented product vision
+  - [POLYMORPHIC_REQUEST_SYSTEM.md](backlog/POLYMORPHIC_REQUEST_SYSTEM.md) - Community customization vision
+  - [LANDING_PAGE_VISION.md](backlog/LANDING_PAGE_VISION.md) - Platform philosophy
+
+#### Key Technical Fixes
+
+**Nginx 301 Redirect Issue**:
+- Root cause: Frontend calls `POST /api/requests` (no slash), nginx has `location /api/requests/` (with slash)
+- 301 redirects strip POST request bodies, causing data loss
+- Fix: Changed all nginx location blocks from literal to regex patterns
+- Example: `location ~ ^/api/requests(/.*)?$` handles both with and without trailing slashes
+
+**PowerShell UTF-8 Emoji Encoding**:
+- Root cause: UTF-8 emojis (❌, ✅, ⚠️, 📁) interpreted as escape sequences, causing parser errors
+- Fix: Replaced all emojis with ASCII text equivalents ([ERROR], [OK], [WARN], [FOLDER])
+- Affected scripts: capture-claude-sessions.ps1, capture-claude-sessions-v2.ps1, sync-claude-transcripts.ps1
+
+**Loki Configuration Changes**:
+- Loki 2.9.0+ moved retention flags from CLI to config file
+- Fixed docker-compose command override syntax (string → list format)
+- Upgraded Loki and Promtail from 2.9.0 → 3.3.2 for Docker API compatibility
+
+#### Key Lessons Learned
+- Nginx trailing slash handling critical for POST requests (301 redirects lose request body)
+- PowerShell UTF-8 emoji encoding causes parser errors (stick to ASCII)
+- Docker Compose command override requires list format (string format causes concatenation)
+- Loki retention configuration moved to config file in v2.9+ (CLI flags removed)
+- Environment variable changes require `docker-compose up --force-recreate` to take effect
+
+#### Related Documentation
+- [Deployment Guide](operations/DEPLOYMENT_GUIDE.md) - Complete procedures
+- [January 2026 Deployment Timeline](operations/JANUARY_2026_DEPLOYMENT.md) - Session timeline
+- [Claude Transcript Setup](operations/CLAUDE_TRANSCRIPT_SETUP.md) - Session capture workflow
+- [Polymorphic Request Vision](backlog/POLYMORPHIC_REQUEST_SYSTEM.md) - Product vision
+- [Landing Page Vision](backlog/LANDING_PAGE_VISION.md) - Platform philosophy
+
+---
 
 ### 1. UI Testing Infrastructure ✅ COMPLETE
 
@@ -172,14 +236,14 @@
 
 ### Current Tangents (Open)
 
-| ID | Tangent | Parent Stream | Started | Priority | Blocker | Return Path |
-|----|---------|---------------|---------|----------|---------|-------------|
-| T-013 | API-Based Test Data Generator with Time Travel | Track B: Production Deployment | 2025-12-31 | P0 | None | Seed staging environment with aged data, then resume Track B infrastructure work |
+_No active tangents - returned to main path (Synthetic Data Generation)_
 
 ### Completed Tangents
 
 | ID | Tangent | Parent Stream | Completed | Outcome |
 |----|---------|---------------|-----------|---------|
+| T-014 | Production Deployment & Operations Setup | Core Features | 2026-01-03 | Fixed nginx routing, Loki config, created comprehensive ops docs, set up Claude transcript workflow |
+| T-013 | API-Based Test Data Generator with Time Travel | Track B: Production Deployment | 2025-12-31 | Created data seeding framework (deferred time travel to backlog) |
 | T-000 | Community membership counter sync | Data Integrity | 2025-12-28 | Fixed UPDATE query in data generator |
 | T-001 | Polymorphic request rendering | UI Testing | 2025-12-28 | Built RequestPayloadRenderer + 35 tests |
 | T-002 | RequestPayloadRenderer integration | T-001 | 2025-12-28 | Integrated into FeedItem component |
