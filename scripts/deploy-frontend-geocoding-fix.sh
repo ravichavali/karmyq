@@ -35,7 +35,7 @@ echo ""
 echo "Step 2: Restarting frontend container..."
 cd ~/karmyq/infrastructure/docker
 
-docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --force-recreate karmyq-frontend
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --force-recreate frontend
 
 if [ $? -ne 0 ]; then
     echo "❌ ERROR: Failed to restart frontend container!"
@@ -50,11 +50,11 @@ echo "Step 3: Verifying deployment..."
 sleep 5
 
 # Check if frontend is running
-if docker ps | grep -q karmyq-frontend; then
+if docker ps | grep -q frontend; then
     echo "✅ Frontend container is running"
 else
     echo "❌ ERROR: Frontend container is not running!"
-    docker logs karmyq-frontend --tail 50
+    docker compose -f docker-compose.yml -f docker-compose.prod.yml logs frontend --tail 50
     exit 1
 fi
 
