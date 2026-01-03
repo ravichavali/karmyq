@@ -348,7 +348,7 @@ services:
 
     # Grafana Loki - Log aggregation
   loki:
-    image: grafana/loki:2.9.0
+    image: grafana/loki:3.3.2
     container_name: karmyq-loki
     ports:
       - "127.0.0.1:3100:3100"
@@ -361,7 +361,7 @@ services:
 
   # Promtail - Log shipper (collects from Docker containers)
   promtail:
-    image: grafana/promtail:2.9.0
+    image: grafana/promtail:3.3.2
     container_name: karmyq-promtail
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
