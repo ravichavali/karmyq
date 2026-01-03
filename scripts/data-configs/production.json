@@ -1,0 +1,24 @@
+{
+  "mode": "production",
+  "description": "Production environment - large realistic dataset with full history",
+  "seed": null,
+  "data": {
+    "users": 2000,
+    "communities": 200,
+    "requestsPerUserAvg": 3,
+    "offersPerUserAvg": 2,
+    "matchesRate": 0.6,
+    "invitationRate": 0.7
+  },
+  "timeline": {
+    "ageInDays": 365,
+    "spreadInDays": 365
+  },
+  "features": {
+    "polymorphicRequests": true,
+    "socialGraph": true,
+    "reputation": true,
+    "knownTestUsers": false
+  },
+  "knownUsers": []
+}

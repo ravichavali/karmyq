@@ -1,0 +1,113 @@
+{
+  "mode": "test",
+  "description": "Testing environment - known users only, fully deterministic",
+  "seed": 99999,
+  "data": {
+    "users": 10,
+    "communities": 3,
+    "requestsPerUserAvg": 3,
+    "offersPerUserAvg": 2,
+    "matchesRate": 0.8,
+    "invitationRate": 1.0
+  },
+  "timeline": {
+    "ageInDays": 0,
+    "spreadInDays": 14
+  },
+  "features": {
+    "polymorphicRequests": true,
+    "socialGraph": true,
+    "reputation": true,
+    "knownTestUsers": true
+  },
+  "knownUsers": [
+    {
+      "email": "alice@test.com",
+      "name": "Alice Helper",
+      "role": "super_helper",
+      "karma": 500,
+      "exchanges": 50,
+      "joinedDaysAgo": 365
+    },
+    {
+      "email": "bob@test.com",
+      "name": "Bob Newbie",
+      "role": "new_member",
+      "karma": 0,
+      "exchanges": 0,
+      "joinedDaysAgo": 1
+    },
+    {
+      "email": "charlie@test.com",
+      "name": "Charlie Moderator",
+      "role": "moderator",
+      "karma": 200,
+      "communities": ["creator", "admin"],
+      "exchanges": 20,
+      "joinedDaysAgo": 180
+    },
+    {
+      "email": "diana@test.com",
+      "name": "Diana Requester",
+      "role": "requester",
+      "karma": -50,
+      "exchanges": 20,
+      "requestToOfferRatio": 5,
+      "joinedDaysAgo": 90
+    },
+    {
+      "email": "eve@test.com",
+      "name": "Eve Inactive",
+      "role": "inactive",
+      "karma": 10,
+      "exchanges": 2,
+      "lastActiveDaysAgo": 60,
+      "joinedDaysAgo": 120
+    },
+    {
+      "email": "frank@test.com",
+      "name": "Frank Connector",
+      "role": "connector",
+      "karma": 150,
+      "exchanges": 30,
+      "communities": ["member", "member", "member"],
+      "joinedDaysAgo": 200
+    },
+    {
+      "email": "grace@test.com",
+      "name": "Grace Teacher",
+      "role": "teacher",
+      "karma": 180,
+      "exchanges": 25,
+      "skills": ["tutoring", "language_help", "professional"],
+      "joinedDaysAgo": 150
+    },
+    {
+      "email": "henry@test.com",
+      "name": "Henry Catalyst",
+      "role": "catalyst",
+      "karma": 120,
+      "exchanges": 15,
+      "invitedUsers": 8,
+      "joinedDaysAgo": 100
+    },
+    {
+      "email": "iris@test.com",
+      "name": "Iris Caregiver",
+      "role": "caregiver",
+      "karma": 250,
+      "exchanges": 40,
+      "skills": ["childcare", "pet_care", "cooking"],
+      "joinedDaysAgo": 220
+    },
+    {
+      "email": "jack@test.com",
+      "name": "Jack Reliable",
+      "role": "reliable",
+      "karma": 300,
+      "exchanges": 60,
+      "completionRate": 0.95,
+      "joinedDaysAgo": 300
+    }
+  ]
+}

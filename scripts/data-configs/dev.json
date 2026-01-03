@@ -1,0 +1,49 @@
+{
+  "mode": "dev",
+  "description": "Development environment - small, fast, deterministic",
+  "seed": 12345,
+  "data": {
+    "users": 50,
+    "communities": 5,
+    "requestsPerUserAvg": 2,
+    "offersPerUserAvg": 1,
+    "matchesRate": 0.6,
+    "invitationRate": 0.7
+  },
+  "timeline": {
+    "ageInDays": 0,
+    "spreadInDays": 30
+  },
+  "features": {
+    "polymorphicRequests": true,
+    "socialGraph": true,
+    "reputation": true,
+    "knownTestUsers": true
+  },
+  "knownUsers": [
+    {
+      "email": "alice@test.com",
+      "name": "Alice Helper",
+      "role": "super_helper",
+      "karma": 100,
+      "exchanges": 10,
+      "joinedDaysAgo": 30
+    },
+    {
+      "email": "bob@test.com",
+      "name": "Bob Newbie",
+      "role": "new_member",
+      "karma": 0,
+      "exchanges": 0,
+      "joinedDaysAgo": 1
+    },
+    {
+      "email": "charlie@test.com",
+      "name": "Charlie Moderator",
+      "role": "moderator",
+      "karma": 50,
+      "communities": ["creator", "admin"],
+      "joinedDaysAgo": 20
+    }
+  ]
+}
