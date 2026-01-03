@@ -103,6 +103,10 @@ web-build/
 .metro-health-check*
 .claude/settings.local.json
 
+# Claude Code transcripts (managed in separate repo: karmyq-claude-transcripts)
+.claude-transcripts/
+docs/claude-sessions/
+
 # GitHub Actions
 actions-runner/
 .runner/
