@@ -213,7 +213,8 @@ services:
   # Observability - Reduced retention for production to save disk
   loki:
     restart: always
-    command: -config.file=/etc/loki/local-config.yaml -retention.period=168h # 7 days
+    command:
+      - -config.file=/etc/loki/local-config.yaml
     ports:
       - "127.0.0.1:3100:3100"
 
