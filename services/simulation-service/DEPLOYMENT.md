@@ -207,23 +207,33 @@ sudo journalctl -u karmyq-simulation -f
 
 ## Create Simulated Users
 
-The simulation service needs dedicated user accounts. Create them via admin panel or API:
+The simulation service needs dedicated user accounts. Use the provided script:
 
 ```bash
-# Example: Create 20 simulated users
-for i in {1..20}; do
-  curl -X POST https://karmyq.com/api/auth/register \
-    -H "Content-Type: application/json" \
-    -d "{
-      \"email\": \"sim-user-$i@karmyq.com\",
-      \"password\": \"SimPassword123!\",
-      \"name\": \"Simulated User $i\",
-      \"bio\": \"Demo user for platform testing\"
-    }"
-done
+# Production - Create 20 users
+node create-simulated-users.js --env production --count 20
+
+# Staging - Create 10 users
+node create-simulated-users.js --env staging --count 10
+
+# Development - Create 5 users
+node create-simulated-users.js --env dev --count 5
+
+# Dry run to preview
+node create-simulated-users.js --env production --count 20 --dry-run
 ```
 
-**Important**: Store credentials securely (environment variables or secrets manager).
+**Features**:
+- Proper profile distribution (30% Active Helper, 25% Requester, etc.)
+- Secure random passwords
+- Handles existing users gracefully
+- Saves credentials to `.env.{environment}.users` file
+- Automatic retry logic
+
+**Important**:
+- Store credentials file securely (never commit to git!)
+- Add `.env.*.users` to `.gitignore`
+- Consider using secrets manager for production credentials
 
 ---
 

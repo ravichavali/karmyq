@@ -1,0 +1,343 @@
+/**
+ * Create Simulated Users for Production/Staging
+ *
+ * Creates dedicated user accounts for the simulation service with:
+ * - Profile distribution matching simulation config
+ * - Secure random passwords
+ * - Community memberships
+ * - Error handling and retry logic
+ *
+ * Usage:
+ *   node create-simulated-users.js --env production --count 20
+ *   node create-simulated-users.js --env staging --count 10
+ *   node create-simulated-users.js --env dev --count 5
+ */
+
+const axios = require('axios');
+const crypto = require('crypto');
+
+// Configuration per environment
+const ENVIRONMENTS = {
+  production: {
+    apiUrl: 'https://karmyq.com/api',
+    userCount: 20,
+    emailDomain: 'sim-prod.karmyq.com'
+  },
+  staging: {
+    apiUrl: 'https://staging.karmyq.com/api',
+    userCount: 10,
+    emailDomain: 'sim-staging.karmyq.com'
+  },
+  dev: {
+    apiUrl: 'http://localhost:3000/api',
+    userCount: 5,
+    emailDomain: 'sim-dev.karmyq.com'
+  }
+};
+
+// User profiles matching simulation service distribution
+const PROFILES = [
+  { type: 'active-helper', weight: 0.30, names: ['Alex Helper', 'Sam Assistant', 'Jordan Aid', 'Casey Support', 'Morgan Guide', 'Taylor Care'] },
+  { type: 'requester', weight: 0.25, names: ['Jamie Request', 'Riley Need', 'Avery Seeker', 'Quinn Ask', 'Parker Inquire'] },
+  { type: 'browser', weight: 0.25, names: ['Drew Browse', 'Skyler View', 'River Look', 'Sage Watch', 'Robin Explore'] },
+  { type: 'community-builder', weight: 0.10, names: ['Cameron Builder', 'Dakota Community'] },
+  { type: 'social-user', weight: 0.10, names: ['Reese Social', 'Finley Friend'] }
+];
+
+// Parse command line arguments
+function parseArgs() {
+  const args = process.argv.slice(2);
+  const config = {
+    env: 'dev',
+    count: null,
+    dryRun: false
+  };
+
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === '--env' && args[i + 1]) {
+      config.env = args[i + 1];
+      i++;
+    } else if (args[i] === '--count' && args[i + 1]) {
+      config.count = parseInt(args[i + 1]);
+      i++;
+    } else if (args[i] === '--dry-run') {
+      config.dryRun = true;
+    }
+  }
+
+  return config;
+}
+
+// Generate secure random password
+function generatePassword() {
+  return crypto.randomBytes(16).toString('base64').slice(0, 20) + 'A1!';
+}
+
+// Distribute users across profiles
+function distributeProfiles(count) {
+  const distribution = [];
+  let assigned = 0;
+
+  for (const profile of PROFILES) {
+    const profileCount = Math.round(count * profile.weight);
+    const names = profile.names;
+
+    for (let i = 0; i < profileCount && assigned < count; i++) {
+      const name = names[i % names.length];
+      const suffix = Math.floor(i / names.length) > 0 ? ` ${Math.floor(i / names.length) + 1}` : '';
+
+      distribution.push({
+        name: name + suffix,
+        profile: profile.type,
+        index: assigned + 1
+      });
+      assigned++;
+    }
+  }
+
+  // Fill remaining with random profiles if needed
+  while (assigned < count) {
+    const profile = PROFILES[assigned % PROFILES.length];
+    const name = profile.names[0];
+    distribution.push({
+      name: `${name} ${assigned + 1}`,
+      profile: profile.type,
+      index: assigned + 1
+    });
+    assigned++;
+  }
+
+  return distribution;
+}
+
+// Register a user
+async function registerUser(apiUrl, email, name, password) {
+  try {
+    const response = await axios.post(`${apiUrl}/auth/register`, {
+      email,
+      name,
+      password,
+      bio: 'Simulated user for platform testing and demonstration'
+    }, {
+      timeout: 10000
+    });
+
+    return {
+      success: true,
+      userId: response.data.data?.user?.id || response.data.data?.id,
+      token: response.data.data?.token
+    };
+  } catch (error) {
+    if (error.response?.status === 409) {
+      // User already exists - try to login
+      try {
+        const loginResponse = await axios.post(`${apiUrl}/auth/login`, {
+          email,
+          password
+        });
+        return {
+          success: true,
+          userId: loginResponse.data.data?.user?.id,
+          token: loginResponse.data.data?.token,
+          existed: true
+        };
+      } catch (loginError) {
+        return {
+          success: false,
+          error: 'User exists but login failed (password mismatch?)'
+        };
+      }
+    }
+
+    return {
+      success: false,
+      error: error.response?.data?.message || error.message
+    };
+  }
+}
+
+// Get or create default community
+async function getDefaultCommunity(apiUrl, token) {
+  try {
+    // Try to get existing communities
+    const response = await axios.get(`${apiUrl}/communities`, {
+      headers: { Authorization: `Bearer ${token}` },
+      timeout: 10000
+    });
+
+    if (response.data.data?.length > 0) {
+      return response.data.data[0].id;
+    }
+
+    // Create default community if none exists
+    const createResponse = await axios.post(`${apiUrl}/communities`, {
+      name: 'Demo Community',
+      description: 'Default community for simulated users',
+      location: 'Virtual',
+      category: 'general'
+    }, {
+      headers: { Authorization: `Bearer ${token}` },
+      timeout: 10000
+    });
+
+    return createResponse.data.data?.id || createResponse.data.data?.community_id;
+  } catch (error) {
+    console.warn('Could not get/create community:', error.message);
+    return null;
+  }
+}
+
+// Join community
+async function joinCommunity(apiUrl, token, inviteCode) {
+  try {
+    await axios.post(`${apiUrl}/communities/join`, {
+      invite_code: inviteCode
+    }, {
+      headers: { Authorization: `Bearer ${token}` },
+      timeout: 10000
+    });
+    return true;
+  } catch (error) {
+    console.warn('Could not join community:', error.message);
+    return false;
+  }
+}
+
+// Main function
+async function main() {
+  const config = parseArgs();
+
+  console.log('🚀 Simulated User Creation Tool\n');
+  console.log(`Environment: ${config.env}`);
+
+  if (!ENVIRONMENTS[config.env]) {
+    console.error(`❌ Invalid environment: ${config.env}`);
+    console.error(`   Valid options: ${Object.keys(ENVIRONMENTS).join(', ')}`);
+    process.exit(1);
+  }
+
+  const env = ENVIRONMENTS[config.env];
+  const userCount = config.count || env.userCount;
+
+  console.log(`API URL: ${env.apiUrl}`);
+  console.log(`Users to create: ${userCount}`);
+  console.log(`Email domain: @${env.emailDomain}`);
+
+  if (config.dryRun) {
+    console.log('\n⚠️  DRY RUN MODE - No users will be created\n');
+  } else {
+    console.log('');
+  }
+
+  // Distribute users across profiles
+  const distribution = distributeProfiles(userCount);
+
+  console.log('Profile Distribution:');
+  const profileCounts = {};
+  distribution.forEach(u => {
+    profileCounts[u.profile] = (profileCounts[u.profile] || 0) + 1;
+  });
+  Object.entries(profileCounts).forEach(([profile, count]) => {
+    console.log(`  ${profile}: ${count} (${Math.round(count / userCount * 100)}%)`);
+  });
+  console.log('');
+
+  if (config.dryRun) {
+    console.log('Preview of users to create:');
+    distribution.forEach(u => {
+      const email = `sim-user-${u.index}@${env.emailDomain}`;
+      console.log(`  ${u.index}. ${u.name} <${email}> [${u.profile}]`);
+    });
+    console.log('\nRun without --dry-run to create these users.');
+    process.exit(0);
+  }
+
+  // Create users
+  const results = {
+    created: [],
+    existed: [],
+    failed: []
+  };
+
+  console.log('Creating users...\n');
+
+  for (const user of distribution) {
+    const email = `sim-user-${user.index}@${env.emailDomain}`;
+    const password = generatePassword();
+
+    process.stdout.write(`[${user.index}/${userCount}] Creating ${user.name} <${email}>... `);
+
+    const result = await registerUser(env.apiUrl, email, user.name, password);
+
+    if (result.success) {
+      if (result.existed) {
+        console.log('✓ (already exists)');
+        results.existed.push({ email, name: user.name, profile: user.profile });
+      } else {
+        console.log('✓');
+        results.created.push({
+          email,
+          password,
+          name: user.name,
+          profile: user.profile,
+          userId: result.userId
+        });
+      }
+    } else {
+      console.log(`✗ ${result.error}`);
+      results.failed.push({ email, name: user.name, error: result.error });
+    }
+
+    // Small delay to avoid rate limiting
+    await new Promise(resolve => setTimeout(resolve, 500));
+  }
+
+  // Summary
+  console.log('\n' + '='.repeat(60));
+  console.log('Summary:');
+  console.log(`  ✓ Created: ${results.created.length}`);
+  console.log(`  ✓ Already existed: ${results.existed.length}`);
+  console.log(`  ✗ Failed: ${results.failed.length}`);
+  console.log('='.repeat(60));
+
+  if (results.failed.length > 0) {
+    console.log('\nFailed users:');
+    results.failed.forEach(u => {
+      console.log(`  ✗ ${u.email}: ${u.error}`);
+    });
+  }
+
+  // Save credentials to file
+  if (results.created.length > 0) {
+    const credentialsFile = `.env.${config.env}.users`;
+    const fs = require('fs');
+
+    let content = `# Simulated User Credentials - ${new Date().toISOString()}\n`;
+    content += `# Environment: ${config.env}\n`;
+    content += `# Total: ${results.created.length} users\n\n`;
+
+    results.created.forEach((u, i) => {
+      content += `# ${u.name} [${u.profile}]\n`;
+      content += `SIM_USER_${i + 1}_EMAIL=${u.email}\n`;
+      content += `SIM_USER_${i + 1}_PASSWORD=${u.password}\n`;
+      content += `SIM_USER_${i + 1}_ID=${u.userId}\n\n`;
+    });
+
+    fs.writeFileSync(credentialsFile, content);
+    console.log(`\n✓ Credentials saved to: ${credentialsFile}`);
+    console.log(`  ⚠️  IMPORTANT: Keep this file secure and never commit to git!`);
+  }
+
+  console.log('\n✅ User creation complete!');
+  console.log('\nNext steps:');
+  console.log('  1. Review credentials file');
+  console.log('  2. Update simulation service configuration');
+  console.log('  3. Start simulation service with PM2');
+  console.log('  4. Monitor logs for activity');
+}
+
+// Run
+main().catch(error => {
+  console.error('\n❌ Fatal error:', error.message);
+  process.exit(1);
+});

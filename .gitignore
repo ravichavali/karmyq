@@ -13,6 +13,7 @@ pnpm-lock.yaml
 .env.development.local
 .env.test.local
 .env.production.local
+.env.*.users  # Simulated user credentials - never commit!
 
 # Build outputs
 dist/
