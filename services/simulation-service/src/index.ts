@@ -20,7 +20,7 @@ dotenv.config();
  */
 function loadConfig(): SimulationConfig {
   const config: SimulationConfig = {
-    ...defaultConfig,
+    ...(defaultConfig as SimulationConfig),
     apiBaseUrl: process.env.API_BASE_URL || defaultConfig.apiBaseUrl,
     enabled: process.env.SIMULATION_ENABLED === 'true' || defaultConfig.enabled,
     environment: (process.env.ENVIRONMENT as any) || defaultConfig.environment
