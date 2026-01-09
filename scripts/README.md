@@ -1,8 +1,85 @@
-# Scripts - Karmyq Automation
+# Karmyq Scripts Directory
 
-Utility scripts for development and project management.
+**Last Updated**: 2026-01-08
+**Total Scripts**: 67 (see SCRIPTS_INVENTORY.md for complete list)
 
-## Quick Start
+Utility scripts for development, testing, deployment, and project management.
+
+## 🎯 Primary Scripts (Most Commonly Used)
+
+### Data Seeding
+
+```bash
+# DB-based seeding (direct SQL - faster)
+node scripts/seed-test-data.js
+
+# API-based seeding (tests API layer)
+node scripts/populate-fresh-database.js
+```
+
+### Testing (Required Before Commits)
+
+```bash
+# Windows - Full test suite
+scripts\test-all.bat
+
+# Mac/Linux - Full test suite
+./scripts/test-all.sh
+
+# Quick development testing
+scripts\test-local.bat quick
+```
+
+### Maintenance
+
+```bash
+# Clear database
+scripts\truncate-database.bat   # Windows
+./scripts/truncate-database.sh  # Mac/Linux
+
+# Restart services
+./scripts/restart-services.sh
+```
+
+### Claude Transcript Capture
+
+```bash
+# Capture sessions (see docs/operations/CLAUDE_TRANSCRIPT_SETUP.md)
+.\scripts\capture-claude-sessions-v2.ps1 -DaysBack 90
+
+# Sync to separate repo
+.\scripts\sync-claude-transcripts.ps1
+```
+
+---
+
+## 📁 Script Organization
+
+See **SCRIPTS_INVENTORY.md** for complete categorization of all 67 scripts.
+
+**Key Categories**:
+- Data Generation (16 scripts) - Seeding and data generation
+- Testing (4 scripts) - Test suite runners
+- Diagnostics (14 scripts) - Health checks and debugging
+- Maintenance (7 scripts) - Database and service maintenance
+- GitHub (5 scripts) - Issue and label management
+- Claude (3 scripts) - Session capture and sync
+- Git Hooks (4 scripts) - Pre-commit hooks
+
+---
+
+## 📚 Related Documentation
+
+- **SCRIPTS_INVENTORY.md** - Complete inventory with status and recommendations
+- **DEVELOPMENT_PROCESS.md** - Testing requirements and workflows
+- **docs/operations/CLAUDE_TRANSCRIPT_SETUP.md** - Session capture workflow
+- **docs/operations/SYNTHETIC_DATA_PLAN.md** - Data generation consolidation plan
+
+---
+
+## GitHub Integration
+
+### Quick Start
 
 Run these commands in order to set up your GitHub project:
 
