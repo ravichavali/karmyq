@@ -21,7 +21,11 @@ export class SessionManager {
 
     // Login
     try {
-      const loginData = await this.client.login(user.email, 'password123');
+      if (!user.password) {
+        throw new Error('User password not provided');
+      }
+
+      const loginData = await this.client.login(user.email, user.password);
       user.token = loginData.token;
       this.client.setToken(loginData.token);
 

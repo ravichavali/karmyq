@@ -36,6 +36,7 @@ export interface SimulatedUser {
   id: string;
   email: string;
   name: string;
+  password?: string;  // Password for authentication
   profile: UserProfile;
   token?: string;
   currentSession?: UserSession;

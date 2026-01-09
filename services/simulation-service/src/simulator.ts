@@ -13,14 +13,26 @@ import {
   messageWorkflow,
   completeMatchWorkflow
 } from './workflows';
+import { loadUserCredentials, getRandomUser, UserCredentials } from './credentials-loader';
 
 export class Simulator {
   private sessionManager: SessionManager;
   private activeSessions: Map<string, UserSession> = new Map();
   private isRunning: boolean = false;
+  private userCredentials: UserCredentials[] = [];
+  private usedUserIds: Set<string> = new Set();
 
   constructor(private config: SimulationConfig) {
     this.sessionManager = new SessionManager(config);
+
+    // Load user credentials
+    this.userCredentials = loadUserCredentials(config.environment);
+
+    if (this.userCredentials.length === 0) {
+      console.error('❌ No user credentials loaded. Cannot start simulation.');
+      console.error('   Create users first: node create-simulated-users.js --env production --count 20');
+      throw new Error('No user credentials available');
+    }
   }
 
   /**
@@ -83,16 +95,45 @@ export class Simulator {
   }
 
   /**
-   * Create a simulated user
+   * Create a simulated user from loaded credentials
    */
   private createSimulatedUser(): SimulatedUser {
+    // Get a random user that's not currently active
+    const availableUsers = this.userCredentials.filter(
+      u => !this.usedUserIds.has(u.userId)
+    );
+
+    if (availableUsers.length === 0) {
+      // All users are active, reuse a random one
+      const userCreds = getRandomUser(this.userCredentials);
+      if (!userCreds) {
+        throw new Error('No user credentials available');
+      }
+
+      // Assign profile based on credentials
+      const profile = assignProfile(this.config.users.profiles);
+
+      return {
+        id: userCreds.userId,
+        email: userCreds.email,
+        name: userCreds.name,
+        password: userCreds.password,
+        profile
+      };
+    }
+
+    // Use an available user
+    const userCreds = availableUsers[randomInt(0, availableUsers.length - 1)];
+    this.usedUserIds.add(userCreds.userId);
+
+    // Assign profile based on credentials
     const profile = assignProfile(this.config.users.profiles);
-    const id = `sim-${Date.now()}-${randomInt(1000, 9999)}`;
 
     return {
-      id,
-      email: `simuser-${id}@simulation.karmyq.com`,
-      name: this.generateRandomName(),
+      id: userCreds.userId,
+      email: userCreds.email,
+      name: userCreds.name,
+      password: userCreds.password,
       profile
     };
   }
