@@ -94,8 +94,15 @@ export function isBusinessHours(config: { start: string; end: string; timezone: 
   const [startHour, startMin] = config.start.split(':').map(Number);
   const [endHour, endMin] = config.end.split(':').map(Number);
 
-  const currentHour = now.getHours();
-  const currentMin = now.getMinutes();
+  // Convert to configured timezone
+  const timeString = now.toLocaleString('en-US', {
+    timeZone: config.timezone,
+    hour12: false,
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+
+  const [currentHour, currentMin] = timeString.split(':').map(Number);
   const currentTime = currentHour * 60 + currentMin;
   const startTime = startHour * 60 + startMin;
   const endTime = endHour * 60 + endMin;
