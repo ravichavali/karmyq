@@ -13,7 +13,6 @@ import { Pool } from 'pg';
  */
 
 const FEED_API_URL = process.env.FEED_API_URL || 'http://localhost:3007';
-const AUTH_API_URL = process.env.AUTH_API_URL || 'http://localhost:3001';
 
 const pool = new Pool({
   host: process.env.POSTGRES_HOST || 'localhost',
@@ -28,28 +27,56 @@ let testCommunityId: string;
 let testUserId: string;
 
 beforeAll(async () => {
-  // Login to get auth token
-  const loginResponse = await axios.post(`${AUTH_API_URL}/auth/login`, {
-    email: 'isabella.thomas0@example.com',
-    password: 'password123',
-  });
+  // Create or get test user
+  const userResult = await pool.query(
+    `INSERT INTO auth.users (name, email, password_hash)
+     VALUES ('Feed Test User', 'feed-test@example.com', '$2b$10$abcdefghijklmnopqrstuv')
+     ON CONFLICT (email) DO UPDATE SET email = EXCLUDED.email
+     RETURNING id`
+  );
+  testUserId = userResult.rows[0].id;
 
-  authToken = loginResponse.data.token;
-  testUserId = loginResponse.data.data.user.id;
+  // Get or create test community (delete old one first to avoid conflicts)
+  await pool.query(`DELETE FROM communities.communities WHERE name = 'Feed Test Community'`);
 
-  // Get first community
-  const result = await pool.query(
-    'SELECT id FROM communities.communities ORDER BY created_at LIMIT 1'
+  const communityResult = await pool.query(
+    `INSERT INTO communities.communities (name, description, creator_id)
+     VALUES ('Feed Test Community', 'Test community for feed tests', $1)
+     RETURNING id`,
+    [testUserId]
+  );
+  testCommunityId = communityResult.rows[0].id;
+
+  // Add user to community
+  await pool.query(
+    `INSERT INTO communities.members (community_id, user_id, role)
+     VALUES ($1, $2, 'admin')
+     ON CONFLICT (community_id, user_id) DO NOTHING`,
+    [testCommunityId, testUserId]
   );
 
-  testCommunityId = result.rows[0]?.id;
+  // Generate auth token
+  const jwt = require('jsonwebtoken');
+  authToken = jwt.sign(
+    { userId: testUserId, communityMemberships: [{ communityId: testCommunityId, role: 'admin' }] },
+    process.env.JWT_SECRET || 'dev_jwt_secret_change_in_production'
+  );
 });
 
 afterAll(async () => {
   try {
+    // Cleanup test data
+    if (testCommunityId) {
+      await pool.query('DELETE FROM communities.members WHERE community_id = $1', [testCommunityId]);
+      await pool.query('DELETE FROM communities.communities WHERE id = $1', [testCommunityId]);
+    }
+    if (testUserId) {
+      await pool.query('DELETE FROM auth.users WHERE id = $1', [testUserId]);
+    }
+
     await pool.end();
   } catch (error) {
-    console.error('Error closing pool:', error);
+    console.error('Error during cleanup:', error);
   }
 }, 10000); // 10 second timeout for cleanup
 
