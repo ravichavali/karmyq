@@ -21,7 +21,7 @@ $tempDir = ".claude-transcripts"
 & ".\scripts\capture-claude-sessions-v2.ps1" -DaysBack $DaysBack -OutputDir $tempDir -NonInteractive
 
 if ($LASTEXITCODE -ne 0) {
-    Write-Host "❌ Session capture failed" -ForegroundColor Red
+    Write-Host "[ERROR] Session capture failed" -ForegroundColor Red
     exit 1
 }
 
@@ -30,7 +30,7 @@ Write-Host ""
 Write-Host "Step 2: Checking transcripts repository..." -ForegroundColor Yellow
 
 if (-not (Test-Path $TranscriptsRepoPath)) {
-    Write-Host "❌ Transcripts repo not found at: $TranscriptsRepoPath" -ForegroundColor Red
+    Write-Host "[ERROR] Transcripts repo not found at: $TranscriptsRepoPath" -ForegroundColor Red
     Write-Host ""
     Write-Host "Please clone it first:" -ForegroundColor Yellow
     Write-Host "  cd $HOME\development" -ForegroundColor White
@@ -38,7 +38,7 @@ if (-not (Test-Path $TranscriptsRepoPath)) {
     exit 1
 }
 
-Write-Host "✅ Found transcripts repo" -ForegroundColor Green
+Write-Host "[OK] Found transcripts repo" -ForegroundColor Green
 
 # Step 3: Copy sessions to transcripts repo
 Write-Host ""
@@ -55,9 +55,9 @@ try {
         Write-Host "  Copied: $($item.Name)" -ForegroundColor White
     }
 
-    Write-Host "✅ Sessions copied successfully" -ForegroundColor Green
+    Write-Host "[OK] Sessions copied successfully" -ForegroundColor Green
 } catch {
-    Write-Host "❌ Copy failed: $_" -ForegroundColor Red
+    Write-Host "[ERROR] Copy failed: $_" -ForegroundColor Red
     exit 1
 }
 
@@ -74,14 +74,14 @@ try {
     # Check if there are changes
     $status = git status --porcelain
     if ([string]::IsNullOrWhiteSpace($status)) {
-        Write-Host "⚠️  No changes to commit (sessions already synced)" -ForegroundColor Yellow
+        Write-Host "[WARN]  No changes to commit (sessions already synced)" -ForegroundColor Yellow
     } else {
         # Commit
         $commitDate = Get-Date -Format "yyyy-MM-dd"
         $commitMsg = "docs: add Claude sessions through $commitDate"
         git commit -m $commitMsg
 
-        Write-Host "✅ Changes committed" -ForegroundColor Green
+        Write-Host "[OK] Changes committed" -ForegroundColor Green
         Write-Host "  Message: $commitMsg" -ForegroundColor White
 
         # Push
@@ -90,9 +90,9 @@ try {
         git push origin main
 
         if ($LASTEXITCODE -eq 0) {
-            Write-Host "✅ Pushed to GitHub successfully" -ForegroundColor Green
+            Write-Host "[OK] Pushed to GitHub successfully" -ForegroundColor Green
         } else {
-            Write-Host "❌ Push failed (exit code: $LASTEXITCODE)" -ForegroundColor Red
+            Write-Host "[ERROR] Push failed (exit code: $LASTEXITCODE)" -ForegroundColor Red
             Pop-Location
             exit 1
         }
@@ -101,7 +101,7 @@ try {
     Pop-Location
 } catch {
     Pop-Location
-    Write-Host "❌ Git operations failed: $_" -ForegroundColor Red
+    Write-Host "[ERROR] Git operations failed: $_" -ForegroundColor Red
     exit 1
 }
 
@@ -114,7 +114,7 @@ Write-Host "Local copy retained at: $tempDir" -ForegroundColor White
 
 Write-Host ""
 Write-Host "====================================" -ForegroundColor Cyan
-Write-Host "✅ Sync Complete!" -ForegroundColor Green
+Write-Host "[OK] Sync Complete!" -ForegroundColor Green
 Write-Host "====================================" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "Transcripts available at:" -ForegroundColor Yellow

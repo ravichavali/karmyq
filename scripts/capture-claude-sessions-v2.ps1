@@ -25,7 +25,7 @@ Write-Host "Checking for claude-code-transcripts tool..." -ForegroundColor Yello
 
 $claudeTranscripts = Get-Command claude-code-transcripts -ErrorAction SilentlyContinue
 if (-not $claudeTranscripts) {
-    Write-Host "❌ claude-code-transcripts not found" -ForegroundColor Red
+    Write-Host "[ERROR] claude-code-transcripts not found" -ForegroundColor Red
     Write-Host ""
     Write-Host "Install with:" -ForegroundColor Yellow
     Write-Host "  pip install git+https://github.com/simonw/claude-code-transcripts.git" -ForegroundColor White
@@ -35,7 +35,7 @@ if (-not $claudeTranscripts) {
     exit 1
 }
 
-Write-Host "✅ claude-code-transcripts found" -ForegroundColor Green
+Write-Host "[OK] claude-code-transcripts found" -ForegroundColor Green
 Write-Host ""
 
 # Create output directory
@@ -60,7 +60,7 @@ Write-Host ""
 # Get Claude sessions directory
 $claudeSessionsPath = Join-Path $env:APPDATA "Claude\claude-code\sessions"
 if (-not (Test-Path $claudeSessionsPath)) {
-    Write-Host "❌ Claude sessions directory not found at: $claudeSessionsPath" -ForegroundColor Red
+    Write-Host "[ERROR] Claude sessions directory not found at: $claudeSessionsPath" -ForegroundColor Red
     exit 1
 }
 
@@ -68,13 +68,15 @@ if (-not (Test-Path $claudeSessionsPath)) {
 $cutoffDate = (Get-Date).AddDays(-$DaysBack)
 
 # Find sessions within date range
-Write-Host "Finding sessions since $($cutoffDate.ToString('yyyy-MM-dd'))..." -ForegroundColor Yellow
+$dateFormat = 'yyyy-MM-dd'
+$cutoffDateStr = $cutoffDate.ToString($dateFormat)
+Write-Host "Finding sessions since $cutoffDateStr..." -ForegroundColor Yellow
 $recentSessions = Get-ChildItem -Path $claudeSessionsPath -Filter "*.jsonl" |
     Where-Object { $_.LastWriteTime -ge $cutoffDate } |
     Sort-Object LastWriteTime -Descending
 
 if ($recentSessions.Count -eq 0) {
-    Write-Host "⚠️  No sessions found in the last $DaysBack day(s)" -ForegroundColor Yellow
+    Write-Host "[WARN]  No sessions found in the last $DaysBack day(s)" -ForegroundColor Yellow
     exit 0
 }
 
@@ -92,22 +94,27 @@ try {
         $failCount = 0
 
         foreach ($session in $recentSessions) {
-            Write-Host "Processing: $($session.Name) ($($session.LastWriteTime.ToString('yyyy-MM-dd HH:mm')))" -ForegroundColor Cyan
+            $sessionDate = $session.LastWriteTime.ToString('yyyy-MM-dd HH:mm')
+            Write-Host "Processing: $($session.Name) ($sessionDate)" -ForegroundColor Cyan
 
             # Process this session
             & claude-code-transcripts json --output $fullPath --output-auto --json $session.FullName
 
             if ($LASTEXITCODE -eq 0) {
                 $successCount++
-                Write-Host "  ✅ Captured" -ForegroundColor Green
+                Write-Host "  [OK] Captured" -ForegroundColor Green
             } else {
                 $failCount++
-                Write-Host "  ❌ Failed" -ForegroundColor Red
+                Write-Host "  [ERROR] Failed" -ForegroundColor Red
             }
         }
 
         Write-Host ""
-        Write-Host "Results: $successCount succeeded, $failCount failed" -ForegroundColor $(if ($failCount -eq 0) { "Green" } else { "Yellow" })
+        if ($failCount -eq 0) {
+            Write-Host "Results: $successCount succeeded, $failCount failed" -ForegroundColor Green
+        } else {
+            Write-Host "Results: $successCount succeeded, $failCount failed" -ForegroundColor Yellow
+        }
 
     } else {
         # Interactive: Let user select
@@ -121,19 +128,19 @@ try {
 
         if ($LASTEXITCODE -ne 0) {
             Write-Host ""
-            Write-Host "❌ Session capture failed (exit code: $LASTEXITCODE)" -ForegroundColor Red
+            Write-Host "[ERROR] Session capture failed (exit code: $LASTEXITCODE)" -ForegroundColor Red
             exit 1
         }
     }
 
     Write-Host ""
-    Write-Host "✅ Sessions captured successfully!" -ForegroundColor Green
+    Write-Host "[OK] Sessions captured successfully!" -ForegroundColor Green
     Write-Host ""
 
     # Show what was captured
     $sessionDirs = Get-ChildItem -Path $fullPath -Directory | Where-Object { $_.Name -match '^\d{4}-\d{2}-\d{2}$' }
     if ($sessionDirs) {
-        Write-Host "📁 Captured sessions:" -ForegroundColor Cyan
+        Write-Host "[FOLDER] Captured sessions:" -ForegroundColor Cyan
         foreach ($dir in $sessionDirs | Sort-Object Name -Descending | Select-Object -First 10) {
             $fileCount = (Get-ChildItem -Path $dir.FullName -File).Count
             Write-Host "  $($dir.Name) - $fileCount files" -ForegroundColor White
@@ -146,20 +153,21 @@ try {
         Write-Host "Auto-commit enabled, committing to git..." -ForegroundColor Yellow
 
         git add $OutputDir
-        $commitMsg = "docs: capture Claude sessions through $(Get-Date -Format 'yyyy-MM-dd')"
+        $today = Get-Date -Format 'yyyy-MM-dd'
+        $commitMsg = "docs: capture Claude sessions through $today"
         git commit -m $commitMsg
 
         if ($LASTEXITCODE -eq 0) {
-            Write-Host "✅ Changes committed to git" -ForegroundColor Green
+            Write-Host "[OK] Changes committed to git" -ForegroundColor Green
             Write-Host "Commit message: $commitMsg" -ForegroundColor White
         } else {
-            Write-Host "⚠️  No changes to commit (sessions may already be captured)" -ForegroundColor Yellow
+            Write-Host "[WARN]  No changes to commit (sessions may already be captured)" -ForegroundColor Yellow
         }
     }
 
 } catch {
     Write-Host ""
-    Write-Host "❌ Error capturing sessions: $_" -ForegroundColor Red
+    Write-Host "[ERROR] Error capturing sessions: $_" -ForegroundColor Red
     exit 1
 }
 
@@ -169,6 +177,5 @@ Write-Host "Capture complete!" -ForegroundColor Cyan
 Write-Host "====================================" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "View sessions:" -ForegroundColor Yellow
-$indexPath = Join-Path $fullPath "index.html"
-Write-Host "  Open $indexPath in your browser" -ForegroundColor White
+Write-Host "  Open index.html in your browser from the output directory" -ForegroundColor White
 Write-Host ""

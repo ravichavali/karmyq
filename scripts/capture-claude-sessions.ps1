@@ -23,7 +23,7 @@ Write-Host "Checking for claude-code-transcripts tool..." -ForegroundColor Yello
 
 $claudeTranscripts = Get-Command claude-code-transcripts -ErrorAction SilentlyContinue
 if (-not $claudeTranscripts) {
-    Write-Host "❌ claude-code-transcripts not found" -ForegroundColor Red
+    Write-Host "[ERROR] claude-code-transcripts not found" -ForegroundColor Red
     Write-Host ""
     Write-Host "Install with:" -ForegroundColor Yellow
     Write-Host "  pip install git+https://github.com/simonw/claude-code-transcripts.git" -ForegroundColor White
@@ -33,7 +33,7 @@ if (-not $claudeTranscripts) {
     exit 1
 }
 
-Write-Host "✅ claude-code-transcripts found" -ForegroundColor Green
+Write-Host "[OK] claude-code-transcripts found" -ForegroundColor Green
 Write-Host ""
 
 # Create output directory
@@ -67,13 +67,13 @@ try {
 
     if ($LASTEXITCODE -eq 0) {
         Write-Host ""
-        Write-Host "✅ Sessions captured successfully!" -ForegroundColor Green
+        Write-Host "[OK] Sessions captured successfully!" -ForegroundColor Green
         Write-Host ""
 
         # Show what was captured
         $sessionDirs = Get-ChildItem -Path $fullPath -Directory | Where-Object { $_.Name -match '^\d{4}-\d{2}-\d{2}$' }
         if ($sessionDirs) {
-            Write-Host "📁 Captured sessions:" -ForegroundColor Cyan
+            Write-Host "[FOLDER] Captured sessions:" -ForegroundColor Cyan
             foreach ($dir in $sessionDirs | Sort-Object Name -Descending | Select-Object -First 10) {
                 $fileCount = (Get-ChildItem -Path $dir.FullName -File).Count
                 Write-Host "  $($dir.Name) - $fileCount files" -ForegroundColor White
@@ -90,20 +90,20 @@ try {
             git commit -m $commitMsg
 
             if ($LASTEXITCODE -eq 0) {
-                Write-Host "✅ Changes committed to git" -ForegroundColor Green
+                Write-Host "[OK] Changes committed to git" -ForegroundColor Green
                 Write-Host "Commit message: $commitMsg" -ForegroundColor White
             } else {
-                Write-Host "⚠️  No changes to commit (sessions may already be captured)" -ForegroundColor Yellow
+                Write-Host "[WARN]  No changes to commit (sessions may already be captured)" -ForegroundColor Yellow
             }
         }
     } else {
         Write-Host ""
-        Write-Host "❌ Session capture failed (exit code: $LASTEXITCODE)" -ForegroundColor Red
+        Write-Host "[ERROR] Session capture failed (exit code: $LASTEXITCODE)" -ForegroundColor Red
         exit 1
     }
 } catch {
     Write-Host ""
-    Write-Host "❌ Error capturing sessions: $_" -ForegroundColor Red
+    Write-Host "[ERROR] Error capturing sessions: $_" -ForegroundColor Red
     exit 1
 }
 
@@ -113,5 +113,6 @@ Write-Host "Capture complete!" -ForegroundColor Cyan
 Write-Host "====================================" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "View sessions:" -ForegroundColor Yellow
-Write-Host "  Open $fullPath\index.html in your browser" -ForegroundColor White
+$indexPath = Join-Path $fullPath "index.html"
+Write-Host ("  Open {0} in your browser" -f $indexPath) -ForegroundColor White
 Write-Host ""
