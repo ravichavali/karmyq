@@ -1,7 +1,7 @@
 # Karmyq Scripts Directory
 
 **Last Updated**: 2026-01-08
-**Total Scripts**: 67 (see SCRIPTS_INVENTORY.md for complete list)
+**Total Scripts**: 52 (down from 67 - see SCRIPTS_INVENTORY.md for complete list)
 
 Utility scripts for development, testing, deployment, and project management.
 
@@ -15,6 +15,11 @@ node scripts/seed-test-data.js
 
 # API-based seeding (tests API layer)
 node scripts/populate-fresh-database.js
+
+# Production seeding (config-based with profiles)
+cd tests && npm run seed:production     # Local
+./scripts/seed-production-screen.sh     # Production (recommended)
+./scripts/seed-production-remote.sh     # SSH to production
 ```
 
 ### Testing (Required Before Commits)
@@ -70,10 +75,11 @@ See **SCRIPTS_INVENTORY.md** for complete categorization of all 67 scripts.
 
 ## 📚 Related Documentation
 
-- **SCRIPTS_INVENTORY.md** - Complete inventory with status and recommendations
-- **DEVELOPMENT_PROCESS.md** - Testing requirements and workflows
-- **docs/operations/CLAUDE_TRANSCRIPT_SETUP.md** - Session capture workflow
-- **docs/operations/SYNTHETIC_DATA_PLAN.md** - Data generation consolidation plan
+- **[SEEDING_GUIDE.md](SEEDING_GUIDE.md)** - Complete guide to all seeding approaches
+- **[SCRIPTS_INVENTORY.md](SCRIPTS_INVENTORY.md)** - Complete inventory with status and recommendations
+- **[CLEANUP_RECOMMENDATIONS.md](CLEANUP_RECOMMENDATIONS.md)** - Cleanup status and Phase 2 plan
+- **[DEVELOPMENT_PROCESS.md](../docs/DEVELOPMENT_PROCESS.md)** - Testing requirements and workflows
+- **[docs/operations/CLAUDE_TRANSCRIPT_SETUP.md](../docs/operations/CLAUDE_TRANSCRIPT_SETUP.md)** - Session capture workflow
 
 ---
 

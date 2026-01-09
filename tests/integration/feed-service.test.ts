@@ -46,8 +46,12 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  await pool.end();
-});
+  try {
+    await pool.end();
+  } catch (error) {
+    console.error('Error closing pool:', error);
+  }
+}, 10000); // 10 second timeout for cleanup
 
 describe('Feed Service - Community Health', () => {
   it('should return community health data', async () => {

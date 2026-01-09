@@ -16,22 +16,24 @@
 | generate-realistic-data.ts | 48K | Large-scale data generation (2000 users) | ⚠️ Unclear | ⚠️ Consolidate? |
 | populate-polymorphic-data.js | 12K | Polymorphic request examples | ⚠️ Unclear | ⚠️ Merge into main? |
 | generate-large-dataset.js | 9K | Performance testing (100-500 requests) | ⚠️ Unclear | ⚠️ Keep separate? |
-| seed-production-data.sh | 4K | Production seeding wrapper | ⚠️ Unclear | ? |
-| seed-production-local.sh | 5K | Local production seeding | ⚠️ Unclear | ? |
-| seed-production-remote.sh | 4K | Remote production seeding | ⚠️ Unclear | ? |
-| seed-production-remote.ps1 | 3K | Remote production (Windows) | ⚠️ Unclear | ? |
-| seed-production-screen.sh | 3K | Production seeding in screen | ⚠️ Unclear | ? |
-| seed-production-screen.ps1 | 3K | Production seeding (Windows) | ⚠️ Unclear | ? |
+| seed-production-data.sh | 4K | Production seeding wrapper | ✅ WORKING | ✅ YES |
+| seed-production-local.sh | 5K | Local production seeding | ✅ WORKING | ✅ YES |
+| seed-production-remote.sh | 4K | Remote production seeding | ✅ WORKING | ✅ YES (SSH) |
+| seed-production-remote.ps1 | 3K | Remote production (Windows) | ✅ WORKING | ✅ YES (SSH Windows) |
+| **seed-production-screen.sh** | 3K | **Production seeding in screen** | ✅ WORKING | ✅ YES (BEST) |
+| seed-production-screen.ps1 | 3K | Production seeding (Windows) | ✅ WORKING | ✅ YES |
 | seed-with-no-rate-limit.sh | 3K | Seeding without rate limits | ⚠️ Unclear | ? |
 | seed-test-data.sh | 1K | Wrapper for seed-test-data.js | ⚠️ Unclear | ? |
 | seed-test-data.bat | 1K | Windows wrapper | ⚠️ Unclear | ? |
 | seed-test-data.sql | 10K | Direct SQL seeding | ⚠️ Unclear | ? |
 | seed-direct-sql.sh | 2K | Direct SQL wrapper | ⚠️ Unclear | ? |
 
-**Recommendation**: Consolidate to 2-3 scripts max:
-- One for dev/test (API-based)
-- One for production (large scale)
-- One for performance testing (optional)
+**Three Seeding Approaches** (all needed):
+1. **DB-based**: seed-test-data.js (direct SQL - fastest for dev)
+2. **API-based**: populate-fresh-database.js (tests API layer)
+3. **Config-based**: Production scripts call tests/scripts/seed-data.ts (production profiles)
+
+**Production Scripts**: All 6 variants working correctly - keep for different deployment scenarios
 
 ---
 

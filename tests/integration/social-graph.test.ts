@@ -13,6 +13,10 @@ describe('Social Graph Service - Integration Tests', () => {
   let invitationCode: string;
 
   beforeAll(async () => {
+    // Cleanup any orphaned test data from previous failed runs (respect FK constraints)
+    await pool.query(`DELETE FROM communities.communities WHERE creator_id IN (SELECT id FROM auth.users WHERE email IN ('testuser@example.com', 'invitee@example.com'))`);
+    await pool.query(`DELETE FROM auth.users WHERE email IN ('testuser@example.com', 'invitee@example.com')`);
+
     // Create test users and community
     const userResult = await pool.query(
       `INSERT INTO auth.users (name, email, password_hash)
@@ -58,6 +62,9 @@ describe('Social Graph Service - Integration Tests', () => {
     await pool.query('DELETE FROM communities.members WHERE community_id = $1', [communityId]);
     await pool.query('DELETE FROM communities.communities WHERE id = $1', [communityId]);
     await pool.query('DELETE FROM auth.users WHERE id IN ($1, $2)', [userId, inviteeUserId]);
+
+    // Close pool connection
+    await pool.end();
   });
 
   describe('Invitation Code Generation', () => {
