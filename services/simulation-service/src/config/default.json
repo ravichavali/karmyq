@@ -1,0 +1,32 @@
+{
+  "enabled": true,
+  "environment": "production",
+  "schedule": {
+    "type": "continuous",
+    "businessHours": {
+      "start": "09:00",
+      "end": "21:00",
+      "timezone": "America/Los_Angeles"
+    }
+  },
+  "users": {
+    "total": 100,
+    "concurrentSessions": {
+      "min": 10,
+      "max": 50
+    },
+    "profiles": {
+      "activeHelper": 0.30,
+      "requester": 0.25,
+      "browser": 0.25,
+      "communityBuilder": 0.10,
+      "socialUser": 0.10
+    }
+  },
+  "rateLimit": {
+    "respectLimits": true,
+    "minDelayMs": 2000,
+    "maxRetries": 3
+  },
+  "apiBaseUrl": "http://localhost:3000/api"
+}
