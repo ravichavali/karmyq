@@ -1,13 +1,37 @@
 # Trust & Reputation Features Backlog
 
 **Date Created**: 2026-01-09
-**Status**: Planned
-**Related**: [Trust and Reputation Framework](../concepts/TRUST_AND_REPUTATION_FRAMEWORK.md)
+**Last Updated**: 2026-01-09
+**Status**: ⚠️ SUPERSEDED - See [Minimal Karma Measurement](MINIMAL_KARMA_MEASUREMENT.md) and [Fractal Karma & Trust](../concepts/FRACTAL_KARMA_TRUST.md)
+**Related**:
+- [Trust and Reputation Framework](../concepts/TRUST_AND_REPUTATION_FRAMEWORK.md) - Original thinking
+- [Fractal Karma & Trust](../concepts/FRACTAL_KARMA_TRUST.md) - **CURRENT** thinking
+- [Minimal Karma Measurement](MINIMAL_KARMA_MEASUREMENT.md) - **CURRENT** implementation plan
 **Owner**: Product & Engineering Team
 
-## Overview
+## ⚠️ Status: Under Revision
 
-This backlog implements the trust and reputation system enhancements identified in the Trust & Reputation Framework. The core insight: **"Improved interactions are the most important thing."**
+**This document represents initial thinking** but has been **superseded by a major conceptual shift**:
+
+### Original Approach (This Document)
+- Karma and Trust as separate systems
+- Public karma displays and leaderboards
+- Gamification elements
+- Complex multi-phase rollout
+
+### New Approach (See Updated Docs)
+- **Fractal design**: Karma and Trust apply to both users AND communities
+- **Private by default**: No public displays, no leaderboards
+- **Encouragement over gamification**: Opt-in self-awareness, not competition
+- **Minimal first**: Simple karma calculation, validate before expanding
+
+**Please refer to**:
+1. [Fractal Karma & Trust](../concepts/FRACTAL_KARMA_TRUST.md) - Updated philosophy
+2. [Minimal Karma Measurement](MINIMAL_KARMA_MEASUREMENT.md) - Current implementation plan
+
+---
+
+## Original Content (For Reference)
 
 **Key Architectural Principles**:
 1. **Karma** = Individual contribution (temporal, public)
