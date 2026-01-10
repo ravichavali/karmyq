@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { getUserKarma, getUserKarmaWithDecay, getUserTrustScore, getCommunityLeaderboard } from '../services/karmaService';
 import { query } from '../database/db';
-import { authenticateToken, AuthenticatedRequest } from '@karmyq/shared/middleware/auth';
+import { authMiddleware, AuthenticatedRequest } from '../../shared/middleware/auth';
 
 const router = Router();
 
@@ -154,7 +154,7 @@ router.get('/badges/:userId', async (req: Request, res: Response) => {
 
 // GET /reputation/me/karma - Get current user's karma (authenticated, private)
 // Implements minimal karma measurement with decay (ADR-011, Fractal Karma & Trust)
-router.get('/me/karma', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
+router.get('/me/karma', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const userId = req.user?.userId;
     const { community_id } = req.query;

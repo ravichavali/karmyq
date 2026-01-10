@@ -143,4 +143,63 @@ router.delete('/:userId/skills/:skillId', authMiddleware, async (req: Authentica
   }
 });
 
+// GET /users/me/settings - Get current user's privacy settings
+// Implements opt-in karma display (Migration 010, Fractal Karma & Trust)
+router.get('/me/settings', authMiddleware, async (req: AuthenticatedRequest, res) => {
+  try {
+    const userId = req.user.userId;
+
+    const result = await query(
+      `SELECT user_id, show_my_karma_to_me, created_at, updated_at
+       FROM auth.user_privacy_settings
+       WHERE user_id = $1`,
+      [userId]
+    );
+
+    // If no settings exist yet, return defaults
+    if (result.rows.length === 0) {
+      return sendSuccess(res, {
+        user_id: userId,
+        show_my_karma_to_me: false,
+        created_at: null,
+        updated_at: null
+      }, HTTP_STATUS.OK, { requestId: (req as any).id });
+    }
+
+    sendSuccess(res, result.rows[0], HTTP_STATUS.OK, { requestId: (req as any).id });
+  } catch (error) {
+    console.error('Error fetching privacy settings:', error);
+    sendInternalError(res, 'Failed to fetch privacy settings', error instanceof Error ? error : undefined, { requestId: (req as any).id });
+  }
+});
+
+// PATCH /users/me/settings - Update current user's privacy settings
+// Implements opt-in karma display (Migration 010, Fractal Karma & Trust)
+router.patch('/me/settings', authMiddleware, async (req: AuthenticatedRequest, res) => {
+  try {
+    const userId = req.user.userId;
+    const { show_my_karma_to_me } = req.body;
+
+    if (typeof show_my_karma_to_me !== 'boolean') {
+      return sendValidationError(res, 'show_my_karma_to_me must be a boolean', undefined, { requestId: (req as any).id });
+    }
+
+    const result = await query(
+      `INSERT INTO auth.user_privacy_settings (user_id, show_my_karma_to_me, updated_at)
+       VALUES ($1, $2, CURRENT_TIMESTAMP)
+       ON CONFLICT (user_id)
+       DO UPDATE SET
+         show_my_karma_to_me = $2,
+         updated_at = CURRENT_TIMESTAMP
+       RETURNING user_id, show_my_karma_to_me, created_at, updated_at`,
+      [userId, show_my_karma_to_me]
+    );
+
+    sendSuccess(res, result.rows[0], HTTP_STATUS.OK, { requestId: (req as any).id });
+  } catch (error) {
+    console.error('Error updating privacy settings:', error);
+    sendInternalError(res, 'Failed to update privacy settings', error instanceof Error ? error : undefined, { requestId: (req as any).id });
+  }
+});
+
 export default router;
