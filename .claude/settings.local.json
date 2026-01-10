@@ -48,7 +48,8 @@
       "Bash(rm:*)",
       "Bash(mv:*)",
       "Bash(ssh ubuntu@karmyq.com \"cd ~/karmyq/infrastructure/docker && docker compose -f docker-compose.yml -f docker-compose.prod.yml config | grep -A 5 ''loki:''\")",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(docker stop:*)"
     ],
     "deny": [],
     "ask": []

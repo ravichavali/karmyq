@@ -91,8 +91,8 @@ export default function ProfilePage() {
       setEmail(parsedUser.email || '')
       setBio(parsedUser.bio || '')
       fetchUserSkills(parsedUser.id)
-      fetchUserCommunities(parsedUser.id)
-      fetchPrivacySettings()
+      // Load communities first, then privacy settings (to avoid race condition)
+      initializeKarmaData(parsedUser.id)
     }
   }, [router])
 
@@ -103,10 +103,53 @@ export default function ProfilePage() {
     }
   }, [showKarmaToMe, selectedCommunityId])
 
+  const initializeKarmaData = async (userId: string) => {
+    try {
+      // First, load communities and get the first community ID
+      const response = await communityService.getMyCommunities(userId)
+      // The API returns {communities: [...], count, total}
+      const communitiesData = response.data.communities || response.data.data || []
+      setCommunities(communitiesData)
+
+      // Set first community as selected for karma display
+      let firstCommunityId = ''
+      if (communitiesData.length > 0) {
+        firstCommunityId = communitiesData[0].id
+        setSelectedCommunityId(firstCommunityId)
+      }
+
+      // Then, fetch privacy settings
+      const settingsResponse = await userSettingsService.getPrivacySettings()
+      const settings = settingsResponse.data || settingsResponse
+      const showKarma = settings.show_my_karma_to_me || false
+      setShowKarmaToMe(showKarma)
+
+      // If karma display is enabled and we have a community, fetch karma data immediately
+      // NOTE: We pass firstCommunityId directly and check showKarma (not state) because state updates are async
+      if (showKarma && firstCommunityId) {
+        try {
+          setLoadingKarma(true)
+          const karmaResponse = await reputationService.getMyKarma(firstCommunityId)
+          // Handle nested response structure - API might return {data: {data: ...}}
+          const actualData = karmaResponse.data?.data || karmaResponse.data || karmaResponse
+          setKarmaData(actualData)
+        } catch (err: any) {
+          console.error('Failed to load karma:', err)
+          setKarmaData(null)
+        } finally {
+          setLoadingKarma(false)
+        }
+      }
+    } catch (err: any) {
+      console.error('Failed to initialize karma data:', err)
+    }
+  }
+
   const fetchUserCommunities = async (userId: string) => {
     try {
       const response = await communityService.getMyCommunities(userId)
-      const communitiesData = response.data.data || []
+      // The API returns {communities: [...], count, total}
+      const communitiesData = response.data.communities || response.data.data || []
       setCommunities(communitiesData)
 
       // Set first community as selected for karma display
@@ -135,7 +178,9 @@ export default function ProfilePage() {
     try {
       setLoadingKarma(true)
       const response = await reputationService.getMyKarma(communityId)
-      setKarmaData(response)
+      // Handle nested response structure - API might return {data: {data: ...}}
+      const actualData = response.data?.data || response.data || response
+      setKarmaData(actualData)
     } catch (err: any) {
       console.error('Failed to load karma:', err)
       setKarmaData(null)
