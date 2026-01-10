@@ -1,25 +1,121 @@
 # KarmyQ Development Roadmap
 
-**Last Updated**: 2026-01-03
+**Last Updated**: 2026-01-09
 **Version**: 8.0.0
 **Status**: Active Development
-**Latest Session**: Production Deployment Fixes + Operations Setup
+**Latest Session**: Trust & Reputation System Planning
 
 ---
 
 ## 🎯 Current Focus
 
-**Primary Objective**: Return to Core Features after Production Stabilization
+**Primary Objective**: Trust & Reputation Feature Development
 
-**Active Work Stream**: Production Deployment Complete ✅
-**Completed**: 2026-01-03 - Production fixes, operations documentation, Claude transcript workflow
-**Next**: Synthetic Data Generation → Core Feature Development
+**Active Work Stream**: Trust & Reputation Planning ✅ COMPLETE
+**Completed**: 2026-01-09 - Conceptual framework, implementation backlog, landing page content
+**Next**: Repo Organization Review → Feature Implementation
 
 ---
 
 ## 📊 Work Streams
 
-### 0. Production Deployment & Operations Setup ✅ COMPLETE
+### 0. Trust & Reputation System Planning ✅ COMPLETE
+
+**Goal**: Define trust vs karma architecture, plan implementation, create landing page content
+**Priority**: P0 (Strategic - Foundational)
+**Owner**: Product & Engineering Team
+**Started**: 2026-01-09
+**Completed**: 2026-01-09
+
+#### Completed
+
+**Conceptual Framework**:
+- ✅ Created [Trust and Reputation Framework](concepts/TRUST_AND_REPUTATION_FRAMEWORK.md)
+  - Clarified Karma vs Trust distinction (individual vs relational)
+  - Answered core question: "Is trust a score or relationship?" → Relational
+  - Defined three measurement dimensions: Individual (karma), Relational (trust), Community (health)
+  - Proposed requester karma (+5 for completing requests)
+  - Designed karma bonuses for trust distance (2-10 bonus for 2-6° connections)
+  - Public vs private profile system
+  - Community health metrics
+
+**Implementation Planning**:
+- ✅ Created [Trust & Reputation Features Backlog](backlog/TRUST_REPUTATION_FEATURES.md)
+  - 7 epics with full user stories and acceptance criteria
+  - Phase 1 (Quick Wins): Trust Display + Karma Bonuses (12-18 hours)
+  - Phase 2 (Medium Term): Profiles, Trust Scores, Health Dashboard (65-90 hours)
+  - Phase 3 (Future): Requester Karma, Badges (18-24 hours)
+  - Technical tasks, database schemas, files affected documented
+  - Success metrics defined for each epic
+
+**Landing Page Content**:
+- ✅ Created [Landing Page Content](backlog/LANDING_PAGE_CONTENT.md)
+  - Trust-focused narrative (9 sections)
+  - Explains trust paths, karma system, community norms
+  - Personas and use cases
+  - Visual asset specifications
+  - Tone/voice guidelines
+  - SEO and A/B testing strategy
+
+**ADR Updates**:
+- ✅ Created [ADR-023: Infrastructure Standardization](adr/ADR-023-infrastructure-standardization.md)
+  - Documents deployment issues from simulation service
+  - Standardization plan for database naming, paths, secrets
+  - Migration strategy and implementation notes
+  - Example of tangent management process
+
+#### Key Decisions
+
+**Karma vs Trust Separation**:
+- Karma = Individual contribution (temporal, public, decays over time)
+- Trust = Relational connection (experiential, private, grows with interactions)
+- Different database schemas, different display contexts, different incentives
+
+**Trust Distance Incentives**:
+- Base karma: 10 points
+- Distance bonuses: +2 (2°), +4 (3°), +6 (4°), +8 (5°), +10 (6°)
+- Helping distant connections earns up to double karma
+
+**Profile Privacy**:
+- Two-tier system: public profile (karma, skills, badges) vs private profile (contact, location, history)
+- User controls: visibility, referral chain display, messaging permissions
+- Invite paths shown on public profiles for accountability
+
+#### Open Questions for Future Discussion
+
+1. Should requesters earn karma? (+5 proposed)
+2. Trust scores symmetric or asymmetric? (Start symmetric recommended)
+3. How much karma bonus for distant connections? (+100% for 6° proposed)
+4. Should trust scores factor into feed ranking? (Filter only to start)
+5. What constitutes "freerider problem"? (Monitor reciprocity index <40%)
+
+#### Related Documentation
+- [Trust and Reputation Framework](concepts/TRUST_AND_REPUTATION_FRAMEWORK.md) - Core concepts
+- [Trust & Reputation Features Backlog](backlog/TRUST_REPUTATION_FEATURES.md) - Implementation plan
+- [Landing Page Content](backlog/LANDING_PAGE_CONTENT.md) - Marketing narrative
+- [ADR-023: Infrastructure Standardization](adr/ADR-023-infrastructure-standardization.md) - Deployment lessons
+- [ADR-011: Reputation Decay](adr/ADR-011-reputation-decay.md) - Existing karma system
+- [ADR-019: Referral Chain Trust](adr/ADR-019-referral-chain-trust.md) - Trust foundation
+- [ADR-020: Trust-First Design](adr/ADR-020-trust-first-design.md) - Design philosophy
+- [ADR-021: Trust Path Filtering](adr/ADR-021-trust-path-filtering.md) - Current implementation
+
+#### Process Notes
+
+**Tangent Management**:
+- This session started as "work on features" after simulation service deployment
+- Recognized need for conceptual clarity before implementation
+- Documented thoroughly as planning phase rather than diving into code
+- Demonstrates proper tangent handling: recognize → document → prioritize
+
+**Documentation-First Approach**:
+- Created comprehensive planning docs before writing code
+- Prevents architectural mistakes and rework
+- Enables informed discussion and decision-making
+- Sets clear implementation roadmap
+
+---
+
+### 1. Production Deployment & Operations Setup ✅ COMPLETE
 
 **Goal**: Stabilize production deployment and establish operations workflows
 **Priority**: P0 (Critical - Blocking)
