@@ -121,7 +121,9 @@ export default function ProfilePage() {
   const fetchPrivacySettings = async () => {
     try {
       const response = await userSettingsService.getPrivacySettings()
-      setShowKarmaToMe(response.show_my_karma_to_me || false)
+      // Access the nested data property since the interceptor isn't unwrapping correctly
+      const settings = response.data || response
+      setShowKarmaToMe(settings.show_my_karma_to_me || false)
     } catch (err: any) {
       console.error('Failed to load privacy settings:', err)
     }
