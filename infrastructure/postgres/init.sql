@@ -139,6 +139,16 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- User privacy settings (for karma display, profile visibility, etc.)
+CREATE TABLE auth.user_privacy_settings (
+    user_id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+    show_my_karma_to_me BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_user_privacy_settings_user_id ON auth.user_privacy_settings(user_id);
+
 -- ============= COMMUNITY SERVICE SCHEMA =============
 CREATE SCHEMA IF NOT EXISTS communities;
 
