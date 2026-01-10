@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
-import { getUserKarma, getUserTrustScore, getCommunityLeaderboard } from '../services/karmaService';
+import { getUserKarma, getUserKarmaWithDecay, getUserTrustScore, getCommunityLeaderboard } from '../services/karmaService';
 import { query } from '../database/db';
+import { authenticateToken, AuthenticatedRequest } from '@karmyq/shared/middleware/auth';
 
 const router = Router();
 
@@ -146,6 +147,44 @@ router.get('/badges/:userId', async (req: Request, res: Response) => {
     res.status(500).json({
       success: false,
       message: 'Failed to fetch badges',
+      error: error.message,
+    });
+  }
+});
+
+// GET /reputation/me/karma - Get current user's karma (authenticated, private)
+// Implements minimal karma measurement with decay (ADR-011, Fractal Karma & Trust)
+router.get('/me/karma', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = req.user?.userId;
+    const { community_id } = req.query;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required',
+      });
+    }
+
+    if (!community_id) {
+      return res.status(400).json({
+        success: false,
+        message: 'community_id query parameter required',
+      });
+    }
+
+    // Calculate karma with decay
+    const karmaData = await getUserKarmaWithDecay(userId, community_id as string);
+
+    res.json({
+      success: true,
+      data: karmaData,
+    });
+  } catch (error: any) {
+    console.error('Error fetching user karma:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch karma',
       error: error.message,
     });
   }

@@ -172,6 +172,100 @@ async function updateTrustScore(user_id: string, community_id: string) {
   );
 }
 
+/**
+ * Calculate user karma with 6-month half-life decay (ADR-011)
+ * @param user_id User ID
+ * @param community_id Optional community filter
+ * @returns Karma data with decay applied
+ */
+export async function getUserKarmaWithDecay(user_id: string, community_id: string) {
+  // Get all karma records for user in community
+  const result = await query(
+    `SELECT points, created_at, reason
+     FROM reputation.karma_records
+     WHERE user_id = $1 AND community_id = $2
+     ORDER BY created_at DESC`,
+    [user_id, community_id]
+  );
+
+  const records = result.rows;
+
+  if (records.length === 0) {
+    return {
+      karma: 0,
+      trend: 'stable' as const,
+      recent_helps: 0,
+      recent_requests: 0,
+      last_updated: new Date()
+    };
+  }
+
+  // Apply exponential decay (6-month half-life)
+  const HALF_LIFE_MS = 6 * 30 * 24 * 60 * 60 * 1000; // 6 months in milliseconds
+  const now = Date.now();
+
+  let totalKarma = 0;
+  let recentHelps = 0;
+  let recentRequests = 0;
+  const RECENT_THRESHOLD = 30 * 24 * 60 * 60 * 1000; // Last 30 days
+
+  for (const record of records) {
+    const age = now - new Date(record.created_at).getTime();
+    const decayFactor = Math.pow(0.5, age / HALF_LIFE_MS);
+    totalKarma += record.points * decayFactor;
+
+    // Count recent activity (last 30 days, no decay)
+    if (age < RECENT_THRESHOLD) {
+      if (record.reason === 'Provided help') recentHelps++;
+      if (record.reason === 'Received help') recentRequests++;
+    }
+  }
+
+  // Calculate trend (compare karma from 7 days ago to now)
+  const karmaOneWeekAgo = await calculateKarmaAtTime(user_id, community_id, Date.now() - 7 * 24 * 60 * 60 * 1000);
+  const change = totalKarma - karmaOneWeekAgo;
+
+  let trend: 'growing' | 'stable' | 'declining';
+  if (change > 10) trend = 'growing';
+  else if (change < -10) trend = 'declining';
+  else trend = 'stable';
+
+  return {
+    karma: Math.round(totalKarma),
+    trend,
+    recent_helps: recentHelps,
+    recent_requests: recentRequests,
+    last_updated: new Date()
+  };
+}
+
+/**
+ * Calculate karma at a specific point in time (for trend calculation)
+ */
+async function calculateKarmaAtTime(user_id: string, community_id: string, timestamp: number): Promise<number> {
+  const result = await query(
+    `SELECT points, created_at
+     FROM reputation.karma_records
+     WHERE user_id = $1 AND community_id = $2`,
+    [user_id, community_id]
+  );
+
+  const HALF_LIFE_MS = 6 * 30 * 24 * 60 * 60 * 1000;
+  let totalKarma = 0;
+
+  for (const record of result.rows) {
+    const recordTime = new Date(record.created_at).getTime();
+    if (recordTime <= timestamp) {
+      const age = timestamp - recordTime;
+      const decayFactor = Math.pow(0.5, age / HALF_LIFE_MS);
+      totalKarma += record.points * decayFactor;
+    }
+  }
+
+  return totalKarma;
+}
+
+// Keep original function for backward compatibility (no decay)
 export async function getUserKarma(user_id: string, community_id?: string) {
   let queryText = `
     SELECT
