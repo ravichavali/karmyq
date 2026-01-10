@@ -256,7 +256,7 @@ export class Simulator {
       random -= wf.weight;
       if (random <= 0) {
         console.log(`[${session.user.email}] Performing action: ${wf.name}`);
-        await wf.workflow({ session, config: this.config });
+        await wf.workflow({ session, config: this.config, sessionManager: this.sessionManager });
         return;
       }
     }

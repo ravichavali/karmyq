@@ -93,6 +93,7 @@ export interface SimulationConfig {
 export interface WorkflowContext {
   session: UserSession;
   config: SimulationConfig;
+  sessionManager: any; // Will be SessionManager, but avoiding circular dependency
 }
 
 export type Workflow = (context: WorkflowContext) => Promise<void>;

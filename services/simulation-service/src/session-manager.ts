@@ -7,11 +7,9 @@ import { ApiClient } from './api-client';
 import { delay } from './utils';
 
 export class SessionManager {
-  private client: ApiClient;
+  private sessions: Map<string, ApiClient> = new Map();
 
-  constructor(private config: SimulationConfig) {
-    this.client = new ApiClient(config.apiBaseUrl);
-  }
+  constructor(private config: SimulationConfig) {}
 
   /**
    * Start a new user session
@@ -19,15 +17,18 @@ export class SessionManager {
   async startSession(user: SimulatedUser): Promise<UserSession> {
     console.log(`[${user.email}] Starting session (${user.profile.name})`);
 
+    // Create dedicated API client for this user
+    const client = new ApiClient(this.config.apiBaseUrl);
+
     // Login
     try {
       if (!user.password) {
         throw new Error('User password not provided');
       }
 
-      const loginData = await this.client.login(user.email, user.password);
+      const loginData = await client.login(user.email, user.password);
       user.token = loginData.token;
-      this.client.setToken(loginData.token);
+      client.setToken(loginData.token);
 
       const session: UserSession = {
         user,
@@ -37,6 +38,9 @@ export class SessionManager {
       };
 
       user.currentSession = session;
+
+      // Store client for this session
+      this.sessions.set(user.id, client);
 
       this.logAction(session, 'login', true, 0);
       return session;
@@ -55,7 +59,13 @@ export class SessionManager {
 
     session.isActive = false;
     session.user.currentSession = undefined;
-    this.client.clearToken();
+
+    // Clean up client for this session
+    const client = this.sessions.get(session.user.id);
+    if (client) {
+      client.clearToken();
+      this.sessions.delete(session.user.id);
+    }
 
     this.logAction(session, 'logout', true, 0);
   }
@@ -107,9 +117,13 @@ export class SessionManager {
   }
 
   /**
-   * Get API client (for workflows to use)
+   * Get API client for a specific session
    */
-  getClient(): ApiClient {
-    return this.client;
+  getClient(session: UserSession): ApiClient {
+    const client = this.sessions.get(session.user.id);
+    if (!client) {
+      throw new Error(`No API client found for user ${session.user.email}`);
+    }
+    return client;
   }
 }

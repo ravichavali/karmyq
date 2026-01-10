@@ -9,16 +9,18 @@ import { delay, randomInt } from '../utils';
  * User browses available requests
  */
 export const browseWorkflow: Workflow = async (context) => {
-  const { session, config } = context;
-  const client = session.user.currentSession?.user.token
-    ? (await import('../session-manager')).SessionManager.prototype.getClient.call({ client: null })
-    : null;
+  const { session, sessionManager } = context;
+  const client = sessionManager.getClient(session);
 
   console.log(`[${session.user.email}] Browsing requests...`);
 
   try {
     // Get requests from API
-    const requests = await client?.browseRequests({ limit: 10 });
+    const requests = await sessionManager.executeAction(
+      session,
+      'browseRequests',
+      () => client.browseRequests({ limit: 10 })
+    );
 
     if (!requests || requests.length === 0) {
       console.log(`[${session.user.email}] No requests found`);

@@ -4,15 +4,13 @@
 
 import { Workflow } from '../types';
 import { delay, pickRandom, randomInt, CHAT_MESSAGES } from '../utils';
-import { SessionManager } from '../session-manager';
 
 /**
  * User sends messages in conversations
  */
 export const messageWorkflow: Workflow = async (context) => {
-  const { session, config } = context;
-  const sessionManager = new SessionManager(config);
-  const client = sessionManager.getClient();
+  const { session, sessionManager } = context;
+  const client = sessionManager.getClient(session);
 
   console.log(`[${session.user.email}] Checking messages...`);
 

@@ -3,16 +3,14 @@
  */
 
 import { Workflow } from '../types';
-import { delay, pickRandom, randomInt, OFFER_MESSAGES } from '../utils';
-import { SessionManager } from '../session-manager';
+import { delay, pickRandom, OFFER_MESSAGES } from '../utils';
 
 /**
  * User offers help on a request
  */
 export const offerHelpWorkflow: Workflow = async (context) => {
-  const { session, config } = context;
-  const sessionManager = new SessionManager(config);
-  const client = sessionManager.getClient();
+  const { session, sessionManager } = context;
+  const client = sessionManager.getClient(session);
 
   console.log(`[${session.user.email}] Offering help...`);
 
@@ -32,7 +30,7 @@ export const offerHelpWorkflow: Workflow = async (context) => {
     // Pick a random request (simulate choosing one that looks interesting)
     await delay({ min: 5, max: 20, unit: 'seconds' });
 
-    const request = pickRandom(requests);
+    const request = pickRandom(requests) as any;
 
     // Read the request details
     await delay({ min: 3, max: 10, unit: 'seconds' });

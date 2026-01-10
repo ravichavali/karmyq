@@ -50,7 +50,8 @@ function parseArgs() {
   const config = {
     env: 'dev',
     count: null,
-    dryRun: false
+    dryRun: false,
+    forceRecreate: false
   };
 
   for (let i = 0; i < args.length; i++) {
@@ -62,6 +63,8 @@ function parseArgs() {
       i++;
     } else if (args[i] === '--dry-run') {
       config.dryRun = true;
+    } else if (args[i] === '--force-recreate') {
+      config.forceRecreate = true;
     }
   }
 
@@ -110,8 +113,34 @@ function distributeProfiles(count) {
   return distribution;
 }
 
+// Delete a user (admin function - requires manual DB access or admin API)
+async function deleteUser(apiUrl, email, password) {
+  try {
+    // First login to get token
+    const loginResponse = await axios.post(`${apiUrl}/auth/login`, {
+      email,
+      password: password || 'dummy' // Won't work with wrong password, but we'll try
+    });
+
+    const token = loginResponse.data.data?.token;
+
+    // Delete user account
+    await axios.delete(`${apiUrl}/auth/user`, {
+      headers: { Authorization: `Bearer ${token}` },
+      timeout: 10000
+    });
+
+    return { success: true };
+  } catch (error) {
+    return {
+      success: false,
+      error: error.response?.data?.message || error.message
+    };
+  }
+}
+
 // Register a user
-async function registerUser(apiUrl, email, name, password) {
+async function registerUser(apiUrl, email, name, password, forceRecreate = false) {
   try {
     const response = await axios.post(`${apiUrl}/auth/register`, {
       email,
@@ -129,7 +158,18 @@ async function registerUser(apiUrl, email, name, password) {
     };
   } catch (error) {
     if (error.response?.status === 409) {
-      // User already exists - try to login
+      // User already exists
+      if (forceRecreate) {
+        // Try to delete and recreate
+        // Note: This requires the user to be able to delete their own account
+        // For now, we'll just return an error asking for manual deletion
+        return {
+          success: false,
+          error: 'User exists. Please manually delete via database or use existing credentials file.'
+        };
+      }
+
+      // Try to login with provided password
       try {
         const loginResponse = await axios.post(`${apiUrl}/auth/login`, {
           email,

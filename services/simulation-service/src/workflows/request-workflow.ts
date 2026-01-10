@@ -4,15 +4,13 @@
 
 import { Workflow } from '../types';
 import { delay, pickRandom, REQUEST_TITLES } from '../utils';
-import { SessionManager } from '../session-manager';
 
 /**
  * User creates a help request
  */
 export const createRequestWorkflow: Workflow = async (context) => {
-  const { session, config } = context;
-  const sessionManager = new SessionManager(config);
-  const client = sessionManager.getClient();
+  const { session, sessionManager } = context;
+  const client = sessionManager.getClient(session);
 
   console.log(`[${session.user.email}] Creating a request...`);
 
@@ -30,7 +28,7 @@ export const createRequestWorkflow: Workflow = async (context) => {
     }
 
     // Pick a random community
-    const community = pickRandom(communities);
+    const community = pickRandom(communities) as any;
 
     // Think about what to request (simulate typing)
     await delay({ min: 10, max: 30, unit: 'seconds' });

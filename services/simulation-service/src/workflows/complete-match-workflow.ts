@@ -4,15 +4,13 @@
 
 import { Workflow } from '../types';
 import { delay, pickRandom, randomInt } from '../utils';
-import { SessionManager } from '../session-manager';
 
 /**
  * User completes a match and provides feedback
  */
 export const completeMatchWorkflow: Workflow = async (context) => {
-  const { session, config } = context;
-  const sessionManager = new SessionManager(config);
-  const client = sessionManager.getClient();
+  const { session, sessionManager } = context;
+  const client = sessionManager.getClient(session);
 
   console.log(`[${session.user.email}] Checking for matches to complete...`);
 
