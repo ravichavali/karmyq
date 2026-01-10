@@ -37,10 +37,10 @@ Each ADR follows this structure:
 - [ADR-012: Real-Time Communication Stack (WebSocket + SSE)](ADR-012-realtime-communication.md)
 
 ### Development & Operations
-- [ADR-006: Synthetic User Simulation for Demo Environment](ADR-006-synthetic-user-simulation.md) 🔮 PROPOSED
 - [ADR-014: Testing Strategy (Integration + E2E + Unit)](ADR-014-testing-strategy.md)
 - [ADR-015: Observability Stack (Grafana/Loki/Prometheus)](ADR-015-observability-stack.md)
 - [ADR-023: Infrastructure Standardization and Environment Management](ADR-023-infrastructure-standardization.md)
+- [ADR-024: Synthetic User Simulation for Demo Environment](ADR-024-synthetic-user-simulation.md) 🔮 PROPOSED
 
 ### Social Architecture
 - [ADR-016: Prestige-Based Recognition System](ADR-016-prestige-based-recognition.md)

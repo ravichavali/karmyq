@@ -3,7 +3,7 @@
 **Complete documentation for the Karmyq mutual aid platform**
 
 **Current Version**: v8.0.0
-**Last Updated**: 2025-12-27
+**Last Updated**: 2026-01-09
 
 ---
 
@@ -12,8 +12,9 @@
 **New to Karmyq? Start here:**
 
 1. **[getting-started/](getting-started/)** - Complete onboarding path
-2. **[PROJECT_STATUS.md](PROJECT_STATUS.md)** - Current features and roadmap
-3. **[CLAUDE.md](../CLAUDE.md)** - Quick reference for AI assistants
+2. **[DEVELOPMENT_PROCESS.md](DEVELOPMENT_PROCESS.md)** ⭐ **Read First** - Mandatory development process
+3. **[DEVELOPMENT_ROADMAP.md](DEVELOPMENT_ROADMAP.md)** - Current work and roadmap
+4. **[CLAUDE.md](../CLAUDE.md)** - Quick reference for AI assistants
 
 ---
 
@@ -76,14 +77,18 @@
 - **[POLYMORPHIC_REQUESTS_GUIDE.md](guides/POLYMORPHIC_REQUESTS_GUIDE.md)** - Advanced request patterns
 - **[PERFORMANCE_OPTIMIZATION.md](guides/PERFORMANCE_OPTIMIZATION.md)** - Performance best practices
 
-### ✨ Features
-**[features/](features/)** - Feature-specific documentation
+### ✨ Features & Planning
+**[backlog/](backlog/)** - Feature planning and backlog
+- **[MINIMAL_KARMA_MEASUREMENT.md](backlog/MINIMAL_KARMA_MEASUREMENT.md)** - Current: Private karma system
+- **[LANDING_PAGE_CONTENT.md](backlog/LANDING_PAGE_CONTENT.md)** - Landing page narrative
+- **[TRUST_REPUTATION_FEATURES.md](backlog/TRUST_REPUTATION_FEATURES.md)** - Future: Advanced features
 
+**[concepts/](concepts/)** - Conceptual frameworks
+- **[FRACTAL_KARMA_TRUST.md](concepts/FRACTAL_KARMA_TRUST.md)** ⭐ Current philosophy
+- **[TRUST_AND_REPUTATION_FRAMEWORK.md](concepts/TRUST_AND_REPUTATION_FRAMEWORK.md)** - Original thinking
+
+**[features/](features/)** - Legacy feature documentation
 - **[social-karma-v2/](features/social-karma-v2/)** - Social Karma v2.0 complete docs (v7.0)
-  - Implementation guide
-  - UI architecture
-  - Component reference
-  - Testing coverage
 - **[SOCIAL_GRAPH_TRUST_PATHS.md](features/SOCIAL_GRAPH_TRUST_PATHS.md)** - Trust path algorithms (planned)
 
 ### 🗂️ Requirements
@@ -111,9 +116,17 @@
 - **[Web Frontend](../apps/frontend/README.md)** (3000) - Next.js web app
 - **[Mobile App](../apps/mobile/README.md)** - React Native + Expo
 
+### 📐 Architecture Decision Records (ADRs)
+**[adr/](adr/)** - All major architectural decisions
+- **[README.md](adr/README.md)** - Complete ADR index (24 decisions)
+- **[ADR-020: Trust-First Design](adr/ADR-020-trust-first-design.md)** - Core philosophy
+- **[ADR-023: Infrastructure Standardization](adr/ADR-023-infrastructure-standardization.md)** - Recent
+- See [adr/README.md](adr/README.md) for complete list
+
 ### 🗃️ Archive
 **[archive/](archive/)** - Historical documentation (preserved for context)
 
+- **[session-summaries/](archive/session-summaries/)** - Session summaries and tangent captures
 - **[reviews/](archive/reviews/)** - Architectural reviews (Gemini, v6.0)
 - **[planning/](archive/planning/)** - Historical planning documents
 - **[V6_MIGRATION_GUIDE.md](archive/V6_MIGRATION_GUIDE.md)** - v6.0 migration guide
