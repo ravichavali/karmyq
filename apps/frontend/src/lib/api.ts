@@ -450,6 +450,12 @@ export const reputationService = {
       headers: communityId ? { 'X-Community-ID': communityId } : {},
     }),
 
+  // Get current user's karma with decay (authenticated)
+  getMyKarma: (communityId: string) =>
+    reputationApi.get('/reputation/me/karma', {
+      params: { community_id: communityId },
+    }),
+
   // Get karma history
   getKarmaHistory: (userId: string, params?: { limit?: number; offset?: number }, communityId?: string) =>
     reputationApi.get(`/reputation/karma/${userId}/history`, {
@@ -469,6 +475,17 @@ export const reputationService = {
       params: { ...params, community_id: communityId },
       headers: { 'X-Community-ID': communityId },
     }),
+}
+
+// User Settings API Methods (Auth Service)
+export const userSettingsService = {
+  // Get current user's privacy settings
+  getPrivacySettings: () =>
+    api.get('/users/me/settings'),
+
+  // Update current user's privacy settings
+  updatePrivacySettings: (settings: { show_my_karma_to_me: boolean }) =>
+    api.patch('/users/me/settings', settings),
 }
 
 // Feed Service API Methods

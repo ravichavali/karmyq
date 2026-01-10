@@ -3,7 +3,7 @@ import { useRouter } from 'next/router'
 import Head from 'next/head'
 import Link from 'next/link'
 import Layout from '@/components/Layout'
-import { api, communityService } from '@/lib/api'
+import { api, communityService, reputationService, userSettingsService } from '@/lib/api'
 import InvitationChain, { InvitationChainSkeleton } from '@/components/InvitationChain'
 import { useInvitationChain } from '@/hooks/useInvitationChain'
 
@@ -66,6 +66,12 @@ export default function ProfilePage() {
   const [email, setEmail] = useState('')
   const [bio, setBio] = useState('')
 
+  // Karma & privacy states
+  const [karmaData, setKarmaData] = useState<any>(null)
+  const [loadingKarma, setLoadingKarma] = useState(false)
+  const [showKarmaToMe, setShowKarmaToMe] = useState(false)
+  const [selectedCommunityId, setSelectedCommunityId] = useState<string>('')
+
   // Fetch invitation chain
   const { chain: invitationChain, loading: loadingChain } = useInvitationChain({ enabled: !!user })
 
@@ -86,15 +92,78 @@ export default function ProfilePage() {
       setBio(parsedUser.bio || '')
       fetchUserSkills(parsedUser.id)
       fetchUserCommunities(parsedUser.id)
+      fetchPrivacySettings()
     }
   }, [router])
+
+  // Fetch karma when privacy settings or selected community changes
+  useEffect(() => {
+    if (showKarmaToMe && selectedCommunityId) {
+      fetchKarmaData(selectedCommunityId)
+    }
+  }, [showKarmaToMe, selectedCommunityId])
 
   const fetchUserCommunities = async (userId: string) => {
     try {
       const response = await communityService.getMyCommunities(userId)
-      setCommunities(response.data.data || [])
+      const communitiesData = response.data.data || []
+      setCommunities(communitiesData)
+
+      // Set first community as selected for karma display
+      if (communitiesData.length > 0 && !selectedCommunityId) {
+        setSelectedCommunityId(communitiesData[0].id)
+      }
     } catch (err: any) {
       console.error('Failed to load communities:', err)
+    }
+  }
+
+  const fetchPrivacySettings = async () => {
+    try {
+      const response = await userSettingsService.getPrivacySettings()
+      setShowKarmaToMe(response.show_my_karma_to_me || false)
+    } catch (err: any) {
+      console.error('Failed to load privacy settings:', err)
+    }
+  }
+
+  const fetchKarmaData = async (communityId: string) => {
+    if (!communityId || !showKarmaToMe) return
+
+    try {
+      setLoadingKarma(true)
+      const response = await reputationService.getMyKarma(communityId)
+      setKarmaData(response)
+    } catch (err: any) {
+      console.error('Failed to load karma:', err)
+      setKarmaData(null)
+    } finally {
+      setLoadingKarma(false)
+    }
+  }
+
+  const handleToggleKarmaDisplay = async () => {
+    try {
+      setSaving(true)
+      const newValue = !showKarmaToMe
+      await userSettingsService.updatePrivacySettings({ show_my_karma_to_me: newValue })
+      setShowKarmaToMe(newValue)
+
+      if (newValue && selectedCommunityId) {
+        // Fetch karma data when enabling
+        await fetchKarmaData(selectedCommunityId)
+      } else {
+        // Clear karma data when disabling
+        setKarmaData(null)
+      }
+
+      setSuccess(newValue ? 'Karma display enabled' : 'Karma display disabled')
+      setTimeout(() => setSuccess(''), 3000)
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to update settings')
+      setTimeout(() => setError(''), 3000)
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -313,38 +382,113 @@ export default function ProfilePage() {
 
           {/* Karma Section */}
           <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-            <div className="flex items-center gap-3 mb-4">
-              <span className="text-3xl">⭐</span>
-              <div>
-                <h2 className="text-xl font-semibold">Karma & Reputation</h2>
-                <p className="text-sm text-gray-600">Your contribution score</p>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <span className="text-3xl">⭐</span>
+                <div>
+                  <h2 className="text-xl font-semibold">Karma & Reputation</h2>
+                  <p className="text-sm text-gray-600">
+                    {showKarmaToMe ? 'Private view - only you can see this' : 'Enable to track your contribution'}
+                  </p>
+                </div>
               </div>
+              <button
+                onClick={handleToggleKarmaDisplay}
+                disabled={saving}
+                className={`px-4 py-2 text-sm rounded transition-colors ${
+                  showKarmaToMe
+                    ? 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                    : 'bg-blue-600 text-white hover:bg-blue-700'
+                } disabled:opacity-50`}
+              >
+                {saving ? 'Saving...' : showKarmaToMe ? 'Hide Karma' : 'Show My Karma'}
+              </button>
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="bg-blue-50 rounded-lg p-4 text-center">
-                <p className="text-3xl font-bold text-blue-600">0</p>
-                <p className="text-sm text-gray-600 mt-1">Karma Points</p>
+            {/* Community Selector */}
+            {showKarmaToMe && communities.length > 1 && (
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Select Community
+                </label>
+                <select
+                  value={selectedCommunityId}
+                  onChange={(e) => setSelectedCommunityId(e.target.value)}
+                  className="px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  {communities.map((community) => (
+                    <option key={community.id} value={community.id}>
+                      {community.name}
+                    </option>
+                  ))}
+                </select>
               </div>
-              <div className="bg-green-50 rounded-lg p-4 text-center">
-                <p className="text-3xl font-bold text-green-600">0</p>
-                <p className="text-sm text-gray-600 mt-1">People Helped</p>
-              </div>
-              <div className="bg-purple-50 rounded-lg p-4 text-center">
-                <p className="text-3xl font-bold text-purple-600">0</p>
-                <p className="text-sm text-gray-600 mt-1">Times Helped</p>
-              </div>
-              <div className="bg-orange-50 rounded-lg p-4 text-center">
-                <p className="text-3xl font-bold text-orange-600">100</p>
-                <p className="text-sm text-gray-600 mt-1">Trust Score</p>
-              </div>
-            </div>
+            )}
 
-            <div className="mt-4 p-4 bg-gray-50 rounded-lg">
-              <p className="text-sm text-gray-700">
-                💡 <strong>Earn Karma:</strong> Help others in your communities to increase your karma score and build trust.
-              </p>
-            </div>
+            {showKarmaToMe ? (
+              loadingKarma ? (
+                <div className="text-center py-8 text-gray-500">Loading karma data...</div>
+              ) : karmaData ? (
+                <>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="bg-blue-50 rounded-lg p-4 text-center">
+                      <p className="text-3xl font-bold text-blue-600">{karmaData.karma || 0}</p>
+                      <p className="text-sm text-gray-600 mt-1">Karma Points</p>
+                      {karmaData.trend && (
+                        <p className="text-xs text-gray-500 mt-1">
+                          {karmaData.trend === 'growing' && '📈 Growing'}
+                          {karmaData.trend === 'stable' && '➡️ Stable'}
+                          {karmaData.trend === 'declining' && '📉 Declining'}
+                        </p>
+                      )}
+                    </div>
+                    <div className="bg-green-50 rounded-lg p-4 text-center">
+                      <p className="text-3xl font-bold text-green-600">{karmaData.recent_helps || 0}</p>
+                      <p className="text-sm text-gray-600 mt-1">Recent Helps</p>
+                      <p className="text-xs text-gray-500 mt-1">Last 30 days</p>
+                    </div>
+                    <div className="bg-purple-50 rounded-lg p-4 text-center">
+                      <p className="text-3xl font-bold text-purple-600">{karmaData.recent_requests || 0}</p>
+                      <p className="text-sm text-gray-600 mt-1">Recent Requests</p>
+                      <p className="text-xs text-gray-500 mt-1">Last 30 days</p>
+                    </div>
+                    <div className="bg-orange-50 rounded-lg p-4 text-center">
+                      <p className="text-3xl font-bold text-orange-600">-</p>
+                      <p className="text-sm text-gray-600 mt-1">Trust Score</p>
+                      <p className="text-xs text-gray-500 mt-1">Coming soon</p>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                    <p className="text-sm text-blue-800">
+                      💡 <strong>About Karma:</strong> Your karma decays over time (6-month half-life) to reflect recent contributions.
+                      Keep helping others to maintain and grow your score!
+                    </p>
+                  </div>
+                </>
+              ) : (
+                <div className="text-center py-8">
+                  <p className="text-gray-600 mb-2">No karma data available yet</p>
+                  <p className="text-sm text-gray-500">Start helping others in your communities to earn karma!</p>
+                </div>
+              )
+            ) : (
+              <div className="p-6 bg-gray-50 border border-gray-200 rounded-lg text-center">
+                <p className="text-gray-700 mb-3">
+                  <strong>Privacy First:</strong> Your karma is private by default.
+                </p>
+                <p className="text-sm text-gray-600 mb-4">
+                  Enable karma display to track your contributions and see how they decay over time.
+                  This helps you understand your activity patterns and stay engaged.
+                </p>
+                <button
+                  onClick={handleToggleKarmaDisplay}
+                  className="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                >
+                  Enable Karma Display
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Communities Section */}
