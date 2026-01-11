@@ -2,12 +2,52 @@
 const nextConfig = {
   reactStrictMode: true,
   output: 'standalone', // Enable standalone output for optimized Docker builds
+
+  // Generate unique build ID to force cache invalidation on deployment
+  generateBuildId: async () => {
+    // Use timestamp for production builds to ensure cache busting
+    if (process.env.NODE_ENV === 'production') {
+      return `${Date.now()}`;
+    }
+    // Use 'development' for local dev
+    return 'development';
+  },
+
   // Optimize images
   images: {
     unoptimized: false,
   },
+
   // Enable SWC minification (faster than Terser)
   swcMinify: true,
+
+  // Add cache control headers to prevent aggressive browser caching of HTML
+  async headers() {
+    return [
+      {
+        // Apply to all pages (not static assets)
+        source: '/:path*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            // Cache HTML for 5 minutes, then revalidate
+            // Static assets (JS/CSS) still get long cache via _next/ prefix
+            value: 'public, max-age=300, must-revalidate',
+          },
+        ],
+      },
+      {
+        // Static assets get long cache but with stale-while-revalidate
+        source: '/_next/static/:path*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=31536000, stale-while-revalidate=86400',
+          },
+        ],
+      },
+    ];
+  },
 }
 
 module.exports = nextConfig
