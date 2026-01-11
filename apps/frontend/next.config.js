@@ -3,6 +3,7 @@ const nextConfig = {
   reactStrictMode: true,
   output: 'standalone', // Enable standalone output for optimized Docker builds
 
+
   // Generate unique build ID to force cache invalidation on deployment
   generateBuildId: async () => {
     // Use timestamp for production builds to ensure cache busting
@@ -37,12 +38,13 @@ const nextConfig = {
         ],
       },
       {
-        // Static assets get long cache but with stale-while-revalidate
+        // TEMPORARILY DISABLE CACHING for static assets until cache-busting works reliably
+        // TODO: Re-enable long caching once we implement proper versioning
         source: '/_next/static/:path*',
         headers: [
           {
             key: 'Cache-Control',
-            value: 'public, max-age=31536000, stale-while-revalidate=86400',
+            value: 'public, max-age=0, must-revalidate',
           },
         ],
       },
