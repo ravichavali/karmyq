@@ -7,6 +7,9 @@ import { api, communityService, reputationService, userSettingsService } from '@
 import InvitationChain, { InvitationChainSkeleton } from '@/components/InvitationChain'
 import { useInvitationChain } from '@/hooks/useInvitationChain'
 
+// Build version to force cache invalidation
+const BUILD_VERSION = '2026-01-11-v2';
+
 const AVAILABLE_SKILLS = [
   'driving',
   'moving',
