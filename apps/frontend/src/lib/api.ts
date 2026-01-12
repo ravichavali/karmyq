@@ -131,11 +131,26 @@ const errorInterceptor = (error: any) => {
     }
   }
 
+  // Only logout on 401 for critical auth endpoints, not for optional features
   if (error.response?.status === 401) {
-    if (typeof window !== 'undefined') {
+    // Endpoints that should NOT trigger logout (optional features)
+    const optionalEndpoints = [
+      '/invitations',      // Invitation chain is optional
+      '/me/settings',      // Privacy settings are optional
+      '/me/karma',         // Karma display is optional
+    ]
+
+    const url = error.config?.url || ''
+    const isOptionalEndpoint = optionalEndpoints.some(endpoint => url.includes(endpoint))
+
+    // Only force logout if it's NOT an optional endpoint
+    if (!isOptionalEndpoint && typeof window !== 'undefined') {
+      console.warn('[API] 401 Unauthorized - logging out')
       localStorage.removeItem('token')
       localStorage.removeItem('user')
       window.location.href = '/login'
+    } else {
+      console.warn('[API] 401 on optional endpoint, not logging out:', url)
     }
   }
   return Promise.reject(error)
