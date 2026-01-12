@@ -2,23 +2,32 @@
 set -e
 
 # Deploy Karmyq services from pre-built Docker images
-# Usage: ./scripts/deploy-images.sh <version>
-# Example: ./scripts/deploy-images.sh v8.0.1
+# Usage: ./scripts/deploy-images.sh <version> [registry]
+# Example: ./scripts/deploy-images.sh v8.1.0
+# Example: ./scripts/deploy-images.sh v8.1.0 karmyq.com
 
 VERSION=${1}
-REGISTRY="ghcr.io/ravichavali"
+REGISTRY=${2:-"localhost:5000"}
+
+# If no port in registry, assume it's a domain and use standard HTTP port
+if [[ ! "$REGISTRY_URL" =~ :[0-9]+$ ]] && [[ "$REGISTRY_URL" != "localhost:"* ]]; then
+    REGISTRY_URL="$REGISTRY_URL"
+else
+    REGISTRY_URL="$REGISTRY_URL"
+fi
 
 if [ -z "$VERSION" ]; then
   echo "❌ Error: Version required"
-  echo "Usage: ./scripts/deploy-images.sh <version>"
-  echo "Example: ./scripts/deploy-images.sh v8.0.1"
+  echo "Usage: ./scripts/deploy-images.sh <version> [registry]"
+  echo "Example: ./scripts/deploy-images.sh v8.1.0"
+  echo "Example: ./scripts/deploy-images.sh v8.1.0 karmyq.com"
   exit 1
 fi
 
 echo "======================================"
 echo "Deploying Karmyq from Images"
 echo "Version: $VERSION"
-echo "Registry: $REGISTRY"
+echo "Registry: $REGISTRY_URL_URL"
 echo "======================================"
 
 # Check if logged in (simple check - will fail during pull if not authenticated)
@@ -27,17 +36,17 @@ echo ""
 
 # Pull images
 echo "Step 1/4: Pulling images..."
-docker pull $REGISTRY/karmyq-frontend:$VERSION
-docker pull $REGISTRY/karmyq-auth-service:$VERSION
-docker pull $REGISTRY/karmyq-community-service:$VERSION
-docker pull $REGISTRY/karmyq-request-service:$VERSION
-docker pull $REGISTRY/karmyq-reputation-service:$VERSION
-docker pull $REGISTRY/karmyq-notification-service:$VERSION
-docker pull $REGISTRY/karmyq-messaging-service:$VERSION
-docker pull $REGISTRY/karmyq-feed-service:$VERSION
-docker pull $REGISTRY/karmyq-cleanup-service:$VERSION
-docker pull $REGISTRY/karmyq-geocoding-service:$VERSION
-docker pull $REGISTRY/karmyq-social-graph-service:$VERSION
+docker pull $REGISTRY_URL/karmyq-frontend:$VERSION
+docker pull $REGISTRY_URL/karmyq-auth-service:$VERSION
+docker pull $REGISTRY_URL/karmyq-community-service:$VERSION
+docker pull $REGISTRY_URL/karmyq-request-service:$VERSION
+docker pull $REGISTRY_URL/karmyq-reputation-service:$VERSION
+docker pull $REGISTRY_URL/karmyq-notification-service:$VERSION
+docker pull $REGISTRY_URL/karmyq-messaging-service:$VERSION
+docker pull $REGISTRY_URL/karmyq-feed-service:$VERSION
+docker pull $REGISTRY_URL/karmyq-cleanup-service:$VERSION
+docker pull $REGISTRY_URL/karmyq-geocoding-service:$VERSION
+docker pull $REGISTRY_URL/karmyq-social-graph-service:$VERSION
 echo "✓ All images pulled"
 echo ""
 
@@ -83,7 +92,7 @@ docker run -d \
   -p 127.0.0.1:3000:3000 \
   -v /home/ubuntu/karmyq/apps/frontend/.env.production:/app/.env.production:ro \
   --restart unless-stopped \
-  $REGISTRY/karmyq-frontend:$VERSION
+  $REGISTRY_URL/karmyq-frontend:$VERSION
 
 # Auth Service
 docker run -d \
@@ -92,7 +101,7 @@ docker run -d \
   -p 127.0.0.1:3001:3001 \
   -v /home/ubuntu/karmyq/services/auth-service/.env.production:/app/.env.production:ro \
   --restart unless-stopped \
-  $REGISTRY/karmyq-auth-service:$VERSION
+  $REGISTRY_URL/karmyq-auth-service:$VERSION
 
 # Community Service
 docker run -d \
@@ -101,7 +110,7 @@ docker run -d \
   -p 127.0.0.1:3002:3002 \
   -v /home/ubuntu/karmyq/services/community-service/.env.production:/app/.env.production:ro \
   --restart unless-stopped \
-  $REGISTRY/karmyq-community-service:$VERSION
+  $REGISTRY_URL/karmyq-community-service:$VERSION
 
 # Request Service
 docker run -d \
@@ -110,7 +119,7 @@ docker run -d \
   -p 127.0.0.1:3003:3003 \
   -v /home/ubuntu/karmyq/services/request-service/.env.production:/app/.env.production:ro \
   --restart unless-stopped \
-  $REGISTRY/karmyq-request-service:$VERSION
+  $REGISTRY_URL/karmyq-request-service:$VERSION
 
 # Reputation Service
 docker run -d \
@@ -119,7 +128,7 @@ docker run -d \
   -p 127.0.0.1:3004:3004 \
   -v /home/ubuntu/karmyq/services/reputation-service/.env.production:/app/.env.production:ro \
   --restart unless-stopped \
-  $REGISTRY/karmyq-reputation-service:$VERSION
+  $REGISTRY_URL/karmyq-reputation-service:$VERSION
 
 # Notification Service
 docker run -d \
@@ -128,7 +137,7 @@ docker run -d \
   -p 127.0.0.1:3005:3005 \
   -v /home/ubuntu/karmyq/services/notification-service/.env.production:/app/.env.production:ro \
   --restart unless-stopped \
-  $REGISTRY/karmyq-notification-service:$VERSION
+  $REGISTRY_URL/karmyq-notification-service:$VERSION
 
 # Messaging Service
 docker run -d \
@@ -137,7 +146,7 @@ docker run -d \
   -p 127.0.0.1:3006:3006 \
   -v /home/ubuntu/karmyq/services/messaging-service/.env.production:/app/.env.production:ro \
   --restart unless-stopped \
-  $REGISTRY/karmyq-messaging-service:$VERSION
+  $REGISTRY_URL/karmyq-messaging-service:$VERSION
 
 # Feed Service
 docker run -d \
@@ -146,7 +155,7 @@ docker run -d \
   -p 127.0.0.1:3007:3007 \
   -v /home/ubuntu/karmyq/services/feed-service/.env.production:/app/.env.production:ro \
   --restart unless-stopped \
-  $REGISTRY/karmyq-feed-service:$VERSION
+  $REGISTRY_URL/karmyq-feed-service:$VERSION
 
 # Cleanup Service
 docker run -d \
@@ -155,7 +164,7 @@ docker run -d \
   -p 127.0.0.1:3008:3008 \
   -v /home/ubuntu/karmyq/services/cleanup-service/.env.production:/app/.env.production:ro \
   --restart unless-stopped \
-  $REGISTRY/karmyq-cleanup-service:$VERSION
+  $REGISTRY_URL/karmyq-cleanup-service:$VERSION
 
 # Geocoding Service
 docker run -d \
@@ -164,7 +173,7 @@ docker run -d \
   -p 127.0.0.1:3009:3009 \
   -v /home/ubuntu/karmyq/services/geocoding-service/.env.production:/app/.env.production:ro \
   --restart unless-stopped \
-  $REGISTRY/karmyq-geocoding-service:$VERSION
+  $REGISTRY_URL/karmyq-geocoding-service:$VERSION
 
 # Social Graph Service
 docker run -d \
@@ -173,7 +182,7 @@ docker run -d \
   -p 127.0.0.1:3010:3010 \
   -v /home/ubuntu/karmyq/services/social-graph-service/.env.production:/app/.env.production:ro \
   --restart unless-stopped \
-  $REGISTRY/karmyq-social-graph-service:$VERSION
+  $REGISTRY_URL/karmyq-social-graph-service:$VERSION
 
 echo "✓ Containers started"
 echo ""

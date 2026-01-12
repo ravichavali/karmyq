@@ -2,24 +2,32 @@
 set -e
 
 # Build all Docker images for Karmyq services
-# Usage: ./scripts/build-images.sh <version>
-# Example: ./scripts/build-images.sh v8.0.1
+# Usage: ./scripts/build-images.sh <version> [registry]
+# Example: ./scripts/build-images.sh v8.1.0
+# Example: ./scripts/build-images.sh v8.1.0 karmyq.com
 
 VERSION=${1:-latest}
-REGISTRY="ghcr.io/ravichavali"
+REGISTRY=${2:-"localhost:5000"}
+
+# If no port in registry, assume it's a domain and use standard HTTP port
+if [[ ! "$REGISTRY" =~ :[0-9]+$ ]] && [[ "$REGISTRY" != "localhost:"* ]]; then
+    REGISTRY_URL="$REGISTRY"
+else
+    REGISTRY_URL="$REGISTRY"
+fi
 
 echo "======================================"
 echo "Building Karmyq Docker Images"
 echo "Version: $VERSION"
-echo "Registry: $REGISTRY"
+echo "Registry: $REGISTRY_URL"
 echo "======================================"
 
 # Build frontend
 echo ""
 echo "📦 Building frontend..."
 docker build \
-  -t $REGISTRY/karmyq-frontend:$VERSION \
-  -t $REGISTRY/karmyq-frontend:latest \
+  -t $REGISTRY_URL/karmyq-frontend:$VERSION \
+  -t $REGISTRY_URL/karmyq-frontend:latest \
   -f apps/frontend/Dockerfile \
   .
 echo "✓ Frontend built"
@@ -42,8 +50,8 @@ for SERVICE in "${SERVICES[@]}"; do
   echo ""
   echo "📦 Building $SERVICE..."
   docker build \
-    -t $REGISTRY/karmyq-$SERVICE:$VERSION \
-    -t $REGISTRY/karmyq-$SERVICE:latest \
+    -t $REGISTRY_URL/karmyq-$SERVICE:$VERSION \
+    -t $REGISTRY_URL/karmyq-$SERVICE:latest \
     -f services/$SERVICE/Dockerfile \
     .
   echo "✓ $SERVICE built"
