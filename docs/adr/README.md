@@ -41,6 +41,8 @@ Each ADR follows this structure:
 - [ADR-015: Observability Stack (Grafana/Loki/Prometheus)](ADR-015-observability-stack.md)
 - [ADR-023: Infrastructure Standardization and Environment Management](ADR-023-infrastructure-standardization.md)
 - [ADR-024: Synthetic User Simulation for Demo Environment](ADR-024-synthetic-user-simulation.md) 🔮 PROPOSED
+- [ADR-026: Self-Hosted Docker Registry](../operations/SELF_HOSTED_REGISTRY.md) ⭐ NEW
+- [ADR-027: Docker Image Size Optimization (Deferred Technical Debt)](ADR-027-docker-image-optimization-deferred.md) 📋 BACKLOG
 
 ### Social Architecture
 - [ADR-016: Prestige-Based Recognition System](ADR-016-prestige-based-recognition.md)
