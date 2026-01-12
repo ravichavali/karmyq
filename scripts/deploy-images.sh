@@ -21,16 +21,8 @@ echo "Version: $VERSION"
 echo "Registry: $REGISTRY"
 echo "======================================"
 
-# Check if logged in
-if ! docker info | grep -q "Username"; then
-  echo "❌ Not logged in to Docker registry"
-  echo ""
-  echo "Please login first:"
-  echo "  echo 'YOUR_GITHUB_TOKEN' | docker login ghcr.io -u ravichavali --password-stdin"
-  exit 1
-fi
-
-echo "✓ Authenticated to registry"
+# Check if logged in (simple check - will fail during pull if not authenticated)
+echo "✓ Proceeding with deployment (auth check will happen during image pull)"
 echo ""
 
 # Pull images
