@@ -10,20 +10,20 @@ VERSION=${1:-latest}
 REGISTRY=${2:-"localhost:5000"}
 
 # If no port in registry, assume it's a domain and use standard HTTP port
-if [[ ! "$REGISTRY_URL" =~ :[0-9]+$ ]] && [[ "$REGISTRY_URL" != "localhost:"* ]]; then
-    REGISTRY_URL="$REGISTRY_URL"
+if [[ ! "$REGISTRY" =~ :[0-9]+$ ]] && [[ "$REGISTRY" != "localhost:"* ]]; then
+    REGISTRY_URL="$REGISTRY"
 else
-    REGISTRY_URL="$REGISTRY_URL"
+    REGISTRY_URL="$REGISTRY"
 fi
 
 echo "======================================"
 echo "Pushing Karmyq Docker Images"
 echo "Version: $VERSION"
-echo "Registry: $REGISTRY_URL_URL"
+echo "Registry: $REGISTRY_URL"
 echo "======================================"
 echo ""
 echo "ℹ️  Make sure you're logged in to the registry:"
-echo "   docker login $REGISTRY_URL_URL"
+echo "   docker login $REGISTRY_URL"
 echo ""
 
 # Push frontend
