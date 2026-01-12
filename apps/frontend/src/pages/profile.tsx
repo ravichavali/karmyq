@@ -121,30 +121,45 @@ export default function ProfilePage() {
         setSelectedCommunityId(firstCommunityId)
       }
 
-      // Then, fetch privacy settings
-      const settingsResponse = await userSettingsService.getPrivacySettings()
-      const settings = settingsResponse.data || settingsResponse
-      const showKarma = settings.show_my_karma_to_me || false
-      setShowKarmaToMe(showKarma)
+      // Only fetch privacy settings if user is in at least one community
+      // This prevents 401 errors for users with no communities
+      if (communitiesData.length === 0) {
+        console.log('User has no communities, skipping karma initialization')
+        setShowKarmaToMe(false)
+        return
+      }
 
-      // If karma display is enabled and we have a community, fetch karma data immediately
-      // NOTE: We pass firstCommunityId directly and check showKarma (not state) because state updates are async
-      if (showKarma && firstCommunityId) {
-        try {
-          setLoadingKarma(true)
-          const karmaResponse = await reputationService.getMyKarma(firstCommunityId)
-          // Handle nested response structure - API might return {data: {data: ...}}
-          const actualData = karmaResponse.data?.data || karmaResponse.data || karmaResponse
-          setKarmaData(actualData)
-        } catch (err: any) {
-          console.error('Failed to load karma:', err)
-          setKarmaData(null)
-        } finally {
-          setLoadingKarma(false)
+      // Then, fetch privacy settings (wrapped in try-catch to prevent logout on error)
+      try {
+        const settingsResponse = await userSettingsService.getPrivacySettings()
+        const settings = settingsResponse.data || settingsResponse
+        const showKarma = settings.show_my_karma_to_me || false
+        setShowKarmaToMe(showKarma)
+
+        // If karma display is enabled and we have a community, fetch karma data immediately
+        // NOTE: We pass firstCommunityId directly and check showKarma (not state) because state updates are async
+        if (showKarma && firstCommunityId) {
+          try {
+            setLoadingKarma(true)
+            const karmaResponse = await reputationService.getMyKarma(firstCommunityId)
+            // Handle nested response structure - API might return {data: {data: ...}}
+            const actualData = karmaResponse.data?.data || karmaResponse.data || karmaResponse
+            setKarmaData(actualData)
+          } catch (err: any) {
+            console.error('Failed to load karma:', err)
+            setKarmaData(null)
+          } finally {
+            setLoadingKarma(false)
+          }
         }
+      } catch (err: any) {
+        console.error('Failed to load privacy settings:', err)
+        // Don't throw - just set default values
+        setShowKarmaToMe(false)
       }
     } catch (err: any) {
       console.error('Failed to initialize karma data:', err)
+      // Don't throw - let the profile page load without karma
     }
   }
 
