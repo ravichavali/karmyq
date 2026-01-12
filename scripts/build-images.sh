@@ -20,7 +20,7 @@ echo "📦 Building frontend..."
 docker build \
   -t $REGISTRY/karmyq-frontend:$VERSION \
   -t $REGISTRY/karmyq-frontend:latest \
-  -f infrastructure/docker/Dockerfile.frontend \
+  -f apps/frontend/Dockerfile \
   .
 echo "✓ Frontend built"
 
