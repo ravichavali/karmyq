@@ -82,7 +82,15 @@ export default function ProfilePage() {
     const token = localStorage.getItem('token')
     const userData = localStorage.getItem('user')
 
+    console.log('[Profile] Checking authentication:', {
+      hasToken: !!token,
+      tokenLength: token?.length || 0,
+      hasUserData: !!userData,
+      localStorage: Object.keys(localStorage)
+    })
+
     if (!token) {
+      console.log('[Profile] No token found, redirecting to login')
       router.push('/login')
       return
     }
