@@ -22,10 +22,18 @@ echo "Version: $VERSION"
 echo "Registry: $REGISTRY_URL"
 echo "======================================"
 
-# Build frontend
+# Build frontend with production API URLs
 echo ""
 echo "📦 Building frontend..."
 docker build \
+  --build-arg NEXT_PUBLIC_API_URL=/api \
+  --build-arg NEXT_PUBLIC_COMMUNITY_API_URL=/api \
+  --build-arg NEXT_PUBLIC_REQUEST_API_URL=/api \
+  --build-arg NEXT_PUBLIC_REPUTATION_API_URL=/api \
+  --build-arg NEXT_PUBLIC_NOTIFICATION_API_URL=/api \
+  --build-arg NEXT_PUBLIC_MESSAGING_API_URL=/api \
+  --build-arg NEXT_PUBLIC_FEED_API_URL=/api \
+  --build-arg NEXT_PUBLIC_SOCIAL_GRAPH_API_URL=/api \
   -t $REGISTRY_URL/karmyq-frontend:$VERSION \
   -t $REGISTRY_URL/karmyq-frontend:latest \
   -f apps/frontend/Dockerfile \
