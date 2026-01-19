@@ -142,6 +142,9 @@ services:
     restart: always
     environment:
       NODE_ENV: production
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_URL: ${REDIS_URL}
+      JWT_SECRET: ${JWT_SECRET}
     deploy:
       resources:
         limits:
@@ -155,6 +158,9 @@ services:
     restart: always
     environment:
       NODE_ENV: production
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_URL: ${REDIS_URL}
+      JWT_SECRET: ${JWT_SECRET}
     deploy:
       resources:
         limits:
