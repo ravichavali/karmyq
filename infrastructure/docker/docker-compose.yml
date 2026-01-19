@@ -63,7 +63,6 @@ services:
     volumes:
       - registry_data:/var/lib/registry
       - ../../infrastructure/docker/registry/config.yml:/etc/docker/registry/config.yml:ro
-      - ../../infrastructure/docker/registry/htpasswd:/auth/htpasswd:ro
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://localhost:5000/v2/"]

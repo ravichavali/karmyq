@@ -20,10 +20,12 @@ http:
     Access-Control-Max-Age: [1728000]
     Access-Control-Allow-Credentials: [true]
     Access-Control-Expose-Headers: ['Docker-Content-Digest']
-auth:
-  htpasswd:
-    realm: Karmyq Registry
-    path: /auth/htpasswd
+# Auth disabled - registry is localhost-only (127.0.0.1:5000)
+# To re-enable, uncomment and create htpasswd file:
+# auth:
+#   htpasswd:
+#     realm: Karmyq Registry
+#     path: /auth/htpasswd
 health:
   storagedriver:
     enabled: true
