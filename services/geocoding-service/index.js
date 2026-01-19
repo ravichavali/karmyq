@@ -18,15 +18,21 @@ const fetch = require('node-fetch')
 const app = express()
 const PORT = process.env.PORT || 3009
 
-// Database connection
-const pool = new Pool({
-  host: process.env.DB_HOST || 'localhost',
-  port: process.env.DB_PORT || 5432,
-  database: process.env.DB_NAME || 'karmyq',
-  user: process.env.DB_USER || 'karmyq',
-  password: process.env.DB_PASSWORD || 'karmyq_password',
-  max: 5, // Reduced to 5 for multi-instance production support
-})
+// Database connection - supports DATABASE_URL (production) or individual DB_* vars (development)
+const poolConfig = process.env.DATABASE_URL
+  ? {
+      connectionString: process.env.DATABASE_URL,
+      max: 5,
+    }
+  : {
+      host: process.env.DB_HOST || 'localhost',
+      port: process.env.DB_PORT || 5432,
+      database: process.env.DB_NAME || 'karmyq',
+      user: process.env.DB_USER || 'karmyq',
+      password: process.env.DB_PASSWORD || 'karmyq_password',
+      max: 5,
+    }
+const pool = new Pool(poolConfig)
 
 // Middleware
 app.use(cors())
