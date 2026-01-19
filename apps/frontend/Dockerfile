@@ -20,7 +20,10 @@ COPY --from=deps /app/node_modules ./node_modules
 # Copy ONLY frontend source (from repo root context)
 COPY apps/frontend/ ./
 
-# Build-time environment variables
+# Set NODE_ENV=production so Next.js reads .env.production
+ENV NODE_ENV=production
+
+# Build-time environment variables (override .env.production if passed)
 ARG NEXT_PUBLIC_API_URL
 ARG NEXT_PUBLIC_COMMUNITY_API_URL
 ARG NEXT_PUBLIC_REQUEST_API_URL
