@@ -344,8 +344,8 @@ services:
   # Frontend
   frontend:
     build:
-      context: ../../apps/frontend
-      dockerfile: Dockerfile
+      context: ../..
+      dockerfile: apps/frontend/Dockerfile
     container_name: karmyq-frontend
     environment:
       NEXT_PUBLIC_API_URL: http://localhost:3001
