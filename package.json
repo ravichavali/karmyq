@@ -32,8 +32,7 @@
     "npm": ">=9.0.0"
   },
   "dependencies": {
-    "@alloc/quick-lru": "^5.2.0",
-    "react-native-worklets": "^0.6.1"
+    "@alloc/quick-lru": "^5.2.0"
   },
   "overrides": {
     "@karmyq/mobile": {

@@ -60,6 +60,9 @@ docs
 # Actions runner
 actions-runner
 
+# Mobile app (not needed for backend services)
+apps/mobile
+
 # Temporary files
 tmp
 temp
