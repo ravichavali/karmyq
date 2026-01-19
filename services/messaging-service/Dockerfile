@@ -1,16 +1,15 @@
+# Messaging Service Dockerfile
 FROM node:18-alpine
 
 WORKDIR /app
 
-# Install dependencies
-COPY package*.json ./
+# Copy service package files (from repo root context)
+COPY services/messaging-service/package*.json ./
 RUN npm install
 
-# Copy source code
-COPY . .
+# Copy service source
+COPY services/messaging-service/ ./
 
-# Expose port
 EXPOSE 3006
 
-# Start the service
 CMD ["npm", "run", "dev"]

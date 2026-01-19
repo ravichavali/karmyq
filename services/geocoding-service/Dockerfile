@@ -1,18 +1,15 @@
+# Geocoding Service Dockerfile
 FROM node:18-alpine
 
 WORKDIR /app
 
-# Copy package files
-COPY package*.json ./
-
-# Install dependencies
+# Copy service package files (from repo root context)
+COPY services/geocoding-service/package*.json ./
 RUN npm install
 
-# Copy application code
-COPY . .
+# Copy service source
+COPY services/geocoding-service/ ./
 
-# Expose port
 EXPOSE 3009
 
-# Start service
 CMD ["npm", "start"]

@@ -1,11 +1,14 @@
+# Feed Service Dockerfile
 FROM node:18-alpine
 
 WORKDIR /app
 
-COPY package*.json ./
+# Copy service package files (from repo root context)
+COPY services/feed-service/package*.json ./
 RUN npm install
 
-COPY . .
+# Copy service source
+COPY services/feed-service/ ./
 
 EXPOSE 3007
 

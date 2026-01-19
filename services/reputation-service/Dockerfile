@@ -1,10 +1,15 @@
+# Reputation Service Dockerfile
 FROM node:18-alpine
 
 WORKDIR /app
 
-COPY package*.json ./
+# Copy service package files (from repo root context)
+COPY services/reputation-service/package*.json ./
 RUN npm install
 
-COPY . .
+# Copy service source
+COPY services/reputation-service/ ./
+
+EXPOSE 3004
 
 CMD ["npm", "run", "dev"]

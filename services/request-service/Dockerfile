@@ -1,11 +1,14 @@
+# Request Service Dockerfile
 FROM node:18-alpine
 
 WORKDIR /app
 
-COPY package*.json ./
+# Copy service package files (from repo root context)
+COPY services/request-service/package*.json ./
 RUN npm install
 
-COPY . .
+# Copy service source
+COPY services/request-service/ ./
 
 EXPOSE 3003
 

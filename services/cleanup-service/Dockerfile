@@ -1,22 +1,19 @@
+# Cleanup Service Dockerfile
 FROM node:18-alpine
 
 WORKDIR /app
 
-# Copy package files
-COPY package*.json ./
-COPY tsconfig.json ./
-
-# Install dependencies
+# Copy service package files (from repo root context)
+COPY services/cleanup-service/package*.json ./
+COPY services/cleanup-service/tsconfig.json ./
 RUN npm install
 
-# Copy source code
-COPY src ./src
+# Copy service source
+COPY services/cleanup-service/src ./src
 
 # Build TypeScript
 RUN npm run build
 
-# Expose port
 EXPOSE 3008
 
-# Start service
 CMD ["npm", "start"]
