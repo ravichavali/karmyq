@@ -1,17 +1,20 @@
 # Community Service Dockerfile
-FROM node:18-alpine
+# Multi-stage build for production
 
+# Build stage
+FROM node:18-alpine AS builder
 RUN apk add --no-cache python3 make g++
-
 WORKDIR /app
-
-# Copy service package files (from repo root context)
 COPY services/community-service/package*.json ./
-RUN npm install
-
-# Copy service source
+RUN npm ci
 COPY services/community-service/ ./
+RUN npm run build
 
+# Production stage
+FROM node:18-alpine
+WORKDIR /app
+COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/package*.json ./
+RUN npm ci --omit=dev
 EXPOSE 3002
-
-CMD ["npm", "run", "dev"]
+CMD ["node", "dist/index.js"]

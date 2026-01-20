@@ -50,7 +50,8 @@
       "Bash(ssh ubuntu@karmyq.com \"cd ~/karmyq/infrastructure/docker && docker compose -f docker-compose.yml -f docker-compose.prod.yml config | grep -A 5 ''loki:''\")",
       "Bash(git push:*)",
       "Bash(docker stop:*)",
-      "Bash(docker push:*)"
+      "Bash(docker push:*)",
+      "Bash(chmod:*)"
     ],
     "deny": [],
     "ask": []

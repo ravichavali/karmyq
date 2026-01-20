@@ -114,13 +114,44 @@ services/{name}/
 
 ## Deployment (Production)
 
-Production is ARM64 (Oracle Cloud). Build on server:
+Production is ARM64 (Oracle Cloud). Single command deployment:
+
 ```bash
-# On production server
+# SSH to production server, then:
 cd ~/karmyq
-git pull
-./scripts/build-images.sh v8.1.0 localhost:5000
-./scripts/deploy-images.sh v8.1.0 localhost:5000
+./scripts/deploy.sh
+```
+
+That's it. The script automatically:
+1. Pulls latest code from master
+2. Loads `.env.production` environment variables
+3. Builds all Docker images (ARM64 native)
+4. Deploys via docker-compose
+5. Verifies all services are running
+
+### First-time Setup
+
+```bash
+# Copy and configure environment file
+cp .env.production.example .env.production
+# Edit .env.production with secure values for:
+# - POSTGRES_PASSWORD
+# - DATABASE_URL (use same password)
+# - JWT_SECRET (generate with: openssl rand -base64 32)
+```
+
+### Useful Commands
+
+```bash
+# View logs
+docker compose -f infrastructure/docker/docker-compose.yml \
+               -f infrastructure/docker/docker-compose.prod.yml logs -f
+
+# Restart a service
+docker compose ... restart auth-service
+
+# Stop everything
+docker compose ... down
 ```
 
 ---

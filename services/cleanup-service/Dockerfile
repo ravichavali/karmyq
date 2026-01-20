@@ -1,19 +1,19 @@
 # Cleanup Service Dockerfile
-FROM node:18-alpine
+# Multi-stage build for production
 
+# Build stage
+FROM node:18-alpine AS builder
 WORKDIR /app
-
-# Copy service package files (from repo root context)
 COPY services/cleanup-service/package*.json ./
-COPY services/cleanup-service/tsconfig.json ./
-RUN npm install
-
-# Copy service source
-COPY services/cleanup-service/src ./src
-
-# Build TypeScript
+RUN npm ci
+COPY services/cleanup-service/ ./
 RUN npm run build
 
+# Production stage
+FROM node:18-alpine
+WORKDIR /app
+COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/package*.json ./
+RUN npm ci --omit=dev
 EXPOSE 3008
-
-CMD ["npm", "start"]
+CMD ["node", "dist/index.js"]
