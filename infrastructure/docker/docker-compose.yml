@@ -75,8 +75,8 @@ services:
   # Auth Service
   auth-service:
     build:
-      context: ../../services/auth-service
-      dockerfile: Dockerfile
+      context: ../..
+      dockerfile: services/auth-service/Dockerfile
     container_name: karmyq-auth-service
     environment:
       NODE_ENV: development
@@ -102,8 +102,8 @@ services:
   # Community Service
   community-service:
     build:
-      context: ../../services/community-service
-      dockerfile: Dockerfile
+      context: ../..
+      dockerfile: services/community-service/Dockerfile
     container_name: karmyq-community-service
     environment:
       NODE_ENV: development
@@ -129,8 +129,8 @@ services:
   # Request Service
   request-service:
     build:
-      context: ../../services/request-service
-      dockerfile: Dockerfile
+      context: ../..
+      dockerfile: services/request-service/Dockerfile
     container_name: karmyq-request-service
     environment:
       NODE_ENV: development
@@ -156,8 +156,8 @@ services:
   # Reputation Service
   reputation-service:
     build:
-      context: ../../services/reputation-service
-      dockerfile: Dockerfile
+      context: ../..
+      dockerfile: services/reputation-service/Dockerfile
     container_name: karmyq-reputation-service
     environment:
       NODE_ENV: development
@@ -183,8 +183,8 @@ services:
   # Notification Service
   notification-service:
     build:
-      context: ../../services/notification-service
-      dockerfile: Dockerfile
+      context: ../..
+      dockerfile: services/notification-service/Dockerfile
     container_name: karmyq-notification-service
     environment:
       NODE_ENV: development
@@ -210,8 +210,8 @@ services:
   # Messaging Service
   messaging-service:
     build:
-      context: ../../services/messaging-service
-      dockerfile: Dockerfile
+      context: ../..
+      dockerfile: services/messaging-service/Dockerfile
     container_name: karmyq-messaging-service
     environment:
       NODE_ENV: development
@@ -234,8 +234,8 @@ services:
   # Feed Service
   feed-service:
     build:
-      context: ../../services/feed-service
-      dockerfile: Dockerfile
+      context: ../..
+      dockerfile: services/feed-service/Dockerfile
     container_name: karmyq-feed-service
     environment:
       NODE_ENV: development
@@ -265,8 +265,8 @@ services:
   # Cleanup Service
   cleanup-service:
     build:
-      context: ../../services/cleanup-service
-      dockerfile: Dockerfile
+      context: ../..
+      dockerfile: services/cleanup-service/Dockerfile
     container_name: karmyq-cleanup-service
     environment:
       NODE_ENV: development
@@ -289,8 +289,8 @@ services:
   # Geocoding Cache Service (Port 3009)
   geocoding-service:
     build:
-      context: ../../services/geocoding-service
-      dockerfile: Dockerfile
+      context: ../..
+      dockerfile: services/geocoding-service/Dockerfile
     container_name: karmyq-geocoding-service
     environment:
       NODE_ENV: development
