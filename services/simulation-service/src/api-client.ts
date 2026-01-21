@@ -50,7 +50,9 @@ export class ApiClient {
     const response = await executeWithRetry(() =>
       this.client.get('/requests', { params })
     );
-    return response.data.data?.requests || response.data.data || [];
+    // API returns: { success: true, data: { requests: [...], count: N, total: N } }
+    const requests = response.data.data?.requests || [];
+    return Array.isArray(requests) ? requests : [];
   }
 
   /**
