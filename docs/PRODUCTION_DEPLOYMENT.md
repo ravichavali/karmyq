@@ -104,9 +104,9 @@ npm run build
 This makes simulation use ALL real users from the database (not just predefined ones):
 
 ```bash
-# Load DATABASE_URL from .env.production
+# Load DATABASE_URL from .env.production and convert postgres:5432 to localhost:5432
 cd ~/karmyq
-export $(grep DATABASE_URL .env.production | xargs)
+export DATABASE_URL=$(grep DATABASE_URL .env.production | cut -d= -f2- | sed 's/@postgres:/@localhost:/')
 
 # Export all users
 cd ~/karmyq/services/simulation-service

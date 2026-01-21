@@ -2,7 +2,7 @@ module.exports = {
   apps: [{
     name: 'karmyq-simulation',
     script: 'dist/index.js',
-    cwd: '/opt/karmyq/services/simulation-service',
+    cwd: require('path').join(require('os').homedir(), 'karmyq/services/simulation-service'),
     instances: 1,
     exec_mode: 'fork',
 
