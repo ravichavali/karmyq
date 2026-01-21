@@ -71,9 +71,10 @@ function parseArgs() {
   return config;
 }
 
-// Generate secure random password
+// Generate consistent password for demo environment
+// All simulated users use the same password for easy testing
 function generatePassword() {
-  return crypto.randomBytes(16).toString('base64').slice(0, 20) + 'A1!';
+  return 'demo123!Demo'; // Consistent password for all sim users
 }
 
 // Distribute users across profiles
