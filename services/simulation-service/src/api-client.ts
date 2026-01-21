@@ -154,9 +154,9 @@ export class ApiClient {
    */
   async getCommunities(): Promise<any[]> {
     const response = await executeWithRetry(() =>
-      this.client.get('/communities/my-communities')
+      this.client.get('/communities/my/communities')
     );
-    return response.data.data || [];
+    return response.data.data?.communities || response.data.data || [];
   }
 
   /**
