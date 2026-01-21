@@ -7,7 +7,7 @@ import { SimulatedUser } from './types';
 import { executeWithRetry } from './utils';
 
 export class ApiClient {
-  private client: AxiosInstance;
+  public client: AxiosInstance;
 
   constructor(private baseUrl: string) {
     this.client = axios.create({
