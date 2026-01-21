@@ -210,7 +210,7 @@ export class Simulator {
     const communities = await this.sessionManager.executeAction(
       session,
       'checkCommunities',
-      () => client.getCommunities()
+      () => client.getCommunities(session.user.id)
     );
 
     const hasCommunities = communities && communities.length > 0;
