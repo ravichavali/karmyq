@@ -99,21 +99,20 @@ export default function CommunitiesPage() {
 
   const fetchMembershipStatus = async (userId: string, communities: Community[]) => {
     try {
+      // Efficient approach: Fetch user's communities once, build status map
+      const response = await communityService.getMyCommunities(userId)
+      const myCommunities = response.data?.communities || response.data
+
       const statusMap: MembershipStatus = {}
 
-      for (const community of communities) {
-        try {
-          const response = await communityService.getMembers(community.id)
-          const member = response.data.data.find((m: any) => m.user_id === userId)
+      // Build a map of user's memberships
+      const membershipMap = new Map(
+        myCommunities.map((c: any) => [c.id, c.role || 'active'])
+      )
 
-          if (member) {
-            statusMap[community.id] = member.status
-          } else {
-            statusMap[community.id] = null
-          }
-        } catch (err) {
-          statusMap[community.id] = null
-        }
+      // Check each community against user's memberships
+      for (const community of communities) {
+        statusMap[community.id] = membershipMap.has(community.id) ? 'active' : null
       }
 
       setMembershipStatus(statusMap)
