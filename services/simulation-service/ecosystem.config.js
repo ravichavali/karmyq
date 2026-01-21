@@ -14,13 +14,13 @@ module.exports = {
       ENVIRONMENT: 'production',
       MIN_CONCURRENT_SESSIONS: '2',
       MAX_CONCURRENT_SESSIONS: '5',
-      TOTAL_USERS: '20',
+      TOTAL_USERS: '2059',
       BUSINESS_HOURS_ENABLED: 'false', // Run 24/7
       BUSINESS_HOURS_START: '00:00',
       BUSINESS_HOURS_END: '23:59',
       BUSINESS_HOURS_TIMEZONE: 'America/Los_Angeles',
-      RESPECT_RATE_LIMITS: 'true',
-      MIN_DELAY_MS: '5000', // Slower rate: 5 seconds between actions
+      RESPECT_RATE_LIMITS: 'false',
+      MIN_DELAY_MS: '10000', // Slower rate: 10 seconds between actions
       MAX_RETRIES: '3',
       LOG_LEVEL: 'info'
     },
