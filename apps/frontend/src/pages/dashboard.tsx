@@ -113,7 +113,7 @@ export default function Dashboard() {
         requestService.getMatches({ limit: 100 }),
         requestService.getRequests({ status: 'open', limit: 50 }), // Get community requests (open only)
         requestService.getRequests({ status: 'matched', limit: 50 }), // Get matched requests (for offers I'm helping with)
-        communityService.getCommunities(),
+        communityService.getMyCommunities(userId),
       ])
 
       // Fetch milestones for first community
