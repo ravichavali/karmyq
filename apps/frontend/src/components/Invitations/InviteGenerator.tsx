@@ -22,8 +22,9 @@ export default function InviteGenerator() {
         const user = JSON.parse(localStorage.getItem('user') || '{}');
         if (user.id) {
           const response = await communityService.getMyCommunities(user.id);
-          if (response.data && response.data.length > 0) {
-            setCommunityId(response.data[0].id);
+          const communities = response.data?.communities || response.data;
+          if (communities && communities.length > 0) {
+            setCommunityId(communities[0].id);
           }
         }
       } catch (err) {
