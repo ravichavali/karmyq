@@ -38,7 +38,7 @@ function loadConfig(): SimulationConfig {
 
     // Override rate limit config from environment
     rateLimit: {
-      respectLimits: process.env.RESPECT_RATE_LIMITS === 'true' || defaultConfig.rateLimit.respectLimits,
+      respectLimits: process.env.RESPECT_RATE_LIMITS !== undefined ? process.env.RESPECT_RATE_LIMITS === 'true' : defaultConfig.rateLimit.respectLimits,
       minDelayMs: process.env.MIN_DELAY_MS ? parseInt(process.env.MIN_DELAY_MS) : defaultConfig.rateLimit.minDelayMs,
       maxRetries: process.env.MAX_RETRIES ? parseInt(process.env.MAX_RETRIES) : defaultConfig.rateLimit.maxRetries
     },
