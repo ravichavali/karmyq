@@ -113,7 +113,7 @@ CREATE OR REPLACE FUNCTION auth.generate_invitation_code(
 RETURNS TEXT AS $$
 DECLARE
     random_suffix TEXT;
-    invitation_code TEXT;
+    new_invitation_code TEXT;
     code_exists BOOLEAN;
 BEGIN
     LOOP
@@ -121,21 +121,21 @@ BEGIN
         random_suffix := upper(substring(md5(random()::text) from 1 for 4));
 
         -- Format: KARMYQ-NAME-YEAR-XXXX
-        invitation_code := 'KARMYQ-' ||
+        new_invitation_code := 'KARMYQ-' ||
                           upper(substring(replace(user_name, ' ', '') from 1 for 8)) ||
                           '-' || year || '-' || random_suffix;
 
-        -- Check if code already exists (qualify column with table name to avoid ambiguity)
+        -- Check if code already exists
         SELECT EXISTS(
-            SELECT 1 FROM auth.user_invitations ui
-            WHERE ui.invitation_code = generate_invitation_code.invitation_code
+            SELECT 1 FROM auth.user_invitations
+            WHERE invitation_code = new_invitation_code
         ) INTO code_exists;
 
         -- Exit loop if unique code found
         EXIT WHEN NOT code_exists;
     END LOOP;
 
-    RETURN invitation_code;
+    RETURN new_invitation_code;
 END;
 $$ LANGUAGE plpgsql;
 
