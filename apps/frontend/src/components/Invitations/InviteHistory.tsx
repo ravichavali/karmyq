@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { socialGraphService } from '../../lib/api';
+import { socialGraphService, communityService } from '../../lib/api';
 
 interface Invitee {
   id: string;
@@ -37,17 +37,38 @@ export default function InviteHistory() {
   const [history, setHistory] = useState<InvitationHistory | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [communityId, setCommunityId] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchHistory();
+    const fetchUserCommunities = async () => {
+      try {
+        const user = JSON.parse(localStorage.getItem('user') || '{}');
+        if (user.id) {
+          const response = await communityService.getMyCommunities(user.id);
+          if (response.data && response.data.length > 0) {
+            const firstCommunityId = response.data[0].id;
+            setCommunityId(firstCommunityId);
+            fetchHistory(firstCommunityId);
+          } else {
+            setError('Please join a community first');
+            setLoading(false);
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching communities:', err);
+        setError('Failed to load communities');
+        setLoading(false);
+      }
+    };
+    fetchUserCommunities();
   }, []);
 
-  const fetchHistory = async () => {
+  const fetchHistory = async (commId: string) => {
     setLoading(true);
     setError(null);
 
     try {
-      const response = await socialGraphService.getInvitations();
+      const response = await socialGraphService.getInvitations(commId);
       setHistory(response.data);
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to load invitation history');

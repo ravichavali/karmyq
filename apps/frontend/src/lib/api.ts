@@ -535,8 +535,10 @@ export const feedService = {
 // Social Graph API Methods
 export const socialGraphService = {
   // Generate invitation code
-  generateInvitationCode: () =>
-    socialGraphApi.post('/invitations/generate'),
+  generateInvitationCode: (communityId?: string) =>
+    socialGraphApi.post('/invitations/generate', {}, {
+      headers: communityId ? { 'X-Community-ID': communityId } : {},
+    }),
 
   // Validate invitation code (public endpoint)
   validateInvitationCode: (invitationCode: string) =>
@@ -547,8 +549,10 @@ export const socialGraphService = {
     socialGraphApi.post('/invitations/accept', { invitation_code: invitationCode }),
 
   // Get invitation history
-  getInvitations: () =>
-    socialGraphApi.get('/invitations'),
+  getInvitations: (communityId?: string) =>
+    socialGraphApi.get('/invitations', {
+      headers: communityId ? { 'X-Community-ID': communityId } : {},
+    }),
 
   // Get inviter statistics
   getInviterStats: () =>

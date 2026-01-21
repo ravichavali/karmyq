@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { socialGraphService } from '../../lib/api';
+import React, { useState, useEffect } from 'react';
+import { socialGraphService, communityService } from '../../lib/api';
 
 interface GeneratedInvite {
   code: string;
@@ -13,13 +13,37 @@ export default function InviteGenerator() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [communityId, setCommunityId] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Get user's communities and use the first one
+    const fetchUserCommunities = async () => {
+      try {
+        const user = JSON.parse(localStorage.getItem('user') || '{}');
+        if (user.id) {
+          const response = await communityService.getMyCommunities(user.id);
+          if (response.data && response.data.length > 0) {
+            setCommunityId(response.data[0].id);
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching communities:', err);
+      }
+    };
+    fetchUserCommunities();
+  }, []);
 
   const handleGenerateCode = async () => {
+    if (!communityId) {
+      setError('Please join a community first');
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
     try {
-      const response = await socialGraphService.generateInvitationCode();
+      const response = await socialGraphService.generateInvitationCode(communityId);
       setGeneratedInvite(response.data);
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to generate invitation code');
