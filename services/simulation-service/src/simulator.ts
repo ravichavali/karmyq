@@ -11,7 +11,8 @@ import {
   createRequestWorkflow,
   offerHelpWorkflow,
   messageWorkflow,
-  completeMatchWorkflow
+  completeMatchWorkflow,
+  joinCommunityWorkflow
 } from './workflows';
 import { loadUserCredentials, getRandomUser, UserCredentials } from './credentials-loader';
 
@@ -204,8 +205,32 @@ export class Simulator {
    * Perform a random action based on user profile
    */
   private async performRandomAction(session: UserSession) {
+    // Check if user has communities
+    const client = this.sessionManager.getClient(session);
+    const communities = await this.sessionManager.executeAction(
+      session,
+      'checkCommunities',
+      () => client.getCommunities()
+    );
+
+    const hasCommunities = communities && communities.length > 0;
+
+    // If user has NO communities, always join communities first
+    if (!hasCommunities) {
+      console.log(`[${session.user.email}] Performing action: joinCommunity (no communities)`);
+      await joinCommunityWorkflow({ session, config: this.config, sessionManager: this.sessionManager });
+      return;
+    }
+
     const actions = session.user.profile.actions;
     const workflows: Array<{ weight: number; workflow: Workflow; name: string }> = [];
+
+    // If user has communities, add join community as a low-weight option (occasional expansion)
+    workflows.push({
+      weight: 0.05, // 5% chance to join more communities
+      workflow: joinCommunityWorkflow,
+      name: 'joinCommunity'
+    });
 
     // Build weighted workflow list
     if (actions.browseRequests) {

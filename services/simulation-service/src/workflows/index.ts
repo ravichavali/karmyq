@@ -7,3 +7,4 @@ export { createRequestWorkflow } from './request-workflow';
 export { offerHelpWorkflow } from './offer-workflow';
 export { messageWorkflow } from './message-workflow';
 export { completeMatchWorkflow } from './complete-match-workflow';
+export { joinCommunityWorkflow } from './join-community-workflow';
