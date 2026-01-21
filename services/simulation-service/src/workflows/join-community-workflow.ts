@@ -41,7 +41,10 @@ export const joinCommunityWorkflow: Workflow = async (context) => {
             limit: 20
           }
         });
-        return response.data.data || [];
+        // Handle various response formats
+        const communities = response.data.data || response.data || [];
+        // Ensure it's an array
+        return Array.isArray(communities) ? communities : [];
       }
     );
 
