@@ -84,11 +84,11 @@ export default function CommunitiesPage() {
       const response = await communityService.getCommunities(params)
       setCommunities(response.data.communities)
 
-      // Fetch user's memberships to check status
+      // Get user's memberships from JWT token (no API call needed)
       const userData = localStorage.getItem('user')
       if (userData) {
         const user = JSON.parse(userData)
-        await fetchMembershipStatus(user.id, response.data.communities)
+        buildMembershipStatusFromToken(user, response.data.communities)
       }
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to load communities')
@@ -97,28 +97,21 @@ export default function CommunitiesPage() {
     }
   }
 
-  const fetchMembershipStatus = async (userId: string, communities: Community[]) => {
-    try {
-      // Efficient approach: Fetch user's communities once, build status map
-      const response = await communityService.getMyCommunities(userId)
-      const myCommunities = response.data?.communities || response.data
+  const buildMembershipStatusFromToken = (user: any, communities: Community[]) => {
+    // Use JWT token data - no API call needed!
+    const statusMap: MembershipStatus = {}
 
-      const statusMap: MembershipStatus = {}
+    // Build a map of user's memberships from JWT token
+    const membershipMap = new Map(
+      (user.communities || []).map((c: any) => [c.id, 'active'])
+    )
 
-      // Build a map of user's memberships
-      const membershipMap = new Map(
-        myCommunities.map((c: any) => [c.id, c.role || 'active'])
-      )
-
-      // Check each community against user's memberships
-      for (const community of communities) {
-        statusMap[community.id] = membershipMap.has(community.id) ? 'active' : null
-      }
-
-      setMembershipStatus(statusMap)
-    } catch (err) {
-      console.error('Failed to fetch membership status:', err)
+    // Check each community against user's memberships
+    for (const community of communities) {
+      statusMap[community.id] = membershipMap.has(community.id) ? 'active' : null
     }
+
+    setMembershipStatus(statusMap)
   }
 
   const handleJoinCommunity = async (communityId: string, accessType: 'public' | 'private') => {
