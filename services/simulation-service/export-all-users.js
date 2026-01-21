@@ -83,7 +83,6 @@ async function fetchAllUsers(client) {
       u.name,
       u.created_at
     FROM auth.users u
-    WHERE u.status = 'active'
     ORDER BY u.created_at ASC
   `;
 
