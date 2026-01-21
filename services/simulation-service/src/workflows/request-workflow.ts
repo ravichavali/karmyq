@@ -47,7 +47,7 @@ export const createRequestWorkflow: Workflow = async (context) => {
     const urgencies = ['low', 'medium', 'high'];
 
     const requestData = {
-      community_ids: [community.id],
+      community_id: community.id,
       title,
       description: pickRandom(descriptions),
       category: pickRandom(categories),

@@ -69,11 +69,13 @@ export class ApiClient {
    * Request API - Create request
    */
   async createRequest(data: {
-    community_ids: string[];
+    community_id?: string;
+    post_to_all_communities?: boolean;
     title: string;
     description: string;
     category?: string;
     urgency?: string;
+    request_type?: string;
   }): Promise<any> {
     const response = await executeWithRetry(() =>
       this.client.post('/requests', data)
