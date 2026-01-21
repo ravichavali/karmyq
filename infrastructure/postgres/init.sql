@@ -125,10 +125,10 @@ BEGIN
                           upper(substring(replace(user_name, ' ', '') from 1 for 8)) ||
                           '-' || year || '-' || random_suffix;
 
-        -- Check if code already exists
+        -- Check if code already exists (qualify column with table name to avoid ambiguity)
         SELECT EXISTS(
-            SELECT 1 FROM auth.user_invitations
-            WHERE invitation_code = invitation_code
+            SELECT 1 FROM auth.user_invitations ui
+            WHERE ui.invitation_code = generate_invitation_code.invitation_code
         ) INTO code_exists;
 
         -- Exit loop if unique code found
