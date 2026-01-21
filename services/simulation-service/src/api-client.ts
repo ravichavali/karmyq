@@ -108,7 +108,9 @@ export class ApiClient {
     const response = await executeWithRetry(() =>
       this.client.get('/matches', { params })
     );
-    return response.data.data || [];
+    // API returns: { success: true, data: { matches: [...], count: N } }
+    const matches = response.data.data?.matches || [];
+    return Array.isArray(matches) ? matches : [];
   }
 
   /**

@@ -19,7 +19,7 @@ export const createRequestWorkflow: Workflow = async (context) => {
     const communities = await sessionManager.executeAction(
       session,
       'getCommunities',
-      () => client.getCommunities()
+      () => client.getCommunities(session.user.id)
     );
 
     if (!communities || communities.length === 0) {
