@@ -22,7 +22,7 @@ export const joinCommunityWorkflow: Workflow = async (context) => {
     const myCommunities = await sessionManager.executeAction(
       session,
       'getMyCommunities',
-      () => client.getCommunities()
+      () => client.getCommunities(session.user.id)
     );
 
     if (myCommunities && myCommunities.length > 0) {

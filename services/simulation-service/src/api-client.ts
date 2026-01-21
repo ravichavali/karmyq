@@ -152,9 +152,11 @@ export class ApiClient {
   /**
    * Community API - Get user's communities
    */
-  async getCommunities(): Promise<any[]> {
+  async getCommunities(userId?: string): Promise<any[]> {
     const response = await executeWithRetry(() =>
-      this.client.get('/communities/my/communities')
+      this.client.get('/communities/my/communities', {
+        params: userId ? { user_id: userId } : {}
+      })
     );
     return response.data.data?.communities || response.data.data || [];
   }
