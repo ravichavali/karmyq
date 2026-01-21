@@ -52,7 +52,10 @@
       "Bash(docker stop:*)",
       "Bash(docker push:*)",
       "Bash(chmod:*)",
-      "Bash(docker compose:*)"
+      "Bash(docker compose:*)",
+      "Bash(grep:*)",
+      "Bash(node scripts/analyze-services.js:*)",
+      "Bash(node scripts/update-service-deps.js:*)"
     ],
     "deny": [],
     "ask": []

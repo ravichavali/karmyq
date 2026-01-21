@@ -1,0 +1,39 @@
+#!/bin/bash
+# Pre-commit hook for service governance
+# Runs impact analysis when service files are changed
+#
+# To install: ln -sf ../../scripts/git-hooks/pre-commit .git/hooks/pre-commit
+
+# Get list of changed service directories
+changed_services=$(git diff --cached --name-only | grep '^services/' | grep -v '/node_modules/' | cut -d/ -f2 | sort -u)
+
+if [ -n "$changed_services" ]; then
+  echo ""
+  echo "🔍 Service changes detected in: $changed_services"
+  echo "   Running impact analysis..."
+  echo ""
+
+  # Run service analysis
+  node scripts/analyze-services.js > /dev/null
+
+  echo "📊 Impact Analysis:"
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+  # Show impacted services for each changed service
+  for service in $changed_services; do
+    if [ -f "services/impact-analysis.md" ]; then
+      echo ""
+      echo "Changed: $service"
+      # Extract impact info from markdown
+      grep -A 10 "### $service" services/impact-analysis.md | grep -E "(Impacts|No direct|⚠️|✅)" | head -5 || echo "  → See services/impact-analysis.md"
+    fi
+  done
+
+  echo ""
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  echo "✓ Review services/impact-analysis.md for full details"
+  echo ""
+fi
+
+# Continue with commit
+exit 0

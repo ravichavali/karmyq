@@ -1,0 +1,37 @@
+#!/bin/sh
+. "$(dirname "$0")/_/husky.sh"
+
+# Pre-commit hook for service governance
+# Runs impact analysis when service files are changed
+
+# Get list of changed service directories
+changed_services=$(git diff --cached --name-only | grep '^services/' | grep -v '/node_modules/' | cut -d/ -f2 | sort -u)
+
+if [ -n "$changed_services" ]; then
+  echo ""
+  echo "🔍 Service changes detected. Running impact analysis..."
+  echo ""
+
+  # Run service analysis
+  npm run analyze:services --silent
+
+  echo ""
+  echo "📊 Impact Analysis Summary:"
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+  # Show impacted services for each changed service
+  for service in $changed_services; do
+    if [ -f "services/impact-analysis.md" ]; then
+      echo ""
+      echo "Changed: $service"
+      # Extract impact info from markdown (basic grep)
+      grep -A 5 "### $service" services/impact-analysis.md | grep -E "(Impacts|No direct)" || echo "  (See services/impact-analysis.md for details)"
+    fi
+  done
+
+  echo ""
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  echo ""
+  echo "✓ Review services/impact-analysis.md before pushing"
+  echo ""
+fi

@@ -1,0 +1,286 @@
+{
+  "version": "1.0.0",
+  "updated": "2026-01-21",
+  "services": {
+    "auth-service": {
+      "port": 3001,
+      "status": "production",
+      "owner": "core",
+      "path": "services/auth-service",
+      "dependencies": {
+        "services": [],
+        "infrastructure": ["postgres", "redis"]
+      },
+      "apis": {
+        "provides": [
+          "/auth/register",
+          "/auth/login",
+          "/auth/verify",
+          "/auth/profile"
+        ],
+        "consumes": []
+      },
+      "database_schemas": ["auth"],
+      "health_check": "http://localhost:3001/health",
+      "criticality": "critical",
+      "notes": "Foundation service - no dependencies on other services"
+    },
+    "community-service": {
+      "port": 3002,
+      "status": "production",
+      "owner": "core",
+      "path": "services/community-service",
+      "dependencies": {
+        "services": ["auth-service"],
+        "infrastructure": ["postgres", "redis", "bull-queue"]
+      },
+      "apis": {
+        "provides": [
+          "/communities",
+          "/communities/join",
+          "/communities/my/communities",
+          "/memberships",
+          "/norms"
+        ],
+        "consumes": ["/auth/verify"]
+      },
+      "database_schemas": ["community"],
+      "health_check": "http://localhost:3002/health",
+      "criticality": "critical",
+      "events": {
+        "publishes": ["user_joined_community", "community_created"],
+        "subscribes": []
+      }
+    },
+    "request-service": {
+      "port": 3003,
+      "status": "production",
+      "owner": "core",
+      "path": "services/request-service",
+      "dependencies": {
+        "services": ["auth-service", "community-service"],
+        "infrastructure": ["postgres", "redis", "bull-queue"]
+      },
+      "apis": {
+        "provides": [
+          "/requests",
+          "/requests/:id",
+          "/offers",
+          "/matches",
+          "/matches/:id/complete"
+        ],
+        "consumes": [
+          "/auth/verify",
+          "/communities/validate"
+        ]
+      },
+      "database_schemas": ["requests"],
+      "health_check": "http://localhost:3003/health",
+      "criticality": "critical",
+      "events": {
+        "publishes": ["match_completed", "request_created", "offer_created"],
+        "subscribes": []
+      }
+    },
+    "reputation-service": {
+      "port": 3004,
+      "status": "production",
+      "owner": "core",
+      "path": "services/reputation-service",
+      "dependencies": {
+        "services": ["auth-service"],
+        "infrastructure": ["postgres", "redis", "bull-queue"]
+      },
+      "apis": {
+        "provides": [
+          "/karma",
+          "/karma/leaderboard",
+          "/trust-scores",
+          "/badges"
+        ],
+        "consumes": ["/auth/verify"]
+      },
+      "database_schemas": ["reputation"],
+      "health_check": "http://localhost:3004/health",
+      "criticality": "critical",
+      "events": {
+        "publishes": ["karma_awarded", "badge_earned"],
+        "subscribes": ["match_completed"]
+      }
+    },
+    "notification-service": {
+      "port": 3005,
+      "status": "production",
+      "owner": "core",
+      "path": "services/notification-service",
+      "dependencies": {
+        "services": ["auth-service"],
+        "infrastructure": ["postgres", "redis", "bull-queue"]
+      },
+      "apis": {
+        "provides": [
+          "/notifications",
+          "/notifications/sse",
+          "/notifications/preferences"
+        ],
+        "consumes": ["/auth/verify"]
+      },
+      "database_schemas": ["notifications"],
+      "health_check": "http://localhost:3005/health",
+      "criticality": "important",
+      "events": {
+        "publishes": [],
+        "subscribes": ["match_completed", "karma_awarded", "request_created", "user_joined_community"]
+      },
+      "notes": "Subscribes to all events, creates notifications"
+    },
+    "messaging-service": {
+      "port": 3006,
+      "status": "production",
+      "owner": "core",
+      "path": "services/messaging-service",
+      "dependencies": {
+        "services": ["auth-service", "community-service"],
+        "infrastructure": ["postgres", "redis"]
+      },
+      "apis": {
+        "provides": [
+          "/conversations",
+          "/conversations/:id/messages"
+        ],
+        "consumes": ["/auth/verify"]
+      },
+      "database_schemas": ["messaging"],
+      "health_check": "http://localhost:3006/health",
+      "criticality": "critical"
+    },
+    "feed-service": {
+      "port": 3007,
+      "status": "production",
+      "owner": "core",
+      "path": "services/feed-service",
+      "dependencies": {
+        "services": ["auth-service"],
+        "infrastructure": ["postgres", "redis"]
+      },
+      "apis": {
+        "provides": ["/feed"],
+        "consumes": ["/auth/verify"]
+      },
+      "database_schemas": ["feed"],
+      "health_check": "http://localhost:3007/health",
+      "criticality": "important",
+      "events": {
+        "publishes": [],
+        "subscribes": ["request_created", "match_completed", "user_joined_community"]
+      },
+      "notes": "CANDIDATE FOR MERGE: Could be merged into request-service as view layer"
+    },
+    "cleanup-service": {
+      "port": 3008,
+      "status": "production",
+      "owner": "maintenance",
+      "path": "services/cleanup-service",
+      "dependencies": {
+        "services": [],
+        "infrastructure": ["postgres", "redis"]
+      },
+      "apis": {
+        "provides": [],
+        "consumes": []
+      },
+      "database_schemas": ["all"],
+      "health_check": "http://localhost:3008/health",
+      "criticality": "important",
+      "notes": "CANDIDATE FOR REPLACEMENT: Could be replaced with pg_cron scheduled jobs"
+    },
+    "geocoding-service": {
+      "port": 3009,
+      "status": "production",
+      "owner": "geo",
+      "path": "services/geocoding-service",
+      "dependencies": {
+        "services": [],
+        "infrastructure": ["redis"]
+      },
+      "apis": {
+        "provides": [
+          "/geocode",
+          "/reverse-geocode"
+        ],
+        "consumes": []
+      },
+      "database_schemas": [],
+      "health_check": "http://localhost:3009/health",
+      "criticality": "optional",
+      "notes": "CANDIDATE FOR REMOVAL: Could use browser Geolocation API instead"
+    },
+    "social-graph-service": {
+      "port": 3010,
+      "status": "production",
+      "owner": "core",
+      "path": "services/social-graph-service",
+      "dependencies": {
+        "services": ["auth-service", "community-service"],
+        "infrastructure": ["postgres", "redis"]
+      },
+      "apis": {
+        "provides": [
+          "/invitations",
+          "/trust-paths",
+          "/social-graph"
+        ],
+        "consumes": ["/auth/verify"]
+      },
+      "database_schemas": ["social_graph"],
+      "health_check": "http://localhost:3010/health",
+      "criticality": "critical",
+      "notes": "Trust-first design foundation"
+    },
+    "simulation-service": {
+      "port": null,
+      "status": "development",
+      "owner": "testing",
+      "path": "services/simulation-service",
+      "dependencies": {
+        "services": ["all"],
+        "infrastructure": []
+      },
+      "apis": {
+        "provides": [],
+        "consumes": ["all"]
+      },
+      "database_schemas": [],
+      "health_check": null,
+      "criticality": "optional",
+      "notes": "Development/testing tool only - not deployed to production"
+    }
+  },
+  "infrastructure": {
+    "postgres": {
+      "type": "database",
+      "version": "15",
+      "port": 5432,
+      "required_for": ["auth-service", "community-service", "request-service", "reputation-service", "notification-service", "messaging-service", "feed-service", "cleanup-service", "social-graph-service"]
+    },
+    "redis": {
+      "type": "cache",
+      "version": "7",
+      "port": 6379,
+      "required_for": ["all-services"]
+    },
+    "bull-queue": {
+      "type": "queue",
+      "backend": "redis",
+      "required_for": ["community-service", "request-service", "reputation-service", "notification-service"]
+    }
+  },
+  "statistics": {
+    "total_services": 11,
+    "production_services": 10,
+    "development_services": 1,
+    "deprecated_services": 0,
+    "critical_services": 7,
+    "candidates_for_removal": 2
+  }
+}

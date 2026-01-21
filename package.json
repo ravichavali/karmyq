@@ -18,7 +18,10 @@
     "test:coverage": "cd tests && npm run test:coverage",
     "lint": "turbo run lint",
     "clean": "turbo run clean",
-    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\""
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
+    "analyze:services": "node scripts/analyze-services.js",
+    "health:check": "bash scripts/health-check.sh",
+    "dashboard": "node scripts/dashboard.js"
   },
   "devDependencies": {
     "@types/jsonwebtoken": "^9.0.10",
@@ -32,7 +35,19 @@
     "npm": ">=9.0.0"
   },
   "dependencies": {
-    "@alloc/quick-lru": "^5.2.0"
+    "@alloc/quick-lru": "^5.2.0",
+    "express": "^4.18.2",
+    "pg": "^8.11.3",
+    "redis": "^4.6.11",
+    "bull": "^4.11.5",
+    "winston": "^3.18.3",
+    "zod": "^4.1.12",
+    "dotenv": "^16.3.1",
+    "express-rate-limit": "^8.2.1",
+    "bcryptjs": "^2.4.3",
+    "jsonwebtoken": "^9.0.2",
+    "ioredis": "^5.3.2",
+    "cors": "^2.8.5"
   },
   "overrides": {
     "@karmyq/mobile": {

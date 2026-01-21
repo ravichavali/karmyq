@@ -390,7 +390,6 @@ services:
       - ../../services/auth-service/logs:/var/log/services/auth-service:ro
       - ../../services/community-service/logs:/var/log/services/community-service:ro
       - ../../services/request-service/logs:/var/log/services/request-service:ro
-      - ../../services/matching-service/logs:/var/log/services/matching-service:ro
       - ../../services/reputation-service/logs:/var/log/services/reputation-service:ro
       - ../../services/notification-service/logs:/var/log/services/notification-service:ro
       - ../../services/messaging-service/logs:/var/log/services/messaging-service:ro
