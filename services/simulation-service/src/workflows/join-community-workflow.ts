@@ -35,15 +35,13 @@ export const joinCommunityWorkflow: Workflow = async (context) => {
       session,
       'discoverCommunities',
       async () => {
-        // Use the social-graph API to discover communities
-        const response = await client.client.get('/social-graph/communities', {
+        // Use the communities API to discover all available communities
+        const response = await client.client.get('/communities', {
           params: {
-            status: 'active',
-            limit: 20,
-            sort: 'members' // Sort by most popular
+            limit: 20
           }
         });
-        return response.data.data?.communities || response.data.data || [];
+        return response.data.data || [];
       }
     );
 
@@ -81,7 +79,7 @@ export const joinCommunityWorkflow: Workflow = async (context) => {
         'joinCommunity',
         async () => {
           const response = await client.client.post(
-            `/social-graph/communities/${community.id}/join`,
+            `/communities/${community.id}/join`,
             { user_id: session.user.id }
           );
           return response.data.data;
