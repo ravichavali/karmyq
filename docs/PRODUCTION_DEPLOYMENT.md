@@ -105,10 +105,12 @@ This makes simulation use ALL real users from the database (not just predefined 
 
 ```bash
 cd ~/karmyq/services/simulation-service
-node export-all-users.js --env production --password demo123!Demo
+node export-all-users.js --env production --password '115ECountLn'
 ```
 
 This creates `.env.production.users` file with credentials for all active users.
+
+**Note**: The password should match what existing users actually use. Default is `115ECountLn`.
 
 ### 2.4 Start Simulation Service
 

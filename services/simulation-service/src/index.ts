@@ -45,7 +45,7 @@ function loadConfig(): SimulationConfig {
 
     // Override schedule config from environment
     schedule: {
-      ...defaultConfig.schedule,
+      type: defaultConfig.schedule.type,
       businessHours: {
         enabled: process.env.BUSINESS_HOURS_ENABLED === 'true',
         start: process.env.BUSINESS_HOURS_START || defaultConfig.schedule.businessHours.start,
