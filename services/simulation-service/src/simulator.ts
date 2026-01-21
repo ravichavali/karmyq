@@ -49,8 +49,8 @@ export class Simulator {
     // Main simulation loop
     while (this.isRunning) {
       try {
-        // Check if we're within business hours
-        if (!isBusinessHours(this.config.schedule.businessHours)) {
+        // Check if we're within business hours (if enabled)
+        if (this.config.schedule.businessHours.enabled && !isBusinessHours(this.config.schedule.businessHours)) {
           console.log('⏰ Outside business hours, waiting...');
           await delay(5 * 60 * 1000); // Wait 5 minutes
           continue;

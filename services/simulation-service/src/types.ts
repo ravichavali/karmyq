@@ -63,6 +63,7 @@ export interface SimulationConfig {
   schedule: {
     type: 'continuous' | 'cron';
     businessHours: {
+      enabled: boolean;
       start: string;
       end: string;
       timezone: string;

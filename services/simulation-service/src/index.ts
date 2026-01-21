@@ -23,7 +23,36 @@ function loadConfig(): SimulationConfig {
     ...(defaultConfig as SimulationConfig),
     apiBaseUrl: process.env.API_BASE_URL || defaultConfig.apiBaseUrl,
     enabled: process.env.SIMULATION_ENABLED === 'true' || defaultConfig.enabled,
-    environment: (process.env.ENVIRONMENT as any) || defaultConfig.environment
+    environment: (process.env.ENVIRONMENT as any) || defaultConfig.environment,
+
+    // Override users config from environment
+    users: {
+      ...defaultConfig.users,
+      total: process.env.TOTAL_USERS ? parseInt(process.env.TOTAL_USERS) : defaultConfig.users.total,
+      concurrentSessions: {
+        min: process.env.MIN_CONCURRENT_SESSIONS ? parseInt(process.env.MIN_CONCURRENT_SESSIONS) : defaultConfig.users.concurrentSessions.min,
+        max: process.env.MAX_CONCURRENT_SESSIONS ? parseInt(process.env.MAX_CONCURRENT_SESSIONS) : defaultConfig.users.concurrentSessions.max
+      },
+      profiles: defaultConfig.users.profiles
+    },
+
+    // Override rate limit config from environment
+    rateLimit: {
+      respectLimits: process.env.RESPECT_RATE_LIMITS === 'true' || defaultConfig.rateLimit.respectLimits,
+      minDelayMs: process.env.MIN_DELAY_MS ? parseInt(process.env.MIN_DELAY_MS) : defaultConfig.rateLimit.minDelayMs,
+      maxRetries: process.env.MAX_RETRIES ? parseInt(process.env.MAX_RETRIES) : defaultConfig.rateLimit.maxRetries
+    },
+
+    // Override schedule config from environment
+    schedule: {
+      ...defaultConfig.schedule,
+      businessHours: {
+        enabled: process.env.BUSINESS_HOURS_ENABLED === 'true',
+        start: process.env.BUSINESS_HOURS_START || defaultConfig.schedule.businessHours.start,
+        end: process.env.BUSINESS_HOURS_END || defaultConfig.schedule.businessHours.end,
+        timezone: process.env.BUSINESS_HOURS_TIMEZONE || defaultConfig.schedule.businessHours.timezone
+      }
+    }
   };
 
   return config;
