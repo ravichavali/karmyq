@@ -54,8 +54,13 @@ function parseArgs() {
 // Get database connection string
 function getDatabaseUrl(env) {
   if (env === 'production' || env === 'staging') {
-    // Load from environment file
-    const envFile = path.join(__dirname, '..', '..', '..', `.env.${env}`);
+    // First check process.env
+    if (process.env.DATABASE_URL) {
+      return process.env.DATABASE_URL;
+    }
+
+    // Load from environment file in repo root (3 levels up from this script)
+    const envFile = path.join(__dirname, '..', '..', `.env.${env}`);
     if (fs.existsSync(envFile)) {
       const content = fs.readFileSync(envFile, 'utf-8');
       const match = content.match(/DATABASE_URL=(.+)/);
@@ -63,8 +68,8 @@ function getDatabaseUrl(env) {
         return match[1].trim();
       }
     }
-    // Fallback to env var
-    return process.env.DATABASE_URL;
+
+    return null;
   }
   return ENVIRONMENTS[env].connectionString;
 }

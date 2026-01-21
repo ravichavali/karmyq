@@ -104,6 +104,11 @@ npm run build
 This makes simulation use ALL real users from the database (not just predefined ones):
 
 ```bash
+# Load DATABASE_URL from .env.production
+cd ~/karmyq
+export $(grep DATABASE_URL .env.production | xargs)
+
+# Export all users
 cd ~/karmyq/services/simulation-service
 node export-all-users.js --env production --password '115ECountLn'
 ```
