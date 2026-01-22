@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { FeedComposer } from '../services/feedComposer';
 import { SocialKarmaFeedComposer } from '../services/socialKarmaFeedComposer';
+import { BasicFeedRanker } from '../services/basicFeedRanker';
 import { query } from '../database/db';
 
 // AuthenticatedRequest type - matches the shared middleware
@@ -19,6 +20,7 @@ interface AuthenticatedRequest extends Request {
 const router = Router();
 const feedComposer = new FeedComposer();
 const socialKarmaComposer = new SocialKarmaFeedComposer();
+const basicFeedRanker = new BasicFeedRanker();
 
 /**
  * GET /feed
@@ -39,9 +41,10 @@ router.get('/', async (req: AuthenticatedRequest, res: Response) => {
 
     req.logger?.info('Fetching feed', { userId, limit });
 
-    // TODO: Fix feed composer to match actual database schema (See ROADMAP.md Backlog #26)
-    // For now, return empty feed to prevent frontend crashes
-    const feed: any[] = [];
+    // Generate personalized feed with social graph ranking
+    const feed = await basicFeedRanker.generateFeed(userId, limit);
+
+    req.logger?.info('Feed generated', { userId, itemCount: feed.length });
 
     res.json({
       success: true,
