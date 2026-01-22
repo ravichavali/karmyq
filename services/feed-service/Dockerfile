@@ -32,4 +32,4 @@ COPY --from=builder /app/package*.json ./
 RUN npm install --omit=dev
 
 EXPOSE 3007
-CMD ["node", "dist/index.js"]
+CMD ["node", "dist/src/index.js"]
