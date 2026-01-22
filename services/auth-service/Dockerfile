@@ -21,6 +21,11 @@ COPY packages/shared ./packages/shared
 # Copy service source
 COPY services/auth-service/ ./services/auth-service/
 
+# Create symlinks so relative imports can find shared modules
+# Services import as ../shared/* and ../../shared/*
+RUN ln -s /app/packages/shared /app/services/shared && \
+    ln -s /app/packages/shared /app/shared
+
 # Build from service directory
 WORKDIR /app/services/auth-service
 RUN npm run build
