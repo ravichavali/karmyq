@@ -11,8 +11,8 @@ COPY services/feed-service/package*.json ./
 # Install dependencies
 RUN npm install
 
-# Copy shared modules needed for build (must be accessible as ../shared from /app)
-COPY packages/shared /shared
+# Copy shared modules needed for build (accessible as ../shared from /app/src)
+COPY packages/shared ./shared
 
 # Copy service source
 COPY services/feed-service/ ./
