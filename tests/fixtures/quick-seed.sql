@@ -13,15 +13,15 @@ TRUNCATE TABLE communities.members CASCADE;
 TRUNCATE TABLE communities.communities CASCADE;
 TRUNCATE TABLE auth.users CASCADE;
 
--- Insert test persona users
+-- Insert test persona users (password: password123)
 INSERT INTO auth.users (id, email, name, password_hash, created_at) VALUES
-  ('11111111-1111-1111-1111-111111111111', 'new.user@test.com', 'New User', '$2b$10$examplehash', NOW() - INTERVAL '1 day'),
-  ('22222222-2222-2222-2222-222222222222', 'power.helper@test.com', 'Power Helper', '$2b$10$examplehash', NOW() - INTERVAL '90 days'),
-  ('33333333-3333-3333-3333-333333333333', 'frequent.requester@test.com', 'Frequent Requester', '$2b$10$examplehash', NOW() - INTERVAL '60 days'),
-  ('44444444-4444-4444-4444-444444444444', 'community.moderator@test.com', 'Community Moderator', '$2b$10$examplehash', NOW() - INTERVAL '120 days'),
-  ('55555555-5555-5555-5555-555555555555', 'balanced.user@test.com', 'Balanced User', '$2b$10$examplehash', NOW() - INTERVAL '45 days'),
-  ('66666666-6666-6666-6666-666666666666', 'occasional.user@test.com', 'Occasional User', '$2b$10$examplehash', NOW() - INTERVAL '150 days'),
-  ('77777777-7777-7777-7777-777777777777', 'multi.community@test.com', 'Multi Community Member', '$2b$10$examplehash', NOW() - INTERVAL '75 days');
+  ('11111111-1111-1111-1111-111111111111', 'new.user@test.com', 'New User', '$2a$10$mEMsTo4Pq.BYWTklOHdZnOezQzQ3xNy0vdARCxBfqyFiPw.dfxWKS', NOW() - INTERVAL '1 day'),
+  ('22222222-2222-2222-2222-222222222222', 'power.helper@test.com', 'Power Helper', '$2a$10$mEMsTo4Pq.BYWTklOHdZnOezQzQ3xNy0vdARCxBfqyFiPw.dfxWKS', NOW() - INTERVAL '90 days'),
+  ('33333333-3333-3333-3333-333333333333', 'frequent.requester@test.com', 'Frequent Requester', '$2a$10$mEMsTo4Pq.BYWTklOHdZnOezQzQ3xNy0vdARCxBfqyFiPw.dfxWKS', NOW() - INTERVAL '60 days'),
+  ('44444444-4444-4444-4444-444444444444', 'community.moderator@test.com', 'Community Moderator', '$2a$10$mEMsTo4Pq.BYWTklOHdZnOezQzQ3xNy0vdARCxBfqyFiPw.dfxWKS', NOW() - INTERVAL '120 days'),
+  ('55555555-5555-5555-5555-555555555555', 'balanced.user@test.com', 'Balanced User', '$2a$10$mEMsTo4Pq.BYWTklOHdZnOezQzQ3xNy0vdARCxBfqyFiPw.dfxWKS', NOW() - INTERVAL '45 days'),
+  ('66666666-6666-6666-6666-666666666666', 'occasional.user@test.com', 'Occasional User', '$2a$10$mEMsTo4Pq.BYWTklOHdZnOezQzQ3xNy0vdARCxBfqyFiPw.dfxWKS', NOW() - INTERVAL '150 days'),
+  ('77777777-7777-7777-7777-777777777777', 'multi.community@test.com', 'Multi Community Member', '$2a$10$mEMsTo4Pq.BYWTklOHdZnOezQzQ3xNy0vdARCxBfqyFiPw.dfxWKS', NOW() - INTERVAL '75 days');
 
 -- Insert test communities
 INSERT INTO communities.communities (id, name, description, creator_id, created_at) VALUES
