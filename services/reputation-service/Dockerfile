@@ -22,9 +22,6 @@ COPY packages/shared ./shared
 # Copy service source
 COPY services/reputation-service/ ./services/reputation-service/
 
-# Debug: List what's in the shared directories
-RUN ls -la /app/services/shared && ls -la /app/shared
-
 # Build from service directory
 WORKDIR /app/services/reputation-service
 RUN npm run build
