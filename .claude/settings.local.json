@@ -56,7 +56,11 @@
       "Bash(grep:*)",
       "Bash(node scripts/analyze-services.js:*)",
       "Bash(node scripts/update-service-deps.js:*)",
-      "Bash(wc:*)"
+      "Bash(wc:*)",
+      "Bash(psql:*)",
+      "Bash(git restore:*)",
+      "Bash(scp:*)",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJhYWFhYWFhYS1hYWFhLWFhYWEtYWFhYS1hYWFhYWFhYWFhYWEiLCJlbWFpbCI6ImFsaWNlQHRlc3QuY29tIiwiY29tbXVuaXRpZXMiOlt7ImlkIjoiMTExMTExMTEtMTExMS0xMTExLTExMTEtMTExMTExMTExMTExIiwicm9sZSI6ImFkbWluIiwibmFtZSI6IlRlc3QgQ29tbXVuaXR5In1dLCJjdXJyZW50Q29tbXVuaXR5SWQiOiIxMTExMTExMS0xMTExLTExMTEtMTExMS0xMTExMTExMTExMTEiLCJpYXQiOjE3NjkwNTg2NTksImV4cCI6MTc2OTY2MzQ1OX0.u0UrNMF3KD3CeSPgp4rNG-Pt69g459nITglBBK-QAqk\")"
     ],
     "deny": [],
     "ask": []

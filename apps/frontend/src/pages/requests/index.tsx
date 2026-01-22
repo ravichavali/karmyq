@@ -4,7 +4,7 @@ import Head from 'next/head'
 import Link from 'next/link'
 import { requestService } from '../../lib/api'
 import Layout from '@/components/Layout'
-import ConnectionBadge from '@/components/Requests/ConnectionBadge'
+import ConnectionBadge from '@/components/requests/ConnectionBadge'
 
 interface HelpRequest {
   id: string

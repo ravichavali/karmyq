@@ -25,15 +25,33 @@ export default function TrustPathBadge({ trustPath, compact = false, className =
 
   const { degrees_of_separation, path, trust_score } = trustPath;
 
+  // Don't show badge for 4+ degree connections
+  if (degrees_of_separation > 3) {
+    return null;
+  }
+
   // Degree badge colors
   const degreeColors = {
-    1: 'bg-green-100 text-green-800 border-green-300',
-    2: 'bg-blue-100 text-blue-800 border-blue-300',
-    3: 'bg-yellow-100 text-yellow-800 border-yellow-300',
-    4: 'bg-orange-100 text-orange-800 border-orange-300',
+    1: 'bg-green-50 text-green-700 border-green-200',
+    2: 'bg-blue-50 text-blue-700 border-blue-200',
+    3: 'bg-gray-50 text-gray-700 border-gray-200',
   };
 
   const degreeColor = degreeColors[degrees_of_separation as keyof typeof degreeColors] || 'bg-gray-100 text-gray-800 border-gray-300';
+
+  // Get connection text based on degree
+  const getConnectionText = () => {
+    if (degrees_of_separation === 1) {
+      return 'Direct connection';
+    } else if (degrees_of_separation === 2 && path.length >= 2) {
+      // Show intermediary name: "Connected through Bob"
+      return `Connected through ${path[1].name}`;
+    } else if (degrees_of_separation === 3 && path.length >= 3) {
+      // Show both intermediaries: "Connected through Bob → Charlie"
+      return `Connected through ${path[1].name} → ${path[2].name}`;
+    }
+    return `${degrees_of_separation}° connection`;
+  };
 
   // Trust score stars (out of 5)
   const renderTrustStars = (score: number) => {
@@ -54,12 +72,15 @@ export default function TrustPathBadge({ trustPath, compact = false, className =
     );
   };
 
-  // Compact view: Just show the degree badge
+  // Compact view: Just show the connection text
   if (compact) {
     return (
       <div className={`inline-flex items-center ${className}`}>
-        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${degreeColor}`}>
-          {degrees_of_separation}° connection
+        <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border text-sm font-medium ${degreeColor}`}>
+          <span className="text-base" aria-hidden="true">
+            {degrees_of_separation === 1 ? '🔗' : degrees_of_separation === 2 ? '🤝' : '👥'}
+          </span>
+          {getConnectionText()}
         </span>
       </div>
     );
@@ -67,15 +88,15 @@ export default function TrustPathBadge({ trustPath, compact = false, className =
 
   // Full view: Show path and details
   return (
-    <div className={`border-l-4 border-blue-400 bg-blue-50 rounded-md p-3 ${className}`}>
+    <div className={`border-l-4 ${degrees_of_separation === 1 ? 'border-green-400 bg-green-50' : degrees_of_separation === 2 ? 'border-blue-400 bg-blue-50' : 'border-gray-400 bg-gray-50'} rounded-md p-3 ${className}`}>
       {/* Header */}
       <div className="flex items-center justify-between mb-2">
-        <div className="flex items-center">
-          <svg className="w-4 h-4 text-blue-600 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-          </svg>
-          <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${degreeColor}`}>
-            {degrees_of_separation}° Connection
+        <div className="flex items-center gap-2">
+          <span className="text-base" aria-hidden="true">
+            {degrees_of_separation === 1 ? '🔗' : degrees_of_separation === 2 ? '🤝' : '👥'}
+          </span>
+          <span className={`text-sm font-semibold px-2.5 py-1 rounded-md border ${degreeColor}`}>
+            {getConnectionText()}
           </span>
         </div>
         {trust_score !== undefined && trust_score > 0 && (

@@ -274,6 +274,7 @@ pm2 logs karmyq-{service-name}
 ### Production (ARM64 / Oracle Cloud)
 ```bash
 # SSH to production, then:
+ssh ubuntu@karmyq.com
 cd ~/karmyq
 ./scripts/deploy.sh
 ```
