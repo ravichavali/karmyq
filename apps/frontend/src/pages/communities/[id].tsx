@@ -55,6 +55,11 @@ export default function CommunityDetailPage() {
   const [joiningCommunity, setJoiningCommunity] = useState(false)
 
   useEffect(() => {
+    // Only run on client-side (not during SSR)
+    if (typeof window === 'undefined') {
+      return
+    }
+
     const token = localStorage.getItem('token')
     const userData = localStorage.getItem('user')
     if (!token) {
