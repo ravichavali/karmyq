@@ -20,6 +20,9 @@
       "../shared/*": [
         "../../packages/shared/*"
       ],
+      "../../shared/*": [
+        "../../packages/shared/*"
+      ],
       "@karmyq/shared/*": [
         "../../packages/shared/*"
       ]
