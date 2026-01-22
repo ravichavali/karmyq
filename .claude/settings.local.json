@@ -55,7 +55,8 @@
       "Bash(docker compose:*)",
       "Bash(grep:*)",
       "Bash(node scripts/analyze-services.js:*)",
-      "Bash(node scripts/update-service-deps.js:*)"
+      "Bash(node scripts/update-service-deps.js:*)",
+      "Bash(wc:*)"
     ],
     "deny": [],
     "ask": []

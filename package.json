@@ -21,7 +21,9 @@
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
     "analyze:services": "node scripts/analyze-services.js",
     "health:check": "bash scripts/health-check.sh",
-    "dashboard": "node scripts/dashboard.js"
+    "dashboard": "node scripts/dashboard.js",
+    "feedback:check": "node scripts/feedback-loop.js",
+    "context:generate": "node scripts/generate-service-context.js"
   },
   "devDependencies": {
     "@types/jsonwebtoken": "^9.0.10",

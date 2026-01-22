@@ -1,12 +1,15 @@
 #!/bin/bash
-# Pre-commit hook for service governance
-# Runs impact analysis when service files are changed
+# Pre-commit hook for service governance and feedback loops
+# 1. Runs impact analysis when service files are changed
+# 2. Detects changes that require documentation updates
 #
 # To install: ln -sf ../../scripts/git-hooks/pre-commit .git/hooks/pre-commit
 
-# Get list of changed service directories
-changed_services=$(git diff --cached --name-only | grep '^services/' | grep -v '/node_modules/' | cut -d/ -f2 | sort -u)
+# Get list of changed files
+changed_files=$(git diff --cached --name-only)
+changed_services=$(echo "$changed_files" | grep '^services/' | grep -v '/node_modules/' | cut -d/ -f2 | sort -u)
 
+# 1. Impact Analysis
 if [ -n "$changed_services" ]; then
   echo ""
   echo "🔍 Service changes detected in: $changed_services"
@@ -34,6 +37,10 @@ if [ -n "$changed_services" ]; then
   echo "✓ Review services/impact-analysis.md for full details"
   echo ""
 fi
+
+# 2. Feedback Loop Detection
+echo "🔄 Checking for required documentation updates..."
+node scripts/feedback-loop.js
 
 # Continue with commit
 exit 0
