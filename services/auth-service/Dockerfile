@@ -5,9 +5,20 @@
 FROM node:18-alpine AS builder
 RUN apk add --no-cache python3 make g++
 WORKDIR /app
+
+# Copy service package files
 COPY services/auth-service/package*.json ./
+
+# Install dependencies
 RUN npm install
+
+# Copy shared modules needed for build (accessible as ../shared from /app/src)
+COPY packages/shared ./shared
+
+# Copy service source
 COPY services/auth-service/ ./
+
+# Build
 RUN npm run build
 
 # Production stage

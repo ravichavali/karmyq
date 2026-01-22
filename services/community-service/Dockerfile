@@ -7,6 +7,10 @@ RUN apk add --no-cache python3 make g++
 WORKDIR /app
 COPY services/community-service/package*.json ./
 RUN npm install
+
+# Copy shared modules needed for build (accessible as ../shared from /app/src)
+COPY packages/shared ./shared
+
 COPY services/community-service/ ./
 RUN npm run build
 

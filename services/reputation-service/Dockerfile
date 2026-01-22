@@ -6,6 +6,10 @@ FROM node:18-alpine AS builder
 WORKDIR /app
 COPY services/reputation-service/package*.json ./
 RUN npm install
+
+# Copy shared modules needed for build (accessible as ../shared from /app/src)
+COPY packages/shared ./shared
+
 COPY services/reputation-service/ ./
 RUN npm run build
 
