@@ -15,16 +15,13 @@ COPY services/auth-service/package*.json ./services/auth-service/
 # Install dependencies from workspace root (gets hoisted deps)
 RUN npm install
 
-# Copy shared modules needed for build
-COPY packages/shared ./packages/shared
+# Copy shared modules to multiple locations for relative imports
+# Services import as ../shared/* (from /app/services/X/) and ../../shared/* (from /app/services/X/src/)
+COPY packages/shared ./services/shared
+COPY packages/shared ./shared
 
 # Copy service source
 COPY services/auth-service/ ./services/auth-service/
-
-# Create symlinks so relative imports can find shared modules
-# Services import as ../shared/* and ../../shared/*
-RUN ln -s /app/packages/shared /app/services/shared && \
-    ln -s /app/packages/shared /app/shared
 
 # Build from service directory
 WORKDIR /app/services/auth-service

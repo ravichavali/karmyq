@@ -14,16 +14,13 @@ COPY services/reputation-service/package*.json ./services/reputation-service/
 # Install dependencies from workspace root (gets hoisted deps)
 RUN npm install
 
-# Copy shared modules
-COPY packages/shared ./packages/shared
+# Copy shared modules to multiple locations for relative imports
+# Services import as ../shared/* (from /app/services/X/) and ../../shared/* (from /app/services/X/src/)
+COPY packages/shared ./services/shared
+COPY packages/shared ./shared
 
 # Copy service source
 COPY services/reputation-service/ ./services/reputation-service/
-
-# Create symlinks so relative imports can find shared modules
-# Services import as ../shared/* and ../../shared/*
-RUN ln -s /app/packages/shared /app/services/shared && \
-    ln -s /app/packages/shared /app/shared
 
 # Build from service directory
 WORKDIR /app/services/reputation-service
