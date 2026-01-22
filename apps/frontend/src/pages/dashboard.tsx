@@ -70,6 +70,11 @@ export default function Dashboard() {
   const [activeCommunityId, setActiveCommunityId] = useState<string>('')
 
   useEffect(() => {
+    // Only run on client-side (not during SSR)
+    if (typeof window === 'undefined') {
+      return
+    }
+
     const token = localStorage.getItem('token')
     const userData = localStorage.getItem('user')
 
@@ -83,6 +88,8 @@ export default function Dashboard() {
       setUser(parsedUser)
       fetchDashboardData(parsedUser.id)
     }
+
+    setLoading(false)
   }, [router])
 
   const handleCommunityChange = (communityId: string) => {
