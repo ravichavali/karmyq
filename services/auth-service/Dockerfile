@@ -15,10 +15,13 @@ COPY services/auth-service/package*.json ./services/auth-service/
 # Install dependencies from workspace root (gets hoisted deps)
 RUN npm install
 
-# Copy shared modules to multiple locations for relative imports
-# Services import as ../shared/* (from /app/services/X/) and ../../shared/* (from /app/services/X/src/)
+# Copy shared modules (then remove package.json/node_modules to avoid workspace conflicts)
 COPY packages/shared ./services/shared
 COPY packages/shared ./shared
+RUN rm -f ./services/shared/package.json ./services/shared/package-lock.json && \
+    rm -rf ./services/shared/node_modules && \
+    rm -f ./shared/package.json ./shared/package-lock.json && \
+    rm -rf ./shared/node_modules
 
 # Copy service source
 COPY services/auth-service/ ./services/auth-service/

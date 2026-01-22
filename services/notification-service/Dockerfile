@@ -14,10 +14,19 @@ COPY services/notification-service/package*.json ./services/notification-service
 # Install dependencies from workspace root (gets hoisted deps)
 RUN npm install
 
-# Copy shared modules to multiple locations for relative imports
+# Copy shared module source files (excluding package.json to avoid workspace conflicts)
 # Services import as ../shared/* (from /app/services/X/) and ../../shared/* (from /app/services/X/src/)
-COPY packages/shared ./services/shared
-COPY packages/shared ./shared
+RUN mkdir -p ./services/shared ./shared
+COPY packages/shared/utils ./services/shared/utils
+COPY packages/shared/middleware ./services/shared/middleware
+COPY packages/shared/types ./services/shared/types
+COPY packages/shared/constants ./services/shared/constants
+COPY packages/shared/api ./services/shared/api
+COPY packages/shared/utils ./shared/utils
+COPY packages/shared/middleware ./shared/middleware
+COPY packages/shared/types ./shared/types
+COPY packages/shared/constants ./shared/constants
+COPY packages/shared/api ./shared/api
 
 # Copy service source
 COPY services/notification-service/ ./services/notification-service/
