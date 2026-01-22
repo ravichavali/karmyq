@@ -36,7 +36,7 @@ export const socialGraphClient = {
       const response = await socialGraphApi.get<TrustPathResponse>(
         `/paths/${targetUserId}`
       )
-      return response.data
+      return response.data.data
     } catch (error: any) {
       // If 404 or no connection found, return null (not an error)
       if (error.response?.status === 404) {
