@@ -6,7 +6,7 @@ FROM node:20-alpine AS builder
 WORKDIR /app
 COPY packages/shared ./node_modules/@karmyq/shared
 COPY services/social-graph-service/package*.json ./
-RUN npm ci
+RUN npm install
 COPY services/social-graph-service/ ./
 RUN npm run build
 
@@ -16,6 +16,6 @@ WORKDIR /app
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/package*.json ./
 COPY --from=builder /app/node_modules/@karmyq/shared ./node_modules/@karmyq/shared
-RUN npm ci --omit=dev
+RUN npm install --omit=dev
 EXPOSE 3010
 CMD ["node", "dist/index.js"]
