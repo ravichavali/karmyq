@@ -4,6 +4,7 @@ import Head from 'next/head'
 import Link from 'next/link'
 import { requestService } from '../../lib/api'
 import Layout from '@/components/Layout'
+import ConnectionBadge from '@/components/Requests/ConnectionBadge'
 
 interface HelpRequest {
   id: string
@@ -164,6 +165,11 @@ export default function RequestsPage() {
                       {request.status}
                     </span>
                   </div>
+                </div>
+
+                {/* Connection Badge */}
+                <div className="mb-4">
+                  <ConnectionBadge requesterId={request.requester_id} />
                 </div>
 
                 <div className="flex items-center gap-6 text-sm text-gray-500">
