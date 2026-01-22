@@ -137,7 +137,7 @@ export default function LeftSidebar({ user, communities, activeCommunityId, onCo
             return (
               <button
                 key={community.id}
-                onClick={() => onCommunityChange?.(community.id)}
+                onClick={() => router.push(`/communities/${community.id}`)}
                 className={`w-full text-left px-3 py-2 rounded-lg transition-colors ${
                   isActive
                     ? 'bg-blue-50 border-2 border-blue-500'
