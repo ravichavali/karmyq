@@ -23,6 +23,7 @@
     "**/*.test.ts",
     "**/*.spec.ts",
     "api/mobile-storage.ts",
-    "api/web-storage.ts"
+    "api/web-storage.ts",
+    "api/client.ts"
   ]
 }
