@@ -43,18 +43,15 @@ WORKDIR /app
 # Copy workspace root package.json for hoisted dependencies
 COPY package.json package-lock.json* ./
 
-# Copy shared package declaration (needed for workspace)
-COPY packages/shared/package*.json ./packages/shared/
+# Copy built shared module BEFORE npm install (so workspace sees compiled files)
+COPY --from=builder /app/packages/shared/package.json ./packages/shared/package.json
+COPY --from=builder /app/packages/shared/dist ./packages/shared/dist
 
 # Copy service package files
 COPY services/geocoding-service/package*.json ./services/geocoding-service/
 
-# Install production dependencies (includes @karmyq/shared)
+# Install production dependencies (includes @karmyq/shared workspace with dist/ already present)
 RUN npm install --omit=dev
-
-# Copy built shared module from builder (needed at runtime)
-COPY --from=builder /app/packages/shared/dist ./packages/shared/dist
-COPY --from=builder /app/packages/shared/package.json ./packages/shared/
 
 # Copy built service files from builder
 COPY --from=builder /app/services/geocoding-service/dist ./services/geocoding-service/dist
