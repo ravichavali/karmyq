@@ -1,4 +1,4 @@
-# Cleanup-service Dockerfile
+# Service Dockerfile
 # Multi-stage build for production with workspace dependencies
 
 # Build stage
@@ -19,6 +19,11 @@ RUN npm install
 
 # Copy shared module source code
 COPY packages/shared/ ./packages/shared/
+
+# Remove platform-specific and client-only files before build
+RUN rm -f ./packages/shared/api/client.ts \
+           ./packages/shared/api/mobile-storage.ts \
+           ./packages/shared/api/web-storage.ts
 
 # Build shared module first
 WORKDIR /app/packages/shared
