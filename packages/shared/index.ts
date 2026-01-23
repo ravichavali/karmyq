@@ -9,9 +9,3 @@ export * from './middleware';
 // Utilities
 export * from './utils/logger';
 export * from './utils/response';
-
-// Schemas (v9.0)
-export * from './src/schemas';
-
-// Matching System (v9.0)
-export * from './src/matching';

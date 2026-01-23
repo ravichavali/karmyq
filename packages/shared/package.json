@@ -2,25 +2,68 @@
   "name": "@karmyq/shared",
   "version": "1.0.0",
   "private": true,
-  "main": "./index.ts",
-  "types": "./index.ts",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "exports": {
-    ".": "./index.ts",
-    "./utils/logger": "./utils/logger.ts",
-    "./utils/response": "./utils/response.ts",
-    "./middleware": "./middleware/index.ts",
-    "./middleware/auth": "./middleware/auth.ts",
-    "./middleware/dbContext": "./middleware/dbContext.ts",
-    "./middleware/rateLimit": "./middleware/rateLimit.ts",
-    "./middleware/tenant": "./middleware/tenant.ts",
-    "./middleware/validate": "./middleware/validate.ts",
-    "./types": "./types/index.ts",
-    "./constants/config": "./constants/config.ts",
-    "./api/client": "./api/client.ts",
-    "./api/mobile-storage": "./api/mobile-storage.ts",
-    "./api/web-storage": "./api/web-storage.ts"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./utils/logger": {
+      "types": "./dist/utils/logger.d.ts",
+      "default": "./dist/utils/logger.js"
+    },
+    "./utils/response": {
+      "types": "./dist/utils/response.d.ts",
+      "default": "./dist/utils/response.js"
+    },
+    "./middleware": {
+      "types": "./dist/middleware/index.d.ts",
+      "default": "./dist/middleware/index.js"
+    },
+    "./middleware/auth": {
+      "types": "./dist/middleware/auth.d.ts",
+      "default": "./dist/middleware/auth.js"
+    },
+    "./middleware/dbContext": {
+      "types": "./dist/middleware/dbContext.d.ts",
+      "default": "./dist/middleware/dbContext.js"
+    },
+    "./middleware/rateLimit": {
+      "types": "./dist/middleware/rateLimit.d.ts",
+      "default": "./dist/middleware/rateLimit.js"
+    },
+    "./middleware/tenant": {
+      "types": "./dist/middleware/tenant.d.ts",
+      "default": "./dist/middleware/tenant.js"
+    },
+    "./middleware/validate": {
+      "types": "./dist/middleware/validate.d.ts",
+      "default": "./dist/middleware/validate.js"
+    },
+    "./types": {
+      "types": "./dist/types/index.d.ts",
+      "default": "./dist/types/index.js"
+    },
+    "./constants/config": {
+      "types": "./dist/constants/config.d.ts",
+      "default": "./dist/constants/config.js"
+    },
+    "./api/client": {
+      "types": "./dist/api/client.d.ts",
+      "default": "./dist/api/client.js"
+    },
+    "./api/mobile-storage": {
+      "types": "./dist/api/mobile-storage.d.ts",
+      "default": "./dist/api/mobile-storage.js"
+    },
+    "./api/web-storage": {
+      "types": "./dist/api/web-storage.d.ts",
+      "default": "./dist/api/web-storage.js"
+    }
   },
   "scripts": {
+    "build": "tsc",
     "lint": "echo 'No linting configured yet'",
     "test": "jest"
   },

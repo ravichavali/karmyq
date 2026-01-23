@@ -21,10 +21,14 @@ RUN npm install
 # Copy shared module source code
 COPY packages/shared/ ./packages/shared/
 
-# Copy service source
-COPY services/auth-service/ ./services/auth-service/
+# Build shared module first
+WORKDIR /app/packages/shared
+RUN npm run build
 
-# Build from service directory
+# Copy service source
+COPY services/auth-service/ /app/services/auth-service/
+
+# Build service
 WORKDIR /app/services/auth-service
 RUN npm run build
 
@@ -45,10 +49,11 @@ COPY services/auth-service/package*.json ./services/auth-service/
 # Install production dependencies (includes @karmyq/shared)
 RUN npm install --omit=dev
 
-# Copy shared module source code (needed at runtime)
-COPY packages/shared/ ./packages/shared/
+# Copy built shared module from builder (needed at runtime)
+COPY --from=builder /app/packages/shared/dist ./packages/shared/dist
+COPY --from=builder /app/packages/shared/package.json ./packages/shared/
 
-# Copy built files from builder
+# Copy built service files from builder
 COPY --from=builder /app/services/auth-service/dist ./services/auth-service/dist
 
 WORKDIR /app/services/auth-service
