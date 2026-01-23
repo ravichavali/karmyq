@@ -10,11 +10,6 @@
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
     "moduleResolution": "node",
-    "baseUrl": ".",
-    "paths": {
-      "../shared/*": ["../../packages/shared/*"],
-      "../../shared/*": ["../../packages/shared/*"]
-    },
     "types": ["node", "jest"]
   },
   "include": ["src/**/*", "tests/**/*"],

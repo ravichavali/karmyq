@@ -75,11 +75,27 @@ log_info "Environment loaded"
 log_step "5/6 - Building and deploying services"
 log_info "This may take several minutes on first run..."
 
+# Record deployment start time for verification
+DEPLOY_START=$(date +%s)
+
 # Build all images
 log_info "Building Docker images..."
-docker compose $COMPOSE_FILES build --parallel 2>&1 | while read line; do
-    echo "  $line"
-done
+BUILD_OUTPUT=$(mktemp)
+if docker compose $COMPOSE_FILES build --parallel 2>&1 | tee "$BUILD_OUTPUT"; then
+    log_info "Build completed successfully"
+else
+    BUILD_EXIT=$?
+    log_error "Docker build failed with exit code $BUILD_EXIT"
+    log_error "Check the output above for errors"
+
+    # Show failed services
+    echo ""
+    log_error "Failed to build one or more services:"
+    grep -E "failed to solve|ERROR:" "$BUILD_OUTPUT" || echo "  (see output above for details)"
+    rm -f "$BUILD_OUTPUT"
+    exit 1
+fi
+rm -f "$BUILD_OUTPUT"
 
 # Deploy
 log_info "Starting services..."
@@ -93,9 +109,8 @@ echo ""
 echo "Service Status:"
 echo "---------------"
 
-SERVICES=(
-    "karmyq-postgres"
-    "karmyq-redis"
+# Services that should have been rebuilt (exclude infrastructure)
+REBUILD_SERVICES=(
     "karmyq-frontend"
     "karmyq-auth-service"
     "karmyq-community-service"
@@ -109,15 +124,48 @@ SERVICES=(
     "karmyq-social-graph-service"
 )
 
+ALL_SERVICES=(
+    "karmyq-postgres"
+    "karmyq-redis"
+    "${REBUILD_SERVICES[@]}"
+)
+
 FAILED=0
-for SERVICE in "${SERVICES[@]}"; do
+STALE=0
+
+# Check if services are running
+for SERVICE in "${ALL_SERVICES[@]}"; do
     if docker ps --filter "name=^${SERVICE}$" --filter "status=running" --format "{{.Names}}" | grep -q "$SERVICE"; then
         echo -e "  ${GREEN}✓${NC} $SERVICE"
     else
-        echo -e "  ${RED}✗${NC} $SERVICE"
+        echo -e "  ${RED}✗${NC} $SERVICE (not running)"
         FAILED=1
     fi
 done
+
+# Verify services were actually rebuilt (created after deployment started)
+echo ""
+echo "Rebuild Verification:"
+echo "--------------------"
+for SERVICE in "${REBUILD_SERVICES[@]}"; do
+    if docker ps --filter "name=^${SERVICE}$" --format "{{.Names}}" | grep -q "$SERVICE"; then
+        CREATED=$(docker inspect "$SERVICE" --format='{{.Created}}' 2>/dev/null)
+        CREATED_TS=$(date -d "$CREATED" +%s 2>/dev/null || echo "0")
+
+        if [ "$CREATED_TS" -gt "$DEPLOY_START" ]; then
+            echo -e "  ${GREEN}✓${NC} $SERVICE (rebuilt)"
+        else
+            echo -e "  ${YELLOW}⚠${NC} $SERVICE (using cached/old image)"
+            STALE=1
+        fi
+    fi
+done
+
+if [ $STALE -eq 1 ]; then
+    echo ""
+    log_warn "Some services are using cached images and may not reflect latest code"
+    log_warn "This can happen when TypeScript files change but Docker cache isn't invalidated"
+fi
 
 # Cleanup old images
 log_info "Cleaning up unused images..."
