@@ -7,9 +7,9 @@ import jwt from 'jsonwebtoken';
 import pool from './database/db';
 import messageRoutes from './routes/messages';
 import { initializeMessageSocket } from './socket/messageHandler';
-import { createLogger, requestLoggingMiddleware } from '../shared/utils/logger';
-import { authMiddleware, globalRateLimiter, rateLimiters } from '../shared/middleware';
-import { requestIdMiddleware, sendSuccess, sendInternalError } from '../shared/utils/response';
+import { createLogger, requestLoggingMiddleware } from '@karmyq/shared/utils/logger';
+import { authMiddleware, globalRateLimiter, rateLimiters } from '@karmyq/shared/middleware';
+import { requestIdMiddleware, sendSuccess, sendInternalError } from '@karmyq/shared/utils/response';
 
 dotenv.config();
 

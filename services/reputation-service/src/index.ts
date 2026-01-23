@@ -8,15 +8,15 @@ import pool from './database/db';
 import reputationRouter from './routes/reputation';
 import healthRouter from './routes/health';
 import { initHealthMetricsCalculator } from './cron/healthMetricsCalculator';
-import { createLogger, requestLoggingMiddleware } from '../shared/utils/logger';
+import { createLogger, requestLoggingMiddleware } from '@karmyq/shared/utils/logger';
 import {
   authMiddleware,
   tenantMiddleware,
   dbContextMiddleware,
   globalRateLimiter,
   rateLimiters,
-} from '../shared/middleware';
-import { requestIdMiddleware, sendSuccess, sendError, sendInternalError } from '../shared/utils/response';
+} from '@karmyq/shared/middleware';
+import { requestIdMiddleware, sendSuccess, sendError, sendInternalError } from '@karmyq/shared/utils/response';
 
 // Load environment variables
 dotenv.config();

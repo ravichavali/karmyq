@@ -4,6 +4,22 @@
   "private": true,
   "main": "./index.ts",
   "types": "./index.ts",
+  "exports": {
+    ".": "./index.ts",
+    "./utils/logger": "./utils/logger.ts",
+    "./utils/response": "./utils/response.ts",
+    "./middleware": "./middleware/index.ts",
+    "./middleware/auth": "./middleware/auth.ts",
+    "./middleware/dbContext": "./middleware/dbContext.ts",
+    "./middleware/rateLimit": "./middleware/rateLimit.ts",
+    "./middleware/tenant": "./middleware/tenant.ts",
+    "./middleware/validate": "./middleware/validate.ts",
+    "./types": "./types/index.ts",
+    "./constants/config": "./constants/config.ts",
+    "./api/client": "./api/client.ts",
+    "./api/mobile-storage": "./api/mobile-storage.ts",
+    "./api/web-storage": "./api/web-storage.ts"
+  },
   "scripts": {
     "lint": "echo 'No linting configured yet'",
     "test": "jest"

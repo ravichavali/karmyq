@@ -1,5 +1,5 @@
 import { query } from '../database/db';
-import { createLogger } from '../../shared/utils/logger';
+import { createLogger } from '@karmyq/shared/utils/logger';
 
 const logger = createLogger('reputation-service');
 

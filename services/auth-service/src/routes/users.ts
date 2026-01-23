@@ -1,6 +1,6 @@
 import express from 'express';
 import { query } from '../database/db';
-import { authMiddleware, AuthenticatedRequest } from '../../shared/middleware';
+import { authMiddleware, AuthenticatedRequest } from '@karmyq/shared/middleware';
 import {
   sendSuccess,
   sendNotFound,
@@ -8,7 +8,7 @@ import {
   sendValidationError,
   sendInternalError,
   HTTP_STATUS
-} from '../../shared/utils/response';
+} from '@karmyq/shared/utils/response';
 
 const router = express.Router();
 

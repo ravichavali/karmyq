@@ -8,15 +8,15 @@ import requestsRouter from './routes/requests';
 import offersRouter from './routes/offers';
 import matchesRouter from './routes/matches';
 import feedbackRouter from './routes/feedback';
-import { createLogger, requestLoggingMiddleware } from '../shared/utils/logger';
+import { createLogger, requestLoggingMiddleware } from '@karmyq/shared/utils/logger';
 import {
   authMiddleware,
   optionalTenantMiddleware,
   dbContextMiddleware,
   globalRateLimiter,
   rateLimiters,
-} from '../shared/middleware';
-import { requestIdMiddleware, sendSuccess, sendError, sendInternalError } from '../shared/utils/response';
+} from '@karmyq/shared/middleware';
+import { requestIdMiddleware, sendSuccess, sendError, sendInternalError } from '@karmyq/shared/utils/response';
 
 // Load environment variables
 dotenv.config();

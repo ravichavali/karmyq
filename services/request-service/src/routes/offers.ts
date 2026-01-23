@@ -7,7 +7,7 @@ import {
   sendValidationError,
   sendInternalError,
   HTTP_STATUS
-} from '../../shared/utils/response';
+} from '@karmyq/shared/utils/response';
 
 const router = Router();
 

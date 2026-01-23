@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { getUserKarma, getUserKarmaWithDecay, getUserTrustScore, getCommunityLeaderboard } from '../services/karmaService';
 import { query } from '../database/db';
-import { authMiddleware, AuthenticatedRequest } from '../../shared/middleware/auth';
+import { authMiddleware, AuthenticatedRequest } from '@karmyq/shared/middleware/auth';
 
 const router = Router();
 

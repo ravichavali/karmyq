@@ -5,7 +5,7 @@ import {
   sendSuccess,
   sendInternalError,
   HTTP_STATUS
-} from '../../shared/utils/response';
+} from '@karmyq/shared/utils/response';
 // Temporarily commented out - matching feature
 // import { findMatches } from '@karmyq/shared/matching';
 // import type { UserProfile } from '@karmyq/shared/matching';

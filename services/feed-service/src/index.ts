@@ -3,15 +3,15 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import { initDatabase, getPool } from './database/db';
 import feedRouter from './routes/feed';
-import { createLogger, requestLoggingMiddleware } from '../shared/utils/logger';
+import { createLogger, requestLoggingMiddleware } from '@karmyq/shared/utils/logger';
 import {
   authMiddleware,
   optionalTenantMiddleware,
   dbContextMiddleware,
   globalRateLimiter,
   rateLimiters,
-} from '../shared/middleware';
-import { requestIdMiddleware, sendSuccess, sendError, sendInternalError } from '../shared/utils/response';
+} from '@karmyq/shared/middleware';
+import { requestIdMiddleware, sendSuccess, sendError, sendInternalError } from '@karmyq/shared/utils/response';
 
 // Load environment variables
 dotenv.config();

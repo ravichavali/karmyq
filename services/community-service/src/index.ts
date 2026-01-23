@@ -10,7 +10,7 @@ import normsRouter from './routes/norms';
 import settingsRouter from './routes/settings';
 import exportRouter from './routes/export';
 import statsRouter from './routes/stats';
-import { createLogger, requestLoggingMiddleware } from '../shared/utils/logger';
+import { createLogger, requestLoggingMiddleware } from '@karmyq/shared/utils/logger';
 import {
   authMiddleware,
   optionalAuthMiddleware,
@@ -18,8 +18,8 @@ import {
   dbContextMiddleware,
   globalRateLimiter,
   rateLimiters,
-} from '../shared/middleware';
-import { requestIdMiddleware, sendSuccess, sendError, sendInternalError } from '../shared/utils/response';
+} from '@karmyq/shared/middleware';
+import { requestIdMiddleware, sendSuccess, sendError, sendInternalError } from '@karmyq/shared/utils/response';
 
 // Load environment variables
 dotenv.config();

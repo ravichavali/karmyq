@@ -4,15 +4,15 @@ import dotenv from 'dotenv';
 import pool from './database/db';
 import { initEventSubscriber } from './events/subscriber';
 import notificationRoutes from './routes/notifications';
-import { createLogger, requestLoggingMiddleware } from '../shared/utils/logger';
+import { createLogger, requestLoggingMiddleware } from '@karmyq/shared/utils/logger';
 import {
   authMiddleware,
   optionalTenantMiddleware,
   dbContextMiddleware,
   globalRateLimiter,
   rateLimiters,
-} from '../shared/middleware';
-import { requestIdMiddleware, sendSuccess, sendInternalError } from '../shared/utils/response';
+} from '@karmyq/shared/middleware';
+import { requestIdMiddleware, sendSuccess, sendInternalError } from '@karmyq/shared/utils/response';
 
 dotenv.config();
 

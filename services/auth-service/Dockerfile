@@ -9,19 +9,17 @@ WORKDIR /app
 # Copy workspace root package.json for hoisted dependencies
 COPY package.json package-lock.json* ./
 
+# Copy shared package declaration (needed for workspace)
+COPY packages/shared/package*.json ./packages/shared/
+
 # Copy service package files
 COPY services/auth-service/package*.json ./services/auth-service/
 
-# Install dependencies from workspace root (gets hoisted deps)
+# Install dependencies from workspace root (includes @karmyq/shared as workspace)
 RUN npm install
 
-# Copy shared modules (then remove package.json/node_modules to avoid workspace conflicts)
-COPY packages/shared ./services/shared
-COPY packages/shared ./shared
-RUN rm -f ./services/shared/package.json ./services/shared/package-lock.json && \
-    rm -rf ./services/shared/node_modules && \
-    rm -f ./shared/package.json ./shared/package-lock.json && \
-    rm -rf ./shared/node_modules
+# Copy shared module source code
+COPY packages/shared/ ./packages/shared/
 
 # Copy service source
 COPY services/auth-service/ ./services/auth-service/
@@ -38,11 +36,17 @@ WORKDIR /app
 # Copy root package.json for hoisted dependencies
 COPY package.json package-lock.json* ./
 
+# Copy shared package declaration (needed for workspace)
+COPY packages/shared/package*.json ./packages/shared/
+
 # Copy service package files
 COPY services/auth-service/package*.json ./services/auth-service/
 
-# Install production dependencies
+# Install production dependencies (includes @karmyq/shared)
 RUN npm install --omit=dev
+
+# Copy shared module source code (needed at runtime)
+COPY packages/shared/ ./packages/shared/
 
 # Copy built files from builder
 COPY --from=builder /app/services/auth-service/dist ./services/auth-service/dist

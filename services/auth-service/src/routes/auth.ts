@@ -3,7 +3,7 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { query } from '../database/db';
 import { publishEvent } from '../events/publisher';
-import { JWTPayload } from '../../shared/middleware/auth';
+import { JWTPayload } from '@karmyq/shared/middleware/auth';
 import {
   sendSuccess,
   sendValidationError,
@@ -11,7 +11,7 @@ import {
   sendConflict,
   sendInternalError,
   HTTP_STATUS
-} from '../../shared/utils/response';
+} from '@karmyq/shared/utils/response';
 
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET;

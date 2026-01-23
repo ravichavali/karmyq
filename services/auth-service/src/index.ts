@@ -5,9 +5,9 @@ import authRoutes from './routes/auth';
 import userRoutes from './routes/users';
 import { initDatabase } from './database/db';
 import { initEventPublisher } from './events/publisher';
-import { createLogger, requestLoggingMiddleware } from '../shared/utils/logger';
-import { globalRateLimiter, rateLimiters } from '../shared/middleware';
-import { requestIdMiddleware, sendSuccess, sendInternalError } from '../shared/utils/response';
+import { createLogger, requestLoggingMiddleware } from '@karmyq/shared/utils/logger';
+import { globalRateLimiter, rateLimiters } from '@karmyq/shared/middleware';
+import { requestIdMiddleware, sendSuccess, sendInternalError } from '@karmyq/shared/utils/response';
 
 dotenv.config();
 
