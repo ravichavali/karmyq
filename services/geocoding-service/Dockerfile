@@ -29,12 +29,8 @@ RUN rm -f ./packages/shared/api/client.ts \
 WORKDIR /app/packages/shared
 RUN npm run build
 
-# Copy service source
+# Copy service source (JavaScript only - no build needed)
 COPY services/geocoding-service/ /app/services/geocoding-service/
-
-# Build service
-WORKDIR /app/services/geocoding-service
-RUN npm run build
 
 # Production stage
 FROM node:18-alpine
@@ -53,9 +49,9 @@ COPY services/geocoding-service/package*.json ./services/geocoding-service/
 # Install production dependencies (includes @karmyq/shared workspace with dist/ already present)
 RUN npm install --omit=dev
 
-# Copy built service files from builder
-COPY --from=builder /app/services/geocoding-service/dist ./services/geocoding-service/dist
+# Copy service source files from builder (JavaScript - no dist/)
+COPY --from=builder /app/services/geocoding-service/*.js ./services/geocoding-service/
 
 WORKDIR /app/services/geocoding-service
 EXPOSE 3009
-CMD ["node", "dist/index.js"]
+CMD ["node", "index.js"]
