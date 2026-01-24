@@ -50,7 +50,7 @@ COPY services/geocoding-service/package*.json ./services/geocoding-service/
 RUN npm install --omit=dev
 
 # Copy service source files from builder (JavaScript - no dist/)
-COPY --from=builder /app/services/geocoding-service/*.js ./services/geocoding-service/
+COPY --from=builder /app/services/geocoding-service/index.js ./services/geocoding-service/index.js
 
 WORKDIR /app/services/geocoding-service
 EXPOSE 3009
