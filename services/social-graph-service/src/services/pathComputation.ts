@@ -1,4 +1,4 @@
-import { pool } from '../index';
+import { pool } from '../config/database';
 import { logger } from '../config/logger';
 
 export interface TrustPath {

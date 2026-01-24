@@ -16,13 +16,7 @@
     "downlevelIteration": true,
     "types": [
       "node"
-    ],
-    "baseUrl": ".",
-    "paths": {
-      "@karmyq/shared/*": [
-        "../../packages/shared/*"
-      ]
-    }
+    ]
   },
   "include": [
     "src/**/*"
