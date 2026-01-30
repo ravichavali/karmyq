@@ -40,10 +40,16 @@ Writing tests?
 - If exists: UPDATE it with date stamp
 - Only create if truly novel topic
 
-### 3. Test Before Commit
+### 3. Git Hooks (Automatic)
+Git hooks automatically run checks on commit/push:
+- **Pre-commit**: Service analysis & documentation checks
+- **Pre-push**: Unit tests (integration tests if DB available)
+
 ```bash
-./scripts/test-local.sh   # Before commit
-./scripts/test-all.sh     # Before push
+npm run hooks:install  # Install/update hooks
+git commit             # Hooks run automatically
+git push --no-verify   # Skip hooks if needed
+SKIP_PREPUSH=1 git push # Skip pre-push checks
 ```
 
 ### 4. Fix Forward, Not Around
@@ -191,6 +197,21 @@ cd tests && npm run test:e2e
 
 # Coverage
 npm run test:coverage
+```
+
+### Git Hooks
+```bash
+# Install git hooks (runs automatically on npm install)
+npm run hooks:install
+
+# Hooks run automatically on commit/push
+# Pre-commit: Service analysis & documentation checks
+# Pre-push: Unit tests (+ integration tests if DB available)
+
+# Skip hooks when needed
+git commit --no-verify
+git push --no-verify
+SKIP_PREPUSH=1 git push
 ```
 
 ### Service Governance
