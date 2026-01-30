@@ -7,7 +7,9 @@
 
 # Get list of changed files
 changed_files=$(git diff --cached --name-only)
-changed_services=$(echo "$changed_files" | grep '^services/' | grep -v '/node_modules/' | cut -d/ -f2 | sort -u)
+# Exclude auto-generated governance files from triggering analysis
+filtered_files=$(echo "$changed_files" | grep -v 'services/dependency-graph.md' | grep -v 'services/impact-analysis.md' | grep -v 'services/version-drift.md')
+changed_services=$(echo "$filtered_files" | grep '^services/' | grep -v '/node_modules/' | cut -d/ -f2 | sort -u)
 
 # 1. Impact Analysis
 if [ -n "$changed_services" ]; then
