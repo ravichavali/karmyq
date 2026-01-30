@@ -303,6 +303,23 @@ pm2 logs karmyq-{service-name}
 ```
 
 ### Production (ARM64 / Oracle Cloud)
+
+**Option 1: Automatic Deployment (Recommended)**
+```bash
+# Simply push to master - GitHub Actions handles deployment
+git push origin master
+```
+
+GitHub Actions automatically:
+1. Runs tests + builds images
+2. SSH to karmyq.com
+3. Runs `./scripts/deploy.sh`
+4. Verifies health
+5. **Rolls back on any failure**
+
+**Setup:** See [docs/GITHUB_ACTIONS_SETUP.md](docs/GITHUB_ACTIONS_SETUP.md)
+
+**Option 2: Manual Deployment**
 ```bash
 # SSH to production, then:
 ssh ubuntu@karmyq.com
@@ -313,7 +330,7 @@ cd ~/karmyq
 SKIP_TESTS=1 ./scripts/deploy.sh
 ```
 
-The script automatically:
+**Deployment Script Automatically:**
 1. Saves current commit for rollback
 2. Pulls latest code from master
 3. Installs git hooks
@@ -328,6 +345,7 @@ The script automatically:
 - ✅ Auto-rollback to previous commit if tests fail
 - ✅ `SKIP_TESTS=1` flag for emergency deploys
 - ✅ Hooks installed automatically on server
+- ✅ GitHub Actions runs full test suite before deployment
 
 ---
 
