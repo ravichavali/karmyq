@@ -88,8 +88,24 @@ else
     log_warn "Hook installation script not found, skipping"
 fi
 
-# Step 4: Run pre-deployment tests
-log_step "4/8 - Running pre-deployment tests"
+# Step 4: Verify environment file exists
+log_step "4/8 - Checking environment configuration"
+if [ ! -f ".env.production" ]; then
+    log_error ".env.production not found!"
+    log_error "Copy .env.production.example to .env.production and fill in values"
+    exit 1
+fi
+log_info "Environment file found"
+
+# Step 5: Load environment variables
+log_step "5/8 - Loading environment variables"
+set -a
+source .env.production
+set +a
+log_info "Environment loaded"
+
+# Step 6: Run pre-deployment tests
+log_step "6/8 - Running pre-deployment tests"
 if [ "$SKIP_TESTS" = "1" ]; then
     log_warn "Skipping tests (SKIP_TESTS=1)"
 else
@@ -119,22 +135,6 @@ else
     fi
     rm -f "$TEST_OUTPUT"
 fi
-
-# Step 5: Verify environment file exists
-log_step "5/8 - Checking environment configuration"
-if [ ! -f ".env.production" ]; then
-    log_error ".env.production not found!"
-    log_error "Copy .env.production.example to .env.production and fill in values"
-    exit 1
-fi
-log_info "Environment file found"
-
-# Step 6: Load environment variables
-log_step "6/8 - Loading environment variables"
-set -a
-source .env.production
-set +a
-log_info "Environment loaded"
 
 # Step 7: Build and deploy
 log_step "7/8 - Building and deploying services"
