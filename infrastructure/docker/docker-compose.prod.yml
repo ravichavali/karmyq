@@ -10,7 +10,7 @@ services:
   # Auth Service
   auth-service:
     restart: always
-    volumes: []
+    volumes: ~
     command: []
     environment:
       NODE_ENV: production
@@ -28,7 +28,7 @@ services:
   # Community Service
   community-service:
     restart: always
-    volumes: []
+    volumes: ~
     command: []
     environment:
       NODE_ENV: production
@@ -46,7 +46,7 @@ services:
   # Request Service
   request-service:
     restart: always
-    volumes: []
+    volumes: ~
     command: []
     environment:
       NODE_ENV: production
@@ -64,7 +64,7 @@ services:
   # Reputation Service
   reputation-service:
     restart: always
-    volumes: []
+    volumes: ~
     command: []
     environment:
       NODE_ENV: production
@@ -82,7 +82,7 @@ services:
   # Notification Service
   notification-service:
     restart: always
-    volumes: []
+    volumes: ~
     command: []
     environment:
       NODE_ENV: production
@@ -100,7 +100,7 @@ services:
   # Messaging Service
   messaging-service:
     restart: always
-    volumes: []
+    volumes: ~
     command: []
     environment:
       NODE_ENV: production
@@ -118,7 +118,7 @@ services:
   # Feed Service
   feed-service:
     restart: always
-    volumes: []
+    volumes: ~
     command: []
     environment:
       NODE_ENV: production
@@ -136,7 +136,7 @@ services:
   # Cleanup Service
   cleanup-service:
     restart: always
-    volumes: []
+    volumes: ~
     command: []
     environment:
       NODE_ENV: production
@@ -154,7 +154,7 @@ services:
   # Geocoding Service
   geocoding-service:
     restart: always
-    volumes: []
+    volumes: ~
     command: []
     environment:
       NODE_ENV: production
@@ -171,7 +171,7 @@ services:
   # Social Graph Service
   social-graph-service:
     restart: always
-    volumes: []
+    volumes: ~
     command: []
     environment:
       NODE_ENV: production
