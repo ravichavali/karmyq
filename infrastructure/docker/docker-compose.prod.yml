@@ -155,7 +155,7 @@ services:
   geocoding-service:
     restart: always
     volumes: []
-    command: ["node", "index.js"]
+    command: []
     environment:
       NODE_ENV: production
       PORT: 3009
