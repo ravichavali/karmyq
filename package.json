@@ -24,8 +24,8 @@
     "dashboard": "node scripts/dashboard.js",
     "feedback:check": "node scripts/feedback-loop.js",
     "context:generate": "node scripts/generate-service-context.js",
-    "hooks:install": "bash scripts/install-hooks.sh",
-    "postinstall": "bash scripts/install-hooks.sh"
+    "hooks:install": "sh scripts/install-hooks.sh",
+    "postinstall": "sh scripts/install-hooks.sh"
   },
   "devDependencies": {
     "@types/jsonwebtoken": "^9.0.10",

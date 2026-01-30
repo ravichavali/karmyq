@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 # Install git hooks by creating symlinks from .git/hooks to scripts/git-hooks
 # This ensures hooks are always up-to-date with the source files
 
