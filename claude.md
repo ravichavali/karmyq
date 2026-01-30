@@ -246,14 +246,24 @@ docs/
 2. [ ] Run `npm run analyze:services` (check for circular deps)
 3. [ ] Run `node scripts/generate-service-context.js`
 4. [ ] Create service using generated `.claude/README.md` template
-5. [ ] Add health check endpoint `/health`
-6. [ ] Add to `docker-compose.yml`
-7. [ ] Add database schema to `infrastructure/postgres/init.sql` (if needed)
-8. [ ] Update simulation service to test new endpoints
-9. [ ] Run `npm run health:check` to verify
-10. [ ] Document in ADR if architectural decision
+5. [ ] **Configure TypeScript correctly** (see ADR-028):
+   - [ ] Set `"rootDir": "./src"` in tsconfig.json
+   - [ ] Set `"include": ["src/**/*"]` (exclude tests)
+   - [ ] Verify build produces `dist/index.js` not `dist/src/index.js`
+6. [ ] **Configure Dockerfile** (copy from existing TypeScript service):
+   - [ ] Build shared package before service
+   - [ ] Copy shared/dist BEFORE npm install in production stage
+   - [ ] Use multi-stage build pattern
+7. [ ] Add health check endpoint `/health`
+8. [ ] Add to `docker-compose.yml`
+9. [ ] Add database schema to `infrastructure/postgres/init.sql` (if needed)
+10. [ ] Update simulation service to test new endpoints
+11. [ ] Run `npm run health:check` to verify
+12. [ ] Document in ADR if architectural decision
 
-See: [docs/SERVICE_GOVERNANCE.md](docs/SERVICE_GOVERNANCE.md)
+See:
+- [docs/SERVICE_GOVERNANCE.md](docs/SERVICE_GOVERNANCE.md)
+- [docs/adr/ADR-028-npm-workspace-docker-build.md](docs/adr/ADR-028-npm-workspace-docker-build.md)
 
 ---
 
