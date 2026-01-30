@@ -31,4 +31,5 @@ RUN npm install --omit=dev
 COPY --from=builder /app/services/geocoding-service/index.js ./index.js
 
 EXPOSE 3009
+ENTRYPOINT []
 CMD ["node", "index.js"]
