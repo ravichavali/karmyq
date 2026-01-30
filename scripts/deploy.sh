@@ -6,17 +6,26 @@ set -e
 # =============================================================================
 #
 # Usage: ./scripts/deploy.sh
+#        SKIP_TESTS=1 ./scripts/deploy.sh  (skip pre-deployment tests)
 #
 # This is the ONLY deployment script. It:
-# 1. Pulls latest code from master
-# 2. Loads environment variables from .env.production
-# 3. Builds all Docker images on the server (ARM64 native)
-# 4. Deploys using docker-compose
-# 5. Verifies all services are running
+# 1. Saves current commit for rollback
+# 2. Pulls latest code from master
+# 3. Installs git hooks
+# 4. Runs integration tests (auto-rollback if fail)
+# 5. Loads environment variables from .env.production
+# 6. Builds all Docker images on the server (ARM64 native)
+# 7. Deploys using docker-compose
+# 8. Verifies all services are running
 #
 # Prerequisites:
 # - .env.production file must exist (copy from .env.production.example)
 # - Docker and docker-compose must be installed
+# - PostgreSQL must be running for integration tests
+#
+# Environment Variables:
+# - SKIP_TESTS=1  : Skip integration tests (use for emergency deploys)
+# - APP_DIR       : Application directory (default: $HOME/karmyq)
 #
 # =============================================================================
 
@@ -43,20 +52,69 @@ echo "=============================================="
 echo ""
 
 # Step 1: Navigate to app directory
-log_step "1/6 - Navigating to application directory"
+log_step "1/8 - Navigating to application directory"
 cd "$APP_DIR"
 log_info "Working directory: $(pwd)"
 
-# Step 2: Pull latest code
-log_step "2/6 - Pulling latest code from master"
+# Step 2: Save current commit for rollback
+PREVIOUS_COMMIT=$(git rev-parse --short HEAD)
+log_info "Current commit: $PREVIOUS_COMMIT"
+
+# Step 3: Pull latest code
+log_step "2/8 - Pulling latest code from master"
 git fetch origin
 git checkout master
 git pull origin master
 COMMIT=$(git rev-parse --short HEAD)
 log_info "Now at commit: $COMMIT"
 
-# Step 3: Verify environment file exists
-log_step "3/6 - Checking environment configuration"
+if [ "$COMMIT" = "$PREVIOUS_COMMIT" ]; then
+    log_info "Already at latest commit, no changes to deploy"
+fi
+
+# Step 3: Install hooks
+log_step "3/8 - Installing git hooks"
+if [ -f "scripts/install-hooks.sh" ]; then
+    bash scripts/install-hooks.sh > /dev/null 2>&1 || log_warn "Hook installation failed (non-critical)"
+    log_info "Git hooks installed"
+else
+    log_warn "Hook installation script not found, skipping"
+fi
+
+# Step 4: Run pre-deployment tests
+log_step "4/8 - Running pre-deployment tests"
+if [ "$SKIP_TESTS" = "1" ]; then
+    log_warn "Skipping tests (SKIP_TESTS=1)"
+else
+    log_info "Running integration tests with production database..."
+
+    # Run integration tests
+    TEST_OUTPUT=$(mktemp)
+    if cd tests && npm run test:integration > "$TEST_OUTPUT" 2>&1; then
+        log_info "✓ Integration tests passed"
+        cd ..
+    else
+        TEST_EXIT=$?
+        log_error "Integration tests failed with exit code $TEST_EXIT"
+        echo ""
+        echo "Test output (last 50 lines):"
+        tail -50 "$TEST_OUTPUT"
+        rm -f "$TEST_OUTPUT"
+        cd ..
+
+        # Rollback to previous commit
+        log_warn "Rolling back to previous commit: $PREVIOUS_COMMIT"
+        git checkout "$PREVIOUS_COMMIT"
+
+        log_error "Deployment aborted due to test failures"
+        log_error "To deploy anyway, use: SKIP_TESTS=1 ./scripts/deploy.sh"
+        exit 1
+    fi
+    rm -f "$TEST_OUTPUT"
+fi
+
+# Step 5: Verify environment file exists
+log_step "5/8 - Checking environment configuration"
 if [ ! -f ".env.production" ]; then
     log_error ".env.production not found!"
     log_error "Copy .env.production.example to .env.production and fill in values"
@@ -64,15 +122,15 @@ if [ ! -f ".env.production" ]; then
 fi
 log_info "Environment file found"
 
-# Step 4: Load environment variables
-log_step "4/6 - Loading environment variables"
+# Step 6: Load environment variables
+log_step "6/8 - Loading environment variables"
 set -a
 source .env.production
 set +a
 log_info "Environment loaded"
 
-# Step 5: Build and deploy
-log_step "5/6 - Building and deploying services"
+# Step 7: Build and deploy
+log_step "7/8 - Building and deploying services"
 log_info "This may take several minutes on first run..."
 
 # Record deployment start time for verification
@@ -101,8 +159,8 @@ rm -f "$BUILD_OUTPUT"
 log_info "Starting services..."
 docker compose $COMPOSE_FILES up -d --remove-orphans
 
-# Step 6: Verify deployment
-log_step "6/6 - Verifying deployment"
+# Step 8: Verify deployment
+log_step "8/8 - Verifying deployment"
 sleep 10  # Give services time to start
 
 echo ""
