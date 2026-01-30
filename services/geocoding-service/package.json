@@ -8,7 +8,10 @@
     "dev": "nodemon index.js"
   },
   "dependencies": {
-    "node-fetch": "^2.6.7"
+    "cors": "^2.8.5",
+    "express": "^4.18.2",
+    "node-fetch": "^2.6.7",
+    "pg": "^8.11.3"
   },
   "devDependencies": {
     "nodemon": "^3.0.1"
