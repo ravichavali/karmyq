@@ -12,8 +12,19 @@ YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
 # Skip hook installation in CI/Docker environments
-if [ -n "$CI" ] || [ -f "/.dockerenv" ] || grep -sq 'docker\|lxc' /proc/1/cgroup 2>/dev/null; then
-  echo "ℹ️  Skipping git hooks installation (CI/Docker environment)"
+# Check for common CI/Docker indicators
+if [ -n "$CI" ]; then
+  echo "ℹ️  Skipping git hooks installation (CI environment)"
+  exit 0
+fi
+
+if [ -f "/.dockerenv" ]; then
+  echo "ℹ️  Skipping git hooks installation (Docker environment)"
+  exit 0
+fi
+
+if [ -f "/proc/1/cgroup" ] && grep -q docker /proc/1/cgroup 2>/dev/null; then
+  echo "ℹ️  Skipping git hooks installation (Docker environment)"
   exit 0
 fi
 
@@ -23,13 +34,13 @@ echo ""
 
 # Check if we're in a git repository
 if [ ! -d ".git" ]; then
-  echo -e "${YELLOW}⚠️  Not in a git repository, skipping hooks installation${NC}"
+  echo "⚠️  Not in a git repository, skipping hooks installation"
   exit 0
 fi
 
 # Check if git-hooks directory exists
 if [ ! -d "scripts/git-hooks" ]; then
-  echo -e "${RED}❌ Error: scripts/git-hooks directory not found${NC}"
+  echo "❌ Error: scripts/git-hooks directory not found"
   exit 1
 fi
 
@@ -54,7 +65,7 @@ for hook in scripts/git-hooks/*; do
     # Remove existing hook (whether it's a file or symlink)
     if [ -e "$target" ] || [ -L "$target" ]; then
       rm "$target"
-      echo -e "${BLUE}  Removing existing $hook_name${NC}"
+      echo "  Removing existing $hook_name"
     fi
 
     # On Windows/Git Bash, we need to copy instead of symlink
@@ -62,12 +73,12 @@ for hook in scripts/git-hooks/*; do
     if [[ "$OSTYPE" == "msys" ]] || [[ "$OSTYPE" == "win32" ]]; then
       cp "$hook" "$target"
       chmod +x "$target"
-      echo -e "${GREEN}  ✓ Installed $hook_name (copy)${NC}"
+      echo "  ✓ Installed $hook_name (copy)"
     else
       # On Unix, use relative symlinks
       ln -sf "../../$hook" "$target"
       chmod +x "$hook"
-      echo -e "${GREEN}  ✓ Installed $hook_name (symlink)${NC}"
+      echo "  ✓ Installed $hook_name (symlink)"
     fi
 
     installed=$((installed + 1))
@@ -76,16 +87,16 @@ done
 
 echo ""
 if [ $installed -eq 0 ]; then
-  echo -e "${RED}❌ No hooks found to install${NC}"
+  echo "❌ No hooks found to install"
   exit 1
 else
-  echo -e "${GREEN}✅ Successfully installed $installed hook(s)${NC}"
+  echo "✅ Successfully installed $installed hook(s)"
   echo ""
   echo "Installed hooks:"
   echo "  • pre-commit  - Runs service analysis and documentation checks"
   echo "  • pre-push    - Runs tests before pushing (skip with --no-verify)"
   echo ""
-  echo -e "${BLUE}ℹ️  Hooks will run automatically on commit/push${NC}"
-  echo -e "${BLUE}ℹ️  To bypass: use --no-verify flag${NC}"
+  echo "ℹ️  Hooks will run automatically on commit/push"
+  echo "ℹ️  To bypass: use --no-verify flag"
   echo ""
 fi
