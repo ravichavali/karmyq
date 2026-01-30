@@ -19,7 +19,7 @@ COPY services/geocoding-service/index.js ./services/geocoding-service/index.js
 
 # Production stage
 FROM node:18-alpine
-WORKDIR /app/services/geocoding-service
+WORKDIR /app
 
 # Copy service package.json
 COPY services/geocoding-service/package*.json ./

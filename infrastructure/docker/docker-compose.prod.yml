@@ -154,7 +154,7 @@ services:
   # Geocoding Service
   geocoding-service:
     restart: always
-    volumes: ~
+    volumes: []
     command: []
     environment:
       NODE_ENV: production
