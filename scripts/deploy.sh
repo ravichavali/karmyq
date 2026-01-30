@@ -64,6 +64,13 @@ log_info "Current commit: $PREVIOUS_COMMIT"
 log_step "2/8 - Pulling latest code from master"
 git fetch origin
 git checkout master
+
+# Stash any local changes before pulling
+if ! git diff-index --quiet HEAD --; then
+    log_warn "Local changes detected, stashing..."
+    git stash push -m "Auto-stash before deployment $(date +%Y%m%d-%H%M%S)"
+fi
+
 git pull origin master
 COMMIT=$(git rev-parse --short HEAD)
 log_info "Now at commit: $COMMIT"
