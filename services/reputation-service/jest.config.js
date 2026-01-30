@@ -26,4 +26,7 @@ module.exports = {
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
   },
+
+  // Remove setup files requirement
+  setupFilesAfterEnv: [],
 };
