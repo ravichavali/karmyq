@@ -25,7 +25,7 @@
     "feedback:check": "node scripts/feedback-loop.js",
     "context:generate": "node scripts/generate-service-context.js",
     "hooks:install": "sh scripts/install-hooks.sh",
-    "postinstall": "sh scripts/install-hooks.sh"
+    "postinstall": "test -f scripts/install-hooks.sh && sh scripts/install-hooks.sh || exit 0"
   },
   "devDependencies": {
     "@types/jsonwebtoken": "^9.0.10",
