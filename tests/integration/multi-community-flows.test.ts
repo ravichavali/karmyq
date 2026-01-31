@@ -104,7 +104,7 @@ describe('Multi-Community User Journey - Alice', () => {
         id: community.id,
         name: community.name,
         description: community.description,
-        creatorId: alice.id,
+        creator_id: alice.id,
       };
       expect(portlandCommunity.name).toContain('Portland Tools Network');
     }
@@ -192,7 +192,7 @@ describe('Multi-Community User Journey - Alice', () => {
         id: community.id,
         name: community.name,
         description: community.description,
-        creatorId: alice.id,
+        creator_id: alice.id,
       };
     }
   });
@@ -349,7 +349,7 @@ describe('Multi-Community User Journey - Bob', () => {
         id: community.id,
         name: community.name,
         description: community.description,
-        creatorId: bob.id,
+        creator_id: bob.id,
       };
     }
   });

@@ -227,7 +227,7 @@ describe('Multi-Community JWT Flow', () => {
           id: community.id,
           name: community.name,
           description: community.description,
-          creatorId: testUser.id,
+          creator_id: testUser.id,
         };
       }
     });
@@ -289,7 +289,7 @@ describe('Multi-Community JWT Flow', () => {
           id: community.id,
           name: community.name,
           description: community.description,
-          creatorId: testUser.id,
+          creator_id: testUser.id,
         };
       }
     });
