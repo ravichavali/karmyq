@@ -7,8 +7,10 @@
     "dev": "nodemon src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
-    "test": "jest --coverage",
-    "test:watch": "jest --watch"
+    "test": "jest --testPathPattern=unit --coverage",
+    "test:watch": "jest --watch",
+    "test:unit": "jest --testPathPattern=unit",
+    "test:integration": "jest --testPathPattern=integration"
   },
   "dependencies": {},
   "devDependencies": {

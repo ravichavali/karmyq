@@ -15,7 +15,8 @@
     "moduleResolution": "node",
     "downlevelIteration": true,
     "types": [
-      "node"
+      "node",
+      "jest"
     ]
   },
   "include": [
