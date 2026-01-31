@@ -13,7 +13,7 @@ import {
 interface RequestPayloadRendererProps {
   type: RequestType;
   payload: RequestPayload | null;
-  requirements?: Record<string, any>;
+  requirements?: Record<string, string | number | boolean>;
   preferredStartDate?: string;
   className?: string;
 }
@@ -180,7 +180,7 @@ function ChildcareDetails({ payload }: { payload: ChildcarePayload }) {
 }
 
 function TechHelpDetails({ payload }: { payload: TechHelpPayload }) {
-  const urgencyColors = {
+  const urgencyColors: Record<TechHelpPayload['urgency_level'], 'green' | 'yellow' | 'red'> = {
     can_wait: 'green',
     soon: 'yellow',
     urgent: 'red',
@@ -207,7 +207,7 @@ function TechHelpDetails({ payload }: { payload: TechHelpPayload }) {
         value={payload.issue_description}
       />
       <div className="flex flex-wrap gap-4 text-sm">
-        <Badge label="Urgency" value={payload.urgency_level.replace('_', ' ')} color={urgencyColors[payload.urgency_level] as any} />
+        <Badge label="Urgency" value={payload.urgency_level.replace('_', ' ')} color={urgencyColors[payload.urgency_level]} />
         {payload.remote_help_acceptable && <Badge label="Remote OK" value="Yes" color="blue" />}
       </div>
     </>
@@ -308,7 +308,7 @@ function Badge({
   );
 }
 
-function formatRequirement(key: string, value: any): string {
+function formatRequirement(key: string, value: string | number | boolean): string {
   if (typeof value === 'boolean') {
     return key.replace(/_/g, ' ');
   }

@@ -3,34 +3,41 @@ import Link from 'next/link';
 import TrustPathBadge, { TrustPathBadgeSkeleton } from '../TrustPathBadge';
 import { useTrustPath } from '../../hooks/useTrustPath';
 import RequestPayloadRenderer from './RequestPayloadRenderer';
+import {
+  FeedItem as FeedItemType,
+  CommunityActivityData,
+  OpenRequestData,
+  SuggestedRequestData,
+  StoryData,
+} from '../../types/feed-items';
 
 interface FeedItemProps {
-  item: {
-    id: string;
-    type: 'community_activity' | 'open_request' | 'suggested_request' | 'story';
-    priority: number;
-    created_at: string;
-    data: any;
-  };
+  item: FeedItemType;
   onDismiss?: (itemId: string) => void;
 }
 
 export default function FeedItem({ item, onDismiss }: FeedItemProps) {
   switch (item.type) {
     case 'community_activity':
-      return <CommunityActivityItem data={item.data} itemId={item.id} onDismiss={onDismiss} />;
+      return <CommunityActivityItem data={item.data as CommunityActivityData} itemId={item.id} onDismiss={onDismiss} />;
     case 'open_request':
-      return <OpenRequestItem data={item.data} itemId={item.id} onDismiss={onDismiss} />;
+      return <OpenRequestItem data={item.data as OpenRequestData} itemId={item.id} onDismiss={onDismiss} />;
     case 'suggested_request':
-      return <SuggestedRequestItem data={item.data} itemId={item.id} onDismiss={onDismiss} />;
+      return <SuggestedRequestItem data={item.data as SuggestedRequestData} itemId={item.id} onDismiss={onDismiss} />;
     case 'story':
-      return <StoryItem data={item.data} itemId={item.id} onDismiss={onDismiss} />;
+      return <StoryItem data={item.data as StoryData} itemId={item.id} onDismiss={onDismiss} />;
     default:
       return null;
   }
 }
 
-function CommunityActivityItem({ data, itemId, onDismiss }: any) {
+interface CommunityActivityItemProps {
+  data: CommunityActivityData;
+  itemId: string;
+  onDismiss?: (itemId: string) => void;
+}
+
+function CommunityActivityItem({ data, itemId, onDismiss }: CommunityActivityItemProps) {
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-4">
       <div className="flex justify-between items-start mb-4">
@@ -74,7 +81,7 @@ function CommunityActivityItem({ data, itemId, onDismiss }: any) {
               <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z" />
             </svg>
             <span className="text-gray-700">
-              Top helpers: {data.recent_helpers.map((h: any) => `${h.name} (${h.help_count})`).join(', ')}
+              Top helpers: {data.recent_helpers.map(h => `${h.name} (${h.help_count})`).join(', ')}
             </span>
           </div>
         )}
@@ -111,7 +118,13 @@ function CommunityActivityItem({ data, itemId, onDismiss }: any) {
   );
 }
 
-function OpenRequestItem({ data, itemId, onDismiss }: any) {
+interface OpenRequestItemProps {
+  data: OpenRequestData;
+  itemId: string;
+  onDismiss?: (itemId: string) => void;
+}
+
+function OpenRequestItem({ data, itemId, onDismiss }: OpenRequestItemProps) {
   const urgencyColors = {
     urgent: 'bg-red-100 text-red-800 border-red-200',
     high: 'bg-orange-100 text-orange-800 border-orange-200',
@@ -202,7 +215,13 @@ function OpenRequestItem({ data, itemId, onDismiss }: any) {
   );
 }
 
-function SuggestedRequestItem({ data, itemId, onDismiss }: any) {
+interface SuggestedRequestItemProps {
+  data: SuggestedRequestData;
+  itemId: string;
+  onDismiss?: (itemId: string) => void;
+}
+
+function SuggestedRequestItem({ data, itemId, onDismiss }: SuggestedRequestItemProps) {
   return (
     <div className="bg-gradient-to-br from-purple-50 to-blue-50 rounded-lg shadow-sm border border-purple-200 p-6 mb-4">
       <div className="flex justify-between items-start mb-3">
@@ -262,7 +281,13 @@ function SuggestedRequestItem({ data, itemId, onDismiss }: any) {
   );
 }
 
-function StoryItem({ data, itemId, onDismiss }: any) {
+interface StoryItemProps {
+  data: StoryData;
+  itemId: string;
+  onDismiss?: (itemId: string) => void;
+}
+
+function StoryItem({ data, itemId, onDismiss }: StoryItemProps) {
   const storyIcons = {
     first_timer: '🌱',
     milestone: '🏆',
