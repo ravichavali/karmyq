@@ -134,27 +134,25 @@ export class SocialKarmaFeedComposer {
       `SELECT
         fs.id,
         fs.match_id,
-        fs.requester_id,
-        fs.responder_id,
-        fs.requester_visible,
-        fs.responder_visible,
-        fs.interaction_category,
+        fs.story_type,
+        fs.title,
+        fs.description,
+        fs.category,
+        fs.is_anonymous,
+        fs.requester_name,
+        fs.responder_name,
+        fs.is_public,
         fs.created_at,
         fs.community_id,
         c.name as community_name,
         f.helpfulness,
         f.responsiveness,
         f.clarity,
-        f.comment,
-        u_req.name as requester_name,
-        u_resp.name as responder_name
+        f.comment
       FROM feed.featured_stories fs
       JOIN communities.communities c ON fs.community_id = c.id
       LEFT JOIN requests.interaction_feedback f ON fs.match_id = f.match_id
-      LEFT JOIN auth.users u_req ON fs.requester_id = u_req.id
-      LEFT JOIN auth.users u_resp ON fs.responder_id = u_resp.id
       WHERE fs.community_id = $1
-        AND fs.is_active = true
       ORDER BY fs.created_at DESC
       LIMIT $2`,
       [communityId, limit]
