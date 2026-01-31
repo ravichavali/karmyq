@@ -14,8 +14,8 @@ describe('Social Graph Service - Integration Tests', () => {
 
   beforeAll(async () => {
     // Cleanup any orphaned test data from previous failed runs (respect FK constraints)
-    await pool.query(`DELETE FROM communities.communities WHERE creator_id IN (SELECT id FROM auth.users WHERE email IN ('testuser@example.com', 'invitee@example.com'))`);
-    await pool.query(`DELETE FROM auth.users WHERE email IN ('testuser@example.com', 'invitee@example.com')`);
+    await pool.query(`DELETE FROM communities.communities WHERE creator_id IN (SELECT id FROM auth.users WHERE email IN ('testuser@example.com', 'invitee@example.com', 'newinvitee@example.com'))`);
+    await pool.query(`DELETE FROM auth.users WHERE email IN ('testuser@example.com', 'invitee@example.com', 'newinvitee@example.com')`);
 
     // Create test users and community
     const userResult = await pool.query(
