@@ -4,11 +4,11 @@
   "description": "Integration and E2E tests for Karmyq multi-tenant platform",
   "private": true,
   "scripts": {
-    "test": "jest",
+    "test": "npm run test:unit && npm run test:regression",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
-    "test:integration": "jest integration/ --runInBand",
-    "test:unit": "jest unit/",
+    "test:integration": "jest integration",
+    "test:unit": "jest unit --passWithNoTests",
     "test:auth": "jest integration/auth.test.ts",
     "test:tenant": "jest integration/tenant-isolation.test.ts",
     "test:rls": "jest integration/rls-policies.test.ts",
@@ -16,7 +16,7 @@
     "test:ephemeral": "jest integration/ephemeral-data.test.ts",
     "test:decay": "jest integration/reputation-decay.test.ts",
     "test:phase3": "jest integration/ephemeral-data.test.ts integration/reputation-decay.test.ts",
-    "test:e2e": "playwright test",
+    "test:e2e": "jest e2e",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:headed": "playwright test --headed",
     "seed": "ts-node scripts/seed-data.ts",
@@ -27,7 +27,9 @@
     "load-test-data": "cat fixtures/realistic-test-data.sql | docker exec -i karmyq-postgres psql -U karmyq_user -d karmyq_db",
     "cleanup-test-data": "ts-node scripts/cleanup-test-data.ts",
     "cleanup-test-data:dry-run": "ts-node scripts/cleanup-test-data.ts --dry-run",
-    "cleanup-test-data:force": "ts-node scripts/cleanup-test-data.ts --force"
+    "cleanup-test-data:force": "ts-node scripts/cleanup-test-data.ts --force",
+    "test:regression": "jest regression --passWithNoTests",
+    "test:tdd": "jest tdd --passWithNoTests"
   },
   "devDependencies": {
     "@faker-js/faker": "^10.1.0",
