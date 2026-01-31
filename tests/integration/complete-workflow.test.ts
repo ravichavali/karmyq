@@ -86,7 +86,7 @@ describe('Complete Help Exchange Workflow', () => {
     if (response.status === 201 || response.status === 200) {
       community = response.body.data?.community || response.body.data || response.body.community;
       expect(community).toBeTruthy();
-      expect(community?.creatorId).toBe(requester.id);
+      expect(community?.creator_id).toBe(requester.id);
 
       // Add helper1 to community
       const inviteCode = community?.invite_code || null;
@@ -125,6 +125,7 @@ describe('Complete Help Exchange Workflow', () => {
       .set('X-Community-ID', community.id)
       .send({
         community_id: community.id,
+        title: 'Help Moving Furniture',
         description: 'Need help moving furniture this weekend',
         type: 'moving',
         urgency: 'medium',
@@ -503,6 +504,7 @@ describe('Multi-Community Request Posting', () => {
       .set('Authorization', `Bearer ${multiToken}`)
       .send({
         post_to_all_communities: true,
+        title: 'Help with Garden Work',
         description: 'Need help with garden work',
         type: 'gardening',
         urgency: 'low',

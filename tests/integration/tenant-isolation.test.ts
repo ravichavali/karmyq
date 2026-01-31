@@ -149,7 +149,7 @@ describe('Community Isolation - Communities', () => {
     expect([200, 403]).toContain(user2Response.status);
 
     if (user2Response.status === 200) {
-      const communities = user2Response.body.data || user2Response.body.communities || [];
+      const communities = user2Response.body.data?.communities || user2Response.body.communities || [];
       expect(communities.length).toBeGreaterThanOrEqual(1);
 
       if (oaklandCommunity) {
