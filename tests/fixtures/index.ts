@@ -440,13 +440,26 @@ export class OfferFactory {
  * Test Scenario - Pre-configured test environments
  */
 export class TestScenario {
-  pool: Pool;
+  // Non-enumerable to prevent Jest serialization issues with circular references
+  private _pool!: Pool;
+
   users: TestUser[] = [];
   communities: TestCommunity[] = [];
   requests: TestRequest[] = [];
 
   constructor() {
-    this.pool = createPool();
+    // Make pool non-enumerable to prevent Jest from trying to serialize it
+    Object.defineProperty(this, '_pool', {
+      value: createPool(),
+      writable: true,
+      enumerable: false,
+      configurable: true
+    });
+  }
+
+  // Getter for backward compatibility
+  get pool(): Pool {
+    return this._pool;
   }
 
   /**
@@ -547,7 +560,7 @@ export class TestScenario {
       console.log('Error during test cleanup:', error);
     }
 
-    await this.pool.end();
+    await this._pool.end();
   }
 }
 
