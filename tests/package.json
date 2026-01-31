@@ -7,7 +7,7 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
-    "test:integration": "jest integration/",
+    "test:integration": "jest integration/ --runInBand",
     "test:unit": "jest unit/",
     "test:auth": "jest integration/auth.test.ts",
     "test:tenant": "jest integration/tenant-isolation.test.ts",
