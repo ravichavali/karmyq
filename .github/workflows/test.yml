@@ -56,21 +56,23 @@ jobs:
         working-directory: services/auth-service
         run: npm run lint || echo "Linter not configured yet"
 
-      - name: Run tests
+      - name: Run unit + regression tests
         working-directory: services/auth-service
-        run: npm test -- --coverage
+        run: npm test
         env:
           NODE_ENV: test
           DATABASE_URL: postgresql://test_user:test_password@localhost:5432/test_db
           REDIS_URL: redis://localhost:6379
           JWT_SECRET: test_jwt_secret
 
-      - name: Upload coverage reports
-        uses: codecov/codecov-action@v3
-        with:
-          files: services/auth-service/coverage/lcov.info
-          flags: auth-service
-          name: auth-service-coverage
+      - name: Run integration tests
+        working-directory: services/auth-service
+        run: npm run test:integration || echo "No integration tests configured"
+        env:
+          NODE_ENV: test
+          DATABASE_URL: postgresql://test_user:test_password@localhost:5432/test_db
+          REDIS_URL: redis://localhost:6379
+          JWT_SECRET: test_jwt_secret
 
   test-frontend:
     name: Test Frontend

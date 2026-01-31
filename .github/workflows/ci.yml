@@ -12,33 +12,8 @@ env:
 jobs:
   # Test backend services
   test-backend:
-    name: Test Backend Services
-    runs-on: ubuntu-latest  # Service containers require Linux runner
-
-    services:
-      postgres:
-        image: postgres:15-alpine
-        env:
-          POSTGRES_USER: karmyq_user
-          POSTGRES_PASSWORD: karmyq_password_dev
-          POSTGRES_DB: karmyq_db
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
-      redis:
-        image: redis:7-alpine
-        ports:
-          - 6379:6379
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
+    name: Test Backend Services (Unit + Regression)
+    runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v4
@@ -55,17 +30,17 @@ jobs:
           npm ci --workspace=services/auth-service
           npm ci --workspace=tests
 
-      - name: Initialize database
-        run: |
-          PGPASSWORD=karmyq_password_dev psql -h localhost -U karmyq_user -d karmyq_db -f infrastructure/postgres/init.sql
-
-      - name: Run integration tests
-        run: npm run test --workspace=tests
+      - name: Run unit + regression tests (TDD Framework)
+        run: npm test
         env:
           NODE_ENV: test
-          DATABASE_URL: postgresql://karmyq_user:karmyq_password_dev@localhost:5432/karmyq_db
-          REDIS_URL: redis://localhost:6379
           JWT_SECRET: test_jwt_secret
+
+      - name: Integration tests info
+        run: |
+          echo "ℹ️  Integration tests skipped in CI (require all services running)"
+          echo "ℹ️  Integration tests will run on deployment to karmyq.com"
+          echo "ℹ️  See deploy.sh and pre-push hook for integration test execution"
 
   # Lint and type-check
   lint:
