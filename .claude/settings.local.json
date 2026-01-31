@@ -68,7 +68,9 @@
       "Bash(do grep -n \"# Create symlinks\" \"$service/Dockerfile\")",
       "Bash(do)",
       "Bash(perl -i -pe 's/# Create symlinks so relative imports can find shared modules# Services import as \\\\.\\\\.\\\\/shared\\\\/\\\\* and \\\\.\\\\.\\\\/\\\\.\\\\.\\\\/shared\\\\/\\\\*RUN ln -s \\\\/app\\\\/packages\\\\/shared \\\\/app\\\\/services\\\\/shared &&     ln -s \\\\/app\\\\/packages\\\\/shared \\\\/app\\\\/shared/\\\\n# Create symlinks so relative imports can find shared modules\\\\n# Services import as ..\\\\/shared\\\\/\\\\* and ..\\\\/..\\\\/shared\\\\/\\\\*\\\\nRUN ln -s \\\\/app\\\\/packages\\\\/shared \\\\/app\\\\/services\\\\/shared \\\\&\\\\& \\\\\\\\\\\\n    ln -s \\\\/app\\\\/packages\\\\/shared \\\\/app\\\\/shared\\\\n/g' \"$service/Dockerfile\")",
-      "Bash(echo:*)"
+      "Bash(echo:*)",
+      "Bash(for service in auth-service community-service feed-service notification-service reputation-service request-service)",
+      "Bash(do sed -i 's/\"\"test\"\": \"\"jest --coverage\"\"/\"\"test\"\": \"\"jest --testPathPattern=unit --coverage\"\"/' services/$service/package.json)"
     ],
     "deny": [],
     "ask": []
