@@ -67,19 +67,30 @@ else
   echo -e "${BLUE}ℹ️  Set DATABASE_URL or ensure PostgreSQL is running to enable integration tests${NC}"
 fi
 
-# 2. Run unit tests (these don't require a database)
+# 2. Run unit + regression tests (MUST PASS - TDD Framework)
 echo ""
-echo "🔬 Running unit tests..."
+echo "🔬 Running unit + regression tests..."
+echo -e "${BLUE}ℹ️  These tests MUST pass (core tenant of TDD framework)${NC}"
 if npm test; then
-  echo -e "${GREEN}✓ Unit tests passed${NC}"
+  echo -e "${GREEN}✓ Unit + regression tests passed${NC}"
 else
-  echo -e "${RED}❌ Unit tests failed${NC}"
+  echo -e "${RED}❌ Unit + regression tests failed${NC}"
   echo -e "${YELLOW}Fix failing tests or use --no-verify to skip${NC}"
   exit 1
 fi
 
+# 3. Run TDD tests (report only, don't block)
 echo ""
-echo -e "${GREEN}✅ All pre-push checks passed!${NC}"
+echo "🧪 Running TDD tests (work in progress)..."
+echo -e "${BLUE}ℹ️  These tests can fail - they're in development${NC}"
+if npm run test:tdd 2>&1 | tail -20; then
+  echo -e "${GREEN}✓ TDD tests passed - consider promoting to regression!${NC}"
+else
+  echo -e "${YELLOW}⚠️  TDD tests failed (this is OK, they're in development)${NC}"
+fi
+
+echo ""
+echo -e "${GREEN}✅ All required checks passed!${NC}"
 echo -e "${BLUE}ℹ️  To skip checks: git push --no-verify${NC}"
 echo -e "${BLUE}ℹ️  To skip via env: SKIP_PREPUSH=1 git push${NC}"
 echo ""

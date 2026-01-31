@@ -7,10 +7,12 @@
     "dev": "nodemon src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
-    "test": "jest --testPathPattern=unit",
+    "test": "jest --testPathPattern=\"(unit|regression)\"",
     "test:watch": "jest --watch",
     "test:unit": "jest --testPathPattern=unit",
-    "test:integration": "jest --testPathPattern=integration"
+    "test:integration": "jest --testPathPattern=integration",
+    "test:regression": "jest --testPathPattern=regression",
+    "test:tdd": "jest --testPathPattern=tdd"
   },
   "dependencies": {
     "axios": "^1.6.2",
