@@ -7,6 +7,7 @@
 
 import request from 'supertest';
 import { Pool } from 'pg';
+import jwt from 'jsonwebtoken';
 
 // Service URLs
 export const ServiceUrls = {
@@ -145,6 +146,143 @@ export class UserFactory {
     }
 
     return null;
+  }
+
+  /**
+   * Login with existing demo user (for production/E2E environments)
+   */
+  static async loginDemoUser(email: string, password: string = 'password123'): Promise<TestUser | null> {
+    const maxRetries = 3;
+    const baseDelay = 1000;
+
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        const response = await request(ServiceUrls.AUTH)
+          .post('/auth/login')
+          .send({ email, password });
+
+        const data = response.body.data || response.body;
+        const user = data.user;
+        const token = data.token;
+
+        if (response.status !== 200 || !user || !token) {
+          console.log(`Login failed for ${email}: ${JSON.stringify(response.body)}`);
+          if (attempt < maxRetries) {
+            const delay = baseDelay * Math.pow(2, attempt);
+            await new Promise(resolve => setTimeout(resolve, delay));
+            continue;
+          }
+          return null;
+        }
+
+        return {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          token: token,
+        };
+      } catch (error) {
+        if (attempt < maxRetries) {
+          const delay = baseDelay * Math.pow(2, attempt);
+          console.log(`Login error for ${email}. Retrying in ${delay/1000}s... (attempt ${attempt + 1}/${maxRetries})`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          continue;
+        }
+        console.log(`Login error for ${email}:`, error);
+        return null;
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Get existing user from database and generate token (for integration tests)
+   * This bypasses the auth service completely
+   */
+  static async getExistingUser(pool: Pool, email: string): Promise<TestUser | null> {
+    try {
+      const result = await pool.query(
+        'SELECT id, email, name FROM auth.users WHERE email = $1 LIMIT 1',
+        [email]
+      );
+
+      if (result.rows.length === 0) {
+        console.log(`User not found: ${email}`);
+        return null;
+      }
+
+      const user = result.rows[0];
+      const jwtSecret = process.env.JWT_SECRET || 'dev-secret-key';
+
+      // Generate JWT token
+      const token = jwt.sign(
+        {
+          userId: user.id,
+          email: user.email,
+          communityMemberships: []  // Will be populated as needed
+        },
+        jwtSecret,
+        { expiresIn: '24h' }
+      );
+
+      return {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        token: token,
+      };
+    } catch (error) {
+      console.log(`Error fetching user ${email}:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Get demo users for integration tests (use existing database users)
+   * Uses first 3 stable test users from the database
+   */
+  static async getDemoUsers(pool: Pool): Promise<{ requester: TestUser; helper1: TestUser; helper2: TestUser } | null> {
+    try {
+      // Get 3 existing users from database
+      const result = await pool.query(
+        `SELECT id, email, name FROM auth.users
+         WHERE email LIKE 'user%@test.karmyq.com'
+         ORDER BY email
+         LIMIT 3`
+      );
+
+      if (result.rows.length < 3) {
+        console.log('Not enough test users in database');
+        return null;
+      }
+
+      const jwtSecret = process.env.JWT_SECRET || 'dev-secret-key';
+
+      const users = result.rows.map(user => ({
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        token: jwt.sign(
+          {
+            userId: user.id,
+            email: user.email,
+            communityMemberships: []
+          },
+          jwtSecret,
+          { expiresIn: '24h' }
+        ),
+      }));
+
+      return {
+        requester: users[0],
+        helper1: users[1],
+        helper2: users[2],
+      };
+    } catch (error) {
+      console.log('Error getting demo users:', error);
+      return null;
+    }
   }
 
   /**

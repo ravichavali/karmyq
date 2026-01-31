@@ -58,6 +58,17 @@ VALUES (
   NOW()
 );
 
+-- Third test user for helper2
+INSERT INTO auth.users (id, email, password_hash, name, created_at, updated_at)
+VALUES (
+  '00000000-0000-0000-0000-000000000003',
+  'helper2.user@example.com',
+  '$2b$10$JCXNzjVi/RUOu8PtWAUSWeEi5MfS0wzvAEgsFI11vB19mLFvhsJa2', -- password123
+  'Helper User 2',
+  NOW(),
+  NOW()
+);
+
 -- =============================================================================
 -- 2. Create Test Communities
 -- =============================================================================

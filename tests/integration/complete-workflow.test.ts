@@ -38,47 +38,25 @@ let conversationId: string;
 beforeAll(async () => {
   scenario = new TestScenario();
 
-  // Create requester
-  requester = await UserFactory.create({
-    prefix: 'requester-workflow',
-    name: 'Alice Requester',
-  });
-  if (requester) {
-    requesterToken = requester.token;
+  // Use existing demo users instead of creating new ones
+  const demoUsers = await UserFactory.getDemoUsers(scenario.pool);
+  if (!demoUsers) {
+    throw new Error('Failed to get demo users from database');
   }
 
-  // Create helper 1
-  helper1 = await UserFactory.create({
-    prefix: 'helper1-workflow',
-    name: 'Bob Helper',
-  });
-  if (helper1) {
-    helper1Token = helper1.token;
-  }
-
-  // Create helper 2
-  helper2 = await UserFactory.create({
-    prefix: 'helper2-workflow',
-    name: 'Charlie Helper',
-  });
-  if (helper2) {
-    helper2Token = helper2.token;
-  }
+  requester = demoUsers.requester;
+  helper1 = demoUsers.helper1;
+  helper2 = demoUsers.helper2;
+  requesterToken = requester.token;
+  helper1Token = helper1.token;
+  helper2Token = helper2.token;
 });
 
 afterAll(async () => {
   try {
+    // Don't delete demo users - they're reused across test runs
     if (community) {
       await CommunityFactory.delete(scenario.pool, community.id);
-    }
-    if (requester) {
-      await UserFactory.delete(scenario.pool, requester.id);
-    }
-    if (helper1) {
-      await UserFactory.delete(scenario.pool, helper1.id);
-    }
-    if (helper2) {
-      await UserFactory.delete(scenario.pool, helper2.id);
     }
   } catch (error) {
     console.log('Cleanup error:', error);
