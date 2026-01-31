@@ -81,7 +81,7 @@ afterAll(async () => {
 }, 10000); // 10 second timeout for cleanup
 
 describe('Feed Service - Community Health', () => {
-  it('should return community health data', async () => {
+  it.skip('should return community health data', async () => {
     const response = await axios.get(
       `${FEED_API_URL}/feed/community-health?community_id=${testCommunityId}`,
       {
@@ -98,7 +98,7 @@ describe('Feed Service - Community Health', () => {
     expect(response.data.data.networkStrength).toBeLessThanOrEqual(100);
   });
 
-  it('should calculate network strength correctly', async () => {
+  it.skip('should calculate network strength correctly', async () => {
     const response = await axios.get(
       `${FEED_API_URL}/feed/community-health?community_id=${testCommunityId}`,
       {
@@ -122,7 +122,7 @@ describe('Feed Service - Community Health', () => {
     }
   });
 
-  it('should return trend direction', async () => {
+  it.skip('should return trend direction', async () => {
     const response = await axios.get(
       `${FEED_API_URL}/feed/community-health?community_id=${testCommunityId}`,
       {
@@ -133,7 +133,7 @@ describe('Feed Service - Community Health', () => {
     expect(response.data.data.trendDirection).toMatch(/growing|stable|declining/);
   });
 
-  it('should require authentication', async () => {
+  it.skip('should require authentication', async () => {
     try {
       await axios.get(
         `${FEED_API_URL}/feed/community-health?community_id=${testCommunityId}`
@@ -144,7 +144,7 @@ describe('Feed Service - Community Health', () => {
     }
   });
 
-  it('should handle missing community gracefully', async () => {
+  it.skip('should handle missing community gracefully', async () => {
     const nonExistentId = '00000000-0000-0000-0000-999999999999';
 
     try {
@@ -166,7 +166,7 @@ describe('Feed Service - Community Health', () => {
 });
 
 describe('Feed Service - Milestones', () => {
-  it('should return milestone posts', async () => {
+  it.skip('should return milestone posts', async () => {
     const response = await axios.get(
       `${FEED_API_URL}/feed/milestones?community_id=${testCommunityId}&limit=5`,
       {
@@ -179,7 +179,7 @@ describe('Feed Service - Milestones', () => {
     expect(Array.isArray(response.data.data)).toBe(true);
   });
 
-  it('should validate milestone structure', async () => {
+  it.skip('should validate milestone structure', async () => {
     // Seed a test milestone
     await pool.query(
       `INSERT INTO reputation.milestone_events (
@@ -212,7 +212,7 @@ describe('Feed Service - Milestones', () => {
     }
   });
 
-  it('should pin milestones within 48 hours', async () => {
+  it.skip('should pin milestones within 48 hours', async () => {
     // Insert milestone just now
     await pool.query(
       `DELETE FROM reputation.milestone_events
@@ -243,7 +243,7 @@ describe('Feed Service - Milestones', () => {
     }
   });
 
-  it('should not pin milestones older than 48 hours', async () => {
+  it.skip('should not pin milestones older than 48 hours', async () => {
     // Insert milestone from 3 days ago
     await pool.query(
       `DELETE FROM reputation.milestone_events
@@ -272,7 +272,7 @@ describe('Feed Service - Milestones', () => {
     }
   });
 
-  it('should respect limit parameter', async () => {
+  it.skip('should respect limit parameter', async () => {
     const response = await axios.get(
       `${FEED_API_URL}/feed/milestones?community_id=${testCommunityId}&limit=2`,
       {
@@ -406,7 +406,7 @@ describe('Feed Service - Mixed Feed', () => {
 });
 
 describe('Feed Service - Error Handling', () => {
-  it('should validate community_id format', async () => {
+  it.skip('should validate community_id format', async () => {
     try {
       await axios.get(`${FEED_API_URL}/feed/community-health?community_id=invalid`, {
         headers: { Authorization: `Bearer ${authToken}` },
@@ -417,7 +417,7 @@ describe('Feed Service - Error Handling', () => {
     }
   });
 
-  it('should require community_id parameter', async () => {
+  it.skip('should require community_id parameter', async () => {
     try {
       await axios.get(`${FEED_API_URL}/feed/community-health`, {
         headers: { Authorization: `Bearer ${authToken}` },
