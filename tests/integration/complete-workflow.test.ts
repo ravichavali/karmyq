@@ -200,7 +200,7 @@ describe('Complete Help Exchange Workflow', () => {
 
     // Get or create conversation for match1
     const getConvResponse = await request(ServiceUrls.MESSAGING)
-      .get(`/messages/match/${match1Id}`)
+      .get(`/match/${match1Id}`)
       .set('Authorization', `Bearer ${requesterToken}`);
 
     expect([200, 201]).toContain(getConvResponse.status);
@@ -212,7 +212,7 @@ describe('Complete Help Exchange Workflow', () => {
 
       // Send message
       const sendResponse = await request(ServiceUrls.MESSAGING)
-        .post(`/messages/match/${match1Id}/messages`)
+        .post(`/match/${match1Id}/messages`)
         .set('Authorization', `Bearer ${requesterToken}`)
         .send({
           content: 'Hi! When are you available?',
@@ -235,7 +235,7 @@ describe('Complete Help Exchange Workflow', () => {
     }
 
     const response = await request(ServiceUrls.MESSAGING)
-      .post(`/messages/match/${match1Id}/messages`)
+      .post(`/match/${match1Id}/messages`)
       .set('Authorization', `Bearer ${helper1Token}`)
       .send({
         content: 'I can help Saturday afternoon!',
@@ -315,7 +315,7 @@ describe('Complete Help Exchange Workflow', () => {
     }
 
     const response = await request(ServiceUrls.MESSAGING)
-      .post(`/messages/match/${match1Id}/messages`)
+      .post(`/match/${match1Id}/messages`)
       .set('Authorization', `Bearer ${requesterToken}`)
       .send({
         content: 'Perfect! See you Saturday at 2pm',
@@ -337,7 +337,7 @@ describe('Complete Help Exchange Workflow', () => {
     }
 
     const response = await request(ServiceUrls.MESSAGING)
-      .get(`/messages/match/${match1Id}`)
+      .get(`/match/${match1Id}`)
       .set('Authorization', `Bearer ${requesterToken}`);
 
     expect([200]).toContain(response.status);

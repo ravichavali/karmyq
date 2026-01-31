@@ -38,9 +38,12 @@ Object.entries(serviceMapping).forEach(([serviceName, config]) => {
   }
 });
 
-// Also convert FEED_API_URL (used by feed tests instead of FEED_SERVICE_URL)
+// Also convert *_API_URL variables (used by some tests instead of *_SERVICE_URL)
 if (process.env.FEED_API_URL && process.env.FEED_API_URL.includes('feed-service')) {
   process.env.FEED_API_URL = 'http://localhost:3007';
+}
+if (process.env.MESSAGING_API_URL && process.env.MESSAGING_API_URL.includes('messaging-service')) {
+  process.env.MESSAGING_API_URL = 'http://localhost:3006';
 }
 
 // Set defaults for any missing service URLs
