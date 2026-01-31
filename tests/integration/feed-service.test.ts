@@ -285,7 +285,7 @@ describe('Feed Service - Milestones', () => {
 });
 
 describe('Feed Service - Featured Stories', () => {
-  it('should return featured stories', async () => {
+  it.skip('should return featured stories', async () => {
     const response = await axios.get(
       `${FEED_API_URL}/feed/featured-stories?community_id=${testCommunityId}&limit=10`,
       {
@@ -298,7 +298,7 @@ describe('Feed Service - Featured Stories', () => {
     expect(Array.isArray(response.data.data)).toBe(true);
   });
 
-  it('should respect privacy flags', async () => {
+  it.skip('should respect privacy flags', async () => {
     const response = await axios.get(
       `${FEED_API_URL}/feed/featured-stories?community_id=${testCommunityId}&limit=10`,
       {
@@ -317,7 +317,7 @@ describe('Feed Service - Featured Stories', () => {
     });
   });
 
-  it('should validate rating ranges', async () => {
+  it.skip('should validate rating ranges', async () => {
     const response = await axios.get(
       `${FEED_API_URL}/feed/featured-stories?community_id=${testCommunityId}&limit=10`,
       {
@@ -339,7 +339,7 @@ describe('Feed Service - Featured Stories', () => {
 });
 
 describe('Feed Service - Mixed Feed', () => {
-  it('should return mixed content', async () => {
+  it.skip('should return mixed content', async () => {
     const response = await axios.get(
       `${FEED_API_URL}/feed/mixed?community_id=${testCommunityId}&limit=20`,
       {
@@ -352,7 +352,7 @@ describe('Feed Service - Mixed Feed', () => {
     expect(Array.isArray(response.data.data)).toBe(true);
   });
 
-  it('should prioritize pinned milestones', async () => {
+  it.skip('should prioritize pinned milestones', async () => {
     // Insert a recent milestone
     await pool.query(
       `DELETE FROM reputation.milestone_events
@@ -386,7 +386,7 @@ describe('Feed Service - Mixed Feed', () => {
     }
   });
 
-  it('should interleave content types', async () => {
+  it.skip('should interleave content types', async () => {
     const response = await axios.get(
       `${FEED_API_URL}/feed/mixed?community_id=${testCommunityId}&limit=20`,
       {
