@@ -40,17 +40,22 @@ Writing tests?
 - If exists: UPDATE it with date stamp
 - Only create if truly novel topic
 
-### 3. Git Hooks (Automatic)
+### 3. Git Hooks & TDD Framework (Automatic)
 Git hooks automatically run checks on commit/push:
 - **Pre-commit**: Service analysis & documentation checks
-- **Pre-push**: Unit tests (integration tests if DB available)
+- **Pre-push**: Unit + regression tests (MUST pass), TDD tests (informational), integration tests (if DB available)
+
+**IMPORTANT**: Unit + regression tests MUST pass before push. This is a core tenant of our TDD framework ([ADR-029](docs/adr/ADR-029-tdd-test-framework.md)).
 
 ```bash
 npm run hooks:install  # Install/update hooks
 git commit             # Hooks run automatically
-git push --no-verify   # Skip hooks if needed
-SKIP_PREPUSH=1 git push # Skip pre-push checks
+git push               # Runs unit+regression (blocks if fails), TDD (reports only)
+git push --no-verify   # Emergency only - skips all hooks
+SKIP_PREPUSH=1 git push # Skip pre-push checks only
 ```
+
+See [Testing section](#testing-tdd-framework) below for complete TDD workflow.
 
 ### 4. Fix Forward, Not Around
 - BAD: Create workaround (seed-v3.sh)
@@ -184,12 +189,33 @@ npm run build
 cd services/auth-service && npm run build
 ```
 
-### Testing
+### Testing (TDD Framework)
+
+**Core Tenant**: Unit + regression tests MUST ALWAYS pass. See [ADR-029](docs/adr/ADR-029-tdd-test-framework.md).
+
+#### Test Directory Structure
+
+Every service/app has three test tiers:
+```
+tests/
+  ├── unit/         # Unit tests (mocked, fast, must pass)
+  ├── regression/   # Locked-in behavior (must pass)
+  ├── tdd/          # Work-in-progress (can fail)
+  └── integration/  # Integration tests (require DB)
+```
+
+#### Test Commands
+
 ```bash
-# Unit tests
+# Run unit + regression (MUST pass before push)
 npm test
 
-# Integration tests
+# Run individual tiers
+npm run test:unit        # Unit tests only
+npm run test:regression  # Regression tests only
+npm run test:tdd         # TDD/WIP tests (can fail)
+
+# Integration tests (requires database)
 npm run test:integration
 
 # E2E tests
@@ -197,7 +223,31 @@ cd tests && npm run test:e2e
 
 # Coverage
 npm run test:coverage
+
+# Auto-promote passing TDD tests to regression
+node scripts/promote-tdd-tests.js
 ```
+
+#### TDD Workflow
+
+**Writing new tests**:
+1. Create test in `tests/tdd/` directory
+2. Write test first (TDD approach)
+3. Implement feature until test passes
+4. Test auto-promotes to `regression/` (or move manually)
+5. Now test MUST pass forever (locked in)
+
+**Test states**:
+- `tdd/` → Can fail, won't block commits/pushes
+- `regression/` → Must pass, blocks push if fails
+- `unit/` → Must pass, fast isolated tests
+
+**Pre-push hook behavior**:
+1. ✅ Runs unit + regression → **BLOCKS if fails**
+2. ✅ Runs TDD tests → Reports but **NEVER blocks**
+3. ✅ Runs integration tests → **BLOCKS if fails** (only if DB available)
+
+See [ADR-029](docs/adr/ADR-029-tdd-test-framework.md) for complete framework details.
 
 ### Git Hooks
 ```bash
