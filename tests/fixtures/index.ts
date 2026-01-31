@@ -46,7 +46,7 @@ export interface TestCommunity {
   id: string;
   name: string;
   description: string;
-  creatorId: string;
+  creator_id: string;
   invite_code?: string;  // Optional invite code for joining
   location?: string;
 }
@@ -378,7 +378,7 @@ export class CommunityFactory {
         id: community.id,
         name: community.name,
         description: community.description,
-        creatorId,
+        creator_id: creatorId,
         invite_code: community.invite_code,
         location: community.location,
       };
