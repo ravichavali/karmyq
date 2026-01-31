@@ -11,33 +11,43 @@ changed_files=$(git diff --cached --name-only)
 filtered_files=$(echo "$changed_files" | grep -v 'services/dependency-graph.md' | grep -v 'services/impact-analysis.md' | grep -v 'services/version-drift.md')
 changed_services=$(echo "$filtered_files" | grep '^services/' | grep -v '/node_modules/' | cut -d/ -f2 | sort -u)
 
+# Check if dependency-related files changed (registry.json or any package.json)
+dependency_files_changed=$(echo "$filtered_files" | grep -E '(services/registry\.json|services/.*/package\.json)')
+
 # 1. Impact Analysis
 if [ -n "$changed_services" ]; then
   echo ""
   echo "🔍 Service changes detected in: $changed_services"
-  echo "   Running impact analysis..."
-  echo ""
 
-  # Run service analysis
-  node scripts/analyze-services.js > /dev/null
+  # Only run analysis if dependency files actually changed
+  if [ -n "$dependency_files_changed" ]; then
+    echo "   Running impact analysis (dependency files changed)..."
+    echo ""
 
-  echo "📊 Impact Analysis:"
-  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    # Run service analysis
+    node scripts/analyze-services.js > /dev/null
 
-  # Show impacted services for each changed service
-  for service in $changed_services; do
-    if [ -f "services/impact-analysis.md" ]; then
-      echo ""
-      echo "Changed: $service"
-      # Extract impact info from markdown
-      grep -A 10 "### $service" services/impact-analysis.md | grep -E "(Impacts|No direct|⚠️|✅)" | head -5 || echo "  → See services/impact-analysis.md"
-    fi
-  done
+    echo "📊 Impact Analysis:"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-  echo ""
-  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-  echo "✓ Review services/impact-analysis.md for full details"
-  echo ""
+    # Show impacted services for each changed service
+    for service in $changed_services; do
+      if [ -f "services/impact-analysis.md" ]; then
+        echo ""
+        echo "Changed: $service"
+        # Extract impact info from markdown
+        grep -A 10 "### $service" services/impact-analysis.md | grep -E "(Impacts|No direct|⚠️|✅)" | head -5 || echo "  → See services/impact-analysis.md"
+      fi
+    done
+
+    echo ""
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "✓ Review services/impact-analysis.md for full details"
+    echo ""
+  else
+    echo "   Skipping impact analysis (no dependency files changed)"
+    echo ""
+  fi
 fi
 
 # 2. Feedback Loop Detection
