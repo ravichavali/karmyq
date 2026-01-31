@@ -3,6 +3,13 @@
  * Runs before all tests
  */
 
+// Load production environment variables if .env.production exists
+import { config } from 'dotenv';
+import * as path from 'path';
+
+const envPath = path.join(__dirname, '..', '.env.production');
+config({ path: envPath });
+
 // Set test environment variables
 process.env.NODE_ENV = 'test';
 process.env.JWT_SECRET = process.env.JWT_SECRET || 'dev_jwt_secret_change_in_production';
