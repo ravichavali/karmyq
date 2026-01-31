@@ -145,6 +145,9 @@ async function start() {
   }
 }
 
-start();
+// Only start the server if this file is run directly (not imported for testing)
+if (require.main === module) {
+  start();
+}
 
 export default app;
