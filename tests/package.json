@@ -8,7 +8,7 @@
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
     "test:integration": "jest integration",
-    "test:unit": "jest unit --passWithNoTests",
+    "test:unit": "jest --testPathPattern=unit/ --passWithNoTests",
     "test:auth": "jest integration/auth.test.ts",
     "test:tenant": "jest integration/tenant-isolation.test.ts",
     "test:rls": "jest integration/rls-policies.test.ts",
@@ -28,8 +28,8 @@
     "cleanup-test-data": "ts-node scripts/cleanup-test-data.ts",
     "cleanup-test-data:dry-run": "ts-node scripts/cleanup-test-data.ts --dry-run",
     "cleanup-test-data:force": "ts-node scripts/cleanup-test-data.ts --force",
-    "test:regression": "jest regression --passWithNoTests",
-    "test:tdd": "jest tdd --passWithNoTests"
+    "test:regression": "jest --testPathPattern=regression/ --passWithNoTests",
+    "test:tdd": "jest --testPathPattern=tdd/ --passWithNoTests"
   },
   "devDependencies": {
     "@faker-js/faker": "^10.1.0",
