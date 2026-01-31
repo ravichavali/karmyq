@@ -7,9 +7,13 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test": "jest",
+    "test": "npm run test:unit && npm run test:regression",
     "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage"
+    "test:coverage": "jest --coverage",
+    "test:unit": "jest tests/unit --passWithNoTests",
+    "test:regression": "jest tests/regression --passWithNoTests",
+    "test:tdd": "jest tests/tdd --passWithNoTests",
+    "test:integration": "jest tests/integration"
   },
   "dependencies": {
     "@alloc/quick-lru": "^5.2.0",
