@@ -261,14 +261,15 @@ describe('Community Flow', () => {
 
   describe('Cross-Service Integration', () => {
     it('should verify auth-service validates tokens from community-service', async () => {
-      // Get user profile using token
+      // Verify token is valid
       const response = await request(AUTH_SERVICE_URL)
-        .get('/auth/users/me')
+        .get('/auth/verify')
         .set('Authorization', `Bearer ${authToken}`)
         .expect(200);
 
       expect(response.body.success).toBe(true);
-      expect(response.body.data.id).toBe(testUserId);
+      expect(response.body.data.valid).toBe(true);
+      expect(response.body.data.userId).toBe(testUserId);
     });
 
     it('should verify community-service rejects invalid auth tokens', async () => {

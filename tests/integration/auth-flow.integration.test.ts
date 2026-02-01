@@ -78,7 +78,7 @@ describe('Authentication Flow', () => {
           password: 'DifferentPassword123!',
           name: `different-${Date.now()}`,
         })
-        .expect(400);
+        .expect(409); // 409 Conflict is correct for duplicate resource
 
       expect(response.body.success).toBe(false);
       expect(response.body.message).toMatch(/email.*exists|already.*registered/i);
@@ -149,18 +149,19 @@ describe('Authentication Flow', () => {
   describe('Authenticated Requests', () => {
     it('should access protected endpoint with valid token', async () => {
       const response = await request(AUTH_SERVICE_URL)
-        .get('/auth/users/me')
+        .get('/auth/verify')
         .set('Authorization', `Bearer ${authToken}`)
         .expect(200);
 
       expect(response.body.success).toBe(true);
-      expect(response.body.data.id).toBe(testUserId);
+      expect(response.body.data.valid).toBe(true);
+      expect(response.body.data.userId).toBe(testUserId);
       expect(response.body.data.email).toBe(testUser.email);
     });
 
     it('should reject request without token', async () => {
       const response = await request(AUTH_SERVICE_URL)
-        .get('/auth/users/me')
+        .get('/auth/verify')
         .expect(401);
 
       expect(response.body.success).toBe(false);
@@ -169,7 +170,7 @@ describe('Authentication Flow', () => {
 
     it('should reject request with invalid token', async () => {
       const response = await request(AUTH_SERVICE_URL)
-        .get('/auth/users/me')
+        .get('/auth/verify')
         .set('Authorization', 'Bearer invalid-token-here')
         .expect(401);
 
@@ -186,7 +187,7 @@ describe('Authentication Flow', () => {
       );
 
       const response = await request(AUTH_SERVICE_URL)
-        .get('/auth/users/me')
+        .get('/auth/verify')
         .set('Authorization', `Bearer ${expiredToken}`)
         .expect(401);
 

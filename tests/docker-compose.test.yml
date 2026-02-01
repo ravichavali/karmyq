@@ -82,6 +82,7 @@ services:
       DATABASE_URL: postgresql://karmyq_test:test_password@postgres-test:5432/karmyq_test
       REDIS_URL: redis://redis-test:6379
       AUTH_SERVICE_URL: http://auth-service-test:3001
+      JWT_SECRET: test_jwt_secret_change_me
       RATE_LIMIT_DISABLED: "true"
     ports:
       - "3002:3002"
@@ -112,6 +113,7 @@ services:
       REDIS_URL: redis://redis-test:6379
       AUTH_SERVICE_URL: http://auth-service-test:3001
       COMMUNITY_SERVICE_URL: http://community-service-test:3002
+      JWT_SECRET: test_jwt_secret_change_me
     ports:
       - "3003:3003"
     networks:
@@ -142,6 +144,7 @@ services:
       DATABASE_URL: postgresql://karmyq_test:test_password@postgres-test:5432/karmyq_test
       REDIS_URL: redis://redis-test:6379
       AUTH_SERVICE_URL: http://auth-service-test:3001
+      JWT_SECRET: test_jwt_secret_change_me
       RATE_LIMIT_DISABLED: "true"
     ports:
       - "3004:3004"
@@ -169,6 +172,7 @@ services:
       DATABASE_URL: postgresql://karmyq_test:test_password@postgres-test:5432/karmyq_test
       REDIS_URL: redis://redis-test:6379
       AUTH_SERVICE_URL: http://auth-service-test:3001
+      JWT_SECRET: test_jwt_secret_change_me
       RATE_LIMIT_DISABLED: "true"
     ports:
       - "3005:3005"
@@ -197,6 +201,7 @@ services:
       REDIS_URL: redis://redis-test:6379
       AUTH_SERVICE_URL: http://auth-service-test:3001
       REQUEST_SERVICE_URL: http://request-service-test:3003
+      JWT_SECRET: test_jwt_secret_change_me
     ports:
       - "3007:3007"
     networks:
