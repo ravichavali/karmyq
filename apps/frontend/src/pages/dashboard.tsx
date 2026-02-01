@@ -639,7 +639,6 @@ export default function Dashboard() {
                     user={user}
                     communities={userCommunities}
                     activeCommunityId={activeCommunityId || userCommunities[0]?.id}
-                    onCommunityChange={handleCommunityChange}
                   />
                 </div>
               </div>
