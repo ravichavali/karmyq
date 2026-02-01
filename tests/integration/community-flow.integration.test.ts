@@ -130,7 +130,7 @@ describe('Community Flow', () => {
         .expect(200);
 
       expect(response.body.success).toBe(true);
-      expect(response.body.message).toMatch(/joined|successfully/i);
+      expect(response.body.error.message).toMatch(/joined|successfully/i);
     });
 
     it('should verify member in database', async () => {
@@ -150,7 +150,7 @@ describe('Community Flow', () => {
         .expect(400);
 
       expect(response.body.success).toBe(false);
-      expect(response.body.message).toMatch(/already.*member/i);
+      expect(response.body.error.message).toMatch(/already.*member/i);
     });
 
     it('should reject join without auth', async () => {
