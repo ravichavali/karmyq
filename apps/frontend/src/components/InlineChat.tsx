@@ -45,6 +45,7 @@ export default function InlineChat({
     if (isExpanded && !conversationId) {
       fetchConversation()
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isExpanded, matchId])
 
   // Auto-scroll when new messages arrive
@@ -84,9 +85,10 @@ export default function InlineChat({
 
       // Scroll to bottom after sending
       setTimeout(() => scrollToBottom(), 100)
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error sending message:', error)
-      alert(error.message || 'Failed to send message')
+      const err = error as { message?: string }
+      alert(err.message || 'Failed to send message')
     } finally {
       setSending(false)
     }

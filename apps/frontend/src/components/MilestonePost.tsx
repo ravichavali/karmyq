@@ -82,7 +82,7 @@ export default function MilestonePost({
         {/* Motivational Message */}
         <div className="mt-4 text-center">
           <p className="text-sm italic text-purple-800">
-            "Every exchange makes our community stronger. Thank you for being part of this journey!"
+            &quot;Every exchange makes our community stronger. Thank you for being part of this journey!&quot;
           </p>
         </div>
       </div>

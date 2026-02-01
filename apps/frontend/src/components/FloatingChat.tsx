@@ -18,9 +18,14 @@ interface Conversation {
   other_user_name: string
 }
 
+interface User {
+  id: string
+  [key: string]: unknown
+}
+
 export default function FloatingChat() {
   const [isOpen, setIsOpen] = useState(false)
-  const [user, setUser] = useState<any>(null)
+  const [user, setUser] = useState<User | null>(null)
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [unreadTotal, setUnreadTotal] = useState(0)
   const [loading, setLoading] = useState(false)
@@ -36,6 +41,7 @@ export default function FloatingChat() {
     if (isOpen && user) {
       fetchConversations()
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, user])
 
   const fetchConversations = async () => {
@@ -155,7 +161,7 @@ export default function FloatingChat() {
                   </svg>
                   <p className="text-sm font-medium mb-2">No messages yet</p>
                   <p className="text-xs text-gray-400">
-                    When you help someone or get help, you'll see conversations here
+                    When you help someone or get help, you&apos;ll see conversations here
                   </p>
                 </div>
               </div>

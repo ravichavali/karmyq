@@ -8,9 +8,15 @@ interface LayoutProps {
   title?: string
 }
 
+interface User {
+  id: string
+  name?: string
+  [key: string]: unknown
+}
+
 const Layout: React.FC<LayoutProps> = ({ children, title }) => {
   const router = useRouter()
-  const [user, setUser] = useState<any>(null)
+  const [user, setUser] = useState<User | null>(null)
 
   useEffect(() => {
     const userData = localStorage.getItem('user')

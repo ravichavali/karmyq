@@ -7,7 +7,7 @@
  */
 
 import React, { useRef, useEffect, useState } from 'react'
-import { searchAddresses, getCommonLocations, debounce, AddressSuggestion } from '@/lib/geocoding'
+import { searchAddresses, getCommonLocations } from '@/lib/geocoding'
 
 interface Suggestion {
   value: string
@@ -107,7 +107,7 @@ export default function EnhancedAutocomplete({
       const timeoutId = setTimeout(performSearch, 500)
       return () => clearTimeout(timeoutId)
     }
-  }, [searchQuery, triggerChar])
+  }, [searchQuery, triggerChar, initialSuggestions])
 
   // Keyboard navigation
   useEffect(() => {

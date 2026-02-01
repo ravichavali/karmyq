@@ -9,10 +9,9 @@ import { ParsedRequest } from '@/lib/requestParser'
 interface ExtractedDataChipsProps {
   parsed: ParsedRequest
   onRemove: (type: string, index: number) => void
-  onEdit?: (type: string, index: number) => void
 }
 
-export default function ExtractedDataChips({ parsed, onRemove, onEdit }: ExtractedDataChipsProps) {
+export default function ExtractedDataChips({ parsed, onRemove }: ExtractedDataChipsProps) {
   const { extractedData } = parsed
 
   const hasData =

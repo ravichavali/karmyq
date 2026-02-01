@@ -15,7 +15,6 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ conversationId }) => {
     typing,
     sendMessage,
     startTyping,
-    stopTyping,
     selectConversation,
   } = useMessaging()
 
@@ -40,7 +39,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ conversationId }) => {
     if (conversationId) {
       selectConversation(conversationId)
     }
-  }, [conversationId])
+  }, [conversationId, selectConversation])
 
   // Scroll to bottom when messages change
   useEffect(() => {

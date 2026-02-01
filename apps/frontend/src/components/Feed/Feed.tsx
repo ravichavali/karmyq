@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
+import Link from 'next/link';
 import FeedItem from './FeedItem';
 import { API_CONFIG } from '../../lib/api';
+import { FeedItem as FeedItemType } from '../../types/feed-items';
 
 interface FeedProps {
   userId: number;
@@ -8,7 +10,7 @@ interface FeedProps {
 }
 
 export default function Feed({ userId, limit = 20 }: FeedProps) {
-  const [feedItems, setFeedItems] = useState<any[]>([]);
+  const [feedItems, setFeedItems] = useState<FeedItemType[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -77,6 +79,7 @@ export default function Feed({ userId, limit = 20 }: FeedProps) {
     if (userId) {
       fetchFeed();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
 
   if (loading) {
@@ -130,12 +133,12 @@ export default function Feed({ userId, limit = 20 }: FeedProps) {
         <p className="text-gray-600 mb-4">
           Join communities and start helping to see activity here!
         </p>
-        <a
+        <Link
           href="/communities"
           className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
         >
           Explore Communities
-        </a>
+        </Link>
       </div>
     );
   }

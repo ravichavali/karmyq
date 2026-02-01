@@ -46,8 +46,9 @@ export default function InviteGenerator() {
     try {
       const response = await socialGraphService.generateInvitationCode(communityId);
       setGeneratedInvite(response.data);
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to generate invitation code');
+    } catch (err) {
+      const error = err as { response?: { data?: { message?: string } } }
+      setError(error.response?.data?.message || 'Failed to generate invitation code');
       console.error('Error generating invitation code:', err);
     } finally {
       setLoading(false);
@@ -189,7 +190,7 @@ export default function InviteGenerator() {
             <div className="text-sm text-blue-800">
               <p className="font-medium">Share this link with someone to invite them</p>
               <p className="mt-1 text-blue-700">
-                When they sign up using this code, they'll be connected to you in the social graph.
+                When they sign up using this code, they&apos;ll be connected to you in the social graph.
               </p>
             </div>
           </div>

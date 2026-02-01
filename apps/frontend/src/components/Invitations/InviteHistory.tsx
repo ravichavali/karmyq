@@ -37,7 +37,6 @@ export default function InviteHistory() {
   const [history, setHistory] = useState<InvitationHistory | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [communityId, setCommunityId] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchUserCommunities = async () => {
@@ -48,7 +47,6 @@ export default function InviteHistory() {
           const communities = response.data?.communities || response.data;
           if (communities && communities.length > 0) {
             const firstCommunityId = communities[0].id;
-            setCommunityId(firstCommunityId);
             fetchHistory(firstCommunityId);
           } else {
             setError('Please join a community first');
@@ -71,8 +69,9 @@ export default function InviteHistory() {
     try {
       const response = await socialGraphService.getInvitations(commId);
       setHistory(response.data);
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to load invitation history');
+    } catch (err) {
+      const error = err as { response?: { data?: { message?: string } } }
+      setError(error.response?.data?.message || 'Failed to load invitation history');
       console.error('Error fetching invitation history:', err);
     } finally {
       setLoading(false);

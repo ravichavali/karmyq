@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import { feedApi } from '@/lib/api'
 
 interface RightSidebarProps {
   communityId?: string

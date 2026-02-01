@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import Link from 'next/link'
 import { useNotifications } from '../contexts/NotificationContext'
 import NotificationItem from './NotificationItem'
 
@@ -83,9 +84,9 @@ const NotificationDropdown: React.FC<NotificationDropdownProps> = ({ onClose }) 
       </div>
 
       <div className="notification-footer">
-        <a href="/notifications" className="view-all-link">
+        <Link href="/notifications" className="view-all-link">
           View all notifications
-        </a>
+        </Link>
       </div>
 
       <style jsx>{`

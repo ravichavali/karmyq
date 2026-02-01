@@ -1,7 +1,5 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/router'
-import Link from 'next/link'
-import { reputationService } from '@/lib/api'
 
 interface Community {
   id: string
@@ -9,11 +7,16 @@ interface Community {
   role?: string
 }
 
+interface User {
+  id?: string
+  name?: string
+  [key: string]: unknown
+}
+
 interface LeftSidebarProps {
-  user: any
+  user: User
   communities: Community[]
   activeCommunityId?: string
-  onCommunityChange?: (communityId: string) => void
 }
 
 interface KarmaData {
@@ -22,17 +25,15 @@ interface KarmaData {
   rank?: string
 }
 
-export default function LeftSidebar({ user, communities, activeCommunityId, onCommunityChange }: LeftSidebarProps) {
+export default function LeftSidebar({ user, communities, activeCommunityId }: LeftSidebarProps) {
   const router = useRouter()
   const [karmaData, setKarmaData] = useState<KarmaData | null>(null)
-  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     const fetchKarma = async () => {
       if (!user?.id) return
 
       try {
-        setLoading(true)
         // TODO: Re-enable when reputation service auth is fixed (See ROADMAP.md Backlog #24)
         // const karmaRes = await reputationService.getKarma(user.id, activeCommunityId)
         // const trustRes = await reputationService.getTrustScore(user.id, activeCommunityId)
@@ -44,8 +45,6 @@ export default function LeftSidebar({ user, communities, activeCommunityId, onCo
         })
       } catch (err) {
         console.error('Failed to fetch karma:', err)
-      } finally {
-        setLoading(false)
       }
     }
 
