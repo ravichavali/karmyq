@@ -113,6 +113,15 @@ router.post('/register', async (req: any, res) => {
     // Generate JWT token with communities (new user has no communities yet)
     const token = await generateJWT(user.id, user.email);
 
+    // Create session (same as login)
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 7);
+
+    await query(
+      'INSERT INTO auth.sessions (user_id, token, expires_at) VALUES ($1, $2, $3)',
+      [user.id, token, expiresAt]
+    );
+
     timer?.();
     req.logger?.info('User registered successfully', {
       userId: user.id,

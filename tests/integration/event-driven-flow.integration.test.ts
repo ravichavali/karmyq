@@ -119,7 +119,7 @@ describe('Event-Driven Flow', () => {
       await new Promise(resolve => setTimeout(resolve, 2000));
 
       const response = await request(NOTIFICATION_SERVICE_URL)
-        .get('/notifications')
+        .get(`/notifications/${testUserId}`)
         .set('Authorization', `Bearer ${authToken}`)
         .expect(200);
 
@@ -143,14 +143,17 @@ describe('Event-Driven Flow', () => {
 
     it('should verify notification in database', async () => {
       const result = await pool.query(
-        'SELECT id, type, entity_id, user_id FROM notifications.notifications WHERE entity_id = $1',
-        [testRequestId]
+        'SELECT id, type, data, user_id FROM notifications.notifications WHERE user_id = $1 AND type = $2',
+        [testUserId, 'request_created']
       );
 
       // May be 0 if event handling not implemented yet
       if (result.rows.length > 0) {
         expect(result.rows[0].type).toBe('request_created');
-        expect(result.rows[0].entity_id).toBe(testRequestId);
+        expect(result.rows[0].user_id).toBe(testUserId);
+        // Entity info is stored in JSONB data field
+        const data = typeof result.rows[0].data === 'string' ? JSON.parse(result.rows[0].data) : result.rows[0].data;
+        expect(data.request_id).toBe(testRequestId);
       } else {
         console.warn('⚠️  Notification not in database - event subscription may not be implemented yet');
       }
@@ -239,15 +242,17 @@ describe('Event-Driven Flow', () => {
     });
 
     it('should maintain community references', async () => {
-      // Verify request references valid community
-      const requestResult = await pool.query(
-        'SELECT community_id FROM requests.help_requests WHERE id = $1',
+      // Verify request references valid community via junction table
+      const requestCommunityResult = await pool.query(
+        'SELECT community_id FROM requests.request_communities WHERE request_id = $1',
         [testRequestId]
       );
 
+      expect(requestCommunityResult.rows.length).toBe(1);
+
       const communityResult = await pool.query(
         'SELECT id FROM communities.communities WHERE id = $1',
-        [requestResult.rows[0].community_id]
+        [requestCommunityResult.rows[0].community_id]
       );
 
       expect(communityResult.rows.length).toBe(1);

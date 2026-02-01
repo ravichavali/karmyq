@@ -148,7 +148,8 @@ export class BasicFeedRanker {
       JOIN auth.users u ON hr.requester_id = u.id
       JOIN requests.request_communities rc ON hr.id = rc.request_id
       JOIN communities.communities c ON rc.community_id = c.id
-      LEFT JOIN requests.help_offers ho ON hr.id = ho.request_id
+      LEFT JOIN requests.matches m ON hr.id = m.request_id
+      LEFT JOIN requests.help_offers ho ON m.offer_id = ho.id
       WHERE hr.status = 'open'
         AND hr.requester_id != $1
         AND c.id IN (
