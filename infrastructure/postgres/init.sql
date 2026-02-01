@@ -235,6 +235,9 @@ CREATE TABLE requests.help_requests (
     status VARCHAR(50) DEFAULT 'open',
     expired BOOLEAN DEFAULT FALSE,
     expires_at TIMESTAMP,
+    request_type VARCHAR(100),  -- v9.0: Polymorphic request type
+    payload JSONB DEFAULT '{}',  -- v9.0: Type-specific structured data
+    requirements JSONB DEFAULT '{}',  -- v9.0: Structured requirements
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
