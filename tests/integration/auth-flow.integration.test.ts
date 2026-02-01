@@ -27,7 +27,7 @@ describe('Authentication Flow', () => {
   const testUser = {
     email: `test-${Date.now()}@karmyq.test`,
     password: 'SecurePassword123!',
-    username: `testuser-${Date.now()}`,
+    name: `Test User ${Date.now()}`,
   };
 
   beforeAll(async () => {
@@ -50,7 +50,7 @@ describe('Authentication Flow', () => {
         .send({
           email: testUser.email,
           password: testUser.password,
-          username: testUser.username,
+          name: testUser.name,
         })
         .expect(201);
 
@@ -58,7 +58,7 @@ describe('Authentication Flow', () => {
       expect(response.body.data).toHaveProperty('user');
       expect(response.body.data).toHaveProperty('token');
       expect(response.body.data.user.email).toBe(testUser.email);
-      expect(response.body.data.user.username).toBe(testUser.username);
+      expect(response.body.data.user.name).toBe(testUser.name);
 
       // Save user ID and token for subsequent tests
       testUserId = response.body.data.user.id;
@@ -76,7 +76,7 @@ describe('Authentication Flow', () => {
         .send({
           email: testUser.email, // Same email as before
           password: 'DifferentPassword123!',
-          username: `different-${Date.now()}`,
+          name: `different-${Date.now()}`,
         })
         .expect(400);
 
@@ -90,7 +90,7 @@ describe('Authentication Flow', () => {
         .send({
           email: `weak-${Date.now()}@karmyq.test`,
           password: '123', // Weak password
-          username: `weakuser-${Date.now()}`,
+          name: `weakuser-${Date.now()}`,
         })
         .expect(400);
 
@@ -198,13 +198,13 @@ describe('Authentication Flow', () => {
   describe('Database Persistence', () => {
     it('should persist user data in database', async () => {
       const result = await pool.query(
-        'SELECT id, email, username FROM auth.users WHERE id = $1',
+        'SELECT id, email, name FROM auth.users WHERE id = $1',
         [testUserId]
       );
 
       expect(result.rows.length).toBe(1);
       expect(result.rows[0].email).toBe(testUser.email);
-      expect(result.rows[0].username).toBe(testUser.username);
+      expect(result.rows[0].name).toBe(testUser.name);
     });
 
     it('should not store password in plain text', async () => {

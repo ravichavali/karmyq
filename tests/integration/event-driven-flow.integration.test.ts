@@ -32,7 +32,7 @@ describe('Event-Driven Flow', () => {
   const testUser = {
     email: `requester-${Date.now()}@karmyq.test`,
     password: 'SecurePassword123!',
-    username: `requester-${Date.now()}`,
+    name: `requester-${Date.now()}`,
   };
 
   const testCommunity = {

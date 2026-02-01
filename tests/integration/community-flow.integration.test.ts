@@ -32,13 +32,13 @@ describe('Community Flow', () => {
   const testUser = {
     email: `creator-${Date.now()}@karmyq.test`,
     password: 'SecurePassword123!',
-    username: `creator-${Date.now()}`,
+    name: `creator-${Date.now()}`,
   };
 
   const secondUser = {
     email: `joiner-${Date.now()}@karmyq.test`,
     password: 'SecurePassword123!',
-    username: `joiner-${Date.now()}`,
+    name: `joiner-${Date.now()}`,
   };
 
   const testCommunity = {
@@ -188,7 +188,7 @@ describe('Community Flow', () => {
       const thirdUser = {
         email: `viewer-${Date.now()}@karmyq.test`,
         password: 'SecurePassword123!',
-        username: `viewer-${Date.now()}`,
+        name: `viewer-${Date.now()}`,
       };
 
       const viewerResponse = await request(AUTH_SERVICE_URL)
