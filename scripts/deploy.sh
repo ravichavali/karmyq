@@ -127,6 +127,13 @@ else
 
         # Rollback to previous commit
         log_warn "Rolling back to previous commit: $PREVIOUS_COMMIT"
+
+        # Stash any local changes (like modified hooks) before rolling back
+        if ! git diff-index --quiet HEAD --; then
+            log_warn "Stashing local changes before rollback..."
+            git stash push -m "Auto-stash before rollback $(date +%Y%m%d-%H%M%S)"
+        fi
+
         git checkout "$PREVIOUS_COMMIT"
 
         log_error "Deployment aborted due to test failures"
