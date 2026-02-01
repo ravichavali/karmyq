@@ -223,6 +223,9 @@ CREATE INDEX idx_norms_community_id ON communities.norms(community_id);
 -- ============= REQUEST SERVICE SCHEMA =============
 CREATE SCHEMA IF NOT EXISTS requests;
 
+-- v9.0: Polymorphic request type enum (matches migration 009)
+CREATE TYPE request_type_enum AS ENUM ('generic', 'ride', 'borrow', 'service', 'event');
+
 CREATE TABLE requests.help_requests (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     requester_id UUID NOT NULL REFERENCES auth.users(id),
@@ -235,7 +238,7 @@ CREATE TABLE requests.help_requests (
     status VARCHAR(50) DEFAULT 'open',
     expired BOOLEAN DEFAULT FALSE,
     expires_at TIMESTAMP,
-    request_type VARCHAR(100),  -- v9.0: Polymorphic request type
+    request_type request_type_enum NOT NULL DEFAULT 'generic',  -- v9.0: Polymorphic request type (matches migration 009)
     payload JSONB DEFAULT '{}',  -- v9.0: Type-specific structured data
     requirements JSONB DEFAULT '{}',  -- v9.0: Structured requirements
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -280,6 +283,8 @@ CREATE TABLE requests.matches (
 );
 
 CREATE INDEX idx_requests_requester_id ON requests.help_requests(requester_id);
+CREATE INDEX idx_requests_payload ON requests.help_requests USING GIN (payload);  -- v9.0: Fast searching in JSONB payload
+CREATE INDEX idx_requests_type ON requests.help_requests(request_type);  -- v9.0: Fast filtering by request type
 CREATE INDEX idx_request_communities_request ON requests.request_communities(request_id);
 CREATE INDEX idx_request_communities_community ON requests.request_communities(community_id);
 CREATE INDEX idx_offers_community_id ON requests.help_offers(community_id);
