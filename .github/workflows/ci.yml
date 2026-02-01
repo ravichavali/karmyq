@@ -25,10 +25,7 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: |
-          npm ci --workspace=packages/shared
-          npm ci --workspace=services/auth-service
-          npm ci --workspace=tests
+        run: npm ci
 
       - name: Run unit + regression tests (TDD Framework)
         run: npm test
