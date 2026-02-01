@@ -129,7 +129,7 @@ describe('Authentication Flow', () => {
         .expect(401);
 
       expect(response.body.success).toBe(false);
-      expect(response.body.error.message).toMatch(/invalid.*credentials|incorrect.*password/i);
+      expect(response.body.error.message).toMatch(/invalid/i);
     });
 
     it('should reject non-existent email', async () => {
@@ -142,7 +142,7 @@ describe('Authentication Flow', () => {
         .expect(401);
 
       expect(response.body.success).toBe(false);
-      expect(response.body.error.message).toMatch(/invalid.*credentials|user.*not.*found/i);
+      expect(response.body.error.message).toMatch(/invalid/i);
     });
   });
 

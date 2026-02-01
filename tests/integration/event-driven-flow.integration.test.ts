@@ -67,8 +67,8 @@ describe('Event-Driven Flow', () => {
       await pool.query('DELETE FROM requests.help_requests WHERE id = $1', [testRequestId]);
     }
     if (testCommunityId) {
-      await pool.query('DELETE FROM community.members WHERE community_id = $1', [testCommunityId]);
-      await pool.query('DELETE FROM community.communities WHERE id = $1', [testCommunityId]);
+      await pool.query('DELETE FROM communities.members WHERE community_id = $1', [testCommunityId]);
+      await pool.query('DELETE FROM communities.communities WHERE id = $1', [testCommunityId]);
     }
     if (testUserId) {
       await pool.query('DELETE FROM notifications.notifications WHERE user_id = $1', [testUserId]);
@@ -246,7 +246,7 @@ describe('Event-Driven Flow', () => {
       );
 
       const communityResult = await pool.query(
-        'SELECT id FROM community.communities WHERE id = $1',
+        'SELECT id FROM communities.communities WHERE id = $1',
         [requestResult.rows[0].community_id]
       );
 

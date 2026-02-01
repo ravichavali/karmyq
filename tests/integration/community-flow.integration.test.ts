@@ -70,8 +70,8 @@ describe('Community Flow', () => {
   afterAll(async () => {
     // Cleanup in reverse order (foreign key constraints)
     if (testCommunityId) {
-      await pool.query('DELETE FROM community.members WHERE community_id = $1', [testCommunityId]);
-      await pool.query('DELETE FROM community.communities WHERE id = $1', [testCommunityId]);
+      await pool.query('DELETE FROM communities.members WHERE community_id = $1', [testCommunityId]);
+      await pool.query('DELETE FROM communities.communities WHERE id = $1', [testCommunityId]);
     }
     if (testUserId) {
       await pool.query('DELETE FROM auth.users WHERE id = $1', [testUserId]);
@@ -113,7 +113,7 @@ describe('Community Flow', () => {
 
     it('should automatically add creator as admin member', async () => {
       const result = await pool.query(
-        'SELECT user_id, role FROM community.members WHERE community_id = $1 AND user_id = $2',
+        'SELECT user_id, role FROM communities.members WHERE community_id = $1 AND user_id = $2',
         [testCommunityId, testUserId]
       );
 
@@ -130,12 +130,13 @@ describe('Community Flow', () => {
         .expect(200);
 
       expect(response.body.success).toBe(true);
-      expect(response.body.error.message).toMatch(/joined|successfully/i);
+      // Success response has data, not error object
+      expect(response.body.data?.message || response.body.message).toMatch(/joined|successfully/i);
     });
 
     it('should verify member in database', async () => {
       const result = await pool.query(
-        'SELECT user_id, role FROM community.members WHERE community_id = $1 AND user_id = $2',
+        'SELECT user_id, role FROM communities.members WHERE community_id = $1 AND user_id = $2',
         [testCommunityId, secondUserId]
       );
 
