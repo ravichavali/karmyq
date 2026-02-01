@@ -124,10 +124,11 @@ describe('Event-Driven Flow', () => {
         .expect(200);
 
       expect(response.body.success).toBe(true);
-      expect(response.body.data).toBeInstanceOf(Array);
+      expect(response.body.data).toHaveProperty('notifications');
+      expect(response.body.data.notifications).toBeInstanceOf(Array);
 
       // Find notification related to request creation
-      const requestNotification = response.body.data.find(
+      const requestNotification = response.body.data.notifications.find(
         (n: any) => n.type === 'request_created' && n.entity_id === testRequestId
       );
 
@@ -171,10 +172,11 @@ describe('Event-Driven Flow', () => {
         .expect(200);
 
       expect(response.body.success).toBe(true);
-      expect(response.body.data).toBeInstanceOf(Array);
+      expect(response.body.data).toHaveProperty('items');
+      expect(response.body.data.items).toBeInstanceOf(Array);
 
       // Find feed item for the request
-      const feedItem = response.body.data.find(
+      const feedItem = response.body.data.items.find(
         (item: any) => item.entity_type === 'request' && item.entity_id === testRequestId
       );
 

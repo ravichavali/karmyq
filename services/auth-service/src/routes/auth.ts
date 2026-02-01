@@ -113,12 +113,15 @@ router.post('/register', async (req: any, res) => {
     // Generate JWT token with communities (new user has no communities yet)
     const token = await generateJWT(user.id, user.email);
 
-    // Create session (same as login)
+    // Create session (same as login) - use UPSERT to handle duplicate tokens
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7);
 
     await query(
-      'INSERT INTO auth.sessions (user_id, token, expires_at) VALUES ($1, $2, $3)',
+      `INSERT INTO auth.sessions (user_id, token, expires_at)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (token) DO UPDATE
+       SET expires_at = EXCLUDED.expires_at`,
       [user.id, token, expiresAt]
     );
 
@@ -188,12 +191,15 @@ router.post('/login', async (req: any, res) => {
     // Generate JWT token with communities
     const token = await generateJWT(user.id, user.email);
 
-    // Create session
+    // Create session - use UPSERT to handle duplicate tokens
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7);
 
     await query(
-      'INSERT INTO auth.sessions (user_id, token, expires_at) VALUES ($1, $2, $3)',
+      `INSERT INTO auth.sessions (user_id, token, expires_at)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (token) DO UPDATE
+       SET expires_at = EXCLUDED.expires_at`,
       [user.id, token, expiresAt]
     );
 
