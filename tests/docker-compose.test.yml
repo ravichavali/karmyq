@@ -1,0 +1,247 @@
+# Docker Compose configuration for integration tests
+# This creates an isolated test environment with all services
+
+version: '3.8'
+
+networks:
+  test-network:
+    driver: bridge
+
+services:
+  # Test Database - Isolated from production
+  postgres-test:
+    image: postgres:15-alpine
+    container_name: karmyq-postgres-test
+    environment:
+      POSTGRES_USER: karmyq_test
+      POSTGRES_PASSWORD: test_password
+      POSTGRES_DB: karmyq_test
+    ports:
+      - "5433:5432"  # Different port to avoid conflicts
+    networks:
+      - test-network
+    volumes:
+      - ../infrastructure/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U karmyq_test"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Test Redis - Isolated from production
+  redis-test:
+    image: redis:7-alpine
+    container_name: karmyq-redis-test
+    ports:
+      - "6380:6379"  # Different port to avoid conflicts
+    networks:
+      - test-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # Critical services for integration tests
+  auth-service-test:
+    build:
+      context: ..
+      dockerfile: ./services/auth-service/Dockerfile
+    container_name: karmyq-auth-service-test
+    environment:
+      NODE_ENV: test
+      PORT: 3001
+      DATABASE_URL: postgresql://karmyq_test:test_password@postgres-test:5432/karmyq_test
+      REDIS_URL: redis://redis-test:6379
+      JWT_SECRET: test_jwt_secret_change_me
+      JWT_EXPIRES_IN: 24h
+    ports:
+      - "3001:3001"
+    networks:
+      - test-network
+    depends_on:
+      postgres-test:
+        condition: service_healthy
+      redis-test:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3001/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  community-service-test:
+    build:
+      context: ..
+      dockerfile: ./services/community-service/Dockerfile
+    container_name: karmyq-community-service-test
+    environment:
+      NODE_ENV: test
+      PORT: 3002
+      DATABASE_URL: postgresql://karmyq_test:test_password@postgres-test:5432/karmyq_test
+      REDIS_URL: redis://redis-test:6379
+      AUTH_SERVICE_URL: http://auth-service-test:3001
+    ports:
+      - "3002:3002"
+    networks:
+      - test-network
+    depends_on:
+      postgres-test:
+        condition: service_healthy
+      redis-test:
+        condition: service_healthy
+      auth-service-test:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3002/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  request-service-test:
+    build:
+      context: ..
+      dockerfile: ./services/request-service/Dockerfile
+    container_name: karmyq-request-service-test
+    environment:
+      NODE_ENV: test
+      PORT: 3003
+      DATABASE_URL: postgresql://karmyq_test:test_password@postgres-test:5432/karmyq_test
+      REDIS_URL: redis://redis-test:6379
+      AUTH_SERVICE_URL: http://auth-service-test:3001
+      COMMUNITY_SERVICE_URL: http://community-service-test:3002
+    ports:
+      - "3003:3003"
+    networks:
+      - test-network
+    depends_on:
+      postgres-test:
+        condition: service_healthy
+      redis-test:
+        condition: service_healthy
+      auth-service-test:
+        condition: service_healthy
+      community-service-test:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3003/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  reputation-service-test:
+    build:
+      context: ..
+      dockerfile: ./services/reputation-service/Dockerfile
+    container_name: karmyq-reputation-service-test
+    environment:
+      NODE_ENV: test
+      PORT: 3004
+      DATABASE_URL: postgresql://karmyq_test:test_password@postgres-test:5432/karmyq_test
+      REDIS_URL: redis://redis-test:6379
+      AUTH_SERVICE_URL: http://auth-service-test:3001
+    ports:
+      - "3004:3004"
+    networks:
+      - test-network
+    depends_on:
+      postgres-test:
+        condition: service_healthy
+      redis-test:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3004/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  notification-service-test:
+    build:
+      context: ..
+      dockerfile: ./services/notification-service/Dockerfile
+    container_name: karmyq-notification-service-test
+    environment:
+      NODE_ENV: test
+      PORT: 3005
+      DATABASE_URL: postgresql://karmyq_test:test_password@postgres-test:5432/karmyq_test
+      REDIS_URL: redis://redis-test:6379
+      AUTH_SERVICE_URL: http://auth-service-test:3001
+    ports:
+      - "3005:3005"
+    networks:
+      - test-network
+    depends_on:
+      postgres-test:
+        condition: service_healthy
+      redis-test:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3005/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  feed-service-test:
+    build:
+      context: ..
+      dockerfile: ./services/feed-service/Dockerfile
+    container_name: karmyq-feed-service-test
+    environment:
+      NODE_ENV: test
+      PORT: 3007
+      DATABASE_URL: postgresql://karmyq_test:test_password@postgres-test:5432/karmyq_test
+      REDIS_URL: redis://redis-test:6379
+      AUTH_SERVICE_URL: http://auth-service-test:3001
+      REQUEST_SERVICE_URL: http://request-service-test:3003
+    ports:
+      - "3007:3007"
+    networks:
+      - test-network
+    depends_on:
+      postgres-test:
+        condition: service_healthy
+      redis-test:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3007/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # Test Runner - Runs inside Docker network with access to all services
+  test-runner:
+    build:
+      context: ..
+      dockerfile: ./tests/Dockerfile.test
+    container_name: karmyq-test-runner
+    environment:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://karmyq_test:test_password@postgres-test:5432/karmyq_test
+      REDIS_URL: redis://redis-test:6379
+      AUTH_SERVICE_URL: http://auth-service-test:3001
+      COMMUNITY_SERVICE_URL: http://community-service-test:3002
+      REQUEST_SERVICE_URL: http://request-service-test:3003
+      REPUTATION_SERVICE_URL: http://reputation-service-test:3004
+      NOTIFICATION_SERVICE_URL: http://notification-service-test:3005
+      FEED_SERVICE_URL: http://feed-service-test:3007
+      JWT_SECRET: test_jwt_secret_change_me
+    networks:
+      - test-network
+    depends_on:
+      postgres-test:
+        condition: service_healthy
+      redis-test:
+        condition: service_healthy
+      auth-service-test:
+        condition: service_healthy
+      community-service-test:
+        condition: service_healthy
+      request-service-test:
+        condition: service_healthy
+    volumes:
+      - ../tests:/app/tests:ro
+      - test-results:/app/tests/results
+    command: npm run test:integration
+
+volumes:
+  test-results:

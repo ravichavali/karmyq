@@ -35,9 +35,9 @@ jobs:
 
       - name: Integration tests info
         run: |
-          echo "ℹ️  Integration tests skipped in CI (require all services running)"
-          echo "ℹ️  Integration tests will run on deployment to karmyq.com"
-          echo "ℹ️  See deploy.sh and pre-push hook for integration test execution"
+          echo "ℹ️  Unit + regression tests passed"
+          echo "ℹ️  Integration tests run in separate job with Docker Compose"
+          echo "ℹ️  See test-integration job for service-to-service testing"
 
   # Lint and type-check
   lint:
@@ -65,11 +65,67 @@ jobs:
       - name: Run linter
         run: npm run lint --if-present || echo "⚠️  Linter found issues but continuing (non-blocking)"
 
+  # Integration tests
+  test-integration:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    needs: [test-backend]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Start test environment
+        run: |
+          cd tests
+          docker compose -f docker-compose.test.yml up -d
+          echo "Waiting for services to be healthy..."
+          sleep 30
+
+      - name: Check service health
+        run: |
+          cd tests
+          docker compose -f docker-compose.test.yml ps
+
+      - name: Run integration tests
+        run: |
+          cd tests
+          npm run test:integration
+        env:
+          DOCKER_ENV: test
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-test-results
+          path: tests/coverage/integration
+
+      - name: Show logs on failure
+        if: failure()
+        run: |
+          cd tests
+          docker compose -f docker-compose.test.yml logs
+
+      - name: Cleanup test environment
+        if: always()
+        run: |
+          cd tests
+          docker compose -f docker-compose.test.yml down -v
+
   # Build Docker images
   build-images:
     name: Build Docker Images
     runs-on: ubuntu-latest
-    needs: [test-backend, lint]
+    needs: [test-backend, lint, test-integration]
 
     strategy:
       matrix:
@@ -129,8 +185,7 @@ jobs:
             echo "🚀 Deploying to karmyq.com..."
             cd ~/karmyq
 
-            # Run deployment with tests skipped
-            # Integration tests will be moved to CI in Phase 2
+            # Run deployment (integration tests already passed in CI)
             SKIP_TESTS=1 ./scripts/deploy.sh
 
             echo "✅ Deployment complete"
@@ -185,11 +240,13 @@ jobs:
           echo "Environment: https://karmyq.com"
           echo "Commit: ${{ github.sha }}"
           echo ""
-          echo "Safety features that ran:"
-          echo "  ✅ Integration tests (on production DB)"
+          echo "Quality gates that passed:"
+          echo "  ✅ Unit + regression tests"
+          echo "  ✅ Integration tests (Docker Compose)"
+          echo "  ✅ TypeScript type checking"
+          echo "  ✅ Docker image builds"
+          echo "  ✅ Service health verification"
           echo "  ✅ Auto-rollback capability"
-          echo "  ✅ Health verification"
-          echo "  ✅ Git hooks installed"
 
       - name: Notify on failure
         if: failure()

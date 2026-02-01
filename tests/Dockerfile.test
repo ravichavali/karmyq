@@ -1,0 +1,30 @@
+# Dockerfile for integration test runner
+# Runs tests inside Docker network with access to all services
+
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Copy root package files first
+COPY package*.json ./
+COPY turbo.json ./
+
+# Copy all workspace packages
+COPY packages ./packages
+COPY services ./services
+COPY tests ./tests
+
+# Install all dependencies
+RUN npm ci
+
+# Set working directory to tests
+WORKDIR /app/tests
+
+# Install test dependencies
+RUN npm ci
+
+# Create results directory
+RUN mkdir -p /app/tests/results
+
+# Default command (can be overridden)
+CMD ["npm", "run", "test:integration"]
