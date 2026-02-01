@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -7,15 +7,19 @@ import {
   ScrollView,
   ActivityIndicator,
   Alert,
-} from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
-import { api } from '@/services/api';
-import { useAuthStore } from '@/store/auth';
+} from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { router } from "expo-router";
+import { api } from "@/services/api";
+import { useAuthStore } from "@/store/auth";
 
 interface KarmaData {
   total_karma: number;
-  by_community: Array<{ community_id: string; community_name: string; total_karma: string }>;
+  by_community: {
+    community_id: string;
+    community_name: string;
+    total_karma: string;
+  }[];
 }
 
 export default function ProfileScreen() {
@@ -29,7 +33,7 @@ export default function ProfileScreen() {
       const response = await api.getKarma(user.id);
       setKarmaData(response.data.data);
     } catch (error) {
-      console.error('Failed to load karma:', error);
+      console.error("Failed to load karma:", error);
     } finally {
       setLoading(false);
     }
@@ -40,21 +44,17 @@ export default function ProfileScreen() {
   }, [user]);
 
   const handleLogout = () => {
-    Alert.alert(
-      'Sign Out',
-      'Are you sure you want to sign out?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Sign Out',
-          style: 'destructive',
-          onPress: async () => {
-            await logout();
-            router.replace('/(auth)/login');
-          },
+    Alert.alert("Sign Out", "Are you sure you want to sign out?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Sign Out",
+        style: "destructive",
+        onPress: async () => {
+          await logout();
+          router.replace("/(auth)/login");
         },
-      ]
-    );
+      },
+    ]);
   };
 
   if (!user) {
@@ -85,7 +85,9 @@ export default function ProfileScreen() {
         </View>
         <View style={styles.statCard}>
           <Ionicons name="people" size={24} color="#10B981" />
-          <Text style={styles.statValue}>{karmaData?.by_community?.length || 0}</Text>
+          <Text style={styles.statValue}>
+            {karmaData?.by_community?.length || 0}
+          </Text>
           <Text style={styles.statLabel}>Communities</Text>
         </View>
       </View>
@@ -95,8 +97,12 @@ export default function ProfileScreen() {
           <Text style={styles.sectionTitle}>Karma by Community</Text>
           {karmaData.by_community.map((item) => (
             <View key={item.community_id} style={styles.communityItem}>
-              <Text style={styles.communityName}>{item.community_name || 'Unknown'}</Text>
-              <Text style={styles.communityKarma}>{item.total_karma} karma</Text>
+              <Text style={styles.communityName}>
+                {item.community_name || "Unknown"}
+              </Text>
+              <Text style={styles.communityKarma}>
+                {item.total_karma} karma
+              </Text>
             </View>
           ))}
         </View>
@@ -143,54 +149,54 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: "#F3F4F6",
   },
   loadingContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   header: {
-    alignItems: 'center',
+    alignItems: "center",
     paddingVertical: 32,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
   },
   avatar: {
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: '#3B82F6',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "#3B82F6",
+    justifyContent: "center",
+    alignItems: "center",
     marginBottom: 16,
   },
   avatarText: {
-    color: '#FFFFFF',
+    color: "#FFFFFF",
     fontSize: 32,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   userName: {
     fontSize: 24,
-    fontWeight: 'bold',
-    color: '#111827',
+    fontWeight: "bold",
+    color: "#111827",
   },
   userEmail: {
     fontSize: 14,
-    color: '#6B7280',
+    color: "#6B7280",
     marginTop: 4,
   },
   statsContainer: {
-    flexDirection: 'row',
+    flexDirection: "row",
     padding: 16,
     gap: 12,
   },
   statCard: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
     borderRadius: 12,
     padding: 16,
-    alignItems: 'center',
-    shadowColor: '#000',
+    alignItems: "center",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 2,
@@ -198,17 +204,17 @@ const styles = StyleSheet.create({
   },
   statValue: {
     fontSize: 28,
-    fontWeight: 'bold',
-    color: '#111827',
+    fontWeight: "bold",
+    color: "#111827",
     marginTop: 8,
   },
   statLabel: {
     fontSize: 12,
-    color: '#6B7280',
+    color: "#6B7280",
     marginTop: 4,
   },
   communitySection: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
     marginHorizontal: 16,
     borderRadius: 12,
     padding: 16,
@@ -216,29 +222,29 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#111827',
+    fontWeight: "600",
+    color: "#111827",
     marginBottom: 12,
   },
   communityItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     paddingVertical: 8,
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
+    borderBottomColor: "#F3F4F6",
   },
   communityName: {
     fontSize: 14,
-    color: '#374151',
+    color: "#374151",
   },
   communityKarma: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#F59E0B',
+    fontWeight: "600",
+    color: "#F59E0B",
   },
   menuSection: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
     marginHorizontal: 16,
     borderRadius: 12,
     padding: 8,
@@ -246,28 +252,28 @@ const styles = StyleSheet.create({
   },
   menuTitle: {
     fontSize: 12,
-    fontWeight: '600',
-    color: '#9CA3AF',
+    fontWeight: "600",
+    color: "#9CA3AF",
     paddingHorizontal: 12,
     paddingVertical: 8,
-    textTransform: 'uppercase',
+    textTransform: "uppercase",
   },
   menuItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     padding: 12,
   },
   menuItemText: {
     flex: 1,
     fontSize: 16,
-    color: '#111827',
+    color: "#111827",
     marginLeft: 12,
   },
   logoutButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#FEE2E2',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#FEE2E2",
     marginHorizontal: 16,
     borderRadius: 12,
     padding: 16,
@@ -275,14 +281,14 @@ const styles = StyleSheet.create({
   },
   logoutText: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#EF4444',
+    fontWeight: "600",
+    color: "#EF4444",
     marginLeft: 8,
   },
   version: {
-    textAlign: 'center',
+    textAlign: "center",
     fontSize: 12,
-    color: '#9CA3AF',
+    color: "#9CA3AF",
     marginBottom: 32,
   },
 });

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -9,24 +9,24 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
-} from 'react-native'
-import { Ionicons } from '@expo/vector-icons'
-import { api } from '@/services/api'
-import { useMessaging } from '@/hooks/useMessaging'
+} from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { api } from "@/services/api";
+import { useMessaging } from "@/hooks/useMessaging";
 
 interface Message {
-  id: string
-  sender_id: string
-  sender_name?: string
-  content: string
-  created_at: string
+  id: string;
+  sender_id: string;
+  sender_name?: string;
+  content: string;
+  created_at: string;
 }
 
 interface InlineChatProps {
-  matchId: string
-  currentUserId: string
-  otherParticipantName: string
-  onClose?: () => void
+  matchId: string;
+  currentUserId: string;
+  otherParticipantName: string;
+  onClose?: () => void;
 }
 
 export default function InlineChat({
@@ -35,11 +35,11 @@ export default function InlineChat({
   otherParticipantName,
   onClose,
 }: InlineChatProps) {
-  const [newMessage, setNewMessage] = useState('')
-  const [sending, setSending] = useState(false)
-  const [conversationId, setConversationId] = useState<string | null>(null)
-  const flatListRef = useRef<FlatList>(null)
-  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const [newMessage, setNewMessage] = useState("");
+  const [sending, setSending] = useState(false);
+  const [conversationId, setConversationId] = useState<string | null>(null);
+  const flatListRef = useRef<FlatList>(null);
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Use the WebSocket messaging hook
   const {
@@ -57,86 +57,89 @@ export default function InlineChat({
     conversationId,
     userId: currentUserId,
     enabled: true, // Always enabled for mobile
-  })
+  });
 
   // Fetch conversation ID on mount
   useEffect(() => {
-    fetchConversation()
-  }, [matchId])
+    fetchConversation();
+  }, [matchId]);
 
   // Refresh messages when conversationId is available
   useEffect(() => {
     if (conversationId) {
-      refreshMessages()
+      refreshMessages();
     }
-  }, [conversationId, refreshMessages])
+  }, [conversationId, refreshMessages]);
 
   // Auto-scroll when new messages arrive
   useEffect(() => {
     if (messages.length > 0) {
       setTimeout(() => {
-        flatListRef.current?.scrollToEnd({ animated: true })
-      }, 100)
+        flatListRef.current?.scrollToEnd({ animated: true });
+      }, 100);
     }
-  }, [messages])
+  }, [messages]);
 
   const fetchConversation = async () => {
     try {
       // For now, use matchId as conversationId (backend creates conversation from match)
-      setConversationId(`match_${matchId}`)
+      setConversationId(`match_${matchId}`);
     } catch (error) {
-      console.error('Error fetching conversation:', error)
+      console.error("Error fetching conversation:", error);
     }
-  }
+  };
 
   const handleSendMessage = async () => {
-    if (!newMessage.trim() || sending) return
+    if (!newMessage.trim() || sending) return;
 
     try {
-      setSending(true)
-      stopTyping() // Stop typing indicator before sending
+      setSending(true);
+      stopTyping(); // Stop typing indicator before sending
 
-      await sendMessageWS(newMessage.trim())
-      setNewMessage('')
+      await sendMessageWS(newMessage.trim());
+      setNewMessage("");
 
       // Scroll to bottom after sending
       setTimeout(() => {
-        flatListRef.current?.scrollToEnd({ animated: true })
-      }, 100)
+        flatListRef.current?.scrollToEnd({ animated: true });
+      }, 100);
     } catch (error: any) {
-      console.error('Error sending message:', error)
+      console.error("Error sending message:", error);
     } finally {
-      setSending(false)
+      setSending(false);
     }
-  }
+  };
 
   const handleTyping = (value: string) => {
-    setNewMessage(value)
+    setNewMessage(value);
 
     // Start typing indicator
     if (value.trim()) {
-      startTyping()
+      startTyping();
 
       // Clear existing timeout
       if (typingTimeoutRef.current) {
-        clearTimeout(typingTimeoutRef.current)
+        clearTimeout(typingTimeoutRef.current);
       }
 
       // Stop typing after 1 second of no input
       typingTimeoutRef.current = setTimeout(() => {
-        stopTyping()
-      }, 1000)
+        stopTyping();
+      }, 1000);
     } else {
-      stopTyping()
+      stopTyping();
     }
-  }
+  };
 
   const renderMessage = ({ item }: { item: Message }) => {
-    const isOwnMessage = item.sender_id === currentUserId
-    const formattedTime = new Date(item.created_at).toLocaleTimeString('en-US', {
-      hour: 'numeric',
-      minute: '2-digit',
-    })
+    const isOwnMessage = item.sender_id === currentUserId;
+    const formattedTime = new Date(item.created_at).toLocaleTimeString(
+      "en-US",
+      {
+        hour: "numeric",
+        minute: "2-digit",
+      },
+    );
 
     return (
       <View
@@ -154,14 +157,18 @@ export default function InlineChat({
           {!isOwnMessage && item.sender_name && (
             <Text style={styles.senderName}>{item.sender_name}</Text>
           )}
-          <Text style={isOwnMessage ? styles.ownMessageText : styles.otherMessageText}>
+          <Text
+            style={
+              isOwnMessage ? styles.ownMessageText : styles.otherMessageText
+            }
+          >
             {item.content}
           </Text>
           <Text style={styles.messageTime}>{formattedTime}</Text>
         </View>
       </View>
-    )
-  }
+    );
+  };
 
   const renderHeader = () => (
     <View style={styles.header}>
@@ -180,17 +187,19 @@ export default function InlineChat({
         </TouchableOpacity>
       )}
     </View>
-  )
+  );
 
   const renderTypingIndicator = () => {
-    if (!isTyping) return null
+    if (!isTyping) return null;
 
     return (
       <View style={styles.typingContainer}>
-        <Text style={styles.typingText}>{typingUser || otherParticipantName} is typing...</Text>
+        <Text style={styles.typingText}>
+          {typingUser || otherParticipantName} is typing...
+        </Text>
       </View>
-    )
-  }
+    );
+  };
 
   const renderEmptyState = () => (
     <View style={styles.emptyState}>
@@ -198,13 +207,13 @@ export default function InlineChat({
       <Text style={styles.emptyStateText}>No messages yet</Text>
       <Text style={styles.emptyStateSubtext}>Start the conversation!</Text>
     </View>
-  )
+  );
 
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+      keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}
     >
       {renderHeader()}
 
@@ -218,10 +227,14 @@ export default function InlineChat({
           data={messages}
           renderItem={renderMessage}
           keyExtractor={(item) => item.id}
-          contentContainerStyle={messages.length === 0 ? styles.emptyList : styles.messagesList}
+          contentContainerStyle={
+            messages.length === 0 ? styles.emptyList : styles.messagesList
+          }
           ListEmptyComponent={renderEmptyState}
           ListFooterComponent={renderTypingIndicator}
-          onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
+          onContentSizeChange={() =>
+            flatListRef.current?.scrollToEnd({ animated: true })
+          }
         />
       )}
 
@@ -237,7 +250,10 @@ export default function InlineChat({
           editable={!sending}
         />
         <TouchableOpacity
-          style={[styles.sendButton, (!newMessage.trim() || sending) && styles.sendButtonDisabled]}
+          style={[
+            styles.sendButton,
+            (!newMessage.trim() || sending) && styles.sendButtonDisabled,
+          ]}
           onPress={handleSendMessage}
           disabled={!newMessage.trim() || sending}
         >
@@ -249,32 +265,32 @@ export default function InlineChat({
         </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>
-  )
+  );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: "#F9FAFB",
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     padding: 12,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: "#E5E7EB",
   },
   headerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     flex: 1,
   },
   headerTitle: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#111827',
+    fontWeight: "600",
+    color: "#111827",
     marginLeft: 8,
   },
   connectedIndicator: {
@@ -284,15 +300,15 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#10B981',
+    backgroundColor: "#10B981",
   },
   closeButton: {
     padding: 4,
   },
   loadingContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   messagesList: {
     padding: 12,
@@ -302,29 +318,29 @@ const styles = StyleSheet.create({
   },
   emptyState: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   emptyStateText: {
     fontSize: 18,
-    fontWeight: '600',
-    color: '#6B7280',
+    fontWeight: "600",
+    color: "#6B7280",
     marginTop: 12,
   },
   emptyStateSubtext: {
     fontSize: 14,
-    color: '#9CA3AF',
+    color: "#9CA3AF",
     marginTop: 4,
   },
   messageContainer: {
     marginBottom: 12,
-    maxWidth: '80%',
+    maxWidth: "80%",
   },
   ownMessage: {
-    alignSelf: 'flex-end',
+    alignSelf: "flex-end",
   },
   otherMessage: {
-    alignSelf: 'flex-start',
+    alignSelf: "flex-start",
   },
   messageBubble: {
     borderRadius: 16,
@@ -332,32 +348,32 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   ownBubble: {
-    backgroundColor: '#3B82F6',
+    backgroundColor: "#3B82F6",
   },
   otherBubble: {
-    backgroundColor: '#E5E7EB',
+    backgroundColor: "#E5E7EB",
   },
   senderName: {
     fontSize: 12,
-    fontWeight: '600',
-    color: '#6B7280',
+    fontWeight: "600",
+    color: "#6B7280",
     marginBottom: 4,
   },
   ownMessageText: {
     fontSize: 15,
-    color: '#FFFFFF',
+    color: "#FFFFFF",
     lineHeight: 20,
   },
   otherMessageText: {
     fontSize: 15,
-    color: '#111827',
+    color: "#111827",
     lineHeight: 20,
   },
   messageTime: {
     fontSize: 11,
-    color: 'rgba(255, 255, 255, 0.7)',
+    color: "rgba(255, 255, 255, 0.7)",
     marginTop: 4,
-    alignSelf: 'flex-end',
+    alignSelf: "flex-end",
   },
   typingContainer: {
     paddingHorizontal: 12,
@@ -365,25 +381,25 @@ const styles = StyleSheet.create({
   },
   typingText: {
     fontSize: 13,
-    color: '#6B7280',
-    fontStyle: 'italic',
+    color: "#6B7280",
+    fontStyle: "italic",
   },
   inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
+    flexDirection: "row",
+    alignItems: "flex-end",
     padding: 12,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
     borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
+    borderTopColor: "#E5E7EB",
   },
   input: {
     flex: 1,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: "#F3F4F6",
     borderRadius: 20,
     paddingHorizontal: 16,
     paddingVertical: 10,
     fontSize: 15,
-    color: '#111827',
+    color: "#111827",
     maxHeight: 100,
     marginRight: 8,
   },
@@ -391,11 +407,11 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#3B82F6',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "#3B82F6",
+    justifyContent: "center",
+    alignItems: "center",
   },
   sendButtonDisabled: {
-    backgroundColor: '#D1D5DB',
+    backgroundColor: "#D1D5DB",
   },
-})
+});

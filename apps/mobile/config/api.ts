@@ -1,4 +1,4 @@
-import { Platform } from 'react-native';
+import { Platform } from "react-native";
 
 /**
  * Centralized API Configuration
@@ -18,7 +18,7 @@ import { Platform } from 'react-native';
 
 // TEMPORARY: Hardcoded for development
 // TODO: Switch back to environment variable when Metro bundler env var issue is resolved (See ROADMAP.md Backlog #25)
-const API_HOST = '192.168.0.163';
+const API_HOST = "192.168.0.163";
 
 // Alternative: Use environment variable with platform-specific fallback
 // const API_HOST = process.env.EXPO_PUBLIC_API_HOST ||

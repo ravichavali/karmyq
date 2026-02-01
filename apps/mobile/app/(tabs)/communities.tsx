@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -7,10 +7,10 @@ import {
   RefreshControl,
   TouchableOpacity,
   ActivityIndicator,
-} from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
-import { api } from '@/services/api';
+} from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { router } from "expo-router";
+import { api } from "@/services/api";
 
 interface Community {
   id: string;
@@ -18,7 +18,7 @@ interface Community {
   description: string;
   current_members: number;
   max_members: number;
-  access_type: 'public' | 'private';
+  access_type: "public" | "private";
 }
 
 export default function CommunitiesScreen() {
@@ -31,7 +31,7 @@ export default function CommunitiesScreen() {
       const response = await api.getCommunities();
       setCommunities(response.data.data || []);
     } catch (error) {
-      console.error('Failed to load communities:', error);
+      console.error("Failed to load communities:", error);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -60,12 +60,12 @@ export default function CommunitiesScreen() {
           <Text style={styles.communityName}>{item.name}</Text>
           <View style={styles.communityMeta}>
             <Ionicons
-              name={item.access_type === 'private' ? 'lock-closed' : 'globe'}
+              name={item.access_type === "private" ? "lock-closed" : "globe"}
               size={12}
               color="#9CA3AF"
             />
             <Text style={styles.communityMetaText}>
-              {item.access_type === 'private' ? 'Private' : 'Public'}
+              {item.access_type === "private" ? "Private" : "Public"}
             </Text>
             <Text style={styles.memberCount}>
               {item.current_members}/{item.max_members} members
@@ -117,7 +117,9 @@ export default function CommunitiesScreen() {
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
-        contentContainerStyle={communities.length === 0 ? styles.emptyList : styles.list}
+        contentContainerStyle={
+          communities.length === 0 ? styles.emptyList : styles.list
+        }
       />
     </View>
   );
@@ -126,38 +128,38 @@ export default function CommunitiesScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: "#F3F4F6",
   },
   loadingContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   list: {
     padding: 16,
   },
   communityCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 2,
     elevation: 2,
   },
   communityHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
   },
   communityIcon: {
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#EBF5FF',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "#EBF5FF",
+    justifyContent: "center",
+    alignItems: "center",
   },
   communityInfo: {
     flex: 1,
@@ -165,40 +167,40 @@ const styles = StyleSheet.create({
   },
   communityName: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#111827',
+    fontWeight: "600",
+    color: "#111827",
   },
   communityMeta: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginTop: 4,
   },
   communityMetaText: {
     fontSize: 12,
-    color: '#9CA3AF',
+    color: "#9CA3AF",
     marginLeft: 4,
     marginRight: 12,
   },
   memberCount: {
     fontSize: 12,
-    color: '#9CA3AF',
+    color: "#9CA3AF",
   },
   communityDescription: {
     fontSize: 14,
-    color: '#6B7280',
+    color: "#6B7280",
     marginTop: 12,
     lineHeight: 20,
   },
   memberBar: {
     height: 4,
-    backgroundColor: '#E5E7EB',
+    backgroundColor: "#E5E7EB",
     borderRadius: 2,
     marginTop: 12,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   memberBarFill: {
-    height: '100%',
-    backgroundColor: '#3B82F6',
+    height: "100%",
+    backgroundColor: "#3B82F6",
     borderRadius: 2,
   },
   emptyList: {
@@ -206,20 +208,20 @@ const styles = StyleSheet.create({
   },
   emptyState: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     padding: 32,
   },
   emptyStateTitle: {
     fontSize: 20,
-    fontWeight: 'bold',
-    color: '#111827',
+    fontWeight: "bold",
+    color: "#111827",
     marginTop: 16,
     marginBottom: 8,
   },
   emptyStateText: {
     fontSize: 14,
-    color: '#6B7280',
-    textAlign: 'center',
+    color: "#6B7280",
+    textAlign: "center",
   },
 });

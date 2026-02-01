@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -7,178 +7,181 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Alert,
-} from 'react-native'
-import { useLocalSearchParams, router } from 'expo-router'
-import { Ionicons } from '@expo/vector-icons'
-import { api } from '@/services/api'
-import { useAuthStore } from '@/store/auth'
-import InlineChat from '@/components/InlineChat'
+} from "react-native";
+import { useLocalSearchParams, router } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
+import { api } from "@/services/api";
+import { useAuthStore } from "@/store/auth";
+import InlineChat from "@/components/InlineChat";
 
 interface HelpRequest {
-  id: string
-  title?: string
-  description: string
-  category: string
-  status: string
-  urgency: string
-  community_id?: string
-  community_name?: string
-  requester_id: string
-  requester_name?: string
-  created_at: string
+  id: string;
+  title?: string;
+  description: string;
+  category: string;
+  status: string;
+  urgency: string;
+  community_id?: string;
+  community_name?: string;
+  requester_id: string;
+  requester_name?: string;
+  created_at: string;
 }
 
 interface Match {
-  id: string
-  request_id: string
-  responder_id: string
-  responder_name?: string
-  status: string
-  message?: string
-  created_at: string
+  id: string;
+  request_id: string;
+  responder_id: string;
+  responder_name?: string;
+  status: string;
+  message?: string;
+  created_at: string;
 }
 
 export default function RequestDetailScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>()
-  const { user } = useAuthStore()
-  const [request, setRequest] = useState<HelpRequest | null>(null)
-  const [matches, setMatches] = useState<Match[]>([])
-  const [loading, setLoading] = useState(true)
-  const [chatVisible, setChatVisible] = useState<{ [key: string]: boolean }>({})
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const { user } = useAuthStore();
+  const [request, setRequest] = useState<HelpRequest | null>(null);
+  const [matches, setMatches] = useState<Match[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [chatVisible, setChatVisible] = useState<{ [key: string]: boolean }>(
+    {},
+  );
 
   useEffect(() => {
     if (id) {
-      loadRequest()
-      loadMatches()
+      loadRequest();
+      loadMatches();
     }
-  }, [id])
+  }, [id]);
 
   const loadRequest = async () => {
     try {
-      const response = await api.getRequest(id!)
-      setRequest(response.data.data || response.data.request)
+      const response = await api.getRequest(id!);
+      setRequest(response.data.data || response.data.request);
     } catch (error) {
-      console.error('Failed to load request:', error)
-      Alert.alert('Error', 'Failed to load request details')
+      console.error("Failed to load request:", error);
+      Alert.alert("Error", "Failed to load request details");
     }
-  }
+  };
 
   const loadMatches = async () => {
     try {
-      setLoading(true)
-      const response = await api.getMatches({ request_id: id })
-      setMatches(response.data.data || [])
+      setLoading(true);
+      const response = await api.getMatches({ request_id: id });
+      setMatches(response.data.data || []);
     } catch (error) {
-      console.error('Failed to load matches:', error)
+      console.error("Failed to load matches:", error);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const handleAcceptMatch = async (matchId: string) => {
-    if (!user?.id) return
+    if (!user?.id) return;
 
     try {
-      await api.acceptMatch(matchId, user.id)
-      Alert.alert('Success', 'Offer accepted!')
-      loadRequest()
-      loadMatches()
+      await api.acceptMatch(matchId, user.id);
+      Alert.alert("Success", "Offer accepted!");
+      loadRequest();
+      loadMatches();
     } catch (error) {
-      console.error('Failed to accept match:', error)
-      Alert.alert('Error', 'Failed to accept offer')
+      console.error("Failed to accept match:", error);
+      Alert.alert("Error", "Failed to accept offer");
     }
-  }
+  };
 
   const handleDeclineMatch = async (matchId: string) => {
-    if (!user?.id) return
+    if (!user?.id) return;
 
     Alert.alert(
-      'Decline Offer',
-      'Are you sure you want to decline this offer?',
+      "Decline Offer",
+      "Are you sure you want to decline this offer?",
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: "Cancel", style: "cancel" },
         {
-          text: 'Decline',
-          style: 'destructive',
+          text: "Decline",
+          style: "destructive",
           onPress: async () => {
             try {
-              await api.declineMatch(matchId, user.id)
-              loadMatches()
+              await api.declineMatch(matchId, user.id);
+              loadMatches();
             } catch (error) {
-              console.error('Failed to decline match:', error)
-              Alert.alert('Error', 'Failed to decline offer')
+              console.error("Failed to decline match:", error);
+              Alert.alert("Error", "Failed to decline offer");
             }
           },
         },
-      ]
-    )
-  }
+      ],
+    );
+  };
 
   const handleMarkComplete = async (matchId: string) => {
-    if (!user?.id) return
+    if (!user?.id) return;
 
-    Alert.alert(
-      'Mark Complete',
-      'Mark this request as complete?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Complete',
-          onPress: async () => {
-            try {
-              await api.completeMatch(matchId, user.id)
-              Alert.alert('Success', 'Request marked as complete!')
-              loadRequest()
-              loadMatches()
-            } catch (error) {
-              console.error('Failed to mark complete:', error)
-              Alert.alert('Error', 'Failed to mark complete')
-            }
-          },
+    Alert.alert("Mark Complete", "Mark this request as complete?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Complete",
+        onPress: async () => {
+          try {
+            await api.completeMatch(matchId, user.id);
+            Alert.alert("Success", "Request marked as complete!");
+            loadRequest();
+            loadMatches();
+          } catch (error) {
+            console.error("Failed to mark complete:", error);
+            Alert.alert("Error", "Failed to mark complete");
+          }
         },
-      ]
-    )
-  }
+      },
+    ]);
+  };
 
   const toggleChat = (matchId: string) => {
     setChatVisible((prev) => ({
       ...prev,
       [matchId]: !prev[matchId],
-    }))
-  }
+    }));
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'open':
-        return '#10B981'
-      case 'matched':
-        return '#F59E0B'
-      case 'in_progress':
-        return '#3B82F6'
-      case 'completed':
-        return '#6B7280'
+      case "open":
+        return "#10B981";
+      case "matched":
+        return "#F59E0B";
+      case "in_progress":
+        return "#3B82F6";
+      case "completed":
+        return "#6B7280";
       default:
-        return '#9CA3AF'
+        return "#9CA3AF";
     }
-  }
+  };
 
-  const isRequester = user?.id === request?.requester_id
-  const acceptedMatches = matches.filter((m) => m.status === 'accepted' || m.status === 'in_progress')
-  const canMarkComplete = isRequester && acceptedMatches.length > 0
+  const isRequester = user?.id === request?.requester_id;
+  const acceptedMatches = matches.filter(
+    (m) => m.status === "accepted" || m.status === "in_progress",
+  );
+  const canMarkComplete = isRequester && acceptedMatches.length > 0;
 
   if (loading || !request) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#3B82F6" />
       </View>
-    )
+    );
   }
 
   return (
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+        <TouchableOpacity
+          onPress={() => router.back()}
+          style={styles.backButton}
+        >
           <Ionicons name="arrow-back" size={24} color="#111827" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Request Details</Text>
@@ -189,7 +192,12 @@ export default function RequestDetailScreen() {
         {/* Request Card */}
         <View style={styles.requestCard}>
           <View style={styles.statusRow}>
-            <View style={[styles.statusBadge, { backgroundColor: getStatusColor(request.status) }]}>
+            <View
+              style={[
+                styles.statusBadge,
+                { backgroundColor: getStatusColor(request.status) },
+              ]}
+            >
               <Text style={styles.statusText}>{request.status}</Text>
             </View>
             <Text style={styles.category}>{request.category}</Text>
@@ -203,7 +211,9 @@ export default function RequestDetailScreen() {
           <View style={styles.metaRow}>
             <View style={styles.metaItem}>
               <Ionicons name="person-circle" size={16} color="#6B7280" />
-              <Text style={styles.metaText}>{request.requester_name || 'Someone'}</Text>
+              <Text style={styles.metaText}>
+                {request.requester_name || "Someone"}
+              </Text>
             </View>
             {request.community_name && (
               <View style={styles.metaItem}>
@@ -226,9 +236,7 @@ export default function RequestDetailScreen() {
         {/* Offers Section */}
         {matches.length > 0 && (
           <View style={styles.offersSection}>
-            <Text style={styles.sectionTitle}>
-              Offers ({matches.length})
-            </Text>
+            <Text style={styles.sectionTitle}>Offers ({matches.length})</Text>
 
             {matches.map((match) => (
               <View key={match.id} style={styles.matchCard}>
@@ -236,13 +244,18 @@ export default function RequestDetailScreen() {
                   <Ionicons name="person-circle" size={24} color="#3B82F6" />
                   <View style={styles.matchInfo}>
                     <Text style={styles.matchName}>
-                      {match.responder_name || 'Helper'}
+                      {match.responder_name || "Helper"}
                     </Text>
                     <Text style={styles.matchDate}>
                       {new Date(match.created_at).toLocaleDateString()}
                     </Text>
                   </View>
-                  <View style={[styles.matchStatusBadge, { backgroundColor: getStatusColor(match.status) }]}>
+                  <View
+                    style={[
+                      styles.matchStatusBadge,
+                      { backgroundColor: getStatusColor(match.status) },
+                    ]}
+                  >
                     <Text style={styles.matchStatusText}>{match.status}</Text>
                   </View>
                 </View>
@@ -252,13 +265,17 @@ export default function RequestDetailScreen() {
                 )}
 
                 {/* Action Buttons (for requesters only) */}
-                {isRequester && match.status === 'proposed' && (
+                {isRequester && match.status === "proposed" && (
                   <View style={styles.matchActions}>
                     <TouchableOpacity
                       style={[styles.actionButton, styles.acceptButton]}
                       onPress={() => handleAcceptMatch(match.id)}
                     >
-                      <Ionicons name="checkmark-circle" size={18} color="#FFFFFF" />
+                      <Ionicons
+                        name="checkmark-circle"
+                        size={18}
+                        color="#FFFFFF"
+                      />
                       <Text style={styles.actionButtonText}>Accept</Text>
                     </TouchableOpacity>
 
@@ -273,34 +290,42 @@ export default function RequestDetailScreen() {
                 )}
 
                 {/* Inline Chat (for accepted matches) */}
-                {(match.status === 'accepted' || match.status === 'in_progress') && user && (
-                  <View style={styles.chatContainer}>
-                    <TouchableOpacity
-                      style={styles.chatToggle}
-                      onPress={() => toggleChat(match.id)}
-                    >
-                      <Ionicons
-                        name={chatVisible[match.id] ? 'chatbubbles' : 'chatbubbles-outline'}
-                        size={18}
-                        color="#3B82F6"
-                      />
-                      <Text style={styles.chatToggleText}>
-                        {chatVisible[match.id] ? 'Hide Chat' : 'Open Chat'}
-                      </Text>
-                    </TouchableOpacity>
-
-                    {chatVisible[match.id] && (
-                      <View style={styles.inlineChatWrapper}>
-                        <InlineChat
-                          matchId={match.id}
-                          currentUserId={user.id}
-                          otherParticipantName={match.responder_name || 'Helper'}
-                          onClose={() => toggleChat(match.id)}
+                {(match.status === "accepted" ||
+                  match.status === "in_progress") &&
+                  user && (
+                    <View style={styles.chatContainer}>
+                      <TouchableOpacity
+                        style={styles.chatToggle}
+                        onPress={() => toggleChat(match.id)}
+                      >
+                        <Ionicons
+                          name={
+                            chatVisible[match.id]
+                              ? "chatbubbles"
+                              : "chatbubbles-outline"
+                          }
+                          size={18}
+                          color="#3B82F6"
                         />
-                      </View>
-                    )}
-                  </View>
-                )}
+                        <Text style={styles.chatToggleText}>
+                          {chatVisible[match.id] ? "Hide Chat" : "Open Chat"}
+                        </Text>
+                      </TouchableOpacity>
+
+                      {chatVisible[match.id] && (
+                        <View style={styles.inlineChatWrapper}>
+                          <InlineChat
+                            matchId={match.id}
+                            currentUserId={user.id}
+                            otherParticipantName={
+                              match.responder_name || "Helper"
+                            }
+                            onClose={() => toggleChat(match.id)}
+                          />
+                        </View>
+                      )}
+                    </View>
+                  )}
               </View>
             ))}
           </View>
@@ -311,8 +336,8 @@ export default function RequestDetailScreen() {
           <TouchableOpacity
             style={styles.completeButton}
             onPress={() => {
-              const match = acceptedMatches[0]
-              if (match) handleMarkComplete(match.id)
+              const match = acceptedMatches[0];
+              if (match) handleMarkComplete(match.id);
             }}
           >
             <Ionicons name="checkmark-done-circle" size={20} color="#FFFFFF" />
@@ -328,54 +353,54 @@ export default function RequestDetailScreen() {
         )}
       </ScrollView>
     </View>
-  )
+  );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: "#F3F4F6",
   },
   loadingContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: "#E5E7EB",
   },
   backButton: {
     padding: 4,
   },
   headerTitle: {
     fontSize: 18,
-    fontWeight: '600',
-    color: '#111827',
+    fontWeight: "600",
+    color: "#111827",
   },
   content: {
     padding: 16,
   },
   requestCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
     borderRadius: 12,
     padding: 16,
     marginBottom: 16,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
   },
   statusRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginBottom: 12,
   },
   statusBadge: {
@@ -386,46 +411,46 @@ const styles = StyleSheet.create({
   },
   statusText: {
     fontSize: 12,
-    color: '#FFFFFF',
-    fontWeight: '600',
-    textTransform: 'capitalize',
+    color: "#FFFFFF",
+    fontWeight: "600",
+    textTransform: "capitalize",
   },
   category: {
     fontSize: 12,
-    color: '#9CA3AF',
+    color: "#9CA3AF",
     marginRight: 8,
-    textTransform: 'capitalize',
+    textTransform: "capitalize",
   },
   urgency: {
     fontSize: 12,
-    color: '#6B7280',
-    textTransform: 'capitalize',
+    color: "#6B7280",
+    textTransform: "capitalize",
   },
   title: {
     fontSize: 20,
-    fontWeight: '700',
-    color: '#111827',
+    fontWeight: "700",
+    color: "#111827",
     marginBottom: 8,
   },
   description: {
     fontSize: 16,
-    color: '#374151',
+    color: "#374151",
     lineHeight: 24,
     marginBottom: 16,
   },
   metaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginBottom: 8,
   },
   metaItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginRight: 16,
   },
   metaText: {
     fontSize: 14,
-    color: '#6B7280',
+    color: "#6B7280",
     marginLeft: 6,
   },
   offersSection: {
@@ -433,24 +458,24 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: '600',
-    color: '#111827',
+    fontWeight: "600",
+    color: "#111827",
     marginBottom: 12,
   },
   matchCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 2,
     elevation: 2,
   },
   matchHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginBottom: 12,
   },
   matchInfo: {
@@ -459,12 +484,12 @@ const styles = StyleSheet.create({
   },
   matchName: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#111827',
+    fontWeight: "600",
+    color: "#111827",
   },
   matchDate: {
     fontSize: 12,
-    color: '#9CA3AF',
+    color: "#9CA3AF",
     marginTop: 2,
   },
   matchStatusBadge: {
@@ -474,68 +499,68 @@ const styles = StyleSheet.create({
   },
   matchStatusText: {
     fontSize: 11,
-    color: '#FFFFFF',
-    fontWeight: '600',
-    textTransform: 'capitalize',
+    color: "#FFFFFF",
+    fontWeight: "600",
+    textTransform: "capitalize",
   },
   matchMessage: {
     fontSize: 15,
-    color: '#6B7280',
+    color: "#6B7280",
     lineHeight: 22,
     marginBottom: 12,
   },
   matchActions: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 8,
   },
   actionButton: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     paddingVertical: 10,
     borderRadius: 6,
   },
   acceptButton: {
-    backgroundColor: '#10B981',
+    backgroundColor: "#10B981",
   },
   declineButton: {
-    backgroundColor: '#EF4444',
+    backgroundColor: "#EF4444",
   },
   actionButtonText: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#FFFFFF',
+    fontWeight: "600",
+    color: "#FFFFFF",
     marginLeft: 6,
   },
   chatContainer: {
     marginTop: 12,
   },
   chatToggle: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingVertical: 8,
   },
   chatToggleText: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#3B82F6',
+    fontWeight: "600",
+    color: "#3B82F6",
     marginLeft: 6,
   },
   inlineChatWrapper: {
     height: 400,
     marginTop: 8,
     borderRadius: 8,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   completeButton: {
-    backgroundColor: '#3B82F6',
+    backgroundColor: "#3B82F6",
     borderRadius: 12,
     paddingVertical: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -543,17 +568,17 @@ const styles = StyleSheet.create({
   },
   completeButtonText: {
     fontSize: 16,
-    fontWeight: '700',
-    color: '#FFFFFF',
+    fontWeight: "700",
+    color: "#FFFFFF",
     marginLeft: 8,
   },
   emptyState: {
-    alignItems: 'center',
+    alignItems: "center",
     paddingVertical: 32,
   },
   emptyStateText: {
     fontSize: 14,
-    color: '#9CA3AF',
+    color: "#9CA3AF",
     marginTop: 8,
   },
-})
+});

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -7,16 +7,18 @@ import {
   RefreshControl,
   TouchableOpacity,
   ActivityIndicator,
-} from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
-import { api } from '@/services/api';
-import { useAuthStore } from '@/store/auth';
+} from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { router } from "expo-router";
+import { api } from "@/services/api";
+import { useAuthStore } from "@/store/auth";
 
 interface Conversation {
   id: string;
   other_user_name: string | null;
-  last_message: string | { id: string; content: string; sender_id: string; created_at: string };
+  last_message:
+    | string
+    | { id: string; content: string; sender_id: string; created_at: string };
   last_message_at: string;
   unread_count: number;
 }
@@ -33,7 +35,7 @@ export default function MessagesScreen() {
       const response = await api.getConversations();
       setConversations(response.data.data || []);
     } catch (error) {
-      console.error('Failed to load conversations:', error);
+      console.error("Failed to load conversations:", error);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -56,13 +58,16 @@ export default function MessagesScreen() {
     const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
     if (diffDays === 0) {
-      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      return date.toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      });
     } else if (diffDays === 1) {
-      return 'Yesterday';
+      return "Yesterday";
     } else if (diffDays < 7) {
-      return date.toLocaleDateString([], { weekday: 'short' });
+      return date.toLocaleDateString([], { weekday: "short" });
     } else {
-      return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+      return date.toLocaleDateString([], { month: "short", day: "numeric" });
     }
   };
 
@@ -73,7 +78,7 @@ export default function MessagesScreen() {
     >
       <View style={styles.avatar}>
         <Text style={styles.avatarText}>
-          {(item.other_user_name || 'U').charAt(0).toUpperCase()}
+          {(item.other_user_name || "U").charAt(0).toUpperCase()}
         </Text>
         {item.unread_count > 0 && (
           <View style={styles.unreadBadge}>
@@ -83,16 +88,26 @@ export default function MessagesScreen() {
       </View>
       <View style={styles.conversationInfo}>
         <View style={styles.conversationHeader}>
-          <Text style={[styles.userName, item.unread_count > 0 && styles.unreadName]}>
-            {item.other_user_name || 'Unknown User'}
+          <Text
+            style={[
+              styles.userName,
+              item.unread_count > 0 && styles.unreadName,
+            ]}
+          >
+            {item.other_user_name || "Unknown User"}
           </Text>
           <Text style={styles.time}>{formatTime(item.last_message_at)}</Text>
         </View>
         <Text
-          style={[styles.lastMessage, item.unread_count > 0 && styles.unreadMessage]}
+          style={[
+            styles.lastMessage,
+            item.unread_count > 0 && styles.unreadMessage,
+          ]}
           numberOfLines={1}
         >
-          {typeof item.last_message === 'string' ? item.last_message : (item.last_message?.content || 'No messages yet')}
+          {typeof item.last_message === "string"
+            ? item.last_message
+            : item.last_message?.content || "No messages yet"}
         </Text>
       </View>
     </TouchableOpacity>
@@ -126,7 +141,9 @@ export default function MessagesScreen() {
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
-        contentContainerStyle={conversations.length === 0 ? styles.emptyList : undefined}
+        contentContainerStyle={
+          conversations.length === 0 ? styles.emptyList : undefined
+        }
       />
     </View>
   );
@@ -135,100 +152,100 @@ export default function MessagesScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: "#F3F4F6",
   },
   loadingContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   conversationCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FFFFFF",
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
+    borderBottomColor: "#F3F4F6",
   },
   avatar: {
     width: 50,
     height: 50,
     borderRadius: 25,
-    backgroundColor: '#3B82F6',
-    justifyContent: 'center',
-    alignItems: 'center',
-    position: 'relative',
+    backgroundColor: "#3B82F6",
+    justifyContent: "center",
+    alignItems: "center",
+    position: "relative",
   },
   avatarText: {
-    color: '#FFFFFF',
+    color: "#FFFFFF",
     fontSize: 20,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   unreadBadge: {
-    position: 'absolute',
+    position: "absolute",
     top: -4,
     right: -4,
-    backgroundColor: '#EF4444',
+    backgroundColor: "#EF4444",
     borderRadius: 10,
     minWidth: 20,
     height: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     paddingHorizontal: 6,
   },
   unreadText: {
-    color: '#FFFFFF',
+    color: "#FFFFFF",
     fontSize: 12,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   conversationInfo: {
     flex: 1,
     marginLeft: 12,
   },
   conversationHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: 4,
   },
   userName: {
     fontSize: 16,
-    color: '#111827',
+    color: "#111827",
   },
   unreadName: {
-    fontWeight: '600',
+    fontWeight: "600",
   },
   time: {
     fontSize: 12,
-    color: '#9CA3AF',
+    color: "#9CA3AF",
   },
   lastMessage: {
     fontSize: 14,
-    color: '#6B7280',
+    color: "#6B7280",
   },
   unreadMessage: {
-    color: '#111827',
-    fontWeight: '500',
+    color: "#111827",
+    fontWeight: "500",
   },
   emptyList: {
     flexGrow: 1,
   },
   emptyState: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     padding: 32,
   },
   emptyStateTitle: {
     fontSize: 20,
-    fontWeight: 'bold',
-    color: '#111827',
+    fontWeight: "bold",
+    color: "#111827",
     marginTop: 16,
     marginBottom: 8,
   },
   emptyStateText: {
     fontSize: 14,
-    color: '#6B7280',
-    textAlign: 'center',
+    color: "#6B7280",
+    textAlign: "center",
   },
 });

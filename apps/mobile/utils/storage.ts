@@ -1,26 +1,26 @@
-import { Platform } from 'react-native'
-import * as SecureStore from 'expo-secure-store'
+import { Platform } from "react-native";
+import * as SecureStore from "expo-secure-store";
 
 /**
  * Cross-platform secure storage utility
  * Uses expo-secure-store on iOS/Android, localStorage on web
  */
 
-const isWeb = Platform.OS === 'web'
+const isWeb = Platform.OS === "web";
 
 export const storage = {
   async getItem(key: string): Promise<string | null> {
     try {
       if (isWeb) {
         // Use localStorage on web
-        return typeof window !== 'undefined' ? localStorage.getItem(key) : null
+        return typeof window !== "undefined" ? localStorage.getItem(key) : null;
       } else {
         // Use SecureStore on native
-        return await SecureStore.getItemAsync(key)
+        return await SecureStore.getItemAsync(key);
       }
     } catch (error) {
-      console.error(`Error getting item ${key}:`, error)
-      return null
+      console.error(`Error getting item ${key}:`, error);
+      return null;
     }
   },
 
@@ -28,15 +28,15 @@ export const storage = {
     try {
       if (isWeb) {
         // Use localStorage on web
-        if (typeof window !== 'undefined') {
-          localStorage.setItem(key, value)
+        if (typeof window !== "undefined") {
+          localStorage.setItem(key, value);
         }
       } else {
         // Use SecureStore on native
-        await SecureStore.setItemAsync(key, value)
+        await SecureStore.setItemAsync(key, value);
       }
     } catch (error) {
-      console.error(`Error setting item ${key}:`, error)
+      console.error(`Error setting item ${key}:`, error);
     }
   },
 
@@ -44,15 +44,15 @@ export const storage = {
     try {
       if (isWeb) {
         // Use localStorage on web
-        if (typeof window !== 'undefined') {
-          localStorage.removeItem(key)
+        if (typeof window !== "undefined") {
+          localStorage.removeItem(key);
         }
       } else {
         // Use SecureStore on native
-        await SecureStore.deleteItemAsync(key)
+        await SecureStore.deleteItemAsync(key);
       }
     } catch (error) {
-      console.error(`Error deleting item ${key}:`, error)
+      console.error(`Error deleting item ${key}:`, error);
     }
   },
-}
+};

@@ -1,6 +1,6 @@
-import { create } from 'zustand';
-import { storage } from '@/utils/storage';
-import { API_CONFIG } from '@/config/api';
+import { create } from "zustand";
+import { storage } from "@/utils/storage";
+import { API_CONFIG } from "@/config/api";
 
 interface User {
   id: string;
@@ -30,21 +30,21 @@ export const useAuthStore = create<AuthState>((set) => ({
   login: async (email: string, password: string) => {
     try {
       const response = await fetch(`${API_URL}/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
       });
 
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.message || 'Login failed');
+        throw new Error(data.message || "Login failed");
       }
 
-      await storage.setItem('token', data.token);
+      await storage.setItem("token", data.token);
       set({ user: data.user, token: data.token });
     } catch (error) {
-      console.error('Login error:', error);
+      console.error("Login error:", error);
       throw error;
     }
   },
@@ -52,33 +52,33 @@ export const useAuthStore = create<AuthState>((set) => ({
   register: async (name: string, email: string, password: string) => {
     try {
       const response = await fetch(`${API_URL}/auth/register`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, email, password }),
       });
 
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.message || 'Registration failed');
+        throw new Error(data.message || "Registration failed");
       }
 
-      await storage.setItem('token', data.token);
+      await storage.setItem("token", data.token);
       set({ user: data.user, token: data.token });
     } catch (error) {
-      console.error('Register error:', error);
+      console.error("Register error:", error);
       throw error;
     }
   },
 
   logout: async () => {
-    await storage.deleteItem('token');
+    await storage.deleteItem("token");
     set({ user: null, token: null });
   },
 
   checkAuth: async () => {
     try {
-      const token = await storage.getItem('token');
+      const token = await storage.getItem("token");
 
       if (!token) {
         set({ isLoading: false });
@@ -93,11 +93,11 @@ export const useAuthStore = create<AuthState>((set) => ({
         const data = await response.json();
         set({ user: data.user, token, isLoading: false });
       } else {
-        await storage.deleteItem('token');
+        await storage.deleteItem("token");
         set({ user: null, token: null, isLoading: false });
       }
     } catch (error) {
-      console.error('Auth check error:', error);
+      console.error("Auth check error:", error);
       set({ isLoading: false });
     }
   },

@@ -1,6 +1,6 @@
-import axios, { AxiosInstance } from 'axios';
-import { storage } from '@/utils/storage';
-import { API_CONFIG } from '@/config/api';
+import axios, { AxiosInstance } from "axios";
+import { storage } from "@/utils/storage";
+import { API_CONFIG } from "@/config/api";
 
 // Service URLs from centralized config
 const SERVICES = {
@@ -18,12 +18,12 @@ const createClient = (baseURL: string): AxiosInstance => {
   const client = axios.create({
     baseURL,
     headers: {
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
     },
   });
 
   client.interceptors.request.use(async (config) => {
-    const token = await storage.getItem('token');
+    const token = await storage.getItem("token");
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -45,19 +45,18 @@ const feedClient = createClient(SERVICES.feed);
 export const api = {
   // Auth (port 3001)
   login: (email: string, password: string) =>
-    authClient.post('/auth/login', { email, password }),
+    authClient.post("/auth/login", { email, password }),
 
   register: (name: string, email: string, password: string) =>
-    authClient.post('/auth/register', { name, email, password }),
+    authClient.post("/auth/register", { name, email, password }),
 
-  getProfile: () => authClient.get('/auth/verify'),
+  getProfile: () => authClient.get("/auth/verify"),
 
   // Feed (port 3007) - userId comes from JWT token
-  getFeed: () =>
-    feedClient.get('/feed'),
+  getFeed: () => feedClient.get("/feed"),
 
   // Communities (port 3002)
-  getCommunities: () => communityClient.get('/communities'),
+  getCommunities: () => communityClient.get("/communities"),
 
   getCommunity: (id: string) => communityClient.get(`/communities/${id}`),
 
@@ -68,8 +67,15 @@ export const api = {
     communityClient.post(`/communities/${id}/leave`),
 
   // Requests (port 3003)
-  getRequests: (params?: { community_id?: string; status?: string; type?: string; requester_id?: string; limit?: number; offset?: number }) => {
-    return requestClient.get('/requests', { params: params || {} });
+  getRequests: (params?: {
+    community_id?: string;
+    status?: string;
+    type?: string;
+    requester_id?: string;
+    limit?: number;
+    offset?: number;
+  }) => {
+    return requestClient.get("/requests", { params: params || {} });
   },
 
   getRequest: (id: string) => requestClient.get(`/requests/${id}`),
@@ -81,15 +87,18 @@ export const api = {
     post_to_all_communities?: boolean;
     type: string;
     urgency?: string;
-  }) => requestClient.post('/requests', data),
+  }) => requestClient.post("/requests", data),
 
-  updateRequest: (id: string, data: {
-    title?: string;
-    description?: string;
-    status?: string;
-    urgency?: string;
-    user_id: string;
-  }) => requestClient.put(`/requests/${id}`, data),
+  updateRequest: (
+    id: string,
+    data: {
+      title?: string;
+      description?: string;
+      status?: string;
+      urgency?: string;
+      user_id: string;
+    },
+  ) => requestClient.put(`/requests/${id}`, data),
 
   cancelRequest: (id: string, user_id: string) =>
     requestClient.delete(`/requests/${id}`, { data: { user_id } }),
@@ -98,8 +107,13 @@ export const api = {
     requestClient.post(`/requests/${requestId}/offer`, { message }),
 
   // Matches (port 3003)
-  getMatches: (params?: { request_id?: string; offer_id?: string; status?: string; limit?: number; offset?: number }) =>
-    requestClient.get('/matches', { params }),
+  getMatches: (params?: {
+    request_id?: string;
+    offer_id?: string;
+    status?: string;
+    limit?: number;
+    offset?: number;
+  }) => requestClient.get("/matches", { params }),
 
   getMatch: (id: string) => requestClient.get(`/matches/${id}`),
 
@@ -120,22 +134,27 @@ export const api = {
     messagingClient.get(`/match/${matchId}/messages`),
 
   sendMatchMessage: (matchId: string, content: string, senderId: string) =>
-    messagingClient.post(`/match/${matchId}/messages`, { content, sender_id: senderId }),
+    messagingClient.post(`/match/${matchId}/messages`, {
+      content,
+      sender_id: senderId,
+    }),
 
   markMatchMessagesRead: (matchId: string, userId: string) =>
     messagingClient.put(`/match/${matchId}/messages/read`, { user_id: userId }),
 
   // Legacy conversation-based messaging (kept for backwards compatibility)
-  getConversations: () => messagingClient.get('/messages/conversations'),
+  getConversations: () => messagingClient.get("/messages/conversations"),
 
   getMessages: (conversationId: string) =>
     messagingClient.get(`/messages/conversations/${conversationId}/messages`),
 
   sendMessage: (conversationId: string, content: string) =>
-    messagingClient.post(`/messages/conversations/${conversationId}/messages`, { content }),
+    messagingClient.post(`/messages/conversations/${conversationId}/messages`, {
+      content,
+    }),
 
   // Notifications (port 3005)
-  getNotifications: () => notificationClient.get('/notifications'),
+  getNotifications: () => notificationClient.get("/notifications"),
 
   markNotificationRead: (id: string) =>
     notificationClient.put(`/notifications/${id}/read`),
