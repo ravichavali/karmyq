@@ -1,6 +1,16 @@
 import { Router, Request, Response } from 'express';
 import { query } from '../database/db';
 import { publishEvent } from '../events/publisher';
+import {
+  sendSuccess,
+  sendError,
+  sendValidationError,
+  sendNotFound,
+  sendUnauthorized,
+  sendConflict,
+  sendInternalError,
+  HTTP_STATUS
+} from '@karmyq/shared/utils/response';
 
 const router = Router();
 
@@ -49,10 +59,7 @@ router.post('/:communityId/join', async (req: any, res: Response) => {
     const user_id = req.user?.userId;
 
     if (!user_id) {
-      return res.status(401).json({
-        success: false,
-        message: 'Authentication required',
-      });
+      return sendUnauthorized(res, 'Authentication required');
     }
 
     // Check if community exists and get access_type
@@ -64,26 +71,17 @@ router.post('/:communityId/join', async (req: any, res: Response) => {
     );
 
     if (communityResult.rowCount === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'Community not found',
-      });
+      return sendNotFound(res, 'Community');
     }
 
     const community = communityResult.rows[0];
 
     if (community.status !== 'active') {
-      return res.status(400).json({
-        success: false,
-        message: 'Community is not active',
-      });
+      return sendError(res, 'COMMUNITY_INACTIVE', 'Community is not active', 400);
     }
 
     if (community.current_members >= community.max_members) {
-      return res.status(400).json({
-        success: false,
-        message: 'Community is full (Dunbar\'s number limit reached)',
-      });
+      return sendError(res, 'COMMUNITY_FULL', 'Community is full (Dunbar\'s number limit reached)', 400);
     }
 
     // Check if user is already a member or has pending request
@@ -96,15 +94,9 @@ router.post('/:communityId/join', async (req: any, res: Response) => {
     if (existingMember.rowCount && existingMember.rowCount > 0) {
       const status = existingMember.rows[0].status;
       if (status === 'active') {
-        return res.status(400).json({
-          success: false,
-          message: 'You are already a member of this community',
-        });
+        return sendConflict(res, 'You are already a member of this community');
       } else if (status === 'pending') {
-        return res.status(400).json({
-          success: false,
-          message: 'You already have a pending join request for this community',
-        });
+        return sendConflict(res, 'You already have a pending join request for this community');
       }
     }
 
@@ -155,11 +147,7 @@ router.post('/:communityId/join', async (req: any, res: Response) => {
     });
   } catch (error: any) {
     console.error('Error joining community:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to join community',
-      error: error.message,
-    });
+    return sendInternalError(res, 'Failed to join community', error);
   }
 });
 

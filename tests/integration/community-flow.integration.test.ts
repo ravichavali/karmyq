@@ -148,7 +148,7 @@ describe('Community Flow', () => {
       const response = await request(COMMUNITY_SERVICE_URL)
         .post(`/communities/${testCommunityId}/join`)
         .set('Authorization', `Bearer ${secondUserToken}`)
-        .expect(400);
+        .expect(409); // 409 Conflict for duplicate resource
 
       expect(response.body.success).toBe(false);
       expect(response.body.error.message).toMatch(/already.*member/i);
@@ -226,11 +226,11 @@ describe('Community Flow', () => {
       const newToken = loginResponse.body.data.token;
       const decoded = jwt.verify(newToken, JWT_SECRET) as any;
 
-      expect(decoded).toHaveProperty('communityMemberships');
-      expect(decoded.communityMemberships).toBeInstanceOf(Array);
+      expect(decoded).toHaveProperty('communities');
+      expect(decoded.communities).toBeInstanceOf(Array);
 
       // Find the test community in memberships
-      const membership = decoded.communityMemberships.find(
+      const membership = decoded.communities.find(
         (m: any) => m.id === testCommunityId
       );
 
@@ -251,7 +251,7 @@ describe('Community Flow', () => {
       const newToken = loginResponse.body.data.token;
       const decoded = jwt.verify(newToken, JWT_SECRET) as any;
 
-      const membership = decoded.communityMemberships.find(
+      const membership = decoded.communities.find(
         (m: any) => m.id === testCommunityId
       );
 
