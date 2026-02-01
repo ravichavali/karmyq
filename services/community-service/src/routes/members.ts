@@ -40,15 +40,18 @@ router.get('/:communityId/members', async (req: Request, res: Response) => {
 });
 
 // POST /communities/:communityId/join - Join a community (handles public/private)
-router.post('/:communityId/join', async (req: Request, res: Response) => {
+router.post('/:communityId/join', async (req: any, res: Response) => {
   try {
     const { communityId } = req.params;
-    const { user_id, message } = req.body;
+    const { message } = req.body;
+
+    // Get user_id from authenticated JWT token
+    const user_id = req.user?.userId;
 
     if (!user_id) {
-      return res.status(400).json({
+      return res.status(401).json({
         success: false,
-        message: 'user_id is required',
+        message: 'Authentication required',
       });
     }
 
@@ -141,12 +144,14 @@ router.post('/:communityId/join', async (req: Request, res: Response) => {
       });
     }
 
-    res.status(201).json({
+    res.status(200).json({
       success: true,
-      data: memberResult.rows[0],
-      message: memberStatus === 'active'
-        ? 'Joined community successfully'
-        : 'Join request submitted. Waiting for approval.',
+      data: {
+        ...memberResult.rows[0],
+        message: memberStatus === 'active'
+          ? 'Successfully joined community'
+          : 'Join request submitted. Waiting for approval.'
+      },
     });
   } catch (error: any) {
     console.error('Error joining community:', error);
