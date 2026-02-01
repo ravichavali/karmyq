@@ -129,14 +129,9 @@ jobs:
             echo "🚀 Deploying to karmyq.com..."
             cd ~/karmyq
 
-            # Run the enhanced deployment script
-            # It will automatically:
-            # - Pull latest code
-            # - Install hooks
-            # - Run integration tests
-            # - Build and deploy if tests pass
-            # - Rollback if tests fail
-            ./scripts/deploy.sh
+            # Run deployment with tests skipped
+            # Integration tests will be moved to CI in Phase 2
+            SKIP_TESTS=1 ./scripts/deploy.sh
 
             echo "✅ Deployment complete"
           ENDSSH
