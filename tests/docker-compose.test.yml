@@ -239,7 +239,7 @@ services:
       request-service-test:
         condition: service_healthy
     volumes:
-      - ../tests:/app/tests:ro
+      - ../tests:/app/tests
       - test-results:/app/tests/results
     command: npm run test:integration
 
