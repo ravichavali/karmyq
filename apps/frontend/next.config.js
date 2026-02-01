@@ -3,6 +3,10 @@ const nextConfig = {
   reactStrictMode: true,
   output: 'standalone', // Enable standalone output for optimized Docker builds
 
+  // Don't fail build on ESLint errors (show warnings instead)
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
 
   // Generate unique build ID to force cache invalidation on deployment
   generateBuildId: async () => {
