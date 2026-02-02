@@ -92,6 +92,59 @@ CREATE TABLE communities.health_summary (
 
 COMMENT ON TABLE communities.health_summary IS 'Cached summary of community health for quick access';
 COMMENT ON COLUMN communities.health_summary.network_strength IS 'Composite score: activity + quality + density';
+
+-- communities.community_configs (NEW - Migration 011)
+CREATE TABLE communities.community_configs (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    community_id UUID NOT NULL REFERENCES communities.communities(id) ON DELETE CASCADE UNIQUE,
+
+    -- Identity & Boundaries
+    member_cap INTEGER DEFAULT 150 CHECK (member_cap BETWEEN 10 AND 150),
+    visibility_mode VARCHAR(50) DEFAULT 'public',  -- public/members_only/hybrid
+    outsider_response_allowed BOOLEAN DEFAULT FALSE,
+
+    -- Request Types (community-defined taxonomy as JSONB)
+    enabled_request_types JSONB NOT NULL DEFAULT '[]'::jsonb,
+
+    -- Karma Mechanics
+    karma_split_helper INTEGER DEFAULT 60,
+    karma_split_requestor INTEGER DEFAULT 40,
+    base_karma_pool_per_request INTEGER DEFAULT 100,
+    karma_decay_half_life_days INTEGER DEFAULT 0,  -- 0 = no decay
+
+    -- Trust Mechanics
+    trust_depth_weight DECIMAL(3,2) DEFAULT 0.60,
+    trust_breadth_weight DECIMAL(3,2) DEFAULT 0.40,
+    trust_decay_half_life_days INTEGER DEFAULT 90,
+    trust_path_max_hops INTEGER DEFAULT 3,
+    min_interactions_for_trust INTEGER DEFAULT 1,
+
+    -- Community Onboarding
+    request_approval_required BOOLEAN DEFAULT FALSE,
+    new_member_karma_lockout_days INTEGER DEFAULT 0,
+    join_approval_required BOOLEAN DEFAULT TRUE,
+    joining_counts_as_interaction BOOLEAN DEFAULT TRUE,
+
+    -- Metadata
+    template_source VARCHAR(255),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- communities.config_templates (NEW - Migration 011)
+CREATE TABLE communities.config_templates (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name VARCHAR(255) NOT NULL UNIQUE,
+    description TEXT NOT NULL,
+    config_json JSONB NOT NULL,
+    is_public BOOLEAN DEFAULT TRUE,
+    usage_count INTEGER DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+COMMENT ON TABLE communities.community_configs IS 'Phase 1: Comprehensive configuration for community trust, karma, and coordination mechanics';
+COMMENT ON TABLE communities.config_templates IS 'Pre-made configuration templates for evolutionary discovery';
 ```
 
 ### Tables Read by This Service
@@ -474,6 +527,168 @@ Archive a norm (admin or creator only).
 
 **Implementation:** `src/routes/norms.ts:312`
 
+### GET /communities/:id/config
+Get community configuration.
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "community_id": "uuid",
+    "config": {
+      "member_cap": 150,
+      "visibility_mode": "public",
+      "outsider_response_allowed": true,
+      "enabled_request_types": [
+        {
+          "name": "meal_share",
+          "description": "Share meals or cooking",
+          "karma_multiplier": 1.0
+        }
+      ],
+      "karma_split_helper": 60,
+      "karma_split_requestor": 40,
+      "base_karma_pool_per_request": 100,
+      "karma_decay_half_life_days": 0,
+      "trust_depth_weight": 0.6,
+      "trust_breadth_weight": 0.4,
+      "trust_decay_half_life_days": 180,
+      "trust_path_max_hops": 3,
+      "min_interactions_for_trust": 1,
+      "request_approval_required": false,
+      "new_member_karma_lockout_days": 0,
+      "join_approval_required": true,
+      "joining_counts_as_interaction": true,
+      "template_source": "Cohousing Default",
+      "created_at": "2025-01-10T12:00:00Z",
+      "updated_at": "2025-01-10T12:00:00Z"
+    },
+    "template_source": "Cohousing Default"
+  }
+}
+```
+
+**Implementation:** `src/routes/config.ts:18`
+
+### PUT /communities/:id/config
+Update community configuration (founder only for Phase 1).
+
+**Request:**
+```json
+{
+  "config_updates": {
+    "karma_split_helper": 70,
+    "karma_split_requestor": 30,
+    "visibility_mode": "hybrid"
+  }
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "community_id": "uuid",
+    "config": { ... }
+  },
+  "message": "Community configuration updated successfully"
+}
+```
+
+**Implementation:** `src/routes/config.ts:82`
+
+**Events Published:** `community.config.updated`
+
+### GET /communities/config-templates
+Browse available configuration templates.
+
+**Query Parameters:**
+- `sort_by` - Sort order: 'usage', 'name', 'created_at' (default: 'usage')
+- `public_only` - Filter to public templates only (default: 'true')
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "templates": [
+      {
+        "id": "uuid",
+        "name": "Cohousing Default",
+        "description": "High-trust, balanced participation...",
+        "usage_count": 42,
+        "config_preview": {
+          "karma_split": "60/40",
+          "trust_model": "balanced",
+          "visibility": "public",
+          "member_cap": 150
+        },
+        "full_config": { ... },
+        "created_at": "2025-01-10T12:00:00Z"
+      }
+    ]
+  }
+}
+```
+
+**Implementation:** `src/routes/config.ts:226`
+
+### POST /communities/:id/config/copy-from/:source_community_id
+Copy configuration from another community.
+
+**Request:**
+```json
+{
+  "include_request_types": false
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "community_id": "uuid",
+    "config": { ... },
+    "copied_from": "source-uuid"
+  },
+  "message": "Configuration copied successfully"
+}
+```
+
+**Implementation:** `src/routes/config.ts:274`
+
+**Note:** Source community must be public or user must be a member.
+
+### GET /communities/configs/public
+Browse configurations from thriving communities.
+
+**Query Parameters:**
+- `min_members` - Minimum member count (default: 0)
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "communities": [
+      {
+        "community_id": "uuid",
+        "name": "Seattle Mutual Aid",
+        "member_count": 87,
+        "config": { ... }
+      }
+    ]
+  }
+}
+```
+
+**Implementation:** `src/routes/config.ts:420`
+
+**Note:** Only returns communities with public or hybrid visibility.
+
 ### GET /health
 Service health check.
 
@@ -499,6 +714,8 @@ Service health check.
 ### Events Published
 - `community_created` - When new community is created
 - `community_archived` - When community is archived
+- `community.config.created` - When community configuration is created
+- `community.config.updated` - When community configuration is updated
 - `user_joined_community` - When user joins a community
 - `join_request_created` - When user requests to join private community
 - `user_left_community` - When user leaves or is removed from community

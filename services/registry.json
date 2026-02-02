@@ -39,6 +39,10 @@
           "/communities",
           "/communities/join",
           "/communities/my/communities",
+          "/communities/:id/config",
+          "/communities/config-templates",
+          "/communities/configs/public",
+          "/communities/:id/config/copy-from/:source_id",
           "/memberships",
           "/norms"
         ],
@@ -48,9 +52,15 @@
       "health_check": "http://localhost:3002/health",
       "criticality": "critical",
       "events": {
-        "publishes": ["user_joined_community", "community_created"],
+        "publishes": [
+          "user_joined_community",
+          "community_created",
+          "community.config.created",
+          "community.config.updated"
+        ],
         "subscribes": []
-      }
+      },
+      "notes": "Phase 1: Community Configuration System - founder-only config updates"
     },
     "request-service": {
       "port": 3003,
