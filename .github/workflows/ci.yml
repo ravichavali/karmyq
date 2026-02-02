@@ -198,39 +198,41 @@ jobs:
         run: |
           echo "🏥 Running health checks..."
 
-          services=(
-            "3001:auth-service"
-            "3002:community-service"
-            "3003:request-service"
-            "3004:reputation-service"
-            "3005:notification-service"
-            "3006:messaging-service"
-            "3007:feed-service"
-            "3008:cleanup-service"
-            "3009:geocoding-service"
-            "3010:social-graph-service"
-          )
+          ssh ${{ secrets.PROD_SERVER_USER }}@${{ secrets.PROD_SERVER_HOST }} << 'ENDSSH'
+            services=(
+              "3001:auth-service"
+              "3002:community-service"
+              "3003:request-service"
+              "3004:reputation-service"
+              "3005:notification-service"
+              "3006:messaging-service"
+              "3007:feed-service"
+              "3008:cleanup-service"
+              "3009:geocoding-service"
+              "3010:social-graph-service"
+            )
 
-          all_healthy=true
+            all_healthy=true
 
-          for service in "${services[@]}"; do
-            port=$(echo $service | cut -d: -f1)
-            name=$(echo $service | cut -d: -f2)
+            for service in "${services[@]}"; do
+              port=$(echo $service | cut -d: -f1)
+              name=$(echo $service | cut -d: -f2)
 
-            if curl -f -s https://karmyq.com:$port/health >/dev/null 2>&1; then
-              echo "✅ $name is healthy"
-            else
-              echo "❌ $name health check failed"
-              all_healthy=false
+              if curl -f -s http://localhost:$port/health >/dev/null 2>&1; then
+                echo "✅ $name is healthy"
+              else
+                echo "❌ $name health check failed"
+                all_healthy=false
+              fi
+            done
+
+            if [ "$all_healthy" != "true" ]; then
+              echo "❌ Some services are unhealthy"
+              exit 1
             fi
-          done
 
-          if [ "$all_healthy" != "true" ]; then
-            echo "❌ Some services are unhealthy"
-            exit 1
-          fi
-
-          echo "✅ All services healthy"
+            echo "✅ All services healthy"
+          ENDSSH
 
       - name: Deployment summary
         if: success()
