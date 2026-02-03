@@ -571,6 +571,10 @@ Get community configuration.
 
 **Implementation:** `src/routes/config.ts:18`
 
+**Frontend Integration:**
+- `apps/frontend/src/pages/communities/[id].tsx` - Displays config in read-only mode (Configuration tab)
+- `apps/frontend/src/pages/communities/[id]/admin.tsx` - Fetches config for editing (Configuration tab)
+
 ### PUT /communities/:id/config
 Update community configuration (founder only for Phase 1).
 
@@ -600,6 +604,9 @@ Update community configuration (founder only for Phase 1).
 **Implementation:** `src/routes/config.ts:82`
 
 **Events Published:** `community.config.updated`
+
+**Frontend Integration:**
+- `apps/frontend/src/pages/communities/[id]/admin.tsx` - Founder-only config updates (Configuration tab)
 
 ### GET /communities/config-templates
 Browse available configuration templates.
@@ -635,6 +642,10 @@ Browse available configuration templates.
 
 **Implementation:** `src/routes/config.ts:226`
 
+**Frontend Integration:**
+- `apps/frontend/src/pages/communities/config-templates.tsx` - Template browser page
+- `apps/frontend/src/pages/communities/new.tsx` - Fetches templates for community creation
+
 ### POST /communities/:id/config/copy-from/:source_community_id
 Copy configuration from another community.
 
@@ -662,6 +673,9 @@ Copy configuration from another community.
 
 **Note:** Source community must be public or user must be a member.
 
+**Frontend Integration:**
+- `apps/frontend/src/pages/communities/configs/public.tsx` - Copy configuration modal (founders only)
+
 ### GET /communities/configs/public
 Browse configurations from thriving communities.
 
@@ -688,6 +702,9 @@ Browse configurations from thriving communities.
 **Implementation:** `src/routes/config.ts:420`
 
 **Note:** Only returns communities with public or hybrid visibility.
+
+**Frontend Integration:**
+- `apps/frontend/src/pages/communities/configs/public.tsx` - Thriving communities browser page
 
 ### GET /health
 Service health check.

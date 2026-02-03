@@ -4,6 +4,8 @@ import Head from 'next/head'
 import Link from 'next/link'
 import { communityService } from '@/lib/api'
 import Layout from '@/components/Layout'
+import CommunityConfigEditor from '@/components/CommunityConfigEditor'
+import { CommunityConfig } from '@/types/community-config'
 
 interface Member {
   id: string
@@ -44,10 +46,11 @@ export default function CommunityDetailPage() {
   const { id } = router.query
   const [community, setCommunity] = useState<Community | null>(null)
   const [norms, setNorms] = useState<Norm[]>([])
+  const [config, setConfig] = useState<CommunityConfig | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [currentUser, setCurrentUser] = useState<any>(null)
-  const [activeTab, setActiveTab] = useState<'overview' | 'members' | 'norms'>('overview')
+  const [activeTab, setActiveTab] = useState<'overview' | 'members' | 'norms' | 'config'>('overview')
   const [newNorm, setNewNorm] = useState({ description: '', rationale: '' })
   const [showNormForm, setShowNormForm] = useState(false)
   const [showInviteModal, setShowInviteModal] = useState(false)
@@ -75,6 +78,7 @@ export default function CommunityDetailPage() {
     if (id) {
       fetchCommunity()
       fetchNorms()
+      fetchConfig()
     }
   }, [id])
 
@@ -96,6 +100,15 @@ export default function CommunityDetailPage() {
       setNorms(response.data.norms || response.data)
     } catch (err: any) {
       console.error('Failed to load norms:', err)
+    }
+  }
+
+  const fetchConfig = async () => {
+    try {
+      const response = await communityService.getConfig(id as string)
+      setConfig(response.data)
+    } catch (err: any) {
+      console.error('Failed to load configuration:', err)
     }
   }
 
@@ -290,6 +303,16 @@ export default function CommunityDetailPage() {
                 >
                   Norms ({norms.length})
                 </button>
+                <button
+                  onClick={() => setActiveTab('config')}
+                  className={`px-6 py-4 font-medium ${
+                    activeTab === 'config'
+                      ? 'border-b-2 border-blue-600 text-blue-600'
+                      : 'text-gray-600 hover:text-gray-800'
+                  }`}
+                >
+                  Configuration
+                </button>
               </nav>
             </div>
 
@@ -463,6 +486,42 @@ export default function CommunityDetailPage() {
                       ))
                     )}
                   </div>
+                </div>
+              )}
+
+              {/* Configuration Tab */}
+              {activeTab === 'config' && config && (
+                <div>
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-xl font-semibold">Community Configuration</h3>
+                    {community.creator_id === currentUser?.id && (
+                      <Link
+                        href={`/communities/${id}/admin?tab=config`}
+                        className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm font-medium"
+                      >
+                        Edit Configuration
+                      </Link>
+                    )}
+                  </div>
+                  <p className="text-gray-600 mb-6">
+                    View the configuration that defines how trust, karma, and coordination work in this community.
+                    {community.creator_id === currentUser?.id && ' Click "Edit Configuration" to make changes.'}
+                  </p>
+
+                  <CommunityConfigEditor
+                    config={config}
+                    onChange={() => {}} // No-op for read-only
+                    readOnly={true}
+                    errors={{}}
+                  />
+
+                  {config.template_source && (
+                    <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
+                      <p className="text-sm text-blue-800">
+                        <strong>Template:</strong> This community was created using the "{config.template_source}" template.
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

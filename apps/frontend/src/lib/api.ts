@@ -278,6 +278,24 @@ export const communityService = {
       params: { format },
       responseType: format === 'csv' ? 'blob' : 'json',
     }),
+
+  // Configuration Management
+  getConfig: (communityId: string) =>
+    communityApi.get(`/communities/${communityId}/config`),
+
+  updateConfig: (communityId: string, config: any) =>
+    communityApi.put(`/communities/${communityId}/config`, config),
+
+  getConfigTemplates: (params?: { sort_by?: string; public_only?: boolean }) =>
+    communityApi.get('/communities/config-templates', { params }),
+
+  copyConfigFrom: (communityId: string, sourceId: string, includeRequestTypes = true) =>
+    communityApi.post(`/communities/${communityId}/config/copy-from/${sourceId}`, {
+      include_request_types: includeRequestTypes
+    }),
+
+  getThrivingCommunities: (minMembers = 5) =>
+    communityApi.get('/communities/configs/public', { params: { min_members: minMembers } }),
 }
 
 // Request Service API Methods

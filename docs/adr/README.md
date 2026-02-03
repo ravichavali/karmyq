@@ -51,7 +51,8 @@ Each ADR follows this structure:
 - [ADR-019: Referral Chain Trust System](ADR-019-referral-chain-trust.md)
 - [ADR-020: Trust-First Design Philosophy](ADR-020-trust-first-design.md)
 - [ADR-021: Configurable Trust Path Filtering & Adaptive Trust Preferences](ADR-021-trust-path-filtering.md)
-- [ADR-022: Multi-Tier Feed Architecture (Explore-Exploit Balance)](ADR-022-multi-tier-feed-architecture.md) ⭐ NEW
+- [ADR-022: Multi-Tier Feed Architecture (Explore-Exploit Balance)](ADR-022-multi-tier-feed-architecture.md)
+- [ADR-030: Community Configuration System (Phase 1)](ADR-030-community-configuration-system.md) ⭐ NEW
 
 ## Creating a New ADR
 

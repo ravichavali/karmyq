@@ -196,6 +196,189 @@ Modified `services/community-service/src/routes/communities.ts`:
 
 ---
 
+## Frontend Implementation
+
+### UI Components
+
+Created comprehensive frontend implementation for configuration management:
+
+#### Core Components
+
+**`apps/frontend/src/components/CommunityConfigEditor.tsx`** (Created)
+- Reusable configuration editor with read-only and edit modes
+- 5 collapsible accordion sections:
+  1. **Identity & Boundaries**: member_cap, visibility_mode, outsider_response_allowed
+  2. **Request Types**: CRUD interface for enabled_request_types with validation
+  3. **Karma Mechanics**: karma splits, base pool, decay settings
+  4. **Trust Mechanics**: depth/breadth weights (auto-adjusting to sum to 1.0), decay, path settings
+  5. **Onboarding Rules**: approval requirements, lockout periods
+- Real-time validation with error display
+- Help text for complex fields
+- Auto-adjusts trust weights when one changes (ensures sum = 1.0)
+
+**Type Definitions** (`apps/frontend/src/types/community-config.ts`)
+```typescript
+export interface CommunityConfig {
+  member_cap: number
+  visibility_mode: 'public' | 'members_only' | 'hybrid'
+  outsider_response_allowed: boolean
+  enabled_request_types: RequestType[]
+  karma_split_helper: number
+  karma_split_requestor: number
+  base_karma_pool_per_request: number
+  karma_decay_half_life_days: number
+  trust_depth_weight: number
+  trust_breadth_weight: number
+  trust_decay_half_life_days: number
+  trust_path_max_hops: number
+  min_interactions_for_trust: number
+  request_approval_required: boolean
+  new_member_karma_lockout_days: number
+  join_approval_required: boolean
+  joining_counts_as_interaction: boolean
+  template_source?: string
+}
+
+export interface RequestType {
+  name: string
+  description: string
+  karma_multiplier: number
+}
+```
+
+#### Pages
+
+**1. Template Browser** (`apps/frontend/src/pages/communities/config-templates.tsx`)
+- Browse pre-made configuration templates
+- Card grid display with sort options (usage/name/date)
+- Template preview with key settings highlighted
+- "Use This Template" button navigates to community creation
+
+**2. Community Creation** (`apps/frontend/src/pages/communities/new.tsx` - Modified)
+- Multi-step flow: basic info → configuration (optional)
+- Template-based initialization via URL query param `?template={id}`
+- Custom configuration editing with CommunityConfigEditor
+- Validation before submit
+- Sends `config: {template_id, custom_config}` on creation
+
+**3. Admin Configuration Panel** (`apps/frontend/src/pages/communities/[id]/admin.tsx` - Modified)
+- New "Configuration" tab for founders
+- Edit mode with CommunityConfigEditor
+- Comprehensive validation (trust weights, request type uniqueness, ranges)
+- Save with optimistic updates
+- Founder-only access control
+
+**4. Public Configuration View** (`apps/frontend/src/pages/communities/[id].tsx` - Modified)
+- New "Configuration" tab on community profile
+- Read-only CommunityConfigEditor display
+- "Edit Configuration" link for founders → redirects to admin panel
+- Visible to all community members
+
+**5. Thriving Communities Browser** (`apps/frontend/src/pages/communities/configs/public.tsx`)
+- Browse configurations from successful communities (with member filters)
+- Filter by minimum members: 5/10/25/50/100+
+- Community cards showing config previews
+- Expandable config details
+- **Copy Configuration Modal**:
+  - Founder-only feature
+  - Select source community and target community (from user's founded communities)
+  - Option to include/exclude request types
+  - Warning about overwriting current configuration
+
+### API Integration
+
+Modified `apps/frontend/src/lib/api.ts` to add configuration endpoints:
+```typescript
+// Configuration Management
+getConfig: (communityId: string) =>
+  communityApi.get(`/communities/${communityId}/config`),
+
+updateConfig: (communityId: string, config: any) =>
+  communityApi.put(`/communities/${communityId}/config`, config),
+
+getConfigTemplates: (params?: {sort_by?: string, public_only?: boolean}) =>
+  communityApi.get('/communities/config-templates', {params}),
+
+copyConfigFrom: (communityId: string, sourceId: string, includeRequestTypes = true) =>
+  communityApi.post(`/communities/${communityId}/config/copy-from/${sourceId}`, {
+    include_request_types: includeRequestTypes
+  }),
+
+getThrivingCommunities: (minMembers = 5) =>
+  communityApi.get('/communities/configs/public', {
+    params: {min_members: minMembers}
+  }),
+```
+
+### User Workflows
+
+**1. Create Community with Template**
+```
+Browse Templates → Select Template → Fill Basic Info →
+(Optional) Customize Config → Create Community
+```
+
+**2. Update Community Configuration** (Founder only)
+```
+Community Profile → Admin Panel → Configuration Tab →
+Edit Config → Validate → Save
+```
+
+**3. Copy Configuration from Thriving Community**
+```
+Browse Thriving Communities → View Config → Copy →
+Select Target Community → Confirm
+```
+
+**4. View Community Configuration** (Any member)
+```
+Community Profile → Configuration Tab → View Read-Only Config
+```
+
+### Validation Rules (Client-Side)
+
+Frontend enforces same validation as backend:
+- Trust weights must sum to 1.0 (±0.001 tolerance)
+- Request type names must be unique and `lowercase_underscore` format
+- Karma multipliers: 0.5-2.0
+- Member cap: 10-150
+- Karma splits: helper (0-100), requestor (-50 to 100)
+- All numeric fields within documented ranges
+
+### Files Modified/Created
+
+**Created:**
+- `apps/frontend/src/components/CommunityConfigEditor.tsx` (~350 lines)
+- `apps/frontend/src/types/community-config.ts` (~40 lines)
+- `apps/frontend/src/pages/communities/config-templates.tsx` (~120 lines)
+- `apps/frontend/src/pages/communities/configs/public.tsx` (~280 lines)
+
+**Modified:**
+- `apps/frontend/src/lib/api.ts` (added 5 config endpoints)
+- `apps/frontend/src/pages/communities/new.tsx` (multi-step flow + template support)
+- `apps/frontend/src/pages/communities/[id]/admin.tsx` (Configuration tab)
+- `apps/frontend/src/pages/communities/[id].tsx` (read-only Configuration tab)
+
+**Total:** ~600 lines of frontend code
+
+### Access Control (Frontend)
+
+- **Template browsing**: Public (anyone can view)
+- **Configuration viewing**: Community members only
+- **Configuration editing**: Founders only (Phase 1)
+- **Configuration copying**: Founders only (can only copy to communities they founded)
+
+### Future Frontend Work (Phase 2+)
+
+- [ ] User preference overlay UI (filter request types, adjust personal karma weights)
+- [ ] Configuration history/versioning view
+- [ ] A/B testing configuration selector
+- [ ] Democratic governance interface (vote on config changes)
+- [ ] Configuration analytics dashboard
+- [ ] Mobile app implementation (React Native)
+
+---
+
 ## Consequences
 
 ### Positive
@@ -263,7 +446,9 @@ Modified `services/community-service/src/routes/communities.ts`:
 - **Future**: ADR-032 (Trust Computation Using Configs - Phase 3)
 - **Future**: ADR-033 (Karma Computation Using Configs - Phase 4)
 - **Related**: [ADR-011](ADR-011-reputation-decay.md) - Reputation Decay (now configurable per community)
+- **Related**: [ADR-007](ADR-007-polymorphic-request-system.md) - Polymorphic Request System (community configs enable simpler taxonomy approach)
 - **Related**: Migration 011 - Database schema for configs
+- **Tangential**: [Gemini Review Roadmap](../archive/gemini-review/roadmap.md) - Discusses request type polymorphism; community configs take a simpler "community-defined taxonomy" approach instead
 
 ---
 

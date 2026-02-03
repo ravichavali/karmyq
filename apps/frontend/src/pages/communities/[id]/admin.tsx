@@ -4,6 +4,8 @@ import Head from 'next/head'
 import Link from 'next/link'
 import { communityService } from '@/lib/api'
 import Layout from '@/components/Layout'
+import CommunityConfigEditor from '@/components/CommunityConfigEditor'
+import { CommunityConfig } from '@/types/community-config'
 
 interface Member {
   id: string
@@ -49,10 +51,14 @@ export default function CommunityAdminPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [currentUser, setCurrentUser] = useState<any>(null)
-  const [activeTab, setActiveTab] = useState<'members' | 'pending' | 'settings' | 'stats' | 'export'>('members')
+  const [activeTab, setActiveTab] = useState<'members' | 'pending' | 'settings' | 'config' | 'stats' | 'export'>('members')
   const [exporting, setExporting] = useState(false)
   const [saving, setSaving] = useState(false)
   const [editedSettings, setEditedSettings] = useState<CommunitySettings | null>(null)
+  const [config, setConfig] = useState<CommunityConfig | null>(null)
+  const [editedConfig, setEditedConfig] = useState<CommunityConfig | null>(null)
+  const [configErrors, setConfigErrors] = useState<Record<string, string>>({})
+  const [configSaving, setConfigSaving] = useState(false)
   const [stats, setStats] = useState<any>(null)
   const [loadingStats, setLoadingStats] = useState(false)
 
@@ -72,6 +78,7 @@ export default function CommunityAdminPage() {
     if (id) {
       fetchCommunity()
       fetchSettings()
+      fetchConfig()
     }
   }, [id])
 
@@ -107,6 +114,16 @@ export default function CommunityAdminPage() {
       }
       setSettings(defaults)
       setEditedSettings(defaults)
+    }
+  }
+
+  const fetchConfig = async () => {
+    try {
+      const response = await communityService.getConfig(id as string)
+      setConfig(response.data.data)
+      setEditedConfig(response.data.data)
+    } catch (err: any) {
+      console.error('Failed to load configuration:', err)
     }
   }
 
@@ -191,6 +208,48 @@ export default function CommunityAdminPage() {
       alert(err.response?.data?.message || 'Failed to save settings')
     } finally {
       setSaving(false)
+    }
+  }
+
+  const validateConfig = (config: CommunityConfig): Record<string, string> => {
+    const errors: Record<string, string> = {}
+
+    // Trust weights must sum to 1.0
+    const weightSum = config.trust_depth_weight + config.trust_breadth_weight
+    if (Math.abs(weightSum - 1.0) > 0.01) {
+      errors.trust_weights = `Weights sum to ${weightSum.toFixed(2)}, must equal 1.0`
+    }
+
+    // Request type names must be unique
+    const names = config.enabled_request_types.map(t => t.name)
+    if (new Set(names).size !== names.length) {
+      errors.request_types = 'Request type names must be unique'
+    }
+
+    return errors
+  }
+
+  const handleSaveConfig = async () => {
+    if (!currentUser || !id || !editedConfig) return
+
+    // Validate configuration
+    const errors = validateConfig(editedConfig)
+    if (Object.keys(errors).length > 0) {
+      setConfigErrors(errors)
+      alert('Please fix validation errors before saving')
+      return
+    }
+
+    setConfigSaving(true)
+    try {
+      await communityService.updateConfig(id as string, editedConfig)
+      setConfig(editedConfig)
+      setConfigErrors({})
+      alert('Configuration saved successfully!')
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Failed to save configuration')
+    } finally {
+      setConfigSaving(false)
     }
   }
 
@@ -355,6 +414,16 @@ export default function CommunityAdminPage() {
                   }`}
                 >
                   Settings
+                </button>
+                <button
+                  onClick={() => setActiveTab('config')}
+                  className={`px-6 py-4 font-medium ${
+                    activeTab === 'config'
+                      ? 'border-b-2 border-blue-600 text-blue-600'
+                      : 'text-gray-600 hover:text-gray-800'
+                  }`}
+                >
+                  Configuration
                 </button>
                 <button
                   onClick={() => {
@@ -655,6 +724,75 @@ export default function CommunityAdminPage() {
                       </button>
                     </div>
                   </div>
+                </div>
+              )}
+
+              {/* Configuration Tab */}
+              {activeTab === 'config' && editedConfig && (
+                <div>
+                  <h3 className="text-xl font-semibold mb-4">Community Configuration</h3>
+                  <p className="text-gray-600 mb-6">
+                    Configure your community's trust mechanics, karma distribution, and coordination rules.
+                    These settings define how karma, trust, and coordination work in your community.
+                  </p>
+
+                  {/* Founder-only check */}
+                  {community.creator_id !== currentUser?.id ? (
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
+                      <h4 className="font-semibold text-yellow-900 mb-2">Founder Access Only</h4>
+                      <p className="text-yellow-800">
+                        Only the community founder can modify the configuration. You can view the current settings below.
+                      </p>
+                      <div className="mt-4">
+                        <CommunityConfigEditor
+                          config={config!}
+                          onChange={() => {}} // No-op for read-only
+                          readOnly={true}
+                          errors={{}}
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <CommunityConfigEditor
+                        config={editedConfig}
+                        onChange={(newConfig) => {
+                          setEditedConfig(newConfig)
+                          // Clear errors when config changes
+                          setConfigErrors({})
+                        }}
+                        errors={configErrors}
+                      />
+
+                      {/* Save Button */}
+                      <div className="flex justify-end gap-3 mt-6 pt-6 border-t">
+                        <button
+                          onClick={() => {
+                            setEditedConfig(config)
+                            setConfigErrors({})
+                          }}
+                          className="px-6 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
+                        >
+                          Reset
+                        </button>
+                        <button
+                          onClick={handleSaveConfig}
+                          disabled={configSaving}
+                          className="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-blue-400"
+                        >
+                          {configSaving ? 'Saving...' : 'Save Configuration'}
+                        </button>
+                      </div>
+
+                      {/* Warning Message */}
+                      <div className="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-4">
+                        <p className="text-sm text-blue-800">
+                          <strong>Note:</strong> Configuration changes affect how trust scores, karma distribution,
+                          and request types work. Existing data is not recalculated when you change these settings.
+                        </p>
+                      </div>
+                    </>
+                  )}
                 </div>
               )}
 
