@@ -29,11 +29,12 @@ export default function ConfigTemplates() {
         sort_by: sortBy,
         public_only: true,
       })
-      setTemplates(response.data || [])
+      // Backend returns { success: true, data: { templates: [...] } }
+      setTemplates(response.data.templates || [])
       setError(null)
     } catch (err: any) {
       console.error('Error fetching templates:', err)
-      setError(err.response?.data?.error || 'Failed to load templates')
+      setError(err.response?.data?.message || err.response?.data?.error || 'Failed to load templates')
     } finally {
       setLoading(false)
     }

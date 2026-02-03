@@ -324,7 +324,7 @@ export default function CommunityDetailPage() {
                   <p className="text-gray-600 mb-6">
                     {community.description || 'No description provided.'}
                   </p>
-                  <div className="grid md:grid-cols-3 gap-4">
+                  <div className="grid md:grid-cols-3 gap-4 mb-8">
                     <div className="bg-blue-50 rounded-lg p-4">
                       <div className="text-3xl font-bold text-blue-600">
                         {community.current_members}
@@ -340,6 +340,153 @@ export default function CommunityDetailPage() {
                       <div className="text-sm text-gray-600">Active Requests</div>
                     </div>
                   </div>
+
+                  {/* Configuration Highlights */}
+                  {config && (
+                    <div className="mt-8">
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-xl font-semibold">How This Community Works</h3>
+                        <button
+                          onClick={() => setActiveTab('config')}
+                          className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+                        >
+                          View Full Configuration →
+                        </button>
+                      </div>
+
+                      <div className="grid md:grid-cols-2 gap-6">
+                        {/* Karma Mechanics */}
+                        <div className="bg-gradient-to-br from-yellow-50 to-amber-50 border border-yellow-200 rounded-lg p-5">
+                          <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                            <span className="text-xl">💎</span>
+                            Karma Mechanics
+                          </h4>
+                          <div className="space-y-2 text-sm">
+                            <div className="flex justify-between">
+                              <span className="text-gray-700">Karma Split:</span>
+                              <span className="font-medium text-gray-900">
+                                {config.karma_split_helper}% helper / {config.karma_split_requestor}% requestor
+                              </span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-gray-700">Base Pool:</span>
+                              <span className="font-medium text-gray-900">{config.base_karma_pool_per_request} karma</span>
+                            </div>
+                            {config.karma_decay_half_life_days > 0 && (
+                              <div className="flex justify-between">
+                                <span className="text-gray-700">Karma Decay:</span>
+                                <span className="font-medium text-gray-900">{config.karma_decay_half_life_days} day half-life</span>
+                              </div>
+                            )}
+                            {config.karma_decay_half_life_days === 0 && (
+                              <div className="text-xs text-gray-600 mt-1">
+                                ✓ Karma is bankable (no decay)
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Trust Mechanics */}
+                        <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-5">
+                          <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                            <span className="text-xl">🤝</span>
+                            Trust Mechanics
+                          </h4>
+                          <div className="space-y-2 text-sm">
+                            <div className="flex justify-between">
+                              <span className="text-gray-700">Trust Model:</span>
+                              <span className="font-medium text-gray-900">
+                                {config.trust_depth_weight > 0.6 ? 'Depth-focused' :
+                                 config.trust_breadth_weight > 0.6 ? 'Breadth-focused' : 'Balanced'}
+                              </span>
+                            </div>
+                            <div className="flex justify-between text-xs text-gray-600">
+                              <span>{Math.round(config.trust_depth_weight * 100)}% depth</span>
+                              <span>{Math.round(config.trust_breadth_weight * 100)}% breadth</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-gray-700">Trust Decay:</span>
+                              <span className="font-medium text-gray-900">{config.trust_decay_half_life_days} days</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-gray-700">Max Hops:</span>
+                              <span className="font-medium text-gray-900">{config.trust_path_max_hops} connections</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Request Types */}
+                        <div className="bg-gradient-to-br from-purple-50 to-pink-50 border border-purple-200 rounded-lg p-5">
+                          <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                            <span className="text-xl">📋</span>
+                            Request Types
+                          </h4>
+                          <div className="flex flex-wrap gap-2">
+                            {config.enabled_request_types.map((type) => (
+                              <span
+                                key={type.name}
+                                className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium bg-white border border-purple-300 text-gray-700"
+                                title={type.description}
+                              >
+                                {type.name.replace(/_/g, ' ')}
+                                {type.karma_multiplier !== 1.0 && (
+                                  <span className="text-xs text-purple-600 font-semibold">
+                                    ×{type.karma_multiplier}
+                                  </span>
+                                )}
+                              </span>
+                            ))}
+                          </div>
+                          {config.enabled_request_types.length === 0 && (
+                            <p className="text-sm text-gray-500">No request types configured</p>
+                          )}
+                        </div>
+
+                        {/* Community Rules */}
+                        <div className="bg-gradient-to-br from-green-50 to-emerald-50 border border-green-200 rounded-lg p-5">
+                          <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                            <span className="text-xl">📜</span>
+                            Community Rules
+                          </h4>
+                          <div className="space-y-2 text-sm">
+                            <div className="flex justify-between">
+                              <span className="text-gray-700">Size Limit:</span>
+                              <span className="font-medium text-gray-900">
+                                {community.current_members} / {config.member_cap} members
+                              </span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-gray-700">Visibility:</span>
+                              <span className="font-medium text-gray-900">
+                                {config.visibility_mode === 'public' ? '👁️ Public' :
+                                 config.visibility_mode === 'members_only' ? '🔒 Members Only' :
+                                 '🔓 Hybrid'}
+                              </span>
+                            </div>
+                            {config.join_approval_required && (
+                              <div className="text-xs text-gray-600">✓ Join approval required</div>
+                            )}
+                            {config.request_approval_required && (
+                              <div className="text-xs text-gray-600">✓ Request approval required</div>
+                            )}
+                            {config.new_member_karma_lockout_days > 0 && (
+                              <div className="text-xs text-gray-600">
+                                ⚠️ {config.new_member_karma_lockout_days} day karma lockout for new members
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {config.template_source && (
+                        <div className="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-4">
+                          <p className="text-sm text-blue-800">
+                            <strong>Based on Template:</strong> {config.template_source}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
 

@@ -81,6 +81,14 @@ export interface ConfigTemplate extends CommunityConfig {
   usage_count: number;
 }
 
+/**
+ * API response format for config templates endpoint
+ * Backend returns: { success: boolean, data: { templates: ConfigTemplate[] } }
+ */
+export interface ConfigTemplateResponse {
+  templates: ConfigTemplate[];
+}
+
 export interface ValidationError {
   field: string;
   message: string;

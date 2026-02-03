@@ -736,6 +736,26 @@ export default function CommunityAdminPage() {
                     These settings define how karma, trust, and coordination work in your community.
                   </p>
 
+                  {/* Configuration Resources */}
+                  {community.creator_id === currentUser?.id && (
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h4 className="font-semibold text-blue-900">Need Inspiration?</h4>
+                          <p className="text-sm text-blue-700 mt-1">
+                            Explore configurations from thriving communities
+                          </p>
+                        </div>
+                        <Link
+                          href="/communities/configs/public"
+                          className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm font-medium transition-colors"
+                        >
+                          View Thriving Communities →
+                        </Link>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Founder-only check */}
                   {community.creator_id !== currentUser?.id ? (
                     <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">

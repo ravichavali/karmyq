@@ -171,6 +171,35 @@ export default function CommunitiesPage() {
             </Link>
           </div>
 
+          {/* Configuration Resources */}
+          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4 mb-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-2xl">⚙️</span>
+                <div>
+                  <h3 className="font-semibold text-gray-900">Community Configuration</h3>
+                  <p className="text-sm text-gray-600">
+                    Explore how different communities set up their karma and trust mechanics
+                  </p>
+                </div>
+              </div>
+              <div className="flex gap-3">
+                <Link
+                  href="/communities/config-templates"
+                  className="px-4 py-2 bg-white border border-blue-300 text-blue-700 rounded hover:bg-blue-50 text-sm font-medium transition-colors"
+                >
+                  📋 Browse Templates
+                </Link>
+                <Link
+                  href="/communities/configs/public"
+                  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm font-medium transition-colors"
+                >
+                  ⭐ Thriving Communities
+                </Link>
+              </div>
+            </div>
+          </div>
+
           {/* Search and Filters */}
           <div className="bg-white rounded-lg shadow-md p-6 mb-6">
             <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
