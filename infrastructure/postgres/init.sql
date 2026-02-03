@@ -813,3 +813,92 @@ $$;
 -- Grant schema permissions
 GRANT USAGE ON SCHEMA auth, communities, requests, reputation, messaging, notifications, feedback, governance, events, feed TO karmyq;
 GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA auth, communities, requests, reputation, messaging, notifications, feedback, governance, events, feed TO karmyq;
+
+-- ============= MIGRATION 011: COMMUNITY CONFIGURATION SYSTEM =============
+-- Phase 1: Communities define their own rules for trust mechanics, karma distribution, and coordination patterns
+-- Related: ADR-030 (Community Configuration System)
+
+-- Community Configs Table
+CREATE TABLE communities.community_configs (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    community_id UUID NOT NULL REFERENCES communities.communities(id) ON DELETE CASCADE UNIQUE,
+
+    -- Identity & Boundaries
+    member_cap INTEGER DEFAULT 150 CHECK (member_cap BETWEEN 10 AND 150),
+    visibility_mode VARCHAR(50) DEFAULT 'public' CHECK (visibility_mode IN ('public', 'members_only', 'hybrid')),
+    outsider_response_allowed BOOLEAN DEFAULT FALSE,
+
+    -- Request Types (community-defined taxonomy)
+    enabled_request_types JSONB NOT NULL DEFAULT '[]'::jsonb,
+
+    -- Karma Mechanics
+    karma_split_helper INTEGER DEFAULT 60 CHECK (karma_split_helper BETWEEN 0 AND 100),
+    karma_split_requestor INTEGER DEFAULT 40 CHECK (karma_split_requestor BETWEEN -50 AND 100),
+    base_karma_pool_per_request INTEGER DEFAULT 100 CHECK (base_karma_pool_per_request BETWEEN 10 AND 1000),
+    karma_decay_half_life_days INTEGER DEFAULT 0 CHECK (karma_decay_half_life_days BETWEEN 0 AND 365),
+
+    -- Trust Mechanics
+    trust_depth_weight DECIMAL(3,2) DEFAULT 0.60 CHECK (trust_depth_weight BETWEEN 0.0 AND 1.0),
+    trust_breadth_weight DECIMAL(3,2) DEFAULT 0.40 CHECK (trust_breadth_weight BETWEEN 0.0 AND 1.0),
+    trust_decay_half_life_days INTEGER DEFAULT 90 CHECK (trust_decay_half_life_days BETWEEN 30 AND 365),
+    trust_path_max_hops INTEGER DEFAULT 3 CHECK (trust_path_max_hops BETWEEN 1 AND 5),
+    min_interactions_for_trust INTEGER DEFAULT 1 CHECK (min_interactions_for_trust BETWEEN 1 AND 10),
+
+    -- Community Onboarding
+    request_approval_required BOOLEAN DEFAULT FALSE,
+    new_member_karma_lockout_days INTEGER DEFAULT 0 CHECK (new_member_karma_lockout_days BETWEEN 0 AND 30),
+    join_approval_required BOOLEAN DEFAULT TRUE,
+    joining_counts_as_interaction BOOLEAN DEFAULT TRUE,
+
+    -- Metadata
+    template_source VARCHAR(255),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    -- Validation constraint: trust weights must sum to 1.0
+    CONSTRAINT trust_weights_sum CHECK (
+        ABS((trust_depth_weight + trust_breadth_weight) - 1.0) < 0.01
+    )
+);
+
+COMMENT ON TABLE communities.community_configs IS 'Comprehensive configuration for community trust, karma, and coordination mechanics';
+
+-- Config Templates Table
+CREATE TABLE communities.config_templates (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name VARCHAR(255) NOT NULL UNIQUE,
+    description TEXT NOT NULL,
+    config_json JSONB NOT NULL,
+    is_public BOOLEAN DEFAULT TRUE,
+    usage_count INTEGER DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+COMMENT ON TABLE communities.config_templates IS 'Configuration templates for evolutionary discovery';
+
+-- Indexes
+CREATE INDEX idx_community_configs_community_id ON communities.community_configs(community_id);
+CREATE INDEX idx_community_configs_template_source ON communities.community_configs(template_source);
+CREATE INDEX idx_config_templates_usage ON communities.config_templates(usage_count DESC);
+CREATE INDEX idx_config_templates_is_public ON communities.config_templates(is_public);
+
+-- Seed Data: 3 Starter Templates
+INSERT INTO communities.config_templates (name, description, config_json) VALUES
+('Cohousing Default', 'High-trust, balanced participation, relationship-focused', '{"member_cap": 150, "visibility_mode": "public", "outsider_response_allowed": true, "enabled_request_types": [{"name": "meal_share", "description": "Share meals or cooking", "karma_multiplier": 1.0}, {"name": "tool_borrow", "description": "Borrow tools or equipment", "karma_multiplier": 0.8}, {"name": "ride_share", "description": "Share rides or transportation", "karma_multiplier": 1.2}, {"name": "childcare", "description": "Help with childcare or babysitting", "karma_multiplier": 1.5}], "karma_split_helper": 60, "karma_split_requestor": 40, "base_karma_pool_per_request": 100, "karma_decay_half_life_days": 0, "trust_depth_weight": 0.6, "trust_breadth_weight": 0.4, "trust_decay_half_life_days": 180, "trust_path_max_hops": 3, "min_interactions_for_trust": 1, "request_approval_required": false, "new_member_karma_lockout_days": 0, "join_approval_required": true, "joining_counts_as_interaction": true}'::jsonb),
+('Neighborhood Cautious', 'Boundary-conscious, helper-focused, gradual trust-building', '{"member_cap": 100, "visibility_mode": "members_only", "outsider_response_allowed": false, "enabled_request_types": [{"name": "skill_share", "description": "Share skills or expertise", "karma_multiplier": 1.0}, {"name": "errand_help", "description": "Help with errands or tasks", "karma_multiplier": 0.9}, {"name": "pet_sitting", "description": "Pet sitting or care", "karma_multiplier": 1.1}], "karma_split_helper": 80, "karma_split_requestor": 20, "base_karma_pool_per_request": 100, "karma_decay_half_life_days": 0, "trust_depth_weight": 0.7, "trust_breadth_weight": 0.3, "trust_decay_half_life_days": 90, "trust_path_max_hops": 2, "min_interactions_for_trust": 3, "request_approval_required": true, "new_member_karma_lockout_days": 7, "join_approval_required": true, "joining_counts_as_interaction": false}'::jsonb),
+('Experimental Reciprocal', 'Experimental gift economy with equal karma split', '{"member_cap": 50, "visibility_mode": "hybrid", "outsider_response_allowed": false, "enabled_request_types": [{"name": "general_help", "description": "General help or support", "karma_multiplier": 1.0}], "karma_split_helper": 50, "karma_split_requestor": 50, "base_karma_pool_per_request": 100, "karma_decay_half_life_days": 0, "trust_depth_weight": 0.5, "trust_breadth_weight": 0.5, "trust_decay_half_life_days": 30, "trust_path_max_hops": 3, "min_interactions_for_trust": 1, "request_approval_required": false, "new_member_karma_lockout_days": 0, "join_approval_required": false, "joining_counts_as_interaction": true}'::jsonb);
+
+-- Trigger: Update updated_at on config changes
+CREATE OR REPLACE FUNCTION communities.update_community_config_timestamp()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = CURRENT_TIMESTAMP;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER update_community_config_timestamp
+BEFORE UPDATE ON communities.community_configs
+FOR EACH ROW
+EXECUTE FUNCTION communities.update_community_config_timestamp();
