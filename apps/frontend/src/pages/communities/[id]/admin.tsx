@@ -86,7 +86,7 @@ export default function CommunityAdminPage() {
     try {
       setLoading(true)
       const response = await communityService.getCommunity(id as string)
-      setCommunity(response.data.data)
+      setCommunity(response.data)
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to load community')
     } finally {
@@ -97,8 +97,8 @@ export default function CommunityAdminPage() {
   const fetchSettings = async () => {
     try {
       const response = await communityService.getSettings(id as string)
-      setSettings(response.data.data)
-      setEditedSettings(response.data.data)
+      setSettings(response.data)
+      setEditedSettings(response.data)
     } catch (err: any) {
       console.error('Failed to load settings:', err)
       // Use defaults if settings not found
@@ -120,8 +120,8 @@ export default function CommunityAdminPage() {
   const fetchConfig = async () => {
     try {
       const response = await communityService.getConfig(id as string)
-      setConfig(response.data.data)
-      setEditedConfig(response.data.data)
+      setConfig(response.data.config)
+      setEditedConfig(response.data.config)
     } catch (err: any) {
       console.error('Failed to load configuration:', err)
     }
@@ -131,7 +131,7 @@ export default function CommunityAdminPage() {
     try {
       setLoadingStats(true)
       const response = await communityService.getStats(id as string)
-      setStats(response.data.data)
+      setStats(response.data)
     } catch (err: any) {
       console.error('Failed to load statistics:', err)
     } finally {
