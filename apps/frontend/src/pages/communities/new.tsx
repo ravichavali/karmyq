@@ -36,7 +36,31 @@ export default function NewCommunityPage() {
     access_type: 'public' as 'public' | 'private',
   })
   const [selectedTemplate, setSelectedTemplate] = useState<ConfigTemplate | null>(null)
-  const [customConfig, setCustomConfig] = useState<CommunityConfig | null>(null)
+  // Initialize with default config to allow customization even without template
+  const [customConfig, setCustomConfig] = useState<CommunityConfig | null>({
+    member_cap: 150,
+    visibility_mode: 'public',
+    outsider_response_allowed: true,
+    enabled_request_types: [
+      { name: 'meal_share', description: 'Share meals or cooking', karma_multiplier: 1.0 },
+      { name: 'tool_borrow', description: 'Borrow tools or equipment', karma_multiplier: 0.8 },
+      { name: 'ride_share', description: 'Share rides or transportation', karma_multiplier: 1.2 },
+      { name: 'childcare', description: 'Help with childcare or babysitting', karma_multiplier: 1.5 },
+    ],
+    karma_split_helper: 60,
+    karma_split_requestor: 40,
+    base_karma_pool_per_request: 100,
+    karma_decay_half_life_days: 0,
+    trust_depth_weight: 0.6,
+    trust_breadth_weight: 0.4,
+    trust_decay_half_life_days: 180,
+    trust_path_max_hops: 3,
+    min_interactions_for_trust: 1,
+    request_approval_required: false,
+    new_member_karma_lockout_days: 0,
+    join_approval_required: true,
+    joining_counts_as_interaction: true,
+  })
   const [configErrors, setConfigErrors] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(false)
   const [templateLoading, setTemplateLoading] = useState(false)
@@ -189,25 +213,23 @@ export default function NewCommunityPage() {
         <div className="container mx-auto px-4 py-8">
           <div className="max-w-4xl mx-auto">
             {/* Step Indicator */}
-            {selectedTemplate && (
-              <div className="mb-6">
-                <div className="flex items-center justify-center space-x-4">
-                  <div className={`flex items-center ${step === 'basic' ? 'text-blue-600' : 'text-gray-400'}`}>
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center font-semibold ${step === 'basic' ? 'bg-blue-600 text-white' : 'bg-gray-200'}`}>
-                      1
-                    </div>
-                    <span className="ml-2 font-medium">Basic Info</span>
+            <div className="mb-6">
+              <div className="flex items-center justify-center space-x-4">
+                <div className={`flex items-center ${step === 'basic' ? 'text-blue-600' : 'text-gray-400'}`}>
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center font-semibold ${step === 'basic' ? 'bg-blue-600 text-white' : 'bg-gray-200'}`}>
+                    1
                   </div>
-                  <div className="w-12 h-0.5 bg-gray-300"></div>
-                  <div className={`flex items-center ${step === 'config' ? 'text-blue-600' : 'text-gray-400'}`}>
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center font-semibold ${step === 'config' ? 'bg-blue-600 text-white' : 'bg-gray-200'}`}>
-                      2
-                    </div>
-                    <span className="ml-2 font-medium">Configuration</span>
+                  <span className="ml-2 font-medium">Basic Info</span>
+                </div>
+                <div className="w-12 h-0.5 bg-gray-300"></div>
+                <div className={`flex items-center ${step === 'config' ? 'text-blue-600' : 'text-gray-400'}`}>
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center font-semibold ${step === 'config' ? 'bg-blue-600 text-white' : 'bg-gray-200'}`}>
+                    2
                   </div>
+                  <span className="ml-2 font-medium">Configuration</span>
                 </div>
               </div>
-            )}
+            </div>
 
             {/* Template Info Banner */}
             {selectedTemplate && (
@@ -242,11 +264,8 @@ export default function NewCommunityPage() {
               {step === 'basic' && (
                 <form onSubmit={(e) => {
                   e.preventDefault()
-                  if (selectedTemplate) {
-                    setStep('config')
-                  } else {
-                    handleSubmit()
-                  }
+                  // Always go to config step to allow customization
+                  setStep('config')
                 }} className="space-y-6">
                   {!selectedTemplate && (
                     <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-6">
@@ -371,7 +390,7 @@ export default function NewCommunityPage() {
                       disabled={loading}
                       className="flex-1 px-6 py-3 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-400 font-semibold"
                     >
-                      {selectedTemplate ? 'Next: Review Configuration' : (loading ? 'Creating...' : 'Create Community')}
+                      Next: Configure Community Settings
                     </button>
                     <Link
                       href="/communities"

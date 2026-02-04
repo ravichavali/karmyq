@@ -92,9 +92,11 @@ app.use(
 );
 
 // Config routes (must come before generic community routes)
+// Uses optionalAuthMiddleware to allow public access to templates and public configs
+// Individual routes handle their own auth checks where needed
 app.use(
   '/communities',
-  authMiddleware,
+  optionalAuthMiddleware,  // Allow public access - routes handle their own auth
   optionalTenantMiddleware,
   dbContextMiddleware(pool),
   configRouter    // Config routes: /communities/:id/config, /config-templates, /configs/public
