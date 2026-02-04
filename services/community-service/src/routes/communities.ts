@@ -179,7 +179,7 @@ router.get('/:id', async (req: Request, res: Response) => {
 // SECURITY: creator_id comes from verified JWT token, not from request body
 router.post('/', async (req: Request, res: Response) => {
   try {
-    const { name, description, location, category, max_members = 150, config } = req.body;
+    const { name, description, location, category, max_members = 150, access_type = 'public', config } = req.body;
     // SECURITY: Always use verified userId from JWT, never trust client-provided creator_id
     const creator_id = (req as any).user?.userId;
 
@@ -198,6 +198,11 @@ router.post('/', async (req: Request, res: Response) => {
 
     if (max_members < 1 || max_members > 150) {
       return sendValidationError(res, 'Max members must be between 1 and 150 (Dunbar\'s number)', { requestId: (req as any).id });
+    }
+
+    // Validate access_type
+    if (access_type && !['public', 'private'].includes(access_type)) {
+      return sendValidationError(res, 'Access type must be either "public" or "private"', { requestId: (req as any).id });
     }
 
     // Determine configuration to use
@@ -261,10 +266,10 @@ router.post('/', async (req: Request, res: Response) => {
     // Create community
     const result = await query(
       `INSERT INTO communities.communities
-        (name, description, location, category, max_members, current_members, creator_id, status)
-      VALUES ($1, $2, $3, $4, $5, 1, $6, 'active')
+        (name, description, location, category, max_members, current_members, access_type, creator_id, status)
+      VALUES ($1, $2, $3, $4, $5, 1, $6, $7, 'active')
       RETURNING *`,
-      [name, description, location, category, max_members, creator_id]
+      [name, description, location, category, max_members, access_type, creator_id]
     );
 
     const community = result.rows[0];

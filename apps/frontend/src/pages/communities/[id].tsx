@@ -106,7 +106,9 @@ export default function CommunityDetailPage() {
   const fetchConfig = async () => {
     try {
       const response = await communityService.getConfig(id as string)
-      setConfig(response.data)
+      // Backend returns { data: { config: {...}, community_id, template_source } }
+      // Response interceptor unwraps outer layer, so response.data.config contains the actual config
+      setConfig(response.data.config)
     } catch (err: any) {
       console.error('Failed to load configuration:', err)
     }
