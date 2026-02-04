@@ -46,11 +46,21 @@ app.get('/health', (req: any, res: Response) => {
 });
 
 // Routes with authentication and tenant context
-// All community routes require authentication
-// Tenant context is set based on X-Community-ID header or community_id param
-// IMPORTANT: Register specific routes BEFORE generic /:id routes to avoid path conflicts
+// IMPORTANT: Register routes in order from most specific to least specific
+// Routes with optionalAuth must come FIRST to avoid being blocked by authMiddleware
 
-// Specific nested routes (must come before /:id routes)
+// Config routes (PUBLIC ACCESS - must come FIRST)
+// Uses optionalAuthMiddleware to allow public access to templates and public configs
+// Individual routes handle their own auth checks where needed
+app.use(
+  '/communities',
+  optionalAuthMiddleware,  // Allow public access - routes handle their own auth
+  optionalTenantMiddleware,
+  dbContextMiddleware(pool),
+  configRouter    // Config routes: /communities/:id/config, /config-templates, /configs/public
+);
+
+// Authenticated nested routes (must come before generic /:id routes)
 app.use(
   '/communities',
   authMiddleware,
@@ -89,17 +99,6 @@ app.use(
   optionalTenantMiddleware,
   dbContextMiddleware(pool),
   membersRouter  // Member routes nested under /communities/:communityId/members
-);
-
-// Config routes (must come before generic community routes)
-// Uses optionalAuthMiddleware to allow public access to templates and public configs
-// Individual routes handle their own auth checks where needed
-app.use(
-  '/communities',
-  optionalAuthMiddleware,  // Allow public access - routes handle their own auth
-  optionalTenantMiddleware,
-  dbContextMiddleware(pool),
-  configRouter    // Config routes: /communities/:id/config, /config-templates, /configs/public
 );
 
 // Generic community routes (must come AFTER specific nested routes)
