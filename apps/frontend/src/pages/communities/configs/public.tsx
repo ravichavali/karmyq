@@ -116,19 +116,19 @@ export default function ThrivingCommunitiesPage() {
   const getConfigHighlights = (config: CommunityConfig) => [
     {
       label: 'Member Cap',
-      value: config.member_cap.toString(),
+      value: config.member_cap?.toString() || 'N/A',
     },
     {
       label: 'Visibility',
-      value: config.visibility_mode.replace('_', ' ').replace(/\b\w/g, (l) => l.toUpperCase()),
+      value: config.visibility_mode?.replace('_', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()) || 'Public',
     },
     {
       label: 'Karma Split',
-      value: `${config.karma_split_helper}% / ${config.karma_split_requestor}%`,
+      value: `${config.karma_split_helper || 0}% / ${config.karma_split_requestor || 0}%`,
     },
     {
       label: 'Trust Model',
-      value: `${(config.trust_depth_weight * 100).toFixed(0)}% depth / ${(config.trust_breadth_weight * 100).toFixed(0)}% breadth`,
+      value: `${((config.trust_depth_weight || 0) * 100).toFixed(0)}% depth / ${((config.trust_breadth_weight || 0) * 100).toFixed(0)}% breadth`,
     },
   ]
 
@@ -261,7 +261,7 @@ export default function ThrivingCommunitiesPage() {
                       </div>
 
                       {/* Request Types Preview */}
-                      {community.config.enabled_request_types.length > 0 && (
+                      {community.config.enabled_request_types?.length > 0 && (
                         <div className="mt-4">
                           <h4 className="text-xs font-semibold text-gray-600 mb-2">Request Types:</h4>
                           <div className="flex flex-wrap gap-2">
@@ -270,7 +270,7 @@ export default function ThrivingCommunitiesPage() {
                                 key={idx}
                                 className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-blue-100 text-blue-700"
                               >
-                                {type.name.replace(/_/g, ' ')}
+                                {type.name?.replace(/_/g, ' ') || type.name}
                                 <span className="ml-2 text-xs text-blue-600">
                                   ({type.karma_multiplier}x)
                                 </span>

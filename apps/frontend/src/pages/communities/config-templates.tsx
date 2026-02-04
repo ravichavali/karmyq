@@ -44,28 +44,32 @@ export default function ConfigTemplates() {
     router.push(`/communities/new?template=${templateId}`)
   }
 
-  const getTemplateHighlights = (template: ConfigTemplate) => [
-    {
-      label: 'Members',
-      value: `Up to ${template.member_cap}`,
-    },
-    {
-      label: 'Visibility',
-      value: template.visibility_mode.replace('_', ' ').replace(/\b\w/g, (l) => l.toUpperCase()),
-    },
-    {
-      label: 'Karma Split',
-      value: `${template.karma_split_helper}% helper / ${template.karma_split_requestor}% requestor`,
-    },
-    {
-      label: 'Request Types',
-      value: `${template.enabled_request_types.length} types`,
-    },
-    {
-      label: 'Trust Model',
-      value: `${(template.trust_depth_weight * 100).toFixed(0)}% depth / ${(template.trust_breadth_weight * 100).toFixed(0)}% breadth`,
-    },
-  ]
+  const getTemplateHighlights = (template: ConfigTemplate) => {
+    // Backend returns templates with nested full_config
+    const config = (template as any).full_config || template
+    return [
+      {
+        label: 'Members',
+        value: `Up to ${config.member_cap}`,
+      },
+      {
+        label: 'Visibility',
+        value: config.visibility_mode?.replace('_', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()) || 'Public',
+      },
+      {
+        label: 'Karma Split',
+        value: `${config.karma_split_helper}% helper / ${config.karma_split_requestor}% requestor`,
+      },
+      {
+        label: 'Request Types',
+        value: `${config.enabled_request_types?.length || 0} types`,
+      },
+      {
+        label: 'Trust Model',
+        value: `${(config.trust_depth_weight * 100).toFixed(0)}% depth / ${(config.trust_breadth_weight * 100).toFixed(0)}% breadth`,
+      },
+    ]
+  }
 
   if (loading) {
     return (
@@ -161,26 +165,30 @@ export default function ConfigTemplates() {
                   </div>
 
                   {/* Request Types Preview */}
-                  {template.enabled_request_types.length > 0 && (
-                    <div className="mt-4">
-                      <h4 className="text-xs font-semibold text-gray-600 mb-2">Request Types:</h4>
-                      <div className="flex flex-wrap gap-2">
-                        {template.enabled_request_types.slice(0, 3).map((type, idx) => (
-                          <span
-                            key={idx}
-                            className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700"
-                          >
-                            {type.name.replace(/_/g, ' ')}
-                          </span>
-                        ))}
-                        {template.enabled_request_types.length > 3 && (
-                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
-                            +{template.enabled_request_types.length - 3} more
-                          </span>
-                        )}
+                  {(() => {
+                    const config = (template as any).full_config || template
+                    const requestTypes = config.enabled_request_types || []
+                    return requestTypes.length > 0 && (
+                      <div className="mt-4">
+                        <h4 className="text-xs font-semibold text-gray-600 mb-2">Request Types:</h4>
+                        <div className="flex flex-wrap gap-2">
+                          {requestTypes.slice(0, 3).map((type: any, idx: number) => (
+                            <span
+                              key={idx}
+                              className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700"
+                            >
+                              {type.name?.replace(/_/g, ' ') || type.name}
+                            </span>
+                          ))}
+                          {requestTypes.length > 3 && (
+                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
+                              +{requestTypes.length - 3} more
+                            </span>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    )
+                  })()}
                 </div>
 
                 {/* Card Footer */}
