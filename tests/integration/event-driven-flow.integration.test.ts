@@ -58,7 +58,7 @@ describe('Event-Driven Flow', () => {
       .set('Authorization', `Bearer ${authToken}`)
       .send(testCommunity);
 
-    testCommunityId = communityResponse.body.data.id;
+    testCommunityId = communityResponse.body.data.community.id;
   });
 
   afterAll(async () => {
