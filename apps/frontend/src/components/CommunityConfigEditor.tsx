@@ -79,8 +79,7 @@ export default function CommunityConfigEditor({
     <button
       type="button"
       onClick={() => toggleSection(section)}
-      disabled={readOnly}
-      className="w-full flex items-center justify-between p-4 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors disabled:cursor-not-allowed"
+      className="w-full flex items-center justify-between p-4 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors"
     >
       <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
       <svg
