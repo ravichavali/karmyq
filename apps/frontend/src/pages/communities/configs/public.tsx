@@ -63,7 +63,12 @@ export default function ThrivingCommunitiesPage() {
     try {
       setLoading(true)
       const response = await communityService.getThrivingCommunities(minMembers)
-      setCommunities(response.data || [])
+      // Backend returns community_id, but frontend expects id
+      const communities = (response.data.communities || []).map((c: any) => ({
+        ...c,
+        id: c.community_id || c.id,
+      }))
+      setCommunities(communities)
       setError(null)
     } catch (err: any) {
       console.error('Error fetching thriving communities:', err)
@@ -77,7 +82,7 @@ export default function ThrivingCommunitiesPage() {
     try {
       const response = await communityService.getMyCommunities(currentUser.id)
       // Filter only founded communities (where user is creator)
-      const founded = (response.data || [])
+      const founded = (response.data.communities || [])
         .filter((c: any) => c.creator_id === currentUser.id)
         .map((c: any) => ({ id: c.id, name: c.name }))
       setMyFoundedCommunities(founded)
