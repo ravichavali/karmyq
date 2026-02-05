@@ -91,11 +91,13 @@ describe('Community Flow', () => {
         .expect(201);
 
       expect(response.body.success).toBe(true);
-      expect(response.body.data).toHaveProperty('id');
-      expect(response.body.data.name).toBe(testCommunity.name);
-      expect(response.body.data.description).toBe(testCommunity.description);
+      expect(response.body.data.community).toHaveProperty('id');
+      expect(response.body.data.community.name).toBe(testCommunity.name);
+      expect(response.body.data.community.description).toBe(testCommunity.description);
+      expect(response.body.data).toHaveProperty('token'); // JWT token refresh
+      expect(response.body.data).toHaveProperty('config'); // Community config
 
-      testCommunityId = response.body.data.id;
+      testCommunityId = response.body.data.community.id;
     });
 
     it('should reject community creation without auth', async () => {
