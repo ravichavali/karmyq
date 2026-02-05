@@ -801,18 +801,18 @@ COMMENT ON COLUMN geocoding_cache.query IS 'Normalized search query (lowercase, 
 COMMENT ON COLUMN geocoding_cache.results IS 'Array of geocoding results with display_name, address, lat, lng, type';
 COMMENT ON COLUMN geocoding_cache.hit_count IS 'Number of times this cache entry was accessed';
 
--- Create karmyq role if it doesn't exist
+-- Create karmyq_user role if it doesn't exist
 DO $$
 BEGIN
-    IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'karmyq') THEN
-        CREATE ROLE karmyq WITH LOGIN PASSWORD 'karmyq_password';
+    IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'karmyq_user') THEN
+        CREATE ROLE karmyq_user WITH LOGIN PASSWORD 'karmyq_password_dev';
     END IF;
 END
 $$;
 
 -- Grant schema permissions
-GRANT USAGE ON SCHEMA auth, communities, requests, reputation, messaging, notifications, feedback, governance, events, feed TO karmyq;
-GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA auth, communities, requests, reputation, messaging, notifications, feedback, governance, events, feed TO karmyq;
+GRANT USAGE ON SCHEMA auth, communities, requests, reputation, messaging, notifications, feedback, governance, events, feed TO karmyq_user;
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA auth, communities, requests, reputation, messaging, notifications, feedback, governance, events, feed TO karmyq_user;
 
 -- ============= MIGRATION 011: COMMUNITY CONFIGURATION SYSTEM =============
 -- Phase 1: Communities define their own rules for trust mechanics, karma distribution, and coordination patterns

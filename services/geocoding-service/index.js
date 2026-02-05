@@ -28,8 +28,8 @@ const poolConfig = process.env.DATABASE_URL
       host: process.env.DB_HOST || 'localhost',
       port: process.env.DB_PORT || 5432,
       database: process.env.DB_NAME || 'karmyq',
-      user: process.env.DB_USER || 'karmyq',
-      password: process.env.DB_PASSWORD || 'karmyq_password',
+      user: process.env.DB_USER || 'karmyq_user',
+      password: process.env.DB_PASSWORD || 'karmyq_password_dev',
       max: 5,
     }
 const pool = new Pool(poolConfig)

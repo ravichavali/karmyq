@@ -185,7 +185,14 @@ export default function NewCommunityPage() {
       }
 
       const response = await communityService.createCommunity(createData)
-      router.push(`/communities/${response.data.id}`)
+
+      // If response includes refreshed token, update localStorage
+      // This prevents 403 errors when accessing the new community
+      if (response.data.token) {
+        localStorage.setItem('token', response.data.token)
+      }
+
+      router.push(`/communities/${response.data.community.id}`)
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to create community')
     } finally {

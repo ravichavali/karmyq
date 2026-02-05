@@ -7,8 +7,8 @@ process.env.JWT_SECRET = 'test-jwt-secret-key-for-testing-only';
 process.env.DB_HOST = 'localhost';
 process.env.DB_PORT = '5432';
 process.env.DB_NAME = 'karmyq_test_db';
-process.env.DB_USER = 'karmyq';
-process.env.DB_PASSWORD = 'karmyq_password';
+process.env.DB_USER = 'karmyq_user';
+process.env.DB_PASSWORD = 'karmyq_password_dev';
 process.env.REDIS_HOST = 'localhost';
 process.env.REDIS_PORT = '6379';
 

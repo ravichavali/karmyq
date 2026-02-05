@@ -1,4 +1,5 @@
 import { Router, Request, Response } from 'express';
+import jwt from 'jsonwebtoken';
 import { query } from '../database/db';
 import { publishEvent } from '../events/publisher';
 import {
@@ -330,6 +331,33 @@ router.post('/', async (req: Request, res: Response) => {
       [community.id, creator_id]
     );
 
+    // Refresh JWT token with updated community list
+    // This prevents 403 errors when creator tries to access the new community immediately
+    const communitiesResult = await query(
+      `SELECT c.id, c.name, m.role
+       FROM communities.communities c
+       JOIN communities.members m ON m.community_id = c.id
+       WHERE m.user_id = $1 AND m.status = 'active'
+       ORDER BY c.name`,
+      [creator_id]
+    );
+
+    // Generate new JWT with updated community list
+    const newToken = jwt.sign(
+      {
+        userId: creator_id,
+        email: (req as any).user.email,
+        communities: communitiesResult.rows.map((row: any) => ({
+          id: row.id,
+          role: row.role,
+          name: row.name,
+        })),
+        currentCommunityId: community.id,
+      },
+      process.env.JWT_SECRET!,
+      { expiresIn: '7d' }
+    );
+
     // Publish events
     await publishEvent('community_created', {
       community_id: community.id,
@@ -345,8 +373,12 @@ router.post('/', async (req: Request, res: Response) => {
     });
 
     sendSuccess(res, {
-      ...community,
+      community: {
+        ...community,
+        role: 'admin',
+      },
       config: communityConfig,
+      token: newToken, // Include refreshed JWT token
     }, HTTP_STATUS.CREATED, { requestId: (req as any).id });
   } catch (error: any) {
     console.error('Error creating community:', error);
