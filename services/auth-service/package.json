@@ -15,6 +15,7 @@
     "test:tdd": "jest tests/tdd --passWithNoTests"
   },
   "dependencies": {
+    "@karmyq/shared": "*",
     "bcrypt": "^5.1.1",
     "winston-daily-rotate-file": "^5.0.0"
   },

@@ -3,6 +3,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import authRoutes from './routes/auth';
 import userRoutes from './routes/users';
+import preferencesRoutes from './routes/preferences'; // Day 8
 import { initDatabase } from './database/db';
 import { initEventPublisher } from './events/publisher';
 import { createLogger, requestLoggingMiddleware } from '@karmyq/shared/utils/logger';
@@ -32,6 +33,7 @@ app.get('/health', (req: any, res) => {
 // Routes with specific rate limits
 app.use('/auth', rateLimiters.auth, authRoutes); // Stricter limit for auth
 app.use('/users', rateLimiters.standard, userRoutes);
+app.use('/preferences', rateLimiters.standard, preferencesRoutes); // Day 8
 
 // Error handling
 app.use((err: any, req: any, res: express.Response, next: express.NextFunction) => {

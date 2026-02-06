@@ -10,6 +10,8 @@ import {
   HTTP_STATUS,
   validateRequest,
 } from '@karmyq/shared/utils/response';
+import { calculateMatchScore } from '@karmyq/shared/matching';
+import type { UserProfile } from '@karmyq/shared/matching/types';
 
 const router = Router();
 
@@ -153,6 +155,168 @@ router.get('/matched/for-user', async (req: Request, res: Response) => {
       message: 'Failed to fetch matched requests',
       error: error.message,
     });
+  }
+});
+
+/**
+ * Helper function to get user profile for matching algorithm
+ */
+async function getUserProfile(userId: string): Promise<UserProfile> {
+  // Get user basic info
+  const userResult = await query(
+    `SELECT id, name FROM auth.users WHERE id = $1`,
+    [userId]
+  );
+
+  if (userResult.rowCount === 0) {
+    throw new Error('User not found');
+  }
+
+  const user = userResult.rows[0];
+
+  // Get user skills
+  const skillsResult = await query(
+    `SELECT skill FROM auth.user_skills WHERE user_id = $1`,
+    [userId]
+  );
+
+  const skills = skillsResult.rows.map((row: any) => row.skill);
+
+  return {
+    id: user.id,
+    name: user.name,
+    skills,
+    // TODO: Add location and availability when available
+  };
+}
+
+// GET /requests/curated - Get curated feed based on user skills and match scores
+// Day 7: Skill-based feed filtering
+router.get('/curated', async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user?.userId;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required',
+      });
+    }
+
+    // Get query parameters
+    const minMatchScore = parseInt(req.query.minScore as string) || 30; // Default 30%
+    const limit = parseInt(req.query.limit as string) || 20;
+    const communityId = req.query.community_id as string | undefined;
+
+    // Get user profile for matching
+    const userProfile = await getUserProfile(userId);
+
+    // Day 8: Get user preferences for request types
+    const preferencesResult = await query(
+      `SELECT request_type, subscribed
+       FROM auth.user_request_preferences
+       WHERE user_id = $1 AND subscribed = true`,
+      [userId]
+    );
+
+    // If no preferences set, default to all types subscribed
+    const subscribedTypes =
+      preferencesResult.rowCount > 0
+        ? preferencesResult.rows.map((row: any) => row.request_type)
+        : ['generic', 'ride', 'service', 'event', 'borrow'];
+
+    // Get open requests from user's communities
+    let queryText = `
+      SELECT DISTINCT
+        r.id, r.requester_id, r.title, r.description,
+        r.category, r.urgency, r.status, r.created_at, r.updated_at,
+        r.request_type, r.payload, r.requirements,
+        u.name as requester_name,
+        STRING_AGG(DISTINCT c.name, ', ') as community_name,
+        STRING_AGG(DISTINCT rc.community_id::text, ',') as community_ids
+      FROM requests.help_requests r
+      LEFT JOIN auth.users u ON r.requester_id = u.id
+      LEFT JOIN requests.request_communities rc ON r.id = rc.request_id
+      LEFT JOIN communities.communities c ON rc.community_id = c.id
+      -- Only from communities the user is a member of
+      INNER JOIN communities.members m ON rc.community_id = m.community_id
+      WHERE r.status = 'open'
+        AND r.expired = FALSE
+        AND m.user_id = $1
+        AND m.status = 'active'
+        AND r.requester_id != $1
+    `;
+
+    const params: any[] = [userId];
+    let paramCount = 2;
+
+    if (communityId) {
+      queryText += ` AND rc.community_id = $${paramCount}`;
+      params.push(communityId);
+      paramCount++;
+    }
+
+    queryText += `
+      GROUP BY r.id, r.requester_id, r.title, r.description, r.category, r.urgency, r.status, r.created_at, r.updated_at, r.request_type, r.payload, r.requirements, u.name
+      LIMIT 100`; // Get more than needed, then filter by match score
+
+    const requestsResult = await query(queryText, params);
+
+    // Calculate match scores for all requests
+    const requestsWithScores = requestsResult.rows.map((request: any) => {
+      const matchScore = calculateMatchScore(
+        {
+          request_type: request.request_type || 'generic',
+          title: request.title,
+          description: request.description,
+          urgency: request.urgency,
+          payload: request.payload || {},
+        },
+        userProfile
+      );
+
+      return {
+        ...request,
+        matchScore: matchScore.score,
+        matchReasons: matchScore.reasons,
+        matchBreakdown: matchScore.breakdown,
+      };
+    });
+
+    // Day 8: Filter by subscribed request types and minimum match score
+    const filteredRequests = requestsWithScores
+      .filter((req: any) => subscribedTypes.includes(req.request_type || 'generic'))
+      .filter((req: any) => req.matchScore >= minMatchScore)
+      .sort((a: any, b: any) => b.matchScore - a.matchScore) // Sort by score descending
+      .slice(0, limit);
+
+    sendSuccess(
+      res,
+      {
+        requests: filteredRequests,
+        count: filteredRequests.length,
+        filters: {
+          minMatchScore,
+          totalRequests: requestsResult.rowCount,
+          matchedRequests: filteredRequests.length,
+          subscribedTypes, // Day 8: Show which types user is subscribed to
+        },
+        userProfile: {
+          skills: userProfile.skills,
+          skillCount: userProfile.skills.length,
+        },
+      },
+      HTTP_STATUS.OK,
+      { requestId: (req as any).id }
+    );
+  } catch (error: any) {
+    console.error('Error fetching curated requests:', error);
+    sendInternalError(
+      res,
+      'Failed to fetch curated requests',
+      error instanceof Error ? error : undefined,
+      { requestId: (req as any).id }
+    );
   }
 });
 

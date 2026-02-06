@@ -7,14 +7,11 @@ import React from 'react'
 
 interface GenericRequestFormProps {
   // Generic requests don't have payload, just showing consistency with other forms
-  onChange: (payload: {}) => void
+  onChange?: (payload: {}) => void
 }
 
 export default function GenericRequestForm({ onChange }: GenericRequestFormProps) {
-  // Call onChange with empty object to maintain consistent interface
-  React.useEffect(() => {
-    onChange({})
-  }, [onChange])
+  // No useEffect needed - payload is already initialized to {} in the parent component
 
   return (
     <div className="space-y-6">

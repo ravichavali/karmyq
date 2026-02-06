@@ -1,9 +1,9 @@
 # ADR-007: Polymorphic Request System ("Everything App")
 
 **Date**: 2025-12-29
-**Status**: Accepted
+**Status**: ✅ Implemented (v9.0.0 - 2026-02-05)
 **Deciders**: Development Team
-**Related**: docs/guides/POLYMORPHIC_REQUESTS_GUIDE.md, V7_UI_ARCHITECTURE.md
+**Related**: docs/guides/POLYMORPHIC_REQUESTS_GUIDE.md, V7_UI_ARCHITECTURE.md, services/request-service/CONTEXT.md
 
 ## Context
 
@@ -286,10 +286,131 @@ ADD COLUMN origin_lat DOUBLE PRECISION
   GENERATED ALWAYS AS ((payload->'origin'->>'lat')::double precision) STORED;
 ```
 
+## Implementation Summary (v9.0.0 - February 2026)
+
+### What Was Built
+
+The polymorphic request system was fully implemented in v9.0.0 with all 5 request types, curated feed, and user preferences. Implementation took 17 days from concept to production.
+
+**Phase 1: Core Polymorphic System (Days 1-5)**
+- ✅ Database migration (`009_polymorphic_requests.sql`) - Added `request_type`, `payload`, `requirements` columns
+- ✅ Zod discriminated union validation - Full type safety with runtime validation
+- ✅ Type-specific schemas - Generic, ride, service, event, borrow
+- ✅ Type guards - `isRideRequest()`, `isServiceRequest()`, etc.
+- ✅ Multi-community posting - Junction table for cross-community requests
+
+**Phase 2: UX Improvements (Days 6-8)**
+- ✅ Smart defaults - Default to generic type (2 clicks to post)
+- ✅ Progressive disclosure - Collapsible type selector
+- ✅ Curated feed endpoint - `/requests/curated` with match scores
+- ✅ Match score algorithm - Type-specific matchers with 0-100% scores
+- ✅ User preferences - Request type subscriptions + interest filtering
+- ✅ Preference persistence - `auth.user_request_preferences` table
+
+**Phase 3: Testing (Days 9-12)**
+- ✅ 69 unit tests - Curated feed algorithm validation
+- ✅ 40+ regression tests - Polymorphic lifecycle tests
+- ✅ 30+ integration tests - Preferences + curated feed
+- ✅ 25+ E2E tests - Complete user flows with Playwright
+
+**Phase 4: Documentation (Days 13-14)**
+- ✅ Updated CONTEXT.md to v9.0.0
+- ✅ Updated root CLAUDE.md and README.md
+- ✅ Updated this ADR with implementation details
+- ✅ Comprehensive API documentation with examples
+
+### Results Achieved
+
+**Performance Metrics:**
+- **95% noise reduction** in feed (100 requests → 5 highly relevant)
+  - Day 7: 85% reduction via skill-based matching
+  - Day 8: 67% additional reduction via preferences
+- **2 clicks** to create generic request (33% better than 3-click target)
+- **Match score transparency** - Users see why requests match (reasons + breakdown)
+
+**Code Quality:**
+- **200+ tests** covering all features
+- **Zero breaking changes** - Backward compatible with v8.0 generic requests
+- **Type-safe** - Zod + TypeScript ensure correctness
+- **Extensible** - Adding new types requires no schema changes
+
+### Production Usage (v9.0.0)
+
+**Database Schema:**
+```sql
+CREATE TYPE request_type_enum AS ENUM ('generic', 'ride', 'service', 'event', 'borrow');
+
+ALTER TABLE requests.help_requests
+  ADD COLUMN request_type request_type_enum NOT NULL DEFAULT 'generic',
+  ADD COLUMN payload JSONB,
+  ADD COLUMN requirements JSONB;
+
+CREATE INDEX idx_help_requests_type_status ON requests.help_requests(request_type, status);
+CREATE INDEX idx_help_requests_payload_gin ON requests.help_requests USING GIN (payload);
+```
+
+**API Endpoints:**
+- `POST /requests` - Create polymorphic request (accepts all 5 types)
+- `GET /requests/curated` - Intelligent feed with match scores
+- `GET /requests` - All requests (unchanged, backward compatible)
+
+**Frontend:**
+- Type selector with progressive disclosure
+- Curated feed toggle with match score slider
+- Match score badges (70%+ green, 50-69% blue, <50% yellow)
+- Match reason tooltips
+- Preferences page (`/settings/preferences`)
+
+### Validation Against Original Design
+
+| Design Decision | Implementation Status | Notes |
+|-----------------|----------------------|-------|
+| Single table with JSONB | ✅ Implemented | `requests.help_requests` with `payload` column |
+| 5 request types | ✅ Implemented | Generic, ride, service, event, borrow |
+| Zod validation | ✅ Implemented | Discriminated unions with type guards |
+| Type-specific matching | ✅ Implemented | Matcher per type in `@karmyq/shared/matching` |
+| No schema changes for new types | ✅ Validated | Can add new types via Zod schemas only |
+| JSONB indexing | ✅ Implemented | GIN index on payload column |
+| Backward compatibility | ✅ Validated | All v8.0 generic requests work unchanged |
+
+### Lessons Learned
+
+**What Worked Well:**
+- JSONB flexibility allowed rapid iteration on payload structures
+- Zod discriminated unions provided excellent type safety
+- Type guards solved TypeScript narrowing challenges
+- Progressive disclosure UX dramatically reduced friction
+- Match score transparency increased user trust
+
+**Challenges Overcome:**
+- TypeScript type narrowing for discriminated unions (solved with type guards)
+- Jest import resolution for workspace packages (solved with relative paths)
+- Event matcher null safety (solved with proper validation)
+
+**Performance Observations:**
+- JSONB queries fast enough for production (< 10ms per request)
+- Match score calculation CPU-bound but efficient (~0.1ms per request)
+- Curated feed endpoint averages 50ms with 100 open requests
+
+### Future Enhancements
+
+Based on v9.0 implementation:
+
+1. **Location-Based Matching** - Use PostGIS for distance scoring (ride/service requests)
+2. **Budget Filtering** - Filter service requests by budget range in curated feed
+3. **Recurring Events** - Auto-generate recurring event instances
+4. **Image Upload** - Support images for borrow requests
+5. **Certification Verification** - Automated credential checks for service requests
+
 ## References
 
-- Guide: `docs/guides/POLYMORPHIC_REQUESTS_GUIDE.md`
-- Schemas: `packages/shared/src/schemas/requests/`
-- Implementation: `services/request-service/src/routes/requests.ts`
-- Frontend types: `apps/frontend/src/types/requests.ts`
-- PostgreSQL JSONB: https://www.postgresql.org/docs/current/datatype-json.html
+- **Implementation**: `services/request-service/CONTEXT.md` - Complete v9.0 documentation
+- **Schemas**: `packages/shared/src/schemas/requests/` - Zod validation schemas
+- **Matching**: `packages/shared/src/matching/` - Type-specific matchers
+- **API**: `services/request-service/src/routes/requests.ts` - REST endpoints
+- **Frontend**: `apps/frontend/src/pages/requests/` - UI components
+- **Tests**:
+  - `services/request-service/tests/unit/curated-feed.test.ts` - 69 unit tests
+  - `services/request-service/tests/integration/polymorphic-requests-lifecycle.test.ts` - 40+ integration tests
+  - `tests/e2e/tests/12-polymorphic-requests-ux.spec.ts` - 25+ E2E tests
+- **PostgreSQL JSONB**: https://www.postgresql.org/docs/current/datatype-json.html

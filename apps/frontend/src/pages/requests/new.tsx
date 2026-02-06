@@ -29,10 +29,11 @@ export default function NewRequestPage() {
   const [currentUser, setCurrentUser] = useState<any>(null)
   const [submitting, setSubmitting] = useState(false)
 
-  // Step 1: Type selection
-  const [selectedType, setSelectedType] = useState<RequestType | null>(null)
+  // Smart default: Start with generic request (progressive disclosure)
+  const [selectedType, setSelectedType] = useState<RequestType>('generic')
+  const [showTypeSelector, setShowTypeSelector] = useState(false)
 
-  // Step 2: Form data
+  // Form data
   const [formData, setFormData] = useState({
     community_id: '',
     title: '',
@@ -71,6 +72,7 @@ export default function NewRequestPage() {
   const handleTypeSelect = (type: RequestType) => {
     setSelectedType(type)
     setPayload({}) // Reset payload when changing type
+    setShowTypeSelector(false) // Close type selector after selection
   }
 
   const handlePayloadChange = (newPayload: Partial<RequestPayload>) => {
@@ -82,11 +84,6 @@ export default function NewRequestPage() {
 
     if (!currentUser) {
       alert('You must be logged in to create a request')
-      return
-    }
-
-    if (!selectedType) {
-      alert('Please select a request type')
       return
     }
 
@@ -136,9 +133,6 @@ export default function NewRequestPage() {
     }
   }
 
-  const canProceed = selectedType !== null
-  const showTypeSelector = !selectedType
-
   return (
     <>
       <Head>
@@ -147,55 +141,48 @@ export default function NewRequestPage() {
       <Layout title="Create Help Request">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="bg-white rounded-lg shadow-sm p-8">
-            {/* Progress Indicator */}
-            <div className="mb-8">
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center space-x-2">
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${selectedType ? 'bg-blue-500 text-white' : 'bg-blue-100 text-blue-600'}`}>
-                    1
-                  </div>
-                  <span className={`text-sm font-medium ${selectedType ? 'text-gray-900' : 'text-blue-600'}`}>
-                    Select Type
-                  </span>
-                </div>
-                <div className="flex-1 h-1 mx-4 bg-gray-200">
-                  <div className={`h-full transition-all duration-300 ${selectedType ? 'bg-blue-500 w-full' : 'bg-blue-200 w-0'}`} />
-                </div>
-                <div className="flex items-center space-x-2">
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${selectedType ? 'bg-blue-100 text-blue-600' : 'bg-gray-200 text-gray-400'}`}>
-                    2
-                  </div>
-                  <span className={`text-sm font-medium ${selectedType ? 'text-blue-600' : 'text-gray-400'}`}>
-                    Fill Details
-                  </span>
+            <form onSubmit={handleSubmit} className="space-y-6">
+              {/* Header with current request type */}
+              <div className="flex items-center justify-between pb-4 border-b">
+                <div>
+                  <h1 className="text-2xl font-bold text-gray-900">Create Help Request</h1>
+                  <p className="text-sm text-gray-600 mt-1">
+                    Request type: <span className="font-medium text-blue-600">{selectedType === 'generic' ? 'General Help' : selectedType.charAt(0).toUpperCase() + selectedType.slice(1)}</span>
+                  </p>
                 </div>
               </div>
-            </div>
 
-            {/* Step 1: Type Selection */}
-            {showTypeSelector && (
-              <RequestTypeSelector
-                selectedType={selectedType}
-                onSelectType={handleTypeSelect}
-              />
-            )}
+              {/* Collapsible Type Selector (Progressive Disclosure) */}
+              <div className="bg-gray-50 border border-gray-200 rounded-lg">
+                <button
+                  type="button"
+                  onClick={() => setShowTypeSelector(!showTypeSelector)}
+                  className="w-full px-4 py-3 flex items-center justify-between text-left hover:bg-gray-100 transition rounded-lg"
+                >
+                  <div className="flex items-center space-x-2">
+                    <span className="text-lg">{showTypeSelector ? '▼' : '▶'}</span>
+                    <div>
+                      <span className="font-medium text-gray-900">Need a specific type?</span>
+                      <p className="text-xs text-gray-600 mt-0.5">
+                        Ride, Borrow, Service, or Event - most requests work fine as general
+                      </p>
+                    </div>
+                  </div>
+                  <span className="text-xs text-gray-500 px-2 py-1 bg-white rounded border border-gray-200">
+                    Optional
+                  </span>
+                </button>
 
-            {/* Step 2: Form Details */}
-            {canProceed && (
-              <form onSubmit={handleSubmit} className="space-y-6">
-                {/* Back Button */}
-                <div className="flex items-center justify-between pb-4 border-b">
-                  <button
-                    type="button"
-                    onClick={() => setSelectedType(null)}
-                    className="flex items-center space-x-2 text-blue-600 hover:text-blue-700 transition"
-                  >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                    </svg>
-                    <span>Change Request Type</span>
-                  </button>
-                </div>
+                {showTypeSelector && (
+                  <div className="px-4 pb-4 pt-2">
+                    <RequestTypeSelector
+                      selectedType={selectedType}
+                      onSelectType={handleTypeSelect}
+                      showExamples={true}
+                    />
+                  </div>
+                )}
+              </div>
 
                 {/* Community Selection */}
                 <div>
@@ -330,7 +317,6 @@ export default function NewRequestPage() {
                   </Link>
                 </div>
               </form>
-            )}
           </div>
         </div>
       </Layout>

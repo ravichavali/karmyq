@@ -1,6 +1,6 @@
 # Karmyq - Mutual Aid Platform
 
-**Version**: 8.1.0 | **Status**: Demo/Development
+**Version**: 9.0.0 | **Status**: Production (Polymorphic Request System)
 
 ---
 

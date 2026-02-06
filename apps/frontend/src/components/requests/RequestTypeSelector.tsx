@@ -11,8 +11,10 @@ interface RequestTypeOption {
   value: RequestType
   label: string
   description: string
+  example: string
   icon: string
   color: string
+  mostUsed?: boolean
 }
 
 const REQUEST_TYPES: RequestTypeOption[] = [
@@ -20,13 +22,16 @@ const REQUEST_TYPES: RequestTypeOption[] = [
     value: 'generic',
     label: 'General Help',
     description: 'Any help that doesn\'t fit other categories',
+    example: 'e.g., moving furniture, advice, quick tasks',
     icon: '🤝',
-    color: 'bg-gray-100 border-gray-300 hover:border-gray-500'
+    color: 'bg-gray-100 border-gray-300 hover:border-gray-500',
+    mostUsed: true
   },
   {
     value: 'ride',
     label: 'Ride Share',
     description: 'Need a ride to a specific destination',
+    example: 'e.g., ride to airport, grocery store pickup',
     icon: '🚗',
     color: 'bg-blue-50 border-blue-300 hover:border-blue-500'
   },
@@ -34,6 +39,7 @@ const REQUEST_TYPES: RequestTypeOption[] = [
     value: 'service',
     label: 'Service Request',
     description: 'Professional services, repairs, tutoring',
+    example: 'e.g., plumbing, teaching, tech help',
     icon: '🔧',
     color: 'bg-green-50 border-green-300 hover:border-green-500'
   },
@@ -41,6 +47,7 @@ const REQUEST_TYPES: RequestTypeOption[] = [
     value: 'event',
     label: 'Event Help',
     description: 'Volunteers for community events',
+    example: 'e.g., food drive, cleanup day, fundraiser',
     icon: '🎉',
     color: 'bg-purple-50 border-purple-300 hover:border-purple-500'
   },
@@ -48,6 +55,7 @@ const REQUEST_TYPES: RequestTypeOption[] = [
     value: 'borrow',
     label: 'Borrow Item',
     description: 'Temporarily borrow tools or equipment',
+    example: 'e.g., ladder, power drill, camping gear',
     icon: '📦',
     color: 'bg-orange-50 border-orange-300 hover:border-orange-500'
   }
@@ -56,9 +64,10 @@ const REQUEST_TYPES: RequestTypeOption[] = [
 interface RequestTypeSelectorProps {
   selectedType: RequestType | null
   onSelectType: (type: RequestType) => void
+  showExamples?: boolean
 }
 
-export default function RequestTypeSelector({ selectedType, onSelectType }: RequestTypeSelectorProps) {
+export default function RequestTypeSelector({ selectedType, onSelectType, showExamples = false }: RequestTypeSelectorProps) {
   return (
     <div className="space-y-4">
       <div>
@@ -81,20 +90,34 @@ export default function RequestTypeSelector({ selectedType, onSelectType }: Requ
               focus:outline-none focus:ring-2 focus:ring-blue-500
             `}
           >
+            {/* Most Used Badge */}
+            {type.mostUsed && (
+              <div className="absolute top-2 right-2">
+                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                  Most used
+                </span>
+              </div>
+            )}
+
             <div className="flex items-start space-x-3">
               <span className="text-3xl flex-shrink-0">{type.icon}</span>
               <div className="flex-1 min-w-0">
                 <h3 className="font-semibold text-gray-900 mb-1">
                   {type.label}
                 </h3>
-                <p className="text-sm text-gray-600">
+                <p className="text-sm text-gray-600 mb-1">
                   {type.description}
                 </p>
+                {showExamples && (
+                  <p className="text-xs text-gray-500 italic">
+                    {type.example}
+                  </p>
+                )}
               </div>
             </div>
 
             {selectedType === type.value && (
-              <div className="absolute top-3 right-3">
+              <div className="absolute bottom-3 right-3">
                 <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center">
                   <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
@@ -114,7 +137,7 @@ export default function RequestTypeSelector({ selectedType, onSelectType }: Requ
             </svg>
             <div className="flex-1">
               <h4 className="font-medium text-blue-900 mb-1">Selected: {REQUEST_TYPES.find(t => t.value === selectedType)?.label}</h4>
-              <p className="text-sm text-blue-700">You can change this selection at any time</p>
+              <p className="text-sm text-blue-700">Click another type to change, or continue below</p>
             </div>
           </div>
         </div>

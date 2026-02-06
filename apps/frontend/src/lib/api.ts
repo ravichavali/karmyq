@@ -307,6 +307,10 @@ export const requestService = {
   getMatchedRequests: (user_id: string, limit?: number) =>
     requestApi.get('/requests/matched/for-user', { params: { user_id, limit } }),
 
+  // Day 7: Curated feed with match scores
+  getCuratedRequests: (params?: { minScore?: number; limit?: number; community_id?: string }) =>
+    requestApi.get('/requests/curated', { params }),
+
   getRequest: (id: string) =>
     requestApi.get(`/requests/${id}`),
 
@@ -519,6 +523,26 @@ export const userSettingsService = {
   // Update current user's privacy settings
   updatePrivacySettings: (settings: { show_my_karma_to_me: boolean }) =>
     api.patch('/users/me/settings', settings),
+
+  // Day 8: Request Type Preferences
+  getRequestTypePreferences: () =>
+    api.get('/preferences/request-types'),
+
+  updateRequestTypePreference: (data: { request_type: string; subscribed: boolean }) =>
+    api.post('/preferences/request-types', data),
+
+  bulkUpdatePreferences: (preferences: Array<{ request_type: string; subscribed: boolean }>) =>
+    api.put('/preferences/request-types/bulk', { preferences }),
+
+  // Day 8: User Interests
+  getInterests: () =>
+    api.get('/preferences/interests'),
+
+  addInterest: (data: { interest_type: string; interest_value: string }) =>
+    api.post('/preferences/interests', data),
+
+  removeInterest: (id: string) =>
+    api.delete(`/preferences/interests/${id}`),
 }
 
 // Feed Service API Methods

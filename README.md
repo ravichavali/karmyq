@@ -1,6 +1,6 @@
 # Karmyq - Community Mutual Aid Platform 🤝
 
-[![Version](https://img.shields.io/badge/version-8.0.0-blue.svg)](https://github.com/ravichavali/karmyq/releases/tag/v8.0.0)
+[![Version](https://img.shields.io/badge/version-9.0.0-blue.svg)](https://github.com/ravichavali/karmyq/releases/tag/v9.0.0)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Tests](https://github.com/ravichavali/karmyq/actions/workflows/test.yml/badge.svg)](https://github.com/ravichavali/karmyq/actions/workflows/test.yml)
 [![E2E Tests](https://github.com/ravichavali/karmyq/actions/workflows/e2e-tests.yml/badge.svg)](https://github.com/ravichavali/karmyq/actions/workflows/e2e-tests.yml)
@@ -106,7 +106,10 @@ Each service has a `CONTEXT.md` file for context-efficient development:
 ### Core Features
 - **Multi-Community Membership** - Join multiple communities, different reputation in each
 - **Communities** - Create and manage communities (max 150 members, Dunbar's number)
-- **Help System** - Post requests and offers, auto-matched by skills
+- **Polymorphic Request System** (v9.0) - 5 request types (generic, ride, service, event, borrow) with intelligent matching
+- **Curated Feed** (v9.0) - Match score algorithm filters noise by 95% using skills + preferences
+- **Smart Defaults** (v9.0) - Progressive disclosure UX (< 3 clicks to post a request)
+- **User Preferences** (v9.0) - Subscribe/unsubscribe from request types and set interests
 - **Karma & Reputation** - Earn karma by helping, build trust scores and badges
 - **Real-time Chat** - Socket.IO messaging between matched users
 - **Notifications** - Server-Sent Events for instant updates
