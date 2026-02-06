@@ -1,6 +1,6 @@
 # Karmyq - Mutual Aid Platform
 
-**Version**: 9.0.0 | **Status**: Production (Polymorphic Request System)
+**Version**: 9.1.0 | **Status**: Demo/Development
 
 ---
 
@@ -352,7 +352,9 @@ pm2 restart karmyq-{service-name}
 pm2 logs karmyq-{service-name}
 ```
 
-### Production (ARM64 / Oracle Cloud)
+### Demo Environment (ARM64 / Oracle Cloud)
+
+> **Note:** karmyq.com is a **demo/QA environment**, not production. Treat it accordingly.
 
 **Option 1: Automatic Deployment (Recommended)**
 ```bash
@@ -371,7 +373,7 @@ GitHub Actions automatically:
 
 **Option 2: Manual Deployment**
 ```bash
-# SSH to production, then:
+# SSH to demo server:
 ssh ubuntu@karmyq.com
 cd ~/karmyq
 ./scripts/deploy.sh
@@ -385,13 +387,13 @@ SKIP_TESTS=1 ./scripts/deploy.sh
 2. Pulls latest code from master
 3. Installs git hooks
 4. **Runs integration tests** (with auto-rollback on failure)
-5. Loads `.env.production`
+5. Loads `.env.demo`
 6. Builds Docker images (ARM64)
 7. Deploys via docker-compose
 8. Verifies health
 
 **Safety Features:**
-- ✅ Integration tests run against production DB before deployment
+- ✅ Integration tests run against demo DB before deployment
 - ✅ Auto-rollback to previous commit if tests fail
 - ✅ `SKIP_TESTS=1` flag for emergency deploys
 - ✅ Hooks installed automatically on server

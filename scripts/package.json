@@ -4,10 +4,8 @@
   "private": true,
   "description": "Data generation and management scripts for Karmyq",
   "scripts": {
-    "generate:realistic": "tsx generate-realistic-data.ts",
-    "truncate": "node -e \"console.log('Use truncate-database.bat on Windows or ./truncate-database.sh on Mac/Linux')\"",
-    "seed:test": "echo 'Use seed-test-data.bat on Windows or ./seed-test-data.sh on Mac/Linux'",
-    "seed:realistic": "npm run generate:realistic"
+    "truncate": "node -e \"console.log('Use ./scripts/truncate-database.sh')\"",
+    "seed:demo": "node -e \"console.log('Use ./scripts/seed-demo-data.sh to generate demo data via the simulation service')\""
   },
   "dependencies": {
     "@faker-js/faker": "^8.3.1",

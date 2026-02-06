@@ -13,13 +13,13 @@ set -e
 # 2. Pulls latest code from master
 # 3. Installs git hooks
 # 4. Runs integration tests (auto-rollback if fail)
-# 5. Loads environment variables from .env.production
+# 5. Loads environment variables from .env.demo
 # 6. Builds all Docker images on the server (ARM64 native)
 # 7. Deploys using docker-compose
 # 8. Verifies all services are running
 #
 # Prerequisites:
-# - .env.production file must exist (copy from .env.production.example)
+# - .env.demo file must exist (copy from .env.demo.example)
 # - Docker and docker-compose must be installed
 # - PostgreSQL must be running for integration tests
 #
@@ -47,7 +47,7 @@ log_step()  { echo -e "${BLUE}[STEP]${NC} $1"; }
 
 echo ""
 echo "=============================================="
-echo "        Karmyq Production Deployment"
+echo "        Karmyq Demo Deployment"
 echo "=============================================="
 echo ""
 
@@ -90,17 +90,23 @@ fi
 
 # Step 4: Verify environment file exists
 log_step "4/8 - Checking environment configuration"
-if [ ! -f ".env.production" ]; then
-    log_error ".env.production not found!"
-    log_error "Copy .env.production.example to .env.production and fill in values"
-    exit 1
+if [ ! -f ".env.demo" ]; then
+    # Backward compatibility: fall back to .env.production
+    if [ -f ".env.production" ]; then
+        log_warn ".env.production found - please rename to .env.demo"
+        ln -sf .env.production .env.demo
+    else
+        log_error ".env.demo not found!"
+        log_error "Copy .env.demo.example to .env.demo and fill in values"
+        exit 1
+    fi
 fi
 log_info "Environment file found"
 
 # Step 5: Load environment variables
 log_step "5/8 - Loading environment variables"
 set -a
-source .env.production
+source .env.demo
 set +a
 log_info "Environment loaded"
 
@@ -109,7 +115,7 @@ log_step "6/8 - Running pre-deployment tests"
 if [ "$SKIP_TESTS" = "1" ]; then
     log_warn "Skipping tests (SKIP_TESTS=1)"
 else
-    log_info "Running integration tests with production database..."
+    log_info "Running integration tests with demo database..."
 
     # Run integration tests
     TEST_OUTPUT=$(mktemp)

@@ -4,7 +4,7 @@
 # Key differences from development:
 # - volumes: [] removes source code mounts (uses built image)
 # - command: [] uses Dockerfile CMD instead of npm run dev
-# - Environment variables come from .env.production file
+# - Environment variables come from .env.demo file
 
 services:
   # Auth Service

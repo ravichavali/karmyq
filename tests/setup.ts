@@ -3,19 +3,21 @@
  * Runs before all tests
  */
 
-// Load production environment variables if .env.production exists
+// Load environment variables from .env.demo (falls back to .env.production for backward compat)
 import { config } from 'dotenv';
 import * as path from 'path';
 
-const envPath = path.join(__dirname, '..', '.env.production');
-config({ path: envPath });
+const envPathDemo = path.join(__dirname, '..', '.env.demo');
+const envPathLegacy = path.join(__dirname, '..', '.env.production');
+config({ path: envPathDemo });
+config({ path: envPathLegacy }); // fallback — dotenv won't overwrite already-set vars
 
 // Set test environment variables
 process.env.NODE_ENV = 'test';
-process.env.JWT_SECRET = process.env.JWT_SECRET || 'dev_jwt_secret_change_in_production';
+process.env.JWT_SECRET = process.env.JWT_SECRET || 'dev_jwt_secret_change_me';
 
 // Convert Docker service names to localhost for integration tests
-// .env.production uses service names like "http://auth-service:3001" which work in Docker
+// .env.demo uses service names like "http://auth-service:3001" which work in Docker
 // but tests run on host and need "http://localhost:3001"
 const serviceMapping: Record<string, { env: string; port: string }> = {
   'auth-service': { env: 'AUTH_SERVICE_URL', port: '3001' },
