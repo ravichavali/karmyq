@@ -1,60 +1,70 @@
 /**
  * Offer help workflow
+ *
+ * User browses open requests and offers to help by creating a proposed match.
+ * This is the key step that feeds into the accept → complete → rate pipeline.
  */
 
 import { Workflow } from '../types';
-import { delay, pickRandom, OFFER_MESSAGES } from '../utils';
+import { delay, pickRandom } from '../utils';
 
 /**
- * User offers help on a request
+ * User offers help on a request by creating a proposed match
  */
 export const offerHelpWorkflow: Workflow = async (context) => {
   const { session, sessionManager } = context;
   const client = sessionManager.getClient(session);
 
-  console.log(`[${session.user.email}] Offering help...`);
+  console.log(`[${session.user.email}] Looking for requests to help with...`);
 
   try {
     // Browse available requests
     const requests = await sessionManager.executeAction(
       session,
       'browseRequests',
-      () => client.browseRequests({ limit: 10 })
+      () => client.browseRequests({ limit: 20 })
     );
 
     if (!requests || requests.length === 0) {
-      console.log(`[${session.user.email}] No requests to offer help on`);
+      console.log(`[${session.user.email}] No requests available`);
+      return;
+    }
+
+    // Filter out own requests (can't help yourself)
+    const otherRequests = requests.filter(
+      (r: any) => r.requester_id !== session.user.id && r.status === 'open'
+    );
+
+    if (otherRequests.length === 0) {
+      console.log(`[${session.user.email}] No open requests from other users`);
       return;
     }
 
     // Pick a random request (simulate choosing one that looks interesting)
     await delay({ min: 5, max: 20, unit: 'seconds' });
 
-    const request = pickRandom(requests) as any;
+    const request = pickRandom(otherRequests) as any;
 
     // Read the request details
     await delay({ min: 3, max: 10, unit: 'seconds' });
 
-    // Decide whether to offer help (70% chance)
-    if (Math.random() > 0.7) {
-      console.log(`[${session.user.email}] Decided not to offer help on this request`);
+    // Decide whether to offer help (80% chance)
+    if (Math.random() > 0.8) {
+      console.log(`[${session.user.email}] Decided not to help with: "${request.title}"`);
       return;
     }
 
-    // Compose offer message (simulate thinking)
+    // Offer help by creating a proposed match
     await delay({ min: 5, max: 15, unit: 'seconds' });
 
-    const message = pickRandom(OFFER_MESSAGES);
-
-    // Create the offer
-    const offer = await sessionManager.executeAction(
+    const match = await sessionManager.executeAction(
       session,
-      'createOffer',
-      () => client.createOffer(request.id, message)
+      'offerHelp',
+      () => client.offerHelp(request.id, session.user.id)
     );
 
-    if (offer) {
-      console.log(`[${session.user.email}] Offered help on request: "${request.title}"`);
+    if (match) {
+      console.log(`[${session.user.email}] Offered help on: "${request.title}" (match ${match.id})`);
     }
 
   } catch (error: any) {

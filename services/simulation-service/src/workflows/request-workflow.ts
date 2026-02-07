@@ -1,12 +1,13 @@
 /**
- * Create request workflow
+ * Create request workflow - uses polymorphic request types
  */
 
 import { Workflow } from '../types';
-import { delay, pickRandom, REQUEST_TITLES } from '../utils';
+import { delay, pickRandom } from '../utils';
+import { generateRandomRequest } from '../data/realistic-data';
 
 /**
- * User creates a help request
+ * User creates a help request using one of the 5 polymorphic types
  */
 export const createRequestWorkflow: Workflow = async (context) => {
   const { session, sessionManager } = context;
@@ -33,26 +34,21 @@ export const createRequestWorkflow: Workflow = async (context) => {
     // Think about what to request (simulate typing)
     await delay({ min: 10, max: 30, unit: 'seconds' });
 
-    // Generate request data
-    const title = pickRandom(REQUEST_TITLES);
-    const descriptions = [
-      `I could really use some help with this. Let me know if you're available!`,
-      `Would appreciate any assistance with this. Thanks in advance!`,
-      `Looking for someone who can help out. Happy to return the favor!`,
-      `Need help with this soon. Please reach out if you can assist.`,
-      `This would be a huge help if anyone is available. Thanks!`
-    ];
+    // Generate a random polymorphic request
+    const generated = generateRandomRequest();
 
-    const categories = ['transportation', 'moving_help', 'childcare', 'tech_help', 'home_repair', 'other'];
-    const urgencies = ['low', 'medium', 'high'];
-
-    const requestData = {
+    const requestData: any = {
       community_id: community.id,
-      title,
-      description: pickRandom(descriptions),
-      category: pickRandom(categories),
-      urgency: pickRandom(urgencies)
+      title: generated.title,
+      description: generated.description,
+      urgency: generated.urgency,
+      request_type: generated.request_type
     };
+
+    // Add payload for non-generic request types
+    if (generated.payload) {
+      requestData.payload = generated.payload;
+    }
 
     // Create the request
     const request = await sessionManager.executeAction(
@@ -62,7 +58,7 @@ export const createRequestWorkflow: Workflow = async (context) => {
     );
 
     if (request) {
-      console.log(`[${session.user.email}] Created request: "${title}"`);
+      console.log(`[${session.user.email}] Created ${generated.request_type} request: "${generated.title}"`);
     }
 
   } catch (error: any) {

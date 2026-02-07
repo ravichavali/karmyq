@@ -84,21 +84,11 @@ export class ApiClient {
   }
 
   /**
-   * Request API - Create offer
+   * Request API - Offer help on a request by creating a proposed match
    */
-  async createOffer(requestId: string, message: string): Promise<any> {
+  async offerHelp(requestId: string, responderId: string): Promise<any> {
     const response = await executeWithRetry(() =>
-      this.client.post(`/requests/${requestId}/offers`, { message })
-    );
-    return response.data.data;
-  }
-
-  /**
-   * Request API - Accept offer
-   */
-  async acceptOffer(offerId: string): Promise<any> {
-    const response = await executeWithRetry(() =>
-      this.client.post(`/offers/${offerId}/accept`)
+      this.client.post('/matches', { request_id: requestId, responder_id: responderId })
     );
     return response.data.data;
   }
@@ -120,7 +110,7 @@ export class ApiClient {
    */
   async completeMatch(matchId: string, feedback?: { rating: number; comment: string }): Promise<any> {
     const response = await executeWithRetry(() =>
-      this.client.post(`/matches/${matchId}/complete`, feedback)
+      this.client.put(`/matches/${matchId}/complete`, feedback)
     );
     return response.data.data;
   }
@@ -183,6 +173,67 @@ export class ApiClient {
   async getDashboard(): Promise<any> {
     const response = await executeWithRetry(() =>
       this.client.get('/feed/dashboard')
+    );
+    return response.data.data;
+  }
+
+  /**
+   * Auth API - Register a new user
+   */
+  async register(data: { email: string; name: string; password: string }): Promise<{ token: string; user: any }> {
+    const response = await executeWithRetry(() =>
+      this.client.post('/auth/register', data)
+    );
+    return response.data.data;
+  }
+
+  /**
+   * Community API - Create a new community
+   */
+  async createCommunity(data: { name: string; description?: string; location?: string; category?: string; access_type?: string }): Promise<any> {
+    const response = await executeWithRetry(() =>
+      this.client.post('/communities', data)
+    );
+    return response.data.data;
+  }
+
+  /**
+   * Community API - Discover available communities
+   */
+  async discoverCommunities(params?: { limit?: number }): Promise<any[]> {
+    const response = await executeWithRetry(() =>
+      this.client.get('/communities', { params })
+    );
+    const communities = response.data.data?.communities || response.data.data || [];
+    return Array.isArray(communities) ? communities : [];
+  }
+
+  /**
+   * Community API - Join a community
+   */
+  async joinCommunity(communityId: string): Promise<any> {
+    const response = await executeWithRetry(() =>
+      this.client.post(`/communities/${communityId}/join`)
+    );
+    return response.data.data;
+  }
+
+  /**
+   * Request API - Create a match
+   */
+  async createMatch(data: { request_id: string; offer_id?: string; responder_id: string }): Promise<any> {
+    const response = await executeWithRetry(() =>
+      this.client.post('/matches', data)
+    );
+    return response.data.data;
+  }
+
+  /**
+   * Request API - Accept a match (requester accepts a proposed match)
+   */
+  async acceptMatch(matchId: string, userId: string): Promise<any> {
+    const response = await executeWithRetry(() =>
+      this.client.put(`/matches/${matchId}/accept`, { user_id: userId })
     );
     return response.data.data;
   }

@@ -15,23 +15,43 @@ export const completeMatchWorkflow: Workflow = async (context) => {
   console.log(`[${session.user.email}] Checking for matches to complete...`);
 
   try {
-    // Get active matches
-    const matches = await sessionManager.executeAction(
+    // Get matches in both 'active' and 'matched' states (post-acceptance)
+    const activeMatches = await sessionManager.executeAction(
       session,
       'getMatches',
       () => client.getMatches({ status: 'active' })
     );
 
-    if (!matches || matches.length === 0) {
+    const matchedMatches = await sessionManager.executeAction(
+      session,
+      'getMatchesMatched',
+      () => client.getMatches({ status: 'matched' })
+    );
+
+    // Combine both sets of matches
+    const allActiveMatches = [
+      ...(activeMatches || []),
+      ...(matchedMatches || [])
+    ];
+
+    if (allActiveMatches.length === 0) {
       console.log(`[${session.user.email}] No active matches to complete`);
       return;
     }
 
-    console.log(`[${session.user.email}] Found ${matches.length} active matches`);
+    console.log(`[${session.user.email}] Found ${allActiveMatches.length} active matches`);
 
-    // Only complete some matches (30% chance per match)
-    for (const match of matches) {
-      if (Math.random() > 0.3) {
+    // Allow up to 3 completions per session
+    let completed = 0;
+    const maxCompletions = 3;
+
+    for (const match of allActiveMatches) {
+      if (completed >= maxCompletions) {
+        break;
+      }
+
+      // 90% chance to complete each match (was 30%)
+      if (Math.random() > 0.9) {
         continue;
       }
 
@@ -67,18 +87,20 @@ export const completeMatchWorkflow: Workflow = async (context) => {
       const comment = rating >= 4 ? pickRandom(positiveComments) : pickRandom(neutralComments);
 
       // Complete the match
-      const completed = await sessionManager.executeAction(
+      const completedMatch = await sessionManager.executeAction(
         session,
         'completeMatch',
         () => client.completeMatch(match.id, { rating, comment })
       );
 
-      if (completed) {
+      if (completedMatch) {
         console.log(`[${session.user.email}] Completed match with ${rating} stars`);
+        completed++;
       }
+    }
 
-      // Only complete one match per session (realistic behavior)
-      break;
+    if (completed > 0) {
+      console.log(`[${session.user.email}] Completed ${completed} matches this session`);
     }
 
   } catch (error: any) {

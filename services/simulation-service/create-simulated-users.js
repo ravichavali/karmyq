@@ -35,13 +35,58 @@ const ENVIRONMENTS = {
   }
 };
 
-// User profiles matching simulation service distribution
+// Realistic diverse names (matching realistic-data.ts)
+const FIRST_NAMES = [
+  'Maria', 'James', 'Priya', 'Wei', 'Fatima',
+  'Carlos', 'Aisha', 'Liam', 'Yuki', 'Sarah',
+  'Mohamed', 'Elena', 'David', 'Mei', 'Omar',
+  'Sofia', 'Raj', 'Nadia', 'Lucas', 'Hannah',
+  'Kwame', 'Isabella', 'Chen', 'Amara', 'Ethan',
+  'Leila', 'Takeshi', 'Zara', 'Andre', 'Ingrid',
+  'Marcus', 'Suki', 'Diego', 'Nina', 'Jamal',
+  'Rosa', 'Vikram', 'Chiara', 'Kofi', 'Lena'
+];
+
+const LAST_NAMES = [
+  'Chen', 'Rodriguez', 'Patel', 'Kim', 'Okafor',
+  'Mueller', 'Singh', 'Tanaka', 'Santos', 'Williams',
+  'Ahmed', 'Thompson', 'Liu', 'Garcia', 'Nakamura',
+  'Martinez', 'Sato', 'Brown', 'Ali', 'Johansson',
+  'Nguyen', 'Davis', 'Hernandez', 'Park', 'Wilson',
+  'Kumar', 'White', 'Zhao', 'Lopez', 'Anderson',
+  'Osei', 'Berg', 'Reyes', 'Rossi', 'Ibrahim',
+  'Larsson', 'Sharma', 'Costa', 'Mensah', 'Fischer'
+];
+
+// Bios that sound like real people
+const BIOS = [
+  'Portland native, love hiking and helping neighbors',
+  'New to the area, looking to connect with my community',
+  'Retired teacher, happy to lend a hand',
+  'Software engineer who enjoys volunteering on weekends',
+  'Stay-at-home parent, always looking for ways to help out',
+  'Dog walker and neighborhood enthusiast',
+  'Community organizer passionate about mutual aid',
+  'Moved here from the east coast, loving Portland so far',
+  'Gardener, cook, and all-around handy person',
+  'Student at PSU, want to give back to the community',
+  'Long-time SE Portland resident',
+  'Carpenter by trade, happy to help with projects',
+  'Foodie and amateur baker',
+  'Cyclist and outdoor lover',
+  'Works from home, flexible schedule to help out',
+  '',  // Some users don't fill in a bio
+  '',
+  '',
+];
+
+// Profile types with weights (no names - names generated separately)
 const PROFILES = [
-  { type: 'active-helper', weight: 0.30, names: ['Alex Helper', 'Sam Assistant', 'Jordan Aid', 'Casey Support', 'Morgan Guide', 'Taylor Care'] },
-  { type: 'requester', weight: 0.25, names: ['Jamie Request', 'Riley Need', 'Avery Seeker', 'Quinn Ask', 'Parker Inquire'] },
-  { type: 'browser', weight: 0.25, names: ['Drew Browse', 'Skyler View', 'River Look', 'Sage Watch', 'Robin Explore'] },
-  { type: 'community-builder', weight: 0.10, names: ['Cameron Builder', 'Dakota Community'] },
-  { type: 'social-user', weight: 0.10, names: ['Reese Social', 'Finley Friend'] }
+  { type: 'active-helper', weight: 0.30 },
+  { type: 'requester', weight: 0.25 },
+  { type: 'browser', weight: 0.25 },
+  { type: 'community-builder', weight: 0.10 },
+  { type: 'social-user', weight: 0.10 }
 ];
 
 // Parse command line arguments
@@ -74,24 +119,49 @@ function parseArgs() {
 // Generate consistent password for demo environment
 // All simulated users use the same password for easy testing
 function generatePassword() {
-  return 'demo123!Demo'; // Consistent password for all sim users
+  return '115ECourtLn';
 }
 
-// Distribute users across profiles
+// Generate unique realistic names
+function generateUniqueNames(count) {
+  const usedNames = new Set();
+  const names = [];
+
+  // Shuffle both arrays independently
+  const shuffledFirst = [...FIRST_NAMES].sort(() => Math.random() - 0.5);
+  const shuffledLast = [...LAST_NAMES].sort(() => Math.random() - 0.5);
+
+  for (let i = 0; names.length < count && i < 1000; i++) {
+    const first = shuffledFirst[i % shuffledFirst.length];
+    // Use a different offset for last names so they don't pair predictably
+    const last = shuffledLast[(i * 7 + 3) % shuffledLast.length];
+    const full = `${first} ${last}`;
+
+    if (!usedNames.has(full)) {
+      usedNames.add(full);
+      names.push({ first, last, full });
+    }
+  }
+
+  return names;
+}
+
+// Distribute users across profiles with realistic names
 function distributeProfiles(count) {
+  const names = generateUniqueNames(count);
   const distribution = [];
   let assigned = 0;
 
   for (const profile of PROFILES) {
     const profileCount = Math.round(count * profile.weight);
-    const names = profile.names;
 
     for (let i = 0; i < profileCount && assigned < count; i++) {
-      const name = names[i % names.length];
-      const suffix = Math.floor(i / names.length) > 0 ? ` ${Math.floor(i / names.length) + 1}` : '';
-
+      const name = names[assigned];
       distribution.push({
-        name: name + suffix,
+        name: name.full,
+        firstName: name.first,
+        lastName: name.last,
+        bio: BIOS[assigned % BIOS.length],
         profile: profile.type,
         index: assigned + 1
       });
@@ -102,9 +172,12 @@ function distributeProfiles(count) {
   // Fill remaining with random profiles if needed
   while (assigned < count) {
     const profile = PROFILES[assigned % PROFILES.length];
-    const name = profile.names[0];
+    const name = names[assigned];
     distribution.push({
-      name: `${name} ${assigned + 1}`,
+      name: name.full,
+      firstName: name.first,
+      lastName: name.last,
+      bio: BIOS[assigned % BIOS.length],
       profile: profile.type,
       index: assigned + 1
     });
@@ -141,14 +214,12 @@ async function deleteUser(apiUrl, email, password) {
 }
 
 // Register a user
-async function registerUser(apiUrl, email, name, password, forceRecreate = false) {
+async function registerUser(apiUrl, email, name, password, bio = '', forceRecreate = false) {
   try {
-    const response = await axios.post(`${apiUrl}/auth/register`, {
-      email,
-      name,
-      password,
-      bio: 'Simulated user for platform testing and demonstration'
-    }, {
+    const registerData = { email, name, password };
+    if (bio) registerData.bio = bio;
+
+    const response = await axios.post(`${apiUrl}/auth/register`, registerData, {
       timeout: 10000
     });
 
@@ -286,7 +357,7 @@ async function main() {
   if (config.dryRun) {
     console.log('Preview of users to create:');
     distribution.forEach(u => {
-      const email = `sim-user-${u.index}@${env.emailDomain}`;
+      const email = `${u.firstName.toLowerCase()}.${u.lastName.toLowerCase()}@${env.emailDomain}`;
       console.log(`  ${u.index}. ${u.name} <${email}> [${u.profile}]`);
     });
     console.log('\nRun without --dry-run to create these users.');
@@ -303,12 +374,12 @@ async function main() {
   console.log('Creating users...\n');
 
   for (const user of distribution) {
-    const email = `sim-user-${user.index}@${env.emailDomain}`;
+    const email = `${user.firstName.toLowerCase()}.${user.lastName.toLowerCase()}@${env.emailDomain}`;
     const password = generatePassword();
 
     process.stdout.write(`[${user.index}/${userCount}] Creating ${user.name} <${email}>... `);
 
-    const result = await registerUser(env.apiUrl, email, user.name, password);
+    const result = await registerUser(env.apiUrl, email, user.name, password, user.bio);
 
     if (result.success) {
       if (result.existed) {

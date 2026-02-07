@@ -12,7 +12,9 @@ import {
   offerHelpWorkflow,
   messageWorkflow,
   completeMatchWorkflow,
-  joinCommunityWorkflow
+  joinCommunityWorkflow,
+  acceptOfferWorkflow,
+  createCommunityWorkflow
 } from './workflows';
 import { loadUserCredentials, getRandomUser, UserCredentials } from './credentials-loader';
 
@@ -270,6 +272,22 @@ export class Simulator {
         weight: actions.completeMatches.weight,
         workflow: completeMatchWorkflow,
         name: 'completeMatch'
+      });
+    }
+
+    if (actions.acceptOffers) {
+      workflows.push({
+        weight: actions.acceptOffers.weight,
+        workflow: acceptOfferWorkflow,
+        name: 'acceptOffer'
+      });
+    }
+
+    if (actions.createCommunities) {
+      workflows.push({
+        weight: actions.createCommunities.weight,
+        workflow: createCommunityWorkflow,
+        name: 'createCommunity'
       });
     }
 

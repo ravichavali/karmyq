@@ -50,7 +50,7 @@ export const COMMUNITY_BUILDER: UserProfile = {
   name: 'Community Builder',
   frequency: 'medium',
   actions: {
-    createCommunities: { weight: 0.3, avgPerSession: 0.2 },
+    createCommunities: { weight: 0.05, avgPerSession: 0.1 },
     inviteMembers: { weight: 0.6, avgPerSession: 5 },
     moderateContent: { weight: 0.4, avgPerSession: 2 },
     createRequests: { weight: 0.5, avgPerSession: 1 },
