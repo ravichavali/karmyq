@@ -284,6 +284,7 @@ export class VolumeSeeder {
 
       // Get user's communities (approximate - we know they're in random communities)
       const userCommunities = communities.slice(0, Math.floor(Math.random() * 5) + 1);
+      if (userCommunities.length === 0) continue;
 
       for (let i = 0; i < requestCount; i++) {
         const community = userCommunities[Math.floor(Math.random() * userCommunities.length)];

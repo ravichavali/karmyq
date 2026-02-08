@@ -368,7 +368,7 @@ export class CommunityFactory {
           creator_id: creatorId,
         });
 
-      const community = response.body.data || response.body.community;
+      const community = response.body.data?.community || response.body.data || response.body.community;
       if (!community?.id) {
         console.log(`Community creation failed: ${JSON.stringify(response.body)}`);
         return null;
