@@ -19,6 +19,7 @@
 
 import React, { useState } from 'react'
 import { CommunityConfig, RequestType } from '../types/community-config'
+import { REQUEST_TYPES } from './requests/RequestTypeSelector'
 
 interface CommunityConfigEditorProps {
   config: CommunityConfig
@@ -265,91 +266,120 @@ export default function CommunityConfigEditor({
         {expandedSection === 'request_types' && (
           <div className="p-4 space-y-4">
             <p className="text-sm text-gray-600 mb-4">
-              Define the types of requests your community supports. Each type has a karma multiplier
-              to adjust reward based on impact.
+              Choose which types of requests your community supports. You can adjust the karma
+              multiplier for each type to reflect its impact.
             </p>
-            {config.enabled_request_types.map((reqType, index) => (
-              <div key={index} className="border border-gray-200 rounded-md p-3 bg-gray-50">
-                <div className="flex justify-between items-start mb-2">
-                  <h4 className="text-sm font-semibold text-gray-700">Request Type {index + 1}</h4>
-                  {!readOnly && config.enabled_request_types.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={() => removeRequestType(index)}
-                      className="text-red-600 hover:text-red-800 text-sm"
-                    >
-                      Remove
-                    </button>
-                  )}
-                </div>
-                <div className="space-y-2">
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Name</label>
-                    <input
-                      type="text"
-                      value={reqType.name}
-                      onChange={(e) => handleRequestTypeChange(index, 'name', e.target.value)}
-                      disabled={readOnly}
-                      placeholder="e.g., meal_share"
-                      className={`w-full px-2 py-1 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                        errors[`enabled_request_types[${index}].name`]
-                          ? 'border-red-500'
-                          : 'border-gray-300'
-                      } disabled:bg-gray-100`}
-                    />
-                    {errors[`enabled_request_types[${index}].name`] && (
-                      <p className="text-xs text-red-500 mt-1">
-                        {errors[`enabled_request_types[${index}].name`]}
-                      </p>
-                    )}
-                    <p className="text-xs text-gray-500 mt-1">Use lowercase_underscore format</p>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">
-                      Description
-                    </label>
-                    <input
-                      type="text"
-                      value={reqType.description}
-                      onChange={(e) => handleRequestTypeChange(index, 'description', e.target.value)}
-                      disabled={readOnly}
-                      placeholder="e.g., Share meals or cooking"
-                      className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">
-                      Karma Multiplier ({reqType.karma_multiplier}x)
-                    </label>
-                    <input
-                      type="range"
-                      value={reqType.karma_multiplier}
-                      onChange={(e) =>
-                        handleRequestTypeChange(index, 'karma_multiplier', Number(e.target.value))
+
+            {/* Visual type selector grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {REQUEST_TYPES.map((type) => {
+                const enabledIndex = config.enabled_request_types.findIndex(
+                  (rt) => rt.name === type.value
+                )
+                const isEnabled = enabledIndex >= 0
+                const currentMultiplier = isEnabled
+                  ? config.enabled_request_types[enabledIndex].karma_multiplier
+                  : 1.0
+
+                return (
+                  <div
+                    key={type.value}
+                    className={`relative border-2 rounded-lg p-4 transition-all ${
+                      isEnabled
+                        ? 'border-blue-500 bg-blue-50 shadow-sm'
+                        : 'border-gray-200 bg-white hover:border-gray-300'
+                    } ${readOnly ? 'cursor-default' : 'cursor-pointer'}`}
+                    onClick={() => {
+                      if (readOnly) return
+                      if (isEnabled) {
+                        // Don't remove if it's the last type
+                        if (config.enabled_request_types.length > 1) {
+                          removeRequestType(enabledIndex)
+                        }
+                      } else {
+                        onChange({
+                          ...config,
+                          enabled_request_types: [
+                            ...config.enabled_request_types,
+                            { name: type.value, description: type.description, karma_multiplier: 1.0 },
+                          ],
+                        })
                       }
-                      disabled={readOnly}
-                      min={0.5}
-                      max={2.0}
-                      step={0.1}
-                      className="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer disabled:cursor-not-allowed"
-                    />
-                    <div className="flex justify-between text-xs text-gray-500 mt-1">
-                      <span>0.5x (Low impact)</span>
-                      <span>2.0x (High impact)</span>
+                    }}
+                  >
+                    {/* Checkbox indicator */}
+                    <div className="absolute top-3 right-3">
+                      <div
+                        className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-colors ${
+                          isEnabled
+                            ? 'bg-blue-500 border-blue-500'
+                            : 'border-gray-300 bg-white'
+                        }`}
+                      >
+                        {isEnabled && (
+                          <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                            <path
+                              fillRule="evenodd"
+                              d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                              clipRule="evenodd"
+                            />
+                          </svg>
+                        )}
+                      </div>
                     </div>
+
+                    <div className="flex items-start gap-3 pr-6">
+                      <span className="text-2xl flex-shrink-0">{type.icon}</span>
+                      <div className="min-w-0">
+                        <h4 className="font-semibold text-gray-900 text-sm">{type.label}</h4>
+                        <p className="text-xs text-gray-500 mt-0.5">{type.description}</p>
+                      </div>
+                    </div>
+
+                    {/* Karma multiplier slider (only when enabled) */}
+                    {isEnabled && (
+                      <div
+                        className="mt-3 pt-3 border-t border-blue-200"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <div className="flex justify-between items-center mb-1">
+                          <label className="text-xs font-medium text-gray-600">
+                            Karma Multiplier
+                          </label>
+                          <span className="text-xs font-semibold text-blue-600">
+                            {currentMultiplier}x
+                          </span>
+                        </div>
+                        <input
+                          type="range"
+                          value={currentMultiplier}
+                          onChange={(e) =>
+                            handleRequestTypeChange(enabledIndex, 'karma_multiplier', Number(e.target.value))
+                          }
+                          disabled={readOnly}
+                          min={0.5}
+                          max={2.0}
+                          step={0.1}
+                          className="w-full h-1 bg-blue-200 rounded-lg appearance-none cursor-pointer disabled:cursor-not-allowed"
+                        />
+                        <div className="flex justify-between text-xs text-gray-400 mt-0.5">
+                          <span>0.5x</span>
+                          <span>2.0x</span>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                </div>
-              </div>
-            ))}
-            {!readOnly && (
-              <button
-                type="button"
-                onClick={addRequestType}
-                className="w-full py-2 px-4 border-2 border-dashed border-gray-300 rounded-md text-sm font-medium text-gray-600 hover:border-blue-500 hover:text-blue-600 transition-colors"
-              >
-                + Add Request Type
-              </button>
-            )}
+                )
+              })}
+            </div>
+
+            <div className="bg-gray-50 border border-gray-200 rounded-md p-3">
+              <p className="text-xs text-gray-600">
+                <strong>{config.enabled_request_types.length}</strong> type{config.enabled_request_types.length !== 1 ? 's' : ''} enabled.
+                Members will only be able to create requests of the types you select.
+              </p>
+            </div>
+
             {errors.request_types && (
               <p className="text-xs text-red-500 mt-2">{errors.request_types}</p>
             )}

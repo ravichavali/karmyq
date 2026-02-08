@@ -41,6 +41,8 @@ export default function CommunitiesPage() {
   const [communities, setCommunities] = useState<Community[]>([])
   const [membershipStatus, setMembershipStatus] = useState<MembershipStatus>({})
   const [loading, setLoading] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [hasMore, setHasMore] = useState(true)
   const [error, setError] = useState('')
   const [joiningId, setJoiningId] = useState<string | null>(null)
 
@@ -50,6 +52,8 @@ export default function CommunitiesPage() {
   const [categoryFilter, setCategoryFilter] = useState('')
   const [hasSpaceFilter, setHasSpaceFilter] = useState(false)
   const [sortBy, setSortBy] = useState('newest')
+
+  const PAGE_SIZE = 12
 
   useEffect(() => {
     const token = localStorage.getItem('token')
@@ -67,12 +71,18 @@ export default function CommunitiesPage() {
     fetchCommunities()
   }, [router, searchQuery, locationFilter, categoryFilter, hasSpaceFilter, sortBy])
 
-  const fetchCommunities = async () => {
+  const fetchCommunities = async (loadMore = false) => {
     try {
-      setLoading(true)
+      if (loadMore) {
+        setLoadingMore(true)
+      } else {
+        setLoading(true)
+      }
+
       const params: any = {
         status: 'active',
-        limit: 100,
+        limit: PAGE_SIZE,
+        offset: loadMore ? communities.length : 0,
         sort: sortBy
       }
 
@@ -82,18 +92,28 @@ export default function CommunitiesPage() {
       if (hasSpaceFilter) params.has_space = 'true'
 
       const response = await communityService.getCommunities(params)
-      setCommunities(response.data.communities)
+      const newCommunities = response.data.communities
+
+      if (loadMore) {
+        setCommunities(prev => [...prev, ...newCommunities])
+      } else {
+        setCommunities(newCommunities)
+      }
+
+      setHasMore(newCommunities.length === PAGE_SIZE)
 
       // Get user's memberships from JWT token (no API call needed)
       const userData = localStorage.getItem('user')
       if (userData) {
         const user = JSON.parse(userData)
-        buildMembershipStatusFromToken(user, response.data.communities)
+        const allCommunities = loadMore ? [...communities, ...newCommunities] : newCommunities
+        buildMembershipStatusFromToken(user, allCommunities)
       }
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to load communities')
     } finally {
       setLoading(false)
+      setLoadingMore(false)
     }
   }
 
@@ -429,6 +449,19 @@ export default function CommunitiesPage() {
                   )
                 })}
               </div>
+
+              {/* Load More Button */}
+              {hasMore && (
+                <div className="mt-8 text-center">
+                  <button
+                    onClick={() => fetchCommunities(true)}
+                    disabled={loadingMore}
+                    className="px-8 py-3 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium transition-colors disabled:opacity-50"
+                  >
+                    {loadingMore ? 'Loading...' : 'Load More Communities'}
+                  </button>
+                </div>
+              )}
             </>
           )}
         </div>

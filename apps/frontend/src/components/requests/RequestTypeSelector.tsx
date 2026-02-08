@@ -17,7 +17,7 @@ interface RequestTypeOption {
   mostUsed?: boolean
 }
 
-const REQUEST_TYPES: RequestTypeOption[] = [
+export const REQUEST_TYPES: RequestTypeOption[] = [
   {
     value: 'generic',
     label: 'General Help',
