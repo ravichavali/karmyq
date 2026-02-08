@@ -8,6 +8,7 @@ import requestsRouter from './routes/requests';
 import offersRouter from './routes/offers';
 import matchesRouter from './routes/matches';
 import feedbackRouter from './routes/feedback';
+import schemasRouter from './routes/schemas';
 import { createLogger, requestLoggingMiddleware } from '@karmyq/shared/utils/logger';
 import {
   authMiddleware,
@@ -40,6 +41,10 @@ app.get('/health', (req: any, res: Response) => {
     timestamp: new Date().toISOString(),
   }, 200, { requestId: req.id });
 });
+
+// Schema endpoint (public — no auth required)
+// Serves UI schemas for the DynamicForm component
+app.use('/schemas', rateLimiters.standard, schemasRouter);
 
 // Routes with authentication and optional tenant context
 // Tenant context is optional because requests themselves contain community_id

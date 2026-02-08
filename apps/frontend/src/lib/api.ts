@@ -300,6 +300,13 @@ export const communityService = {
 
 // Request Service API Methods
 export const requestService = {
+  // UI Schemas (Server-Driven UI)
+  getSchemas: () =>
+    requestApi.get('/schemas'),
+
+  getSchema: (type: string) =>
+    requestApi.get(`/schemas/${type}`),
+
   // Help Requests
   getRequests: (params?: { community_id?: string; status?: string; type?: string; requester_id?: string; limit?: number; offset?: number }) =>
     requestApi.get('/requests', { params }),

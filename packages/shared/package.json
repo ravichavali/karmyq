@@ -72,6 +72,10 @@
     "./schemas/requests": {
       "types": "./dist/src/schemas/requests/index.d.ts",
       "default": "./dist/src/schemas/requests/index.js"
+    },
+    "./schemas/ui": {
+      "types": "./dist/src/schemas/ui/index.d.ts",
+      "default": "./dist/src/schemas/ui/index.js"
     }
   },
   "scripts": {

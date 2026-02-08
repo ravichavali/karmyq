@@ -5,23 +5,16 @@ import Link from 'next/link'
 import { requestService, communityService } from '../../lib/api'
 import Layout from '@/components/Layout'
 import RequestTypeSelector, { RequestType } from '@/components/requests/RequestTypeSelector'
-import RideRequestForm, { RideRequestPayload } from '@/components/requests/RideRequestForm'
-import ServiceRequestForm, { ServiceRequestPayload } from '@/components/requests/ServiceRequestForm'
-import EventRequestForm, { EventRequestPayload } from '@/components/requests/EventRequestForm'
-import BorrowRequestForm, { BorrowRequestPayload } from '@/components/requests/BorrowRequestForm'
-import GenericRequestForm from '@/components/requests/GenericRequestForm'
+import DynamicForm from '@/components/requests/DynamicForm'
+import type { UISchema } from '@karmyq/shared/schemas/ui'
 
 interface Community {
   id: string
   name: string
 }
 
-type RequestPayload =
-  | RideRequestPayload
-  | ServiceRequestPayload
-  | EventRequestPayload
-  | BorrowRequestPayload
-  | {}
+// In-memory schema cache (per session)
+const schemaCache: Record<string, UISchema> = {}
 
 export default function NewRequestPage() {
   const router = useRouter()
@@ -33,6 +26,10 @@ export default function NewRequestPage() {
   const [selectedType, setSelectedType] = useState<RequestType>('generic')
   const [showTypeSelector, setShowTypeSelector] = useState(false)
 
+  // UI Schema for the selected type (Server-Driven UI)
+  const [currentSchema, setCurrentSchema] = useState<UISchema | null>(null)
+  const [schemaLoading, setSchemaLoading] = useState(false)
+
   // Form data
   const [formData, setFormData] = useState({
     community_id: '',
@@ -41,7 +38,7 @@ export default function NewRequestPage() {
     urgency: 'medium' as 'low' | 'medium' | 'high',
   })
 
-  const [payload, setPayload] = useState<Partial<RequestPayload>>({})
+  const [payload, setPayload] = useState<Record<string, any>>({})
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -60,6 +57,11 @@ export default function NewRequestPage() {
     }
   }, [currentUser])
 
+  // Fetch UI schema when type changes
+  useEffect(() => {
+    fetchSchema(selectedType)
+  }, [selectedType])
+
   const fetchCommunities = async () => {
     try {
       const response = await communityService.getCommunities({ limit: 100 })
@@ -69,14 +71,31 @@ export default function NewRequestPage() {
     }
   }
 
+  const fetchSchema = async (type: string) => {
+    // Check cache first
+    if (schemaCache[type]) {
+      setCurrentSchema(schemaCache[type])
+      return
+    }
+
+    try {
+      setSchemaLoading(true)
+      const response = await requestService.getSchema(type)
+      const schema = response.data.data.schema as UISchema
+      schemaCache[type] = schema
+      setCurrentSchema(schema)
+    } catch (error) {
+      console.error('Error fetching schema:', error)
+      setCurrentSchema(null)
+    } finally {
+      setSchemaLoading(false)
+    }
+  }
+
   const handleTypeSelect = (type: RequestType) => {
     setSelectedType(type)
     setPayload({}) // Reset payload when changing type
     setShowTypeSelector(false) // Close type selector after selection
-  }
-
-  const handlePayloadChange = (newPayload: Partial<RequestPayload>) => {
-    setPayload(newPayload)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -107,7 +126,7 @@ export default function NewRequestPage() {
     }
 
     // Add payload for specialized types (not generic)
-    if (selectedType !== 'generic') {
+    if (selectedType !== 'generic' && Object.keys(payload).length > 0) {
       requestData.payload = payload
     }
 
@@ -147,7 +166,9 @@ export default function NewRequestPage() {
                 <div>
                   <h1 className="text-2xl font-bold text-gray-900">Create Help Request</h1>
                   <p className="text-sm text-gray-600 mt-1">
-                    Request type: <span className="font-medium text-blue-600">{selectedType === 'generic' ? 'General Help' : selectedType.charAt(0).toUpperCase() + selectedType.slice(1)}</span>
+                    Request type: <span className="font-medium text-blue-600">
+                      {currentSchema?.label || (selectedType === 'generic' ? 'General Help' : selectedType.charAt(0).toUpperCase() + selectedType.slice(1))}
+                    </span>
                   </p>
                 </div>
               </div>
@@ -267,38 +288,21 @@ export default function NewRequestPage() {
                   </select>
                 </div>
 
-                {/* Type-Specific Form */}
-                <div className="border-t pt-6">
-                  {selectedType === 'ride' && (
-                    <RideRequestForm
-                      initialData={payload as Partial<RideRequestPayload>}
-                      onChange={handlePayloadChange}
+                {/* Server-Driven Dynamic Form */}
+                {schemaLoading && (
+                  <div className="border-t pt-6">
+                    <div className="text-center text-gray-500 py-4">Loading form...</div>
+                  </div>
+                )}
+                {currentSchema && currentSchema.sections.length > 0 && !schemaLoading && (
+                  <div className="border-t pt-6">
+                    <DynamicForm
+                      schema={currentSchema}
+                      value={payload}
+                      onChange={setPayload}
                     />
-                  )}
-                  {selectedType === 'service' && (
-                    <ServiceRequestForm
-                      initialData={payload as Partial<ServiceRequestPayload>}
-                      onChange={handlePayloadChange}
-                    />
-                  )}
-                  {selectedType === 'event' && (
-                    <EventRequestForm
-                      initialData={payload as Partial<EventRequestPayload>}
-                      onChange={handlePayloadChange}
-                    />
-                  )}
-                  {selectedType === 'borrow' && (
-                    <BorrowRequestForm
-                      initialData={payload as Partial<BorrowRequestPayload>}
-                      onChange={handlePayloadChange}
-                    />
-                  )}
-                  {selectedType === 'generic' && (
-                    <GenericRequestForm
-                      onChange={handlePayloadChange}
-                    />
-                  )}
-                </div>
+                  </div>
+                )}
 
                 {/* Submit Button */}
                 <div className="flex gap-4 pt-6 border-t">
