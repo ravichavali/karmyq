@@ -1,5 +1,5 @@
 import { query } from '../database/db';
-import { generateNotification, NotificationType } from '../templates/notificationTemplates';
+import { generateNotification, NotificationType, notificationTemplates } from '../templates/notificationTemplates';
 import { EventEmitter } from 'events';
 
 // Event emitter for real-time notifications (SSE)
@@ -20,6 +20,13 @@ interface UserPreferences {
 // Create a notification
 export async function createNotification(params: CreateNotificationParams) {
   const { user_id, type, data } = params;
+
+  // Check template channel config first (system-level disable)
+  const template = notificationTemplates[type];
+  if (template && !template.channels.in_app) {
+    console.log(`Notification ${type} skipped (disabled at template level)`);
+    return null;
+  }
 
   // Check user preferences
   const shouldSend = await shouldSendNotification(user_id, type);

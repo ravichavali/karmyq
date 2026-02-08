@@ -43,12 +43,16 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
     switch (type) {
       case 'match_created':
         return '🤝'
-      case 'match_completed':
+      case 'match_accepted':
         return '✅'
-      case 'karma_awarded':
+      case 'match_completed':
         return '⭐'
+      case 'match_cancelled':
+        return '❌'
+      case 'karma_awarded':
+        return '🏅'
       case 'karma_milestone':
-        return '🎉'
+        return '🏆'
       case 'new_request':
         return '🆘'
       case 'request_responded':
@@ -57,6 +61,8 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
         return '💌'
       case 'community_invite':
         return '👥'
+      case 'join_request':
+        return '🙋'
       case 'norm_proposed':
         return '📜'
       case 'feedback_received':
@@ -65,6 +71,35 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
         return '🔔'
     }
   }
+
+  const getCtaLabel = (type: string): string | null => {
+    switch (type) {
+      case 'match_created':
+        return 'View Offer'
+      case 'match_accepted':
+        return 'View Details'
+      case 'match_completed':
+        return 'Rate Helper'
+      case 'match_cancelled':
+        return 'View Request'
+      case 'new_request':
+        return 'Offer Help'
+      case 'request_responded':
+        return 'View Response'
+      case 'message_received':
+        return 'Reply'
+      case 'community_invite':
+        return 'View Invite'
+      case 'join_request':
+        return 'Review'
+      case 'feedback_received':
+        return 'View Feedback'
+      default:
+        return null
+    }
+  }
+
+  const ctaLabel = getCtaLabel(notification.type)
 
   return (
     <div
@@ -75,7 +110,23 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
       <div className="notification-content">
         <div className="notification-title">{notification.title}</div>
         <div className="notification-body">{notification.body}</div>
-        <div className="notification-time">{formatTime(notification.created_at)}</div>
+        <div className="notification-meta">
+          <span className="notification-time">{formatTime(notification.created_at)}</span>
+          {ctaLabel && notification.action_url && (
+            <button
+              className="notification-cta"
+              onClick={(e) => {
+                e.stopPropagation()
+                if (!notification.read) {
+                  onMarkAsRead(notification.id)
+                }
+                router.push(notification.action_url!)
+              }}
+            >
+              {ctaLabel}
+            </button>
+          )}
+        </div>
       </div>
       <div className="notification-actions">
         {!notification.read && (
@@ -148,7 +199,7 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
         .notification-body {
           font-size: 13px;
           color: #666;
-          margin-bottom: 4px;
+          margin-bottom: 6px;
           overflow: hidden;
           text-overflow: ellipsis;
           display: -webkit-box;
@@ -156,9 +207,31 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
           -webkit-box-orient: vertical;
         }
 
+        .notification-meta {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+
         .notification-time {
           font-size: 12px;
           color: #999;
+        }
+
+        .notification-cta {
+          background: none;
+          border: none;
+          color: #0070f3;
+          font-size: 12px;
+          font-weight: 600;
+          cursor: pointer;
+          padding: 2px 8px;
+          border-radius: 4px;
+          transition: background-color 0.2s;
+        }
+
+        .notification-cta:hover {
+          background-color: #e6f2ff;
         }
 
         .notification-actions {

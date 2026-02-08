@@ -23,6 +23,7 @@ export interface NotificationTemplate {
   title: (data: any) => string;
   body: (data: any) => string;
   icon?: string;
+  ctaLabel: string; // Action button text (e.g., "View Offer", "Rate Helper")
   actionUrl: (data: any) => string;
   channels: {
     in_app: boolean;
@@ -36,30 +37,33 @@ export const notificationTemplates: Record<NotificationType, NotificationTemplat
   match_created: {
     type: 'match_created',
     priority: 'high',
-    title: (data) => 'New Match for Your Request',
+    title: (data) => 'Someone Wants to Help!',
     body: (data) => `${data.responder_name} wants to help with "${data.request_title}"`,
     icon: 'handshake',
-    actionUrl: (data) => `/dashboard`,
+    ctaLabel: 'View Offer',
+    actionUrl: (data) => `/requests/${data.request_id}`,
     channels: { in_app: true, push: true, email: false },
   },
 
   match_accepted: {
     type: 'match_accepted',
     priority: 'high',
-    title: (data) => 'Match Accepted',
+    title: (data) => 'Your Offer Was Accepted!',
     body: (data) => `${data.requester_name} accepted your offer to help with "${data.request_title}"`,
     icon: 'check-circle',
-    actionUrl: (data) => `/dashboard`,
+    ctaLabel: 'View Details',
+    actionUrl: (data) => `/requests/${data.request_id}`,
     channels: { in_app: true, push: true, email: false },
   },
 
   match_completed: {
     type: 'match_completed',
-    priority: 'medium',
-    title: (data) => 'Match Completed',
-    body: (data) => `Your match for "${data.request_title}" has been completed`,
+    priority: 'high',
+    title: (data) => 'Match Completed — Leave a Rating',
+    body: (data) => `Your match for "${data.request_title}" has been completed. Rate your experience!`,
     icon: 'star',
-    actionUrl: (data) => `/dashboard`,
+    ctaLabel: 'Rate Helper',
+    actionUrl: (data) => `/requests/${data.request_id}`,
     channels: { in_app: true, push: true, email: false },
   },
 
@@ -69,7 +73,8 @@ export const notificationTemplates: Record<NotificationType, NotificationTemplat
     title: (data) => 'Match Cancelled',
     body: (data) => `The match for "${data.request_title}" has been cancelled`,
     icon: 'x-circle',
-    actionUrl: (data) => `/dashboard`,
+    ctaLabel: 'View Request',
+    actionUrl: (data) => `/requests/${data.request_id}`,
     channels: { in_app: true, push: false, email: false },
   },
 
@@ -79,27 +84,30 @@ export const notificationTemplates: Record<NotificationType, NotificationTemplat
     title: (data) => 'Karma Earned!',
     body: (data) => `You earned ${data.points} karma points for ${data.reason}`,
     icon: 'award',
+    ctaLabel: 'View Karma',
     actionUrl: (data) => `/profile/karma`,
-    channels: { in_app: true, push: false, email: false },
+    channels: { in_app: false, push: false, email: false }, // Disabled: vanity notification that doesn't drive interaction
   },
 
   karma_milestone: {
     type: 'karma_milestone',
-    priority: 'medium',
+    priority: 'low',
     title: (data) => 'Karma Milestone Reached!',
     body: (data) => `Congratulations! You've reached ${data.total_karma} total karma points`,
     icon: 'trophy',
+    ctaLabel: 'View Karma',
     actionUrl: (data) => `/profile/karma`,
-    channels: { in_app: true, push: true, email: false },
+    channels: { in_app: true, push: false, email: false }, // Downgraded: vanity, no push
   },
 
   new_request: {
     type: 'new_request',
     priority: 'medium',
-    title: (data) => 'New Request in Your Community',
+    title: (data) => 'New Request — Can You Help?',
     body: (data) => `${data.requester_name}: "${data.request_title}"`,
     icon: 'bell',
-    actionUrl: (data) => `/dashboard`,
+    ctaLabel: 'Offer Help',
+    actionUrl: (data) => `/requests/${data.request_id}`,
     channels: { in_app: true, push: false, email: false },
   },
 
@@ -109,7 +117,8 @@ export const notificationTemplates: Record<NotificationType, NotificationTemplat
     title: (data) => 'Someone Responded to Your Request',
     body: (data) => `${data.responder_name} responded to "${data.request_title}"`,
     icon: 'message-circle',
-    actionUrl: (data) => `/dashboard`,
+    ctaLabel: 'View Response',
+    actionUrl: (data) => `/requests/${data.request_id}`,
     channels: { in_app: true, push: true, email: false },
   },
 
@@ -119,7 +128,8 @@ export const notificationTemplates: Record<NotificationType, NotificationTemplat
     title: (data) => `New Message from ${data.sender_name}`,
     body: (data) => data.message_preview || 'You have a new message',
     icon: 'mail',
-    actionUrl: (data) => `/dashboard`,
+    ctaLabel: 'Reply',
+    actionUrl: (data) => `/messages/${data.conversation_id || ''}`,
     channels: { in_app: true, push: true, email: false },
   },
 
@@ -129,6 +139,7 @@ export const notificationTemplates: Record<NotificationType, NotificationTemplat
     title: (data) => 'Community Invitation',
     body: (data) => `${data.inviter_name} invited you to join "${data.community_name}"`,
     icon: 'users',
+    ctaLabel: 'View Invite',
     actionUrl: (data) => `/communities/${data.community_id}/invite`,
     channels: { in_app: true, push: true, email: true },
   },
@@ -139,6 +150,7 @@ export const notificationTemplates: Record<NotificationType, NotificationTemplat
     title: (data) => 'New Join Request',
     body: (data) => `${data.user_name} wants to join "${data.community_name}"${data.message ? `: ${data.message}` : ''}`,
     icon: 'user-plus',
+    ctaLabel: 'Review Request',
     actionUrl: (data) => `/communities/${data.community_id}/admin`,
     channels: { in_app: true, push: true, email: false },
   },
@@ -149,6 +161,7 @@ export const notificationTemplates: Record<NotificationType, NotificationTemplat
     title: (data) => 'New Norm Proposed',
     body: (data) => `${data.proposer_name} proposed a new norm in "${data.community_name}"`,
     icon: 'file-text',
+    ctaLabel: 'View Norm',
     actionUrl: (data) => `/communities/${data.community_id}/norms/${data.norm_id}`,
     channels: { in_app: true, push: false, email: false },
   },
@@ -159,6 +172,7 @@ export const notificationTemplates: Record<NotificationType, NotificationTemplat
     title: (data) => 'New Feedback Received',
     body: (data) => `${data.from_user_name} left you feedback (${data.rating}/5 stars)`,
     icon: 'star',
+    ctaLabel: 'View Feedback',
     actionUrl: (data) => `/profile/feedback`,
     channels: { in_app: true, push: true, email: false },
   },
@@ -178,6 +192,7 @@ export function generateNotification(type: NotificationType, data: any) {
     title: template.title(data),
     body: template.body(data),
     icon: template.icon,
+    cta_label: template.ctaLabel,
     action_url: template.actionUrl(data),
     data, // Store original data for reference
   };
