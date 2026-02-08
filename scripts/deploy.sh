@@ -149,6 +149,25 @@ else
     rm -f "$TEST_OUTPUT"
 fi
 
+# Step 6.5: Build landing page (static export)
+log_step "6.5/8 - Building landing page (karmyq.org)"
+if [ -d "apps/landing" ]; then
+    log_info "Building landing page static files..."
+    if cd apps/landing && npm run build > /dev/null 2>&1; then
+        # Copy static output to nginx serving directory
+        sudo mkdir -p /var/www/karmyq-landing
+        sudo cp -r out/* /var/www/karmyq-landing/
+        sudo chown -R www-data:www-data /var/www/karmyq-landing
+        log_info "✓ Landing page built and deployed to /var/www/karmyq-landing"
+        cd "$APP_DIR"
+    else
+        log_warn "Landing page build failed (non-critical), skipping"
+        cd "$APP_DIR"
+    fi
+else
+    log_warn "No apps/landing directory found, skipping landing page build"
+fi
+
 # Step 7: Build and deploy
 log_step "7/8 - Building and deploying services"
 log_info "This may take several minutes on first run..."
