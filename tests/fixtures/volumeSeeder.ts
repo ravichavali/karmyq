@@ -249,7 +249,7 @@ export class VolumeSeeder {
         const success = await CommunityFactory.addMember(
           community.id,
           user.id,
-          community.creatorId === user.id ? user.token : users[0].token,
+          community.creator_id === user.id ? user.token : users[0].token,
           role
         );
 
@@ -289,13 +289,15 @@ export class VolumeSeeder {
         const community = userCommunities[Math.floor(Math.random() * userCommunities.length)];
         const polymorphicReq = generatePolymorphicRequest();
 
-        // Create request via API
+        // Create request via API with polymorphic type and payload
         const request = await RequestFactory.create({
           communityId: community.id,
           requesterId: user.id,
           requesterToken: user.token,
           title: polymorphicReq.title,
-          description: polymorphicReq.description
+          description: polymorphicReq.description,
+          request_type: polymorphicReq.type,
+          payload: polymorphicReq.payload,
         });
 
         if (request) {

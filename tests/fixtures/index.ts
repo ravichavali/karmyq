@@ -458,7 +458,8 @@ export class RequestFactory {
     requesterToken: string;
     title?: string;
     description?: string;
-    type?: string;
+    request_type?: string;
+    payload?: Record<string, any>;
   }): Promise<TestRequest | null> {
     this.counter++;
     const {
@@ -467,7 +468,8 @@ export class RequestFactory {
       requesterToken,
       title = `Test Request ${Date.now()}-${this.counter}`,
       description = 'A test help request',
-      type = 'general',
+      request_type = 'generic',
+      payload = {},
     } = options;
 
     try {
@@ -480,7 +482,8 @@ export class RequestFactory {
           requester_id: requesterId,
           title,
           description,
-          type,
+          request_type,
+          payload,
         });
 
       const req = response.body.data || response.body.request;
