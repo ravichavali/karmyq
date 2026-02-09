@@ -7,10 +7,10 @@ import React from 'react'
 
 interface GenericRequestFormProps {
   // Generic requests don't have payload, just showing consistency with other forms
-  onChange?: (payload: {}) => void
+  onChange?: (payload: Record<string, never>) => void
 }
 
-export default function GenericRequestForm({ onChange }: GenericRequestFormProps) {
+export default function GenericRequestForm(_props: GenericRequestFormProps) {
   // No useEffect needed - payload is already initialized to {} in the parent component
 
   return (

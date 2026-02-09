@@ -1,24 +1,39 @@
-# Frontend-only Dockerfile
-# Builds ONLY Next.js frontend, not the entire monorepo
+# Frontend Dockerfile
+# Multi-stage build with @karmyq/shared workspace dependency
 
-FROM node:18-alpine AS base
-
-# Install dependencies
-FROM base AS deps
+# Build stage
+FROM node:18-alpine AS builder
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
-# Copy ONLY frontend package files (from repo root context)
-COPY apps/frontend/package.json apps/frontend/package-lock.json* ./
+# Copy workspace root package.json for hoisted dependencies
+COPY package.json package-lock.json* ./
+
+# Copy shared package declaration (needed for workspace)
+COPY packages/shared/package*.json ./packages/shared/
+
+# Copy frontend package files
+COPY apps/frontend/package*.json ./apps/frontend/
+
+# Install dependencies from workspace root (includes @karmyq/shared as workspace)
 RUN npm install
 
-# Build stage
-FROM base AS builder
-WORKDIR /app
-COPY --from=deps /app/node_modules ./node_modules
+# Copy shared module source code and build it first
+COPY packages/shared/ ./packages/shared/
 
-# Copy ONLY frontend source (from repo root context)
-COPY apps/frontend/ ./
+# Remove platform-specific and client-only files before build
+RUN rm -f ./packages/shared/api/client.ts \
+           ./packages/shared/api/mobile-storage.ts \
+           ./packages/shared/api/web-storage.ts
+
+WORKDIR /app/packages/shared
+RUN npm run build
+
+# Copy frontend source
+COPY apps/frontend/ /app/apps/frontend/
+
+# Build Next.js
+WORKDIR /app/apps/frontend
 
 # Set NODE_ENV=production so Next.js reads .env.production
 ENV NODE_ENV=production
@@ -44,11 +59,10 @@ ENV NEXT_PUBLIC_SOCIAL_GRAPH_API_URL=$NEXT_PUBLIC_SOCIAL_GRAPH_API_URL
 
 ENV NEXT_TELEMETRY_DISABLED=1
 
-# Build Next.js directly (NOT via Turborepo)
 RUN npm run build
 
 # Production image
-FROM base AS runner
+FROM node:18-alpine AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
@@ -57,13 +71,13 @@ ENV NEXT_TELEMETRY_DISABLED=1
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
-COPY --from=builder /app/public ./public
+COPY --from=builder /app/apps/frontend/public ./public
 
 RUN mkdir .next
 RUN chown nextjs:nodejs .next
 
-COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
-COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+COPY --from=builder --chown=nextjs:nodejs /app/apps/frontend/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/apps/frontend/.next/static ./.next/static
 
 USER nextjs
 

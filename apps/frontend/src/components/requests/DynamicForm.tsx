@@ -13,22 +13,25 @@ import React from 'react'
 import type { UISchema, UISection, UIField } from '@karmyq/shared/schemas/ui'
 import FieldRenderer from './fields/FieldRenderer'
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type FormValue = Record<string, any>
+
 interface DynamicFormProps {
   schema: UISchema
-  value: Record<string, any>
-  onChange: (value: Record<string, any>) => void
+  value: FormValue
+  onChange: (value: FormValue) => void
 }
 
 /**
  * Get a nested value from an object using a dotted path.
  * e.g., getNestedValue({ preferences: { women_only: true } }, 'preferences.women_only') → true
  */
-function getNestedValue(obj: Record<string, any>, path: string): any {
+function getNestedValue(obj: FormValue, path: string): unknown {
   const parts = path.split('.')
-  let current: any = obj
+  let current: unknown = obj
   for (const part of parts) {
     if (current == null) return undefined
-    current = current[part]
+    current = (current as FormValue)[part]
   }
   return current
 }
@@ -37,7 +40,7 @@ function getNestedValue(obj: Record<string, any>, path: string): any {
  * Set a nested value in an object using a dotted path. Returns a new object.
  * e.g., setNestedValue({}, 'preferences.women_only', true) → { preferences: { women_only: true } }
  */
-function setNestedValue(obj: Record<string, any>, path: string, value: any): Record<string, any> {
+function setNestedValue(obj: FormValue, path: string, value: unknown): FormValue {
   const parts = path.split('.')
   if (parts.length === 1) {
     return { ...obj, [parts[0]]: value }
@@ -78,7 +81,7 @@ function SectionHeader({ section, schema }: { section: UISection; schema: UISche
   )
 }
 
-function SummaryPanel({ schema, value }: { schema: UISchema; value: Record<string, any> }) {
+function SummaryPanel({ schema, value }: { schema: UISchema; value: FormValue }) {
   if (!schema.summary) return null
 
   const entries = schema.summary.fields
@@ -89,8 +92,8 @@ function SummaryPanel({ schema, value }: { schema: UISchema; value: Record<strin
 
       // Format value for display
       let display: string
-      if (typeof raw === 'object' && raw.address) {
-        display = raw.address
+      if (typeof raw === 'object' && raw !== null && 'address' in raw) {
+        display = String((raw as FormValue).address)
       } else if (typeof raw === 'string' && raw.includes('T')) {
         // ISO datetime
         try { display = new Date(raw).toLocaleString() } catch { display = raw }
@@ -129,7 +132,7 @@ function SummaryPanel({ schema, value }: { schema: UISchema; value: Record<strin
 }
 
 export default function DynamicForm({ schema, value, onChange }: DynamicFormProps) {
-  const handleFieldChange = (field: UIField, fieldValue: any) => {
+  const handleFieldChange = (field: UIField, fieldValue: unknown) => {
     const updated = setNestedValue(value, field.key, fieldValue)
     onChange(updated)
   }
