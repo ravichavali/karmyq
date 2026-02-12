@@ -97,7 +97,7 @@ const NotificationDropdown: React.FC<NotificationDropdownProps> = ({ onClose }) 
           width: 400px;
           max-width: 90vw;
           background: white;
-          border: 1px solid #ddd;
+          border: 1px solid rgb(var(--color-border));
           border-radius: 8px;
           box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
           z-index: 1000;
@@ -109,20 +109,20 @@ const NotificationDropdown: React.FC<NotificationDropdownProps> = ({ onClose }) 
           justify-content: space-between;
           align-items: center;
           padding: 16px;
-          border-bottom: 1px solid #eee;
+          border-bottom: 1px solid rgb(var(--color-border-light));
         }
 
         .notification-header h3 {
           margin: 0;
           font-size: 16px;
           font-weight: 600;
-          color: #1a1a1a;
+          color: rgb(var(--color-text));
         }
 
         .mark-all-read-btn {
           background: none;
           border: none;
-          color: #0070f3;
+          color: rgb(var(--color-primary));
           font-size: 13px;
           cursor: pointer;
           padding: 4px 8px;
@@ -137,7 +137,7 @@ const NotificationDropdown: React.FC<NotificationDropdownProps> = ({ onClose }) 
           display: flex;
           gap: 8px;
           padding: 12px 16px;
-          border-bottom: 1px solid #eee;
+          border-bottom: 1px solid rgb(var(--color-border-light));
         }
 
         .filter-btn {
@@ -148,15 +148,15 @@ const NotificationDropdown: React.FC<NotificationDropdownProps> = ({ onClose }) 
           cursor: pointer;
           border-radius: 16px;
           transition: background-color 0.2s;
-          color: #666;
+          color: rgb(var(--color-text-muted));
         }
 
         .filter-btn:hover {
-          background-color: #f0f0f0;
+          background-color: rgb(var(--color-border-light));
         }
 
         .filter-btn.active {
-          background-color: #0070f3;
+          background-color: rgb(var(--color-primary));
           color: white;
         }
 
@@ -168,25 +168,25 @@ const NotificationDropdown: React.FC<NotificationDropdownProps> = ({ onClose }) 
         .notification-empty {
           padding: 40px 20px;
           text-align: center;
-          color: #999;
+          color: rgb(var(--color-text-subtle));
           font-size: 14px;
         }
 
         .notification-error {
           padding: 20px;
           text-align: center;
-          color: #ff4444;
+          color: rgb(var(--color-error));
           font-size: 13px;
         }
 
         .notification-footer {
           padding: 12px 16px;
-          border-top: 1px solid #eee;
+          border-top: 1px solid rgb(var(--color-border-light));
           text-align: center;
         }
 
         .view-all-link {
-          color: #0070f3;
+          color: rgb(var(--color-primary));
           text-decoration: none;
           font-size: 13px;
           font-weight: 500;

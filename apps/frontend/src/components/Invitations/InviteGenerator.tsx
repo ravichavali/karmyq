@@ -80,18 +80,18 @@ export default function InviteGenerator() {
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-sm p-6">
+    <div className="bg-surface-raised rounded-lg shadow-sm p-6">
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h3 className="text-lg font-semibold text-gray-900">Invite Friends</h3>
-          <p className="text-sm text-gray-500 mt-1">
+          <h3 className="text-lg font-semibold text-text">Invite Friends</h3>
+          <p className="text-sm text-text-subtle mt-1">
             Generate an invitation code to invite someone to join your community
           </p>
         </div>
         <button
           onClick={handleGenerateCode}
           disabled={loading}
-          className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          className="inline-flex items-center px-4 py-2 bg-primary text-white rounded-md hover:bg-primary-dark disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
           {loading ? (
             <>
@@ -125,25 +125,25 @@ export default function InviteGenerator() {
       {generatedInvite && (
         <div className="space-y-4">
           {/* Invitation Code */}
-          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 border border-blue-200">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+          <div className="bg-gradient-to-r from-primary-light to-accent-light rounded-lg p-4 border border-primary-medium">
+            <label className="block text-sm font-medium text-text-muted mb-2">
               Invitation Code
             </label>
             <div className="flex items-center gap-2">
-              <code className="flex-1 px-3 py-2 bg-white border border-gray-300 rounded-md text-base font-mono text-gray-900 select-all">
+              <code className="flex-1 px-3 py-2 bg-surface-raised border border-border rounded-md text-base font-mono text-text select-all">
                 {generatedInvite.code}
               </code>
               <button
                 onClick={handleCopyCode}
-                className="inline-flex items-center px-3 py-2 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+                className="inline-flex items-center px-3 py-2 bg-surface-raised border border-border rounded-md hover:bg-surface transition-colors"
                 title="Copy code"
               >
                 {copied ? (
-                  <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-5 h-5 text-success" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                   </svg>
                 ) : (
-                  <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-5 h-5 text-text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path
                       strokeLinecap="round"
                       strokeLinejoin="round"
@@ -158,7 +158,7 @@ export default function InviteGenerator() {
 
           {/* Shareable Link */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-text-muted mb-2">
               Shareable Link
             </label>
             <div className="flex items-center gap-2">
@@ -166,12 +166,12 @@ export default function InviteGenerator() {
                 type="text"
                 readOnly
                 value={generatedInvite.url}
-                className="flex-1 px-3 py-2 bg-gray-50 border border-gray-300 rounded-md text-sm text-gray-700 cursor-pointer select-all"
+                className="flex-1 px-3 py-2 bg-surface border border-border rounded-md text-sm text-text-muted cursor-pointer select-all"
                 onClick={(e) => e.currentTarget.select()}
               />
               <button
                 onClick={handleCopyLink}
-                className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                className="inline-flex items-center px-4 py-2 bg-primary text-white rounded-md hover:bg-primary-dark transition-colors"
               >
                 {copied ? 'Copied!' : 'Copy Link'}
               </button>
@@ -179,24 +179,24 @@ export default function InviteGenerator() {
           </div>
 
           {/* Info */}
-          <div className="flex items-start p-3 bg-blue-50 rounded-md">
-            <svg className="w-5 h-5 text-blue-600 mt-0.5 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+          <div className="flex items-start p-3 bg-primary-light rounded-md">
+            <svg className="w-5 h-5 text-primary mt-0.5 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
               <path
                 fillRule="evenodd"
                 d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
                 clipRule="evenodd"
               />
             </svg>
-            <div className="text-sm text-blue-800">
+            <div className="text-sm text-primary-dark">
               <p className="font-medium">Share this link with someone to invite them</p>
-              <p className="mt-1 text-blue-700">
+              <p className="mt-1 text-primary-dark">
                 When they sign up using this code, they&apos;ll be connected to you in the social graph.
               </p>
             </div>
           </div>
 
           {generatedInvite.created_at && (
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-text-subtle">
               Generated {new Date(generatedInvite.created_at).toLocaleString()}
             </p>
           )}
@@ -213,7 +213,7 @@ export default function InviteGenerator() {
               d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"
             />
           </svg>
-          <p className="text-gray-500 text-sm">
+          <p className="text-text-subtle text-sm">
             Click the button above to generate an invitation code
           </p>
         </div>

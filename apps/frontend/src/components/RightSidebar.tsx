@@ -52,11 +52,11 @@ export default function RightSidebar({ communityId }: RightSidebarProps) {
   }, [communityId])
 
   const getStrengthColor = (strength: number) => {
-    if (strength >= 80) return 'text-emerald-600 bg-emerald-50 border-emerald-200'
-    if (strength >= 60) return 'text-green-600 bg-green-50 border-green-200'
-    if (strength >= 40) return 'text-amber-600 bg-amber-50 border-amber-200'
-    if (strength >= 20) return 'text-orange-600 bg-orange-50 border-orange-200'
-    return 'text-gray-600 bg-gray-50 border-gray-200'
+    if (strength >= 80) return 'text-karmyq-green-600 bg-karmyq-green-50 border-karmyq-green-200'
+    if (strength >= 60) return 'text-success bg-success-light border-success'
+    if (strength >= 40) return 'text-karmyq-orange-600 bg-karmyq-orange-50 border-karmyq-orange-200'
+    if (strength >= 20) return 'text-karmyq-orange-600 bg-karmyq-brown-50 border-karmyq-brown-200'
+    return 'text-text-muted bg-surface border-border'
   }
 
   const getTrendIcon = (direction: string) => {
@@ -81,8 +81,8 @@ export default function RightSidebar({ communityId }: RightSidebarProps) {
   if (loading) {
     return (
       <div className="space-y-4">
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 animate-pulse">
-          <div className="h-24 bg-gray-100 rounded"></div>
+        <div className="bg-surface-raised rounded-xl shadow-sm border border-border p-4 animate-pulse">
+          <div className="h-24 bg-border-light rounded"></div>
         </div>
       </div>
     )
@@ -95,7 +95,7 @@ export default function RightSidebar({ communityId }: RightSidebarProps) {
         <div className={`rounded-xl shadow-sm border-2 p-4 ${getStrengthColor(healthData.networkStrength)}`}>
           <div className="flex items-center justify-between mb-3">
             <h3 className="font-semibold text-sm">Community Health</h3>
-            <span className="text-xs font-medium px-2 py-1 rounded-full bg-white/50">
+            <span className="text-xs font-medium px-2 py-1 rounded-full bg-surface-raised/50">
               {healthData.networkStrengthLabel}
             </span>
           </div>
@@ -106,7 +106,7 @@ export default function RightSidebar({ communityId }: RightSidebarProps) {
               <span className="text-3xl font-bold">{healthData.networkStrength.toFixed(0)}</span>
               <span className="text-sm opacity-75">/100</span>
             </div>
-            <div className="bg-white/30 rounded-full h-2">
+            <div className="bg-surface-raised/30 rounded-full h-2">
               <div
                 className="bg-current rounded-full h-2 transition-all duration-500"
                 style={{ width: `${healthData.networkStrength}%` }}
@@ -137,20 +137,20 @@ export default function RightSidebar({ communityId }: RightSidebarProps) {
 
       {/* Recent Milestones */}
       {milestones.length > 0 && (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-          <h3 className="font-semibold text-sm text-gray-900 mb-3">Recent Milestones</h3>
+        <div className="bg-surface-raised rounded-xl shadow-sm border border-border p-4">
+          <h3 className="font-semibold text-sm text-text mb-3">Recent Milestones</h3>
           <div className="space-y-2">
             {milestones.map((milestone) => (
               <div key={milestone.id} className="text-sm">
                 <div className="flex items-start gap-2">
                   {milestone.isPinned && <span className="text-xs">📌</span>}
                   <div className="flex-1 min-w-0">
-                    <p className="text-gray-900 leading-snug">{milestone.description}</p>
-                    <p className="text-xs text-gray-500 mt-1">{formatTimeAgo(milestone.achievedAt)}</p>
+                    <p className="text-text leading-snug">{milestone.description}</p>
+                    <p className="text-xs text-text-subtle mt-1">{formatTimeAgo(milestone.achievedAt)}</p>
                   </div>
                 </div>
                 {milestone !== milestones[milestones.length - 1] && (
-                  <div className="border-b border-gray-100 mt-2"></div>
+                  <div className="border-b border-border-light mt-2"></div>
                 )}
               </div>
             ))}
@@ -159,8 +159,8 @@ export default function RightSidebar({ communityId }: RightSidebarProps) {
       )}
 
       {/* Trending Helpers */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-        <h3 className="font-semibold text-sm text-gray-900 mb-3">Top Helpers This Week</h3>
+      <div className="bg-surface-raised rounded-xl shadow-sm border border-border p-4">
+        <h3 className="font-semibold text-sm text-text mb-3">Top Helpers This Week</h3>
         <div className="space-y-3">
           {[1, 2, 3].map((i) => (
             <div key={i} className="flex items-center gap-2">
@@ -168,37 +168,37 @@ export default function RightSidebar({ communityId }: RightSidebarProps) {
                 {i}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-gray-400 truncate">Coming soon...</p>
-                <p className="text-xs text-gray-400">0 helps</p>
+                <p className="text-sm font-medium text-text-subtle truncate">Coming soon...</p>
+                <p className="text-xs text-text-subtle">0 helps</p>
               </div>
-              <div className="text-xs font-semibold text-gray-400">0</div>
+              <div className="text-xs font-semibold text-text-subtle">0</div>
             </div>
           ))}
         </div>
       </div>
 
       {/* Active Now */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-        <h3 className="font-semibold text-sm text-gray-900 mb-3">Active Now</h3>
-        <div className="flex items-center gap-2 text-sm text-gray-500">
+      <div className="bg-surface-raised rounded-xl shadow-sm border border-border p-4">
+        <h3 className="font-semibold text-sm text-text mb-3">Active Now</h3>
+        <div className="flex items-center gap-2 text-sm text-text-subtle">
           <div className="flex -space-x-2">
-            <div className="w-6 h-6 bg-gradient-to-br from-blue-400 to-purple-600 rounded-full border-2 border-white"></div>
+            <div className="w-6 h-6 bg-gradient-to-br from-primary to-accent rounded-full border-2 border-white"></div>
             <div className="w-6 h-6 bg-gradient-to-br from-green-400 to-teal-600 rounded-full border-2 border-white"></div>
             <div className="w-6 h-6 bg-gradient-to-br from-amber-400 to-orange-600 rounded-full border-2 border-white"></div>
           </div>
-          <span className="text-gray-500">and more...</span>
+          <span className="text-text-subtle">and more...</span>
         </div>
       </div>
 
       {/* Footer Links */}
-      <div className="px-4 py-3 text-xs text-gray-500 space-y-1">
+      <div className="px-4 py-3 text-xs text-text-subtle space-y-1">
         <div className="flex flex-wrap gap-x-3 gap-y-1">
           <a href="#" className="hover:underline">About</a>
           <a href="#" className="hover:underline">Help</a>
           <a href="#" className="hover:underline">Terms</a>
           <a href="#" className="hover:underline">Privacy</a>
         </div>
-        <p className="text-gray-400">© 2025 Karmyq</p>
+        <p className="text-text-subtle">© 2025 Karmyq</p>
       </div>
     </div>
   )

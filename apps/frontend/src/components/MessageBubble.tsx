@@ -78,21 +78,21 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message, isOwn }) => {
         }
 
         .message-bubble-container.own .message-bubble {
-          background-color: #0070f3;
+          background-color: rgb(var(--color-primary));
           color: white;
           border-bottom-right-radius: 4px;
         }
 
         .message-bubble-container.other .message-bubble {
-          background-color: #f0f0f0;
-          color: #1a1a1a;
+          background-color: rgb(var(--color-border-light));
+          color: rgb(var(--color-text));
           border-bottom-left-radius: 4px;
         }
 
         .sender-name {
           font-size: 11px;
           font-weight: 600;
-          color: #666;
+          color: rgb(var(--color-text-muted));
           margin-bottom: 4px;
         }
 

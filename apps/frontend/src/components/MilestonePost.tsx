@@ -32,9 +32,9 @@ export default function MilestonePost({
   }
 
   return (
-    <div className="bg-gradient-to-br from-purple-50 to-indigo-50 rounded-lg shadow-md overflow-hidden border-2 border-purple-200 hover:shadow-lg transition-shadow">
+    <div className="bg-gradient-to-br from-accent-light to-accent-light rounded-lg shadow-md overflow-hidden border-2 border-accent hover:shadow-lg transition-shadow">
       {isPinned && (
-        <div className="bg-purple-600 text-white text-xs font-semibold px-3 py-1 flex items-center gap-1">
+        <div className="bg-accent text-white text-xs font-semibold px-3 py-1 flex items-center gap-1">
           <span>📌</span>
           <span>Pinned Milestone</span>
         </div>
@@ -46,28 +46,28 @@ export default function MilestonePost({
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-2">
               <span className="text-3xl">🎉</span>
-              <h3 className="text-lg font-bold text-purple-900">MILESTONE ACHIEVED!</h3>
+              <h3 className="text-lg font-bold text-accent-dark">MILESTONE ACHIEVED!</h3>
             </div>
-            <p className="text-base text-gray-700">{communityName}</p>
+            <p className="text-base text-text-muted">{communityName}</p>
           </div>
-          <span className="text-sm text-gray-500">{formatTime(achievedAt)}</span>
+          <span className="text-sm text-text-subtle">{formatTime(achievedAt)}</span>
         </div>
 
         {/* Milestone Description */}
-        <div className="bg-white rounded-lg p-4 mb-4">
-          <p className="text-xl font-semibold text-gray-900 text-center">{description}</p>
+        <div className="bg-surface-raised rounded-lg p-4 mb-4">
+          <p className="text-xl font-semibold text-text text-center">{description}</p>
         </div>
 
         {/* Metrics */}
-        <div className="bg-white/60 rounded-lg p-4">
+        <div className="bg-surface-raised/60 rounded-lg p-4">
           <div className="flex items-center justify-between">
             <div>
-              <div className="text-sm text-gray-600 mb-1">Network Strength</div>
+              <div className="text-sm text-text-muted mb-1">Network Strength</div>
               <div className="flex items-baseline gap-2">
-                <span className="text-2xl font-bold text-purple-700">{networkStrength.toFixed(1)}</span>
-                <span className="text-sm text-gray-600">/100</span>
+                <span className="text-2xl font-bold text-accent-dark">{networkStrength.toFixed(1)}</span>
+                <span className="text-sm text-text-muted">/100</span>
                 {strengthChange !== 0 && (
-                  <span className={`text-sm font-medium ${strengthChange > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                  <span className={`text-sm font-medium ${strengthChange > 0 ? 'text-success' : 'text-red-600'}`}>
                     {strengthChange > 0 ? '+' : ''}{strengthChange.toFixed(1)} this week
                   </span>
                 )}
@@ -81,7 +81,7 @@ export default function MilestonePost({
 
         {/* Motivational Message */}
         <div className="mt-4 text-center">
-          <p className="text-sm italic text-purple-800">
+          <p className="text-sm italic text-accent-dark">
             &quot;Every exchange makes our community stronger. Thank you for being part of this journey!&quot;
           </p>
         </div>

@@ -14,8 +14,8 @@ const LINKS = {
     { label: 'API Documentation', href: '#' },
   ],
   Community: [
-    { label: 'GitHub', href: 'https://github.com/karmyq' },
-    { label: 'OpenCollective', href: '#' },
+    { label: 'GitHub', href: 'https://github.com/ravichavali/karmyq' },
+    { label: 'OpenCollective', href: 'https://opencollective.com/karmyq' },
     { label: 'Contact', href: 'mailto:hello@karmyq.org' },
   ],
 };
@@ -47,7 +47,7 @@ export default function Footer() {
             </p>
             <p className="text-karmyq-brown-400 text-sm leading-relaxed mb-6">
               Open-source infrastructure for community cooperation.
-              Built with care in Portland, OR.
+              Built with care in Foster City, CA.
             </p>
             <div className="space-y-1 text-sm text-karmyq-brown-400">
               <p>

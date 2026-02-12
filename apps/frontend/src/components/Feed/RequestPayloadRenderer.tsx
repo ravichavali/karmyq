@@ -33,7 +33,7 @@ export default function RequestPayloadRenderer({
   }
 
   return (
-    <div className={`bg-gray-50 rounded-md p-4 space-y-3 ${className}`}>
+    <div className={`bg-surface rounded-md p-4 space-y-3 ${className}`}>
       {type === 'transportation' && <TransportationDetails payload={payload as TransportationPayload} />}
       {type === 'moving_help' && <MovingHelpDetails payload={payload as MovingHelpPayload} />}
       {type === 'childcare' && <ChildcareDetails payload={payload as ChildcarePayload} />}
@@ -42,8 +42,8 @@ export default function RequestPayloadRenderer({
       {type === 'food' && <FoodDetails payload={payload as FoodPayload} />}
 
       {preferredStartDate && (
-        <div className="flex items-center text-sm text-gray-700 pt-2 border-t border-gray-200">
-          <svg className="w-4 h-4 mr-2 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div className="flex items-center text-sm text-text-muted pt-2 border-t border-border">
+          <svg className="w-4 h-4 mr-2 text-text-subtle" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -63,13 +63,13 @@ export default function RequestPayloadRenderer({
       )}
 
       {requirements && Object.keys(requirements).length > 0 && (
-        <div className="pt-2 border-t border-gray-200">
-          <h4 className="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">Requirements</h4>
+        <div className="pt-2 border-t border-border">
+          <h4 className="text-xs font-semibold text-text-muted uppercase tracking-wide mb-2">Requirements</h4>
           <div className="flex flex-wrap gap-2">
             {Object.entries(requirements).map(([key, value]) => (
               <span
                 key={key}
-                className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
+                className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary-light text-primary-dark"
               >
                 {formatRequirement(key, value)}
               </span>
@@ -260,7 +260,7 @@ function FoodDetails({ payload }: { payload: FoodPayload }) {
         <Badge label="Servings" value={payload.num_servings.toString()} />
         <Badge label="Budget" value={payload.budget} color="green" />
         {payload.dietary_restrictions.length > 0 && (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-accent-light text-accent-dark">
             {payload.dietary_restrictions.join(', ')}
           </span>
         )}
@@ -272,10 +272,10 @@ function FoodDetails({ payload }: { payload: FoodPayload }) {
 function DetailItem({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
   return (
     <div className="flex items-start">
-      <div className="flex-shrink-0 text-gray-500 mt-0.5">{icon}</div>
+      <div className="flex-shrink-0 text-text-subtle mt-0.5">{icon}</div>
       <div className="ml-2">
-        <p className="text-xs font-medium text-gray-600">{label}</p>
-        <p className="text-sm text-gray-900">{value}</p>
+        <p className="text-xs font-medium text-text-muted">{label}</p>
+        <p className="text-sm text-text">{value}</p>
       </div>
     </div>
   );
@@ -291,18 +291,18 @@ function Badge({
   color?: 'gray' | 'blue' | 'green' | 'yellow' | 'orange' | 'red' | 'purple';
 }) {
   const colors = {
-    gray: 'bg-gray-100 text-gray-800',
-    blue: 'bg-blue-100 text-blue-800',
-    green: 'bg-green-100 text-green-800',
+    gray: 'bg-border-light text-text',
+    blue: 'bg-primary-light text-primary-dark',
+    green: 'bg-success-light text-green-800',
     yellow: 'bg-yellow-100 text-yellow-800',
-    orange: 'bg-orange-100 text-orange-800',
+    orange: 'bg-karmyq-orange-100 text-karmyq-brown-800',
     red: 'bg-red-100 text-red-800',
-    purple: 'bg-purple-100 text-purple-800',
+    purple: 'bg-accent-light text-accent-dark',
   };
 
   return (
     <span className="inline-flex items-center">
-      <span className="text-gray-600 mr-1">{label}:</span>
+      <span className="text-text-muted mr-1">{label}:</span>
       <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${colors[color]}`}>{value}</span>
     </span>
   );

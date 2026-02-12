@@ -86,7 +86,7 @@ export default function Feed({ userId, limit = 20 }: FeedProps) {
     return (
       <div className="space-y-4">
         {[...Array(3)].map((_, i) => (
-          <div key={i} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 animate-pulse">
+          <div key={i} className="bg-surface-raised rounded-lg shadow-sm border border-border p-6 animate-pulse">
             <div className="flex items-center mb-4">
               <div className="w-10 h-10 bg-gray-200 rounded-full mr-3"></div>
               <div className="flex-1">
@@ -125,17 +125,17 @@ export default function Feed({ userId, limit = 20 }: FeedProps) {
 
   if (feedItems.length === 0) {
     return (
-      <div className="bg-gray-50 border border-gray-200 rounded-lg p-8 text-center">
-        <svg className="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <div className="bg-surface border border-border rounded-lg p-8 text-center">
+        <svg className="w-16 h-16 text-text-subtle mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
         </svg>
-        <h3 className="text-lg font-medium text-gray-900 mb-2">Your feed is empty</h3>
-        <p className="text-gray-600 mb-4">
+        <h3 className="text-lg font-medium text-text mb-2">Your feed is empty</h3>
+        <p className="text-text-muted mb-4">
           Join communities and start helping to see activity here!
         </p>
         <Link
           href="/communities"
-          className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
+          className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-primary hover:bg-primary-dark"
         >
           Explore Communities
         </Link>
@@ -146,11 +146,11 @@ export default function Feed({ userId, limit = 20 }: FeedProps) {
   return (
     <div>
       <div className="flex justify-between items-center mb-4">
-        <h2 className="text-2xl font-bold text-gray-900">Your Feed</h2>
+        <h2 className="text-2xl font-bold text-text">Your Feed</h2>
         <button
           onClick={() => fetchFeed(true)}
           disabled={refreshing}
-          className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
+          className="inline-flex items-center px-3 py-2 border border-border shadow-sm text-sm font-medium rounded-md text-text-muted bg-surface-raised hover:bg-surface disabled:opacity-50"
         >
           <svg
             className={`w-4 h-4 mr-2 ${refreshing ? 'animate-spin' : ''}`}
@@ -178,7 +178,7 @@ export default function Feed({ userId, limit = 20 }: FeedProps) {
         <div className="text-center mt-6">
           <button
             onClick={() => fetchFeed()}
-            className="text-blue-600 hover:text-blue-700 font-medium text-sm"
+            className="text-primary hover:text-primary-dark font-medium text-sm"
           >
             Load more
           </button>

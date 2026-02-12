@@ -24,8 +24,8 @@ export default function ExtractedDataChips({ parsed, onRemove }: ExtractedDataCh
   if (!hasData) return null
 
   return (
-    <div className="flex flex-wrap gap-2 mt-2 p-2 bg-blue-50 rounded-lg border border-blue-200">
-      <div className="text-xs font-medium text-blue-700 flex items-center">
+    <div className="flex flex-wrap gap-2 mt-2 p-2 bg-primary-light rounded-lg border border-primary-medium">
+      <div className="text-xs font-medium text-primary-dark flex items-center">
         <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
           <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
         </svg>
@@ -99,12 +99,12 @@ interface ChipProps {
 
 function Chip({ label, icon, badge, color, onRemove }: ChipProps) {
   const colorClasses = {
-    blue: 'bg-blue-100 text-blue-800 border-blue-300',
-    purple: 'bg-purple-100 text-purple-800 border-purple-300',
-    green: 'bg-green-100 text-green-800 border-green-300',
+    blue: 'bg-primary-light text-primary-dark border-primary-medium',
+    purple: 'bg-accent-light text-accent-dark border-accent',
+    green: 'bg-success-light text-green-800 border-karmyq-teal-300',
     yellow: 'bg-yellow-100 text-yellow-800 border-yellow-300',
     red: 'bg-red-100 text-red-800 border-red-300',
-    orange: 'bg-orange-100 text-orange-800 border-orange-300',
+    orange: 'bg-karmyq-orange-100 text-karmyq-brown-800 border-karmyq-brown-300',
   }
 
   return (
@@ -115,7 +115,7 @@ function Chip({ label, icon, badge, color, onRemove }: ChipProps) {
       <button
         type="button"
         onClick={onRemove}
-        className="ml-1 hover:bg-white/50 rounded-full p-0.5 transition-colors"
+        className="ml-1 hover:bg-surface-raised/50 rounded-full p-0.5 transition-colors"
         aria-label="Remove"
       >
         <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">

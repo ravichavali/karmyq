@@ -60,11 +60,11 @@ function setNestedValue(obj: FormValue, path: string, value: unknown): FormValue
 function SectionHeader({ section, schema }: { section: UISection; schema: UISchema }) {
   const color = section.color || schema.color
   const colorClasses: Record<string, string> = {
-    blue: 'bg-blue-50 border-blue-200 text-blue-900',
-    green: 'bg-green-50 border-green-200 text-green-900',
-    purple: 'bg-purple-50 border-purple-200 text-purple-900',
-    orange: 'bg-orange-50 border-orange-200 text-orange-900',
-    gray: 'bg-gray-50 border-gray-200 text-gray-900',
+    blue: 'bg-primary-light border-primary-medium text-primary-dark',
+    green: 'bg-success-light border-success text-karmyq-teal-900',
+    purple: 'bg-accent-light border-accent text-karmyq-orange-900',
+    orange: 'bg-karmyq-brown-50 border-karmyq-brown-200 text-karmyq-brown-900',
+    gray: 'bg-surface border-border text-text',
   }
   const cls = colorClasses[color] || colorClasses.gray
 
@@ -109,11 +109,11 @@ function SummaryPanel({ schema, value }: { schema: UISchema; value: FormValue })
 
   const color = schema.color || 'gray'
   const colorClasses: Record<string, string> = {
-    blue: 'bg-blue-50 border-blue-200 text-blue-900',
-    green: 'bg-green-50 border-green-200 text-green-900',
-    purple: 'bg-purple-50 border-purple-200 text-purple-900',
-    orange: 'bg-orange-50 border-orange-200 text-orange-900',
-    gray: 'bg-gray-50 border-gray-200 text-gray-900',
+    blue: 'bg-primary-light border-primary-medium text-primary-dark',
+    green: 'bg-success-light border-success text-karmyq-teal-900',
+    purple: 'bg-accent-light border-accent text-karmyq-orange-900',
+    orange: 'bg-karmyq-brown-50 border-karmyq-brown-200 text-karmyq-brown-900',
+    gray: 'bg-surface border-border text-text',
   }
   const cls = colorClasses[color] || colorClasses.gray
 

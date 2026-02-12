@@ -51,9 +51,9 @@ export default function RideRequestForm({ initialData, onChange }: RideRequestFo
   return (
     <div className="space-y-6">
       {/* Trip Details Header */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <h3 className="font-semibold text-blue-900 mb-1">🚗 Ride Share Request</h3>
-        <p className="text-sm text-blue-700">
+      <div className="bg-primary-light border border-primary-medium rounded-lg p-4">
+        <h3 className="font-semibold text-primary-dark mb-1">🚗 Ride Share Request</h3>
+        <p className="text-sm text-primary-dark">
           Provide details about your trip so helpers can offer rides
         </p>
       </div>
@@ -78,14 +78,14 @@ export default function RideRequestForm({ initialData, onChange }: RideRequestFo
 
       {/* Seats Needed */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
+        <label className="block text-sm font-medium text-text-muted mb-2">
           Number of Seats Needed <span className="text-red-500">*</span>
         </label>
         <select
           value={formData.seats_needed || 1}
           onChange={(e) => updateField('seats_needed', parseInt(e.target.value))}
           required
-          className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="w-full border border-border rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary focus:border-transparent"
         >
           {[1, 2, 3, 4, 5, 6].map(num => (
             <option key={num} value={num}>{num} {num === 1 ? 'seat' : 'seats'}</option>
@@ -105,46 +105,46 @@ export default function RideRequestForm({ initialData, onChange }: RideRequestFo
 
       {/* Preferences */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-3">
+        <label className="block text-sm font-medium text-text-muted mb-3">
           Preferences (Optional)
         </label>
         <div className="space-y-3">
-          <label className="flex items-start space-x-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
+          <label className="flex items-start space-x-3 p-3 border border-border rounded-lg hover:bg-surface cursor-pointer">
             <input
               type="checkbox"
               checked={formData.preferences?.women_only || false}
               onChange={(e) => updatePreference('women_only', e.target.checked)}
-              className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+              className="mt-1 h-4 w-4 text-primary focus:ring-primary border-border rounded"
             />
             <div className="flex-1">
-              <span className="font-medium text-gray-900">Women-only ride</span>
-              <p className="text-sm text-gray-500">Prefer female driver/passengers only</p>
+              <span className="font-medium text-text">Women-only ride</span>
+              <p className="text-sm text-text-subtle">Prefer female driver/passengers only</p>
             </div>
           </label>
 
-          <label className="flex items-start space-x-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
+          <label className="flex items-start space-x-3 p-3 border border-border rounded-lg hover:bg-surface cursor-pointer">
             <input
               type="checkbox"
               checked={formData.preferences?.pet_friendly || false}
               onChange={(e) => updatePreference('pet_friendly', e.target.checked)}
-              className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+              className="mt-1 h-4 w-4 text-primary focus:ring-primary border-border rounded"
             />
             <div className="flex-1">
-              <span className="font-medium text-gray-900">Pet-friendly</span>
-              <p className="text-sm text-gray-500">Traveling with a pet</p>
+              <span className="font-medium text-text">Pet-friendly</span>
+              <p className="text-sm text-text-subtle">Traveling with a pet</p>
             </div>
           </label>
 
-          <label className="flex items-start space-x-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
+          <label className="flex items-start space-x-3 p-3 border border-border rounded-lg hover:bg-surface cursor-pointer">
             <input
               type="checkbox"
               checked={formData.preferences?.wheelchair_accessible || false}
               onChange={(e) => updatePreference('wheelchair_accessible', e.target.checked)}
-              className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+              className="mt-1 h-4 w-4 text-primary focus:ring-primary border-border rounded"
             />
             <div className="flex-1">
-              <span className="font-medium text-gray-900">Wheelchair accessible</span>
-              <p className="text-sm text-gray-500">Need wheelchair-accessible vehicle</p>
+              <span className="font-medium text-text">Wheelchair accessible</span>
+              <p className="text-sm text-text-subtle">Need wheelchair-accessible vehicle</p>
             </div>
           </label>
         </div>
@@ -152,8 +152,8 @@ export default function RideRequestForm({ initialData, onChange }: RideRequestFo
 
       {/* Summary */}
       {formData.origin && formData.destination && formData.departure_time && (
-        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-          <h4 className="font-semibold text-green-900 mb-2">Trip Summary</h4>
+        <div className="bg-success-light border border-success rounded-lg p-4">
+          <h4 className="font-semibold text-karmyq-teal-900 mb-2">Trip Summary</h4>
           <div className="space-y-1 text-sm text-green-800">
             <p><strong>From:</strong> {formData.origin.address}</p>
             <p><strong>To:</strong> {formData.destination.address}</p>

@@ -463,4 +463,12 @@ SKIP_TESTS=1 ./scripts/deploy.sh
 
 ---
 
+Add under a new ## Bug Fixing section at the top level of CLAUDE.md\n\nWhen fixing bugs, always search the entire codebase for ALL occurrences of the problematic pattern before making changes. Use grep/ripgrep to find every instance - never assume a hardcoded value, config path, or pattern exists in only one file.
+
+Add under the same ## Bug Fixing section, as a sub-point or follow-up rule\n\nAfter proposing a fix, verify it by tracing the full data flow end-to-end. For API/config changes, check: source config → build/template processing → runtime access path → client consumption. Do not assume the first fix is complete.
+
+Add under a ## Project Context section near the top of CLAUDE.md\n\nThis is a TypeScript monorepo. Primary languages: TypeScript, with Shell scripts for CI/CD and deployment. When fixing CI issues, check Alpine Linux compatibility, correct package names/versions, and environment variable loading order.
+
+Add under a ## Communication section in CLAUDE.md\n\nWhen the user pastes or is about to share error output, WAIT for it. Do not start investigating by reading log files or guessing at the issue before receiving the actual error message.
+
 **Remember**: This is global context. For specific areas, **read the local `.claude/README.md` first!**

@@ -205,8 +205,8 @@ export default function NewCommunityPage() {
     return (
       <Layout title="Create New Community">
         <div className="text-center py-12">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading template...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-4 text-text-muted">Loading template...</p>
         </div>
       </Layout>
     )
@@ -223,15 +223,15 @@ export default function NewCommunityPage() {
             {/* Step Indicator */}
             <div className="mb-6">
               <div className="flex items-center justify-center space-x-4">
-                <div className={`flex items-center ${step === 'basic' ? 'text-blue-600' : 'text-gray-400'}`}>
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center font-semibold ${step === 'basic' ? 'bg-blue-600 text-white' : 'bg-gray-200'}`}>
+                <div className={`flex items-center ${step === 'basic' ? 'text-primary' : 'text-text-subtle'}`}>
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center font-semibold ${step === 'basic' ? 'bg-primary text-white' : 'bg-gray-200'}`}>
                     1
                   </div>
                   <span className="ml-2 font-medium">Basic Info</span>
                 </div>
                 <div className="w-12 h-0.5 bg-gray-300"></div>
-                <div className={`flex items-center ${step === 'config' ? 'text-blue-600' : 'text-gray-400'}`}>
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center font-semibold ${step === 'config' ? 'bg-blue-600 text-white' : 'bg-gray-200'}`}>
+                <div className={`flex items-center ${step === 'config' ? 'text-primary' : 'text-text-subtle'}`}>
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center font-semibold ${step === 'config' ? 'bg-primary text-white' : 'bg-gray-200'}`}>
                     2
                   </div>
                   <span className="ml-2 font-medium">Configuration</span>
@@ -241,11 +241,11 @@ export default function NewCommunityPage() {
 
             {/* Template Info Banner */}
             {selectedTemplate && (
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+              <div className="bg-primary-light border border-primary-medium rounded-lg p-4 mb-6">
                 <div className="flex justify-between items-start">
                   <div>
-                    <h3 className="font-semibold text-blue-900">Using Template: {selectedTemplate.name}</h3>
-                    <p className="text-sm text-blue-700 mt-1">{selectedTemplate.description}</p>
+                    <h3 className="font-semibold text-primary-dark">Using Template: {selectedTemplate.name}</h3>
+                    <p className="text-sm text-primary-dark mt-1">{selectedTemplate.description}</p>
                   </div>
                   <button
                     onClick={() => {
@@ -253,7 +253,7 @@ export default function NewCommunityPage() {
                       setCustomConfig(null)
                       router.replace('/communities/new', undefined, { shallow: true })
                     }}
-                    className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                    className="text-primary hover:text-primary-dark text-sm font-medium"
                   >
                     Remove Template
                   </button>
@@ -261,7 +261,7 @@ export default function NewCommunityPage() {
               </div>
             )}
 
-            <div className="bg-white rounded-lg shadow-md p-8">
+            <div className="bg-surface-raised rounded-lg shadow-md p-8">
               {error && (
                 <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
                   {error}
@@ -276,13 +276,13 @@ export default function NewCommunityPage() {
                   setStep('config')
                 }} className="space-y-6">
                   {!selectedTemplate && (
-                    <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-6">
-                      <p className="text-sm text-gray-700 mb-2">
+                    <div className="bg-surface border border-border rounded-lg p-4 mb-6">
+                      <p className="text-sm text-text-muted mb-2">
                         Want to start with a pre-configured template?
                       </p>
                       <Link
                         href="/communities/config-templates"
-                        className="text-blue-600 hover:text-blue-800 font-medium text-sm"
+                        className="text-primary hover:text-primary-dark font-medium text-sm"
                       >
                         Browse Configuration Templates →
                       </Link>
@@ -290,7 +290,7 @@ export default function NewCommunityPage() {
                   )}
 
                   <div>
-                    <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
+                    <label htmlFor="name" className="block text-sm font-medium text-text-muted mb-2">
                       Community Name *
                     </label>
                     <input
@@ -300,13 +300,13 @@ export default function NewCommunityPage() {
                       required
                       value={formData.name}
                       onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-4 py-2 border border-border rounded focus:ring-2 focus:ring-primary focus:border-transparent"
                       placeholder="e.g., Downtown Neighbors"
                     />
                   </div>
 
                   <div>
-                    <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-2">
+                    <label htmlFor="description" className="block text-sm font-medium text-text-muted mb-2">
                       Description
                     </label>
                     <textarea
@@ -314,7 +314,7 @@ export default function NewCommunityPage() {
                       name="description"
                       value={formData.description}
                       onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-4 py-2 border border-border rounded focus:ring-2 focus:ring-primary focus:border-transparent"
                       rows={4}
                       placeholder="Describe what your community is about..."
                     />
@@ -322,7 +322,7 @@ export default function NewCommunityPage() {
 
                   <div className="grid md:grid-cols-2 gap-4">
                     <div>
-                      <label htmlFor="location" className="block text-sm font-medium text-gray-700 mb-2">
+                      <label htmlFor="location" className="block text-sm font-medium text-text-muted mb-2">
                         Location
                       </label>
                       <input
@@ -331,20 +331,20 @@ export default function NewCommunityPage() {
                         name="location"
                         value={formData.location}
                         onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                        className="w-full px-4 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="w-full px-4 py-2 border border-border rounded focus:ring-2 focus:ring-primary focus:border-transparent"
                         placeholder="e.g., Seattle, WA"
                       />
                     </div>
 
                     <div>
-                      <label htmlFor="category" className="block text-sm font-medium text-gray-700 mb-2">
+                      <label htmlFor="category" className="block text-sm font-medium text-text-muted mb-2">
                         Category
                       </label>
                       <select
                         id="category"
                         value={formData.category}
                         onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                        className="w-full px-4 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="w-full px-4 py-2 border border-border rounded focus:ring-2 focus:ring-primary focus:border-transparent"
                       >
                         <option value="">Select a category...</option>
                         {CATEGORIES.map((cat) => (
@@ -356,7 +356,7 @@ export default function NewCommunityPage() {
 
                   <div className="grid md:grid-cols-2 gap-4">
                     <div>
-                      <label htmlFor="max_members" className="block text-sm font-medium text-gray-700 mb-2">
+                      <label htmlFor="max_members" className="block text-sm font-medium text-text-muted mb-2">
                         Maximum Members
                       </label>
                       <input
@@ -367,24 +367,24 @@ export default function NewCommunityPage() {
                         value={formData.max_members}
                         onChange={(e) => setFormData({ ...formData, max_members: parseInt(e.target.value) })}
                         disabled={!!selectedTemplate}
-                        className="w-full px-4 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100"
+                        className="w-full px-4 py-2 border border-border rounded focus:ring-2 focus:ring-primary focus:border-transparent disabled:bg-border-light"
                       />
                       {selectedTemplate && (
-                        <p className="mt-1 text-xs text-gray-500">
+                        <p className="mt-1 text-xs text-text-subtle">
                           Set by template (can customize in next step)
                         </p>
                       )}
                     </div>
 
                     <div>
-                      <label htmlFor="access_type" className="block text-sm font-medium text-gray-700 mb-2">
+                      <label htmlFor="access_type" className="block text-sm font-medium text-text-muted mb-2">
                         Access Type
                       </label>
                       <select
                         id="access_type"
                         value={formData.access_type}
                         onChange={(e) => setFormData({ ...formData, access_type: e.target.value as 'public' | 'private' })}
-                        className="w-full px-4 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="w-full px-4 py-2 border border-border rounded focus:ring-2 focus:ring-primary focus:border-transparent"
                       >
                         <option value="public">Public</option>
                         <option value="private">Private (invite only)</option>
@@ -396,13 +396,13 @@ export default function NewCommunityPage() {
                     <button
                       type="submit"
                       disabled={loading}
-                      className="flex-1 px-6 py-3 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-400 font-semibold"
+                      className="flex-1 px-6 py-3 bg-primary text-white rounded hover:bg-primary-dark disabled:bg-gray-400 font-semibold"
                     >
                       Next: Configure Community Settings
                     </button>
                     <Link
                       href="/communities"
-                      className="px-6 py-3 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 font-semibold text-center"
+                      className="px-6 py-3 bg-gray-200 text-text-muted rounded hover:bg-gray-300 font-semibold text-center"
                     >
                       Cancel
                     </Link>
@@ -414,8 +414,8 @@ export default function NewCommunityPage() {
               {step === 'config' && customConfig && (
                 <div className="space-y-6">
                   <div>
-                    <h2 className="text-xl font-bold text-gray-900 mb-2">Customize Configuration</h2>
-                    <p className="text-gray-600 mb-4">
+                    <h2 className="text-xl font-bold text-text mb-2">Customize Configuration</h2>
+                    <p className="text-text-muted mb-4">
                       Review and customize your community's configuration. These settings define how karma,
                       trust, and coordination work in your community.
                     </p>
@@ -430,14 +430,14 @@ export default function NewCommunityPage() {
                   <div className="flex gap-4 pt-4 border-t">
                     <button
                       onClick={() => setStep('basic')}
-                      className="px-6 py-3 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 font-semibold"
+                      className="px-6 py-3 bg-gray-200 text-text-muted rounded hover:bg-gray-300 font-semibold"
                     >
                       ← Back
                     </button>
                     <button
                       onClick={() => handleSubmit()}
                       disabled={loading}
-                      className="flex-1 px-6 py-3 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-400 font-semibold"
+                      className="flex-1 px-6 py-3 bg-primary text-white rounded hover:bg-primary-dark disabled:bg-gray-400 font-semibold"
                     >
                       {loading ? 'Creating Community...' : 'Create Community'}
                     </button>

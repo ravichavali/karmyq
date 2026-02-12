@@ -125,16 +125,16 @@ export default function EventRequestForm({ initialData, onChange }: EventRequest
   return (
     <div className="space-y-6">
       {/* Event Header */}
-      <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
-        <h3 className="font-semibold text-purple-900 mb-1">🎉 Event Request</h3>
-        <p className="text-sm text-purple-700">
+      <div className="bg-accent-light border border-accent rounded-lg p-4">
+        <h3 className="font-semibold text-karmyq-orange-900 mb-1">🎉 Event Request</h3>
+        <p className="text-sm text-accent-dark">
           Organize volunteer events, community activities, or gatherings
         </p>
       </div>
 
       {/* Event Type */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-3">
+        <label className="block text-sm font-medium text-text-muted mb-3">
           Event Type <span className="text-red-500">*</span>
         </label>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
@@ -146,13 +146,13 @@ export default function EventRequestForm({ initialData, onChange }: EventRequest
               className={`
                 p-3 border-2 rounded-lg text-center transition-all
                 ${formData.event_type === type.value
-                  ? 'border-purple-500 bg-purple-50 ring-2 ring-purple-500'
-                  : 'border-gray-300 hover:border-purple-400'
+                  ? 'border-karmyq-orange-500 bg-accent-light ring-2 ring-accent'
+                  : 'border-border hover:border-karmyq-orange-400'
                 }
               `}
             >
               <div className="text-2xl mb-1">{type.icon}</div>
-              <div className="text-xs font-medium text-gray-900">{type.label}</div>
+              <div className="text-xs font-medium text-text">{type.label}</div>
             </button>
           ))}
         </div>
@@ -170,7 +170,7 @@ export default function EventRequestForm({ initialData, onChange }: EventRequest
         />
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-medium text-text-muted mb-2">
             Duration <span className="text-red-500">*</span>
           </label>
           <div className="flex items-center gap-2">
@@ -182,16 +182,16 @@ export default function EventRequestForm({ initialData, onChange }: EventRequest
               value={formData.event_duration_hours || ''}
               onChange={(e) => updateField('event_duration_hours', e.target.value ? parseFloat(e.target.value) : undefined)}
               required
-              className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+              className="w-full border border-border rounded-lg px-4 py-2 focus:ring-2 focus:ring-accent focus:border-transparent"
             />
-            <span className="text-sm text-gray-600 whitespace-nowrap">hours</span>
+            <span className="text-sm text-text-muted whitespace-nowrap">hours</span>
           </div>
         </div>
       </div>
 
       {/* Virtual/Physical Toggle */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
+        <label className="block text-sm font-medium text-text-muted mb-2">
           Event Location <span className="text-red-500">*</span>
         </label>
         <div className="flex gap-3 mb-4">
@@ -201,8 +201,8 @@ export default function EventRequestForm({ initialData, onChange }: EventRequest
             className={`
               flex-1 p-3 border-2 rounded-lg transition-all
               ${!formData.location?.is_virtual
-                ? 'border-purple-500 bg-purple-50'
-                : 'border-gray-300 hover:border-purple-400'
+                ? 'border-karmyq-orange-500 bg-accent-light'
+                : 'border-border hover:border-karmyq-orange-400'
               }
             `}
           >
@@ -215,8 +215,8 @@ export default function EventRequestForm({ initialData, onChange }: EventRequest
             className={`
               flex-1 p-3 border-2 rounded-lg transition-all
               ${formData.location?.is_virtual
-                ? 'border-purple-500 bg-purple-50'
-                : 'border-gray-300 hover:border-purple-400'
+                ? 'border-karmyq-orange-500 bg-accent-light'
+                : 'border-border hover:border-karmyq-orange-400'
               }
             `}
           >
@@ -243,7 +243,7 @@ export default function EventRequestForm({ initialData, onChange }: EventRequest
         {/* Virtual Link */}
         {formData.location?.is_virtual && (
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-text-muted mb-2">
               Virtual Meeting Link (Optional)
             </label>
             <input
@@ -251,16 +251,16 @@ export default function EventRequestForm({ initialData, onChange }: EventRequest
               value={formData.location?.virtual_link || ''}
               onChange={(e) => updateLocation('virtual_link', e.target.value || null)}
               placeholder="https://zoom.us/j/..."
-              className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+              className="w-full border border-border rounded-lg px-4 py-2 focus:ring-2 focus:ring-accent focus:border-transparent"
             />
-            <p className="mt-1 text-xs text-gray-500">You can add this later if not confirmed yet</p>
+            <p className="mt-1 text-xs text-text-subtle">You can add this later if not confirmed yet</p>
           </div>
         )}
       </div>
 
       {/* Participants Needed */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
+        <label className="block text-sm font-medium text-text-muted mb-2">
           Participants Needed <span className="text-red-500">*</span>
         </label>
         <input
@@ -271,18 +271,18 @@ export default function EventRequestForm({ initialData, onChange }: EventRequest
           onChange={(e) => updateField('participants_needed', e.target.value ? parseInt(e.target.value) : undefined)}
           required
           placeholder="How many volunteers do you need?"
-          className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+          className="w-full border border-border rounded-lg px-4 py-2 focus:ring-2 focus:ring-accent focus:border-transparent"
         />
       </div>
 
       {/* Requirements */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-3">
+        <label className="block text-sm font-medium text-text-muted mb-3">
           Requirements (Optional)
         </label>
         <div className="space-y-3">
           <div>
-            <label className="block text-sm text-gray-600 mb-1">Minimum Age</label>
+            <label className="block text-sm text-text-muted mb-1">Minimum Age</label>
             <input
               type="number"
               min="0"
@@ -290,33 +290,33 @@ export default function EventRequestForm({ initialData, onChange }: EventRequest
               value={formData.requirements?.age_minimum || ''}
               onChange={(e) => updateRequirement('age_minimum', e.target.value ? parseInt(e.target.value) : undefined)}
               placeholder="18"
-              className="w-32 border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+              className="w-32 border border-border rounded-lg px-4 py-2 focus:ring-2 focus:ring-accent focus:border-transparent"
             />
           </div>
 
-          <label className="flex items-start space-x-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
+          <label className="flex items-start space-x-3 p-3 border border-border rounded-lg hover:bg-surface cursor-pointer">
             <input
               type="checkbox"
               checked={formData.requirements?.background_check || false}
               onChange={(e) => updateRequirement('background_check', e.target.checked)}
-              className="mt-1 h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+              className="mt-1 h-4 w-4 text-accent focus:ring-accent border-border rounded"
             />
             <div className="flex-1">
-              <span className="font-medium text-gray-900">Background check required</span>
-              <p className="text-sm text-gray-500">Volunteers must pass background screening</p>
+              <span className="font-medium text-text">Background check required</span>
+              <p className="text-sm text-text-subtle">Volunteers must pass background screening</p>
             </div>
           </label>
 
-          <label className="flex items-start space-x-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
+          <label className="flex items-start space-x-3 p-3 border border-border rounded-lg hover:bg-surface cursor-pointer">
             <input
               type="checkbox"
               checked={formData.requirements?.experience_required || false}
               onChange={(e) => updateRequirement('experience_required', e.target.checked)}
-              className="mt-1 h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+              className="mt-1 h-4 w-4 text-accent focus:ring-accent border-border rounded"
             />
             <div className="flex-1">
-              <span className="font-medium text-gray-900">Experience required</span>
-              <p className="text-sm text-gray-500">Volunteers should have prior experience</p>
+              <span className="font-medium text-text">Experience required</span>
+              <p className="text-sm text-text-subtle">Volunteers should have prior experience</p>
             </div>
           </label>
         </div>
@@ -324,27 +324,27 @@ export default function EventRequestForm({ initialData, onChange }: EventRequest
 
       {/* Recurring Event */}
       <div>
-        <label className="flex items-start space-x-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
+        <label className="flex items-start space-x-3 p-3 border border-border rounded-lg hover:bg-surface cursor-pointer">
           <input
             type="checkbox"
             checked={formData.recurring?.is_recurring || false}
             onChange={(e) => updateRecurring('is_recurring', e.target.checked)}
-            className="mt-1 h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+            className="mt-1 h-4 w-4 text-accent focus:ring-accent border-border rounded"
           />
           <div className="flex-1">
-            <span className="font-medium text-gray-900">This is a recurring event</span>
-            <p className="text-sm text-gray-500">Event repeats on a schedule</p>
+            <span className="font-medium text-text">This is a recurring event</span>
+            <p className="text-sm text-text-subtle">Event repeats on a schedule</p>
           </div>
         </label>
 
         {formData.recurring?.is_recurring && (
           <div className="mt-3 ml-7 space-y-3">
             <div>
-              <label className="block text-sm text-gray-600 mb-1">Frequency</label>
+              <label className="block text-sm text-text-muted mb-1">Frequency</label>
               <select
                 value={formData.recurring?.frequency || 'weekly'}
                 onChange={(e) => updateRecurring('frequency', e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                className="w-full border border-border rounded-lg px-4 py-2 focus:ring-2 focus:ring-accent focus:border-transparent"
               >
                 <option value="daily">Daily</option>
                 <option value="weekly">Weekly</option>
@@ -354,7 +354,7 @@ export default function EventRequestForm({ initialData, onChange }: EventRequest
             </div>
 
             <div>
-              <label className="block text-sm text-gray-600 mb-1">End Date (Optional)</label>
+              <label className="block text-sm text-text-muted mb-1">End Date (Optional)</label>
               <DateTimePicker
                 label=""
                 value={formData.recurring?.end_date || ''}
@@ -369,9 +369,9 @@ export default function EventRequestForm({ initialData, onChange }: EventRequest
 
       {/* Summary */}
       {formData.event_type && formData.event_date && formData.participants_needed && (
-        <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
-          <h4 className="font-semibold text-purple-900 mb-2">Event Summary</h4>
-          <div className="space-y-1 text-sm text-purple-800">
+        <div className="bg-accent-light border border-accent rounded-lg p-4">
+          <h4 className="font-semibold text-karmyq-orange-900 mb-2">Event Summary</h4>
+          <div className="space-y-1 text-sm text-accent-dark">
             <p>
               <strong>Type:</strong> {EVENT_TYPES.find(t => t.value === formData.event_type)?.label}
             </p>

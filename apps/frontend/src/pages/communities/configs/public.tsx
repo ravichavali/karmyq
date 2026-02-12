@@ -140,11 +140,11 @@ export default function ThrivingCommunitiesPage() {
   if (loading && communities.length === 0) {
     return (
       <Layout title="Thriving Communities">
-        <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+        <div className="min-h-screen bg-surface py-12 px-4 sm:px-6 lg:px-8">
           <div className="max-w-7xl mx-auto">
             <div className="text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-              <p className="mt-4 text-gray-600">Loading communities...</p>
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+              <p className="mt-4 text-text-muted">Loading communities...</p>
             </div>
           </div>
         </div>
@@ -158,33 +158,33 @@ export default function ThrivingCommunitiesPage() {
         <title>Thriving Communities - Karmyq</title>
       </Head>
       <Layout title="Thriving Communities">
-        <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+        <div className="min-h-screen bg-surface py-12 px-4 sm:px-6 lg:px-8">
           <div className="max-w-7xl mx-auto">
             {/* Header */}
             <div className="text-center mb-8">
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">Thriving Communities</h1>
-              <p className="text-lg text-gray-600">
+              <h1 className="text-3xl font-bold text-text mb-2">Thriving Communities</h1>
+              <p className="text-lg text-text-muted">
                 Browse configurations from successful communities and copy them to yours
               </p>
             </div>
 
             {/* Filters */}
-            <div className="flex justify-between items-center mb-6 bg-white rounded-lg shadow p-4">
+            <div className="flex justify-between items-center mb-6 bg-surface-raised rounded-lg shadow p-4">
               <div>
-                <p className="text-sm text-gray-600">
+                <p className="text-sm text-text-muted">
                   Showing <span className="font-semibold">{communities.length}</span>{' '}
                   {communities.length === 1 ? 'community' : 'communities'} with {minMembers}+ members
                 </p>
               </div>
               <div className="flex items-center space-x-3">
-                <label htmlFor="minMembers" className="text-sm font-medium text-gray-700">
+                <label htmlFor="minMembers" className="text-sm font-medium text-text-muted">
                   Minimum members:
                 </label>
                 <select
                   id="minMembers"
                   value={minMembers}
                   onChange={(e) => setMinMembers(Number(e.target.value))}
-                  className="px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="px-3 py-2 border border-border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-primary"
                 >
                   <option value={5}>5+</option>
                   <option value={10}>10+</option>
@@ -203,8 +203,8 @@ export default function ThrivingCommunitiesPage() {
 
             {/* Communities Grid */}
             {communities.length === 0 ? (
-              <div className="bg-white rounded-lg shadow p-12 text-center">
-                <p className="text-gray-600 text-lg">
+              <div className="bg-surface-raised rounded-lg shadow p-12 text-center">
+                <p className="text-text-muted text-lg">
                   No communities found with {minMembers}+ members. Try lowering the minimum member count.
                 </p>
               </div>
@@ -213,15 +213,15 @@ export default function ThrivingCommunitiesPage() {
                 {communities.map((community) => (
                   <div
                     key={community.id}
-                    className="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-200"
+                    className="bg-surface-raised rounded-lg shadow-md hover:shadow-lg transition-shadow duration-200"
                   >
                     {/* Community Header */}
-                    <div className="px-6 py-4 border-b border-gray-200">
+                    <div className="px-6 py-4 border-b border-border">
                       <div className="flex justify-between items-start">
                         <div className="flex-1">
-                          <h2 className="text-xl font-bold text-gray-900">{community.name}</h2>
-                          <p className="text-gray-600 mt-1">{community.description}</p>
-                          <div className="flex items-center gap-4 mt-2 text-sm text-gray-500">
+                          <h2 className="text-xl font-bold text-text">{community.name}</h2>
+                          <p className="text-text-muted mt-1">{community.description}</p>
+                          <div className="flex items-center gap-4 mt-2 text-sm text-text-subtle">
                             <span className="flex items-center gap-1">
                               👥 <strong>{community.member_count}</strong> members
                             </span>
@@ -237,14 +237,14 @@ export default function ThrivingCommunitiesPage() {
                             onClick={() =>
                               setExpandedCommunity(expandedCommunity === community.id ? null : community.id)
                             }
-                            className="px-4 py-2 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 text-sm font-medium"
+                            className="px-4 py-2 bg-border-light text-text-muted rounded hover:bg-gray-200 text-sm font-medium"
                           >
                             {expandedCommunity === community.id ? 'Hide Details' : 'View Details'}
                           </button>
                           {myFoundedCommunities.length > 0 && (
                             <button
                               onClick={() => handleOpenCopyModal(community.id)}
-                              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm font-medium"
+                              className="px-4 py-2 bg-primary text-white rounded hover:bg-primary-dark text-sm font-medium"
                             >
                               Copy Configuration
                             </button>
@@ -255,12 +255,12 @@ export default function ThrivingCommunitiesPage() {
 
                     {/* Configuration Preview */}
                     <div className="px-6 py-4">
-                      <h3 className="text-sm font-semibold text-gray-700 mb-3">Configuration Highlights</h3>
+                      <h3 className="text-sm font-semibold text-text-muted mb-3">Configuration Highlights</h3>
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                         {getConfigHighlights(community.config).map((highlight, idx) => (
-                          <div key={idx} className="bg-gray-50 rounded-lg p-3">
-                            <div className="text-xs text-gray-600 mb-1">{highlight.label}</div>
-                            <div className="font-semibold text-gray-900">{highlight.value}</div>
+                          <div key={idx} className="bg-surface rounded-lg p-3">
+                            <div className="text-xs text-text-muted mb-1">{highlight.label}</div>
+                            <div className="font-semibold text-text">{highlight.value}</div>
                           </div>
                         ))}
                       </div>
@@ -268,15 +268,15 @@ export default function ThrivingCommunitiesPage() {
                       {/* Request Types Preview */}
                       {community.config.enabled_request_types?.length > 0 && (
                         <div className="mt-4">
-                          <h4 className="text-xs font-semibold text-gray-600 mb-2">Request Types:</h4>
+                          <h4 className="text-xs font-semibold text-text-muted mb-2">Request Types:</h4>
                           <div className="flex flex-wrap gap-2">
                             {community.config.enabled_request_types.map((type, idx) => (
                               <span
                                 key={idx}
-                                className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-blue-100 text-blue-700"
+                                className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-primary-light text-primary-dark"
                               >
                                 {type.name?.replace(/_/g, ' ') || type.name}
-                                <span className="ml-2 text-xs text-blue-600">
+                                <span className="ml-2 text-xs text-primary">
                                   ({type.karma_multiplier}x)
                                 </span>
                               </span>
@@ -288,12 +288,12 @@ export default function ThrivingCommunitiesPage() {
 
                     {/* Expanded Details */}
                     {expandedCommunity === community.id && (
-                      <div className="px-6 py-4 bg-gray-50 border-t border-gray-200">
-                        <h3 className="text-sm font-semibold text-gray-700 mb-3">Full Configuration</h3>
+                      <div className="px-6 py-4 bg-surface border-t border-border">
+                        <h3 className="text-sm font-semibold text-text-muted mb-3">Full Configuration</h3>
                         <div className="grid md:grid-cols-2 gap-4 text-sm">
                           <div>
-                            <h4 className="font-semibold text-gray-900 mb-2">Identity & Boundaries</h4>
-                            <ul className="space-y-1 text-gray-700">
+                            <h4 className="font-semibold text-text mb-2">Identity & Boundaries</h4>
+                            <ul className="space-y-1 text-text-muted">
                               <li>• Member Cap: {community.config.member_cap}</li>
                               <li>• Visibility: {community.config.visibility_mode}</li>
                               <li>
@@ -303,8 +303,8 @@ export default function ThrivingCommunitiesPage() {
                             </ul>
                           </div>
                           <div>
-                            <h4 className="font-semibold text-gray-900 mb-2">Karma Mechanics</h4>
-                            <ul className="space-y-1 text-gray-700">
+                            <h4 className="font-semibold text-text mb-2">Karma Mechanics</h4>
+                            <ul className="space-y-1 text-text-muted">
                               <li>• Helper Split: {community.config.karma_split_helper}%</li>
                               <li>• Requestor Split: {community.config.karma_split_requestor}%</li>
                               <li>• Base Pool: {community.config.base_karma_pool_per_request}</li>
@@ -312,8 +312,8 @@ export default function ThrivingCommunitiesPage() {
                             </ul>
                           </div>
                           <div>
-                            <h4 className="font-semibold text-gray-900 mb-2">Trust Mechanics</h4>
-                            <ul className="space-y-1 text-gray-700">
+                            <h4 className="font-semibold text-text mb-2">Trust Mechanics</h4>
+                            <ul className="space-y-1 text-text-muted">
                               <li>• Depth Weight: {(community.config.trust_depth_weight * 100).toFixed(0)}%</li>
                               <li>
                                 • Breadth Weight: {(community.config.trust_breadth_weight * 100).toFixed(0)}%
@@ -323,8 +323,8 @@ export default function ThrivingCommunitiesPage() {
                             </ul>
                           </div>
                           <div>
-                            <h4 className="font-semibold text-gray-900 mb-2">Onboarding</h4>
-                            <ul className="space-y-1 text-gray-700">
+                            <h4 className="font-semibold text-text mb-2">Onboarding</h4>
+                            <ul className="space-y-1 text-text-muted">
                               <li>
                                 • Request Approval:{' '}
                                 {community.config.request_approval_required ? 'Required' : 'Not Required'}
@@ -360,23 +360,23 @@ export default function ThrivingCommunitiesPage() {
         {/* Copy Configuration Modal */}
         {copyModalOpen && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 px-4">
-            <div className="bg-white rounded-lg p-8 max-w-md w-full">
+            <div className="bg-surface-raised rounded-lg p-8 max-w-md w-full">
               <h3 className="text-2xl font-bold mb-4">Copy Configuration</h3>
-              <p className="text-gray-600 mb-6">
+              <p className="text-text-muted mb-6">
                 Select which community you want to copy this configuration to. This will override your
                 current configuration.
               </p>
 
               <div className="space-y-4">
                 <div>
-                  <label htmlFor="targetCommunity" className="block text-sm font-medium text-gray-700 mb-2">
+                  <label htmlFor="targetCommunity" className="block text-sm font-medium text-text-muted mb-2">
                     Target Community
                   </label>
                   <select
                     id="targetCommunity"
                     value={selectedTargetId}
                     onChange={(e) => setSelectedTargetId(e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-4 py-2 border border-border rounded focus:ring-2 focus:ring-primary"
                   >
                     {myFoundedCommunities.map((community) => (
                       <option key={community.id} value={community.id}>
@@ -392,11 +392,11 @@ export default function ThrivingCommunitiesPage() {
                     id="includeRequestTypes"
                     checked={includeRequestTypes}
                     onChange={(e) => setIncludeRequestTypes(e.target.checked)}
-                    className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    className="mt-1 h-4 w-4 text-primary focus:ring-primary border-border rounded"
                   />
                   <label htmlFor="includeRequestTypes" className="ml-3">
-                    <span className="text-sm font-medium text-gray-700">Include request types</span>
-                    <p className="text-xs text-gray-500 mt-1">
+                    <span className="text-sm font-medium text-text-muted">Include request types</span>
+                    <p className="text-xs text-text-subtle mt-1">
                       Copy the request types along with other configuration settings
                     </p>
                   </label>
@@ -407,7 +407,7 @@ export default function ThrivingCommunitiesPage() {
                 <button
                   onClick={handleCopyConfig}
                   disabled={copying}
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-blue-400"
+                  className="flex-1 px-4 py-2 bg-primary text-white rounded hover:bg-primary-dark disabled:bg-primary-medium"
                 >
                   {copying ? 'Copying...' : 'Copy Configuration'}
                 </button>
@@ -416,7 +416,7 @@ export default function ThrivingCommunitiesPage() {
                     setCopyModalOpen(false)
                     setSelectedSourceId(null)
                   }}
-                  className="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
+                  className="px-4 py-2 bg-gray-200 text-text-muted rounded hover:bg-gray-300"
                 >
                   Cancel
                 </button>

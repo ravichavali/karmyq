@@ -56,7 +56,7 @@ export default function FieldRenderer({ field, value, onChange, accentColor }: F
     case 'object':
       // Render nested sub-fields
       return (
-        <div className="space-y-4 pl-4 border-l-2 border-gray-200">
+        <div className="space-y-4 pl-4 border-l-2 border-border">
           {field.fields?.map((subField) => (
             <FieldRenderer
               key={subField.key}
@@ -71,7 +71,7 @@ export default function FieldRenderer({ field, value, onChange, accentColor }: F
 
     default:
       return (
-        <div className="text-sm text-gray-500">
+        <div className="text-sm text-text-subtle">
           Unknown field type: {field.type}
         </div>
       )

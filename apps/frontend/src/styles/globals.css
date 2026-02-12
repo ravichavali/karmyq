@@ -1,19 +1,52 @@
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..900&family=Inter:wght@300;400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * Karmyq Design Tokens
+ *
+ * All values are RGB triplets so Tailwind can add alpha via <alpha-value>.
+ * To re-skin the app, change the values below — every component follows.
+ * Community skins override these via ThemeProvider (see ThemeContext.tsx).
+ */
 :root {
-  --foreground-rgb: 0, 0, 0;
-  --background-start-rgb: 214, 219, 220;
-  --background-end-rgb: 255, 255, 255;
+  /* ── Primary (earthy green) ── */
+  --color-primary: 45 110 40;           /* karmyq-green-600 #2d6e28 */
+  --color-primary-light: 240 247 240;   /* karmyq-green-50  #f0f7f0 */
+  --color-primary-medium: 136 191 132;  /* karmyq-green-300 #88bf84 */
+  --color-primary-dark: 36 86 33;       /* karmyq-green-700 #245621 */
+
+  /* ── Accent (teal) ── */
+  --color-accent: 38 136 130;           /* karmyq-teal-600  #268882 */
+  --color-accent-light: 239 252 249;    /* karmyq-teal-50   #effcf9 */
+  --color-accent-dark: 34 109 105;      /* karmyq-teal-700  #226d69 */
+
+  /* ── Surfaces ── */
+  --color-surface: 250 248 243;         /* karmyq-cream     #faf8f3 */
+  --color-surface-raised: 253 252 249;  /* karmyq-warmWhite #fdfcf9 */
+
+  /* ── Text ── */
+  --color-text: 92 62 48;              /* karmyq-brown-900 #5c3e30 */
+  --color-text-muted: 180 132 85;      /* karmyq-brown-500 #b48455 */
+  --color-text-subtle: 193 154 111;    /* karmyq-brown-400 #c19a6f */
+
+  /* ── Borders ── */
+  --color-border: 228 211 188;         /* karmyq-brown-200 #e4d3bc */
+  --color-border-light: 242 234 222;   /* karmyq-brown-100 #f2eade */
+
+  /* ── Status ── */
+  --color-warn: 237 118 32;            /* karmyq-orange-500 #ed7620 */
+  --color-warn-light: 254 247 238;     /* karmyq-orange-50  #fef7ee */
+  --color-error: 220 38 38;            /* red-600 */
+  --color-error-light: 254 242 242;    /* red-50  */
+  --color-success: 61 139 53;          /* karmyq-green-500 #3d8b35 */
+  --color-success-light: 240 247 240;  /* karmyq-green-50  #f0f7f0 */
 }
 
 body {
-  color: rgb(var(--foreground-rgb));
-  background: linear-gradient(
-      to bottom,
-      transparent,
-      rgb(var(--background-end-rgb))
-    )
-    rgb(var(--background-start-rgb));
+  font-family: 'Inter', system-ui, sans-serif;
+  color: rgb(var(--color-text));
+  background-color: rgb(var(--color-surface));
 }

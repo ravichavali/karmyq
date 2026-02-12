@@ -46,13 +46,13 @@ export default function ConnectionBadge({ requesterId, onClick }: ConnectionBadg
   const getBadgeStyle = () => {
     switch (degrees) {
       case 1:
-        return 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100'
+        return 'bg-success-light text-success border-success hover:bg-success-light'
       case 2:
-        return 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100'
+        return 'bg-primary-light text-primary-dark border-primary-medium hover:bg-primary-light'
       case 3:
-        return 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100'
+        return 'bg-surface text-text-muted border-border hover:bg-border-light'
       default:
-        return 'bg-gray-50 text-gray-700 border-gray-200'
+        return 'bg-surface text-text-muted border-border'
     }
   }
 

@@ -135,14 +135,14 @@ export default function InlineChat({
   const messageCount = messages.length
 
   return (
-    <div className="mt-4 border-t border-gray-200 pt-4">
+    <div className="mt-4 border-t border-border pt-4">
       {/* Header - Toggle */}
       <button
         onClick={() => setIsExpanded(!isExpanded)}
-        className="flex items-center justify-between w-full text-left hover:bg-gray-50 rounded-lg px-3 py-2 transition-colors"
+        className="flex items-center justify-between w-full text-left hover:bg-surface rounded-lg px-3 py-2 transition-colors"
       >
         <div className="flex items-center gap-2">
-          <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-5 h-5 text-text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -150,21 +150,21 @@ export default function InlineChat({
               d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
             />
           </svg>
-          <span className="text-sm font-medium text-gray-700">
+          <span className="text-sm font-medium text-text-muted">
             Chat with {otherParticipantName}
           </span>
           {messageCount > 0 && (
-            <span className="text-xs text-gray-500">({messageCount} message{messageCount !== 1 ? 's' : ''})</span>
+            <span className="text-xs text-text-subtle">({messageCount} message{messageCount !== 1 ? 's' : ''})</span>
           )}
           {connected && isExpanded && (
-            <span className="flex items-center gap-1 text-xs text-green-600">
-              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+            <span className="flex items-center gap-1 text-xs text-success">
+              <div className="w-2 h-2 bg-success-light0 rounded-full"></div>
               Live
             </span>
           )}
         </div>
         <svg
-          className={`w-5 h-5 text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+          className={`w-5 h-5 text-text-subtle transition-transform ${isExpanded ? 'rotate-180' : ''}`}
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
@@ -175,13 +175,13 @@ export default function InlineChat({
 
       {/* Messages - Expandable */}
       {isExpanded && (
-        <div className="mt-3 bg-gray-50 rounded-lg border border-gray-200 overflow-hidden">
+        <div className="mt-3 bg-surface rounded-lg border border-border overflow-hidden">
           {/* Messages List */}
           <div className="max-h-80 overflow-y-auto p-4 space-y-3">
             {loading ? (
               <div className="text-center py-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-                <p className="text-sm text-gray-500 mt-2">Loading messages...</p>
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+                <p className="text-sm text-text-subtle mt-2">Loading messages...</p>
               </div>
             ) : messages.length === 0 ? (
               <div className="text-center py-8">
@@ -193,8 +193,8 @@ export default function InlineChat({
                     d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
                   />
                 </svg>
-                <p className="text-sm text-gray-500">No messages yet</p>
-                <p className="text-xs text-gray-400 mt-1">Start the conversation!</p>
+                <p className="text-sm text-text-subtle">No messages yet</p>
+                <p className="text-xs text-text-subtle mt-1">Start the conversation!</p>
               </div>
             ) : (
               <>
@@ -206,13 +206,13 @@ export default function InlineChat({
                         <div
                           className={`rounded-lg px-4 py-2 ${
                             isSender
-                              ? 'bg-blue-600 text-white'
-                              : 'bg-white text-gray-900 border border-gray-200'
+                              ? 'bg-primary text-white'
+                              : 'bg-surface-raised text-text border border-border'
                           }`}
                         >
                           <p className="text-sm leading-relaxed">{message.content}</p>
                         </div>
-                        <p className={`text-xs text-gray-500 mt-1 ${isSender ? 'text-right' : 'text-left'}`}>
+                        <p className={`text-xs text-text-subtle mt-1 ${isSender ? 'text-right' : 'text-left'}`}>
                           {formatTime(message.created_at)}
                         </p>
                       </div>
@@ -229,11 +229,11 @@ export default function InlineChat({
                 <div className="bg-gray-200 rounded-lg px-4 py-2">
                   <div className="flex items-center gap-1">
                     <div className="flex gap-1">
-                      <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-                      <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-                      <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                      <div className="w-2 h-2 bg-surface0 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                      <div className="w-2 h-2 bg-surface0 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                      <div className="w-2 h-2 bg-surface0 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
                     </div>
-                    <span className="text-xs text-gray-600 ml-2">{typingUser} is typing...</span>
+                    <span className="text-xs text-text-muted ml-2">{typingUser} is typing...</span>
                   </div>
                 </div>
               </div>
@@ -241,7 +241,7 @@ export default function InlineChat({
           </div>
 
           {/* Message Input */}
-          <form onSubmit={handleSendMessage} className="border-t border-gray-200 p-3 bg-white">
+          <form onSubmit={handleSendMessage} className="border-t border-border p-3 bg-surface-raised">
             <div className="flex gap-2">
               <input
                 ref={inputRef}
@@ -249,13 +249,13 @@ export default function InlineChat({
                 value={newMessage}
                 onChange={(e) => handleTyping(e.target.value)}
                 placeholder="Type your message..."
-                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                className="flex-1 px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent text-sm"
                 disabled={sending}
               />
               <button
                 type="submit"
                 disabled={!newMessage.trim() || sending}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium"
+                className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium"
               >
                 {sending ? 'Sending...' : 'Send'}
               </button>

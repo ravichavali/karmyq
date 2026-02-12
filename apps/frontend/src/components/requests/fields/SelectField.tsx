@@ -10,14 +10,14 @@ interface SelectFieldProps {
 export default function SelectField({ field, value, onChange }: SelectFieldProps) {
   return (
     <div>
-      <label className="block text-sm font-medium text-gray-700 mb-2">
+      <label className="block text-sm font-medium text-text-muted mb-2">
         {field.label} {field.required && <span className="text-red-500">*</span>}
       </label>
       <select
         value={value || ''}
         onChange={(e) => onChange(e.target.value)}
         required={field.required}
-        className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+        className="w-full border border-border rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary focus:border-transparent"
       >
         <option value="">{field.placeholder || 'Select...'}</option>
         {field.options?.map((opt) => (
@@ -27,7 +27,7 @@ export default function SelectField({ field, value, onChange }: SelectFieldProps
         ))}
       </select>
       {field.helpText && (
-        <p className="text-gray-500 text-sm mt-1">{field.helpText}</p>
+        <p className="text-text-subtle text-sm mt-1">{field.helpText}</p>
       )}
     </div>
   )

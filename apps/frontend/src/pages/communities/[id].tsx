@@ -188,7 +188,7 @@ export default function CommunityDetailPage() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="text-gray-500">Loading...</div>
+        <div className="text-text-subtle">Loading...</div>
       </div>
     )
   }
@@ -209,11 +209,11 @@ export default function CommunityDetailPage() {
       <Layout title={community.name}>
         <div className="container mx-auto px-4 py-8">
           {/* Community Header */}
-          <div className="bg-white rounded-lg shadow-md p-8 mb-6">
+          <div className="bg-surface-raised rounded-lg shadow-md p-8 mb-6">
             <div className="flex justify-between items-start mb-4">
               <div>
                 <h1 className="text-3xl font-bold mb-2">{community.name}</h1>
-                <p className="text-gray-600">{community.description}</p>
+                <p className="text-text-muted">{community.description}</p>
               </div>
               {!isMember && !isPending && (
                 <button
@@ -223,8 +223,8 @@ export default function CommunityDetailPage() {
                     joiningCommunity || community.current_members >= community.max_members
                       ? 'bg-gray-400 text-white'
                       : community.access_type === 'private'
-                      ? 'bg-purple-600 text-white hover:bg-purple-700'
-                      : 'bg-blue-600 text-white hover:bg-blue-700'
+                      ? 'bg-accent text-white hover:bg-accent-dark'
+                      : 'bg-primary text-white hover:bg-primary-dark'
                   }`}
                 >
                   {joiningCommunity
@@ -243,7 +243,7 @@ export default function CommunityDetailPage() {
               )}
             </div>
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-6 text-sm text-gray-600">
+              <div className="flex items-center gap-6 text-sm text-text-muted">
                 <span>Created by {community.creator_name}</span>
                 <span>•</span>
                 <span>
@@ -262,7 +262,7 @@ export default function CommunityDetailPage() {
             <div className="mt-4">
               <div className="w-full bg-gray-200 rounded-full h-2">
                 <div
-                  className="bg-blue-600 h-2 rounded-full"
+                  className="bg-primary h-2 rounded-full"
                   style={{
                     width: `${(community.current_members / community.max_members) * 100}%`,
                   }}
@@ -272,15 +272,15 @@ export default function CommunityDetailPage() {
           </div>
 
           {/* Tabs */}
-          <div className="bg-white rounded-lg shadow-md mb-6">
-            <div className="border-b border-gray-200">
+          <div className="bg-surface-raised rounded-lg shadow-md mb-6">
+            <div className="border-b border-border">
               <nav className="flex">
                 <button
                   onClick={() => setActiveTab('overview')}
                   className={`px-6 py-4 font-medium ${
                     activeTab === 'overview'
-                      ? 'border-b-2 border-blue-600 text-blue-600'
-                      : 'text-gray-600 hover:text-gray-800'
+                      ? 'border-b-2 border-primary text-primary'
+                      : 'text-text-muted hover:text-text'
                   }`}
                 >
                   Overview
@@ -289,8 +289,8 @@ export default function CommunityDetailPage() {
                   onClick={() => setActiveTab('members')}
                   className={`px-6 py-4 font-medium ${
                     activeTab === 'members'
-                      ? 'border-b-2 border-blue-600 text-blue-600'
-                      : 'text-gray-600 hover:text-gray-800'
+                      ? 'border-b-2 border-primary text-primary'
+                      : 'text-text-muted hover:text-text'
                   }`}
                 >
                   Members ({community.members.length})
@@ -299,8 +299,8 @@ export default function CommunityDetailPage() {
                   onClick={() => setActiveTab('norms')}
                   className={`px-6 py-4 font-medium ${
                     activeTab === 'norms'
-                      ? 'border-b-2 border-blue-600 text-blue-600'
-                      : 'text-gray-600 hover:text-gray-800'
+                      ? 'border-b-2 border-primary text-primary'
+                      : 'text-text-muted hover:text-text'
                   }`}
                 >
                   Norms ({norms.length})
@@ -309,8 +309,8 @@ export default function CommunityDetailPage() {
                   onClick={() => setActiveTab('config')}
                   className={`px-6 py-4 font-medium ${
                     activeTab === 'config'
-                      ? 'border-b-2 border-blue-600 text-blue-600'
-                      : 'text-gray-600 hover:text-gray-800'
+                      ? 'border-b-2 border-primary text-primary'
+                      : 'text-text-muted hover:text-text'
                   }`}
                 >
                   Configuration
@@ -323,23 +323,23 @@ export default function CommunityDetailPage() {
               {activeTab === 'overview' && (
                 <div>
                   <h3 className="text-xl font-semibold mb-4">About this Community</h3>
-                  <p className="text-gray-600 mb-6">
+                  <p className="text-text-muted mb-6">
                     {community.description || 'No description provided.'}
                   </p>
                   <div className="grid md:grid-cols-3 gap-4 mb-8">
-                    <div className="bg-blue-50 rounded-lg p-4">
-                      <div className="text-3xl font-bold text-blue-600">
+                    <div className="bg-primary-light rounded-lg p-4">
+                      <div className="text-3xl font-bold text-primary">
                         {community.current_members}
                       </div>
-                      <div className="text-sm text-gray-600">Active Members</div>
+                      <div className="text-sm text-text-muted">Active Members</div>
                     </div>
-                    <div className="bg-green-50 rounded-lg p-4">
-                      <div className="text-3xl font-bold text-green-600">{norms.filter(n => n.status === 'active').length}</div>
-                      <div className="text-sm text-gray-600">Active Norms</div>
+                    <div className="bg-success-light rounded-lg p-4">
+                      <div className="text-3xl font-bold text-success">{norms.filter(n => n.status === 'active').length}</div>
+                      <div className="text-sm text-text-muted">Active Norms</div>
                     </div>
-                    <div className="bg-purple-50 rounded-lg p-4">
-                      <div className="text-3xl font-bold text-purple-600">0</div>
-                      <div className="text-sm text-gray-600">Active Requests</div>
+                    <div className="bg-accent-light rounded-lg p-4">
+                      <div className="text-3xl font-bold text-accent">0</div>
+                      <div className="text-sm text-text-muted">Active Requests</div>
                     </div>
                   </div>
 
@@ -350,7 +350,7 @@ export default function CommunityDetailPage() {
                         <h3 className="text-xl font-semibold">How This Community Works</h3>
                         <button
                           onClick={() => setActiveTab('config')}
-                          className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+                          className="text-sm text-primary hover:text-primary-dark font-medium"
                         >
                           View Full Configuration →
                         </button>
@@ -359,29 +359,29 @@ export default function CommunityDetailPage() {
                       <div className="grid md:grid-cols-2 gap-6">
                         {/* Karma Mechanics */}
                         <div className="bg-gradient-to-br from-yellow-50 to-amber-50 border border-yellow-200 rounded-lg p-5">
-                          <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                          <h4 className="font-semibold text-text mb-3 flex items-center gap-2">
                             <span className="text-xl">💎</span>
                             Karma Mechanics
                           </h4>
                           <div className="space-y-2 text-sm">
                             <div className="flex justify-between">
-                              <span className="text-gray-700">Karma Split:</span>
-                              <span className="font-medium text-gray-900">
+                              <span className="text-text-muted">Karma Split:</span>
+                              <span className="font-medium text-text">
                                 {config.karma_split_helper}% helper / {config.karma_split_requestor}% requestor
                               </span>
                             </div>
                             <div className="flex justify-between">
-                              <span className="text-gray-700">Base Pool:</span>
-                              <span className="font-medium text-gray-900">{config.base_karma_pool_per_request} karma</span>
+                              <span className="text-text-muted">Base Pool:</span>
+                              <span className="font-medium text-text">{config.base_karma_pool_per_request} karma</span>
                             </div>
                             {config.karma_decay_half_life_days > 0 && (
                               <div className="flex justify-between">
-                                <span className="text-gray-700">Karma Decay:</span>
-                                <span className="font-medium text-gray-900">{config.karma_decay_half_life_days} day half-life</span>
+                                <span className="text-text-muted">Karma Decay:</span>
+                                <span className="font-medium text-text">{config.karma_decay_half_life_days} day half-life</span>
                               </div>
                             )}
                             {config.karma_decay_half_life_days === 0 && (
-                              <div className="text-xs text-gray-600 mt-1">
+                              <div className="text-xs text-text-muted mt-1">
                                 ✓ Karma is bankable (no decay)
                               </div>
                             )}
@@ -389,37 +389,37 @@ export default function CommunityDetailPage() {
                         </div>
 
                         {/* Trust Mechanics */}
-                        <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-5">
-                          <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                        <div className="bg-gradient-to-br from-primary-light to-accent-light border border-primary-medium rounded-lg p-5">
+                          <h4 className="font-semibold text-text mb-3 flex items-center gap-2">
                             <span className="text-xl">🤝</span>
                             Trust Mechanics
                           </h4>
                           <div className="space-y-2 text-sm">
                             <div className="flex justify-between">
-                              <span className="text-gray-700">Trust Model:</span>
-                              <span className="font-medium text-gray-900">
+                              <span className="text-text-muted">Trust Model:</span>
+                              <span className="font-medium text-text">
                                 {config.trust_depth_weight > 0.6 ? 'Depth-focused' :
                                  config.trust_breadth_weight > 0.6 ? 'Breadth-focused' : 'Balanced'}
                               </span>
                             </div>
-                            <div className="flex justify-between text-xs text-gray-600">
+                            <div className="flex justify-between text-xs text-text-muted">
                               <span>{Math.round(config.trust_depth_weight * 100)}% depth</span>
                               <span>{Math.round(config.trust_breadth_weight * 100)}% breadth</span>
                             </div>
                             <div className="flex justify-between">
-                              <span className="text-gray-700">Trust Decay:</span>
-                              <span className="font-medium text-gray-900">{config.trust_decay_half_life_days} days</span>
+                              <span className="text-text-muted">Trust Decay:</span>
+                              <span className="font-medium text-text">{config.trust_decay_half_life_days} days</span>
                             </div>
                             <div className="flex justify-between">
-                              <span className="text-gray-700">Max Hops:</span>
-                              <span className="font-medium text-gray-900">{config.trust_path_max_hops} connections</span>
+                              <span className="text-text-muted">Max Hops:</span>
+                              <span className="font-medium text-text">{config.trust_path_max_hops} connections</span>
                             </div>
                           </div>
                         </div>
 
                         {/* Request Types */}
-                        <div className="bg-gradient-to-br from-purple-50 to-pink-50 border border-purple-200 rounded-lg p-5">
-                          <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                        <div className="bg-gradient-to-br from-accent-light to-karmyq-brown-50 border border-accent rounded-lg p-5">
+                          <h4 className="font-semibold text-text mb-3 flex items-center gap-2">
                             <span className="text-xl">📋</span>
                             Request Types
                           </h4>
@@ -427,12 +427,12 @@ export default function CommunityDetailPage() {
                             {config.enabled_request_types.map((type) => (
                               <span
                                 key={type.name}
-                                className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium bg-white border border-purple-300 text-gray-700"
+                                className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium bg-surface-raised border border-accent text-text-muted"
                                 title={type.description}
                               >
                                 {type.name.replace(/_/g, ' ')}
                                 {type.karma_multiplier !== 1.0 && (
-                                  <span className="text-xs text-purple-600 font-semibold">
+                                  <span className="text-xs text-accent font-semibold">
                                     ×{type.karma_multiplier}
                                   </span>
                                 )}
@@ -440,39 +440,39 @@ export default function CommunityDetailPage() {
                             ))}
                           </div>
                           {config.enabled_request_types.length === 0 && (
-                            <p className="text-sm text-gray-500">No request types configured</p>
+                            <p className="text-sm text-text-subtle">No request types configured</p>
                           )}
                         </div>
 
                         {/* Community Rules */}
-                        <div className="bg-gradient-to-br from-green-50 to-emerald-50 border border-green-200 rounded-lg p-5">
-                          <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                        <div className="bg-gradient-to-br from-karmyq-green-50 to-karmyq-green-100 border border-success rounded-lg p-5">
+                          <h4 className="font-semibold text-text mb-3 flex items-center gap-2">
                             <span className="text-xl">📜</span>
                             Community Rules
                           </h4>
                           <div className="space-y-2 text-sm">
                             <div className="flex justify-between">
-                              <span className="text-gray-700">Size Limit:</span>
-                              <span className="font-medium text-gray-900">
+                              <span className="text-text-muted">Size Limit:</span>
+                              <span className="font-medium text-text">
                                 {community.current_members} / {config.member_cap} members
                               </span>
                             </div>
                             <div className="flex justify-between">
-                              <span className="text-gray-700">Visibility:</span>
-                              <span className="font-medium text-gray-900">
+                              <span className="text-text-muted">Visibility:</span>
+                              <span className="font-medium text-text">
                                 {config.visibility_mode === 'public' ? '👁️ Public' :
                                  config.visibility_mode === 'members_only' ? '🔒 Members Only' :
                                  '🔓 Hybrid'}
                               </span>
                             </div>
                             {config.join_approval_required && (
-                              <div className="text-xs text-gray-600">✓ Join approval required</div>
+                              <div className="text-xs text-text-muted">✓ Join approval required</div>
                             )}
                             {config.request_approval_required && (
-                              <div className="text-xs text-gray-600">✓ Request approval required</div>
+                              <div className="text-xs text-text-muted">✓ Request approval required</div>
                             )}
                             {config.new_member_karma_lockout_days > 0 && (
-                              <div className="text-xs text-gray-600">
+                              <div className="text-xs text-text-muted">
                                 ⚠️ {config.new_member_karma_lockout_days} day karma lockout for new members
                               </div>
                             )}
@@ -481,8 +481,8 @@ export default function CommunityDetailPage() {
                       </div>
 
                       {config.template_source && (
-                        <div className="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-4">
-                          <p className="text-sm text-blue-800">
+                        <div className="mt-4 bg-primary-light border border-primary-medium rounded-lg p-4">
+                          <p className="text-sm text-primary-dark">
                             <strong>Based on Template:</strong> {config.template_source}
                           </p>
                         </div>
@@ -500,7 +500,7 @@ export default function CommunityDetailPage() {
                     {isAdmin && (
                       <button
                         onClick={() => setShowInviteModal(true)}
-                        className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                        className="px-4 py-2 bg-primary text-white rounded hover:bg-primary-dark"
                       >
                         Invite Member
                       </button>
@@ -510,13 +510,13 @@ export default function CommunityDetailPage() {
                     {community.members.map((member) => (
                       <div
                         key={member.id}
-                        className="flex items-center justify-between p-4 bg-gray-50 rounded-lg"
+                        className="flex items-center justify-between p-4 bg-surface rounded-lg"
                       >
                         <div>
                           <div className="font-semibold">{member.user_name}</div>
-                          <div className="text-sm text-gray-600">{member.user_email}</div>
+                          <div className="text-sm text-text-muted">{member.user_email}</div>
                           {member.invited_by_name && (
-                            <div className="text-xs text-gray-500">
+                            <div className="text-xs text-text-subtle">
                               Invited by {member.invited_by_name}
                             </div>
                           )}
@@ -525,13 +525,13 @@ export default function CommunityDetailPage() {
                           <span
                             className={`px-3 py-1 rounded text-sm font-medium ${
                               member.role === 'admin'
-                                ? 'bg-purple-100 text-purple-800'
-                                : 'bg-gray-200 text-gray-700'
+                                ? 'bg-accent-light text-accent-dark'
+                                : 'bg-gray-200 text-text-muted'
                             }`}
                           >
                             {member.role}
                           </span>
-                          <span className="text-xs text-gray-500">
+                          <span className="text-xs text-text-subtle">
                             {new Date(member.joined_at).toLocaleDateString()}
                           </span>
                         </div>
@@ -549,7 +549,7 @@ export default function CommunityDetailPage() {
                     {isMember && !showNormForm && (
                       <button
                         onClick={() => setShowNormForm(true)}
-                        className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                        className="px-4 py-2 bg-primary text-white rounded hover:bg-primary-dark"
                       >
                         Propose Norm
                       </button>
@@ -557,34 +557,34 @@ export default function CommunityDetailPage() {
                   </div>
 
                   {showNormForm && (
-                    <form onSubmit={handleCreateNorm} className="bg-blue-50 p-4 rounded-lg mb-4">
+                    <form onSubmit={handleCreateNorm} className="bg-primary-light p-4 rounded-lg mb-4">
                       <h4 className="font-semibold mb-3">Propose New Norm</h4>
                       <input
                         type="text"
                         placeholder="Norm description"
                         value={newNorm.description}
                         onChange={(e) => setNewNorm({ ...newNorm, description: e.target.value })}
-                        className="w-full px-4 py-2 border border-gray-300 rounded mb-2"
+                        className="w-full px-4 py-2 border border-border rounded mb-2"
                         required
                       />
                       <textarea
                         placeholder="Rationale (optional)"
                         value={newNorm.rationale}
                         onChange={(e) => setNewNorm({ ...newNorm, rationale: e.target.value })}
-                        className="w-full px-4 py-2 border border-gray-300 rounded mb-2"
+                        className="w-full px-4 py-2 border border-border rounded mb-2"
                         rows={2}
                       />
                       <div className="flex gap-2">
                         <button
                           type="submit"
-                          className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                          className="px-4 py-2 bg-primary text-white rounded hover:bg-primary-dark"
                         >
                           Submit
                         </button>
                         <button
                           type="button"
                           onClick={() => setShowNormForm(false)}
-                          className="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
+                          className="px-4 py-2 bg-gray-200 text-text-muted rounded hover:bg-gray-300"
                         >
                           Cancel
                         </button>
@@ -594,24 +594,24 @@ export default function CommunityDetailPage() {
 
                   <div className="space-y-3">
                     {norms.length === 0 ? (
-                      <p className="text-gray-500">No norms yet. Members can propose norms to establish community guidelines.</p>
+                      <p className="text-text-subtle">No norms yet. Members can propose norms to establish community guidelines.</p>
                     ) : (
                       norms.map((norm) => (
-                        <div key={norm.id} className="p-4 bg-gray-50 rounded-lg">
+                        <div key={norm.id} className="p-4 bg-surface rounded-lg">
                           <div className="flex items-start justify-between mb-2">
                             <div className="flex-1">
                               <p className="font-medium">{norm.description}</p>
                               {norm.rationale && (
-                                <p className="text-sm text-gray-600 mt-1">{norm.rationale}</p>
+                                <p className="text-sm text-text-muted mt-1">{norm.rationale}</p>
                               )}
-                              <p className="text-xs text-gray-500 mt-2">
+                              <p className="text-xs text-text-subtle mt-2">
                                 Proposed by {norm.creator_name}
                               </p>
                             </div>
                             <span
                               className={`px-3 py-1 rounded text-sm font-medium ${
                                 norm.status === 'active'
-                                  ? 'bg-green-100 text-green-800'
+                                  ? 'bg-success-light text-green-800'
                                   : 'bg-yellow-100 text-yellow-800'
                               }`}
                             >
@@ -619,13 +619,13 @@ export default function CommunityDetailPage() {
                             </span>
                           </div>
                           <div className="flex items-center justify-between mt-3">
-                            <span className="text-sm text-gray-600">
+                            <span className="text-sm text-text-muted">
                               {norm.approval_count} approval{norm.approval_count !== 1 ? 's' : ''}
                             </span>
                             {isMember && norm.status === 'proposed' && (
                               <button
                                 onClick={() => handleApproveNorm(norm.id)}
-                                className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
+                                className="px-3 py-1 bg-primary text-white text-sm rounded hover:bg-primary-dark"
                               >
                                 Approve
                               </button>
@@ -646,13 +646,13 @@ export default function CommunityDetailPage() {
                     {community.creator_id === currentUser?.id && (
                       <Link
                         href={`/communities/${id}/admin?tab=config`}
-                        className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm font-medium"
+                        className="px-4 py-2 bg-primary text-white rounded hover:bg-primary-dark text-sm font-medium"
                       >
                         Edit Configuration
                       </Link>
                     )}
                   </div>
-                  <p className="text-gray-600 mb-6">
+                  <p className="text-text-muted mb-6">
                     View the configuration that defines how trust, karma, and coordination work in this community.
                     {community.creator_id === currentUser?.id && ' Click "Edit Configuration" to make changes.'}
                   </p>
@@ -665,8 +665,8 @@ export default function CommunityDetailPage() {
                   />
 
                   {config.template_source && (
-                    <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
-                      <p className="text-sm text-blue-800">
+                    <div className="mt-6 bg-primary-light border border-primary-medium rounded-lg p-4">
+                      <p className="text-sm text-primary-dark">
                         <strong>Template:</strong> This community was created using the "{config.template_source}" template.
                       </p>
                     </div>
@@ -680,11 +680,11 @@ export default function CommunityDetailPage() {
         {/* Invite Member Modal */}
         {showInviteModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-8 max-w-md w-full mx-4">
+            <div className="bg-surface-raised rounded-lg p-8 max-w-md w-full mx-4">
               <h3 className="text-2xl font-bold mb-4">Invite Member</h3>
               <form onSubmit={handleInviteMember}>
                 <div className="mb-4">
-                  <label htmlFor="inviteEmail" className="block text-sm font-medium text-gray-700 mb-2">
+                  <label htmlFor="inviteEmail" className="block text-sm font-medium text-text-muted mb-2">
                     User Email
                   </label>
                   <input
@@ -692,18 +692,18 @@ export default function CommunityDetailPage() {
                     id="inviteEmail"
                     value={inviteEmail}
                     onChange={(e) => setInviteEmail(e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-border rounded focus:ring-2 focus:ring-primary focus:border-transparent"
                     placeholder="user@example.com"
                     required
                   />
-                  <p className="mt-2 text-sm text-gray-500">
+                  <p className="mt-2 text-sm text-text-subtle">
                     Enter the email address of the person you want to invite. They must have an account.
                   </p>
                 </div>
                 <div className="flex gap-3">
                   <button
                     type="submit"
-                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                    className="flex-1 px-4 py-2 bg-primary text-white rounded hover:bg-primary-dark"
                   >
                     Send Invitation
                   </button>
@@ -713,7 +713,7 @@ export default function CommunityDetailPage() {
                       setShowInviteModal(false)
                       setInviteEmail('')
                     }}
-                    className="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
+                    className="px-4 py-2 bg-gray-200 text-text-muted rounded hover:bg-gray-300"
                   >
                     Cancel
                   </button>

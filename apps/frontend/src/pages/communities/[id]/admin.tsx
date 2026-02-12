@@ -302,7 +302,7 @@ export default function CommunityAdminPage() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="text-gray-500">Loading...</div>
+        <div className="text-text-subtle">Loading...</div>
       </div>
     )
   }
@@ -324,7 +324,7 @@ export default function CommunityAdminPage() {
             <p className="text-red-600 mb-6">You must be a community admin to access this page.</p>
             <Link
               href={`/communities/${id}`}
-              className="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+              className="px-6 py-2 bg-primary text-white rounded hover:bg-primary-dark"
             >
               Back to Community
             </Link>
@@ -346,7 +346,7 @@ export default function CommunityAdminPage() {
             <div>
               <Link
                 href={`/communities/${id}`}
-                className="text-blue-600 hover:text-blue-800 mb-2 inline-block"
+                className="text-primary hover:text-primary-dark mb-2 inline-block"
               >
                 ← Back to Community
               </Link>
@@ -356,36 +356,36 @@ export default function CommunityAdminPage() {
 
           {/* Stats Cards */}
           <div className="grid md:grid-cols-4 gap-4 mb-6">
-            <div className="bg-white rounded-lg shadow p-4">
-              <div className="text-3xl font-bold text-blue-600">{activeMembers.length}</div>
-              <div className="text-sm text-gray-600">Active Members</div>
+            <div className="bg-surface-raised rounded-lg shadow p-4">
+              <div className="text-3xl font-bold text-primary">{activeMembers.length}</div>
+              <div className="text-sm text-text-muted">Active Members</div>
             </div>
-            <div className="bg-white rounded-lg shadow p-4">
+            <div className="bg-surface-raised rounded-lg shadow p-4">
               <div className="text-3xl font-bold text-yellow-600">{pendingMembers.length}</div>
-              <div className="text-sm text-gray-600">Pending Requests</div>
+              <div className="text-sm text-text-muted">Pending Requests</div>
             </div>
-            <div className="bg-white rounded-lg shadow p-4">
-              <div className="text-3xl font-bold text-green-600">{community.max_members}</div>
-              <div className="text-sm text-gray-600">Max Capacity</div>
+            <div className="bg-surface-raised rounded-lg shadow p-4">
+              <div className="text-3xl font-bold text-success">{community.max_members}</div>
+              <div className="text-sm text-text-muted">Max Capacity</div>
             </div>
-            <div className="bg-white rounded-lg shadow p-4">
-              <div className="text-3xl font-bold text-purple-600">
+            <div className="bg-surface-raised rounded-lg shadow p-4">
+              <div className="text-3xl font-bold text-accent">
                 {community.access_type === 'private' ? 'Private' : 'Public'}
               </div>
-              <div className="text-sm text-gray-600">Access Type</div>
+              <div className="text-sm text-text-muted">Access Type</div>
             </div>
           </div>
 
           {/* Tabs */}
-          <div className="bg-white rounded-lg shadow">
-            <div className="border-b border-gray-200">
+          <div className="bg-surface-raised rounded-lg shadow">
+            <div className="border-b border-border">
               <nav className="flex">
                 <button
                   onClick={() => setActiveTab('members')}
                   className={`px-6 py-4 font-medium ${
                     activeTab === 'members'
-                      ? 'border-b-2 border-blue-600 text-blue-600'
-                      : 'text-gray-600 hover:text-gray-800'
+                      ? 'border-b-2 border-primary text-primary'
+                      : 'text-text-muted hover:text-text'
                   }`}
                 >
                   Members ({activeMembers.length})
@@ -394,8 +394,8 @@ export default function CommunityAdminPage() {
                   onClick={() => setActiveTab('pending')}
                   className={`px-6 py-4 font-medium relative ${
                     activeTab === 'pending'
-                      ? 'border-b-2 border-blue-600 text-blue-600'
-                      : 'text-gray-600 hover:text-gray-800'
+                      ? 'border-b-2 border-primary text-primary'
+                      : 'text-text-muted hover:text-text'
                   }`}
                 >
                   Pending Requests ({pendingMembers.length})
@@ -409,8 +409,8 @@ export default function CommunityAdminPage() {
                   onClick={() => setActiveTab('settings')}
                   className={`px-6 py-4 font-medium ${
                     activeTab === 'settings'
-                      ? 'border-b-2 border-blue-600 text-blue-600'
-                      : 'text-gray-600 hover:text-gray-800'
+                      ? 'border-b-2 border-primary text-primary'
+                      : 'text-text-muted hover:text-text'
                   }`}
                 >
                   Settings
@@ -419,8 +419,8 @@ export default function CommunityAdminPage() {
                   onClick={() => setActiveTab('config')}
                   className={`px-6 py-4 font-medium ${
                     activeTab === 'config'
-                      ? 'border-b-2 border-blue-600 text-blue-600'
-                      : 'text-gray-600 hover:text-gray-800'
+                      ? 'border-b-2 border-primary text-primary'
+                      : 'text-text-muted hover:text-text'
                   }`}
                 >
                   Configuration
@@ -432,8 +432,8 @@ export default function CommunityAdminPage() {
                   }}
                   className={`px-6 py-4 font-medium ${
                     activeTab === 'stats'
-                      ? 'border-b-2 border-blue-600 text-blue-600'
-                      : 'text-gray-600 hover:text-gray-800'
+                      ? 'border-b-2 border-primary text-primary'
+                      : 'text-text-muted hover:text-text'
                   }`}
                 >
                   Statistics
@@ -442,8 +442,8 @@ export default function CommunityAdminPage() {
                   onClick={() => setActiveTab('export')}
                   className={`px-6 py-4 font-medium ${
                     activeTab === 'export'
-                      ? 'border-b-2 border-blue-600 text-blue-600'
-                      : 'text-gray-600 hover:text-gray-800'
+                      ? 'border-b-2 border-primary text-primary'
+                      : 'text-text-muted hover:text-text'
                   }`}
                 >
                   Export Data
@@ -460,12 +460,12 @@ export default function CommunityAdminPage() {
                     {activeMembers.map((member) => (
                       <div
                         key={member.id}
-                        className="flex items-center justify-between p-4 bg-gray-50 rounded-lg"
+                        className="flex items-center justify-between p-4 bg-surface rounded-lg"
                       >
                         <div>
                           <div className="font-semibold">{member.user_name}</div>
-                          <div className="text-sm text-gray-600">{member.user_email}</div>
-                          <div className="text-xs text-gray-500">
+                          <div className="text-sm text-text-muted">{member.user_email}</div>
+                          <div className="text-xs text-text-subtle">
                             Joined {new Date(member.joined_at).toLocaleDateString()}
                           </div>
                         </div>
@@ -474,7 +474,7 @@ export default function CommunityAdminPage() {
                             value={member.role}
                             onChange={(e) => handleUpdateMemberRole(member.user_id, e.target.value)}
                             disabled={member.user_id === currentUser?.id || member.user_id === community.creator_id}
-                            className="px-3 py-1 border border-gray-300 rounded text-sm disabled:bg-gray-100"
+                            className="px-3 py-1 border border-border rounded text-sm disabled:bg-border-light"
                           >
                             <option value="member">Member</option>
                             <option value="moderator">Moderator</option>
@@ -489,7 +489,7 @@ export default function CommunityAdminPage() {
                             </button>
                           )}
                           {member.user_id === community.creator_id && (
-                            <span className="px-3 py-1 bg-purple-100 text-purple-700 rounded text-sm">
+                            <span className="px-3 py-1 bg-accent-light text-accent-dark rounded text-sm">
                               Creator
                             </span>
                           )}
@@ -505,7 +505,7 @@ export default function CommunityAdminPage() {
                 <div>
                   <h3 className="text-xl font-semibold mb-4">Pending Join Requests</h3>
                   {pendingMembers.length === 0 ? (
-                    <p className="text-gray-500">No pending join requests.</p>
+                    <p className="text-text-subtle">No pending join requests.</p>
                   ) : (
                     <div className="space-y-3">
                       {pendingMembers.map((member) => (
@@ -515,12 +515,12 @@ export default function CommunityAdminPage() {
                         >
                           <div className="flex-1">
                             <div className="font-semibold">{member.user_name}</div>
-                            <div className="text-sm text-gray-600">{member.user_email}</div>
-                            <div className="text-xs text-gray-500">
+                            <div className="text-sm text-text-muted">{member.user_email}</div>
+                            <div className="text-xs text-text-subtle">
                               Requested {new Date(member.joined_at).toLocaleDateString()}
                             </div>
                             {member.join_request_message && (
-                              <div className="mt-2 text-sm text-gray-700 bg-white p-2 rounded border border-yellow-300">
+                              <div className="mt-2 text-sm text-text-muted bg-surface-raised p-2 rounded border border-yellow-300">
                                 <span className="font-medium">Message:</span> {member.join_request_message}
                               </div>
                             )}
@@ -550,20 +550,20 @@ export default function CommunityAdminPage() {
               {activeTab === 'settings' && editedSettings && (
                 <div>
                   <h3 className="text-xl font-semibold mb-4">Community Settings</h3>
-                  <p className="text-gray-600 mb-6">
+                  <p className="text-text-muted mb-6">
                     Configure data retention and reputation decay settings for this community.
                   </p>
 
                   <div className="space-y-6">
                     {/* Data Retention Section */}
-                    <div className="bg-gray-50 rounded-lg p-6">
+                    <div className="bg-surface rounded-lg p-6">
                       <h4 className="font-semibold text-lg mb-4">Data Retention (TTL)</h4>
-                      <p className="text-sm text-gray-600 mb-4">
+                      <p className="text-sm text-text-muted mb-4">
                         Set how long different types of data are kept before automatic cleanup.
                       </p>
                       <div className="grid md:grid-cols-2 gap-4">
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                          <label className="block text-sm font-medium text-text-muted mb-1">
                             Help Requests (days)
                           </label>
                           <input
@@ -573,13 +573,13 @@ export default function CommunityAdminPage() {
                               ...editedSettings,
                               request_ttl_days: parseInt(e.target.value) || 60
                             })}
-                            className="w-full px-4 py-2 border border-gray-300 rounded"
+                            className="w-full px-4 py-2 border border-border rounded"
                             min="1"
                             max="365"
                           />
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                          <label className="block text-sm font-medium text-text-muted mb-1">
                             Help Offers (days)
                           </label>
                           <input
@@ -589,13 +589,13 @@ export default function CommunityAdminPage() {
                               ...editedSettings,
                               offer_ttl_days: parseInt(e.target.value) || 60
                             })}
-                            className="w-full px-4 py-2 border border-gray-300 rounded"
+                            className="w-full px-4 py-2 border border-border rounded"
                             min="1"
                             max="365"
                           />
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                          <label className="block text-sm font-medium text-text-muted mb-1">
                             Completed Matches (days)
                           </label>
                           <input
@@ -605,13 +605,13 @@ export default function CommunityAdminPage() {
                               ...editedSettings,
                               match_ttl_days: parseInt(e.target.value) || 90
                             })}
-                            className="w-full px-4 py-2 border border-gray-300 rounded"
+                            className="w-full px-4 py-2 border border-border rounded"
                             min="1"
                             max="365"
                           />
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                          <label className="block text-sm font-medium text-text-muted mb-1">
                             Notifications (days)
                           </label>
                           <input
@@ -621,13 +621,13 @@ export default function CommunityAdminPage() {
                               ...editedSettings,
                               notification_ttl_days: parseInt(e.target.value) || 30
                             })}
-                            className="w-full px-4 py-2 border border-gray-300 rounded"
+                            className="w-full px-4 py-2 border border-border rounded"
                             min="1"
                             max="365"
                           />
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                          <label className="block text-sm font-medium text-text-muted mb-1">
                             Messages (days)
                           </label>
                           <input
@@ -637,13 +637,13 @@ export default function CommunityAdminPage() {
                               ...editedSettings,
                               message_ttl_days: parseInt(e.target.value) || 90
                             })}
-                            className="w-full px-4 py-2 border border-gray-300 rounded"
+                            className="w-full px-4 py-2 border border-border rounded"
                             min="1"
                             max="365"
                           />
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                          <label className="block text-sm font-medium text-text-muted mb-1">
                             Sessions (days)
                           </label>
                           <input
@@ -653,7 +653,7 @@ export default function CommunityAdminPage() {
                               ...editedSettings,
                               session_ttl_days: parseInt(e.target.value) || 30
                             })}
-                            className="w-full px-4 py-2 border border-gray-300 rounded"
+                            className="w-full px-4 py-2 border border-border rounded"
                             min="1"
                             max="365"
                           />
@@ -662,9 +662,9 @@ export default function CommunityAdminPage() {
                     </div>
 
                     {/* Reputation Decay Section */}
-                    <div className="bg-gray-50 rounded-lg p-6">
+                    <div className="bg-surface rounded-lg p-6">
                       <h4 className="font-semibold text-lg mb-4">Reputation Decay</h4>
-                      <p className="text-sm text-gray-600 mb-4">
+                      <p className="text-sm text-text-muted mb-4">
                         Configure how karma decays over time to encourage ongoing participation.
                       </p>
                       <div className="space-y-4">
@@ -685,10 +685,10 @@ export default function CommunityAdminPage() {
                         </div>
                         {editedSettings.karma_decay_enabled && (
                           <div className="ml-8">
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                            <label className="block text-sm font-medium text-text-muted mb-1">
                               Decay half-life (months)
                             </label>
-                            <p className="text-xs text-gray-500 mb-2">
+                            <p className="text-xs text-text-subtle mb-2">
                               Time for karma to decay to half its value without activity
                             </p>
                             <input
@@ -698,7 +698,7 @@ export default function CommunityAdminPage() {
                                 ...editedSettings,
                                 karma_half_life_months: parseInt(e.target.value) || 6
                               })}
-                              className="w-32 px-4 py-2 border border-gray-300 rounded"
+                              className="w-32 px-4 py-2 border border-border rounded"
                               min="1"
                               max="24"
                             />
@@ -711,14 +711,14 @@ export default function CommunityAdminPage() {
                     <div className="flex justify-end gap-3">
                       <button
                         onClick={() => setEditedSettings(settings)}
-                        className="px-6 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
+                        className="px-6 py-2 bg-gray-200 text-text-muted rounded hover:bg-gray-300"
                       >
                         Reset
                       </button>
                       <button
                         onClick={handleSaveSettings}
                         disabled={saving}
-                        className="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-blue-400"
+                        className="px-6 py-2 bg-primary text-white rounded hover:bg-primary-dark disabled:bg-primary-medium"
                       >
                         {saving ? 'Saving...' : 'Save Settings'}
                       </button>
@@ -731,24 +731,24 @@ export default function CommunityAdminPage() {
               {activeTab === 'config' && editedConfig && (
                 <div>
                   <h3 className="text-xl font-semibold mb-4">Community Configuration</h3>
-                  <p className="text-gray-600 mb-6">
+                  <p className="text-text-muted mb-6">
                     Configure your community's trust mechanics, karma distribution, and coordination rules.
                     These settings define how karma, trust, and coordination work in your community.
                   </p>
 
                   {/* Configuration Resources */}
                   {community.creator_id === currentUser?.id && (
-                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                    <div className="bg-primary-light border border-primary-medium rounded-lg p-4 mb-6">
                       <div className="flex items-center justify-between">
                         <div>
-                          <h4 className="font-semibold text-blue-900">Need Inspiration?</h4>
-                          <p className="text-sm text-blue-700 mt-1">
+                          <h4 className="font-semibold text-primary-dark">Need Inspiration?</h4>
+                          <p className="text-sm text-primary-dark mt-1">
                             Explore configurations from thriving communities
                           </p>
                         </div>
                         <Link
                           href="/communities/configs/public"
-                          className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm font-medium transition-colors"
+                          className="px-4 py-2 bg-primary text-white rounded hover:bg-primary-dark text-sm font-medium transition-colors"
                         >
                           View Thriving Communities →
                         </Link>
@@ -791,22 +791,22 @@ export default function CommunityAdminPage() {
                             setEditedConfig(config)
                             setConfigErrors({})
                           }}
-                          className="px-6 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
+                          className="px-6 py-2 bg-gray-200 text-text-muted rounded hover:bg-gray-300"
                         >
                           Reset
                         </button>
                         <button
                           onClick={handleSaveConfig}
                           disabled={configSaving}
-                          className="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-blue-400"
+                          className="px-6 py-2 bg-primary text-white rounded hover:bg-primary-dark disabled:bg-primary-medium"
                         >
                           {configSaving ? 'Saving...' : 'Save Configuration'}
                         </button>
                       </div>
 
                       {/* Warning Message */}
-                      <div className="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-4">
-                        <p className="text-sm text-blue-800">
+                      <div className="mt-4 bg-primary-light border border-primary-medium rounded-lg p-4">
+                        <p className="text-sm text-primary-dark">
                           <strong>Note:</strong> Configuration changes affect how trust scores, karma distribution,
                           and request types work. Existing data is not recalculated when you change these settings.
                         </p>
@@ -824,7 +824,7 @@ export default function CommunityAdminPage() {
                     <button
                       onClick={fetchStats}
                       disabled={loadingStats}
-                      className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-blue-400"
+                      className="px-4 py-2 bg-primary text-white rounded hover:bg-primary-dark disabled:bg-primary-medium"
                     >
                       {loadingStats ? 'Refreshing...' : 'Refresh'}
                     </button>
@@ -832,50 +832,50 @@ export default function CommunityAdminPage() {
 
                   {loadingStats && !stats && (
                     <div className="text-center py-12">
-                      <div className="text-gray-500">Loading statistics...</div>
+                      <div className="text-text-subtle">Loading statistics...</div>
                     </div>
                   )}
 
                   {stats && (
                     <div className="space-y-6">
                       {/* Community Health Score */}
-                      <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-6">
-                        <h4 className="text-lg font-semibold mb-4 text-blue-900">Community Health Score</h4>
+                      <div className="bg-gradient-to-br from-primary-light to-accent-light border border-primary-medium rounded-lg p-6">
+                        <h4 className="text-lg font-semibold mb-4 text-primary-dark">Community Health Score</h4>
                         <div className="flex items-center gap-6">
                           <div className="flex-shrink-0">
-                            <div className="w-32 h-32 rounded-full bg-white shadow-lg flex items-center justify-center">
+                            <div className="w-32 h-32 rounded-full bg-surface-raised shadow-lg flex items-center justify-center">
                               <div className="text-center">
-                                <div className="text-4xl font-bold text-blue-600">
+                                <div className="text-4xl font-bold text-primary">
                                   {Math.min(100, Math.round(
                                     (stats.matches?.completed_matches || 0) * 2 +
                                     (stats.requests?.open_requests || 0) * 0.5 +
                                     (stats.members?.active_members || 0) * 1.5
                                   ))}
                                 </div>
-                                <div className="text-sm text-gray-600">/ 100</div>
+                                <div className="text-sm text-text-muted">/ 100</div>
                               </div>
                             </div>
                           </div>
                           <div className="flex-1">
-                            <p className="text-gray-700 mb-3">
+                            <p className="text-text-muted mb-3">
                               Your community health is calculated based on member engagement, help exchanges, and active requests.
                             </p>
                             <div className="grid grid-cols-3 gap-3">
-                              <div className="bg-white rounded p-3">
-                                <div className="text-xs text-gray-600">Engagement</div>
-                                <div className="text-lg font-bold text-green-600">
+                              <div className="bg-surface-raised rounded p-3">
+                                <div className="text-xs text-text-muted">Engagement</div>
+                                <div className="text-lg font-bold text-success">
                                   {stats.matches?.matches_completed_this_month > 5 ? 'High' : stats.matches?.matches_completed_this_month > 2 ? 'Medium' : 'Low'}
                                 </div>
                               </div>
-                              <div className="bg-white rounded p-3">
-                                <div className="text-xs text-gray-600">Activity</div>
-                                <div className="text-lg font-bold text-blue-600">
+                              <div className="bg-surface-raised rounded p-3">
+                                <div className="text-xs text-text-muted">Activity</div>
+                                <div className="text-lg font-bold text-primary">
                                   {stats.requests?.requests_this_week > 3 ? 'High' : stats.requests?.requests_this_week > 1 ? 'Medium' : 'Low'}
                                 </div>
                               </div>
-                              <div className="bg-white rounded p-3">
-                                <div className="text-xs text-gray-600">Growth</div>
-                                <div className="text-lg font-bold text-purple-600">
+                              <div className="bg-surface-raised rounded p-3">
+                                <div className="text-xs text-text-muted">Growth</div>
+                                <div className="text-lg font-bold text-accent">
                                   {stats.members?.active_members > community.current_members * 0.8 ? 'Strong' : 'Steady'}
                                 </div>
                               </div>
@@ -886,31 +886,31 @@ export default function CommunityAdminPage() {
 
                       {/* Key Metrics Grid */}
                       <div className="grid md:grid-cols-4 gap-4">
-                        <div className="bg-white rounded-lg shadow p-4 border-l-4 border-blue-500">
-                          <div className="text-sm text-gray-600 mb-1">Total Exchanges</div>
-                          <div className="text-3xl font-bold text-blue-600">{stats.matches?.completed_matches || 0}</div>
-                          <div className="text-xs text-gray-500 mt-1">
+                        <div className="bg-surface-raised rounded-lg shadow p-4 border-l-4 border-primary">
+                          <div className="text-sm text-text-muted mb-1">Total Exchanges</div>
+                          <div className="text-3xl font-bold text-primary">{stats.matches?.completed_matches || 0}</div>
+                          <div className="text-xs text-text-subtle mt-1">
                             {stats.matches?.matches_completed_this_month || 0} this month
                           </div>
                         </div>
-                        <div className="bg-white rounded-lg shadow p-4 border-l-4 border-green-500">
-                          <div className="text-sm text-gray-600 mb-1">Active Requests</div>
-                          <div className="text-3xl font-bold text-green-600">{stats.requests?.open_requests || 0}</div>
-                          <div className="text-xs text-gray-500 mt-1">
+                        <div className="bg-surface-raised rounded-lg shadow p-4 border-l-4 border-karmyq-teal-500">
+                          <div className="text-sm text-text-muted mb-1">Active Requests</div>
+                          <div className="text-3xl font-bold text-success">{stats.requests?.open_requests || 0}</div>
+                          <div className="text-xs text-text-subtle mt-1">
                             {stats.requests?.matched_requests || 0} matched
                           </div>
                         </div>
-                        <div className="bg-white rounded-lg shadow p-4 border-l-4 border-purple-500">
-                          <div className="text-sm text-gray-600 mb-1">Avg Karma</div>
-                          <div className="text-3xl font-bold text-purple-600">{stats.karma?.avg_karma || 0}</div>
-                          <div className="text-xs text-gray-500 mt-1">
+                        <div className="bg-surface-raised rounded-lg shadow p-4 border-l-4 border-karmyq-orange-500">
+                          <div className="text-sm text-text-muted mb-1">Avg Karma</div>
+                          <div className="text-3xl font-bold text-accent">{stats.karma?.avg_karma || 0}</div>
+                          <div className="text-xs text-text-subtle mt-1">
                             Max: {stats.karma?.max_karma || 0}
                           </div>
                         </div>
-                        <div className="bg-white rounded-lg shadow p-4 border-l-4 border-orange-500">
-                          <div className="text-sm text-gray-600 mb-1">This Week</div>
-                          <div className="text-3xl font-bold text-orange-600">{stats.matches?.matches_completed_this_week || 0}</div>
-                          <div className="text-xs text-gray-500 mt-1">
+                        <div className="bg-surface-raised rounded-lg shadow p-4 border-l-4 border-karmyq-brown-500">
+                          <div className="text-sm text-text-muted mb-1">This Week</div>
+                          <div className="text-3xl font-bold text-karmyq-orange-600">{stats.matches?.matches_completed_this_week || 0}</div>
+                          <div className="text-xs text-text-subtle mt-1">
                             {stats.requests?.requests_this_week || 0} requests
                           </div>
                         </div>
@@ -919,7 +919,7 @@ export default function CommunityAdminPage() {
                       {/* Top Contributors */}
                       <div className="grid md:grid-cols-2 gap-6">
                         {/* Top Helpers */}
-                        <div className="bg-white rounded-lg shadow p-6">
+                        <div className="bg-surface-raised rounded-lg shadow p-6">
                           <h4 className="text-lg font-semibold mb-4 flex items-center gap-2">
                             <span className="text-2xl">🏆</span>
                             Top Helpers This Month
@@ -927,7 +927,7 @@ export default function CommunityAdminPage() {
                           {stats.topHelpers && stats.topHelpers.length > 0 ? (
                             <div className="space-y-3">
                               {stats.topHelpers.map((helper: any, index: number) => (
-                                <div key={helper.user_id} className="flex items-center justify-between p-3 bg-gray-50 rounded">
+                                <div key={helper.user_id} className="flex items-center justify-between p-3 bg-surface rounded">
                                   <div className="flex items-center gap-3">
                                     <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-white ${
                                       index === 0 ? 'bg-yellow-500' :
@@ -939,11 +939,11 @@ export default function CommunityAdminPage() {
                                     </div>
                                     <div>
                                       <div className="font-semibold">{helper.name}</div>
-                                      <div className="text-sm text-gray-600">{helper.help_count} helps</div>
+                                      <div className="text-sm text-text-muted">{helper.help_count} helps</div>
                                     </div>
                                   </div>
                                   {helper.avg_karma && (
-                                    <div className="text-sm text-purple-600 font-semibold">
+                                    <div className="text-sm text-accent font-semibold">
                                       {helper.avg_karma} karma
                                     </div>
                                   )}
@@ -951,12 +951,12 @@ export default function CommunityAdminPage() {
                               ))}
                             </div>
                           ) : (
-                            <p className="text-gray-500">No helpers this month yet.</p>
+                            <p className="text-text-subtle">No helpers this month yet.</p>
                           )}
                         </div>
 
                         {/* Top Requesters */}
-                        <div className="bg-white rounded-lg shadow p-6">
+                        <div className="bg-surface-raised rounded-lg shadow p-6">
                           <h4 className="text-lg font-semibold mb-4 flex items-center gap-2">
                             <span className="text-2xl">📋</span>
                             Top Requesters This Month
@@ -964,42 +964,42 @@ export default function CommunityAdminPage() {
                           {stats.topRequesters && stats.topRequesters.length > 0 ? (
                             <div className="space-y-3">
                               {stats.topRequesters.map((requester: any, index: number) => (
-                                <div key={requester.user_id} className="flex items-center justify-between p-3 bg-gray-50 rounded">
+                                <div key={requester.user_id} className="flex items-center justify-between p-3 bg-surface rounded">
                                   <div className="flex items-center gap-3">
                                     <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-white ${
-                                      index === 0 ? 'bg-blue-500' :
-                                      index === 1 ? 'bg-blue-400' :
-                                      index === 2 ? 'bg-blue-300' :
+                                      index === 0 ? 'bg-primary' :
+                                      index === 1 ? 'bg-primary' :
+                                      index === 2 ? 'bg-primary-medium' :
                                       'bg-gray-300'
                                     }`}>
                                       {index + 1}
                                     </div>
                                     <div>
                                       <div className="font-semibold">{requester.name}</div>
-                                      <div className="text-sm text-gray-600">{requester.request_count} requests</div>
+                                      <div className="text-sm text-text-muted">{requester.request_count} requests</div>
                                     </div>
                                   </div>
                                 </div>
                               ))}
                             </div>
                           ) : (
-                            <p className="text-gray-500">No requests this month yet.</p>
+                            <p className="text-text-subtle">No requests this month yet.</p>
                           )}
                         </div>
                       </div>
 
                       {/* Activity Chart - Last 30 Days */}
-                      <div className="bg-white rounded-lg shadow p-6">
+                      <div className="bg-surface-raised rounded-lg shadow p-6">
                         <h4 className="text-lg font-semibold mb-4">Activity Trend (Last 30 Days)</h4>
                         {stats.dailyActivity && stats.dailyActivity.length > 0 ? (
                           <div className="space-y-4">
                             <div className="flex gap-4 text-sm">
                               <div className="flex items-center gap-2">
-                                <div className="w-4 h-4 bg-blue-500 rounded"></div>
+                                <div className="w-4 h-4 bg-primary rounded"></div>
                                 <span>Requests</span>
                               </div>
                               <div className="flex items-center gap-2">
-                                <div className="w-4 h-4 bg-green-500 rounded"></div>
+                                <div className="w-4 h-4 bg-success-light0 rounded"></div>
                                 <span>Matches</span>
                               </div>
                             </div>
@@ -1015,18 +1015,18 @@ export default function CommunityAdminPage() {
                                   <div key={index} className="flex-1 flex flex-col items-center gap-1 group relative">
                                     <div className="w-full flex flex-col justify-end h-56 gap-0.5">
                                       <div
-                                        className="w-full bg-blue-500 rounded-t hover:bg-blue-600 transition-all"
+                                        className="w-full bg-primary rounded-t hover:bg-primary transition-all"
                                         style={{ height: `${requestHeight}%`, minHeight: day.requests > 0 ? '4px' : '0' }}
                                         title={`${day.requests} requests`}
                                       ></div>
                                       <div
-                                        className="w-full bg-green-500 hover:bg-green-600 transition-all"
+                                        className="w-full bg-success-light0 hover:bg-green-600 transition-all"
                                         style={{ height: `${matchHeight}%`, minHeight: day.matches > 0 ? '4px' : '0' }}
                                         title={`${day.matches} matches`}
                                       ></div>
                                     </div>
                                     {index % 5 === 0 && (
-                                      <div className="text-xs text-gray-500 transform rotate-45 origin-top-left mt-1">
+                                      <div className="text-xs text-text-subtle transform rotate-45 origin-top-left mt-1">
                                         {new Date(day.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                                       </div>
                                     )}
@@ -1041,17 +1041,17 @@ export default function CommunityAdminPage() {
                             </div>
                           </div>
                         ) : (
-                          <p className="text-gray-500">No activity data available.</p>
+                          <p className="text-text-subtle">No activity data available.</p>
                         )}
                       </div>
 
                       {/* Summary Stats */}
-                      <div className="bg-gray-50 rounded-lg p-6">
+                      <div className="bg-surface rounded-lg p-6">
                         <h4 className="text-lg font-semibold mb-4">Summary</h4>
                         <div className="grid md:grid-cols-3 gap-4 text-sm">
                           <div>
-                            <div className="font-medium text-gray-700 mb-2">Members</div>
-                            <ul className="space-y-1 text-gray-600">
+                            <div className="font-medium text-text-muted mb-2">Members</div>
+                            <ul className="space-y-1 text-text-muted">
                               <li>• {stats.members?.active_members || 0} active</li>
                               <li>• {stats.members?.pending_members || 0} pending</li>
                               <li>• {stats.members?.admin_count || 0} admins</li>
@@ -1059,8 +1059,8 @@ export default function CommunityAdminPage() {
                             </ul>
                           </div>
                           <div>
-                            <div className="font-medium text-gray-700 mb-2">Requests</div>
-                            <ul className="space-y-1 text-gray-600">
+                            <div className="font-medium text-text-muted mb-2">Requests</div>
+                            <ul className="space-y-1 text-text-muted">
                               <li>• {stats.requests?.total_requests || 0} total</li>
                               <li>• {stats.requests?.open_requests || 0} open</li>
                               <li>• {stats.requests?.matched_requests || 0} matched</li>
@@ -1068,8 +1068,8 @@ export default function CommunityAdminPage() {
                             </ul>
                           </div>
                           <div>
-                            <div className="font-medium text-gray-700 mb-2">Matches</div>
-                            <ul className="space-y-1 text-gray-600">
+                            <div className="font-medium text-text-muted mb-2">Matches</div>
+                            <ul className="space-y-1 text-text-muted">
                               <li>• {stats.matches?.total_matches || 0} total</li>
                               <li>• {stats.matches?.proposed_matches || 0} proposed</li>
                               <li>• {stats.matches?.active_matches || 0} active</li>
@@ -1087,22 +1087,22 @@ export default function CommunityAdminPage() {
               {activeTab === 'export' && (
                 <div>
                   <h3 className="text-xl font-semibold mb-4">Export Community Data</h3>
-                  <p className="text-gray-600 mb-6">
+                  <p className="text-text-muted mb-6">
                     Download community data in JSON or CSV format for reporting or backup purposes.
                   </p>
 
                   <div className="space-y-6">
                     {/* Full Export */}
-                    <div className="bg-gray-50 rounded-lg p-6">
+                    <div className="bg-surface rounded-lg p-6">
                       <h4 className="font-semibold text-lg mb-2">Full Community Export</h4>
-                      <p className="text-sm text-gray-600 mb-4">
+                      <p className="text-sm text-text-muted mb-4">
                         Export all community data including members, requests, matches, norms, settings, and karma records.
                       </p>
                       <div className="flex gap-3">
                         <button
                           onClick={() => handleExport('full', 'json')}
                           disabled={exporting}
-                          className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-blue-400"
+                          className="px-4 py-2 bg-primary text-white rounded hover:bg-primary-dark disabled:bg-primary-medium"
                         >
                           {exporting ? 'Exporting...' : 'Export JSON'}
                         </button>
@@ -1117,16 +1117,16 @@ export default function CommunityAdminPage() {
                     </div>
 
                     {/* Members Export */}
-                    <div className="bg-gray-50 rounded-lg p-6">
+                    <div className="bg-surface rounded-lg p-6">
                       <h4 className="font-semibold text-lg mb-2">Members List</h4>
-                      <p className="text-sm text-gray-600 mb-4">
+                      <p className="text-sm text-text-muted mb-4">
                         Export a list of all community members with their roles and join dates.
                       </p>
                       <div className="flex gap-3">
                         <button
                           onClick={() => handleExport('members', 'json')}
                           disabled={exporting}
-                          className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-blue-400"
+                          className="px-4 py-2 bg-primary text-white rounded hover:bg-primary-dark disabled:bg-primary-medium"
                         >
                           {exporting ? 'Exporting...' : 'Export JSON'}
                         </button>
@@ -1141,16 +1141,16 @@ export default function CommunityAdminPage() {
                     </div>
 
                     {/* Activity Report */}
-                    <div className="bg-gray-50 rounded-lg p-6">
+                    <div className="bg-surface rounded-lg p-6">
                       <h4 className="font-semibold text-lg mb-2">Activity Report</h4>
-                      <p className="text-sm text-gray-600 mb-4">
+                      <p className="text-sm text-text-muted mb-4">
                         Export member activity including karma, trust scores, helps given and received.
                       </p>
                       <div className="flex gap-3">
                         <button
                           onClick={() => handleExport('activity', 'json')}
                           disabled={exporting}
-                          className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-blue-400"
+                          className="px-4 py-2 bg-primary text-white rounded hover:bg-primary-dark disabled:bg-primary-medium"
                         >
                           {exporting ? 'Exporting...' : 'Export JSON'}
                         </button>

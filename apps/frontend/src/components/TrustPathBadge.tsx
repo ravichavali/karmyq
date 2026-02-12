@@ -32,12 +32,12 @@ export default function TrustPathBadge({ trustPath, compact = false, className =
 
   // Degree badge colors
   const degreeColors = {
-    1: 'bg-green-50 text-green-700 border-green-200',
-    2: 'bg-blue-50 text-blue-700 border-blue-200',
-    3: 'bg-gray-50 text-gray-700 border-gray-200',
+    1: 'bg-success-light text-success border-success',
+    2: 'bg-primary-light text-primary-dark border-primary-medium',
+    3: 'bg-surface text-text-muted border-border',
   };
 
-  const degreeColor = degreeColors[degrees_of_separation as keyof typeof degreeColors] || 'bg-gray-100 text-gray-800 border-gray-300';
+  const degreeColor = degreeColors[degrees_of_separation as keyof typeof degreeColors] || 'bg-border-light text-text border-border';
 
   // Get connection text based on degree
   const getConnectionText = () => {
@@ -88,7 +88,7 @@ export default function TrustPathBadge({ trustPath, compact = false, className =
 
   // Full view: Show path and details
   return (
-    <div className={`border-l-4 ${degrees_of_separation === 1 ? 'border-green-400 bg-green-50' : degrees_of_separation === 2 ? 'border-blue-400 bg-blue-50' : 'border-gray-400 bg-gray-50'} rounded-md p-3 ${className}`}>
+    <div className={`border-l-4 ${degrees_of_separation === 1 ? 'border-karmyq-green-400 bg-success-light' : degrees_of_separation === 2 ? 'border-primary bg-primary-light' : 'border-karmyq-brown-400 bg-surface'} rounded-md p-3 ${className}`}>
       {/* Header */}
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
@@ -102,23 +102,23 @@ export default function TrustPathBadge({ trustPath, compact = false, className =
         {trust_score !== undefined && trust_score > 0 && (
           <div className="flex items-center">
             {renderTrustStars(trust_score)}
-            <span className="ml-1 text-xs text-gray-600">{trust_score}</span>
+            <span className="ml-1 text-xs text-text-muted">{trust_score}</span>
           </div>
         )}
       </div>
 
       {/* Connection Path */}
-      <div className="flex items-center text-sm text-gray-700">
+      <div className="flex items-center text-sm text-text-muted">
         {path.map((node, index) => (
           <React.Fragment key={node.id}>
             {index === 0 ? (
-              <span className="font-semibold text-blue-700">You</span>
+              <span className="font-semibold text-primary-dark">You</span>
             ) : (
               <span className="font-medium">{node.name}</span>
             )}
 
             {index < path.length - 1 && (
-              <svg className="w-4 h-4 mx-1.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-4 h-4 mx-1.5 text-text-subtle" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
               </svg>
             )}
@@ -128,7 +128,7 @@ export default function TrustPathBadge({ trustPath, compact = false, className =
 
       {/* Invitation Details (optional) */}
       {path.length > 1 && path[1].invited_at && (
-        <div className="mt-2 text-xs text-gray-500">
+        <div className="mt-2 text-xs text-text-subtle">
           <span className="inline-flex items-center">
             <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
@@ -154,7 +154,7 @@ export function TrustPathBadgeSkeleton({ compact = false, className = '' }: { co
   }
 
   return (
-    <div className={`border-l-4 border-gray-300 bg-gray-50 rounded-md p-3 animate-pulse ${className}`}>
+    <div className={`border-l-4 border-border bg-surface rounded-md p-3 animate-pulse ${className}`}>
       <div className="h-4 w-32 bg-gray-200 rounded mb-2"></div>
       <div className="h-3 w-48 bg-gray-200 rounded"></div>
     </div>

@@ -179,26 +179,26 @@ export default function CommunitiesPage() {
           <div className="mb-6 flex justify-between items-center">
             <div>
               <h1 className="text-3xl font-bold mb-2">Discover Communities</h1>
-              <p className="text-gray-600">
+              <p className="text-text-muted">
                 Find and join communities based on location, interests, or mission
               </p>
             </div>
             <Link
               href="/communities/new"
-              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+              className="px-4 py-2 bg-primary text-white rounded hover:bg-primary-dark"
             >
               Create Community
             </Link>
           </div>
 
           {/* Configuration Resources */}
-          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4 mb-6">
+          <div className="bg-gradient-to-r from-primary-light to-accent-light border border-primary-medium rounded-lg p-4 mb-6">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span className="text-2xl">⚙️</span>
                 <div>
-                  <h3 className="font-semibold text-gray-900">Community Configuration</h3>
-                  <p className="text-sm text-gray-600">
+                  <h3 className="font-semibold text-text">Community Configuration</h3>
+                  <p className="text-sm text-text-muted">
                     Explore how different communities set up their karma and trust mechanics
                   </p>
                 </div>
@@ -206,13 +206,13 @@ export default function CommunitiesPage() {
               <div className="flex gap-3">
                 <Link
                   href="/communities/config-templates"
-                  className="px-4 py-2 bg-white border border-blue-300 text-blue-700 rounded hover:bg-blue-50 text-sm font-medium transition-colors"
+                  className="px-4 py-2 bg-surface-raised border border-primary-medium text-primary-dark rounded hover:bg-primary-light text-sm font-medium transition-colors"
                 >
                   📋 Browse Templates
                 </Link>
                 <Link
                   href="/communities/configs/public"
-                  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm font-medium transition-colors"
+                  className="px-4 py-2 bg-primary text-white rounded hover:bg-primary-dark text-sm font-medium transition-colors"
                 >
                   ⭐ Thriving Communities
                 </Link>
@@ -221,11 +221,11 @@ export default function CommunitiesPage() {
           </div>
 
           {/* Search and Filters */}
-          <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+          <div className="bg-surface-raised rounded-lg shadow-md p-6 mb-6">
             <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
               {/* Search */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-text-muted mb-1">
                   Search
                 </label>
                 <input
@@ -233,13 +233,13 @@ export default function CommunitiesPage() {
                   placeholder="Search by name or description..."
                   value={searchQuery}
                   onChange={handleSearchChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-border rounded focus:outline-none focus:ring-2 focus:ring-primary"
                 />
               </div>
 
               {/* Location Filter */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-text-muted mb-1">
                   Location
                 </label>
                 <input
@@ -247,19 +247,19 @@ export default function CommunitiesPage() {
                   placeholder="City, region, or area..."
                   value={locationFilter}
                   onChange={(e) => setLocationFilter(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-border rounded focus:outline-none focus:ring-2 focus:ring-primary"
                 />
               </div>
 
               {/* Category Filter */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-text-muted mb-1">
                   Category
                 </label>
                 <select
                   value={categoryFilter}
                   onChange={(e) => setCategoryFilter(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-border rounded focus:outline-none focus:ring-2 focus:ring-primary"
                 >
                   <option value="">All Categories</option>
                   {CATEGORIES.map((cat) => (
@@ -270,13 +270,13 @@ export default function CommunitiesPage() {
 
               {/* Sort */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-text-muted mb-1">
                   Sort By
                 </label>
                 <select
                   value={sortBy}
                   onChange={(e) => setSortBy(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-border rounded focus:outline-none focus:ring-2 focus:ring-primary"
                 >
                   <option value="newest">Newest First</option>
                   <option value="members">Most Members</option>
@@ -293,12 +293,12 @@ export default function CommunitiesPage() {
                   onChange={(e) => setHasSpaceFilter(e.target.checked)}
                   className="mr-2"
                 />
-                <span className="text-sm text-gray-700">Only show communities with available spots</span>
+                <span className="text-sm text-text-muted">Only show communities with available spots</span>
               </label>
 
               <button
                 onClick={handleClearFilters}
-                className="text-sm text-blue-600 hover:text-blue-800"
+                className="text-sm text-primary hover:text-primary-dark"
               >
                 Clear All Filters
               </button>
@@ -314,11 +314,11 @@ export default function CommunitiesPage() {
           {/* Results */}
           {loading ? (
             <div className="flex items-center justify-center py-12">
-              <div className="text-gray-500">Loading communities...</div>
+              <div className="text-text-subtle">Loading communities...</div>
             </div>
           ) : communities.length === 0 ? (
-            <div className="bg-white rounded-lg shadow-md p-8 text-center">
-              <p className="text-gray-600 mb-4">
+            <div className="bg-surface-raised rounded-lg shadow-md p-8 text-center">
+              <p className="text-text-muted mb-4">
                 {searchQuery || locationFilter || categoryFilter
                   ? 'No communities match your search criteria. Try adjusting your filters.'
                   : 'No communities yet. Be the first to create one!'}
@@ -326,7 +326,7 @@ export default function CommunitiesPage() {
               {!searchQuery && !locationFilter && !categoryFilter && (
                 <Link
                   href="/communities/new"
-                  className="inline-block px-6 py-3 bg-blue-600 text-white rounded hover:bg-blue-700"
+                  className="inline-block px-6 py-3 bg-primary text-white rounded hover:bg-primary-dark"
                 >
                   Create Community
                 </Link>
@@ -334,7 +334,7 @@ export default function CommunitiesPage() {
             </div>
           ) : (
             <>
-              <div className="mb-4 text-sm text-gray-600">
+              <div className="mb-4 text-sm text-text-muted">
                 Found {communities.length} {communities.length === 1 ? 'community' : 'communities'}
               </div>
               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -345,16 +345,16 @@ export default function CommunitiesPage() {
                   return (
                     <div
                       key={community.id}
-                      className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow"
+                      className="bg-surface-raised rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow"
                     >
                       <Link href={`/communities/${community.id}`}>
                         <div className="flex justify-between items-start mb-3">
-                          <h3 className="text-xl font-semibold hover:text-blue-600 transition-colors">
+                          <h3 className="text-xl font-semibold hover:text-primary transition-colors">
                             {community.name}
                           </h3>
                           <div className="flex gap-2">
                             {community.access_type === 'private' && (
-                              <span className="text-xs bg-purple-100 text-purple-800 px-2 py-1 rounded">
+                              <span className="text-xs bg-accent-light text-accent-dark px-2 py-1 rounded">
                                 Private
                               </span>
                             )}
@@ -368,21 +368,21 @@ export default function CommunitiesPage() {
 
                         {community.category && (
                           <div className="mb-2">
-                            <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
+                            <span className="text-xs bg-primary-light text-primary-dark px-2 py-1 rounded">
                               {community.category}
                             </span>
                           </div>
                         )}
 
-                        <p className="text-gray-600 mb-3 line-clamp-2">{community.description}</p>
+                        <p className="text-text-muted mb-3 line-clamp-2">{community.description}</p>
 
                         {community.location && (
-                          <p className="text-sm text-gray-500 mb-3">
+                          <p className="text-sm text-text-subtle mb-3">
                             📍 {community.location}
                           </p>
                         )}
 
-                        <div className="flex items-center justify-between text-sm text-gray-500 mb-3">
+                        <div className="flex items-center justify-between text-sm text-text-subtle mb-3">
                           <span>
                             {community.current_members} / {community.max_members} members
                           </span>
@@ -391,7 +391,7 @@ export default function CommunitiesPage() {
 
                         <div className="w-full bg-gray-200 rounded-full h-2 mb-4">
                           <div
-                            className="bg-blue-600 h-2 rounded-full"
+                            className="bg-primary h-2 rounded-full"
                             style={{
                               width: `${(community.current_members / community.max_members) * 100}%`,
                             }}
@@ -404,7 +404,7 @@ export default function CommunitiesPage() {
                         {memberStatus === 'active' ? (
                           <button
                             disabled
-                            className="w-full px-4 py-2 bg-green-100 text-green-800 rounded text-sm font-medium cursor-not-allowed"
+                            className="w-full px-4 py-2 bg-success-light text-green-800 rounded text-sm font-medium cursor-not-allowed"
                           >
                             ✓ Joined
                           </button>
@@ -418,7 +418,7 @@ export default function CommunitiesPage() {
                         ) : isFull ? (
                           <button
                             disabled
-                            className="w-full px-4 py-2 bg-gray-100 text-gray-500 rounded text-sm font-medium cursor-not-allowed"
+                            className="w-full px-4 py-2 bg-border-light text-text-subtle rounded text-sm font-medium cursor-not-allowed"
                           >
                             Community Full
                           </button>
@@ -431,10 +431,10 @@ export default function CommunitiesPage() {
                             disabled={joiningId === community.id}
                             className={`w-full px-4 py-2 rounded text-sm font-medium transition-colors ${
                               joiningId === community.id
-                                ? 'bg-gray-300 text-gray-600 cursor-wait'
+                                ? 'bg-gray-300 text-text-muted cursor-wait'
                                 : community.access_type === 'private'
-                                ? 'bg-purple-600 text-white hover:bg-purple-700'
-                                : 'bg-blue-600 text-white hover:bg-blue-700'
+                                ? 'bg-accent text-white hover:bg-accent-dark'
+                                : 'bg-primary text-white hover:bg-primary-dark'
                             }`}
                           >
                             {joiningId === community.id
@@ -456,7 +456,7 @@ export default function CommunitiesPage() {
                   <button
                     onClick={() => fetchCommunities(true)}
                     disabled={loadingMore}
-                    className="px-8 py-3 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium transition-colors disabled:opacity-50"
+                    className="px-8 py-3 bg-surface-raised border border-border text-text-muted rounded-lg hover:bg-surface font-medium transition-colors disabled:opacity-50"
                   >
                     {loadingMore ? 'Loading...' : 'Load More Communities'}
                   </button>

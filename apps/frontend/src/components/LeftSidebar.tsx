@@ -52,10 +52,10 @@ export default function LeftSidebar({ user, communities, activeCommunityId }: Le
   }, [user?.id, activeCommunityId])
 
   const getTrustColor = (score: number) => {
-    if (score >= 80) return 'from-emerald-500 to-green-600'
-    if (score >= 60) return 'from-blue-500 to-cyan-600'
-    if (score >= 40) return 'from-amber-500 to-orange-600'
-    return 'from-slate-400 to-gray-500'
+    if (score >= 80) return 'from-karmyq-green-500 to-karmyq-green-700'
+    if (score >= 60) return 'from-karmyq-green-400 to-karmyq-teal-500'
+    if (score >= 40) return 'from-karmyq-orange-500 to-karmyq-orange-700'
+    return 'from-karmyq-brown-400 to-karmyq-brown-600'
   }
 
   const getTrustLabel = (score: number) => {
@@ -68,14 +68,14 @@ export default function LeftSidebar({ user, communities, activeCommunityId }: Le
   return (
     <div className="space-y-4">
       {/* User Karma Card */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+      <div className="bg-surface-raised rounded-xl shadow-sm border border-border overflow-hidden">
         {/* User Header */}
         <div className={`bg-gradient-to-br ${getTrustColor(karmaData?.trust_score || 0)} p-4 text-white`}>
           <button
             onClick={() => router.push('/profile')}
             className="flex items-center gap-3 mb-3 w-full text-left hover:opacity-80 transition-opacity"
           >
-            <div className="w-12 h-12 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center text-lg font-bold">
+            <div className="w-12 h-12 bg-surface-raised/20 backdrop-blur-sm rounded-full flex items-center justify-center text-lg font-bold">
               {user?.name?.charAt(0).toUpperCase()}
             </div>
             <div className="flex-1 min-w-0">
@@ -87,15 +87,15 @@ export default function LeftSidebar({ user, communities, activeCommunityId }: Le
           {/* Trust Score - Clickable */}
           <button
             onClick={() => router.push('/reputation/trust')}
-            className="w-full bg-white/10 backdrop-blur-sm rounded-lg p-3 hover:bg-white/20 transition-colors"
+            className="w-full bg-surface-raised/10 backdrop-blur-sm rounded-lg p-3 hover:bg-surface-raised/20 transition-colors"
           >
             <div className="flex items-center justify-between mb-1">
               <span className="text-sm opacity-90">Trust Score</span>
               <span className="text-lg font-bold">{karmaData?.trust_score || 0}</span>
             </div>
-            <div className="bg-white/20 rounded-full h-2">
+            <div className="bg-surface-raised/20 rounded-full h-2">
               <div
-                className="bg-white rounded-full h-2 transition-all duration-500"
+                className="bg-surface-raised rounded-full h-2 transition-all duration-500"
                 style={{ width: `${karmaData?.trust_score || 0}%` }}
               ></div>
             </div>
@@ -107,26 +107,26 @@ export default function LeftSidebar({ user, communities, activeCommunityId }: Le
           {/* Karma Points - Clickable */}
           <button
             onClick={() => router.push('/reputation/karma')}
-            className="flex items-center justify-between w-full hover:bg-gray-50 rounded-lg p-2 -mx-2 transition-colors"
+            className="flex items-center justify-between w-full hover:bg-surface rounded-lg p-2 -mx-2 transition-colors"
           >
-            <span className="text-sm text-gray-600">Karma Points</span>
-            <span className="text-xl font-bold text-gray-900">{karmaData?.total_karma || 0}</span>
+            <span className="text-sm text-text-muted">Karma Points</span>
+            <span className="text-xl font-bold text-text">{karmaData?.total_karma || 0}</span>
           </button>
 
           {karmaData?.rank && (
             <div className="flex items-center justify-between px-2">
-              <span className="text-sm text-gray-600">Community Rank</span>
-              <span className="text-sm font-semibold text-blue-600">{karmaData.rank}</span>
+              <span className="text-sm text-text-muted">Community Rank</span>
+              <span className="text-sm font-semibold text-primary">{karmaData.rank}</span>
             </div>
           )}
         </div>
       </div>
 
       {/* Communities */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+      <div className="bg-surface-raised rounded-xl shadow-sm border border-border p-4">
         <button
           onClick={() => router.push('/communities')}
-          className="w-full text-left font-semibold text-gray-900 mb-3 hover:text-blue-600 transition-colors"
+          className="w-full text-left font-semibold text-text mb-3 hover:text-primary transition-colors"
         >
           Your Communities
         </button>
@@ -139,19 +139,19 @@ export default function LeftSidebar({ user, communities, activeCommunityId }: Le
                 onClick={() => router.push(`/communities/${community.id}`)}
                 className={`w-full text-left px-3 py-2 rounded-lg transition-colors ${
                   isActive
-                    ? 'bg-blue-50 border-2 border-blue-500'
-                    : 'bg-gray-50 border-2 border-transparent hover:bg-gray-100'
+                    ? 'bg-primary-light border-2 border-primary'
+                    : 'bg-surface border-2 border-transparent hover:bg-border-light'
                 }`}
               >
                 <div className="flex items-center justify-between">
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-sm truncate">{community.name}</p>
                     {community.role && (
-                      <p className="text-xs text-gray-500 capitalize">{community.role}</p>
+                      <p className="text-xs text-text-subtle capitalize">{community.role}</p>
                     )}
                   </div>
                   {isActive && (
-                    <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                    <div className="w-2 h-2 bg-primary rounded-full"></div>
                   )}
                 </div>
               </button>
@@ -161,43 +161,43 @@ export default function LeftSidebar({ user, communities, activeCommunityId }: Le
 
         <button
           onClick={() => router.push('/communities')}
-          className="w-full mt-3 pt-3 border-t border-gray-100 text-sm text-blue-600 hover:text-blue-700 font-medium"
+          className="w-full mt-3 pt-3 border-t border-border-light text-sm text-primary hover:text-primary-dark font-medium"
         >
           + Join Community
         </button>
       </div>
 
       {/* Quick Stats */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-        <h3 className="font-semibold text-gray-900 mb-3">Your Impact</h3>
+      <div className="bg-surface-raised rounded-xl shadow-sm border border-border p-4">
+        <h3 className="font-semibold text-text mb-3">Your Impact</h3>
         <div className="space-y-3">
           <div>
             <div className="flex items-center justify-between mb-1">
-              <span className="text-xs text-gray-600">Requests Made</span>
-              <span className="text-sm font-semibold text-gray-900">0</span>
+              <span className="text-xs text-text-muted">Requests Made</span>
+              <span className="text-sm font-semibold text-text">0</span>
             </div>
-            <div className="bg-gray-100 rounded-full h-1.5">
-              <div className="bg-blue-500 rounded-full h-1.5" style={{ width: '0%' }}></div>
-            </div>
-          </div>
-
-          <div>
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-xs text-gray-600">Help Given</span>
-              <span className="text-sm font-semibold text-gray-900">0</span>
-            </div>
-            <div className="bg-gray-100 rounded-full h-1.5">
-              <div className="bg-green-500 rounded-full h-1.5" style={{ width: '0%' }}></div>
+            <div className="bg-border-light rounded-full h-1.5">
+              <div className="bg-primary rounded-full h-1.5" style={{ width: '0%' }}></div>
             </div>
           </div>
 
           <div>
             <div className="flex items-center justify-between mb-1">
-              <span className="text-xs text-gray-600">Exchanges Completed</span>
-              <span className="text-sm font-semibold text-gray-900">0</span>
+              <span className="text-xs text-text-muted">Help Given</span>
+              <span className="text-sm font-semibold text-text">0</span>
             </div>
-            <div className="bg-gray-100 rounded-full h-1.5">
-              <div className="bg-purple-500 rounded-full h-1.5" style={{ width: '0%' }}></div>
+            <div className="bg-border-light rounded-full h-1.5">
+              <div className="bg-success-light0 rounded-full h-1.5" style={{ width: '0%' }}></div>
+            </div>
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-xs text-text-muted">Exchanges Completed</span>
+              <span className="text-sm font-semibold text-text">0</span>
+            </div>
+            <div className="bg-border-light rounded-full h-1.5">
+              <div className="bg-accent rounded-full h-1.5" style={{ width: '0%' }}></div>
             </div>
           </div>
         </div>

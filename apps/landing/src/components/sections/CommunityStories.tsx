@@ -4,29 +4,29 @@ import AnimateOnScroll from '../AnimateOnScroll';
 
 const STORIES = [
   {
-    name: 'Sunnyside Tool Library',
-    location: 'SE Portland',
+    name: 'Neighborhood Tool Library',
+    location: 'Foster City, CA',
     quote:
-      'We started lending tools on a spreadsheet. Now 40 families share everything from drills to carpet cleaners. Nobody needs to own everything when your neighbors have your back.',
-    author: 'Maria, Community Organizer',
+      'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris.',
+    author: 'Community Organizer',
     type: 'Tool Lending',
     color: 'border-karmyq-green-300',
   },
   {
-    name: 'Alberta Arts Care Circle',
-    location: 'NE Portland',
+    name: 'Bay Area Care Circle',
+    location: 'Foster City, CA',
     quote:
-      'When my mom got sick, I didn\'t know how to ask for help. The care circle made it easy — meals appeared, rides to appointments just happened. It felt like being held.',
-    author: 'James, Member',
+      'Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt.',
+    author: 'Circle Member',
     type: 'Mutual Aid',
     color: 'border-karmyq-orange-300',
   },
   {
-    name: 'Foster-Powell Time Bank',
-    location: 'SE Portland',
+    name: 'Peninsula Time Bank',
+    location: 'Foster City, CA',
     quote:
-      'I teach guitar. My neighbor fixes bikes. Another tutors math. One hour equals one hour, regardless of what you do. It changes how you see your neighbors.',
-    author: 'Priya, Time Banker',
+      'Ut enim ad minima veniam, quis nostrum exercitationem ullam corporis suscipit laboriosam, nisi ut aliquid ex ea commodi consequatur. Quis autem vel eum iure reprehenderit.',
+    author: 'Time Banker',
     type: 'Time Banking',
     color: 'border-karmyq-teal-300',
   },

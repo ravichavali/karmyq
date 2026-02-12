@@ -45,8 +45,8 @@ export default function BorrowRequestForm({ initialData, onChange }: BorrowReque
   return (
     <div className="space-y-6">
       {/* Borrow Header */}
-      <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
-        <h3 className="font-semibold text-orange-900 mb-1">📦 Borrow Request</h3>
+      <div className="bg-karmyq-brown-50 border border-karmyq-brown-200 rounded-lg p-4">
+        <h3 className="font-semibold text-karmyq-brown-900 mb-1">📦 Borrow Request</h3>
         <p className="text-sm text-orange-700">
           Borrow tools, equipment, or items from community members
         </p>
@@ -54,7 +54,7 @@ export default function BorrowRequestForm({ initialData, onChange }: BorrowReque
 
       {/* Item Category */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-3">
+        <label className="block text-sm font-medium text-text-muted mb-3">
           What do you need to borrow? <span className="text-red-500">*</span>
         </label>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -66,16 +66,16 @@ export default function BorrowRequestForm({ initialData, onChange }: BorrowReque
               className={`
                 p-4 border-2 rounded-lg text-left transition-all
                 ${formData.item_category === category.value
-                  ? 'border-orange-500 bg-orange-50 ring-2 ring-orange-500'
-                  : 'border-gray-300 hover:border-orange-400'
+                  ? 'border-karmyq-brown-500 bg-karmyq-brown-50 ring-2 ring-karmyq-brown-500'
+                  : 'border-border hover:border-orange-400'
                 }
               `}
             >
               <div className="flex items-start space-x-3">
                 <span className="text-3xl flex-shrink-0">{category.icon}</span>
                 <div className="flex-1">
-                  <div className="font-semibold text-gray-900 mb-1">{category.label}</div>
-                  <div className="text-xs text-gray-600">{category.examples}</div>
+                  <div className="font-semibold text-text mb-1">{category.label}</div>
+                  <div className="text-xs text-text-muted">{category.examples}</div>
                 </div>
               </div>
             </button>
@@ -85,7 +85,7 @@ export default function BorrowRequestForm({ initialData, onChange }: BorrowReque
 
       {/* Duration */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
+        <label className="block text-sm font-medium text-text-muted mb-2">
           How long do you need it? <span className="text-red-500">*</span>
         </label>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
@@ -97,19 +97,19 @@ export default function BorrowRequestForm({ initialData, onChange }: BorrowReque
               className={`
                 p-3 border-2 rounded-lg text-center transition-all
                 ${formData.duration_days === days
-                  ? 'border-orange-500 bg-orange-50'
-                  : 'border-gray-300 hover:border-orange-400'
+                  ? 'border-karmyq-brown-500 bg-karmyq-brown-50'
+                  : 'border-border hover:border-orange-400'
                 }
               `}
             >
-              <div className="text-lg font-bold text-gray-900">{days}</div>
-              <div className="text-xs text-gray-600">{days === 1 ? 'day' : 'days'}</div>
+              <div className="text-lg font-bold text-text">{days}</div>
+              <div className="text-xs text-text-muted">{days === 1 ? 'day' : 'days'}</div>
             </button>
           ))}
         </div>
 
         <div className="flex items-center gap-2">
-          <span className="text-sm text-gray-600">Or custom:</span>
+          <span className="text-sm text-text-muted">Or custom:</span>
           <input
             type="number"
             min="1"
@@ -117,9 +117,9 @@ export default function BorrowRequestForm({ initialData, onChange }: BorrowReque
             value={formData.duration_days || ''}
             onChange={(e) => updateField('duration_days', e.target.value ? parseInt(e.target.value) : undefined)}
             placeholder="Days"
-            className="w-24 border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+            className="w-24 border border-border rounded-lg px-3 py-2 focus:ring-2 focus:ring-karmyq-brown-500 focus:border-transparent"
           />
-          <span className="text-sm text-gray-600">days (max 30)</span>
+          <span className="text-sm text-text-muted">days (max 30)</span>
         </div>
       </div>
 
@@ -134,7 +134,7 @@ export default function BorrowRequestForm({ initialData, onChange }: BorrowReque
 
       {/* Condition Minimum */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
+        <label className="block text-sm font-medium text-text-muted mb-2">
           Minimum Condition (Optional)
         </label>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -151,26 +151,26 @@ export default function BorrowRequestForm({ initialData, onChange }: BorrowReque
               className={`
                 p-3 border-2 rounded-lg text-center transition-all
                 ${formData.condition_min === condition.value
-                  ? 'border-orange-500 bg-orange-50'
-                  : 'border-gray-300 hover:border-orange-400'
+                  ? 'border-karmyq-brown-500 bg-karmyq-brown-50'
+                  : 'border-border hover:border-orange-400'
                 }
               `}
             >
               <div className="text-xs mb-1">{condition.icon}</div>
-              <div className="text-sm font-medium text-gray-900">{condition.label}</div>
-              <div className="text-xs text-gray-600">{condition.desc}</div>
+              <div className="text-sm font-medium text-text">{condition.label}</div>
+              <div className="text-xs text-text-muted">{condition.desc}</div>
             </button>
           ))}
         </div>
-        <p className="mt-2 text-xs text-gray-500">
+        <p className="mt-2 text-xs text-text-subtle">
           What's the minimum acceptable condition for the item?
         </p>
       </div>
 
       {/* Usage Tips */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <h4 className="font-medium text-blue-900 mb-2">💡 Tips for Borrowing</h4>
-        <ul className="text-sm text-blue-800 space-y-1">
+      <div className="bg-primary-light border border-primary-medium rounded-lg p-4">
+        <h4 className="font-medium text-primary-dark mb-2">💡 Tips for Borrowing</h4>
+        <ul className="text-sm text-primary-dark space-y-1">
           <li>• Be specific in your title and description about what you need</li>
           <li>• Mention your experience level with the item</li>
           <li>• Offer to pick up and return the item yourself</li>
@@ -180,9 +180,9 @@ export default function BorrowRequestForm({ initialData, onChange }: BorrowReque
 
       {/* Summary */}
       {formData.item_category && formData.duration_days && (
-        <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
-          <h4 className="font-semibold text-orange-900 mb-2">Borrow Summary</h4>
-          <div className="space-y-1 text-sm text-orange-800">
+        <div className="bg-karmyq-brown-50 border border-karmyq-brown-200 rounded-lg p-4">
+          <h4 className="font-semibold text-karmyq-brown-900 mb-2">Borrow Summary</h4>
+          <div className="space-y-1 text-sm text-karmyq-brown-800">
             <p>
               <strong>Category:</strong> {ITEM_CATEGORIES.find(c => c.value === formData.item_category)?.label}
             </p>

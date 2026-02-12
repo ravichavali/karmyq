@@ -10,7 +10,7 @@ interface NumberFieldProps {
 export default function NumberField({ field, value, onChange }: NumberFieldProps) {
   return (
     <div>
-      <label className="block text-sm font-medium text-gray-700 mb-2">
+      <label className="block text-sm font-medium text-text-muted mb-2">
         {field.label} {field.required && <span className="text-red-500">*</span>}
       </label>
       <div className="flex items-center gap-2">
@@ -23,12 +23,12 @@ export default function NumberField({ field, value, onChange }: NumberFieldProps
           step={field.step}
           placeholder={field.placeholder}
           required={field.required}
-          className="w-32 border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="w-32 border border-border rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary focus:border-transparent"
         />
-        {field.unit && <span className="text-sm text-gray-600">{field.unit}</span>}
+        {field.unit && <span className="text-sm text-text-muted">{field.unit}</span>}
       </div>
       {field.helpText && (
-        <p className="text-gray-500 text-sm mt-1">{field.helpText}</p>
+        <p className="text-text-subtle text-sm mt-1">{field.helpText}</p>
       )}
     </div>
   )

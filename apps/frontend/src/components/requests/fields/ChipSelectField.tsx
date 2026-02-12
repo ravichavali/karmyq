@@ -9,11 +9,11 @@ interface ChipSelectFieldProps {
 }
 
 const colorMap: Record<string, { border: string; bg: string; text: string }> = {
-  blue: { border: 'border-blue-500', bg: 'bg-blue-50', text: 'text-blue-900' },
-  green: { border: 'border-green-500', bg: 'bg-green-50', text: 'text-green-900' },
-  purple: { border: 'border-purple-500', bg: 'bg-purple-50', text: 'text-purple-900' },
-  orange: { border: 'border-orange-500', bg: 'bg-orange-50', text: 'text-orange-900' },
-  gray: { border: 'border-gray-500', bg: 'bg-gray-50', text: 'text-gray-900' },
+  blue: { border: 'border-primary', bg: 'bg-primary-light', text: 'text-primary-dark' },
+  green: { border: 'border-karmyq-teal-500', bg: 'bg-success-light', text: 'text-karmyq-teal-900' },
+  purple: { border: 'border-accent', bg: 'bg-accent-light', text: 'text-accent-dark' },
+  orange: { border: 'border-karmyq-brown-500', bg: 'bg-karmyq-brown-50', text: 'text-karmyq-brown-900' },
+  gray: { border: 'border-karmyq-brown-500', bg: 'bg-surface', text: 'text-text' },
 }
 
 export default function ChipSelectField({ field, value, onChange, accentColor = 'blue' }: ChipSelectFieldProps) {
@@ -30,7 +30,7 @@ export default function ChipSelectField({ field, value, onChange, accentColor = 
 
   return (
     <div>
-      <label className="block text-sm font-medium text-gray-700 mb-2">
+      <label className="block text-sm font-medium text-text-muted mb-2">
         {field.label} {field.required && <span className="text-red-500">*</span>}
       </label>
       <div className="flex flex-wrap gap-2">
@@ -42,7 +42,7 @@ export default function ChipSelectField({ field, value, onChange, accentColor = 
             className={`px-3 py-1 text-sm rounded-full border-2 transition-all ${
               selected.includes(opt.value)
                 ? `${colors.border} ${colors.bg} ${colors.text}`
-                : 'border-gray-300 text-gray-700 hover:border-gray-400'
+                : 'border-border text-text-muted hover:border-karmyq-brown-400'
             }`}
           >
             {opt.label}
@@ -50,7 +50,7 @@ export default function ChipSelectField({ field, value, onChange, accentColor = 
         ))}
       </div>
       {field.helpText && (
-        <p className="text-gray-500 text-sm mt-1">{field.helpText}</p>
+        <p className="text-text-subtle text-sm mt-1">{field.helpText}</p>
       )}
     </div>
   )

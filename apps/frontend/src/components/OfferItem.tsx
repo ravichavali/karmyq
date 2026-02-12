@@ -35,15 +35,15 @@ export default function OfferItem({
   const { trustPath: offerTrustPath, loading: loadingOfferPath } = useTrustPath(comment.responder_id);
 
   return (
-    <div className="bg-white rounded-lg p-4 border border-gray-200">
+    <div className="bg-surface-raised rounded-lg p-4 border border-border">
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-gradient-to-br from-green-500 to-teal-600 rounded-full flex items-center justify-center text-white text-sm font-semibold">
+          <div className="w-8 h-8 bg-gradient-to-br from-karmyq-green-500 to-karmyq-teal-600 rounded-full flex items-center justify-center text-white text-sm font-semibold">
             {comment.responder_name?.charAt(0).toUpperCase() || '?'}
           </div>
           <div>
-            <p className="font-medium text-gray-900">{comment.responder_name || 'Unknown'}</p>
-            <p className="text-xs text-gray-500">offered {formatTime(comment.created_at)}</p>
+            <p className="font-medium text-text">{comment.responder_name || 'Unknown'}</p>
+            <p className="text-xs text-text-subtle">offered {formatTime(comment.created_at)}</p>
           </div>
         </div>
 
@@ -58,7 +58,7 @@ export default function OfferItem({
             </button>
             <button
               onClick={() => onReject(comment.id)}
-              className="px-3 py-1 bg-gray-200 text-gray-700 text-sm rounded-lg hover:bg-gray-300 transition-colors font-medium"
+              className="px-3 py-1 bg-gray-200 text-text-muted text-sm rounded-lg hover:bg-gray-300 transition-colors font-medium"
             >
               Decline
             </button>
@@ -68,12 +68,12 @@ export default function OfferItem({
         {/* Status badges */}
         {comment.status === 'matched' && (
           <div className="flex items-center gap-2">
-            <span className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-lg font-medium">
+            <span className="px-2 py-1 bg-success-light text-success text-xs rounded-lg font-medium">
               ✓ Accepted
             </span>
             <button
               onClick={() => onComplete(comment.id)}
-              className="px-3 py-1 bg-blue-600 text-white text-xs rounded-lg hover:bg-blue-700 transition-colors font-medium"
+              className="px-3 py-1 bg-primary text-white text-xs rounded-lg hover:bg-primary-dark transition-colors font-medium"
             >
               Mark Complete
             </button>
@@ -81,7 +81,7 @@ export default function OfferItem({
         )}
 
         {comment.status === 'completed' && (
-          <span className="px-2 py-1 bg-purple-100 text-purple-700 text-xs rounded-lg font-medium">
+          <span className="px-2 py-1 bg-accent-light text-accent-dark text-xs rounded-lg font-medium">
             ✓ Completed
           </span>
         )}

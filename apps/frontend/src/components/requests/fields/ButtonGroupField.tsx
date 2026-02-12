@@ -9,11 +9,11 @@ interface ButtonGroupFieldProps {
 }
 
 const colorMap: Record<string, { border: string; bg: string; ring: string }> = {
-  blue: { border: 'border-blue-500', bg: 'bg-blue-50', ring: 'ring-blue-500' },
-  green: { border: 'border-green-500', bg: 'bg-green-50', ring: 'ring-green-500' },
-  purple: { border: 'border-purple-500', bg: 'bg-purple-50', ring: 'ring-purple-500' },
-  orange: { border: 'border-orange-500', bg: 'bg-orange-50', ring: 'ring-orange-500' },
-  gray: { border: 'border-gray-500', bg: 'bg-gray-50', ring: 'ring-gray-500' },
+  blue: { border: 'border-primary', bg: 'bg-primary-light', ring: 'ring-primary' },
+  green: { border: 'border-karmyq-teal-500', bg: 'bg-success-light', ring: 'ring-karmyq-teal-500' },
+  purple: { border: 'border-karmyq-orange-500', bg: 'bg-accent-light', ring: 'ring-accent' },
+  orange: { border: 'border-karmyq-brown-500', bg: 'bg-karmyq-brown-50', ring: 'ring-karmyq-brown-500' },
+  gray: { border: 'border-karmyq-brown-500', bg: 'bg-surface', ring: 'ring-karmyq-brown-500' },
 }
 
 export default function ButtonGroupField({ field, value, onChange, accentColor = 'blue' }: ButtonGroupFieldProps) {
@@ -24,7 +24,7 @@ export default function ButtonGroupField({ field, value, onChange, accentColor =
 
   return (
     <div>
-      <label className="block text-sm font-medium text-gray-700 mb-3">
+      <label className="block text-sm font-medium text-text-muted mb-3">
         {field.label} {field.required && <span className="text-red-500">*</span>}
       </label>
       <div className={`grid ${cols} gap-3`}>
@@ -36,16 +36,16 @@ export default function ButtonGroupField({ field, value, onChange, accentColor =
             className={`p-3 border-2 rounded-lg text-center transition-all ${
               value === opt.value
                 ? `${colors.border} ${colors.bg} ring-2 ${colors.ring}`
-                : 'border-gray-300 hover:border-gray-400'
+                : 'border-border hover:border-karmyq-brown-400'
             }`}
           >
             {opt.icon && <div className="text-2xl mb-1">{opt.icon}</div>}
-            <div className="text-xs font-medium text-gray-900">{opt.label}</div>
+            <div className="text-xs font-medium text-text">{opt.label}</div>
           </button>
         ))}
       </div>
       {field.helpText && (
-        <p className="text-gray-500 text-sm mt-1">{field.helpText}</p>
+        <p className="text-text-subtle text-sm mt-1">{field.helpText}</p>
       )}
     </div>
   )

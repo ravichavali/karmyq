@@ -96,16 +96,16 @@ export default function ServiceRequestForm({ initialData, onChange }: ServiceReq
   return (
     <div className="space-y-6">
       {/* Service Category Header */}
-      <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-        <h3 className="font-semibold text-green-900 mb-1">🔧 Service Request</h3>
-        <p className="text-sm text-green-700">
+      <div className="bg-success-light border border-success rounded-lg p-4">
+        <h3 className="font-semibold text-karmyq-teal-900 mb-1">🔧 Service Request</h3>
+        <p className="text-sm text-success">
           Request professional services, repairs, or expertise from community helpers
         </p>
       </div>
 
       {/* Service Category */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-3">
+        <label className="block text-sm font-medium text-text-muted mb-3">
           Service Category <span className="text-red-500">*</span>
         </label>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
@@ -117,13 +117,13 @@ export default function ServiceRequestForm({ initialData, onChange }: ServiceReq
               className={`
                 p-3 border-2 rounded-lg text-center transition-all
                 ${formData.service_category === category.value
-                  ? 'border-green-500 bg-green-50 ring-2 ring-green-500'
-                  : 'border-gray-300 hover:border-green-400'
+                  ? 'border-karmyq-teal-500 bg-success-light ring-2 ring-karmyq-teal-500'
+                  : 'border-border hover:border-karmyq-green-400'
                 }
               `}
             >
               <div className="text-2xl mb-1">{category.icon}</div>
-              <div className="text-xs font-medium text-gray-900">{category.label}</div>
+              <div className="text-xs font-medium text-text">{category.label}</div>
             </button>
           ))}
         </div>
@@ -131,13 +131,13 @@ export default function ServiceRequestForm({ initialData, onChange }: ServiceReq
 
       {/* Skill Level Required */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
+        <label className="block text-sm font-medium text-text-muted mb-2">
           Skill Level Required (Optional)
         </label>
         <select
           value={formData.skill_level_required || ''}
           onChange={(e) => updateField('skill_level_required', e.target.value || undefined)}
-          className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+          className="w-full border border-border rounded-lg px-4 py-2 focus:ring-2 focus:ring-karmyq-teal-500 focus:border-transparent"
         >
           <option value="">Any skill level</option>
           <option value="beginner">Beginner</option>
@@ -148,7 +148,7 @@ export default function ServiceRequestForm({ initialData, onChange }: ServiceReq
 
       {/* Location Type */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
+        <label className="block text-sm font-medium text-text-muted mb-2">
           Location Type (Optional)
         </label>
         <div className="flex gap-3">
@@ -164,8 +164,8 @@ export default function ServiceRequestForm({ initialData, onChange }: ServiceReq
               className={`
                 flex-1 p-3 border-2 rounded-lg transition-all
                 ${formData.location_type === type.value
-                  ? 'border-green-500 bg-green-50'
-                  : 'border-gray-300 hover:border-green-400'
+                  ? 'border-karmyq-teal-500 bg-success-light'
+                  : 'border-border hover:border-karmyq-green-400'
                 }
               `}
             >
@@ -178,7 +178,7 @@ export default function ServiceRequestForm({ initialData, onChange }: ServiceReq
 
       {/* Estimated Duration */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
+        <label className="block text-sm font-medium text-text-muted mb-2">
           Estimated Duration (Optional)
         </label>
         <div className="flex items-center gap-2">
@@ -190,16 +190,16 @@ export default function ServiceRequestForm({ initialData, onChange }: ServiceReq
             value={formData.estimated_duration_hours || ''}
             onChange={(e) => updateField('estimated_duration_hours', e.target.value ? parseFloat(e.target.value) : undefined)}
             placeholder="2"
-            className="w-32 border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+            className="w-32 border border-border rounded-lg px-4 py-2 focus:ring-2 focus:ring-karmyq-teal-500 focus:border-transparent"
           />
-          <span className="text-sm text-gray-600">hours</span>
+          <span className="text-sm text-text-muted">hours</span>
         </div>
-        <p className="mt-1 text-xs text-gray-500">How long do you expect this service to take?</p>
+        <p className="mt-1 text-xs text-text-subtle">How long do you expect this service to take?</p>
       </div>
 
       {/* Budget Range */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
+        <label className="block text-sm font-medium text-text-muted mb-2">
           Budget Range (Optional)
         </label>
         <div className="grid grid-cols-3 gap-3">
@@ -210,7 +210,7 @@ export default function ServiceRequestForm({ initialData, onChange }: ServiceReq
               value={formData.budget_range?.min || ''}
               onChange={(e) => updateBudget('min', e.target.value ? parseFloat(e.target.value) : 0)}
               placeholder="Min"
-              className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+              className="w-full border border-border rounded-lg px-4 py-2 focus:ring-2 focus:ring-karmyq-teal-500 focus:border-transparent"
             />
           </div>
           <div>
@@ -220,14 +220,14 @@ export default function ServiceRequestForm({ initialData, onChange }: ServiceReq
               value={formData.budget_range?.max || ''}
               onChange={(e) => updateBudget('max', e.target.value ? parseFloat(e.target.value) : 0)}
               placeholder="Max"
-              className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+              className="w-full border border-border rounded-lg px-4 py-2 focus:ring-2 focus:ring-karmyq-teal-500 focus:border-transparent"
             />
           </div>
           <div>
             <select
               value={formData.budget_range?.currency || 'USD'}
               onChange={(e) => updateBudget('currency', e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+              className="w-full border border-border rounded-lg px-4 py-2 focus:ring-2 focus:ring-karmyq-teal-500 focus:border-transparent"
             >
               <option value="USD">USD</option>
               <option value="EUR">EUR</option>
@@ -239,13 +239,13 @@ export default function ServiceRequestForm({ initialData, onChange }: ServiceReq
 
       {/* Preferred Schedule */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
+        <label className="block text-sm font-medium text-text-muted mb-2">
           Preferred Schedule (Optional)
         </label>
 
         {/* Days of Week */}
         <div className="mb-3">
-          <p className="text-xs text-gray-600 mb-2">Preferred days:</p>
+          <p className="text-xs text-text-muted mb-2">Preferred days:</p>
           <div className="flex flex-wrap gap-2">
             {DAYS_OF_WEEK.map(day => (
               <button
@@ -255,8 +255,8 @@ export default function ServiceRequestForm({ initialData, onChange }: ServiceReq
                 className={`
                   px-3 py-1 text-sm rounded-full border-2 transition-all
                   ${(formData.preferred_schedule?.days || []).includes(day)
-                    ? 'border-green-500 bg-green-50 text-green-900'
-                    : 'border-gray-300 text-gray-700 hover:border-green-400'
+                    ? 'border-karmyq-teal-500 bg-success-light text-karmyq-teal-900'
+                    : 'border-border text-text-muted hover:border-karmyq-green-400'
                   }
                 `}
               >
@@ -268,7 +268,7 @@ export default function ServiceRequestForm({ initialData, onChange }: ServiceReq
 
         {/* Time of Day */}
         <div>
-          <p className="text-xs text-gray-600 mb-2">Preferred time:</p>
+          <p className="text-xs text-text-muted mb-2">Preferred time:</p>
           <div className="grid grid-cols-4 gap-2">
             {[
               { value: 'morning', label: 'Morning', icon: '🌅' },
@@ -283,8 +283,8 @@ export default function ServiceRequestForm({ initialData, onChange }: ServiceReq
                 className={`
                   p-2 border-2 rounded-lg text-center transition-all
                   ${formData.preferred_schedule?.time_of_day === time.value
-                    ? 'border-green-500 bg-green-50'
-                    : 'border-gray-300 hover:border-green-400'
+                    ? 'border-karmyq-teal-500 bg-success-light'
+                    : 'border-border hover:border-karmyq-green-400'
                   }
                 `}
               >
@@ -298,8 +298,8 @@ export default function ServiceRequestForm({ initialData, onChange }: ServiceReq
 
       {/* Summary */}
       {formData.service_category && (
-        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-          <h4 className="font-semibold text-green-900 mb-2">Service Summary</h4>
+        <div className="bg-success-light border border-success rounded-lg p-4">
+          <h4 className="font-semibold text-karmyq-teal-900 mb-2">Service Summary</h4>
           <div className="space-y-1 text-sm text-green-800">
             <p>
               <strong>Service:</strong> {SERVICE_CATEGORIES.find(c => c.value === formData.service_category)?.label}

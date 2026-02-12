@@ -51,7 +51,7 @@ export default function CommunityHealthHero({ communityId }: CommunityHealthHero
 
   if (loading) {
     return (
-      <div className="bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl shadow-lg p-6 mb-6 animate-pulse">
+      <div className="bg-gradient-to-br from-accent to-accent-dark rounded-xl shadow-lg p-6 mb-6 animate-pulse">
         <div className="h-24"></div>
       </div>
     )
@@ -63,11 +63,11 @@ export default function CommunityHealthHero({ communityId }: CommunityHealthHero
 
   // Determine color based on network strength
   const getStrengthColor = (strength: number) => {
-    if (strength >= 80) return { bg: 'from-emerald-500 to-green-600', text: 'text-emerald-100', badge: 'bg-emerald-400' }
-    if (strength >= 60) return { bg: 'from-green-500 to-teal-600', text: 'text-green-100', badge: 'bg-green-400' }
-    if (strength >= 40) return { bg: 'from-amber-500 to-orange-600', text: 'text-amber-100', badge: 'bg-amber-400' }
-    if (strength >= 20) return { bg: 'from-orange-400 to-red-500', text: 'text-orange-100', badge: 'bg-orange-400' }
-    return { bg: 'from-slate-400 to-gray-500', text: 'text-slate-100', badge: 'bg-slate-400' }
+    if (strength >= 80) return { bg: 'from-karmyq-green-500 to-karmyq-green-700', text: 'text-emerald-100', badge: 'bg-emerald-400' }
+    if (strength >= 60) return { bg: 'from-karmyq-green-500 to-karmyq-teal-600', text: 'text-green-100', badge: 'bg-green-400' }
+    if (strength >= 40) return { bg: 'from-karmyq-orange-500 to-karmyq-orange-700', text: 'text-amber-100', badge: 'bg-amber-400' }
+    if (strength >= 20) return { bg: 'from-karmyq-orange-400 to-karmyq-orange-700', text: 'text-orange-100', badge: 'bg-orange-400' }
+    return { bg: 'from-karmyq-brown-400 to-karmyq-brown-600', text: 'text-slate-100', badge: 'bg-slate-400' }
   }
 
   const getTrendIcon = (direction: string) => {
@@ -94,29 +94,29 @@ export default function CommunityHealthHero({ communityId }: CommunityHealthHero
       {/* Metrics Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {/* Network Strength */}
-        <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4">
+        <div className="bg-surface-raised/10 backdrop-blur-sm rounded-lg p-4">
           <div className="text-sm opacity-90 mb-1">Network Strength</div>
           <div className="flex items-baseline gap-2">
             <div className="text-4xl font-bold">{healthData.networkStrength.toFixed(1)}</div>
             <div className="text-lg opacity-75">/100</div>
           </div>
-          <div className="mt-2 bg-white/20 rounded-full h-2">
+          <div className="mt-2 bg-surface-raised/20 rounded-full h-2">
             <div
-              className="bg-white rounded-full h-2 transition-all duration-500"
+              className="bg-surface-raised rounded-full h-2 transition-all duration-500"
               style={{ width: `${healthData.networkStrength}%` }}
             ></div>
           </div>
         </div>
 
         {/* Activity This Week */}
-        <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4">
+        <div className="bg-surface-raised/10 backdrop-blur-sm rounded-lg p-4">
           <div className="text-sm opacity-90 mb-1">Active This Week</div>
           <div className="text-2xl font-bold">{healthData.totalMatches} exchanges</div>
           <div className="text-sm opacity-90 mt-1">{healthData.activeHelpers} helpers</div>
         </div>
 
         {/* Growth Trend */}
-        <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4">
+        <div className="bg-surface-raised/10 backdrop-blur-sm rounded-lg p-4">
           <div className="text-sm opacity-90 mb-1">Growth Trend</div>
           <div className="flex items-baseline gap-2">
             <div className="text-2xl font-bold">
@@ -130,21 +130,21 @@ export default function CommunityHealthHero({ communityId }: CommunityHealthHero
 
       {/* Motivational Message */}
       {healthData.networkStrength >= 70 && (
-        <div className="mt-4 bg-white/10 backdrop-blur-sm rounded-lg p-3 text-center">
+        <div className="mt-4 bg-surface-raised/10 backdrop-blur-sm rounded-lg p-3 text-center">
           <p className="text-sm">
             🎉 Your community is thriving! Keep up the great work helping each other.
           </p>
         </div>
       )}
       {healthData.networkStrength >= 40 && healthData.networkStrength < 70 && (
-        <div className="mt-4 bg-white/10 backdrop-blur-sm rounded-lg p-3 text-center">
+        <div className="mt-4 bg-surface-raised/10 backdrop-blur-sm rounded-lg p-3 text-center">
           <p className="text-sm">
             💪 Your community is building momentum. Every exchange makes it stronger!
           </p>
         </div>
       )}
       {healthData.networkStrength < 40 && (
-        <div className="mt-4 bg-white/10 backdrop-blur-sm rounded-lg p-3 text-center">
+        <div className="mt-4 bg-surface-raised/10 backdrop-blur-sm rounded-lg p-3 text-center">
           <p className="text-sm">
             🌱 Your community is just getting started. Be one of the first to help!
           </p>

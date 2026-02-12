@@ -241,8 +241,8 @@ export default function PreferencesPage() {
       <Layout title="Preferences">
         <div className="max-w-4xl mx-auto px-4 py-8">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-            <p className="text-gray-600 mt-4">Loading preferences...</p>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+            <p className="text-text-muted mt-4">Loading preferences...</p>
           </div>
         </div>
       </Layout>
@@ -256,18 +256,18 @@ export default function PreferencesPage() {
       </Head>
       <Layout title="Feed Preferences">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="bg-white rounded-lg shadow-sm p-8">
+          <div className="bg-surface-raised rounded-lg shadow-sm p-8">
             <div className="mb-8">
-              <h1 className="text-3xl font-bold text-gray-900">Feed Preferences</h1>
-              <p className="text-gray-600 mt-2">
+              <h1 className="text-3xl font-bold text-text">Feed Preferences</h1>
+              <p className="text-text-muted mt-2">
                 Customize which types of requests you see in your curated feed
               </p>
             </div>
 
             {/* Request Type Preferences */}
             <div className="mb-12">
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">Request Types</h2>
-              <p className="text-sm text-gray-600 mb-6">
+              <h2 className="text-xl font-semibold text-text mb-4">Request Types</h2>
+              <p className="text-sm text-text-muted mb-6">
                 Choose which types of requests you want to see in your feed. You can always change these later.
               </p>
 
@@ -275,22 +275,22 @@ export default function PreferencesPage() {
                 {Object.entries(REQUEST_TYPE_INFO).map(([type, info]) => (
                   <div
                     key={type}
-                    className="border border-gray-200 rounded-lg p-6 hover:border-blue-300 transition"
+                    className="border border-border rounded-lg p-6 hover:border-primary-medium transition"
                   >
                     <div className="flex items-start justify-between">
                       <div className="flex items-start space-x-4 flex-1">
                         <span className="text-4xl">{info.icon}</span>
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-2">
-                            <h3 className="text-lg font-semibold text-gray-900">{info.label}</h3>
+                            <h3 className="text-lg font-semibold text-text">{info.label}</h3>
                             {preferences[type] && (
-                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-success-light text-green-800">
                                 Subscribed
                               </span>
                             )}
                           </div>
-                          <p className="text-sm text-gray-600 mb-2">{info.description}</p>
-                          <p className="text-xs text-gray-500 italic">Examples: {info.examples}</p>
+                          <p className="text-sm text-text-muted mb-2">{info.description}</p>
+                          <p className="text-xs text-text-subtle italic">Examples: {info.examples}</p>
                         </div>
                       </div>
 
@@ -299,7 +299,7 @@ export default function PreferencesPage() {
                           type="checkbox"
                           checked={preferences[type] || false}
                           onChange={() => handleTogglePreference(type)}
-                          className="w-6 h-6 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                          className="w-6 h-6 text-primary border-border rounded focus:ring-primary"
                         />
                       </label>
                     </div>
@@ -310,15 +310,15 @@ export default function PreferencesPage() {
 
             {/* Specific Interests */}
             <div className="mb-8 pt-8 border-t">
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">Specific Interests</h2>
-              <p className="text-sm text-gray-600 mb-6">
+              <h2 className="text-xl font-semibold text-text mb-4">Specific Interests</h2>
+              <p className="text-sm text-text-muted mb-6">
                 Select specific categories you're interested in to further refine your feed
               </p>
 
               {/* Service Categories */}
               {preferences.service && (
                 <div className="mb-8">
-                  <h3 className="text-lg font-medium text-gray-900 mb-3">Service Categories I Can Help With</h3>
+                  <h3 className="text-lg font-medium text-text mb-3">Service Categories I Can Help With</h3>
                   <div className="flex flex-wrap gap-2">
                     {SERVICE_CATEGORIES.map((category) => {
                       const isSelected = selectedInterests.service_category?.has(category);
@@ -328,8 +328,8 @@ export default function PreferencesPage() {
                           onClick={() => handleToggleInterest('service_category', category)}
                           className={`px-4 py-2 rounded-full text-sm font-medium border-2 transition ${
                             isSelected
-                              ? 'bg-blue-100 border-blue-500 text-blue-800'
-                              : 'bg-white border-gray-300 text-gray-700 hover:border-gray-400'
+                              ? 'bg-primary-light border-primary text-primary-dark'
+                              : 'bg-surface-raised border-border text-text-muted hover:border-karmyq-brown-400'
                           }`}
                         >
                           {category.replace(/_/g, ' ')}
@@ -343,7 +343,7 @@ export default function PreferencesPage() {
               {/* Item Categories */}
               {preferences.borrow && (
                 <div className="mb-8">
-                  <h3 className="text-lg font-medium text-gray-900 mb-3">Items I Can Lend</h3>
+                  <h3 className="text-lg font-medium text-text mb-3">Items I Can Lend</h3>
                   <div className="flex flex-wrap gap-2">
                     {ITEM_CATEGORIES.map((category) => {
                       const isSelected = selectedInterests.item_category?.has(category);
@@ -353,8 +353,8 @@ export default function PreferencesPage() {
                           onClick={() => handleToggleInterest('item_category', category)}
                           className={`px-4 py-2 rounded-full text-sm font-medium border-2 transition ${
                             isSelected
-                              ? 'bg-orange-100 border-orange-500 text-orange-800'
-                              : 'bg-white border-gray-300 text-gray-700 hover:border-gray-400'
+                              ? 'bg-karmyq-orange-100 border-karmyq-brown-500 text-karmyq-brown-800'
+                              : 'bg-surface-raised border-border text-text-muted hover:border-karmyq-brown-400'
                           }`}
                         >
                           {category.replace(/_/g, ' ')}
@@ -368,7 +368,7 @@ export default function PreferencesPage() {
               {/* Event Types */}
               {preferences.event && (
                 <div className="mb-8">
-                  <h3 className="text-lg font-medium text-gray-900 mb-3">Event Types I'm Interested In</h3>
+                  <h3 className="text-lg font-medium text-text mb-3">Event Types I'm Interested In</h3>
                   <div className="flex flex-wrap gap-2">
                     {EVENT_TYPES.map((eventType) => {
                       const isSelected = selectedInterests.event_type?.has(eventType);
@@ -378,8 +378,8 @@ export default function PreferencesPage() {
                           onClick={() => handleToggleInterest('event_type', eventType)}
                           className={`px-4 py-2 rounded-full text-sm font-medium border-2 transition ${
                             isSelected
-                              ? 'bg-purple-100 border-purple-500 text-purple-800'
-                              : 'bg-white border-gray-300 text-gray-700 hover:border-gray-400'
+                              ? 'bg-accent-light border-karmyq-orange-500 text-accent-dark'
+                              : 'bg-surface-raised border-border text-text-muted hover:border-karmyq-brown-400'
                           }`}
                         >
                           {eventType.replace(/_/g, ' ')}
@@ -392,9 +392,9 @@ export default function PreferencesPage() {
             </div>
 
             {/* Summary */}
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-6">
-              <h3 className="font-medium text-blue-900 mb-2">Your Feed Summary</h3>
-              <div className="text-sm text-blue-800 space-y-1">
+            <div className="bg-primary-light border border-primary-medium rounded-lg p-6 mb-6">
+              <h3 className="font-medium text-primary-dark mb-2">Your Feed Summary</h3>
+              <div className="text-sm text-primary-dark space-y-1">
                 <p>
                   <strong>Subscribed to:</strong>{' '}
                   {Object.entries(preferences)
@@ -413,13 +413,13 @@ export default function PreferencesPage() {
               <button
                 onClick={handleSaveAll}
                 disabled={saving}
-                className="flex-1 bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition font-semibold disabled:opacity-50"
+                className="flex-1 bg-primary text-white px-6 py-3 rounded-lg hover:bg-primary-dark transition font-semibold disabled:opacity-50"
               >
                 {saving ? 'Saving...' : 'Save All Preferences'}
               </button>
               <button
                 onClick={() => router.push('/requests')}
-                className="flex-1 bg-gray-200 text-gray-700 px-6 py-3 rounded-lg hover:bg-gray-300 transition font-semibold"
+                className="flex-1 bg-gray-200 text-text-muted px-6 py-3 rounded-lg hover:bg-gray-300 transition font-semibold"
               >
                 Back to Feed
               </button>

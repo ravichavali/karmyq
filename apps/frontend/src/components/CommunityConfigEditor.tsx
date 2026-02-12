@@ -80,9 +80,9 @@ export default function CommunityConfigEditor({
     <button
       type="button"
       onClick={() => toggleSection(section)}
-      className="w-full flex items-center justify-between p-4 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors"
+      className="w-full flex items-center justify-between p-4 bg-surface hover:bg-border-light rounded-lg transition-colors"
     >
-      <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
+      <h3 className="text-lg font-semibold text-text">{title}</h3>
       <svg
         className={`w-5 h-5 transform transition-transform ${
           expandedSection === section ? 'rotate-180' : ''
@@ -114,7 +114,7 @@ export default function CommunityConfigEditor({
     helpText?: string
   }) => (
     <div className="mb-4">
-      <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
+      <label className="block text-sm font-medium text-text-muted mb-1">{label}</label>
       <input
         type={type}
         value={config[field] as any}
@@ -123,11 +123,11 @@ export default function CommunityConfigEditor({
         min={min}
         max={max}
         step={step}
-        className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-          errors[field] ? 'border-red-500' : 'border-gray-300'
-        } disabled:bg-gray-100 disabled:cursor-not-allowed`}
+        className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-primary ${
+          errors[field] ? 'border-red-500' : 'border-border'
+        } disabled:bg-border-light disabled:cursor-not-allowed`}
       />
-      {helpText && <p className="text-xs text-gray-500 mt-1">{helpText}</p>}
+      {helpText && <p className="text-xs text-text-subtle mt-1">{helpText}</p>}
       {errors[field] && <p className="text-xs text-red-500 mt-1">{errors[field]}</p>}
     </div>
   )
@@ -144,12 +144,12 @@ export default function CommunityConfigEditor({
     helpText?: string
   }) => (
     <div className="mb-4">
-      <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
+      <label className="block text-sm font-medium text-text-muted mb-1">{label}</label>
       <select
         value={config[field] as any}
         onChange={(e) => handleFieldChange(field, e.target.value)}
         disabled={readOnly}
-        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+        className="w-full px-3 py-2 border border-border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-primary disabled:bg-border-light disabled:cursor-not-allowed"
       >
         {options.map((opt) => (
           <option key={opt.value} value={opt.value}>
@@ -157,7 +157,7 @@ export default function CommunityConfigEditor({
           </option>
         ))}
       </select>
-      {helpText && <p className="text-xs text-gray-500 mt-1">{helpText}</p>}
+      {helpText && <p className="text-xs text-text-subtle mt-1">{helpText}</p>}
     </div>
   )
 
@@ -176,11 +176,11 @@ export default function CommunityConfigEditor({
         checked={config[field] as any}
         onChange={(e) => handleFieldChange(field, e.target.checked)}
         disabled={readOnly}
-        className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded disabled:cursor-not-allowed"
+        className="mt-1 h-4 w-4 text-primary focus:ring-primary border-border rounded disabled:cursor-not-allowed"
       />
       <div className="ml-3">
-        <label className="text-sm font-medium text-gray-700">{label}</label>
-        {helpText && <p className="text-xs text-gray-500 mt-1">{helpText}</p>}
+        <label className="text-sm font-medium text-text-muted">{label}</label>
+        {helpText && <p className="text-xs text-text-subtle mt-1">{helpText}</p>}
       </div>
     </div>
   )
@@ -204,8 +204,8 @@ export default function CommunityConfigEditor({
     return (
       <div className="mb-4">
         <div className="flex justify-between items-center mb-1">
-          <label className="text-sm font-medium text-gray-700">{label}</label>
-          <span className="text-sm font-semibold text-blue-600">{value}</span>
+          <label className="text-sm font-medium text-text-muted">{label}</label>
+          <span className="text-sm font-semibold text-primary">{value}</span>
         </div>
         <input
           type="range"
@@ -217,11 +217,11 @@ export default function CommunityConfigEditor({
           step={step}
           className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer disabled:cursor-not-allowed"
         />
-        <div className="flex justify-between text-xs text-gray-500 mt-1">
+        <div className="flex justify-between text-xs text-text-subtle mt-1">
           <span>{min}</span>
           <span>{max}</span>
         </div>
-        {helpText && <p className="text-xs text-gray-500 mt-1">{helpText}</p>}
+        {helpText && <p className="text-xs text-text-subtle mt-1">{helpText}</p>}
         {errors[field] && <p className="text-xs text-red-500 mt-1">{errors[field]}</p>}
       </div>
     )
@@ -230,7 +230,7 @@ export default function CommunityConfigEditor({
   return (
     <div className="space-y-4">
       {/* Section 1: Identity & Boundaries */}
-      <div className="border border-gray-200 rounded-lg">
+      <div className="border border-border rounded-lg">
         <SectionHeader title="Identity & Boundaries" section="identity" />
         {expandedSection === 'identity' && (
           <div className="p-4 space-y-4">
@@ -261,11 +261,11 @@ export default function CommunityConfigEditor({
       </div>
 
       {/* Section 2: Request Types */}
-      <div className="border border-gray-200 rounded-lg">
+      <div className="border border-border rounded-lg">
         <SectionHeader title="Request Types" section="request_types" />
         {expandedSection === 'request_types' && (
           <div className="p-4 space-y-4">
-            <p className="text-sm text-gray-600 mb-4">
+            <p className="text-sm text-text-muted mb-4">
               Choose which types of requests your community supports. You can adjust the karma
               multiplier for each type to reflect its impact.
             </p>
@@ -286,8 +286,8 @@ export default function CommunityConfigEditor({
                     key={type.value}
                     className={`relative border-2 rounded-lg p-4 transition-all ${
                       isEnabled
-                        ? 'border-blue-500 bg-blue-50 shadow-sm'
-                        : 'border-gray-200 bg-white hover:border-gray-300'
+                        ? 'border-primary bg-primary-light shadow-sm'
+                        : 'border-border bg-surface-raised hover:border-border'
                     } ${readOnly ? 'cursor-default' : 'cursor-pointer'}`}
                     onClick={() => {
                       if (readOnly) return
@@ -312,8 +312,8 @@ export default function CommunityConfigEditor({
                       <div
                         className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-colors ${
                           isEnabled
-                            ? 'bg-blue-500 border-blue-500'
-                            : 'border-gray-300 bg-white'
+                            ? 'bg-primary border-primary'
+                            : 'border-border bg-surface-raised'
                         }`}
                       >
                         {isEnabled && (
@@ -331,22 +331,22 @@ export default function CommunityConfigEditor({
                     <div className="flex items-start gap-3 pr-6">
                       <span className="text-2xl flex-shrink-0">{type.icon}</span>
                       <div className="min-w-0">
-                        <h4 className="font-semibold text-gray-900 text-sm">{type.label}</h4>
-                        <p className="text-xs text-gray-500 mt-0.5">{type.description}</p>
+                        <h4 className="font-semibold text-text text-sm">{type.label}</h4>
+                        <p className="text-xs text-text-subtle mt-0.5">{type.description}</p>
                       </div>
                     </div>
 
                     {/* Karma multiplier slider (only when enabled) */}
                     {isEnabled && (
                       <div
-                        className="mt-3 pt-3 border-t border-blue-200"
+                        className="mt-3 pt-3 border-t border-primary-medium"
                         onClick={(e) => e.stopPropagation()}
                       >
                         <div className="flex justify-between items-center mb-1">
-                          <label className="text-xs font-medium text-gray-600">
+                          <label className="text-xs font-medium text-text-muted">
                             Karma Multiplier
                           </label>
-                          <span className="text-xs font-semibold text-blue-600">
+                          <span className="text-xs font-semibold text-primary">
                             {currentMultiplier}x
                           </span>
                         </div>
@@ -360,9 +360,9 @@ export default function CommunityConfigEditor({
                           min={0.5}
                           max={2.0}
                           step={0.1}
-                          className="w-full h-1 bg-blue-200 rounded-lg appearance-none cursor-pointer disabled:cursor-not-allowed"
+                          className="w-full h-1 bg-primary-light rounded-lg appearance-none cursor-pointer disabled:cursor-not-allowed"
                         />
-                        <div className="flex justify-between text-xs text-gray-400 mt-0.5">
+                        <div className="flex justify-between text-xs text-text-subtle mt-0.5">
                           <span>0.5x</span>
                           <span>2.0x</span>
                         </div>
@@ -373,8 +373,8 @@ export default function CommunityConfigEditor({
               })}
             </div>
 
-            <div className="bg-gray-50 border border-gray-200 rounded-md p-3">
-              <p className="text-xs text-gray-600">
+            <div className="bg-surface border border-border rounded-md p-3">
+              <p className="text-xs text-text-muted">
                 <strong>{config.enabled_request_types.length}</strong> type{config.enabled_request_types.length !== 1 ? 's' : ''} enabled.
                 Members will only be able to create requests of the types you select.
               </p>
@@ -388,7 +388,7 @@ export default function CommunityConfigEditor({
       </div>
 
       {/* Section 3: Karma Mechanics */}
-      <div className="border border-gray-200 rounded-lg">
+      <div className="border border-border rounded-lg">
         <SectionHeader title="Karma Mechanics" section="karma" />
         {expandedSection === 'karma' && (
           <div className="p-4 space-y-4">
@@ -408,8 +408,8 @@ export default function CommunityConfigEditor({
               step={5}
               helpText="Percentage awarded to requestor (-50 to 100). Negative discourages asking."
             />
-            <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
-              <p className="text-xs text-blue-800">
+            <div className="bg-primary-light border border-primary-medium rounded-md p-3">
+              <p className="text-xs text-primary-dark">
                 <strong>Total: {config.karma_split_helper + config.karma_split_requestor}%</strong>
                 {config.karma_split_helper + config.karma_split_requestor > 100 && (
                   <span> - Generous system (creates karma)</span>
@@ -442,7 +442,7 @@ export default function CommunityConfigEditor({
       </div>
 
       {/* Section 4: Trust Mechanics */}
-      <div className="border border-gray-200 rounded-lg">
+      <div className="border border-border rounded-lg">
         <SectionHeader title="Trust Mechanics" section="trust" />
         {expandedSection === 'trust' && (
           <div className="p-4 space-y-4">
@@ -466,8 +466,8 @@ export default function CommunityConfigEditor({
               {errors.trust_weights && (
                 <p className="text-xs text-red-500 mt-2">{errors.trust_weights}</p>
               )}
-              <div className="bg-blue-50 border border-blue-200 rounded-md p-3 mt-2">
-                <p className="text-xs text-blue-800">
+              <div className="bg-primary-light border border-primary-medium rounded-md p-3 mt-2">
+                <p className="text-xs text-primary-dark">
                   <strong>
                     Sum: {(config.trust_depth_weight + config.trust_breadth_weight).toFixed(2)}
                   </strong>
@@ -505,7 +505,7 @@ export default function CommunityConfigEditor({
       </div>
 
       {/* Section 5: Community Onboarding */}
-      <div className="border border-gray-200 rounded-lg">
+      <div className="border border-border rounded-lg">
         <SectionHeader title="Community Onboarding" section="onboarding" />
         {expandedSection === 'onboarding' && (
           <div className="p-4 space-y-4">

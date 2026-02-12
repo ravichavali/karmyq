@@ -67,13 +67,13 @@ export default function AutocompleteSuggestions({
 
   const getTriggerColor = () => {
     switch (triggerChar) {
-      case '@': return 'bg-blue-50 border-blue-200'
-      case '#': return 'bg-green-50 border-green-200'
+      case '@': return 'bg-primary-light border-primary-medium'
+      case '#': return 'bg-success-light border-success'
       case '$': return 'bg-yellow-50 border-yellow-200'
       case '!': return 'bg-red-50 border-red-200'
       case '..':
-      case '>>': return 'bg-purple-50 border-purple-200'
-      default: return 'bg-gray-50 border-gray-200'
+      case '>>': return 'bg-accent-light border-accent'
+      default: return 'bg-surface border-border'
     }
   }
 
@@ -96,19 +96,19 @@ export default function AutocompleteSuggestions({
       style={position}
     >
       {/* Header */}
-      <div className="px-3 py-2 border-b border-gray-200 bg-white">
+      <div className="px-3 py-2 border-b border-border bg-surface-raised">
         <div className="flex items-center justify-between">
-          <span className="text-xs font-semibold text-gray-700">
+          <span className="text-xs font-semibold text-text-muted">
             {getTriggerLabel()}
           </span>
-          <span className="text-xs text-gray-500">
+          <span className="text-xs text-text-subtle">
             ↑↓ navigate · ↵ select · esc close
           </span>
         </div>
       </div>
 
       {/* Suggestions List */}
-      <div className="max-h-64 overflow-y-auto bg-white">
+      <div className="max-h-64 overflow-y-auto bg-surface-raised">
         {suggestions.map((suggestion, index) => (
           <button
             key={suggestion.value}
@@ -116,8 +116,8 @@ export default function AutocompleteSuggestions({
             onClick={() => onSelect(suggestion.value)}
             className={`w-full text-left px-3 py-2 flex items-start gap-2 transition-colors ${
               index === selectedIndex
-                ? 'bg-blue-100 text-blue-900'
-                : 'hover:bg-gray-50 text-gray-900'
+                ? 'bg-primary-light text-primary-dark'
+                : 'hover:bg-surface text-text'
             }`}
           >
             {suggestion.icon && (
@@ -126,13 +126,13 @@ export default function AutocompleteSuggestions({
             <div className="flex-1 min-w-0">
               <div className="font-medium text-sm">{suggestion.label}</div>
               {suggestion.description && (
-                <div className="text-xs text-gray-600 mt-0.5">
+                <div className="text-xs text-text-muted mt-0.5">
                   {suggestion.description}
                 </div>
               )}
             </div>
             {index === selectedIndex && (
-              <svg className="w-4 h-4 text-blue-600 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+              <svg className="w-4 h-4 text-primary flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
               </svg>
             )}
@@ -141,8 +141,8 @@ export default function AutocompleteSuggestions({
       </div>
 
       {/* Footer Hint */}
-      <div className="px-3 py-2 bg-gray-50 border-t border-gray-200">
-        <p className="text-xs text-gray-600">
+      <div className="px-3 py-2 bg-surface border-t border-border">
+        <p className="text-xs text-text-muted">
           💡 Tip: Keep typing to filter suggestions
         </p>
       </div>

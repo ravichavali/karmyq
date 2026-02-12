@@ -90,7 +90,7 @@ export default function LocationPicker({
 
   return (
     <div>
-      <label className="block text-sm font-medium text-gray-700 mb-2">
+      <label className="block text-sm font-medium text-text-muted mb-2">
         {label} {required && <span className="text-red-500">*</span>}
       </label>
 
@@ -103,7 +103,7 @@ export default function LocationPicker({
           onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
           placeholder={placeholder}
           required={required}
-          className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="w-full border border-border rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary focus:border-transparent"
           autoComplete="off"
         />
 
@@ -111,10 +111,10 @@ export default function LocationPicker({
         {showSuggestions && suggestions.length > 0 && (
           <div
             ref={dropdownRef}
-            className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto"
+            className="absolute z-50 w-full mt-1 bg-surface-raised border border-border rounded-lg shadow-lg max-h-60 overflow-y-auto"
           >
             {loading && (
-              <div className="px-4 py-3 text-sm text-gray-500">
+              <div className="px-4 py-3 text-sm text-text-subtle">
                 Searching addresses...
               </div>
             )}
@@ -123,17 +123,17 @@ export default function LocationPicker({
                 key={`${suggestion.lat}-${suggestion.lng}-${index}`}
                 type="button"
                 onClick={() => handleSelectSuggestion(suggestion)}
-                className="w-full text-left px-4 py-3 hover:bg-gray-50 border-b border-gray-100 last:border-b-0 transition-colors"
+                className="w-full text-left px-4 py-3 hover:bg-surface border-b border-border-light last:border-b-0 transition-colors"
               >
                 <div className="flex items-start space-x-3">
                   <span className="text-lg mt-0.5">
                     {suggestion.type === 'airport' ? '✈️' : '📍'}
                   </span>
                   <div className="flex-1 min-w-0">
-                    <p className="font-medium text-gray-900 truncate">
+                    <p className="font-medium text-text truncate">
                       {suggestion.display_name}
                     </p>
-                    <p className="text-xs text-gray-500 mt-0.5">
+                    <p className="text-xs text-text-subtle mt-0.5">
                       {suggestion.address}
                     </p>
                   </div>
@@ -145,14 +145,14 @@ export default function LocationPicker({
 
         {/* Selected Location Display */}
         {value && value.lat !== 0 && value.lng !== 0 && !showSuggestions && (
-          <div className="flex items-start space-x-2 p-3 bg-gray-50 rounded-lg border border-gray-200">
-            <svg className="w-5 h-5 text-gray-500 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="flex items-start space-x-2 p-3 bg-surface rounded-lg border border-border">
+            <svg className="w-5 h-5 text-text-subtle mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
             </svg>
             <div className="flex-1 text-sm">
-              <p className="font-medium text-gray-900">{value.address}</p>
-              <p className="text-gray-500 text-xs mt-1">
+              <p className="font-medium text-text">{value.address}</p>
+              <p className="text-text-subtle text-xs mt-1">
                 Coordinates: {value.lat.toFixed(4)}, {value.lng.toFixed(4)}
               </p>
             </div>
@@ -160,7 +160,7 @@ export default function LocationPicker({
         )}
       </div>
 
-      <p className="text-gray-500 text-xs mt-1">
+      <p className="text-text-subtle text-xs mt-1">
         💡 Tip: Type at least 2 characters to search for addresses
       </p>
     </div>

@@ -66,19 +66,19 @@ const NotificationBell: React.FC = () => {
           display: flex;
           align-items: center;
           justify-content: center;
-          color: #333;
+          color: rgb(var(--color-text));
           transition: color 0.2s;
         }
 
         .notification-bell-button:hover {
-          color: #0070f3;
+          color: rgb(var(--color-primary));
         }
 
         .notification-badge {
           position: absolute;
           top: 4px;
           right: 4px;
-          background: #ff4444;
+          background: rgb(var(--color-error));
           color: white;
           border-radius: 10px;
           padding: 2px 6px;

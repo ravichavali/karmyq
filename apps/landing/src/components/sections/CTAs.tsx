@@ -24,7 +24,7 @@ const AUDIENCES = [
     description:
       'Karmyq is open source. Contribute to the platform, build integrations, or fork it to create something entirely new.',
     cta: 'View on GitHub',
-    href: 'https://github.com/karmyq',
+    href: 'https://github.com/ravichavali/karmyq',
     gradient: 'from-karmyq-brown-600 to-karmyq-brown-800',
     icon: (
       <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 32 32" stroke="currentColor" strokeWidth="1.5">

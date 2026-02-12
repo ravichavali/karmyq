@@ -90,19 +90,19 @@ export default function NewOfferPage() {
       </Head>
       <Layout title="Create Help Offer">
         <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="bg-white rounded-lg shadow-sm p-8">
+          <div className="bg-surface-raised rounded-lg shadow-sm p-8">
 
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Community Selection */}
             <div>
-              <label htmlFor="community" className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="community" className="block text-sm font-medium text-text-muted mb-2">
                 Community <span className="text-red-500">*</span>
               </label>
               <select
                 id="community"
                 value={formData.community_id}
                 onChange={(e) => setFormData({ ...formData, community_id: e.target.value })}
-                className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full border border-border rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary focus:border-transparent"
                 required
               >
                 <option value="">Select a community...</option>
@@ -112,14 +112,14 @@ export default function NewOfferPage() {
                   </option>
                 ))}
               </select>
-              <p className="text-gray-500 text-sm mt-1">
+              <p className="text-text-subtle text-sm mt-1">
                 Choose which community you can help
               </p>
             </div>
 
             {/* Title */}
             <div>
-              <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="title" className="block text-sm font-medium text-text-muted mb-2">
                 Title <span className="text-red-500">*</span>
               </label>
               <input
@@ -127,7 +127,7 @@ export default function NewOfferPage() {
                 id="title"
                 value={formData.title}
                 onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full border border-border rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary focus:border-transparent"
                 placeholder="Brief description of what you can help with"
                 maxLength={255}
                 required
@@ -136,14 +136,14 @@ export default function NewOfferPage() {
 
             {/* Category */}
             <div>
-              <label htmlFor="type" className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="type" className="block text-sm font-medium text-text-muted mb-2">
                 Category <span className="text-red-500">*</span>
               </label>
               <select
                 id="type"
                 value={formData.type}
                 onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-                className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full border border-border rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary focus:border-transparent"
                 required
               >
                 <option value="physical_help">Physical Help</option>
@@ -157,19 +157,19 @@ export default function NewOfferPage() {
 
             {/* Description */}
             <div>
-              <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="description" className="block text-sm font-medium text-text-muted mb-2">
                 Description <span className="text-red-500">*</span>
               </label>
               <textarea
                 id="description"
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full border border-border rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary focus:border-transparent"
                 placeholder="Provide details about what you can offer..."
                 rows={6}
                 required
               />
-              <p className="text-gray-500 text-sm mt-1">
+              <p className="text-text-subtle text-sm mt-1">
                 Include your skills, availability, any limitations or requirements
               </p>
             </div>
@@ -179,13 +179,13 @@ export default function NewOfferPage() {
               <button
                 type="submit"
                 disabled={submitting}
-                className="flex-1 bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 bg-primary text-white px-6 py-3 rounded-lg hover:bg-primary-dark transition font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {submitting ? 'Creating Offer...' : 'Create Offer'}
               </button>
               <Link
                 href="/offers"
-                className="flex-1 bg-gray-200 text-gray-700 px-6 py-3 rounded-lg hover:bg-gray-300 transition text-center font-semibold"
+                className="flex-1 bg-gray-200 text-text-muted px-6 py-3 rounded-lg hover:bg-gray-300 transition text-center font-semibold"
               >
                 Cancel
               </Link>
@@ -193,9 +193,9 @@ export default function NewOfferPage() {
           </form>
 
           {/* Info Box */}
-          <div className="mt-8 bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <h3 className="font-semibold text-blue-900 mb-2">About Help Offers</h3>
-            <ul className="text-blue-800 text-sm space-y-1">
+          <div className="mt-8 bg-primary-light border border-primary-medium rounded-lg p-4">
+            <h3 className="font-semibold text-primary-dark mb-2">About Help Offers</h3>
+            <ul className="text-primary-dark text-sm space-y-1">
               <li>• Offers help you respond to requests more quickly</li>
               <li>• You can link an offer when responding to a request</li>
               <li>• Offers remain active until used or withdrawn</li>

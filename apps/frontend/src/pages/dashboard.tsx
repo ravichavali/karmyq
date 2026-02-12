@@ -615,8 +615,8 @@ export default function Dashboard() {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="text-gray-600 mt-4">Loading your dashboard...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+          <p className="text-text-muted mt-4">Loading your dashboard...</p>
         </div>
       </div>
     )
@@ -628,7 +628,7 @@ export default function Dashboard() {
         <title>Dashboard - Karmyq</title>
       </Head>
       <Layout>
-        <div className="min-h-screen bg-gray-50">
+        <div className="min-h-screen bg-surface">
           {/* 3-Column Layout */}
           <div className="container mx-auto px-4 py-4 max-w-7xl">
             <div className="grid grid-cols-12 gap-4">
@@ -646,9 +646,9 @@ export default function Dashboard() {
               {/* Center Feed - 50% */}
               <div className="col-span-12 lg:col-span-6">
                 {/* Quick Create - Compact */}
-                <div className="bg-white rounded-xl shadow-sm p-4 mb-4 border border-gray-200">
+                <div className="bg-surface-raised rounded-xl shadow-sm p-4 mb-4 border border-border">
               <div className="flex items-start gap-4">
-                <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-semibold flex-shrink-0">
+                <div className="w-10 h-10 bg-gradient-to-br from-primary to-accent rounded-full flex items-center justify-center text-white font-semibold flex-shrink-0">
                   {user.name?.charAt(0).toUpperCase()}
                 </div>
                 <div className="flex-1">
@@ -667,8 +667,8 @@ export default function Dashboard() {
                         onClick={() => setRequestType(type.value as any)}
                         className={`px-2 py-1 rounded-md text-xs font-medium transition-all ${
                           requestType === type.value
-                            ? 'bg-blue-500 text-white shadow-sm'
-                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                            ? 'bg-primary text-white shadow-sm'
+                            : 'bg-border-light text-text-muted hover:bg-gray-200'
                         }`}
                       >
                         <span className="mr-1">{type.icon}</span>
@@ -699,7 +699,7 @@ export default function Dashboard() {
                         requestType === 'borrow' ? 'e.g., Borrow power drill for 3 days' :
                         'What do you need help with? Tip: Use @time, @location, #count, $budget, !urgent'
                       }
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none text-sm"
+                      className="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent resize-none text-sm"
                       rows={2}
                     />
 
@@ -728,8 +728,8 @@ export default function Dashboard() {
                         onClick={() => setPostingMode('all')}
                         className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
                           postingMode === 'all'
-                            ? 'bg-blue-100 text-blue-700'
-                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                            ? 'bg-primary-light text-primary-dark'
+                            : 'bg-border-light text-text-muted hover:bg-gray-200'
                         }`}
                       >
                         All Communities
@@ -738,8 +738,8 @@ export default function Dashboard() {
                         onClick={() => setPostingMode('specific')}
                         className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
                           postingMode === 'specific'
-                            ? 'bg-blue-100 text-blue-700'
-                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                            ? 'bg-primary-light text-primary-dark'
+                            : 'bg-border-light text-text-muted hover:bg-gray-200'
                         }`}
                       >
                         Specific
@@ -748,7 +748,7 @@ export default function Dashboard() {
                     <button
                       onClick={handleCreateRequest}
                       disabled={!description.trim() || creating}
-                      className="px-4 py-1.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      className="px-4 py-1.5 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary-dark disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                     >
                       {creating ? 'Posting...' : 'Post'}
                     </button>
@@ -758,7 +758,7 @@ export default function Dashboard() {
                       <select
                         value={selectedCommunity}
                         onChange={(e) => setSelectedCommunity(e.target.value)}
-                        className="w-full px-3 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                        className="w-full px-3 py-1.5 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent text-sm"
                       >
                         <option value="">Select a community...</option>
                         {userCommunities.map((community) => (
@@ -775,8 +775,8 @@ export default function Dashboard() {
 
                 {/* Feed Header */}
                 <div className="flex items-center justify-between mb-3">
-                  <h2 className="text-lg font-bold text-gray-900">Your Feed</h2>
-                  <button className="text-xs text-gray-500 hover:text-gray-700">
+                  <h2 className="text-lg font-bold text-text">Your Feed</h2>
+                  <button className="text-xs text-text-subtle hover:text-text-muted">
                     Filter
                   </button>
                 </div>
@@ -794,10 +794,10 @@ export default function Dashboard() {
                 )}
 
                 {feedItems.length === 0 ? (
-                  <div className="bg-white rounded-xl p-8 text-center border border-gray-200">
+                  <div className="bg-surface-raised rounded-xl p-8 text-center border border-border">
                     <div className="text-4xl mb-3">🤝</div>
-                    <h3 className="text-lg font-semibold text-gray-700 mb-2">No activity yet</h3>
-                    <p className="text-sm text-gray-500">
+                    <h3 className="text-lg font-semibold text-text-muted mb-2">No activity yet</h3>
+                    <p className="text-sm text-text-subtle">
                       Create a request above or check back later
                     </p>
                   </div>
@@ -807,30 +807,30 @@ export default function Dashboard() {
                     const { post, comments, isMyPost, isMyOffer, hasAcceptedOffer, myMatch, priority } = item
 
                     // Determine post styling based on type
-                    let bgColor = 'bg-white'
-                    let borderColor = 'border-gray-200'
-                    let badgeColor = 'bg-gray-100 text-gray-700'
+                    let bgColor = 'bg-surface-raised'
+                    let borderColor = 'border-border'
+                    let badgeColor = 'bg-border-light text-text-muted'
                     let badgeText = ''
 
                     if (isMyPost && hasAcceptedOffer) {
-                      bgColor = 'bg-amber-50'
+                      bgColor = 'bg-karmyq-orange-50'
                       borderColor = 'border-l-4 border-amber-400'
-                      badgeColor = 'bg-amber-100 text-amber-700'
+                      badgeColor = 'bg-karmyq-orange-100 text-karmyq-orange-700'
                       badgeText = '✓ YOUR REQUEST - MATCHED'
                     } else if (isMyPost) {
-                      bgColor = 'bg-amber-50'
+                      bgColor = 'bg-karmyq-orange-50'
                       borderColor = 'border-l-4 border-amber-400'
-                      badgeColor = 'bg-amber-100 text-amber-700'
+                      badgeColor = 'bg-karmyq-orange-100 text-karmyq-orange-700'
                       badgeText = 'YOUR REQUEST'
                     } else if (isMyOffer && myMatch?.status === 'matched') {
-                      bgColor = 'bg-blue-50'
-                      borderColor = 'border-l-4 border-blue-400'
-                      badgeColor = 'bg-blue-100 text-blue-700'
+                      bgColor = 'bg-primary-light'
+                      borderColor = 'border-l-4 border-primary'
+                      badgeColor = 'bg-primary-light text-primary-dark'
                       badgeText = '✓ YOU\'RE HELPING'
                     } else if (isMyOffer && myMatch?.status === 'proposed') {
-                      bgColor = 'bg-blue-50'
-                      borderColor = 'border-l-4 border-blue-400'
-                      badgeColor = 'bg-blue-100 text-blue-700'
+                      bgColor = 'bg-primary-light'
+                      borderColor = 'border-l-4 border-primary'
+                      badgeColor = 'bg-primary-light text-primary-dark'
                       badgeText = 'YOUR OFFER'
                     }
 
@@ -843,12 +843,12 @@ export default function Dashboard() {
                           {/* Post Header */}
                           <div className="flex items-start justify-between mb-2">
                             <div className="flex items-center gap-2 flex-1">
-                              <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-xs font-semibold flex-shrink-0">
+                              <div className="w-8 h-8 bg-gradient-to-br from-primary to-accent rounded-full flex items-center justify-center text-white text-xs font-semibold flex-shrink-0">
                                 {post.requester_name?.charAt(0).toUpperCase() || '?'}
                               </div>
                               <div className="flex-1 min-w-0">
-                                <p className="font-medium text-sm text-gray-900 truncate">{post.requester_name || 'Unknown'}</p>
-                                <p className="text-xs text-gray-500">{formatTime(post.created_at)}</p>
+                                <p className="font-medium text-sm text-text truncate">{post.requester_name || 'Unknown'}</p>
+                                <p className="text-xs text-text-subtle">{formatTime(post.created_at)}</p>
                               </div>
                             </div>
                             {badgeText && (
@@ -857,10 +857,10 @@ export default function Dashboard() {
                           </div>
 
                           {/* Post Content */}
-                          <p className="text-gray-900 text-sm leading-relaxed mb-2">{post.description}</p>
+                          <p className="text-text text-sm leading-relaxed mb-2">{post.description}</p>
 
                           {/* Post Meta */}
-                          <div className="flex items-center gap-3 text-xs text-gray-600 mb-2">
+                          <div className="flex items-center gap-3 text-xs text-text-muted mb-2">
                             <span className="flex items-center gap-1">
                               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path
@@ -873,7 +873,7 @@ export default function Dashboard() {
                               {post.community_name}
                             </span>
                             {comments.length > 0 && isMyPost && (
-                              <span className="text-gray-700 font-medium">
+                              <span className="text-text-muted font-medium">
                                 💬 {comments.length} {comments.length === 1 ? 'offer' : 'offers'}
                               </span>
                             )}
@@ -883,7 +883,7 @@ export default function Dashboard() {
                           {!isMyPost && !isMyOffer && (
                             <button
                               onClick={() => handleOfferToHelp(post.id)}
-                              className="w-full px-3 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
+                              className="w-full px-3 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary-dark transition-colors"
                             >
                               💬 Offer to Help
                             </button>
@@ -906,8 +906,8 @@ export default function Dashboard() {
                             const hasMore = sortedComments.length > 3
 
                             return (
-                            <div className="mt-4 pt-4 border-t border-gray-200">
-                              <h3 className="text-sm font-semibold text-gray-900 mb-3">
+                            <div className="mt-4 pt-4 border-t border-border">
+                              <h3 className="text-sm font-semibold text-text mb-3">
                                 {isMyPost ? `Responses (${comments.length})` : 'Your Conversation'}
                               </h3>
                               <div className="space-y-3">
@@ -936,7 +936,7 @@ export default function Dashboard() {
                                       }
                                       setExpandedPosts(newExpanded)
                                     }}
-                                    className="w-full py-2 text-sm text-blue-600 hover:text-blue-700 font-medium transition-colors"
+                                    className="w-full py-2 text-sm text-primary hover:text-primary-dark font-medium transition-colors"
                                   >
                                     {isExpanded
                                       ? `Show Less ↑`

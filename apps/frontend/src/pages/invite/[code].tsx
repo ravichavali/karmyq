@@ -131,11 +131,11 @@ export default function InviteAcceptance() {
         <Head>
           <title>Join Karmyq</title>
         </Head>
-        <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white flex items-center justify-center px-4">
-          <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-8">
+        <div className="min-h-screen bg-gradient-to-b from-primary-light to-surface-raised flex items-center justify-center px-4">
+          <div className="max-w-md w-full bg-surface-raised rounded-lg shadow-lg p-8">
             <div className="text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-              <p className="text-gray-600">Validating invitation...</p>
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+              <p className="text-text-muted">Validating invitation...</p>
             </div>
           </div>
         </div>
@@ -150,15 +150,15 @@ export default function InviteAcceptance() {
         <Head>
           <title>Invalid Invitation - Karmyq</title>
         </Head>
-        <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white flex items-center justify-center px-4">
-          <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-8">
+        <div className="min-h-screen bg-gradient-to-b from-primary-light to-surface-raised flex items-center justify-center px-4">
+          <div className="max-w-md w-full bg-surface-raised rounded-lg shadow-lg p-8">
             <div className="text-center">
-              <svg className="w-16 h-16 text-red-500 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-16 h-16 text-error mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-              <h1 className="text-2xl font-bold text-gray-900 mb-2">Invalid Invitation</h1>
-              <p className="text-gray-600 mb-6">{validationError}</p>
-              <Link href="/" className="text-blue-600 hover:underline">
+              <h1 className="text-2xl font-bold text-text mb-2">Invalid Invitation</h1>
+              <p className="text-text-muted mb-6">{validationError}</p>
+              <Link href="/" className="text-primary hover:underline">
                 Return to Home
               </Link>
             </div>
@@ -174,37 +174,37 @@ export default function InviteAcceptance() {
       <Head>
         <title>Join {invitationInfo?.community_name || 'Karmyq'}</title>
       </Head>
-      <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white flex items-center justify-center px-4 py-8">
-        <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-8">
+      <div className="min-h-screen bg-gradient-to-b from-primary-light to-surface-raised flex items-center justify-center px-4 py-8">
+        <div className="max-w-md w-full bg-surface-raised rounded-lg shadow-lg p-8">
           {/* Invitation Info Banner */}
-          <div className="bg-gradient-to-r from-blue-100 to-purple-100 rounded-lg p-4 mb-6 border border-blue-200">
+          <div className="bg-gradient-to-r from-primary-light to-accent-light rounded-lg p-4 mb-6 border border-primary-medium">
             <div className="flex items-center mb-2">
-              <svg className="w-6 h-6 text-blue-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-6 h-6 text-primary mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
               </svg>
-              <h2 className="text-lg font-semibold text-gray-900">You've been invited!</h2>
+              <h2 className="text-lg font-semibold text-text">You've been invited!</h2>
             </div>
-            <p className="text-sm text-gray-700">
-              <span className="font-medium text-blue-700">{invitationInfo?.inviter_name}</span>
+            <p className="text-sm text-text-muted">
+              <span className="font-medium text-primary">{invitationInfo?.inviter_name}</span>
               {' '}has invited you to join{' '}
-              <span className="font-medium text-purple-700">{invitationInfo?.community_name}</span>
+              <span className="font-medium text-accent">{invitationInfo?.community_name}</span>
             </p>
           </div>
 
-          <h1 className="text-3xl font-bold text-center mb-2">Create Your Account</h1>
-          <p className="text-center text-gray-600 mb-8">
+          <h1 className="text-3xl font-bold font-serif text-center mb-2">Create Your Account</h1>
+          <p className="text-center text-text-muted mb-8">
             Join the community and start helping others
           </p>
 
           {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4">
+            <div className="bg-error-light border border-error/20 text-error px-4 py-3 rounded mb-4">
               {error}
             </div>
           )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-text mb-2">
                 Full Name
               </label>
               <input
@@ -212,13 +212,13 @@ export default function InviteAcceptance() {
                 required
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-4 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
                 placeholder="John Doe"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-text mb-2">
                 Email Address
               </label>
               <input
@@ -226,13 +226,13 @@ export default function InviteAcceptance() {
                 required
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-4 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
                 placeholder="john@example.com"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-text mb-2">
                 Password
               </label>
               <input
@@ -240,13 +240,13 @@ export default function InviteAcceptance() {
                 required
                 value={formData.password}
                 onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-4 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
                 placeholder="At least 8 characters"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-text mb-2">
                 Confirm Password
               </label>
               <input
@@ -254,7 +254,7 @@ export default function InviteAcceptance() {
                 required
                 value={formData.confirmPassword}
                 onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-4 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
                 placeholder="Re-enter your password"
               />
             </div>
@@ -262,28 +262,28 @@ export default function InviteAcceptance() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 transition disabled:opacity-50 font-medium"
+              className="w-full py-3 bg-gradient-to-r from-primary to-accent text-white rounded-lg hover:from-primary-dark hover:to-accent-dark transition disabled:opacity-50 font-medium"
             >
               {loading ? 'Creating Account...' : 'Join Community'}
             </button>
           </form>
 
-          <div className="mt-6 pt-6 border-t border-gray-200">
-            <p className="text-center text-sm text-gray-600">
+          <div className="mt-6 pt-6 border-t border-border">
+            <p className="text-center text-sm text-text-muted">
               By creating an account, you agree to our{' '}
-              <Link href="/terms" className="text-blue-600 hover:underline">
+              <Link href="/terms" className="text-primary hover:underline">
                 Terms of Service
               </Link>{' '}
               and{' '}
-              <Link href="/privacy" className="text-blue-600 hover:underline">
+              <Link href="/privacy" className="text-primary hover:underline">
                 Privacy Policy
               </Link>
             </p>
           </div>
 
-          <p className="text-center mt-4 text-gray-600">
+          <p className="text-center mt-4 text-text-muted">
             Already have an account?{' '}
-            <Link href="/login" className="text-blue-600 hover:underline font-medium">
+            <Link href="/login" className="text-primary hover:underline font-medium">
               Login
             </Link>
           </p>

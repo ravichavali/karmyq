@@ -144,13 +144,13 @@ export default function EnhancedAutocomplete({
 
   const getTriggerColor = () => {
     switch (triggerChar) {
-      case '@': return 'bg-blue-50 border-blue-200'
-      case '#': return 'bg-green-50 border-green-200'
+      case '@': return 'bg-primary-light border-primary-medium'
+      case '#': return 'bg-success-light border-success'
       case '$': return 'bg-yellow-50 border-yellow-200'
       case '!': return 'bg-red-50 border-red-200'
       case '..':
-      case '>>': return 'bg-purple-50 border-purple-200'
-      default: return 'bg-gray-50 border-gray-200'
+      case '>>': return 'bg-accent-light border-accent'
+      default: return 'bg-surface border-border'
     }
   }
 
@@ -173,22 +173,22 @@ export default function EnhancedAutocomplete({
       style={position}
     >
       {/* Header */}
-      <div className="px-3 py-2 border-b border-gray-200 bg-white">
+      <div className="px-3 py-2 border-b border-border bg-surface-raised">
         <div className="flex items-center justify-between">
-          <span className="text-xs font-semibold text-gray-700">
+          <span className="text-xs font-semibold text-text-muted">
             {getTriggerLabel()}
           </span>
-          <span className="text-xs text-gray-500">
+          <span className="text-xs text-text-subtle">
             ↑↓ navigate · ↵/Tab select · Esc close
           </span>
         </div>
       </div>
 
       {/* Suggestions List */}
-      <div className="max-h-80 overflow-y-auto bg-white">
+      <div className="max-h-80 overflow-y-auto bg-surface-raised">
         {loading && (
-          <div className="px-3 py-4 text-center text-sm text-gray-500">
-            <div className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
+          <div className="px-3 py-4 text-center text-sm text-text-subtle">
+            <div className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-primary mr-2"></div>
             Searching addresses...
           </div>
         )}
@@ -200,8 +200,8 @@ export default function EnhancedAutocomplete({
             onClick={() => onSelect(suggestion.value, suggestion.lat, suggestion.lng, suggestion.description, suggestion.category)}
             className={`w-full text-left px-3 py-2.5 flex items-start gap-3 transition-colors ${
               index === selectedIndex
-                ? 'bg-blue-100 text-blue-900 border-l-4 border-blue-600'
-                : 'hover:bg-gray-50 text-gray-900 border-l-4 border-transparent'
+                ? 'bg-primary-light text-primary-dark border-l-4 border-primary'
+                : 'hover:bg-surface text-text border-l-4 border-transparent'
             }`}
           >
             {suggestion.icon && (
@@ -211,19 +211,19 @@ export default function EnhancedAutocomplete({
               <div className="font-medium text-sm flex items-center gap-2">
                 {suggestion.label}
                 {suggestion.lat && suggestion.lng && (
-                  <span className="text-xs text-gray-500 font-normal">
+                  <span className="text-xs text-text-subtle font-normal">
                     📍 {suggestion.lat.toFixed(4)}, {suggestion.lng.toFixed(4)}
                   </span>
                 )}
               </div>
               {suggestion.description && (
-                <div className="text-xs text-gray-600 mt-0.5 truncate">
+                <div className="text-xs text-text-muted mt-0.5 truncate">
                   {suggestion.description}
                 </div>
               )}
             </div>
             {index === selectedIndex && (
-              <svg className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+              <svg className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
               </svg>
             )}
@@ -232,8 +232,8 @@ export default function EnhancedAutocomplete({
       </div>
 
       {/* Footer Hint */}
-      <div className="px-3 py-2 bg-gray-50 border-t border-gray-200">
-        <p className="text-xs text-gray-600">
+      <div className="px-3 py-2 bg-surface border-t border-border">
+        <p className="text-xs text-text-muted">
           {triggerChar === '@' && searchQuery.length < 3 ? (
             <span>💡 Type 3+ characters to search real addresses</span>
           ) : (

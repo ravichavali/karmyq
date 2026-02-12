@@ -39,10 +39,10 @@ export default function TrustScorePage() {
   }
 
   const getTrustColor = (score: number) => {
-    if (score >= 80) return 'from-emerald-500 to-green-600'
-    if (score >= 60) return 'from-blue-500 to-cyan-600'
-    if (score >= 40) return 'from-amber-500 to-orange-600'
-    return 'from-slate-400 to-gray-500'
+    if (score >= 80) return 'from-karmyq-green-500 to-karmyq-green-700'
+    if (score >= 60) return 'from-karmyq-green-400 to-karmyq-teal-500'
+    if (score >= 40) return 'from-karmyq-orange-500 to-karmyq-orange-700'
+    return 'from-karmyq-brown-400 to-karmyq-brown-600'
   }
 
   const getTrustLabel = (score: number) => {
@@ -56,7 +56,7 @@ export default function TrustScorePage() {
     return (
       <Layout>
         <div className="min-h-screen flex items-center justify-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
         </div>
       </Layout>
     )
@@ -70,18 +70,18 @@ export default function TrustScorePage() {
         <title>Trust Score - Karmyq</title>
       </Head>
       <Layout>
-        <div className="min-h-screen bg-gray-50 py-8">
+        <div className="min-h-screen bg-surface py-8">
           <div className="container mx-auto px-4 max-w-4xl">
             {/* Header */}
             <div className="mb-6">
               <button
                 onClick={() => router.back()}
-                className="text-blue-600 hover:text-blue-700 mb-4 flex items-center gap-2"
+                className="text-primary hover:text-primary-dark mb-4 flex items-center gap-2"
               >
                 ← Back
               </button>
-              <h1 className="text-3xl font-bold text-gray-900">Your Trust Score</h1>
-              <p className="text-gray-600 mt-2">
+              <h1 className="text-3xl font-bold text-text">Your Trust Score</h1>
+              <p className="text-text-muted mt-2">
                 Your trust score reflects your reliability and engagement in the community
               </p>
             </div>
@@ -91,9 +91,9 @@ export default function TrustScorePage() {
               <div className="text-center">
                 <div className="text-8xl font-bold mb-4">{score}</div>
                 <p className="text-2xl font-semibold opacity-90">{getTrustLabel(score)}</p>
-                <div className="bg-white/20 rounded-full h-3 mt-6 max-w-md mx-auto">
+                <div className="bg-surface-raised/20 rounded-full h-3 mt-6 max-w-md mx-auto">
                   <div
-                    className="bg-white rounded-full h-3 transition-all duration-500"
+                    className="bg-surface-raised rounded-full h-3 transition-all duration-500"
                     style={{ width: `${score}%` }}
                   ></div>
                 </div>
@@ -101,55 +101,55 @@ export default function TrustScorePage() {
             </div>
 
             {/* Trust Score Breakdown */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
-              <h2 className="text-xl font-bold text-gray-900 mb-4">How It's Calculated</h2>
+            <div className="bg-surface-raised rounded-xl shadow-sm border border-border p-6 mb-6">
+              <h2 className="text-xl font-bold text-text mb-4">How It's Calculated</h2>
               <div className="space-y-4">
                 <div>
                   <div className="flex justify-between items-center mb-2">
-                    <span className="text-sm font-medium text-gray-700">Karma Points</span>
-                    <span className="text-sm text-gray-600">40%</span>
+                    <span className="text-sm font-medium text-text-muted">Karma Points</span>
+                    <span className="text-sm text-text-muted">40%</span>
                   </div>
-                  <div className="bg-gray-100 rounded-full h-2">
-                    <div className="bg-blue-500 rounded-full h-2" style={{ width: '40%' }}></div>
-                  </div>
-                </div>
-
-                <div>
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="text-sm font-medium text-gray-700">Exchanges Completed</span>
-                    <span className="text-sm text-gray-600">30%</span>
-                  </div>
-                  <div className="bg-gray-100 rounded-full h-2">
-                    <div className="bg-green-500 rounded-full h-2" style={{ width: '30%' }}></div>
+                  <div className="bg-border-light rounded-full h-2">
+                    <div className="bg-primary rounded-full h-2" style={{ width: '40%' }}></div>
                   </div>
                 </div>
 
                 <div>
                   <div className="flex justify-between items-center mb-2">
-                    <span className="text-sm font-medium text-gray-700">Positive Feedback</span>
-                    <span className="text-sm text-gray-600">20%</span>
+                    <span className="text-sm font-medium text-text-muted">Exchanges Completed</span>
+                    <span className="text-sm text-text-muted">30%</span>
                   </div>
-                  <div className="bg-gray-100 rounded-full h-2">
-                    <div className="bg-purple-500 rounded-full h-2" style={{ width: '20%' }}></div>
+                  <div className="bg-border-light rounded-full h-2">
+                    <div className="bg-success-light0 rounded-full h-2" style={{ width: '30%' }}></div>
                   </div>
                 </div>
 
                 <div>
                   <div className="flex justify-between items-center mb-2">
-                    <span className="text-sm font-medium text-gray-700">Account Age</span>
-                    <span className="text-sm text-gray-600">10%</span>
+                    <span className="text-sm font-medium text-text-muted">Positive Feedback</span>
+                    <span className="text-sm text-text-muted">20%</span>
                   </div>
-                  <div className="bg-gray-100 rounded-full h-2">
-                    <div className="bg-amber-500 rounded-full h-2" style={{ width: '10%' }}></div>
+                  <div className="bg-border-light rounded-full h-2">
+                    <div className="bg-accent rounded-full h-2" style={{ width: '20%' }}></div>
+                  </div>
+                </div>
+
+                <div>
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-sm font-medium text-text-muted">Account Age</span>
+                    <span className="text-sm text-text-muted">10%</span>
+                  </div>
+                  <div className="bg-border-light rounded-full h-2">
+                    <div className="bg-karmyq-orange-500 rounded-full h-2" style={{ width: '10%' }}></div>
                   </div>
                 </div>
               </div>
             </div>
 
             {/* Tips to Improve */}
-            <div className="bg-blue-50 rounded-xl border border-blue-200 p-6">
-              <h2 className="text-lg font-bold text-blue-900 mb-3">💡 Tips to Improve Your Trust Score</h2>
-              <ul className="space-y-2 text-sm text-blue-800">
+            <div className="bg-primary-light rounded-xl border border-primary-medium p-6">
+              <h2 className="text-lg font-bold text-primary-dark mb-3">💡 Tips to Improve Your Trust Score</h2>
+              <ul className="space-y-2 text-sm text-primary-dark">
                 <li className="flex items-start gap-2">
                   <span className="mt-0.5">✓</span>
                   <span>Complete exchanges and mark them as done</span>
