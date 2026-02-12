@@ -93,7 +93,7 @@ describe('Smart Defaults - Progressive Disclosure (Day 6)', () => {
 
       // Should show "General Help" as current request type in the header
       expect(screen.getByText(/Request type:/)).toBeInTheDocument()
-      const typeSpan = screen.getByText('General Help', { selector: 'span.font-medium.text-blue-600' })
+      const typeSpan = screen.getByText('General Help', { selector: 'span.font-medium.text-primary' })
       expect(typeSpan).toBeInTheDocument()
     })
 
@@ -196,7 +196,7 @@ describe('Smart Defaults - Progressive Disclosure (Day 6)', () => {
       expect(screen.queryByText('What type of help do you need?')).not.toBeInTheDocument()
 
       // Should update request type display in header
-      const typeSpan = screen.getByText('Ride', { selector: 'span.font-medium.text-blue-600' })
+      const typeSpan = screen.getByText('Ride', { selector: 'span.font-medium.text-primary' })
       expect(typeSpan).toBeInTheDocument()
     })
   })
@@ -270,7 +270,7 @@ describe('Smart Defaults - Progressive Disclosure (Day 6)', () => {
       })
 
       // Request type should update in header
-      const typeSpan = screen.getByText('Ride', { selector: 'span.font-medium.text-blue-600' })
+      const typeSpan = screen.getByText('Ride', { selector: 'span.font-medium.text-primary' })
       expect(typeSpan).toBeInTheDocument()
     })
 
@@ -302,7 +302,7 @@ describe('Smart Defaults - Progressive Disclosure (Day 6)', () => {
       })
 
       // Should show generic type in header
-      const typeSpan = screen.getByText('General Help', { selector: 'span.font-medium.text-blue-600' })
+      const typeSpan = screen.getByText('General Help', { selector: 'span.font-medium.text-primary' })
       expect(typeSpan).toBeInTheDocument()
     })
   })
@@ -315,7 +315,7 @@ describe('Smart Defaults - Progressive Disclosure (Day 6)', () => {
       })
 
       // Initially shows General Help
-      expect(screen.getByText('General Help', { selector: 'span.font-medium.text-blue-600' })).toBeInTheDocument()
+      expect(screen.getByText('General Help', { selector: 'span.font-medium.text-primary' })).toBeInTheDocument()
 
       // Switch to borrow type
       const expandButton = screen.getByText('Need a specific type?').closest('button')
@@ -329,7 +329,7 @@ describe('Smart Defaults - Progressive Disclosure (Day 6)', () => {
       })
 
       // Header should update to Borrow label from schema
-      const typeSpan = screen.getByText('Borrow', { selector: 'span.font-medium.text-blue-600' })
+      const typeSpan = screen.getByText('Borrow', { selector: 'span.font-medium.text-primary' })
       expect(typeSpan).toBeInTheDocument()
     })
 
