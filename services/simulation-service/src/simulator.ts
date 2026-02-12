@@ -16,26 +16,23 @@ import {
   acceptOfferWorkflow,
   createCommunityWorkflow
 } from './workflows';
-import { loadUserCredentials, getRandomUser, UserCredentials } from './credentials-loader';
+import { initPool, closePool, getRandomUser } from './db-user-loader';
 
 export class Simulator {
   private sessionManager: SessionManager;
   private activeSessions: Map<string, UserSession> = new Map();
   private isRunning: boolean = false;
-  private userCredentials: UserCredentials[] = [];
-  private usedUserIds: Set<string> = new Set();
 
   constructor(private config: SimulationConfig) {
     this.sessionManager = new SessionManager(config);
 
-    // Load user credentials
-    this.userCredentials = loadUserCredentials(config.environment);
-
-    if (this.userCredentials.length === 0) {
-      console.error('❌ No user credentials loaded. Cannot start simulation.');
-      console.error('   Create users first: node create-simulated-users.js --env production --count 20');
-      throw new Error('No user credentials available');
+    if (!config.databaseUrl || !config.jwtSecret) {
+      console.error('❌ DATABASE_URL and JWT_SECRET must be set.');
+      throw new Error('Missing DATABASE_URL or JWT_SECRET');
     }
+
+    // Initialize database connection for loading users
+    initPool(config.databaseUrl, config.jwtSecret);
   }
 
   /**
@@ -67,7 +64,7 @@ export class Simulator {
 
         // Start new sessions if below target
         while (this.activeSessions.size < targetSessions) {
-          const user = this.createSimulatedUser();
+          const user = await this.createSimulatedUser();
           await this.startUserSession(user);
         }
 
@@ -94,61 +91,23 @@ export class Simulator {
     }
 
     this.activeSessions.clear();
+    await closePool();
     console.log('✅ Simulation stopped');
   }
 
   /**
-   * Create a simulated user from loaded credentials
+   * Create a simulated user by querying a random user from the database
    */
-  private createSimulatedUser(): SimulatedUser {
-    // Get a random user that's not currently active
-    const availableUsers = this.userCredentials.filter(
-      u => !this.usedUserIds.has(u.userId)
-    );
-
-    if (availableUsers.length === 0) {
-      // All users are active, reuse a random one
-      const userCreds = getRandomUser(this.userCredentials);
-      if (!userCreds) {
-        throw new Error('No user credentials available');
-      }
-
-      // Assign profile based on credentials
-      const profile = assignProfile(this.config.users.profiles);
-
-      return {
-        id: userCreds.userId,
-        email: userCreds.email,
-        name: userCreds.name,
-        password: userCreds.password,
-        profile
-      };
-    }
-
-    // Use an available user
-    const userCreds = availableUsers[randomInt(0, availableUsers.length - 1)];
-    this.usedUserIds.add(userCreds.userId);
-
-    // Assign profile based on credentials
+  private async createSimulatedUser(): Promise<SimulatedUser> {
+    const dbUser = await getRandomUser();
     const profile = assignProfile(this.config.users.profiles);
 
     return {
-      id: userCreds.userId,
-      email: userCreds.email,
-      name: userCreds.name,
-      password: userCreds.password,
+      id: dbUser.id,
+      email: dbUser.email,
+      name: dbUser.name,
       profile
     };
-  }
-
-  /**
-   * Generate random name
-   */
-  private generateRandomName(): string {
-    const firstNames = ['Alex', 'Sam', 'Jordan', 'Taylor', 'Casey', 'Morgan', 'Riley', 'Avery'];
-    const lastNames = ['Smith', 'Johnson', 'Williams', 'Brown', 'Davis', 'Miller', 'Wilson', 'Moore'];
-
-    return `${firstNames[randomInt(0, firstNames.length - 1)]} ${lastNames[randomInt(0, lastNames.length - 1)]}`;
   }
 
   /**

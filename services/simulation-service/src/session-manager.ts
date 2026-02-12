@@ -4,6 +4,7 @@
 
 import { SimulatedUser, UserSession, ActionLog, SimulationConfig } from './types';
 import { ApiClient } from './api-client';
+import { generateToken } from './db-user-loader';
 import { delay } from './utils';
 
 export class SessionManager {
@@ -20,15 +21,11 @@ export class SessionManager {
     // Create dedicated API client for this user
     const client = new ApiClient(this.config.apiBaseUrl);
 
-    // Login
+    // Generate JWT token directly (bypasses login API)
     try {
-      if (!user.password) {
-        throw new Error('User password not provided');
-      }
-
-      const loginData = await client.login(user.email, user.password);
-      user.token = loginData.token;
-      client.setToken(loginData.token);
+      const token = await generateToken({ id: user.id, email: user.email, name: user.name });
+      user.token = token;
+      client.setToken(token);
 
       const session: UserSession = {
         user,

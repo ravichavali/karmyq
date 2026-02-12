@@ -89,6 +89,8 @@ export interface SimulationConfig {
     maxRetries: number;
   };
   apiBaseUrl: string;
+  databaseUrl: string;
+  jwtSecret: string;
 }
 
 export interface WorkflowContext {

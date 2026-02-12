@@ -24,6 +24,8 @@ function loadConfig(): SimulationConfig {
     apiBaseUrl: process.env.API_BASE_URL || defaultConfig.apiBaseUrl,
     enabled: process.env.SIMULATION_ENABLED === 'true' || defaultConfig.enabled,
     environment: (process.env.ENVIRONMENT as any) || defaultConfig.environment,
+    databaseUrl: process.env.DATABASE_URL || '',
+    jwtSecret: process.env.JWT_SECRET || '',
 
     // Override users config from environment
     users: {
