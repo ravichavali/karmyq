@@ -42,8 +42,9 @@ async function main() {
   console.log('  Extract User Credentials for Simulation');
   console.log('='.repeat(60) + '\n');
 
-  // Connect to production database
-  const dbUrl = process.env.DATABASE_URL || 'postgresql://karmyq:karmyq_password@138.2.152.79:5432/karmyq';
+  // Connect to local database (when running on production server)
+  // Or use DATABASE_URL env var if set
+  const dbUrl = process.env.DATABASE_URL || 'postgresql://karmyq:karmyq_password@localhost:5432/karmyq';
   const pool = new Pool({ connectionString: dbUrl });
 
   try {
