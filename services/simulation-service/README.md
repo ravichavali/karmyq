@@ -115,6 +115,27 @@ See [src/config/default.json](src/config/default.json) for full configuration op
 
 ---
 
+## Setup
+
+### 1. Extract User Credentials
+
+The simulation service needs real user accounts from the database. Extract credentials by running this on the production server:
+
+```bash
+cd services/simulation-service
+node extract-user-credentials.js
+```
+
+This creates `.env.production.users` with 100 user accounts from the database. All seeded users share the password: `password123`.
+
+**Note**: This file contains sensitive credentials. Never commit it to git (already in `.gitignore`).
+
+### 2. Configure Environment
+
+See [Configuration](#configuration) section below.
+
+---
+
 ## Usage
 
 ### Development
