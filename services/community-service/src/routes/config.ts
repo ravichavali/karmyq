@@ -47,6 +47,10 @@ router.get('/:id/config', async (req: Request, res: Response) => {
         new_member_karma_lockout_days,
         join_approval_required,
         joining_counts_as_interaction,
+        feed_weight_skill_match,
+        feed_weight_trust_distance,
+        feed_weight_community_relevance,
+        feed_weight_urgency,
         template_source,
         created_at,
         updated_at
@@ -67,6 +71,10 @@ router.get('/:id/config', async (req: Request, res: Response) => {
     // Convert decimal fields to floats
     config.trust_depth_weight = parseFloat(config.trust_depth_weight);
     config.trust_breadth_weight = parseFloat(config.trust_breadth_weight);
+    config.feed_weight_skill_match = parseFloat(config.feed_weight_skill_match);
+    config.feed_weight_trust_distance = parseFloat(config.feed_weight_trust_distance);
+    config.feed_weight_community_relevance = parseFloat(config.feed_weight_community_relevance);
+    config.feed_weight_urgency = parseFloat(config.feed_weight_urgency);
 
     res.json({
       success: true,
@@ -143,6 +151,10 @@ router.put('/:id/config', async (req: Request, res: Response) => {
     // Convert decimal fields to floats
     existingConfig.trust_depth_weight = parseFloat(existingConfig.trust_depth_weight);
     existingConfig.trust_breadth_weight = parseFloat(existingConfig.trust_breadth_weight);
+    existingConfig.feed_weight_skill_match = parseFloat(existingConfig.feed_weight_skill_match);
+    existingConfig.feed_weight_trust_distance = parseFloat(existingConfig.feed_weight_trust_distance);
+    existingConfig.feed_weight_community_relevance = parseFloat(existingConfig.feed_weight_community_relevance);
+    existingConfig.feed_weight_urgency = parseFloat(existingConfig.feed_weight_urgency);
 
     // Merge and validate
     const validation = mergeAndValidateConfig(existingConfig, configUpdates);
@@ -178,8 +190,12 @@ router.put('/:id/config', async (req: Request, res: Response) => {
          new_member_karma_lockout_days = $15,
          join_approval_required = $16,
          joining_counts_as_interaction = $17,
+         feed_weight_skill_match = $18,
+         feed_weight_trust_distance = $19,
+         feed_weight_community_relevance = $20,
+         feed_weight_urgency = $21,
          updated_at = CURRENT_TIMESTAMP
-       WHERE community_id = $18
+       WHERE community_id = $22
        RETURNING *`,
       [
         mergedConfig.member_cap,
@@ -199,6 +215,10 @@ router.put('/:id/config', async (req: Request, res: Response) => {
         mergedConfig.new_member_karma_lockout_days,
         mergedConfig.join_approval_required,
         mergedConfig.joining_counts_as_interaction,
+        mergedConfig.feed_weight_skill_match,
+        mergedConfig.feed_weight_trust_distance,
+        mergedConfig.feed_weight_community_relevance,
+        mergedConfig.feed_weight_urgency,
         communityId,
       ]
     );
@@ -521,6 +541,10 @@ router.get('/configs/public', async (req: Request, res: Response) => {
         new_member_karma_lockout_days: row.new_member_karma_lockout_days,
         join_approval_required: row.join_approval_required,
         joining_counts_as_interaction: row.joining_counts_as_interaction,
+        feed_weight_skill_match: parseFloat(row.feed_weight_skill_match),
+        feed_weight_trust_distance: parseFloat(row.feed_weight_trust_distance),
+        feed_weight_community_relevance: parseFloat(row.feed_weight_community_relevance),
+        feed_weight_urgency: parseFloat(row.feed_weight_urgency),
       },
     }));
 

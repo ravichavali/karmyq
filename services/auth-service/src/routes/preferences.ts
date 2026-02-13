@@ -360,4 +360,134 @@ router.delete('/interests/:id', authMiddleware, async (req: Request, res: Respon
   }
 });
 
+/**
+ * GET /preferences/feed
+ * Get user's feed visibility preferences (ADR-022)
+ */
+router.get('/feed', authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user?.userId;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required',
+      });
+    }
+
+    const result = await query(
+      `SELECT feed_show_trust_network, feed_trust_network_max_degrees,
+              feed_show_platform, feed_platform_categories, updated_at
+       FROM auth.user_feed_preferences
+       WHERE user_id = $1`,
+      [userId]
+    );
+
+    if (result.rowCount === 0) {
+      // Return defaults
+      return res.json({
+        success: true,
+        data: {
+          feed_show_trust_network: true,
+          feed_trust_network_max_degrees: 3,
+          feed_show_platform: false,
+          feed_platform_categories: ['digital', 'questions'],
+          isDefault: true,
+        },
+      });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        ...result.rows[0],
+        isDefault: false,
+      },
+    });
+  } catch (error: any) {
+    console.error('Error fetching feed preferences:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch feed preferences',
+      error: error.message,
+    });
+  }
+});
+
+/**
+ * PUT /preferences/feed
+ * Update user's feed visibility preferences (ADR-022)
+ */
+router.put('/feed', authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user?.userId;
+    const {
+      feed_show_trust_network,
+      feed_trust_network_max_degrees,
+      feed_show_platform,
+      feed_platform_categories,
+    } = req.body;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required',
+      });
+    }
+
+    // Validate max_degrees if provided
+    if (feed_trust_network_max_degrees !== undefined) {
+      const degrees = parseInt(feed_trust_network_max_degrees);
+      if (isNaN(degrees) || degrees < 1 || degrees > 6) {
+        return res.status(400).json({
+          success: false,
+          message: 'feed_trust_network_max_degrees must be between 1 and 6',
+        });
+      }
+    }
+
+    // Validate platform_categories if provided
+    if (feed_platform_categories !== undefined && !Array.isArray(feed_platform_categories)) {
+      return res.status(400).json({
+        success: false,
+        message: 'feed_platform_categories must be an array',
+      });
+    }
+
+    // Upsert feed preferences
+    const result = await query(
+      `INSERT INTO auth.user_feed_preferences
+        (user_id, feed_show_trust_network, feed_trust_network_max_degrees, feed_show_platform, feed_platform_categories)
+       VALUES ($1, $2, $3, $4, $5)
+       ON CONFLICT (user_id) DO UPDATE SET
+        feed_show_trust_network = COALESCE($2, auth.user_feed_preferences.feed_show_trust_network),
+        feed_trust_network_max_degrees = COALESCE($3, auth.user_feed_preferences.feed_trust_network_max_degrees),
+        feed_show_platform = COALESCE($4, auth.user_feed_preferences.feed_show_platform),
+        feed_platform_categories = COALESCE($5, auth.user_feed_preferences.feed_platform_categories),
+        updated_at = CURRENT_TIMESTAMP
+       RETURNING *`,
+      [
+        userId,
+        feed_show_trust_network ?? true,
+        feed_trust_network_max_degrees ?? 3,
+        feed_show_platform ?? false,
+        feed_platform_categories ? JSON.stringify(feed_platform_categories) : JSON.stringify(['digital', 'questions']),
+      ]
+    );
+
+    res.json({
+      success: true,
+      data: result.rows[0],
+      message: 'Feed preferences updated successfully',
+    });
+  } catch (error: any) {
+    console.error('Error updating feed preferences:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update feed preferences',
+      error: error.message,
+    });
+  }
+});
+
 export default router;

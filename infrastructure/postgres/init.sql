@@ -149,6 +149,20 @@ CREATE TABLE auth.user_privacy_settings (
 
 CREATE INDEX idx_user_privacy_settings_user_id ON auth.user_privacy_settings(user_id);
 
+-- ADR-022: User feed preferences for multi-tier visibility
+CREATE TABLE auth.user_feed_preferences (
+    user_id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+    feed_show_trust_network BOOLEAN DEFAULT true,
+    feed_trust_network_max_degrees INTEGER DEFAULT 3
+      CHECK (feed_trust_network_max_degrees BETWEEN 1 AND 6),
+    feed_show_platform BOOLEAN DEFAULT false,  -- Opt-in to explore
+    feed_platform_categories JSONB DEFAULT '["digital", "questions"]'::jsonb,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_user_feed_prefs_user ON auth.user_feed_preferences(user_id);
+
 -- ============= COMMUNITY SERVICE SCHEMA =============
 CREATE SCHEMA IF NOT EXISTS communities;
 
@@ -163,6 +177,7 @@ CREATE TABLE communities.communities (
     creator_id UUID NOT NULL REFERENCES auth.users(id),
     access_type VARCHAR(50) DEFAULT 'public',
     status VARCHAR(50) DEFAULT 'active',
+    default_request_scope visibility_scope_enum DEFAULT 'community',  -- ADR-022: Default scope for new requests
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -226,6 +241,9 @@ CREATE SCHEMA IF NOT EXISTS requests;
 -- v9.0: Polymorphic request type enum (matches migration 009)
 CREATE TYPE request_type_enum AS ENUM ('generic', 'ride', 'borrow', 'service', 'event');
 
+-- ADR-022: Visibility scope enum for multi-tier feed
+CREATE TYPE visibility_scope_enum AS ENUM ('community', 'trust_network', 'platform');
+
 CREATE TABLE requests.help_requests (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     requester_id UUID NOT NULL REFERENCES auth.users(id),
@@ -241,6 +259,8 @@ CREATE TABLE requests.help_requests (
     request_type request_type_enum NOT NULL DEFAULT 'generic',  -- v9.0: Polymorphic request type (matches migration 009)
     payload JSONB DEFAULT '{}',  -- v9.0: Type-specific structured data
     requirements JSONB DEFAULT '{}',  -- v9.0: Structured requirements
+    visibility_scope visibility_scope_enum NOT NULL DEFAULT 'community',  -- ADR-022: Who can see this request
+    visibility_max_degrees INTEGER DEFAULT 3 CHECK (visibility_max_degrees BETWEEN 1 AND 6),  -- ADR-022: Max trust degrees for trust_network scope
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -285,6 +305,7 @@ CREATE TABLE requests.matches (
 CREATE INDEX idx_requests_requester_id ON requests.help_requests(requester_id);
 CREATE INDEX idx_requests_payload ON requests.help_requests USING GIN (payload);  -- v9.0: Fast searching in JSONB payload
 CREATE INDEX idx_requests_type ON requests.help_requests(request_type);  -- v9.0: Fast filtering by request type
+CREATE INDEX idx_requests_visibility ON requests.help_requests(visibility_scope) WHERE status = 'open' AND expired = FALSE;  -- ADR-022: Feed tier filtering
 CREATE INDEX idx_request_communities_request ON requests.request_communities(request_id);
 CREATE INDEX idx_request_communities_community ON requests.request_communities(community_id);
 CREATE INDEX idx_offers_community_id ON requests.help_offers(community_id);
@@ -850,6 +871,12 @@ CREATE TABLE communities.community_configs (
     join_approval_required BOOLEAN DEFAULT TRUE,
     joining_counts_as_interaction BOOLEAN DEFAULT TRUE,
 
+    -- Feed Scoring Weights (ADR-031: must sum to 1.0)
+    feed_weight_skill_match DECIMAL(3,2) DEFAULT 0.40 CHECK (feed_weight_skill_match BETWEEN 0.0 AND 1.0),
+    feed_weight_trust_distance DECIMAL(3,2) DEFAULT 0.25 CHECK (feed_weight_trust_distance BETWEEN 0.0 AND 1.0),
+    feed_weight_community_relevance DECIMAL(3,2) DEFAULT 0.20 CHECK (feed_weight_community_relevance BETWEEN 0.0 AND 1.0),
+    feed_weight_urgency DECIMAL(3,2) DEFAULT 0.15 CHECK (feed_weight_urgency BETWEEN 0.0 AND 1.0),
+
     -- Metadata
     template_source VARCHAR(255),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -858,6 +885,10 @@ CREATE TABLE communities.community_configs (
     -- Validation constraint: trust weights must sum to 1.0
     CONSTRAINT trust_weights_sum CHECK (
         ABS((trust_depth_weight + trust_breadth_weight) - 1.0) < 0.01
+    ),
+    -- Validation constraint: feed weights must sum to 1.0
+    CONSTRAINT feed_weights_sum CHECK (
+        ABS((feed_weight_skill_match + feed_weight_trust_distance + feed_weight_community_relevance + feed_weight_urgency) - 1.0) < 0.01
     )
 );
 
@@ -885,9 +916,9 @@ CREATE INDEX idx_config_templates_is_public ON communities.config_templates(is_p
 
 -- Seed Data: 3 Starter Templates
 INSERT INTO communities.config_templates (name, description, config_json) VALUES
-('Cohousing Default', 'High-trust, balanced participation, relationship-focused', '{"member_cap": 150, "visibility_mode": "public", "outsider_response_allowed": true, "enabled_request_types": [{"name": "meal_share", "description": "Share meals or cooking", "karma_multiplier": 1.0}, {"name": "tool_borrow", "description": "Borrow tools or equipment", "karma_multiplier": 0.8}, {"name": "ride_share", "description": "Share rides or transportation", "karma_multiplier": 1.2}, {"name": "childcare", "description": "Help with childcare or babysitting", "karma_multiplier": 1.5}], "karma_split_helper": 60, "karma_split_requestor": 40, "base_karma_pool_per_request": 100, "karma_decay_half_life_days": 0, "trust_depth_weight": 0.6, "trust_breadth_weight": 0.4, "trust_decay_half_life_days": 180, "trust_path_max_hops": 3, "min_interactions_for_trust": 1, "request_approval_required": false, "new_member_karma_lockout_days": 0, "join_approval_required": true, "joining_counts_as_interaction": true}'::jsonb),
-('Neighborhood Cautious', 'Boundary-conscious, helper-focused, gradual trust-building', '{"member_cap": 100, "visibility_mode": "members_only", "outsider_response_allowed": false, "enabled_request_types": [{"name": "skill_share", "description": "Share skills or expertise", "karma_multiplier": 1.0}, {"name": "errand_help", "description": "Help with errands or tasks", "karma_multiplier": 0.9}, {"name": "pet_sitting", "description": "Pet sitting or care", "karma_multiplier": 1.1}], "karma_split_helper": 80, "karma_split_requestor": 20, "base_karma_pool_per_request": 100, "karma_decay_half_life_days": 0, "trust_depth_weight": 0.7, "trust_breadth_weight": 0.3, "trust_decay_half_life_days": 90, "trust_path_max_hops": 2, "min_interactions_for_trust": 3, "request_approval_required": true, "new_member_karma_lockout_days": 7, "join_approval_required": true, "joining_counts_as_interaction": false}'::jsonb),
-('Experimental Reciprocal', 'Experimental gift economy with equal karma split', '{"member_cap": 50, "visibility_mode": "hybrid", "outsider_response_allowed": false, "enabled_request_types": [{"name": "general_help", "description": "General help or support", "karma_multiplier": 1.0}], "karma_split_helper": 50, "karma_split_requestor": 50, "base_karma_pool_per_request": 100, "karma_decay_half_life_days": 0, "trust_depth_weight": 0.5, "trust_breadth_weight": 0.5, "trust_decay_half_life_days": 30, "trust_path_max_hops": 3, "min_interactions_for_trust": 1, "request_approval_required": false, "new_member_karma_lockout_days": 0, "join_approval_required": false, "joining_counts_as_interaction": true}'::jsonb);
+('Cohousing Default', 'High-trust, balanced participation, relationship-focused', '{"member_cap": 150, "visibility_mode": "public", "outsider_response_allowed": true, "enabled_request_types": [{"name": "meal_share", "description": "Share meals or cooking", "karma_multiplier": 1.0}, {"name": "tool_borrow", "description": "Borrow tools or equipment", "karma_multiplier": 0.8}, {"name": "ride_share", "description": "Share rides or transportation", "karma_multiplier": 1.2}, {"name": "childcare", "description": "Help with childcare or babysitting", "karma_multiplier": 1.5}], "karma_split_helper": 60, "karma_split_requestor": 40, "base_karma_pool_per_request": 100, "karma_decay_half_life_days": 0, "trust_depth_weight": 0.6, "trust_breadth_weight": 0.4, "trust_decay_half_life_days": 180, "trust_path_max_hops": 3, "min_interactions_for_trust": 1, "request_approval_required": false, "new_member_karma_lockout_days": 0, "join_approval_required": true, "joining_counts_as_interaction": true, "feed_weight_skill_match": 0.40, "feed_weight_trust_distance": 0.25, "feed_weight_community_relevance": 0.20, "feed_weight_urgency": 0.15}'::jsonb),
+('Neighborhood Cautious', 'Boundary-conscious, helper-focused, gradual trust-building', '{"member_cap": 100, "visibility_mode": "members_only", "outsider_response_allowed": false, "enabled_request_types": [{"name": "skill_share", "description": "Share skills or expertise", "karma_multiplier": 1.0}, {"name": "errand_help", "description": "Help with errands or tasks", "karma_multiplier": 0.9}, {"name": "pet_sitting", "description": "Pet sitting or care", "karma_multiplier": 1.1}], "karma_split_helper": 80, "karma_split_requestor": 20, "base_karma_pool_per_request": 100, "karma_decay_half_life_days": 0, "trust_depth_weight": 0.7, "trust_breadth_weight": 0.3, "trust_decay_half_life_days": 90, "trust_path_max_hops": 2, "min_interactions_for_trust": 3, "request_approval_required": true, "new_member_karma_lockout_days": 7, "join_approval_required": true, "joining_counts_as_interaction": false, "feed_weight_skill_match": 0.30, "feed_weight_trust_distance": 0.35, "feed_weight_community_relevance": 0.20, "feed_weight_urgency": 0.15}'::jsonb),
+('Experimental Reciprocal', 'Experimental gift economy with equal karma split', '{"member_cap": 50, "visibility_mode": "hybrid", "outsider_response_allowed": false, "enabled_request_types": [{"name": "general_help", "description": "General help or support", "karma_multiplier": 1.0}], "karma_split_helper": 50, "karma_split_requestor": 50, "base_karma_pool_per_request": 100, "karma_decay_half_life_days": 0, "trust_depth_weight": 0.5, "trust_breadth_weight": 0.5, "trust_decay_half_life_days": 30, "trust_path_max_hops": 3, "min_interactions_for_trust": 1, "request_approval_required": false, "new_member_karma_lockout_days": 0, "join_approval_required": false, "joining_counts_as_interaction": true, "feed_weight_skill_match": 0.35, "feed_weight_trust_distance": 0.20, "feed_weight_community_relevance": 0.30, "feed_weight_urgency": 0.15}'::jsonb);
 
 -- Trigger: Update updated_at on config changes
 CREATE OR REPLACE FUNCTION communities.update_community_config_timestamp()

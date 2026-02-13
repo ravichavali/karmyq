@@ -427,6 +427,114 @@ describe('Community Configuration Validation', () => {
     });
   });
 
+  describe('Feed Weight Validation (ADR-031)', () => {
+    it('should accept valid feed weights that sum to 1.0', () => {
+      const config = {
+        feed_weight_skill_match: 0.40,
+        feed_weight_trust_distance: 0.25,
+        feed_weight_community_relevance: 0.20,
+        feed_weight_urgency: 0.15,
+      };
+
+      const result = validateCommunityConfig(config);
+      expect(result.isValid).toBe(true);
+      expect(result.errors).toHaveLength(0);
+    });
+
+    it('should reject feed weights that do not sum to 1.0', () => {
+      const config = {
+        feed_weight_skill_match: 0.50,
+        feed_weight_trust_distance: 0.30,
+        feed_weight_community_relevance: 0.20,
+        feed_weight_urgency: 0.20, // Sum = 1.2
+      };
+
+      const result = validateCommunityConfig(config);
+      expect(result.isValid).toBe(false);
+      expect(result.errors).toContainEqual(
+        expect.objectContaining({
+          field: 'feed_weights',
+          message: expect.stringContaining('must sum to 1.0'),
+        })
+      );
+    });
+
+    it('should reject individual feed weight outside 0.0-1.0', () => {
+      const config = {
+        feed_weight_skill_match: 1.5,
+      };
+
+      const result = validateCommunityConfig(config);
+      expect(result.isValid).toBe(false);
+      expect(result.errors).toContainEqual(
+        expect.objectContaining({
+          field: 'feed_weight_skill_match',
+          message: expect.stringContaining('0.0 and 1.0'),
+        })
+      );
+    });
+
+    it('should reject negative feed weight', () => {
+      const config = {
+        feed_weight_urgency: -0.1,
+      };
+
+      const result = validateCommunityConfig(config);
+      expect(result.isValid).toBe(false);
+      expect(result.errors).toContainEqual(
+        expect.objectContaining({
+          field: 'feed_weight_urgency',
+        })
+      );
+    });
+
+    it('should allow partial feed weight updates (no sum check)', () => {
+      // When only some weights are provided, skip the sum validation
+      const config = {
+        feed_weight_skill_match: 0.50,
+      };
+
+      const result = validateCommunityConfig(config);
+      expect(result.isValid).toBe(true);
+    });
+
+    it('should accept trust-focused community weights', () => {
+      const config = {
+        feed_weight_skill_match: 0.20,
+        feed_weight_trust_distance: 0.50,
+        feed_weight_community_relevance: 0.15,
+        feed_weight_urgency: 0.15,
+      };
+
+      const result = validateCommunityConfig(config);
+      expect(result.isValid).toBe(true);
+    });
+
+    it('should accept all weight on one factor', () => {
+      const config = {
+        feed_weight_skill_match: 1.00,
+        feed_weight_trust_distance: 0.00,
+        feed_weight_community_relevance: 0.00,
+        feed_weight_urgency: 0.00,
+      };
+
+      const result = validateCommunityConfig(config);
+      expect(result.isValid).toBe(true);
+    });
+
+    it('should allow feed weight tolerance of ±0.01', () => {
+      const config = {
+        feed_weight_skill_match: 0.40,
+        feed_weight_trust_distance: 0.25,
+        feed_weight_community_relevance: 0.20,
+        feed_weight_urgency: 0.155, // Sum = 1.005, within tolerance
+      };
+
+      const result = validateCommunityConfig(config);
+      expect(result.isValid).toBe(true);
+    });
+  });
+
   describe('Full Configuration Validation', () => {
     it('should validate all fields in a complete configuration', () => {
       const config = {
@@ -449,6 +557,10 @@ describe('Community Configuration Validation', () => {
         new_member_karma_lockout_days: 0,
         join_approval_required: true,
         joining_counts_as_interaction: true,
+        feed_weight_skill_match: 0.40,
+        feed_weight_trust_distance: 0.25,
+        feed_weight_community_relevance: 0.20,
+        feed_weight_urgency: 0.15,
       };
 
       const result = validateCommunityConfig(config);

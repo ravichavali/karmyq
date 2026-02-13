@@ -119,3 +119,181 @@ export function applyUrgencyBonus(urgency: string, baseScore: number): number {
 
   return baseScore + (bonuses[urgency as keyof typeof bonuses] || 0);
 }
+
+// ============= Feed Scoring (ADR-031) =============
+
+import type { FeedScoringWeights, FeedScoreInput, FeedScoreResult, TierResolutionInput, VisibilityScope } from './types';
+
+/** Default feed scoring weights (used when no community config exists) */
+export const DEFAULT_FEED_WEIGHTS: FeedScoringWeights = {
+  feed_weight_skill_match: 0.40,
+  feed_weight_trust_distance: 0.25,
+  feed_weight_community_relevance: 0.20,
+  feed_weight_urgency: 0.15,
+};
+
+/**
+ * Calculate weighted feed score from individual signal scores.
+ *
+ * Formula: score = skill_match × W_skill + trust_distance × W_trust
+ *                + community_relevance × W_community + urgency × W_urgency
+ *
+ * All input scores are 0-100. Weights come from community config (sum to 1.0).
+ * Output is 0-100.
+ */
+export function calculateFeedScore(
+  input: FeedScoreInput,
+  weights: FeedScoringWeights = DEFAULT_FEED_WEIGHTS
+): FeedScoreResult {
+  // Clamp all inputs to 0-100
+  const clamp = (v: number) => Math.max(0, Math.min(100, v));
+
+  const skill = clamp(input.skillMatchScore);
+  const trust = clamp(input.trustDistanceScore);
+  const community = clamp(input.communityRelevanceScore);
+  const urgency = clamp(input.urgencyScore);
+
+  const score =
+    skill * weights.feed_weight_skill_match +
+    trust * weights.feed_weight_trust_distance +
+    community * weights.feed_weight_community_relevance +
+    urgency * weights.feed_weight_urgency;
+
+  return {
+    score: Math.round(score * 100) / 100,
+    breakdown: {
+      skillMatch: { raw: skill, weighted: Math.round(skill * weights.feed_weight_skill_match * 100) / 100 },
+      trustDistance: { raw: trust, weighted: Math.round(trust * weights.feed_weight_trust_distance * 100) / 100 },
+      communityRelevance: { raw: community, weighted: Math.round(community * weights.feed_weight_community_relevance * 100) / 100 },
+      urgency: { raw: urgency, weighted: Math.round(urgency * weights.feed_weight_urgency * 100) / 100 },
+    },
+    weights,
+  };
+}
+
+/**
+ * Score urgency as a 0-100 value (for feed scoring).
+ * Different from applyUrgencyBonus which adds a bonus to an existing score.
+ */
+export function scoreUrgency(urgency: string): number {
+  const scores: Record<string, number> = {
+    high: 100,
+    medium: 60,
+    low: 30,
+  };
+  return scores[urgency] ?? 30;
+}
+
+/**
+ * Score community relevance based on whether the request type matches
+ * the community's enabled request types.
+ *
+ * @param requestType - The request's type (e.g. 'service', 'ride', 'generic')
+ * @param enabledTypes - Community's enabled_request_types from config
+ * @returns 0-100 score
+ */
+export function scoreCommunityRelevance(
+  requestType: string,
+  enabledTypes: Array<{ name: string; karma_multiplier?: number }> | null | undefined
+): number {
+  // No community types configured → neutral (all types welcome)
+  if (!enabledTypes || enabledTypes.length === 0) {
+    return 50;
+  }
+
+  // Check if request type matches any enabled type (case-insensitive)
+  const match = enabledTypes.find(
+    (t) => t.name.toLowerCase() === requestType.toLowerCase()
+  );
+
+  if (match) {
+    // Matched — boost by karma_multiplier if available (1.0 = 80, 1.5 = 100, 0.5 = 60)
+    const multiplier = match.karma_multiplier ?? 1.0;
+    return Math.min(100, Math.round(60 + multiplier * 20));
+  }
+
+  // Request type not in community's enabled types → low relevance
+  return 20;
+}
+
+/**
+ * Convert trust path degrees of separation to a 0-100 score.
+ *
+ * Closer connections = higher trust score:
+ * - 1 degree (direct connection): 100
+ * - 2 degrees: 75
+ * - 3 degrees: 50
+ * - 4 degrees: 25
+ * - null/unconnected: 10 (still gives some baseline chance)
+ *
+ * @param degrees - Degrees of separation (1-4, or null if unconnected)
+ * @returns 0-100 trust distance score
+ */
+export function scoreTrustDistance(degrees: number | null | undefined): number {
+  if (degrees == null) return 10;
+
+  const scores: Record<number, number> = {
+    1: 100,
+    2: 75,
+    3: 50,
+    4: 25,
+  };
+
+  return scores[degrees] ?? 10;
+}
+
+// ============= Multi-Tier Visibility (ADR-022) =============
+
+/** Valid visibility scopes */
+export const VALID_VISIBILITY_SCOPES: VisibilityScope[] = ['community', 'trust_network', 'platform'];
+
+/** Default user feed preferences */
+export const DEFAULT_FEED_PREFERENCES = {
+  feed_show_trust_network: true,
+  feed_trust_network_max_degrees: 3,
+  feed_show_platform: false,
+  feed_platform_categories: ['digital', 'questions'],
+};
+
+/**
+ * Determine which tier a request belongs to for the current user.
+ *
+ * Priority: community > trust_network > platform > null (filtered out).
+ *
+ * - Community tier: Request is in one of user's communities (always shown).
+ * - Trust network tier: Request has `trust_network` or `platform` scope,
+ *   user has trust path within degree limits, and user has trust network enabled.
+ * - Platform tier: Request has `platform` scope and user has platform enabled.
+ *
+ * @returns The source tier, or null if the request should be filtered out.
+ */
+export function resolveSourceTier(input: TierResolutionInput): VisibilityScope | null {
+  // Tier 1: Community — always shown
+  if (input.inUserCommunity) {
+    return 'community';
+  }
+
+  // Tier 2: Trust network — wider scope + trust path within limits
+  if (
+    input.feedPrefs.feed_show_trust_network &&
+    input.visibilityScope !== 'community' &&
+    input.trustDegrees !== null &&
+    input.trustDegrees <= Math.min(
+      input.visibilityMaxDegrees,
+      input.feedPrefs.feed_trust_network_max_degrees
+    )
+  ) {
+    return 'trust_network';
+  }
+
+  // Tier 3: Platform — opt-in
+  if (
+    input.feedPrefs.feed_show_platform &&
+    input.visibilityScope === 'platform'
+  ) {
+    return 'platform';
+  }
+
+  // Does not qualify for any tier
+  return null;
+}

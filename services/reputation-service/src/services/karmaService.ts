@@ -8,106 +8,199 @@ interface MatchCompletionData {
   responder_id: string;
 }
 
-// Karma points configuration
-const KARMA_CONFIG = {
+// Default karma points (used when community has no config)
+const KARMA_DEFAULTS = {
   HELP_PROVIDED: 10,    // Points for providing help
   HELP_RECEIVED: 5,     // Points for successfully receiving help
   FIRST_HELP: 15,       // Bonus for first time helping in a community
   MILESTONE_10: 25,     // Bonus for 10 completed exchanges
   MILESTONE_50: 50,     // Bonus for 50 completed exchanges
   MILESTONE_100: 100,   // Bonus for 100 completed exchanges
+  BASE_KARMA_POOL: 100, // Default base karma pool per request
 };
 
+// Max communities to award karma in per match (prevents excessive karma for users in many communities)
+const MAX_COMMUNITIES_PER_KARMA_AWARD = 3;
+
+/**
+ * Get community's karma config (splits, base pool) from community_configs.
+ * Falls back to defaults if no config exists.
+ */
+async function getCommunityKarmaConfig(community_id: string) {
+  const result = await query(
+    `SELECT karma_split_helper, karma_split_requestor, base_karma_pool_per_request
+     FROM communities.community_configs
+     WHERE community_id = $1`,
+    [community_id]
+  );
+
+  if (result.rowCount === 0) {
+    return {
+      karma_split_helper: 60,
+      karma_split_requestor: 40,
+      base_karma_pool: KARMA_DEFAULTS.BASE_KARMA_POOL,
+    };
+  }
+
+  const row = result.rows[0];
+  return {
+    karma_split_helper: row.karma_split_helper ?? 60,
+    karma_split_requestor: row.karma_split_requestor ?? 40,
+    base_karma_pool: row.base_karma_pool_per_request ?? KARMA_DEFAULTS.BASE_KARMA_POOL,
+  };
+}
+
+/**
+ * Find communities where BOTH requester and helper are active members,
+ * intersected with the communities the request was posted to.
+ * Returns up to MAX_COMMUNITIES_PER_KARMA_AWARD communities, prioritized by
+ * the user's existing karma (rewards continued participation).
+ */
+async function getSharedRequestCommunities(
+  request_id: string,
+  requester_id: string,
+  responder_id: string
+): Promise<string[]> {
+  const result = await query(
+    `SELECT rc.community_id
+     FROM requests.request_communities rc
+     -- Both users must be active members of the community
+     JOIN communities.members cm1 ON rc.community_id = cm1.community_id
+       AND cm1.user_id = $2 AND cm1.status = 'active'
+     JOIN communities.members cm2 ON rc.community_id = cm2.community_id
+       AND cm2.user_id = $3 AND cm2.status = 'active'
+     -- Order by responder's existing karma (highest first) for the cap
+     LEFT JOIN (
+       SELECT community_id, SUM(points) as total_karma
+       FROM reputation.karma_records WHERE user_id = $3
+       GROUP BY community_id
+     ) kr ON kr.community_id = rc.community_id
+     WHERE rc.request_id = $1
+     ORDER BY COALESCE(kr.total_karma, 0) DESC
+     LIMIT $4`,
+    [request_id, requester_id, responder_id, MAX_COMMUNITIES_PER_KARMA_AWARD]
+  );
+
+  return result.rows.map(row => row.community_id);
+}
+
+/**
+ * Award karma for a completed match (ADR-031: shared community model).
+ *
+ * Karma is awarded in all communities where BOTH requester and helper
+ * are active members AND the request was posted to (via request_communities).
+ * Capped at MAX_COMMUNITIES_PER_KARMA_AWARD to prevent inflation.
+ *
+ * Each community's config determines the helper/requester karma split.
+ */
 export async function awardKarmaForCompletedMatch(data: MatchCompletionData) {
   const { match_id, request_id, requester_id, responder_id } = data;
 
-  // Get community_id from the request
-  const requestResult = await query(
-    `SELECT community_id FROM requests.help_requests WHERE id = $1`,
-    [request_id]
+  // Find shared communities (request communities ∩ both users' memberships)
+  const sharedCommunities = await getSharedRequestCommunities(request_id, requester_id, responder_id);
+
+  if (sharedCommunities.length === 0) {
+    // Fallback: get any community from the request (shouldn't happen in normal flow)
+    const fallback = await query(
+      `SELECT community_id FROM requests.request_communities WHERE request_id = $1 LIMIT 1`,
+      [request_id]
+    );
+    if (fallback.rowCount === 0) {
+      throw new Error(`No communities found for request ${request_id}`);
+    }
+    sharedCommunities.push(fallback.rows[0].community_id);
+  }
+
+  let totalHelperKarma = 0;
+  let totalRequesterKarma = 0;
+
+  // Award karma in each shared community using that community's config
+  for (const community_id of sharedCommunities) {
+    const config = await getCommunityKarmaConfig(community_id);
+
+    // Calculate karma using community's split ratios
+    const helperKarma = Math.round(KARMA_DEFAULTS.HELP_PROVIDED * (config.karma_split_helper / 100));
+    const requesterKarma = Math.round(KARMA_DEFAULTS.HELP_RECEIVED * (config.karma_split_requestor / 100));
+
+    // Award karma to responder (helper)
+    await recordKarma({
+      user_id: responder_id,
+      community_id,
+      points: helperKarma,
+      reason: 'Provided help',
+      related_entity_id: match_id,
+    });
+
+    // Award karma to requester
+    await recordKarma({
+      user_id: requester_id,
+      community_id,
+      points: requesterKarma,
+      reason: 'Received help',
+      related_entity_id: match_id,
+    });
+
+    // Check for first help bonus (responder)
+    const helperHistory = await query(
+      `SELECT COUNT(*) as count FROM reputation.karma_records
+       WHERE user_id = $1 AND community_id = $2 AND reason = 'Provided help'`,
+      [responder_id, community_id]
+    );
+
+    if (parseInt(helperHistory.rows[0].count) === 1) {
+      await recordKarma({
+        user_id: responder_id,
+        community_id,
+        points: KARMA_DEFAULTS.FIRST_HELP,
+        reason: 'First help in community',
+        related_entity_id: match_id,
+      });
+    }
+
+    // Check for milestone bonuses (responder)
+    const totalHelps = parseInt(helperHistory.rows[0].count);
+    if (totalHelps === 10) {
+      await recordKarma({
+        user_id: responder_id,
+        community_id,
+        points: KARMA_DEFAULTS.MILESTONE_10,
+        reason: '10 exchanges milestone',
+        related_entity_id: match_id,
+      });
+    } else if (totalHelps === 50) {
+      await recordKarma({
+        user_id: responder_id,
+        community_id,
+        points: KARMA_DEFAULTS.MILESTONE_50,
+        reason: '50 exchanges milestone',
+        related_entity_id: match_id,
+      });
+    } else if (totalHelps === 100) {
+      await recordKarma({
+        user_id: responder_id,
+        community_id,
+        points: KARMA_DEFAULTS.MILESTONE_100,
+        reason: '100 exchanges milestone',
+        related_entity_id: match_id,
+      });
+    }
+
+    // Update trust scores in this community
+    await updateTrustScore(responder_id, community_id);
+    await updateTrustScore(requester_id, community_id);
+
+    // Track activity for reputation decay
+    await recordActivity(responder_id, community_id, ActivityType.COMPLETE_REQUEST, match_id);
+    await recordActivity(requester_id, community_id, ActivityType.COMPLETE_OFFER, match_id);
+
+    totalHelperKarma += helperKarma;
+    totalRequesterKarma += requesterKarma;
+  }
+
+  console.log(
+    `Karma awarded across ${sharedCommunities.length} communities: ` +
+    `${totalHelperKarma}pts to helper, ${totalRequesterKarma}pts to requester`
   );
-
-  if (requestResult.rowCount === 0) {
-    throw new Error('Request not found');
-  }
-
-  const community_id = requestResult.rows[0].community_id;
-
-  // Award karma to responder (helper)
-  const helperKarma = KARMA_CONFIG.HELP_PROVIDED;
-  await recordKarma({
-    user_id: responder_id,
-    community_id,
-    points: helperKarma,
-    reason: 'Provided help',
-    related_entity_id: match_id,
-  });
-
-  // Award karma to requester
-  const requesterKarma = KARMA_CONFIG.HELP_RECEIVED;
-  await recordKarma({
-    user_id: requester_id,
-    community_id,
-    points: requesterKarma,
-    reason: 'Received help',
-    related_entity_id: match_id,
-  });
-
-  // Check for first help bonus (responder)
-  const helperHistory = await query(
-    `SELECT COUNT(*) as count FROM reputation.karma_records
-     WHERE user_id = $1 AND community_id = $2 AND reason = 'Provided help'`,
-    [responder_id, community_id]
-  );
-
-  if (parseInt(helperHistory.rows[0].count) === 1) {
-    // This is their first help in this community
-    await recordKarma({
-      user_id: responder_id,
-      community_id,
-      points: KARMA_CONFIG.FIRST_HELP,
-      reason: 'First help in community',
-      related_entity_id: match_id,
-    });
-  }
-
-  // Check for milestone bonuses (responder)
-  const totalHelps = parseInt(helperHistory.rows[0].count);
-  if (totalHelps === 10) {
-    await recordKarma({
-      user_id: responder_id,
-      community_id,
-      points: KARMA_CONFIG.MILESTONE_10,
-      reason: '10 exchanges milestone',
-      related_entity_id: match_id,
-    });
-  } else if (totalHelps === 50) {
-    await recordKarma({
-      user_id: responder_id,
-      community_id,
-      points: KARMA_CONFIG.MILESTONE_50,
-      reason: '50 exchanges milestone',
-      related_entity_id: match_id,
-    });
-  } else if (totalHelps === 100) {
-    await recordKarma({
-      user_id: responder_id,
-      community_id,
-      points: KARMA_CONFIG.MILESTONE_100,
-      reason: '100 exchanges milestone',
-      related_entity_id: match_id,
-    });
-  }
-
-  // Update trust scores for both users
-  await updateTrustScore(responder_id, community_id);
-  await updateTrustScore(requester_id, community_id);
-
-  // Track activity for reputation decay (resets last_activity_at)
-  await recordActivity(responder_id, community_id, ActivityType.COMPLETE_REQUEST, match_id);
-  await recordActivity(requester_id, community_id, ActivityType.COMPLETE_OFFER, match_id);
-
-  console.log(`Karma awarded: ${helperKarma}pts to helper, ${requesterKarma}pts to requester`);
 }
 
 interface KarmaRecordData {

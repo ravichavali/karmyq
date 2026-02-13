@@ -10,8 +10,17 @@ import {
   HTTP_STATUS,
   validateRequest,
 } from '@karmyq/shared/utils/response';
-import { calculateMatchScore } from '@karmyq/shared/matching';
-import type { UserProfile } from '@karmyq/shared/matching/types';
+import {
+  calculateMatchScore,
+  calculateFeedScore,
+  scoreUrgency,
+  scoreCommunityRelevance,
+  scoreTrustDistance,
+  resolveSourceTier,
+  DEFAULT_FEED_WEIGHTS,
+  DEFAULT_FEED_PREFERENCES,
+} from '@karmyq/shared/matching';
+import type { UserProfile, FeedScoringWeights, VisibilityScope } from '@karmyq/shared/matching/types';
 
 const router = Router();
 
@@ -25,6 +34,7 @@ router.get('/', async (req: Request, res: Response) => {
         r.id, r.requester_id, r.title, r.description,
         r.category, r.urgency, r.status, r.created_at, r.updated_at,
         r.request_type, r.payload, r.requirements,
+        r.visibility_scope, r.visibility_max_degrees,
         u.name as requester_name,
         STRING_AGG(DISTINCT c.name, ', ') as community_name,
         STRING_AGG(DISTINCT rc.community_id::text, ',') as community_ids
@@ -63,7 +73,7 @@ router.get('/', async (req: Request, res: Response) => {
     }
 
     queryText += `
-      GROUP BY r.id, r.requester_id, r.title, r.description, r.category, r.urgency, r.status, r.created_at, r.updated_at, r.request_type, r.payload, r.requirements, u.name
+      GROUP BY r.id, r.requester_id, r.title, r.description, r.category, r.urgency, r.status, r.created_at, r.updated_at, r.request_type, r.payload, r.requirements, r.visibility_scope, r.visibility_max_degrees, u.name
       ORDER BY r.created_at DESC
       LIMIT $${paramCount} OFFSET $${paramCount + 1}`;
     params.push(limit, offset);
@@ -190,8 +200,8 @@ async function getUserProfile(userId: string): Promise<UserProfile> {
   };
 }
 
-// GET /requests/curated - Get curated feed based on user skills and match scores
-// Day 7: Skill-based feed filtering
+// GET /requests/curated - Get curated feed based on user skills, trust, community config, and urgency
+// ADR-031: Unified trust-scored feed with community-configurable weights
 router.get('/curated', async (req: Request, res: Response) => {
   try {
     const userId = (req as any).user?.userId;
@@ -207,11 +217,12 @@ router.get('/curated', async (req: Request, res: Response) => {
     const minMatchScore = parseInt(req.query.minScore as string) || 30; // Default 30%
     const limit = parseInt(req.query.limit as string) || 20;
     const communityId = req.query.community_id as string | undefined;
+    const tierFilter = req.query.tier as string | undefined; // Optional: 'community', 'trust_network', 'platform'
 
     // Get user profile for matching
     const userProfile = await getUserProfile(userId);
 
-    // Day 8: Get user preferences for request types
+    // Get user preferences for request types
     const preferencesResult = await query(
       `SELECT request_type, subscribed
        FROM auth.user_request_preferences
@@ -225,30 +236,101 @@ router.get('/curated', async (req: Request, res: Response) => {
         ? preferencesResult.rows.map((row: any) => row.request_type)
         : ['generic', 'ride', 'service', 'event', 'borrow'];
 
-    // Get open requests from user's communities
+    // ADR-022: Fetch user feed preferences for multi-tier visibility
+    const feedPrefsResult = await query(
+      `SELECT feed_show_trust_network, feed_trust_network_max_degrees, feed_show_platform, feed_platform_categories
+       FROM auth.user_feed_preferences
+       WHERE user_id = $1`,
+      [userId]
+    );
+
+    const feedPrefs = feedPrefsResult.rows[0] || DEFAULT_FEED_PREFERENCES;
+
+    // ADR-031: Fetch community configs for user's communities (for feed weights)
+    const communityConfigsResult = await query(
+      `SELECT
+        cc.community_id,
+        cc.enabled_request_types,
+        cc.feed_weight_skill_match,
+        cc.feed_weight_trust_distance,
+        cc.feed_weight_community_relevance,
+        cc.feed_weight_urgency
+      FROM communities.community_configs cc
+      JOIN communities.members m ON cc.community_id = m.community_id
+      WHERE m.user_id = $1 AND m.status = 'active'`,
+      [userId]
+    );
+
+    // Build community config lookup map
+    const communityConfigs = new Map<string, {
+      weights: FeedScoringWeights;
+      enabledTypes: Array<{ name: string; karma_multiplier?: number }>;
+    }>();
+
+    for (const row of communityConfigsResult.rows) {
+      communityConfigs.set(row.community_id, {
+        weights: {
+          feed_weight_skill_match: parseFloat(row.feed_weight_skill_match) || DEFAULT_FEED_WEIGHTS.feed_weight_skill_match,
+          feed_weight_trust_distance: parseFloat(row.feed_weight_trust_distance) || DEFAULT_FEED_WEIGHTS.feed_weight_trust_distance,
+          feed_weight_community_relevance: parseFloat(row.feed_weight_community_relevance) || DEFAULT_FEED_WEIGHTS.feed_weight_community_relevance,
+          feed_weight_urgency: parseFloat(row.feed_weight_urgency) || DEFAULT_FEED_WEIGHTS.feed_weight_urgency,
+        },
+        enabledTypes: row.enabled_request_types || [],
+      });
+    }
+
+    // ADR-022: Multi-tier feed query
+    // Tier 1 (community): Always shown — requests from user's communities
+    // Tier 2 (trust_network): Requests with wider scope where user has trust path (gated by feed prefs)
+    // Tier 3 (platform): Platform-scoped requests (opt-in via feed prefs)
     let queryText = `
       SELECT DISTINCT
         r.id, r.requester_id, r.title, r.description,
         r.category, r.urgency, r.status, r.created_at, r.updated_at,
         r.request_type, r.payload, r.requirements,
+        r.visibility_scope, r.visibility_max_degrees,
         u.name as requester_name,
         STRING_AGG(DISTINCT c.name, ', ') as community_name,
-        STRING_AGG(DISTINCT rc.community_id::text, ',') as community_ids
+        STRING_AGG(DISTINCT rc.community_id::text, ',') as community_ids,
+        BOOL_OR(m.id IS NOT NULL) as in_user_community
       FROM requests.help_requests r
       LEFT JOIN auth.users u ON r.requester_id = u.id
       LEFT JOIN requests.request_communities rc ON r.id = rc.request_id
       LEFT JOIN communities.communities c ON rc.community_id = c.id
-      -- Only from communities the user is a member of
-      INNER JOIN communities.members m ON rc.community_id = m.community_id
+      LEFT JOIN communities.members m ON rc.community_id = m.community_id AND m.user_id = $1 AND m.status = 'active'
       WHERE r.status = 'open'
         AND r.expired = FALSE
-        AND m.user_id = $1
-        AND m.status = 'active'
         AND r.requester_id != $1
+        AND (
+          -- Tier 1: User's communities (always included)
+          EXISTS (
+            SELECT 1 FROM requests.request_communities rc2
+            JOIN communities.members m2 ON rc2.community_id = m2.community_id
+            WHERE rc2.request_id = r.id AND m2.user_id = $1 AND m2.status = 'active'
+          )
     `;
 
     const params: any[] = [userId];
     let paramCount = 2;
+
+    // Tier 2: Trust network requests (wider visibility, filtered by trust distance in app layer)
+    if (feedPrefs.feed_show_trust_network) {
+      queryText += `
+          OR r.visibility_scope IN ('trust_network', 'platform')
+      `;
+    }
+
+    // Tier 3: Platform requests (opt-in)
+    if (feedPrefs.feed_show_platform && !feedPrefs.feed_show_trust_network) {
+      // Only add if trust_network wasn't already included (which covers 'platform' scope too)
+      queryText += `
+          OR r.visibility_scope = 'platform'
+      `;
+    }
+
+    queryText += `
+        )
+    `;
 
     if (communityId) {
       queryText += ` AND rc.community_id = $${paramCount}`;
@@ -257,14 +339,63 @@ router.get('/curated', async (req: Request, res: Response) => {
     }
 
     queryText += `
-      GROUP BY r.id, r.requester_id, r.title, r.description, r.category, r.urgency, r.status, r.created_at, r.updated_at, r.request_type, r.payload, r.requirements, u.name
-      LIMIT 100`; // Get more than needed, then filter by match score
+      GROUP BY r.id, r.requester_id, r.title, r.description, r.category, r.urgency, r.status, r.created_at, r.updated_at, r.request_type, r.payload, r.requirements, r.visibility_scope, r.visibility_max_degrees, u.name
+      LIMIT 150`; // Get more than needed, then filter by tier + score
 
     const requestsResult = await query(queryText, params);
 
-    // Calculate match scores for all requests
+    // ADR-031 Phase 3: Batch-fetch trust distance and karma for all requesters
+    const requesterIds = [...new Set(
+      requestsResult.rows.map((r: any) => r.requester_id).filter(Boolean)
+    )];
+
+    // Batch trust distance lookup (from social_distances cache)
+    const trustDistanceMap = new Map<string, number | null>();
+    if (requesterIds.length > 0) {
+      const trustResult = await query(
+        `SELECT target_id, degrees_of_separation FROM (
+          SELECT user_b_id as target_id, degrees_of_separation
+          FROM auth.social_distances
+          WHERE user_a_id = $1 AND user_b_id = ANY($2::uuid[]) AND expires_at > NOW()
+          UNION
+          SELECT user_a_id as target_id, degrees_of_separation
+          FROM auth.social_distances
+          WHERE user_b_id = $1 AND user_a_id = ANY($2::uuid[]) AND expires_at > NOW()
+        ) sd`,
+        [userId, requesterIds]
+      );
+      for (const row of trustResult.rows) {
+        trustDistanceMap.set(row.target_id, row.degrees_of_separation);
+      }
+    }
+
+    // Batch karma + trust score lookup for requesters
+    const requesterKarmaMap = new Map<string, { totalKarma: number; trustScore: number }>();
+    if (requesterIds.length > 0) {
+      const karmaResult = await query(
+        `SELECT
+          kr.user_id,
+          COALESCE(SUM(kr.points), 0)::int as total_karma,
+          COALESCE(MAX(ts.score), 50)::int as best_trust_score
+        FROM reputation.karma_records kr
+        LEFT JOIN reputation.trust_scores ts
+          ON kr.user_id = ts.user_id AND kr.community_id = ts.community_id
+        WHERE kr.user_id = ANY($1::uuid[])
+        GROUP BY kr.user_id`,
+        [requesterIds]
+      );
+      for (const row of karmaResult.rows) {
+        requesterKarmaMap.set(row.user_id, {
+          totalKarma: row.total_karma,
+          trustScore: row.best_trust_score,
+        });
+      }
+    }
+
+    // Calculate weighted feed scores and determine source tier
     const requestsWithScores = requestsResult.rows.map((request: any) => {
-      const matchScore = calculateMatchScore(
+      // Skill match score (existing matcher)
+      const matchResult = calculateMatchScore(
         {
           request_type: request.request_type || 'generic',
           title: request.title,
@@ -275,20 +406,93 @@ router.get('/curated', async (req: Request, res: Response) => {
         userProfile
       );
 
+      // Determine which community config to use (first matching community)
+      const requestCommunityIds = (request.community_ids || '').split(',').filter(Boolean);
+      let weights = DEFAULT_FEED_WEIGHTS;
+      let enabledTypes: Array<{ name: string; karma_multiplier?: number }> = [];
+
+      for (const cId of requestCommunityIds) {
+        const config = communityConfigs.get(cId);
+        if (config) {
+          weights = config.weights;
+          enabledTypes = config.enabledTypes;
+          break;
+        }
+      }
+
+      // Calculate individual signal scores
+      const urgencyVal = scoreUrgency(request.urgency || 'low');
+      const communityRelevance = scoreCommunityRelevance(
+        request.request_type || 'generic',
+        enabledTypes
+      );
+
+      // Trust distance from social graph cache
+      const degrees = trustDistanceMap.get(request.requester_id) ?? null;
+      const trustDistance = scoreTrustDistance(degrees);
+
+      // Requester karma/trust for display
+      const requesterReputation = requesterKarmaMap.get(request.requester_id) || {
+        totalKarma: 0,
+        trustScore: 50,
+      };
+
+      // ADR-022: Determine source tier using shared utility
+      const sourceTier = resolveSourceTier({
+        inUserCommunity: request.in_user_community,
+        visibilityScope: (request.visibility_scope || 'community') as VisibilityScope,
+        visibilityMaxDegrees: request.visibility_max_degrees || 3,
+        trustDegrees: degrees,
+        feedPrefs,
+      });
+
+      // Weighted feed score
+      const feedResult = calculateFeedScore(
+        {
+          skillMatchScore: matchResult.score,
+          trustDistanceScore: trustDistance,
+          communityRelevanceScore: communityRelevance,
+          urgencyScore: urgencyVal,
+        },
+        weights
+      );
+
       return {
         ...request,
-        matchScore: matchScore.score,
-        matchReasons: matchScore.reasons,
-        matchBreakdown: matchScore.breakdown,
+        matchScore: matchResult.score,
+        matchReasons: matchResult.reasons,
+        matchBreakdown: matchResult.breakdown,
+        feedScore: feedResult.score,
+        feedBreakdown: feedResult.breakdown,
+        // Trust & karma data for frontend display
+        trustDegrees: degrees,
+        requesterKarma: requesterReputation.totalKarma,
+        requesterTrustScore: requesterReputation.trustScore,
+        // ADR-022: Source tier
+        sourceTier,
       };
     });
 
-    // Day 8: Filter by subscribed request types and minimum match score
+    // Filter: valid tier, subscribed request types, minimum score
+    // Sort: community first, then trust_network, then platform; within each tier, by feedScore
+    const tierOrder: Record<string, number> = { community: 0, trust_network: 1, platform: 2 };
+
     const filteredRequests = requestsWithScores
+      .filter((req: any) => req.sourceTier !== null)
+      .filter((req: any) => !tierFilter || req.sourceTier === tierFilter)
       .filter((req: any) => subscribedTypes.includes(req.request_type || 'generic'))
-      .filter((req: any) => req.matchScore >= minMatchScore)
-      .sort((a: any, b: any) => b.matchScore - a.matchScore) // Sort by score descending
+      .filter((req: any) => req.feedScore >= minMatchScore)
+      .sort((a: any, b: any) => {
+        const tierDiff = (tierOrder[a.sourceTier] ?? 3) - (tierOrder[b.sourceTier] ?? 3);
+        return tierDiff !== 0 ? tierDiff : b.feedScore - a.feedScore;
+      })
       .slice(0, limit);
+
+    // Count by tier for response metadata
+    const tierCounts = filteredRequests.reduce((acc: Record<string, number>, r: any) => {
+      acc[r.sourceTier] = (acc[r.sourceTier] || 0) + 1;
+      return acc;
+    }, {});
 
     sendSuccess(
       res,
@@ -299,7 +503,14 @@ router.get('/curated', async (req: Request, res: Response) => {
           minMatchScore,
           totalRequests: requestsResult.rowCount,
           matchedRequests: filteredRequests.length,
-          subscribedTypes, // Day 8: Show which types user is subscribed to
+          subscribedTypes,
+          tier: tierFilter || 'all',
+        },
+        tiers: tierCounts,
+        feedPreferences: {
+          showTrustNetwork: feedPrefs.feed_show_trust_network,
+          trustNetworkMaxDegrees: feedPrefs.feed_trust_network_max_degrees,
+          showPlatform: feedPrefs.feed_show_platform,
         },
         userProfile: {
           skills: userProfile.skills,
@@ -330,6 +541,7 @@ router.get('/:id', async (req: Request, res: Response) => {
         r.id, r.requester_id, r.title, r.description,
         r.category, r.urgency, r.status, r.created_at, r.updated_at,
         r.request_type, r.payload, r.requirements,
+        r.visibility_scope, r.visibility_max_degrees,
         u.name as requester_name, u.email as requester_email,
         STRING_AGG(DISTINCT c.name, ', ') as community_name,
         STRING_AGG(DISTINCT rc.community_id::text, ',') as community_ids
@@ -338,7 +550,7 @@ router.get('/:id', async (req: Request, res: Response) => {
       LEFT JOIN requests.request_communities rc ON r.id = rc.request_id
       LEFT JOIN communities.communities c ON rc.community_id = c.id
       WHERE r.id = $1 AND r.expired = FALSE
-      GROUP BY r.id, r.requester_id, r.title, r.description, r.category, r.urgency, r.status, r.created_at, r.updated_at, r.request_type, r.payload, r.requirements, u.name, u.email`,
+      GROUP BY r.id, r.requester_id, r.title, r.description, r.category, r.urgency, r.status, r.created_at, r.updated_at, r.request_type, r.payload, r.requirements, r.visibility_scope, r.visibility_max_degrees, u.name, u.email`,
       [id]
     );
 
@@ -369,7 +581,7 @@ router.get('/:id', async (req: Request, res: Response) => {
 // v9.0: Supports polymorphic requests (generic, ride, borrow, service, event)
 router.post('/', async (req: Request, res: Response) => {
   try {
-    const { community_id, post_to_all_communities, request_type, title, description, urgency, payload, requirements } = req.body;
+    const { community_id, post_to_all_communities, request_type, title, description, urgency, payload, requirements, visibility_scope, visibility_max_degrees } = req.body;
     // SECURITY: Always use verified userId from JWT, never trust client-provided requester_id
     const requester_id = (req as any).user?.userId;
 
@@ -447,20 +659,34 @@ router.post('/', async (req: Request, res: Response) => {
       targetCommunityIds = [community_id];
     }
 
-    // Get TTL settings from the first community to calculate expires_at
+    // Get TTL settings and default_request_scope from the first community
     const settingsResult = await query(
-      `SELECT request_ttl_days FROM communities.settings WHERE community_id = $1`,
+      `SELECT s.request_ttl_days, c.default_request_scope
+       FROM communities.settings s
+       JOIN communities.communities c ON c.id = s.community_id
+       WHERE s.community_id = $1`,
       [targetCommunityIds[0]]
     );
     const ttlDays = settingsResult.rows[0]?.request_ttl_days || 60; // Default to 60 days
     const expiresAt = new Date(Date.now() + ttlDays * 24 * 60 * 60 * 1000);
 
+    // ADR-022: Resolve visibility scope
+    const validScopes = ['community', 'trust_network', 'platform'];
+    const communityDefaultScope = settingsResult.rows[0]?.default_request_scope || 'community';
+    const resolvedScope = visibility_scope && validScopes.includes(visibility_scope)
+      ? visibility_scope
+      : communityDefaultScope;
+    const resolvedMaxDegrees = visibility_max_degrees
+      ? Math.max(1, Math.min(6, parseInt(visibility_max_degrees)))
+      : 3;
+
     // Create ONE request (not multiple duplicates)
     // v9.0: Store polymorphic data in request_type, payload, requirements columns
+    // ADR-022: Store visibility scope for multi-tier feed
     const result = await query(
       `INSERT INTO requests.help_requests
-        (requester_id, title, description, category, urgency, status, request_type, payload, requirements, expires_at)
-      VALUES ($1, $2, $3, $4, $5, 'open', $6, $7, $8, $9)
+        (requester_id, title, description, category, urgency, status, request_type, payload, requirements, expires_at, visibility_scope, visibility_max_degrees)
+      VALUES ($1, $2, $3, $4, $5, 'open', $6, $7, $8, $9, $10, $11)
       RETURNING *`,
       [
         requester_id,
@@ -472,6 +698,8 @@ router.post('/', async (req: Request, res: Response) => {
         'payload' in validatedData ? JSON.stringify(validatedData.payload) : '{}',
         requirements ? JSON.stringify(requirements) : '{}',
         expiresAt,
+        resolvedScope,
+        resolvedMaxDegrees,
       ]
     );
 

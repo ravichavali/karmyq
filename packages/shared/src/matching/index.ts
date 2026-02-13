@@ -20,8 +20,9 @@
  * ```
  */
 
-// Export types
+// Export types (including FeedScoringWeights, FeedScoreInput, FeedScoreResult)
 export * from './types';
+// Export utils (including calculateFeedScore, scoreUrgency, scoreCommunityRelevance)
 export * from './utils';
 
 // Export matchers
