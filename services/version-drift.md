@@ -1,6 +1,6 @@
 # Version Drift Report
 
-**Generated**: 2026-02-06T15:04:34.766Z
+**Generated**: 2026-02-13T23:32:18.900Z
 
 ⚠️ **Warning**: The following dependencies have version drift across services:
 
@@ -8,6 +8,21 @@
 
 - **^1.6.2**: feed-service
 - **^1.6.0**: simulation-service
+
+## dotenv
+
+- **^16.3.1**: feed-service
+- **^16.3.0**: simulation-service
+
+## jsonwebtoken
+
+- **^9.0.2**: feed-service
+- **^9.0.0**: simulation-service
+
+## pg
+
+- **^8.11.3**: feed-service, geocoding-service
+- **^8.12.0**: simulation-service
 
 ## Recommendation
 

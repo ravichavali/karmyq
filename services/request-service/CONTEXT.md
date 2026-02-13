@@ -117,6 +117,10 @@ CREATE TABLE requests.help_requests (
     status VARCHAR(50) DEFAULT 'open',        -- open, matched, completed, cancelled
     expired BOOLEAN DEFAULT false,
 
+    -- ADR-022: Multi-Tier Visibility
+    visibility_scope visibility_scope_enum NOT NULL DEFAULT 'community',
+    visibility_max_degrees INTEGER DEFAULT 3 CHECK (visibility_max_degrees BETWEEN 1 AND 6),
+
     -- Social Karma v2.0 Privacy
     is_public BOOLEAN DEFAULT false,
     requester_visibility_consent BOOLEAN DEFAULT false,
@@ -124,6 +128,9 @@ CREATE TABLE requests.help_requests (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+-- ADR-022: Visibility scope enum
+CREATE TYPE visibility_scope_enum AS ENUM ('community', 'trust_network', 'platform');
 
 -- v9.0: Request Type Enum
 CREATE TYPE request_type_enum AS ENUM ('generic', 'ride', 'service', 'event', 'borrow');
@@ -224,8 +231,13 @@ CREATE INDEX idx_interaction_feedback_to_user ON requests.interaction_feedback(t
 #### Tables Read by This Service
 - `auth.users` - User details for requester/helper names
 - `auth.user_skills` - User skills for skill-based matching
-- `communities.communities` - Community names and details
+- `auth.user_feed_preferences` - Feed visibility preferences (ADR-022)
+- `auth.social_distances` - Trust distance between users (ADR-031)
+- `communities.communities` - Community names, details, and `default_request_scope`
 - `communities.members` - Verify community membership
+- `communities.community_configs` - Feed scoring weights (ADR-031)
+- `reputation.karma_records` - Karma scores for feed display (ADR-031)
+- `reputation.trust_scores` - Trust scores for feed display (ADR-031)
 
 ---
 
@@ -297,13 +309,14 @@ Get requests matching user's skills from their communities (skill-based matching
 - Excludes user's own requests
 - Only includes communities user is a member of
 
-#### GET /requests/curated (v9.0)
-**NEW:** Get curated feed with match scores, filtered by user preferences and skills.
+#### GET /requests/curated (v9.0 + ADR-031 Multi-Tier)
+Get curated feed with match scores, trust distance, and multi-tier visibility.
 
 **Query Parameters:**
 - `minScore` (number) - Minimum match score 0-100 (default: 30)
 - `limit` (number) - Max results (default: 20)
 - `community_id` (UUID) - Filter by specific community (optional)
+- `tier` (string) - Filter by visibility tier: `community`, `trust_network`, `platform` (optional)
 
 **Authentication:** Required (JWT token)
 
@@ -318,11 +331,17 @@ Get requests matching user's skills from their communities (skill-based matching
       "title": "Need plumber for leak repair",
       "description": "Kitchen pipe leaking...",
       "urgency": "high",
+      "visibility_scope": "community",
+      "visibility_max_degrees": 3,
       "payload": {
         "service_category": "plumbing",
         "skill_level_required": "intermediate"
       },
       "matchScore": 85,
+      "feedScore": 72,
+      "sourceTier": "community",
+      "trustDistance": 2,
+      "karmaScore": 150,
       "matchReasons": [
         "You have plumbing skill",
         "Skill level matches",
@@ -336,11 +355,22 @@ Get requests matching user's skills from their communities (skill-based matching
       "requester_name": "Alice Smith"
     }],
     "count": 15,
+    "tiers": {
+      "community": 10,
+      "trust_network": 3,
+      "platform": 2
+    },
     "filters": {
       "minMatchScore": 30,
       "totalRequests": 50,
       "matchedRequests": 15,
       "subscribedTypes": ["generic", "service", "event"]
+    },
+    "feedPreferences": {
+      "feed_show_trust_network": true,
+      "feed_trust_network_max_degrees": 3,
+      "feed_show_platform": false,
+      "feed_platform_categories": ["digital", "questions"]
     },
     "userProfile": {
       "skills": ["plumbing", "carpentry"],
@@ -350,19 +380,21 @@ Get requests matching user's skills from their communities (skill-based matching
 }
 ```
 
-**Algorithm (v9.0):**
-1. Fetch user preferences (subscribed request types from auth.user_request_preferences)
-2. Fetch user skills from auth.user_skills
-3. Get open requests from user's communities
-4. Filter by subscribed request types only
-5. Calculate match scores using type-specific matchers
-6. Filter by minimum match score
-7. Sort by match score descending (best matches first)
-8. Return top N results with transparency (scores + reasons)
+**Algorithm (ADR-031):**
+1. Fetch user feed preferences from `auth.user_feed_preferences`
+2. Fetch user preferences (subscribed request types from auth.user_request_preferences)
+3. Fetch user skills from auth.user_skills
+4. Get open requests across three tiers:
+   - **Community**: Requests in user's communities
+   - **Trust Network**: Requests with `visibility_scope != 'community'` within trust degree limits
+   - **Platform**: Requests with `visibility_scope = 'platform'` (if user opted in)
+5. Batch-fetch trust distances from `auth.social_distances` and karma from `reputation.karma_records`
+6. Resolve source tier per request using `resolveSourceTier()` from `@karmyq/shared/matching`
+7. Calculate feed scores using community-configurable weights (ADR-031)
+8. Sort by tier priority (community > trust_network > platform), then by feedScore
+9. Return top N results with transparency (scores, tier, trust distance, karma)
 
 **Implementation:** `src/routes/requests.ts:194`
-
-**Implementation:** `src/routes/requests.ts:60`
 
 #### GET /requests/:id
 Get specific request details.
@@ -390,8 +422,8 @@ Get specific request details.
 
 **Implementation:** `src/routes/requests.ts:134`
 
-#### POST /requests (v9.0 Polymorphic)
-Create new polymorphic help request (supports 5 types).
+#### POST /requests (v9.0 Polymorphic + ADR-022 Visibility)
+Create new polymorphic help request (supports 5 types) with visibility scope.
 
 **Request (Generic):**
 ```json
@@ -401,9 +433,15 @@ Create new polymorphic help request (supports 5 types).
   "title": "Need help moving furniture",
   "description": "Moving couch upstairs, need 2-3 strong people",
   "urgency": "medium",
-  "payload": {}
+  "payload": {},
+  "visibility_scope": "community",
+  "visibility_max_degrees": 3
 }
 ```
+
+**Visibility Fields (ADR-022):**
+- `visibility_scope` - One of: `community` (default), `trust_network`, `platform`. Falls back to community's `default_request_scope` if omitted.
+- `visibility_max_degrees` - Max trust hops for trust_network scope (1-6, default: 3)
 
 **Request (Service - Plumbing):**
 ```json
@@ -1201,9 +1239,8 @@ return res.status(201).json({
 - `@karmyq/shared/middleware` - `authenticateToken`, `extractCommunityContext`, `requireRole`
 - `@karmyq/shared/utils/logger` - Structured logging
 - `@karmyq/shared/database` - PostgreSQL connection utilities
-
-**Note:** In v9.0 (Everything App), will use:
-- `@karmyq/shared/schemas` - Zod validation schemas for polymorphic requests
+- `@karmyq/shared/schemas/requests` - Zod validation schemas for polymorphic requests (v9.0)
+- `@karmyq/shared/matching` - Match scoring, `resolveSourceTier()`, `DEFAULT_FEED_PREFERENCES`, feed scoring utilities (ADR-031)
 
 ---
 

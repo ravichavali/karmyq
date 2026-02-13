@@ -39,6 +39,19 @@ ADD COLUMN allow_federation BOOLEAN DEFAULT true,
 ADD COLUMN federation_privacy JSONB;
 ```
 
+-- auth.user_feed_preferences (ADR-022 Multi-Tier Feed)
+CREATE TABLE auth.user_feed_preferences (
+    user_id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+    feed_show_trust_network BOOLEAN DEFAULT true,
+    feed_trust_network_max_degrees INTEGER DEFAULT 3
+        CHECK (feed_trust_network_max_degrees BETWEEN 1 AND 6),
+    feed_show_platform BOOLEAN DEFAULT false,
+    feed_platform_categories JSONB DEFAULT '["digital", "questions"]'::jsonb,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+
 ### Tables Read by This Service
 - None (auth service is fully self-contained)
 
@@ -154,6 +167,118 @@ Update user profile.
 
 **Implementation:** `src/routes/users.ts:35`
 
+### GET /preferences/request-types
+Get user's request type subscriptions (v9.0).
+
+**Authentication:** Required (JWT token)
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "preferences": [
+      { "request_type": "generic", "subscribed": true },
+      { "request_type": "ride", "subscribed": true }
+    ],
+    "isDefault": true
+  }
+}
+```
+
+**Implementation:** `src/routes/preferences.ts:17`
+
+### POST /preferences/request-types
+Update a single request type subscription.
+
+**Request:**
+```json
+{
+  "request_type": "ride",
+  "subscribed": false
+}
+```
+
+**Implementation:** `src/routes/preferences.ts:77`
+
+### PUT /preferences/request-types/bulk
+Bulk update request type subscriptions.
+
+**Request:**
+```json
+{
+  "preferences": [
+    { "request_type": "ride", "subscribed": false },
+    { "request_type": "event", "subscribed": true }
+  ]
+}
+```
+
+**Implementation:** `src/routes/preferences.ts:144`
+
+### GET /preferences/interests
+Get user's interest categories (service_category, item_category, event_type).
+
+**Implementation:** `src/routes/preferences.ts:206`
+
+### POST /preferences/interests
+Add a new interest.
+
+**Request:**
+```json
+{
+  "interest_type": "service_category",
+  "interest_value": "plumbing"
+}
+```
+
+**Implementation:** `src/routes/preferences.ts:256`
+
+### DELETE /preferences/interests/:id
+Remove an interest.
+
+**Implementation:** `src/routes/preferences.ts:320`
+
+### GET /preferences/feed (ADR-022)
+Get user's feed visibility preferences for multi-tier feed.
+
+**Authentication:** Required (JWT token)
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "feed_show_trust_network": true,
+    "feed_trust_network_max_degrees": 3,
+    "feed_show_platform": false,
+    "feed_platform_categories": ["digital", "questions"],
+    "isDefault": true
+  }
+}
+```
+
+**Implementation:** `src/routes/preferences.ts:367`
+
+### PUT /preferences/feed (ADR-022)
+Update user's feed visibility preferences.
+
+**Request:**
+```json
+{
+  "feed_show_trust_network": true,
+  "feed_trust_network_max_degrees": 4,
+  "feed_show_platform": true,
+  "feed_platform_categories": ["digital", "questions", "services"]
+}
+```
+
+**Validation:**
+- `feed_trust_network_max_degrees`: 1-6
+- `feed_platform_categories`: must be an array
+
+**Implementation:** `src/routes/preferences.ts:421`
+
 ### GET /health
 Service health check.
 
@@ -212,6 +337,7 @@ LOG_LEVEL=info                   # debug, info, warn, error
 ### Routes
 - `src/routes/auth.ts` - Login, register, verify endpoints
 - `src/routes/users.ts` - User profile CRUD operations
+- `src/routes/preferences.ts` - Request type subscriptions, interests, feed preferences (v9.0 + ADR-022)
 
 ### Services
 - `src/services/authService.ts` - JWT token generation/verification

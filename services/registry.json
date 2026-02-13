@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "updated": "2026-01-21",
+  "updated": "2026-02-12",
   "services": {
     "auth-service": {
       "port": 3001,
@@ -16,7 +16,10 @@
           "/auth/register",
           "/auth/login",
           "/auth/verify",
-          "/auth/profile"
+          "/auth/profile",
+          "/preferences/request-types",
+          "/preferences/interests",
+          "/preferences/feed"
         ],
         "consumes": []
       },
@@ -75,6 +78,7 @@
         "provides": [
           "/requests",
           "/requests/:id",
+          "/requests/curated",
           "/offers",
           "/matches",
           "/matches/:id/complete"

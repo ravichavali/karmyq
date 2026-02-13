@@ -119,6 +119,12 @@ CREATE TABLE communities.community_configs (
     trust_path_max_hops INTEGER DEFAULT 3,
     min_interactions_for_trust INTEGER DEFAULT 1,
 
+    -- Feed Scoring Weights (ADR-031, must sum to 1.0)
+    feed_weight_skill_match DECIMAL(4,3) DEFAULT 0.400,
+    feed_weight_trust_distance DECIMAL(4,3) DEFAULT 0.250,
+    feed_weight_community_relevance DECIMAL(4,3) DEFAULT 0.200,
+    feed_weight_urgency DECIMAL(4,3) DEFAULT 0.150,
+
     -- Community Onboarding
     request_approval_required BOOLEAN DEFAULT FALSE,
     new_member_karma_lockout_days INTEGER DEFAULT 0,
@@ -556,6 +562,10 @@ Get community configuration.
       "trust_decay_half_life_days": 180,
       "trust_path_max_hops": 3,
       "min_interactions_for_trust": 1,
+      "feed_weight_skill_match": 0.40,
+      "feed_weight_trust_distance": 0.25,
+      "feed_weight_community_relevance": 0.20,
+      "feed_weight_urgency": 0.15,
       "request_approval_required": false,
       "new_member_karma_lockout_days": 0,
       "join_approval_required": true,
