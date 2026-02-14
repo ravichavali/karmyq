@@ -10,7 +10,7 @@
 
 -- ============= COMMUNITY CONFIGS TABLE =============
 -- Stores comprehensive configuration for each community
-CREATE TABLE communities.community_configs (
+CREATE TABLE IF NOT EXISTS communities.community_configs (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     community_id UUID NOT NULL REFERENCES communities.communities(id) ON DELETE CASCADE UNIQUE,
 
@@ -64,7 +64,7 @@ COMMENT ON COLUMN communities.community_configs.visibility_mode IS 'public: anyo
 
 -- ============= CONFIG TEMPLATES TABLE =============
 -- Pre-made configuration templates for browsing and copying
-CREATE TABLE communities.config_templates (
+CREATE TABLE IF NOT EXISTS communities.config_templates (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     name VARCHAR(255) NOT NULL UNIQUE,
     description TEXT NOT NULL,
@@ -80,10 +80,10 @@ COMMENT ON COLUMN communities.config_templates.config_json IS 'Full configuratio
 COMMENT ON COLUMN communities.config_templates.usage_count IS 'How many communities use this template (for sorting by popularity)';
 
 -- ============= INDEXES =============
-CREATE INDEX idx_community_configs_community_id ON communities.community_configs(community_id);
-CREATE INDEX idx_community_configs_template_source ON communities.community_configs(template_source);
-CREATE INDEX idx_config_templates_usage ON communities.config_templates(usage_count DESC);
-CREATE INDEX idx_config_templates_is_public ON communities.config_templates(is_public);
+CREATE INDEX IF NOT EXISTS idx_community_configs_community_id ON communities.community_configs(community_id);
+CREATE INDEX IF NOT EXISTS idx_community_configs_template_source ON communities.community_configs(template_source);
+CREATE INDEX IF NOT EXISTS idx_config_templates_usage ON communities.config_templates(usage_count DESC);
+CREATE INDEX IF NOT EXISTS idx_config_templates_is_public ON communities.config_templates(is_public);
 
 -- ============= SEED DATA: 3 STARTER TEMPLATES =============
 
@@ -116,7 +116,7 @@ INSERT INTO communities.config_templates (name, description, config_json) VALUES
         "join_approval_required": true,
         "joining_counts_as_interaction": true
     }'::jsonb
-);
+) ON CONFLICT (name) DO NOTHING;
 
 -- Template 2: "Neighborhood Cautious"
 -- Boundary-conscious, helper-focused, gradual trust-building
@@ -146,7 +146,7 @@ INSERT INTO communities.config_templates (name, description, config_json) VALUES
         "join_approval_required": true,
         "joining_counts_as_interaction": false
     }'::jsonb
-);
+) ON CONFLICT (name) DO NOTHING;
 
 -- Template 3: "Experimental Reciprocal"
 -- Tests pure gift economy, rapid trust decay, encourages asking
@@ -174,7 +174,7 @@ INSERT INTO communities.config_templates (name, description, config_json) VALUES
         "join_approval_required": false,
         "joining_counts_as_interaction": true
     }'::jsonb
-);
+) ON CONFLICT (name) DO NOTHING;
 
 -- ============= TRIGGER: Update updated_at on config changes =============
 CREATE OR REPLACE FUNCTION communities.update_community_config_timestamp()
@@ -185,6 +185,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS update_community_config_timestamp ON communities.community_configs;
 CREATE TRIGGER update_community_config_timestamp
 BEFORE UPDATE ON communities.community_configs
 FOR EACH ROW

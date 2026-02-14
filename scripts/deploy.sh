@@ -83,6 +83,15 @@ if [ "$COMMIT" = "$PREVIOUS_COMMIT" ]; then
     log_info "Already at latest commit, no changes to deploy"
 fi
 
+# Re-exec if deploy script itself changed (avoid running stale version)
+if [ "$PREVIOUS_COMMIT" != "$COMMIT" ] && git diff "$PREVIOUS_COMMIT" "$COMMIT" --name-only | grep -q "scripts/deploy.sh"; then
+    if [ -z "$DEPLOY_REEXEC" ]; then
+        log_warn "Deploy script changed — re-executing with new version"
+        export DEPLOY_REEXEC=1
+        exec "$APP_DIR/scripts/deploy.sh"
+    fi
+fi
+
 # =============================================================================
 # Step 3: Install dependencies
 # =============================================================================
@@ -179,6 +188,12 @@ if [ -d "apps/landing" ]; then
         sudo cp -r apps/landing/out/* /var/www/karmyq-landing/
         sudo chown -R www-data:www-data /var/www/karmyq-landing
         log_info "Landing page built and deployed to /var/www/karmyq-landing"
+        # Verify docs pages were generated
+        if [ -f /var/www/karmyq-landing/docs/index.html ]; then
+            log_info "Landing page docs verified (docs/index.html present)"
+        else
+            log_warn "Landing page docs missing — doc generation may have failed"
+        fi
     else
         log_warn "Landing page build failed — docs site may be stale"
         log_warn "Check build output above for errors"

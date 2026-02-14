@@ -28,6 +28,7 @@
     "feedback:check": "node scripts/feedback-loop.js",
     "context:generate": "node scripts/generate-service-context.js",
     "hooks:install": "sh scripts/install-hooks.sh",
+    "audit": "npm audit --audit-level=high",
     "postinstall": "test -f scripts/install-hooks.sh && sh scripts/install-hooks.sh || exit 0"
   },
   "devDependencies": {
@@ -44,6 +45,7 @@
   },
   "dependencies": {
     "@alloc/quick-lru": "^5.2.0",
+    "axios": "1.13.5",
     "bcryptjs": "^2.4.3",
     "bull": "^4.11.5",
     "cors": "^2.8.5",
