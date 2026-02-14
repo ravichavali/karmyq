@@ -29,13 +29,17 @@ MIGRATIONS_DIR="$PROJECT_DIR/infrastructure/postgres/migrations"
 POSTGRES_CONTAINER="${POSTGRES_CONTAINER:-karmyq-postgres}"
 
 # Determine how to run psql
+# Prefer docker exec when postgres container is running (handles Docker-internal hostnames)
 run_psql() {
-  if [ -n "$DATABASE_URL" ]; then
-    # Direct connection via DATABASE_URL
+  if docker ps --format '{{.Names}}' 2>/dev/null | grep -q "^${POSTGRES_CONTAINER}$"; then
+    # Postgres is in a Docker container — exec into it
+    docker exec -i "$POSTGRES_CONTAINER" psql -U "${POSTGRES_USER:-karmyq_user}" -d "${POSTGRES_DB:-karmyq_db}" "$@"
+  elif [ -n "$DATABASE_URL" ]; then
+    # Direct connection via DATABASE_URL (local dev with host postgres)
     psql "$DATABASE_URL" "$@"
   else
-    # Via docker exec
-    docker exec -i "$POSTGRES_CONTAINER" psql -U "${POSTGRES_USER:-karmyq_user}" -d "${POSTGRES_DB:-karmyq_db}" "$@"
+    echo "ERROR: No database connection available (no container '$POSTGRES_CONTAINER', no DATABASE_URL)" >&2
+    exit 1
   fi
 }
 
