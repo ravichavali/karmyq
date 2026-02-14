@@ -81,7 +81,9 @@ for migration_file in $(ls "$MIGRATIONS_DIR"/*.sql 2>/dev/null | sort); do
   echo -e "${YELLOW}[APPLYING]${NC} $migration_name ..."
 
   # Apply migration inside a transaction
-  if run_psql <<EOSQL
+  # Use ON_ERROR_STOP=1 so psql exits non-zero on SQL errors (not just connection errors)
+  MIGRATION_OUTPUT=$(mktemp)
+  if run_psql -v ON_ERROR_STOP=1 <<EOSQL 2>"$MIGRATION_OUTPUT"
 BEGIN;
 $(cat "$migration_file")
 INSERT INTO public.schema_migrations (migration_name) VALUES ('$migration_name');
@@ -92,11 +94,14 @@ EOSQL
     APPLIED_COUNT=$((APPLIED_COUNT + 1))
   else
     echo -e "${RED}[FAIL]${NC} $migration_name failed!"
+    cat "$MIGRATION_OUTPUT"
+    rm -f "$MIGRATION_OUTPUT"
     FAILED=$((FAILED + 1))
     # Don't continue on failure - migration order matters
     echo -e "${RED}[ERROR]${NC} Stopping migration runner due to failure"
     exit 1
   fi
+  rm -f "$MIGRATION_OUTPUT"
 done
 
 # Summary
