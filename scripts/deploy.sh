@@ -110,6 +110,24 @@ source .env.demo
 set +a
 log_info "Environment loaded"
 
+# Step 5.5: Apply database migrations
+log_step "5.5/8 - Applying database migrations"
+if [ -f "scripts/apply-migrations.sh" ]; then
+    log_info "Running migration runner..."
+    if bash scripts/apply-migrations.sh; then
+        log_info "✓ Database migrations applied"
+    else
+        log_error "Migration failed! Rolling back to previous commit: $PREVIOUS_COMMIT"
+        if ! git diff-index --quiet HEAD --; then
+            git stash push -m "Auto-stash before rollback $(date +%Y%m%d-%H%M%S)"
+        fi
+        git checkout "$PREVIOUS_COMMIT"
+        exit 1
+    fi
+else
+    log_warn "Migration script not found, skipping"
+fi
+
 # Step 6: Run pre-deployment tests
 log_step "6/8 - Running pre-deployment tests"
 if [ "$SKIP_TESTS" = "1" ]; then
