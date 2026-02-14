@@ -8,15 +8,16 @@ set -e
 # Usage: ./scripts/deploy.sh
 #        SKIP_TESTS=1 ./scripts/deploy.sh  (skip pre-deployment tests)
 #
-# This is the ONLY deployment script. It:
-# 1. Saves current commit for rollback
-# 2. Pulls latest code from master
-# 3. Installs git hooks
-# 4. Runs integration tests (auto-rollback if fail)
-# 5. Loads environment variables from .env.demo
-# 6. Builds all Docker images on the server (ARM64 native)
-# 7. Deploys using docker-compose
-# 8. Verifies all services are running
+# Pipeline:
+# 1. Save current commit for rollback
+# 2. Pull latest code from master
+# 3. Install dependencies (npm ci)
+# 4. Load environment variables from .env.demo
+# 5. Run integration tests (auto-rollback if fail)
+# 6. Apply database migrations (idempotent — skips already-applied)
+# 7. Build landing page (karmyq.org static export)
+# 8. Build all Docker images on the server (ARM64 native)
+# 9. Deploy using docker-compose + verify health
 #
 # Prerequisites:
 # - .env.demo file must exist (copy from .env.demo.example)
@@ -51,17 +52,20 @@ echo "        Karmyq Demo Deployment"
 echo "=============================================="
 echo ""
 
-# Step 1: Navigate to app directory
-log_step "1/8 - Navigating to application directory"
+# =============================================================================
+# Step 1: Navigate + save rollback point
+# =============================================================================
+log_step "1/9 - Preparing deployment"
 cd "$APP_DIR"
 log_info "Working directory: $(pwd)"
 
-# Step 2: Save current commit for rollback
 PREVIOUS_COMMIT=$(git rev-parse --short HEAD)
-log_info "Current commit: $PREVIOUS_COMMIT"
+log_info "Current commit: $PREVIOUS_COMMIT (rollback point)"
 
-# Step 3: Pull latest code
-log_step "2/8 - Pulling latest code from master"
+# =============================================================================
+# Step 2: Pull latest code
+# =============================================================================
+log_step "2/9 - Pulling latest code from master"
 git fetch origin
 git checkout master
 
@@ -79,19 +83,22 @@ if [ "$COMMIT" = "$PREVIOUS_COMMIT" ]; then
     log_info "Already at latest commit, no changes to deploy"
 fi
 
-# Step 3: Install hooks
-log_step "3/8 - Installing git hooks"
-if [ -f "scripts/install-hooks.sh" ]; then
-    bash scripts/install-hooks.sh > /dev/null 2>&1 || log_warn "Hook installation failed (non-critical)"
-    log_info "Git hooks installed"
+# =============================================================================
+# Step 3: Install dependencies
+# =============================================================================
+log_step "3/9 - Installing dependencies"
+if npm ci --prefer-offline 2>&1 | tail -3; then
+    log_info "Dependencies installed"
 else
-    log_warn "Hook installation script not found, skipping"
+    log_warn "npm ci failed, falling back to npm install"
+    npm install 2>&1 | tail -3
 fi
 
-# Step 4: Verify environment file exists
-log_step "4/8 - Checking environment configuration"
+# =============================================================================
+# Step 4: Load environment
+# =============================================================================
+log_step "4/9 - Loading environment"
 if [ ! -f ".env.demo" ]; then
-    # Backward compatibility: fall back to .env.production
     if [ -f ".env.production" ]; then
         log_warn ".env.production found - please rename to .env.demo"
         ln -sf .env.production .env.demo
@@ -101,21 +108,54 @@ if [ ! -f ".env.demo" ]; then
         exit 1
     fi
 fi
-log_info "Environment file found"
-
-# Step 5: Load environment variables
-log_step "5/8 - Loading environment variables"
 set -a
 source .env.demo
 set +a
 log_info "Environment loaded"
 
-# Step 5.5: Apply database migrations
-log_step "5.5/8 - Applying database migrations"
+# =============================================================================
+# Step 5: Run pre-deployment tests
+# =============================================================================
+log_step "5/9 - Running pre-deployment tests"
+if [ "$SKIP_TESTS" = "1" ]; then
+    log_warn "Skipping tests (SKIP_TESTS=1)"
+else
+    log_info "Running integration tests with demo database..."
+
+    TEST_OUTPUT=$(mktemp)
+    if cd tests && npm run test:integration > "$TEST_OUTPUT" 2>&1; then
+        log_info "Integration tests passed"
+        cd "$APP_DIR"
+    else
+        TEST_EXIT=$?
+        log_error "Integration tests failed with exit code $TEST_EXIT"
+        echo ""
+        echo "Test output (last 50 lines):"
+        tail -50 "$TEST_OUTPUT"
+        rm -f "$TEST_OUTPUT"
+        cd "$APP_DIR"
+
+        # Rollback to previous commit
+        log_warn "Rolling back to previous commit: $PREVIOUS_COMMIT"
+        if ! git diff-index --quiet HEAD --; then
+            git stash push -m "Auto-stash before rollback $(date +%Y%m%d-%H%M%S)"
+        fi
+        git checkout "$PREVIOUS_COMMIT"
+
+        log_error "Deployment aborted due to test failures"
+        log_error "To deploy anyway, use: SKIP_TESTS=1 ./scripts/deploy.sh"
+        exit 1
+    fi
+    rm -f "$TEST_OUTPUT"
+fi
+
+# =============================================================================
+# Step 6: Apply database migrations
+# =============================================================================
+log_step "6/9 - Applying database migrations"
 if [ -f "scripts/apply-migrations.sh" ]; then
-    log_info "Running migration runner..."
     if bash scripts/apply-migrations.sh; then
-        log_info "✓ Database migrations applied"
+        log_info "Database migrations applied"
     else
         log_error "Migration failed! Rolling back to previous commit: $PREVIOUS_COMMIT"
         if ! git diff-index --quiet HEAD --; then
@@ -128,66 +168,29 @@ else
     log_warn "Migration script not found, skipping"
 fi
 
-# Step 6: Run pre-deployment tests
-log_step "6/8 - Running pre-deployment tests"
-if [ "$SKIP_TESTS" = "1" ]; then
-    log_warn "Skipping tests (SKIP_TESTS=1)"
-else
-    log_info "Running integration tests with demo database..."
-
-    # Run integration tests
-    TEST_OUTPUT=$(mktemp)
-    if cd tests && npm run test:integration > "$TEST_OUTPUT" 2>&1; then
-        log_info "✓ Integration tests passed"
-        cd ..
-    else
-        TEST_EXIT=$?
-        log_error "Integration tests failed with exit code $TEST_EXIT"
-        echo ""
-        echo "Test output (last 50 lines):"
-        tail -50 "$TEST_OUTPUT"
-        rm -f "$TEST_OUTPUT"
-        cd ..
-
-        # Rollback to previous commit
-        log_warn "Rolling back to previous commit: $PREVIOUS_COMMIT"
-
-        # Stash any local changes (like modified hooks) before rolling back
-        if ! git diff-index --quiet HEAD --; then
-            log_warn "Stashing local changes before rollback..."
-            git stash push -m "Auto-stash before rollback $(date +%Y%m%d-%H%M%S)"
-        fi
-
-        git checkout "$PREVIOUS_COMMIT"
-
-        log_error "Deployment aborted due to test failures"
-        log_error "To deploy anyway, use: SKIP_TESTS=1 ./scripts/deploy.sh"
-        exit 1
-    fi
-    rm -f "$TEST_OUTPUT"
-fi
-
-# Step 6.5: Build landing page (static export)
-log_step "6.5/8 - Building landing page (karmyq.org)"
+# =============================================================================
+# Step 7: Build landing page (karmyq.org)
+# =============================================================================
+log_step "7/9 - Building landing page (karmyq.org)"
 if [ -d "apps/landing" ]; then
     log_info "Building landing page static files..."
-    if cd apps/landing && npm run build > /dev/null 2>&1; then
-        # Copy static output to nginx serving directory
+    if (cd apps/landing && npm run build); then
         sudo mkdir -p /var/www/karmyq-landing
-        sudo cp -r out/* /var/www/karmyq-landing/
+        sudo cp -r apps/landing/out/* /var/www/karmyq-landing/
         sudo chown -R www-data:www-data /var/www/karmyq-landing
-        log_info "✓ Landing page built and deployed to /var/www/karmyq-landing"
-        cd "$APP_DIR"
+        log_info "Landing page built and deployed to /var/www/karmyq-landing"
     else
-        log_warn "Landing page build failed (non-critical), skipping"
-        cd "$APP_DIR"
+        log_warn "Landing page build failed — docs site may be stale"
+        log_warn "Check build output above for errors"
     fi
 else
-    log_warn "No apps/landing directory found, skipping landing page build"
+    log_warn "No apps/landing directory found, skipping"
 fi
 
-# Step 7: Build and deploy
-log_step "7/8 - Building and deploying services"
+# =============================================================================
+# Step 8: Build and deploy Docker services
+# =============================================================================
+log_step "8/9 - Building and deploying services"
 log_info "This may take several minutes on first run..."
 
 # Record deployment start time for verification
@@ -203,7 +206,6 @@ else
     log_error "Docker build failed with exit code $BUILD_EXIT"
     log_error "Check the output above for errors"
 
-    # Show failed services
     echo ""
     log_error "Failed to build one or more services:"
     grep -E "failed to solve|ERROR:" "$BUILD_OUTPUT" || echo "  (see output above for details)"
@@ -216,8 +218,10 @@ rm -f "$BUILD_OUTPUT"
 log_info "Starting services..."
 docker compose $COMPOSE_FILES up -d --remove-orphans
 
-# Step 8: Verify deployment
-log_step "8/8 - Verifying deployment"
+# =============================================================================
+# Step 9: Verify deployment
+# =============================================================================
+log_step "9/9 - Verifying deployment"
 sleep 10  # Give services time to start
 
 echo ""
@@ -279,7 +283,6 @@ done
 if [ $STALE -eq 1 ]; then
     echo ""
     log_warn "Some services are using cached images and may not reflect latest code"
-    log_warn "This can happen when TypeScript files change but Docker cache isn't invalidated"
 fi
 
 # Cleanup old images
