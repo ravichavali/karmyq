@@ -89,13 +89,19 @@ Every code change that modifies behavior MUST include documentation updates:
 #### Shared package changes
 - New export → Update `packages/shared/CONTEXT.md`
 - New matching type → Update type definitions in `matching/types.ts`
+- New event type → Update `services/registry.json` "events" section
 
-#### Concept/architecture changes
-- New architectural decision → Create ADR in `docs/adr/`
+#### Concept/architecture changes (ADRs)
+- New architectural decision → Create ADR in `docs/adr/` + update `docs/adr/README.md` index
 - Modified system behavior → Update `docs/ARCHITECTURE.md` if applicable
+- ADR implementation deployed → Update ADR status from `Accepted` → `Implemented`
+- ADR status lifecycle: `Proposed` → `Accepted` → `Implemented` | `Superseded` | `Deprecated`
+- New trust/matching/feed pattern → Create or update relevant ADR
+- Significant cross-service change (3+ services) → Create ADR documenting the decision
 
 #### After all changes
 - Run `npm run analyze:services` if service dependencies changed
+- Run `npm run feedback:check` to verify all documentation updates are included
 - Docs site auto-regenerates on next deploy (pre-build step)
 
 ---

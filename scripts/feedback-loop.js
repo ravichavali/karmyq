@@ -33,6 +33,10 @@ function analyzeChanges(changedFiles) {
     missingContextUpdates: [],
     missingMigrationDocs: [],
     newAdrWithoutIndex: false,
+    adrModifiedWithoutIndex: false,
+    sharedPackageChanged: false,
+    sharedPackageContextMissing: false,
+    eventPatternChanges: [],
   };
 
   changedFiles.forEach(file => {
@@ -93,7 +97,7 @@ function analyzeChanges(changedFiles) {
       }
     }
 
-    // ADR added without index update
+    // ADR added or modified without index update
     if (file.match(/^docs\/adr\/ADR-\d+.*\.md$/)) {
       updates.newAdrWithoutIndex = true;
     }
@@ -101,6 +105,23 @@ function analyzeChanges(changedFiles) {
     // Migration added — check if CONTEXT.md schema section was also updated
     if (file.match(/^infrastructure\/postgres\/migrations\//)) {
       updates.missingMigrationDocs.push(file);
+    }
+
+    // Shared package changes
+    if (file.startsWith('packages/shared/')) {
+      updates.sharedPackageChanged = true;
+      // Check for new types, exports, or matching logic changes
+      if (file.includes('/matching/') || file.includes('/types') || file.includes('/schemas/')) {
+        updates.eventPatternChanges.push({ file, type: 'shared-pattern' });
+      }
+    }
+
+    // Event handler changes (new event types)
+    if (file.includes('/events/') || file.includes('/subscribers/') || file.includes('/publishers/')) {
+      const svcMatch = file.match(/^services\/([^/]+)\//);
+      if (svcMatch) {
+        updates.eventPatternChanges.push({ file, service: svcMatch[1], type: 'event' });
+      }
     }
   });
 
@@ -119,6 +140,21 @@ function analyzeChanges(changedFiles) {
     }
   });
 
+  // Cross-check: ADR modified but README index not updated
+  const adrFilesChanged = changedFiles.some(f => f.match(/^docs\/adr\/ADR-\d+.*\.md$/));
+  const adrIndexChanged = changedFiles.includes('docs/adr/README.md');
+  if (adrFilesChanged && !adrIndexChanged) {
+    updates.adrModifiedWithoutIndex = true;
+  }
+
+  // Cross-check: shared package changed but CONTEXT.md not updated
+  if (updates.sharedPackageChanged) {
+    const sharedContextChanged = changedFiles.some(f => f.startsWith('packages/shared/') && f.endsWith('CONTEXT.md'));
+    if (!sharedContextChanged) {
+      updates.sharedPackageContextMissing = true;
+    }
+  }
+
   return updates;
 }
 
@@ -127,7 +163,9 @@ function generateFeedbackReport(updates) {
       !updates.needsRegistryUpdate &&
       !updates.needsADR &&
       !updates.newAdrWithoutIndex &&
-      updates.missingMigrationDocs.length === 0) {
+      !updates.sharedPackageChanged &&
+      updates.missingMigrationDocs.length === 0 &&
+      updates.eventPatternChanges.length === 0) {
     return null;
   }
 
@@ -226,10 +264,39 @@ function generateFeedbackReport(updates) {
     report += `  ✅ TODO: Update affected service CONTEXT.md "Database Schema" sections\n\n`;
   }
 
-  // ADR added
+  // ADR added or modified
   if (updates.newAdrWithoutIndex) {
-    report += '📝 New ADR Added:\n';
-    report += `  ✅ TODO: Update docs/adr/README.md index with new entry\n\n`;
+    report += '📝 ADR Changed:\n';
+    if (updates.adrModifiedWithoutIndex) {
+      report += `  ✅ TODO: Update docs/adr/README.md index (status may have changed)\n`;
+    } else {
+      report += `  ✅ TODO: Verify docs/adr/README.md index is up to date\n`;
+    }
+    report += `  ✅ TODO: If status changed to Implemented, update the ADR file\n\n`;
+  }
+
+  // Shared package changes
+  if (updates.sharedPackageChanged) {
+    report += '📦 Shared Package Changed:\n';
+    if (updates.sharedPackageContextMissing) {
+      report += `  ⚠️  packages/shared/CONTEXT.md not updated\n`;
+    }
+    report += `  ✅ TODO:\n`;
+    report += `     1. Update packages/shared/CONTEXT.md with new exports/types\n`;
+    report += `     2. If new concept introduced, consider creating an ADR\n`;
+    report += `     3. Verify consuming services are updated\n\n`;
+  }
+
+  // Event pattern changes
+  if (updates.eventPatternChanges.length > 0) {
+    report += '🔔 Event/Pattern Changes Detected:\n';
+    updates.eventPatternChanges.forEach(change => {
+      report += `  File: ${change.file}\n`;
+    });
+    report += `  ✅ TODO:\n`;
+    report += `     1. Update services/registry.json "events" section if new events added\n`;
+    report += `     2. Update affected service CONTEXT.md files\n`;
+    report += `     3. If new pattern type, consider creating an ADR\n\n`;
   }
 
   // Architectural Changes
