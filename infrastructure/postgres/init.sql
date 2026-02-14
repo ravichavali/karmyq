@@ -163,6 +163,10 @@ CREATE TABLE auth.user_feed_preferences (
 
 CREATE INDEX idx_user_feed_prefs_user ON auth.user_feed_preferences(user_id);
 
+-- ============= SHARED ENUMS =============
+-- ADR-022: Visibility scope enum for multi-tier feed (used by communities + requests)
+CREATE TYPE visibility_scope_enum AS ENUM ('community', 'trust_network', 'platform');
+
 -- ============= COMMUNITY SERVICE SCHEMA =============
 CREATE SCHEMA IF NOT EXISTS communities;
 
@@ -240,9 +244,6 @@ CREATE SCHEMA IF NOT EXISTS requests;
 
 -- v9.0: Polymorphic request type enum (matches migration 009)
 CREATE TYPE request_type_enum AS ENUM ('generic', 'ride', 'borrow', 'service', 'event');
-
--- ADR-022: Visibility scope enum for multi-tier feed
-CREATE TYPE visibility_scope_enum AS ENUM ('community', 'trust_network', 'platform');
 
 CREATE TABLE requests.help_requests (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
