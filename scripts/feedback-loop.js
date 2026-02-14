@@ -30,6 +30,9 @@ function analyzeChanges(changedFiles) {
     needsRegistryUpdate: false,
     needsADR: false,
     needsSimulationUpdate: false,
+    missingContextUpdates: [],
+    missingMigrationDocs: [],
+    newAdrWithoutIndex: false,
   };
 
   changedFiles.forEach(file => {
@@ -89,6 +92,31 @@ function analyzeChanges(changedFiles) {
         updates.needsSimulationUpdate = true;
       }
     }
+
+    // ADR added without index update
+    if (file.match(/^docs\/adr\/ADR-\d+.*\.md$/)) {
+      updates.newAdrWithoutIndex = true;
+    }
+
+    // Migration added — check if CONTEXT.md schema section was also updated
+    if (file.match(/^infrastructure\/postgres\/migrations\//)) {
+      updates.missingMigrationDocs.push(file);
+    }
+  });
+
+  // Cross-check: route files changed but CONTEXT.md not included
+  const contextFilesChanged = new Set(
+    changedFiles.filter(f => f.endsWith('CONTEXT.md')).map(f => {
+      const m = f.match(/^services\/([^/]+)\//);
+      return m ? m[1] : null;
+    }).filter(Boolean)
+  );
+
+  updates.servicesChanged.forEach(service => {
+    const hasRouteChange = updates.apiChanges.some(c => c.service === service);
+    if (hasRouteChange && !contextFilesChanged.has(service)) {
+      updates.missingContextUpdates.push(service);
+    }
   });
 
   return updates;
@@ -97,7 +125,9 @@ function analyzeChanges(changedFiles) {
 function generateFeedbackReport(updates) {
   if (updates.servicesChanged.size === 0 &&
       !updates.needsRegistryUpdate &&
-      !updates.needsADR) {
+      !updates.needsADR &&
+      !updates.newAdrWithoutIndex &&
+      updates.missingMigrationDocs.length === 0) {
     return null;
   }
 
@@ -175,6 +205,31 @@ function generateFeedbackReport(updates) {
     report += `     2. Review services/dependency-graph.md\n`;
     report += `     3. Review services/impact-analysis.md\n`;
     report += `     4. Regenerate service contexts: node scripts/generate-service-context.js\n\n`;
+  }
+
+  // Missing CONTEXT.md updates for route changes
+  if (updates.missingContextUpdates.length > 0) {
+    report += '⚠️  Route Changes Without CONTEXT.md Update:\n';
+    updates.missingContextUpdates.forEach(service => {
+      report += `\n  Service: ${service}\n`;
+      report += `  ✅ TODO: Update services/${service}/CONTEXT.md "API Endpoints" section\n`;
+    });
+    report += '\n';
+  }
+
+  // Migration added without schema docs
+  if (updates.missingMigrationDocs.length > 0) {
+    report += '⚠️  Migration Added — Verify Schema Docs:\n';
+    updates.missingMigrationDocs.forEach(file => {
+      report += `  File: ${file}\n`;
+    });
+    report += `  ✅ TODO: Update affected service CONTEXT.md "Database Schema" sections\n\n`;
+  }
+
+  // ADR added
+  if (updates.newAdrWithoutIndex) {
+    report += '📝 New ADR Added:\n';
+    report += `  ✅ TODO: Update docs/adr/README.md index with new entry\n\n`;
   }
 
   // Architectural Changes

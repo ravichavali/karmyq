@@ -114,3 +114,65 @@
   mask-image: linear-gradient(to bottom, black 0%, black 60%, transparent 100%);
   -webkit-mask-image: linear-gradient(to bottom, black 0%, black 60%, transparent 100%);
 }
+
+/* Documentation prose styles */
+.docs-prose {
+  @apply text-karmyq-brown-800 leading-relaxed;
+}
+.docs-prose h1 {
+  @apply font-serif text-3xl font-semibold mt-10 mb-4 text-karmyq-brown-900;
+}
+.docs-prose h2 {
+  @apply font-serif text-2xl font-semibold mt-8 mb-3 text-karmyq-brown-900 border-b border-karmyq-brown-100 pb-2;
+}
+.docs-prose h3 {
+  @apply font-serif text-xl font-medium mt-6 mb-2 text-karmyq-brown-800;
+}
+.docs-prose h4 {
+  @apply font-sans text-base font-semibold mt-5 mb-2 text-karmyq-brown-700;
+}
+.docs-prose p {
+  @apply mb-4;
+}
+.docs-prose ul {
+  @apply list-disc pl-6 mb-4 space-y-1;
+}
+.docs-prose ol {
+  @apply list-decimal pl-6 mb-4 space-y-1;
+}
+.docs-prose li {
+  @apply text-karmyq-brown-700;
+}
+.docs-prose a {
+  @apply text-karmyq-green-600 underline underline-offset-2 hover:text-karmyq-green-700;
+}
+.docs-prose code {
+  @apply text-sm bg-karmyq-brown-50 text-karmyq-brown-800 px-1.5 py-0.5 rounded font-mono;
+}
+.docs-prose pre {
+  @apply bg-karmyq-brown-50 border border-karmyq-brown-100 rounded-lg p-4 overflow-x-auto mb-4;
+}
+.docs-prose pre code {
+  @apply bg-transparent p-0;
+}
+.docs-prose blockquote {
+  @apply border-l-4 border-karmyq-green-300 pl-4 italic text-karmyq-brown-600 my-4;
+}
+.docs-prose table {
+  @apply w-full border-collapse mb-4;
+}
+.docs-prose th {
+  @apply text-left text-sm font-semibold text-karmyq-brown-700 bg-karmyq-brown-50 px-3 py-2 border border-karmyq-brown-100;
+}
+.docs-prose td {
+  @apply text-sm text-karmyq-brown-700 px-3 py-2 border border-karmyq-brown-100;
+}
+.docs-prose hr {
+  @apply border-karmyq-brown-100 my-8;
+}
+.docs-prose strong {
+  @apply font-semibold text-karmyq-brown-900;
+}
+.docs-prose img {
+  @apply rounded-lg my-4 max-w-full;
+}

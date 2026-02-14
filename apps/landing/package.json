@@ -4,6 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev -p 3100",
+    "generate-docs": "npx tsx ../../scripts/generate-docs.ts",
+    "prebuild": "npm run generate-docs",
     "build": "next build",
     "start": "next start -p 3100",
     "lint": "next lint"
@@ -12,7 +14,9 @@
     "framer-motion": "^11.15.0",
     "next": "^14.2.35",
     "react": "^18.2.0",
-    "react-dom": "^18.2.0"
+    "react-dom": "^18.2.0",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1"
   },
   "devDependencies": {
     "@types/node": "^20",

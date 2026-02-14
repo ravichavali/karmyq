@@ -74,6 +74,30 @@ Run feedback loop check:
 npm run feedback:check
 ```
 
+### 6. Documentation Updates (MANDATORY)
+
+Every code change that modifies behavior MUST include documentation updates:
+
+#### Service changes
+- New/modified endpoint → Update service `CONTEXT.md` "API Endpoints" section
+- New/modified endpoint → Update `services/registry.json` "apis.provides"
+- Schema change → Update service `CONTEXT.md` "Database Schema" section
+- Schema change → Create migration in `infrastructure/postgres/migrations/`
+- New event → Update `services/registry.json` "events" section
+- New dependency → Update `services/registry.json` "dependencies" section
+
+#### Shared package changes
+- New export → Update `packages/shared/CONTEXT.md`
+- New matching type → Update type definitions in `matching/types.ts`
+
+#### Concept/architecture changes
+- New architectural decision → Create ADR in `docs/adr/`
+- Modified system behavior → Update `docs/ARCHITECTURE.md` if applicable
+
+#### After all changes
+- Run `npm run analyze:services` if service dependencies changed
+- Docs site auto-regenerates on next deploy (pre-build step)
+
 ---
 
 ## System Architecture

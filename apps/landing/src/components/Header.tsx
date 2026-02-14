@@ -8,6 +8,7 @@ const NAV_LINKS = [
   { label: 'Stories', href: '#stories' },
   { label: 'Research', href: '#research' },
   { label: 'Principles', href: '#principles' },
+  { label: 'Docs', href: '/docs' },
 ];
 
 export default function Header() {
