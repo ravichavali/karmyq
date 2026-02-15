@@ -85,6 +85,14 @@ See [Turborepo Guide](docs/development/turborepo.md) for more.
 - **[Operations](docs/operations/)** - Deployment and monitoring
 
 ### For Developers
+
+**Current Feature** (v9.1.0): Server-Driven UI / Dynamic Forms (Phase 2)
+- **Status**: Phase 1 Complete → Phase 2: Admin UI (In Progress)
+- **Documentation**: [ADR-032: Server-Driven UI](docs/adr/ADR-032-server-driven-ui-dynamic-schemas.md)
+
+Enables admin UI for schema management without deployments, A/B testing, and mobile dynamic forms.
+
+### For Developers
 Each service has a `CONTEXT.md` file for context-efficient development:
 - [Auth Service](services/auth-service/CONTEXT.md) - JWT with multi-community support
 - [Community Service](services/community-service/CONTEXT.md) - Community CRUD

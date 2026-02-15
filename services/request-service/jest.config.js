@@ -12,7 +12,8 @@ module.exports = {
   testMatch: [
     '<rootDir>/tests/unit/**/*.test.ts',
     '<rootDir>/tests/regression/**/*.test.ts',
-    '<rootDir>/tests/integration/**/*.test.ts'
+    '<rootDir>/tests/integration/**/*.test.ts',
+    '<rootDir>/tests/tdd/**/*.test.ts'
   ],
 
   // Coverage specific to this service

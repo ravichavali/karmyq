@@ -4,6 +4,39 @@
 
 ---
 
+## 🚀 Starting a New Conversation?
+
+**CHECK FOR HANDOFF FIRST!**
+
+Before starting work, check if there's an active handoff document:
+
+```bash
+cat .claude/handoff/CURRENT_HANDOFF.md
+```
+
+**What is a handoff?**
+- A detailed implementation plan left by the previous conversation
+- Contains context, file paths, code patterns, and a ready-to-execute plan
+- Enables seamless continuation of work across conversations
+
+**If a handoff exists:**
+1. Read the handoff document (you'll find everything you need)
+2. Follow the "Quick Start" section to begin implementation
+3. Update the handoff as you make progress
+4. When feature is complete, archive or delete it
+
+**If no handoff exists:**
+- Proceed with normal development workflow (see below)
+
+**Creating a handoff for the next conversation:**
+- Ask: "Create a handoff document for the next conversation"
+- Include: context, current state, implementation plan, success criteria
+- Use template: `.claude/handoff/TEMPLATE.md`
+
+See [`.claude/handoff/README.md`](.claude/handoff/README.md) for complete handoff framework documentation.
+
+---
+
 ## 🎯 Working in This Codebase? START HERE
 
 ### **Context Follows Directory Scope**

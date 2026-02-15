@@ -81,7 +81,16 @@
           "/requests/curated",
           "/offers",
           "/matches",
-          "/matches/:id/complete"
+          "/matches/:id/complete",
+          "/schemas",
+          "/schemas/:type",
+          "/admin/schemas",
+          "/admin/schemas/:id",
+          "/admin/schemas/:id/publish",
+          "/admin/schemas/:id/archive",
+          "/admin/schemas/:id/versions",
+          "/admin/schemas/:id/rollback/:version",
+          "/admin/schemas/:id/variants"
         ],
         "consumes": [
           "/auth/verify",
@@ -94,7 +103,8 @@
       "events": {
         "publishes": ["match_completed", "request_created", "offer_created"],
         "subscribes": []
-      }
+      },
+      "notes": "Server-driven UI: Schema API provides dynamic form definitions. Admin API enables zero-code request type creation."
     },
     "reputation-service": {
       "port": 3004,
