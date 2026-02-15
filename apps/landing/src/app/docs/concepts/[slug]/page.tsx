@@ -38,8 +38,9 @@ const statusColors: Record<string, string> = {
   superseded: 'bg-gray-100 text-gray-500',
 };
 
-export default function ConceptPage({ params }: { params: { slug: string } }) {
-  const doc = getConceptDoc(params.slug);
+export default async function ConceptPage({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
+  const doc = getConceptDoc(slug);
   if (!doc) notFound();
 
   return (

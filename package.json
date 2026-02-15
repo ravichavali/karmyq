@@ -60,10 +60,7 @@
     "zod": "^4.1.12"
   },
   "overrides": {
-    "@karmyq/mobile": {
-      "react": "18.3.1",
-      "react-dom": "18.3.1"
-    }
+    "tar": ">=7.5.3"
   },
   "packageManager": "npm@10.8.2"
 }

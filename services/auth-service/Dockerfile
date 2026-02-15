@@ -3,7 +3,6 @@
 
 # Build stage
 FROM node:18-alpine AS builder
-RUN apk add --no-cache python3 make g++
 WORKDIR /app
 
 # Copy workspace root package.json for hoisted dependencies
@@ -39,7 +38,6 @@ RUN npm run build
 
 # Production stage
 FROM node:18-alpine
-RUN apk add --no-cache python3 make g++
 WORKDIR /app
 
 # Copy root package.json for hoisted dependencies

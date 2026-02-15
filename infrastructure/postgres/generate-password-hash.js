@@ -1,5 +1,5 @@
 // Generate bcrypt password hash for E2E test users
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs');
 
 const password = 'password123';
 const saltRounds = 10;

@@ -25,13 +25,25 @@ export async function registerForPushNotificationsAsync(): Promise<
   }
 
   if (Device.isDevice) {
-    const { status: existingStatus } =
-      await Notifications.getPermissionsAsync();
-    let finalStatus = existingStatus;
+    const existingStatus = await Notifications.getPermissionsAsync();
+    let finalStatus: string | undefined = undefined;
 
-    if (existingStatus !== "granted") {
-      const { status } = await Notifications.requestPermissionsAsync();
-      finalStatus = status;
+    // Handle both old (string) and new (object with 'granted' property) API responses
+    if (typeof existingStatus === "string") {
+      finalStatus = existingStatus;
+    } else if (existingStatus && typeof existingStatus === "object" && "granted" in existingStatus) {
+      // New API: status is an object, check if 'granted' is truthy
+      finalStatus = existingStatus.granted ? "granted" : "denied";
+    }
+
+    if (finalStatus !== "granted") {
+      const permissions = await Notifications.requestPermissionsAsync();
+      // Handle new API response
+      if (typeof permissions === "string") {
+        finalStatus = permissions;
+      } else if (permissions && typeof permissions === "object" && "granted" in permissions) {
+        finalStatus = permissions.granted ? "granted" : "denied";
+      }
     }
 
     if (finalStatus !== "granted") {

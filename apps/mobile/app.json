@@ -43,7 +43,19 @@
       "bundler": "metro"
     },
     "plugins": [
-      "expo-router"
+      "expo-router",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "KarmyQ needs camera access to verify help exchanges and document community activities."
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "KarmyQ uses your location to connect you with nearby community members who need help."
+        }
+      ]
     ],
     "scheme": "karmyq",
     "experiments": {

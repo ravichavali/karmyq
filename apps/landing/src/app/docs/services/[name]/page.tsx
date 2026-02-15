@@ -37,11 +37,12 @@ const methodColors: Record<string, string> = {
   DELETE: 'bg-red-100 text-red-700',
 };
 
-export default function ServiceDocPage({ params }: { params: { name: string } }) {
-  const service = servicesData.services.find((s) => s.name === params.name);
+export default async function ServiceDocPage({ params }: { params: Promise<{ name: string }> }) {
+  const { name } = await params;
+  const service = servicesData.services.find((s) => s.name === name);
   if (!service) notFound();
 
-  const doc = getServiceDoc(params.name);
+  const doc = getServiceDoc(name);
 
   return (
     <div>
