@@ -214,11 +214,19 @@ COMMENT ON COLUMN requests.validation_rules.validation_schema IS 'JSON Schema fo
 -- Grant Permissions
 -- =============================================================================
 
--- Request service needs full access to schemas
-GRANT SELECT, INSERT, UPDATE, DELETE ON requests.ui_schemas TO request_service;
-GRANT SELECT, INSERT, UPDATE, DELETE ON requests.ui_schema_versions TO request_service;
-GRANT SELECT, INSERT, UPDATE, DELETE ON requests.validation_rules TO request_service;
+-- Note: karmyq_user role already has ALL PRIVILEGES on all tables from init.sql
+-- No service-specific roles (request_service, auth_service, etc.) exist in the database
+-- The ui_schemas table uses auth.users (created_by, updated_by) for audit trails
+-- All services connect as karmyq_user and have full access to all tables
 
--- Other services only need read access to published schemas
-GRANT SELECT ON requests.ui_schemas TO auth_service, community_service, reputation_service,
-  notification_service, messaging_service, feed_service, social_graph_service;
+-- GRANT statements omitted since karmyq_user already has ALL PRIVILEGES
+-- Future enhancement: If service-specific roles are added, uncomment below:
+
+-- -- Request service needs full access to schemas
+-- GRANT SELECT, INSERT, UPDATE, DELETE ON requests.ui_schemas TO request_service;
+-- GRANT SELECT, INSERT, UPDATE, DELETE ON requests.ui_schema_versions TO request_service;
+-- GRANT SELECT, INSERT, UPDATE, DELETE ON requests.validation_rules TO request_service;
+--
+-- -- Other services only need read access to published schemas
+-- GRANT SELECT ON requests.ui_schemas TO auth_service, community_service, reputation_service,
+--   notification_service, messaging_service, feed_service, social_graph_service;
