@@ -321,6 +321,81 @@ export const requestService = {
   getRequest: (id: string) =>
     requestApi.get(`/requests/${id}`),
 
+  // Admin Schema Management (Server-Driven UI - Phase 2)
+  uiSchemaService: {
+    // Get all schemas with filters
+    getAdminSchemas: (params?: { status?: string; type?: string; limit?: number; offset?: number }) =>
+      requestApi.get('/admin/schemas', { params }),
+
+    // Get specific schema by ID
+    getAdminSchema: (id: string) =>
+      requestApi.get(`/admin/schemas/${id}`),
+
+    // Create new schema
+    createSchema: (data: {
+      type: string;
+      label: string;
+      icon: string;
+      color: string;
+      description?: string;
+      sections: any[];
+    }) =>
+      requestApi.post('/admin/schemas', data),
+
+    // Update schema
+    updateSchema: (type: string, schema: any) =>
+      requestApi.put(`/admin/schemas/${type}`, schema),
+
+    // Publish draft schema
+    publishSchema: (type: string) =>
+      requestApi.post(`/admin/schemas/${type}/publish`),
+
+    // Archive schema
+    archiveSchema: (type: string) =>
+      requestApi.post(`/admin/schemas/${type}/archive`),
+
+    // Get version history
+    getSchemaVersions: (id: string) =>
+      requestApi.get(`/admin/schemas/${id}/versions`),
+
+    // Rollback to version
+    rollbackSchema: (id: string, version: number) =>
+      requestApi.post(`/admin/schemas/${id}/rollback/${version}`),
+
+    // Create A/B test variant
+    createSchemaVariant: (id: string, data: {
+      variant_name: string;
+      rollout_percentage: number;
+    }) =>
+      requestApi.post(`/admin/schemas/${id}/variants`, data),
+
+    // Validate schema payload (for testing)
+    validateSchema: (schema: any) =>
+      requestApi.post(`/schemas/${schema.type}/validate`, { schema }),
+
+  // Help Requests
+  getRequests: (params?: { community_id?: string; status?: string; type?: string; requester_id?: string; limit?: number; offset?: number }) =>
+    requestApi.get('/requests', { params }),
+
+  getMatchedRequests: (user_id: string, limit?: number) =>
+    requestApi.get('/requests/matched/for-user', { params: { user_id, limit } }),
+
+  // Day 7: Curated feed with match scores
+  getCuratedRequests: (params?: { minScore?: number; limit?: number; community_id?: string }) =>
+    requestApi.get('/requests/curated', { params }),
+  getRequest: (id: string) =>
+    requestApi.get(`/requests/${id}`),
+  createRequest: (data: {
+    community_id?: string;
+    post_to_all_communities?: boolean;
+    title?: string;
+    description: string;
+    type?: string; // New polymorphic type field
+    payload?: any; // Type-specific payload (e.g., ride origin/destination)
+    requirements?: any; // Type-specific requirements
+  }) =>
+    requestApi.post('/requests', data),
+
   createRequest: (data: {
     community_id?: string;
     post_to_all_communities?: boolean;
