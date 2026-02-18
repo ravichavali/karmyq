@@ -67,6 +67,7 @@ When code implementing an ADR is deployed, update the status from `Accepted` →
 - [ADR-022: Multi-Tier Feed Architecture (Explore-Exploit Balance)](ADR-022-multi-tier-feed-architecture.md) — Accepted
 - [ADR-030: Community Configuration System (Phase 1)](ADR-030-community-configuration-system.md) — Accepted
 - [ADR-031: Unified Trust-Scored Feed with Multi-Tier Visibility](ADR-031-unified-trust-scored-feed.md) — Accepted
+- [ADR-032: Server-Driven UI / Dynamic Forms](ADR-032-server-driven-ui-dynamic-schemas.md) — Implemented
 
 ## Creating a New ADR
 

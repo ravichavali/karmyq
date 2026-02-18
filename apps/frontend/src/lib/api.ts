@@ -298,6 +298,49 @@ export const communityService = {
     communityApi.get('/communities/configs/public', { params: { min_members: minMembers } }),
 }
 
+// Admin Schema Management (Server-Driven UI - Phase 2)
+export const uiSchemaService = {
+  getAdminSchemas: (params?: { status?: string; type?: string; limit?: number; offset?: number }) =>
+    requestApi.get('/admin/schemas', { params }),
+
+  getAdminSchema: (id: string) =>
+    requestApi.get(`/admin/schemas/${id}`),
+
+  createSchema: (data: {
+    type: string;
+    label: string;
+    icon: string;
+    color: string;
+    description?: string;
+    sections: any[];
+  }) =>
+    requestApi.post('/admin/schemas', data),
+
+  updateSchema: (type: string, schema: any) =>
+    requestApi.put(`/admin/schemas/${type}`, schema),
+
+  publishSchema: (type: string) =>
+    requestApi.post(`/admin/schemas/${type}/publish`),
+
+  archiveSchema: (type: string) =>
+    requestApi.post(`/admin/schemas/${type}/archive`),
+
+  getSchemaVersions: (id: string) =>
+    requestApi.get(`/admin/schemas/${id}/versions`),
+
+  rollbackSchema: (id: string, version: number) =>
+    requestApi.post(`/admin/schemas/${id}/rollback/${version}`),
+
+  createSchemaVariant: (id: string, data: {
+    variant_name: string;
+    rollout_percentage: number;
+  }) =>
+    requestApi.post(`/admin/schemas/${id}/variants`, data),
+
+  validateSchema: (schema: any) =>
+    requestApi.post(`/schemas/${schema.type}/validate`, { schema }),
+}
+
 // Request Service API Methods
 export const requestService = {
   // UI Schemas (Server-Driven UI)
