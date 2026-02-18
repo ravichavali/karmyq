@@ -1916,3 +1916,60 @@ Update urgency priority calculation in skill matching query (see Section 5.2)
 **End of Request Service Context Documentation**
 
 *This document is the gold standard for service documentation. All other services should follow this structure.*
+
+---
+
+### Admin Schema API (Server-Driven UI - Phase 2)
+**Last Updated:** 2026-02-17
+
+**Purpose:** Enable non-technical admins to create and manage request type schemas without code deployments.
+
+**API Endpoints:** All endpoints require admin role authentication (super_admin or admin).
+
+#### Schema Management
+- `GET /admin/schemas` - List all schemas (supports status, type, pagination filtering)
+  - `GET /admin/schemas/:id` - Get specific schema by ID (includes version history)
+  - `POST /admin/schemas` - Create new schema with type, sections, metadata
+  - `PUT /admin/schemas/:id` - Update schema (increments version automatically)
+  - `POST /admin/schemas/:id/publish` - Publish draft schema (make available to users)
+  - `POST /admin/schemas/:id/archive` - Archive schema (hide from users)
+  - `GET /admin/schemas/:id/versions` - Get version history for rollback
+  - `POST /admin/schemas/:id/rollback/:version` - Rollback to specific version
+  - `POST /admin/schemas/:id/variants` - Create A/B test variant
+  - `POST /schemas/:type/validate` - Validate schema payload (for testing)
+
+**Data Models:**
+- Uses `requests.ui_schemas` table for schema storage
+- Uses `requests.ui_schema_versions` for version history
+- JSON Schema validation in `requests.validation_rules` for custom types
+
+**Frontend Integration:**
+- [`/admin/schemas`](apps/frontend/src/pages/admin/schemas/index.tsx) - Schema list with filtering
+- [`/admin/schemas/new`](apps/frontend/src/pages/admin/schemas/new.tsx) - Schema creation with form builder
+- [`/admin/schemas/[id]/edit`](apps/frontend/src/pages/admin/schemas/[id]/edit.tsx) - Full editor with tabs (Sections/Fields/Preview/Versions)
+- [`/admin/schemas/[id]/versions`](apps/frontend/src/pages/admin/schemas/[id]/versions.tsx) - Version timeline with rollback
+- Admin authentication middleware (super_admin/admin check)
+
+**Usage Example:**
+```typescript
+// Create new schema
+const newSchema = {
+  type: 'dogwalking',
+  label: 'Dog Walking Request',
+  icon: '🐕',
+  color: '#f59e0b',
+  description: 'Help with walking your dog',
+  sections: [
+    {
+      id: 'section-1',
+      title: 'Dog Details',
+      fields: [
+        { id: 'field-1', type: 'text', label: 'Dog Breed', required: true },
+        { id: 'field-2', type: 'number', label: 'Duration (hours)', required: true }
+      ]
+    }
+  ]
+}
+
+await uiSchemaService.createSchema(newSchema)
+```
