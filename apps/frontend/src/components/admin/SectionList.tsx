@@ -1,12 +1,12 @@
 import { useState } from 'react'
-import { SectionHeader } from './SectionHeader'
+import SectionHeader from './SectionHeader'
 
 export interface SectionProps {
-  section: {
+  sections: Array<{
     id: string
     title: string
     fields: any[]
-  }
+  }>
   onToggle?: (sectionId: string) => void
   onDelete?: (sectionId: string) => void
   onEdit?: (section: any, updates: any) => void

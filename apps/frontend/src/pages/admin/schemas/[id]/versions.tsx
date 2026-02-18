@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
 import Head from 'next/head'
+import Link from 'next/link'
 import AdminLayout from '@/components/admin/AdminLayout'
 import { uiSchemaService } from '@/lib/api'
 import { requireAdmin, isAdmin } from '@/utils/admin-auth'

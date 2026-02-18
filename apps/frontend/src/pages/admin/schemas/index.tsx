@@ -4,11 +4,22 @@ import Head from 'next/head'
 import Link from 'next/link'
 import { uiSchemaService } from '@/lib/api'
 import Layout from '@/components/Layout'
-import { UISchema } from '@karmyq/shared/schemas/ui'
 import { requireAdmin, isAdmin } from '@/utils/admin-auth'
 
+interface AdminSchema {
+  id: string
+  type: string
+  version: number
+  label: string
+  icon: string
+  color: string
+  description: string
+  status: 'draft' | 'published' | 'archived'
+  sections: any[]
+}
+
 interface SchemaListResponse {
-  schemas: UISchema[]
+  schemas: AdminSchema[]
   total: number
 }
 
@@ -16,7 +27,7 @@ export default function SchemaListPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [schemas, setSchemas] = useState<UISchema[]>([])
+  const [schemas, setSchemas] = useState<AdminSchema[]>([])
   const [filter, setFilter] = useState<{ status?: string; type?: string }>({})
   const [authChecked, setAuthChecked] = useState(false)
 
@@ -53,15 +64,15 @@ export default function SchemaListPage() {
     router.push('/admin/schemas/new')
   }
 
-  const handleEdit = (schema: UISchema) => {
+  const handleEdit = (schema: AdminSchema) => {
     router.push(`/admin/schemas/${schema.id}/edit`)
   }
 
-  const handleViewVersions = (schema: UISchema) => {
+  const handleViewVersions = (schema: AdminSchema) => {
     router.push(`/admin/schemas/${schema.id}/versions`)
   }
 
-  const getStatusBadge = (schema: UISchema) => {
+  const getStatusBadge = (schema: AdminSchema) => {
     const statusColors = {
       draft: 'bg-yellow-100 text-yellow-800',
       published: 'bg-green-100 text-green-800',

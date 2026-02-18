@@ -4,13 +4,41 @@ import Head from 'next/head'
 import Link from 'next/link'
 import { uiSchemaService } from '@/lib/api'
 import AdminLayout from '@/components/admin/AdminLayout'
-import { UISchema } from '@karmyq/shared/schemas/ui'
 import { requireAdmin, isAdmin } from '@/utils/admin-auth'
+
+// Admin schema is the database record representation (includes id, status, etc.)
+interface AdminField {
+  id: string
+  type: string
+  label: string
+  required: boolean
+  placeholder?: string
+  helpText?: string
+}
+
+interface AdminSection {
+  id: string
+  title: string
+  description?: string
+  fields: AdminField[]
+}
+
+interface AdminSchema {
+  id: string
+  type: string
+  version: number
+  label: string
+  icon: string
+  color: string
+  description: string
+  status: 'draft' | 'published' | 'archived'
+  sections: AdminSection[]
+}
 
 interface SchemaVersion {
   id: string
   version: number
-  schema_snapshot: UISchema
+  schema_snapshot: AdminSchema
   created_at: string
   changed_by: string
   change_description: string
@@ -23,7 +51,7 @@ export default function SchemaEditorPage() {
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
-  const [schema, setSchema] = useState<UISchema | null>(null)
+  const [schema, setSchema] = useState<AdminSchema | null>(null)
   const [versions, setVersions] = useState<SchemaVersion[]>([])
   const [activeTab, setActiveTab] = useState<'sections' | 'fields' | 'preview' | 'versions'>('sections')
   const [editingField, setEditingField] = useState<any>(null)
@@ -51,7 +79,7 @@ export default function SchemaEditorPage() {
   const loadSchema = async () => {
     try {
       setLoading(true)
-      const response = await uiSchemaService.getSchema(id as string)
+      const response = await uiSchemaService.getAdminSchema(id as string)
       setSchema(response.data.schema)
       setValidationErrors([])
     } catch (err: any) {
@@ -123,7 +151,7 @@ export default function SchemaEditorPage() {
     }
   }
 
-  const handleUpdateSection = (sectionId: string, updates: Partial<UISchema['sections'][0]>) => {
+  const handleUpdateSection = (sectionId: string, updates: Partial<AdminSection>) => {
     if (!schema) return
 
     const updatedSections = schema.sections.map(section => {
@@ -210,7 +238,7 @@ export default function SchemaEditorPage() {
     if (!schema) return
 
     const sections = [...schema.sections]
-    const [draggedSection] = sections.splice(dragIndex, 1)[0]
+    const [draggedSection] = sections.splice(dragIndex, 1)
     sections.splice(dropIndex, 0, draggedSection)
     setSchema({ ...schema, sections })
   }
@@ -224,7 +252,7 @@ export default function SchemaEditorPage() {
     if (!section) return
 
     const fields = [...section.fields]
-    const [draggedField] = fields.splice(dragIndex, 1)[0]
+    const [draggedField] = fields.splice(dragIndex, 1)
 
     // Find where to drop (account for the removed field)
     const targetIndex = dragIndex < dropIndex ? dropIndex - 1 : dropIndex
@@ -251,8 +279,7 @@ export default function SchemaEditorPage() {
     }
   }
 
-  if (loading && !schema) {
-    return (
+  return (
       <AdminLayout title="Schema Editor">
         <Head>
           <title>Schema Editor - {schema?.label || 'Loading...'}</title>
@@ -451,7 +478,7 @@ export default function SchemaEditorPage() {
                     </div>
                   )}
                 </div>
-              )}
+              </div>
 
               {/* Publish Dialog */}
               {showPublishDialog && (
@@ -519,6 +546,5 @@ export default function SchemaEditorPage() {
           )}
         </div>
       </AdminLayout>
-    )
-  }
+  )
 }
