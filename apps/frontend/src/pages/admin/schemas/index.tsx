@@ -87,8 +87,7 @@ export default function SchemaListPage() {
     return true
   })
 
-  if (!authChecked || loading) {
-    return (
+  return (
       <Layout title="Schema Management - Karmyq">
         <Head>
           <title>Schema Management - Karmyq</title>
@@ -221,6 +220,5 @@ export default function SchemaListPage() {
           )}
         </div>
       </Layout>
-    )
-  }
+  )
 }
