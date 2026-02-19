@@ -404,7 +404,7 @@ export default function CommunityDetailPage() {
                   {community.current_members} / {community.max_members} members
                 </span>
               </div>
-              {isAdmin && community.creator_id === currentUser?.id && (
+              {isAdmin && (
                 <Link
                   href="/admin/schemas"
                   className="px-4 py-2 bg-surface border border-border rounded hover:bg-surface-raised text-sm font-medium text-text-muted"
