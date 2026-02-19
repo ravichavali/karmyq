@@ -12,7 +12,8 @@ interface JWTPayload {
   userId: string;
   email: string;
   role?: string;
-  communityMemberships?: Array<{ id: string; name: string; role: string }>;
+  communities?: Array<{ id: string; name: string; role: string }>;
+  communityMemberships?: Array<{ id: string; name: string; role: string }>; // legacy alias
 }
 
 /**
@@ -85,10 +86,11 @@ export function requireAdmin(req: Request, res: Response, next: NextFunction) {
     });
   }
 
-  // Check if user has admin role
-  // This can be either a direct role field or derived from community memberships
+  // Check if user has admin role in any community
+  // JWT uses 'communities' field; support legacy 'communityMemberships' alias too
+  const memberships = user.communities ?? user.communityMemberships ?? [];
   const isAdmin = user.role === 'admin' ||
-    user.communityMemberships?.some(m => m.role === 'admin');
+    memberships.some(m => m.role === 'admin');
 
   if (!isAdmin) {
     return res.status(403).json({
