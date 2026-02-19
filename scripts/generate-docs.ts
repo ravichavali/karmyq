@@ -233,11 +233,112 @@ function generateConcepts() {
   return concepts;
 }
 
+// ─── Platform Concept Pages ───────────────────────────────────────────
+
+interface ConceptPage {
+  slug: string;
+  title: string;
+  description: string;
+}
+
+function generateConceptPages(): ConceptPage[] {
+  console.log('  Generating platform concept pages...');
+  const conceptsDir = path.join(ROOT, 'docs', 'concepts');
+  if (!fs.existsSync(conceptsDir)) return [];
+
+  const files = fs.readdirSync(conceptsDir).filter(f => f.endsWith('.md')).sort();
+  const pages: ConceptPage[] = [];
+
+  for (const file of files) {
+    const content = readFile(path.join(conceptsDir, file));
+    if (!content) continue;
+
+    const slug = file.replace('.md', '');
+    const title = extractTitle(content, slug);
+    const description = extractDescription(content);
+
+    writeJson(path.join(OUT_DIR, 'concepts', `${slug}.json`), {
+      slug,
+      title,
+      description,
+      content,
+    });
+
+    pages.push({ slug, title, description });
+  }
+
+  return pages;
+}
+
+// ─── User Guides ──────────────────────────────────────────────────────
+
+interface GuidePage {
+  slug: string;
+  title: string;
+  description: string;
+}
+
+// Ordered list controls sidebar display order
+const GUIDE_ORDER = [
+  'getting-started-guide',
+  'making-requests-guide',
+  'fulfilling-requests-guide',
+  'community-admin-guide',
+  'understanding-karma-guide',
+];
+
+const GUIDE_LABELS: Record<string, string> = {
+  'getting-started-guide': 'Getting Started',
+  'making-requests-guide': 'Asking for Help',
+  'fulfilling-requests-guide': 'Helping Others',
+  'community-admin-guide': 'Running a Community',
+  'understanding-karma-guide': 'Your Karma & Reputation',
+};
+
+const GUIDE_SLUGS: Record<string, string> = {
+  'getting-started-guide': 'getting-started',
+  'making-requests-guide': 'making-requests',
+  'fulfilling-requests-guide': 'fulfilling-requests',
+  'community-admin-guide': 'community-admin',
+  'understanding-karma-guide': 'understanding-karma',
+};
+
+function generateGuides(): GuidePage[] {
+  console.log('  Generating user guides...');
+  const guidesDir = path.join(ROOT, 'docs', 'guides');
+  if (!fs.existsSync(guidesDir)) return [];
+
+  const pages: GuidePage[] = [];
+
+  for (const fileBase of GUIDE_ORDER) {
+    const filePath = path.join(guidesDir, `${fileBase}.md`);
+    const content = readFile(filePath);
+    if (!content) continue;
+
+    const navSlug = GUIDE_SLUGS[fileBase] || fileBase;
+    const title = extractTitle(content, GUIDE_LABELS[fileBase] || fileBase);
+    const description = extractDescription(content);
+
+    writeJson(path.join(OUT_DIR, 'guides', `${navSlug}.json`), {
+      slug: navSlug,
+      title,
+      description,
+      content,
+    });
+
+    pages.push({ slug: navSlug, title, description });
+  }
+
+  return pages;
+}
+
 // ─── Navigation ───────────────────────────────────────────────────────
 
 function generateNav(
   services: Array<{ name: string }>,
-  concepts: Array<{ slug: string; title: string; status: string }>
+  adrs: Array<{ slug: string; title: string; status: string }>,
+  conceptPages: ConceptPage[],
+  guides: GuidePage[]
 ) {
   console.log('  Generating navigation...');
 
@@ -267,17 +368,28 @@ function generateNav(
         ],
       },
       {
-        title: 'Concepts & Decisions',
+        title: 'Concepts',
+        items: conceptPages.map(p => ({
+          label: p.title,
+          href: `/docs/concepts/${p.slug}`,
+        })),
+      },
+      {
+        title: 'Architecture Decisions',
         items: [
-          { label: 'All Concepts', href: '/docs/concepts' },
-          ...concepts
-            .filter(c => ['accepted', 'implemented'].includes(c.status))
-            .slice(0, 10) // Top 10 in sidebar
-            .map(c => ({
-              label: c.title.replace(/^ADR-\d+[:\s-]+/, '').slice(0, 40),
-              href: `/docs/concepts/${c.slug}`,
-            })),
+          { label: 'All ADRs', href: '/docs/concepts' },
+          ...adrs.map(c => ({
+            label: c.title.replace(/^ADR-\d+[:\s-]+/, '').slice(0, 50),
+            href: `/docs/concepts/${c.slug}`,
+          })),
         ],
+      },
+      {
+        title: 'User Guides',
+        items: guides.map(g => ({
+          label: GUIDE_LABELS[Object.keys(GUIDE_SLUGS).find(k => GUIDE_SLUGS[k] === g.slug) || ''] || g.title,
+          href: `/docs/guides/${g.slug}`,
+        })),
       },
     ],
   };
@@ -301,14 +413,18 @@ function main() {
   const serviceDocs = generateServiceDocs(services);
   generateApiReference(services);
   generateArchitecture();
-  const concepts = generateConcepts();
-  generateNav(services, concepts);
+  const adrs = generateConcepts();
+  const conceptPages = generateConceptPages();
+  const guides = generateGuides();
+  generateNav(services, adrs, conceptPages, guides);
 
   // Summary
   console.log('\nDoc generation complete:');
   console.log(`  Services: ${services.length}`);
   console.log(`  Service docs: ${serviceDocs.filter(s => s.hasContext).length} with CONTEXT.md`);
-  console.log(`  Concepts: ${concepts.length} ADRs`);
+  console.log(`  ADRs: ${adrs.length}`);
+  console.log(`  Concept pages: ${conceptPages.length}`);
+  console.log(`  User guides: ${guides.length}`);
   console.log(`  Output: ${OUT_DIR}\n`);
 }
 

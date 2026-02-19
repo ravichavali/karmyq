@@ -76,14 +76,39 @@
       ]
     },
     {
-      "title": "Concepts & Decisions",
+      "title": "Concepts",
       "items": [
         {
-          "label": "All Concepts",
+          "label": "How Communities Work",
+          "href": "/docs/concepts/community-design"
+        },
+        {
+          "label": "What is Karmyq?",
+          "href": "/docs/concepts/platform-overview"
+        },
+        {
+          "label": "Why Reputation Decays",
+          "href": "/docs/concepts/reputation-decay"
+        },
+        {
+          "label": "Trust Score",
+          "href": "/docs/concepts/trust-score"
+        },
+        {
+          "label": "What is Karma?",
+          "href": "/docs/concepts/what-is-karma"
+        }
+      ]
+    },
+    {
+      "title": "Architecture Decisions",
+      "items": [
+        {
+          "label": "All ADRs",
           "href": "/docs/concepts"
         },
         {
-          "label": "Natural Language Parsing for Location In",
+          "label": "Natural Language Parsing for Location Input",
           "href": "/docs/concepts/adr-001-natural-language-location-parsing"
         },
         {
@@ -91,7 +116,7 @@
           "href": "/docs/concepts/adr-002-geocoding-cache-architecture"
         },
         {
-          "label": "Multi-Tenant Row-Level Security (RLS) Da",
+          "label": "Multi-Tenant Row-Level Security (RLS) Database Des",
           "href": "/docs/concepts/adr-003-multi-tenant-rls"
         },
         {
@@ -107,6 +132,14 @@
           "href": "/docs/concepts/adr-006-standardized-api-response"
         },
         {
+          "label": "Polymorphic Request System (\"Everything App\")",
+          "href": "/docs/concepts/adr-007-polymorphic-request-system"
+        },
+        {
+          "label": "3-Column Dashboard Layout (V7)",
+          "href": "/docs/concepts/adr-008-three-column-dashboard"
+        },
+        {
           "label": "Ephemeral Data Design",
           "href": "/docs/concepts/adr-009-ephemeral-data"
         },
@@ -115,12 +148,109 @@
           "href": "/docs/concepts/adr-010-jwt-multi-community-auth"
         },
         {
-          "label": "Reputation Decay System (Social Karma v2",
+          "label": "Reputation Decay System (Social Karma v2)",
           "href": "/docs/concepts/adr-011-reputation-decay"
         },
         {
-          "label": "Real-Time Communication Stack (WebSocket",
+          "label": "Real-Time Communication Stack (WebSocket + SSE)",
           "href": "/docs/concepts/adr-012-realtime-communication"
+        },
+        {
+          "label": "Monorepo with Turborepo",
+          "href": "/docs/concepts/adr-013-monorepo-turborepo"
+        },
+        {
+          "label": "Testing Strategy (Integration + E2E + Unit)",
+          "href": "/docs/concepts/adr-014-testing-strategy"
+        },
+        {
+          "label": "Observability Stack (Grafana/Loki/Prometheus)",
+          "href": "/docs/concepts/adr-015-observability-stack"
+        },
+        {
+          "label": "Prestige-Based Recognition System",
+          "href": "/docs/concepts/adr-016-prestige-based-recognition"
+        },
+        {
+          "label": "Cohort-Based Community Layers",
+          "href": "/docs/concepts/adr-017-cohort-based-community-layers"
+        },
+        {
+          "label": "Community Splitting Mechanics",
+          "href": "/docs/concepts/adr-018-community-splitting-mechanics"
+        },
+        {
+          "label": "Referral Chain Trust System",
+          "href": "/docs/concepts/adr-019-referral-chain-trust"
+        },
+        {
+          "label": "Trust-First Design Philosophy",
+          "href": "/docs/concepts/adr-020-trust-first-design"
+        },
+        {
+          "label": "Configurable Trust Path Filtering & Adaptive Trust",
+          "href": "/docs/concepts/adr-021-trust-path-filtering"
+        },
+        {
+          "label": "Multi-Tier Feed Architecture (Explore-Exploit Bala",
+          "href": "/docs/concepts/adr-022-multi-tier-feed-architecture"
+        },
+        {
+          "label": "Infrastructure Standardization and Environment Man",
+          "href": "/docs/concepts/adr-023-infrastructure-standardization"
+        },
+        {
+          "label": "Synthetic User Simulation for Demo Environment",
+          "href": "/docs/concepts/adr-024-synthetic-user-simulation"
+        },
+        {
+          "label": "Docker Image Size Optimization (Deferred Technical",
+          "href": "/docs/concepts/adr-027-docker-image-optimization-deferred"
+        },
+        {
+          "label": "NPM Workspace Package for Shared Code in Docker",
+          "href": "/docs/concepts/adr-028-npm-workspace-docker-build"
+        },
+        {
+          "label": "Test-Driven Development (TDD) Framework",
+          "href": "/docs/concepts/adr-029-tdd-test-framework"
+        },
+        {
+          "label": "Community Configuration System (Phase 1)",
+          "href": "/docs/concepts/adr-030-community-configuration-system"
+        },
+        {
+          "label": "Unified Trust-Scored Feed & Community Specializati",
+          "href": "/docs/concepts/adr-031-unified-trust-scored-feed"
+        },
+        {
+          "label": "Server-Driven UI - Database-Driven Request Type Sc",
+          "href": "/docs/concepts/adr-032-server-driven-ui-dynamic-schemas"
+        }
+      ]
+    },
+    {
+      "title": "User Guides",
+      "items": [
+        {
+          "label": "Getting Started",
+          "href": "/docs/guides/getting-started"
+        },
+        {
+          "label": "Asking for Help",
+          "href": "/docs/guides/making-requests"
+        },
+        {
+          "label": "Helping Others",
+          "href": "/docs/guides/fulfilling-requests"
+        },
+        {
+          "label": "Running a Community",
+          "href": "/docs/guides/community-admin"
+        },
+        {
+          "label": "Your Karma & Reputation",
+          "href": "/docs/guides/understanding-karma"
         }
       ]
     }
