@@ -179,7 +179,9 @@ describe('Navigation structure', () => {
     expect(titles).toContain('Getting Started');
     expect(titles).toContain('Services');
     expect(titles).toContain('API Reference');
-    expect(titles).toContain('Concepts & Decisions');
+    expect(titles).toContain('Architecture Decisions');
+    expect(titles).toContain('Concepts');
+    expect(titles).toContain('User Guides');
   });
 
   test('each section has items with label and href', () => {
