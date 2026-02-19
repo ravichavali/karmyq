@@ -121,10 +121,6 @@
         {
           "label": "Real-Time Communication Stack (WebSocket",
           "href": "/docs/concepts/adr-012-realtime-communication"
-        },
-        {
-          "label": "Server-Driven UI - Dynamic Request Schemas",
-          "href": "/docs/concepts/adr-032-server-driven-ui-dynamic-schemas"
         }
       ]
     }

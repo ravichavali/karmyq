@@ -17,7 +17,8 @@
  * />
  */
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
+import Link from 'next/link'
 import { CommunityConfig, RequestType } from '../types/community-config'
 import { REQUEST_TYPES } from './requests/RequestTypeSelector'
 import { requestService } from '../lib/api'
@@ -37,6 +38,21 @@ export default function CommunityConfigEditor({
 }: CommunityConfigEditorProps) {
   const [expandedSection, setExpandedSection] = useState<string | null>('identity')
   const [allRequestTypes, setAllRequestTypes] = useState(REQUEST_TYPES)
+
+  // If the DB has no enabled_request_types (e.g. seed data gap), default all built-ins to enabled
+  const normalizedConfig = useMemo(() => {
+    if (!config.enabled_request_types || config.enabled_request_types.length === 0) {
+      return {
+        ...config,
+        enabled_request_types: REQUEST_TYPES.map((t) => ({
+          name: t.value,
+          description: t.description,
+          karma_multiplier: 1.0,
+        })),
+      }
+    }
+    return config
+  }, [config])
 
   useEffect(() => {
     requestService.getSchemas().then((res) => {
@@ -78,9 +94,9 @@ export default function CommunityConfigEditor({
   }
 
   const handleRequestTypeChange = (index: number, field: keyof RequestType, value: any) => {
-    const updatedTypes = [...config.enabled_request_types]
+    const updatedTypes = [...normalizedConfig.enabled_request_types]
     updatedTypes[index] = { ...updatedTypes[index], [field]: value }
-    onChange({ ...config, enabled_request_types: updatedTypes })
+    onChange({ ...normalizedConfig, enabled_request_types: updatedTypes })
   }
 
   const addRequestType = () => {
@@ -90,14 +106,14 @@ export default function CommunityConfigEditor({
       karma_multiplier: 1.0,
     }
     onChange({
-      ...config,
-      enabled_request_types: [...config.enabled_request_types, newType],
+      ...normalizedConfig,
+      enabled_request_types: [...normalizedConfig.enabled_request_types, newType],
     })
   }
 
   const removeRequestType = (index: number) => {
-    const updatedTypes = config.enabled_request_types.filter((_, i) => i !== index)
-    onChange({ ...config, enabled_request_types: updatedTypes })
+    const updatedTypes = normalizedConfig.enabled_request_types.filter((_, i) => i !== index)
+    onChange({ ...normalizedConfig, enabled_request_types: updatedTypes })
   }
 
   const SectionHeader = ({ title, section }: { title: string; section: string }) => (
@@ -297,12 +313,12 @@ export default function CommunityConfigEditor({
             {/* Visual type selector grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {allRequestTypes.map((type) => {
-                const enabledIndex = config.enabled_request_types.findIndex(
+                const enabledIndex = normalizedConfig.enabled_request_types.findIndex(
                   (rt) => rt.name === type.value
                 )
                 const isEnabled = enabledIndex >= 0
                 const currentMultiplier = isEnabled
-                  ? config.enabled_request_types[enabledIndex].karma_multiplier
+                  ? normalizedConfig.enabled_request_types[enabledIndex].karma_multiplier
                   : 1.0
 
                 return (
@@ -317,14 +333,14 @@ export default function CommunityConfigEditor({
                       if (readOnly) return
                       if (isEnabled) {
                         // Don't remove if it's the last type
-                        if (config.enabled_request_types.length > 1) {
+                        if (normalizedConfig.enabled_request_types.length > 1) {
                           removeRequestType(enabledIndex)
                         }
                       } else {
                         onChange({
-                          ...config,
+                          ...normalizedConfig,
                           enabled_request_types: [
-                            ...config.enabled_request_types,
+                            ...normalizedConfig.enabled_request_types,
                             { name: type.value, description: type.description, karma_multiplier: 1.0 },
                           ],
                         })
@@ -399,10 +415,19 @@ export default function CommunityConfigEditor({
 
             <div className="bg-surface border border-border rounded-md p-3">
               <p className="text-xs text-text-muted">
-                <strong>{config.enabled_request_types.length}</strong> type{config.enabled_request_types.length !== 1 ? 's' : ''} enabled.
+                <strong>{normalizedConfig.enabled_request_types.length}</strong> type{normalizedConfig.enabled_request_types.length !== 1 ? 's' : ''} enabled.
                 Members will only be able to create requests of the types you select.
               </p>
             </div>
+
+            {!readOnly && (
+              <p className="text-xs text-text-muted">
+                Want a custom type?{' '}
+                <Link href="/admin/schemas" className="text-primary underline hover:text-primary-dark">
+                  Open Schema Manager →
+                </Link>
+              </p>
+            )}
 
             {errors.request_types && (
               <p className="text-xs text-red-500 mt-2">{errors.request_types}</p>

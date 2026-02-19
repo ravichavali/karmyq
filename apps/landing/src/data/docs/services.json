@@ -85,7 +85,16 @@
         "/requests/curated",
         "/offers",
         "/matches",
-        "/matches/:id/complete"
+        "/matches/:id/complete",
+        "/schemas",
+        "/schemas/:type",
+        "/admin/schemas",
+        "/admin/schemas/:id",
+        "/admin/schemas/:id/publish",
+        "/admin/schemas/:id/archive",
+        "/admin/schemas/:id/versions",
+        "/admin/schemas/:id/rollback/:version",
+        "/admin/schemas/:id/variants"
       ],
       "dependencies": [
         "auth-service",
@@ -105,7 +114,7 @@
         "subscribes": []
       },
       "healthCheck": "http://localhost:3003/health",
-      "notes": "",
+      "notes": "Server-driven UI: Schema API provides dynamic form definitions. Admin API enables zero-code request type creation.",
       "databaseSchemas": [
         "requests"
       ]

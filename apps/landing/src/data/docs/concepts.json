@@ -231,6 +231,14 @@
       "status": "accepted",
       "description": "**Status**: Accepted",
       "filename": "ADR-031-unified-trust-scored-feed.md"
+    },
+    {
+      "slug": "adr-032-server-driven-ui-dynamic-schemas",
+      "number": "032",
+      "title": "ADR-032: Server-Driven UI - Database-Driven Request Type Schemas",
+      "status": "accepted",
+      "description": "**Status**: Accepted",
+      "filename": "ADR-032-server-driven-ui-dynamic-schemas.md"
     }
   ]
 }

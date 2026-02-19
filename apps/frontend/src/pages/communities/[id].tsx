@@ -6,6 +6,7 @@ import { communityService } from '@/lib/api'
 import Layout from '@/components/Layout'
 import CommunityConfigEditor from '@/components/CommunityConfigEditor'
 import { CommunityConfig } from '@/types/community-config'
+import { REQUEST_TYPES } from '@/components/requests/RequestTypeSelector'
 
 interface Member {
   id: string
@@ -423,25 +424,33 @@ export default function CommunityDetailPage() {
                             <span className="text-xl">📋</span>
                             Request Types
                           </h4>
-                          <div className="flex flex-wrap gap-2">
-                            {config.enabled_request_types.map((type) => (
-                              <span
-                                key={type.name}
-                                className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium bg-surface-raised border border-accent text-text-muted"
-                                title={type.description}
-                              >
-                                {type.name.replace(/_/g, ' ')}
-                                {type.karma_multiplier !== 1.0 && (
-                                  <span className="text-xs text-accent font-semibold">
-                                    ×{type.karma_multiplier}
-                                  </span>
-                                )}
-                              </span>
-                            ))}
+                          <div className="grid grid-cols-2 gap-2">
+                            {REQUEST_TYPES.map((type) => {
+                              const match = config.enabled_request_types.find((rt) => rt.name === type.value)
+                              const enabled = !!match
+                              return (
+                                <div
+                                  key={type.value}
+                                  className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm transition-colors ${
+                                    enabled
+                                      ? 'border-primary bg-primary-light text-text'
+                                      : 'border-border bg-surface text-text-subtle opacity-50'
+                                  }`}
+                                >
+                                  <span>{type.icon}</span>
+                                  <span className="font-medium">{type.label}</span>
+                                  {enabled && match!.karma_multiplier !== 1.0 && (
+                                    <span className="ml-auto text-xs text-primary font-semibold">
+                                      ×{match!.karma_multiplier}
+                                    </span>
+                                  )}
+                                  {!enabled && (
+                                    <span className="ml-auto text-xs text-text-subtle">off</span>
+                                  )}
+                                </div>
+                              )
+                            })}
                           </div>
-                          {config.enabled_request_types.length === 0 && (
-                            <p className="text-sm text-text-subtle">No request types configured</p>
-                          )}
                         </div>
 
                         {/* Community Rules */}
