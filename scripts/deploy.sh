@@ -233,6 +233,15 @@ rm -f "$BUILD_OUTPUT"
 log_info "Starting services..."
 docker compose $COMPOSE_FILES up -d --remove-orphans
 
+# Reload nginx to pick up any config changes
+log_info "Reloading nginx configuration..."
+if sudo nginx -t 2>/dev/null; then
+    sudo systemctl reload nginx
+    log_info "nginx reloaded"
+else
+    log_warn "nginx config test failed — skipping reload (old config still active)"
+fi
+
 # =============================================================================
 # Step 9: Verify deployment
 # =============================================================================
