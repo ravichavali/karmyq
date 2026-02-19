@@ -139,6 +139,114 @@ Every code change that modifies behavior MUST include documentation updates:
 
 ---
 
+## Pre-Merge Checklist (MUST COMPLETE BEFORE `git push`)
+
+Every feature branch or phase of work **must pass all items** before merging to master. This checklist exists because Phase 3 revealed a pattern: code is implemented but tests and docs are left as follow-ups that never happen.
+
+### 1. Tests (Non-Negotiable)
+
+- [ ] **Unit/TDD tests written** for every new or changed behavior:
+  - New component rendering logic → test in `tests/tdd/`
+  - New conditional UI (show/hide based on role, state) → test the condition
+  - New API call wiring (previously stubbed with `setTimeout`) → test the call is made with correct args
+  - New hook or utility function → test its return values
+- [ ] All existing tests still pass: `npm test` (unit + regression)
+- [ ] TDD tests pass: `npm run test:tdd`
+- [ ] No tests silently skipped (`describe.skip`, `it.skip`) unless documented in a comment
+
+**Minimum test coverage for UI changes:**
+| Change Type | Required Tests |
+|---|---|
+| New component | Renders correctly, handles edge cases |
+| Conditional render (role/state gate) | Shows for authorized, hidden for unauthorized |
+| API call wired to user action | Mock verifies call made with correct payload |
+| Data fetch on mount | Shows fetched data, falls back gracefully on error |
+
+### 2. Documentation (Non-Negotiable)
+
+- [ ] **Guide updated** if the feature has a user-facing guide in `docs/guides/`:
+  - New workflow step → add to the relevant guide
+  - New navigation path → document where to find it
+  - New integration between two features → document the connection end-to-end
+- [ ] **CONTEXT.md updated** for any changed service (endpoint, schema, events)
+- [ ] **services/registry.json updated** for new endpoints or events
+- [ ] **ADR created or updated** if this is an architectural decision
+- [ ] `npm run feedback:check` passes
+
+### 3. Landing Page Docs (Non-Negotiable)
+
+The public docs site at `apps/landing/` has three doc types — keep all three in sync with every feature shipped.
+
+#### What changed → What to update
+
+| Change type | Update required |
+|---|---|
+| New user-facing feature or workflow | Add/update a **User Guide** in `apps/landing/src/data/docs/guides/` + nav.json "User Guides" |
+| New platform concept or philosophy | Add/update a **Concept page** in `apps/landing/src/data/docs/concepts/` + nav.json "Concepts" |
+| New ADR | Create ADR JSON in `apps/landing/src/data/docs/concepts/` + add to nav.json "Architecture Decisions" |
+| New/changed service endpoints | Update `apps/landing/src/data/docs/services/{service-name}.json` |
+| New service | Create service JSON + add to nav.json "Services" |
+
+#### Checklist
+- [ ] **New ADR** → `apps/landing/src/data/docs/concepts/adr-{NNN}-{slug}.json` with `slug`, `number`, `title`, `status`, `description`, `content`, `filename` fields
+- [ ] **New ADR** → add entry to nav.json "Architecture Decisions" section
+- [ ] **New user-facing feature** → add/update relevant User Guide in `apps/landing/src/data/docs/guides/{slug}.json`
+- [ ] **New user-facing feature** → add entry to nav.json "User Guides" section if new page
+- [ ] **New platform concept** → add concept page in `apps/landing/src/data/docs/concepts/{slug}.json`
+- [ ] **New platform concept** → add entry to nav.json "Concepts" section
+- [ ] **New/changed endpoints** → update `apps/landing/src/data/docs/services/{service-name}.json`
+- [ ] **Nav integrity** → every JSON file in `concepts/` and `guides/` has a nav.json entry
+
+**JSON format for ADR files:**
+```json
+{
+  "slug": "adr-{NNN}-{slug}",
+  "number": "{NNN}",
+  "title": "ADR-{NNN}: Title",
+  "status": "proposed | accepted | implemented | superseded | deprecated",
+  "description": "**Status**: Implemented",
+  "content": "# ADR-{NNN}: Title\n\n...(full markdown content)...",
+  "filename": "ADR-{NNN}-{slug}.md"
+}
+```
+
+**JSON format for Concept and User Guide files:**
+```json
+{
+  "slug": "concept-or-guide-slug",
+  "title": "Page Title",
+  "description": "One-sentence summary shown in nav and previews.",
+  "content": "# Title\n\n...(full markdown content)..."
+}
+```
+
+**JSON format for service endpoint entries:**
+```json
+{
+  "method": "GET | POST | PUT | DELETE",
+  "path": "/path/:param",
+  "description": "One-sentence description of what the endpoint does."
+}
+```
+
+### 4. Handoff Updated
+
+- [ ] If this completes a phase: mark the phase complete in `CURRENT_HANDOFF.md`
+- [ ] If work continues next session: update handoff with current state and next steps
+- [ ] Success criteria in handoff are checked off
+
+### 5. Quick Verification
+
+```bash
+# Run this before every push
+npm test                    # Must pass (unit + regression)
+npm run test:tdd            # Must pass (or document known failures)
+npm run feedback:check      # Must pass (docs complete)
+npm run analyze:services    # If service dependencies changed
+```
+
+---
+
 ## System Architecture
 
 ### Services (11 total)
@@ -184,11 +292,24 @@ All services use JWT with standardized payload:
 {
   userId: string,
   email: string,
-  communityMemberships: Array<{id: string, name: string, role: string}>
+  communities: Array<{id: string, name: string, role: string}>  // ← field is 'communities', NOT 'communityMemberships'
 }
 ```
 
 Header: `Authorization: Bearer <token>`
+
+**⚠️ Common mistake:** The JWT field is `communities`, not `communityMemberships`. Every new service's auth middleware MUST check `user.communities` to read membership roles. Using `communityMemberships` will always be `undefined` → always 403.
+
+**Checking admin role in middleware:**
+```typescript
+const memberships = user.communities ?? [];
+const isAdmin = user.role === 'admin' || memberships.some(m => m.role === 'admin');
+```
+
+**New service nginx routing checklist:**
+- Add `location ~ ^/api/{your-prefix}(/.*)?$` block to `infrastructure/nginx/nginx.conf`
+- The proxy_pass path must strip `/api` prefix: `proxy_pass http://your_service/{your-prefix}$1$is_args$args`
+- Changes to nginx.conf take effect on next deploy (deploy.sh copies and reloads), or manually: `sudo cp infrastructure/nginx/nginx.conf /etc/nginx/sites-available/karmyq && sudo nginx -t && sudo systemctl reload nginx`
 
 ### Database Schema
 Tables use schema prefixes:
