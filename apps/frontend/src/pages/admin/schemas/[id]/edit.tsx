@@ -151,6 +151,25 @@ export default function SchemaEditorPage() {
     }
   }
 
+  const saveSchema = async (updatedSchema: AdminSchema) => {
+    try {
+      setSaving(true)
+      await uiSchemaService.updateSchema(updatedSchema.id, {
+        label: updatedSchema.label,
+        icon: updatedSchema.icon,
+        color: updatedSchema.color,
+        description: updatedSchema.description,
+        sections: updatedSchema.sections,
+      })
+      setError('')
+    } catch (err: any) {
+      console.error('Failed to save schema:', err)
+      setError(err.response?.data?.message || 'Failed to save schema')
+    } finally {
+      setSaving(false)
+    }
+  }
+
   const handleUpdateSection = (sectionId: string, updates: Partial<AdminSection>) => {
     if (!schema) return
 
@@ -161,9 +180,9 @@ export default function SchemaEditorPage() {
       return section
     })
 
-    setSchema({ ...schema, sections: updatedSections })
-    setSaving(true)
-    setTimeout(() => setSaving(false), 1000)
+    const updatedSchema = { ...schema, sections: updatedSections }
+    setSchema(updatedSchema)
+    saveSchema(updatedSchema)
   }
 
   const handleUpdateField = (sectionId: string, fieldId: string, updates: Partial<any>) => {
@@ -182,7 +201,9 @@ export default function SchemaEditorPage() {
       return section
     })
 
-    setSchema({ ...schema, sections: updatedSections })
+    const updatedSchema = { ...schema, sections: updatedSections }
+    setSchema(updatedSchema)
+    saveSchema(updatedSchema)
   }
 
   const handleAddField = (sectionId: string) => {
@@ -212,7 +233,9 @@ export default function SchemaEditorPage() {
       return section
     })
 
-    setSchema({ ...schema, sections: updatedSections })
+    const updatedSchema = { ...schema, sections: updatedSections }
+    setSchema(updatedSchema)
+    saveSchema(updatedSchema)
   }
 
   const handleAddSection = () => {
@@ -224,14 +247,18 @@ export default function SchemaEditorPage() {
       fields: [],
     }
 
-    setSchema({ ...schema, sections: [...schema.sections, newSection] })
+    const updatedSchema = { ...schema, sections: [...schema.sections, newSection] }
+    setSchema(updatedSchema)
+    saveSchema(updatedSchema)
   }
 
   const handleDeleteSection = (sectionId: string) => {
     if (!schema) return
 
     const updatedSections = schema.sections.filter(section => section.id !== sectionId)
-    setSchema({ ...schema, sections: updatedSections })
+    const updatedSchema = { ...schema, sections: updatedSections }
+    setSchema(updatedSchema)
+    saveSchema(updatedSchema)
   }
 
   const handleMoveSection = (dragIndex: number, dropIndex: number) => {

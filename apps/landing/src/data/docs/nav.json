@@ -1,0 +1,132 @@
+{
+  "sections": [
+    {
+      "title": "Getting Started",
+      "items": [
+        {
+          "label": "Overview",
+          "href": "/docs"
+        },
+        {
+          "label": "Architecture",
+          "href": "/docs/architecture"
+        }
+      ]
+    },
+    {
+      "title": "Services",
+      "items": [
+        {
+          "label": "All Services",
+          "href": "/docs/services"
+        },
+        {
+          "label": "Auth",
+          "href": "/docs/services/auth-service"
+        },
+        {
+          "label": "Community",
+          "href": "/docs/services/community-service"
+        },
+        {
+          "label": "Request",
+          "href": "/docs/services/request-service"
+        },
+        {
+          "label": "Reputation",
+          "href": "/docs/services/reputation-service"
+        },
+        {
+          "label": "Notification",
+          "href": "/docs/services/notification-service"
+        },
+        {
+          "label": "Messaging",
+          "href": "/docs/services/messaging-service"
+        },
+        {
+          "label": "Feed",
+          "href": "/docs/services/feed-service"
+        },
+        {
+          "label": "Cleanup",
+          "href": "/docs/services/cleanup-service"
+        },
+        {
+          "label": "Geocoding",
+          "href": "/docs/services/geocoding-service"
+        },
+        {
+          "label": "Social Graph",
+          "href": "/docs/services/social-graph-service"
+        },
+        {
+          "label": "Simulation",
+          "href": "/docs/services/simulation-service"
+        }
+      ]
+    },
+    {
+      "title": "API Reference",
+      "items": [
+        {
+          "label": "All Endpoints",
+          "href": "/docs/api"
+        }
+      ]
+    },
+    {
+      "title": "Concepts & Decisions",
+      "items": [
+        {
+          "label": "All Concepts",
+          "href": "/docs/concepts"
+        },
+        {
+          "label": "Natural Language Parsing for Location In",
+          "href": "/docs/concepts/adr-001-natural-language-location-parsing"
+        },
+        {
+          "label": "3-Tier Geocoding Cache Architecture",
+          "href": "/docs/concepts/adr-002-geocoding-cache-architecture"
+        },
+        {
+          "label": "Multi-Tenant Row-Level Security (RLS) Da",
+          "href": "/docs/concepts/adr-003-multi-tenant-rls"
+        },
+        {
+          "label": "Microservices Event-Driven Architecture",
+          "href": "/docs/concepts/adr-004-microservices-event-driven"
+        },
+        {
+          "label": "Minimalist Dashboard Design",
+          "href": "/docs/concepts/adr-005-minimalist-dashboard"
+        },
+        {
+          "label": "Standardized API Response Format",
+          "href": "/docs/concepts/adr-006-standardized-api-response"
+        },
+        {
+          "label": "Ephemeral Data Design",
+          "href": "/docs/concepts/adr-009-ephemeral-data"
+        },
+        {
+          "label": "JWT-Based Multi-Community Authentication",
+          "href": "/docs/concepts/adr-010-jwt-multi-community-auth"
+        },
+        {
+          "label": "Reputation Decay System (Social Karma v2",
+          "href": "/docs/concepts/adr-011-reputation-decay"
+        },
+        {
+          "label": "Real-Time Communication Stack (WebSocket",
+          "href": "/docs/concepts/adr-012-realtime-communication"
+        },
+        {
+          "label": "Server-Driven UI - Dynamic Request Schemas",
+          "href": "/docs/concepts/adr-032-server-driven-ui-dynamic-schemas"
+        }
+      ]
+    }
+  ]
+}

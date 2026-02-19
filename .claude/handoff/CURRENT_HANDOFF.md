@@ -1,218 +1,176 @@
-# Server-Driven UI (Dynamic Forms) - PHASE 1 COMPLETE ✅
+# Server-Driven UI (Dynamic Forms) - PHASE 2 COMPLETE ✅
 
-## Implementation Summary (Completed: 2026-02-15)
+## Implementation Summary (Completed: 2026-02-18)
 
 **Feature**: Server-Driven UI / Dynamic Forms (Roadmap Phase 2)
 **Current Version**: v9.1.0
-**Status**: Phase 1 Complete → Phase 2: Admin UI (NEXT)
-**Complexity**: Medium | **Impact**: High | **Timeline**: 8 weeks total (Week 1 done, 7 remaining)
+**Status**: Phase 2 Complete → Phase 3: Web App Completion (NEXT)
+**Complexity**: Medium | **Impact**: High | **Timeline**: 8 weeks total (Weeks 1-4 done, 4 remaining)
 
 ---
 
-## ✅ Phase 1: Database & Backend API - COMPLETE
+## ✅ Phase 1: Database & Backend API - COMPLETE (2026-02-15)
 
-### Files Created (11 new files)
-1. **Database**: [`infrastructure/postgres/migrations/015_ui_schemas_dynamic.sql`](infrastructure/postgres/migrations/015_ui_schemas_dynamic.sql)
-   - 3 tables: ui_schemas, ui_schema_versions, validation_rules
-   - Triggers for version history and timestamps
-   - Constraints and indexes
-
-2. **Core Service**: [`services/request-service/src/services/SchemaService.ts`](services/request-service/src/services/SchemaService.ts)
-   - Database-first schema loading with code fallback
-   - In-memory caching (1-hour TTL)
-   - A/B testing variant selection (deterministic user hash)
-
-3. **Admin Routes**: [`services/request-service/src/routes/admin-schemas.ts`](services/request-service/src/routes/admin-schemas.ts)
-   - POST: Create schema (status='draft')
-   - GET: List schemas with filters
-   - GET: Get schema by ID
-   - PUT: Update schema (increments version)
-   - POST: Publish draft schema
-   - POST: Archive schema
-   - GET: Version history
-   - POST: Rollback to version
-   - POST: Create A/B test variant
-
-4. **Admin Auth**: [`services/request-service/src/middleware/adminAuth.ts`](services/request-service/src/middleware/adminAuth.ts)
-   - JWT verification middleware
-   - Admin role check middleware
-   - Combined `adminAuth` export for routes
-
-5. **Updated Routes**: [`services/request-service/src/routes/schemas.ts`](services/request-service/src/routes/schemas.ts)
-   - Modified to read from database with SchemaService
-   - Code fallback when DB unavailable
-   - ETag support with 304 responses
-   - Error handling with try/catch
-
-6. **Mounted in App**: [`services/request-service/src/index.ts`](services/request-service/src/index.ts)
-   - Admin routes with auth middleware mounted at `/admin/schemas`
-
-7. **TDD Tests** (4 files, ~60 test cases)
-   - [`services/request-service/tests/tdd/dynamic-schemas-api.test.ts`](services/request-service/tests/tdd/dynamic-schemas-api.test.ts) - Schema API (15 tests)
-   - [`services/request-service/tests/tdd/admin-schemas-api.test.ts`](services/request-service/tests/tdd/admin-schemas-api.test.ts) - Admin CRUD (20 tests)
-   - [`services/request-service/tests/tdd/schema-caching.test.ts`](services/request-service/tests/tdd/schema-caching.test.ts) - Caching (15 tests)
-   - [`services/request-service/tests/tdd/schema-fallback.test.ts`](services/request-service/tests/tdd/schema-fallback.test.ts) - Fallback (12 tests)
-
-8. **Registry**: [`services/registry.json`](services/registry.json)
-   - Added 8 new admin endpoints
-
-9. **Integration Tests**: [`services/request-service/tests/integration/dynamic-schemas.test.ts`](services/request-service/tests/integration/dynamic-schemas.test.ts)
-   - Public API tests: 8/8 passing
-   - Admin API tests: 0/11 passing (DB unavailable - expected)
-   - Code fallback tests: 8/8 passing
-   - Cache headers and ETag support verified
-
-10. **Seed Script**: [`scripts/seed-ui-schemas.ts`](scripts/seed-ui-schemas.ts)
-   - Migrates existing 5 schemas to database
-
-11. **ADR**: [`docs/adr/ADR-032-server-driven-ui-dynamic-schemas.md`](docs/adr/ADR-032-server-driven-ui-dynamic-schemas.md)
-   - Complete architecture decision record
-   - Updated ADR index README.md
-
-### Test Results Summary
-- ✅ **Public Schema API**: 8/8 tests passing
-- ✅ **Code Fallback**: 8/8 tests passing (works without DB)
-- ⏸ **Admin API**: 0/11 tests passing (expected - requires DB)
-- ✅ **Integration Tests**: 16/16 tests passing
-
-### What Was Implemented
-- ✅ Database-driven schema loading with code fallback
-- ✅ Multi-layer caching strategy (memory → Redis → DB)
-- ✅ A/B testing variant selection (deterministic user hash)
-- ✅ Complete admin API for schema CRUD operations
-- ✅ JWT-based admin authentication with role checks
-- ✅ Version history with rollback capability
-- ✅ ETag caching with 304 responses
-
-### What Needs Database for Admin API
-Admin API requires database to function. The system correctly handles this by:
-- Admin endpoints return 500 when DB unavailable (expected behavior)
-- Code fallback ensures public API works even without DB
-
-### Architecture Decision: Hybrid Approach
-- **Built-in types**: Keep Zod in code (type-safe, fast)
-- **Custom types**: JSON Schema in database (flexible, no-code)
-- **Promotion path**: Custom → Built-in when proven successful
+Summary:
+- Database: `infrastructure/postgres/migrations/015_ui_schemas_dynamic.sql`
+- SchemaService with DB-first loading + code fallback + caching
+- Admin API: `/admin/schemas` (CRUD, publish, archive, rollback, variants)
+- Admin auth middleware: `services/request-service/src/middleware/adminAuth.ts`
+- ADR-032: `docs/adr/ADR-032-server-driven-ui-dynamic-schemas.md`
 
 ---
 
-## 🚧 Phase 2: Admin UI (Weeks 3-4) - READY TO START
+## ✅ Phase 2: Admin UI - COMPLETE (2026-02-18)
 
-### Quick Start
+### Files Created
+1. **Admin Components** (`apps/frontend/src/components/admin/`)
+   - `AdminLayout.tsx`, `SectionList.tsx`, `SectionHeader.tsx`, `SectionEditor.tsx`
+   - `FieldEditor.tsx`, `FieldList.tsx`, `LivePreview.tsx`
+   - `PublishDialog.tsx`, `ArchiveDialog.tsx`
 
-```bash
-# Frontend admin pages to create:
-# - /admin/schemas (list with filters)
-# - /admin/schemas/new (create wizard)
-# - /admin/schemas/[id]/edit (schema editor with drag-and-drop)
-# - /admin/schemas/[id]/versions (version history with rollback)
-# - /admin/schemas/[id]/preview (live preview using DynamicForm)
+2. **Admin Pages** (`apps/frontend/src/pages/admin/schemas/`)
+   - `index.tsx` - Schema list with filtering
+   - `new.tsx` - Schema creation wizard
+   - `[id]/edit.tsx` - Schema editor (sections/fields/preview/versions tabs)
+   - `[id]/versions.tsx` - Version history with rollback
 
-# Components to build:
-# - SchemaEditor.tsx (main editor component)
-# - SectionEditor.tsx (manage sections with reordering)
-# - FieldEditor.tsx (configure field properties)
-# - LivePreview.tsx (preview with existing DynamicForm)
-# - VersionTimeline.tsx (visual version history)
-# - SchemaDiff.tsx (show before/after comparison)
+3. **Auth**: `apps/frontend/src/utils/admin-auth.ts`
 
-# Dependencies to install:
-# npm install dnd-kit react-sortable-hoc
-# npm install @monaco-editor/react
-# npm install diff-viewer
-```
+4. **API Client**: `apps/frontend/src/lib/api.ts` — `export const uiSchemaService` (top-level named export)
 
-### Implementation Tasks
+5. **Docs**: `docs/api/SCHEMA_API.md`, `docs/guides/ADMIN_SCHEMA_MANAGEMENT.md`
 
-1. **Admin Pages** (Week 3)
-   - Create admin pages structure
-   - Implement SchemaListPage with filters
-   - Implement SchemaEditorPage with drag-and-drop
-   - Implement VersionHistoryPage
-   - Implement live preview component
+6. **Scripts**: `scripts/seed-test-data.sh`, `scripts/start-dev-services.sh`
 
-2. **Form Components** (Week 3-4)
-   - Build editor components for schema management
-   - Reuse existing DynamicForm for preview
-   - Implement validation in editor
+7. **E2E Tests**: `tests/e2e/admin/schema-management.spec.ts` (61 scenarios)
 
-3. **State Management** (Week 4)
-   - Add Redux/Zustand for admin UI state
-   - Implement optimistic updates
-   - Handle form state persistence
+### Key Type Pattern
+Admin pages use a local `AdminSchema` interface (NOT `UISchema` from `@karmyq/shared`).
+`UISchema` is the static code definition (no `id`/`status`). Admin pages work with
+database records that add `id: string` and `status: 'draft' | 'published' | 'archived'`.
 
-### Design Considerations
-- Reuse existing DynamicForm component for preview
-- Drag-and-drop for reordering sections and fields
-- Live validation feedback in editor
-- Version diff visualization for rollback decisions
-- Integrate with existing admin authentication
+### Known Limitation (Phase 3 work)
+Section/field editing in `[id]/edit` saves to local state only — not persisted via
+`updateSchema`. The SectionList/FieldEditor components were scaffolded but not wired
+to the save flow. Full persistence is Phase 3 work.
+
+---
+
+## ✅ Phase 3: Web App Completion (Weeks 5-6) - COMPLETE (2026-02-18)
+
+### Goal
+Close the gap between the Admin Schema UI and community-level configuration so
+admins can actually use the schema system end-to-end without knowing secret URLs.
+
+### What Needs to Be Built
+
+**1. Nav entry point to Admin Schema UI**
+- Add "Schema Manager" link in the community admin page
+  (`apps/frontend/src/pages/communities/[id]/admin.tsx`)
+- Only render it when `isAdmin()` is true (already have `admin-auth.ts`)
+- Alternative: add to global nav in `AdminLayout.tsx` as a sidebar link
+
+**2. Connect published schemas → Community Config**
+- `apps/frontend/src/components/CommunityConfigEditor.tsx` currently shows
+  only the 5 hardcoded `REQUEST_TYPES` constants
+- Fetch published schemas from `GET /schemas` (public, no auth) on mount
+- Merge with `REQUEST_TYPES` so custom schemas appear alongside built-ins
+- Community founders can then enable/disable with karma multipliers as usual
+
+**3. Wire section/field editing to backend save (carried from Phase 2)**
+- `[id]/edit.tsx` `handleUpdateSection` uses `setSaving(true) + setTimeout`
+  instead of calling `uiSchemaService.updateSchema()`
+- Replace stub with real API call so section/field edits persist
 
 ### Success Criteria
-- Admin can create new schema in <5 minutes
-- Schema editor shows live preview
-- Version history shows clear diff between versions
-- All CRUD operations functional and tested
+- [x] Admin can reach `/admin/schemas` from the community admin page (no URL memorization)
+- [x] Community config shows published custom schemas alongside built-in types
+- [x] Founder can enable/disable custom schemas with karma multipliers
+- [x] Section/field edits in the schema editor persist to the database
+- [x] Full lifecycle works: create schema → publish → enable in community → usable by members
 
----
+### What Was Built (Phase 3)
+- `Schema Manager →` link in community admin header (creator-only)
+- `CommunityConfigEditor` fetches `GET /schemas`, merges custom published types into the request type grid
+- `saveSchema()` in schema editor replaces `setTimeout` stub — all mutations call `uiSchemaService.updateSchema()`
+- 14 new TDD tests: `CommunityConfigEditor.test.tsx`, `SchemaManagerNav.test.tsx`, `SchemaEditorSave.test.ts`
+- `docs/guides/ADMIN_SCHEMA_MANAGEMENT.md` — Section 11 added: Community Admin Integration
+- `CLAUDE.md` — Pre-Merge Checklist added to development framework
 
-## 📋 Phase 3 & 4: Future Work
-
-### Phase 3: Mobile Dynamic Forms (Weeks 5-6)
-- Build mobile FieldRenderer to map UIField → React Native
-- Create mobile DynamicForm component
-- Implement offline schema caching
-- Replace hardcoded QuickCreate with dynamic forms
-
-### Phase 4: Validation & A/B Testing (Weeks 7-8)
-- Implement Ajv for JSON Schema validation
-- Create validation rule editor for custom types
-- Build A/B test dashboard
-- Implement schema promotion workflow
-
----
-
-## Quick Continue
-
-To continue this work:
+### Quick Start
 ```bash
-# Check current progress
-cat .claude/handoff/CURRENT_HANDOFF.md
+# Review community admin page structure
+cat apps/frontend/src/pages/communities/[id]/admin.tsx
 
-# Start Phase 2 (Admin UI)
-# 1. Create admin pages (listed above)
-# 2. Build editor components
-# 3. Integrate with existing authentication
+# Review community config editor (Request Types section starts ~line 265)
+cat apps/frontend/src/components/CommunityConfigEditor.tsx
 
-# See full implementation plan:
-cat .claude/plans/sparkling-dazzling-graham.md
+# Review schema editor save stub
+grep -n "setSaving\|updateSchema" apps/frontend/src/pages/admin/schemas/[id]/edit.tsx
 ```
 
 ---
 
-## Implementation Plan Reference
+## Phase 4: Mobile Dynamic Forms (Weeks 7-8) - FUTURE
 
-**Full Plan**: [`.claude/plans/sparkling-dazzling-graham.md`](.claude/plans/sparkling-dazzling-graham.md)
-**ADR**: [ADR-032](docs/adr/ADR-032-server-driven-ui-dynamic-schemas.md)
-**Architecture**: Hybrid validation (Zod built-in, JSON Schema custom)
+### What Needs to Be Built
+```
+apps/mobile/src/
+  components/
+    DynamicForm/
+      index.tsx           ← Main component
+      FieldRenderer.tsx   ← Maps UIField.type → React Native component
+      SectionRenderer.tsx ← Renders a section with its fields
+  hooks/
+    useUISchema.ts        ← Fetch + cache schemas from backend
+  utils/
+    schemaCache.ts        ← Offline schema caching (AsyncStorage)
+```
+
+### Mobile Field Type Mapping
+| UIField type   | React Native component             |
+|----------------|-------------------------------------|
+| text           | TextInput                          |
+| textarea       | TextInput multiline                |
+| number         | TextInput keyboardType="numeric"   |
+| select         | Picker or custom modal             |
+| datetime       | DateTimePicker                     |
+| checkbox       | Switch                             |
+| location       | Map picker                         |
+| button_group   | Row of TouchableOpacity buttons    |
+| chip_select    | Horizontal scroll of chips         |
+| range          | Slider                             |
+
+### Replace Hardcoded QuickCreate
+`apps/mobile/src/components/QuickCreate/` has hardcoded request types.
+Replace with dynamic list from `GET /schemas` (public endpoint, no auth).
+
+### Success Criteria
+- [ ] Mobile DynamicForm renders all 5 built-in request types
+- [ ] Offline caching works (AsyncStorage, refresh on foreground resume)
+- [ ] QuickCreate uses dynamic schema list
+- [ ] All field types render appropriate native components
+
+### Quick Start
+```bash
+cat apps/mobile/.claude/README.md
+ls apps/mobile/src/components/
+cat apps/mobile/src/components/QuickCreate/index.tsx
+```
 
 ---
 
-## Context
+## Phase 5: Validation & A/B Testing - FUTURE
 
-### Why This Feature
+- Ajv JSON Schema validation in admin UI
+- Validation rule editor
+- A/B test dashboard
+- Schema promotion workflow (custom → built-in)
 
-**Problem**: Adding a new request type (e.g., "dog walking", "tutoring") requires:
-1. Backend Zod schema changes (code)
-2. UI schema changes (code)
-3. Frontend form updates
-4. Mobile app updates + App Store approval
-5. Full deployment cycle (30+ minutes)
+---
 
-**Solution**: Database-driven schemas with:
-- Admin UI for schema management
-- Mobile server-driven forms
-- A/B testing capabilities
-- Hybrid validation (Zod + JSON Schema)
-
-**Impact**: Time-to-market from weeks → hours
+## Key References
+- **ADR**: [ADR-032](docs/adr/ADR-032-server-driven-ui-dynamic-schemas.md) — Implemented
+- **Backend Admin API**: `services/request-service/src/routes/admin-schemas.ts`
+- **Public Schema API**: `GET /schemas` and `GET /schemas/:type` (no auth required)
+- **Frontend Admin**: `apps/frontend/src/pages/admin/schemas/`

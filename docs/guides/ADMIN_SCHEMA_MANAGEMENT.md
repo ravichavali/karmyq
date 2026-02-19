@@ -20,6 +20,7 @@
 8. [Advanced Features](#advanced-features)
 9. [API Reference](#api-reference)
 10. [Troubleshooting](#troubleshooting)
+11. [Community Admin Integration](#community-admin-integration-phase-3)
 
 ---
 
@@ -463,5 +464,55 @@ All endpoints return:
 
 ---
 
-**Version:** v1.0
-**Last Updated:** 2026-02-17
+---
+
+## 11. Community Admin Integration (Phase 3)
+
+After publishing a schema, community founders must enable it in their community configuration before members can use it.
+
+### End-to-End Workflow
+
+```
+Create Schema  →  Publish Schema  →  Enable in Community  →  Members Can Use It
+(Schema Manager)   (Schema Manager)   (Community Admin)       (Request Creation)
+```
+
+### Step 1 — Navigate from Community Admin Page
+
+Community founders see a **"Schema Manager →"** link in the top-right corner of their community admin panel (`/communities/{id}/admin`). This link is only visible to the community creator — regular admins and moderators do not see it.
+
+Click **Schema Manager →** to open `/admin/schemas`.
+
+### Step 2 — Publish Your Schema
+
+In the Schema Manager, ensure your schema has **Published** status. Drafts and archived schemas do not appear in community configuration. If needed, open the schema editor and click **Publish**.
+
+### Step 3 — Enable the Schema in Community Configuration
+
+1. Return to your community admin page (`/communities/{id}/admin`)
+2. Click the **Configuration** tab
+3. Expand the **Request Types** section
+4. Your published custom schema now appears in the grid alongside the 5 built-in types (General Help, Ride Share, Service Request, Event, Borrow)
+5. Click the card to **enable** it (blue border = enabled, grey = disabled)
+6. Adjust the **Karma Multiplier** slider (0.5×–2.0×) to set how much karma this request type awards relative to others
+7. Click **Save Configuration**
+
+> Only the community founder can modify the Configuration tab. Other admins can view it read-only.
+
+### Step 4 — Members Create Requests
+
+Once enabled, the custom schema type appears in the request creation form for all community members. The dynamic form renders the sections and fields you defined in the Schema Manager.
+
+### Troubleshooting
+
+| Problem | Cause | Fix |
+|---------|-------|-----|
+| Schema not appearing in Configuration tab | Schema is Draft or Archived | Publish the schema in Schema Manager |
+| Schema Manager link not visible | You are not the community creator | Log in as the founder account |
+| Custom schema missing after save | Fetch error on config load | Refresh the page; check request-service is running |
+| Karma multiplier not saving | Config validation error | Ensure trust weights sum to 1.0 (see error banner) |
+
+---
+
+**Version:** v1.1 (Phase 3 — Community Integration)
+**Last Updated:** 2026-02-18

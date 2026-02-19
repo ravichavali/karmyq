@@ -17,9 +17,10 @@
  * />
  */
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { CommunityConfig, RequestType } from '../types/community-config'
 import { REQUEST_TYPES } from './requests/RequestTypeSelector'
+import { requestService } from '../lib/api'
 
 interface CommunityConfigEditorProps {
   config: CommunityConfig
@@ -35,6 +36,29 @@ export default function CommunityConfigEditor({
   errors = {},
 }: CommunityConfigEditorProps) {
   const [expandedSection, setExpandedSection] = useState<string | null>('identity')
+  const [allRequestTypes, setAllRequestTypes] = useState(REQUEST_TYPES)
+
+  useEffect(() => {
+    requestService.getSchemas().then((res) => {
+      const published = res.data?.schemas ?? []
+      const builtinValues = new Set(REQUEST_TYPES.map((t) => t.value))
+      const custom = published
+        .filter((s: any) => !builtinValues.has(s.type))
+        .map((s: any) => ({
+          value: s.type,
+          label: s.label,
+          description: s.description || '',
+          example: '',
+          icon: s.icon || '📋',
+          color: s.color || 'bg-surface border-border',
+        }))
+      if (custom.length > 0) {
+        setAllRequestTypes([...REQUEST_TYPES, ...custom])
+      }
+    }).catch(() => {
+      // Silently fall back to built-in types if schema fetch fails
+    })
+  }, [])
 
   const toggleSection = (section: string) => {
     setExpandedSection(expandedSection === section ? null : section)
@@ -272,7 +296,7 @@ export default function CommunityConfigEditor({
 
             {/* Visual type selector grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {REQUEST_TYPES.map((type) => {
+              {allRequestTypes.map((type) => {
                 const enabledIndex = config.enabled_request_types.findIndex(
                   (rt) => rt.name === type.value
                 )

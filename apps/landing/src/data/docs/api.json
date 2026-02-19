@@ -1,0 +1,518 @@
+{
+  "groups": [
+    {
+      "service": "auth-service",
+      "port": 3001,
+      "endpoints": [
+        {
+          "method": "POST",
+          "path": "/register",
+          "description": "Register a new user account."
+        },
+        {
+          "method": "POST",
+          "path": "/login",
+          "description": "Authenticate user and receive JWT token."
+        },
+        {
+          "method": "GET",
+          "path": "/verify",
+          "description": "Verify JWT token and return user info."
+        },
+        {
+          "method": "GET",
+          "path": "/users/:id",
+          "description": "Get user profile by ID."
+        },
+        {
+          "method": "PUT",
+          "path": "/users/:id",
+          "description": "Update user profile."
+        },
+        {
+          "method": "GET",
+          "path": "/preferences/request-types",
+          "description": "Get user's request type subscriptions (v9.0)."
+        },
+        {
+          "method": "POST",
+          "path": "/preferences/request-types",
+          "description": "Update a single request type subscription."
+        },
+        {
+          "method": "PUT",
+          "path": "/preferences/request-types/bulk",
+          "description": "Bulk update request type subscriptions."
+        },
+        {
+          "method": "GET",
+          "path": "/preferences/interests",
+          "description": "Get user's interest categories (service_category, item_category, event_type)."
+        },
+        {
+          "method": "POST",
+          "path": "/preferences/interests",
+          "description": "Add a new interest."
+        },
+        {
+          "method": "DELETE",
+          "path": "/preferences/interests/:id",
+          "description": "Remove an interest."
+        },
+        {
+          "method": "GET",
+          "path": "/preferences/feed (ADR-022)",
+          "description": "Get user's feed visibility preferences for multi-tier feed."
+        },
+        {
+          "method": "PUT",
+          "path": "/preferences/feed (ADR-022)",
+          "description": "Update user's feed visibility preferences."
+        },
+        {
+          "method": "GET",
+          "path": "/health",
+          "description": "Service health check."
+        }
+      ]
+    },
+    {
+      "service": "community-service",
+      "port": 3002,
+      "endpoints": [
+        {
+          "method": "GET",
+          "path": "/communities",
+          "description": "Get all communities with optional filters."
+        },
+        {
+          "method": "GET",
+          "path": "/communities/my/communities",
+          "description": "Get communities the user is a member of."
+        },
+        {
+          "method": "GET",
+          "path": "/communities/:id",
+          "description": "Get specific community with all members."
+        },
+        {
+          "method": "POST",
+          "path": "/communities",
+          "description": "Create new community."
+        },
+        {
+          "method": "PUT",
+          "path": "/communities/:id",
+          "description": "Update community details (admin only)."
+        },
+        {
+          "method": "DELETE",
+          "path": "/communities/:id",
+          "description": "Archive community (admin only, soft delete)."
+        },
+        {
+          "method": "GET",
+          "path": "/communities/:communityId/members",
+          "description": "Get all members of a community."
+        },
+        {
+          "method": "POST",
+          "path": "/communities/:communityId/join",
+          "description": "Join a community (public: immediate, private: pending approval)."
+        },
+        {
+          "method": "POST",
+          "path": "/communities/:communityId/members",
+          "description": "Add member to community (invite)."
+        },
+        {
+          "method": "PUT",
+          "path": "/communities/:communityId/members/:userId",
+          "description": "Update member role or status (admin only)."
+        },
+        {
+          "method": "DELETE",
+          "path": "/communities/:communityId/members/:userId",
+          "description": "Remove member from community (self-leave or admin kick)."
+        },
+        {
+          "method": "GET",
+          "path": "/communities/:communityId/norms",
+          "description": "Get all norms for a community."
+        },
+        {
+          "method": "GET",
+          "path": "/communities/:communityId/norms/:normId",
+          "description": "Get specific norm with all approvals."
+        },
+        {
+          "method": "POST",
+          "path": "/communities/:communityId/norms",
+          "description": "Propose a new community norm."
+        },
+        {
+          "method": "POST",
+          "path": "/communities/:communityId/norms/:normId/approve",
+          "description": "Approve a proposed norm (requires simple majority >50% of members)."
+        },
+        {
+          "method": "DELETE",
+          "path": "/communities/:communityId/norms/:normId",
+          "description": "Archive a norm (admin or creator only)."
+        },
+        {
+          "method": "GET",
+          "path": "/communities/:id/config",
+          "description": "Get community configuration."
+        },
+        {
+          "method": "PUT",
+          "path": "/communities/:id/config",
+          "description": "Update community configuration (founder only for Phase 1)."
+        },
+        {
+          "method": "GET",
+          "path": "/communities/config-templates",
+          "description": "Browse available configuration templates."
+        },
+        {
+          "method": "POST",
+          "path": "/communities/:id/config/copy-from/:source_community_id",
+          "description": "Copy configuration from another community."
+        },
+        {
+          "method": "GET",
+          "path": "/communities/configs/public",
+          "description": "Browse configurations from thriving communities."
+        },
+        {
+          "method": "GET",
+          "path": "/health",
+          "description": "Service health check."
+        }
+      ]
+    },
+    {
+      "service": "request-service",
+      "port": 3003,
+      "endpoints": [
+        {
+          "method": "GET",
+          "path": "/requests",
+          "description": "Get all help requests with optional filters."
+        },
+        {
+          "method": "GET",
+          "path": "/requests/matched/for-user",
+          "description": "Get requests matching user's skills from their communities (skill-based matching algorithm)."
+        },
+        {
+          "method": "GET",
+          "path": "/requests/curated (v9.0 + ADR-031 Multi-Tier)",
+          "description": "Get curated feed with match scores, trust distance, and multi-tier visibility."
+        },
+        {
+          "method": "GET",
+          "path": "/requests/:id",
+          "description": "Get specific request details."
+        },
+        {
+          "method": "POST",
+          "path": "/requests (v9.0 Polymorphic + ADR-022 Visibility)",
+          "description": "Create new polymorphic help request (supports 5 types) with visibility scope."
+        },
+        {
+          "method": "PUT",
+          "path": "/requests/:id",
+          "description": "Update help request (requester only)."
+        },
+        {
+          "method": "DELETE",
+          "path": "/requests/:id",
+          "description": "Cancel help request (requester only)."
+        },
+        {
+          "method": "PUT",
+          "path": "/requests/:id/privacy",
+          "description": "Update privacy settings for a request (Social Karma v2.0)."
+        },
+        {
+          "method": "GET",
+          "path": "/offers",
+          "description": "Get all help offers with optional filters."
+        },
+        {
+          "method": "GET",
+          "path": "/offers/:id",
+          "description": "Get specific offer details."
+        },
+        {
+          "method": "POST",
+          "path": "/offers",
+          "description": "Create new help offer."
+        },
+        {
+          "method": "PUT",
+          "path": "/offers/:id/privacy",
+          "description": "Update privacy settings for an offer (Social Karma v2.0)."
+        },
+        {
+          "method": "GET",
+          "path": "/matches",
+          "description": "Get all matches with optional filters."
+        },
+        {
+          "method": "GET",
+          "path": "/matches/:id",
+          "description": "Get specific match details."
+        },
+        {
+          "method": "POST",
+          "path": "/matches",
+          "description": "Create a match between request and responder."
+        },
+        {
+          "method": "PUT",
+          "path": "/matches/:id",
+          "description": "Update match status."
+        },
+        {
+          "method": "POST",
+          "path": "/matches/:id/feedback",
+          "description": "Submit interaction feedback for a completed match."
+        },
+        {
+          "method": "GET",
+          "path": "/matches/:id/feedback",
+          "description": "Get feedback for a match."
+        },
+        {
+          "method": "GET",
+          "path": "/health",
+          "description": "Service health check."
+        }
+      ]
+    },
+    {
+      "service": "reputation-service",
+      "port": 3004,
+      "endpoints": [
+        {
+          "method": "GET",
+          "path": "/reputation/karma/:userId",
+          "description": "Get user's total karma across all communities."
+        },
+        {
+          "method": "GET",
+          "path": "/reputation/trust/:userId/:communityId",
+          "description": "Get user's trust score in a specific community."
+        },
+        {
+          "method": "GET",
+          "path": "/reputation/leaderboard/:communityId",
+          "description": "Get top karma earners in a community."
+        },
+        {
+          "method": "GET",
+          "path": "/reputation/history/:userId",
+          "description": "Get karma transaction history for a user."
+        },
+        {
+          "method": "GET",
+          "path": "/reputation/badges/:userId",
+          "description": "Get all badges earned by a user."
+        },
+        {
+          "method": "GET",
+          "path": "/reputation/community-health/:communityId",
+          "description": "Get community health metrics and trends."
+        },
+        {
+          "method": "GET",
+          "path": "/reputation/milestones/:communityId",
+          "description": "Get community milestone achievements."
+        },
+        {
+          "method": "GET",
+          "path": "/reputation/trust/:userId/:communityId",
+          "description": "Enhanced trust score with interaction quality (UPDATED)."
+        },
+        {
+          "method": "GET",
+          "path": "/health",
+          "description": "Service health check."
+        }
+      ]
+    },
+    {
+      "service": "notification-service",
+      "port": 3005,
+      "endpoints": [
+        {
+          "method": "GET",
+          "path": "/notifications/stream/:userId",
+          "description": "Server-Sent Events (SSE) endpoint for real-time notifications."
+        },
+        {
+          "method": "GET",
+          "path": "/notifications/:userId",
+          "description": "Get user's notifications (paginated)."
+        },
+        {
+          "method": "GET",
+          "path": "/notifications/:userId/unread-count",
+          "description": "Get count of unread notifications."
+        },
+        {
+          "method": "PUT",
+          "path": "/notifications/:notificationId/read",
+          "description": "Mark specific notification as read."
+        },
+        {
+          "method": "PUT",
+          "path": "/notifications/:userId/read-all",
+          "description": "Mark all notifications as read for a user."
+        },
+        {
+          "method": "DELETE",
+          "path": "/notifications/:notificationId",
+          "description": "Delete a notification."
+        },
+        {
+          "method": "GET",
+          "path": "/notifications/:userId/preferences",
+          "description": "Get user's notification preferences."
+        },
+        {
+          "method": "PUT",
+          "path": "/notifications/:userId/preferences",
+          "description": "Update user's global notification preferences."
+        },
+        {
+          "method": "GET",
+          "path": "/health",
+          "description": "Service health check."
+        }
+      ]
+    },
+    {
+      "service": "messaging-service",
+      "port": 3006,
+      "endpoints": [
+        {
+          "method": "GET",
+          "path": "/messages/conversations/:userId",
+          "description": "Get all conversations for a user."
+        },
+        {
+          "method": "GET",
+          "path": "/messages/:conversationId",
+          "description": "Get all messages in a conversation (paginated)."
+        },
+        {
+          "method": "POST",
+          "path": "/messages",
+          "description": "Create new conversation (usually auto-created when match occurs)."
+        },
+        {
+          "method": "POST",
+          "path": "/messages/:conversationId/mark-read",
+          "description": "Mark all messages in conversation as read."
+        }
+      ]
+    },
+    {
+      "service": "feed-service",
+      "port": 3007,
+      "endpoints": [
+        {
+          "method": "GET",
+          "path": "/feed",
+          "description": "Get personalized feed for user."
+        },
+        {
+          "method": "POST",
+          "path": "/feed/dismiss",
+          "description": "Dismiss item from feed."
+        },
+        {
+          "method": "GET",
+          "path": "/feed/preferences",
+          "description": "Get user's feed preferences."
+        },
+        {
+          "method": "PUT",
+          "path": "/feed/preferences",
+          "description": "Update feed preferences."
+        }
+      ]
+    },
+    {
+      "service": "geocoding-service",
+      "port": 3009,
+      "endpoints": [
+        {
+          "method": "GET",
+          "path": "/health",
+          "description": "Health check endpoint."
+        },
+        {
+          "method": "GET",
+          "path": "/search?q={query}",
+          "description": "Search for geocoded addresses. Returns cached results if available, otherwise calls Nominatim API and caches the result."
+        },
+        {
+          "method": "POST",
+          "path": "/cache",
+          "description": "Manually cache a geocoding result (used by frontend for fire-and-forget caching)."
+        },
+        {
+          "method": "GET",
+          "path": "/stats",
+          "description": "Get cache statistics and analytics."
+        },
+        {
+          "method": "POST",
+          "path": "/cleanup",
+          "description": "Remove expired cache entries (older than 30 days)."
+        }
+      ]
+    },
+    {
+      "service": "social-graph-service",
+      "port": 3010,
+      "endpoints": [
+        {
+          "method": "POST",
+          "path": "/invitations/generate",
+          "description": "Generate a new invitation code for current user."
+        },
+        {
+          "method": "POST",
+          "path": "/invitations/accept",
+          "description": "Accept an invitation code during user signup."
+        },
+        {
+          "method": "GET",
+          "path": "/invitations",
+          "description": "Get invitation history for current user."
+        },
+        {
+          "method": "GET",
+          "path": "/invitations/stats",
+          "description": "Get inviter statistics for current user (gamification metrics)."
+        },
+        {
+          "method": "GET",
+          "path": "/paths/:targetUserId",
+          "description": "Get shortest path between current user and target user."
+        },
+        {
+          "method": "POST",
+          "path": "/paths/batch",
+          "description": "Get paths for multiple target users (optimized for feed ranking)."
+        }
+      ]
+    }
+  ]
+}

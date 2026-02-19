@@ -352,6 +352,14 @@ export default function CommunityAdminPage() {
               </Link>
               <h1 className="text-3xl font-bold">{community.name} - Admin Panel</h1>
             </div>
+            {community.creator_id === currentUser?.id && (
+              <Link
+                href="/admin/schemas"
+                className="px-4 py-2 bg-surface border border-border rounded hover:bg-surface-raised text-sm font-medium text-text-muted"
+              >
+                Schema Manager →
+              </Link>
+            )}
           </div>
 
           {/* Stats Cards */}
