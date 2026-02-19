@@ -17,6 +17,18 @@ interface Member {
   status: string
   joined_at: string
   invited_by_name?: string
+  join_request_message?: string
+}
+
+interface CommunitySettings {
+  request_ttl_days: number
+  offer_ttl_days: number
+  match_ttl_days: number
+  notification_ttl_days: number
+  message_ttl_days: number
+  session_ttl_days: number
+  karma_decay_enabled: boolean
+  karma_half_life_months: number
 }
 
 interface Norm {
@@ -51,7 +63,16 @@ export default function CommunityDetailPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [currentUser, setCurrentUser] = useState<any>(null)
-  const [activeTab, setActiveTab] = useState<'overview' | 'members' | 'norms' | 'config'>('overview')
+  const [activeTab, setActiveTab] = useState<'overview' | 'members' | 'norms' | 'config' | 'manage' | 'pending' | 'settings' | 'stats' | 'export'>('overview')
+  const [settings, setSettings] = useState<CommunitySettings | null>(null)
+  const [editedSettings, setEditedSettings] = useState<CommunitySettings | null>(null)
+  const [saving, setSaving] = useState(false)
+  const [editedConfig, setEditedConfig] = useState<CommunityConfig | null>(null)
+  const [configErrors, setConfigErrors] = useState<Record<string, string>>({})
+  const [configSaving, setConfigSaving] = useState(false)
+  const [stats, setStats] = useState<any>(null)
+  const [loadingStats, setLoadingStats] = useState(false)
+  const [exporting, setExporting] = useState(false)
   const [newNorm, setNewNorm] = useState({ description: '', rationale: '' })
   const [showNormForm, setShowNormForm] = useState(false)
   const [showInviteModal, setShowInviteModal] = useState(false)
@@ -80,6 +101,7 @@ export default function CommunityDetailPage() {
       fetchCommunity()
       fetchNorms()
       fetchConfig()
+      fetchSettings()
     }
   }, [id])
 
@@ -110,8 +132,139 @@ export default function CommunityDetailPage() {
       // Backend returns { data: { config: {...}, community_id, template_source } }
       // Response interceptor unwraps outer layer, so response.data.config contains the actual config
       setConfig(response.data.config)
+      setEditedConfig(response.data.config)
     } catch (err: any) {
       console.error('Failed to load configuration:', err)
+    }
+  }
+
+  const fetchSettings = async () => {
+    try {
+      const response = await communityService.getSettings(id as string)
+      setSettings(response.data)
+      setEditedSettings(response.data)
+    } catch (err: any) {
+      const defaults: CommunitySettings = {
+        request_ttl_days: 60, offer_ttl_days: 60, match_ttl_days: 90,
+        notification_ttl_days: 30, message_ttl_days: 90, session_ttl_days: 30,
+        karma_decay_enabled: true, karma_half_life_months: 6,
+      }
+      setSettings(defaults)
+      setEditedSettings(defaults)
+    }
+  }
+
+  const fetchStats = async () => {
+    try {
+      setLoadingStats(true)
+      const response = await communityService.getStats(id as string)
+      setStats(response.data)
+    } catch (err: any) {
+      console.error('Failed to load statistics:', err)
+    } finally {
+      setLoadingStats(false)
+    }
+  }
+
+  const handleUpdateMemberRole = async (userId: string, newRole: string) => {
+    if (!currentUser || !id) return
+    try {
+      await communityService.updateMember(id as string, userId, { role: newRole, admin_user_id: currentUser.id })
+      fetchCommunity()
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Failed to update member role')
+    }
+  }
+
+  const handleApproveMember = async (userId: string) => {
+    if (!currentUser || !id) return
+    try {
+      await communityService.updateMember(id as string, userId, { status: 'active', admin_user_id: currentUser.id })
+      fetchCommunity()
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Failed to approve member')
+    }
+  }
+
+  const handleRejectMember = async (userId: string) => {
+    if (!currentUser || !id) return
+    try {
+      await communityService.removeMember(id as string, userId, currentUser.id)
+      fetchCommunity()
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Failed to reject member')
+    }
+  }
+
+  const handleRemoveMember = async (userId: string, userName: string) => {
+    if (!currentUser || !id) return
+    if (!confirm(`Are you sure you want to remove ${userName} from the community?`)) return
+    try {
+      await communityService.removeMember(id as string, userId, currentUser.id)
+      fetchCommunity()
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Failed to remove member')
+    }
+  }
+
+  const handleSaveSettings = async () => {
+    if (!currentUser || !id || !editedSettings) return
+    setSaving(true)
+    try {
+      await communityService.updateSettings(id as string, { ...editedSettings, user_id: currentUser.id })
+      setSettings(editedSettings)
+      alert('Settings saved successfully!')
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Failed to save settings')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const validateConfig = (cfg: CommunityConfig): Record<string, string> => {
+    const errors: Record<string, string> = {}
+    const weightSum = cfg.trust_depth_weight + cfg.trust_breadth_weight
+    if (Math.abs(weightSum - 1.0) > 0.01) errors.trust_weights = `Weights sum to ${weightSum.toFixed(2)}, must equal 1.0`
+    const names = cfg.enabled_request_types.map(t => t.name)
+    if (new Set(names).size !== names.length) errors.request_types = 'Request type names must be unique'
+    return errors
+  }
+
+  const handleSaveConfig = async () => {
+    if (!currentUser || !id || !editedConfig) return
+    const errors = validateConfig(editedConfig)
+    if (Object.keys(errors).length > 0) { setConfigErrors(errors); alert('Please fix validation errors before saving'); return }
+    setConfigSaving(true)
+    try {
+      await communityService.updateConfig(id as string, editedConfig)
+      setConfig(editedConfig)
+      setConfigErrors({})
+      alert('Configuration saved successfully!')
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Failed to save configuration')
+    } finally {
+      setConfigSaving(false)
+    }
+  }
+
+  const handleExport = async (type: 'full' | 'members' | 'activity', format: 'json' | 'csv') => {
+    if (!id) return
+    setExporting(true)
+    try {
+      let response: any, filename: string
+      if (type === 'full') { response = await communityService.exportCommunityData(id as string, { format }); filename = `community-${id}-export.${format}` }
+      else if (type === 'members') { response = await communityService.exportMembers(id as string, format); filename = `members-${id}.${format}` }
+      else { response = await communityService.exportActivity(id as string, format); filename = `activity-${id}.${format}` }
+      const blob = format === 'csv' ? new Blob([response.data], { type: 'text/csv' }) : new Blob([JSON.stringify(response.data, null, 2)], { type: 'application/json' })
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url; a.download = filename
+      document.body.appendChild(a); a.click()
+      window.URL.revokeObjectURL(url); document.body.removeChild(a)
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Failed to export data')
+    } finally {
+      setExporting(false)
     }
   }
 
@@ -251,12 +404,12 @@ export default function CommunityDetailPage() {
                   {community.current_members} / {community.max_members} members
                 </span>
               </div>
-              {isAdmin && (
+              {isAdmin && community.creator_id === currentUser?.id && (
                 <Link
-                  href={`/communities/${id}/admin`}
-                  className="px-4 py-2 bg-gray-800 text-white rounded hover:bg-gray-900 text-sm font-medium"
+                  href="/admin/schemas"
+                  className="px-4 py-2 bg-surface border border-border rounded hover:bg-surface-raised text-sm font-medium text-text-muted"
                 >
-                  Admin Settings
+                  Schema Manager →
                 </Link>
               )}
             </div>
@@ -316,6 +469,46 @@ export default function CommunityDetailPage() {
                 >
                   Configuration
                 </button>
+                {isAdmin && (
+                  <>
+                    <div className="w-px bg-border mx-1 my-3" />
+                    <button
+                      onClick={() => setActiveTab('manage')}
+                      className={`px-6 py-4 font-medium ${activeTab === 'manage' ? 'border-b-2 border-primary text-primary' : 'text-text-muted hover:text-text'}`}
+                    >
+                      Manage Members
+                    </button>
+                    <button
+                      onClick={() => setActiveTab('pending')}
+                      className={`px-6 py-4 font-medium relative ${activeTab === 'pending' ? 'border-b-2 border-primary text-primary' : 'text-text-muted hover:text-text'}`}
+                    >
+                      Pending ({community.members.filter(m => m.status === 'pending').length})
+                      {community.members.filter(m => m.status === 'pending').length > 0 && (
+                        <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                          {community.members.filter(m => m.status === 'pending').length}
+                        </span>
+                      )}
+                    </button>
+                    <button
+                      onClick={() => setActiveTab('settings')}
+                      className={`px-6 py-4 font-medium ${activeTab === 'settings' ? 'border-b-2 border-primary text-primary' : 'text-text-muted hover:text-text'}`}
+                    >
+                      Settings
+                    </button>
+                    <button
+                      onClick={() => { setActiveTab('stats'); if (!stats) fetchStats() }}
+                      className={`px-6 py-4 font-medium ${activeTab === 'stats' ? 'border-b-2 border-primary text-primary' : 'text-text-muted hover:text-text'}`}
+                    >
+                      Statistics
+                    </button>
+                    <button
+                      onClick={() => setActiveTab('export')}
+                      className={`px-6 py-4 font-medium ${activeTab === 'export' ? 'border-b-2 border-primary text-primary' : 'text-text-muted hover:text-text'}`}
+                    >
+                      Export
+                    </button>
+                  </>
+                )}
               </nav>
             </div>
 
@@ -424,9 +617,16 @@ export default function CommunityDetailPage() {
                             <span className="text-xl">📋</span>
                             Request Types
                           </h4>
+                          {(() => {
+                            const validNames = new Set<string>(REQUEST_TYPES.map((t) => t.value as string))
+                            const filtered = config.enabled_request_types.filter((rt) => validNames.has(rt.name as string))
+                            const normalizedEnabledTypes = filtered.length > 0
+                              ? filtered
+                              : REQUEST_TYPES.map((t) => ({ name: t.value as string, karma_multiplier: 1.0 }))
+                            return (
                           <div className="grid grid-cols-2 gap-2">
                             {REQUEST_TYPES.map((type) => {
-                              const match = config.enabled_request_types.find((rt) => rt.name === type.value)
+                              const match = normalizedEnabledTypes.find((rt) => rt.name === (type.value as string))
                               const enabled = !!match
                               return (
                                 <div
@@ -451,6 +651,8 @@ export default function CommunityDetailPage() {
                               )
                             })}
                           </div>
+                            )
+                          })()}
                         </div>
 
                         {/* Community Rules */}
@@ -650,36 +852,206 @@ export default function CommunityDetailPage() {
               {/* Configuration Tab */}
               {activeTab === 'config' && config && (
                 <div>
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-xl font-semibold">Community Configuration</h3>
-                    {community.creator_id === currentUser?.id && (
-                      <Link
-                        href={`/communities/${id}/admin?tab=config`}
-                        className="px-4 py-2 bg-primary text-white rounded hover:bg-primary-dark text-sm font-medium"
-                      >
-                        Edit Configuration
-                      </Link>
-                    )}
-                  </div>
+                  <h3 className="text-xl font-semibold mb-4">Community Configuration</h3>
                   <p className="text-text-muted mb-6">
-                    View the configuration that defines how trust, karma, and coordination work in this community.
-                    {community.creator_id === currentUser?.id && ' Click "Edit Configuration" to make changes.'}
+                    {community.creator_id === currentUser?.id
+                      ? 'Configure trust, karma, and coordination mechanics for your community.'
+                      : 'View the configuration that defines how trust, karma, and coordination work in this community.'}
                   </p>
-
-                  <CommunityConfigEditor
-                    config={config}
-                    onChange={() => {}} // No-op for read-only
-                    readOnly={true}
-                    errors={{}}
-                  />
-
+                  {community.creator_id === currentUser?.id && editedConfig ? (
+                    <>
+                      <CommunityConfigEditor
+                        config={editedConfig}
+                        onChange={(newConfig) => { setEditedConfig(newConfig); setConfigErrors({}) }}
+                        errors={configErrors}
+                      />
+                      <div className="flex justify-end gap-3 mt-6 pt-6 border-t">
+                        <button onClick={() => { setEditedConfig(config); setConfigErrors({}) }} className="px-6 py-2 bg-gray-200 text-text-muted rounded hover:bg-gray-300">Reset</button>
+                        <button onClick={handleSaveConfig} disabled={configSaving} className="px-6 py-2 bg-primary text-white rounded hover:bg-primary-dark disabled:bg-primary-medium">
+                          {configSaving ? 'Saving...' : 'Save Configuration'}
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    <CommunityConfigEditor config={config} onChange={() => {}} readOnly={true} errors={{}} />
+                  )}
                   {config.template_source && (
                     <div className="mt-6 bg-primary-light border border-primary-medium rounded-lg p-4">
-                      <p className="text-sm text-primary-dark">
-                        <strong>Template:</strong> This community was created using the "{config.template_source}" template.
-                      </p>
+                      <p className="text-sm text-primary-dark"><strong>Template:</strong> This community was created using the "{config.template_source}" template.</p>
                     </div>
                   )}
+                </div>
+              )}
+
+              {/* Admin: Manage Members Tab */}
+              {activeTab === 'manage' && isAdmin && (
+                <div>
+                  <h3 className="text-xl font-semibold mb-4">Manage Members</h3>
+                  <div className="space-y-3">
+                    {community.members.filter(m => m.status === 'active').map((member) => (
+                      <div key={member.id} className="flex items-center justify-between p-4 bg-surface rounded-lg">
+                        <div>
+                          <div className="font-semibold">{member.user_name}</div>
+                          <div className="text-sm text-text-muted">{member.user_email}</div>
+                          <div className="text-xs text-text-subtle">Joined {new Date(member.joined_at).toLocaleDateString()}</div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <select value={member.role} onChange={(e) => handleUpdateMemberRole(member.user_id, e.target.value)}
+                            disabled={member.user_id === currentUser?.id || member.user_id === community.creator_id}
+                            className="px-3 py-1 border border-border rounded text-sm disabled:bg-border-light">
+                            <option value="member">Member</option>
+                            <option value="moderator">Moderator</option>
+                            <option value="admin">Admin</option>
+                          </select>
+                          {member.user_id !== currentUser?.id && member.user_id !== community.creator_id ? (
+                            <button onClick={() => handleRemoveMember(member.user_id, member.user_name)} className="px-3 py-1 bg-red-100 text-red-700 rounded text-sm hover:bg-red-200">Remove</button>
+                          ) : member.user_id === community.creator_id ? (
+                            <span className="px-3 py-1 bg-accent-light text-accent-dark rounded text-sm">Creator</span>
+                          ) : null}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Admin: Pending Requests Tab */}
+              {activeTab === 'pending' && isAdmin && (
+                <div>
+                  <h3 className="text-xl font-semibold mb-4">Pending Join Requests</h3>
+                  {community.members.filter(m => m.status === 'pending').length === 0 ? (
+                    <p className="text-text-subtle">No pending join requests.</p>
+                  ) : (
+                    <div className="space-y-3">
+                      {community.members.filter(m => m.status === 'pending').map((member) => (
+                        <div key={member.id} className="flex items-center justify-between p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                          <div className="flex-1">
+                            <div className="font-semibold">{member.user_name}</div>
+                            <div className="text-sm text-text-muted">{member.user_email}</div>
+                            <div className="text-xs text-text-subtle">Requested {new Date(member.joined_at).toLocaleDateString()}</div>
+                            {member.join_request_message && (
+                              <div className="mt-2 text-sm text-text-muted bg-surface-raised p-2 rounded border border-yellow-300">
+                                <span className="font-medium">Message:</span> {member.join_request_message}
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2 ml-4">
+                            <button onClick={() => handleApproveMember(member.user_id)} className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">Approve</button>
+                            <button onClick={() => handleRejectMember(member.user_id)} className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700">Reject</button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Admin: Settings Tab */}
+              {activeTab === 'settings' && isAdmin && editedSettings && (
+                <div>
+                  <h3 className="text-xl font-semibold mb-4">Community Settings</h3>
+                  <div className="space-y-6">
+                    <div className="bg-surface rounded-lg p-6">
+                      <h4 className="font-semibold text-lg mb-4">Data Retention (TTL)</h4>
+                      <div className="grid md:grid-cols-2 gap-4">
+                        {([['request_ttl_days', 'Help Requests (days)'], ['offer_ttl_days', 'Help Offers (days)'], ['match_ttl_days', 'Completed Matches (days)'], ['notification_ttl_days', 'Notifications (days)'], ['message_ttl_days', 'Messages (days)'], ['session_ttl_days', 'Sessions (days)']] as const).map(([field, label]) => (
+                          <div key={field}>
+                            <label className="block text-sm font-medium text-text-muted mb-1">{label}</label>
+                            <input type="number" value={(editedSettings as any)[field]}
+                              onChange={(e) => setEditedSettings({ ...editedSettings, [field]: parseInt(e.target.value) || 60 })}
+                              className="w-full px-4 py-2 border border-border rounded" min="1" max="365" />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="bg-surface rounded-lg p-6">
+                      <h4 className="font-semibold text-lg mb-4">Reputation Decay</h4>
+                      <div className="space-y-4">
+                        <div className="flex items-center gap-3">
+                          <input type="checkbox" id="karma_decay" checked={editedSettings.karma_decay_enabled}
+                            onChange={(e) => setEditedSettings({ ...editedSettings, karma_decay_enabled: e.target.checked })}
+                            className="w-5 h-5 rounded" />
+                          <label htmlFor="karma_decay" className="font-medium">Enable karma decay</label>
+                        </div>
+                        {editedSettings.karma_decay_enabled && (
+                          <div className="ml-8">
+                            <label className="block text-sm font-medium text-text-muted mb-1">Decay half-life (months)</label>
+                            <input type="number" value={editedSettings.karma_half_life_months}
+                              onChange={(e) => setEditedSettings({ ...editedSettings, karma_half_life_months: parseInt(e.target.value) || 6 })}
+                              className="w-32 px-4 py-2 border border-border rounded" min="1" max="24" />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex justify-end gap-3">
+                      <button onClick={() => setEditedSettings(settings)} className="px-6 py-2 bg-gray-200 text-text-muted rounded hover:bg-gray-300">Reset</button>
+                      <button onClick={handleSaveSettings} disabled={saving} className="px-6 py-2 bg-primary text-white rounded hover:bg-primary-dark disabled:bg-primary-medium">
+                        {saving ? 'Saving...' : 'Save Settings'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Admin: Statistics Tab */}
+              {activeTab === 'stats' && isAdmin && (
+                <div>
+                  <div className="flex items-center justify-between mb-6">
+                    <h3 className="text-xl font-semibold">Community Statistics</h3>
+                    <button onClick={fetchStats} disabled={loadingStats} className="px-4 py-2 bg-primary text-white rounded hover:bg-primary-dark disabled:bg-primary-medium">
+                      {loadingStats ? 'Refreshing...' : 'Refresh'}
+                    </button>
+                  </div>
+                  {loadingStats && !stats && <div className="text-center py-12 text-text-subtle">Loading statistics...</div>}
+                  {stats && (
+                    <div className="grid md:grid-cols-4 gap-4">
+                      <div className="bg-surface-raised rounded-lg shadow p-4 border-l-4 border-primary">
+                        <div className="text-sm text-text-muted mb-1">Total Exchanges</div>
+                        <div className="text-3xl font-bold text-primary">{stats.matches?.completed_matches || 0}</div>
+                        <div className="text-xs text-text-subtle mt-1">{stats.matches?.matches_completed_this_month || 0} this month</div>
+                      </div>
+                      <div className="bg-surface-raised rounded-lg shadow p-4 border-l-4 border-success">
+                        <div className="text-sm text-text-muted mb-1">Active Requests</div>
+                        <div className="text-3xl font-bold text-success">{stats.requests?.open_requests || 0}</div>
+                        <div className="text-xs text-text-subtle mt-1">{stats.requests?.matched_requests || 0} matched</div>
+                      </div>
+                      <div className="bg-surface-raised rounded-lg shadow p-4 border-l-4 border-accent">
+                        <div className="text-sm text-text-muted mb-1">Avg Karma</div>
+                        <div className="text-3xl font-bold text-accent">{stats.karma?.avg_karma || 0}</div>
+                        <div className="text-xs text-text-subtle mt-1">Max: {stats.karma?.max_karma || 0}</div>
+                      </div>
+                      <div className="bg-surface-raised rounded-lg shadow p-4 border-l-4 border-primary">
+                        <div className="text-sm text-text-muted mb-1">This Week</div>
+                        <div className="text-3xl font-bold">{stats.matches?.matches_completed_this_week || 0}</div>
+                        <div className="text-xs text-text-subtle mt-1">{stats.requests?.requests_this_week || 0} requests</div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Admin: Export Tab */}
+              {activeTab === 'export' && isAdmin && (
+                <div>
+                  <h3 className="text-xl font-semibold mb-4">Export Community Data</h3>
+                  <div className="space-y-6">
+                    {([['full', 'Full Community Export', 'Export all community data including members, requests, matches, norms, settings, and karma records.'],
+                       ['members', 'Members List', 'Export a list of all community members with their roles and join dates.'],
+                       ['activity', 'Activity Report', 'Export member activity including karma, trust scores, helps given and received.']] as const).map(([type, title, desc]) => (
+                      <div key={type} className="bg-surface rounded-lg p-6">
+                        <h4 className="font-semibold text-lg mb-2">{title}</h4>
+                        <p className="text-sm text-text-muted mb-4">{desc}</p>
+                        <div className="flex gap-3">
+                          <button onClick={() => handleExport(type, 'json')} disabled={exporting} className="px-4 py-2 bg-primary text-white rounded hover:bg-primary-dark disabled:bg-primary-medium">
+                            {exporting ? 'Exporting...' : 'Export JSON'}
+                          </button>
+                          <button onClick={() => handleExport(type, 'csv')} disabled={exporting} className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:bg-green-400">
+                            {exporting ? 'Exporting...' : 'Export CSV'}
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>

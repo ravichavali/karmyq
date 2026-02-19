@@ -39,9 +39,13 @@ export default function CommunityConfigEditor({
   const [expandedSection, setExpandedSection] = useState<string | null>('identity')
   const [allRequestTypes, setAllRequestTypes] = useState(REQUEST_TYPES)
 
-  // If the DB has no enabled_request_types (e.g. seed data gap), default all built-ins to enabled
+  // Normalize enabled_request_types: filter to only known built-in names.
+  // If none match (e.g. seed data has legacy names like meal_share/tool_borrow),
+  // default all 5 built-in types as enabled.
   const normalizedConfig = useMemo(() => {
-    if (!config.enabled_request_types || config.enabled_request_types.length === 0) {
+    const validNames = new Set<string>(REQUEST_TYPES.map((t) => t.value as string))
+    const validTypes = (config.enabled_request_types ?? []).filter((rt) => validNames.has(rt.name as string))
+    if (validTypes.length === 0) {
       return {
         ...config,
         enabled_request_types: REQUEST_TYPES.map((t) => ({
@@ -51,7 +55,7 @@ export default function CommunityConfigEditor({
         })),
       }
     }
-    return config
+    return { ...config, enabled_request_types: validTypes }
   }, [config])
 
   useEffect(() => {
