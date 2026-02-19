@@ -233,13 +233,24 @@ rm -f "$BUILD_OUTPUT"
 log_info "Starting services..."
 docker compose $COMPOSE_FILES up -d --remove-orphans
 
-# Reload nginx to pick up any config changes
-log_info "Reloading nginx configuration..."
-if sudo nginx -t 2>/dev/null; then
-    sudo systemctl reload nginx
-    log_info "nginx reloaded"
+# Deploy nginx config from repo and reload
+NGINX_CONF_SRC="$APP_DIR/infrastructure/nginx/nginx.conf"
+NGINX_CONF_DEST="/etc/nginx/sites-available/karmyq"
+if [ -f "$NGINX_CONF_SRC" ]; then
+    log_info "Deploying nginx configuration from repo..."
+    sudo cp "$NGINX_CONF_SRC" "$NGINX_CONF_DEST"
+    # Ensure symlink exists in sites-enabled
+    sudo ln -sf "$NGINX_CONF_DEST" /etc/nginx/sites-enabled/karmyq
+    if sudo nginx -t 2>/dev/null; then
+        sudo systemctl reload nginx
+        log_info "nginx config deployed and reloaded"
+    else
+        log_warn "nginx config test failed — reverting to previous config"
+        sudo git -C "$APP_DIR" show HEAD~1:infrastructure/nginx/nginx.conf | sudo tee "$NGINX_CONF_DEST" > /dev/null
+        sudo nginx -t 2>/dev/null && sudo systemctl reload nginx
+    fi
 else
-    log_warn "nginx config test failed — skipping reload (old config still active)"
+    log_warn "nginx config not found at $NGINX_CONF_SRC — skipping"
 fi
 
 # =============================================================================
