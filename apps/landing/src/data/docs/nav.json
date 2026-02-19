@@ -79,24 +79,24 @@
       "title": "Concepts",
       "items": [
         {
-          "label": "How Communities Work",
-          "href": "/docs/concepts/community-design"
-        },
-        {
           "label": "What is Karmyq?",
           "href": "/docs/concepts/platform-overview"
         },
         {
-          "label": "Why Reputation Decays",
-          "href": "/docs/concepts/reputation-decay"
+          "label": "What is Karma?",
+          "href": "/docs/concepts/what-is-karma"
         },
         {
           "label": "Trust Score",
           "href": "/docs/concepts/trust-score"
         },
         {
-          "label": "What is Karma?",
-          "href": "/docs/concepts/what-is-karma"
+          "label": "Why Reputation Decays",
+          "href": "/docs/concepts/reputation-decay"
+        },
+        {
+          "label": "How Communities Work",
+          "href": "/docs/concepts/community-design"
         }
       ]
     },

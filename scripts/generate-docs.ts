@@ -241,12 +241,30 @@ interface ConceptPage {
   description: string;
 }
 
+// Preferred reading order for the Concepts nav section
+const CONCEPT_ORDER = [
+  'platform-overview',
+  'what-is-karma',
+  'trust-score',
+  'reputation-decay',
+  'community-design',
+];
+
 function generateConceptPages(): ConceptPage[] {
   console.log('  Generating platform concept pages...');
   const conceptsDir = path.join(ROOT, 'docs', 'concepts');
   if (!fs.existsSync(conceptsDir)) return [];
 
-  const files = fs.readdirSync(conceptsDir).filter(f => f.endsWith('.md')).sort();
+  const allFiles = fs.readdirSync(conceptsDir).filter(f => f.endsWith('.md'));
+  // Sort by CONCEPT_ORDER first, then alphabetically for any extras
+  const files = allFiles.sort((a, b) => {
+    const ai = CONCEPT_ORDER.indexOf(a.replace('.md', ''));
+    const bi = CONCEPT_ORDER.indexOf(b.replace('.md', ''));
+    if (ai === -1 && bi === -1) return a.localeCompare(b);
+    if (ai === -1) return 1;
+    if (bi === -1) return -1;
+    return ai - bi;
+  });
   const pages: ConceptPage[] = [];
 
   for (const file of files) {
