@@ -12,6 +12,11 @@ import ExtractedDataChips from '@/components/ExtractedDataChips'
 import EnhancedAutocomplete from '@/components/EnhancedAutocomplete'
 import OfferItem from '@/components/OfferItem'
 import { parseRequestDescription, buildPayloadFromParsed, updateLocationCoordinates, getSuggestions, type ParsedRequest, type AutocompleteSuggestion } from '@/lib/requestParser'
+import DynamicForm from '@/components/requests/DynamicForm'
+import type { UISchema } from '@karmyq/shared/schemas/ui'
+
+// In-memory schema cache (per session)
+const schemaCache: Record<string, UISchema> = {}
 
 interface HelpRequest {
   id: string
@@ -55,8 +60,10 @@ export default function Dashboard() {
   const [userCommunities, setUserCommunities] = useState<Community[]>([])
   const [creating, setCreating] = useState(false)
   const [requestType, setRequestType] = useState<'generic' | 'ride' | 'service' | 'event' | 'borrow'>('generic')
-  const [showTypeOptions, setShowTypeOptions] = useState(false)
   const [parsedRequest, setParsedRequest] = useState<ParsedRequest | null>(null)
+  const [currentSchema, setCurrentSchema] = useState<UISchema | null>(null)
+  const [schemaLoading, setSchemaLoading] = useState(false)
+  const [dynamicPayload, setDynamicPayload] = useState<Record<string, any>>({})
   const [autocompleteSuggestions, setAutocompleteSuggestions] = useState<AutocompleteSuggestion[]>([])
   const [autocompleteTrigger, setAutocompleteTrigger] = useState<'@' | '#' | '$' | '!' | '..' | '>>' | null>(null)
   const [autocompleteTriggerPosition, setAutocompleteTriggerPosition] = useState<number>(-1)
@@ -289,6 +296,29 @@ export default function Dashboard() {
     }
   }
 
+  const fetchSchema = async (type: string) => {
+    if (type === 'generic') {
+      setCurrentSchema(null)
+      return
+    }
+    if (schemaCache[type]) {
+      setCurrentSchema(schemaCache[type])
+      return
+    }
+    try {
+      setSchemaLoading(true)
+      const response = await requestService.getSchema(type)
+      const schema = response.data.data.schema as UISchema
+      schemaCache[type] = schema
+      setCurrentSchema(schema)
+    } catch (error) {
+      console.error('Error fetching schema:', error)
+      setCurrentSchema(null)
+    } finally {
+      setSchemaLoading(false)
+    }
+  }
+
   const handleDescriptionChange = (newDescription: string, cursorPos?: number) => {
     console.log('📝 handleDescriptionChange called:', { text: newDescription, cursorPos, requestType })
     setDescription(newDescription)
@@ -477,10 +507,12 @@ export default function Dashboard() {
     try {
       setCreating(true)
 
-      // Build payload from parsed data
-      const payload = parsedRequest
-        ? buildPayloadFromParsed(parsedRequest, requestType)
-        : {}
+      // Build payload: prefer dynamicPayload (schema-driven), fall back to NLP-parsed
+      const hasStructuredForm = currentSchema && currentSchema.sections.length > 0
+      const nlpPayload = parsedRequest ? buildPayloadFromParsed(parsedRequest, requestType) : {}
+      const payload = hasStructuredForm
+        ? { ...nlpPayload, ...dynamicPayload }
+        : nlpPayload
 
       // Use urgency from parsed data if available
       const urgency = parsedRequest?.extractedData.urgency || 'medium'
@@ -488,8 +520,8 @@ export default function Dashboard() {
       const requestData = {
         post_to_all_communities: postingMode === 'all',
         community_id: postingMode === 'specific' ? selectedCommunity : undefined,
-        title: description.trim().slice(0, 100), // Use first 100 chars as title
-        description: parsedRequest?.cleanDescription || description.trim(),
+        title: description.trim().slice(0, 100) || Object.values(dynamicPayload)[0]?.toString().slice(0, 100) || 'Help request',
+        description: parsedRequest?.cleanDescription || description.trim() || requestType,
         request_type: requestType,
         urgency,
         payload: Object.keys(payload).length > 0 ? payload : undefined,
@@ -514,7 +546,8 @@ export default function Dashboard() {
       setPostingMode('all')
       setSelectedCommunity('')
       setRequestType('generic')
-      setShowTypeOptions(false)
+      setCurrentSchema(null)
+      setDynamicPayload({})
 
       // Add small delay to ensure backend has processed the request before refreshing
       if (user) {
@@ -664,7 +697,12 @@ export default function Dashboard() {
                       <button
                         key={type.value}
                         type="button"
-                        onClick={() => setRequestType(type.value as any)}
+                        onClick={() => {
+                          const t = type.value as 'generic' | 'ride' | 'service' | 'event' | 'borrow'
+                          setRequestType(t)
+                          setDynamicPayload({})
+                          fetchSchema(t)
+                        }}
                         className={`px-2 py-1 rounded-md text-xs font-medium transition-all ${
                           requestType === type.value
                             ? 'bg-primary text-white shadow-sm'
@@ -721,6 +759,20 @@ export default function Dashboard() {
                       parsed={parsedRequest}
                       onRemove={handleRemoveExtractedData}
                     />
+                  )}
+
+                  {/* Schema-driven dynamic form for structured types */}
+                  {schemaLoading && (
+                    <div className="text-xs text-text-subtle py-2">Loading form…</div>
+                  )}
+                  {!schemaLoading && currentSchema && currentSchema.sections.length > 0 && (
+                    <div className="mt-3 border-t border-border pt-3">
+                      <DynamicForm
+                        schema={currentSchema}
+                        value={dynamicPayload}
+                        onChange={setDynamicPayload}
+                      />
+                    </div>
                   )}
                   <div className="flex items-center justify-between mt-2">
                     <div className="flex items-center gap-2">
