@@ -4,6 +4,7 @@ import Head from 'next/head'
 import Link from 'next/link'
 import { uiSchemaService } from '@/lib/api'
 import AdminLayout from '@/components/admin/AdminLayout'
+import SchemaCanvas from '@/components/admin/SchemaCanvas'
 import { requireAdmin, isAdmin } from '@/utils/admin-auth'
 
 // Admin schema is the database record representation (includes id, status, etc.)
@@ -206,18 +207,26 @@ export default function SchemaEditorPage() {
     saveSchema(updatedSchema)
   }
 
-  const handleAddField = (sectionId: string) => {
+  const handleAddField = (sectionId: string, type: string = 'text') => {
     if (!schema) return
 
     const newField = {
       id: crypto.randomUUID(),
-      sectionId,
-      type: 'text',
-      label: 'New Field',
+      type,
+      label: type.charAt(0).toUpperCase() + type.slice(1).replace(/_/g, ' ') + ' field',
       required: false,
     }
 
-    handleUpdateField(sectionId, newField.id, newField)
+    const updatedSections = schema.sections.map(section => {
+      if (section.id === sectionId) {
+        return { ...section, fields: [...section.fields, newField] }
+      }
+      return section
+    })
+
+    const updatedSchema = { ...schema, sections: updatedSections }
+    setSchema(updatedSchema)
+    saveSchema(updatedSchema)
   }
 
   const handleDeleteField = (sectionId: string, fieldId: string) => {
@@ -419,29 +428,19 @@ export default function SchemaEditorPage() {
                 {/* Tab Content */}
                 <div className="p-6">
                   {activeTab === 'sections' && (
-                    // This will be replaced with SectionList component
-                    <div className="space-y-4">
-                      {schema.sections.map((section, index) => (
-                        <div key={section.id} className="bg-surface rounded-lg p-4">
-                          <div className="flex justify-between items-center mb-2">
-                            <h3 className="text-lg font-semibold">{section.title}</h3>
-                            <button
-                              onClick={() => handleDeleteSection(section.id)}
-                              className="px-3 py-1 bg-red-100 text-red-700 rounded hover:bg-red-200 text-sm"
-                            >
-                              Remove
-                            </button>
-                          </div>
-                          <div>
-                            {section.fields.map((field) => (
-                              <div key={field.id} className="bg-surface rounded p-3 mb-2">
-                                <span className="text-sm text-text-muted">{field.label} ({field.type})</span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
+                    <SchemaCanvas
+                      schema={schema}
+                      saving={saving}
+                      onUpdateSection={(sectionId, updates) => handleUpdateSection(sectionId, updates)}
+                      onDeleteSection={handleDeleteSection}
+                      onAddSection={handleAddSection}
+                      onAddField={handleAddField}
+                      onUpdateField={(sectionId, fieldId, updates) => handleUpdateField(sectionId, fieldId, updates)}
+                      onDeleteField={handleDeleteField}
+                      onMoveField={(sectionId, fromIndex, toIndex) => handleMoveField(sectionId, fromIndex, toIndex, fromIndex)}
+                      onSaveDraft={() => saveSchema(schema)}
+                      onPublish={() => setShowPublishDialog(true)}
+                    />
                   )}
 
                   {activeTab === 'fields' && (
