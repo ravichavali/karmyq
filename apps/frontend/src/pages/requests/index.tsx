@@ -123,7 +123,7 @@ export default function RequestsPage() {
             <p className="text-text-muted mt-2">Browse and respond to community help requests</p>
           </div>
           <Link
-            href="/requests/new"
+            href="/dashboard"
             className="bg-primary text-white px-6 py-3 rounded-lg hover:bg-primary-dark transition"
           >
             Create Request
