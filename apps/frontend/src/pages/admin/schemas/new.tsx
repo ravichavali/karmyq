@@ -61,8 +61,7 @@ export default function NewSchemaPage() {
     setSections([...sections, { id: crypto.randomUUID(), title: 'New Section', fields: [] }])
   }
 
-  if (loading) {
-    return (
+  return (
       <Layout title="Create New Schema - Karmyq">
         <Head>
           <title>Create New Schema - Karmyq</title>
@@ -210,6 +209,5 @@ export default function NewSchemaPage() {
           </form>
         </div>
       </Layout>
-    )
-  }
+  )
 }
