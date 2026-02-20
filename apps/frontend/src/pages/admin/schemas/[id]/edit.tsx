@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { uiSchemaService } from '@/lib/api'
 import AdminLayout from '@/components/admin/AdminLayout'
 import SchemaCanvas from '@/components/admin/SchemaCanvas'
+import EmojiPicker from '@/components/admin/EmojiPicker'
 import { requireAdmin, isAdmin } from '@/utils/admin-auth'
 
 // Admin schema is the database record representation (includes id, status, etc.)
@@ -338,12 +339,25 @@ export default function SchemaEditorPage() {
               {/* Header */}
               <div className="bg-surface-raised rounded-lg shadow p-6 mb-6">
                 <div className="flex justify-between items-start">
-                  <div>
-                    <h1 className="text-3xl font-bold text-text mb-2">{schema.label}</h1>
-                    <p className="text-text-muted mb-2">
-                      Type: <span className="font-medium text-primary">{schema.type}</span> •
-                      Version: <span className="font-medium text-primary">v{schema.version}</span>
-                    </p>
+                  <div className="flex items-start gap-4">
+                    <div className="w-48 flex-shrink-0">
+                      <EmojiPicker
+                        value={schema.icon}
+                        label=""
+                        onChange={(emoji) => {
+                          const updated = { ...schema, icon: emoji }
+                          setSchema(updated)
+                          saveSchema(updated)
+                        }}
+                      />
+                    </div>
+                    <div>
+                      <h1 className="text-3xl font-bold text-text mb-2">{schema.label}</h1>
+                      <p className="text-text-muted mb-2">
+                        Type: <span className="font-medium text-primary">{schema.type}</span> •
+                        Version: <span className="font-medium text-primary">v{schema.version}</span>
+                      </p>
+                    </div>
                   </div>
                   <div className="flex gap-3">
                     {schema.status === 'published' && (

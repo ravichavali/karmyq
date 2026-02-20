@@ -4,6 +4,7 @@ import Head from 'next/head'
 import Link from 'next/link'
 import { uiSchemaService } from '@/lib/api'
 import Layout from '@/components/Layout'
+import EmojiPicker from '@/components/admin/EmojiPicker'
 import { UISchema } from '@karmyq/shared/schemas/ui'
 import { requireAdmin, isAdmin } from '@/utils/admin-auth'
 
@@ -134,16 +135,7 @@ export default function NewSchemaPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-text-muted mb-2">
-                  Icon (emoji)
-                </label>
-                <input
-                  type="text"
-                  value={icon}
-                  onChange={(e) => setIcon(e.target.value)}
-                  className="w-full px-4 py-3 border border-border rounded focus:outline-none focus:ring-2 focus:ring-primary"
-                  placeholder="✨"
-                />
+                <EmojiPicker value={icon} onChange={setIcon} />
               </div>
 
               <div>
