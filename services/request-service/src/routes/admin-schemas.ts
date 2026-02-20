@@ -31,11 +31,11 @@ router.post('/', async (req: Request, res: Response) => {
       rollout_percentage = 100
     } = req.body;
 
-    // Validate required fields
-    if (!type || !label || !icon || !color || !description) {
+    // Validate required fields (description is optional)
+    if (!type || !label || !icon || !color) {
       return res.status(400).json({
         success: false,
-        message: 'Missing required fields: type, label, icon, color, description'
+        message: 'Missing required fields: type, label, icon, color'
       });
     }
 

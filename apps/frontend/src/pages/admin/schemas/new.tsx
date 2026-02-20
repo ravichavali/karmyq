@@ -90,21 +90,32 @@ export default function NewSchemaPage() {
                   Type
                 </label>
                 <select
-                  value={type}
-                  onChange={(e) => setType(e.target.value)}
+                  value={builtInTypes.includes(type) ? type : 'custom'}
+                  onChange={(e) => {
+                    if (e.target.value !== 'custom') setType(e.target.value)
+                    else setType('')
+                  }}
                   className="w-full px-4 py-3 border border-border rounded focus:outline-none focus:ring-2 focus:ring-primary"
-                  disabled={!!builtInTypes.find(t => type === t)}
                 >
-                  <option value="">Select a type...</option>
                   {builtInTypes.map((t) => (
                     <option key={t} value={t}>
-                      {t.charAt(0).toUpperCase() + t.slice(1)} - Built-in type
+                      {t.charAt(0).toUpperCase() + t.slice(1)} (built-in)
                     </option>
                   ))}
+                  <option value="custom">Custom type…</option>
                 </select>
+                {!builtInTypes.includes(type) && (
+                  <input
+                    type="text"
+                    value={type}
+                    onChange={(e) => setType(e.target.value.toLowerCase().replace(/\s+/g, '_'))}
+                    className="w-full mt-2 px-4 py-3 border border-border rounded focus:outline-none focus:ring-2 focus:ring-primary"
+                    placeholder="e.g., dog_walking, tutoring"
+                  />
+                )}
                 {builtInTypes.includes(type) && (
-                  <p className="text-sm text-primary mt-1">
-                    ℹ️ Built-in types use Zod validation. Custom types will use JSON Schema.
+                  <p className="text-sm text-text-muted mt-1">
+                    ℹ️ Customizes the form for this built-in type.
                   </p>
                 )}
               </div>
