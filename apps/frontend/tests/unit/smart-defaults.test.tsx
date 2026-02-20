@@ -1,10 +1,10 @@
 /**
- * Smart Defaults Test - Day 6 UX Improvements
+ * Request Type Selection Tests
  *
- * Verifies that the new request page defaults to generic request
- * with progressive disclosure for other request types.
+ * Verifies that the new request page requires explicit type selection
+ * before showing the form — no generic default.
  *
- * Target: < 3 clicks to create generic request
+ * UX intent: push users toward structured typed forms.
  */
 
 import React from 'react'
@@ -74,7 +74,7 @@ Object.defineProperty(window, 'localStorage', {
   value: localStorageMock,
 })
 
-describe('Smart Defaults - Progressive Disclosure (Day 6)', () => {
+describe('Request Type Selection — mandatory type-first UX', () => {
   beforeEach(() => {
     localStorageMock.clear()
     localStorageMock.setItem('user', JSON.stringify({
@@ -84,161 +84,152 @@ describe('Smart Defaults - Progressive Disclosure (Day 6)', () => {
     jest.clearAllMocks()
   })
 
-  describe('Default State', () => {
-    it('should default to generic request type', async () => {
+  describe('Initial State (no type selected)', () => {
+    it('should show the page header', async () => {
       const NewRequestPage = (await import('../../src/pages/requests/new')).default
       await act(async () => {
         render(<NewRequestPage />)
       })
 
-      // Should show "General Help" as current request type in the header
-      expect(screen.getByText(/Request type:/)).toBeInTheDocument()
-      const typeSpan = screen.getByText('General Help', { selector: 'span.font-medium.text-primary' })
-      expect(typeSpan).toBeInTheDocument()
-    })
-
-    it('should show the request form immediately', async () => {
-      const NewRequestPage = (await import('../../src/pages/requests/new')).default
-      await act(async () => {
-        render(<NewRequestPage />)
-      })
-
-      // Should show the main header and form fields
       expect(screen.getByText('Create Help Request')).toBeInTheDocument()
-      expect(screen.getByLabelText(/Title/)).toBeInTheDocument()
-      expect(screen.getByLabelText(/Description/)).toBeInTheDocument()
     })
 
-    it('should have type selector collapsed by default', async () => {
+    it('should show type selector immediately without requiring a click', async () => {
       const NewRequestPage = (await import('../../src/pages/requests/new')).default
       await act(async () => {
         render(<NewRequestPage />)
       })
 
-      // Should show collapsed state indicator
-      expect(screen.getByText('Need a specific type?')).toBeInTheDocument()
+      // Type selector label should be visible right away
+      expect(screen.getByText(/What kind of help do you need/)).toBeInTheDocument()
+    })
 
-      // Type selector grid should NOT be visible initially
-      expect(screen.queryByText('What type of help do you need?')).not.toBeInTheDocument()
+    it('should NOT show the community select or form fields before type is selected', async () => {
+      const NewRequestPage = (await import('../../src/pages/requests/new')).default
+      await act(async () => {
+        render(<NewRequestPage />)
+      })
+
+      expect(screen.queryByLabelText(/Community/)).not.toBeInTheDocument()
+      expect(screen.queryByLabelText(/Title/)).not.toBeInTheDocument()
+      expect(screen.queryByLabelText(/Description/)).not.toBeInTheDocument()
+    })
+
+    it('should NOT show a submit button before type is selected', async () => {
+      const NewRequestPage = (await import('../../src/pages/requests/new')).default
+      await act(async () => {
+        render(<NewRequestPage />)
+      })
+
+      expect(screen.queryByText('Create Request')).not.toBeInTheDocument()
     })
   })
 
-  describe('Progressive Disclosure', () => {
-    it('should expand type selector when clicked', async () => {
+  describe('After type selection', () => {
+    it('should show form fields after selecting a type', async () => {
       const NewRequestPage = (await import('../../src/pages/requests/new')).default
       await act(async () => {
         render(<NewRequestPage />)
       })
 
-      // Click the "Need a specific type?" button
-      const expandButton = screen.getByText('Need a specific type?').closest('button')
-      expect(expandButton).toBeInTheDocument()
-
+      // Select generic type
+      const genericButton = screen.getByText('General Help').closest('button')
       await act(async () => {
-        fireEvent.click(expandButton!)
+        fireEvent.click(genericButton!)
       })
 
-      // Now type selector should be visible
-      expect(screen.getByText('What type of help do you need?')).toBeInTheDocument()
+      // Form fields should now be visible
+      expect(screen.getByLabelText(/Community/)).toBeInTheDocument()
+      expect(screen.getByLabelText(/Title/)).toBeInTheDocument()
+      expect(screen.getByLabelText(/Description/)).toBeInTheDocument()
+      expect(screen.getByText('Create Request')).toBeInTheDocument()
     })
 
-    it('should show examples when type selector is expanded', async () => {
+    it('should show title and description as required for generic type', async () => {
       const NewRequestPage = (await import('../../src/pages/requests/new')).default
       await act(async () => {
         render(<NewRequestPage />)
       })
 
-      // Expand type selector
-      const expandButton = screen.getByText('Need a specific type?').closest('button')
+      const genericButton = screen.getByText('General Help').closest('button')
       await act(async () => {
-        fireEvent.click(expandButton!)
+        fireEvent.click(genericButton!)
       })
 
-      // Should show example text for ride type
-      expect(screen.getByText(/e.g., ride to airport/)).toBeInTheDocument()
+      // Title and description should be required (no "optional" label)
+      expect(screen.queryByText('(optional)')).not.toBeInTheDocument()
     })
 
-    it('should show "Most used" badge on generic type', async () => {
+    it('should allow selecting ride type and show form', async () => {
       const NewRequestPage = (await import('../../src/pages/requests/new')).default
       await act(async () => {
         render(<NewRequestPage />)
       })
 
-      // Expand type selector
-      const expandButton = screen.getByText('Need a specific type?').closest('button')
-      await act(async () => {
-        fireEvent.click(expandButton!)
-      })
-
-      // Should show "Most used" badge
-      expect(screen.getByText('Most used')).toBeInTheDocument()
-    })
-
-    it('should collapse type selector after selecting a type', async () => {
-      const NewRequestPage = (await import('../../src/pages/requests/new')).default
-      await act(async () => {
-        render(<NewRequestPage />)
-      })
-
-      // Expand type selector
-      const expandButton = screen.getByText('Need a specific type?').closest('button')
-      await act(async () => {
-        fireEvent.click(expandButton!)
-      })
-
-      // Select ride type
       const rideButton = screen.getByText('Ride Share').closest('button')
       await act(async () => {
         fireEvent.click(rideButton!)
       })
 
-      // Type selector should collapse (grid hidden)
-      expect(screen.queryByText('What type of help do you need?')).not.toBeInTheDocument()
-
-      // Should update request type display in header
-      const typeSpan = screen.getByText('Ride', { selector: 'span.font-medium.text-primary' })
-      expect(typeSpan).toBeInTheDocument()
+      expect(screen.getByLabelText(/Community/)).toBeInTheDocument()
+      expect(screen.getByText('Create Request')).toBeInTheDocument()
     })
   })
 
-  describe('Click Count Target (< 3 clicks)', () => {
-    it('should allow creating generic request with minimal clicks', async () => {
+  describe('Structured type (schema with sections)', () => {
+    it('should show title as required for generic (no sections)', async () => {
+      // Generic schema has no sections — title/description required
       const NewRequestPage = (await import('../../src/pages/requests/new')).default
+      await act(async () => {
+        render(<NewRequestPage />)
+      })
+
+      const genericButton = screen.getByText('General Help').closest('button')
+      await act(async () => {
+        fireEvent.click(genericButton!)
+      })
+
+      // For generic (no sections), there should be no "(optional)" hint
+      expect(screen.queryByText('(optional)')).not.toBeInTheDocument()
+    })
+  })
+
+  describe('Submit behavior', () => {
+    it('should submit with correct request_type after selecting generic', async () => {
       const { requestService } = await import('../../src/lib/api')
+      const NewRequestPage = (await import('../../src/pages/requests/new')).default
 
       await act(async () => {
         render(<NewRequestPage />)
       })
 
-      // Wait for communities to load
+      // Select generic
+      const genericButton = screen.getByText('General Help').closest('button')
+      await act(async () => {
+        fireEvent.click(genericButton!)
+      })
+
       await screen.findByText('Test Community')
 
-      // Click count: 0 (form already shown, no type selection needed)
-
-      // Fill in required fields
       const communitySelect = screen.getByLabelText(/Community/)
       const titleInput = screen.getByLabelText(/Title/)
       const descriptionTextarea = screen.getByLabelText(/Description/)
 
       await act(async () => {
-        fireEvent.change(communitySelect, { target: { value: 'comm-1' } }); // Click 1
-        fireEvent.change(titleInput, { target: { value: 'Need help moving' } });
-        fireEvent.change(descriptionTextarea, { target: { value: 'Need help moving some boxes this weekend' } });
+        fireEvent.change(communitySelect, { target: { value: 'comm-1' } })
+        fireEvent.change(titleInput, { target: { value: 'Need help moving' } })
+        fireEvent.change(descriptionTextarea, { target: { value: 'Need help moving some boxes this weekend' } })
       })
 
-      // Mock successful API call
       ;(requestService.createRequest as jest.Mock).mockResolvedValueOnce({
         data: { data: { id: 'req-123' } }
       })
 
-      // Submit form
       const submitButton = screen.getByText('Create Request')
       await act(async () => {
-        fireEvent.click(submitButton) // Click 2 (form filling not counted)
+        fireEvent.click(submitButton)
       })
 
-      // Total clicks for generic request: 2 (community select + submit)
-      // This is < 3 clicks
       expect(requestService.createRequest).toHaveBeenCalledWith(
         expect.objectContaining({
           request_type: 'generic',
@@ -247,103 +238,6 @@ describe('Smart Defaults - Progressive Disclosure (Day 6)', () => {
           description: 'Need help moving some boxes this weekend',
         })
       )
-    })
-  })
-
-  describe('Type Switching', () => {
-    it('should allow switching to a specific type', async () => {
-      const NewRequestPage = (await import('../../src/pages/requests/new')).default
-      await act(async () => {
-        render(<NewRequestPage />)
-      })
-
-      // Expand type selector
-      const expandButton = screen.getByText('Need a specific type?').closest('button')
-      await act(async () => {
-        fireEvent.click(expandButton!)
-      })
-
-      // Select ride type
-      const rideButton = screen.getByText('Ride Share').closest('button')
-      await act(async () => {
-        fireEvent.click(rideButton!)
-      })
-
-      // Request type should update in header
-      const typeSpan = screen.getByText('Ride', { selector: 'span.font-medium.text-primary' })
-      expect(typeSpan).toBeInTheDocument()
-    })
-
-    it('should allow switching back to generic', async () => {
-      const NewRequestPage = (await import('../../src/pages/requests/new')).default
-      await act(async () => {
-        render(<NewRequestPage />)
-      })
-
-      // Expand and select ride
-      const expandButton = screen.getByText('Need a specific type?').closest('button')
-      await act(async () => {
-        fireEvent.click(expandButton!)
-      })
-
-      const rideButton = screen.getByText('Ride Share').closest('button')
-      await act(async () => {
-        fireEvent.click(rideButton!)
-      })
-
-      // Expand again and select generic
-      await act(async () => {
-        fireEvent.click(expandButton!)
-      })
-
-      const genericButton = screen.getByText('General Help').closest('button')
-      await act(async () => {
-        fireEvent.click(genericButton!)
-      })
-
-      // Should show generic type in header
-      const typeSpan = screen.getByText('General Help', { selector: 'span.font-medium.text-primary' })
-      expect(typeSpan).toBeInTheDocument()
-    })
-  })
-
-  describe('Schema-Driven Form', () => {
-    it('should update header label when type changes', async () => {
-      const NewRequestPage = (await import('../../src/pages/requests/new')).default
-      await act(async () => {
-        render(<NewRequestPage />)
-      })
-
-      // Initially shows General Help
-      expect(screen.getByText('General Help', { selector: 'span.font-medium.text-primary' })).toBeInTheDocument()
-
-      // Switch to borrow type
-      const expandButton = screen.getByText('Need a specific type?').closest('button')
-      await act(async () => {
-        fireEvent.click(expandButton!)
-      })
-
-      const borrowButton = screen.getByText('Borrow Item').closest('button')
-      await act(async () => {
-        fireEvent.click(borrowButton!)
-      })
-
-      // Header should update to Borrow label from schema
-      const typeSpan = screen.getByText('Borrow', { selector: 'span.font-medium.text-primary' })
-      expect(typeSpan).toBeInTheDocument()
-    })
-
-    it('should not show DynamicForm for generic type (no sections)', async () => {
-      const NewRequestPage = (await import('../../src/pages/requests/new')).default
-      await act(async () => {
-        render(<NewRequestPage />)
-      })
-
-      // Generic schema has empty sections, so DynamicForm should not render any section headers
-      // The common fields (title, description, urgency) are always shown
-      expect(screen.getByLabelText(/Title/)).toBeInTheDocument()
-      expect(screen.getByLabelText(/Description/)).toBeInTheDocument()
-      expect(screen.getByLabelText(/Urgency/)).toBeInTheDocument()
     })
   })
 })
