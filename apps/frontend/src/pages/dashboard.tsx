@@ -366,7 +366,13 @@ export default function Dashboard() {
     try {
       setSchemaLoading(true)
       const response = await requestService.getSchema(type)
-      const schema = response.data.schema as UISchema
+      const schema = (response.data?.schema ?? response.data) as UISchema
+      if (!schema || !Array.isArray(schema.sections)) {
+        setCurrentSchema(null)
+        return
+      }
+      // Normalize: ensure every section has a fields array
+      schema.sections = schema.sections.map((s: any) => ({ ...s, fields: s.fields ?? [] }))
       schemaCache[cacheKey] = schema
       setCurrentSchema(schema)
     } catch (error) {

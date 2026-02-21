@@ -148,7 +148,7 @@ export default function DynamicForm({ schema, value, onChange }: DynamicFormProp
         <div key={section.id} className="space-y-4">
           <SectionHeader section={section} schema={schema} />
 
-          {section.fields.map((field) => (
+          {(section.fields ?? []).map((field) => (
             <FieldRenderer
               key={field.key}
               field={field}
