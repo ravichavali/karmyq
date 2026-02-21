@@ -12,9 +12,11 @@ export default function TextField({ field, value, onChange }: TextFieldProps) {
 
   return (
     <div>
-      <label className="block text-sm font-medium text-text-muted mb-2">
-        {field.label} {field.required && <span className="text-red-500">*</span>}
-      </label>
+      {field.label && (
+        <label className="block text-sm font-medium text-text-muted mb-2">
+          {field.label} {field.required && <span className="text-red-500">*</span>}
+        </label>
+      )}
       {isTextarea ? (
         <textarea
           value={value || ''}
