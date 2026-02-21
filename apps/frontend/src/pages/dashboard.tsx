@@ -149,7 +149,11 @@ export default function Dashboard() {
           .filter((s: any) => !BUILT_IN.has(s.type))
           .map((s: any) => ({ value: s.type, label: s.label ?? s.type, icon: s.icon ?? '✨' }))
         if (custom.length > 0) {
-          setAvailableTypes((prev) => [...prev, ...custom])
+          setAvailableTypes((prev) => {
+            const existing = new Set(prev.map((t) => t.value))
+            const deduped = custom.filter((t: { value: string }) => !existing.has(t.value))
+            return deduped.length > 0 ? [...prev, ...deduped] : prev
+          })
         }
       }
     }).catch(() => { /* silently ignore — built-in types still show */ })
