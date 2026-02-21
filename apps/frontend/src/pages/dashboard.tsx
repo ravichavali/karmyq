@@ -563,8 +563,17 @@ export default function Dashboard() {
       const requestData = {
         post_to_all_communities: postingMode === 'all',
         community_id: postingMode === 'specific' ? selectedCommunity : undefined,
-        title: description.trim().slice(0, 100) || formSummary?.title || 'Help request',
-        description: parsedRequest?.cleanDescription || description.trim() || formSummary?.description || 'Help request',
+        title: formSummary?.title || description.trim().slice(0, 100) || 'Help request',
+        description: (() => {
+          // For structured forms: combine schema summary with any additional context the user typed
+          if (formSummary) {
+            const extra = description.trim()
+            return extra ? formSummary.description + '
+
+' + extra : formSummary.description
+          }
+          return parsedRequest?.cleanDescription || description.trim() || 'Help request'
+        })(),
         request_type: requestType ?? 'generic',
         urgency,
         payload: Object.keys(payload).length > 0 ? payload : undefined,
@@ -775,41 +784,47 @@ export default function Dashboard() {
                         </div>
                       )}
 
-                      {/* Textarea — primary input for generic, optional context for structured types */}
-                      <div className="relative mb-2">
-                        {currentSchema && currentSchema.sections.length > 0 && (
-                          <p className="text-xs font-medium text-text-muted mb-1">Additional context <span className="text-text-subtle font-normal">(optional — shown in your post)</span></p>
-                        )}
-                        <textarea
-                          ref={setTextareaRef}
-                          value={description}
-                          onChange={(e) => handleDescriptionChange(e.target.value, e.target.selectionStart)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Escape' && autocompleteSuggestions.length > 0) {
-                              e.preventDefault()
-                              handleCloseAutocomplete()
-                            }
-                          }}
-                          placeholder={
-                            currentSchema && currentSchema.sections.length > 0
-                              ? 'Add any extra context for community members... (optional)'
-                              : 'What do you need help with? Tip: Use @time, @location, #count, $budget, !urgent'
-                          }
-                          className="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent resize-none text-sm"
-                          rows={currentSchema && currentSchema.sections.length > 0 ? 2 : 2}
-                        />
-                        {autocompleteSuggestions.length > 0 && (
-                          <EnhancedAutocomplete
-                            suggestions={autocompleteSuggestions}
-                            onSelect={handleSelectSuggestion}
-                            onClose={handleCloseAutocomplete}
-                            triggerChar={autocompleteTrigger}
-                            searchQuery={searchQuery}
+                      {/* Textarea: plain for structured forms, smart for generic */}
+                      {currentSchema && currentSchema.sections.length > 0 ? (
+                        <div className="mb-2">
+                          <p className="text-xs font-medium text-text-muted mb-1">Additional context <span className="text-text-subtle font-normal">(optional — appended to your post)</span></p>
+                          <textarea
+                            value={description}
+                            onChange={(e) => setDescription(e.target.value)}
+                            placeholder="Add any extra context for community members..."
+                            className="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent resize-none text-sm"
+                            rows={2}
                           />
-                        )}
-                      </div>
+                        </div>
+                      ) : (
+                        <div className="relative mb-2">
+                          <textarea
+                            ref={setTextareaRef}
+                            value={description}
+                            onChange={(e) => handleDescriptionChange(e.target.value, e.target.selectionStart)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Escape' && autocompleteSuggestions.length > 0) {
+                                e.preventDefault()
+                                handleCloseAutocomplete()
+                              }
+                            }}
+                            placeholder="What do you need help with? Tip: Use @time, @location, #count, $budget, !urgent"
+                            className="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent resize-none text-sm"
+                            rows={2}
+                          />
+                          {autocompleteSuggestions.length > 0 && (
+                            <EnhancedAutocomplete
+                              suggestions={autocompleteSuggestions}
+                              onSelect={handleSelectSuggestion}
+                              onClose={handleCloseAutocomplete}
+                              triggerChar={autocompleteTrigger}
+                              searchQuery={searchQuery}
+                            />
+                          )}
+                        </div>
+                      )}
 
-                      {parsedRequest && (
+                      {parsedRequest && !currentSchema && (
                         <ExtractedDataChips
                           parsed={parsedRequest}
                           onRemove={handleRemoveExtractedData}
