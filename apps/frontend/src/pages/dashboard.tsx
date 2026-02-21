@@ -15,6 +15,39 @@ import { parseRequestDescription, buildPayloadFromParsed, updateLocationCoordina
 import DynamicForm from '@/components/requests/DynamicForm'
 import type { UISchema } from '@karmyq/shared/schemas/ui'
 
+// Build a human-readable title + description from a structured form payload using the schema summary.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function generateFormSummary(schema: UISchema, payload: Record<string, any>): { title: string; description: string } {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  function getNestedValue(obj: Record<string, any>, path: string): unknown {
+    return path.split('.').reduce((cur: any, key) => (cur != null ? cur[key] : undefined), obj)
+  }
+  function formatValue(raw: unknown): string {
+    if (raw == null || raw === '') return ''
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    if (typeof raw === 'object' && raw !== null && 'address' in raw) return String((raw as any).address)
+    if (typeof raw === 'string' && /\d{4}-\d{2}-\d{2}T/.test(raw)) {
+      try { return new Date(raw).toLocaleString() } catch { return raw }
+    }
+    return String(raw)
+  }
+  if (!schema.summary) {
+    return { title: schema.label, description: schema.label + ' request' }
+  }
+  const parts = schema.summary.fields
+    .map((key) => {
+      const val = formatValue(getNestedValue(payload, key))
+      if (!val) return null
+      const label = schema.summary!.labels?.[key] || key
+      return `${label}: ${val}`
+    })
+    .filter(Boolean) as string[]
+  const description = parts.length > 0
+    ? `${schema.label} — ${parts.join(' | ')}` 
+    : schema.label + ' request'
+  return { title: description.slice(0, 100), description }
+}
+
 // Per-session schema cache, keyed by build ID — a new deploy automatically busts all cached schemas
 const BUILD_ID = typeof window !== "undefined" ? (window as any).__NEXT_DATA__?.buildId ?? "dev" : "dev"
 const schemaCache: Record<string, UISchema> = {}
@@ -522,11 +555,16 @@ export default function Dashboard() {
       // Use urgency from parsed data if available
       const urgency = parsedRequest?.extractedData.urgency || 'medium'
 
+      // Generate title and description from the form summary when no text description is provided
+      const formSummary = hasStructuredForm && currentSchema
+        ? generateFormSummary(currentSchema, dynamicPayload)
+        : null
+
       const requestData = {
         post_to_all_communities: postingMode === 'all',
         community_id: postingMode === 'specific' ? selectedCommunity : undefined,
-        title: description.trim().slice(0, 100) || Object.values(dynamicPayload)[0]?.toString().slice(0, 100) || 'Help request',
-        description: parsedRequest?.cleanDescription || description.trim() || (requestType ? requestType + ' request' : 'Help request'),
+        title: description.trim().slice(0, 100) || formSummary?.title || 'Help request',
+        description: parsedRequest?.cleanDescription || description.trim() || formSummary?.description || 'Help request',
         request_type: requestType ?? 'generic',
         urgency,
         payload: Object.keys(payload).length > 0 ? payload : undefined,

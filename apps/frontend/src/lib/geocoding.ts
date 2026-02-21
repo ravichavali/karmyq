@@ -133,7 +133,7 @@ export async function searchAddresses(query: string): Promise<AddressSuggestion[
 
     const suggestions: AddressSuggestion[] = results.map((result: any) => ({
       display_name: result.display_name || 'Unknown location',
-      address: result.display_name?.split(',')[0] || sanitized,
+      address: result.display_name || sanitized,
       lat: parseFloat(result.lat) || 0,
       lng: parseFloat(result.lon) || 0,
       type: result.type || 'place'
