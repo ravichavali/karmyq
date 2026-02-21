@@ -229,9 +229,11 @@ else
 fi
 rm -f "$BUILD_OUTPUT"
 
-# Deploy
+# Deploy — stop first to avoid container removal race condition, then start fresh
+log_info "Stopping existing services..."
+docker compose $COMPOSE_FILES down --remove-orphans 2>/dev/null || true
 log_info "Starting services..."
-docker compose $COMPOSE_FILES up -d --remove-orphans
+docker compose $COMPOSE_FILES up -d
 
 # Deploy nginx config from repo and reload
 NGINX_CONF_SRC="$APP_DIR/infrastructure/nginx/nginx.conf"
