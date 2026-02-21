@@ -15,7 +15,8 @@ import { parseRequestDescription, buildPayloadFromParsed, updateLocationCoordina
 import DynamicForm from '@/components/requests/DynamicForm'
 import type { UISchema } from '@karmyq/shared/schemas/ui'
 
-// Per-session schema cache — cleared on hard refresh
+// Per-session schema cache, keyed by build ID — a new deploy automatically busts all cached schemas
+const BUILD_ID = typeof window !== "undefined" ? (window as any).__NEXT_DATA__?.buildId ?? "dev" : "dev"
 const schemaCache: Record<string, UISchema> = {}
 
 interface HelpRequest {
@@ -302,7 +303,8 @@ export default function Dashboard() {
       return
     }
     // Use cache only if schema has sections (guards against stale empty-section schemas)
-    const cached = schemaCache[type]
+    const cacheKey = BUILD_ID + ":" + type
+    const cached = schemaCache[cacheKey]
     if (cached && cached.sections && cached.sections.length > 0) {
       setCurrentSchema(cached)
       return
@@ -311,7 +313,7 @@ export default function Dashboard() {
       setSchemaLoading(true)
       const response = await requestService.getSchema(type)
       const schema = response.data.schema as UISchema
-      schemaCache[type] = schema
+      schemaCache[cacheKey] = schema
       setCurrentSchema(schema)
     } catch (error) {
       console.error('Error fetching schema:', error)

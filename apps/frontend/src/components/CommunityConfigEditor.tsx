@@ -43,7 +43,7 @@ export default function CommunityConfigEditor({
   // If none match (e.g. seed data has legacy names like meal_share/tool_borrow),
   // default all 5 built-in types as enabled.
   const normalizedConfig = useMemo(() => {
-    const validNames = new Set<string>(REQUEST_TYPES.map((t) => t.value as string))
+    const validNames = new Set<string>(allRequestTypes.map((t) => t.value as string))
     const validTypes = (config.enabled_request_types ?? []).filter((rt) => validNames.has(rt.name as string))
     if (validTypes.length === 0) {
       return {
@@ -56,7 +56,7 @@ export default function CommunityConfigEditor({
       }
     }
     return { ...config, enabled_request_types: validTypes }
-  }, [config])
+  }, [config, allRequestTypes])
 
   useEffect(() => {
     requestService.getSchemas().then((res) => {
