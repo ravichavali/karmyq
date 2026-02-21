@@ -327,11 +327,59 @@ router.post('/:id/publish', async (req: Request, res: Response) => {
 
     const schema = existing.rows[0];
 
-    // Validate schema before publishing
+    // Validate schema structure before publishing
+    const validationErrors: string[] = [];
+
     if (!schema.label || schema.label.trim() === '') {
+      validationErrors.push('label is required');
+    }
+
+    const VALID_FIELD_TYPES = new Set([
+      'text', 'textarea', 'number', 'select', 'datetime',
+      'checkbox', 'location', 'button_group', 'chip_select', 'range', 'object'
+    ]);
+
+    const sections = schema.sections;
+    if (!Array.isArray(sections)) {
+      validationErrors.push('sections must be an array');
+    } else {
+      sections.forEach((section: any, si: number) => {
+        if (!section.id) validationErrors.push(`Section ${si + 1}: id is required`);
+        if (!section.title || section.title.trim() === '') validationErrors.push(`Section ${si + 1}: title is required`);
+        if (!Array.isArray(section.fields)) {
+          validationErrors.push(`Section "${section.title || si + 1}": fields must be an array`);
+        } else {
+          section.fields.forEach((field: any, fi: number) => {
+            const loc = `Section "${section.title || si + 1}", field ${fi + 1}`;
+            if (!field.key || typeof field.key !== 'string' || field.key.trim() === '') {
+              validationErrors.push(`${loc}: key is required and must be a non-empty string`);
+            }
+            if (!field.label || field.label.trim() === '') {
+              validationErrors.push(`${loc}: label is required`);
+            }
+            if (!field.type || !VALID_FIELD_TYPES.has(field.type)) {
+              validationErrors.push(`${loc}: type "${field.type}" is not a valid field type`);
+            }
+          });
+        }
+      });
+    }
+
+    // Validate summary field references
+    const summary = schema.summary;
+    if (summary && Array.isArray(summary.fields)) {
+      summary.fields.forEach((key: any, i: number) => {
+        if (key == null || typeof key !== 'string' || key.trim() === '') {
+          validationErrors.push(`Summary field ${i + 1}: key must be a non-empty string (got ${JSON.stringify(key)})`);
+        }
+      });
+    }
+
+    if (validationErrors.length > 0) {
       return res.status(400).json({
         success: false,
-        message: 'Cannot publish schema with validation errors: label is required'
+        message: 'Cannot publish schema with validation errors',
+        errors: validationErrors
       });
     }
 

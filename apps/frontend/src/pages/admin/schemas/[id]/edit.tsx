@@ -113,7 +113,11 @@ export default function SchemaEditorPage() {
       await loadSchema() // Reload to update status
     } catch (err: any) {
       console.error('Failed to publish schema:', err)
-      setError(err.response?.data?.message || 'Failed to publish schema')
+      const data = err.response?.data
+      const detail = data?.errors?.length
+        ? `${data.message}:\n• ${data.errors.join('\n• ')}`
+        : data?.message || 'Failed to publish schema'
+      setError(detail)
     } finally {
       setSaving(false)
     }
@@ -329,7 +333,7 @@ export default function SchemaEditorPage() {
           </div>
 
           {error && (
-            <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4 text-red-700">
+            <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4 text-red-700 whitespace-pre-line">
               {error}
             </div>
           )}
