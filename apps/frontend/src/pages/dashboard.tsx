@@ -93,7 +93,14 @@ export default function Dashboard() {
   const [selectedCommunity, setSelectedCommunity] = useState<string>('')
   const [userCommunities, setUserCommunities] = useState<Community[]>([])
   const [creating, setCreating] = useState(false)
-  const [requestType, setRequestType] = useState<'generic' | 'ride' | 'service' | 'event' | 'borrow' | null>(null)
+  const [requestType, setRequestType] = useState<string | null>(null)
+  const [availableTypes, setAvailableTypes] = useState<{ value: string; label: string; icon: string }[]>([
+    { value: 'generic', label: 'General', icon: '🤝' },
+    { value: 'ride', label: 'Ride', icon: '🚗' },
+    { value: 'service', label: 'Service', icon: '🔧' },
+    { value: 'event', label: 'Event', icon: '🎉' },
+    { value: 'borrow', label: 'Borrow', icon: '📦' },
+  ])
   const [parsedRequest, setParsedRequest] = useState<ParsedRequest | null>(null)
   const [currentSchema, setCurrentSchema] = useState<UISchema | null>(null)
   const [schemaLoading, setSchemaLoading] = useState(false)
@@ -131,6 +138,20 @@ export default function Dashboard() {
     }
 
     setLoading(false)
+
+    // Fetch all published schemas to populate request type buttons
+    requestService.getSchemas().then((res) => {
+      const schemas = res.data?.schemas ?? res.data ?? []
+      if (Array.isArray(schemas) && schemas.length > 0) {
+        const BUILT_IN = new Set(['generic', 'ride', 'service', 'event', 'borrow'])
+        const custom = schemas
+          .filter((s: any) => !BUILT_IN.has(s.type) && s.status === 'published')
+          .map((s: any) => ({ value: s.type, label: s.label ?? s.type, icon: s.icon ?? '✨' }))
+        if (custom.length > 0) {
+          setAvailableTypes((prev) => [...prev, ...custom])
+        }
+      }
+    }).catch(() => { /* silently ignore — built-in types still show */ })
   }, [router])
 
   const handleCommunityChange = (communityId: string) => {
@@ -737,21 +758,14 @@ export default function Dashboard() {
                 <div className="flex-1">
                   {/* Request Type Selector — always visible, no default */}
                   <div className="flex items-center gap-2 mb-3 flex-wrap">
-                    {[
-                      { value: 'generic', label: 'General', icon: '🤝' },
-                      { value: 'ride', label: 'Ride', icon: '🚗' },
-                      { value: 'service', label: 'Service', icon: '🔧' },
-                      { value: 'event', label: 'Event', icon: '🎉' },
-                      { value: 'borrow', label: 'Borrow', icon: '📦' }
-                    ].map((type) => (
+                    {availableTypes.map((type) => (
                       <button
                         key={type.value}
                         type="button"
                         onClick={() => {
-                          const t = type.value as 'generic' | 'ride' | 'service' | 'event' | 'borrow'
-                          setRequestType(t)
+                          setRequestType(type.value)
                           setDynamicPayload({})
-                          fetchSchema(t)
+                          fetchSchema(type.value)
                         }}
                         className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
                           requestType === type.value

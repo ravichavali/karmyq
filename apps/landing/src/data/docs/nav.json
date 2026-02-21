@@ -226,6 +226,10 @@
         {
           "label": "Server-Driven UI - Database-Driven Request Type Sc",
           "href": "/docs/concepts/adr-032-server-driven-ui-dynamic-schemas"
+        },
+        {
+          "label": "Offer Fulfillment Workflow",
+          "href": "/docs/concepts/adr-033-offer-fulfillment-workflow"
         }
       ]
     },
