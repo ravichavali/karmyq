@@ -524,7 +524,7 @@ export default function Dashboard() {
         post_to_all_communities: postingMode === 'all',
         community_id: postingMode === 'specific' ? selectedCommunity : undefined,
         title: description.trim().slice(0, 100) || Object.values(dynamicPayload)[0]?.toString().slice(0, 100) || 'Help request',
-        description: parsedRequest?.cleanDescription || description.trim() || requestType || 'Help request',
+        description: parsedRequest?.cleanDescription || description.trim() || (requestType ? requestType + ' request' : 'Help request'),
         request_type: requestType ?? 'generic',
         urgency,
         payload: Object.keys(payload).length > 0 ? payload : undefined,
