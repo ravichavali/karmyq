@@ -310,7 +310,7 @@ export default function Dashboard() {
     try {
       setSchemaLoading(true)
       const response = await requestService.getSchema(type)
-      const schema = response.data.data.schema as UISchema
+      const schema = response.data.schema as UISchema
       schemaCache[type] = schema
       setCurrentSchema(schema)
     } catch (error) {
