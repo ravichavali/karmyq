@@ -1931,7 +1931,7 @@ Update urgency priority calculation in skill matching query (see Section 5.2)
   - `GET /admin/schemas/:id` - Get specific schema by ID (includes version history)
   - `POST /admin/schemas` - Create new schema with type, sections, metadata
   - `PUT /admin/schemas/:id` - Update schema (increments version automatically)
-  - `POST /admin/schemas/:id/publish` - Publish draft schema (make available to users)
+  - `POST /admin/schemas/:id/publish` - Publish draft schema (validates structure: sections array, non-empty field keys/labels/types, valid summary field refs; returns 400 with `errors[]` array on failure)
   - `POST /admin/schemas/:id/archive` - Archive schema (hide from users)
   - `GET /admin/schemas/:id/versions` - Get version history for rollback
   - `POST /admin/schemas/:id/rollback/:version` - Rollback to specific version
