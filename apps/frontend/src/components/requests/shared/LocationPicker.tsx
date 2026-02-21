@@ -60,7 +60,7 @@ export default function LocationPicker({
   // Handle selecting a suggestion
   const handleSelectSuggestion = (suggestion: AddressSuggestion) => {
     const location: Location = {
-      address: suggestion.address,
+      address: suggestion.display_name, // full address, not the short suggestion.address
       lat: suggestion.lat,
       lng: suggestion.lng
     }

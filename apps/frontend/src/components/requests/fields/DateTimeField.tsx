@@ -9,16 +9,12 @@ interface DateTimeFieldProps {
 }
 
 export default function DateTimeField({ field, value, onChange }: DateTimeFieldProps) {
-  const tomorrow = new Date()
-  tomorrow.setDate(tomorrow.getDate() + 1)
-
   return (
     <DateTimePicker
       label={field.label}
       value={value || ''}
       onChange={onChange}
       required={field.required}
-      minDate={tomorrow.toISOString()}
       helpText={field.helpText}
     />
   )
