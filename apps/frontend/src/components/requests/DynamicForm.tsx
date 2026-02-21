@@ -27,6 +27,7 @@ interface DynamicFormProps {
  * e.g., getNestedValue({ preferences: { women_only: true } }, 'preferences.women_only') → true
  */
 function getNestedValue(obj: FormValue, path: string): unknown {
+  if (!path) return undefined
   const parts = path.split('.')
   let current: unknown = obj
   for (const part of parts) {

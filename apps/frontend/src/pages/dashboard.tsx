@@ -20,6 +20,7 @@ import type { UISchema } from '@karmyq/shared/schemas/ui'
 function generateFormSummary(schema: UISchema, payload: Record<string, any>): { title: string; description: string } {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   function getNestedValue(obj: Record<string, any>, path: string): unknown {
+    if (!path) return undefined
     return path.split('.').reduce((cur: any, key) => (cur != null ? cur[key] : undefined), obj)
   }
   function formatValue(raw: unknown): string {
