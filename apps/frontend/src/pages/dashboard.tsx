@@ -568,9 +568,7 @@ export default function Dashboard() {
           // For structured forms: combine schema summary with any additional context the user typed
           if (formSummary) {
             const extra = description.trim()
-            return extra ? formSummary.description + '
-
-' + extra : formSummary.description
+            return extra ? formSummary.description + '\n\n' + extra : formSummary.description
           }
           return parsedRequest?.cleanDescription || description.trim() || 'Help request'
         })(),
