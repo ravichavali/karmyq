@@ -502,7 +502,8 @@ export default function Dashboard() {
   }
 
   const handleCreateRequest = async () => {
-    if (!description.trim()) return
+    const hasStructuredFormData = currentSchema && currentSchema.sections.length > 0 && Object.keys(dynamicPayload).length > 0
+    if (!description.trim() && !hasStructuredFormData) return
 
     try {
       setCreating(true)

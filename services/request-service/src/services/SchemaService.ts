@@ -136,6 +136,15 @@ export class SchemaService {
       // Select variant (A/B testing)
       const schema = this.selectVariant(result.rows, userId);
 
+      // If the DB schema has no sections, fall back to code-based schema
+      // (happens when admin creates a schema shell without adding fields yet)
+      if (!schema.sections || schema.sections.length === 0) {
+        const codeSchema = this.getSchemaFromCodeFallback(type);
+        if (codeSchema && codeSchema.sections && codeSchema.sections.length > 0) {
+          return codeSchema;
+        }
+      }
+
       // Cache result
       this.inMemoryCache.set(cacheKey, {
         schema,
