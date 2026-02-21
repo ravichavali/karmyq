@@ -239,6 +239,14 @@
       "status": "accepted",
       "description": "**Status**: Accepted",
       "filename": "ADR-032-server-driven-ui-dynamic-schemas.md"
+    },
+    {
+      "slug": "adr-033-offer-fulfillment-workflow",
+      "number": "033",
+      "title": "ADR-033: Offer Fulfillment Workflow",
+      "status": "proposed",
+      "description": "**Status**: Proposed",
+      "filename": "ADR-033-offer-fulfillment-workflow.md"
     }
   ]
 }

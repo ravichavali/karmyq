@@ -145,7 +145,7 @@ export default function Dashboard() {
       if (Array.isArray(schemas) && schemas.length > 0) {
         const BUILT_IN = new Set(['generic', 'ride', 'service', 'event', 'borrow'])
         const custom = schemas
-          .filter((s: any) => !BUILT_IN.has(s.type) && s.status === 'published')
+          .filter((s: any) => !BUILT_IN.has(s.type))
           .map((s: any) => ({ value: s.type, label: s.label ?? s.type, icon: s.icon ?? '✨' }))
         if (custom.length > 0) {
           setAvailableTypes((prev) => [...prev, ...custom])
