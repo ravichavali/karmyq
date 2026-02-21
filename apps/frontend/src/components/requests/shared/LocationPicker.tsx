@@ -60,12 +60,11 @@ export default function LocationPicker({
   // Handle selecting a suggestion
   const handleSelectSuggestion = (suggestion: AddressSuggestion) => {
     const location: Location = {
-      address: suggestion.display_name, // full address, not the short suggestion.address
+      address: addressInput.trim(), // preserve user's typed text (includes house number)
       lat: suggestion.lat,
       lng: suggestion.lng
     }
 
-    setAddressInput(suggestion.display_name)
     onChange(location)
     setSuggestions([])
     setShowSuggestions(false)

@@ -16,7 +16,7 @@ export const LocationSchema = z.object({
 export const RidePayloadSchema = z.object({
   origin: LocationSchema,
   destination: LocationSchema,
-  seats_needed: z.number().int().min(1).max(10, 'Seats needed must be between 1 and 10'),
+  seats_needed: z.coerce.number().int().min(1).max(10, 'Seats needed must be between 1 and 10'),
   departure_time: z.string().datetime({ message: 'Must be valid ISO datetime string' }),
   preferences: z.object({
     women_only: z.boolean().optional(),

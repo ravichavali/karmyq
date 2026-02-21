@@ -775,40 +775,39 @@ export default function Dashboard() {
                         </div>
                       )}
 
-                      {/* Textarea — only for generic type or as optional notes for structured */}
-                      {(requestType === 'generic' || (!schemaLoading && (!currentSchema || currentSchema.sections.length === 0))) && (
-                        <div className="relative mb-2">
-                          <textarea
-                            ref={setTextareaRef}
-                            value={description}
-                            onChange={(e) => handleDescriptionChange(e.target.value, e.target.selectionStart)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Escape' && autocompleteSuggestions.length > 0) {
-                                e.preventDefault()
-                                handleCloseAutocomplete()
-                              }
-                            }}
-                            placeholder={
-                              requestType === 'ride' ? 'e.g., Need ride from SF Marina to SFO @tomorrow 3:30 PM #2seats' :
-                              requestType === 'service' ? 'e.g., Need plumber @home $50-100 !urgent' :
-                              requestType === 'event' ? 'e.g., Beach cleanup @Ocean Beach @saturday 9am #20volunteers' :
-                              requestType === 'borrow' ? 'e.g., Borrow power drill for 3 days' :
-                              'What do you need help with? Tip: Use @time, @location, #count, $budget, !urgent'
+                      {/* Textarea — primary input for generic, optional context for structured types */}
+                      <div className="relative mb-2">
+                        {currentSchema && currentSchema.sections.length > 0 && (
+                          <p className="text-xs font-medium text-text-muted mb-1">Additional context <span className="text-text-subtle font-normal">(optional — shown in your post)</span></p>
+                        )}
+                        <textarea
+                          ref={setTextareaRef}
+                          value={description}
+                          onChange={(e) => handleDescriptionChange(e.target.value, e.target.selectionStart)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Escape' && autocompleteSuggestions.length > 0) {
+                              e.preventDefault()
+                              handleCloseAutocomplete()
                             }
-                            className="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent resize-none text-sm"
-                            rows={2}
+                          }}
+                          placeholder={
+                            currentSchema && currentSchema.sections.length > 0
+                              ? 'Add any extra context for community members... (optional)'
+                              : 'What do you need help with? Tip: Use @time, @location, #count, $budget, !urgent'
+                          }
+                          className="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent resize-none text-sm"
+                          rows={currentSchema && currentSchema.sections.length > 0 ? 2 : 2}
+                        />
+                        {autocompleteSuggestions.length > 0 && (
+                          <EnhancedAutocomplete
+                            suggestions={autocompleteSuggestions}
+                            onSelect={handleSelectSuggestion}
+                            onClose={handleCloseAutocomplete}
+                            triggerChar={autocompleteTrigger}
+                            searchQuery={searchQuery}
                           />
-                          {autocompleteSuggestions.length > 0 && (
-                            <EnhancedAutocomplete
-                              suggestions={autocompleteSuggestions}
-                              onSelect={handleSelectSuggestion}
-                              onClose={handleCloseAutocomplete}
-                              triggerChar={autocompleteTrigger}
-                              searchQuery={searchQuery}
-                            />
-                          )}
-                        </div>
-                      )}
+                        )}
+                      </div>
 
                       {parsedRequest && (
                         <ExtractedDataChips
