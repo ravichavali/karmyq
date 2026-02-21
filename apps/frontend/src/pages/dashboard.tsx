@@ -15,7 +15,7 @@ import { parseRequestDescription, buildPayloadFromParsed, updateLocationCoordina
 import DynamicForm from '@/components/requests/DynamicForm'
 import type { UISchema } from '@karmyq/shared/schemas/ui'
 
-// In-memory schema cache (per session)
+// Per-session schema cache — cleared on hard refresh
 const schemaCache: Record<string, UISchema> = {}
 
 interface HelpRequest {
@@ -59,7 +59,7 @@ export default function Dashboard() {
   const [selectedCommunity, setSelectedCommunity] = useState<string>('')
   const [userCommunities, setUserCommunities] = useState<Community[]>([])
   const [creating, setCreating] = useState(false)
-  const [requestType, setRequestType] = useState<'generic' | 'ride' | 'service' | 'event' | 'borrow'>('generic')
+  const [requestType, setRequestType] = useState<'generic' | 'ride' | 'service' | 'event' | 'borrow' | null>(null)
   const [parsedRequest, setParsedRequest] = useState<ParsedRequest | null>(null)
   const [currentSchema, setCurrentSchema] = useState<UISchema | null>(null)
   const [schemaLoading, setSchemaLoading] = useState(false)
@@ -301,8 +301,10 @@ export default function Dashboard() {
       setCurrentSchema(null)
       return
     }
-    if (schemaCache[type]) {
-      setCurrentSchema(schemaCache[type])
+    // Use cache only if schema has sections (guards against stale empty-section schemas)
+    const cached = schemaCache[type]
+    if (cached && cached.sections && cached.sections.length > 0) {
+      setCurrentSchema(cached)
       return
     }
     try {
@@ -325,7 +327,7 @@ export default function Dashboard() {
 
     // Parse in real-time
     if (newDescription.trim()) {
-      const parsed = parseRequestDescription(newDescription, requestType)
+      const parsed = parseRequestDescription(newDescription, requestType ?? 'generic')
       setParsedRequest(parsed)
     } else {
       setParsedRequest(null)
@@ -333,7 +335,7 @@ export default function Dashboard() {
 
     // Show autocomplete suggestions and extract search query
     const pos = cursorPos ?? newDescription.length
-    const { suggestions, trigger } = getSuggestions(newDescription, pos, requestType)
+    const { suggestions, trigger } = getSuggestions(newDescription, pos, requestType ?? 'generic')
     console.log('💡 getSuggestions returned:', { trigger, suggestionsCount: suggestions.length })
 
     // Extract search query for async geocoding
@@ -510,7 +512,7 @@ export default function Dashboard() {
 
       // Build payload: prefer dynamicPayload (schema-driven), fall back to NLP-parsed
       const hasStructuredForm = currentSchema && currentSchema.sections.length > 0
-      const nlpPayload = parsedRequest ? buildPayloadFromParsed(parsedRequest, requestType) : {}
+      const nlpPayload = parsedRequest ? buildPayloadFromParsed(parsedRequest, requestType ?? 'generic') : {}
       const payload = hasStructuredForm
         ? { ...nlpPayload, ...dynamicPayload }
         : nlpPayload
@@ -522,8 +524,8 @@ export default function Dashboard() {
         post_to_all_communities: postingMode === 'all',
         community_id: postingMode === 'specific' ? selectedCommunity : undefined,
         title: description.trim().slice(0, 100) || Object.values(dynamicPayload)[0]?.toString().slice(0, 100) || 'Help request',
-        description: parsedRequest?.cleanDescription || description.trim() || requestType,
-        request_type: requestType,
+        description: parsedRequest?.cleanDescription || description.trim() || requestType || 'Help request',
+        request_type: requestType ?? 'generic',
         urgency,
         payload: Object.keys(payload).length > 0 ? payload : undefined,
       }
@@ -686,8 +688,8 @@ export default function Dashboard() {
                   {user.name?.charAt(0).toUpperCase()}
                 </div>
                 <div className="flex-1">
-                  {/* Request Type Selector */}
-                  <div className="flex items-center gap-2 mb-2 flex-wrap">
+                  {/* Request Type Selector — always visible, no default */}
+                  <div className="flex items-center gap-2 mb-3 flex-wrap">
                     {[
                       { value: 'generic', label: 'General', icon: '🤝' },
                       { value: 'ride', label: 'Ride', icon: '🚗' },
@@ -704,7 +706,7 @@ export default function Dashboard() {
                           setDynamicPayload({})
                           fetchSchema(t)
                         }}
-                        className={`px-2 py-1 rounded-md text-xs font-medium transition-all ${
+                        className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
                           requestType === type.value
                             ? 'bg-primary text-white shadow-sm'
                             : 'bg-border-light text-text-muted hover:bg-gray-200'
@@ -716,65 +718,71 @@ export default function Dashboard() {
                     ))}
                   </div>
 
-                  <div className="relative">
-                    <textarea
-                      ref={setTextareaRef}
-                      value={description}
-                      onChange={(e) => {
-                        console.log('⌨️ Textarea onChange fired:', e.target.value)
-                        handleDescriptionChange(e.target.value, e.target.selectionStart)
-                      }}
-                      onKeyDown={(e) => {
-                        // Close autocomplete on Escape
-                        if (e.key === 'Escape' && autocompleteSuggestions.length > 0) {
-                          e.preventDefault()
-                          handleCloseAutocomplete()
-                        }
-                      }}
-                      placeholder={
-                        requestType === 'ride' ? 'e.g., Need ride from SF Marina to SFO @tomorrow 3:30 PM #2seats' :
-                        requestType === 'service' ? 'e.g., Need plumber @home $50-100 !urgent' :
-                        requestType === 'event' ? 'e.g., Beach cleanup @Ocean Beach @saturday 9am #20volunteers' :
-                        requestType === 'borrow' ? 'e.g., Borrow power drill for 3 days' :
-                        'What do you need help with? Tip: Use @time, @location, #count, $budget, !urgent'
-                      }
-                      className="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent resize-none text-sm"
-                      rows={2}
-                    />
+                  {/* Form body — only shown after type is selected */}
+                  {requestType && (
+                    <>
+                      {/* Schema-driven dynamic form for structured types */}
+                      {schemaLoading && (
+                        <div className="text-xs text-text-subtle py-2">Loading form…</div>
+                      )}
+                      {!schemaLoading && currentSchema && currentSchema.sections.length > 0 && (
+                        <div className="mb-3">
+                          <DynamicForm
+                            schema={currentSchema}
+                            value={dynamicPayload}
+                            onChange={setDynamicPayload}
+                          />
+                        </div>
+                      )}
 
-                    {/* Enhanced Autocomplete with Geocoding */}
-                    {autocompleteSuggestions.length > 0 && (
-                      <EnhancedAutocomplete
-                        suggestions={autocompleteSuggestions}
-                        onSelect={handleSelectSuggestion}
-                        onClose={handleCloseAutocomplete}
-                        triggerChar={autocompleteTrigger}
-                        searchQuery={searchQuery}
-                      />
-                    )}
-                  </div>
+                      {/* Textarea — only for generic type or as optional notes for structured */}
+                      {(requestType === 'generic' || (!schemaLoading && (!currentSchema || currentSchema.sections.length === 0))) && (
+                        <div className="relative mb-2">
+                          <textarea
+                            ref={setTextareaRef}
+                            value={description}
+                            onChange={(e) => handleDescriptionChange(e.target.value, e.target.selectionStart)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Escape' && autocompleteSuggestions.length > 0) {
+                                e.preventDefault()
+                                handleCloseAutocomplete()
+                              }
+                            }}
+                            placeholder={
+                              requestType === 'ride' ? 'e.g., Need ride from SF Marina to SFO @tomorrow 3:30 PM #2seats' :
+                              requestType === 'service' ? 'e.g., Need plumber @home $50-100 !urgent' :
+                              requestType === 'event' ? 'e.g., Beach cleanup @Ocean Beach @saturday 9am #20volunteers' :
+                              requestType === 'borrow' ? 'e.g., Borrow power drill for 3 days' :
+                              'What do you need help with? Tip: Use @time, @location, #count, $budget, !urgent'
+                            }
+                            className="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent resize-none text-sm"
+                            rows={2}
+                          />
+                          {autocompleteSuggestions.length > 0 && (
+                            <EnhancedAutocomplete
+                              suggestions={autocompleteSuggestions}
+                              onSelect={handleSelectSuggestion}
+                              onClose={handleCloseAutocomplete}
+                              triggerChar={autocompleteTrigger}
+                              searchQuery={searchQuery}
+                            />
+                          )}
+                        </div>
+                      )}
 
-                  {/* Show extracted data chips */}
-                  {parsedRequest && (
-                    <ExtractedDataChips
-                      parsed={parsedRequest}
-                      onRemove={handleRemoveExtractedData}
-                    />
+                      {parsedRequest && (
+                        <ExtractedDataChips
+                          parsed={parsedRequest}
+                          onRemove={handleRemoveExtractedData}
+                        />
+                      )}
+                    </>
                   )}
 
-                  {/* Schema-driven dynamic form for structured types */}
-                  {schemaLoading && (
-                    <div className="text-xs text-text-subtle py-2">Loading form…</div>
+                  {!requestType && (
+                    <p className="text-xs text-text-subtle mb-2">Select a type above to get started</p>
                   )}
-                  {!schemaLoading && currentSchema && currentSchema.sections.length > 0 && (
-                    <div className="mt-3 border-t border-border pt-3">
-                      <DynamicForm
-                        schema={currentSchema}
-                        value={dynamicPayload}
-                        onChange={setDynamicPayload}
-                      />
-                    </div>
-                  )}
+
                   <div className="flex items-center justify-between mt-2">
                     <div className="flex items-center gap-2">
                       <button
@@ -800,7 +808,7 @@ export default function Dashboard() {
                     </div>
                     <button
                       onClick={handleCreateRequest}
-                      disabled={!description.trim() || creating}
+                      disabled={!requestType || creating || (!description.trim() && !(currentSchema && currentSchema.sections.length > 0 && Object.keys(dynamicPayload).length > 0))}
                       className="px-4 py-1.5 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary-dark disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                     >
                       {creating ? 'Posting...' : 'Post'}
