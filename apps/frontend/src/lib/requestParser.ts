@@ -225,7 +225,7 @@ function isTimePattern(text: string): boolean {
  */
 export function buildPayloadFromParsed(
   parsed: ParsedRequest,
-  requestType: 'ride' | 'service' | 'event' | 'borrow' | 'generic'
+  requestType: string
 ): any {
   const { extractedData } = parsed
 
