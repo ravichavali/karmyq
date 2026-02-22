@@ -20,7 +20,12 @@ export function useTrustPath(targetUserId: string | null | undefined, options: U
   const { enabled = true } = options;
 
   useEffect(() => {
-    if (!targetUserId || !enabled) {
+    const currentUser = typeof window !== 'undefined'
+      ? JSON.parse(localStorage.getItem('user') || 'null')
+      : null;
+    const currentUserId = currentUser?.id;
+
+    if (!targetUserId || !enabled || targetUserId === currentUserId) {
       setTrustPath(null);
       return;
     }
