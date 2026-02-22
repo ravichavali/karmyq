@@ -5,6 +5,7 @@ import { logger } from './config/logger';
 import { pool } from './config/database';
 import invitationRoutes from './routes/invitations';
 import pathRoutes from './routes/paths';
+import { initEventSubscriber } from './events/subscriber';
 
 const app = express();
 const PORT = process.env.PORT || 3010;
@@ -115,8 +116,9 @@ app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
 });
 
 // Start server
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
   logger.info(`Social Graph Service running on port ${PORT}`);
+  await initEventSubscriber();
 });
 
 export default app;

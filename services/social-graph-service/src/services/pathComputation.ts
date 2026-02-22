@@ -8,7 +8,7 @@ export interface TrustPath {
     id: string;
     name: string;
     karma?: number;
-    invited_at?: string;
+    exchanged_at?: string;
   }>;
   trustScore: number;
 }
@@ -32,32 +32,33 @@ export async function computeShortestPath(
 ): Promise<TrustPath | null> {
   const MAX_DEPTH = 4;
 
-  // Build adjacency list for the community's invitation graph
+  // Build adjacency list from completed exchanges (platform-wide, not community-scoped)
+  // Trust paths emerge from actual exchanges, not invitation links
   const graphResult = await pool.query(
-    `SELECT inviter_id, invitee_id
-     FROM auth.user_invitations
-     WHERE community_id = $1
-       AND invitation_accepted_at IS NOT NULL`,
-    [communityId]
+    `SELECT hr.requester_id as user_a, m.responder_id as user_b
+     FROM requests.matches m
+     JOIN requests.help_requests hr ON hr.id = m.request_id
+     WHERE m.status = 'completed'`,
+    []
   );
 
-  // Build bidirectional graph (invitations can flow both ways for trust paths)
+  // Build bidirectional graph (exchanges create trust in both directions)
   const graph = new Map<string, Set<string>>();
 
   for (const edge of graphResult.rows) {
-    const { inviter_id, invitee_id } = edge;
+    const { user_a, user_b } = edge;
 
-    // Add forward edge (inviter → invitee)
-    if (!graph.has(inviter_id)) {
-      graph.set(inviter_id, new Set());
+    // Add forward edge
+    if (!graph.has(user_a)) {
+      graph.set(user_a, new Set());
     }
-    graph.get(inviter_id)!.add(invitee_id);
+    graph.get(user_a)!.add(user_b);
 
-    // Add backward edge (invitee → inviter) for trust flow
-    if (!graph.has(invitee_id)) {
-      graph.set(invitee_id, new Set());
+    // Add backward edge
+    if (!graph.has(user_b)) {
+      graph.set(user_b, new Set());
     }
-    graph.get(invitee_id)!.add(inviter_id);
+    graph.get(user_b)!.add(user_a);
   }
 
   // BFS from source
@@ -140,26 +141,26 @@ export async function computeShortestPath(
     userDetailsResult.rows.map(row => [row.id, { name: row.name, karma: row.karma }])
   );
 
-  // Fetch invitation timestamps for path edges
-  const invitationTimestamps = new Map<string, string>();
+  // Fetch exchange timestamps for path edges
+  const exchangeTimestamps = new Map<string, string>();
 
   for (let i = 0; i < pathUserIds.length - 1; i++) {
-    const inviterId = pathUserIds[i];
-    const inviteeId = pathUserIds[i + 1];
+    const userA = pathUserIds[i];
+    const userB = pathUserIds[i + 1];
 
-    const inviteResult = await pool.query(
-      `SELECT invited_at
-       FROM auth.user_invitations
-       WHERE (inviter_id = $1 AND invitee_id = $2)
-          OR (inviter_id = $2 AND invitee_id = $1)
-       AND community_id = $3
-       AND invitation_accepted_at IS NOT NULL
+    const exchangeResult = await pool.query(
+      `SELECT m.completed_at
+       FROM requests.matches m
+       JOIN requests.help_requests hr ON hr.id = m.request_id
+       WHERE ((hr.requester_id = $1 AND m.responder_id = $2)
+           OR (hr.requester_id = $2 AND m.responder_id = $1))
+         AND m.status = 'completed'
        LIMIT 1`,
-      [inviterId, inviteeId, communityId]
+      [userA, userB]
     );
 
-    if (inviteResult.rows.length > 0) {
-      invitationTimestamps.set(`${inviterId}-${inviteeId}`, inviteResult.rows[0].invited_at);
+    if (exchangeResult.rows.length > 0) {
+      exchangeTimestamps.set(`${userA}-${userB}`, exchangeResult.rows[0].completed_at);
     }
   }
 
@@ -170,7 +171,7 @@ export async function computeShortestPath(
       id: string;
       name: string;
       karma?: number;
-      invited_at?: string;
+      exchanged_at?: string;
     } = {
       id: userId,
       name: details?.name || 'Unknown',
@@ -178,7 +179,7 @@ export async function computeShortestPath(
 
     if (index > 0) {
       const prevUserId = pathUserIds[index - 1];
-      obj.invited_at = invitationTimestamps.get(`${prevUserId}-${userId}`);
+      obj.exchanged_at = exchangeTimestamps.get(`${prevUserId}-${userId}`);
     }
 
     if (index > 0 && index < pathUserIds.length - 1) {
@@ -211,6 +212,22 @@ export async function computeShortestPath(
     path,
     trustScore,
   };
+}
+
+/**
+ * Clear cached trust paths for two users after a completed exchange.
+ * Called when a match completes — the direct edge now exists, so cached
+ * paths (which may show longer indirect routes) are stale.
+ */
+export async function clearTrustPathCache(userA: string, userB: string): Promise<void> {
+  await pool.query(
+    `DELETE FROM auth.social_distances
+     WHERE (user_a_id = $1 AND user_b_id = $2)
+        OR (user_a_id = $2 AND user_b_id = $1)`,
+    [userA, userB]
+  );
+
+  logger.info('Cleared trust path cache', { userA, userB });
 }
 
 /**
