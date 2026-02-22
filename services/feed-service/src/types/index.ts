@@ -46,6 +46,7 @@ export interface OpenRequest {
 
 export interface SuggestedRequest {
   request_id: number;
+  requester_id: string;
   title: string;
   description: string;
   community_id: number;

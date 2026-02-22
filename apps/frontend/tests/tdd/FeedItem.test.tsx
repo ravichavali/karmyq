@@ -1,6 +1,6 @@
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
-import FeedItem from '../FeedItem';
+import FeedItem from '../../src/components/Feed/FeedItem';
 
 // Mock Next.js Link component
 jest.mock('next/link', () => {
@@ -10,7 +10,7 @@ jest.mock('next/link', () => {
 });
 
 // Mock useTrustPath hook
-jest.mock('../../../hooks/useTrustPath', () => ({
+jest.mock('../../src/hooks/useTrustPath', () => ({
   useTrustPath: jest.fn(() => ({
     trustPath: null,
     loading: false,
@@ -18,7 +18,7 @@ jest.mock('../../../hooks/useTrustPath', () => ({
   })),
 }));
 
-const { useTrustPath } = require('../../../hooks/useTrustPath');
+const { useTrustPath } = require('../../src/hooks/useTrustPath');
 
 describe('FeedItem', () => {
   beforeEach(() => {
@@ -193,7 +193,7 @@ describe('FeedItem', () => {
 
       render(<FeedItem item={openRequestItem} />);
 
-      expect(screen.getByText('2° Connection')).toBeInTheDocument();
+      expect(screen.getByText(/Connected through Alice/)).toBeInTheDocument();
     });
 
     it('displays loading skeleton while fetching trust path', () => {
@@ -217,6 +217,7 @@ describe('FeedItem', () => {
       created_at: '2024-01-15T10:00:00Z',
       data: {
         request_id: 'req-2',
+        requester_id: 'user-456',
         community_id: 'comm-2',
         title: 'Help with gardening',
         description: 'Need someone to help with spring planting',
@@ -258,6 +259,57 @@ describe('FeedItem', () => {
 
       expect(screen.getByText('View Request')).toBeInTheDocument();
       expect(screen.getByText('Explore Community')).toBeInTheDocument();
+    });
+
+    it('fetches trust path for requester', () => {
+      render(<FeedItem item={suggestedRequestItem} />);
+
+      expect(useTrustPath).toHaveBeenCalledWith('user-456');
+    });
+
+    it('displays compact trust badge when connection exists', () => {
+      useTrustPath.mockReturnValue({
+        trustPath: {
+          degrees_of_separation: 2,
+          path: [
+            { id: 'me', name: 'You' },
+            { id: 'mid', name: 'Alice' },
+            { id: 'req', name: 'Bob' },
+          ],
+          trust_score: 70,
+        },
+        loading: false,
+        error: null,
+      });
+
+      render(<FeedItem item={suggestedRequestItem} />);
+
+      expect(screen.getByText(/Connected through Alice/)).toBeInTheDocument();
+    });
+
+    it('displays loading skeleton while fetching trust path', () => {
+      useTrustPath.mockReturnValue({
+        trustPath: null,
+        loading: true,
+        error: null,
+      });
+
+      const { container } = render(<FeedItem item={suggestedRequestItem} />);
+
+      expect(container.querySelector('.animate-pulse')).toBeInTheDocument();
+    });
+
+    it('shows nothing for trust path when no connection exists', () => {
+      useTrustPath.mockReturnValue({
+        trustPath: { degrees_of_separation: null, path: [] },
+        loading: false,
+        error: null,
+      });
+
+      render(<FeedItem item={suggestedRequestItem} />);
+
+      expect(screen.queryByText(/Connected through/)).not.toBeInTheDocument();
+      expect(screen.queryByText(/Direct connection/)).not.toBeInTheDocument();
     });
   });
 

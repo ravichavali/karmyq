@@ -222,6 +222,8 @@ interface SuggestedRequestItemProps {
 }
 
 function SuggestedRequestItem({ data, itemId, onDismiss }: SuggestedRequestItemProps) {
+  const { trustPath, loading: loadingPath } = useTrustPath(data.requester_id);
+
   return (
     <div className="bg-gradient-to-br from-accent-light to-primary-light rounded-lg shadow-sm border border-accent p-6 mb-4">
       <div className="flex justify-between items-start mb-3">
@@ -262,6 +264,10 @@ function SuggestedRequestItem({ data, itemId, onDismiss }: SuggestedRequestItemP
           {data.match_score}% match
         </span>
       </div>
+
+      {/* Trust Path Badge */}
+      {loadingPath && <TrustPathBadgeSkeleton compact className="mb-4" />}
+      {!loadingPath && trustPath && <TrustPathBadge trustPath={trustPath} compact className="mb-4" />}
 
       <div className="flex space-x-3">
         <Link

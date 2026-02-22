@@ -38,6 +38,7 @@ export interface OpenRequestData {
 
 export interface SuggestedRequestData {
   request_id: string;
+  requester_id: string;
   community_id: string;
   community_name: string;
   title: string;

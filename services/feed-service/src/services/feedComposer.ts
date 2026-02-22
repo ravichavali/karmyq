@@ -334,6 +334,7 @@ export class FeedComposer {
       const requests = await query(`
         SELECT
           r.id as request_id,
+          r.requester_id,
           r.title,
           r.description,
           r.community_id,
@@ -369,6 +370,7 @@ export class FeedComposer {
 
         const suggestedRequest: SuggestedRequest = {
           request_id: row.request_id,
+          requester_id: row.requester_id,
           title: row.title,
           description: row.description,
           community_id: row.community_id,
