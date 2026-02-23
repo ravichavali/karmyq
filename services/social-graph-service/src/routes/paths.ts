@@ -106,7 +106,7 @@ router.get('/:targetUserId', async (req: AuthenticatedRequest, res: Response) =>
         targetUserId,
         communityId,
         path.degrees,
-        JSON.stringify(path.userIds),
+        JSON.stringify(path.path),
         path.trustScore,
       ]
     );
@@ -232,7 +232,7 @@ router.post('/batch', async (req: AuthenticatedRequest, res: Response) => {
               targetUserId,
               communityId,
               path.degrees,
-              JSON.stringify(path.userIds),
+              JSON.stringify(path.path),
               path.trustScore,
             ]
           );
