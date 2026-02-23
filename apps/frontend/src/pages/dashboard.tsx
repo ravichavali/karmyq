@@ -11,6 +11,15 @@ import MilestonePost from '@/components/MilestonePost'
 import ExtractedDataChips from '@/components/ExtractedDataChips'
 import EnhancedAutocomplete from '@/components/EnhancedAutocomplete'
 import OfferItem from '@/components/OfferItem'
+import TrustPathBadge, { TrustPathBadgeSkeleton } from '@/components/TrustPathBadge'
+import { useTrustPath } from '@/hooks/useTrustPath'
+
+function FeedPostTrustBadge({ requesterId }: { requesterId?: string }) {
+  const { trustPath, loading } = useTrustPath(requesterId)
+  if (loading) return <TrustPathBadgeSkeleton compact className="mb-3" />
+  if (!trustPath) return null
+  return <TrustPathBadge trustPath={trustPath} compact className="mb-3" />
+}
 import { parseRequestDescription, buildPayloadFromParsed, updateLocationCoordinates, getSuggestions, type ParsedRequest, type AutocompleteSuggestion } from '@/lib/requestParser'
 import DynamicForm from '@/components/requests/DynamicForm'
 import type { UISchema } from '@karmyq/shared/schemas/ui'
@@ -993,6 +1002,9 @@ export default function Dashboard() {
                               <span className={`text-xs font-medium px-2 py-0.5 rounded ${badgeColor} whitespace-nowrap`}>{badgeText}</span>
                             )}
                           </div>
+
+                          {/* Trust Path Badge - only for other people's posts */}
+                          {!isMyPost && <FeedPostTrustBadge requesterId={post.requester_id} />}
 
                           {/* Post Content */}
                           <p className="text-text text-sm leading-relaxed mb-2">{post.description}</p>
