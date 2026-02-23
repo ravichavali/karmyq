@@ -11,6 +11,8 @@ export interface TrustPath {
     exchanged_at?: string;
   }>;
   trustScore: number;
+  connectionType: 'exchange' | 'community_member' | 'invitation_chain';
+  communityName?: string; // For community_member paths
 }
 
 interface GraphNode {
@@ -211,7 +213,168 @@ export async function computeShortestPath(
     userIds: pathUserIds,
     path,
     trustScore,
+    connectionType: 'exchange',
   };
+}
+
+/**
+ * Compute trust path via shared community membership.
+ * Returns a 2° path through the community admin, or 1° if one user IS the admin.
+ * Returns null if users share no community.
+ */
+export async function computeCommunityPath(
+  sourceUserId: string,
+  targetUserId: string
+): Promise<TrustPath | null> {
+  const result = await pool.query(
+    `SELECT cm1.community_id,
+            c.name as community_name,
+            COALESCE(
+              (SELECT cm.user_id FROM communities.members cm
+               WHERE cm.community_id = cm1.community_id AND cm.role = 'admin'
+               ORDER BY cm.joined_at LIMIT 1),
+              c.creator_id
+            ) as admin_id
+     FROM communities.members cm1
+     JOIN communities.members cm2 ON cm2.community_id = cm1.community_id
+     JOIN communities.communities c ON c.id = cm1.community_id
+     WHERE cm1.user_id = $1 AND cm2.user_id = $2
+       AND cm1.status = 'active' AND cm2.status = 'active'
+     LIMIT 1`,
+    [sourceUserId, targetUserId]
+  );
+
+  if (result.rows.length === 0) return null;
+
+  const { admin_id, community_name } = result.rows[0];
+
+  // Fetch user names
+  const userIds = [sourceUserId, targetUserId, admin_id].filter(
+    (id, idx, arr) => arr.indexOf(id) === idx
+  );
+  const usersResult = await pool.query(
+    `SELECT id, name FROM auth.users WHERE id = ANY($1)`,
+    [userIds]
+  );
+  const nameMap = new Map(usersResult.rows.map(r => [r.id, r.name]));
+
+  // If one of the users IS the admin, it's a 1° connection
+  if (admin_id === sourceUserId || admin_id === targetUserId) {
+    const pathUserIds = [sourceUserId, targetUserId];
+    return {
+      degrees: 1,
+      userIds: pathUserIds,
+      path: pathUserIds.map(id => ({ id, name: nameMap.get(id) || 'Unknown' })),
+      trustScore: 0,
+      connectionType: 'community_member',
+      communityName: community_name,
+    };
+  }
+
+  const pathUserIds = [sourceUserId, admin_id, targetUserId];
+  return {
+    degrees: 2,
+    userIds: pathUserIds,
+    path: pathUserIds.map(id => ({ id, name: nameMap.get(id) || 'Unknown' })),
+    trustScore: 0,
+    connectionType: 'community_member',
+    communityName: community_name,
+  };
+}
+
+/**
+ * Compute trust path via invitation lineage (who invited whom).
+ * BFS through accepted invitations up to 3 degrees.
+ * Returns null if no invitation chain exists within 3°.
+ */
+export async function computeInvitationPath(
+  sourceUserId: string,
+  targetUserId: string
+): Promise<TrustPath | null> {
+  const MAX_DEPTH = 3;
+
+  // Build invitation adjacency list (bidirectional — inviting someone creates a bond in both directions)
+  const graphResult = await pool.query(
+    `SELECT inviter_id as user_a, invitee_id as user_b
+     FROM auth.user_invitations
+     WHERE invitation_accepted_at IS NOT NULL AND invitee_id IS NOT NULL`
+  );
+
+  const graph = new Map<string, Set<string>>();
+  for (const edge of graphResult.rows) {
+    const { user_a, user_b } = edge;
+    if (!graph.has(user_a)) graph.set(user_a, new Set());
+    if (!graph.has(user_b)) graph.set(user_b, new Set());
+    graph.get(user_a)!.add(user_b);
+    graph.get(user_b)!.add(user_a);
+  }
+
+  // BFS
+  const queue: Array<{ userId: string; distance: number; parent: string | null }> = [
+    { userId: sourceUserId, distance: 0, parent: null },
+  ];
+  const visited = new Map<string, { userId: string; distance: number; parent: string | null }>();
+  visited.set(sourceUserId, { userId: sourceUserId, distance: 0, parent: null });
+
+  let found = false;
+
+  while (queue.length > 0 && !found) {
+    const current = queue.shift()!;
+    if (current.distance >= MAX_DEPTH) continue;
+    if (current.userId === targetUserId) { found = true; break; }
+
+    for (const neighborId of (graph.get(current.userId) || new Set())) {
+      if (!visited.has(neighborId)) {
+        const node = { userId: neighborId, distance: current.distance + 1, parent: current.userId };
+        visited.set(neighborId, node);
+        queue.push(node);
+      }
+    }
+  }
+
+  if (!found) return null;
+
+  // Reconstruct path
+  const pathUserIds: string[] = [];
+  let currentId: string | null = targetUserId;
+  while (currentId !== null) {
+    pathUserIds.unshift(currentId);
+    const node = visited.get(currentId);
+    currentId = node?.parent || null;
+  }
+
+  const usersResult = await pool.query(
+    `SELECT id, name FROM auth.users WHERE id = ANY($1)`,
+    [pathUserIds]
+  );
+  const nameMap = new Map(usersResult.rows.map(r => [r.id, r.name]));
+
+  return {
+    degrees: pathUserIds.length - 1,
+    userIds: pathUserIds,
+    path: pathUserIds.map(id => ({ id, name: nameMap.get(id) || 'Unknown' })),
+    trustScore: 0,
+    connectionType: 'invitation_chain',
+  };
+}
+
+/**
+ * Compute the strongest available trust path between two users.
+ * Tries exchange graph first (strongest), then community membership,
+ * then invitation lineage. Returns null if no connection found.
+ */
+export async function computeTrustPath(
+  sourceUserId: string,
+  targetUserId: string,
+  communityId: string
+): Promise<TrustPath | null> {
+  const exchangePath = await computeShortestPath(sourceUserId, targetUserId, communityId);
+  if (exchangePath) return exchangePath; // connectionType: 'exchange' already set
+
+  const communityPath = await computeCommunityPath(sourceUserId, targetUserId);
+  if (communityPath) return communityPath;
+
+  return computeInvitationPath(sourceUserId, targetUserId);
 }
 
 /**

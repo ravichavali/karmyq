@@ -2,7 +2,7 @@ import express, { Request, Response } from 'express';
 import { pool } from '../config/database';
 import { logger } from '../config/logger';
 import { AuthenticatedRequest } from '@karmyq/shared/middleware/auth';
-import { computeShortestPath, TrustPath } from '../services/pathComputation';
+import { computeTrustPath, TrustPath } from '../services/pathComputation';
 
 const router = express.Router();
 
@@ -37,8 +37,8 @@ router.get('/:targetUserId', async (req: AuthenticatedRequest, res: Response) =>
       `SELECT
          degrees_of_separation,
          shortest_path,
-         highest_trust_path,
          path_trust_score,
+         connection_type,
          computed_at
        FROM auth.social_distances
        WHERE user_a_id = $1
@@ -56,6 +56,7 @@ router.get('/:targetUserId', async (req: AuthenticatedRequest, res: Response) =>
         targetUserId,
         communityId,
         degrees: cached.degrees_of_separation,
+        connectionType: cached.connection_type,
       });
 
       return res.json({
@@ -64,20 +65,21 @@ router.get('/:targetUserId', async (req: AuthenticatedRequest, res: Response) =>
           degrees_of_separation: cached.degrees_of_separation,
           path: cached.shortest_path,
           trust_score: cached.path_trust_score,
+          connection_type: cached.connection_type || 'exchange',
           cached: true,
           computed_at: cached.computed_at,
         },
       });
     }
 
-    // Compute path using BFS
-    logger.info('Computing path using BFS', {
+    // Compute path — tries exchange, then community membership, then invitation chain
+    logger.info('Computing trust path', {
       currentUserId,
       targetUserId,
       communityId,
     });
 
-    const path = await computeShortestPath(currentUserId, targetUserId, communityId);
+    const path = await computeTrustPath(currentUserId, targetUserId, communityId);
 
     if (!path) {
       return res.json({
@@ -85,7 +87,8 @@ router.get('/:targetUserId', async (req: AuthenticatedRequest, res: Response) =>
         data: {
           degrees_of_separation: null,
           path: null,
-          message: 'No connection found (4+ degrees or unconnected)',
+          connection_type: null,
+          message: 'No connection found',
         },
       });
     }
@@ -93,12 +96,13 @@ router.get('/:targetUserId', async (req: AuthenticatedRequest, res: Response) =>
     // Cache the computed path
     await pool.query(
       `INSERT INTO auth.social_distances
-       (user_a_id, user_b_id, community_id, degrees_of_separation, shortest_path, path_trust_score)
-       VALUES ($1, $2, $3, $4, $5, $6)
+       (user_a_id, user_b_id, community_id, degrees_of_separation, shortest_path, path_trust_score, connection_type)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
        ON CONFLICT (user_a_id, user_b_id, community_id) DO UPDATE
        SET degrees_of_separation = EXCLUDED.degrees_of_separation,
            shortest_path = EXCLUDED.shortest_path,
            path_trust_score = EXCLUDED.path_trust_score,
+           connection_type = EXCLUDED.connection_type,
            computed_at = NOW(),
            expires_at = NOW() + INTERVAL '7 days'`,
       [
@@ -108,14 +112,16 @@ router.get('/:targetUserId', async (req: AuthenticatedRequest, res: Response) =>
         path.degrees,
         JSON.stringify(path.path),
         path.trustScore,
+        path.connectionType,
       ]
     );
 
-    logger.info('Path computed and cached', {
+    logger.info('Trust path computed and cached', {
       currentUserId,
       targetUserId,
       communityId,
       degrees: path.degrees,
+      connectionType: path.connectionType,
       trustScore: path.trustScore,
     });
 
@@ -125,6 +131,8 @@ router.get('/:targetUserId', async (req: AuthenticatedRequest, res: Response) =>
         degrees_of_separation: path.degrees,
         path: path.path,
         trust_score: path.trustScore,
+        connection_type: path.connectionType,
+        community_name: path.communityName,
         cached: false,
       },
     });
@@ -137,7 +145,7 @@ router.get('/:targetUserId', async (req: AuthenticatedRequest, res: Response) =>
   }
 });
 
-// GET /paths/batch - Get paths for multiple target users (for feed ranking)
+// POST /paths/batch - Get paths for multiple target users (for feed ranking)
 router.post('/batch', async (req: AuthenticatedRequest, res: Response) => {
   try {
     const currentUserId = req.user?.userId;
@@ -169,7 +177,8 @@ router.post('/batch', async (req: AuthenticatedRequest, res: Response) => {
          user_b_id,
          degrees_of_separation,
          shortest_path,
-         path_trust_score
+         path_trust_score,
+         connection_type
        FROM auth.social_distances
        WHERE user_a_id = $1
          AND user_b_id = ANY($2)
@@ -185,6 +194,7 @@ router.post('/batch', async (req: AuthenticatedRequest, res: Response) => {
           degrees: row.degrees_of_separation,
           path: row.shortest_path,
           trustScore: row.path_trust_score,
+          connectionType: row.connection_type || 'exchange',
         },
       ])
     );
@@ -194,6 +204,7 @@ router.post('/batch', async (req: AuthenticatedRequest, res: Response) => {
       target_user_id: string;
       degrees_of_separation: number | null;
       trust_score: number;
+      connection_type: string | null;
       cached: boolean;
     }> = [];
 
@@ -209,22 +220,22 @@ router.post('/batch', async (req: AuthenticatedRequest, res: Response) => {
           target_user_id: targetUserId,
           degrees_of_separation: cached.degrees,
           trust_score: cached.trustScore || 0,
+          connection_type: cached.connectionType,
           cached: true,
         });
       } else {
-        // Compute path
-        const path = await computeShortestPath(currentUserId, targetUserId, communityId);
+        const path = await computeTrustPath(currentUserId, targetUserId, communityId);
 
         if (path) {
-          // Cache it
           await pool.query(
             `INSERT INTO auth.social_distances
-             (user_a_id, user_b_id, community_id, degrees_of_separation, shortest_path, path_trust_score)
-             VALUES ($1, $2, $3, $4, $5, $6)
+             (user_a_id, user_b_id, community_id, degrees_of_separation, shortest_path, path_trust_score, connection_type)
+             VALUES ($1, $2, $3, $4, $5, $6, $7)
              ON CONFLICT (user_a_id, user_b_id, community_id) DO UPDATE
              SET degrees_of_separation = EXCLUDED.degrees_of_separation,
                  shortest_path = EXCLUDED.shortest_path,
                  path_trust_score = EXCLUDED.path_trust_score,
+                 connection_type = EXCLUDED.connection_type,
                  computed_at = NOW(),
                  expires_at = NOW() + INTERVAL '7 days'`,
             [
@@ -234,6 +245,7 @@ router.post('/batch', async (req: AuthenticatedRequest, res: Response) => {
               path.degrees,
               JSON.stringify(path.path),
               path.trustScore,
+              path.connectionType,
             ]
           );
 
@@ -241,6 +253,7 @@ router.post('/batch', async (req: AuthenticatedRequest, res: Response) => {
             target_user_id: targetUserId,
             degrees_of_separation: path.degrees,
             trust_score: path.trustScore,
+            connection_type: path.connectionType,
             cached: false,
           });
         } else {
@@ -248,6 +261,7 @@ router.post('/batch', async (req: AuthenticatedRequest, res: Response) => {
             target_user_id: targetUserId,
             degrees_of_separation: null,
             trust_score: 0,
+            connection_type: null,
             cached: false,
           });
         }

@@ -6,10 +6,13 @@ export interface TrustPath {
     id: string;
     name: string;
     karma?: number;
+    exchanged_at?: string;
     invited_at?: string;
   }>;
   trust_score?: number;
   cached?: boolean;
+  connection_type?: 'exchange' | 'community_member' | 'invitation_chain';
+  community_name?: string;
 }
 
 interface TrustPathBadgeProps {
@@ -23,31 +26,61 @@ export default function TrustPathBadge({ trustPath, compact = false, className =
     return null; // No connection found
   }
 
-  const { degrees_of_separation, path, trust_score } = trustPath;
+  const { degrees_of_separation, path, trust_score, connection_type = 'exchange', community_name } = trustPath;
 
   // Don't show badge for 4+ degree connections
   if (degrees_of_separation > 3) {
     return null;
   }
 
-  // Degree badge colors
-  const degreeColors = {
-    1: 'bg-success-light text-success border-success',
-    2: 'bg-primary-light text-primary-dark border-primary-medium',
-    3: 'bg-surface text-text-muted border-border',
+  const isCommunityMember = connection_type === 'community_member';
+  const isInvitationChain = connection_type === 'invitation_chain';
+
+  // Badge colors by connection type and degree
+  const getBadgeColor = () => {
+    if (isCommunityMember) return 'bg-accent-light text-accent-dark border-accent';
+    if (isInvitationChain) return 'bg-yellow-50 text-yellow-800 border-yellow-300';
+    // Exchange colors by degree
+    const colors: Record<number, string> = {
+      1: 'bg-success-light text-success border-success',
+      2: 'bg-primary-light text-primary-dark border-primary-medium',
+      3: 'bg-surface text-text-muted border-border',
+    };
+    return colors[degrees_of_separation] || 'bg-border-light text-text border-border';
   };
 
-  const degreeColor = degreeColors[degrees_of_separation as keyof typeof degreeColors] || 'bg-border-light text-text border-border';
+  const badgeColor = getBadgeColor();
 
-  // Get connection text based on degree
+  // Get icon based on connection type
+  const getIcon = () => {
+    if (isCommunityMember) return '🏘';
+    if (isInvitationChain) return '🤝';
+    if (degrees_of_separation === 1) return '🔗';
+    if (degrees_of_separation === 2) return '🤝';
+    return '👥';
+  };
+
+  // Get connection text based on type and degree
   const getConnectionText = () => {
+    if (isCommunityMember) {
+      const adminName = path.length >= 2 ? path[1]?.name : null;
+      if (adminName && degrees_of_separation === 2) {
+        return `Fellow member via ${adminName}`;
+      }
+      return community_name ? `Member of ${community_name}` : 'Fellow community member';
+    }
+
+    if (isInvitationChain) {
+      const inviterName = path.length >= 2 ? path[1]?.name : null;
+      return inviterName ? `Joined through ${inviterName}` : 'Connected via invitation';
+    }
+
+    // Exchange paths
     if (degrees_of_separation === 1) {
       return 'Direct connection';
     } else if (degrees_of_separation === 2 && path.length >= 2) {
-      // Show intermediary name: "Connected through Bob"
       return `Connected through ${path[1].name}`;
     } else if (degrees_of_separation === 3 && path.length >= 3) {
-      // Show both intermediaries: "Connected through Bob → Charlie"
       return `Connected through ${path[1].name} → ${path[2].name}`;
     }
     return `${degrees_of_separation}° connection`;
@@ -72,14 +105,21 @@ export default function TrustPathBadge({ trustPath, compact = false, className =
     );
   };
 
+  // Full border color for left-border decoration
+  const getBorderColor = () => {
+    if (isCommunityMember) return 'border-accent bg-accent-light';
+    if (isInvitationChain) return 'border-yellow-400 bg-yellow-50';
+    if (degrees_of_separation === 1) return 'border-karmyq-green-400 bg-success-light';
+    if (degrees_of_separation === 2) return 'border-primary bg-primary-light';
+    return 'border-karmyq-brown-400 bg-surface';
+  };
+
   // Compact view: Just show the connection text
   if (compact) {
     return (
       <div className={`inline-flex items-center ${className}`}>
-        <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border text-sm font-medium ${degreeColor}`}>
-          <span className="text-base" aria-hidden="true">
-            {degrees_of_separation === 1 ? '🔗' : degrees_of_separation === 2 ? '🤝' : '👥'}
-          </span>
+        <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border text-sm font-medium ${badgeColor}`}>
+          <span className="text-base" aria-hidden="true">{getIcon()}</span>
           {getConnectionText()}
         </span>
       </div>
@@ -88,16 +128,17 @@ export default function TrustPathBadge({ trustPath, compact = false, className =
 
   // Full view: Show path and details
   return (
-    <div className={`border-l-4 ${degrees_of_separation === 1 ? 'border-karmyq-green-400 bg-success-light' : degrees_of_separation === 2 ? 'border-primary bg-primary-light' : 'border-karmyq-brown-400 bg-surface'} rounded-md p-3 ${className}`}>
+    <div className={`border-l-4 ${getBorderColor()} rounded-md p-3 ${className}`}>
       {/* Header */}
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
-          <span className="text-base" aria-hidden="true">
-            {degrees_of_separation === 1 ? '🔗' : degrees_of_separation === 2 ? '🤝' : '👥'}
-          </span>
-          <span className={`text-sm font-semibold px-2.5 py-1 rounded-md border ${degreeColor}`}>
+          <span className="text-base" aria-hidden="true">{getIcon()}</span>
+          <span className={`text-sm font-semibold px-2.5 py-1 rounded-md border ${badgeColor}`}>
             {getConnectionText()}
           </span>
+          {isCommunityMember && community_name && (
+            <span className="text-xs text-text-subtle">in {community_name}</span>
+          )}
         </div>
         {trust_score !== undefined && trust_score > 0 && (
           <div className="flex items-center">
@@ -126,14 +167,14 @@ export default function TrustPathBadge({ trustPath, compact = false, className =
         ))}
       </div>
 
-      {/* Invitation Details (optional) */}
-      {path.length > 1 && path[1].invited_at && (
+      {/* Exchange timestamp (for exchange-based paths) */}
+      {!isCommunityMember && !isInvitationChain && path.length > 1 && path[1].exchanged_at && (
         <div className="mt-2 text-xs text-text-subtle">
           <span className="inline-flex items-center">
             <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
             </svg>
-            Connected {new Date(path[1].invited_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+            Exchanged {new Date(path[1].exchanged_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
           </span>
         </div>
       )}
