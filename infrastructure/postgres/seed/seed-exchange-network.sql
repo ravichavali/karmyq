@@ -82,10 +82,9 @@ BEGIN
       CONTINUE;
     END IF;
 
-    -- Create help request from member
+    -- Create help request from member (no community_id column — linked via junction table)
     INSERT INTO requests.help_requests (
       id,
-      community_id,
       requester_id,
       title,
       description,
@@ -98,7 +97,6 @@ BEGIN
       updated_at
     ) VALUES (
       gen_random_uuid(),
-      v_community_id,
       v_member_id,
       'Community Help Request #' || v_i,
       'Help request created to seed trust path network.',
@@ -150,10 +148,10 @@ BEGIN
           OR (hr.requester_id = v_member_ids[1] AND m.responder_id = v_member_ids[2]))
     ) THEN
       INSERT INTO requests.help_requests (
-        id, community_id, requester_id, title, description, category, status,
+        id, requester_id, title, description, category, status,
         request_type, is_public, requester_visibility_consent, created_at, updated_at
       ) VALUES (
-        gen_random_uuid(), v_community_id, v_member_ids[2],
+        gen_random_uuid(), v_member_ids[2],
         'Direct Exchange Request', 'Direct exchange to seed trust path.',
         'Other', 'completed', 'generic', TRUE, TRUE,
         NOW() - INTERVAL '5 days', NOW() - INTERVAL '5 days' + INTERVAL '3 hours'
