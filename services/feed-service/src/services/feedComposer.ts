@@ -303,6 +303,7 @@ export class FeedComposer {
       description: row.description,
       author_id: row.author_id,
       author_name: row.author_name,
+      requester_id: row.author_id, // alias — same field, needed by useTrustPath
       community_id: row.community_id,
       community_name: row.community_name,
       urgency: row.urgency,

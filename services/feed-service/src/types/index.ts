@@ -35,6 +35,7 @@ export interface OpenRequest {
   description: string;
   author_id: number;
   author_name: string;
+  requester_id: string;
   community_id: number;
   community_name: string;
   urgency: 'low' | 'medium' | 'high' | 'urgent';
