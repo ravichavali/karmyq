@@ -11,9 +11,14 @@ router.get('/:targetUserId', async (req: AuthenticatedRequest, res: Response) =>
   try {
     const currentUserId = req.user?.userId;
     const targetUserId = req.params.targetUserId;
-    const communityId = req.headers['x-community-id'] as string || req.user?.currentCommunityId;
+    // communityId is used for karma lookup and cache keying only.
+    // The exchange graph is platform-wide, so a missing communityId
+    // still allows path computation (karma will default to 0).
+    const communityId = req.headers['x-community-id'] as string
+      || req.user?.currentCommunityId
+      || 'platform';
 
-    if (!currentUserId || !communityId) {
+    if (!currentUserId) {
       return res.status(401).json({
         success: false,
         message: 'Authentication required',
@@ -136,10 +141,12 @@ router.get('/:targetUserId', async (req: AuthenticatedRequest, res: Response) =>
 router.post('/batch', async (req: AuthenticatedRequest, res: Response) => {
   try {
     const currentUserId = req.user?.userId;
-    const communityId = req.headers['x-community-id'] as string || req.user?.currentCommunityId;
+    const communityId = req.headers['x-community-id'] as string
+      || req.user?.currentCommunityId
+      || 'platform';
     const { target_user_ids } = req.body;
 
-    if (!currentUserId || !communityId) {
+    if (!currentUserId) {
       return res.status(401).json({
         success: false,
         message: 'Authentication required',
