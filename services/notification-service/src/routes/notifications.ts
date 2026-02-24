@@ -14,7 +14,7 @@ const router = Router();
 
 // Server-Sent Events (SSE) endpoint for real-time notifications
 export const sseHandler = (req: Request, res: Response) => {
-  const { userId } = req.params;
+  const userId = String(req.params.userId).replace(/[\r\n]/g, '').slice(0, 100);
 
   // Set headers for SSE
   res.setHeader('Content-Type', 'text/event-stream');
@@ -54,7 +54,8 @@ router.get('/stream/:userId', sseHandler);
 
 // Get user's notifications
 router.get('/:userId', async (req: Request, res: Response) => {
-  console.log(`GET /notifications/${req.params.userId}`, {
+  const safeUserId = String(req.params.userId).replace(/[\r\n]/g, '').slice(0, 100);
+  console.log(`GET /notifications/${safeUserId}`, {
     body: req.body,
     query: req.query,
   });

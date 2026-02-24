@@ -3,6 +3,10 @@ name: E2E Tests
 on:
   workflow_dispatch:  # Manual triggering only
 
+permissions:
+  contents: read
+  checks: write
+
 jobs:
   e2e-tests:
     runs-on: self-hosted  # Use self-hosted runner on your local machine

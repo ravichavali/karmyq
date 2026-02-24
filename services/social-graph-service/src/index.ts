@@ -1,6 +1,6 @@
 import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
-import { authMiddleware } from '@karmyq/shared/middleware';
+import { authMiddleware, globalRateLimiter, rateLimiters } from '@karmyq/shared/middleware';
 import { logger } from './config/logger';
 import { pool } from './config/database';
 import invitationRoutes from './routes/invitations';
@@ -16,6 +16,7 @@ app.use(cors({
   credentials: true,
 }));
 app.use(express.json());
+app.use(globalRateLimiter);
 
 // Health check (unauthenticated)
 app.get('/health', (req: Request, res: Response) => {
@@ -27,7 +28,8 @@ app.get('/health', (req: Request, res: Response) => {
 });
 
 // Public invitation validation endpoint (must be before authMiddleware)
-app.get('/invitations/validate/:code', async (req: Request, res: Response) => {
+// Strict rate limiting to prevent brute-force enumeration of invitation codes
+app.get('/invitations/validate/:code', rateLimiters.auth, async (req: Request, res: Response) => {
   try {
     const { code } = req.params;
 
@@ -98,8 +100,8 @@ app.get('/invitations/validate/:code', async (req: Request, res: Response) => {
 app.use(authMiddleware);
 
 // Routes
-app.use('/invitations', invitationRoutes);
-app.use('/paths', pathRoutes);
+app.use('/invitations', rateLimiters.standard, invitationRoutes);
+app.use('/paths', rateLimiters.readLight, pathRoutes);
 
 // Error handling
 app.use((err: Error, req: Request, res: Response, next: NextFunction) => {

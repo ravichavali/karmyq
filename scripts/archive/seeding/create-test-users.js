@@ -45,7 +45,7 @@ async function createTestUsers() {
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     TEST_USERS.forEach(user => {
       console.log(`Email: ${user.email}`);
-      console.log(`Password: ${user.password}`);
+      console.log(`Password: [REDACTED - see script source]`);
       console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     });
 

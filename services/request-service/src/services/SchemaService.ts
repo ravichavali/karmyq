@@ -169,7 +169,7 @@ export class SchemaService {
     }
 
     // Hash user_id to get deterministic bucket (0-99)
-    const hash = crypto.createHash('md5').update(`${variants[0].type}:${userId}`).digest('hex');
+    const hash = crypto.createHash('sha256').update(`${variants[0].type}:${userId}`).digest('hex');
     const hashInt = parseInt(hash.substring(0, 8), 16);
     const bucket = hashInt % 100;
 

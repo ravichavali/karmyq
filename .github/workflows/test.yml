@@ -6,6 +6,11 @@ on:
   pull_request:
     branches: [ main, master, develop ]
 
+permissions:
+  contents: read
+  checks: write
+  pull-requests: read
+
 jobs:
   test-auth-service:
     name: Test Auth Service

@@ -47,7 +47,8 @@ router.get('/:type', async (req: Request, res: Response) => {
     const schema = await schemaService.getSchema(type, userId);
 
     if (!schema) {
-      return sendNotFound(res, `Schema for type '${type}'`);
+      const safeType = String(type).replace(/[\r\n]/g, '').slice(0, 100);
+      return sendNotFound(res, `Schema for type '${safeType}'`);
     }
 
     // ETag based on schema version for cache invalidation
@@ -62,7 +63,8 @@ router.get('/:type', async (req: Request, res: Response) => {
 
     sendSuccess(res, { schema });
   } catch (error) {
-    console.error(`Error fetching schema for type ${req.params.type}:`, error);
+    const safeParamType = String(req.params.type).replace(/[\r\n]/g, '').slice(0, 100);
+    console.error(`Error fetching schema for type ${safeParamType}:`, error);
     res.status(500).json({
       success: false,
       message: 'Failed to fetch schema',

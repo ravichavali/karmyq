@@ -12,8 +12,13 @@
 
 const express = require('express')
 const cors = require('cors')
+const rateLimit = require('express-rate-limit')
 const { Pool } = require('pg')
 const fetch = require('node-fetch')
+
+// Rate limiters — generous for autocomplete use case, tighter for writes
+const searchLimiter = rateLimit({ windowMs: 60 * 1000, max: 60, standardHeaders: true, legacyHeaders: false })
+const writeLimiter = rateLimit({ windowMs: 60 * 1000, max: 10, standardHeaders: true, legacyHeaders: false })
 
 const app = express()
 const PORT = process.env.PORT || 3009
@@ -44,7 +49,7 @@ app.get('/health', (req, res) => {
 })
 
 // Search geocoding cache
-app.get('/search', async (req, res) => {
+app.get('/search', searchLimiter, async (req, res) => {
   const { q } = req.query
 
   if (!q || q.length < 2) {
@@ -105,7 +110,7 @@ app.get('/search', async (req, res) => {
 })
 
 // Manually cache a result (for pre-seeding)
-app.post('/cache', async (req, res) => {
+app.post('/cache', writeLimiter, async (req, res) => {
   const { query, results } = req.body
 
   if (!query || !results) {
@@ -129,7 +134,7 @@ app.post('/cache', async (req, res) => {
 })
 
 // Get cache statistics
-app.get('/stats', async (req, res) => {
+app.get('/stats', searchLimiter, async (req, res) => {
   try {
     const stats = await pool.query(`
       SELECT
@@ -161,7 +166,7 @@ app.get('/stats', async (req, res) => {
 })
 
 // Cleanup expired entries
-app.post('/cleanup', async (req, res) => {
+app.post('/cleanup', writeLimiter, async (req, res) => {
   try {
     const result = await pool.query(
       'DELETE FROM geocoding_cache WHERE expires_at <= NOW()'
@@ -182,6 +187,8 @@ app.post('/cleanup', async (req, res) => {
  * Call OpenStreetMap Nominatim API
  */
 async function callNominatimAPI(query) {
+  // Type guard: prevent type confusion if non-string passed
+  if (typeof query !== 'string') return []
   // Input sanitization
   const sanitized = query.trim().slice(0, 200)
   if (!/^[a-zA-Z0-9\s,.-]+$/.test(sanitized)) {
