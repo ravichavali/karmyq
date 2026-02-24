@@ -97,6 +97,10 @@
         {
           "label": "How Communities Work",
           "href": "/docs/concepts/community-design"
+        },
+        {
+          "label": "How Trust Paths Work",
+          "href": "/docs/concepts/trust-paths"
         }
       ]
     },
@@ -230,6 +234,10 @@
         {
           "label": "Offer Fulfillment Workflow",
           "href": "/docs/concepts/adr-033-offer-fulfillment-workflow"
+        },
+        {
+          "label": "Multi-Layer Trust Path Computation",
+          "href": "/docs/concepts/adr-034-multi-layer-trust-computation"
         }
       ]
     },
@@ -255,6 +263,10 @@
         {
           "label": "Your Karma & Reputation",
           "href": "/docs/guides/understanding-karma"
+        },
+        {
+          "label": "Trust Connections in Your Feed",
+          "href": "/docs/guides/trust-connections"
         }
       ]
     }

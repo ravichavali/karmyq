@@ -246,6 +246,7 @@ const CONCEPT_ORDER = [
   'platform-overview',
   'what-is-karma',
   'trust-score',
+  'trust-paths',
   'reputation-decay',
   'community-design',
 ];
@@ -303,6 +304,7 @@ const GUIDE_ORDER = [
   'fulfilling-requests-guide',
   'community-admin-guide',
   'understanding-karma-guide',
+  'trust-connections-guide',
 ];
 
 const GUIDE_LABELS: Record<string, string> = {
@@ -311,6 +313,7 @@ const GUIDE_LABELS: Record<string, string> = {
   'fulfilling-requests-guide': 'Helping Others',
   'community-admin-guide': 'Running a Community',
   'understanding-karma-guide': 'Your Karma & Reputation',
+  'trust-connections-guide': 'Trust Connections in Your Feed',
 };
 
 const GUIDE_SLUGS: Record<string, string> = {
@@ -319,6 +322,7 @@ const GUIDE_SLUGS: Record<string, string> = {
   'fulfilling-requests-guide': 'fulfilling-requests',
   'community-admin-guide': 'community-admin',
   'understanding-karma-guide': 'understanding-karma',
+  'trust-connections-guide': 'trust-connections',
 };
 
 function generateGuides(): GuidePage[] {

@@ -1,7 +1,7 @@
 # ADR-019: Referral Chain Trust System
 
 **Date**: 2025-12-29
-**Status**: Proposed
+**Status**: Implemented (Phase 1 — invitation tracking and trust path integration)
 **Deciders**: Development Team
 **Related**: ADR-010 (JWT Multi-Community Auth), ADR-016 (Prestige Recognition)
 
