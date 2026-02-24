@@ -90,17 +90,15 @@ export default function ConnectionBadge({ requesterId, onClick }: ConnectionBadg
   }
 
   return (
-    <button
+    <span
       onClick={onClick}
-      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border text-sm font-medium transition-colors ${getBadgeStyle()} ${
+      className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded border text-xs font-medium ${getBadgeStyle()} ${
         onClick ? 'cursor-pointer' : 'cursor-default'
       }`}
       title="Click to see connection path"
     >
-      <span className="text-base" aria-hidden="true">
-        {getIcon()}
-      </span>
+      <span aria-hidden="true">{getIcon()}</span>
       <span>{getBadgeText()}</span>
-    </button>
+    </span>
   )
 }
