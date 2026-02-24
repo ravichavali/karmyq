@@ -59,6 +59,7 @@ function setNestedValue(obj: FormValue, path: string, value: unknown): FormValue
 }
 
 function SectionHeader({ section, schema }: { section: UISection; schema: UISchema }) {
+  if (!section.title && !section.icon && !section.description) return null
   const color = section.color || schema.color
   const colorClasses: Record<string, string> = {
     blue: 'bg-primary-light border-primary-medium text-primary-dark',

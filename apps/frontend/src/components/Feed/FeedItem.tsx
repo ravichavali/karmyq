@@ -151,8 +151,10 @@ function OpenRequestItem({ data, itemId, onDismiss }: OpenRequestItemProps) {
           </div>
           <h3 className="text-lg font-semibold text-text mb-1">{data.title}</h3>
           <p className="text-sm text-text-muted mb-2 line-clamp-2">{data.description}</p>
-          <div className="flex items-center text-xs text-text-subtle space-x-4">
+          <div className="flex items-center flex-wrap gap-x-2 text-xs text-text-subtle">
             <span>Posted by {data.author_name}</span>
+            {loadingPath && <TrustPathBadgeSkeleton compact />}
+            {!loadingPath && trustPath && <TrustPathBadge trustPath={trustPath} compact />}
             <span>•</span>
             <span>{data.community_name}</span>
             <span>•</span>
@@ -171,10 +173,6 @@ function OpenRequestItem({ data, itemId, onDismiss }: OpenRequestItemProps) {
           </button>
         )}
       </div>
-
-      {/* Trust Path Badge */}
-      {loadingPath && <TrustPathBadgeSkeleton className="mb-4" />}
-      {!loadingPath && trustPath && <TrustPathBadge trustPath={trustPath} className="mb-4" />}
 
       {/* Polymorphic Request Data */}
       {data.request_type && data.payload && (
@@ -258,16 +256,14 @@ function SuggestedRequestItem({ data, itemId, onDismiss }: SuggestedRequestItemP
         <p className="text-xs text-text-muted">{data.reason}</p>
       </div>
 
-      <div className="flex items-center justify-between text-xs text-text-muted mb-4">
+      <div className="flex items-center gap-2 flex-wrap text-xs text-text-muted mb-4">
         <span>From: {data.community_name}</span>
-        <span className="inline-flex items-center px-2 py-1 rounded bg-accent-light text-accent-dark">
+        {loadingPath && <TrustPathBadgeSkeleton compact />}
+        {!loadingPath && trustPath && <TrustPathBadge trustPath={trustPath} compact />}
+        <span className="ml-auto inline-flex items-center px-2 py-1 rounded bg-accent-light text-accent-dark">
           {data.match_score}% match
         </span>
       </div>
-
-      {/* Trust Path Badge */}
-      {loadingPath && <TrustPathBadgeSkeleton compact className="mb-4" />}
-      {!loadingPath && trustPath && <TrustPathBadge trustPath={trustPath} compact className="mb-4" />}
 
       <div className="flex space-x-3">
         <Link

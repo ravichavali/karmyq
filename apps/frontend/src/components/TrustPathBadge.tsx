@@ -117,12 +117,10 @@ export default function TrustPathBadge({ trustPath, compact = false, className =
   // Compact view: Just show the connection text
   if (compact) {
     return (
-      <div className={`inline-flex items-center ${className}`}>
-        <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border text-sm font-medium ${badgeColor}`}>
-          <span className="text-base" aria-hidden="true">{getIcon()}</span>
-          {getConnectionText()}
-        </span>
-      </div>
+      <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded border text-xs font-medium ${badgeColor} ${className}`}>
+        <span aria-hidden="true">{getIcon()}</span>
+        {getConnectionText()}
+      </span>
     );
   }
 
