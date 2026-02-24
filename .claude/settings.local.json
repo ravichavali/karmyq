@@ -1,9 +1,4 @@
 {
-  "env": {
-    "ANTHROPIC_BASE_URL": "https://api.z.ai/api/anthropic",
-    "ANTHROPIC_AUTH_TOKEN": "0b84e28b87874a09970f2a71a847306f.E2a7xF8Bp0LBVTT8",
-    "ANTHROPIC_API_KEY": "0b84e28b87874a09970f2a71a847306f.E2a7xF8Bp0LBVTT8"
-  },
   "permissions": {
     "allow": [
       "Bash(mkdir:*)",
@@ -75,7 +70,13 @@
       "Bash(perl -i -pe 's/# Create symlinks so relative imports can find shared modules# Services import as \\\\.\\\\.\\\\/shared\\\\/\\\\* and \\\\.\\\\.\\\\/\\\\.\\\\.\\\\/shared\\\\/\\\\*RUN ln -s \\\\/app\\\\/packages\\\\/shared \\\\/app\\\\/services\\\\/shared &&     ln -s \\\\/app\\\\/packages\\\\/shared \\\\/app\\\\/shared/\\\\n# Create symlinks so relative imports can find shared modules\\\\n# Services import as ..\\\\/shared\\\\/\\\\* and ..\\\\/..\\\\/shared\\\\/\\\\*\\\\nRUN ln -s \\\\/app\\\\/packages\\\\/shared \\\\/app\\\\/services\\\\/shared \\\\&\\\\& \\\\\\\\\\\\n    ln -s \\\\/app\\\\/packages\\\\/shared \\\\/app\\\\/shared\\\\n/g' \"$service/Dockerfile\")",
       "Bash(echo:*)",
       "Bash(for service in auth-service community-service feed-service notification-service reputation-service request-service)",
-      "Bash(do sed -i 's/\"\"test\"\": \"\"jest --coverage\"\"/\"\"test\"\": \"\"jest --testPathPattern=unit --coverage\"\"/' services/$service/package.json)"
+      "Bash(do sed -i 's/\"\"test\"\": \"\"jest --coverage\"\"/\"\"test\"\": \"\"jest --testPathPattern=unit --coverage\"\"/' services/$service/package.json)",
+      "mcp__plugin_playwright_playwright__browser_navigate",
+      "Bash(/c/Users/ravic/development/karmyq/docs/concepts/reputation-decay.md:*)",
+      "Bash(/c/Users/ravic/development/karmyq/docs/concepts/community-design.md:*)",
+      "Bash(/c/Users/ravic/development/karmyq/docs/guides/getting-started-guide.md:*)",
+      "Bash(/c/Users/ravic/development/karmyq/docs/guides/making-requests-guide.md:*)",
+      "Bash(/c/Users/ravic/development/karmyq/docs/guides/fulfilling-requests-guide.md:*)"
     ],
     "deny": [],
     "ask": []
