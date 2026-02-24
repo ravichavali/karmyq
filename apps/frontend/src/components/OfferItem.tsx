@@ -42,7 +42,11 @@ export default function OfferItem({
             {comment.responder_name?.charAt(0).toUpperCase() || '?'}
           </div>
           <div>
-            <p className="font-medium text-text">{comment.responder_name || 'Unknown'}</p>
+            <p className="font-medium text-text flex items-center gap-1 flex-wrap">
+              <span>{comment.responder_name || 'Unknown'}</span>
+              {!loadingOfferPath && offerTrustPath && <TrustPathBadge trustPath={offerTrustPath} compact />}
+              {loadingOfferPath && <TrustPathBadgeSkeleton compact />}
+            </p>
             <p className="text-xs text-text-subtle">offered {formatTime(comment.created_at)}</p>
           </div>
         </div>
@@ -86,10 +90,6 @@ export default function OfferItem({
           </span>
         )}
       </div>
-
-      {/* Trust Path Badge */}
-      {loadingOfferPath && <TrustPathBadgeSkeleton compact className="mb-3" />}
-      {!loadingOfferPath && offerTrustPath && <TrustPathBadge trustPath={offerTrustPath} compact className="mb-3" />}
 
       {/* Inline Chat */}
       {(comment.status === 'proposed' || comment.status === 'matched') && (

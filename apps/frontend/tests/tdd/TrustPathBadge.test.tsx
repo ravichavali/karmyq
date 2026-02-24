@@ -1,6 +1,6 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react';
-import TrustPathBadge, { TrustPathBadgeSkeleton, TrustPath } from '../TrustPathBadge';
+import TrustPathBadge, { TrustPathBadgeSkeleton, TrustPath } from '../../src/components/TrustPathBadge';
 
 describe('TrustPathBadge', () => {
   describe('Null/Empty States', () => {
@@ -25,10 +25,25 @@ describe('TrustPathBadge', () => {
       const { container } = render(<TrustPathBadge trustPath={trustPath} />);
       expect(container.firstChild).toBeNull();
     });
+
+    it('renders nothing for 4+ degree connections', () => {
+      const trustPath: TrustPath = {
+        degrees_of_separation: 4,
+        path: [
+          { id: '1', name: 'You' },
+          { id: '2', name: 'Alice' },
+          { id: '3', name: 'Bob' },
+          { id: '4', name: 'Charlie' },
+          { id: '5', name: 'Dave' },
+        ],
+      };
+      const { container } = render(<TrustPathBadge trustPath={trustPath} compact />);
+      expect(container.firstChild).toBeNull();
+    });
   });
 
-  describe('Compact Mode', () => {
-    it('renders 1° connection badge in compact mode', () => {
+  describe('Compact Mode — Exchange connections', () => {
+    it('renders "Direct connection" for 1° exchange', () => {
       const trustPath: TrustPath = {
         degrees_of_separation: 1,
         path: [
@@ -38,10 +53,10 @@ describe('TrustPathBadge', () => {
       };
       render(<TrustPathBadge trustPath={trustPath} compact />);
 
-      expect(screen.getByText('1° connection')).toBeInTheDocument();
+      expect(screen.getByText('Direct connection')).toBeInTheDocument();
     });
 
-    it('renders 2° connection badge in compact mode', () => {
+    it('renders "Connected through [Name]" for 2° exchange', () => {
       const trustPath: TrustPath = {
         degrees_of_separation: 2,
         path: [
@@ -52,7 +67,42 @@ describe('TrustPathBadge', () => {
       };
       render(<TrustPathBadge trustPath={trustPath} compact />);
 
-      expect(screen.getByText('2° connection')).toBeInTheDocument();
+      expect(screen.getByText('Connected through Alice')).toBeInTheDocument();
+    });
+
+    it('renders "Connected through [Name] → [Name]" for 3° exchange', () => {
+      const trustPath: TrustPath = {
+        degrees_of_separation: 3,
+        path: [
+          { id: '1', name: 'You' },
+          { id: '2', name: 'Alice' },
+          { id: '3', name: 'Bob' },
+          { id: '4', name: 'Charlie' },
+        ],
+      };
+      render(<TrustPathBadge trustPath={trustPath} compact />);
+
+      expect(screen.getByText('Connected through Alice → Bob')).toBeInTheDocument();
+    });
+
+    it('renders as a <span> element (not block)', () => {
+      const trustPath: TrustPath = {
+        degrees_of_separation: 1,
+        path: [{ id: '1', name: 'You' }, { id: '2', name: 'Alice' }],
+      };
+      const { container } = render(<TrustPathBadge trustPath={trustPath} compact />);
+
+      expect(container.firstChild?.nodeName).toBe('SPAN');
+    });
+
+    it('applies text-xs class in compact mode', () => {
+      const trustPath: TrustPath = {
+        degrees_of_separation: 1,
+        path: [{ id: '1', name: 'You' }, { id: '2', name: 'Alice' }],
+      };
+      const { container } = render(<TrustPathBadge trustPath={trustPath} compact />);
+
+      expect(container.firstChild).toHaveClass('text-xs');
     });
 
     it('applies custom className in compact mode', () => {
@@ -68,8 +118,109 @@ describe('TrustPathBadge', () => {
     });
   });
 
+  describe('Compact Mode — Badge colors', () => {
+    it('applies success color for 1° exchange connection', () => {
+      const trustPath: TrustPath = {
+        degrees_of_separation: 1,
+        path: [{ id: '1', name: 'You' }, { id: '2', name: 'Alice' }],
+      };
+      const { container } = render(<TrustPathBadge trustPath={trustPath} compact />);
+
+      expect(container.firstChild).toHaveClass('bg-success-light', 'text-success', 'border-success');
+    });
+
+    it('applies primary color for 2° exchange connection', () => {
+      const trustPath: TrustPath = {
+        degrees_of_separation: 2,
+        path: [
+          { id: '1', name: 'You' },
+          { id: '2', name: 'Alice' },
+          { id: '3', name: 'Bob' },
+        ],
+      };
+      const { container } = render(<TrustPathBadge trustPath={trustPath} compact />);
+
+      expect(container.firstChild).toHaveClass('bg-primary-light', 'text-primary-dark', 'border-primary-medium');
+    });
+
+    it('applies surface/muted color for 3° exchange connection', () => {
+      const trustPath: TrustPath = {
+        degrees_of_separation: 3,
+        path: [
+          { id: '1', name: 'You' },
+          { id: '2', name: 'Alice' },
+          { id: '3', name: 'Bob' },
+          { id: '4', name: 'Charlie' },
+        ],
+      };
+      const { container } = render(<TrustPathBadge trustPath={trustPath} compact />);
+
+      expect(container.firstChild).toHaveClass('bg-surface', 'text-text-muted', 'border-border');
+    });
+
+    it('applies accent color for community_member connection', () => {
+      const trustPath: TrustPath = {
+        degrees_of_separation: 2,
+        path: [{ id: '1', name: 'You' }, { id: '2', name: 'Admin' }, { id: '3', name: 'Other' }],
+        connection_type: 'community_member',
+        community_name: 'Test Community',
+      };
+      const { container } = render(<TrustPathBadge trustPath={trustPath} compact />);
+
+      expect(container.firstChild).toHaveClass('bg-accent-light', 'text-accent-dark', 'border-accent');
+    });
+
+    it('applies yellow color for invitation_chain connection', () => {
+      const trustPath: TrustPath = {
+        degrees_of_separation: 2,
+        path: [{ id: '1', name: 'You' }, { id: '2', name: 'Inviter' }, { id: '3', name: 'Other' }],
+        connection_type: 'invitation_chain',
+      };
+      const { container } = render(<TrustPathBadge trustPath={trustPath} compact />);
+
+      expect(container.firstChild).toHaveClass('bg-yellow-50', 'text-yellow-800', 'border-yellow-300');
+    });
+  });
+
+  describe('Compact Mode — Community and invitation text', () => {
+    it('renders "Fellow member via [Admin]" for 2° community connection', () => {
+      const trustPath: TrustPath = {
+        degrees_of_separation: 2,
+        path: [{ id: '1', name: 'You' }, { id: '2', name: 'Admin' }, { id: '3', name: 'Other' }],
+        connection_type: 'community_member',
+        community_name: 'Test Community',
+      };
+      render(<TrustPathBadge trustPath={trustPath} compact />);
+
+      expect(screen.getByText('Fellow member via Admin')).toBeInTheDocument();
+    });
+
+    it('renders "Member of [Community]" for 1° community connection', () => {
+      const trustPath: TrustPath = {
+        degrees_of_separation: 1,
+        path: [{ id: '1', name: 'You' }, { id: '2', name: 'Admin' }],
+        connection_type: 'community_member',
+        community_name: 'Test Community',
+      };
+      render(<TrustPathBadge trustPath={trustPath} compact />);
+
+      expect(screen.getByText('Member of Test Community')).toBeInTheDocument();
+    });
+
+    it('renders "Joined through [Name]" for invitation_chain connection', () => {
+      const trustPath: TrustPath = {
+        degrees_of_separation: 2,
+        path: [{ id: '1', name: 'You' }, { id: '2', name: 'Inviter' }, { id: '3', name: 'Other' }],
+        connection_type: 'invitation_chain',
+      };
+      render(<TrustPathBadge trustPath={trustPath} compact />);
+
+      expect(screen.getByText('Joined through Inviter')).toBeInTheDocument();
+    });
+  });
+
   describe('Full Mode', () => {
-    it('renders full badge with 2° connection', () => {
+    it('renders full badge with border-l-4 container', () => {
       const trustPath: TrustPath = {
         degrees_of_separation: 2,
         path: [
@@ -79,15 +230,43 @@ describe('TrustPathBadge', () => {
         ],
         trust_score: 75,
       };
+      const { container } = render(<TrustPathBadge trustPath={trustPath} />);
+
+      expect(container.querySelector('.border-l-4')).toBeInTheDocument();
+    });
+
+    it('renders connection text in full mode', () => {
+      const trustPath: TrustPath = {
+        degrees_of_separation: 2,
+        path: [
+          { id: '1', name: 'You' },
+          { id: '2', name: 'Alice' },
+          { id: '3', name: 'Bob' },
+        ],
+        trust_score: 75,
+      };
       render(<TrustPathBadge trustPath={trustPath} />);
 
-      expect(screen.getByText('2° Connection')).toBeInTheDocument();
+      expect(screen.getAllByText('Connected through Alice').length).toBeGreaterThan(0);
+    });
+
+    it('displays path nodes in full mode', () => {
+      const trustPath: TrustPath = {
+        degrees_of_separation: 2,
+        path: [
+          { id: '1', name: 'You' },
+          { id: '2', name: 'Alice' },
+          { id: '3', name: 'Bob' },
+        ],
+      };
+      render(<TrustPathBadge trustPath={trustPath} />);
+
       expect(screen.getByText('You')).toBeInTheDocument();
       expect(screen.getByText('Alice')).toBeInTheDocument();
       expect(screen.getByText('Bob')).toBeInTheDocument();
     });
 
-    it('displays trust score when provided', () => {
+    it('displays trust score when provided and > 0', () => {
       const trustPath: TrustPath = {
         degrees_of_separation: 1,
         path: [
@@ -125,24 +304,21 @@ describe('TrustPathBadge', () => {
       };
       render(<TrustPathBadge trustPath={trustPath} />);
 
-      // Should not have any trust score display
-      const container = screen.getByText('You').closest('div');
-      expect(container).not.toHaveTextContent(/\d+/); // No numbers except in degree badge
+      // No numeric text (trust score) should appear
+      expect(screen.queryByText(/^\d+$/)).not.toBeInTheDocument();
     });
 
-    it('displays invitation date when available', () => {
-      const inviteDate = '2024-01-15T10:00:00Z';
+    it('renders "You" in the path for the first node', () => {
       const trustPath: TrustPath = {
-        degrees_of_separation: 2,
+        degrees_of_separation: 1,
         path: [
-          { id: '1', name: 'You' },
-          { id: '2', name: 'Alice', invited_at: inviteDate },
-          { id: '3', name: 'Bob' },
+          { id: '1', name: 'Current User' },
+          { id: '2', name: 'Alice' },
         ],
       };
       render(<TrustPathBadge trustPath={trustPath} />);
 
-      expect(screen.getByText(/Connected/)).toBeInTheDocument();
+      expect(screen.getByText('You')).toBeInTheDocument();
     });
 
     it('applies custom className in full mode', () => {
@@ -157,119 +333,6 @@ describe('TrustPathBadge', () => {
       expect(container.firstChild).toHaveClass('my-custom-class');
     });
   });
-
-  describe('Degree Colors', () => {
-    it('applies green color for 1° connection', () => {
-      const trustPath: TrustPath = {
-        degrees_of_separation: 1,
-        path: [{ id: '1', name: 'You' }, { id: '2', name: 'Alice' }],
-      };
-      render(<TrustPathBadge trustPath={trustPath} compact />);
-
-      const badge = screen.getByText('1° connection');
-      expect(badge).toHaveClass('bg-green-100', 'text-green-800', 'border-green-300');
-    });
-
-    it('applies blue color for 2° connection', () => {
-      const trustPath: TrustPath = {
-        degrees_of_separation: 2,
-        path: [
-          { id: '1', name: 'You' },
-          { id: '2', name: 'Alice' },
-          { id: '3', name: 'Bob' },
-        ],
-      };
-      render(<TrustPathBadge trustPath={trustPath} compact />);
-
-      const badge = screen.getByText('2° connection');
-      expect(badge).toHaveClass('bg-blue-100', 'text-blue-800', 'border-blue-300');
-    });
-
-    it('applies yellow color for 3° connection', () => {
-      const trustPath: TrustPath = {
-        degrees_of_separation: 3,
-        path: [
-          { id: '1', name: 'You' },
-          { id: '2', name: 'Alice' },
-          { id: '3', name: 'Bob' },
-          { id: '4', name: 'Charlie' },
-        ],
-      };
-      render(<TrustPathBadge trustPath={trustPath} compact />);
-
-      const badge = screen.getByText('3° connection');
-      expect(badge).toHaveClass('bg-yellow-100', 'text-yellow-800', 'border-yellow-300');
-    });
-
-    it('applies orange color for 4° connection', () => {
-      const trustPath: TrustPath = {
-        degrees_of_separation: 4,
-        path: [
-          { id: '1', name: 'You' },
-          { id: '2', name: 'Alice' },
-          { id: '3', name: 'Bob' },
-          { id: '4', name: 'Charlie' },
-          { id: '5', name: 'Dave' },
-        ],
-      };
-      render(<TrustPathBadge trustPath={trustPath} compact />);
-
-      const badge = screen.getByText('4° connection');
-      expect(badge).toHaveClass('bg-orange-100', 'text-orange-800', 'border-orange-300');
-    });
-
-    it('applies gray color for connections > 4 degrees', () => {
-      const trustPath: TrustPath = {
-        degrees_of_separation: 5,
-        path: [
-          { id: '1', name: 'You' },
-          { id: '2', name: 'Alice' },
-          { id: '3', name: 'Bob' },
-          { id: '4', name: 'Charlie' },
-          { id: '5', name: 'Dave' },
-          { id: '6', name: 'Eve' },
-        ],
-      };
-      render(<TrustPathBadge trustPath={trustPath} compact />);
-
-      const badge = screen.getByText('5° connection');
-      expect(badge).toHaveClass('bg-gray-100', 'text-gray-800', 'border-gray-300');
-    });
-  });
-
-  describe('Path Rendering', () => {
-    it('renders path with multiple people', () => {
-      const trustPath: TrustPath = {
-        degrees_of_separation: 3,
-        path: [
-          { id: '1', name: 'You' },
-          { id: '2', name: 'Alice' },
-          { id: '3', name: 'Bob' },
-          { id: '4', name: 'Charlie' },
-        ],
-      };
-      render(<TrustPathBadge trustPath={trustPath} />);
-
-      expect(screen.getByText('You')).toBeInTheDocument();
-      expect(screen.getByText('Alice')).toBeInTheDocument();
-      expect(screen.getByText('Bob')).toBeInTheDocument();
-      expect(screen.getByText('Charlie')).toBeInTheDocument();
-    });
-
-    it('renders "You" with special styling for first node', () => {
-      const trustPath: TrustPath = {
-        degrees_of_separation: 1,
-        path: [
-          { id: '1', name: 'Current User' }, // Name doesn't matter, should show "You"
-          { id: '2', name: 'Alice' },
-        ],
-      };
-      render(<TrustPathBadge trustPath={trustPath} />);
-
-      const youElement = screen.getByText('You');
-      expect(youElement).toHaveClass('font-semibold', 'text-blue-700');
-    });
-  });
 });
 
 describe('TrustPathBadgeSkeleton', () => {
@@ -279,7 +342,7 @@ describe('TrustPathBadgeSkeleton', () => {
     expect(container.querySelector('.animate-pulse')).toBeInTheDocument();
   });
 
-  it('renders loading skeleton in full mode', () => {
+  it('renders loading skeleton in full mode with border-l-4', () => {
     const { container } = render(<TrustPathBadgeSkeleton />);
 
     expect(container.querySelector('.animate-pulse')).toBeInTheDocument();

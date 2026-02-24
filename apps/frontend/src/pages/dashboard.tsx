@@ -16,9 +16,9 @@ import { useTrustPath } from '@/hooks/useTrustPath'
 
 function FeedPostTrustBadge({ requesterId }: { requesterId?: string }) {
   const { trustPath, loading } = useTrustPath(requesterId)
-  if (loading) return <TrustPathBadgeSkeleton compact className="mb-3" />
+  if (loading) return <TrustPathBadgeSkeleton compact />
   if (!trustPath) return null
-  return <TrustPathBadge trustPath={trustPath} compact className="mb-3" />
+  return <TrustPathBadge trustPath={trustPath} compact />
 }
 import { parseRequestDescription, buildPayloadFromParsed, updateLocationCoordinates, getSuggestions, type ParsedRequest, type AutocompleteSuggestion } from '@/lib/requestParser'
 import DynamicForm from '@/components/requests/DynamicForm'
@@ -994,7 +994,10 @@ export default function Dashboard() {
                                 {post.requester_name?.charAt(0).toUpperCase() || '?'}
                               </div>
                               <div className="flex-1 min-w-0">
-                                <p className="font-medium text-sm text-text truncate">{post.requester_name || 'Unknown'}</p>
+                                <p className="font-medium text-sm text-text flex items-center gap-1 flex-wrap">
+                                  <span className="truncate">{post.requester_name || 'Unknown'}</span>
+                                  {!isMyPost && <FeedPostTrustBadge requesterId={post.requester_id} />}
+                                </p>
                                 <p className="text-xs text-text-subtle">{formatTime(post.created_at)}</p>
                               </div>
                             </div>
@@ -1002,9 +1005,6 @@ export default function Dashboard() {
                               <span className={`text-xs font-medium px-2 py-0.5 rounded ${badgeColor} whitespace-nowrap`}>{badgeText}</span>
                             )}
                           </div>
-
-                          {/* Trust Path Badge - only for other people's posts */}
-                          {!isMyPost && <FeedPostTrustBadge requesterId={post.requester_id} />}
 
                           {/* Post Content */}
                           <p className="text-text text-sm leading-relaxed mb-2">{post.description}</p>
