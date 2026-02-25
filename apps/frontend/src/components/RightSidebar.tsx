@@ -41,7 +41,7 @@ export default function RightSidebar({ communityId }: RightSidebarProps) {
       try {
         setLoading(true)
         const leaderboardRes = await reputationService.getLeaderboard(communityId, { limit: 3 })
-        setLeaderboard(leaderboardRes.data?.data || [])
+        setLeaderboard(leaderboardRes.data || [])
         setHealthData(null)
         setMilestones([])
       } catch (err) {

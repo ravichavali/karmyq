@@ -23,7 +23,7 @@ describe('RightSidebar', () => {
 
   it('renders top helpers from leaderboard API', async () => {
     reputationService.getLeaderboard.mockResolvedValue({
-      data: { data: leaderboard },
+      data: leaderboard,
     });
 
     render(<RightSidebar communityId="comm-1" />);
@@ -38,7 +38,7 @@ describe('RightSidebar', () => {
 
   it('shows karma totals for each helper', async () => {
     reputationService.getLeaderboard.mockResolvedValue({
-      data: { data: leaderboard },
+      data: leaderboard,
     });
 
     render(<RightSidebar communityId="comm-1" />);
@@ -51,7 +51,7 @@ describe('RightSidebar', () => {
 
   it('hides top helpers panel when leaderboard is empty', async () => {
     reputationService.getLeaderboard.mockResolvedValue({
-      data: { data: [] },
+      data: [],
     });
 
     render(<RightSidebar communityId="comm-1" />);
@@ -62,7 +62,7 @@ describe('RightSidebar', () => {
   });
 
   it('calls getLeaderboard with communityId and limit 3', async () => {
-    reputationService.getLeaderboard.mockResolvedValue({ data: { data: [] } });
+    reputationService.getLeaderboard.mockResolvedValue({ data: [] });
 
     render(<RightSidebar communityId="comm-42" />);
 
