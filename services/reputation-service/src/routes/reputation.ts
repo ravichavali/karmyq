@@ -16,11 +16,31 @@ router.get('/karma/:userId', async (req: Request, res: Response) => {
     // Calculate total across all communities
     const total = karma.reduce((sum, k) => sum + parseInt(k.total_karma), 0);
 
+    // Calculate breakdown by reason category
+    let breakdownQuery = `
+      SELECT
+        SUM(CASE WHEN reason = 'Provided help' THEN points ELSE 0 END) as karma_from_giving,
+        SUM(CASE WHEN reason = 'Received help' THEN points ELSE 0 END) as karma_from_receiving,
+        SUM(CASE WHEN reason NOT IN ('Provided help', 'Received help') THEN points ELSE 0 END) as bonuses
+      FROM reputation.karma_records
+      WHERE user_id = $1
+    `;
+    const breakdownParams: any[] = [userId];
+    if (community_id) {
+      breakdownQuery += ' AND community_id = $2';
+      breakdownParams.push(community_id);
+    }
+    const breakdownResult = await query(breakdownQuery, breakdownParams);
+    const breakdown = breakdownResult.rows[0] || {};
+
     res.json({
       success: true,
       data: {
         user_id: userId,
         total_karma: total,
+        karma_from_giving: parseInt(breakdown.karma_from_giving) || 0,
+        karma_from_receiving: parseInt(breakdown.karma_from_receiving) || 0,
+        bonuses: parseInt(breakdown.bonuses) || 0,
         by_community: karma,
       },
     });
