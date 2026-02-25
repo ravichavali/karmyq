@@ -545,7 +545,7 @@ export const reputationService = {
 
   // Get karma history
   getKarmaHistory: (userId: string, params?: { limit?: number; offset?: number }, communityId?: string) =>
-    reputationApi.get(`/reputation/karma/${userId}/history`, {
+    reputationApi.get(`/reputation/history/${userId}`, {
       params,
       headers: communityId ? { 'X-Community-ID': communityId } : {},
     }),

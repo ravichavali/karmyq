@@ -30,12 +30,17 @@ export default function KarmaPage() {
   const fetchKarmaData = async (userId: string, communityId?: string) => {
     try {
       setLoading(true)
-      const karmaRes = await reputationService.getKarma(userId, communityId)
-      const historyRes = await reputationService.getKarmaHistory(userId, { limit: 20 }, communityId)
+      const [karmaResult, historyResult] = await Promise.allSettled([
+        reputationService.getKarma(userId, communityId),
+        reputationService.getKarmaHistory(userId, { limit: 20 }, communityId),
+      ])
+
+      const karmaData = karmaResult.status === 'fulfilled' ? karmaResult.value.data : null
+      const historyData = historyResult.status === 'fulfilled' ? historyResult.value.data : []
 
       setKarmaData({
-        ...karmaRes.data,
-        history: historyRes.data?.karma_history || []
+        ...(karmaData || {}),
+        history: Array.isArray(historyData) ? historyData : [],
       })
     } catch (err) {
       console.error('Failed to fetch karma data:', err)
@@ -117,10 +122,10 @@ export default function KarmaPage() {
                     <div key={index} className="flex items-center justify-between py-3 border-b border-border-light last:border-0">
                       <div className="flex-1">
                         <p className="text-sm font-medium text-text">
-                          {record.event_type === 'help_given' ? '🤝 Helped someone' :
-                           record.event_type === 'help_received' ? '💙 Received help' :
-                           record.event_type === 'bonus' ? '🎉 Milestone bonus' :
-                           record.event_type}
+                          {record.reason === 'help_given' ? '🤝 Helped someone' :
+                           record.reason === 'help_received' ? '💙 Received help' :
+                           record.reason === 'bonus' ? '🎉 Milestone bonus' :
+                           record.reason || 'Karma earned'}
                         </p>
                         <p className="text-xs text-text-subtle mt-1">
                           {new Date(record.created_at).toLocaleDateString('en-US', {
@@ -131,8 +136,8 @@ export default function KarmaPage() {
                           })}
                         </p>
                       </div>
-                      <div className={`text-lg font-bold ${record.points_awarded > 0 ? 'text-success' : 'text-red-600'}`}>
-                        {record.points_awarded > 0 ? '+' : ''}{record.points_awarded}
+                      <div className={`text-lg font-bold ${record.points > 0 ? 'text-success' : 'text-red-600'}`}>
+                        {record.points > 0 ? '+' : ''}{record.points}
                       </div>
                     </div>
                   ))}
