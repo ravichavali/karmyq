@@ -383,28 +383,7 @@ export async function getUserKarma(user_id: string, community_id?: string) {
 }
 
 export async function getUserTrustScore(user_id: string, community_id: string) {
-  const result = await query(
-    `SELECT
-       user_id,
-       community_id,
-       score,
-       requests_completed,
-       offers_accepted,
-       avg_helpfulness,
-       avg_responsiveness,
-       avg_clarity,
-       total_feedback_received,
-       last_updated
-     FROM reputation.trust_scores
-     WHERE user_id = $1 AND community_id = $2`,
-    [user_id, community_id]
-  );
-
-  if (result.rows[0]) {
-    return result.rows[0];
-  }
-
-  // No trust score row yet — compute from karma records so existing karma is reflected
+  // Always recompute karma-based score from records to avoid stale cached values
   const karmaResult = await query(
     `SELECT
        SUM(points) as total_karma,
@@ -415,20 +394,32 @@ export async function getUserTrustScore(user_id: string, community_id: string) {
     [user_id, community_id]
   );
 
-  const row = karmaResult.rows[0];
-  const total_karma = parseInt(row?.total_karma || 0);
+  const karmaRow = karmaResult.rows[0];
+  const total_karma = parseInt(karmaRow?.total_karma || 0);
   const karma_contribution = Math.min(50, Math.floor(total_karma / 10));
+  const computed_score = 50 + karma_contribution;
+
+  // Fetch feedback averages from cached row if it exists
+  const cached = await query(
+    `SELECT avg_helpfulness, avg_responsiveness, avg_clarity, total_feedback_received, last_updated
+     FROM reputation.trust_scores
+     WHERE user_id = $1 AND community_id = $2`,
+    [user_id, community_id]
+  );
+
+  const cached_row = cached.rows[0];
 
   return {
     user_id,
     community_id,
-    score: 50 + karma_contribution,
-    requests_completed: parseInt(row?.requests_completed || 0),
-    offers_accepted: parseInt(row?.offers_accepted || 0),
-    avg_helpfulness: 0,
-    avg_responsiveness: 0,
-    avg_clarity: 0,
-    total_feedback_received: 0,
+    score: computed_score,
+    requests_completed: parseInt(karmaRow?.requests_completed || 0),
+    offers_accepted: parseInt(karmaRow?.offers_accepted || 0),
+    avg_helpfulness: cached_row?.avg_helpfulness || 0,
+    avg_responsiveness: cached_row?.avg_responsiveness || 0,
+    avg_clarity: cached_row?.avg_clarity || 0,
+    total_feedback_received: cached_row?.total_feedback_received || 0,
+    last_updated: cached_row?.last_updated || null,
   };
 }
 
