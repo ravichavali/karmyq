@@ -49,9 +49,9 @@ export default function OfferItem({
           <div className="w-8 h-8 bg-gradient-to-br from-karmyq-green-500 to-karmyq-teal-600 rounded-full flex items-center justify-center text-white text-sm font-semibold flex-shrink-0">
             {comment.responder_name?.charAt(0).toUpperCase() || '?'}
           </div>
-          <div>
+          <div className="min-w-0">
             <p className="font-medium text-text flex items-center gap-1 flex-wrap">
-              <span>{comment.responder_name || 'Unknown'}</span>
+              <span className="truncate max-w-[160px] sm:max-w-none">{comment.responder_name || 'Unknown'}</span>
               {!loadingOfferPath && offerTrustPath && <TrustPathBadge trustPath={offerTrustPath} compact />}
               {loadingOfferPath && <TrustPathBadgeSkeleton compact />}
             </p>
