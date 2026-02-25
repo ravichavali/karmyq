@@ -558,8 +558,8 @@ export const reputationService = {
 
   // Get leaderboard
   getLeaderboard: (communityId: string, params?: { limit?: number }) =>
-    reputationApi.get('/reputation/leaderboard', {
-      params: { ...params, community_id: communityId },
+    reputationApi.get(`/reputation/leaderboard/${communityId}`, {
+      params,
       headers: { 'X-Community-ID': communityId },
     }),
 }

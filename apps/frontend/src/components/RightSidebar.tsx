@@ -1,7 +1,15 @@
 import { useEffect, useState } from 'react'
+import { reputationService } from '@/lib/api'
 
 interface RightSidebarProps {
   communityId?: string
+}
+
+interface LeaderboardEntry {
+  user_id: string
+  name: string
+  total_karma: number
+  requests_completed: number
 }
 
 interface CommunityHealth {
@@ -23,6 +31,7 @@ interface Milestone {
 export default function RightSidebar({ communityId }: RightSidebarProps) {
   const [healthData, setHealthData] = useState<CommunityHealth | null>(null)
   const [milestones, setMilestones] = useState<Milestone[]>([])
+  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -31,16 +40,10 @@ export default function RightSidebar({ communityId }: RightSidebarProps) {
 
       try {
         setLoading(true)
-        // TODO: Re-enable when milestone_events and community_health_metrics tables are created (See ROADMAP.md Backlog #24)
-        // const [healthRes, milestonesRes] = await Promise.all([
-        //   feedApi.get(`/feed/community-health?community_id=${communityId}`),
-        //   feedApi.get(`/feed/milestones?community_id=${communityId}&limit=3`)
-        // ])
-        //
-        // setHealthData(healthRes.data || null)
-        // setMilestones(milestonesRes.data || [])
-        setHealthData(null) // Temporarily disabled
-        setMilestones([]) // Temporarily disabled
+        const leaderboardRes = await reputationService.getLeaderboard(communityId, { limit: 3 })
+        setLeaderboard(leaderboardRes.data?.data || [])
+        setHealthData(null)
+        setMilestones([])
       } catch (err) {
         console.error('Failed to fetch sidebar data:', err)
       } finally {
@@ -158,24 +161,26 @@ export default function RightSidebar({ communityId }: RightSidebarProps) {
         </div>
       )}
 
-      {/* Trending Helpers */}
-      <div className="bg-surface-raised rounded-xl shadow-sm border border-border p-4">
-        <h3 className="font-semibold text-sm text-text mb-3">Top Helpers This Week</h3>
-        <div className="space-y-3">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-gradient-to-br from-green-400 to-emerald-600 rounded-full flex items-center justify-center text-white text-xs font-bold">
-                {i}
+      {/* Top Helpers */}
+      {leaderboard.length > 0 && (
+        <div className="bg-surface-raised rounded-xl shadow-sm border border-border p-4" data-testid="top-helpers-panel">
+          <h3 className="font-semibold text-sm text-text mb-3">Top Helpers</h3>
+          <div className="space-y-3">
+            {leaderboard.map((entry, i) => (
+              <div key={entry.user_id} className="flex items-center gap-2">
+                <div className="w-8 h-8 bg-gradient-to-br from-green-400 to-emerald-600 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                  {i + 1}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-text truncate">{entry.name}</p>
+                  <p className="text-xs text-text-subtle">{entry.requests_completed || 0} helps</p>
+                </div>
+                <div className="text-xs font-semibold text-text-muted">{entry.total_karma}</div>
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-text-subtle truncate">Coming soon...</p>
-                <p className="text-xs text-text-subtle">0 helps</p>
-              </div>
-              <div className="text-xs font-semibold text-text-subtle">0</div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Active Now */}
       <div className="bg-surface-raised rounded-xl shadow-sm border border-border p-4">

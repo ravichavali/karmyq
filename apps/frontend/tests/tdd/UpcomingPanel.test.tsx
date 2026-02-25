@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, act } from '@testing-library/react';
 import UpcomingPanel from '../../src/components/UpcomingPanel';
 
 // FulfillmentPanel does external URL building — mock it to keep tests simple
@@ -124,7 +124,8 @@ describe('UpcomingPanel', () => {
     expect(screen.getByTestId('upcoming-panel-items')).toBeInTheDocument();
   });
 
-  it('calls onComplete with match id when Done is clicked', () => {
+  it('calls onComplete with match id after confirmation delay', () => {
+    jest.useFakeTimers();
     const onComplete = jest.fn();
     render(
       <UpcomingPanel
@@ -134,7 +135,52 @@ describe('UpcomingPanel', () => {
       />
     );
     fireEvent.click(screen.getByText(/✓ Done/i));
+    expect(onComplete).not.toHaveBeenCalled(); // not yet
+    act(() => jest.advanceTimersByTime(1200));
     expect(onComplete).toHaveBeenCalledWith('match-42');
+    jest.useRealTimers();
+  });
+
+  it('shows karma confirmation inline after Done is clicked (helper gets 10)', () => {
+    jest.useFakeTimers();
+    render(
+      <UpcomingPanel
+        matches={[makeMatch({ responder_id: 'helper-user' })]}
+        currentUserId="helper-user"
+        onComplete={jest.fn()}
+      />
+    );
+    fireEvent.click(screen.getByText(/✓ Done/i));
+    expect(screen.getByTestId('karma-confirmation')).toHaveTextContent('+10 karma awarded');
+    jest.useRealTimers();
+  });
+
+  it('shows karma confirmation with 5 points when user is the requester', () => {
+    jest.useFakeTimers();
+    render(
+      <UpcomingPanel
+        matches={[makeMatch({ responder_id: 'someone-else' })]}
+        currentUserId="requester-user"
+        onComplete={jest.fn()}
+      />
+    );
+    fireEvent.click(screen.getByText(/✓ Done/i));
+    expect(screen.getByTestId('karma-confirmation')).toHaveTextContent('+5 karma awarded');
+    jest.useRealTimers();
+  });
+
+  it('hides Done button while karma confirmation is showing', () => {
+    jest.useFakeTimers();
+    render(
+      <UpcomingPanel
+        matches={[makeMatch()]}
+        currentUserId="helper-user"
+        onComplete={jest.fn()}
+      />
+    );
+    fireEvent.click(screen.getByText(/✓ Done/i));
+    expect(screen.queryByText(/✓ Done/i)).not.toBeInTheDocument();
+    jest.useRealTimers();
   });
 
   it('renders FulfillmentPanel when request_type and payload are present', () => {
