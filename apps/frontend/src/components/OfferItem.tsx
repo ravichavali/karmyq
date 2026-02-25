@@ -45,8 +45,8 @@ export default function OfferItem({
   return (
     <div className="bg-surface-raised rounded-lg p-4 border border-border">
       <div className="flex items-start justify-between mb-3">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-gradient-to-br from-karmyq-green-500 to-karmyq-teal-600 rounded-full flex items-center justify-center text-white text-sm font-semibold">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="w-8 h-8 bg-gradient-to-br from-karmyq-green-500 to-karmyq-teal-600 rounded-full flex items-center justify-center text-white text-sm font-semibold flex-shrink-0">
             {comment.responder_name?.charAt(0).toUpperCase() || '?'}
           </div>
           <div>
@@ -61,7 +61,7 @@ export default function OfferItem({
 
         {/* Action buttons for poster */}
         {isMyPost && comment.status === 'proposed' && (
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-shrink-0 ml-2">
             <button
               onClick={() => onAccept(comment.id)}
               className="px-3 py-1 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 transition-colors font-medium"
@@ -79,7 +79,7 @@ export default function OfferItem({
 
         {/* Status badges */}
         {comment.status === 'matched' && (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-shrink-0 ml-2">
             <span className="px-2 py-1 bg-success-light text-success text-xs rounded-lg font-medium">
               ✓ Accepted
             </span>
@@ -93,7 +93,7 @@ export default function OfferItem({
         )}
 
         {comment.status === 'completed' && (
-          <span className="px-2 py-1 bg-accent-light text-accent-dark text-xs rounded-lg font-medium">
+          <span className="px-2 py-1 bg-accent-light text-accent-dark text-xs rounded-lg font-medium flex-shrink-0 ml-2">
             ✓ Completed
           </span>
         )}
