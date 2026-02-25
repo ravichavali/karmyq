@@ -255,6 +255,14 @@
       "status": "implemented",
       "description": "**Date**: 2026-02-24",
       "filename": "ADR-034-multi-layer-trust-computation.md"
+    },
+    {
+      "slug": "adr-035-karma-allocation-trust-score-strategy",
+      "number": "035",
+      "title": "ADR-035: Karma Allocation Strategy and Trust Score Abstraction",
+      "status": "implemented",
+      "description": "**Date**: 2026-02-25",
+      "filename": "ADR-035-karma-allocation-trust-score-strategy.md"
     }
   ]
 }

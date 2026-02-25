@@ -240,7 +240,7 @@
           "href": "/docs/concepts/adr-034-multi-layer-trust-computation"
         },
         {
-          "label": "Karma Allocation Strategy and Trust Score Abstraction",
+          "label": "Karma Allocation Strategy and Trust Score Abstract",
           "href": "/docs/concepts/adr-035-karma-allocation-trust-score-strategy"
         }
       ]
