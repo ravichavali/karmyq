@@ -22,15 +22,16 @@ export default function KarmaPage() {
     if (userData) {
       const parsedUser = JSON.parse(userData)
       setUser(parsedUser)
-      fetchKarmaData(parsedUser.id)
+      const communityId = parsedUser.communities?.[0]?.id
+      fetchKarmaData(parsedUser.id, communityId)
     }
   }, [router])
 
-  const fetchKarmaData = async (userId: string) => {
+  const fetchKarmaData = async (userId: string, communityId?: string) => {
     try {
       setLoading(true)
-      const karmaRes = await reputationService.getKarma(userId)
-      const historyRes = await reputationService.getKarmaHistory(userId, { limit: 20 })
+      const karmaRes = await reputationService.getKarma(userId, communityId)
+      const historyRes = await reputationService.getKarmaHistory(userId, { limit: 20 }, communityId)
 
       setKarmaData({
         ...karmaRes.data,

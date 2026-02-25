@@ -22,14 +22,15 @@ export default function TrustScorePage() {
     if (userData) {
       const parsedUser = JSON.parse(userData)
       setUser(parsedUser)
-      fetchTrustData(parsedUser.id)
+      const communityId = parsedUser.communities?.[0]?.id
+      fetchTrustData(parsedUser.id, communityId)
     }
   }, [router])
 
-  const fetchTrustData = async (userId: string) => {
+  const fetchTrustData = async (userId: string, communityId?: string) => {
     try {
       setLoading(true)
-      const trustRes = await reputationService.getTrustScore(userId)
+      const trustRes = await reputationService.getTrustScore(userId, communityId)
       setTrustData(trustRes.data)
     } catch (err) {
       console.error('Failed to fetch trust data:', err)
@@ -62,7 +63,7 @@ export default function TrustScorePage() {
     )
   }
 
-  const score = trustData?.trust_score || 0
+  const score = trustData?.score || 0
 
   return (
     <>
