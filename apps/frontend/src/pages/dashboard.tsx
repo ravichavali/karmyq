@@ -291,7 +291,7 @@ export default function Dashboard() {
       )
 
       myRequestsPending.forEach((request: HelpRequest) => {
-        const matches = allMatches.filter((m: Match) => m.request_id === request.id)
+        const matches = allMatches.filter((m: Match) => m.request_id === request.id && m.status !== 'rejected')
         feed.push({
           type: 'post',
           priority: 3,
