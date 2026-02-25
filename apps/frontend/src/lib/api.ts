@@ -96,12 +96,56 @@ const authInterceptor = (config: any) => {
   return config
 }
 
+// Decode JWT payload without verification (for extracting community context client-side)
+function decodeJwtPayload(token: string): any {
+  try {
+    const base64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')
+    return JSON.parse(atob(base64))
+  } catch {
+    return null
+  }
+}
+
+// Inject X-Community-ID into every reputation request.
+// Reads from stored user object first; falls back to JWT payload.
+// Without this, tenantMiddleware returns 400 for pages that don't pass communityId explicitly.
+const reputationCommunityInterceptor = (config: any) => {
+  if (typeof window === 'undefined') return config
+  // Skip if the caller already set X-Community-ID
+  if (config.headers['X-Community-ID'] || config.headers['x-community-id']) return config
+
+  let communityId: string | undefined
+
+  const userData = localStorage.getItem('user')
+  if (userData) {
+    try {
+      const user = JSON.parse(userData)
+      communityId = user.communities?.[0]?.id
+    } catch { /* ignore */ }
+  }
+
+  // Fallback: decode JWT to get communities
+  if (!communityId) {
+    const token = localStorage.getItem('token')
+    if (token) {
+      const payload = decodeJwtPayload(token)
+      communityId = payload?.communities?.[0]?.id
+    }
+  }
+
+  if (communityId) {
+    config.headers['X-Community-ID'] = communityId
+  }
+  return config
+}
+
 api.interceptors.request.use(authInterceptor)
 communityApi.interceptors.request.use(authInterceptor)
 requestApi.interceptors.request.use(authInterceptor)
 notificationApi.interceptors.request.use(authInterceptor)
 messagingApi.interceptors.request.use(authInterceptor)
 reputationApi.interceptors.request.use(authInterceptor)
+reputationApi.interceptors.request.use(reputationCommunityInterceptor)
 feedApi.interceptors.request.use(authInterceptor)
 socialGraphApi.interceptors.request.use(authInterceptor)
 
