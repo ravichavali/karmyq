@@ -141,7 +141,7 @@ describe('UpcomingPanel', () => {
     jest.useRealTimers();
   });
 
-  it('shows karma confirmation inline after Done is clicked (helper gets 10)', () => {
+  it('shows karma confirmation inline after Done is clicked', () => {
     jest.useFakeTimers();
     render(
       <UpcomingPanel
@@ -151,11 +151,11 @@ describe('UpcomingPanel', () => {
       />
     );
     fireEvent.click(screen.getByText(/✓ Done/i));
-    expect(screen.getByTestId('karma-confirmation')).toHaveTextContent('+10 karma awarded');
+    expect(screen.getByTestId('karma-confirmation')).toHaveTextContent('Karma awarded!');
     jest.useRealTimers();
   });
 
-  it('shows karma confirmation with 5 points when user is the requester', () => {
+  it('shows karma confirmation when user is the requester', () => {
     jest.useFakeTimers();
     render(
       <UpcomingPanel
@@ -165,7 +165,7 @@ describe('UpcomingPanel', () => {
       />
     );
     fireEvent.click(screen.getByText(/✓ Done/i));
-    expect(screen.getByTestId('karma-confirmation')).toHaveTextContent('+5 karma awarded');
+    expect(screen.getByTestId('karma-confirmation')).toHaveTextContent('Karma awarded!');
     jest.useRealTimers();
   });
 

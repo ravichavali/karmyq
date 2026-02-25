@@ -1,5 +1,7 @@
 import { query } from '../database/db';
 import { recordActivity, ActivityType } from '../utils/activityTracker';
+import { allocateKarma, CommunityKarmaConfig } from './karmaAllocation';
+import { computeTrustScore } from './trustScoreStrategy';
 
 interface MatchCompletionData {
   match_id: string;
@@ -111,22 +113,28 @@ export async function awardKarmaForCompletedMatch(data: MatchCompletionData) {
     sharedCommunities.push(fallback.rows[0].community_id);
   }
 
+  // Fetch all community configs upfront, then compute allocations once.
+  // allocateKarma() divides a fixed pool across communities using each
+  // community's split ratio, with largest-remainder rounding so the
+  // integer awards always sum exactly to BASE_KARMA_POOL (no inflation).
+  const communityConfigs: CommunityKarmaConfig[] = await Promise.all(
+    sharedCommunities.map(async (id) => {
+      const cfg = await getCommunityKarmaConfig(id);
+      return { community_id: id, ...cfg };
+    })
+  );
+  const allocations = allocateKarma(communityConfigs, KARMA_DEFAULTS.BASE_KARMA_POOL);
+
   let totalHelperKarma = 0;
   let totalRequesterKarma = 0;
 
-  // Award karma in each shared community using that community's config
-  for (const community_id of sharedCommunities) {
-    const config = await getCommunityKarmaConfig(community_id);
-
-    // Calculate karma using community's split ratios
-    const helperKarma = Math.round(KARMA_DEFAULTS.HELP_PROVIDED * (config.karma_split_helper / 100));
-    const requesterKarma = Math.round(KARMA_DEFAULTS.HELP_RECEIVED * (config.karma_split_requestor / 100));
-
+  // Award karma in each shared community using pre-computed allocations
+  for (const { community_id, helperPoints, requesterPoints } of allocations) {
     // Award karma to responder (helper)
     await recordKarma({
       user_id: responder_id,
       community_id,
-      points: helperKarma,
+      points: helperPoints,
       reason: 'Provided help',
       related_entity_id: match_id,
     });
@@ -135,7 +143,7 @@ export async function awardKarmaForCompletedMatch(data: MatchCompletionData) {
     await recordKarma({
       user_id: requester_id,
       community_id,
-      points: requesterKarma,
+      points: requesterPoints,
       reason: 'Received help',
       related_entity_id: match_id,
     });
@@ -193,8 +201,8 @@ export async function awardKarmaForCompletedMatch(data: MatchCompletionData) {
     await recordActivity(responder_id, community_id, ActivityType.COMPLETE_REQUEST, match_id);
     await recordActivity(requester_id, community_id, ActivityType.COMPLETE_OFFER, match_id);
 
-    totalHelperKarma += helperKarma;
-    totalRequesterKarma += requesterKarma;
+    totalHelperKarma += helperPoints;
+    totalRequesterKarma += requesterPoints;
   }
 
   console.log(
@@ -245,10 +253,11 @@ async function updateTrustScore(user_id: string, community_id: string) {
 
   const total_karma = parseInt(karmaResult.rows[0].total_karma || 0);
 
-  // Calculate trust score (50 base + karma contribution)
-  // Score ranges from 0-100
-  const karma_contribution = Math.min(50, Math.floor(total_karma / 10));
-  const score = 50 + karma_contribution;
+  const score = computeTrustScore({
+    total_karma,
+    interactions_completed: parseInt(offers_accepted) + parseInt(requests_completed),
+    avg_feedback_score: null, // feedback not available in this code path
+  });
 
   // Upsert trust score
   await query(
@@ -396,8 +405,8 @@ export async function getUserTrustScore(user_id: string, community_id: string) {
 
   const karmaRow = karmaResult.rows[0];
   const total_karma = parseInt(karmaRow?.total_karma || 0);
-  const karma_contribution = Math.min(50, Math.floor(total_karma / 10));
-  const computed_score = 50 + karma_contribution;
+  const interactions_completed =
+    parseInt(karmaRow?.offers_accepted || 0) + parseInt(karmaRow?.requests_completed || 0);
 
   // Fetch feedback averages from cached row if it exists
   const cached = await query(
@@ -408,6 +417,16 @@ export async function getUserTrustScore(user_id: string, community_id: string) {
   );
 
   const cached_row = cached.rows[0];
+
+  // Compute average feedback score from the three dimensions (if any feedback exists)
+  const avg_feedback_score =
+    cached_row?.total_feedback_received > 0
+      ? ((cached_row.avg_helpfulness || 0) +
+          (cached_row.avg_responsiveness || 0) +
+          (cached_row.avg_clarity || 0)) / 3
+      : null;
+
+  const computed_score = computeTrustScore({ total_karma, interactions_completed, avg_feedback_score });
 
   return {
     user_id,

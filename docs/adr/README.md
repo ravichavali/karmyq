@@ -70,6 +70,7 @@ When code implementing an ADR is deployed, update the status from `Accepted` →
 - [ADR-032: Server-Driven UI / Dynamic Forms](ADR-032-server-driven-ui-dynamic-schemas.md) — Implemented
 - [ADR-033: Offer Fulfillment Workflow](ADR-033-offer-fulfillment-workflow.md) — Proposed
 - [ADR-034: Multi-Layer Trust Path Computation](ADR-034-multi-layer-trust-computation.md) — Implemented
+- [ADR-035: Karma Allocation Strategy and Trust Score Abstraction](ADR-035-karma-allocation-trust-score-strategy.md) — Implemented
 
 ## Creating a New ADR
 
