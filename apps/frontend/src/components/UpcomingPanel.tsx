@@ -75,7 +75,6 @@ export default function UpcomingPanel({ matches, currentUserId, onComplete }: Up
             const otherPartyName = isHelper ? match.requester_name : match.responder_name
             const title = match.request_title || match.request_description || 'Help request'
             const isCompleting = completingId === match.id
-            const karmaPoints = isHelper ? 10 : 5
 
             return (
               <div key={match.id} className="px-4 py-3">
@@ -84,7 +83,7 @@ export default function UpcomingPanel({ matches, currentUserId, onComplete }: Up
                     <p className="text-sm font-medium text-text truncate">{title}</p>
                     {isCompleting ? (
                       <p className="text-xs text-green-600 mt-0.5" data-testid="karma-confirmation">
-                        +{karmaPoints} karma awarded
+                        Karma awarded!
                       </p>
                     ) : (
                       <p className="text-xs text-text-subtle mt-0.5">
