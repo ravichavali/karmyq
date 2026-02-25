@@ -49,7 +49,7 @@ export default function OfferItem({
           <div className="w-8 h-8 bg-gradient-to-br from-karmyq-green-500 to-karmyq-teal-600 rounded-full flex items-center justify-center text-white text-sm font-semibold flex-shrink-0">
             {comment.responder_name?.charAt(0).toUpperCase() || '?'}
           </div>
-          <div className="min-w-0">
+          <div className="min-w-0 overflow-hidden">
             <p className="font-medium text-text truncate">{comment.responder_name || 'Unknown'}</p>
             <div className="flex items-center gap-1 flex-wrap">
               <p className="text-xs text-text-subtle">offered {formatTime(comment.created_at)}</p>
