@@ -326,7 +326,7 @@ services:
       DB_USER: karmyq_user
       DB_PASSWORD: karmyq_password_dev
       JWT_SECRET: dev_jwt_secret_change_in_production
-      FRONTEND_URL: http://localhost:3000
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
       LOG_LEVEL: info
     ports:
       - "127.0.0.1:3010:3010"

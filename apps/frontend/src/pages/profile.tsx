@@ -71,6 +71,7 @@ export default function ProfilePage() {
 
   // Karma & privacy states
   const [karmaData, setKarmaData] = useState<any>(null)
+  const [trustScore, setTrustScore] = useState<number | null>(null)
   const [loadingKarma, setLoadingKarma] = useState(false)
   const [showKarmaToMe, setShowKarmaToMe] = useState(false)
   const [selectedCommunityId, setSelectedCommunityId] = useState<string>('')
@@ -199,17 +200,32 @@ export default function ProfilePage() {
   }
 
   const fetchKarmaData = async (communityId: string) => {
-    if (!communityId || !showKarmaToMe) return
+    if (!communityId || !showKarmaToMe || !user?.id) return
 
     try {
       setLoadingKarma(true)
-      const response = await reputationService.getMyKarma(communityId)
-      // Handle nested response structure - API might return {data: {data: ...}}
-      const actualData = response.data?.data || response.data || response
-      setKarmaData(actualData)
+      const [karmaResponse, trustResponse] = await Promise.allSettled([
+        reputationService.getMyKarma(communityId),
+        reputationService.getTrustScore(user?.id, communityId),
+      ])
+
+      if (karmaResponse.status === 'fulfilled') {
+        const actualData = karmaResponse.value.data?.data || karmaResponse.value.data || karmaResponse.value
+        setKarmaData(actualData)
+      } else {
+        setKarmaData(null)
+      }
+
+      if (trustResponse.status === 'fulfilled') {
+        const trustData = trustResponse.value.data?.data || trustResponse.value.data
+        setTrustScore(trustData?.trust_score ?? trustData?.score ?? null)
+      } else {
+        setTrustScore(null)
+      }
     } catch (err: any) {
       console.error('Failed to load karma:', err)
       setKarmaData(null)
+      setTrustScore(null)
     } finally {
       setLoadingKarma(false)
     }
@@ -228,6 +244,7 @@ export default function ProfilePage() {
       } else {
         // Clear karma data when disabling
         setKarmaData(null)
+        setTrustScore(null)
       }
 
       setSuccess(newValue ? 'Karma display enabled' : 'Karma display disabled')
@@ -526,9 +543,13 @@ export default function ProfilePage() {
                       <p className="text-xs text-text-subtle mt-1">Last 30 days</p>
                     </div>
                     <div className="bg-karmyq-brown-50 rounded-lg p-4 text-center">
-                      <p className="text-3xl font-bold text-karmyq-orange-600">-</p>
+                      <p className="text-3xl font-bold text-karmyq-orange-600">
+                        {trustScore !== null ? trustScore : '—'}
+                      </p>
                       <p className="text-sm text-text-muted mt-1">Trust Score</p>
-                      <p className="text-xs text-text-subtle mt-1">Coming soon</p>
+                      <p className="text-xs text-text-subtle mt-1">
+                        {trustScore !== null ? `Out of 100` : 'No exchanges yet'}
+                      </p>
                     </div>
                   </div>
 

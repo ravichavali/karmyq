@@ -8,11 +8,11 @@ Your karma balance and trust score are the two main signals of your standing in 
 
 Visible on your profile and dashboard.
 
-**What it represents:** Karma you've earned (by helping others) minus karma you've spent (by receiving help).
+**What it represents:** A ledger of your participation. Karma flows to everyone involved in a completed exchange — both the person who helped and the person who asked. Asking for help is a contribution too: it creates the opportunity for someone else to give.
 
-**What affects it:** Completing requests earns karma. Having requests fulfilled spends it. The amount depends on request type and community multiplier.
+**What affects it:** Both sides of a completed exchange earn karma. The community sets the split — by default, helpers earn slightly more, but requesters earn karma as well. The amount also depends on the request type's community multiplier.
 
-**What it doesn't mean:** A low balance doesn't mean you're a bad member — you may have just needed more help lately. Life happens.
+**What it doesn't mean:** A low balance doesn't mean you're a bad member — karma isn't a debt you owe. It reflects how active you've been, not whether you've been giving or taking.
 
 ---
 
