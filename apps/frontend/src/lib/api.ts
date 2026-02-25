@@ -358,7 +358,7 @@ export const requestService = {
     requestApi.get('/requests/matched/for-user', { params: { user_id, limit } }),
 
   // Day 7: Curated feed with match scores
-  getCuratedRequests: (params?: { minScore?: number; limit?: number; community_id?: string }) =>
+  getCuratedRequests: (params?: { minScore?: number; limit?: number; community_id?: string; trust_distance?: string; request_type?: string }) =>
     requestApi.get('/requests/curated', { params }),
 
   getRequest: (id: string) =>

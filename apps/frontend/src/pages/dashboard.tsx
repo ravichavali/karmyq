@@ -13,6 +13,7 @@ import EnhancedAutocomplete from '@/components/EnhancedAutocomplete'
 import OfferItem from '@/components/OfferItem'
 import TrustPathBadge, { TrustPathBadgeSkeleton } from '@/components/TrustPathBadge'
 import { useTrustPath } from '@/hooks/useTrustPath'
+import UpcomingPanel from '@/components/UpcomingPanel'
 
 function FeedPostTrustBadge({ requesterId }: { requesterId?: string }) {
   const { trustPath, loading } = useTrustPath(requesterId)
@@ -128,9 +129,15 @@ export default function Dashboard() {
 
   // Unified feed
   const [feedItems, setFeedItems] = useState<any[]>([])
+  const [upcomingMatches, setUpcomingMatches] = useState<Match[]>([])
   const [milestones, setMilestones] = useState<any[]>([])
   const [expandedPosts, setExpandedPosts] = useState<Set<string>>(new Set())
   const [activeCommunityId, setActiveCommunityId] = useState<string>('')
+
+  // Filter state
+  const [showFilter, setShowFilter] = useState(false)
+  const [filterTrustDistance, setFilterTrustDistance] = useState<string>('')
+  const [filterRequestType, setFilterRequestType] = useState<string>('')
 
   useEffect(() => {
     // Only run on client-side (not during SSR)
@@ -173,6 +180,14 @@ export default function Dashboard() {
     }).catch(() => { /* silently ignore — built-in types still show */ })
   }, [router])
 
+  // Re-fetch when filters change (skip on initial mount — handled above)
+  const filtersInitialized = typeof window !== 'undefined'
+  useEffect(() => {
+    if (!filtersInitialized || !user) return
+    fetchDashboardData(user.id, { trust_distance: filterTrustDistance, request_type: filterRequestType })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filterTrustDistance, filterRequestType])
+
   const handleCommunityChange = (communityId: string) => {
     setActiveCommunityId(communityId)
     // Refresh milestones for the new community
@@ -191,15 +206,18 @@ export default function Dashboard() {
     }
   }
 
-  const fetchDashboardData = async (userId: string) => {
+  const fetchDashboardData = async (userId: string, filters?: { trust_distance?: string; request_type?: string }) => {
     try {
       setLoading(true)
+
+      const communityRequestParams: Record<string, any> = { status: 'open', limit: 50 }
+      if (filters?.request_type) communityRequestParams.type = filters.request_type
 
       // Fetch all data in parallel
       const [myRequestsRes, allMatchesRes, suggestedRes, matchedRequestsRes, communitiesRes] = await Promise.all([
         requestService.getRequests({ requester_id: userId, limit: 50 }), // Get MY requests (all statuses)
         requestService.getMatches({ limit: 100 }),
-        requestService.getRequests({ status: 'open', limit: 50 }), // Get community requests (open only)
+        requestService.getRequests(communityRequestParams), // Get community requests (open only, with optional type filter)
         requestService.getRequests({ status: 'matched', limit: 50 }), // Get matched requests (for offers I'm helping with)
         communityService.getMyCommunities(userId),
       ])
@@ -238,52 +256,29 @@ export default function Dashboard() {
       // No more deduplication needed! Backend now creates ONE request per logical post
       // (linked to multiple communities via junction table)
 
-      // PRIORITY 1: My Requests with Matched/Accepted Offers (Amber - Highest Priority)
-      const myRequestsMatched = allRequests.filter(
-        (r: HelpRequest) =>
-          r.requester_id === userId &&
-          allMatches.some((m: Match) => m.request_id === r.id && m.status === 'matched')
+      // UPCOMING COMMITMENTS: Accepted matches (moved out of main feed)
+      // Requester side: my requests that have been matched
+      const upcomingAsRequester = allMatches.filter(
+        (m: Match) => m.status === 'matched' &&
+          allRequests.some((r: HelpRequest) => r.id === m.request_id && r.requester_id === userId)
       )
-
-      myRequestsMatched.forEach((request: HelpRequest) => {
-        const matches = allMatches.filter((m: Match) => m.request_id === request.id)
-        feed.push({
-          type: 'post',
-          priority: 1,
-          post: request,
-          comments: matches, // All offers/matches are "comments"
-          isMyPost: true,
-          hasAcceptedOffer: matches.some((m: Match) => m.status === 'matched'),
-          timestamp: request.created_at,
-        })
-      })
-
-      // PRIORITY 2: My Accepted Offers (Blue - I'm helping, they accepted)
-      const myAcceptedOffers = allMatches.filter(
+      // Helper side: offers I made that were accepted
+      const upcomingAsHelper = allMatches.filter(
         (m: Match) => m.responder_id === userId && m.status === 'matched'
       )
-
-      // Get the unique requests for these offers
-      const acceptedOfferRequestIds = new Set(myAcceptedOffers.map((m: Match) => m.request_id))
-      const acceptedOfferRequests = allRequestsCombined.filter((r: HelpRequest) => acceptedOfferRequestIds.has(r.id))
-
-      acceptedOfferRequests.forEach((request: HelpRequest) => {
-        const myMatch = allMatches.find(
-          (m: Match) => m.request_id === request.id && m.responder_id === userId && m.status === 'matched'
-        )
-        if (myMatch) {
-          feed.push({
-            type: 'post',
-            priority: 2,
-            post: request,
-            comments: [myMatch], // Only show my thread with the poster
-            isMyPost: false,
-            isMyOffer: true,
-            myMatch,
-            timestamp: myMatch.created_at, // Sort by when I offered
-          })
+      // Deduplicate (same match can't appear in both)
+      const upcomingMatchIds = new Set<string>()
+      const upcoming: Match[] = []
+      for (const m of [...upcomingAsRequester, ...upcomingAsHelper]) {
+        if (!upcomingMatchIds.has(m.id)) {
+          upcomingMatchIds.add(m.id)
+          upcoming.push(m)
         }
-      })
+      }
+      setUpcomingMatches(upcoming)
+
+      // Accepted request IDs to exclude from feed
+      const acceptedMatchRequestIds = new Set(upcoming.map((m: Match) => m.request_id))
 
       // PRIORITY 3: My Requests with Pending Offers (Amber)
       const myRequestsPending = allRequests.filter(
@@ -312,7 +307,9 @@ export default function Dashboard() {
       )
 
       const pendingOfferRequestIds = new Set(myPendingOffers.map((m: Match) => m.request_id))
-      const pendingOfferRequests = allRequestsCombined.filter((r: HelpRequest) => pendingOfferRequestIds.has(r.id))
+      const pendingOfferRequests = allRequestsCombined.filter(
+        (r: HelpRequest) => pendingOfferRequestIds.has(r.id) && !acceptedMatchRequestIds.has(r.id)
+      )
 
       pendingOfferRequests.forEach((request: HelpRequest) => {
         const myMatch = allMatches.find(
@@ -951,12 +948,82 @@ export default function Dashboard() {
               </div>
             </div>
 
+                {/* Upcoming Commitments */}
+                <UpcomingPanel
+                  matches={upcomingMatches}
+                  currentUserId={user.id}
+                  onComplete={handleCompleteMatch}
+                />
+
                 {/* Feed Header */}
-                <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center justify-between mb-3 relative">
                   <h2 className="text-lg font-bold text-text">Your Feed</h2>
-                  <button className="text-xs text-text-subtle hover:text-text-muted">
-                    Filter
+                  <button
+                    onClick={() => setShowFilter((v) => !v)}
+                    className={`text-xs px-2.5 py-1 rounded-md border transition-colors ${
+                      showFilter || filterTrustDistance || filterRequestType
+                        ? 'bg-primary text-white border-primary'
+                        : 'text-text-subtle border-border hover:bg-border-light'
+                    }`}
+                  >
+                    {filterTrustDistance || filterRequestType ? '✓ Filtered' : 'Filter'}
                   </button>
+
+                  {showFilter && (
+                    <div className="absolute right-0 top-8 z-10 bg-surface-raised border border-border rounded-xl shadow-lg p-4 w-64" data-testid="filter-panel">
+                      <p className="text-xs font-semibold text-text-muted uppercase tracking-wide mb-3">Filter Feed</p>
+
+                      <div className="mb-3">
+                        <p className="text-xs text-text-subtle mb-1.5">Trust distance</p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {[
+                            { label: 'Direct', value: '1' },
+                            { label: '2nd degree', value: '2' },
+                            { label: 'Community', value: '3' },
+                            { label: 'All', value: '' },
+                          ].map(({ label, value }) => (
+                            <button
+                              key={label}
+                              onClick={() => setFilterTrustDistance(value)}
+                              className={`px-2.5 py-1 text-xs rounded-md border transition-colors ${
+                                filterTrustDistance === value
+                                  ? 'bg-primary text-white border-primary'
+                                  : 'text-text-muted border-border hover:bg-border-light'
+                              }`}
+                            >
+                              {label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="mb-3">
+                        <p className="text-xs text-text-subtle mb-1.5">Request type</p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {[{ value: '', label: 'All' }, ...availableTypes].map(({ value, label }) => (
+                            <button
+                              key={value || 'all'}
+                              onClick={() => setFilterRequestType(value)}
+                              className={`px-2.5 py-1 text-xs rounded-md border transition-colors ${
+                                filterRequestType === value
+                                  ? 'bg-primary text-white border-primary'
+                                  : 'text-text-muted border-border hover:bg-border-light'
+                              }`}
+                            >
+                              {label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <button
+                        onClick={() => { setFilterTrustDistance(''); setFilterRequestType(''); setShowFilter(false) }}
+                        className="text-xs text-text-subtle hover:text-text-muted"
+                      >
+                        Clear filters
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 {/* Milestone Posts - Compact */}
