@@ -417,7 +417,7 @@ export const requestService = {
     requestApi.delete(`/offers/${id}`, { data: { user_id } }),
 
   // Matches
-  getMatches: (params?: { request_id?: string; offer_id?: string; status?: string; limit?: number; offset?: number }) =>
+  getMatches: (params?: { request_id?: string; offer_id?: string; status?: string; user_id?: string; limit?: number; offset?: number }) =>
     requestApi.get('/matches', { params }),
 
   getMatch: (id: string) =>

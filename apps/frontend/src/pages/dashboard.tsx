@@ -218,7 +218,7 @@ export default function Dashboard() {
       // Fetch all data in parallel
       const [myRequestsRes, allMatchesRes, suggestedRes, matchedRequestsRes, communitiesRes] = await Promise.all([
         requestService.getRequests({ requester_id: userId, limit: 50 }), // Get MY requests (all statuses)
-        requestService.getMatches({ limit: 100 }),
+        requestService.getMatches({ user_id: userId, limit: 200 }),
         requestService.getRequests(communityRequestParams), // Get community requests (open only, with optional type filter)
         requestService.getRequests({ status: 'matched', limit: 50 }), // Get matched requests (for offers I'm helping with)
         communityService.getMyCommunities(userId),

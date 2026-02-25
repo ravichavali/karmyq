@@ -15,7 +15,7 @@ const router = Router();
 // GET /matches - Get all matches
 router.get('/', async (req: Request, res: Response) => {
   try {
-    const { request_id, offer_id, status, limit = 50, offset = 0 } = req.query;
+    const { request_id, offer_id, status, user_id, limit = 50, offset = 0 } = req.query;
 
     let queryText = `
       SELECT
@@ -54,6 +54,12 @@ router.get('/', async (req: Request, res: Response) => {
     if (status) {
       queryText += ` AND m.status = $${paramCount}`;
       params.push(status);
+      paramCount++;
+    }
+
+    if (user_id) {
+      queryText += ` AND (r.requester_id = $${paramCount} OR m.responder_id = $${paramCount})`;
+      params.push(user_id);
       paramCount++;
     }
 
