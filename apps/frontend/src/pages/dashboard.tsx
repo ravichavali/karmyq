@@ -100,6 +100,7 @@ export default function Dashboard() {
   // Quick create state
   const [description, setDescription] = useState('')
   const [postingMode, setPostingMode] = useState<'all' | 'specific'>('all')
+  const [visibilityScope, setVisibilityScope] = useState<'community' | 'trust_network' | 'platform'>('community')
   const [selectedCommunity, setSelectedCommunity] = useState<string>('')
   const [userCommunities, setUserCommunities] = useState<Community[]>([])
   const [creating, setCreating] = useState(false)
@@ -616,6 +617,7 @@ export default function Dashboard() {
         request_type: requestType ?? 'generic',
         urgency,
         payload: Object.keys(payload).length > 0 ? payload : undefined,
+        visibility_scope: visibilityScope,
       }
 
       // DEBUG: Log what we're sending
@@ -636,6 +638,7 @@ export default function Dashboard() {
       setParsedRequest(null)
       setPostingMode('all')
       setSelectedCommunity('')
+      setVisibilityScope('community')
       setRequestType('generic')
       setCurrentSchema(null)
       setDynamicPayload({})
@@ -916,6 +919,30 @@ export default function Dashboard() {
                       </select>
                     </div>
                   )}
+                  <div className="mt-2">
+                    <p className="text-xs text-text-subtle mb-1.5">Who can see this request?</p>
+                    <div className="flex items-center gap-2">
+                      {([
+                        { value: 'community', label: '🏘 Community', title: 'My community only' },
+                        { value: 'trust_network', label: '🤝 Trust network', title: 'My connections up to 3°' },
+                        { value: 'platform', label: '🌐 Everyone', title: 'All Karmyq members' },
+                      ] as const).map(({ value, label, title }) => (
+                        <button
+                          key={value}
+                          type="button"
+                          onClick={() => setVisibilityScope(value)}
+                          title={title}
+                          className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
+                            visibilityScope === value
+                              ? 'bg-primary-light text-primary-dark'
+                              : 'bg-border-light text-text-muted hover:bg-gray-200'
+                          }`}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>

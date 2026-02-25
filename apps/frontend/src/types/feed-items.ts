@@ -34,6 +34,8 @@ export interface OpenRequestData {
   requirements?: Record<string, string | number | boolean>;
   preferred_start_date?: string;
   required_skills?: string[];
+  requesterKarma?: number;
+  requesterTrustScore?: number;
 }
 
 export interface SuggestedRequestData {

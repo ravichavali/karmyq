@@ -1,6 +1,7 @@
 import React from 'react';
 import Link from 'next/link';
 import TrustPathBadge, { TrustPathBadgeSkeleton } from '../TrustPathBadge';
+import KarmaBadge from '../KarmaBadge';
 import { useTrustPath } from '../../hooks/useTrustPath';
 import RequestPayloadRenderer from './RequestPayloadRenderer';
 import {
@@ -155,6 +156,7 @@ function OpenRequestItem({ data, itemId, onDismiss }: OpenRequestItemProps) {
             <span>Posted by {data.author_name}</span>
             {loadingPath && <TrustPathBadgeSkeleton compact />}
             {!loadingPath && trustPath && <TrustPathBadge trustPath={trustPath} compact />}
+            <KarmaBadge karma={data.requesterKarma ?? 0} trustScore={data.requesterTrustScore} />
             <span>•</span>
             <span>{data.community_name}</span>
             <span>•</span>
