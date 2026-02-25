@@ -400,12 +400,31 @@ export async function getUserTrustScore(user_id: string, community_id: string) {
     [user_id, community_id]
   );
 
-  return result.rows[0] || {
+  if (result.rows[0]) {
+    return result.rows[0];
+  }
+
+  // No trust score row yet — compute from karma records so existing karma is reflected
+  const karmaResult = await query(
+    `SELECT
+       SUM(points) as total_karma,
+       COUNT(CASE WHEN reason = 'Provided help' THEN 1 END) as offers_accepted,
+       COUNT(CASE WHEN reason = 'Received help' THEN 1 END) as requests_completed
+     FROM reputation.karma_records
+     WHERE user_id = $1 AND community_id = $2`,
+    [user_id, community_id]
+  );
+
+  const row = karmaResult.rows[0];
+  const total_karma = parseInt(row?.total_karma || 0);
+  const karma_contribution = Math.min(50, Math.floor(total_karma / 10));
+
+  return {
     user_id,
     community_id,
-    score: 50, // Default score
-    requests_completed: 0,
-    offers_accepted: 0,
+    score: 50 + karma_contribution,
+    requests_completed: parseInt(row?.requests_completed || 0),
+    offers_accepted: parseInt(row?.offers_accepted || 0),
     avg_helpfulness: 0,
     avg_responsiveness: 0,
     avg_clarity: 0,
