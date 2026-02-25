@@ -1,5 +1,17 @@
 {
   "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node -e \"const p = process.env.CLAUDE_TOOL_INPUT_FILE_PATH || ''; const m = p.replace(/\\\\\\\\/g, '/').match(/services\\/([^/]+)\\//); if (m) { const fs = require('fs'); const r = 'services/' + m[1] + '/.claude/README.md'; if (fs.existsSync(r)) { console.error('\\n⚠️  PROCESS REMINDER: Read ' + r + ' before editing this service.\\n   Use the Read tool on that file first, then proceed.\\n'); } }\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
     "PostToolUse": [
       {
         "matcher": "Edit|Write",
@@ -9,6 +21,12 @@
             "command": "npx tsc --noEmit --pretty 2>&1 | head -20",
             "timeout": 30,
             "statusMessage": "Type-checking with TypeScript..."
+          },
+          {
+            "type": "command",
+            "command": "node -e \"const p = process.env.CLAUDE_TOOL_INPUT_FILE_PATH || ''; const normalized = p.replace(/\\\\\\\\/g, '/'); if (normalized.includes('/services/') && !normalized.includes('/CONTEXT.md') && !normalized.includes('/.claude/') && !normalized.includes('/dist/')) { try { require('child_process').execSync('npm run feedback:check 2>&1 | tail -15', { stdio: 'inherit', cwd: process.cwd() }); } catch(e) {} }\"",
+            "timeout": 20,
+            "statusMessage": "Running feedback loop check..."
           }
         ]
       }
