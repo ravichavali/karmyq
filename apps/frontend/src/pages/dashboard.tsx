@@ -134,6 +134,8 @@ export default function Dashboard() {
   const [expandedPosts, setExpandedPosts] = useState<Set<string>>(new Set())
   const [activeCommunityId, setActiveCommunityId] = useState<string>('')
 
+  const [karmaRefreshKey, setKarmaRefreshKey] = useState(0)
+
   // Filter state
   const [showFilter, setShowFilter] = useState(false)
   const [filterTrustDistance, setFilterTrustDistance] = useState<string>('')
@@ -717,6 +719,7 @@ export default function Dashboard() {
       await requestService.completeMatch(matchId, user.id)
       // Refresh data to show completed status
       await fetchDashboardData(user.id)
+      setKarmaRefreshKey((k) => k + 1)
     } catch (error: any) {
       console.error('Error completing match:', error)
       alert(error.response?.data?.message || 'Failed to mark complete')
@@ -767,6 +770,7 @@ export default function Dashboard() {
                     user={user}
                     communities={userCommunities}
                     activeCommunityId={activeCommunityId || userCommunities[0]?.id}
+                    karmaRefreshKey={karmaRefreshKey}
                   />
                 </div>
               </div>

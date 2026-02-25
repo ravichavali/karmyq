@@ -18,6 +18,7 @@ interface LeftSidebarProps {
   user: User
   communities: Community[]
   activeCommunityId?: string
+  karmaRefreshKey?: number
 }
 
 interface KarmaData {
@@ -26,7 +27,7 @@ interface KarmaData {
   rank?: string
 }
 
-export default function LeftSidebar({ user, communities, activeCommunityId }: LeftSidebarProps) {
+export default function LeftSidebar({ user, communities, activeCommunityId, karmaRefreshKey }: LeftSidebarProps) {
   const router = useRouter()
   const [karmaData, setKarmaData] = useState<KarmaData | null>(null)
 
@@ -50,7 +51,7 @@ export default function LeftSidebar({ user, communities, activeCommunityId }: Le
     }
 
     fetchKarma()
-  }, [user?.id, activeCommunityId])
+  }, [user?.id, activeCommunityId, karmaRefreshKey])
 
   const getTrustColor = (score: number) => {
     if (score >= 80) return 'from-karmyq-green-500 to-karmyq-green-700'
