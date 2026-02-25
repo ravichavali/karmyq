@@ -20,7 +20,9 @@ router.get('/', async (req: Request, res: Response) => {
     let queryText = `
       SELECT
         m.id, m.request_id, m.offer_id, m.responder_id, m.status, m.created_at, m.completed_at,
+        m.scheduled_at, m.travel_time_minutes,
         r.title as request_title, r.description as request_description, r.category as request_category,
+        r.request_type, r.payload,
         r.requester_id, req_user.name as requester_name,
         o.title as offer_title,
         o.offerer_id, help_user.name as helper_name,
