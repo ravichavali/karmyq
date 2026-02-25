@@ -122,13 +122,12 @@ describe('Karma Service - Cross-Community Karma (ADR-031)', () => {
         call => call[0].includes('INSERT INTO reputation.karma_records')
       );
 
-      // Helper: 10 * (70/100) = 7 points
+      // ADR-035: fixed pool (100pts), 70/30 split → helper=70, requester=30
       expect(insertCalls[0][1]).toContain('user-responder');
-      expect(insertCalls[0][1]).toContain(7);
+      expect(insertCalls[0][1]).toContain(70);
 
-      // Requester: 5 * (30/100) = 2 points (rounded)
       expect(insertCalls[1][1]).toContain('user-requester');
-      expect(insertCalls[1][1]).toContain(2);
+      expect(insertCalls[1][1]).toContain(30);
     });
 
     it('should use default splits when community has no config', async () => {
@@ -158,11 +157,9 @@ describe('Karma Service - Cross-Community Karma (ADR-031)', () => {
         call => call[0].includes('INSERT INTO reputation.karma_records')
       );
 
-      // Default: 60/40 split
-      // Helper: 10 * (60/100) = 6
-      expect(insertCalls[0][1]).toContain(6);
-      // Requester: 5 * (40/100) = 2
-      expect(insertCalls[1][1]).toContain(2);
+      // ADR-035: fixed pool (100pts), default 60/40 split → helper=60, requester=40
+      expect(insertCalls[0][1]).toContain(60);
+      expect(insertCalls[1][1]).toContain(40);
     });
 
     it('should award karma in multiple shared communities', async () => {
@@ -172,19 +169,27 @@ describe('Karma Service - Cross-Community Karma (ADR-031)', () => {
         mockResult([]),
       ];
 
+      // ADR-035: configs are fetched via Promise.all BEFORE the loop begins
       mockQuery
         // getSharedRequestCommunities - two communities
         .mockResolvedValueOnce(mockResult([
           { community_id: 'comm-A' },
           { community_id: 'comm-B' },
         ]))
-        // --- Community A ---
-        // config
+        // --- Both configs fetched upfront via Promise.all ---
+        // config comm-A
         .mockResolvedValueOnce(mockResult([{
           karma_split_helper: 80,
           karma_split_requestor: 20,
           base_karma_pool_per_request: 100,
         }]))
+        // config comm-B
+        .mockResolvedValueOnce(mockResult([{
+          karma_split_helper: 50,
+          karma_split_requestor: 50,
+          base_karma_pool_per_request: 100,
+        }]))
+        // --- Community A loop ---
         // recordKarma helper, requester
         .mockResolvedValueOnce(mockResult([]))
         .mockResolvedValueOnce(mockResult([]))
@@ -195,13 +200,7 @@ describe('Karma Service - Cross-Community Karma (ADR-031)', () => {
       for (const m of tsm('1', '2')) mockQuery.mockResolvedValueOnce(m);
 
       mockQuery
-        // --- Community B ---
-        // config
-        .mockResolvedValueOnce(mockResult([{
-          karma_split_helper: 50,
-          karma_split_requestor: 50,
-          base_karma_pool_per_request: 100,
-        }]))
+        // --- Community B loop ---
         // recordKarma helper, requester
         .mockResolvedValueOnce(mockResult([]))
         .mockResolvedValueOnce(mockResult([]))
@@ -369,7 +368,10 @@ describe('getUserTrustScore', () => {
   });
 
   it('should return default score of 50 for new users with no karma', async () => {
-    mockQuery.mockResolvedValueOnce(mockResult([]));
+    // ADR-035: getUserTrustScore now runs two queries — karma records + cached trust_scores
+    mockQuery
+      .mockResolvedValueOnce(mockResult([{ total_karma: null, offers_accepted: '0', requests_completed: '0' }]))
+      .mockResolvedValueOnce(mockResult([])); // no cached row yet
 
     const trustScore = await getUserTrustScore('user-new', 'community-123');
 

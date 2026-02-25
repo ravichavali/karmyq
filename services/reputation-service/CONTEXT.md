@@ -3,9 +3,13 @@
 > **Quick Start**: `cd services/reputation-service && npm run dev`
 > **Port**: 3004 | **Health**: http://localhost:3004/health
 
+## Recent Changes
+
+- **2026-02-25 (ADR-035)**: Karma now uses a fixed-pool model — `BASE_KARMA_POOL` points divided across shared communities, preventing multi-community inflation. Trust score formula abstracted into `trustScoreStrategy.ts` and now incorporates feedback ratings alongside karma. See [ADR-035](../../docs/adr/ADR-035-karma-allocation-trust-score-strategy.md).
+
 ## Purpose
 
-Manages user karma points, trust scores, and badges within communities. Automatically awards karma when help exchanges are completed. Prevents gaming the system through milestone bonuses and trust score calculations.
+Manages user karma points, trust scores, and badges within communities. Automatically awards karma when help exchanges are completed via a fixed-pool allocation strategy (ADR-035). Prevents gaming through milestone bonuses, trust score calculations, and community-scoped karma.
 
 ## Database Schema
 
@@ -127,35 +131,52 @@ CREATE INDEX idx_milestone_events_type ON reputation.milestone_events(milestone_
 - `communities.communities` - Community names for karma history
 - `requests.help_requests` - Get community_id from request when match completed
 
-## Karma Points Configuration
+## Karma Points Configuration (ADR-035)
 
-Karma points are awarded automatically when help exchanges are completed:
+Karma is awarded via a **fixed-pool model** — a total of `BASE_KARMA_POOL` points (default: 100) is allocated per interaction, divided across all shared communities. This prevents inflation for users in many communities.
 
-| Action | Points | Description |
-|--------|--------|-------------|
-| Provided Help | 10 | Awarded to helper when match completed |
-| Received Help | 5 | Awarded to requester when match completed |
-| First Help Bonus | 15 | Bonus for first time helping in a community |
-| 10 Exchanges Milestone | 25 | Bonus for completing 10 help exchanges |
-| 50 Exchanges Milestone | 50 | Bonus for completing 50 help exchanges |
-| 100 Exchanges Milestone | 100 | Bonus for completing 100 help exchanges |
+**Pool distribution:**
+- Total pool is split equally across shared communities (up to `MAX_COMMUNITIES_PER_KARMA_AWARD = 3`)
+- Each community applies its configured helper/requester split ratio to its share
+- Largest-remainder rounding ensures integer awards sum exactly to the pool
 
-**Configuration:** `src/services/karmaService.ts:11-18`
+**Per-community split (community-configurable):**
+| Role | Default split | Description |
+|------|--------------|-------------|
+| Helper (responder) | 60% of community share | Awarded for providing help |
+| Requester | 40% of community share | Awarded for receiving help |
 
-## Trust Score Calculation
+**Bonus awards (fixed, not from pool):**
+| Milestone | Points | Description |
+|-----------|--------|-------------|
+| First Help Bonus | 15 | First time helping in a community |
+| 10 Exchanges | 25 | Completing 10 help exchanges |
+| 50 Exchanges | 50 | Completing 50 help exchanges |
+| 100 Exchanges | 100 | Completing 100 help exchanges |
 
-Trust score ranges from 0-100 and is calculated per community:
+**Tuning surface:** `src/services/karmaAllocation.ts` — `allocateKarma(configs, totalPool)`
+**Configuration defaults:** `src/services/karmaService.ts` — `KARMA_DEFAULTS`
 
-- **Base score:** 50 (everyone starts here)
-- **Karma contribution:** min(50, floor(total_karma / 10))
-- **Final score:** 50 + karma_contribution
+## Trust Score Calculation (ADR-035)
 
-**Example:**
-- User with 0 karma: score = 50
-- User with 100 karma: score = 60
-- User with 500 karma: score = 100 (maxed out)
+Trust score ranges from 50–100 and is calculated per community from multiple signals:
 
-**Implementation:** `src/services/karmaService.ts:152-154`
+```
+score = 50 + karma_contribution + feedback_contribution
+karma_contribution  = min(40, floor(total_karma / 10))   → 0–40 pts
+feedback_contribution = round((avg_feedback / 5) × 10)   → 0–10 pts  (0 if no feedback yet)
+```
+
+**Examples:**
+- No karma, no feedback: score = 50
+- 100 karma, no feedback: score = 60
+- 400 karma, no feedback: score = 90 (karma capped)
+- 400 karma + 5.0 feedback: score = 100 (maximum)
+
+**Feedback score** is the average of `avg_helpfulness`, `avg_responsiveness`, `avg_clarity` from `reputation.trust_scores`.
+
+**Tuning surface:** `src/services/trustScoreStrategy.ts` — `computeTrustScore(inputs: TrustScoreInputs)`
+**Future signals stubbed in interface:** `direct_connection_count`, `days_active_last_30`, `community_tenure_days`
 
 ## API Endpoints
 
@@ -448,11 +469,12 @@ The reputation service automatically awards karma by listening to events from ot
 
 When a match is completed, the reputation service:
 
-1. Awards 10 points to the helper (responder)
-2. Awards 5 points to the requester
-3. Checks if this is helper's first help in the community (+15 bonus)
-4. Checks for milestone bonuses (10, 50, 100 exchanges)
-5. Updates trust scores for both users
+1. Finds shared communities (request communities ∩ both users' active memberships, max 3)
+2. Calls `allocateKarma(communityConfigs, BASE_KARMA_POOL)` to compute per-community integer awards
+3. Awards helper and requester karma in each shared community (fixed pool, no inflation)
+4. Checks if this is helper's first help in the community (+15 bonus)
+5. Checks for milestone bonuses (10, 50, 100 exchanges)
+6. Updates trust scores for both users via `computeTrustScore()`
 
 **Event Handler:** `src/events/subscriber.ts:12`
 
