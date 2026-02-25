@@ -76,7 +76,11 @@
       "Bash(/c/Users/ravic/development/karmyq/docs/concepts/community-design.md:*)",
       "Bash(/c/Users/ravic/development/karmyq/docs/guides/getting-started-guide.md:*)",
       "Bash(/c/Users/ravic/development/karmyq/docs/guides/making-requests-guide.md:*)",
-      "Bash(/c/Users/ravic/development/karmyq/docs/guides/fulfilling-requests-guide.md:*)"
+      "Bash(/c/Users/ravic/development/karmyq/docs/guides/fulfilling-requests-guide.md:*)",
+      "Bash(npm audit fix)",
+      "Bash(npm audit fix --force)",
+      "Bash(npx jest tests/tdd/UpcomingPanel.test.tsx --no-coverage)",
+      "Bash(npx jest tests/tdd/ --no-coverage)"
     ],
     "deny": [],
     "ask": []
