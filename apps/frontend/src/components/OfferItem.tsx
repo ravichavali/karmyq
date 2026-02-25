@@ -50,12 +50,12 @@ export default function OfferItem({
             {comment.responder_name?.charAt(0).toUpperCase() || '?'}
           </div>
           <div className="min-w-0">
-            <p className="font-medium text-text flex items-center gap-1 flex-wrap">
-              <span className="truncate max-w-[160px] sm:max-w-none">{comment.responder_name || 'Unknown'}</span>
+            <p className="font-medium text-text truncate">{comment.responder_name || 'Unknown'}</p>
+            <div className="flex items-center gap-1 flex-wrap">
+              <p className="text-xs text-text-subtle">offered {formatTime(comment.created_at)}</p>
               {!loadingOfferPath && offerTrustPath && <TrustPathBadge trustPath={offerTrustPath} compact />}
               {loadingOfferPath && <TrustPathBadgeSkeleton compact />}
-            </p>
-            <p className="text-xs text-text-subtle">offered {formatTime(comment.created_at)}</p>
+            </div>
           </div>
         </div>
 
