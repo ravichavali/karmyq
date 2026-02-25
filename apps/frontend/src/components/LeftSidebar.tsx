@@ -41,7 +41,7 @@ export default function LeftSidebar({ user, communities, activeCommunityId }: Le
         ])
         setKarmaData({
           total_karma: karmaRes.data?.data?.total_karma || 0,
-          trust_score: trustRes.data?.data?.score || 0,
+          trust_score: trustRes.data?.data?.score ?? 0,
           rank: karmaRes.data?.data?.rank,
         })
       } catch (err) {

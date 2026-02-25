@@ -552,9 +552,9 @@ export const reputationService = {
 
   // Get trust score
   getTrustScore: (userId: string, communityId?: string) =>
-    reputationApi.get(`/reputation/trust/${userId}`, {
-      headers: communityId ? { 'X-Community-ID': communityId } : {},
-    }),
+    communityId
+      ? reputationApi.get(`/reputation/trust/${userId}/${communityId}`)
+      : Promise.resolve({ data: { success: true, data: null } }),
 
   // Get leaderboard
   getLeaderboard: (communityId: string, params?: { limit?: number }) =>
