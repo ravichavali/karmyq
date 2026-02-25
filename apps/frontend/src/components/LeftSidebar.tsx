@@ -36,14 +36,16 @@ export default function LeftSidebar({ user, communities, activeCommunityId, karm
       if (!user?.id) return
 
       try {
-        const [karmaRes, trustRes] = await Promise.all([
+        const [karmaResult, trustResult] = await Promise.allSettled([
           reputationService.getKarma(user.id, activeCommunityId),
           reputationService.getTrustScore(user.id, activeCommunityId),
         ])
+        const karma = karmaResult.status === 'fulfilled' ? karmaResult.value.data : null
+        const trust = trustResult.status === 'fulfilled' ? trustResult.value.data : null
         setKarmaData({
-          total_karma: karmaRes.data?.data?.total_karma || 0,
-          trust_score: trustRes.data?.data?.score ?? 0,
-          rank: karmaRes.data?.data?.rank,
+          total_karma: karma?.total_karma || 0,
+          trust_score: trust?.score ?? 0,
+          rank: karma?.rank,
         })
       } catch (err) {
         console.error('Failed to fetch karma:', err)

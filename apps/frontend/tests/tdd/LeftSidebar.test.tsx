@@ -25,10 +25,10 @@ describe('LeftSidebar', () => {
 
   it('shows karma points fetched from API', async () => {
     reputationService.getKarma.mockResolvedValue({
-      data: { data: { total_karma: 42, rank: undefined } },
+      data: { total_karma: 42, rank: undefined },
     });
     reputationService.getTrustScore.mockResolvedValue({
-      data: { data: { score: 65 } },
+      data: { score: 65 },
     });
 
     render(<LeftSidebar user={user} communities={communities} />);
@@ -40,10 +40,10 @@ describe('LeftSidebar', () => {
 
   it('shows trust score fetched from API', async () => {
     reputationService.getKarma.mockResolvedValue({
-      data: { data: { total_karma: 10 } },
+      data: { total_karma: 10 },
     });
     reputationService.getTrustScore.mockResolvedValue({
-      data: { data: { score: 75 } },
+      data: { score: 75 },
     });
 
     render(<LeftSidebar user={user} communities={communities} />);
@@ -66,8 +66,8 @@ describe('LeftSidebar', () => {
   });
 
   it('calls getKarma and getTrustScore with user id', async () => {
-    reputationService.getKarma.mockResolvedValue({ data: { data: {} } });
-    reputationService.getTrustScore.mockResolvedValue({ data: { data: {} } });
+    reputationService.getKarma.mockResolvedValue({ data: {} });
+    reputationService.getTrustScore.mockResolvedValue({ data: {} });
 
     render(<LeftSidebar user={user} communities={communities} activeCommunityId="comm-1" />);
 
