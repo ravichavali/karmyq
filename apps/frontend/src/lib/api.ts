@@ -430,8 +430,8 @@ export const requestService = {
   }) =>
     requestApi.post('/matches', data),
 
-  acceptMatch: (id: string, user_id: string) =>
-    requestApi.put(`/matches/${id}/accept`, { user_id }),
+  acceptMatch: (id: string, user_id: string, travel_time_minutes?: number) =>
+    requestApi.put(`/matches/${id}/accept`, { user_id, ...(travel_time_minutes !== undefined && { travel_time_minutes }) }),
 
   rejectMatch: (id: string, user_id: string) =>
     requestApi.put(`/matches/${id}/reject`, { user_id }),

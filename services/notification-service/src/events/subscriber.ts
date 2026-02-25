@@ -240,6 +240,45 @@ export async function initEventSubscriber() {
       }
     });
 
+    // Process match_reminder events (published by cleanup-service cron job)
+    eventQueue.process('match_reminder', async (job) => {
+      console.log('Processing match_reminder event:', job.data);
+
+      const { payload } = job.data;
+      const { match_id, responder_id, request_title, request_type, scheduled_at, travel_time_minutes } = payload;
+
+      try {
+        const departureDate = new Date(scheduled_at);
+        const departureTime = departureDate.toLocaleTimeString('en-US', {
+          hour: 'numeric',
+          minute: '2-digit',
+          timeZone: 'UTC',
+        });
+        const departureDay = departureDate.toLocaleDateString('en-US', {
+          month: 'short',
+          day: 'numeric',
+          timeZone: 'UTC',
+        });
+
+        const isRide = request_type === 'ride';
+        const title = `Time to leave — ${request_title}`;
+        const body = isRide
+          ? `Pickup is at ${departureTime} on ${departureDay}. Head to the pickup spot now!`
+          : `Your commitment starts at ${departureTime} on ${departureDay}. Time to get ready!`;
+
+        await createNotification({
+          user_id: responder_id,
+          type: 'match_reminder',
+          data: { match_id, scheduled_at, request_type, request_title, travel_time_minutes },
+        });
+
+        console.log(`✅ match_reminder notification sent to ${responder_id} for match ${match_id}`);
+      } catch (error) {
+        console.error('❌ Failed to process match_reminder event:', error);
+        throw error;
+      }
+    });
+
     console.log('✅ Event subscriber initialized');
   } catch (error) {
     console.error('❌ Event subscriber initialization failed:', error);

@@ -299,6 +299,8 @@ CREATE TABLE requests.matches (
     offer_id UUID REFERENCES requests.help_offers(id) ON DELETE SET NULL,
     responder_id UUID NOT NULL REFERENCES auth.users(id),
     status VARCHAR(50) DEFAULT 'proposed',
+    scheduled_at TIMESTAMPTZ,              -- ADR-033: When match is scheduled (set from request payload on accept)
+    travel_time_minutes INTEGER DEFAULT 60, -- ADR-033: Helper's travel time to pickup (for reminder timing)
     completed_at TIMESTAMP,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP

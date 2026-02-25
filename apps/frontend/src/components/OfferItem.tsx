@@ -2,6 +2,7 @@ import React from 'react';
 import TrustPathBadge, { TrustPathBadgeSkeleton } from './TrustPathBadge';
 import { useTrustPath } from '../hooks/useTrustPath';
 import InlineChat from './InlineChat';
+import FulfillmentPanel from './FulfillmentPanel';
 
 interface Match {
   id: string;
@@ -10,6 +11,10 @@ interface Match {
   responder_name?: string;
   status: string;
   created_at: string;
+  request_type?: string;
+  payload?: Record<string, any>;
+  scheduled_at?: string;
+  request_title?: string;
 }
 
 interface OfferItemProps {
@@ -33,6 +38,9 @@ export default function OfferItem({
 }: OfferItemProps) {
   // Get trust path to the responder
   const { trustPath: offerTrustPath, loading: loadingOfferPath } = useTrustPath(comment.responder_id);
+
+  const showFulfillmentPanel =
+    comment.status === 'matched' && comment.request_type && comment.payload;
 
   return (
     <div className="bg-surface-raised rounded-lg p-4 border border-border">
@@ -90,6 +98,16 @@ export default function OfferItem({
           </span>
         )}
       </div>
+
+      {/* Fulfillment panel (shown after acceptance for structured request types) */}
+      {showFulfillmentPanel && (
+        <FulfillmentPanel
+          requestType={comment.request_type!}
+          payload={comment.payload!}
+          scheduledAt={comment.scheduled_at}
+          requestTitle={comment.request_title}
+        />
+      )}
 
       {/* Inline Chat */}
       {(comment.status === 'proposed' || comment.status === 'matched') && (

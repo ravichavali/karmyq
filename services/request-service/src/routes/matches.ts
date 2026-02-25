@@ -96,9 +96,11 @@ router.get('/:id', async (req: Request, res: Response) => {
 
     const result = await query(
       `SELECT
-        m.id, m.request_id, m.offer_id, m.responder_id, m.status, m.created_at, m.completed_at,
+        m.id, m.request_id, m.offer_id, m.responder_id, m.status,
+        m.scheduled_at, m.travel_time_minutes,
+        m.created_at, m.completed_at,
         r.title as request_title, r.description as request_description,
-        r.category as request_category, r.requester_id,
+        r.category as request_category, r.request_type, r.payload, r.requester_id,
         req_user.name as requester_name, req_user.email as requester_email,
         o.title as offer_title, o.description as offer_description,
         o.offerer_id,
@@ -246,7 +248,7 @@ router.post('/', async (req: Request, res: Response) => {
 router.put('/:id/accept', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { user_id } = req.body;
+    const { user_id, travel_time_minutes = 60 } = req.body;
 
     // Get match details
     const matchCheck = await query(
@@ -284,12 +286,23 @@ router.put('/:id/accept', async (req: Request, res: Response) => {
       });
     }
 
-    // Accept match
+    // Fetch request payload to extract scheduled_at for structured types (e.g. ride departure_time)
+    const requestData = await query(
+      `SELECT request_type, payload FROM requests.help_requests WHERE id = $1`,
+      [match.request_id]
+    );
+    const req_payload = requestData.rows[0];
+    let scheduled_at: string | null = null;
+    if (req_payload?.request_type === 'ride' && req_payload?.payload?.departure_time) {
+      scheduled_at = req_payload.payload.departure_time;
+    }
+
+    // Accept match, store scheduling info
     await query(
       `UPDATE requests.matches
-       SET status = 'matched'
+       SET status = 'matched', scheduled_at = $2, travel_time_minutes = $3
        WHERE id = $1`,
-      [id]
+      [id, scheduled_at, travel_time_minutes]
     );
 
     // Update request status to matched
@@ -308,17 +321,29 @@ router.put('/:id/accept', async (req: Request, res: Response) => {
       [match.request_id, id]
     );
 
+    // Fetch enriched match data for response (includes payload for frontend fulfillment panel)
+    const enriched = await query(
+      `SELECT m.*, r.request_type, r.payload, r.title as request_title
+       FROM requests.matches m
+       JOIN requests.help_requests r ON m.request_id = r.id
+       WHERE m.id = $1`,
+      [id]
+    );
+
     // Publish event
     await publishEvent('match_accepted', {
       match_id: id,
       request_id: match.request_id,
       requester_id: match.requester_id,
       responder_id: match.responder_id,
+      request_type: req_payload?.request_type,
+      scheduled_at,
     });
 
     res.json({
       success: true,
       message: 'Match accepted successfully',
+      data: enriched.rows[0],
     });
   } catch (error: any) {
     console.error('Error accepting match:', error);

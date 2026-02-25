@@ -148,7 +148,7 @@
       "slug": "adr-019-referral-chain-trust",
       "number": "019",
       "title": "ADR-019: Referral Chain Trust System",
-      "status": "proposed",
+      "status": "implemented",
       "description": "**Date**: 2025-12-29",
       "filename": "ADR-019-referral-chain-trust.md"
     },
@@ -247,6 +247,14 @@
       "status": "proposed",
       "description": "**Status**: Proposed",
       "filename": "ADR-033-offer-fulfillment-workflow.md"
+    },
+    {
+      "slug": "adr-034-multi-layer-trust-computation",
+      "number": "034",
+      "title": "ADR-034: Multi-Layer Trust Path Computation",
+      "status": "implemented",
+      "description": "**Date**: 2026-02-24",
+      "filename": "ADR-034-multi-layer-trust-computation.md"
     }
   ]
 }

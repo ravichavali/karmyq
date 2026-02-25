@@ -13,7 +13,8 @@ export type NotificationType =
   | 'community_invite'
   | 'join_request'
   | 'norm_proposed'
-  | 'feedback_received';
+  | 'feedback_received'
+  | 'match_reminder';
 
 export type NotificationPriority = 'low' | 'medium' | 'high' | 'critical';
 
@@ -174,6 +175,23 @@ export const notificationTemplates: Record<NotificationType, NotificationTemplat
     icon: 'star',
     ctaLabel: 'View Feedback',
     actionUrl: (data) => `/profile/feedback`,
+    channels: { in_app: true, push: true, email: false },
+  },
+  match_reminder: {
+    type: 'match_reminder',
+    priority: 'high',
+    title: (data) => `Time to leave — ${data.request_title || 'your commitment'}`,
+    body: (data) => {
+      const time = data.scheduled_at
+        ? new Date(data.scheduled_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+        : 'soon';
+      return data.request_type === 'ride'
+        ? `Pickup is at ${time}. Head to the pickup spot now!`
+        : `Your commitment starts at ${time}. Time to get ready!`;
+    },
+    icon: 'clock',
+    ctaLabel: 'View Details',
+    actionUrl: (data) => `/dashboard`,
     channels: { in_app: true, push: true, email: false },
   },
 };

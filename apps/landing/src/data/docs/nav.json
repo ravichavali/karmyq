@@ -91,16 +91,16 @@
           "href": "/docs/concepts/trust-score"
         },
         {
+          "label": "How Trust Paths Work",
+          "href": "/docs/concepts/trust-paths"
+        },
+        {
           "label": "Why Reputation Decays",
           "href": "/docs/concepts/reputation-decay"
         },
         {
           "label": "How Communities Work",
           "href": "/docs/concepts/community-design"
-        },
-        {
-          "label": "How Trust Paths Work",
-          "href": "/docs/concepts/trust-paths"
         }
       ]
     },

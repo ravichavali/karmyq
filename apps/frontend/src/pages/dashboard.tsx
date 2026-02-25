@@ -85,6 +85,10 @@ interface Match {
   responder_name?: string
   requester_name?: string
   request_description?: string
+  request_type?: string
+  payload?: Record<string, any>
+  scheduled_at?: string
+  request_title?: string
 }
 
 interface Community {

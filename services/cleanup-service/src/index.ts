@@ -11,6 +11,7 @@ import {
   cleanupActivityLogs,
   generateDecayReport,
 } from './jobs/reputationDecayJob';
+import { sendMatchReminders } from './jobs/matchReminderJob';
 import pool from './database/db';
 
 dotenv.config();
@@ -190,6 +191,19 @@ app.get('/jobs/decay-report', adminRateLimiter, adminAuthMiddleware, async (req:
 });
 
 // ============= SCHEDULED JOBS =============
+
+/**
+ * Match Reminder Job
+ * Runs every 15 minutes. Sends departure reminders to helpers based on scheduled_at - travel_time_minutes.
+ */
+cron.schedule('*/15 * * * *', async () => {
+  logger.info('Cron: Running match reminder job');
+  try {
+    await sendMatchReminders();
+  } catch (error) {
+    logger.error('Scheduled match reminder job failed', { error });
+  }
+});
 
 /**
  * Mark Expired Data Job
