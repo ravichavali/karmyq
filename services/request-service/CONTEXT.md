@@ -189,6 +189,8 @@ CREATE TABLE requests.matches (
 
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     completed_at TIMESTAMP,
+    requester_done_at TIMESTAMP,   -- set when requester clicks Done (migration 017)
+    responder_done_at TIMESTAMP,   -- set when responder clicks Done (migration 017)
     UNIQUE(request_id, offer_id)
 );
 
@@ -966,24 +968,40 @@ Create a match between request and responder.
 
 **Implementation:** `src/routes/matches.ts:113`
 
-#### PUT /matches/:id
-Update match status.
+#### PUT /matches/:id/complete
+Two-phase match completion. Each party calls this independently; the match
+only becomes `completed` and karma fires when **both** parties have confirmed.
 
 **Request:**
 ```json
 {
-  "status": "completed",
   "user_id": "uuid"
 }
 ```
 
-**Authorization:** Only requester or responder can update
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "fully_completed": false,
+    "waiting_for": "helper"
+  },
+  "message": "Your completion recorded — waiting for the other party"
+}
+```
 
-**Side Effects:** When status set to 'completed', also updates request status
+**Authorization:** Only requester or responder can complete
 
-**Events Published:** `match.completed`
+**Side Effects (first party only):** Sets `requester_done_at` or `responder_done_at` timestamp
+
+**Side Effects (both parties):** Sets `status = 'completed'`, updates request status, fires `match_completed` event
+
+**Events Published:** `match_completed` (only when both parties have confirmed)
 
 **Implementation:** `src/routes/matches.ts`
+
+**Schema changes (migration 017):** Added `requester_done_at TIMESTAMP` and `responder_done_at TIMESTAMP` to `requests.matches`
 
 ### 3.4 Interaction Feedback (Social Karma v2.0)
 
