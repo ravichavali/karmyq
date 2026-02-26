@@ -242,6 +242,10 @@
         {
           "label": "Karma Allocation Strategy and Trust Score Abstract",
           "href": "/docs/concepts/adr-035-karma-allocation-trust-score-strategy"
+        },
+        {
+          "label": "Private Feedback Model — Trust Without Rating Economies",
+          "href": "/docs/concepts/adr-036-private-feedback-model"
         }
       ]
     },

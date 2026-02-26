@@ -1,6 +1,8 @@
 import { Router, Request, Response } from 'express';
 import { getUserKarma, getUserKarmaWithDecay, getUserTrustScore, getCommunityLeaderboard } from '../services/karmaService';
 import { query } from '../database/db';
+import { insertFeedback, hasSubmittedFeedback, getAvgFeedback } from '../database/feedbackDb';
+import { computeTrustScore } from '../services/trustScoreStrategy';
 import { authMiddleware, AuthenticatedRequest } from '@karmyq/shared/middleware/auth';
 
 const router = Router();
@@ -207,6 +209,67 @@ router.get('/me/karma', authMiddleware, async (req: AuthenticatedRequest, res: R
       message: 'Failed to fetch karma',
       error: error.message,
     });
+  }
+});
+
+// POST /reputation/feedback - Submit private feedback rating after a completed match
+// Ratings are internal trust signals — never exposed to users (ADR-036)
+router.post('/feedback', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const fromUserId = req.user?.userId;
+    if (!fromUserId) {
+      return res.status(401).json({ success: false, message: 'Authentication required' });
+    }
+
+    const { match_id, to_user_id, community_id, rating } = req.body;
+
+    if (!match_id || !to_user_id || !community_id) {
+      return res.status(400).json({ success: false, message: 'match_id, to_user_id, and community_id are required' });
+    }
+
+    const ratingNum = parseInt(rating);
+    if (!ratingNum || ratingNum < 1 || ratingNum > 5) {
+      return res.status(400).json({ success: false, message: 'rating must be an integer between 1 and 5' });
+    }
+
+    // Prevent double-submission
+    const alreadySubmitted = await hasSubmittedFeedback(fromUserId, match_id);
+    if (alreadySubmitted) {
+      return res.status(409).json({ success: false, message: 'Feedback already submitted for this match' });
+    }
+
+    // Store feedback
+    await insertFeedback(fromUserId, to_user_id, match_id, community_id, ratingNum);
+
+    // Recompute trust score for the rated user using updated avg feedback
+    const avgFeedback = await getAvgFeedback(to_user_id);
+
+    const karmaResult = await query(
+      `SELECT COALESCE(SUM(points), 0) AS total_karma FROM reputation.karma_records WHERE user_id = $1 AND community_id = $2`,
+      [to_user_id, community_id],
+    );
+    const total_karma = parseInt(karmaResult.rows[0].total_karma);
+
+    const interactionsResult = await query(
+      `SELECT COUNT(*) AS count FROM reputation.karma_records WHERE user_id = $1 AND community_id = $2 AND reason IN ('Provided help', 'Received help')`,
+      [to_user_id, community_id],
+    );
+    const interactions_completed = parseInt(interactionsResult.rows[0].count);
+
+    const score = computeTrustScore({ total_karma, interactions_completed, avg_feedback_score: avgFeedback });
+
+    await query(
+      `INSERT INTO reputation.trust_scores (user_id, community_id, score, last_updated)
+       VALUES ($1, $2, $3, CURRENT_TIMESTAMP)
+       ON CONFLICT (user_id, community_id)
+       DO UPDATE SET score = $3, last_updated = CURRENT_TIMESTAMP`,
+      [to_user_id, community_id, score],
+    );
+
+    res.json({ success: true, data: { score } });
+  } catch (error: any) {
+    console.error('Error submitting feedback:', error);
+    res.status(500).json({ success: false, message: 'Failed to submit feedback', error: error.message });
   }
 });
 

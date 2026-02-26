@@ -606,6 +606,8 @@ export const reputationService = {
       params,
       headers: { 'X-Community-ID': communityId },
     }),
+  submitFeedback: (data: { match_id: string; to_user_id: string; community_id: string; rating: number }) =>
+    reputationApi.post('/reputation/feedback', data),
 }
 
 // User Settings API Methods (Auth Service)

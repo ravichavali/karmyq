@@ -82,6 +82,7 @@ interface Match {
   id: string
   request_id: string
   responder_id: string
+  requester_id?: string
   status: string
   created_at: string
   responder_name?: string
@@ -269,13 +270,14 @@ export default function Dashboard() {
       const upcomingAsHelper = allMatches.filter(
         (m: Match) => m.responder_id === userId && m.status === 'matched'
       )
-      // Deduplicate (same match can't appear in both)
+      // Deduplicate (same match can't appear in both) and augment with requester_id for feedback
       const upcomingMatchIds = new Set<string>()
       const upcoming: Match[] = []
       for (const m of [...upcomingAsRequester, ...upcomingAsHelper]) {
         if (!upcomingMatchIds.has(m.id)) {
           upcomingMatchIds.add(m.id)
-          upcoming.push(m)
+          const req = allRequests.find((r: HelpRequest) => r.id === m.request_id)
+          upcoming.push({ ...m, requester_id: req?.requester_id })
         }
       }
       setUpcomingMatches(upcoming)
@@ -957,6 +959,7 @@ export default function Dashboard() {
                 <UpcomingPanel
                   matches={upcomingMatches}
                   currentUserId={user.id}
+                  activeCommunityId={activeCommunityId}
                   onComplete={handleCompleteMatch}
                 />
 

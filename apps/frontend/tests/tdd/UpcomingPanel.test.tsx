@@ -10,6 +10,13 @@ jest.mock('../../src/components/FulfillmentPanel', () => ({
   ),
 }));
 
+const mockSubmitFeedback = jest.fn().mockResolvedValue({});
+jest.mock('../../src/lib/api', () => ({
+  reputationService: {
+    submitFeedback: (...args: any[]) => mockSubmitFeedback(...args),
+  },
+}));
+
 const makeMatch = (overrides: Partial<{
   id: string;
   request_id: string;
@@ -26,6 +33,7 @@ const makeMatch = (overrides: Partial<{
   id: 'match-1',
   request_id: 'req-1',
   responder_id: 'helper-user',
+  requester_id: 'requester-user',
   status: 'matched',
   created_at: '2026-02-24T10:00:00Z',
   responder_name: 'Alice',
@@ -203,5 +211,133 @@ describe('UpcomingPanel', () => {
       />
     );
     expect(screen.queryByTestId('fulfillment-panel')).not.toBeInTheDocument();
+  });
+
+  describe('feedback rating (private signal)', () => {
+    beforeEach(() => {
+      jest.useFakeTimers();
+      mockSubmitFeedback.mockClear();
+    });
+
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    it('shows rating prompt after Done confirmation delay', () => {
+      render(
+        <UpcomingPanel
+          matches={[makeMatch()]}
+          currentUserId="helper-user"
+          activeCommunityId="community-1"
+          onComplete={jest.fn()}
+        />
+      );
+      fireEvent.click(screen.getByText(/✓ Done/i));
+      act(() => jest.advanceTimersByTime(1200));
+      expect(screen.getByTestId('rating-prompt')).toBeInTheDocument();
+    });
+
+    it('renders 5 star buttons in rating prompt', () => {
+      render(
+        <UpcomingPanel
+          matches={[makeMatch()]}
+          currentUserId="helper-user"
+          activeCommunityId="community-1"
+          onComplete={jest.fn()}
+        />
+      );
+      fireEvent.click(screen.getByText(/✓ Done/i));
+      act(() => jest.advanceTimersByTime(1200));
+      expect(screen.getByTestId('star-1')).toBeInTheDocument();
+      expect(screen.getByTestId('star-5')).toBeInTheDocument();
+    });
+
+    it('calls submitFeedback with correct args when a star is clicked (helper rating requester)', async () => {
+      render(
+        <UpcomingPanel
+          matches={[makeMatch({ id: 'match-99', responder_id: 'helper-user', requester_id: 'requester-user' })]}
+          currentUserId="helper-user"
+          activeCommunityId="community-1"
+          onComplete={jest.fn()}
+        />
+      );
+      fireEvent.click(screen.getByText(/✓ Done/i));
+      act(() => jest.advanceTimersByTime(1200));
+      fireEvent.click(screen.getByTestId('star-4'));
+      expect(mockSubmitFeedback).toHaveBeenCalledWith({
+        match_id: 'match-99',
+        to_user_id: 'requester-user',
+        community_id: 'community-1',
+        rating: 4,
+      });
+    });
+
+    it('calls submitFeedback rating the responder when current user is the requester', async () => {
+      render(
+        <UpcomingPanel
+          matches={[makeMatch({ id: 'match-99', responder_id: 'helper-user', requester_id: 'requester-user' })]}
+          currentUserId="requester-user"
+          activeCommunityId="community-1"
+          onComplete={jest.fn()}
+        />
+      );
+      fireEvent.click(screen.getByText(/✓ Done/i));
+      act(() => jest.advanceTimersByTime(1200));
+      fireEvent.click(screen.getByTestId('star-5'));
+      expect(mockSubmitFeedback).toHaveBeenCalledWith({
+        match_id: 'match-99',
+        to_user_id: 'helper-user',
+        community_id: 'community-1',
+        rating: 5,
+      });
+    });
+
+    it('hides rating prompt after Skip is clicked', () => {
+      render(
+        <UpcomingPanel
+          matches={[makeMatch()]}
+          currentUserId="helper-user"
+          activeCommunityId="community-1"
+          onComplete={jest.fn()}
+        />
+      );
+      fireEvent.click(screen.getByText(/✓ Done/i));
+      act(() => jest.advanceTimersByTime(1200));
+      expect(screen.getByTestId('rating-prompt')).toBeInTheDocument();
+      fireEvent.click(screen.getByTestId('skip-rating'));
+      expect(screen.queryByTestId('rating-prompt')).not.toBeInTheDocument();
+    });
+
+    it('does not call submitFeedback when Skip is clicked', () => {
+      render(
+        <UpcomingPanel
+          matches={[makeMatch()]}
+          currentUserId="helper-user"
+          activeCommunityId="community-1"
+          onComplete={jest.fn()}
+        />
+      );
+      fireEvent.click(screen.getByText(/✓ Done/i));
+      act(() => jest.advanceTimersByTime(1200));
+      fireEvent.click(screen.getByTestId('skip-rating'));
+      expect(mockSubmitFeedback).not.toHaveBeenCalled();
+    });
+
+    it('hides rating prompt after a star is clicked', async () => {
+      render(
+        <UpcomingPanel
+          matches={[makeMatch()]}
+          currentUserId="helper-user"
+          activeCommunityId="community-1"
+          onComplete={jest.fn()}
+        />
+      );
+      fireEvent.click(screen.getByText(/✓ Done/i));
+      act(() => jest.advanceTimersByTime(1200));
+      await act(async () => {
+        fireEvent.click(screen.getByTestId('star-3'));
+      });
+      expect(screen.queryByTestId('rating-prompt')).not.toBeInTheDocument();
+    });
   });
 });
