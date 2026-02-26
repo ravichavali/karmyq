@@ -72,6 +72,7 @@ When code implementing an ADR is deployed, update the status from `Accepted` →
 - [ADR-034: Multi-Layer Trust Path Computation](ADR-034-multi-layer-trust-computation.md) — Implemented
 - [ADR-035: Karma Allocation Strategy and Trust Score Abstraction](ADR-035-karma-allocation-trust-score-strategy.md) — Implemented
 - [ADR-036: Private Feedback Model — Trust Without Rating Economies](ADR-036-private-feedback-model.md) — Accepted
+- [ADR-037: Multi-Signal Trust Score — Bonding Capital, Bridging Capital, and Community-Configurable Floors](ADR-037-multi-signal-trust-score.md) — Accepted (Implementation Pending)
 
 ## Creating a New ADR
 

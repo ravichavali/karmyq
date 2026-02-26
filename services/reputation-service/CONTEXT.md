@@ -157,9 +157,13 @@ Karma is awarded via a **fixed-pool model** — a total of `BASE_KARMA_POOL` poi
 **Tuning surface:** `src/services/karmaAllocation.ts` — `allocateKarma(configs, totalPool)`
 **Configuration defaults:** `src/services/karmaService.ts` — `KARMA_DEFAULTS`
 
-## Trust Score Calculation (ADR-035)
+## Trust Score Calculation
 
-Trust score ranges from 50–100 and is calculated per community from multiple signals:
+> ⚠️ **Interim model** (ADR-035). The target model is defined in [ADR-037](../../docs/adr/ADR-037-multi-signal-trust-score.md) and will replace this in the next implementation sprint.
+
+### Current formula (ADR-035, interim)
+
+Trust score ranges from 50–100:
 
 ```
 score = 50 + karma_contribution + feedback_contribution
@@ -167,16 +171,28 @@ karma_contribution  = min(40, floor(total_karma / 10))   → 0–40 pts
 feedback_contribution = round((avg_feedback / 5) × 10)   → 0–10 pts  (0 if no feedback yet)
 ```
 
-**Examples:**
-- No karma, no feedback: score = 50
-- 100 karma, no feedback: score = 60
-- 400 karma, no feedback: score = 90 (karma capped)
-- 400 karma + 5.0 feedback: score = 100 (maximum)
-
-**Feedback score** is the average of `avg_helpfulness`, `avg_responsiveness`, `avg_clarity` from `reputation.trust_scores`.
-
 **Tuning surface:** `src/services/trustScoreStrategy.ts` — `computeTrustScore(inputs: TrustScoreInputs)`
-**Future signals stubbed in interface:** `direct_connection_count`, `days_active_last_30`, `community_tenure_days`
+
+### Target formula (ADR-037, pending implementation)
+
+Multi-signal model ranging from `community_floor` (0 or -50) to 100:
+
+```
+volume_score  = min(30, log2(interactions + 1) × 10)      → 0–30 pts
+quality_score = round((avg_feedback / 5) × 25)             → 0–25 pts
+depth_score   = min(15, repeat_pairs × 2) × depth_weight   → 0–15 pts
+breadth_score = (distinct_people + distinct_communities)    → 0–20 pts
+               × breadth_weight
+bonus_score   = 5 if threshold_met else 0                  → 0–5 pts
+trust_score   = clamp(raw_score, floor, 100)
+```
+
+Key changes:
+- **No artificial base of 50** — new users start at 0 (genuinely unknown, not presumed trustworthy)
+- **Karma removed** as trust input — `interactions_completed` is the direct volume signal
+- **Depth** (repeat pairs) and **breadth** (distinct people + communities) added — community-weighted
+- **Community floor mode**: restorative (floor 0) or punitive (floor -50) per `trust_negative_allowed` config
+- `trust_depth_weight` and `trust_breadth_weight` from `community_configs` now active
 
 ## API Endpoints
 
