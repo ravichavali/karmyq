@@ -367,15 +367,15 @@ describe('getUserTrustScore', () => {
     jest.clearAllMocks();
   });
 
-  it('should return default score of 50 for new users with no karma', async () => {
-    // ADR-035: getUserTrustScore now runs two queries — karma records + cached trust_scores
+  it('should return 0 for new users with no karma and no feedback', async () => {
+    // New users start at 0, not 50 — all tiers are reachable from the bottom
     mockQuery
       .mockResolvedValueOnce(mockResult([{ total_karma: null, offers_accepted: '0', requests_completed: '0' }]))
-      .mockResolvedValueOnce(mockResult([])); // no cached row yet
+      .mockResolvedValueOnce(mockResult([])); // no feedback rows yet
 
     const trustScore = await getUserTrustScore('user-new', 'community-123');
 
-    expect(trustScore.score).toBe(50);
+    expect(trustScore.score).toBe(0);
     expect(trustScore.requests_completed).toBe(0);
     expect(trustScore.offers_accepted).toBe(0);
   });

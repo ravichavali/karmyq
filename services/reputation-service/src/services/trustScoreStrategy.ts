@@ -24,23 +24,29 @@ export interface TrustScoreInputs {
 /**
  * Compute a trust score (0–100) from multi-factor inputs.
  *
- * Current formula:
- *   base = 50 (everyone starts here)
- *   karma_contribution = min(40, floor(total_karma / 10))   → 0–40 pts
- *   feedback_contribution = round((avg_feedback / 5) × 10) → 0–10 pts
- *   score = base + karma_contribution + feedback_contribution
+ * Current formula (interim — ADR-037 replaces this with a multi-signal model):
+ *   karma_contribution  = min(80, floor(total_karma / 10) × 2)  → 0–80 pts
+ *   feedback_contribution = round((avg_feedback / 5) × 20)       → 0–20 pts
+ *   score = max(0, min(100, karma_contribution + feedback_contribution))
  *
- * Range: 50 (no karma, no feedback) → 100 (max karma + perfect feedback)
+ * Range: 0 (new user) → 100 (max karma + perfect feedback)
+ * Approximate milestones:
+ *   ~200 karma, no feedback   → ~40  (Building tier)
+ *   ~200 karma, good feedback → ~55  (Reliable tier)
+ *   ~400 karma, good feedback → ~95+ (Trusted tier)
+ *
+ * New users start at 0, not an artificial 50 — the tiers New/Building/Reliable/Trusted
+ * are all reachable from below.
  *
  * When avg_feedback_score is null (no feedback received yet), it contributes 0.
  */
 export function computeTrustScore(inputs: TrustScoreInputs): number {
-  const karmaContribution = Math.min(40, Math.floor(inputs.total_karma / 10));
+  const karmaContribution = Math.min(80, Math.floor(inputs.total_karma / 10) * 2);
 
   const feedbackContribution =
     inputs.avg_feedback_score != null
-      ? Math.round((inputs.avg_feedback_score / 5) * 10)
+      ? Math.round((inputs.avg_feedback_score / 5) * 20)
       : 0;
 
-  return 50 + karmaContribution + feedbackContribution;
+  return Math.max(0, Math.min(100, karmaContribution + feedbackContribution));
 }
