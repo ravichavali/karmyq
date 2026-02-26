@@ -14,6 +14,7 @@ import OfferItem from '@/components/OfferItem'
 import TrustPathBadge, { TrustPathBadgeSkeleton } from '@/components/TrustPathBadge'
 import { useTrustPath } from '@/hooks/useTrustPath'
 import UpcomingPanel from '@/components/UpcomingPanel'
+import FeedFilterPanel from '@/components/FeedFilterPanel'
 
 function FeedPostTrustBadge({ requesterId }: { requesterId?: string }) {
   const { trustPath, loading } = useTrustPath(requesterId)
@@ -974,59 +975,14 @@ export default function Dashboard() {
                   </button>
 
                   {showFilter && (
-                    <div className="absolute right-0 top-8 z-10 bg-surface-raised border border-border rounded-xl shadow-lg p-4 w-64" data-testid="filter-panel">
-                      <p className="text-xs font-semibold text-text-muted uppercase tracking-wide mb-3">Filter Feed</p>
-
-                      <div className="mb-3">
-                        <p className="text-xs text-text-subtle mb-1.5">Trust distance</p>
-                        <div className="flex flex-wrap gap-1.5">
-                          {[
-                            { label: 'Direct', value: '1' },
-                            { label: '2nd degree', value: '2' },
-                            { label: 'Community', value: '3' },
-                            { label: 'All', value: '' },
-                          ].map(({ label, value }) => (
-                            <button
-                              key={label}
-                              onClick={() => setFilterTrustDistance(value)}
-                              className={`px-2.5 py-1 text-xs rounded-md border transition-colors ${
-                                filterTrustDistance === value
-                                  ? 'bg-primary text-white border-primary'
-                                  : 'text-text-muted border-border hover:bg-border-light'
-                              }`}
-                            >
-                              {label}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-
-                      <div className="mb-3">
-                        <p className="text-xs text-text-subtle mb-1.5">Request type</p>
-                        <div className="flex flex-wrap gap-1.5">
-                          {[{ value: '', label: 'All' }, ...availableTypes].map(({ value, label }) => (
-                            <button
-                              key={value || 'all'}
-                              onClick={() => setFilterRequestType(value)}
-                              className={`px-2.5 py-1 text-xs rounded-md border transition-colors ${
-                                filterRequestType === value
-                                  ? 'bg-primary text-white border-primary'
-                                  : 'text-text-muted border-border hover:bg-border-light'
-                              }`}
-                            >
-                              {label}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-
-                      <button
-                        onClick={() => { setFilterTrustDistance(''); setFilterRequestType(''); setShowFilter(false) }}
-                        className="text-xs text-text-subtle hover:text-text-muted"
-                      >
-                        Clear filters
-                      </button>
-                    </div>
+                    <FeedFilterPanel
+                      filterTrustDistance={filterTrustDistance}
+                      filterRequestType={filterRequestType}
+                      availableTypes={availableTypes}
+                      onTrustDistanceChange={setFilterTrustDistance}
+                      onRequestTypeChange={setFilterRequestType}
+                      onClear={() => { setFilterTrustDistance(''); setFilterRequestType(''); setShowFilter(false) }}
+                    />
                   )}
                 </div>
 

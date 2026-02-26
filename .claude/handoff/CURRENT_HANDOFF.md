@@ -1,75 +1,94 @@
-# Sprint 2: Feed UX Redesign
+# Sprint 3: Feed Filter — COMPLETE ✅
+
+## Handoff Document for New Conversation
+
+**Date**: 2026-02-25
+**Current Version**: v9.1.0
+**Feature**: Sprint 3 complete; ready for Sprint 4
+
+---
 
 ## Context
-**Current Version**: v9.1.0
-**Status**: COMPLETE ✅ (implemented 2026-02-24)
 
-Sprint 1 is complete (invitation URL fix, karma guide language, trust score on profile). Sprint 2 focuses on making the feed actionable — separating items that need attention from accepted commitments.
+### What We Just Completed (this session)
+- ✅ **ADR-035 debt closed**: Unit tests for `allocateKarma()` and `computeTrustScore()` — 41 TDD tests passing in reputation-service
+- ✅ **CONTEXT.md updated** for reputation-service to reflect ADR-035 (fixed pool model, new trust score formula)
+- ✅ **Process automations shipped**:
+  - `.claude/settings.json`: PreToolUse hook warns on service file edit without reading README; PostToolUse hook runs `feedback:check` after writes
+  - `.claude/agents/process-reviewer.md`: subagent that checks compliance before commit
+  - `.claude/skills/pre-commit-check/SKILL.md`: user-invocable `/pre-commit-check` skill
+  - `.claude/skills/update-handoff/SKILL.md`: user/claude-invocable `/update-handoff` skill
+- ✅ **Sprint 3 feed filter**: Filter panel extracted to `FeedFilterPanel` component; 15 TDD tests pass; filter fully wired in dashboard
 
----
-
-## What Needs to Be Built
-
-### 1. Collapsible "Upcoming Commitments" section (above feed)
-- Shows accepted matches where the user is helper OR requester
-- Expanded by default when active matches exist, collapsible
-- Each item shows: request title, other party's name, scheduled time (for rides), FulfillmentPanel-style summary
-- When no active matches: section is hidden entirely
-
-### 2. Feed = action-required items only
-Current feed mixes accepted matches with pending items. After this sprint:
-- **Show**: Pending offers on your requests (needs accept/decline), pending offers you made (awaiting response), community requests you haven't responded to
-- **Remove from main feed**: Accepted matches (they move to Upcoming Commitments)
-
-### 3. Wire the Filter button (currently a stub)
-- Trust level filter: Direct / 2nd degree / Community / All
-- Request type filter: ride / service / event / borrow / generic
-- Server-side `/requests/curated` already supports `feed_weight_trust_distance` — just needs params passed through
+### Why Key Decisions Were Made
+- **FeedFilterPanel extracted**: Filter panel was inline in `dashboard.tsx`. Extracting it to a pure component made it trivially testable without mocking 10+ services. Props: `filterTrustDistance`, `filterRequestType`, `availableTypes`, `onTrustDistanceChange`, `onRequestTypeChange`, `onClear`.
+- **`update-handoff` skill created**: Ensures handoff discipline across sessions — invoke `/update-handoff` at end of any session.
 
 ---
 
-## Key Files
+## Current State (v9.1.0)
 
-### Dashboard (main file to change)
-- `apps/frontend/src/pages/dashboard.tsx` — lines 241–362 contain the 5-tier priority sort logic. This needs to be split: accepted matches → UpcomingPanel, rest stays in feed.
+### ✅ Already Implemented
+- Fixed karma pool model (`karmaAllocation.ts`) — divides 100pt pool across shared communities
+- Trust score abstraction (`trustScoreStrategy.ts`) — formula: `50 + min(40,floor(karma/10)) + round((avg_feedback/5)×10)`
+- Collapsible UpcomingPanel (accepted matches above feed)
+- Feed = action-required items only (accepted matches excluded)
+- Feed filter UI: trust distance (Direct/2nd/Community/All) + request type filter
+- Filter wired to `/requests/curated` API params (`trust_distance`, `request_type`)
+- Process enforcement automations (hooks, subagent, skill)
 
-### New component to create
-- `apps/frontend/src/components/UpcomingPanel.tsx` — collapsible section showing accepted matches
+### ❌ Not Yet Implemented (Sprint 4 candidates)
+- Feedback rating UI after match completion (reputation service supports it, no frontend form yet)
+- Notification panel / real-time notifications (notification-service exists but no frontend)
+- Social graph features (social-graph-service exists, no frontend wiring)
+- Mobile app parity with web dashboard features
+
+---
+
+## Key Files Reference
+
+### Filter (just shipped)
+- `apps/frontend/src/components/FeedFilterPanel.tsx` — new pure component, testable
+- `apps/frontend/tests/tdd/FeedFilterPanel.test.tsx` — 15 tests
+- `apps/frontend/src/pages/dashboard.tsx` lines 139-142 — filter state; lines 185-191 — re-fetch effect; ~line 976 — `<FeedFilterPanel>` usage
+
+### Reputation engine
+- `services/reputation-service/src/services/karmaAllocation.ts` — tuning surface for karma distribution
+- `services/reputation-service/src/services/trustScoreStrategy.ts` — tuning surface for trust score
+- `services/reputation-service/tests/tdd/` — 41 tests (karmaAllocation, trustScoreStrategy, karmaService)
 
 ### API
-- `apps/frontend/src/lib/api.ts` — `requestService.getCurated()` needs optional `trust_distance` and `request_type` filter params
-
-### Existing components to reuse
-- `apps/frontend/src/components/FulfillmentPanel.tsx` — can be used inside UpcomingPanel for ride details
-- `apps/frontend/src/components/TrustPathBadge.tsx` — already used inline, reuse in UpcomingPanel
+- `apps/frontend/src/lib/api.ts` line 405 — `getCuratedRequests` already accepts `trust_distance` and `request_type`
 
 ---
 
-## Decisions Already Made
+## Quick Start for Next Session
 
-1. **Layout**: Collapsible "Upcoming Commitments" section sits **above** the feed. Expanded by default when matches exist, collapses when dismissed (use localStorage to persist collapsed state).
-2. **Feed content**: Only action-required items. Accepted matches are NOT in the main feed.
-3. **Filter UI**: Wire existing Filter button stub to a dropdown/panel with trust level + request type options.
+### To start Sprint 4:
+
+1. **Read frontend context**:
+   ```bash
+   cat apps/frontend/.claude/README.md
+   ```
+
+2. **Pick Sprint 4 feature** — top candidate: **Feedback rating UI**
+   - After match completion, show a 1-5 star rating form
+   - POST to `reputation-service /reputation/feedback`
+   - This completes the trust score feedback loop (currently `avg_feedback_score` is never populated from user input)
+
+3. **Run tests to confirm baseline**:
+   ```bash
+   cd apps/frontend && npx jest tests/tdd/
+   ```
 
 ---
 
-## Tests Required (per CLAUDE.md checklist)
-- `UpcomingPanel` renders with matches, empty state when none
-- Collapses/expands correctly
-- Feed no longer shows `status === 'matched'` items
-- Filter params are passed to curated API call
+## Success Definition
 
----
+Sprint 3 is done:
+- ✅ Feed filter wired to API
+- ✅ FeedFilterPanel component extracted and tested (15 tests)
+- ✅ ADR-035 strategy modules tested (41 tests)
+- ✅ Process automations in place
 
-## Quick Start
-
-```bash
-# Read local frontend context first
-cat apps/frontend/.claude/README.md
-
-# Check current dashboard sort logic
-# Lines 241-362 in apps/frontend/src/pages/dashboard.tsx
-
-# Run existing tests to make sure baseline passes
-cd apps/frontend && npx jest tests/tdd/
-```
+Next: Sprint 4 — Feedback rating UI (recommended) or notification bell.
