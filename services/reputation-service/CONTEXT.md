@@ -447,6 +447,34 @@ Enhanced trust score with interaction quality (UPDATED).
 
 ---
 
+### POST /reputation/feedback (Authenticated)
+Submit a private quality rating after a completed interaction. Ratings are internal trust signals — never exposed to users (ADR-036).
+
+**Request Body:**
+```json
+{
+  "match_id": "uuid",
+  "to_user_id": "uuid",
+  "community_id": "uuid",
+  "rating": 4
+}
+```
+- `rating`: integer 1–5
+- Prevents duplicate submission for the same match
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": { "score": 72 }
+}
+```
+Returns the updated trust score for the rated user.
+
+**Side effects**: Recomputes `avg_feedback` from all feedback records for `to_user_id`, then upserts `reputation.trust_scores` with the new computed score.
+
+---
+
 ### GET /health
 Service health check.
 
