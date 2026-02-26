@@ -70,6 +70,13 @@ export default function LeftSidebar({ user, communities, activeCommunityId, karm
     return 'New'
   }
 
+  const getTrustRange = (score: number) => {
+    if (score >= 80) return '80–100'
+    if (score >= 60) return '60–79'
+    if (score >= 40) return '40–59'
+    return '0–39'
+  }
+
   return (
     <div className="space-y-4">
       {/* User Karma Card */}
@@ -95,8 +102,15 @@ export default function LeftSidebar({ user, communities, activeCommunityId, karm
             className="w-full bg-surface-raised/10 backdrop-blur-sm rounded-lg p-3 hover:bg-surface-raised/20 transition-colors"
           >
             <div className="flex items-center justify-between mb-1">
-              <span className="text-sm opacity-90">Trust Score</span>
-              <span className="text-lg font-bold">{karmaData?.trust_score || 0}</span>
+              <div>
+                <span className="text-sm font-semibold">
+                  {getTrustLabel(karmaData?.trust_score || 0)}
+                </span>
+                <span className="text-xs opacity-70 ml-1.5">
+                  ({getTrustRange(karmaData?.trust_score || 0)})
+                </span>
+              </div>
+              <span className="text-xs opacity-60">{karmaData?.trust_score || 0}/100</span>
             </div>
             <div className="bg-surface-raised/20 rounded-full h-2">
               <div

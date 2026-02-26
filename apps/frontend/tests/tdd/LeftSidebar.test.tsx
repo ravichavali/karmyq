@@ -49,7 +49,10 @@ describe('LeftSidebar', () => {
     render(<LeftSidebar user={user} communities={communities} />);
 
     await waitFor(() => {
-      expect(screen.getByText('75')).toBeInTheDocument();
+      // Score 75 → "Reliable" label (60–79 band) + "75/100" numeric indicator
+      expect(screen.getByText('75/100')).toBeInTheDocument();
+      // "Reliable" appears in both the header sub-title and the score section
+      expect(screen.getAllByText('Reliable').length).toBeGreaterThan(0);
     });
   });
 

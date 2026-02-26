@@ -92,6 +92,8 @@ interface Match {
   payload?: Record<string, any>
   scheduled_at?: string
   request_title?: string
+  requester_done_at?: string | null
+  responder_done_at?: string | null
 }
 
 interface Community {
@@ -273,14 +275,21 @@ export default function Dashboard() {
       // (linked to multiple communities via junction table)
 
       // UPCOMING COMMITMENTS: Accepted matches (moved out of main feed)
+      // Exclude matches where the current user has already marked done — they're waiting
+      // for the other party, so there's nothing left for this user to act on.
+      const userAlreadyDone = (m: Match) => {
+        const isRequester = allRequests.some((r: HelpRequest) => r.id === m.request_id && r.requester_id === userId)
+        return isRequester ? !!m.requester_done_at : !!m.responder_done_at
+      }
       // Requester side: my requests that have been matched
       const upcomingAsRequester = allMatches.filter(
         (m: Match) => m.status === 'matched' &&
-          allRequests.some((r: HelpRequest) => r.id === m.request_id && r.requester_id === userId)
+          allRequests.some((r: HelpRequest) => r.id === m.request_id && r.requester_id === userId) &&
+          !userAlreadyDone(m)
       )
       // Helper side: offers I made that were accepted
       const upcomingAsHelper = allMatches.filter(
-        (m: Match) => m.responder_id === userId && m.status === 'matched'
+        (m: Match) => m.responder_id === userId && m.status === 'matched' && !userAlreadyDone(m)
       )
       // Deduplicate (same match can't appear in both) and augment with requester_id for feedback
       const upcomingMatchIds = new Set<string>()

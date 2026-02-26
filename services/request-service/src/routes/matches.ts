@@ -20,6 +20,7 @@ router.get('/', async (req: Request, res: Response) => {
     let queryText = `
       SELECT
         m.id, m.request_id, m.offer_id, m.responder_id, m.status, m.created_at, m.completed_at,
+        m.requester_done_at, m.responder_done_at,
         m.scheduled_at, m.travel_time_minutes,
         r.title as request_title, r.description as request_description, r.category as request_category,
         r.request_type, r.payload,
@@ -476,32 +477,57 @@ router.put('/:id/complete', async (req: Request, res: Response) => {
       });
     }
 
-    // Complete match
-    await query(
+    const isRequester = match.requester_id === user_id;
+    const doneAtColumn = isRequester ? 'requester_done_at' : 'responder_done_at';
+
+    // Record this party's completion. Use a RETURNING clause to get both done_at
+    // values in a single query so we can check if both parties have now confirmed.
+    const updateResult = await query(
       `UPDATE requests.matches
-       SET status = 'completed', completed_at = CURRENT_TIMESTAMP
-       WHERE id = $1`,
+       SET ${doneAtColumn} = CURRENT_TIMESTAMP
+       WHERE id = $1
+       RETURNING requester_done_at, responder_done_at`,
       [id]
     );
 
-    // Update request status
-    await query(
-      `UPDATE requests.help_requests SET status = 'completed' WHERE id = $1`,
-      [match.request_id]
-    );
+    const updated = updateResult.rows[0];
+    const bothDone = updated.requester_done_at !== null && updated.responder_done_at !== null;
 
-    // Publish event (for karma tracking)
-    await publishEvent('match_completed', {
-      match_id: id,
-      request_id: match.request_id,
-      offer_id: match.offer_id,
-      requester_id: match.requester_id,
-      responder_id: match.responder_id,
-    });
+    if (bothDone) {
+      // Both parties have confirmed — finalize the match
+      await query(
+        `UPDATE requests.matches
+         SET status = 'completed', completed_at = CURRENT_TIMESTAMP
+         WHERE id = $1`,
+        [id]
+      );
+
+      await query(
+        `UPDATE requests.help_requests SET status = 'completed' WHERE id = $1`,
+        [match.request_id]
+      );
+
+      // Publish event once, only when fully complete (karma is awarded here)
+      await publishEvent('match_completed', {
+        match_id: id,
+        request_id: match.request_id,
+        offer_id: match.offer_id,
+        requester_id: match.requester_id,
+        responder_id: match.responder_id,
+      });
+    }
 
     res.json({
       success: true,
-      message: 'Match completed successfully',
+      // Let the frontend know whether the match is fully done or still waiting
+      // for the other party. The frontend uses this to decide what copy to show.
+      data: {
+        fully_completed: bothDone,
+        waiting_for: bothDone ? null : (isRequester ? 'helper' : 'requester'),
+      },
+      message: bothDone
+        ? 'Match completed successfully'
+        : 'Your completion recorded — waiting for the other party',
     });
   } catch (error: any) {
     console.error('Error completing match:', error);

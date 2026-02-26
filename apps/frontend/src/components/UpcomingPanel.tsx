@@ -16,6 +16,8 @@ interface Match {
   payload?: Record<string, any>
   scheduled_at?: string
   request_title?: string
+  requester_done_at?: string | null
+  responder_done_at?: string | null
 }
 
 interface UpcomingPanelProps {
