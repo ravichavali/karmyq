@@ -2,7 +2,7 @@ import { query } from '../database/db';
 import { recordActivity, ActivityType } from '../utils/activityTracker';
 import { allocateKarma, CommunityKarmaConfig } from './karmaAllocation';
 import { computeTrustScore } from './trustScoreStrategy';
-import { getAvgFeedback } from '../database/feedbackDb';
+import { getBlendedAvgFeedback } from '../database/feedbackDb';
 
 interface MatchCompletionData {
   match_id: string;
@@ -409,8 +409,9 @@ export async function getUserTrustScore(user_id: string, community_id: string) {
   const interactions_completed =
     parseInt(karmaRow?.offers_accepted || 0) + parseInt(karmaRow?.requests_completed || 0);
 
-  // Fetch average feedback score from the feedback table (same source as POST /feedback endpoint)
-  const avg_feedback_score = await getAvgFeedback(user_id);
+  // Blended feedback: 70% local (this community) + 30% cross-community (character signal).
+  // Falls back to whichever side has data when only one side exists.
+  const avg_feedback_score = await getBlendedAvgFeedback(user_id, community_id);
 
   const computed_score = computeTrustScore({ total_karma, interactions_completed, avg_feedback_score });
 
