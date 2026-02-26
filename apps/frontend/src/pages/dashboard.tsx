@@ -184,13 +184,13 @@ export default function Dashboard() {
     }).catch(() => { /* silently ignore — built-in types still show */ })
   }, [router])
 
-  // Re-fetch when filters change (skip on initial mount — handled above)
+  // Re-fetch when filters or active community change (skip on initial mount — handled above)
   const filtersInitialized = typeof window !== 'undefined'
   useEffect(() => {
     if (!filtersInitialized || !user) return
     fetchDashboardData(user.id, { trust_distance: filterTrustDistance, request_type: filterRequestType })
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filterTrustDistance, filterRequestType])
+  }, [filterTrustDistance, filterRequestType, activeCommunityId])
 
   const handleCommunityChange = (communityId: string) => {
     setActiveCommunityId(communityId)
@@ -217,11 +217,23 @@ export default function Dashboard() {
       const communityRequestParams: Record<string, any> = { status: 'open', limit: 50 }
       if (filters?.request_type) communityRequestParams.type = filters.request_type
 
+      // When a community is selected, use the curated endpoint (trust-scored, preference-aware).
+      // When no community is selected, fall back to raw fetch across all communities.
+      const currentCommunityId = activeCommunityId || null
+      const suggestedFetch = currentCommunityId
+        ? requestService.getCuratedRequests({
+            community_id: currentCommunityId,
+            trust_distance: filters?.trust_distance || undefined,
+            request_type: filters?.request_type || undefined,
+            limit: 50,
+          })
+        : requestService.getRequests(communityRequestParams)
+
       // Fetch all data in parallel
       const [myRequestsRes, allMatchesRes, suggestedRes, matchedRequestsRes, communitiesRes] = await Promise.all([
         requestService.getRequests({ requester_id: userId, limit: 50 }), // Get MY requests (all statuses)
         requestService.getMatches({ user_id: userId, limit: 200 }),
-        requestService.getRequests(communityRequestParams), // Get community requests (open only, with optional type filter)
+        suggestedFetch, // Community requests — curated when community selected, raw when viewing all
         requestService.getRequests({ status: 'matched', limit: 50 }), // Get matched requests (for offers I'm helping with)
         communityService.getMyCommunities(userId),
       ])
@@ -286,12 +298,15 @@ export default function Dashboard() {
       const acceptedMatchRequestIds = new Set(upcoming.map((m: Match) => m.request_id))
 
       // PRIORITY 3: My Requests with Pending Offers (Amber)
-      const myRequestsPending = allRequests.filter(
-        (r: HelpRequest) =>
-          r.requester_id === userId &&
-          r.status === 'open' &&
-          !allMatches.some((m: Match) => m.request_id === r.id && m.status === 'matched')
-      )
+      // Only show own requests that have engagement — if nobody has responded yet, there's nothing to act on
+      const myRequestsPending = allRequests.filter((r: HelpRequest) => {
+        if (r.requester_id !== userId || r.status !== 'open') return false
+        if (allMatches.some((m: Match) => m.request_id === r.id && m.status === 'matched')) return false
+        const pendingOffers = allMatches.filter(
+          (m: Match) => m.request_id === r.id && m.status !== 'rejected'
+        )
+        return pendingOffers.length > 0
+      })
 
       myRequestsPending.forEach((request: HelpRequest) => {
         const matches = allMatches.filter((m: Match) => m.request_id === request.id && m.status !== 'rejected')
@@ -339,9 +354,13 @@ export default function Dashboard() {
         allMatches.filter((m: Match) => m.responder_id === userId).map((m: Match) => m.request_id)
       )
 
-      const communityReqs = suggestedRequests.filter(
-        (r: HelpRequest) => r.requester_id !== userId && !respondedRequestIds.has(r.id)
-      )
+      const communityReqs = suggestedRequests.filter((r: HelpRequest) => {
+        if (r.requester_id === userId) return false
+        if (respondedRequestIds.has(r.id)) return false
+        // Client-side guard: curated endpoint already scopes by community, but
+        // the raw fallback (all communities view) doesn't — no filter needed there.
+        return true
+      })
 
       communityReqs.forEach((request: HelpRequest) => {
         feed.push({
@@ -774,6 +793,7 @@ export default function Dashboard() {
                     communities={userCommunities}
                     activeCommunityId={activeCommunityId || userCommunities[0]?.id}
                     karmaRefreshKey={karmaRefreshKey}
+                    onCommunityChange={handleCommunityChange}
                   />
                 </div>
               </div>

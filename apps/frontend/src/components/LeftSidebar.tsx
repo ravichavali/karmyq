@@ -19,6 +19,7 @@ interface LeftSidebarProps {
   communities: Community[]
   activeCommunityId?: string
   karmaRefreshKey?: number
+  onCommunityChange?: (communityId: string) => void
 }
 
 interface KarmaData {
@@ -27,7 +28,7 @@ interface KarmaData {
   rank?: string
 }
 
-export default function LeftSidebar({ user, communities, activeCommunityId, karmaRefreshKey }: LeftSidebarProps) {
+export default function LeftSidebar({ user, communities, activeCommunityId, karmaRefreshKey, onCommunityChange }: LeftSidebarProps) {
   const router = useRouter()
   const [karmaData, setKarmaData] = useState<KarmaData | null>(null)
 
@@ -140,7 +141,14 @@ export default function LeftSidebar({ user, communities, activeCommunityId, karm
             return (
               <button
                 key={community.id}
-                onClick={() => router.push(`/communities/${community.id}`)}
+                onClick={() => {
+                  if (onCommunityChange) {
+                    // Toggle: clicking the active community deselects it (show all)
+                    onCommunityChange(community.id === activeCommunityId ? '' : community.id)
+                  } else {
+                    router.push(`/communities/${community.id}`)
+                  }
+                }}
                 className={`w-full text-left px-3 py-2 rounded-lg transition-colors ${
                   isActive
                     ? 'bg-primary-light border-2 border-primary'

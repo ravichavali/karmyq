@@ -2,6 +2,7 @@ import { query } from '../database/db';
 import { recordActivity, ActivityType } from '../utils/activityTracker';
 import { allocateKarma, CommunityKarmaConfig } from './karmaAllocation';
 import { computeTrustScore } from './trustScoreStrategy';
+import { getAvgFeedback } from '../database/feedbackDb';
 
 interface MatchCompletionData {
   match_id: string;
@@ -408,23 +409,8 @@ export async function getUserTrustScore(user_id: string, community_id: string) {
   const interactions_completed =
     parseInt(karmaRow?.offers_accepted || 0) + parseInt(karmaRow?.requests_completed || 0);
 
-  // Fetch feedback averages from cached row if it exists
-  const cached = await query(
-    `SELECT avg_helpfulness, avg_responsiveness, avg_clarity, total_feedback_received, last_updated
-     FROM reputation.trust_scores
-     WHERE user_id = $1 AND community_id = $2`,
-    [user_id, community_id]
-  );
-
-  const cached_row = cached.rows[0];
-
-  // Compute average feedback score from the three dimensions (if any feedback exists)
-  const avg_feedback_score =
-    cached_row?.total_feedback_received > 0
-      ? ((cached_row.avg_helpfulness || 0) +
-          (cached_row.avg_responsiveness || 0) +
-          (cached_row.avg_clarity || 0)) / 3
-      : null;
+  // Fetch average feedback score from the feedback table (same source as POST /feedback endpoint)
+  const avg_feedback_score = await getAvgFeedback(user_id);
 
   const computed_score = computeTrustScore({ total_karma, interactions_completed, avg_feedback_score });
 
@@ -434,11 +420,7 @@ export async function getUserTrustScore(user_id: string, community_id: string) {
     score: computed_score,
     requests_completed: parseInt(karmaRow?.requests_completed || 0),
     offers_accepted: parseInt(karmaRow?.offers_accepted || 0),
-    avg_helpfulness: cached_row?.avg_helpfulness || 0,
-    avg_responsiveness: cached_row?.avg_responsiveness || 0,
-    avg_clarity: cached_row?.avg_clarity || 0,
-    total_feedback_received: cached_row?.total_feedback_received || 0,
-    last_updated: cached_row?.last_updated || null,
+    avg_feedback_score,
   };
 }
 

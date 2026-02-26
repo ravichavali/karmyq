@@ -5,6 +5,8 @@
 
 ## Recent Changes
 
+- **2026-02-26 (bug fix)**: Fixed trust score read path in `karmaService.ts:getUserTrustScore()`. Was reading non-existent columns (`avg_helpfulness`, `avg_responsiveness`, `avg_clarity`) from `reputation.trust_scores`, causing feedback contribution to always be 0 on read. Now calls `getAvgFeedback()` from `feedbackDb.ts` — same source as the POST feedback endpoint — so read and write paths are consistent.
+- **2026-02-25 (ADR-036)**: Private feedback ratings — star picker after match completion. Both parties rate each other via `POST /reputation/feedback`. Feedback feeds into trust score via `avg_feedback_score`. Ratings are never exposed via API.
 - **2026-02-25 (ADR-035)**: Karma now uses a fixed-pool model — `BASE_KARMA_POOL` points divided across shared communities, preventing multi-community inflation. Trust score formula abstracted into `trustScoreStrategy.ts` and now incorporates feedback ratings alongside karma. See [ADR-035](../../docs/adr/ADR-035-karma-allocation-trust-score-strategy.md).
 
 ## Purpose
