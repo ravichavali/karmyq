@@ -338,6 +338,11 @@
           "description": "Enhanced trust score with interaction quality (UPDATED)."
         },
         {
+          "method": "POST",
+          "path": "/reputation/feedback (Authenticated)",
+          "description": "Submit a private quality rating after a completed interaction. Ratings are internal trust signals — never exposed to users (ADR-036)."
+        },
+        {
           "method": "GET",
           "path": "/health",
           "description": "Service health check."

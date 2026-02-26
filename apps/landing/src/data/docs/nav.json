@@ -244,8 +244,12 @@
           "href": "/docs/concepts/adr-035-karma-allocation-trust-score-strategy"
         },
         {
-          "label": "Private Feedback Model — Trust Without Rating Economies",
+          "label": "Private Feedback Model — Trust Without Rating Econ",
           "href": "/docs/concepts/adr-036-private-feedback-model"
+        },
+        {
+          "label": "Multi-Signal Trust Score — Bonding Capital, Bridgi",
+          "href": "/docs/concepts/adr-037-multi-signal-trust-score"
         }
       ]
     },

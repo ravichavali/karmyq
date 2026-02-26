@@ -132,7 +132,7 @@ describe('UpcomingPanel', () => {
     expect(screen.getByTestId('upcoming-panel-items')).toBeInTheDocument();
   });
 
-  it('calls onComplete with match id after confirmation delay', () => {
+  it('shows rating prompt after confirmation delay (onComplete deferred until rated or skipped)', () => {
     jest.useFakeTimers();
     const onComplete = jest.fn();
     render(
@@ -145,7 +145,9 @@ describe('UpcomingPanel', () => {
     fireEvent.click(screen.getByText(/✓ Done/i));
     expect(onComplete).not.toHaveBeenCalled(); // not yet
     act(() => jest.advanceTimersByTime(1200));
-    expect(onComplete).toHaveBeenCalledWith('match-42');
+    // Rating prompt is shown; onComplete is called only after rating or skip
+    expect(screen.getByTestId('rating-prompt')).toBeInTheDocument();
+    expect(onComplete).not.toHaveBeenCalled();
     jest.useRealTimers();
   });
 
@@ -338,6 +340,85 @@ describe('UpcomingPanel', () => {
         fireEvent.click(screen.getByTestId('star-3'));
       });
       expect(screen.queryByTestId('rating-prompt')).not.toBeInTheDocument();
+    });
+
+    it('does NOT call onComplete before rating prompt is shown', () => {
+      const onComplete = jest.fn();
+      render(
+        <UpcomingPanel
+          matches={[makeMatch()]}
+          currentUserId="helper-user"
+          activeCommunityId="community-1"
+          onComplete={onComplete}
+        />
+      );
+      fireEvent.click(screen.getByText(/✓ Done/i));
+      act(() => jest.advanceTimersByTime(1200));
+      // Rating prompt is showing — match should NOT be dismissed yet
+      expect(screen.getByTestId('rating-prompt')).toBeInTheDocument();
+      expect(onComplete).not.toHaveBeenCalled();
+    });
+
+    it('calls onComplete after a star rating is submitted', async () => {
+      const onComplete = jest.fn();
+      render(
+        <UpcomingPanel
+          matches={[makeMatch({ id: 'match-99' })]}
+          currentUserId="helper-user"
+          activeCommunityId="community-1"
+          onComplete={onComplete}
+        />
+      );
+      fireEvent.click(screen.getByText(/✓ Done/i));
+      act(() => jest.advanceTimersByTime(1200));
+      await act(async () => {
+        fireEvent.click(screen.getByTestId('star-4'));
+      });
+      expect(onComplete).toHaveBeenCalledWith('match-99');
+    });
+
+    it('calls onComplete after Skip is clicked', () => {
+      const onComplete = jest.fn();
+      render(
+        <UpcomingPanel
+          matches={[makeMatch({ id: 'match-99' })]}
+          currentUserId="helper-user"
+          activeCommunityId="community-1"
+          onComplete={onComplete}
+        />
+      );
+      fireEvent.click(screen.getByText(/✓ Done/i));
+      act(() => jest.advanceTimersByTime(1200));
+      fireEvent.click(screen.getByTestId('skip-rating'));
+      expect(onComplete).toHaveBeenCalledWith('match-99');
+    });
+
+    it('shows the name of the person being rated in the prompt', () => {
+      render(
+        <UpcomingPanel
+          matches={[makeMatch({ responder_name: 'Alice', requester_name: 'Bob' })]}
+          currentUserId="helper-user"  // helper → rates the requester (Bob)
+          activeCommunityId="community-1"
+          onComplete={jest.fn()}
+        />
+      );
+      fireEvent.click(screen.getByText(/✓ Done/i));
+      act(() => jest.advanceTimersByTime(1200));
+      expect(screen.getByTestId('rating-prompt')).toHaveTextContent('Bob');
+    });
+
+    it('shows the helper name when the requester is rating', () => {
+      render(
+        <UpcomingPanel
+          matches={[makeMatch({ responder_name: 'Alice', requester_name: 'Bob' })]}
+          currentUserId="requester-user"  // requester → rates the helper (Alice)
+          activeCommunityId="community-1"
+          onComplete={jest.fn()}
+        />
+      );
+      fireEvent.click(screen.getByText(/✓ Done/i));
+      act(() => jest.advanceTimersByTime(1200));
+      expect(screen.getByTestId('rating-prompt')).toHaveTextContent('Alice');
     });
   });
 });

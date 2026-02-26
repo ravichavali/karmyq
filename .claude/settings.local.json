@@ -80,7 +80,8 @@
       "Bash(npm audit fix)",
       "Bash(npm audit fix --force)",
       "Bash(npx jest tests/tdd/UpcomingPanel.test.tsx --no-coverage)",
-      "Bash(npx jest tests/tdd/ --no-coverage)"
+      "Bash(npx jest tests/tdd/ --no-coverage)",
+      "Bash(npx jest tests/tdd/)"
     ],
     "deny": [],
     "ask": []

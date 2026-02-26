@@ -47,7 +47,9 @@ export default function UpcomingPanel({ matches, currentUserId, activeCommunityI
   const handleDone = (matchId: string) => {
     setCompletingId(matchId)
     setTimeout(() => {
-      onComplete(matchId)
+      // Show rating prompt first — onComplete (which removes the match) is called
+      // only after the user rates or skips. This keeps the match visible long enough
+      // to collect feedback from both parties independently.
       setCompletingId(null)
       setPendingRatingId(matchId)
     }, 1200)
@@ -72,11 +74,13 @@ export default function UpcomingPanel({ matches, currentUserId, activeCommunityI
 
     setRatedIds((prev) => new Set(prev).add(match.id))
     setPendingRatingId(null)
+    onComplete(match.id)
   }
 
   const handleSkipRating = (matchId: string) => {
     setRatedIds((prev) => new Set(prev).add(matchId))
     setPendingRatingId(null)
+    onComplete(matchId)
   }
 
   return (
@@ -120,7 +124,11 @@ export default function UpcomingPanel({ matches, currentUserId, activeCommunityI
                       </p>
                     ) : awaitingRating ? (
                       <div className="mt-1.5" data-testid="rating-prompt">
-                        <p className="text-xs text-text-subtle mb-1.5">How was your experience?</p>
+                        <p className="text-xs text-text-subtle mb-1">
+                          Rate your experience with{' '}
+                          <span className="font-medium text-text-muted">{otherPartyName || 'them'}</span>
+                          <span className="ml-1 text-text-subtle opacity-60">(private)</span>
+                        </p>
                         <div className="flex items-center gap-1">
                           {[1, 2, 3, 4, 5].map((star) => (
                             <button
