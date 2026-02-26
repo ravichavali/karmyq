@@ -5,6 +5,8 @@
 
 ## Recent Changes
 
+- **2026-02-26 (blended feedback)**: `feedbackDb.ts` now exports `getBlendedAvgFeedback(toUserId, communityId)` — 70% local (this community) + 30% cross-community weighted blend, falling back to whichever side has data. `getUserTrustScore()` in `karmaService.ts` now calls this instead of the old global `getAvgFeedback()`. New composite DB index: `idx_feedback_to_user_community` on `feedback.feedback(to_user_id, community_id)` (migration 018).
+- **2026-02-26 (trust formula)**: Trust score formula replaced with interactions-primary logarithmic model (0–100). Formula: `interaction_score = min(60, floor(log2(n+1)×15))` + `quality_score = round((avg_feedback/5)×30)` + `karma_bonus = min(10, floor(karma/100))`. New users start at 0 (not 50). See [ADR-038](../../docs/adr/ADR-038-cross-community-trust.md).
 - **2026-02-26 (bug fix)**: Fixed trust score read path in `karmaService.ts:getUserTrustScore()`. Was reading non-existent columns (`avg_helpfulness`, `avg_responsiveness`, `avg_clarity`) from `reputation.trust_scores`, causing feedback contribution to always be 0 on read. Now calls `getAvgFeedback()` from `feedbackDb.ts` — same source as the POST feedback endpoint — so read and write paths are consistent.
 - **2026-02-25 (ADR-036)**: Private feedback ratings — star picker after match completion. Both parties rate each other via `POST /reputation/feedback`. Feedback feeds into trust score via `avg_feedback_score`. Ratings are never exposed via API.
 - **2026-02-25 (ADR-035)**: Karma now uses a fixed-pool model — `BASE_KARMA_POOL` points divided across shared communities, preventing multi-community inflation. Trust score formula abstracted into `trustScoreStrategy.ts` and now incorporates feedback ratings alongside karma. See [ADR-035](../../docs/adr/ADR-035-karma-allocation-trust-score-strategy.md).
@@ -56,6 +58,12 @@ CREATE TABLE reputation.badges (
 CREATE INDEX idx_karma_records_user_id ON reputation.karma_records(user_id);
 CREATE INDEX idx_karma_records_community_id ON reputation.karma_records(community_id);
 CREATE INDEX idx_trust_scores_user_community ON reputation.trust_scores(user_id, community_id);
+
+-- feedback.feedback indexes (migration 018)
+-- Single-column index for global avg scan already existed (idx_feedback_to_user)
+-- Composite index for community-scoped getBlendedAvgFeedback local avg component
+CREATE INDEX IF NOT EXISTS idx_feedback_to_user_community
+  ON feedback.feedback (to_user_id, community_id);
 ```
 
 **Social Karma v2.0 Schema Extensions:**
@@ -163,15 +171,20 @@ Karma is awarded via a **fixed-pool model** — a total of `BASE_KARMA_POOL` poi
 
 > ⚠️ **Interim model** (ADR-035). The target model is defined in [ADR-037](../../docs/adr/ADR-037-multi-signal-trust-score.md) and will replace this in the next implementation sprint.
 
-### Current formula (ADR-035, interim)
+### Current formula (interactions-primary, 2026-02-26)
 
-Trust score ranges from 50–100:
+Trust score ranges 0–100. New users start at 0:
 
 ```
-score = 50 + karma_contribution + feedback_contribution
-karma_contribution  = min(40, floor(total_karma / 10))   → 0–40 pts
-feedback_contribution = round((avg_feedback / 5) × 10)   → 0–10 pts  (0 if no feedback yet)
+interaction_score = min(60, floor(log2(interactions_completed + 1) × 15))  → 0–60 pts
+quality_score     = round((avg_feedback_score / 5) × 30)                   → 0–30 pts (0 if null)
+karma_bonus       = min(10, floor(total_karma / 100))                       → 0–10 pts
+score             = max(0, min(100, interaction_score + quality_score + karma_bonus))
 ```
+
+Tier thresholds: New (0–39), Building (40–59), Reliable (60–79), Trusted (80–100).
+
+**Feedback input**: `avg_feedback_score` is a **blended** value — 70% local (this community) + 30% cross-community — computed by `getBlendedAvgFeedback()` in `feedbackDb.ts`.
 
 **Tuning surface:** `src/services/trustScoreStrategy.ts` — `computeTrustScore(inputs: TrustScoreInputs)`
 
@@ -599,6 +612,7 @@ LOG_LEVEL=info                   # debug, info, warn, error
 
 ### Database
 - `src/database/db.ts` - PostgreSQL connection pool
+- `src/database/feedbackDb.ts` - Feedback queries: `getAvgFeedback(userId)` (global, used in POST response) and `getBlendedAvgFeedback(userId, communityId, localWeight=0.7, globalWeight=0.3)` (community-scoped blend, used in trust score computation)
 
 ## Common Development Tasks
 
