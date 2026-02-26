@@ -24,29 +24,44 @@ export interface TrustScoreInputs {
 /**
  * Compute a trust score (0–100) from multi-factor inputs.
  *
- * Current formula (interim — ADR-037 replaces this with a multi-signal model):
- *   karma_contribution  = min(80, floor(total_karma / 10) × 2)  → 0–80 pts
- *   feedback_contribution = round((avg_feedback / 5) × 20)       → 0–20 pts
- *   score = max(0, min(100, karma_contribution + feedback_contribution))
+ * Current formula (interim — ADR-037 replaces this with a full multi-signal model):
  *
- * Range: 0 (new user) → 100 (max karma + perfect feedback)
- * Approximate milestones:
- *   ~200 karma, no feedback   → ~40  (Building tier)
- *   ~200 karma, good feedback → ~55  (Reliable tier)
- *   ~400 karma, good feedback → ~95+ (Trusted tier)
+ *   interaction_score = min(60, floor(log2(interactions_completed + 1) × 15))  → 0–60 pts
+ *   quality_score     = round((avg_feedback / 5) × 30)                          → 0–30 pts
+ *   karma_bonus       = min(10, floor(total_karma / 100))                        → 0–10 pts
+ *   score             = max(0, min(100, interaction_score + quality_score + karma_bonus))
  *
- * New users start at 0, not an artificial 50 — the tiers New/Building/Reliable/Trusted
- * are all reachable from below.
+ * Rationale:
+ *   - Interactions are the primary signal (60%). Logarithmic scale rewards consistent
+ *     engagement while preventing gaming through bulk low-quality interactions.
+ *     Caps at ~16 completed interactions.
+ *   - Quality (feedback) is secondary (30%). Meaningful once there are enough
+ *     interactions to trust the signal.
+ *   - Karma is a small bonus (10%). Participation still rewarded, but it no longer
+ *     dominates — need 1000 karma to max this out.
  *
- * When avg_feedback_score is null (no feedback received yet), it contributes 0.
+ * Approximate tier milestones:
+ *   1 interaction, no feedback      →  15  (New)
+ *   3 interactions, 4-star avg      →  54  (Building)
+ *   5 interactions, 4-star avg      →  62  (Reliable)
+ *   10 interactions, 4-star avg     →  75  (Reliable)
+ *   16+ interactions, 5-star avg    →  90  (Trusted)
+ *   16+ interactions, 5-star + 1000 karma → 100 (Trusted max)
+ *
+ * When avg_feedback_score is null (no feedback received yet), quality_score = 0.
  */
 export function computeTrustScore(inputs: TrustScoreInputs): number {
-  const karmaContribution = Math.min(80, Math.floor(inputs.total_karma / 10) * 2);
+  const interactionScore = Math.min(
+    60,
+    Math.floor(Math.log2(inputs.interactions_completed + 1) * 15)
+  );
 
-  const feedbackContribution =
+  const qualityScore =
     inputs.avg_feedback_score != null
-      ? Math.round((inputs.avg_feedback_score / 5) * 20)
+      ? Math.round((inputs.avg_feedback_score / 5) * 30)
       : 0;
 
-  return Math.max(0, Math.min(100, karmaContribution + feedbackContribution));
+  const karmaBonus = Math.min(10, Math.floor(inputs.total_karma / 100));
+
+  return Math.max(0, Math.min(100, interactionScore + qualityScore + karmaBonus));
 }
