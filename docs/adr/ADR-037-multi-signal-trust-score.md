@@ -76,10 +76,13 @@ volume_score    = min(30, floor(log2(interactions_completed + 1) × 10))
                   → 0 interactions: 0pts, 1: 10pts, 3: 16pts, 7: 22pts, 15: 30pts
 
 quality_score   = avg_feedback_score != null
-                  ? round((avg_feedback_score / 5) × 25)
+                  ? round(((avg_feedback_score - threshold) / (5 - threshold)) × 25)
                   : 0
-                  → 0–25 pts (0 if no feedback received yet)
-                  → 5.0 feedback → 25pts, 2.5 → 12pts, 1.0 → 5pts
+                  → range depends on threshold (0 if no feedback received yet)
+                  → where threshold = community_feedback_threshold (default 3.0)
+                  → at threshold=3.0: 5★→+25pts, 3★→0pts, 1★→-25pts
+                  → at threshold=1.0: 5★→+25pts, 1★→0pts (no negatives possible)
+                  → at threshold=4.0: 5★→+25pts, 4★→0pts, 1★→-75pts (capped by floor)
 
 depth_score     = min(15, repeat_interaction_pairs × 2) × community_depth_weight
                   → 0–15 pts (scaled by community config)
@@ -138,10 +141,26 @@ Two existing `community_configs` JSONB fields now formally used:
 - Controls how much bridging capital (distinct people + communities) contributes
 - Note: `depth_weight + breadth_weight` need not equal 1.0 — they scale independent sub-scores
 
+### `trust_feedback_threshold` (new field)
+- Type: `FLOAT`, range 1.0–5.0 (exclusive of 5.0)
+- Default: `3.0`
+- The star rating at which quality contribution is exactly zero. Ratings above contribute positively; ratings below contribute negatively.
+- Setting threshold to **1.0** makes negative quality scores impossible (all ratings ≥ 0)
+
+| Threshold | Neutral point | 1★ quality score | Philosophy |
+|-----------|---------------|-----------------|------------|
+| 1.0 | 1 star | 0 pts | Any completed interaction is a net positive; negatives impossible |
+| 2.0 | 2 stars | -8 pts | Only the worst 1-star outliers hurt trust meaningfully |
+| **3.0** (default) | 3 stars | -25 pts | "Adequate" is neutral; you earn trust by being genuinely good |
+| 4.0 | 4 stars | -75 pts (capped) | Community expects excellence; below-average actively harms trust |
+
+> **Note**: threshold 1.0 effectively disables negative quality scores. Communities that set `trust_negative_allowed: false` AND `trust_feedback_threshold: 1.0` will never see any user go below 0, regardless of how bad their feedback is — poor feedback simply won't build trust, but won't destroy it either.
+
 ### `trust_negative_allowed` (new field)
 - Type: `BOOLEAN`
 - Default: `false`
 - Determines whether bad actors can score below 0 (below the "stranger" baseline)
+- Only meaningful if `trust_feedback_threshold > 1.0` — otherwise the formula cannot produce a negative raw score
 
 | `trust_negative_allowed` | Community philosophy | Trust floor |
 |--------------------------|---------------------|-------------|
@@ -149,6 +168,15 @@ Two existing `community_configs` JSONB fields now formally used:
 | `true` (Punitive) | Communities that want to actively signal that certain members are less trustworthy than a stranger — e.g., neighborhood safety contexts, high-stakes mutual aid. | -50 |
 
 The floor of -50 is a platform constant, not configurable per community. This prevents "infinite punishment" while still enabling the community to signal "this person is worse than unknown."
+
+**Typical config combinations:**
+
+| Community type | `trust_feedback_threshold` | `trust_negative_allowed` | Effect |
+|---|---|---|---|
+| Open / welcoming | 1.0 | false | Participation always builds trust; no penalties |
+| Standard mutual aid | 3.0 | false | Quality matters but bad actors are just treated as unknown |
+| Neighborhood safety | 3.0 | true | Poor actors visibly flagged below stranger baseline |
+| High-stakes / strict | 4.0 | true | Excellence required; poor feedback actively pushes below zero |
 
 ---
 
@@ -181,7 +209,34 @@ If a user's trust score is -20 in community A, should they appear in the trust p
 The current model is per-community. Should there be a platform-wide trust score? **Current decision: keep per-community; platform-wide trust is the average or max across communities (TBD).**
 
 ### 4. `min_interactions_for_trust` threshold
-The `bonus_score` awards 5 pts for meeting the community's minimum interaction threshold. This threhsold is already in `community_configs` (e.g., 1, 3, or 5 interactions). **This is already configurable — just needs to be read and used.**
+The `bonus_score` awards 5 pts for meeting the community's minimum interaction threshold. This threshold is already in `community_configs` (e.g., 1, 3, or 5 interactions). **This is already configurable — just needs to be read and used.**
+
+### 5. Cross-community trust assignment for multi-community interactions
+**This is an unresolved design problem that needs deeper thinking before Phase 2.**
+
+Karmyq allows a single request/offer to span multiple communities — a user in communities A, B, and C can post a request visible to members of all three. When that interaction completes, the trust signal (feedback, interaction count, repeat pairs) needs to be attributed to a community context. But which one?
+
+Current model: trust score is computed per-community. This breaks down when:
+- The helper is a member of community A and B; the requester is in B and C
+- The request was posted in B but the match was surfaced via C's feed
+- Both users are in 3 mutual communities — should all three get the depth/breadth signal?
+
+**The problem has multiple sub-questions:**
+
+1. **Attribution**: Which community "owns" the interaction for trust purposes?
+   - The community where the request was originally posted?
+   - All mutual communities shared by both parties?
+   - The community that surfaces the request in the requester's feed?
+
+2. **Double-counting**: If an interaction is attributed to 3 communities, does the user gain trust in all three? Does that feel right, or does it inflate breadth scores?
+
+3. **Breadth signal integrity**: `distinct_communities_count` is meant to capture "this user helps across different contexts." If one interaction increments 3 community counters, the breadth signal is diluted.
+
+4. **Depth signal per community**: A repeat interaction pair in community A should probably build bonding capital specifically within A — not bleed into B where the two users may be strangers.
+
+5. **The "primary community" heuristic**: One possible simplification — attribute the interaction to the community with the highest overlap between the two parties (most shared members, or the community where the request was posted). Defer cross-attribution to Phase 3.
+
+**Current decision: defer to Phase 3. Phase 2 will attribute interactions to the community_id on the karma_record (the community where karma was awarded). This is a known simplification.**
 
 ---
 
@@ -199,7 +254,7 @@ The `bonus_score` awards 5 pts for meeting the community's minimum interaction t
 2. Create `services/reputation-service/src/database/trustMetricsDb.ts`
    - `getTrustMetrics(userId, communityId)` — queries for distinct_people, distinct_communities, repeat_pairs, interactions_completed
 3. Update `services/reputation-service/src/services/karmaService.ts`
-   - Read `trust_depth_weight`, `trust_breadth_weight`, `trust_negative_allowed` from community config
+   - Read `trust_depth_weight`, `trust_breadth_weight`, `trust_negative_allowed`, `trust_feedback_threshold` from community config
    - Call `getTrustMetrics()` before computing trust score
 4. Update `services/reputation-service/src/routes/reputation.ts` (feedback endpoint)
    - Same wiring
@@ -207,10 +262,10 @@ The `bonus_score` awards 5 pts for meeting the community's minimum interaction t
    - Remove 50-base assertions (will break by design)
    - Add volume, depth, breadth, floor tests
 
-### Phase 3 (Future): Community Config Wiring
-1. Add `trust_negative_allowed` to `community_configs` JSONB defaults
+### Phase 3 (Future): Community Config Wiring + Cross-Community Trust
+1. Add `trust_negative_allowed` and `trust_feedback_threshold` to `community_configs` JSONB defaults
 2. Surface in community admin UI (CommunityConfigEditor)
-3. Resolve open questions (negative trust display, cross-community aggregation)
+3. Resolve open questions (negative trust display, cross-community trust assignment)
 
 ---
 
