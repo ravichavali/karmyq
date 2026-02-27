@@ -1,15 +1,203 @@
 {
   "sections": [
     {
-      "title": "Getting Started",
+      "title": "Why Karmyq",
       "items": [
         {
-          "label": "Overview",
-          "href": "/docs"
+          "label": "What is Mutual Aid?",
+          "href": "/docs/concepts/platform-overview"
         },
         {
-          "label": "Architecture",
-          "href": "/docs/architecture"
+          "label": "The Village Model",
+          "href": "/docs/concepts/the-village-model"
+        },
+        {
+          "label": "The Neighborhood Service Layer",
+          "href": "/docs/concepts/neighborhood-service-layer"
+        }
+      ]
+    },
+    {
+      "title": "How It Works",
+      "items": [
+        {
+          "label": "How Trust Works",
+          "href": "/docs/concepts/trust-score"
+        },
+        {
+          "label": "Why Karma Isn’t Currency",
+          "href": "/docs/concepts/what-is-karma"
+        },
+        {
+          "label": "How Connections Build Trust",
+          "href": "/docs/concepts/trust-paths"
+        },
+        {
+          "label": "Why Reputation Fades",
+          "href": "/docs/concepts/reputation-decay"
+        },
+        {
+          "label": "Why Ratings Are Private",
+          "href": "/docs/concepts/why-ratings-are-private"
+        }
+      ]
+    },
+    {
+      "title": "User Guides",
+      "items": [
+        {
+          "label": "Getting Started",
+          "href": "/docs/guides/getting-started"
+        },
+        {
+          "label": "Asking for Help",
+          "href": "/docs/guides/making-requests"
+        },
+        {
+          "label": "Helping Others",
+          "href": "/docs/guides/fulfilling-requests"
+        },
+        {
+          "label": "Running a Community",
+          "href": "/docs/guides/community-admin"
+        },
+        {
+          "label": "Your Karma & Reputation",
+          "href": "/docs/guides/understanding-karma"
+        },
+        {
+          "label": "Trust Connections in Your Feed",
+          "href": "/docs/guides/trust-connections"
+        }
+      ]
+    },
+    {
+      "title": "Architecture Decisions",
+      "items": [
+        {
+          "label": "All ADRs",
+          "href": "/docs/concepts"
+        },
+        {
+          "label": "— Foundation —",
+          "href": "/docs/concepts"
+        },
+        {
+          "label": "Microservices Event-Driven Architecture",
+          "href": "/docs/concepts/adr-004-microservices-event-driven"
+        },
+        {
+          "label": "JWT-Based Multi-Community Authentication",
+          "href": "/docs/concepts/adr-010-jwt-multi-community-auth"
+        },
+        {
+          "label": "Monorepo with Turborepo",
+          "href": "/docs/concepts/adr-013-monorepo-turborepo"
+        },
+        {
+          "label": "Multi-Tenant Row-Level Security",
+          "href": "/docs/concepts/adr-003-multi-tenant-rls"
+        },
+        {
+          "label": "Standardized API Response Format",
+          "href": "/docs/concepts/adr-006-standardized-api-response"
+        },
+        {
+          "label": "Polymorphic Request System",
+          "href": "/docs/concepts/adr-007-polymorphic-request-system"
+        },
+        {
+          "label": "— Trust & Reputation —",
+          "href": "/docs/concepts"
+        },
+        {
+          "label": "Trust-First Design Philosophy",
+          "href": "/docs/concepts/adr-020-trust-first-design"
+        },
+        {
+          "label": "Private Feedback Model",
+          "href": "/docs/concepts/adr-036-private-feedback-model"
+        },
+        {
+          "label": "Multi-Signal Trust Score (ADR-037)",
+          "href": "/docs/concepts/adr-037-multi-signal-trust-score"
+        },
+        {
+          "label": "Cross-Community Trust Carry (ADR-038)",
+          "href": "/docs/concepts/adr-038-cross-community-trust"
+        },
+        {
+          "label": "Trust Score Decay Consistency (ADR-039)",
+          "href": "/docs/concepts/adr-039-trust-score-decay-consistency"
+        },
+        {
+          "label": "Community Trust Score (ADR-040)",
+          "href": "/docs/concepts/adr-040-community-trust-score"
+        },
+        {
+          "label": "Reputation Decay System (ADR-011) — superseded by ADR-037",
+          "href": "/docs/concepts/adr-011-reputation-decay"
+        },
+        {
+          "label": "— Requests & Matching —",
+          "href": "/docs/concepts"
+        },
+        {
+          "label": "Feed Architecture (ADR-022)",
+          "href": "/docs/concepts/adr-022-multi-tier-feed-architecture"
+        },
+        {
+          "label": "Unified Trust-Scored Feed (ADR-031)",
+          "href": "/docs/concepts/adr-031-unified-trust-scored-feed"
+        },
+        {
+          "label": "Server-Driven UI / Dynamic Forms (ADR-032)",
+          "href": "/docs/concepts/adr-032-server-driven-ui-dynamic-schemas"
+        },
+        {
+          "label": "Multi-Layer Trust Path Computation (ADR-034)",
+          "href": "/docs/concepts/adr-034-multi-layer-trust-computation"
+        },
+        {
+          "label": "Two-Layer Mutual Aid + Services (ADR-041)",
+          "href": "/docs/concepts/adr-041-two-layer-mutual-aid-services"
+        },
+        {
+          "label": "Provider Trust Score (ADR-042)",
+          "href": "/docs/concepts/adr-042-provider-trust-score"
+        },
+        {
+          "label": "— Infrastructure —",
+          "href": "/docs/concepts"
+        },
+        {
+          "label": "NPM Workspace Docker Build (ADR-028)",
+          "href": "/docs/concepts/adr-028-npm-workspace-docker-build"
+        },
+        {
+          "label": "TDD Test Framework (ADR-029)",
+          "href": "/docs/concepts/adr-029-tdd-test-framework"
+        },
+        {
+          "label": "Community Configuration System (ADR-030)",
+          "href": "/docs/concepts/adr-030-community-configuration-system"
+        },
+        {
+          "label": "Ephemeral Data Design (ADR-009)",
+          "href": "/docs/concepts/adr-009-ephemeral-data"
+        },
+        {
+          "label": "Observability Stack (ADR-015)",
+          "href": "/docs/concepts/adr-015-observability-stack"
+        }
+      ]
+    },
+    {
+      "title": "API Reference",
+      "items": [
+        {
+          "label": "All Endpoints",
+          "href": "/docs/api"
         }
       ]
     },
@@ -63,242 +251,6 @@
         {
           "label": "Simulation",
           "href": "/docs/services/simulation-service"
-        }
-      ]
-    },
-    {
-      "title": "API Reference",
-      "items": [
-        {
-          "label": "All Endpoints",
-          "href": "/docs/api"
-        }
-      ]
-    },
-    {
-      "title": "Concepts",
-      "items": [
-        {
-          "label": "What is Karmyq?",
-          "href": "/docs/concepts/platform-overview"
-        },
-        {
-          "label": "What is Karma?",
-          "href": "/docs/concepts/what-is-karma"
-        },
-        {
-          "label": "Trust Score",
-          "href": "/docs/concepts/trust-score"
-        },
-        {
-          "label": "How Trust Paths Work",
-          "href": "/docs/concepts/trust-paths"
-        },
-        {
-          "label": "Why Reputation Decays",
-          "href": "/docs/concepts/reputation-decay"
-        },
-        {
-          "label": "How Communities Work",
-          "href": "/docs/concepts/community-design"
-        }
-      ]
-    },
-    {
-      "title": "Architecture Decisions",
-      "items": [
-        {
-          "label": "All ADRs",
-          "href": "/docs/concepts"
-        },
-        {
-          "label": "Natural Language Parsing for Location Input",
-          "href": "/docs/concepts/adr-001-natural-language-location-parsing"
-        },
-        {
-          "label": "3-Tier Geocoding Cache Architecture",
-          "href": "/docs/concepts/adr-002-geocoding-cache-architecture"
-        },
-        {
-          "label": "Multi-Tenant Row-Level Security (RLS) Database Des",
-          "href": "/docs/concepts/adr-003-multi-tenant-rls"
-        },
-        {
-          "label": "Microservices Event-Driven Architecture",
-          "href": "/docs/concepts/adr-004-microservices-event-driven"
-        },
-        {
-          "label": "Minimalist Dashboard Design",
-          "href": "/docs/concepts/adr-005-minimalist-dashboard"
-        },
-        {
-          "label": "Standardized API Response Format",
-          "href": "/docs/concepts/adr-006-standardized-api-response"
-        },
-        {
-          "label": "Polymorphic Request System (\"Everything App\")",
-          "href": "/docs/concepts/adr-007-polymorphic-request-system"
-        },
-        {
-          "label": "3-Column Dashboard Layout (V7)",
-          "href": "/docs/concepts/adr-008-three-column-dashboard"
-        },
-        {
-          "label": "Ephemeral Data Design",
-          "href": "/docs/concepts/adr-009-ephemeral-data"
-        },
-        {
-          "label": "JWT-Based Multi-Community Authentication",
-          "href": "/docs/concepts/adr-010-jwt-multi-community-auth"
-        },
-        {
-          "label": "Reputation Decay System (Social Karma v2)",
-          "href": "/docs/concepts/adr-011-reputation-decay"
-        },
-        {
-          "label": "Real-Time Communication Stack (WebSocket + SSE)",
-          "href": "/docs/concepts/adr-012-realtime-communication"
-        },
-        {
-          "label": "Monorepo with Turborepo",
-          "href": "/docs/concepts/adr-013-monorepo-turborepo"
-        },
-        {
-          "label": "Testing Strategy (Integration + E2E + Unit)",
-          "href": "/docs/concepts/adr-014-testing-strategy"
-        },
-        {
-          "label": "Observability Stack (Grafana/Loki/Prometheus)",
-          "href": "/docs/concepts/adr-015-observability-stack"
-        },
-        {
-          "label": "Prestige-Based Recognition System",
-          "href": "/docs/concepts/adr-016-prestige-based-recognition"
-        },
-        {
-          "label": "Cohort-Based Community Layers",
-          "href": "/docs/concepts/adr-017-cohort-based-community-layers"
-        },
-        {
-          "label": "Community Splitting Mechanics",
-          "href": "/docs/concepts/adr-018-community-splitting-mechanics"
-        },
-        {
-          "label": "Referral Chain Trust System",
-          "href": "/docs/concepts/adr-019-referral-chain-trust"
-        },
-        {
-          "label": "Trust-First Design Philosophy",
-          "href": "/docs/concepts/adr-020-trust-first-design"
-        },
-        {
-          "label": "Configurable Trust Path Filtering & Adaptive Trust",
-          "href": "/docs/concepts/adr-021-trust-path-filtering"
-        },
-        {
-          "label": "Multi-Tier Feed Architecture (Explore-Exploit Bala",
-          "href": "/docs/concepts/adr-022-multi-tier-feed-architecture"
-        },
-        {
-          "label": "Infrastructure Standardization and Environment Man",
-          "href": "/docs/concepts/adr-023-infrastructure-standardization"
-        },
-        {
-          "label": "Synthetic User Simulation for Demo Environment",
-          "href": "/docs/concepts/adr-024-synthetic-user-simulation"
-        },
-        {
-          "label": "Docker Image Size Optimization (Deferred Technical",
-          "href": "/docs/concepts/adr-027-docker-image-optimization-deferred"
-        },
-        {
-          "label": "NPM Workspace Package for Shared Code in Docker",
-          "href": "/docs/concepts/adr-028-npm-workspace-docker-build"
-        },
-        {
-          "label": "Test-Driven Development (TDD) Framework",
-          "href": "/docs/concepts/adr-029-tdd-test-framework"
-        },
-        {
-          "label": "Community Configuration System (Phase 1)",
-          "href": "/docs/concepts/adr-030-community-configuration-system"
-        },
-        {
-          "label": "Unified Trust-Scored Feed & Community Specializati",
-          "href": "/docs/concepts/adr-031-unified-trust-scored-feed"
-        },
-        {
-          "label": "Server-Driven UI - Database-Driven Request Type Sc",
-          "href": "/docs/concepts/adr-032-server-driven-ui-dynamic-schemas"
-        },
-        {
-          "label": "Offer Fulfillment Workflow",
-          "href": "/docs/concepts/adr-033-offer-fulfillment-workflow"
-        },
-        {
-          "label": "Multi-Layer Trust Path Computation",
-          "href": "/docs/concepts/adr-034-multi-layer-trust-computation"
-        },
-        {
-          "label": "Karma Allocation Strategy and Trust Score Abstract",
-          "href": "/docs/concepts/adr-035-karma-allocation-trust-score-strategy"
-        },
-        {
-          "label": "Private Feedback Model — Trust Without Rating Econ",
-          "href": "/docs/concepts/adr-036-private-feedback-model"
-        },
-        {
-          "label": "Multi-Signal Trust Score — Bonding Capital, Bridgi",
-          "href": "/docs/concepts/adr-037-multi-signal-trust-score"
-        },
-        {
-          "label": "Cross-Community Trust — Carry Model with Community",
-          "href": "/docs/concepts/adr-038-cross-community-trust"
-        },
-        {
-          "label": "Trust Score Decay Consistency — Time-Weighted Sign",
-          "href": "/docs/concepts/adr-039-trust-score-decay-consistency"
-        },
-        {
-          "label": "Community Trust Score",
-          "href": "/docs/concepts/adr-040-community-trust-score"
-        },
-        {
-          "label": "Two-Layer Mutual Aid + Professional Services",
-          "href": "/docs/concepts/adr-041-two-layer-mutual-aid-services"
-        },
-        {
-          "label": "Provider Trust Score",
-          "href": "/docs/concepts/adr-042-provider-trust-score"
-        }
-      ]
-    },
-    {
-      "title": "User Guides",
-      "items": [
-        {
-          "label": "Getting Started",
-          "href": "/docs/guides/getting-started"
-        },
-        {
-          "label": "Asking for Help",
-          "href": "/docs/guides/making-requests"
-        },
-        {
-          "label": "Helping Others",
-          "href": "/docs/guides/fulfilling-requests"
-        },
-        {
-          "label": "Running a Community",
-          "href": "/docs/guides/community-admin"
-        },
-        {
-          "label": "Your Karma & Reputation",
-          "href": "/docs/guides/understanding-karma"
-        },
-        {
-          "label": "Trust Connections in Your Feed",
-          "href": "/docs/guides/trust-connections"
         }
       ]
     }
