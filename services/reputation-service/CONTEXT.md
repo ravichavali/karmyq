@@ -528,7 +528,7 @@ Submit a private quality rating after a completed interaction. Ratings are inter
 ```
 Returns the updated trust score for the rated user.
 
-**Side effects**: Recomputes `avg_feedback` from all feedback records for `to_user_id`, then upserts `reputation.trust_scores` with the new computed score.
+**Side effects**: Calls `updateTrustScore(to_user_id, community_id)` — full ADR-037 multi-signal recomputation (volume + quality + depth + breadth + bonus with ADR-039 time-weighting). Returns the new score.
 
 ---
 
