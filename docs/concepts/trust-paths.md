@@ -1,64 +1,63 @@
-# How Trust Paths Work
+# How Connections Build Trust
 
-Trust paths trace the chain of real relationships connecting you to any member in your community — and display them as compact badges in your feed.
-
----
-
-## The Three Layers of Connection
-
-When computing a trust path, the system tries three methods in order of strength:
-
-### 1. Exchange Graph (Strongest)
-
-The primary trust signal is a completed exchange — you actually helped someone, or they helped you. Every completed match creates a bidirectional trust edge between the requester and the helper.
-
-Paths are computed using a **Breadth-First Search** across the platform-wide exchange graph, up to a maximum of 4 degrees of separation.
-
-**Examples:**
-- 1° — You and this person have directly completed an exchange
-- 2° — You share a mutual helper: You ↔ Alex ↔ them
-- 3° — One more step: You ↔ Alex ↔ Maria ↔ them
-
-The **trust score** for an exchange path is the sum of karma held by all intermediate nodes — the people standing between you and the requester.
-
-### 2. Community Membership (Fallback)
-
-If no exchange path exists, the system checks whether you and the requester are both active members of the same community. The community admin (or creator) acts as the shared anchor:
-
-- If the admin is one of the two users → **1° community connection**
-- Otherwise → **2° connection** through the admin: You ↔ Admin ↔ them
-
-### 3. Invitation Chain (Last Resort)
-
-If neither an exchange path nor shared community membership exists, the system searches the invitation lineage — who invited whom. An accepted invitation creates a bidirectional trust edge, and the BFS runs up to 3 degrees.
+When you see a request in your feed, you want to know: *do I know this person?* Karmyq answers that question by tracing the real relationships between you and them.
 
 ---
 
-## The Badge Colors
+## The Idea: Trust Travels Through People
 
-The compact badge in the feed reflects both the connection type and the degree:
+Think about how trust works in real life. You don't know a stranger — but if a friend vouches for them, you extend a little trust. If a friend-of-a-friend needs help, you're more likely to help than you would a completely random person.
 
-| Badge | Meaning |
-|---|---|
-| 🔗 Direct connection (green) | 1° exchange — you've worked together |
-| 🤝 Connected through... (blue) | 2° exchange — one mutual helper |
-| 👥 (gray) | 3° exchange — two steps removed |
-| 🏘 Fellow member (purple) | Shared community (no direct exchange) |
-| 🤝 Joined through... (yellow) | Invitation chain connection |
-
-Badges are only shown for connections up to 3 degrees. Requests from people 4+ degrees away show no badge.
+Karmyq makes those chains of connection visible. They appear as small badges in your feed, telling you how you're connected to whoever posted a request.
 
 ---
 
-## Caching
+## Three Ways You Might Be Connected
 
-Computed paths are stored in `auth.social_distances` with a **7-day TTL**. The cache is invalidated immediately when a new exchange completes between two users — the direct edge now exists, so any cached indirect path is stale.
+### The strongest signal: you've helped each other
+
+The most meaningful connection is a completed exchange. If you helped someone move a couch last month, or they drove you across town, that's a real relationship — and it's the foundation of trust on Karmyq.
+
+These exchange connections chain together. If you've helped Alex, and Alex has helped Maria, then you and Maria have a connection two steps long: You ↔ Alex ↔ Maria.
+
+Karmyq shows connections up to three steps. Four or more steps away, the connection is too thin to be meaningful.
+
+### The middle ground: you share a community
+
+If you've never exchanged directly, but you're both active members of the same community, you have something in common: a shared context, a shared set of norms, people who know both of you. That's a weaker signal than a completed exchange, but it's not nothing.
+
+### The thinnest link: invitation lineage
+
+If you joined Karmyq because someone invited you, and they joined because someone invited them, you're part of a chain of introductions. Someone trusted you enough to invite you — and someone trusted them. That chain is real, even if it's indirect.
 
 ---
 
-## Related
+## What the Badges Mean
 
-- [Trust Score](/docs/concepts/trust-score)
-- [ADR-019: Referral Chain Trust System](/docs/concepts/adr-019-referral-chain-trust)
-- [ADR-021: Configurable Trust Path Filtering](/docs/concepts/adr-021-trust-path-filtering)
-- [ADR-034: Multi-Layer Trust Path Computation](/docs/concepts/adr-034-multi-layer-trust-computation)
+The connection badge on a request tells you, at a glance, how close you are to the person who posted it:
+
+| Badge | What it means |
+|-------|---------------|
+| Direct connection | You've completed an exchange with this person |
+| Connected through [name] | You share one mutual exchange partner |
+| Two steps removed | A slightly longer chain of exchanges |
+| Fellow community member | Same community, no direct exchange |
+| Joined through... | Connected by invitation chain |
+
+No badge means the connection is too distant to display — or doesn't exist yet.
+
+---
+
+## Why This Matters for Your Feed
+
+Karmyq uses these connections to shape what you see. Requests from people closer to you in the trust network appear higher in your feed. This isn't just algorithmic ranking — it reflects a real question: *is this someone I have a reason to help?*
+
+The closer the connection, the stronger the reason.
+
+---
+
+## Building Your Network
+
+The best way to strengthen your connections is to complete exchanges. Every time you help someone — or they help you — a direct link forms. Over time, your network expands through those links, and more of the platform becomes visible and relevant to you.
+
+You don't need to manage this manually. It happens naturally as you participate.

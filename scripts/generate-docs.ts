@@ -244,10 +244,13 @@ interface ConceptPage {
 // Preferred reading order for the Concepts nav section
 const CONCEPT_ORDER = [
   'platform-overview',
+  'the-village-model',
+  'neighborhood-service-layer',
   'what-is-karma',
   'trust-score',
   'trust-paths',
   'reputation-decay',
+  'why-ratings-are-private',
   'community-design',
 ];
 
@@ -356,6 +359,54 @@ function generateGuides(): GuidePage[] {
 
 // ─── Navigation ───────────────────────────────────────────────────────
 
+// ADR groupings for the curated Technical nav
+const ADR_GROUPS: Array<{ label: string; slugs: string[] }> = [
+  {
+    label: '— Foundation —',
+    slugs: [
+      'adr-004-microservices-event-driven',
+      'adr-010-jwt-multi-community-auth',
+      'adr-013-monorepo-turborepo',
+      'adr-003-multi-tenant-rls',
+      'adr-006-standardized-api-response',
+      'adr-007-polymorphic-request-system',
+    ],
+  },
+  {
+    label: '— Trust & Reputation —',
+    slugs: [
+      'adr-020-trust-first-design',
+      'adr-036-private-feedback-model',
+      'adr-037-multi-signal-trust-score',
+      'adr-038-cross-community-trust',
+      'adr-039-trust-score-decay-consistency',
+      'adr-040-community-trust-score',
+      'adr-011-reputation-decay',
+    ],
+  },
+  {
+    label: '— Requests & Matching —',
+    slugs: [
+      'adr-022-multi-tier-feed-architecture',
+      'adr-031-unified-trust-scored-feed',
+      'adr-032-server-driven-ui-dynamic-schemas',
+      'adr-034-multi-layer-trust-computation',
+      'adr-041-two-layer-mutual-aid-services',
+      'adr-042-provider-trust-score',
+    ],
+  },
+  {
+    label: '— Infrastructure —',
+    slugs: [
+      'adr-028-npm-workspace-docker-build',
+      'adr-029-tdd-test-framework',
+      'adr-030-community-configuration-system',
+      'adr-009-ephemeral-data',
+      'adr-015-observability-stack',
+    ],
+  },
+];
+
 function generateNav(
   services: Array<{ name: string }>,
   adrs: Array<{ slug: string; title: string; status: string }>,
@@ -364,13 +415,60 @@ function generateNav(
 ) {
   console.log('  Generating navigation...');
 
+  const adrBySlug = new Map(adrs.map(a => [a.slug, a]));
+
+  // Build grouped ADR items
+  const adrItems: Array<{ label: string; href: string }> = [
+    { label: 'All ADRs', href: '/docs/concepts' },
+  ];
+  for (const group of ADR_GROUPS) {
+    adrItems.push({ label: group.label, href: '/docs/concepts' });
+    for (const slug of group.slugs) {
+      const adr = adrBySlug.get(slug);
+      if (adr) {
+        adrItems.push({
+          label: adr.title.replace(/^ADR-\d+[:\s-]+/, '').slice(0, 55),
+          href: `/docs/concepts/${adr.slug}`,
+        });
+      }
+    }
+  }
+
+  // Non-technical concept pages (split into Why Karmyq / How It Works)
+  const whyKarmyq = ['platform-overview', 'the-village-model', 'neighborhood-service-layer'];
+  const howItWorks = ['trust-score', 'what-is-karma', 'trust-paths', 'reputation-decay', 'why-ratings-are-private'];
+
   const nav = {
     sections: [
       {
-        title: 'Getting Started',
+        title: 'Why Karmyq',
+        items: whyKarmyq
+          .map(slug => conceptPages.find(p => p.slug === slug))
+          .filter(Boolean)
+          .map(p => ({ label: p!.title, href: `/docs/concepts/${p!.slug}` })),
+      },
+      {
+        title: 'How It Works',
+        items: howItWorks
+          .map(slug => conceptPages.find(p => p.slug === slug))
+          .filter(Boolean)
+          .map(p => ({ label: p!.title, href: `/docs/concepts/${p!.slug}` })),
+      },
+      {
+        title: 'User Guides',
+        items: guides.map(g => ({
+          label: GUIDE_LABELS[Object.keys(GUIDE_SLUGS).find(k => GUIDE_SLUGS[k] === g.slug) || ''] || g.title,
+          href: `/docs/guides/${g.slug}`,
+        })),
+      },
+      {
+        title: 'Architecture Decisions',
+        items: adrItems,
+      },
+      {
+        title: 'API Reference',
         items: [
-          { label: 'Overview', href: '/docs' },
-          { label: 'Architecture', href: '/docs/architecture' },
+          { label: 'All Endpoints', href: '/docs/api' },
         ],
       },
       {
@@ -382,36 +480,6 @@ function generateNav(
             href: `/docs/services/${s.name}`,
           })),
         ],
-      },
-      {
-        title: 'API Reference',
-        items: [
-          { label: 'All Endpoints', href: '/docs/api' },
-        ],
-      },
-      {
-        title: 'Concepts',
-        items: conceptPages.map(p => ({
-          label: p.title,
-          href: `/docs/concepts/${p.slug}`,
-        })),
-      },
-      {
-        title: 'Architecture Decisions',
-        items: [
-          { label: 'All ADRs', href: '/docs/concepts' },
-          ...adrs.map(c => ({
-            label: c.title.replace(/^ADR-\d+[:\s-]+/, '').slice(0, 50),
-            href: `/docs/concepts/${c.slug}`,
-          })),
-        ],
-      },
-      {
-        title: 'User Guides',
-        items: guides.map(g => ({
-          label: GUIDE_LABELS[Object.keys(GUIDE_SLUGS).find(k => GUIDE_SLUGS[k] === g.slug) || ''] || g.title,
-          href: `/docs/guides/${g.slug}`,
-        })),
       },
     ],
   };
