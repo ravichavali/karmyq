@@ -273,8 +273,8 @@
         },
         {
           "method": "PUT",
-          "path": "/matches/:id",
-          "description": "Update match status."
+          "path": "/matches/:id/complete",
+          "description": "Two-phase match completion. Each party calls this independently; the match"
         },
         {
           "method": "POST",

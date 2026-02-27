@@ -55,13 +55,27 @@ describe('Karma Service - Cross-Community Karma (ADR-031)', () => {
    *    l. recordActivity (responder)
    *    m. recordActivity (requester)
    */
-  // Trust score mock data (needed by updateTrustScore)
+  // Trust score mock data (needed by updateTrustScore — ADR-037 formula, 7 queries per user)
   const trustScoreMocks = [
-    // stats query (offers_accepted, requests_completed)
-    mockResult([{ offers_accepted: '3', requests_completed: '2' }]),
-    // karma sum query
-    mockResult([{ total_karma: '50' }]),
-    // upsert trust score
+    // 1. stats query (offers_accepted, requests_completed, recent_interactions)
+    mockResult([{ offers_accepted: '3', requests_completed: '2', recent_interactions: '3' }]),
+    // 2. getCommunityTrustConfig
+    mockResult([{
+      trust_depth_weight: 0.6,
+      trust_breadth_weight: 0.4,
+      trust_feedback_threshold: 3.0,
+      min_interactions_for_trust: 1,
+      trust_negative_allowed: false,
+    }]),
+    // 3. getWeightedAvgFeedback (feedback rows — empty means null avg)
+    mockResult([]),
+    // 4. getTrustMetrics: distinct_communities
+    mockResult([{ distinct_communities: '1' }]),
+    // 5. getTrustMetrics: distinct_people
+    mockResult([{ distinct_people: '2' }]),
+    // 6. getTrustMetrics: repeat_pairs
+    mockResult([{ repeat_pairs: '0' }]),
+    // 7. upsert trust score
     mockResult([]),
   ];
 
@@ -142,14 +156,22 @@ describe('Karma Service - Cross-Community Karma (ADR-031)', () => {
         .mockResolvedValueOnce(mockResult([]))
         // helper history
         .mockResolvedValueOnce(mockResult([{ count: '5' }]))
-        // updateTrustScore (responder): stats, karma sum, upsert
-        .mockResolvedValueOnce(mockResult([{ offers_accepted: '3', requests_completed: '2' }]))
-        .mockResolvedValueOnce(mockResult([{ total_karma: '50' }]))
-        .mockResolvedValueOnce(mockResult([]))
-        // updateTrustScore (requester): stats, karma sum, upsert
-        .mockResolvedValueOnce(mockResult([{ offers_accepted: '1', requests_completed: '3' }]))
-        .mockResolvedValueOnce(mockResult([{ total_karma: '20' }]))
-        .mockResolvedValueOnce(mockResult([]));
+        // updateTrustScore (responder): 7 queries (ADR-037)
+        .mockResolvedValueOnce(mockResult([{ offers_accepted: '3', requests_completed: '2', recent_interactions: '3' }]))
+        .mockResolvedValueOnce(mockResult([]))  // getCommunityTrustConfig (no row → defaults)
+        .mockResolvedValueOnce(mockResult([]))  // getWeightedAvgFeedback
+        .mockResolvedValueOnce(mockResult([{ distinct_communities: '1' }]))
+        .mockResolvedValueOnce(mockResult([{ distinct_people: '2' }]))
+        .mockResolvedValueOnce(mockResult([{ repeat_pairs: '0' }]))
+        .mockResolvedValueOnce(mockResult([]))  // upsert
+        // updateTrustScore (requester): 7 queries
+        .mockResolvedValueOnce(mockResult([{ offers_accepted: '1', requests_completed: '3', recent_interactions: '2' }]))
+        .mockResolvedValueOnce(mockResult([]))  // getCommunityTrustConfig
+        .mockResolvedValueOnce(mockResult([]))  // getWeightedAvgFeedback
+        .mockResolvedValueOnce(mockResult([{ distinct_communities: '1' }]))
+        .mockResolvedValueOnce(mockResult([{ distinct_people: '1' }]))
+        .mockResolvedValueOnce(mockResult([{ repeat_pairs: '0' }]))
+        .mockResolvedValueOnce(mockResult([]));  // upsert
 
       await awardKarmaForCompletedMatch(mockMatchData);
 
@@ -163,10 +185,15 @@ describe('Karma Service - Cross-Community Karma (ADR-031)', () => {
     });
 
     it('should award karma in multiple shared communities', async () => {
+      // 7 mocks per updateTrustScore call (ADR-037 formula)
       const tsm = (o: string, r: string) => [
-        mockResult([{ offers_accepted: o, requests_completed: r }]),
-        mockResult([{ total_karma: '50' }]),
-        mockResult([]),
+        mockResult([{ offers_accepted: o, requests_completed: r, recent_interactions: o }]),
+        mockResult([]),  // getCommunityTrustConfig (defaults)
+        mockResult([]),  // getWeightedAvgFeedback (no feedback)
+        mockResult([{ distinct_communities: '1' }]),
+        mockResult([{ distinct_people: '1' }]),
+        mockResult([{ repeat_pairs: '0' }]),
+        mockResult([]),  // upsert
       ];
 
       // ADR-035: configs are fetched via Promise.all BEFORE the loop begins
@@ -317,14 +344,22 @@ describe('Karma Service - Cross-Community Karma (ADR-031)', () => {
         .mockResolvedValueOnce(mockResult([]))
         // helper history
         .mockResolvedValueOnce(mockResult([{ count: '3' }]))
-        // updateTrustScore (responder): stats, karma sum, upsert
-        .mockResolvedValueOnce(mockResult([{ offers_accepted: '2', requests_completed: '1' }]))
-        .mockResolvedValueOnce(mockResult([{ total_karma: '30' }]))
-        .mockResolvedValueOnce(mockResult([]))
-        // updateTrustScore (requester): stats, karma sum, upsert
-        .mockResolvedValueOnce(mockResult([{ offers_accepted: '0', requests_completed: '2' }]))
-        .mockResolvedValueOnce(mockResult([{ total_karma: '10' }]))
-        .mockResolvedValueOnce(mockResult([]));
+        // updateTrustScore (responder): 7 queries (ADR-037)
+        .mockResolvedValueOnce(mockResult([{ offers_accepted: '2', requests_completed: '1', recent_interactions: '2' }]))
+        .mockResolvedValueOnce(mockResult([]))  // getCommunityTrustConfig
+        .mockResolvedValueOnce(mockResult([]))  // getWeightedAvgFeedback
+        .mockResolvedValueOnce(mockResult([{ distinct_communities: '1' }]))
+        .mockResolvedValueOnce(mockResult([{ distinct_people: '1' }]))
+        .mockResolvedValueOnce(mockResult([{ repeat_pairs: '0' }]))
+        .mockResolvedValueOnce(mockResult([]))  // upsert
+        // updateTrustScore (requester): 7 queries
+        .mockResolvedValueOnce(mockResult([{ offers_accepted: '0', requests_completed: '2', recent_interactions: '1' }]))
+        .mockResolvedValueOnce(mockResult([]))  // getCommunityTrustConfig
+        .mockResolvedValueOnce(mockResult([]))  // getWeightedAvgFeedback
+        .mockResolvedValueOnce(mockResult([{ distinct_communities: '1' }]))
+        .mockResolvedValueOnce(mockResult([{ distinct_people: '1' }]))
+        .mockResolvedValueOnce(mockResult([{ repeat_pairs: '0' }]))
+        .mockResolvedValueOnce(mockResult([]));  // upsert
 
       await awardKarmaForCompletedMatch(mockMatchData);
 
@@ -369,15 +404,169 @@ describe('getUserTrustScore', () => {
 
   it('should return 0 for new users with no karma and no feedback', async () => {
     // New users start at 0, not 50 — all tiers are reachable from the bottom
+    // getUserTrustScore query sequence (ADR-037):
+    //   1. stats (recent_interactions, offers_accepted, requests_completed)
+    //   2. getCommunityTrustConfig
+    //   3. getWeightedAvgFeedback (feedback rows)
+    //   4. getTrustMetrics: distinct_communities
+    //   5. getTrustMetrics: distinct_people
+    //   6. getTrustMetrics: repeat_pairs
+    // recent_interactions=0 → carry path also runs (carry_enabled defaults true)
+    // getMaxOtherCommunityScore returns null (no other community scores) → no carry applied
     mockQuery
-      .mockResolvedValueOnce(mockResult([{ total_karma: null, offers_accepted: '0', requests_completed: '0' }]))
-      .mockResolvedValueOnce(mockResult([])); // no feedback rows yet
+      .mockResolvedValueOnce(mockResult([{ offers_accepted: '0', requests_completed: '0', recent_interactions: '0' }]))
+      .mockResolvedValueOnce(mockResult([{
+        trust_depth_weight: 0.6,
+        trust_breadth_weight: 0.4,
+        trust_feedback_threshold: 3.0,
+        min_interactions_for_trust: 1,
+        trust_negative_allowed: false,
+        trust_carry_enabled: true,
+        trust_carry_factor: 0.40,
+        trust_carry_cap: 59,
+      }]))
+      .mockResolvedValueOnce(mockResult([]))     // no feedback
+      .mockResolvedValueOnce(mockResult([{ distinct_communities: '0' }]))
+      .mockResolvedValueOnce(mockResult([{ distinct_people: '0' }]))
+      .mockResolvedValueOnce(mockResult([{ repeat_pairs: '0' }]))
+      .mockResolvedValueOnce(mockResult([{ max_other_score: null }])); // no carry source
 
     const trustScore = await getUserTrustScore('user-new', 'community-123');
 
     expect(trustScore.score).toBe(0);
     expect(trustScore.requests_completed).toBe(0);
     expect(trustScore.offers_accepted).toBe(0);
+  });
+
+  it('should apply carry floor for new member with reputation elsewhere', async () => {
+    // User has 75 trust in another community; carry = min(59, floor(75 × 0.40)) = min(59, 30) = 30
+    mockQuery
+      .mockResolvedValueOnce(mockResult([{ offers_accepted: '0', requests_completed: '0', recent_interactions: '0' }]))
+      .mockResolvedValueOnce(mockResult([{
+        trust_depth_weight: 0.6,
+        trust_breadth_weight: 0.4,
+        trust_feedback_threshold: 3.0,
+        min_interactions_for_trust: 1,
+        trust_negative_allowed: false,
+        trust_carry_enabled: true,
+        trust_carry_factor: 0.40,
+        trust_carry_cap: 59,
+      }]))
+      .mockResolvedValueOnce(mockResult([]))     // no feedback
+      .mockResolvedValueOnce(mockResult([{ distinct_communities: '0' }]))
+      .mockResolvedValueOnce(mockResult([{ distinct_people: '0' }]))
+      .mockResolvedValueOnce(mockResult([{ repeat_pairs: '0' }]))
+      .mockResolvedValueOnce(mockResult([{ max_other_score: '75' }])); // carry source
+
+    const trustScore = await getUserTrustScore('user-established', 'community-new');
+
+    // carried = min(59, floor(75 × 0.40)) = 30; local = 0; score = max(0, 30) = 30
+    expect(trustScore.score).toBe(30);
+  });
+
+  it('should cap carry at trust_carry_cap (59 by default)', async () => {
+    // User has 150 trust elsewhere — carry should be capped at 59
+    mockQuery
+      .mockResolvedValueOnce(mockResult([{ offers_accepted: '0', requests_completed: '0', recent_interactions: '0' }]))
+      .mockResolvedValueOnce(mockResult([{
+        trust_depth_weight: 0.6,
+        trust_breadth_weight: 0.4,
+        trust_feedback_threshold: 3.0,
+        min_interactions_for_trust: 1,
+        trust_negative_allowed: false,
+        trust_carry_enabled: true,
+        trust_carry_factor: 0.90,
+        trust_carry_cap: 59,
+      }]))
+      .mockResolvedValueOnce(mockResult([]))
+      .mockResolvedValueOnce(mockResult([{ distinct_communities: '0' }]))
+      .mockResolvedValueOnce(mockResult([{ distinct_people: '0' }]))
+      .mockResolvedValueOnce(mockResult([{ repeat_pairs: '0' }]))
+      .mockResolvedValueOnce(mockResult([{ max_other_score: '100' }]));
+
+    const trustScore = await getUserTrustScore('user-trusted', 'community-new');
+
+    // carry = min(59, floor(100 × 0.90)) = min(59, 90) = 59
+    expect(trustScore.score).toBe(59);
+  });
+
+  it('should not apply carry when carry_enabled is false', async () => {
+    mockQuery
+      .mockResolvedValueOnce(mockResult([{ offers_accepted: '0', requests_completed: '0', recent_interactions: '0' }]))
+      .mockResolvedValueOnce(mockResult([{
+        trust_depth_weight: 0.6,
+        trust_breadth_weight: 0.4,
+        trust_feedback_threshold: 3.0,
+        min_interactions_for_trust: 1,
+        trust_negative_allowed: false,
+        trust_carry_enabled: false,
+        trust_carry_factor: 0.40,
+        trust_carry_cap: 59,
+      }]))
+      .mockResolvedValueOnce(mockResult([]))
+      .mockResolvedValueOnce(mockResult([{ distinct_communities: '0' }]))
+      .mockResolvedValueOnce(mockResult([{ distinct_people: '0' }]))
+      .mockResolvedValueOnce(mockResult([{ repeat_pairs: '0' }]));
+    // No 7th mock — carry path should not execute
+
+    const trustScore = await getUserTrustScore('user-established', 'community-closed');
+
+    expect(trustScore.score).toBe(0); // no carry, no local history
+  });
+
+  it('should not apply carry when user has recent local interactions', async () => {
+    // recent_interactions > 0 → carry path skipped entirely
+    mockQuery
+      .mockResolvedValueOnce(mockResult([{ offers_accepted: '3', requests_completed: '2', recent_interactions: '3' }]))
+      .mockResolvedValueOnce(mockResult([{
+        trust_depth_weight: 0.6,
+        trust_breadth_weight: 0.4,
+        trust_feedback_threshold: 3.0,
+        min_interactions_for_trust: 1,
+        trust_negative_allowed: false,
+        trust_carry_enabled: true,
+        trust_carry_factor: 0.40,
+        trust_carry_cap: 59,
+      }]))
+      .mockResolvedValueOnce(mockResult([]))
+      .mockResolvedValueOnce(mockResult([{ distinct_communities: '1' }]))
+      .mockResolvedValueOnce(mockResult([{ distinct_people: '2' }]))
+      .mockResolvedValueOnce(mockResult([{ repeat_pairs: '0' }]));
+    // No 7th mock — carry path must not execute
+
+    const trustScore = await getUserTrustScore('user-active', 'community-123');
+
+    // vol: floor(log2(4)*10)=20; bonus:5; total ≥ 0
+    expect(trustScore.score).toBeGreaterThan(0);
+    // Verify carry query was NOT called (only 6 mockQuery calls)
+    expect(mockQuery).toHaveBeenCalledTimes(6);
+  });
+
+  it('should not reduce score below locally-earned score via carry', async () => {
+    // Local score > carry: carry should be ignored
+    // recent_interactions=5 → carry path skipped (has local history)
+    mockQuery
+      .mockResolvedValueOnce(mockResult([{ offers_accepted: '3', requests_completed: '2', recent_interactions: '5' }]))
+      .mockResolvedValueOnce(mockResult([{
+        trust_depth_weight: 0.6,
+        trust_breadth_weight: 0.4,
+        trust_feedback_threshold: 3.0,
+        min_interactions_for_trust: 1,
+        trust_negative_allowed: false,
+        trust_carry_enabled: true,
+        trust_carry_factor: 0.40,
+        trust_carry_cap: 59,
+      }]))
+      .mockResolvedValueOnce(mockResult([]))
+      .mockResolvedValueOnce(mockResult([{ distinct_communities: '1' }]))
+      .mockResolvedValueOnce(mockResult([{ distinct_people: '3' }]))
+      .mockResolvedValueOnce(mockResult([{ repeat_pairs: '1' }]));
+
+    const trustScore = await getUserTrustScore('user-local', 'community-123');
+
+    // Score is whatever the formula gives — carry doesn't apply
+    expect(trustScore.score).toBeGreaterThan(0);
+    expect(mockQuery).toHaveBeenCalledTimes(6); // no carry query
   });
 });
 

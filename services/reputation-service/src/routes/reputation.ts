@@ -1,8 +1,7 @@
 import { Router, Request, Response } from 'express';
-import { getUserKarma, getUserKarmaWithDecay, getUserTrustScore, getCommunityLeaderboard } from '../services/karmaService';
+import { getUserKarma, getUserKarmaWithDecay, getUserTrustScore, getCommunityLeaderboard, updateTrustScore } from '../services/karmaService';
 import { query } from '../database/db';
-import { insertFeedback, hasSubmittedFeedback, getAvgFeedback } from '../database/feedbackDb';
-import { computeTrustScore } from '../services/trustScoreStrategy';
+import { insertFeedback, hasSubmittedFeedback } from '../database/feedbackDb';
 import { authMiddleware, AuthenticatedRequest } from '@karmyq/shared/middleware/auth';
 
 const router = Router();
@@ -241,30 +240,8 @@ router.post('/feedback', authMiddleware, async (req: AuthenticatedRequest, res: 
     // Store feedback
     await insertFeedback(fromUserId, to_user_id, match_id, community_id, ratingNum);
 
-    // Recompute trust score for the rated user using updated avg feedback
-    const avgFeedback = await getAvgFeedback(to_user_id);
-
-    const karmaResult = await query(
-      `SELECT COALESCE(SUM(points), 0) AS total_karma FROM reputation.karma_records WHERE user_id = $1 AND community_id = $2`,
-      [to_user_id, community_id],
-    );
-    const total_karma = parseInt(karmaResult.rows[0].total_karma);
-
-    const interactionsResult = await query(
-      `SELECT COUNT(*) AS count FROM reputation.karma_records WHERE user_id = $1 AND community_id = $2 AND reason IN ('Provided help', 'Received help')`,
-      [to_user_id, community_id],
-    );
-    const interactions_completed = parseInt(interactionsResult.rows[0].count);
-
-    const score = computeTrustScore({ total_karma, interactions_completed, avg_feedback_score: avgFeedback });
-
-    await query(
-      `INSERT INTO reputation.trust_scores (user_id, community_id, score, last_updated)
-       VALUES ($1, $2, $3, CURRENT_TIMESTAMP)
-       ON CONFLICT (user_id, community_id)
-       DO UPDATE SET score = $3, last_updated = CURRENT_TIMESTAMP`,
-      [to_user_id, community_id, score],
-    );
+    // Recompute trust score for the rated user (full ADR-037 formula)
+    const score = await updateTrustScore(to_user_id, community_id);
 
     res.json({ success: true, data: { score } });
   } catch (error: any) {

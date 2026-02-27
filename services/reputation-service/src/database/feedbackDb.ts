@@ -22,6 +22,67 @@ export async function hasSubmittedFeedback(fromUserId: string, matchId: string):
   return result.rows.length > 0;
 }
 
+/**
+ * Returns a recency-weighted blended feedback average for trust score computation (ADR-039).
+ *
+ * Weighting: each rating is weighted by age using a 6-month half-life:
+ *   weight = max(0.1, 0.5 ^ (age_months / halfLifeMonths))
+ *
+ * A minimum weight of 0.1 ensures old feedback never fully disappears — sparse history
+ * still carries a reduced signal rather than being dropped entirely.
+ *
+ * Blending: 70% local (same community) + 30% cross-community, matching getBlendedAvgFeedback().
+ * If only one side has data, that side is used directly (no penalty for lack of cross-community data).
+ *
+ * Returns null if no feedback exists at all.
+ */
+export async function getWeightedAvgFeedback(
+  toUserId: string,
+  communityId: string,
+  halfLifeMonths = 6,
+  localWeight = 0.7,
+  globalWeight = 0.3,
+): Promise<number | null> {
+  const result = await query(
+    `SELECT rating, community_id, created_at
+     FROM feedback.feedback
+     WHERE to_user_id = $1
+     ORDER BY created_at DESC`,
+    [toUserId],
+  );
+
+  if (result.rows.length === 0) return null;
+
+  const now = Date.now();
+  const MONTH_MS = 30 * 24 * 60 * 60 * 1000;
+
+  let localWeightSum = 0;
+  let localWeightedSum = 0;
+  let globalWeightSum = 0;
+  let globalWeightedSum = 0;
+
+  for (const row of result.rows) {
+    const ageMonths = (now - new Date(row.created_at).getTime()) / MONTH_MS;
+    const weight = Math.max(0.1, Math.pow(0.5, ageMonths / halfLifeMonths));
+    const rating = parseFloat(row.rating);
+
+    globalWeightSum += weight;
+    globalWeightedSum += rating * weight;
+
+    if (row.community_id === communityId) {
+      localWeightSum += weight;
+      localWeightedSum += rating * weight;
+    }
+  }
+
+  const local = localWeightSum > 0 ? localWeightedSum / localWeightSum : null;
+  const global_ = globalWeightSum > 0 ? globalWeightedSum / globalWeightSum : null;
+
+  if (local == null && global_ == null) return null;
+  if (local != null && global_ != null) return local * localWeight + global_ * globalWeight;
+  return local ?? global_!;
+}
+
 export async function getAvgFeedback(toUserId: string): Promise<number | null> {
   const result = await query(
     `SELECT AVG(rating)::NUMERIC(3,2) AS avg_rating FROM feedback.feedback WHERE to_user_id = $1`,

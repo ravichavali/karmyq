@@ -5,8 +5,9 @@
 
 ## Recent Changes
 
-- **2026-02-26 (blended feedback)**: `feedbackDb.ts` now exports `getBlendedAvgFeedback(toUserId, communityId)` — 70% local (this community) + 30% cross-community weighted blend, falling back to whichever side has data. `getUserTrustScore()` in `karmaService.ts` now calls this instead of the old global `getAvgFeedback()`. New composite DB index: `idx_feedback_to_user_community` on `feedback.feedback(to_user_id, community_id)` (migration 018).
-- **2026-02-26 (trust formula)**: Trust score formula replaced with interactions-primary logarithmic model (0–100). Formula: `interaction_score = min(60, floor(log2(n+1)×15))` + `quality_score = round((avg_feedback/5)×30)` + `karma_bonus = min(10, floor(karma/100))`. New users start at 0 (not 50). See [ADR-038](../../docs/adr/ADR-038-cross-community-trust.md).
+- **2026-02-27 (ADR-037 + ADR-038 + ADR-039)**: Multi-signal trust score fully implemented. Formula: `volume(log, 12-month window) + quality(recency-weighted, 6-month half-life) + depth(repeat pairs × depth_weight) + breadth(distinct people + communities × breadth_weight) + bonus`. Karma removed as trust input. Cross-community carry floor (ADR-038): when `recent_interactions == 0`, score is floored by `min(carry_cap, floor(max_other_score × carry_factor))`. Migrations 019 + 020 add `trust_feedback_threshold`, `trust_negative_allowed`, `trust_carry_*`. New files: `trustMetricsDb.ts`, `trustCarryDb.ts`; new function `feedbackDb.getWeightedAvgFeedback()`.
+- **2026-02-26 (blended feedback)**: `feedbackDb.ts` exports `getBlendedAvgFeedback(toUserId, communityId)` — 70% local + 30% cross-community blend. New composite DB index `idx_feedback_to_user_community` (migration 018).
+- **2026-02-26 (trust formula)**: Interim interactions-primary model shipped. Superseded by ADR-037 on 2026-02-27.
 - **2026-02-26 (bug fix)**: Fixed trust score read path in `karmaService.ts:getUserTrustScore()`. Was reading non-existent columns (`avg_helpfulness`, `avg_responsiveness`, `avg_clarity`) from `reputation.trust_scores`, causing feedback contribution to always be 0 on read. Now calls `getAvgFeedback()` from `feedbackDb.ts` — same source as the POST feedback endpoint — so read and write paths are consistent.
 - **2026-02-25 (ADR-036)**: Private feedback ratings — star picker after match completion. Both parties rate each other via `POST /reputation/feedback`. Feedback feeds into trust score via `avg_feedback_score`. Ratings are never exposed via API.
 - **2026-02-25 (ADR-035)**: Karma now uses a fixed-pool model — `BASE_KARMA_POOL` points divided across shared communities, preventing multi-community inflation. Trust score formula abstracted into `trustScoreStrategy.ts` and now incorporates feedback ratings alongside karma. See [ADR-035](../../docs/adr/ADR-035-karma-allocation-trust-score-strategy.md).
@@ -64,6 +65,19 @@ CREATE INDEX idx_trust_scores_user_community ON reputation.trust_scores(user_id,
 -- Composite index for community-scoped getBlendedAvgFeedback local avg component
 CREATE INDEX IF NOT EXISTS idx_feedback_to_user_community
   ON feedback.feedback (to_user_id, community_id);
+
+-- community_configs trust score extensions (migration 019 — ADR-037)
+ALTER TABLE communities.community_configs
+  ADD COLUMN IF NOT EXISTS trust_feedback_threshold DECIMAL(3,1) DEFAULT 3.0
+    CHECK (trust_feedback_threshold BETWEEN 1.0 AND 4.9),
+  ADD COLUMN IF NOT EXISTS trust_negative_allowed BOOLEAN DEFAULT FALSE;
+-- Note: trust_weights_sum constraint dropped (depth/breadth weights are independent)
+
+-- community_configs carry model fields (migration 020 — ADR-038)
+ALTER TABLE communities.community_configs
+  ADD COLUMN IF NOT EXISTS trust_carry_enabled BOOLEAN DEFAULT TRUE,
+  ADD COLUMN IF NOT EXISTS trust_carry_factor DECIMAL(3,2) DEFAULT 0.40,
+  ADD COLUMN IF NOT EXISTS trust_carry_cap INTEGER DEFAULT 59;
 ```
 
 **Social Karma v2.0 Schema Extensions:**
@@ -169,45 +183,57 @@ Karma is awarded via a **fixed-pool model** — a total of `BASE_KARMA_POOL` poi
 
 ## Trust Score Calculation
 
-> ⚠️ **Interim model** (ADR-035). The target model is defined in [ADR-037](../../docs/adr/ADR-037-multi-signal-trust-score.md) and will replace this in the next implementation sprint.
+Implemented per [ADR-037](../../docs/adr/ADR-037-multi-signal-trust-score.md) + [ADR-039](../../docs/adr/ADR-039-trust-score-decay-consistency.md) + [ADR-038](../../docs/adr/ADR-038-cross-community-trust.md). **Karma is not a trust input.**
 
-### Current formula (interactions-primary, 2026-02-26)
+### Formula (ADR-037 + ADR-039)
 
-Trust score ranges 0–100. New users start at 0:
+Trust score ranges from `floor` (0 or -50) to 100. New users start at 0:
 
 ```
-interaction_score = min(60, floor(log2(interactions_completed + 1) × 15))  → 0–60 pts
-quality_score     = round((avg_feedback_score / 5) × 30)                   → 0–30 pts (0 if null)
-karma_bonus       = min(10, floor(total_karma / 100))                       → 0–10 pts
-score             = max(0, min(100, interaction_score + quality_score + karma_bonus))
+volume_score   = min(30, floor(log2(recent_interactions + 1) × 10))
+                 recent_interactions = completed interactions in last 12 months (ADR-039)
+
+quality_score  = avg_feedback_score != null
+                 ? round(((avg_feedback_score - threshold) / (5 - threshold)) × 25)
+                 : 0
+                 avg_feedback_score = recency-weighted blend (6-month half-life, ADR-039)
+                 threshold = community_configs.trust_feedback_threshold (default 3.0)
+
+depth_score    = min(15, repeat_interaction_pairs × 2) × trust_depth_weight
+breadth_score  = (min(10, distinct_people × 2) + min(10, distinct_communities × 3))
+                 × trust_breadth_weight
+bonus_score    = recent_interactions >= min_interactions_for_trust ? 5 : 0
+
+floor          = trust_negative_allowed ? -50 : 0
+trust_score    = max(floor, min(100, round(raw_score)))
 ```
 
-Tier thresholds: New (0–39), Building (40–59), Reliable (60–79), Trusted (80–100).
+Tier thresholds: New (0–19), Active (20–49), Trusted (50–74), Highly Trusted (75–100).
 
-**Feedback input**: `avg_feedback_score` is a **blended** value — 70% local (this community) + 30% cross-community — computed by `getBlendedAvgFeedback()` in `feedbackDb.ts`.
+### Cross-community carry floor (ADR-038)
+
+When `recent_interactions == 0`, score is floored by:
+```
+carried = min(carry_cap, floor(max_other_community_score × carry_factor))
+score   = max(local_score, carried)
+```
+Defaults: `carry_factor = 0.40`, `carry_cap = 59`. Configurable via `trust_carry_factor/cap/enabled`.
+
+### Community configuration fields
+| Field | Default | Effect |
+|-------|---------|--------|
+| `trust_depth_weight` | 0.6 | Bonding capital weight (repeat pairs) |
+| `trust_breadth_weight` | 0.4 | Bridging capital weight (distinct people + communities) |
+| `trust_feedback_threshold` | 3.0 | Neutral star rating (above = positive, below = negative) |
+| `trust_negative_allowed` | false | Allow scores below 0 (punitive mode) |
+| `trust_carry_enabled` | true | Cross-community carry floor |
+| `trust_carry_factor` | 0.40 | Fraction of best other score to carry |
+| `trust_carry_cap` | 59 | Max carried score |
 
 **Tuning surface:** `src/services/trustScoreStrategy.ts` — `computeTrustScore(inputs: TrustScoreInputs)`
-
-### Target formula (ADR-037, pending implementation)
-
-Multi-signal model ranging from `community_floor` (0 or -50) to 100:
-
-```
-volume_score  = min(30, log2(interactions + 1) × 10)      → 0–30 pts
-quality_score = round((avg_feedback / 5) × 25)             → 0–25 pts
-depth_score   = min(15, repeat_pairs × 2) × depth_weight   → 0–15 pts
-breadth_score = (distinct_people + distinct_communities)    → 0–20 pts
-               × breadth_weight
-bonus_score   = 5 if threshold_met else 0                  → 0–5 pts
-trust_score   = clamp(raw_score, floor, 100)
-```
-
-Key changes:
-- **No artificial base of 50** — new users start at 0 (genuinely unknown, not presumed trustworthy)
-- **Karma removed** as trust input — `interactions_completed` is the direct volume signal
-- **Depth** (repeat pairs) and **breadth** (distinct people + communities) added — community-weighted
-- **Community floor mode**: restorative (floor 0) or punitive (floor -50) per `trust_negative_allowed` config
-- `trust_depth_weight` and `trust_breadth_weight` from `community_configs` now active
+**Feedback weighting:** `src/database/feedbackDb.ts` — `getWeightedAvgFeedback(userId, communityId, halfLifeMonths=6)`
+**Depth/breadth metrics:** `src/database/trustMetricsDb.ts` — `getTrustMetrics(userId, communityId)`
+**Carry floor:** `src/database/trustCarryDb.ts` — `getMaxOtherCommunityScore(userId, targetCommunityId)`
 
 ## API Endpoints
 
@@ -612,7 +638,9 @@ LOG_LEVEL=info                   # debug, info, warn, error
 
 ### Database
 - `src/database/db.ts` - PostgreSQL connection pool
-- `src/database/feedbackDb.ts` - Feedback queries: `getAvgFeedback(userId)` (global, used in POST response) and `getBlendedAvgFeedback(userId, communityId, localWeight=0.7, globalWeight=0.3)` (community-scoped blend, used in trust score computation)
+- `src/database/feedbackDb.ts` - `getAvgFeedback(userId)` (global), `getBlendedAvgFeedback(userId, communityId)` (70/30 blend), `getWeightedAvgFeedback(userId, communityId, halfLifeMonths=6)` (recency-weighted, used in trust score path)
+- `src/database/trustMetricsDb.ts` - `getTrustMetrics(userId, communityId)` — repeat pairs, distinct people, distinct communities (ADR-037)
+- `src/database/trustCarryDb.ts` - `getMaxOtherCommunityScore(userId, targetCommunityId)` — carry floor query (ADR-038)
 
 ## Common Development Tasks
 
@@ -967,12 +995,12 @@ src/
 
 ## Future Enhancements (TODO)
 
-- [ ] Feedback/rating system for matches
+- [x] Feedback/rating system — private star ratings, ADR-036 (implemented)
+- [x] Decay factor for old karma — 6-month half-life, ADR-011 (implemented)
+- [x] Advanced trust score algorithm — ADR-037 multi-signal formula (implemented)
+- [x] Reputation portability across communities — ADR-038 carry model (implemented)
 - [ ] Negative karma for reported issues
 - [ ] Badge system implementation
-- [ ] Decay factor for old karma (time-weighted reputation)
-- [ ] Reputation portability across communities
-- [ ] Advanced trust score algorithm (incorporate feedback ratings)
 - [ ] Karma leaderboard across all communities
 - [ ] Reputation-based privileges (verified helpers, trusted requesters)
 - [ ] Federation support (federated reputation scores)

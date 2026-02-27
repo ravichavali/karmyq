@@ -72,9 +72,9 @@ When code implementing an ADR is deployed, update the status from `Accepted` →
 - [ADR-034: Multi-Layer Trust Path Computation](ADR-034-multi-layer-trust-computation.md) — Implemented
 - [ADR-035: Karma Allocation Strategy and Trust Score Abstraction](ADR-035-karma-allocation-trust-score-strategy.md) — Implemented
 - [ADR-036: Private Feedback Model — Trust Without Rating Economies](ADR-036-private-feedback-model.md) — Accepted
-- [ADR-037: Multi-Signal Trust Score — Bonding Capital, Bridging Capital, and Community-Configurable Floors](ADR-037-multi-signal-trust-score.md) — Accepted (Implementation Pending)
-- [ADR-038: Cross-Community Trust — Carry Model with Community-Configurable Decay](ADR-038-cross-community-trust.md) — Proposed
-- [ADR-039: Trust Score Decay Consistency — Time-Weighted Signals](ADR-039-trust-score-decay-consistency.md) — Proposed
+- [ADR-037: Multi-Signal Trust Score — Bonding Capital, Bridging Capital, and Community-Configurable Floors](ADR-037-multi-signal-trust-score.md) — **Implemented**
+- [ADR-038: Cross-Community Trust — Carry Model with Community-Configurable Decay](ADR-038-cross-community-trust.md) — **Implemented**
+- [ADR-039: Trust Score Decay Consistency — Time-Weighted Signals](ADR-039-trust-score-decay-consistency.md) — **Implemented**
 
 ## Creating a New ADR
 

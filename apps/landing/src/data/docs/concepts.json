@@ -279,6 +279,22 @@
       "status": "accepted",
       "description": "**Date**: 2026-02-25",
       "filename": "ADR-037-multi-signal-trust-score.md"
+    },
+    {
+      "slug": "adr-038-cross-community-trust",
+      "number": "038",
+      "title": "ADR-038: Cross-Community Trust — Carry Model with Community-Configurable Decay",
+      "status": "proposed",
+      "description": "**Date**: 2026-02-26",
+      "filename": "ADR-038-cross-community-trust.md"
+    },
+    {
+      "slug": "adr-039-trust-score-decay-consistency",
+      "number": "039",
+      "title": "ADR-039: Trust Score Decay Consistency — Time-Weighted Signals",
+      "status": "proposed",
+      "description": "**Date**: 2026-02-26",
+      "filename": "ADR-039-trust-score-decay-consistency.md"
     }
   ]
 }

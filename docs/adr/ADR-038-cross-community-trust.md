@@ -1,7 +1,7 @@
 # ADR-038: Cross-Community Trust — Carry Model with Community-Configurable Decay
 
 **Date**: 2026-02-26
-**Status**: Proposed
+**Status**: Implemented
 **Deciders**: Karmyq Core Team
 **Related**: [ADR-037](ADR-037-multi-signal-trust-score.md) (Open Question #5), [ADR-035](ADR-035-karma-allocation-trust-score-strategy.md)
 

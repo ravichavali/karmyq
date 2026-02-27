@@ -1,7 +1,7 @@
 # ADR-037: Multi-Signal Trust Score — Bonding Capital, Bridging Capital, and Community-Configurable Floors
 
 **Date**: 2026-02-25
-**Status**: Accepted (Implementation Pending)
+**Status**: Implemented
 **Deciders**: Development Team
 **Supersedes**: ADR-035 (trust score portion only; karma allocation unchanged)
 

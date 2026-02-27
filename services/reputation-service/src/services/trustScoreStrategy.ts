@@ -1,67 +1,112 @@
 /**
- * Trust Score Strategy (ADR-032)
+ * Trust Score Strategy (ADR-037)
  *
- * Computes a user's trust score from available signals. The formula is
- * intentionally isolated here so it can be tuned — or replaced with a
- * more sophisticated model — without touching the service layer.
+ * Multi-signal trust formula based on Putnam's bonding/bridging capital framework.
+ * Replaces the interim karma-heavy model (ADR-035 trust portion).
  *
- * Future inputs to wire in: direct_connection_count (social graph depth),
- * days_active_last_30 (recency), community_tenure_days (longevity).
+ * All time-sensitive inputs are pre-computed by the caller with ADR-039 decay applied:
+ *   - recent_interactions: last 12 months only (sliding window)
+ *   - avg_feedback_score:  recency-weighted blend (6-month half-life)
+ *
+ * Karma is no longer a trust input. Trust is earned through the nature and
+ * recency of interactions, not accumulated currency.
  */
 
 export interface TrustScoreInputs {
-  // Active signals (used now)
-  total_karma: number;
-  interactions_completed: number;    // total exchanges as helper + requester
-  avg_feedback_score: number | null; // avg of helpfulness/responsiveness/clarity ratings (0–5 scale), or null if no feedback yet
+  // Volume (ADR-039: last 12 months only)
+  recent_interactions: number;
 
-  // Future signals — pass undefined until wired from social-graph / analytics
-  direct_connection_count?: number;  // # of mutual connections in community
-  days_active_last_30?: number;      // recency: active days in last 30
-  community_tenure_days?: number;    // how long the user has been a member
+  // Quality (ADR-039: recency-weighted blended avg, 6-month half-life; null if no feedback yet)
+  avg_feedback_score: number | null;
+
+  // Depth — bonding capital (repeat counterparties, unique pairs seen 2+ times)
+  repeat_interaction_pairs: number;
+
+  // Breadth — bridging capital
+  distinct_people_count: number;
+  distinct_communities_count: number;
+
+  // Community configuration
+  depth_weight: number;               // 0.0–1.0, scales depth_score (default 0.6)
+  breadth_weight: number;             // 0.0–1.0, scales breadth_score (default 0.4)
+  feedback_threshold: number;         // 1.0–4.9, star rating at which quality = 0 (default 3.0)
+  min_interactions_for_bonus: number; // interaction count to earn the 5pt bonus (default 1)
+  negative_allowed: boolean;          // whether trust can go below 0 (default false)
 }
 
 /**
- * Compute a trust score (0–100) from multi-factor inputs.
+ * Compute a trust score from multi-factor inputs (ADR-037).
  *
- * Current formula (interim — ADR-037 replaces this with a full multi-signal model):
+ * Formula breakdown:
  *
- *   interaction_score = min(60, floor(log2(interactions_completed + 1) × 15))  → 0–60 pts
- *   quality_score     = round((avg_feedback / 5) × 30)                          → 0–30 pts
- *   karma_bonus       = min(10, floor(total_karma / 100))                        → 0–10 pts
- *   score             = max(0, min(100, interaction_score + quality_score + karma_bonus))
+ *   volume_score   = min(30, floor(log2(recent_interactions + 1) × 10))   → 0–30 pts
+ *     - Logarithmic: each additional interaction contributes less
+ *     - 0 interactions → 0, 1 → 10, 3 → 16, 7 → 22, 15+ → 30
  *
- * Rationale:
- *   - Interactions are the primary signal (60%). Logarithmic scale rewards consistent
- *     engagement while preventing gaming through bulk low-quality interactions.
- *     Caps at ~16 completed interactions.
- *   - Quality (feedback) is secondary (30%). Meaningful once there are enough
- *     interactions to trust the signal.
- *   - Karma is a small bonus (10%). Participation still rewarded, but it no longer
- *     dominates — need 1000 karma to max this out.
+ *   quality_score  = round(((avg - threshold) / (5 - threshold)) × 25)    → varies
+ *     - Null feedback → 0 (no signal yet)
+ *     - At threshold → 0, perfect (5★) → +25, below threshold → negative
  *
- * Approximate tier milestones:
- *   1 interaction, no feedback      →  15  (New)
- *   3 interactions, 4-star avg      →  54  (Building)
- *   5 interactions, 4-star avg      →  62  (Reliable)
- *   10 interactions, 4-star avg     →  75  (Reliable)
- *   16+ interactions, 5-star avg    →  90  (Trusted)
- *   16+ interactions, 5-star + 1000 karma → 100 (Trusted max)
+ *   depth_score    = min(15, repeat_pairs × 2) × depth_weight             → 0–15 pts (scaled)
+ *     - Bonding capital: trusted relationships within community
  *
- * When avg_feedback_score is null (no feedback received yet), quality_score = 0.
+ *   breadth_score  = (min(10, distinct_people × 2) + min(10, distinct_communities × 3)) × breadth_weight
+ *                                                                           → 0–20 pts (scaled)
+ *     - Bridging capital: ability to help across diverse contexts
+ *
+ *   bonus_score    = recent_interactions >= min_interactions ? 5 : 0       → 0–5 pts
+ *     - Signals "has crossed the community's minimum trust threshold"
+ *
+ *   floor = negative_allowed ? -50 : 0
+ *   trust_score = max(floor, min(100, raw_score))
+ *
+ * Score tiers:
+ *   -50–0    Known bad actor (punitive communities only)
+ *   0        Unknown / no history
+ *   1–20     New participant, early interactions
+ *   20–50    Active participant, established in community
+ *   50–75    Trusted member, broad or deep track record
+ *   75–100   Highly trusted, diverse + high-quality contributions
  */
 export function computeTrustScore(inputs: TrustScoreInputs): number {
-  const interactionScore = Math.min(
-    60,
-    Math.floor(Math.log2(inputs.interactions_completed + 1) * 15)
+  const {
+    recent_interactions,
+    avg_feedback_score,
+    repeat_interaction_pairs,
+    distinct_people_count,
+    distinct_communities_count,
+    depth_weight,
+    breadth_weight,
+    feedback_threshold,
+    min_interactions_for_bonus,
+    negative_allowed,
+  } = inputs;
+
+  // Volume: logarithmic scale, caps at 30
+  const volumeScore = Math.min(
+    30,
+    Math.floor(Math.log2(recent_interactions + 1) * 10),
   );
 
+  // Quality: threshold-relative; null → 0
   const qualityScore =
-    inputs.avg_feedback_score != null
-      ? Math.round((inputs.avg_feedback_score / 5) * 30)
+    avg_feedback_score != null
+      ? Math.round(((avg_feedback_score - feedback_threshold) / (5 - feedback_threshold)) * 25)
       : 0;
 
-  const karmaBonus = Math.min(10, Math.floor(inputs.total_karma / 100));
+  // Depth: bonding capital (repeat pairs), scaled by community config
+  const depthScore = Math.min(15, repeat_interaction_pairs * 2) * depth_weight;
 
-  return Math.max(0, Math.min(100, interactionScore + qualityScore + karmaBonus));
+  // Breadth: bridging capital (distinct people + communities), scaled by community config
+  const breadthScore =
+    (Math.min(10, distinct_people_count * 2) + Math.min(10, distinct_communities_count * 3)) *
+    breadth_weight;
+
+  // Bonus: crossed minimum interaction threshold
+  const bonusScore = recent_interactions >= min_interactions_for_bonus ? 5 : 0;
+
+  const rawScore = volumeScore + qualityScore + depthScore + breadthScore + bonusScore;
+  const floor = negative_allowed ? -50 : 0;
+
+  return Math.max(floor, Math.min(100, Math.round(rawScore)));
 }

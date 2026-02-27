@@ -2,7 +2,9 @@ import { query } from '../database/db';
 import { recordActivity, ActivityType } from '../utils/activityTracker';
 import { allocateKarma, CommunityKarmaConfig } from './karmaAllocation';
 import { computeTrustScore } from './trustScoreStrategy';
-import { getBlendedAvgFeedback } from '../database/feedbackDb';
+import { getWeightedAvgFeedback } from '../database/feedbackDb';
+import { getTrustMetrics } from '../database/trustMetricsDb';
+import { getMaxOtherCommunityScore } from '../database/trustCarryDb';
 
 interface MatchCompletionData {
   match_id: string;
@@ -50,6 +52,68 @@ async function getCommunityKarmaConfig(community_id: string) {
     karma_split_helper: row.karma_split_helper ?? 60,
     karma_split_requestor: row.karma_split_requestor ?? 40,
     base_karma_pool: row.base_karma_pool_per_request ?? KARMA_DEFAULTS.BASE_KARMA_POOL,
+  };
+}
+
+interface CommunityTrustConfig {
+  depth_weight: number;
+  breadth_weight: number;
+  feedback_threshold: number;
+  min_interactions_for_bonus: number;
+  negative_allowed: boolean;
+  // Carry model (ADR-038)
+  carry_enabled: boolean;
+  carry_factor: number;
+  carry_cap: number;
+}
+
+const TRUST_CONFIG_DEFAULTS: CommunityTrustConfig = {
+  depth_weight: 0.6,
+  breadth_weight: 0.4,
+  feedback_threshold: 3.0,
+  min_interactions_for_bonus: 1,
+  negative_allowed: false,
+  carry_enabled: true,
+  carry_factor: 0.40,
+  carry_cap: 59,
+};
+
+/**
+ * Get community trust configuration from community_configs (ADR-037).
+ * Falls back to defaults if no config row exists.
+ */
+async function getCommunityTrustConfig(community_id: string): Promise<CommunityTrustConfig> {
+  const result = await query(
+    `SELECT
+       trust_depth_weight,
+       trust_breadth_weight,
+       trust_feedback_threshold,
+       min_interactions_for_trust,
+       trust_negative_allowed,
+       trust_carry_enabled,
+       trust_carry_factor,
+       trust_carry_cap
+     FROM communities.community_configs
+     WHERE community_id = $1`,
+    [community_id],
+  );
+
+  if (result.rowCount === 0) return TRUST_CONFIG_DEFAULTS;
+
+  const row = result.rows[0];
+  return {
+    depth_weight: row.trust_depth_weight ?? TRUST_CONFIG_DEFAULTS.depth_weight,
+    breadth_weight: row.trust_breadth_weight ?? TRUST_CONFIG_DEFAULTS.breadth_weight,
+    feedback_threshold: row.trust_feedback_threshold != null
+      ? parseFloat(row.trust_feedback_threshold)
+      : TRUST_CONFIG_DEFAULTS.feedback_threshold,
+    min_interactions_for_bonus: row.min_interactions_for_trust ?? TRUST_CONFIG_DEFAULTS.min_interactions_for_bonus,
+    negative_allowed: row.trust_negative_allowed ?? TRUST_CONFIG_DEFAULTS.negative_allowed,
+    carry_enabled: row.trust_carry_enabled ?? TRUST_CONFIG_DEFAULTS.carry_enabled,
+    carry_factor: row.trust_carry_factor != null
+      ? parseFloat(row.trust_carry_factor)
+      : TRUST_CONFIG_DEFAULTS.carry_factor,
+    carry_cap: row.trust_carry_cap ?? TRUST_CONFIG_DEFAULTS.carry_cap,
   };
 }
 
@@ -232,32 +296,38 @@ async function recordKarma(data: KarmaRecordData) {
 }
 
 async function updateTrustScore(user_id: string, community_id: string) {
-  // Calculate stats
+  const TWELVE_MONTHS_AGO = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString();
+
+  // Count recent interactions (last 12 months) and all-time for the upsert counters
   const stats = await query(
     `SELECT
        COUNT(CASE WHEN reason = 'Provided help' THEN 1 END) as offers_accepted,
-       COUNT(CASE WHEN reason = 'Received help' THEN 1 END) as requests_completed
+       COUNT(CASE WHEN reason = 'Received help' THEN 1 END) as requests_completed,
+       COUNT(CASE WHEN reason IN ('Provided help', 'Received help') AND created_at >= $3 THEN 1 END) as recent_interactions
      FROM reputation.karma_records
      WHERE user_id = $1 AND community_id = $2`,
-    [user_id, community_id]
+    [user_id, community_id, TWELVE_MONTHS_AGO]
   );
 
-  const { offers_accepted, requests_completed } = stats.rows[0];
+  const { offers_accepted, requests_completed, recent_interactions } = stats.rows[0];
 
-  // Calculate total karma for this user in this community
-  const karmaResult = await query(
-    `SELECT SUM(points) as total_karma
-     FROM reputation.karma_records
-     WHERE user_id = $1 AND community_id = $2`,
-    [user_id, community_id]
-  );
-
-  const total_karma = parseInt(karmaResult.rows[0].total_karma || 0);
+  const [trustConfig, avg_feedback_score, trustMetrics] = await Promise.all([
+    getCommunityTrustConfig(community_id),
+    getWeightedAvgFeedback(user_id, community_id),
+    getTrustMetrics(user_id, community_id),
+  ]);
 
   const score = computeTrustScore({
-    total_karma,
-    interactions_completed: parseInt(offers_accepted) + parseInt(requests_completed),
-    avg_feedback_score: null, // feedback not available in this code path
+    recent_interactions: parseInt(recent_interactions),
+    avg_feedback_score,
+    repeat_interaction_pairs: trustMetrics.repeat_interaction_pairs,
+    distinct_people_count: trustMetrics.distinct_people_count,
+    distinct_communities_count: trustMetrics.distinct_communities_count,
+    depth_weight: trustConfig.depth_weight,
+    breadth_weight: trustConfig.breadth_weight,
+    feedback_threshold: trustConfig.feedback_threshold,
+    min_interactions_for_bonus: trustConfig.min_interactions_for_bonus,
+    negative_allowed: trustConfig.negative_allowed,
   });
 
   // Upsert trust score
@@ -393,34 +463,60 @@ export async function getUserKarma(user_id: string, community_id?: string) {
 }
 
 export async function getUserTrustScore(user_id: string, community_id: string) {
-  // Always recompute karma-based score from records to avoid stale cached values
-  const karmaResult = await query(
+  const TWELVE_MONTHS_AGO = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString();
+
+  const statsResult = await query(
     `SELECT
-       SUM(points) as total_karma,
        COUNT(CASE WHEN reason = 'Provided help' THEN 1 END) as offers_accepted,
-       COUNT(CASE WHEN reason = 'Received help' THEN 1 END) as requests_completed
+       COUNT(CASE WHEN reason = 'Received help' THEN 1 END) as requests_completed,
+       COUNT(CASE WHEN reason IN ('Provided help', 'Received help') AND created_at >= $3 THEN 1 END) as recent_interactions
      FROM reputation.karma_records
      WHERE user_id = $1 AND community_id = $2`,
-    [user_id, community_id]
+    [user_id, community_id, TWELVE_MONTHS_AGO]
   );
 
-  const karmaRow = karmaResult.rows[0];
-  const total_karma = parseInt(karmaRow?.total_karma || 0);
-  const interactions_completed =
-    parseInt(karmaRow?.offers_accepted || 0) + parseInt(karmaRow?.requests_completed || 0);
+  const statsRow = statsResult.rows[0];
 
-  // Blended feedback: 70% local (this community) + 30% cross-community (character signal).
-  // Falls back to whichever side has data when only one side exists.
-  const avg_feedback_score = await getBlendedAvgFeedback(user_id, community_id);
+  const [trustConfig, avg_feedback_score, trustMetrics] = await Promise.all([
+    getCommunityTrustConfig(community_id),
+    getWeightedAvgFeedback(user_id, community_id),
+    getTrustMetrics(user_id, community_id),
+  ]);
 
-  const computed_score = computeTrustScore({ total_karma, interactions_completed, avg_feedback_score });
+  const recentInteractions = parseInt(statsRow?.recent_interactions || 0);
+
+  const local_score = computeTrustScore({
+    recent_interactions: recentInteractions,
+    avg_feedback_score,
+    repeat_interaction_pairs: trustMetrics.repeat_interaction_pairs,
+    distinct_people_count: trustMetrics.distinct_people_count,
+    distinct_communities_count: trustMetrics.distinct_communities_count,
+    depth_weight: trustConfig.depth_weight,
+    breadth_weight: trustConfig.breadth_weight,
+    feedback_threshold: trustConfig.feedback_threshold,
+    min_interactions_for_bonus: trustConfig.min_interactions_for_bonus,
+    negative_allowed: trustConfig.negative_allowed,
+  });
+
+  // ADR-038: Cross-community carry floor.
+  // When the user has no recent interactions in this community (12-month window, ADR-039),
+  // carry a decayed fraction of their best score elsewhere as a floor.
+  // Once any local interaction is completed, the locally-earned score is used instead.
+  let score = local_score;
+  if (recentInteractions === 0 && trustConfig.carry_enabled) {
+    const maxOther = await getMaxOtherCommunityScore(user_id, community_id);
+    if (maxOther != null) {
+      const carried = Math.min(trustConfig.carry_cap, Math.floor(maxOther * trustConfig.carry_factor));
+      score = Math.max(local_score, carried);
+    }
+  }
 
   return {
     user_id,
     community_id,
-    score: computed_score,
-    requests_completed: parseInt(karmaRow?.requests_completed || 0),
-    offers_accepted: parseInt(karmaRow?.offers_accepted || 0),
+    score,
+    requests_completed: parseInt(statsRow?.requests_completed || 0),
+    offers_accepted: parseInt(statsRow?.offers_accepted || 0),
     avg_feedback_score,
   };
 }

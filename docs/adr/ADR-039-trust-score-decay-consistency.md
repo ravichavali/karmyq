@@ -1,7 +1,7 @@
 # ADR-039: Trust Score Decay Consistency — Time-Weighted Signals
 
 **Date**: 2026-02-26
-**Status**: Proposed
+**Status**: Implemented
 **Deciders**: Karmyq Core Team
 **Related**: [ADR-011](ADR-011-reputation-decay.md) (karma decay), [ADR-037](ADR-037-multi-signal-trust-score.md) (multi-signal formula), [ADR-038](ADR-038-cross-community-trust.md) (cross-community carry)
 
