@@ -76,6 +76,10 @@
     "./schemas/ui": {
       "types": "./dist/src/schemas/ui/index.d.ts",
       "default": "./dist/src/schemas/ui/index.js"
+    },
+    "./schemas/providers": {
+      "types": "./dist/src/schemas/providers/index.d.ts",
+      "default": "./dist/src/schemas/providers/index.js"
     }
   },
   "scripts": {

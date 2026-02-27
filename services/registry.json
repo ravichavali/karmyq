@@ -9,7 +9,10 @@
       "path": "services/auth-service",
       "dependencies": {
         "services": [],
-        "infrastructure": ["postgres", "redis"]
+        "infrastructure": [
+          "postgres",
+          "redis"
+        ]
       },
       "apis": {
         "provides": [
@@ -23,7 +26,9 @@
         ],
         "consumes": []
       },
-      "database_schemas": ["auth"],
+      "database_schemas": [
+        "auth"
+      ],
       "health_check": "http://localhost:3001/health",
       "criticality": "critical",
       "notes": "Foundation service - no dependencies on other services"
@@ -34,8 +39,14 @@
       "owner": "core",
       "path": "services/community-service",
       "dependencies": {
-        "services": ["auth-service"],
-        "infrastructure": ["postgres", "redis", "bull-queue"]
+        "services": [
+          "auth-service"
+        ],
+        "infrastructure": [
+          "postgres",
+          "redis",
+          "bull-queue"
+        ]
       },
       "apis": {
         "provides": [
@@ -49,9 +60,13 @@
           "/memberships",
           "/norms"
         ],
-        "consumes": ["/auth/verify"]
+        "consumes": [
+          "/auth/verify"
+        ]
       },
-      "database_schemas": ["community"],
+      "database_schemas": [
+        "community"
+      ],
       "health_check": "http://localhost:3002/health",
       "criticality": "critical",
       "events": {
@@ -71,8 +86,15 @@
       "owner": "core",
       "path": "services/request-service",
       "dependencies": {
-        "services": ["auth-service", "community-service"],
-        "infrastructure": ["postgres", "redis", "bull-queue"]
+        "services": [
+          "auth-service",
+          "community-service"
+        ],
+        "infrastructure": [
+          "postgres",
+          "redis",
+          "bull-queue"
+        ]
       },
       "apis": {
         "provides": [
@@ -90,18 +112,26 @@
           "/admin/schemas/:id/archive",
           "/admin/schemas/:id/versions",
           "/admin/schemas/:id/rollback/:version",
-          "/admin/schemas/:id/variants"
+          "/admin/schemas/:id/variants",
+          "/providers",
+          "/providers/:id"
         ],
         "consumes": [
           "/auth/verify",
           "/communities/validate"
         ]
       },
-      "database_schemas": ["requests"],
+      "database_schemas": [
+        "requests"
+      ],
       "health_check": "http://localhost:3003/health",
       "criticality": "critical",
       "events": {
-        "publishes": ["match_completed", "request_created", "offer_created"],
+        "publishes": [
+          "match_completed",
+          "request_created",
+          "offer_created"
+        ],
         "subscribes": []
       },
       "notes": "Server-driven UI: Schema API provides dynamic form definitions. Admin API enables zero-code request type creation."
@@ -112,8 +142,14 @@
       "owner": "core",
       "path": "services/reputation-service",
       "dependencies": {
-        "services": ["auth-service"],
-        "infrastructure": ["postgres", "redis", "bull-queue"]
+        "services": [
+          "auth-service"
+        ],
+        "infrastructure": [
+          "postgres",
+          "redis",
+          "bull-queue"
+        ]
       },
       "apis": {
         "provides": [
@@ -123,16 +159,28 @@
           "/trust/:userId",
           "/community-trust/:communityId",
           "/badges",
-          "/feedback"
+          "/feedback",
+          "/reputation/provider-reviews",
+          "/reputation/provider-trust/:providerId",
+          "/reputation/provider-reviews/:providerId"
         ],
-        "consumes": ["/auth/verify"]
+        "consumes": [
+          "/auth/verify"
+        ]
       },
-      "database_schemas": ["reputation"],
+      "database_schemas": [
+        "reputation"
+      ],
       "health_check": "http://localhost:3004/health",
       "criticality": "critical",
       "events": {
-        "publishes": ["karma_awarded", "badge_earned"],
-        "subscribes": ["match_completed"]
+        "publishes": [
+          "karma_awarded",
+          "badge_earned"
+        ],
+        "subscribes": [
+          "match_completed"
+        ]
       }
     },
     "notification-service": {
@@ -141,8 +189,14 @@
       "owner": "core",
       "path": "services/notification-service",
       "dependencies": {
-        "services": ["auth-service"],
-        "infrastructure": ["postgres", "redis", "bull-queue"]
+        "services": [
+          "auth-service"
+        ],
+        "infrastructure": [
+          "postgres",
+          "redis",
+          "bull-queue"
+        ]
       },
       "apis": {
         "provides": [
@@ -150,14 +204,23 @@
           "/notifications/sse",
           "/notifications/preferences"
         ],
-        "consumes": ["/auth/verify"]
+        "consumes": [
+          "/auth/verify"
+        ]
       },
-      "database_schemas": ["notifications"],
+      "database_schemas": [
+        "notifications"
+      ],
       "health_check": "http://localhost:3005/health",
       "criticality": "important",
       "events": {
         "publishes": [],
-        "subscribes": ["match_completed", "karma_awarded", "request_created", "user_joined_community"]
+        "subscribes": [
+          "match_completed",
+          "karma_awarded",
+          "request_created",
+          "user_joined_community"
+        ]
       },
       "notes": "Subscribes to all events, creates notifications"
     },
@@ -167,17 +230,27 @@
       "owner": "core",
       "path": "services/messaging-service",
       "dependencies": {
-        "services": ["auth-service", "community-service"],
-        "infrastructure": ["postgres", "redis"]
+        "services": [
+          "auth-service",
+          "community-service"
+        ],
+        "infrastructure": [
+          "postgres",
+          "redis"
+        ]
       },
       "apis": {
         "provides": [
           "/conversations",
           "/conversations/:id/messages"
         ],
-        "consumes": ["/auth/verify"]
+        "consumes": [
+          "/auth/verify"
+        ]
       },
-      "database_schemas": ["messaging"],
+      "database_schemas": [
+        "messaging"
+      ],
       "health_check": "http://localhost:3006/health",
       "criticality": "critical"
     },
@@ -187,19 +260,34 @@
       "owner": "core",
       "path": "services/feed-service",
       "dependencies": {
-        "services": ["auth-service"],
-        "infrastructure": ["postgres", "redis"]
+        "services": [
+          "auth-service"
+        ],
+        "infrastructure": [
+          "postgres",
+          "redis"
+        ]
       },
       "apis": {
-        "provides": ["/feed"],
-        "consumes": ["/auth/verify"]
+        "provides": [
+          "/feed"
+        ],
+        "consumes": [
+          "/auth/verify"
+        ]
       },
-      "database_schemas": ["feed"],
+      "database_schemas": [
+        "feed"
+      ],
       "health_check": "http://localhost:3007/health",
       "criticality": "important",
       "events": {
         "publishes": [],
-        "subscribes": ["request_created", "match_completed", "user_joined_community"]
+        "subscribes": [
+          "request_created",
+          "match_completed",
+          "user_joined_community"
+        ]
       },
       "notes": "CANDIDATE FOR MERGE: Could be merged into request-service as view layer"
     },
@@ -210,13 +298,18 @@
       "path": "services/cleanup-service",
       "dependencies": {
         "services": [],
-        "infrastructure": ["postgres", "redis"]
+        "infrastructure": [
+          "postgres",
+          "redis"
+        ]
       },
       "apis": {
         "provides": [],
         "consumes": []
       },
-      "database_schemas": ["all"],
+      "database_schemas": [
+        "all"
+      ],
       "health_check": "http://localhost:3008/health",
       "criticality": "important",
       "notes": "CANDIDATE FOR REPLACEMENT: Could be replaced with pg_cron scheduled jobs"
@@ -228,7 +321,9 @@
       "path": "services/geocoding-service",
       "dependencies": {
         "services": [],
-        "infrastructure": ["redis"]
+        "infrastructure": [
+          "redis"
+        ]
       },
       "apis": {
         "provides": [
@@ -248,8 +343,14 @@
       "owner": "core",
       "path": "services/social-graph-service",
       "dependencies": {
-        "services": ["auth-service", "community-service"],
-        "infrastructure": ["postgres", "redis"]
+        "services": [
+          "auth-service",
+          "community-service"
+        ],
+        "infrastructure": [
+          "postgres",
+          "redis"
+        ]
       },
       "apis": {
         "provides": [
@@ -257,9 +358,13 @@
           "/trust-paths",
           "/social-graph"
         ],
-        "consumes": ["/auth/verify"]
+        "consumes": [
+          "/auth/verify"
+        ]
       },
-      "database_schemas": ["social_graph"],
+      "database_schemas": [
+        "social_graph"
+      ],
       "health_check": "http://localhost:3010/health",
       "criticality": "critical",
       "notes": "Trust-first design foundation"
@@ -270,12 +375,16 @@
       "owner": "testing",
       "path": "services/simulation-service",
       "dependencies": {
-        "services": ["all"],
+        "services": [
+          "all"
+        ],
         "infrastructure": []
       },
       "apis": {
         "provides": [],
-        "consumes": ["all"]
+        "consumes": [
+          "all"
+        ]
       },
       "database_schemas": [],
       "health_check": null,
@@ -288,18 +397,35 @@
       "type": "database",
       "version": "15",
       "port": 5432,
-      "required_for": ["auth-service", "community-service", "request-service", "reputation-service", "notification-service", "messaging-service", "feed-service", "cleanup-service", "social-graph-service"]
+      "required_for": [
+        "auth-service",
+        "community-service",
+        "request-service",
+        "reputation-service",
+        "notification-service",
+        "messaging-service",
+        "feed-service",
+        "cleanup-service",
+        "social-graph-service"
+      ]
     },
     "redis": {
       "type": "cache",
       "version": "7",
       "port": 6379,
-      "required_for": ["all-services"]
+      "required_for": [
+        "all-services"
+      ]
     },
     "bull-queue": {
       "type": "queue",
       "backend": "redis",
-      "required_for": ["community-service", "request-service", "reputation-service", "notification-service"]
+      "required_for": [
+        "community-service",
+        "request-service",
+        "reputation-service",
+        "notification-service"
+      ]
     }
   },
   "statistics": {

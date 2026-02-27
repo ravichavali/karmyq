@@ -76,6 +76,8 @@ When code implementing an ADR is deployed, update the status from `Accepted` →
 - [ADR-038: Cross-Community Trust — Carry Model with Community-Configurable Decay](ADR-038-cross-community-trust.md) — **Implemented**
 - [ADR-039: Trust Score Decay Consistency — Time-Weighted Signals](ADR-039-trust-score-decay-consistency.md) — **Implemented**
 - [ADR-040: Community Trust Score — Bonding/Bridging Social Capital at the Community Level](ADR-040-community-trust-score.md) — **Implemented**
+- [ADR-041: Two-Layer Mutual Aid + Professional Services](ADR-041-two-layer-mutual-aid-services.md) — Accepted
+- [ADR-042: Provider Trust Score](ADR-042-provider-trust-score.md) — Accepted
 
 ## Creating a New ADR
 

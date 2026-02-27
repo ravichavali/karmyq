@@ -262,6 +262,14 @@
         {
           "label": "Community Trust Score",
           "href": "/docs/concepts/adr-040-community-trust-score"
+        },
+        {
+          "label": "Two-Layer Mutual Aid + Professional Services",
+          "href": "/docs/concepts/adr-041-two-layer-mutual-aid-services"
+        },
+        {
+          "label": "Provider Trust Score",
+          "href": "/docs/concepts/adr-042-provider-trust-score"
         }
       ]
     },

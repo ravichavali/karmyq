@@ -1048,6 +1048,11 @@ src/
 - [x] Decay factor for old karma — 6-month half-life, ADR-011 (implemented)
 - [x] Advanced trust score algorithm — ADR-037 multi-signal formula (implemented)
 - [x] Reputation portability across communities — ADR-038 carry model (implemented)
+- [x] Provider trust score — ADR-042 (stars 60% + completion 30% + response 10%), implemented 2026-02-27
+  - `POST /reputation/provider-reviews` — submit review (auth required)
+  - `GET /reputation/provider-trust/:providerId` — public trust score
+  - `GET /reputation/provider-reviews/:providerId` — public review list
+  - New tables: `reputation.provider_reviews`, `reputation.provider_trust_scores`
 - [ ] Negative karma for reported issues
 - [ ] Badge system implementation
 - [ ] Karma leaderboard across all communities

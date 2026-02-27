@@ -7,6 +7,7 @@ import { initEventPublisher } from './events/publisher';
 import pool from './database/db';
 import reputationRouter from './routes/reputation';
 import healthRouter from './routes/health';
+import providerReviewsRouter from './routes/providerReviews';
 import { initHealthMetricsCalculator } from './cron/healthMetricsCalculator';
 import { createLogger, requestLoggingMiddleware } from '@karmyq/shared/utils/logger';
 import {
@@ -59,6 +60,9 @@ app.use(
   dbContextMiddleware(pool),
   healthRouter
 );
+
+// Provider reviews + trust (GET is public; POST handles auth internally)
+app.use('/reputation', rateLimiters.standard, providerReviewsRouter);
 
 // 404 handler
 app.use((req: any, res: Response) => {

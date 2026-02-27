@@ -9,6 +9,7 @@ import offersRouter from './routes/offers';
 import matchesRouter from './routes/matches';
 import feedbackRouter from './routes/feedback';
 import schemasRouter from './routes/schemas';
+import providersRouter from './routes/providers';
 import adminSchemasRouter from './routes/admin-schemas';
 import { adminAuth } from './middleware/adminAuth';
 import { createLogger, requestLoggingMiddleware } from '@karmyq/shared/utils/logger';
@@ -47,6 +48,9 @@ app.get('/health', (req: any, res: Response) => {
 // Schema endpoint (public — no auth required)
 // Serves UI schemas for the DynamicForm component
 app.use('/schemas', rateLimiters.standard, schemasRouter);
+
+// Provider directory (GET is public; POST/PUT/DELETE handle auth internally)
+app.use('/providers', rateLimiters.standard, providersRouter);
 
 // Admin schema management (requires admin role)
 app.use(

@@ -1838,7 +1838,30 @@ CREATE TABLE auth.user_interests (
 - [x] **Multi-Community Posting** - Requests visible across multiple communities
 - [x] **Comprehensive Testing** - 200+ tests (unit, regression, integration, E2E)
 
-### 11.2 Matching Engine Enhancements
+### 11.2 v9.1 - Provider Profiles (ADR-041) ✅ COMPLETED (2026-02-27)
+
+**New endpoints** (see `src/routes/providers.ts`):
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/providers` | Public | Browse active providers, filter by `service_type` |
+| GET | `/providers/:id` | Public | Get single provider with ride details + trust score |
+| POST | `/providers` | Required | Create provider profile (+ ride details if `service_type=ride`) |
+| PUT | `/providers/:id` | Owner | Update profile or ride details |
+| DELETE | `/providers/:id` | Owner | Delete profile (cascades reviews/trust scores) |
+
+**New tables** (migration 022):
+- `requests.provider_profiles` — generic base
+- `requests.provider_ride_details` — ride-specific extension
+- `reputation.provider_reviews` — stars + text, tied to match_id
+- `reputation.provider_trust_scores` — computed cache (ADR-042)
+
+**Community config additions**:
+- `provider_services_enabled` — opt-in per community
+- `provider_min_personal_trust_score` — gate by ADR-037 trust
+- `provider_services_list` — allowed service types
+
+### 11.4 Matching Engine Enhancements
 
 - [ ] Auto-matching algorithm (suggest best helpers)
 - [ ] Location-based matching (PostGIS integration)

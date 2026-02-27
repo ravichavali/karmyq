@@ -303,6 +303,22 @@
       "status": "implemented",
       "description": "**Status**: Implemented",
       "filename": "ADR-040-community-trust-score.md"
+    },
+    {
+      "slug": "adr-041-two-layer-mutual-aid-services",
+      "number": "041",
+      "title": "ADR-041: Two-Layer Mutual Aid + Professional Services",
+      "status": "accepted",
+      "description": "**Status**: Accepted",
+      "filename": "ADR-041-two-layer-mutual-aid-services.md"
+    },
+    {
+      "slug": "adr-042-provider-trust-score",
+      "number": "042",
+      "title": "ADR-042: Provider Trust Score",
+      "status": "accepted",
+      "description": "**Status**: Accepted",
+      "filename": "ADR-042-provider-trust-score.md"
     }
   ]
 }

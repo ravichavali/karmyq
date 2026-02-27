@@ -13,6 +13,9 @@
 // Export all request schemas
 export * from './requests';
 
+// Provider schemas (ADR-041/042)
+export * from './providers';
+
 // Future: Export other schema modules as they're created
 // export * from './events';
 // export * from './users';

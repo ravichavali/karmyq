@@ -94,7 +94,9 @@
         "/admin/schemas/:id/archive",
         "/admin/schemas/:id/versions",
         "/admin/schemas/:id/rollback/:version",
-        "/admin/schemas/:id/variants"
+        "/admin/schemas/:id/variants",
+        "/providers",
+        "/providers/:id"
       ],
       "dependencies": [
         "auth-service",
@@ -133,7 +135,10 @@
         "/trust/:userId",
         "/community-trust/:communityId",
         "/badges",
-        "/feedback"
+        "/feedback",
+        "/reputation/provider-reviews",
+        "/reputation/provider-trust/:providerId",
+        "/reputation/provider-reviews/:providerId"
       ],
       "dependencies": [
         "auth-service"
