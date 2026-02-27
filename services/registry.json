@@ -120,6 +120,8 @@
           "/karma",
           "/karma/leaderboard",
           "/trust-scores",
+          "/trust/:userId",
+          "/community-trust/:communityId",
           "/badges",
           "/feedback"
         ],

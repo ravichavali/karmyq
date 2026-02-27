@@ -354,6 +354,17 @@ CREATE INDEX idx_karma_user_id ON reputation.karma_records(user_id);
 CREATE INDEX idx_karma_community_id ON reputation.karma_records(community_id);
 CREATE INDEX idx_trust_scores_user_id ON reputation.trust_scores(user_id);
 
+-- ADR-040: Community trust scores (bonding/bridging social capital formula)
+CREATE TABLE IF NOT EXISTS reputation.community_trust_scores (
+  community_id UUID PRIMARY KEY REFERENCES communities.communities(id) ON DELETE CASCADE,
+  score INTEGER DEFAULT 0 CHECK (score BETWEEN 0 AND 100),
+  member_quality_score INTEGER DEFAULT 0,
+  bonding_score INTEGER DEFAULT 0,
+  bridging_score INTEGER DEFAULT 0,
+  active_member_count INTEGER DEFAULT 0,
+  last_calculated TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Reputation decay function (ADR-011)
 CREATE OR REPLACE FUNCTION reputation.calculate_decayed_karma(
     original_karma INTEGER,
