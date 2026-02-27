@@ -418,11 +418,11 @@ function generateNav(
   const adrBySlug = new Map(adrs.map(a => [a.slug, a]));
 
   // Build grouped ADR items
-  const adrItems: Array<{ label: string; href: string }> = [
+  const adrItems: Array<{ label: string; href: string; divider?: boolean }> = [
     { label: 'All ADRs', href: '/docs/concepts' },
   ];
   for (const group of ADR_GROUPS) {
-    adrItems.push({ label: group.label, href: '/docs/concepts' });
+    adrItems.push({ label: group.label, href: '/docs/concepts', divider: true });
     for (const slug of group.slugs) {
       const adr = adrBySlug.get(slug);
       if (adr) {

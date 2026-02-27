@@ -36,7 +36,17 @@ export default function DocsSidebar() {
             </button>
             {expandedSections[section.title] && (
               <ul className="space-y-1">
-                {section.items.map((item) => {
+                {section.items.map((item, i) => {
+                  const navItem = item as { label: string; href: string; divider?: boolean };
+                  if (navItem.divider) {
+                    return (
+                      <li key={`divider-${i}`} className="pt-3 pb-1">
+                        <span className="text-xs font-semibold uppercase tracking-wider text-karmyq-brown-400 px-3">
+                          {navItem.label}
+                        </span>
+                      </li>
+                    );
+                  }
                   const active = pathname === item.href;
                   return (
                     <li key={item.href}>

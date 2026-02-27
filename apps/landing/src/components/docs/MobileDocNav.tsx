@@ -37,21 +37,33 @@ export default function MobileDocNav() {
                 {section.title}
               </p>
               <ul className="space-y-1">
-                {section.items.map((item) => (
-                  <li key={item.href}>
-                    <Link
-                      href={item.href}
-                      onClick={() => setOpen(false)}
-                      className={`block text-sm py-1 px-2 rounded ${
-                        pathname === item.href
-                          ? 'text-karmyq-green-700 font-medium bg-karmyq-green-50'
-                          : 'text-karmyq-brown-600 hover:text-karmyq-green-600'
-                      }`}
-                    >
-                      {item.label}
-                    </Link>
-                  </li>
-                ))}
+                {section.items.map((item, i) => {
+                  const navItem = item as { label: string; href: string; divider?: boolean };
+                  if (navItem.divider) {
+                    return (
+                      <li key={`divider-${i}`} className="pt-2 pb-0.5">
+                        <span className="text-xs font-semibold uppercase tracking-wider text-karmyq-brown-400 px-2">
+                          {navItem.label}
+                        </span>
+                      </li>
+                    );
+                  }
+                  return (
+                    <li key={item.href}>
+                      <Link
+                        href={item.href}
+                        onClick={() => setOpen(false)}
+                        className={`block text-sm py-1 px-2 rounded ${
+                          pathname === item.href
+                            ? 'text-karmyq-green-700 font-medium bg-karmyq-green-50'
+                            : 'text-karmyq-brown-600 hover:text-karmyq-green-600'
+                        }`}
+                      >
+                        {item.label}
+                      </Link>
+                    </li>
+                  );
+                })}
               </ul>
             </div>
           ))}
