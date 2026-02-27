@@ -250,6 +250,10 @@
         {
           "label": "Multi-Signal Trust Score — Bonding Capital, Bridgi",
           "href": "/docs/concepts/adr-037-multi-signal-trust-score"
+        },
+        {
+          "label": "Trust Score Decay Consistency — Time-Weighted Signals",
+          "href": "/docs/concepts/adr-039-trust-score-decay-consistency"
         }
       ]
     },
