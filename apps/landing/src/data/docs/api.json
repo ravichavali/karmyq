@@ -304,6 +304,11 @@
         },
         {
           "method": "GET",
+          "path": "/reputation/trust/:userId",
+          "description": "Get user's overall trust score — weighted average across all communities, weighted by recent interaction count."
+        },
+        {
+          "method": "GET",
           "path": "/reputation/trust/:userId/:communityId",
           "description": "Get user's trust score in a specific community."
         },
@@ -336,6 +341,11 @@
           "method": "GET",
           "path": "/reputation/trust/:userId/:communityId",
           "description": "Enhanced trust score with interaction quality (UPDATED)."
+        },
+        {
+          "method": "GET",
+          "path": "/reputation/community-trust/:communityId",
+          "description": "Get the community trust score (ADR-040). Computed daily; recalculates on demand if no score exists yet."
         },
         {
           "method": "POST",

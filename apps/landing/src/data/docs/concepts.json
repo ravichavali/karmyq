@@ -276,7 +276,7 @@
       "slug": "adr-037-multi-signal-trust-score",
       "number": "037",
       "title": "ADR-037: Multi-Signal Trust Score — Bonding Capital, Bridging Capital, and Community-Configurable Floors",
-      "status": "accepted",
+      "status": "implemented",
       "description": "**Date**: 2026-02-25",
       "filename": "ADR-037-multi-signal-trust-score.md"
     },
@@ -284,7 +284,7 @@
       "slug": "adr-038-cross-community-trust",
       "number": "038",
       "title": "ADR-038: Cross-Community Trust — Carry Model with Community-Configurable Decay",
-      "status": "proposed",
+      "status": "implemented",
       "description": "**Date**: 2026-02-26",
       "filename": "ADR-038-cross-community-trust.md"
     },
@@ -292,9 +292,17 @@
       "slug": "adr-039-trust-score-decay-consistency",
       "number": "039",
       "title": "ADR-039: Trust Score Decay Consistency — Time-Weighted Signals",
-      "status": "proposed",
+      "status": "implemented",
       "description": "**Date**: 2026-02-26",
       "filename": "ADR-039-trust-score-decay-consistency.md"
+    },
+    {
+      "slug": "adr-040-community-trust-score",
+      "number": "040",
+      "title": "ADR-040: Community Trust Score",
+      "status": "implemented",
+      "description": "**Status**: Implemented",
+      "filename": "ADR-040-community-trust-score.md"
     }
   ]
 }
