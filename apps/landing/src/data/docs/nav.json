@@ -258,6 +258,10 @@
         {
           "label": "Trust Score Decay Consistency — Time-Weighted Sign",
           "href": "/docs/concepts/adr-039-trust-score-decay-consistency"
+        },
+        {
+          "label": "Community Trust Score",
+          "href": "/docs/concepts/adr-040-community-trust-score"
         }
       ]
     },

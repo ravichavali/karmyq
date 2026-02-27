@@ -7,7 +7,7 @@ import { reputationService } from '@/lib/api'
 export default function TrustScorePage() {
   const router = useRouter()
   const [user, setUser] = useState<any>(null)
-  const [trustData, setTrustData] = useState<any>(null)
+  const [overallData, setOverallData] = useState<any>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -22,16 +22,15 @@ export default function TrustScorePage() {
     if (userData) {
       const parsedUser = JSON.parse(userData)
       setUser(parsedUser)
-      const communityId = parsedUser.communities?.[0]?.id
-      fetchTrustData(parsedUser.id, communityId)
+      fetchTrustData(parsedUser.id)
     }
   }, [router])
 
-  const fetchTrustData = async (userId: string, communityId?: string) => {
+  const fetchTrustData = async (userId: string) => {
     try {
       setLoading(true)
-      const trustRes = await reputationService.getTrustScore(userId, communityId)
-      setTrustData(trustRes.data)
+      const trustRes = await reputationService.getOverallTrustScore(userId)
+      setOverallData(trustRes.data)
     } catch (err) {
       console.error('Failed to fetch trust data:', err)
     } finally {
@@ -47,9 +46,9 @@ export default function TrustScorePage() {
   }
 
   const getTrustLabel = (score: number) => {
-    if (score >= 80) return 'Trusted'
-    if (score >= 60) return 'Reliable'
-    if (score >= 40) return 'Building'
+    if (score >= 75) return 'Highly Trusted'
+    if (score >= 50) return 'Trusted'
+    if (score >= 20) return 'Active'
     return 'New'
   }
 
@@ -63,7 +62,8 @@ export default function TrustScorePage() {
     )
   }
 
-  const score = trustData?.score || 0
+  const score = overallData?.overall_score || 0
+  const communityBreakdown: Array<{ community_id: string; community_name: string; score: number; recent_interactions: number }> = overallData?.community_breakdown || []
 
   return (
     <>
@@ -103,69 +103,117 @@ export default function TrustScorePage() {
 
             {/* Trust Score Breakdown */}
             <div className="bg-surface-raised rounded-xl shadow-sm border border-border p-6 mb-6">
-              <h2 className="text-xl font-bold text-text mb-4">How It's Calculated</h2>
+              <h2 className="text-xl font-bold text-text mb-1">How It's Calculated</h2>
+              <p className="text-sm text-text-muted mb-4">Your trust score reflects recent activity — it decays when you're inactive and grows as you engage.</p>
               <div className="space-y-4">
                 <div>
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="text-sm font-medium text-text-muted">Karma Points</span>
-                    <span className="text-sm text-text-muted">40%</span>
+                  <div className="flex justify-between items-center mb-1">
+                    <span className="text-sm font-medium text-text">Volume</span>
+                    <span className="text-xs text-text-muted">up to 30 pts</span>
                   </div>
+                  <p className="text-xs text-text-muted mb-2">Interactions completed in the last 12 months (log-scaled — early exchanges count most)</p>
                   <div className="bg-border-light rounded-full h-2">
-                    <div className="bg-primary rounded-full h-2" style={{ width: '40%' }}></div>
+                    <div className="bg-primary rounded-full h-2" style={{ width: '30%' }}></div>
                   </div>
                 </div>
 
                 <div>
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="text-sm font-medium text-text-muted">Exchanges Completed</span>
-                    <span className="text-sm text-text-muted">30%</span>
+                  <div className="flex justify-between items-center mb-1">
+                    <span className="text-sm font-medium text-text">Quality</span>
+                    <span className="text-xs text-text-muted">up to 25 pts</span>
                   </div>
+                  <p className="text-xs text-text-muted mb-2">Recency-weighted feedback ratings — recent feedback counts more than old feedback (6-month half-life)</p>
                   <div className="bg-border-light rounded-full h-2">
-                    <div className="bg-success-light0 rounded-full h-2" style={{ width: '30%' }}></div>
+                    <div className="bg-success rounded-full h-2" style={{ width: '25%' }}></div>
                   </div>
                 </div>
 
                 <div>
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="text-sm font-medium text-text-muted">Positive Feedback</span>
-                    <span className="text-sm text-text-muted">20%</span>
+                  <div className="flex justify-between items-center mb-1">
+                    <span className="text-sm font-medium text-text">Depth</span>
+                    <span className="text-xs text-text-muted">up to 15 pts</span>
                   </div>
+                  <p className="text-xs text-text-muted mb-2">Repeat exchanges with the same people — trust built through ongoing relationships</p>
                   <div className="bg-border-light rounded-full h-2">
-                    <div className="bg-accent rounded-full h-2" style={{ width: '20%' }}></div>
+                    <div className="bg-accent rounded-full h-2" style={{ width: '15%' }}></div>
                   </div>
                 </div>
 
                 <div>
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="text-sm font-medium text-text-muted">Account Age</span>
-                    <span className="text-sm text-text-muted">10%</span>
+                  <div className="flex justify-between items-center mb-1">
+                    <span className="text-sm font-medium text-text">Breadth</span>
+                    <span className="text-xs text-text-muted">up to 20 pts</span>
                   </div>
+                  <p className="text-xs text-text-muted mb-2">Diversity of people and communities you've helped — trust that travels across the network</p>
                   <div className="bg-border-light rounded-full h-2">
-                    <div className="bg-karmyq-orange-500 rounded-full h-2" style={{ width: '10%' }}></div>
+                    <div className="bg-karmyq-teal-500 rounded-full h-2" style={{ width: '20%' }}></div>
+                  </div>
+                </div>
+
+                <div>
+                  <div className="flex justify-between items-center mb-1">
+                    <span className="text-sm font-medium text-text">Engagement Bonus</span>
+                    <span className="text-xs text-text-muted">up to 5 pts</span>
+                  </div>
+                  <p className="text-xs text-text-muted mb-2">Awarded for active participation — showing up consistently matters</p>
+                  <div className="bg-border-light rounded-full h-2">
+                    <div className="bg-karmyq-orange-500 rounded-full h-2" style={{ width: '5%' }}></div>
                   </div>
                 </div>
               </div>
             </div>
 
+            {/* Per-community breakdown */}
+            {communityBreakdown.length > 0 && (
+              <div className="bg-surface-raised rounded-xl shadow-sm border border-border p-6 mb-6">
+                <h2 className="text-xl font-bold text-text mb-1">Your Communities</h2>
+                <p className="text-sm text-text-muted mb-4">Overall score is weighted by recent activity in each community.</p>
+                <div className="space-y-3">
+                  {communityBreakdown
+                    .slice()
+                    .sort((a, b) => b.score - a.score)
+                    .map((c) => (
+                      <div key={c.community_id} className="flex items-center gap-3">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex justify-between items-center mb-1">
+                            <span className="text-sm font-medium text-text truncate">{c.community_name}</span>
+                            <span className="text-sm font-semibold text-text ml-2 shrink-0">{c.score}/100</span>
+                          </div>
+                          <div className="bg-border-light rounded-full h-1.5">
+                            <div
+                              className={`rounded-full h-1.5 ${c.score >= 75 ? 'bg-karmyq-green-500' : c.score >= 50 ? 'bg-karmyq-teal-500' : c.score >= 20 ? 'bg-karmyq-orange-500' : 'bg-karmyq-brown-400'}`}
+                              style={{ width: `${c.score}%` }}
+                            />
+                          </div>
+                        </div>
+                        {c.recent_interactions > 0 && (
+                          <span className="text-xs text-text-muted shrink-0">{c.recent_interactions} recent</span>
+                        )}
+                      </div>
+                    ))}
+                </div>
+              </div>
+            )}
+
             {/* Tips to Improve */}
             <div className="bg-primary-light rounded-xl border border-primary-medium p-6">
-              <h2 className="text-lg font-bold text-primary-dark mb-3">💡 Tips to Improve Your Trust Score</h2>
+              <h2 className="text-lg font-bold text-primary-dark mb-3">Tips to Improve Your Trust Score</h2>
               <ul className="space-y-2 text-sm text-primary-dark">
                 <li className="flex items-start gap-2">
                   <span className="mt-0.5">✓</span>
-                  <span>Complete exchanges and mark them as done</span>
+                  <span>Stay active — scores decay when you're not engaging; recent interactions count most</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="mt-0.5">✓</span>
-                  <span>Respond quickly to offers and requests</span>
+                  <span>Build recurring relationships — repeat exchanges with the same people boost your depth score</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="mt-0.5">✓</span>
-                  <span>Provide clear communication throughout exchanges</span>
+                  <span>Help across communities — interacting with people outside your primary community increases breadth</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="mt-0.5">✓</span>
-                  <span>Leave feedback for others after exchanges</span>
+                  <span>Earn consistent feedback — a few high-quality recent ratings outweigh many old ones</span>
                 </li>
               </ul>
             </div>

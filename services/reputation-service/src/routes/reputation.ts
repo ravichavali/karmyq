@@ -1,5 +1,7 @@
 import { Router, Request, Response } from 'express';
-import { getUserKarma, getUserKarmaWithDecay, getUserTrustScore, getCommunityLeaderboard, updateTrustScore } from '../services/karmaService';
+import { getUserKarma, getUserKarmaWithDecay, getUserTrustScore, getOverallTrustScore, getCommunityLeaderboard, updateTrustScore } from '../services/karmaService';
+import { getCommunityTrustScore, } from '../database/communityTrustDb';
+import { calculateCommunityTrustScore } from '../services/communityTrustService';
 import { query } from '../database/db';
 import { insertFeedback, hasSubmittedFeedback } from '../database/feedbackDb';
 import { authMiddleware, AuthenticatedRequest } from '@karmyq/shared/middleware/auth';
@@ -55,6 +57,27 @@ router.get('/karma/:userId', async (req: Request, res: Response) => {
   }
 });
 
+// GET /reputation/trust/:userId - Get user's overall (weighted average) trust score across all communities
+router.get('/trust/:userId', async (req: Request, res: Response) => {
+  try {
+    const { userId } = req.params;
+
+    const result = await getOverallTrustScore(userId);
+
+    res.json({
+      success: true,
+      data: result,
+    });
+  } catch (error: any) {
+    console.error('Error fetching overall trust score:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch overall trust score',
+      error: error.message,
+    });
+  }
+});
+
 // GET /reputation/trust/:userId/:communityId - Get user's trust score in a community
 router.get('/trust/:userId/:communityId', async (req: Request, res: Response) => {
   try {
@@ -71,6 +94,37 @@ router.get('/trust/:userId/:communityId', async (req: Request, res: Response) =>
     res.status(500).json({
       success: false,
       message: 'Failed to fetch trust score',
+      error: error.message,
+    });
+  }
+});
+
+// GET /reputation/community-trust/:communityId - Get community trust score (ADR-040)
+router.get('/community-trust/:communityId', async (req: Request, res: Response) => {
+  try {
+    const { communityId } = req.params;
+    const { recalculate } = req.query;
+
+    // Allow forcing a recalculation via query param (e.g. for admin use)
+    if (recalculate === 'true') {
+      await calculateCommunityTrustScore(communityId);
+    }
+
+    const trustScore = await getCommunityTrustScore(communityId);
+
+    if (!trustScore) {
+      // No score yet — calculate on demand
+      await calculateCommunityTrustScore(communityId);
+      const freshScore = await getCommunityTrustScore(communityId);
+      return res.json({ success: true, data: freshScore });
+    }
+
+    res.json({ success: true, data: trustScore });
+  } catch (error: any) {
+    console.error('Error fetching community trust score:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch community trust score',
       error: error.message,
     });
   }

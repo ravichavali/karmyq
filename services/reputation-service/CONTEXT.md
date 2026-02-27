@@ -5,6 +5,7 @@
 
 ## Recent Changes
 
+- **2026-02-27 (Sprint 8 — ADR-040 + trust UX)**: Community Trust Score implemented (ADR-040). Bonding/bridging model: `member_quality(40) + bonding(retention+completion) + bridging(cross-community+external)` weighted by `community_trust_bonding_weight/bridging_weight` config. New files: `communityTrustDb.ts`, `communityTrustService.ts`. New endpoint: `GET /reputation/community-trust/:communityId`. New endpoint: `GET /reputation/trust/:userId` (overall weighted-average trust score). Migration 021. Trust page updated to ADR-037 formula display. Feed default changed to composite (no auto-select of first community).
 - **2026-02-27 (ADR-037 + ADR-038 + ADR-039)**: Multi-signal trust score fully implemented. Formula: `volume(log, 12-month window) + quality(recency-weighted, 6-month half-life) + depth(repeat pairs × depth_weight) + breadth(distinct people + communities × breadth_weight) + bonus`. Karma removed as trust input. Cross-community carry floor (ADR-038): when `recent_interactions == 0`, score is floored by `min(carry_cap, floor(max_other_score × carry_factor))`. Migrations 019 + 020 add `trust_feedback_threshold`, `trust_negative_allowed`, `trust_carry_*`. New files: `trustMetricsDb.ts`, `trustCarryDb.ts`; new function `feedbackDb.getWeightedAvgFeedback()`.
 - **2026-02-26 (blended feedback)**: `feedbackDb.ts` exports `getBlendedAvgFeedback(toUserId, communityId)` — 70% local + 30% cross-community blend. New composite DB index `idx_feedback_to_user_community` (migration 018).
 - **2026-02-26 (trust formula)**: Interim interactions-primary model shipped. Superseded by ADR-037 on 2026-02-27.
@@ -268,6 +269,27 @@ Get user's total karma across all communities.
 
 **Implementation:** `src/routes/reputation.ts:8`
 
+### GET /reputation/trust/:userId
+Get user's overall trust score — weighted average across all communities, weighted by recent interaction count.
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "overall_score": 68,
+    "community_breakdown": [
+      { "community_id": "uuid", "community_name": "Neighborly", "score": 74, "recent_interactions": 5 },
+      { "community_id": "uuid", "community_name": "Tech Help", "score": 61, "recent_interactions": 2 }
+    ]
+  }
+}
+```
+
+**Implementation:** `src/routes/reputation.ts` | `src/services/karmaService.ts:getOverallTrustScore()`
+
+---
+
 ### GET /reputation/trust/:userId/:communityId
 Get user's trust score in a specific community.
 
@@ -504,6 +526,31 @@ Enhanced trust score with interaction quality (UPDATED).
 
 ---
 
+### GET /reputation/community-trust/:communityId
+Get the community trust score (ADR-040). Computed daily; recalculates on demand if no score exists yet.
+
+**Query params:** `?recalculate=true` forces a fresh calculation.
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "community_id": "uuid",
+    "score": 72,
+    "member_quality_score": 30,
+    "bonding_score": 25,
+    "bridging_score": 17,
+    "active_member_count": 14,
+    "last_calculated": "2026-02-27T..."
+  }
+}
+```
+
+**Implementation:** `src/routes/reputation.ts` | `src/services/communityTrustService.ts:calculateCommunityTrustScore()`
+
+---
+
 ### POST /reputation/feedback (Authenticated)
 Submit a private quality rating after a completed interaction. Ratings are internal trust signals — never exposed to users (ADR-036).
 
@@ -626,8 +673,9 @@ LOG_LEVEL=info                   # debug, info, warn, error
 - `src/routes/health.ts` - Community health metrics and milestones (Social Karma v2.0) - NEW
 
 ### Services
-- `src/services/karmaService.ts` - Karma award logic, trust score calculation
-- `src/services/healthMetricsService.ts` - Community health calculation (Social Karma v2.0) - NEW
+- `src/services/karmaService.ts` - Karma award logic, trust score calculation, `getOverallTrustScore()` (weighted average across communities)
+- `src/services/communityTrustService.ts` - Community Trust Score (ADR-040): bonding/bridging formula, `calculateCommunityTrustScore()`, `calculateAllCommunityTrustScores()`
+- `src/services/healthMetricsService.ts` - Community health calculation (Social Karma v2.0); also runs community trust calculation daily
 - `src/services/milestoneDetector.ts` - Milestone detection logic (Social Karma v2.0) - NEW
 
 ### Events
@@ -641,6 +689,7 @@ LOG_LEVEL=info                   # debug, info, warn, error
 - `src/database/feedbackDb.ts` - `getAvgFeedback(userId)` (global), `getBlendedAvgFeedback(userId, communityId)` (70/30 blend), `getWeightedAvgFeedback(userId, communityId, halfLifeMonths=6)` (recency-weighted, used in trust score path)
 - `src/database/trustMetricsDb.ts` - `getTrustMetrics(userId, communityId)` — repeat pairs, distinct people, distinct communities (ADR-037)
 - `src/database/trustCarryDb.ts` - `getMaxOtherCommunityScore(userId, targetCommunityId)` — carry floor query (ADR-038)
+- `src/database/communityTrustDb.ts` - `getCommunityTrustScore(communityId)`, `upsertCommunityTrustScore()` — ADR-040 community trust persistence
 
 ## Common Development Tasks
 

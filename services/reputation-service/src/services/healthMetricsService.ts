@@ -1,5 +1,6 @@
 import { query } from '../database/db';
 import { publishEvent } from '../events/publisher';
+import { calculateCommunityTrustScore } from './communityTrustService';
 
 /**
  * Calculate and store community health metrics snapshot
@@ -165,6 +166,7 @@ export async function calculateAllCommunityMetrics(): Promise<void> {
 
     for (const community of communities.rows) {
       await calculateCommunityHealthMetrics(community.id);
+      await calculateCommunityTrustScore(community.id);
     }
 
     console.log('Completed daily health metrics calculation for all communities');

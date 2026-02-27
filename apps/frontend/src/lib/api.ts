@@ -594,11 +594,15 @@ export const reputationService = {
       headers: communityId ? { 'X-Community-ID': communityId } : {},
     }),
 
-  // Get trust score
+  // Get trust score — community-specific or overall (weighted average across all communities)
   getTrustScore: (userId: string, communityId?: string) =>
     communityId
       ? reputationApi.get(`/reputation/trust/${userId}/${communityId}`)
-      : Promise.resolve({ data: { success: true, data: null } }),
+      : reputationApi.get(`/reputation/trust/${userId}`),
+
+  // Get overall trust score with community breakdown
+  getOverallTrustScore: (userId: string) =>
+    reputationApi.get(`/reputation/trust/${userId}`),
 
   // Get leaderboard
   getLeaderboard: (communityId: string, params?: { limit?: number }) =>

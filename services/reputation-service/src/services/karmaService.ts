@@ -521,6 +521,60 @@ export async function getUserTrustScore(user_id: string, community_id: string) {
   };
 }
 
+export async function getOverallTrustScore(user_id: string): Promise<{
+  overall_score: number;
+  community_breakdown: Array<{ community_id: string; community_name: string; score: number; recent_interactions: number }>;
+}> {
+  const TWELVE_MONTHS_AGO = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString();
+
+  // Fetch all community trust scores + recent interaction counts for the user
+  const result = await query(
+    `SELECT
+       ts.community_id,
+       c.name as community_name,
+       ts.score,
+       COALESCE(kr.recent_interactions, 0) as recent_interactions
+     FROM reputation.trust_scores ts
+     JOIN communities.communities c ON ts.community_id = c.id
+     LEFT JOIN (
+       SELECT community_id, COUNT(*) as recent_interactions
+       FROM reputation.karma_records
+       WHERE user_id = $1
+         AND reason IN ('Provided help', 'Received help')
+         AND created_at >= $2
+       GROUP BY community_id
+     ) kr ON ts.community_id = kr.community_id
+     WHERE ts.user_id = $1`,
+    [user_id, TWELVE_MONTHS_AGO]
+  );
+
+  const rows = result.rows;
+  if (rows.length === 0) {
+    return { overall_score: 0, community_breakdown: [] };
+  }
+
+  // Weighted average: weight each community's score by its recent interaction count
+  const totalInteractions = rows.reduce((sum: number, r: any) => sum + parseInt(r.recent_interactions), 0);
+  let overall_score: number;
+  if (totalInteractions === 0) {
+    // Fall back to simple average when no recent activity
+    overall_score = Math.round(rows.reduce((sum: number, r: any) => sum + parseInt(r.score), 0) / rows.length);
+  } else {
+    const weightedSum = rows.reduce((sum: number, r: any) => sum + parseInt(r.score) * parseInt(r.recent_interactions), 0);
+    overall_score = Math.round(weightedSum / totalInteractions);
+  }
+
+  return {
+    overall_score: Math.max(0, Math.min(100, overall_score)),
+    community_breakdown: rows.map((r: any) => ({
+      community_id: r.community_id,
+      community_name: r.community_name,
+      score: parseInt(r.score),
+      recent_interactions: parseInt(r.recent_interactions),
+    })),
+  };
+}
+
 export async function getCommunityLeaderboard(community_id: string, limit: number = 10) {
   const result = await query(
     `SELECT

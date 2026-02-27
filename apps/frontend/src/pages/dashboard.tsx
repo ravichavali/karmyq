@@ -216,20 +216,15 @@ export default function Dashboard() {
     try {
       setLoading(true)
 
-      const communityRequestParams: Record<string, any> = { status: 'open', limit: 50 }
-      if (filters?.request_type) communityRequestParams.type = filters.request_type
-
-      // When a community is selected, use the curated endpoint (trust-scored, preference-aware).
-      // When no community is selected, fall back to raw fetch across all communities.
-      const currentCommunityId = activeCommunityId || null
-      const suggestedFetch = currentCommunityId
-        ? requestService.getCuratedRequests({
-            community_id: currentCommunityId,
-            trust_distance: filters?.trust_distance || undefined,
-            request_type: filters?.request_type || undefined,
-            limit: 50,
-          })
-        : requestService.getRequests(communityRequestParams)
+      // Always use the curated endpoint (trust-scored, preference-aware).
+      // community_id is optional — omitting it returns a composite feed across all user communities.
+      const currentCommunityId = activeCommunityId || undefined
+      const suggestedFetch = requestService.getCuratedRequests({
+        community_id: currentCommunityId,
+        trust_distance: filters?.trust_distance || undefined,
+        request_type: filters?.request_type || undefined,
+        limit: 50,
+      })
 
       // Fetch all data in parallel
       const [myRequestsRes, allMatchesRes, suggestedRes, matchedRequestsRes, communitiesRes] = await Promise.all([
@@ -244,10 +239,6 @@ export default function Dashboard() {
       try {
         const communities = communitiesRes.data.communities || []
         if (communities.length > 0) {
-          // Set the first community as active if not already set
-          if (!activeCommunityId) {
-            setActiveCommunityId(communities[0].id)
-          }
           // TODO: Re-enable when milestone_events table is created (See ROADMAP.md Backlog #24)
           // const communityToUse = activeCommunityId || communities[0].id
           // const milestonesRes = await feedApi.get(`/feed/milestones?community_id=${communityToUse}&limit=5`)

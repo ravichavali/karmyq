@@ -43,9 +43,11 @@ export default function LeftSidebar({ user, communities, activeCommunityId, karm
         ])
         const karma = karmaResult.status === 'fulfilled' ? karmaResult.value.data : null
         const trust = trustResult.status === 'fulfilled' ? trustResult.value.data : null
+        // Community endpoint returns { score }, overall endpoint returns { overall_score }
+        const trustScore = trust?.score ?? trust?.overall_score ?? 0
         setKarmaData({
           total_karma: karma?.total_karma || 0,
-          trust_score: trust?.score ?? 0,
+          trust_score: trustScore,
           rank: karma?.rank,
         })
       } catch (err) {
@@ -64,18 +66,20 @@ export default function LeftSidebar({ user, communities, activeCommunityId, karm
   }
 
   const getTrustLabel = (score: number) => {
-    if (score >= 80) return 'Trusted'
-    if (score >= 60) return 'Reliable'
-    if (score >= 40) return 'Building'
+    if (score >= 75) return 'Highly Trusted'
+    if (score >= 50) return 'Trusted'
+    if (score >= 20) return 'Active'
     return 'New'
   }
 
   const getTrustRange = (score: number) => {
-    if (score >= 80) return '80–100'
-    if (score >= 60) return '60–79'
-    if (score >= 40) return '40–59'
-    return '0–39'
+    if (score >= 75) return '75–100'
+    if (score >= 50) return '50–74'
+    if (score >= 20) return '20–49'
+    return '0–19'
   }
+
+  const trustContext = activeCommunityId ? '' : 'Overall'
 
   return (
     <div className="space-y-4">
@@ -107,7 +111,7 @@ export default function LeftSidebar({ user, communities, activeCommunityId, karm
                   {getTrustLabel(karmaData?.trust_score || 0)}
                 </span>
                 <span className="text-xs opacity-70 ml-1.5">
-                  ({getTrustRange(karmaData?.trust_score || 0)})
+                  ({getTrustRange(karmaData?.trust_score || 0)}{trustContext ? ` · ${trustContext}` : ''})
                 </span>
               </div>
               <span className="text-xs opacity-60">{karmaData?.trust_score || 0}/100</span>
