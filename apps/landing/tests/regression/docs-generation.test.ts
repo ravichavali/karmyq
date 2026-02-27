@@ -176,12 +176,14 @@ describe('Navigation structure', () => {
 
   test('has expected sections', () => {
     const titles = data.sections.map((s: any) => s.title);
-    expect(titles).toContain('Getting Started');
-    expect(titles).toContain('Services');
-    expect(titles).toContain('API Reference');
-    expect(titles).toContain('Architecture Decisions');
-    expect(titles).toContain('Concepts');
+    // Non-technical sections
+    expect(titles).toContain('Why Karmyq');
+    expect(titles).toContain('How It Works');
     expect(titles).toContain('User Guides');
+    // Technical sections
+    expect(titles).toContain('Architecture Decisions');
+    expect(titles).toContain('API Reference');
+    expect(titles).toContain('Services');
   });
 
   test('each section has items with label and href', () => {
