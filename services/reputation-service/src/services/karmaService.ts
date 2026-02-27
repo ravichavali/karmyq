@@ -295,7 +295,7 @@ async function recordKarma(data: KarmaRecordData) {
   );
 }
 
-async function updateTrustScore(user_id: string, community_id: string) {
+export async function updateTrustScore(user_id: string, community_id: string) {
   const TWELVE_MONTHS_AGO = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString();
 
   // Count recent interactions (last 12 months) and all-time for the upsert counters
