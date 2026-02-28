@@ -96,12 +96,11 @@ fi
 # Step 3: Install dependencies
 # =============================================================================
 log_step "3/9 - Installing dependencies"
-if npm ci --prefer-offline 2>&1 | tail -3; then
-    log_info "Dependencies installed"
-else
-    log_warn "npm ci failed, falling back to npm install"
-    npm install 2>&1 | tail -3
-fi
+# Fix permissions on node_modules that may have been written by root (Docker builds)
+sudo chown -R "$(whoami)" node_modules 2>/dev/null || true
+sudo chown -R "$(whoami)" apps/landing/node_modules 2>/dev/null || true
+npm ci --prefer-offline || npm install
+log_info "Dependencies installed"
 
 # =============================================================================
 # Step 4: Load environment
