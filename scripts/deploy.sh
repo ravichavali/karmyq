@@ -183,6 +183,8 @@ fi
 log_step "7/9 - Building landing page (karmyq.org)"
 if [ -d "apps/landing" ]; then
     log_info "Building landing page static files..."
+    # Ensure landing page dependencies are installed (next binary must exist)
+    (cd apps/landing && npm install --prefer-offline 2>/dev/null || npm install)
     if (cd apps/landing && npm run build); then
         sudo mkdir -p /var/www/karmyq-landing
         sudo cp -r apps/landing/out/* /var/www/karmyq-landing/
