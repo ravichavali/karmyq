@@ -157,6 +157,17 @@ else
 fi
 
 # =============================================================================
+# Step 5.5: Ensure postgres is running before migrations
+# =============================================================================
+log_step "5.5/9 - Ensuring database is running"
+docker compose $COMPOSE_FILES up -d postgres
+if timeout 30 bash -c 'until docker exec karmyq-postgres pg_isready -U karmyq_user 2>/dev/null; do sleep 2; done'; then
+    log_info "Database is ready"
+else
+    log_warn "Database may not be ready — proceeding anyway"
+fi
+
+# =============================================================================
 # Step 6: Apply database migrations
 # =============================================================================
 log_step "6/9 - Applying database migrations"
