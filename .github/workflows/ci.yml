@@ -235,11 +235,12 @@ jobs:
         run: |
           ssh ${{ secrets.PROD_SERVER_USER }}@${{ secrets.PROD_SERVER_HOST }} << 'ENDSSH'
             cd ~/karmyq
-            # Remove Docker build artifacts that block git clean (permission issues)
+            # Remove Docker build artifacts with root ownership that block git operations
             sudo rm -rf services/geocoding-service/services/ 2>/dev/null || true
-            # Pull latest deploy.sh before running it
+            # Hard reset server to exactly match origin/master — restores any missing/corrupt files
             git fetch origin master
-            git checkout origin/master -- scripts/deploy.sh
+            git reset --hard origin/master
+            git clean -ffd --exclude='.env*' --exclude='*.log' 2>/dev/null || true
           ENDSSH
 
       - name: Deploy to karmyq.com
