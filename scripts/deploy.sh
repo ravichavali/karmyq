@@ -72,7 +72,9 @@ git checkout master
 # Hard reset to discard any local changes (generated files, etc.)
 # This is a deployment script — we never want to preserve server-side changes
 git reset --hard HEAD
-git clean -fd --exclude='.env*' --exclude='*.log'
+# Clean untracked files; -ffd force-force to handle nested git repos/permission issues
+# || true so permission errors on Docker build artifacts don't abort the deploy
+git clean -ffd --exclude='.env*' --exclude='*.log' || git clean -fd --exclude='.env*' --exclude='*.log' || true
 
 git pull origin master
 COMMIT=$(git rev-parse --short HEAD)
