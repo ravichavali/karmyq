@@ -69,11 +69,10 @@ log_step "2/9 - Pulling latest code from master"
 git fetch origin
 git checkout master
 
-# Stash any local changes before pulling
-if ! git diff-index --quiet HEAD --; then
-    log_warn "Local changes detected, stashing..."
-    git stash push -m "Auto-stash before deployment $(date +%Y%m%d-%H%M%S)"
-fi
+# Hard reset to discard any local changes (generated files, etc.)
+# This is a deployment script — we never want to preserve server-side changes
+git reset --hard HEAD
+git clean -fd --exclude='.env*' --exclude='*.log'
 
 git pull origin master
 COMMIT=$(git rev-parse --short HEAD)
@@ -183,10 +182,6 @@ fi
 log_step "7/9 - Building landing page (karmyq.org)"
 if [ -d "apps/landing" ]; then
     log_info "Building landing page static files..."
-    # Remove stale generated docs — these are gitignored but may be tracked from
-    # old force-adds, causing git conflicts and stale JSON being read at build time
-    git rm -r --cached apps/landing/src/data/docs/ 2>/dev/null || true
-    rm -rf apps/landing/src/data/docs/
     # Ensure landing page dependencies are installed (next binary must exist)
     (cd apps/landing && npm install --prefer-offline 2>/dev/null || npm install)
     if (cd apps/landing && npm run build); then
