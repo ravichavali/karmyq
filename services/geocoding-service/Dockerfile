@@ -21,14 +21,18 @@ COPY services/geocoding-service/index.js ./services/geocoding-service/index.js
 FROM node:18-alpine
 WORKDIR /app
 
+# Run as non-root user (node user is built into node:alpine images)
+RUN chown node:node /app
+USER node
+
 # Copy service package.json
-COPY services/geocoding-service/package*.json ./
+COPY --chown=node:node services/geocoding-service/package*.json ./
 
 # Install production dependencies (NOT as workspace - standalone service)
 RUN npm install --omit=dev
 
 # Copy service source
-COPY --from=builder /app/services/geocoding-service/index.js ./index.js
+COPY --chown=node:node --from=builder /app/services/geocoding-service/index.js ./index.js
 
 EXPOSE 3009
 ENTRYPOINT []

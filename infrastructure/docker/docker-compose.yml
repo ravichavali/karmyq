@@ -306,8 +306,7 @@ services:
       postgres:
         condition: service_healthy
     volumes:
-      - ../../services/geocoding-service:/app
-      - /app/node_modules
+      - ../../services/geocoding-service/index.js:/app/index.js
     networks:
       - karmyq-network
 
