@@ -183,6 +183,8 @@ fi
 log_step "7/9 - Building landing page (karmyq.org)"
 if [ -d "apps/landing" ]; then
     log_info "Building landing page static files..."
+    # Clear Next.js cache so it doesn't use stale module resolution from old builds
+    rm -rf apps/landing/.next
     # Ensure landing page dependencies are installed (next binary must exist)
     (cd apps/landing && npm install --prefer-offline 2>/dev/null || npm install)
     if (cd apps/landing && npm run build); then
