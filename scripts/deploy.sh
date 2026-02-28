@@ -183,9 +183,8 @@ if [ -d "apps/landing" ]; then
     log_info "Building landing page static files..."
     # Clear Next.js cache so it doesn't use stale module resolution from old builds
     rm -rf apps/landing/.next
-    # Ensure landing page dependencies are installed (next binary must exist)
-    (cd apps/landing && npm install --prefer-offline 2>/dev/null || npm install)
-    if (cd apps/landing && npm run build); then
+    # Build via workspace root — avoids breaking workspace symlinks with a second npm install
+    if npm run build --workspace=karmyq-landing; then
         sudo mkdir -p /var/www/karmyq-landing
         sudo cp -r apps/landing/out/* /var/www/karmyq-landing/
         sudo chown -R www-data:www-data /var/www/karmyq-landing
