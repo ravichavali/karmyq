@@ -11,6 +11,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
+import { execSync } from 'child_process';
 
 const ROOT = path.resolve(__dirname, '..');
 const OUT_DIR = path.join(ROOT, 'apps', 'landing', 'src', 'data', 'docs');
@@ -489,6 +490,23 @@ function generateNav(
 
 // ─── Main ─────────────────────────────────────────────────────────────
 
+function generateBuildStamp(adrCount: number) {
+  let commitSha = 'unknown';
+  let commitDate = new Date().toISOString();
+  try {
+    commitSha = execSync('git rev-parse --short HEAD', { cwd: ROOT }).toString().trim();
+    commitDate = execSync('git log -1 --format=%cI', { cwd: ROOT }).toString().trim();
+  } catch {
+    // git not available (e.g. fresh checkout without git)
+  }
+  writeJson(path.join(OUT_DIR, 'build.json'), {
+    commitSha,
+    commitDate,
+    adrCount,
+    generatedAt: new Date().toISOString(),
+  });
+}
+
 function main() {
   console.log('Generating documentation data...\n');
 
@@ -507,6 +525,7 @@ function main() {
   const conceptPages = generateConceptPages();
   const guides = generateGuides();
   generateNav(services, adrs, conceptPages, guides);
+  generateBuildStamp(adrs.length);
 
   // Summary
   console.log('\nDoc generation complete:');
