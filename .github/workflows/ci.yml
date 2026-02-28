@@ -231,6 +231,17 @@ jobs:
       - name: Add server to known hosts
         run: ssh-keyscan -H ${{ secrets.PROD_SERVER_HOST }} >> ~/.ssh/known_hosts
 
+      - name: Pre-deploy cleanup
+        run: |
+          ssh ${{ secrets.PROD_SERVER_USER }}@${{ secrets.PROD_SERVER_HOST }} << 'ENDSSH'
+            cd ~/karmyq
+            # Remove Docker build artifacts that block git clean (permission issues)
+            sudo rm -rf services/geocoding-service/services/ 2>/dev/null || true
+            # Pull latest deploy.sh before running it
+            git fetch origin master
+            git checkout origin/master -- scripts/deploy.sh
+          ENDSSH
+
       - name: Deploy to karmyq.com
         run: |
           ssh ${{ secrets.PROD_SERVER_USER }}@${{ secrets.PROD_SERVER_HOST }} << 'ENDSSH'
