@@ -96,9 +96,8 @@ fi
 # Step 3: Install dependencies
 # =============================================================================
 log_step "3/9 - Installing dependencies"
-# Fix permissions on node_modules that may have been written by root (Docker builds)
-sudo chown -R "$(whoami)" node_modules 2>/dev/null || true
-sudo chown -R "$(whoami)" apps/landing/node_modules 2>/dev/null || true
+# Fix permissions across all node_modules dirs written by root (Docker builds)
+find . -name "node_modules" -maxdepth 3 -exec sudo chown -R "$(whoami)" {} + 2>/dev/null || true
 npm ci --prefer-offline || npm install
 log_info "Dependencies installed"
 
