@@ -708,3 +708,58 @@ export const socialGraphService = {
   getBatchTrustPaths: (targetUserIds: string[]) =>
     socialGraphApi.post('/paths/batch', { target_user_ids: targetUserIds }),
 }
+
+export const providerService = {
+  listProviders: (params?: { service_type?: string; limit?: number; offset?: number }) =>
+    requestApi.get('/providers', { params }),
+
+  getProvider: (id: string) =>
+    requestApi.get(`/providers/${id}`),
+
+  createProvider: (data: any) =>
+    requestApi.post('/providers', data),
+
+  updateProvider: (id: string, data: any) =>
+    requestApi.put(`/providers/${id}`, data),
+
+  deleteProvider: (id: string) =>
+    requestApi.delete(`/providers/${id}`),
+
+  getProviderTrust: (id: string) =>
+    reputationApi.get(`/reputation/provider-trust/${id}`),
+
+  getProviderReviews: (id: string) =>
+    reputationApi.get(`/reputation/provider-reviews/${id}`),
+
+  submitReview: (data: any) =>
+    reputationApi.post('/reputation/provider-reviews', data),
+}
+
+export const collectiveService = {
+  listCollectives: (params?: { service_type?: string; limit?: number; offset?: number }) =>
+    requestApi.get('/collectives', { params }),
+
+  getCollective: (id: string) =>
+    requestApi.get(`/collectives/${id}`),
+
+  createCollective: (data: any) =>
+    requestApi.post('/collectives', data),
+
+  updateCollective: (id: string, data: any) =>
+    requestApi.put(`/collectives/${id}`, data),
+
+  deleteCollective: (id: string) =>
+    requestApi.delete(`/collectives/${id}`),
+
+  joinCollective: (id: string, providerId?: string) =>
+    requestApi.post(`/collectives/${id}/members`, providerId ? { provider_id: providerId } : {}),
+
+  leaveCollective: (id: string, providerId: string) =>
+    requestApi.delete(`/collectives/${id}/members/${providerId}`),
+
+  linkCommunity: (id: string, communityId: string) =>
+    requestApi.post(`/collectives/${id}/communities`, { community_id: communityId }),
+
+  unlinkCommunity: (id: string, communityId: string) =>
+    requestApi.delete(`/collectives/${id}/communities/${communityId}`),
+}

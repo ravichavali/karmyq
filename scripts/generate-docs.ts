@@ -309,6 +309,7 @@ const GUIDE_ORDER = [
   'community-admin-guide',
   'understanding-karma-guide',
   'trust-connections-guide',
+  'using-service-providers-guide',
 ];
 
 const GUIDE_LABELS: Record<string, string> = {
@@ -318,6 +319,7 @@ const GUIDE_LABELS: Record<string, string> = {
   'community-admin-guide': 'Running a Community',
   'understanding-karma-guide': 'Your Karma & Reputation',
   'trust-connections-guide': 'Trust Connections in Your Feed',
+  'using-service-providers-guide': 'Using the Service Provider Directory',
 };
 
 const GUIDE_SLUGS: Record<string, string> = {
@@ -327,6 +329,7 @@ const GUIDE_SLUGS: Record<string, string> = {
   'community-admin-guide': 'community-admin',
   'understanding-karma-guide': 'understanding-karma',
   'trust-connections-guide': 'trust-connections',
+  'using-service-providers-guide': 'using-service-providers',
 };
 
 function generateGuides(): GuidePage[] {

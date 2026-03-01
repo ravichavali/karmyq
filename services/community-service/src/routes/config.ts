@@ -52,6 +52,9 @@ router.get('/:id/config', async (req: Request, res: Response) => {
         feed_weight_community_relevance,
         feed_weight_urgency,
         template_source,
+        provider_services_enabled,
+        provider_min_personal_trust_score,
+        provider_services_list,
         created_at,
         updated_at
       FROM communities.community_configs
@@ -194,6 +197,9 @@ router.put('/:id/config', async (req: Request, res: Response) => {
          feed_weight_trust_distance = $19,
          feed_weight_community_relevance = $20,
          feed_weight_urgency = $21,
+         provider_services_enabled = $23,
+         provider_min_personal_trust_score = $24,
+         provider_services_list = $25,
          updated_at = CURRENT_TIMESTAMP
        WHERE community_id = $22
        RETURNING *`,
@@ -220,6 +226,9 @@ router.put('/:id/config', async (req: Request, res: Response) => {
         mergedConfig.feed_weight_community_relevance,
         mergedConfig.feed_weight_urgency,
         communityId,
+        configUpdates.provider_services_enabled ?? existingConfig.provider_services_enabled,
+        configUpdates.provider_min_personal_trust_score ?? existingConfig.provider_min_personal_trust_score,
+        configUpdates.provider_services_list ?? existingConfig.provider_services_list,
       ]
     );
 

@@ -1046,6 +1046,48 @@ Get feedback for a match.
 
 ### 3.5 Health Check
 
+#### GET /providers
+List all provider profiles. Optional query param: service_type.
+
+#### GET /providers/:id
+Get a single provider profile by ID, including ride details if applicable.
+
+#### POST /providers
+Create a provider profile for the authenticated user.
+
+#### PUT /providers/:id
+Update a provider profile. Owner only.
+
+#### DELETE /providers/:id
+Delete a provider profile. Owner only.
+
+#### GET /collectives
+List all provider collectives. Optional query param: service_type.
+
+#### GET /collectives/:id
+Get a collective with members and communities served.
+
+#### POST /collectives
+Create a new provider collective.
+
+#### PUT /collectives/:id
+Update a collective. Collective admin only.
+
+#### DELETE /collectives/:id
+Delete a collective. Collective admin only.
+
+#### POST /collectives/:id/members
+Join a collective as a member.
+
+#### DELETE /collectives/:id/members/:providerId
+Remove a member from a collective. Collective admin only.
+
+#### POST /collectives/:id/communities
+Link a collective to a community.
+
+#### DELETE /collectives/:id/communities/:communityId
+Unlink a collective from a community.
+
 #### GET /health
 Service health check.
 

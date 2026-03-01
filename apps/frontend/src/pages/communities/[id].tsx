@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/router'
 import Head from 'next/head'
 import Link from 'next/link'
-import { communityService } from '@/lib/api'
+import { communityService, collectiveService } from '@/lib/api'
 import Layout from '@/components/Layout'
 import CommunityConfigEditor from '@/components/CommunityConfigEditor'
 import { CommunityConfig } from '@/types/community-config'
@@ -63,7 +63,10 @@ export default function CommunityDetailPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [currentUser, setCurrentUser] = useState<any>(null)
-  const [activeTab, setActiveTab] = useState<'overview' | 'members' | 'norms' | 'config' | 'manage' | 'pending' | 'settings' | 'stats' | 'export'>('overview')
+  const [activeTab, setActiveTab] = useState<'overview' | 'members' | 'norms' | 'config' | 'manage' | 'pending' | 'settings' | 'stats' | 'export' | 'providers'>('overview')
+  const [communityCollectives, setCommunityCollectives] = useState<any[]>([])
+  const [providerConfig, setProviderConfig] = useState({ provider_services_enabled: false, provider_min_personal_trust_score: 0, provider_services_list: [] as string[] })
+  const [savingProviderConfig, setSavingProviderConfig] = useState(false)
   const [settings, setSettings] = useState<CommunitySettings | null>(null)
   const [editedSettings, setEditedSettings] = useState<CommunitySettings | null>(null)
   const [saving, setSaving] = useState(false)
@@ -506,6 +509,27 @@ export default function CommunityDetailPage() {
                       className={`px-6 py-4 font-medium ${activeTab === 'export' ? 'border-b-2 border-primary text-primary' : 'text-text-muted hover:text-text'}`}
                     >
                       Export
+                    </button>
+                    <button
+                      onClick={() => {
+                        setActiveTab('providers')
+                        if (config) {
+                          setProviderConfig({
+                            provider_services_enabled: (config as any).provider_services_enabled ?? false,
+                            provider_min_personal_trust_score: (config as any).provider_min_personal_trust_score ?? 0,
+                            provider_services_list: (config as any).provider_services_list ?? [],
+                          })
+                        }
+                        collectiveService.listCollectives().then((cols: any) => {
+                          const list: any[] = Array.isArray(cols) ? cols : []
+                          setCommunityCollectives(list.filter((c: any) =>
+                            c.communities?.some((cl: any) => cl.community_id === id)
+                          ))
+                        }).catch(() => {})
+                      }}
+                      className={`px-6 py-4 font-medium ${activeTab === 'providers' ? 'border-b-2 border-primary text-primary' : 'text-text-muted hover:text-text'}`}
+                    >
+                      Providers
                     </button>
                   </>
                 )}
@@ -1027,6 +1051,84 @@ export default function CommunityDetailPage() {
                       </div>
                     </div>
                   )}
+                </div>
+              )}
+
+              {/* Admin: Providers Tab */}
+              {activeTab === 'providers' && isAdmin && (
+                <div className="space-y-6">
+                  <h3 className="text-xl font-semibold mb-2">Service Provider Settings</h3>
+
+                  <div className="bg-surface rounded-lg p-5 space-y-4 border border-border">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-text">Enable provider services</p>
+                        <p className="text-xs text-text-muted mt-0.5">Allow members to discover neighborhood service providers in this community.</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setProviderConfig(c => ({ ...c, provider_services_enabled: !c.provider_services_enabled }))}
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${providerConfig.provider_services_enabled ? 'bg-primary' : 'bg-gray-300'}`}
+                      >
+                        <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${providerConfig.provider_services_enabled ? 'translate-x-6' : 'translate-x-1'}`} />
+                      </button>
+                    </div>
+
+                    {providerConfig.provider_services_enabled && (
+                      <div>
+                        <label className="block text-sm font-medium text-text mb-1">Minimum personal trust score to appear ({providerConfig.provider_min_personal_trust_score})</label>
+                        <input
+                          type="range"
+                          min={0}
+                          max={100}
+                          value={providerConfig.provider_min_personal_trust_score}
+                          onChange={e => setProviderConfig(c => ({ ...c, provider_min_personal_trust_score: parseInt(e.target.value, 10) }))}
+                          className="w-full"
+                        />
+                        <div className="flex justify-between text-xs text-text-subtle mt-1">
+                          <span>0 (all providers)</span>
+                          <span>100 (highly trusted only)</span>
+                        </div>
+                      </div>
+                    )}
+
+                    <button
+                      disabled={savingProviderConfig}
+                      onClick={async () => {
+                        setSavingProviderConfig(true)
+                        try {
+                          await communityService.updateConfig(id as string, providerConfig)
+                          alert('Provider settings saved')
+                        } catch (err: any) {
+                          alert(err?.message ?? 'Failed to save')
+                        } finally {
+                          setSavingProviderConfig(false)
+                        }
+                      }}
+                      className="bg-primary text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-primary-dark transition disabled:opacity-50"
+                    >
+                      {savingProviderConfig ? 'Saving...' : 'Save provider settings'}
+                    </button>
+                  </div>
+
+                  <div>
+                    <h4 className="text-base font-semibold text-text mb-3">Collectives serving this community</h4>
+                    {communityCollectives.length === 0 ? (
+                      <p className="text-sm text-text-muted">No collectives linked yet. Collective admins can link their collective to this community.</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {communityCollectives.map((c: any) => (
+                          <div key={c.id} className="flex items-center justify-between bg-surface-raised rounded-lg border border-border px-4 py-3">
+                            <div>
+                              <p className="text-sm font-medium text-text">{c.name}</p>
+                              <p className="text-xs text-text-subtle">{c.member_count} provider{c.member_count !== 1 ? 's' : ''}</p>
+                            </div>
+                            <Link href={`/providers/collectives/${c.id}`} className="text-xs text-primary hover:underline">View</Link>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
 

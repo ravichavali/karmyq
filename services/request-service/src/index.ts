@@ -10,6 +10,7 @@ import matchesRouter from './routes/matches';
 import feedbackRouter from './routes/feedback';
 import schemasRouter from './routes/schemas';
 import providersRouter from './routes/providers';
+import collectivesRouter from './routes/collectives';
 import adminSchemasRouter from './routes/admin-schemas';
 import { adminAuth } from './middleware/adminAuth';
 import { createLogger, requestLoggingMiddleware } from '@karmyq/shared/utils/logger';
@@ -51,6 +52,9 @@ app.use('/schemas', rateLimiters.standard, schemasRouter);
 
 // Provider directory (GET is public; POST/PUT/DELETE handle auth internally)
 app.use('/providers', rateLimiters.standard, providersRouter);
+
+// Provider collectives (all endpoints require auth)
+app.use('/collectives', rateLimiters.standard, collectivesRouter);
 
 // Admin schema management (requires admin role)
 app.use(

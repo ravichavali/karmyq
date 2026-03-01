@@ -80,7 +80,8 @@
         },
         {
           "label": "— Foundation —",
-          "href": "/docs/concepts"
+          "href": "/docs/concepts",
+          "divider": true
         },
         {
           "label": "Microservices Event-Driven Architecture",
@@ -108,7 +109,8 @@
         },
         {
           "label": "— Trust & Reputation —",
-          "href": "/docs/concepts"
+          "href": "/docs/concepts",
+          "divider": true
         },
         {
           "label": "Trust-First Design Philosophy",
@@ -140,7 +142,8 @@
         },
         {
           "label": "— Requests & Matching —",
-          "href": "/docs/concepts"
+          "href": "/docs/concepts",
+          "divider": true
         },
         {
           "label": "Multi-Tier Feed Architecture (Explore-Exploit Balance)",
@@ -168,7 +171,8 @@
         },
         {
           "label": "— Infrastructure —",
-          "href": "/docs/concepts"
+          "href": "/docs/concepts",
+          "divider": true
         },
         {
           "label": "NPM Workspace Package for Shared Code in Docker",

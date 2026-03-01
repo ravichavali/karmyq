@@ -62,3 +62,38 @@ export interface CreateProviderReviewInput {
 
 export const PROVIDER_SERVICE_TYPES = ['ride', 'tradesperson', 'tutor', 'other'] as const;
 export type ProviderServiceType = typeof PROVIDER_SERVICE_TYPES[number];
+
+export interface ProviderCollective {
+  id: string;
+  name: string;
+  description?: string;
+  service_types: string[];
+  location_notes?: string;
+  is_active: boolean;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+  // Joined fields
+  member_count?: number;
+  avg_trust_score?: number;
+}
+
+export interface ProviderCollectiveMember {
+  collective_id: string;
+  provider_id: string;
+  role: 'member' | 'admin';
+  joined_at: string;
+  // Joined fields
+  provider?: ProviderProfile;
+}
+
+export interface CollectiveCommunityLink {
+  collective_id: string;
+  community_id: string;
+  status: 'pending' | 'active' | 'inactive';
+  established_at: string;
+  // Joined fields
+  community_name?: string;
+}
+
+export type CreateCollectiveInput = Pick<ProviderCollective, 'name' | 'description' | 'service_types' | 'location_notes'>;

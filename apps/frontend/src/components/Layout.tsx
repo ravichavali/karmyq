@@ -65,6 +65,16 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
                 >
                   Communities
                 </Link>
+                <Link
+                  href="/providers"
+                  className={`px-4 py-2 font-medium rounded-lg transition-all ${
+                    router.pathname.startsWith('/providers')
+                      ? 'bg-primary-light text-primary'
+                      : 'text-text-muted hover:bg-surface'
+                  }`}
+                >
+                  Service Providers
+                </Link>
 
                 {user && (
                   <>
