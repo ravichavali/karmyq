@@ -105,36 +105,41 @@ async function reset() {
     counts['communities.communities'] = commResult.rowCount ?? 0;
 
     // 2. Delete requests created by test users (not already cascade-deleted)
-    const reqResult = await client.query(
-      `DELETE FROM requests.help_requests WHERE requester_id = ANY($1::uuid[]) RETURNING id`,
-      [testUserIds]
-    );
-    counts['requests.help_requests'] = reqResult.rowCount ?? 0;
+    {
+      const n = await safeDelete('requests.help_requests', 'requester_id', testUserIds);
+      if (n > 0) counts['requests.help_requests'] = n;
+    }
 
     // 3. Delete matches where responder is a test user (requester-side cascaded above)
-    const matchResult = await client.query(
-      `DELETE FROM requests.matches WHERE responder_id = ANY($1::uuid[]) RETURNING id`,
-      [testUserIds]
-    );
-    counts['requests.matches (responder)'] = matchResult.rowCount ?? 0;
+    {
+      const n = await safeDelete('requests.matches', 'responder_id', testUserIds);
+      if (n > 0) counts['requests.matches (responder)'] = n;
+    }
 
-    // 4. Delete conversations started by test users
-    const convResult = await client.query(
-      `DELETE FROM messaging.conversations
-       WHERE id IN (
-         SELECT conversation_id FROM messaging.participants
-         WHERE participant_id = ANY($1::uuid[])
-       ) RETURNING id`,
-      [testUserIds]
-    );
-    counts['messaging.conversations'] = convResult.rowCount ?? 0;
+    // 4. Delete conversations started by test users (messaging.participants may not exist)
+    {
+      const sp = 'sp_messaging_conversations';
+      await client.query(`SAVEPOINT ${sp}`);
+      try {
+        const r = await client.query(
+          `DELETE FROM messaging.conversations
+           WHERE id IN (
+             SELECT conversation_id FROM messaging.participants
+             WHERE participant_id = ANY($1::uuid[])
+           ) RETURNING id`,
+          [testUserIds]
+        );
+        if ((r.rowCount ?? 0) > 0) counts['messaging.conversations'] = r.rowCount ?? 0;
+      } catch {
+        await client.query(`ROLLBACK TO SAVEPOINT ${sp}`);
+      }
+    }
 
     // 5. Delete notifications for test users
-    const notifResult = await client.query(
-      `DELETE FROM notifications.notifications WHERE user_id = ANY($1::uuid[]) RETURNING id`,
-      [testUserIds]
-    );
-    counts['notifications.notifications'] = notifResult.rowCount ?? 0;
+    {
+      const n = await safeDelete('notifications.notifications', 'user_id', testUserIds);
+      if (n > 0) counts['notifications.notifications'] = n;
+    }
 
     // 6. Finally delete users — cascades: sessions, invitations, inviter_stats,
     //    reputation records, social graph connections, feed preferences
