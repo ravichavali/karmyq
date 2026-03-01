@@ -18,6 +18,12 @@
         "hooks": [
           {
             "type": "command",
+            "command": "bash -c 'p=\"$CLAUDE_TOOL_INPUT_FILE_PATH\"; if echo \"$p\" | grep -qE \".(ts|tsx|js|jsx|json|md)$\"; then npx prettier --write \"$p\" 2>/dev/null || true; fi'",
+            "timeout": 10,
+            "statusMessage": "Auto-formatting with Prettier..."
+          },
+          {
+            "type": "command",
             "command": "npx tsc --noEmit --pretty 2>&1 | head -20",
             "timeout": 30,
             "statusMessage": "Type-checking with TypeScript..."
