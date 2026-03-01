@@ -49,8 +49,55 @@ async function reset() {
 
     const counts: Record<string, number> = {};
 
-    // 1. Delete communities created by test users (no CASCADE on creator_id)
-    //    This cascades: community.members, community.norms, requests.community_scope, etc.
+    // Get community IDs created by test users — needed to clear FK refs before deleting communities
+    const testCommResult = await client.query(
+      `SELECT id FROM communities.communities WHERE creator_id = ANY($1::uuid[])`,
+      [testUserIds]
+    );
+    const testCommunityIds: string[] = testCommResult.rows.map((r: any) => r.id);
+
+    // Helper: delete with SAVEPOINT so a missing table doesn't abort the transaction
+    async function safeDelete(table: string, column: string, ids: string[]): Promise<number> {
+      const sp = `sp_${table.replace(/\W/g, '_')}`;
+      await client.query(`SAVEPOINT ${sp}`);
+      try {
+        const r = await client.query(
+          `DELETE FROM ${table} WHERE ${column} = ANY($1::uuid[]) RETURNING id`,
+          [ids]
+        );
+        return r.rowCount ?? 0;
+      } catch {
+        await client.query(`ROLLBACK TO SAVEPOINT ${sp}`);
+        return 0;
+      }
+    }
+
+    // 1a. Clear all NO ACTION FK refs to test communities before deleting them.
+    if (testCommunityIds.length > 0) {
+      const toDelete: [string, string][] = [
+        ['reputation.karma_records',    'community_id'],
+        ['reputation.trust_scores',     'community_id'],
+        ['requests.help_offers',        'community_id'],
+        ['feedback.feedback',           'community_id'],
+        ['federation.blocked_instances','community_id'],
+        ['governance.conflict_cases',   'community_id'],
+        ['governance.proposals',        'community_id'],
+        ['governance.votes',            'community_id'],
+      ];
+      for (const [table, col] of toDelete) {
+        const n = await safeDelete(table, col, testCommunityIds);
+        if (n > 0) counts[`${table} (community)`] = n;
+      }
+    }
+
+    // 1b. Delete reputation records for test users (catches cross-community records)
+    for (const table of ['reputation.karma_records', 'reputation.trust_scores']) {
+      const n = await safeDelete(table, 'user_id', testUserIds);
+      if (n > 0) counts[`${table} (user)`] = n;
+    }
+
+    // 1c. Delete communities created by test users (creator_id has no CASCADE)
+    //    All remaining CASCADE refs (members, norms, configs, etc.) auto-delete.
     const commResult = await client.query(
       `DELETE FROM communities.communities WHERE creator_id = ANY($1::uuid[]) RETURNING id`,
       [testUserIds]
