@@ -196,7 +196,12 @@ export class SimApiClient {
 
   async generateInvite(communityId: string) {
     const res = await withRetry(
-      () => this.http.post('/invitations/generate', { community_id: communityId }),
+      () =>
+        this.http.post(
+          '/invitations/generate',
+          {},
+          { headers: { 'X-Community-ID': communityId } }
+        ),
       'generateInvite'
     );
     return res.data.data as { code: string; url: string };

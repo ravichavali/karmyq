@@ -430,14 +430,11 @@ describe('Community Membership Changes', () => {
       return;
     }
 
-    const response = await request(ServiceUrls.COMMUNITY)
-      .post(`/communities/${portlandCommunity.id}/invites`)
+    const response = await request(ServiceUrls.SOCIAL_GRAPH)
+      .post('/invitations/generate')
       .set('Authorization', `Bearer ${aliceToken}`)
       .set('X-Community-ID', portlandCommunity.id)
-      .send({
-        max_uses: 5,
-        expires_in_days: 7
-      });
+      .send({});
 
     expect([200, 201, 403, 404]).toContain(response.status);
 

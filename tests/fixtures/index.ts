@@ -19,6 +19,7 @@ export const ServiceUrls = {
   MESSAGING: process.env.MESSAGING_SERVICE_URL || 'http://localhost:3006',
   FEED: process.env.FEED_SERVICE_URL || 'http://localhost:3007',
   CLEANUP: process.env.CLEANUP_SERVICE_URL || 'http://localhost:3008',
+  SOCIAL_GRAPH: process.env.SOCIAL_GRAPH_SERVICE_URL || 'http://localhost:3010',
 };
 
 // Database connection
