@@ -2,6 +2,8 @@
 -- Adds provider_collectives, provider_collective_members, and collective_community_links tables
 -- Supports the two-layer model: individual providers + collective organizations (e.g. rickshaw stands)
 
+SET search_path TO requests, community, auth, public;
+
 CREATE TABLE IF NOT EXISTS requests.provider_collectives (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL,
