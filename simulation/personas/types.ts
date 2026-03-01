@@ -5,6 +5,7 @@
 export type ProfileType = 'communityBuilder' | 'activeHelper' | 'socialUser' | 'requester' | 'browser';
 
 export interface ActionWeights {
+  [key: string]: number;
   browseRequests: number;
   createRequest: number;
   offerHelp: number;
