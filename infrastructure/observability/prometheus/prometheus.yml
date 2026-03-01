@@ -8,11 +8,15 @@ scrape_configs:
     static_configs:
       - targets: ['localhost:9090']
 
-  # Add your services here when they expose metrics
+  # Simulation service metrics (port 9099)
+  # host.docker.internal resolves to the Docker host — works when simulation
+  # runs as a process on the demo server (not in a container).
+  # If simulation runs in Docker, use: simulation:9099
+  - job_name: 'simulation'
+    static_configs:
+      - targets: ['host.docker.internal:9099']
+
+  # Add service metrics endpoints here as they are instrumented
   # - job_name: 'auth-service'
   #   static_configs:
-  #     - targets: ['auth-service:3000']
-
-  # - job_name: 'request-service'
-  #   static_configs:
-  #     - targets: ['request-service:3002']
+  #     - targets: ['auth-service:3001']

@@ -101,6 +101,13 @@ find . -name "node_modules" -maxdepth 3 -exec sudo chown -R "$(whoami)" {} + 2>/
 npm ci --prefer-offline || npm install
 log_info "Dependencies installed"
 
+# Install simulation dependencies (standalone package, not in turbo workspace)
+if [ -d "simulation" ]; then
+    log_info "Installing simulation dependencies..."
+    cd simulation && npm install --omit=dev --prefer-offline 2>/dev/null || npm install --omit=dev && cd "$APP_DIR"
+    log_info "Simulation dependencies installed"
+fi
+
 # =============================================================================
 # Step 4: Load environment
 # =============================================================================
@@ -337,6 +344,20 @@ fi
 # Cleanup old images
 log_info "Cleaning up unused images..."
 docker image prune -f > /dev/null 2>&1
+
+# =============================================================================
+# Simulation: restart if it was already running
+# =============================================================================
+if command -v pm2 &>/dev/null; then
+    if pm2 describe karmyq-simulation &>/dev/null; then
+        log_step "Restarting simulation (karmyq-simulation)"
+        pm2 restart karmyq-simulation --update-env
+        log_info "Simulation restarted"
+    else
+        log_info "Simulation not running — start manually when ready:"
+        log_info "  cd ~/karmyq/simulation && pm2 start \"npx ts-node scripts/run.ts --load-profile=steady\" --name karmyq-simulation && pm2 save"
+    fi
+fi
 
 # Summary
 echo ""

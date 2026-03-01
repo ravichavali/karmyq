@@ -1,0 +1,143 @@
+{
+  "title": "Simulation Overview",
+  "uid": "sim-overview",
+  "tags": ["simulation", "karmyq"],
+  "timezone": "America/Los_Angeles",
+  "refresh": "10s",
+  "schemaVersion": 38,
+  "panels": [
+    {
+      "id": 1,
+      "title": "Active Personas",
+      "type": "stat",
+      "gridPos": { "x": 0, "y": 0, "w": 4, "h": 4 },
+      "targets": [{
+        "expr": "sim_active_personas",
+        "datasource": { "type": "prometheus", "uid": "prometheus" }
+      }],
+      "options": { "colorMode": "background", "graphMode": "area" },
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "steps": [{"color": "green", "value": 0}] } } }
+    },
+    {
+      "id": 2,
+      "title": "Total Simulation Users",
+      "type": "stat",
+      "gridPos": { "x": 4, "y": 0, "w": 4, "h": 4 },
+      "targets": [{
+        "expr": "sum(sim_users_total)",
+        "legendFormat": "Total Users",
+        "datasource": { "type": "prometheus", "uid": "prometheus" }
+      }],
+      "options": { "colorMode": "background" },
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "steps": [{"color": "blue", "value": 0}] } } }
+    },
+    {
+      "id": 3,
+      "title": "Invite Network Depth",
+      "type": "stat",
+      "gridPos": { "x": 8, "y": 0, "w": 4, "h": 4 },
+      "targets": [{
+        "expr": "sim_network_depth",
+        "datasource": { "type": "prometheus", "uid": "prometheus" }
+      }],
+      "options": { "colorMode": "background" },
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "steps": [{"color": "purple", "value": 0}] } } }
+    },
+    {
+      "id": 4,
+      "title": "Workflow Success Rate",
+      "type": "stat",
+      "gridPos": { "x": 12, "y": 0, "w": 4, "h": 4 },
+      "targets": [{
+        "expr": "sum(rate(sim_workflow_total{status='success'}[5m])) / sum(rate(sim_workflow_total[5m])) * 100",
+        "legendFormat": "Success %",
+        "datasource": { "type": "prometheus", "uid": "prometheus" }
+      }],
+      "options": { "colorMode": "background" },
+      "fieldConfig": { "defaults": { "unit": "percent", "color": { "mode": "thresholds" }, "thresholds": { "steps": [{"color": "red", "value": 0}, {"color": "yellow", "value": 80}, {"color": "green", "value": 95}] } } }
+    },
+    {
+      "id": 5,
+      "title": "Invites Sent (total)",
+      "type": "stat",
+      "gridPos": { "x": 16, "y": 0, "w": 4, "h": 4 },
+      "targets": [{
+        "expr": "sum(sim_invites_sent_total)",
+        "datasource": { "type": "prometheus", "uid": "prometheus" }
+      }],
+      "options": { "colorMode": "background" },
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "steps": [{"color": "orange", "value": 0}] } } }
+    },
+    {
+      "id": 6,
+      "title": "Workflows per Minute",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 4, "w": 16, "h": 8 },
+      "targets": [
+        { "expr": "rate(sim_workflow_total[1m]) * 60", "legendFormat": "{{workflow}}", "datasource": { "type": "prometheus", "uid": "prometheus" } }
+      ],
+      "options": { "tooltip": { "mode": "multi" } },
+      "fieldConfig": { "defaults": { "unit": "reqpm" } }
+    },
+    {
+      "id": 7,
+      "title": "Geographic Spread",
+      "type": "table",
+      "gridPos": { "x": 16, "y": 4, "w": 8, "h": 8 },
+      "targets": [{
+        "expr": "sim_geographic_spread",
+        "legendFormat": "{{region}}",
+        "instant": true,
+        "datasource": { "type": "prometheus", "uid": "prometheus" }
+      }],
+      "options": { "sortBy": [{ "displayName": "Value", "desc": true }] }
+    },
+    {
+      "id": 8,
+      "title": "User Growth Over Time",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 12, "w": 12, "h": 7 },
+      "targets": [
+        { "expr": "sim_users_total{type='founder'}", "legendFormat": "Founders", "datasource": { "type": "prometheus", "uid": "prometheus" } },
+        { "expr": "sim_users_total{type='invited'}", "legendFormat": "Invited", "datasource": { "type": "prometheus", "uid": "prometheus" } },
+        { "expr": "sim_users_total{type='generated'}", "legendFormat": "Generated", "datasource": { "type": "prometheus", "uid": "prometheus" } }
+      ],
+      "options": { "tooltip": { "mode": "multi" } }
+    },
+    {
+      "id": 9,
+      "title": "Workflow P95 Duration",
+      "type": "timeseries",
+      "gridPos": { "x": 12, "y": 12, "w": 12, "h": 7 },
+      "targets": [{
+        "expr": "histogram_quantile(0.95, rate(sim_workflow_duration_seconds_bucket[5m]))",
+        "legendFormat": "P95 {{workflow}}",
+        "datasource": { "type": "prometheus", "uid": "prometheus" }
+      }],
+      "fieldConfig": { "defaults": { "unit": "s" } }
+    },
+    {
+      "id": 10,
+      "title": "Live Activity Feed",
+      "type": "logs",
+      "gridPos": { "x": 0, "y": 19, "w": 16, "h": 8 },
+      "targets": [{
+        "expr": "{service=\"simulation\"} | json | line_format \"[{{.persona}}] {{.workflow}} — {{.duration_ms}}ms {{if .success}}✓{{else}}✗{{end}}\"",
+        "datasource": { "type": "loki", "uid": "loki" }
+      }],
+      "options": { "dedupStrategy": "none", "enableLogDetails": true, "showTime": true }
+    },
+    {
+      "id": 11,
+      "title": "Simulation Errors",
+      "type": "logs",
+      "gridPos": { "x": 16, "y": 19, "w": 8, "h": 8 },
+      "targets": [{
+        "expr": "{service=\"simulation\"} | json | level = \"error\" or level = \"warn\"",
+        "datasource": { "type": "loki", "uid": "loki" }
+      }],
+      "options": { "dedupStrategy": "none", "enableLogDetails": true, "showTime": true }
+    }
+  ],
+  "time": { "from": "now-1h", "to": "now" }
+}

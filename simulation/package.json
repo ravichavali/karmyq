@@ -1,0 +1,26 @@
+{
+  "name": "@karmyq/simulation",
+  "version": "1.0.0",
+  "description": "Persona-driven organic simulation and load testing for Karmyq",
+  "private": true,
+  "scripts": {
+    "reset": "ts-node scripts/reset.ts",
+    "seed": "ts-node scripts/seed-founders.ts",
+    "run": "ts-node scripts/run.ts",
+    "run:steady": "ts-node scripts/run.ts --load-profile=steady",
+    "run:spike": "ts-node scripts/run.ts --load-profile=spike",
+    "run:ramp": "ts-node scripts/run.ts --load-profile=ramp"
+  },
+  "dependencies": {
+    "axios": "^1.6.0",
+    "dotenv": "^16.3.0",
+    "pg": "^8.11.0",
+    "prom-client": "^15.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/pg": "^8.10.0",
+    "ts-node": "^10.9.0",
+    "typescript": "^5.3.0"
+  }
+}
