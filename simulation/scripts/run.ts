@@ -230,6 +230,7 @@ if (isMainThread) {
 
       const worker = new Worker(__filename, {
         workerData: { seededUser: user, maxTicks: ticks },
+        execArgv: ['--require', 'ts-node/register'],
       });
 
       worker.on('message', msg => handleWorkerMessage(worker, user.personaId, msg));
