@@ -2,8 +2,6 @@
 -- Adds provider_collectives, provider_collective_members, and collective_community_links tables
 -- Supports the two-layer model: individual providers + collective organizations (e.g. rickshaw stands)
 
-SET search_path TO requests, community, auth, public;
-
 CREATE TABLE IF NOT EXISTS requests.provider_collectives (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL,
@@ -28,7 +26,7 @@ CREATE TABLE IF NOT EXISTS requests.provider_collective_members (
 -- Which communities a collective serves
 CREATE TABLE IF NOT EXISTS requests.collective_community_links (
   collective_id UUID REFERENCES requests.provider_collectives(id) ON DELETE CASCADE,
-  community_id UUID REFERENCES community.communities(id) ON DELETE CASCADE,
+  community_id UUID NOT NULL, -- References community.communities(id); FK omitted (cross-service schema boundary)
   status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('pending', 'active', 'inactive')),
   established_at TIMESTAMPTZ DEFAULT NOW(),
   PRIMARY KEY (collective_id, community_id)
