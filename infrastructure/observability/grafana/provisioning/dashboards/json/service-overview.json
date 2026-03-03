@@ -13,7 +13,7 @@
       "type": "stat",
       "gridPos": { "x": 0, "y": 0, "w": 4, "h": 3 },
       "targets": [{
-        "expr": "sum(count_over_time({job=\"docker\",service=~\"(auth|community|request|reputation|notification|messaging|feed|cleanup|geocoding|social-graph)-service\"}[1h]))",
+        "expr": "sum(count_over_time({service=~\"(auth|community|request|reputation|notification|messaging|feed|cleanup|geocoding|social-graph)-service\"}[1h]))",
         "datasource": { "type": "loki", "uid": "loki" }
       }],
       "options": { "colorMode": "background", "graphMode": "none" },
@@ -25,7 +25,7 @@
       "type": "stat",
       "gridPos": { "x": 4, "y": 0, "w": 4, "h": 3 },
       "targets": [{
-        "expr": "sum(count_over_time({job=\"docker\",service=~\".*-service\"} |~ \"(?i)(error|exception)\" [1h]))",
+        "expr": "sum(count_over_time({service=~\".*-service\"} |~ \"(?i)(error|exception)\" [1h]))",
         "datasource": { "type": "loki", "uid": "loki" }
       }],
       "options": { "colorMode": "background", "graphMode": "none" },
@@ -37,7 +37,7 @@
       "type": "stat",
       "gridPos": { "x": 8, "y": 0, "w": 4, "h": 3 },
       "targets": [{
-        "expr": "sum(count_over_time({job=\"docker\",service=~\".*-service\"} |~ \"(?i)warn\" [1h]))",
+        "expr": "sum(count_over_time({service=~\".*-service\"} |~ \"(?i)warn\" [1h]))",
         "datasource": { "type": "loki", "uid": "loki" }
       }],
       "options": { "colorMode": "background", "graphMode": "none" },
@@ -145,7 +145,7 @@
       "type": "logs",
       "gridPos": { "x": 0, "y": 40, "w": 24, "h": 9 },
       "targets": [{
-        "expr": "{job=\"docker\",service=~\"(auth|community|request|reputation|notification|messaging|feed|cleanup|geocoding|social-graph)-service\"} |~ \"(?i)(error|exception|fatal)\"",
+        "expr": "{service=~\"(auth|community|request|reputation|notification|messaging|feed|cleanup|geocoding|social-graph)-service\"} |~ \"(?i)(error|exception|fatal)\"",
         "datasource": { "type": "loki", "uid": "loki" }
       }],
       "options": { "showTime": true, "enableLogDetails": true, "sortOrder": "Descending", "dedupStrategy": "none", "showLabels": true }

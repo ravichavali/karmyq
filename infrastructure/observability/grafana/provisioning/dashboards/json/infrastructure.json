@@ -545,7 +545,7 @@
       },
       "targets": [
         {
-          "expr": "{container=\"karmyq-postgres\"}",
+          "expr": "{service=\"postgres\"}",
           "datasource": {
             "type": "loki",
             "uid": "loki"
@@ -571,7 +571,7 @@
       },
       "targets": [
         {
-          "expr": "{container=\"karmyq-redis\"}",
+          "expr": "{service=\"redis\"}",
           "datasource": {
             "type": "loki",
             "uid": "loki"
