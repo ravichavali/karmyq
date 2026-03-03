@@ -60,27 +60,13 @@ pm2 logs cleanup-service --lines 50 --nostream
 ```
 
 ### 4. Run Tests
-
-**TDD Framework** (See [ADR-029](../../docs/adr/ADR-029-tdd-test-framework.md)):
-
 ```bash
-# Unit + regression tests (MUST pass before push)
+# Unit tests
 npm test
 
-# Individual test tiers
-npm run test:unit        # Unit tests only
-npm run test:regression  # Regression tests (locked-in behavior)
-npm run test:tdd         # TDD/WIP tests (can fail)
-
-# Integration tests (from root, requires database)
+# Integration tests (from root)
 cd ../../tests && npm run test:integration
 ```
-
-**TDD Workflow**:
-1. Write test in `tests/tdd/` first
-2. Implement feature until test passes
-3. Move passing test to `tests/regression/`
-4. Test now MUST pass forever (locked in)
 
 ---
 
@@ -195,14 +181,12 @@ if (!Array.isArray(data)) throw new Error('Expected array');
 ✅ **Do**: Use Read tool before Edit tool
 ✅ **Do**: Verify file exists and understand current state
 
-### Testing (TDD Framework)
-❌ **Don't**: Skip unit + regression tests (blocks push per ADR-029)
-❌ **Don't**: Put WIP tests in regression/ (use tdd/ instead)
-❌ **Don't**: Assume tests still pass after changes
+### Testing
+❌ **Don't**: Skip tests "because it's a small change"
+❌ **Don't**: Assume tests still pass
 
-✅ **Do**: Write tests in `tdd/` first (TDD approach)
-✅ **Do**: Move passing tests to `regression/` (locked in)
-✅ **Do**: Run `npm test` before push (unit + regression must pass)
+✅ **Do**: Run tests before AND after changes
+✅ **Do**: Add new tests for new functionality
 
 ### Dependency Management
 ❌ **Don't**: Add dependencies to service package.json
@@ -268,10 +252,8 @@ cleanup-service/
 │   ├── database/          ← DB queries
 │   └── middleware/        ← Custom middleware (if any)
 ├── tests/
-│   ├── unit/              ← Unit tests (mocked, fast)
-│   ├── regression/        ← Locked-in behavior (must pass)
-│   ├── tdd/               ← Work-in-progress (can fail)
-│   └── integration/       ← Integration tests (full stack)
+│   ├── unit/              ← Unit tests
+│   └── integration/       ← Integration tests
 ├── CONTEXT.md             ← Technical reference
 ├── README.md              ← Human-readable overview
 ├── package.json
@@ -322,7 +304,7 @@ cleanup-service/
 
 ---
 
-**Last Updated**: 2026-01-22
+**Last Updated**: 2026-03-03
 **Service Owner**: maintenance
 **Criticality**: important
 **Impact Radius**: 0 dependent service(s)

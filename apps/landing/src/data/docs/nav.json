@@ -68,6 +68,10 @@
         {
           "label": "Trust Connections in Your Feed",
           "href": "/docs/guides/trust-connections"
+        },
+        {
+          "label": "Using the Service Provider Directory",
+          "href": "/docs/guides/using-service-providers"
         }
       ]
     },

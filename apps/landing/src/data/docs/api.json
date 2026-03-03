@@ -288,6 +288,76 @@
         },
         {
           "method": "GET",
+          "path": "/providers",
+          "description": "List all provider profiles. Optional query param: service_type."
+        },
+        {
+          "method": "GET",
+          "path": "/providers/:id",
+          "description": "Get a single provider profile by ID, including ride details if applicable."
+        },
+        {
+          "method": "POST",
+          "path": "/providers",
+          "description": "Create a provider profile for the authenticated user."
+        },
+        {
+          "method": "PUT",
+          "path": "/providers/:id",
+          "description": "Update a provider profile. Owner only."
+        },
+        {
+          "method": "DELETE",
+          "path": "/providers/:id",
+          "description": "Delete a provider profile. Owner only."
+        },
+        {
+          "method": "GET",
+          "path": "/collectives",
+          "description": "List all provider collectives. Optional query param: service_type."
+        },
+        {
+          "method": "GET",
+          "path": "/collectives/:id",
+          "description": "Get a collective with members and communities served."
+        },
+        {
+          "method": "POST",
+          "path": "/collectives",
+          "description": "Create a new provider collective."
+        },
+        {
+          "method": "PUT",
+          "path": "/collectives/:id",
+          "description": "Update a collective. Collective admin only."
+        },
+        {
+          "method": "DELETE",
+          "path": "/collectives/:id",
+          "description": "Delete a collective. Collective admin only."
+        },
+        {
+          "method": "POST",
+          "path": "/collectives/:id/members",
+          "description": "Join a collective as a member."
+        },
+        {
+          "method": "DELETE",
+          "path": "/collectives/:id/members/:providerId",
+          "description": "Remove a member from a collective. Collective admin only."
+        },
+        {
+          "method": "POST",
+          "path": "/collectives/:id/communities",
+          "description": "Link a collective to a community."
+        },
+        {
+          "method": "DELETE",
+          "path": "/collectives/:id/communities/:communityId",
+          "description": "Unlink a collective from a community."
+        },
+        {
+          "method": "GET",
           "path": "/health",
           "description": "Service health check."
         }
