@@ -39,13 +39,14 @@ echo "Smoke Test — $BASE_URL"
 echo "----------------------"
 
 # Critical services — must pass
+# Paths match nginx proxy_pass prefixes (see infrastructure/nginx/nginx.conf)
 check "Auth Service"         "$BASE_URL/api/auth/health"
 check "Community Service"    "$BASE_URL/api/communities/health"
 check "Request Service"      "$BASE_URL/api/requests/health"
 check "Reputation Service"   "$BASE_URL/api/reputation/health"
 check "Messaging Service"    "$BASE_URL/api/messages/health"
 check "Feed Service"         "$BASE_URL/api/feed/health"
-check "Social Graph Service" "$BASE_URL/api/social/health"
+check "Social Graph Service" "$BASE_URL/api/social-graph/health"
 check "Notification Service" "$BASE_URL/api/notifications/health"
 
 # Optional services — warn but don't fail
