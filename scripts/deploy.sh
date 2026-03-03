@@ -316,6 +316,15 @@ fi
 log_info "Cleaning up unused images..."
 docker image prune -f > /dev/null 2>&1
 
+# Smoke test — hit each service through nginx (real user path)
+log_info "Running smoke test..."
+if bash "$APP_DIR/scripts/smoke-test.sh" "https://karmyq.com"; then
+    log_info "Smoke test passed"
+else
+    log_warn "Smoke test failed — check service logs"
+    FAILED=1
+fi
+
 # =============================================================================
 # Post-deployment integration tests (services are now live)
 # =============================================================================
