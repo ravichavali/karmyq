@@ -39,18 +39,18 @@ echo "----------------------------------------"
 
 # Hit each service's /health directly on its container port.
 # Services bind to host ports so this works from the host machine.
-check "Auth Service"         "http://localhost:3001/health"
-check "Community Service"    "http://localhost:3002/health"
-check "Request Service"      "http://localhost:3003/health"
-check "Reputation Service"   "http://localhost:3004/health"
-check "Notification Service" "http://localhost:3005/health"
-check "Messaging Service"    "http://localhost:3006/health"
-check "Feed Service"         "http://localhost:3007/health"
-check "Social Graph Service" "http://localhost:3010/health"
+check "Auth Service"         "http://127.0.0.1:3001/health"
+check "Community Service"    "http://127.0.0.1:3002/health"
+check "Request Service"      "http://127.0.0.1:3003/health"
+check "Reputation Service"   "http://127.0.0.1:3004/health"
+check "Notification Service" "http://127.0.0.1:3005/health"
+check "Messaging Service"    "http://127.0.0.1:3006/health"
+check "Feed Service"         "http://127.0.0.1:3007/health"
+check "Social Graph Service" "http://127.0.0.1:3010/health"
 
 # Optional services — warn but don't fail
-check "Geocoding Service"    "http://localhost:3009/health" false
-check "Cleanup Service"      "http://localhost:3008/health" false
+check "Geocoding Service"    "http://127.0.0.1:3009/health" false
+check "Cleanup Service"      "http://127.0.0.1:3008/health" false
 
 echo ""
 if [ $FAILED -eq 0 ]; then
