@@ -19,7 +19,9 @@ export const fatimaAlHassan: Persona = {
     sendMessage:      0.4,
     generateInvite:   0.5,
     joinCommunity:    0.4,
-    createCommunity:  0.4,
+    createCommunity:      0.4,
+    registerAsProvider:   0.4,  // Fatima becomes East Bay champion over time
+    joinCollective:       0.5,
   },
   temporalPattern: {
     // Nurses work shifts — active early morning before work

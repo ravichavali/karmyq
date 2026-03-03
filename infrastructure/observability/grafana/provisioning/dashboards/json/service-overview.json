@@ -1,199 +1,154 @@
 {
-  "annotations": {
-    "list": []
-  },
-  "editable": true,
-  "fiscalYearStartMonth": 0,
-  "graphTooltip": 0,
-  "id": null,
-  "links": [],
-  "liveNow": false,
-  "panels": [
-    {
-      "datasource": {
-        "type": "loki",
-        "uid": "loki"
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 0
-      },
-      "id": 1,
-      "options": {
-        "showTime": true,
-        "showLabels": false,
-        "sortOrder": "Descending",
-        "wrapLogMessage": false,
-        "prettifyLogMessage": false,
-        "enableLogDetails": true,
-        "dedupStrategy": "none"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          },
-          "expr": "{service=\"auth-service\"} |= ``",
-          "refId": "A"
-        }
-      ],
-      "title": "Auth Service Logs",
-      "type": "logs"
-    },
-    {
-      "datasource": {
-        "type": "loki",
-        "uid": "loki"
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 0
-      },
-      "id": 2,
-      "options": {
-        "showTime": true,
-        "showLabels": false,
-        "sortOrder": "Descending",
-        "wrapLogMessage": false,
-        "prettifyLogMessage": false,
-        "enableLogDetails": true,
-        "dedupStrategy": "none"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          },
-          "expr": "{service=\"community-service\"} |= ``",
-          "refId": "A"
-        }
-      ],
-      "title": "Community Service Logs",
-      "type": "logs"
-    },
-    {
-      "datasource": {
-        "type": "loki",
-        "uid": "loki"
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 8
-      },
-      "id": 3,
-      "options": {
-        "showTime": true,
-        "showLabels": false,
-        "sortOrder": "Descending",
-        "wrapLogMessage": false,
-        "prettifyLogMessage": false,
-        "enableLogDetails": true,
-        "dedupStrategy": "none"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          },
-          "expr": "{service=\"request-service\"} |= ``",
-          "refId": "A"
-        }
-      ],
-      "title": "Request Service Logs",
-      "type": "logs"
-    },
-    {
-      "datasource": {
-        "type": "loki",
-        "uid": "loki"
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 8
-      },
-      "id": 4,
-      "options": {
-        "showTime": true,
-        "showLabels": false,
-        "sortOrder": "Descending",
-        "wrapLogMessage": false,
-        "prettifyLogMessage": false,
-        "enableLogDetails": true,
-        "dedupStrategy": "none"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          },
-          "expr": "{service=\"messaging-service\"} |= ``",
-          "refId": "A"
-        }
-      ],
-      "title": "Messaging Service Logs",
-      "type": "logs"
-    },
-    {
-      "datasource": {
-        "type": "loki",
-        "uid": "loki"
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 24,
-        "x": 0,
-        "y": 16
-      },
-      "id": 5,
-      "options": {
-        "showTime": true,
-        "showLabels": true,
-        "sortOrder": "Descending",
-        "wrapLogMessage": false,
-        "prettifyLogMessage": false,
-        "enableLogDetails": true,
-        "dedupStrategy": "none"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          },
-          "expr": "{service=~\".*-service\"} |~ \"error|ERROR|Error\" |= ``",
-          "refId": "A"
-        }
-      ],
-      "title": "All Service Errors",
-      "type": "logs"
-    }
-  ],
-  "schemaVersion": 38,
-  "style": "dark",
-  "tags": ["karmyq", "services", "overview"],
-  "templating": {
-    "list": []
-  },
-  "time": {
-    "from": "now-1h",
-    "to": "now"
-  },
-  "timepicker": {},
-  "timezone": "",
   "title": "Karmyq Service Overview",
   "uid": "karmyq-service-overview",
-  "version": 0,
-  "weekStart": ""
+  "tags": ["karmyq", "services", "overview"],
+  "timezone": "browser",
+  "refresh": "30s",
+  "schemaVersion": 38,
+  "time": { "from": "now-1h", "to": "now" },
+  "panels": [
+    {
+      "id": 100,
+      "title": "Total Logs (1h)",
+      "type": "stat",
+      "gridPos": { "x": 0, "y": 0, "w": 4, "h": 3 },
+      "targets": [{
+        "expr": "sum(count_over_time({job=\"docker\",service=~\"(auth|community|request|reputation|notification|messaging|feed|cleanup|geocoding|social-graph)-service\"}[1h]))",
+        "datasource": { "type": "loki", "uid": "loki" }
+      }],
+      "options": { "colorMode": "background", "graphMode": "none" },
+      "fieldConfig": { "defaults": { "unit": "short", "color": { "mode": "thresholds" }, "thresholds": { "steps": [{"color": "blue", "value": 0}] } } }
+    },
+    {
+      "id": 101,
+      "title": "Errors (1h)",
+      "type": "stat",
+      "gridPos": { "x": 4, "y": 0, "w": 4, "h": 3 },
+      "targets": [{
+        "expr": "sum(count_over_time({job=\"docker\",service=~\".*-service\"} |~ \"(?i)(error|exception)\" [1h]))",
+        "datasource": { "type": "loki", "uid": "loki" }
+      }],
+      "options": { "colorMode": "background", "graphMode": "none" },
+      "fieldConfig": { "defaults": { "unit": "short", "color": { "mode": "thresholds" }, "thresholds": { "steps": [{"color": "green", "value": 0}, {"color": "yellow", "value": 5}, {"color": "red", "value": 20}] } } }
+    },
+    {
+      "id": 102,
+      "title": "Warnings (1h)",
+      "type": "stat",
+      "gridPos": { "x": 8, "y": 0, "w": 4, "h": 3 },
+      "targets": [{
+        "expr": "sum(count_over_time({job=\"docker\",service=~\".*-service\"} |~ \"(?i)warn\" [1h]))",
+        "datasource": { "type": "loki", "uid": "loki" }
+      }],
+      "options": { "colorMode": "background", "graphMode": "none" },
+      "fieldConfig": { "defaults": { "unit": "short", "color": { "mode": "thresholds" }, "thresholds": { "steps": [{"color": "green", "value": 0}, {"color": "yellow", "value": 10}] } } }
+    },
+    {
+      "id": 103,
+      "title": "Error Rate by Service (2m buckets)",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 3, "w": 24, "h": 7 },
+      "targets": [
+        { "expr": "count_over_time({service=\"auth-service\"} |~ \"(?i)(error|exception)\" [2m])", "legendFormat": "auth", "datasource": { "type": "loki", "uid": "loki" } },
+        { "expr": "count_over_time({service=\"community-service\"} |~ \"(?i)(error|exception)\" [2m])", "legendFormat": "community", "datasource": { "type": "loki", "uid": "loki" } },
+        { "expr": "count_over_time({service=\"request-service\"} |~ \"(?i)(error|exception)\" [2m])", "legendFormat": "request", "datasource": { "type": "loki", "uid": "loki" } },
+        { "expr": "count_over_time({service=\"reputation-service\"} |~ \"(?i)(error|exception)\" [2m])", "legendFormat": "reputation", "datasource": { "type": "loki", "uid": "loki" } },
+        { "expr": "count_over_time({service=\"messaging-service\"} |~ \"(?i)(error|exception)\" [2m])", "legendFormat": "messaging", "datasource": { "type": "loki", "uid": "loki" } },
+        { "expr": "count_over_time({service=\"notification-service\"} |~ \"(?i)(error|exception)\" [2m])", "legendFormat": "notification", "datasource": { "type": "loki", "uid": "loki" } },
+        { "expr": "count_over_time({service=\"feed-service\"} |~ \"(?i)(error|exception)\" [2m])", "legendFormat": "feed", "datasource": { "type": "loki", "uid": "loki" } },
+        { "expr": "count_over_time({service=\"social-graph-service\"} |~ \"(?i)(error|exception)\" [2m])", "legendFormat": "social-graph", "datasource": { "type": "loki", "uid": "loki" } }
+      ],
+      "options": { "tooltip": { "mode": "multi" } },
+      "fieldConfig": { "defaults": { "unit": "short", "custom": { "lineWidth": 2 } } }
+    },
+    {
+      "id": 200,
+      "type": "row",
+      "title": "Service Logs",
+      "gridPos": { "x": 0, "y": 10, "w": 24, "h": 1 },
+      "collapsed": false
+    },
+    {
+      "id": 1,
+      "title": "Auth Service",
+      "type": "logs",
+      "gridPos": { "x": 0, "y": 11, "w": 12, "h": 7 },
+      "targets": [{ "expr": "{service=\"auth-service\"}", "datasource": { "type": "loki", "uid": "loki" } }],
+      "options": { "showTime": true, "enableLogDetails": true, "sortOrder": "Descending", "dedupStrategy": "none" }
+    },
+    {
+      "id": 2,
+      "title": "Community Service",
+      "type": "logs",
+      "gridPos": { "x": 12, "y": 11, "w": 12, "h": 7 },
+      "targets": [{ "expr": "{service=\"community-service\"}", "datasource": { "type": "loki", "uid": "loki" } }],
+      "options": { "showTime": true, "enableLogDetails": true, "sortOrder": "Descending", "dedupStrategy": "none" }
+    },
+    {
+      "id": 3,
+      "title": "Request Service",
+      "type": "logs",
+      "gridPos": { "x": 0, "y": 18, "w": 12, "h": 7 },
+      "targets": [{ "expr": "{service=\"request-service\"}", "datasource": { "type": "loki", "uid": "loki" } }],
+      "options": { "showTime": true, "enableLogDetails": true, "sortOrder": "Descending", "dedupStrategy": "none" }
+    },
+    {
+      "id": 4,
+      "title": "Messaging Service",
+      "type": "logs",
+      "gridPos": { "x": 12, "y": 18, "w": 12, "h": 7 },
+      "targets": [{ "expr": "{service=\"messaging-service\"}", "datasource": { "type": "loki", "uid": "loki" } }],
+      "options": { "showTime": true, "enableLogDetails": true, "sortOrder": "Descending", "dedupStrategy": "none" }
+    },
+    {
+      "id": 6,
+      "title": "Feed Service",
+      "type": "logs",
+      "gridPos": { "x": 0, "y": 25, "w": 12, "h": 7 },
+      "targets": [{ "expr": "{service=\"feed-service\"}", "datasource": { "type": "loki", "uid": "loki" } }],
+      "options": { "showTime": true, "enableLogDetails": true, "sortOrder": "Descending", "dedupStrategy": "none" }
+    },
+    {
+      "id": 7,
+      "title": "Social Graph Service",
+      "type": "logs",
+      "gridPos": { "x": 12, "y": 25, "w": 12, "h": 7 },
+      "targets": [{ "expr": "{service=\"social-graph-service\"}", "datasource": { "type": "loki", "uid": "loki" } }],
+      "options": { "showTime": true, "enableLogDetails": true, "sortOrder": "Descending", "dedupStrategy": "none" }
+    },
+    {
+      "id": 8,
+      "title": "Reputation Service",
+      "type": "logs",
+      "gridPos": { "x": 0, "y": 32, "w": 12, "h": 7 },
+      "targets": [{ "expr": "{service=\"reputation-service\"}", "datasource": { "type": "loki", "uid": "loki" } }],
+      "options": { "showTime": true, "enableLogDetails": true, "sortOrder": "Descending", "dedupStrategy": "none" }
+    },
+    {
+      "id": 9,
+      "title": "Notification Service",
+      "type": "logs",
+      "gridPos": { "x": 12, "y": 32, "w": 12, "h": 7 },
+      "targets": [{ "expr": "{service=\"notification-service\"}", "datasource": { "type": "loki", "uid": "loki" } }],
+      "options": { "showTime": true, "enableLogDetails": true, "sortOrder": "Descending", "dedupStrategy": "none" }
+    },
+    {
+      "id": 300,
+      "type": "row",
+      "title": "Errors & Warnings",
+      "gridPos": { "x": 0, "y": 39, "w": 24, "h": 1 },
+      "collapsed": false
+    },
+    {
+      "id": 5,
+      "title": "All Service Errors",
+      "type": "logs",
+      "gridPos": { "x": 0, "y": 40, "w": 24, "h": 9 },
+      "targets": [{
+        "expr": "{job=\"docker\",service=~\"(auth|community|request|reputation|notification|messaging|feed|cleanup|geocoding|social-graph)-service\"} |~ \"(?i)(error|exception|fatal)\"",
+        "datasource": { "type": "loki", "uid": "loki" }
+      }],
+      "options": { "showTime": true, "enableLogDetails": true, "sortOrder": "Descending", "dedupStrategy": "none", "showLabels": true }
+    }
+  ]
 }

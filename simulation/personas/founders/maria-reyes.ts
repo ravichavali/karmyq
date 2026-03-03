@@ -19,7 +19,9 @@ export const mariaReyes: Persona = {
     sendMessage:      0.7,
     generateInvite:   0.9,
     joinCommunity:    0.4,
-    createCommunity:  0.6,
+    createCommunity:      0.6,
+    registerAsProvider:   0.3,  // Maria is a community organizer, not primarily a service provider
+    joinCollective:       0.4,
   },
   temporalPattern: {
     peakHours:         [7, 8, 9, 19, 20, 21],

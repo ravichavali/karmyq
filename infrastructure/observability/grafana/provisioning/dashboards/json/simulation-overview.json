@@ -11,10 +11,7 @@
       "title": "Active Personas",
       "type": "stat",
       "gridPos": { "x": 0, "y": 0, "w": 4, "h": 4 },
-      "targets": [{
-        "expr": "sim_active_personas",
-        "datasource": { "type": "prometheus", "uid": "prometheus" }
-      }],
+      "targets": [{ "expr": "sim_active_personas", "datasource": { "type": "prometheus", "uid": "prometheus" } }],
       "options": { "colorMode": "background", "graphMode": "area" },
       "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "steps": [{"color": "green", "value": 0}] } } }
     },
@@ -23,11 +20,7 @@
       "title": "Total Simulation Users",
       "type": "stat",
       "gridPos": { "x": 4, "y": 0, "w": 4, "h": 4 },
-      "targets": [{
-        "expr": "sum(sim_users_total)",
-        "legendFormat": "Total Users",
-        "datasource": { "type": "prometheus", "uid": "prometheus" }
-      }],
+      "targets": [{ "expr": "sum(sim_users_total)", "legendFormat": "Total Users", "datasource": { "type": "prometheus", "uid": "prometheus" } }],
       "options": { "colorMode": "background" },
       "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "steps": [{"color": "blue", "value": 0}] } } }
     },
@@ -36,10 +29,7 @@
       "title": "Invite Network Depth",
       "type": "stat",
       "gridPos": { "x": 8, "y": 0, "w": 4, "h": 4 },
-      "targets": [{
-        "expr": "sim_network_depth",
-        "datasource": { "type": "prometheus", "uid": "prometheus" }
-      }],
+      "targets": [{ "expr": "sim_network_depth", "datasource": { "type": "prometheus", "uid": "prometheus" } }],
       "options": { "colorMode": "background" },
       "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "steps": [{"color": "purple", "value": 0}] } } }
     },
@@ -49,7 +39,7 @@
       "type": "stat",
       "gridPos": { "x": 12, "y": 0, "w": 4, "h": 4 },
       "targets": [{
-        "expr": "sum(rate(sim_workflow_total{status='success'}[5m])) / sum(rate(sim_workflow_total[5m])) * 100",
+        "expr": "sum(rate(sim_workflow_total{status=\"success\"}[5m])) / sum(rate(sim_workflow_total[5m])) * 100",
         "legendFormat": "Success %",
         "datasource": { "type": "prometheus", "uid": "prometheus" }
       }],
@@ -61,12 +51,18 @@
       "title": "Invites Sent (total)",
       "type": "stat",
       "gridPos": { "x": 16, "y": 0, "w": 4, "h": 4 },
-      "targets": [{
-        "expr": "sum(sim_invites_sent_total)",
-        "datasource": { "type": "prometheus", "uid": "prometheus" }
-      }],
+      "targets": [{ "expr": "sum(sim_invites_sent_total)", "datasource": { "type": "prometheus", "uid": "prometheus" } }],
       "options": { "colorMode": "background" },
       "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "steps": [{"color": "orange", "value": 0}] } } }
+    },
+    {
+      "id": 20,
+      "title": "Providers Registered",
+      "type": "stat",
+      "gridPos": { "x": 20, "y": 0, "w": 4, "h": 4 },
+      "targets": [{ "expr": "sum(rate(sim_workflow_total{workflow=\"registerAsProvider\",status=\"success\"}[24h])) * 86400", "datasource": { "type": "prometheus", "uid": "prometheus" } }],
+      "options": { "colorMode": "background" },
+      "fieldConfig": { "defaults": { "unit": "short", "color": { "mode": "thresholds" }, "thresholds": { "steps": [{"color": "teal", "value": 0}] } } }
     },
     {
       "id": 6,
@@ -98,9 +94,9 @@
       "type": "timeseries",
       "gridPos": { "x": 0, "y": 12, "w": 12, "h": 7 },
       "targets": [
-        { "expr": "sim_users_total{type='founder'}", "legendFormat": "Founders", "datasource": { "type": "prometheus", "uid": "prometheus" } },
-        { "expr": "sim_users_total{type='invited'}", "legendFormat": "Invited", "datasource": { "type": "prometheus", "uid": "prometheus" } },
-        { "expr": "sim_users_total{type='generated'}", "legendFormat": "Generated", "datasource": { "type": "prometheus", "uid": "prometheus" } }
+        { "expr": "sim_users_total{type=\"founder\"}", "legendFormat": "Founders", "datasource": { "type": "prometheus", "uid": "prometheus" } },
+        { "expr": "sim_users_total{type=\"invited\"}", "legendFormat": "Invited", "datasource": { "type": "prometheus", "uid": "prometheus" } },
+        { "expr": "sim_users_total{type=\"generated\"}", "legendFormat": "Generated", "datasource": { "type": "prometheus", "uid": "prometheus" } }
       ],
       "options": { "tooltip": { "mode": "multi" } }
     },
@@ -110,8 +106,8 @@
       "type": "timeseries",
       "gridPos": { "x": 12, "y": 12, "w": 12, "h": 7 },
       "targets": [{
-        "expr": "histogram_quantile(0.95, rate(sim_workflow_duration_seconds_bucket[5m]))",
-        "legendFormat": "P95 {{workflow}}",
+        "expr": "histogram_quantile(0.95, sum by (workflow, le) (rate(sim_workflow_duration_seconds_bucket[5m])))",
+        "legendFormat": "{{workflow}}",
         "datasource": { "type": "prometheus", "uid": "prometheus" }
       }],
       "fieldConfig": { "defaults": { "unit": "s" } }
@@ -122,21 +118,21 @@
       "type": "logs",
       "gridPos": { "x": 0, "y": 19, "w": 16, "h": 8 },
       "targets": [{
-        "expr": "{service=\"simulation\"} | json | line_format \"[{{.persona}}] {{.workflow}} — {{.duration_ms}}ms {{if .success}}✓{{else}}✗{{end}}\"",
+        "expr": "{service=\"simulation\"} | json",
         "datasource": { "type": "loki", "uid": "loki" }
       }],
-      "options": { "dedupStrategy": "none", "enableLogDetails": true, "showTime": true }
+      "options": { "dedupStrategy": "none", "enableLogDetails": true, "showTime": true, "sortOrder": "Descending" }
     },
     {
       "id": 11,
-      "title": "Simulation Errors",
+      "title": "Simulation Errors & Warnings",
       "type": "logs",
       "gridPos": { "x": 16, "y": 19, "w": 8, "h": 8 },
       "targets": [{
-        "expr": "{service=\"simulation\"} | json | level = \"error\" or level = \"warn\"",
+        "expr": "{service=\"simulation\"} | json | level =~ \"error|warn\"",
         "datasource": { "type": "loki", "uid": "loki" }
       }],
-      "options": { "dedupStrategy": "none", "enableLogDetails": true, "showTime": true }
+      "options": { "dedupStrategy": "none", "enableLogDetails": true, "showTime": true, "sortOrder": "Descending" }
     }
   ],
   "time": { "from": "now-1h", "to": "now" }

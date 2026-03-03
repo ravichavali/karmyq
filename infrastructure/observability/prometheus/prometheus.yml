@@ -15,7 +15,17 @@ scrape_configs:
     static_configs:
       - targets: ['host-gateway:9099']
 
-  # Add service metrics endpoints here as they are instrumented
-  # - job_name: 'auth-service'
-  #   static_configs:
-  #     - targets: ['auth-service:3001']
+  # Docker container metrics (CPU, memory, network, disk I/O per container)
+  - job_name: 'cadvisor'
+    static_configs:
+      - targets: ['cadvisor:8080']
+    metric_relabel_configs:
+      # Drop high-cardinality metrics we don't need
+      - source_labels: [__name__]
+        regex: 'container_(tasks_state|memory_failures_total)'
+        action: drop
+
+  # Host-level metrics (CPU, memory, disk, network)
+  - job_name: 'node'
+    static_configs:
+      - targets: ['node-exporter:9100']

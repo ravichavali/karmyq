@@ -91,6 +91,9 @@ if (!isMainThread) {
       pendingOfferCount: 0,
       helpedReciprocally: false,
       inviteCodesPending: [],
+      isProvider: false,
+      providerProfileId: null,
+      collectiveIds: [],
     };
 
     // If no communities yet, force join first

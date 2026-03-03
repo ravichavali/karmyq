@@ -19,7 +19,9 @@ export const jamesOkafor: Persona = {
     sendMessage:      0.4,
     generateInvite:   0.3,
     joinCommunity:    0.5,
-    createCommunity:  0.1,
+    createCommunity:      0.1,
+    registerAsProvider:   0.8,  // James is skill-rich — natural provider
+    joinCollective:       0.6,
   },
   temporalPattern: {
     peakHours:         [8, 9, 14, 15, 16],

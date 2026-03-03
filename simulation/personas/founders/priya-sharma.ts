@@ -19,7 +19,9 @@ export const priyaSharma: Persona = {
     sendMessage:      0.9,
     generateInvite:   1.0,
     joinCommunity:    0.8,
-    createCommunity:  0.3,
+    createCommunity:      0.3,
+    registerAsProvider:   0.5,  // Priya bridges communities — knows how to offer services
+    joinCollective:       0.7,  // Connector loves collectives
   },
   temporalPattern: {
     peakHours:         [7, 8, 12, 13, 18, 19, 20],

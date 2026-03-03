@@ -134,6 +134,14 @@ log_step "5/9 - Pre-deployment checks"
 log_info "Skipping integration tests pre-deploy (services not yet running)"
 log_info "Integration tests run post-deploy against live services (see step 9)"
 
+# Ensure UFW allows Docker bridge ranges to reach port 9099 (simulation metrics → Prometheus).
+# ufw --force skips the "Rules updated" confirmation. Idempotent — safe to run every deploy.
+if command -v ufw &>/dev/null; then
+    ufw --force allow from 172.17.0.0/16 to any port 9099 comment 'Prometheus → simulation metrics' > /dev/null 2>&1 || true
+    ufw --force allow from 172.18.0.0/16 to any port 9099 comment 'Prometheus → simulation metrics' > /dev/null 2>&1 || true
+    log_info "UFW: Docker bridge access to port 9099 ensured"
+fi
+
 # =============================================================================
 # Step 5.5: Ensure postgres is running before migrations
 # =============================================================================

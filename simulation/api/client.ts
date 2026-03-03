@@ -216,6 +216,40 @@ export class SimApiClient {
   }
 
   // -------------------------------------------------------------------------
+  // Providers & Collectives
+  // -------------------------------------------------------------------------
+
+  async registerAsProvider(data: {
+    service_type: string;
+    display_name: string;
+    bio?: string;
+    pricing_notes?: string;
+    location_notes?: string;
+  }) {
+    const res = await withRetry(() => this.http.post('/providers', data), 'registerAsProvider');
+    return res.data.data;
+  }
+
+  async getCollectives(): Promise<any[]> {
+    const res = await withRetry(() => this.http.get('/collectives'), 'getCollectives');
+    const data = res.data.data;
+    return Array.isArray(data) ? data : [];
+  }
+
+  async createCollective(data: { name: string; description: string; service_types: string[]; location_notes?: string }) {
+    const res = await withRetry(() => this.http.post('/collectives', data), 'createCollective');
+    return res.data.data;
+  }
+
+  async joinCollective(collectiveId: string, providerId: string) {
+    const res = await withRetry(
+      () => this.http.post(`/collectives/${collectiveId}/members`, { provider_id: providerId }),
+      'joinCollective'
+    );
+    return res.data.data;
+  }
+
+  // -------------------------------------------------------------------------
   // Feed
   // -------------------------------------------------------------------------
 

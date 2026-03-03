@@ -233,6 +233,13 @@ services:
     deploy:
       replicas: 0
 
+  # Observability extras
+  cadvisor:
+    restart: always
+
+  node-exporter:
+    restart: always
+
   # Observability - Reduced retention for production
   loki:
     restart: always

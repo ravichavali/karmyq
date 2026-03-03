@@ -58,26 +58,31 @@ const BASE_WEIGHTS: Record<ProfileType, ActionWeights> = {
     browseRequests: 0.8, createRequest: 0.1, offerHelp: 0.8, acceptOffer: 0.4,
     completeMatch: 0.85, sendMessage: 0.4, generateInvite: 0.25,
     joinCommunity: 0.5, createCommunity: 0.05,
+    registerAsProvider: 0.6, joinCollective: 0.5,
   },
   requester: {
     browseRequests: 0.7, createRequest: 0.85, offerHelp: 0.2, acceptOffer: 0.9,
     completeMatch: 0.8, sendMessage: 0.6, generateInvite: 0.2,
     joinCommunity: 0.7, createCommunity: 0.03,
+    registerAsProvider: 0.1, joinCollective: 0.1,
   },
   browser: {
     browseRequests: 0.9, createRequest: 0.2, offerHelp: 0.3, acceptOffer: 0.5,
     completeMatch: 0.6, sendMessage: 0.2, generateInvite: 0.3,
     joinCommunity: 0.5, createCommunity: 0.1,
+    registerAsProvider: 0.2, joinCollective: 0.2,
   },
   communityBuilder: {
     browseRequests: 0.5, createRequest: 0.2, offerHelp: 0.5, acceptOffer: 0.6,
     completeMatch: 0.7, sendMessage: 0.6, generateInvite: 0.8,
     joinCommunity: 0.7, createCommunity: 0.4,
+    registerAsProvider: 0.3, joinCollective: 0.6,
   },
   socialUser: {
     browseRequests: 0.6, createRequest: 0.3, offerHelp: 0.4, acceptOffer: 0.5,
     completeMatch: 0.6, sendMessage: 0.9, generateInvite: 0.8,
     joinCommunity: 0.7, createCommunity: 0.15,
+    registerAsProvider: 0.4, joinCollective: 0.7,
   },
 };
 

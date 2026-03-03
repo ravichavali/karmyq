@@ -36,6 +36,8 @@ const WORKFLOW_MAP = {
   'messages.ts':      ['simulation/api/client.ts (getMessages, sendMessage)', 'simulation/workflows/index.ts (sendMessage)'],
   'invitations.ts':   ['simulation/api/client.ts (generateInvite, acceptInvite)', 'simulation/scripts/seed-founders.ts', 'simulation/scripts/run.ts'],
   'feed.ts':          ['simulation/api/client.ts (getDashboard)', 'simulation/social-graph/propagation.ts'],
+  'providers.ts':     ['simulation/api/client.ts (registerAsProvider)', 'simulation/workflows/index.ts (registerAsProvider)'],
+  'collectives.ts':   ['simulation/api/client.ts (getCollectives, createCollective, joinCollective)', 'simulation/workflows/index.ts (joinCollective)'],
 };
 
 const basename = path.basename(normalized);

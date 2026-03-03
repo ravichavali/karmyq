@@ -19,7 +19,9 @@ export const weiZhang: Persona = {
     sendMessage:      0.6,
     generateInvite:   0.2,
     joinCommunity:    0.8,
-    createCommunity:  0.05,
+    createCommunity:      0.05,
+    registerAsProvider:   0.2,  // Wei is resource-light early on, grows into helping later
+    joinCollective:       0.1,
   },
   temporalPattern: {
     peakHours:         [8, 9, 10, 11, 12],

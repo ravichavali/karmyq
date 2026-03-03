@@ -15,6 +15,8 @@ export interface ActionWeights {
   generateInvite: number;
   joinCommunity: number;
   createCommunity: number;
+  registerAsProvider: number;
+  joinCollective: number;
 }
 
 /**
@@ -110,6 +112,10 @@ export interface PersonaState {
   helpedReciprocally: boolean;   // Helped someone who helped me → reduce invite urgency
   // Growth tracking
   inviteCodesPending: string[];  // Codes I've generated but haven't been accepted yet
+  // Provider tracking
+  isProvider: boolean;
+  providerProfileId: string | null;
+  collectiveIds: string[];
 }
 
 /**
