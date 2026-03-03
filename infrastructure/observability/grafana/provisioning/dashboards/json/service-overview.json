@@ -11,6 +11,7 @@
       "id": 100,
       "title": "Total Logs (1h)",
       "type": "stat",
+      "datasource": { "type": "loki", "uid": "loki" },
       "gridPos": { "x": 0, "y": 0, "w": 4, "h": 3 },
       "targets": [{
         "expr": "sum(count_over_time({service=~\"(auth|community|request|reputation|notification|messaging|feed|cleanup|geocoding|social-graph)-service\"}[1h]))",
@@ -23,6 +24,7 @@
       "id": 101,
       "title": "Errors (1h)",
       "type": "stat",
+      "datasource": { "type": "loki", "uid": "loki" },
       "gridPos": { "x": 4, "y": 0, "w": 4, "h": 3 },
       "targets": [{
         "expr": "sum(count_over_time({service=~\".*-service\"} |~ \"(?i)(error|exception)\" [1h]))",
@@ -35,6 +37,7 @@
       "id": 102,
       "title": "Warnings (1h)",
       "type": "stat",
+      "datasource": { "type": "loki", "uid": "loki" },
       "gridPos": { "x": 8, "y": 0, "w": 4, "h": 3 },
       "targets": [{
         "expr": "sum(count_over_time({service=~\".*-service\"} |~ \"(?i)warn\" [1h]))",
@@ -47,6 +50,7 @@
       "id": 103,
       "title": "Error Rate by Service (2m buckets)",
       "type": "timeseries",
+      "datasource": { "type": "loki", "uid": "loki" },
       "gridPos": { "x": 0, "y": 3, "w": 24, "h": 7 },
       "targets": [
         { "expr": "count_over_time({service=\"auth-service\"} |~ \"(?i)(error|exception)\" [2m])", "legendFormat": "auth", "datasource": { "type": "loki", "uid": "loki" } },
@@ -72,6 +76,7 @@
       "id": 1,
       "title": "Auth Service",
       "type": "logs",
+      "datasource": { "type": "loki", "uid": "loki" },
       "gridPos": { "x": 0, "y": 11, "w": 12, "h": 7 },
       "targets": [{ "expr": "{service=\"auth-service\"}", "datasource": { "type": "loki", "uid": "loki" } }],
       "options": { "showTime": true, "enableLogDetails": true, "sortOrder": "Descending", "dedupStrategy": "none" }
@@ -80,6 +85,7 @@
       "id": 2,
       "title": "Community Service",
       "type": "logs",
+      "datasource": { "type": "loki", "uid": "loki" },
       "gridPos": { "x": 12, "y": 11, "w": 12, "h": 7 },
       "targets": [{ "expr": "{service=\"community-service\"}", "datasource": { "type": "loki", "uid": "loki" } }],
       "options": { "showTime": true, "enableLogDetails": true, "sortOrder": "Descending", "dedupStrategy": "none" }
@@ -88,6 +94,7 @@
       "id": 3,
       "title": "Request Service",
       "type": "logs",
+      "datasource": { "type": "loki", "uid": "loki" },
       "gridPos": { "x": 0, "y": 18, "w": 12, "h": 7 },
       "targets": [{ "expr": "{service=\"request-service\"}", "datasource": { "type": "loki", "uid": "loki" } }],
       "options": { "showTime": true, "enableLogDetails": true, "sortOrder": "Descending", "dedupStrategy": "none" }
@@ -96,6 +103,7 @@
       "id": 4,
       "title": "Messaging Service",
       "type": "logs",
+      "datasource": { "type": "loki", "uid": "loki" },
       "gridPos": { "x": 12, "y": 18, "w": 12, "h": 7 },
       "targets": [{ "expr": "{service=\"messaging-service\"}", "datasource": { "type": "loki", "uid": "loki" } }],
       "options": { "showTime": true, "enableLogDetails": true, "sortOrder": "Descending", "dedupStrategy": "none" }
@@ -104,6 +112,7 @@
       "id": 6,
       "title": "Feed Service",
       "type": "logs",
+      "datasource": { "type": "loki", "uid": "loki" },
       "gridPos": { "x": 0, "y": 25, "w": 12, "h": 7 },
       "targets": [{ "expr": "{service=\"feed-service\"}", "datasource": { "type": "loki", "uid": "loki" } }],
       "options": { "showTime": true, "enableLogDetails": true, "sortOrder": "Descending", "dedupStrategy": "none" }
@@ -112,6 +121,7 @@
       "id": 7,
       "title": "Social Graph Service",
       "type": "logs",
+      "datasource": { "type": "loki", "uid": "loki" },
       "gridPos": { "x": 12, "y": 25, "w": 12, "h": 7 },
       "targets": [{ "expr": "{service=\"social-graph-service\"}", "datasource": { "type": "loki", "uid": "loki" } }],
       "options": { "showTime": true, "enableLogDetails": true, "sortOrder": "Descending", "dedupStrategy": "none" }
@@ -120,6 +130,7 @@
       "id": 8,
       "title": "Reputation Service",
       "type": "logs",
+      "datasource": { "type": "loki", "uid": "loki" },
       "gridPos": { "x": 0, "y": 32, "w": 12, "h": 7 },
       "targets": [{ "expr": "{service=\"reputation-service\"}", "datasource": { "type": "loki", "uid": "loki" } }],
       "options": { "showTime": true, "enableLogDetails": true, "sortOrder": "Descending", "dedupStrategy": "none" }
@@ -128,6 +139,7 @@
       "id": 9,
       "title": "Notification Service",
       "type": "logs",
+      "datasource": { "type": "loki", "uid": "loki" },
       "gridPos": { "x": 12, "y": 32, "w": 12, "h": 7 },
       "targets": [{ "expr": "{service=\"notification-service\"}", "datasource": { "type": "loki", "uid": "loki" } }],
       "options": { "showTime": true, "enableLogDetails": true, "sortOrder": "Descending", "dedupStrategy": "none" }
@@ -143,6 +155,7 @@
       "id": 5,
       "title": "All Service Errors",
       "type": "logs",
+      "datasource": { "type": "loki", "uid": "loki" },
       "gridPos": { "x": 0, "y": 40, "w": 24, "h": 9 },
       "targets": [{
         "expr": "{service=~\"(auth|community|request|reputation|notification|messaging|feed|cleanup|geocoding|social-graph)-service\"} |~ \"(?i)(error|exception|fatal)\"",
