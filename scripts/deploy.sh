@@ -230,6 +230,12 @@ rm -f "$BUILD_OUTPUT"
 # Deploy — stop first to avoid container removal race condition, then start fresh
 log_info "Stopping existing services..."
 docker compose $COMPOSE_FILES down --remove-orphans 2>/dev/null || true
+
+# Reset Grafana data volume so provisioning re-applies cleanly (dashboards + datasources).
+# All dashboards and datasources are file-provisioned, so nothing is lost.
+log_info "Resetting Grafana data volume for clean provisioning..."
+docker volume rm karmyq_grafana-data 2>/dev/null || true
+
 log_info "Starting services..."
 docker compose $COMPOSE_FILES up -d
 

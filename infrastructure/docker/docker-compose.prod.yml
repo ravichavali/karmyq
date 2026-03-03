@@ -233,6 +233,12 @@ services:
     deploy:
       replicas: 0
 
+  # Grafana - use env var for password in production
+  grafana:
+    restart: always
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+
   # Observability extras
   cadvisor:
     restart: always
