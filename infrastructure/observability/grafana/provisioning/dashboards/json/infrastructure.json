@@ -30,6 +30,7 @@
       "id": 1,
       "title": "CPU Usage %",
       "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
       "gridPos": {
         "x": 0,
         "y": 1,
@@ -78,6 +79,7 @@
       "id": 2,
       "title": "Memory Usage %",
       "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
       "gridPos": {
         "x": 8,
         "y": 1,
@@ -126,6 +128,7 @@
       "id": 3,
       "title": "Disk Usage % (/)",
       "type": "stat",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
       "gridPos": {
         "x": 16,
         "y": 1,
@@ -172,6 +175,7 @@
       "id": 4,
       "title": "Load Average",
       "type": "stat",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
       "gridPos": {
         "x": 20,
         "y": 1,
@@ -234,6 +238,7 @@
       "id": 5,
       "title": "Network I/O (host)",
       "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
       "gridPos": {
         "x": 16,
         "y": 4,
@@ -283,6 +288,7 @@
       "id": 6,
       "title": "Container CPU %",
       "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
       "gridPos": {
         "x": 0,
         "y": 9,
@@ -321,6 +327,7 @@
       "id": 7,
       "title": "Container Memory",
       "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
       "gridPos": {
         "x": 12,
         "y": 9,
@@ -359,6 +366,7 @@
       "id": 8,
       "title": "Container Network RX",
       "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
       "gridPos": {
         "x": 0,
         "y": 17,
@@ -385,6 +393,7 @@
       "id": 9,
       "title": "Container Network TX",
       "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
       "gridPos": {
         "x": 12,
         "y": 17,
@@ -423,6 +432,7 @@
       "id": 11,
       "title": "CPU % by Container",
       "type": "bargauge",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
       "gridPos": {
         "x": 0,
         "y": 24,
@@ -474,6 +484,7 @@
       "id": 12,
       "title": "Memory by Container",
       "type": "bargauge",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
       "gridPos": {
         "x": 12,
         "y": 24,
@@ -537,6 +548,7 @@
       "id": 13,
       "title": "PostgreSQL Logs",
       "type": "logs",
+      "datasource": { "type": "loki", "uid": "loki" },
       "gridPos": {
         "x": 0,
         "y": 33,
@@ -563,6 +575,7 @@
       "id": 14,
       "title": "Redis Logs",
       "type": "logs",
+      "datasource": { "type": "loki", "uid": "loki" },
       "gridPos": {
         "x": 12,
         "y": 33,
