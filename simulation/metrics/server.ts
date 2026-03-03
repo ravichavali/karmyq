@@ -78,8 +78,9 @@ export function startMetricsServer() {
     }
   });
 
-  server.listen(METRICS_PORT, () => {
-    console.log(`  📊 Metrics server: http://localhost:${METRICS_PORT}/metrics`);
+  // Bind to 0.0.0.0 so Docker containers (Prometheus) can reach the host process
+  server.listen(METRICS_PORT, '0.0.0.0', () => {
+    console.log(`  📊 Metrics server: http://0.0.0.0:${METRICS_PORT}/metrics`);
   });
 
   return server;

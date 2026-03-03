@@ -8,7 +8,6 @@
 
 set -euo pipefail
 
-BASE_URL="${1:-http://localhost}"
 TIMEOUT=5
 FAILED=0
 
@@ -35,23 +34,23 @@ check() {
 }
 
 echo ""
-echo "Smoke Test — $BASE_URL"
-echo "----------------------"
+echo "Smoke Test — container health endpoints"
+echo "----------------------------------------"
 
-# Critical services — must pass
-# Paths match nginx proxy_pass prefixes (see infrastructure/nginx/nginx.conf)
-check "Auth Service"         "$BASE_URL/api/auth/health"
-check "Community Service"    "$BASE_URL/api/communities/health"
-check "Request Service"      "$BASE_URL/api/requests/health"
-check "Reputation Service"   "$BASE_URL/api/reputation/health"
-check "Messaging Service"    "$BASE_URL/api/messages/health"
-check "Feed Service"         "$BASE_URL/api/feed/health"
-check "Social Graph Service" "$BASE_URL/api/social-graph/health"
-check "Notification Service" "$BASE_URL/api/notifications/health"
+# Hit each service's /health directly on its container port.
+# Services bind to host ports so this works from the host machine.
+check "Auth Service"         "http://localhost:3001/health"
+check "Community Service"    "http://localhost:3002/health"
+check "Request Service"      "http://localhost:3003/health"
+check "Reputation Service"   "http://localhost:3004/health"
+check "Notification Service" "http://localhost:3005/health"
+check "Messaging Service"    "http://localhost:3006/health"
+check "Feed Service"         "http://localhost:3007/health"
+check "Social Graph Service" "http://localhost:3010/health"
 
 # Optional services — warn but don't fail
-check "Geocoding Service"    "$BASE_URL/api/geocoding/health" false
-check "Cleanup Service"      "$BASE_URL/api/cleanup/health"  false
+check "Geocoding Service"    "http://localhost:3009/health" false
+check "Cleanup Service"      "http://localhost:3008/health" false
 
 echo ""
 if [ $FAILED -eq 0 ]; then
