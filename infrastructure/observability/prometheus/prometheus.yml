@@ -9,12 +9,11 @@ scrape_configs:
       - targets: ['localhost:9090']
 
   # Simulation service metrics (port 9099)
-  # host.docker.internal resolves to the Docker host — works when simulation
-  # runs as a process on the demo server (not in a container).
-  # If simulation runs in Docker, use: simulation:9099
+  # Simulation runs as a pm2 process on the host (not in Docker).
+  # 172.17.0.1 is the Docker bridge gateway — the host IP reachable from containers.
   - job_name: 'simulation'
     static_configs:
-      - targets: ['host.docker.internal:9099']
+      - targets: ['172.17.0.1:9099']
 
   # Add service metrics endpoints here as they are instrumented
   # - job_name: 'auth-service'

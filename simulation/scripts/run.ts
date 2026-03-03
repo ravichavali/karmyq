@@ -21,6 +21,16 @@ import { getActivityMultiplier, shouldActThisTick, selectAction } from '../sched
 import { runWorkflow, WorkflowName } from '../workflows';
 import { log } from '../utils/logger';
 import { naturalDelay, sleep } from '../utils/random';
+import {
+  startMetricsServer,
+  simWorkflowTotal,
+  simWorkflowDuration,
+  simActivePersonas,
+  simUsersTotal,
+  simInvitesSent,
+  simGeographicSpread,
+  simNetworkDepth,
+} from '../metrics/server';
 
 dotenv.config({ path: path.join(__dirname, '../.env') });
 
@@ -112,7 +122,9 @@ if (!isMainThread) {
 
         const action = selectAction(adjustedWeights) as WorkflowName;
         if (action) {
+          const t0 = Date.now();
           const result = await runWorkflow(action, client, state);
+          parentPort?.postMessage({ type: 'metric', workflow: action, persona: persona.id, success: result.success, duration_ms: Date.now() - t0 });
           // Save new invite codes for the orchestrator to pick up
           if (action === 'generateInvite' && (result as any).inviteCode) {
             parentPort?.postMessage({ type: 'new_invite', code: (result as any).inviteCode, persona: persona.id, region: persona.region, inviteeRegions: persona.inviteeRegions });
@@ -121,7 +133,9 @@ if (!isMainThread) {
       } else {
         const action = selectAction(persona.actionWeights) as WorkflowName;
         if (action) {
-          await runWorkflow(action, client, state);
+          const t0 = Date.now();
+          const result = await runWorkflow(action, client, state);
+          parentPort?.postMessage({ type: 'metric', workflow: action, persona: persona.id, success: result.success, duration_ms: Date.now() - t0 });
         }
       }
 
@@ -164,6 +178,9 @@ if (isMainThread) {
       }
     }
 
+    // Start metrics server on main thread (workers post metric events back here)
+    startMetricsServer();
+
     log('info', 'orchestrator', 'Starting simulation', { profile, concurrency: CONCURRENCY, userCount: users.length });
     console.log(`\n🚀 Karmyq Simulation — ${profile} profile`);
     console.log(`   ${users.length} users, max ${CONCURRENCY} concurrent\n`);
@@ -175,6 +192,14 @@ if (isMainThread) {
     function handleWorkerMessage(worker: Worker, personaId: string, msg: any) {
       if (msg.type === 'done') {
         workers.delete(personaId);
+      }
+      if (msg.type === 'metric') {
+        const status = msg.success ? 'success' : 'failure';
+        simWorkflowTotal.inc({ workflow: msg.workflow, persona: msg.persona, status });
+        simWorkflowDuration.observe({ workflow: msg.workflow, persona: msg.persona }, msg.duration_ms / 1000);
+        if (msg.workflow === 'generateInvite' && msg.success) {
+          simInvitesSent.inc({ persona: msg.persona });
+        }
       }
       if (msg.type === 'new_invite') {
         const pending: string[] = JSON.parse(fs.readFileSync(PENDING_INVITES_FILE, 'utf-8'));
@@ -273,16 +298,40 @@ if (isMainThread) {
       process.exit(0);
     });
 
-    // Poll to refill workers when they exit (steady profile)
-    if (profile === 'steady') {
-      setInterval(() => {
-        const reloadedUsers: SeededUser[] = JSON.parse(fs.readFileSync(USERS_FILE, 'utf-8'));
+    // Poll to refill workers + update gauge metrics every 10s
+    setInterval(() => {
+      const reloadedUsers: SeededUser[] = JSON.parse(fs.readFileSync(USERS_FILE, 'utf-8'));
+
+      // Refill workers (steady profile)
+      if (profile === 'steady') {
         for (const user of reloadedUsers) {
           if (workers.size >= CONCURRENCY) break;
           spawnWorker(user, 0);
         }
-      }, 10000);
-    }
+      }
+
+      // Update gauges
+      simActivePersonas.set(workers.size);
+      const founderCount = reloadedUsers.filter(u => u.type === 'founder').length;
+      const invitedCount = reloadedUsers.filter(u => u.type === 'invited').length;
+      const generatedCount = reloadedUsers.filter(u => u.type === 'generated').length;
+      simUsersTotal.set({ type: 'founder' }, founderCount);
+      simUsersTotal.set({ type: 'invited' }, invitedCount);
+      simUsersTotal.set({ type: 'generated' }, generatedCount);
+
+      // Geographic spread
+      const regionCounts: Record<string, number> = {};
+      for (const u of reloadedUsers) {
+        regionCounts[u.region] = (regionCounts[u.region] ?? 0) + 1;
+      }
+      for (const [region, count] of Object.entries(regionCounts)) {
+        simGeographicSpread.set({ region }, count);
+      }
+
+      // Network depth
+      const maxDepth = Math.max(0, ...reloadedUsers.map(u => u.inviteDepth ?? 0));
+      simNetworkDepth.set(maxDepth);
+    }, 10000);
   }
 
   main().catch(err => {
