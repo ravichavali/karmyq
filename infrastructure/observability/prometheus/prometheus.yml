@@ -10,10 +10,10 @@ scrape_configs:
 
   # Simulation service metrics (port 9099)
   # Simulation runs as a pm2 process on the host (not in Docker).
-  # 172.18.0.1 is the karmyq-network bridge gateway — host IP reachable from containers.
+  # host-gateway resolves to the host via Docker's extra_hosts mapping.
   - job_name: 'simulation'
     static_configs:
-      - targets: ['172.18.0.1:9099']
+      - targets: ['host-gateway:9099']
 
   # Add service metrics endpoints here as they are instrumented
   # - job_name: 'auth-service'
