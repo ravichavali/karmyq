@@ -116,3 +116,4 @@ actions-runner/
 _work/
 HANDOFF.md
 packages/shared/dist
+.worktrees/
