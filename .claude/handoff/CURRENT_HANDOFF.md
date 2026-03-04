@@ -1,10 +1,10 @@
-# Sprint 10: Complete — Observability + Simulation Hardening
+# Sprint 11 & 12 Plan — Ready to Execute
 
 ## Handoff Document for New Conversation
 
 **Date**: 2026-03-04
 **Current Version**: v9.1.0
-**Status**: Sprint 10 fully complete. Simulation is running. Grafana is live. All known bugs fixed.
+**Status**: Sprint 10 complete. Sprint 11 & 12 planned and ready to execute. Full plan in `.claude/plans/snappy-wandering-bachman.md`.
 
 ---
 
@@ -68,24 +68,65 @@ npm run health:check
 
 ---
 
-## Open Design Questions (Next Sprint Candidates)
+## Next: Sprint 11 & 12 (Planned — Ready to Execute)
 
-1. **Provider completion_rate always 0** — match completion events not wired to reputation service for providers (Phase 2)
-2. **Community trust visibility** — should provider trust scores be public or admin-only? (ADR-040 open)
-3. **Collective trust score formula** — currently avg of member scores; dedicated formula in Phase 2
-4. **Landing page framing** — `apps/landing/src/data/docs/concepts/platform-overview.json` uses absolutist anti-transactional language; needs nuanced reframe (dedicated session)
-5. **"ephemeral acts, lasting impact" reframe** — across trust/karma docs (see `.claude/IDEAS.md`)
-6. **Simulation state drift** — after deploy, simulation restarts but founders may re-join communities they're already in (409 conflicts). State isn't persisted across restarts. Consider: checkpoint state to DB, or accept the noise.
-7. **Simulation auto-restart on deploy** — currently manually `pm2 restart karmyq-simulation` after each deploy. Could wire into `deploy.sh`.
+Full plan: `.claude/plans/snappy-wandering-bachman.md`
+
+### Sprint 11: Provider Reputation + Trust Model Clarity
+
+**1.1 Wire provider completion_rate** (code — medium complexity)
+- File: `services/reputation-service/src/events/subscriber.ts`
+- In `match_completed` handler: after awarding karma, cross-schema query `requests.provider_profiles WHERE user_id = responder_id`
+- If provider found: calculate `completion_rate = completed_matches / accepted_matches`, UPDATE `reputation.provider_trust_scores`, re-run `recalculateProviderTrustScore()`
+- Add tests in `tests/unit/reputation/`
+
+**1.2 Document the three-score model** (ADR + landing concept page)
+- New: `docs/adr/ADR-043-three-score-model.md` — Karma (Layer 1 currency) / Personal Trust (relational) / Provider Trust (commercial reliability) are intentionally separate, don't feed into each other
+- New: `apps/landing/src/data/docs/concepts/trust-and-karma.json` — plain-English three-score explainer with comparison table
+- Update: `apps/landing/src/data/docs/nav.json` — add to Concepts
+
+**1.3 Simulation provider templates refactor** (code — low risk)
+- Move `PROVIDER_DISPLAY_NAMES` + `PROVIDER_BIOS` from `simulation/workflows/index.ts` into `simulation/workflows/data.ts`
+- Create `PROVIDER_TEMPLATES` interface + `pickProvider()` — mirrors existing `pickRequest()` pattern
+- Expand to ~15 templates (5 per service type: ride/service/borrow) with all fields: `service_type`, `display_name`, `bio`, `pricing_notes`, `location_notes`
+
+---
+
+### Sprint 12: Landing Page Reframe
+
+**2.1** `apps/landing/src/data/docs/concepts/platform-overview.json`
+- "Mutual Aid, Not a Marketplace" → "Mutual Aid Communities + Professional Services"
+- "The Problem with Marketplaces" → "Why Marketplaces Alone Don't Work for Mutual Aid"
+- "Karma replaces money" → "Karma is the unit of exchange within communities — services are arranged separately"
+- Add 2-sentence "Two Layers" closing section
+
+**2.2** `apps/landing/src/data/docs/concepts/what-is-karma.json`
+- Add paragraph after "Why Not Just Use Money?" acknowledging Layer 2 (provider services)
+- Link to `neighborhood-service-layer` and `trust-and-karma`
+
+**2.3** `apps/landing/src/data/docs/concepts/neighborhood-service-layer.json`
+- Move two-layer comparison table to opening section
+- Reframe "coordination infrastructure, not a marketplace" → "directory where neighbors offer services directly"
+- Add explanation of why Layer 1 ratings are private but Layer 2 ratings are public
+
+---
+
+## Remaining Open Questions (Backlog)
+
+1. **Community trust visibility** — should provider trust scores be public or admin-only? (ADR-040 open)
+2. **Collective trust score formula** — currently avg of member scores; dedicated formula in Phase 2
+3. **"ephemeral acts, lasting impact" reframe** — across trust/karma docs (see `.claude/IDEAS.md`)
+4. **Simulation state drift** — after deploy, founders may re-join communities (409 conflicts). State not persisted across restarts.
+5. **Simulation auto-restart on deploy** — currently manual `pm2 restart karmyq-simulation`. Could wire into `deploy.sh`.
 
 ---
 
 ## Quick Start for Next Session
 
-1. Check this handoff
-2. `cat simulation/.claude/README.md` if working on simulation
-3. `cat services/request-service/.claude/README.md` if working on providers/collectives
-4. Pick an item from Open Design Questions above
+1. Read this handoff
+2. Read full sprint plan: `.claude/plans/snappy-wandering-bachman.md`
+3. Start with Sprint 11, Workstream 1.1 (`services/reputation-service/src/events/subscriber.ts`)
+4. `cat services/reputation-service/.claude/README.md` before editing
 
 ---
 
