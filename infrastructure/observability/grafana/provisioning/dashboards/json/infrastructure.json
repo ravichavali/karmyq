@@ -297,8 +297,8 @@
       },
       "targets": [
         {
-          "expr": "sum by (name) (rate(container_cpu_usage_seconds_total{name=~\"karmyq-.*\",name!=\"\"}[2m])) * 100",
-          "legendFormat": "{{name}}",
+          "expr": "label_replace(sum by (id) (rate(container_cpu_usage_seconds_total{id=~\".+docker-.+scope\"}[2m])) * 100, \"cid\", \"$1\", \"id\", \".+docker-([a-f0-9]{12}).+\")",
+          "legendFormat": "{{cid}}",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
@@ -336,8 +336,8 @@
       },
       "targets": [
         {
-          "expr": "container_memory_usage_bytes{name=~\"karmyq-.*\",name!=\"\"}",
-          "legendFormat": "{{name}}",
+          "expr": "label_replace(container_memory_usage_bytes{id=~\".+docker-.+scope\"}, \"cid\", \"$1\", \"id\", \".+docker-([a-f0-9]{12}).+\")",
+          "legendFormat": "{{cid}}",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
@@ -375,8 +375,8 @@
       },
       "targets": [
         {
-          "expr": "sum by (name) (rate(container_network_receive_bytes_total{name=~\"karmyq-.*\",name!=\"\"}[2m]))",
-          "legendFormat": "{{name}}",
+          "expr": "label_replace(sum by (id) (rate(container_network_receive_bytes_total{id=~\".+docker-.+scope\"}[2m])), \"cid\", \"$1\", \"id\", \".+docker-([a-f0-9]{12}).+\")",
+          "legendFormat": "{{cid}}",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
@@ -402,8 +402,8 @@
       },
       "targets": [
         {
-          "expr": "sum by (name) (rate(container_network_transmit_bytes_total{name=~\"karmyq-.*\",name!=\"\"}[2m]))",
-          "legendFormat": "{{name}}",
+          "expr": "label_replace(sum by (id) (rate(container_network_transmit_bytes_total{id=~\".+docker-.+scope\"}[2m])), \"cid\", \"$1\", \"id\", \".+docker-([a-f0-9]{12}).+\")",
+          "legendFormat": "{{cid}}",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
@@ -441,8 +441,8 @@
       },
       "targets": [
         {
-          "expr": "sort_desc(sum by (name) (rate(container_cpu_usage_seconds_total{name=~\"karmyq-.*\",name!=\"\"}[5m])) * 100)",
-          "legendFormat": "{{name}}",
+          "expr": "sort_desc(label_replace(sum by (id) (rate(container_cpu_usage_seconds_total{id=~\".+docker-.+scope\"}[5m])) * 100, \"cid\", \"$1\", \"id\", \".+docker-([a-f0-9]{12}).+\"))",
+          "legendFormat": "{{cid}}",
           "instant": true,
           "datasource": {
             "type": "prometheus",
@@ -493,8 +493,8 @@
       },
       "targets": [
         {
-          "expr": "sort_desc(container_memory_usage_bytes{name=~\"karmyq-.*\",name!=\"\"})",
-          "legendFormat": "{{name}}",
+          "expr": "sort_desc(label_replace(container_memory_usage_bytes{id=~\".+docker-.+scope\"}, \"cid\", \"$1\", \"id\", \".+docker-([a-f0-9]{12}).+\"))",
+          "legendFormat": "{{cid}}",
           "instant": true,
           "datasource": {
             "type": "prometheus",
