@@ -123,7 +123,7 @@ if (!isMainThread) {
         // Apply propagation to weights
         const adjustedWeights = applyPropagation(persona.actionWeights, context, persona);
 
-        const action = selectAction(adjustedWeights) as WorkflowName;
+        const action = selectAction(adjustedWeights as Record<string, number>) as WorkflowName;
         if (action) {
           const t0 = Date.now();
           const result = await runWorkflow(action, client, state);
@@ -134,7 +134,7 @@ if (!isMainThread) {
           }
         }
       } else {
-        const action = selectAction(persona.actionWeights) as WorkflowName;
+        const action = selectAction(persona.actionWeights as Record<string, number>) as WorkflowName;
         if (action) {
           const t0 = Date.now();
           const result = await runWorkflow(action, client, state);
