@@ -6,7 +6,7 @@ import { SimApiClient } from '../api/client';
 import { PersonaState } from '../personas/types';
 import { logWorkflow } from '../utils/logger';
 import { pickRandom, chance, sleep } from '../utils/random';
-import { pickRequest, COMMUNITY_TEMPLATES, OFFER_MESSAGES, REPLY_MESSAGES, COMPLETION_FEEDBACKS } from './data';
+import { pickRequest, pickProvider, COMMUNITY_TEMPLATES, OFFER_MESSAGES, REPLY_MESSAGES, COMPLETION_FEEDBACKS } from './data';
 
 export type WorkflowName =
   | 'browseRequests'
@@ -191,44 +191,19 @@ async function createCommunity(client: SimApiClient, state: PersonaState): Promi
   return { success: true };
 }
 
-// Provider service types available in the simulation
-const PROVIDER_SERVICE_TYPES = ['ride', 'service', 'borrow'];
-
-const PROVIDER_DISPLAY_NAMES: Record<string, string[]> = {
-  ride: ['Reliable Rides with James', 'East Bay Carpool Collective', 'Bay Area Rideshare'],
-  service: ['Handyman & Repairs', 'Tech Help & Setup', 'Yard Work & Gardening'],
-  borrow: ['Tool Library', 'Camping Gear Lending', 'Kitchen Equipment Share'],
-};
-
-const PROVIDER_BIOS: Record<string, string[]> = {
-  ride: [
-    'Experienced driver offering rides around the Bay Area. Comfortable with groceries, appointments, and longer trips.',
-    'Happy to give rides to neighbors in need. I work flexible hours so can accommodate daytime trips.',
-  ],
-  service: [
-    'Skilled in home repairs, furniture assembly, and light electrical work. 10+ years experience.',
-    'Tech professional offering help with computers, phones, and smart home setup.',
-  ],
-  borrow: [
-    'I have a full set of tools — drills, saws, ladders — available to borrow for community members.',
-    'Collection of camping and outdoor gear available for loan. First come, first served.',
-  ],
-};
-
 async function registerAsProvider(client: SimApiClient, state: PersonaState): Promise<WorkflowResult> {
   if (state.isProvider) return { success: false, skipped: true };
 
-  const service_type = pickRandom(PROVIDER_SERVICE_TYPES);
-  const display_name = pickRandom(PROVIDER_DISPLAY_NAMES[service_type]);
-  const bio = pickRandom(PROVIDER_BIOS[service_type]);
+  const template = pickProvider();
 
   await sleep(2000 + Math.random() * 3000);
 
   const profile = await client.registerAsProvider({
-    service_type,
-    display_name,
-    bio,
-    location_notes: state.persona.location,
+    service_type: template.service_type,
+    display_name: template.display_name,
+    bio: template.bio,
+    pricing_notes: template.pricing_notes,
+    location_notes: template.location_notes,
   });
 
   state.isProvider = true;

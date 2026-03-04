@@ -72,6 +72,45 @@ export const COMMUNITY_TEMPLATES = [
   { name: 'Marin Mutual Aid', description: 'Helping across Marin County — from Sausalito to San Rafael.', location: 'Marin County, CA', category: 'mutual_aid' },
 ];
 
+// ── Provider templates ────────────────────────────────────────────────────────
+
+export interface ProviderTemplate {
+  service_type: 'ride' | 'service' | 'borrow';
+  display_name: string;
+  bio: string;
+  pricing_notes: string;
+  location_notes: string;
+}
+
+const RIDE_PROVIDERS: ProviderTemplate[] = [
+  { service_type: 'ride', display_name: 'Reliable Rides with James', bio: 'Experienced driver offering rides around the Bay Area. Comfortable with groceries, appointments, and longer trips.', pricing_notes: 'Gas contribution appreciated — no fixed rate.', location_notes: 'Based in Oakland, serve East Bay and SF.' },
+  { service_type: 'ride', display_name: 'East Bay Carpool Co.', bio: 'Happy to give rides to neighbors in need. Flexible daytime hours — great for medical appointments and errands.', pricing_notes: 'Pay what you can, or trade help later.', location_notes: 'Oakland and Berkeley, occasional Marin trips.' },
+  { service_type: 'ride', display_name: 'Bay Area Airport Runs', bio: 'Early riser — I do SFO and OAK runs starting 4am. Reliable, luggage space available.', pricing_notes: 'Split gas — much cheaper than rideshare for airport runs.', location_notes: 'South Bay, Peninsula, and SF pickups.' },
+  { service_type: 'ride', display_name: 'Mission District Rides', bio: 'SF native, know every shortcut. Happy to help neighbors get to appointments, groceries, or BART.', pricing_notes: 'Free for short trips within SF, gas share for longer.', location_notes: 'Mission District and adjacent SF neighborhoods.' },
+  { service_type: 'ride', display_name: 'Peninsula Parent Carpool', bio: 'School-run specialist. Happy to add a neighbor\'s kid to my route — safety-certified vehicle.', pricing_notes: 'Monthly gas share arrangement preferred.', location_notes: 'Palo Alto, Menlo Park, Redwood City.' },
+];
+
+const SERVICE_PROVIDERS: ProviderTemplate[] = [
+  { service_type: 'service', display_name: 'Handyman & Home Repairs', bio: 'Skilled in home repairs, furniture assembly, and light electrical work. 10+ years experience. I bring my own tools.', pricing_notes: 'Sliding scale — karma for short jobs, small cash for multi-hour work.', location_notes: 'Serving Mission, Noe Valley, and Bernal Heights.' },
+  { service_type: 'service', display_name: 'Tech Help & Setup', bio: 'Software engineer by trade, happy to help with computers, phones, smart home setup, WiFi issues, and more.', pricing_notes: 'No charge for neighbors — karma or baked goods accepted.', location_notes: 'Berkeley and Oakland, remote help available anywhere.' },
+  { service_type: 'service', display_name: 'Yard Work & Gardening', bio: 'Weekend gardener with a truck. I can help clear, plant, or maintain your yard. I know Bay Area native plants well.', pricing_notes: 'Small jobs free, larger jobs negotiable.', location_notes: 'East Bay and Peninsula.' },
+  { service_type: 'service', display_name: 'Math & Science Tutoring', bio: 'Community college instructor — K-12 math and science tutoring. Patient with struggling learners.', pricing_notes: 'Free for K-8, ask about high school rates.', location_notes: 'San Jose and Santa Clara, or Zoom.' },
+  { service_type: 'service', display_name: 'Language Exchange & Tutoring', bio: 'Fluent in English, Spanish, and Mandarin. Offering conversation practice and language tutoring for all levels.', pricing_notes: 'Language exchange preferred — mutual practice sessions.', location_notes: 'Anywhere via Zoom, in-person in SF.' },
+];
+
+const BORROW_PROVIDERS: ProviderTemplate[] = [
+  { service_type: 'borrow', display_name: 'Fremont Tool Library', bio: 'I have a full set of tools — drills, circular saw, jigsaw, ladders, and more. Available to borrow for community members.', pricing_notes: 'Free to borrow — just return clean and in working order.', location_notes: 'Fremont — pickup and dropoff from my garage.' },
+  { service_type: 'borrow', display_name: 'Camping Gear Lending', bio: 'Collection of camping and outdoor gear: tents, sleeping bags, camp stoves, coolers. First come, first served.', pricing_notes: 'No charge — just respect the gear and return on time.', location_notes: 'Oakland — flexible on pickup/dropoff timing.' },
+  { service_type: 'borrow', display_name: 'Kitchen Equipment Share', bio: 'KitchenAid mixer, pasta maker, immersion blender, dehydrator, and more. Perfect for one-time cooking projects.', pricing_notes: 'Free to borrow — leave a review so others know what\'s available.', location_notes: 'Daly City — happy to leave items on porch for contactless pickup.' },
+  { service_type: 'borrow', display_name: 'Party Supply Lending', bio: 'Tables, chairs, serving trays, punch bowls, and event supplies. Good for block parties and community events.', pricing_notes: 'No charge for community events — small deposit for unknown borrowers.', location_notes: 'South SF and Daly City.' },
+  { service_type: 'borrow', display_name: 'Baby Gear Share', bio: 'Highchair, stroller, baby monitor, bouncer, and more. Great for visits or while you wait for delivery.', pricing_notes: 'Free — I have more than I need.', location_notes: 'Palo Alto and Menlo Park.' },
+];
+
+export function pickProvider(): ProviderTemplate {
+  const all = [...RIDE_PROVIDERS, ...SERVICE_PROVIDERS, ...BORROW_PROVIDERS];
+  return pickRandom(all);
+}
+
 // ── Messages ─────────────────────────────────────────────────────────────────
 
 export const OFFER_MESSAGES = [

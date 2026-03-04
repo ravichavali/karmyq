@@ -21,6 +21,10 @@
       "title": "How It Works",
       "items": [
         {
+          "label": "Trust and Karma: Three Scores Explained",
+          "href": "/docs/concepts/trust-and-karma"
+        },
+        {
           "label": "Trust Score",
           "href": "/docs/concepts/trust-score"
         },
@@ -172,6 +176,10 @@
         {
           "label": "Provider Trust Score",
           "href": "/docs/concepts/adr-042-provider-trust-score"
+        },
+        {
+          "label": "Three-Score Model (Karma / Personal Trust / Provider Trust)",
+          "href": "/docs/concepts/adr-043-three-score-model"
         },
         {
           "label": "— Infrastructure —",

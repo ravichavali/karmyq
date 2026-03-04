@@ -7,6 +7,56 @@ const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
 // Event queue - must match the queue name used by publishers
 const eventQueue = new Queue('karmyq-events', REDIS_URL);
 
+/**
+ * After a match completes, recalculate completion_rate for the provider (if any).
+ * completion_rate = completed_matches / accepted_matches on provider_trust_scores.
+ * Cross-schema query: requests.provider_profiles → reputation.provider_trust_scores.
+ */
+export async function updateProviderCompletionRate(user_id: string): Promise<void> {
+  // Look up the provider profile — user may have multiple service types
+  const profileResult = await query(
+    `SELECT id FROM requests.provider_profiles WHERE user_id = $1 AND is_active = TRUE`,
+    [user_id]
+  );
+
+  if (profileResult.rowCount === 0) return; // not a provider
+
+  for (const { id: provider_id } of profileResult.rows) {
+    // Count accepted matches (offer accepted by provider) and completed matches
+    const statsResult = await query(
+      `SELECT
+         COUNT(*) FILTER (WHERE status IN ('accepted', 'completed')) AS accepted_matches,
+         COUNT(*) FILTER (WHERE status = 'completed') AS completed_matches
+       FROM requests.matches
+       WHERE responder_id = $1`,
+      [user_id]
+    );
+
+    const { accepted_matches, completed_matches } = statsResult.rows[0];
+    const accepted = parseInt(accepted_matches) || 0;
+    const completed = parseInt(completed_matches) || 0;
+    const completion_rate = accepted > 0 ? parseFloat(((completed / accepted) * 100).toFixed(2)) : 0;
+
+    // Upsert trust score row, then recompute overall trust_score
+    // Formula: 60% avg_stars + 30% completion_rate + 10% response_rate (ADR-042)
+    await query(
+      `INSERT INTO reputation.provider_trust_scores (provider_id, completion_rate, last_calculated)
+       VALUES ($1, $2, CURRENT_TIMESTAMP)
+       ON CONFLICT (provider_id) DO UPDATE SET
+         completion_rate = $2,
+         trust_score = LEAST(100, ROUND(
+           (reputation.provider_trust_scores.avg_stars / 5.0 * 100 * 0.6) +
+           ($2 * 0.3) +
+           (reputation.provider_trust_scores.response_rate * 0.1)
+         )::INTEGER),
+         last_calculated = CURRENT_TIMESTAMP`,
+      [provider_id, completion_rate]
+    );
+
+    console.log(`✅ Provider completion_rate updated: provider=${provider_id} rate=${completion_rate}%`);
+  }
+}
+
 export async function initEventSubscriber() {
   try {
     // Process match_completed events
@@ -27,6 +77,9 @@ export async function initEventSubscriber() {
         });
 
         console.log('✅ Karma awarded for match:', match_id);
+
+        // Update provider completion_rate if responder is a registered provider
+        await updateProviderCompletionRate(responder_id);
       } catch (error) {
         console.error('❌ Failed to award karma for match:', match_id, error);
         throw error; // Will retry based on Bull's retry settings
