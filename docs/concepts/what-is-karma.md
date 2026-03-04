@@ -14,16 +14,21 @@ This isn't accounting for its own sake. It's a way to make reciprocity visible �
 
 ## How Karma Flows
 
-**Earning karma:**
-- Complete a request someone posted (the requester's karma transfers to you)
-- Fulfill a commitment you accepted
-- Participate actively in community life
+Karma is **not a transfer** — it's minted fresh when a match completes. Both the helper and the requester earn karma. Neither loses it.
 
-**Spending karma:**
-- Post a request and have it fulfilled (your karma goes to whoever helped you)
+**Earning karma as a helper:**
+- Accept and complete someone's request
+- Show up, fulfill your commitment
+
+**Earning karma as a requester:**
+- Post a request and have it fulfilled
+- Asking for and receiving help is itself valued — it sustains the community's exchange economy
+
+**The split:**
+Karma earned per match is split between the two parties (typically ~60% to the helper, ~40% to the requester). The exact split is configurable per community.
 
 **The balance:**
-You don't need a positive balance to participate, but communities can set thresholds for high-effort requests.
+Your karma balance reflects how active you've been — giving and receiving. Communities can set karma thresholds for high-effort requests, but a low balance isn't a penalty for asking — it just reflects lower recent participation.
 
 ---
 

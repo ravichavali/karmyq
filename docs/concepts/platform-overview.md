@@ -63,8 +63,8 @@ You don't start with a trust score. You earn it by showing up: completing reques
 1. You join a community (or create one)
 2. You post a request — anything you need help with
 3. Community members see your request and can accept it
-4. When the help is completed, karma flows from you to them
-5. You use that karma when you help others, and the cycle continues
+4. When the help is completed, both parties earn karma — the helper more, the requester less, but neither loses it
+5. The cycle continues: you give, you receive, your karma grows either way
 
 If you're a local professional, you can also create a provider profile — visible to anyone in the neighborhood, not just community members.
 

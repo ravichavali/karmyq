@@ -1,112 +1,145 @@
-# Sprint 11 & 12 — Complete
+# Sprint 13 & 14 — Ready to Execute
 
 ## Handoff Document for New Conversation
 
 **Date**: 2026-03-04
 **Current Version**: v9.1.0
-**Status**: Sprint 11 & 12 fully implemented. Uncommitted — commit and deploy before starting Sprint 13.
+**Status**: Sprint 11 & 12 complete and deployed. Sprint 13 & 14 planned below.
 
 ---
 
-## What Was Completed This Session
+## What Was Completed Last Session (Sprints 11 & 12)
 
-### Sprint 11 Workstream 1.1 — Provider completion_rate wired (reputation-service)
+### Code
+- `services/reputation-service/src/events/subscriber.ts` — `updateProviderCompletionRate()` wired to `match_completed`
+- `tests/unit/reputation/provider-completion-rate.test.ts` — 5 unit tests
+- `simulation/workflows/data.ts` — 15 provider templates, `pickProvider()` exported
+- `simulation/workflows/index.ts` — `registerAsProvider()` uses `pickProvider()`
 
-- **File changed**: `services/reputation-service/src/events/subscriber.ts`
-- Added `updateProviderCompletionRate(responder_id)` called after `awardKarmaForCompletedMatch` in the `match_completed` handler
-- Function is exported for testability
-- Logic: query `requests.provider_profiles WHERE user_id = responder_id AND is_active = TRUE` (cross-schema, no FK — plain UUID join)
-- For each profile: count `completed_matches / accepted_matches` from `requests.matches`, upsert `reputation.provider_trust_scores` with new `completion_rate` and recalculated `trust_score` (formula: 60% avg_stars + 30% completion_rate + 10% response_rate)
-- **Tests**: `tests/unit/reputation/provider-completion-rate.test.ts` — 5 tests, all passing
+### Docs
+- `docs/adr/ADR-043-three-score-model.md` — Karma / Personal Trust / Provider Trust are independent
+- `docs/concepts/trust-and-karma.md` — new concept page (three-score explainer)
+- `docs/concepts/platform-overview.md`, `what-is-karma.md`, `neighborhood-service-layer.md` — two-layer reframe
+- `scripts/generate-docs.ts` — `trust-and-karma` added to nav/order
 
-### Sprint 11 Workstream 1.2 — Three-score model documented
+### Karma Docs Bug Fixed (end of session)
+**The "karma transfers" framing in the docs was wrong.** The actual implementation (karmaService.ts) mints karma fresh for BOTH parties on match completion — neither the helper nor the requester loses karma. Both earn it (helper ~60%, requester ~40% of pool).
 
-- **New ADR**: `docs/adr/ADR-043-three-score-model.md` — canonical statement that Karma / Personal Trust / Provider Trust are intentionally independent and do not feed into each other
-- **New landing concept**: `apps/landing/src/data/docs/concepts/trust-and-karma.json` — plain-English three-score explainer with comparison table
-- **New landing ADR**: `apps/landing/src/data/docs/concepts/adr-043-three-score-model.json`
-- **nav.json updated** (two entries): "Trust and Karma: Three Scores Explained" added to "How It Works"; "Three-Score Model" ADR added to "Architecture Decisions" after ADR-042
+Fixed in:
+- `docs/concepts/what-is-karma.md` — "How Karma Flows" section rewritten; removed "Spending karma" section
+- `docs/concepts/platform-overview.md` — step 4 corrected: "both parties earn karma"
+- `docs/concepts/trust-and-karma.md` — was already correct ("both the helper and the requester earn karma")
+- Landing JSONs regenerated via `npx tsx scripts/generate-docs.ts`
 
-### Sprint 11 Workstream 1.3 — Simulation provider templates refactored
-
-- **`simulation/workflows/data.ts`**: Added `ProviderTemplate` interface, 15 provider templates (5 per type: `RIDE_PROVIDERS`, `SERVICE_PROVIDERS`, `BORROW_PROVIDERS`), exported `pickProvider()` function mirroring `pickRequest()` pattern
-- **`simulation/workflows/index.ts`**: Removed inline `PROVIDER_DISPLAY_NAMES`, `PROVIDER_BIOS`, `PROVIDER_SERVICE_TYPES` constants; `registerAsProvider()` now calls `pickProvider()` and passes all template fields including `pricing_notes` and `location_notes` to `client.registerAsProvider()`
-
-### Sprint 12 — Landing page reframe (3 concept pages)
-
-- **`platform-overview.json`**: Title unchanged. Description and content reframed: "Mutual Aid, Not a Marketplace" → "Mutual Aid Communities + Professional Services"; "The Problem with Marketplaces" → "Why Marketplaces Alone Don't Work for Mutual Aid"; karma description clarified as community-scoped; added "Two Layers, One Neighborhood" closing section
-- **`what-is-karma.json`**: Added "What About Professional Services?" section after "Why Not Just Use Money?" — acknowledges Layer 2, links to `neighborhood-service-layer` and `trust-and-karma`
-- **`neighborhood-service-layer.json`**: Two-layer comparison table moved to opening (before "The Rickshaw Stand"); added `Ratings privacy` row explaining why Layer 1 is private and Layer 2 is public; "coordination infrastructure" reframed to "directory where neighbors offer services directly"
+**These karma docs fixes are NOT yet committed.** Commit them before starting Sprint 13.
 
 ---
 
-## Before Anything Else: Commit and Deploy
-
-Sprint 11 & 12 changes are **not yet committed**. Changed files:
-
-```
-services/reputation-service/src/events/subscriber.ts
-tests/unit/reputation/provider-completion-rate.test.ts
-docs/adr/ADR-043-three-score-model.md
-apps/landing/src/data/docs/concepts/trust-and-karma.json
-apps/landing/src/data/docs/concepts/adr-043-three-score-model.json
-apps/landing/src/data/docs/concepts/platform-overview.json
-apps/landing/src/data/docs/concepts/what-is-karma.json
-apps/landing/src/data/docs/concepts/neighborhood-service-layer.json
-apps/landing/src/data/docs/nav.json
-simulation/workflows/data.ts
-simulation/workflows/index.ts
-```
+## Uncommitted Changes — Commit First
 
 ```bash
-# Verify tests still pass
-cd tests && npm test
+cd c:/Users/ravic/development/karmyq
 
-# Commit
-git add services/reputation-service/src/events/subscriber.ts \
-  tests/unit/reputation/provider-completion-rate.test.ts \
-  docs/adr/ADR-043-three-score-model.md \
-  apps/landing/src/data/docs/concepts/trust-and-karma.json \
-  apps/landing/src/data/docs/concepts/adr-043-three-score-model.json \
-  apps/landing/src/data/docs/concepts/platform-overview.json \
-  apps/landing/src/data/docs/concepts/what-is-karma.json \
-  apps/landing/src/data/docs/concepts/neighborhood-service-layer.json \
-  apps/landing/src/data/docs/nav.json \
-  simulation/workflows/data.ts \
-  simulation/workflows/index.ts
+# Commit karma docs fix
+git add docs/concepts/what-is-karma.md docs/concepts/platform-overview.md
+# (landing JSONs are auto-tracked)
+git commit -m "fix(docs): correct karma model — both parties earn karma, not a transfer
 
-git commit -m "feat(sprint-11-12): wire provider completion_rate, three-score ADR, provider templates, landing reframe"
+Karma is minted fresh on match completion. Helper earns ~60%, requester
+earns ~40%. Neither party loses karma. Removed misleading 'Spending karma'
+framing from what-is-karma.md and fixed platform-overview step 4."
 
-# Deploy
 git push origin master
 ```
 
 ---
 
-## Current State Checks
+## Sprint 13: Simulation Hardening
 
-```bash
-# On demo server (ssh ubuntu@karmyq.com)
-pm2 status
-npm run health:check
-curl -s http://localhost:3003/providers | head -30
-open https://karmyq.com/grafana/  # admin / admin
-```
+**Theme**: Make the simulation survive restarts without 409 conflicts.
+
+### 13.1 — Verify `pricing_notes` accepted by request-service
+- File: `services/request-service/src/routes/providers.ts`
+- Simulation now passes `pricing_notes` from provider templates — verify it's stored in the DB and returned in GET
+- If missing from INSERT: add it, update `services/request-service/CONTEXT.md`
+- Complexity: low (check + possible 1-line fix)
+
+### 13.2 — Fix simulation state drift (restart resilience)
+- **Problem**: On `pm2 restart`, founder personas re-run `createCommunity`/`joinCommunity` → 409 conflicts
+- **Fix**: After persona init in `simulation/scripts/run.ts`, call API to rehydrate state BEFORE entering the workflow loop
+  - Call `getMyCommunities()` → populate `state.communityIds`
+  - Call `getMyProviderProfile()` → populate `state.isProvider`, `state.providerProfileId`
+  - Call `getMyCollectives()` → populate `state.collectiveIds`
+- Files: `simulation/scripts/run.ts`, `simulation/api/client.ts` (add missing GET endpoints if needed)
+- Complexity: medium
+
+### 13.3 — Wire simulation auto-restart into deploy.sh
+- File: `scripts/deploy.sh`
+- After `npm run health:check` passes, add: `pm2 restart karmyq-simulation || true`
+- Complexity: low (1 line)
 
 ---
 
-## Remaining Open Questions (Backlog — Sprint 13+)
+## Sprint 14: Provider Trust Closure + Prestige Badges
 
-1. **Community trust visibility** — should provider trust scores be public or admin-only? (ADR-040 open)
-2. **Collective trust score formula** — currently avg of member scores; dedicated formula deferred to Phase 2
-3. **"ephemeral acts, lasting impact" reframe** — across trust/karma docs (see `.claude/IDEAS.md`)
-4. **Simulation state drift** — after deploy, founders may re-join communities (409 conflicts). State not persisted across restarts.
-5. **Simulation auto-restart on deploy** — currently manual `pm2 restart karmyq-simulation`. Could wire into `deploy.sh`.
-6. **`pricing_notes` field on `registerAsProvider` API** — `simulation/workflows/index.ts` now passes `pricing_notes` from templates; verify `request-service` provider registration endpoint accepts this field (it may be ignored silently — check `services/request-service/src/routes/providers.ts`)
+**Theme**: Close ADR-040 and ship the first prestige recognition feature.
+
+### 14.1 — Close ADR-040: Provider trust visibility (docs only)
+- Provider trust scores are already public (visible via `GET /requests/providers` without auth — confirmed in migration 022)
+- ADR-040 status is "Accepted" but never marked Implemented
+- Update `docs/adr/ADR-040-community-trust-score.md` status → Implemented, add confirmation note
+- Update `docs/adr/README.md` entry
+
+### 14.2 — Prestige Badges: Phase 1
+- **Migration**: `infrastructure/postgres/migrations/024-prestige-badges.sql`
+  - Table: `reputation.badges (id, user_id, community_id nullable, badge_type, earned_at)`
+  - Badge types: `first_helper`, `milestone_10`, `milestone_50`, `milestone_100`, `connector`
+- **Backend**: Extend `match_completed` handler in `services/reputation-service/src/events/subscriber.ts`
+  - After karma is awarded, check and insert badge rows where criteria are met
+  - `connector` badge: awarded when `distinct_people_count >= 10` (already computed in `trustMetricsDb`)
+- **API**: `GET /reputation/users/:id/badges` → new route in `services/reputation-service/src/routes/`
+- **Frontend**: Badge icons on profile page in `apps/frontend/`
+- **Tests**: `tests/unit/reputation/prestige-badges.test.ts`
+- Complexity: medium-high
+
+---
+
+## Key Files for Sprint 13
+
+| Task | Files |
+|------|-------|
+| 13.1 | `services/request-service/src/routes/providers.ts` |
+| 13.2 | `simulation/scripts/run.ts`, `simulation/api/client.ts`, `simulation/personas/types.ts` |
+| 13.3 | `scripts/deploy.sh` |
+
+## Key Files for Sprint 14
+
+| Task | Files |
+|------|-------|
+| 14.1 | `docs/adr/ADR-040-community-trust-score.md`, `docs/adr/README.md` |
+| 14.2 | `infrastructure/postgres/migrations/024-prestige-badges.sql`, `services/reputation-service/src/events/subscriber.ts`, `services/reputation-service/src/routes/`, `tests/unit/reputation/`, `apps/frontend/` |
 
 ---
 
 ## Quick Start for Next Session
 
 1. Read this handoff
-2. Commit and deploy (see "Before Anything Else" above)
-3. Then: pick a backlog item from open questions above, or start Sprint 13 planning
+2. Commit the karma docs fix (exact command above)
+3. Read `services/request-service/.claude/README.md`
+4. Start with 13.1: check `services/request-service/src/routes/providers.ts` for `pricing_notes`
+
+---
+
+## Remaining Open Questions (Backlog — Sprint 15+)
+
+1. **Collective trust score formula** — currently avg of member scores; dedicated formula Phase 2
+2. **"Ephemeral acts, lasting impact" reframe** — language shift across trust/karma docs (see `.claude/IDEAS.md`)
+3. **Simulation state persistence** — state not persisted across restarts (13.2 is a workaround via API rehydration)
+4. **Phase 3 Roadmap** — Karmyq Rides vertical with PostGIS distance matching (not started)
+
+---
+
+## Test Status
+- All unit + regression tests passing
+- Deployed: karmyq.com (commit 5a6d207) green
+- Simulation running: pm2 `karmyq-simulation`
