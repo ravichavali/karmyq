@@ -1,159 +1,131 @@
-# Sprint 15 Prep — Fractal Community Model
+# Sprint 15 — Fractal Community Model (Phase 1 Complete)
 
 ## Handoff Document for New Conversation
 
 **Date**: 2026-03-04
-**Current Version**: v9.1.0
-**Status**: Sprints 13 & 14 complete and merged to master. Sprint 15 requires a design session before implementation.
+**Current Version**: v9.2.0 (Sprint 15)
+**Status**: Sprint 15 Phase 1 implemented. All code written and tested — NOT yet committed. Deployment of sprint 13–14 still pending (see below).
 
 ---
 
-## What Was Completed This Session (Sprints 13 & 14)
+## What Was Completed This Session (Sprint 15)
 
-### Commits (on master, not yet pushed to origin)
-- `2fad495` — chore(sprint-13): move IDEAS.md to docs/ + update capture skill
-- `5933454` — feat(sprint-13): fix simulation state drift on restart
-- `c660ad1` — docs(sprint-13): update CONTEXT.md and registry for new /my endpoints
-- `6e5d4d7` — feat(sprint-14): prestige badges Phase 1 (ADR-016)
+### All new files (uncommitted, on master branch)
 
-### Sprint 13 — Simulation Hardening
+| File | Action | Description |
+|------|--------|-------------|
+| `docs/concepts/community-scale.md` | Created | Fractal community model concept doc |
+| `docs/adr/ADR-018-community-splitting-mechanics.md` | Updated | Status → Accepted; Phase 1 schema + approach documented |
+| `apps/landing/src/data/docs/concepts/adr-018-community-splitting-mechanics.json` | Updated | Status → accepted |
+| `infrastructure/postgres/migrations/025-community-links.sql` | Created | `communities.community_links` table + indexes + trigger |
+| `services/community-service/src/routes/links.ts` | Created | 4 CRUD endpoints for community links |
+| `services/community-service/src/index.ts` | Updated | Registered `linksRouter` under `/communities` |
+| `services/community-service/CONTEXT.md` | Updated | New schema + endpoints documented |
+| `services/registry.json` | Updated | New endpoints + notes for community-service |
+| `services/request-service/src/routes/requests.ts` | Updated | `GET /requests/curated` now supports `?includeSisterCommunities=true` |
+| `services/request-service/CONTEXT.md` | Updated | New query param documented |
+| `tests/tdd/community-links.test.ts` | Created | 18 TDD tests — all passing |
+| `tests/tdd/feed-sister-communities.test.ts` | Created | 12 TDD tests — all passing |
+| `apps/frontend/src/lib/api.ts` | Updated | `communityLinksService` API methods added |
+| `apps/frontend/src/components/community/CommunityLinks.tsx` | Created | Admin UI for linking communities |
 
-**13.0 — IDEAS.md moved**
-- `git mv .claude/IDEAS.md docs/IDEAS.md`
-- `/capture` skill updated — now references `docs/IDEAS.md` throughout
-- **Going forward**: always use `docs/IDEAS.md`. `.claude/IDEAS.md` no longer exists.
+### Test Results
+```
+30 tests passing in tests/tdd/ (community-links + feed-sister-communities)
+```
 
-**13.2 — Simulation restart resilience**
-- `GET /requests/providers/my` added to `services/request-service/src/routes/providers.ts` (line 50) — returns auth'd user's own provider profiles
-- `GET /requests/collectives/my` added to `services/request-service/src/routes/collectives.ts` — returns collectives user belongs to
-- `getMyProviderProfiles()` + `getMyCollectives()` added to `simulation/api/client.ts`
-- Worker in `simulation/scripts/run.ts` (line 99–116) rehydrates `communityIds`, `isProvider`, `providerProfileId`, `collectiveIds` from API after login — eliminates 409 conflicts on `pm2 restart`
+### Key Design Decisions Made
 
-**13.1, 13.3** — Already implemented in prior sprints. No changes needed.
+1. **Schema is `communities.` (plural)** — matches the existing Postgres schema name; handoff had `community.` (singular) which was wrong. All files use `communities.community_links`.
 
-### Sprint 14 — Prestige Badges Phase 1
+2. **Curated endpoint lives in request-service** (not feed-service) — the handoff assumed feed-service but the actual implementation has always been in `services/request-service/src/routes/requests.ts`. Extended in-place.
 
-**14.2 — Prestige Badges**
-- Migration: `infrastructure/postgres/migrations/024-prestige-badges.sql` — `reputation.badges (id, user_id, community_id nullable, badge_type, earned_at)` with `unique(user_id, badge_type)`
-- Service: `services/reputation-service/src/services/badgeService.ts` — `checkAndAwardBadges(responderId)`, `getUserBadges(userId)`
-- Wired: `services/reputation-service/src/events/subscriber.ts` line 85 — called after `updateProviderCompletionRate` in `match_completed` handler
-- API: `GET /reputation/users/:userId/badges` in `services/reputation-service/src/routes/reputation.ts`
-- Tests: `tests/unit/reputation/prestige-badges.test.ts` — 11 tests, all passing
-- ADR-016 status → Partially Implemented (Phase 1); `docs/adr/ADR-016-prestige-based-recognition.md` updated
+3. **Sister community requests score = feedScore × trust_carry_factor** — applied at scoring time, not query time, so sorting/filtering works correctly.
 
-**Badge types Phase 1**: `first_helper`, `milestone_10`, `milestone_50`, `milestone_100`, `connector` (10+ distinct people helped)
+4. **Trust carry defaults by type**:
+   - `sister` → 0.40
+   - `split_origin` → 0.50
+   - `parent_child` → 0.60
 
-**14.1 — ADR-040** — Already marked Implemented in prior sprint. No change needed.
-
-### Test Status
-- **251 tests passing** (unit + regression) on merged master
-- 2 pre-existing suite-level failures (import resolution in request-service — not our work)
+5. **Sister tier = `sister_community`** — ordered after `platform` (tier 3) in the `tierOrder` map.
 
 ---
 
-## Deployment Note
+## Pending: Commit + Deploy
 
-master is **5 commits ahead of origin/master**. These commits have NOT been pushed or deployed:
-- `d1f257c`, `2fad495`, `5933454`, `c660ad1`, `6e5d4d7`
-
-To deploy: `git push origin master` → GitHub Actions deploys automatically.
-
-**Before deploying**, run migration 024 on the demo DB:
+### Step 1: Commit Sprint 15 work
+Nothing has been committed yet. Run pre-commit check first:
 ```bash
-# On karmyq.com server (or deploy.sh will need to handle it)
+npm run feedback:check
+npm test
+npm run test:tdd
+```
+Then commit:
+```bash
+git add \
+  docs/concepts/community-scale.md \
+  docs/adr/ADR-018-community-splitting-mechanics.md \
+  apps/landing/src/data/docs/concepts/adr-018-community-splitting-mechanics.json \
+  infrastructure/postgres/migrations/025-community-links.sql \
+  services/community-service/src/routes/links.ts \
+  services/community-service/src/index.ts \
+  services/community-service/CONTEXT.md \
+  services/registry.json \
+  services/request-service/src/routes/requests.ts \
+  services/request-service/CONTEXT.md \
+  tests/tdd/community-links.test.ts \
+  tests/tdd/feed-sister-communities.test.ts \
+  apps/frontend/src/lib/api.ts \
+  apps/frontend/src/components/community/CommunityLinks.tsx
+
+git commit -m "feat(sprint-15): fractal community model Phase 1 (community links + sister feeds)"
+```
+
+### Step 2: Deploy to demo server
+```bash
+git push origin master
+# GitHub Actions runs tests + deploys automatically
+```
+
+### Step 3: Run migrations on demo DB
+```bash
+# deploy.sh does NOT auto-run migrations — must run manually:
 psql $DATABASE_URL -f infrastructure/postgres/migrations/024-prestige-badges.sql
+psql $DATABASE_URL -f infrastructure/postgres/migrations/025-community-links.sql
 ```
 
 ---
 
-## Sprint 15: Fractal Community Model
+## Sprint 16 Candidates
 
-**Status**: Design session required before implementation.
+### High priority
+1. **Karma vs Trust design session** — ADR-043 documents the three-score model but IDEAS.md notes a design session is needed. No code — just clarifying the product narrative.
+2. **Phase 2 prestige badges**: `bridge` (cross-community match), `ambassador` (5+ matches across 2+ sister communities). Depends on migration 025 in prod.
+3. **Wire CommunityLinks.tsx into admin page** — component exists at `apps/frontend/src/components/community/CommunityLinks.tsx`; needs to be imported in the community admin/settings page in `apps/frontend/src/app/(dashboard)/`.
 
-### The Fractal Model
-```
-Level 0: Individual           (highest resolution)
-Level 1: Community            (~150 people, Dunbar's number)
-Level 2: Community cluster    (sister communities)
-Level 3: Region               (city/district level)
-Level 4: Network              (platform-wide, public signals only)
-```
-
-### Open Design Decisions
-
-**1. Split mechanism** (needed before schema):
-- **Option D (recommended Phase 1)**: Voluntary sub-community — subgroup forms named sub-community, both remain members of both
-- Option B: Geography (needs PostGIS, cleaner UX)
-- Option C: Social graph density (most intelligent, Phase 2)
-
-**2. Sister feed defaults** (already settled — double opt-in):
-- Community admin enables channel (`show_in_sister_feeds` flag on link)
-- Member opts in per-post (`visible_to_sisters` flag on request)
-- Renders as distinct section: "From your sister community: [name]"
-
-### Schema (ready to implement after decisions)
-```sql
-CREATE TABLE community.community_links (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  community_a_id UUID NOT NULL REFERENCES community.communities(id),
-  community_b_id UUID NOT NULL REFERENCES community.communities(id),
-  link_type TEXT NOT NULL,  -- 'sister', 'parent_child', 'split_origin'
-  trust_carry_factor NUMERIC(3,2) DEFAULT 0.40,
-  show_in_sister_feeds BOOLEAN DEFAULT FALSE,
-  created_by_admin_a UUID,
-  created_by_admin_b UUID,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  UNIQUE (community_a_id, community_b_id)
-);
-```
-
-### Sprint 15 Implementation Order (after design session)
-
-1. `docs/concepts/community-scale.md` — fractal model in plain language (source for landing; run generate-docs after)
-2. Update `docs/adr/ADR-018-community-splitting-mechanics.md` → fractal model
-3. Migration `025-community-links.sql`
-4. Community-service: `POST /communities/:id/links`, `GET /communities/:id/links`, `DELETE /communities/:id/links/:linkId` (admin only)
-5. Feed-service: extend `/requests/curated` to include sister community requests
-6. Frontend: sister community linking UI in community admin panel
-7. Phase 2 badges: `bridge` (cross-community match), `ambassador` (5+ across 2+ sisters)
-
-### Existing Infrastructure to Leverage
-- `social_graph.social_distances` — trust path distances (ADR-038 carry already implemented)
-- `requests.collective_community_links` — similar pattern to community_links
-- `/requests/curated` — already has per-community filtering, extend with second query
-
----
-
-## Backlog / Open Questions
-
-1. **Collective trust score formula** — currently avg of member scores; dedicated formula Phase 2
-2. **"Ephemeral acts, lasting impact" reframe** — language shift across trust/karma docs (`docs/IDEAS.md`)
-3. **Simulation state persistence** — API rehydration (sprint 13) is a workaround; file-based persistence is Phase 2
-4. **Phase 3 Roadmap** — Karmyq Rides vertical with PostGIS distance matching
+### Medium priority
+4. **ADR-017 Phase 2** — cohort layers as notification priority
+5. **Provider templates** — refactor hardcoded arrays in simulation `data.ts` (tracked in `docs/IDEAS.md`)
+6. **Community trust visibility** (ADR-040 open question)
 
 ---
 
 ## Quick Start for Next Session
 
 1. Read this handoff
-2. **Push sprint 13–14 work**: `git push origin master`
-3. **Run migration on demo DB**: `024-prestige-badges.sql`
-4. **Start sprint 15 design session**:
-   - Read `services/community-service/.claude/README.md`
-   - Read `services/feed-service/.claude/README.md`
-   - Decide split mechanism (Option D recommended)
-   - Write `docs/concepts/community-scale.md`
-   - Then implement `025-community-links.sql` + community-service endpoints
+2. Verify: `npm run test:tdd` → 30 tests should pass
+3. Commit Sprint 15: use the `git add` + `git commit` command above
+4. Push + deploy: `git push origin master`
+5. SSH to demo server, run migrations 024 + 025
+6. Begin Sprint 16 with Karma vs Trust design session
 
 ---
 
-## Key Files for Sprint 15
+## Key Files for Sprint 16
 
 | Task | Files |
 |------|-------|
-| Concept doc | `docs/concepts/community-scale.md` (new) |
-| ADR update | `docs/adr/ADR-018-community-splitting-mechanics.md` |
-| Migration | `infrastructure/postgres/migrations/025-community-links.sql` |
-| Community API | `services/community-service/src/routes/` |
-| Feed extension | `services/feed-service/src/` |
-| Frontend | `apps/frontend/src/` (community admin panel) |
+| Wire CommunityLinks UI | `apps/frontend/src/app/(dashboard)/` — find community admin/settings page |
+| Phase 2 badges | `services/reputation-service/src/services/badgeService.ts` |
+| Community links API | `services/community-service/src/routes/links.ts` |
+| Karma/Trust docs | `docs/adr/ADR-043-three-score-model.md`, `docs/IDEAS.md` |
