@@ -160,7 +160,7 @@
           "/trust-scores",
           "/trust/:userId",
           "/community-trust/:communityId",
-          "/badges",
+          "/users/:userId/badges",
           "/feedback",
           "/reputation/provider-reviews",
           "/reputation/provider-trust/:providerId",

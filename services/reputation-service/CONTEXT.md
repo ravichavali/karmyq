@@ -5,6 +5,7 @@
 
 ## Recent Changes
 
+- **2026-03-04 (Sprint 14 — Prestige Badges)**: Phase 1 prestige badges implemented (ADR-016). Migration 024 adds `reputation.badges` table. New service: `badgeService.ts` (`checkAndAwardBadges`, `getUserBadges`). Badges wired into `match_completed` handler in `subscriber.ts`. New endpoint: `GET /reputation/users/:userId/badges`. Badge types: `first_helper`, `milestone_10`, `milestone_50`, `milestone_100`, `connector` (10+ distinct people helped). 11 unit tests in `tests/unit/reputation/prestige-badges.test.ts`.
 - **2026-02-27 (Sprint 8 — ADR-040 + trust UX)**: Community Trust Score implemented (ADR-040). Bonding/bridging model: `member_quality(40) + bonding(retention+completion) + bridging(cross-community+external)` weighted by `community_trust_bonding_weight/bridging_weight` config. New files: `communityTrustDb.ts`, `communityTrustService.ts`. New endpoint: `GET /reputation/community-trust/:communityId`. New endpoint: `GET /reputation/trust/:userId` (overall weighted-average trust score). Migration 021. Trust page updated to ADR-037 formula display. Feed default changed to composite (no auto-select of first community).
 - **2026-02-27 (ADR-037 + ADR-038 + ADR-039)**: Multi-signal trust score fully implemented. Formula: `volume(log, 12-month window) + quality(recency-weighted, 6-month half-life) + depth(repeat pairs × depth_weight) + breadth(distinct people + communities × breadth_weight) + bonus`. Karma removed as trust input. Cross-community carry floor (ADR-038): when `recent_interactions == 0`, score is floored by `min(carry_cap, floor(max_other_score × carry_factor))`. Migrations 019 + 020 add `trust_feedback_threshold`, `trust_negative_allowed`, `trust_carry_*`. New files: `trustMetricsDb.ts`, `trustCarryDb.ts`; new function `feedbackDb.getWeightedAvgFeedback()`.
 - **2026-02-26 (blended feedback)**: `feedbackDb.ts` exports `getBlendedAvgFeedback(toUserId, communityId)` — 70% local + 30% cross-community blend. New composite DB index `idx_feedback_to_user_community` (migration 018).
@@ -386,8 +387,8 @@ Get karma transaction history for a user.
 
 **Implementation:** `src/routes/reputation.ts:80`
 
-### GET /reputation/badges/:userId
-Get all badges earned by a user.
+### GET /reputation/users/:userId/badges
+Get all prestige badges earned by a user (public). Phase 1 badge types: `first_helper`, `milestone_10`, `milestone_50`, `milestone_100`, `connector`.
 
 **Response:**
 ```json
@@ -397,10 +398,9 @@ Get all badges earned by a user.
     {
       "id": "uuid",
       "user_id": "uuid",
-      "badge_type": "milestone",
-      "badge_name": "10 Exchanges",
-      "description": "Completed 10 help exchanges",
-      "earned_at": "2025-01-10T12:00:00Z"
+      "community_id": null,
+      "badge_type": "first_helper",
+      "earned_at": "2026-03-04T12:00:00Z"
     }
   ]
 }

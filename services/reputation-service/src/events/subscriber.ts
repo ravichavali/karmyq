@@ -1,5 +1,6 @@
 import Queue from 'bull';
 import { awardKarmaForCompletedMatch } from '../services/karmaService';
+import { checkAndAwardBadges } from '../services/badgeService';
 import { query } from '../database/db';
 
 const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
@@ -80,6 +81,9 @@ export async function initEventSubscriber() {
 
         // Update provider completion_rate if responder is a registered provider
         await updateProviderCompletionRate(responder_id);
+
+        // Check and award prestige badges to the helper
+        await checkAndAwardBadges(responder_id);
       } catch (error) {
         console.error('❌ Failed to award karma for match:', match_id, error);
         throw error; // Will retry based on Bull's retry settings

@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { getUserKarma, getUserKarmaWithDecay, getUserTrustScore, getOverallTrustScore, getCommunityLeaderboard, updateTrustScore } from '../services/karmaService';
 import { getCommunityTrustScore, } from '../database/communityTrustDb';
 import { calculateCommunityTrustScore } from '../services/communityTrustService';
+import { getUserBadges } from '../services/badgeService';
 import { query } from '../database/db';
 import { insertFeedback, hasSubmittedFeedback } from '../database/feedbackDb';
 import { authMiddleware, AuthenticatedRequest } from '@karmyq/shared/middleware/auth';
@@ -301,6 +302,18 @@ router.post('/feedback', authMiddleware, async (req: AuthenticatedRequest, res: 
   } catch (error: any) {
     console.error('Error submitting feedback:', error);
     res.status(500).json({ success: false, message: 'Failed to submit feedback', error: error.message });
+  }
+});
+
+// GET /reputation/users/:userId/badges - Get prestige badges for a user (public)
+router.get('/users/:userId/badges', async (req: Request, res: Response) => {
+  try {
+    const { userId } = req.params;
+    const badges = await getUserBadges(userId);
+    res.json({ success: true, data: badges });
+  } catch (error: any) {
+    console.error('Error fetching badges:', error);
+    res.status(500).json({ success: false, message: 'Failed to fetch badges', error: error.message });
   }
 });
 

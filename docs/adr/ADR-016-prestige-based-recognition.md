@@ -1,7 +1,7 @@
 # ADR-016: Prestige-Based Recognition System
 
 **Date**: 2025-12-29
-**Status**: Proposed
+**Status**: Partially Implemented (Phase 1 complete — Sprint 14)
 **Deciders**: Development Team
 **Related**: ADR-011 (Reputation Decay), docs/philosophy/prestige-systems.md
 

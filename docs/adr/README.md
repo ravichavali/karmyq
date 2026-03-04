@@ -58,7 +58,7 @@ When code implementing an ADR is deployed, update the status from `Accepted` →
 - [ADR-029: TDD Test Framework](ADR-029-tdd-test-framework.md) — Accepted
 
 ### Social Architecture
-- [ADR-016: Prestige-Based Recognition System](ADR-016-prestige-based-recognition.md) — Proposed
+- [ADR-016: Prestige-Based Recognition System](ADR-016-prestige-based-recognition.md) — **Partially Implemented** (Phase 1)
 - [ADR-017: Cohort-Based Community Layers](ADR-017-cohort-based-community-layers.md) — Proposed
 - [ADR-018: Community Splitting Mechanics](ADR-018-community-splitting-mechanics.md) — Proposed
 - [ADR-019: Referral Chain Trust System](ADR-019-referral-chain-trust.md) — Proposed
