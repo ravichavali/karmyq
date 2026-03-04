@@ -227,13 +227,20 @@ if (isMainThread) {
         // Accept the invite
         try { await client.acceptInvite(inviteCode); } catch { /* non-fatal */ }
 
+        // Fetch real community membership after accepting invite
+        let communityIds: string[] = [];
+        try {
+          const communities = await client.getMyCommunities();
+          communityIds = communities.map((c: any) => c.id);
+        } catch { /* non-fatal — worker will force-join on start */ }
+
         const newUser: SeededUser = {
           personaId: persona.id,
           name: persona.name,
           email: persona.email,
           password: persona.password,
           userId: result.user.id,
-          communityIds: [],
+          communityIds,
           location: persona.location,
           region: persona.region,
           type: 'invited',

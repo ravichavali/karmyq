@@ -217,7 +217,6 @@ const PROVIDER_BIOS: Record<string, string[]> = {
 
 async function registerAsProvider(client: SimApiClient, state: PersonaState): Promise<WorkflowResult> {
   if (state.isProvider) return { success: false, skipped: true };
-  if (state.communityIds.length === 0) return { success: false, skipped: true, error: 'no community' };
 
   const service_type = pickRandom(PROVIDER_SERVICE_TYPES);
   const display_name = pickRandom(PROVIDER_DISPLAY_NAMES[service_type]);
