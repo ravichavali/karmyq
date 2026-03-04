@@ -11,6 +11,7 @@ import settingsRouter from './routes/settings';
 import exportRouter from './routes/export';
 import statsRouter from './routes/stats';
 import configRouter from './routes/config';
+import linksRouter from './routes/links';
 import { createLogger, requestLoggingMiddleware } from '@karmyq/shared/utils/logger';
 import {
   authMiddleware,
@@ -99,6 +100,14 @@ app.use(
   optionalTenantMiddleware,
   dbContextMiddleware(pool),
   membersRouter  // Member routes nested under /communities/:communityId/members
+);
+
+app.use(
+  '/communities',
+  authMiddleware,
+  optionalTenantMiddleware,
+  dbContextMiddleware(pool),
+  linksRouter  // Link routes nested under /communities/:communityId/links
 );
 
 // Generic community routes (must come AFTER specific nested routes)

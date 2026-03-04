@@ -58,7 +58,9 @@
           "/communities/configs/public",
           "/communities/:id/config/copy-from/:source_id",
           "/memberships",
-          "/norms"
+          "/norms",
+          "/communities/:id/links",
+          "/communities/:id/links/:linkId"
         ],
         "consumes": [
           "/auth/verify"
@@ -78,7 +80,7 @@
         ],
         "subscribes": []
       },
-      "notes": "Phase 1: Community Configuration System - founder-only config updates"
+      "notes": "Sprint 15: Community Links (fractal community model Phase 1) — voluntary linking between communities with trust carry and sister feeds"
     },
     "request-service": {
       "port": 3003,

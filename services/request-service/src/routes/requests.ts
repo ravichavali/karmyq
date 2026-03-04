@@ -344,9 +344,77 @@ router.get('/curated', async (req: Request, res: Response) => {
 
     const requestsResult = await query(queryText, params);
 
+    // Sprint 15: Sister community requests (Fractal Community Model Phase 1)
+    // When includeSisterCommunities=true, fetch requests from linked communities
+    // where show_in_sister_feeds=true, to be scored with trust_carry_factor applied.
+    const includeSisterCommunities = req.query.includeSisterCommunities === 'true';
+    let sisterRequests: any[] = [];
+    const sisterCarryMap = new Map<string, number>(); // requestId → carry factor
+
+    if (includeSisterCommunities) {
+      const sisterLinksResult = await query(
+        `SELECT DISTINCT
+           CASE WHEN cl.community_a_id = m.community_id THEN cl.community_b_id
+                ELSE cl.community_a_id END AS sister_community_id,
+           cl.trust_carry_factor
+         FROM communities.community_links cl
+         JOIN communities.members m ON (
+           m.community_id = cl.community_a_id OR m.community_id = cl.community_b_id
+         )
+         WHERE m.user_id = $1 AND m.status = 'active'
+           AND cl.status = 'active' AND cl.show_in_sister_feeds = TRUE`,
+        [userId]
+      );
+
+      if ((sisterLinksResult.rowCount ?? 0) > 0) {
+        const sisterCommunityIds = sisterLinksResult.rows.map((r: any) => r.sister_community_id);
+        const carryByCommId = new Map<string, number>(
+          sisterLinksResult.rows.map((r: any) => [r.sister_community_id, parseFloat(r.trust_carry_factor)])
+        );
+
+        const sisterResult = await query(
+          `SELECT DISTINCT
+            r.id, r.requester_id, r.title, r.description,
+            r.category, r.urgency, r.status, r.created_at, r.updated_at,
+            r.request_type, r.payload, r.requirements,
+            r.visibility_scope, r.visibility_max_degrees,
+            u.name as requester_name,
+            STRING_AGG(DISTINCT c.name, ', ') as community_name,
+            STRING_AGG(DISTINCT rc.community_id::text, ',') as community_ids,
+            FALSE as in_user_community
+           FROM requests.help_requests r
+           LEFT JOIN auth.users u ON r.requester_id = u.id
+           LEFT JOIN requests.request_communities rc ON r.id = rc.request_id
+           LEFT JOIN communities.communities c ON rc.community_id = c.id
+           WHERE r.status = 'open'
+             AND r.expired = FALSE
+             AND r.requester_id != $1
+             AND rc.community_id = ANY($2::uuid[])
+             AND r.id != ALL($3::uuid[])
+           GROUP BY r.id, r.requester_id, r.title, r.description, r.category, r.urgency,
+                    r.status, r.created_at, r.updated_at, r.request_type, r.payload,
+                    r.requirements, r.visibility_scope, r.visibility_max_degrees, u.name
+           LIMIT 50`,
+          [userId, sisterCommunityIds, requestsResult.rows.map((r: any) => r.id)]
+        );
+
+        // Annotate each sister request with its carry factor
+        for (const row of sisterResult.rows) {
+          const cIds = (row.community_ids || '').split(',').filter(Boolean);
+          let carry = 0.40;
+          for (const cId of cIds) {
+            if (carryByCommId.has(cId)) { carry = carryByCommId.get(cId)!; break; }
+          }
+          sisterCarryMap.set(row.id, carry);
+          sisterRequests.push(row);
+        }
+      }
+    }
+
     // ADR-031 Phase 3: Batch-fetch trust distance and karma for all requesters
+    const allRows = [...requestsResult.rows, ...sisterRequests];
     const requesterIds = [...new Set(
-      requestsResult.rows.map((r: any) => r.requester_id).filter(Boolean)
+      allRows.map((r: any) => r.requester_id).filter(Boolean)
     )];
 
     // Batch trust distance lookup (from social_distances cache)
@@ -473,11 +541,54 @@ router.get('/curated', async (req: Request, res: Response) => {
       };
     });
 
+    // Sprint 15: Score sister community requests with trust_carry_factor applied
+    const sisterRequestsWithScores = sisterRequests.map((request: any) => {
+      const carryFactor = sisterCarryMap.get(request.id) ?? 0.40;
+      const matchResult = calculateMatchScore(
+        {
+          request_type: request.request_type || 'generic',
+          title: request.title,
+          description: request.description,
+          urgency: request.urgency,
+          payload: request.payload || {},
+        },
+        userProfile
+      );
+      const urgencyVal = scoreUrgency(request.urgency || 'low');
+      const degrees = trustDistanceMap.get(request.requester_id) ?? null;
+      const trustDistance = scoreTrustDistance(degrees);
+      const requesterReputation = requesterKarmaMap.get(request.requester_id) || {
+        totalKarma: 0, trustScore: 50,
+      };
+      const feedResult = calculateFeedScore(
+        {
+          skillMatchScore: matchResult.score,
+          trustDistanceScore: trustDistance,
+          communityRelevanceScore: 0,
+          urgencyScore: urgencyVal,
+        },
+        DEFAULT_FEED_WEIGHTS
+      );
+      return {
+        ...request,
+        matchScore: matchResult.score,
+        matchReasons: matchResult.reasons,
+        matchBreakdown: matchResult.breakdown,
+        feedScore: Math.round(feedResult.score * carryFactor),
+        feedBreakdown: feedResult.breakdown,
+        trustDegrees: degrees,
+        requesterKarma: requesterReputation.totalKarma,
+        requesterTrustScore: requesterReputation.trustScore,
+        sourceTier: 'sister_community',
+        trustCarryFactor: carryFactor,
+      };
+    });
+
     // Filter: valid tier, subscribed request types, minimum score
     // Sort: community first, then trust_network, then platform; within each tier, by feedScore
-    const tierOrder: Record<string, number> = { community: 0, trust_network: 1, platform: 2 };
+    const tierOrder: Record<string, number> = { community: 0, trust_network: 1, platform: 2, sister_community: 3 };
 
-    const filteredRequests = requestsWithScores
+    const filteredRequests = [...requestsWithScores, ...sisterRequestsWithScores]
       .filter((req: any) => req.sourceTier !== null)
       .filter((req: any) => !tierFilter || req.sourceTier === tierFilter)
       .filter((req: any) => subscribedTypes.includes(req.request_type || 'generic'))

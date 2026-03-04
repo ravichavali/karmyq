@@ -1,7 +1,8 @@
 # ADR-018: Community Splitting Mechanics
 
 **Date**: 2025-12-29
-**Status**: Proposed
+**Status**: Accepted
+**Updated**: 2026-03-04 (Sprint 15 — Phase 1 approach selected, community_links schema finalized)
 **Deciders**: Development Team
 **Related**: ADR-017 (Cohort Layers), ADR-003 (Multi-Tenant)
 
@@ -140,49 +141,73 @@ Current Karmyq implementation has no splitting mechanism, risking:
 
 ## Implementation Notes
 
-### Phase 1: Monitoring & Alerts (v9.0)
-- Track community size
-- Alert admins at thresholds (120, 130, 140)
-- Educational content about splitting
+### Phase 1: Community Links — Voluntary Sister Model (v9.2, Sprint 15) ✅
 
-### Phase 2: Splitting Wizard (v10.0)
-- Guided splitting process
-- Member assignment interface
-- Sister community relationship setup
-- Trust transfer configuration
+**Chosen Approach**: Voluntary linking between existing communities by mutual admin consent.
+This is simpler than full splitting mechanics and covers the majority of real-world use cases
+(peer networks, geographic chapters, communities of practice) without forced division.
+
+**Implemented schema** (`migration 025-community-links.sql`):
+```sql
+CREATE TABLE communities.community_links (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  community_a_id UUID NOT NULL REFERENCES communities.communities(id),
+  community_b_id UUID NOT NULL REFERENCES communities.communities(id),
+  link_type TEXT NOT NULL CHECK (link_type IN ('sister', 'parent_child', 'split_origin')),
+  trust_carry_factor NUMERIC(3,2) DEFAULT 0.40,
+  show_in_sister_feeds BOOLEAN DEFAULT FALSE,
+  created_by_admin_a UUID,
+  created_by_admin_b UUID,
+  status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'active', 'inactive')),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE (community_a_id, community_b_id)
+);
+```
+
+**Link types**:
+- `sister` — peer communities (trust_carry default 0.40)
+- `parent_child` — one spawned from another (trust_carry default 0.60)
+- `split_origin` — two communities from a formal split (trust_carry default 0.50)
+
+**API** (community-service):
+- `POST /communities/:id/links` — propose a link (admin only)
+- `PUT /communities/:id/links/:linkId` — approve/update
+- `GET /communities/:id/links` — list links
+- `DELETE /communities/:id/links/:linkId` — remove
+
+**Feed integration** (feed-service):
+- `GET /requests/curated?includeSisterCommunities=true` — includes requests from linked communities where `show_in_sister_feeds=true`, scored at `trust_carry_factor × original_score`
+
+### Phase 2: Monitoring & Split Proposal (v10.0)
+- Track community size; alert admins at thresholds (120, 130, 140)
+- `split_proposals` table for admin-initiated guided splits
+- Member assignment and prestige-weighted voting
 
 ### Phase 3: Cross-Community Features (v11.0+)
-- Cross-community exchanges
+- Cross-community request posting
 - Shared event calendar
 - Family tree visualization
 
-### Database Schema
+### Legacy Schema Proposal (superseded by Phase 1 above)
+
+The original proposal used a `community_relationships` table. Phase 1's `community_links`
+table is simpler and covers the same ground for now. The `split_proposals` table remains
+planned for Phase 2.
 
 ```sql
-CREATE TABLE communities.community_relationships (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    community_id UUID NOT NULL REFERENCES communities.communities(id),
-    related_community_id UUID NOT NULL REFERENCES communities.communities(id),
-    relationship_type VARCHAR(50) NOT NULL, -- 'parent', 'child', 'sibling'
-    trust_transfer_rate DECIMAL(3,2) DEFAULT 0.8,
-    split_date TIMESTAMP NOT NULL,
-    shared_history BOOLEAN DEFAULT TRUE,
-    notes TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE communities.split_proposals (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+-- PLANNED (Phase 2, not yet implemented)
+CREATE TABLE community.split_proposals (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     community_id UUID NOT NULL REFERENCES communities.communities(id),
     proposed_by UUID NOT NULL REFERENCES auth.users(id),
-    split_type VARCHAR(50) NOT NULL, -- 'geographic', 'interest', 'size'
+    split_type TEXT NOT NULL, -- 'geographic', 'interest', 'size'
     rationale TEXT,
-    proposed_communities JSONB, -- Array of {name, description, memberIds[]}
-    status VARCHAR(50) DEFAULT 'discussion', -- discussion, voting, approved, rejected
+    proposed_communities JSONB,
+    status TEXT DEFAULT 'discussion',
     votes_for INTEGER DEFAULT 0,
     votes_against INTEGER DEFAULT 0,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    decision_date TIMESTAMP
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    decision_date TIMESTAMPTZ
 );
 ```
 

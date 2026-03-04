@@ -318,7 +318,8 @@ Get curated feed with match scores, trust distance, and multi-tier visibility.
 - `minScore` (number) - Minimum match score 0-100 (default: 30)
 - `limit` (number) - Max results (default: 20)
 - `community_id` (UUID) - Filter by specific community (optional)
-- `tier` (string) - Filter by visibility tier: `community`, `trust_network`, `platform` (optional)
+- `tier` (string) - Filter by visibility tier: `community`, `trust_network`, `platform`, `sister_community` (optional)
+- `includeSisterCommunities` (boolean) - Include requests from linked sister communities where `show_in_sister_feeds=true`, scored with trust_carry_factor applied (Sprint 15)
 
 **Authentication:** Required (JWT token)
 

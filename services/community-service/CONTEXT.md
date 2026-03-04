@@ -153,6 +153,23 @@ COMMENT ON TABLE communities.community_configs IS 'Phase 1: Comprehensive config
 COMMENT ON TABLE communities.config_templates IS 'Pre-made configuration templates for evolutionary discovery';
 ```
 
+-- communities.community_links (NEW - Migration 025, Sprint 15)
+CREATE TABLE communities.community_links (
+  id                   UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  community_a_id       UUID NOT NULL REFERENCES communities.communities(id) ON DELETE CASCADE,
+  community_b_id       UUID NOT NULL REFERENCES communities.communities(id) ON DELETE CASCADE,
+  link_type            TEXT NOT NULL CHECK (link_type IN ('sister', 'parent_child', 'split_origin')),
+  trust_carry_factor   NUMERIC(3,2) NOT NULL DEFAULT 0.40,
+  show_in_sister_feeds BOOLEAN NOT NULL DEFAULT FALSE,
+  created_by_admin_a   UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  created_by_admin_b   UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  status               TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'active', 'inactive')),
+  created_at           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (community_a_id, community_b_id),
+  CHECK (community_a_id <> community_b_id)
+);
+
 ### Tables Read by This Service
 - `auth.users` - User details for member profiles and creator names
 
@@ -727,6 +744,30 @@ Service health check.
   "timestamp": "2025-01-10T12:00:00Z"
 }
 ```
+
+### Community Links (Sprint 15)
+
+#### POST /communities/:communityId/links
+Propose a link from this community to another (admin-only). Creates a `pending` link awaiting approval by the other community's admin.
+
+**Body:**
+```json
+{
+  "target_community_id": "uuid",
+  "link_type": "sister | parent_child | split_origin",
+  "trust_carry_factor": 0.40,
+  "show_in_sister_feeds": false
+}
+```
+
+#### PUT /communities/:communityId/links/:linkId
+Approve a pending link (other community's admin), or update `trust_carry_factor`/`show_in_sister_feeds`. Use `action: "approve"` or `action: "deactivate"` in the body.
+
+#### GET /communities/:communityId/links
+List all links involving this community. Optional `?status=pending|active|inactive` filter. Returns `partner_community_id` and `partner_community_name` for convenience.
+
+#### DELETE /communities/:communityId/links/:linkId
+Remove a link (sets status to `inactive`). Either community's admin can do this.
 
 ## Dependencies
 

@@ -385,6 +385,32 @@ export const uiSchemaService = {
     requestApi.post(`/schemas/${schema.type}/validate`, { schema }),
 }
 
+// Community Links API Methods (Sprint 15 - Fractal Community Model)
+export const communityLinksService = {
+  getLinks: (communityId: string, status?: string) =>
+    communityApi.get(`/communities/${communityId}/links`, { params: status ? { status } : undefined }),
+
+  proposeLink: (communityId: string, data: {
+    target_community_id: string;
+    link_type?: 'sister' | 'parent_child' | 'split_origin';
+    trust_carry_factor?: number;
+    show_in_sister_feeds?: boolean;
+  }) =>
+    communityApi.post(`/communities/${communityId}/links`, data),
+
+  approveLink: (communityId: string, linkId: string) =>
+    communityApi.put(`/communities/${communityId}/links/${linkId}`, { action: 'approve' }),
+
+  updateLink: (communityId: string, linkId: string, data: {
+    trust_carry_factor?: number;
+    show_in_sister_feeds?: boolean;
+  }) =>
+    communityApi.put(`/communities/${communityId}/links/${linkId}`, data),
+
+  removeLink: (communityId: string, linkId: string) =>
+    communityApi.delete(`/communities/${communityId}/links/${linkId}`),
+}
+
 // Request Service API Methods
 export const requestService = {
   // UI Schemas (Server-Driven UI)
