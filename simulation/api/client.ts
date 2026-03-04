@@ -226,24 +226,24 @@ export class SimApiClient {
     pricing_notes?: string;
     location_notes?: string;
   }) {
-    const res = await withRetry(() => this.http.post('/providers', data), 'registerAsProvider');
+    const res = await withRetry(() => this.http.post('/requests/providers', data), 'registerAsProvider');
     return res.data.data;
   }
 
   async getCollectives(): Promise<any[]> {
-    const res = await withRetry(() => this.http.get('/collectives'), 'getCollectives');
+    const res = await withRetry(() => this.http.get('/requests/collectives'), 'getCollectives');
     const data = res.data.data;
     return Array.isArray(data) ? data : [];
   }
 
   async createCollective(data: { name: string; description: string; service_types: string[]; location_notes?: string }) {
-    const res = await withRetry(() => this.http.post('/collectives', data), 'createCollective');
+    const res = await withRetry(() => this.http.post('/requests/collectives', data), 'createCollective');
     return res.data.data;
   }
 
   async joinCollective(collectiveId: string, providerId: string) {
     const res = await withRetry(
-      () => this.http.post(`/collectives/${collectiveId}/members`, { provider_id: providerId }),
+      () => this.http.post(`/requests/collectives/${collectiveId}/members`, { provider_id: providerId }),
       'joinCollective'
     );
     return res.data.data;
