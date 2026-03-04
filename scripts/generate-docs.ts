@@ -248,6 +248,7 @@ const CONCEPT_ORDER = [
   'the-village-model',
   'neighborhood-service-layer',
   'what-is-karma',
+  'trust-and-karma',
   'trust-score',
   'trust-paths',
   'reputation-decay',
@@ -440,7 +441,7 @@ function generateNav(
 
   // Non-technical concept pages (split into Why Karmyq / How It Works)
   const whyKarmyq = ['platform-overview', 'the-village-model', 'neighborhood-service-layer'];
-  const howItWorks = ['trust-score', 'what-is-karma', 'trust-paths', 'reputation-decay', 'why-ratings-are-private'];
+  const howItWorks = ['trust-and-karma', 'trust-score', 'what-is-karma', 'trust-paths', 'reputation-decay', 'why-ratings-are-private'];
 
   const nav = {
     sections: [

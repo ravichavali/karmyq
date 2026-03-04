@@ -1,32 +1,30 @@
 # What is Karmyq?
 
-Karmyq is a mutual aid platform built on the idea that communities thrive when neighbors help each other — not through money, but through time, skills, and trust.
+Karmyq is a platform for two things that neighborhoods have always needed but rarely had good tools for: mutual aid between neighbors, and a trustworthy directory of local professionals.
 
 ---
 
-## The Problem with Marketplaces
+## Why Marketplaces Alone Don't Work for Mutual Aid
 
-Most platforms that connect people around services are marketplaces. Someone posts a task, someone else bids for it, money changes hands. This works — but it creates friction:
+Most platforms that connect people around services are marketplaces. Someone posts a task, someone else bids for it, money changes hands. This works — but it creates friction for mutual aid:
 
 - **Cost** excludes people who need help the most
 - **Transactional framing** discourages small asks ("Is it worth posting for 20 minutes of help?")
 - **No memory** — every interaction is isolated; there's no relationship being built
 
-Karmyq takes a different approach.
+Karmyq takes a different approach for community help — and a complementary one for professional services.
 
 ---
 
-## Mutual Aid, Not a Marketplace
+## Mutual Aid Communities + Professional Services
 
-In mutual aid, the exchange is not money — it's reciprocity. You help your neighbor move today. Next month, they help you when your car breaks down. Neither of you "paid". Both of you are better off.
+Karmyq operates in two layers:
 
-This is how communities have always worked before the internet made strangers of neighbors.
+**Layer 1 — Mutual Aid Communities**: Neighbors help each other through reciprocity. Karma is the unit of exchange within communities — not money. You help your neighbor move today. Next month, they help you when your car breaks down. Services are arranged separately between the people involved; karma tracks the gift economy.
 
-Karmyq digitizes that pattern:
+**Layer 2 — Neighborhood Service Directory**: Local professionals — drivers, handypeople, tutors — list themselves publicly so neighbors can find them. Payment and terms are arranged directly between provider and customer. Karmyq handles the connection, not the transaction.
 
-- **Karma** replaces money as the unit of exchange
-- **Trust** replaces reviews and ratings
-- **Community** replaces the open marketplace
+The two layers are complementary but independent. A high karma score doesn't make you a better provider, and a strong provider trust record doesn't change how mutual aid works.
 
 ---
 
@@ -56,6 +54,7 @@ You don't start with a trust score. You earn it by showing up: completing reques
 - **Community organizers** who want infrastructure for mutual aid without building it from scratch
 - **People who need help** but can't always pay for it
 - **People who want to help** and want to know their effort is valued and remembered
+- **Local professionals** who want to be discoverable to the neighbors they already serve
 
 ---
 
@@ -67,10 +66,12 @@ You don't start with a trust score. You earn it by showing up: completing reques
 4. When the help is completed, karma flows from you to them
 5. You use that karma when you help others, and the cycle continues
 
+If you're a local professional, you can also create a provider profile — visible to anyone in the neighborhood, not just community members.
+
 Over time, your trust score reflects your history in the community: how active you are, how reliable you are, how well-connected you are to people who trust you.
 
 ---
 
-## The Philosophy in One Sentence
+## Two Layers, One Neighborhood
 
-Karmyq exists to make it as easy to ask a neighbor for help as it is to google something — and to make that help mean something beyond a five-star rating.
+Mutual aid communities and professional services aren't opposites — they're complementary. A neighbor who helps you move for karma might also be the driver you hire for your next airport run. Karmyq holds both without blurring the line between them.

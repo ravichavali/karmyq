@@ -66,3 +66,11 @@ Money works well for many things. But in mutual aid contexts, it creates problem
 - It reduces relationships to transactions
 
 Karma preserves the reciprocal nature of mutual aid without the friction of cash.
+
+---
+
+## What About Professional Services?
+
+Karma is for the mutual aid layer — neighbors helping neighbors. Karmyq also has a [neighborhood service layer](neighborhood-service-layer) where local professionals (drivers, handypeople, tutors) list themselves for hire. That layer uses its own trust signal — a [provider trust score](trust-and-karma) based on star ratings and completion rate — rather than karma.
+
+The two layers are intentionally separate. Karma is not currency for professional services, and a provider trust score is not a substitute for community karma. Each measures something different.

@@ -4,15 +4,11 @@ Not everything in a neighborhood is a favor. Some things are a trade.
 
 The rickshaw operator at the corner isn't doing it for karma — it's their livelihood. The handyperson who fixes your plumbing charges for their time. The tutor who helps your kids with math has a rate card. These people are part of the neighborhood fabric, but they don't fit the gift economy.
 
-Karmyq's **neighborhood service layer** is built for them.
+Karmyq's **neighborhood service layer** is a directory where they can be found by the neighbors they already serve.
 
 ---
 
 ## Two Layers, Clearly Separate
-
-Karmyq has always been about mutual aid: help given freely, karma earned through reciprocity, trust built through real exchanges. That layer still exists exactly as before.
-
-The service layer sits alongside it, not on top of it:
 
 | | Mutual Aid (Layer 1) | Professional Services (Layer 2) |
 |-|----------------------|----------------------------------|
@@ -21,8 +17,11 @@ The service layer sits alongside it, not on top of it:
 | Visibility | Community members | Everyone in the neighborhood |
 | Trust signal | Personal trust score | Stars + completion record |
 | Who sets prices | N/A (gift economy) | The provider (advisory only) |
+| Ratings privacy | Private within community | Public |
 
 The separation is deliberate. Mixing them would corrupt both: karma would stop meaning generosity, and paid providers would be awkwardly constrained by community membership rules.
+
+**Why Layer 1 ratings are private, Layer 2 ratings are public:** Personal trust scores within communities reflect private, relational dynamics between neighbors. Publishing them would chill participation and create social pressure. Provider trust scores, by contrast, are the point — they exist so strangers can decide whether to hire someone. Public accountability is the mechanism.
 
 ---
 
@@ -61,7 +60,7 @@ This is separate from personal trust. A reliable rickshaw operator doesn't need 
 
 ## What Karmyq Is (and Isn't)
 
-Karmyq is **coordination infrastructure** for neighborhood services. It is not a marketplace:
+Karmyq is a **directory where neighbors offer services directly**. It is not a marketplace:
 
 - No payment processing
 - No commission

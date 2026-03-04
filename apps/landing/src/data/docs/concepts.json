@@ -319,6 +319,14 @@
       "status": "accepted",
       "description": "**Status**: Accepted",
       "filename": "ADR-042-provider-trust-score.md"
+    },
+    {
+      "slug": "adr-043-three-score-model",
+      "number": "043",
+      "title": "ADR-043: Three-Score Model — Karma, Personal Trust, and Provider Trust",
+      "status": "implemented",
+      "description": "**Status**: Implemented",
+      "filename": "ADR-043-three-score-model.md"
     }
   ]
 }

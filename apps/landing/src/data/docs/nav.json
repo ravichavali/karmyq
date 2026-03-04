@@ -178,10 +178,6 @@
           "href": "/docs/concepts/adr-042-provider-trust-score"
         },
         {
-          "label": "Three-Score Model (Karma / Personal Trust / Provider Trust)",
-          "href": "/docs/concepts/adr-043-three-score-model"
-        },
-        {
           "label": "— Infrastructure —",
           "href": "/docs/concepts",
           "divider": true
