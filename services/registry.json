@@ -114,7 +114,9 @@
           "/admin/schemas/:id/rollback/:version",
           "/admin/schemas/:id/variants",
           "/providers",
-          "/providers/:id"
+          "/providers/my",
+          "/providers/:id",
+          "/collectives/my"
         ],
         "consumes": [
           "/auth/verify",

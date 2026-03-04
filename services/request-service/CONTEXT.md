@@ -1049,6 +1049,9 @@ Get feedback for a match.
 #### GET /providers
 List all provider profiles. Optional query param: service_type.
 
+#### GET /providers/my
+Get the authenticated user's own provider profiles. Auth required.
+
 #### GET /providers/:id
 Get a single provider profile by ID, including ride details if applicable.
 
@@ -1063,6 +1066,9 @@ Delete a provider profile. Owner only.
 
 #### GET /collectives
 List all provider collectives. Optional query param: service_type.
+
+#### GET /collectives/my
+Get collectives the authenticated user belongs to (via their provider profiles). Auth required.
 
 #### GET /collectives/:id
 Get a collective with members and communities served.
