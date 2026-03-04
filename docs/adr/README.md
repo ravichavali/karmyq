@@ -78,6 +78,7 @@ When code implementing an ADR is deployed, update the status from `Accepted` →
 - [ADR-040: Community Trust Score — Bonding/Bridging Social Capital at the Community Level](ADR-040-community-trust-score.md) — **Implemented**
 - [ADR-041: Two-Layer Mutual Aid + Professional Services](ADR-041-two-layer-mutual-aid-services.md) — Accepted
 - [ADR-042: Provider Trust Score](ADR-042-provider-trust-score.md) — Accepted
+- [ADR-043: Three-Score Model — Karma, Personal Trust, and Provider Trust](ADR-043-three-score-model.md) — **Implemented**
 
 ## Creating a New ADR
 

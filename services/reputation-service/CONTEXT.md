@@ -639,7 +639,7 @@ When a match is completed, the reputation service:
 - `health_metrics_calculated` - Daily metric calculation complete (Social Karma v2.0)
 
 ### Events Consumed
-- `match_completed` - Award karma when help exchange completed
+- `match_completed` - Award karma when help exchange completed; also recalculates `completion_rate` on `reputation.provider_trust_scores` if responder has an active provider profile (cross-schema: `requests.provider_profiles`)
 - `interaction_feedback_submitted` - Update trust scores with interaction quality (Social Karma v2.0)
 
 ### External Dependencies
