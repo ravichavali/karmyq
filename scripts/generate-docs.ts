@@ -387,6 +387,17 @@ const ADR_GROUPS: Array<{ label: string; slugs: string[] }> = [
       'adr-039-trust-score-decay-consistency',
       'adr-040-community-trust-score',
       'adr-011-reputation-decay',
+      'adr-016-prestige-based-recognition',
+      'adr-043-three-score-model',
+    ],
+  },
+  {
+    label: '— Community & Scale —',
+    slugs: [
+      'adr-017-cohort-based-community-layers',
+      'adr-018-community-splitting-mechanics',
+      'adr-019-referral-chain-trust',
+      'adr-021-trust-path-filtering',
     ],
   },
   {
@@ -440,7 +451,7 @@ function generateNav(
   }
 
   // Non-technical concept pages (split into Why Karmyq / How It Works)
-  const whyKarmyq = ['platform-overview', 'the-village-model', 'neighborhood-service-layer'];
+  const whyKarmyq = ['platform-overview', 'the-village-model', 'neighborhood-service-layer', 'community-design'];
   const howItWorks = ['trust-and-karma', 'trust-score', 'what-is-karma', 'trust-paths', 'reputation-decay', 'why-ratings-are-private', 'community-scale'];
 
   const nav = {
