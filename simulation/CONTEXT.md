@@ -81,8 +81,8 @@ interface PersonaState {
 | `generateInvite` | `POST /invitations/generate` | Uses `X-Community-ID` header |
 | `joinCommunity` | `POST /communities/:id/join` | Discovers via `GET /communities` |
 | `createCommunity` | `POST /communities` | Uses community templates |
-| `registerAsProvider` | `POST /providers` | ride/service/borrow types; sets `isProvider=true` |
-| `joinCollective` | `POST /collectives/:id/members` | Requires provider profile |
+| `registerAsProvider` | `POST /requests/providers` | ride/service/borrow types; sets `isProvider=true` |
+| `joinCollective` | `POST /requests/collectives/:id/members` | Requires provider profile |
 
 ### ActionWeights
 
@@ -147,12 +147,21 @@ Datasource UIDs: `prometheus` and `loki` (explicit in `datasources.yml`).
 
 ## Recent Changes
 
+### 2026-03: Simulation Bug Fixes (this session)
+- Fixed `api/client.ts`: provider/collective paths were missing the `/requests` prefix
+  - `POST /providers` → `POST /requests/providers`
+  - `GET/POST /collectives` → `GET/POST /requests/collectives`
+  - `POST /collectives/:id/members` → `POST /requests/collectives/:id/members`
+- Fixed `scripts/run.ts`: invitee `communityIds` was hardcoded to `[]` after `acceptInvite()`; now fetches real membership via `getMyCommunities()` after accepting invite
+- Fixed `workflows/index.ts`: `registerAsProvider` had a spurious `communityIds.length === 0` guard; removed — API only requires auth
+- Fixed `scripts/run.ts`: added `as Record<string, number>` casts to `selectAction()` calls (ts-node strict mode on server)
+
 ### 2026-03: Provider/Collective Workflows
 - Added `registerAsProvider` and `joinCollective` to `WorkflowName`, `runWorkflow`, all persona `ActionWeights`
 - Added `isProvider`, `providerProfileId`, `collectiveIds` to `PersonaState`
 - Added `providers.ts` and `collectives.ts` to integrity checker `WORKFLOW_MAP`
-- Provider API: `POST /providers` (requires `service_type`, `display_name`)
-- Collective join API: `POST /collectives/:id/members` (requires `provider_id` in body)
+- Provider API: `POST /requests/providers` (requires `service_type`, `display_name`)
+- Collective join API: `POST /requests/collectives/:id/members` (requires `provider_id` in body)
 
 ### 2026-03: Observability Fixes
 - Fixed datasource UIDs in `datasources.yml` (explicit `uid: loki` / `uid: prometheus`)
