@@ -219,6 +219,18 @@ export class SimApiClient {
   // Providers & Collectives
   // -------------------------------------------------------------------------
 
+  async getMyProviderProfiles(): Promise<any[]> {
+    const res = await withRetry(() => this.http.get('/requests/providers/my'), 'getMyProviderProfiles');
+    const data = res.data.data;
+    return Array.isArray(data) ? data : [];
+  }
+
+  async getMyCollectives(): Promise<any[]> {
+    const res = await withRetry(() => this.http.get('/requests/collectives/my'), 'getMyCollectives');
+    const data = res.data.data;
+    return Array.isArray(data) ? data : [];
+  }
+
   async registerAsProvider(data: {
     service_type: string;
     display_name: string;

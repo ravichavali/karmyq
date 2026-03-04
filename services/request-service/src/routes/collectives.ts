@@ -54,6 +54,27 @@ router.get('/', authMiddleware, async (req: AuthenticatedRequest, res: Response)
   }
 });
 
+// GET /requests/collectives/my - Get collectives the authenticated user belongs to (via their provider profiles)
+router.get('/my', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = req.user!.userId;
+    const result = await query(`
+      SELECT DISTINCT
+        pc.id, pc.name, pc.description, pc.service_types, pc.location_notes,
+        pc.is_active, pc.created_at, pc.updated_at
+      FROM requests.provider_collectives pc
+      JOIN requests.provider_collective_members pcm ON pc.id = pcm.collective_id
+      JOIN requests.provider_profiles pp ON pcm.provider_id = pp.id
+      WHERE pp.user_id = $1 AND pc.is_active = TRUE
+      ORDER BY pc.created_at ASC
+    `, [userId]);
+    res.json({ success: true, data: result.rows });
+  } catch (error: any) {
+    console.error('Error fetching user collectives:', error);
+    res.status(500).json({ success: false, message: 'Failed to fetch collectives', error: error.message });
+  }
+});
+
 // GET /requests/collectives/:id - Collective detail with members + communities served
 router.get('/:id', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   try {

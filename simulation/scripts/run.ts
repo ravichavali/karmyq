@@ -85,7 +85,7 @@ if (!isMainThread) {
       token,
       tokenExpiresAt: Date.now() + 6 * 24 * 60 * 60 * 1000, // 6 days
       userId: seededUser.userId,
-      communityIds: seededUser.communityIds ?? [],
+      communityIds: [],
       recentlyHelped: false,
       recentlyHelpedSomeone: false,
       pendingOfferCount: 0,
@@ -95,6 +95,25 @@ if (!isMainThread) {
       providerProfileId: null,
       collectiveIds: [],
     };
+
+    // Rehydrate state from API to survive restarts without 409 conflicts
+    try {
+      const communities = await client.getMyCommunities();
+      state.communityIds = communities.map((c: any) => c.id);
+    } catch { /* non-fatal — will force-join below if empty */ }
+
+    try {
+      const providerProfiles = await client.getMyProviderProfiles();
+      if (providerProfiles.length > 0) {
+        state.isProvider = true;
+        state.providerProfileId = providerProfiles[0].id;
+      }
+    } catch { /* non-fatal */ }
+
+    try {
+      const collectives = await client.getMyCollectives();
+      state.collectiveIds = collectives.map((c: any) => c.id);
+    } catch { /* non-fatal */ }
 
     // If no communities yet, force join first
     if (state.communityIds.length === 0) {

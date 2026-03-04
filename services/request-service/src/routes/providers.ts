@@ -46,6 +46,28 @@ router.get('/', async (req: any, res: Response) => {
   }
 });
 
+// GET /requests/providers/my - Get authenticated user's own provider profiles
+router.get('/my', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = req.user!.userId;
+    const result = await query(`
+      SELECT
+        pp.id, pp.user_id, pp.service_type, pp.display_name,
+        pp.bio, pp.pricing_notes, pp.location_notes, pp.is_active,
+        pp.created_at, pp.updated_at,
+        pts.avg_stars, pts.total_reviews, pts.completion_rate, pts.response_rate, pts.trust_score
+      FROM requests.provider_profiles pp
+      LEFT JOIN reputation.provider_trust_scores pts ON pp.id = pts.provider_id
+      WHERE pp.user_id = $1
+      ORDER BY pp.created_at ASC
+    `, [userId]);
+    res.json({ success: true, data: result.rows });
+  } catch (error: any) {
+    console.error('Error fetching own provider profiles:', error);
+    res.status(500).json({ success: false, message: 'Failed to fetch provider profiles', error: error.message });
+  }
+});
+
 // GET /requests/providers/:providerId - Get single provider profile (public)
 router.get('/:providerId', async (req: any, res: Response) => {
   try {
