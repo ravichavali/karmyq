@@ -207,6 +207,14 @@ router.post('/', async (req: Request, res: Response) => {
       }
     }
 
+    // Self-match guard: requester cannot be their own responder
+    if (requestCheck.rows[0].requester_id === responder_id) {
+      return res.status(400).json({
+        success: false,
+        message: 'You cannot create a match for your own request',
+      });
+    }
+
     // Create match
     const matchResult = await query(
       `INSERT INTO requests.matches
