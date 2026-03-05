@@ -1,7 +1,7 @@
 # ADR-017: Cohort-Based Community Layers
 
 **Date**: 2025-12-29
-**Status**: Proposed
+**Status**: Accepted
 **Deciders**: Development Team
 **Related**: ADR-003 (Multi-Tenant RLS), ADR-011 (Reputation Decay)
 
@@ -130,10 +130,12 @@ Members naturally move between layers based on participation:
 - Display in member profiles
 - No functional differences (just informational)
 
-### Phase 2: Layer-Based Features (v10.0)
-- Notification priority by layer
-- "Inner circle only" request option
-- Layer-weighted governance
+### Phase 2: Layer Calculation Deployed (Sprint 16 — soft version)
+- `calculate_community_layer()` PostgreSQL function added (migration 026)
+- Layer field returned on community members API response
+- Layer chip visible to admins in the community members view (informational only)
+- No notification priority or governance gating — layers are descriptive this sprint
+- Future governance: inner circle as natural moderators, active community as norm proposers
 
 ### Phase 3: Cross-Layer Dynamics (v11.0+)
 - Mentorship programs (inner → extended)

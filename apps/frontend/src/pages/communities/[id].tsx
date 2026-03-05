@@ -338,6 +338,17 @@ export default function CommunityDetailPage() {
     }
   }
 
+  const LAYER_CHIP: Record<string, string> = {
+    inner_circle: 'bg-indigo-100 text-indigo-800',
+    active_community: 'bg-green-100 text-green-800',
+    extended_network: 'bg-gray-100 text-gray-500',
+  }
+  const LAYER_LABEL: Record<string, string> = {
+    inner_circle: 'Inner Circle',
+    active_community: 'Active',
+    extended_network: 'Extended',
+  }
+
   const membershipRecord = community?.members.find((m: Member) => m.user_id === currentUser?.id)
   const isMember = membershipRecord?.status === 'active'
   const isPending = membershipRecord?.status === 'pending'
@@ -764,6 +775,11 @@ export default function CommunityDetailPage() {
                           )}
                         </div>
                         <div className="flex items-center gap-3">
+                          {isAdmin && (member as any).layer && (
+                            <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${LAYER_CHIP[(member as any).layer] ?? ''}`}>
+                              {LAYER_LABEL[(member as any).layer] ?? (member as any).layer}
+                            </span>
+                          )}
                           <span
                             className={`px-3 py-1 rounded text-sm font-medium ${
                               member.role === 'admin'

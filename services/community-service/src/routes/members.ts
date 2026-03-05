@@ -25,7 +25,8 @@ router.get('/:communityId/members', async (req: Request, res: Response) => {
         m.id, m.user_id, m.role, m.status, m.joined_at,
         m.invited_by,
         u.name as user_name, u.email as user_email,
-        inviter.name as invited_by_name
+        inviter.name as invited_by_name,
+        calculate_community_layer(m.user_id, m.community_id) as layer
       FROM communities.members m
       LEFT JOIN auth.users u ON m.user_id = u.id
       LEFT JOIN auth.users inviter ON m.invited_by = inviter.id
