@@ -205,7 +205,10 @@ Get all communities with optional filters.
       "creator_id": "uuid",
       "creator_name": "Alice Smith",
       "status": "active",
-      "created_at": "2025-01-10T12:00:00Z"
+      "created_at": "2025-01-10T12:00:00Z",
+      "inner_circle_count": 3,
+      "active_community_count": 12,
+      "extended_network_count": 27
     }
   ],
   "count": 1,
