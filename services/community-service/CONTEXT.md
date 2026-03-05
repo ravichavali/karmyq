@@ -344,7 +344,8 @@ Get all members of a community.
       "user_name": "Alice Smith",
       "role": "admin",
       "status": "active",
-      "joined_at": "2025-01-10T12:00:00Z"
+      "joined_at": "2025-01-10T12:00:00Z",
+      "layer": "active_community"
     }
   ],
   "count": 1
