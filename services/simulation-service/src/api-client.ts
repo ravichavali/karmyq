@@ -229,6 +229,26 @@ export class ApiClient {
   }
 
   /**
+   * Request API - Register as a service provider
+   */
+  async registerProvider(data: { service_type: string; display_name: string; bio?: string; pricing_notes?: string; location_notes?: string }): Promise<any> {
+    const response = await executeWithRetry(() =>
+      this.client.post('/requests/providers', data)
+    );
+    return response.data.data;
+  }
+
+  /**
+   * Request API - Get own provider profiles
+   */
+  async getMyProviderProfiles(): Promise<any[]> {
+    const response = await executeWithRetry(() =>
+      this.client.get('/requests/providers/my')
+    );
+    return response.data.data || [];
+  }
+
+  /**
    * Request API - Accept a match (requester accepts a proposed match)
    */
   async acceptMatch(matchId: string, userId: string): Promise<any> {

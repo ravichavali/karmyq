@@ -14,7 +14,8 @@ import {
   completeMatchWorkflow,
   joinCommunityWorkflow,
   acceptOfferWorkflow,
-  createCommunityWorkflow
+  createCommunityWorkflow,
+  registerAsProviderWorkflow
 } from './workflows';
 import { initPool, closePool, getRandomUser } from './db-user-loader';
 
@@ -247,6 +248,14 @@ export class Simulator {
         weight: actions.createCommunities.weight,
         workflow: createCommunityWorkflow,
         name: 'createCommunity'
+      });
+    }
+
+    if (actions.registerAsProvider) {
+      workflows.push({
+        weight: actions.registerAsProvider.weight,
+        workflow: registerAsProviderWorkflow,
+        name: 'registerAsProvider'
       });
     }
 

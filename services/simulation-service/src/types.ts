@@ -28,6 +28,7 @@ export interface UserProfile {
     joinCommunity?: ActionWeight;
     inviteMembers?: ActionWeight;
     moderateContent?: ActionWeight;
+    registerAsProvider?: ActionWeight;
   };
   sessionDuration: TimeRange;
   responseTime: TimeRange;

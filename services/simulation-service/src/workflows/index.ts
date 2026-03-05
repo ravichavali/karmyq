@@ -10,3 +10,4 @@ export { completeMatchWorkflow } from './complete-match-workflow';
 export { joinCommunityWorkflow } from './join-community-workflow';
 export { acceptOfferWorkflow } from './accept-offer-workflow';
 export { createCommunityWorkflow } from './create-community-workflow';
+export { registerAsProviderWorkflow } from './register-provider-workflow';

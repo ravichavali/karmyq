@@ -14,7 +14,8 @@ export const ACTIVE_HELPER: UserProfile = {
     sendMessages: { weight: 0.7, avgPerSession: 4 },
     completeMatches: { weight: 0.5, avgPerSession: 2 },
     acceptOffers: { weight: 0.3, avgPerSession: 1 },  // also requests help sometimes
-    createRequests: { weight: 0.1, avgPerSession: 0.3 }
+    createRequests: { weight: 0.1, avgPerSession: 0.3 },
+    registerAsProvider: { weight: 0.05, avgPerSession: 0.1 }  // occasionally registers as provider
   },
   sessionDuration: { min: 15, max: 45, unit: 'minutes' },
   responseTime: { min: 5, max: 30, unit: 'minutes' }
