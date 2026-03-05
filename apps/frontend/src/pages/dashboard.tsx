@@ -303,13 +303,17 @@ export default function Dashboard() {
         if (r.requester_id !== userId || r.status !== 'open') return false
         if (allMatches.some((m: Match) => m.request_id === r.id && m.status === 'matched')) return false
         const pendingOffers = allMatches.filter(
-          (m: Match) => m.request_id === r.id && m.status !== 'rejected'
+          (m: Match) => m.request_id === r.id && m.status !== 'rejected' && m.responder_id !== r.requester_id
         )
         return pendingOffers.length > 0
       })
 
       myRequestsPending.forEach((request: HelpRequest) => {
-        const matches = allMatches.filter((m: Match) => m.request_id === request.id && m.status !== 'rejected')
+        const matches = allMatches.filter((m: Match) =>
+          m.request_id === request.id &&
+          m.status !== 'rejected' &&
+          m.responder_id !== request.requester_id // exclude self-matches
+        )
         feed.push({
           type: 'post',
           priority: 3,
