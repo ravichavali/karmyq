@@ -948,3 +948,37 @@ CREATE TRIGGER update_community_config_timestamp
 BEFORE UPDATE ON communities.community_configs
 FOR EACH ROW
 EXECUTE FUNCTION communities.update_community_config_timestamp();
+
+-- ADR-017 Phase 2: Cohort layer calculation (migration 026)
+CREATE OR REPLACE FUNCTION calculate_community_layer(
+    p_user_id UUID,
+    p_community_id UUID
+) RETURNS VARCHAR(50) AS $$
+DECLARE
+    v_interactions_per_month DECIMAL;
+BEGIN
+    SELECT COUNT(*) / 6.0 INTO v_interactions_per_month
+    FROM (
+        SELECT created_at FROM requests.help_requests
+        WHERE requester_id = p_user_id
+          AND created_at > NOW() - INTERVAL '6 months'
+        UNION ALL
+        SELECT created_at FROM requests.help_offers
+        WHERE offerer_id = p_user_id
+          AND community_id = p_community_id
+          AND created_at > NOW() - INTERVAL '6 months'
+        UNION ALL
+        SELECT created_at FROM messaging.messages
+        WHERE sender_id = p_user_id
+          AND created_at > NOW() - INTERVAL '6 months'
+    ) interactions;
+
+    IF v_interactions_per_month >= 4 THEN
+        RETURN 'inner_circle';
+    ELSIF v_interactions_per_month >= 1 THEN
+        RETURN 'active_community';
+    ELSE
+        RETURN 'extended_network';
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
