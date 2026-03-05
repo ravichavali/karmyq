@@ -7,6 +7,7 @@ import Layout from '@/components/Layout'
 import CommunityConfigEditor from '@/components/CommunityConfigEditor'
 import { CommunityConfig } from '@/types/community-config'
 import { REQUEST_TYPES } from '@/components/requests/RequestTypeSelector'
+import CommunityLinks from '@/components/community/CommunityLinks'
 
 interface Member {
   id: string
@@ -63,7 +64,7 @@ export default function CommunityDetailPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [currentUser, setCurrentUser] = useState<any>(null)
-  const [activeTab, setActiveTab] = useState<'overview' | 'members' | 'norms' | 'config' | 'manage' | 'pending' | 'settings' | 'stats' | 'export' | 'providers'>('overview')
+  const [activeTab, setActiveTab] = useState<'overview' | 'members' | 'norms' | 'config' | 'manage' | 'pending' | 'settings' | 'stats' | 'export' | 'providers' | 'links'>('overview')
   const [communityCollectives, setCommunityCollectives] = useState<any[]>([])
   const [providerConfig, setProviderConfig] = useState({ provider_services_enabled: false, provider_min_personal_trust_score: 0, provider_services_list: [] as string[] })
   const [savingProviderConfig, setSavingProviderConfig] = useState(false)
@@ -530,6 +531,12 @@ export default function CommunityDetailPage() {
                       className={`px-6 py-4 font-medium ${activeTab === 'providers' ? 'border-b-2 border-primary text-primary' : 'text-text-muted hover:text-text'}`}
                     >
                       Providers
+                    </button>
+                    <button
+                      onClick={() => setActiveTab('links')}
+                      className={`px-6 py-4 font-medium ${activeTab === 'links' ? 'border-b-2 border-primary text-primary' : 'text-text-muted hover:text-text'}`}
+                    >
+                      Linked Communities
                     </button>
                   </>
                 )}
@@ -1154,6 +1161,13 @@ export default function CommunityDetailPage() {
                       </div>
                     ))}
                   </div>
+                </div>
+              )}
+
+              {/* Admin: Linked Communities Tab */}
+              {activeTab === 'links' && isAdmin && community && (
+                <div>
+                  <CommunityLinks communityId={community.id} isAdmin={isAdmin} />
                 </div>
               )}
             </div>
