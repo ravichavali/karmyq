@@ -77,9 +77,20 @@ router.get('/', async (req: any, res: Response) => {
         c.id, c.name, c.description, c.location, c.category,
         c.max_members, c.current_members, c.access_type,
         c.creator_id, c.status, c.created_at, c.updated_at,
-        u.name as creator_name
+        u.name as creator_name,
+        COALESCE(ls.inner_circle, 0) as inner_circle_count,
+        COALESCE(ls.active_community, 0) as active_community_count,
+        COALESCE(ls.extended_network, 0) as extended_network_count
       FROM communities.communities c
       LEFT JOIN auth.users u ON c.creator_id = u.id
+      LEFT JOIN LATERAL (
+        SELECT
+          COUNT(*) FILTER (WHERE calculate_community_layer(m.user_id, c.id) = 'inner_circle') as inner_circle,
+          COUNT(*) FILTER (WHERE calculate_community_layer(m.user_id, c.id) = 'active_community') as active_community,
+          COUNT(*) FILTER (WHERE calculate_community_layer(m.user_id, c.id) = 'extended_network') as extended_network
+        FROM communities.members m
+        WHERE m.community_id = c.id AND m.status = 'active'
+      ) ls ON true
       WHERE ${conditions.join(' AND ')}
       ORDER BY ${orderBy}
       LIMIT $${paramCount} OFFSET $${paramCount + 1}`,

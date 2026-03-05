@@ -16,6 +16,9 @@ interface Community {
   access_type: 'public' | 'private'
   creator_name: string
   created_at: string
+  inner_circle_count: number
+  active_community_count: number
+  extended_network_count: number
 }
 
 interface MembershipStatus {
@@ -397,6 +400,27 @@ export default function CommunitiesPage() {
                             }}
                           ></div>
                         </div>
+
+                        {/* Activity layer distribution */}
+                        {community.current_members > 0 && (
+                          <div className="flex gap-2 mb-4 text-xs">
+                            {community.inner_circle_count > 0 && (
+                              <span className="px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 font-medium">
+                                {community.inner_circle_count} core
+                              </span>
+                            )}
+                            {community.active_community_count > 0 && (
+                              <span className="px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-medium">
+                                {community.active_community_count} active
+                              </span>
+                            )}
+                            {community.extended_network_count > 0 && (
+                              <span className="px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">
+                                {community.extended_network_count} extended
+                              </span>
+                            )}
+                          </div>
+                        )}
                       </Link>
 
                       {/* Join Button */}
