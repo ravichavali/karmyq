@@ -25,6 +25,7 @@ export interface UserProfile {
     completeMatches?: ActionWeight;
     viewProfiles?: ActionWeight;
     createCommunities?: ActionWeight;
+    joinCommunity?: ActionWeight;
     inviteMembers?: ActionWeight;
     moderateContent?: ActionWeight;
   };
