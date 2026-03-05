@@ -94,7 +94,7 @@ export const completeMatchWorkflow: Workflow = async (context) => {
       const result = await sessionManager.executeAction(
         session,
         'completeMatch',
-        () => client.completeMatch(match.id, payload)
+        () => client.completeMatch(match.id, session.user.id, payload)
       );
 
       if (result) {

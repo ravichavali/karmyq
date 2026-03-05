@@ -108,9 +108,9 @@ export class ApiClient {
   /**
    * Request API - Complete match
    */
-  async completeMatch(matchId: string, feedback?: { rating: number; comment: string }): Promise<any> {
+  async completeMatch(matchId: string, userId: string, feedback?: { rating: number; comment: string }): Promise<any> {
     const response = await executeWithRetry(() =>
-      this.client.put(`/matches/${matchId}/complete`, feedback)
+      this.client.put(`/matches/${matchId}/complete`, { user_id: userId, ...feedback })
     );
     return response.data.data;
   }
