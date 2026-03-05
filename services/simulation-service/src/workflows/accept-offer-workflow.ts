@@ -31,9 +31,9 @@ export const acceptOfferWorkflow: Workflow = async (context) => {
       return;
     }
 
-    // Filter to matches where this user is the requester
+    // Filter to matches where this user is the requester (and not also the responder — self-match guard)
     const myMatches = proposedMatches.filter(
-      (m: any) => m.requester_id === session.user.id
+      (m: any) => m.requester_id === session.user.id && m.responder_id !== session.user.id
     );
 
     if (myMatches.length === 0) {

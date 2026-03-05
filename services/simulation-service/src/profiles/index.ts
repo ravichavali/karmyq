@@ -13,6 +13,7 @@ export const ACTIVE_HELPER: UserProfile = {
     browseRequests: { weight: 0.8, avgPerSession: 5 },
     sendMessages: { weight: 0.7, avgPerSession: 4 },
     completeMatches: { weight: 0.5, avgPerSession: 2 },
+    acceptOffers: { weight: 0.3, avgPerSession: 1 },  // also requests help sometimes
     createRequests: { weight: 0.1, avgPerSession: 0.3 }
   },
   sessionDuration: { min: 15, max: 45, unit: 'minutes' },
@@ -25,6 +26,7 @@ export const REQUESTER: UserProfile = {
   actions: {
     createRequests: { weight: 0.8, avgPerSession: 2 },
     acceptOffers: { weight: 0.6, avgPerSession: 1.5 },
+    completeMatches: { weight: 0.6, avgPerSession: 1.5 },  // must complete their side too
     sendMessages: { weight: 0.5, avgPerSession: 3 },
     browseRequests: { weight: 0.3, avgPerSession: 2 },
     offerHelp: { weight: 0.1, avgPerSession: 0.2 }
@@ -51,10 +53,12 @@ export const COMMUNITY_BUILDER: UserProfile = {
   frequency: 'medium',
   actions: {
     createCommunities: { weight: 0.05, avgPerSession: 0.1 },
-    inviteMembers: { weight: 0.6, avgPerSession: 5 },
-    moderateContent: { weight: 0.4, avgPerSession: 2 },
+    joinCommunity: { weight: 0.3, avgPerSession: 1 },
     createRequests: { weight: 0.5, avgPerSession: 1 },
-    offerHelp: { weight: 0.4, avgPerSession: 2 }
+    offerHelp: { weight: 0.4, avgPerSession: 2 },
+    acceptOffers: { weight: 0.4, avgPerSession: 1.5 },
+    completeMatches: { weight: 0.4, avgPerSession: 1.5 },
+    browseRequests: { weight: 0.5, avgPerSession: 3 }
   },
   sessionDuration: { min: 20, max: 60, unit: 'minutes' },
   responseTime: { min: 10, max: 60, unit: 'minutes' }
