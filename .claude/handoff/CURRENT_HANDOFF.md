@@ -1,131 +1,96 @@
-# Sprint 15 — Fractal Community Model (Phase 1 Complete)
+# Sprint 17 — In Progress
 
 ## Handoff Document for New Conversation
 
-**Date**: 2026-03-04
-**Current Version**: v9.2.0 (Sprint 15)
-**Status**: Sprint 15 Phase 1 implemented. All code written and tested — NOT yet committed. Deployment of sprint 13–14 still pending (see below).
+**Date**: 2026-03-05
+**Current Version**: v9.3.0 (Sprint 16 complete, Sprint 17 started)
+**Status**: 2 Sprint 17 items done. CI deploying now (`ec5e586`).
 
 ---
 
-## What Was Completed This Session (Sprint 15)
+## What Was Completed This Session
 
-### All new files (uncommitted, on master branch)
+### Sprint 16 (carried from previous session)
+| Commit | What | Why |
+|--------|------|-----|
+| `4c48ca5` | Fix simulation: pass `user_id` in `completeMatch` body | `/matches/:id/complete` reads `user_id` from `req.body`; client wasn't sending it → permanent 403 → karma never awarded |
 
-| File | Action | Description |
-|------|--------|-------------|
-| `docs/concepts/community-scale.md` | Created | Fractal community model concept doc |
-| `docs/adr/ADR-018-community-splitting-mechanics.md` | Updated | Status → Accepted; Phase 1 schema + approach documented |
-| `apps/landing/src/data/docs/concepts/adr-018-community-splitting-mechanics.json` | Updated | Status → accepted |
-| `infrastructure/postgres/migrations/025-community-links.sql` | Created | `communities.community_links` table + indexes + trigger |
-| `services/community-service/src/routes/links.ts` | Created | 4 CRUD endpoints for community links |
-| `services/community-service/src/index.ts` | Updated | Registered `linksRouter` under `/communities` |
-| `services/community-service/CONTEXT.md` | Updated | New schema + endpoints documented |
-| `services/registry.json` | Updated | New endpoints + notes for community-service |
-| `services/request-service/src/routes/requests.ts` | Updated | `GET /requests/curated` now supports `?includeSisterCommunities=true` |
-| `services/request-service/CONTEXT.md` | Updated | New query param documented |
-| `tests/tdd/community-links.test.ts` | Created | 18 TDD tests — all passing |
-| `tests/tdd/feed-sister-communities.test.ts` | Created | 12 TDD tests — all passing |
-| `apps/frontend/src/lib/api.ts` | Updated | `communityLinksService` API methods added |
-| `apps/frontend/src/components/community/CommunityLinks.tsx` | Created | Admin UI for linking communities |
-
-### Test Results
-```
-30 tests passing in tests/tdd/ (community-links + feed-sister-communities)
-```
-
-### Key Design Decisions Made
-
-1. **Schema is `communities.` (plural)** — matches the existing Postgres schema name; handoff had `community.` (singular) which was wrong. All files use `communities.community_links`.
-
-2. **Curated endpoint lives in request-service** (not feed-service) — the handoff assumed feed-service but the actual implementation has always been in `services/request-service/src/routes/requests.ts`. Extended in-place.
-
-3. **Sister community requests score = feedScore × trust_carry_factor** — applied at scoring time, not query time, so sorting/filtering works correctly.
-
-4. **Trust carry defaults by type**:
-   - `sister` → 0.40
-   - `split_origin` → 0.50
-   - `parent_child` → 0.60
-
-5. **Sister tier = `sister_community`** — ordered after `platform` (tier 3) in the `tierOrder` map.
+### Sprint 17 (this session)
+| Commit | What | Why |
+|--------|------|-----|
+| `aa1e6f3` | Karma page: add community leaderboard section | Makes karma accumulation visible; fetches top 10 via existing `/reputation/leaderboard/:communityId` endpoint |
+| `ec5e586` | Fix: add `calculate_community_layer()` to `init.sql` | Migration 026 added the function to demo DB but not `init.sql` → integration tests returned 500 on members endpoint → CI blocked |
 
 ---
 
-## Pending: Commit + Deploy
+## Key Decisions Made
 
-### Step 1: Commit Sprint 15 work
-Nothing has been committed yet. Run pre-commit check first:
-```bash
-npm run feedback:check
-npm test
-npm run test:tdd
-```
-Then commit:
-```bash
-git add \
-  docs/concepts/community-scale.md \
-  docs/adr/ADR-018-community-splitting-mechanics.md \
-  apps/landing/src/data/docs/concepts/adr-018-community-splitting-mechanics.json \
-  infrastructure/postgres/migrations/025-community-links.sql \
-  services/community-service/src/routes/links.ts \
-  services/community-service/src/index.ts \
-  services/community-service/CONTEXT.md \
-  services/registry.json \
-  services/request-service/src/routes/requests.ts \
-  services/request-service/CONTEXT.md \
-  tests/tdd/community-links.test.ts \
-  tests/tdd/feed-sister-communities.test.ts \
-  apps/frontend/src/lib/api.ts \
-  apps/frontend/src/components/community/CommunityLinks.tsx
+1. **Karma leaderboard added to existing karma page** — not a new route. `/reputation/karma` now shows personal karma summary + history + community leaderboard (top 10). No new page needed.
 
-git commit -m "feat(sprint-15): fractal community model Phase 1 (community links + sister feeds)"
-```
+2. **CI failure root cause** — `calculate_community_layer()` was only applied via migration 026 on demo DB, not in `init.sql` which the integration test Docker container uses. Fixed by appending the function to `init.sql`.
 
-### Step 2: Deploy to demo server
-```bash
-git push origin master
-# GitHub Actions runs tests + deploys automatically
-```
-
-### Step 3: Run migrations on demo DB
-```bash
-# deploy.sh does NOT auto-run migrations — must run manually:
-psql $DATABASE_URL -f infrastructure/postgres/migrations/024-prestige-badges.sql
-psql $DATABASE_URL -f infrastructure/postgres/migrations/025-community-links.sql
-```
+3. **`registerAsProvider` is not a simulation bug** — the handoff note was misleading. There is no `registerAsProvider` workflow in the simulation service at all. It's a future feature candidate (adding simulation coverage for provider registration), not a 404 to fix.
 
 ---
 
-## Sprint 16 Candidates
+## Current Demo DB State
 
-### High priority
-1. **Karma vs Trust design session** — ADR-043 documents the three-score model but IDEAS.md notes a design session is needed. No code — just clarifying the product narrative.
-2. **Phase 2 prestige badges**: `bridge` (cross-community match), `ambassador` (5+ matches across 2+ sister communities). Depends on migration 025 in prod.
-3. **Wire CommunityLinks.tsx into admin page** — component exists at `apps/frontend/src/components/community/CommunityLinks.tsx`; needs to be imported in the community admin/settings page in `apps/frontend/src/app/(dashboard)/`.
-
-### Medium priority
-4. **ADR-017 Phase 2** — cohort layers as notification priority
-5. **Provider templates** — refactor hardcoded arrays in simulation `data.ts` (tracked in `docs/IDEAS.md`)
-6. **Community trust visibility** (ADR-040 open question)
+- ✅ Migration 024 (`reputation.badges`) — applied
+- ✅ Migration 025 (`communities.community_links`) — applied
+- ⚠️ Migration 026 (`calculate_community_layer` function) — **NOT yet applied** (CI deploying now; apply after deploy succeeds)
 
 ---
 
 ## Quick Start for Next Session
 
 1. Read this handoff
-2. Verify: `npm run test:tdd` → 30 tests should pass
-3. Commit Sprint 15: use the `git add` + `git commit` command above
-4. Push + deploy: `git push origin master`
-5. SSH to demo server, run migrations 024 + 025
-6. Begin Sprint 16 with Karma vs Trust design session
+2. Check deploy: `gh run list --limit 3` → CI for `ec5e586` should be green
+3. Apply migration 026 on demo DB (if not already done):
+   ```bash
+   ssh ubuntu@karmyq.com "docker exec karmyq-postgres psql -U karmyq_prod -d karmyq_prod -f /dev/stdin" < infrastructure/postgres/migrations/026-cohort-layers.sql
+   ```
+4. Verify karma accruing:
+   ```bash
+   ssh ubuntu@karmyq.com "docker exec karmyq-postgres psql -U karmyq_prod -d karmyq_prod -c 'SELECT COUNT(*) FROM reputation.karma_records;'"
+   ```
+5. Begin next Sprint 17 item (see candidates below)
 
 ---
 
-## Key Files for Sprint 16
+## Sprint 17 Remaining Candidates
 
-| Task | Files |
+### Design decisions needed first
+1. **ADR-040 open questions** — Community trust score visibility: public or admin-only? Should scores appear in community discovery? Should communities with < N members be excluded? No code until these are answered.
+
+2. **Governance layer design** — Inner circle as moderators, active community as norm proposers (ADR-017 future). Design the rules before coding.
+
+### Ready to code
+3. **Simulation: add `registerAsProvider` workflow** — No simulation coverage for provider registration. Add a workflow that: logs in as a persona, calls `POST /requests/providers` with `service_type` and `display_name`, stores the provider profile ID on the session. Wire it into the simulation scheduler for a subset of personas.
+
+4. **Community discovery with trust/layer data** — Show cohort layer distribution and activity in the communities list (`/communities`). Helps prospective members evaluate communities before joining.
+
+5. **Provider leaderboard / trust score page** — `services/reputation-service/src/routes/reputation.ts` has endpoints but no dedicated frontend page for browsing top providers by trust score.
+
+---
+
+## Key Files Reference
+
+| Area | Files |
 |------|-------|
-| Wire CommunityLinks UI | `apps/frontend/src/app/(dashboard)/` — find community admin/settings page |
-| Phase 2 badges | `services/reputation-service/src/services/badgeService.ts` |
-| Community links API | `services/community-service/src/routes/links.ts` |
-| Karma/Trust docs | `docs/adr/ADR-043-three-score-model.md`, `docs/IDEAS.md` |
+| Karma page (personal + leaderboard) | `apps/frontend/src/pages/reputation/karma.tsx` |
+| Community admin page | `apps/frontend/src/pages/communities/[id].tsx` |
+| Cohort layer function | `infrastructure/postgres/migrations/026-cohort-layers.sql` |
+| init.sql (now includes layer function) | `infrastructure/postgres/init.sql` (last 34 lines) |
+| Members API | `services/community-service/src/routes/members.ts` |
+| Reputation leaderboard endpoint | `services/reputation-service/src/routes/reputation.ts:134` |
+| Simulation workflows | `services/simulation-service/src/workflows/` |
+
+---
+
+## Persistent Context (carry forward always)
+
+- **Migration runner**: `deploy.sh` does NOT auto-run migrations. Apply manually via `docker exec karmyq-postgres psql ... -f /dev/stdin < migration.sql`
+- **Landing page docs are gitignored** — generated by `scripts/generate-docs.ts` at build time. Edit source markdown in `docs/`, update `generate-docs.ts` for new nav entries.
+- **`generate-docs.ts` has hardcoded nav arrays** — `whyKarmyq`, `howItWorks`, `ADR_GROUPS`, `GUIDE_ORDER`. New concepts/ADRs must be added to the right array or they won't appear in the sidebar.
+- **Community page is the admin page** — `/communities/[id]/admin` → redirects to `/communities/[id]`. Admin tabs are role-gated.
+- **init.sql must stay in sync with migrations** — whenever a migration adds a function/schema change needed by integration tests, it must also be added to `init.sql`.
