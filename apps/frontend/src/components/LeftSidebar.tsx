@@ -136,6 +136,14 @@ export default function LeftSidebar({ user, communities, activeCommunityId, karm
             <span className="text-xl font-bold text-text">{karmaData?.total_karma || 0}</span>
           </button>
 
+          <button
+            onClick={() => router.push('/reputation/providers')}
+            className="flex items-center justify-between w-full hover:bg-surface rounded-lg p-2 -mx-2 transition-colors"
+          >
+            <span className="text-sm text-text-muted">Top Providers</span>
+            <span className="text-sm text-primary">→</span>
+          </button>
+
           {karmaData?.rank && (
             <div className="flex items-center justify-between px-2">
               <span className="text-sm text-text-muted">Community Rank</span>

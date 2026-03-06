@@ -1,6 +1,6 @@
 # ADR-040: Community Trust Score
 
-**Status**: Implemented
+**Status**: Accepted
 **Date**: 2026-02-27
 **Author**: Karmyq Core Team
 
@@ -121,9 +121,23 @@ Returns:
 
 ---
 
+## Visibility Decision (Resolved — Sprint 17)
+
+Trust scores are **public signals** — visible to anyone who interacts with a user or community.
+
+**Shown publicly:**
+- Provider profile pages: trust score visible to anyone browsing providers
+- Match context: both requester and helper see each other's trust score on match cards
+- Community admin views: admins see member trust scores
+- Community discovery: community trust score shown on community cards (helps prospective members evaluate communities)
+
+**Not shown:**
+- General member directory (avoids stigmatizing new or low-activity members)
+- Feed items (keeps the feed reputation-neutral)
+
+**Rationale:** Mutual aid depends on informed consent. When someone accepts help from a stranger, they deserve signal about that person's track record. This mirrors how trust works in real-world community networks — reputation is inherently social and visible.
+
 ## Open Questions (Phase 3)
 
-1. **Score visibility**: Should community trust scores be public (visible to non-members) or private (admin only)?
-2. **Minimum activity floor**: Should communities with fewer than N active members (e.g. 3) be excluded from scoring?
-3. **Score surfacing**: Display community trust in community search/discovery so prospective members can compare communities
-4. **Trust decay for communities**: Should inactive communities see their score decay over time (similar to individual trust)?
+1. **Minimum activity floor**: Should communities with fewer than N active members (e.g. 3) be excluded from scoring? (Deferred — not blocking provider leaderboard)
+2. **Trust decay for communities**: Should inactive communities see their score decay over time (similar to individual trust)? (Deferred)
