@@ -1,6 +1,6 @@
 # ADR-040: Community Trust Score
 
-**Status**: Accepted
+**Status**: Implemented
 **Date**: 2026-02-27
 **Author**: Karmyq Core Team
 
