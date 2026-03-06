@@ -582,3 +582,50 @@ export function generateRandomRequest(): GeneratedRequest {
     };
   }
 }
+
+// ---------------------------------------------------------------------------
+// Provider templates
+// ---------------------------------------------------------------------------
+
+export interface ProviderTemplate {
+  service_type: string;
+  display_name_template: string; // {name} replaced with persona's first name
+  bio: string;
+  pricing_notes?: string;
+  location_notes?: string;
+}
+
+export const PROVIDER_TEMPLATES: ProviderTemplate[] = [
+  // Rides
+  { service_type: 'ride', display_name_template: 'Rides with {name}', bio: 'Happy to offer rides around the neighborhood. Just ask!', location_notes: 'Available within 5 miles' },
+  { service_type: 'ride', display_name_template: '{name} – Rideshare', bio: 'I drive a reliable car and love helping neighbors get around.', pricing_notes: 'Gas contributions welcome' },
+  { service_type: 'ride', display_name_template: '{name} Driver', bio: 'Available evenings and weekends for local trips.' },
+  // Skills / Handyperson
+  { service_type: 'skill', display_name_template: '{name} – Skills & Help', bio: 'Handy with tools and minor repairs. Happy to help neighbors.' },
+  { service_type: 'skill', display_name_template: '{name} Handyperson', bio: 'Years of DIY experience — reach out for home fixes, gardening, or IT help.' },
+  { service_type: 'skill', display_name_template: '{name} Repair & More', bio: 'I enjoy sharing skills with my community.', pricing_notes: 'Skill-share or small donation appreciated' },
+  // Errands
+  { service_type: 'errand', display_name_template: '{name} Errands', bio: 'I run errands regularly and can pick things up for neighbors.' },
+  { service_type: 'errand', display_name_template: '{name} – Errands & Delivery', bio: 'Going to the store anyway — happy to grab what you need.' },
+  { service_type: 'errand', display_name_template: 'Errands by {name}', bio: 'Available most weekday mornings for errands.', location_notes: 'Local neighborhood only' },
+  // Care
+  { service_type: 'care', display_name_template: '{name} – Care & Support', bio: 'Experienced with elder care and childcare. Here to support neighbors.' },
+  { service_type: 'care', display_name_template: '{name} Caregiver', bio: 'I offer friendly check-ins and companionship.' },
+  { service_type: 'care', display_name_template: 'Care by {name}', bio: 'Happy to help with care tasks for those who need it.' },
+  // Other
+  { service_type: 'other', display_name_template: '{name} – General Help', bio: 'General helping hand in the community.' },
+  { service_type: 'other', display_name_template: '{name} Community Helper', bio: 'Whatever you need, reach out and I will do my best.' },
+  { service_type: 'other', display_name_template: 'Help by {name}', bio: 'Love being part of a mutual aid network.' },
+];
+
+export function pickProvider(firstName: string, excludeServiceTypes: string[] = []): { service_type: string; display_name: string; bio: string; pricing_notes?: string; location_notes?: string } {
+  const available = PROVIDER_TEMPLATES.filter(t => !excludeServiceTypes.includes(t.service_type));
+  const template = pickRandom(available.length > 0 ? available : PROVIDER_TEMPLATES);
+  return {
+    service_type: template.service_type,
+    display_name: template.display_name_template.replace('{name}', firstName),
+    bio: template.bio,
+    ...(template.pricing_notes ? { pricing_notes: template.pricing_notes } : {}),
+    ...(template.location_notes ? { location_notes: template.location_notes } : {}),
+  };
+}

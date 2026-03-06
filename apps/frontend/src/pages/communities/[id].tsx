@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/router'
 import Head from 'next/head'
 import Link from 'next/link'
-import { communityService, collectiveService } from '@/lib/api'
+import { communityService, collectiveService, requestService } from '@/lib/api'
 import Layout from '@/components/Layout'
 import CommunityConfigEditor from '@/components/CommunityConfigEditor'
 import { CommunityConfig } from '@/types/community-config'
@@ -64,7 +64,7 @@ export default function CommunityDetailPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [currentUser, setCurrentUser] = useState<any>(null)
-  const [activeTab, setActiveTab] = useState<'overview' | 'members' | 'norms' | 'config' | 'manage' | 'pending' | 'settings' | 'stats' | 'export' | 'providers' | 'links'>('overview')
+  const [activeTab, setActiveTab] = useState<'overview' | 'members' | 'norms' | 'config' | 'manage' | 'pending' | 'settings' | 'stats' | 'export' | 'providers' | 'links' | 'requests'>('overview')
   const [communityCollectives, setCommunityCollectives] = useState<any[]>([])
   const [providerConfig, setProviderConfig] = useState({ provider_services_enabled: false, provider_min_personal_trust_score: 0, provider_services_list: [] as string[] })
   const [savingProviderConfig, setSavingProviderConfig] = useState(false)
@@ -77,6 +77,9 @@ export default function CommunityDetailPage() {
   const [stats, setStats] = useState<any>(null)
   const [loadingStats, setLoadingStats] = useState(false)
   const [exporting, setExporting] = useState(false)
+  const [communityRequests, setCommunityRequests] = useState<any[]>([])
+  const [loadingRequests, setLoadingRequests] = useState(false)
+  const [requestStatusFilter, setRequestStatusFilter] = useState<string>('open')
   const [newNorm, setNewNorm] = useState({ description: '', rationale: '' })
   const [showNormForm, setShowNormForm] = useState(false)
   const [showInviteModal, setShowInviteModal] = useState(false)
@@ -167,6 +170,21 @@ export default function CommunityDetailPage() {
       console.error('Failed to load statistics:', err)
     } finally {
       setLoadingStats(false)
+    }
+  }
+
+  const fetchCommunityRequests = async (status?: string) => {
+    if (!id) return
+    try {
+      setLoadingRequests(true)
+      const response = await requestService.getRequests({ community_id: id as string, status: status || requestStatusFilter || undefined, limit: 50 })
+      const data = response.data?.data ?? response.data ?? []
+      setCommunityRequests(Array.isArray(data) ? data : [])
+    } catch (err: any) {
+      console.error('Failed to load community requests:', err)
+      setCommunityRequests([])
+    } finally {
+      setLoadingRequests(false)
     }
   }
 
@@ -548,6 +566,12 @@ export default function CommunityDetailPage() {
                       className={`px-6 py-4 font-medium ${activeTab === 'links' ? 'border-b-2 border-primary text-primary' : 'text-text-muted hover:text-text'}`}
                     >
                       Linked Communities
+                    </button>
+                    <button
+                      onClick={() => { setActiveTab('requests'); fetchCommunityRequests() }}
+                      className={`px-6 py-4 font-medium ${activeTab === 'requests' ? 'border-b-2 border-primary text-primary' : 'text-text-muted hover:text-text'}`}
+                    >
+                      Requests
                     </button>
                   </>
                 )}
@@ -1184,6 +1208,74 @@ export default function CommunityDetailPage() {
               {activeTab === 'links' && isAdmin && community && (
                 <div>
                   <CommunityLinks communityId={community.id} isAdmin={isAdmin} />
+                </div>
+              )}
+
+              {/* Admin: Requests Tab */}
+              {activeTab === 'requests' && isAdmin && (
+                <div>
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-xl font-semibold">Community Requests</h3>
+                    <div className="flex gap-2">
+                      {(['open', 'pending', 'matched', 'completed'] as const).map(s => (
+                        <button
+                          key={s}
+                          onClick={() => { setRequestStatusFilter(s); fetchCommunityRequests(s) }}
+                          className={`px-3 py-1.5 rounded-full text-sm font-medium border transition ${
+                            requestStatusFilter === s
+                              ? 'bg-primary text-white border-primary'
+                              : 'bg-surface text-text-muted border-border hover:border-primary'
+                          }`}
+                        >
+                          {s.charAt(0).toUpperCase() + s.slice(1)}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  {loadingRequests ? (
+                    <div className="text-center py-8 text-text-muted text-sm">Loading requests...</div>
+                  ) : communityRequests.length === 0 ? (
+                    <div className="text-center py-8 text-text-muted text-sm">No {requestStatusFilter} requests found.</div>
+                  ) : (
+                    <div className="space-y-3">
+                      {communityRequests.map((req: any) => (
+                        <div key={req.id} className="flex items-start justify-between gap-4 p-4 bg-surface rounded-lg border border-border hover:border-primary-medium transition">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <Link href={`/requests/${req.id}`} className="font-medium text-text hover:text-primary truncate">
+                                {req.title}
+                              </Link>
+                              <span className={`flex-shrink-0 text-xs px-2 py-0.5 rounded-full ${
+                                req.urgency === 'critical' ? 'bg-red-100 text-red-700' :
+                                req.urgency === 'high' ? 'bg-orange-100 text-orange-700' :
+                                req.urgency === 'medium' ? 'bg-yellow-100 text-yellow-700' :
+                                'bg-gray-100 text-gray-600'
+                              }`}>
+                                {req.urgency}
+                              </span>
+                            </div>
+                            {req.description && (
+                              <p className="text-sm text-text-muted line-clamp-1">{req.description}</p>
+                            )}
+                            <p className="text-xs text-text-subtle mt-1">by {req.requester_name}</p>
+                          </div>
+                          <div className="flex-shrink-0 text-right">
+                            <span className={`text-xs px-2 py-1 rounded font-medium ${
+                              req.status === 'open' ? 'bg-green-100 text-green-700' :
+                              req.status === 'matched' ? 'bg-blue-100 text-blue-700' :
+                              req.status === 'completed' ? 'bg-gray-100 text-gray-600' :
+                              'bg-yellow-100 text-yellow-700'
+                            }`}>
+                              {req.status}
+                            </span>
+                            <p className="text-xs text-text-subtle mt-1">
+                              {new Date(req.created_at).toLocaleDateString()}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
             </div>

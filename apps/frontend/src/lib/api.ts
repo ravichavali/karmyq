@@ -630,6 +630,9 @@ export const reputationService = {
   getOverallTrustScore: (userId: string) =>
     reputationApi.get(`/reputation/trust/${userId}`),
 
+  // Get community trust score (ADR-040)
+  getCommunityTrust: (communityId: string) =>
+    reputationApi.get(`/reputation/community-trust/${communityId}`),
   // Get leaderboard
   getLeaderboard: (communityId: string, params?: { limit?: number }) =>
     reputationApi.get(`/reputation/leaderboard/${communityId}`, {

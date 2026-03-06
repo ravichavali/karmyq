@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/router'
 import Head from 'next/head'
 import Link from 'next/link'
-import { communityService } from '@/lib/api'
+import { communityService, reputationService } from '@/lib/api'
 import Layout from '@/components/Layout'
 
 interface Community {
@@ -25,6 +25,10 @@ interface MembershipStatus {
   [communityId: string]: 'active' | 'pending' | null
 }
 
+interface TrustScores {
+  [communityId: string]: number | null
+}
+
 const CATEGORIES = [
   'Neighborhood',
   'Professional',
@@ -43,6 +47,7 @@ export default function CommunitiesPage() {
   const [user, setUser] = useState<any>(null)
   const [communities, setCommunities] = useState<Community[]>([])
   const [membershipStatus, setMembershipStatus] = useState<MembershipStatus>({})
+  const [trustScores, setTrustScores] = useState<TrustScores>({})
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
   const [hasMore, setHasMore] = useState(true)
@@ -112,6 +117,9 @@ export default function CommunitiesPage() {
         const allCommunities = loadMore ? [...communities, ...newCommunities] : newCommunities
         buildMembershipStatusFromToken(user, allCommunities)
       }
+
+      // Fetch trust scores for all loaded communities in parallel
+      fetchTrustScores(newCommunities.map((c: Community) => c.id))
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to load communities')
     } finally {
@@ -135,6 +143,18 @@ export default function CommunitiesPage() {
     }
 
     setMembershipStatus(statusMap)
+  }
+
+  const fetchTrustScores = async (communityIds: string[]) => {
+    const results = await Promise.allSettled(
+      communityIds.map(id => reputationService.getCommunityTrust(id))
+    )
+    const scores: TrustScores = {}
+    communityIds.forEach((id, i) => {
+      const result = results[i]
+      scores[id] = result.status === 'fulfilled' ? (result.value.data?.data?.score ?? null) : null
+    })
+    setTrustScores(prev => ({ ...prev, ...scores }))
   }
 
   const handleJoinCommunity = async (communityId: string, accessType: 'public' | 'private') => {
@@ -401,9 +421,9 @@ export default function CommunitiesPage() {
                           ></div>
                         </div>
 
-                        {/* Activity layer distribution */}
+                        {/* Activity layer distribution + trust score */}
                         {community.current_members > 0 && (
-                          <div className="flex gap-2 mb-4 text-xs">
+                          <div className="flex flex-wrap gap-2 mb-4 text-xs items-center">
                             {community.inner_circle_count > 0 && (
                               <span className="px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 font-medium">
                                 {community.inner_circle_count} core
@@ -417,6 +437,11 @@ export default function CommunitiesPage() {
                             {community.extended_network_count > 0 && (
                               <span className="px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">
                                 {community.extended_network_count} extended
+                              </span>
+                            )}
+                            {trustScores[community.id] != null && (
+                              <span className="ml-auto px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 font-medium">
+                                ★ {trustScores[community.id]}% trust
                               </span>
                             )}
                           </div>
