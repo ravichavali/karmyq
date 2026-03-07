@@ -13,7 +13,7 @@ const { requestService } = require('../../src/lib/api')
 
 const baseConfig = {
   member_cap: 50,
-  visibility_mode: 'public',
+  visibility_mode: 'public' as const,
   outsider_response_allowed: false,
   enabled_request_types: [{ name: 'generic', description: 'General help', karma_multiplier: 1.0 }],
   karma_split_helper: 70,

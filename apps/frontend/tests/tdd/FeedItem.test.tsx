@@ -115,6 +115,7 @@ describe('FeedItem', () => {
       data: {
         request_id: 'req-1',
         requester_id: 'user-123',
+        community_id: 'comm-1',
         title: 'Need help moving furniture',
         description: 'Looking for someone with a truck to help move a couch',
         urgency: 'high',
