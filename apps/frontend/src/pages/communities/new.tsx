@@ -5,7 +5,9 @@ import Link from 'next/link'
 import { communityService } from '@/lib/api'
 import Layout from '@/components/Layout'
 import CommunityConfigEditor from '@/components/CommunityConfigEditor'
+import CommunityTrustQuestionnaire from '@/components/CommunityTrustQuestionnaire'
 import { CommunityConfig, ConfigTemplate } from '@/types/community-config'
+import { answersToConfig, QuestionnaireAnswers } from '@/lib/trust-model'
 
 const CATEGORIES = [
   'Neighborhood',
@@ -20,7 +22,7 @@ const CATEGORIES = [
   'Other'
 ]
 
-type Step = 'basic' | 'config' | 'review'
+type Step = 'basic' | 'questionnaire' | 'config' | 'review'
 
 export default function NewCommunityPage() {
   const router = useRouter()
@@ -230,11 +232,18 @@ export default function NewCommunityPage() {
                   <span className="ml-2 font-medium">Basic Info</span>
                 </div>
                 <div className="w-12 h-0.5 bg-gray-300"></div>
-                <div className={`flex items-center ${step === 'config' ? 'text-primary' : 'text-text-subtle'}`}>
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center font-semibold ${step === 'config' ? 'bg-primary text-white' : 'bg-gray-200'}`}>
+                <div className={`flex items-center ${step === 'questionnaire' ? 'text-primary' : 'text-text-subtle'}`}>
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center font-semibold ${step === 'questionnaire' ? 'bg-primary text-white' : 'bg-gray-200'}`}>
                     2
                   </div>
-                  <span className="ml-2 font-medium">Configuration</span>
+                  <span className="ml-2 font-medium">Trust Model</span>
+                </div>
+                <div className="w-12 h-0.5 bg-gray-300"></div>
+                <div className={`flex items-center ${step === 'config' ? 'text-primary' : 'text-text-subtle'}`}>
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center font-semibold ${step === 'config' ? 'bg-primary text-white' : 'bg-gray-200'}`}>
+                    3
+                  </div>
+                  <span className="ml-2 font-medium">Review & Customize</span>
                 </div>
               </div>
             </div>
@@ -272,8 +281,8 @@ export default function NewCommunityPage() {
               {step === 'basic' && (
                 <form onSubmit={(e) => {
                   e.preventDefault()
-                  // Always go to config step to allow customization
-                  setStep('config')
+                  // Templates already have values set — skip to config. Otherwise, show questionnaire.
+                  setStep(selectedTemplate ? 'config' : 'questionnaire')
                 }} className="space-y-6">
                   {!selectedTemplate && (
                     <div className="bg-surface border border-border rounded-lg p-4 mb-6">
@@ -410,14 +419,27 @@ export default function NewCommunityPage() {
                 </form>
               )}
 
-              {/* Step 2: Configuration */}
+              {/* Step 2: Questionnaire */}
+              {step === 'questionnaire' && (
+                <CommunityTrustQuestionnaire
+                  mode="create"
+                  onComplete={(answers: QuestionnaireAnswers) => {
+                    const inferred = answersToConfig(answers)
+                    setCustomConfig(prev => prev ? { ...prev, ...inferred } : null)
+                    setStep('config')
+                  }}
+                  onBack={() => setStep('basic')}
+                />
+              )}
+
+              {/* Step 3: Configuration */}
               {step === 'config' && customConfig && (
                 <div className="space-y-6">
                   <div>
-                    <h2 className="text-xl font-bold text-text mb-2">Customize Configuration</h2>
+                    <h2 className="text-xl font-bold text-text mb-2">Review & Customize (Optional)</h2>
                     <p className="text-text-muted mb-4">
-                      Review and customize your community's configuration. These settings define how karma,
-                      trust, and coordination work in your community.
+                      Your trust model has been pre-configured from your answers. You can fine-tune below
+                      or skip straight to creating your community.
                     </p>
                   </div>
 
@@ -429,10 +451,17 @@ export default function NewCommunityPage() {
 
                   <div className="flex gap-4 pt-4 border-t">
                     <button
-                      onClick={() => setStep('basic')}
+                      onClick={() => setStep(selectedTemplate ? 'basic' : 'questionnaire')}
                       className="px-6 py-3 bg-gray-200 text-text-muted rounded hover:bg-gray-300 font-semibold"
                     >
                       ← Back
+                    </button>
+                    <button
+                      onClick={() => handleSubmit()}
+                      disabled={loading}
+                      className="px-6 py-3 bg-gray-200 text-text-muted rounded hover:bg-gray-300 font-semibold"
+                    >
+                      Skip & Create
                     </button>
                     <button
                       onClick={() => handleSubmit()}

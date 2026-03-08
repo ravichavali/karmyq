@@ -5,7 +5,10 @@ import Link from 'next/link'
 import { communityService, collectiveService, requestService } from '@/lib/api'
 import Layout from '@/components/Layout'
 import CommunityConfigEditor from '@/components/CommunityConfigEditor'
+import CommunityTrustQuestionnaire from '@/components/CommunityTrustQuestionnaire'
+import TrustModelDiff from '@/components/TrustModelDiff'
 import { CommunityConfig } from '@/types/community-config'
+import { answersToConfig, QuestionnaireAnswers } from '@/lib/trust-model'
 import { REQUEST_TYPES } from '@/components/requests/RequestTypeSelector'
 import CommunityLinks from '@/components/community/CommunityLinks'
 
@@ -79,6 +82,9 @@ export default function CommunityDetailPage() {
   const [exporting, setExporting] = useState(false)
   const [communityRequests, setCommunityRequests] = useState<any[]>([])
   const [loadingRequests, setLoadingRequests] = useState(false)
+  const [showQuestionnaire, setShowQuestionnaire] = useState(false)
+  const [showDiff, setShowDiff] = useState(false)
+  const [proposedConfig, setProposedConfig] = useState<Partial<CommunityConfig> | null>(null)
   const [requestStatusFilter, setRequestStatusFilter] = useState<string>('open')
   const [newNorm, setNewNorm] = useState({ description: '', rationale: '' })
   const [showNormForm, setShowNormForm] = useState(false)
@@ -929,6 +935,67 @@ export default function CommunityDetailPage() {
                       ? 'Configure trust, karma, and coordination mechanics for your community.'
                       : 'View the configuration that defines how trust, karma, and coordination work in this community.'}
                   </p>
+
+                  {/* Founder: Revisit trust model banner */}
+                  {community.creator_id === currentUser?.id && !showQuestionnaire && !showDiff && (
+                    <div className="mb-6 flex items-center justify-between rounded-lg border border-border bg-surface p-4">
+                      <div>
+                        <p className="font-medium text-text text-sm">Revisit your trust model</p>
+                        <p className="text-xs text-text-muted mt-0.5">
+                          Answer 6 questions and see what the system would propose based on how your community has evolved.
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => { setShowQuestionnaire(true); setShowDiff(false); setProposedConfig(null) }}
+                        className="ml-4 flex-shrink-0 px-4 py-2 text-sm bg-primary text-white rounded hover:bg-primary-dark font-medium"
+                      >
+                        Revisit
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Inline questionnaire */}
+                  {community.creator_id === currentUser?.id && showQuestionnaire && (
+                    <div className="mb-6 rounded-lg border border-border bg-surface p-6">
+                      <CommunityTrustQuestionnaire
+                        mode="revisit"
+                        onComplete={(answers: QuestionnaireAnswers) => {
+                          const inferred = answersToConfig(answers)
+                          setProposedConfig(inferred)
+                          setShowQuestionnaire(false)
+                          setShowDiff(true)
+                        }}
+                        onBack={() => setShowQuestionnaire(false)}
+                      />
+                    </div>
+                  )}
+
+                  {/* Diff view */}
+                  {community.creator_id === currentUser?.id && showDiff && proposedConfig && editedConfig && (
+                    <div className="mb-6">
+                      <TrustModelDiff
+                        current={editedConfig}
+                        proposed={proposedConfig}
+                        onApplyAll={() => {
+                          setEditedConfig(prev => prev ? { ...prev, ...proposedConfig } : prev)
+                          setShowDiff(false)
+                          setProposedConfig(null)
+                        }}
+                        onApplySelective={(fields) => {
+                          setEditedConfig(prev => {
+                            if (!prev || !proposedConfig) return prev
+                            const patch: Partial<CommunityConfig> = {}
+                            fields.forEach(f => { (patch as any)[f] = (proposedConfig as any)[f] })
+                            return { ...prev, ...patch }
+                          })
+                          setShowDiff(false)
+                          setProposedConfig(null)
+                        }}
+                        onDiscard={() => { setShowDiff(false); setProposedConfig(null) }}
+                      />
+                    </div>
+                  )}
+
                   {community.creator_id === currentUser?.id && editedConfig ? (
                     <>
                       <CommunityConfigEditor
