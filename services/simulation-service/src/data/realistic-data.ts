@@ -45,22 +45,10 @@ export const COMMUNITIES = [
     category: 'neighborhood'
   },
   {
-    name: 'NoPo Community Care',
-    description: 'North Portland community supporting each other through rides, meals, and more.',
-    location: 'N Portland, OR',
-    category: 'neighborhood'
-  },
-  {
     name: 'PDX Parents Co-op',
     description: 'Portland parents sharing childcare, school pickups, and family resources.',
     location: 'Portland, OR',
     category: 'family'
-  },
-  {
-    name: 'Beaverton Neighbors United',
-    description: 'Connecting Beaverton residents for mutual support and community building.',
-    location: 'Beaverton, OR',
-    category: 'neighborhood'
   },
   {
     name: 'Portland Tool Library & Share',
@@ -69,16 +57,10 @@ export const COMMUNITIES = [
     category: 'sharing'
   },
   {
-    name: 'Tigard-Tualatin Helpers',
-    description: 'Community support network for the Tigard and Tualatin areas.',
-    location: 'Tigard, OR',
-    category: 'neighborhood'
-  },
-  {
-    name: 'PDX Green Volunteers',
-    description: 'Environmental volunteers coordinating cleanups, tree planting, and sustainability projects.',
+    name: 'PDX Service Providers Network',
+    description: 'Portland-area skilled helpers offering rides, repairs, tutoring, and care services to the community.',
     location: 'Portland, OR',
-    category: 'environment'
+    category: 'professional'
   }
 ];
 
@@ -600,18 +582,16 @@ export const PROVIDER_TEMPLATES: ProviderTemplate[] = [
   { service_type: 'ride', display_name_template: 'Rides with {name}', bio: 'Happy to offer rides around the neighborhood. Just ask!', location_notes: 'Available within 5 miles' },
   { service_type: 'ride', display_name_template: '{name} – Rideshare', bio: 'I drive a reliable car and love helping neighbors get around.', pricing_notes: 'Gas contributions welcome' },
   { service_type: 'ride', display_name_template: '{name} Driver', bio: 'Available evenings and weekends for local trips.' },
-  // Skills / Handyperson
-  { service_type: 'skill', display_name_template: '{name} – Skills & Help', bio: 'Handy with tools and minor repairs. Happy to help neighbors.' },
-  { service_type: 'skill', display_name_template: '{name} Handyperson', bio: 'Years of DIY experience — reach out for home fixes, gardening, or IT help.' },
-  { service_type: 'skill', display_name_template: '{name} Repair & More', bio: 'I enjoy sharing skills with my community.', pricing_notes: 'Skill-share or small donation appreciated' },
-  // Errands
-  { service_type: 'errand', display_name_template: '{name} Errands', bio: 'I run errands regularly and can pick things up for neighbors.' },
-  { service_type: 'errand', display_name_template: '{name} – Errands & Delivery', bio: 'Going to the store anyway — happy to grab what you need.' },
-  { service_type: 'errand', display_name_template: 'Errands by {name}', bio: 'Available most weekday mornings for errands.', location_notes: 'Local neighborhood only' },
-  // Care
-  { service_type: 'care', display_name_template: '{name} – Care & Support', bio: 'Experienced with elder care and childcare. Here to support neighbors.' },
-  { service_type: 'care', display_name_template: '{name} Caregiver', bio: 'I offer friendly check-ins and companionship.' },
-  { service_type: 'care', display_name_template: 'Care by {name}', bio: 'Happy to help with care tasks for those who need it.' },
+  // Tradesperson / Handyperson
+  { service_type: 'tradesperson', display_name_template: '{name} – Repairs & Help', bio: 'Handy with tools and minor repairs. Happy to help neighbors.' },
+  { service_type: 'tradesperson', display_name_template: '{name} Handyperson', bio: 'Years of DIY experience — reach out for home fixes, plumbing, or carpentry.' },
+  { service_type: 'tradesperson', display_name_template: '{name} Fix-It', bio: 'I enjoy sharing skills with my community.', pricing_notes: 'Skill-share or small donation appreciated' },
+  { service_type: 'tradesperson', display_name_template: 'Errands & Tasks by {name}', bio: 'I run errands regularly and can handle odd jobs for neighbors.' },
+  { service_type: 'tradesperson', display_name_template: '{name} – Errands & Delivery', bio: 'Going to the store anyway — happy to grab what you need.' },
+  // Tutor / Care
+  { service_type: 'tutor', display_name_template: '{name} – Tutoring & Support', bio: 'Experienced tutor in math, tech, and everyday skills. Happy to help.' },
+  { service_type: 'tutor', display_name_template: '{name} Tutor', bio: 'I offer friendly study sessions and skill-building for all ages.' },
+  { service_type: 'tutor', display_name_template: 'Learning with {name}', bio: 'Let\'s learn together — elder care, childcare, or academic support.', location_notes: 'Available remotely or in-person' },
   // Other
   { service_type: 'other', display_name_template: '{name} – General Help', bio: 'General helping hand in the community.' },
   { service_type: 'other', display_name_template: '{name} Community Helper', bio: 'Whatever you need, reach out and I will do my best.' },

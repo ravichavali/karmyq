@@ -6,7 +6,7 @@
  */
 
 import { Workflow } from '../types';
-import { delay } from '../utils';
+import { delay, pickRandom, randomInt } from '../utils';
 import { pickProvider } from '../data/realistic-data';
 
 export const registerAsProviderWorkflow: Workflow = async (context) => {
@@ -26,7 +26,7 @@ export const registerAsProviderWorkflow: Workflow = async (context) => {
 
     const existingTypes = (existing || []).map((p: any) => p.service_type as string);
 
-    const SERVICE_TYPES = ['ride', 'skill', 'errand', 'care', 'other'];
+    const SERVICE_TYPES = ['ride', 'tradesperson', 'tutor', 'other'];
     if (existingTypes.length >= SERVICE_TYPES.length) {
       console.log(`[${session.user.email}] Already registered for all service types`);
       return;
@@ -36,13 +36,23 @@ export const registerAsProviderWorkflow: Workflow = async (context) => {
 
     const { service_type: serviceType, display_name: displayName, bio, pricing_notes, location_notes } = provider;
 
+    // Build registration payload; ride providers include vehicle details
+    const registrationPayload: Record<string, any> = { service_type: serviceType, display_name: displayName, bio, pricing_notes, location_notes };
+    if (serviceType === 'ride') {
+      registrationPayload.ride_details = {
+        vehicle_type: pickRandom(['sedan', 'suv', 'minivan']),
+        max_passengers: randomInt(2, 5),
+        advance_booking_required: Math.random() > 0.5,
+      };
+    }
+
     // Simulate time to fill in the registration form
     await delay({ min: 10, max: 30, unit: 'seconds' });
 
     const profile = await sessionManager.executeAction(
       session,
       'registerAsProvider',
-      () => client.registerProvider({ service_type: serviceType, display_name: displayName, bio, pricing_notes, location_notes })
+      () => client.registerProvider(registrationPayload)
     );
 
     if (profile) {

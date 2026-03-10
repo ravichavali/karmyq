@@ -39,3 +39,33 @@ Provider templates: `simulation/workflows/data.ts` has rich request templates (`
 Karma vs trust consistency: karma (reputation-service) and trust scores (social-graph-service) are two separate systems — separate APIs, separate score fields, no defined relationship. Need a design session: what's the conceptual difference? Does karma feed into trust? Should there be one unified "standing" concept? Affects ADR-011 (reputation decay), ADR-040 (community trust), platform-overview framing, and any future provider trust scoring.
 
 ---
+
+## [2026-03-06] ux
+
+Admin/moderator view of pending requests: admins should be able to browse all open/pending requests in their community so they can proactively identify needs and make connections between requesters and potential helpers. Useful for high-touch communities where admins play an active matchmaking role.
+
+---
+
+## [2026-03-06] architecture
+
+Trust model evolution: Instead of abstract config numbers, express community trust model as answers to questions (e.g. "How do you feel about new members?" → infers karma_decay, trust_path_hops, visibility_mode). Admins can accept/reject system-proposed config evolutions over time as the community's actual behavior diverges from initial answers. Low-trust communities trend toward punitive karma (lower splits, deeper not wider trust paths); high-trust communities open up. Two features: (1) onboarding questionnaire that infers initial config params, (2) ongoing evolution proposals the admin can accept/reject based on observed community patterns.
+
+---
+
+## [2026-03-10] simulation
+
+Sprint 20 simulation bugs observed in UI: (1) duplicate offers — same user appearing twice as responder on a single request; (2) no completions — requests stay open, neither side accepts; (3) community/user ratio imbalanced — too many communities relative to users, communities feel empty; (4) offer types — simulation likely not creating typed offers (ride, service, borrow, etc.) to match typed requests. All visible in the request detail view on karmyq.com. Fix before next demo.
+
+---
+
+## [2026-03-10] architecture
+
+Default values for communities and users: need to define sensible initial config when a new community is created (trust model defaults, karma split defaults, member cap defaults) and seed data for trust/karma bootstrapping so new communities don't start empty. Related: what does a user's starting karma/trust look like when they first join?
+
+---
+
+## [2026-03-10] architecture
+
+Individual trust mechanics: user-level trust scores need to be built out as a first-class system, separate from community trust score (ADR-040). Relates to the karma vs trust unification open question — are these one system or two? Needs a design session and possibly a new ADR. Touches ADR-011 (reputation decay), ADR-040 (community trust), and ADR-043 (three-score model).
+
+---

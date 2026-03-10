@@ -11,3 +11,6 @@ export { joinCommunityWorkflow } from './join-community-workflow';
 export { acceptOfferWorkflow } from './accept-offer-workflow';
 export { createCommunityWorkflow } from './create-community-workflow';
 export { registerAsProviderWorkflow } from './register-provider-workflow';
+export { createCollectiveWorkflow } from './create-collective-workflow';
+export { joinCollectiveWorkflow } from './join-collective-workflow';
+export { browseProvidersWorkflow } from './browse-providers-workflow';

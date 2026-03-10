@@ -1,6 +1,6 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react';
-import RequestPayloadRenderer from '../RequestPayloadRenderer';
+import RequestPayloadRenderer from '../../src/components/Feed/RequestPayloadRenderer';
 import {
   TransportationPayload,
   MovingHelpPayload,

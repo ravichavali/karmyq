@@ -17,6 +17,14 @@ export const offerHelpWorkflow: Workflow = async (context) => {
 
   console.log(`[${session.user.email}] Looking for requests to help with...`);
 
+  // Mapping from provider service_type to request_type preferences
+  const PROVIDER_REQUEST_TYPE_MAP: Record<string, string[]> = {
+    ride: ['ride'],
+    tradesperson: ['service'],
+    tutor: ['service'],
+    other: [],
+  };
+
   try {
     // Browse available requests
     const requests = await sessionManager.executeAction(
@@ -30,14 +38,47 @@ export const offerHelpWorkflow: Workflow = async (context) => {
       return;
     }
 
-    // Filter out own requests (can't help yourself)
-    const otherRequests = requests.filter(
-      (r: any) => r.requester_id !== session.user.id && r.status === 'open'
+    // Fetch user's existing matches to avoid duplicate offers
+    const myMatches = await sessionManager.executeAction(
+      session,
+      'getMyMatches',
+      () => client.getMatches()
+    );
+    const alreadyOfferedIds = new Set(
+      (Array.isArray(myMatches) ? myMatches : []).map((m: any) => m.request_id as string)
     );
 
-    if (otherRequests.length === 0) {
-      console.log(`[${session.user.email}] No open requests from other users`);
+    // Filter out own requests, already-offered requests, and closed requests
+    const baseEligible = requests.filter(
+      (r: any) =>
+        r.requester_id !== session.user.id &&
+        r.status === 'open' &&
+        !alreadyOfferedIds.has(r.id)
+    );
+
+    if (baseEligible.length === 0) {
+      console.log(`[${session.user.email}] No eligible requests to offer on`);
       return;
+    }
+
+    // Providers prefer requests matching their service type
+    let otherRequests = baseEligible;
+    const myProfiles = await sessionManager.executeAction(
+      session,
+      'getMyProviderProfilesForOffer',
+      () => client.getMyProviderProfiles()
+    );
+
+    if (myProfiles && myProfiles.length > 0) {
+      const preferredTypes = new Set(
+        myProfiles.flatMap((p: any) => PROVIDER_REQUEST_TYPE_MAP[p.service_type as string] ?? [])
+      );
+      if (preferredTypes.size > 0) {
+        const preferred = baseEligible.filter((r: any) => preferredTypes.has(r.request_type));
+        if (preferred.length > 0) {
+          otherRequests = preferred;
+        }
+      }
     }
 
     // Pick a random request (simulate choosing one that looks interesting)

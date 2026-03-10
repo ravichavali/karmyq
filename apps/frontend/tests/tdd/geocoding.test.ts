@@ -2,8 +2,8 @@
  * Geocoding Service Tests
  */
 
-import { searchAddresses, getCommonLocations } from '../geocoding'
-import { cache } from '../cache'
+import { searchAddresses, getCommonLocations } from '../../src/lib/geocoding'
+import { cache } from '../../src/lib/cache'
 
 // Mock fetch
 global.fetch = jest.fn()
@@ -38,7 +38,7 @@ global.indexedDB = {
 } as any
 
 // Mock geocodingCache module to avoid IndexedDB
-jest.mock('../geocodingCache', () => ({
+jest.mock('../../src/lib/geocodingCache', () => ({
   searchCommonLocations: jest.fn(async () => []),
   getCachedResult: jest.fn(async () => null),
   cacheAPIResult: jest.fn(async () => {}),

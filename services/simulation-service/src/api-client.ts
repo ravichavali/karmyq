@@ -257,4 +257,65 @@ export class ApiClient {
     );
     return response.data.data;
   }
+
+  /**
+   * Request API - Browse providers (public)
+   */
+  async getProviders(serviceType?: string): Promise<any[]> {
+    const params = serviceType ? { service_type: serviceType } : {};
+    const response = await executeWithRetry(() =>
+      this.client.get('/requests/providers', { params })
+    );
+    return response.data.data || [];
+  }
+
+  /**
+   * Request API - Create a provider collective
+   */
+  async createCollective(data: { name: string; service_types: string[]; description?: string; location_notes?: string }): Promise<any> {
+    const response = await executeWithRetry(() =>
+      this.client.post('/requests/collectives', data)
+    );
+    return response.data.data;
+  }
+
+  /**
+   * Request API - List all active collectives
+   */
+  async getCollectives(): Promise<any[]> {
+    const response = await executeWithRetry(() =>
+      this.client.get('/requests/collectives')
+    );
+    return response.data.data || [];
+  }
+
+  /**
+   * Request API - Get collectives the current user belongs to
+   */
+  async getMyCollectives(): Promise<any[]> {
+    const response = await executeWithRetry(() =>
+      this.client.get('/requests/collectives/my')
+    );
+    return response.data.data || [];
+  }
+
+  /**
+   * Request API - Join a collective (self-join using own provider profile)
+   */
+  async joinCollective(collectiveId: string): Promise<any> {
+    const response = await executeWithRetry(() =>
+      this.client.post(`/requests/collectives/${collectiveId}/members`, {})
+    );
+    return response.data.data;
+  }
+
+  /**
+   * Request API - Link a collective to a community
+   */
+  async linkCollectiveToCommunity(collectiveId: string, communityId: string): Promise<any> {
+    const response = await executeWithRetry(() =>
+      this.client.post(`/requests/collectives/${collectiveId}/communities`, { community_id: communityId })
+    );
+    return response.data.data;
+  }
 }

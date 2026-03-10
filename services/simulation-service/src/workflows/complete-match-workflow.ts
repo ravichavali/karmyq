@@ -67,8 +67,8 @@ export const completeMatchWorkflow: Workflow = async (context) => {
     for (const match of completable) {
       if (completed >= maxCompletions) break;
 
-      // 90% chance to complete each match
-      if (Math.random() > 0.9) continue;
+      // 50% chance to complete each match (was 10% — increased to generate completions)
+      if (Math.random() > 0.5) continue;
 
       await delay({ min: 5, max: 15, unit: 'seconds' });
 

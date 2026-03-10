@@ -15,7 +15,10 @@ import {
   joinCommunityWorkflow,
   acceptOfferWorkflow,
   createCommunityWorkflow,
-  registerAsProviderWorkflow
+  registerAsProviderWorkflow,
+  createCollectiveWorkflow,
+  joinCollectiveWorkflow,
+  browseProvidersWorkflow
 } from './workflows';
 import { initPool, closePool, getRandomUser } from './db-user-loader';
 
@@ -256,6 +259,30 @@ export class Simulator {
         weight: actions.registerAsProvider.weight,
         workflow: registerAsProviderWorkflow,
         name: 'registerAsProvider'
+      });
+    }
+
+    if (actions.createCollective) {
+      workflows.push({
+        weight: actions.createCollective.weight,
+        workflow: createCollectiveWorkflow,
+        name: 'createCollective'
+      });
+    }
+
+    if (actions.joinCollective) {
+      workflows.push({
+        weight: actions.joinCollective.weight,
+        workflow: joinCollectiveWorkflow,
+        name: 'joinCollective'
+      });
+    }
+
+    if (actions.browseProviders) {
+      workflows.push({
+        weight: actions.browseProviders.weight,
+        workflow: browseProvidersWorkflow,
+        name: 'browseProviders'
       });
     }
 

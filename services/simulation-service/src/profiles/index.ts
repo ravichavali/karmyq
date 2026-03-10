@@ -15,7 +15,9 @@ export const ACTIVE_HELPER: UserProfile = {
     completeMatches: { weight: 0.5, avgPerSession: 2 },
     acceptOffers: { weight: 0.3, avgPerSession: 1 },  // also requests help sometimes
     createRequests: { weight: 0.1, avgPerSession: 0.3 },
-    registerAsProvider: { weight: 0.05, avgPerSession: 0.1 }  // occasionally registers as provider
+    registerAsProvider: { weight: 0.05, avgPerSession: 0.1 },
+    joinCollective: { weight: 0.05, avgPerSession: 0.05 },
+    browseProviders: { weight: 0.05, avgPerSession: 0.2 }
   },
   sessionDuration: { min: 15, max: 45, unit: 'minutes' },
   responseTime: { min: 5, max: 30, unit: 'minutes' }
@@ -42,6 +44,7 @@ export const BROWSER: UserProfile = {
   actions: {
     browseRequests: { weight: 0.9, avgPerSession: 10 },
     viewProfiles: { weight: 0.4, avgPerSession: 3 },
+    browseProviders: { weight: 0.1, avgPerSession: 0.5 },
     offerHelp: { weight: 0.1, avgPerSession: 0.5 },
     createRequests: { weight: 0.05, avgPerSession: 0.1 }
   },
@@ -55,6 +58,7 @@ export const COMMUNITY_BUILDER: UserProfile = {
   actions: {
     createCommunities: { weight: 0.05, avgPerSession: 0.1 },
     joinCommunity: { weight: 0.3, avgPerSession: 1 },
+    createCollective: { weight: 0.1, avgPerSession: 0.1 },
     createRequests: { weight: 0.5, avgPerSession: 1 },
     offerHelp: { weight: 0.4, avgPerSession: 2 },
     acceptOffers: { weight: 0.4, avgPerSession: 1.5 },
