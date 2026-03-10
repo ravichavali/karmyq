@@ -51,25 +51,51 @@ src/
 
 ---
 
-## Key Behavioral Parameters (Sprint 20)
+## Key Behavioral Parameters (Sprint 21)
 
 | Parameter | Value | File | Notes |
 |-----------|-------|------|-------|
-| Community cap | 5 | `create-community-workflow.ts` | Was 10; reduced for member density |
-| Join guard | `>= 3` communities → skip | `join-community-workflow.ts` | Was `> 0`; allows users to join up to 3 communities |
-| Match completion rate | 50% | `complete-match-workflow.ts` | Was 10%; increased to generate completions |
-| Provider service types | ride, tradesperson, tutor, other | `realistic-data.ts` | Fixed mismatch with API schema |
+| Community cap | 15 | `create-community-workflow.ts` | Was 5; raised to accommodate 9 templates + organic growth |
+| Join guard | `>= 6` communities → skip | `join-community-workflow.ts` | Was `>= 3`; target 5-6 communities per user |
+| Open request cap | 2 per user | `request-workflow.ts` | Prevents request glut; skip if user already has 2+ open |
+| Growth rate | 10-15 users/day | `simulator.ts` + `config/default.json` | Configurable via `GROWTH_USERS_PER_DAY` env var |
+| Max users | 500 | `config/default.json` | Configurable via `GROWTH_MAX_USERS` env var |
+| Email domain | `@test.karmyq.com` | `db-user-loader.ts` | All sim user queries filtered to this domain |
+| REQUESTER createRequests weight | 0.3 | `profiles/index.ts` | Was 0.8; reduced to avoid request glut |
+| ACTIVE_HELPER registerAsProvider weight | 0.08 | `profiles/index.ts` | Was 0.05; nudges toward 1:10 provider ratio |
+| Match completion rate | 50% | `complete-match-workflow.ts` | Unchanged from Sprint 20 |
+| Provider service types | ride, tradesperson, tutor, other | `realistic-data.ts` | Unchanged from Sprint 20 |
 
 ---
 
-## Community Templates (Sprint 20)
+## Organic Growth Engine (Sprint 21)
 
-5 communities (down from 8), capped at 5 total:
+The simulation no longer requires a bulk user creation script. Users are registered organically:
+
+1. **Founder bootstrap** (`simulator.ts:bootstrapFounders`): On startup, checks if 5 named founder accounts exist. If not, registers them via the API. Founders: Maria Reyes, James Okafor, Priya Sharma, Wei Zhang, Fatima Alhassan — all with `@test.karmyq.com` emails.
+
+2. **Ongoing growth** (`simulator.ts:maybeRegisterNewUser`): Each main loop tick probabilistically registers a new user. Rate = `newUsersPerDay / 480` per tick (loop runs every 1-5 min, ~480 ticks/day). Capped at `maxUsers` total and `newUsersPerDay` per 24h window.
+
+3. **New user registration** (`workflows/register-user-workflow.ts`): Generates a random name + unique `{name}{suffix}@test.karmyq.com` email, registers via `/auth/register`, returns `{ id, email, name, token }`. Newly registered users immediately get an onboarding session (first action: join communities).
+
+**To slow down growth**: Set `GROWTH_USERS_PER_DAY=3` env var. No code changes needed.
+
+**To wipe and reseed**: `DELETE FROM auth.users WHERE email LIKE '%@test.karmyq.com'` — sim will re-bootstrap founders on next restart.
+
+---
+
+## Community Templates (Sprint 21)
+
+9 communities, capped at 15 total:
 1. Portland Mutual Aid Network (mutual_aid)
 2. Southeast PDX Helpers (neighborhood)
 3. PDX Parents Co-op (family)
 4. Portland Tool Library & Share (sharing)
 5. PDX Service Providers Network (professional) — anchor for provider collectives
+6. PDX Rides Collective (professional) — ride providers
+7. PDX Home Repair & Trades (professional) — tradesperson providers
+8. Portland Tutors Network (professional) — tutor providers
+9. Northeast PDX Community Circle (neighborhood)
 
 ---
 
@@ -111,6 +137,19 @@ Ride providers include `ride_details` (vehicle_type, max_passengers, advance_boo
 ---
 
 ## Recent Changes
+
+### Sprint 21 (2026-03-10)
+- Organic user growth engine: 5 founders bootstrapped on startup, 10-15 new users/day via API registration
+- New `register-user-workflow.ts`: standalone `registerNewUser()` for growth engine
+- All DB queries now filtered to `@test.karmyq.com` domain
+- Added `getUserCount()` and `userExistsByEmail()` to `db-user-loader.ts`
+- Community cap raised 5 → 15; join guard raised 3 → 6 (target 5-6 communities/user, 75/community)
+- Open request cap: 2 per user (prevents request glut)
+- 4 new community templates: PDX Rides Collective, PDX Home Repair & Trades, Portland Tutors Network, Northeast PDX Community Circle
+- FOUNDERS constant added to realistic-data.ts
+- REQUESTER createRequests weight 0.8 → 0.3; ACTIVE_HELPER registerAsProvider weight 0.05 → 0.08
+- Growth config in `default.json`: `newUsersPerDay`, `maxUsers`, `emailDomain`, `password`
+- Configurable via env: `GROWTH_USERS_PER_DAY`, `GROWTH_MAX_USERS`, `GROWTH_EMAIL_DOMAIN`
 
 ### Sprint 20 (2026-03-10)
 - Fixed community membership: join guard changed from "any → skip" to ">= 3 → skip" (was root cause of 3-6 members per community)

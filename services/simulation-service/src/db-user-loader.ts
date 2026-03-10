@@ -45,7 +45,7 @@ interface CommunityMembership {
  */
 export async function getRandomUser(): Promise<DbUser> {
   const result = await pool.query(
-    'SELECT id, email, name FROM auth.users ORDER BY RANDOM() LIMIT 1'
+    "SELECT id, email, name FROM auth.users WHERE email LIKE '%@test.karmyq.com' ORDER BY RANDOM() LIMIT 1"
   );
 
   if (result.rows.length === 0) {
@@ -53,6 +53,27 @@ export async function getRandomUser(): Promise<DbUser> {
   }
 
   return result.rows[0];
+}
+
+/**
+ * Get total count of simulated users (those with @test.karmyq.com emails)
+ */
+export async function getUserCount(): Promise<number> {
+  const result = await pool.query(
+    "SELECT COUNT(*) as count FROM auth.users WHERE email LIKE '%@test.karmyq.com'"
+  );
+  return parseInt(result.rows[0].count, 10);
+}
+
+/**
+ * Check if a user with a given email already exists
+ */
+export async function userExistsByEmail(email: string): Promise<boolean> {
+  const result = await pool.query(
+    'SELECT id FROM auth.users WHERE email = $1',
+    [email]
+  );
+  return result.rows.length > 0;
 }
 
 /**

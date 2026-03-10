@@ -28,6 +28,17 @@ export const createRequestWorkflow: Workflow = async (context) => {
       return;
     }
 
+    // Don't create more requests if user already has 2+ open ones
+    const myRequests = await sessionManager.executeAction(
+      session,
+      'getMyRequests',
+      () => client.browseRequests({ requesterId: session.user.id, status: 'open' })
+    );
+    if (myRequests && myRequests.length >= 2) {
+      console.log(`[${session.user.email}] Already has ${myRequests.length} open requests, skipping`);
+      return;
+    }
+
     // Pick a random community
     const community = pickRandom(communities) as any;
 

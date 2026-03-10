@@ -38,6 +38,14 @@ function loadConfig(): SimulationConfig {
       profiles: defaultConfig.users.profiles
     },
 
+    // Override growth config from environment
+    growth: {
+      newUsersPerDay: process.env.GROWTH_USERS_PER_DAY ? parseInt(process.env.GROWTH_USERS_PER_DAY) : (defaultConfig as any).growth?.newUsersPerDay ?? 12,
+      maxUsers: process.env.GROWTH_MAX_USERS ? parseInt(process.env.GROWTH_MAX_USERS) : (defaultConfig as any).growth?.maxUsers ?? 500,
+      emailDomain: process.env.GROWTH_EMAIL_DOMAIN || (defaultConfig as any).growth?.emailDomain || 'test.karmyq.com',
+      password: process.env.GROWTH_USER_PASSWORD || (defaultConfig as any).growth?.password || 'password123'
+    },
+
     // Override rate limit config from environment
     rateLimit: {
       respectLimits: process.env.RESPECT_RATE_LIMITS !== undefined ? process.env.RESPECT_RATE_LIMITS === 'true' : defaultConfig.rateLimit.respectLimits,

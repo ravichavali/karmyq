@@ -61,7 +61,39 @@ export const COMMUNITIES = [
     description: 'Portland-area skilled helpers offering rides, repairs, tutoring, and care services to the community.',
     location: 'Portland, OR',
     category: 'professional'
+  },
+  {
+    name: 'PDX Rides Collective',
+    description: 'Portland drivers offering affordable rides to neighbors, airport runs, and medical appointments.',
+    location: 'Portland, OR',
+    category: 'professional'
+  },
+  {
+    name: 'PDX Home Repair & Trades',
+    description: 'Local handypeople, electricians, plumbers, and general contractors serving the Portland area.',
+    location: 'Portland, OR',
+    category: 'professional'
+  },
+  {
+    name: 'Portland Tutors Network',
+    description: 'Teachers, tutors, and educators offering academic support, test prep, and skill workshops.',
+    location: 'Portland, OR',
+    category: 'professional'
+  },
+  {
+    name: 'Northeast PDX Community Circle',
+    description: 'Neighbors in NE Portland helping with everyday tasks, errands, and community events.',
+    location: 'NE Portland, OR',
+    category: 'neighborhood'
   }
+];
+
+export const FOUNDERS = [
+  { firstName: 'Maria', lastName: 'Reyes', bio: 'Community organizer and mutual aid advocate in SE Portland.' },
+  { firstName: 'James', lastName: 'Okafor', bio: 'Longtime Northeast Portland resident focused on neighbor connections.' },
+  { firstName: 'Priya', lastName: 'Sharma', bio: 'Educator and community builder in the Portland school system.' },
+  { firstName: 'Wei', lastName: 'Zhang', bio: 'Local small business owner who believes in neighborhood economies.' },
+  { firstName: 'Fatima', lastName: 'Alhassan', bio: 'Social worker helping connect underserved Portland communities.' }
 ];
 
 // ============================================================================

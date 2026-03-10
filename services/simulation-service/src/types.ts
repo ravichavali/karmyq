@@ -32,6 +32,7 @@ export interface UserProfile {
     createCollective?: ActionWeight;
     joinCollective?: ActionWeight;
     browseProviders?: ActionWeight;
+    inviteUser?: ActionWeight;
   };
   sessionDuration: TimeRange;
   responseTime: TimeRange;
@@ -92,6 +93,12 @@ export interface SimulationConfig {
     respectLimits: boolean;
     minDelayMs: number;
     maxRetries: number;
+  };
+  growth: {
+    newUsersPerDay: number;
+    maxUsers: number;
+    emailDomain: string;
+    password: string;
   };
   apiBaseUrl: string;
   databaseUrl: string;

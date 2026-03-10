@@ -26,7 +26,7 @@ export const createCommunityWorkflow: Workflow = async (context) => {
       () => client.discoverCommunities({ limit: 11 })
     );
 
-    if (existing && existing.length >= 5) {
+    if (existing && existing.length >= 15) {
       console.log(`[${session.user.email}] Already ${existing.length} communities, skipping creation`);
       return;
     }

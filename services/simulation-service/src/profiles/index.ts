@@ -15,7 +15,7 @@ export const ACTIVE_HELPER: UserProfile = {
     completeMatches: { weight: 0.5, avgPerSession: 2 },
     acceptOffers: { weight: 0.3, avgPerSession: 1 },  // also requests help sometimes
     createRequests: { weight: 0.1, avgPerSession: 0.3 },
-    registerAsProvider: { weight: 0.05, avgPerSession: 0.1 },
+    registerAsProvider: { weight: 0.08, avgPerSession: 0.15 },
     joinCollective: { weight: 0.05, avgPerSession: 0.05 },
     browseProviders: { weight: 0.05, avgPerSession: 0.2 }
   },
@@ -27,7 +27,7 @@ export const REQUESTER: UserProfile = {
   name: 'Requester',
   frequency: 'medium',
   actions: {
-    createRequests: { weight: 0.8, avgPerSession: 2 },
+    createRequests: { weight: 0.3, avgPerSession: 1 },
     acceptOffers: { weight: 0.6, avgPerSession: 1.5 },
     completeMatches: { weight: 0.6, avgPerSession: 1.5 },  // must complete their side too
     sendMessages: { weight: 0.5, avgPerSession: 3 },

@@ -14,3 +14,4 @@ export { registerAsProviderWorkflow } from './register-provider-workflow';
 export { createCollectiveWorkflow } from './create-collective-workflow';
 export { joinCollectiveWorkflow } from './join-collective-workflow';
 export { browseProvidersWorkflow } from './browse-providers-workflow';
+export { registerNewUser } from './register-user-workflow';

@@ -11,10 +11,10 @@
     }
   },
   "users": {
-    "total": 100,
+    "total": 500,
     "concurrentSessions": {
-      "min": 10,
-      "max": 50
+      "min": 5,
+      "max": 20
     },
     "profiles": {
       "activeHelper": 0.30,
@@ -23,6 +23,12 @@
       "communityBuilder": 0.10,
       "socialUser": 0.10
     }
+  },
+  "growth": {
+    "newUsersPerDay": 12,
+    "maxUsers": 500,
+    "emailDomain": "test.karmyq.com",
+    "password": "password123"
   },
   "rateLimit": {
     "respectLimits": true,

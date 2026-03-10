@@ -25,7 +25,7 @@ export const joinCommunityWorkflow: Workflow = async (context) => {
       () => client.getCommunities(session.user.id)
     );
 
-    if (myCommunities && myCommunities.length >= 3) {
+    if (myCommunities && myCommunities.length >= 6) {
       console.log(`[${session.user.email}] Already member of ${myCommunities.length} communities`);
       return;
     }
