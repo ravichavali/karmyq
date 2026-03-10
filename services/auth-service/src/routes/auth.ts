@@ -47,8 +47,13 @@ async function getUserCommunities(userId: string) {
 /**
  * Generate JWT token with community memberships
  */
+// Max communities to embed in JWT — keeps token under PostgreSQL btree index limit (2704 bytes).
+// Most-recently-joined communities take priority. Full membership is always checked via DB.
+const JWT_COMMUNITIES_LIMIT = 15;
+
 async function generateJWT(userId: string, email: string): Promise<string> {
-  const communities = await getUserCommunities(userId);
+  const allCommunities = await getUserCommunities(userId);
+  const communities = allCommunities.slice(0, JWT_COMMUNITIES_LIMIT);
 
   const payload: JWTPayload = {
     userId,
