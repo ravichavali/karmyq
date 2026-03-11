@@ -381,7 +381,7 @@ if command -v pm2 &>/dev/null; then
         log_info "Simulation restarted"
     else
         log_info "Simulation not running — start manually when ready:"
-        log_info "  cd ~/karmyq/simulation && pm2 start \"npx ts-node scripts/run.ts --load-profile=steady\" --name karmyq-simulation && pm2 save"
+        log_info "  cd ~/karmyq/services/simulation-service && npm run build && pm2 start ecosystem.config.js --env production && pm2 save"
     fi
 fi
 

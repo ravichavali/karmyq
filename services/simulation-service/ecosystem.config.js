@@ -6,21 +6,23 @@ module.exports = {
     instances: 1,
     exec_mode: 'fork',
 
-    // Production Environment - 24/7 low-rate simulation
+    // Production Environment - 24/7 simulation
     env_production: {
       NODE_ENV: 'production',
       API_BASE_URL: 'https://karmyq.com/api',
       SIMULATION_ENABLED: 'true',
       ENVIRONMENT: 'production',
-      MIN_CONCURRENT_SESSIONS: '2',
-      MAX_CONCURRENT_SESSIONS: '5',
-      TOTAL_USERS: '2059',
+      MIN_CONCURRENT_SESSIONS: '3',
+      MAX_CONCURRENT_SESSIONS: '8',
+      GROWTH_USERS_PER_DAY: '30',
+      GROWTH_MAX_USERS: '500',
+      TOTAL_USERS: '500',
       BUSINESS_HOURS_ENABLED: 'false', // Run 24/7
       BUSINESS_HOURS_START: '00:00',
       BUSINESS_HOURS_END: '23:59',
       BUSINESS_HOURS_TIMEZONE: 'America/Los_Angeles',
       RESPECT_RATE_LIMITS: 'false',
-      MIN_DELAY_MS: '10000', // Slower rate: 10 seconds between actions
+      MIN_DELAY_MS: '5000', // 5 seconds between actions (was 10)
       MAX_RETRIES: '3',
       LOG_LEVEL: 'info'
     },

@@ -32,7 +32,7 @@ export const createRequestWorkflow: Workflow = async (context) => {
     const myRequests = await sessionManager.executeAction(
       session,
       'getMyRequests',
-      () => client.browseRequests({ requesterId: session.user.id, status: 'open' })
+      () => client.browseRequests({ requester_id: session.user.id, status: 'open' })
     );
     if (myRequests && myRequests.length >= 2) {
       console.log(`[${session.user.email}] Already has ${myRequests.length} open requests, skipping`);

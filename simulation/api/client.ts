@@ -157,9 +157,9 @@ export class SimApiClient {
     return res.data.data;
   }
 
-  async completeMatch(matchId: string, feedback: { rating: number; comment: string }) {
+  async completeMatch(matchId: string, userId: string, feedback: { rating: number; comment: string }) {
     const res = await withRetry(
-      () => this.http.put(`/matches/${matchId}/complete`, feedback),
+      () => this.http.put(`/matches/${matchId}/complete`, { user_id: userId, ...feedback }),
       'completeMatch'
     );
     return res.data.data;

@@ -113,10 +113,15 @@ async function acceptOffer(client: SimApiClient, state: PersonaState): Promise<W
   const matches = await client.getMatches('proposed');
   if (matches.length === 0) return { success: false, skipped: true, error: 'no proposed matches' };
 
-  // Update pending count for social graph context
-  state.pendingOfferCount = matches.length;
+  // Only accept matches where this user is the requester (not a random stranger's match)
+  const myMatches = matches.filter(
+    (m: any) => m.requester_id === state.userId && m.responder_id !== state.userId
+  );
+  if (myMatches.length === 0) return { success: false, skipped: true, error: 'no proposed matches for my requests' };
 
-  const match = pickRandom(matches);
+  state.pendingOfferCount = myMatches.length;
+
+  const match = pickRandom(myMatches);
   await sleep(500 + Math.random() * 1000);
 
   await client.acceptMatch(match.id, state.userId!);
@@ -128,11 +133,23 @@ async function completeMatch(client: SimApiClient, state: PersonaState): Promise
   const active = await client.getMatches('matched');
   if (active.length === 0) return { success: false, skipped: true, error: 'no active matches' };
 
-  const match = pickRandom(active);
+  // Only complete matches where this user is a participant and hasn't marked their side done
+  const myCompletable = active.filter((m: any) => {
+    if (m.responder_id === m.requester_id) return false;
+    const isRequester = m.requester_id === state.userId;
+    const isResponder = m.responder_id === state.userId;
+    if (!isRequester && !isResponder) return false;
+    if (isRequester && m.requester_done_at) return false;
+    if (isResponder && m.responder_done_at) return false;
+    return true;
+  });
+  if (myCompletable.length === 0) return { success: false, skipped: true, error: 'no completable matches' };
+
+  const match = pickRandom(myCompletable);
   const feedback = pickRandom(COMPLETION_FEEDBACKS);
   await sleep(500 + Math.random() * 1000);
 
-  await client.completeMatch(match.id, feedback);
+  await client.completeMatch(match.id, state.userId!, feedback);
   state.recentlyHelpedSomeone = true;
   return { success: true };
 }
