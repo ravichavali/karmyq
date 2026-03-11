@@ -46,7 +46,8 @@ export async function computeNetworkCohesion(communityId: string): Promise<Netwo
      INNER JOIN requests.help_requests r ON m.request_id = r.id
      WHERE r.community_id = $1
        AND m.status = 'completed'
-       AND m.responder_id IS NOT NULL`,
+       AND m.responder_id IS NOT NULL
+       AND m.updated_at > NOW() - INTERVAL '90 days'`,
     [communityId]
   );
 
@@ -76,7 +77,8 @@ export async function computeNetworkCohesion(communityId: string): Promise<Netwo
   const uniqueEdges = undirectedEdgeSet.size;
   const totalDirectedPairs = directedPairs.length;
 
-  // Reciprocity
+  // Reciprocity: fraction of directed edges that have a reverse edge
+  // Definition: bidirectional_directed_edges / total_directed_edges
   let bidirectionalPairs = 0;
   for (const { from, to } of directedPairs) {
     if (directedSet.has(`${to}:${from}`)) {
@@ -130,7 +132,7 @@ export async function computeNetworkCohesion(communityId: string): Promise<Netwo
 
   // Network Cohesion Score
   const rawScore = reciprocity * 0.30 + density * 0.20 + clustering * 0.30 + pathScore * 0.20;
-  const score = Math.round(rawScore * 100);
+  const score = Math.min(100, Math.max(0, Math.round(rawScore * 100)));
   const label = getCohesionLabel(score);
 
   return {

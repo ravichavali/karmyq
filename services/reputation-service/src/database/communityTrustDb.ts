@@ -93,7 +93,7 @@ export async function upsertNetworkCohesionMetrics(
     network_avg_path_length: number;
   }
 ): Promise<void> {
-  await query(
+  const result = await query(
     `UPDATE reputation.community_trust_scores
      SET network_cohesion_score = $2,
          network_reciprocity = $3,
@@ -110,4 +110,7 @@ export async function upsertNetworkCohesionMetrics(
       data.network_avg_path_length,
     ]
   );
+  if (result.rowCount === 0) {
+    console.warn(`upsertNetworkCohesionMetrics: no row found for community ${community_id}`);
+  }
 }
