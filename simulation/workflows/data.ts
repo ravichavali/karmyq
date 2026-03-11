@@ -75,7 +75,7 @@ export const COMMUNITY_TEMPLATES = [
 // ── Provider templates ────────────────────────────────────────────────────────
 
 export interface ProviderTemplate {
-  service_type: 'ride' | 'service' | 'borrow';
+  service_type: 'ride' | 'tradesperson' | 'tutor' | 'other';
   display_name: string;
   bio: string;
   pricing_notes: string;
@@ -91,19 +91,19 @@ const RIDE_PROVIDERS: ProviderTemplate[] = [
 ];
 
 const SERVICE_PROVIDERS: ProviderTemplate[] = [
-  { service_type: 'service', display_name: 'Handyman & Home Repairs', bio: 'Skilled in home repairs, furniture assembly, and light electrical work. 10+ years experience. I bring my own tools.', pricing_notes: 'Sliding scale — karma for short jobs, small cash for multi-hour work.', location_notes: 'Serving Mission, Noe Valley, and Bernal Heights.' },
-  { service_type: 'service', display_name: 'Tech Help & Setup', bio: 'Software engineer by trade, happy to help with computers, phones, smart home setup, WiFi issues, and more.', pricing_notes: 'No charge for neighbors — karma or baked goods accepted.', location_notes: 'Berkeley and Oakland, remote help available anywhere.' },
-  { service_type: 'service', display_name: 'Yard Work & Gardening', bio: 'Weekend gardener with a truck. I can help clear, plant, or maintain your yard. I know Bay Area native plants well.', pricing_notes: 'Small jobs free, larger jobs negotiable.', location_notes: 'East Bay and Peninsula.' },
-  { service_type: 'service', display_name: 'Math & Science Tutoring', bio: 'Community college instructor — K-12 math and science tutoring. Patient with struggling learners.', pricing_notes: 'Free for K-8, ask about high school rates.', location_notes: 'San Jose and Santa Clara, or Zoom.' },
-  { service_type: 'service', display_name: 'Language Exchange & Tutoring', bio: 'Fluent in English, Spanish, and Mandarin. Offering conversation practice and language tutoring for all levels.', pricing_notes: 'Language exchange preferred — mutual practice sessions.', location_notes: 'Anywhere via Zoom, in-person in SF.' },
+  { service_type: 'tradesperson', display_name: 'Handyman & Home Repairs', bio: 'Skilled in home repairs, furniture assembly, and light electrical work. 10+ years experience. I bring my own tools.', pricing_notes: 'Sliding scale — karma for short jobs, small cash for multi-hour work.', location_notes: 'Serving Mission, Noe Valley, and Bernal Heights.' },
+  { service_type: 'tradesperson', display_name: 'Tech Help & Setup', bio: 'Software engineer by trade, happy to help with computers, phones, smart home setup, WiFi issues, and more.', pricing_notes: 'No charge for neighbors — karma or baked goods accepted.', location_notes: 'Berkeley and Oakland, remote help available anywhere.' },
+  { service_type: 'tradesperson', display_name: 'Yard Work & Gardening', bio: 'Weekend gardener with a truck. I can help clear, plant, or maintain your yard. I know Bay Area native plants well.', pricing_notes: 'Small jobs free, larger jobs negotiable.', location_notes: 'East Bay and Peninsula.' },
+  { service_type: 'tutor', display_name: 'Math & Science Tutoring', bio: 'Community college instructor — K-12 math and science tutoring. Patient with struggling learners.', pricing_notes: 'Free for K-8, ask about high school rates.', location_notes: 'San Jose and Santa Clara, or Zoom.' },
+  { service_type: 'tutor', display_name: 'Language Exchange & Tutoring', bio: 'Fluent in English, Spanish, and Mandarin. Offering conversation practice and language tutoring for all levels.', pricing_notes: 'Language exchange preferred — mutual practice sessions.', location_notes: 'Anywhere via Zoom, in-person in SF.' },
 ];
 
 const BORROW_PROVIDERS: ProviderTemplate[] = [
-  { service_type: 'borrow', display_name: 'Fremont Tool Library', bio: 'I have a full set of tools — drills, circular saw, jigsaw, ladders, and more. Available to borrow for community members.', pricing_notes: 'Free to borrow — just return clean and in working order.', location_notes: 'Fremont — pickup and dropoff from my garage.' },
-  { service_type: 'borrow', display_name: 'Camping Gear Lending', bio: 'Collection of camping and outdoor gear: tents, sleeping bags, camp stoves, coolers. First come, first served.', pricing_notes: 'No charge — just respect the gear and return on time.', location_notes: 'Oakland — flexible on pickup/dropoff timing.' },
-  { service_type: 'borrow', display_name: 'Kitchen Equipment Share', bio: 'KitchenAid mixer, pasta maker, immersion blender, dehydrator, and more. Perfect for one-time cooking projects.', pricing_notes: 'Free to borrow — leave a review so others know what\'s available.', location_notes: 'Daly City — happy to leave items on porch for contactless pickup.' },
-  { service_type: 'borrow', display_name: 'Party Supply Lending', bio: 'Tables, chairs, serving trays, punch bowls, and event supplies. Good for block parties and community events.', pricing_notes: 'No charge for community events — small deposit for unknown borrowers.', location_notes: 'South SF and Daly City.' },
-  { service_type: 'borrow', display_name: 'Baby Gear Share', bio: 'Highchair, stroller, baby monitor, bouncer, and more. Great for visits or while you wait for delivery.', pricing_notes: 'Free — I have more than I need.', location_notes: 'Palo Alto and Menlo Park.' },
+  { service_type: 'other', display_name: 'Fremont Tool Library', bio: 'I have a full set of tools — drills, circular saw, jigsaw, ladders, and more. Available to borrow for community members.', pricing_notes: 'Free to borrow — just return clean and in working order.', location_notes: 'Fremont — pickup and dropoff from my garage.' },
+  { service_type: 'other', display_name: 'Camping Gear Lending', bio: 'Collection of camping and outdoor gear: tents, sleeping bags, camp stoves, coolers. First come, first served.', pricing_notes: 'No charge — just respect the gear and return on time.', location_notes: 'Oakland — flexible on pickup/dropoff timing.' },
+  { service_type: 'other', display_name: 'Kitchen Equipment Share', bio: 'KitchenAid mixer, pasta maker, immersion blender, dehydrator, and more. Perfect for one-time cooking projects.', pricing_notes: 'Free to borrow — leave a review so others know what\'s available.', location_notes: 'Daly City — happy to leave items on porch for contactless pickup.' },
+  { service_type: 'other', display_name: 'Party Supply Lending', bio: 'Tables, chairs, serving trays, punch bowls, and event supplies. Good for block parties and community events.', pricing_notes: 'No charge for community events — small deposit for unknown borrowers.', location_notes: 'South SF and Daly City.' },
+  { service_type: 'other', display_name: 'Baby Gear Share', bio: 'Highchair, stroller, baby monitor, bouncer, and more. Great for visits or while you wait for delivery.', pricing_notes: 'Free — I have more than I need.', location_notes: 'Palo Alto and Menlo Park.' },
 ];
 
 export function pickProvider(): ProviderTemplate {

@@ -63,7 +63,9 @@ export const COMMUNITY_BUILDER: UserProfile = {
     offerHelp: { weight: 0.4, avgPerSession: 2 },
     acceptOffers: { weight: 0.4, avgPerSession: 1.5 },
     completeMatches: { weight: 0.4, avgPerSession: 1.5 },
-    browseRequests: { weight: 0.5, avgPerSession: 3 }
+    browseRequests: { weight: 0.5, avgPerSession: 3 },
+    registerAsProvider: { weight: 0.15, avgPerSession: 0.1 },
+    joinCollective: { weight: 0.05, avgPerSession: 0.05 }
   },
   sessionDuration: { min: 20, max: 60, unit: 'minutes' },
   responseTime: { min: 10, max: 60, unit: 'minutes' }
@@ -77,7 +79,8 @@ export const SOCIAL_USER: UserProfile = {
     browseRequests: { weight: 0.6, avgPerSession: 4 },
     viewProfiles: { weight: 0.7, avgPerSession: 6 },
     offerHelp: { weight: 0.3, avgPerSession: 1 },
-    createRequests: { weight: 0.2, avgPerSession: 0.5 }
+    createRequests: { weight: 0.2, avgPerSession: 0.5 },
+    registerAsProvider: { weight: 0.1, avgPerSession: 0.05 }
   },
   sessionDuration: { min: 15, max: 45, unit: 'minutes' },
   responseTime: { min: 2, max: 15, unit: 'minutes' }

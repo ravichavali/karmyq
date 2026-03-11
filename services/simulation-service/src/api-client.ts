@@ -46,7 +46,7 @@ export class ApiClient {
   /**
    * Request API - Browse requests
    */
-  async browseRequests(params?: { limit?: number; offset?: number }): Promise<any[]> {
+  async browseRequests(params?: { limit?: number; offset?: number; requester_id?: string; status?: string }): Promise<any[]> {
     const response = await executeWithRetry(() =>
       this.client.get('/requests', { params })
     );
