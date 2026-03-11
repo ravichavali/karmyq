@@ -647,12 +647,33 @@ SKIP_TESTS=1 ./scripts/deploy.sh
 
 ---
 
-Add under a new ## Bug Fixing section at the top level of CLAUDE.md\n\nWhen fixing bugs, always search the entire codebase for ALL occurrences of the problematic pattern before making changes. Use grep/ripgrep to find every instance - never assume a hardcoded value, config path, or pattern exists in only one file.
+## Bug Fixing
 
-Add under the same ## Bug Fixing section, as a sub-point or follow-up rule\n\nAfter proposing a fix, verify it by tracing the full data flow end-to-end. For API/config changes, check: source config → build/template processing → runtime access path → client consumption. Do not assume the first fix is complete.
+- Always trace the issue to its root cause before applying fixes. Never apply bandaid/client-side filters when the problem is in the DB or API layer.
+- Before editing any file, use the `Grep` tool to find **every** occurrence of the problematic value across all services — never assume a hardcoded value, config path, or pattern exists in only one file.
+- After proposing a fix, verify it by tracing the full data flow end-to-end. For API/config changes, check: source config → build/template processing → runtime access path → client consumption. Do not assume the first fix is complete.
+- When debugging production issues, always read the actual error output the user provides before searching logs or guessing. Start with the symptoms, not assumptions. If the user says they are about to paste output, **wait for it**.
 
-Add under a ## Project Context section near the top of CLAUDE.md\n\nThis is a TypeScript monorepo. Primary languages: TypeScript, with Shell scripts for CI/CD and deployment. When fixing CI issues, check Alpine Linux compatibility, correct package names/versions, and environment variable loading order.
+---
 
-Add under a ## Communication section in CLAUDE.md\n\nWhen the user pastes or is about to share error output, WAIT for it. Do not start investigating by reading log files or guessing at the issue before receiving the actual error message.
+## Pre-Commit Checks
+
+- After making changes, always verify the fix works end-to-end before committing.
+- For TypeScript projects, run `tsc --noEmit` before pushing. CI failures from type errors are avoidable.
+- For generated/build-time files, never hand-edit them — fix the source template instead.
+
+---
+
+## Project Architecture
+
+This is a TypeScript monorepo with multiple services. When fixing a value (API URLs, config, types), grep across **all** services to find every occurrence before making changes. Primary languages: TypeScript, with Shell scripts for CI/CD and deployment. When fixing CI issues, check Alpine Linux compatibility, correct package names/versions, and environment variable loading order.
+
+---
+
+## Session Workflow
+
+Update handoff documents (`CURRENT_HANDOFF.md`) at the end of every session with current status, blockers, and next steps. Follow the established handoff framework in `.claude/handoff/`.
+
+---
 
 **Remember**: This is global context. For specific areas, **read the local `.claude/README.md` first!**
