@@ -119,6 +119,7 @@ export default function CommunityDetailPage() {
       fetchNorms()
       fetchConfig()
       fetchSettings()
+      fetchStats()
     }
   }, [id])
 
@@ -628,22 +629,51 @@ export default function CommunityDetailPage() {
                   <p className="text-text-muted mb-6">
                     {community.description || 'No description provided.'}
                   </p>
-                  <div className="grid md:grid-cols-3 gap-4 mb-8">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
                     <div className="bg-primary-light rounded-lg p-4">
-                      <div className="text-3xl font-bold text-primary">
-                        {community.current_members}
-                      </div>
-                      <div className="text-sm text-text-muted">Active Members</div>
-                    </div>
-                    <div className="bg-success-light rounded-lg p-4">
-                      <div className="text-3xl font-bold text-success">{norms.filter(n => n.status === 'active').length}</div>
-                      <div className="text-sm text-text-muted">Active Norms</div>
+                      <div className="text-3xl font-bold text-primary">{community.current_members}</div>
+                      <div className="text-sm text-text-muted">Members</div>
                     </div>
                     <div className="bg-accent-light rounded-lg p-4">
-                      <div className="text-3xl font-bold text-accent">0</div>
+                      <div className="text-3xl font-bold text-accent">{stats?.requests?.open_requests ?? '—'}</div>
                       <div className="text-sm text-text-muted">Active Requests</div>
                     </div>
+                    <div className="bg-success-light rounded-lg p-4">
+                      <div className="text-3xl font-bold text-success">{stats?.matches?.completed_matches ?? '—'}</div>
+                      <div className="text-sm text-text-muted">Total Exchanges</div>
+                    </div>
+                    <div className="bg-surface-raised rounded-lg p-4 border border-border">
+                      <div className="text-3xl font-bold">{stats?.matches?.matches_completed_this_week ?? '—'}</div>
+                      <div className="text-sm text-text-muted">This Week</div>
+                    </div>
                   </div>
+
+                  {/* Community Vitality Badge */}
+                  {stats && (() => {
+                    const completionsWeek = stats.matches?.matches_completed_this_week || 0
+                    const openRequests = stats.requests?.open_requests || 0
+                    const totalCompletions = stats.matches?.completed_matches || 0
+                    let label: string, color: string, bg: string, description: string
+                    if (completionsWeek >= 3 || openRequests >= 5) {
+                      label = 'Thriving'; color = 'text-success'; bg = 'bg-success-light border-success/30'
+                      description = 'This community is highly active with regular exchanges.'
+                    } else if (completionsWeek >= 1 || openRequests >= 2) {
+                      label = 'Active'; color = 'text-primary'; bg = 'bg-primary-light border-primary/20'
+                      description = 'Members are helping each other regularly.'
+                    } else if (totalCompletions >= 1) {
+                      label = 'Growing'; color = 'text-accent'; bg = 'bg-accent-light border-accent/20'
+                      description = 'This community has completed exchanges and is building momentum.'
+                    } else {
+                      label = 'Getting Started'; color = 'text-text-muted'; bg = 'bg-surface-raised border-border'
+                      description = 'New community — be one of the first to post a request.'
+                    }
+                    return (
+                      <div className={`rounded-lg border p-3 mb-6 flex items-center gap-3 ${bg}`}>
+                        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border border-current whitespace-nowrap ${color}`}>{label}</span>
+                        <p className="text-sm text-text-muted">{description}</p>
+                      </div>
+                    )
+                  })()}
 
                   {/* Configuration Highlights */}
                   {config && (
