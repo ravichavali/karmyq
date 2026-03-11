@@ -30,6 +30,9 @@ export function generateStaticParams() {
     'fulfilling-requests',
     'community-admin',
     'understanding-karma',
+    'community-trust-model',
+    'trust-connections',
+    'using-service-providers',
   ];
   return slugs.map((slug) => ({ slug }));
 }
