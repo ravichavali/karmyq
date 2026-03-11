@@ -24,17 +24,13 @@ function getGuideDoc(slug: string): GuideDoc | null {
 }
 
 export function generateStaticParams() {
-  const slugs = [
-    'getting-started',
-    'making-requests',
-    'fulfilling-requests',
-    'community-admin',
-    'understanding-karma',
-    'community-trust-model',
-    'trust-connections',
-    'using-service-providers',
-  ];
-  return slugs.map((slug) => ({ slug }));
+  try {
+    return fs.readdirSync(GUIDES_DIR)
+      .filter(f => f.endsWith('.json'))
+      .map(f => ({ slug: f.replace('.json', '') }));
+  } catch {
+    return [];
+  }
 }
 
 export default async function GuidePage({ params }: { params: Promise<{ slug: string }> }) {
