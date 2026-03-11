@@ -362,7 +362,14 @@ CREATE TABLE IF NOT EXISTS reputation.community_trust_scores (
   bonding_score INTEGER DEFAULT 0,
   bridging_score INTEGER DEFAULT 0,
   active_member_count INTEGER DEFAULT 0,
-  last_calculated TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  last_calculated TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  previous_score INTEGER,
+  previous_calculated_at TIMESTAMP,
+  network_cohesion_score INTEGER,
+  network_reciprocity NUMERIC(4,3),
+  network_density NUMERIC(4,3),
+  network_clustering NUMERIC(4,3),
+  network_avg_path_length NUMERIC(4,2)
 );
 
 -- Reputation decay function (ADR-011)
