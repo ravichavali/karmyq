@@ -87,6 +87,7 @@ export default function CommunityDetailPage() {
   const [loadingRequests, setLoadingRequests] = useState(false)
   const [showQuestionnaire, setShowQuestionnaire] = useState(false)
   const [showDiff, setShowDiff] = useState(false)
+  const [memberTrustScores, setMemberTrustScores] = useState<Record<string, number | null>>({})
   const [proposedConfig, setProposedConfig] = useState<Partial<CommunityConfig> | null>(null)
   const [requestStatusFilter, setRequestStatusFilter] = useState<string>('open')
   const [newNorm, setNewNorm] = useState({ description: '', rationale: '' })
@@ -212,6 +213,20 @@ export default function CommunityDetailPage() {
     } finally {
       setLoadingRequests(false)
     }
+  }
+
+  const fetchMemberTrustScores = async () => {
+    if (!community?.members) return
+    const members = community.members.filter((m: any) => m.status === 'active')
+    const results = await Promise.allSettled(
+      members.map((m: any) => reputationService.getTrustScore(m.user_id, id as string))
+    )
+    const scores: Record<string, number | null> = {}
+    members.forEach((m: any, i: number) => {
+      const r = results[i]
+      scores[m.user_id] = r.status === 'fulfilled' ? (r.value.data?.data?.score ?? null) : null
+    })
+    setMemberTrustScores(scores)
   }
 
   const handleUpdateMemberRole = async (userId: string, newRole: string) => {
@@ -499,7 +514,7 @@ export default function CommunityDetailPage() {
                   Overview
                 </button>
                 <button
-                  onClick={() => setActiveTab('members')}
+                  onClick={() => { setActiveTab('members'); fetchMemberTrustScores() }}
                   className={`px-6 py-4 font-medium ${
                     activeTab === 'members'
                       ? 'border-b-2 border-primary text-primary'
@@ -839,6 +854,21 @@ export default function CommunityDetailPage() {
                           >
                             {member.role}
                           </span>
+                          {(() => {
+                            const score = memberTrustScores[member.user_id]
+                            const colorClass = score === null || score === undefined
+                              ? 'bg-gray-100 text-gray-400'
+                              : score >= 75
+                              ? 'bg-green-100 text-green-700'
+                              : score >= 50
+                              ? 'bg-amber-100 text-amber-700'
+                              : 'bg-gray-100 text-gray-400'
+                            return (
+                              <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${colorClass}`}>
+                                {score !== null && score !== undefined ? `★ ${score}` : '—'}
+                              </span>
+                            )
+                          })()}
                           <span className="text-xs text-text-subtle">
                             {new Date(member.joined_at).toLocaleDateString()}
                           </span>
