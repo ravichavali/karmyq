@@ -1,5 +1,6 @@
 import { query } from '../database/db';
-import { upsertCommunityTrustScore } from '../database/communityTrustDb';
+import { upsertCommunityTrustScore, preservePreviousScore, upsertNetworkCohesionMetrics } from '../database/communityTrustDb';
+import { computeNetworkCohesion } from './networkCohesionService';
 
 // ADR-040: Community Trust Score
 // Measures how much a community can be trusted to fulfill its mutual aid purpose.
@@ -147,6 +148,9 @@ export async function calculateCommunityTrustScore(community_id: string): Promis
   const raw_score = member_quality_score + bonding_score + bridging_score;
   const score = Math.max(0, Math.min(100, raw_score));
 
+  // Preserve previous score before overwriting
+  await preservePreviousScore(community_id);
+
   await upsertCommunityTrustScore(community_id, {
     score,
     member_quality_score,
@@ -154,6 +158,20 @@ export async function calculateCommunityTrustScore(community_id: string): Promis
     bridging_score,
     active_member_count: activeMemberCount,
   });
+
+  // Compute and store network cohesion metrics
+  try {
+    const cohesion = await computeNetworkCohesion(community_id);
+    await upsertNetworkCohesionMetrics(community_id, {
+      network_cohesion_score: cohesion.score,
+      network_reciprocity: cohesion.reciprocity,
+      network_density: cohesion.density,
+      network_clustering: cohesion.clustering,
+      network_avg_path_length: cohesion.avgPathLength,
+    });
+  } catch (err) {
+    console.error(`[communityTrust] Failed to compute network cohesion for ${community_id}:`, err);
+  }
 
   return score;
 }

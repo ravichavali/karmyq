@@ -1,5 +1,6 @@
 import express, { Request, Response } from 'express';
 import { query } from '../database/db';
+import { computeNetworkCohesion } from '../services/networkCohesionService';
 
 const router = express.Router();
 
@@ -257,5 +258,25 @@ function calculateNetworkStrength(
 
   return parseFloat(networkStrength.toFixed(2));
 }
+
+/**
+ * GET /reputation/network-metrics/:communityId
+ * Compute graph-theory network cohesion metrics for a community.
+ */
+router.get('/network-metrics/:communityId', async (req: Request, res: Response) => {
+  const { communityId } = req.params;
+
+  try {
+    const metrics = await computeNetworkCohesion(communityId);
+    res.json({ success: true, data: metrics });
+  } catch (error) {
+    console.error('Error computing network cohesion metrics:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to compute network cohesion metrics',
+      error: 'NETWORK_METRICS_ERROR',
+    });
+  }
+});
 
 export default router;
