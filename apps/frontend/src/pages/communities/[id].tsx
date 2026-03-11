@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/router'
 import Head from 'next/head'
 import Link from 'next/link'
-import { communityService, collectiveService, requestService } from '@/lib/api'
+import { communityService, collectiveService, requestService, reputationService } from '@/lib/api'
 import Layout from '@/components/Layout'
 import CommunityConfigEditor from '@/components/CommunityConfigEditor'
 import CommunityTrustQuestionnaire from '@/components/CommunityTrustQuestionnaire'
@@ -79,6 +79,9 @@ export default function CommunityDetailPage() {
   const [configSaving, setConfigSaving] = useState(false)
   const [stats, setStats] = useState<any>(null)
   const [loadingStats, setLoadingStats] = useState(false)
+  const [communityTrust, setCommunityTrust] = useState<any>(null)
+  const [loadingTrust, setLoadingTrust] = useState(false)
+  const [networkMetrics, setNetworkMetrics] = useState<any>(null)
   const [exporting, setExporting] = useState(false)
   const [communityRequests, setCommunityRequests] = useState<any[]>([])
   const [loadingRequests, setLoadingRequests] = useState(false)
@@ -177,6 +180,23 @@ export default function CommunityDetailPage() {
     } finally {
       setLoadingStats(false)
     }
+  }
+
+  const fetchCommunityTrust = async () => {
+    try {
+      setLoadingTrust(true)
+      const response = await reputationService.getCommunityTrust(id as string)
+      setCommunityTrust(response.data?.data ?? null)
+    } catch { /* non-fatal */ } finally {
+      setLoadingTrust(false)
+    }
+  }
+
+  const fetchNetworkMetrics = async () => {
+    try {
+      const response = await reputationService.getNetworkMetrics(id as string)
+      setNetworkMetrics(response.data?.data ?? null)
+    } catch { /* non-fatal */ }
   }
 
   const fetchCommunityRequests = async (status?: string) => {
@@ -535,7 +555,7 @@ export default function CommunityDetailPage() {
                       Settings
                     </button>
                     <button
-                      onClick={() => { setActiveTab('stats'); if (!stats) fetchStats() }}
+                      onClick={() => { setActiveTab('stats'); if (!stats) fetchStats(); if (!communityTrust) fetchCommunityTrust(); if (!networkMetrics) fetchNetworkMetrics() }}
                       className={`px-6 py-4 font-medium ${activeTab === 'stats' ? 'border-b-2 border-primary text-primary' : 'text-text-muted hover:text-text'}`}
                     >
                       Statistics
@@ -1165,6 +1185,112 @@ export default function CommunityDetailPage() {
                       </div>
                     </div>
                   )}
+
+                  {/* Community Trust Score Panel */}
+                  {loadingTrust && !communityTrust && (
+                    <div className="mt-6 text-center py-8 text-text-subtle">Loading trust data...</div>
+                  )}
+                  {communityTrust && (() => {
+                    const score: number = communityTrust.score ?? 0
+                    const barColor = score >= 80 ? '#16a34a' : score >= 60 ? '#0d9488' : score >= 40 ? '#d97706' : '#92400e'
+                    const prev: number | undefined = communityTrust.previous_score
+                    const delta = prev !== undefined ? score - prev : 0
+                    const trendStr = delta > 0 ? `↑ +${delta} since last week` : delta < 0 ? `↓ ${delta} since last week` : ''
+                    const lastUpdated = communityTrust.last_calculated
+                      ? new Date(communityTrust.last_calculated).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                      : 'Unknown'
+                    return (
+                      <div className="mt-6 bg-surface-raised rounded-lg shadow p-5">
+                        <div className="flex items-center justify-between mb-3">
+                          <h4 className="text-base font-semibold">Community Trust Score</h4>
+                          <span className="text-2xl font-bold" style={{ color: barColor }}>{score} / 100</span>
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-3 mb-4">
+                          <div className="h-3 rounded-full transition-all" style={{ width: `${score}%`, backgroundColor: barColor }} />
+                        </div>
+                        <div className="grid grid-cols-3 gap-4 mb-4">
+                          <div className="text-center">
+                            <div className="text-lg font-bold">{communityTrust.member_quality_score ?? 0} / 40</div>
+                            <div className="text-xs font-medium text-text-muted">Member Quality</div>
+                            <div className="text-xs text-text-subtle mt-1">Avg trust of active members</div>
+                          </div>
+                          <div className="text-center">
+                            <div className="text-lg font-bold">{communityTrust.bonding_score ?? 0} / 30</div>
+                            <div className="text-xs font-medium text-text-muted">Bonding</div>
+                            <div className="text-xs text-text-subtle mt-1">Completion &amp; retention rate</div>
+                          </div>
+                          <div className="text-center">
+                            <div className="text-lg font-bold">{communityTrust.bridging_score ?? 0} / 30</div>
+                            <div className="text-xs font-medium text-text-muted">Bridging</div>
+                            <div className="text-xs text-text-subtle mt-1">Cross-comm help rate</div>
+                          </div>
+                        </div>
+                        <div className="text-xs text-text-subtle flex items-center gap-3">
+                          <span>{communityTrust.active_member_count ?? 0} active members</span>
+                          <span>·</span>
+                          <span>Last updated: {lastUpdated}</span>
+                          {trendStr && (
+                            <>
+                              <span>·</span>
+                              <span style={{ color: delta > 0 ? '#16a34a' : '#d97706' }}>{trendStr}</span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })()}
+
+                  {/* Network Cohesion Panel */}
+                  {networkMetrics && (() => {
+                    const cohesionScore: number = networkMetrics.score ?? 0
+                    const cohesionColor = cohesionScore >= 80 ? '#16a34a' : cohesionScore >= 60 ? '#0d9488' : cohesionScore >= 40 ? '#d97706' : '#92400e'
+                    const computedStr = networkMetrics.computedAt
+                      ? new Date(networkMetrics.computedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                      : 'recently'
+                    return (
+                      <div className="mt-4 bg-surface-raised rounded-lg shadow p-5">
+                        <div className="flex items-center justify-between mb-3">
+                          <h4 className="text-base font-semibold">Network Cohesion</h4>
+                          <div className="flex items-center gap-2">
+                            <span className="text-2xl font-bold" style={{ color: cohesionColor }}>{cohesionScore} / 100</span>
+                            {networkMetrics.label && (
+                              <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ backgroundColor: cohesionColor, color: '#fff' }}>{networkMetrics.label}</span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-3 mb-4">
+                          <div className="h-3 rounded-full transition-all" style={{ width: `${cohesionScore}%`, backgroundColor: cohesionColor }} />
+                        </div>
+                        <div className="space-y-2 mb-4">
+                          <div className="flex items-baseline gap-3">
+                            <span className="text-sm font-semibold w-28">Reciprocity</span>
+                            <span className="text-sm font-bold">{networkMetrics.reciprocity !== undefined ? `${Math.round(networkMetrics.reciprocity * 100)}%` : '—'}</span>
+                            <span className="text-xs text-text-subtle">Most help flows both ways</span>
+                          </div>
+                          <div className="flex items-baseline gap-3">
+                            <span className="text-sm font-semibold w-28">Density</span>
+                            <span className="text-sm font-bold">{networkMetrics.density !== undefined ? `${Math.round(networkMetrics.density * 100)}%` : '—'}</span>
+                            <span className="text-xs text-text-subtle">1 in {networkMetrics.density ? Math.round(1 / networkMetrics.density) : '?'} possible pairs have helped</span>
+                          </div>
+                          <div className="flex items-baseline gap-3">
+                            <span className="text-sm font-semibold w-28">Clustering</span>
+                            <span className="text-sm font-bold">{networkMetrics.clustering !== undefined ? networkMetrics.clustering.toFixed(2) : '—'}</span>
+                            <span className="text-xs text-text-subtle">Your helpers know each other</span>
+                          </div>
+                          <div className="flex items-baseline gap-3">
+                            <span className="text-sm font-semibold w-28">Avg path</span>
+                            <span className="text-sm font-bold">{networkMetrics.avgPathLength !== undefined ? `${networkMetrics.avgPathLength.toFixed(1)}°` : '—'}</span>
+                            <span className="text-xs text-text-subtle">Everyone reachable in ~{networkMetrics.avgPathLength ? Math.round(networkMetrics.avgPathLength) : '?'} hops</span>
+                          </div>
+                        </div>
+                        <div className="text-xs text-text-subtle flex items-center gap-3">
+                          <span>{networkMetrics.uniqueEdges ?? 0} unique helping pairs</span>
+                          <span>·</span>
+                          <span>computed {computedStr}</span>
+                        </div>
+                      </div>
+                    )
+                  })()}
                 </div>
               )}
 

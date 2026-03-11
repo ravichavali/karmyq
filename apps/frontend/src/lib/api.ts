@@ -633,6 +633,11 @@ export const reputationService = {
   // Get community trust score (ADR-040)
   getCommunityTrust: (communityId: string) =>
     reputationApi.get(`/reputation/community-trust/${communityId}`),
+
+  // Get network cohesion metrics for a community
+  getNetworkMetrics: (communityId: string) =>
+    reputationApi.get(`/reputation/network-metrics/${communityId}`),
+
   // Get leaderboard
   getLeaderboard: (communityId: string, params?: { limit?: number }) =>
     reputationApi.get(`/reputation/leaderboard/${communityId}`, {
