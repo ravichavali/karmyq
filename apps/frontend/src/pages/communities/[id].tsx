@@ -502,7 +502,7 @@ export default function CommunityDetailPage() {
           {/* Tabs */}
           <div className="bg-surface-raised rounded-lg shadow-md mb-6">
             <div className="border-b border-border">
-              <nav className="flex">
+              <nav className="flex overflow-x-auto">
                 <button
                   onClick={() => setActiveTab('overview')}
                   className={`px-6 py-4 font-medium ${
