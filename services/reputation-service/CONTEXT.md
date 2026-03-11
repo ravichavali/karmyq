@@ -68,6 +68,16 @@ CREATE INDEX idx_trust_scores_user_community ON reputation.trust_scores(user_id,
 CREATE INDEX IF NOT EXISTS idx_feedback_to_user_community
   ON feedback.feedback (to_user_id, community_id);
 
+-- reputation.community_trust_scores new columns (migration 025 — ADR-045)
+ALTER TABLE reputation.community_trust_scores
+  ADD COLUMN IF NOT EXISTS previous_score INTEGER,
+  ADD COLUMN IF NOT EXISTS previous_calculated_at TIMESTAMP,
+  ADD COLUMN IF NOT EXISTS network_cohesion_score INTEGER,
+  ADD COLUMN IF NOT EXISTS network_reciprocity NUMERIC(5,4),
+  ADD COLUMN IF NOT EXISTS network_density NUMERIC(5,4),
+  ADD COLUMN IF NOT EXISTS network_clustering NUMERIC(5,4),
+  ADD COLUMN IF NOT EXISTS network_avg_path_length NUMERIC(6,4);
+
 -- community_configs trust score extensions (migration 019 — ADR-037)
 ALTER TABLE communities.community_configs
   ADD COLUMN IF NOT EXISTS trust_feedback_threshold DECIMAL(3,1) DEFAULT 3.0
@@ -523,6 +533,34 @@ Enhanced trust score with interaction quality (UPDATED).
 **Implementation:** `src/routes/reputation.ts:37` (UPDATED)
 
 **Note:** Now includes detailed interaction quality metrics from Social Karma v2.0 feedback system.
+
+---
+
+### GET /reputation/network-metrics/:communityId
+Get the network cohesion score for a community (ADR-045). Four graph topology metrics — reciprocity, density, clustering coefficient, and path score — over a rolling 90-day window.
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "community_id": "uuid",
+    "network_cohesion_score": 67,
+    "label": "Cohesive",
+    "reciprocity": 0.42,
+    "density": 0.18,
+    "clustering": 0.61,
+    "avg_path_length": 2.3,
+    "active_member_count": 22,
+    "window_days": 90,
+    "last_calculated": "2026-03-10T..."
+  }
+}
+```
+
+**Labels**: ≥80 "Highly Cohesive", ≥60 "Cohesive", ≥40 "Developing", ≥20 "Emerging", <20 "Fragile"
+
+**Implementation:** `src/routes/reputation.ts` | `src/services/networkCohesionService.ts:calculateNetworkCohesion()`
 
 ---
 

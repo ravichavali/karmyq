@@ -166,7 +166,8 @@
           "/feedback",
           "/reputation/provider-reviews",
           "/reputation/provider-trust/:providerId",
-          "/reputation/provider-reviews/:providerId"
+          "/reputation/provider-reviews/:providerId",
+          "/reputation/network-metrics/:communityId"
         ],
         "consumes": [
           "/auth/verify"
