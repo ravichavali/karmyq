@@ -205,8 +205,9 @@ export default function CommunityDetailPage() {
     try {
       setLoadingRequests(true)
       const response = await requestService.getRequests({ community_id: id as string, status: status || requestStatusFilter || undefined, limit: 50 })
-      const data = response.data?.data ?? response.data ?? []
-      setCommunityRequests(Array.isArray(data) ? data : [])
+      const data = response.data?.data
+      const requests = Array.isArray(data) ? data : (data?.requests ?? [])
+      setCommunityRequests(requests)
     } catch (err: any) {
       console.error('Failed to load community requests:', err)
       setCommunityRequests([])
