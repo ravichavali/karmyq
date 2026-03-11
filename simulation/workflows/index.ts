@@ -196,10 +196,22 @@ async function joinCommunity(client: SimApiClient, state: PersonaState): Promise
 }
 
 async function createCommunity(client: SimApiClient, state: PersonaState): Promise<WorkflowResult> {
-  // Only create if user has been active a while and isn't already in many communities
+  // Only create if user isn't already in many communities
   if (state.communityIds.length >= 3) return { success: false, skipped: true };
 
+  // Don't create if a community with this name already exists — join it instead
+  const existing = await client.discoverCommunities(50);
   const template = pickRandom(COMMUNITY_TEMPLATES);
+  const alreadyExists = existing.some((c: any) => c.name === template.name);
+  if (alreadyExists) {
+    const match = existing.find((c: any) => c.name === template.name && !state.communityIds.includes(c.id));
+    if (match) {
+      await client.joinCommunity(match.id);
+      state.communityIds.push(match.id);
+    }
+    return { success: false, skipped: true };
+  }
+
   await sleep(3000 + Math.random() * 5000); // Takes thought
 
   const community = await client.createCommunity(template);
