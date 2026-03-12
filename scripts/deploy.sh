@@ -371,6 +371,13 @@ if command -v pm2 &>/dev/null; then
     SIM_DIR="$APP_DIR/services/simulation-service"
     if [ -d "$SIM_DIR" ]; then
         log_step "Building and restarting simulation service"
+        # Generate .env for simulation service (runs outside Docker, so use localhost not karmyq-postgres)
+        {
+            echo "DATABASE_URL=${DATABASE_URL/karmyq-postgres/localhost}"
+            echo "JWT_SECRET=${JWT_SECRET}"
+        } > "$SIM_DIR/.env"
+        log_info "Simulation .env generated (localhost DB)"
+
         # Build using workspace root's node_modules (tsc is a devDep at root)
         npm run build --workspace=services/simulation-service
         # startOrRestart: starts if not running, restarts if already registered

@@ -19,23 +19,14 @@ export const completeMatchWorkflow: Workflow = async (context) => {
   console.log(`[${session.user.email}] Checking for matches to complete...`);
 
   try {
-    // Fetch matches in both active and matched states
-    const activeMatches = await sessionManager.executeAction(
-      session,
-      'getMatches',
-      () => client.getMatches({ status: 'active' })
-    );
-
+    // Fetch matches in 'matched' state (the only valid in-progress status)
     const matchedMatches = await sessionManager.executeAction(
       session,
       'getMatchesMatched',
       () => client.getMatches({ status: 'matched' })
     );
 
-    const allActiveMatches = [
-      ...(activeMatches || []),
-      ...(matchedMatches || []),
-    ];
+    const allActiveMatches = matchedMatches || [];
 
     if (allActiveMatches.length === 0) {
       console.log(`[${session.user.email}] No active matches to complete`);

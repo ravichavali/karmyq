@@ -38,14 +38,16 @@ export const offerHelpWorkflow: Workflow = async (context) => {
       return;
     }
 
-    // Fetch user's existing matches to avoid duplicate offers
+    // Fetch user's existing matches to avoid duplicate offers (only this user's matches)
     const myMatches = await sessionManager.executeAction(
       session,
       'getMyMatches',
       () => client.getMatches()
     );
     const alreadyOfferedIds = new Set(
-      (Array.isArray(myMatches) ? myMatches : []).map((m: any) => m.request_id as string)
+      (Array.isArray(myMatches) ? myMatches : [])
+        .filter((m: any) => m.responder_id === session.user.id)
+        .map((m: any) => m.request_id as string)
     );
 
     // Filter out own requests, already-offered requests, and closed requests
