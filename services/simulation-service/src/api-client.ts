@@ -233,7 +233,7 @@ export class ApiClient {
    */
   async registerProvider(data: { service_type: string; display_name: string; bio?: string; pricing_notes?: string; location_notes?: string }): Promise<any> {
     const response = await executeWithRetry(() =>
-      this.client.post('/requests/providers', data)
+      this.client.post('/providers', data)
     );
     return response.data.data;
   }
@@ -243,7 +243,7 @@ export class ApiClient {
    */
   async getMyProviderProfiles(): Promise<any[]> {
     const response = await executeWithRetry(() =>
-      this.client.get('/requests/providers/my')
+      this.client.get('/providers/my')
     );
     return response.data.data || [];
   }
@@ -264,7 +264,7 @@ export class ApiClient {
   async getProviders(serviceType?: string): Promise<any[]> {
     const params = serviceType ? { service_type: serviceType } : {};
     const response = await executeWithRetry(() =>
-      this.client.get('/requests/providers', { params })
+      this.client.get('/providers', { params })
     );
     return response.data.data || [];
   }
@@ -274,7 +274,7 @@ export class ApiClient {
    */
   async createCollective(data: { name: string; service_types: string[]; description?: string; location_notes?: string }): Promise<any> {
     const response = await executeWithRetry(() =>
-      this.client.post('/requests/collectives', data)
+      this.client.post('/collectives', data)
     );
     return response.data.data;
   }
@@ -284,7 +284,7 @@ export class ApiClient {
    */
   async getCollectives(): Promise<any[]> {
     const response = await executeWithRetry(() =>
-      this.client.get('/requests/collectives')
+      this.client.get('/collectives')
     );
     return response.data.data || [];
   }
@@ -294,7 +294,7 @@ export class ApiClient {
    */
   async getMyCollectives(): Promise<any[]> {
     const response = await executeWithRetry(() =>
-      this.client.get('/requests/collectives/my')
+      this.client.get('/collectives/my')
     );
     return response.data.data || [];
   }
@@ -304,7 +304,7 @@ export class ApiClient {
    */
   async joinCollective(collectiveId: string): Promise<any> {
     const response = await executeWithRetry(() =>
-      this.client.post(`/requests/collectives/${collectiveId}/members`, {})
+      this.client.post(`/collectives/${collectiveId}/members`, {})
     );
     return response.data.data;
   }
@@ -314,7 +314,7 @@ export class ApiClient {
    */
   async linkCollectiveToCommunity(collectiveId: string, communityId: string): Promise<any> {
     const response = await executeWithRetry(() =>
-      this.client.post(`/requests/collectives/${collectiveId}/communities`, { community_id: communityId })
+      this.client.post(`/collectives/${collectiveId}/communities`, { community_id: communityId })
     );
     return response.data.data;
   }
