@@ -26,7 +26,7 @@ export async function computeNetworkCohesion(communityId: string): Promise<Netwo
   // Active members: status = 'active' AND joined in last 90 days
   const activeMembersResult = await query(
     `SELECT COUNT(*) as count
-     FROM community.members
+     FROM community.memberships
      WHERE community_id = $1
        AND status = 'active'
        AND joined_at > NOW() - INTERVAL '90 days'`,
