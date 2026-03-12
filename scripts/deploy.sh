@@ -378,10 +378,10 @@ if command -v pm2 &>/dev/null; then
     SIM_DIR="$APP_DIR/services/simulation-service"
     if [ -d "$SIM_DIR" ]; then
         log_step "Building and restarting simulation service"
-        cd "$SIM_DIR"
-        npm install --prefer-offline 2>/dev/null || npm install
-        npm run build
+        # Build using workspace root's node_modules (tsc is a devDep at root)
+        npm run build --workspace=services/simulation-service
         # startOrRestart: starts if not running, restarts if already registered
+        cd "$SIM_DIR"
         pm2 startOrRestart ecosystem.config.js --env production
         pm2 save
         cd "$APP_DIR"
