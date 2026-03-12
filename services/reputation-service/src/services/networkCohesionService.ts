@@ -26,7 +26,7 @@ export async function computeNetworkCohesion(communityId: string): Promise<Netwo
   // Active members: status = 'active' AND joined in last 90 days
   const activeMembersResult = await query(
     `SELECT COUNT(*) as count
-     FROM community.memberships
+     FROM communities.members
      WHERE community_id = $1
        AND status = 'active'
        AND joined_at > NOW() - INTERVAL '90 days'`,
@@ -44,7 +44,8 @@ export async function computeNetworkCohesion(communityId: string): Promise<Netwo
     `SELECT DISTINCT r.requester_id, m.responder_id
      FROM requests.matches m
      INNER JOIN requests.help_requests r ON m.request_id = r.id
-     WHERE r.community_id = $1
+     INNER JOIN requests.request_communities rc ON r.id = rc.request_id
+     WHERE rc.community_id = $1
        AND m.status = 'completed'
        AND m.responder_id IS NOT NULL
        AND m.updated_at > NOW() - INTERVAL '90 days'`,

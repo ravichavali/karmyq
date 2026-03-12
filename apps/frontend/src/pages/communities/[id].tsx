@@ -188,7 +188,7 @@ export default function CommunityDetailPage() {
     try {
       setLoadingTrust(true)
       const response = await reputationService.getCommunityTrust(id as string)
-      setCommunityTrust(response.data?.data ?? null)
+      setCommunityTrust(response.data ?? null)
     } catch { /* non-fatal */ } finally {
       setLoadingTrust(false)
     }
@@ -197,7 +197,7 @@ export default function CommunityDetailPage() {
   const fetchNetworkMetrics = async () => {
     try {
       const response = await reputationService.getNetworkMetrics(id as string)
-      setNetworkMetrics(response.data?.data ?? null)
+      setNetworkMetrics(response.data ?? null)
     } catch { /* non-fatal */ }
   }
 
@@ -206,7 +206,7 @@ export default function CommunityDetailPage() {
     try {
       setLoadingRequests(true)
       const response = await requestService.getRequests({ community_id: id as string, status: status || requestStatusFilter || undefined, limit: 50 })
-      const data = response.data?.data
+      const data = response.data
       const requests = Array.isArray(data) ? data : (data?.requests ?? [])
       setCommunityRequests(requests)
     } catch (err: any) {
