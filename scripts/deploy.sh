@@ -101,13 +101,6 @@ find . -name "node_modules" -maxdepth 3 -exec sudo chown -R "$(whoami)" {} + 2>/
 npm ci --prefer-offline || npm install
 log_info "Dependencies installed"
 
-# Install simulation dependencies (standalone package, not in turbo workspace)
-if [ -d "simulation" ]; then
-    log_info "Installing simulation dependencies..."
-    cd simulation && npm install --omit=dev --prefer-offline 2>/dev/null || npm install --omit=dev && cd "$APP_DIR"
-    log_info "Simulation dependencies installed"
-fi
-
 # =============================================================================
 # Step 4: Load environment
 # =============================================================================
