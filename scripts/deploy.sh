@@ -372,16 +372,20 @@ else
 fi
 
 # =============================================================================
-# Simulation: restart if it was already running
+# Simulation: build and restart using the new simulation service
 # =============================================================================
 if command -v pm2 &>/dev/null; then
-    if pm2 describe karmyq-simulation &>/dev/null; then
-        log_step "Restarting simulation (karmyq-simulation)"
-        pm2 restart karmyq-simulation --update-env
-        log_info "Simulation restarted"
-    else
-        log_info "Simulation not running — start manually when ready:"
-        log_info "  cd ~/karmyq/services/simulation-service && npm run build && pm2 start ecosystem.config.js --env production && pm2 save"
+    SIM_DIR="$APP_DIR/services/simulation-service"
+    if [ -d "$SIM_DIR" ]; then
+        log_step "Building and restarting simulation service"
+        cd "$SIM_DIR"
+        npm install --prefer-offline 2>/dev/null || npm install
+        npm run build
+        # startOrRestart: starts if not running, restarts if already registered
+        pm2 startOrRestart ecosystem.config.js --env production
+        pm2 save
+        cd "$APP_DIR"
+        log_info "Simulation service running"
     fi
 fi
 
