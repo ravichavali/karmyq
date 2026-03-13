@@ -1102,144 +1102,194 @@ export default function CommunityDetailPage() {
               )}
 
               {/* Configuration Tab */}
-              {activeTab === 'config' && config && (
-                <div>
-                  <h3 className="text-xl font-semibold mb-4">Community Configuration</h3>
-                  <p className="text-text-muted mb-6">
-                    {community.creator_id === currentUser?.id
-                      ? 'Configure trust, karma, and coordination mechanics for your community.'
-                      : 'View the configuration that defines how trust, karma, and coordination work in this community.'}
-                  </p>
+              {/* Admin: Unified Settings Tab */}
+              {activeTab === 'settings' && isAdmin && (
+                <div className="space-y-8">
 
-                  {/* Founder: Revisit trust model banner */}
-                  {community.creator_id === currentUser?.id && !showQuestionnaire && !showDiff && (
-                    <div className="mb-6 flex items-center justify-between rounded-lg border border-border bg-surface p-4">
-                      <div>
-                        <p className="font-medium text-text text-sm">Revisit your trust model</p>
-                        <p className="text-xs text-text-muted mt-0.5">
-                          Answer 6 questions and see what the system would propose based on how your community has evolved.
-                        </p>
-                      </div>
-                      <button
-                        onClick={() => { setShowQuestionnaire(true); setShowDiff(false); setProposedConfig(null) }}
-                        className="ml-4 flex-shrink-0 px-4 py-2 text-sm bg-primary text-white rounded hover:bg-primary-dark font-medium"
-                      >
-                        Revisit
-                      </button>
-                    </div>
-                  )}
+                  {/* Section 1: Community Configuration */}
+                  <div>
+                    <h2 className="text-xl font-semibold text-gray-900 mb-4">Community Configuration</h2>
 
-                  {/* Inline questionnaire */}
-                  {community.creator_id === currentUser?.id && showQuestionnaire && (
-                    <div className="mb-6 rounded-lg border border-border bg-surface p-6">
-                      <CommunityTrustQuestionnaire
-                        mode="revisit"
-                        onComplete={(answers: QuestionnaireAnswers) => {
-                          const inferred = answersToConfig(answers)
-                          setProposedConfig(inferred)
-                          setShowQuestionnaire(false)
-                          setShowDiff(true)
-                        }}
-                        onBack={() => setShowQuestionnaire(false)}
-                      />
-                    </div>
-                  )}
-
-                  {/* Diff view */}
-                  {community.creator_id === currentUser?.id && showDiff && proposedConfig && editedConfig && (
-                    <div className="mb-6">
-                      <TrustModelDiff
-                        current={editedConfig}
-                        proposed={proposedConfig}
-                        onApplyAll={() => {
-                          setEditedConfig(prev => prev ? { ...prev, ...proposedConfig } : prev)
-                          setShowDiff(false)
-                          setProposedConfig(null)
-                        }}
-                        onApplySelective={(fields) => {
-                          setEditedConfig(prev => {
-                            if (!prev || !proposedConfig) return prev
-                            const patch: Partial<CommunityConfig> = {}
-                            fields.forEach(f => { (patch as any)[f] = (proposedConfig as any)[f] })
-                            return { ...prev, ...patch }
-                          })
-                          setShowDiff(false)
-                          setProposedConfig(null)
-                        }}
-                        onDiscard={() => { setShowDiff(false); setProposedConfig(null) }}
-                      />
-                    </div>
-                  )}
-
-                  {community.creator_id === currentUser?.id && editedConfig ? (
-                    <>
-                      <CommunityConfigEditor
-                        config={editedConfig}
-                        onChange={(newConfig) => { setEditedConfig(newConfig); setConfigErrors({}) }}
-                        errors={configErrors}
-                      />
-                      <div className="flex justify-end gap-3 mt-6 pt-6 border-t">
-                        <button onClick={() => { setEditedConfig(config); setConfigErrors({}) }} className="px-6 py-2 bg-gray-200 text-text-muted rounded hover:bg-gray-300">Reset</button>
-                        <button onClick={handleSaveConfig} disabled={configSaving} className="px-6 py-2 bg-primary text-white rounded hover:bg-primary-dark disabled:bg-primary-medium">
-                          {configSaving ? 'Saving...' : 'Save Configuration'}
-                        </button>
-                      </div>
-                    </>
-                  ) : (
-                    <CommunityConfigEditor config={config} onChange={() => {}} readOnly={true} errors={{}} />
-                  )}
-                  {config.template_source && (
-                    <div className="mt-6 bg-primary-light border border-primary-medium rounded-lg p-4">
-                      <p className="text-sm text-primary-dark"><strong>Template:</strong> This community was created using the "{config.template_source}" template.</p>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Admin: Settings Tab */}
-              {activeTab === 'settings' && isAdmin && editedSettings && (
-                <div>
-                  <h3 className="text-xl font-semibold mb-4">Community Settings</h3>
-                  <div className="space-y-6">
-                    <div className="bg-surface rounded-lg p-6">
-                      <h4 className="font-semibold text-lg mb-4">Data Retention (TTL)</h4>
-                      <div className="grid md:grid-cols-2 gap-4">
-                        {([['request_ttl_days', 'Help Requests (days)'], ['offer_ttl_days', 'Help Offers (days)'], ['match_ttl_days', 'Completed Matches (days)'], ['notification_ttl_days', 'Notifications (days)'], ['message_ttl_days', 'Messages (days)'], ['session_ttl_days', 'Sessions (days)']] as const).map(([field, label]) => (
-                          <div key={field}>
-                            <label className="block text-sm font-medium text-text-muted mb-1">{label}</label>
-                            <input type="number" value={(editedSettings as any)[field]}
-                              onChange={(e) => setEditedSettings({ ...editedSettings, [field]: parseInt(e.target.value) || 60 })}
-                              className="w-full px-4 py-2 border border-border rounded" min="1" max="365" />
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="bg-surface rounded-lg p-6">
-                      <h4 className="font-semibold text-lg mb-4">Reputation Decay</h4>
-                      <div className="space-y-4">
-                        <div className="flex items-center gap-3">
-                          <input type="checkbox" id="karma_decay" checked={editedSettings.karma_decay_enabled}
-                            onChange={(e) => setEditedSettings({ ...editedSettings, karma_decay_enabled: e.target.checked })}
-                            className="w-5 h-5 rounded" />
-                          <label htmlFor="karma_decay" className="font-medium">Enable karma decay</label>
+                    {/* Summary card — key current values */}
+                    {config && (
+                      <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-4 grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                          <span className="font-medium text-gray-600">Karma split (helper):</span>{' '}
+                          <span className="text-gray-900">{config.karma_split_helper ?? 'default'}%</span>
                         </div>
-                        {editedSettings.karma_decay_enabled && (
-                          <div className="ml-8">
-                            <label className="block text-sm font-medium text-text-muted mb-1">Decay half-life (months)</label>
-                            <input type="number" value={editedSettings.karma_half_life_months}
-                              onChange={(e) => setEditedSettings({ ...editedSettings, karma_half_life_months: parseInt(e.target.value) || 6 })}
-                              className="w-32 px-4 py-2 border border-border rounded" min="1" max="24" />
+                        <div>
+                          <span className="font-medium text-gray-600">Trust path max hops:</span>{' '}
+                          <span className="text-gray-900">{config.trust_path_max_hops ?? 'default'}</span>
+                        </div>
+                        <div>
+                          <span className="font-medium text-gray-600">Visibility:</span>{' '}
+                          <span className="text-gray-900">{config.visibility_mode ?? 'default'}</span>
+                        </div>
+                        <div>
+                          <span className="font-medium text-gray-600">Join approval:</span>{' '}
+                          <span className="text-gray-900">{config.join_approval_required ? 'Required' : 'Open'}</span>
+                        </div>
+                      </div>
+                    )}
+
+                    {config && (
+                      <div>
+                        <p className="text-text-muted mb-6">
+                          {community.creator_id === currentUser?.id
+                            ? 'Configure trust, karma, and coordination mechanics for your community.'
+                            : 'View the configuration that defines how trust, karma, and coordination work in this community.'}
+                        </p>
+
+                        {/* Founder: Revisit trust model banner */}
+                        {community.creator_id === currentUser?.id && !showQuestionnaire && !showDiff && (
+                          <div className="mb-6 flex items-center justify-between rounded-lg border border-border bg-surface p-4">
+                            <div>
+                              <p className="font-medium text-text text-sm">Revisit your trust model</p>
+                              <p className="text-xs text-text-muted mt-0.5">
+                                Answer 6 questions and see what the system would propose based on how your community has evolved.
+                              </p>
+                            </div>
+                            <button
+                              onClick={() => { setShowQuestionnaire(true); setShowDiff(false); setProposedConfig(null) }}
+                              className="ml-4 flex-shrink-0 px-4 py-2 text-sm bg-primary text-white rounded hover:bg-primary-dark font-medium"
+                            >
+                              Revisit
+                            </button>
+                          </div>
+                        )}
+
+                        {/* Inline questionnaire */}
+                        {community.creator_id === currentUser?.id && showQuestionnaire && (
+                          <div className="mb-6 rounded-lg border border-border bg-surface p-6">
+                            <CommunityTrustQuestionnaire
+                              mode="revisit"
+                              onComplete={(answers: QuestionnaireAnswers) => {
+                                const inferred = answersToConfig(answers)
+                                setProposedConfig(inferred)
+                                setShowQuestionnaire(false)
+                                setShowDiff(true)
+                              }}
+                              onBack={() => setShowQuestionnaire(false)}
+                            />
+                          </div>
+                        )}
+
+                        {/* Diff view */}
+                        {community.creator_id === currentUser?.id && showDiff && proposedConfig && editedConfig && (
+                          <div className="mb-6">
+                            <TrustModelDiff
+                              current={editedConfig}
+                              proposed={proposedConfig}
+                              onApplyAll={() => {
+                                setEditedConfig(prev => prev ? { ...prev, ...proposedConfig } : prev)
+                                setShowDiff(false)
+                                setProposedConfig(null)
+                              }}
+                              onApplySelective={(fields) => {
+                                setEditedConfig(prev => {
+                                  if (!prev || !proposedConfig) return prev
+                                  const patch: Partial<CommunityConfig> = {}
+                                  fields.forEach(f => { (patch as any)[f] = (proposedConfig as any)[f] })
+                                  return { ...prev, ...patch }
+                                })
+                                setShowDiff(false)
+                                setProposedConfig(null)
+                              }}
+                              onDiscard={() => { setShowDiff(false); setProposedConfig(null) }}
+                            />
+                          </div>
+                        )}
+
+                        {community.creator_id === currentUser?.id && editedConfig ? (
+                          <>
+                            <CommunityConfigEditor
+                              config={editedConfig}
+                              onChange={(newConfig) => { setEditedConfig(newConfig); setConfigErrors({}) }}
+                              errors={configErrors}
+                            />
+                            <div className="flex justify-end gap-3 mt-6 pt-6 border-t">
+                              <button onClick={() => { setEditedConfig(config); setConfigErrors({}) }} className="px-6 py-2 bg-gray-200 text-text-muted rounded hover:bg-gray-300">Reset</button>
+                              <button onClick={handleSaveConfig} disabled={configSaving} className="px-6 py-2 bg-primary text-white rounded hover:bg-primary-dark disabled:bg-primary-medium">
+                                {configSaving ? 'Saving...' : 'Save Configuration'}
+                              </button>
+                            </div>
+                          </>
+                        ) : (
+                          <CommunityConfigEditor config={config} onChange={() => {}} readOnly={true} errors={{}} />
+                        )}
+                        {config.template_source && (
+                          <div className="mt-6 bg-primary-light border border-primary-medium rounded-lg p-4">
+                            <p className="text-sm text-primary-dark"><strong>Template:</strong> This community was created using the "{config.template_source}" template.</p>
                           </div>
                         )}
                       </div>
-                    </div>
-                    <div className="flex justify-end gap-3">
-                      <button onClick={() => setEditedSettings(settings)} className="px-6 py-2 bg-gray-200 text-text-muted rounded hover:bg-gray-300">Reset</button>
-                      <button onClick={handleSaveSettings} disabled={saving} className="px-6 py-2 bg-primary text-white rounded hover:bg-primary-dark disabled:bg-primary-medium">
-                        {saving ? 'Saving...' : 'Save Settings'}
-                      </button>
-                    </div>
+                    )}
                   </div>
+
+                  <hr className="border-gray-200" />
+
+                  {/* Section 2: Linked Communities */}
+                  <div>
+                    <h2 className="text-xl font-semibold text-gray-900 mb-4">Linked Communities</h2>
+                    <CommunityLinks communityId={community.id} isAdmin={isAdmin} />
+                  </div>
+
+                  <hr className="border-gray-200" />
+
+                  {/* Section 3: Advanced settings */}
+                  <div>
+                    <button
+                      onClick={() => setShowAdvancedSettings(v => !v)}
+                      className="flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-gray-900"
+                    >
+                      <span>{showAdvancedSettings ? '▾' : '▸'}</span>
+                      <span>Advanced</span>
+                    </button>
+
+                    {showAdvancedSettings && editedSettings && (
+                      <div className="mt-4 space-y-4">
+                        <div className="bg-surface rounded-lg p-6">
+                          <h4 className="font-semibold text-lg mb-4">Data Retention (TTL)</h4>
+                          <div className="grid md:grid-cols-2 gap-4">
+                            {([['request_ttl_days', 'Help Requests (days)'], ['offer_ttl_days', 'Help Offers (days)'], ['match_ttl_days', 'Completed Matches (days)'], ['notification_ttl_days', 'Notifications (days)'], ['message_ttl_days', 'Messages (days)'], ['session_ttl_days', 'Sessions (days)']] as const).map(([field, label]) => (
+                              <div key={field}>
+                                <label className="block text-sm font-medium text-text-muted mb-1">{label}</label>
+                                <input type="number" value={(editedSettings as any)[field]}
+                                  onChange={(e) => setEditedSettings({ ...editedSettings, [field]: parseInt(e.target.value) || 60 })}
+                                  className="w-full px-4 py-2 border border-border rounded" min="1" max="365" />
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                        <div className="bg-surface rounded-lg p-6">
+                          <h4 className="font-semibold text-lg mb-4">Reputation Decay</h4>
+                          <div className="space-y-4">
+                            <div className="flex items-center gap-3">
+                              <input type="checkbox" id="karma_decay" checked={editedSettings.karma_decay_enabled}
+                                onChange={(e) => setEditedSettings({ ...editedSettings, karma_decay_enabled: e.target.checked })}
+                                className="w-5 h-5 rounded" />
+                              <label htmlFor="karma_decay" className="font-medium">Enable karma decay</label>
+                            </div>
+                            {editedSettings.karma_decay_enabled && (
+                              <div className="ml-8">
+                                <label className="block text-sm font-medium text-text-muted mb-1">Decay half-life (months)</label>
+                                <input type="number" value={editedSettings.karma_half_life_months}
+                                  onChange={(e) => setEditedSettings({ ...editedSettings, karma_half_life_months: parseInt(e.target.value) || 6 })}
+                                  className="w-32 px-4 py-2 border border-border rounded" min="1" max="24" />
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex justify-end gap-3">
+                          <button onClick={() => setEditedSettings(settings)} className="px-6 py-2 bg-gray-200 text-text-muted rounded hover:bg-gray-300">Reset</button>
+                          <button onClick={handleSaveSettings} disabled={saving} className="px-6 py-2 bg-primary text-white rounded hover:bg-primary-dark disabled:bg-primary-medium">
+                            {saving ? 'Saving...' : 'Save Settings'}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
                 </div>
               )}
 
@@ -1486,13 +1536,6 @@ export default function CommunityDetailPage() {
                       </div>
                     ))}
                   </div>
-                </div>
-              )}
-
-              {/* Admin: Linked Communities Tab */}
-              {activeTab === 'links' && isAdmin && community && (
-                <div>
-                  <CommunityLinks communityId={community.id} isAdmin={isAdmin} />
                 </div>
               )}
 
