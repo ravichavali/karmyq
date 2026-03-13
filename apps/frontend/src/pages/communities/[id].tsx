@@ -446,6 +446,10 @@ export default function CommunityDetailPage() {
   const isPending = membershipRecord?.status === 'pending'
   const isAdmin = membershipRecord?.role === 'admin' && membershipRecord?.status === 'active'
 
+  const pendingCount = isAdmin
+    ? (community?.members ?? []).filter((m: any) => m.status === 'pending').length
+    : 0;
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -534,119 +538,41 @@ export default function CommunityDetailPage() {
 
           {/* Tabs */}
           <div className="bg-surface-raised rounded-lg shadow-md mb-6">
-            <div className="border-b border-border">
-              <nav className="flex overflow-x-auto">
-                <button
-                  onClick={() => setActiveTab('overview')}
-                  className={`px-6 py-4 font-medium ${
-                    activeTab === 'overview'
-                      ? 'border-b-2 border-primary text-primary'
-                      : 'text-text-muted hover:text-text'
-                  }`}
-                >
-                  Overview
-                </button>
-                <button
-                  onClick={() => { setActiveTab('members'); fetchMemberTrustScores() }}
-                  className={`px-6 py-4 font-medium ${
-                    activeTab === 'members'
-                      ? 'border-b-2 border-primary text-primary'
-                      : 'text-text-muted hover:text-text'
-                  }`}
-                >
-                  Members ({community.members.length})
-                </button>
-                <button
-                  onClick={() => setActiveTab('norms')}
-                  className={`px-6 py-4 font-medium ${
-                    activeTab === 'norms'
-                      ? 'border-b-2 border-primary text-primary'
-                      : 'text-text-muted hover:text-text'
-                  }`}
-                >
-                  Norms ({norms.length})
-                </button>
-                <button
-                  onClick={() => setActiveTab('config')}
-                  className={`px-6 py-4 font-medium ${
-                    activeTab === 'config'
-                      ? 'border-b-2 border-primary text-primary'
-                      : 'text-text-muted hover:text-text'
-                  }`}
-                >
-                  Configuration
-                </button>
+            {/* Tab navigation */}
+            <div className="border-b border-gray-200 mb-6">
+              <nav className="-mb-px flex space-x-4 overflow-x-auto" aria-label="Tabs">
+                {(['overview', 'members', 'norms', 'requests'] as ValidTab[]).map((tab) => (
+                  <button
+                    key={tab}
+                    onClick={() => setActiveTab(tab)}
+                    className={`relative whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm capitalize ${
+                      activeTab === tab
+                        ? 'border-indigo-500 text-indigo-600'
+                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    }`}
+                  >
+                    {tab}
+                    {tab === 'members' && isAdmin && pendingCount > 0 && activeTab !== 'members' && (
+                      <span className="absolute top-3 right-0 block h-2 w-2 rounded-full bg-red-500" />
+                    )}
+                  </button>
+                ))}
+
                 {isAdmin && (
                   <>
-                    <div className="w-px bg-border mx-1 my-3" />
-                    <button
-                      onClick={() => setActiveTab('manage')}
-                      className={`px-6 py-4 font-medium ${activeTab === 'manage' ? 'border-b-2 border-primary text-primary' : 'text-text-muted hover:text-text'}`}
-                    >
-                      Manage Members
-                    </button>
-                    <button
-                      onClick={() => setActiveTab('pending')}
-                      className={`px-6 py-4 font-medium relative ${activeTab === 'pending' ? 'border-b-2 border-primary text-primary' : 'text-text-muted hover:text-text'}`}
-                    >
-                      Pending ({community.members.filter(m => m.status === 'pending').length})
-                      {community.members.filter(m => m.status === 'pending').length > 0 && (
-                        <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-                          {community.members.filter(m => m.status === 'pending').length}
-                        </span>
-                      )}
-                    </button>
-                    <button
-                      onClick={() => setActiveTab('settings')}
-                      className={`px-6 py-4 font-medium ${activeTab === 'settings' ? 'border-b-2 border-primary text-primary' : 'text-text-muted hover:text-text'}`}
-                    >
-                      Settings
-                    </button>
-                    <button
-                      onClick={() => { setActiveTab('stats'); if (!stats) fetchStats(); if (!communityTrust) fetchCommunityTrust(); if (!networkMetrics) fetchNetworkMetrics() }}
-                      className={`px-6 py-4 font-medium ${activeTab === 'stats' ? 'border-b-2 border-primary text-primary' : 'text-text-muted hover:text-text'}`}
-                    >
-                      Statistics
-                    </button>
-                    <button
-                      onClick={() => setActiveTab('export')}
-                      className={`px-6 py-4 font-medium ${activeTab === 'export' ? 'border-b-2 border-primary text-primary' : 'text-text-muted hover:text-text'}`}
-                    >
-                      Export
-                    </button>
-                    <button
-                      onClick={() => {
-                        setActiveTab('providers')
-                        if (config) {
-                          setProviderConfig({
-                            provider_services_enabled: (config as any).provider_services_enabled ?? false,
-                            provider_min_personal_trust_score: (config as any).provider_min_personal_trust_score ?? 0,
-                            provider_services_list: (config as any).provider_services_list ?? [],
-                          })
-                        }
-                        collectiveService.listCollectives().then((cols: any) => {
-                          const list: any[] = Array.isArray(cols) ? cols : []
-                          setCommunityCollectives(list.filter((c: any) =>
-                            c.communities?.some((cl: any) => cl.community_id === id)
-                          ))
-                        }).catch(() => {})
-                      }}
-                      className={`px-6 py-4 font-medium ${activeTab === 'providers' ? 'border-b-2 border-primary text-primary' : 'text-text-muted hover:text-text'}`}
-                    >
-                      Providers
-                    </button>
-                    <button
-                      onClick={() => setActiveTab('links')}
-                      className={`px-6 py-4 font-medium ${activeTab === 'links' ? 'border-b-2 border-primary text-primary' : 'text-text-muted hover:text-text'}`}
-                    >
-                      Linked Communities
-                    </button>
-                    <button
-                      onClick={() => { setActiveTab('requests'); fetchCommunityRequests() }}
-                      className={`px-6 py-4 font-medium ${activeTab === 'requests' ? 'border-b-2 border-primary text-primary' : 'text-text-muted hover:text-text'}`}
-                    >
-                      Requests
-                    </button>
+                    {(['insights', 'settings', 'providers'] as ValidTab[]).map((tab) => (
+                      <button
+                        key={tab}
+                        onClick={() => setActiveTab(tab)}
+                        className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm capitalize ${
+                          activeTab === tab
+                            ? 'border-indigo-500 text-indigo-600'
+                            : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                        }`}
+                      >
+                        {tab}
+                      </button>
+                    ))}
                   </>
                 )}
               </nav>
