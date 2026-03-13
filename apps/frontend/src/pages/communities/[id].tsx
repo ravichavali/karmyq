@@ -544,7 +544,7 @@ export default function CommunityDetailPage() {
             {/* Tab navigation */}
             <div className="border-b border-gray-200 mb-6">
               <nav className="-mb-px flex space-x-4 overflow-x-auto" aria-label="Tabs">
-                {(['overview', 'members', 'norms', 'requests'] as ValidTab[]).map((tab) => (
+                {(['overview', 'members', 'norms'] as ValidTab[]).map((tab) => (
                   <button
                     key={tab}
                     onClick={() => setActiveTab(tab)}
@@ -563,7 +563,7 @@ export default function CommunityDetailPage() {
 
                 {isAdmin && (
                   <>
-                    {(['insights', 'settings', 'providers'] as ValidTab[]).map((tab) => (
+                    {(['requests', 'insights', 'settings', 'providers'] as ValidTab[]).map((tab) => (
                       <button
                         key={tab}
                         onClick={() => setActiveTab(tab)}
