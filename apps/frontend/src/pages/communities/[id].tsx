@@ -448,8 +448,10 @@ export default function CommunityDetailPage() {
   const isMember = membershipRecord?.status === 'active'
   const isPending = membershipRecord?.status === 'pending'
   const isAdmin = membershipRecord?.role === 'admin' && membershipRecord?.status === 'active'
+  const isModerator = membershipRecord?.role === 'moderator' && membershipRecord?.status === 'active'
+  const isAdminOrMod = isAdmin || isModerator
 
-  const pendingCount = isAdmin
+  const pendingCount = isAdminOrMod
     ? (community?.members ?? []).filter((m: any) => m.status === 'pending').length
     : 0;
 
@@ -554,16 +556,20 @@ export default function CommunityDetailPage() {
                         : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                     }`}
                   >
-                    {tab}
-                    {tab === 'members' && isAdmin && pendingCount > 0 && activeTab !== 'members' && (
-                      <span className="absolute top-3 right-0 block h-2 w-2 rounded-full bg-red-500" />
-                    )}
+                    {tab === 'members' ? (
+                      <span className="relative">
+                        members
+                        {isAdminOrMod && pendingCount > 0 && activeTab !== 'members' && (
+                          <span className="absolute -top-1 -right-3 w-2 h-2 bg-red-500 rounded-full" />
+                        )}
+                      </span>
+                    ) : tab}
                   </button>
                 ))}
 
-                {isAdmin && (
+                {isAdminOrMod && (
                   <>
-                    {(['requests', 'insights', 'settings', 'providers'] as ValidTab[]).map((tab) => (
+                    {(['requests', 'insights', 'providers'] as ValidTab[]).map((tab) => (
                       <button
                         key={tab}
                         onClick={() => setActiveTab(tab)}
@@ -577,6 +583,19 @@ export default function CommunityDetailPage() {
                       </button>
                     ))}
                   </>
+                )}
+
+                {isAdmin && (
+                  <button
+                    onClick={() => setActiveTab('settings')}
+                    className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm capitalize ${
+                      activeTab === 'settings'
+                        ? 'border-indigo-500 text-indigo-600'
+                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    }`}
+                  >
+                    settings
+                  </button>
                 )}
               </nav>
             </div>
@@ -806,7 +825,7 @@ export default function CommunityDetailPage() {
                 <div>
                   <div className="flex justify-between items-center mb-4">
                     <h3 className="text-xl font-semibold">Members</h3>
-                    {isAdmin && (
+                    {isAdminOrMod && (
                       <button
                         onClick={() => setShowInviteModal(true)}
                         className="px-4 py-2 bg-primary text-white rounded hover:bg-primary-dark"
@@ -817,7 +836,7 @@ export default function CommunityDetailPage() {
                   </div>
 
                   {/* Non-admin: original card view */}
-                  {!isAdmin && (
+                  {!isAdminOrMod && (
                     <div className="space-y-3">
                       {community.members.map((member) => (
                         <div
@@ -867,8 +886,8 @@ export default function CommunityDetailPage() {
                     </div>
                   )}
 
-                  {/* Admin: filter row + table/pending view */}
-                  {isAdmin && (
+                  {/* Admin/Mod: filter row + table/pending view */}
+                  {isAdminOrMod && (
                     <div>
                       {/* Filter row */}
                       <div className="flex items-center gap-4 mb-4">
@@ -929,19 +948,23 @@ export default function CommunityDetailPage() {
                                         {new Date(member.joined_at).toLocaleDateString()}
                                       </td>
                                       <td className="px-4 py-3 whitespace-nowrap">
-                                        <select
-                                          value={member.role}
-                                          onChange={(e) => handleUpdateMemberRole(member.user_id, e.target.value)}
-                                          disabled={disabled}
-                                          className="px-3 py-1 border border-border rounded text-sm disabled:bg-border-light"
-                                        >
-                                          <option value="member">Member</option>
-                                          <option value="moderator">Moderator</option>
-                                          <option value="admin">Admin</option>
-                                        </select>
+                                        {isAdmin ? (
+                                          <select
+                                            value={member.role}
+                                            onChange={(e) => handleUpdateMemberRole(member.user_id, e.target.value)}
+                                            disabled={disabled}
+                                            className="px-3 py-1 border border-border rounded text-sm disabled:bg-border-light"
+                                          >
+                                            <option value="member">Member</option>
+                                            <option value="moderator">Moderator</option>
+                                            <option value="admin">Admin</option>
+                                          </select>
+                                        ) : (
+                                          <span className="px-3 py-1 text-sm text-text-muted">{member.role}</span>
+                                        )}
                                       </td>
                                       <td className="px-4 py-3 whitespace-nowrap text-right">
-                                        {!isSelf && !isCreator ? (
+                                        {isAdmin && !isSelf && !isCreator ? (
                                           <button
                                             onClick={() => handleRemoveMember(member.user_id, member.user_name)}
                                             className="px-3 py-1 bg-red-100 text-red-700 rounded text-sm hover:bg-red-200"
@@ -1282,8 +1305,8 @@ export default function CommunityDetailPage() {
                 </div>
               )}
 
-              {/* Admin: Insights Tab (unified Stats + Export) */}
-              {activeTab === 'insights' && isAdmin && (
+              {/* Admin/Mod: Insights Tab (unified Stats + Export) */}
+              {activeTab === 'insights' && isAdminOrMod && (
                 <div className="space-y-8">
 
                   {/* Section 1: Community stats */}
@@ -1428,36 +1451,40 @@ export default function CommunityDetailPage() {
                     })()}
                   </div>
 
-                  <hr className="border-gray-200" />
+                  {isAdmin && (
+                    <>
+                      <hr className="border-gray-200" />
 
-                  {/* Section 2: Export data */}
-                  <div>
-                    <h2 className="text-xl font-semibold text-gray-900 mb-4">Export Data</h2>
-                    <div className="space-y-6">
-                      {([['full', 'Full Community Export', 'Export all community data including members, requests, matches, norms, settings, and karma records.'],
-                         ['members', 'Members List', 'Export a list of all community members with their roles and join dates.'],
-                         ['activity', 'Activity Report', 'Export member activity including karma, trust scores, helps given and received.']] as const).map(([type, title, desc]) => (
-                        <div key={type} className="bg-surface rounded-lg p-6">
-                          <h4 className="font-semibold text-lg mb-2">{title}</h4>
-                          <p className="text-sm text-text-muted mb-4">{desc}</p>
-                          <div className="flex gap-3">
-                            <button onClick={() => handleExport(type, 'json')} disabled={exporting} className="px-4 py-2 bg-primary text-white rounded hover:bg-primary-dark disabled:bg-primary-medium">
-                              {exporting ? 'Exporting...' : 'Export JSON'}
-                            </button>
-                            <button onClick={() => handleExport(type, 'csv')} disabled={exporting} className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:bg-green-400">
-                              {exporting ? 'Exporting...' : 'Export CSV'}
-                            </button>
-                          </div>
+                      {/* Section 2: Export data */}
+                      <div>
+                        <h2 className="text-xl font-semibold text-gray-900 mb-4">Export Data</h2>
+                        <div className="space-y-6">
+                          {([['full', 'Full Community Export', 'Export all community data including members, requests, matches, norms, settings, and karma records.'],
+                             ['members', 'Members List', 'Export a list of all community members with their roles and join dates.'],
+                             ['activity', 'Activity Report', 'Export member activity including karma, trust scores, helps given and received.']] as const).map(([type, title, desc]) => (
+                            <div key={type} className="bg-surface rounded-lg p-6">
+                              <h4 className="font-semibold text-lg mb-2">{title}</h4>
+                              <p className="text-sm text-text-muted mb-4">{desc}</p>
+                              <div className="flex gap-3">
+                                <button onClick={() => handleExport(type, 'json')} disabled={exporting} className="px-4 py-2 bg-primary text-white rounded hover:bg-primary-dark disabled:bg-primary-medium">
+                                  {exporting ? 'Exporting...' : 'Export JSON'}
+                                </button>
+                                <button onClick={() => handleExport(type, 'csv')} disabled={exporting} className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:bg-green-400">
+                                  {exporting ? 'Exporting...' : 'Export CSV'}
+                                </button>
+                              </div>
+                            </div>
+                          ))}
                         </div>
-                      ))}
-                    </div>
-                  </div>
+                      </div>
+                    </>
+                  )}
 
                 </div>
               )}
 
-              {/* Admin: Providers Tab */}
-              {activeTab === 'providers' && isAdmin && (
+              {/* Admin/Mod: Providers Tab */}
+              {activeTab === 'providers' && isAdminOrMod && (
                 <div className="space-y-6">
                   <h3 className="text-xl font-semibold mb-2">Service Provider Settings</h3>
 
@@ -1534,8 +1561,8 @@ export default function CommunityDetailPage() {
                 </div>
               )}
 
-              {/* Admin: Requests Tab */}
-              {activeTab === 'requests' && isAdmin && (
+              {/* Admin/Mod: Requests Tab */}
+              {activeTab === 'requests' && isAdminOrMod && (
                 <div>
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="text-xl font-semibold">Community Requests</h3>
