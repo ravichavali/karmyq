@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/router'
 import Head from 'next/head'
 import Link from 'next/link'
-import { communityService, collectiveService, requestService, reputationService } from '@/lib/api'
+import { communityService, requestService, reputationService } from '@/lib/api'
 import Layout from '@/components/Layout'
 import CommunityConfigEditor from '@/components/CommunityConfigEditor'
 import CommunityTrustQuestionnaire from '@/components/CommunityTrustQuestionnaire'
@@ -58,6 +58,19 @@ interface Community {
   members: Member[]
 }
 
+type ValidTab = 'overview' | 'members' | 'norms' | 'requests' | 'insights' | 'settings' | 'providers';
+
+const OLD_TAB_MAP: Record<string, ValidTab> = {
+  manage: 'members',
+  pending: 'members',
+  config: 'settings',
+  stats: 'insights',
+  export: 'insights',
+  links: 'settings',
+};
+
+const VALID_TABS: ValidTab[] = ['overview', 'members', 'norms', 'requests', 'insights', 'settings', 'providers'];
+
 export default function CommunityDetailPage() {
   const router = useRouter()
   const { id } = router.query
@@ -67,7 +80,9 @@ export default function CommunityDetailPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [currentUser, setCurrentUser] = useState<any>(null)
-  const [activeTab, setActiveTab] = useState<'overview' | 'members' | 'norms' | 'config' | 'manage' | 'pending' | 'settings' | 'stats' | 'export' | 'providers' | 'links' | 'requests'>('overview')
+  const [activeTab, setActiveTab] = useState<ValidTab>('overview')
+  const [memberFilter, setMemberFilter] = useState<'active' | 'pending'>('active')
+  const [showAdvancedSettings, setShowAdvancedSettings] = useState(false)
   const [communityCollectives, setCommunityCollectives] = useState<any[]>([])
   const [providerConfig, setProviderConfig] = useState({ provider_services_enabled: false, provider_min_personal_trust_score: 0, provider_services_list: [] as string[] })
   const [savingProviderConfig, setSavingProviderConfig] = useState(false)
@@ -122,6 +137,36 @@ export default function CommunityDetailPage() {
       fetchStats()
     }
   }, [id])
+
+  // Redirect old tab names to new equivalents (backwards compat)
+  useEffect(() => {
+    const raw = router.query.tab as string | undefined;
+    if (!raw) return;
+    if (VALID_TABS.includes(raw as ValidTab)) {
+      setActiveTab(raw as ValidTab);
+    } else if (OLD_TAB_MAP[raw]) {
+      router.replace(
+        { pathname: router.pathname, query: { ...router.query, tab: OLD_TAB_MAP[raw] } },
+        undefined,
+        { shallow: true }
+      );
+      setActiveTab(OLD_TAB_MAP[raw]);
+    }
+  }, [router.query.tab])
+
+  // Trigger tab-specific data fetches when the active tab changes
+  useEffect(() => {
+    if (!id) return
+    if (activeTab === 'members') {
+      fetchMemberTrustScores()
+    } else if (activeTab === 'insights') {
+      if (!stats) fetchStats()
+      if (!communityTrust) fetchCommunityTrust()
+      if (!networkMetrics) fetchNetworkMetrics()
+    } else if (activeTab === 'requests') {
+      fetchCommunityRequests()
+    }
+  }, [activeTab]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchCommunity = async () => {
     try {
@@ -399,21 +444,14 @@ export default function CommunityDetailPage() {
     }
   }
 
-  const LAYER_CHIP: Record<string, string> = {
-    inner_circle: 'bg-indigo-100 text-indigo-800',
-    active_community: 'bg-green-100 text-green-800',
-    extended_network: 'bg-gray-100 text-gray-500',
-  }
-  const LAYER_LABEL: Record<string, string> = {
-    inner_circle: 'Inner Circle',
-    active_community: 'Active',
-    extended_network: 'Extended',
-  }
-
   const membershipRecord = community?.members.find((m: Member) => m.user_id === currentUser?.id)
   const isMember = membershipRecord?.status === 'active'
   const isPending = membershipRecord?.status === 'pending'
   const isAdmin = membershipRecord?.role === 'admin' && membershipRecord?.status === 'active'
+
+  const pendingCount = isAdmin
+    ? (community?.members ?? []).filter((m: any) => m.status === 'pending').length
+    : 0;
 
   if (loading) {
     return (
@@ -503,119 +541,41 @@ export default function CommunityDetailPage() {
 
           {/* Tabs */}
           <div className="bg-surface-raised rounded-lg shadow-md mb-6">
-            <div className="border-b border-border">
-              <nav className="flex overflow-x-auto">
-                <button
-                  onClick={() => setActiveTab('overview')}
-                  className={`px-6 py-4 font-medium ${
-                    activeTab === 'overview'
-                      ? 'border-b-2 border-primary text-primary'
-                      : 'text-text-muted hover:text-text'
-                  }`}
-                >
-                  Overview
-                </button>
-                <button
-                  onClick={() => { setActiveTab('members'); fetchMemberTrustScores() }}
-                  className={`px-6 py-4 font-medium ${
-                    activeTab === 'members'
-                      ? 'border-b-2 border-primary text-primary'
-                      : 'text-text-muted hover:text-text'
-                  }`}
-                >
-                  Members ({community.members.length})
-                </button>
-                <button
-                  onClick={() => setActiveTab('norms')}
-                  className={`px-6 py-4 font-medium ${
-                    activeTab === 'norms'
-                      ? 'border-b-2 border-primary text-primary'
-                      : 'text-text-muted hover:text-text'
-                  }`}
-                >
-                  Norms ({norms.length})
-                </button>
-                <button
-                  onClick={() => setActiveTab('config')}
-                  className={`px-6 py-4 font-medium ${
-                    activeTab === 'config'
-                      ? 'border-b-2 border-primary text-primary'
-                      : 'text-text-muted hover:text-text'
-                  }`}
-                >
-                  Configuration
-                </button>
+            {/* Tab navigation */}
+            <div className="border-b border-gray-200 mb-6">
+              <nav className="-mb-px flex space-x-4 overflow-x-auto" aria-label="Tabs">
+                {(['overview', 'members', 'norms'] as ValidTab[]).map((tab) => (
+                  <button
+                    key={tab}
+                    onClick={() => setActiveTab(tab)}
+                    className={`relative whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm capitalize ${
+                      activeTab === tab
+                        ? 'border-indigo-500 text-indigo-600'
+                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    }`}
+                  >
+                    {tab}
+                    {tab === 'members' && isAdmin && pendingCount > 0 && activeTab !== 'members' && (
+                      <span className="absolute top-3 right-0 block h-2 w-2 rounded-full bg-red-500" />
+                    )}
+                  </button>
+                ))}
+
                 {isAdmin && (
                   <>
-                    <div className="w-px bg-border mx-1 my-3" />
-                    <button
-                      onClick={() => setActiveTab('manage')}
-                      className={`px-6 py-4 font-medium ${activeTab === 'manage' ? 'border-b-2 border-primary text-primary' : 'text-text-muted hover:text-text'}`}
-                    >
-                      Manage Members
-                    </button>
-                    <button
-                      onClick={() => setActiveTab('pending')}
-                      className={`px-6 py-4 font-medium relative ${activeTab === 'pending' ? 'border-b-2 border-primary text-primary' : 'text-text-muted hover:text-text'}`}
-                    >
-                      Pending ({community.members.filter(m => m.status === 'pending').length})
-                      {community.members.filter(m => m.status === 'pending').length > 0 && (
-                        <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-                          {community.members.filter(m => m.status === 'pending').length}
-                        </span>
-                      )}
-                    </button>
-                    <button
-                      onClick={() => setActiveTab('settings')}
-                      className={`px-6 py-4 font-medium ${activeTab === 'settings' ? 'border-b-2 border-primary text-primary' : 'text-text-muted hover:text-text'}`}
-                    >
-                      Settings
-                    </button>
-                    <button
-                      onClick={() => { setActiveTab('stats'); if (!stats) fetchStats(); if (!communityTrust) fetchCommunityTrust(); if (!networkMetrics) fetchNetworkMetrics() }}
-                      className={`px-6 py-4 font-medium ${activeTab === 'stats' ? 'border-b-2 border-primary text-primary' : 'text-text-muted hover:text-text'}`}
-                    >
-                      Statistics
-                    </button>
-                    <button
-                      onClick={() => setActiveTab('export')}
-                      className={`px-6 py-4 font-medium ${activeTab === 'export' ? 'border-b-2 border-primary text-primary' : 'text-text-muted hover:text-text'}`}
-                    >
-                      Export
-                    </button>
-                    <button
-                      onClick={() => {
-                        setActiveTab('providers')
-                        if (config) {
-                          setProviderConfig({
-                            provider_services_enabled: (config as any).provider_services_enabled ?? false,
-                            provider_min_personal_trust_score: (config as any).provider_min_personal_trust_score ?? 0,
-                            provider_services_list: (config as any).provider_services_list ?? [],
-                          })
-                        }
-                        collectiveService.listCollectives().then((cols: any) => {
-                          const list: any[] = Array.isArray(cols) ? cols : []
-                          setCommunityCollectives(list.filter((c: any) =>
-                            c.communities?.some((cl: any) => cl.community_id === id)
-                          ))
-                        }).catch(() => {})
-                      }}
-                      className={`px-6 py-4 font-medium ${activeTab === 'providers' ? 'border-b-2 border-primary text-primary' : 'text-text-muted hover:text-text'}`}
-                    >
-                      Providers
-                    </button>
-                    <button
-                      onClick={() => setActiveTab('links')}
-                      className={`px-6 py-4 font-medium ${activeTab === 'links' ? 'border-b-2 border-primary text-primary' : 'text-text-muted hover:text-text'}`}
-                    >
-                      Linked Communities
-                    </button>
-                    <button
-                      onClick={() => { setActiveTab('requests'); fetchCommunityRequests() }}
-                      className={`px-6 py-4 font-medium ${activeTab === 'requests' ? 'border-b-2 border-primary text-primary' : 'text-text-muted hover:text-text'}`}
-                    >
-                      Requests
-                    </button>
+                    {(['requests', 'insights', 'settings', 'providers'] as ValidTab[]).map((tab) => (
+                      <button
+                        key={tab}
+                        onClick={() => setActiveTab(tab)}
+                        className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm capitalize ${
+                          activeTab === tab
+                            ? 'border-indigo-500 text-indigo-600'
+                            : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                        }`}
+                      >
+                        {tab}
+                      </button>
+                    ))}
                   </>
                 )}
               </nav>
@@ -681,7 +641,7 @@ export default function CommunityDetailPage() {
                       <div className="flex items-center justify-between mb-4">
                         <h3 className="text-xl font-semibold">How This Community Works</h3>
                         <button
-                          onClick={() => setActiveTab('config')}
+                          onClick={() => setActiveTab('settings')}
                           className="text-sm text-primary hover:text-primary-dark font-medium"
                         >
                           View Full Configuration →
@@ -855,58 +815,181 @@ export default function CommunityDetailPage() {
                       </button>
                     )}
                   </div>
-                  <div className="space-y-3">
-                    {community.members.map((member) => (
-                      <div
-                        key={member.id}
-                        className="flex items-center justify-between p-4 bg-surface rounded-lg"
-                      >
-                        <div>
-                          <div className="font-semibold">{member.user_name}</div>
-                          <div className="text-sm text-text-muted">{member.user_email}</div>
-                          {member.invited_by_name && (
-                            <div className="text-xs text-text-subtle">
-                              Invited by {member.invited_by_name}
-                            </div>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-3">
-                          {isAdmin && (member as any).layer && (
-                            <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${LAYER_CHIP[(member as any).layer] ?? ''}`}>
-                              {LAYER_LABEL[(member as any).layer] ?? (member as any).layer}
+
+                  {/* Non-admin: original card view */}
+                  {!isAdmin && (
+                    <div className="space-y-3">
+                      {community.members.map((member) => (
+                        <div
+                          key={member.id}
+                          className="flex items-center justify-between p-4 bg-surface rounded-lg"
+                        >
+                          <div>
+                            <div className="font-semibold">{member.user_name}</div>
+                            <div className="text-sm text-text-muted">{member.user_email}</div>
+                            {member.invited_by_name && (
+                              <div className="text-xs text-text-subtle">
+                                Invited by {member.invited_by_name}
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <span
+                              className={`px-3 py-1 rounded text-sm font-medium ${
+                                member.role === 'admin'
+                                  ? 'bg-accent-light text-accent-dark'
+                                  : 'bg-gray-200 text-text-muted'
+                              }`}
+                            >
+                              {member.role}
                             </span>
-                          )}
-                          <span
-                            className={`px-3 py-1 rounded text-sm font-medium ${
-                              member.role === 'admin'
-                                ? 'bg-accent-light text-accent-dark'
-                                : 'bg-gray-200 text-text-muted'
-                            }`}
-                          >
-                            {member.role}
-                          </span>
-                          {(() => {
-                            const score = memberTrustScores[member.user_id]
-                            const colorClass = score === null || score === undefined
-                              ? 'bg-gray-100 text-gray-400'
-                              : score >= 75
-                              ? 'bg-green-100 text-green-700'
-                              : score >= 50
-                              ? 'bg-amber-100 text-amber-700'
-                              : 'bg-gray-100 text-gray-400'
-                            return (
-                              <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${colorClass}`}>
-                                {score !== null && score !== undefined ? `★ ${score}` : '—'}
-                              </span>
-                            )
-                          })()}
-                          <span className="text-xs text-text-subtle">
-                            {new Date(member.joined_at).toLocaleDateString()}
-                          </span>
+                            {(() => {
+                              const score = memberTrustScores[member.user_id]
+                              const colorClass = score === null || score === undefined
+                                ? 'bg-gray-100 text-gray-400'
+                                : score >= 75
+                                ? 'bg-green-100 text-green-700'
+                                : score >= 50
+                                ? 'bg-amber-100 text-amber-700'
+                                : 'bg-gray-100 text-gray-400'
+                              return (
+                                <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${colorClass}`}>
+                                  {score !== null && score !== undefined ? `★ ${score}` : '—'}
+                                </span>
+                              )
+                            })()}
+                            <span className="text-xs text-text-subtle">
+                              {new Date(member.joined_at).toLocaleDateString()}
+                            </span>
+                          </div>
                         </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Admin: filter row + table/pending view */}
+                  {isAdmin && (
+                    <div>
+                      {/* Filter row */}
+                      <div className="flex items-center gap-4 mb-4">
+                        <button
+                          onClick={() => setMemberFilter('active')}
+                          className={`px-3 py-1.5 rounded-md text-sm font-medium ${
+                            memberFilter === 'active'
+                              ? 'bg-indigo-100 text-indigo-700'
+                              : 'text-gray-600 hover:bg-gray-100'
+                          }`}
+                        >
+                          Active ({(community.members ?? []).filter((m: any) => m.status === 'active').length})
+                        </button>
+                        <button
+                          onClick={() => setMemberFilter('pending')}
+                          className={`relative px-3 py-1.5 rounded-md text-sm font-medium ${
+                            memberFilter === 'pending'
+                              ? 'bg-indigo-100 text-indigo-700'
+                              : 'text-gray-600 hover:bg-gray-100'
+                          }`}
+                        >
+                          Pending ({pendingCount})
+                          {pendingCount > 0 && memberFilter !== 'pending' && (
+                            <span className="absolute -top-1 -right-1 block h-2 w-2 rounded-full bg-red-500" />
+                          )}
+                        </button>
                       </div>
-                    ))}
-                  </div>
+
+                      {/* Active members table */}
+                      {memberFilter === 'active' && (
+                        <div className="overflow-x-auto">
+                          <table className="min-w-full divide-y divide-gray-200">
+                            <thead className="bg-gray-50">
+                              <tr>
+                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Joined</th>
+                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
+                                <th className="px-4 py-3" />
+                              </tr>
+                            </thead>
+                            <tbody className="bg-white divide-y divide-gray-200">
+                              {(community.members ?? [])
+                                .filter((m: any) => m.status === 'active')
+                                .map((member) => {
+                                  const isSelf = member.user_id === currentUser?.id;
+                                  const isCreator = member.user_id === community?.creator_id;
+                                  const disabled = isSelf || isCreator;
+                                  return (
+                                    <tr key={member.user_id}>
+                                      <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
+                                        {member.user_name}
+                                      </td>
+                                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                                        {member.user_email}
+                                      </td>
+                                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                                        {new Date(member.joined_at).toLocaleDateString()}
+                                      </td>
+                                      <td className="px-4 py-3 whitespace-nowrap">
+                                        <select
+                                          value={member.role}
+                                          onChange={(e) => handleUpdateMemberRole(member.user_id, e.target.value)}
+                                          disabled={disabled}
+                                          className="px-3 py-1 border border-border rounded text-sm disabled:bg-border-light"
+                                        >
+                                          <option value="member">Member</option>
+                                          <option value="moderator">Moderator</option>
+                                          <option value="admin">Admin</option>
+                                        </select>
+                                      </td>
+                                      <td className="px-4 py-3 whitespace-nowrap text-right">
+                                        {!isSelf && !isCreator ? (
+                                          <button
+                                            onClick={() => handleRemoveMember(member.user_id, member.user_name)}
+                                            className="px-3 py-1 bg-red-100 text-red-700 rounded text-sm hover:bg-red-200"
+                                          >
+                                            Remove
+                                          </button>
+                                        ) : isCreator ? (
+                                          <span className="px-3 py-1 bg-accent-light text-accent-dark rounded text-sm">Creator</span>
+                                        ) : null}
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+
+                      {/* Pending join requests */}
+                      {memberFilter === 'pending' && (
+                        <div className="space-y-3">
+                          {(community.members ?? [])
+                            .filter((m: any) => m.status === 'pending')
+                            .map((member) => (
+                              <div key={member.user_id} className="flex items-center justify-between p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                                <div className="flex-1">
+                                  <div className="font-semibold">{member.user_name}</div>
+                                  <div className="text-sm text-text-muted">{member.user_email}</div>
+                                  <div className="text-xs text-text-subtle">Requested {new Date(member.joined_at).toLocaleDateString()}</div>
+                                  {member.join_request_message && (
+                                    <div className="mt-2 text-sm text-text-muted bg-surface-raised p-2 rounded border border-yellow-300">
+                                      <span className="font-medium">Message:</span> {member.join_request_message}
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-2 ml-4">
+                                  <button onClick={() => handleApproveMember(member.user_id)} className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">Approve</button>
+                                  <button onClick={() => handleRejectMember(member.user_id)} className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700">Reject</button>
+                                </div>
+                              </div>
+                            ))}
+                          {pendingCount === 0 && (
+                            <p className="text-sm text-gray-500 text-center py-8">No pending join requests.</p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -1008,350 +1091,368 @@ export default function CommunityDetailPage() {
               )}
 
               {/* Configuration Tab */}
-              {activeTab === 'config' && config && (
-                <div>
-                  <h3 className="text-xl font-semibold mb-4">Community Configuration</h3>
-                  <p className="text-text-muted mb-6">
-                    {community.creator_id === currentUser?.id
-                      ? 'Configure trust, karma, and coordination mechanics for your community.'
-                      : 'View the configuration that defines how trust, karma, and coordination work in this community.'}
-                  </p>
+              {/* Admin: Unified Settings Tab */}
+              {activeTab === 'settings' && isAdmin && (
+                <div className="space-y-8">
 
-                  {/* Founder: Revisit trust model banner */}
-                  {community.creator_id === currentUser?.id && !showQuestionnaire && !showDiff && (
-                    <div className="mb-6 flex items-center justify-between rounded-lg border border-border bg-surface p-4">
-                      <div>
-                        <p className="font-medium text-text text-sm">Revisit your trust model</p>
-                        <p className="text-xs text-text-muted mt-0.5">
-                          Answer 6 questions and see what the system would propose based on how your community has evolved.
-                        </p>
-                      </div>
-                      <button
-                        onClick={() => { setShowQuestionnaire(true); setShowDiff(false); setProposedConfig(null) }}
-                        className="ml-4 flex-shrink-0 px-4 py-2 text-sm bg-primary text-white rounded hover:bg-primary-dark font-medium"
-                      >
-                        Revisit
-                      </button>
-                    </div>
-                  )}
+                  {/* Section 1: Community Configuration */}
+                  <div>
+                    <h2 className="text-xl font-semibold text-gray-900 mb-4">Community Configuration</h2>
 
-                  {/* Inline questionnaire */}
-                  {community.creator_id === currentUser?.id && showQuestionnaire && (
-                    <div className="mb-6 rounded-lg border border-border bg-surface p-6">
-                      <CommunityTrustQuestionnaire
-                        mode="revisit"
-                        onComplete={(answers: QuestionnaireAnswers) => {
-                          const inferred = answersToConfig(answers)
-                          setProposedConfig(inferred)
-                          setShowQuestionnaire(false)
-                          setShowDiff(true)
-                        }}
-                        onBack={() => setShowQuestionnaire(false)}
-                      />
-                    </div>
-                  )}
-
-                  {/* Diff view */}
-                  {community.creator_id === currentUser?.id && showDiff && proposedConfig && editedConfig && (
-                    <div className="mb-6">
-                      <TrustModelDiff
-                        current={editedConfig}
-                        proposed={proposedConfig}
-                        onApplyAll={() => {
-                          setEditedConfig(prev => prev ? { ...prev, ...proposedConfig } : prev)
-                          setShowDiff(false)
-                          setProposedConfig(null)
-                        }}
-                        onApplySelective={(fields) => {
-                          setEditedConfig(prev => {
-                            if (!prev || !proposedConfig) return prev
-                            const patch: Partial<CommunityConfig> = {}
-                            fields.forEach(f => { (patch as any)[f] = (proposedConfig as any)[f] })
-                            return { ...prev, ...patch }
-                          })
-                          setShowDiff(false)
-                          setProposedConfig(null)
-                        }}
-                        onDiscard={() => { setShowDiff(false); setProposedConfig(null) }}
-                      />
-                    </div>
-                  )}
-
-                  {community.creator_id === currentUser?.id && editedConfig ? (
-                    <>
-                      <CommunityConfigEditor
-                        config={editedConfig}
-                        onChange={(newConfig) => { setEditedConfig(newConfig); setConfigErrors({}) }}
-                        errors={configErrors}
-                      />
-                      <div className="flex justify-end gap-3 mt-6 pt-6 border-t">
-                        <button onClick={() => { setEditedConfig(config); setConfigErrors({}) }} className="px-6 py-2 bg-gray-200 text-text-muted rounded hover:bg-gray-300">Reset</button>
-                        <button onClick={handleSaveConfig} disabled={configSaving} className="px-6 py-2 bg-primary text-white rounded hover:bg-primary-dark disabled:bg-primary-medium">
-                          {configSaving ? 'Saving...' : 'Save Configuration'}
-                        </button>
-                      </div>
-                    </>
-                  ) : (
-                    <CommunityConfigEditor config={config} onChange={() => {}} readOnly={true} errors={{}} />
-                  )}
-                  {config.template_source && (
-                    <div className="mt-6 bg-primary-light border border-primary-medium rounded-lg p-4">
-                      <p className="text-sm text-primary-dark"><strong>Template:</strong> This community was created using the "{config.template_source}" template.</p>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Admin: Manage Members Tab */}
-              {activeTab === 'manage' && isAdmin && (
-                <div>
-                  <h3 className="text-xl font-semibold mb-4">Manage Members</h3>
-                  <div className="space-y-3">
-                    {community.members.filter(m => m.status === 'active').map((member) => (
-                      <div key={member.id} className="flex items-center justify-between p-4 bg-surface rounded-lg">
+                    {/* Summary card — key current values */}
+                    {config && (
+                      <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-4 grid grid-cols-2 gap-4 text-sm">
                         <div>
-                          <div className="font-semibold">{member.user_name}</div>
-                          <div className="text-sm text-text-muted">{member.user_email}</div>
-                          <div className="text-xs text-text-subtle">Joined {new Date(member.joined_at).toLocaleDateString()}</div>
+                          <span className="font-medium text-gray-600">Karma split (helper):</span>{' '}
+                          <span className="text-gray-900">{config.karma_split_helper ?? 'default'}%</span>
                         </div>
-                        <div className="flex items-center gap-3">
-                          <select value={member.role} onChange={(e) => handleUpdateMemberRole(member.user_id, e.target.value)}
-                            disabled={member.user_id === currentUser?.id || member.user_id === community.creator_id}
-                            className="px-3 py-1 border border-border rounded text-sm disabled:bg-border-light">
-                            <option value="member">Member</option>
-                            <option value="moderator">Moderator</option>
-                            <option value="admin">Admin</option>
-                          </select>
-                          {member.user_id !== currentUser?.id && member.user_id !== community.creator_id ? (
-                            <button onClick={() => handleRemoveMember(member.user_id, member.user_name)} className="px-3 py-1 bg-red-100 text-red-700 rounded text-sm hover:bg-red-200">Remove</button>
-                          ) : member.user_id === community.creator_id ? (
-                            <span className="px-3 py-1 bg-accent-light text-accent-dark rounded text-sm">Creator</span>
-                          ) : null}
+                        <div>
+                          <span className="font-medium text-gray-600">Trust path max hops:</span>{' '}
+                          <span className="text-gray-900">{config.trust_path_max_hops ?? 'default'}</span>
+                        </div>
+                        <div>
+                          <span className="font-medium text-gray-600">Visibility:</span>{' '}
+                          <span className="text-gray-900">{config.visibility_mode ?? 'default'}</span>
+                        </div>
+                        <div>
+                          <span className="font-medium text-gray-600">Join approval:</span>{' '}
+                          <span className="text-gray-900">{config.join_approval_required ? 'Required' : 'Open'}</span>
                         </div>
                       </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+                    )}
 
-              {/* Admin: Pending Requests Tab */}
-              {activeTab === 'pending' && isAdmin && (
-                <div>
-                  <h3 className="text-xl font-semibold mb-4">Pending Join Requests</h3>
-                  {community.members.filter(m => m.status === 'pending').length === 0 ? (
-                    <p className="text-text-subtle">No pending join requests.</p>
-                  ) : (
-                    <div className="space-y-3">
-                      {community.members.filter(m => m.status === 'pending').map((member) => (
-                        <div key={member.id} className="flex items-center justify-between p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                          <div className="flex-1">
-                            <div className="font-semibold">{member.user_name}</div>
-                            <div className="text-sm text-text-muted">{member.user_email}</div>
-                            <div className="text-xs text-text-subtle">Requested {new Date(member.joined_at).toLocaleDateString()}</div>
-                            {member.join_request_message && (
-                              <div className="mt-2 text-sm text-text-muted bg-surface-raised p-2 rounded border border-yellow-300">
-                                <span className="font-medium">Message:</span> {member.join_request_message}
+                    {config && (
+                      <div>
+                        <p className="text-text-muted mb-6">
+                          {community.creator_id === currentUser?.id
+                            ? 'Configure trust, karma, and coordination mechanics for your community.'
+                            : 'View the configuration that defines how trust, karma, and coordination work in this community.'}
+                        </p>
+
+                        {/* Founder: Revisit trust model banner */}
+                        {community.creator_id === currentUser?.id && !showQuestionnaire && !showDiff && (
+                          <div className="mb-6 flex items-center justify-between rounded-lg border border-border bg-surface p-4">
+                            <div>
+                              <p className="font-medium text-text text-sm">Revisit your trust model</p>
+                              <p className="text-xs text-text-muted mt-0.5">
+                                Answer 6 questions and see what the system would propose based on how your community has evolved.
+                              </p>
+                            </div>
+                            <button
+                              onClick={() => { setShowQuestionnaire(true); setShowDiff(false); setProposedConfig(null) }}
+                              className="ml-4 flex-shrink-0 px-4 py-2 text-sm bg-primary text-white rounded hover:bg-primary-dark font-medium"
+                            >
+                              Revisit
+                            </button>
+                          </div>
+                        )}
+
+                        {/* Inline questionnaire */}
+                        {community.creator_id === currentUser?.id && showQuestionnaire && (
+                          <div className="mb-6 rounded-lg border border-border bg-surface p-6">
+                            <CommunityTrustQuestionnaire
+                              mode="revisit"
+                              onComplete={(answers: QuestionnaireAnswers) => {
+                                const inferred = answersToConfig(answers)
+                                setProposedConfig(inferred)
+                                setShowQuestionnaire(false)
+                                setShowDiff(true)
+                              }}
+                              onBack={() => setShowQuestionnaire(false)}
+                            />
+                          </div>
+                        )}
+
+                        {/* Diff view */}
+                        {community.creator_id === currentUser?.id && showDiff && proposedConfig && editedConfig && (
+                          <div className="mb-6">
+                            <TrustModelDiff
+                              current={editedConfig}
+                              proposed={proposedConfig}
+                              onApplyAll={() => {
+                                setEditedConfig(prev => prev ? { ...prev, ...proposedConfig } : prev)
+                                setShowDiff(false)
+                                setProposedConfig(null)
+                              }}
+                              onApplySelective={(fields) => {
+                                setEditedConfig(prev => {
+                                  if (!prev || !proposedConfig) return prev
+                                  const patch: Partial<CommunityConfig> = {}
+                                  fields.forEach(f => { (patch as any)[f] = (proposedConfig as any)[f] })
+                                  return { ...prev, ...patch }
+                                })
+                                setShowDiff(false)
+                                setProposedConfig(null)
+                              }}
+                              onDiscard={() => { setShowDiff(false); setProposedConfig(null) }}
+                            />
+                          </div>
+                        )}
+
+                        {community.creator_id === currentUser?.id && editedConfig ? (
+                          <>
+                            <CommunityConfigEditor
+                              config={editedConfig}
+                              onChange={(newConfig) => { setEditedConfig(newConfig); setConfigErrors({}) }}
+                              errors={configErrors}
+                            />
+                            <div className="flex justify-end gap-3 mt-6 pt-6 border-t">
+                              <button onClick={() => { setEditedConfig(config); setConfigErrors({}) }} className="px-6 py-2 bg-gray-200 text-text-muted rounded hover:bg-gray-300">Reset</button>
+                              <button onClick={handleSaveConfig} disabled={configSaving} className="px-6 py-2 bg-primary text-white rounded hover:bg-primary-dark disabled:bg-primary-medium">
+                                {configSaving ? 'Saving...' : 'Save Configuration'}
+                              </button>
+                            </div>
+                          </>
+                        ) : (
+                          <CommunityConfigEditor config={config} onChange={() => {}} readOnly={true} errors={{}} />
+                        )}
+                        {config.template_source && (
+                          <div className="mt-6 bg-primary-light border border-primary-medium rounded-lg p-4">
+                            <p className="text-sm text-primary-dark"><strong>Template:</strong> This community was created using the "{config.template_source}" template.</p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  <hr className="border-gray-200" />
+
+                  {/* Section 2: Linked Communities */}
+                  <div>
+                    <h2 className="text-xl font-semibold text-gray-900 mb-4">Linked Communities</h2>
+                    <CommunityLinks communityId={community.id} isAdmin={isAdmin} />
+                  </div>
+
+                  <hr className="border-gray-200" />
+
+                  {/* Section 3: Advanced settings */}
+                  <div>
+                    <button
+                      onClick={() => setShowAdvancedSettings(v => !v)}
+                      className="flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-gray-900"
+                    >
+                      <span>{showAdvancedSettings ? '▾' : '▸'}</span>
+                      <span>Advanced</span>
+                    </button>
+
+                    {showAdvancedSettings && editedSettings && (
+                      <div className="mt-4 space-y-4">
+                        <div className="bg-surface rounded-lg p-6">
+                          <h4 className="font-semibold text-lg mb-4">Data Retention (TTL)</h4>
+                          <div className="grid md:grid-cols-2 gap-4">
+                            {([['request_ttl_days', 'Help Requests (days)'], ['offer_ttl_days', 'Help Offers (days)'], ['match_ttl_days', 'Completed Matches (days)'], ['notification_ttl_days', 'Notifications (days)'], ['message_ttl_days', 'Messages (days)'], ['session_ttl_days', 'Sessions (days)']] as const).map(([field, label]) => (
+                              <div key={field}>
+                                <label className="block text-sm font-medium text-text-muted mb-1">{label}</label>
+                                <input type="number" value={(editedSettings as any)[field]}
+                                  onChange={(e) => setEditedSettings({ ...editedSettings, [field]: parseInt(e.target.value) || 60 })}
+                                  className="w-full px-4 py-2 border border-border rounded" min="1" max="365" />
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                        <div className="bg-surface rounded-lg p-6">
+                          <h4 className="font-semibold text-lg mb-4">Reputation Decay</h4>
+                          <div className="space-y-4">
+                            <div className="flex items-center gap-3">
+                              <input type="checkbox" id="karma_decay" checked={editedSettings.karma_decay_enabled}
+                                onChange={(e) => setEditedSettings({ ...editedSettings, karma_decay_enabled: e.target.checked })}
+                                className="w-5 h-5 rounded" />
+                              <label htmlFor="karma_decay" className="font-medium">Enable karma decay</label>
+                            </div>
+                            {editedSettings.karma_decay_enabled && (
+                              <div className="ml-8">
+                                <label className="block text-sm font-medium text-text-muted mb-1">Decay half-life (months)</label>
+                                <input type="number" value={editedSettings.karma_half_life_months}
+                                  onChange={(e) => setEditedSettings({ ...editedSettings, karma_half_life_months: parseInt(e.target.value) || 6 })}
+                                  className="w-32 px-4 py-2 border border-border rounded" min="1" max="24" />
                               </div>
                             )}
                           </div>
-                          <div className="flex items-center gap-2 ml-4">
-                            <button onClick={() => handleApproveMember(member.user_id)} className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">Approve</button>
-                            <button onClick={() => handleRejectMember(member.user_id)} className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700">Reject</button>
+                        </div>
+                        <div className="flex justify-end gap-3">
+                          <button onClick={() => setEditedSettings(settings)} className="px-6 py-2 bg-gray-200 text-text-muted rounded hover:bg-gray-300">Reset</button>
+                          <button onClick={handleSaveSettings} disabled={saving} className="px-6 py-2 bg-primary text-white rounded hover:bg-primary-dark disabled:bg-primary-medium">
+                            {saving ? 'Saving...' : 'Save Settings'}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                </div>
+              )}
+
+              {/* Admin: Insights Tab (unified Stats + Export) */}
+              {activeTab === 'insights' && isAdmin && (
+                <div className="space-y-8">
+
+                  {/* Section 1: Community stats */}
+                  <div>
+                    <div className="flex items-center justify-between mb-4">
+                      <h2 className="text-xl font-semibold text-gray-900">Community Insights</h2>
+                      <button onClick={fetchStats} disabled={loadingStats} className="px-4 py-2 bg-primary text-white rounded hover:bg-primary-dark disabled:bg-primary-medium">
+                        {loadingStats ? 'Refreshing...' : 'Refresh'}
+                      </button>
+                    </div>
+
+                    {loadingStats && !stats && <div className="text-center py-12 text-text-subtle">Loading statistics...</div>}
+                    {stats && (
+                      <div className="grid md:grid-cols-4 gap-4">
+                        <div className="bg-surface-raised rounded-lg shadow p-4 border-l-4 border-primary">
+                          <div className="text-sm text-text-muted mb-1">Total Exchanges</div>
+                          <div className="text-3xl font-bold text-primary">{stats.matches?.completed_matches || 0}</div>
+                          <div className="text-xs text-text-subtle mt-1">{stats.matches?.matches_completed_this_month || 0} this month</div>
+                        </div>
+                        <div className="bg-surface-raised rounded-lg shadow p-4 border-l-4 border-success">
+                          <div className="text-sm text-text-muted mb-1">Active Requests</div>
+                          <div className="text-3xl font-bold text-success">{stats.requests?.open_requests || 0}</div>
+                          <div className="text-xs text-text-subtle mt-1">{stats.requests?.matched_requests || 0} matched</div>
+                        </div>
+                        <div className="bg-surface-raised rounded-lg shadow p-4 border-l-4 border-accent">
+                          <div className="text-sm text-text-muted mb-1">Avg Karma</div>
+                          <div className="text-3xl font-bold text-accent">{stats.karma?.avg_karma || 0}</div>
+                          <div className="text-xs text-text-subtle mt-1">Max: {stats.karma?.max_karma || 0}</div>
+                        </div>
+                        <div className="bg-surface-raised rounded-lg shadow p-4 border-l-4 border-primary">
+                          <div className="text-sm text-text-muted mb-1">This Week</div>
+                          <div className="text-3xl font-bold">{stats.matches?.matches_completed_this_week || 0}</div>
+                          <div className="text-xs text-text-subtle mt-1">{stats.requests?.requests_this_week || 0} requests</div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Community Trust Score Panel */}
+                    {loadingTrust && !communityTrust && (
+                      <div className="mt-6 text-center py-8 text-text-subtle">Loading trust data...</div>
+                    )}
+                    {communityTrust && (() => {
+                      const score: number = communityTrust.score ?? 0
+                      const barColor = score >= 80 ? '#16a34a' : score >= 60 ? '#0d9488' : score >= 40 ? '#d97706' : '#92400e'
+                      const prev: number | undefined = communityTrust.previous_score
+                      const delta = prev !== undefined ? score - prev : 0
+                      const trendStr = delta > 0 ? `↑ +${delta} since last week` : delta < 0 ? `↓ ${delta} since last week` : ''
+                      const lastUpdated = communityTrust.last_calculated
+                        ? new Date(communityTrust.last_calculated).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                        : 'Unknown'
+                      return (
+                        <div className="mt-6 bg-surface-raised rounded-lg shadow p-5">
+                          <div className="flex items-center justify-between mb-3">
+                            <h4 className="text-base font-semibold">Community Trust Score</h4>
+                            <span className="text-2xl font-bold" style={{ color: barColor }}>{score} / 100</span>
+                          </div>
+                          <div className="w-full bg-gray-200 rounded-full h-3 mb-4">
+                            <div className="h-3 rounded-full transition-all" style={{ width: `${score}%`, backgroundColor: barColor }} />
+                          </div>
+                          <div className="grid grid-cols-3 gap-4 mb-4">
+                            <div className="text-center">
+                              <div className="text-lg font-bold">{communityTrust.member_quality_score ?? 0} / 40</div>
+                              <div className="text-xs font-medium text-text-muted">Member Quality</div>
+                              <div className="text-xs text-text-subtle mt-1">Avg trust of active members</div>
+                            </div>
+                            <div className="text-center">
+                              <div className="text-lg font-bold">{communityTrust.bonding_score ?? 0} / 30</div>
+                              <div className="text-xs font-medium text-text-muted">Bonding</div>
+                              <div className="text-xs text-text-subtle mt-1">Completion &amp; retention rate</div>
+                            </div>
+                            <div className="text-center">
+                              <div className="text-lg font-bold">{communityTrust.bridging_score ?? 0} / 30</div>
+                              <div className="text-xs font-medium text-text-muted">Bridging</div>
+                              <div className="text-xs text-text-subtle mt-1">Cross-comm help rate</div>
+                            </div>
+                          </div>
+                          <div className="text-xs text-text-subtle flex items-center gap-3">
+                            <span>{communityTrust.active_member_count ?? 0} active members</span>
+                            <span>·</span>
+                            <span>Last updated: {lastUpdated}</span>
+                            {trendStr && (
+                              <>
+                                <span>·</span>
+                                <span style={{ color: delta > 0 ? '#16a34a' : '#d97706' }}>{trendStr}</span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      )
+                    })()}
+
+                    {/* Network Cohesion Panel */}
+                    {networkMetrics && (() => {
+                      const cohesionScore: number = networkMetrics.score ?? 0
+                      const cohesionColor = cohesionScore >= 80 ? '#16a34a' : cohesionScore >= 60 ? '#0d9488' : cohesionScore >= 40 ? '#d97706' : '#92400e'
+                      const computedStr = networkMetrics.computedAt
+                        ? new Date(networkMetrics.computedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                        : 'recently'
+                      return (
+                        <div className="mt-4 bg-surface-raised rounded-lg shadow p-5">
+                          <div className="flex items-center justify-between mb-3">
+                            <h4 className="text-base font-semibold">Network Cohesion</h4>
+                            <div className="flex items-center gap-2">
+                              <span className="text-2xl font-bold" style={{ color: cohesionColor }}>{cohesionScore} / 100</span>
+                              {networkMetrics.label && (
+                                <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ backgroundColor: cohesionColor, color: '#fff' }}>{networkMetrics.label}</span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="w-full bg-gray-200 rounded-full h-3 mb-4">
+                            <div className="h-3 rounded-full transition-all" style={{ width: `${cohesionScore}%`, backgroundColor: cohesionColor }} />
+                          </div>
+                          <div className="space-y-2 mb-4">
+                            <div className="flex items-baseline gap-3">
+                              <span className="text-sm font-semibold w-28">Reciprocity</span>
+                              <span className="text-sm font-bold">{networkMetrics.reciprocity !== undefined ? `${Math.round(networkMetrics.reciprocity * 100)}%` : '—'}</span>
+                              <span className="text-xs text-text-subtle">Most help flows both ways</span>
+                            </div>
+                            <div className="flex items-baseline gap-3">
+                              <span className="text-sm font-semibold w-28">Density</span>
+                              <span className="text-sm font-bold">{networkMetrics.density !== undefined ? `${Math.round(networkMetrics.density * 100)}%` : '—'}</span>
+                              <span className="text-xs text-text-subtle">1 in {networkMetrics.density ? Math.round(1 / networkMetrics.density) : '?'} possible pairs have helped</span>
+                            </div>
+                            <div className="flex items-baseline gap-3">
+                              <span className="text-sm font-semibold w-28">Clustering</span>
+                              <span className="text-sm font-bold">{networkMetrics.clustering !== undefined ? networkMetrics.clustering.toFixed(2) : '—'}</span>
+                              <span className="text-xs text-text-subtle">Your helpers know each other</span>
+                            </div>
+                            <div className="flex items-baseline gap-3">
+                              <span className="text-sm font-semibold w-28">Avg path</span>
+                              <span className="text-sm font-bold">{networkMetrics.avgPathLength !== undefined ? `${networkMetrics.avgPathLength.toFixed(1)}°` : '—'}</span>
+                              <span className="text-xs text-text-subtle">Everyone reachable in ~{networkMetrics.avgPathLength ? Math.round(networkMetrics.avgPathLength) : '?'} hops</span>
+                            </div>
+                          </div>
+                          <div className="text-xs text-text-subtle flex items-center gap-3">
+                            <span>{networkMetrics.uniqueEdges ?? 0} unique helping pairs</span>
+                            <span>·</span>
+                            <span>computed {computedStr}</span>
+                          </div>
+                        </div>
+                      )
+                    })()}
+                  </div>
+
+                  <hr className="border-gray-200" />
+
+                  {/* Section 2: Export data */}
+                  <div>
+                    <h2 className="text-xl font-semibold text-gray-900 mb-4">Export Data</h2>
+                    <div className="space-y-6">
+                      {([['full', 'Full Community Export', 'Export all community data including members, requests, matches, norms, settings, and karma records.'],
+                         ['members', 'Members List', 'Export a list of all community members with their roles and join dates.'],
+                         ['activity', 'Activity Report', 'Export member activity including karma, trust scores, helps given and received.']] as const).map(([type, title, desc]) => (
+                        <div key={type} className="bg-surface rounded-lg p-6">
+                          <h4 className="font-semibold text-lg mb-2">{title}</h4>
+                          <p className="text-sm text-text-muted mb-4">{desc}</p>
+                          <div className="flex gap-3">
+                            <button onClick={() => handleExport(type, 'json')} disabled={exporting} className="px-4 py-2 bg-primary text-white rounded hover:bg-primary-dark disabled:bg-primary-medium">
+                              {exporting ? 'Exporting...' : 'Export JSON'}
+                            </button>
+                            <button onClick={() => handleExport(type, 'csv')} disabled={exporting} className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:bg-green-400">
+                              {exporting ? 'Exporting...' : 'Export CSV'}
+                            </button>
                           </div>
                         </div>
                       ))}
                     </div>
-                  )}
-                </div>
-              )}
-
-              {/* Admin: Settings Tab */}
-              {activeTab === 'settings' && isAdmin && editedSettings && (
-                <div>
-                  <h3 className="text-xl font-semibold mb-4">Community Settings</h3>
-                  <div className="space-y-6">
-                    <div className="bg-surface rounded-lg p-6">
-                      <h4 className="font-semibold text-lg mb-4">Data Retention (TTL)</h4>
-                      <div className="grid md:grid-cols-2 gap-4">
-                        {([['request_ttl_days', 'Help Requests (days)'], ['offer_ttl_days', 'Help Offers (days)'], ['match_ttl_days', 'Completed Matches (days)'], ['notification_ttl_days', 'Notifications (days)'], ['message_ttl_days', 'Messages (days)'], ['session_ttl_days', 'Sessions (days)']] as const).map(([field, label]) => (
-                          <div key={field}>
-                            <label className="block text-sm font-medium text-text-muted mb-1">{label}</label>
-                            <input type="number" value={(editedSettings as any)[field]}
-                              onChange={(e) => setEditedSettings({ ...editedSettings, [field]: parseInt(e.target.value) || 60 })}
-                              className="w-full px-4 py-2 border border-border rounded" min="1" max="365" />
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="bg-surface rounded-lg p-6">
-                      <h4 className="font-semibold text-lg mb-4">Reputation Decay</h4>
-                      <div className="space-y-4">
-                        <div className="flex items-center gap-3">
-                          <input type="checkbox" id="karma_decay" checked={editedSettings.karma_decay_enabled}
-                            onChange={(e) => setEditedSettings({ ...editedSettings, karma_decay_enabled: e.target.checked })}
-                            className="w-5 h-5 rounded" />
-                          <label htmlFor="karma_decay" className="font-medium">Enable karma decay</label>
-                        </div>
-                        {editedSettings.karma_decay_enabled && (
-                          <div className="ml-8">
-                            <label className="block text-sm font-medium text-text-muted mb-1">Decay half-life (months)</label>
-                            <input type="number" value={editedSettings.karma_half_life_months}
-                              onChange={(e) => setEditedSettings({ ...editedSettings, karma_half_life_months: parseInt(e.target.value) || 6 })}
-                              className="w-32 px-4 py-2 border border-border rounded" min="1" max="24" />
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex justify-end gap-3">
-                      <button onClick={() => setEditedSettings(settings)} className="px-6 py-2 bg-gray-200 text-text-muted rounded hover:bg-gray-300">Reset</button>
-                      <button onClick={handleSaveSettings} disabled={saving} className="px-6 py-2 bg-primary text-white rounded hover:bg-primary-dark disabled:bg-primary-medium">
-                        {saving ? 'Saving...' : 'Save Settings'}
-                      </button>
-                    </div>
                   </div>
-                </div>
-              )}
 
-              {/* Admin: Statistics Tab */}
-              {activeTab === 'stats' && isAdmin && (
-                <div>
-                  <div className="flex items-center justify-between mb-6">
-                    <h3 className="text-xl font-semibold">Community Statistics</h3>
-                    <button onClick={fetchStats} disabled={loadingStats} className="px-4 py-2 bg-primary text-white rounded hover:bg-primary-dark disabled:bg-primary-medium">
-                      {loadingStats ? 'Refreshing...' : 'Refresh'}
-                    </button>
-                  </div>
-                  {loadingStats && !stats && <div className="text-center py-12 text-text-subtle">Loading statistics...</div>}
-                  {stats && (
-                    <div className="grid md:grid-cols-4 gap-4">
-                      <div className="bg-surface-raised rounded-lg shadow p-4 border-l-4 border-primary">
-                        <div className="text-sm text-text-muted mb-1">Total Exchanges</div>
-                        <div className="text-3xl font-bold text-primary">{stats.matches?.completed_matches || 0}</div>
-                        <div className="text-xs text-text-subtle mt-1">{stats.matches?.matches_completed_this_month || 0} this month</div>
-                      </div>
-                      <div className="bg-surface-raised rounded-lg shadow p-4 border-l-4 border-success">
-                        <div className="text-sm text-text-muted mb-1">Active Requests</div>
-                        <div className="text-3xl font-bold text-success">{stats.requests?.open_requests || 0}</div>
-                        <div className="text-xs text-text-subtle mt-1">{stats.requests?.matched_requests || 0} matched</div>
-                      </div>
-                      <div className="bg-surface-raised rounded-lg shadow p-4 border-l-4 border-accent">
-                        <div className="text-sm text-text-muted mb-1">Avg Karma</div>
-                        <div className="text-3xl font-bold text-accent">{stats.karma?.avg_karma || 0}</div>
-                        <div className="text-xs text-text-subtle mt-1">Max: {stats.karma?.max_karma || 0}</div>
-                      </div>
-                      <div className="bg-surface-raised rounded-lg shadow p-4 border-l-4 border-primary">
-                        <div className="text-sm text-text-muted mb-1">This Week</div>
-                        <div className="text-3xl font-bold">{stats.matches?.matches_completed_this_week || 0}</div>
-                        <div className="text-xs text-text-subtle mt-1">{stats.requests?.requests_this_week || 0} requests</div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Community Trust Score Panel */}
-                  {loadingTrust && !communityTrust && (
-                    <div className="mt-6 text-center py-8 text-text-subtle">Loading trust data...</div>
-                  )}
-                  {communityTrust && (() => {
-                    const score: number = communityTrust.score ?? 0
-                    const barColor = score >= 80 ? '#16a34a' : score >= 60 ? '#0d9488' : score >= 40 ? '#d97706' : '#92400e'
-                    const prev: number | undefined = communityTrust.previous_score
-                    const delta = prev !== undefined ? score - prev : 0
-                    const trendStr = delta > 0 ? `↑ +${delta} since last week` : delta < 0 ? `↓ ${delta} since last week` : ''
-                    const lastUpdated = communityTrust.last_calculated
-                      ? new Date(communityTrust.last_calculated).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-                      : 'Unknown'
-                    return (
-                      <div className="mt-6 bg-surface-raised rounded-lg shadow p-5">
-                        <div className="flex items-center justify-between mb-3">
-                          <h4 className="text-base font-semibold">Community Trust Score</h4>
-                          <span className="text-2xl font-bold" style={{ color: barColor }}>{score} / 100</span>
-                        </div>
-                        <div className="w-full bg-gray-200 rounded-full h-3 mb-4">
-                          <div className="h-3 rounded-full transition-all" style={{ width: `${score}%`, backgroundColor: barColor }} />
-                        </div>
-                        <div className="grid grid-cols-3 gap-4 mb-4">
-                          <div className="text-center">
-                            <div className="text-lg font-bold">{communityTrust.member_quality_score ?? 0} / 40</div>
-                            <div className="text-xs font-medium text-text-muted">Member Quality</div>
-                            <div className="text-xs text-text-subtle mt-1">Avg trust of active members</div>
-                          </div>
-                          <div className="text-center">
-                            <div className="text-lg font-bold">{communityTrust.bonding_score ?? 0} / 30</div>
-                            <div className="text-xs font-medium text-text-muted">Bonding</div>
-                            <div className="text-xs text-text-subtle mt-1">Completion &amp; retention rate</div>
-                          </div>
-                          <div className="text-center">
-                            <div className="text-lg font-bold">{communityTrust.bridging_score ?? 0} / 30</div>
-                            <div className="text-xs font-medium text-text-muted">Bridging</div>
-                            <div className="text-xs text-text-subtle mt-1">Cross-comm help rate</div>
-                          </div>
-                        </div>
-                        <div className="text-xs text-text-subtle flex items-center gap-3">
-                          <span>{communityTrust.active_member_count ?? 0} active members</span>
-                          <span>·</span>
-                          <span>Last updated: {lastUpdated}</span>
-                          {trendStr && (
-                            <>
-                              <span>·</span>
-                              <span style={{ color: delta > 0 ? '#16a34a' : '#d97706' }}>{trendStr}</span>
-                            </>
-                          )}
-                        </div>
-                      </div>
-                    )
-                  })()}
-
-                  {/* Network Cohesion Panel */}
-                  {networkMetrics && (() => {
-                    const cohesionScore: number = networkMetrics.score ?? 0
-                    const cohesionColor = cohesionScore >= 80 ? '#16a34a' : cohesionScore >= 60 ? '#0d9488' : cohesionScore >= 40 ? '#d97706' : '#92400e'
-                    const computedStr = networkMetrics.computedAt
-                      ? new Date(networkMetrics.computedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-                      : 'recently'
-                    return (
-                      <div className="mt-4 bg-surface-raised rounded-lg shadow p-5">
-                        <div className="flex items-center justify-between mb-3">
-                          <h4 className="text-base font-semibold">Network Cohesion</h4>
-                          <div className="flex items-center gap-2">
-                            <span className="text-2xl font-bold" style={{ color: cohesionColor }}>{cohesionScore} / 100</span>
-                            {networkMetrics.label && (
-                              <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ backgroundColor: cohesionColor, color: '#fff' }}>{networkMetrics.label}</span>
-                            )}
-                          </div>
-                        </div>
-                        <div className="w-full bg-gray-200 rounded-full h-3 mb-4">
-                          <div className="h-3 rounded-full transition-all" style={{ width: `${cohesionScore}%`, backgroundColor: cohesionColor }} />
-                        </div>
-                        <div className="space-y-2 mb-4">
-                          <div className="flex items-baseline gap-3">
-                            <span className="text-sm font-semibold w-28">Reciprocity</span>
-                            <span className="text-sm font-bold">{networkMetrics.reciprocity !== undefined ? `${Math.round(networkMetrics.reciprocity * 100)}%` : '—'}</span>
-                            <span className="text-xs text-text-subtle">Most help flows both ways</span>
-                          </div>
-                          <div className="flex items-baseline gap-3">
-                            <span className="text-sm font-semibold w-28">Density</span>
-                            <span className="text-sm font-bold">{networkMetrics.density !== undefined ? `${Math.round(networkMetrics.density * 100)}%` : '—'}</span>
-                            <span className="text-xs text-text-subtle">1 in {networkMetrics.density ? Math.round(1 / networkMetrics.density) : '?'} possible pairs have helped</span>
-                          </div>
-                          <div className="flex items-baseline gap-3">
-                            <span className="text-sm font-semibold w-28">Clustering</span>
-                            <span className="text-sm font-bold">{networkMetrics.clustering !== undefined ? networkMetrics.clustering.toFixed(2) : '—'}</span>
-                            <span className="text-xs text-text-subtle">Your helpers know each other</span>
-                          </div>
-                          <div className="flex items-baseline gap-3">
-                            <span className="text-sm font-semibold w-28">Avg path</span>
-                            <span className="text-sm font-bold">{networkMetrics.avgPathLength !== undefined ? `${networkMetrics.avgPathLength.toFixed(1)}°` : '—'}</span>
-                            <span className="text-xs text-text-subtle">Everyone reachable in ~{networkMetrics.avgPathLength ? Math.round(networkMetrics.avgPathLength) : '?'} hops</span>
-                          </div>
-                        </div>
-                        <div className="text-xs text-text-subtle flex items-center gap-3">
-                          <span>{networkMetrics.uniqueEdges ?? 0} unique helping pairs</span>
-                          <span>·</span>
-                          <span>computed {computedStr}</span>
-                        </div>
-                      </div>
-                    )
-                  })()}
                 </div>
               )}
 
@@ -1430,38 +1531,6 @@ export default function CommunityDetailPage() {
                       </div>
                     )}
                   </div>
-                </div>
-              )}
-
-              {/* Admin: Export Tab */}
-              {activeTab === 'export' && isAdmin && (
-                <div>
-                  <h3 className="text-xl font-semibold mb-4">Export Community Data</h3>
-                  <div className="space-y-6">
-                    {([['full', 'Full Community Export', 'Export all community data including members, requests, matches, norms, settings, and karma records.'],
-                       ['members', 'Members List', 'Export a list of all community members with their roles and join dates.'],
-                       ['activity', 'Activity Report', 'Export member activity including karma, trust scores, helps given and received.']] as const).map(([type, title, desc]) => (
-                      <div key={type} className="bg-surface rounded-lg p-6">
-                        <h4 className="font-semibold text-lg mb-2">{title}</h4>
-                        <p className="text-sm text-text-muted mb-4">{desc}</p>
-                        <div className="flex gap-3">
-                          <button onClick={() => handleExport(type, 'json')} disabled={exporting} className="px-4 py-2 bg-primary text-white rounded hover:bg-primary-dark disabled:bg-primary-medium">
-                            {exporting ? 'Exporting...' : 'Export JSON'}
-                          </button>
-                          <button onClick={() => handleExport(type, 'csv')} disabled={exporting} className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:bg-green-400">
-                            {exporting ? 'Exporting...' : 'Export CSV'}
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Admin: Linked Communities Tab */}
-              {activeTab === 'links' && isAdmin && community && (
-                <div>
-                  <CommunityLinks communityId={community.id} isAdmin={isAdmin} />
                 </div>
               )}
 
