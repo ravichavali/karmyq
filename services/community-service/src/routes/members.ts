@@ -273,12 +273,31 @@ router.put('/:communityId/members/:userId', async (req: Request, res: Response) 
       [communityId, admin_user_id]
     );
 
-    if (adminCheck.rowCount === 0 || adminCheck.rows[0].role !== 'admin') {
+    const callerRole = adminCheck.rows[0]?.role
+
+    if (!callerRole) {
       return res.status(403).json({
         success: false,
-        message: 'Only admins can update member roles or status',
+        message: 'Only admins or moderators can update members',
       });
     }
+
+    if (callerRole === 'moderator') {
+      // Moderators can only update status (approve/reject), not role
+      if (req.body.role !== undefined) {
+        return res.status(403).json({
+          success: false,
+          message: 'Moderators cannot change member roles',
+        });
+      }
+      // Allow status-only updates to proceed
+    } else if (callerRole !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Only admins or moderators can update members',
+      });
+    }
+    // callerRole === 'admin': allow all updates
 
     // Build update query
     const updates: string[] = [];
