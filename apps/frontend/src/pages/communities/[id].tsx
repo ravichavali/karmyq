@@ -826,58 +826,181 @@ export default function CommunityDetailPage() {
                       </button>
                     )}
                   </div>
-                  <div className="space-y-3">
-                    {community.members.map((member) => (
-                      <div
-                        key={member.id}
-                        className="flex items-center justify-between p-4 bg-surface rounded-lg"
-                      >
-                        <div>
-                          <div className="font-semibold">{member.user_name}</div>
-                          <div className="text-sm text-text-muted">{member.user_email}</div>
-                          {member.invited_by_name && (
-                            <div className="text-xs text-text-subtle">
-                              Invited by {member.invited_by_name}
-                            </div>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-3">
-                          {isAdmin && (member as any).layer && (
-                            <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${LAYER_CHIP[(member as any).layer] ?? ''}`}>
-                              {LAYER_LABEL[(member as any).layer] ?? (member as any).layer}
+
+                  {/* Non-admin: original card view */}
+                  {!isAdmin && (
+                    <div className="space-y-3">
+                      {community.members.map((member) => (
+                        <div
+                          key={member.id}
+                          className="flex items-center justify-between p-4 bg-surface rounded-lg"
+                        >
+                          <div>
+                            <div className="font-semibold">{member.user_name}</div>
+                            <div className="text-sm text-text-muted">{member.user_email}</div>
+                            {member.invited_by_name && (
+                              <div className="text-xs text-text-subtle">
+                                Invited by {member.invited_by_name}
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <span
+                              className={`px-3 py-1 rounded text-sm font-medium ${
+                                member.role === 'admin'
+                                  ? 'bg-accent-light text-accent-dark'
+                                  : 'bg-gray-200 text-text-muted'
+                              }`}
+                            >
+                              {member.role}
                             </span>
-                          )}
-                          <span
-                            className={`px-3 py-1 rounded text-sm font-medium ${
-                              member.role === 'admin'
-                                ? 'bg-accent-light text-accent-dark'
-                                : 'bg-gray-200 text-text-muted'
-                            }`}
-                          >
-                            {member.role}
-                          </span>
-                          {(() => {
-                            const score = memberTrustScores[member.user_id]
-                            const colorClass = score === null || score === undefined
-                              ? 'bg-gray-100 text-gray-400'
-                              : score >= 75
-                              ? 'bg-green-100 text-green-700'
-                              : score >= 50
-                              ? 'bg-amber-100 text-amber-700'
-                              : 'bg-gray-100 text-gray-400'
-                            return (
-                              <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${colorClass}`}>
-                                {score !== null && score !== undefined ? `★ ${score}` : '—'}
-                              </span>
-                            )
-                          })()}
-                          <span className="text-xs text-text-subtle">
-                            {new Date(member.joined_at).toLocaleDateString()}
-                          </span>
+                            {(() => {
+                              const score = memberTrustScores[member.user_id]
+                              const colorClass = score === null || score === undefined
+                                ? 'bg-gray-100 text-gray-400'
+                                : score >= 75
+                                ? 'bg-green-100 text-green-700'
+                                : score >= 50
+                                ? 'bg-amber-100 text-amber-700'
+                                : 'bg-gray-100 text-gray-400'
+                              return (
+                                <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${colorClass}`}>
+                                  {score !== null && score !== undefined ? `★ ${score}` : '—'}
+                                </span>
+                              )
+                            })()}
+                            <span className="text-xs text-text-subtle">
+                              {new Date(member.joined_at).toLocaleDateString()}
+                            </span>
+                          </div>
                         </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Admin: filter row + table/pending view */}
+                  {isAdmin && (
+                    <div>
+                      {/* Filter row */}
+                      <div className="flex items-center gap-4 mb-4">
+                        <button
+                          onClick={() => setMemberFilter('active')}
+                          className={`px-3 py-1.5 rounded-md text-sm font-medium ${
+                            memberFilter === 'active'
+                              ? 'bg-indigo-100 text-indigo-700'
+                              : 'text-gray-600 hover:bg-gray-100'
+                          }`}
+                        >
+                          Active ({(community.members ?? []).filter((m: any) => m.status === 'active').length})
+                        </button>
+                        <button
+                          onClick={() => setMemberFilter('pending')}
+                          className={`relative px-3 py-1.5 rounded-md text-sm font-medium ${
+                            memberFilter === 'pending'
+                              ? 'bg-indigo-100 text-indigo-700'
+                              : 'text-gray-600 hover:bg-gray-100'
+                          }`}
+                        >
+                          Pending ({pendingCount})
+                          {pendingCount > 0 && memberFilter !== 'pending' && (
+                            <span className="absolute -top-1 -right-1 block h-2 w-2 rounded-full bg-red-500" />
+                          )}
+                        </button>
                       </div>
-                    ))}
-                  </div>
+
+                      {/* Active members table */}
+                      {memberFilter === 'active' && (
+                        <div className="overflow-x-auto">
+                          <table className="min-w-full divide-y divide-gray-200">
+                            <thead className="bg-gray-50">
+                              <tr>
+                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Joined</th>
+                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
+                                <th className="px-4 py-3" />
+                              </tr>
+                            </thead>
+                            <tbody className="bg-white divide-y divide-gray-200">
+                              {(community.members ?? [])
+                                .filter((m: any) => m.status === 'active')
+                                .map((member) => {
+                                  const isSelf = member.user_id === currentUser?.id;
+                                  const isCreator = member.user_id === community?.creator_id;
+                                  const disabled = isSelf || isCreator;
+                                  return (
+                                    <tr key={member.user_id}>
+                                      <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
+                                        {member.user_name}
+                                      </td>
+                                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                                        {member.user_email}
+                                      </td>
+                                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                                        {new Date(member.joined_at).toLocaleDateString()}
+                                      </td>
+                                      <td className="px-4 py-3 whitespace-nowrap">
+                                        <select
+                                          value={member.role}
+                                          onChange={(e) => handleUpdateMemberRole(member.user_id, e.target.value)}
+                                          disabled={disabled}
+                                          className="px-3 py-1 border border-border rounded text-sm disabled:bg-border-light"
+                                        >
+                                          <option value="member">Member</option>
+                                          <option value="moderator">Moderator</option>
+                                          <option value="admin">Admin</option>
+                                        </select>
+                                      </td>
+                                      <td className="px-4 py-3 whitespace-nowrap text-right">
+                                        {!isSelf && !isCreator ? (
+                                          <button
+                                            onClick={() => handleRemoveMember(member.user_id, member.user_name)}
+                                            className="px-3 py-1 bg-red-100 text-red-700 rounded text-sm hover:bg-red-200"
+                                          >
+                                            Remove
+                                          </button>
+                                        ) : isCreator ? (
+                                          <span className="px-3 py-1 bg-accent-light text-accent-dark rounded text-sm">Creator</span>
+                                        ) : null}
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+
+                      {/* Pending join requests */}
+                      {memberFilter === 'pending' && (
+                        <div className="space-y-3">
+                          {(community.members ?? [])
+                            .filter((m: any) => m.status === 'pending')
+                            .map((member) => (
+                              <div key={member.user_id} className="flex items-center justify-between p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                                <div className="flex-1">
+                                  <div className="font-semibold">{member.user_name}</div>
+                                  <div className="text-sm text-text-muted">{member.user_email}</div>
+                                  <div className="text-xs text-text-subtle">Requested {new Date(member.joined_at).toLocaleDateString()}</div>
+                                  {member.join_request_message && (
+                                    <div className="mt-2 text-sm text-text-muted bg-surface-raised p-2 rounded border border-yellow-300">
+                                      <span className="font-medium">Message:</span> {member.join_request_message}
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-2 ml-4">
+                                  <button onClick={() => handleApproveMember(member.user_id)} className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">Approve</button>
+                                  <button onClick={() => handleRejectMember(member.user_id)} className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700">Reject</button>
+                                </div>
+                              </div>
+                            ))}
+                          {pendingCount === 0 && (
+                            <p className="text-sm text-gray-500 text-center py-8">No pending join requests.</p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -1068,69 +1191,6 @@ export default function CommunityDetailPage() {
                   {config.template_source && (
                     <div className="mt-6 bg-primary-light border border-primary-medium rounded-lg p-4">
                       <p className="text-sm text-primary-dark"><strong>Template:</strong> This community was created using the "{config.template_source}" template.</p>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Admin: Manage Members Tab */}
-              {activeTab === 'manage' && isAdmin && (
-                <div>
-                  <h3 className="text-xl font-semibold mb-4">Manage Members</h3>
-                  <div className="space-y-3">
-                    {community.members.filter(m => m.status === 'active').map((member) => (
-                      <div key={member.id} className="flex items-center justify-between p-4 bg-surface rounded-lg">
-                        <div>
-                          <div className="font-semibold">{member.user_name}</div>
-                          <div className="text-sm text-text-muted">{member.user_email}</div>
-                          <div className="text-xs text-text-subtle">Joined {new Date(member.joined_at).toLocaleDateString()}</div>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <select value={member.role} onChange={(e) => handleUpdateMemberRole(member.user_id, e.target.value)}
-                            disabled={member.user_id === currentUser?.id || member.user_id === community.creator_id}
-                            className="px-3 py-1 border border-border rounded text-sm disabled:bg-border-light">
-                            <option value="member">Member</option>
-                            <option value="moderator">Moderator</option>
-                            <option value="admin">Admin</option>
-                          </select>
-                          {member.user_id !== currentUser?.id && member.user_id !== community.creator_id ? (
-                            <button onClick={() => handleRemoveMember(member.user_id, member.user_name)} className="px-3 py-1 bg-red-100 text-red-700 rounded text-sm hover:bg-red-200">Remove</button>
-                          ) : member.user_id === community.creator_id ? (
-                            <span className="px-3 py-1 bg-accent-light text-accent-dark rounded text-sm">Creator</span>
-                          ) : null}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Admin: Pending Requests Tab */}
-              {activeTab === 'pending' && isAdmin && (
-                <div>
-                  <h3 className="text-xl font-semibold mb-4">Pending Join Requests</h3>
-                  {community.members.filter(m => m.status === 'pending').length === 0 ? (
-                    <p className="text-text-subtle">No pending join requests.</p>
-                  ) : (
-                    <div className="space-y-3">
-                      {community.members.filter(m => m.status === 'pending').map((member) => (
-                        <div key={member.id} className="flex items-center justify-between p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                          <div className="flex-1">
-                            <div className="font-semibold">{member.user_name}</div>
-                            <div className="text-sm text-text-muted">{member.user_email}</div>
-                            <div className="text-xs text-text-subtle">Requested {new Date(member.joined_at).toLocaleDateString()}</div>
-                            {member.join_request_message && (
-                              <div className="mt-2 text-sm text-text-muted bg-surface-raised p-2 rounded border border-yellow-300">
-                                <span className="font-medium">Message:</span> {member.join_request_message}
-                              </div>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-2 ml-4">
-                            <button onClick={() => handleApproveMember(member.user_id)} className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">Approve</button>
-                            <button onClick={() => handleRejectMember(member.user_id)} className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700">Reject</button>
-                          </div>
-                        </div>
-                      ))}
                     </div>
                   )}
                 </div>
