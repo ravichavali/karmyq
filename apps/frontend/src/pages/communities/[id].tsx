@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/router'
 import Head from 'next/head'
 import Link from 'next/link'
-import { communityService, collectiveService, requestService, reputationService } from '@/lib/api'
+import { communityService, requestService, reputationService } from '@/lib/api'
 import Layout from '@/components/Layout'
 import CommunityConfigEditor from '@/components/CommunityConfigEditor'
 import CommunityTrustQuestionnaire from '@/components/CommunityTrustQuestionnaire'
@@ -442,17 +442,6 @@ export default function CommunityDetailPage() {
     } catch (err: any) {
       alert(err.response?.data?.message || 'Failed to send invitation')
     }
-  }
-
-  const LAYER_CHIP: Record<string, string> = {
-    inner_circle: 'bg-indigo-100 text-indigo-800',
-    active_community: 'bg-green-100 text-green-800',
-    extended_network: 'bg-gray-100 text-gray-500',
-  }
-  const LAYER_LABEL: Record<string, string> = {
-    inner_circle: 'Inner Circle',
-    active_community: 'Active',
-    extended_network: 'Extended',
   }
 
   const membershipRecord = community?.members.find((m: Member) => m.user_id === currentUser?.id)
