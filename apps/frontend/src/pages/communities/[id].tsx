@@ -659,12 +659,14 @@ export default function CommunityDetailPage() {
                     <div className="mt-8">
                       <div className="flex items-center justify-between mb-4">
                         <h3 className="text-xl font-semibold">How This Community Works</h3>
-                        <button
-                          onClick={() => setActiveTab('settings')}
-                          className="text-sm text-primary hover:text-primary-dark font-medium"
-                        >
-                          View Full Configuration →
-                        </button>
+                        {isAdmin && (
+                          <button
+                            onClick={() => setActiveTab('settings')}
+                            className="text-sm text-primary hover:text-primary-dark font-medium"
+                          >
+                            View Full Configuration →
+                          </button>
+                        )}
                       </div>
 
                       <div className="grid md:grid-cols-2 gap-6">
@@ -1521,23 +1523,25 @@ export default function CommunityDetailPage() {
                       </div>
                     )}
 
-                    <button
-                      disabled={savingProviderConfig}
-                      onClick={async () => {
-                        setSavingProviderConfig(true)
-                        try {
-                          await communityService.updateConfig(id as string, providerConfig)
-                          alert('Provider settings saved')
-                        } catch (err: any) {
-                          alert(err?.message ?? 'Failed to save')
-                        } finally {
-                          setSavingProviderConfig(false)
-                        }
-                      }}
-                      className="bg-primary text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-primary-dark transition disabled:opacity-50"
-                    >
-                      {savingProviderConfig ? 'Saving...' : 'Save provider settings'}
-                    </button>
+                    {isAdmin && (
+                      <button
+                        disabled={savingProviderConfig}
+                        onClick={async () => {
+                          setSavingProviderConfig(true)
+                          try {
+                            await communityService.updateConfig(id as string, providerConfig)
+                            alert('Provider settings saved')
+                          } catch (err: any) {
+                            alert(err?.message ?? 'Failed to save')
+                          } finally {
+                            setSavingProviderConfig(false)
+                          }
+                        }}
+                        className="bg-primary text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-primary-dark transition disabled:opacity-50"
+                      >
+                        {savingProviderConfig ? 'Saving...' : 'Save provider settings'}
+                      </button>
+                    )}
                   </div>
 
                   <div>
