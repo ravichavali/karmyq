@@ -58,6 +58,19 @@ interface Community {
   members: Member[]
 }
 
+type ValidTab = 'overview' | 'members' | 'norms' | 'requests' | 'insights' | 'settings' | 'providers';
+
+const OLD_TAB_MAP: Record<string, ValidTab> = {
+  manage: 'members',
+  pending: 'members',
+  config: 'settings',
+  stats: 'insights',
+  export: 'insights',
+  links: 'settings',
+};
+
+const VALID_TABS: ValidTab[] = ['overview', 'members', 'norms', 'requests', 'insights', 'settings', 'providers'];
+
 export default function CommunityDetailPage() {
   const router = useRouter()
   const { id } = router.query
@@ -67,7 +80,9 @@ export default function CommunityDetailPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [currentUser, setCurrentUser] = useState<any>(null)
-  const [activeTab, setActiveTab] = useState<'overview' | 'members' | 'norms' | 'config' | 'manage' | 'pending' | 'settings' | 'stats' | 'export' | 'providers' | 'links' | 'requests'>('overview')
+  const [activeTab, setActiveTab] = useState<ValidTab>('overview')
+  const [memberFilter, setMemberFilter] = useState<'active' | 'pending'>('active')
+  const [showAdvancedSettings, setShowAdvancedSettings] = useState(false)
   const [communityCollectives, setCommunityCollectives] = useState<any[]>([])
   const [providerConfig, setProviderConfig] = useState({ provider_services_enabled: false, provider_min_personal_trust_score: 0, provider_services_list: [] as string[] })
   const [savingProviderConfig, setSavingProviderConfig] = useState(false)
@@ -122,6 +137,22 @@ export default function CommunityDetailPage() {
       fetchStats()
     }
   }, [id])
+
+  // Redirect old tab names to new equivalents (backwards compat)
+  useEffect(() => {
+    const raw = router.query.tab as string | undefined;
+    if (!raw) return;
+    if (VALID_TABS.includes(raw as ValidTab)) {
+      setActiveTab(raw as ValidTab);
+    } else if (OLD_TAB_MAP[raw]) {
+      router.replace(
+        { pathname: router.pathname, query: { ...router.query, tab: OLD_TAB_MAP[raw] } },
+        undefined,
+        { shallow: true }
+      );
+      setActiveTab(OLD_TAB_MAP[raw]);
+    }
+  }, [router.query.tab])
 
   const fetchCommunity = async () => {
     try {
