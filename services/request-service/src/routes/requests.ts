@@ -27,7 +27,9 @@ const router = Router();
 // GET /requests - Get all requests (with filters)
 router.get('/', async (req: Request, res: Response) => {
   try {
-    const { community_id, status, type, requester_id, limit = 50, offset = 0 } = req.query;
+    const { community_id, status, type, requester_id, limit = 50, offset = 0, include_admin_notes } = req.query;
+
+    const includeAdminNotes = include_admin_notes === 'true' && !!community_id;
 
     let queryText = `
       SELECT DISTINCT
@@ -37,16 +39,22 @@ router.get('/', async (req: Request, res: Response) => {
         r.visibility_scope, r.visibility_max_degrees,
         u.name as requester_name,
         STRING_AGG(DISTINCT c.name, ', ') as community_name,
-        STRING_AGG(DISTINCT rc.community_id::text, ',') as community_ids
+        STRING_AGG(DISTINCT rc.community_id::text, ',') as community_ids${includeAdminNotes ? ',\n        ran.note as admin_note' : ''}
       FROM requests.help_requests r
       LEFT JOIN auth.users u ON r.requester_id = u.id
       LEFT JOIN requests.request_communities rc ON r.id = rc.request_id
-      LEFT JOIN communities.communities c ON rc.community_id = c.id
+      LEFT JOIN communities.communities c ON rc.community_id = c.id${includeAdminNotes ? '\n      LEFT JOIN requests.request_admin_notes ran ON ran.request_id = r.id AND ran.community_id = $1::uuid' : ''}
       WHERE r.expired = FALSE
     `;
 
     const params: any[] = [];
     let paramCount = 1;
+
+    // When include_admin_notes is active, community_id is already bound as $1
+    if (includeAdminNotes) {
+      params.push(community_id);
+      paramCount++;
+    }
 
     if (status) {
       queryText += ` AND r.status = $${paramCount}`;
@@ -72,8 +80,9 @@ router.get('/', async (req: Request, res: Response) => {
       paramCount++;
     }
 
+    const groupByExtra = includeAdminNotes ? ', ran.note' : '';
     queryText += `
-      GROUP BY r.id, r.requester_id, r.title, r.description, r.category, r.urgency, r.status, r.created_at, r.updated_at, r.request_type, r.payload, r.requirements, r.visibility_scope, r.visibility_max_degrees, u.name
+      GROUP BY r.id, r.requester_id, r.title, r.description, r.category, r.urgency, r.status, r.created_at, r.updated_at, r.request_type, r.payload, r.requirements, r.visibility_scope, r.visibility_max_degrees, u.name${groupByExtra}
       ORDER BY r.created_at DESC
       LIMIT $${paramCount} OFFSET $${paramCount + 1}`;
     params.push(limit, offset);
@@ -1087,6 +1096,80 @@ router.put('/:id/privacy', async (req: Request, res: Response) => {
       message: 'Failed to update privacy settings',
       error: error.message,
     });
+  }
+});
+
+/**
+ * PATCH /requests/:id/admin-triage
+ * Admin/moderator endpoint to set urgency override and/or add a community-scoped admin note.
+ * Caller must be an active admin or moderator of the specified community, and the request
+ * must belong to that community.
+ */
+router.patch('/:id/admin-triage', async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    const userId = user?.userId;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required',
+      });
+    }
+
+    const { id } = req.params;
+    const { community_id, urgency, note } = req.body;
+
+    if (!community_id) {
+      return sendValidationError(res, 'community_id is required');
+    }
+
+    if (!urgency && !note) {
+      return sendValidationError(res, 'At least one of urgency or note is required');
+    }
+
+    // Verify caller is an active admin or moderator of this community AND the request belongs to it
+    const authCheck = await query(
+      `SELECT m.role
+       FROM requests.request_communities rc
+       JOIN communities.members m ON rc.community_id = m.community_id
+       WHERE rc.request_id = $1
+         AND m.user_id = $2
+         AND m.role IN ('admin', 'moderator')
+         AND m.status = 'active'
+         AND rc.community_id = $3
+       LIMIT 1`,
+      [id, userId, community_id]
+    );
+
+    if ((authCheck.rowCount ?? 0) === 0) {
+      return res.status(403).json({
+        success: false,
+        message: 'Forbidden: must be an admin or moderator of the specified community',
+      });
+    }
+
+    if (urgency) {
+      await query(
+        `UPDATE requests.help_requests SET urgency = $1 WHERE id = $2`,
+        [urgency, id]
+      );
+    }
+
+    if (note) {
+      await query(
+        `INSERT INTO requests.request_admin_notes (request_id, community_id, note, updated_by)
+         VALUES ($1, $2, $3, $4)
+         ON CONFLICT (request_id, community_id)
+         DO UPDATE SET note = EXCLUDED.note, updated_by = EXCLUDED.updated_by, updated_at = CURRENT_TIMESTAMP`,
+        [id, community_id, note, userId]
+      );
+    }
+
+    sendSuccess(res, { message: 'Triage saved' });
+  } catch (error: any) {
+    console.error('Error saving admin triage:', error);
+    sendInternalError(res, 'Failed to save triage', error instanceof Error ? error : undefined, { requestId: (req as any).id });
   }
 });
 
