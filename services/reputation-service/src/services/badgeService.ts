@@ -45,10 +45,11 @@ export async function checkAndAwardBadges(responderId: string): Promise<BadgeTyp
   // Count total completed matches where this user was the helper
   const statsResult = await query(
     `SELECT
-       COUNT(*) FILTER (WHERE status = 'completed') AS completed_as_helper,
-       COUNT(DISTINCT requester_id) FILTER (WHERE status = 'completed') AS distinct_people_helped
-     FROM requests.matches
-     WHERE responder_id = $1`,
+       COUNT(*) FILTER (WHERE m.status = 'completed') AS completed_as_helper,
+       COUNT(DISTINCT hr.requester_id) FILTER (WHERE m.status = 'completed') AS distinct_people_helped
+     FROM requests.matches m
+     LEFT JOIN requests.help_requests hr ON m.request_id = hr.id
+     WHERE m.responder_id = $1`,
     [responderId]
   );
 
