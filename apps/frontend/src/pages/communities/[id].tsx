@@ -154,6 +154,20 @@ export default function CommunityDetailPage() {
     }
   }, [router.query.tab])
 
+  // Trigger tab-specific data fetches when the active tab changes
+  useEffect(() => {
+    if (!id) return
+    if (activeTab === 'members') {
+      fetchMemberTrustScores()
+    } else if (activeTab === 'insights') {
+      if (!stats) fetchStats()
+      if (!communityTrust) fetchCommunityTrust()
+      if (!networkMetrics) fetchNetworkMetrics()
+    } else if (activeTab === 'requests') {
+      fetchCommunityRequests()
+    }
+  }, [activeTab]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const fetchCommunity = async () => {
     try {
       setLoading(true)
@@ -638,7 +652,7 @@ export default function CommunityDetailPage() {
                       <div className="flex items-center justify-between mb-4">
                         <h3 className="text-xl font-semibold">How This Community Works</h3>
                         <button
-                          onClick={() => setActiveTab('config')}
+                          onClick={() => setActiveTab('settings')}
                           className="text-sm text-primary hover:text-primary-dark font-medium"
                         >
                           View Full Configuration →
