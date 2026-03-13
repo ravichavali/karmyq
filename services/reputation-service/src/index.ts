@@ -12,7 +12,7 @@ import { initHealthMetricsCalculator } from './cron/healthMetricsCalculator';
 import { createLogger, requestLoggingMiddleware } from '@karmyq/shared/utils/logger';
 import {
   authMiddleware,
-  tenantMiddleware,
+  optionalTenantMiddleware,
   dbContextMiddleware,
   globalRateLimiter,
   rateLimiters,
@@ -42,12 +42,15 @@ app.get('/health', (req: any, res: Response) => {
   }, 200, { requestId: req.id });
 });
 
-// Routes with authentication and tenant context
+// Routes with authentication and optional tenant context
+// optionalTenantMiddleware used because reputation data can be global or per-community;
+// handlers extract communityId from URL params directly rather than relying on tenant context.
+// This also prevents 403s from stale JWTs after the user joins new communities.
 app.use(
   '/reputation',
   rateLimiters.standard,
   authMiddleware,
-  tenantMiddleware,
+  optionalTenantMiddleware,
   dbContextMiddleware(pool),
   reputationRouter
 );
@@ -56,7 +59,7 @@ app.use(
   '/reputation',
   rateLimiters.standard,
   authMiddleware,
-  tenantMiddleware,
+  optionalTenantMiddleware,
   dbContextMiddleware(pool),
   healthRouter
 );

@@ -14,13 +14,14 @@ const SERVICE_TYPE_LABELS: Record<string, string> = {
   other: 'Other',
 }
 
-function renderStars(avg: number | undefined) {
-  if (!avg) return null
-  const full = Math.round(avg)
+function renderStars(avg: number | string | undefined) {
+  const n = Number(avg)
+  if (!avg || !n) return null
+  const full = Math.round(n)
   return (
     <span className="text-yellow-500">
       {'★'.repeat(full)}{'☆'.repeat(5 - full)}
-      <span className="text-text-muted ml-1 font-normal text-sm">{avg.toFixed(1)}</span>
+      <span className="text-text-muted ml-1 font-normal text-sm">{n.toFixed(1)}</span>
     </span>
   )
 }

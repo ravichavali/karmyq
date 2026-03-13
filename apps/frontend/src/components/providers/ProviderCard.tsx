@@ -10,19 +10,20 @@ interface ProviderCardProps {
     bio?: string;
     pricing_notes?: string;
     location_notes?: string;
-    avg_stars?: number;
+    avg_stars?: number | string;
     total_reviews?: number;
-    trust_score?: number;
+    trust_score?: number | string;
   };
 }
 
-function renderStars(avg: number | undefined) {
-  if (!avg) return null;
-  const full = Math.round(avg);
+function renderStars(avg: number | string | undefined) {
+  const n = Number(avg);
+  if (!avg || !n) return null;
+  const full = Math.round(n);
   return (
     <span className="text-yellow-500 text-sm">
       {'★'.repeat(full)}{'☆'.repeat(5 - full)}
-      <span className="text-text-muted ml-1 font-normal">{avg.toFixed(1)}</span>
+      <span className="text-text-muted ml-1 font-normal">{n.toFixed(1)}</span>
     </span>
   );
 }
@@ -50,7 +51,7 @@ export default function ProviderCard({ provider }: ProviderCardProps) {
               </span>
             </div>
           </div>
-          <TrustScoreBadge score={provider.trust_score} size="sm" />
+          <TrustScoreBadge score={provider.trust_score != null ? Number(provider.trust_score) : undefined} size="sm" />
         </div>
 
         {provider.bio && (
