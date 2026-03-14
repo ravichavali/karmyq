@@ -215,6 +215,24 @@ router.post('/', async (req: Request, res: Response) => {
       });
     }
 
+    // Optional community admin/moderator guard
+    const { community_id } = req.body;
+    if (community_id) {
+      const user = (req as any).user;
+      const guardResult = await query(
+        `SELECT 1 FROM communities.members
+         WHERE community_id = $1 AND user_id = $2
+           AND role IN ('admin', 'moderator') AND status = 'active'`,
+        [community_id, user.userId]
+      );
+      if (guardResult.rows.length === 0) {
+        return res.status(403).json({
+          success: false,
+          message: 'Not an admin or moderator of this community',
+        });
+      }
+    }
+
     // Create match
     const matchResult = await query(
       `INSERT INTO requests.matches
