@@ -47,11 +47,15 @@ router.get('/', async (req: Request, res: Response) => {
       WHERE r.expired = FALSE
     `;
 
+    // When include_admin_notes is active, community_id is bound as $1 in the JOIN clause above.
+    // We push it once here so the WHERE filter can reference the same $1 param — eliminating
+    // a duplicate push. If community_id is absent, includeAdminNotes is always false (see above),
+    // so this branch is only entered when community_id is defined.
     const params: any[] = [];
     let paramCount = 1;
 
-    // When include_admin_notes is active, community_id is already bound as $1
     if (includeAdminNotes) {
+      // community_id occupies $1 for the JOIN; the WHERE filter below will reuse $1.
       params.push(community_id);
       paramCount++;
     }
@@ -63,9 +67,14 @@ router.get('/', async (req: Request, res: Response) => {
     }
 
     if (community_id) {
-      queryText += ` AND rc.community_id = $${paramCount}`;
-      params.push(community_id);
-      paramCount++;
+      if (includeAdminNotes) {
+        // $1 is already bound to community_id for the JOIN above — reuse it for the WHERE filter.
+        queryText += ` AND rc.community_id = $1`;
+      } else {
+        queryText += ` AND rc.community_id = $${paramCount}`;
+        params.push(community_id);
+        paramCount++;
+      }
     }
 
     if (requester_id) {
@@ -1149,9 +1158,15 @@ router.patch('/:id/admin-triage', async (req: Request, res: Response) => {
       });
     }
 
+    const VALID_URGENCY = ['low', 'medium', 'high', 'critical'] as const;
+    type UrgencyValue = typeof VALID_URGENCY[number];
+
     if (urgency) {
+      if (!VALID_URGENCY.includes(urgency as UrgencyValue)) {
+        return sendValidationError(res, `urgency must be one of: ${VALID_URGENCY.join(', ')}`);
+      }
       await query(
-        `UPDATE requests.help_requests SET urgency = $1 WHERE id = $2`,
+        `UPDATE requests.help_requests SET urgency = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2`,
         [urgency, id]
       );
     }
