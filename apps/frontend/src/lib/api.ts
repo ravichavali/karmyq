@@ -421,7 +421,7 @@ export const requestService = {
     requestApi.get(`/schemas/${type}`),
 
   // Help Requests
-  getRequests: (params?: { community_id?: string; status?: string; type?: string; requester_id?: string; limit?: number; offset?: number }) =>
+  getRequests: (params?: { community_id?: string; status?: string; type?: string; requester_id?: string; limit?: number; offset?: number; include_admin_notes?: boolean }) =>
     requestApi.get('/requests', { params }),
 
   getMatchedRequests: (user_id: string, limit?: number) =>
@@ -458,6 +458,13 @@ export const requestService = {
 
   cancelRequest: (id: string, user_id: string) =>
     requestApi.delete(`/requests/${id}`, { data: { user_id } }),
+
+  adminTriageRequest: (id: string, data: {
+    community_id: string;
+    urgency?: 'low' | 'medium' | 'high' | 'critical';
+    note?: string;
+  }) =>
+    requestApi.patch(`/requests/${id}/admin-triage`, data),
 
   // Help Offers
   getOffers: (params?: { community_id?: string; status?: string; type?: string; limit?: number; offset?: number }) =>
