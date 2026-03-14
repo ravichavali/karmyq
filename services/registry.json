@@ -118,7 +118,8 @@
           "/providers",
           "/providers/my",
           "/providers/:id",
-          "/collectives/my"
+          "/collectives/my",
+          "/requests/:id/admin-triage"
         ],
         "consumes": [
           "/auth/verify",

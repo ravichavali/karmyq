@@ -401,7 +401,7 @@ Add member to community (invite).
 **Events Published:** `user_joined_community`
 
 ### PUT /communities/:communityId/members/:userId
-Update member role or status (admin only).
+Update member role or status.
 
 **Request:**
 ```json
@@ -413,6 +413,8 @@ Update member role or status (admin only).
 ```
 
 **Implementation:** `src/routes/members.ts:260`
+
+**Sprint 25 — Moderator support:** Moderators (`role='moderator'`) can update member `status` (e.g., approve or reject pending members) but cannot change member `role`. Admins retain full update capability (role + status). Non-admin/non-moderator callers receive `403`.
 
 ### DELETE /communities/:communityId/members/:userId
 Remove member from community (self-leave or admin kick).

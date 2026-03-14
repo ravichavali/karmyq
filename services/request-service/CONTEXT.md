@@ -149,6 +149,20 @@ CREATE INDEX idx_help_requests_status ON requests.help_requests(status);
 CREATE INDEX idx_help_requests_category ON requests.help_requests(category);
 ```
 
+**requests.request_admin_notes** - Community-scoped admin triage notes (Sprint 25)
+```sql
+CREATE TABLE requests.request_admin_notes (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    request_id UUID NOT NULL REFERENCES requests.help_requests(id) ON DELETE CASCADE,
+    community_id UUID NOT NULL REFERENCES communities.communities(id) ON DELETE CASCADE,
+    note TEXT NOT NULL,
+    updated_by UUID NOT NULL REFERENCES auth.users(id),
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(request_id, community_id)
+);
+```
+One note per (request, community) pair; upserted via `PATCH /requests/:id/admin-triage`.
+
 **requests.help_offers** - Help offers from community members
 ```sql
 CREATE TABLE requests.help_offers (
@@ -256,6 +270,7 @@ Get all help requests with optional filters.
 - `type` (string) - Filter by category
 - `limit` (number) - Max results (default: 50)
 - `offset` (number) - Pagination offset (default: 0)
+- `include_admin_notes` (boolean) - When `true` and `community_id` is also provided, each request in the response includes an `admin_note` field scoped to that community (sourced from `requests.request_admin_notes`). Only returned to active admins/moderators of the community.
 
 **Response:**
 ```json
@@ -891,6 +906,37 @@ if (result.success) {
   console.error(result.error.errors);
 }
 ```
+
+#### PATCH /requests/:id/admin-triage
+Override request urgency and/or add a community-scoped admin note (Sprint 25).
+
+**Auth:** Caller must be an active admin or moderator of the community the request belongs to.
+
+**Request:**
+```json
+{
+  "community_id": "uuid",
+  "urgency": "high",
+  "note": "Escalated — requester confirmed no transport available"
+}
+```
+
+- `community_id` (required) - The community context for the triage action
+- `urgency` (optional) - One of `'low'`, `'medium'`, `'high'`, `'critical'`. Updates `help_requests.urgency` when provided.
+- `note` (optional) - Free-text admin note. Upserts `requests.request_admin_notes` (one note per request per community).
+
+At least one of `urgency` or `note` must be provided (400 if neither is present).
+
+**Response:**
+```json
+{ "message": "Triage saved" }
+```
+
+**Errors:**
+- `400` — Neither `urgency` nor `note` provided
+- `403` — Caller is not an admin or moderator of the request's community
+
+**Implementation:** `src/routes/requests.ts` (Sprint 25)
 
 ### 3.2 Help Offers
 
