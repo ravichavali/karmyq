@@ -1139,7 +1139,13 @@ Remove a member from a collective. Collective admin only.
 Link a collective to a community.
 
 #### DELETE /collectives/:id/communities/:communityId
-Unlink a collective from a community.
+Unlink a collective from a community. Auth: collective admin OR community admin (Sprint 26).
+
+#### GET /collectives/:id/stats
+Returns aggregate performance stats for a collective: `total_requests_matched`, `fulfillment_rate`, `avg_completion_hours` (null if no completed matches), `communities_served_count`, `available_member_count`. Auth required.
+
+#### PATCH /providers/:providerId/availability
+Toggle a provider's availability status. Body: `{ is_available: boolean }`. Auth: owner only (provider_profiles.user_id must match JWT userId). Returns `{ id, is_available }`. (Sprint 26)
 
 #### GET /health
 Service health check.
@@ -1946,7 +1952,7 @@ CREATE TABLE auth.user_interests (
 | DELETE | `/providers/:id` | Owner | Delete profile (cascades reviews/trust scores) |
 
 **New tables** (migration 022):
-- `requests.provider_profiles` — generic base
+- `requests.provider_profiles` — generic base (Sprint 26: `is_available BOOLEAN DEFAULT FALSE` added via migration 20260314)
 - `requests.provider_ride_details` — ride-specific extension
 - `reputation.provider_reviews` — stars + text, tied to match_id
 - `reputation.provider_trust_scores` — computed cache (ADR-042)

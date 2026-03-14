@@ -8,7 +8,7 @@ const router = Router();
 // GET /requests/collectives - List collectives, filter by service_type
 router.get('/', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const { service_type, limit = 20, offset = 0 } = req.query;
+    const { service_type, community_id, unlinked_from, limit = 20, offset = 0 } = req.query;
 
     let queryText = `
       SELECT
@@ -28,6 +28,24 @@ router.get('/', authMiddleware, async (req: AuthenticatedRequest, res: Response)
     if (service_type) {
       queryText += ` AND $${paramCount} = ANY(pc.service_types)`;
       params.push(service_type);
+      paramCount++;
+    }
+
+    if (community_id) {
+      queryText += ` AND pc.id IN (
+        SELECT collective_id FROM requests.collective_community_links
+        WHERE community_id = $${paramCount} AND status = 'active'
+      )`;
+      params.push(community_id);
+      paramCount++;
+    }
+
+    if (unlinked_from) {
+      queryText += ` AND pc.id NOT IN (
+        SELECT collective_id FROM requests.collective_community_links
+        WHERE community_id = $${paramCount} AND status = 'active'
+      )`;
+      params.push(unlinked_from);
       paramCount++;
     }
 
@@ -75,6 +93,71 @@ router.get('/my', authMiddleware, async (req: AuthenticatedRequest, res: Respons
   }
 });
 
+// GET /requests/collectives/:id/stats - Collective performance stats
+// MUST be registered before /:id to avoid Express consuming 'stats' as an id param
+router.get('/:id/stats', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    const result = await query(
+      `SELECT
+        (
+          SELECT COUNT(DISTINCT m.request_id)
+          FROM requests.matches m
+          JOIN auth.users u ON m.responder_id = u.id
+          JOIN requests.provider_profiles pp ON pp.user_id = u.id
+          JOIN requests.provider_collective_members pcm ON pcm.provider_id = pp.id
+          WHERE pcm.collective_id = $1
+        ) AS total_requests_matched,
+        (
+          SELECT CASE WHEN COUNT(*) = 0 THEN 0
+            ELSE ROUND(COUNT(*) FILTER (WHERE m.status = 'completed')::numeric / COUNT(*) * 100, 1)
+          END
+          FROM requests.matches m
+          JOIN auth.users u ON m.responder_id = u.id
+          JOIN requests.provider_profiles pp ON pp.user_id = u.id
+          JOIN requests.provider_collective_members pcm ON pcm.provider_id = pp.id
+          WHERE pcm.collective_id = $1
+        ) AS fulfillment_rate,
+        (
+          SELECT ROUND(AVG(EXTRACT(EPOCH FROM (m.completed_at - m.created_at)) / 3600)::numeric, 1)
+          FROM requests.matches m
+          JOIN auth.users u ON m.responder_id = u.id
+          JOIN requests.provider_profiles pp ON pp.user_id = u.id
+          JOIN requests.provider_collective_members pcm ON pcm.provider_id = pp.id
+          WHERE pcm.collective_id = $1 AND m.completed_at IS NOT NULL
+        ) AS avg_completion_hours,
+        (
+          SELECT COUNT(*)
+          FROM requests.collective_community_links
+          WHERE collective_id = $1 AND status = 'active'
+        ) AS communities_served_count,
+        (
+          SELECT COUNT(*)
+          FROM requests.provider_collective_members pcm
+          JOIN requests.provider_profiles pp ON pcm.provider_id = pp.id
+          WHERE pcm.collective_id = $1 AND pp.is_available = TRUE AND pp.is_active = TRUE
+        ) AS available_member_count`,
+      [id]
+    );
+
+    const row = result.rows[0];
+    res.json({
+      success: true,
+      data: {
+        total_requests_matched: parseInt(row.total_requests_matched, 10),
+        fulfillment_rate: parseFloat(row.fulfillment_rate) || 0,
+        avg_completion_hours: row.avg_completion_hours != null ? parseFloat(row.avg_completion_hours) : null,
+        communities_served_count: parseInt(row.communities_served_count, 10),
+        available_member_count: parseInt(row.available_member_count, 10),
+      },
+    });
+  } catch (error: any) {
+    console.error('Error fetching collective stats:', error);
+    res.status(500).json({ success: false, message: 'Failed to fetch collective stats', error: error.message });
+  }
+});
+
 // GET /requests/collectives/:id - Collective detail with members + communities served
 router.get('/:id', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   try {
@@ -106,7 +189,7 @@ router.get('/:id', authMiddleware, async (req: AuthenticatedRequest, res: Respon
     const membersResult = await query(
       `SELECT
         pcm.collective_id, pcm.provider_id, pcm.role, pcm.joined_at,
-        pp.display_name, pp.service_type, pp.bio, pp.pricing_notes,
+        pp.display_name, pp.service_type, pp.bio, pp.pricing_notes, pp.is_available,
         pts.trust_score, pts.avg_stars, pts.total_reviews
       FROM requests.provider_collective_members pcm
       JOIN requests.provider_profiles pp ON pcm.provider_id = pp.id
@@ -351,7 +434,7 @@ router.post('/:id/communities', authMiddleware, async (req: AuthenticatedRequest
       return res.status(400).json({ success: false, message: 'community_id is required' });
     }
 
-    // Only collective admins or creator can link
+    // Allow collective admins/creator OR community admins
     const authCheck = await query(
       `SELECT 1 FROM requests.provider_collectives pc
        LEFT JOIN requests.provider_collective_members pcm ON pc.id = pcm.collective_id
@@ -361,8 +444,13 @@ router.post('/:id/communities', authMiddleware, async (req: AuthenticatedRequest
       [id, userId]
     );
 
-    if (authCheck.rowCount === 0) {
-      return res.status(403).json({ success: false, message: 'Only collective admins can link to communities' });
+    const memberships = req.user!.communities ?? [];
+    const isCommunityAdmin = memberships.some(
+      (m: any) => m.id === community_id && m.role === 'admin'
+    );
+
+    if (authCheck.rowCount === 0 && !isCommunityAdmin) {
+      return res.status(403).json({ success: false, message: 'Only collective admins or community admins can link to communities' });
     }
 
     await query(
@@ -394,8 +482,13 @@ router.delete('/:id/communities/:communityId', authMiddleware, async (req: Authe
       [id, userId]
     );
 
-    if (authCheck.rowCount === 0) {
-      return res.status(403).json({ success: false, message: 'Only collective admins can unlink communities' });
+    const memberships = req.user!.communities ?? [];
+    const isCommunityAdmin = memberships.some(
+      (m: any) => m.id === communityId && m.role === 'admin'
+    );
+
+    if (authCheck.rowCount === 0 && !isCommunityAdmin) {
+      return res.status(403).json({ success: false, message: 'Only collective admins or community admins can unlink communities' });
     }
 
     await query(

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/router'
 import Head from 'next/head'
 import Link from 'next/link'
-import { communityService, requestService, reputationService } from '@/lib/api'
+import { communityService, requestService, reputationService, collectiveService } from '@/lib/api'
 import Layout from '@/components/Layout'
 import CommunityConfigEditor from '@/components/CommunityConfigEditor'
 import CommunityTrustQuestionnaire from '@/components/CommunityTrustQuestionnaire'
@@ -11,6 +11,8 @@ import { CommunityConfig } from '@/types/community-config'
 import { answersToConfig, QuestionnaireAnswers } from '@/lib/trust-model'
 import { REQUEST_TYPES } from '@/components/requests/RequestTypeSelector'
 import CommunityLinks from '@/components/community/CommunityLinks'
+import CollectiveCardRich from '@/components/providers/CollectiveCardRich'
+import CollectiveDiscoveryPanel from '@/components/providers/CollectiveDiscoveryPanel'
 
 interface Member {
   id: string
@@ -172,6 +174,8 @@ export default function CommunityDetailPage() {
       if (!networkMetrics) fetchNetworkMetrics()
     } else if (activeTab === 'requests') {
       fetchCommunityRequests()
+    } else if (activeTab === 'providers') {
+      fetchCommunityCollectives()
     }
   }, [activeTab]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -281,6 +285,14 @@ export default function CommunityDetailPage() {
       scores[m.user_id] = r.status === 'fulfilled' ? (r.value.data?.data?.score ?? null) : null
     })
     setMemberTrustScores(scores)
+  }
+
+  const fetchCommunityCollectives = async () => {
+    if (!id) return
+    try {
+      const response = await collectiveService.listCollectivesByCommunity(id as string)
+      setCommunityCollectives(response.data.data ?? response.data ?? [])
+    } catch {}
   }
 
   const handleUpdateMemberRole = async (userId: string, newRole: string) => {
@@ -1563,18 +1575,20 @@ export default function CommunityDetailPage() {
                   <div>
                     <h4 className="text-base font-semibold text-text mb-3">Collectives serving this community</h4>
                     {communityCollectives.length === 0 ? (
-                      <p className="text-sm text-text-muted">No collectives linked yet. Collective admins can link their collective to this community.</p>
+                      <p className="text-sm text-text-muted">No collectives linked yet.</p>
                     ) : (
-                      <div className="space-y-2">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         {communityCollectives.map((c: any) => (
-                          <div key={c.id} className="flex items-center justify-between bg-surface-raised rounded-lg border border-border px-4 py-3">
-                            <div>
-                              <p className="text-sm font-medium text-text">{c.name}</p>
-                              <p className="text-xs text-text-subtle">{c.member_count} provider{c.member_count !== 1 ? 's' : ''}</p>
-                            </div>
-                            <Link href={`/providers/collectives/${c.id}`} className="text-xs text-primary hover:underline">View</Link>
-                          </div>
+                          <CollectiveCardRich key={c.id} collective={c} />
                         ))}
+                      </div>
+                    )}
+                    {isAdmin && (
+                      <div className="mt-4">
+                        <CollectiveDiscoveryPanel
+                          communityId={id as string}
+                          onLinked={fetchCommunityCollectives}
+                        />
                       </div>
                     )}
                   </div>

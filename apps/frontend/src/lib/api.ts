@@ -775,6 +775,9 @@ export const providerService = {
 
   submitReview: (data: any) =>
     reputationApi.post('/reputation/provider-reviews', data),
+
+  updateAvailability: (providerId: string, isAvailable: boolean) =>
+    requestApi.patch(`/providers/${providerId}/availability`, { is_available: isAvailable }),
 }
 
 export const collectiveService = {
@@ -804,4 +807,13 @@ export const collectiveService = {
 
   unlinkCommunity: (id: string, communityId: string) =>
     requestApi.delete(`/collectives/${id}/communities/${communityId}`),
+
+  getCollectiveStats: (id: string) =>
+    requestApi.get(`/collectives/${id}/stats`),
+
+  listCollectivesByCommunity: (communityId: string) =>
+    requestApi.get('/collectives', { params: { community_id: communityId } }),
+
+  discoverCollectives: (params?: { unlinked_from?: string; limit?: number }) =>
+    requestApi.get('/collectives', { params }),
 }

@@ -20,6 +20,7 @@ export default function CollectiveDetailPage() {
   const { id } = router.query
   const [currentUser, setCurrentUser] = useState<any>(null)
   const [collective, setCollective] = useState<any>(null)
+  const [stats, setStats] = useState<any>(null)
   const [myProviderId, setMyProviderId] = useState<string | undefined>()
   const [loading, setLoading] = useState(true)
   const [editing, setEditing] = useState(false)
@@ -49,6 +50,10 @@ export default function CollectiveDetailPage() {
     } finally {
       setLoading(false)
     }
+    try {
+      const statsResponse = await collectiveService.getCollectiveStats(id as string)
+      setStats(statsResponse.data.data ?? statsResponse.data)
+    } catch {}
   }
 
   async function fetchMyProvider() {
@@ -138,6 +143,24 @@ export default function CollectiveDetailPage() {
           </div>
         )}
 
+        {/* Stats */}
+        {stats && (
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            {[
+              { label: 'Requests matched', value: stats.total_requests_matched },
+              { label: 'Fulfillment rate', value: `${stats.fulfillment_rate}%` },
+              { label: 'Avg completion time', value: stats.avg_completion_hours != null ? `${stats.avg_completion_hours}h` : '—' },
+              { label: 'Communities served', value: stats.communities_served_count },
+              { label: 'Available now', value: stats.available_member_count },
+            ].map(({ label, value }) => (
+              <div key={label} className="bg-surface-raised rounded-xl border border-border p-4">
+                <p className="text-2xl font-bold text-text">{value}</p>
+                <p className="text-xs text-text-muted mt-0.5">{label}</p>
+              </div>
+            ))}
+          </div>
+        )}
+
         {/* Communities served */}
         <div className="bg-surface-raised rounded-xl border border-border p-5">
           <div className="flex items-center justify-between mb-3">
@@ -199,6 +222,7 @@ export default function CollectiveDetailPage() {
             currentUserProviderId={myProviderId}
             isCollectiveAdmin={isAdmin}
             onMembershipChanged={fetchCollective}
+            onAvailabilityChanged={fetchCollective}
           />
         </div>
       </div>

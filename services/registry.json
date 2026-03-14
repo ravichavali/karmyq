@@ -119,6 +119,8 @@
           "/providers/my",
           "/providers/:id",
           "/collectives/my",
+          "/collectives/:id/stats",
+          "/providers/:id/availability",
           "/requests/:id/admin-triage"
         ],
         "consumes": [

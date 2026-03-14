@@ -176,6 +176,16 @@
     },
     {
       "method": "GET",
+      "path": "/collectives/:id/stats",
+      "description": "Returns aggregate performance stats for a collective: total requests matched, fulfillment rate, avg completion hours, communities served count, and available member count."
+    },
+    {
+      "method": "PATCH",
+      "path": "/providers/:id/availability",
+      "description": "Toggle provider availability status. Body: { is_available: boolean }. Owner only."
+    },
+    {
+      "method": "GET",
       "path": "/health",
       "description": "Service health check."
     },

@@ -232,4 +232,39 @@ router.delete('/:providerId', authMiddleware, async (req: AuthenticatedRequest, 
   }
 });
 
+// PATCH /requests/providers/:providerId/availability - Toggle provider availability (owner only)
+router.patch('/:providerId/availability', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = req.user!.userId;
+    const { providerId } = req.params;
+    const { is_available } = req.body;
+
+    if (typeof is_available !== 'boolean') {
+      return res.status(400).json({ success: false, message: 'is_available must be a boolean' });
+    }
+
+    const ownerCheck = await query(
+      `SELECT id FROM requests.provider_profiles WHERE id = $1 AND user_id = $2`,
+      [providerId, userId]
+    );
+
+    if (ownerCheck.rowCount === 0) {
+      return res.status(403).json({ success: false, message: 'You can only update your own provider profile' });
+    }
+
+    const result = await query(
+      `UPDATE requests.provider_profiles
+       SET is_available = $1, updated_at = NOW()
+       WHERE id = $2
+       RETURNING id, is_available`,
+      [is_available, providerId]
+    );
+
+    res.json({ success: true, data: result.rows[0] });
+  } catch (error: any) {
+    console.error('Error updating provider availability:', error);
+    res.status(500).json({ success: false, message: 'Failed to update availability', error: error.message });
+  }
+});
+
 export default router;
