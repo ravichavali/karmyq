@@ -649,10 +649,13 @@ SKIP_TESTS=1 ./scripts/deploy.sh
 
 ## Bug Fixing
 
-- Always trace the issue to its root cause before applying fixes. Never apply bandaid/client-side filters when the problem is in the DB or API layer.
-- Before editing any file, use the `Grep` tool to find **every** occurrence of the problematic value across all services — never assume a hardcoded value, config path, or pattern exists in only one file.
-- After proposing a fix, verify it by tracing the full data flow end-to-end. For API/config changes, check: source config → build/template processing → runtime access path → client consumption. Do not assume the first fix is complete.
-- When debugging production issues, always read the actual error output the user provides before searching logs or guessing. Start with the symptoms, not assumptions. If the user says they are about to paste output, **wait for it**.
+**MANDATORY steps before writing any fix:**
+
+1. **Identify the layer** — is this a DB, API, or UI bug? Apply the fix at the correct layer. Never add client-side filters/workarounds for server-side problems.
+2. **Find ALL instances** — use `Grep` to search the entire codebase for the pattern before touching anything. Assume the same bug exists in multiple files (services, frontend, mobile, simulation). Fix every occurrence.
+3. **Trace end-to-end** — after the fix, mentally trace the full data flow: source config → build/template → runtime → client. State explicitly where the bug was and confirm no other path reintroduces it.
+4. **Never edit generated files** — `/dist/`, `/build/`, `dependency-graph.md`, `impact-analysis.md` are build artifacts. Find the source and edit that instead. (A hook will block you if you try.)
+5. **Wait for actual output** — if the user says they're about to paste error output, stop and wait. Do not guess from symptoms.
 
 ---
 

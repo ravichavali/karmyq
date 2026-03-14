@@ -69,3 +69,27 @@ Default values for communities and users: need to define sensible initial config
 Individual trust mechanics: user-level trust scores need to be built out as a first-class system, separate from community trust score (ADR-040). Relates to the karma vs trust unification open question — are these one system or two? Needs a design session and possibly a new ADR. Touches ADR-011 (reputation decay), ADR-040 (community trust), and ADR-043 (three-score model).
 
 ---
+
+## [2026-03-11] architecture
+
+Sprint 23 must address GitHub security vulnerabilities at https://github.com/ravichavali/karmyq/security — 27 total (22 high, 3 moderate, 2 low). Dependabot alerts on the default branch. Resolve before next demo or investor review.
+
+---
+
+## [2026-03-12] ux
+
+Admin/moderator > Requests tab needs to go beyond passive listing — admins should be able to *amplify* requests and *connect* people. Flesh out what this means: e.g. "boost" a request to surface it higher in member feeds, direct-message a specific member who has the skills to help, tag a request as urgent for the community, or propose a match themselves. The tab is now working (requests visible) but the interaction model is still read-only. Needs a design session to define the action set and what "admin-as-connector" looks like in practice.
+
+---
+
+## [2026-03-12] ux
+
+Admin page simplification: the community admin page has 3 tabs for member management and 2 config areas that need consolidation. Too many surfaces for what should be a lightweight admin experience. Needs a design session to merge/streamline — likely: one unified "Members" tab (pending + active + roles), one "Settings" panel (collapsing trust config + community config into a single form).
+
+---
+
+## [2026-03-13] architecture
+
+Liquid democracy seems to be an interesting idea for Karmyq — members could delegate their voting/governance weight to trusted others, who then vote on their behalf (transitively). Could apply to community decision-making, trust model evolution proposals, or admin actions requiring community consent. Explore fit with the existing trust path and karma systems.
+
+---
