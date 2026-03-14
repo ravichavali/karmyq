@@ -205,7 +205,7 @@ router.get('/:id', authMiddleware, async (req: AuthenticatedRequest, res: Respon
         ccl.collective_id, ccl.community_id, ccl.status, ccl.established_at,
         c.name as community_name
       FROM requests.collective_community_links ccl
-      JOIN community.communities c ON ccl.community_id = c.id
+      JOIN communities.communities c ON ccl.community_id = c.id
       WHERE ccl.collective_id = $1 AND ccl.status = 'active'
       ORDER BY ccl.established_at ASC`,
       [id]

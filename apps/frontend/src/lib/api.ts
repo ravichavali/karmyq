@@ -755,6 +755,9 @@ export const providerService = {
   listProviders: (params?: { service_type?: string; limit?: number; offset?: number }) =>
     requestApi.get('/providers', { params }),
 
+  getMyProviders: () =>
+    requestApi.get('/providers/my'),
+
   getProvider: (id: string) =>
     requestApi.get(`/providers/${id}`),
 
@@ -783,6 +786,9 @@ export const providerService = {
 export const collectiveService = {
   listCollectives: (params?: { service_type?: string; limit?: number; offset?: number }) =>
     requestApi.get('/collectives', { params }),
+
+  getMyCollectives: () =>
+    requestApi.get('/collectives/my'),
 
   getCollective: (id: string) =>
     requestApi.get(`/collectives/${id}`),

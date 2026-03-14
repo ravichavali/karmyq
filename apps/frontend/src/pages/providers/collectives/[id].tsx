@@ -58,10 +58,9 @@ export default function CollectiveDetailPage() {
 
   async function fetchMyProvider() {
     try {
-      const response = await providerService.listProviders()
+      const response = await providerService.getMyProviders()
       const providers: any[] = response.data ?? []
-      const mine = providers.find((p: any) => p.user_id === currentUser?.id)
-      if (mine) setMyProviderId(mine.id)
+      if (providers.length > 0) setMyProviderId(providers[0].id)
     } catch {}
   }
 
