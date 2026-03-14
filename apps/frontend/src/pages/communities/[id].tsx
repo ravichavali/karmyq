@@ -449,6 +449,13 @@ export default function CommunityDetailPage() {
     }
   }
 
+  const handleCloseTriageModal = () => {
+    setShowTriageModal(false)
+    setSelectedRequest(null)
+    setTriageUrgency('')
+    setTriageNote('')
+  }
+
   const membershipRecord = community?.members.find((m: Member) => m.user_id === currentUser?.id)
   const isMember = membershipRecord?.status === 'active'
   const isPending = membershipRecord?.status === 'pending'
@@ -1659,7 +1666,10 @@ export default function CommunityDetailPage() {
 
         {/* Triage Modal */}
         {showTriageModal && selectedRequest && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div
+            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+            onClick={(e) => { if (e.target === e.currentTarget) handleCloseTriageModal() }}
+          >
             <div className="bg-white rounded-lg p-6 w-full max-w-md">
               <h3 className="text-lg font-medium mb-4">Triage Request</h3>
               <p className="text-sm text-gray-600 mb-4 truncate">{selectedRequest.title}</p>
@@ -1695,7 +1705,7 @@ export default function CommunityDetailPage() {
               {/* Actions */}
               <div className="flex gap-2 justify-end">
                 <button
-                  onClick={() => setShowTriageModal(false)}
+                  onClick={handleCloseTriageModal}
                   className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800"
                 >
                   Cancel
@@ -1707,11 +1717,11 @@ export default function CommunityDetailPage() {
                     try {
                       await requestService.adminTriageRequest(selectedRequest.id, {
                         community_id: id as string,
-                        ...(triageUrgency && { urgency: triageUrgency as any }),
+                        ...(triageUrgency && { urgency: triageUrgency as 'low' | 'medium' | 'high' | 'critical' }),
                         ...(triageNote && { note: triageNote }),
                       })
                       await fetchCommunityRequests()
-                      setShowTriageModal(false)
+                      handleCloseTriageModal()
                     } catch (err: any) {
                       alert(err?.message ?? 'Failed to save')
                     } finally {
