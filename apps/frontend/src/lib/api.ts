@@ -504,6 +504,7 @@ export const requestService = {
     request_id: string;
     offer_id?: string;
     responder_id: string;
+    community_id?: string;
   }) =>
     requestApi.post('/matches', data),
 

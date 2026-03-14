@@ -114,6 +114,8 @@ export default function CommunityDetailPage() {
   const [showTriageModal, setShowTriageModal] = useState(false)
   const [triageUrgency, setTriageUrgency] = useState('')
   const [triageNote, setTriageNote] = useState('')
+  const [selectedResponderId, setSelectedResponderId] = useState('')
+  const [proposingMatch, setProposingMatch] = useState(false)
   const [savingTriage, setSavingTriage] = useState(false)
 
   useEffect(() => {
@@ -454,6 +456,8 @@ export default function CommunityDetailPage() {
     setSelectedRequest(null)
     setTriageUrgency('')
     setTriageNote('')
+    setSelectedResponderId('')
+    setProposingMatch(false)
   }
 
   const membershipRecord = community?.members.find((m: Member) => m.user_id === currentUser?.id)
@@ -1734,6 +1738,54 @@ export default function CommunityDetailPage() {
                   {savingTriage ? 'Saving…' : 'Save'}
                 </button>
               </div>
+
+              {/* Stage 2: Propose a connector */}
+              {selectedRequest?.status === 'open' && (
+                <div className="mt-6 pt-4 border-t border-gray-200">
+                  <h4 className="text-sm font-medium text-gray-700 mb-2">Propose a connector</h4>
+                  <p className="text-xs text-gray-500 mb-3">
+                    Select an active community member to connect with the requester. They will be notified and must accept.
+                  </p>
+                  <select
+                    value={selectedResponderId}
+                    onChange={(e) => setSelectedResponderId(e.target.value)}
+                    className="w-full border border-gray-300 rounded px-3 py-2 text-sm mb-3"
+                  >
+                    <option value="">— select a connector —</option>
+                    {(community?.members ?? [])
+                      .filter((m: Member) => m.status === 'active' && m.user_id !== selectedRequest?.requester_id)
+                      .map((m: Member) => (
+                        <option key={m.user_id} value={m.user_id}>
+                          {m.user_name ?? m.user_id}
+                        </option>
+                      ))
+                    }
+                  </select>
+                  <button
+                    onClick={async () => {
+                      if (!selectedResponderId) return
+                      setProposingMatch(true)
+                      try {
+                        await requestService.createMatch({
+                          request_id: selectedRequest.id,
+                          responder_id: selectedResponderId,
+                          community_id: id as string,
+                        })
+                        await fetchCommunityRequests()
+                        handleCloseTriageModal()
+                      } catch (err: any) {
+                        alert(err?.message ?? 'Failed to propose match')
+                      } finally {
+                        setProposingMatch(false)
+                      }
+                    }}
+                    disabled={proposingMatch || !selectedResponderId}
+                    className="w-full px-4 py-2 text-sm bg-emerald-600 text-white rounded hover:bg-emerald-700 disabled:opacity-50"
+                  >
+                    {proposingMatch ? 'Proposing…' : 'Propose match'}
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         )}
