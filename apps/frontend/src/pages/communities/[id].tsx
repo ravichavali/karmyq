@@ -110,6 +110,11 @@ export default function CommunityDetailPage() {
   const [showInviteModal, setShowInviteModal] = useState(false)
   const [inviteEmail, setInviteEmail] = useState('')
   const [joiningCommunity, setJoiningCommunity] = useState(false)
+  const [selectedRequest, setSelectedRequest] = useState<any>(null)
+  const [showTriageModal, setShowTriageModal] = useState(false)
+  const [triageUrgency, setTriageUrgency] = useState('')
+  const [triageNote, setTriageNote] = useState('')
+  const [savingTriage, setSavingTriage] = useState(false)
 
   useEffect(() => {
     // Only run on client-side (not during SSR)
@@ -250,7 +255,7 @@ export default function CommunityDetailPage() {
     if (!id) return
     try {
       setLoadingRequests(true)
-      const response = await requestService.getRequests({ community_id: id as string, status: status || requestStatusFilter || undefined, limit: 50 })
+      const response = await requestService.getRequests({ community_id: id as string, status: status || requestStatusFilter || undefined, limit: 50, include_admin_notes: true })
       const data = response.data
       const requests = Array.isArray(data) ? data : (data?.requests ?? [])
       setCommunityRequests(requests)
@@ -1625,6 +1630,22 @@ export default function CommunityDetailPage() {
                             <p className="text-xs text-text-subtle mt-1">
                               {new Date(req.created_at).toLocaleDateString()}
                             </p>
+                            <div className="flex items-center justify-end gap-1 mt-2">
+                              {req.admin_note && (
+                                <span title={req.admin_note} className="text-xs text-indigo-500" aria-label="Has admin note">📋</span>
+                              )}
+                              <button
+                                onClick={() => {
+                                  setSelectedRequest(req)
+                                  setTriageUrgency(req.urgency ?? '')
+                                  setTriageNote(req.admin_note ?? '')
+                                  setShowTriageModal(true)
+                                }}
+                                className="text-xs px-2 py-1 border border-indigo-300 text-indigo-600 rounded hover:bg-indigo-50 transition"
+                              >
+                                Triage
+                              </button>
+                            </div>
                           </div>
                         </div>
                       ))}
@@ -1635,6 +1656,77 @@ export default function CommunityDetailPage() {
             </div>
           </div>
         </div>
+
+        {/* Triage Modal */}
+        {showTriageModal && selectedRequest && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 w-full max-w-md">
+              <h3 className="text-lg font-medium mb-4">Triage Request</h3>
+              <p className="text-sm text-gray-600 mb-4 truncate">{selectedRequest.title}</p>
+
+              {/* Urgency */}
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Urgency</label>
+                <select
+                  value={triageUrgency}
+                  onChange={(e) => setTriageUrgency(e.target.value)}
+                  className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
+                >
+                  <option value="">— no override —</option>
+                  <option value="low">low</option>
+                  <option value="medium">medium</option>
+                  <option value="high">high</option>
+                  <option value="critical">critical</option>
+                </select>
+              </div>
+
+              {/* Admin note */}
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Admin note</label>
+                <textarea
+                  value={triageNote}
+                  onChange={(e) => setTriageNote(e.target.value)}
+                  rows={3}
+                  className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
+                  placeholder="Internal note (not visible to members)"
+                />
+              </div>
+
+              {/* Actions */}
+              <div className="flex gap-2 justify-end">
+                <button
+                  onClick={() => setShowTriageModal(false)}
+                  className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={async () => {
+                    if (!triageUrgency && !triageNote) return
+                    setSavingTriage(true)
+                    try {
+                      await requestService.adminTriageRequest(selectedRequest.id, {
+                        community_id: id as string,
+                        ...(triageUrgency && { urgency: triageUrgency as any }),
+                        ...(triageNote && { note: triageNote }),
+                      })
+                      await fetchCommunityRequests()
+                      setShowTriageModal(false)
+                    } catch (err: any) {
+                      alert(err?.message ?? 'Failed to save')
+                    } finally {
+                      setSavingTriage(false)
+                    }
+                  }}
+                  disabled={savingTriage || (!triageUrgency && !triageNote)}
+                  className="px-4 py-2 text-sm bg-indigo-600 text-white rounded hover:bg-indigo-700 disabled:opacity-50"
+                >
+                  {savingTriage ? 'Saving…' : 'Save'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Invite Member Modal */}
         {showInviteModal && (
