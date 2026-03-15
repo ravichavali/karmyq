@@ -42,7 +42,7 @@ Sprint 27 closes these gaps by unifying the profile surface into a coherent iden
 - Public `/users/[id]` profile pages
 - Provider trust score wiring (Sprint 28)
 - Rate cards / pricing (Sprint 29)
-- Community co-member edges in the network graph (post-Sprint 27 — exchange connections only for now to keep the graph focused)
+- Public `/users/[id]` profile pages
 
 ---
 
@@ -80,8 +80,8 @@ Sprint 27 closes these gaps by unifying the profile surface into a coherent iden
    FROM auth.users u
    LEFT JOIN requests.provider_profiles pp ON pp.user_id = u.id
    WHERE u.id = ANY($1)
-   LIMIT 1 -- (use unnest/$1 = array of user IDs)
    ```
+   (`$1` is an array of user IDs; `= ANY($1)` returns one row per matched user)
 4. Build `nodes[]` + `edges[]`. When total nodes exceed 150, keep exchange connections first (stronger signal), then community connections ordered by most recently active. Cap at 150 nodes total.
 5. Edge type: `'exchange'` or `'community'` (exchange takes precedence if both apply)
 
