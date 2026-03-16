@@ -5,6 +5,7 @@ import Link from 'next/link'
 import Layout from '@/components/Layout'
 import { api, communityService, reputationService, userSettingsService, providerService, collectiveService } from '@/lib/api'
 import InvitationChain, { InvitationChainSkeleton } from '@/components/InvitationChain'
+import NetworkGraph from '@/components/NetworkGraph'
 import ProviderProfileTab from '@/components/ProviderProfileTab'
 import { useInvitationChain } from '@/hooks/useInvitationChain'
 
@@ -733,6 +734,9 @@ export default function ProfilePage() {
               </div>
             </div>
           </div>
+
+          {/* Your Network */}
+          {user && <NetworkGraph currentUserId={user.id} />}
 
           {/* Skills Section */}
           <div className="bg-surface-raised rounded-lg shadow-md p-6">
