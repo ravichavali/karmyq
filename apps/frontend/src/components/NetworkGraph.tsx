@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
+import { useRouter } from 'next/router'
 import { socialGraphService } from '@/lib/api'
 
 interface GraphNode {
@@ -23,6 +24,7 @@ interface NetworkGraphProps {
 }
 
 export default function NetworkGraph({ currentUserId }: NetworkGraphProps) {
+  const router = useRouter()
   const containerRef = useRef<HTMLDivElement>(null)
   const [networkData, setNetworkData] = useState<NetworkData | null>(null)
   const [loading, setLoading] = useState(false)
@@ -102,7 +104,7 @@ export default function NetworkGraph({ currentUserId }: NetworkGraphProps) {
           }
           onNodeClick={(node: any) => {
             if (node.provider_id) {
-              window.location.href = `/providers/${node.provider_id}`
+              router.push(`/providers/${node.provider_id}`)
             }
           }}
         />

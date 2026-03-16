@@ -312,30 +312,24 @@ Get the current user's local network graph from the materialized connections tab
       {
         "id": "uuid-123",
         "name": "Mike Chen",
-        "karma": 87,
-        "community_id": "uuid-456"
+        "provider_id": null
       },
       {
         "id": "uuid-789",
         "name": "Sarah Rodriguez",
-        "karma": 92,
-        "community_id": "uuid-456"
+        "provider_id": "uuid-provider-456"
       }
     ],
     "edges": [
       {
-        "source_id": "uuid-123",
-        "target_id": "uuid-789",
-        "connection_type": "exchange",
-        "strength": 2,
-        "created_at": "2025-12-15T10:00:00Z"
+        "source": "uuid-123",
+        "target": "uuid-789",
+        "type": "exchange"
       },
       {
-        "source_id": "current-user-id",
-        "target_id": "uuid-123",
-        "connection_type": "community",
-        "strength": 1,
-        "created_at": "2025-12-20T14:30:00Z"
+        "source": "current-user-id",
+        "target": "uuid-123",
+        "type": "community"
       }
     ]
   }
@@ -346,11 +340,15 @@ Get the current user's local network graph from the materialized connections tab
 
 **Data Source**: Reads from `social_graph.connections` materialized table built by the network materialization process.
 
-**Connection Types**:
-- `exchange` - Users have completed a mutual exchange (match_completed event)
-- `community` - Users are co-members of the same community
+**Node Fields**:
+- `id` - User UUID
+- `name` - User display name
+- `provider_id` - Optional provider UUID (null if user is not a provider)
 
-**Strength**: Number of connections between two users (exchanges or shared communities).
+**Edge Fields**:
+- `source` - Source user UUID
+- `target` - Target user UUID
+- `type` - Connection type: `"exchange"` (mutual help exchange) or `"community"` (co-members)
 
 ---
 
