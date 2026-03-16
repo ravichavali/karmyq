@@ -362,9 +362,13 @@
       },
       "apis": {
         "provides": [
-          "/invitations",
-          "/trust-paths",
-          "/social-graph"
+          { "method": "POST", "path": "/invitations/generate", "description": "Generate a new invitation code for current user." },
+          { "method": "POST", "path": "/invitations/accept", "description": "Accept an invitation code during user signup." },
+          { "method": "GET", "path": "/invitations", "description": "Get invitation history for current user." },
+          { "method": "GET", "path": "/invitations/stats", "description": "Get inviter statistics for current user (gamification metrics)." },
+          { "method": "GET", "path": "/paths/:targetUserId", "description": "Get shortest path between current user and target user." },
+          { "method": "POST", "path": "/paths/batch", "description": "Get paths for multiple target users (optimized for feed ranking)." },
+          { "method": "GET", "path": "/network", "description": "Returns the current user's local network graph (nodes + edges) from social_graph.connections and community co-membership." }
         ],
         "consumes": [
           "/auth/verify"
@@ -375,7 +379,13 @@
       ],
       "health_check": "http://localhost:3010/health",
       "criticality": "critical",
-      "notes": "Trust-first design foundation"
+      "events": {
+        "publishes": [],
+        "subscribes": [
+          "match_completed"
+        ]
+      },
+      "notes": "Trust-first design foundation. Sprint 27: Added match_completed subscription to upsert exchange connections into social_graph.connections."
     },
     "simulation-service": {
       "port": null,
