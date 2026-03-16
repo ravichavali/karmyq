@@ -1001,3 +1001,19 @@ BEGIN
     END IF;
 END;
 $$ LANGUAGE plpgsql;
+
+-- Social Graph Schema
+CREATE SCHEMA IF NOT EXISTS social_graph;
+
+CREATE TABLE IF NOT EXISTS social_graph.connections (
+  id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_a_id           UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  user_b_id           UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  type                TEXT NOT NULL CHECK (type IN ('exchange', 'community')),
+  first_connected_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  last_interaction_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT connections_normalized_pair UNIQUE (
+    LEAST(user_a_id::text, user_b_id::text),
+    GREATEST(user_a_id::text, user_b_id::text)
+  )
+);
