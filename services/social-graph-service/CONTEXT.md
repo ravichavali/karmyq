@@ -299,6 +299,59 @@ Get paths for multiple target users (optimized for feed ranking).
 
 ---
 
+### GET /network
+
+Get the current user's local network graph from the materialized connections table.
+
+**Response**:
+```json
+{
+  "success": true,
+  "data": {
+    "nodes": [
+      {
+        "id": "uuid-123",
+        "name": "Mike Chen",
+        "provider_id": null
+      },
+      {
+        "id": "uuid-789",
+        "name": "Sarah Rodriguez",
+        "provider_id": "uuid-provider-456"
+      }
+    ],
+    "edges": [
+      {
+        "source": "uuid-123",
+        "target": "uuid-789",
+        "type": "exchange"
+      },
+      {
+        "source": "current-user-id",
+        "target": "uuid-123",
+        "type": "community"
+      }
+    ]
+  }
+}
+```
+
+**Implementation**: [src/routes/network.ts](src/routes/network.ts)
+
+**Data Source**: Reads from `social_graph.connections` materialized table built by the network materialization process.
+
+**Node Fields**:
+- `id` - User UUID
+- `name` - User display name
+- `provider_id` - Optional provider UUID (null if user is not a provider)
+
+**Edge Fields**:
+- `source` - Source user UUID
+- `target` - Target user UUID
+- `type` - Connection type: `"exchange"` (mutual help exchange) or `"community"` (co-members)
+
+---
+
 ## Key Features
 
 ### 1. Invitation Code Generation
@@ -467,7 +520,15 @@ None currently. Future consideration:
 
 ## Events Consumed
 
-None currently.
+### match_completed
+
+When a match is marked complete in the Request Service, this event triggers upserting a new connection into `social_graph.connections` if one doesn't already exist.
+
+**Listener**: [src/queues/matchCompleted.ts](src/queues/matchCompleted.ts)
+
+**Action**: Upsert connection record between the two matched users with `connection_type = 'exchange'` and increment strength counter.
+
+**Side Effect**: Updates materialized view `social_graph.connections` for network graph queries.
 
 ---
 
@@ -589,6 +650,16 @@ curl -X POST http://localhost:3010/invitations/accept \
 curl http://localhost:3010/paths/$USER_B_ID \
   -H "Authorization: Bearer $USER_A_TOKEN"
 ```
+
+---
+
+## Recent Changes
+
+### Sprint 27: Network Graph Materialization
+- **NEW**: Added `GET /network` endpoint returning materialized connection graph (nodes + edges)
+- **NEW**: Subscribed to `match_completed` event to upsert exchange connections into `social_graph.connections`
+- **Schema**: Added `social_graph.connections` table with `CREATE UNIQUE INDEX` for expression-based uniqueness
+- **Date**: 2026-03-16
 
 ---
 

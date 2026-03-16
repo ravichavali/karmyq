@@ -1,11 +1,14 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/router'
 import Head from 'next/head'
+import Link from 'next/link'
 import Layout from '@/components/Layout'
 import TrustScoreBadge from '@/components/providers/TrustScoreBadge'
+import TrustPathBadge from '@/components/TrustPathBadge'
 import ProviderForm from '@/components/providers/ProviderForm'
 import ProviderReviews from '@/components/providers/ProviderReviews'
 import { providerService } from '../../lib/api'
+import { useTrustPath } from '@/hooks/useTrustPath'
 
 const SERVICE_TYPE_LABELS: Record<string, string> = {
   ride: 'Rides',
@@ -34,6 +37,8 @@ export default function ProviderDetailPage() {
   const [reviews, setReviews] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [editing, setEditing] = useState(false)
+  const isOwner = currentUser ? currentUser.id === provider?.user_id : false
+  const { trustPath } = useTrustPath(provider?.user_id ?? null, { enabled: !!currentUser && !isOwner })
 
   useEffect(() => {
     const userStr = typeof window !== 'undefined' ? localStorage.getItem('user') : null
@@ -75,12 +80,18 @@ export default function ProviderDetailPage() {
     return <Layout><div className="flex items-center justify-center py-24 text-text-muted text-sm">Provider not found.</div></Layout>
   }
 
-  const isOwner = currentUser?.id === provider.user_id
-
   return (
     <Layout>
       <Head><title>{provider.display_name} — Karmyq Providers</title></Head>
       <div className="max-w-2xl mx-auto px-4 sm:px-6 py-8 space-y-6">
+
+        {isOwner && (
+          <div className="mb-4">
+            <Link href="/profile?tab=provider" className="text-sm text-primary hover:underline">
+              ← Your Profile
+            </Link>
+          </div>
+        )}
 
         {/* Header */}
         <div className="bg-surface-raised rounded-xl border border-border p-6">
@@ -106,6 +117,12 @@ export default function ProviderDetailPage() {
           </div>
 
           {provider.bio && <p className="mt-4 text-sm text-text-muted">{provider.bio}</p>}
+
+          {!isOwner && trustPath && (
+            <div className="mt-3">
+              <TrustPathBadge trustPath={trustPath} compact />
+            </div>
+          )}
 
           <div className="mt-4 flex flex-wrap gap-4 text-sm text-text-muted">
             {provider.pricing_notes && (
