@@ -749,6 +749,9 @@ export const socialGraphService = {
   // Get trust paths to multiple users (for feed ranking)
   getBatchTrustPaths: (targetUserIds: string[]) =>
     socialGraphApi.post('/paths/batch', { target_user_ids: targetUserIds }),
+
+  // Get network information
+  getNetwork: () => socialGraphApi.get('/network'),
 }
 
 export const providerService = {
