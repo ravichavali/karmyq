@@ -50,40 +50,29 @@ router.get('/', async (req: AuthenticatedRequest, res: Response) => {
 
     const merged = [...exchangeResult.rows, ...communityRows].slice(0, NODE_CAP);
 
-    if (merged.length === 0) {
-      return res.json({ success: true, data: { nodes: [], edges: [] } });
-    }
-
-    // 4. Fetch display names and provider IDs
-    const connectedIds = merged.map((r: any) => r.connected_user_id);
+    // 4. Fetch display names + provider IDs for all users (connections + center node)
+    const allIds = [userId, ...merged.map((r: any) => r.connected_user_id)];
     const usersResult = await pool.query(
       `SELECT u.id, u.name, pp.id AS provider_id
        FROM auth.users u
        LEFT JOIN requests.provider_profiles pp ON pp.user_id = u.id
        WHERE u.id = ANY($1)`,
-      [connectedIds]
+      [allIds]
     );
 
     const userMap = new Map(usersResult.rows.map((u: any) => [u.id, u]));
 
     // 5. Build response
-    // Always include the current user as center node
-    const currentUserResult = await pool.query(
-      `SELECT u.id, u.name, pp.id AS provider_id
-       FROM auth.users u
-       LEFT JOIN requests.provider_profiles pp ON pp.user_id = u.id
-       WHERE u.id = $1`,
-      [userId]
-    );
-
     const nodes: Array<{ id: string; name: string; provider_id: string | null }> = [];
-    if (currentUserResult.rows.length > 0) {
-      const cu = currentUserResult.rows[0];
-      nodes.push({ id: cu.id, name: cu.name, provider_id: cu.provider_id ?? null });
-    }
-
     const edges: Array<{ source: string; target: string; type: string }> = [];
 
+    // Center node first
+    const centerUser = userMap.get(userId);
+    if (centerUser) {
+      nodes.push({ id: centerUser.id, name: centerUser.name, provider_id: centerUser.provider_id ?? null });
+    }
+
+    // Connected nodes + edges
     for (const row of merged) {
       const user = userMap.get(row.connected_user_id);
       if (!user) continue;
