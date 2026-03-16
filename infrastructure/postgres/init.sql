@@ -1011,9 +1011,16 @@ CREATE TABLE IF NOT EXISTS social_graph.connections (
   user_b_id           UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   type                TEXT NOT NULL CHECK (type IN ('exchange', 'community')),
   first_connected_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
-  last_interaction_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  CONSTRAINT connections_normalized_pair UNIQUE (
+  last_interaction_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Unique index for normalized pair deduplication (expressions not allowed in inline UNIQUE constraint)
+CREATE UNIQUE INDEX IF NOT EXISTS connections_normalized_pair
+  ON social_graph.connections (
     LEAST(user_a_id::text, user_b_id::text),
     GREATEST(user_a_id::text, user_b_id::text)
-  )
-);
+  );
+
+-- Indexes for neighbor lookup queries (WHERE user_a_id = $1 OR user_b_id = $1)
+CREATE INDEX IF NOT EXISTS connections_user_a_idx ON social_graph.connections (user_a_id);
+CREATE INDEX IF NOT EXISTS connections_user_b_idx ON social_graph.connections (user_b_id);
