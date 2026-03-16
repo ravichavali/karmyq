@@ -3,8 +3,9 @@ import { useRouter } from 'next/router'
 import Head from 'next/head'
 import Link from 'next/link'
 import Layout from '@/components/Layout'
-import { api, communityService, reputationService, userSettingsService } from '@/lib/api'
+import { api, communityService, reputationService, userSettingsService, providerService, collectiveService } from '@/lib/api'
 import InvitationChain, { InvitationChainSkeleton } from '@/components/InvitationChain'
+import ProviderProfileTab from '@/components/ProviderProfileTab'
 import { useInvitationChain } from '@/hooks/useInvitationChain'
 
 // Build version to force cache invalidation
@@ -76,6 +77,10 @@ export default function ProfilePage() {
   const [showKarmaToMe, setShowKarmaToMe] = useState(false)
   const [selectedCommunityId, setSelectedCommunityId] = useState<string>('')
 
+  const [activeTab, setActiveTab] = useState<'community' | 'provider'>('community')
+  const [myProviders, setMyProviders] = useState<any[]>([])
+  const [myCollectives, setMyCollectives] = useState<any[]>([])
+
   // Fetch invitation chain
   const { chain: invitationChain, loading: loadingChain } = useInvitationChain({ enabled: !!user })
 
@@ -105,6 +110,19 @@ export default function ProfilePage() {
       fetchUserSkills(parsedUser.id)
       // Load communities first, then privacy settings (to avoid race condition)
       initializeKarmaData(parsedUser.id)
+      // Fetch provider presence (parallel, optional)
+      ;(async () => {
+        try {
+          const [providersResp, collectivesResp] = await Promise.all([
+            providerService.getMyProviders(),
+            collectiveService.getMyCollectives(),
+          ])
+          setMyProviders(providersResp.data ?? [])
+          setMyCollectives(collectivesResp.data ?? [])
+        } catch {
+          // Provider data is optional — don't block profile load on error
+        }
+      })()
     }
   }, [router])
 
@@ -114,6 +132,14 @@ export default function ProfilePage() {
       fetchKarmaData(selectedCommunityId)
     }
   }, [showKarmaToMe, selectedCommunityId])
+
+  // Initialize tab from query param
+  useEffect(() => {
+    const tab = router.query.tab as string | undefined
+    if (tab === 'provider' && myProviders.length > 0) {
+      setActiveTab('provider')
+    }
+  }, [router.query.tab, myProviders.length])
 
   const initializeKarmaData = async (userId: string) => {
     try {
@@ -373,6 +399,39 @@ export default function ProfilePage() {
               {success}
             </div>
           )}
+
+          {/* Tab bar — only shown when user has provider profiles */}
+          {myProviders.length > 0 && (
+            <div className="flex gap-1 border-b border-border mb-6">
+              <button
+                onClick={() => setActiveTab('community')}
+                className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+                  activeTab === 'community'
+                    ? 'border-primary text-primary'
+                    : 'border-transparent text-text-muted hover:text-text'
+                }`}
+              >
+                Community
+              </button>
+              <button
+                onClick={() => setActiveTab('provider')}
+                className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+                  activeTab === 'provider'
+                    ? 'border-primary text-primary'
+                    : 'border-transparent text-text-muted hover:text-text'
+                }`}
+              >
+                Provider
+              </button>
+            </div>
+          )}
+
+          {activeTab === 'provider' && (
+            <ProviderProfileTab providers={myProviders} collectives={myCollectives} />
+          )}
+
+          {activeTab === 'community' && (
+          <div>
 
           {/* Profile Information */}
           <div className="bg-surface-raised rounded-lg shadow-md p-6 mb-6">
@@ -769,6 +828,9 @@ export default function ProfilePage() {
               </div>
             )}
           </div>
+
+          </div>
+          )}
         </div>
       </Layout>
     </>
