@@ -5,6 +5,7 @@ import { logger } from './config/logger';
 import { pool } from './config/database';
 import invitationRoutes from './routes/invitations';
 import pathRoutes from './routes/paths';
+import networkRoutes from './routes/network';
 import { initEventSubscriber } from './events/subscriber';
 
 const app = express();
@@ -102,6 +103,7 @@ app.use(authMiddleware);
 // Routes
 app.use('/invitations', rateLimiters.standard, invitationRoutes);
 app.use('/paths', rateLimiters.readLight, pathRoutes);
+app.use('/network', rateLimiters.readLight, networkRoutes);
 
 // Error handling
 app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
