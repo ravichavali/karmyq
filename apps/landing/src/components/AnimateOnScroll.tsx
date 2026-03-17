@@ -34,7 +34,7 @@ export default function AnimateOnScroll({
       viewport={{ once: true, margin: '-80px' }}
       transition={{ duration: 0.6, delay, ease: 'easeOut' }}
     >
-      {children}
+      <>{children}</>
     </motion.div>
   );
 }

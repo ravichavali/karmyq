@@ -55,14 +55,6 @@
         {
           "label": "Network Cohesion",
           "href": "/docs/concepts/network-cohesion"
-        },
-        {
-          "label": "Community Roles",
-          "href": "/docs/concepts/community-roles"
-        },
-        {
-          "label": "Provider Collectives",
-          "href": "/docs/concepts/provider-collectives"
         }
       ]
     },
