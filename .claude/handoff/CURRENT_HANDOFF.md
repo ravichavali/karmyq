@@ -2,30 +2,53 @@
 
 ## Handoff Document for New Conversation
 
-**Date**: 2026-03-16
+**Date**: 2026-03-17
 **Current Version**: v9.4.0
-**Status**: Sprint 27 complete. Merged to master. Migration needs to be applied to karmyq.com.
+**Status**: Sprint 27 complete. CI build fix pushed (commit `a1d8ae6`). Waiting for CI to pass, then apply DB migration and deploy.
 
 ---
 
 ## ⚡ Quick Start
 
-Sprint 27 is done. **One action required before Sprint 28 can begin:**
+### Step 1: Check if CI passed (commit `a1d8ae6`)
+```bash
+gh run list --branch master --limit 3
+```
+If CI passed → proceed to Step 2. If still failing → see "CI Build Fix Details" below.
 
-Apply the Sprint 27 DB migration on karmyq.com:
+### Step 2: Apply the Sprint 27 DB migration on karmyq.com
 ```bash
 ssh ubuntu@karmyq.com
 docker exec karmyq-postgres psql -U karmyq_prod -d karmyq_prod \
   -f /dev/stdin < ~/karmyq/infrastructure/postgres/migrations/20260315-social-graph-connections.sql
 ```
 
-Then push to deploy:
+### Step 3: Deploy (CI auto-deploys on push; manual if needed)
 ```bash
-git push origin master
+# CI deploys automatically via GitHub Actions on push to master.
+# If you need to trigger manually:
+ssh ubuntu@karmyq.com && cd ~/karmyq && ./scripts/deploy.sh
 ```
+
+### Step 4: Verify Sprint 27 stop criteria on karmyq.com, then start Sprint 28.
 
 After verifying karmyq.com is healthy, start Sprint 28: **Provider Trust Score Wiring**.
 Sprint 28 spec is in `docs/superpowers/specs/2026-03-15-provider-economy-arc.md` (section "Sprint 28").
+
+---
+
+## ✅ CI Build Fix (2026-03-17, commit `a1d8ae6`)
+
+**Problem**: After `react-force-graph-2d` was added to `apps/frontend`, npm workspace deduplication hoisted `styled-jsx` to root `node_modules` (React 18). During Next.js static export, the Pages Router `_error` layer externalizes packages by default, so `styled-jsx` loaded root React 18 while Next.js renders with its compiled React 19 canary → `TypeError: Cannot read properties of null (reading 'useContext')` on /404 and /500 pages.
+
+**Fix** (3 files changed):
+- `apps/landing/next.config.js` — added `transpilePackages: ['styled-jsx']` to force bundling through webpack (uses compiled React, not externalized React 18)
+- `apps/landing/package.json` — pinned `motion: 12.34.0` (was `^12.0.0`), added `framer-motion: 12.34.0` as direct dep so motion's transitive React dep resolves from `apps/landing/node_modules/react@19` not root React 18, kept `styled-jsx: 5.1.6`
+- `apps/landing/src/components/AnimateOnScroll.tsx` — wrapped `{children}` in `<>{children}</>` (React 19 + motion TypeScript compatibility)
+
+**Why `/500` may still fail locally on Windows**: `isResourceInPackages()` in Next.js handle-externals.js uses `path.sep` (`\` on Windows) to check paths. On Linux CI (forward slashes), this check works correctly and styled-jsx gets bundled for both `/404` and `/500`. The Windows failure is likely a path separator mismatch in Next.js internals — it does not affect CI.
+
+**If CI still fails**: Check `gh run list --branch master` for the error. The most likely remaining issue would be another package with React 18 in the Pages Router externalization path. Add it to `transpilePackages` in `apps/landing/next.config.js`.
 
 ---
 
