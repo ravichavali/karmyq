@@ -25,20 +25,22 @@ CREATE INDEX IF NOT EXISTS connections_user_a_idx ON social_graph.connections (u
 CREATE INDEX IF NOT EXISTS connections_user_b_idx ON social_graph.connections (user_b_id);
 
 -- Backfill from existing completed matches
+-- requests.matches has (request_id, responder_id); requester_id lives on help_requests
 INSERT INTO social_graph.connections (user_a_id, user_b_id, type, first_connected_at, last_interaction_at)
 SELECT
-  LEAST(requester_id::text, responder_id::text)::uuid,
-  GREATEST(requester_id::text, responder_id::text)::uuid,
+  LEAST(hr.requester_id::text, m.responder_id::text)::uuid,
+  GREATEST(hr.requester_id::text, m.responder_id::text)::uuid,
   'exchange',
-  MIN(updated_at),
-  MAX(updated_at)
-FROM requests.matches
-WHERE status = 'completed'
-  AND requester_id IS NOT NULL
-  AND responder_id IS NOT NULL
+  MIN(m.updated_at),
+  MAX(m.updated_at)
+FROM requests.matches m
+JOIN requests.help_requests hr ON m.request_id = hr.id
+WHERE m.status = 'completed'
+  AND hr.requester_id IS NOT NULL
+  AND m.responder_id IS NOT NULL
 GROUP BY
-  LEAST(requester_id::text, responder_id::text),
-  GREATEST(requester_id::text, responder_id::text)
+  LEAST(hr.requester_id::text, m.responder_id::text),
+  GREATEST(hr.requester_id::text, m.responder_id::text)
 ON CONFLICT (
   LEAST(user_a_id::text, user_b_id::text),
   GREATEST(user_a_id::text, user_b_id::text)
