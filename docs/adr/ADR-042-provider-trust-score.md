@@ -1,7 +1,8 @@
 # ADR-042: Provider Trust Score
 
-**Status**: Accepted
+**Status**: Implemented
 **Date**: 2026-02-27
+**Implemented**: 2026-03-17 (Sprint 28)
 **Related**: ADR-041 (Two-Layer Model), ADR-037 (Personal Trust Score)
 
 ---
@@ -63,7 +64,18 @@ Completion rate is weighted heavily (30%) because a provider who accepts matches
 
 ## Score Update Triggers
 
-Score is recalculated immediately when a new review is submitted (via `recalculateProviderTrustScore()`). Completion rate and response rate are updated by match completion events (future work for Phase 2).
+Score is recalculated on two events:
+1. **Review submitted** — `POST /reputation/provider-reviews` calls `recalculateProviderTrustScore()` immediately after storing the review
+2. **Match completed** — `match_completed` event triggers `updateProviderCompletionRate()` in the reputation-service event subscriber, which updates `completion_rate` then calls `recalculateProviderTrustScore()`
+
+Both paths share the same `providerTrustService.ts` implementation to guarantee formula consistency.
+
+### Cold-start behavior
+A new provider with no reviews and no matches has `trust_score = 0`. As they complete matches (even with no reviews), `completion_rate` rises and the score reflects that — e.g. 100% completion with no reviews yields `0*0.6 + 100*0.3 + 0*0.1 = 30`. Once reviews arrive, avg_stars contributes the majority (60%) of the score.
+
+### Backfill
+One-time recalculation for all existing providers is available at:
+`POST /reputation/provider-trust/recalculate` (admin-only). Safe to run multiple times (idempotent).
 
 ---
 
@@ -83,6 +95,12 @@ Score is recalculated immediately when a new review is submitted (via `recalcula
 - Separate from karma/personal trust — no cross-contamination
 
 **Negative / Risks**
-- Completion rate starts at 0 for new providers — cold start problem
-- Phase 1 response_rate not yet tracked (defaults to 0); Phase 2 will wire match response events
-- Provider could game stars by self-reviewing through alt accounts (mitigated by match_id verification in Phase 2)
+- Completion rate starts at 0 for new providers — cold start produces `trust_score = 0` until first match completes
+- response_rate not yet tracked (defaults to 0); wiring match response events is deferred to post-arc
+- Provider could game stars by self-reviewing through alt accounts; mitigated by `UNIQUE (match_id, reviewer_id)` requiring a real completed match to review
+
+### Implementation notes (Sprint 28)
+- Single source of truth: `services/reputation-service/src/services/providerTrustService.ts`
+- `recalculateProviderTrustScore`: reads from `provider_reviews` + `provider_trust_scores`, writes updated row
+- `updateProviderCompletionRate`: called on `match_completed` event, updates completion_rate then calls recalculate
+- Simulation submits provider reviews after the requester marks a match done (`complete-match-workflow.ts`)

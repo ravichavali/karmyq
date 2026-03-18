@@ -1,6 +1,7 @@
 import { Router, Response } from 'express';
 import { query } from '../database/db';
 import { authMiddleware, AuthenticatedRequest } from '@karmyq/shared/middleware/auth';
+import { recalculateProviderTrustScore, backfillAllProviderTrustScores } from '../services/providerTrustService';
 
 const router = Router();
 
@@ -95,46 +96,31 @@ router.get('/provider-reviews/:providerId', async (req: any, res: Response) => {
   }
 });
 
-// Internal helper: recalculate and cache provider trust score
-// Formula: 60% avg_stars (normalized 0–100) + 30% completion_rate + 10% response_rate
-async function recalculateProviderTrustScore(providerId: string): Promise<void> {
-  const reviewStats = await query(`
-    SELECT
-      AVG(stars) as avg_stars,
-      COUNT(*) as total_reviews
-    FROM reputation.provider_reviews
-    WHERE provider_id = $1
-  `, [providerId]);
+// POST /reputation/provider-trust/recalculate - Admin: backfill all provider trust scores
+// Recalculates completion_rate from historical matches and recomputes trust_score for
+// every active provider. Safe to run multiple times — idempotent.
+router.post('/provider-trust/recalculate', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const user = req.user!;
+    const memberships = user.communities ?? [];
+    const isAdmin = (user as any).role === 'admin' || memberships.some((m: any) => m.role === 'admin');
 
-  const stats = reviewStats.rows[0];
-  const avgStars = parseFloat(stats.avg_stars) || 0;
-  const totalReviews = parseInt(stats.total_reviews) || 0;
+    if (!isAdmin) {
+      return res.status(403).json({ success: false, message: 'Admin access required' });
+    }
 
-  // Fetch completion_rate and response_rate from existing score row (updated by match completion events)
-  const existing = await query(
-    'SELECT completion_rate, response_rate FROM reputation.provider_trust_scores WHERE provider_id = $1',
-    [providerId]
-  );
-  const completionRate = existing.rows[0]?.completion_rate ?? 0;
-  const responseRate = existing.rows[0]?.response_rate ?? 0;
+    const updated = await backfillAllProviderTrustScores();
 
-  // Normalize avg_stars from 1–5 to 0–100
-  const normalizedStars = totalReviews > 0 ? ((avgStars - 1) / 4) * 100 : 0;
-  const trustScore = Math.round(
-    normalizedStars * 0.6 + completionRate * 0.3 + responseRate * 0.1
-  );
-
-  await query(`
-    INSERT INTO reputation.provider_trust_scores
-      (provider_id, avg_stars, total_reviews, completion_rate, response_rate, trust_score, last_calculated)
-    VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP)
-    ON CONFLICT (provider_id) DO UPDATE SET
-      avg_stars = EXCLUDED.avg_stars,
-      total_reviews = EXCLUDED.total_reviews,
-      trust_score = EXCLUDED.trust_score,
-      last_calculated = EXCLUDED.last_calculated
-  `, [providerId, avgStars, totalReviews, completionRate, responseRate, trustScore]);
-}
+    res.json({
+      success: true,
+      data: { updated },
+      message: `Recalculated trust scores for ${updated} providers`,
+    });
+  } catch (error: any) {
+    console.error('Error running provider trust score backfill:', error);
+    res.status(500).json({ success: false, message: 'Backfill failed', error: error.message });
+  }
+});
 
 export { recalculateProviderTrustScore };
 export default router;

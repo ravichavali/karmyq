@@ -270,6 +270,32 @@ export class ApiClient {
   }
 
   /**
+   * Request API - Get provider profiles for a specific user (public)
+   */
+  async getProvidersByUser(userId: string): Promise<any[]> {
+    const response = await executeWithRetry(() =>
+      this.client.get('/providers', { params: { user_id: userId } })
+    );
+    return response.data.data || [];
+  }
+
+  /**
+   * Reputation API - Submit a review for a provider
+   * Called by the requester after a match is completed.
+   */
+  async submitProviderReview(providerId: string, matchId: string, stars: number, reviewText: string): Promise<any> {
+    const response = await executeWithRetry(() =>
+      this.client.post('/reputation/provider-reviews', {
+        provider_id: providerId,
+        match_id: matchId,
+        stars,
+        review_text: reviewText,
+      })
+    );
+    return response.data.data;
+  }
+
+  /**
    * Request API - Create a provider collective
    */
   async createCollective(data: { name: string; service_types: string[]; description?: string; location_notes?: string }): Promise<any> {

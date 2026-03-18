@@ -8,7 +8,7 @@ const router = Router();
 // GET /requests/providers - Browse providers (public, no auth required)
 router.get('/', async (req: any, res: Response) => {
   try {
-    const { service_type, limit = 20, offset = 0 } = req.query;
+    const { service_type, user_id, limit = 20, offset = 0 } = req.query;
 
     let queryText = `
       SELECT
@@ -31,6 +31,12 @@ router.get('/', async (req: any, res: Response) => {
     if (service_type) {
       queryText += ` AND pp.service_type = $${paramCount}`;
       params.push(service_type);
+      paramCount++;
+    }
+
+    if (user_id) {
+      queryText += ` AND pp.user_id = $${paramCount}`;
+      params.push(user_id);
       paramCount++;
     }
 
