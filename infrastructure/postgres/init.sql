@@ -393,8 +393,8 @@ ALTER TABLE requests.help_requests
 CREATE INDEX IF NOT EXISTS idx_provider_profiles_user_id ON requests.provider_profiles(user_id);
 CREATE INDEX IF NOT EXISTS idx_provider_profiles_service_type ON requests.provider_profiles(service_type);
 CREATE INDEX IF NOT EXISTS idx_provider_profiles_is_active ON requests.provider_profiles(is_active);
-CREATE INDEX ON requests.provider_rate_cards(provider_id);
-CREATE INDEX ON requests.provider_rate_cards(service_type);
+CREATE INDEX IF NOT EXISTS idx_provider_rate_cards_provider_id ON requests.provider_rate_cards(provider_id);
+CREATE INDEX IF NOT EXISTS idx_provider_rate_cards_service_type ON requests.provider_rate_cards(service_type);
 
 -- ============= REPUTATION SERVICE SCHEMA =============
 CREATE SCHEMA IF NOT EXISTS reputation;
