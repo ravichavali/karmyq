@@ -193,6 +193,26 @@
       "method": "GET",
       "path": "/health",
       "description": "Service health check."
+    },
+    {
+      "method": "GET",
+      "path": "/requests/providers/:providerId/rate-cards",
+      "description": "List active rate cards for a provider (public)."
+    },
+    {
+      "method": "POST",
+      "path": "/requests/providers/:providerId/rate-cards",
+      "description": "Create a new rate card for a provider (owner only)."
+    },
+    {
+      "method": "PUT",
+      "path": "/requests/providers/:providerId/rate-cards/:cardId",
+      "description": "Update an existing rate card (owner only)."
+    },
+    {
+      "method": "DELETE",
+      "path": "/requests/providers/:providerId/rate-cards/:cardId",
+      "description": "Soft-delete a rate card — sets is_active=false (owner only)."
     }
   ]
 }

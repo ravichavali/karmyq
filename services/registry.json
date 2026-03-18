@@ -121,7 +121,9 @@
           "/collectives/my",
           "/collectives/:id/stats",
           "/providers/:id/availability",
-          "/requests/:id/admin-triage"
+          "/requests/:id/admin-triage",
+          "/providers/:id/rate-cards",
+          "/providers/:id/rate-cards/:cardId"
         ],
         "consumes": [
           "/auth/verify",
@@ -137,7 +139,8 @@
         "publishes": [
           "match_completed",
           "request_created",
-          "offer_created"
+          "offer_created",
+          { "type": "preferred_provider_selected", "description": "Fired when a requestor pre-selects a provider when filing a typed request" }
         ],
         "subscribes": []
       },
@@ -227,7 +230,8 @@
           "match_completed",
           "karma_awarded",
           "request_created",
-          "user_joined_community"
+          "user_joined_community",
+          { "type": "preferred_provider_selected" }
         ]
       },
       "notes": "Subscribes to all events, creates notifications"

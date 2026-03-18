@@ -90,6 +90,7 @@ The service uses template-based notifications for consistency:
 | `member_joined` | New member joined the community | Community admins |
 | `badge_earned` | You earned a new badge | User who earned badge |
 | `welcome` | Welcome to KarmyQ | New users |
+| `preferred_provider_selected` | A requestor pre-selected you as their provider | Selected provider |
 
 **Templates:** `src/templates/notificationTemplates.ts`
 
@@ -306,6 +307,11 @@ The notification service listens to events from other services and creates appro
 
 ### Events Consumed
 
+**preferred_provider_selected** - Requestor pre-selected a provider
+- Triggered when a requestor files a typed request with a `preferred_provider_id`
+- Creates an in-app notification for the provider with deep-link to `/requests/:id`
+- Lets the provider know a requestor has specifically chosen them before reaching out
+
 **match_created** - Someone offered to help
 - Notifies requester
 - Includes helper name and request details
@@ -396,6 +402,7 @@ export function generateNotification(type: NotificationType, data: any) {
 - `karma_awarded` - Notify user of karma points (future)
 - `norm_proposed` - Notify community members (future)
 - `norm_established` - Notify community members (future)
+- `preferred_provider_selected` - Notify provider of pre-selection (Sprint 29)
 
 ### External Dependencies
 - PostgreSQL (notifications schema)

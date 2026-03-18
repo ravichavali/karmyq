@@ -244,6 +244,26 @@ CREATE INDEX idx_interaction_feedback_to_user ON requests.interaction_feedback(t
 - **Two-Way Consent**: Both parties must consent for names in featured stories
 - **Interaction Ratings**: Rate the exchange quality, NOT the individual
 
+**requests.provider_rate_cards** - Provider pricing entries (Sprint 29)
+```sql
+CREATE TABLE requests.provider_rate_cards (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    provider_id UUID NOT NULL REFERENCES requests.provider_profiles(id) ON DELETE CASCADE,
+    label VARCHAR(255) NOT NULL,
+    pricing_model VARCHAR(50) NOT NULL,   -- 'standard', 'free', 'negotiable'
+    rate_amount NUMERIC(10,2),            -- null for free/negotiable
+    rate_unit VARCHAR(50),                -- 'per_hour', 'per_session', 'per_trip', 'flat'
+    currency CHAR(3) DEFAULT 'USD',
+    notes TEXT,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+Cards are never hard-deleted; deactivation sets `is_active = false`.
+
+**requests.help_requests** — Sprint 29 addition: `preferred_provider_id UUID REFERENCES requests.provider_profiles(id)` — optional field set when a requestor pre-selects a provider while filing a typed request.
+
 #### Tables Read by This Service
 - `auth.users` - User details for requester/helper names
 - `auth.user_skills` - User skills for skill-based matching
@@ -1146,6 +1166,20 @@ Returns aggregate performance stats for a collective: `total_requests_matched`, 
 
 #### PATCH /providers/:providerId/availability
 Toggle a provider's availability status. Body: `{ is_available: boolean }`. Auth: owner only (provider_profiles.user_id must match JWT userId). Returns `{ id, is_available }`. (Sprint 26)
+
+#### GET /requests/providers/:providerId/rate-cards
+List active rate cards for a provider (public). Owner can pass `?include_inactive=true` to include deactivated cards.
+
+#### POST /requests/providers/:providerId/rate-cards
+Create a new rate card for a provider. Auth: owner only. Body: `{ label, pricing_model, rate_amount?, rate_unit?, currency?, notes? }`.
+
+#### PUT /requests/providers/:providerId/rate-cards/:cardId
+Update an existing rate card. Auth: owner only.
+
+#### DELETE /requests/providers/:providerId/rate-cards/:cardId
+Soft-delete a rate card — sets `is_active = false`. Auth: owner only. Card remains in database for historical reference.
+
+**Note:** `POST /requests` now accepts optional `preferred_provider_id` (UUID) in the request body, allowing a requestor to pre-select a provider when filing a typed request.
 
 #### GET /health
 Service health check.

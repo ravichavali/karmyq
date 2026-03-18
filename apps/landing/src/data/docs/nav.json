@@ -55,6 +55,10 @@
         {
           "label": "Network Cohesion",
           "href": "/docs/concepts/network-cohesion"
+        },
+        {
+          "label": "Rate Cards",
+          "href": "/docs/concepts/rate-cards"
         }
       ]
     },
