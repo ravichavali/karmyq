@@ -140,7 +140,7 @@
           "match_completed",
           "request_created",
           "offer_created",
-          { "type": "preferred_provider_selected", "description": "Fired when a requestor pre-selects a provider when filing a typed request" }
+          "preferred_provider_selected"
         ],
         "subscribes": []
       },
@@ -231,7 +231,7 @@
           "karma_awarded",
           "request_created",
           "user_joined_community",
-          { "type": "preferred_provider_selected" }
+          "preferred_provider_selected"
         ]
       },
       "notes": "Subscribes to all events, creates notifications"
