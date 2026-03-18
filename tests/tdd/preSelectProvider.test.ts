@@ -26,7 +26,9 @@ describe('Pre-select provider on POST /requests', () => {
   }, 30000);
 
   it('files request with valid preferred_provider_id → stores it on row', async () => {
-    if (!activeProviderId) { console.warn('No tutor provider — skipping'); return; }
+    // Requires simulation to have run and created at least one tutor provider.
+    // Intentional conditional: these are integration tests against live seed data.
+    if (!activeProviderId) throw new Error('No tutor provider in DB — run simulation first to seed providers');
     const res = await axios.post(
       `${BASE_URL}/requests`,
       {
@@ -63,9 +65,8 @@ describe('Pre-select provider on POST /requests', () => {
   });
 
   it('returns 400 PROVIDER_TYPE_MISMATCH when provider service_type does not match request_type', async () => {
-    const tutorProvRes = await axios.get(`${BASE_URL}/providers?service_type=tutor&limit=1`);
-    const tutorProviderId = tutorProvRes.data.data[0]?.id;
-    if (!tutorProviderId) { console.warn('No tutor provider — skipping'); return; }
+    // Reuses the tutor provider from beforeAll; files a 'ride' request to trigger the mismatch.
+    if (!activeProviderId) throw new Error('No tutor provider in DB — run simulation first to seed providers');
     await expect(
       axios.post(
         `${BASE_URL}/requests`,
@@ -75,7 +76,7 @@ describe('Pre-select provider on POST /requests', () => {
           title: 'Need a ride',
           description: 'To the airport',
           urgency: 'medium',
-          preferred_provider_id: tutorProviderId,
+          preferred_provider_id: activeProviderId, // tutor provider on a ride request → mismatch
         },
         { headers: { Authorization: `Bearer ${requesterToken}` } }
       )
