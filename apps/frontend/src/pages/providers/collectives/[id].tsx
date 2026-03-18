@@ -8,6 +8,36 @@ import CollectiveMembersList from '@/components/providers/CollectiveMembersList'
 import { collectiveService, providerService } from '../../../lib/api'
 import { PROVIDER_SERVICE_TYPES } from '@karmyq/shared/schemas/providers'
 
+interface RateCard {
+  id: string
+  provider_id: string
+  label: string
+  service_type: string | null
+  pricing_model: 'standard' | 'free' | 'negotiable'
+  rate_amount: string | null
+  rate_unit: string | null
+  currency: string
+  notes: string | null
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
+function formatRateCard(card: RateCard): string {
+  if (card.pricing_model === 'standard' && card.rate_amount) {
+    const unit = card.rate_unit?.replace('per_', '') ?? ''
+    return `$${parseFloat(card.rate_amount).toFixed(0)} / ${unit}`
+  }
+  if (card.pricing_model === 'free') return 'Free'
+  return 'Negotiable'
+}
+
+interface MemberWithRateCards {
+  memberName: string
+  providerDisplayName: string
+  rateCards: RateCard[]
+}
+
 const SERVICE_TYPE_LABELS: Record<string, string> = {
   ride: 'Rides',
   tradesperson: 'Home Repair',
@@ -26,6 +56,8 @@ export default function CollectiveDetailPage() {
   const [editing, setEditing] = useState(false)
   const [linkingCommunity, setLinkingCommunity] = useState(false)
   const [communityIdInput, setCommunityIdInput] = useState('')
+  const [membersWithRateCards, setMembersWithRateCards] = useState<MemberWithRateCards[]>([])
+  const [membersLoaded, setMembersLoaded] = useState(false)
 
   useEffect(() => {
     const userStr = typeof window !== 'undefined' ? localStorage.getItem('user') : null
@@ -44,9 +76,17 @@ export default function CollectiveDetailPage() {
     setLoading(true)
     try {
       const response = await collectiveService.getCollective(id as string)
-      setCollective(response.data)
+      const collectiveData = response.data
+      setCollective(collectiveData)
+      // After loading collective, fetch member pricing
+      if (collectiveData?.members?.length > 0) {
+        fetchMemberPricing(collectiveData.members)
+      } else {
+        setMembersLoaded(true)
+      }
     } catch (err) {
       console.error('Failed to fetch collective', err)
+      setMembersLoaded(true)
     } finally {
       setLoading(false)
     }
@@ -54,6 +94,31 @@ export default function CollectiveDetailPage() {
       const statsResponse = await collectiveService.getCollectiveStats(id as string)
       setStats(statsResponse.data.data ?? statsResponse.data)
     } catch {}
+  }
+
+  async function fetchMemberPricing(members: any[]) {
+    try {
+      const results = await Promise.allSettled(
+        members.map(async (member: any) => {
+          const resp = await providerService.getProvider(member.provider_id)
+          const providerData = resp.data
+          const activeCards: RateCard[] = (providerData?.rate_cards ?? []).filter((c: RateCard) => c.is_active)
+          return {
+            memberName: member.display_name ?? 'Provider',
+            providerDisplayName: member.display_name ?? 'Provider',
+            rateCards: activeCards,
+          }
+        })
+      )
+      const withCards: MemberWithRateCards[] = results
+        .filter((r): r is PromiseFulfilledResult<MemberWithRateCards> => r.status === 'fulfilled' && r.value.rateCards.length > 0)
+        .map((r) => r.value)
+      setMembersWithRateCards(withCards)
+    } catch (err) {
+      console.error('Failed to fetch member pricing', err)
+    } finally {
+      setMembersLoaded(true)
+    }
   }
 
   async function fetchMyProvider() {
@@ -211,6 +276,29 @@ export default function CollectiveDetailPage() {
             </form>
           )}
         </div>
+
+        {/* Member Pricing */}
+        {membersWithRateCards.length > 0 && (
+          <div className="bg-surface-raised rounded-xl border border-border p-5">
+            <h3 className="text-base font-semibold text-gray-800 mb-3">Member Pricing</h3>
+            {membersWithRateCards.map((entry, i) => (
+              <div key={i} className="mb-4">
+                <p className="text-sm font-medium text-gray-700">{entry.providerDisplayName}</p>
+                <ul className="mt-1 space-y-1">
+                  {entry.rateCards.map((card) => (
+                    <li key={card.id} className="text-sm text-gray-600 flex justify-between">
+                      <span>{card.label}</span>
+                      <span>{formatRateCard(card)}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        )}
+        {membersWithRateCards.length === 0 && membersLoaded && (
+          <p className="mt-4 text-sm text-gray-400 italic">No pricing published yet.</p>
+        )}
 
         {/* Members */}
         <div className="bg-surface-raised rounded-xl border border-border p-5">
