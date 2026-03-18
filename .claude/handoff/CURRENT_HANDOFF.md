@@ -1,73 +1,40 @@
-# Sprint 28 — IN PROGRESS | Sprint 29 Ready
+# Sprint 28 — COMPLETE ✅ | Sprint 29 Ready
 
 ## Handoff Document for New Conversation
 
 **Date**: 2026-03-18
 **Current Version**: v9.4.0
-**Status**: Sprint 28 backend fully implemented (uncommitted). Needs commit + deploy + verification on karmyq.com, then Sprint 29 begins.
+**Status**: Sprint 28 fully implemented, committed (`caa3894`), and deployed to karmyq.com. Backfill not yet run — providers still show trust_score=30 until sim runs or backfill is triggered manually.
 
 ---
 
-## ⚡ Quick Start — Finish Sprint 28 & Verify on karmyq.com
+## ⚡ Quick Start — Sprint 29: Rate Cards
 
-### Step 1: Commit Sprint 28 work
-All Sprint 28 changes are implemented but not yet committed. Files modified:
-```
-services/reputation-service/src/services/providerTrustService.ts  ← NEW (key file)
-services/reputation-service/src/events/subscriber.ts               ← refactored
-services/reputation-service/src/routes/providerReviews.ts          ← refactored + backfill endpoint
-services/request-service/src/routes/providers.ts                   ← user_id filter added
-services/simulation-service/src/api-client.ts                      ← 2 new methods
-services/simulation-service/src/workflows/complete-match-workflow.ts ← submits reviews
-tests/unit/reputation/provider-completion-rate.test.ts             ← updated for refactor
-services/reputation-service/tests/tdd/providerTrustScore.test.ts   ← expanded
-docs/adr/ADR-042-provider-trust-score.md                           ← Implemented
-```
+Sprint 28 is deployed (commit `caa3894`). The next session starts Sprint 29.
 
+**First: run the backfill** to recalculate existing provider trust scores from historical match data.
+Need an admin JWT — log in as an admin sim user first, then:
 ```bash
-# Verify tests pass first
-npm test
+TOKEN=$(curl -s -X POST https://karmyq.com/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"admin@test.karmyq.com","password":"password123"}' \
+  | python3 -c "import sys,json; print(json.load(sys.stdin)['data']['token'])")
 
-# Then commit
-git add services/reputation-service/src/services/providerTrustService.ts
-git add services/reputation-service/src/events/subscriber.ts
-git add services/reputation-service/src/routes/providerReviews.ts
-git add services/request-service/src/routes/providers.ts
-git add services/simulation-service/src/api-client.ts
-git add services/simulation-service/src/workflows/complete-match-workflow.ts
-git add tests/unit/reputation/provider-completion-rate.test.ts
-git add services/reputation-service/tests/tdd/providerTrustScore.test.ts
-git add docs/adr/ADR-042-provider-trust-score.md
-git commit -m "feat(reputation): Sprint 28 — wire provider trust score to real data (ADR-042)"
-git push origin master
-```
-
-### Step 2: After CI deploys, verify on karmyq.com
-
-**2a. Run the backfill** to recalculate existing provider trust scores from historical match data:
-```bash
-# You need an admin JWT token — log in as admin first
 curl -X POST https://karmyq.com/api/reputation/provider-trust/recalculate \
-  -H "Authorization: Bearer <admin_token>" \
+  -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json"
-# Should return: { "success": true, "data": { "updated": N }, "message": "Recalculated trust scores for N providers" }
+# Returns: { "success": true, "data": { "updated": N }, "message": "Recalculated trust scores for N providers" }
 ```
 
-**2b. Check the DB** — scores should no longer all be `30`:
+After backfill, check the DB — scores should vary (not all 30):
 ```bash
 docker exec karmyq-postgres psql -U karmyq_prod -d karmyq_prod \
-  -c "SELECT pts.trust_score, pts.avg_stars, pts.completion_rate, pts.total_reviews, pts.last_calculated FROM reputation.provider_trust_scores pts ORDER BY pts.trust_score DESC LIMIT 20;"
+  -c "SELECT pts.trust_score, pts.avg_stars, pts.completion_rate, pts.total_reviews FROM reputation.provider_trust_scores pts ORDER BY pts.trust_score DESC LIMIT 10;"
 ```
 
-**2c. Run simulation** — should now generate reviews:
-```bash
-# After sim runs, check for new reviews
-docker exec karmyq-postgres psql -U karmyq_prod -d karmyq_prod \
-  -c "SELECT COUNT(*) FROM reputation.provider_reviews;"
-# Should be > 0 after sim runs a few sessions
-```
+The simulation will also organically submit reviews going forward (new code deployed). After a few simulation cycles, `provider_reviews` will have entries and `avg_stars` will start contributing to scores.
 
-**2d. Verify trust score updates** — complete a match in sim, then check the affected provider's score changed.
+**Then proceed with Sprint 29 below.**
 
 ---
 
