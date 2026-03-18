@@ -1,4 +1,5 @@
 import { Router, Response } from 'express';
+import * as jwt from 'jsonwebtoken';
 import { query } from '../database/db';
 import { authMiddleware, AuthenticatedRequest } from '@karmyq/shared/middleware/auth';
 import type { CreateProviderProfileInput } from '@karmyq/shared/schemas/providers';
@@ -113,8 +114,8 @@ router.get('/:providerId/rate-cards', async (req: any, res: Response) => {
       const authHeader = req.headers?.authorization;
       if (authHeader) {
         try {
-          const jwt = require('jsonwebtoken');
-          const secret = process.env.JWT_SECRET || 'your-secret-key';
+          const secret = process.env.JWT_SECRET;
+          if (!secret) throw new Error('JWT_SECRET not configured');
           const decoded: any = jwt.verify(authHeader.replace('Bearer ', ''), secret);
           const ownerCheck = await query(
             'SELECT user_id FROM requests.provider_profiles WHERE id = $1',
@@ -198,6 +199,11 @@ router.put('/:providerId/rate-cards/:cardId', authMiddleware, async (req: Authen
     if (existing.rows.length === 0) return res.status(404).json({ success: false, message: 'Rate card not found' });
 
     const merged = { ...existing.rows[0], ...req.body };
+    // If pricing_model is changing to non-standard, auto-clear rate fields
+    if (merged.pricing_model !== 'standard') {
+      merged.rate_amount = null;
+      merged.rate_unit = null;
+    }
     const validationError = validateRateCardInput(merged);
     if (validationError) return res.status(400).json({ success: false, message: validationError });
 
