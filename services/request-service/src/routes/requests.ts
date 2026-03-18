@@ -710,7 +710,7 @@ router.get('/:id', async (req: Request, res: Response) => {
 // v9.0: Supports polymorphic requests (generic, ride, borrow, service, event)
 router.post('/', async (req: Request, res: Response) => {
   try {
-    const { community_id, post_to_all_communities, request_type, title, description, urgency, payload, requirements, visibility_scope, visibility_max_degrees } = req.body;
+    const { community_id, post_to_all_communities, request_type, title, description, urgency, payload, requirements, visibility_scope, visibility_max_degrees, preferred_provider_id } = req.body;
     // SECURITY: Always use verified userId from JWT, never trust client-provided requester_id
     const requester_id = (req as any).user?.userId;
 
@@ -720,6 +720,27 @@ router.post('/', async (req: Request, res: Response) => {
         success: false,
         message: 'Authentication required',
       });
+    }
+
+    // Validate preferred_provider_id if provided
+    let resolvedProviderUserId: string | null = null;
+    if (preferred_provider_id) {
+      const providerCheck = await query(
+        'SELECT id, user_id, service_type, is_active FROM requests.provider_profiles WHERE id = $1',
+        [preferred_provider_id]
+      );
+      if (providerCheck.rows.length === 0) {
+        return res.status(400).json({ success: false, message: 'Provider not found', error: 'PROVIDER_NOT_FOUND' });
+      }
+      const provider = providerCheck.rows[0];
+      if (!provider.is_active) {
+        return res.status(400).json({ success: false, message: 'Provider is inactive', error: 'PROVIDER_INACTIVE' });
+      }
+      const resolvedRequestType = request_type || 'generic';
+      if (resolvedRequestType !== 'generic' && provider.service_type !== resolvedRequestType) {
+        return res.status(400).json({ success: false, message: 'Provider service type does not match request type', error: 'PROVIDER_TYPE_MISMATCH' });
+      }
+      resolvedProviderUserId = provider.user_id;
     }
 
     // Validate request using Zod schema (polymorphic validation)
@@ -814,8 +835,8 @@ router.post('/', async (req: Request, res: Response) => {
     // ADR-022: Store visibility scope for multi-tier feed
     const result = await query(
       `INSERT INTO requests.help_requests
-        (requester_id, title, description, category, urgency, status, request_type, payload, requirements, expires_at, visibility_scope, visibility_max_degrees)
-      VALUES ($1, $2, $3, $4, $5, 'open', $6, $7, $8, $9, $10, $11)
+        (requester_id, title, description, category, urgency, status, request_type, payload, requirements, expires_at, visibility_scope, visibility_max_degrees, preferred_provider_id)
+      VALUES ($1, $2, $3, $4, $5, 'open', $6, $7, $8, $9, $10, $11, $12)
       RETURNING *`,
       [
         requester_id,
@@ -829,6 +850,7 @@ router.post('/', async (req: Request, res: Response) => {
         expiresAt,
         resolvedScope,
         resolvedMaxDegrees,
+        preferred_provider_id ?? null,
       ]
     );
 
@@ -850,6 +872,25 @@ router.post('/', async (req: Request, res: Response) => {
         request_type: validatedData.request_type,
         urgency: request.urgency,
         title: request.title,
+      });
+    }
+
+    // Publish preferred_provider_selected event if a provider was pre-selected
+    if (preferred_provider_id && resolvedProviderUserId) {
+      let requesterName = 'A user';
+      try {
+        const nameResult = await query('SELECT name FROM auth.users WHERE id = $1', [requester_id]);
+        if (nameResult.rows.length > 0) requesterName = nameResult.rows[0].name;
+      } catch (_) { /* non-blocking */ }
+
+      await publishEvent('preferred_provider_selected', {
+        request_id: request.id,
+        requester_id,
+        requester_name: requesterName,
+        provider_id: preferred_provider_id,
+        provider_user_id: resolvedProviderUserId,
+        request_title: validatedData.title,
+        request_type: validatedData.request_type,
       });
     }
 
