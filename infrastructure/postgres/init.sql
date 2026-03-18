@@ -356,7 +356,7 @@ CREATE TABLE IF NOT EXISTS requests.provider_ride_details (
 );
 
 -- Sprint 29: Provider rate cards — structured pricing per provider
-CREATE TABLE requests.provider_rate_cards (
+CREATE TABLE IF NOT EXISTS requests.provider_rate_cards (
   id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   provider_id    UUID NOT NULL REFERENCES requests.provider_profiles(id) ON DELETE CASCADE,
   label          VARCHAR(100) NOT NULL,
