@@ -87,7 +87,8 @@ export default function ProviderProfileTab({ providers, collectives }: ProviderP
     if (providers.length > 0) {
       fetchRateCardsForAll(providers)
     }
-  }, [providers])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [providers.map(p => p.id).join(',')])
 
   async function fetchRateCardsForAll(providerList: ProviderProfile[]) {
     const results = await Promise.allSettled(

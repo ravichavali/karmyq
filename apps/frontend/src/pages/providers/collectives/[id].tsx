@@ -296,7 +296,7 @@ export default function CollectiveDetailPage() {
             ))}
           </div>
         )}
-        {membersWithRateCards.length === 0 && membersLoaded && (
+        {membersWithRateCards.length === 0 && membersLoaded && collective?.members?.length > 0 && (
           <p className="mt-4 text-sm text-gray-400 italic">No pricing published yet.</p>
         )}
 

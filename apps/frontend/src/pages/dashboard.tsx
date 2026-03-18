@@ -658,7 +658,7 @@ export default function Dashboard() {
         })
       )
       const withCards = enriched
-        .filter((r): r is PromiseFulfilledResult<any> => r.status === 'fulfilled' && r.value.rate_cards.some((c: RateCard) => c.is_active))
+        .filter((r): r is PromiseFulfilledResult<any> => r.status === 'fulfilled')
         .map((r) => r.value)
       setProviderPickerProviders(withCards)
     } catch (err) {
@@ -881,6 +881,7 @@ export default function Dashboard() {
                         type="button"
                         onClick={() => {
                           setRequestType(type.value)
+                          setSelectedProvider(null)
                           setDynamicPayload({})
                           fetchSchema(type.value)
                         }}
