@@ -20,7 +20,7 @@ describe('Rate Cards API', () => {
     ownerToken = await loginAs('provider1@test.karmyq.com');
     otherToken = await loginAs('user2@test.karmyq.com');
 
-    const res = await axios.get(`${BASE_URL}/requests/providers/my`, {
+    const res = await axios.get(`${BASE_URL}/providers/my`, {
       headers: { Authorization: `Bearer ${ownerToken}` },
     });
     providerId = res.data.data[0]?.id;
@@ -29,7 +29,7 @@ describe('Rate Cards API', () => {
 
   it('creates a rate card as owner → 201', async () => {
     const res = await axios.post(
-      `${BASE_URL}/requests/providers/${providerId}/rate-cards`,
+      `${BASE_URL}/providers/${providerId}/rate-cards`,
       {
         label: 'Tutoring — Math',
         service_type: 'tutor',
@@ -49,7 +49,7 @@ describe('Rate Cards API', () => {
   it('returns 403 when non-owner tries to create a card', async () => {
     await expect(
       axios.post(
-        `${BASE_URL}/requests/providers/${providerId}/rate-cards`,
+        `${BASE_URL}/providers/${providerId}/rate-cards`,
         { label: 'X', pricing_model: 'free' },
         { headers: { Authorization: `Bearer ${otherToken}` } }
       )
@@ -59,7 +59,7 @@ describe('Rate Cards API', () => {
   it('returns 400 when standard pricing_model missing rate_amount', async () => {
     await expect(
       axios.post(
-        `${BASE_URL}/requests/providers/${providerId}/rate-cards`,
+        `${BASE_URL}/providers/${providerId}/rate-cards`,
         { label: 'Bad', pricing_model: 'standard', rate_unit: 'per_hour' },
         { headers: { Authorization: `Bearer ${ownerToken}` } }
       )
@@ -69,7 +69,7 @@ describe('Rate Cards API', () => {
   it('returns 400 when free pricing_model has rate_amount set', async () => {
     await expect(
       axios.post(
-        `${BASE_URL}/requests/providers/${providerId}/rate-cards`,
+        `${BASE_URL}/providers/${providerId}/rate-cards`,
         { label: 'Bad', pricing_model: 'free', rate_amount: 10 },
         { headers: { Authorization: `Bearer ${ownerToken}` } }
       )
@@ -79,7 +79,7 @@ describe('Rate Cards API', () => {
   it('returns 400 when service_type is invalid', async () => {
     await expect(
       axios.post(
-        `${BASE_URL}/requests/providers/${providerId}/rate-cards`,
+        `${BASE_URL}/providers/${providerId}/rate-cards`,
         { label: 'Bad', pricing_model: 'free', service_type: 'wizard' },
         { headers: { Authorization: `Bearer ${ownerToken}` } }
       )
@@ -88,7 +88,7 @@ describe('Rate Cards API', () => {
 
   it('GET /providers/:id/rate-cards returns only active cards (public)', async () => {
     const res = await axios.get(
-      `${BASE_URL}/requests/providers/${providerId}/rate-cards`
+      `${BASE_URL}/providers/${providerId}/rate-cards`
     );
     expect(res.status).toBe(200);
     expect(Array.isArray(res.data.data)).toBe(true);
@@ -96,8 +96,9 @@ describe('Rate Cards API', () => {
   });
 
   it('updates a rate card as owner → 200', async () => {
+    if (!cardId) throw new Error('cardId not set — create test must pass first');
     const res = await axios.put(
-      `${BASE_URL}/requests/providers/${providerId}/rate-cards/${cardId}`,
+      `${BASE_URL}/providers/${providerId}/rate-cards/${cardId}`,
       { label: 'Tutoring — Math & Science', rate_amount: 35 },
       { headers: { Authorization: `Bearer ${ownerToken}` } }
     );
@@ -106,21 +107,22 @@ describe('Rate Cards API', () => {
   });
 
   it('soft-deletes a rate card → card set inactive', async () => {
+    if (!cardId) throw new Error('cardId not set — create test must pass first');
     const res = await axios.delete(
-      `${BASE_URL}/requests/providers/${providerId}/rate-cards/${cardId}`,
+      `${BASE_URL}/providers/${providerId}/rate-cards/${cardId}`,
       { headers: { Authorization: `Bearer ${ownerToken}` } }
     );
     expect(res.status).toBe(200);
 
     const list = await axios.get(
-      `${BASE_URL}/requests/providers/${providerId}/rate-cards`
+      `${BASE_URL}/providers/${providerId}/rate-cards`
     );
     const found = list.data.data.find((c: any) => c.id === cardId);
     expect(found).toBeUndefined();
   });
 
   it('GET /providers/:id includes rate_cards array', async () => {
-    const res = await axios.get(`${BASE_URL}/requests/providers/${providerId}`);
+    const res = await axios.get(`${BASE_URL}/providers/${providerId}`);
     expect(res.status).toBe(200);
     expect(Array.isArray(res.data.data.rate_cards)).toBe(true);
   });
