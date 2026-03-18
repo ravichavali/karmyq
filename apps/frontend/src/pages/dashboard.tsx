@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/router'
 import Head from 'next/head'
-import { requestService, communityService } from '@/lib/api'
+import { requestService, communityService, providerService } from '@/lib/api'
 import { feedApi } from '@/lib/api'
 import Layout from '@/components/Layout'
 import InlineChat from '@/components/InlineChat'
@@ -101,6 +101,30 @@ interface Community {
   name: string
 }
 
+interface RateCard {
+  id: string
+  provider_id: string
+  label: string
+  service_type: string | null
+  pricing_model: 'standard' | 'free' | 'negotiable'
+  rate_amount: string | null
+  rate_unit: string | null
+  currency: string
+  notes: string | null
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
+function formatRateCard(card: RateCard): string {
+  if (card.pricing_model === 'standard' && card.rate_amount) {
+    const unit = card.rate_unit?.replace('per_', '') ?? ''
+    return `$${parseFloat(card.rate_amount).toFixed(0)} / ${unit}`
+  }
+  if (card.pricing_model === 'free') return 'Free'
+  return 'Negotiable'
+}
+
 export default function Dashboard() {
   const router = useRouter()
   const [user, setUser] = useState<any>(null)
@@ -114,6 +138,10 @@ export default function Dashboard() {
   const [userCommunities, setUserCommunities] = useState<Community[]>([])
   const [creating, setCreating] = useState(false)
   const [requestType, setRequestType] = useState<string | null>(null)
+  const [selectedProvider, setSelectedProvider] = useState<{ id: string; display_name: string } | null>(null)
+  const [showProviderPicker, setShowProviderPicker] = useState(false)
+  const [providerPickerProviders, setProviderPickerProviders] = useState<Array<{ id: string; display_name: string; trust_score: number | null; rate_cards: RateCard[] }>>([])
+  const [providerPickerLoading, setProviderPickerLoading] = useState(false)
   const [availableTypes, setAvailableTypes] = useState<{ value: string; label: string; icon: string }[]>([
     { value: 'generic', label: 'General', icon: '🤝' },
     { value: 'ride', label: 'Ride', icon: '🚗' },
@@ -610,6 +638,37 @@ export default function Dashboard() {
     console.log('Remove', type, index)
   }
 
+  const fetchAndShowProviderPicker = async () => {
+    if (!requestType) return
+    setProviderPickerLoading(true)
+    setShowProviderPicker(true)
+    try {
+      const listResp = await providerService.listProviders({ service_type: requestType })
+      const providers: any[] = listResp.data?.data ?? listResp.data ?? []
+      const enriched = await Promise.allSettled(
+        providers.map(async (p: any) => {
+          const detailResp = await providerService.getProvider(p.id)
+          const providerData = detailResp.data
+          return {
+            id: p.id,
+            display_name: p.display_name ?? providerData?.display_name ?? 'Provider',
+            trust_score: providerData?.trust_score ?? null,
+            rate_cards: (providerData?.rate_cards ?? []) as RateCard[],
+          }
+        })
+      )
+      const withCards = enriched
+        .filter((r): r is PromiseFulfilledResult<any> => r.status === 'fulfilled' && r.value.rate_cards.some((c: RateCard) => c.is_active))
+        .map((r) => r.value)
+      setProviderPickerProviders(withCards)
+    } catch (err) {
+      console.error('Failed to fetch providers', err)
+      setProviderPickerProviders([])
+    } finally {
+      setProviderPickerLoading(false)
+    }
+  }
+
   const handleCreateRequest = async () => {
     const hasStructuredFormData = currentSchema && currentSchema.sections.length > 0 && Object.keys(dynamicPayload).length > 0
     if (!description.trim() && !hasStructuredFormData) return
@@ -648,6 +707,7 @@ export default function Dashboard() {
         urgency,
         payload: Object.keys(payload).length > 0 ? payload : undefined,
         visibility_scope: visibilityScope,
+        preferred_provider_id: selectedProvider?.id ?? undefined,
       }
 
       // DEBUG: Log what we're sending
@@ -672,6 +732,7 @@ export default function Dashboard() {
       setRequestType('generic')
       setCurrentSchema(null)
       setDynamicPayload({})
+      setSelectedProvider(null)
 
       // Add small delay to ensure backend has processed the request before refreshing
       if (user) {
@@ -899,6 +960,29 @@ export default function Dashboard() {
                         />
                       )}
                     </>
+                  )}
+
+                  {/* Pre-select provider — only for non-generic types */}
+                  {requestType && requestType !== 'generic' && (
+                    <div className="mt-4">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Pre-select a provider (optional)
+                      </label>
+                      {selectedProvider ? (
+                        <div className="flex items-center gap-2 text-sm bg-blue-50 border border-blue-200 rounded px-3 py-2">
+                          <span>{selectedProvider.display_name}</span>
+                          <button type="button" onClick={() => setSelectedProvider(null)} className="text-gray-400 hover:text-gray-600 ml-auto">×</button>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => fetchAndShowProviderPicker()}
+                          className="text-sm text-blue-600 hover:underline"
+                        >
+                          Browse providers →
+                        </button>
+                      )}
+                    </div>
                   )}
 
                   {!requestType && (
@@ -1202,6 +1286,52 @@ export default function Dashboard() {
           </div>
         </div>
       </Layout>
+
+      {/* Provider Picker Modal */}
+      {showProviderPicker && (
+        <div className="fixed inset-0 bg-black bg-opacity-40 z-50 flex items-center justify-center">
+          <div className="bg-white rounded-xl p-6 w-full max-w-md max-h-[70vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="font-semibold text-gray-800">Browse Providers</h3>
+              <button onClick={() => setShowProviderPicker(false)} className="text-gray-400 hover:text-gray-600">×</button>
+            </div>
+            {providerPickerLoading ? (
+              <p className="text-sm text-gray-400">Loading providers...</p>
+            ) : providerPickerProviders.length === 0 ? (
+              <p className="text-sm text-gray-400">No providers available for this request type.</p>
+            ) : (
+              <ul className="space-y-3">
+                {providerPickerProviders.map((p) => (
+                  <li key={p.id} className="border rounded-lg p-3">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <p className="text-sm font-medium">{p.display_name}</p>
+                        {p.trust_score != null && (
+                          <p className="text-xs text-gray-500">Trust: {p.trust_score}</p>
+                        )}
+                        <ul className="mt-1 space-y-0.5">
+                          {p.rate_cards.filter((c) => c.is_active).map((card) => (
+                            <li key={card.id} className="text-xs text-gray-500">
+                              {card.label} — {formatRateCard(card)}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => { setSelectedProvider({ id: p.id, display_name: p.display_name }); setShowProviderPicker(false) }}
+                        className="ml-3 text-xs bg-blue-600 text-white px-2 py-1 rounded hover:bg-blue-700 shrink-0"
+                      >
+                        Pre-select
+                      </button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+      )}
     </>
   )
 }
