@@ -74,6 +74,186 @@ router.get('/my', authMiddleware, async (req: AuthenticatedRequest, res: Respons
   }
 });
 
+// ── Rate Card helpers ──────────────────────────────────────────────────────
+
+const VALID_SERVICE_TYPES = ['ride', 'tradesperson', 'tutor', 'other'];
+const VALID_RATE_UNITS = ['per_hour', 'per_session', 'per_trip', 'flat_rate'];
+const VALID_PRICING_MODELS = ['standard', 'free', 'negotiable'];
+
+function validateRateCardInput(body: any): string | null {
+  const { label, pricing_model, rate_amount, rate_unit, service_type, currency } = body;
+  if (!label || typeof label !== 'string' || label.length > 100) {
+    return 'label is required and must be ≤ 100 characters';
+  }
+  if (!pricing_model || !VALID_PRICING_MODELS.includes(pricing_model)) {
+    return 'pricing_model must be standard, free, or negotiable';
+  }
+  if (pricing_model === 'standard') {
+    if (rate_amount == null || Number(rate_amount) < 0) return 'rate_amount is required and must be non-negative for standard pricing';
+    if (!rate_unit || !VALID_RATE_UNITS.includes(rate_unit)) return 'rate_unit must be per_hour, per_session, per_trip, or flat_rate for standard pricing';
+  } else {
+    if (rate_amount != null) return 'rate_amount must be absent for non-standard pricing_model';
+    if (rate_unit != null) return 'rate_unit must be absent for non-standard pricing_model';
+  }
+  if (service_type && !VALID_SERVICE_TYPES.includes(service_type)) {
+    return `service_type must be one of: ${VALID_SERVICE_TYPES.join(', ')}`;
+  }
+  if (currency && currency.length !== 3) return 'currency must be a 3-character code';
+  return null;
+}
+
+// GET /providers/:providerId/rate-cards (public; owner gets all including inactive via ?include_inactive=true)
+router.get('/:providerId/rate-cards', async (req: any, res: Response) => {
+  try {
+    const { providerId } = req.params;
+    const { include_inactive } = req.query;
+
+    let includeInactive = false;
+    if (include_inactive === 'true') {
+      const authHeader = req.headers?.authorization;
+      if (authHeader) {
+        try {
+          const jwt = require('jsonwebtoken');
+          const secret = process.env.JWT_SECRET || 'your-secret-key';
+          const decoded: any = jwt.verify(authHeader.replace('Bearer ', ''), secret);
+          const ownerCheck = await query(
+            'SELECT user_id FROM requests.provider_profiles WHERE id = $1',
+            [providerId]
+          );
+          if (ownerCheck.rows.length > 0 && ownerCheck.rows[0].user_id === decoded.userId) {
+            includeInactive = true;
+          }
+        } catch (_) { /* invalid token — fall back to active-only */ }
+      }
+    }
+
+    const result = await query(
+      `SELECT * FROM requests.provider_rate_cards
+       WHERE provider_id = $1 ${includeInactive ? '' : 'AND is_active = TRUE '}
+       ORDER BY created_at ASC`,
+      [providerId]
+    );
+    res.json({ success: true, data: result.rows });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: 'Failed to fetch rate cards', error: error.message });
+  }
+});
+
+// POST /providers/:providerId/rate-cards (owner only)
+router.post('/:providerId/rate-cards', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = req.user!.userId;
+    const { providerId } = req.params;
+
+    const ownerCheck = await query(
+      'SELECT user_id FROM requests.provider_profiles WHERE id = $1',
+      [providerId]
+    );
+    if (ownerCheck.rows.length === 0) return res.status(404).json({ success: false, message: 'Provider not found' });
+    if (ownerCheck.rows[0].user_id !== userId) return res.status(403).json({ success: false, message: 'Not authorized' });
+
+    const validationError = validateRateCardInput(req.body);
+    if (validationError) return res.status(400).json({ success: false, message: validationError });
+
+    const { label, service_type, pricing_model, rate_amount, rate_unit, currency, notes } = req.body;
+    const result = await query(
+      `INSERT INTO requests.provider_rate_cards
+         (provider_id, label, service_type, pricing_model, rate_amount, rate_unit, currency, notes)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+       RETURNING *`,
+      [
+        providerId,
+        label,
+        service_type ?? null,
+        pricing_model,
+        pricing_model === 'standard' ? rate_amount : null,
+        pricing_model === 'standard' ? rate_unit : null,
+        currency ?? 'USD',
+        notes ?? null,
+      ]
+    );
+    res.status(201).json({ success: true, data: result.rows[0] });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: 'Failed to create rate card', error: error.message });
+  }
+});
+
+// PUT /providers/:providerId/rate-cards/:cardId (owner only)
+router.put('/:providerId/rate-cards/:cardId', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = req.user!.userId;
+    const { providerId, cardId } = req.params;
+
+    const ownerCheck = await query(
+      'SELECT user_id FROM requests.provider_profiles WHERE id = $1',
+      [providerId]
+    );
+    if (ownerCheck.rows.length === 0) return res.status(404).json({ success: false, message: 'Provider not found' });
+    if (ownerCheck.rows[0].user_id !== userId) return res.status(403).json({ success: false, message: 'Not authorized' });
+
+    const existing = await query(
+      'SELECT * FROM requests.provider_rate_cards WHERE id = $1 AND provider_id = $2',
+      [cardId, providerId]
+    );
+    if (existing.rows.length === 0) return res.status(404).json({ success: false, message: 'Rate card not found' });
+
+    const merged = { ...existing.rows[0], ...req.body };
+    const validationError = validateRateCardInput(merged);
+    if (validationError) return res.status(400).json({ success: false, message: validationError });
+
+    const { label, service_type, pricing_model, rate_amount, rate_unit, currency, notes, is_active } = merged;
+    const result = await query(
+      `UPDATE requests.provider_rate_cards
+       SET label=$1, service_type=$2, pricing_model=$3, rate_amount=$4, rate_unit=$5,
+           currency=$6, notes=$7, is_active=$8, updated_at=CURRENT_TIMESTAMP
+       WHERE id=$9 AND provider_id=$10
+       RETURNING *`,
+      [
+        label,
+        service_type ?? null,
+        pricing_model,
+        pricing_model === 'standard' ? rate_amount : null,
+        pricing_model === 'standard' ? rate_unit : null,
+        currency ?? 'USD',
+        notes ?? null,
+        is_active ?? true,
+        cardId,
+        providerId,
+      ]
+    );
+    res.json({ success: true, data: result.rows[0] });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: 'Failed to update rate card', error: error.message });
+  }
+});
+
+// DELETE /providers/:providerId/rate-cards/:cardId (owner only — soft delete)
+router.delete('/:providerId/rate-cards/:cardId', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = req.user!.userId;
+    const { providerId, cardId } = req.params;
+
+    const ownerCheck = await query(
+      'SELECT user_id FROM requests.provider_profiles WHERE id = $1',
+      [providerId]
+    );
+    if (ownerCheck.rows.length === 0) return res.status(404).json({ success: false, message: 'Provider not found' });
+    if (ownerCheck.rows[0].user_id !== userId) return res.status(403).json({ success: false, message: 'Not authorized' });
+
+    const result = await query(
+      `UPDATE requests.provider_rate_cards
+       SET is_active = FALSE, updated_at = CURRENT_TIMESTAMP
+       WHERE id = $1 AND provider_id = $2
+       RETURNING id`,
+      [cardId, providerId]
+    );
+    if (result.rows.length === 0) return res.status(404).json({ success: false, message: 'Rate card not found' });
+    res.json({ success: true, data: { id: cardId }, message: 'Rate card deactivated' });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: 'Failed to deactivate rate card', error: error.message });
+  }
+});
+
 // GET /requests/providers/:providerId - Get single provider profile (public)
 router.get('/:providerId', async (req: any, res: Response) => {
   try {
@@ -98,7 +278,13 @@ router.get('/:providerId', async (req: any, res: Response) => {
       return res.status(404).json({ success: false, message: 'Provider not found' });
     }
 
-    res.json({ success: true, data: result.rows[0] });
+    const provider = result.rows[0];
+    const cardsResult = await query(
+      'SELECT * FROM requests.provider_rate_cards WHERE provider_id = $1 AND is_active = TRUE ORDER BY created_at ASC',
+      [providerId]
+    );
+    provider.rate_cards = cardsResult.rows;
+    res.json({ success: true, data: provider });
   } catch (error: any) {
     console.error('Error fetching provider:', error);
     res.status(500).json({ success: false, message: 'Failed to fetch provider', error: error.message });
