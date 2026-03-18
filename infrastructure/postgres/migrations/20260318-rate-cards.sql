@@ -34,8 +34,17 @@ CREATE INDEX IF NOT EXISTS idx_provider_rate_cards_service_type ON requests.prov
 ALTER TABLE requests.help_requests
   ADD COLUMN IF NOT EXISTS preferred_provider_id UUID;
 
-ALTER TABLE requests.help_requests
-  ADD CONSTRAINT IF NOT EXISTS fk_help_requests_preferred_provider
-    FOREIGN KEY (preferred_provider_id)
-    REFERENCES requests.provider_profiles(id)
-    ON DELETE SET NULL;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.table_constraints
+    WHERE constraint_name = 'fk_help_requests_preferred_provider'
+      AND table_schema = 'requests'
+  ) THEN
+    ALTER TABLE requests.help_requests
+      ADD CONSTRAINT fk_help_requests_preferred_provider
+        FOREIGN KEY (preferred_provider_id)
+        REFERENCES requests.provider_profiles(id)
+        ON DELETE SET NULL;
+  END IF;
+END$$;
