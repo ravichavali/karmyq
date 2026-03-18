@@ -17,6 +17,30 @@ const SERVICE_TYPE_LABELS: Record<string, string> = {
   other: 'Other',
 }
 
+interface RateCard {
+  id: string
+  provider_id: string
+  label: string
+  service_type: string | null
+  pricing_model: 'standard' | 'free' | 'negotiable'
+  rate_amount: string | null
+  rate_unit: string | null
+  currency: string
+  notes: string | null
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
+function formatRateCard(card: RateCard): string {
+  if (card.pricing_model === 'standard' && card.rate_amount) {
+    const unit = card.rate_unit?.replace('per_', '') ?? ''
+    return `$${parseFloat(card.rate_amount).toFixed(0)} / ${unit}`
+  }
+  if (card.pricing_model === 'free') return 'Free'
+  return 'Negotiable'
+}
+
 function renderStars(avg: number | string | undefined) {
   const n = Number(avg)
   if (!avg || !n) return null
@@ -142,6 +166,24 @@ export default function ProviderDetailPage() {
             </button>
           )}
         </div>
+
+        {/* Rate Cards */}
+        {provider.rate_cards && provider.rate_cards.length > 0 && (
+          <section className="bg-surface-raised rounded-xl border border-border p-5">
+            <h3 className="text-base font-semibold text-gray-800 mb-3">Rate Cards</h3>
+            <ul className="space-y-2">
+              {provider.rate_cards.map((card: RateCard) => (
+                <li key={card.id} className="text-sm border rounded-lg p-3">
+                  <div className="flex justify-between">
+                    <span className="font-medium">{card.label}</span>
+                    <span className="text-gray-500">{formatRateCard(card)}</span>
+                  </div>
+                  {card.notes && <p className="text-xs text-gray-400 mt-1">{card.notes}</p>}
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
 
         {/* Edit form */}
         {editing && (
