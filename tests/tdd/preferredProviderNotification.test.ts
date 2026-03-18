@@ -1,8 +1,8 @@
 // tests/tdd/preferredProviderNotification.test.ts
-import { notificationTemplates } from '../../../services/notification-service/src/templates/notificationTemplates';
+import { notificationTemplates } from '../../services/notification-service/src/templates/notificationTemplates';
 
 describe('preferred_provider_selected notification template', () => {
-  const template = notificationTemplates['preferred_provider_selected' as any];
+  const template = notificationTemplates['preferred_provider_selected'];
 
   it('template exists', () => {
     expect(template).toBeDefined();

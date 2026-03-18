@@ -279,6 +279,30 @@ export async function initEventSubscriber() {
       }
     });
 
+    // Handle preferred_provider_selected event
+    eventQueue.process('preferred_provider_selected', async (job) => {
+      console.log('Processing preferred_provider_selected event:', job.data);
+      const { payload } = job.data;
+      const { provider_user_id, request_id, requester_name, request_type, request_title } = payload;
+
+      if (!provider_user_id) {
+        console.warn('⚠️  preferred_provider_selected: missing provider_user_id, skipping notification');
+        return;
+      }
+
+      try {
+        await createNotification({
+          user_id: provider_user_id,
+          type: 'preferred_provider_selected',
+          data: { request_id, requester_name, request_type, request_title },
+        });
+        console.log('✅ preferred_provider_selected notification sent');
+      } catch (error) {
+        console.error('❌ Failed to process preferred_provider_selected event:', error);
+        throw error;
+      }
+    });
+
     console.log('✅ Event subscriber initialized');
   } catch (error) {
     console.error('❌ Event subscriber initialization failed:', error);

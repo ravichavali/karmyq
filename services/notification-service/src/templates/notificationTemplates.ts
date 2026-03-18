@@ -14,7 +14,8 @@ export type NotificationType =
   | 'join_request'
   | 'norm_proposed'
   | 'feedback_received'
-  | 'match_reminder';
+  | 'match_reminder'
+  | 'preferred_provider_selected';
 
 export type NotificationPriority = 'low' | 'medium' | 'high' | 'critical';
 
@@ -193,6 +194,18 @@ export const notificationTemplates: Record<NotificationType, NotificationTemplat
     ctaLabel: 'View Details',
     actionUrl: (data) => `/dashboard`,
     channels: { in_app: true, push: true, email: false },
+  },
+
+  preferred_provider_selected: {
+    type: 'preferred_provider_selected',
+    priority: 'high',
+    title: (_data: any) => 'You were pre-selected',
+    body: (data: any) =>
+      `${data.requester_name} pre-selected you for a ${data.request_type} request: "${data.request_title}".`,
+    icon: 'star',
+    ctaLabel: 'View Request',
+    actionUrl: (data: any) => `/requests/${data.request_id}`,
+    channels: { in_app: true, push: false, email: false },
   },
 };
 
