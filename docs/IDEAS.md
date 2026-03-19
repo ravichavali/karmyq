@@ -93,3 +93,19 @@ Admin page simplification: the community admin page has 3 tabs for member manage
 Liquid democracy seems to be an interesting idea for Karmyq — members could delegate their voting/governance weight to trusted others, who then vote on their behalf (transitively). Could apply to community decision-making, trust model evolution proposals, or admin actions requiring community consent. Explore fit with the existing trust path and karma systems.
 
 ---
+
+## [2026-03-18] architecture
+
+**Future sprint: Improve social graph naturalness**
+
+The network graph looks unnatural — one early user (Maria) is hyperconnected while newer users form an isolated disconnected cluster. Root cause: social connections are only created on fully completed matches (both parties mark done, ~50% chance each). Early users had a head start accumulating completed matches; new users who haven't completed matches yet have zero connections.
+
+Proposed improvements:
+1. Create a connection on match *acceptance* (not just completion) — reduces the two-gate problem
+2. Create weak connections for community co-membership — users in the same community should have some graph relationship even without direct interaction
+3. Simulation profile rebalancing — too many BROWSER profiles (passive) who never create requests, making them invisible in the graph
+4. No accept-offer workflow in simulation — offers from one session are never accepted because the requester may not be active in the same session window
+
+Also related: simulation was stuck creating communities because of `access_type: 'open'` vs `'public'` mismatch (fixed 2026-03-18). Once new communities are created, users will spread across more communities and the graph will naturally diversify.
+
+---
