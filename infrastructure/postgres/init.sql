@@ -477,6 +477,43 @@ CREATE TABLE IF NOT EXISTS reputation.community_trust_scores (
   network_avg_path_length NUMERIC(4,2)
 );
 
+-- ADR-046: Per-user trust config (Individual Trust Evolution Layer)
+CREATE TABLE IF NOT EXISTS reputation.user_trust_configs (
+  user_id            UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  community_id       UUID NOT NULL REFERENCES communities.communities(id) ON DELETE CASCADE,
+  depth_weight       DECIMAL(3,2) DEFAULT NULL
+                       CONSTRAINT chk_utc_depth CHECK (depth_weight IS NULL OR depth_weight BETWEEN 0.10 AND 0.90),
+  breadth_weight     DECIMAL(3,2) DEFAULT NULL
+                       CONSTRAINT chk_utc_breadth CHECK (breadth_weight IS NULL OR breadth_weight BETWEEN 0.10 AND 0.90),
+  cross_community_prior DECIMAL(3,2) NOT NULL DEFAULT 0.50
+                       CONSTRAINT chk_utc_prior CHECK (cross_community_prior BETWEEN 0.05 AND 0.95),
+  evolution_enabled  BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (user_id, community_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_utc_user ON reputation.user_trust_configs(user_id);
+CREATE INDEX IF NOT EXISTS idx_utc_comm ON reputation.user_trust_configs(community_id);
+
+-- ADR-046: Immutable evolution audit log
+CREATE TABLE IF NOT EXISTS reputation.user_trust_evolution_log (
+  id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id          UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  community_id     UUID NOT NULL REFERENCES communities.communities(id) ON DELETE CASCADE,
+  parameter        VARCHAR(50) NOT NULL,
+  old_value        DECIMAL(3,2),
+  new_value        DECIMAL(3,2) NOT NULL,
+  trigger_signal   VARCHAR(100) NOT NULL,
+  trigger_event_id UUID,
+  created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Composite index: covers cooldown lookups (user, community, parameter, created_at)
+-- and history pagination (user, community, created_at)
+CREATE INDEX IF NOT EXISTS idx_utel_user_comm_param_created
+  ON reputation.user_trust_evolution_log (user_id, community_id, parameter, created_at DESC);
+
 -- Reputation decay function (ADR-011)
 CREATE OR REPLACE FUNCTION reputation.calculate_decayed_karma(
     original_karma INTEGER,
@@ -1003,6 +1040,10 @@ CREATE TABLE communities.community_configs (
     feed_weight_trust_distance DECIMAL(3,2) DEFAULT 0.25 CHECK (feed_weight_trust_distance BETWEEN 0.0 AND 1.0),
     feed_weight_community_relevance DECIMAL(3,2) DEFAULT 0.20 CHECK (feed_weight_community_relevance BETWEEN 0.0 AND 1.0),
     feed_weight_urgency DECIMAL(3,2) DEFAULT 0.15 CHECK (feed_weight_urgency BETWEEN 0.0 AND 1.0),
+
+    -- Individual Trust Evolution (ADR-046)
+    community_evolution_enabled BOOLEAN DEFAULT FALSE,
+    cross_community_prior DECIMAL(3,2) DEFAULT 0.50 CONSTRAINT chk_community_cross_community_prior CHECK (cross_community_prior BETWEEN 0.05 AND 0.95),
 
     -- Metadata
     template_source VARCHAR(255),
