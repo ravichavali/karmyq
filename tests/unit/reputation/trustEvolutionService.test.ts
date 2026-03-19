@@ -182,7 +182,7 @@ describe('evaluateUserEvolution', () => {
     await evaluateUserEvolution('u', 'c', EVOLUTION_SIGNALS.CROSS_COMMUNITY_POSITIVE_FEEDBACK, {});
     // cross_community_prior at 0.95 (upper bound) — delta +0.02 → still 0.95, skip
     // breadth_weight = community default 0.40, nudge +0.01 → 0.41, should apply
-    const calls = mockUpsertUserTrustConfig.mock.calls.map(c => c[2]);
+    const calls = mockUpsertUserTrustConfig.mock.calls.map((c: unknown[]) => c[2]);
     expect(calls).not.toContainEqual({ cross_community_prior: 0.95 }); // skipped (no change)
     expect(calls).toContainEqual({ breadth_weight: 0.41 });
   });
