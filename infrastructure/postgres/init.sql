@@ -489,7 +489,7 @@ CREATE TABLE IF NOT EXISTS reputation.user_trust_configs (
                        CONSTRAINT chk_utc_prior CHECK (cross_community_prior BETWEEN 0.05 AND 0.95),
   evolution_enabled  BOOLEAN NOT NULL DEFAULT FALSE,
   created_at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at         TIMESTAMPTZ NOT NULL DEFAULT NOW(), -- caller sets explicitly via ON CONFLICT DO UPDATE
   PRIMARY KEY (user_id, community_id)
 );
 
@@ -1043,7 +1043,7 @@ CREATE TABLE communities.community_configs (
 
     -- Individual Trust Evolution (ADR-046)
     community_evolution_enabled BOOLEAN DEFAULT FALSE,
-    cross_community_prior DECIMAL(3,2) DEFAULT 0.50 CONSTRAINT chk_community_cross_community_prior CHECK (cross_community_prior BETWEEN 0.05 AND 0.95),
+    cross_community_prior DECIMAL(3,2) NOT NULL DEFAULT 0.50 CONSTRAINT chk_community_cross_community_prior CHECK (cross_community_prior BETWEEN 0.05 AND 0.95),
 
     -- Metadata
     template_source VARCHAR(255),

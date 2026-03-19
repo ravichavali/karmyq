@@ -5,12 +5,13 @@
 -- 1. Add community-level evolution flags to existing community_configs
 ALTER TABLE communities.community_configs
   ADD COLUMN IF NOT EXISTS community_evolution_enabled BOOLEAN DEFAULT FALSE,
-  ADD COLUMN IF NOT EXISTS cross_community_prior DECIMAL(3,2) DEFAULT 0.50;
+  ADD COLUMN IF NOT EXISTS cross_community_prior DECIMAL(3,2) NOT NULL DEFAULT 0.50;
 
 DO $$ BEGIN
   IF NOT EXISTS (
-    SELECT 1 FROM information_schema.constraint_column_usage
+    SELECT 1 FROM information_schema.table_constraints
     WHERE constraint_name = 'chk_community_cross_community_prior'
+      AND table_schema = 'communities'
   ) THEN
     ALTER TABLE communities.community_configs
       ADD CONSTRAINT chk_community_cross_community_prior
@@ -30,7 +31,7 @@ CREATE TABLE IF NOT EXISTS reputation.user_trust_configs (
                        CONSTRAINT chk_utc_prior CHECK (cross_community_prior BETWEEN 0.05 AND 0.95),
   evolution_enabled  BOOLEAN NOT NULL DEFAULT FALSE,
   created_at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at         TIMESTAMPTZ NOT NULL DEFAULT NOW(), -- caller sets explicitly via ON CONFLICT DO UPDATE
   PRIMARY KEY (user_id, community_id)
 );
 
