@@ -295,7 +295,7 @@ router.post('/feedback', authMiddleware, async (req: AuthenticatedRequest, res: 
       return res.status(400).json({ success: false, message: 'match_id, to_user_id, and community_id are required' });
     }
 
-    const ratingNum = parseInt(rating);
+    const ratingNum = parseInt(rating, 10);
     if (!ratingNum || ratingNum < 1 || ratingNum > 5) {
       return res.status(400).json({ success: false, message: 'rating must be an integer between 1 and 5' });
     }
@@ -454,7 +454,7 @@ router.put('/communities/:communityId/trust-evolution', authMiddleware, async (r
       return res.status(403).json({ success: false, message: 'Forbidden' });
     }
     const { community_evolution_enabled, cross_community_prior } = req.body;
-    const patch: Record<string, unknown> = {};
+    const patch: { community_evolution_enabled?: boolean; cross_community_prior?: number } = {};
     if (typeof community_evolution_enabled === 'boolean') patch.community_evolution_enabled = community_evolution_enabled;
     if (typeof cross_community_prior === 'number') {
       if (cross_community_prior < 0.05 || cross_community_prior > 0.95) {
@@ -465,7 +465,7 @@ router.put('/communities/:communityId/trust-evolution', authMiddleware, async (r
     if (Object.keys(patch).length === 0) {
       return res.status(400).json({ success: false, message: 'No valid fields to update' });
     }
-    await updateCommunityEvolutionConfig(communityId, patch as any);
+    await updateCommunityEvolutionConfig(communityId, patch);
     return res.json({ success: true, data: patch });
   } catch (err) {
     console.error(err);
