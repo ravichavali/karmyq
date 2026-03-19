@@ -173,7 +173,12 @@
           "/reputation/provider-reviews",
           "/reputation/provider-trust/:providerId",
           "/reputation/provider-reviews/:providerId",
-          "/reputation/network-metrics/:communityId"
+          "/reputation/network-metrics/:communityId",
+          "GET /reputation/trust-config/:userId/:communityId",
+          "PUT /reputation/trust-config/:userId/:communityId",
+          "GET /reputation/trust-config/:userId/:communityId/history",
+          "GET /reputation/communities/:communityId/trust-evolution",
+          "PUT /reputation/communities/:communityId/trust-evolution"
         ],
         "consumes": [
           "/auth/verify"

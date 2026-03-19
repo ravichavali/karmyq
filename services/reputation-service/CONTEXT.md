@@ -5,6 +5,7 @@
 
 ## Recent Changes
 
+- **2026-03-19 (Sprint 30 — Trust Evolution Foundation)**: Per-user trust parameter evolution implemented (ADR-046). New tables: `reputation.user_trust_configs` (per-user depth_weight, breadth_weight, cross_community_prior, evolution_enabled) and `reputation.user_trust_evolution_log` (immutable adjustment log). Added `community_evolution_enabled` + `cross_community_prior` columns to `communities.community_configs`. 5 new API routes: GET/PUT `/reputation/trust-config/:userId/:communityId`, GET `/reputation/trust-config/:userId/:communityId/history`, GET/PUT `/reputation/communities/:communityId/trust-evolution`. Evolution signals wired into `match_completed` Bull event handler. Inline feedback evolution via `POST /reputation/feedback`. New files: `trustConfigDb.ts`, `trustEvolutionDb.ts`, `trustEvolutionService.ts`.
 - **2026-03-04 (Sprint 14 — Prestige Badges)**: Phase 1 prestige badges implemented (ADR-016). Migration 024 adds `reputation.badges` table. New service: `badgeService.ts` (`checkAndAwardBadges`, `getUserBadges`). Badges wired into `match_completed` handler in `subscriber.ts`. New endpoint: `GET /reputation/users/:userId/badges`. Badge types: `first_helper`, `milestone_10`, `milestone_50`, `milestone_100`, `connector` (10+ distinct people helped). 11 unit tests in `tests/unit/reputation/prestige-badges.test.ts`.
 - **2026-02-27 (Sprint 8 — ADR-040 + trust UX)**: Community Trust Score implemented (ADR-040). Bonding/bridging model: `member_quality(40) + bonding(retention+completion) + bridging(cross-community+external)` weighted by `community_trust_bonding_weight/bridging_weight` config. New files: `communityTrustDb.ts`, `communityTrustService.ts`. New endpoint: `GET /reputation/community-trust/:communityId`. New endpoint: `GET /reputation/trust/:userId` (overall weighted-average trust score). Migration 021. Trust page updated to ADR-037 formula display. Feed default changed to composite (no auto-select of first community).
 - **2026-02-27 (ADR-037 + ADR-038 + ADR-039)**: Multi-signal trust score fully implemented. Formula: `volume(log, 12-month window) + quality(recency-weighted, 6-month half-life) + depth(repeat pairs × depth_weight) + breadth(distinct people + communities × breadth_weight) + bonus`. Karma removed as trust input. Cross-community carry floor (ADR-038): when `recent_interactions == 0`, score is floored by `min(carry_cap, floor(max_other_score × carry_factor))`. Migrations 019 + 020 add `trust_feedback_threshold`, `trust_negative_allowed`, `trust_carry_*`. New files: `trustMetricsDb.ts`, `trustCarryDb.ts`; new function `feedbackDb.getWeightedAvgFeedback()`.
@@ -90,6 +91,43 @@ ALTER TABLE communities.community_configs
   ADD COLUMN IF NOT EXISTS trust_carry_enabled BOOLEAN DEFAULT TRUE,
   ADD COLUMN IF NOT EXISTS trust_carry_factor DECIMAL(3,2) DEFAULT 0.40,
   ADD COLUMN IF NOT EXISTS trust_carry_cap INTEGER DEFAULT 59;
+
+-- reputation.user_trust_configs (migration 026 — ADR-046)
+-- Per-user trust parameters; NULL columns inherit community defaults.
+CREATE TABLE reputation.user_trust_configs (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    community_id UUID NOT NULL REFERENCES communities.communities(id) ON DELETE CASCADE,
+    depth_weight DECIMAL(4,3),             -- NULL = use community default
+    breadth_weight DECIMAL(4,3),           -- NULL = use community default
+    cross_community_prior DECIMAL(4,3),    -- NULL = use community default
+    evolution_enabled BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(user_id, community_id)
+);
+
+-- reputation.user_trust_evolution_log (migration 026 — ADR-046)
+-- Immutable append-only log of every parameter adjustment.
+CREATE TABLE reputation.user_trust_evolution_log (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    community_id UUID NOT NULL REFERENCES communities.communities(id) ON DELETE CASCADE,
+    signal VARCHAR(100) NOT NULL,          -- e.g. 'repeat_match', 'inline_feedback'
+    old_depth_weight DECIMAL(4,3),
+    new_depth_weight DECIMAL(4,3),
+    old_breadth_weight DECIMAL(4,3),
+    new_breadth_weight DECIMAL(4,3),
+    old_cross_community_prior DECIMAL(4,3),
+    new_cross_community_prior DECIMAL(4,3),
+    event_id UUID,                         -- match_id or feedback_id that triggered
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- communities.community_configs additions (migration 026 — ADR-046)
+ALTER TABLE communities.community_configs
+  ADD COLUMN IF NOT EXISTS community_evolution_enabled BOOLEAN DEFAULT FALSE,
+  ADD COLUMN IF NOT EXISTS cross_community_prior DECIMAL(4,3) DEFAULT 0.15;
 ```
 
 **Social Karma v2.0 Schema Extensions:**
@@ -628,6 +666,120 @@ Service health check.
   "timestamp": "2025-01-10T12:00:00Z"
 }
 ```
+
+---
+
+## Trust Evolution API Endpoints (Sprint 30 — ADR-046)
+
+### GET /reputation/trust-config/:userId/:communityId
+Get user trust config and effective parameters (merged community defaults + per-user overrides).
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "user_id": "uuid",
+    "community_id": "uuid",
+    "evolution_enabled": true,
+    "effective_params": {
+      "depth_weight": 0.62,
+      "breadth_weight": 0.38,
+      "cross_community_prior": 0.15
+    },
+    "source": "user_override | community_default"
+  }
+}
+```
+
+**Implementation:** `src/routes/reputation.ts` | `src/database/trustConfigDb.ts`
+
+---
+
+### PUT /reputation/trust-config/:userId/:communityId
+Toggle `evolution_enabled` for a user in a community (user or admin).
+
+**Request Body:**
+```json
+{ "evolution_enabled": true }
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": { "evolution_enabled": true }
+}
+```
+
+**Implementation:** `src/routes/reputation.ts` | `src/database/trustConfigDb.ts`
+
+---
+
+### GET /reputation/trust-config/:userId/:communityId/history
+Return the immutable evolution log for a user — every parameter adjustment with trigger signal and event ID.
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "uuid",
+      "user_id": "uuid",
+      "community_id": "uuid",
+      "signal": "repeat_match",
+      "old_depth_weight": 0.60,
+      "new_depth_weight": 0.62,
+      "event_id": "match-uuid",
+      "created_at": "2026-03-19T..."
+    }
+  ]
+}
+```
+
+**Implementation:** `src/routes/reputation.ts` | `src/database/trustEvolutionDb.ts`
+
+---
+
+### GET /reputation/communities/:communityId/trust-evolution
+Get community-level evolution status (admin only). Returns whether evolution is enabled and the community cross_community_prior.
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "community_id": "uuid",
+    "community_evolution_enabled": true,
+    "cross_community_prior": 0.15
+  }
+}
+```
+
+**Implementation:** `src/routes/reputation.ts`
+
+---
+
+### PUT /reputation/communities/:communityId/trust-evolution
+Toggle community evolution on/off (admin only).
+
+**Request Body:**
+```json
+{ "community_evolution_enabled": true }
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": { "community_evolution_enabled": true }
+}
+```
+
+**Implementation:** `src/routes/reputation.ts`
+
+---
 
 ## Event-Driven Architecture
 
