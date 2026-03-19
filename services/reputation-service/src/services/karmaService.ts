@@ -5,7 +5,7 @@ import { computeTrustScore } from './trustScoreStrategy';
 import { getWeightedAvgFeedback } from '../database/feedbackDb';
 import { getTrustMetrics } from '../database/trustMetricsDb';
 import { getMaxOtherCommunityScore } from '../database/trustCarryDb';
-import { getCommunityTrustConfig, CommunityTrustConfig, TRUST_CONFIG_DEFAULTS } from '../database/trustConfigDb';
+import { getCommunityTrustConfig } from '../database/trustConfigDb';
 
 interface MatchCompletionData {
   match_id: string;
