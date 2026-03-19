@@ -41,6 +41,7 @@ export async function upsertUserTrustConfig(
   communityId: string,
   patch: Partial<Pick<UserTrustConfig, 'depth_weight' | 'breadth_weight' | 'cross_community_prior' | 'evolution_enabled'>>
 ): Promise<void> {
+  if (Object.keys(patch).length === 0) return;
   const columns = Object.keys(patch);
   const values = Object.values(patch);
   const setClauses = columns.map((col, i) => `${col} = $${i + 3}`).join(', ');
@@ -113,6 +114,7 @@ export async function updateCommunityEvolutionConfig(
   communityId: string,
   patch: { community_evolution_enabled?: boolean; cross_community_prior?: number }
 ): Promise<void> {
+  if (Object.keys(patch).length === 0) return;
   const columns = Object.keys(patch);
   const values = Object.values(patch);
   const setClauses = columns.map((col, i) => `${col} = $${i + 2}`).join(', ');
@@ -150,7 +152,7 @@ export async function getDiverseCommunityCount(
      FROM reputation.karma_records
      WHERE user_id = $1
        AND reason IN ('Provided help', 'Received help')
-       AND created_at >= NOW() - ($2 || ' days')::INTERVAL`,
+       AND created_at >= NOW() - INTERVAL '1 day' * $2`,
     [userId, days]
   );
   return parseInt(result.rows[0]?.community_count ?? '0', 10);
