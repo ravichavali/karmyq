@@ -68,3 +68,7 @@ Each score answers a specific question. Mixing them would make all three answers
 
 - [Neighborhood Service Layer](neighborhood-service-layer) — how Layer 2 provider services work
 - [ADR-043: Three-Score Model](adr-043-three-score-model) — the technical decision record
+
+## Living Trust Models
+
+Trust parameters are initial values, not permanent settings. Members can opt in to automatic calibration — their model adjusts gradually based on what actually happens in their exchanges. The goal is accuracy: a model that reflects lived experience, in whatever direction that experience points.
