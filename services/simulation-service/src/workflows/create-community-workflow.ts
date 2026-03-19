@@ -48,7 +48,7 @@ export const createCommunityWorkflow: Workflow = async (context) => {
         description: template.description,
         location: template.location,
         category: template.category,
-        access_type: 'open'
+        access_type: 'public'
       })
     );
 
