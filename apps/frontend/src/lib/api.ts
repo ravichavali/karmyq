@@ -654,6 +654,22 @@ export const reputationService = {
     }),
   submitFeedback: (data: { match_id: string; to_user_id: string; community_id: string; rating: number }) =>
     reputationApi.post('/reputation/feedback', data),
+
+  // Trust Evolution (Sprint 30)
+  getTrustConfig: (userId: string, communityId: string) =>
+    reputationApi.get(`/reputation/trust-config/${userId}/${communityId}`),
+
+  updateTrustConfig: (userId: string, communityId: string, data: { evolution_enabled: boolean }) =>
+    reputationApi.put(`/reputation/trust-config/${userId}/${communityId}`, data),
+
+  getTrustEvolutionHistory: (userId: string, communityId: string, params?: { limit?: number; offset?: number }) =>
+    reputationApi.get(`/reputation/trust-config/${userId}/${communityId}/history`, { params }),
+
+  getCommunityEvolutionStatus: (communityId: string) =>
+    reputationApi.get(`/reputation/communities/${communityId}/trust-evolution`),
+
+  updateCommunityEvolution: (communityId: string, data: { community_evolution_enabled?: boolean; cross_community_prior?: number }) =>
+    reputationApi.put(`/reputation/communities/${communityId}/trust-evolution`, data),
 }
 
 // User Settings API Methods (Auth Service)

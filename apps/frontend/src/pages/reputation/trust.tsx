@@ -4,6 +4,82 @@ import Head from 'next/head'
 import Layout from '@/components/Layout'
 import { reputationService } from '@/lib/api'
 
+function TrustEvolutionToggle({ community, userId }: { community: { community_id: string; community_name: string }; userId: string }) {
+  const [config, setConfig] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    reputationService.getTrustConfig(userId, community.community_id)
+      .then((res: any) => setConfig(res.data))
+      .catch(() => {}) // Community may not have config yet
+      .finally(() => setLoading(false))
+  }, [userId, community.community_id])
+
+  const handleToggle = async () => {
+    const newValue = !config?.user_config?.evolution_enabled
+    setConfig((prev: any) => ({
+      ...prev,
+      user_config: { ...(prev?.user_config ?? {}), evolution_enabled: newValue },
+    })) // optimistic
+    try {
+      await reputationService.updateTrustConfig(userId, community.community_id, { evolution_enabled: newValue })
+    } catch {
+      // revert on failure
+      setConfig((prev: any) => ({
+        ...prev,
+        user_config: { ...(prev?.user_config ?? {}), evolution_enabled: !newValue },
+      }))
+    }
+  }
+
+  if (loading) return <div className="text-sm text-gray-400 py-2">Loading {community.community_name}…</div>
+
+  const evolutionEnabled = config?.user_config?.evolution_enabled ?? false
+  const communityEvolutionEnabled = config?.community_evolution_enabled ?? false
+
+  return (
+    <div className="border rounded-lg p-4 mb-3">
+      <div className="flex justify-between items-center">
+        <div>
+          <div className="font-medium">{community.community_name}</div>
+          {!communityEvolutionEnabled && (
+            <div className="text-xs text-gray-400 mt-1">
+              Your community hasn&apos;t enabled trust evolution yet.
+            </div>
+          )}
+          {communityEvolutionEnabled && config?.effective_params && (
+            <div className="text-xs text-gray-500 mt-1">
+              Cross-community trust calibration:{' '}
+              {(config.effective_params.cross_community_prior * 100).toFixed(0)}
+            </div>
+          )}
+        </div>
+        <button
+          onClick={handleToggle}
+          disabled={!communityEvolutionEnabled}
+          className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
+            evolutionEnabled
+              ? 'bg-blue-600 text-white'
+              : 'bg-gray-200 text-gray-600'
+          } disabled:opacity-40 disabled:cursor-not-allowed`}
+        >
+          {evolutionEnabled ? 'Evolution On' : 'Evolution Off'}
+        </button>
+      </div>
+      {evolutionEnabled && (
+        <div className="mt-2 text-right">
+          <a
+            href={`/reputation/evolution?communityId=${community.community_id}`}
+            className="text-xs text-blue-600 hover:underline"
+          >
+            View my trust journey →
+          </a>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function TrustScorePage() {
   const router = useRouter()
   const [user, setUser] = useState<any>(null)
@@ -217,6 +293,25 @@ export default function TrustScorePage() {
                 </li>
               </ul>
             </div>
+
+            {/* Trust Model Evolution */}
+            {communityBreakdown.length > 0 && user && (
+              <div className="mt-8">
+                <h2 className="text-xl font-semibold mb-4">Trust Model Evolution</h2>
+                <p className="text-gray-600 text-sm mb-4">
+                  When enabled, your trust model calibrates automatically based on your experiences.
+                  The goal is accuracy — not a particular direction. Your trust model is calibrating.
+                  It will influence your experience in a future update.
+                </p>
+                {communityBreakdown.map((community) => (
+                  <TrustEvolutionToggle
+                    key={community.community_id}
+                    community={community}
+                    userId={user.id}
+                  />
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </Layout>
