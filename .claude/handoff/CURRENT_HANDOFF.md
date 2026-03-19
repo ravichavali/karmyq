@@ -4,40 +4,26 @@
 
 **Date**: 2026-03-18
 **Current Version**: v9.5.0
-**Branch**: `feature/sprint-29-rate-cards` (not yet merged to master)
-**Status**: Sprint 29 fully implemented, all tests passing. Branch ready for merge/deploy.
+**Branch**: `master` (Sprint 29 merged and deployed)
+**Status**: Sprint 29 fully deployed. DB migration applied. Trust score backfill run (362 providers). Simulation community-creation bug fixed. Ready for Sprint 30 planning.
 
 ---
 
 ## ⚡ Quick Start — Next Session
 
-Sprint 29 is complete on `feature/sprint-29-rate-cards`. The next session should:
+Sprint 29 is deployed. All post-deploy steps are complete. The next session should:
 
-1. **Merge and deploy Sprint 29**:
+1. **Plan Sprint 30** in a fresh chat (user preference — use brainstorming skill)
+2. **Check simulation health** — community creation was broken until today (`access_type: 'open'` → fixed to `'public'`). New Portland-themed communities should start appearing after simulation cycles. Verify with:
 ```bash
-git checkout master
-git merge feature/sprint-29-rate-cards
-git push origin master  # triggers GitHub Actions → auto-deploys to karmyq.com
+ssh ubuntu@karmyq.com "docker exec karmyq-postgres psql -U karmyq_prod -d karmyq_prod -c 'SELECT name, created_at::date FROM communities.communities ORDER BY created_at;'"
 ```
 
-2. **Run the Sprint 28 backfill** (still pending from last sprint — provider trust scores still at 30):
-```bash
-TOKEN=$(curl -s -X POST https://karmyq.com/api/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"email":"admin@test.karmyq.com","password":"password123"}' \
-  | node -e "const d=[];process.stdin.on('data',c=>d.push(c));process.stdin.on('end',()=>console.log(JSON.parse(d.join(''))?.data?.token))")
+## ⚠️ Known Issues / Watch List
 
-curl -X POST https://karmyq.com/api/reputation/provider-trust/recalculate \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json"
-```
-
-3. **Run the Sprint 29 DB migration** on the demo server:
-```bash
-docker exec karmyq-postgres psql -U karmyq_prod -d karmyq_prod -f /dev/stdin < infrastructure/postgres/migrations/20260318-rate-cards.sql
-```
-
-4. **Proceed with Sprint 30** (see spec at `docs/superpowers/specs/2026-03-15-provider-economy-arc.md`).
+- **Provider trust scores still show 30** for most providers — backfill ran but scores are formula-correct: no reviews yet → avg_stars=0 → 0×0.6 + 100×0.3 = 30. Will improve organically as simulation completes matches and submits reviews.
+- **Network graph looks unnatural** — Maria hyperconnected, newer users isolated. Connections only created on fully completed matches. Captured in `docs/IDEAS.md` as a future sprint item (social graph naturalness improvements).
+- **7 communities on demo** — all Bay Area themed, created before simulation. Portland templates exist in simulation but `access_type: 'open'` bug prevented creation. Fixed 2026-03-18, new communities will appear after next simulation cycles.
 
 ---
 
@@ -130,11 +116,12 @@ Providers can now publish structured pricing. Requestors see costs before contac
 
 ---
 
-## ⚠️ Known Pending Items
+## ✅ Post-Deploy Steps Completed (2026-03-18)
 
-1. **Sprint 28 backfill not yet run** — provider trust scores still at 30 on demo server. Run recalculate endpoint after deploy.
-2. **Sprint 29 migration not yet applied to demo** — `20260318-rate-cards.sql` must be applied manually after deploy (deploy.sh does NOT auto-run migrations).
-3. **Branch not merged** — `feature/sprint-29-rate-cards` still open.
+1. **Sprint 29 migration applied** — `provider_rate_cards` table and `preferred_provider_id` column live on demo DB.
+2. **Sprint 28 backfill run** — `POST /reputation/provider-trust/recalculate` returned `{ updated: 362 }`. Scores are formula-correct but mostly still 30 (no reviews yet — see watch list above).
+3. **Simulation bug fixed** — `access_type: 'open'` → `'public'` in `create-community-workflow.ts` (commit `bd144ad`). Community creation will resume next simulation cycle.
+4. **Migration fix** — `ADD CONSTRAINT IF NOT EXISTS` is invalid PostgreSQL syntax; replaced with `DO $$ IF NOT EXISTS` block (commit `b69e902`). This was caught by CI on first deploy attempt.
 
 ---
 
