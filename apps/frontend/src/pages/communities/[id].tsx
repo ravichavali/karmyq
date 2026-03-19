@@ -73,6 +73,63 @@ const OLD_TAB_MAP: Record<string, ValidTab> = {
 
 const VALID_TABS: ValidTab[] = ['overview', 'members', 'norms', 'requests', 'insights', 'settings', 'providers'];
 
+function CommunityTrustEvolutionSection({ communityId }: { communityId: string }) {
+  const [status, setStatus] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    reputationService.getCommunityEvolutionStatus(communityId)
+      .then((res: any) => setStatus(res.data))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [communityId]);
+
+  const handleToggle = async () => {
+    const newValue = !status?.community_evolution_enabled;
+    setStatus((prev: any) => ({ ...prev, community_evolution_enabled: newValue }));
+    try {
+      await reputationService.updateCommunityEvolution(communityId, { community_evolution_enabled: newValue });
+    } catch {
+      setStatus((prev: any) => ({ ...prev, community_evolution_enabled: !newValue }));
+    }
+  };
+
+  if (loading) return <div className="text-sm text-gray-400">Loading evolution settings…</div>;
+
+  const { community_evolution_enabled, cross_community_prior, opted_in_rate } = status ?? {};
+
+  return (
+    <div className="border rounded-lg p-4 mt-4">
+      <h3 className="font-semibold mb-2">Trust Model Evolution</h3>
+      <p className="text-sm text-gray-500 mb-3">
+        When enabled, members who opt in have their trust parameters calibrate automatically based on experience.
+        The system aims for accuracy — not a particular direction.
+      </p>
+      <div className="flex justify-between items-center mb-3">
+        <span className="text-sm">Community Trust Evolution</span>
+        <button
+          onClick={handleToggle}
+          className={`px-3 py-1 rounded text-sm font-medium ${
+            community_evolution_enabled ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-600'
+          }`}
+        >
+          {community_evolution_enabled ? 'Enabled' : 'Disabled'}
+        </button>
+      </div>
+      {opted_in_rate && (
+        <div className="text-xs text-gray-500">
+          {opted_in_rate.opted_in} of {opted_in_rate.total} members have enabled personal evolution
+        </div>
+      )}
+      {cross_community_prior !== undefined && (
+        <div className="text-xs text-gray-500 mt-1">
+          Community cross-community trust calibration: {(cross_community_prior * 100).toFixed(0)}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function CommunityDetailPage() {
   const router = useRouter()
   const { id } = router.query
@@ -1278,7 +1335,17 @@ export default function CommunityDetailPage() {
 
                   <hr className="border-gray-200" />
 
-                  {/* Section 3: Advanced settings */}
+                  {/* Section 3: Trust Evolution */}
+                  <div>
+                    <h2 className="text-xl font-semibold text-gray-900 mb-2">Trust Evolution</h2>
+                    {isAdmin && (
+                      <CommunityTrustEvolutionSection communityId={community.id} />
+                    )}
+                  </div>
+
+                  <hr className="border-gray-200" />
+
+                  {/* Section 4: Advanced settings */}
                   <div>
                     <button
                       onClick={() => setShowAdvancedSettings(v => !v)}

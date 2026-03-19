@@ -1,127 +1,150 @@
-# Sprint 29 — COMPLETE ✅ | Sprint 30 Ready
+# SPRINT 30 COMPLETE — READY TO MERGE
 
 ## Handoff Document for New Conversation
 
-**Date**: 2026-03-18
-**Current Version**: v9.5.0
-**Branch**: `master` (Sprint 29 merged and deployed)
-**Status**: Sprint 29 fully deployed. DB migration applied. Trust score backfill run (362 providers). Simulation community-creation bug fixed. Ready for Sprint 30 planning.
+**Date**: 2026-03-19
+**Current Version**: v9.5.0 (Sprint 30 complete)
+**Branch**: `feature/sprint-30-trust-evolution` (ready to merge to master)
+**Status**: Sprint 30 fully implemented, all 13 tasks complete, build green, all tests passing.
 
 ---
 
-## ⚡ Quick Start — Next Session
+## Sprint 31 Next Up: Community Evolution Engine
 
-Sprint 29 is deployed. All post-deploy steps are complete. The next session should:
+The next session should:
 
-1. **Plan Sprint 30** in a fresh chat (user preference — use brainstorming skill)
-2. **Check simulation health** — community creation was broken until today (`access_type: 'open'` → fixed to `'public'`). New Portland-themed communities should start appearing after simulation cycles. Verify with:
-```bash
-ssh ubuntu@karmyq.com "docker exec karmyq-postgres psql -U karmyq_prod -d karmyq_prod -c 'SELECT name, created_at::date FROM communities.communities ORDER BY created_at;'"
+1. **Merge `feature/sprint-30-trust-evolution` to master** (open PR or direct merge)
+2. **Apply migration on demo server**:
+   ```bash
+   ssh ubuntu@karmyq.com
+   docker exec karmyq-postgres psql -U karmyq_prod -d karmyq_prod -f /dev/stdin < infrastructure/postgres/migrations/20260319-trust-evolution.sql
+   ```
+3. **Create `feature/sprint-31-community-evolution`** and begin Sprint 31
+4. **Reference Sprint 31 spec** when it's written (not yet created)
+
+---
+
+## Sprint 30 Summary
+
+All 13 tasks implemented and verified:
+
+| Task | Status |
+|------|--------|
+| 1 - Migration + init.sql | DONE |
+| 2 - Extract `trustConfigDb.ts` | DONE |
+| 3 - Unit tests (18 tests, all passing) | DONE |
+| 4 - `trustEvolutionDb.ts` | DONE |
+| 5 - `trustEvolutionService.ts` | DONE |
+| 6 - Wire into `subscriber.ts` | DONE |
+| 7 - 5 API routes + inline feedback evolution | DONE |
+| 8 - Frontend API + trust.tsx toggle | DONE |
+| 9 - "My Trust Journey" page (`evolution.tsx`) | DONE |
+| 10 - Community admin evolution section | DONE |
+| 11 - ADR-046 + landing page docs | DONE |
+| 12 - CONTEXT.md + registry.json + TDD integration test | DONE |
+| 13 - Final type check + verification | DONE |
+
+**Verification results**: `npm run build` — 13/13 tasks successful. `npm test` — 27/27 tasks successful. All unit tests pass (18 trust evolution tests + all prior tests). `npm run feedback:check` — no staged changes detected (clean).
+
+---
+
+## 3-Sprint Arc Context
+
+- **Sprint 30 (complete)** — Individual trust config layer + evolution engine + history report
+- **Sprint 31 (next)** — Community evolution (aggregate individual signals → community config drift)
+- **Sprint 32** — Fractal feed interface (feed/matching uses blended individual+community model)
+
+---
+
+## 🎯 Sprint 30: Trust Evolution Foundation (Complete)
+
+### What We're Building
+
+A **per-user trust config layer** with automatic parameter calibration. Users and communities can opt in to having their trust models evolve based on lived experience.
+
+**Core principle**: accuracy over direction. The system calibrates toward what's real — not toward more or less openness. An accurate low-trust model is healthier than an inaccurate high-trust model.
+
+### New Concept: `cross_community_prior`
+
+A Bayesian prior (0.05–0.95, default 0.50) — your starting trust assumption for people from other communities before any shared history. Distinct from depth/breadth weights (which measure interaction patterns). Calibrates in either direction based on actual experience.
+
+### The 3-Sprint Arc
+
+- **Sprint 30 (this)** — Individual trust config layer + evolution engine + history report
+- **Sprint 31** — Community evolution (aggregate individual signals → community config drift)
+- **Sprint 32** — Fractal feed interface (feed/matching uses blended individual+community model)
+
+---
+
+## 📋 Implementation Plan Summary (13 Tasks)
+
+Full plan: `docs/superpowers/plans/2026-03-19-trust-evolution-foundation.md`
+
+| Task | What | Key files |
+|------|------|-----------|
+| 1 | Migration + init.sql | `migrations/20260319-trust-evolution.sql`, `init.sql` |
+| 2 | Extract shared `trustConfigDb.ts` | `karmaService.ts` (only — NOT `communityTrustService.ts`) |
+| 3 | Write unit tests (TDD — write first, fail) | `tests/unit/reputation/trustEvolutionService.test.ts` |
+| 4 | Implement `trustEvolutionDb.ts` | `src/database/trustEvolutionDb.ts` |
+| 5 | Implement `trustEvolutionService.ts` | `src/services/trustEvolutionService.ts` |
+| 6 | Wire into `subscriber.ts` (match events) | `src/events/subscriber.ts` |
+| 7 | Wire inline feedback + 5 API routes | `src/routes/reputation.ts` |
+| 8 | Frontend API + trust.tsx toggle | `api.ts`, `pages/reputation/trust.tsx` |
+| 9 | "My Trust Journey" page | `pages/reputation/evolution.tsx` |
+| 10 | Community admin section | `pages/communities/[id].tsx` |
+| 11 | ADR + landing page docs | ADR-046, concept JSON, nav.json |
+| 12 | CONTEXT.md + registry + TDD test | `CONTEXT.md`, `registry.json`, `tests/tdd/` |
+| 13 | Final type check + verification | `npm test`, `npm run feedback:check` |
+
+---
+
+## ⚠️ Critical Implementation Notes (read before Task 2)
+
+### `trustConfigDb.ts` field name remapping
+The existing `karmaService.ts` likely remaps raw DB column names (`trust_depth_weight` → `depth_weight`). The extracted `trustConfigDb.ts` must return the SAME field names that `karmaService.ts` already expects internally. **Read `karmaService.ts` before writing `trustConfigDb.ts`.** Do NOT touch `communityTrustService.ts` — its `getCommunityTrustConfig` queries completely different columns and is NOT a duplicate.
+
+### `match_completed` payload has no `community_id`
+The Bull event payload only has: `match_id`, `request_id`, `requester_id`, `responder_id`. The subscriber iterates communities via a loop. Evolution calls must go **inside that community loop** using the loop's community variable — not outside it.
+
+### `insertFeedback` returns void
+In the feedback handler, use `match_id` (not `feedback_id`) as `triggerEventId`. The `insertFeedback` DB function returns `void` — there is no feedback row ID in scope.
+
+### `getUserEffectiveParams` is NOT wired into `updateTrustScore` (intentional)
+Evolution log fills with adjustments but they don't yet affect displayed scores. Sprint 32 wires it in. The UI must communicate: "Your trust model is calibrating. It will influence your experience in a future update."
+
+### Evolution signals — two code paths
+- `cross_community_positive_feedback` and `cross_community_negative_feedback` → inline in `POST /reputation/feedback` handler (NOT a Bull event — `insertFeedback` is already inline)
+- Other 3 signals → inside the `match_completed` Bull event handler
+
+---
+
+## 🗂️ New Files Being Created
+
+```
+infrastructure/postgres/migrations/20260319-trust-evolution.sql
+services/reputation-service/src/database/trustConfigDb.ts
+services/reputation-service/src/database/trustEvolutionDb.ts
+services/reputation-service/src/services/trustEvolutionService.ts
+apps/frontend/src/pages/reputation/evolution.tsx
+docs/adr/ADR-046-trust-model-evolution.md
+apps/landing/src/data/docs/concepts/trust-model-evolution.json
+apps/landing/src/data/docs/concepts/adr-046-trust-model-evolution.json
+tests/unit/reputation/trustEvolutionService.test.ts
+tests/tdd/trust-evolution-flow.test.ts
 ```
 
-## ⚠️ Known Issues / Watch List
-
-- **Provider trust scores still show 30** for most providers — backfill ran but scores are formula-correct: no reviews yet → avg_stars=0 → 0×0.6 + 100×0.3 = 30. Will improve organically as simulation completes matches and submits reviews.
-- **Network graph looks unnatural** — Maria hyperconnected, newer users isolated. Connections only created on fully completed matches. Captured in `docs/IDEAS.md` as a future sprint item (social graph naturalness improvements).
-- **7 communities on demo** — all Bay Area themed, created before simulation. Portland templates exist in simulation but `access_type: 'open'` bug prevented creation. Fixed 2026-03-18, new communities will appear after next simulation cycles.
-
 ---
 
-## ✅ Sprint 29 — What Was Implemented (2026-03-18)
+## ⚠️ Known Issues / Watch List (carry-forward)
 
-### Rate Cards / Pricing Transparency (v9.5.0)
-
-Providers can now publish structured pricing. Requestors see costs before contacting providers. Requestors can optionally pre-select a provider when filing typed requests.
-
-### DB Changes
-
-**`infrastructure/postgres/migrations/20260318-rate-cards.sql`** ← NEW
-- Creates `requests.provider_rate_cards` table with 5 CHECK constraints (pricing_model, rate_unit, service_type, rate_amount non-negative, notes length)
-- `ADD COLUMN IF NOT EXISTS preferred_provider_id` on `requests.help_requests` with named FK constraint `fk_help_requests_preferred_provider`
-- All guards idempotent (`IF NOT EXISTS`, named constraints)
-
-**`infrastructure/postgres/init.sql`** — updated
-- `provider_rate_cards` table + named indexes added
-- `preferred_provider_id` column on `help_requests` added
-
-### API Changes
-
-**`services/request-service/src/routes/providers.ts`**
-- `GET /providers/:providerId/rate-cards` — list active cards (public, no auth)
-- `POST /providers/:providerId/rate-cards` — create card (owner only)
-- `PUT /providers/:providerId/rate-cards/:cardId` — update card (owner only); auto-nulls `rate_amount`/`rate_unit` when `pricing_model !== 'standard'`
-- `DELETE /providers/:providerId/rate-cards/:cardId` — soft-delete, sets `is_active = false` (owner only)
-- `GET /providers/:providerId` — now appends `rate_cards` array (active only) to response
-- Routes inserted BEFORE `GET /:providerId` to avoid Express routing conflicts
-- Uses shared JWT middleware (no inline `require('jsonwebtoken')`, no hardcoded fallback secret)
-
-**`services/request-service/src/routes/requests.ts`**
-- `POST /requests` now accepts optional `preferred_provider_id`
-- Validates: PROVIDER_NOT_FOUND, PROVIDER_INACTIVE, PROVIDER_TYPE_MISMATCH (400 errors)
-- Persists `preferred_provider_id` to DB
-- Publishes `preferred_provider_selected` Bull event (non-blocking, fire-and-forget)
-
-### Notification Changes
-
-**`services/notification-service/src/templates/notificationTemplates.ts`**
-- Added `'preferred_provider_selected'` to `NotificationType` union
-- Template: title "You were pre-selected", in_app only, links to `/requests/:id`
-
-**`services/notification-service/src/events/subscriber.ts`**
-- Added `eventQueue.process('preferred_provider_selected', ...)` handler INSIDE `initEventSubscriber()` (not outside — would be dead code)
-- Looks up `provider_user_id` → creates in-app notification
-
-### Frontend Changes
-
-**`apps/frontend/src/components/ProviderProfileTab.tsx`**
-- Rate card list with edit/remove buttons
-- Add/edit modal (label, service_type, pricing_model, rate_amount, rate_unit, notes)
-- Fetches with `?include_inactive=true` for owner view
-- `useEffect` depends on `providers.map(p => p.id).join(',')` (stable reference)
-
-**`apps/frontend/src/pages/providers/[id].tsx`**
-- Read-only "Rate Cards" section with `formatRateCard()` helper
-- Hidden when provider has no active cards
-
-**`apps/frontend/src/pages/providers/collectives/[id].tsx`**
-- "Member Pricing" section: fetches all member provider profiles in parallel, filters to those with active cards
-- Empty state guard: only shows "No pricing published yet" when collective HAS members but none have cards
-
-**`apps/frontend/src/pages/dashboard.tsx`**
-- Pre-select provider step (only for non-generic request types)
-- Provider picker modal shows ALL matching providers (not filtered by rate cards)
-- `setSelectedProvider(null)` on every `setRequestType()` call to avoid stale selection
-
-### Tests
-
-**`tests/tdd/rateCards.test.ts`** — integration tests for rate card CRUD (require live services)
-**`tests/tdd/preSelectProvider.test.ts`** — integration tests for pre-select (require live services)
-**`tests/tdd/preferredProviderNotification.test.ts`** — pure unit tests, all pass without services
-
-### Documentation
-
-**`services/request-service/CONTEXT.md`** — new endpoints + schema changes
-**`services/notification-service/CONTEXT.md`** — `preferred_provider_selected` event
-**`services/registry.json`** — event added as plain string (NOT object — would break landing page TS)
-**`apps/landing/src/data/docs/services/request-service.json`** — 4 new endpoints
-**`apps/landing/src/data/docs/concepts/rate-cards.json`** — concept page (force-add: gitignored)
-**`apps/landing/src/data/docs/nav.json`** — Rate Cards entry under Concepts
-**`apps/landing/src/data/docs/guides/using-service-providers.json`** — Rate Cards section added
-
-### Test results
-- 27/27 monorepo tasks: ✅ all passing (including landing page build after TS fix)
-- All unit/regression tests: ✅
-- TDD integration tests (rateCards, preSelectProvider): require live services, connection refused locally (expected)
-- preferredProviderNotification TDD: ✅ 5/5 pass without services
-
----
-
-## ✅ Post-Deploy Steps Completed (2026-03-18)
-
-1. **Sprint 29 migration applied** — `provider_rate_cards` table and `preferred_provider_id` column live on demo DB.
-2. **Sprint 28 backfill run** — `POST /reputation/provider-trust/recalculate` returned `{ updated: 362 }`. Scores are formula-correct but mostly still 30 (no reviews yet — see watch list above).
-3. **Simulation bug fixed** — `access_type: 'open'` → `'public'` in `create-community-workflow.ts` (commit `bd144ad`). Community creation will resume next simulation cycle.
-4. **Migration fix** — `ADD CONSTRAINT IF NOT EXISTS` is invalid PostgreSQL syntax; replaced with `DO $$ IF NOT EXISTS` block (commit `b69e902`). This was caught by CI on first deploy attempt.
+- **Provider trust scores still show 30** for most providers — formula-correct but no reviews yet. Will improve organically.
+- **Network graph looks unnatural** — Maria hyperconnected, newer users isolated. Captured in `docs/IDEAS.md`.
+- **7 communities on demo** — simulation bug fixed 2026-03-18 (`access_type: 'open'` → `'public'`). New Portland communities will appear after next simulation cycles.
+- **Migration must be applied manually on demo** — `deploy.sh` does NOT auto-run migrations. After merging Sprint 30:
+  ```bash
+  ssh ubuntu@karmyq.com
+  docker exec karmyq-postgres psql -U karmyq_prod -d karmyq_prod -f /dev/stdin < infrastructure/postgres/migrations/20260319-trust-evolution.sql
+  ```
 
 ---
 
@@ -169,3 +192,7 @@ Providers can now publish structured pricing. Requestors see costs before contac
 - **Rate card soft-delete**: DELETE endpoint sets `is_active = false`, never hard-deletes. Public GET only returns `is_active = true` cards. Owner GET uses `?include_inactive=true`.
 - **Rate card routes must precede /:providerId**: Express route ordering — `/:providerId/rate-cards` must be registered before `/:providerId` or it will never match.
 - **preferred_provider_id validation order**: PROVIDER_NOT_FOUND → PROVIDER_INACTIVE → PROVIDER_TYPE_MISMATCH — all checked before Zod schema validation in `POST /requests`.
+- **trust evolution — cross_community_prior**: The new `cross_community_prior` parameter (0.05–0.95) is direction-agnostic. Never describe higher values as "more open." UI language: "Your cross-community trust calibration."
+- **trust evolution — community_id not in match_completed payload**: The Bull event has no `community_id`. Evolution calls must go inside the per-community loop in `subscriber.ts`, not outside it.
+- **trust evolution — insertFeedback returns void**: Use `match_id` as `triggerEventId` in feedback handler. There is no `feedback_id` in scope.
+- **trust evolution — getUserEffectiveParams not wired to updateTrustScore**: Intentional. Sprint 32 connects it. Evolution log fills but displayed scores don't change yet.

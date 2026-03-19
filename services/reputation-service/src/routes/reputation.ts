@@ -6,6 +6,20 @@ import { getUserBadges } from '../services/badgeService';
 import { query } from '../database/db';
 import { insertFeedback, hasSubmittedFeedback } from '../database/feedbackDb';
 import { authMiddleware, AuthenticatedRequest } from '@karmyq/shared/middleware/auth';
+import {
+  evaluateUserEvolution,
+  getUserEffectiveParams,
+  EVOLUTION_SIGNALS,
+} from '../services/trustEvolutionService';
+import {
+  getUserTrustConfig,
+  upsertUserTrustConfig,
+  getEvolutionLog,
+  getCommunityEvolutionConfig,
+  updateCommunityEvolutionConfig,
+  getEvolutionOptInRate,
+  isCrossCommunityParticipant,
+} from '../database/trustEvolutionDb';
 
 const router = Router();
 
@@ -281,7 +295,7 @@ router.post('/feedback', authMiddleware, async (req: AuthenticatedRequest, res: 
       return res.status(400).json({ success: false, message: 'match_id, to_user_id, and community_id are required' });
     }
 
-    const ratingNum = parseInt(rating);
+    const ratingNum = parseInt(rating, 10);
     if (!ratingNum || ratingNum < 1 || ratingNum > 5) {
       return res.status(400).json({ success: false, message: 'rating must be an integer between 1 and 5' });
     }
@@ -297,6 +311,20 @@ router.post('/feedback', authMiddleware, async (req: AuthenticatedRequest, res: 
 
     // Recompute trust score for the rated user (full ADR-037 formula)
     const score = await updateTrustScore(to_user_id, community_id);
+
+    // Sprint 30: Evolution signal for cross-community feedback
+    try {
+      const crossComm = await isCrossCommunityParticipant(fromUserId, community_id);
+      if (crossComm && (ratingNum >= 4 || ratingNum <= 2)) {
+        const signal = ratingNum >= 4
+          ? EVOLUTION_SIGNALS.CROSS_COMMUNITY_POSITIVE_FEEDBACK
+          : EVOLUTION_SIGNALS.CROSS_COMMUNITY_NEGATIVE_FEEDBACK;
+        // Use match_id as triggerEventId — insertFeedback returns void (no feedback row ID)
+        await evaluateUserEvolution(to_user_id, community_id, signal, { triggerEventId: match_id });
+      }
+    } catch (evolutionErr) {
+      console.error('[trust-evolution] Error in feedback evolution:', evolutionErr);
+    }
 
     res.json({ success: true, data: { score } });
   } catch (error: any) {
@@ -314,6 +342,134 @@ router.get('/users/:userId/badges', async (req: Request, res: Response) => {
   } catch (error: any) {
     console.error('Error fetching badges:', error);
     res.status(500).json({ success: false, message: 'Failed to fetch badges', error: error.message });
+  }
+});
+
+// ─── Trust Evolution Routes (Sprint 30) ───────────────────────────────────────
+
+// GET /reputation/trust-config/:userId/:communityId/history
+// Auth: self OR community admin
+// NOTE: Registered BEFORE /trust-config/:userId/:communityId to avoid route shadowing
+router.get('/trust-config/:userId/:communityId/history', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { userId, communityId } = req.params;
+    const memberships = req.user?.communities ?? [];
+    const isSelf = req.user?.userId === userId;
+    const isAdmin = memberships.some((m: any) => m.id === communityId && m.role === 'admin');
+    if (!isSelf && !isAdmin) {
+      return res.status(403).json({ success: false, message: 'Forbidden' });
+    }
+    const limit = Math.min(parseInt(req.query.limit as string || '50', 10), 100);
+    const offset = parseInt(req.query.offset as string || '0', 10);
+    const history = await getEvolutionLog(userId, communityId, limit, offset);
+    return res.json({ success: true, data: history });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
+// GET /reputation/trust-config/:userId/:communityId
+// Auth: self OR community admin
+router.get('/trust-config/:userId/:communityId', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { userId, communityId } = req.params;
+    const memberships = req.user?.communities ?? [];
+    const isSelf = req.user?.userId === userId;
+    const isAdmin = memberships.some((m: any) => m.id === communityId && m.role === 'admin');
+    if (!isSelf && !isAdmin) {
+      return res.status(403).json({ success: false, message: 'Forbidden' });
+    }
+    const [userConfig, effectiveParams, communityEvolution] = await Promise.all([
+      getUserTrustConfig(userId, communityId),
+      getUserEffectiveParams(userId, communityId),
+      getCommunityEvolutionConfig(communityId),
+    ]);
+    return res.json({
+      success: true,
+      data: {
+        user_config: userConfig,
+        effective_params: effectiveParams,
+        community_evolution_enabled: communityEvolution.community_evolution_enabled,
+      },
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
+// PUT /reputation/trust-config/:userId/:communityId
+// Auth: self only
+router.put('/trust-config/:userId/:communityId', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { userId, communityId } = req.params;
+    if (req.user?.userId !== userId) {
+      return res.status(403).json({ success: false, message: 'Forbidden' });
+    }
+    const { evolution_enabled } = req.body;
+    if (typeof evolution_enabled !== 'boolean') {
+      return res.status(400).json({ success: false, message: 'evolution_enabled must be a boolean' });
+    }
+    await upsertUserTrustConfig(userId, communityId, { evolution_enabled });
+    return res.json({ success: true, data: { evolution_enabled } });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
+// GET /reputation/communities/:communityId/trust-evolution
+// Auth: community admin only
+router.get('/communities/:communityId/trust-evolution', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { communityId } = req.params;
+    const memberships = req.user?.communities ?? [];
+    const isAdmin = memberships.some((m: any) => m.id === communityId && m.role === 'admin');
+    if (!isAdmin) {
+      return res.status(403).json({ success: false, message: 'Forbidden' });
+    }
+    const [config, optInRate] = await Promise.all([
+      getCommunityEvolutionConfig(communityId),
+      getEvolutionOptInRate(communityId),
+    ]);
+    return res.json({
+      success: true,
+      data: { ...config, opted_in_rate: optInRate },
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
+// PUT /reputation/communities/:communityId/trust-evolution
+// Auth: community admin only
+router.put('/communities/:communityId/trust-evolution', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { communityId } = req.params;
+    const memberships = req.user?.communities ?? [];
+    const isAdmin = memberships.some((m: any) => m.id === communityId && m.role === 'admin');
+    if (!isAdmin) {
+      return res.status(403).json({ success: false, message: 'Forbidden' });
+    }
+    const { community_evolution_enabled, cross_community_prior } = req.body;
+    const patch: { community_evolution_enabled?: boolean; cross_community_prior?: number } = {};
+    if (typeof community_evolution_enabled === 'boolean') patch.community_evolution_enabled = community_evolution_enabled;
+    if (typeof cross_community_prior === 'number') {
+      if (cross_community_prior < 0.05 || cross_community_prior > 0.95) {
+        return res.status(400).json({ success: false, message: 'cross_community_prior must be between 0.05 and 0.95' });
+      }
+      patch.cross_community_prior = cross_community_prior;
+    }
+    if (Object.keys(patch).length === 0) {
+      return res.status(400).json({ success: false, message: 'No valid fields to update' });
+    }
+    await updateCommunityEvolutionConfig(communityId, patch);
+    return res.json({ success: true, data: patch });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ success: false, message: 'Internal server error' });
   }
 });
 

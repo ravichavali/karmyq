@@ -101,3 +101,7 @@ The diff is **selective** — you can check or uncheck individual fields. If you
 **Q4 (asking for help) is the most underrated.** Many communities default to rewarding helpers, but communities that also celebrate asking tend to see higher participation from people who need help most.
 
 **Q5 (memory) reflects your community's pace.** Active communities with daily exchanges can afford short half-lives. Communities that meet seasonally or are geographically sparse should choose longer memories.
+
+## Trust Model Evolution
+
+Communities can enable automatic trust evolution in the Settings tab. When enabled, members who opt in will have their personal trust parameters calibrate based on experience. As an admin, you'll see the opt-in rate and your community's current cross-community trust calibration. You can disable evolution at any time — the history remains visible.
