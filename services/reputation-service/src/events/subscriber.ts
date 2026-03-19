@@ -16,10 +16,12 @@ const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
 
 async function getRepeatMatchCount(userA: string, userB: string): Promise<number> {
   const result = await query(
-    `SELECT COUNT(*) AS cnt FROM requests.matches
-     WHERE status = 'completed'
-       AND ((responder_id = $1 AND requester_id = $2)
-            OR (responder_id = $2 AND requester_id = $1))`,
+    `SELECT COUNT(*) AS cnt
+     FROM requests.matches m
+     JOIN requests.help_requests hr ON m.request_id = hr.id
+     WHERE m.status = 'completed'
+       AND ((m.responder_id = $1 AND hr.requester_id = $2)
+            OR (m.responder_id = $2 AND hr.requester_id = $1))`,
     [userA, userB]
   );
   return parseInt(result.rows[0]?.cnt ?? '0', 10);
