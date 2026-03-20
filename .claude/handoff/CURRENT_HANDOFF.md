@@ -1,150 +1,120 @@
-# SPRINT 30 COMPLETE — READY TO MERGE
+# SPRINT 31 READY TO EXECUTE
 
 ## Handoff Document for New Conversation
 
-**Date**: 2026-03-19
-**Current Version**: v9.5.0 (Sprint 30 complete)
-**Branch**: `feature/sprint-30-trust-evolution` (ready to merge to master)
-**Status**: Sprint 30 fully implemented, all 13 tasks complete, build green, all tests passing.
+**Date**: 2026-03-20
+**Current Version**: v9.5.0 → v9.6.0 (Sprint 31 planned, not yet implemented)
+**Branch**: Create `feature/sprint-31-community-evolution` (see Quick Start)
+**Status**: Sprint 30 merged (PR #6). Sprint 31 spec + plan written. Ready to execute.
 
 ---
 
-## Sprint 31 Next Up: Community Evolution Engine
+## Quick Start
 
-The next session should:
+1. Read this handoff
+2. Check out branch: `git checkout -b feature/sprint-31-community-evolution`
+3. Open plan: `docs/superpowers/plans/2026-03-20-sprint-31-community-evolution.md`
+4. Run: `/execute-plan` (uses `superpowers:subagent-driven-development`)
 
-1. **Merge `feature/sprint-30-trust-evolution` to master** (open PR or direct merge)
-2. **Apply migration on demo server**:
-   ```bash
-   ssh ubuntu@karmyq.com
-   docker exec karmyq-postgres psql -U karmyq_prod -d karmyq_prod -f /dev/stdin < infrastructure/postgres/migrations/20260319-trust-evolution.sql
-   ```
-3. **Create `feature/sprint-31-community-evolution`** and begin Sprint 31
-4. **Reference Sprint 31 spec** when it's written (not yet created)
-
----
-
-## Sprint 30 Summary
-
-All 13 tasks implemented and verified:
-
-| Task | Status |
-|------|--------|
-| 1 - Migration + init.sql | DONE |
-| 2 - Extract `trustConfigDb.ts` | DONE |
-| 3 - Unit tests (18 tests, all passing) | DONE |
-| 4 - `trustEvolutionDb.ts` | DONE |
-| 5 - `trustEvolutionService.ts` | DONE |
-| 6 - Wire into `subscriber.ts` | DONE |
-| 7 - 5 API routes + inline feedback evolution | DONE |
-| 8 - Frontend API + trust.tsx toggle | DONE |
-| 9 - "My Trust Journey" page (`evolution.tsx`) | DONE |
-| 10 - Community admin evolution section | DONE |
-| 11 - ADR-046 + landing page docs | DONE |
-| 12 - CONTEXT.md + registry.json + TDD integration test | DONE |
-| 13 - Final type check + verification | DONE |
-
-**Verification results**: `npm run build` — 13/13 tasks successful. `npm test` — 27/27 tasks successful. All unit tests pass (18 trust evolution tests + all prior tests). `npm run feedback:check` — no staged changes detected (clean).
+> Note: Before executing, also merge Sprint 30 and apply its migration on demo if not done:
+> ```bash
+> ssh ubuntu@karmyq.com
+> docker exec karmyq-postgres psql -U karmyq_prod -d karmyq_prod -f /dev/stdin < infrastructure/postgres/migrations/20260319-trust-evolution.sql
+> ```
 
 ---
 
-## 3-Sprint Arc Context
+## Sprint 31 Goal
 
-- **Sprint 30 (complete)** — Individual trust config layer + evolution engine + history report
-- **Sprint 31 (next)** — Community evolution (aggregate individual signals → community config drift)
-- **Sprint 32** — Fractal feed interface (feed/matching uses blended individual+community model)
+> **Aggregate member trust deltas into community config drift across three parameters — default-on, opt-out, with a clean pluggable service boundary.**
 
 ---
 
-## 🎯 Sprint 30: Trust Evolution Foundation (Complete)
+## The 3-Sprint Arc
 
-### What We're Building
-
-A **per-user trust config layer** with automatic parameter calibration. Users and communities can opt in to having their trust models evolve based on lived experience.
-
-**Core principle**: accuracy over direction. The system calibrates toward what's real — not toward more or less openness. An accurate low-trust model is healthier than an inaccurate high-trust model.
-
-### New Concept: `cross_community_prior`
-
-A Bayesian prior (0.05–0.95, default 0.50) — your starting trust assumption for people from other communities before any shared history. Distinct from depth/breadth weights (which measure interaction patterns). Calibrates in either direction based on actual experience.
-
-### The 3-Sprint Arc
-
-- **Sprint 30 (this)** — Individual trust config layer + evolution engine + history report
-- **Sprint 31** — Community evolution (aggregate individual signals → community config drift)
-- **Sprint 32** — Fractal feed interface (feed/matching uses blended individual+community model)
+- **Sprint 30** (complete) — Individual trust config + evolution engine + history report
+- **Sprint 31** (this sprint) — Community evolution: aggregate member deltas → community config drift
+- **Sprint 32** (upcoming) — Fractal feed: feed/matching uses blended individual + community model
 
 ---
 
-## 📋 Implementation Plan Summary (13 Tasks)
+## Design Decisions Made This Session
 
-Full plan: `docs/superpowers/plans/2026-03-19-trust-evolution-foundation.md`
+### Opt-Out Model (Two Flags, No Middle State)
+- `user_trust_configs.evolution_enabled` — user opts in/out of personal trust evolution
+- `community_configs.community_evolution_enabled` — admin opts in/out of community evolution
+- If a user's trust evolves, their delta **automatically** contributes to community evolution — no third flag. Opting out of personal evolution is the only way to stop contributing.
+- Both default to `TRUE` (opt-out philosophy, not opt-in). The migration flips existing rows.
 
-| Task | What | Key files |
-|------|------|-----------|
-| 1 | Migration + init.sql | `migrations/20260319-trust-evolution.sql`, `init.sql` |
-| 2 | Extract shared `trustConfigDb.ts` | `karmaService.ts` (only — NOT `communityTrustService.ts`) |
-| 3 | Write unit tests (TDD — write first, fail) | `tests/unit/reputation/trustEvolutionService.test.ts` |
-| 4 | Implement `trustEvolutionDb.ts` | `src/database/trustEvolutionDb.ts` |
-| 5 | Implement `trustEvolutionService.ts` | `src/services/trustEvolutionService.ts` |
-| 6 | Wire into `subscriber.ts` (match events) | `src/events/subscriber.ts` |
-| 7 | Wire inline feedback + 5 API routes | `src/routes/reputation.ts` |
-| 8 | Frontend API + trust.tsx toggle | `api.ts`, `pages/reputation/trust.tsx` |
-| 9 | "My Trust Journey" page | `pages/reputation/evolution.tsx` |
-| 10 | Community admin section | `pages/communities/[id].tsx` |
-| 11 | ADR + landing page docs | ADR-046, concept JSON, nav.json |
-| 12 | CONTEXT.md + registry + TDD test | `CONTEXT.md`, `registry.json`, `tests/tdd/` |
-| 13 | Final type check + verification | `npm test`, `npm run feedback:check` |
+### Signal: Delta-Based Aggregation + Interaction Rate Validation
+- Primary driver: median delta across active evolving members' `cross_community_prior` (option C)
+- Interaction rate as health validator: if interaction rate declines, dampen the nudge (dampening: stable/improving → 1.0, declining >10% → 0.5, declining >25% → 0.0 skip)
+- This instruments for option A (interaction rate correlation) without betting on it in Sprint 31
 
----
+### Three Parameters That Evolve
+| Parameter | Mechanism |
+|-----------|-----------|
+| `cross_community_prior` | Direct delta aggregation × 0.30 damping |
+| `karma_split_helper` | Follows prior direction, ±1 per cycle |
+| `trust_path_max_hops` | Follows prior direction, ±1 only after 3 consecutive same-direction cycles |
 
-## ⚠️ Critical Implementation Notes (read before Task 2)
-
-### `trustConfigDb.ts` field name remapping
-The existing `karmaService.ts` likely remaps raw DB column names (`trust_depth_weight` → `depth_weight`). The extracted `trustConfigDb.ts` must return the SAME field names that `karmaService.ts` already expects internally. **Read `karmaService.ts` before writing `trustConfigDb.ts`.** Do NOT touch `communityTrustService.ts` — its `getCommunityTrustConfig` queries completely different columns and is NOT a duplicate.
-
-### `match_completed` payload has no `community_id`
-The Bull event payload only has: `match_id`, `request_id`, `requester_id`, `responder_id`. The subscriber iterates communities via a loop. Evolution calls must go **inside that community loop** using the loop's community variable — not outside it.
-
-### `insertFeedback` returns void
-In the feedback handler, use `match_id` (not `feedback_id`) as `triggerEventId`. The `insertFeedback` DB function returns `void` — there is no feedback row ID in scope.
-
-### `getUserEffectiveParams` is NOT wired into `updateTrustScore` (intentional)
-Evolution log fills with adjustments but they don't yet affect displayed scores. Sprint 32 wires it in. The UI must communicate: "Your trust model is calibrating. It will influence your experience in a future update."
-
-### Evolution signals — two code paths
-- `cross_community_positive_feedback` and `cross_community_negative_feedback` → inline in `POST /reputation/feedback` handler (NOT a Bull event — `insertFeedback` is already inline)
-- Other 3 signals → inside the `match_completed` Bull event handler
+### Architecture: Pluggable Module
+- `communityEvolutionService.ts` checks `community_evolution_enabled` at every entry point
+- Removable by deleting the file + 3 call sites — no core system depends on it
+- Bull queue: `karmyq-community-evolution`, deduplicated by `community_id` as job ID
 
 ---
 
-## 🗂️ New Files Being Created
+## ⚠️ Critical Implementation Notes (copy from spec — read before Task 2)
 
-```
-infrastructure/postgres/migrations/20260319-trust-evolution.sql
-services/reputation-service/src/database/trustConfigDb.ts
-services/reputation-service/src/database/trustEvolutionDb.ts
-services/reputation-service/src/services/trustEvolutionService.ts
-apps/frontend/src/pages/reputation/evolution.tsx
-docs/adr/ADR-046-trust-model-evolution.md
-apps/landing/src/data/docs/concepts/trust-model-evolution.json
-apps/landing/src/data/docs/concepts/adr-046-trust-model-evolution.json
-tests/unit/reputation/trustEvolutionService.test.ts
-tests/tdd/trust-evolution-flow.test.ts
-```
+1. **Evolution default flip updates ALL existing rows** — the migration has `UPDATE ... SET evolution_enabled = TRUE` for both tables. Intentional design reset.
+
+2. **No member snapshot table** — baselines come from the first `old_value` in `user_trust_evolution_log`. Members with no evolution history contribute no delta and are excluded.
+
+3. **Community cooldown via log query** — no separate column. Query `MAX(applied_at)` from `community_evolution_log WHERE community_id = $1`. If < 30 days ago, skip.
+
+4. **`karma_split_helper` and `trust_path_max_hops` follow prior direction** — no per-user versions of these params exist. The aggregate prior delta is the sole directional signal.
+
+5. **Direction consensus gate for hops** — only shift `trust_path_max_hops` if last 3 entries in `community_evolution_log` for `cross_community_prior` agree on direction. If fewer than 3 entries, skip.
+
+6. **Minimum 3 contributing members** — fewer than 3 active members with evolution log entries → skip the cycle.
+
+7. **`communityEvolutionService.ts` must never throw** — wrap everything in try/catch. Evolution failure must not affect the user request flow.
+
+8. **Bull job deduplication** — use `community_id` as the Bull job ID. Only one pending job per community at a time.
+
+9. **`community_evolution_enabled` default was FALSE in Sprint 30** — migration must also update `init.sql` so fresh DB installs get the correct default.
+
+---
+
+## Sprint 31 Task Summary (12 tasks)
+
+| Task | What | Key new files |
+|------|------|---------------|
+| 1 | Feature branch + DB migration | `20260320-community-evolution.sql`, `init.sql` |
+| 2 | Unit tests (TDD — write first) | `tests/unit/reputation/communityEvolutionService.test.ts` |
+| 3 | `communityEvolutionDb.ts` | `src/database/communityEvolutionDb.ts` |
+| 4 | `communityEvolutionService.ts` | `src/services/communityEvolutionService.ts` |
+| 5 | Wire user evolution → queue community check | `trustEvolutionService.ts` |
+| 6 | Bull queue consumer | `subscriber.ts` |
+| 7 | API routes (3 new endpoints) | `reputation.ts` |
+| 8 | Frontend — community admin evolution section | `pages/communities/[id].tsx` |
+| 9 | Frontend — personal trust page note | `pages/reputation/trust.tsx` |
+| 10 | ADR-047 + landing page docs | `ADR-047-*.md`, landing JSONs, `nav.json` |
+| 11 | CONTEXT.md + registry.json + TDD test | `CONTEXT.md`, `registry.json`, `tests/tdd/` |
+| 12 | Final type check + verification | `npm test`, `npm run feedback:check` |
+
+Full plan: `docs/superpowers/plans/2026-03-20-sprint-31-community-evolution.md`
+Design spec: `docs/superpowers/specs/2026-03-20-sprint-31-community-evolution-design.md`
 
 ---
 
 ## ⚠️ Known Issues / Watch List (carry-forward)
 
-- **Provider trust scores still show 30** for most providers — formula-correct but no reviews yet. Will improve organically.
-- **Network graph looks unnatural** — Maria hyperconnected, newer users isolated. Captured in `docs/IDEAS.md`.
-- **7 communities on demo** — simulation bug fixed 2026-03-18 (`access_type: 'open'` → `'public'`). New Portland communities will appear after next simulation cycles.
-- **Migration must be applied manually on demo** — `deploy.sh` does NOT auto-run migrations. After merging Sprint 30:
-  ```bash
-  ssh ubuntu@karmyq.com
-  docker exec karmyq-postgres psql -U karmyq_prod -d karmyq_prod -f /dev/stdin < infrastructure/postgres/migrations/20260319-trust-evolution.sql
-  ```
+- **Sprint 30 migration must be applied on demo before Sprint 31 deploys** — `20260319-trust-evolution.sql`
+- **Provider trust scores still show 30** — formula-correct but no reviews yet. Will improve organically.
+- **Network graph naturalness** — deferred to a future sprint. See `docs/IDEAS.md` [2026-03-18].
+- **7 communities on demo** — simulation bug fixed 2026-03-18. New Portland communities growing organically.
 
 ---
 
@@ -196,3 +166,8 @@ tests/tdd/trust-evolution-flow.test.ts
 - **trust evolution — community_id not in match_completed payload**: The Bull event has no `community_id`. Evolution calls must go inside the per-community loop in `subscriber.ts`, not outside it.
 - **trust evolution — insertFeedback returns void**: Use `match_id` as `triggerEventId` in feedback handler. There is no `feedback_id` in scope.
 - **trust evolution — getUserEffectiveParams not wired to updateTrustScore**: Intentional. Sprint 32 connects it. Evolution log fills but displayed scores don't change yet.
+- **community evolution — evolution defaults are now TRUE (opt-out)**: Sprint 31 migration flips both `user_trust_configs.evolution_enabled` and `community_configs.community_evolution_enabled` to DEFAULT TRUE. Existing rows are updated.
+- **community evolution — no snapshot table**: Baselines derived from first `old_value` in `user_trust_evolution_log`. Members with no evolution entries contribute no delta.
+- **community evolution — Bull queue key is community_id**: `karmyq-community-evolution` queue uses community_id as job ID for deduplication. One pending job per community.
+- **community evolution — minimum 3 contributing members**: Fewer than 3 active members with evolution log entries → skip the cycle entirely.
+- **community evolution — hop count needs 3 consecutive prior cycles**: `trust_path_max_hops` only shifts after 3 consecutive `community_evolution_log` entries for `cross_community_prior` agree on direction.

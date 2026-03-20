@@ -76,6 +76,11 @@ function TrustEvolutionToggle({ community, userId }: { community: { community_id
           </a>
         </div>
       )}
+      {evolutionEnabled && (
+        <p className="text-xs text-gray-500 mt-2">
+          Your trust model is evolving and contributing to your community&apos;s calibration.
+        </p>
+      )}
     </div>
   )
 }

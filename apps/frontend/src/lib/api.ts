@@ -670,6 +670,15 @@ export const reputationService = {
 
   updateCommunityEvolution: (communityId: string, data: { community_evolution_enabled?: boolean; cross_community_prior?: number }) =>
     reputationApi.put(`/reputation/communities/${communityId}/trust-evolution`, data),
+
+  getCommunityEvolutionSummary: (communityId: string) =>
+    reputationApi.get(`/reputation/community/${communityId}/evolution/summary`),
+
+  getCommunityEvolutionHistory: (communityId: string, params?: { limit?: number; offset?: number }) =>
+    reputationApi.get(`/reputation/community/${communityId}/evolution/history`, { params }),
+
+  toggleCommunityEvolution: (communityId: string, enabled: boolean) =>
+    reputationApi.put(`/reputation/community/${communityId}/evolution/toggle`, { enabled }),
 }
 
 // User Settings API Methods (Auth Service)

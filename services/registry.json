@@ -178,7 +178,10 @@
           "PUT /reputation/trust-config/:userId/:communityId",
           "GET /reputation/trust-config/:userId/:communityId/history",
           "GET /reputation/communities/:communityId/trust-evolution",
-          "PUT /reputation/communities/:communityId/trust-evolution"
+          "PUT /reputation/communities/:communityId/trust-evolution",
+          "GET /reputation/community/:communityId/evolution/history",
+          "GET /reputation/community/:communityId/evolution/summary",
+          "PUT /reputation/community/:communityId/evolution/toggle"
         ],
         "consumes": [
           "/auth/verify"

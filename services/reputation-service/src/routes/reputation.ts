@@ -20,6 +20,10 @@ import {
   getEvolutionOptInRate,
   isCrossCommunityParticipant,
 } from '../database/trustEvolutionDb';
+import {
+  getCommunityEvolutionHistory,
+  getCommunityEvolutionSummary,
+} from '../database/communityEvolutionDb';
 
 const router = Router();
 
@@ -467,6 +471,60 @@ router.put('/communities/:communityId/trust-evolution', authMiddleware, async (r
     }
     await updateCommunityEvolutionConfig(communityId, patch);
     return res.json({ success: true, data: patch });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
+// GET /reputation/community/:communityId/evolution/history
+router.get('/community/:communityId/evolution/history', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { communityId } = req.params;
+    const memberships = req.user?.communities ?? [];
+    const isAdmin = memberships.some((m: any) => m.id === communityId && m.role === 'admin');
+    if (!isAdmin) return res.status(403).json({ success: false, message: 'Admin only' });
+
+    const limit = Math.min(parseInt((req.query.limit as string) ?? '50', 10), 100);
+    const offset = parseInt((req.query.offset as string) ?? '0', 10);
+    const history = await getCommunityEvolutionHistory(communityId, limit, offset);
+    return res.json({ success: true, data: history });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
+// GET /reputation/community/:communityId/evolution/summary
+router.get('/community/:communityId/evolution/summary', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { communityId } = req.params;
+    const memberships = req.user?.communities ?? [];
+    const isAdmin = memberships.some((m: any) => m.id === communityId && m.role === 'admin');
+    if (!isAdmin) return res.status(403).json({ success: false, message: 'Admin only' });
+
+    const summary = await getCommunityEvolutionSummary(communityId);
+    return res.json({ success: true, data: summary });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
+// PUT /reputation/community/:communityId/evolution/toggle
+router.put('/community/:communityId/evolution/toggle', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { communityId } = req.params;
+    const memberships = req.user?.communities ?? [];
+    const isAdmin = memberships.some((m: any) => m.id === communityId && m.role === 'admin');
+    if (!isAdmin) return res.status(403).json({ success: false, message: 'Admin only' });
+
+    const { enabled } = req.body;
+    if (typeof enabled !== 'boolean') {
+      return res.status(400).json({ success: false, message: 'enabled (boolean) required' });
+    }
+    await updateCommunityEvolutionConfig(communityId, { community_evolution_enabled: enabled });
+    return res.json({ success: true, data: { community_evolution_enabled: enabled } });
   } catch (err) {
     console.error(err);
     return res.status(500).json({ success: false, message: 'Internal server error' });

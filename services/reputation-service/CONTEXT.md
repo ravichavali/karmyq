@@ -1249,6 +1249,29 @@ src/
 - [ ] Reputation-based privileges (verified helpers, trusted requesters)
 - [ ] Federation support (federated reputation scores)
 
+## Community Evolution API Endpoints (Sprint 31 — ADR-047)
+
+### GET /reputation/community/:communityId/evolution/history
+Admin — paginated community evolution log showing parameter changes over time.
+
+**Implementation:** `src/routes/reputation.ts` | `src/database/communityEvolutionDb.ts`
+
+---
+
+### GET /reputation/community/:communityId/evolution/summary
+Admin — drift summary: first evolution date, evolved parameter count, last contributing member count.
+
+**Implementation:** `src/routes/reputation.ts` | `src/database/communityEvolutionDb.ts`
+
+---
+
+### PUT /reputation/community/:communityId/evolution/toggle
+Admin — enable/disable community evolution engine. Body: `{ "enabled": boolean }`.
+
+**Implementation:** `src/routes/reputation.ts` | `src/database/trustEvolutionDb.ts`
+
+---
+
 ## Related Documentation
 
 - Main architecture: `/docs/ARCHITECTURE.md`

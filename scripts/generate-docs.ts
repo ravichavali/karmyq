@@ -392,6 +392,7 @@ const ADR_GROUPS: Array<{ label: string; slugs: string[] }> = [
       'adr-044-community-trust-questionnaire',
       'adr-045-network-cohesion-score',
       'adr-046-trust-model-evolution',
+      'adr-047-community-evolution-engine',
       'adr-011-reputation-decay',
       'adr-016-prestige-based-recognition',
       'adr-043-three-score-model',
@@ -458,7 +459,7 @@ function generateNav(
 
   // Non-technical concept pages (split into Why Karmyq / How It Works)
   const whyKarmyq = ['platform-overview', 'the-village-model', 'neighborhood-service-layer', 'community-design'];
-  const howItWorks = ['trust-and-karma', 'trust-score', 'what-is-karma', 'trust-paths', 'reputation-decay', 'why-ratings-are-private', 'community-scale', 'network-cohesion', 'trust-model-evolution'];
+  const howItWorks = ['trust-and-karma', 'trust-score', 'what-is-karma', 'trust-paths', 'reputation-decay', 'why-ratings-are-private', 'community-scale', 'network-cohesion', 'trust-model-evolution', 'community-evolution'];
 
   const nav = {
     sections: [

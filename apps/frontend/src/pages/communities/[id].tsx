@@ -76,12 +76,16 @@ const VALID_TABS: ValidTab[] = ['overview', 'members', 'norms', 'requests', 'ins
 function CommunityTrustEvolutionSection({ communityId }: { communityId: string }) {
   const [status, setStatus] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [evolutionSummary, setEvolutionSummary] = useState<any>(null);
 
   useEffect(() => {
     reputationService.getCommunityEvolutionStatus(communityId)
       .then((res: any) => setStatus(res.data))
       .catch(() => {})
       .finally(() => setLoading(false));
+    reputationService.getCommunityEvolutionSummary(communityId)
+      .then((res: any) => setEvolutionSummary(res))
+      .catch(() => {});
   }, [communityId]);
 
   const handleToggle = async () => {
@@ -125,6 +129,23 @@ function CommunityTrustEvolutionSection({ communityId }: { communityId: string }
         <div className="text-xs text-gray-500 mt-1">
           Community cross-community trust calibration: {(cross_community_prior * 100).toFixed(0)}
         </div>
+      )}
+      {evolutionSummary?.first_evolution_at && (
+        <div className="mt-3 border-t pt-3 space-y-1">
+          <p className="text-xs text-gray-600">
+            {evolutionSummary.evolved_parameter_count} parameter
+            {evolutionSummary.evolved_parameter_count !== 1 ? 's' : ''} evolved
+            since {new Date(evolutionSummary.first_evolution_at).toLocaleDateString()}
+          </p>
+          <p className="text-xs text-gray-400">
+            Last cycle: {evolutionSummary.last_contributing_member_count} contributing members
+          </p>
+        </div>
+      )}
+      {!community_evolution_enabled && (
+        <p className="text-xs text-amber-600 mt-2">
+          Community evolution is paused. Existing config is unchanged.
+        </p>
       )}
     </div>
   );
