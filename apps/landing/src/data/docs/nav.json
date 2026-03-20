@@ -57,8 +57,12 @@
           "href": "/docs/concepts/network-cohesion"
         },
         {
-          "label": "Rate Cards",
-          "href": "/docs/concepts/rate-cards"
+          "label": "A Trust Model That Reflects Reality",
+          "href": "/docs/concepts/trust-model-evolution"
+        },
+        {
+          "label": "Community Evolution",
+          "href": "/docs/concepts/community-evolution"
         }
       ]
     },
@@ -171,6 +175,14 @@
         {
           "label": "Network Cohesion Score",
           "href": "/docs/concepts/adr-045-network-cohesion-score"
+        },
+        {
+          "label": "Trust Model Evolution",
+          "href": "/docs/concepts/adr-046-trust-model-evolution"
+        },
+        {
+          "label": "Community Evolution Engine",
+          "href": "/docs/concepts/adr-047-community-evolution-engine"
         },
         {
           "label": "Reputation Decay System (Social Karma v2)",

@@ -487,7 +487,7 @@ CREATE TABLE IF NOT EXISTS reputation.user_trust_configs (
                        CONSTRAINT chk_utc_breadth CHECK (breadth_weight IS NULL OR breadth_weight BETWEEN 0.10 AND 0.90),
   cross_community_prior DECIMAL(3,2) NOT NULL DEFAULT 0.50
                        CONSTRAINT chk_utc_prior CHECK (cross_community_prior BETWEEN 0.05 AND 0.95),
-  evolution_enabled  BOOLEAN NOT NULL DEFAULT FALSE,
+  evolution_enabled  BOOLEAN NOT NULL DEFAULT TRUE,
   created_at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at         TIMESTAMPTZ NOT NULL DEFAULT NOW(), -- caller sets explicitly via ON CONFLICT DO UPDATE
   PRIMARY KEY (user_id, community_id)
@@ -513,6 +513,23 @@ CREATE TABLE IF NOT EXISTS reputation.user_trust_evolution_log (
 -- and history pagination (user, community, created_at)
 CREATE INDEX IF NOT EXISTS idx_utel_user_comm_param_created
   ON reputation.user_trust_evolution_log (user_id, community_id, parameter, created_at DESC);
+
+-- ADR-047: Community Evolution Engine audit log
+CREATE TABLE IF NOT EXISTS reputation.community_evolution_log (
+  id                        UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  community_id              UUID NOT NULL REFERENCES communities.communities(id) ON DELETE CASCADE,
+  parameter                 VARCHAR(50) NOT NULL,
+  old_value                 DECIMAL(6,2) NOT NULL,
+  new_value                 DECIMAL(6,2) NOT NULL,
+  aggregate_delta           DECIMAL(6,2) NOT NULL,
+  contributing_member_count INTEGER NOT NULL,
+  interaction_rate_snapshot DECIMAL(6,2),
+  damping_applied           DECIMAL(3,2) NOT NULL DEFAULT 1.00,
+  applied_at                TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_cel_community_applied
+  ON reputation.community_evolution_log (community_id, applied_at DESC);
 
 -- Reputation decay function (ADR-011)
 CREATE OR REPLACE FUNCTION reputation.calculate_decayed_karma(
@@ -1042,7 +1059,7 @@ CREATE TABLE communities.community_configs (
     feed_weight_urgency DECIMAL(3,2) DEFAULT 0.15 CHECK (feed_weight_urgency BETWEEN 0.0 AND 1.0),
 
     -- Individual Trust Evolution (ADR-046)
-    community_evolution_enabled BOOLEAN DEFAULT FALSE,
+    community_evolution_enabled BOOLEAN DEFAULT TRUE,
     cross_community_prior DECIMAL(3,2) NOT NULL DEFAULT 0.50 CONSTRAINT chk_community_cross_community_prior CHECK (cross_community_prior BETWEEN 0.05 AND 0.95),
 
     -- Metadata

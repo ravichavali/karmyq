@@ -11,6 +11,7 @@ import {
   isCrossCommunityParticipant,
   getDiverseCommunityCount,
 } from '../database/trustEvolutionDb';
+import { applyCommunityEvolution } from '../services/communityEvolutionService';
 
 const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
 
@@ -29,6 +30,13 @@ async function getRepeatMatchCount(userA: string, userB: string): Promise<number
 
 // Event queue - must match the queue name used by publishers
 const eventQueue = new Queue('karmyq-events', REDIS_URL);
+
+// Community evolution queue — processes jobs queued by trustEvolutionService after user evolution
+const communityEvolutionQueue = new Queue('karmyq-community-evolution', REDIS_URL);
+communityEvolutionQueue.process(async (job) => {
+  const { communityId } = job.data;
+  await applyCommunityEvolution(communityId);
+});
 
 export { updateProviderCompletionRate };
 

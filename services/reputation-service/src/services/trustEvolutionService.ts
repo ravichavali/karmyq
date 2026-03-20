@@ -1,4 +1,5 @@
 // services/reputation-service/src/services/trustEvolutionService.ts
+import Queue from 'bull';
 import {
   getUserTrustConfig,
   upsertUserTrustConfig,
@@ -7,6 +8,17 @@ import {
   getCommunityEvolutionConfig,
 } from '../database/trustEvolutionDb';
 import { getCommunityTrustConfig } from '../database/trustConfigDb';
+
+const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
+// Lazy singleton — queue is only created when first used, not at import time
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let _communityEvolutionQueue: any = null;
+function getCommunityEvolutionQueue() {
+  if (!_communityEvolutionQueue) {
+    _communityEvolutionQueue = new Queue('karmyq-community-evolution', REDIS_URL);
+  }
+  return _communityEvolutionQueue;
+}
 
 export const EVOLUTION_SIGNALS = {
   CROSS_COMMUNITY_POSITIVE_FEEDBACK: 'cross_community_positive_feedback',
@@ -128,4 +140,17 @@ export async function evaluateUserEvolution(
       trigger_event_id: context.triggerEventId,
     });
   }
+
+  // Queue a community evolution check — fire-and-forget (don't await; never block user evolution)
+  getCommunityEvolutionQueue().add(
+    { communityId },
+    {
+      jobId: communityId,         // deduplication key — one pending job per community
+      delay: 5000,                // 5s delay to allow multiple user evolutions to coalesce
+      removeOnComplete: true,
+      removeOnFail: false,
+    }
+  ).catch((err: Error) => {
+    console.error('[trustEvolution] Failed to queue community evolution check:', err);
+  });
 }
