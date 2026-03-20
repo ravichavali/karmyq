@@ -104,6 +104,12 @@ Required sections:
 
 ---
 
+## User Guide & Doc Updates
+
+[MANDATORY — every sprint ships doc updates. List every user guide and concept page that needs creating or updating. Be specific: which guide, what section, what changes. If a new feature ships, a guide must ship with it.]
+
+---
+
 ## Critical Implementation Notes
 
 [Numbered list of gotchas, constraints, and non-obvious decisions that implementers MUST know.
@@ -179,7 +185,7 @@ File: `docs/superpowers/plans/YYYY-MM-DD-sprint-NN-{slug}.md`
 |----------|-------------|
 | Task 1 | Feature branch + DB migration (if schema changes) or first new file |
 | Tasks 2–(N-3) | Core implementation (backend services, routes, frontend, events) |
-| Task N-2 | ADR + landing page docs (if architectural decision) |
+| Task N-2 | User guides + landing page docs (mandatory every sprint) + ADR (if architectural decision) |
 | Task N-1 | CONTEXT.md + registry.json + TDD integration test |
 | Task N | Final type check + pre-push verification (`npm test`, `npm run feedback:check`) |
 
@@ -236,3 +242,4 @@ git commit -m "docs: Sprint NN spec + plan — ready to execute"
 | Handoff Quick Start doesn't mention `/execute-plan` | Next conversation won't know how to start |
 | Sprint number guessed instead of read from git | Always `git log --oneline -5` first |
 | Setting `evolution_enabled` defaults to `false` (opt-in) when it should be `true` (opt-out) | See `docs/IDEAS.md` [2026-03-20] — evolution defaults are opt-out |
+| Treating docs as optional ("no ADR this sprint") | User guides MUST be updated every sprint — even without an ADR, update affected guides and concept pages in `apps/landing/` |

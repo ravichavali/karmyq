@@ -5,7 +5,7 @@
 **Date**: 2026-03-20
 **Current Version**: v9.6.0 (Sprint 31 merged + deployed)
 **Branch**: Create `feature/sprint-32-fractal-feed` (see Quick Start)
-**Status**: Sprint 31 merged to master, CI/CD deploying to karmyq.com. Sprint 32 is next.
+**Status**: Sprint 31 merged to master, CI/CD deploying to karmyq.com. Sprint 32 designed and ready.
 
 ---
 
@@ -13,10 +13,10 @@
 
 1. Read this handoff
 2. Check out branch: `git checkout -b feature/sprint-32-fractal-feed`
-3. Sprint 32 goal: **Fractal feed — feed/matching uses blended individual + community evolved params**
-4. Before implementing: run `/sprint-planning` to design Sprint 32
+3. Open plan: `docs/superpowers/plans/2026-03-20-sprint-32-fractal-feed.md`
+4. Run: `/execute-plan` (uses superpowers:subagent-driven-development)
 
-> **Before Sprint 32 deploys**: apply Sprint 31 migration on demo:
+> **Before Sprint 32 deploys**: apply Sprint 31 migration on demo if not done:
 > ```bash
 > ssh ubuntu@karmyq.com
 > docker exec karmyq-postgres psql -U karmyq_prod -d karmyq_prod -f /dev/stdin < infrastructure/postgres/migrations/20260320-community-evolution.sql
@@ -24,89 +24,124 @@
 
 ---
 
+## Sprint 32 Goal
+
+Wire `getUserEffectiveParams()` into trust score computation and curated feed ranking so the three-sprint evolution arc (ADR-046) has real impact on what users see and how their trust scores are computed.
+
+---
+
 ## The 3-Sprint Arc (ADR-046)
 
 - **Sprint 30** ✅ — Individual trust config + evolution engine + history report
 - **Sprint 31** ✅ — Community evolution: aggregate member deltas → community config drift
-- **Sprint 32** (next) — Fractal feed: feed/matching uses blended individual + community model
+- **Sprint 32** (this sprint) — Fractal feed: evolved params wired into trust scores + curated feed; global opt-out surfaced in UI; arc complete
 
 ---
 
-## What Sprint 31 Delivered
+## What Sprint 32 Delivers
 
-### New files
-| File | What it does |
-|------|-------------|
-| `infrastructure/postgres/migrations/20260320-community-evolution.sql` | Flips evolution defaults to TRUE; adds `community_evolution_log` table |
-| `services/reputation-service/src/database/communityEvolutionDb.ts` | All DB reads/writes for community evolution |
-| `services/reputation-service/src/services/communityEvolutionService.ts` | Aggregation (median delta), damping (interaction rate health), 3-param nudge |
-| `docs/adr/ADR-047-community-evolution-engine.md` | Architecture Decision Record |
-| `docs/concepts/community-evolution.md` | Source for landing page concept page |
-| `tests/unit/reputation/communityEvolutionService.test.ts` | 13 unit tests (all pass) |
-| `tests/tdd/community-evolution-flow.test.ts` | Integration test placeholders |
-
-### Modified files
-| File | What changed |
-|------|-------------|
-| `services/reputation-service/src/services/trustEvolutionService.ts` | Fires community evolution queue (lazy init, fire-and-forget) after user evolution |
-| `services/reputation-service/src/events/subscriber.ts` | `karmyq-community-evolution` Bull queue consumer |
-| `services/reputation-service/src/routes/reputation.ts` | 3 new admin endpoints (history, summary, toggle) |
-| `apps/frontend/src/pages/communities/[id].tsx` | Community evolution summary in `CommunityTrustEvolutionSection` |
-| `apps/frontend/src/pages/reputation/trust.tsx` | "Contributing to community calibration" note |
-| `apps/frontend/src/lib/api.ts` | 3 new reputationService methods |
-| `infrastructure/postgres/init.sql` | Evolution defaults flipped to TRUE; `community_evolution_log` table added |
-| `scripts/generate-docs.ts` | Added `adr-047` + `community-evolution` to nav generation |
-
-### Key decisions made this session
-- **Lazy Bull queue init** in `trustEvolutionService.ts` — prevents Redis connection at module import time from blocking unit tests
-- **Fire-and-forget** queue add — `evaluateUserEvolution` doesn't await the queue job (non-critical path)
-- **`generate-docs.ts` is the source of truth for nav.json** — never edit `nav.json` directly; it's regenerated on prebuild. Edit `scripts/generate-docs.ts` instead.
-- **Concept pages come from `docs/concepts/*.md`** — not from JSON files in `apps/landing/`. Create the markdown source, let the generator produce the JSON.
+| Area | What ships |
+|------|-----------|
+| **Trust score computation** | `updateTrustScore()` uses evolved `depth_weight`/`breadth_weight` from `getUserEffectiveParams()` instead of static community defaults |
+| **Curated feed** | For null-degree (cross-community) requesters, trust distance score = `Math.round(cross_community_prior * 100)` instead of fixed 10 |
+| **Redis cache** | `effectiveParamsCache.ts` — key `trust_params:{userId}:{communityId}`, TTL 4h, invalidated on evolution write |
+| **Global opt-out** | New table `reputation.user_trust_preferences (user_id, global_evolution_enabled)` + 3 new API endpoints + UI toggle on trust page |
+| **Frontend** | Global toggle above per-community toggles; effective params shown as read-only badges; "future update" caveat removed |
+| **Docs** | ADR-046 status → Implemented; fractal-feed concept page; trust-evolution guide updated |
 
 ---
 
-## Sprint 32 Design Context
+## ⚠️ Critical Implementation Notes
 
-### What needs to happen
-`getUserEffectiveParams()` already exists in `trustEvolutionService.ts` and returns blended params — but it's **not yet wired** into `updateTrustScore()` or the feed/matching pipeline. Sprint 32 connects it.
+1. **`getUserEffectiveParams()` is already safe for null userConfig** — falls back to community defaults (karmaService.ts:82–85). No extra null guards needed.
 
-### Key integration point
-`services/reputation-service/src/services/trustEvolutionService.ts:61`
+2. **`updateTrustScore()` partial replacement** — only replace `depth_weight` and `breadth_weight` with effective params. Keep `feedback_threshold`, `min_interactions_for_bonus`, `negative_allowed` from community config (community policy, not user calibration).
+
+3. **Redis cache key**: `trust_params:{userId}:{communityId}`, TTL 14400s (4h). Invalidate in `evaluateUserEvolution()` after each `upsertUserTrustConfig()` call (caller-side pattern to avoid circular import).
+
+4. **Cross-community prior formula**: `degrees !== null ? scoreTrustDistance(degrees) : Math.round(cross_community_prior * 100)`. At prior=0.5 → 50 (up from fixed 10). Intentional behavior change.
+
+5. **Effective params HTTP call in request-service**: Fetch from reputation service at start of curated handler. Fall back to `{ depth_weight: 0.6, breadth_weight: 0.4, cross_community_prior: 0.5 }` if call fails — never block the feed.
+
+6. **Global opt-out gate**: Check `user_trust_preferences.global_evolution_enabled` FIRST in `isEvolutionEligible()`. Missing row = opted in (default TRUE).
+
+7. **`generate-docs.ts` is source of truth** — never edit `nav.json` directly. Run `npm run generate-docs` in `apps/landing/` after changes.
+
+8. **Global toggle placement**: ABOVE per-community toggles in `trust.tsx`. When global OFF, per-community toggles are grayed out with "global evolution paused" note.
+
+9. **Circular import guard**: `trustEvolutionDb.ts` → `effectiveParamsCache.ts` → `trustEvolutionService.ts` → `trustEvolutionDb.ts` is circular. Call `invalidateEffectiveParamsCache()` from `trustEvolutionService.ts`'s `evaluateUserEvolution()` (caller side), not from inside `trustEvolutionDb.ts`.
+
+10. **Sister community requests** in curated feed also need the cross-community prior applied — there's a second `calculateFeedScore` call around line 581 in `requests.ts`. Apply the same null-degree treatment there.
+
+---
+
+## Key Integration Points
+
+### `karmaService.ts:updateTrustScore()` (line ~253)
 ```typescript
-export async function getUserEffectiveParams(userId, communityId) {
-  // Returns: { depth_weight, breadth_weight, cross_community_prior }
-  // Blends user overrides + community defaults
-  // NOT YET USED by feed/matching — this is Sprint 32's job
-}
+// BEFORE:
+const [trustConfig, avg_feedback_score, trustMetrics] = await Promise.all([...])
+depth_weight: trustConfig.depth_weight,
+breadth_weight: trustConfig.breadth_weight,
+
+// AFTER:
+const [trustConfig, avg_feedback_score, trustMetrics, effectiveParams] = await Promise.all([
+  ..., getCachedEffectiveParams(user_id, community_id)
+])
+depth_weight: effectiveParams.depth_weight,   // evolved
+breadth_weight: effectiveParams.breadth_weight, // evolved
 ```
 
-### What Sprint 32 should wire up
-1. **Feed scoring** — `services/reputation-service/src/services/communityTrustService.ts` uses trust weights for feed ranking. Replace static community config weights with `getUserEffectiveParams()` output.
-2. **Match scoring** — `requests.matches` responder ranking should use evolved cross-community prior when scoring cross-community candidates.
-3. **Blend factor** — ADR-046 describes `(user_personal, community, blend_factor)` triple. Sprint 32 can start simple: just use `getUserEffectiveParams()` which already does the blend.
+### `requests.ts:GET /requests/curated` (null-degree requesters)
+```typescript
+const trustDistance = degrees !== null
+  ? scoreTrustDistance(degrees)
+  : Math.round(userEffectiveParams.cross_community_prior * 100);
+```
+
+### `trustEvolutionService.ts:isEvolutionEligible()` (global gate first)
+```typescript
+const [globalPref, communityEvolution, userConfig, lastEvolution] = await Promise.all([
+  getGlobalEvolutionPreference(userId), ...
+]);
+if (!globalPref) return false; // global gate — new
+if (!communityEvolution.community_evolution_enabled) return false;
+```
 
 ---
 
-## ⚠️ Critical Notes (carry forward)
+## File Map
 
-- **Migration runner**: `deploy.sh` does NOT auto-run migrations. Apply manually: `docker exec karmyq-postgres psql -U karmyq_prod -d karmyq_prod -f /dev/stdin < migration.sql`
-  *(DB user: `karmyq_prod`, DB: `karmyq_prod`)*
-- **Landing page nav**: Edit `scripts/generate-docs.ts` (NOT `apps/landing/src/data/docs/nav.json`). Run `npm run generate-docs` in `apps/landing/` after changes.
-- **Concept pages**: Source is `docs/concepts/*.md` → generator writes to `apps/landing/src/data/docs/concepts/`
-- **Landing page force-add**: `git add -f apps/landing/src/data/docs/...` since the directory is gitignored but files are tracked
-- **Registry.json events must be plain strings**: Landing page build fails if events are objects
-- **Community page is the admin page**: `/communities/[id]/admin` redirects to `/communities/[id]`. Tabs are role-gated.
-- **init.sql must stay in sync with migrations**: Add new columns/tables to both
-- **Trust score is 0-100 integer**: Stored as integer, display as-is
-- **LSP diagnostics are false positives**: `npx tsc --noEmit` is source of truth
-- **No worktrees**: Solo developer. Work directly on feature branch
-- **trust evolution — getUserEffectiveParams not wired to updateTrustScore**: Intentional. Sprint 32 connects it. Evolution log fills but displayed scores don't change yet.
-- **community evolution — evolution defaults are now TRUE (opt-out)**: Sprint 31 migration flips both tables. Existing rows updated.
-- **community evolution — no snapshot table**: Baselines from first `old_value` in `user_trust_evolution_log`.
-- **community evolution — Bull queue key is community_id**: `karmyq-community-evolution` queue uses community_id as job ID for deduplication.
-- **community evolution — minimum 3 contributing members**: Fewer than 3 → skip cycle.
-- **community evolution — hop count needs 3 consecutive prior cycles**: `trust_path_max_hops` only shifts after 3 consecutive `community_evolution_log` entries for `cross_community_prior` agree on direction.
-- **Bull queue lazy init in trustEvolutionService**: `_communityEvolutionQueue` is null at module load; created on first `evaluateUserEvolution` call. Fire-and-forget `.add().catch()` pattern.
+### New files
+| File | Responsibility |
+|------|---------------|
+| `infrastructure/postgres/migrations/20260320-fractal-feed.sql` | `reputation.user_trust_preferences` table |
+| `services/reputation-service/src/services/effectiveParamsCache.ts` | Redis cache: get/set/invalidate effective params |
+| `tests/unit/reputation/fractalFeed.test.ts` | Unit tests (TDD — write first) |
+| `tests/tdd/fractal-feed-flow.test.ts` | Integration test |
+| `docs/concepts/fractal-feed.md` | Source for landing page concept page |
+
+### Modified files
+| File | Change |
+|------|--------|
+| `services/reputation-service/src/services/karmaService.ts` | Wire effective params into `updateTrustScore()` |
+| `services/reputation-service/src/services/trustEvolutionService.ts` | Global opt-out gate in `isEvolutionEligible()` + cache invalidation |
+| `services/reputation-service/src/database/trustEvolutionDb.ts` | New DB helpers: `getGlobalEvolutionPreference`, `upsertGlobalEvolutionPreference` |
+| `services/reputation-service/src/routes/reputation.ts` | 3 new endpoints: effective-params GET, evolution-global GET/PUT |
+| `services/request-service/src/routes/requests.ts` | Cross-community prior in curated feed + sister requests |
+| `apps/frontend/src/pages/reputation/trust.tsx` | Global opt-out toggle + effective params display + caveat removal |
+| `apps/frontend/src/lib/api.ts` | 3 new methods: getGlobalEvolutionSetting, setGlobalEvolutionSetting, getEffectiveParams |
+| `infrastructure/postgres/init.sql` | Add `user_trust_preferences` table |
+| `services/reputation-service/CONTEXT.md` | Document 3 new endpoints |
+| `services/registry.json` | Add 3 new endpoints |
+| `scripts/generate-docs.ts` | Add fractal-feed + update ADR-046 + update trust-evolution guide |
+
+---
+
+## Carry-Forward Issues
+
+- **Migration runner**: deploy.sh does NOT auto-run migrations. Apply manually: `docker exec karmyq-postgres psql -U karmyq_prod -d karmyq_prod -f /dev/stdin < migration.sql`
+- **Sprint 31 migration must be applied first** on demo before Sprint 32 deploys
 
 ---
 
@@ -132,3 +167,9 @@ export async function getUserEffectiveParams(userId, communityId) {
 - **providerTrustService is the single formula source**: `recalculateProviderTrustScore` called from both `subscriber.ts` and `providerReviews.ts`.
 - **completeMatch requires user_id in body**: `PUT /matches/:id/complete` reads `user_id` from request body (not JWT).
 - **preferred_provider_id validation order**: PROVIDER_NOT_FOUND → PROVIDER_INACTIVE → PROVIDER_TYPE_MISMATCH — all before Zod schema validation.
+- **generate-docs.ts is source of truth for nav.json**: Never edit nav.json directly. Run `npm run generate-docs` in apps/landing/ after changes. Concept pages come from `docs/concepts/*.md`.
+- **Landing page force-add**: `git add -f apps/landing/src/data/docs/...` since directory is gitignored but files are tracked.
+- **No worktrees**: Solo developer. Work directly on feature branch.
+- **Evolution defaults are opt-out (TRUE)**: Sprint 31 migration flipped both tables. Community evolution defaults to enabled.
+- **community evolution — Bull queue key is community_id**: `karmyq-community-evolution` queue uses community_id as job ID for deduplication.
+- **Bull queue lazy init in trustEvolutionService**: `_communityEvolutionQueue` is null at module load; created on first `evaluateUserEvolution` call. Fire-and-forget `.add().catch()` pattern.
