@@ -109,3 +109,9 @@ Proposed improvements:
 Also related: simulation was stuck creating communities because of `access_type: 'open'` vs `'public'` mismatch (fixed 2026-03-18). Once new communities are created, users will spread across more communities and the graph will naturally diversify.
 
 ---
+
+## [2026-03-20] architecture
+
+Trust evolution defaults should be **opt-out, not opt-in**. Current Sprint 30 implementation requires users and communities to explicitly enable evolution. This is backwards — evolution should be on by default (both `community_evolution_enabled` and user's `evolution_enabled`), with an opt-out path for those who want a static trust model. Affects: migration defaults, `user_trust_configs` insert defaults, community config defaults, and UI copy (frame as "Your trust model evolves automatically" with an opt-out toggle, not an opt-in toggle).
+
+---

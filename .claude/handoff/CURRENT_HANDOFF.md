@@ -135,6 +135,19 @@ tests/tdd/trust-evolution-flow.test.ts
 
 ---
 
+## ⚠️ Sprint 31 Design Note: Evolution Should Be Opt-Out
+
+Current Sprint 30 implementation is opt-in (`community_evolution_enabled` defaults false, user `evolution_enabled` defaults false). **This is wrong** — evolution should be on by default with an opt-out path.
+
+Sprint 31 should fix:
+- Migration default for `community_configs.community_evolution_enabled` → `true`
+- `user_trust_configs` insert defaults → `evolution_enabled = true`
+- UI copy: "Your trust model evolves automatically" + opt-out toggle (not opt-in)
+
+Captured in `docs/IDEAS.md` [2026-03-20].
+
+---
+
 ## ⚠️ Known Issues / Watch List (carry-forward)
 
 - **Provider trust scores still show 30** for most providers — formula-correct but no reviews yet. Will improve organically.
