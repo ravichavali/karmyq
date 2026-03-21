@@ -63,6 +63,10 @@
         {
           "label": "Community Evolution",
           "href": "/docs/concepts/community-evolution"
+        },
+        {
+          "label": "Fractal Feed",
+          "href": "/docs/concepts/fractal-feed"
         }
       ]
     },

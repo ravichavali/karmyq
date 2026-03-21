@@ -264,6 +264,25 @@ router.get('/curated', async (req: Request, res: Response) => {
 
     const feedPrefs = feedPrefsResult.rows[0] || DEFAULT_FEED_PREFERENCES;
 
+    // Sprint 32: Fetch user effective trust params for cross-community prior in feed scoring
+    const EFFECTIVE_PARAMS_DEFAULT = { depth_weight: 0.6, breadth_weight: 0.4, cross_community_prior: 0.5 };
+    let userEffectiveParams = EFFECTIVE_PARAMS_DEFAULT;
+    const primaryCommunityId = communityId || (req as any).user?.communities?.[0]?.id;
+    if (primaryCommunityId) {
+      try {
+        const paramsRes = await fetch(
+          `${process.env.REPUTATION_API_URL || 'http://localhost:3004'}/reputation/users/${userId}/effective-params?communityId=${primaryCommunityId}`,
+          { headers: { Authorization: req.headers.authorization || '' } }
+        );
+        if (paramsRes.ok) {
+          const paramsData = await paramsRes.json() as { success: boolean; data?: typeof EFFECTIVE_PARAMS_DEFAULT };
+          if (paramsData.success && paramsData.data) userEffectiveParams = paramsData.data;
+        }
+      } catch {
+        // Non-fatal — use defaults; never block the feed
+      }
+    }
+
     // ADR-031: Fetch community configs for user's communities (for feed weights)
     const communityConfigsResult = await query(
       `SELECT
@@ -514,8 +533,11 @@ router.get('/curated', async (req: Request, res: Response) => {
       );
 
       // Trust distance from social graph cache
+      // Sprint 32: For null-degree (cross-community) requesters, use evolved cross_community_prior
       const degrees = trustDistanceMap.get(request.requester_id) ?? null;
-      const trustDistance = scoreTrustDistance(degrees);
+      const trustDistance = degrees !== null
+        ? scoreTrustDistance(degrees)
+        : Math.round(userEffectiveParams.cross_community_prior * 100);
 
       // Requester karma/trust for display
       const requesterReputation = requesterKarmaMap.get(request.requester_id) || {
@@ -574,7 +596,10 @@ router.get('/curated', async (req: Request, res: Response) => {
       );
       const urgencyVal = scoreUrgency(request.urgency || 'low');
       const degrees = trustDistanceMap.get(request.requester_id) ?? null;
-      const trustDistance = scoreTrustDistance(degrees);
+      // Sprint 32: Apply cross-community prior for null-degree sister requesters too
+      const trustDistance = degrees !== null
+        ? scoreTrustDistance(degrees)
+        : Math.round(userEffectiveParams.cross_community_prior * 100);
       const requesterReputation = requesterKarmaMap.get(request.requester_id) || {
         totalKarma: 0, trustScore: 50,
       };

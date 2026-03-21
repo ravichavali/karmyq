@@ -54,3 +54,14 @@ As long as you're participating, decay doesn't apply. If you take a break and co
 ## Multiple Communities
 
 Karma and trust are tracked separately in each community you belong to. Build reputation in each through participation there.
+
+
+---
+
+## Trust Model Evolution
+
+Your trust model evolves automatically based on your interaction patterns. On your Trust Score page, you can see your current calibration — how your depth weight, breadth weight, and cross-community prior have evolved from community defaults.
+
+**Global opt-out**: If you prefer your trust model to stay fixed, you can pause evolution globally from the Trust Score page. When paused, your parameters won't change regardless of per-community settings.
+
+**Effective parameters**: The badges shown in each community's evolution toggle reflect your current evolved values. These are read-only — they're computed from your history, not manually set.

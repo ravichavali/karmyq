@@ -679,6 +679,16 @@ export const reputationService = {
 
   toggleCommunityEvolution: (communityId: string, enabled: boolean) =>
     reputationApi.put(`/reputation/community/${communityId}/evolution/toggle`, { enabled }),
+
+  // Sprint 32: Global evolution opt-out + effective params
+  getGlobalEvolutionSetting: (userId: string) =>
+    reputationApi.get(`/reputation/users/${userId}/evolution-global`),
+
+  setGlobalEvolutionSetting: (userId: string, enabled: boolean) =>
+    reputationApi.put(`/reputation/users/${userId}/evolution-global`, { global_evolution_enabled: enabled }),
+
+  getEffectiveParams: (userId: string, communityId: string) =>
+    reputationApi.get(`/reputation/users/${userId}/effective-params?communityId=${communityId}`),
 }
 
 // User Settings API Methods (Auth Service)

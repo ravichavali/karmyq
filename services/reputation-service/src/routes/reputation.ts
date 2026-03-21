@@ -19,7 +19,10 @@ import {
   updateCommunityEvolutionConfig,
   getEvolutionOptInRate,
   isCrossCommunityParticipant,
+  getGlobalEvolutionPreference,
+  upsertGlobalEvolutionPreference,
 } from '../database/trustEvolutionDb';
+import { getCachedEffectiveParams } from '../services/effectiveParamsCache';
 import {
   getCommunityEvolutionHistory,
   getCommunityEvolutionSummary,
@@ -525,6 +528,62 @@ router.put('/community/:communityId/evolution/toggle', authMiddleware, async (re
     }
     await updateCommunityEvolutionConfig(communityId, { community_evolution_enabled: enabled });
     return res.json({ success: true, data: { community_evolution_enabled: enabled } });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
+// Sprint 32: Effective params + global evolution opt-out endpoints
+
+// GET /reputation/users/:userId/effective-params?communityId=
+// Returns blended trust params from Redis cache (4h TTL)
+router.get('/users/:userId/effective-params', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { userId } = req.params;
+    if (req.user?.userId !== userId) {
+      return res.status(403).json({ success: false, message: 'Forbidden' });
+    }
+    const { communityId } = req.query as { communityId: string };
+    if (!communityId) {
+      return res.status(400).json({ success: false, message: 'communityId required' });
+    }
+    const params = await getCachedEffectiveParams(userId, communityId);
+    return res.json({ success: true, data: params });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
+// GET /reputation/users/:userId/evolution-global
+router.get('/users/:userId/evolution-global', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { userId } = req.params;
+    if (req.user?.userId !== userId) {
+      return res.status(403).json({ success: false, message: 'Forbidden' });
+    }
+    const enabled = await getGlobalEvolutionPreference(userId);
+    return res.json({ success: true, data: { global_evolution_enabled: enabled } });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
+// PUT /reputation/users/:userId/evolution-global
+router.put('/users/:userId/evolution-global', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { userId } = req.params;
+    if (req.user?.userId !== userId) {
+      return res.status(403).json({ success: false, message: 'Forbidden' });
+    }
+    const { global_evolution_enabled } = req.body;
+    if (typeof global_evolution_enabled !== 'boolean') {
+      return res.status(400).json({ success: false, message: 'global_evolution_enabled (boolean) required' });
+    }
+    await upsertGlobalEvolutionPreference(userId, global_evolution_enabled);
+    return res.json({ success: true, data: { global_evolution_enabled } });
   } catch (err) {
     console.error(err);
     return res.status(500).json({ success: false, message: 'Internal server error' });

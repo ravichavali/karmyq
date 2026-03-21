@@ -6,8 +6,10 @@ import {
   insertEvolutionLog,
   getLastEvolutionForParameter,
   getCommunityEvolutionConfig,
+  getGlobalEvolutionPreference,
 } from '../database/trustEvolutionDb';
 import { getCommunityTrustConfig } from '../database/trustConfigDb';
+import { invalidateEffectiveParamsCache } from './effectiveParamsCache';
 
 const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
 // Lazy singleton — queue is only created when first used, not at import time
@@ -85,18 +87,20 @@ export async function getUserEffectiveParams(
   };
 }
 
-/** All three gates must pass for a nudge to apply. */
+/** All gates must pass for a nudge to apply. Global opt-out is checked first. */
 export async function isEvolutionEligible(
   userId: string,
   communityId: string,
   parameter: string,
   cooldownDays = 7
 ): Promise<boolean> {
-  const [communityEvolution, userConfig, lastEvolution] = await Promise.all([
+  const [globalPref, communityEvolution, userConfig, lastEvolution] = await Promise.all([
+    getGlobalEvolutionPreference(userId),
     getCommunityEvolutionConfig(communityId),
     getUserTrustConfig(userId, communityId),
     getLastEvolutionForParameter(userId, communityId, parameter),
   ]);
+  if (!globalPref) return false;                               // global opt-out gate (Sprint 32)
   if (!communityEvolution.community_evolution_enabled) return false;
   if (!userConfig?.evolution_enabled) return false;
   if (lastEvolution) {
@@ -130,6 +134,8 @@ export async function evaluateUserEvolution(
     if (newValue === currentValue) continue; // already at bound, no change
 
     await upsertUserTrustConfig(userId, communityId, { [parameter]: newValue });
+    // Invalidate Redis cache for this user+community pair (caller-side to avoid circular import)
+    await invalidateEffectiveParamsCache(userId, communityId);
     await insertEvolutionLog({
       user_id:          userId,
       community_id:     communityId,

@@ -158,6 +158,27 @@ export async function getDiverseCommunityCount(
   return parseInt(result.rows[0]?.community_count ?? '0', 10);
 }
 
+// Sprint 32: Global evolution opt-out per user
+export async function getGlobalEvolutionPreference(userId: string): Promise<boolean> {
+  const result = await query(
+    `SELECT global_evolution_enabled FROM reputation.user_trust_preferences WHERE user_id = $1`,
+    [userId]
+  );
+  // Missing row = opted in by default (TRUE)
+  return result.rows[0]?.global_evolution_enabled ?? true;
+}
+
+export async function upsertGlobalEvolutionPreference(userId: string, enabled: boolean): Promise<void> {
+  await query(
+    `INSERT INTO reputation.user_trust_preferences (user_id, global_evolution_enabled, updated_at)
+     VALUES ($1, $2, CURRENT_TIMESTAMP)
+     ON CONFLICT (user_id) DO UPDATE SET
+       global_evolution_enabled = $2,
+       updated_at = CURRENT_TIMESTAMP`,
+    [userId, enabled]
+  );
+}
+
 export async function isCrossCommunityParticipant(
   fromUserId: string,
   communityId: string

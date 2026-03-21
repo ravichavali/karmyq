@@ -6,6 +6,7 @@ import { getWeightedAvgFeedback } from '../database/feedbackDb';
 import { getTrustMetrics } from '../database/trustMetricsDb';
 import { getMaxOtherCommunityScore } from '../database/trustCarryDb';
 import { getCommunityTrustConfig } from '../database/trustConfigDb';
+import { getCachedEffectiveParams } from './effectiveParamsCache';
 
 interface MatchCompletionData {
   match_id: string;
@@ -250,10 +251,11 @@ export async function updateTrustScore(user_id: string, community_id: string) {
 
   const { offers_accepted, requests_completed, recent_interactions } = stats.rows[0];
 
-  const [trustConfig, avg_feedback_score, trustMetrics] = await Promise.all([
+  const [trustConfig, avg_feedback_score, trustMetrics, effectiveParams] = await Promise.all([
     getCommunityTrustConfig(community_id),
     getWeightedAvgFeedback(user_id, community_id),
     getTrustMetrics(user_id, community_id),
+    getCachedEffectiveParams(user_id, community_id),
   ]);
 
   const score = computeTrustScore({
@@ -262,11 +264,11 @@ export async function updateTrustScore(user_id: string, community_id: string) {
     repeat_interaction_pairs: trustMetrics.repeat_interaction_pairs,
     distinct_people_count: trustMetrics.distinct_people_count,
     distinct_communities_count: trustMetrics.distinct_communities_count,
-    depth_weight: trustConfig.depth_weight,
-    breadth_weight: trustConfig.breadth_weight,
-    feedback_threshold: trustConfig.feedback_threshold,
-    min_interactions_for_bonus: trustConfig.min_interactions_for_bonus,
-    negative_allowed: trustConfig.negative_allowed,
+    depth_weight: effectiveParams.depth_weight,      // evolved (Sprint 32)
+    breadth_weight: effectiveParams.breadth_weight,  // evolved (Sprint 32)
+    feedback_threshold: trustConfig.feedback_threshold,          // community policy
+    min_interactions_for_bonus: trustConfig.min_interactions_for_bonus, // community policy
+    negative_allowed: trustConfig.negative_allowed,              // community policy
   });
 
   // Upsert trust score

@@ -531,6 +531,13 @@ CREATE TABLE IF NOT EXISTS reputation.community_evolution_log (
 CREATE INDEX IF NOT EXISTS idx_cel_community_applied
   ON reputation.community_evolution_log (community_id, applied_at DESC);
 
+-- ADR-046: Sprint 32 — Global evolution opt-out per user
+CREATE TABLE IF NOT EXISTS reputation.user_trust_preferences (
+  user_id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  global_evolution_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Reputation decay function (ADR-011)
 CREATE OR REPLACE FUNCTION reputation.calculate_decayed_karma(
     original_karma INTEGER,

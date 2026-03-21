@@ -9,9 +9,12 @@ import {
 // Mock all DB modules — never hit real DB in unit tests
 jest.mock('../../../services/reputation-service/src/database/trustEvolutionDb');
 jest.mock('../../../services/reputation-service/src/database/trustConfigDb');
+// Sprint 32: mock effectiveParamsCache so tests don't spin up a real Redis connection
+jest.mock('../../../services/reputation-service/src/services/effectiveParamsCache');
 
 import * as trustEvolutionDb from '../../../services/reputation-service/src/database/trustEvolutionDb';
 import * as trustConfigDb from '../../../services/reputation-service/src/database/trustConfigDb';
+import * as effectiveParamsCache from '../../../services/reputation-service/src/services/effectiveParamsCache';
 
 const mockGetUserTrustConfig = trustEvolutionDb.getUserTrustConfig as jest.MockedFunction<typeof trustEvolutionDb.getUserTrustConfig>;
 const mockGetCommunityEvolutionConfig = trustEvolutionDb.getCommunityEvolutionConfig as jest.MockedFunction<typeof trustEvolutionDb.getCommunityEvolutionConfig>;
@@ -19,6 +22,8 @@ const mockGetLastEvolutionForParameter = trustEvolutionDb.getLastEvolutionForPar
 const mockUpsertUserTrustConfig = trustEvolutionDb.upsertUserTrustConfig as jest.MockedFunction<typeof trustEvolutionDb.upsertUserTrustConfig>;
 const mockInsertEvolutionLog = trustEvolutionDb.insertEvolutionLog as jest.MockedFunction<typeof trustEvolutionDb.insertEvolutionLog>;
 const mockGetCommunityTrustConfig = trustConfigDb.getCommunityTrustConfig as jest.MockedFunction<typeof trustConfigDb.getCommunityTrustConfig>;
+const mockGetGlobalEvolutionPreference = trustEvolutionDb.getGlobalEvolutionPreference as jest.MockedFunction<typeof trustEvolutionDb.getGlobalEvolutionPreference>;
+const mockInvalidateEffectiveParamsCache = effectiveParamsCache.invalidateEffectiveParamsCache as jest.MockedFunction<typeof effectiveParamsCache.invalidateEffectiveParamsCache>;
 
 // Field names must match what getCommunityTrustConfig (trustConfigDb.ts) actually returns.
 const COMMUNITY_DEFAULTS = {
@@ -43,6 +48,9 @@ beforeEach(() => {
   mockGetLastEvolutionForParameter.mockResolvedValue(null); // No prior adjustments
   mockUpsertUserTrustConfig.mockResolvedValue(undefined);
   mockInsertEvolutionLog.mockResolvedValue(undefined);
+  // Sprint 32: global opt-out defaults to enabled; cache invalidation is a no-op in tests
+  mockGetGlobalEvolutionPreference.mockResolvedValue(true);
+  mockInvalidateEffectiveParamsCache.mockResolvedValue(undefined);
 });
 
 describe('getUserEffectiveParams', () => {

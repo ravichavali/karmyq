@@ -181,7 +181,10 @@
           "PUT /reputation/communities/:communityId/trust-evolution",
           "GET /reputation/community/:communityId/evolution/history",
           "GET /reputation/community/:communityId/evolution/summary",
-          "PUT /reputation/community/:communityId/evolution/toggle"
+          "PUT /reputation/community/:communityId/evolution/toggle",
+          "GET /reputation/users/:userId/effective-params",
+          "GET /reputation/users/:userId/evolution-global",
+          "PUT /reputation/users/:userId/evolution-global"
         ],
         "consumes": [
           "/auth/verify"

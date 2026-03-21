@@ -5,6 +5,7 @@
 
 ## Recent Changes
 
+- **2026-03-20 (Sprint 32 — Fractal Feed, ADR-046 complete)**: `updateTrustScore()` now fetches evolved `depth_weight`/`breadth_weight` via `getCachedEffectiveParams()` (Redis cache, TTL 4h) instead of static community defaults. `isEvolutionEligible()` now checks global opt-out (`reputation.user_trust_preferences`) first. New table: `reputation.user_trust_preferences (user_id, global_evolution_enabled)`. 3 new endpoints: GET `/reputation/users/:userId/effective-params?communityId=`, GET/PUT `/reputation/users/:userId/evolution-global`. New file: `effectiveParamsCache.ts`. Curated feed in request-service uses `cross_community_prior × 100` as trust distance for null-degree requesters. ADR-046 status: Implemented.
 - **2026-03-19 (Sprint 30 — Trust Evolution Foundation)**: Per-user trust parameter evolution implemented (ADR-046). New tables: `reputation.user_trust_configs` (per-user depth_weight, breadth_weight, cross_community_prior, evolution_enabled) and `reputation.user_trust_evolution_log` (immutable adjustment log). Added `community_evolution_enabled` + `cross_community_prior` columns to `communities.community_configs`. 5 new API routes: GET/PUT `/reputation/trust-config/:userId/:communityId`, GET `/reputation/trust-config/:userId/:communityId/history`, GET/PUT `/reputation/communities/:communityId/trust-evolution`. Evolution signals wired into `match_completed` Bull event handler. Inline feedback evolution via `POST /reputation/feedback`. New files: `trustConfigDb.ts`, `trustEvolutionDb.ts`, `trustEvolutionService.ts`.
 - **2026-03-04 (Sprint 14 — Prestige Badges)**: Phase 1 prestige badges implemented (ADR-016). Migration 024 adds `reputation.badges` table. New service: `badgeService.ts` (`checkAndAwardBadges`, `getUserBadges`). Badges wired into `match_completed` handler in `subscriber.ts`. New endpoint: `GET /reputation/users/:userId/badges`. Badge types: `first_helper`, `milestone_10`, `milestone_50`, `milestone_100`, `connector` (10+ distinct people helped). 11 unit tests in `tests/unit/reputation/prestige-badges.test.ts`.
 - **2026-02-27 (Sprint 8 — ADR-040 + trust UX)**: Community Trust Score implemented (ADR-040). Bonding/bridging model: `member_quality(40) + bonding(retention+completion) + bridging(cross-community+external)` weighted by `community_trust_bonding_weight/bridging_weight` config. New files: `communityTrustDb.ts`, `communityTrustService.ts`. New endpoint: `GET /reputation/community-trust/:communityId`. New endpoint: `GET /reputation/trust/:userId` (overall weighted-average trust score). Migration 021. Trust page updated to ADR-037 formula display. Feed default changed to composite (no auto-select of first community).
@@ -1267,6 +1268,37 @@ Admin — drift summary: first evolution date, evolved parameter count, last con
 
 ### PUT /reputation/community/:communityId/evolution/toggle
 Admin — enable/disable community evolution engine. Body: `{ "enabled": boolean }`.
+
+**Implementation:** `src/routes/reputation.ts` | `src/database/trustEvolutionDb.ts`
+
+---
+
+## Fractal Feed API Endpoints (Sprint 32 — ADR-046 complete)
+
+### GET /reputation/users/:userId/effective-params?communityId=
+Returns blended trust params from Redis cache (4h TTL), falls back to DB on cache miss. Auth: self only.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| depth_weight | number | Evolved depth weight (or community default if not evolved) |
+| breadth_weight | number | Evolved breadth weight (or community default if not evolved) |
+| cross_community_prior | number | Evolved cross-community prior |
+
+**Implementation:** `src/routes/reputation.ts` | `src/services/effectiveParamsCache.ts`
+
+---
+
+### GET /reputation/users/:userId/evolution-global
+Returns the user's global evolution opt-in preference. Missing row = true (default opt-in). Auth: self only.
+
+**Response:** `{ success: true, data: { global_evolution_enabled: boolean } }`
+
+**Implementation:** `src/routes/reputation.ts` | `src/database/trustEvolutionDb.ts`
+
+---
+
+### PUT /reputation/users/:userId/evolution-global
+Set global evolution enabled/disabled for the user. Body: `{ "global_evolution_enabled": boolean }`. Auth: self only.
 
 **Implementation:** `src/routes/reputation.ts` | `src/database/trustEvolutionDb.ts`
 

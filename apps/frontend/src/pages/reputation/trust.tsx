@@ -4,7 +4,15 @@ import Head from 'next/head'
 import Layout from '@/components/Layout'
 import { reputationService } from '@/lib/api'
 
-function TrustEvolutionToggle({ community, userId }: { community: { community_id: string; community_name: string }; userId: string }) {
+function TrustEvolutionToggle({
+  community,
+  userId,
+  globalEvolutionEnabled,
+}: {
+  community: { community_id: string; community_name: string }
+  userId: string
+  globalEvolutionEnabled: boolean | null
+}) {
   const [config, setConfig] = useState<any>(null)
   const [loading, setLoading] = useState(true)
 
@@ -36,9 +44,11 @@ function TrustEvolutionToggle({ community, userId }: { community: { community_id
 
   const evolutionEnabled = config?.user_config?.evolution_enabled ?? false
   const communityEvolutionEnabled = config?.community_evolution_enabled ?? false
+  const effectiveParams = config?.effective_params
+  const globalPaused = globalEvolutionEnabled === false
 
   return (
-    <div className="border rounded-lg p-4 mb-3">
+    <div className={`border rounded-lg p-4 mb-3 ${globalPaused ? 'opacity-60' : ''}`}>
       <div className="flex justify-between items-center">
         <div>
           <div className="font-medium">{community.community_name}</div>
@@ -47,16 +57,20 @@ function TrustEvolutionToggle({ community, userId }: { community: { community_id
               Your community hasn&apos;t enabled trust evolution yet.
             </div>
           )}
-          {communityEvolutionEnabled && config?.effective_params && (
-            <div className="text-xs text-gray-500 mt-1">
-              Cross-community trust calibration:{' '}
-              {(config.effective_params.cross_community_prior * 100).toFixed(0)}
+          {globalPaused && (
+            <div className="text-xs text-gray-400 mt-1">Global evolution paused</div>
+          )}
+          {communityEvolutionEnabled && effectiveParams && evolutionEnabled && !globalPaused && (
+            <div className="text-xs text-gray-500 mt-1 space-x-1">
+              <span className="inline-block bg-gray-100 rounded px-1.5 py-0.5">Depth {(effectiveParams.depth_weight * 100).toFixed(0)}%</span>
+              <span className="inline-block bg-gray-100 rounded px-1.5 py-0.5">Breadth {(effectiveParams.breadth_weight * 100).toFixed(0)}%</span>
+              <span className="inline-block bg-gray-100 rounded px-1.5 py-0.5">Cross-community {(effectiveParams.cross_community_prior * 100).toFixed(0)}%</span>
             </div>
           )}
         </div>
         <button
           onClick={handleToggle}
-          disabled={!communityEvolutionEnabled}
+          disabled={!communityEvolutionEnabled || globalPaused}
           className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
             evolutionEnabled
               ? 'bg-blue-600 text-white'
@@ -66,7 +80,7 @@ function TrustEvolutionToggle({ community, userId }: { community: { community_id
           {evolutionEnabled ? 'Evolution On' : 'Evolution Off'}
         </button>
       </div>
-      {evolutionEnabled && (
+      {evolutionEnabled && !globalPaused && (
         <div className="mt-2 text-right">
           <a
             href={`/reputation/evolution?communityId=${community.community_id}`}
@@ -76,7 +90,7 @@ function TrustEvolutionToggle({ community, userId }: { community: { community_id
           </a>
         </div>
       )}
-      {evolutionEnabled && (
+      {evolutionEnabled && !globalPaused && (
         <p className="text-xs text-gray-500 mt-2">
           Your trust model is evolving and contributing to your community&apos;s calibration.
         </p>
@@ -90,6 +104,7 @@ export default function TrustScorePage() {
   const [user, setUser] = useState<any>(null)
   const [overallData, setOverallData] = useState<any>(null)
   const [loading, setLoading] = useState(true)
+  const [globalEvolutionEnabled, setGlobalEvolutionEnabled] = useState<boolean | null>(null)
 
   useEffect(() => {
     const token = localStorage.getItem('token')
@@ -110,8 +125,12 @@ export default function TrustScorePage() {
   const fetchTrustData = async (userId: string) => {
     try {
       setLoading(true)
-      const trustRes = await reputationService.getOverallTrustScore(userId)
+      const [trustRes, globalRes] = await Promise.all([
+        reputationService.getOverallTrustScore(userId),
+        reputationService.getGlobalEvolutionSetting(userId).catch(() => null),
+      ])
       setOverallData(trustRes.data)
+      setGlobalEvolutionEnabled(globalRes?.data?.global_evolution_enabled ?? true)
     } catch (err) {
       console.error('Failed to fetch trust data:', err)
     } finally {
@@ -305,14 +324,49 @@ export default function TrustScorePage() {
                 <h2 className="text-xl font-semibold mb-4">Trust Model Evolution</h2>
                 <p className="text-gray-600 text-sm mb-4">
                   When enabled, your trust model calibrates automatically based on your experiences.
-                  The goal is accuracy — not a particular direction. Your trust model is calibrating.
-                  It will influence your experience in a future update.
+                  The goal is accuracy — not a particular direction.
+                  It shapes your trust scores and the requests you see in your feed.
                 </p>
+
+                {/* Global opt-out toggle */}
+                {globalEvolutionEnabled !== null && (
+                  <div className="border rounded-lg p-4 mb-5 bg-surface-raised">
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <div className="font-semibold text-text">Trust evolution</div>
+                        <div className="text-xs text-text-muted mt-1">
+                          {globalEvolutionEnabled
+                            ? 'Your trust model is calibrating based on your experiences.'
+                            : 'Trust evolution is paused. Your model will not change.'}
+                        </div>
+                      </div>
+                      <button
+                        onClick={async () => {
+                          const next = !globalEvolutionEnabled
+                          setGlobalEvolutionEnabled(next)
+                          try {
+                            await reputationService.setGlobalEvolutionSetting(user.id, next)
+                          } catch {
+                            setGlobalEvolutionEnabled(!next) // revert
+                          }
+                        }}
+                        className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
+                          globalEvolutionEnabled ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-600'
+                        }`}
+                      >
+                        {globalEvolutionEnabled ? 'Active' : 'Paused'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Per-community toggles */}
                 {communityBreakdown.map((community) => (
                   <TrustEvolutionToggle
                     key={community.community_id}
                     community={community}
                     userId={user.id}
+                    globalEvolutionEnabled={globalEvolutionEnabled}
                   />
                 ))}
               </div>

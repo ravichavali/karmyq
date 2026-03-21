@@ -1,6 +1,6 @@
 # ADR-046: Trust Model Evolution
 
-**Status**: Accepted
+**Status**: Implemented
 **Date**: 2026-03-19
 **Deciders**: Platform team
 **Relates to**: ADR-037 (Multi-Signal Trust Score), ADR-040 (Community Trust Score), ADR-043 (Three-Score Model)
@@ -42,3 +42,11 @@ A Bayesian prior (0.05–0.95, default 0.50) representing the starting trust ass
 | `cross_community_match_completed` | `match_completed` event | `cross_community_prior` +0.01 |
 | `repeat_interaction_same_person` | `match_completed` event | `depth_weight` +0.01 |
 | `diverse_community_interactions` | `match_completed` event | `breadth_weight` +0.02, `cross_community_prior` +0.01 |
+
+
+## Implementation Notes
+
+The three-sprint arc is complete as of Sprint 32 (2026-03-20):
+- **Sprint 30** — Individual trust config + evolution engine + history report deployed
+- **Sprint 31** — Community Evolution Engine deployed (ADR-047)
+- **Sprint 32** — Fractal Feed deployed: `updateTrustScore()` uses evolved `depth_weight`/`breadth_weight` from `getCachedEffectiveParams()`; curated feed uses `cross_community_prior` for null-degree requesters; global opt-out toggle available in trust page UI; Redis cache (TTL 4h) for effective params.
