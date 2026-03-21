@@ -62,4 +62,74 @@ body {
   .card          { @apply bg-surface-raised rounded-xl border border-border shadow-sm; }
   .input         { @apply w-full px-4 py-2.5 border border-border rounded-lg bg-surface text-text placeholder:text-text-subtle focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent; }
   .section-heading { @apply text-lg font-semibold text-text mb-4; }
+
+  /* ── Tab Bar (desktop horizontal tabs) ── */
+  .tab-bar {
+    @apply flex border-b border-border bg-surface-raised;
+  }
+  .tab-bar-item {
+    @apply px-5 py-3 text-sm font-medium text-text-muted border-b-2 border-transparent
+           hover:text-text hover:border-border transition-all cursor-pointer whitespace-nowrap;
+  }
+  .tab-bar-item.active {
+    @apply text-primary border-primary;
+  }
+
+  /* ── Bottom Nav (mobile sticky footer) ── */
+  .bottom-nav {
+    @apply fixed bottom-0 left-0 right-0 z-50 flex bg-surface-raised border-t border-border
+           md:hidden;
+  }
+  .bottom-nav-item {
+    @apply flex-1 flex flex-col items-center justify-center py-2 gap-0.5 text-xs
+           font-medium text-text-muted transition-colors;
+  }
+  .bottom-nav-item.active {
+    @apply text-primary;
+  }
+  .bottom-nav-item svg {
+    @apply w-5 h-5;
+  }
+
+  /* ── FAB (Floating Action Button) ── */
+  .fab {
+    @apply fixed bottom-24 right-6 z-40 btn-primary shadow-lg rounded-full
+           px-5 py-3 flex items-center gap-2 text-sm font-semibold
+           md:bottom-8;
+  }
+
+  /* ── Status Badges (commitment state) ── */
+  .status-badge {
+    @apply inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium;
+  }
+  .status-badge--proposed {
+    @apply bg-gray-100 text-gray-600;
+  }
+  .status-badge--matched {
+    @apply bg-blue-50 text-blue-700;
+  }
+  .status-badge--in-progress {
+    @apply bg-amber-50 text-amber-700;
+  }
+  .status-badge--pending-confirmation {
+    @apply bg-green-50 text-green-700;
+  }
+  .status-badge--completed {
+    @apply bg-gray-50 text-gray-500;
+  }
+
+  /* ── Filter Chips ── */
+  .filter-chip {
+    @apply px-3 py-1.5 rounded-full text-sm font-medium border border-border
+           bg-surface text-text-muted hover:bg-surface-raised transition-colors
+           cursor-pointer whitespace-nowrap;
+  }
+  .filter-chip.active {
+    @apply bg-primary text-white border-primary;
+  }
+
+  /* ── Feed Card (extends .card) ── */
+  .feed-card {
+    @apply card p-4 hover:shadow-md transition-shadow cursor-pointer;
+  }
 }

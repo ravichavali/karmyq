@@ -3,6 +3,39 @@ import { useRouter } from 'next/router'
 import Link from 'next/link'
 import NotificationBell from './NotificationBell'
 
+function HamburgerMenu() {
+  const [open, setOpen] = useState(false)
+  return (
+    <div className="relative md:hidden">
+      <button
+        onClick={() => setOpen(!open)}
+        className="p-2 rounded-lg text-text-muted hover:bg-surface transition-colors"
+        aria-label="Open menu"
+      >
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+        </svg>
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+          <div className="absolute right-0 mt-1 w-48 bg-surface-raised border border-border rounded-xl shadow-lg z-50 py-1">
+            <Link href="/communities" className="block px-4 py-2 text-sm text-text hover:bg-surface transition-colors" onClick={() => setOpen(false)}>
+              Communities
+            </Link>
+            <Link href="/providers" className="block px-4 py-2 text-sm text-text hover:bg-surface transition-colors" onClick={() => setOpen(false)}>
+              Service Providers
+            </Link>
+            <Link href="/profile" className="block px-4 py-2 text-sm text-text hover:bg-surface transition-colors" onClick={() => setOpen(false)}>
+              Profile
+            </Link>
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
 interface LayoutProps {
   children: React.ReactNode
   title?: string
@@ -43,38 +76,30 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
                 Karmyq
               </Link>
 
-              <div className="flex gap-6 items-center">
-                {/* Main Navigation - Simplified */}
-                <Link
-                  href="/dashboard"
-                  className={`px-4 py-2 font-medium rounded-lg transition-all ${
-                    router.pathname === '/dashboard'
-                      ? 'bg-primary-light text-primary'
-                      : 'text-text-muted hover:bg-surface'
-                  }`}
-                >
-                  Dashboard
-                </Link>
-                <Link
-                  href="/communities"
-                  className={`px-4 py-2 font-medium rounded-lg transition-all ${
-                    router.pathname.startsWith('/communities')
-                      ? 'bg-primary-light text-primary'
-                      : 'text-text-muted hover:bg-surface'
-                  }`}
-                >
-                  Communities
-                </Link>
-                <Link
-                  href="/providers"
-                  className={`px-4 py-2 font-medium rounded-lg transition-all ${
-                    router.pathname.startsWith('/providers')
-                      ? 'bg-primary-light text-primary'
-                      : 'text-text-muted hover:bg-surface'
-                  }`}
-                >
-                  Service Providers
-                </Link>
+              <div className="flex gap-4 items-center">
+                {/* Secondary nav — desktop only */}
+                <div className="hidden md:flex gap-2 items-center">
+                  <Link
+                    href="/communities"
+                    className={`px-3 py-2 text-sm font-medium rounded-lg transition-all ${
+                      router.pathname.startsWith('/communities')
+                        ? 'bg-primary-light text-primary'
+                        : 'text-text-muted hover:bg-surface'
+                    }`}
+                  >
+                    Communities
+                  </Link>
+                  <Link
+                    href="/providers"
+                    className={`px-3 py-2 text-sm font-medium rounded-lg transition-all ${
+                      router.pathname.startsWith('/providers')
+                        ? 'bg-primary-light text-primary'
+                        : 'text-text-muted hover:bg-surface'
+                    }`}
+                  >
+                    Providers
+                  </Link>
+                </div>
 
                 {user && (
                   <>
@@ -94,7 +119,7 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
                       </Link>
                       <button
                         onClick={handleLogout}
-                        className="px-4 py-2 text-sm font-medium text-text-muted hover:text-error transition-colors"
+                        className="hidden md:flex px-4 py-2 text-sm font-medium text-text-muted hover:text-error transition-colors"
                         title="Logout"
                       >
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -102,6 +127,7 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
                         </svg>
                       </button>
                     </div>
+                    <HamburgerMenu />
                   </>
                 )}
               </div>

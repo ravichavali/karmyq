@@ -246,6 +246,7 @@ interface ConceptPage {
 const CONCEPT_ORDER = [
   'platform-overview',
   'the-village-model',
+  'ux-design-principles',
   'neighborhood-service-layer',
   'what-is-karma',
   'trust-and-karma',

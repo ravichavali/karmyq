@@ -29,11 +29,18 @@ After registering, head to **Communities** in the nav.
 
 ---
 
-## 3. Get to Know the App
+## 3. Navigate the App
 
-Once you're in a community, spend a few minutes browsing the feed. You'll see what people are asking for and what others are offering.
+After logging in, you'll see four tabs at the top (or bottom on mobile):
 
-Some communities ask new members to wait a bit before posting big requests — it's just a way to build trust first. In the meantime, look for easy ways to help.
+- **Browse** — See requests from your community that you can help with
+- **Commitments** — Track everything you've agreed to do (and everything you're waiting on)
+- **My Requests** — Manage the help you've asked for and incoming offers
+- **Profile** — Your karma, trust score, and settings
+
+Use the **community selector** at the top to filter by a specific community, or leave it as "All" to see everything.
+
+Some communities ask new members to wait a bit before posting big requests — it's just a way to build trust first. In the meantime, look for easy ways to help on the **Browse** tab.
 
 ---
 

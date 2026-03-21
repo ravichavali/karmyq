@@ -1,0 +1,9 @@
+{
+  "slug": "adr-008-three-column-dashboard",
+  "number": "008",
+  "title": "ADR-008: 3-Column Dashboard Layout (V7)",
+  "status": "superseded",
+  "description": "**Date**: 2025-12-29",
+  "content": "# ADR-008: 3-Column Dashboard Layout (V7)\r\n\r\n**Date**: 2025-12-29\r\n**Status**: Superseded by ADR-005 (Minimalist Dashboard)\r\n**Deciders**: Development Team\r\n**Related**: docs/architecture/V7_UI_ARCHITECTURE.md, ADR-005\r\n\r\n## Context\r\n\r\nV7.0 introduced a complete UI overhaul focusing on information density and social engagement.\r\n\r\n## Decision\r\n\r\n**3-column layout inspired by Twitter/X and LinkedIn:**\r\n- **Left Sidebar (25%)**: User profile, karma, trust score, community selector\r\n- **Center Feed (50%)**: Quick create, milestones, feed posts, requests, inline chat\r\n- **Right Sidebar (25%)**: Community health, recent milestones, top helpers\r\n\r\n**Responsive:**\r\n- Desktop (≥1024px): Full 3-column\r\n- Mobile (<1024px): Single column (center feed only)\r\n- Sticky sidebars on desktop\r\n\r\n## Why Superseded\r\n\r\nUser feedback preferred **minimalist, action-focused design** over information-dense layout:\r\n- 3-column was overwhelming on smaller screens\r\n- Cognitive load too high\r\n- Mobile-first approach better for target users\r\n- **V8.0 adopted minimalist dashboard (ADR-005)**\r\n\r\n## Historical Value\r\n\r\nV7 architecture teaches important lessons:\r\n- Information density has limits\r\n- Mobile-first > desktop-first for mutual aid\r\n- Action-oriented > stats-oriented\r\n- Progressive disclosure > show everything\r\n\r\n## References\r\n\r\n- V7 Architecture: `docs/architecture/V7_UI_ARCHITECTURE.md`\r\n- Current design: ADR-005 (Minimalist Dashboard Design)\r\n- User feedback: \"Preferred compact design\"\r\n",
+  "filename": "ADR-008-three-column-dashboard.md"
+}

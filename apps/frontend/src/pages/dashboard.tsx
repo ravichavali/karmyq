@@ -4,26 +4,15 @@ import Head from 'next/head'
 import { requestService, communityService, providerService } from '@/lib/api'
 import { feedApi } from '@/lib/api'
 import Layout from '@/components/Layout'
-import InlineChat from '@/components/InlineChat'
-import LeftSidebar from '@/components/LeftSidebar'
-import RightSidebar from '@/components/RightSidebar'
-import MilestonePost from '@/components/MilestonePost'
 import ExtractedDataChips from '@/components/ExtractedDataChips'
 import EnhancedAutocomplete from '@/components/EnhancedAutocomplete'
-import OfferItem from '@/components/OfferItem'
-import TrustPathBadge, { TrustPathBadgeSkeleton } from '@/components/TrustPathBadge'
-import { useTrustPath } from '@/hooks/useTrustPath'
-import UpcomingPanel from '@/components/UpcomingPanel'
-import FeedFilterPanel from '@/components/FeedFilterPanel'
 import EmptyState from '@/components/EmptyState'
 import WelcomeModal from '@/components/WelcomeModal'
+import TabBar, { TabId } from '@/components/TabBar'
+import BrowseFeed from '@/components/BrowseFeed'
+import CommitmentsTab from '@/components/CommitmentsTab'
+import MyRequestsTab from '@/components/MyRequestsTab'
 
-function FeedPostTrustBadge({ requesterId }: { requesterId?: string }) {
-  const { trustPath, loading } = useTrustPath(requesterId)
-  if (loading) return <TrustPathBadgeSkeleton compact />
-  if (!trustPath) return null
-  return <TrustPathBadge trustPath={trustPath} compact />
-}
 import { parseRequestDescription, buildPayloadFromParsed, updateLocationCoordinates, getSuggestions, type ParsedRequest, type AutocompleteSuggestion } from '@/lib/requestParser'
 import DynamicForm from '@/components/requests/DynamicForm'
 import type { UISchema } from '@karmyq/shared/schemas/ui'
@@ -174,6 +163,10 @@ export default function Dashboard() {
   const [showFilter, setShowFilter] = useState(false)
   const [filterTrustDistance, setFilterTrustDistance] = useState<string>('')
   const [filterRequestType, setFilterRequestType] = useState<string>('')
+
+  // Tab shell state
+  const [activeTab, setActiveTab] = useState<TabId>('browse')
+  const [showRequestForm, setShowRequestForm] = useState(false)
 
   useEffect(() => {
     // Only run on client-side (not during SSR)
@@ -843,6 +836,7 @@ export default function Dashboard() {
     )
   }
 
+
   return (
     <>
       <Head>
@@ -850,492 +844,216 @@ export default function Dashboard() {
       </Head>
       <Layout>
         <WelcomeModal user={user} />
-        <div className="min-h-screen bg-surface">
-          {/* 3-Column Layout */}
-          <div className="container mx-auto px-4 py-4 max-w-7xl">
-            <div className="grid grid-cols-12 gap-4">
-              {/* Left Sidebar - 25% */}
-              <div className="col-span-12 lg:col-span-3 hidden lg:block">
-                <div className="sticky top-4">
-                  <LeftSidebar
-                    user={user}
-                    communities={userCommunities}
-                    activeCommunityId={activeCommunityId || userCommunities[0]?.id}
-                    karmaRefreshKey={karmaRefreshKey}
-                    onCommunityChange={handleCommunityChange}
-                  />
-                </div>
+
+        {/* Community selector row */}
+        <div className="bg-surface-raised border-b border-border px-4 py-2 flex items-center gap-3">
+          <label className="text-sm font-medium text-text-muted shrink-0">Community:</label>
+          <select
+            value={activeCommunityId}
+            onChange={(e) => handleCommunityChange(e.target.value)}
+            className="text-sm border border-border rounded-lg px-2 py-1.5 bg-surface text-text focus:outline-none focus:ring-2 focus:ring-primary"
+          >
+            <option value="">All communities</option>
+            {userCommunities.map((c) => (
+              <option key={c.id} value={c.id}>{c.name}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* Desktop tab bar */}
+        <TabBar activeTab={activeTab} onChange={setActiveTab} />
+
+        {/* Tab content */}
+        <div className="pb-20 md:pb-0">
+          {activeTab === 'browse' && <BrowseFeed communityId={activeCommunityId || undefined} />}
+          {activeTab === 'commitments' && <CommitmentsTab />}
+          {activeTab === 'my-requests' && <MyRequestsTab onNewRequest={() => setShowRequestForm(true)} />}
+          {activeTab === 'profile' && (
+            <div className="max-w-2xl mx-auto px-4 py-8">
+              <EmptyState
+                heading="Profile"
+                body="View your full profile, karma history, and settings."
+                ctaLabel="Go to Profile"
+                ctaHref="/profile"
+              />
+            </div>
+          )}
+        </div>
+
+        {/* FAB — only on browse and commitments */}
+        {(activeTab === 'browse' || activeTab === 'commitments') && (
+          <button className="fab" onClick={() => setShowRequestForm(true)}>
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+              <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+            Get Help
+          </button>
+        )}
+
+        {/* Request Form Modal */}
+        {showRequestForm && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-end md:items-center justify-center p-4">
+            <div className="bg-surface-raised rounded-t-2xl md:rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+              <div className="p-4 border-b border-border flex items-center justify-between">
+                <h2 className="font-semibold text-text">Post a Request</h2>
+                <button onClick={() => setShowRequestForm(false)} className="text-text-muted hover:text-text transition-colors">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
               </div>
-
-              {/* Center Feed - 50% */}
-              <div className="col-span-12 lg:col-span-6">
-                {/* Quick Create - Compact */}
-                <div className="bg-surface-raised rounded-xl shadow-sm p-4 mb-4 border border-border">
-              <div className="flex items-start gap-4">
-                <div className="w-10 h-10 bg-gradient-to-br from-primary to-accent rounded-full flex items-center justify-center text-white font-semibold flex-shrink-0">
-                  {user.name?.charAt(0).toUpperCase()}
+              <div className="p-4">
+                {/* Request type selector */}
+                <div className="flex items-center gap-2 mb-3 flex-wrap">
+                  {availableTypes.map((type) => (
+                    <button
+                      key={type.value}
+                      type="button"
+                      onClick={() => {
+                        setRequestType(type.value)
+                        setSelectedProvider(null)
+                        setDynamicPayload({})
+                        fetchSchema(type.value)
+                      }}
+                      className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+                        requestType === type.value
+                          ? 'bg-primary text-white shadow-sm'
+                          : 'bg-border-light text-text-muted hover:bg-gray-200'
+                      }`}
+                    >
+                      <span className="mr-1">{type.icon}</span>
+                      {type.label}
+                    </button>
+                  ))}
                 </div>
-                <div className="flex-1">
-                  {/* Request Type Selector — always visible, no default */}
-                  <div className="flex items-center gap-2 mb-3 flex-wrap">
-                    {availableTypes.map((type) => (
-                      <button
-                        key={type.value}
-                        type="button"
-                        onClick={() => {
-                          setRequestType(type.value)
-                          setSelectedProvider(null)
-                          setDynamicPayload({})
-                          fetchSchema(type.value)
+
+                {requestType ? (
+                  <>
+                    {schemaLoading && <div className="text-xs text-text-subtle py-2">Loading form…</div>}
+                    {!schemaLoading && currentSchema && currentSchema.sections.length > 0 && (
+                      <div className="mb-3">
+                        <DynamicForm schema={currentSchema} value={dynamicPayload} onChange={setDynamicPayload} />
+                      </div>
+                    )}
+                    <div className="relative mb-2">
+                      <textarea
+                        ref={setTextareaRef}
+                        value={description}
+                        onChange={(e) => handleDescriptionChange(e.target.value, e.target.selectionStart)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Escape' && autocompleteSuggestions.length > 0) {
+                            e.preventDefault()
+                            handleCloseAutocomplete()
+                          }
                         }}
-                        className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
-                          requestType === type.value
-                            ? 'bg-primary text-white shadow-sm'
-                            : 'bg-border-light text-text-muted hover:bg-gray-200'
-                        }`}
-                      >
-                        <span className="mr-1">{type.icon}</span>
-                        {type.label}
-                      </button>
-                    ))}
-                  </div>
-
-                  {/* Form body — only shown after type is selected */}
-                  {requestType && (
-                    <>
-                      {/* Schema-driven dynamic form for structured types */}
-                      {schemaLoading && (
-                        <div className="text-xs text-text-subtle py-2">Loading form…</div>
-                      )}
-                      {!schemaLoading && currentSchema && currentSchema.sections.length > 0 && (
-                        <div className="mb-3">
-                          <DynamicForm
-                            schema={currentSchema}
-                            value={dynamicPayload}
-                            onChange={setDynamicPayload}
-                          />
-                        </div>
-                      )}
-
-                      {/* Textarea: plain for structured forms, smart for generic */}
-                      {currentSchema && currentSchema.sections.length > 0 ? (
-                        <div className="mb-2">
-                          <p className="text-xs font-medium text-text-muted mb-1">Additional context <span className="text-text-subtle font-normal">(optional — appended to your post)</span></p>
-                          <textarea
-                            value={description}
-                            onChange={(e) => setDescription(e.target.value)}
-                            placeholder="Add any extra context for community members..."
-                            className="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent resize-none text-sm"
-                            rows={2}
-                          />
-                        </div>
-                      ) : (
-                        <div className="relative mb-2">
-                          <textarea
-                            ref={setTextareaRef}
-                            value={description}
-                            onChange={(e) => handleDescriptionChange(e.target.value, e.target.selectionStart)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Escape' && autocompleteSuggestions.length > 0) {
-                                e.preventDefault()
-                                handleCloseAutocomplete()
-                              }
-                            }}
-                            placeholder="What do you need help with? Tip: Use @time, @location, #count, $budget, !urgent"
-                            className="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent resize-none text-sm"
-                            rows={2}
-                          />
-                          {autocompleteSuggestions.length > 0 && (
-                            <EnhancedAutocomplete
-                              suggestions={autocompleteSuggestions}
-                              onSelect={handleSelectSuggestion}
-                              onClose={handleCloseAutocomplete}
-                              triggerChar={autocompleteTrigger}
-                              searchQuery={searchQuery}
-                            />
-                          )}
-                        </div>
-                      )}
-
-                      {parsedRequest && !currentSchema && (
-                        <ExtractedDataChips
-                          parsed={parsedRequest}
-                          onRemove={handleRemoveExtractedData}
+                        placeholder="What do you need help with? Tip: Use @time, @location, #count, $budget, !urgent"
+                        className="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent resize-none text-sm"
+                        rows={3}
+                      />
+                      {autocompleteSuggestions.length > 0 && (
+                        <EnhancedAutocomplete
+                          suggestions={autocompleteSuggestions}
+                          onSelect={handleSelectSuggestion}
+                          onClose={handleCloseAutocomplete}
+                          triggerChar={autocompleteTrigger}
+                          searchQuery={searchQuery}
                         />
                       )}
-                    </>
-                  )}
-
-                  {/* Pre-select provider — only for non-generic types */}
-                  {requestType && requestType !== 'generic' && (
-                    <div className="mt-4">
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Pre-select a provider (optional)
-                      </label>
-                      {selectedProvider ? (
-                        <div className="flex items-center gap-2 text-sm bg-primary-light border border-border rounded px-3 py-2">
-                          <span>{selectedProvider.display_name}</span>
-                          <button type="button" onClick={() => setSelectedProvider(null)} className="text-gray-400 hover:text-gray-600 ml-auto">×</button>
-                        </div>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => fetchAndShowProviderPicker()}
-                          className="text-sm btn-ghost"
-                        >
-                          Browse providers →
-                        </button>
-                      )}
                     </div>
-                  )}
-
-                  {!requestType && (
-                    <p className="text-xs text-text-subtle mb-2">Select a type above to get started</p>
-                  )}
-
-                  <div className="flex items-center justify-between mt-2">
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => setPostingMode('all')}
-                        className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
-                          postingMode === 'all'
-                            ? 'bg-primary-light text-primary-dark'
-                            : 'bg-border-light text-text-muted hover:bg-gray-200'
-                        }`}
-                      >
-                        All Communities
-                      </button>
-                      <button
-                        onClick={() => setPostingMode('specific')}
-                        className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
-                          postingMode === 'specific'
-                            ? 'bg-primary-light text-primary-dark'
-                            : 'bg-border-light text-text-muted hover:bg-gray-200'
-                        }`}
-                      >
-                        Specific
-                      </button>
-                    </div>
-                    <button
-                      onClick={handleCreateRequest}
-                      disabled={!requestType || creating || (!description.trim() && !(currentSchema && currentSchema.sections.length > 0 && Object.keys(dynamicPayload).length > 0))}
-                      className="px-4 py-1.5 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary-dark disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                    >
-                      {creating ? 'Posting...' : 'Post'}
-                    </button>
-                  </div>
-                  {postingMode === 'specific' && (
-                    <div className="mt-2">
-                      <select
-                        value={selectedCommunity}
-                        onChange={(e) => setSelectedCommunity(e.target.value)}
-                        className="w-full px-3 py-1.5 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent text-sm"
-                      >
-                        <option value="">Select a community...</option>
-                        {userCommunities.map((community) => (
-                          <option key={community.id} value={community.id}>
-                            {community.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
-                  <div className="mt-2">
-                    <p className="text-xs text-text-subtle mb-1.5">Who can see this request?</p>
-                    <div className="flex items-center gap-2">
-                      {([
-                        { value: 'community', label: '🏘 Community', title: 'My community only' },
-                        { value: 'trust_network', label: '🤝 Trust network', title: 'My connections up to 3°' },
-                        { value: 'platform', label: '🌐 Everyone', title: 'All Karmyq members' },
-                      ] as const).map(({ value, label, title }) => (
-                        <button
-                          key={value}
-                          type="button"
-                          onClick={() => setVisibilityScope(value)}
-                          title={title}
-                          className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
-                            visibilityScope === value
-                              ? 'bg-primary-light text-primary-dark'
-                              : 'bg-border-light text-text-muted hover:bg-gray-200'
-                          }`}
-                        >
-                          {label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-                {/* Upcoming Commitments */}
-                <UpcomingPanel
-                  matches={upcomingMatches}
-                  currentUserId={user.id}
-                  activeCommunityId={activeCommunityId}
-                  onComplete={handleCompleteMatch}
-                />
-
-                {/* Feed Header */}
-                <div className="flex items-center justify-between mb-3 relative">
-                  <h2 className="text-lg font-bold text-text">Your Feed</h2>
-                  <button
-                    onClick={() => setShowFilter((v) => !v)}
-                    className={`text-xs px-2.5 py-1 rounded-md border transition-colors ${
-                      showFilter || filterTrustDistance || filterRequestType
-                        ? 'bg-primary text-white border-primary'
-                        : 'text-text-subtle border-border hover:bg-border-light'
-                    }`}
-                  >
-                    {filterTrustDistance || filterRequestType ? '✓ Filtered' : 'Filter'}
-                  </button>
-
-                  {showFilter && (
-                    <FeedFilterPanel
-                      filterTrustDistance={filterTrustDistance}
-                      filterRequestType={filterRequestType}
-                      availableTypes={availableTypes}
-                      onTrustDistanceChange={setFilterTrustDistance}
-                      onRequestTypeChange={setFilterRequestType}
-                      onClear={() => { setFilterTrustDistance(''); setFilterRequestType(''); setShowFilter(false) }}
-                    />
-                  )}
-                </div>
-
-                {/* Milestone Posts - Compact */}
-                {milestones.length > 0 && (
-                  <div className="space-y-3 mb-4">
-                    {milestones.map((milestone: any) => (
-                      <MilestonePost
-                        key={milestone.id}
-                        {...milestone}
-                      />
-                    ))}
-                  </div>
-                )}
-
-                {!loading && feedItems.length === 0 ? (
-                  <EmptyState
-                    icon="🤝"
-                    heading="Nothing here yet"
-                    body="Join a community and post your first request — or offer to help someone."
-                    ctaLabel="Browse Communities"
-                    ctaHref="/communities"
-                  />
+                    {parsedRequest && !currentSchema && (
+                      <ExtractedDataChips parsed={parsedRequest} onRemove={handleRemoveExtractedData} />
+                    )}
+                  </>
                 ) : (
-                  <div className="space-y-3">
-                  {feedItems.map((item, index) => {
-                    const { post, comments, isMyPost, isMyOffer, hasAcceptedOffer, myMatch, priority } = item
-
-                    // Determine post styling based on type
-                    let bgColor = 'bg-surface-raised'
-                    let borderColor = 'border-border'
-                    let badgeColor = 'bg-border-light text-text-muted'
-                    let badgeText = ''
-
-                    if (isMyPost && hasAcceptedOffer) {
-                      bgColor = 'bg-karmyq-orange-50'
-                      borderColor = 'border-l-4 border-amber-400'
-                      badgeColor = 'bg-karmyq-orange-100 text-karmyq-orange-700'
-                      badgeText = '✓ YOUR REQUEST - MATCHED'
-                    } else if (isMyPost) {
-                      bgColor = 'bg-karmyq-orange-50'
-                      borderColor = 'border-l-4 border-amber-400'
-                      badgeColor = 'bg-karmyq-orange-100 text-karmyq-orange-700'
-                      badgeText = 'YOUR REQUEST'
-                    } else if (isMyOffer && myMatch?.status === 'matched') {
-                      bgColor = 'bg-primary-light'
-                      borderColor = 'border-l-4 border-primary'
-                      badgeColor = 'bg-primary-light text-primary-dark'
-                      badgeText = '✓ YOU\'RE HELPING'
-                    } else if (isMyOffer && myMatch?.status === 'proposed') {
-                      bgColor = 'bg-primary-light'
-                      borderColor = 'border-l-4 border-primary'
-                      badgeColor = 'bg-primary-light text-primary-dark'
-                      badgeText = 'YOUR OFFER'
-                    }
-
-                    return (
-                      <div
-                        key={`post-${post.id}-${index}`}
-                        className={`${bgColor} ${borderColor} rounded-lg shadow-sm overflow-hidden hover:shadow-md transition-shadow`}
-                      >
-                        <div className="p-4">
-                          {/* Post Header */}
-                          <div className="flex items-start justify-between mb-2">
-                            <div className="flex items-center gap-2 flex-1">
-                              <div className="w-8 h-8 bg-gradient-to-br from-primary to-accent rounded-full flex items-center justify-center text-white text-xs font-semibold flex-shrink-0">
-                                {post.requester_name?.charAt(0).toUpperCase() || '?'}
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <p className="font-medium text-sm text-text flex items-center gap-1 flex-wrap">
-                                  <span className="truncate">{post.requester_name || 'Unknown'}</span>
-                                  {!isMyPost && <FeedPostTrustBadge requesterId={post.requester_id} />}
-                                </p>
-                                <p className="text-xs text-text-subtle">{formatTime(post.created_at)}</p>
-                              </div>
-                            </div>
-                            {badgeText && (
-                              <span className={`text-xs font-medium px-2 py-0.5 rounded ${badgeColor} whitespace-nowrap`}>{badgeText}</span>
-                            )}
-                          </div>
-
-                          {/* Post Content */}
-                          <p className="text-text text-sm leading-relaxed mb-2">{post.description}</p>
-
-                          {/* Post Meta */}
-                          <div className="flex items-center gap-3 text-xs text-text-muted mb-2">
-                            <span className="flex items-center gap-1">
-                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
-                                />
-                              </svg>
-                              {post.community_name}
-                            </span>
-                            {comments.length > 0 && isMyPost && (
-                              <span className="text-text-muted font-medium">
-                                💬 {comments.length} {comments.length === 1 ? 'offer' : 'offers'}
-                              </span>
-                            )}
-                          </div>
-
-                          {/* Action Button - Only for community requests */}
-                          {!isMyPost && !isMyOffer && (
-                            <button
-                              onClick={() => handleOfferToHelp(post.id)}
-                              className="w-full px-3 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary-dark transition-colors"
-                            >
-                              💬 Offer to Help
-                            </button>
-                          )}
-
-                          {/* Comments Section - Offers/Responses */}
-                          {comments.length > 0 && (() => {
-                            // Sort comments: accepted first, then by created_at
-                            const sortedComments = [...comments].sort((a, b) => {
-                              // Accepted (matched) come first
-                              if (a.status === 'matched' && b.status !== 'matched') return -1
-                              if (a.status !== 'matched' && b.status === 'matched') return 1
-                              // Otherwise sort by creation time (newest first)
-                              return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-                            })
-
-                            // Show top 3 comments by default, or all if expanded
-                            const isExpanded = expandedPosts.has(post.id)
-                            const visibleComments = isExpanded ? sortedComments : sortedComments.slice(0, 3)
-                            const hasMore = sortedComments.length > 3
-
-                            return (
-                            <div className="mt-4 pt-4 border-t border-border">
-                              <h3 className="text-sm font-semibold text-text mb-3">
-                                {isMyPost ? `Responses (${comments.length})` : 'Your Conversation'}
-                              </h3>
-                              <div className="space-y-3">
-                                {visibleComments.map((comment: Match) => (
-                                  <OfferItem
-                                    key={comment.id}
-                                    comment={comment}
-                                    isMyPost={isMyPost}
-                                    currentUserId={user.id}
-                                    onAccept={handleAcceptMatch}
-                                    onReject={handleRejectMatch}
-                                    onComplete={handleCompleteMatch}
-                                    formatTime={formatTime}
-                                  />
-                                ))}
-
-                                {/* Show More/Less Button */}
-                                {hasMore && (
-                                  <button
-                                    onClick={() => {
-                                      const newExpanded = new Set(expandedPosts)
-                                      if (isExpanded) {
-                                        newExpanded.delete(post.id)
-                                      } else {
-                                        newExpanded.add(post.id)
-                                      }
-                                      setExpandedPosts(newExpanded)
-                                    }}
-                                    className="w-full py-2 text-sm text-primary hover:text-primary-dark font-medium transition-colors"
-                                  >
-                                    {isExpanded
-                                      ? `Show Less ↑`
-                                      : `Show ${sortedComments.length - 3} More Responses ↓`
-                                    }
-                                  </button>
-                                )}
-                              </div>
-                            </div>
-                            )
-                          })()}
-                        </div>
-                      </div>
-                    )
-                  })}
-                  </div>
+                  <p className="text-xs text-text-subtle mb-3">Select a type above to get started</p>
                 )}
-              </div>
 
-              {/* Right Sidebar - 25% */}
-              <div className="col-span-12 lg:col-span-3 hidden lg:block">
-                <div className="sticky top-4">
-                  <RightSidebar communityId={activeCommunityId || userCommunities[0]?.id} />
+                {/* Posting scope */}
+                <div className="flex items-center gap-3 mb-4 text-sm flex-wrap">
+                  <button
+                    onClick={() => setPostingMode('all')}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border transition-colors ${postingMode === 'all' ? 'border-primary bg-primary-light text-primary' : 'border-border text-text-muted hover:bg-surface-raised'}`}
+                  >
+                    All Communities
+                  </button>
+                  <button
+                    onClick={() => setPostingMode('specific')}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border transition-colors ${postingMode === 'specific' ? 'border-primary bg-primary-light text-primary' : 'border-border text-text-muted hover:bg-surface-raised'}`}
+                  >
+                    Specific
+                  </button>
+                  {postingMode === 'specific' && (
+                    <select
+                      value={selectedCommunity}
+                      onChange={(e) => setSelectedCommunity(e.target.value)}
+                      className="flex-1 text-sm border border-border rounded-lg px-2 py-1.5 bg-surface"
+                    >
+                      <option value="">Select community</option>
+                      {userCommunities.map((c) => (
+                        <option key={c.id} value={c.id}>{c.name}</option>
+                      ))}
+                    </select>
+                  )}
                 </div>
+
+                <button
+                  onClick={async () => { await handleCreateRequest(); setShowRequestForm(false) }}
+                  disabled={creating || !requestType}
+                  className="btn-primary w-full disabled:opacity-50"
+                >
+                  {creating ? 'Posting…' : 'Post Request'}
+                </button>
               </div>
             </div>
           </div>
-        </div>
-      </Layout>
+        )}
 
-      {/* Provider Picker Modal */}
-      {showProviderPicker && (
-        <div className="fixed inset-0 bg-black bg-opacity-40 z-50 flex items-center justify-center">
-          <div className="bg-white rounded-xl p-6 w-full max-w-md max-h-[70vh] overflow-y-auto">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="font-semibold text-gray-800">Browse Providers</h3>
-              <button onClick={() => setShowProviderPicker(false)} className="text-gray-400 hover:text-gray-600">×</button>
-            </div>
-            {providerPickerLoading ? (
-              <p className="text-sm text-gray-400">Loading providers...</p>
-            ) : providerPickerProviders.length === 0 ? (
-              <p className="text-sm text-gray-400">No providers available for this request type.</p>
-            ) : (
-              <ul className="space-y-3">
-                {providerPickerProviders.map((p) => (
-                  <li key={p.id} className="border rounded-lg p-3">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <p className="text-sm font-medium">{p.display_name}</p>
-                        {p.trust_score != null && (
-                          <p className="text-xs text-gray-500">Trust: {p.trust_score}</p>
-                        )}
-                        <ul className="mt-1 space-y-0.5">
-                          {p.rate_cards.filter((c) => c.is_active).map((card) => (
-                            <li key={card.id} className="text-xs text-gray-500">
-                              {card.label} — {formatRateCard(card)}
-                            </li>
-                          ))}
-                        </ul>
+        {/* Provider Picker Modal */}
+        {showProviderPicker && (
+          <div className="fixed inset-0 bg-black bg-opacity-40 z-50 flex items-center justify-center">
+            <div className="bg-white rounded-xl p-6 w-full max-w-md max-h-[70vh] overflow-y-auto">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="font-semibold text-gray-800">Browse Providers</h3>
+                <button onClick={() => setShowProviderPicker(false)} className="text-gray-400 hover:text-gray-600">×</button>
+              </div>
+              {providerPickerLoading ? (
+                <p className="text-sm text-gray-400">Loading providers...</p>
+              ) : providerPickerProviders.length === 0 ? (
+                <p className="text-sm text-gray-400">No providers available for this request type.</p>
+              ) : (
+                <ul className="space-y-3">
+                  {providerPickerProviders.map((p) => (
+                    <li key={p.id} className="border rounded-lg p-3">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <p className="text-sm font-medium">{p.display_name}</p>
+                          {p.trust_score != null && (
+                            <p className="text-xs text-gray-500">Trust: {p.trust_score}</p>
+                          )}
+                          <ul className="mt-1 space-y-0.5">
+                            {p.rate_cards.filter((c: any) => c.is_active).map((card: any) => (
+                              <li key={card.id} className="text-xs text-gray-500">
+                                {card.label} — {formatRateCard(card)}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => { setSelectedProvider({ id: p.id, display_name: p.display_name }); setShowProviderPicker(false) }}
+                          className="ml-3 text-xs btn-primary py-1 shrink-0"
+                        >
+                          Pre-select
+                        </button>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => { setSelectedProvider({ id: p.id, display_name: p.display_name }); setShowProviderPicker(false) }}
-                        className="ml-3 text-xs btn-primary py-1 shrink-0"
-                      >
-                        Pre-select
-                      </button>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </Layout>
     </>
   )
 }

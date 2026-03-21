@@ -6,12 +6,12 @@ Posting a request is how you ask your community for help. It takes about a minut
 
 ## How to Post a Request
 
-1. From your dashboard or the community feed, click **New Request**
-2. Choose a request type (see below)
-3. Write a clear title and description
-4. Set a location if relevant
-5. Set a date if you need it by a specific time
-6. Submit
+1. Go to the **My Requests** tab (or tap the **+ Get Help** button from anywhere)
+2. Click **New Request** at the top of the page
+3. Choose a request type (see below)
+4. Describe what you need — the system will help you fill in the details
+5. Choose who can see your request (all communities, or a specific one)
+6. Submit — offers from community members will appear in your request detail
 
 Your request will appear in the community feed straight away.
 
