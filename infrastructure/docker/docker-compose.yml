@@ -139,6 +139,7 @@ services:
       REDIS_URL: redis://redis:6379
       JWT_SECRET: dev_jwt_secret_change_in_production
       RATE_LIMIT_DISABLED: true
+      REPUTATION_API_URL: http://reputation-service:3004
     ports:
       - "127.0.0.1:3003:3003"
     depends_on:

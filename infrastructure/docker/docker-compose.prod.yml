@@ -55,6 +55,7 @@ services:
       DATABASE_URL: ${DATABASE_URL}
       REDIS_URL: ${REDIS_URL}
       JWT_SECRET: ${JWT_SECRET}
+      REPUTATION_API_URL: http://reputation-service:3004
     deploy:
       resources:
         limits:

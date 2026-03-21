@@ -270,10 +270,13 @@ router.get('/curated', async (req: Request, res: Response) => {
     const primaryCommunityId = communityId || (req as any).user?.communities?.[0]?.id;
     if (primaryCommunityId) {
       try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 3000); // 3s timeout — never block the feed
         const paramsRes = await fetch(
-          `${process.env.REPUTATION_API_URL || 'http://localhost:3004'}/reputation/users/${userId}/effective-params?communityId=${primaryCommunityId}`,
-          { headers: { Authorization: req.headers.authorization || '' } }
+          `${process.env.REPUTATION_API_URL || 'http://reputation-service:3004'}/reputation/users/${userId}/effective-params?communityId=${primaryCommunityId}`,
+          { headers: { Authorization: req.headers.authorization || '' }, signal: controller.signal }
         );
+        clearTimeout(timeout);
         if (paramsRes.ok) {
           const paramsData = await paramsRes.json() as { success: boolean; data?: typeof EFFECTIVE_PARAMS_DEFAULT };
           if (paramsData.success && paramsData.data) userEffectiveParams = paramsData.data;
