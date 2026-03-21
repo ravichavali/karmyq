@@ -4,6 +4,7 @@ import Head from 'next/head'
 import Link from 'next/link'
 import { communityService, reputationService } from '@/lib/api'
 import Layout from '@/components/Layout'
+import EmptyState from '@/components/EmptyState'
 
 interface Community {
   id: string
@@ -340,21 +341,13 @@ export default function CommunitiesPage() {
               <div className="text-text-subtle">Loading communities...</div>
             </div>
           ) : communities.length === 0 ? (
-            <div className="bg-surface-raised rounded-lg shadow-md p-8 text-center">
-              <p className="text-text-muted mb-4">
-                {searchQuery || locationFilter || categoryFilter
-                  ? 'No communities match your search criteria. Try adjusting your filters.'
-                  : 'No communities yet. Be the first to create one!'}
-              </p>
-              {!searchQuery && !locationFilter && !categoryFilter && (
-                <Link
-                  href="/communities/new"
-                  className="inline-block px-6 py-3 bg-primary text-white rounded hover:bg-primary-dark"
-                >
-                  Create Community
-                </Link>
-              )}
-            </div>
+            <EmptyState
+              icon="🏘️"
+              heading="No communities found"
+              body="Try a different search, or start your own community."
+              ctaLabel="Create a Community"
+              ctaHref="/communities/new"
+            />
           ) : (
             <>
               <div className="mb-4 text-sm text-text-muted">
@@ -430,7 +423,7 @@ export default function CommunitiesPage() {
                               </span>
                             )}
                             {community.active_community_count > 0 && (
-                              <span className="px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-medium">
+                              <span className="px-2 py-0.5 rounded-full bg-primary-light text-primary font-medium">
                                 {community.active_community_count} active
                               </span>
                             )}

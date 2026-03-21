@@ -144,6 +144,14 @@
           "href": "/docs/concepts/adr-007-polymorphic-request-system"
         },
         {
+          "label": "Minimalist Dashboard Design",
+          "href": "/docs/concepts/adr-005-minimalist-dashboard"
+        },
+        {
+          "label": "3-Column Dashboard Layout (V7)",
+          "href": "/docs/concepts/adr-008-three-column-dashboard"
+        },
+        {
           "label": "— Trust & Reputation —",
           "href": "/docs/concepts",
           "divider": true
@@ -157,11 +165,11 @@
           "href": "/docs/concepts/adr-036-private-feedback-model"
         },
         {
-          "label": "Multi-Signal Trust Score — Bonding Capital, Bridging Ca",
+          "label": "Multi-Signal Trust Score — Bonding Capital, Bridging Capital, and Community-Conf",
           "href": "/docs/concepts/adr-037-multi-signal-trust-score"
         },
         {
-          "label": "Cross-Community Trust — Carry Model with Community-Conf",
+          "label": "Cross-Community Trust — Carry Model with Community-Configurable Decay",
           "href": "/docs/concepts/adr-038-cross-community-trust"
         },
         {
@@ -197,8 +205,12 @@
           "href": "/docs/concepts/adr-016-prestige-based-recognition"
         },
         {
-          "label": "Three-Score Model — Karma, Personal Trust, and Provider",
+          "label": "Three-Score Model — Karma, Personal Trust, and Provider Trust",
           "href": "/docs/concepts/adr-043-three-score-model"
+        },
+        {
+          "label": "Karma Allocation Strategy and Trust Score Abstraction",
+          "href": "/docs/concepts/adr-035-karma-allocation-trust-score-strategy"
         },
         {
           "label": "— Community & Scale —",
@@ -218,7 +230,7 @@
           "href": "/docs/concepts/adr-019-referral-chain-trust"
         },
         {
-          "label": "Configurable Trust Path Filtering & Adaptive Trust Pref",
+          "label": "Configurable Trust Path Filtering & Adaptive Trust Preferences",
           "href": "/docs/concepts/adr-021-trust-path-filtering"
         },
         {
@@ -251,6 +263,10 @@
           "href": "/docs/concepts/adr-042-provider-trust-score"
         },
         {
+          "label": "Offer Fulfillment Workflow",
+          "href": "/docs/concepts/adr-033-offer-fulfillment-workflow"
+        },
+        {
           "label": "— Infrastructure —",
           "href": "/docs/concepts",
           "divider": true
@@ -274,6 +290,34 @@
         {
           "label": "Observability Stack (Grafana/Loki/Prometheus)",
           "href": "/docs/concepts/adr-015-observability-stack"
+        },
+        {
+          "label": "Natural Language Parsing for Location Input",
+          "href": "/docs/concepts/adr-001-natural-language-location-parsing"
+        },
+        {
+          "label": "3-Tier Geocoding Cache Architecture",
+          "href": "/docs/concepts/adr-002-geocoding-cache-architecture"
+        },
+        {
+          "label": "Real-Time Communication Stack (WebSocket + SSE)",
+          "href": "/docs/concepts/adr-012-realtime-communication"
+        },
+        {
+          "label": "Testing Strategy (Integration + E2E + Unit)",
+          "href": "/docs/concepts/adr-014-testing-strategy"
+        },
+        {
+          "label": "Infrastructure Standardization and Environment Management",
+          "href": "/docs/concepts/adr-023-infrastructure-standardization"
+        },
+        {
+          "label": "Synthetic User Simulation for Demo Environment",
+          "href": "/docs/concepts/adr-024-synthetic-user-simulation"
+        },
+        {
+          "label": "Docker Image Size Optimization (Deferred Technical Debt)",
+          "href": "/docs/concepts/adr-027-docker-image-optimization-deferred"
         }
       ]
     },

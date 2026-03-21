@@ -5,7 +5,12 @@ import Link from 'next/link'
 import Layout from '@/components/Layout'
 import { api, communityService, reputationService, userSettingsService, providerService, collectiveService } from '@/lib/api'
 import InvitationChain, { InvitationChainSkeleton } from '@/components/InvitationChain'
-import NetworkGraph from '@/components/NetworkGraph'
+import dynamic from 'next/dynamic'
+
+const NetworkGraph = dynamic(() => import('@/components/NetworkGraph'), {
+  loading: () => <div className="card p-8 text-center text-text-muted animate-pulse">Loading network...</div>,
+  ssr: false,
+})
 import ProviderProfileTab from '@/components/ProviderProfileTab'
 import { useInvitationChain } from '@/hooks/useInvitationChain'
 
@@ -53,6 +58,88 @@ interface Community {
   max_members: number
 }
 
+function TrustEvolutionToggle({
+  community,
+  userId,
+  globalEvolutionEnabled,
+}: {
+  community: { community_id: string; community_name: string }
+  userId: string
+  globalEvolutionEnabled: boolean | null
+}) {
+  const [config, setConfig] = useState<any>(null)
+  const [toggleLoading, setToggleLoading] = useState(true)
+
+  useEffect(() => {
+    reputationService.getTrustConfig(userId, community.community_id)
+      .then((res: any) => setConfig(res.data))
+      .catch(() => {})
+      .finally(() => setToggleLoading(false))
+  }, [userId, community.community_id])
+
+  const handleToggle = async () => {
+    const newValue = !config?.user_config?.evolution_enabled
+    setConfig((prev: any) => ({
+      ...prev,
+      user_config: { ...(prev?.user_config ?? {}), evolution_enabled: newValue },
+    }))
+    try {
+      await reputationService.updateTrustConfig(userId, community.community_id, { evolution_enabled: newValue })
+    } catch {
+      setConfig((prev: any) => ({
+        ...prev,
+        user_config: { ...(prev?.user_config ?? {}), evolution_enabled: !newValue },
+      }))
+    }
+  }
+
+  if (toggleLoading) return <div className="text-sm text-text-muted py-2">Loading {community.community_name}…</div>
+
+  const evolutionEnabled = config?.user_config?.evolution_enabled ?? false
+  const communityEvolutionEnabled = config?.community_evolution_enabled ?? false
+  const effectiveParams = config?.effective_params
+  const globalPaused = globalEvolutionEnabled === false
+
+  return (
+    <div className={`border border-border rounded-lg p-4 mb-3 ${globalPaused ? 'opacity-60' : ''}`}>
+      <div className="flex justify-between items-center">
+        <div>
+          <div className="font-medium text-text">{community.community_name}</div>
+          {!communityEvolutionEnabled && (
+            <div className="text-xs text-text-muted mt-1">Your community hasn&apos;t enabled trust evolution yet.</div>
+          )}
+          {globalPaused && (
+            <div className="text-xs text-text-muted mt-1">Global evolution paused</div>
+          )}
+          {communityEvolutionEnabled && effectiveParams && evolutionEnabled && !globalPaused && (
+            <div className="text-xs text-text-subtle mt-1 space-x-1">
+              <span className="inline-block bg-border-light rounded px-1.5 py-0.5">Depth {(effectiveParams.depth_weight * 100).toFixed(0)}%</span>
+              <span className="inline-block bg-border-light rounded px-1.5 py-0.5">Breadth {(effectiveParams.breadth_weight * 100).toFixed(0)}%</span>
+              <span className="inline-block bg-border-light rounded px-1.5 py-0.5">Cross-community {(effectiveParams.cross_community_prior * 100).toFixed(0)}%</span>
+            </div>
+          )}
+        </div>
+        <button
+          onClick={handleToggle}
+          disabled={!communityEvolutionEnabled || globalPaused}
+          className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
+            evolutionEnabled ? 'bg-primary text-white' : 'bg-border text-text-muted'
+          } disabled:opacity-40 disabled:cursor-not-allowed`}
+        >
+          {evolutionEnabled ? 'Evolution On' : 'Evolution Off'}
+        </button>
+      </div>
+      {evolutionEnabled && !globalPaused && (
+        <div className="mt-2 text-right">
+          <a href={`/reputation/evolution?communityId=${community.community_id}`} className="text-xs btn-ghost py-0.5">
+            View my trust journey →
+          </a>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function ProfilePage() {
   const router = useRouter()
   const [user, setUser] = useState<any>(null)
@@ -81,6 +168,7 @@ export default function ProfilePage() {
   const [activeTab, setActiveTab] = useState<'community' | 'provider'>('community')
   const [myProviders, setMyProviders] = useState<any[]>([])
   const [myCollectives, setMyCollectives] = useState<any[]>([])
+  const [globalEvolutionEnabled, setGlobalEvolutionEnabled] = useState<boolean | null>(null)
 
   // Fetch invitation chain
   const { chain: invitationChain, loading: loadingChain } = useInvitationChain({ enabled: !!user })
@@ -111,6 +199,10 @@ export default function ProfilePage() {
       fetchUserSkills(parsedUser.id)
       // Load communities first, then privacy settings (to avoid race condition)
       initializeKarmaData(parsedUser.id)
+      // Fetch global evolution setting
+      reputationService.getGlobalEvolutionSetting(parsedUser.id)
+        .then((r: any) => setGlobalEvolutionEnabled(r.data?.global_evolution_enabled ?? true))
+        .catch(() => setGlobalEvolutionEnabled(true))
       // Fetch provider presence (parallel, optional)
       ;(async () => {
         try {
@@ -437,7 +529,7 @@ export default function ProfilePage() {
           {/* Profile Information */}
           <div className="bg-surface-raised rounded-lg shadow-md p-6 mb-6">
             <div className="flex justify-between items-start mb-4">
-              <h2 className="text-xl font-semibold">Profile Information</h2>
+              <h2 className="section-heading">Profile Information</h2>
               {!editing && (
                 <button
                   onClick={() => setEditing(true)}
@@ -536,7 +628,7 @@ export default function ProfilePage() {
               <div className="flex items-center gap-3">
                 <span className="text-3xl">⭐</span>
                 <div>
-                  <h2 className="text-xl font-semibold">Karma & Reputation</h2>
+                  <h2 className="section-heading">Karma & Reputation</h2>
                   <p className="text-sm text-text-muted">
                     {showKarmaToMe ? 'Private view - only you can see this' : 'Enable to track your contribution'}
                   </p>
@@ -649,7 +741,7 @@ export default function ProfilePage() {
           <div className="bg-surface-raised rounded-lg shadow-md p-6 mb-6">
             <div className="flex justify-between items-start mb-4">
               <div>
-                <h2 className="text-xl font-semibold mb-1">My Communities</h2>
+                <h2 className="section-heading mb-1">My Communities</h2>
                 <p className="text-sm text-text-muted">
                   Communities you're a member of
                 </p>
@@ -707,7 +799,7 @@ export default function ProfilePage() {
           {/* Invitation Chain Section */}
           <div className="mb-6">
             <div className="mb-3">
-              <h2 className="text-xl font-semibold mb-1">How You Joined</h2>
+              <h2 className="section-heading mb-1">How You Joined</h2>
               <p className="text-sm text-text-muted">
                 Your invitation chain shows how you became part of the community
               </p>
@@ -742,7 +834,7 @@ export default function ProfilePage() {
           <div className="bg-surface-raised rounded-lg shadow-md p-6">
             <div className="flex justify-between items-start mb-4">
               <div>
-                <h2 className="text-xl font-semibold mb-1">My Skills</h2>
+                <h2 className="section-heading mb-1">My Skills</h2>
                 <p className="text-sm text-text-muted">
                   Add skills to help match you with requests you can help with
                 </p>
@@ -750,7 +842,7 @@ export default function ProfilePage() {
               {!showSkillSelector && (
                 <button
                   onClick={() => setShowSkillSelector(true)}
-                  className="px-4 py-2 text-sm bg-green-600 text-white rounded hover:bg-green-700"
+                  className="btn-primary text-sm"
                 >
                   + Add Skill
                 </button>
@@ -777,7 +869,7 @@ export default function ProfilePage() {
                   <button
                     onClick={handleAddSkill}
                     disabled={!selectedSkill || saving}
-                    className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:bg-gray-400"
+                    className="btn-primary"
                   >
                     Add
                   </button>
@@ -832,6 +924,58 @@ export default function ProfilePage() {
               </div>
             )}
           </div>
+
+          {/* Trust Evolution Settings */}
+          {user && globalEvolutionEnabled !== null && (
+            <div className="bg-surface-raised rounded-xl border border-border shadow-sm p-6 mt-6">
+              <h2 className="section-heading">Trust Evolution Settings</h2>
+              <p className="text-text-muted text-sm mb-4">
+                When enabled, your trust model calibrates automatically based on your experiences.
+                The goal is accuracy — not a particular direction.
+                It shapes your trust scores and the requests you see in your feed.
+              </p>
+
+              {/* Global opt-out toggle */}
+              <div className="border border-border rounded-lg p-4 mb-5 bg-surface">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <div className="font-semibold text-text">Trust evolution</div>
+                    <div className="text-xs text-text-muted mt-1">
+                      {globalEvolutionEnabled
+                        ? 'Your trust model is calibrating based on your experiences.'
+                        : 'Trust evolution is paused. Your model will not change.'}
+                    </div>
+                  </div>
+                  <button
+                    onClick={async () => {
+                      const next = !globalEvolutionEnabled
+                      setGlobalEvolutionEnabled(next)
+                      try {
+                        await reputationService.setGlobalEvolutionSetting(user.id, next)
+                      } catch {
+                        setGlobalEvolutionEnabled(!next)
+                      }
+                    }}
+                    className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
+                      globalEvolutionEnabled ? 'bg-primary text-white' : 'bg-border text-text-muted'
+                    }`}
+                  >
+                    {globalEvolutionEnabled ? 'Active' : 'Paused'}
+                  </button>
+                </div>
+              </div>
+
+              {/* Per-community toggles */}
+              {(JSON.parse(localStorage.getItem('user') || '{}')?.communities ?? [] as Array<{id: string; name: string}>).map((c: {id: string; name: string}) => (
+                <TrustEvolutionToggle
+                  key={c.id}
+                  community={{ community_id: c.id, community_name: c.name }}
+                  userId={user.id}
+                  globalEvolutionEnabled={globalEvolutionEnabled}
+                />
+              ))}
+            </div>
+          )}
 
           </div>
           )}

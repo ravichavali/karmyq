@@ -4,6 +4,7 @@ import Head from 'next/head'
 import Link from 'next/link'
 import { requestService } from '../../lib/api'
 import Layout from '@/components/Layout'
+import EmptyState from '@/components/EmptyState'
 
 interface HelpOffer {
   id: string
@@ -125,10 +126,13 @@ export default function OffersPage() {
             <p className="text-text-muted mt-4">Loading offers...</p>
           </div>
         ) : offers.length === 0 ? (
-          <div className="bg-surface-raised rounded-lg shadow-sm p-12 text-center">
-            <p className="text-text-muted text-lg">No offers found</p>
-            <p className="text-text-subtle mt-2">Try adjusting your filters or create a new offer</p>
-          </div>
+          <EmptyState
+            icon="🙌"
+            heading="No offers yet"
+            body="Browse requests and offer to help someone today."
+            ctaLabel="Go to Dashboard"
+            ctaHref="/dashboard"
+          />
         ) : (
           <div className="grid gap-6">
             {offers.map((offer) => (

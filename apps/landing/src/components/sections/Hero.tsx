@@ -19,7 +19,7 @@ export default function Hero() {
           transition={{ duration: 0.6, delay: 0.2 }}
           className="text-karmyq-green-600 font-medium text-sm md:text-base tracking-widest uppercase mb-6"
         >
-          A new kind of infrastructure
+          Mutual aid for everyday life
         </motion.p>
 
         <motion.h1
@@ -28,8 +28,8 @@ export default function Hero() {
           transition={{ duration: 0.6, delay: 0.4 }}
           className="heading-1 text-karmyq-brown-900 mb-6"
         >
-          Communities are experiments{' '}
-          <span className="text-karmyq-green-600">in cooperation</span>
+          Ask for help. Offer what you can.{' '}
+          <span className="text-karmyq-green-600">Build real connections.</span>
         </motion.h1>
 
         <motion.p
@@ -38,9 +38,7 @@ export default function Hero() {
           transition={{ duration: 0.6, delay: 0.6 }}
           className="body-large max-w-2xl mx-auto mb-10"
         >
-          We once had rich tapestries of mutual aid, gift economies, and reciprocity.
-          As we scaled, we lost them. Karmyq provides the infrastructure to bring that
-          diversity back — starting with your neighborhood.
+          Karmyq connects neighbours who help each other — rides, borrowed tools, childcare, home repairs. No money changes hands. Just community.
         </motion.p>
 
         <motion.div

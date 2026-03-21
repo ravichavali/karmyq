@@ -55,7 +55,7 @@ function extractDescription(content: string): string {
 
 /** Extract ADR status from content (Status: accepted, etc.) */
 function extractAdrStatus(content: string): string {
-  const match = content.match(/\*?\*?Status\*?\*?:\s*(\w+)/i);
+  const match = content.match(/\*?\*?Status\*?\*?:\s*[^a-zA-Z]*(\w+)/i);
   return match ? match[1].toLowerCase() : 'unknown';
 }
 
@@ -378,6 +378,8 @@ const ADR_GROUPS: Array<{ label: string; slugs: string[] }> = [
       'adr-003-multi-tenant-rls',
       'adr-006-standardized-api-response',
       'adr-007-polymorphic-request-system',
+      'adr-005-minimalist-dashboard',
+      'adr-008-three-column-dashboard',
     ],
   },
   {
@@ -396,6 +398,7 @@ const ADR_GROUPS: Array<{ label: string; slugs: string[] }> = [
       'adr-011-reputation-decay',
       'adr-016-prestige-based-recognition',
       'adr-043-three-score-model',
+      'adr-035-karma-allocation-trust-score-strategy',
     ],
   },
   {
@@ -416,6 +419,7 @@ const ADR_GROUPS: Array<{ label: string; slugs: string[] }> = [
       'adr-034-multi-layer-trust-computation',
       'adr-041-two-layer-mutual-aid-services',
       'adr-042-provider-trust-score',
+      'adr-033-offer-fulfillment-workflow',
     ],
   },
   {
@@ -426,6 +430,13 @@ const ADR_GROUPS: Array<{ label: string; slugs: string[] }> = [
       'adr-030-community-configuration-system',
       'adr-009-ephemeral-data',
       'adr-015-observability-stack',
+      'adr-001-natural-language-location-parsing',
+      'adr-002-geocoding-cache-architecture',
+      'adr-012-realtime-communication',
+      'adr-014-testing-strategy',
+      'adr-023-infrastructure-standardization',
+      'adr-024-synthetic-user-simulation',
+      'adr-027-docker-image-optimization-deferred',
     ],
   },
 ];
@@ -450,7 +461,7 @@ function generateNav(
       const adr = adrBySlug.get(slug);
       if (adr) {
         adrItems.push({
-          label: adr.title.replace(/^ADR-\d+[:\s-]+/, '').slice(0, 55),
+          label: adr.title.replace(/^ADR-\d+[:\s-]+/, '').slice(0, 80),
           href: `/docs/concepts/${adr.slug}`,
         });
       }

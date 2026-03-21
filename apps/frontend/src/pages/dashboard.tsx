@@ -15,6 +15,8 @@ import TrustPathBadge, { TrustPathBadgeSkeleton } from '@/components/TrustPathBa
 import { useTrustPath } from '@/hooks/useTrustPath'
 import UpcomingPanel from '@/components/UpcomingPanel'
 import FeedFilterPanel from '@/components/FeedFilterPanel'
+import EmptyState from '@/components/EmptyState'
+import WelcomeModal from '@/components/WelcomeModal'
 
 function FeedPostTrustBadge({ requesterId }: { requesterId?: string }) {
   const { trustPath, loading } = useTrustPath(requesterId)
@@ -847,6 +849,7 @@ export default function Dashboard() {
         <title>Dashboard - Karmyq</title>
       </Head>
       <Layout>
+        <WelcomeModal user={user} />
         <div className="min-h-screen bg-surface">
           {/* 3-Column Layout */}
           <div className="container mx-auto px-4 py-4 max-w-7xl">
@@ -970,7 +973,7 @@ export default function Dashboard() {
                         Pre-select a provider (optional)
                       </label>
                       {selectedProvider ? (
-                        <div className="flex items-center gap-2 text-sm bg-blue-50 border border-blue-200 rounded px-3 py-2">
+                        <div className="flex items-center gap-2 text-sm bg-primary-light border border-border rounded px-3 py-2">
                           <span>{selectedProvider.display_name}</span>
                           <button type="button" onClick={() => setSelectedProvider(null)} className="text-gray-400 hover:text-gray-600 ml-auto">×</button>
                         </div>
@@ -978,7 +981,7 @@ export default function Dashboard() {
                         <button
                           type="button"
                           onClick={() => fetchAndShowProviderPicker()}
-                          className="text-sm text-blue-600 hover:underline"
+                          className="text-sm btn-ghost"
                         >
                           Browse providers →
                         </button>
@@ -1111,14 +1114,14 @@ export default function Dashboard() {
                   </div>
                 )}
 
-                {feedItems.length === 0 ? (
-                  <div className="bg-surface-raised rounded-xl p-8 text-center border border-border">
-                    <div className="text-4xl mb-3">🤝</div>
-                    <h3 className="text-lg font-semibold text-text-muted mb-2">No activity yet</h3>
-                    <p className="text-sm text-text-subtle">
-                      Create a request above or check back later
-                    </p>
-                  </div>
+                {!loading && feedItems.length === 0 ? (
+                  <EmptyState
+                    icon="🤝"
+                    heading="Nothing here yet"
+                    body="Join a community and post your first request — or offer to help someone."
+                    ctaLabel="Browse Communities"
+                    ctaHref="/communities"
+                  />
                 ) : (
                   <div className="space-y-3">
                   {feedItems.map((item, index) => {
@@ -1321,7 +1324,7 @@ export default function Dashboard() {
                       <button
                         type="button"
                         onClick={() => { setSelectedProvider({ id: p.id, display_name: p.display_name }); setShowProviderPicker(false) }}
-                        className="ml-3 text-xs bg-blue-600 text-white px-2 py-1 rounded hover:bg-blue-700 shrink-0"
+                        className="ml-3 text-xs btn-primary py-1 shrink-0"
                       >
                         Pre-select
                       </button>

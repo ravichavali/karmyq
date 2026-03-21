@@ -74,7 +74,7 @@ export default function Login() {
                 required
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                className="w-full px-4 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                className="input"
               />
             </div>
 
@@ -87,14 +87,14 @@ export default function Login() {
                 required
                 value={formData.password}
                 onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                className="w-full px-4 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                className="input"
               />
             </div>
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3 bg-primary text-white rounded-lg hover:bg-primary-dark transition disabled:bg-primary-medium"
+              className="btn-primary w-full"
             >
               {loading ? 'Logging in...' : 'Login'}
             </button>

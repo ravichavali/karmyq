@@ -4,7 +4,12 @@ import Head from 'next/head'
 import Link from 'next/link'
 import { communityService, requestService, reputationService, collectiveService } from '@/lib/api'
 import Layout from '@/components/Layout'
-import CommunityConfigEditor from '@/components/CommunityConfigEditor'
+import dynamic from 'next/dynamic'
+
+const CommunityConfigEditor = dynamic(() => import('@/components/CommunityConfigEditor'), {
+  loading: () => <div className="card p-6 text-center text-text-muted animate-pulse">Loading editor...</div>,
+  ssr: false,
+})
 import CommunityTrustQuestionnaire from '@/components/CommunityTrustQuestionnaire'
 import TrustModelDiff from '@/components/TrustModelDiff'
 import { CommunityConfig } from '@/types/community-config'

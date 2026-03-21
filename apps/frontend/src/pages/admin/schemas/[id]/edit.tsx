@@ -4,7 +4,12 @@ import Head from 'next/head'
 import Link from 'next/link'
 import { uiSchemaService } from '@/lib/api'
 import AdminLayout from '@/components/admin/AdminLayout'
-import SchemaCanvas from '@/components/admin/SchemaCanvas'
+import dynamic from 'next/dynamic'
+
+const SchemaCanvas = dynamic(() => import('@/components/admin/SchemaCanvas'), {
+  loading: () => <div className="card p-8 text-center text-text-muted animate-pulse">Loading canvas...</div>,
+  ssr: false,
+})
 import EmojiPicker from '@/components/admin/EmojiPicker'
 import { requireAdmin, isAdmin } from '@/utils/admin-auth'
 

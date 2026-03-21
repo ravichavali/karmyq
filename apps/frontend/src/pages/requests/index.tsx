@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { requestService } from '../../lib/api'
 import Layout from '@/components/Layout'
 import ConnectionBadge from '@/components/requests/ConnectionBadge'
+import EmptyState from '@/components/EmptyState'
 
 interface HelpRequest {
   id: string
@@ -251,10 +252,13 @@ export default function RequestsPage() {
             <p className="text-text-muted mt-4">Loading requests...</p>
           </div>
         ) : requests.length === 0 ? (
-          <div className="bg-surface-raised rounded-lg shadow-sm p-12 text-center">
-            <p className="text-text-muted text-lg">No requests found</p>
-            <p className="text-text-subtle mt-2">Try adjusting your filters or create a new request</p>
-          </div>
+          <EmptyState
+            icon="📋"
+            heading="No requests yet"
+            body="Be the first to ask for help — or check back soon."
+            ctaLabel="Post a Request"
+            ctaHref="/dashboard"
+          />
         ) : (
           <div className="grid gap-6">
             {requests.map((request) => (

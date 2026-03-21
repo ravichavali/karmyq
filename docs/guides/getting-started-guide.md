@@ -1,50 +1,49 @@
 # Getting Started
 
-Welcome to Karmyq. This guide walks you through everything you need to get started — from creating an account to making your first request.
+Welcome to Karmyq — a place where neighbours help each other out. This guide shows you how to get going in a few simple steps.
 
 ---
 
-## 1. Create an Account
+## 1. Create Your Account
 
 Go to [karmyq.com](https://karmyq.com) and click **Register**.
 
 You'll need:
 - An email address
-- A display name (this is how the community will know you)
+- A display name (this is how people will know you)
 - A password
 
 No phone number, credit card, or social login required.
 
 ---
 
-## 2. Join a Community
+## 2. Find Your Community
 
-After registering, you'll land on your dashboard. From here, you can:
+After registering, head to **Communities** in the nav.
 
-**Browse public communities** — Go to **Communities** in the nav and look for communities near you or relevant to your interests.
+**Browse nearby communities** — look for a group in your area or one that matches your interests.
 
-**Accept an invitation** — If someone invited you, click the invitation link to join directly.
+**Accept an invite** — if someone invited you, click their link to join directly.
 
-**Create your own community** — Click **Create Community** to start a mutual aid group for your neighborhood, building, or organization.
-
----
-
-## 3. Understand Your Starting State
-
-When you join a community, you start with a baseline karma balance and no trust connections.
-
-Some communities have a **karma lockout period** — a short window where new members can observe and participate before posting high-effort requests. During this period, help others to build your reputation from day one.
+**Start your own** — click **Create Community** to set up a group for your street, building, or circle of friends.
 
 ---
 
-## 4. Your First Action
+## 3. Get to Know the App
 
-The best way to get started is to **help someone first**.
+Once you're in a community, spend a few minutes browsing the feed. You'll see what people are asking for and what others are offering.
 
-Browse the community feed and find a request you can fulfill. Completing it will:
-- Earn you karma
-- Start building a trust connection with that person
-- Signal to the community that you're here to contribute
+Some communities ask new members to wait a bit before posting big requests — it's just a way to build trust first. In the meantime, look for easy ways to help.
+
+---
+
+## 4. Do Something
+
+The best first move is to **help someone**.
+
+Find a request you can fulfil and offer to help. It takes about 30 seconds to respond. Once you follow through, you'll earn karma and start building a real connection with that person.
+
+Or if you need something, post a request. Be specific about what you need and when — people are more likely to help when they know exactly what's involved.
 
 ---
 

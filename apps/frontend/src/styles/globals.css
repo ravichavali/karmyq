@@ -50,3 +50,16 @@ body {
   color: rgb(var(--color-text));
   background-color: rgb(var(--color-surface));
 }
+
+@layer components {
+  /* ── Buttons ── */
+  .btn-primary   { @apply bg-primary text-white px-6 py-2.5 rounded-lg font-medium hover:bg-primary-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed; }
+  .btn-secondary { @apply bg-surface-raised text-text border border-border px-6 py-2.5 rounded-lg font-medium hover:bg-primary-light transition-colors; }
+  .btn-ghost     { @apply text-primary px-4 py-2 rounded-lg hover:bg-primary-light transition-colors; }
+  .btn-danger    { @apply bg-error text-white px-6 py-2.5 rounded-lg font-medium hover:opacity-90 transition-opacity; }
+
+  /* ── Layout ── */
+  .card          { @apply bg-surface-raised rounded-xl border border-border shadow-sm; }
+  .input         { @apply w-full px-4 py-2.5 border border-border rounded-lg bg-surface text-text placeholder:text-text-subtle focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent; }
+  .section-heading { @apply text-lg font-semibold text-text mb-4; }
+}
