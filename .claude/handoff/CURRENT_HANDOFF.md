@@ -1,95 +1,134 @@
-# SPRINT 33 READY TO EXECUTE — UX FOUNDATION
+# SPRINT 34 READY TO EXECUTE
 
 ## Handoff Document for New Conversation
 
-**Date**: 2026-03-20
-**Current Version**: v9.7.1 (Sprint 32 + post-deploy fixes on master)
-**Branch**: `master` (clean — start new feature branch per Quick Start)
-**Status**: Sprint 33 planned and ready. Design spec + implementation plan written.
+**Date**: 2026-03-21
+**Current Version**: v9.8.0 (Sprint 33 complete on `feature/sprint-33-ux-foundation`, ready to merge)
+**Status**: Sprint 34 fully planned. Merge Sprint 33 branch, then execute Sprint 34 plan.
 
 ---
 
 ## Quick Start
 
 1. Read this handoff
-2. Check out branch: `git checkout -b feature/sprint-33-ux-foundation`
-3. Open plan: `docs/superpowers/plans/2026-03-20-sprint-33-ux-foundation.md`
-4. Run: `/execute-plan` (uses `superpowers:subagent-driven-development`)
+2. Merge Sprint 33 branch (if not done):
+   ```bash
+   git checkout master
+   git merge feature/sprint-33-ux-foundation
+   ```
+3. Check out Sprint 34 branch:
+   ```bash
+   git checkout -b feature/sprint-34-ux-redesign
+   ```
+4. Open the plan: `docs/superpowers/plans/2026-03-21-sprint-34-ux-redesign.md`
+5. Run: `/execute-plan` (uses `superpowers:subagent-driven-development`)
 
 ---
 
-## Sprint 33 Goal
+## Sprint 34 Goal
 
-**Make Karmyq feel intentional.** Design consistency across all pages, guided first-time onboarding, empty states everywhere, performance improvements for slow connections, landing page fixes, and plain-language guide rewrites. First sprint of a multi-sprint UX arc — web-first, mobile deferred to Sprint 34.
+Replace the 3-column dashboard with a tab-based layout that puts the 5 core user flows (Browse, Commitments, My Requests, Profile) front and center with minimal cognitive load.
+
+**No backend changes.** This is 100% frontend restructuring.
+
+---
+
+## What Just Shipped — Sprint 33 (v9.7.1 → v9.8.0)
+
+| Area | What changed | Key files |
+|------|-------------|-----------|
+| **Design system** | Canonical `.btn-*`, `.card`, `.input`, `.section-heading` in `@layer components` | `apps/frontend/src/styles/globals.css` |
+| **Empty states** | New `EmptyState.tsx` wired into 4 pages | `src/components/EmptyState.tsx` |
+| **Onboarding** | New `WelcomeModal.tsx` — 3-step guide on first dashboard visit | `src/components/WelcomeModal.tsx`, `dashboard.tsx` |
+| **Evolution toggle** | Moved from `trust.tsx` → `profile.tsx` | `profile.tsx`, `reputation/trust.tsx` |
+| **Performance** | `next/dynamic` + `ssr: false` for 3 heavy components | `profile.tsx`, `communities/new.tsx`, etc. |
+| **Landing copy** | Hero plain-language rewrite | `apps/landing/src/components/sections/Hero.tsx` |
+| **TDD tests** | 3 new test files, 18 tests all passing | `tests/tdd/` |
 
 ---
 
 ## Multi-Sprint UX Arc
 
-| Sprint | Focus |
-|--------|-------|
-| **33 (this)** | Web foundation: design consistency + onboarding + landing fixes + guide rewrites + performance |
-| **34** | Mobile responsiveness (hamburger nav, dashboard tab bar) + core flows (community join, request creation) |
-| **35** | Admin simplification, social graph naturalness, deep performance pass |
+| Sprint | Focus | Status |
+|--------|-------|--------|
+| **33** | Design system foundation: canonical classes, empty states, onboarding, performance | ✅ Complete |
+| **34** | Navigation redesign + feed simplification + Commitments as first-class tab | 🔜 **This sprint** |
+| **35** | Request creation simplification (progressive disclosure) + service hiring from provider profiles | Future |
+| **36** | Commitment depth (timeline, inline messaging) + admin simplification | Future |
 
 ---
 
-## What Sprint 33 Delivers (v9.7.1 → v9.8.0)
+## Sprint 34 Scope Summary
 
-| Area | What changes |
-|------|-------------|
-| **Design system** | Canonical `.btn-primary`, `.btn-secondary`, `.btn-ghost`, `.btn-danger`, `.card`, `.input`, `.section-heading` in `globals.css @layer components`. Applied across high-traffic pages. |
-| **Empty states** | New `EmptyState.tsx` component wired into dashboard, communities, requests, offers |
-| **Onboarding** | New `WelcomeModal.tsx` — 3-step guide shown on first dashboard visit (localStorage `karmyq_onboarded` flag) |
-| **Evolution toggle** | Moved from `reputation/trust.tsx` → `profile.tsx` (correct home for a one-time preference) |
-| **Performance** | `next/dynamic` + `ssr: false` for `NetworkGraph`, `CommunityConfigEditor`, `SchemaCanvas` |
-| **Landing page bugs** | 3 truncated ADR nav labels fixed; ADR-007 status "unknown" → "implemented"; 11 orphaned ADRs added to sidebar nav |
-| **Landing page copy** | Hero: plain-language rewrite (no "gift economy"/"infrastructure" jargon) |
-| **User guides** | `getting-started-guide.md` + `making-requests-guide.md` rewritten for non-technical readers |
+### What changes
+- **Kill the 3-column layout** — `LeftSidebar` and `RightSidebar` removed from dashboard composition (files kept, just not used)
+- **New `TabBar` component** — 4 tabs: Browse | Commitments | My Requests | Profile
+- **Desktop**: horizontal tab bar below top nav
+- **Mobile**: sticky bottom nav bar (4 items)
+- **Single-column content** — `max-w-2xl mx-auto` (672px) for all tab content
+- **FAB ("+ Get Help")** — fixed bottom-right, visible on Browse + Commitments tabs
+- **`BrowseFeed`** — single-column card feed of community requests (extracted from dashboard)
+- **`CommitmentsTab`** — "I'm Helping" + "I Asked For Help" two-section view
+- **`MyRequestsTab`** — my posted requests + offer acceptance
+- **`FilterChipRow`** — horizontal type/urgency chips (replaces hidden FeedFilterPanel)
 
----
-
-## Spec and Plan Files
-
-- **Design spec**: `docs/superpowers/specs/2026-03-20-sprint-33-ux-foundation-design.md`
-- **Implementation plan**: `docs/superpowers/plans/2026-03-20-sprint-33-ux-foundation.md`
+### What does NOT change this sprint
+- Request creation form (Sprint 35)
+- Provider profiles + service hiring flow (Sprint 35)
+- Admin pages (Sprint 36)
+- Backend APIs (none needed)
 
 ---
 
 ## ⚠️ Critical Implementation Notes
 
-1. **`generate-docs.ts` is source of truth for `nav.json`** — NEVER edit `apps/landing/src/data/docs/nav.json` directly. All landing fixes go in `scripts/generate-docs.ts`:
-   - Line 453: `.slice(0, 55)` → `.slice(0, 80)` (label truncation)
-   - Line 58: fix `extractAdrStatus` regex to skip emoji before status word
-   - Lines 371–431 (`ADR_GROUPS`): add 11 orphaned ADR slugs
+1. **Dashboard becomes a tab shell.** `dashboard.tsx` renders the active tab component based on `activeTab` state. Tab components own their own data fetching — do NOT pass data down from dashboard.
 
-2. **`git add -f` for generated docs** — `apps/landing/src/data/docs/` may be gitignored. Always force-add before commit.
+2. **LeftSidebar and RightSidebar are NOT deleted** — just removed from dashboard/Layout imports. Check for other usages before removing any import.
 
-3. **WelcomeModal hydration safety** — `visible` initializes `false`; set to `true` only in `useEffect`. Never read `localStorage` at render time.
+3. **Bottom tab bar must sit above the FAB.** FAB is `fixed bottom-24 right-6`. Bottom nav is `fixed bottom-0 h-16`. Update FAB offset if bottom-nav height changes.
 
-4. **`next/dynamic` requires `ssr: false`** for all three heavy components (`NetworkGraph`, `CommunityConfigEditor`, `SchemaCanvas`).
+4. **Community selector moves from LeftSidebar to top bar.** Lift `selectedCommunity` state to `dashboard.tsx` and pass as prop to `BrowseFeed`.
 
-5. **EmptyState guard** — only render when `!loading && items.length === 0`.
+5. **FilterChipRow does NOT duplicate FeedFilterPanel logic** — reuse existing filter state, expose as chips. Start with type + urgency chips only.
 
-6. **Evolution toggle duplication** — `TrustEvolutionToggle` sub-component will be temporarily copied into `profile.tsx`. Sprint 34 cleanup extracts it to a shared file.
+6. **CommitmentsTab fetches its own matches independently.** Do not pass match data from dashboard.
 
-7. **Evolution communities in `profile.tsx`** — read from localStorage JWT, no extra API call: `JSON.parse(localStorage.getItem('user') || '{}')?.communities ?? []`.
+7. **The FAB opens the EXISTING request form** — do not simplify the form in this sprint. Sprint 35 owns that.
 
-8. **Design consistency = targeted fixes only** — replace visible divergence; don't refactor consistent components.
+8. **`generate-docs.ts` is source of truth for nav.json.** Never edit nav.json directly. Force-add: `git add -f apps/landing/src/data/docs/...`
 
-9. **Guide source files are markdown** — edit `docs/guides/*.md`, then run `generate-docs.ts` to propagate to JSON.
+9. **Max-width on content**: `max-w-2xl mx-auto` (672px) for all tab content areas.
 
-10. **No `services/registry.json` changes** — pure frontend sprint.
+10. **Single responsive breakpoint**: `md:` (768px) — below = bottom tab bar, above = horizontal tab bar.
 
 ---
 
-## Carry-Forward Issues (from Sprint 32)
+## New Components to Create
 
-- **Migration runner**: deploy.sh does NOT auto-run migrations. Apply manually post-deploy if needed:
-  ```bash
-  ssh ubuntu@karmyq.com
-  docker exec karmyq-postgres psql -U karmyq_prod -d karmyq_prod -f /dev/stdin < ~/karmyq/infrastructure/postgres/migrations/20260320-fractal-feed.sql
-  ```
+| Component | Path | Purpose |
+|-----------|------|---------|
+| `TabBar` | `src/components/TabBar.tsx` | Horizontal tabs (desktop) + sticky bottom bar (mobile) |
+| `BrowseFeed` | `src/components/BrowseFeed.tsx` | Feed of community requests user can help with |
+| `CommitmentsTab` | `src/components/CommitmentsTab.tsx` | "I'm Helping" + "I Asked For Help" sections |
+| `MyRequestsTab` | `src/components/MyRequestsTab.tsx` | My posted requests + offer management |
+| `FilterChipRow` | `src/components/FilterChipRow.tsx` | Horizontal type/urgency filter chips |
+
+---
+
+## Artifacts
+
+| Artifact | Path |
+|----------|------|
+| Design spec | `docs/superpowers/specs/2026-03-21-sprint-34-ux-redesign-design.md` |
+| Implementation plan | `docs/superpowers/plans/2026-03-21-sprint-34-ux-redesign.md` |
+| Sprint branch | `feature/sprint-34-ux-redesign` |
+
+---
+
+## Carry-Forward Issues
+
+- **Migration runner**: deploy.sh does NOT auto-run migrations. Apply manually post-deploy if needed.
 - **Pre-existing unstaged files** (not related to Sprint 33):
   - `apps/landing/src/data/docs/concepts/rate-cards.json` — deleted locally
   - `apps/landing/src/data/docs/guides/using-service-providers.json` — modified
@@ -116,16 +155,26 @@
 - **Only one simulation**: `services/simulation-service/`. DB user: `karmyq_user`.
 - **Collective link auth**: Both link/unlink endpoints accept collective admin OR community admin.
 - **social_graph.connections pair normalization**: Always `LEAST/GREATEST(::text)` cast.
-- **NetworkGraph lazy-load**: Uses `IntersectionObserver` — `GET /network` NOT called on profile mount. Sprint 33 also wraps with `next/dynamic`.
+- **NetworkGraph lazy-load**: Uses `IntersectionObserver` — `GET /network` NOT called on profile mount. Also wrapped with `next/dynamic` (Sprint 33).
 - **React 19 everywhere**: Root `package.json` has `react@^19.0.0` in `devDependencies` AND `overrides`.
 - **completeMatch requires user_id in body**: `PUT /matches/:id/complete` reads `user_id` from body (not JWT).
 - **generate-docs.ts is source of truth for nav.json**: Never edit nav.json directly.
 - **Landing page force-add**: `git add -f apps/landing/src/data/docs/...`
 - **No worktrees**: Solo developer. Work directly on feature branch.
 - **Evolution defaults are opt-out (TRUE)**: Sprint 31 migration flipped both tables.
-- **effectiveParamsCache circular import guard**: `trustEvolutionDb.ts` must NOT import `effectiveParamsCache.ts`. Cache invalidation is caller-side in `trustEvolutionService.ts:evaluateUserEvolution()`.
+- **effectiveParamsCache circular import guard**: `trustEvolutionDb.ts` must NOT import `effectiveParamsCache.ts`.
 - **Global evolution opt-out**: Missing `user_trust_preferences` row = opted IN (default TRUE).
 - **Bull queue lazy init in trustEvolutionService**: `_communityEvolutionQueue` is null at module load.
-- **REPUTATION_API_URL in Docker**: Must be `http://reputation-service:3004` — NOT `localhost:3004`. Set in both docker-compose files.
-- **Feed empty after deploy**: Transient — simulation restarts during `docker compose down/up` and needs warm-up time. Not a code regression.
-- **Sprint 33 new patterns**: `karmyq_onboarded` localStorage key controls WelcomeModal; `next/dynamic` + `ssr: false` used for `NetworkGraph`/`CommunityConfigEditor`/`SchemaCanvas`; canonical classes in `globals.css`.
+- **REPUTATION_API_URL in Docker**: Must be `http://reputation-service:3004` — NOT `localhost:3004`.
+- **Feed empty after deploy**: Transient — simulation needs warm-up time. Not a code regression.
+- **Sprint 33 new patterns**:
+  - `karmyq_onboarded` localStorage key controls WelcomeModal (absence = show modal)
+  - `next/dynamic` + `ssr: false` for `NetworkGraph`/`CommunityConfigEditor`/`SchemaCanvas`
+  - Canonical classes in `globals.css @layer components`: `.btn-primary`, `.btn-secondary`, `.btn-ghost`, `.btn-danger`, `.card`, `.input`, `.section-heading`
+  - Evolution toggle lives in `profile.tsx` (not `trust.tsx`) — `trust.tsx` links to profile
+- **Sprint 34 new patterns** (once implemented):
+  - Tab-based dashboard shell: `dashboard.tsx` renders `<BrowseFeed>`, `<CommitmentsTab>`, `<MyRequestsTab>` based on `activeTab` state
+  - `TabBar` component: `tab-bar` (desktop horizontal) + `bottom-nav` (mobile sticky footer)
+  - FAB: `fixed bottom-24 right-6` — above bottom-nav
+  - Single responsive breakpoint: `md:` (768px)
+  - Content max-width: `max-w-2xl mx-auto` (672px)
