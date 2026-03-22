@@ -188,6 +188,7 @@ File: `docs/superpowers/plans/YYYY-MM-DD-sprint-NN-{slug}.md`
 | Task N-2 | User guides + landing page docs (mandatory every sprint) + ADR (if architectural decision) |
 | Task N-1 | CONTEXT.md + registry.json + TDD integration test |
 | Task N | Final type check + pre-push verification (`npm test`, `npm run feedback:check`) |
+| Task N+1 | **Merge + Deploy** — merge to master, push, monitor GitHub Actions, SSH if migration scripts needed. Use the `/deploy` skill. **Omit this task only if the plan is tagged `no-deploy`**. |
 
 **TDD requirement — embed in the test task:**
 - Unit tests are written BEFORE implementation (TDD) — the task that creates the test file must precede the implementation task
