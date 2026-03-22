@@ -1,12 +1,43 @@
 # Frontend CONTEXT.md
 
-**Last updated**: 2026-03-21 (Sprint 34)
+**Last updated**: 2026-03-22 (Sprint 35)
 
 ## Overview
 
 Next.js 14 web application (Pages Router) consuming all Karmyq backend services.
 
 ---
+
+## New Components (Sprint 35)
+
+### `RequestWizard.tsx`
+**Path**: `src/components/RequestWizard.tsx`
+Two-step request creation modal. Fully self-contained — owns type fetch, schema fetch, form state, and request submission.
+
+- **Step 1**: Type picker grid (2-col mobile, 3-col desktop). Tiles are `.type-card` CSS class.
+- **Step 2**: DynamicForm (schema-driven fields) + plain description textarea + urgency chips + community scope selector.
+- Props: `onClose`, `onSuccess?`, `preferredProviderId?`, `preferredProviderName?`, `preferredProviderServiceType?`
+- When `preferredProviderServiceType` is set: initializes at step 2 with that type pre-selected and locked.
+- Urgency mapping: UI uses `normal | urgent | critical`; backend uses `medium | urgent | critical` (normal → medium).
+- Fetches available types via `requestService.getSchemas()` on mount; augments built-in types with custom schemas.
+- Calls `fetchSchema(type)` immediately when user taps a tile in step 1 (so step 2 loads instantly).
+- Module-level `schemaCache` prevents redundant fetches within a session.
+- Z-index: backdrop `z-[49]`, modal `z-50`.
+
+### `SpeedDialFab.tsx`
+**Path**: `src/components/SpeedDialFab.tsx`
+Tab-aware expandable FAB. Replaces the old static `.fab` button.
+
+- **browse**: expands to "Get Help" + "Get Service" action stack.
+- **commitments** / **my-requests**: single "Get Help" action (plain FAB, no expansion).
+- **profile**: hidden (returns null).
+- Props: `activeTab: TabId`, `onGetHelp: () => void`, `onGetService: () => void`
+- Z-index: actions `z-40`, backdrop `z-39` (wizard modal is `z-50`).
+
+### Removed in Sprint 35
+- `EnhancedAutocomplete` and `ExtractedDataChips` are no longer used in dashboard.
+- NLP/smart-text logic (`parseRequestDescription`, `buildPayloadFromParsed`, `getSuggestions`, `updateLocationCoordinates`) no longer called from dashboard.
+- All NLP-related state removed from `dashboard.tsx`: `parsedRequest`, `autocompleteSuggestions`, `autocompleteTrigger`, etc.
 
 ## New Components (Sprint 34)
 

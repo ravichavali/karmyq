@@ -68,5 +68,17 @@ On Browse, the FAB is there because users who are browsing for others to help ar
 |--------|--------|
 | Sprint 33 | Canonical design tokens, empty states, onboarding modal |
 | Sprint 34 | Tab-based navigation, single-column content, FAB, filter chips |
-| Sprint 35 | Request creation simplification (progressive disclosure) |
+| Sprint 35 | Wizard / "Type-first: one decision per screen" — 3-click rule, SpeedDialFab, Get Service CTA |
 | Sprint 36 | Commitment depth (timeline, inline messaging) |
+
+## 3-Click Rule (Sprint 35)
+
+Every primary action — **Get Help** and **Get Service** — completes in exactly 3 interactions:
+
+1. Tap the FAB (+ button)
+2. Select a request type
+3. Describe and submit
+
+This rule prevents the friction that killed the original smart-text form. Each screen in the wizard asks for exactly one decision. The type picker is a visual grid, not a dropdown. The description is a plain textarea, not an annotated input. Urgency is explicit, not inferred.
+
+"Get Service" follows the same rule via the provider card or profile page: tap "Get Service" → the wizard opens at step 2 pre-filled with the provider's service type → describe and post.

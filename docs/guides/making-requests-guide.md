@@ -6,12 +6,11 @@ Posting a request is how you ask your community for help. It takes about a minut
 
 ## How to Post a Request
 
-1. Go to the **My Requests** tab (or tap the **+ Get Help** button from anywhere)
-2. Click **New Request** at the top of the page
-3. Choose a request type (see below)
-4. Describe what you need — the system will help you fill in the details
-5. Choose who can see your request (all communities, or a specific one)
-6. Submit — offers from community members will appear in your request detail
+Posting a request takes 3 clicks:
+
+1. **Tap the + button** — it expands to show "Get Help" and "Get Service"
+2. **Pick a type** — choose from the grid (General, Ride, Service, Event, Borrow, or custom types)
+3. **Describe your need** — fill in the description, set urgency, and post
 
 Your request will appear in the community feed straight away.
 
@@ -57,3 +56,15 @@ For example: _"I need a lift to the airport on Friday morning — 7am, NW6 area.
 - Post earlier than you think you need to
 - A clear, friendly title gets more responses
 - If it's time-sensitive, say so in the description
+
+---
+
+## Hiring a Provider
+
+To request help directly from a specific provider:
+
+1. Browse to **Providers** in the navigation
+2. Find the provider you want and tap **Get Service** on their card
+3. The wizard opens pre-filled with their service type — just add your description and post
+
+You can also tap **Get Service** on the provider's profile page. Your request will be linked to that provider and they'll be notified first.

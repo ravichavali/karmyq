@@ -53,10 +53,10 @@ body {
 
 @layer components {
   /* ── Buttons ── */
-  .btn-primary   { @apply bg-primary text-white px-6 py-2.5 rounded-lg font-medium hover:bg-primary-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed; }
-  .btn-secondary { @apply bg-surface-raised text-text border border-border px-6 py-2.5 rounded-lg font-medium hover:bg-primary-light transition-colors; }
-  .btn-ghost     { @apply text-primary px-4 py-2 rounded-lg hover:bg-primary-light transition-colors; }
-  .btn-danger    { @apply bg-error text-white px-6 py-2.5 rounded-lg font-medium hover:opacity-90 transition-opacity; }
+  .btn-primary   { @apply bg-primary text-white px-6 py-2.5 rounded-lg font-medium hover:bg-primary-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed min-h-[36px]; }
+  .btn-secondary { @apply bg-surface-raised text-text border border-border px-6 py-2.5 rounded-lg font-medium hover:bg-primary-light transition-colors min-h-[36px]; }
+  .btn-ghost     { @apply text-primary px-4 py-2 rounded-lg hover:bg-primary-light transition-colors min-h-[36px]; }
+  .btn-danger    { @apply bg-error text-white px-6 py-2.5 rounded-lg font-medium hover:opacity-90 transition-opacity min-h-[36px]; }
 
   /* ── Layout ── */
   .card          { @apply bg-surface-raised rounded-xl border border-border shadow-sm; }
@@ -132,4 +132,26 @@ body {
   .feed-card {
     @apply card p-4 hover:shadow-md transition-shadow cursor-pointer;
   }
+
+  /* ── Speed-dial FAB ── */
+  .speed-dial { @apply relative inline-flex flex-col items-end gap-3; }
+  .speed-dial-action {
+    @apply flex items-center gap-2 px-4 py-2.5 rounded-full bg-surface-raised border border-border
+           shadow-md text-sm font-medium text-text whitespace-nowrap
+           hover:bg-primary hover:text-white hover:border-primary transition-all;
+  }
+
+  /* ── Request Wizard ── */
+  .wizard-step { @apply flex flex-col gap-4; }
+  .type-card {
+    @apply flex flex-col items-center gap-2 p-4 rounded-xl border-2 border-border
+           text-center cursor-pointer transition-all hover:border-primary hover:bg-primary-light;
+  }
+  .type-card.selected { @apply border-primary bg-primary-light text-primary; }
+  .type-card.locked { @apply border-border bg-surface-raised opacity-60 cursor-not-allowed; }
+  .urgency-option {
+    @apply flex-1 py-2 text-sm font-medium rounded-lg border border-border text-center
+           cursor-pointer transition-all hover:border-primary hover:text-primary;
+  }
+  .urgency-option.selected { @apply border-primary bg-primary text-white; }
 }

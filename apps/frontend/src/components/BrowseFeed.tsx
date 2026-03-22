@@ -30,7 +30,7 @@ const URGENCY_COLORS: Record<string, string> = {
   urgent: 'text-red-600 bg-red-50',
   high: 'text-orange-600 bg-orange-50',
   medium: 'text-amber-600 bg-amber-50',
-  low: 'text-gray-500 bg-gray-50',
+  low: 'text-text-muted bg-surface-raised',
 }
 
 const TYPE_LABELS: Record<string, string> = {
@@ -189,7 +189,7 @@ export default function BrowseFeed({ communityId }: BrowseFeedProps) {
                     </span>
                   )}
                   {request.urgency && (
-                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${URGENCY_COLORS[request.urgency] ?? 'text-gray-500 bg-gray-50'}`}>
+                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${URGENCY_COLORS[request.urgency] ?? 'text-text-muted bg-surface-raised'}`}>
                       {request.urgency}
                     </span>
                   )}

@@ -1,59 +1,18 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/router'
 import Head from 'next/head'
-import { requestService, communityService, providerService } from '@/lib/api'
+import { requestService, communityService } from '@/lib/api'
 import { feedApi } from '@/lib/api'
 import Layout from '@/components/Layout'
-import ExtractedDataChips from '@/components/ExtractedDataChips'
-import EnhancedAutocomplete from '@/components/EnhancedAutocomplete'
 import EmptyState from '@/components/EmptyState'
 import WelcomeModal from '@/components/WelcomeModal'
 import TabBar, { TabId } from '@/components/TabBar'
 import BrowseFeed from '@/components/BrowseFeed'
 import CommitmentsTab from '@/components/CommitmentsTab'
 import MyRequestsTab from '@/components/MyRequestsTab'
+import SpeedDialFab from '@/components/SpeedDialFab'
+import RequestWizard from '@/components/RequestWizard'
 
-import { parseRequestDescription, buildPayloadFromParsed, updateLocationCoordinates, getSuggestions, type ParsedRequest, type AutocompleteSuggestion } from '@/lib/requestParser'
-import DynamicForm from '@/components/requests/DynamicForm'
-import type { UISchema } from '@karmyq/shared/schemas/ui'
-
-// Build a human-readable title + description from a structured form payload using the schema summary.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function generateFormSummary(schema: UISchema, payload: Record<string, any>): { title: string; description: string } {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  function getNestedValue(obj: Record<string, any>, path: string): unknown {
-    if (!path) return undefined
-    return path.split('.').reduce((cur: any, key) => (cur != null ? cur[key] : undefined), obj)
-  }
-  function formatValue(raw: unknown): string {
-    if (raw == null || raw === '') return ''
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    if (typeof raw === 'object' && raw !== null && 'address' in raw) return String((raw as any).address)
-    if (typeof raw === 'string' && /\d{4}-\d{2}-\d{2}T/.test(raw)) {
-      try { return new Date(raw).toLocaleString() } catch { return raw }
-    }
-    return String(raw)
-  }
-  if (!schema.summary) {
-    return { title: schema.label, description: schema.label + ' request' }
-  }
-  const parts = schema.summary.fields
-    .map((key) => {
-      const val = formatValue(getNestedValue(payload, key))
-      if (!val) return null
-      const label = schema.summary!.labels?.[key] || key
-      return `${label}: ${val}`
-    })
-    .filter(Boolean) as string[]
-  const description = parts.length > 0
-    ? `${schema.label} — ${parts.join(' | ')}` 
-    : schema.label + ' request'
-  return { title: description.slice(0, 100), description }
-}
-
-// Per-session schema cache, keyed by build ID — a new deploy automatically busts all cached schemas
-const BUILD_ID = typeof window !== "undefined" ? (window as any).__NEXT_DATA__?.buildId ?? "dev" : "dev"
-const schemaCache: Record<string, UISchema> = {}
 
 interface HelpRequest {
   id: string
@@ -92,63 +51,13 @@ interface Community {
   name: string
 }
 
-interface RateCard {
-  id: string
-  provider_id: string
-  label: string
-  service_type: string | null
-  pricing_model: 'standard' | 'free' | 'negotiable'
-  rate_amount: string | null
-  rate_unit: string | null
-  currency: string
-  notes: string | null
-  is_active: boolean
-  created_at: string
-  updated_at: string
-}
-
-function formatRateCard(card: RateCard): string {
-  if (card.pricing_model === 'standard' && card.rate_amount) {
-    const unit = card.rate_unit?.replace('per_', '') ?? ''
-    return `$${parseFloat(card.rate_amount).toFixed(0)} / ${unit}`
-  }
-  if (card.pricing_model === 'free') return 'Free'
-  return 'Negotiable'
-}
 
 export default function Dashboard() {
   const router = useRouter()
   const [user, setUser] = useState<any>(null)
   const [loading, setLoading] = useState(true)
 
-  // Quick create state
-  const [description, setDescription] = useState('')
-  const [postingMode, setPostingMode] = useState<'all' | 'specific'>('all')
-  const [visibilityScope, setVisibilityScope] = useState<'community' | 'trust_network' | 'platform'>('community')
-  const [selectedCommunity, setSelectedCommunity] = useState<string>('')
   const [userCommunities, setUserCommunities] = useState<Community[]>([])
-  const [creating, setCreating] = useState(false)
-  const [requestType, setRequestType] = useState<string | null>(null)
-  const [selectedProvider, setSelectedProvider] = useState<{ id: string; display_name: string } | null>(null)
-  const [showProviderPicker, setShowProviderPicker] = useState(false)
-  const [providerPickerProviders, setProviderPickerProviders] = useState<Array<{ id: string; display_name: string; trust_score: number | null; rate_cards: RateCard[] }>>([])
-  const [providerPickerLoading, setProviderPickerLoading] = useState(false)
-  const [availableTypes, setAvailableTypes] = useState<{ value: string; label: string; icon: string }[]>([
-    { value: 'generic', label: 'General', icon: '🤝' },
-    { value: 'ride', label: 'Ride', icon: '🚗' },
-    { value: 'service', label: 'Service', icon: '🔧' },
-    { value: 'event', label: 'Event', icon: '🎉' },
-    { value: 'borrow', label: 'Borrow', icon: '📦' },
-  ])
-  const [parsedRequest, setParsedRequest] = useState<ParsedRequest | null>(null)
-  const [currentSchema, setCurrentSchema] = useState<UISchema | null>(null)
-  const [schemaLoading, setSchemaLoading] = useState(false)
-  const [dynamicPayload, setDynamicPayload] = useState<Record<string, any>>({})
-  const [autocompleteSuggestions, setAutocompleteSuggestions] = useState<AutocompleteSuggestion[]>([])
-  const [autocompleteTrigger, setAutocompleteTrigger] = useState<'@' | '#' | '$' | '!' | '..' | '>>' | null>(null)
-  const [autocompleteTriggerPosition, setAutocompleteTriggerPosition] = useState<number>(-1)
-  const [searchQuery, setSearchQuery] = useState('')
-  const [textareaRef, setTextareaRef] = useState<HTMLTextAreaElement | null>(null)
 
   // Unified feed
   const [feedItems, setFeedItems] = useState<any[]>([])
@@ -166,7 +75,7 @@ export default function Dashboard() {
 
   // Tab shell state
   const [activeTab, setActiveTab] = useState<TabId>('browse')
-  const [showRequestForm, setShowRequestForm] = useState(false)
+  const [showWizard, setShowWizard] = useState(false)
 
   useEffect(() => {
     // Only run on client-side (not during SSR)
@@ -189,24 +98,6 @@ export default function Dashboard() {
     }
 
     setLoading(false)
-
-    // Fetch all published schemas to populate request type buttons
-    requestService.getSchemas().then((res) => {
-      const schemas = res.data?.schemas ?? res.data ?? []
-      if (Array.isArray(schemas) && schemas.length > 0) {
-        const BUILT_IN = new Set(['generic', 'ride', 'service', 'event', 'borrow'])
-        const custom = schemas
-          .filter((s: any) => !BUILT_IN.has(s.type))
-          .map((s: any) => ({ value: s.type, label: s.label ?? s.type, icon: s.icon ?? '✨' }))
-        if (custom.length > 0) {
-          setAvailableTypes((prev) => {
-            const existing = new Set(prev.map((t) => t.value))
-            const deduped = custom.filter((t: { value: string }) => !existing.has(t.value))
-            return deduped.length > 0 ? [...prev, ...deduped] : prev
-          })
-        }
-      }
-    }).catch(() => { /* silently ignore — built-in types still show */ })
   }, [router])
 
   // Re-fetch when filters or active community change (skip on initial mount — handled above)
@@ -419,338 +310,6 @@ export default function Dashboard() {
     }
   }
 
-  const fetchSchema = async (type: string) => {
-    if (type === 'generic') {
-      setCurrentSchema(null)
-      return
-    }
-    // Use cache only if schema has sections (guards against stale empty-section schemas)
-    const cacheKey = BUILD_ID + ":" + type
-    const cached = schemaCache[cacheKey]
-    if (cached && cached.sections && cached.sections.length > 0) {
-      setCurrentSchema(cached)
-      return
-    }
-    try {
-      setSchemaLoading(true)
-      const response = await requestService.getSchema(type)
-      const schema = (response.data?.schema ?? response.data) as UISchema
-      if (!schema || !Array.isArray(schema.sections)) {
-        setCurrentSchema(null)
-        return
-      }
-      // Normalize: ensure every section has a fields array
-      schema.sections = schema.sections.map((s: any) => ({ ...s, fields: s.fields ?? [] }))
-      schemaCache[cacheKey] = schema
-      setCurrentSchema(schema)
-    } catch (error) {
-      console.error('Error fetching schema:', error)
-      setCurrentSchema(null)
-    } finally {
-      setSchemaLoading(false)
-    }
-  }
-
-  const handleDescriptionChange = (newDescription: string, cursorPos?: number) => {
-    console.log('📝 handleDescriptionChange called:', { text: newDescription, cursorPos, requestType })
-    setDescription(newDescription)
-
-    // Parse in real-time
-    if (newDescription.trim()) {
-      const parsed = parseRequestDescription(newDescription, requestType ?? 'generic')
-      setParsedRequest(parsed)
-    } else {
-      setParsedRequest(null)
-    }
-
-    // Show autocomplete suggestions and extract search query
-    const pos = cursorPos ?? newDescription.length
-    const { suggestions, trigger } = getSuggestions(newDescription, pos, requestType ?? 'generic')
-    console.log('💡 getSuggestions returned:', { trigger, suggestionsCount: suggestions.length })
-
-    // Extract search query for async geocoding
-    // Detect location context even without @ trigger
-    const beforeCursor = newDescription.slice(0, pos)
-    console.log('🔎 beforeCursor:', beforeCursor)
-
-    if (trigger === '@') {
-      // User explicitly used @ for location
-      setAutocompleteSuggestions(suggestions)
-      setAutocompleteTrigger(trigger)
-
-      const triggerIndex = beforeCursor.lastIndexOf(trigger)
-      if (triggerIndex !== -1) {
-        const rawQuery = beforeCursor.slice(triggerIndex + trigger.length)
-        const query = rawQuery.trim()
-        console.log('🔑 @ trigger detected! Query extracted:', {
-          triggerIndex,
-          rawQuery: `"${rawQuery}"`,
-          query: `"${query}"`,
-          queryLength: query.length
-        })
-        setSearchQuery(query)
-        setAutocompleteTriggerPosition(triggerIndex)
-      } else {
-        console.log('❌ @ trigger found but no triggerIndex')
-        setSearchQuery('')
-        setAutocompleteTriggerPosition(-1)
-      }
-    } else if (requestType === 'ride') {
-      // Smart detection: look for location keywords like "from", "to"
-      // Match patterns like: "from San" or "to San" where cursor is after the word
-      // IMPORTANT: Both patterns should stop at keywords
-      // Use word boundary to ensure " to" is a complete word
-      const fromMatch = beforeCursor.match(/from\s+([a-zA-Z0-9\s\-]+?)(?:\s+to(?:\s|$)|$)/i)
-      // Fixed: "to" pattern should stop at time keywords (tomorrow, today, at, @) or end
-      const toMatch = beforeCursor.match(/to\s+([a-zA-Z0-9\s\-]*?)(?:\s+(?:tomorrow|today|tonight|at|@)|\s*$)/i)
-
-      console.log('🔍 Smart detection:', {
-        beforeCursor,
-        fromMatch: fromMatch?.[0],
-        toMatch: toMatch?.[0],
-        requestType
-      })
-
-      if (fromMatch || toMatch) {
-        // IMPORTANT: Prefer "to" match over "from" match when both exist
-        // This ensures that when typing "from X to Y", we autocomplete Y, not X
-        const locationText = (toMatch?.[1] || fromMatch?.[1] || '').trim()
-        console.log('📍 Location text detected:', locationText, 'Length:', locationText.length)
-
-        // Calculate trigger position for natural language
-        // IMPORTANT: Check "to" first since it's closer to cursor in "from X to Y" pattern
-        let naturalTriggerPos = -1
-        if (toMatch) {
-          naturalTriggerPos = beforeCursor.lastIndexOf('to ') + 3 // Start of location text after "to "
-        } else if (fromMatch) {
-          naturalTriggerPos = beforeCursor.lastIndexOf('from ') + 5 // Start of location text after "from "
-        }
-
-        if (locationText.length >= 2) {
-          // Trigger geocoding for location context
-          // Provide minimal initial suggestions to show the autocomplete
-          setAutocompleteSuggestions([
-            { value: '@loading', label: 'Searching...', description: 'Loading addresses', icon: '🔍', category: 'location' }
-          ])
-          setAutocompleteTrigger('@') // Pretend it's @ trigger for autocomplete
-          setAutocompleteTriggerPosition(naturalTriggerPos)
-          setSearchQuery(locationText)
-        } else if (locationText.length > 0) {
-          // Show placeholder while typing
-          setAutocompleteSuggestions([
-            { value: '@typing', label: 'Keep typing...', description: 'Type 2+ characters', icon: '⌨️', category: 'location' }
-          ])
-          setAutocompleteTrigger('@')
-          setAutocompleteTriggerPosition(naturalTriggerPos)
-          setSearchQuery('')
-        } else {
-          setAutocompleteSuggestions([])
-          setAutocompleteTrigger(null)
-          setAutocompleteTriggerPosition(-1)
-          setSearchQuery('')
-        }
-      } else {
-        setAutocompleteSuggestions(suggestions)
-        setAutocompleteTrigger(trigger)
-        setSearchQuery('')
-      }
-    } else {
-      setAutocompleteSuggestions(suggestions)
-      setAutocompleteTrigger(trigger)
-      setSearchQuery('')
-    }
-  }
-
-  const handleSelectSuggestion = (value: string, lat?: number, lng?: number, displayName?: string, category?: string) => {
-    if (!textareaRef) return
-
-    const cursorPos = textareaRef.selectionStart
-    const beforeCursor = description.slice(0, cursorPos)
-    const afterCursor = description.slice(cursorPos)
-
-    // Find where the text to replace starts
-    let triggerStart = cursorPos
-    let finalValue = value
-
-    // IMPORTANT: Use the saved autocompleteTriggerPosition for all cases
-    // This position was calculated correctly during detection and handles "from X to Y" patterns
-    if (autocompleteTrigger === '@' && autocompleteTriggerPosition !== -1) {
-      // Use the saved trigger position for all @ triggers (including natural language)
-      triggerStart = autocompleteTriggerPosition
-      // Remove @ prefix for natural language contexts (from/to)
-      finalValue = value.replace(/^@/, '')
-    } else if (autocompleteTrigger === '..' || autocompleteTrigger === '>>') {
-      triggerStart = cursorPos - 2
-    } else if (autocompleteTrigger === '@') {
-      // Fallback for @ trigger without saved position
-      const atIndex = beforeCursor.lastIndexOf('@')
-      if (atIndex !== -1) {
-        triggerStart = atIndex
-      } else {
-        triggerStart = cursorPos - 1
-      }
-    } else {
-      triggerStart = cursorPos - 1
-    }
-
-    // Replace from trigger to cursor with the selected value
-    const newDescription = beforeCursor.slice(0, triggerStart) + finalValue + ' ' + afterCursor
-
-    handleDescriptionChange(newDescription, triggerStart + finalValue.length + 1)
-
-    // Store coordinates and display_name if this is a geocoded location
-    if (lat !== undefined && lng !== undefined && parsedRequest) {
-      // Extract the address from the value (remove @ prefix)
-      const address = value.replace(/^@/, '').trim()
-      const updatedRequest = updateLocationCoordinates(parsedRequest, address, lat, lng, displayName)
-      setParsedRequest(updatedRequest)
-      console.log(`Stored location: "${address}" (${displayName}) at ${lat}, ${lng}`)
-    }
-
-    // Clear autocomplete
-    setAutocompleteSuggestions([])
-    setAutocompleteTrigger(null)
-    setAutocompleteTriggerPosition(-1)
-    setSearchQuery('')
-
-    // Focus back on textarea
-    setTimeout(() => {
-      textareaRef.focus()
-      const newPos = triggerStart + finalValue.length + 1
-      textareaRef.setSelectionRange(newPos, newPos)
-    }, 0)
-  }
-
-  const handleCloseAutocomplete = () => {
-    setAutocompleteSuggestions([])
-    setAutocompleteTrigger(null)
-    setAutocompleteTriggerPosition(-1)
-  }
-
-  const handleRemoveExtractedData = (type: string, index: number) => {
-    // Remove extracted data chip (just visual feedback for now)
-    // User can manually edit description to remove
-    console.log('Remove', type, index)
-  }
-
-  const fetchAndShowProviderPicker = async () => {
-    if (!requestType) return
-    setProviderPickerLoading(true)
-    setShowProviderPicker(true)
-    try {
-      const listResp = await providerService.listProviders({ service_type: requestType })
-      const providers: any[] = listResp.data?.data ?? listResp.data ?? []
-      const enriched = await Promise.allSettled(
-        providers.map(async (p: any) => {
-          const detailResp = await providerService.getProvider(p.id)
-          const providerData = detailResp.data
-          return {
-            id: p.id,
-            display_name: p.display_name ?? providerData?.display_name ?? 'Provider',
-            trust_score: providerData?.trust_score ?? null,
-            rate_cards: (providerData?.rate_cards ?? []) as RateCard[],
-          }
-        })
-      )
-      const withCards = enriched
-        .filter((r): r is PromiseFulfilledResult<any> => r.status === 'fulfilled')
-        .map((r) => r.value)
-      setProviderPickerProviders(withCards)
-    } catch (err) {
-      console.error('Failed to fetch providers', err)
-      setProviderPickerProviders([])
-    } finally {
-      setProviderPickerLoading(false)
-    }
-  }
-
-  const handleCreateRequest = async () => {
-    const hasStructuredFormData = currentSchema && currentSchema.sections.length > 0 && Object.keys(dynamicPayload).length > 0
-    if (!description.trim() && !hasStructuredFormData) return
-
-    try {
-      setCreating(true)
-
-      // Build payload: prefer dynamicPayload (schema-driven), fall back to NLP-parsed
-      const hasStructuredForm = currentSchema && currentSchema.sections.length > 0
-      const nlpPayload = parsedRequest ? buildPayloadFromParsed(parsedRequest, requestType ?? 'generic') : {}
-      const payload = hasStructuredForm
-        ? { ...nlpPayload, ...dynamicPayload }
-        : nlpPayload
-
-      // Use urgency from parsed data if available
-      const urgency = parsedRequest?.extractedData.urgency || 'medium'
-
-      // Generate title and description from the form summary when no text description is provided
-      const formSummary = hasStructuredForm && currentSchema
-        ? generateFormSummary(currentSchema, dynamicPayload)
-        : null
-
-      const requestData = {
-        post_to_all_communities: postingMode === 'all',
-        community_id: postingMode === 'specific' ? selectedCommunity : undefined,
-        title: formSummary?.title || description.trim().slice(0, 100) || 'Help request',
-        description: (() => {
-          // For structured forms: combine schema summary with any additional context the user typed
-          if (formSummary) {
-            const extra = description.trim()
-            return extra ? formSummary.description + '\n\n' + extra : formSummary.description
-          }
-          return parsedRequest?.cleanDescription || description.trim() || 'Help request'
-        })(),
-        request_type: requestType ?? 'generic',
-        urgency,
-        payload: Object.keys(payload).length > 0 ? payload : undefined,
-        visibility_scope: visibilityScope,
-        preferred_provider_id: selectedProvider?.id ?? undefined,
-      }
-
-      // DEBUG: Log what we're sending
-      console.log('=== CREATE REQUEST DEBUG ===')
-      console.log('Original description:', description)
-      console.log('Request type:', requestType)
-      console.log('Parsed request:', parsedRequest)
-      console.log('Built payload:', payload)
-      console.log('Final request data:', requestData)
-      console.log('===========================')
-
-      console.log('About to call requestService.createRequest...')
-      const result = await requestService.createRequest(requestData)
-      console.log('Request created successfully!', result)
-
-      // Clear form and refresh
-      setDescription('')
-      setParsedRequest(null)
-      setPostingMode('all')
-      setSelectedCommunity('')
-      setVisibilityScope('community')
-      setRequestType('generic')
-      setCurrentSchema(null)
-      setDynamicPayload({})
-      setSelectedProvider(null)
-
-      // Add small delay to ensure backend has processed the request before refreshing
-      if (user) {
-        setTimeout(async () => {
-          await fetchDashboardData(user.id)
-        }, 500)
-      }
-    } catch (error: any) {
-      console.error('Error creating request:', error)
-      console.error('Error response:', error.response?.data)
-
-      // Show detailed validation errors
-      const errorMessage = error.response?.data?.message || 'Failed to create request'
-      const errorDetails = error.response?.data?.errors
-        ? '\n\nValidation errors:\n' + JSON.stringify(error.response.data.errors, null, 2)
-        : ''
-
-      alert(errorMessage + errorDetails)
-    } finally {
-      setCreating(false)
-    }
-  }
-
   const handleOfferToHelp = async (requestId: string) => {
     if (!user) return
 
@@ -865,11 +424,11 @@ export default function Dashboard() {
 
         {/* Tab content */}
         <div className="pb-20 md:pb-0">
-          {activeTab === 'browse' && <BrowseFeed communityId={activeCommunityId || undefined} />}
-          {activeTab === 'commitments' && <CommitmentsTab />}
-          {activeTab === 'my-requests' && <MyRequestsTab onNewRequest={() => setShowRequestForm(true)} />}
+          {activeTab === 'browse' && <div key="browse"><BrowseFeed communityId={activeCommunityId || undefined} /></div>}
+          {activeTab === 'commitments' && <div key="commitments"><CommitmentsTab /></div>}
+          {activeTab === 'my-requests' && <div key="my-requests"><MyRequestsTab onNewRequest={() => setShowWizard(true)} /></div>}
           {activeTab === 'profile' && (
-            <div className="max-w-2xl mx-auto px-4 py-8">
+            <div key="profile" className="max-w-2xl mx-auto px-4 py-8">
               <EmptyState
                 heading="Profile"
                 body="View your full profile, karma history, and settings."
@@ -880,178 +439,16 @@ export default function Dashboard() {
           )}
         </div>
 
-        {/* FAB — only on browse and commitments */}
-        {(activeTab === 'browse' || activeTab === 'commitments') && (
-          <button className="fab" onClick={() => setShowRequestForm(true)}>
-            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
-              <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
-            </svg>
-            Get Help
-          </button>
-        )}
-
-        {/* Request Form Modal */}
-        {showRequestForm && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-end md:items-center justify-center p-4">
-            <div className="bg-surface-raised rounded-t-2xl md:rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-              <div className="p-4 border-b border-border flex items-center justify-between">
-                <h2 className="font-semibold text-text">Post a Request</h2>
-                <button onClick={() => setShowRequestForm(false)} className="text-text-muted hover:text-text transition-colors">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-              <div className="p-4">
-                {/* Request type selector */}
-                <div className="flex items-center gap-2 mb-3 flex-wrap">
-                  {availableTypes.map((type) => (
-                    <button
-                      key={type.value}
-                      type="button"
-                      onClick={() => {
-                        setRequestType(type.value)
-                        setSelectedProvider(null)
-                        setDynamicPayload({})
-                        fetchSchema(type.value)
-                      }}
-                      className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
-                        requestType === type.value
-                          ? 'bg-primary text-white shadow-sm'
-                          : 'bg-border-light text-text-muted hover:bg-gray-200'
-                      }`}
-                    >
-                      <span className="mr-1">{type.icon}</span>
-                      {type.label}
-                    </button>
-                  ))}
-                </div>
-
-                {requestType ? (
-                  <>
-                    {schemaLoading && <div className="text-xs text-text-subtle py-2">Loading form…</div>}
-                    {!schemaLoading && currentSchema && currentSchema.sections.length > 0 && (
-                      <div className="mb-3">
-                        <DynamicForm schema={currentSchema} value={dynamicPayload} onChange={setDynamicPayload} />
-                      </div>
-                    )}
-                    <div className="relative mb-2">
-                      <textarea
-                        ref={setTextareaRef}
-                        value={description}
-                        onChange={(e) => handleDescriptionChange(e.target.value, e.target.selectionStart)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Escape' && autocompleteSuggestions.length > 0) {
-                            e.preventDefault()
-                            handleCloseAutocomplete()
-                          }
-                        }}
-                        placeholder="What do you need help with? Tip: Use @time, @location, #count, $budget, !urgent"
-                        className="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent resize-none text-sm"
-                        rows={3}
-                      />
-                      {autocompleteSuggestions.length > 0 && (
-                        <EnhancedAutocomplete
-                          suggestions={autocompleteSuggestions}
-                          onSelect={handleSelectSuggestion}
-                          onClose={handleCloseAutocomplete}
-                          triggerChar={autocompleteTrigger}
-                          searchQuery={searchQuery}
-                        />
-                      )}
-                    </div>
-                    {parsedRequest && !currentSchema && (
-                      <ExtractedDataChips parsed={parsedRequest} onRemove={handleRemoveExtractedData} />
-                    )}
-                  </>
-                ) : (
-                  <p className="text-xs text-text-subtle mb-3">Select a type above to get started</p>
-                )}
-
-                {/* Posting scope */}
-                <div className="flex items-center gap-3 mb-4 text-sm flex-wrap">
-                  <button
-                    onClick={() => setPostingMode('all')}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border transition-colors ${postingMode === 'all' ? 'border-primary bg-primary-light text-primary' : 'border-border text-text-muted hover:bg-surface-raised'}`}
-                  >
-                    All Communities
-                  </button>
-                  <button
-                    onClick={() => setPostingMode('specific')}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border transition-colors ${postingMode === 'specific' ? 'border-primary bg-primary-light text-primary' : 'border-border text-text-muted hover:bg-surface-raised'}`}
-                  >
-                    Specific
-                  </button>
-                  {postingMode === 'specific' && (
-                    <select
-                      value={selectedCommunity}
-                      onChange={(e) => setSelectedCommunity(e.target.value)}
-                      className="flex-1 text-sm border border-border rounded-lg px-2 py-1.5 bg-surface"
-                    >
-                      <option value="">Select community</option>
-                      {userCommunities.map((c) => (
-                        <option key={c.id} value={c.id}>{c.name}</option>
-                      ))}
-                    </select>
-                  )}
-                </div>
-
-                <button
-                  onClick={async () => { await handleCreateRequest(); setShowRequestForm(false) }}
-                  disabled={creating || !requestType}
-                  className="btn-primary w-full disabled:opacity-50"
-                >
-                  {creating ? 'Posting…' : 'Post Request'}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Provider Picker Modal */}
-        {showProviderPicker && (
-          <div className="fixed inset-0 bg-black bg-opacity-40 z-50 flex items-center justify-center">
-            <div className="bg-white rounded-xl p-6 w-full max-w-md max-h-[70vh] overflow-y-auto">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="font-semibold text-gray-800">Browse Providers</h3>
-                <button onClick={() => setShowProviderPicker(false)} className="text-gray-400 hover:text-gray-600">×</button>
-              </div>
-              {providerPickerLoading ? (
-                <p className="text-sm text-gray-400">Loading providers...</p>
-              ) : providerPickerProviders.length === 0 ? (
-                <p className="text-sm text-gray-400">No providers available for this request type.</p>
-              ) : (
-                <ul className="space-y-3">
-                  {providerPickerProviders.map((p) => (
-                    <li key={p.id} className="border rounded-lg p-3">
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <p className="text-sm font-medium">{p.display_name}</p>
-                          {p.trust_score != null && (
-                            <p className="text-xs text-gray-500">Trust: {p.trust_score}</p>
-                          )}
-                          <ul className="mt-1 space-y-0.5">
-                            {p.rate_cards.filter((c: any) => c.is_active).map((card: any) => (
-                              <li key={card.id} className="text-xs text-gray-500">
-                                {card.label} — {formatRateCard(card)}
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => { setSelectedProvider({ id: p.id, display_name: p.display_name }); setShowProviderPicker(false) }}
-                          className="ml-3 text-xs btn-primary py-1 shrink-0"
-                        >
-                          Pre-select
-                        </button>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          </div>
+        <SpeedDialFab
+          activeTab={activeTab}
+          onGetHelp={() => setShowWizard(true)}
+          onGetService={() => setShowWizard(true)}
+        />
+        {showWizard && (
+          <RequestWizard
+            onClose={() => setShowWizard(false)}
+            onSuccess={() => { if (user) fetchDashboardData(user.id) }}
+          />
         )}
       </Layout>
     </>

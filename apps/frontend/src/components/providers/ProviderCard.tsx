@@ -2,18 +2,21 @@ import React from 'react';
 import Link from 'next/link';
 import TrustScoreBadge from './TrustScoreBadge';
 
+export interface ProviderCardData {
+  id: string;
+  display_name: string;
+  service_type: string;
+  bio?: string;
+  pricing_notes?: string;
+  location_notes?: string;
+  avg_stars?: number | string;
+  total_reviews?: number;
+  trust_score?: number | string;
+}
+
 interface ProviderCardProps {
-  provider: {
-    id: string;
-    display_name: string;
-    service_type: string;
-    bio?: string;
-    pricing_notes?: string;
-    location_notes?: string;
-    avg_stars?: number | string;
-    total_reviews?: number;
-    trust_score?: number | string;
-  };
+  provider: ProviderCardData;
+  onGetService?: (provider: ProviderCardData) => void;
 }
 
 function renderStars(avg: number | string | undefined) {
@@ -35,7 +38,7 @@ const SERVICE_TYPE_LABELS: Record<string, string> = {
   other: 'Other',
 };
 
-export default function ProviderCard({ provider }: ProviderCardProps) {
+export default function ProviderCard({ provider, onGetService }: ProviderCardProps) {
   return (
     <Link href={`/providers/${provider.id}`}>
       <div className="bg-surface-raised rounded-lg shadow-sm border border-border p-4 hover:shadow-md transition cursor-pointer h-full flex flex-col gap-2">
@@ -69,6 +72,15 @@ export default function ProviderCard({ provider }: ProviderCardProps) {
             <span className="text-xs text-text-subtle truncate max-w-[140px]">{provider.pricing_notes}</span>
           )}
         </div>
+
+        {onGetService && (
+          <button
+            className="btn-secondary text-xs px-3 py-1.5 mt-2 w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+            onClick={(e) => { e.preventDefault(); onGetService(provider) }}
+          >
+            Get Service
+          </button>
+        )}
       </div>
     </Link>
   );

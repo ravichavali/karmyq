@@ -4,9 +4,11 @@ import Head from 'next/head'
 import Link from 'next/link'
 import Layout from '@/components/Layout'
 import ProviderCard from '@/components/providers/ProviderCard'
+import type { ProviderCardData } from '@/components/providers/ProviderCard'
 import CollectiveCard from '@/components/providers/CollectiveCard'
 import { providerService, collectiveService } from '../../lib/api'
 import { PROVIDER_SERVICE_TYPES } from '@karmyq/shared/schemas/providers'
+import RequestWizard from '@/components/RequestWizard'
 
 const SERVICE_TYPE_LABELS: Record<string, string> = {
   ride: 'Rides',
@@ -25,6 +27,7 @@ export default function ProvidersPage() {
   const [myProviders, setMyProviders] = useState<any[]>([])
   const [myCollectives, setMyCollectives] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [wizardProvider, setWizardProvider] = useState<ProviderCardData | null>(null)
 
   useEffect(() => {
     const userStr = typeof window !== 'undefined' ? localStorage.getItem('user') : null
@@ -216,7 +219,13 @@ export default function ProvidersPage() {
               <div className="text-center py-16 text-text-muted text-sm">No providers found. Be the first!</div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {providers.map(p => <ProviderCard key={p.id} provider={p} />)}
+                {providers.map(p => (
+                  <ProviderCard
+                    key={p.id}
+                    provider={p}
+                    onGetService={(provider) => setWizardProvider(provider)}
+                  />
+                ))}
               </div>
             )
           ) : (
@@ -230,6 +239,24 @@ export default function ProvidersPage() {
           )}
         </div>
       </div>
+
+      {/* Get Service FAB */}
+      <button
+        className="fab"
+        onClick={() => setWizardProvider({ id: '', display_name: '', service_type: 'other' })}
+        aria-label="Get Service"
+      >
+        +
+      </button>
+
+      {wizardProvider && (
+        <RequestWizard
+          onClose={() => setWizardProvider(null)}
+          preferredProviderId={wizardProvider.id || undefined}
+          preferredProviderName={wizardProvider.display_name || undefined}
+          preferredProviderServiceType={wizardProvider.service_type || undefined}
+        />
+      )}
     </Layout>
   )
 }

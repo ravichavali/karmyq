@@ -9,6 +9,7 @@ import ProviderForm from '@/components/providers/ProviderForm'
 import ProviderReviews from '@/components/providers/ProviderReviews'
 import { providerService } from '../../lib/api'
 import { useTrustPath } from '@/hooks/useTrustPath'
+import RequestWizard from '@/components/RequestWizard'
 
 const SERVICE_TYPE_LABELS: Record<string, string> = {
   ride: 'Rides',
@@ -61,6 +62,7 @@ export default function ProviderDetailPage() {
   const [reviews, setReviews] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [editing, setEditing] = useState(false)
+  const [showWizard, setShowWizard] = useState(false)
   const isOwner = currentUser ? currentUser.id === provider?.user_id : false
   const { trustPath } = useTrustPath(provider?.user_id ?? null, { enabled: !!currentUser && !isOwner })
 
@@ -139,6 +141,15 @@ export default function ProviderDetailPage() {
               )}
             </div>
           </div>
+
+          {!isOwner && (
+            <button
+              className="btn-primary mt-4 px-6 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+              onClick={() => setShowWizard(true)}
+            >
+              Get Service
+            </button>
+          )}
 
           {provider.bio && <p className="mt-4 text-sm text-text-muted">{provider.bio}</p>}
 
@@ -231,6 +242,15 @@ export default function ProviderDetailPage() {
           />
         </div>
       </div>
+
+      {showWizard && (
+        <RequestWizard
+          onClose={() => setShowWizard(false)}
+          preferredProviderId={provider?.id}
+          preferredProviderName={provider?.display_name}
+          preferredProviderServiceType={provider?.service_type}
+        />
+      )}
     </Layout>
   )
 }

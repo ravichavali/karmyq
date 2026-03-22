@@ -94,8 +94,13 @@ export default function CommitmentsTab() {
 
   if (loading) {
     return (
-      <div className="max-w-2xl mx-auto px-4 py-8 text-center text-text-muted">
-        Loading commitments…
+      <div className="max-w-2xl mx-auto px-4 py-4 space-y-3">
+        {[1, 2, 3].map((i) => (
+          <div key={i} className="card p-4 animate-pulse">
+            <div className="h-4 bg-border rounded w-3/4 mb-2" />
+            <div className="h-3 bg-border rounded w-1/2" />
+          </div>
+        ))}
       </div>
     )
   }
