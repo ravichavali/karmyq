@@ -13,13 +13,18 @@ import {
   sendInternalError,
   HTTP_STATUS
 } from '@karmyq/shared/utils/response';
+import { normalizeTags } from '../utils/tags';
 
 const router = Router();
 
-// GET /communities - Get all communities (with optional filters and search)
+// GET /communities - Get all communities (with optional filters, search, and discovery modes)
 router.get('/', async (req: any, res: Response) => {
   try {
     const {
+      mode,
+      lat,
+      lng,
+      tags: tagsParam,
       status = 'active',
       limit = 50,
       offset = 0,
@@ -30,6 +35,84 @@ router.get('/', async (req: any, res: Response) => {
       sort = 'newest'
     } = req.query;
 
+    // Geography mode: ?mode=geography&lat=XX&lng=YY
+    if (mode === 'geography') {
+      if (lat == null || lng == null) {
+        // Fall through to default alphabetical if lat/lng missing
+      } else {
+        const latNum = parseFloat(lat as string);
+        const lngNum = parseFloat(lng as string);
+        if (isNaN(latNum) || isNaN(lngNum)) {
+          return res.status(400).json({ success: false, message: 'lat and lng must be valid numbers' });
+        }
+        const result = await query(
+          `SELECT
+            c.id, c.name, c.description, c.location, c.category,
+            c.max_members, c.current_members, c.access_type,
+            c.creator_id, c.status, c.created_at, c.updated_at,
+            u.name as creator_name,
+            COALESCE(ls.inner_circle, 0) as inner_circle_count,
+            COALESCE(ls.active_community, 0) as active_community_count,
+            COALESCE(ls.extended_network, 0) as extended_network_count,
+            ROUND(SQRT(POWER(c.latitude - $1, 2) + POWER(c.longitude - $2, 2)) * 111, 1) AS distance_km
+          FROM communities.communities c
+          LEFT JOIN auth.users u ON c.creator_id = u.id
+          LEFT JOIN LATERAL (
+            SELECT
+              COUNT(*) FILTER (WHERE calculate_community_layer(m.user_id, c.id) = 'inner_circle') as inner_circle,
+              COUNT(*) FILTER (WHERE calculate_community_layer(m.user_id, c.id) = 'active_community') as active_community,
+              COUNT(*) FILTER (WHERE calculate_community_layer(m.user_id, c.id) = 'extended_network') as extended_network
+            FROM communities.members m
+            WHERE m.community_id = c.id AND m.status = 'active'
+          ) ls ON true
+          WHERE c.status = 'active' AND c.latitude IS NOT NULL AND c.longitude IS NOT NULL
+          ORDER BY POWER(c.latitude - $1, 2) + POWER(c.longitude - $2, 2) ASC`,
+          [latNum, lngNum]
+        );
+        return sendSuccess(res, {
+          communities: result.rows,
+          count: result.rowCount,
+          total: result.rowCount,
+        }, HTTP_STATUS.OK, { requestId: req.id });
+      }
+    }
+
+    // Interests mode: ?mode=interests&tags=gardening,tech
+    if (mode === 'interests' && tagsParam) {
+      const tagArray = normalizeTags((tagsParam as string).split(','));
+      if (tagArray.length > 0) {
+        const result = await query(
+          `SELECT
+            c.id, c.name, c.description, c.location, c.category,
+            c.max_members, c.current_members, c.access_type,
+            c.creator_id, c.status, c.created_at, c.updated_at,
+            u.name as creator_name,
+            COALESCE(ls.inner_circle, 0) as inner_circle_count,
+            COALESCE(ls.active_community, 0) as active_community_count,
+            COALESCE(ls.extended_network, 0) as extended_network_count
+          FROM communities.communities c
+          LEFT JOIN auth.users u ON c.creator_id = u.id
+          LEFT JOIN LATERAL (
+            SELECT
+              COUNT(*) FILTER (WHERE calculate_community_layer(m.user_id, c.id) = 'inner_circle') as inner_circle,
+              COUNT(*) FILTER (WHERE calculate_community_layer(m.user_id, c.id) = 'active_community') as active_community,
+              COUNT(*) FILTER (WHERE calculate_community_layer(m.user_id, c.id) = 'extended_network') as extended_network
+            FROM communities.members m
+            WHERE m.community_id = c.id AND m.status = 'active'
+          ) ls ON true
+          WHERE c.status = 'active' AND c.tags && $1
+          ORDER BY c.name ASC`,
+          [tagArray]
+        );
+        return sendSuccess(res, {
+          communities: result.rows,
+          count: result.rowCount,
+          total: result.rowCount,
+        }, HTTP_STATUS.OK, { requestId: req.id });
+      }
+    }
+
+    // Default: alphabetical with existing filters
     // Build WHERE conditions dynamically
     const conditions: string[] = ['c.status = $1'];
     const params: any[] = [status];
@@ -140,6 +223,24 @@ router.get('/my/communities', async (req: Request, res: Response) => {
   } catch (error: any) {
     console.error('Error fetching user communities:', error);
     sendInternalError(res, 'Failed to fetch user communities', error instanceof Error ? error : undefined, { requestId: (req as any).id });
+  }
+});
+
+// GET /communities/tags - Get all distinct tags (must be before /:id to avoid capture)
+router.get('/tags', async (req: Request, res: Response) => {
+  try {
+    const result = await query(
+      `SELECT DISTINCT UNNEST(tags) AS tag
+      FROM communities.communities
+      WHERE tags != '{}'
+      ORDER BY tag ASC`,
+      []
+    );
+    const tags = result.rows.map((row: any) => row.tag);
+    sendSuccess(res, { tags }, HTTP_STATUS.OK, { requestId: (req as any).id });
+  } catch (error: any) {
+    console.error('Error fetching tags:', error);
+    sendInternalError(res, 'Failed to fetch tags', error instanceof Error ? error : undefined, { requestId: (req as any).id });
   }
 });
 
@@ -394,6 +495,101 @@ router.post('/', async (req: Request, res: Response) => {
   } catch (error: any) {
     console.error('Error creating community:', error);
     sendInternalError(res, 'Failed to create community', error instanceof Error ? error : undefined, { requestId: (req as any).id });
+  }
+});
+
+// PUT /communities/:id/tags - Update community interest tags
+router.put('/:id/tags', async (req: Request, res: Response) => {
+  try {
+    const { id: communityId } = req.params;
+    const { tags } = req.body;
+    const user = (req as any).user;
+
+    // Auth check: caller must be admin of this community (via JWT communities field)
+    const memberships: Array<{ id: string; name: string; role: string }> = user?.communities ?? [];
+    const isAdmin = memberships.some((m) => m.id === communityId && m.role === 'admin');
+    if (!isAdmin) {
+      return sendForbidden(res, 'Only community admins can update tags', { requestId: (req as any).id });
+    }
+
+    // Validate: tags must be an array
+    if (!Array.isArray(tags)) {
+      return sendValidationError(res, 'tags must be an array', { requestId: (req as any).id });
+    }
+
+    // Normalize
+    const normalizedTags = normalizeTags(tags);
+
+    // Validate limits
+    if (normalizedTags.length > 20) {
+      return res.status(400).json({ success: false, message: 'Maximum 20 tags allowed' });
+    }
+    if (normalizedTags.some((t: string) => t.length > 50)) {
+      return res.status(400).json({ success: false, message: 'Each tag must be 50 characters or fewer' });
+    }
+
+    // Update
+    const result = await query(
+      `UPDATE communities.communities
+       SET tags = $1, updated_at = NOW()
+       WHERE id = $2
+       RETURNING *`,
+      [normalizedTags, communityId]
+    );
+
+    if (result.rowCount === 0) {
+      return sendNotFound(res, 'Community not found', { requestId: (req as any).id });
+    }
+
+    sendSuccess(res, { community: result.rows[0] }, HTTP_STATUS.OK, { requestId: (req as any).id });
+  } catch (error: any) {
+    console.error('Error updating community tags:', error);
+    sendInternalError(res, 'Failed to update community tags', error instanceof Error ? error : undefined, { requestId: (req as any).id });
+  }
+});
+
+// PUT /communities/:id/location - Update community lat/lng coordinates
+router.put('/:id/location', async (req: Request, res: Response) => {
+  try {
+    const { id: communityId } = req.params;
+    const { lat, lng } = req.body;
+    const user = (req as any).user;
+
+    // Auth check: caller must be admin of this community (via JWT communities field)
+    const memberships: Array<{ id: string; name: string; role: string }> = user?.communities ?? [];
+    const isAdmin = memberships.some((m) => m.id === communityId && m.role === 'admin');
+    if (!isAdmin) {
+      return sendForbidden(res, 'Only community admins can update location', { requestId: (req as any).id });
+    }
+
+    // Validate: lat/lng are numbers in valid ranges
+    if (typeof lat !== 'number' || typeof lng !== 'number') {
+      return sendValidationError(res, 'lat and lng must be numbers', { requestId: (req as any).id });
+    }
+    if (lat < -90 || lat > 90) {
+      return sendValidationError(res, 'lat must be between -90 and 90', { requestId: (req as any).id });
+    }
+    if (lng < -180 || lng > 180) {
+      return sendValidationError(res, 'lng must be between -180 and 180', { requestId: (req as any).id });
+    }
+
+    // Update
+    const result = await query(
+      `UPDATE communities.communities
+       SET latitude = $1, longitude = $2, updated_at = NOW()
+       WHERE id = $3
+       RETURNING *`,
+      [lat, lng, communityId]
+    );
+
+    if (result.rowCount === 0) {
+      return sendNotFound(res, 'Community not found', { requestId: (req as any).id });
+    }
+
+    sendSuccess(res, { community: result.rows[0] }, HTTP_STATUS.OK, { requestId: (req as any).id });
+  } catch (error: any) {
+    console.error('Error updating community location:', error);
+    sendInternalError(res, 'Failed to update community location', error instanceof Error ? error : undefined, { requestId: (req as any).id });
   }
 });
 

@@ -1,7 +1,7 @@
 # Request Service - Complete Context Documentation
 
-> **Last Updated:** 2026-02-06
-> **Version:** v9.0.0
+> **Last Updated:** 2026-03-23
+> **Version:** v9.10.0
 > **Port:** 3003
 > **Status:** Production (Polymorphic Request System + Curated Feed)
 
@@ -124,6 +124,12 @@ CREATE TABLE requests.help_requests (
     -- Social Karma v2.0 Privacy
     is_public BOOLEAN DEFAULT false,
     requester_visibility_consent BOOLEAN DEFAULT false,
+
+    -- Sprint 36: Admin boost (Migration 015)
+    is_boosted BOOLEAN DEFAULT FALSE,
+    boosted_at TIMESTAMP,
+    boosted_expires_at TIMESTAMP,
+    boosted_by UUID REFERENCES auth.users(id) ON DELETE SET NULL,
 
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -957,6 +963,125 @@ At least one of `urgency` or `note` must be provided (400 if neither is present)
 - `403` — Caller is not an admin or moderator of the request's community
 
 **Implementation:** `src/routes/requests.ts` (Sprint 25)
+
+#### POST /requests/:id/boost
+Boost a request for 48 hours, adding a +0.3 feed score bonus via the feed-service boost scoring rule (Sprint 36). Admin only.
+
+**Auth:** Caller must be an active admin of the community.
+
+**Request:**
+```json
+{
+  "community_id": "uuid"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Request boosted",
+  "data": {
+    "id": "uuid",
+    "is_boosted": true,
+    "boosted_at": "2026-03-23T10:00:00Z",
+    "boosted_expires_at": "2026-03-25T10:00:00Z"
+  }
+}
+```
+
+Sets `is_boosted=TRUE`, `boosted_at=NOW()`, `boosted_expires_at=NOW()+48h`, `boosted_by=<caller>`.
+
+**Errors:**
+- `403` — Caller is not an admin of the community
+
+**Implementation:** `src/routes/adminActions.ts`
+
+#### DELETE /requests/:id/boost
+Remove an active boost from a request (Sprint 36). Admin only.
+
+**Auth:** Caller must be an active admin of the community.
+
+**Query Parameters:**
+- `community_id` (UUID, required)
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Boost removed"
+}
+```
+
+Clears `is_boosted`, `boosted_at`, `boosted_expires_at`, and `boosted_by`.
+
+**Implementation:** `src/routes/adminActions.ts`
+
+#### POST /requests/:id/propose-match
+Admin proposes a specific community member as a helper (Sprint 36). Creates a real `requests.matches` row with `status='proposed'`.
+
+**Auth:** Caller must be an active admin of the community.
+
+**Request:**
+```json
+{
+  "user_id": "uuid",
+  "community_id": "uuid"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Match proposed",
+  "data": {
+    "match_id": "uuid",
+    "request_id": "uuid",
+    "responder_id": "uuid",
+    "status": "proposed"
+  }
+}
+```
+
+**Errors:**
+- `403` — Caller is not an admin of the community
+- `404` — Request or user not found
+
+**Implementation:** `src/routes/adminActions.ts`
+
+#### PATCH /requests/:id/urgent
+Toggle request urgency between `urgent` and `medium` (Sprint 36). Admin only.
+
+**Auth:** Caller must be an active admin of the community.
+
+**Request:**
+```json
+{
+  "urgent": true,
+  "community_id": "uuid"
+}
+```
+
+- `urgent: true` — sets `urgency='urgent'`
+- `urgent: false` — sets `urgency='medium'`
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Urgency updated",
+  "data": {
+    "id": "uuid",
+    "urgency": "urgent"
+  }
+}
+```
+
+**Errors:**
+- `403` — Caller is not an admin of the community
+
+**Implementation:** `src/routes/adminActions.ts`
 
 ### 3.2 Help Offers
 
@@ -1801,7 +1926,23 @@ router.get('/health', async (req, res) => {
 - Verify connections are being released properly
 - Monitor with: `docker stats karmyq-request-service`
 
-### 10.3 Recent Changes (v9.0)
+### 10.3 Recent Changes (v9.10)
+
+**Version 9.10.0 - Admin Power Actions (Sprint 36, 2026-03-23)**
+
+New admin action endpoints giving community admins direct control over request visibility and matching:
+
+1. **Boost System** — `POST /requests/:id/boost` / `DELETE /requests/:id/boost`
+   - Sets `is_boosted=TRUE` with a 48-hour expiry on `requests.help_requests`
+   - New columns added via migration 015: `is_boosted`, `boosted_at`, `boosted_expires_at`, `boosted_by`
+   - Boosted requests receive a +0.3 feed score bonus in the feed-service (capped at 1.0)
+2. **Propose Match** — `POST /requests/:id/propose-match`
+   - Admin can propose a specific community member as a helper
+   - Creates a `requests.matches` row with `status='proposed'`
+3. **Toggle Urgency** — `PATCH /requests/:id/urgent`
+   - Admin can flip urgency between `urgent` and `medium`
+   - Distinct from the existing `PATCH /requests/:id/admin-triage` (which also handles notes)
+4. All endpoints live in `src/routes/adminActions.ts` and require the caller to be an active community admin
 
 **Version 9.0.0 - Polymorphic Request System (2026-02-05)**
 

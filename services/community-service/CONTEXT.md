@@ -25,7 +25,12 @@ CREATE TABLE communities.communities (
     access_type VARCHAR(50) DEFAULT 'public',  -- public/private
     status VARCHAR(50) DEFAULT 'active',       -- active/archived
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    -- Sprint 36: Geographic and interest-based discovery (Migration 014)
+    latitude NUMERIC(10, 7),                   -- geographic coordinate
+    longitude NUMERIC(10, 7),                  -- geographic coordinate
+    tags TEXT[] DEFAULT '{}'                   -- interest tags for discovery
 );
 
 -- communities.members
@@ -65,6 +70,8 @@ CREATE TABLE communities.norm_approvals (
 -- Indexes
 CREATE INDEX idx_communities_status ON communities.communities(status);
 CREATE INDEX idx_communities_location ON communities.communities(location);
+CREATE INDEX idx_communities_location_geo ON communities.communities(latitude, longitude);
+CREATE INDEX idx_communities_tags ON communities.communities USING GIN(tags);
 CREATE INDEX idx_members_user_id ON communities.members(user_id);
 CREATE INDEX idx_members_community_id ON communities.members(community_id);
 CREATE INDEX idx_norms_community_id ON communities.norms(community_id);
@@ -216,7 +223,79 @@ Get all communities with optional filters.
 }
 ```
 
+**Additional query modes (Sprint 36):**
+
+- `mode=geography&lat=X&lng=Y` — sort communities by distance from the given coordinates. Each result includes a `distance_km` field.
+- `mode=interests&tags=tag1,tag2` — filter communities that have ALL of the specified tags (array overlap via `&&` operator).
+
 **Implementation:** `src/routes/communities.ts:8`
+
+### GET /communities/tags
+Return all distinct tags in use across active communities (Sprint 36).
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": ["mutual-aid", "food", "housing", "seattle", "childcare"]
+}
+```
+
+**Implementation:** `src/routes/communities.ts`
+
+### PUT /communities/:id/tags
+Update community interest tags (admin only, Sprint 36). Tags are normalized to lowercase and deduplicated.
+
+**Auth:** Caller must be an active admin of the community.
+
+**Request:**
+```json
+{
+  "tags": ["mutual-aid", "Food", "Housing"]
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "id": "uuid",
+    "tags": ["food", "housing", "mutual-aid"]
+  },
+  "message": "Tags updated successfully"
+}
+```
+
+**Implementation:** `src/routes/communities.ts`
+
+### PUT /communities/:id/location
+Update community geographic coordinates (admin only, Sprint 36). Enables geography-mode discovery and distance sorting.
+
+**Auth:** Caller must be an active admin of the community.
+
+**Request:**
+```json
+{
+  "lat": 47.6062,
+  "lng": -122.3321
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "id": "uuid",
+    "latitude": 47.6062,
+    "longitude": -122.3321
+  },
+  "message": "Location updated successfully"
+}
+```
+
+**Implementation:** `src/routes/communities.ts`
 
 ### GET /communities/my/communities
 Get communities the user is a member of.
@@ -1233,9 +1312,19 @@ src/
 - Connection pooling for PostgreSQL (max 20 connections)
 - JOIN queries limited to necessary data only
 
+## Recent Changes
+
+### Sprint 36 (2026-03-23) — Geographic and Interest-Based Discovery
+- Added `latitude`, `longitude`, and `tags` columns to `communities.communities` (migration 014)
+- Added GIN index on `tags` and composite index on `(latitude, longitude)`
+- New query modes on `GET /communities`: `mode=geography` (sort by distance) and `mode=interests` (filter by tags)
+- New `GET /communities/tags` endpoint returns all distinct tags across active communities
+- New `PUT /communities/:id/tags` endpoint for admins to set community interest tags
+- New `PUT /communities/:id/location` endpoint for admins to set community coordinates
+
 ## Future Enhancements (TODO)
 
-- [ ] Community tags/keywords for better discovery
+- [x] Community tags/keywords for better discovery (completed Sprint 36)
 - [ ] Community avatars/images
 - [ ] Member roles beyond admin/member (moderator, organizer, etc.)
 - [ ] Community activity feed

@@ -125,6 +125,12 @@ Users can control how adventurous their feed is:
 
 **Implementation:** `src/services/feedComposer.ts:getAdjacentCommunities()`
 
+### Boost Scoring (Sprint 36)
+
+Requests with an active admin boost (`is_boosted = TRUE AND boosted_expires_at > NOW()` on `requests.help_requests`) receive a **+0.3 score bonus** applied after all other scoring factors, capped at a maximum of 1.0. This allows community admins to surface urgent or high-priority requests regardless of their base match score.
+
+The boost flag is set via `POST /requests/:id/boost` in the request-service and expires automatically after 48 hours.
+
 ## API Endpoints
 
 ### GET /feed

@@ -18,6 +18,7 @@ import { REQUEST_TYPES } from '@/components/requests/RequestTypeSelector'
 import CommunityLinks from '@/components/community/CommunityLinks'
 import CollectiveCardRich from '@/components/providers/CollectiveCardRich'
 import CollectiveDiscoveryPanel from '@/components/providers/CollectiveDiscoveryPanel'
+import { isBoostActive } from '@/utils/boost'
 
 interface Member {
   id: string
@@ -65,18 +66,22 @@ interface Community {
   members: Member[]
 }
 
-type ValidTab = 'overview' | 'members' | 'norms' | 'requests' | 'insights' | 'settings' | 'providers';
+type ValidTab = 'overview' | 'people' | 'requests' | 'providers' | 'settings';
 
 const OLD_TAB_MAP: Record<string, ValidTab> = {
-  manage: 'members',
-  pending: 'members',
+  manage: 'people',
+  pending: 'people',
+  members: 'people',
+  norms: 'people',
   config: 'settings',
-  stats: 'insights',
-  export: 'insights',
+  stats: 'requests',
+  insights: 'requests',
+  export: 'requests',
   links: 'settings',
 };
 
-const VALID_TABS: ValidTab[] = ['overview', 'members', 'norms', 'requests', 'insights', 'settings', 'providers'];
+const VALID_TABS: ValidTab[] = ['overview', 'people', 'requests', 'providers', 'settings'];
+
 
 function CommunityTrustEvolutionSection({ communityId }: { communityId: string }) {
   const [status, setStatus] = useState<any>(null);
@@ -202,6 +207,15 @@ export default function CommunityDetailPage() {
   const [selectedResponderId, setSelectedResponderId] = useState('')
   const [proposingMatch, setProposingMatch] = useState(false)
   const [savingTriage, setSavingTriage] = useState(false)
+  const [peopleSubTab, setPeopleSubTab] = useState<'members' | 'norms'>('members')
+  const [normAccordionOpen, setNormAccordionOpen] = useState<Record<string, boolean>>({})
+  const [showMemberPicker, setShowMemberPicker] = useState(false)
+  const [memberPickerRequest, setMemberPickerRequest] = useState<any>(null)
+  const [memberPickerSearch, setMemberPickerSearch] = useState('')
+  const [memberPickerSelected, setMemberPickerSelected] = useState<Member | null>(null)
+  const [memberPickerConfirm, setMemberPickerConfirm] = useState(false)
+  const [boostingRequest, setBoostingRequest] = useState<string | null>(null)
+  const [actionDropdownOpen, setActionDropdownOpen] = useState<string | null>(null)
 
   useEffect(() => {
     // Only run on client-side (not during SSR)
@@ -249,18 +263,41 @@ export default function CommunityDetailPage() {
   // Trigger tab-specific data fetches when the active tab changes
   useEffect(() => {
     if (!id) return
-    if (activeTab === 'members') {
+    if (activeTab === 'people') {
       fetchMemberTrustScores()
-    } else if (activeTab === 'insights') {
+    } else if (activeTab === 'requests') {
+      fetchCommunityRequests()
       if (!stats) fetchStats()
       if (!communityTrust) fetchCommunityTrust()
       if (!networkMetrics) fetchNetworkMetrics()
-    } else if (activeTab === 'requests') {
-      fetchCommunityRequests()
     } else if (activeTab === 'providers') {
       fetchCommunityCollectives()
     }
   }, [activeTab]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Fix 3: MemberPicker modal — close on Escape key
+  useEffect(() => {
+    if (!showMemberPicker) return
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setShowMemberPicker(false)
+        setMemberPickerRequest(null)
+        setMemberPickerSearch('')
+        setMemberPickerSelected(null)
+        setMemberPickerConfirm(false)
+      }
+    }
+    document.addEventListener('keydown', handleEsc)
+    return () => document.removeEventListener('keydown', handleEsc)
+  }, [showMemberPicker])
+
+  // Fix 4: Admin action dropdown — close on outside click
+  useEffect(() => {
+    if (!actionDropdownOpen) return
+    const handleOutsideClick = () => setActionDropdownOpen(null)
+    document.addEventListener('click', handleOutsideClick)
+    return () => document.removeEventListener('click', handleOutsideClick)
+  }, [actionDropdownOpen])
 
   const fetchCommunity = async () => {
     try {
@@ -641,7 +678,7 @@ export default function CommunityDetailPage() {
               )}
             </div>
             <div className="mt-4">
-              <div className="w-full bg-gray-200 rounded-full h-2">
+              <div className="w-full bg-border-light rounded-full h-2">
                 <div
                   className="bg-primary h-2 rounded-full"
                   style={{
@@ -655,22 +692,22 @@ export default function CommunityDetailPage() {
           {/* Tabs */}
           <div className="bg-surface-raised rounded-lg shadow-md mb-6">
             {/* Tab navigation */}
-            <div className="border-b border-gray-200 mb-6">
+            <div className="border-b border-border mb-6">
               <nav className="-mb-px flex space-x-4 overflow-x-auto" aria-label="Tabs">
-                {(['overview', 'members', 'norms'] as ValidTab[]).map((tab) => (
+                {(['overview', 'people'] as ValidTab[]).map((tab) => (
                   <button
                     key={tab}
                     onClick={() => setActiveTab(tab)}
                     className={`relative whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm capitalize ${
                       activeTab === tab
-                        ? 'border-indigo-500 text-indigo-600'
-                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                        ? 'border-primary text-primary'
+                        : 'border-transparent text-text-muted hover:text-text hover:border-border'
                     }`}
                   >
-                    {tab === 'members' ? (
+                    {tab === 'people' ? (
                       <span className="relative">
-                        members
-                        {isAdminOrMod && pendingCount > 0 && activeTab !== 'members' && (
+                        people
+                        {isAdminOrMod && pendingCount > 0 && activeTab !== 'people' && (
                           <span className="absolute -top-1 -right-3 w-2 h-2 bg-red-500 rounded-full" />
                         )}
                       </span>
@@ -680,14 +717,14 @@ export default function CommunityDetailPage() {
 
                 {isAdminOrMod && (
                   <>
-                    {(['requests', 'insights', 'providers'] as ValidTab[]).map((tab) => (
+                    {(['requests', 'providers'] as ValidTab[]).map((tab) => (
                       <button
                         key={tab}
                         onClick={() => setActiveTab(tab)}
                         className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm capitalize ${
                           activeTab === tab
-                            ? 'border-indigo-500 text-indigo-600'
-                            : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                            ? 'border-primary text-primary'
+                            : 'border-transparent text-text-muted hover:text-text hover:border-border'
                         }`}
                       >
                         {tab}
@@ -701,8 +738,8 @@ export default function CommunityDetailPage() {
                     onClick={() => setActiveTab('settings')}
                     className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm capitalize ${
                       activeTab === 'settings'
-                        ? 'border-indigo-500 text-indigo-600'
-                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                        ? 'border-primary text-primary'
+                        : 'border-transparent text-text-muted hover:text-text hover:border-border'
                     }`}
                   >
                     settings
@@ -933,326 +970,368 @@ export default function CommunityDetailPage() {
                 </div>
               )}
 
-              {/* Members Tab */}
-              {activeTab === 'members' && (
+              {/* People Tab (merged Members + Norms) */}
+              {activeTab === 'people' && (
                 <div>
-                  <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-xl font-semibold">Members</h3>
-                    {isAdminOrMod && (
-                      <button
-                        onClick={() => setShowInviteModal(true)}
-                        className="px-4 py-2 bg-primary text-white rounded hover:bg-primary-dark"
-                      >
-                        Invite Member
-                      </button>
-                    )}
+                  {/* Sub-toggle: Members | Norms */}
+                  <div className="flex items-center gap-2 mb-6">
+                    <button
+                      onClick={() => setPeopleSubTab('members')}
+                      className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
+                        peopleSubTab === 'members'
+                          ? 'bg-primary text-white'
+                          : 'bg-surface text-text-muted border border-border hover:bg-surface-raised'
+                      }`}
+                    >
+                      Members
+                    </button>
+                    <button
+                      onClick={() => setPeopleSubTab('norms')}
+                      className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
+                        peopleSubTab === 'norms'
+                          ? 'bg-primary text-white'
+                          : 'bg-surface text-text-muted border border-border hover:bg-surface-raised'
+                      }`}
+                    >
+                      Norms
+                    </button>
                   </div>
 
-                  {/* Non-admin: original card view */}
-                  {!isAdminOrMod && (
-                    <div className="space-y-3">
-                      {community.members.map((member) => (
-                        <div
-                          key={member.id}
-                          className="flex items-center justify-between p-4 bg-surface rounded-lg"
-                        >
-                          <div>
-                            <div className="font-semibold">{member.user_name}</div>
-                            <div className="text-sm text-text-muted">{member.user_email}</div>
-                            {member.invited_by_name && (
-                              <div className="text-xs text-text-subtle">
-                                Invited by {member.invited_by_name}
+                  {/* Members sub-view */}
+                  {peopleSubTab === 'members' && (
+                    <div>
+                      <div className="flex justify-between items-center mb-4">
+                        <h3 className="text-xl font-semibold">Members</h3>
+                        {isAdminOrMod && (
+                          <button
+                            onClick={() => setShowInviteModal(true)}
+                            className="px-4 py-2 bg-primary text-white rounded hover:bg-primary-dark"
+                          >
+                            Invite Member
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Non-admin: original card view */}
+                      {!isAdminOrMod && !community?.members ? (
+                        <div className="space-y-3">
+                          {[1, 2, 3].map(i => (
+                            <div key={i} className="p-4 bg-surface rounded-lg animate-pulse">
+                              <div className="h-4 bg-border rounded w-1/3 mb-2" />
+                              <div className="h-3 bg-border rounded w-1/4" />
+                            </div>
+                          ))}
+                        </div>
+                      ) : !isAdminOrMod ? (
+                        <div className="space-y-3">
+                          {community.members.map((member) => (
+                            <div
+                              key={member.id}
+                              className="flex items-center justify-between p-4 bg-surface rounded-lg"
+                            >
+                              <div>
+                                <div className="font-semibold">{member.user_name}</div>
+                                <div className="text-sm text-text-muted">{member.user_email}</div>
+                                {member.invited_by_name && (
+                                  <div className="text-xs text-text-subtle">
+                                    Invited by {member.invited_by_name}
+                                  </div>
+                                )}
                               </div>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-3">
-                            <span
-                              className={`px-3 py-1 rounded text-sm font-medium ${
-                                member.role === 'admin'
-                                  ? 'bg-accent-light text-accent-dark'
-                                  : 'bg-gray-200 text-text-muted'
+                              <div className="flex items-center gap-3">
+                                <span
+                                  className={`px-3 py-1 rounded text-sm font-medium ${
+                                    member.role === 'admin'
+                                      ? 'bg-accent-light text-accent-dark'
+                                      : 'bg-surface-raised text-text-muted'
+                                  }`}
+                                >
+                                  {member.role}
+                                </span>
+                                {(() => {
+                                  const score = memberTrustScores[member.user_id]
+                                  const colorClass = score === null || score === undefined
+                                    ? 'bg-surface-raised text-text-subtle'
+                                    : score >= 75
+                                    ? 'bg-green-100 text-green-700'
+                                    : score >= 50
+                                    ? 'bg-amber-100 text-amber-700'
+                                    : 'bg-surface-raised text-text-subtle'
+                                  return (
+                                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${colorClass}`}>
+                                      {score !== null && score !== undefined ? `★ ${score}` : '—'}
+                                    </span>
+                                  )
+                                })()}
+                                <span className="text-xs text-text-subtle">
+                                  {new Date(member.joined_at).toLocaleDateString()}
+                                </span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : null}
+
+                      {/* Admin/Mod: filter row + table/pending view */}
+                      {isAdminOrMod && (
+                        <div>
+                          {/* Filter row */}
+                          <div className="flex items-center gap-4 mb-4">
+                            <button
+                              onClick={() => setMemberFilter('active')}
+                              className={`px-3 py-1.5 rounded-md text-sm font-medium ${
+                                memberFilter === 'active'
+                                  ? 'bg-primary-light text-primary'
+                                  : 'text-text-muted hover:bg-surface-raised'
                               }`}
                             >
-                              {member.role}
-                            </span>
-                            {(() => {
-                              const score = memberTrustScores[member.user_id]
-                              const colorClass = score === null || score === undefined
-                                ? 'bg-gray-100 text-gray-400'
-                                : score >= 75
-                                ? 'bg-green-100 text-green-700'
-                                : score >= 50
-                                ? 'bg-amber-100 text-amber-700'
-                                : 'bg-gray-100 text-gray-400'
-                              return (
-                                <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${colorClass}`}>
-                                  {score !== null && score !== undefined ? `★ ${score}` : '—'}
-                                </span>
-                              )
-                            })()}
-                            <span className="text-xs text-text-subtle">
-                              {new Date(member.joined_at).toLocaleDateString()}
-                            </span>
+                              Active ({(community.members ?? []).filter((m: any) => m.status === 'active').length})
+                            </button>
+                            <button
+                              onClick={() => setMemberFilter('pending')}
+                              className={`relative px-3 py-1.5 rounded-md text-sm font-medium ${
+                                memberFilter === 'pending'
+                                  ? 'bg-primary-light text-primary'
+                                  : 'text-text-muted hover:bg-surface-raised'
+                              }`}
+                            >
+                              Pending ({pendingCount})
+                              {pendingCount > 0 && memberFilter !== 'pending' && (
+                                <span className="absolute -top-1 -right-1 block h-2 w-2 rounded-full bg-red-500" />
+                              )}
+                            </button>
                           </div>
+
+                          {/* Active members table */}
+                          {memberFilter === 'active' && (
+                            <div className="overflow-x-auto">
+                              <table className="min-w-full divide-y divide-border">
+                                <thead className="bg-surface">
+                                  <tr>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">Name</th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">Email</th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">Joined</th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">Role</th>
+                                    <th className="px-4 py-3" />
+                                  </tr>
+                                </thead>
+                                <tbody className="bg-surface-raised divide-y divide-border">
+                                  {(community.members ?? [])
+                                    .filter((m: any) => m.status === 'active')
+                                    .map((member) => {
+                                      const isSelf = member.user_id === currentUser?.id;
+                                      const isCreator = member.user_id === community?.creator_id;
+                                      const disabled = isSelf || isCreator;
+                                      return (
+                                        <tr key={member.user_id}>
+                                          <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-text">
+                                            {member.user_name}
+                                          </td>
+                                          <td className="px-4 py-3 whitespace-nowrap text-sm text-text-muted">
+                                            {member.user_email}
+                                          </td>
+                                          <td className="px-4 py-3 whitespace-nowrap text-sm text-text-muted">
+                                            {new Date(member.joined_at).toLocaleDateString()}
+                                          </td>
+                                          <td className="px-4 py-3 whitespace-nowrap">
+                                            {isAdmin ? (
+                                              <select
+                                                value={member.role}
+                                                onChange={(e) => handleUpdateMemberRole(member.user_id, e.target.value)}
+                                                disabled={disabled}
+                                                className="px-3 py-1 border border-border rounded text-sm disabled:bg-border-light"
+                                              >
+                                                <option value="member">Member</option>
+                                                <option value="moderator">Moderator</option>
+                                                <option value="admin">Admin</option>
+                                              </select>
+                                            ) : (
+                                              <span className="px-3 py-1 text-sm text-text-muted">{member.role}</span>
+                                            )}
+                                          </td>
+                                          <td className="px-4 py-3 whitespace-nowrap text-right">
+                                            {isAdmin && !isSelf && !isCreator ? (
+                                              <button
+                                                onClick={() => handleRemoveMember(member.user_id, member.user_name)}
+                                                className="px-3 py-1 bg-red-100 text-red-700 rounded text-sm hover:bg-red-200"
+                                              >
+                                                Remove
+                                              </button>
+                                            ) : isCreator ? (
+                                              <span className="px-3 py-1 bg-accent-light text-accent-dark rounded text-sm">Creator</span>
+                                            ) : null}
+                                          </td>
+                                        </tr>
+                                      );
+                                    })}
+                                </tbody>
+                              </table>
+                            </div>
+                          )}
+
+                          {/* Pending join requests */}
+                          {memberFilter === 'pending' && (
+                            <div className="space-y-3">
+                              {(community.members ?? [])
+                                .filter((m: any) => m.status === 'pending')
+                                .map((member) => (
+                                  <div key={member.user_id} className="flex items-center justify-between p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                                    <div className="flex-1">
+                                      <div className="font-semibold">{member.user_name}</div>
+                                      <div className="text-sm text-text-muted">{member.user_email}</div>
+                                      <div className="text-xs text-text-subtle">Requested {new Date(member.joined_at).toLocaleDateString()}</div>
+                                      {member.join_request_message && (
+                                        <div className="mt-2 text-sm text-text-muted bg-surface-raised p-2 rounded border border-yellow-300">
+                                          <span className="font-medium">Message:</span> {member.join_request_message}
+                                        </div>
+                                      )}
+                                    </div>
+                                    <div className="flex items-center gap-2 ml-4">
+                                      <button onClick={() => handleApproveMember(member.user_id)} className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">Approve</button>
+                                      <button onClick={() => handleRejectMember(member.user_id)} className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700">Reject</button>
+                                    </div>
+                                  </div>
+                                ))}
+                              {pendingCount === 0 && (
+                                <p className="text-sm text-text-muted text-center py-8">No pending join requests.</p>
+                              )}
+                            </div>
+                          )}
                         </div>
-                      ))}
+                      )}
                     </div>
                   )}
 
-                  {/* Admin/Mod: filter row + table/pending view */}
-                  {isAdminOrMod && (
+                  {/* Norms sub-view (accordion) */}
+                  {peopleSubTab === 'norms' && (
                     <div>
-                      {/* Filter row */}
-                      <div className="flex items-center gap-4 mb-4">
-                        <button
-                          onClick={() => setMemberFilter('active')}
-                          className={`px-3 py-1.5 rounded-md text-sm font-medium ${
-                            memberFilter === 'active'
-                              ? 'bg-indigo-100 text-indigo-700'
-                              : 'text-gray-600 hover:bg-gray-100'
-                          }`}
-                        >
-                          Active ({(community.members ?? []).filter((m: any) => m.status === 'active').length})
-                        </button>
-                        <button
-                          onClick={() => setMemberFilter('pending')}
-                          className={`relative px-3 py-1.5 rounded-md text-sm font-medium ${
-                            memberFilter === 'pending'
-                              ? 'bg-indigo-100 text-indigo-700'
-                              : 'text-gray-600 hover:bg-gray-100'
-                          }`}
-                        >
-                          Pending ({pendingCount})
-                          {pendingCount > 0 && memberFilter !== 'pending' && (
-                            <span className="absolute -top-1 -right-1 block h-2 w-2 rounded-full bg-red-500" />
-                          )}
-                        </button>
+                      <div className="flex justify-between items-center mb-4">
+                        <h3 className="text-xl font-semibold">Community Norms</h3>
+                        {isMember && !showNormForm && (
+                          <button
+                            onClick={() => setShowNormForm(true)}
+                            className="px-4 py-2 bg-primary text-white rounded hover:bg-primary-dark"
+                          >
+                            Propose Norm
+                          </button>
+                        )}
                       </div>
 
-                      {/* Active members table */}
-                      {memberFilter === 'active' && (
-                        <div className="overflow-x-auto">
-                          <table className="min-w-full divide-y divide-gray-200">
-                            <thead className="bg-gray-50">
-                              <tr>
-                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
-                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Joined</th>
-                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
-                                <th className="px-4 py-3" />
-                              </tr>
-                            </thead>
-                            <tbody className="bg-white divide-y divide-gray-200">
-                              {(community.members ?? [])
-                                .filter((m: any) => m.status === 'active')
-                                .map((member) => {
-                                  const isSelf = member.user_id === currentUser?.id;
-                                  const isCreator = member.user_id === community?.creator_id;
-                                  const disabled = isSelf || isCreator;
-                                  return (
-                                    <tr key={member.user_id}>
-                                      <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
-                                        {member.user_name}
-                                      </td>
-                                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
-                                        {member.user_email}
-                                      </td>
-                                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
-                                        {new Date(member.joined_at).toLocaleDateString()}
-                                      </td>
-                                      <td className="px-4 py-3 whitespace-nowrap">
-                                        {isAdmin ? (
-                                          <select
-                                            value={member.role}
-                                            onChange={(e) => handleUpdateMemberRole(member.user_id, e.target.value)}
-                                            disabled={disabled}
-                                            className="px-3 py-1 border border-border rounded text-sm disabled:bg-border-light"
-                                          >
-                                            <option value="member">Member</option>
-                                            <option value="moderator">Moderator</option>
-                                            <option value="admin">Admin</option>
-                                          </select>
-                                        ) : (
-                                          <span className="px-3 py-1 text-sm text-text-muted">{member.role}</span>
-                                        )}
-                                      </td>
-                                      <td className="px-4 py-3 whitespace-nowrap text-right">
-                                        {isAdmin && !isSelf && !isCreator ? (
-                                          <button
-                                            onClick={() => handleRemoveMember(member.user_id, member.user_name)}
-                                            className="px-3 py-1 bg-red-100 text-red-700 rounded text-sm hover:bg-red-200"
-                                          >
-                                            Remove
-                                          </button>
-                                        ) : isCreator ? (
-                                          <span className="px-3 py-1 bg-accent-light text-accent-dark rounded text-sm">Creator</span>
-                                        ) : null}
-                                      </td>
-                                    </tr>
-                                  );
-                                })}
-                            </tbody>
-                          </table>
-                        </div>
+                      {showNormForm && (
+                        <form onSubmit={handleCreateNorm} className="bg-primary-light p-4 rounded-lg mb-4">
+                          <h4 className="font-semibold mb-3">Propose New Norm</h4>
+                          <input
+                            type="text"
+                            placeholder="Norm description"
+                            value={newNorm.description}
+                            onChange={(e) => setNewNorm({ ...newNorm, description: e.target.value })}
+                            className="w-full px-4 py-2 border border-border rounded mb-2"
+                            required
+                          />
+                          <textarea
+                            placeholder="Rationale (optional)"
+                            value={newNorm.rationale}
+                            onChange={(e) => setNewNorm({ ...newNorm, rationale: e.target.value })}
+                            className="w-full px-4 py-2 border border-border rounded mb-2"
+                            rows={2}
+                          />
+                          <div className="flex gap-2">
+                            <button
+                              type="submit"
+                              className="px-4 py-2 bg-primary text-white rounded hover:bg-primary-dark"
+                            >
+                              Submit
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setShowNormForm(false)}
+                              className="px-4 py-2 bg-surface-raised text-text-muted rounded hover:bg-border-light"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </form>
                       )}
 
-                      {/* Pending join requests */}
-                      {memberFilter === 'pending' && (
-                        <div className="space-y-3">
-                          {(community.members ?? [])
-                            .filter((m: any) => m.status === 'pending')
-                            .map((member) => (
-                              <div key={member.user_id} className="flex items-center justify-between p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                                <div className="flex-1">
-                                  <div className="font-semibold">{member.user_name}</div>
-                                  <div className="text-sm text-text-muted">{member.user_email}</div>
-                                  <div className="text-xs text-text-subtle">Requested {new Date(member.joined_at).toLocaleDateString()}</div>
-                                  {member.join_request_message && (
-                                    <div className="mt-2 text-sm text-text-muted bg-surface-raised p-2 rounded border border-yellow-300">
-                                      <span className="font-medium">Message:</span> {member.join_request_message}
-                                    </div>
+                      <div className="space-y-2">
+                        {norms.length === 0 ? (
+                          <p className="text-text-subtle">No norms yet. Members can propose norms to establish community guidelines.</p>
+                        ) : (
+                          norms.map((norm) => (
+                            <div key={norm.id} className="bg-surface rounded-lg border border-border overflow-hidden">
+                              <button
+                                onClick={() => setNormAccordionOpen(prev => ({ ...prev, [norm.id]: !prev[norm.id] }))}
+                                className="w-full flex items-center justify-between p-4 text-left hover:bg-surface-raised transition"
+                              >
+                                <div className="flex items-center gap-3 min-w-0">
+                                  <span className="text-sm font-medium text-text truncate">{norm.description}</span>
+                                  <span
+                                    className={`flex-shrink-0 px-2 py-0.5 rounded text-xs font-medium ${
+                                      norm.status === 'active'
+                                        ? 'bg-success-light text-green-800'
+                                        : 'bg-yellow-100 text-yellow-800'
+                                    }`}
+                                  >
+                                    {norm.status}
+                                  </span>
+                                </div>
+                                <span className="text-text-muted ml-2 flex-shrink-0">
+                                  {normAccordionOpen[norm.id] ? '▾' : '▸'}
+                                </span>
+                              </button>
+                              {normAccordionOpen[norm.id] && (
+                                <div className="px-4 pb-4 border-t border-border pt-3">
+                                  {norm.rationale && (
+                                    <p className="text-sm text-text-muted mb-2">{norm.rationale}</p>
+                                  )}
+                                  <p className="text-xs text-text-subtle">
+                                    Proposed by {norm.creator_name} &middot; {norm.approval_count} approval{norm.approval_count !== 1 ? 's' : ''}
+                                  </p>
+                                  {isMember && norm.status === 'proposed' && (
+                                    <button
+                                      onClick={() => handleApproveNorm(norm.id)}
+                                      className="mt-2 px-3 py-1 bg-primary text-white text-sm rounded hover:bg-primary-dark"
+                                    >
+                                      Approve
+                                    </button>
                                   )}
                                 </div>
-                                <div className="flex items-center gap-2 ml-4">
-                                  <button onClick={() => handleApproveMember(member.user_id)} className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">Approve</button>
-                                  <button onClick={() => handleRejectMember(member.user_id)} className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700">Reject</button>
-                                </div>
-                              </div>
-                            ))}
-                          {pendingCount === 0 && (
-                            <p className="text-sm text-gray-500 text-center py-8">No pending join requests.</p>
-                          )}
-                        </div>
-                      )}
+                              )}
+                            </div>
+                          ))
+                        )}
+                      </div>
                     </div>
                   )}
                 </div>
               )}
 
-              {/* Norms Tab */}
-              {activeTab === 'norms' && (
-                <div>
-                  <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-xl font-semibold">Community Norms</h3>
-                    {isMember && !showNormForm && (
-                      <button
-                        onClick={() => setShowNormForm(true)}
-                        className="px-4 py-2 bg-primary text-white rounded hover:bg-primary-dark"
-                      >
-                        Propose Norm
-                      </button>
-                    )}
-                  </div>
-
-                  {showNormForm && (
-                    <form onSubmit={handleCreateNorm} className="bg-primary-light p-4 rounded-lg mb-4">
-                      <h4 className="font-semibold mb-3">Propose New Norm</h4>
-                      <input
-                        type="text"
-                        placeholder="Norm description"
-                        value={newNorm.description}
-                        onChange={(e) => setNewNorm({ ...newNorm, description: e.target.value })}
-                        className="w-full px-4 py-2 border border-border rounded mb-2"
-                        required
-                      />
-                      <textarea
-                        placeholder="Rationale (optional)"
-                        value={newNorm.rationale}
-                        onChange={(e) => setNewNorm({ ...newNorm, rationale: e.target.value })}
-                        className="w-full px-4 py-2 border border-border rounded mb-2"
-                        rows={2}
-                      />
-                      <div className="flex gap-2">
-                        <button
-                          type="submit"
-                          className="px-4 py-2 bg-primary text-white rounded hover:bg-primary-dark"
-                        >
-                          Submit
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setShowNormForm(false)}
-                          className="px-4 py-2 bg-gray-200 text-text-muted rounded hover:bg-gray-300"
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    </form>
-                  )}
-
-                  <div className="space-y-3">
-                    {norms.length === 0 ? (
-                      <p className="text-text-subtle">No norms yet. Members can propose norms to establish community guidelines.</p>
-                    ) : (
-                      norms.map((norm) => (
-                        <div key={norm.id} className="p-4 bg-surface rounded-lg">
-                          <div className="flex items-start justify-between mb-2">
-                            <div className="flex-1">
-                              <p className="font-medium">{norm.description}</p>
-                              {norm.rationale && (
-                                <p className="text-sm text-text-muted mt-1">{norm.rationale}</p>
-                              )}
-                              <p className="text-xs text-text-subtle mt-2">
-                                Proposed by {norm.creator_name}
-                              </p>
-                            </div>
-                            <span
-                              className={`px-3 py-1 rounded text-sm font-medium ${
-                                norm.status === 'active'
-                                  ? 'bg-success-light text-green-800'
-                                  : 'bg-yellow-100 text-yellow-800'
-                              }`}
-                            >
-                              {norm.status}
-                            </span>
-                          </div>
-                          <div className="flex items-center justify-between mt-3">
-                            <span className="text-sm text-text-muted">
-                              {norm.approval_count} approval{norm.approval_count !== 1 ? 's' : ''}
-                            </span>
-                            {isMember && norm.status === 'proposed' && (
-                              <button
-                                onClick={() => handleApproveNorm(norm.id)}
-                                className="px-3 py-1 bg-primary text-white text-sm rounded hover:bg-primary-dark"
-                              >
-                                Approve
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Configuration Tab */}
               {/* Admin: Unified Settings Tab */}
               {activeTab === 'settings' && isAdmin && (
                 <div className="space-y-8">
 
-                  {/* Section 1: Community Configuration */}
+                  {/* Section 1: Community Settings */}
                   <div>
-                    <h2 className="text-xl font-semibold text-gray-900 mb-4">Community Configuration</h2>
+                    <h2 className="text-xl font-semibold text-text mb-4">Community Settings</h2>
 
                     {/* Summary card — key current values */}
                     {config && (
-                      <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-4 grid grid-cols-2 gap-4 text-sm">
+                      <div className="bg-surface border border-border rounded-lg p-4 mb-4 grid grid-cols-2 gap-4 text-sm">
                         <div>
-                          <span className="font-medium text-gray-600">Karma split (helper):</span>{' '}
-                          <span className="text-gray-900">{config.karma_split_helper ?? 'default'}%</span>
+                          <span className="font-medium text-text-muted">Karma split (helper):</span>{' '}
+                          <span className="text-text">{config.karma_split_helper ?? 'default'}%</span>
                         </div>
                         <div>
-                          <span className="font-medium text-gray-600">Trust path max hops:</span>{' '}
-                          <span className="text-gray-900">{config.trust_path_max_hops ?? 'default'}</span>
+                          <span className="font-medium text-text-muted">Trust path max hops:</span>{' '}
+                          <span className="text-text">{config.trust_path_max_hops ?? 'default'}</span>
                         </div>
                         <div>
-                          <span className="font-medium text-gray-600">Visibility:</span>{' '}
-                          <span className="text-gray-900">{config.visibility_mode ?? 'default'}</span>
+                          <span className="font-medium text-text-muted">Visibility:</span>{' '}
+                          <span className="text-text">{config.visibility_mode ?? 'default'}</span>
                         </div>
                         <div>
-                          <span className="font-medium text-gray-600">Join approval:</span>{' '}
-                          <span className="text-gray-900">{config.join_approval_required ? 'Required' : 'Open'}</span>
+                          <span className="font-medium text-text-muted">Join approval:</span>{' '}
+                          <span className="text-text">{config.join_approval_required ? 'Required' : 'Open'}</span>
                         </div>
                       </div>
                     )}
@@ -1351,31 +1430,31 @@ export default function CommunityDetailPage() {
                     )}
                   </div>
 
-                  <hr className="border-gray-200" />
+                  <hr className="border-border" />
 
                   {/* Section 2: Linked Communities */}
                   <div>
-                    <h2 className="text-xl font-semibold text-gray-900 mb-4">Linked Communities</h2>
+                    <h2 className="text-xl font-semibold text-text mb-4">Linked Communities</h2>
                     <CommunityLinks communityId={community.id} isAdmin={isAdmin} />
                   </div>
 
-                  <hr className="border-gray-200" />
+                  <hr className="border-border" />
 
-                  {/* Section 3: Trust Evolution */}
+                  {/* Section 3: Trust Configuration */}
                   <div>
-                    <h2 className="text-xl font-semibold text-gray-900 mb-2">Trust Evolution</h2>
+                    <h2 className="text-xl font-semibold text-text mb-2">Trust Configuration</h2>
                     {isAdmin && (
                       <CommunityTrustEvolutionSection communityId={community.id} />
                     )}
                   </div>
 
-                  <hr className="border-gray-200" />
+                  <hr className="border-border" />
 
                   {/* Section 4: Advanced settings */}
                   <div>
                     <button
                       onClick={() => setShowAdvancedSettings(v => !v)}
-                      className="flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-gray-900"
+                      className="flex items-center gap-2 text-sm font-medium text-text-muted hover:text-text"
                     >
                       <span>{showAdvancedSettings ? '▾' : '▸'}</span>
                       <span>Advanced</span>
@@ -1424,184 +1503,6 @@ export default function CommunityDetailPage() {
                       </div>
                     )}
                   </div>
-
-                </div>
-              )}
-
-              {/* Admin/Mod: Insights Tab (unified Stats + Export) */}
-              {activeTab === 'insights' && isAdminOrMod && (
-                <div className="space-y-8">
-
-                  {/* Section 1: Community stats */}
-                  <div>
-                    <div className="flex items-center justify-between mb-4">
-                      <h2 className="text-xl font-semibold text-gray-900">Community Insights</h2>
-                      <button onClick={fetchStats} disabled={loadingStats} className="px-4 py-2 bg-primary text-white rounded hover:bg-primary-dark disabled:bg-primary-medium">
-                        {loadingStats ? 'Refreshing...' : 'Refresh'}
-                      </button>
-                    </div>
-
-                    {loadingStats && !stats && <div className="text-center py-12 text-text-subtle">Loading statistics...</div>}
-                    {stats && (
-                      <div className="grid md:grid-cols-4 gap-4">
-                        <div className="bg-surface-raised rounded-lg shadow p-4 border-l-4 border-primary">
-                          <div className="text-sm text-text-muted mb-1">Total Exchanges</div>
-                          <div className="text-3xl font-bold text-primary">{stats.matches?.completed_matches || 0}</div>
-                          <div className="text-xs text-text-subtle mt-1">{stats.matches?.matches_completed_this_month || 0} this month</div>
-                        </div>
-                        <div className="bg-surface-raised rounded-lg shadow p-4 border-l-4 border-success">
-                          <div className="text-sm text-text-muted mb-1">Active Requests</div>
-                          <div className="text-3xl font-bold text-success">{stats.requests?.open_requests || 0}</div>
-                          <div className="text-xs text-text-subtle mt-1">{stats.requests?.matched_requests || 0} matched</div>
-                        </div>
-                        <div className="bg-surface-raised rounded-lg shadow p-4 border-l-4 border-accent">
-                          <div className="text-sm text-text-muted mb-1">Avg Karma</div>
-                          <div className="text-3xl font-bold text-accent">{stats.karma?.avg_karma || 0}</div>
-                          <div className="text-xs text-text-subtle mt-1">Max: {stats.karma?.max_karma || 0}</div>
-                        </div>
-                        <div className="bg-surface-raised rounded-lg shadow p-4 border-l-4 border-primary">
-                          <div className="text-sm text-text-muted mb-1">This Week</div>
-                          <div className="text-3xl font-bold">{stats.matches?.matches_completed_this_week || 0}</div>
-                          <div className="text-xs text-text-subtle mt-1">{stats.requests?.requests_this_week || 0} requests</div>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Community Trust Score Panel */}
-                    {loadingTrust && !communityTrust && (
-                      <div className="mt-6 text-center py-8 text-text-subtle">Loading trust data...</div>
-                    )}
-                    {communityTrust && (() => {
-                      const score: number = communityTrust.score ?? 0
-                      const barColor = score >= 80 ? '#16a34a' : score >= 60 ? '#0d9488' : score >= 40 ? '#d97706' : '#92400e'
-                      const prev: number | undefined = communityTrust.previous_score
-                      const delta = prev !== undefined ? score - prev : 0
-                      const trendStr = delta > 0 ? `↑ +${delta} since last week` : delta < 0 ? `↓ ${delta} since last week` : ''
-                      const lastUpdated = communityTrust.last_calculated
-                        ? new Date(communityTrust.last_calculated).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-                        : 'Unknown'
-                      return (
-                        <div className="mt-6 bg-surface-raised rounded-lg shadow p-5">
-                          <div className="flex items-center justify-between mb-3">
-                            <h4 className="text-base font-semibold">Community Trust Score</h4>
-                            <span className="text-2xl font-bold" style={{ color: barColor }}>{score} / 100</span>
-                          </div>
-                          <div className="w-full bg-gray-200 rounded-full h-3 mb-4">
-                            <div className="h-3 rounded-full transition-all" style={{ width: `${score}%`, backgroundColor: barColor }} />
-                          </div>
-                          <div className="grid grid-cols-3 gap-4 mb-4">
-                            <div className="text-center">
-                              <div className="text-lg font-bold">{communityTrust.member_quality_score ?? 0} / 40</div>
-                              <div className="text-xs font-medium text-text-muted">Member Quality</div>
-                              <div className="text-xs text-text-subtle mt-1">Avg trust of active members</div>
-                            </div>
-                            <div className="text-center">
-                              <div className="text-lg font-bold">{communityTrust.bonding_score ?? 0} / 30</div>
-                              <div className="text-xs font-medium text-text-muted">Bonding</div>
-                              <div className="text-xs text-text-subtle mt-1">Completion &amp; retention rate</div>
-                            </div>
-                            <div className="text-center">
-                              <div className="text-lg font-bold">{communityTrust.bridging_score ?? 0} / 30</div>
-                              <div className="text-xs font-medium text-text-muted">Bridging</div>
-                              <div className="text-xs text-text-subtle mt-1">Cross-comm help rate</div>
-                            </div>
-                          </div>
-                          <div className="text-xs text-text-subtle flex items-center gap-3">
-                            <span>{communityTrust.active_member_count ?? 0} active members</span>
-                            <span>·</span>
-                            <span>Last updated: {lastUpdated}</span>
-                            {trendStr && (
-                              <>
-                                <span>·</span>
-                                <span style={{ color: delta > 0 ? '#16a34a' : '#d97706' }}>{trendStr}</span>
-                              </>
-                            )}
-                          </div>
-                        </div>
-                      )
-                    })()}
-
-                    {/* Network Cohesion Panel */}
-                    {networkMetrics && (() => {
-                      const cohesionScore: number = networkMetrics.score ?? 0
-                      const cohesionColor = cohesionScore >= 80 ? '#16a34a' : cohesionScore >= 60 ? '#0d9488' : cohesionScore >= 40 ? '#d97706' : '#92400e'
-                      const computedStr = networkMetrics.computedAt
-                        ? new Date(networkMetrics.computedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-                        : 'recently'
-                      return (
-                        <div className="mt-4 bg-surface-raised rounded-lg shadow p-5">
-                          <div className="flex items-center justify-between mb-3">
-                            <h4 className="text-base font-semibold">Network Cohesion</h4>
-                            <div className="flex items-center gap-2">
-                              <span className="text-2xl font-bold" style={{ color: cohesionColor }}>{cohesionScore} / 100</span>
-                              {networkMetrics.label && (
-                                <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ backgroundColor: cohesionColor, color: '#fff' }}>{networkMetrics.label}</span>
-                              )}
-                            </div>
-                          </div>
-                          <div className="w-full bg-gray-200 rounded-full h-3 mb-4">
-                            <div className="h-3 rounded-full transition-all" style={{ width: `${cohesionScore}%`, backgroundColor: cohesionColor }} />
-                          </div>
-                          <div className="space-y-2 mb-4">
-                            <div className="flex items-baseline gap-3">
-                              <span className="text-sm font-semibold w-28">Reciprocity</span>
-                              <span className="text-sm font-bold">{networkMetrics.reciprocity !== undefined ? `${Math.round(networkMetrics.reciprocity * 100)}%` : '—'}</span>
-                              <span className="text-xs text-text-subtle">Most help flows both ways</span>
-                            </div>
-                            <div className="flex items-baseline gap-3">
-                              <span className="text-sm font-semibold w-28">Density</span>
-                              <span className="text-sm font-bold">{networkMetrics.density !== undefined ? `${Math.round(networkMetrics.density * 100)}%` : '—'}</span>
-                              <span className="text-xs text-text-subtle">1 in {networkMetrics.density ? Math.round(1 / networkMetrics.density) : '?'} possible pairs have helped</span>
-                            </div>
-                            <div className="flex items-baseline gap-3">
-                              <span className="text-sm font-semibold w-28">Clustering</span>
-                              <span className="text-sm font-bold">{networkMetrics.clustering !== undefined ? networkMetrics.clustering.toFixed(2) : '—'}</span>
-                              <span className="text-xs text-text-subtle">Your helpers know each other</span>
-                            </div>
-                            <div className="flex items-baseline gap-3">
-                              <span className="text-sm font-semibold w-28">Avg path</span>
-                              <span className="text-sm font-bold">{networkMetrics.avgPathLength !== undefined ? `${networkMetrics.avgPathLength.toFixed(1)}°` : '—'}</span>
-                              <span className="text-xs text-text-subtle">Everyone reachable in ~{networkMetrics.avgPathLength ? Math.round(networkMetrics.avgPathLength) : '?'} hops</span>
-                            </div>
-                          </div>
-                          <div className="text-xs text-text-subtle flex items-center gap-3">
-                            <span>{networkMetrics.uniqueEdges ?? 0} unique helping pairs</span>
-                            <span>·</span>
-                            <span>computed {computedStr}</span>
-                          </div>
-                        </div>
-                      )
-                    })()}
-                  </div>
-
-                  {isAdmin && (
-                    <>
-                      <hr className="border-gray-200" />
-
-                      {/* Section 2: Export data */}
-                      <div>
-                        <h2 className="text-xl font-semibold text-gray-900 mb-4">Export Data</h2>
-                        <div className="space-y-6">
-                          {([['full', 'Full Community Export', 'Export all community data including members, requests, matches, norms, settings, and karma records.'],
-                             ['members', 'Members List', 'Export a list of all community members with their roles and join dates.'],
-                             ['activity', 'Activity Report', 'Export member activity including karma, trust scores, helps given and received.']] as const).map(([type, title, desc]) => (
-                            <div key={type} className="bg-surface rounded-lg p-6">
-                              <h4 className="font-semibold text-lg mb-2">{title}</h4>
-                              <p className="text-sm text-text-muted mb-4">{desc}</p>
-                              <div className="flex gap-3">
-                                <button onClick={() => handleExport(type, 'json')} disabled={exporting} className="px-4 py-2 bg-primary text-white rounded hover:bg-primary-dark disabled:bg-primary-medium">
-                                  {exporting ? 'Exporting...' : 'Export JSON'}
-                                </button>
-                                <button onClick={() => handleExport(type, 'csv')} disabled={exporting} className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:bg-green-400">
-                                  {exporting ? 'Exporting...' : 'Export CSV'}
-                                </button>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    </>
-                  )}
 
                 </div>
               )}
@@ -1688,85 +1589,353 @@ export default function CommunityDetailPage() {
                 </div>
               )}
 
-              {/* Admin/Mod: Requests Tab */}
-              {activeTab === 'requests' && isAdminOrMod && (
-                <div>
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-xl font-semibold">Community Requests</h3>
-                    <div className="flex gap-2">
-                      {(['open', 'pending', 'matched', 'completed'] as const).map(s => (
-                        <button
-                          key={s}
-                          onClick={() => { setRequestStatusFilter(s); fetchCommunityRequests(s) }}
-                          className={`px-3 py-1.5 rounded-full text-sm font-medium border transition ${
-                            requestStatusFilter === s
-                              ? 'bg-primary text-white border-primary'
-                              : 'bg-surface text-text-muted border-border hover:border-primary'
-                          }`}
-                        >
-                          {s.charAt(0).toUpperCase() + s.slice(1)}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  {loadingRequests ? (
-                    <div className="text-center py-8 text-text-muted text-sm">Loading requests...</div>
-                  ) : communityRequests.length === 0 ? (
-                    <div className="text-center py-8 text-text-muted text-sm">No {requestStatusFilter} requests found.</div>
-                  ) : (
-                    <div className="space-y-3">
-                      {communityRequests.map((req: any) => (
-                        <div key={req.id} className="flex items-start justify-between gap-4 p-4 bg-surface rounded-lg border border-border hover:border-primary-medium transition">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1">
-                              <Link href={`/requests/${req.id}`} className="font-medium text-text hover:text-primary truncate">
-                                {req.title}
-                              </Link>
-                              <span className={`flex-shrink-0 text-xs px-2 py-0.5 rounded-full ${
-                                req.urgency === 'critical' ? 'bg-red-100 text-red-700' :
-                                req.urgency === 'high' ? 'bg-orange-100 text-orange-700' :
-                                req.urgency === 'medium' ? 'bg-yellow-100 text-yellow-700' :
-                                'bg-gray-100 text-gray-600'
-                              }`}>
-                                {req.urgency}
-                              </span>
+              {/* Merged Requests Tab (Requests + Insights + Admin Actions) */}
+              {activeTab === 'requests' && (
+                <div className="space-y-6">
+
+                  {/* Admin summary cards (insights) */}
+                  {isAdminOrMod && (
+                    <div>
+                      {loadingStats && !stats ? (
+                        <div className="grid md:grid-cols-3 gap-4 mb-2">
+                          {[1, 2, 3].map(i => (
+                            <div key={i} className="bg-surface-raised rounded-lg p-4 border border-border animate-pulse">
+                              <div className="h-3 bg-border rounded w-1/2 mb-2" />
+                              <div className="h-8 bg-border rounded w-1/3 mb-1" />
+                              <div className="h-2 bg-border rounded w-2/3" />
                             </div>
-                            {req.description && (
-                              <p className="text-sm text-text-muted line-clamp-1">{req.description}</p>
-                            )}
-                            <p className="text-xs text-text-subtle mt-1">by {req.requester_name}</p>
+                          ))}
+                        </div>
+                      ) : stats ? (
+                        <div className="grid md:grid-cols-3 gap-4 mb-2">
+                          <div className="bg-surface-raised rounded-lg p-4 border-l-4 border-primary">
+                            <div className="text-sm text-text-muted mb-1">Open Requests</div>
+                            <div className="text-3xl font-bold text-primary">{stats.requests?.open_requests || 0}</div>
+                            <div className="text-xs text-text-subtle mt-1">{stats.requests?.matched_requests || 0} matched</div>
                           </div>
-                          <div className="flex-shrink-0 text-right">
-                            <span className={`text-xs px-2 py-1 rounded font-medium ${
-                              req.status === 'open' ? 'bg-green-100 text-green-700' :
-                              req.status === 'matched' ? 'bg-blue-100 text-blue-700' :
-                              req.status === 'completed' ? 'bg-gray-100 text-gray-600' :
-                              'bg-yellow-100 text-yellow-700'
-                            }`}>
-                              {req.status}
-                            </span>
-                            <p className="text-xs text-text-subtle mt-1">
-                              {new Date(req.created_at).toLocaleDateString()}
-                            </p>
-                            <div className="flex items-center justify-end gap-1 mt-2">
-                              {req.admin_note && (
-                                <span title={req.admin_note} className="text-xs text-indigo-500" aria-label="Has admin note">📋</span>
-                              )}
-                              <button
-                                onClick={() => {
-                                  setSelectedRequest(req)
-                                  setTriageUrgency(req.urgency ?? '')
-                                  setTriageNote(req.admin_note ?? '')
-                                  setShowTriageModal(true)
-                                }}
-                                className="text-xs px-2 py-1 border border-indigo-300 text-indigo-600 rounded hover:bg-indigo-50 transition"
-                              >
-                                Triage
-                              </button>
+                          <div className="bg-surface-raised rounded-lg p-4 border-l-4 border-success">
+                            <div className="text-sm text-text-muted mb-1">Fulfilled Rate</div>
+                            <div className="text-3xl font-bold text-success">
+                              {stats.matches?.completed_matches && stats.requests?.total_requests
+                                ? `${Math.round((stats.matches.completed_matches / stats.requests.total_requests) * 100)}%`
+                                : stats.matches?.completed_matches
+                                ? `${stats.matches.completed_matches}`
+                                : '—'}
                             </div>
+                            <div className="text-xs text-text-subtle mt-1">{stats.matches?.completed_matches || 0} completed</div>
+                          </div>
+                          <div className="bg-surface-raised rounded-lg p-4 border-l-4 border-accent">
+                            <div className="text-sm text-text-muted mb-1">Avg Response Time</div>
+                            <div className="text-3xl font-bold text-accent">
+                              {stats.matches?.avg_response_time_hours
+                                ? `${Math.round(stats.matches.avg_response_time_hours)}h`
+                                : '—'}
+                            </div>
+                            <div className="text-xs text-text-subtle mt-1">{stats.matches?.matches_completed_this_week || 0} this week</div>
                           </div>
                         </div>
-                      ))}
+                      ) : null}
+                    </div>
+                  )}
+
+                  {/* Request list with filters */}
+                  <div>
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-xl font-semibold">Community Requests</h3>
+                      <div className="flex gap-2">
+                        {(['open', 'pending', 'matched', 'completed'] as const).map(s => (
+                          <button
+                            key={s}
+                            onClick={() => { setRequestStatusFilter(s); fetchCommunityRequests(s) }}
+                            className={`px-3 py-1.5 rounded-full text-sm font-medium border transition ${
+                              requestStatusFilter === s
+                                ? 'bg-primary text-white border-primary'
+                                : 'bg-surface text-text-muted border-border hover:border-primary'
+                            }`}
+                          >
+                            {s.charAt(0).toUpperCase() + s.slice(1)}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    {loadingRequests ? (
+                      <div className="space-y-3">
+                        {[1, 2, 3].map(i => (
+                          <div key={i} className="p-4 bg-surface rounded-lg border border-border animate-pulse">
+                            <div className="h-4 bg-border rounded w-2/3 mb-2" />
+                            <div className="h-3 bg-border rounded w-1/2 mb-1" />
+                            <div className="h-2 bg-border rounded w-1/4" />
+                          </div>
+                        ))}
+                      </div>
+                    ) : communityRequests.length === 0 ? (
+                      <div className="text-center py-8 text-text-muted text-sm">No {requestStatusFilter} requests found.</div>
+                    ) : (
+                      <div className="space-y-3">
+                        {communityRequests.map((req: any) => (
+                          <div key={req.id} className="flex items-start justify-between gap-4 p-4 bg-surface rounded-lg border border-border hover:border-primary-medium transition">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-1">
+                                <Link href={`/requests/${req.id}`} className="font-medium text-text hover:text-primary truncate">
+                                  {req.title}
+                                </Link>
+                                <span className={`flex-shrink-0 text-xs px-2 py-0.5 rounded-full ${
+                                  req.urgency === 'critical' ? 'bg-red-100 text-red-700' :
+                                  req.urgency === 'high' ? 'bg-orange-100 text-orange-700' :
+                                  req.urgency === 'medium' ? 'bg-yellow-100 text-yellow-700' :
+                                  'bg-surface-raised text-text-muted'
+                                }`}>
+                                  {req.urgency}
+                                </span>
+                                {isBoostActive(req) && (
+                                  <span className="flex-shrink-0 text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">
+                                    ⚡ Boosted
+                                  </span>
+                                )}
+                              </div>
+                              {req.description && (
+                                <p className="text-sm text-text-muted line-clamp-1">{req.description}</p>
+                              )}
+                              <p className="text-xs text-text-subtle mt-1">by {req.requester_name}</p>
+                            </div>
+                            <div className="flex-shrink-0 text-right">
+                              <span className={`text-xs px-2 py-1 rounded font-medium ${
+                                req.status === 'open' ? 'bg-green-100 text-green-700' :
+                                req.status === 'matched' ? 'bg-blue-100 text-blue-700' :
+                                req.status === 'completed' ? 'bg-surface-raised text-text-muted' :
+                                'bg-yellow-100 text-yellow-700'
+                              }`}>
+                                {req.status}
+                              </span>
+                              <p className="text-xs text-text-subtle mt-1">
+                                {new Date(req.created_at).toLocaleDateString()}
+                              </p>
+
+                              {/* Admin action dropdown */}
+                              {isAdminOrMod && (
+                                <div className="relative mt-2">
+                                  <div className="flex items-center justify-end gap-1">
+                                    {req.admin_note && (
+                                      <span title={req.admin_note} className="text-xs text-primary" aria-label="Has admin note">📋</span>
+                                    )}
+                                    <button
+                                      onClick={() => {
+                                        setSelectedRequest(req)
+                                        setTriageUrgency(req.urgency ?? '')
+                                        setTriageNote(req.admin_note ?? '')
+                                        setShowTriageModal(true)
+                                      }}
+                                      className="text-xs px-2 py-1 border border-primary-medium text-primary rounded hover:bg-primary-light transition"
+                                    >
+                                      Triage
+                                    </button>
+                                    <button
+                                      onClick={(e) => { e.stopPropagation(); setActionDropdownOpen(actionDropdownOpen === req.id ? null : req.id) }}
+                                      className="text-xs px-2 py-1 border border-border text-text-muted rounded hover:bg-surface-raised transition"
+                                    >
+                                      Actions ▾
+                                    </button>
+                                  </div>
+                                  {actionDropdownOpen === req.id && (
+                                    <div className="absolute right-0 mt-1 w-48 bg-surface-raised border border-border rounded-lg shadow-lg z-10">
+                                      <button
+                                        onClick={async () => {
+                                          setBoostingRequest(req.id)
+                                          try {
+                                            if (isBoostActive(req)) {
+                                              await requestService.removeBoost(req.id, { community_id: id as string })
+                                            } else {
+                                              await requestService.boostRequest(req.id, { community_id: id as string })
+                                            }
+                                            await fetchCommunityRequests()
+                                          } catch (err: any) {
+                                            alert(err?.response?.data?.message ?? err?.message ?? 'Failed to update boost')
+                                          } finally {
+                                            setBoostingRequest(null)
+                                            setActionDropdownOpen(null)
+                                          }
+                                        }}
+                                        disabled={boostingRequest === req.id}
+                                        className="w-full text-left px-3 py-2 text-sm hover:bg-surface transition disabled:opacity-50"
+                                      >
+                                        {isBoostActive(req) ? 'Remove Boost' : '⚡ Boost (48h)'}
+                                      </button>
+                                      <button
+                                        onClick={async () => {
+                                          try {
+                                            await requestService.markUrgent(req.id, { community_id: id as string, urgent: true })
+                                            await fetchCommunityRequests()
+                                          } catch (err: any) {
+                                            alert(err?.response?.data?.message ?? err?.message ?? 'Failed to mark urgent')
+                                          } finally {
+                                            setActionDropdownOpen(null)
+                                          }
+                                        }}
+                                        className="w-full text-left px-3 py-2 text-sm hover:bg-surface transition"
+                                      >
+                                        Mark Urgent
+                                      </button>
+                                      {req.status === 'open' && (
+                                        <button
+                                          onClick={() => {
+                                            setMemberPickerRequest(req)
+                                            setShowMemberPicker(true)
+                                            setActionDropdownOpen(null)
+                                          }}
+                                          className="w-full text-left px-3 py-2 text-sm hover:bg-surface transition"
+                                        >
+                                          Propose a Match
+                                        </button>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Insights panels (Community Trust + Network + Export) */}
+                  {isAdminOrMod && (
+                    <div className="space-y-4">
+                      {/* Community Trust Score Panel */}
+                      {loadingTrust && !communityTrust && (
+                        <div className="bg-surface-raised rounded-lg p-5 animate-pulse">
+                          <div className="h-4 bg-border rounded w-1/3 mb-3" />
+                          <div className="h-3 bg-border rounded-full w-full mb-4" />
+                          <div className="grid grid-cols-3 gap-4">
+                            {[1, 2, 3].map(i => (
+                              <div key={i} className="text-center">
+                                <div className="h-6 bg-border rounded w-1/2 mx-auto mb-1" />
+                                <div className="h-3 bg-border rounded w-2/3 mx-auto" />
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {communityTrust && (() => {
+                        const score: number = communityTrust.score ?? 0
+                        const barColor = score >= 80 ? '#16a34a' : score >= 60 ? '#0d9488' : score >= 40 ? '#d97706' : '#92400e'
+                        const prev: number | undefined = communityTrust.previous_score
+                        const delta = prev !== undefined ? score - prev : 0
+                        const trendStr = delta > 0 ? `+${delta} since last week` : delta < 0 ? `${delta} since last week` : ''
+                        const lastUpdated = communityTrust.last_calculated
+                          ? new Date(communityTrust.last_calculated).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                          : 'Unknown'
+                        return (
+                          <div className="bg-surface-raised rounded-lg shadow p-5">
+                            <div className="flex items-center justify-between mb-3">
+                              <h4 className="text-base font-semibold">Community Trust Score</h4>
+                              <span className="text-2xl font-bold" style={{ color: barColor }}>{score} / 100</span>
+                            </div>
+                            <div className="w-full bg-border-light rounded-full h-3 mb-4">
+                              <div className="h-3 rounded-full transition-all" style={{ width: `${score}%`, backgroundColor: barColor }} />
+                            </div>
+                            <div className="grid grid-cols-3 gap-4 mb-4">
+                              <div className="text-center">
+                                <div className="text-lg font-bold">{communityTrust.member_quality_score ?? 0} / 40</div>
+                                <div className="text-xs font-medium text-text-muted">Member Quality</div>
+                                <div className="text-xs text-text-subtle mt-1">Avg trust of active members</div>
+                              </div>
+                              <div className="text-center">
+                                <div className="text-lg font-bold">{communityTrust.bonding_score ?? 0} / 30</div>
+                                <div className="text-xs font-medium text-text-muted">Bonding</div>
+                                <div className="text-xs text-text-subtle mt-1">Completion &amp; retention rate</div>
+                              </div>
+                              <div className="text-center">
+                                <div className="text-lg font-bold">{communityTrust.bridging_score ?? 0} / 30</div>
+                                <div className="text-xs font-medium text-text-muted">Bridging</div>
+                                <div className="text-xs text-text-subtle mt-1">Cross-comm help rate</div>
+                              </div>
+                            </div>
+                            <div className="text-xs text-text-subtle flex items-center gap-3">
+                              <span>{communityTrust.active_member_count ?? 0} active members</span>
+                              <span>·</span>
+                              <span>Last updated: {lastUpdated}</span>
+                              {trendStr && (
+                                <>
+                                  <span>·</span>
+                                  <span style={{ color: delta > 0 ? '#16a34a' : '#d97706' }}>{trendStr}</span>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        )
+                      })()}
+
+                      {/* Network Cohesion Panel */}
+                      {networkMetrics && (() => {
+                        const cohesionScore: number = networkMetrics.score ?? 0
+                        const cohesionColor = cohesionScore >= 80 ? '#16a34a' : cohesionScore >= 60 ? '#0d9488' : cohesionScore >= 40 ? '#d97706' : '#92400e'
+                        const computedStr = networkMetrics.computedAt
+                          ? new Date(networkMetrics.computedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                          : 'recently'
+                        return (
+                          <div className="bg-surface-raised rounded-lg shadow p-5">
+                            <div className="flex items-center justify-between mb-3">
+                              <h4 className="text-base font-semibold">Network Cohesion</h4>
+                              <div className="flex items-center gap-2">
+                                <span className="text-2xl font-bold" style={{ color: cohesionColor }}>{cohesionScore} / 100</span>
+                                {networkMetrics.label && (
+                                  <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ backgroundColor: cohesionColor, color: '#fff' }}>{networkMetrics.label}</span>
+                                )}
+                              </div>
+                            </div>
+                            <div className="w-full bg-border-light rounded-full h-3 mb-4">
+                              <div className="h-3 rounded-full transition-all" style={{ width: `${cohesionScore}%`, backgroundColor: cohesionColor }} />
+                            </div>
+                            <div className="space-y-2 mb-4">
+                              <div className="flex items-baseline gap-3">
+                                <span className="text-sm font-semibold w-28">Reciprocity</span>
+                                <span className="text-sm font-bold">{networkMetrics.reciprocity !== undefined ? `${Math.round(networkMetrics.reciprocity * 100)}%` : '—'}</span>
+                                <span className="text-xs text-text-subtle">Most help flows both ways</span>
+                              </div>
+                              <div className="flex items-baseline gap-3">
+                                <span className="text-sm font-semibold w-28">Density</span>
+                                <span className="text-sm font-bold">{networkMetrics.density !== undefined ? `${Math.round(networkMetrics.density * 100)}%` : '—'}</span>
+                                <span className="text-xs text-text-subtle">1 in {networkMetrics.density ? Math.round(1 / networkMetrics.density) : '?'} possible pairs have helped</span>
+                              </div>
+                              <div className="flex items-baseline gap-3">
+                                <span className="text-sm font-semibold w-28">Clustering</span>
+                                <span className="text-sm font-bold">{networkMetrics.clustering !== undefined ? networkMetrics.clustering.toFixed(2) : '—'}</span>
+                                <span className="text-xs text-text-subtle">Your helpers know each other</span>
+                              </div>
+                              <div className="flex items-baseline gap-3">
+                                <span className="text-sm font-semibold w-28">Avg path</span>
+                                <span className="text-sm font-bold">{networkMetrics.avgPathLength !== undefined ? `${networkMetrics.avgPathLength.toFixed(1)}` : '—'}</span>
+                                <span className="text-xs text-text-subtle">Everyone reachable in ~{networkMetrics.avgPathLength ? Math.round(networkMetrics.avgPathLength) : '?'} hops</span>
+                              </div>
+                            </div>
+                            <div className="text-xs text-text-subtle flex items-center gap-3">
+                              <span>{networkMetrics.uniqueEdges ?? 0} unique helping pairs</span>
+                              <span>·</span>
+                              <span>computed {computedStr}</span>
+                            </div>
+                          </div>
+                        )
+                      })()}
+
+                      {/* Export data section */}
+                      {isAdmin && (
+                        <div className="bg-surface-raised rounded-lg p-5">
+                          <h4 className="text-base font-semibold mb-3">Export Data</h4>
+                          <div className="flex flex-wrap gap-3">
+                            {([['full', 'Full Export'], ['members', 'Members'], ['activity', 'Activity']] as const).map(([type, label]) => (
+                              <div key={type} className="flex gap-2">
+                                <button onClick={() => handleExport(type, 'json')} disabled={exporting} className="px-3 py-1.5 text-sm bg-primary text-white rounded hover:bg-primary-dark disabled:bg-primary-medium">
+                                  {label} JSON
+                                </button>
+                                <button onClick={() => handleExport(type, 'csv')} disabled={exporting} className="px-3 py-1.5 text-sm bg-green-600 text-white rounded hover:bg-green-700 disabled:bg-green-400">
+                                  {label} CSV
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -1781,17 +1950,17 @@ export default function CommunityDetailPage() {
             className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
             onClick={(e) => { if (e.target === e.currentTarget) handleCloseTriageModal() }}
           >
-            <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <div className="bg-surface-raised rounded-lg p-6 w-full max-w-md">
               <h3 className="text-lg font-medium mb-4">Triage Request</h3>
-              <p className="text-sm text-gray-600 mb-4 truncate">{selectedRequest.title}</p>
+              <p className="text-sm text-text-muted mb-4 truncate">{selectedRequest.title}</p>
 
               {/* Urgency */}
               <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Urgency</label>
+                <label className="block text-sm font-medium text-text-muted mb-1">Urgency</label>
                 <select
                   value={triageUrgency}
                   onChange={(e) => setTriageUrgency(e.target.value)}
-                  className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
+                  className="w-full border border-border rounded px-3 py-2 text-sm"
                 >
                   <option value="">— no override —</option>
                   <option value="low">low</option>
@@ -1803,12 +1972,12 @@ export default function CommunityDetailPage() {
 
               {/* Admin note */}
               <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Admin note</label>
+                <label className="block text-sm font-medium text-text-muted mb-1">Admin note</label>
                 <textarea
                   value={triageNote}
                   onChange={(e) => setTriageNote(e.target.value)}
                   rows={3}
-                  className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
+                  className="w-full border border-border rounded px-3 py-2 text-sm"
                   placeholder="Internal note (not visible to members)"
                 />
               </div>
@@ -1817,7 +1986,7 @@ export default function CommunityDetailPage() {
               <div className="flex gap-2 justify-end">
                 <button
                   onClick={handleCloseTriageModal}
-                  className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800"
+                  className="px-4 py-2 text-sm text-text-muted hover:text-text"
                 >
                   Cancel
                 </button>
@@ -1848,15 +2017,15 @@ export default function CommunityDetailPage() {
 
               {/* Stage 2: Propose a connector */}
               {selectedRequest?.status === 'open' && (
-                <div className="mt-6 pt-4 border-t border-gray-200">
-                  <h4 className="text-sm font-medium text-gray-700 mb-2">Propose a connector</h4>
-                  <p className="text-xs text-gray-500 mb-3">
+                <div className="mt-6 pt-4 border-t border-border">
+                  <h4 className="text-sm font-medium text-text-muted mb-2">Propose a connector</h4>
+                  <p className="text-xs text-text-subtle mb-3">
                     Select an active community member to connect with the requester. They will be notified and must accept.
                   </p>
                   <select
                     value={selectedResponderId}
                     onChange={(e) => setSelectedResponderId(e.target.value)}
-                    className="w-full border border-gray-300 rounded px-3 py-2 text-sm mb-3"
+                    className="w-full border border-border rounded px-3 py-2 text-sm mb-3"
                   >
                     <option value="">— select a connector —</option>
                     {(community?.members ?? [])
@@ -1873,15 +2042,14 @@ export default function CommunityDetailPage() {
                       if (!selectedResponderId) return
                       setProposingMatch(true)
                       try {
-                        await requestService.createMatch({
-                          request_id: selectedRequest.id,
-                          responder_id: selectedResponderId,
+                        await requestService.proposeMatch(selectedRequest.id, {
+                          user_id: selectedResponderId,
                           community_id: id as string,
                         })
                         await fetchCommunityRequests()
                         handleCloseTriageModal()
                       } catch (err: any) {
-                        alert(err?.message ?? 'Failed to propose match')
+                        alert(err?.response?.data?.message ?? err?.message ?? 'Failed to propose match')
                       } finally {
                         setProposingMatch(false)
                       }
@@ -1893,6 +2061,91 @@ export default function CommunityDetailPage() {
                   </button>
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* MemberPicker Modal */}
+        {showMemberPicker && memberPickerRequest && (
+          <div
+            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+            onClick={(e) => { if (e.target === e.currentTarget) { setShowMemberPicker(false); setMemberPickerRequest(null); setMemberPickerSearch(''); setMemberPickerSelected(null); setMemberPickerConfirm(false) } }}
+          >
+            <div className="bg-surface-raised rounded-lg p-6 w-full max-w-md" role="dialog" aria-modal="true">
+              <h3 className="text-lg font-medium mb-2">Propose a Match</h3>
+              <p className="text-sm text-text-muted mb-4 truncate">For: {memberPickerRequest.title}</p>
+
+              {!memberPickerConfirm ? (
+                <>
+                  <input
+                    type="text"
+                    value={memberPickerSearch}
+                    onChange={(e) => setMemberPickerSearch(e.target.value)}
+                    placeholder="Search members..."
+                    className="w-full border border-border rounded px-3 py-2 text-sm mb-3 focus:ring-2 focus:ring-primary focus:border-transparent"
+                    autoFocus
+                  />
+                  <div className="max-h-60 overflow-y-auto space-y-1">
+                    {(community?.members ?? [])
+                      .filter((m: Member) => m.status === 'active' && m.user_id !== memberPickerRequest?.requester_id)
+                      .filter((m: Member) => !memberPickerSearch || m.user_name.toLowerCase().includes(memberPickerSearch.toLowerCase()) || m.user_email.toLowerCase().includes(memberPickerSearch.toLowerCase()))
+                      .map((m: Member) => (
+                        <button
+                          key={m.user_id}
+                          onClick={() => { setMemberPickerSelected(m); setMemberPickerConfirm(true) }}
+                          className="w-full text-left px-3 py-2 rounded text-sm hover:bg-surface transition flex items-center justify-between"
+                        >
+                          <span className="font-medium text-text">{m.user_name}</span>
+                          <span className="text-xs text-text-subtle">{m.role}</span>
+                        </button>
+                      ))}
+                  </div>
+                </>
+              ) : memberPickerSelected ? (
+                <div className="text-center py-4">
+                  <p className="text-sm text-text-muted mb-4">
+                    Propose <strong>{memberPickerSelected.user_name}</strong> as a match for this request?
+                  </p>
+                  <div className="flex gap-2 justify-center">
+                    <button
+                      onClick={() => { setMemberPickerConfirm(false); setMemberPickerSelected(null) }}
+                      className="px-4 py-2 text-sm text-text-muted hover:text-text"
+                    >
+                      Back
+                    </button>
+                    <button
+                      onClick={async () => {
+                        try {
+                          await requestService.proposeMatch(memberPickerRequest.id, {
+                            user_id: memberPickerSelected!.user_id,
+                            community_id: id as string,
+                          })
+                          await fetchCommunityRequests()
+                          setShowMemberPicker(false)
+                          setMemberPickerRequest(null)
+                          setMemberPickerSearch('')
+                          setMemberPickerSelected(null)
+                          setMemberPickerConfirm(false)
+                        } catch (err: any) {
+                          alert(err?.response?.data?.message ?? err?.message ?? 'Failed to propose match')
+                        }
+                      }}
+                      className="px-4 py-2 text-sm bg-primary text-white rounded hover:bg-primary-dark"
+                    >
+                      Confirm Match
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+
+              <div className="flex justify-end mt-4 pt-3 border-t border-border">
+                <button
+                  onClick={() => { setShowMemberPicker(false); setMemberPickerRequest(null); setMemberPickerSearch(''); setMemberPickerSelected(null); setMemberPickerConfirm(false) }}
+                  className="text-sm text-text-muted hover:text-text"
+                >
+                  Cancel
+                </button>
+              </div>
             </div>
           </div>
         )}

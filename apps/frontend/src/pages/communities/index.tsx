@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { useRouter } from 'next/router'
 import Head from 'next/head'
 import Link from 'next/link'
 import { communityService, reputationService } from '@/lib/api'
 import Layout from '@/components/Layout'
 import EmptyState from '@/components/EmptyState'
+import DiscoveryToggle, { type DiscoveryMode, readDiscoveryMode } from '@/components/DiscoveryToggle'
 
 interface Community {
   id: string
@@ -20,6 +21,8 @@ interface Community {
   inner_circle_count: number
   active_community_count: number
   extended_network_count: number
+  distance_km?: number
+  tags?: string[]
 }
 
 interface MembershipStatus {
@@ -43,6 +46,24 @@ const CATEGORIES = [
   'Other'
 ]
 
+const PAGE_SIZE = 12
+
+function CommunityCardSkeleton() {
+  return (
+    <div className="bg-surface-raised rounded-xl border border-border p-6 animate-pulse">
+      <div className="flex justify-between items-start mb-3">
+        <div className="h-5 bg-border rounded w-1/2" />
+        <div className="h-5 bg-border rounded w-16" />
+      </div>
+      <div className="h-3 bg-border rounded w-1/4 mb-3" />
+      <div className="h-3 bg-border rounded w-full mb-2" />
+      <div className="h-3 bg-border rounded w-3/4 mb-4" />
+      <div className="h-2 bg-border rounded-full w-full mb-4" />
+      <div className="h-8 bg-border rounded w-full" />
+    </div>
+  )
+}
+
 export default function CommunitiesPage() {
   const router = useRouter()
   const [user, setUser] = useState<any>(null)
@@ -55,15 +76,133 @@ export default function CommunitiesPage() {
   const [error, setError] = useState('')
   const [joiningId, setJoiningId] = useState<string | null>(null)
 
+  // Discovery mode
+  const [discoveryMode, setDiscoveryMode] = useState<DiscoveryMode>('geography')
+  const [locationDenied, setLocationDenied] = useState(false)
+
+  // Tags (interests mode)
+  const [availableTags, setAvailableTags] = useState<string[]>([])
+  const [selectedTags, setSelectedTags] = useState<string[]>([])
+
   // Filter states
   const [searchQuery, setSearchQuery] = useState('')
   const [locationFilter, setLocationFilter] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('')
   const [hasSpaceFilter, setHasSpaceFilter] = useState(false)
   const [sortBy, setSortBy] = useState('newest')
+  const [initialized, setInitialized] = useState(false)
 
-  const PAGE_SIZE = 12
+  // Refs for stable fetchCommunities callback
+  const communitiesRef = useRef<Community[]>([])
+  const coordsRef = useRef<{ lat: number; lng: number } | null>(null)
 
+  const buildMembershipStatusFromToken = useCallback((userData: any, communityList: Community[]) => {
+    const statusMap: MembershipStatus = {}
+    const membershipMap = new Map(
+      (userData.communities || []).map((c: any) => [c.id, 'active'])
+    )
+    for (const community of communityList) {
+      statusMap[community.id] = membershipMap.has(community.id) ? 'active' : null
+    }
+    setMembershipStatus(statusMap)
+  }, [])
+
+  const fetchTrustScores = useCallback(async (communityIds: string[]) => {
+    const results = await Promise.allSettled(
+      communityIds.map(id => reputationService.getCommunityTrust(id))
+    )
+    const scores: TrustScores = {}
+    communityIds.forEach((id, i) => {
+      const result = results[i]
+      scores[id] = result.status === 'fulfilled' ? (result.value.data?.data?.score ?? null) : null
+    })
+    setTrustScores(prev => ({ ...prev, ...scores }))
+  }, [])
+
+  const fetchCommunities = useCallback(async (opts: {
+    loadMore?: boolean
+    mode?: DiscoveryMode
+    lat?: number
+    lng?: number
+    tags?: string[]
+    currentList?: Community[]
+  } = {}) => {
+    const {
+      loadMore = false,
+      mode = discoveryMode,
+      lat,
+      lng,
+      tags = selectedTags,
+      currentList = communitiesRef.current,
+    } = opts
+
+    try {
+      if (loadMore) {
+        setLoadingMore(true)
+      } else {
+        setLoading(true)
+      }
+
+      const params: Record<string, any> = {
+        status: 'active',
+        limit: PAGE_SIZE,
+        offset: loadMore ? currentList.length : 0,
+        sort: sortBy,
+      }
+
+      if (mode === 'geography' && lat != null && lng != null) {
+        params.mode = 'geography'
+        params.lat = lat
+        params.lng = lng
+      } else if (mode === 'interests' && tags.length > 0) {
+        params.mode = 'interests'
+        params.tags = tags.join(',')
+      }
+
+      if (searchQuery) params.search = searchQuery
+      if (locationFilter) params.location = locationFilter
+      if (categoryFilter) params.category = categoryFilter
+      if (hasSpaceFilter) params.has_space = 'true'
+
+      const response = await communityService.getCommunities(params)
+      const newCommunities: Community[] = response.data.communities
+
+      if (loadMore) {
+        setCommunities(prev => {
+          const merged = [...prev, ...newCommunities]
+          communitiesRef.current = merged
+          const userData = localStorage.getItem('user')
+          if (userData) buildMembershipStatusFromToken(JSON.parse(userData), merged)
+          return merged
+        })
+      } else {
+        communitiesRef.current = newCommunities
+        setCommunities(newCommunities)
+        const userData = localStorage.getItem('user')
+        if (userData) buildMembershipStatusFromToken(JSON.parse(userData), newCommunities)
+      }
+
+      setHasMore(newCommunities.length === PAGE_SIZE)
+      fetchTrustScores(newCommunities.map((c: Community) => c.id))
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to load communities')
+    } finally {
+      setLoading(false)
+      setLoadingMore(false)
+    }
+  }, [
+    discoveryMode,
+    selectedTags,
+    sortBy,
+    searchQuery,
+    locationFilter,
+    categoryFilter,
+    hasSpaceFilter,
+    buildMembershipStatusFromToken,
+    fetchTrustScores,
+  ])
+
+  // Initial mount: auth check + read persisted mode + fetch tags
   useEffect(() => {
     const token = localStorage.getItem('token')
     const userData = localStorage.getItem('user')
@@ -77,85 +216,79 @@ export default function CommunitiesPage() {
       setUser(JSON.parse(userData))
     }
 
-    fetchCommunities()
-  }, [router, searchQuery, locationFilter, categoryFilter, hasSpaceFilter, sortBy])
+    const persistedMode = readDiscoveryMode()
+    setDiscoveryMode(persistedMode)
 
-  const fetchCommunities = async (loadMore = false) => {
-    try {
-      if (loadMore) {
-        setLoadingMore(true)
-      } else {
-        setLoading(true)
-      }
-
-      const params: any = {
-        status: 'active',
-        limit: PAGE_SIZE,
-        offset: loadMore ? communities.length : 0,
-        sort: sortBy
-      }
-
-      if (searchQuery) params.search = searchQuery
-      if (locationFilter) params.location = locationFilter
-      if (categoryFilter) params.category = categoryFilter
-      if (hasSpaceFilter) params.has_space = 'true'
-
-      const response = await communityService.getCommunities(params)
-      const newCommunities = response.data.communities
-
-      if (loadMore) {
-        setCommunities(prev => [...prev, ...newCommunities])
-      } else {
-        setCommunities(newCommunities)
-      }
-
-      setHasMore(newCommunities.length === PAGE_SIZE)
-
-      // Get user's memberships from JWT token (no API call needed)
-      const userData = localStorage.getItem('user')
-      if (userData) {
-        const user = JSON.parse(userData)
-        const allCommunities = loadMore ? [...communities, ...newCommunities] : newCommunities
-        buildMembershipStatusFromToken(user, allCommunities)
-      }
-
-      // Fetch trust scores for all loaded communities in parallel
-      fetchTrustScores(newCommunities.map((c: Community) => c.id))
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to load communities')
-    } finally {
-      setLoading(false)
-      setLoadingMore(false)
-    }
-  }
-
-  const buildMembershipStatusFromToken = (user: any, communities: Community[]) => {
-    // Use JWT token data - no API call needed!
-    const statusMap: MembershipStatus = {}
-
-    // Build a map of user's memberships from JWT token
-    const membershipMap = new Map(
-      (user.communities || []).map((c: any) => [c.id, 'active'])
-    )
-
-    // Check each community against user's memberships
-    for (const community of communities) {
-      statusMap[community.id] = membershipMap.has(community.id) ? 'active' : null
-    }
-
-    setMembershipStatus(statusMap)
-  }
-
-  const fetchTrustScores = async (communityIds: string[]) => {
-    const results = await Promise.allSettled(
-      communityIds.map(id => reputationService.getCommunityTrust(id))
-    )
-    const scores: TrustScores = {}
-    communityIds.forEach((id, i) => {
-      const result = results[i]
-      scores[id] = result.status === 'fulfilled' ? (result.value.data?.data?.score ?? null) : null
+    // Fetch available tags for interests mode
+    communityService.getCommunityTags().then((res) => {
+      const tags: string[] = res.data?.tags ?? res.data ?? []
+      setAvailableTags(tags)
+    }).catch(() => {
+      // tags are non-critical; silently ignore
     })
-    setTrustScores(prev => ({ ...prev, ...scores }))
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Re-fetch when filters or sort change (not on first render — handled by mode effect below)
+  useEffect(() => {
+    if (!initialized) return
+    fetchCommunities({ mode: discoveryMode })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchQuery, locationFilter, categoryFilter, hasSpaceFilter, sortBy])
+
+  // React to discovery mode change (including on first init)
+  useEffect(() => {
+    if (discoveryMode === 'geography') {
+      setLocationDenied(false)
+      // Show skeleton immediately, then request geolocation
+      setLoading(true)
+      if (typeof window !== 'undefined' && navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            coordsRef.current = { lat: pos.coords.latitude, lng: pos.coords.longitude }
+            setInitialized(true)
+            fetchCommunities({
+              mode: 'geography',
+              lat: pos.coords.latitude,
+              lng: pos.coords.longitude,
+            })
+          },
+          () => {
+            // Denied or unavailable — fall back to alphabetical
+            setLocationDenied(true)
+            setInitialized(true)
+            fetchCommunities({ mode: 'geography' })
+          },
+          { timeout: 8000 }
+        )
+      } else {
+        setInitialized(true)
+        fetchCommunities({ mode: 'geography' })
+      }
+    } else {
+      // interests mode
+      setInitialized(true)
+      fetchCommunities({ mode: 'interests', tags: selectedTags })
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [discoveryMode])
+
+  // Re-fetch when selected tags change (interests mode only)
+  useEffect(() => {
+    if (!initialized || discoveryMode !== 'interests') return
+    fetchCommunities({ mode: 'interests', tags: selectedTags })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedTags])
+
+  const handleDiscoveryModeChange = (newMode: DiscoveryMode) => {
+    setSelectedTags([])
+    setDiscoveryMode(newMode)
+  }
+
+  const toggleTag = (tag: string) => {
+    setSelectedTags(prev =>
+      prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]
+    )
   }
 
   const handleJoinCommunity = async (communityId: string, accessType: 'public' | 'private') => {
@@ -165,14 +298,12 @@ export default function CommunitiesPage() {
       setJoiningId(communityId)
       await communityService.joinCommunity(communityId, { user_id: user.id })
 
-      // Update membership status
       setMembershipStatus(prev => ({
         ...prev,
         [communityId]: accessType === 'public' ? 'active' : 'pending'
       }))
 
-      // Refresh communities to update member count
-      fetchCommunities()
+      fetchCommunities({ mode: discoveryMode })
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to join community')
     } finally {
@@ -190,6 +321,7 @@ export default function CommunitiesPage() {
     setCategoryFilter('')
     setHasSpaceFilter(false)
     setSortBy('newest')
+    setSelectedTags([])
   }
 
   return (
@@ -202,14 +334,14 @@ export default function CommunitiesPage() {
           {/* Header */}
           <div className="mb-6 flex justify-between items-center">
             <div>
-              <h1 className="text-3xl font-bold mb-2">Discover Communities</h1>
+              <h1 className="text-3xl font-bold text-text mb-2">Discover Communities</h1>
               <p className="text-text-muted">
                 Find and join communities based on location, interests, or mission
               </p>
             </div>
             <Link
               href="/communities/new"
-              className="px-4 py-2 bg-primary text-white rounded hover:bg-primary-dark"
+              className="px-4 py-2 bg-primary text-white rounded hover:bg-primary-dark text-sm font-medium transition-colors"
             >
               Create Community
             </Link>
@@ -244,8 +376,38 @@ export default function CommunitiesPage() {
             </div>
           </div>
 
+          {/* Discovery Toggle */}
+          <div className="mb-4">
+            <DiscoveryToggle mode={discoveryMode} onChange={handleDiscoveryModeChange} />
+            {locationDenied && (
+              <p className="mt-2 text-sm text-text-muted">
+                📍 Location access denied — showing all communities
+              </p>
+            )}
+          </div>
+
+          {/* Tag chips (interests mode) */}
+          {discoveryMode === 'interests' && availableTags.length > 0 && (
+            <div className="flex flex-wrap gap-2 mb-4">
+              {availableTags.map(tag => (
+                <button
+                  key={tag}
+                  type="button"
+                  onClick={() => toggleTag(tag)}
+                  className={`px-3 py-1 rounded-full text-sm font-medium border transition-colors ${
+                    selectedTags.includes(tag)
+                      ? 'bg-primary text-white border-primary'
+                      : 'bg-surface border-border text-text-muted hover:border-primary hover:text-text'
+                  }`}
+                >
+                  {tag}
+                </button>
+              ))}
+            </div>
+          )}
+
           {/* Search and Filters */}
-          <div className="bg-surface-raised rounded-lg shadow-md p-6 mb-6">
+          <div className="bg-surface-raised rounded-xl border border-border p-6 mb-6">
             <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
               {/* Search */}
               <div>
@@ -257,7 +419,7 @@ export default function CommunitiesPage() {
                   placeholder="Search by name or description..."
                   value={searchQuery}
                   onChange={handleSearchChange}
-                  className="w-full px-3 py-2 border border-border rounded focus:outline-none focus:ring-2 focus:ring-primary"
+                  className="w-full px-3 py-2 border border-border rounded-lg bg-surface text-text focus:outline-none focus:ring-2 focus:ring-primary"
                 />
               </div>
 
@@ -271,7 +433,7 @@ export default function CommunitiesPage() {
                   placeholder="City, region, or area..."
                   value={locationFilter}
                   onChange={(e) => setLocationFilter(e.target.value)}
-                  className="w-full px-3 py-2 border border-border rounded focus:outline-none focus:ring-2 focus:ring-primary"
+                  className="w-full px-3 py-2 border border-border rounded-lg bg-surface text-text focus:outline-none focus:ring-2 focus:ring-primary"
                 />
               </div>
 
@@ -283,7 +445,7 @@ export default function CommunitiesPage() {
                 <select
                   value={categoryFilter}
                   onChange={(e) => setCategoryFilter(e.target.value)}
-                  className="w-full px-3 py-2 border border-border rounded focus:outline-none focus:ring-2 focus:ring-primary"
+                  className="w-full px-3 py-2 border border-border rounded-lg bg-surface text-text focus:outline-none focus:ring-2 focus:ring-primary"
                 >
                   <option value="">All Categories</option>
                   {CATEGORIES.map((cat) => (
@@ -300,7 +462,7 @@ export default function CommunitiesPage() {
                 <select
                   value={sortBy}
                   onChange={(e) => setSortBy(e.target.value)}
-                  className="w-full px-3 py-2 border border-border rounded focus:outline-none focus:ring-2 focus:ring-primary"
+                  className="w-full px-3 py-2 border border-border rounded-lg bg-surface text-text focus:outline-none focus:ring-2 focus:ring-primary"
                 >
                   <option value="newest">Newest First</option>
                   <option value="members">Most Members</option>
@@ -310,7 +472,7 @@ export default function CommunitiesPage() {
             </div>
 
             <div className="flex items-center justify-between">
-              <label className="flex items-center">
+              <label className="flex items-center cursor-pointer">
                 <input
                   type="checkbox"
                   checked={hasSpaceFilter}
@@ -322,7 +484,7 @@ export default function CommunitiesPage() {
 
               <button
                 onClick={handleClearFilters}
-                className="text-sm text-primary hover:text-primary-dark"
+                className="text-sm text-primary hover:text-primary-dark transition-colors"
               >
                 Clear All Filters
               </button>
@@ -330,15 +492,17 @@ export default function CommunitiesPage() {
           </div>
 
           {error && (
-            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg mb-4">
               {error}
             </div>
           )}
 
           {/* Results */}
           {loading ? (
-            <div className="flex items-center justify-center py-12">
-              <div className="text-text-subtle">Loading communities...</div>
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <CommunityCardSkeleton key={i} />
+              ))}
             </div>
           ) : communities.length === 0 ? (
             <EmptyState
@@ -361,21 +525,21 @@ export default function CommunitiesPage() {
                   return (
                     <div
                       key={community.id}
-                      className="bg-surface-raised rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow"
+                      className="bg-surface-raised rounded-xl border border-border p-6 hover:shadow-md transition-shadow"
                     >
                       <Link href={`/communities/${community.id}`}>
                         <div className="flex justify-between items-start mb-3">
-                          <h3 className="text-xl font-semibold hover:text-primary transition-colors">
+                          <h3 className="text-lg font-semibold text-text hover:text-primary transition-colors leading-tight">
                             {community.name}
                           </h3>
-                          <div className="flex gap-2">
+                          <div className="flex gap-2 shrink-0 ml-2">
                             {community.access_type === 'private' && (
-                              <span className="text-xs bg-accent-light text-accent-dark px-2 py-1 rounded">
+                              <span className="text-xs bg-accent-light text-accent-dark px-2 py-0.5 rounded-full">
                                 Private
                               </span>
                             )}
                             {isFull && (
-                              <span className="text-xs bg-red-100 text-red-800 px-2 py-1 rounded">
+                              <span className="text-xs bg-red-100 text-red-800 px-2 py-0.5 rounded-full">
                                 Full
                               </span>
                             )}
@@ -384,18 +548,42 @@ export default function CommunitiesPage() {
 
                         {community.category && (
                           <div className="mb-2">
-                            <span className="text-xs bg-primary-light text-primary-dark px-2 py-1 rounded">
+                            <span className="text-xs bg-primary-light text-primary-dark px-2 py-0.5 rounded-full">
                               {community.category}
                             </span>
                           </div>
                         )}
 
-                        <p className="text-text-muted mb-3 line-clamp-2">{community.description}</p>
+                        <p className="text-sm text-text-muted mb-3 line-clamp-2">{community.description}</p>
 
-                        {community.location && (
-                          <p className="text-sm text-text-subtle mb-3">
-                            📍 {community.location}
+                        {(community.location || community.distance_km != null) && (
+                          <p className="text-sm text-text-subtle mb-3 flex items-center gap-1">
+                            <span>📍</span>
+                            <span>
+                              {community.location}
+                              {community.distance_km != null && (
+                                <span className="ml-1 text-primary font-medium">
+                                  ({community.distance_km < 1
+                                    ? `${Math.round(community.distance_km * 1000)}m`
+                                    : `${community.distance_km.toFixed(1)}km`} away)
+                                </span>
+                              )}
+                            </span>
                           </p>
+                        )}
+
+                        {/* Tags */}
+                        {community.tags && community.tags.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mb-3">
+                            {community.tags.slice(0, 4).map(tag => (
+                              <span
+                                key={tag}
+                                className="text-xs px-2 py-0.5 rounded-full bg-surface border border-border text-text-muted"
+                              >
+                                {tag}
+                              </span>
+                            ))}
+                          </div>
                         )}
 
                         <div className="flex items-center justify-between text-sm text-text-subtle mb-3">
@@ -405,13 +593,13 @@ export default function CommunitiesPage() {
                           <span>by {community.creator_name}</span>
                         </div>
 
-                        <div className="w-full bg-gray-200 rounded-full h-2 mb-4">
+                        <div className="w-full bg-border rounded-full h-1.5 mb-4">
                           <div
-                            className="bg-primary h-2 rounded-full"
+                            className="bg-primary h-1.5 rounded-full transition-all"
                             style={{
-                              width: `${(community.current_members / community.max_members) * 100}%`,
+                              width: `${Math.min((community.current_members / community.max_members) * 100, 100)}%`,
                             }}
-                          ></div>
+                          />
                         </div>
 
                         {/* Activity layer distribution + trust score */}
@@ -428,7 +616,7 @@ export default function CommunitiesPage() {
                               </span>
                             )}
                             {community.extended_network_count > 0 && (
-                              <span className="px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">
+                              <span className="px-2 py-0.5 rounded-full bg-surface border border-border text-text-subtle">
                                 {community.extended_network_count} extended
                               </span>
                             )}
@@ -446,21 +634,21 @@ export default function CommunitiesPage() {
                         {memberStatus === 'active' ? (
                           <button
                             disabled
-                            className="w-full px-4 py-2 bg-success-light text-green-800 rounded text-sm font-medium cursor-not-allowed"
+                            className="w-full px-4 py-2 bg-success-light text-green-800 rounded-lg text-sm font-medium cursor-not-allowed"
                           >
                             ✓ Joined
                           </button>
                         ) : memberStatus === 'pending' ? (
                           <button
                             disabled
-                            className="w-full px-4 py-2 bg-yellow-100 text-yellow-800 rounded text-sm font-medium cursor-not-allowed"
+                            className="w-full px-4 py-2 bg-yellow-100 text-yellow-800 rounded-lg text-sm font-medium cursor-not-allowed"
                           >
                             ⏳ Pending Approval
                           </button>
                         ) : isFull ? (
                           <button
                             disabled
-                            className="w-full px-4 py-2 bg-border-light text-text-subtle rounded text-sm font-medium cursor-not-allowed"
+                            className="w-full px-4 py-2 bg-border text-text-subtle rounded-lg text-sm font-medium cursor-not-allowed"
                           >
                             Community Full
                           </button>
@@ -471,9 +659,9 @@ export default function CommunitiesPage() {
                               handleJoinCommunity(community.id, community.access_type)
                             }}
                             disabled={joiningId === community.id}
-                            className={`w-full px-4 py-2 rounded text-sm font-medium transition-colors ${
+                            className={`w-full px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                               joiningId === community.id
-                                ? 'bg-gray-300 text-text-muted cursor-wait'
+                                ? 'bg-border text-text-muted cursor-wait'
                                 : community.access_type === 'private'
                                 ? 'bg-accent text-white hover:bg-accent-dark'
                                 : 'bg-primary text-white hover:bg-primary-dark'
@@ -496,7 +684,7 @@ export default function CommunitiesPage() {
               {hasMore && (
                 <div className="mt-8 text-center">
                   <button
-                    onClick={() => fetchCommunities(true)}
+                    onClick={() => fetchCommunities({ loadMore: true })}
                     disabled={loadingMore}
                     className="px-8 py-3 bg-surface-raised border border-border text-text-muted rounded-lg hover:bg-surface font-medium transition-colors disabled:opacity-50"
                   >

@@ -12,6 +12,7 @@ import schemasRouter from './routes/schemas';
 import providersRouter from './routes/providers';
 import collectivesRouter from './routes/collectives';
 import adminSchemasRouter from './routes/admin-schemas';
+import adminActionsRouter from './routes/adminActions';
 import { adminAuth } from './middleware/adminAuth';
 import { createLogger, requestLoggingMiddleware } from '@karmyq/shared/utils/logger';
 import {
@@ -74,6 +75,17 @@ app.use(
   optionalTenantMiddleware,
   dbContextMiddleware(pool),
   requestsRouter
+);
+
+// Admin actions on requests (boost, propose-match, urgent toggle)
+// Requires admin role in at least one community; route handlers further scope to the request's community
+app.use(
+  '/requests',
+  rateLimiters.standard,
+  ...adminAuth,
+  optionalTenantMiddleware,
+  dbContextMiddleware(pool),
+  adminActionsRouter
 );
 
 app.use(

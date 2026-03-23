@@ -26,6 +26,8 @@ interface FeedRequest {
   category: string;
   created_at: string;
   offers_count: number;
+  is_boosted?: boolean; // optional: pre-migration rows have NULL; isBoostActive guards this safely
+  boosted_expires_at?: string | null; // optional: same migration compatibility reason
 }
 
 interface SocialProximity {
@@ -61,6 +63,16 @@ interface FeedItem {
       trust_score?: number;
     };
   };
+}
+
+/**
+ * Returns true if the request currently has an active boost.
+ * Copied inline from request-service — feed-service cannot import across service boundaries.
+ */
+function isBoostActive(req: { is_boosted?: boolean; boosted_expires_at?: string | null }): boolean {
+  if (!req.is_boosted) return false
+  if (!req.boosted_expires_at) return false
+  return new Date(req.boosted_expires_at) > new Date()
 }
 
 export class BasicFeedRanker {
@@ -143,6 +155,8 @@ export class BasicFeedRanker {
         hr.status,
         hr.category,
         hr.created_at,
+        hr.is_boosted,
+        hr.boosted_expires_at,
         COUNT(DISTINCT ho.id) as offers_count
       FROM requests.help_requests hr
       JOIN auth.users u ON hr.requester_id = u.id
@@ -211,8 +225,10 @@ export class BasicFeedRanker {
    * - Urgency: +15 (urgent), +10 (high), +5 (medium), 0 (low)
    * - Recency: up to +10 (newer = higher)
    * - No offers yet: +5 (boost new requests)
+   * - Active boost: +0.3 applied after normalization to 0.0–1.0 scale
    *
-   * Max score: ~110
+   * Max raw score: ~110 (normalized to 1.0 before boost)
+   * Final score is capped at 1.0
    */
   private calculateScore(
     request: FeedRequest,
@@ -253,6 +269,12 @@ export class BasicFeedRanker {
       score += 5;
     }
 
-    return score;
+    // Normalize to 0.0–1.0 (max possible raw score is 110)
+    const MAX_RAW_SCORE = 110;
+    const baseScore = score / MAX_RAW_SCORE;
+
+    // Boost bonus: +0.3 for requests with an active boost, capped at 1.0
+    const boostBonus = isBoostActive(request) ? 0.3 : 0;
+    return Math.min(1.0, baseScore + boostBonus);
   }
 }

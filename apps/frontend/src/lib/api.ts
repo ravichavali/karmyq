@@ -212,8 +212,11 @@ feedApi.interceptors.response.use(responseInterceptor, errorInterceptor)
 // Community API Methods
 export const communityService = {
   // Communities
-  getCommunities: (params?: { status?: string; limit?: number; offset?: number; search?: string; location?: string; category?: string; has_space?: string; sort?: string }) =>
+  getCommunities: (params?: { status?: string; limit?: number; offset?: number; search?: string; location?: string; category?: string; has_space?: string; sort?: string; mode?: string; lat?: number; lng?: number; tags?: string }) =>
     communityApi.get('/communities', { params }),
+
+  getCommunityTags: () =>
+    communityApi.get('/communities/tags'),
 
   getMyCommunities: (user_id: string) =>
     communityApi.get('/communities/my/communities', { params: { user_id } }),
@@ -519,6 +522,19 @@ export const requestService = {
 
   cancelMatch: (id: string, user_id: string) =>
     requestApi.delete(`/matches/${id}`, { data: { user_id } }),
+
+  // Boost / Urgent / Propose Match (Sprint 36)
+  boostRequest: (id: string, data: { community_id: string }) =>
+    requestApi.post(`/requests/${id}/boost`, data),
+
+  removeBoost: (id: string, data: { community_id: string }) =>
+    requestApi.delete(`/requests/${id}/boost`, { data }),
+
+  markUrgent: (id: string, data: { community_id: string; urgent: boolean }) =>
+    requestApi.patch(`/requests/${id}/urgent`, data),
+
+  proposeMatch: (id: string, data: { user_id: string; community_id: string }) =>
+    requestApi.post(`/requests/${id}/propose-match`, data),
 }
 
 // Notification Service API Methods

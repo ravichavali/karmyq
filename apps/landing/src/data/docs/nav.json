@@ -67,6 +67,10 @@
         {
           "label": "Fractal Feed",
           "href": "/docs/concepts/fractal-feed"
+        },
+        {
+          "label": "Community Discovery",
+          "href": "/docs/concepts/community-discovery"
         }
       ]
     },
@@ -86,8 +90,16 @@
           "href": "/docs/guides/fulfilling-requests"
         },
         {
+          "label": "Managing Your Commitments",
+          "href": "/docs/guides/managing-commitments"
+        },
+        {
+          "label": "Finding Communities",
+          "href": "/docs/guides/finding-communities"
+        },
+        {
           "label": "Running a Community",
-          "href": "/docs/guides/community-admin"
+          "href": "/docs/guides/admin-community"
         },
         {
           "label": "Setting Your Community's Trust Model",

@@ -183,6 +183,9 @@ CREATE TABLE communities.communities (
     access_type VARCHAR(50) DEFAULT 'public',
     status VARCHAR(50) DEFAULT 'active',
     default_request_scope visibility_scope_enum DEFAULT 'community',  -- ADR-022: Default scope for new requests
+    latitude NUMERIC(10, 7),  -- Sprint 36: Geographic coordinate for discovery
+    longitude NUMERIC(10, 7),  -- Sprint 36: Geographic coordinate for discovery
+    tags TEXT[] DEFAULT '{}',  -- Sprint 36: Interest tags for community discovery
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -236,6 +239,8 @@ CREATE INDEX idx_communities_creator_id ON communities.communities(creator_id);
 CREATE INDEX idx_communities_location ON communities.communities(location);
 CREATE INDEX idx_communities_category ON communities.communities(category);
 CREATE INDEX idx_communities_status ON communities.communities(status);
+CREATE INDEX IF NOT EXISTS idx_communities_location_geo ON communities.communities (latitude, longitude) WHERE latitude IS NOT NULL AND longitude IS NOT NULL;  -- Sprint 36: Geo-based community discovery
+CREATE INDEX IF NOT EXISTS idx_communities_tags ON communities.communities USING GIN (tags);  -- Sprint 36: Tag-based community discovery
 CREATE INDEX idx_members_community_id ON communities.members(community_id);
 CREATE INDEX idx_members_user_id ON communities.members(user_id);
 CREATE INDEX idx_norms_community_id ON communities.norms(community_id);
@@ -264,6 +269,10 @@ CREATE TABLE requests.help_requests (
     visibility_scope visibility_scope_enum NOT NULL DEFAULT 'community',  -- ADR-022: Who can see this request
     visibility_max_degrees INTEGER DEFAULT 3 CHECK (visibility_max_degrees BETWEEN 1 AND 6),  -- ADR-022: Max trust degrees for trust_network scope
     preferred_provider_id UUID,  -- Sprint 29: Optional preferred provider for service requests
+    is_boosted BOOLEAN DEFAULT FALSE,  -- Sprint 36: Admin boost flag
+    boosted_at TIMESTAMP,  -- Sprint 36: When the boost was applied
+    boosted_expires_at TIMESTAMP,  -- Sprint 36: When the boost expires
+    boosted_by UUID REFERENCES auth.users(id) ON DELETE SET NULL,  -- Sprint 36: Admin who applied the boost
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -311,6 +320,7 @@ CREATE INDEX idx_requests_requester_id ON requests.help_requests(requester_id);
 CREATE INDEX idx_requests_payload ON requests.help_requests USING GIN (payload);  -- v9.0: Fast searching in JSONB payload
 CREATE INDEX idx_requests_type ON requests.help_requests(request_type);  -- v9.0: Fast filtering by request type
 CREATE INDEX idx_requests_visibility ON requests.help_requests(visibility_scope) WHERE status = 'open' AND expired = FALSE;  -- ADR-022: Feed tier filtering
+CREATE INDEX IF NOT EXISTS idx_requests_is_boosted ON requests.help_requests (is_boosted, boosted_expires_at) WHERE is_boosted = TRUE;  -- Sprint 36: Efficient boosted request queries
 CREATE INDEX idx_request_communities_request ON requests.request_communities(request_id);
 CREATE INDEX idx_request_communities_community ON requests.request_communities(community_id);
 CREATE INDEX idx_offers_community_id ON requests.help_offers(community_id);
