@@ -1,40 +1,39 @@
-# SPRINT 36 READY TO PLAN
+# SPRINT 36 READY TO EXECUTE
 
 ## Handoff Document for New Conversation
 
 **Date**: 2026-03-22
-**Current Version**: v9.10.0 (Sprint 35 complete, merged to master, deployed to demo)
-**Status**: Sprint 35 shipped. Ready to plan Sprint 36.
+**Current Version**: v9.10.0 → v9.11.0
+**Status**: Sprint 36 planned. Spec and plan written. Ready to execute.
 
 ---
 
 ## Quick Start
 
 1. Read this handoff
-2. Run `/sprint-planning` to plan Sprint 36
+2. Check out branch: `git checkout -b feature/sprint-36-coherence-depth`
+3. Open plan: `docs/superpowers/plans/2026-03-22-sprint-36-coherence-depth.md`
+4. Run: `/execute-plan` (uses `superpowers:subagent-driven-development`)
 
 ---
 
-## What Just Shipped — Sprint 35 (v9.9.0 → v9.10.0)
+## Sprint 36 Goal
 
-| Area | What changed | Key files |
-|------|-------------|-----------|
-| **RequestWizard** | Two-step modal: type picker grid → description + urgency + scope. Replaces 500-line NLP inline form | `RequestWizard.tsx` (new) |
-| **SpeedDialFab** | Expandable FAB with Get Help / Get Service actions. Tab-aware visibility | `SpeedDialFab.tsx` (new) |
-| **ProviderCard** | "Get Service" button with `onGetService` callback; exported `ProviderCardData` interface | `ProviderCard.tsx` |
-| **providers/index.tsx** | onGetService wires into RequestWizard modal | `providers/index.tsx` |
-| **providers/[id].tsx** | "Get Service" button pre-fills wizard with provider + service type, skips to step 2 | `providers/[id].tsx` |
-| **dashboard.tsx** | NLP/autocomplete removed; wired to SpeedDialFab + RequestWizard | `dashboard.tsx` |
-| **Aesthetics** | Semantic colors in BrowseFeed, skeleton loader in CommitmentsTab | `BrowseFeed.tsx`, `CommitmentsTab.tsx` |
-| **CSS** | `.speed-dial`, `.speed-dial-action`, `.wizard-step`, `.type-card`, `.urgency-option` | `globals.css` |
-| **TDD tests** | 17 tests: mapUrgencyToApi, isFormValid, getVisibleActions, buildWizardPayload | `tests/tdd/request-wizard.test.ts` |
-| **Skills** | deploy + sprint-planning updated: auto-deploy at end of every sprint; `no-deploy` tag to opt out | `.claude/skills/` |
-| **Docs** | making-requests guide (wizard flow + Hiring a Provider), getting-started, UX design principles | `docs/`, `apps/landing/` |
+Achieve full site aesthetic coherence, deepen commitments with action-priority ordering and inline messaging, consolidate the community admin page (7→5 tabs + admin connector tools), and introduce geography/interest-based community discovery.
 
-**Key decisions made this sprint:**
-- `animate-in` (tailwindcss-animate) is NOT installed — removed from globals.css and dashboard.tsx
-- Landing docs are gitignored but tracked — use `git add -f` to stage them
-- Stale `karmyq-cadvisor` container on demo caused CI/CD failure — removed manually, redeployed
+---
+
+## What This Sprint Ships
+
+| Feature | Details |
+|---------|---------|
+| **Aesthetic coherence** | Community page + listing brought to Sprint 33–35 design language (semantic colors, card patterns, skeleton loaders) |
+| **Commitment priority ordering** | Sorted by action urgency: Needs Response → In Progress → Completed. Within tier: newest first |
+| **Inline expandable conversation** | Chat widget embedded in commitment card. Collapsed → shows unread count. Expanded → full thread inline, no page nav |
+| **Admin tab consolidation** | 7 tabs → 5: Overview, People (Members+Norms), Requests (Requests+Insights+Actions), Providers, Settings |
+| **Admin as connector** | Boost request (48h, +0.3 feed score), propose a specific member as match, tag as community-urgent |
+| **Community discovery toggle** | Geography (default, near me sorted by distance) | Interests (tag filter chips) |
+| **DB migrations** | 014: communities gets `latitude`, `longitude`, `tags[]`. 015: help_requests gets `is_boosted`, `boosted_at`, `boosted_expires_at`, `boosted_by` |
 
 ---
 
@@ -45,29 +44,46 @@
 | **33** | Design system foundation | ✅ Complete |
 | **34** | Tab navigation + feed simplification | ✅ Complete |
 | **35** | Request wizard + service hiring CTA | ✅ Complete |
-| **36** | Commitment depth + admin simplification | 🔜 **Next sprint** |
+| **36** | Commitment depth + admin power + community discovery | 🔜 **This sprint** |
 
 ---
 
-## Sprint 36 Preview (from original arc plan)
+## Key Documents
 
-**Commitment depth + admin simplification**
+- **Spec**: `docs/superpowers/specs/2026-03-22-sprint-36-coherence-depth-design.md`
+- **Plan**: `docs/superpowers/plans/2026-03-22-sprint-36-coherence-depth.md`
 
-The original arc notes for Sprint 36:
-- **Commitment depth**: Timeline view of a commitment, inline messaging within a commitment, clear status transitions (proposed → matched → completed)
-- **Admin simplification**: Simplify the admin panel — reduce cognitive load, cleaner tab structure
+---
 
-This is a starting point for sprint planning discussion, not a locked scope.
+## ⚠️ Critical Implementation Notes (copy from spec)
+
+1. **Messaging wire-up — no new schema**: `messaging.conversations.request_match_id` already exists. Call `GET /api/messaging/conversations/match/:matchId` to get/create conversation. The messaging service `getOrCreateConversation(matchId)` creates lazily. No schema migration needed.
+
+2. **Tab restructure — preserve ValidTab + OLD_TAB_MAP**: `communities/[id].tsx` defines `ValidTab` union and `VALID_TABS` array. Update both. Add to `OLD_TAB_MAP`: `members → 'people'`, `norms → 'people'`, `insights → 'requests'`.
+
+3. **Boost expiry — query-time, no cron**: Filter: `AND (is_boosted = FALSE OR boosted_expires_at > NOW())`. The index `idx_requests_is_boosted` handles this efficiently.
+
+4. **Geolocation is async and may be denied**: Communities listing must render immediately with skeleton/fallback, then update when location resolves. Never block render.
+
+5. **Tag normalization**: Always `tags.map(t => t.toLowerCase().trim())` before DB insert/update.
+
+6. **Admin propose-match = real match row**: Inserts into `requests.matches` with `status='proposed'`, `responder_id` = proposed user. Proposed user sees it in CommitmentsTab "Needs Your Response".
+
+7. **tailwindcss-animate NOT installed**: Use CSS transitions via `style` prop or className conditionals only.
+
+8. **Migrations must be applied manually post-deploy**: `deploy.sh` does NOT auto-run migrations. SSH to demo server and run migrations 014 and 015 manually after deployment.
+
+9. **Landing page docs require `git add -f`**: Landing page files are gitignored but tracked. Always `git add -f apps/landing/src/data/docs/...`.
 
 ---
 
 ## Carry-Forward Issues
 
 - **Pre-existing test failures** (not Sprint 35 regressions): `preSelectProvider`, `trust-evolution-flow`, `rateCards`
-- **Migration runner**: deploy.sh does NOT auto-run migrations. Apply manually post-deploy if schema changes.
+- **Migration runner**: deploy.sh does NOT auto-run migrations. Apply manually post-deploy.
 - **GitHub security vulnerabilities**: 8 dependabot alerts remain on default branch.
 - **Untracked file**: `docs/superpowers/specs/2026-03-18-sprint-29-rate-cards-design.md` — ignore unless relevant.
-- **Stale container pattern**: Demo server occasionally has stale Docker containers (e.g. cadvisor) that block `docker-compose up`. Fix: SSH and `docker rm -f <container-name>`, then redeploy.
+- **Stale container pattern**: Demo server occasionally has stale Docker containers. Fix: SSH and `docker rm -f <container-name>`, then redeploy.
 
 ---
 
@@ -82,7 +98,7 @@ This is a starting point for sprint planning discussion, not a locked scope.
 - **Match status lifecycle**: `proposed` → `matched` → `completed`.
 - **responseInterceptor unwraps one level**: `response.data` is already the inner object.
 - **Table schema naming**: Community schema is `communities` (plural). `requests.help_requests` has NO `community_id` — use `requests.request_communities` junction table.
-- **Admin page tab structure (v9.2.0+)**: 7 tabs — Overview, Members, Norms; Requests, Insights, Providers (`isAdminOrMod`); Settings (`isAdmin` only).
+- **Admin page tab structure (v9.10.0)**: 7 tabs — Overview, Members, Norms; Requests, Insights, Providers (`isAdminOrMod`); Settings (`isAdmin` only). **Sprint 36 changes this to 5 tabs.**
 - **Rate card soft-delete**: DELETE sets `is_active = false`.
 - **cross_community_prior**: Direction-agnostic (0.05–0.95). Never "more open."
 - **Only one simulation**: `services/simulation-service/`. DB user: `karmyq_user`.
@@ -108,3 +124,9 @@ This is a starting point for sprint planning discussion, not a locked scope.
   - NLP/autocomplete removed: `EnhancedAutocomplete`, `ExtractedDataChips`, `parsedRequest` no longer in codebase.
   - `ProviderCard.onGetService`: callback pattern — listing page holds wizard state, card calls callback.
   - Module-level `schemaCache` in `RequestWizard.tsx` avoids redundant schema fetches.
+- **Sprint 36 patterns** (new this sprint):
+  - `sortByActionPriority`: `proposed=0, matched=1, completed=2`, then `updated_at DESC` within tier.
+  - `ExpandableConversation`: uses `GET /api/messaging/conversations/match/:matchId` (getOrCreateConversation). Stays expanded until chevron clicked.
+  - `isBoostActive`: checks `is_boosted && boosted_expires_at > now()`.
+  - Community discovery: mode stored in `localStorage` key `community_discovery_mode`. Default: `'geography'`.
+  - Admin propose-match: creates real `requests.matches` row, `status='proposed'`, `responder_id` = proposed user.
