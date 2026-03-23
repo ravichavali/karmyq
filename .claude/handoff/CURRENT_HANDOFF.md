@@ -1,39 +1,25 @@
-# SPRINT 36 READY TO EXECUTE
+# SPRINT 37 READY TO EXECUTE
 
 ## Handoff Document for New Conversation
 
-**Date**: 2026-03-22
-**Current Version**: v9.10.0 → v9.11.0
-**Status**: Sprint 36 planned. Spec and plan written. Ready to execute.
+**Date**: 2026-03-23
+**Current Version**: v9.11.0 → v9.12.0
+**Status**: Spec + plan written. Ready to implement.
 
 ---
 
 ## Quick Start
 
 1. Read this handoff
-2. Check out branch: `git checkout -b feature/sprint-36-coherence-depth`
-3. Open plan: `docs/superpowers/plans/2026-03-22-sprint-36-coherence-depth.md`
+2. Check out branch: `git checkout -b feature/sprint-37-provider-mode`
+3. Open plan: `docs/superpowers/plans/2026-03-23-sprint-37-provider-mode.md`
 4. Run: `/execute-plan` (uses `superpowers:subagent-driven-development`)
 
 ---
 
-## Sprint 36 Goal
+## Sprint 37 Goal
 
-Achieve full site aesthetic coherence, deepen commitments with action-priority ordering and inline messaging, consolidate the community admin page (7→5 tabs + admin connector tools), and introduce geography/interest-based community discovery.
-
----
-
-## What This Sprint Ships
-
-| Feature | Details |
-|---------|---------|
-| **Aesthetic coherence** | Community page + listing brought to Sprint 33–35 design language (semantic colors, card patterns, skeleton loaders) |
-| **Commitment priority ordering** | Sorted by action urgency: Needs Response → In Progress → Completed. Within tier: newest first |
-| **Inline expandable conversation** | Chat widget embedded in commitment card. Collapsed → shows unread count. Expanded → full thread inline, no page nav |
-| **Admin tab consolidation** | 7 tabs → 5: Overview, People (Members+Norms), Requests (Requests+Insights+Actions), Providers, Settings |
-| **Admin as connector** | Boost request (48h, +0.3 feed score), propose a specific member as match, tag as community-urgent |
-| **Community discovery toggle** | Geography (default, near me sorted by distance) | Interests (tag filter chips) |
-| **DB migrations** | 014: communities gets `latitude`, `longitude`, `tags[]`. 015: help_requests gets `is_boosted`, `boosted_at`, `boosted_expires_at`, `boosted_by` |
+Add a **Member / Provider mode switcher** to the top nav that reorients the dashboard and feed for users with provider profiles, and split notifications into two distinct streams (community bell + provider bell).
 
 ---
 
@@ -44,46 +30,79 @@ Achieve full site aesthetic coherence, deepen commitments with action-priority o
 | **33** | Design system foundation | ✅ Complete |
 | **34** | Tab navigation + feed simplification | ✅ Complete |
 | **35** | Request wizard + service hiring CTA | ✅ Complete |
-| **36** | Commitment depth + admin power + community discovery | 🔜 **This sprint** |
+| **36** | Commitment depth + admin power + community discovery | ✅ Complete |
+| **37** | Provider Mode + Notification Separation | 🔜 This sprint |
+| **38** | TBD (likely trust visibility or member profile depth) | Upcoming |
 
 ---
 
-## Key Documents
+## Key Files
 
-- **Spec**: `docs/superpowers/specs/2026-03-22-sprint-36-coherence-depth-design.md`
-- **Plan**: `docs/superpowers/plans/2026-03-22-sprint-36-coherence-depth.md`
-
----
-
-## ⚠️ Critical Implementation Notes (copy from spec)
-
-1. **Messaging wire-up — no new schema**: `messaging.conversations.request_match_id` already exists. Call `GET /api/messaging/conversations/match/:matchId` to get/create conversation. The messaging service `getOrCreateConversation(matchId)` creates lazily. No schema migration needed.
-
-2. **Tab restructure — preserve ValidTab + OLD_TAB_MAP**: `communities/[id].tsx` defines `ValidTab` union and `VALID_TABS` array. Update both. Add to `OLD_TAB_MAP`: `members → 'people'`, `norms → 'people'`, `insights → 'requests'`.
-
-3. **Boost expiry — query-time, no cron**: Filter: `AND (is_boosted = FALSE OR boosted_expires_at > NOW())`. The index `idx_requests_is_boosted` handles this efficiently.
-
-4. **Geolocation is async and may be denied**: Communities listing must render immediately with skeleton/fallback, then update when location resolves. Never block render.
-
-5. **Tag normalization**: Always `tags.map(t => t.toLowerCase().trim())` before DB insert/update.
-
-6. **Admin propose-match = real match row**: Inserts into `requests.matches` with `status='proposed'`, `responder_id` = proposed user. Proposed user sees it in CommitmentsTab "Needs Your Response".
-
-7. **tailwindcss-animate NOT installed**: Use CSS transitions via `style` prop or className conditionals only.
-
-8. **Migrations must be applied manually post-deploy**: `deploy.sh` does NOT auto-run migrations. SSH to demo server and run migrations 014 and 015 manually after deployment.
-
-9. **Landing page docs require `git add -f`**: Landing page files are gitignored but tracked. Always `git add -f apps/landing/src/data/docs/...`.
+| Artifact | Path |
+|----------|------|
+| Design spec | `docs/superpowers/specs/2026-03-23-sprint-37-provider-mode-design.md` |
+| Implementation plan | `docs/superpowers/plans/2026-03-23-sprint-37-provider-mode.md` |
 
 ---
 
-## Carry-Forward Issues
+## What Gets Built
 
-- **Pre-existing test failures** (not Sprint 35 regressions): `preSelectProvider`, `trust-evolution-flow`, `rateCards`
-- **Migration runner**: deploy.sh does NOT auto-run migrations. Apply manually post-deploy.
-- **GitHub security vulnerabilities**: 8 dependabot alerts remain on default branch.
+### Provider Mode (UI-only, no DB migration)
+- `Member / Provider` pill toggle in top nav (`Layout.tsx`)
+- Only shown when user has ≥1 provider profile (fetched from `GET /api/requests/providers/my`)
+- Users with no provider profile: see "Become a Provider" link instead
+- In Provider mode:
+  - `ProviderDashboardCard` stats card above TabBar (active commitments, completion rate, pending reviews)
+  - Browse feed tab → "Requests for Me" (filtered to user's service type(s))
+  - Second notification bell (amber, briefcase icon) for provider-stream notifications
+- Mode persisted to `localStorage` key `karmyq_provider_mode`; default `'member'`
+
+### Notification Split (client-side only, no DB migration)
+- New constant `PROVIDER_NOTIFICATION_TYPES` in `src/lib/notificationCategories.ts`
+- `NotificationContext` exposes `providerNotifications`, `communityNotifications`, `providerUnreadCount`, `communityUnreadCount` via `useMemo`
+- `NotificationBell` → uses `communityUnreadCount` (red badge)
+- New `ProviderNotificationBell` → uses `providerUnreadCount` (amber badge)
+- Fix `NotificationItem` rendering for `preferred_provider_selected`, `match_reminder` (currently showing default bell icon and no CTA)
+
+### New notification types (backend, TypeScript only)
+- `provider_request_matched` — fires to matching providers when a typed service request is created
+- `provider_review_received` — fires to provider when a review is submitted after match completion
+- `request_created` event payload gets `service_type` field (request-service)
+- Notification service subscriber routes to matching providers via internal provider query
+
+### Carry-forward test fixes (thorough root-cause fixes)
+- `preSelectProvider` — likely stale import path or mock target
+- `trust-evolution-flow` — likely Bull queue lazy-init issue in test setup
+- `rateCards` — likely hard-delete assertion against soft-delete API (`is_active = false`)
+
+---
+
+## ⚠️ Critical Implementation Notes
+
+1. **Provider mode is UI-only — never send it to the server.** `karmyq_provider_mode` must never appear in API request bodies or headers.
+2. **Mode switcher only appears when user has a provider profile.** Fetch `GET /api/requests/providers/my` once in `ProviderContext`; empty array = show "Become a Provider" link.
+3. **Provider feed uses `service_type` filter, not a new endpoint.** Pass user's service types to existing `BrowseFeed` via `serviceTypeFilter` prop. Do NOT create a new route.
+4. **Notification split is entirely client-side.** `useMemo` in `NotificationContext` derives the two streams. No new API calls, no DB migration.
+5. **`provider_request_matched` must skip the requester.** Notification subscriber must exclude `requester_id` when finding matching providers.
+6. **Do not disable `new_request`.** It serves member volunteers. Provider routing is additive via `provider_request_matched`.
+7. **No `tailwindcss-animate` / `animate-in` class** — unavailable in this project.
+8. **`ProviderDashboardCard` derives from existing data only.** No new endpoints. If data unavailable, show `—` gracefully.
+9. **Carry-forward fixes: read test → trace source → fix forward.** No `describe.skip` or `it.skip`.
+
+---
+
+## Carry-Forward Issues (pre-existing, not Sprint 36 regressions)
+
+- **Pre-existing test failures**: `preSelectProvider`, `trust-evolution-flow`, `rateCards` — Sprint 37 will fix these properly
+- **Integration tests**: Fail locally (no DB), pass in CI. Expected.
+- **Migration runner**: deploy.sh does NOT auto-run migrations. (No migrations needed for Sprint 37.)
+- **GitHub security vulnerabilities**: 8 dependabot alerts remain.
 - **Untracked file**: `docs/superpowers/specs/2026-03-18-sprint-29-rate-cards-design.md` — ignore unless relevant.
-- **Stale container pattern**: Demo server occasionally has stale Docker containers. Fix: SSH and `docker rm -f <container-name>`, then redeploy.
+- **Sprint 36 migrations**: If not yet applied on demo server, apply before this sprint deploys:
+  ```bash
+  psql $DATABASE_URL -f infrastructure/postgres/migrations/20260322-community-tags-geo.sql
+  psql $DATABASE_URL -f infrastructure/postgres/migrations/20260322-request-boost.sql
+  ```
 
 ---
 
@@ -98,7 +117,7 @@ Achieve full site aesthetic coherence, deepen commitments with action-priority o
 - **Match status lifecycle**: `proposed` → `matched` → `completed`.
 - **responseInterceptor unwraps one level**: `response.data` is already the inner object.
 - **Table schema naming**: Community schema is `communities` (plural). `requests.help_requests` has NO `community_id` — use `requests.request_communities` junction table.
-- **Admin page tab structure (v9.10.0)**: 7 tabs — Overview, Members, Norms; Requests, Insights, Providers (`isAdminOrMod`); Settings (`isAdmin` only). **Sprint 36 changes this to 5 tabs.**
+- **Admin page tab structure (v9.11.0)**: 5 tabs — Overview, People (Members+Norms), Requests (Requests+Insights+Actions), Providers, Settings.
 - **Rate card soft-delete**: DELETE sets `is_active = false`.
 - **cross_community_prior**: Direction-agnostic (0.05–0.95). Never "more open."
 - **Only one simulation**: `services/simulation-service/`. DB user: `karmyq_user`.
@@ -117,16 +136,8 @@ Achieve full site aesthetic coherence, deepen commitments with action-priority o
 - **REPUTATION_API_URL in Docker**: Must be `http://reputation-service:3004` — NOT `localhost:3004`.
 - **Feed empty after deploy**: Transient — simulation needs warm-up time. Not a code regression.
 - **tailwindcss-animate NOT installed**: `animate-in` class is unavailable. Do not use it in CSS or JSX.
-- **Sprint 35 patterns**:
-  - `RequestWizard`: two-step modal. Props: `preferredProviderId`, `preferredProviderName`, `preferredProviderServiceType`. When provider type set, initialize at step 2.
-  - `SpeedDialFab`: tab-aware. browse/commitments = both actions; my-requests = get-help only; profile = hidden.
-  - Urgency mapping: UI uses `normal/urgent/critical`; API uses `medium/urgent/critical` (normal → medium).
-  - NLP/autocomplete removed: `EnhancedAutocomplete`, `ExtractedDataChips`, `parsedRequest` no longer in codebase.
-  - `ProviderCard.onGetService`: callback pattern — listing page holds wizard state, card calls callback.
-  - Module-level `schemaCache` in `RequestWizard.tsx` avoids redundant schema fetches.
-- **Sprint 36 patterns** (new this sprint):
-  - `sortByActionPriority`: `proposed=0, matched=1, completed=2`, then `updated_at DESC` within tier.
-  - `ExpandableConversation`: uses `GET /api/messaging/conversations/match/:matchId` (getOrCreateConversation). Stays expanded until chevron clicked.
-  - `isBoostActive`: checks `is_boosted && boosted_expires_at > now()`.
-  - Community discovery: mode stored in `localStorage` key `community_discovery_mode`. Default: `'geography'`.
-  - Admin propose-match: creates real `requests.matches` row, `status='proposed'`, `responder_id` = proposed user.
+- **Sprint 37 patterns** (add as you implement):
+  - `karmyq_provider_mode`: localStorage key, values `'member'` | `'provider'`, default `'member'`
+  - `PROVIDER_NOTIFICATION_TYPES`: Set defined in `src/lib/notificationCategories.ts`
+  - `ProviderContext`: fetches provider profiles once on mount, exposes `hasProviderProfile`, `providerMode`, `setProviderMode`, `providerServiceTypes`
+  - `ProviderNotificationBell`: amber badge (`bg-amber-500`), briefcase icon, only rendered when `hasProviderProfile === true`
