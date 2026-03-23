@@ -1,44 +1,40 @@
-# SPRINT 35 READY TO EXECUTE
+# SPRINT 36 READY TO PLAN
 
 ## Handoff Document for New Conversation
 
 **Date**: 2026-03-22
-**Current Version**: v9.9.0 (Sprint 34 complete, merged to master, deployed)
-**Status**: Sprint 35 fully planned. Ready to execute.
+**Current Version**: v9.10.0 (Sprint 35 complete, merged to master, deployed to demo)
+**Status**: Sprint 35 shipped. Ready to plan Sprint 36.
 
 ---
 
 ## Quick Start
 
 1. Read this handoff
-2. Check out branch:
-   ```bash
-   git checkout -b feature/sprint-35-request-wizard
-   ```
-3. Open plan: `docs/superpowers/plans/2026-03-22-sprint-35-request-wizard.md`
-4. Run: `/execute-plan` (uses `superpowers:subagent-driven-development`)
+2. Run `/sprint-planning` to plan Sprint 36
 
 ---
 
-## Sprint 35 Goal
-
-Replace the inline smart-text request form with a clean two-step type-first wizard (3 clicks: FAB → type → submit), add a speed-dial FAB with "Get Help" / "Get Service" actions, and surface "Get Service" on provider cards and profiles.
-
-**No backend changes.**
-
----
-
-## What Just Shipped — Sprint 34 (v9.8.0 → v9.9.0)
+## What Just Shipped — Sprint 35 (v9.9.0 → v9.10.0)
 
 | Area | What changed | Key files |
 |------|-------------|-----------|
-| **Tab navigation** | 4-tab shell replaces 3-column layout | `dashboard.tsx`, `TabBar.tsx` |
-| **BrowseFeed** | Single-column card feed of community requests | `BrowseFeed.tsx` |
-| **CommitmentsTab** | "I'm Helping" + "I Asked For Help" two-section view | `CommitmentsTab.tsx` |
-| **MyRequestsTab** | My requests + offer management | `MyRequestsTab.tsx` |
-| **FilterChipRow** | Horizontal type/urgency chips | `FilterChipRow.tsx` |
-| **Design system** | `.tab-bar`, `.bottom-nav`, `.fab`, `.status-badge`, `.filter-chip`, `.feed-card` | `globals.css` |
-| **TDD tests** | 25 new tests across 3 test files | `tests/tdd/` |
+| **RequestWizard** | Two-step modal: type picker grid → description + urgency + scope. Replaces 500-line NLP inline form | `RequestWizard.tsx` (new) |
+| **SpeedDialFab** | Expandable FAB with Get Help / Get Service actions. Tab-aware visibility | `SpeedDialFab.tsx` (new) |
+| **ProviderCard** | "Get Service" button with `onGetService` callback; exported `ProviderCardData` interface | `ProviderCard.tsx` |
+| **providers/index.tsx** | onGetService wires into RequestWizard modal | `providers/index.tsx` |
+| **providers/[id].tsx** | "Get Service" button pre-fills wizard with provider + service type, skips to step 2 | `providers/[id].tsx` |
+| **dashboard.tsx** | NLP/autocomplete removed; wired to SpeedDialFab + RequestWizard | `dashboard.tsx` |
+| **Aesthetics** | Semantic colors in BrowseFeed, skeleton loader in CommitmentsTab | `BrowseFeed.tsx`, `CommitmentsTab.tsx` |
+| **CSS** | `.speed-dial`, `.speed-dial-action`, `.wizard-step`, `.type-card`, `.urgency-option` | `globals.css` |
+| **TDD tests** | 17 tests: mapUrgencyToApi, isFormValid, getVisibleActions, buildWizardPayload | `tests/tdd/request-wizard.test.ts` |
+| **Skills** | deploy + sprint-planning updated: auto-deploy at end of every sprint; `no-deploy` tag to opt out | `.claude/skills/` |
+| **Docs** | making-requests guide (wizard flow + Hiring a Provider), getting-started, UX design principles | `docs/`, `apps/landing/` |
+
+**Key decisions made this sprint:**
+- `animate-in` (tailwindcss-animate) is NOT installed — removed from globals.css and dashboard.tsx
+- Landing docs are gitignored but tracked — use `git add -f` to stage them
+- Stale `karmyq-cadvisor` container on demo caused CI/CD failure — removed manually, redeployed
 
 ---
 
@@ -48,64 +44,30 @@ Replace the inline smart-text request form with a clean two-step type-first wiza
 |--------|-------|--------|
 | **33** | Design system foundation | ✅ Complete |
 | **34** | Tab navigation + feed simplification | ✅ Complete |
-| **35** | Request wizard + service hiring CTA | 🔜 **This sprint** |
-| **36** | Commitment depth + admin simplification | Future |
+| **35** | Request wizard + service hiring CTA | ✅ Complete |
+| **36** | Commitment depth + admin simplification | 🔜 **Next sprint** |
 
 ---
 
-## Sprint 35 Scope Summary
+## Sprint 36 Preview (from original arc plan)
 
-### What changes
-- **`RequestWizard`** — self-contained two-step modal. Step 1: type picker grid (2-col mobile, 3-col desktop). Step 2: DynamicForm + plain description textarea + urgency chips + community scope. Replaces the 500-line inline form block in dashboard.tsx.
-- **`SpeedDialFab`** — replaces `.fab` button. Single button expands into "Get Help" + "Get Service" action stack. Tab-aware: browse/commitments = both; my-requests = Get Help only; profile = hidden.
-- **Provider "Get Service" CTA** — `ProviderCard` gets "Get Service" button with `onGetService` callback. `providers/[id].tsx` gets a prominent "Get Service" button wired to `RequestWizard` with pre-fill props.
-- **Aesthetics pass** — tab content transitions, semantic color audit, skeleton loaders, focus rings, spacing consistency.
+**Commitment depth + admin simplification**
 
-### What does NOT change this sprint
-- Backend APIs (none needed)
-- Tab navigation structure (Sprint 34 work)
-- Commitment depth or timeline (Sprint 36)
+The original arc notes for Sprint 36:
+- **Commitment depth**: Timeline view of a commitment, inline messaging within a commitment, clear status transitions (proposed → matched → completed)
+- **Admin simplification**: Simplify the admin panel — reduce cognitive load, cleaner tab structure
 
----
-
-## ⚠️ Critical Implementation Notes
-
-1. **Remove NLP logic entirely.** `EnhancedAutocomplete`, `ExtractedDataChips`, `parsedRequest`, `autocompleteSuggestions`, `handleDescriptionChange` (NLP version), `buildPayloadFromParsed` — all gone from dashboard. Wizard uses a plain `onChange` textarea.
-
-2. **`availableTypes` is fetched, not hardcoded.** `RequestWizard` must call `requestService.getRequestTypes()` on mount. Do not hardcode the type list.
-
-3. **`DynamicForm` is kept.** Call `fetchSchema(type)` immediately when user taps a type tile in step 1, so step 2 loads instantly. Do not wait until step 2 mounts.
-
-4. **Urgency is now explicit.** User selects `normal | urgent | critical`. Map `normal → medium` when building the API payload (backend uses `medium`).
-
-5. **`preferred_provider_id` in request payload.** When `preferredProviderId` prop is set, include it in `POST /requests` body. Backend already accepts this field.
-
-6. **`ProviderCard` gets a callback, not navigation.** `onGetService?: (provider) => void` — listing page opens wizard modal, does NOT navigate.
-
-7. **SpeedDialFab Z-index.** Actions: `z-40`. Backdrop: `z-39`. Wizard modal: `z-50`.
-
-8. **When `preferredProviderServiceType` is set: skip to step 2.** Initialize `step` to `2` and `requestType` to the provider's service type. Still show step 1 if user wants to go back.
-
-9. **No worktrees.** Work directly on `feature/sprint-35-request-wizard`.
-
----
-
-## Artifacts
-
-| Artifact | Path |
-|----------|------|
-| Design spec | `docs/superpowers/specs/2026-03-22-sprint-35-request-wizard-design.md` |
-| Implementation plan | `docs/superpowers/plans/2026-03-22-sprint-35-request-wizard.md` |
-| Sprint branch | `feature/sprint-35-request-wizard` |
+This is a starting point for sprint planning discussion, not a locked scope.
 
 ---
 
 ## Carry-Forward Issues
 
-- **Pre-existing test failures** (not Sprint 34 regressions): `preSelectProvider`, `trust-evolution-flow`, `rateCards`
+- **Pre-existing test failures** (not Sprint 35 regressions): `preSelectProvider`, `trust-evolution-flow`, `rateCards`
 - **Migration runner**: deploy.sh does NOT auto-run migrations. Apply manually post-deploy if schema changes.
 - **GitHub security vulnerabilities**: 8 dependabot alerts remain on default branch.
 - **Untracked file**: `docs/superpowers/specs/2026-03-18-sprint-29-rate-cards-design.md` — ignore unless relevant.
+- **Stale container pattern**: Demo server occasionally has stale Docker containers (e.g. cadvisor) that block `docker-compose up`. Fix: SSH and `docker rm -f <container-name>`, then redeploy.
 
 ---
 
@@ -138,16 +100,11 @@ Replace the inline smart-text request form with a clean two-step type-first wiza
 - **Bull queue lazy init in trustEvolutionService**: `_communityEvolutionQueue` is null at module load.
 - **REPUTATION_API_URL in Docker**: Must be `http://reputation-service:3004` — NOT `localhost:3004`.
 - **Feed empty after deploy**: Transient — simulation needs warm-up time. Not a code regression.
-- **Sprint 34 patterns**:
-  - Tab-based dashboard shell: `dashboard.tsx` renders `<BrowseFeed>`, `<CommitmentsTab>`, `<MyRequestsTab>` based on `activeTab` state
-  - `TabBar` component: `tab-bar` (desktop horizontal) + `bottom-nav` (mobile sticky footer)
-  - FAB: `fixed bottom-24 right-6` — above bottom-nav
-  - Single responsive breakpoint: `md:` (768px)
-  - Content max-width: `max-w-2xl mx-auto` (672px)
-  - `EmptyState` props: `heading` + `body` (NOT `title`/`description`)
-- **Sprint 35 patterns** (once implemented):
+- **tailwindcss-animate NOT installed**: `animate-in` class is unavailable. Do not use it in CSS or JSX.
+- **Sprint 35 patterns**:
   - `RequestWizard`: two-step modal. Props: `preferredProviderId`, `preferredProviderName`, `preferredProviderServiceType`. When provider type set, initialize at step 2.
   - `SpeedDialFab`: tab-aware. browse/commitments = both actions; my-requests = get-help only; profile = hidden.
   - Urgency mapping: UI uses `normal/urgent/critical`; API uses `medium/urgent/critical` (normal → medium).
   - NLP/autocomplete removed: `EnhancedAutocomplete`, `ExtractedDataChips`, `parsedRequest` no longer in codebase.
   - `ProviderCard.onGetService`: callback pattern — listing page holds wizard state, card calls callback.
+  - Module-level `schemaCache` in `RequestWizard.tsx` avoids redundant schema fetches.
