@@ -23,12 +23,16 @@ const ProviderModeSwitcher: React.FC = () => {
     <div className="provider-mode-switcher">
       <button
         onClick={() => setProviderMode('member')}
+        aria-pressed={providerMode === 'member'}
+        aria-label="Switch to Member mode"
         className={`mode-btn ${providerMode === 'member' ? 'active' : ''}`}
       >
         Member
       </button>
       <button
         onClick={() => setProviderMode('provider')}
+        aria-pressed={providerMode === 'provider'}
+        aria-label="Switch to Provider mode"
         className={`mode-btn ${providerMode === 'provider' ? 'active' : ''}`}
       >
         Provider

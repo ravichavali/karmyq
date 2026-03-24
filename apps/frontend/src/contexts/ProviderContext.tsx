@@ -30,30 +30,33 @@ export const ProviderProvider: React.FC<ProviderProviderProps> = ({ children }) 
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('karmyq_provider_mode')
-      if (saved === 'provider') {
-        setProviderModeState('provider')
-      }
-    }
-  }, [])
-
-  useEffect(() => {
     const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null
     if (!token) {
       setLoading(false)
       return
     }
 
-    // providerService.getMyProviders() hits GET /providers/my
-    // The response interceptor unwraps { success, data } so res.data is the array directly
+    // Restore persisted mode preference
+    const saved = localStorage.getItem('karmyq_provider_mode')
+    const restoredMode: 'member' | 'provider' = saved === 'provider' ? 'provider' : 'member'
+
     providerService.getMyProviders()
-      .then((res: any) => {
-        const profiles = Array.isArray(res.data) ? res.data : (res.data?.data ?? [])
-        setProviderProfiles(profiles)
+      .then((res: { data: ProviderProfile[] | ProviderProfile }) => {
+        // The response interceptor unwraps {success, data} so res.data is the array directly
+        const raw = Array.isArray(res.data) ? res.data : []
+        const activeProfiles = raw.filter((p: ProviderProfile) => p.is_active)
+        setProviderProfiles(activeProfiles)
+
+        // Reset mode to member if user no longer has active profiles
+        const effectiveMode = activeProfiles.length > 0 ? restoredMode : 'member'
+        setProviderModeState(effectiveMode)
+        if (effectiveMode !== restoredMode) {
+          localStorage.removeItem('karmyq_provider_mode')
+        }
       })
       .catch(() => {
         setProviderProfiles([])
+        setProviderModeState('member')
       })
       .finally(() => {
         setLoading(false)
