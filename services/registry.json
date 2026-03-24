@@ -205,7 +205,8 @@
       "events": {
         "publishes": [
           "karma_awarded",
-          "badge_earned"
+          "badge_earned",
+          "provider_review_received"
         ],
         "subscribes": [
           "match_completed"
@@ -249,7 +250,9 @@
           "karma_awarded",
           "request_created",
           "user_joined_community",
-          "preferred_provider_selected"
+          "preferred_provider_selected",
+          "provider_review_received",
+          "match_reminder"
         ]
       },
       "notes": "Subscribes to all events, creates notifications"
