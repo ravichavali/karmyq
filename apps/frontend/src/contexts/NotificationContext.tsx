@@ -1,5 +1,6 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react'
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, ReactNode } from 'react'
 import { notificationService } from '../lib/api'
+import { PROVIDER_NOTIFICATION_TYPES } from '../lib/notificationCategories'
 
 export interface Notification {
   id: string
@@ -25,6 +26,10 @@ interface NotificationContextValue {
   deleteNotification: (notificationId: string) => Promise<void>
   connectSSE: () => void
   disconnectSSE: () => void
+  providerNotifications: Notification[]
+  communityNotifications: Notification[]
+  providerUnreadCount: number
+  communityUnreadCount: number
 }
 
 const NotificationContext = createContext<NotificationContextValue | undefined>(undefined)
@@ -208,6 +213,23 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
     }
   }, [userId])
 
+  const providerNotifications = useMemo(
+    () => notifications.filter(n => PROVIDER_NOTIFICATION_TYPES.has(n.type)),
+    [notifications]
+  )
+  const communityNotifications = useMemo(
+    () => notifications.filter(n => !PROVIDER_NOTIFICATION_TYPES.has(n.type)),
+    [notifications]
+  )
+  const providerUnreadCount = useMemo(
+    () => providerNotifications.filter(n => !n.read).length,
+    [providerNotifications]
+  )
+  const communityUnreadCount = useMemo(
+    () => communityNotifications.filter(n => !n.read).length,
+    [communityNotifications]
+  )
+
   const value: NotificationContextValue = {
     notifications,
     unreadCount,
@@ -219,6 +241,10 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
     deleteNotification,
     connectSSE,
     disconnectSSE,
+    providerNotifications,
+    communityNotifications,
+    providerUnreadCount,
+    communityUnreadCount,
   }
 
   return (
