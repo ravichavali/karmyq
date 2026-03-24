@@ -308,33 +308,45 @@ const GUIDE_ORDER = [
   'getting-started-guide',
   'making-requests-guide',
   'fulfilling-requests-guide',
-  'community-admin-guide',
+  'managing-commitments-guide',
+  'finding-communities-guide',
+  'admin-community-guide',
   'community-trust-model-guide',
   'understanding-karma-guide',
   'trust-connections-guide',
   'using-service-providers-guide',
+  'provider-mode-guide',
+  'managing-notifications-guide',
 ];
 
 const GUIDE_LABELS: Record<string, string> = {
   'getting-started-guide': 'Getting Started',
   'making-requests-guide': 'Asking for Help',
   'fulfilling-requests-guide': 'Helping Others',
-  'community-admin-guide': 'Running a Community',
+  'managing-commitments-guide': 'Managing Your Commitments',
+  'finding-communities-guide': 'Finding Communities',
+  'admin-community-guide': 'Running a Community',
   'community-trust-model-guide': "Setting Your Community's Trust Model",
   'understanding-karma-guide': 'Your Karma & Reputation',
   'trust-connections-guide': 'Trust Connections in Your Feed',
   'using-service-providers-guide': 'Using the Service Provider Directory',
+  'provider-mode-guide': 'Using Provider Mode',
+  'managing-notifications-guide': 'Managing Your Notifications',
 };
 
 const GUIDE_SLUGS: Record<string, string> = {
   'getting-started-guide': 'getting-started',
   'making-requests-guide': 'making-requests',
   'fulfilling-requests-guide': 'fulfilling-requests',
-  'community-admin-guide': 'community-admin',
+  'managing-commitments-guide': 'managing-commitments',
+  'finding-communities-guide': 'finding-communities',
+  'admin-community-guide': 'admin-community',
   'community-trust-model-guide': 'community-trust-model',
   'understanding-karma-guide': 'understanding-karma',
   'trust-connections-guide': 'trust-connections',
   'using-service-providers-guide': 'using-service-providers',
+  'provider-mode-guide': 'provider-mode',
+  'managing-notifications-guide': 'managing-notifications',
 };
 
 function generateGuides(): GuidePage[] {
@@ -471,7 +483,7 @@ function generateNav(
 
   // Non-technical concept pages (split into Why Karmyq / How It Works)
   const whyKarmyq = ['platform-overview', 'the-village-model', 'neighborhood-service-layer', 'community-design'];
-  const howItWorks = ['trust-and-karma', 'trust-score', 'what-is-karma', 'trust-paths', 'reputation-decay', 'why-ratings-are-private', 'community-scale', 'network-cohesion', 'trust-model-evolution', 'community-evolution', 'fractal-feed'];
+  const howItWorks = ['trust-and-karma', 'trust-score', 'what-is-karma', 'trust-paths', 'reputation-decay', 'why-ratings-are-private', 'community-scale', 'network-cohesion', 'trust-model-evolution', 'community-evolution', 'fractal-feed', 'community-discovery', 'provider-mode'];
 
   const nav = {
     sections: [
