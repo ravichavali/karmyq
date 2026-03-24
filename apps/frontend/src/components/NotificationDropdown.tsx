@@ -1,22 +1,26 @@
 import React, { useState } from 'react'
 import Link from 'next/link'
-import { useNotifications } from '../contexts/NotificationContext'
+import { useNotifications, Notification } from '../contexts/NotificationContext'
 import NotificationItem from './NotificationItem'
 
 interface NotificationDropdownProps {
   onClose: () => void
+  notifications?: Notification[]  // optional override; defaults to communityNotifications
 }
 
-const NotificationDropdown: React.FC<NotificationDropdownProps> = ({ onClose }) => {
+const NotificationDropdown: React.FC<NotificationDropdownProps> = ({ onClose, notifications: notificationsProp }) => {
   const {
-    notifications,
-    unreadCount,
+    communityNotifications,
+    communityUnreadCount,
     loading,
     error,
     markAsRead,
     markAllAsRead,
     deleteNotification,
   } = useNotifications()
+
+  const notifications = notificationsProp ?? communityNotifications
+  const unreadCount = communityUnreadCount
 
   const [filter, setFilter] = useState<'all' | 'unread'>('all')
 

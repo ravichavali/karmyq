@@ -74,7 +74,7 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
       case 'provider_request_matched':
         return '🔧'
       case 'provider_review_received':
-        return '⭐'
+        return '📝'
       default:
         return '🔔'
     }
