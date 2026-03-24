@@ -19,7 +19,7 @@ const ProviderDashboardCard: React.FC<ProviderDashboardCardProps> = ({ activeCom
 
   // Derive stats from provider profile data (already fetched by ProviderContext)
   // completion_rate and response_rate come from the LEFT JOIN with provider_trust_scores
-  const profile = providerProfiles[0] as any
+  const profile = providerProfiles[0]
   const completionRate = profile.completion_rate != null
     ? Math.round(Number(profile.completion_rate) * 100)
     : null
@@ -49,7 +49,7 @@ const ProviderDashboardCard: React.FC<ProviderDashboardCardProps> = ({ activeCom
           value="—"
         />
         <StatCell
-          label="Response Rate"
+          label="Avg Response"
           value={responseRate != null ? `${responseRate}%` : '—'}
         />
       </div>
