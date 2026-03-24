@@ -179,8 +179,13 @@ export async function initEventSubscriber() {
             });
           }
 
-          // If service_type present, also notify matching providers (provider_request_matched)
+          // Route to matching providers via direct DB query (preferred over internal HTTP call:
+          // avoids network latency and the existing GET /requests/providers endpoint lacks community_id filtering)
+          // member notifications sent first, provider routing is additive
           if (service_type) {
+            // Filter by is_active only (not is_available): is_available defaults FALSE for new providers
+            // and controls browse visibility, not notification routing. Providers should be notified
+            // regardless of temporary availability status.
             const providersResult = await query(
               `SELECT DISTINCT pp.user_id
                FROM requests.provider_profiles pp
@@ -345,10 +350,11 @@ export async function initEventSubscriber() {
       }
 
       try {
+        const { provider_id, reviewer_name, rating, review_excerpt } = payload;
         await createNotification({
           user_id: provider_user_id,
           type: 'provider_review_received',
-          data: payload,
+          data: { provider_id, reviewer_name, rating, review_excerpt },
         });
         console.log('✅ provider_review_received notification sent');
       } catch (error) {
