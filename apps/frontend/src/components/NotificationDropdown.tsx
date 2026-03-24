@@ -11,7 +11,6 @@ interface NotificationDropdownProps {
 const NotificationDropdown: React.FC<NotificationDropdownProps> = ({ onClose, notifications: notificationsProp }) => {
   const {
     communityNotifications,
-    communityUnreadCount,
     loading,
     error,
     markAsRead,
@@ -20,7 +19,7 @@ const NotificationDropdown: React.FC<NotificationDropdownProps> = ({ onClose, no
   } = useNotifications()
 
   const notifications = notificationsProp ?? communityNotifications
-  const unreadCount = communityUnreadCount
+  const unreadCount = notifications.filter(n => !n.read).length
 
   const [filter, setFilter] = useState<'all' | 'unread'>('all')
 
