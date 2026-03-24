@@ -19,9 +19,9 @@ router.post('/', authMiddleware, async (req: AuthenticatedRequest, res: Response
       return res.status(400).json({ success: false, message: 'stars must be an integer between 1 and 5' });
     }
 
-    // Verify provider exists
+    // Verify provider exists and fetch user_id for the notification event
     const providerCheck = await query(
-      'SELECT id FROM requests.provider_profiles WHERE id = $1 AND is_active = TRUE',
+      'SELECT id, user_id FROM requests.provider_profiles WHERE id = $1 AND is_active = TRUE',
       [provider_id]
     );
     if (providerCheck.rows.length === 0) {
@@ -38,28 +38,20 @@ router.post('/', authMiddleware, async (req: AuthenticatedRequest, res: Response
     // Recalculate and cache provider trust score
     await recalculateProviderTrustScore(provider_id);
 
-    // Fetch provider user_id and reviewer name for the notification event
+    // Fetch reviewer name and publish notification event
     try {
-      const providerProfile = await query(
-        'SELECT user_id FROM requests.provider_profiles WHERE id = $1',
-        [provider_id]
-      );
       const reviewerInfo = await query(
         'SELECT name FROM auth.users WHERE id = $1',
         [reviewerId]
       );
-
-      if (providerProfile.rows.length > 0) {
-        await publishEvent('provider_review_received', {
-          provider_id,
-          provider_user_id: providerProfile.rows[0].user_id,
-          reviewer_name: reviewerInfo.rows[0]?.name ?? 'Someone',
-          rating: stars,
-          review_excerpt: (review_text ?? '').substring(0, 80),
-        });
-      }
+      await publishEvent('provider_review_received', {
+        provider_id,
+        provider_user_id: providerCheck.rows[0].user_id,
+        reviewer_name: reviewerInfo.rows[0]?.name ?? 'Someone',
+        rating: stars,
+        review_excerpt: (review_text ?? '').substring(0, 80),
+      });
     } catch (eventErr) {
-      // Non-critical: log but don't fail the response
       console.error('Error publishing provider_review_received event:', eventErr);
     }
 

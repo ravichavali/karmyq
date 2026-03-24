@@ -213,7 +213,7 @@ export const notificationTemplates: Record<NotificationType, NotificationTemplat
   provider_request_matched: {
     type: 'provider_request_matched',
     priority: 'high',
-    title: (data) => `New ${data.service_type} request — can you help?`,
+    title: (data) => `New ${data.service_type ?? 'help'} request — can you help?`,
     body: (data) => `${data.requester_name} needs help with: "${data.request_title}"`,
     icon: 'briefcase',
     ctaLabel: 'View Request',
@@ -224,7 +224,7 @@ export const notificationTemplates: Record<NotificationType, NotificationTemplat
   provider_review_received: {
     type: 'provider_review_received',
     priority: 'medium',
-    title: (_data) => 'You received a new review',
+    title: (_data: any) => 'You received a new review',
     body: (data) => `${data.reviewer_name} left you a ${data.rating}-star review: "${data.review_excerpt}"`,
     icon: 'star',
     ctaLabel: 'View Review',
