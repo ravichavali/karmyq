@@ -148,7 +148,7 @@ export async function initEventSubscriber() {
       console.log('Processing request_created event:', job.data);
 
       const { payload } = job.data;
-      const { request_id, community_id, requester_id, title } = payload;
+      const { request_id, community_id, requester_id, title, service_type } = payload;
 
       try {
         // Get requester name
@@ -177,6 +177,36 @@ export async function initEventSubscriber() {
                 requester_name: requester.name,
               },
             });
+          }
+
+          // If service_type present, also notify matching providers (provider_request_matched)
+          if (service_type) {
+            const providersResult = await query(
+              `SELECT DISTINCT pp.user_id
+               FROM requests.provider_profiles pp
+               JOIN communities.members cm ON cm.user_id = pp.user_id
+               WHERE pp.service_type = $1
+                 AND pp.is_active = TRUE
+                 AND cm.community_id = $2
+                 AND cm.status = 'active'
+                 AND pp.user_id != $3`,
+              [service_type, community_id, requester_id]
+            );
+
+            for (const provider of providersResult.rows) {
+              await createNotification({
+                user_id: provider.user_id,
+                type: 'provider_request_matched',
+                data: {
+                  request_id,
+                  service_type,
+                  request_title: title,
+                  requester_name: requester.name,
+                },
+              });
+            }
+
+            console.log(`✅ provider_request_matched notifications sent to ${providersResult.rows.length} providers`);
           }
 
           console.log(`✅ request_created notifications sent to ${membersResult.rows.length} members`);
@@ -299,6 +329,30 @@ export async function initEventSubscriber() {
         console.log('✅ preferred_provider_selected notification sent');
       } catch (error) {
         console.error('❌ Failed to process preferred_provider_selected event:', error);
+        throw error;
+      }
+    });
+
+    // Handle provider_review_received event
+    eventQueue.process('provider_review_received', async (job) => {
+      console.log('Processing provider_review_received event:', job.data);
+      const { payload } = job.data;
+      const { provider_user_id } = payload;
+
+      if (!provider_user_id) {
+        console.warn('⚠️  provider_review_received: missing provider_user_id, skipping notification');
+        return;
+      }
+
+      try {
+        await createNotification({
+          user_id: provider_user_id,
+          type: 'provider_review_received',
+          data: payload,
+        });
+        console.log('✅ provider_review_received notification sent');
+      } catch (error) {
+        console.error('❌ Failed to process provider_review_received event:', error);
         throw error;
       }
     });
