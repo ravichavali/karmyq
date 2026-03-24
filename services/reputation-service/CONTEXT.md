@@ -828,6 +828,7 @@ When a match is completed, the reputation service:
 ### Events Published
 - `milestone_achieved` - When community reaches a milestone (Social Karma v2.0)
 - `health_metrics_calculated` - Daily metric calculation complete (Social Karma v2.0)
+- `provider_review_received` - After a provider review is saved and trust score recalculated (Sprint 37); consumed by notification-service to alert the provider
 
 ### Events Consumed
 - `match_completed` - Award karma when help exchange completed; also recalculates `completion_rate` on `reputation.provider_trust_scores` if responder has an active provider profile (cross-schema: `requests.provider_profiles`)

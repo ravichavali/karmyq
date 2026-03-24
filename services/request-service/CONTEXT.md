@@ -571,7 +571,7 @@ Create new polymorphic help request (supports 5 types) with visibility scope.
 }
 ```
 
-**Events Published:** `request.created`
+**Events Published:** `request_created` (includes `service_type` field since Sprint 37 — notification-service uses this to route `provider_request_matched` to matching providers)
 
 **Implementation:** `src/routes/requests.ts:173`
 

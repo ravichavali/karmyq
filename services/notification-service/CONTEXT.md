@@ -91,6 +91,9 @@ The service uses template-based notifications for consistency:
 | `badge_earned` | You earned a new badge | User who earned badge |
 | `welcome` | Welcome to KarmyQ | New users |
 | `preferred_provider_selected` | A requestor pre-selected you as their provider | Selected provider |
+| `provider_request_matched` | New request matching your service type was posted | Matching providers |
+| `provider_review_received` | A client left a review on your provider profile | Provider |
+| `match_reminder` | Upcoming commitment departure reminder | Responder |
 
 **Templates:** `src/templates/notificationTemplates.ts`
 
@@ -321,7 +324,14 @@ The notification service listens to events from other services and creates appro
 - Triggers karma notification (if listening)
 
 **request_created** - New request in community
-- Notifies community members (future)
+- Notifies all active community members (except requester) via `new_request`
+- Additively routes `provider_request_matched` to providers whose `service_type` matches the request's `service_type` field (Sprint 37)
+- Provider routing uses direct DB query (`requests.provider_profiles` JOIN `communities.members`) — no HTTP call
+- `is_available` is NOT a filter: it controls browse visibility, not notification routing
+
+**provider_review_received** - New review left on a provider profile (Sprint 37)
+- Published by reputation-service after a review is saved and trust score recalculated
+- Creates an in-app notification for the provider with deep-link to `/providers/:id`
 
 **norm_proposed** - New norm proposed
 - Notifies community members
@@ -403,6 +413,9 @@ export function generateNotification(type: NotificationType, data: any) {
 - `norm_proposed` - Notify community members (future)
 - `norm_established` - Notify community members (future)
 - `preferred_provider_selected` - Notify provider of pre-selection (Sprint 29)
+- `request_created` - Notify community members + matching providers (Sprint 37: now includes `provider_request_matched` routing)
+- `provider_review_received` - Notify provider of new review (Sprint 37)
+- `match_reminder` - Notify responder of upcoming departure time (cleanup-service cron)
 
 ### External Dependencies
 - PostgreSQL (notifications schema)

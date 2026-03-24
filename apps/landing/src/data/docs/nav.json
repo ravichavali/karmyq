@@ -71,6 +71,10 @@
         {
           "label": "Community Discovery",
           "href": "/docs/concepts/community-discovery"
+        },
+        {
+          "label": "Provider Mode",
+          "href": "/docs/concepts/provider-mode"
         }
       ]
     },
@@ -116,6 +120,14 @@
         {
           "label": "Using the Service Provider Directory",
           "href": "/docs/guides/using-service-providers"
+        },
+        {
+          "label": "Using Provider Mode",
+          "href": "/docs/guides/provider-mode"
+        },
+        {
+          "label": "Managing Your Notifications",
+          "href": "/docs/guides/managing-notifications"
         }
       ]
     },

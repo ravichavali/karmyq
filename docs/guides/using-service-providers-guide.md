@@ -77,3 +77,9 @@ This is separate from the personal trust score used in mutual aid. A great provi
 ## What Karmyq Handles (and Doesn't)
 
 Karmyq is coordination infrastructure, not a marketplace. It handles finding providers and reading reviews. Pricing notes are advisory only — Karmyq never processes payment, handles booking, or arbitrates disputes. The relationship between provider and customer is theirs to manage.
+
+---
+
+## Are You a Provider?
+
+If you offer services through Karmyq, check out [Using Provider Mode](provider-mode) — a dashboard view designed for providers that surfaces incoming requests matching your service type, your active commitments, and a separate notification stream for provider-specific alerts.

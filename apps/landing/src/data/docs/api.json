@@ -87,6 +87,21 @@
         },
         {
           "method": "GET",
+          "path": "/communities/tags",
+          "description": "Return all distinct tags in use across active communities (Sprint 36)."
+        },
+        {
+          "method": "PUT",
+          "path": "/communities/:id/tags",
+          "description": "Update community interest tags (admin only, Sprint 36). Tags are normalized to lowercase and deduplicated."
+        },
+        {
+          "method": "PUT",
+          "path": "/communities/:id/location",
+          "description": "Update community geographic coordinates (admin only, Sprint 36). Enables geography-mode discovery and distance sorting."
+        },
+        {
+          "method": "GET",
           "path": "/communities/my/communities",
           "description": "Get communities the user is a member of."
         },
@@ -260,6 +275,26 @@
           "method": "PATCH",
           "path": "/requests/:id/admin-triage",
           "description": "Override request urgency and/or add a community-scoped admin note (Sprint 25)."
+        },
+        {
+          "method": "POST",
+          "path": "/requests/:id/boost",
+          "description": "Boost a request for 48 hours, adding a +0.3 feed score bonus via the feed-service boost scoring rule (Sprint 36). Admin only."
+        },
+        {
+          "method": "DELETE",
+          "path": "/requests/:id/boost",
+          "description": "Remove an active boost from a request (Sprint 36). Admin only."
+        },
+        {
+          "method": "POST",
+          "path": "/requests/:id/propose-match",
+          "description": "Admin proposes a specific community member as a helper (Sprint 36). Creates a real `requests.matches` row with `status='proposed'`."
+        },
+        {
+          "method": "PATCH",
+          "path": "/requests/:id/urgent",
+          "description": "Toggle request urgency between `urgent` and `medium` (Sprint 36). Admin only."
         },
         {
           "method": "GET",

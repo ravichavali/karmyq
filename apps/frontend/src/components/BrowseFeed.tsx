@@ -58,9 +58,10 @@ function formatTime(timestamp: string): string {
 
 interface BrowseFeedProps {
   communityId?: string
+  serviceTypeFilter?: string[]  // if non-empty, show only requests matching these types
 }
 
-export default function BrowseFeed({ communityId }: BrowseFeedProps) {
+export default function BrowseFeed({ communityId, serviceTypeFilter }: BrowseFeedProps) {
   const [requests, setRequests] = useState<HelpRequest[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
@@ -96,7 +97,8 @@ export default function BrowseFeed({ communityId }: BrowseFeedProps) {
   const filtered = requests.filter((r) => {
     const typeMatch = activeType === 'all' || r.request_type === activeType
     const urgencyMatch = activeUrgency === 'all' || r.urgency === activeUrgency
-    return typeMatch && urgencyMatch
+    const serviceMatch = !serviceTypeFilter?.length || serviceTypeFilter.includes(r.request_type ?? '')
+    return typeMatch && urgencyMatch && serviceMatch
   })
 
   const handleOffer = async (requestId: string) => {

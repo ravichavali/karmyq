@@ -15,7 +15,9 @@ export type NotificationType =
   | 'norm_proposed'
   | 'feedback_received'
   | 'match_reminder'
-  | 'preferred_provider_selected';
+  | 'preferred_provider_selected'
+  | 'provider_request_matched'
+  | 'provider_review_received';
 
 export type NotificationPriority = 'low' | 'medium' | 'high' | 'critical';
 
@@ -205,6 +207,28 @@ export const notificationTemplates: Record<NotificationType, NotificationTemplat
     icon: 'star',
     ctaLabel: 'View Request',
     actionUrl: (data: any) => `/requests/${data.request_id}`,
+    channels: { in_app: true, push: false, email: false },
+  },
+
+  provider_request_matched: {
+    type: 'provider_request_matched',
+    priority: 'high',
+    title: (data) => `New ${data.service_type ?? 'help'} request — can you help?`,
+    body: (data) => `${data.requester_name} needs help with: "${data.request_title}"`,
+    icon: 'briefcase',
+    ctaLabel: 'View Request',
+    actionUrl: (data) => `/requests/${data.request_id}`,
+    channels: { in_app: true, push: false, email: false },
+  },
+
+  provider_review_received: {
+    type: 'provider_review_received',
+    priority: 'medium',
+    title: (_data: any) => 'You received a new review',
+    body: (data) => `${data.reviewer_name} left you a ${data.rating}-star review: "${data.review_excerpt}"`,
+    icon: 'star',
+    ctaLabel: 'View Review',
+    actionUrl: (data) => `/providers/${data.provider_id}`,
     channels: { in_app: true, push: false, email: false },
   },
 };

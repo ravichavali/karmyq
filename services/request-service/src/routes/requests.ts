@@ -898,6 +898,8 @@ router.post('/', async (req: Request, res: Response) => {
         community_id: targetCommunityId,
         requester_id,
         request_type: validatedData.request_type,
+        // service_type aliases request_type for the notification subscriber's provider routing (Sprint 37)
+        service_type: validatedData.request_type,
         urgency: request.urgency,
         title: request.title,
       });

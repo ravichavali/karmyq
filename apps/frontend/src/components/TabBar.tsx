@@ -43,9 +43,10 @@ interface TabBarProps {
   activeTab: TabId
   onChange: (tab: TabId) => void
   commitmentCount?: number
+  browseLabel?: string  // overrides 'Browse' tab label when provided
 }
 
-export default function TabBar({ activeTab, onChange, commitmentCount }: TabBarProps) {
+export default function TabBar({ activeTab, onChange, commitmentCount, browseLabel }: TabBarProps) {
   return (
     <>
       {/* Desktop horizontal tabs */}
@@ -58,7 +59,7 @@ export default function TabBar({ activeTab, onChange, commitmentCount }: TabBarP
             onClick={() => onChange(tab.id)}
             className={`tab-bar-item ${activeTab === tab.id ? 'active' : ''}`}
           >
-            {tab.label}
+            {tab.id === 'browse' && browseLabel ? browseLabel : tab.label}
             {tab.id === 'commitments' && commitmentCount != null && commitmentCount > 0 && (
               <span className="ml-1.5 inline-flex items-center justify-center w-4 h-4 rounded-full bg-primary text-white text-xs">
                 {commitmentCount > 9 ? '9+' : commitmentCount}
@@ -79,7 +80,7 @@ export default function TabBar({ activeTab, onChange, commitmentCount }: TabBarP
           >
             {tab.icon}
             <span>
-              {tab.mobileLabel}
+              {tab.id === 'browse' && browseLabel ? browseLabel : tab.mobileLabel}
               {tab.id === 'commitments' && commitmentCount != null && commitmentCount > 0 && (
                 <span className="ml-0.5 text-primary font-bold">·</span>
               )}

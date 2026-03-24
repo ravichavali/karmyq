@@ -67,6 +67,14 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
         return '📜'
       case 'feedback_received':
         return '📝'
+      case 'preferred_provider_selected':
+        return '🎯'
+      case 'match_reminder':
+        return '⏰'
+      case 'provider_request_matched':
+        return '🔧'
+      case 'provider_review_received':
+        return '📝'
       default:
         return '🔔'
     }
@@ -94,6 +102,14 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
         return 'Review'
       case 'feedback_received':
         return 'View Feedback'
+      case 'preferred_provider_selected':
+        return 'View Request'
+      case 'match_reminder':
+        return 'View Commitment'
+      case 'provider_request_matched':
+        return 'View Request'
+      case 'provider_review_received':
+        return 'View Review'
       default:
         return null
     }

@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react'
 import { useRouter } from 'next/router'
 import Link from 'next/link'
 import NotificationBell from './NotificationBell'
+import ProviderModeSwitcher from './ProviderModeSwitcher'
+import ProviderNotificationBell from './ProviderNotificationBell'
 
 function HamburgerMenu() {
   const [open, setOpen] = useState(false)
@@ -29,6 +31,9 @@ function HamburgerMenu() {
             <Link href="/profile" className="block px-4 py-2 text-sm text-text hover:bg-surface transition-colors" onClick={() => setOpen(false)}>
               Profile
             </Link>
+            <div className="px-4 py-2 border-t border-border">
+              <ProviderModeSwitcher />
+            </div>
           </div>
         </>
       )}
@@ -104,7 +109,9 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
                 {user && (
                   <>
                     <div className="border-l border-border h-8 mx-2"></div>
+                    <ProviderModeSwitcher />
                     <NotificationBell />
+                    <ProviderNotificationBell />
 
                     {/* User Menu */}
                     <div className="flex items-center gap-3">

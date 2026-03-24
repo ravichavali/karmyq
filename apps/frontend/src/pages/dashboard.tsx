@@ -12,6 +12,8 @@ import CommitmentsTab from '@/components/CommitmentsTab'
 import MyRequestsTab from '@/components/MyRequestsTab'
 import SpeedDialFab from '@/components/SpeedDialFab'
 import RequestWizard from '@/components/RequestWizard'
+import { useProvider } from '@/contexts/ProviderContext'
+import ProviderDashboardCard from '@/components/ProviderDashboardCard'
 
 
 interface HelpRequest {
@@ -76,6 +78,9 @@ export default function Dashboard() {
   // Tab shell state
   const [activeTab, setActiveTab] = useState<TabId>('browse')
   const [showWizard, setShowWizard] = useState(false)
+
+  const { providerMode, providerServiceTypes } = useProvider()
+  const isProviderMode = providerMode === 'provider'
 
   useEffect(() => {
     // Only run on client-side (not during SSR)
@@ -395,6 +400,7 @@ export default function Dashboard() {
     )
   }
 
+  const activeCommitmentsCount = upcomingMatches.filter((m: any) => m.responder_id === user?.id).length
 
   return (
     <>
@@ -419,12 +425,26 @@ export default function Dashboard() {
           </select>
         </div>
 
+        {/* Provider mode summary card */}
+        {isProviderMode && <ProviderDashboardCard activeCommitments={activeCommitmentsCount} />}
+
         {/* Desktop tab bar */}
-        <TabBar activeTab={activeTab} onChange={setActiveTab} />
+        <TabBar
+          activeTab={activeTab}
+          onChange={setActiveTab}
+          browseLabel={isProviderMode ? 'Requests for Me' : undefined}
+        />
 
         {/* Tab content */}
         <div className="pb-20 md:pb-0">
-          {activeTab === 'browse' && <div key="browse"><BrowseFeed communityId={activeCommunityId || undefined} /></div>}
+          {activeTab === 'browse' && (
+            <div key="browse">
+              <BrowseFeed
+                communityId={activeCommunityId || undefined}
+                serviceTypeFilter={isProviderMode ? providerServiceTypes : undefined}
+              />
+            </div>
+          )}
           {activeTab === 'commitments' && <div key="commitments"><CommitmentsTab /></div>}
           {activeTab === 'my-requests' && <div key="my-requests"><MyRequestsTab onNewRequest={() => setShowWizard(true)} /></div>}
           {activeTab === 'profile' && (
