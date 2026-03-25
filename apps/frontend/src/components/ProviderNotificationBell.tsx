@@ -5,7 +5,7 @@ import NotificationDropdown from './NotificationDropdown'
 
 const ProviderNotificationBell: React.FC = () => {
   const { providerNotifications, providerUnreadCount } = useNotifications()
-  const { hasProviderProfile } = useProvider()
+  const { hasProviderProfile, providerMode } = useProvider()
   const [isOpen, setIsOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
 
@@ -19,7 +19,7 @@ const ProviderNotificationBell: React.FC = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [isOpen])
 
-  if (!hasProviderProfile) return null
+  if (!hasProviderProfile || providerMode !== 'provider') return null
 
   return (
     <div className="provider-bell-container" ref={dropdownRef}>

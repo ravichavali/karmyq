@@ -463,6 +463,7 @@ export default function Dashboard() {
           activeTab={activeTab}
           onGetHelp={() => setShowWizard(true)}
           onGetService={() => setShowWizard(true)}
+          isProviderMode={isProviderMode}
         />
         {showWizard && (
           <RequestWizard

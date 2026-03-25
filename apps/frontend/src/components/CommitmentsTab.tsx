@@ -4,6 +4,7 @@ import { requestService } from '@/lib/api'
 import EmptyState from './EmptyState'
 import { sortByActionPriority } from '../utils/commitmentSort'
 import ExpandableConversation from './ExpandableConversation'
+import { TrustCard } from './TrustCard'
 
 interface Match {
   id: string
@@ -82,6 +83,7 @@ export default function CommitmentsTab() {
   const [markingDone, setMarkingDone] = useState<string | null>(null)
   const [actioning, setActioning] = useState<string | null>(null)
   const [currentUserId, setCurrentUserId] = useState<string>('')
+  const [selectedProfileUserId, setSelectedProfileUserId] = useState<string | null>(null)
 
   useEffect(() => {
     const userData = typeof window !== 'undefined' ? localStorage.getItem('user') : null
@@ -145,10 +147,15 @@ export default function CommitmentsTab() {
   }
 
   const handleAccept = async (matchId: string, side: 'helping' | 'requested') => {
-    // TODO: wire to accept/match API when available
     setActioning(matchId)
     try {
-      // Optimistically move to matched on the relevant side only
+      const userData = typeof window !== 'undefined' ? localStorage.getItem('user') : null
+      let currentUser = null
+      try { currentUser = userData ? JSON.parse(userData) : null } catch { currentUser = null }
+      if (!currentUser) return
+
+      await requestService.acceptMatch(matchId, currentUser.id)
+
       if (side === 'helping') {
         setHelping((prev) =>
           prev.map((m) => m.id === matchId ? { ...m, status: 'matched' } : m)
@@ -158,21 +165,30 @@ export default function CommitmentsTab() {
           prev.map((m) => m.id === matchId ? { ...m, status: 'matched' } : m)
         )
       }
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Failed to accept offer')
     } finally {
       setActioning(null)
     }
   }
 
   const handleDecline = async (matchId: string, side: 'helping' | 'requested') => {
-    // TODO: wire to decline/reject API when available
     setActioning(matchId)
     try {
-      // Remove the match from the relevant side only (no rejected bucket exists)
+      const userData = typeof window !== 'undefined' ? localStorage.getItem('user') : null
+      let currentUser = null
+      try { currentUser = userData ? JSON.parse(userData) : null } catch { currentUser = null }
+      if (!currentUser) return
+
+      await requestService.rejectMatch(matchId, currentUser.id)
+
       if (side === 'helping') {
         setHelping((prev) => prev.filter((m) => m.id !== matchId))
       } else {
         setRequested((prev) => prev.filter((m) => m.id !== matchId))
       }
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Failed to decline offer')
     } finally {
       setActioning(null)
     }
@@ -199,7 +215,19 @@ export default function CommitmentsTab() {
         <div className="flex items-start justify-between gap-4">
           <div className="flex-1 min-w-0">
             <p className="font-medium text-text truncate">{m.request_title ?? 'Request'}</p>
-            <p className="text-sm text-text-muted mt-0.5">For {m.requester_name ?? 'community member'}</p>
+            <p className="text-sm text-text-muted mt-0.5">
+              For{' '}
+              {m.requester_id ? (
+                <button
+                  className="font-medium text-primary hover:underline"
+                  onClick={() => setSelectedProfileUserId(m.requester_id!)}
+                >
+                  {m.requester_name ?? 'community member'}
+                </button>
+              ) : (
+                <span>{m.requester_name ?? 'community member'}</span>
+              )}
+            </p>
           </div>
           <StepIndicator status={m.status} />
         </div>
@@ -213,20 +241,13 @@ export default function CommitmentsTab() {
         )}
         {/* Footer actions: right-aligned */}
         {m.status === 'proposed' && (
-          <div className="flex justify-end gap-2 mt-3">
-            <button
-              className="text-xs py-1 px-2 rounded bg-green-100 text-green-700 hover:bg-green-200 disabled:opacity-50"
-              disabled={actioning === m.id}
-              onClick={() => handleAccept(m.id, 'helping')}
-            >
-              Accept
-            </button>
+          <div className="flex justify-end mt-3">
             <button
               className="text-xs py-1 px-2 rounded bg-red-100 text-red-700 hover:bg-red-200 disabled:opacity-50"
               disabled={actioning === m.id}
               onClick={() => handleDecline(m.id, 'helping')}
             >
-              Decline
+              {actioning === m.id ? 'Withdrawing…' : 'Withdraw Offer'}
             </button>
           </div>
         )}
@@ -254,7 +275,19 @@ export default function CommitmentsTab() {
           <div className="flex-1 min-w-0">
             <p className="font-medium text-text truncate">{m.request_title ?? 'Request'}</p>
             <p className="text-sm text-text-muted mt-0.5">
-              {m.responder_name ? `Helper: ${m.responder_name}` : 'Waiting for helper'}
+              {m.responder_name ? (
+                <>
+                  Helper:{' '}
+                  <button
+                    className="font-medium text-primary hover:underline"
+                    onClick={() => setSelectedProfileUserId(m.responder_id)}
+                  >
+                    {m.responder_name}
+                  </button>
+                </>
+              ) : (
+                'Waiting for helper'
+              )}
             </p>
           </div>
           <StepIndicator status={m.status} />
@@ -372,6 +405,13 @@ export default function CommitmentsTab() {
           </>
         )}
       </section>
+
+      {selectedProfileUserId && (
+        <TrustCard
+          userId={selectedProfileUserId}
+          onClose={() => setSelectedProfileUserId(null)}
+        />
+      )}
     </div>
   )
 }

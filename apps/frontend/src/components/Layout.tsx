@@ -4,9 +4,12 @@ import Link from 'next/link'
 import NotificationBell from './NotificationBell'
 import ProviderModeSwitcher from './ProviderModeSwitcher'
 import ProviderNotificationBell from './ProviderNotificationBell'
+import { useProvider } from '../contexts/ProviderContext'
 
 function HamburgerMenu() {
   const [open, setOpen] = useState(false)
+  const { providerMode } = useProvider()
+  const isProviderMode = providerMode === 'provider'
   return (
     <div className="relative md:hidden">
       <button
@@ -25,9 +28,11 @@ function HamburgerMenu() {
             <Link href="/communities" className="block px-4 py-2 text-sm text-text hover:bg-surface transition-colors" onClick={() => setOpen(false)}>
               Communities
             </Link>
-            <Link href="/providers" className="block px-4 py-2 text-sm text-text hover:bg-surface transition-colors" onClick={() => setOpen(false)}>
-              Service Providers
-            </Link>
+            {isProviderMode && (
+              <Link href="/providers" className="block px-4 py-2 text-sm text-text hover:bg-surface transition-colors" onClick={() => setOpen(false)}>
+                Service Providers
+              </Link>
+            )}
             <Link href="/profile" className="block px-4 py-2 text-sm text-text hover:bg-surface transition-colors" onClick={() => setOpen(false)}>
               Profile
             </Link>
@@ -55,6 +60,8 @@ interface User {
 const Layout: React.FC<LayoutProps> = ({ children, title }) => {
   const router = useRouter()
   const [user, setUser] = useState<User | null>(null)
+  const { providerMode } = useProvider()
+  const isProviderMode = providerMode === 'provider'
 
   useEffect(() => {
     const userData = localStorage.getItem('user')
@@ -94,16 +101,18 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
                   >
                     Communities
                   </Link>
-                  <Link
-                    href="/providers"
-                    className={`px-3 py-2 text-sm font-medium rounded-lg transition-all ${
-                      router.pathname.startsWith('/providers')
-                        ? 'bg-primary-light text-primary'
-                        : 'text-text-muted hover:bg-surface'
-                    }`}
-                  >
-                    Providers
-                  </Link>
+                  {isProviderMode && (
+                    <Link
+                      href="/providers"
+                      className={`px-3 py-2 text-sm font-medium rounded-lg transition-all ${
+                        router.pathname.startsWith('/providers')
+                          ? 'bg-primary-light text-primary'
+                          : 'text-text-muted hover:bg-surface'
+                      }`}
+                    >
+                      Providers
+                    </Link>
+                  )}
                 </div>
 
                 {user && (

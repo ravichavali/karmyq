@@ -155,7 +155,13 @@ function OpenRequestItem({ data, itemId, onDismiss }: OpenRequestItemProps) {
           <h3 className="text-lg font-semibold text-text mb-1">{data.title}</h3>
           <p className="text-sm text-text-muted mb-2 line-clamp-2">{data.description}</p>
           <div className="flex items-center flex-wrap gap-x-2 text-xs text-text-subtle">
-            <span>Posted by {data.author_name}</span>
+            <button
+              type="button"
+              className="hover:underline text-left"
+              onClick={() => setSelectedTrustUserId(data.requester_id)}
+            >
+              Posted by {data.author_name}
+            </button>
             {loadingPath && <TrustPathBadgeSkeleton compact />}
             {!loadingPath && trustPath && (
               <button

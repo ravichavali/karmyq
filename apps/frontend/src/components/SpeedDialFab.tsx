@@ -25,12 +25,14 @@ interface SpeedDialFabProps {
   activeTab: TabId
   onGetHelp: () => void
   onGetService: () => void
+  isProviderMode?: boolean
 }
 
-export default function SpeedDialFab({ activeTab, onGetHelp, onGetService }: SpeedDialFabProps) {
+export default function SpeedDialFab({ activeTab, onGetHelp, onGetService, isProviderMode }: SpeedDialFabProps) {
   const [expanded, setExpanded] = useState(false)
   const actions = getVisibleActions(activeTab)
 
+  if (isProviderMode) return null
   if (actions.length === 0) return null
 
   // Single action — plain FAB, no expansion needed
