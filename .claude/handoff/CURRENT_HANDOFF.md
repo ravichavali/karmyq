@@ -1,25 +1,19 @@
-# SPRINT 38 PLANNED — READY TO EXECUTE
+# SPRINT 38 COMPLETE — READY FOR SPRINT 39
 
 ## Handoff Document for New Conversation
 
-**Date**: 2026-03-24
-**Current Version**: v9.12.0 → v9.13.0 (after Sprint 38)
-**Status**: Sprint 38 fully planned. Spec + plan written. Ready to execute.
+**Date**: 2026-03-25
+**Current Version**: v9.13.0 (Sprint 38 deployed)
+**Status**: Sprint 38 fully implemented, tested, merged, and deployed to karmyq.com.
 
 ---
 
 ## Quick Start
 
 1. Read this handoff
-2. Check out branch: `git checkout -b feature/sprint-38-trust-profile`
-3. Open plan: `docs/superpowers/plans/2026-03-24-sprint-38-trust-profile.md`
-4. Run: `/execute-plan` (uses superpowers:subagent-driven-development)
-
----
-
-## Sprint 38 Goal
-
-Surface trust contextually in feed/match moments via a clickable TrustCard, and deepen personal profiles with self-declared skills, interests, and needs — without turning the platform into a browsable social network.
+2. No pending work — Sprint 38 is done
+3. When ready for Sprint 39: run `/sprint-planning` to design the next sprint
+4. Sprint 39 theme (tentative): **Admin/Moderator as Connector** — tools for admins to actively broker matches and surface unmet needs
 
 ---
 
@@ -32,123 +26,61 @@ Surface trust contextually in feed/match moments via a clickable TrustCard, and 
 | **35** | Request wizard + service hiring CTA | ✅ Complete |
 | **36** | Commitment depth + admin power + community discovery | ✅ Complete |
 | **37** | Provider Mode + Notification Separation | ✅ Complete |
-| **38** | Contextual Trust + Member Profile Depth | 🔜 Ready to execute |
+| **38** | Contextual Trust + Member Profile Depth | ✅ Complete — v9.13.0 |
 | **39** | Admin/Moderator as Connector (TBD) | Upcoming |
 
 ---
 
-## What Was Just Shipped (Sprint 37 — v9.12.0)
+## What Was Just Shipped (Sprint 38 — v9.13.0)
 
-### Provider Mode (UI-only)
-- `ProviderContext` — fetches provider profiles once on mount, exposes `hasProviderProfile`, `providerMode`, `setProviderMode`, `providerServiceTypes`
-- Member/Provider pill toggle in top nav (`Layout.tsx`) — only shown when `hasProviderProfile === true`
-- `ProviderDashboardCard` stats card above TabBar in provider mode (active commitments, completion rate, pending reviews)
-- Browse feed tab → "Requests for Me" in provider mode (filtered by `serviceTypeFilter` prop)
-- Mode persisted to `localStorage` key `karmyq_provider_mode`; default `'member'`
+### TrustCard (clickable trust path)
+- `GET /social-graph/trust-card/:targetUserId` — returns trust tier (Emerging/Trusted/Pillar), karma, trust path, invitation path
+- `TrustCard.tsx` modal — opened by clicking `TrustPathBadge` in feed items
+- `FeedItem.tsx` updated — `TrustPathBadge` wrapped in `<button>` with `onClick={() => setSelectedTrustUserId(data.requester_id)}`
+- Trust tiers: Emerging (0–29 karma), Trusted (30–99), Pillar (100+)
 
-### Notification Split (client-side only)
-- `PROVIDER_NOTIFICATION_TYPES` constant in `src/lib/notificationCategories.ts`
-- `NotificationContext` exposes `providerNotifications`, `communityNotifications`, `providerUnreadCount`, `communityUnreadCount`
-- `NotificationBell` uses `communityUnreadCount` (red badge)
-- `ProviderNotificationBell` uses `providerUnreadCount` (amber badge, briefcase icon)
+### User Tags (ProfileTagsSection)
+- `auth.user_tags` table — `tag_type IN ('skill', 'interest', 'need')`, max 10/type (client-side warn)
+- `/auth/profile/tags` CRUD + `/auth/profile/tags/suggestions?tag_type=` (hardcoded suggestions)
+- `ProfileTagsSection.tsx` — three-section tag editor on `/profile` page (save-on-change, suggestion chips)
 
----
+### Bug fixes
+- `ProviderDashboardCard.tsx` line ~24: removed `* 100` from `completion_rate` display
+- `providers.tsx` line ~157: same fix
 
-## Sprint 38 Plan Summary
-
-### Spec
-`docs/superpowers/specs/2026-03-24-sprint-38-trust-profile-design.md`
-
-### Plan
-`docs/superpowers/plans/2026-03-24-sprint-38-trust-profile.md`
-
-### 11 Tasks
-
-| Task | Description |
-|------|-------------|
-| 1 | Feature branch + completion rate bug fix + `auth.user_tags` migration |
-| 2 | Backend: `GET /social-graph/trust-card/:targetUserId` endpoint |
-| 3 | Backend: `/auth/profile/tags` CRUD + suggestions |
-| 4 | Frontend: `TrustCard.tsx` modal component |
-| 5 | Frontend: Make TrustPathBadge clickable in FeedItem → opens TrustCard |
-| 6 | Frontend: `ProfileTagsSection.tsx` + add to `/profile` page |
-| 7 | TDD tests (trust tier computation, component rendering) |
-| 8 | User guides + landing page docs (3 new files) |
-| 9 | CONTEXT.md + registry.json updates |
-| 10 | Final type check + `npm test` + `npm run feedback:check` |
-| 11 | Merge + deploy + apply DB migration on server |
+### Tests + Docs
+- 15 TDD tests in `apps/frontend/tests/tdd/sprint-38-trust-profile.test.tsx` — all pass
+- 3 new docs: `docs/guides/understanding-trust.md`, `docs/guides/profile-guide.md`, `docs/concepts/trust-path.md`
+- Landing page generated: `trust-path.json`, `understanding-trust.json`, `profile-guide.json`
 
 ---
 
-## ⚠️ Critical Implementation Notes (copy verbatim from spec)
+## Key Files Changed (Sprint 38)
 
-1. **Trust path endpoint is in social-graph-service, NOT reputation-service.** New `/trust-card/:targetUserId` route goes in social-graph-service, calls `pathComputation.ts` internally, then fetches karma via `REPUTATION_API_URL` env var.
-
-2. **`REPUTATION_API_URL` in Docker = `http://reputation-service:3004`.** Never hardcode `localhost:3004`.
-
-3. **TrustCard is never a page.** Modal only — no URL, no route. State (`selectedTrustUserId`) lives in FeedItem.
-
-4. **Completion rate bug** — remove `* 100` from:
-   - `apps/frontend/src/components/ProviderDashboardCard.tsx` (~line 24)
-   - `apps/frontend/src/pages/reputation/providers.tsx` (~line 157)
-
-5. **`auth.user_skills` is left untouched.** `auth.user_tags` is additive.
-
-6. **Tag suggestions are hardcoded** in `services/auth-service/src/constants/tagSuggestions.ts` — not a DB table.
-
-7. **TrustPathBadge is already rendered in FeedItem line 158.** Wrap in a `<button>` with `onClick={() => setSelectedTrustUserId(...)}`.
-
-8. **generate-docs.ts is source of truth for nav.json** — never edit nav.json directly. Add new guides/concepts to GUIDE_ORDER/GUIDE_LABELS/GUIDE_SLUGS.
-
-9. **Landing page force-add**: `git add -f apps/landing/src/data/docs/...` after generate-docs runs.
-
----
-
-## Trust Tier Thresholds
-
-| Tier | Karma Range |
-|------|------------|
-| Emerging | 0–29 |
-| Trusted | 30–99 |
-| Pillar | 100+ |
-
----
-
-## New Concepts Introduced in Sprint 38
-
-### TrustCard
-Modal component showing how the current user is connected to another member. Accessible only by clicking `TrustPathBadge` in feed items. Shows: trust tier label, karma score, directional connection chain (A→B→C with karma at intermediate nodes), invitation path. Not a page — no URL.
-
-### User Tags (`auth.user_tags`)
-Unified table with `tag_type` IN ('skill', 'interest', 'need'). Global to user. Tag suggestions hardcoded in auth-service constants. Max 10 per type (client-side warning).
-
-### Member Privacy Philosophy
-Member profiles are private. Trust visibility only occurs in relational moments (feed items, matches). Providers remain fully public via `/providers/:id`. This is intentional — the platform is not a browsable directory.
-
----
-
-## What's Already Built (don't rebuild)
-
-- `GET /social-graph/paths/:targetUserId` — existing bidirectional BFS, 4° max, used internally by new trust-card endpoint
-- `TrustPathBadge.tsx` — already renders in FeedItem line 158 (just needs to become clickable)
-- `ConnectionBadge.tsx` — compact badge (may also become clickable in future sprints)
-- `auth.user_skills` — existing table, untouched this sprint
+| File | Change |
+|------|--------|
+| `services/social-graph-service/src/routes/trustCard.ts` | NEW — trust-card endpoint |
+| `services/auth-service/src/routes/profileTags.ts` | NEW — user tags CRUD |
+| `services/auth-service/src/constants/tagSuggestions.ts` | NEW — hardcoded suggestions |
+| `apps/frontend/src/components/TrustCard.tsx` | NEW — modal component |
+| `apps/frontend/src/components/ProfileTagsSection.tsx` | NEW — profile tag editor |
+| `apps/frontend/src/components/Feed/FeedItem.tsx` | TrustPathBadge → clickable button |
+| `apps/frontend/src/pages/profile.tsx` | Added ProfileTagsSection |
+| `infrastructure/postgres/migrations/20260324-user-tags.sql` | NEW — user_tags table |
 
 ---
 
 ## Carry-Forward Issues
 
 - **Integration tests**: Fail locally (no DB), pass in CI. Expected.
-- **GitHub security vulnerabilities**: 8 Dependabot alerts remain (not addressed this sprint).
-- **Sprint 36 migrations**: If not yet applied on demo server, apply before Sprint 38 deploys:
+- **GitHub security vulnerabilities**: 8 Dependabot alerts remain (not addressed).
+- **Sprint 36 migrations**: If not yet applied on demo server, apply before next DB-touching sprint:
   ```bash
-  psql $DATABASE_URL -f infrastructure/postgres/migrations/20260322-community-tags-geo.sql
-  psql $DATABASE_URL -f infrastructure/postgres/migrations/20260322-request-boost.sql
+  docker exec karmyq-postgres psql -U karmyq_prod -d karmyq_prod -f ~/karmyq/infrastructure/postgres/migrations/20260322-community-tags-geo.sql
+  docker exec karmyq-postgres psql -U karmyq_prod -d karmyq_prod -f ~/karmyq/infrastructure/postgres/migrations/20260322-request-boost.sql
   ```
-- **Sprint 38 migration**: Apply after deploy:
-  ```bash
-  psql $DATABASE_URL -f infrastructure/postgres/migrations/20260324-user-tags.sql
-  ```
+- **Sprint 38 migration**: Applied on demo server ✅ (`auth.user_tags` table confirmed present).
+- **Mobile app lint**: Pre-existing CI failure — non-blocking.
 
 ---
 
@@ -184,12 +116,16 @@ Member profiles are private. Trust visibility only occurs in relational moments 
 - **tailwindcss-animate NOT installed**: `animate-in` class is unavailable. Do not use it in CSS or JSX.
 - **Provider mode patterns (Sprint 37)**:
   - `karmyq_provider_mode`: localStorage key, values `'member'` | `'provider'`, default `'member'`
-  - `PROVIDER_NOTIFICATION_TYPES`: Set in `src/lib/notificationCategories.ts` — `preferred_provider_selected`, `provider_request_matched`, `provider_review_received`, `match_reminder`
-  - `ProviderContext`: fetches provider profiles once on mount, exposes `hasProviderProfile`, `providerMode`, `setProviderMode`, `providerServiceTypes`
-  - `ProviderNotificationBell`: amber badge (`bg-amber-500`), briefcase icon, only rendered when `hasProviderProfile === true`
-  - Notification split is entirely client-side — `useMemo` in `NotificationContext` derives both streams
-- **Sprint 38 trust patterns** (new):
+  - `PROVIDER_NOTIFICATION_TYPES`: Set in `src/lib/notificationCategories.ts`
+  - `ProviderContext`: fetches provider profiles once on mount
+  - `ProviderNotificationBell`: amber badge, briefcase icon, only when `hasProviderProfile === true`
+- **Sprint 38 trust patterns**:
   - Trust tiers: Emerging (0–29 karma) / Trusted (30–99) / Pillar (100+)
-  - `auth.user_tags`: unified tag table with CHECK constraint on tag_type ('skill'|'interest'|'need')
-  - TrustCard: modal only, no URL, fetches `/social-graph/trust-card/:userId`
-  - TrustPathBadge (existing) → wrapped in `<button>` in FeedItem to open TrustCard
+  - `auth.user_tags`: unified tag table, CHECK constraint on tag_type ('skill'|'interest'|'need')
+  - TrustCard: modal only, no URL, fetches `/social-graph/trust-card/:userId` via `socialGraphApi`
+  - ProfileTagsSection: fetches from `/auth/profile/tags` via `api` (auth service axios instance)
+  - TrustPathBadge (existing) → wrapped in `<button>` in FeedItem `OpenRequestItem` component
+  - Tag suggestions: hardcoded in `services/auth-service/src/constants/tagSuggestions.ts`
+- **Docker exec for migrations**: Postgres is only accessible within Docker network. To run migrations on server:
+  `docker exec karmyq-postgres psql -U karmyq_prod -d karmyq_prod -f /path/to/migration.sql`
+  (copy file to server first with `scp`, then mount/exec)
