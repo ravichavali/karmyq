@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
 import TrustPathBadge, { TrustPathBadgeSkeleton } from '../TrustPathBadge';
+import { TrustCard } from '../TrustCard';
 import KarmaBadge from '../KarmaBadge';
 import { useTrustPath } from '../../hooks/useTrustPath';
 import RequestPayloadRenderer from './RequestPayloadRenderer';
@@ -135,6 +136,7 @@ function OpenRequestItem({ data, itemId, onDismiss }: OpenRequestItemProps) {
 
   // Fetch trust path to the requester
   const { trustPath, loading: loadingPath } = useTrustPath(data.requester_id);
+  const [selectedTrustUserId, setSelectedTrustUserId] = useState<string | null>(null);
 
   return (
     <div className="bg-surface-raised rounded-lg shadow-sm border border-border p-6 mb-4 hover:shadow-md transition-shadow">
@@ -155,7 +157,15 @@ function OpenRequestItem({ data, itemId, onDismiss }: OpenRequestItemProps) {
           <div className="flex items-center flex-wrap gap-x-2 text-xs text-text-subtle">
             <span>Posted by {data.author_name}</span>
             {loadingPath && <TrustPathBadgeSkeleton compact />}
-            {!loadingPath && trustPath && <TrustPathBadge trustPath={trustPath} compact />}
+            {!loadingPath && trustPath && (
+              <button
+                type="button"
+                onClick={() => setSelectedTrustUserId(data.requester_id)}
+                className="cursor-pointer hover:opacity-80 transition-opacity text-left"
+              >
+                <TrustPathBadge trustPath={trustPath} compact />
+              </button>
+            )}
             <KarmaBadge karma={data.requesterKarma ?? 0} trustScore={data.requesterTrustScore} />
             <span>•</span>
             <span>{data.community_name}</span>
@@ -211,6 +221,9 @@ function OpenRequestItem({ data, itemId, onDismiss }: OpenRequestItemProps) {
           Offer to Help
         </Link>
       </div>
+      {selectedTrustUserId && (
+        <TrustCard userId={selectedTrustUserId} onClose={() => setSelectedTrustUserId(null)} />
+      )}
     </div>
   );
 }

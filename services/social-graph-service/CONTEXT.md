@@ -655,6 +655,13 @@ curl http://localhost:3010/paths/$USER_B_ID \
 
 ## Recent Changes
 
+### Sprint 38: Trust Card Endpoint (2026-03-24)
+- **NEW**: Added `GET /trust-card/:targetUserId` endpoint returning trust tier, path, and invitation chain for a target user
+- **Logic**: Computes primary path via `computeTrustPath` (exchange → community → invitation), then separately computes invitation path for side-by-side display
+- **Karma**: Fetches target user's total karma from reputation-service via `REPUTATION_API_URL` env var
+- **Trust tiers**: Emerging (0–29 karma), Trusted (30–99), Pillar (100+)
+- **File**: `src/routes/trustCard.ts`
+
 ### Sprint 27: Network Graph Materialization
 - **NEW**: Added `GET /network` endpoint returning materialized connection graph (nodes + edges)
 - **NEW**: Subscribed to `match_completed` event to upsert exchange connections into `social_graph.connections`

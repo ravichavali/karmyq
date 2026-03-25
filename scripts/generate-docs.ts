@@ -252,6 +252,7 @@ const CONCEPT_ORDER = [
   'trust-and-karma',
   'trust-score',
   'trust-paths',
+  'trust-path',
   'reputation-decay',
   'why-ratings-are-private',
   'community-design',
@@ -317,6 +318,8 @@ const GUIDE_ORDER = [
   'using-service-providers-guide',
   'provider-mode-guide',
   'managing-notifications-guide',
+  'understanding-trust',
+  'profile-guide',
 ];
 
 const GUIDE_LABELS: Record<string, string> = {
@@ -332,6 +335,8 @@ const GUIDE_LABELS: Record<string, string> = {
   'using-service-providers-guide': 'Using the Service Provider Directory',
   'provider-mode-guide': 'Using Provider Mode',
   'managing-notifications-guide': 'Managing Your Notifications',
+  'understanding-trust': 'Understanding Trust on Karmyq',
+  'profile-guide': 'Your Profile',
 };
 
 const GUIDE_SLUGS: Record<string, string> = {
@@ -347,6 +352,8 @@ const GUIDE_SLUGS: Record<string, string> = {
   'using-service-providers-guide': 'using-service-providers',
   'provider-mode-guide': 'provider-mode',
   'managing-notifications-guide': 'managing-notifications',
+  'understanding-trust': 'understanding-trust',
+  'profile-guide': 'profile-guide',
 };
 
 function generateGuides(): GuidePage[] {
@@ -483,7 +490,7 @@ function generateNav(
 
   // Non-technical concept pages (split into Why Karmyq / How It Works)
   const whyKarmyq = ['platform-overview', 'the-village-model', 'neighborhood-service-layer', 'community-design'];
-  const howItWorks = ['trust-and-karma', 'trust-score', 'what-is-karma', 'trust-paths', 'reputation-decay', 'why-ratings-are-private', 'community-scale', 'network-cohesion', 'trust-model-evolution', 'community-evolution', 'fractal-feed', 'community-discovery', 'provider-mode'];
+  const howItWorks = ['trust-and-karma', 'trust-score', 'what-is-karma', 'trust-paths', 'trust-path', 'reputation-decay', 'why-ratings-are-private', 'community-scale', 'network-cohesion', 'trust-model-evolution', 'community-evolution', 'fractal-feed', 'community-discovery', 'provider-mode'];
 
   const nav = {
     sections: [

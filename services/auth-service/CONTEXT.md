@@ -583,6 +583,19 @@ src/
 - Cache user lookups if needed (currently no caching implemented)
 - Database queries use connection pooling (max 20 connections)
 
+## Recent Changes
+
+### Sprint 38: User Tags API (2026-03-24)
+- **NEW**: `GET /auth/profile/tags` — returns user's tags grouped by type (`skills`, `interests`, `needs`)
+- **NEW**: `POST /auth/profile/tags` — adds a tag (`tag_type` + `tag_value`). ON CONFLICT DO NOTHING (idempotent)
+- **NEW**: `DELETE /auth/profile/tags/:tagId` — removes a specific tag (scoped to current user)
+- **NEW**: `GET /auth/profile/tags/suggestions?tag_type=skill|interest|need` — returns hardcoded suggestions
+- **Schema**: New `auth.user_tags` table (see migration `20260324-user-tags.sql`)
+- **File**: `src/routes/profileTags.ts`, `src/constants/tagSuggestions.ts`
+- **Note**: `auth.user_skills` table is unchanged; `auth.user_tags` is additive
+
+---
+
 ## Future Enhancements (TODO)
 
 - [ ] Rate limiting on login attempts

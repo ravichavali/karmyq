@@ -22,7 +22,9 @@
           "/auth/profile",
           "/preferences/request-types",
           "/preferences/interests",
-          "/preferences/feed"
+          "/preferences/feed",
+          "/auth/profile/tags",
+          "/auth/profile/tags/suggestions"
         ],
         "consumes": []
       },
@@ -393,7 +395,8 @@
           { "method": "GET", "path": "/invitations/stats", "description": "Get inviter statistics for current user (gamification metrics)." },
           { "method": "GET", "path": "/paths/:targetUserId", "description": "Get shortest path between current user and target user." },
           { "method": "POST", "path": "/paths/batch", "description": "Get paths for multiple target users (optimized for feed ranking)." },
-          { "method": "GET", "path": "/network", "description": "Returns the current user's local network graph (nodes + edges) from social_graph.connections and community co-membership." }
+          { "method": "GET", "path": "/network", "description": "Returns the current user's local network graph (nodes + edges) from social_graph.connections and community co-membership." },
+          { "method": "GET", "path": "/trust-card/:targetUserId", "description": "Returns trust tier, karma, trust path, and invitation chain for a target user relative to the current user." }
         ],
         "consumes": [
           "/auth/verify"

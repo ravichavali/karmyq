@@ -21,7 +21,7 @@ const ProviderDashboardCard: React.FC<ProviderDashboardCardProps> = ({ activeCom
   // completion_rate and response_rate come from the LEFT JOIN with provider_trust_scores
   const profile = providerProfiles[0]
   const completionRate = profile.completion_rate != null
-    ? Math.round(Number(profile.completion_rate) * 100)
+    ? Math.round(Number(profile.completion_rate))
     : null
   const responseRate = profile.response_rate != null
     ? Math.round(Number(profile.response_rate) * 100)

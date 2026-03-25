@@ -12,6 +12,7 @@ const NetworkGraph = dynamic(() => import('@/components/NetworkGraph'), {
   ssr: false,
 })
 import ProviderProfileTab from '@/components/ProviderProfileTab'
+import { ProfileTagsSection } from '@/components/ProfileTagsSection'
 import { useInvitationChain } from '@/hooks/useInvitationChain'
 
 // Build version to force cache invalidation
@@ -976,6 +977,12 @@ export default function ProfilePage() {
               ))}
             </div>
           )}
+
+
+          {/* Tags: Skills, Interests, Needs */}
+          <div className="bg-surface-raised rounded-lg shadow-md p-6 mb-6">
+            <ProfileTagsSection />
+          </div>
 
           </div>
           )}

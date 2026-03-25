@@ -41,6 +41,10 @@
           "href": "/docs/concepts/trust-paths"
         },
         {
+          "label": "Trust Paths",
+          "href": "/docs/concepts/trust-path"
+        },
+        {
           "label": "Why Reputation Decays",
           "href": "/docs/concepts/reputation-decay"
         },
@@ -128,6 +132,14 @@
         {
           "label": "Managing Your Notifications",
           "href": "/docs/guides/managing-notifications"
+        },
+        {
+          "label": "Understanding Trust on Karmyq",
+          "href": "/docs/guides/understanding-trust"
+        },
+        {
+          "label": "Your Profile",
+          "href": "/docs/guides/profile-guide"
         }
       ]
     },

@@ -154,7 +154,7 @@ export default function ProvidersPage() {
                   const trustScore = Math.round(provider.trust_score ?? 0)
                   const avgStars = provider.avg_stars ? Number(provider.avg_stars).toFixed(1) : null
                   const completionRate = provider.completion_rate
-                    ? Math.round(provider.completion_rate * 100)
+                    ? Math.round(provider.completion_rate)
                     : null
 
                   return (
