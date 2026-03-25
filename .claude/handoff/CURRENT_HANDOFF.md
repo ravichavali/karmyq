@@ -1,19 +1,29 @@
-# SPRINT 38 COMPLETE — READY FOR SPRINT 39
+# SPRINT 39 READY TO EXECUTE
 
 ## Handoff Document for New Conversation
 
 **Date**: 2026-03-25
 **Current Version**: v9.13.0 (Sprint 38 deployed)
-**Status**: Sprint 38 fully implemented, tested, merged, and deployed to karmyq.com.
+**Status**: Sprint 39 planned, ready to execute
 
 ---
 
 ## Quick Start
 
 1. Read this handoff
-2. No pending work — Sprint 38 is done
-3. When ready for Sprint 39: run `/sprint-planning` to design the next sprint
-4. Sprint 39 theme (tentative): **Admin/Moderator as Connector** — tools for admins to actively broker matches and surface unmet needs
+2. Check out branch: `git checkout -b feature/sprint-39-provider-ux-hardening`
+3. Open plan: `docs/superpowers/plans/2026-03-25-sprint-39-provider-ux-hardening.md`
+4. Run: `/execute-plan` (uses superpowers:subagent-driven-development)
+
+---
+
+## Sprint 39 Goal
+
+**Provider Mode UX Hardening** — harden the provider/member toggle into a true behavioral
+switch, wire up accept/reject offers (currently stubbed), and make requestor/helper names
+clickable (opens TrustCard modal).
+
+**Version target**: v9.13.0 → v9.14.0
 
 ---
 
@@ -27,58 +37,92 @@
 | **36** | Commitment depth + admin power + community discovery | ✅ Complete |
 | **37** | Provider Mode + Notification Separation | ✅ Complete |
 | **38** | Contextual Trust + Member Profile Depth | ✅ Complete — v9.13.0 |
-| **39** | Admin/Moderator as Connector (TBD) | Upcoming |
+| **39** | Provider Mode UX Hardening + Accept Offers | **Ready to execute** |
+
+---
+
+## What Sprint 39 Ships
+
+### 1. Provider Nav Link Gating (`Layout.tsx`)
+- "Providers" nav link (desktop + hamburger) hidden in member mode
+- Only appears when `providerMode === 'provider'`
+- `useProvider()` added to Layout.tsx (already in app context via `_app.tsx`)
+
+### 2. Provider Notification Bell Gating (`ProviderNotificationBell.tsx`)
+- Amber bell currently shows whenever user has a provider profile (regardless of mode)
+- Fix: add `providerMode !== 'provider'` guard — bell only shows in provider mode
+
+### 3. SpeedDial FAB Hidden in Provider Mode (`SpeedDialFab.tsx`, `dashboard.tsx`)
+- In provider mode, user is browsing to offer help — "Get Help"/"Get Service" are irrelevant
+- Add `isProviderMode` prop; return null when true
+
+### 4. Wire Accept/Reject in CommitmentsTab (`CommitmentsTab.tsx`)
+- `handleAccept` and `handleDecline` are TODO stubs — wire to real API:
+  - "I Asked For Help" + proposed → Accept: `requestService.acceptMatch(matchId, userId)`
+  - "I Asked For Help" + proposed → Decline: `requestService.rejectMatch(matchId, userId)`
+  - "I'm Helping" + proposed → Change buttons to single "Withdraw Offer" → `rejectMatch`
+- On accept: optimistically set status to `'matched'` in local state
+- On decline/withdraw: remove match from array
+
+### 5. Clickable Names → TrustCard
+- **CommitmentsTab**: `m.requester_name` (helper cards) + `m.responder_name` (requester cards)
+  → clickable buttons → open `TrustCard` modal. Add `selectedProfileUserId` state.
+  Guard `requester_id` (it's optional in the interface).
+- **FeedItem `OpenRequestItem`**: "Posted by {data.author_name}" → wrap in button that sets
+  `selectedTrustUserId` (state already exists from Sprint 38). No new state needed.
+  `SuggestedRequestData` has no author name field — skip that item type.
+
+### 6. Update Provider Mode Guide
+- `docs/guides/provider-mode-guide.md` already exists — update to document full toggle behavior
+- Run `npm run generate-docs` then `git add -f apps/landing/src/data/docs/`
+
+---
+
+## ⚠️ Critical Implementation Notes
+
+1. **`useProvider()` works in Layout.tsx** — `ProviderProvider` wraps the whole app in
+   `_app.tsx`. No context changes needed. Just import and call it.
+
+2. **CommitmentsTab accept state** — after `acceptMatch`, optimistically set status to
+   `'matched'` in local state. After `rejectMatch` (decline OR withdraw), remove from array.
+
+3. **`requester_id` is optional** in CommitmentsTab Match interface — guard:
+   `{m.requester_id ? <button>name</button> : <span>name</span>}`
+
+4. **"I'm Helping" + proposed = Withdraw only** — replace Accept+Decline pair with a
+   single "Withdraw Offer" button calling `rejectMatch`.
+
+5. **`SuggestedRequestData` has no author name** — only `OpenRequestItem` gets clickable name.
+
+6. **No DB migration, no backend changes** — pure frontend sprint.
+
+7. **generate-docs is source of truth** — never edit nav.json directly.
 
 ---
 
 ## What Was Just Shipped (Sprint 38 — v9.13.0)
 
 ### TrustCard (clickable trust path)
-- `GET /social-graph/trust-card/:targetUserId` — returns trust tier (Emerging/Trusted/Pillar), karma, trust path, invitation path
+- `GET /social-graph/trust-card/:targetUserId` — returns trust tier, karma, trust path
 - `TrustCard.tsx` modal — opened by clicking `TrustPathBadge` in feed items
-- `FeedItem.tsx` updated — `TrustPathBadge` wrapped in `<button>` with `onClick={() => setSelectedTrustUserId(data.requester_id)}`
 - Trust tiers: Emerging (0–29 karma), Trusted (30–99), Pillar (100+)
 
 ### User Tags (ProfileTagsSection)
-- `auth.user_tags` table — `tag_type IN ('skill', 'interest', 'need')`, max 10/type (client-side warn)
-- `/auth/profile/tags` CRUD + `/auth/profile/tags/suggestions?tag_type=` (hardcoded suggestions)
-- `ProfileTagsSection.tsx` — three-section tag editor on `/profile` page (save-on-change, suggestion chips)
+- `auth.user_tags` table — `tag_type IN ('skill', 'interest', 'need')`, max 10/type
+- `/auth/profile/tags` CRUD + `/auth/profile/tags/suggestions?tag_type=`
+- `ProfileTagsSection.tsx` — three-section tag editor on `/profile` page
 
 ### Bug fixes
 - `ProviderDashboardCard.tsx` line ~24: removed `* 100` from `completion_rate` display
 - `providers.tsx` line ~157: same fix
-
-### Tests + Docs
-- 15 TDD tests in `apps/frontend/tests/tdd/sprint-38-trust-profile.test.tsx` — all pass
-- 3 new docs: `docs/guides/understanding-trust.md`, `docs/guides/profile-guide.md`, `docs/concepts/trust-path.md`
-- Landing page generated: `trust-path.json`, `understanding-trust.json`, `profile-guide.json`
-
----
-
-## Key Files Changed (Sprint 38)
-
-| File | Change |
-|------|--------|
-| `services/social-graph-service/src/routes/trustCard.ts` | NEW — trust-card endpoint |
-| `services/auth-service/src/routes/profileTags.ts` | NEW — user tags CRUD |
-| `services/auth-service/src/constants/tagSuggestions.ts` | NEW — hardcoded suggestions |
-| `apps/frontend/src/components/TrustCard.tsx` | NEW — modal component |
-| `apps/frontend/src/components/ProfileTagsSection.tsx` | NEW — profile tag editor |
-| `apps/frontend/src/components/Feed/FeedItem.tsx` | TrustPathBadge → clickable button |
-| `apps/frontend/src/pages/profile.tsx` | Added ProfileTagsSection |
-| `infrastructure/postgres/migrations/20260324-user-tags.sql` | NEW — user_tags table |
 
 ---
 
 ## Carry-Forward Issues
 
 - **Integration tests**: Fail locally (no DB), pass in CI. Expected.
-- **GitHub security vulnerabilities**: 8 Dependabot alerts remain (not addressed).
-- **Sprint 36 migrations**: If not yet applied on demo server, apply before next DB-touching sprint:
-  ```bash
-  docker exec karmyq-postgres psql -U karmyq_prod -d karmyq_prod -f ~/karmyq/infrastructure/postgres/migrations/20260322-community-tags-geo.sql
-  docker exec karmyq-postgres psql -U karmyq_prod -d karmyq_prod -f ~/karmyq/infrastructure/postgres/migrations/20260322-request-boost.sql
-  ```
+- **GitHub security vulnerabilities**: 8 Dependabot alerts remain.
+- **Sprint 36 migrations**: If not yet applied on demo server, apply before next DB-touching sprint.
 - **Sprint 38 migration**: Applied on demo server ✅ (`auth.user_tags` table confirmed present).
 - **Mobile app lint**: Pre-existing CI failure — non-blocking.
 
