@@ -1,129 +1,100 @@
-# SPRINT 39 READY TO EXECUTE
+# SPRINT 40 READY TO EXECUTE
 
 ## Handoff Document for New Conversation
 
 **Date**: 2026-03-25
-**Current Version**: v9.13.0 (Sprint 38 deployed)
-**Status**: Sprint 39 planned, ready to execute
+**Current Version**: v9.14.0 (Sprint 39 deployed)
+**Status**: Sprint 40 planned — ready to execute
 
 ---
 
 ## Quick Start
 
 1. Read this handoff
-2. Check out branch: `git checkout -b feature/sprint-39-provider-ux-hardening`
-3. Open plan: `docs/superpowers/plans/2026-03-25-sprint-39-provider-ux-hardening.md`
+2. Check out branch: `git checkout -b feature/sprint-40-admin-connectors`
+3. Open plan: `docs/superpowers/plans/2026-03-25-sprint-40-admin-connectors.md`
 4. Run: `/execute-plan` (uses superpowers:subagent-driven-development)
 
 ---
 
-## Sprint 39 Goal
+## Sprint 40 Goal
 
-**Provider Mode UX Hardening** — harden the provider/member toggle into a true behavioral
-switch, wire up accept/reject offers (currently stubbed), and make requestor/helper names
-clickable (opens TrustCard modal).
+Make admin connector tools real — boosted requests float higher in the member feed with a "Community Pick" badge; admin-proposed matches are labeled for the requester; fix provider availability toggle placement and geolocation community list returning empty.
 
-**Version target**: v9.13.0 → v9.14.0
+**Version bump**: v9.14.0 → v9.15.0
 
 ---
 
-## Multi-Sprint UX Arc
+## Multi-Sprint Arc
 
 | Sprint | Focus | Status |
 |--------|-------|--------|
-| **33** | Design system foundation | ✅ Complete |
-| **34** | Tab navigation + feed simplification | ✅ Complete |
-| **35** | Request wizard + service hiring CTA | ✅ Complete |
-| **36** | Commitment depth + admin power + community discovery | ✅ Complete |
-| **37** | Provider Mode + Notification Separation | ✅ Complete |
-| **38** | Contextual Trust + Member Profile Depth | ✅ Complete — v9.13.0 |
-| **39** | Provider Mode UX Hardening + Accept Offers | **Ready to execute** |
+| **36** | Admin power tools (boost, propose match UI) | ✅ Complete |
+| **37** | Provider Mode | ✅ Complete |
+| **38** | Contextual Trust + Member Profile Depth | ✅ Complete |
+| **39** | Provider Mode UX Hardening + Accept Offers | ✅ Complete — v9.14.0 |
+| **40** | Admin Connector Tools (make them real) + bug fixes | Ready to execute |
+| **41** | Onboarding / First-run UX (empty states, welcome flow) | Upcoming |
+
+**5-6 sprint horizon**: Making Karmyq ready for cold-start user testing (send link, no intro, users complete end-to-end journey on their own).
 
 ---
 
-## What Sprint 39 Ships
+## Spec + Plan
 
-### 1. Provider Nav Link Gating (`Layout.tsx`)
-- "Providers" nav link (desktop + hamburger) hidden in member mode
-- Only appears when `providerMode === 'provider'`
-- `useProvider()` added to Layout.tsx (already in app context via `_app.tsx`)
+- **Spec**: `docs/superpowers/specs/2026-03-25-sprint-40-admin-connectors-design.md`
+- **Plan**: `docs/superpowers/plans/2026-03-25-sprint-40-admin-connectors.md`
 
-### 2. Provider Notification Bell Gating (`ProviderNotificationBell.tsx`)
-- Amber bell currently shows whenever user has a provider profile (regardless of mode)
-- Fix: add `providerMode !== 'provider'` guard — bell only shows in provider mode
+---
 
-### 3. SpeedDial FAB Hidden in Provider Mode (`SpeedDialFab.tsx`, `dashboard.tsx`)
-- In provider mode, user is browsing to offer help — "Get Help"/"Get Service" are irrelevant
-- Add `isProviderMode` prop; return null when true
+## What Sprint 40 Ships
 
-### 4. Wire Accept/Reject in CommitmentsTab (`CommitmentsTab.tsx`)
-- `handleAccept` and `handleDecline` are TODO stubs — wire to real API:
-  - "I Asked For Help" + proposed → Accept: `requestService.acceptMatch(matchId, userId)`
-  - "I Asked For Help" + proposed → Decline: `requestService.rejectMatch(matchId, userId)`
-  - "I'm Helping" + proposed → Change buttons to single "Withdraw Offer" → `rejectMatch`
-- On accept: optimistically set status to `'matched'` in local state
-- On decline/withdraw: remove match from array
-
-### 5. Clickable Names → TrustCard
-- **CommitmentsTab**: `m.requester_name` (helper cards) + `m.responder_name` (requester cards)
-  → clickable buttons → open `TrustCard` modal. Add `selectedProfileUserId` state.
-  Guard `requester_id` (it's optional in the interface).
-- **FeedItem `OpenRequestItem`**: "Posted by {data.author_name}" → wrap in button that sets
-  `selectedTrustUserId` (state already exists from Sprint 38). No new state needed.
-  `SuggestedRequestData` has no author name field — skip that item type.
-
-### 6. Update Provider Mode Guide
-- `docs/guides/provider-mode-guide.md` already exists — update to document full toggle behavior
-- Run `npm run generate-docs` then `git add -f apps/landing/src/data/docs/`
+1. **Boost affects curated feed rank** — `GET /requests/curated` adds `is_boosted`, `boosted_expires_at` to SELECT; active boost adds +30 flat to feedScore after weighted calculation
+2. **"Community Pick" badge in FeedItem** — teal badge (`bg-teal-100 text-teal-700`) when `is_boosted && !expired`
+3. **`admin_proposed` flag on matches** — `POST /requests/:id/propose-match` sets `admin_proposed = TRUE`; GET /matches returns it
+4. **"Suggested by admin" in CommitmentsTab** — `admin_proposed === true` shows label under the match card
+5. **Provider Availability Toggle on ProviderDashboardCard** — passes `providerId` + `isAvailable` from dashboard; toggle calls `providerService.updateAvailability`
+6. **Geo community list fix** — community service fallback when geo query returns 0 rows; frontend shows "Showing all communities — we couldn't narrow by location"
 
 ---
 
 ## ⚠️ Critical Implementation Notes
 
-1. **`useProvider()` works in Layout.tsx** — `ProviderProvider` wraps the whole app in
-   `_app.tsx`. No context changes needed. Just import and call it.
+1. **Boost is in DB but NOT in curated SQL.** Add `r.is_boosted`, `r.boosted_expires_at` to the `GET /requests/curated` SELECT — without this the frontend can't show the badge.
 
-2. **CommitmentsTab accept state** — after `acceptMatch`, optimistically set status to
-   `'matched'` in local state. After `rejectMatch` (decline OR withdraw), remove from array.
+2. **Boost scoring: flat +30 AFTER weighted score.** After the existing `feedResult.score` computation, check `if (request.is_boosted && new Date(request.boosted_expires_at) > new Date())` → add 30, cap at 100. Apply to both main and sister-community scoring blocks.
 
-3. **`requester_id` is optional** in CommitmentsTab Match interface — guard:
-   `{m.requester_id ? <button>name</button> : <span>name</span>}`
+3. **Migration before code.** `ALTER TABLE requests.matches ADD COLUMN IF NOT EXISTS admin_proposed BOOLEAN NOT NULL DEFAULT FALSE` — run this first, then update adminActions.ts INSERT. Production: `docker exec karmyq-postgres psql -U karmyq_prod -d karmyq_prod -f /path/to/migration.sql`
 
-4. **"I'm Helping" + proposed = Withdraw only** — replace Accept+Decline pair with a
-   single "Withdraw Offer" button calling `rejectMatch`.
+4. **Geo bug root cause**: Community service geo query filters `WHERE c.latitude IS NOT NULL AND c.longitude IS NOT NULL`. Seed communities have no coordinates → 0 rows. Fix: if geo query returns 0, re-run without filter and return `{ ..., data: { communities: [...], fallback: true } }`. Frontend handles `fallback: true`.
 
-5. **`SuggestedRequestData` has no author name** — only `OpenRequestItem` gets clickable name.
+5. **Provider toggle in card**: `ProviderDashboardCard` needs `providerId?: string` + `isAvailable?: boolean` props. Dashboard.tsx passes `providerProfiles[0]?.id` and `providerProfiles[0]?.is_available`. Card calls `providerService.updateAvailability(providerId, !currentValue)`. Use local state for optimistic update.
 
-6. **No DB migration, no backend changes** — pure frontend sprint.
+6. **CommitmentsTab Match type**: Add `admin_proposed?: boolean` to Match interface. The GET /matches query must SELECT `m.admin_proposed`.
 
-7. **generate-docs is source of truth** — never edit nav.json directly.
+7. **"Community Pick" badge expiry**: `const boostActive = data.is_boosted && data.boosted_expires_at && new Date(data.boosted_expires_at) > new Date()`.
+
+8. **Landing docs**: Update `apps/landing/src/data/docs/guides/admin-community.json` (NOT a new file). Run `cd apps/landing && npm run generate-docs`, then `git add -f apps/landing/src/data/docs/`.
 
 ---
 
-## What Was Just Shipped (Sprint 38 — v9.13.0)
+## What Already Exists (do not rebuild)
 
-### TrustCard (clickable trust path)
-- `GET /social-graph/trust-card/:targetUserId` — returns trust tier, karma, trust path
-- `TrustCard.tsx` modal — opened by clicking `TrustPathBadge` in feed items
-- Trust tiers: Emerging (0–29 karma), Trusted (30–99), Pillar (100+)
-
-### User Tags (ProfileTagsSection)
-- `auth.user_tags` table — `tag_type IN ('skill', 'interest', 'need')`, max 10/type
-- `/auth/profile/tags` CRUD + `/auth/profile/tags/suggestions?tag_type=`
-- `ProfileTagsSection.tsx` — three-section tag editor on `/profile` page
-
-### Bug fixes
-- `ProviderDashboardCard.tsx` line ~24: removed `* 100` from `completion_rate` display
-- `providers.tsx` line ~157: same fix
+- `is_boosted`, `boosted_at`, `boosted_expires_at` columns on `requests.help_requests`
+- Admin boost/remove-boost buttons in communities/[id].tsx admin Requests tab
+- `POST /requests/:id/propose-match` endpoint in `services/request-service/src/routes/adminActions.ts`
+- Member picker modal for propose-match in communities/[id].tsx
+- Mark Urgent button + `requestService.markUrgent` (leave alone this sprint)
+- `providerService.updateAvailability(providerId, boolean)` in api.ts
 
 ---
 
 ## Carry-Forward Issues
 
 - **Integration tests**: Fail locally (no DB), pass in CI. Expected.
-- **GitHub security vulnerabilities**: 8 Dependabot alerts remain.
-- **Sprint 36 migrations**: If not yet applied on demo server, apply before next DB-touching sprint.
-- **Sprint 38 migration**: Applied on demo server ✅ (`auth.user_tags` table confirmed present).
+- **GitHub security vulnerabilities**: 8 Dependabot alerts remain (5 high, 2 moderate, 1 low).
+- **Sprint 36 migrations**: Apply before next DB-touching sprint if not yet on demo server.
+- **Sprint 38 migration**: Applied on demo server ✅ (`auth.user_tags` confirmed present).
 - **Mobile app lint**: Pre-existing CI failure — non-blocking.
 
 ---
@@ -150,6 +121,7 @@ clickable (opens TrustCard modal).
 - **completeMatch requires user_id in body**: `PUT /matches/:id/complete` reads `user_id` from body (not JWT).
 - **generate-docs.ts is source of truth for nav.json**: Never edit nav.json directly. Create markdown source in `docs/guides/` or `docs/concepts/`, then add to GUIDE_ORDER/GUIDE_LABELS/GUIDE_SLUGS in `scripts/generate-docs.ts`.
 - **Landing page force-add**: `git add -f apps/landing/src/data/docs/...`
+- **Landing generate-docs location**: `cd apps/landing && npm run generate-docs` (NOT root `npm run generate-docs`)
 - **No worktrees**: Solo developer. Work directly on feature branch.
 - **Evolution defaults are opt-out (TRUE)**: Sprint 31 migration flipped both tables.
 - **effectiveParamsCache circular import guard**: `trustEvolutionDb.ts` must NOT import `effectiveParamsCache.ts`.
@@ -162,7 +134,7 @@ clickable (opens TrustCard modal).
   - `karmyq_provider_mode`: localStorage key, values `'member'` | `'provider'`, default `'member'`
   - `PROVIDER_NOTIFICATION_TYPES`: Set in `src/lib/notificationCategories.ts`
   - `ProviderContext`: fetches provider profiles once on mount
-  - `ProviderNotificationBell`: amber badge, briefcase icon, only when `hasProviderProfile === true`
+  - `ProviderNotificationBell`: amber badge, briefcase icon, only when `hasProviderProfile === true` AND `providerMode === 'provider'`
 - **Sprint 38 trust patterns**:
   - Trust tiers: Emerging (0–29 karma) / Trusted (30–99) / Pillar (100+)
   - `auth.user_tags`: unified tag table, CHECK constraint on tag_type ('skill'|'interest'|'need')
@@ -170,6 +142,17 @@ clickable (opens TrustCard modal).
   - ProfileTagsSection: fetches from `/auth/profile/tags` via `api` (auth service axios instance)
   - TrustPathBadge (existing) → wrapped in `<button>` in FeedItem `OpenRequestItem` component
   - Tag suggestions: hardcoded in `services/auth-service/src/constants/tagSuggestions.ts`
+- **Sprint 39 CommitmentsTab patterns**:
+  - Helping+proposed → single "Withdraw Offer" → `rejectMatch` (removes from array)
+  - Requested+proposed → Accept (`acceptMatch`, status→matched) + Decline (`rejectMatch`, remove)
+  - `requester_id` is optional in Match interface — guard before rendering as button
+  - TrustCard triggered by `selectedProfileUserId` state, rendered at bottom of return JSX
+- **Sprint 40 admin connector patterns** (new this sprint):
+  - `requests.matches.admin_proposed BOOLEAN DEFAULT FALSE` — TRUE when created via propose-match route
+  - Boost scoring: flat +30 added to feedScore after weighted calculation, capped at 100
+  - `is_boosted`, `boosted_expires_at` returned by curated feed endpoint
+  - "Community Pick" badge: `bg-teal-100 text-teal-700 border-teal-200`
+  - Geo fallback: community service returns `{ data: { communities: [...], fallback: true } }` when geo returns 0 rows
 - **Docker exec for migrations**: Postgres is only accessible within Docker network. To run migrations on server:
   `docker exec karmyq-postgres psql -U karmyq_prod -d karmyq_prod -f /path/to/migration.sql`
   (copy file to server first with `scp`, then mount/exec)
