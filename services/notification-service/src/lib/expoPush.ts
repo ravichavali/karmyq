@@ -1,7 +1,17 @@
-import Expo, { ExpoPushMessage } from 'expo-server-sdk';
 import pool from '../database/db';
 
-const expo = new Expo();
+// expo-server-sdk v6+ is pure ESM; dynamic import() works in CommonJS modules for ESM packages
+let _ExpoClass: any = null;
+let _expoInstance: any = null;
+
+async function getExpoModule(): Promise<{ Expo: any; expo: any }> {
+  if (!_ExpoClass) {
+    const mod = await import('expo-server-sdk');
+    _ExpoClass = mod.default;
+    _expoInstance = new _ExpoClass();
+  }
+  return { Expo: _ExpoClass, expo: _expoInstance };
+}
 
 export async function sendPushToUsers(
   userIds: string[],
@@ -20,9 +30,11 @@ export async function sendPushToUsers(
   const tokens: string[] = result.rows.map((r: { expo_push_token: string }) => r.expo_push_token);
   if (tokens.length === 0) return;
 
-  const messages: ExpoPushMessage[] = tokens
-    .filter(token => Expo.isExpoPushToken(token))
-    .map(to => ({ to, title, body, data: data ?? {} }));
+  const { Expo, expo } = await getExpoModule();
+
+  const messages = tokens
+    .filter((token: string) => Expo.isExpoPushToken(token))
+    .map((to: string) => ({ to, title, body, data: data ?? {} }));
 
   const chunks = expo.chunkPushNotifications(messages);
   for (const chunk of chunks) {

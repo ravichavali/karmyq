@@ -1192,3 +1192,44 @@ CREATE UNIQUE INDEX IF NOT EXISTS connections_normalized_pair
 -- Indexes for neighbor lookup queries (WHERE user_a_id = $1 OR user_b_id = $1)
 CREATE INDEX IF NOT EXISTS connections_user_a_idx ON social_graph.connections (user_a_id);
 CREATE INDEX IF NOT EXISTS connections_user_b_idx ON social_graph.connections (user_b_id);
+
+-- Sprint 41: Device push tokens for Expo notifications
+CREATE TABLE IF NOT EXISTS auth.device_push_tokens (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  expo_push_token TEXT NOT NULL,
+  platform VARCHAR(10) CHECK (platform IN ('ios', 'android')),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(user_id, expo_push_token)
+);
+
+CREATE INDEX IF NOT EXISTS idx_device_push_tokens_user_id
+  ON auth.device_push_tokens(user_id);
+
+-- Sprint 41: Provider offers (commercial offer flow with pricing)
+CREATE SCHEMA IF NOT EXISTS provider;
+
+CREATE TABLE IF NOT EXISTS provider.offers (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  provider_id UUID NOT NULL REFERENCES requests.provider_profiles(id) ON DELETE CASCADE,
+  provider_user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  request_id UUID NOT NULL REFERENCES requests.help_requests(id) ON DELETE CASCADE,
+  price NUMERIC(10,2),
+  note TEXT,
+  status VARCHAR(20) NOT NULL DEFAULT 'pending'
+    CHECK (status IN ('pending', 'accepted', 'declined', 'withdrawn')),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_provider_offers_provider_user
+  ON provider.offers(provider_user_id);
+CREATE INDEX IF NOT EXISTS idx_provider_offers_request
+  ON provider.offers(request_id);
+CREATE INDEX IF NOT EXISTS idx_provider_offers_status
+  ON provider.offers(status);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_provider_offers_active
+  ON provider.offers(provider_user_id, request_id)
+  WHERE status IN ('pending', 'accepted');
