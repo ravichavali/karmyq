@@ -14,6 +14,7 @@ import SpeedDialFab from '@/components/SpeedDialFab'
 import RequestWizard from '@/components/RequestWizard'
 import { useProvider } from '@/contexts/ProviderContext'
 import ProviderDashboardCard from '@/components/ProviderDashboardCard'
+import ProviderMatchingRequests from '@/components/ProviderMatchingRequests'
 
 
 interface HelpRequest {
@@ -432,6 +433,11 @@ export default function Dashboard() {
             providerId={providerProfiles[0]?.id}
             isAvailable={providerProfiles[0]?.is_available}
           />
+        )}
+
+        {/* Open requests for providers who are on-duty */}
+        {providerMode === 'provider' && providerProfiles[0]?.is_available && (
+          <ProviderMatchingRequests />
         )}
 
         {/* Desktop tab bar */}
