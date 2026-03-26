@@ -5,6 +5,7 @@ import authRoutes from './routes/auth';
 import userRoutes from './routes/users';
 import preferencesRoutes from './routes/preferences'; // Day 8
 import profileTagsRoutes from './routes/profileTags';
+import pushTokensRoutes from './routes/pushTokens';
 import { initDatabase } from './database/db';
 import { initEventPublisher } from './events/publisher';
 import { createLogger, requestLoggingMiddleware } from '@karmyq/shared/utils/logger';
@@ -36,6 +37,7 @@ app.use('/auth', rateLimiters.auth, authRoutes); // Stricter limit for auth
 app.use('/users', rateLimiters.standard, userRoutes);
 app.use('/preferences', rateLimiters.standard, preferencesRoutes); // Day 8
 app.use('/auth/profile/tags', rateLimiters.standard, profileTagsRoutes);
+app.use('/auth', rateLimiters.standard, pushTokensRoutes);
 
 // Error handling
 app.use((err: any, req: any, res: express.Response, next: express.NextFunction) => {
