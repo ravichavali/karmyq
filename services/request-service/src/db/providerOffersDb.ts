@@ -1,6 +1,36 @@
 import { query } from '../database/db';
 
 /**
+ * Validate that a request exists in at least one of the provider's communities and is still open.
+ */
+export async function validateRequestForOffer(
+  requestId: string,
+  communityIds: string[]
+): Promise<{ valid: boolean; reason?: string }> {
+  if (communityIds.length === 0) {
+    return { valid: false, reason: 'Provider has no community memberships' };
+  }
+
+  const result = await query(
+    `SELECT hr.id, hr.status
+     FROM requests.help_requests hr
+     JOIN requests.request_communities rc ON rc.request_id = hr.id
+     WHERE hr.id = $1
+       AND rc.community_id = ANY($2)
+     LIMIT 1`,
+    [requestId, communityIds]
+  );
+
+  if (result.rows.length === 0) {
+    return { valid: false, reason: 'Request not found in your communities' };
+  }
+  if (result.rows[0].status !== 'open') {
+    return { valid: false, reason: 'Request is no longer open' };
+  }
+  return { valid: true };
+}
+
+/**
  * Get the default price for a provider from their active rate card.
  * Returns null if no active rate card exists.
  */

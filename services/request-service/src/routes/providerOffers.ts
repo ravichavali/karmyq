@@ -6,6 +6,7 @@ import {
   createProviderOffer,
   getMyProviderOffers,
   withdrawProviderOffer,
+  validateRequestForOffer,
 } from '../db/providerOffersDb';
 
 const router = Router();
@@ -37,6 +38,12 @@ router.post('/offers', authMiddleware, async (req: AuthenticatedRequest, res: Re
     }
     const providerId = providerResult.rows[0].id;
 
+    const communityIds = (req.user!.communities ?? []).map((m: { id: string }) => m.id);
+    const validation = await validateRequestForOffer(request_id, communityIds);
+    if (!validation.valid) {
+      return res.status(404).json({ success: false, message: validation.reason!, error: 'REQUEST_NOT_FOUND' });
+    }
+
     const offer = await createProviderOffer(
       userId,
       providerId,
@@ -50,14 +57,19 @@ router.post('/offers', authMiddleware, async (req: AuthenticatedRequest, res: Re
       `SELECT user_id FROM requests.help_requests WHERE id = $1`,
       [request_id]
     );
-    if (reqResult.rows.length > 0) {
-      await publishEvent('offer_submitted', {
-        offerId: offer.id,
-        requestId: request_id,
-        requesterUserId: reqResult.rows[0].user_id,
-        providerName: req.user!.email,
-        price: offer.price,
-      });
+    // Fire-and-forget notification event (Redis outage should not fail the offer creation)
+    try {
+      if (reqResult.rows.length > 0) {
+        await publishEvent('offer_submitted', {
+          offerId: offer.id,
+          requestId: request_id,
+          requesterUserId: reqResult.rows[0].user_id,
+          providerName: req.user!.email,
+          price: offer.price,
+        });
+      }
+    } catch (eventErr) {
+      console.error('[providerOffers] Failed to publish offer_submitted event:', eventErr);
     }
 
     res.status(201).json({ success: true, data: offer });
