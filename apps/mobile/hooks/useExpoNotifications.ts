@@ -48,33 +48,16 @@ export function useExpoNotifications() {
         });
       }
 
-      // Check current permission status. Use the same defensive pattern as
-      // services/notifications.ts to handle varying API shapes across SDK versions.
-      const existingStatus = await Notifications.getPermissionsAsync();
-      let isGranted = false;
-
-      if (typeof existingStatus === "string") {
-        isGranted = existingStatus === "granted";
-      } else if (existingStatus && typeof existingStatus === "object") {
-        // PermissionResponse shape: { granted: boolean, status: PermissionStatus }
-        if ("granted" in existingStatus) {
-          isGranted = Boolean(existingStatus.granted);
-        } else if ("status" in existingStatus) {
-          isGranted = (existingStatus as { status: string }).status === "granted";
-        }
-      }
+      // expo-modules-core may not be fully resolved in this workspace — cast to any
+      // to handle both string and object permission response shapes (matches notifications.ts pattern)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const existingPerm = await Notifications.getPermissionsAsync() as any;
+      let isGranted: boolean = existingPerm?.granted || existingPerm?.status === 'granted';
 
       if (!isGranted) {
-        const requestStatus = await Notifications.requestPermissionsAsync();
-        if (typeof requestStatus === "string") {
-          isGranted = requestStatus === "granted";
-        } else if (requestStatus && typeof requestStatus === "object") {
-          if ("granted" in requestStatus) {
-            isGranted = Boolean(requestStatus.granted);
-          } else if ("status" in requestStatus) {
-            isGranted = (requestStatus as { status: string }).status === "granted";
-          }
-        }
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const newPerm = await Notifications.requestPermissionsAsync() as any;
+        isGranted = newPerm?.granted || newPerm?.status === 'granted';
       }
 
       if (!isGranted) {
