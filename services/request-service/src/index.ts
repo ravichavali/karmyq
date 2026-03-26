@@ -6,6 +6,7 @@ import { initEventPublisher } from './events/publisher';
 import pool from './database/db';
 import requestsRouter from './routes/requests';
 import offersRouter from './routes/offers';
+import providerOffersRouter from './routes/providerOffers';
 import matchesRouter from './routes/matches';
 import feedbackRouter from './routes/feedback';
 import schemasRouter from './routes/schemas';
@@ -53,6 +54,9 @@ app.use('/schemas', rateLimiters.standard, schemasRouter);
 
 // Provider directory (GET is public; POST/PUT/DELETE handle auth internally)
 app.use('/providers', rateLimiters.standard, providersRouter);
+
+// Provider offer CRUD (POST /providers/offers, GET /providers/offers, PUT /providers/offers/:id/withdraw)
+app.use('/providers', rateLimiters.standard, providerOffersRouter);
 
 // Provider collectives (all endpoints require auth)
 app.use('/collectives', rateLimiters.standard, collectivesRouter);

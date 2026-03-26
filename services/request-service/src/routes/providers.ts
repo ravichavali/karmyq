@@ -2,6 +2,7 @@ import { Router, Response } from 'express';
 import * as jwt from 'jsonwebtoken';
 import { query } from '../database/db';
 import { authMiddleware, AuthenticatedRequest } from '@karmyq/shared/middleware/auth';
+import { publishEvent } from '../events/publisher';
 import type { CreateProviderProfileInput } from '@karmyq/shared/schemas/providers';
 
 const router = Router();
@@ -458,7 +459,22 @@ router.patch('/:providerId/availability', authMiddleware, async (req: Authentica
       [is_available, providerId]
     );
 
-    res.json({ success: true, data: result.rows[0] });
+    const provider = result.rows[0];
+
+    // Publish event when provider goes on duty so notification service can
+    // push-notify them with matching open requests in their communities.
+    if (is_available === true) {
+      const memberships = req.user!.communities ?? [];
+      const communityIds = memberships.map((m: { id: string }) => m.id);
+
+      await publishEvent('provider_went_on_duty', {
+        providerId: provider.id,
+        providerUserId: req.user!.userId,
+        communityIds,
+      });
+    }
+
+    res.json({ success: true, data: provider });
   } catch (error: any) {
     console.error('Error updating provider availability:', error);
     res.status(500).json({ success: false, message: 'Failed to update availability', error: error.message });
