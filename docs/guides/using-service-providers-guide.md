@@ -83,3 +83,24 @@ Karmyq is coordination infrastructure, not a marketplace. It handles finding pro
 ## Are You a Provider?
 
 If you offer services through Karmyq, check out [Using Provider Mode](provider-mode) — a dashboard view designed for providers that surfaces incoming requests matching your service type, your active commitments, and a separate notification stream for provider-specific alerts.
+
+---
+
+## Receiving Provider Offers
+
+When a provider goes on duty and sees your open request, they can send you a direct offer — including their price and a personal note.
+
+You'll receive a push notification when an offer arrives. You can also find all pending offers in the **Offers Received** section inside your **Commitments** tab. Each offer shows:
+
+- The provider's name
+- Their proposed price (or "Price TBD" if no price was set)
+- Any personal note they added
+
+## Accepting or Declining an Offer
+
+From the Commitments tab → Offers Received:
+
+- Tap **Accept** to accept an offer. A match is created and the commitment appears in your Commitments tab. The provider is notified immediately.
+- Tap **Decline** to decline. The provider is notified and can offer on other requests.
+
+You can receive multiple offers on the same request and accept the one that works best for you. Once you accept one offer, the request moves to matched status.

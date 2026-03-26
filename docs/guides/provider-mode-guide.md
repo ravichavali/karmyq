@@ -49,3 +49,31 @@ In Provider Mode, you'll see two notification bells:
 The amber briefcase only appears when you have a provider profile **and** you are in Provider Mode. Switching to Member Mode hides it so you can focus on community activity.
 
 See [Managing Your Notifications](managing-notifications) for details on each notification type.
+
+## Going On Duty
+
+When you're ready to accept work, tap the **On Duty** toggle on your Provider Dashboard. Karmyq will immediately notify you of any open requests in your communities that match your service type.
+
+The push notification shows you how many requests are waiting — tap it to jump to your Provider Dashboard where you'll see the full list.
+
+## Submitting an Offer
+
+From the Provider Dashboard, the **Matching Requests** panel lists all open requests in your communities. For each request:
+
+1. Tap **Make Offer**
+2. The price field pre-fills from your rate card — edit it freely for variable-scope work
+3. Add an optional note to the requester (e.g. "I can be there by 3pm")
+4. Tap **Submit Offer**
+
+Your offer is sent directly to the requester. You can submit offers on multiple requests simultaneously.
+
+## Tracking Your Offers
+
+Your submitted offers appear in the **My Offers** section of your Provider Dashboard with one of four statuses:
+
+- **Pending** — waiting for the requester to respond
+- **Accepted** — the requester accepted; a match is created and visible in your Commitments
+- **Declined** — the requester chose a different provider
+- **Withdrawn** — you withdrew the offer before a response
+
+To withdraw a pending offer, tap **Withdraw** next to it.
