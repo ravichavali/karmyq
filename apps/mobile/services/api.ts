@@ -159,6 +159,13 @@ export const api = {
   markNotificationRead: (id: string) =>
     notificationClient.put(`/notifications/${id}/read`),
 
+  // Push tokens (port 3001)
+  registerPushToken: (expo_push_token: string, platform: string) =>
+    authClient.post("/auth/push-tokens", { expo_push_token, platform }),
+
+  deregisterPushToken: (expo_push_token: string) =>
+    authClient.delete("/auth/push-tokens", { data: { expo_push_token } }),
+
   // Reputation (port 3004)
   getKarma: (userId: string) =>
     reputationClient.get(`/reputation/karma/${userId}`),

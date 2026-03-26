@@ -1,26 +1,19 @@
 import { Stack } from "expo-router";
 import { useEffect } from "react";
-import {
-  registerForPushNotificationsAsync,
-  setupNotificationHandlers,
-} from "@/services/notifications";
 import { useAuthStore } from "@/store/auth";
+import { useExpoNotifications } from "@/hooks/useExpoNotifications";
 
 export default function RootLayout() {
-  const { user, checkAuth } = useAuthStore();
+  const { checkAuth } = useAuthStore();
 
   // Check for existing auth session on app start
   useEffect(() => {
     checkAuth();
   }, []);
 
-  useEffect(() => {
-    if (user) {
-      // Register for push notifications when user logs in
-      registerForPushNotificationsAsync();
-      setupNotificationHandlers();
-    }
-  }, [user]);
+  // Register Expo push token and set up foreground notification listener.
+  // The hook internally waits for user.id before registering — safe to call here.
+  useExpoNotifications();
 
   return (
     <Stack
