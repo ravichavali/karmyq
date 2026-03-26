@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import { requestService } from '@/lib/api'
+import { getOffersForRequest, acceptOffer, declineOffer } from '@/lib/api/providerApi'
 import EmptyState from './EmptyState'
 import { sortByActionPriority } from '../utils/commitmentSort'
 import ExpandableConversation from './ExpandableConversation'
@@ -80,11 +81,28 @@ function SectionBlock({
 export default function CommitmentsTab() {
   const [helping, setHelping] = useState<Match[]>([])
   const [requested, setRequested] = useState<Match[]>([])
+  const [myOpenRequests, setMyOpenRequests] = useState<any[]>([])
+  const [offersByRequest, setOffersByRequest] = useState<Record<string, any[]>>({})
+  const [offersLoading, setOffersLoading] = useState<Record<string, boolean>>({})
   const [loading, setLoading] = useState(true)
   const [markingDone, setMarkingDone] = useState<string | null>(null)
   const [actioning, setActioning] = useState<string | null>(null)
+  const [offerActioning, setOfferActioning] = useState<string | null>(null)
   const [currentUserId, setCurrentUserId] = useState<string>('')
   const [selectedProfileUserId, setSelectedProfileUserId] = useState<string | null>(null)
+
+  const fetchOffersForRequest = async (requestId: string) => {
+    setOffersLoading((prev) => ({ ...prev, [requestId]: true }))
+    try {
+      const data = await getOffersForRequest(requestId)
+      const offers: any[] = data?.offers ?? data ?? []
+      setOffersByRequest((prev) => ({ ...prev, [requestId]: offers }))
+    } catch {
+      // silently ignore offer fetch errors
+    } finally {
+      setOffersLoading((prev) => ({ ...prev, [requestId]: false }))
+    }
+  }
 
   useEffect(() => {
     const userData = typeof window !== 'undefined' ? localStorage.getItem('user') : null
@@ -96,7 +114,8 @@ export default function CommitmentsTab() {
     requestService.getMatches({ user_id: currentUser.id, limit: 200 }).then((res) => {
       const allMatches: Match[] = res.data?.matches ?? []
       return requestService.getRequests({ requester_id: currentUser.id, limit: 100 }).then((reqRes) => {
-        const myRequestIds = new Set((reqRes.data?.requests ?? []).map((r: any) => r.id))
+        const myRequests: any[] = reqRes.data?.requests ?? []
+        const myRequestIds = new Set(myRequests.map((r: any) => r.id))
 
         const helpingMatches = allMatches.filter(
           (m) => m.responder_id === currentUser.id && !myRequestIds.has(m.request_id)
@@ -105,6 +124,12 @@ export default function CommitmentsTab() {
 
         setHelping(helpingMatches)
         setRequested(requestedMatches)
+
+        const openRequests = myRequests.filter(
+          (r: any) => r.status === 'open' || r.status === 'pending'
+        )
+        setMyOpenRequests(openRequests)
+        openRequests.forEach((r: any) => fetchOffersForRequest(r.id))
       })
     }).catch((err) => {
       console.error('Failed to load commitments:', err)
@@ -192,6 +217,30 @@ export default function CommitmentsTab() {
       alert(err.response?.data?.message || 'Failed to decline offer')
     } finally {
       setActioning(null)
+    }
+  }
+
+  const handleAcceptProviderOffer = async (offerId: string, requestId: string) => {
+    setOfferActioning(offerId)
+    try {
+      await acceptOffer(offerId)
+      await fetchOffersForRequest(requestId)
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Failed to accept offer')
+    } finally {
+      setOfferActioning(null)
+    }
+  }
+
+  const handleDeclineProviderOffer = async (offerId: string, requestId: string) => {
+    setOfferActioning(offerId)
+    try {
+      await declineOffer(offerId)
+      await fetchOffersForRequest(requestId)
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Failed to decline offer')
+    } finally {
+      setOfferActioning(null)
     }
   }
 
@@ -391,12 +440,65 @@ export default function CommitmentsTab() {
       {/* I Asked For Help */}
       <section>
         <h2 className="section-heading mb-3">I Asked For Help</h2>
-        {requested.length === 0 ? (
+
+        {/* Offers Received: open requests with pending provider offers */}
+        {myOpenRequests.map((req) => {
+          const pendingOffers = (offersByRequest[req.id] ?? []).filter(
+            (o: any) => o.status === 'pending'
+          )
+          if (pendingOffers.length === 0) return null
+          return (
+            <div key={req.id} className="card p-4 mb-3">
+              <p className="font-medium text-text truncate">{req.title ?? 'Request'}</p>
+              <p className="text-xs font-semibold text-text-muted uppercase tracking-wide mt-2 mb-2">
+                Offers Received
+              </p>
+              {offersLoading[req.id] ? (
+                <p className="text-xs text-text-muted">Loading offers…</p>
+              ) : (
+                pendingOffers.map((offer: any) => (
+                  <div key={offer.id} className="flex items-start justify-between gap-4 py-2 border-t border-border first:border-t-0">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-text">{offer.provider_email}</p>
+                      <p className="text-xs text-text-muted">
+                        {offer.price ? `$${offer.price}` : 'Price TBD'}
+                      </p>
+                      {offer.note && (
+                        <p className="text-xs text-text-muted mt-0.5 italic">{offer.note}</p>
+                      )}
+                    </div>
+                    <div className="flex gap-2 shrink-0">
+                      <button
+                        className="text-xs py-1 px-2 rounded bg-green-100 text-green-700 hover:bg-green-200 disabled:opacity-50"
+                        disabled={offerActioning === offer.id}
+                        onClick={() => handleAcceptProviderOffer(offer.id, req.id)}
+                      >
+                        {offerActioning === offer.id ? '…' : 'Accept'}
+                      </button>
+                      <button
+                        className="text-xs py-1 px-2 rounded bg-red-100 text-red-700 hover:bg-red-200 disabled:opacity-50"
+                        disabled={offerActioning === offer.id}
+                        onClick={() => handleDeclineProviderOffer(offer.id, req.id)}
+                      >
+                        {offerActioning === offer.id ? '…' : 'Decline'}
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          )
+        })}
+
+        {requested.length === 0 && myOpenRequests.every((req) => {
+          const pendingOffers = (offersByRequest[req.id] ?? []).filter((o: any) => o.status === 'pending')
+          return pendingOffers.length === 0
+        }) ? (
           <EmptyState
             heading="No matched requests"
             body="Post a request and accept an offer to see it here."
           />
-        ) : (
+        ) : requested.length > 0 ? (
           <>
             <SectionBlock
               label="Needs Your Response"
@@ -414,7 +516,7 @@ export default function CommitmentsTab() {
               renderItem={renderRequestedCard}
             />
           </>
-        )}
+        ) : null}
       </section>
 
       {selectedProfileUserId && (

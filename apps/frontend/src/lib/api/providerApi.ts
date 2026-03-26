@@ -19,3 +19,18 @@ export async function getMatchingRequests() {
   const response = await requestApi.get('/requests', { params: { status: 'open', limit: 20 } })
   return response.data
 }
+
+export async function getOffersForRequest(requestId: string) {
+  const response = await requestApi.get(`/requests/${requestId}/offers`)
+  return response.data
+}
+
+export async function acceptOffer(offerId: string) {
+  const response = await requestApi.put(`/requests/offers/${offerId}/accept`)
+  return response.data
+}
+
+export async function declineOffer(offerId: string) {
+  const response = await requestApi.put(`/requests/offers/${offerId}/decline`)
+  return response.data
+}
