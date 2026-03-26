@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "updated": "2026-03-25",
+  "updated": "2026-03-26",
   "services": {
     "auth-service": {
       "port": 3001,
@@ -24,7 +24,9 @@
           "/preferences/interests",
           "/preferences/feed",
           "/auth/profile/tags",
-          "/auth/profile/tags/suggestions"
+          "/auth/profile/tags/suggestions",
+          { "method": "POST", "path": "/auth/push-tokens", "description": "Register an Expo push token for the authenticated user" },
+          { "method": "DELETE", "path": "/auth/push-tokens", "description": "Remove an Expo push token for the authenticated user" }
         ],
         "consumes": []
       },
@@ -132,7 +134,13 @@
           {"method": "POST", "path": "/requests/:id/boost", "description": "Boost a request for 48h; active boost adds +30 to feedScore (capped at 100) and returns is_boosted + boosted_expires_at in curated feed (admin only)"},
           {"method": "DELETE", "path": "/requests/:id/boost", "description": "Remove active boost from a request (admin only)"},
           {"method": "POST", "path": "/requests/:id/propose-match", "description": "Admin proposes a specific community member as a helper (creates proposed match with admin_proposed=TRUE on requests.matches)"},
-          {"method": "PATCH", "path": "/requests/:id/urgent", "description": "Toggle request urgency between urgent and medium (admin only)"}
+          {"method": "PATCH", "path": "/requests/:id/urgent", "description": "Toggle request urgency between urgent and medium (admin only)"},
+          {"method": "GET", "path": "/requests/:id/offers", "description": "List provider offers on a request (requester only)"},
+          {"method": "PUT", "path": "/requests/offers/:id/accept", "description": "Accept a pending provider offer and create a match"},
+          {"method": "PUT", "path": "/requests/offers/:id/decline", "description": "Decline a pending provider offer"},
+          {"method": "POST", "path": "/providers/offers", "description": "Submit a provider offer on an open help request"},
+          {"method": "GET", "path": "/providers/offers", "description": "List offers submitted by the authenticated provider"},
+          {"method": "PUT", "path": "/providers/offers/:id/withdraw", "description": "Withdraw a pending provider offer"}
         ],
         "consumes": [
           "/auth/verify",
@@ -149,7 +157,11 @@
           "match_completed",
           "request_created",
           "offer_created",
-          "preferred_provider_selected"
+          "preferred_provider_selected",
+          "provider_went_on_duty",
+          "offer_submitted",
+          "offer_accepted",
+          "offer_declined"
         ],
         "subscribes": []
       },
@@ -234,7 +246,8 @@
         "provides": [
           "/notifications",
           "/notifications/sse",
-          "/notifications/preferences"
+          "/notifications/preferences",
+          { "method": "POST", "path": "/notifications/push/send", "description": "Internal: send Expo push notifications to a list of users" }
         ],
         "consumes": [
           "/auth/verify"
@@ -254,7 +267,11 @@
           "user_joined_community",
           "preferred_provider_selected",
           "provider_review_received",
-          "match_reminder"
+          "match_reminder",
+          "provider_went_on_duty",
+          "offer_submitted",
+          "offer_accepted",
+          "offer_declined"
         ]
       },
       "notes": "Subscribes to all events, creates notifications"

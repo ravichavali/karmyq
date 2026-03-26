@@ -273,6 +273,22 @@ Cards are never hard-deleted; deactivation sets `is_active = false`.
 
 **requests.help_requests** — Sprint 29 addition: `preferred_provider_id UUID REFERENCES requests.provider_profiles(id)` — optional field set when a requestor pre-selects a provider while filing a typed request.
 
+**provider.offers** - Provider priced offers on help requests (Sprint 41)
+```sql
+CREATE TABLE provider.offers (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    provider_id UUID NOT NULL REFERENCES requests.provider_profiles(id) ON DELETE CASCADE,
+    provider_user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    request_id UUID NOT NULL REFERENCES requests.help_requests(id) ON DELETE CASCADE,
+    price NUMERIC(10,2),            -- null means free / price TBD
+    note TEXT,
+    status VARCHAR(50) DEFAULT 'pending',  -- pending, accepted, declined, withdrawn
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(provider_id, request_id)        -- one offer per provider per request
+);
+```
+
 #### Tables Read by This Service
 - `auth.users` - User details for requester/helper names
 - `auth.user_skills` - User skills for skill-based matching
@@ -1200,6 +1216,141 @@ only becomes `completed` and karma fires when **both** parties have confirmed.
 
 **Schema changes (migration 017):** Added `requester_done_at TIMESTAMP` and `responder_done_at TIMESTAMP` to `requests.matches`
 
+### 3.3b Provider Offer Endpoints (Sprint 41)
+
+#### GET /requests/:id/offers
+List pending provider offers on a specific help request. Requester only.
+
+**Authentication:** Required (JWT token)
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "offers": [
+      {
+        "id": "uuid",
+        "provider_id": "uuid",
+        "provider_user_id": "uuid",
+        "provider_email": "provider@example.com",
+        "request_id": "uuid",
+        "price": 50.00,
+        "note": "I can help this weekend",
+        "status": "pending",
+        "created_at": "2026-03-26T10:00:00Z"
+      }
+    ]
+  }
+}
+```
+
+**Implementation:** `src/routes/providerOffers.ts`
+
+#### PUT /requests/offers/:id/accept
+Accept a pending provider offer. Creates a match between the requester and the provider.
+
+**Authentication:** Required (JWT token — must be the requester)
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Offer accepted",
+  "data": { "match_id": "uuid" }
+}
+```
+
+**Events Published:** `offer_accepted`
+
+**Implementation:** `src/routes/providerOffers.ts`
+
+#### PUT /requests/offers/:id/decline
+Decline a pending provider offer.
+
+**Authentication:** Required (JWT token — must be the requester)
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Offer declined"
+}
+```
+
+**Events Published:** `offer_declined`
+
+**Implementation:** `src/routes/providerOffers.ts`
+
+#### POST /providers/offers
+Submit a provider offer on an open help request.
+
+**Authentication:** Required (JWT token — must be an active provider)
+
+**Request:**
+```json
+{
+  "request_id": "uuid",
+  "price": 50.00,
+  "note": "Available this weekend"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": { "id": "uuid", "status": "pending" },
+  "message": "Offer submitted"
+}
+```
+
+**Events Published:** `offer_submitted`
+
+**Implementation:** `src/routes/providerOffers.ts`
+
+#### GET /providers/offers
+List offers submitted by the authenticated provider.
+
+**Authentication:** Required (JWT token)
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "offers": [
+      {
+        "id": "uuid",
+        "request_id": "uuid",
+        "request_title": "Need help with plumbing",
+        "price": 50.00,
+        "note": "Available this weekend",
+        "status": "pending",
+        "created_at": "2026-03-26T10:00:00Z"
+      }
+    ]
+  }
+}
+```
+
+**Implementation:** `src/routes/providerOffers.ts`
+
+#### PUT /providers/offers/:id/withdraw
+Withdraw a pending provider offer.
+
+**Authentication:** Required (JWT token — must be the offer owner)
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Offer withdrawn"
+}
+```
+
+**Implementation:** `src/routes/providerOffers.ts`
+
 ### 3.4 Interaction Feedback (Social Karma v2.0)
 
 #### POST /matches/:id/feedback
@@ -1932,6 +2083,20 @@ router.get('/health', async (req, res) => {
 - Monitor with: `docker stats karmyq-request-service`
 
 ### 10.3 Recent Changes (v9.10)
+
+**Version 9.15.0 - Sprint 41 (2026-03-26)**
+
+Provider offer flow — providers can now submit, list, and withdraw priced offers on open requests; requesters can accept or decline pending offers.
+
+- **NEW**: `GET /requests/:id/offers` — list provider offers on a specific request (requester only)
+- **NEW**: `PUT /requests/offers/:id/accept` — accept a pending provider offer; creates a match
+- **NEW**: `PUT /requests/offers/:id/decline` — decline a pending provider offer
+- **NEW**: `POST /providers/offers` — submit a provider offer on an open help request
+- **NEW**: `GET /providers/offers` — list offers submitted by the authenticated provider
+- **NEW**: `PUT /providers/offers/:id/withdraw` — withdraw a pending provider offer
+- **Schema**: New `provider.offers` table (`id`, `provider_id`, `provider_user_id`, `request_id`, `price`, `note`, `status`, `created_at`, `updated_at`)
+- **Events Published**: `provider_went_on_duty`, `offer_submitted`, `offer_accepted`, `offer_declined`
+- **Files**: `src/routes/providerOffers.ts`
 
 **Version 9.14.0 - Sprint 40 (2026-03-25)**
 

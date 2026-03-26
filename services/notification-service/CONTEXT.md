@@ -293,6 +293,33 @@ Update user's global notification preferences.
 }
 ```
 
+### POST /notifications/push/send (internal)
+Send Expo push notifications to a list of users. Internal use only (called by event handlers within the notification service itself, not exposed publicly).
+
+**Request:**
+```json
+{
+  "user_ids": ["uuid1", "uuid2"],
+  "title": "New offer on your request",
+  "body": "A provider has submitted an offer."
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": { "sent": 2, "failed": 0 }
+}
+```
+
+**Notes:**
+- Looks up Expo push tokens from `auth.device_push_tokens`
+- Uses `expo-server-sdk` to deliver push messages
+- Silently skips users with no registered push token
+
+**Implementation:** `src/services/pushNotificationService.ts`
+
 ### GET /health
 Service health check.
 
@@ -416,6 +443,10 @@ export function generateNotification(type: NotificationType, data: any) {
 - `request_created` - Notify community members + matching providers (Sprint 37: now includes `provider_request_matched` routing)
 - `provider_review_received` - Notify provider of new review (Sprint 37)
 - `match_reminder` - Notify responder of upcoming departure time (cleanup-service cron)
+- `provider_went_on_duty` - Notify matching community members that a provider is now available (Sprint 41)
+- `offer_submitted` - Notify the requester that a provider has submitted an offer (Sprint 41; triggers Expo push via `auth.device_push_tokens`)
+- `offer_accepted` - Notify the provider that their offer was accepted (Sprint 41)
+- `offer_declined` - Notify the provider that their offer was declined (Sprint 41)
 
 ### External Dependencies
 - PostgreSQL (notifications schema)

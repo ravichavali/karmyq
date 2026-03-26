@@ -52,6 +52,19 @@ CREATE TABLE auth.user_feed_preferences (
 );
 ```
 
+```sql
+-- auth.device_push_tokens (Sprint 41)
+CREATE TABLE auth.device_push_tokens (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    expo_push_token TEXT NOT NULL,
+    platform VARCHAR(20) NOT NULL,   -- 'ios', 'android'
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(user_id, expo_push_token)
+);
+```
+
 ### Tables Read by This Service
 - None (auth service is fully self-contained)
 
@@ -278,6 +291,51 @@ Update user's feed visibility preferences.
 - `feed_platform_categories`: must be an array
 
 **Implementation:** `src/routes/preferences.ts:421`
+
+### POST /auth/push-tokens
+Register an Expo push token for the authenticated user (Sprint 41).
+
+**Authentication:** Required (JWT token)
+
+**Request:**
+```json
+{
+  "expo_push_token": "ExponentPushToken[xxxx]",
+  "platform": "ios"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Push token registered"
+}
+```
+
+**Implementation:** `src/routes/pushTokens.ts`
+
+### DELETE /auth/push-tokens
+Remove an Expo push token for the authenticated user (Sprint 41).
+
+**Authentication:** Required (JWT token)
+
+**Request:**
+```json
+{
+  "expo_push_token": "ExponentPushToken[xxxx]"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Push token removed"
+}
+```
+
+**Implementation:** `src/routes/pushTokens.ts`
 
 ### GET /health
 Service health check.
@@ -584,6 +642,13 @@ src/
 - Database queries use connection pooling (max 20 connections)
 
 ## Recent Changes
+
+### Sprint 41: Expo Push Token API (2026-03-26)
+- **NEW**: `POST /auth/push-tokens` — registers an Expo push token for the authenticated user; stored in `auth.device_push_tokens`
+- **NEW**: `DELETE /auth/push-tokens` — removes an Expo push token for the authenticated user
+- **Schema**: New `auth.device_push_tokens` table (`id`, `user_id`, `expo_push_token`, `platform`, `created_at`, `updated_at`)
+- **File**: `src/routes/pushTokens.ts`
+- **Note**: Notification-service reads `auth.device_push_tokens` directly to send Expo push notifications
 
 ### Sprint 38: User Tags API (2026-03-24)
 - **NEW**: `GET /auth/profile/tags` — returns user's tags grouped by type (`skills`, `interests`, `needs`)
