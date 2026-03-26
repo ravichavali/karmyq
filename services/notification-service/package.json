@@ -14,7 +14,9 @@
     "test:regression": "jest tests/regression --passWithNoTests",
     "test:tdd": "jest tests/tdd --passWithNoTests"
   },
-  "dependencies": {},
+  "dependencies": {
+    "expo-server-sdk": "^6.1.0"
+  },
   "devDependencies": {
     "@types/cors": "^2.8.17",
     "@types/express": "^4.17.21",

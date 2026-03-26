@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 import pool from './database/db';
 import { initEventSubscriber } from './events/subscriber';
 import notificationRoutes from './routes/notifications';
+import pushRouter from './routes/push';
 import { createLogger, requestLoggingMiddleware } from '@karmyq/shared/utils/logger';
 import {
   authMiddleware,
@@ -38,6 +39,9 @@ import { sseHandler } from './routes/notifications';
 // SSE endpoint (no auth required because EventSource doesn't support custom headers)
 // Security: userId is in URL, and SSE only streams notifications for that specific user
 app.get('/notifications/stream/:userId', rateLimiters.relaxed, sseHandler);
+
+// Internal push delivery route (no auth — internal only, behind nginx)
+app.use('/notifications', pushRouter);
 
 // Other notification routes with authentication
 app.use(
