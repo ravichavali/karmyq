@@ -79,7 +79,7 @@ export default function Dashboard() {
   const [activeTab, setActiveTab] = useState<TabId>('browse')
   const [showWizard, setShowWizard] = useState(false)
 
-  const { providerMode, providerServiceTypes } = useProvider()
+  const { providerMode, providerServiceTypes, providerProfiles } = useProvider()
   const isProviderMode = providerMode === 'provider'
 
   useEffect(() => {
@@ -426,7 +426,13 @@ export default function Dashboard() {
         </div>
 
         {/* Provider mode summary card */}
-        {isProviderMode && <ProviderDashboardCard activeCommitments={activeCommitmentsCount} />}
+        {isProviderMode && (
+          <ProviderDashboardCard
+            activeCommitments={activeCommitmentsCount}
+            providerId={providerProfiles[0]?.id}
+            isAvailable={providerProfiles[0]?.is_available}
+          />
+        )}
 
         {/* Desktop tab bar */}
         <TabBar

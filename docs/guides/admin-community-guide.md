@@ -83,6 +83,28 @@ This is the key tool for high-touch facilitation. It doesn't force anyone into a
 
 ---
 
+## Acting as a Connector
+
+Admins don't just maintain a community — you connect people. These two tools are your primary instruments for active facilitation.
+
+### Spotlight a Request (Boost)
+
+Click the ⚡ Boost button on any open request in the Requests tab. The request rises in member feeds with a "Community Pick" badge for 48 hours. Use this for requests that need urgent community attention — a member in a difficult situation, a time-sensitive need, or a request that's been waiting too long.
+
+### Suggest a Helper (Propose a Match)
+
+Click **Propose a Match** on any open request. Select a community member from the picker. They'll see "Suggested by your community admin" in their Commitments tab and can Accept or Decline the suggestion. You're surfacing the opportunity — the decision stays with them.
+
+### When to Use Each
+
+**Boost** = surface the need. You want more people to see this request and self-select to help.
+
+**Propose** = connect the people. You have a specific person in mind and want to make a direct introduction.
+
+These tools work best when used with intention. Boosting everything dilutes the signal. Proposing works because it's personal — use it when you have a genuine reason to think a specific person is the right fit.
+
+---
+
 ## Providers Tab
 
 Browse the service providers who have listed themselves in your community. Useful for recommending vetted providers to members who post service requests.

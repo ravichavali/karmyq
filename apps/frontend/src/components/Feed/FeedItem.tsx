@@ -146,6 +146,16 @@ function OpenRequestItem({ data, itemId, onDismiss }: OpenRequestItemProps) {
             <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${urgencyColors[data.urgency as keyof typeof urgencyColors]}`}>
               {data.urgency}
             </span>
+            {(() => {
+              const boostActive = data.is_boosted &&
+                data.boosted_expires_at &&
+                new Date(data.boosted_expires_at) > new Date();
+              return boostActive ? (
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border bg-teal-100 text-teal-700 border-teal-200">
+                  Community Pick
+                </span>
+              ) : null;
+            })()}
             {data.offers_count === 0 && (
               <span className="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary-light text-primary-dark">
                 New - no offers yet

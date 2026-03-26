@@ -151,8 +151,8 @@ router.post('/:id/propose-match', async (req: Request, res: Response) => {
     }
 
     const result = await query(
-      `INSERT INTO requests.matches (request_id, responder_id, status)
-       VALUES ($1, $2, 'proposed')
+      `INSERT INTO requests.matches (request_id, responder_id, status, admin_proposed)
+       VALUES ($1, $2, 'proposed', TRUE)
        RETURNING *`,
       [id, user_id]
     );

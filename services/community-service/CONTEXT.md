@@ -225,7 +225,7 @@ Get all communities with optional filters.
 
 **Additional query modes (Sprint 36):**
 
-- `mode=geography&lat=X&lng=Y` — sort communities by distance from the given coordinates. Each result includes a `distance_km` field.
+- `mode=geography&lat=X&lng=Y` — sort communities by distance from the given coordinates. Each result includes a `distance_km` field. If no communities have coordinates, falls back to returning all communities and includes `"fallback": true` in the response data.
 - `mode=interests&tags=tag1,tag2` — filter communities that have ALL of the specified tags (array overlap via `&&` operator).
 
 **Implementation:** `src/routes/communities.ts:8`
@@ -1313,6 +1313,9 @@ src/
 - JOIN queries limited to necessary data only
 
 ## Recent Changes
+
+### Sprint 40 (2026-03-25) — Geo Mode Graceful Fallback
+- `GET /communities?mode=geography` now falls back to returning all communities when the geo query returns 0 rows (no communities have coordinates); response includes `fallback: true`
 
 ### Sprint 36 (2026-03-23) — Geographic and Interest-Based Discovery
 - Added `latitude`, `longitude`, and `tags` columns to `communities.communities` (migration 014)

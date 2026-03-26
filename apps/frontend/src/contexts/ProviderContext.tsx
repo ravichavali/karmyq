@@ -7,6 +7,7 @@ interface ProviderProfile {
   service_type: string
   display_name: string
   is_active: boolean
+  is_available?: boolean
   // Trust score fields from LEFT JOIN with reputation.provider_trust_scores
   // Postgres NUMERIC columns arrive as strings — use Number() when computing
   completion_rate?: string | number | null

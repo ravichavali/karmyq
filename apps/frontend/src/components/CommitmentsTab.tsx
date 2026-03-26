@@ -16,6 +16,7 @@ interface Match {
   request_title?: string
   requester_name?: string
   responder_name?: string
+  admin_proposed?: boolean
 }
 
 // ── Step indicator ────────────────────────────────────────────────────────────
@@ -231,6 +232,11 @@ export default function CommitmentsTab() {
           </div>
           <StepIndicator status={m.status} />
         </div>
+        {m.admin_proposed && (
+          <p className="text-xs text-teal-700 font-medium mt-1">
+            Suggested by your community admin
+          </p>
+        )}
         {/* Conversation widget: below status indicator, above footer actions */}
         {showConversation && currentUserId && (
           <ExpandableConversation
@@ -292,6 +298,11 @@ export default function CommitmentsTab() {
           </div>
           <StepIndicator status={m.status} />
         </div>
+        {m.admin_proposed && (
+          <p className="text-xs text-teal-700 font-medium mt-1">
+            Suggested by your community admin
+          </p>
+        )}
         {/* Conversation widget: below status indicator, above footer actions */}
         {showConversation && currentUserId && (
           <ExpandableConversation

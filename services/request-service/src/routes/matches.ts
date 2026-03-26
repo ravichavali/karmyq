@@ -21,7 +21,7 @@ router.get('/', async (req: Request, res: Response) => {
       SELECT
         m.id, m.request_id, m.offer_id, m.responder_id, m.status, m.created_at, m.completed_at,
         m.requester_done_at, m.responder_done_at,
-        m.scheduled_at, m.travel_time_minutes,
+        m.scheduled_at, m.travel_time_minutes, m.admin_proposed,
         r.title as request_title, r.description as request_description, r.category as request_category,
         r.request_type, r.payload,
         r.requester_id, req_user.name as requester_name,

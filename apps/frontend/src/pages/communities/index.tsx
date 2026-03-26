@@ -79,6 +79,7 @@ export default function CommunitiesPage() {
   // Discovery mode
   const [discoveryMode, setDiscoveryMode] = useState<DiscoveryMode>('geography')
   const [locationDenied, setLocationDenied] = useState(false)
+  const [geoFallback, setGeoFallback] = useState(false)
 
   // Tags (interests mode)
   const [availableTags, setAvailableTags] = useState<string[]>([])
@@ -166,6 +167,7 @@ export default function CommunitiesPage() {
 
       const response = await communityService.getCommunities(params)
       const newCommunities: Community[] = response.data.communities
+      setGeoFallback(response.data.fallback === true)
 
       if (loadMore) {
         setCommunities(prev => {
@@ -495,6 +497,12 @@ export default function CommunitiesPage() {
             <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg mb-4">
               {error}
             </div>
+          )}
+
+          {geoFallback && discoveryMode === 'geography' && (
+            <p className="text-sm text-text-muted text-center py-2">
+              Showing all communities — we couldn't narrow results by location.
+            </p>
           )}
 
           {/* Results */}

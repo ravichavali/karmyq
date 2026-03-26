@@ -126,7 +126,7 @@
         {
           "method": "POST",
           "path": "/requests/:id/boost",
-          "description": "Boost a request for 48h, adding +0.3 feed score (admin only)"
+          "description": "Boost a request for 48h; active boost adds +30 to feedScore (capped at 100) and returns is_boosted + boosted_expires_at in curated feed (admin only)"
         },
         {
           "method": "DELETE",
@@ -136,7 +136,7 @@
         {
           "method": "POST",
           "path": "/requests/:id/propose-match",
-          "description": "Admin proposes a specific community member as a helper (creates proposed match)"
+          "description": "Admin proposes a specific community member as a helper (creates proposed match with admin_proposed=TRUE on requests.matches)"
         },
         {
           "method": "PATCH",
@@ -501,5 +501,5 @@
       ]
     }
   },
-  "updated": "2026-03-23"
+  "updated": "2026-03-25"
 }

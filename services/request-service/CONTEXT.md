@@ -207,6 +207,9 @@ CREATE TABLE requests.matches (
     responder_visible BOOLEAN DEFAULT false,
     interaction_category VARCHAR(100),
 
+    -- Sprint 40: Admin propose-match (Migration 018)
+    admin_proposed BOOLEAN NOT NULL DEFAULT FALSE,  -- TRUE when match created via propose-match admin route
+
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     completed_at TIMESTAMP,
     requester_done_at TIMESTAMP,   -- set when requester clicks Done (migration 017)
@@ -383,6 +386,8 @@ Get curated feed with match scores, trust distance, and multi-tier visibility.
       },
       "matchScore": 85,
       "feedScore": 72,
+      "is_boosted": true,
+      "boosted_expires_at": "2026-03-27T12:00:00Z",
       "sourceTier": "community",
       "trustDistance": 2,
       "karmaScore": 150,
@@ -434,7 +439,7 @@ Get curated feed with match scores, trust distance, and multi-tier visibility.
    - **Platform**: Requests with `visibility_scope = 'platform'` (if user opted in)
 5. Batch-fetch trust distances from `auth.social_distances` and karma from `reputation.karma_records`
 6. Resolve source tier per request using `resolveSourceTier()` from `@karmyq/shared/matching`
-7. Calculate feed scores using community-configurable weights (ADR-031)
+7. Calculate feed scores using community-configurable weights (ADR-031); active boost adds +30 to feedScore (capped at 100)
 8. Sort by tier priority (community > trust_network > platform), then by feedScore
 9. Return top N results with transparency (scores, tier, trust distance, karma)
 
@@ -1927,6 +1932,12 @@ router.get('/health', async (req, res) => {
 - Monitor with: `docker stats karmyq-request-service`
 
 ### 10.3 Recent Changes (v9.10)
+
+**Version 9.14.0 - Sprint 40 (2026-03-25)**
+
+- `requests.matches.admin_proposed BOOLEAN NOT NULL DEFAULT FALSE` — set to TRUE when match created via the `POST /requests/:id/propose-match` admin route (migration 018)
+- `GET /requests/curated` now returns `is_boosted` and `boosted_expires_at` fields per request item
+- Active boost contributes +30 to feedScore (capped at 100) during feed score calculation
 
 **Version 9.10.0 - Admin Power Actions (Sprint 36, 2026-03-23)**
 

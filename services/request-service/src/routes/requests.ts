@@ -329,6 +329,7 @@ router.get('/curated', async (req: Request, res: Response) => {
         r.category, r.urgency, r.status, r.created_at, r.updated_at,
         r.request_type, r.payload, r.requirements,
         r.visibility_scope, r.visibility_max_degrees,
+        r.is_boosted, r.boosted_expires_at,
         u.name as requester_name,
         STRING_AGG(DISTINCT c.name, ', ') as community_name,
         STRING_AGG(DISTINCT rc.community_id::text, ',') as community_ids,
@@ -379,7 +380,7 @@ router.get('/curated', async (req: Request, res: Response) => {
     }
 
     queryText += `
-      GROUP BY r.id, r.requester_id, r.title, r.description, r.category, r.urgency, r.status, r.created_at, r.updated_at, r.request_type, r.payload, r.requirements, r.visibility_scope, r.visibility_max_degrees, u.name
+      GROUP BY r.id, r.requester_id, r.title, r.description, r.category, r.urgency, r.status, r.created_at, r.updated_at, r.request_type, r.payload, r.requirements, r.visibility_scope, r.visibility_max_degrees, r.is_boosted, r.boosted_expires_at, u.name
       LIMIT 150`; // Get more than needed, then filter by tier + score
 
     const requestsResult = await query(queryText, params);
@@ -418,6 +419,7 @@ router.get('/curated', async (req: Request, res: Response) => {
             r.category, r.urgency, r.status, r.created_at, r.updated_at,
             r.request_type, r.payload, r.requirements,
             r.visibility_scope, r.visibility_max_degrees,
+            r.is_boosted, r.boosted_expires_at,
             u.name as requester_name,
             STRING_AGG(DISTINCT c.name, ', ') as community_name,
             STRING_AGG(DISTINCT rc.community_id::text, ',') as community_ids,
@@ -433,7 +435,8 @@ router.get('/curated', async (req: Request, res: Response) => {
              AND r.id != ALL($3::uuid[])
            GROUP BY r.id, r.requester_id, r.title, r.description, r.category, r.urgency,
                     r.status, r.created_at, r.updated_at, r.request_type, r.payload,
-                    r.requirements, r.visibility_scope, r.visibility_max_degrees, u.name
+                    r.requirements, r.visibility_scope, r.visibility_max_degrees,
+                    r.is_boosted, r.boosted_expires_at, u.name
            LIMIT 50`,
           [userId, sisterCommunityIds, requestsResult.rows.map((r: any) => r.id)]
         );
@@ -568,12 +571,19 @@ router.get('/curated', async (req: Request, res: Response) => {
         weights
       );
 
+      // Boost bonus: active admin boost floats request higher
+      const boostActive = request.is_boosted &&
+        request.boosted_expires_at &&
+        new Date(request.boosted_expires_at) > new Date();
+      const boostBonus = boostActive ? 30 : 0;
+      const finalFeedScore = Math.min(100, feedResult.score + boostBonus);
+
       return {
         ...request,
         matchScore: matchResult.score,
         matchReasons: matchResult.reasons,
         matchBreakdown: matchResult.breakdown,
-        feedScore: feedResult.score,
+        feedScore: finalFeedScore,
         feedBreakdown: feedResult.breakdown,
         // Trust & karma data for frontend display
         trustDegrees: degrees,
@@ -615,12 +625,17 @@ router.get('/curated', async (req: Request, res: Response) => {
         },
         DEFAULT_FEED_WEIGHTS
       );
+      // Boost bonus: active admin boost floats request higher
+      const boostActive = request.is_boosted &&
+        request.boosted_expires_at &&
+        new Date(request.boosted_expires_at) > new Date();
+      const boostBonus = boostActive ? 30 : 0;
       return {
         ...request,
         matchScore: matchResult.score,
         matchReasons: matchResult.reasons,
         matchBreakdown: matchResult.breakdown,
-        feedScore: Math.round(feedResult.score * carryFactor),
+        feedScore: Math.min(100, Math.round(feedResult.score * carryFactor) + boostBonus),
         feedBreakdown: feedResult.breakdown,
         trustDegrees: degrees,
         requesterKarma: requesterReputation.totalKarma,

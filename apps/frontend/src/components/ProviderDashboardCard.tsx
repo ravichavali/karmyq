@@ -1,8 +1,11 @@
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import { useProvider } from '../contexts/ProviderContext'
+import { providerService } from '../lib/api'
 
 interface ProviderDashboardCardProps {
   activeCommitments?: number
+  providerId?: string
+  isAvailable?: boolean
 }
 
 const StatCell = ({ label, value }: { label: string; value: string | number }) => (
@@ -12,8 +15,11 @@ const StatCell = ({ label, value }: { label: string; value: string | number }) =
   </div>
 )
 
-const ProviderDashboardCard: React.FC<ProviderDashboardCardProps> = ({ activeCommitments }) => {
+const ProviderDashboardCard: React.FC<ProviderDashboardCardProps> = ({ activeCommitments, providerId, isAvailable }) => {
   const { providerProfiles } = useProvider()
+  const [available, setAvailable] = useState(isAvailable ?? false)
+
+  useEffect(() => { setAvailable(isAvailable ?? false) }, [isAvailable])
 
   if (providerProfiles.length === 0) return null
 
@@ -53,6 +59,29 @@ const ProviderDashboardCard: React.FC<ProviderDashboardCardProps> = ({ activeCom
           value={responseRate != null ? `${responseRate}%` : '—'}
         />
       </div>
+      {providerId && (
+        <div className="flex items-center justify-between mt-3 pt-3 border-t border-border">
+          <span className="text-sm text-text-muted">Availability</span>
+          <button
+            onClick={async () => {
+              const newVal = !available;
+              setAvailable(newVal);
+              try {
+                await providerService.updateAvailability(providerId, newVal);
+              } catch {
+                setAvailable(!newVal); // revert on error
+              }
+            }}
+            className={`px-3 py-1 rounded-full text-xs font-medium transition ${
+              available
+                ? 'bg-success-light text-green-700'
+                : 'bg-surface text-text-muted border border-border'
+            }`}
+          >
+            {available ? 'Available' : 'Unavailable'}
+          </button>
+        </div>
+      )}
     </div>
   )
 }

@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "updated": "2026-03-23",
+  "updated": "2026-03-25",
   "services": {
     "auth-service": {
       "port": 3001,
@@ -129,9 +129,9 @@
           "/requests/:id/admin-triage",
           "/providers/:id/rate-cards",
           "/providers/:id/rate-cards/:cardId",
-          {"method": "POST", "path": "/requests/:id/boost", "description": "Boost a request for 48h, adding +0.3 feed score (admin only)"},
+          {"method": "POST", "path": "/requests/:id/boost", "description": "Boost a request for 48h; active boost adds +30 to feedScore (capped at 100) and returns is_boosted + boosted_expires_at in curated feed (admin only)"},
           {"method": "DELETE", "path": "/requests/:id/boost", "description": "Remove active boost from a request (admin only)"},
-          {"method": "POST", "path": "/requests/:id/propose-match", "description": "Admin proposes a specific community member as a helper (creates proposed match)"},
+          {"method": "POST", "path": "/requests/:id/propose-match", "description": "Admin proposes a specific community member as a helper (creates proposed match with admin_proposed=TRUE on requests.matches)"},
           {"method": "PATCH", "path": "/requests/:id/urgent", "description": "Toggle request urgency between urgent and medium (admin only)"}
         ],
         "consumes": [

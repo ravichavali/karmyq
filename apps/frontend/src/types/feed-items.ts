@@ -36,6 +36,8 @@ export interface OpenRequestData {
   required_skills?: string[];
   requesterKarma?: number;
   requesterTrustScore?: number;
+  is_boosted?: boolean;
+  boosted_expires_at?: string;
 }
 
 export interface SuggestedRequestData {
