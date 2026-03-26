@@ -40,7 +40,7 @@ app.use('/auth/profile/tags', rateLimiters.standard, profileTagsRoutes);
 app.use('/auth', rateLimiters.standard, pushTokensRoutes);
 
 // Error handling
-app.use((err: any, req: any, res: express.Response, next: express.NextFunction) => {
+app.use((err: any, req: any, res: express.Response, _next: express.NextFunction) => {
   req.logger?.error('Unhandled error', err instanceof Error ? err : new Error(String(err)), {
     method: req.method,
     path: req.path,

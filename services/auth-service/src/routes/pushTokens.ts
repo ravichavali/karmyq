@@ -1,4 +1,4 @@
-import { Router, Request, Response, NextFunction } from 'express';
+import { Router, Response, NextFunction } from 'express';
 import { authMiddleware, AuthenticatedRequest } from '@karmyq/shared/middleware';
 import { query } from '../database/db';
 
