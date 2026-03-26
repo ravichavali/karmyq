@@ -26,6 +26,11 @@ export async function sendPushToUsers(
 
   const chunks = expo.chunkPushNotifications(messages);
   for (const chunk of chunks) {
-    await expo.sendPushNotificationsAsync(chunk);
+    const tickets = await expo.sendPushNotificationsAsync(chunk);
+    for (const ticket of tickets) {
+      if (ticket.status === 'error') {
+        console.error('[expoPush] Push ticket error:', ticket.message, ticket.details);
+      }
+    }
   }
 }
