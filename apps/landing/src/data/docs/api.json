@@ -70,6 +70,16 @@
           "description": "Update user's feed visibility preferences."
         },
         {
+          "method": "POST",
+          "path": "/auth/push-tokens",
+          "description": "Register an Expo push token for the authenticated user (Sprint 41)."
+        },
+        {
+          "method": "DELETE",
+          "path": "/auth/push-tokens",
+          "description": "Remove an Expo push token for the authenticated user (Sprint 41)."
+        },
+        {
           "method": "GET",
           "path": "/health",
           "description": "Service health check."
@@ -335,6 +345,36 @@
           "method": "PUT",
           "path": "/matches/:id/complete",
           "description": "Two-phase match completion. Each party calls this independently; the match"
+        },
+        {
+          "method": "GET",
+          "path": "/requests/:id/offers",
+          "description": "List pending provider offers on a specific help request. Requester only."
+        },
+        {
+          "method": "PUT",
+          "path": "/requests/offers/:id/accept",
+          "description": "Accept a pending provider offer. Creates a match between the requester and the provider."
+        },
+        {
+          "method": "PUT",
+          "path": "/requests/offers/:id/decline",
+          "description": "Decline a pending provider offer."
+        },
+        {
+          "method": "POST",
+          "path": "/providers/offers",
+          "description": "Submit a provider offer on an open help request."
+        },
+        {
+          "method": "GET",
+          "path": "/providers/offers",
+          "description": "List offers submitted by the authenticated provider."
+        },
+        {
+          "method": "PUT",
+          "path": "/providers/offers/:id/withdraw",
+          "description": "Withdraw a pending provider offer."
         },
         {
           "method": "POST",
@@ -632,6 +672,11 @@
           "method": "PUT",
           "path": "/notifications/:userId/preferences",
           "description": "Update user's global notification preferences."
+        },
+        {
+          "method": "POST",
+          "path": "/notifications/push/send (internal)",
+          "description": "Send Expo push notifications to a list of users. Internal use only (called by event handlers within the notification service itself, not exposed publicly)."
         },
         {
           "method": "GET",
