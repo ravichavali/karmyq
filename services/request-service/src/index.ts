@@ -56,7 +56,7 @@ app.use('/schemas', rateLimiters.standard, schemasRouter);
 app.use('/providers', rateLimiters.standard, providersRouter);
 
 // Provider offer CRUD (POST /providers/offers, GET /providers/offers, PUT /providers/offers/:id/withdraw)
-app.use('/offers', rateLimiters.standard, providerOffersRouter);
+app.use('/providers', rateLimiters.standard, providerOffersRouter);
 
 // Provider collectives (all endpoints require auth)
 app.use('/collectives', rateLimiters.standard, collectivesRouter);
