@@ -1,6 +1,7 @@
 import Queue from 'bull';
 import { createNotification } from '../services/notificationService';
 import { query } from '../database/db';
+import { sendPushToUsers } from '../lib/expoPush';
 
 const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
 
@@ -283,24 +284,6 @@ export async function initEventSubscriber() {
       const { match_id, responder_id, request_title, request_type, scheduled_at, travel_time_minutes } = payload;
 
       try {
-        const departureDate = new Date(scheduled_at);
-        const departureTime = departureDate.toLocaleTimeString('en-US', {
-          hour: 'numeric',
-          minute: '2-digit',
-          timeZone: 'UTC',
-        });
-        const departureDay = departureDate.toLocaleDateString('en-US', {
-          month: 'short',
-          day: 'numeric',
-          timeZone: 'UTC',
-        });
-
-        const isRide = request_type === 'ride';
-        const title = `Time to leave — ${request_title}`;
-        const body = isRide
-          ? `Pickup is at ${departureTime} on ${departureDay}. Head to the pickup spot now!`
-          : `Your commitment starts at ${departureTime} on ${departureDay}. Time to get ready!`;
-
         await createNotification({
           user_id: responder_id,
           type: 'match_reminder',
@@ -360,6 +343,97 @@ export async function initEventSubscriber() {
       } catch (error) {
         console.error('❌ Failed to process provider_review_received event:', error);
         throw error;
+      }
+    });
+
+    // Handle provider_went_on_duty event — push open requests in provider's communities
+    eventQueue.process('provider_went_on_duty', async (job) => {
+      console.log('Processing provider_went_on_duty event:', job.data);
+      const { providerUserId, communityIds } = job.data;
+
+      if (!communityIds?.length) return;
+
+      try {
+        const result = await query(
+          `SELECT DISTINCT hr.id, hr.title
+           FROM requests.help_requests hr
+           JOIN requests.request_communities rc ON rc.request_id = hr.id
+           WHERE rc.community_id = ANY($1) AND hr.status = 'open'
+           LIMIT 10`,
+          [communityIds]
+        );
+
+        const count = result.rows.length;
+        if (count === 0) return;
+
+        await sendPushToUsers(
+          [providerUserId],
+          'Requests waiting in your community',
+          `${count} open request${count > 1 ? 's' : ''} match your services. Tap to view.`,
+          { type: 'provider_on_duty', count }
+        );
+
+        console.log(`✅ provider_went_on_duty push sent to ${providerUserId} (${count} open requests)`);
+      } catch (error) {
+        console.error('❌ Failed to process provider_went_on_duty event:', error);
+      }
+    });
+
+    // Handle offer_submitted event — notify requester that an offer arrived
+    eventQueue.process('offer_submitted', async (job) => {
+      console.log('Processing offer_submitted event:', job.data);
+      const { requesterUserId, price } = job.data;
+
+      try {
+        const priceText = price ? ` for $${price}` : '';
+        await sendPushToUsers(
+          [requesterUserId],
+          'Someone offered to help',
+          `You received an offer${priceText}. Tap to review.`,
+          { type: 'offer_received' }
+        );
+
+        console.log(`✅ offer_submitted push sent to ${requesterUserId}`);
+      } catch (error) {
+        console.error('❌ Failed to process offer_submitted event:', error);
+      }
+    });
+
+    // Handle offer_accepted event — notify provider their offer was accepted
+    eventQueue.process('offer_accepted', async (job) => {
+      console.log('Processing offer_accepted event:', job.data);
+      const { providerUserId } = job.data;
+
+      try {
+        await sendPushToUsers(
+          [providerUserId],
+          'Offer accepted!',
+          'Your offer was accepted. Check your commitments.',
+          { type: 'offer_accepted' }
+        );
+
+        console.log(`✅ offer_accepted push sent to ${providerUserId}`);
+      } catch (error) {
+        console.error('❌ Failed to process offer_accepted event:', error);
+      }
+    });
+
+    // Handle offer_declined event — notify provider their offer was not accepted
+    eventQueue.process('offer_declined', async (job) => {
+      console.log('Processing offer_declined event:', job.data);
+      const { providerUserId } = job.data;
+
+      try {
+        await sendPushToUsers(
+          [providerUserId],
+          'Offer declined',
+          'Your offer was not accepted this time.',
+          { type: 'offer_declined' }
+        );
+
+        console.log(`✅ offer_declined push sent to ${providerUserId}`);
+      } catch (error) {
+        console.error('❌ Failed to process offer_declined event:', error);
       }
     });
 
