@@ -1,4 +1,4 @@
-import express, { Request, Response, NextFunction } from 'express';
+import express, { Response, NextFunction } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import { initDatabase } from './database/db';
@@ -56,7 +56,7 @@ app.use('/schemas', rateLimiters.standard, schemasRouter);
 app.use('/providers', rateLimiters.standard, providersRouter);
 
 // Provider offer CRUD (POST /providers/offers, GET /providers/offers, PUT /providers/offers/:id/withdraw)
-app.use('/providers', rateLimiters.standard, providerOffersRouter);
+app.use('/offers', rateLimiters.standard, providerOffersRouter);
 
 // Provider collectives (all endpoints require auth)
 app.use('/collectives', rateLimiters.standard, collectivesRouter);
@@ -125,7 +125,7 @@ app.use((req: any, res: Response) => {
 });
 
 // Error handling middleware
-app.use((err: Error, req: any, res: Response, next: NextFunction) => {
+app.use((err: Error, req: any, res: Response, _next: NextFunction) => {
   req.logger?.error('Unhandled error', err, {
     method: req.method,
     path: req.path
