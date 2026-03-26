@@ -1,27 +1,34 @@
-# SPRINT 40 READY TO EXECUTE
+# SPRINT 41 READY TO EXECUTE
 
 ## Handoff Document for New Conversation
 
-**Date**: 2026-03-25
-**Current Version**: v9.14.0 (Sprint 39 deployed)
-**Status**: Sprint 40 planned — ready to execute
+**Date**: 2026-03-26
+**Current Version**: v9.15.0 (Sprint 40 deployed)
+**Status**: Sprint 41 spec + plan written — ready to execute
 
 ---
 
 ## Quick Start
 
 1. Read this handoff
-2. Check out branch: `git checkout -b feature/sprint-40-admin-connectors`
-3. Open plan: `docs/superpowers/plans/2026-03-25-sprint-40-admin-connectors.md`
+2. Check out branch: `git checkout -b feature/sprint-41-provider-offer-flow`
+3. Open plan: `docs/superpowers/plans/2026-03-26-sprint-41-provider-offer-flow.md`
 4. Run: `/execute-plan` (uses superpowers:subagent-driven-development)
 
 ---
 
-## Sprint 40 Goal
+## Sprint 41 Goal
 
-Make admin connector tools real — boosted requests float higher in the member feed with a "Community Pick" badge; admin-proposed matches are labeled for the requester; fix provider availability toggle placement and geolocation community list returning empty.
+> **Provider on-duty push notifications + offer submission flow (Phase 1)**
 
-**Version bump**: v9.14.0 → v9.15.0
+Provider toggles on-duty → push notified of matching open requests in their communities → submits an offer with editable price (defaulting from rate card) → requester gets push notified → accepts or declines from CommitmentsTab.
+
+---
+
+## Key Documents
+
+- **Design spec**: `docs/superpowers/specs/2026-03-26-sprint-41-provider-offer-flow-design.md`
+- **Implementation plan**: `docs/superpowers/plans/2026-03-26-sprint-41-provider-offer-flow.md`
 
 ---
 
@@ -29,72 +36,55 @@ Make admin connector tools real — boosted requests float higher in the member 
 
 | Sprint | Focus | Status |
 |--------|-------|--------|
-| **36** | Admin power tools (boost, propose match UI) | ✅ Complete |
-| **37** | Provider Mode | ✅ Complete |
-| **38** | Contextual Trust + Member Profile Depth | ✅ Complete |
-| **39** | Provider Mode UX Hardening + Accept Offers | ✅ Complete — v9.14.0 |
-| **40** | Admin Connector Tools (make them real) + bug fixes | Ready to execute |
-| **41** | Onboarding / First-run UX (empty states, welcome flow) | Upcoming |
-
-**5-6 sprint horizon**: Making Karmyq ready for cold-start user testing (send link, no intro, users complete end-to-end journey on their own).
-
----
-
-## Spec + Plan
-
-- **Spec**: `docs/superpowers/specs/2026-03-25-sprint-40-admin-connectors-design.md`
-- **Plan**: `docs/superpowers/plans/2026-03-25-sprint-40-admin-connectors.md`
+| **37** | Provider Mode (profiles, rate cards, dashboard) | ✅ Complete |
+| **39** | Provider UX Hardening + Accept Offers (community match flow) | ✅ Complete |
+| **40** | Admin Connector Tools + Provider Toggle | ✅ Complete — v9.15.0 |
+| **41** | Provider on-duty push notifications + offer submission flow | **This sprint** |
+| **42** | Offer prioritization by prior interactions + direct "dibs" request | Upcoming |
+| **43** | Group task communities | Upcoming |
+| **44** | Onboarding / First-run UX (empty states, welcome flow) | Upcoming |
 
 ---
 
-## What Sprint 40 Ships
+## Critical Implementation Notes (from spec — read before Task 2)
 
-1. **Boost affects curated feed rank** — `GET /requests/curated` adds `is_boosted`, `boosted_expires_at` to SELECT; active boost adds +30 flat to feedScore after weighted calculation
-2. **"Community Pick" badge in FeedItem** — teal badge (`bg-teal-100 text-teal-700`) when `is_boosted && !expired`
-3. **`admin_proposed` flag on matches** — `POST /requests/:id/propose-match` sets `admin_proposed = TRUE`; GET /matches returns it
-4. **"Suggested by admin" in CommitmentsTab** — `admin_proposed === true` shows label under the match card
-5. **Provider Availability Toggle on ProviderDashboardCard** — passes `providerId` + `isAvailable` from dashboard; toggle calls `providerService.updateAvailability`
-6. **Geo community list fix** — community service fallback when geo query returns 0 rows; frontend shows "Showing all communities — we couldn't narrow by location"
+1. **Push tokens must be registered after auth** — `useExpoNotifications` must only call the API once `userId` is available. Registering before auth means the token can't be linked to a user.
 
----
+2. **`provider_went_on_duty` query uses the junction table** — `requests.help_requests` has NO `community_id` column. To find matching open requests: `JOIN requests.request_communities rc ON rc.request_id = hr.id WHERE rc.community_id = ANY($1) AND hr.status = 'open'`.
 
-## ⚠️ Critical Implementation Notes
+3. **Rate card lookup for offer pre-fill** — query `provider.rate_cards WHERE provider_id = $1 AND is_active = true ORDER BY created_at DESC LIMIT 1`. If no rate card, price field is blank (not zero).
 
-1. **Boost is in DB but NOT in curated SQL.** Add `r.is_boosted`, `r.boosted_expires_at` to the `GET /requests/curated` SELECT — without this the frontend can't show the badge.
+4. **`offer_accepted` creates a `requests.matches` record** — map `provider_user_id` → `helper_id`, set `status = 'matched'`. Skip the `proposed` stage.
 
-2. **Boost scoring: flat +30 AFTER weighted score.** After the existing `feedResult.score` computation, check `if (request.is_boosted && new Date(request.boosted_expires_at) > new Date())` → add 30, cap at 100. Apply to both main and sister-community scoring blocks.
+5. **Expo push API** — install `expo-server-sdk` in notification service. Token format: `ExponentPushToken[xxxx]`. Batch up to 100 per call.
 
-3. **Migration before code.** `ALTER TABLE requests.matches ADD COLUMN IF NOT EXISTS admin_proposed BOOLEAN NOT NULL DEFAULT FALSE` — run this first, then update adminActions.ts INSERT. Production: `docker exec karmyq-postgres psql -U karmyq_prod -d karmyq_prod -f /path/to/migration.sql`
+6. **One active offer per provider per request** — check for existing `pending` or `accepted` offer before inserting. Return 409 if duplicate.
 
-4. **Geo bug root cause**: Community service geo query filters `WHERE c.latitude IS NOT NULL AND c.longitude IS NOT NULL`. Seed communities have no coordinates → 0 rows. Fix: if geo query returns 0, re-run without filter and return `{ ..., data: { communities: [...], fallback: true } }`. Frontend handles `fallback: true`.
+7. **Locate the existing availability endpoint** — find in `services/provider-service/src/routes/` before modifying. Do not guess the path.
 
-5. **Provider toggle in card**: `ProviderDashboardCard` needs `providerId?: string` + `isAvailable?: boolean` props. Dashboard.tsx passes `providerProfiles[0]?.id` and `providerProfiles[0]?.is_available`. Card calls `providerService.updateAvailability(providerId, !currentValue)`. Use local state for optimistic update.
-
-6. **CommitmentsTab Match type**: Add `admin_proposed?: boolean` to Match interface. The GET /matches query must SELECT `m.admin_proposed`.
-
-7. **"Community Pick" badge expiry**: `const boostActive = data.is_boosted && data.boosted_expires_at && new Date(data.boosted_expires_at) > new Date()`.
-
-8. **Landing docs**: Update `apps/landing/src/data/docs/guides/admin-community.json` (NOT a new file). Run `cd apps/landing && npm run generate-docs`, then `git add -f apps/landing/src/data/docs/`.
+8. **`communityIds` in event payload** — provider service must include the provider's community IDs in the `provider_went_on_duty` event (read from JWT `user.communities`) so notification service can query matching requests without a cross-service DB call.
 
 ---
 
-## What Already Exists (do not rebuild)
+## New Tables This Sprint
 
-- `is_boosted`, `boosted_at`, `boosted_expires_at` columns on `requests.help_requests`
-- Admin boost/remove-boost buttons in communities/[id].tsx admin Requests tab
-- `POST /requests/:id/propose-match` endpoint in `services/request-service/src/routes/adminActions.ts`
-- Member picker modal for propose-match in communities/[id].tsx
-- Mark Urgent button + `requestService.markUrgent` (leave alone this sprint)
-- `providerService.updateAvailability(providerId, boolean)` in api.ts
+```sql
+-- auth.device_push_tokens
+-- migration: infrastructure/postgres/migrations/20260326-device-push-tokens.sql
+
+-- provider.offers
+-- migration: infrastructure/postgres/migrations/20260326-provider-offers.sql
+```
+
+Both migrations must be run on demo server after deploy (see Task 13 in plan).
 
 ---
 
 ## Carry-Forward Issues
 
 - **Integration tests**: Fail locally (no DB), pass in CI. Expected.
-- **GitHub security vulnerabilities**: 8 Dependabot alerts remain (5 high, 2 moderate, 1 low).
+- **GitHub security vulnerabilities**: 8 Dependabot alerts (pre-existing, non-blocking).
 - **Sprint 36 migrations**: Apply before next DB-touching sprint if not yet on demo server.
-- **Sprint 38 migration**: Applied on demo server ✅ (`auth.user_tags` confirmed present).
 - **Mobile app lint**: Pre-existing CI failure — non-blocking.
 
 ---
@@ -147,12 +137,20 @@ Make admin connector tools real — boosted requests float higher in the member 
   - Requested+proposed → Accept (`acceptMatch`, status→matched) + Decline (`rejectMatch`, remove)
   - `requester_id` is optional in Match interface — guard before rendering as button
   - TrustCard triggered by `selectedProfileUserId` state, rendered at bottom of return JSX
-- **Sprint 40 admin connector patterns** (new this sprint):
+- **Sprint 40 admin connector patterns**:
   - `requests.matches.admin_proposed BOOLEAN DEFAULT FALSE` — TRUE when created via propose-match route
   - Boost scoring: flat +30 added to feedScore after weighted calculation, capped at 100
   - `is_boosted`, `boosted_expires_at` returned by curated feed endpoint
   - "Community Pick" badge: `bg-teal-100 text-teal-700 border-teal-200`
   - Geo fallback: community service returns `{ data: { communities: [...], fallback: true } }` when geo returns 0 rows
-- **Docker exec for migrations**: Postgres is only accessible within Docker network. To run migrations on server:
+  - `ProviderDashboardCard` accepts `providerId?: string` + `isAvailable?: boolean`; local optimistic state
+- **Sprint 41 provider offer patterns** (fill in during execution):
+  - `auth.device_push_tokens`: stores Expo push tokens per user device
+  - `provider.offers`: separate from `requests.matches` — commercial offer flow
+  - Offer statuses: `pending` | `accepted` | `declined` | `withdrawn`
+  - `provider_went_on_duty` event: `{ providerId, providerUserId, communityIds }`
+  - Expo push delivered via `expo-server-sdk` in notification service
+  - Offer accepted → creates `requests.matches` record with `status = 'matched'`
+- **Docker exec for migrations**: Postgres only accessible within Docker network. To run migrations:
   `docker exec karmyq-postgres psql -U karmyq_prod -d karmyq_prod -f /path/to/migration.sql`
-  (copy file to server first with `scp`, then mount/exec)
+  (copy file to server first with `scp`)
