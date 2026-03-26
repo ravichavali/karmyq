@@ -7,6 +7,7 @@ import pool from './database/db';
 import requestsRouter from './routes/requests';
 import offersRouter from './routes/offers';
 import providerOffersRouter from './routes/providerOffers';
+import requesterOffersRouter from './routes/requesterOffers';
 import matchesRouter from './routes/matches';
 import feedbackRouter from './routes/feedback';
 import schemasRouter from './routes/schemas';
@@ -91,6 +92,11 @@ app.use(
   dbContextMiddleware(pool),
   adminActionsRouter
 );
+
+// Requester-side offer management: view, accept, decline provider offers
+// Routes: GET /requests/:id/offers, PUT /requests/offers/:id/accept, PUT /requests/offers/:id/decline
+// Each route applies authMiddleware individually
+app.use('/requests', rateLimiters.standard, requesterOffersRouter);
 
 app.use(
   '/offers',

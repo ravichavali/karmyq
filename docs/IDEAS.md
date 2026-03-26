@@ -109,3 +109,46 @@ Proposed improvements:
 Also related: simulation was stuck creating communities because of `access_type: 'open'` vs `'public'` mismatch (fixed 2026-03-18). Once new communities are created, users will spread across more communities and the graph will naturally diversify.
 
 ---
+
+## [2026-03-25] architecture
+
+We probably need to work on creating communities that are for group activities as well — not just mutual aid between individuals, but communities organized around shared events or recurring group actions.
+
+---
+
+## [2026-03-26] architecture
+
+Provider listing page may not be the right model — Karmyq is request-driven, not supplier-driven. Not sold on a browsable provider directory.
+
+---
+
+## [2026-03-26] architecture
+
+Direct provider request = "dibs" model: request is sent privately to one specific person first. If they reject (or don't respond), it becomes public and broadcasts to available providers. Preserves trust-based priority while keeping the network as fallback.
+
+---
+
+## [2026-03-26] architecture
+
+Group task communities — sports teams, fitness groups, hobby clubs — should be a distinct community type organized around shared recurring activities, not just mutual aid between individuals. Plan before onboarding/first-run UX sprints.
+
+---
+
+## [2026-03-26] other
+
+Look at other areas of day-to-day services that are high friction and see if the platform can help smooth them out — e.g. what makes people avoid asking for help or hiring locally? Where do trust gaps or coordination overhead cause people to default to impersonal alternatives?
+
+---
+
+## [2026-03-26] architecture
+
+Provider availability toggle should work like a cab driver going on/off duty:
+- Toggle ON → provider starts seeing relevant community requests in their feed
+- Provider responds to a specific request with their price (per-request, not just rate card)
+- Both sides can check trust scores before committing
+- On/off distinction matters because provider interactions are more time-sensitive than general help requests
+- Model: need is posted → available providers come to it (reverse marketplace), not "browse providers and hire one"
+
+Open questions: do rate cards become per-request defaults? Feed vs. push notification for new requests? Acceptance flow shape?
+
+---
