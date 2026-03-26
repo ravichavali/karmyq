@@ -7,10 +7,10 @@ const router = Router();
 router.post('/push/send', async (req: Request, res: Response) => {
   const { user_ids, title, body, data } = req.body;
   if (!user_ids?.length || !title || !body) {
-    return res.status(400).json({ success: false, message: 'user_ids, title, body required' });
+    return res.status(400).json({ success: false, message: 'user_ids, title, body required', error: 'MISSING_FIELDS' });
   }
   await sendPushToUsers(user_ids, title, body, data);
-  res.json({ success: true });
+  res.json({ success: true, data: {} });
 });
 
 export default router;
