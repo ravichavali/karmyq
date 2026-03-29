@@ -37,6 +37,7 @@ router.get('/', async (req: Request, res: Response) => {
         r.category, r.urgency, r.status, r.created_at, r.updated_at,
         r.request_type, r.payload, r.requirements,
         r.visibility_scope, r.visibility_max_degrees,
+        r.scheduled_for,
         u.name as requester_name,
         STRING_AGG(DISTINCT c.name, ', ') as community_name,
         STRING_AGG(DISTINCT rc.community_id::text, ',') as community_ids${includeAdminNotes ? ',\n        ran.note as admin_note' : ''}
@@ -91,7 +92,7 @@ router.get('/', async (req: Request, res: Response) => {
 
     const groupByExtra = includeAdminNotes ? ', ran.note' : '';
     queryText += `
-      GROUP BY r.id, r.requester_id, r.title, r.description, r.category, r.urgency, r.status, r.created_at, r.updated_at, r.request_type, r.payload, r.requirements, r.visibility_scope, r.visibility_max_degrees, u.name${groupByExtra}
+      GROUP BY r.id, r.requester_id, r.title, r.description, r.category, r.urgency, r.status, r.created_at, r.updated_at, r.request_type, r.payload, r.requirements, r.visibility_scope, r.visibility_max_degrees, r.scheduled_for, u.name${groupByExtra}
       ORDER BY r.created_at DESC
       LIMIT $${paramCount} OFFSET $${paramCount + 1}`;
     params.push(limit, offset);
@@ -127,6 +128,7 @@ router.get('/matched/for-user', async (req: Request, res: Response) => {
       `SELECT DISTINCT
         r.id, r.requester_id, r.title, r.description,
         r.category, r.urgency, r.status, r.created_at, r.updated_at,
+        r.scheduled_for,
         u.name as requester_name,
         STRING_AGG(DISTINCT c.name, ', ') as community_name,
         CASE
@@ -165,7 +167,7 @@ router.get('/matched/for-user', async (req: Request, res: Response) => {
             OR (r.category = 'cleaning' AND s.skill IN ('cleaning', 'organizing'))
           )
         )
-      GROUP BY r.id, r.requester_id, r.title, r.description, r.category, r.urgency, r.status, r.created_at, r.updated_at, u.name
+      GROUP BY r.id, r.requester_id, r.title, r.description, r.category, r.urgency, r.status, r.created_at, r.updated_at, r.scheduled_for, u.name
       ORDER BY urgency_priority DESC, r.created_at DESC
       LIMIT $2`,
       [user_id, limit]
@@ -329,6 +331,7 @@ router.get('/curated', async (req: Request, res: Response) => {
         r.category, r.urgency, r.status, r.created_at, r.updated_at,
         r.request_type, r.payload, r.requirements,
         r.visibility_scope, r.visibility_max_degrees,
+        r.scheduled_for,
         r.is_boosted, r.boosted_expires_at,
         u.name as requester_name,
         STRING_AGG(DISTINCT c.name, ', ') as community_name,
@@ -380,7 +383,7 @@ router.get('/curated', async (req: Request, res: Response) => {
     }
 
     queryText += `
-      GROUP BY r.id, r.requester_id, r.title, r.description, r.category, r.urgency, r.status, r.created_at, r.updated_at, r.request_type, r.payload, r.requirements, r.visibility_scope, r.visibility_max_degrees, r.is_boosted, r.boosted_expires_at, u.name
+      GROUP BY r.id, r.requester_id, r.title, r.description, r.category, r.urgency, r.status, r.created_at, r.updated_at, r.request_type, r.payload, r.requirements, r.visibility_scope, r.visibility_max_degrees, r.scheduled_for, r.is_boosted, r.boosted_expires_at, u.name
       LIMIT 150`; // Get more than needed, then filter by tier + score
 
     const requestsResult = await query(queryText, params);
@@ -419,6 +422,7 @@ router.get('/curated', async (req: Request, res: Response) => {
             r.category, r.urgency, r.status, r.created_at, r.updated_at,
             r.request_type, r.payload, r.requirements,
             r.visibility_scope, r.visibility_max_degrees,
+            r.scheduled_for,
             r.is_boosted, r.boosted_expires_at,
             u.name as requester_name,
             STRING_AGG(DISTINCT c.name, ', ') as community_name,
@@ -436,7 +440,7 @@ router.get('/curated', async (req: Request, res: Response) => {
            GROUP BY r.id, r.requester_id, r.title, r.description, r.category, r.urgency,
                     r.status, r.created_at, r.updated_at, r.request_type, r.payload,
                     r.requirements, r.visibility_scope, r.visibility_max_degrees,
-                    r.is_boosted, r.boosted_expires_at, u.name
+                    r.scheduled_for, r.is_boosted, r.boosted_expires_at, u.name
            LIMIT 50`,
           [userId, sisterCommunityIds, requestsResult.rows.map((r: any) => r.id)]
         );
@@ -876,11 +880,26 @@ router.post('/', async (req: Request, res: Response) => {
 
     // Sprint 42: Resolve scheduled_for — explicit field takes priority;
     // for ride/event requests fall back to payload datetime fields if not provided.
+    // Critical fix: runtime type-check scheduled_for before use; fallback reads from
+    // Zod-validated data (not raw payload) to guarantee valid datetime strings.
+    const scheduledForRaw: unknown = scheduled_for;
     const resolvedScheduledFor: string | null =
-      scheduled_for ??
-      payload?.departure_time ??
-      payload?.event_date ??
+      (typeof scheduledForRaw === 'string' ? scheduledForRaw : null) ??
+      (validatedData as any).payload?.departure_time ??
+      (validatedData as any).payload?.event_date ??
       null;
+
+    // Validate scheduled_for if provided
+    if (resolvedScheduledFor !== null) {
+      const parsedDate = new Date(resolvedScheduledFor);
+      if (isNaN(parsedDate.getTime())) {
+        return res.status(400).json({
+          success: false,
+          message: 'scheduled_for must be a valid ISO 8601 datetime string',
+          error: 'INVALID_SCHEDULED_FOR',
+        });
+      }
+    }
 
     // Create ONE request (not multiple duplicates)
     // v9.0: Store polymorphic data in request_type, payload, requirements columns
