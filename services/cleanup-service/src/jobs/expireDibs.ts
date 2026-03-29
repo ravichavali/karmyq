@@ -38,24 +38,31 @@ export async function expireDibs(): Promise<number> {
     let expiredCount = 0;
 
     for (const dibs of result.rows) {
+      const client = await pool.connect();
       try {
+        // Begin transaction for atomic updates
+        await client.query('BEGIN');
+
         // Update dibs status to expired
-        await pool.query(
+        await client.query(
           `UPDATE requests.dibs
            SET status = 'expired', updated_at = NOW()
            WHERE id = $1`,
           [dibs.id]
         );
 
-        // Reset request status back to open for public broadcast
-        await pool.query(
+        // Reset request status back to open for public broadcast (with guard to prevent race condition)
+        await client.query(
           `UPDATE requests.help_requests
            SET status = 'open', updated_at = NOW()
-           WHERE id = $1`,
+           WHERE id = $1 AND status = 'dibs_pending'`,
           [dibs.request_id]
         );
 
-        // Publish event for notification service
+        // Commit transaction
+        await client.query('COMMIT');
+
+        // Publish event for notification service (outside transaction to decouple from DB)
         await queue.add('dibs_expired', {
           eventType: 'dibs_expired',
           payload: {
@@ -74,12 +81,15 @@ export async function expireDibs(): Promise<number> {
         });
 
         expiredCount++;
-      } catch (error) {
+      } catch (txError) {
+        await client.query('ROLLBACK');
         logger.error('Failed to expire dibs record', {
           dibs_id: dibs.id,
           request_id: dibs.request_id,
-          error,
+          error: txError,
         });
+      } finally {
+        client.release();
       }
     }
 
