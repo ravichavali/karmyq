@@ -493,7 +493,7 @@ export async function initEventSubscriber() {
     eventQueue.process('dibs_accepted', async (job) => {
       console.log('Processing dibs_accepted event:', job.data);
       const { payload } = job.data;
-      const { dibsId, requestId, providerUserId } = payload;
+      const { dibsId, requestId } = payload;
 
       if (!dibsId || !requestId) {
         console.warn('⚠️  dibs_accepted: missing dibsId or requestId, skipping');
@@ -539,7 +539,7 @@ export async function initEventSubscriber() {
     eventQueue.process('dibs_declined', async (job) => {
       console.log('Processing dibs_declined event:', job.data);
       const { payload } = job.data;
-      const { dibsId, requestId, providerUserId } = payload;
+      const { dibsId, requestId } = payload;
 
       if (!dibsId || !requestId) {
         console.warn('⚠️  dibs_declined: missing dibsId or requestId, skipping');
