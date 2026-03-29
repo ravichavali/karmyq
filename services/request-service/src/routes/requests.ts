@@ -714,6 +714,7 @@ router.get('/:id', async (req: Request, res: Response) => {
         r.category, r.urgency, r.status, r.created_at, r.updated_at,
         r.request_type, r.payload, r.requirements,
         r.visibility_scope, r.visibility_max_degrees,
+        r.scheduled_for,
         u.name as requester_name, u.email as requester_email,
         STRING_AGG(DISTINCT c.name, ', ') as community_name,
         STRING_AGG(DISTINCT rc.community_id::text, ',') as community_ids
@@ -722,7 +723,7 @@ router.get('/:id', async (req: Request, res: Response) => {
       LEFT JOIN requests.request_communities rc ON r.id = rc.request_id
       LEFT JOIN communities.communities c ON rc.community_id = c.id
       WHERE r.id = $1 AND r.expired = FALSE
-      GROUP BY r.id, r.requester_id, r.title, r.description, r.category, r.urgency, r.status, r.created_at, r.updated_at, r.request_type, r.payload, r.requirements, r.visibility_scope, r.visibility_max_degrees, u.name, u.email`,
+      GROUP BY r.id, r.requester_id, r.title, r.description, r.category, r.urgency, r.status, r.created_at, r.updated_at, r.request_type, r.payload, r.requirements, r.visibility_scope, r.visibility_max_degrees, r.scheduled_for, u.name, u.email`,
       [id]
     );
 
@@ -753,7 +754,7 @@ router.get('/:id', async (req: Request, res: Response) => {
 // v9.0: Supports polymorphic requests (generic, ride, borrow, service, event)
 router.post('/', async (req: Request, res: Response) => {
   try {
-    const { community_id, post_to_all_communities, request_type, title, description, urgency, payload, requirements, visibility_scope, visibility_max_degrees, preferred_provider_id } = req.body;
+    const { community_id, post_to_all_communities, request_type, title, description, urgency, payload, requirements, visibility_scope, visibility_max_degrees, preferred_provider_id, scheduled_for } = req.body;
     // SECURITY: Always use verified userId from JWT, never trust client-provided requester_id
     const requester_id = (req as any).user?.userId;
 
@@ -873,13 +874,21 @@ router.post('/', async (req: Request, res: Response) => {
       ? Math.max(1, Math.min(6, parseInt(visibility_max_degrees)))
       : 3;
 
+    // Sprint 42: Resolve scheduled_for — explicit field takes priority;
+    // for ride/event requests fall back to payload datetime fields if not provided.
+    const resolvedScheduledFor: string | null =
+      scheduled_for ??
+      payload?.departure_time ??
+      payload?.event_date ??
+      null;
+
     // Create ONE request (not multiple duplicates)
     // v9.0: Store polymorphic data in request_type, payload, requirements columns
     // ADR-022: Store visibility scope for multi-tier feed
     const result = await query(
       `INSERT INTO requests.help_requests
-        (requester_id, title, description, category, urgency, status, request_type, payload, requirements, expires_at, visibility_scope, visibility_max_degrees, preferred_provider_id)
-      VALUES ($1, $2, $3, $4, $5, 'open', $6, $7, $8, $9, $10, $11, $12)
+        (requester_id, title, description, category, urgency, status, request_type, payload, requirements, expires_at, visibility_scope, visibility_max_degrees, preferred_provider_id, scheduled_for)
+      VALUES ($1, $2, $3, $4, $5, 'open', $6, $7, $8, $9, $10, $11, $12, $13)
       RETURNING *`,
       [
         requester_id,
@@ -894,6 +903,7 @@ router.post('/', async (req: Request, res: Response) => {
         resolvedScope,
         resolvedMaxDegrees,
         preferred_provider_id ?? null,
+        resolvedScheduledFor,
       ]
     );
 
