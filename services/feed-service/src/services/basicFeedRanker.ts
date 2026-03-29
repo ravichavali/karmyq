@@ -164,6 +164,7 @@ export class BasicFeedRanker {
       JOIN communities.communities c ON rc.community_id = c.id
       LEFT JOIN requests.matches m ON hr.id = m.request_id
       LEFT JOIN requests.help_offers ho ON m.offer_id = ho.id
+      -- dibs_pending requests are excluded by the status = 'open' equality check
       WHERE hr.status = 'open'
         AND hr.requester_id != $1
         AND c.id IN (

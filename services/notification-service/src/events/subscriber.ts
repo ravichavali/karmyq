@@ -358,6 +358,7 @@ export async function initEventSubscriber() {
           `SELECT DISTINCT hr.id, hr.title
            FROM requests.help_requests hr
            JOIN requests.request_communities rc ON rc.request_id = hr.id
+           -- dibs_pending requests are excluded by the status = 'open' equality check
            WHERE rc.community_id = ANY($1) AND hr.status = 'open'
            LIMIT 10`,
           [communityIds]

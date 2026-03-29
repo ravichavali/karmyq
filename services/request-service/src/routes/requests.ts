@@ -142,6 +142,7 @@ router.get('/matched/for-user', async (req: Request, res: Response) => {
       LEFT JOIN communities.communities c ON rc.community_id = c.id
       -- Only from communities the user is a member of
       INNER JOIN communities.members m ON rc.community_id = m.community_id
+      -- dibs_pending requests are excluded by the status = 'open' equality check
       WHERE r.status = 'open'
         AND r.expired = FALSE
         AND m.user_id = $1
@@ -342,6 +343,7 @@ router.get('/curated', async (req: Request, res: Response) => {
       LEFT JOIN requests.request_communities rc ON r.id = rc.request_id
       LEFT JOIN communities.communities c ON rc.community_id = c.id
       LEFT JOIN communities.members m ON rc.community_id = m.community_id AND m.user_id = $1 AND m.status = 'active'
+      -- dibs_pending requests are excluded by the status = 'open' equality check
       WHERE r.status = 'open'
         AND r.expired = FALSE
         AND r.requester_id != $1
@@ -432,6 +434,7 @@ router.get('/curated', async (req: Request, res: Response) => {
            LEFT JOIN auth.users u ON r.requester_id = u.id
            LEFT JOIN requests.request_communities rc ON r.id = rc.request_id
            LEFT JOIN communities.communities c ON rc.community_id = c.id
+           -- dibs_pending requests are excluded by the status = 'open' equality check
            WHERE r.status = 'open'
              AND r.expired = FALSE
              AND r.requester_id != $1

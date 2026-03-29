@@ -202,6 +202,7 @@ export class FeedComposer {
         SELECT COUNT(*) as count
         FROM requests.help_requests r
         WHERE r.community_id = $1
+          -- dibs_pending requests are excluded by the status = 'open' equality check
           AND r.status = 'open'
           AND NOT EXISTS (
             SELECT 1 FROM requests.matches m
@@ -280,6 +281,7 @@ export class FeedComposer {
       JOIN communities.communities c ON r.community_id = c.id
       LEFT JOIN requests.matches m ON r.id = m.request_id AND m.status = 'proposed'
       WHERE r.community_id = $1
+        -- dibs_pending requests are excluded by the status = 'open' equality check
         AND r.status = 'open'
         AND NOT EXISTS (
           SELECT 1 FROM requests.matches m2
@@ -347,6 +349,7 @@ export class FeedComposer {
         JOIN communities.communities c ON r.community_id = c.id
         LEFT JOIN requests.matches m ON r.id = m.request_id AND m.status = 'proposed'
         WHERE r.community_id = $1
+          -- dibs_pending requests are excluded by the status = 'open' equality check
           AND r.status = 'open'
           AND r.requester_id != $2
           AND NOT EXISTS (

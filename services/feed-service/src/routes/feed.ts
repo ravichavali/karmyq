@@ -99,6 +99,7 @@ router.get('/requests', async (req: AuthenticatedRequest, res: Response) => {
       JOIN auth.users u ON r.user_id = u.id
       JOIN community.communities c ON r.community_id = c.id
       LEFT JOIN requests.matches m ON r.id = m.request_id AND m.status = 'proposed'
+      -- dibs_pending requests are excluded by the status = 'open' equality check
       WHERE r.status = 'open'
         AND r.user_id != $1
         AND NOT EXISTS (
