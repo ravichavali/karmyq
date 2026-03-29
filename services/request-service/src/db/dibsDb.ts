@@ -43,10 +43,11 @@ export interface RawCandidate {
  * Joins:
  *   requests.matches → requests.help_requests (to count completed matches
  *     involving requester as requester or responder)
- *   provider.providers (is_available gate + provider id)
+ *   requests.provider_profiles (is_available gate + provider id)
  *   social_graph.connections (optional, for trustGraphConnection)
+ *   reputation.provider_trust_scores (optional, for trust score; defaults to 50)
  *
- * Gate: priorInteractions >= 1 AND provider.is_available = true
+ * Gate: priorInteractions >= 1 AND pp.is_available = true
  * The prior-interaction count is deduplicated by provider_user_id.
  */
 export async function getEligibleCandidates(
@@ -55,10 +56,10 @@ export async function getEligibleCandidates(
 ): Promise<RawCandidate[]> {
   const result = await query(
     `SELECT
-       pp.id                          AS "providerId",
-       pp.user_id                     AS "providerUserId",
-       COALESCE(sg.trust_score, 50)   AS "trustScore",
-       prior.interaction_count        AS "priorInteractions",
+       pp.id                              AS "providerId",
+       pp.user_id                         AS "providerUserId",
+       COALESCE(pts.trust_score, 50)      AS "trustScore",
+       prior.interaction_count            AS "priorInteractions",
        COALESCE(
          CASE sg.type
            WHEN 'exchange'  THEN 'direct'
@@ -66,9 +67,9 @@ export async function getEligibleCandidates(
            ELSE 'none'
          END,
          'none'
-       )                              AS "trustGraphConnection",
-       pp.is_available                AS "isAvailable"
-     FROM provider.providers pp
+       )                                  AS "trustGraphConnection",
+       pp.is_available                    AS "isAvailable"
+     FROM requests.provider_profiles pp
 
      -- Count completed matches where both the requester and this provider were involved
      JOIN (
@@ -93,13 +94,17 @@ export async function getEligibleCandidates(
          END
      ) prior ON prior.provider_user_id = pp.user_id
 
-     -- Optional: trust graph connection type + score between requester and provider
+     -- Optional: cached trust score from reputation service (defaults to 50 if no reviews yet)
+     LEFT JOIN reputation.provider_trust_scores pts ON pts.provider_id = pp.id
+
+     -- Optional: trust graph connection type between requester and provider
      LEFT JOIN social_graph.connections sg ON (
        (sg.user_a_id = $1 AND sg.user_b_id = pp.user_id)
        OR (sg.user_b_id = $1 AND sg.user_a_id = pp.user_id)
      )
 
      WHERE pp.is_available = true
+       AND pp.is_active = true
        AND prior.interaction_count >= 1
        AND pp.user_id IN (
          SELECT DISTINCT cm.user_id
