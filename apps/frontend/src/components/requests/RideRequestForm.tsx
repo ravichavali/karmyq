@@ -12,6 +12,7 @@ export interface RideRequestPayload {
   destination: Location
   seats_needed: number
   departure_time: string
+  scheduled_for?: string
   preferences?: {
     women_only?: boolean
     pet_friendly?: boolean
@@ -97,7 +98,11 @@ export default function RideRequestForm({ initialData, onChange }: RideRequestFo
       <DateTimePicker
         label="Departure Time"
         value={formData.departure_time || ''}
-        onChange={(datetime) => updateField('departure_time', datetime)}
+        onChange={(datetime) => {
+          const updated = { ...formData, departure_time: datetime, scheduled_for: datetime }
+          setFormData(updated)
+          onChange(updated)
+        }}
         minDate={tomorrow.toISOString()}
         required
         helpText="When do you need to depart?"

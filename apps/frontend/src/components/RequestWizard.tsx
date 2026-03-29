@@ -7,8 +7,9 @@
  * Owns all request creation logic extracted from dashboard.
  */
 import { useState, useEffect } from 'react'
-import { requestService, communityService } from '@/lib/api'
+import { requestService, communityService, dibsService } from '@/lib/api'
 import DynamicForm from '@/components/requests/DynamicForm'
+import DibsPrompt, { DibsCandidate } from '@/components/requests/DibsPrompt'
 import type { UISchema } from '@karmyq/shared/schemas/ui'
 
 type UrgencyLevel = 'normal' | 'urgent' | 'critical'
@@ -57,6 +58,11 @@ export default function RequestWizard({
   const [userCommunities, setUserCommunities] = useState<any[]>([])
   const [creating, setCreating] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // Sprint 42: Dibs prompt state
+  const [dibsCandidate, setDibsCandidate] = useState<DibsCandidate | null>(null)
+  const [dibsRequestId, setDibsRequestId] = useState<string>('')
+  const [dibsScheduledFor, setDibsScheduledFor] = useState<string>('')
+  const [dibsExpiresAt, setDibsExpiresAt] = useState<string>('')
 
   // On mount: fetch available types + user communities
   useEffect(() => {
@@ -152,7 +158,29 @@ export default function RequestWizard({
         ...(communityId ? { community_id: communityId } : { post_to_all_communities: true }),
         ...(preferredProviderId ? { preferred_provider_id: preferredProviderId } : {}),
       }
-      await requestService.createRequest(payload)
+      const res = await requestService.createRequest(payload)
+      // Sprint 42: If the new request is scheduled, check for a dibs candidate
+      const createdRequest = res.data
+      if (createdRequest?.scheduled_for && createdRequest?.id) {
+        try {
+          const candidateRes = await dibsService.getDibsCandidate(createdRequest.id)
+          const candidate = candidateRes.data as DibsCandidate | null
+          if (candidate) {
+            // Calculate a 20% lead-time expiry window to display in the prompt
+            const scheduledMs = new Date(createdRequest.scheduled_for).getTime()
+            const leadTimeMs = scheduledMs - Date.now()
+            const expiresAt = new Date(Date.now() + leadTimeMs * 0.20).toISOString()
+            setDibsRequestId(createdRequest.id)
+            setDibsScheduledFor(createdRequest.scheduled_for)
+            setDibsExpiresAt(expiresAt)
+            setDibsCandidate(candidate)
+            // Don't call onSuccess/onClose yet — wait for dibs resolution
+            return
+          }
+        } catch {
+          // If dibs-candidate fetch fails, proceed normally — don't block creation
+        }
+      }
       onSuccess?.()
       onClose()
     } catch (err) {
@@ -161,6 +189,31 @@ export default function RequestWizard({
     } finally {
       setCreating(false)
     }
+  }
+
+  const handleDibsSend = async () => {
+    if (!dibsCandidate || !dibsRequestId) return
+    await dibsService.sendDibs(dibsRequestId, dibsCandidate.providerUserId)
+  }
+
+  const handleDibsDone = () => {
+    setDibsCandidate(null)
+    onSuccess?.()
+    onClose()
+  }
+
+  // Sprint 42: Show dibs prompt overlay when a candidate is available
+  if (dibsCandidate) {
+    return (
+      <DibsPrompt
+        candidate={dibsCandidate}
+        requestId={dibsRequestId}
+        scheduledFor={dibsScheduledFor}
+        expiresAt={dibsExpiresAt}
+        onSend={handleDibsSend}
+        onSkip={handleDibsDone}
+      />
+    )
   }
 
   return (

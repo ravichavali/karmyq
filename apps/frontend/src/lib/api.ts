@@ -837,6 +837,29 @@ export const providerService = {
     requestApi.patch(`/providers/${providerId}/availability`, { is_available: isAvailable }),
 }
 
+// Dibs API Methods (Sprint 42)
+export const dibsService = {
+  // Get the top dibs candidate for a scheduled request (requester only)
+  getDibsCandidate: (requestId: string) =>
+    requestApi.get(`/requests/${requestId}/dibs-candidate`),
+
+  // Submit a dibs invitation to a specific provider
+  sendDibs: (requestId: string, providerUserId: string) =>
+    requestApi.post(`/requests/${requestId}/dibs`, { provider_user_id: providerUserId }),
+
+  // Get all pending dibs for the authenticated provider
+  getPendingDibsForProvider: () =>
+    requestApi.get('/requests/dibs/pending-for-provider'),
+
+  // Provider accepts a dibs invitation
+  acceptDibs: (dibsId: string) =>
+    requestApi.put(`/requests/dibs/${dibsId}/accept`),
+
+  // Provider declines a dibs invitation
+  declineDibs: (dibsId: string) =>
+    requestApi.put(`/requests/dibs/${dibsId}/decline`),
+}
+
 export const collectiveService = {
   listCollectives: (params?: { service_type?: string; limit?: number; offset?: number }) =>
     requestApi.get('/collectives', { params }),

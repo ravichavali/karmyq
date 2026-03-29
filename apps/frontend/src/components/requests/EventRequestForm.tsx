@@ -10,6 +10,7 @@ import DateTimePicker from './shared/DateTimePicker'
 export interface EventRequestPayload {
   event_type: string
   event_date: string
+  scheduled_for?: string
   event_duration_hours: number
   location: {
     address: string
@@ -163,7 +164,11 @@ export default function EventRequestForm({ initialData, onChange }: EventRequest
         <DateTimePicker
           label="Event Date & Time"
           value={formData.event_date || ''}
-          onChange={(datetime) => updateField('event_date', datetime)}
+          onChange={(datetime) => {
+            const updated = { ...formData, event_date: datetime, scheduled_for: datetime }
+            setFormData(updated)
+            onChange(updated)
+          }}
           minDate={tomorrow.toISOString()}
           required
           helpText="When will this event take place?"
