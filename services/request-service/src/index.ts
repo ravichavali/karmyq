@@ -15,6 +15,7 @@ import providersRouter from './routes/providers';
 import collectivesRouter from './routes/collectives';
 import adminSchemasRouter from './routes/admin-schemas';
 import adminActionsRouter from './routes/adminActions';
+import dibsRouter from './routes/dibs';
 import { adminAuth } from './middleware/adminAuth';
 import { createLogger, requestLoggingMiddleware } from '@karmyq/shared/utils/logger';
 import {
@@ -97,6 +98,13 @@ app.use(
 // Routes: GET /requests/:id/offers, PUT /requests/offers/:id/accept, PUT /requests/offers/:id/decline
 // Each route applies authMiddleware individually
 app.use('/requests', rateLimiters.standard, requesterOffersRouter);
+
+// Dibs flow: candidate lookup, submit, accept, decline, provider pending list
+// Routes: GET /requests/:id/dibs-candidate, POST /requests/:id/dibs,
+//         GET /requests/dibs/pending-for-provider, PUT /requests/dibs/:id/accept,
+//         PUT /requests/dibs/:id/decline, POST /requests/dibs/:id/expire (test-only)
+// Each route applies authMiddleware individually
+app.use('/requests', rateLimiters.standard, dibsRouter);
 
 app.use(
   '/offers',
