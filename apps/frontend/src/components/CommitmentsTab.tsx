@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
-import { requestService } from '@/lib/api'
+import { requestService, dibsService } from '@/lib/api'
 import { getOffersForRequest, acceptOffer, declineOffer } from '@/lib/api/providerApi'
 import EmptyState from './EmptyState'
 import { sortByActionPriority } from '../utils/commitmentSort'
 import ExpandableConversation from './ExpandableConversation'
 import { TrustCard } from './TrustCard'
+import DibsCard from './commitments/DibsCard'
 
 interface Match {
   id: string
@@ -18,6 +19,13 @@ interface Match {
   requester_name?: string
   responder_name?: string
   admin_proposed?: boolean
+}
+
+interface PendingDibs {
+  id: string
+  requestTitle: string
+  scheduledFor: string
+  expiresAt: string
 }
 
 // ── Step indicator ────────────────────────────────────────────────────────────
@@ -84,6 +92,7 @@ export default function CommitmentsTab() {
   const [myOpenRequests, setMyOpenRequests] = useState<any[]>([])
   const [offersByRequest, setOffersByRequest] = useState<Record<string, any[]>>({})
   const [offersLoading, setOffersLoading] = useState<Record<string, boolean>>({})
+  const [pendingDibs, setPendingDibs] = useState<PendingDibs[]>([])
   const [loading, setLoading] = useState(true)
   const [markingDone, setMarkingDone] = useState<string | null>(null)
   const [actioning, setActioning] = useState<string | null>(null)
@@ -110,6 +119,21 @@ export default function CommitmentsTab() {
     try { currentUser = userData ? JSON.parse(userData) : null } catch { currentUser = null }
     if (!currentUser) return
     setCurrentUserId(currentUser.id ?? '')
+
+    // Fetch pending dibs for provider (non-blocking — errors are silently ignored)
+    dibsService.getPendingDibsForProvider().then((res) => {
+      const items: any[] = res.data ?? []
+      setPendingDibs(
+        items.map((d: any) => ({
+          id: d.id,
+          requestTitle: d.request_title ?? d.requestTitle ?? 'Request',
+          scheduledFor: d.scheduled_for ?? d.scheduledFor ?? '',
+          expiresAt: d.expires_at ?? d.expiresAt ?? '',
+        }))
+      )
+    }).catch(() => {
+      // Dibs fetch is optional; do not surface errors to the user
+    })
 
     requestService.getMatches({ user_id: currentUser.id, limit: 200 }).then((res) => {
       const allMatches: Match[] = res.data?.matches ?? []
@@ -241,6 +265,26 @@ export default function CommitmentsTab() {
       alert(err.response?.data?.message || 'Failed to decline offer')
     } finally {
       setOfferActioning(null)
+    }
+  }
+
+  const handleAcceptDibs = async (dibsId: string) => {
+    try {
+      await dibsService.acceptDibs(dibsId)
+      // Optimistic: remove from list on success
+      setPendingDibs((prev) => prev.filter((d) => d.id !== dibsId))
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Failed to accept dibs invitation')
+    }
+  }
+
+  const handleDeclineDibs = async (dibsId: string) => {
+    try {
+      await dibsService.declineDibs(dibsId)
+      // Optimistic: remove from list on success
+      setPendingDibs((prev) => prev.filter((d) => d.id !== dibsId))
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Failed to decline dibs invitation')
     }
   }
 
@@ -437,6 +481,25 @@ export default function CommitmentsTab() {
         )}
       </section>
 
+      {/* Dibs Requests — provider exclusive-window invitations */}
+      {pendingDibs.length > 0 && (
+        <section>
+          <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
+            Dibs Requests
+          </h3>
+          {pendingDibs.map((dibs) => (
+            <DibsCard
+              key={dibs.id}
+              requestTitle={dibs.requestTitle}
+              scheduledFor={dibs.scheduledFor}
+              expiresAt={dibs.expiresAt}
+              onAccept={() => handleAcceptDibs(dibs.id)}
+              onDecline={() => handleDeclineDibs(dibs.id)}
+            />
+          ))}
+        </section>
+      )}
+
       {/* I Asked For Help */}
       <section>
         <h2 className="section-heading mb-3">I Asked For Help</h2>
@@ -446,45 +509,57 @@ export default function CommitmentsTab() {
           const pendingOffers = (offersByRequest[req.id] ?? []).filter(
             (o: any) => o.status === 'pending'
           )
-          if (pendingOffers.length === 0) return null
+          const isDibsPending = req.status === 'dibs_pending'
+          if (pendingOffers.length === 0 && !isDibsPending) return null
           return (
             <div key={req.id} className="card p-4 mb-3">
-              <p className="font-medium text-text truncate">{req.title ?? 'Request'}</p>
+              <div className="flex items-center gap-2 min-w-0">
+                <p className="font-medium text-text truncate flex-1">{req.title ?? 'Request'}</p>
+                {isDibsPending && (
+                  <span className="shrink-0 text-xs font-medium bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">
+                    First refusal sent
+                  </span>
+                )}
+              </div>
+              {pendingOffers.length > 0 && (
               <p className="text-xs font-semibold text-text-muted uppercase tracking-wide mt-2 mb-2">
                 Offers Received
               </p>
-              {offersLoading[req.id] ? (
-                <p className="text-xs text-text-muted">Loading offers…</p>
-              ) : (
-                pendingOffers.map((offer: any) => (
-                  <div key={offer.id} className="flex items-start justify-between gap-4 py-2 border-t border-border first:border-t-0">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm text-text">{offer.provider_email}</p>
-                      <p className="text-xs text-text-muted">
-                        {offer.price ? `$${offer.price}` : 'Price TBD'}
-                      </p>
-                      {offer.note && (
-                        <p className="text-xs text-text-muted mt-0.5 italic">{offer.note}</p>
-                      )}
+              )}
+              {pendingOffers.length > 0 && (
+                offersLoading[req.id] ? (
+                  <p className="text-xs text-text-muted">Loading offers…</p>
+                ) : (
+                  pendingOffers.map((offer: any) => (
+                    <div key={offer.id} className="flex items-start justify-between gap-4 py-2 border-t border-border first:border-t-0">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-text">{offer.provider_email}</p>
+                        <p className="text-xs text-text-muted">
+                          {offer.price ? `$${offer.price}` : 'Price TBD'}
+                        </p>
+                        {offer.note && (
+                          <p className="text-xs text-text-muted mt-0.5 italic">{offer.note}</p>
+                        )}
+                      </div>
+                      <div className="flex gap-2 shrink-0">
+                        <button
+                          className="text-xs py-1 px-2 rounded bg-green-100 text-green-700 hover:bg-green-200 disabled:opacity-50"
+                          disabled={offerActioning === offer.id}
+                          onClick={() => handleAcceptProviderOffer(offer.id, req.id)}
+                        >
+                          {offerActioning === offer.id ? '…' : 'Accept'}
+                        </button>
+                        <button
+                          className="text-xs py-1 px-2 rounded bg-red-100 text-red-700 hover:bg-red-200 disabled:opacity-50"
+                          disabled={offerActioning === offer.id}
+                          onClick={() => handleDeclineProviderOffer(offer.id, req.id)}
+                        >
+                          {offerActioning === offer.id ? '…' : 'Decline'}
+                        </button>
+                      </div>
                     </div>
-                    <div className="flex gap-2 shrink-0">
-                      <button
-                        className="text-xs py-1 px-2 rounded bg-green-100 text-green-700 hover:bg-green-200 disabled:opacity-50"
-                        disabled={offerActioning === offer.id}
-                        onClick={() => handleAcceptProviderOffer(offer.id, req.id)}
-                      >
-                        {offerActioning === offer.id ? '…' : 'Accept'}
-                      </button>
-                      <button
-                        className="text-xs py-1 px-2 rounded bg-red-100 text-red-700 hover:bg-red-200 disabled:opacity-50"
-                        disabled={offerActioning === offer.id}
-                        onClick={() => handleDeclineProviderOffer(offer.id, req.id)}
-                      >
-                        {offerActioning === offer.id ? '…' : 'Decline'}
-                      </button>
-                    </div>
-                  </div>
-                ))
+                  ))
+                )
               )}
             </div>
           )
@@ -492,7 +567,7 @@ export default function CommitmentsTab() {
 
         {requested.length === 0 && myOpenRequests.every((req) => {
           const pendingOffers = (offersByRequest[req.id] ?? []).filter((o: any) => o.status === 'pending')
-          return pendingOffers.length === 0
+          return pendingOffers.length === 0 && req.status !== 'dibs_pending'
         }) ? (
           <EmptyState
             heading="No matched requests"
