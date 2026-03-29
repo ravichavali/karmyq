@@ -12,6 +12,7 @@ import {
   generateDecayReport,
 } from './jobs/reputationDecayJob';
 import { sendMatchReminders } from './jobs/matchReminderJob';
+import { expireDibs } from './jobs/expireDibs';
 import pool from './database/db';
 
 dotenv.config();
@@ -190,6 +191,17 @@ app.get('/jobs/decay-report', adminRateLimiter, adminAuthMiddleware, async (req:
   }
 });
 
+app.post('/jobs/expire-dibs', adminRateLimiter, adminAuthMiddleware, async (req: any, res) => {
+  try {
+    logger.info('Manual trigger: expire dibs');
+    const expiredCount = await expireDibs();
+    sendSuccess(res, { message: `Expired ${expiredCount} dibs record(s)` }, 200, { requestId: req.id });
+  } catch (error: any) {
+    logger.error('Manual dibs expiry job failed', { error });
+    sendInternalError(res, error.message, error, { requestId: req.id });
+  }
+});
+
 // ============= SCHEDULED JOBS =============
 
 /**
@@ -202,6 +214,20 @@ cron.schedule('*/15 * * * *', async () => {
     await sendMatchReminders();
   } catch (error) {
     logger.error('Scheduled match reminder job failed', { error });
+  }
+});
+
+/**
+ * Dibs Expiry Job
+ * Runs every 5 minutes. Finds pending dibs records where expires_at < NOW(),
+ * marks them as expired, and resets requests to open for public broadcast.
+ */
+cron.schedule('*/5 * * * *', async () => {
+  logger.info('Cron: Running dibs expiry job');
+  try {
+    await expireDibs();
+  } catch (error) {
+    logger.error('Scheduled dibs expiry job failed', { error });
   }
 });
 
@@ -286,6 +312,8 @@ async function startServer() {
     app.listen(PORT, () => {
       logger.info(`Cleanup Service running on port ${PORT}`);
       logger.info('Scheduled jobs:');
+      logger.info('  - Dibs expiry: Every 5 minutes');
+      logger.info('  - Match reminders: Every 15 minutes');
       logger.info('  - Mark expired data: Every hour');
       logger.info('  - Hard delete: Daily at 2:00 AM');
       logger.info('  - Reputation decay: Daily at 3:00 AM');
