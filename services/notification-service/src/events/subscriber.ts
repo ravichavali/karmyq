@@ -437,6 +437,196 @@ export async function initEventSubscriber() {
       }
     });
 
+    // Handle dibs_submitted event — notify provider that a requester wants their help first
+    eventQueue.process('dibs_submitted', async (job) => {
+      console.log('Processing dibs_submitted event:', job.data);
+      const { payload } = job.data;
+      const { dibsId, requestId, providerUserId, expiresAt } = payload;
+
+      if (!providerUserId || !requestId) {
+        console.warn('⚠️  dibs_submitted: missing providerUserId or requestId, skipping');
+        return;
+      }
+
+      try {
+        // Fetch requester name and expires_at from the dibs record
+        const dibsResult = await query(
+          `SELECT u.name AS requester_name, d.expires_at
+           FROM requests.dibs d
+           JOIN auth.users u ON u.id = d.requester_id
+           WHERE d.id = $1`,
+          [dibsId]
+        );
+
+        if (dibsResult.rows.length === 0) {
+          console.warn(`⚠️  dibs_submitted: dibs record ${dibsId} not found, skipping`);
+          return;
+        }
+
+        const { requester_name, expires_at } = dibsResult.rows[0];
+        const expiryTime = new Date(expiresAt ?? expires_at).toLocaleTimeString('en-US', {
+          hour: 'numeric',
+          minute: '2-digit',
+          hour12: true,
+        });
+
+        await createNotification({
+          user_id: providerUserId,
+          type: 'dibs_submitted',
+          data: {
+            dibs_id: dibsId,
+            request_id: requestId,
+            requester_name,
+            expires_at: expiresAt ?? expires_at,
+            message: `${requester_name} wants your help first — respond by ${expiryTime}`,
+          },
+        });
+
+        console.log(`✅ dibs_submitted notification sent to provider ${providerUserId}`);
+      } catch (error) {
+        console.error('❌ Failed to process dibs_submitted event:', error);
+        throw error;
+      }
+    });
+
+    // Handle dibs_accepted event — notify requester that the provider accepted
+    eventQueue.process('dibs_accepted', async (job) => {
+      console.log('Processing dibs_accepted event:', job.data);
+      const { payload } = job.data;
+      const { dibsId, requestId, providerUserId } = payload;
+
+      if (!dibsId || !requestId) {
+        console.warn('⚠️  dibs_accepted: missing dibsId or requestId, skipping');
+        return;
+      }
+
+      try {
+        // Fetch requester_id and provider name from dibs + users
+        const result = await query(
+          `SELECT d.requester_id, u.name AS provider_name
+           FROM requests.dibs d
+           JOIN auth.users u ON u.id = d.provider_user_id
+           WHERE d.id = $1`,
+          [dibsId]
+        );
+
+        if (result.rows.length === 0) {
+          console.warn(`⚠️  dibs_accepted: dibs record ${dibsId} not found, skipping`);
+          return;
+        }
+
+        const { requester_id, provider_name } = result.rows[0];
+
+        await createNotification({
+          user_id: requester_id,
+          type: 'dibs_accepted',
+          data: {
+            dibs_id: dibsId,
+            request_id: requestId,
+            provider_name,
+            message: `${provider_name} accepted your dibs request`,
+          },
+        });
+
+        console.log(`✅ dibs_accepted notification sent to requester ${requester_id}`);
+      } catch (error) {
+        console.error('❌ Failed to process dibs_accepted event:', error);
+        throw error;
+      }
+    });
+
+    // Handle dibs_declined event — notify requester that provider passed, request is now public
+    eventQueue.process('dibs_declined', async (job) => {
+      console.log('Processing dibs_declined event:', job.data);
+      const { payload } = job.data;
+      const { dibsId, requestId, providerUserId } = payload;
+
+      if (!dibsId || !requestId) {
+        console.warn('⚠️  dibs_declined: missing dibsId or requestId, skipping');
+        return;
+      }
+
+      try {
+        // Fetch requester_id and provider name from dibs + users
+        const result = await query(
+          `SELECT d.requester_id, u.name AS provider_name
+           FROM requests.dibs d
+           JOIN auth.users u ON u.id = d.provider_user_id
+           WHERE d.id = $1`,
+          [dibsId]
+        );
+
+        if (result.rows.length === 0) {
+          console.warn(`⚠️  dibs_declined: dibs record ${dibsId} not found, skipping`);
+          return;
+        }
+
+        const { requester_id, provider_name } = result.rows[0];
+
+        await createNotification({
+          user_id: requester_id,
+          type: 'dibs_declined',
+          data: {
+            dibs_id: dibsId,
+            request_id: requestId,
+            provider_name,
+            message: `${provider_name} passed — your request is now public`,
+          },
+        });
+
+        console.log(`✅ dibs_declined notification sent to requester ${requester_id}`);
+      } catch (error) {
+        console.error('❌ Failed to process dibs_declined event:', error);
+        throw error;
+      }
+    });
+
+    // Handle dibs_expired event — notify requester that the dibs window closed, request is now public
+    // Handles both camelCase (request-service test route) and snake_case (cleanup-service cron job) payloads
+    eventQueue.process('dibs_expired', async (job) => {
+      console.log('Processing dibs_expired event:', job.data);
+      const { payload } = job.data;
+
+      // Normalize camelCase vs snake_case keys from different publishers
+      const dibsId = payload.dibsId ?? payload.dibs_id;
+      const requestId = payload.requestId ?? payload.request_id;
+
+      if (!dibsId) {
+        console.warn('⚠️  dibs_expired: missing dibs id, skipping');
+        return;
+      }
+
+      try {
+        // Fetch requester_id from the dibs record
+        const result = await query(
+          `SELECT requester_id FROM requests.dibs WHERE id = $1`,
+          [dibsId]
+        );
+
+        if (result.rows.length === 0) {
+          console.warn(`⚠️  dibs_expired: dibs record ${dibsId} not found, skipping`);
+          return;
+        }
+
+        const { requester_id } = result.rows[0];
+
+        await createNotification({
+          user_id: requester_id,
+          type: 'dibs_expired',
+          data: {
+            dibs_id: dibsId,
+            request_id: requestId,
+            message: 'Your dibs window closed — your request is now public',
+          },
+        });
+
+        console.log(`✅ dibs_expired notification sent to requester ${requester_id}`);
+      } catch (error) {
+        console.error('❌ Failed to process dibs_expired event:', error);
+        throw error;
+      }
+    });
+
     console.log('✅ Event subscriber initialized');
   } catch (error) {
     console.error('❌ Event subscriber initialization failed:', error);

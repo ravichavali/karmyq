@@ -17,7 +17,11 @@ export type NotificationType =
   | 'match_reminder'
   | 'preferred_provider_selected'
   | 'provider_request_matched'
-  | 'provider_review_received';
+  | 'provider_review_received'
+  | 'dibs_submitted'
+  | 'dibs_accepted'
+  | 'dibs_declined'
+  | 'dibs_expired';
 
 export type NotificationPriority = 'low' | 'medium' | 'high' | 'critical';
 
@@ -229,6 +233,50 @@ export const notificationTemplates: Record<NotificationType, NotificationTemplat
     icon: 'star',
     ctaLabel: 'View Review',
     actionUrl: (data) => `/providers/${data.provider_id}`,
+    channels: { in_app: true, push: false, email: false },
+  },
+
+  dibs_submitted: {
+    type: 'dibs_submitted',
+    priority: 'high',
+    title: (_data: any) => 'Someone wants your help first',
+    body: (data: any) => data.message ?? `${data.requester_name} wants your help first — respond before time runs out`,
+    icon: 'clock',
+    ctaLabel: 'Respond',
+    actionUrl: (data: any) => `/requests/${data.request_id}`,
+    channels: { in_app: true, push: true, email: false },
+  },
+
+  dibs_accepted: {
+    type: 'dibs_accepted',
+    priority: 'high',
+    title: (_data: any) => 'Dibs accepted!',
+    body: (data: any) => data.message ?? `${data.provider_name} accepted your dibs request`,
+    icon: 'check-circle',
+    ctaLabel: 'View Request',
+    actionUrl: (data: any) => `/requests/${data.request_id}`,
+    channels: { in_app: true, push: true, email: false },
+  },
+
+  dibs_declined: {
+    type: 'dibs_declined',
+    priority: 'medium',
+    title: (_data: any) => 'Provider passed on your dibs',
+    body: (data: any) => data.message ?? `${data.provider_name} passed — your request is now public`,
+    icon: 'x-circle',
+    ctaLabel: 'View Request',
+    actionUrl: (data: any) => `/requests/${data.request_id}`,
+    channels: { in_app: true, push: false, email: false },
+  },
+
+  dibs_expired: {
+    type: 'dibs_expired',
+    priority: 'medium',
+    title: (_data: any) => 'Dibs window closed',
+    body: (data: any) => data.message ?? 'Your dibs window closed — your request is now public',
+    icon: 'clock',
+    ctaLabel: 'View Request',
+    actionUrl: (data: any) => `/requests/${data.request_id}`,
     channels: { in_app: true, push: false, email: false },
   },
 };
