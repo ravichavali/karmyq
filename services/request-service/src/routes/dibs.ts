@@ -276,7 +276,10 @@ router.put('/dibs/:id/accept', authMiddleware, async (req: AuthenticatedRequest,
     try {
       await client.query('BEGIN');
 
-      await updateDibsStatus(dibsId, 'accepted');
+      await client.query(
+        `UPDATE requests.dibs SET status = 'accepted', updated_at = NOW() WHERE id = $1`,
+        [dibsId]
+      );
 
       // Create a match record
       await client.query(
@@ -363,7 +366,10 @@ router.put('/dibs/:id/decline', authMiddleware, async (req: AuthenticatedRequest
     try {
       await client.query('BEGIN');
 
-      await updateDibsStatus(dibsId, 'declined');
+      await client.query(
+        `UPDATE requests.dibs SET status = 'declined', updated_at = NOW() WHERE id = $1`,
+        [dibsId]
+      );
 
       // Reopen the request
       await client.query(
