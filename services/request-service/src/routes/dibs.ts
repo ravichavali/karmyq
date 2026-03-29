@@ -1,6 +1,7 @@
 import { Router, Response } from 'express';
 import { authMiddleware, AuthenticatedRequest } from '@karmyq/shared/middleware/auth';
 import { query } from '../database/db';
+import pool from '../database/db';
 import { publishEvent } from '../events/publisher';
 import {
   createDibs,
@@ -83,7 +84,7 @@ router.post('/:id/dibs', authMiddleware, async (req: AuthenticatedRequest, res: 
   try {
     // Fetch the request
     const requestResult = await query(
-      `SELECT id, requester_id, scheduled_for FROM requests.help_requests WHERE id = $1`,
+      `SELECT id, requester_id, scheduled_for, status FROM requests.help_requests WHERE id = $1`,
       [requestId]
     );
 
@@ -92,6 +93,15 @@ router.post('/:id/dibs', authMiddleware, async (req: AuthenticatedRequest, res: 
     }
 
     const request = requestResult.rows[0];
+
+    // Must be open
+    if (!['open'].includes(request.status)) {
+      return res.status(409).json({
+        success: false,
+        message: 'Request is not available for dibs',
+        error: 'REQUEST_NOT_OPEN',
+      });
+    }
 
     // Must be a scheduled request
     if (!request.scheduled_for) {
@@ -154,16 +164,37 @@ router.post('/:id/dibs', authMiddleware, async (req: AuthenticatedRequest, res: 
     const now = new Date();
     const scheduledFor = new Date(request.scheduled_for);
     const leadTime = scheduledFor.getTime() - now.getTime();
+
+    if (leadTime <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'scheduled_for must be in the future',
+        error: 'SCHEDULED_FOR_IN_PAST',
+      });
+    }
+
     const expiresAt = new Date(now.getTime() + leadTime * 0.20);
 
-    // Create dibs record
-    const dibsRecord = await createDibs(requestId, userId, providerUserId, expiresAt);
+    // Wrap dibs creation and request status update in a transaction
+    const client = await pool.connect();
+    let dibsRecord: any;
+    try {
+      await client.query('BEGIN');
 
-    // Update request status
-    await query(
-      `UPDATE requests.help_requests SET status = 'dibs_pending' WHERE id = $1`,
-      [requestId]
-    );
+      dibsRecord = await createDibs(requestId, userId, providerUserId, expiresAt);
+
+      await client.query(
+        `UPDATE requests.help_requests SET status = 'dibs_pending' WHERE id = $1`,
+        [requestId]
+      );
+
+      await client.query('COMMIT');
+    } catch (txErr) {
+      await client.query('ROLLBACK');
+      throw txErr;
+    } finally {
+      client.release();
+    }
 
     // Publish event (best-effort — Redis outage must not fail the dibs creation)
     try {
@@ -240,20 +271,33 @@ router.put('/dibs/:id/accept', authMiddleware, async (req: AuthenticatedRequest,
       });
     }
 
-    await updateDibsStatus(dibsId, 'accepted');
+    // Wrap accept writes in a transaction
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
 
-    // Create a match record
-    await query(
-      `INSERT INTO requests.matches (request_id, responder_id, status)
-       VALUES ($1, $2, 'matched')`,
-      [dibs.request_id, dibs.provider_user_id]
-    );
+      await updateDibsStatus(dibsId, 'accepted');
 
-    // Update request status
-    await query(
-      `UPDATE requests.help_requests SET status = 'matched' WHERE id = $1`,
-      [dibs.request_id]
-    );
+      // Create a match record
+      await client.query(
+        `INSERT INTO requests.matches (request_id, responder_id, status)
+         VALUES ($1, $2, 'matched')`,
+        [dibs.request_id, dibs.provider_user_id]
+      );
+
+      // Update request status
+      await client.query(
+        `UPDATE requests.help_requests SET status = 'matched' WHERE id = $1`,
+        [dibs.request_id]
+      );
+
+      await client.query('COMMIT');
+    } catch (txErr) {
+      await client.query('ROLLBACK');
+      throw txErr;
+    } finally {
+      client.release();
+    }
 
     // Publish event (best-effort)
     try {
@@ -304,13 +348,36 @@ router.put('/dibs/:id/decline', authMiddleware, async (req: AuthenticatedRequest
       });
     }
 
-    await updateDibsStatus(dibsId, 'declined');
+    // Must not be expired
+    const now = new Date();
+    if (new Date(dibs.expires_at) < now) {
+      return res.status(410).json({
+        success: false,
+        message: 'Dibs window has expired',
+        error: 'DIBS_EXPIRED',
+      });
+    }
 
-    // Reopen the request
-    await query(
-      `UPDATE requests.help_requests SET status = 'open' WHERE id = $1`,
-      [dibs.request_id]
-    );
+    // Wrap decline writes in a transaction
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      await updateDibsStatus(dibsId, 'declined');
+
+      // Reopen the request
+      await client.query(
+        `UPDATE requests.help_requests SET status = 'open' WHERE id = $1`,
+        [dibs.request_id]
+      );
+
+      await client.query('COMMIT');
+    } catch (txErr) {
+      await client.query('ROLLBACK');
+      throw txErr;
+    } finally {
+      client.release();
+    }
 
     // Publish event (best-effort)
     try {
@@ -337,6 +404,10 @@ router.put('/dibs/:id/decline', authMiddleware, async (req: AuthenticatedRequest
 // Used by integration tests in tests/tdd/sprint-42-dibs.test.ts.
 
 router.post('/dibs/:id/expire', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  if (process.env.NODE_ENV === 'production') {
+    return res.status(404).json({ success: false, message: 'Not found' });
+  }
+
   const { id: dibsId } = req.params;
 
   try {
@@ -344,6 +415,14 @@ router.post('/dibs/:id/expire', authMiddleware, async (req: AuthenticatedRequest
 
     if (!dibs) {
       return res.status(404).json({ success: false, message: 'Dibs not found', error: 'NOT_FOUND' });
+    }
+
+    if (dibs.status !== 'pending') {
+      return res.status(409).json({
+        success: false,
+        message: `Cannot expire a dibs record with status '${dibs.status}'`,
+        error: 'INVALID_STATE',
+      });
     }
 
     await updateDibsStatus(dibsId, 'expired');
