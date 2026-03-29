@@ -1,7 +1,8 @@
 -- Add dibs_pending status and scheduled_for column to help_requests
 -- Sprint 42: Dibs Request Feature
-
-ALTER TYPE request_status_enum ADD VALUE IF NOT EXISTS 'dibs_pending' AFTER 'open';
+--
+-- Note: help_requests.status is VARCHAR(50), not an enum type.
+-- Valid status values: 'open', 'dibs_pending', 'matched', 'expired', 'cancelled'
 
 ALTER TABLE requests.help_requests
   ADD COLUMN IF NOT EXISTS scheduled_for TIMESTAMPTZ;

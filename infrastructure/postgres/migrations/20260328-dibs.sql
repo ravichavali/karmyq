@@ -4,14 +4,14 @@
 CREATE TABLE IF NOT EXISTS requests.dibs (
   id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   request_id       UUID NOT NULL REFERENCES requests.help_requests(id) ON DELETE CASCADE,
-  requester_id     UUID NOT NULL,
-  provider_user_id UUID NOT NULL,
+  requester_id     UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  provider_user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   status           TEXT NOT NULL DEFAULT 'pending'
                      CHECK (status IN ('pending', 'accepted', 'declined', 'expired')),
   expires_at       TIMESTAMPTZ NOT NULL,
   created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  UNIQUE(request_id)
+  CONSTRAINT uq_dibs_request_id UNIQUE(request_id)
 );
 
 CREATE INDEX IF NOT EXISTS idx_dibs_provider_pending
