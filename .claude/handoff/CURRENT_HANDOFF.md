@@ -1,34 +1,34 @@
-# SPRINT 41 READY TO EXECUTE
+# SPRINT 42 READY TO EXECUTE
 
 ## Handoff Document for New Conversation
 
-**Date**: 2026-03-26
-**Current Version**: v9.15.0 (Sprint 40 deployed)
-**Status**: Sprint 41 spec + plan written — ready to execute
+**Date**: 2026-03-28
+**Current Version**: v9.16.0 (Sprint 41 complete)
+**Status**: Sprint 42 spec + plan written — ready to execute
 
 ---
 
 ## Quick Start
 
 1. Read this handoff
-2. Check out branch: `git checkout -b feature/sprint-41-provider-offer-flow`
-3. Open plan: `docs/superpowers/plans/2026-03-26-sprint-41-provider-offer-flow.md`
+2. Check out branch: `git checkout -b feature/sprint-42-dibs-request`
+3. Open plan: `docs/superpowers/plans/2026-03-28-sprint-42-dibs-request.md`
 4. Run: `/execute-plan` (uses superpowers:subagent-driven-development)
 
 ---
 
-## Sprint 41 Goal
+## Sprint 42 Goal
 
-> **Provider on-duty push notifications + offer submission flow (Phase 1)**
+> **Direct "Dibs" Request — scheduled-only private first-refusal**
 
-Provider toggles on-duty → push notified of matching open requests in their communities → submits an offer with editable price (defaulting from rate card) → requester gets push notified → accepts or declines from CommitmentsTab.
+When creating a *scheduled* request, the requester can optionally nominate one trusted provider (must have a prior completed interaction) for first right of refusal. The dibs window = 20% of lead time, no floor. The platform surfaces the best candidate using trust score → prior interactions → trust graph. On timeout or decline, the request auto-broadcasts publicly. ASAP requests always broadcast immediately — no dibs option.
 
 ---
 
 ## Key Documents
 
-- **Design spec**: `docs/superpowers/specs/2026-03-26-sprint-41-provider-offer-flow-design.md`
-- **Implementation plan**: `docs/superpowers/plans/2026-03-26-sprint-41-provider-offer-flow.md`
+- **Design spec**: `docs/superpowers/specs/2026-03-28-sprint-42-dibs-request-design.md`
+- **Implementation plan**: `docs/superpowers/plans/2026-03-28-sprint-42-dibs-request.md`
 
 ---
 
@@ -36,47 +36,49 @@ Provider toggles on-duty → push notified of matching open requests in their co
 
 | Sprint | Focus | Status |
 |--------|-------|--------|
-| **37** | Provider Mode (profiles, rate cards, dashboard) | ✅ Complete |
-| **39** | Provider UX Hardening + Accept Offers (community match flow) | ✅ Complete |
 | **40** | Admin Connector Tools + Provider Toggle | ✅ Complete — v9.15.0 |
-| **41** | Provider on-duty push notifications + offer submission flow | **This sprint** |
-| **42** | Offer prioritization by prior interactions + direct "dibs" request | Upcoming |
-| **43** | Group task communities | Upcoming |
-| **44** | Onboarding / First-run UX (empty states, welcome flow) | Upcoming |
+| **41** | Provider on-duty push notifications + offer submission flow | ✅ Complete — v9.16.0 |
+| **42** | Direct "Dibs" Request — scheduled-only private first-refusal | **This sprint** |
+| **43** | Offer prioritization ranking in public feed | Upcoming |
+| **44** | Group task communities | Upcoming |
+| **45** | Onboarding / First-run UX | Upcoming |
 
 ---
 
 ## Critical Implementation Notes (from spec — read before Task 2)
 
-1. **Push tokens must be registered after auth** — `useExpoNotifications` must only call the API once `userId` is available. Registering before auth means the token can't be linked to a user.
+1. **`scheduled_for` is a new column on `help_requests`** — separate from type-specific payload fields (`departure_time`, `event_date`). For typed requests, set both: `scheduled_for` is the canonical field for dibs; payload fields drive type-specific display. `scheduled_for = NULL` for generic/borrow = ASAP.
 
-2. **`provider_went_on_duty` query uses the junction table** — `requests.help_requests` has NO `community_id` column. To find matching open requests: `JOIN requests.request_communities rc ON rc.request_id = hr.id WHERE rc.community_id = ANY($1) AND hr.status = 'open'`.
+2. **Dibs window formula has no floor** — `expires_at = created_at + 0.20 × (scheduled_for − created_at)`. A tiny window is the requester's cost for scheduling late. Do not add a minimum.
 
-3. **Rate card lookup for offer pre-fill** — query `provider.rate_cards WHERE provider_id = $1 AND is_active = true ORDER BY created_at DESC LIMIT 1`. If no rate card, price field is blank (not zero).
+3. **`dibs_pending` must be excluded from public feed** — Every query fetching `status = 'open'` requests for the public feed, curated feed, or provider notifications must explicitly exclude `dibs_pending`. Check feed-service and the `provider_went_on_duty` notification query.
 
-4. **`offer_accepted` creates a `requests.matches` record** — map `provider_user_id` → `helper_id`, set `status = 'matched'`. Skip the `proposed` stage.
+4. **One dibs per request, no retry** — `UNIQUE(request_id)` on `requests.dibs`. Once any terminal state is reached (accepted/declined/expired), the request is either matched or permanently public.
 
-5. **Expo push API** — install `expo-server-sdk` in notification service. Token format: `ExponentPushToken[xxxx]`. Batch up to 100 per call.
+5. **Verify `helper_id` vs `responder_id` in `requests.matches`** — Read `services/request-service/src/db/` before writing the prior-interaction query. The handoff says `helper_id`; research found `responder_id`. One is wrong — read the source before implementing.
 
-6. **One active offer per provider per request** — check for existing `pending` or `accepted` offer before inserting. Return 409 if duplicate.
+6. **Dibs acceptance skips `provider.offers`** — Accept writes directly to `requests.matches` with `status = 'matched'` and `helper_id = provider_user_id`. Sprint 41 offer flow is unchanged for the public broadcast path.
 
-7. **Locate the existing availability endpoint** — find in `services/provider-service/src/routes/` before modifying. Do not guess the path.
+7. **Scoring gate: `priorInteractions >= 1` required** — Providers with zero prior completed interactions are not dibs-eligible. Return `{ data: null }` if no eligible candidates, and skip the post-creation prompt.
 
-8. **`communityIds` in event payload** — provider service must include the provider's community IDs in the `provider_went_on_duty` event (read from JWT `user.communities`) so notification service can query matching requests without a cross-service DB call.
+8. **Provider must be `is_available = true`** — Gate the candidate query on `provider.providers.is_available = true`. Off-duty providers are never surfaced.
+
+9. **Enum migration order** — `ADD VALUE IF NOT EXISTS 'dibs_pending'` must be in the first migration file (before `requests.dibs` table creation).
 
 ---
 
 ## New Tables This Sprint
 
 ```sql
--- auth.device_push_tokens
--- migration: infrastructure/postgres/migrations/20260326-device-push-tokens.sql
+-- requests.help_requests: ADD COLUMN scheduled_for TIMESTAMPTZ
+-- migration: infrastructure/postgres/migrations/20260328-help-requests-scheduled-for.sql
+-- (also adds 'dibs_pending' to request_status_enum)
 
--- provider.offers
--- migration: infrastructure/postgres/migrations/20260326-provider-offers.sql
+-- requests.dibs
+-- migration: infrastructure/postgres/migrations/20260328-dibs.sql
 ```
 
-Both migrations must be run on demo server after deploy (see Task 13 in plan).
+Both migrations must be run on demo server after deploy (see Task 14 in plan).
 
 ---
 
@@ -144,13 +146,22 @@ Both migrations must be run on demo server after deploy (see Task 13 in plan).
   - "Community Pick" badge: `bg-teal-100 text-teal-700 border-teal-200`
   - Geo fallback: community service returns `{ data: { communities: [...], fallback: true } }` when geo returns 0 rows
   - `ProviderDashboardCard` accepts `providerId?: string` + `isAvailable?: boolean`; local optimistic state
-- **Sprint 41 provider offer patterns** (fill in during execution):
+- **Sprint 41 provider offer patterns**:
   - `auth.device_push_tokens`: stores Expo push tokens per user device
   - `provider.offers`: separate from `requests.matches` — commercial offer flow
   - Offer statuses: `pending` | `accepted` | `declined` | `withdrawn`
   - `provider_went_on_duty` event: `{ providerId, providerUserId, communityIds }`
   - Expo push delivered via `expo-server-sdk` in notification service
   - Offer accepted → creates `requests.matches` record with `status = 'matched'`
+- **Sprint 42 dibs patterns** (fill in during execution):
+  - `requests.dibs`: requester-initiated private first-refusal (vs. provider-initiated offers)
+  - Dibs only for scheduled requests (`scheduled_for IS NOT NULL`)
+  - `dibs_pending` is a new `request_status_enum` value — exclude from all public feed queries
+  - Dibs window = 20% of lead time, no floor
+  - Provider must have `priorInteractions >= 1` with requester to be dibs-eligible
+  - Scoring: trustScore * 0.50 + min(interactions, 3) * 11.67 + trustGraphBonus (15/10/0)
+  - Accept → `requests.matches` with `status = 'matched'` directly (skips provider.offers)
+  - Expiry handled by cleanup-service cron (every 5 min)
 - **Docker exec for migrations**: Postgres only accessible within Docker network. To run migrations:
   `docker exec karmyq-postgres psql -U karmyq_prod -d karmyq_prod -f /path/to/migration.sql`
   (copy file to server first with `scp`)
