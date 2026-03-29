@@ -58,7 +58,6 @@ describe('Dibs lifecycle', () => {
   let providerToken: string;
   let communityId: string;
   let eligibleProviderId: string;    // provider with priorInteractions >= 1
-  let ineligibleProviderId: string;  // provider with priorInteractions = 0
   let servicesAvailable = true;
 
   beforeAll(async () => {
@@ -118,7 +117,7 @@ describe('Dibs lifecycle', () => {
     ).rejects.toMatchObject({
       response: {
         status: 400,
-        data: { error: 'DIBS_REQUIRES_SCHEDULED_REQUEST' },
+        data: { error: 'ASAP_NOT_ELIGIBLE' },
       },
     });
   });
@@ -153,8 +152,8 @@ describe('Dibs lifecycle', () => {
       )
     ).rejects.toMatchObject({
       response: {
-        status: 400,
-        data: { error: 'PROVIDER_NOT_DIBS_ELIGIBLE' },
+        status: 403,
+        data: { error: 'NO_PRIOR_INTERACTION' },
       },
     });
   });
@@ -189,7 +188,7 @@ describe('Dibs lifecycle', () => {
     expect(dibsRes.status).toBe(201);
     expect(dibsRes.data.data).toMatchObject({
       request_id: requestId,
-      provider_id: eligibleProviderId,
+      provider_user_id: eligibleProviderId,
       status: 'pending',
     });
     expect(dibsRes.data.data.expires_at).toBeDefined();
@@ -207,7 +206,6 @@ describe('Dibs lifecycle', () => {
     if (!eligibleProviderId) throw new Error('No eligible provider — run simulation first');
 
     // Create a scheduled request 5 hours from now
-    const beforeCreate = Date.now();
     const createRes = await axios.post(
       `${REQUEST_URL}/requests`,
       {
@@ -220,7 +218,6 @@ describe('Dibs lifecycle', () => {
       },
       { headers: { Authorization: `Bearer ${requesterToken}` } }
     );
-    const afterCreate = Date.now();
     expect(createRes.status).toBe(201);
     const requestId = createRes.data.data.id;
 
@@ -373,6 +370,7 @@ describe('Dibs lifecycle', () => {
 
     // Trigger manual expiry (internal/cleanup endpoint) — this bypasses the scheduler
     // The endpoint should process dibs records where expires_at <= NOW()
+    // Requires a test-only POST /requests/dibs/:id/expire endpoint — add in Task 5
     const expireRes = await axios.post(
       `${REQUEST_URL}/requests/dibs/${dibsId}/expire`,
       {},
@@ -429,7 +427,7 @@ describe('Dibs lifecycle', () => {
     ).rejects.toMatchObject({
       response: {
         status: 409,
-        data: { error: 'DIBS_ALREADY_EXISTS' },
+        data: { error: 'DIBS_ALREADY_SENT' },
       },
     });
   });
