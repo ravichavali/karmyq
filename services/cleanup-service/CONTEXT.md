@@ -21,6 +21,7 @@ The Cleanup Service handles:
 | Reputation Decay | Daily 3:00 AM | Recalculate trust scores with decay |
 | Activity Log Cleanup | Weekly Sun 4:00 AM | Remove old activity logs (>90 days) |
 | Decay Report | Weekly Mon 9:00 AM | Generate community decay statistics |
+| Expire Dibs | Every 5 minutes | Find pending `requests.dibs` records past `expires_at`, set `status=expired`, reset `help_requests.status` to `open`, publish `dibs_expired` event |
 
 ## Database Schema
 
@@ -29,7 +30,8 @@ The Cleanup Service handles:
 - `communities.settings` - Per-community TTL and decay configuration
 - `reputation.activity_log` - User activity tracking
 - `reputation.trust_scores` - Trust scores with `last_activity_at`
-- `requests.help_requests` - `expires_at`, `expired` columns
+- `requests.help_requests` - `expires_at`, `expired` columns; `status` reset to `open` on dibs expiry
+- `requests.dibs` - `status`, `expires_at` columns (Sprint 42)
 - `requests.help_offers` - `expires_at`, `expired` columns
 - `messaging.messages` - `expires_at`, `expired` columns
 - `notifications.notifications` - `expires_at`, `expired` columns

@@ -273,6 +273,27 @@ Cards are never hard-deleted; deactivation sets `is_active = false`.
 
 **requests.help_requests** — Sprint 29 addition: `preferred_provider_id UUID REFERENCES requests.provider_profiles(id)` — optional field set when a requestor pre-selects a provider while filing a typed request.
 
+**requests.help_requests** — Sprint 42 addition: `scheduled_for TIMESTAMPTZ` — nullable; when set, the request is a scheduled request eligible for the dibs flow. When null, the request is treated as ASAP and always broadcast publicly (dibs rejected).
+
+**requests.dibs** - Private first-refusal records for scheduled requests (Sprint 42)
+```sql
+CREATE TABLE requests.dibs (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    request_id UUID NOT NULL REFERENCES requests.help_requests(id) ON DELETE CASCADE,
+    requester_id UUID NOT NULL REFERENCES auth.users(id),
+    provider_user_id UUID NOT NULL REFERENCES auth.users(id),
+    status VARCHAR(50) DEFAULT 'pending',  -- pending, accepted, declined, expired
+    expires_at TIMESTAMPTZ NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(request_id)  -- one active dibs per request at a time
+);
+
+CREATE INDEX idx_dibs_request_id ON requests.dibs(request_id);
+CREATE INDEX idx_dibs_provider_user_id ON requests.dibs(provider_user_id);
+CREATE INDEX idx_dibs_status ON requests.dibs(status);
+CREATE INDEX idx_dibs_expires_at ON requests.dibs(expires_at) WHERE status = 'pending';
+```
+
 **provider.offers** - Provider priced offers on help requests (Sprint 41)
 ```sql
 CREATE TABLE provider.offers (
@@ -1350,6 +1371,157 @@ Withdraw a pending provider offer.
 ```
 
 **Implementation:** `src/routes/providerOffers.ts`
+
+### 3.3c Dibs Endpoints (Sprint 42)
+
+Dibs is a private first-refusal window for scheduled requests. Only scheduled requests (`scheduled_for IS NOT NULL`) are eligible; ASAP requests are always broadcast publicly.
+
+**Eligibility rules:**
+- Request must have `scheduled_for` set (not an ASAP request)
+- Provider must have `priorInteractions >= 1` with the requester
+- Provider must be `is_available = true`
+- Only one active dibs record per request (`UNIQUE(request_id)`)
+
+**Window formula:** `expires_at = created_at + 0.20 × (scheduled_for − created_at)`
+
+**Status flow:** `open` → `dibs_pending` → `matched` (accept) | `open` (decline/expire)
+
+#### GET /requests/:id/dibs-candidate
+Returns the top-scored dibs candidate for a scheduled request. Returns `null` if no eligible candidate exists.
+
+**Authentication:** Required (JWT token — must be the requester)
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "provider_user_id": "uuid",
+    "provider_id": "uuid",
+    "match_score": 87,
+    "prior_interactions": 3
+  }
+}
+```
+Returns `"data": null` when no eligible candidate is found.
+
+**Implementation:** `src/routes/dibs.ts`
+
+#### POST /requests/:id/dibs
+Send dibs to a specific provider. Only valid for scheduled requests.
+
+**Authentication:** Required (JWT token — must be the requester)
+
+**Request:**
+```json
+{
+  "provider_id": "uuid"
+}
+```
+
+**Response (201):**
+```json
+{
+  "success": true,
+  "data": {
+    "id": "uuid",
+    "request_id": "uuid",
+    "provider_user_id": "uuid",
+    "status": "pending",
+    "expires_at": "2026-03-28T14:00:00Z",
+    "created_at": "2026-03-28T13:00:00Z"
+  }
+}
+```
+
+**Errors:**
+- `400 ASAP_NOT_ELIGIBLE` — Request has no `scheduled_for`
+- `403 NO_PRIOR_INTERACTION` — Provider has no prior interaction with requester
+- `409 DIBS_ALREADY_SENT` — A pending dibs record already exists for this request
+
+**Events Published:** `dibs_submitted`
+
+**Implementation:** `src/routes/dibs.ts`
+
+#### PUT /requests/dibs/:id/accept
+Provider accepts dibs. Creates a `requests.matches` record directly and sets request status to `matched`.
+
+**Authentication:** Required (JWT token — must be the dibs provider)
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "dibs_status": "accepted",
+    "match_id": "uuid"
+  }
+}
+```
+
+**Events Published:** `dibs_accepted`
+
+**Implementation:** `src/routes/dibs.ts`
+
+#### PUT /requests/dibs/:id/decline
+Provider declines dibs. Reverts request status to `open` for public broadcast.
+
+**Authentication:** Required (JWT token — must be the dibs provider)
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "dibs_status": "declined"
+  }
+}
+```
+
+**Events Published:** `dibs_declined`
+
+**Implementation:** `src/routes/dibs.ts`
+
+#### GET /requests/dibs/pending-for-provider
+Returns the authenticated provider's pending dibs records (status = `pending`).
+
+**Authentication:** Required (JWT token)
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "uuid",
+      "request_id": "uuid",
+      "request_title": "Need help with plumbing",
+      "scheduled_for": "2026-03-30T10:00:00Z",
+      "expires_at": "2026-03-28T16:00:00Z",
+      "status": "pending"
+    }
+  ]
+}
+```
+
+**Implementation:** `src/routes/dibs.ts`
+
+#### POST /requests/dibs/:id/expire
+TEST-ONLY: Force-expire a dibs record regardless of `expires_at`. Sets status to `expired` and reverts request to `open`.
+
+**Authentication:** Required (JWT token)
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "dibs_status": "expired"
+  }
+}
+```
+
+**Implementation:** `src/routes/dibs.ts`
 
 ### 3.4 Interaction Feedback (Social Karma v2.0)
 
