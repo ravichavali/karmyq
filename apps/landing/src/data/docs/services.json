@@ -182,6 +182,31 @@
           "method": "PUT",
           "path": "/providers/offers/:id/withdraw",
           "description": "Withdraw a pending provider offer"
+        },
+        {
+          "method": "GET",
+          "path": "/requests/:id/dibs-candidate",
+          "description": "Returns top-scored dibs candidate for a scheduled request"
+        },
+        {
+          "method": "POST",
+          "path": "/requests/:id/dibs",
+          "description": "Send dibs to a specific provider (scheduled requests only)"
+        },
+        {
+          "method": "PUT",
+          "path": "/requests/dibs/:id/accept",
+          "description": "Provider accepts dibs — creates matches record and sets request status to matched"
+        },
+        {
+          "method": "PUT",
+          "path": "/requests/dibs/:id/decline",
+          "description": "Provider declines dibs — request reverts to open"
+        },
+        {
+          "method": "GET",
+          "path": "/requests/dibs/pending-for-provider",
+          "description": "Returns authenticated provider's pending dibs"
         }
       ],
       "dependencies": [
@@ -202,7 +227,10 @@
           "provider_went_on_duty",
           "offer_submitted",
           "offer_accepted",
-          "offer_declined"
+          "offer_declined",
+          "dibs_submitted",
+          "dibs_accepted",
+          "dibs_declined"
         ],
         "subscribes": []
       },
@@ -388,7 +416,9 @@
         "redis"
       ],
       "events": {
-        "publishes": [],
+        "publishes": [
+          "dibs_expired"
+        ],
         "subscribes": []
       },
       "healthCheck": "http://localhost:3008/health",
@@ -554,5 +584,5 @@
       ]
     }
   },
-  "updated": "2026-03-26"
+  "updated": "2026-03-28"
 }

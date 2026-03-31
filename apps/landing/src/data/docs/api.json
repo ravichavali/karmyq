@@ -377,6 +377,36 @@
           "description": "Withdraw a pending provider offer."
         },
         {
+          "method": "GET",
+          "path": "/requests/:id/dibs-candidate",
+          "description": "Returns the top-scored dibs candidate for a scheduled request. Returns `null` if no eligible candidate exists."
+        },
+        {
+          "method": "POST",
+          "path": "/requests/:id/dibs",
+          "description": "Send dibs to a specific provider. Only valid for scheduled requests."
+        },
+        {
+          "method": "PUT",
+          "path": "/requests/dibs/:id/accept",
+          "description": "Provider accepts dibs. Creates a `requests.matches` record directly and sets request status to `matched`."
+        },
+        {
+          "method": "PUT",
+          "path": "/requests/dibs/:id/decline",
+          "description": "Provider declines dibs. Reverts request status to `open` for public broadcast."
+        },
+        {
+          "method": "GET",
+          "path": "/requests/dibs/pending-for-provider",
+          "description": "Returns the authenticated provider's pending dibs records (status = `pending`)."
+        },
+        {
+          "method": "POST",
+          "path": "/requests/dibs/:id/expire",
+          "description": "TEST-ONLY: Force-expire a dibs record regardless of `expires_at`. Sets status to `expired` and reverts request to `open`."
+        },
+        {
           "method": "POST",
           "path": "/matches/:id/feedback",
           "description": "Submit interaction feedback for a completed match."

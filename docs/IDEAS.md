@@ -152,3 +152,9 @@ Provider availability toggle should work like a cab driver going on/off duty:
 Open questions: do rate cards become per-request defaults? Feed vs. push notification for new requests? Acceptance flow shape?
 
 ---
+
+## [2026-03-30] other
+
+Pre-existing TypeScript warnings cleanup — during Sprint 42 we saw recurring ✶ warnings in files we touched but didn't introduce: unused `data` params in notificationTemplates.ts, unused `feedComposer` import in feed.ts, unused `userBehavior` in feedComposer.ts, unused `res`/`error` params in cleanup-service middleware helpers, unused `match` implicit any in generate-docs.ts. These are harmless but noisy. Proposal: dedicate one small task per sprint to clean 3-5 of these (fix `_`-prefix unused params, type the implicit any). Low-effort, keeps the codebase tidy, improves signal-to-noise in the IDE diagnostic panel.
+
+---
