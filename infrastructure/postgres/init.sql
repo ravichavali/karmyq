@@ -332,9 +332,9 @@ CREATE INDEX idx_matches_responder_id ON requests.matches(responder_id);
 CREATE TABLE requests.dibs (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     request_id UUID NOT NULL REFERENCES requests.help_requests(id) ON DELETE CASCADE,
+    requester_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
     provider_user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-    status VARCHAR(20) NOT NULL DEFAULT 'pending',  -- pending | accepted | declined | expired
-    dibs_window_minutes INTEGER NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'declined', 'expired')),
     expires_at TIMESTAMPTZ NOT NULL,
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
