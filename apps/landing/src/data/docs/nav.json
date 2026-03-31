@@ -130,6 +130,10 @@
           "href": "/docs/guides/provider-mode"
         },
         {
+          "label": "Sending a Private Request (Dibs)",
+          "href": "/docs/guides/dibs-request"
+        },
+        {
           "label": "Managing Your Notifications",
           "href": "/docs/guides/managing-notifications"
         },

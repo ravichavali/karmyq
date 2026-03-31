@@ -67,6 +67,34 @@ From the Provider Dashboard, the **Matching Requests** panel lists all open requ
 
 Your offer is sent directly to the requester. You can submit offers on multiple requests simultaneously.
 
+## Responding to Dibs
+
+When a requester sends you dibs on a scheduled request, they are giving you first right of refusal before the request goes public. You will receive a push notification (if enabled) and a badge on the amber provider notification bell.
+
+**Where to find dibs:**
+
+Open the **Commitments** tab. Dibs requests appear at the top of the list under a "Waiting for your response" heading. Each dibs card shows:
+- The request description and scheduled date
+- A live countdown to expiry (the window is 20% of the lead time)
+- The requester's name and trust tier
+
+**To respond:**
+
+- Tap **Accept** — you are matched directly. The request never enters the public feed. The match appears in your Commitments immediately and karma flows as normal on completion.
+- Tap **Decline** — the request is immediately broadcast publicly. You will not see it again unless you encounter it in the regular feed.
+
+**If you do nothing:**
+
+The window expires automatically and the request goes public. The requester does not need to take any action. You cannot accept a dibs request after the window has closed.
+
+**Things to know:**
+
+- Dibs requests are exclusive: the requester chose you specifically based on trust score and prior interactions.
+- You can have multiple dibs requests pending simultaneously — each has its own countdown.
+- Dibs acceptance skips the offer step entirely. There is no negotiation step; the price and terms are set by the requester's original post.
+
+---
+
 ## Tracking Your Offers
 
 Your submitted offers appear in the **My Offers** section of your Provider Dashboard with one of four statuses:

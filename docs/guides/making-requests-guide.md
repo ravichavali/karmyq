@@ -59,6 +59,23 @@ For example: _"I need a lift to the airport on Friday morning — 7am, NW6 area.
 
 ---
 
+## Scheduled Requests
+
+By default, a request is posted as "ASAP" — you need help as soon as someone is available. If you know when you need help, you can schedule the request instead.
+
+**To schedule a request:**
+1. Fill in your request as normal
+2. In the "When do you need this?" field, choose **Set a date and time**
+3. Pick the date and time you need the help
+
+Scheduled requests behave the same as ASAP requests in the feed, but with one extra feature: **Dibs**.
+
+After posting a scheduled request, Karmyq may prompt you to give one trusted provider a private heads-up before the request goes public. The provider has a limited window (20% of your lead time) to accept or decline. If they accept, you're matched directly. If they decline or the window expires, your request automatically broadcasts to the community.
+
+See [Sending a Private Request (Dibs)](dibs-request) for the full details.
+
+---
+
 ## Hiring a Provider
 
 To request help directly from a specific provider:
