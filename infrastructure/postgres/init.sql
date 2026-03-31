@@ -273,6 +273,7 @@ CREATE TABLE requests.help_requests (
     boosted_at TIMESTAMP,  -- Sprint 36: When the boost was applied
     boosted_expires_at TIMESTAMP,  -- Sprint 36: When the boost expires
     boosted_by UUID REFERENCES auth.users(id) ON DELETE SET NULL,  -- Sprint 36: Admin who applied the boost
+    scheduled_for TIMESTAMPTZ,  -- Sprint 42: Optional scheduled time for dibs eligibility
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -326,6 +327,21 @@ CREATE INDEX idx_request_communities_community ON requests.request_communities(c
 CREATE INDEX idx_offers_community_id ON requests.help_offers(community_id);
 CREATE INDEX idx_matches_request_id ON requests.matches(request_id);
 CREATE INDEX idx_matches_responder_id ON requests.matches(responder_id);
+
+-- Sprint 42: Dibs table — private first-refusal for scheduled requests
+CREATE TABLE requests.dibs (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    request_id UUID NOT NULL REFERENCES requests.help_requests(id) ON DELETE CASCADE,
+    provider_user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    status VARCHAR(20) NOT NULL DEFAULT 'pending',  -- pending | accepted | declined | expired
+    dibs_window_minutes INTEGER NOT NULL,
+    expires_at TIMESTAMPTZ NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uq_dibs_request_id UNIQUE (request_id)
+);
+CREATE INDEX idx_dibs_provider ON requests.dibs (provider_user_id) WHERE status = 'pending';
+CREATE INDEX idx_dibs_expires ON requests.dibs (expires_at) WHERE status = 'pending';
 
 CREATE TABLE requests.request_admin_notes (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
