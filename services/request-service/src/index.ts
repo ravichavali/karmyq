@@ -83,6 +83,15 @@ app.use(
   requestsRouter
 );
 
+// Dibs flow: candidate lookup, submit, accept, decline, provider pending list
+// IMPORTANT: must be registered BEFORE adminActionsRouter — adminActionsRouter mounts
+// with adminAuth middleware which would intercept dibs routes before they can match.
+// Routes: GET /requests/:id/dibs-candidate, POST /requests/:id/dibs,
+//         GET /requests/dibs/pending-for-provider, PUT /requests/dibs/:id/accept,
+//         PUT /requests/dibs/:id/decline, POST /requests/dibs/:id/expire (test-only)
+// Each route applies authMiddleware individually
+app.use('/requests', rateLimiters.standard, dibsRouter);
+
 // Admin actions on requests (boost, propose-match, urgent toggle)
 // Requires admin role in at least one community; route handlers further scope to the request's community
 app.use(
@@ -98,13 +107,6 @@ app.use(
 // Routes: GET /requests/:id/offers, PUT /requests/offers/:id/accept, PUT /requests/offers/:id/decline
 // Each route applies authMiddleware individually
 app.use('/requests', rateLimiters.standard, requesterOffersRouter);
-
-// Dibs flow: candidate lookup, submit, accept, decline, provider pending list
-// Routes: GET /requests/:id/dibs-candidate, POST /requests/:id/dibs,
-//         GET /requests/dibs/pending-for-provider, PUT /requests/dibs/:id/accept,
-//         PUT /requests/dibs/:id/decline, POST /requests/dibs/:id/expire (test-only)
-// Each route applies authMiddleware individually
-app.use('/requests', rateLimiters.standard, dibsRouter);
 
 app.use(
   '/offers',
