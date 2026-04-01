@@ -108,7 +108,7 @@ export async function getEligibleCandidates(
        AND prior.interaction_count >= 1
        AND pp.user_id IN (
          SELECT DISTINCT cm.user_id
-         FROM community.members cm
+         FROM communities.members cm
          WHERE cm.community_id = ANY($2)
        )
        AND pp.user_id != $1`,
