@@ -794,10 +794,13 @@ router.post('/', async (req: Request, res: Response) => {
       resolvedProviderUserId = provider.user_id;
     }
 
+    // Derive title from description if not provided (wizard UX omits a title field)
+    const resolvedTitle: string = title || (description ? description.slice(0, 80).trim() : '');
+
     // Validate request using Zod schema (polymorphic validation)
     const requestData = {
       request_type: request_type || 'generic', // Default to generic for backward compatibility
-      title,
+      title: resolvedTitle,
       description,
       urgency: urgency || 'medium',
       ...(payload && { payload }),
