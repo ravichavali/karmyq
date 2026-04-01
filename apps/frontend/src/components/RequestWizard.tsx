@@ -26,7 +26,9 @@ const DEFAULT_TYPES = [
 const schemaCache: Record<string, UISchema> = {}
 
 function mapUrgencyToApi(urgency: UrgencyLevel): string {
-  return urgency === 'normal' ? 'medium' : urgency
+  if (urgency === 'normal') return 'medium'
+  if (urgency === 'urgent') return 'high'
+  return urgency
 }
 
 interface RequestWizardProps {
