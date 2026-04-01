@@ -107,6 +107,11 @@ export default function RideRequestForm({ initialData, onChange }: RideRequestFo
         required
         helpText="When do you need to depart?"
       />
+      {formData.departure_time && (
+        <p className="text-xs text-primary-dark mt-1">
+          ⏰ This is a scheduled request — you&apos;ll be able to offer dibs to a trusted provider after posting.
+        </p>
+      )}
 
       {/* Preferences */}
       <div>

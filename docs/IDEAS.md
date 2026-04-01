@@ -158,3 +158,11 @@ Open questions: do rate cards become per-request defaults? Feed vs. push notific
 Pre-existing TypeScript warnings cleanup — during Sprint 42 we saw recurring ✶ warnings in files we touched but didn't introduce: unused `data` params in notificationTemplates.ts, unused `feedComposer` import in feed.ts, unused `userBehavior` in feedComposer.ts, unused `res`/`error` params in cleanup-service middleware helpers, unused `match` implicit any in generate-docs.ts. These are harmless but noisy. Proposal: dedicate one small task per sprint to clean 3-5 of these (fix `_`-prefix unused params, type the implicit any). Low-effort, keeps the codebase tidy, improves signal-to-noise in the IDE diagnostic panel.
 
 ---
+
+## [2026-03-31] open-question
+
+Should service requests (paid provider requests) be community-scoped or platform-scoped? Currently they follow mutual aid requests into a community, which roots trust scoring and dibs candidate selection in community membership. The alternative: service requests are platform-wide, but trust scores and prior interactions still influence provider ranking/dibs. The dibs model already hints at platform-scoped (requester picks a specific trusted person regardless of community overlap), but the current `getEligibleCandidates` query still requires community context. Needs a design session before the provider experience sprint. Affects: dibs candidate selection, provider directory model, trust score scoping, and the open question of whether a provider's reputation travels across communities.
+
+---
+
+---

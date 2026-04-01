@@ -809,9 +809,14 @@ router.post('/', async (req: Request, res: Response) => {
 
     const validation = validateRequest(requestData);
     if (!validation.success) {
+      const firstIssue = validation.error.issues[0];
+      const fieldPath = firstIssue?.path?.join('.') || 'unknown field';
+      const humanMessage = firstIssue
+        ? `Invalid request data: ${fieldPath} — ${firstIssue.message}`
+        : 'Invalid request data';
       return res.status(400).json({
         success: false,
-        message: 'Invalid request data',
+        message: humanMessage,
         errors: validation.error.format(),
       });
     }
