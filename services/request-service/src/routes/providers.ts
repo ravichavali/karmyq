@@ -308,20 +308,32 @@ router.post('/', authMiddleware, async (req: AuthenticatedRequest, res: Response
       return res.status(400).json({ success: false, message: 'service_type and display_name are required' });
     }
 
-    // Insert provider profile
+    // Upsert provider profile — reactivates an existing inactive profile for the same service type
     const profileResult = await query(`
       INSERT INTO requests.provider_profiles (user_id, service_type, display_name, bio, pricing_notes, location_notes)
       VALUES ($1, $2, $3, $4, $5, $6)
+      ON CONFLICT (user_id, service_type) DO UPDATE
+        SET display_name = EXCLUDED.display_name,
+            bio = EXCLUDED.bio,
+            pricing_notes = EXCLUDED.pricing_notes,
+            location_notes = EXCLUDED.location_notes,
+            is_active = TRUE,
+            updated_at = CURRENT_TIMESTAMP
       RETURNING *
     `, [userId, service_type, display_name, bio ?? null, pricing_notes ?? null, location_notes ?? null]);
 
     const profile = profileResult.rows[0];
 
-    // If ride service type, insert ride details
+    // If ride service type, upsert ride details
     if (service_type === 'ride' && ride_details) {
       await query(`
         INSERT INTO requests.provider_ride_details (provider_id, vehicle_type, max_passengers, typical_routes, advance_booking_required)
         VALUES ($1, $2, $3, $4, $5)
+        ON CONFLICT (provider_id) DO UPDATE
+          SET vehicle_type = EXCLUDED.vehicle_type,
+              max_passengers = EXCLUDED.max_passengers,
+              typical_routes = EXCLUDED.typical_routes,
+              advance_booking_required = EXCLUDED.advance_booking_required
       `, [
         profile.id,
         ride_details.vehicle_type ?? null,
@@ -339,9 +351,6 @@ router.post('/', authMiddleware, async (req: AuthenticatedRequest, res: Response
 
     res.status(201).json({ success: true, data: profile, message: 'Provider profile created' });
   } catch (error: any) {
-    if (error.code === '23505') {
-      return res.status(409).json({ success: false, message: 'You already have a provider profile for this service type' });
-    }
     console.error('Error creating provider:', error);
     res.status(500).json({ success: false, message: 'Failed to create provider profile', error: error.message });
   }
