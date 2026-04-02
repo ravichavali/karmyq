@@ -43,10 +43,11 @@ interface TabBarProps {
   activeTab: TabId
   onChange: (tab: TabId) => void
   commitmentCount?: number
+  dibsCount?: number
   browseLabel?: string  // overrides 'Browse' tab label when provided
 }
 
-export default function TabBar({ activeTab, onChange, commitmentCount, browseLabel }: TabBarProps) {
+export default function TabBar({ activeTab, onChange, commitmentCount, dibsCount, browseLabel }: TabBarProps) {
   return (
     <>
       {/* Desktop horizontal tabs */}
@@ -60,7 +61,12 @@ export default function TabBar({ activeTab, onChange, commitmentCount, browseLab
             className={`tab-bar-item ${activeTab === tab.id ? 'active' : ''}`}
           >
             {tab.id === 'browse' && browseLabel ? browseLabel : tab.label}
-            {tab.id === 'commitments' && commitmentCount != null && commitmentCount > 0 && (
+            {tab.id === 'commitments' && (dibsCount != null && dibsCount > 0) && (
+              <span className="ml-1.5 inline-flex items-center justify-center w-4 h-4 rounded-full bg-amber-500 text-white text-xs">
+                {dibsCount > 9 ? '9+' : dibsCount}
+              </span>
+            )}
+            {tab.id === 'commitments' && !(dibsCount != null && dibsCount > 0) && commitmentCount != null && commitmentCount > 0 && (
               <span className="ml-1.5 inline-flex items-center justify-center w-4 h-4 rounded-full bg-primary text-white text-xs">
                 {commitmentCount > 9 ? '9+' : commitmentCount}
               </span>
@@ -81,7 +87,10 @@ export default function TabBar({ activeTab, onChange, commitmentCount, browseLab
             {tab.icon}
             <span>
               {tab.id === 'browse' && browseLabel ? browseLabel : tab.mobileLabel}
-              {tab.id === 'commitments' && commitmentCount != null && commitmentCount > 0 && (
+              {tab.id === 'commitments' && dibsCount != null && dibsCount > 0 && (
+                <span className="ml-0.5 text-amber-500 font-bold">·</span>
+              )}
+              {tab.id === 'commitments' && !(dibsCount != null && dibsCount > 0) && commitmentCount != null && commitmentCount > 0 && (
                 <span className="ml-0.5 text-primary font-bold">·</span>
               )}
             </span>

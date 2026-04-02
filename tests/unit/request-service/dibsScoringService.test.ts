@@ -33,6 +33,7 @@ import {
 interface Dibs_Candidate {
   providerId: string;
   providerUserId: string;
+  displayName: string;
   trustScore: number;
   priorInteractions: number;
   trustGraphConnection: 'direct' | 'indirect' | 'none';
@@ -42,6 +43,7 @@ interface Dibs_Candidate {
 const baseCandidate: Dibs_Candidate = {
   providerId: 'prov-1',
   providerUserId: 'user-prov-1',
+  displayName: 'Test Provider',
   trustScore: 60,
   priorInteractions: 2,
   trustGraphConnection: 'none',

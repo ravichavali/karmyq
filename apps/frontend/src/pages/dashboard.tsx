@@ -79,6 +79,7 @@ export default function Dashboard() {
   // Tab shell state
   const [activeTab, setActiveTab] = useState<TabId>('browse')
   const [showWizard, setShowWizard] = useState(false)
+  const [pendingDibsCount, setPendingDibsCount] = useState(0)
 
   const { providerMode, providerServiceTypes, providerProfiles } = useProvider()
   const isProviderMode = providerMode === 'provider'
@@ -105,6 +106,15 @@ export default function Dashboard() {
 
     setLoading(false)
   }, [router])
+
+  // Honor ?tab= query param once router is ready (e.g. notification links → commitments tab)
+  useEffect(() => {
+    if (!router.isReady) return
+    const tabParam = router.query.tab as string | undefined
+    if (tabParam === 'commitments' || tabParam === 'my-requests' || tabParam === 'profile') {
+      setActiveTab(tabParam)
+    }
+  }, [router.isReady, router.query.tab])
 
   // Re-fetch when filters or active community change (skip on initial mount — handled above)
   const filtersInitialized = typeof window !== 'undefined'
@@ -444,6 +454,7 @@ export default function Dashboard() {
           activeTab={activeTab}
           onChange={setActiveTab}
           browseLabel={isProviderMode ? 'Requests for Me' : undefined}
+          dibsCount={pendingDibsCount}
         />
 
         {/* Tab content */}
@@ -456,7 +467,7 @@ export default function Dashboard() {
               />
             </div>
           )}
-          {activeTab === 'commitments' && <div key="commitments"><CommitmentsTab /></div>}
+          {activeTab === 'commitments' && <div key="commitments"><CommitmentsTab onDibsLoaded={setPendingDibsCount} /></div>}
           {activeTab === 'my-requests' && <div key="my-requests"><MyRequestsTab onNewRequest={() => setShowWizard(true)} /></div>}
           {activeTab === 'profile' && (
             <div key="profile" className="max-w-2xl mx-auto px-4 py-8">

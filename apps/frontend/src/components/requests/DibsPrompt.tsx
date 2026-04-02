@@ -8,6 +8,7 @@ import React, { useState } from 'react'
 
 export interface DibsCandidate {
   providerUserId: string
+  displayName: string
   score: number
   trustScore: number
   priorInteractions: number
@@ -96,9 +97,12 @@ export default function DibsPrompt({
             <div className="bg-primary-light border border-primary-medium rounded-lg p-4 space-y-2">
               <div className="flex items-center gap-2">
                 <div className="w-9 h-9 rounded-full bg-primary flex items-center justify-center text-white font-semibold text-sm">
-                  P
+                  {candidate.displayName ? candidate.displayName.charAt(0).toUpperCase() : 'P'}
                 </div>
-                <span className="font-medium text-text">A trusted provider</span>
+                <div>
+                  <p className="font-medium text-text">{candidate.displayName || 'A trusted provider'}</p>
+                  <p className="text-xs text-text-muted">Trusted provider</p>
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-2 text-sm">

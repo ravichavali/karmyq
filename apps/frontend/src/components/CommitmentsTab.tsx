@@ -26,6 +26,7 @@ interface PendingDibs {
   requestTitle: string
   scheduledFor: string
   expiresAt: string
+  requesterName?: string
 }
 
 // ── Step indicator ────────────────────────────────────────────────────────────
@@ -86,7 +87,11 @@ function SectionBlock({
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export default function CommitmentsTab() {
+interface CommitmentsTabProps {
+  onDibsLoaded?: (count: number) => void
+}
+
+export default function CommitmentsTab({ onDibsLoaded }: CommitmentsTabProps = {}) {
   const [helping, setHelping] = useState<Match[]>([])
   const [requested, setRequested] = useState<Match[]>([])
   const [myOpenRequests, setMyOpenRequests] = useState<any[]>([])
@@ -123,14 +128,15 @@ export default function CommitmentsTab() {
     // Fetch pending dibs for provider (non-blocking — errors are silently ignored)
     dibsService.getPendingDibsForProvider().then((res) => {
       const items: any[] = res.data ?? []
-      setPendingDibs(
-        items.map((d: any) => ({
-          id: d.id,
-          requestTitle: d.request_title ?? d.requestTitle ?? 'Request',
-          scheduledFor: d.scheduled_for ?? d.scheduledFor ?? '',
-          expiresAt: d.expires_at ?? d.expiresAt ?? '',
-        }))
-      )
+      const mapped = items.map((d: any) => ({
+        id: d.id,
+        requestTitle: d.request_title ?? d.requestTitle ?? 'Request',
+        scheduledFor: d.scheduled_for ?? d.scheduledFor ?? '',
+        expiresAt: d.expires_at ?? d.expiresAt ?? '',
+        requesterName: d.requester_name ?? d.requesterName ?? undefined,
+      }))
+      setPendingDibs(mapped)
+      onDibsLoaded?.(mapped.length)
     }).catch(() => {
       // Dibs fetch is optional; do not surface errors to the user
     })
@@ -452,6 +458,26 @@ export default function CommitmentsTab() {
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-4 space-y-8">
+      {/* Dibs Requests — shown first so provider can't miss them */}
+      {pendingDibs.length > 0 && (
+        <section>
+          <h3 className="text-sm font-semibold text-amber-700 uppercase tracking-wide mb-3 flex items-center gap-1.5">
+            <span>⏳</span> First Dibs — Respond Before Time Runs Out
+          </h3>
+          {pendingDibs.map((dibs) => (
+            <DibsCard
+              key={dibs.id}
+              requestTitle={dibs.requestTitle}
+              scheduledFor={dibs.scheduledFor}
+              expiresAt={dibs.expiresAt}
+              requesterName={dibs.requesterName}
+              onAccept={() => handleAcceptDibs(dibs.id)}
+              onDecline={() => handleDeclineDibs(dibs.id)}
+            />
+          ))}
+        </section>
+      )}
+
       {/* I'm Helping */}
       <section>
         <h2 className="section-heading mb-3">I&apos;m Helping</h2>
@@ -480,25 +506,6 @@ export default function CommitmentsTab() {
           </>
         )}
       </section>
-
-      {/* Dibs Requests — provider exclusive-window invitations */}
-      {pendingDibs.length > 0 && (
-        <section>
-          <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
-            Dibs Requests
-          </h3>
-          {pendingDibs.map((dibs) => (
-            <DibsCard
-              key={dibs.id}
-              requestTitle={dibs.requestTitle}
-              scheduledFor={dibs.scheduledFor}
-              expiresAt={dibs.expiresAt}
-              onAccept={() => handleAcceptDibs(dibs.id)}
-              onDecline={() => handleDeclineDibs(dibs.id)}
-            />
-          ))}
-        </section>
-      )}
 
       {/* I Asked For Help */}
       <section>

@@ -16,9 +16,9 @@ export default function RequestDetailPage() {
   const { id } = router.query
 
   useEffect(() => {
-    // Redirect to dashboard
-    // Future: Add ?highlight=${id} to auto-scroll to this request
-    router.push('/dashboard')
+    // Dibs notifications link to /requests/:id — send provider to Commitments tab
+    // where their pending dibs are displayed
+    router.push('/dashboard?tab=commitments')
   }, [router, id])
 
   return (

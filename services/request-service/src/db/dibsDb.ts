@@ -16,6 +16,7 @@ export interface Dibs {
 export interface DibsWithRequest extends Dibs {
   request_title: string | null;
   scheduled_for: Date | null;
+  requester_name: string | null;
 }
 
 /**
@@ -28,6 +29,7 @@ export interface DibsWithRequest extends Dibs {
 export interface RawCandidate {
   providerId: string;
   providerUserId: string;
+  displayName: string;
   trustScore: number;
   priorInteractions: number;
   trustGraphConnection: 'direct' | 'indirect' | 'none';
@@ -58,6 +60,7 @@ export async function getEligibleCandidates(
     `SELECT
        pp.id                              AS "providerId",
        pp.user_id                         AS "providerUserId",
+       pp.display_name                    AS "displayName",
        COALESCE(pts.trust_score, 50)      AS "trustScore",
        prior.interaction_count            AS "priorInteractions",
        COALESCE(
@@ -118,6 +121,7 @@ export async function getEligibleCandidates(
   return result.rows.map((row: any) => ({
     providerId: row.providerId,
     providerUserId: row.providerUserId,
+    displayName: row.displayName ?? '',
     trustScore: Number(row.trustScore),
     priorInteractions: Number(row.priorInteractions),
     trustGraphConnection: row.trustGraphConnection as 'direct' | 'indirect' | 'none',
@@ -201,9 +205,10 @@ export async function getExpiredPendingDibs(): Promise<Array<{ id: string; reque
  */
 export async function getPendingDibsForProvider(providerUserId: string): Promise<DibsWithRequest[]> {
   const result = await query(
-    `SELECT d.*, hr.title AS request_title, hr.scheduled_for
+    `SELECT d.*, hr.title AS request_title, hr.scheduled_for, u.name AS requester_name
      FROM requests.dibs d
      JOIN requests.help_requests hr ON hr.id = d.request_id
+     JOIN auth.users u ON u.id = d.requester_id
      WHERE d.provider_user_id = $1 AND d.status = 'pending'
      ORDER BY d.created_at DESC`,
     [providerUserId]

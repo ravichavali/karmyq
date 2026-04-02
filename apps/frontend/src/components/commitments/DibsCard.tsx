@@ -4,6 +4,7 @@ export interface DibsCardProps {
   requestTitle: string
   scheduledFor: string
   expiresAt: string
+  requesterName?: string
   onAccept: () => void
   onDecline: () => void
 }
@@ -33,6 +34,7 @@ export default function DibsCard({
   requestTitle,
   scheduledFor,
   expiresAt,
+  requesterName,
   onAccept,
   onDecline,
 }: DibsCardProps) {
@@ -68,34 +70,42 @@ export default function DibsCard({
   }
 
   return (
-    <div className="card p-4 mb-3">
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex-1 min-w-0">
-          <p className="font-medium text-text truncate">{requestTitle}</p>
-          <p className="text-sm text-text-muted mt-0.5">
-            Scheduled: {formatScheduled(scheduledFor)}
-          </p>
+    <div className="rounded-xl border-2 border-amber-300 bg-amber-50 p-4 mb-3">
+      {/* Header row */}
+      <div className="flex items-start justify-between gap-4 mb-2">
+        <div className="flex items-center gap-1.5 min-w-0">
+          <span className="text-amber-500 text-base leading-none">⏳</span>
+          <span className={`text-xs font-semibold shrink-0 ${expired ? 'text-red-500' : 'text-amber-700'}`}>
+            {countdown}
+          </span>
         </div>
-        <span
-          className={`text-xs font-medium shrink-0 ${
-            expired ? 'text-red-500' : 'text-amber-600'
-          }`}
-        >
-          {countdown}
+        <span className="text-xs font-medium bg-amber-200 text-amber-800 px-2 py-0.5 rounded-full shrink-0">
+          First dibs
         </span>
       </div>
 
+      {/* Request + requester */}
+      <p className="font-semibold text-text truncate">{requestTitle}</p>
+      {requesterName && (
+        <p className="text-sm text-text-muted mt-0.5">
+          From <span className="font-medium text-text">{requesterName}</span>
+        </p>
+      )}
+      <p className="text-xs text-text-muted mt-0.5">
+        Scheduled: {formatScheduled(scheduledFor)}
+      </p>
+
       {!expired && (
-        <div className="flex justify-end gap-2 mt-3">
+        <div className="flex gap-2 mt-3">
           <button
-            className="text-xs py-1 px-2 rounded bg-green-100 text-green-700 hover:bg-green-200 disabled:opacity-50"
+            className="flex-1 py-1.5 rounded-lg bg-green-600 text-white text-sm font-medium hover:bg-green-700 disabled:opacity-50"
             disabled={actioning !== null}
             onClick={handleAccept}
           >
             {actioning === 'accept' ? 'Accepting…' : 'Accept'}
           </button>
           <button
-            className="text-xs py-1 px-2 rounded bg-red-100 text-red-700 hover:bg-red-200 disabled:opacity-50"
+            className="flex-1 py-1.5 rounded-lg bg-white border border-border text-text text-sm font-medium hover:bg-surface disabled:opacity-50"
             disabled={actioning !== null}
             onClick={handleDecline}
           >
