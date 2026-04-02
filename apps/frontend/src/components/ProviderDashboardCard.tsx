@@ -1,11 +1,10 @@
-import React, { useState, useEffect } from 'react'
+import React from 'react'
 import { useProvider } from '../contexts/ProviderContext'
 import { providerService } from '../lib/api'
 
 interface ProviderDashboardCardProps {
   activeCommitments?: number
   providerId?: string
-  isAvailable?: boolean
 }
 
 const StatCell = ({ label, value }: { label: string; value: string | number }) => (
@@ -15,17 +14,15 @@ const StatCell = ({ label, value }: { label: string; value: string | number }) =
   </div>
 )
 
-const ProviderDashboardCard: React.FC<ProviderDashboardCardProps> = ({ activeCommitments, providerId, isAvailable }) => {
-  const { providerProfiles } = useProvider()
-  const [available, setAvailable] = useState(isAvailable ?? false)
-
-  useEffect(() => { setAvailable(isAvailable ?? false) }, [isAvailable])
+const ProviderDashboardCard: React.FC<ProviderDashboardCardProps> = ({ activeCommitments, providerId }) => {
+  const { providerProfiles, updateProviderAvailability } = useProvider()
 
   if (providerProfiles.length === 0) return null
 
   // Derive stats from provider profile data (already fetched by ProviderContext)
   // completion_rate and response_rate come from the LEFT JOIN with provider_trust_scores
   const profile = providerProfiles[0]
+  const available = profile?.is_available ?? false
   const completionRate = profile.completion_rate != null
     ? Math.round(Number(profile.completion_rate))
     : null
@@ -64,12 +61,13 @@ const ProviderDashboardCard: React.FC<ProviderDashboardCardProps> = ({ activeCom
           <span className="text-sm text-text-muted">Availability</span>
           <button
             onClick={async () => {
+              if (!providerId) return;
               const newVal = !available;
-              setAvailable(newVal);
               try {
                 await providerService.updateAvailability(providerId, newVal);
+                updateProviderAvailability(providerId, newVal);
               } catch {
-                setAvailable(!newVal); // revert on error
+                // revert: no-op, context unchanged so UI reflects DB state
               }
             }}
             className={`px-3 py-1 rounded-full text-xs font-medium transition ${

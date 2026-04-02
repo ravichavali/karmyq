@@ -431,7 +431,6 @@ export default function Dashboard() {
           <ProviderDashboardCard
             activeCommitments={activeCommitmentsCount}
             providerId={providerProfiles[0]?.id}
-            isAvailable={providerProfiles[0]?.is_available}
           />
         )}
 

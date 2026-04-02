@@ -61,7 +61,7 @@ router.get('/my', authMiddleware, async (req: AuthenticatedRequest, res: Respons
     const result = await query(`
       SELECT
         pp.id, pp.user_id, pp.service_type, pp.display_name,
-        pp.bio, pp.pricing_notes, pp.location_notes, pp.is_active,
+        pp.bio, pp.pricing_notes, pp.location_notes, pp.is_active, pp.is_available,
         pp.created_at, pp.updated_at,
         pts.avg_stars, pts.total_reviews, pts.completion_rate, pts.response_rate, pts.trust_score
       FROM requests.provider_profiles pp

@@ -23,6 +23,7 @@ interface ProviderContextValue {
   providerServiceTypes: string[]
   providerMode: 'member' | 'provider'
   setProviderMode: (mode: 'member' | 'provider') => void
+  updateProviderAvailability: (providerId: string, isAvailable: boolean) => void
   loading: boolean
 }
 
@@ -46,7 +47,6 @@ export const ProviderProvider: React.FC<ProviderProviderProps> = ({ children }) 
 
     // Restore persisted mode preference
     const saved = localStorage.getItem('karmyq_provider_mode')
-    const restoredMode: 'member' | 'provider' = saved === 'provider' ? 'provider' : 'member'
 
     providerService.getMyProviders()
       .then((res: { data: ProviderProfile[] | ProviderProfile }) => {
@@ -55,7 +55,11 @@ export const ProviderProvider: React.FC<ProviderProviderProps> = ({ children }) 
         const activeProfiles = raw.filter((p: ProviderProfile) => p.is_active)
         setProviderProfiles(activeProfiles)
 
-        // Reset mode to member if user no longer has active profiles
+        // Default: providers start in provider mode unless they explicitly chose member.
+        // 'member' saved → respect it. 'provider' saved → respect it.
+        // No preference saved + has profiles → default to provider mode.
+        const defaultMode: 'member' | 'provider' = activeProfiles.length > 0 ? 'provider' : 'member'
+        const restoredMode: 'member' | 'provider' = saved === 'member' ? 'member' : (saved === 'provider' ? 'provider' : defaultMode)
         const effectiveMode = activeProfiles.length > 0 ? restoredMode : 'member'
         setProviderModeState(effectiveMode)
         if (effectiveMode !== restoredMode) {
@@ -78,6 +82,12 @@ export const ProviderProvider: React.FC<ProviderProviderProps> = ({ children }) 
     }
   }
 
+  const updateProviderAvailability = (providerId: string, isAvailable: boolean) => {
+    setProviderProfiles(prev =>
+      prev.map(p => p.id === providerId ? { ...p, is_available: isAvailable } : p)
+    )
+  }
+
   const hasProviderProfile = providerProfiles.length > 0
   const providerServiceTypes = [...new Set(providerProfiles.map(p => p.service_type))]
 
@@ -87,6 +97,7 @@ export const ProviderProvider: React.FC<ProviderProviderProps> = ({ children }) 
     providerServiceTypes,
     providerMode,
     setProviderMode,
+    updateProviderAvailability,
     loading,
   }
 
