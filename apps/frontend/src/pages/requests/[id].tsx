@@ -13,13 +13,13 @@ import { useRouter } from 'next/router'
  */
 export default function RequestDetailPage() {
   const router = useRouter()
-  const { id } = router.query
 
   useEffect(() => {
-    // Dibs notifications link to /requests/:id — send provider to Commitments tab
-    // where their pending dibs are displayed
-    router.push('/dashboard?tab=commitments')
-  }, [router, id])
+    // Fire once on mount. Use replace (not push) so this redirect page
+    // is not added to browser history — back button skips it.
+    router.replace('/dashboard?tab=commitments')
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary-light via-surface-raised to-accent-light flex items-center justify-center">
