@@ -51,7 +51,7 @@ export interface RequestMatcher {
 }
 
 /**
- * Feed scoring weights from community config (ADR-031)
+ * Feed scoring weights from community config (ADR-031, extended in ADR-038)
  * All weights must sum to 1.0
  */
 export interface FeedScoringWeights {
@@ -59,6 +59,9 @@ export interface FeedScoringWeights {
   feed_weight_trust_distance: number;
   feed_weight_community_relevance: number;
   feed_weight_urgency: number;
+  feed_weight_requester_trust: number;
+  feed_weight_prior_interaction: number;
+  feed_weight_recency: number;
 }
 
 /**
@@ -69,6 +72,9 @@ export interface FeedScoreInput {
   trustDistanceScore: number;    // 0-100, from trust path (Phase 3, default 50)
   communityRelevanceScore: number; // 0-100, from community type matching
   urgencyScore: number;          // 0-100, from request urgency
+  requesterTrustScore: number;   // 0-100, from requester's trust_score in reputation service
+  priorInteractionScore: number; // 0-100, 100=prior exchange, 50=community-only, 0=none
+  recencyScore: number;          // 0-100, time-decay of request age
 }
 
 /**
@@ -81,6 +87,9 @@ export interface FeedScoreResult {
     trustDistance: { raw: number; weighted: number };
     communityRelevance: { raw: number; weighted: number };
     urgency: { raw: number; weighted: number };
+    requesterTrust: { raw: number; weighted: number };
+    priorInteraction: { raw: number; weighted: number };
+    recency: { raw: number; weighted: number };
   };
   weights: FeedScoringWeights;
 }

@@ -13,6 +13,7 @@ import {
 import {
   calculateMatchScore,
   calculateFeedScore,
+  scoreRecency,
   scoreUrgency,
   scoreCommunityRelevance,
   scoreTrustDistance,
@@ -297,7 +298,10 @@ router.get('/curated', async (req: Request, res: Response) => {
         cc.feed_weight_skill_match,
         cc.feed_weight_trust_distance,
         cc.feed_weight_community_relevance,
-        cc.feed_weight_urgency
+        cc.feed_weight_urgency,
+        cc.feed_weight_requester_trust,
+        cc.feed_weight_prior_interaction,
+        cc.feed_weight_recency
       FROM communities.community_configs cc
       JOIN communities.members m ON cc.community_id = m.community_id
       WHERE m.user_id = $1 AND m.status = 'active'`,
@@ -317,6 +321,9 @@ router.get('/curated', async (req: Request, res: Response) => {
           feed_weight_trust_distance: parseFloat(row.feed_weight_trust_distance) || DEFAULT_FEED_WEIGHTS.feed_weight_trust_distance,
           feed_weight_community_relevance: parseFloat(row.feed_weight_community_relevance) || DEFAULT_FEED_WEIGHTS.feed_weight_community_relevance,
           feed_weight_urgency: parseFloat(row.feed_weight_urgency) || DEFAULT_FEED_WEIGHTS.feed_weight_urgency,
+          feed_weight_requester_trust: parseFloat(row.feed_weight_requester_trust) || DEFAULT_FEED_WEIGHTS.feed_weight_requester_trust,
+          feed_weight_prior_interaction: parseFloat(row.feed_weight_prior_interaction) || DEFAULT_FEED_WEIGHTS.feed_weight_prior_interaction,
+          feed_weight_recency: parseFloat(row.feed_weight_recency) || DEFAULT_FEED_WEIGHTS.feed_weight_recency,
         },
         enabledTypes: row.enabled_request_types || [],
       });
@@ -510,6 +517,34 @@ router.get('/curated', async (req: Request, res: Response) => {
       }
     }
 
+    // Batch prior interaction lookup (social_graph.connections)
+    const priorInteractionMap = new Map<string, 'exchange' | 'community'>();
+    if (requesterIds.length > 0) {
+      try {
+        const connResult = await query(
+          `SELECT
+             CASE WHEN user_a_id = $1 THEN user_b_id ELSE user_a_id END as other_user_id,
+             type
+           FROM social_graph.connections
+           WHERE (user_a_id = $1 OR user_b_id = $1)
+             AND (CASE WHEN user_a_id = $1 THEN user_b_id ELSE user_a_id END) = ANY($2::uuid[])`,
+          [userId, requesterIds]
+        );
+        for (const row of connResult.rows) {
+          priorInteractionMap.set(row.other_user_id, row.type as 'exchange' | 'community');
+        }
+      } catch (e: any) {
+        console.error({ service: 'request-service', endpoint: '/requests/curated', step: 'prior-interaction-batch', error: e.message });
+        // Non-fatal — continue without prior interaction signal
+      }
+    }
+
+    function scorePriorInteraction(type: 'exchange' | 'community' | undefined): number {
+      if (type === 'exchange') return 100;
+      if (type === 'community') return 50;
+      return 0;
+    }
+
     // Calculate weighted feed scores and determine source tier
     const requestsWithScores = requestsResult.rows.map((request: any) => {
       // Skill match score (existing matcher)
@@ -567,6 +602,10 @@ router.get('/curated', async (req: Request, res: Response) => {
         feedPrefs,
       });
 
+      // New signals: prior interaction, recency, requester trust
+      const priorInteraction = scorePriorInteraction(priorInteractionMap.get(request.requester_id));
+      const recency = scoreRecency(request.created_at);
+
       // Weighted feed score
       const feedResult = calculateFeedScore(
         {
@@ -574,6 +613,9 @@ router.get('/curated', async (req: Request, res: Response) => {
           trustDistanceScore: trustDistance,
           communityRelevanceScore: communityRelevance,
           urgencyScore: urgencyVal,
+          requesterTrustScore: requesterReputation.trustScore,
+          priorInteractionScore: priorInteraction,
+          recencyScore: recency,
         },
         weights
       );
@@ -596,6 +638,8 @@ router.get('/curated', async (req: Request, res: Response) => {
         trustDegrees: degrees,
         requesterKarma: requesterReputation.totalKarma,
         requesterTrustScore: requesterReputation.trustScore,
+        priorInteractionScore: priorInteraction,
+        recencyScore: recency,
         // ADR-022: Source tier
         sourceTier,
       };
@@ -623,12 +667,17 @@ router.get('/curated', async (req: Request, res: Response) => {
       const requesterReputation = requesterKarmaMap.get(request.requester_id) || {
         totalKarma: 0, trustScore: 50,
       };
+      const sisterPriorInteraction = scorePriorInteraction(priorInteractionMap.get(request.requester_id));
+      const sisterRecency = scoreRecency(request.created_at);
       const feedResult = calculateFeedScore(
         {
           skillMatchScore: matchResult.score,
           trustDistanceScore: trustDistance,
           communityRelevanceScore: 0,
           urgencyScore: urgencyVal,
+          requesterTrustScore: requesterReputation.trustScore,
+          priorInteractionScore: sisterPriorInteraction,
+          recencyScore: sisterRecency,
         },
         DEFAULT_FEED_WEIGHTS
       );
@@ -647,6 +696,8 @@ router.get('/curated', async (req: Request, res: Response) => {
         trustDegrees: degrees,
         requesterKarma: requesterReputation.totalKarma,
         requesterTrustScore: requesterReputation.trustScore,
+        priorInteractionScore: sisterPriorInteraction,
+        recencyScore: sisterRecency,
         sourceTier: 'sister_community',
         trustCarryFactor: carryFactor,
       };
@@ -699,6 +750,29 @@ router.get('/curated', async (req: Request, res: Response) => {
       HTTP_STATUS.OK,
       { requestId: (req as any).id }
     );
+
+    // Fire-and-forget: log impressions to feed_events (never block feed response)
+    setImmediate(() => {
+      void (async () => {
+        try {
+          if (filteredRequests.length === 0) return;
+          const placeholders = filteredRequests.map(
+            (_: any, i: number) => `($${i * 5 + 1}, $${i * 5 + 2}, 'impression', $${i * 5 + 3}, $${i * 5 + 4}, $${i * 5 + 5})`
+          ).join(', ');
+          const flatValues = filteredRequests.flatMap((r: any, idx: number) => [
+            userId, r.id, r.feedScore, idx + 1, r.sourceTier,
+          ]);
+          await query(
+            `INSERT INTO requests.feed_events (user_id, request_id, event_type, feed_score, feed_rank, source_tier)
+             VALUES ${placeholders}
+             ON CONFLICT DO NOTHING`,
+            flatValues
+          );
+        } catch (e: any) {
+          console.error({ service: 'request-service', step: 'feed-impression-log', error: e.message });
+        }
+      })();
+    });
   } catch (error: any) {
     console.error('Error fetching curated requests:', error);
     sendInternalError(

@@ -235,7 +235,7 @@
         "subscribes": []
       },
       "healthCheck": "http://localhost:3003/health",
-      "notes": "Server-driven UI: Schema API provides dynamic form definitions. Admin API enables zero-code request type creation.",
+      "notes": "Server-driven UI: Schema API provides dynamic form definitions. Admin API enables zero-code request type creation. Sprint 43: feed_events table logs impressions/outcomes for weight tuning (ADR-048).",
       "databaseSchemas": [
         "requests"
       ]
@@ -584,5 +584,5 @@
       ]
     }
   },
-  "updated": "2026-03-28"
+  "updated": "2026-04-03"
 }

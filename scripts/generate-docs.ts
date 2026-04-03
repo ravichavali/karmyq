@@ -438,6 +438,7 @@ const ADR_GROUPS: Array<{ label: string; slugs: string[] }> = [
     slugs: [
       'adr-022-multi-tier-feed-architecture',
       'adr-031-unified-trust-scored-feed',
+      'adr-048-feed-ranking-v2',
       'adr-032-server-driven-ui-dynamic-schemas',
       'adr-034-multi-layer-trust-computation',
       'adr-041-two-layer-mutual-aid-services',

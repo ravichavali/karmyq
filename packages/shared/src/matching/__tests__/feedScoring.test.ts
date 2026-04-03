@@ -1,8 +1,9 @@
 /**
- * Feed Scoring Tests (ADR-031)
+ * Feed Scoring Tests (ADR-031, extended in ADR-038)
  *
  * Tests for community-configurable feed scoring:
- * - calculateFeedScore: weighted composite scoring
+ * - calculateFeedScore: weighted composite scoring (7 signals)
+ * - scoreRecency: time-decay of request age
  * - scoreUrgency: urgency level to 0-100
  * - scoreCommunityRelevance: request type vs community enabled types
  * - scoreTrustDistance: degrees of separation to 0-100
@@ -11,6 +12,7 @@
 import { describe, it, expect } from '@jest/globals';
 import {
   calculateFeedScore,
+  scoreRecency,
   scoreUrgency,
   scoreCommunityRelevance,
   scoreTrustDistance,
@@ -21,63 +23,79 @@ import {
 } from '../utils';
 import type { FeedScoringWeights, FeedScoreInput, TierResolutionInput, UserFeedPreferences } from '../types';
 
-describe('calculateFeedScore', () => {
-  const defaultInput: FeedScoreInput = {
-    skillMatchScore: 80,
-    trustDistanceScore: 50,
-    communityRelevanceScore: 70,
-    urgencyScore: 60,
-  };
+// Shared 7-field input for calculateFeedScore tests
+const defaultInput: FeedScoreInput = {
+  skillMatchScore: 80,
+  trustDistanceScore: 50,
+  communityRelevanceScore: 70,
+  urgencyScore: 60,
+  requesterTrustScore: 50,
+  priorInteractionScore: 0,
+  recencyScore: 100,
+};
 
+describe('calculateFeedScore', () => {
   it('calculates weighted score with default weights', () => {
     const result = calculateFeedScore(defaultInput);
 
-    // 80*0.40 + 50*0.25 + 70*0.20 + 60*0.15
-    // = 32 + 12.5 + 14 + 9 = 67.5
-    expect(result.score).toBe(67.5);
+    // 80*0.25 + 50*0.20 + 70*0.15 + 60*0.10 + 50*0.15 + 0*0.15 + 100*0.05
+    // = 20 + 10 + 10.5 + 6 + 7.5 + 0 + 5 = 59
+    expect(result.score).toBe(59);
     expect(result.weights).toEqual(DEFAULT_FEED_WEIGHTS);
   });
 
-  it('returns breakdown with raw and weighted values', () => {
+  it('returns breakdown with raw and weighted values for all 7 signals', () => {
     const result = calculateFeedScore(defaultInput);
 
     expect(result.breakdown.skillMatch.raw).toBe(80);
-    expect(result.breakdown.skillMatch.weighted).toBe(32); // 80 * 0.40
+    expect(result.breakdown.skillMatch.weighted).toBe(20);        // 80 * 0.25
     expect(result.breakdown.trustDistance.raw).toBe(50);
-    expect(result.breakdown.trustDistance.weighted).toBe(12.5); // 50 * 0.25
+    expect(result.breakdown.trustDistance.weighted).toBe(10);     // 50 * 0.20
     expect(result.breakdown.communityRelevance.raw).toBe(70);
-    expect(result.breakdown.communityRelevance.weighted).toBe(14); // 70 * 0.20
+    expect(result.breakdown.communityRelevance.weighted).toBe(10.5); // 70 * 0.15
     expect(result.breakdown.urgency.raw).toBe(60);
-    expect(result.breakdown.urgency.weighted).toBe(9); // 60 * 0.15
+    expect(result.breakdown.urgency.weighted).toBe(6);            // 60 * 0.10
+    expect(result.breakdown.requesterTrust.raw).toBe(50);
+    expect(result.breakdown.requesterTrust.weighted).toBe(7.5);   // 50 * 0.15
+    expect(result.breakdown.priorInteraction.raw).toBe(0);
+    expect(result.breakdown.priorInteraction.weighted).toBe(0);   // 0 * 0.15
+    expect(result.breakdown.recency.raw).toBe(100);
+    expect(result.breakdown.recency.weighted).toBe(5);            // 100 * 0.05
   });
 
   it('uses custom community weights', () => {
     const trustFocused: FeedScoringWeights = {
       feed_weight_skill_match: 0.20,
       feed_weight_trust_distance: 0.50,
-      feed_weight_community_relevance: 0.15,
-      feed_weight_urgency: 0.15,
+      feed_weight_community_relevance: 0.10,
+      feed_weight_urgency: 0.05,
+      feed_weight_requester_trust: 0.05,
+      feed_weight_prior_interaction: 0.05,
+      feed_weight_recency: 0.05,
     };
 
     const result = calculateFeedScore(defaultInput, trustFocused);
 
-    // 80*0.20 + 50*0.50 + 70*0.15 + 60*0.15
-    // = 16 + 25 + 10.5 + 9 = 60.5
-    expect(result.score).toBe(60.5);
+    // 80*0.20 + 50*0.50 + 70*0.10 + 60*0.05 + 50*0.05 + 0*0.05 + 100*0.05
+    // = 16 + 25 + 7 + 3 + 2.5 + 0 + 5 = 58.5
+    expect(result.score).toBe(58.5);
     expect(result.weights).toEqual(trustFocused);
   });
 
   it('clamps input scores to 0-100', () => {
     const result = calculateFeedScore({
-      skillMatchScore: 150, // over 100
-      trustDistanceScore: -10, // under 0
+      skillMatchScore: 150,   // over 100 → clamped to 100
+      trustDistanceScore: -10, // under 0 → clamped to 0
       communityRelevanceScore: 50,
       urgencyScore: 50,
+      requesterTrustScore: 50,
+      priorInteractionScore: 50,
+      recencyScore: 50,
     });
 
-    // 100*0.40 + 0*0.25 + 50*0.20 + 50*0.15
-    // = 40 + 0 + 10 + 7.5 = 57.5
-    expect(result.score).toBe(57.5);
+    // 100*0.25 + 0*0.20 + 50*0.15 + 50*0.10 + 50*0.15 + 50*0.10 + 50*0.05
+    // = 25 + 0 + 7.5 + 5 + 7.5 + 5 + 2.5 = 52.5
+    expect(result.score).toBe(52.5);
     expect(result.breakdown.skillMatch.raw).toBe(100);
     expect(result.breakdown.trustDistance.raw).toBe(0);
   });
@@ -88,6 +106,9 @@ describe('calculateFeedScore', () => {
       trustDistanceScore: 0,
       communityRelevanceScore: 0,
       urgencyScore: 0,
+      requesterTrustScore: 0,
+      priorInteractionScore: 0,
+      recencyScore: 0,
     });
 
     expect(result.score).toBe(0);
@@ -99,6 +120,9 @@ describe('calculateFeedScore', () => {
       trustDistanceScore: 100,
       communityRelevanceScore: 100,
       urgencyScore: 100,
+      requesterTrustScore: 100,
+      priorInteractionScore: 100,
+      recencyScore: 100,
     });
 
     expect(result.score).toBe(100);
@@ -110,10 +134,122 @@ describe('calculateFeedScore', () => {
       feed_weight_trust_distance: 0.0,
       feed_weight_community_relevance: 0.0,
       feed_weight_urgency: 0.0,
+      feed_weight_requester_trust: 0.0,
+      feed_weight_prior_interaction: 0.0,
+      feed_weight_recency: 0.0,
     };
 
     const result = calculateFeedScore(defaultInput, skillOnly);
     expect(result.score).toBe(80); // Just the skill score
+  });
+});
+
+describe('calculateFeedScore — weight-sum validation', () => {
+  const validInput: FeedScoreInput = {
+    skillMatchScore: 50, trustDistanceScore: 50, communityRelevanceScore: 50,
+    urgencyScore: 50, requesterTrustScore: 50, priorInteractionScore: 50, recencyScore: 50,
+  };
+
+  it('throws when weights sum to 0.90', () => {
+    const badWeights: FeedScoringWeights = {
+      feed_weight_skill_match: 0.20,
+      feed_weight_trust_distance: 0.20,
+      feed_weight_community_relevance: 0.15,
+      feed_weight_urgency: 0.10,
+      feed_weight_requester_trust: 0.10,
+      feed_weight_prior_interaction: 0.10,
+      feed_weight_recency: 0.05,
+      // sum = 0.90
+    };
+    expect(() => calculateFeedScore(validInput, badWeights)).toThrow('Feed weights must sum to 1.0');
+  });
+
+  it('does not throw when weights sum to exactly 1.00', () => {
+    expect(() => calculateFeedScore(validInput, DEFAULT_FEED_WEIGHTS)).not.toThrow();
+  });
+
+  it('does not throw when weights sum to 1.005 (within tolerance)', () => {
+    const nearlyOne: FeedScoringWeights = {
+      feed_weight_skill_match: 0.25,
+      feed_weight_trust_distance: 0.20,
+      feed_weight_community_relevance: 0.15,
+      feed_weight_urgency: 0.10,
+      feed_weight_requester_trust: 0.15,
+      feed_weight_prior_interaction: 0.15,
+      feed_weight_recency: 0.005,
+      // sum = 1.005 → within ±0.01
+    };
+    expect(() => calculateFeedScore(validInput, nearlyOne)).not.toThrow();
+  });
+});
+
+describe('scoreRecency', () => {
+  function daysAgo(days: number): Date {
+    return new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+  }
+
+  it('scores 6 hours old as 100', () => {
+    expect(scoreRecency(new Date(Date.now() - 6 * 60 * 60 * 1000))).toBe(100);
+  });
+
+  it('scores 2 days old as 85', () => {
+    expect(scoreRecency(daysAgo(2))).toBe(85);
+  });
+
+  it('scores 5 days old as 70', () => {
+    expect(scoreRecency(daysAgo(5))).toBe(70);
+  });
+
+  it('scores 10 days old as 50', () => {
+    expect(scoreRecency(daysAgo(10))).toBe(50);
+  });
+
+  it('scores 20 days old as 30', () => {
+    expect(scoreRecency(daysAgo(20))).toBe(30);
+  });
+
+  it('scores 45 days old as 15', () => {
+    expect(scoreRecency(daysAgo(45))).toBe(15);
+  });
+
+  it('accepts string dates', () => {
+    expect(scoreRecency(new Date().toISOString())).toBe(100);
+  });
+});
+
+describe('calculateFeedScore — new signals in breakdown', () => {
+  it('includes requesterTrust, priorInteraction, recency in breakdown', () => {
+    const result = calculateFeedScore({
+      skillMatchScore: 50,
+      trustDistanceScore: 50,
+      communityRelevanceScore: 50,
+      urgencyScore: 50,
+      requesterTrustScore: 80,
+      priorInteractionScore: 100,
+      recencyScore: 85,
+    });
+
+    expect(result.breakdown).toHaveProperty('requesterTrust');
+    expect(result.breakdown).toHaveProperty('priorInteraction');
+    expect(result.breakdown).toHaveProperty('recency');
+    expect(result.breakdown.requesterTrust.raw).toBe(80);
+    expect(result.breakdown.priorInteraction.raw).toBe(100);
+    expect(result.breakdown.recency.raw).toBe(85);
+  });
+
+  it('requests from prior exchange partners score higher than strangers', () => {
+    const base = {
+      skillMatchScore: 50, trustDistanceScore: 50,
+      communityRelevanceScore: 50, urgencyScore: 50,
+      requesterTrustScore: 50, recencyScore: 50,
+    };
+
+    const priorExchange = calculateFeedScore({ ...base, priorInteractionScore: 100 });
+    const stranger = calculateFeedScore({ ...base, priorInteractionScore: 0 });
+
+    expect(priorExchange.score).toBeGreaterThan(stranger.score);
+    // diff = (100 - 0) * 0.10 = 10
+    expect(priorExchange.score - stranger.score).toBe(10);
   });
 });
 
@@ -213,36 +349,50 @@ describe('scoreTrustDistance', () => {
   });
 
   it('integrates with calculateFeedScore correctly', () => {
-    // Direct connection (degree 1) should score higher than unconnected
+    const base = {
+      skillMatchScore: 50, communityRelevanceScore: 50,
+      urgencyScore: 50, requesterTrustScore: 50,
+      priorInteractionScore: 0, recencyScore: 50,
+    };
+
     const directResult = calculateFeedScore({
-      skillMatchScore: 50,
+      ...base,
       trustDistanceScore: scoreTrustDistance(1), // 100
-      communityRelevanceScore: 50,
-      urgencyScore: 50,
     });
 
     const unconnectedResult = calculateFeedScore({
-      skillMatchScore: 50,
+      ...base,
       trustDistanceScore: scoreTrustDistance(null), // 10
-      communityRelevanceScore: 50,
-      urgencyScore: 50,
     });
 
     expect(directResult.score).toBeGreaterThan(unconnectedResult.score);
-    // With default weights (trust=0.25): diff = (100-10) * 0.25 = 22.5
-    expect(directResult.score - unconnectedResult.score).toBe(22.5);
+    // With default weights (trust_distance=0.20): diff = (100-10) * 0.20 = 18
+    expect(directResult.score - unconnectedResult.score).toBe(18);
   });
 });
 
 describe('DEFAULT_FEED_WEIGHTS', () => {
-  it('sums to 1.0', () => {
+  it('sums to 1.0 across all 7 signals', () => {
     const sum =
       DEFAULT_FEED_WEIGHTS.feed_weight_skill_match +
       DEFAULT_FEED_WEIGHTS.feed_weight_trust_distance +
       DEFAULT_FEED_WEIGHTS.feed_weight_community_relevance +
-      DEFAULT_FEED_WEIGHTS.feed_weight_urgency;
+      DEFAULT_FEED_WEIGHTS.feed_weight_urgency +
+      DEFAULT_FEED_WEIGHTS.feed_weight_requester_trust +
+      DEFAULT_FEED_WEIGHTS.feed_weight_prior_interaction +
+      DEFAULT_FEED_WEIGHTS.feed_weight_recency;
 
     expect(Math.abs(sum - 1.0)).toBeLessThan(0.001);
+  });
+
+  it('has the expected 7 weight fields', () => {
+    expect(DEFAULT_FEED_WEIGHTS).toHaveProperty('feed_weight_skill_match', 0.25);
+    expect(DEFAULT_FEED_WEIGHTS).toHaveProperty('feed_weight_trust_distance', 0.20);
+    expect(DEFAULT_FEED_WEIGHTS).toHaveProperty('feed_weight_community_relevance', 0.15);
+    expect(DEFAULT_FEED_WEIGHTS).toHaveProperty('feed_weight_urgency', 0.10);
+    expect(DEFAULT_FEED_WEIGHTS).toHaveProperty('feed_weight_requester_trust', 0.15);
+    expect(DEFAULT_FEED_WEIGHTS).toHaveProperty('feed_weight_prior_interaction', 0.10);
+    expect(DEFAULT_FEED_WEIGHTS).toHaveProperty('feed_weight_recency', 0.05);
   });
 });
 
@@ -265,7 +415,6 @@ describe('resolveSourceTier (ADR-022)', () => {
   });
 
   it('returns community even if request has wider scope', () => {
-    // Community membership takes priority over trust_network/platform scope
     expect(resolveSourceTier({
       inUserCommunity: true,
       visibilityScope: 'trust_network',
@@ -294,7 +443,6 @@ describe('resolveSourceTier (ADR-022)', () => {
   });
 
   it('respects visibility_max_degrees on the request', () => {
-    // Request allows max 2 degrees, user is 3 degrees away
     expect(resolveSourceTier({
       inUserCommunity: false,
       visibilityScope: 'trust_network',
@@ -305,7 +453,6 @@ describe('resolveSourceTier (ADR-022)', () => {
   });
 
   it('respects user feed_trust_network_max_degrees preference', () => {
-    // User limits to 1 degree, but requester is 2 degrees away
     const strictPrefs: UserFeedPreferences = {
       ...defaultPrefs,
       feed_trust_network_max_degrees: 1,
@@ -321,7 +468,6 @@ describe('resolveSourceTier (ADR-022)', () => {
   });
 
   it('uses min of request max_degrees and user max_degrees', () => {
-    // Request allows 4, user allows 3, trust is 3 → should be OK
     expect(resolveSourceTier({
       inUserCommunity: false,
       visibilityScope: 'trust_network',
@@ -330,7 +476,6 @@ describe('resolveSourceTier (ADR-022)', () => {
       feedPrefs: defaultPrefs,
     })).toBe('trust_network');
 
-    // Request allows 2, user allows 3, trust is 3 → filtered (request limit)
     expect(resolveSourceTier({
       inUserCommunity: false,
       visibilityScope: 'trust_network',
@@ -381,7 +526,6 @@ describe('resolveSourceTier (ADR-022)', () => {
   });
 
   it('returns null for platform requests when user has not opted in', () => {
-    // Default prefs have feed_show_platform: false
     expect(resolveSourceTier({
       inUserCommunity: false,
       visibilityScope: 'platform',
@@ -397,7 +541,6 @@ describe('resolveSourceTier (ADR-022)', () => {
       feed_show_platform: true,
     };
 
-    // Platform-scoped request, but user has trust path → trust_network tier
     expect(resolveSourceTier({
       inUserCommunity: false,
       visibilityScope: 'platform',

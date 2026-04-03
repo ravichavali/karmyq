@@ -14,7 +14,7 @@ interface Match {
   responder_id: string
   requester_id?: string
   status: string
-  updated_at: string
+  created_at: string
   request_title?: string
   requester_name?: string
   responder_name?: string

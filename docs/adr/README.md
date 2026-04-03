@@ -81,6 +81,7 @@ When code implementing an ADR is deployed, update the status from `Accepted` →
 - [ADR-043: Three-Score Model — Karma, Personal Trust, and Provider Trust](ADR-043-three-score-model.md) — **Implemented**
 - [ADR-044: Community Trust Model Questionnaire](ADR-044-community-trust-questionnaire.md) — **Implemented**
 - [ADR-045: Network Cohesion Score — Graph Topology Metrics for Community Health](ADR-045-network-cohesion-score.md) — **Implemented**
+- [ADR-048: Feed Ranking v2 — 7-Signal Formula + Interaction Logging](ADR-048-feed-ranking-v2.md) — **Implemented**
 
 ## Creating a New ADR
 

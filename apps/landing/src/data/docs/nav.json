@@ -287,6 +287,10 @@
           "href": "/docs/concepts/adr-031-unified-trust-scored-feed"
         },
         {
+          "label": "Feed Ranking v2 — 7-Signal Formula + Interaction Logging",
+          "href": "/docs/concepts/adr-048-feed-ranking-v2"
+        },
+        {
           "label": "Server-Driven UI - Database-Driven Request Type Schemas",
           "href": "/docs/concepts/adr-032-server-driven-ui-dynamic-schemas"
         },

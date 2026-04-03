@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "updated": "2026-03-28",
+  "updated": "2026-04-03",
   "services": {
     "auth-service": {
       "port": 3001,
@@ -173,7 +173,7 @@
         ],
         "subscribes": []
       },
-      "notes": "Server-driven UI: Schema API provides dynamic form definitions. Admin API enables zero-code request type creation."
+      "notes": "Server-driven UI: Schema API provides dynamic form definitions. Admin API enables zero-code request type creation. Sprint 43: feed_events table logs impressions/outcomes for weight tuning (ADR-048)."
     },
     "reputation-service": {
       "port": 3004,

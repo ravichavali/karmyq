@@ -1,7 +1,7 @@
 # Request Service - Complete Context Documentation
 
-> **Last Updated:** 2026-03-23
-> **Version:** v9.10.0
+> **Last Updated:** 2026-04-03
+> **Version:** v9.18.0
 > **Port:** 3003
 > **Status:** Production (Polymorphic Request System + Curated Feed)
 
@@ -275,6 +275,21 @@ Cards are never hard-deleted; deactivation sets `is_active = false`.
 
 **requests.help_requests** — Sprint 42 addition: `scheduled_for TIMESTAMPTZ` — nullable; when set, the request is a scheduled request eligible for the dibs flow. When null, the request is treated as ASAP and always broadcast publicly (dibs rejected).
 
+**requests.feed_events** — Sprint 43 addition: append-only feed outcome log for weight tuning.
+```sql
+CREATE TABLE requests.feed_events (
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id       UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  request_id    UUID NOT NULL REFERENCES requests.help_requests(id) ON DELETE CASCADE,
+  event_type    TEXT NOT NULL CHECK (event_type IN ('impression', 'offer_made', 'match_completed')),
+  feed_score    NUMERIC(5,2),
+  feed_rank     INTEGER,
+  source_tier   TEXT,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+```
+Indexed by `(user_id, created_at DESC)`, `(request_id, event_type)`, and `(event_type, created_at DESC)`. Fire-and-forget writes — never blocks feed response.
+
 **requests.dibs** - Private first-refusal records for scheduled requests (Sprint 42)
 ```sql
 CREATE TABLE requests.dibs (
@@ -392,8 +407,8 @@ Get requests matching user's skills from their communities (skill-based matching
 - Excludes user's own requests
 - Only includes communities user is a member of
 
-#### GET /requests/curated (v9.0 + ADR-031 Multi-Tier)
-Get curated feed with match scores, trust distance, and multi-tier visibility.
+#### GET /requests/curated (v9.18 + ADR-048 Feed Ranking v2)
+Get curated feed scored on 7 signals: skill match, trust distance, community relevance, urgency, requester trust, prior interaction, and recency. Response includes `priorInteractionScore` and `recencyScore` in each request object. Impressions are logged fire-and-forget to `requests.feed_events`.
 
 **Query Parameters:**
 - `minScore` (number) - Minimum match score 0-100 (default: 30)

@@ -124,27 +124,42 @@ export function applyUrgencyBonus(urgency: string, baseScore: number): number {
 
 import type { FeedScoringWeights, FeedScoreInput, FeedScoreResult, TierResolutionInput, VisibilityScope } from './types';
 
-/** Default feed scoring weights (used when no community config exists) */
+/** Default feed scoring weights (used when no community config exists, ADR-038) */
 export const DEFAULT_FEED_WEIGHTS: FeedScoringWeights = {
-  feed_weight_skill_match: 0.40,
-  feed_weight_trust_distance: 0.25,
-  feed_weight_community_relevance: 0.20,
-  feed_weight_urgency: 0.15,
+  feed_weight_skill_match: 0.25,
+  feed_weight_trust_distance: 0.20,
+  feed_weight_community_relevance: 0.15,
+  feed_weight_urgency: 0.10,
+  feed_weight_requester_trust: 0.15,
+  feed_weight_prior_interaction: 0.10,
+  feed_weight_recency: 0.05,
 };
 
 /**
  * Calculate weighted feed score from individual signal scores.
  *
- * Formula: score = skill_match × W_skill + trust_distance × W_trust
- *                + community_relevance × W_community + urgency × W_urgency
+ * Formula: score = Σ(signal × weight) across all 7 signals.
  *
- * All input scores are 0-100. Weights come from community config (sum to 1.0).
+ * All input scores are 0-100. Weights come from community config (must sum to 1.0 ± 0.01).
  * Output is 0-100.
  */
 export function calculateFeedScore(
   input: FeedScoreInput,
   weights: FeedScoringWeights = DEFAULT_FEED_WEIGHTS
 ): FeedScoreResult {
+  // Validate weight sum
+  const weightSum =
+    weights.feed_weight_skill_match +
+    weights.feed_weight_trust_distance +
+    weights.feed_weight_community_relevance +
+    weights.feed_weight_urgency +
+    weights.feed_weight_requester_trust +
+    weights.feed_weight_prior_interaction +
+    weights.feed_weight_recency;
+  if (Math.abs(weightSum - 1.0) > 0.01) {
+    throw new Error(`Feed weights must sum to 1.0 (got ${weightSum.toFixed(4)})`);
+  }
+
   // Clamp all inputs to 0-100
   const clamp = (v: number) => Math.max(0, Math.min(100, v));
 
@@ -152,12 +167,18 @@ export function calculateFeedScore(
   const trust = clamp(input.trustDistanceScore);
   const community = clamp(input.communityRelevanceScore);
   const urgency = clamp(input.urgencyScore);
+  const requesterTrust = clamp(input.requesterTrustScore);
+  const priorInteraction = clamp(input.priorInteractionScore);
+  const recency = clamp(input.recencyScore);
 
   const score =
     skill * weights.feed_weight_skill_match +
     trust * weights.feed_weight_trust_distance +
     community * weights.feed_weight_community_relevance +
-    urgency * weights.feed_weight_urgency;
+    urgency * weights.feed_weight_urgency +
+    requesterTrust * weights.feed_weight_requester_trust +
+    priorInteraction * weights.feed_weight_prior_interaction +
+    recency * weights.feed_weight_recency;
 
   return {
     score: Math.round(score * 100) / 100,
@@ -166,6 +187,9 @@ export function calculateFeedScore(
       trustDistance: { raw: trust, weighted: Math.round(trust * weights.feed_weight_trust_distance * 100) / 100 },
       communityRelevance: { raw: community, weighted: Math.round(community * weights.feed_weight_community_relevance * 100) / 100 },
       urgency: { raw: urgency, weighted: Math.round(urgency * weights.feed_weight_urgency * 100) / 100 },
+      requesterTrust: { raw: requesterTrust, weighted: Math.round(requesterTrust * weights.feed_weight_requester_trust * 100) / 100 },
+      priorInteraction: { raw: priorInteraction, weighted: Math.round(priorInteraction * weights.feed_weight_prior_interaction * 100) / 100 },
+      recency: { raw: recency, weighted: Math.round(recency * weights.feed_weight_recency * 100) / 100 },
     },
     weights,
   };
@@ -240,6 +264,21 @@ export function scoreTrustDistance(degrees: number | null | undefined): number {
   };
 
   return scores[degrees] ?? 10;
+}
+
+/**
+ * Score request freshness based on age in days.
+ * Newer requests score higher to surface timely needs.
+ */
+export function scoreRecency(createdAt: Date | string): number {
+  const ageMs = Date.now() - new Date(createdAt).getTime();
+  const ageDays = ageMs / (1000 * 60 * 60 * 24);
+  if (ageDays <= 1) return 100;
+  if (ageDays <= 3) return 85;
+  if (ageDays <= 7) return 70;
+  if (ageDays <= 14) return 50;
+  if (ageDays <= 30) return 30;
+  return 15;
 }
 
 // ============= Multi-Tier Visibility (ADR-022) =============

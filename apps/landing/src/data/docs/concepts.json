@@ -359,6 +359,14 @@
       "status": "implemented",
       "description": "**Status**: Implemented",
       "filename": "ADR-047-community-evolution-engine.md"
+    },
+    {
+      "slug": "adr-048-feed-ranking-v2",
+      "number": "048",
+      "title": "ADR-048: Feed Ranking v2 — 7-Signal Formula + Interaction Logging",
+      "status": "implemented",
+      "description": "**Status**: Implemented",
+      "filename": "ADR-048-feed-ranking-v2.md"
     }
   ]
 }

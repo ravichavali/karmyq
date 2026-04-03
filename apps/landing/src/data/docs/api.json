@@ -253,8 +253,8 @@
         },
         {
           "method": "GET",
-          "path": "/requests/curated (v9.0 + ADR-031 Multi-Tier)",
-          "description": "Get curated feed with match scores, trust distance, and multi-tier visibility."
+          "path": "/requests/curated (v9.18 + ADR-048 Feed Ranking v2)",
+          "description": "Get curated feed scored on 7 signals: skill match, trust distance, community relevance, urgency, requester trust, prior interaction, and recency. Response includes `priorInteractionScore` and `recenc"
         },
         {
           "method": "GET",

@@ -165,12 +165,15 @@ describe('Community Membership & Feed Schema Contract (ADR-031)', () => {
       expect(typeof calculateFeedScore).toBe('function');
     });
 
-    it('exports DEFAULT_FEED_WEIGHTS that sum to 1.0', () => {
+    it('exports DEFAULT_FEED_WEIGHTS that sum to 1.0 (ADR-048: 7 signals)', () => {
       const sum =
         DEFAULT_FEED_WEIGHTS.feed_weight_skill_match +
         DEFAULT_FEED_WEIGHTS.feed_weight_trust_distance +
         DEFAULT_FEED_WEIGHTS.feed_weight_community_relevance +
-        DEFAULT_FEED_WEIGHTS.feed_weight_urgency;
+        DEFAULT_FEED_WEIGHTS.feed_weight_urgency +
+        DEFAULT_FEED_WEIGHTS.feed_weight_requester_trust +
+        DEFAULT_FEED_WEIGHTS.feed_weight_prior_interaction +
+        DEFAULT_FEED_WEIGHTS.feed_weight_recency;
       expect(Math.abs(sum - 1.0)).toBeLessThan(0.001);
     });
 

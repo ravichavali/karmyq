@@ -264,6 +264,16 @@ router.post('/', async (req: Request, res: Response) => {
       responder_id,
     });
 
+    // Fire-and-forget: log offer_made to feed_events
+    setImmediate(() => {
+      void query(
+        `INSERT INTO requests.feed_events (user_id, request_id, event_type)
+         VALUES ($1, $2, 'offer_made')
+         ON CONFLICT DO NOTHING`,
+        [responder_id, request_id]
+      ).catch((e: any) => console.error({ service: 'request-service', step: 'feed-offer-log', error: e.message }));
+    });
+
     res.status(201).json({
       success: true,
       data: match,
@@ -541,6 +551,14 @@ router.put('/:id/complete', async (req: Request, res: Response) => {
         requester_id: match.requester_id,
         responder_id: match.responder_id,
       });
+
+      // Fire-and-forget: log match_completed to feed_events (for the helper)
+      void query(
+        `INSERT INTO requests.feed_events (user_id, request_id, event_type)
+         VALUES ($1, $2, 'match_completed')
+         ON CONFLICT DO NOTHING`,
+        [match.responder_id, match.request_id]
+      ).catch((e: any) => console.error({ service: 'request-service', step: 'feed-completion-log', error: e.message }));
     }
 
     res.json({
