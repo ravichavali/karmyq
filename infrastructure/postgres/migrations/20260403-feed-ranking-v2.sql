@@ -3,18 +3,21 @@
 
 BEGIN;
 
--- 1. Add new weight columns to community_configs
+-- 1. Drop the old weight-sum constraint FIRST (before column additions or updates).
+--    The actual constraint name on the demo server is 'feed_weights_sum';
+--    try all known names in case of schema drift across environments.
+ALTER TABLE communities.community_configs
+  DROP CONSTRAINT IF EXISTS feed_weights_sum,
+  DROP CONSTRAINT IF EXISTS community_configs_feed_weights_sum_check,
+  DROP CONSTRAINT IF EXISTS chk_feed_weights_sum;
+
+-- 2. Add new weight columns (after dropping the constraint so DEFAULT 0 doesn't fail it)
 ALTER TABLE communities.community_configs
   ADD COLUMN IF NOT EXISTS feed_weight_requester_trust   DECIMAL(3,2) NOT NULL DEFAULT 0.00,
   ADD COLUMN IF NOT EXISTS feed_weight_prior_interaction DECIMAL(3,2) NOT NULL DEFAULT 0.00,
   ADD COLUMN IF NOT EXISTS feed_weight_recency           DECIMAL(3,2) NOT NULL DEFAULT 0.00;
 
--- 2. Drop the old 4-column sum constraint (name from migration 013)
-ALTER TABLE communities.community_configs
-  DROP CONSTRAINT IF EXISTS community_configs_feed_weights_sum_check,
-  DROP CONSTRAINT IF EXISTS chk_feed_weights_sum;
-
--- 3. Redistribute all existing rows to new 7-signal defaults
+-- 3. Redistribute all existing rows to new 7-signal defaults (sum = 1.00)
 UPDATE communities.community_configs SET
   feed_weight_skill_match         = 0.25,
   feed_weight_trust_distance      = 0.20,

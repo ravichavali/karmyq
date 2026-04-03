@@ -170,3 +170,15 @@ Should service requests (paid provider requests) be community-scoped or platform
 Process improvement: we keep finding bugs through manual testing that could be caught earlier with better error infrastructure. Sprint idea: (1) structured error logging with context (service, endpoint, user, payload) sent to a log aggregator or error tracker (Sentry/Datadog/Axiom free tier), (2) frontend error boundaries that show friendly messages AND log to the tracker, (3) a convention for distinguishing user-facing 400 errors (show the message verbatim) from unexpected 500s (show "something went wrong, ref: [request-id]"). Currently errors like missing title, wrong urgency value, and wrong schema name all silently surface as generic messages. Concrete steps: wire up Axiom or Sentry across all services + frontend, add a global error boundary in Next.js `_app.tsx`, and standardize the error response shape to include a `type: 'user_error' | 'system_error'` discriminator.
 
 ---
+
+## [2026-04-02] ux
+
+Feed improvement: a confirmed match should be considered as a commitment for both the requestor and the helper. Currently a match may appear in the feed as an open request even after it's been accepted. Both parties should see it reflected in CommitmentsTab once a match is confirmed, and it should no longer surface in the browse feed as available.
+
+---
+
+## [2026-04-02] ux
+
+**Ongoing**: The UI needs to be continuously simplified — not a single sprint, but a lens applied to every sprint. Each sprint should ask: what can we remove, consolidate, or make less noisy? Priority areas to watch: tab count, card density in CommitmentsTab, provider mode switcher discoverability, and the dashboard header area.
+
+---
