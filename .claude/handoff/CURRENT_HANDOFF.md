@@ -1,48 +1,26 @@
-# SPRINT 43 READY TO EXECUTE — Feed Ranking v2
+# SPRINT 44 — Tech Debt + Architecture Review
 
 ## Handoff Document
 
 **Date**: 2026-04-03
-**Current Version**: v9.17.0 → v9.18.0 (Sprint 43 planned, not yet implemented)
-**Status**: Spec + plan written. Branch not yet created. Ready for implementation.
+**Current Version**: v9.10.0 → v9.11.0
+**Status**: Plan approved. Ready to execute.
 
 ---
 
 ## Quick Start
 
 1. Read this handoff
-2. Open the implementation plan: `docs/superpowers/plans/2026-04-03-sprint-43-feed-ranking.md`
-3. Create branch: `git checkout -b feature/sprint-43-feed-ranking`
-4. Run: `/execute-plan` (uses superpowers:subagent-driven-development)
+2. Check out branch: `git checkout -b feature/sprint-44-tech-debt`
+3. Open plan: `docs/superpowers/plans/2026-04-03-sprint-44-tech-debt.md`
+4. Run: `/execute-plan` (uses `superpowers:subagent-driven-development`)
 
 ---
 
-## Sprint 43 Goal
+## Sprint Goal
 
-Make the community feed the primary driver of participation. Surface requests users are most likely to act on, and log feed outcomes so weight tuning decisions can be grounded in real data.
-
-**North star**: more completed interactions (offers made → matches → completions).
-
----
-
-## What's Being Built
-
-### 1. Feed scoring: 7 signals (was 4)
-Three new signals added to `calculateFeedScore()` in `packages/shared/src/matching/utils.ts`:
-- **requesterTrustScore** (0.15 weight): Requester's community trust score — already fetched, not yet used
-- **priorInteractionScore** (0.15 weight): 100 if viewer has a prior exchange with requester, 50 if community-only, 0 if none. Batch query from `social_graph.connections`
-- **recencyScore** (0.05 weight): Time-decay — 100 for today's requests, 15 for 30d+ old
-
-Existing weights redistributed: skill_match 0.25, trust_distance 0.20, community_relevance 0.15, urgency 0.10
-
-### 2. Feed events logging
-New `requests.feed_events` table: impression (on feed load) → offer_made (on match creation) → match_completed (on Bull event). Fire-and-forget, never blocks feed response. Creates dataset for future weight tuning.
-
-### 3. CommitmentsTab sort
-Change from `updated_at DESC` to `created_at ASC` within each status group. Earliest commitment first.
-
-### 4. Feed correctness check
-Verify `dibs_pending` requests don't appear in browse feed; verify both parties see CommitmentsTab after match.
+Reduce accumulated tech debt and produce an expert-contribution gap analysis before the
+upcoming UI redesign sprints — no new features.
 
 ---
 
@@ -51,27 +29,33 @@ Verify `dibs_pending` requests don't appear in browse feed; verify both parties 
 | Sprint | Theme | Status |
 |--------|-------|--------|
 | Sprint 42 | Dibs / First Refusal | ✅ Complete, deployed |
-| Sprint 43 | Feed Ranking v2 + Logging | 🟡 Plan ready, not started |
-| Sprint 44 | UI Pruning | ⬜ Upcoming |
+| Sprint 43 | Feed Ranking v2 + Logging | ✅ Complete, deployed |
+| Sprint 44 | Tech Debt + Architecture Review | 🟡 Ready to execute |
+| Sprint 45 | UI Redesign / Pruning | ⬜ Upcoming |
 | Sprint 45+ | Group Communities / Onboarding | ⬜ Future |
 
 ---
 
-## Critical Implementation Notes (copy from spec)
+## Three Workstreams
 
-1. **Weight sum constraint** — Drop the DB CHECK constraint on `community_configs`; validate in `calculateFeedScore()` (throw if weights don't sum to 1.0 ± 0.01).
+### Workstream 1 — Security & Code Quality
+- `npm audit fix` then `npm audit fix --force` (fix API breaks; document reverted packages as debt)
+- Bump Node.js: `ci.yml` 20.x → 24.x; `test.yml` + `e2e-tests.yml` 18 → 24
+- Fix ALL TypeScript warnings (unused params, unused imports, implicit any)
+- Fix mobile lint (`@karmyq/mobile#lint` exits 2 — pre-existing)
 
-2. **Existing config rows** — Migration MUST `UPDATE` all rows to new weights before finalizing. Default 0 columns break the sum immediately.
+### Workstream 2 — Observability & Logging
+- Add `createLogger` + `requestLoggingMiddleware` to social-graph, cleanup, simulation `index.ts`
+  (3 services currently have no structured logging)
+- Replace `console.error` in all service route handler catch blocks with `req.logger?.error(...)`
+  using structured shape `{ service, endpoint, error: err.message }`
+- Add global React error boundary to `apps/frontend/src/pages/_app.tsx`
+- Replace `console.error` in frontend API call failure handlers with structured objects
 
-3. **Prior interaction batch query** — Single SQL, both directions on `social_graph.connections`. Score: exchange=100, community=50, none=0.
-
-4. **Feed events non-blocking** — `setImmediate(() => void (async () => { await query(...) })())`. Never rethrow. A logging failure must never surface to the user.
-
-5. **Recency in app layer** — Compute from `request.created_at` already in response. No extra DB join.
-
-6. **CommitmentsTab** — `created_at ASC` within status groups. Verify `created_at` is present in matches API response; if not, add it to the query.
-
-7. **Error messages** — Every new catch block logs structured: `{ service, endpoint, step, error }`.
+### Workstream 3 — Architecture Review
+- Investigate 5 areas: trust questionnaire, feed weights, request type schemas, provider
+  directory, observability access
+- Write `docs/architecture/expert-contribution-gaps.md` (doc only — do NOT implement fixes)
 
 ---
 
@@ -79,20 +63,45 @@ Verify `dibs_pending` requests don't appear in browse feed; verify both parties 
 
 | File | Role |
 |------|------|
-| `docs/superpowers/plans/2026-04-03-sprint-43-feed-ranking.md` | **Implementation plan — start here** |
-| `docs/superpowers/specs/2026-04-03-sprint-43-feed-ranking-design.md` | Design spec |
-| `packages/shared/src/matching/utils.ts` | `calculateFeedScore()`, `scoreRecency()`, `DEFAULT_FEED_WEIGHTS` |
-| `packages/shared/src/matching/types.ts` | `FeedScoreInput`, `FeedScoringWeights` |
-| `services/request-service/src/routes/requests.ts` | `/requests/curated` endpoint (lines 224–711) |
-| `apps/frontend/src/utils/commitmentSort.ts` | CommitmentsTab sort utility |
-| `infrastructure/postgres/migrations/20260403-feed-ranking-v2.sql` | DB migration (to create) |
+| `docs/superpowers/plans/2026-04-03-sprint-44-tech-debt.md` | **Implementation plan — start here** |
+| `docs/superpowers/specs/2026-04-03-sprint-44-tech-debt-design.md` | Design spec |
+| `docs/architecture/expert-contribution-gaps.md` | Gap analysis (to create in Task 9) |
+| `.github/workflows/ci.yml` | `NODE_VERSION: '20.x'` → `'24.x'` |
+| `.github/workflows/test.yml` | `node-version: '18'` → `'24'` (×2) |
+| `.github/workflows/e2e-tests.yml` | `node-version: '18'` → `'24'` (×1) |
+| `services/social-graph-service/src/index.ts` | Add createLogger (missing) |
+| `services/cleanup-service/src/index.ts` | Add createLogger (missing) |
+| `services/simulation-service/src/index.ts` | Add createLogger (missing) |
+| `apps/frontend/src/pages/_app.tsx` | Add error boundary |
+| `tests/tdd/sprint-44-logging.test.ts` | Smoke test for logging middleware |
+
+---
+
+## Critical Implementation Notes
+
+1. **req.logger availability** — `req.logger` is attached by `requestLoggingMiddleware`. In
+   catch blocks where `req` is not in scope, use the module-level `logger` from
+   `createLogger('service-name')` at the top of the route file.
+
+2. **console.* scope rule** — Route handler `catch` blocks must use `req.logger` or module
+   `logger`. Startup `console.log('Server started...')` calls are acceptable as-is.
+
+3. **npm audit --force risk** — Run `npm test` after each `--force` application. On failure,
+   `git diff package-lock.json` to find the culprit. Fix the API break or revert and document
+   as deferred debt in the gap analysis.
+
+4. **Node 24 compatibility** — Watch the first CI run after bumping. Native addon failures
+   are unlikely but possible. If they occur, investigate before reverting.
+
+5. **Gap analysis is docs only** — Task 9 writes `expert-contribution-gaps.md`. Do NOT start
+   fixing identified gaps in this sprint. They feed Sprint 45+.
 
 ---
 
 ## Current State
 
 - **Branch**: `master`
-- **Latest commit**: `4c8844e fix(dibs): fix double-redirect on notification click`
+- **Latest commit**: `9189e4d fix(migration): drop feed_weights_sum constraint before adding new weight columns`
 - **CI/CD**: All green ✅
 - **Demo server**: Healthy
 
@@ -100,9 +109,12 @@ Verify `dibs_pending` requests don't appear in browse feed; verify both parties 
 
 ## Known Issues (carry-forward)
 
-1. **GitHub security vulnerabilities** (32 total: 1 critical, 18 high, 11 moderate, 2 low) — Dependabot alerts. Address before investor review.
-2. **Pre-existing TypeScript warnings** — unused params in notificationTemplates.ts, feed.ts, feedComposer.ts, cleanup-service helpers. Low-priority.
-3. **TDD integration tests** (`tests/tdd/sprint-42-dibs.test.ts`) — 11 tests fail with "Services not available" (expected in CI). Need live integration env to promote to regression.
+1. **npm vulnerabilities** — 16 at root (1 critical, 8 high); addressed in Task 2-3
+2. **TypeScript warnings** — unused params in notificationTemplates.ts, feed.ts, feedComposer.ts,
+   cleanup-service; addressed in Task 5
+3. **Mobile lint** — `@karmyq/mobile#lint` exits 2; addressed in Task 6
+4. **TDD integration tests** (`tests/tdd/sprint-42-dibs.test.ts`) — 11 tests fail with
+   "Services not available" (expected in CI). Need live integration env to promote to regression.
 
 ---
 
@@ -119,8 +131,12 @@ Auth middleware: `const memberships = user.communities ?? []`
 `@karmyq/shared` subpaths require `moduleResolution: "node16"` and `module: "node16"`.
 
 ### Community Config Templates
-Three existing presets in `community_configs`: Cohousing Default, Neighborhood Cautious, Experimental Reciprocal. Migration must update all three to new 7-weight distribution.
+Three existing presets in `community_configs`: Cohousing Default, Neighborhood Cautious,
+Experimental Reciprocal.
 
 ### Error Observability (ongoing practice)
-Not a dedicated sprint. Every code path must produce structured, human-readable errors:
-`{ service, endpoint, step, error }`. Distinguish 400 (user error) from 500 (unexpected).
+Every route handler catch block must produce structured logs: `{ service, endpoint, step, error }`.
+Distinguish 400 (user error) from 500 (unexpected). Sprint 44 propagates this to all services.
+
+### Solo Dev Workflow
+Work directly on `feature/sprint-44-tech-debt` — no worktrees.
