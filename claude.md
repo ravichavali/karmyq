@@ -677,6 +677,23 @@ This is a TypeScript monorepo with multiple services. When fixing a value (API U
 
 Update handoff documents (`CURRENT_HANDOFF.md`) at the end of every session with current status, blockers, and next steps. Follow the established handoff framework in `.claude/handoff/`.
 
+### Write to the handoff immediately — not at end of session
+
+The handoff is the only thing that travels between conversations. If a new chat opens before we wrap up, anything not yet written to the handoff is lost.
+
+**Write to `CURRENT_HANDOFF.md` immediately whenever:**
+- Sprint goals or scope are agreed upon ("we'll do X in the next sprint")
+- An architectural decision or approach is chosen ("we'll use gap analysis, not fix everything")
+- A constraint or framing is established ("deliverable is a doc, not implementations")
+- A sprint is marked complete and the next sprint direction is known
+
+**The pattern to follow:**
+1. User agrees on next sprint direction → update handoff before moving on
+2. Sprint completes + deploys → update handoff title, status, and "Next Sprint" goals before closing
+3. Never leave a "we just decided" moment unwritten
+
+**Trigger phrase to watch for:** Any sentence containing "next sprint", "before we start", "the plan is", or "we've agreed" should prompt an immediate handoff write — don't defer it.
+
 ---
 
 **Remember**: This is global context. For specific areas, **read the local `.claude/README.md` first!**
