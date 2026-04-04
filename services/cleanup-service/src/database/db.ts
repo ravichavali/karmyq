@@ -12,7 +12,7 @@ pool.on('error', (err) => {
   logger.error('Unexpected database error', { error: err });
 });
 
-export async function query(text: string, params?: any[]) {
+export async function query(text: string, params?: unknown[]) {
   const start = Date.now();
   try {
     const result = await pool.query(text, params);

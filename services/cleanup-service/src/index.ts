@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { Request, Response, NextFunction } from 'express';
 import cron from 'node-cron';
 import dotenv from 'dotenv';
 import jwt from 'jsonwebtoken';
@@ -26,13 +26,20 @@ if (!JWT_SECRET) {
   process.exit(1);
 }
 
+interface ExtendedRequest extends Request {
+  id?: string;
+  user?: { userId: string; email: string };
+}
+
+type Meta = Record<string, unknown>;
+
 // Inline response helpers (cleanup-service doesn't use shared package)
-const requestIdMiddleware = (req: any, res: any, next: any) => {
+const requestIdMiddleware = (req: ExtendedRequest, _res: Response, next: NextFunction): void => {
   req.id = uuidv4();
   next();
 };
 
-const sendSuccess = (res: any, data: any, status = 200, meta: any = {}) => {
+const sendSuccess = (res: Response, data: unknown, status = 200, meta: Meta = {}): void => {
   res.status(status).json({
     success: true,
     data,
@@ -40,7 +47,7 @@ const sendSuccess = (res: any, data: any, status = 200, meta: any = {}) => {
   });
 };
 
-const sendUnauthorized = (res: any, message: string, meta: any = {}) => {
+const sendUnauthorized = (res: Response, message: string, meta: Meta = {}): void => {
   res.status(401).json({
     success: false,
     error: { code: 'UNAUTHORIZED', message },
@@ -48,7 +55,7 @@ const sendUnauthorized = (res: any, message: string, meta: any = {}) => {
   });
 };
 
-const sendForbidden = (res: any, message: string, meta: any = {}) => {
+const sendForbidden = (res: Response, message: string, meta: Meta = {}): void => {
   res.status(403).json({
     success: false,
     error: { code: 'FORBIDDEN', message },
@@ -56,7 +63,7 @@ const sendForbidden = (res: any, message: string, meta: any = {}) => {
   });
 };
 
-const sendInternalError = (res: any, message: string, error?: Error, meta: any = {}) => {
+const sendInternalError = (res: Response, message: string, _error?: unknown, meta: Meta = {}): void => {
   res.status(500).json({
     success: false,
     error: { code: 'INTERNAL_SERVER_ERROR', message },
@@ -79,7 +86,7 @@ interface JwtPayload {
   email: string;
 }
 
-const adminAuthMiddleware = async (req: any, res: express.Response, next: express.NextFunction) => {
+const adminAuthMiddleware = async (req: ExtendedRequest, res: Response, next: NextFunction): Promise<void> => {
   const authHeader = req.headers.authorization;
 
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -125,7 +132,7 @@ app.use(express.json());
 app.use(requestIdMiddleware);
 
 // ============= HEALTH CHECK =============
-app.get('/health', (req: any, res) => {
+app.get('/health', (req: ExtendedRequest, res: Response) => {
   sendSuccess(res, {
     status: 'healthy',
     service: 'cleanup-service',
@@ -136,69 +143,69 @@ app.get('/health', (req: any, res) => {
 
 // ============= ADMIN JOB ENDPOINTS (protected) =============
 
-app.post('/jobs/mark-expired', adminRateLimiter, adminAuthMiddleware, async (req: any, res) => {
+app.post('/jobs/mark-expired', adminRateLimiter, adminAuthMiddleware, async (req: ExtendedRequest, res: Response) => {
   try {
     logger.info('Manual trigger: mark expired data');
     await markExpiredData();
     sendSuccess(res, { message: 'Expired data marked successfully' }, 200, { requestId: req.id });
-  } catch (error: any) {
+  } catch (error) {
     logger.error('Manual expiration job failed', { error });
-    sendInternalError(res, error.message, error, { requestId: req.id });
+    sendInternalError(res, error instanceof Error ? error.message : String(error), error, { requestId: req.id });
   }
 });
 
-app.post('/jobs/hard-delete', adminRateLimiter, adminAuthMiddleware, async (req: any, res) => {
+app.post('/jobs/hard-delete', adminRateLimiter, adminAuthMiddleware, async (req: ExtendedRequest, res: Response) => {
   try {
     logger.info('Manual trigger: hard delete expired data');
     await hardDeleteExpiredData();
     sendSuccess(res, { message: 'Expired data deleted successfully' }, 200, { requestId: req.id });
-  } catch (error: any) {
+  } catch (error) {
     logger.error('Manual hard delete job failed', { error });
-    sendInternalError(res, error.message, error, { requestId: req.id });
+    sendInternalError(res, error instanceof Error ? error.message : String(error), error, { requestId: req.id });
   }
 });
 
-app.post('/jobs/update-decay', adminRateLimiter, adminAuthMiddleware, async (req: any, res) => {
+app.post('/jobs/update-decay', adminRateLimiter, adminAuthMiddleware, async (req: ExtendedRequest, res: Response) => {
   try {
     logger.info('Manual trigger: update reputation decay');
     await updateDecayedTrustScores();
     sendSuccess(res, { message: 'Trust scores updated successfully' }, 200, { requestId: req.id });
-  } catch (error: any) {
+  } catch (error) {
     logger.error('Manual decay update job failed', { error });
-    sendInternalError(res, error.message, error, { requestId: req.id });
+    sendInternalError(res, error instanceof Error ? error.message : String(error), error, { requestId: req.id });
   }
 });
 
-app.post('/jobs/cleanup-activity-logs', adminRateLimiter, adminAuthMiddleware, async (req: any, res) => {
+app.post('/jobs/cleanup-activity-logs', adminRateLimiter, adminAuthMiddleware, async (req: ExtendedRequest, res: Response) => {
   try {
     logger.info('Manual trigger: cleanup activity logs');
     await cleanupActivityLogs();
     sendSuccess(res, { message: 'Activity logs cleaned up successfully' }, 200, { requestId: req.id });
-  } catch (error: any) {
+  } catch (error) {
     logger.error('Manual activity log cleanup failed', { error });
-    sendInternalError(res, error.message, error, { requestId: req.id });
+    sendInternalError(res, error instanceof Error ? error.message : String(error), error, { requestId: req.id });
   }
 });
 
-app.get('/jobs/decay-report', adminRateLimiter, adminAuthMiddleware, async (req: any, res) => {
+app.get('/jobs/decay-report', adminRateLimiter, adminAuthMiddleware, async (req: ExtendedRequest, res: Response) => {
   try {
     logger.info('Manual trigger: generate decay report');
     await generateDecayReport();
     sendSuccess(res, { message: 'Decay report generated (check logs)' }, 200, { requestId: req.id });
-  } catch (error: any) {
+  } catch (error) {
     logger.error('Manual decay report generation failed', { error });
-    sendInternalError(res, error.message, error, { requestId: req.id });
+    sendInternalError(res, error instanceof Error ? error.message : String(error), error, { requestId: req.id });
   }
 });
 
-app.post('/jobs/expire-dibs', adminRateLimiter, adminAuthMiddleware, async (req: any, res) => {
+app.post('/jobs/expire-dibs', adminRateLimiter, adminAuthMiddleware, async (req: ExtendedRequest, res: Response) => {
   try {
     logger.info('Manual trigger: expire dibs');
     const expiredCount = await expireDibs();
     sendSuccess(res, { message: `Expired ${expiredCount} dibs record(s)` }, 200, { requestId: req.id });
-  } catch (error: any) {
+  } catch (error) {
     logger.error('Manual dibs expiry job failed', { error });
-    sendInternalError(res, error.message, error, { requestId: req.id });
+    sendInternalError(res, error instanceof Error ? error.message : String(error), error, { requestId: req.id });
   }
 });
 
