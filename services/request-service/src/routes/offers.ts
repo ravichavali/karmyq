@@ -54,7 +54,7 @@ router.get('/', async (req: Request, res: Response) => {
       total: result.rowCount,
     }, HTTP_STATUS.OK, { requestId: (req as any).id });
   } catch (error: any) {
-    console.error('Error fetching offers:', error);
+    (req as any).logger?.error('Error fetching offers', error instanceof Error ? error : new Error(String(error)), { service: 'request-service' });
     sendInternalError(res, 'Failed to fetch offers', error instanceof Error ? error : undefined, { requestId: (req as any).id });
   }
 });
@@ -83,7 +83,7 @@ router.get('/:id', async (req: Request, res: Response) => {
 
     sendSuccess(res, result.rows[0], HTTP_STATUS.OK, { requestId: (req as any).id });
   } catch (error: any) {
-    console.error('Error fetching offer:', error);
+    (req as any).logger?.error('Error fetching offer', error instanceof Error ? error : new Error(String(error)), { service: 'request-service' });
     sendInternalError(res, 'Failed to fetch offer', error instanceof Error ? error : undefined, { requestId: (req as any).id });
   }
 });
@@ -148,7 +148,7 @@ router.post('/', async (req: Request, res: Response) => {
       message: 'Offer created successfully',
     });
   } catch (error: any) {
-    console.error('Error creating offer:', error);
+    (req as any).logger?.error('Error creating offer', error instanceof Error ? error : new Error(String(error)), { service: 'request-service' });
     res.status(500).json({
       success: false,
       message: 'Failed to create offer',
@@ -218,7 +218,7 @@ router.put('/:id', async (req: Request, res: Response) => {
       message: 'Offer updated successfully',
     });
   } catch (error: any) {
-    console.error('Error updating offer:', error);
+    (req as any).logger?.error('Error updating offer', error instanceof Error ? error : new Error(String(error)), { service: 'request-service' });
     res.status(500).json({
       success: false,
       message: 'Failed to update offer',
@@ -272,7 +272,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
       message: 'Offer withdrawn successfully',
     });
   } catch (error: any) {
-    console.error('Error withdrawing offer:', error);
+    (req as any).logger?.error('Error withdrawing offer', error instanceof Error ? error : new Error(String(error)), { service: 'request-service' });
     res.status(500).json({
       success: false,
       message: 'Failed to withdraw offer',
@@ -366,7 +366,7 @@ router.put('/:id/privacy', async (req: Request, res: Response) => {
       message: 'Privacy settings updated',
     });
   } catch (error: any) {
-    console.error('Error updating privacy settings:', error);
+    (req as any).logger?.error('Error updating privacy settings', error instanceof Error ? error : new Error(String(error)), { service: 'request-service' });
     res.status(500).json({
       success: false,
       message: 'Failed to update privacy settings',

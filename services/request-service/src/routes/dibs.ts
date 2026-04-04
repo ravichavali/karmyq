@@ -62,7 +62,7 @@ router.get('/:id/dibs-candidate', authMiddleware, async (req: AuthenticatedReque
 
     return res.json({ success: true, data: candidate });
   } catch (err: any) {
-    console.error('[dibs] Error fetching dibs candidate:', err);
+    (req as any).logger?.error('[dibs] Error fetching dibs candidate', err instanceof Error ? err : new Error(String(err)), { service: 'request-service' });
     return res.status(500).json({ success: false, message: 'Failed to fetch dibs candidate', error: err.message });
   }
 });
@@ -205,12 +205,12 @@ router.post('/:id/dibs', authMiddleware, async (req: AuthenticatedRequest, res: 
         expiresAt,
       });
     } catch (eventErr) {
-      console.error('[dibs] Failed to publish dibs_submitted event:', eventErr);
+      (req as any).logger?.error('[dibs] Failed to publish dibs_submitted event', eventErr instanceof Error ? eventErr : new Error(String(eventErr)), { service: 'request-service' });
     }
 
     return res.status(201).json({ success: true, data: dibsRecord });
   } catch (err: any) {
-    console.error('[dibs] Error creating dibs:', err);
+    (req as any).logger?.error('[dibs] Error creating dibs', err instanceof Error ? err : new Error(String(err)), { service: 'request-service' });
     return res.status(500).json({ success: false, message: 'Failed to create dibs', error: err.message });
   }
 });
@@ -227,7 +227,7 @@ router.get('/dibs/pending-for-provider', authMiddleware, async (req: Authenticat
     const pendingDibs = await getPendingDibsForProvider(userId);
     return res.json({ success: true, data: pendingDibs });
   } catch (err: any) {
-    console.error('[dibs] Error fetching pending dibs for provider:', err);
+    (req as any).logger?.error('[dibs] Error fetching pending dibs for provider', err instanceof Error ? err : new Error(String(err)), { service: 'request-service' });
     return res.status(500).json({ success: false, message: 'Failed to fetch pending dibs', error: err.message });
   }
 });
@@ -310,13 +310,13 @@ router.put('/dibs/:id/accept', authMiddleware, async (req: AuthenticatedRequest,
         providerUserId: dibs.provider_user_id,
       });
     } catch (eventErr) {
-      console.error('[dibs] Failed to publish dibs_accepted event:', eventErr);
+      (req as any).logger?.error('[dibs] Failed to publish dibs_accepted event', eventErr instanceof Error ? eventErr : new Error(String(eventErr)), { service: 'request-service' });
     }
 
     const updatedDibs = await getDibsById(dibsId);
     return res.json({ success: true, data: updatedDibs });
   } catch (err: any) {
-    console.error('[dibs] Error accepting dibs:', err);
+    (req as any).logger?.error('[dibs] Error accepting dibs', err instanceof Error ? err : new Error(String(err)), { service: 'request-service' });
     return res.status(500).json({ success: false, message: 'Failed to accept dibs', error: err.message });
   }
 });
@@ -393,13 +393,13 @@ router.put('/dibs/:id/decline', authMiddleware, async (req: AuthenticatedRequest
         providerUserId: dibs.provider_user_id,
       });
     } catch (eventErr) {
-      console.error('[dibs] Failed to publish dibs_declined event:', eventErr);
+      (req as any).logger?.error('[dibs] Failed to publish dibs_declined event', eventErr instanceof Error ? eventErr : new Error(String(eventErr)), { service: 'request-service' });
     }
 
     const updatedDibs = await getDibsById(dibsId);
     return res.json({ success: true, data: updatedDibs });
   } catch (err: any) {
-    console.error('[dibs] Error declining dibs:', err);
+    (req as any).logger?.error('[dibs] Error declining dibs', err instanceof Error ? err : new Error(String(err)), { service: 'request-service' });
     return res.status(500).json({ success: false, message: 'Failed to decline dibs', error: err.message });
   }
 });
@@ -445,12 +445,12 @@ router.post('/dibs/:id/expire', authMiddleware, async (req: AuthenticatedRequest
         requestId: dibs.request_id,
       });
     } catch (eventErr) {
-      console.error('[dibs] Failed to publish dibs_expired event:', eventErr);
+      (req as any).logger?.error('[dibs] Failed to publish dibs_expired event', eventErr instanceof Error ? eventErr : new Error(String(eventErr)), { service: 'request-service' });
     }
 
     return res.json({ success: true, data: { dibs_status: 'expired' } });
   } catch (err: any) {
-    console.error('[dibs] Error force-expiring dibs:', err);
+    (req as any).logger?.error('[dibs] Error force-expiring dibs', err instanceof Error ? err : new Error(String(err)), { service: 'request-service' });
     return res.status(500).json({ success: false, message: 'Failed to expire dibs', error: err.message });
   }
 });

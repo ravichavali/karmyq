@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 import jwt from 'jsonwebtoken';
 import rateLimit from 'express-rate-limit';
 import { v4 as uuidv4 } from 'uuid';
+import { createLogger, requestLoggingMiddleware } from '@karmyq/shared/utils/logger';
 import { logger } from './utils/logger';
 import { markExpiredData, hardDeleteExpiredData } from './jobs/expirationJob';
 import {
@@ -20,6 +21,7 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3008;
 const JWT_SECRET = process.env.JWT_SECRET;
+const sharedLogger = createLogger('cleanup-service');
 
 if (!JWT_SECRET) {
   logger.error('JWT_SECRET not configured - admin authentication will fail');
@@ -129,6 +131,7 @@ const adminAuthMiddleware = async (req: ExtendedRequest, res: Response, next: Ne
 };
 
 app.use(express.json());
+app.use(requestLoggingMiddleware(sharedLogger));
 app.use(requestIdMiddleware);
 
 // ============= HEALTH CHECK =============

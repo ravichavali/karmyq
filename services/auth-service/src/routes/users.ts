@@ -28,7 +28,7 @@ router.get('/:userId', async (req: any, res) => {
 
     sendSuccess(res, result.rows[0], HTTP_STATUS.OK, { requestId: req.id });
   } catch (error) {
-    console.error('Error fetching user:', error);
+    (req as any).logger?.error('Error fetching user', error instanceof Error ? error : new Error(String(error)), { service: 'auth-service', endpoint: 'GET /:userId' });
     sendInternalError(res, 'Failed to fetch user', error instanceof Error ? error : undefined, { requestId: req.id });
   }
 });
@@ -61,7 +61,7 @@ router.put('/:userId', authMiddleware, async (req: AuthenticatedRequest, res) =>
 
     sendSuccess(res, result.rows[0], HTTP_STATUS.OK, { requestId: (req as any).id });
   } catch (error) {
-    console.error('Error updating user:', error);
+    (req as any).logger?.error('Error updating user', error instanceof Error ? error : new Error(String(error)), { service: 'auth-service', endpoint: 'PUT /:userId' });
     sendInternalError(res, 'Failed to update user', error instanceof Error ? error : undefined, { requestId: (req as any).id });
   }
 });
@@ -78,7 +78,7 @@ router.get('/:userId/skills', async (req: any, res) => {
 
     sendSuccess(res, result.rows, HTTP_STATUS.OK, { requestId: req.id });
   } catch (error) {
-    console.error('Error fetching user skills:', error);
+    (req as any).logger?.error('Error fetching user skills', error instanceof Error ? error : new Error(String(error)), { service: 'auth-service', endpoint: 'GET /:userId/skills' });
     sendInternalError(res, 'Failed to fetch user skills', error instanceof Error ? error : undefined, { requestId: req.id });
   }
 });
@@ -112,7 +112,7 @@ router.post('/:userId/skills', authMiddleware, async (req: AuthenticatedRequest,
 
     sendSuccess(res, result.rows[0], HTTP_STATUS.CREATED, { requestId: (req as any).id });
   } catch (error) {
-    console.error('Error adding skill:', error);
+    (req as any).logger?.error('Error adding skill', error instanceof Error ? error : new Error(String(error)), { service: 'auth-service', endpoint: 'POST /:userId/skills' });
     sendInternalError(res, 'Failed to add skill', error instanceof Error ? error : undefined, { requestId: (req as any).id });
   }
 });
@@ -138,7 +138,7 @@ router.delete('/:userId/skills/:skillId', authMiddleware, async (req: Authentica
 
     sendSuccess(res, { message: 'Skill removed successfully' }, HTTP_STATUS.OK, { requestId: (req as any).id });
   } catch (error) {
-    console.error('Error removing skill:', error);
+    (req as any).logger?.error('Error removing skill', error instanceof Error ? error : new Error(String(error)), { service: 'auth-service', endpoint: 'DELETE /:userId/skills/:skillId' });
     sendInternalError(res, 'Failed to remove skill', error instanceof Error ? error : undefined, { requestId: (req as any).id });
   }
 });
@@ -168,7 +168,7 @@ router.get('/me/settings', authMiddleware, async (req: AuthenticatedRequest, res
 
     sendSuccess(res, result.rows[0], HTTP_STATUS.OK, { requestId: (req as any).id });
   } catch (error) {
-    console.error('Error fetching privacy settings:', error);
+    (req as any).logger?.error('Error fetching privacy settings', error instanceof Error ? error : new Error(String(error)), { service: 'auth-service', endpoint: 'GET /me/settings' });
     sendInternalError(res, 'Failed to fetch privacy settings', error instanceof Error ? error : undefined, { requestId: (req as any).id });
   }
 });
@@ -197,7 +197,7 @@ router.patch('/me/settings', authMiddleware, async (req: AuthenticatedRequest, r
 
     sendSuccess(res, result.rows[0], HTTP_STATUS.OK, { requestId: (req as any).id });
   } catch (error) {
-    console.error('Error updating privacy settings:', error);
+    (req as any).logger?.error('Error updating privacy settings', error instanceof Error ? error : new Error(String(error)), { service: 'auth-service', endpoint: 'PATCH /me/settings' });
     sendInternalError(res, 'Failed to update privacy settings', error instanceof Error ? error : undefined, { requestId: (req as any).id });
   }
 });

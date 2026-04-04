@@ -52,7 +52,7 @@ router.post('/', authMiddleware, async (req: AuthenticatedRequest, res: Response
         review_excerpt: (review_text ?? '').substring(0, 80),
       });
     } catch (eventErr) {
-      console.error('Error publishing provider_review_received event:', eventErr);
+      (req as any).logger?.error('Error publishing provider_review_received event', eventErr instanceof Error ? eventErr : new Error(String(eventErr)), { service: 'reputation-service' });
     }
 
     res.status(201).json({ success: true, data: result.rows[0], message: 'Review submitted' });
@@ -60,7 +60,7 @@ router.post('/', authMiddleware, async (req: AuthenticatedRequest, res: Response
     if (error.code === '23505') {
       return res.status(409).json({ success: false, message: 'You have already reviewed this provider for this match' });
     }
-    console.error('Error submitting provider review:', error);
+    (req as any).logger?.error('Error submitting provider review', error instanceof Error ? error : new Error(String(error)), { service: 'reputation-service' });
     res.status(500).json({ success: false, message: 'Failed to submit review', error: error.message });
   }
 });
@@ -85,7 +85,7 @@ router.get('/provider-trust/:providerId', async (req: any, res: Response) => {
 
     res.json({ success: true, data: result.rows[0] });
   } catch (error: any) {
-    console.error('Error fetching provider trust score:', error);
+    (req as any).logger?.error('Error fetching provider trust score', error instanceof Error ? error : new Error(String(error)), { service: 'reputation-service' });
     res.status(500).json({ success: false, message: 'Failed to fetch provider trust score', error: error.message });
   }
 });
@@ -109,7 +109,7 @@ router.get('/provider-reviews/:providerId', async (req: any, res: Response) => {
 
     res.json({ success: true, data: result.rows });
   } catch (error: any) {
-    console.error('Error fetching provider reviews:', error);
+    (req as any).logger?.error('Error fetching provider reviews', error instanceof Error ? error : new Error(String(error)), { service: 'reputation-service' });
     res.status(500).json({ success: false, message: 'Failed to fetch provider reviews', error: error.message });
   }
 });
@@ -135,7 +135,7 @@ router.post('/provider-trust/recalculate', authMiddleware, async (req: Authentic
       message: `Recalculated trust scores for ${updated} providers`,
     });
   } catch (error: any) {
-    console.error('Error running provider trust score backfill:', error);
+    (req as any).logger?.error('Error running provider trust score backfill', error instanceof Error ? error : new Error(String(error)), { service: 'reputation-service' });
     res.status(500).json({ success: false, message: 'Backfill failed', error: error.message });
   }
 });

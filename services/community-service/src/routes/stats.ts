@@ -204,7 +204,7 @@ router.get('/:communityId/stats', async (req: Request, res: Response) => {
       throw error;
     }
   } catch (error: any) {
-    console.error('Error fetching community statistics:', error);
+    (req as any).logger?.error('Error fetching community statistics', error instanceof Error ? error : new Error(String(error)), { service: 'community-service' });
     res.status(500).json({
       success: false,
       message: 'Failed to fetch community statistics',

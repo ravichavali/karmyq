@@ -100,7 +100,7 @@ router.post('/', async (req: Request, res: Response) => {
     });
 
   } catch (error) {
-    console.error('Error creating schema:', error);
+    (req as any).logger?.error('Error creating schema', error instanceof Error ? error : new Error(String(error)), { service: 'request-service' });
     res.status(500).json({
       success: false,
       message: 'Failed to create schema',
@@ -155,7 +155,7 @@ router.get('/', async (req: Request, res: Response) => {
     sendSuccess(res, { schemas });
 
   } catch (error) {
-    console.error('Error listing schemas:', error);
+    (req as any).logger?.error('Error listing schemas', error instanceof Error ? error : new Error(String(error)), { service: 'request-service' });
     res.status(500).json({
       success: false,
       message: 'Failed to list schemas',
@@ -202,7 +202,7 @@ router.get('/:id', async (req: Request, res: Response) => {
     sendSuccess(res, { schema });
 
   } catch (error) {
-    console.error('Error fetching schema:', error);
+    (req as any).logger?.error('Error fetching schema', error instanceof Error ? error : new Error(String(error)), { service: 'request-service' });
     res.status(500).json({
       success: false,
       message: 'Failed to fetch schema',
@@ -297,7 +297,7 @@ router.put('/:id', async (req: Request, res: Response) => {
     sendSuccess(res, { schema });
 
   } catch (error) {
-    console.error('Error updating schema:', error);
+    (req as any).logger?.error('Error updating schema', error instanceof Error ? error : new Error(String(error)), { service: 'request-service' });
     res.status(500).json({
       success: false,
       message: 'Failed to update schema',
@@ -408,7 +408,7 @@ router.post('/:id/publish', async (req: Request, res: Response) => {
     });
 
   } catch (error) {
-    console.error('Error publishing schema:', error);
+    (req as any).logger?.error('Error publishing schema', error instanceof Error ? error : new Error(String(error)), { service: 'request-service' });
     res.status(500).json({
       success: false,
       message: 'Failed to publish schema',
@@ -450,7 +450,7 @@ router.post('/:id/archive', async (req: Request, res: Response) => {
     });
 
   } catch (error) {
-    console.error('Error archiving schema:', error);
+    (req as any).logger?.error('Error archiving schema', error instanceof Error ? error : new Error(String(error)), { service: 'request-service' });
     res.status(500).json({
       success: false,
       message: 'Failed to archive schema',
@@ -485,7 +485,7 @@ router.get('/:id/versions', async (req: Request, res: Response) => {
     sendSuccess(res, { versions });
 
   } catch (error) {
-    console.error('Error fetching version history:', error);
+    (req as any).logger?.error('Error fetching version history', error instanceof Error ? error : new Error(String(error)), { service: 'request-service' });
     res.status(500).json({
       success: false,
       message: 'Failed to fetch version history',
@@ -550,7 +550,7 @@ router.post('/:id/rollback/:version', async (req: Request, res: Response) => {
     });
 
   } catch (error) {
-    console.error('Error rolling back schema:', error);
+    (req as any).logger?.error('Error rolling back schema', error instanceof Error ? error : new Error(String(error)), { service: 'request-service' });
     res.status(500).json({
       success: false,
       message: 'Failed to rollback schema',
@@ -629,7 +629,7 @@ router.post('/:id/variants', async (req: Request, res: Response) => {
     });
 
   } catch (error) {
-    console.error('Error creating variant:', error);
+    (req as any).logger?.error('Error creating variant', error instanceof Error ? error : new Error(String(error)), { service: 'request-service' });
     res.status(500).json({
       success: false,
       message: 'Failed to create variant',

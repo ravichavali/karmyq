@@ -22,7 +22,7 @@ router.get('/', async (req: Request, res: Response) => {
     res.set('Cache-Control', 'public, max-age=3600');
     sendSuccess(res, { schemas: summaries });
   } catch (error) {
-    console.error('Error fetching schemas:', error);
+    (req as any).logger?.error('Error fetching schemas', error instanceof Error ? error : new Error(String(error)), { service: 'request-service' });
     res.status(500).json({
       success: false,
       message: 'Failed to fetch schemas',
@@ -64,7 +64,7 @@ router.get('/:type', async (req: Request, res: Response) => {
     sendSuccess(res, { schema });
   } catch (error) {
     const safeParamType = String(req.params.type).replace(/[\r\n]/g, '').slice(0, 100);
-    console.error(`Error fetching schema for type ${safeParamType}:`, error);
+    (req as any).logger?.error('Error fetching schema for type', error instanceof Error ? error : new Error(String(error)), { service: 'request-service', paramType: safeParamType });
     res.status(500).json({
       success: false,
       message: 'Failed to fetch schema',

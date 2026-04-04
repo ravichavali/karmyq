@@ -220,7 +220,7 @@ router.get('/', async (req: any, res: Response) => {
       total: result.rowCount, // In production, you'd do a separate COUNT query
     }, HTTP_STATUS.OK, { requestId: req.id });
   } catch (error: any) {
-    console.error('Error fetching communities:', error);
+    (req as any).logger?.error('Error fetching communities', error instanceof Error ? error : new Error(String(error)), { service: 'community-service', endpoint: 'GET /' });
     sendInternalError(res, 'Failed to fetch communities', error, { requestId: req.id });
   }
 });
@@ -255,7 +255,7 @@ router.get('/my/communities', async (req: Request, res: Response) => {
       total: result.rowCount,
     }, HTTP_STATUS.OK, { requestId: (req as any).id });
   } catch (error: any) {
-    console.error('Error fetching user communities:', error);
+    (req as any).logger?.error('Error fetching user communities', error instanceof Error ? error : new Error(String(error)), { service: 'community-service', endpoint: 'GET /my/communities' });
     sendInternalError(res, 'Failed to fetch user communities', error instanceof Error ? error : undefined, { requestId: (req as any).id });
   }
 });
@@ -273,7 +273,7 @@ router.get('/tags', async (req: Request, res: Response) => {
     const tags = result.rows.map((row: any) => row.tag);
     sendSuccess(res, { tags }, HTTP_STATUS.OK, { requestId: (req as any).id });
   } catch (error: any) {
-    console.error('Error fetching tags:', error);
+    (req as any).logger?.error('Error fetching tags', error instanceof Error ? error : new Error(String(error)), { service: 'community-service', endpoint: 'GET /tags' });
     sendInternalError(res, 'Failed to fetch tags', error instanceof Error ? error : undefined, { requestId: (req as any).id });
   }
 });
@@ -317,7 +317,7 @@ router.get('/:id', async (req: Request, res: Response) => {
 
     sendSuccess(res, community, HTTP_STATUS.OK, { requestId: (req as any).id });
   } catch (error: any) {
-    console.error('Error fetching community:', error);
+    (req as any).logger?.error('Error fetching community', error instanceof Error ? error : new Error(String(error)), { service: 'community-service', endpoint: 'GET /:id' });
     sendInternalError(res, 'Failed to fetch community', error instanceof Error ? error : undefined, { requestId: (req as any).id });
   }
 });
@@ -527,7 +527,7 @@ router.post('/', async (req: Request, res: Response) => {
       token: newToken, // Include refreshed JWT token
     }, HTTP_STATUS.CREATED, { requestId: (req as any).id });
   } catch (error: any) {
-    console.error('Error creating community:', error);
+    (req as any).logger?.error('Error creating community', error instanceof Error ? error : new Error(String(error)), { service: 'community-service', endpoint: 'POST /' });
     sendInternalError(res, 'Failed to create community', error instanceof Error ? error : undefined, { requestId: (req as any).id });
   }
 });
@@ -577,7 +577,7 @@ router.put('/:id/tags', async (req: Request, res: Response) => {
 
     sendSuccess(res, { community: result.rows[0] }, HTTP_STATUS.OK, { requestId: (req as any).id });
   } catch (error: any) {
-    console.error('Error updating community tags:', error);
+    (req as any).logger?.error('Error updating community tags', error instanceof Error ? error : new Error(String(error)), { service: 'community-service', endpoint: 'PUT /:id/tags' });
     sendInternalError(res, 'Failed to update community tags', error instanceof Error ? error : undefined, { requestId: (req as any).id });
   }
 });
@@ -622,7 +622,7 @@ router.put('/:id/location', async (req: Request, res: Response) => {
 
     sendSuccess(res, { community: result.rows[0] }, HTTP_STATUS.OK, { requestId: (req as any).id });
   } catch (error: any) {
-    console.error('Error updating community location:', error);
+    (req as any).logger?.error('Error updating community location', error instanceof Error ? error : new Error(String(error)), { service: 'community-service', endpoint: 'PUT /:id/location' });
     sendInternalError(res, 'Failed to update community location', error instanceof Error ? error : undefined, { requestId: (req as any).id });
   }
 });
@@ -691,7 +691,7 @@ router.put('/:id', async (req: Request, res: Response) => {
 
     sendSuccess(res, result.rows[0], HTTP_STATUS.OK, { requestId: (req as any).id });
   } catch (error: any) {
-    console.error('Error updating community:', error);
+    (req as any).logger?.error('Error updating community', error instanceof Error ? error : new Error(String(error)), { service: 'community-service', endpoint: 'PUT /:id' });
     sendInternalError(res, 'Failed to update community', error instanceof Error ? error : undefined, { requestId: (req as any).id });
   }
 });
@@ -734,7 +734,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
 
     sendSuccess(res, { message: 'Community archived successfully' }, HTTP_STATUS.OK, { requestId: (req as any).id });
   } catch (error: any) {
-    console.error('Error archiving community:', error);
+    (req as any).logger?.error('Error archiving community', error instanceof Error ? error : new Error(String(error)), { service: 'community-service', endpoint: 'DELETE /:id' });
     sendInternalError(res, 'Failed to archive community', error instanceof Error ? error : undefined, { requestId: (req as any).id });
   }
 });

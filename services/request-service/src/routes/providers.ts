@@ -49,7 +49,7 @@ router.get('/', async (req: any, res: Response) => {
 
     res.json({ success: true, data: result.rows });
   } catch (error: any) {
-    console.error('Error fetching providers:', error);
+    (req as any).logger?.error('Error fetching providers', error instanceof Error ? error : new Error(String(error)), { service: 'request-service' });
     res.status(500).json({ success: false, message: 'Failed to fetch providers', error: error.message });
   }
 });
@@ -71,7 +71,7 @@ router.get('/my', authMiddleware, async (req: AuthenticatedRequest, res: Respons
     `, [userId]);
     res.json({ success: true, data: result.rows });
   } catch (error: any) {
-    console.error('Error fetching own provider profiles:', error);
+    (req as any).logger?.error('Error fetching own provider profiles', error instanceof Error ? error : new Error(String(error)), { service: 'request-service' });
     res.status(500).json({ success: false, message: 'Failed to fetch provider profiles', error: error.message });
   }
 });
@@ -293,7 +293,7 @@ router.get('/:providerId', async (req: any, res: Response) => {
     provider.rate_cards = cardsResult.rows;
     res.json({ success: true, data: provider });
   } catch (error: any) {
-    console.error('Error fetching provider:', error);
+    (req as any).logger?.error('Error fetching provider', error instanceof Error ? error : new Error(String(error)), { service: 'request-service' });
     res.status(500).json({ success: false, message: 'Failed to fetch provider', error: error.message });
   }
 });
@@ -351,7 +351,7 @@ router.post('/', authMiddleware, async (req: AuthenticatedRequest, res: Response
 
     res.status(201).json({ success: true, data: profile, message: 'Provider profile created' });
   } catch (error: any) {
-    console.error('Error creating provider:', error);
+    (req as any).logger?.error('Error creating provider', error instanceof Error ? error : new Error(String(error)), { service: 'request-service' });
     res.status(500).json({ success: false, message: 'Failed to create provider profile', error: error.message });
   }
 });
@@ -409,7 +409,7 @@ router.put('/:providerId', authMiddleware, async (req: AuthenticatedRequest, res
 
     res.json({ success: true, data: result.rows[0] });
   } catch (error: any) {
-    console.error('Error updating provider:', error);
+    (req as any).logger?.error('Error updating provider', error instanceof Error ? error : new Error(String(error)), { service: 'request-service' });
     res.status(500).json({ success: false, message: 'Failed to update provider profile', error: error.message });
   }
 });
@@ -435,7 +435,7 @@ router.delete('/:providerId', authMiddleware, async (req: AuthenticatedRequest, 
 
     res.json({ success: true, message: 'Provider profile deleted' });
   } catch (error: any) {
-    console.error('Error deleting provider:', error);
+    (req as any).logger?.error('Error deleting provider', error instanceof Error ? error : new Error(String(error)), { service: 'request-service' });
     res.status(500).json({ success: false, message: 'Failed to delete provider profile', error: error.message });
   }
 });
@@ -485,7 +485,7 @@ router.patch('/:providerId/availability', authMiddleware, async (req: Authentica
 
     res.json({ success: true, data: provider });
   } catch (error: any) {
-    console.error('Error updating provider availability:', error);
+    (req as any).logger?.error('Error updating provider availability', error instanceof Error ? error : new Error(String(error)), { service: 'request-service' });
     res.status(500).json({ success: false, message: 'Failed to update availability', error: error.message });
   }
 });

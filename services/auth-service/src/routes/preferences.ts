@@ -61,7 +61,7 @@ router.get('/request-types', authMiddleware, async (req: Request, res: Response)
       },
     });
   } catch (error: any) {
-    console.error('Error fetching request type preferences:', error);
+    (req as any).logger?.error('Error fetching request type preferences', error instanceof Error ? error : new Error(String(error)), { service: 'auth-service', endpoint: 'GET /request-types' });
     res.status(500).json({
       success: false,
       message: 'Failed to fetch preferences',
@@ -128,7 +128,7 @@ router.post('/request-types', authMiddleware, async (req: Request, res: Response
       },
     });
   } catch (error: any) {
-    console.error('Error updating request type preference:', error);
+    (req as any).logger?.error('Error updating request type preference', error instanceof Error ? error : new Error(String(error)), { service: 'auth-service', endpoint: 'POST /request-types' });
     res.status(500).json({
       success: false,
       message: 'Failed to update preference',
@@ -190,7 +190,7 @@ router.put('/request-types/bulk', authMiddleware, async (req: Request, res: Resp
       throw error;
     }
   } catch (error: any) {
-    console.error('Error bulk updating preferences:', error);
+    (req as any).logger?.error('Error bulk updating preferences', error instanceof Error ? error : new Error(String(error)), { service: 'auth-service', endpoint: 'PUT /request-types/bulk' });
     res.status(500).json({
       success: false,
       message: 'Failed to update preferences',
@@ -240,7 +240,7 @@ router.get('/interests', authMiddleware, async (req: Request, res: Response) => 
       },
     });
   } catch (error: any) {
-    console.error('Error fetching interests:', error);
+    (req as any).logger?.error('Error fetching interests', error instanceof Error ? error : new Error(String(error)), { service: 'auth-service', endpoint: 'GET /interests' });
     res.status(500).json({
       success: false,
       message: 'Failed to fetch interests',
@@ -304,7 +304,7 @@ router.post('/interests', authMiddleware, async (req: Request, res: Response) =>
       },
     });
   } catch (error: any) {
-    console.error('Error adding interest:', error);
+    (req as any).logger?.error('Error adding interest', error instanceof Error ? error : new Error(String(error)), { service: 'auth-service', endpoint: 'POST /interests' });
     res.status(500).json({
       success: false,
       message: 'Failed to add interest',
@@ -351,7 +351,7 @@ router.delete('/interests/:id', authMiddleware, async (req: Request, res: Respon
       },
     });
   } catch (error: any) {
-    console.error('Error removing interest:', error);
+    (req as any).logger?.error('Error removing interest', error instanceof Error ? error : new Error(String(error)), { service: 'auth-service', endpoint: 'DELETE /interests/:id' });
     res.status(500).json({
       success: false,
       message: 'Failed to remove interest',
@@ -405,7 +405,7 @@ router.get('/feed', authMiddleware, async (req: Request, res: Response) => {
       },
     });
   } catch (error: any) {
-    console.error('Error fetching feed preferences:', error);
+    (req as any).logger?.error('Error fetching feed preferences', error instanceof Error ? error : new Error(String(error)), { service: 'auth-service', endpoint: 'GET /feed' });
     res.status(500).json({
       success: false,
       message: 'Failed to fetch feed preferences',
@@ -481,7 +481,7 @@ router.put('/feed', authMiddleware, async (req: Request, res: Response) => {
       message: 'Feed preferences updated successfully',
     });
   } catch (error: any) {
-    console.error('Error updating feed preferences:', error);
+    (req as any).logger?.error('Error updating feed preferences', error instanceof Error ? error : new Error(String(error)), { service: 'auth-service', endpoint: 'PUT /feed' });
     res.status(500).json({
       success: false,
       message: 'Failed to update feed preferences',

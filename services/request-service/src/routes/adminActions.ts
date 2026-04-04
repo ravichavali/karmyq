@@ -56,7 +56,7 @@ router.post('/:id/boost', async (req: Request, res: Response) => {
 
     return res.json({ success: true, data: { request: result.rows[0] } });
   } catch (error: any) {
-    console.error('Error boosting request:', error);
+    (req as any).logger?.error('Error boosting request', error instanceof Error ? error : new Error(String(error)), { service: 'request-service' });
     return res.status(500).json({ success: false, message: 'Internal server error' });
   }
 });
@@ -95,7 +95,7 @@ router.delete('/:id/boost', async (req: Request, res: Response) => {
 
     return res.json({ success: true, data: { request: result.rows[0] } });
   } catch (error: any) {
-    console.error('Error removing boost from request:', error);
+    (req as any).logger?.error('Error removing boost from request', error instanceof Error ? error : new Error(String(error)), { service: 'request-service' });
     return res.status(500).json({ success: false, message: 'Internal server error' });
   }
 });
@@ -173,7 +173,7 @@ router.post('/:id/propose-match', async (req: Request, res: Response) => {
 
     return res.status(201).json({ success: true, data: { matchId: match.id } });
   } catch (error: any) {
-    console.error('Error proposing match:', error);
+    (req as any).logger?.error('Error proposing match', error instanceof Error ? error : new Error(String(error)), { service: 'request-service' });
     return res.status(500).json({ success: false, message: 'Internal server error' });
   }
 });
@@ -229,7 +229,7 @@ router.patch('/:id/urgent', async (req: Request, res: Response) => {
       return res.json({ success: true, data: { request: result.rows[0] } });
     }
   } catch (error: any) {
-    console.error('Error updating urgency:', error);
+    (req as any).logger?.error('Error updating urgency', error instanceof Error ? error : new Error(String(error)), { service: 'request-service' });
     return res.status(500).json({ success: false, message: 'Internal server error' });
   }
 });

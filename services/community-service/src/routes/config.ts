@@ -88,7 +88,7 @@ router.get('/:id/config', async (req: Request, res: Response) => {
       },
     });
   } catch (error: any) {
-    console.error('Error fetching community config:', error);
+    (req as any).logger?.error('Error fetching community config', error instanceof Error ? error : new Error(String(error)), { service: 'community-service', endpoint: 'GET /:id/config' });
     res.status(500).json({
       success: false,
       message: 'Failed to fetch community configuration',
@@ -248,7 +248,7 @@ router.put('/:id/config', async (req: Request, res: Response) => {
       message: 'Community configuration updated successfully',
     });
   } catch (error: any) {
-    console.error('Error updating community config:', error);
+    (req as any).logger?.error('Error updating community config', error instanceof Error ? error : new Error(String(error)), { service: 'community-service', endpoint: 'PUT /:id/config' });
     res.status(500).json({
       success: false,
       message: 'Failed to update community configuration',
@@ -314,7 +314,7 @@ router.get('/config-templates', async (req: Request, res: Response) => {
       },
     });
   } catch (error: any) {
-    console.error('Error fetching config templates:', error);
+    (req as any).logger?.error('Error fetching config templates', error instanceof Error ? error : new Error(String(error)), { service: 'community-service', endpoint: 'GET /config-templates' });
     res.status(500).json({
       success: false,
       message: 'Failed to fetch configuration templates',
@@ -495,7 +495,7 @@ router.post('/:id/config/copy-from/:source_community_id', async (req: Request, r
       message: 'Configuration copied successfully',
     });
   } catch (error: any) {
-    console.error('Error copying community config:', error);
+    (req as any).logger?.error('Error copying community config', error instanceof Error ? error : new Error(String(error)), { service: 'community-service', endpoint: 'POST /:id/config/copy-from/:source_community_id' });
     res.status(500).json({
       success: false,
       message: 'Failed to copy community configuration',
@@ -564,7 +564,7 @@ router.get('/configs/public', async (req: Request, res: Response) => {
       },
     });
   } catch (error: any) {
-    console.error('Error fetching public community configs:', error);
+    (req as any).logger?.error('Error fetching public community configs', error instanceof Error ? error : new Error(String(error)), { service: 'community-service', endpoint: 'GET /configs/public' });
     res.status(500).json({
       success: false,
       message: 'Failed to fetch public community configurations',
