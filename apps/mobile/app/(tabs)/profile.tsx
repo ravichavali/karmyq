@@ -25,7 +25,7 @@ interface KarmaData {
 export default function ProfileScreen() {
   const { user, logout } = useAuthStore();
   const [karmaData, setKarmaData] = useState<KarmaData | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [_loading, setLoading] = useState(true);
 
   const loadKarma = async () => {
     if (!user) return;
