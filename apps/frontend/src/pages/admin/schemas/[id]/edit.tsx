@@ -289,7 +289,7 @@ export default function SchemaEditorPage() {
     setSchema({ ...schema, sections })
   }
 
-  const handleMoveField = (sectionId: string, dragIndex: number, dropIndex: number, fieldDragIndex: number) => {
+  const handleMoveField = (sectionId: string, dragIndex: number, dropIndex: number) => {
     if (!schema) return
 
     const sections = [...schema.sections]
@@ -460,7 +460,7 @@ export default function SchemaEditorPage() {
                       onAddField={handleAddField}
                       onUpdateField={handleUpdateField}
                       onDeleteField={handleDeleteField}
-                      onMoveField={(sectionId: string, fromIndex: number, toIndex: number) => handleMoveField(sectionId, fromIndex, toIndex, fromIndex)}
+                      onMoveField={handleMoveField}
                       onSaveDraft={() => saveSchema(schema)}
                       onPublish={() => setShowPublishDialog(true)}
                     />
