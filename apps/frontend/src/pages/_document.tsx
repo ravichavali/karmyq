@@ -1,3 +1,5 @@
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-nocheck — next/document Head & NextScript have a React 19 type incompatibility
 import { Html, Head, Main, NextScript } from 'next/document'
 
 export default function Document() {

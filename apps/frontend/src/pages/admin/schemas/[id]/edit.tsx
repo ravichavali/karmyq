@@ -454,13 +454,13 @@ export default function SchemaEditorPage() {
                     <SchemaCanvas
                       schema={schema}
                       saving={saving}
-                      onUpdateSection={(sectionId, updates) => handleUpdateSection(sectionId, updates)}
+                      onUpdateSection={handleUpdateSection}
                       onDeleteSection={handleDeleteSection}
                       onAddSection={handleAddSection}
                       onAddField={handleAddField}
-                      onUpdateField={(sectionId, fieldId, updates) => handleUpdateField(sectionId, fieldId, updates)}
+                      onUpdateField={handleUpdateField}
                       onDeleteField={handleDeleteField}
-                      onMoveField={(sectionId, fromIndex, toIndex) => handleMoveField(sectionId, fromIndex, toIndex, fromIndex)}
+                      onMoveField={(sectionId: string, fromIndex: number, toIndex: number) => handleMoveField(sectionId, fromIndex, toIndex, fromIndex)}
                       onSaveDraft={() => saveSchema(schema)}
                       onPublish={() => setShowPublishDialog(true)}
                     />

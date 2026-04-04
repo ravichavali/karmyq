@@ -87,9 +87,8 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run npm audit (high/critical)
-        run: npm audit --audit-level=high
-        continue-on-error: true
+      - name: Run npm audit (critical only — high vulns in expo@54 are unfixable until SDK upgrade)
+        run: npm audit --audit-level=critical
 
   # Build and verify landing page
   build-landing:
@@ -179,7 +178,7 @@ jobs:
   build-images:
     name: Build Docker Images
     runs-on: ubuntu-latest
-    needs: [test-backend, lint, test-integration, build-landing]
+    needs: [test-backend, lint, test-integration, build-landing, security]
 
     strategy:
       matrix:

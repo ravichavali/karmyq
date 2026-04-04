@@ -1408,7 +1408,7 @@ export default function CommunityDetailPage() {
                           <>
                             <CommunityConfigEditor
                               config={editedConfig}
-                              onChange={(newConfig) => { setEditedConfig(newConfig); setConfigErrors({}) }}
+                              onChange={(newConfig: CommunityConfig) => { setEditedConfig(newConfig); setConfigErrors({}) }}
                               errors={configErrors}
                             />
                             <div className="flex justify-end gap-3 mt-6 pt-6 border-t">
