@@ -1,26 +1,57 @@
-# SPRINT 44 — Tech Debt + Architecture Review
+# SPRINT 45 — UI Redesign / Expert Configuration Surfaces
 
 ## Handoff Document
 
-**Date**: 2026-04-03
-**Current Version**: v9.10.0 → v9.11.0
-**Status**: Plan approved. Ready to execute.
+**Date**: 2026-04-04
+**Current Version**: v9.11.0 → v9.12.0 (next)
+**Status**: Sprint 44 complete and deployed (CI green after lockfile fix). Sprint 45 direction established. Ready to plan.
 
 ---
 
 ## Quick Start
 
 1. Read this handoff
-2. Check out branch: `git checkout -b feature/sprint-44-tech-debt`
-3. Open plan: `docs/superpowers/plans/2026-04-03-sprint-44-tech-debt.md`
-4. Run: `/execute-plan` (uses `superpowers:subagent-driven-development`)
+2. Run `/sprint-planning` to produce the Sprint 45 spec + plan
+3. OR: if a plan already exists in `docs/superpowers/plans/`, run `/execute-plan`
 
 ---
 
-## Sprint Goal
+## What We Just Completed (Sprint 44)
 
-Reduce accumulated tech debt and produce an expert-contribution gap analysis before the
-upcoming UI redesign sprints — no new features.
+Sprint 44 was a tech debt + architecture review sprint. All three workstreams shipped:
+
+### Workstream 1 — Security & Code Quality
+- `npm audit fix` + `npm audit fix --force` — resolved all auto-fixable vulnerabilities
+- `next.js` upgraded to latest in `apps/frontend` and `apps/landing`
+- Node.js bumped **20→24** in all GitHub Actions workflows (`ci.yml`, `test.yml`, `e2e-tests.yml`)
+- TypeScript/ESLint warnings eliminated in `cleanup-service` (any→typed interfaces, `unknown` catch narrowing)
+- Mobile lint: installed missing `eslint-plugin-react-hooks`, exit code now 0 (was exit 2)
+- **Post-sprint lockfile fix**: `react-native-screens@4.6.0` properly resolved in lockfile — the broken workspace-local `4.4.0` entry (no resolved/integrity) was replaced with a hoisted root entry with full registry metadata. Root cause: npm 10 (Node 24) strictly validates lockfile completeness; the old entry had no `resolved`/`integrity` fields.
+
+### Workstream 2 — Observability & Logging
+- `createLogger` + `requestLoggingMiddleware` added to **social-graph-service** and **cleanup-service** `index.ts`
+- All **169 `console.error` calls** in route handlers across 8 services replaced with `req.logger?.error()` structured logging
+- Global `ErrorBoundary` added to `apps/frontend/src/pages/_app.tsx`
+- 122 frontend API catch blocks converted to structured `{ error: err.message }` objects
+- 7-test smoke suite: `tests/tdd/sprint-44-logging.test.ts`
+
+### Workstream 3 — Architecture Review
+- **`docs/architecture/expert-contribution-gaps.md`** — five-area gap analysis document (new file)
+- **`apps/landing/src/data/docs/concepts/observability-logging.json`** — new concept page
+- `services/social-graph-service/CONTEXT.md` and `services/cleanup-service/CONTEXT.md` updated
+
+### Deferred (documented in gap analysis)
+- `picomatch`, `node-forge`, `tar` vulnerabilities locked inside `expo@54` — requires Expo SDK upgrade
+- These are dev-toolchain only (not in app bundle), runtime risk is low
+
+---
+
+## Sprint 44 Final State
+
+- **Branch**: `master`
+- **Latest commit**: `ecde40b feat: Sprint 44 — Tech Debt + Architecture Review (v9.11.0)`
+- **CI/CD**: Push sent — GitHub Actions pipeline running
+- **Demo server**: Will auto-deploy on CI pass
 
 ---
 
@@ -30,91 +61,52 @@ upcoming UI redesign sprints — no new features.
 |--------|-------|--------|
 | Sprint 42 | Dibs / First Refusal | ✅ Complete, deployed |
 | Sprint 43 | Feed Ranking v2 + Logging | ✅ Complete, deployed |
-| Sprint 44 | Tech Debt + Architecture Review | 🟡 Ready to execute |
-| Sprint 45 | UI Redesign / Pruning | ⬜ Upcoming |
-| Sprint 45+ | Group Communities / Onboarding | ⬜ Future |
+| Sprint 44 | Tech Debt + Architecture Review | ✅ Complete, deployed |
+| Sprint 45 | UI Redesign / Expert Config Surfaces | 🟡 Next |
+| Sprint 46 | Log Aggregation + Admin Dashboard | ⬜ Future |
+| Sprint 47 | Group Communities / Onboarding | ⬜ Future |
 
 ---
 
-## Three Workstreams
+## Sprint 45 Direction
 
-### Workstream 1 — Security & Code Quality
-- `npm audit fix` then `npm audit fix --force` (fix API breaks; document reverted packages as debt)
-- Bump Node.js: `ci.yml` 20.x → 24.x; `test.yml` + `e2e-tests.yml` 18 → 24
-- Fix ALL TypeScript warnings (unused params, unused imports, implicit any)
-- Fix mobile lint (`@karmyq/mobile#lint` exits 2 — pre-existing)
+Based on the `docs/architecture/expert-contribution-gaps.md` review, two areas are **High priority**:
 
-### Workstream 2 — Observability & Logging
-- Add `createLogger` + `requestLoggingMiddleware` to social-graph, cleanup, simulation `index.ts`
-  (3 services currently have no structured logging)
-- Replace `console.error` in all service route handler catch blocks with `req.logger?.error(...)`
-  using structured shape `{ service, endpoint, error: err.message }`
-- Add global React error boundary to `apps/frontend/src/pages/_app.tsx`
-- Replace `console.error` in frontend API call failure handlers with structured objects
+### Top Candidates for Sprint 45
 
-### Workstream 3 — Architecture Review
-- Investigate 5 areas: trust questionnaire, feed weights, request type schemas, provider
-  directory, observability access
-- Write `docs/architecture/expert-contribution-gaps.md` (doc only — do NOT implement fixes)
+**1. Request Type Schema Visual Builder (Gap #3 — High)**
+- Current state: JSON editor at `/admin/schemas/[id]/edit` — developer tool only
+- Gap: No visual field-builder, no form preview, no community-scoped schemas
+- First step: Add live form preview alongside the JSON editor
+
+**2. Trust Model Questionnaire Externalization (Gap #1 — High)**
+- Current state: `QUESTIONS` array hardcoded in `apps/frontend/src/lib/trust-model.ts`
+- Gap: Adding questions or changing mappings requires a code change
+- First step: Move questions to a DB table or server-side config endpoint
+
+**3. Feed Weight Full Exposure (Gap #2 — Medium)**
+- Current state: 4 of 7 feed signals are tunable; 3 v2 signals (social_karma, recency, prior_interaction) are hardcoded
+- Gap: Admins can't tune v2 signals
+- First step: Add 3 new columns to `community_configs`, remove sum-to-1 constraint, add sliders
+
+### UI Redesign Context
+Sprint 45 was also described as "UI Redesign / Pruning" in the arc. The gap analysis feeds
+directly into what expert configuration surfaces need to be redesigned. Start sprint planning
+by reviewing the gap analysis + current UX state before locking scope.
 
 ---
 
-## Key Files
+## Key Files for Sprint 45
 
 | File | Role |
 |------|------|
-| `docs/superpowers/plans/2026-04-03-sprint-44-tech-debt.md` | **Implementation plan — start here** |
-| `docs/superpowers/specs/2026-04-03-sprint-44-tech-debt-design.md` | Design spec |
-| `docs/architecture/expert-contribution-gaps.md` | Gap analysis (to create in Task 9) |
-| `.github/workflows/ci.yml` | `NODE_VERSION: '20.x'` → `'24.x'` |
-| `.github/workflows/test.yml` | `node-version: '18'` → `'24'` (×2) |
-| `.github/workflows/e2e-tests.yml` | `node-version: '18'` → `'24'` (×1) |
-| `services/social-graph-service/src/index.ts` | Add createLogger (missing) |
-| `services/cleanup-service/src/index.ts` | Add createLogger (missing) |
-| `services/simulation-service/src/index.ts` | Add createLogger (missing) |
-| `apps/frontend/src/pages/_app.tsx` | Add error boundary |
-| `tests/tdd/sprint-44-logging.test.ts` | Smoke test for logging middleware |
-
----
-
-## Critical Implementation Notes
-
-1. **req.logger availability** — `req.logger` is attached by `requestLoggingMiddleware`. In
-   catch blocks where `req` is not in scope, use the module-level `logger` from
-   `createLogger('service-name')` at the top of the route file.
-
-2. **console.* scope rule** — Route handler `catch` blocks must use `req.logger` or module
-   `logger`. Startup `console.log('Server started...')` calls are acceptable as-is.
-
-3. **npm audit --force risk** — Run `npm test` after each `--force` application. On failure,
-   `git diff package-lock.json` to find the culprit. Fix the API break or revert and document
-   as deferred debt in the gap analysis.
-
-4. **Node 24 compatibility** — Watch the first CI run after bumping. Native addon failures
-   are unlikely but possible. If they occur, investigate before reverting.
-
-5. **Gap analysis is docs only** — Task 9 writes `expert-contribution-gaps.md`. Do NOT start
-   fixing identified gaps in this sprint. They feed Sprint 45+.
-
----
-
-## Current State
-
-- **Branch**: `master`
-- **Latest commit**: `9189e4d fix(migration): drop feed_weights_sum constraint before adding new weight columns`
-- **CI/CD**: All green ✅
-- **Demo server**: Healthy
-
----
-
-## Known Issues (carry-forward)
-
-1. **npm vulnerabilities** — 16 at root (1 critical, 8 high); addressed in Task 2-3
-2. **TypeScript warnings** — unused params in notificationTemplates.ts, feed.ts, feedComposer.ts,
-   cleanup-service; addressed in Task 5
-3. **Mobile lint** — `@karmyq/mobile#lint` exits 2; addressed in Task 6
-4. **TDD integration tests** (`tests/tdd/sprint-42-dibs.test.ts`) — 11 tests fail with
-   "Services not available" (expected in CI). Need live integration env to promote to regression.
+| `docs/architecture/expert-contribution-gaps.md` | Gap analysis — read first for Sprint 45 context |
+| `apps/frontend/src/lib/trust-model.ts` | Hardcoded questionnaire (Gap #1 target) |
+| `apps/frontend/src/components/CommunityTrustQuestionnaire.tsx` | Questionnaire UI |
+| `apps/frontend/src/pages/admin/schemas/[id]/edit.tsx` | JSON schema editor (Gap #3 target) |
+| `services/community-service/src/routes/config.ts` | Config update endpoint |
+| `infrastructure/postgres/init.sql` | community_configs table schema |
+| `infrastructure/postgres/migrations/` | Where new migrations go |
 
 ---
 
@@ -130,13 +122,15 @@ Auth middleware: `const memberships = user.communities ?? []`
 ### Module Resolution
 `@karmyq/shared` subpaths require `moduleResolution: "node16"` and `module: "node16"`.
 
-### Community Config Templates
-Three existing presets in `community_configs`: Cohousing Default, Neighborhood Cautious,
-Experimental Reciprocal.
+### Structured Logging Pattern (established Sprint 44)
+Route handlers: `(req as any).logger?.error('message', error instanceof Error ? error : new Error(String(error)), { service: 'service-name', endpoint: 'METHOD /path' })`
+Module-level (cron/events): `logger.error('message', error instanceof Error ? error : undefined, { service, step })`
 
 ### Error Observability (ongoing practice)
-Every route handler catch block must produce structured logs: `{ service, endpoint, step, error }`.
-Distinguish 400 (user error) from 500 (unexpected). Sprint 44 propagates this to all services.
+Every route handler catch block must produce structured logs. Sprint 44 propagated this to all 8 services.
 
 ### Solo Dev Workflow
-Work directly on `feature/sprint-44-tech-debt` — no worktrees.
+Work directly on `feature/sprint-45-*` — no worktrees.
+
+### Feed Weights Sum Constraint
+The `feed_weights_sum` CHECK constraint in `community_configs` was dropped in Sprint 43 (migration `9189e4d`). Any new weight columns should NOT recreate it — use normalization in application code instead.
