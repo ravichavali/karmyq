@@ -11,7 +11,7 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { api } from "@/services/api";
+// import { api } from "@/services/api"; // Available when direct API calls are needed
 import { useMessaging } from "@/hooks/useMessaging";
 
 interface Message {

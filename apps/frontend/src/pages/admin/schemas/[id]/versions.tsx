@@ -47,7 +47,7 @@ export default function VersionHistoryPage() {
       setVersions(response.data.versions)
       setError('')
     } catch (err: any) {
-      console.error('Failed to load versions:', err)
+      console.error('Failed to load versions', { error: err instanceof Error ? err.message : String(err) })
       setError(err.response?.data?.message || 'Failed to load version history')
     } finally {
       setLoading(false)
@@ -67,7 +67,7 @@ export default function VersionHistoryPage() {
       // Reload versions
       await loadVersions()
     } catch (err: any) {
-      console.error('Failed to rollback:', err)
+      console.error('Failed to rollback', { error: err instanceof Error ? err.message : String(err) })
       setError(err.response?.data?.message || 'Failed to rollback')
     } finally {
       setLoading(false)

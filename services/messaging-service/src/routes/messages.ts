@@ -39,7 +39,7 @@ router.get('/conversations', async (req: AuthenticatedRequest, res: Response) =>
       data: conversations,
     });
   } catch (error: any) {
-    console.error('Error fetching conversations:', error);
+    (req as any).logger?.error('Error fetching conversations', error instanceof Error ? error : new Error(String(error)), { service: 'messaging-service' });
     res.status(500).json({
       success: false,
       message: error.message || 'Failed to fetch conversations',
@@ -83,7 +83,7 @@ router.post('/conversations', async (req: AuthenticatedRequest, res: Response) =
       data: conversation,
     });
   } catch (error: any) {
-    console.error('Error creating conversation:', error);
+    (req as any).logger?.error('Error creating conversation', error instanceof Error ? error : new Error(String(error)), { service: 'messaging-service' });
     res.status(500).json({
       success: false,
       message: error.message || 'Failed to create conversation',
@@ -112,7 +112,7 @@ router.get('/conversations/:conversationId', async (req: AuthenticatedRequest, r
       data: conversation,
     });
   } catch (error: any) {
-    console.error('Error fetching conversation:', error);
+    (req as any).logger?.error('Error fetching conversation', error instanceof Error ? error : new Error(String(error)), { service: 'messaging-service' });
     res.status(error.message.includes('not a participant') ? 403 : 500).json({
       success: false,
       message: error.message || 'Failed to fetch conversation',
@@ -143,7 +143,7 @@ router.get('/conversations/:conversationId/messages', async (req: AuthenticatedR
       data: messages,
     });
   } catch (error: any) {
-    console.error('Error fetching messages:', error);
+    (req as any).logger?.error('Error fetching messages', error instanceof Error ? error : new Error(String(error)), { service: 'messaging-service' });
     res.status(error.message.includes('not a participant') ? 403 : 500).json({
       success: false,
       message: error.message || 'Failed to fetch messages',
@@ -182,7 +182,7 @@ router.post('/conversations/:conversationId/messages', async (req: Authenticated
       message: 'Message sent successfully',
     });
   } catch (error: any) {
-    console.error('Error sending message:', error);
+    (req as any).logger?.error('Error sending message', error instanceof Error ? error : new Error(String(error)), { service: 'messaging-service' });
     res.status(error.message.includes('not a participant') ? 403 : 500).json({
       success: false,
       message: error.message || 'Failed to send message',
@@ -247,7 +247,7 @@ router.get('/match/:matchId', async (req: AuthenticatedRequest, res: Response) =
       },
     });
   } catch (error: any) {
-    console.error('Error fetching match conversation:', error);
+    (req as any).logger?.error('Error fetching match conversation', error instanceof Error ? error : new Error(String(error)), { service: 'messaging-service' });
     res.status(error.message.includes('not a participant') ? 403 : 500).json({
       success: false,
       message: error.message || 'Failed to fetch match conversation',
@@ -317,7 +317,7 @@ router.post('/match/:matchId/messages', async (req: AuthenticatedRequest, res: R
       message: 'Message sent successfully',
     });
   } catch (error: any) {
-    console.error('Error sending match message:', error);
+    (req as any).logger?.error('Error sending match message', error instanceof Error ? error : new Error(String(error)), { service: 'messaging-service' });
     res.status(error.message.includes('not a participant') ? 403 : 500).json({
       success: false,
       message: error.message || 'Failed to send message',

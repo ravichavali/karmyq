@@ -54,7 +54,7 @@ export default function InviteHistory() {
           }
         }
       } catch (err) {
-        console.error('Error fetching communities:', err);
+        console.error('Error fetching communities', { error: err instanceof Error ? err.message : String(err) });
         setError('Failed to load communities');
         setLoading(false);
       }
@@ -72,7 +72,7 @@ export default function InviteHistory() {
     } catch (err) {
       const error = err as { response?: { data?: { message?: string } } }
       setError(error.response?.data?.message || 'Failed to load invitation history');
-      console.error('Error fetching invitation history:', err);
+      console.error('Error fetching invitation history', { error: err instanceof Error ? err.message : String(err) });
     } finally {
       setLoading(false);
     }

@@ -70,7 +70,7 @@ router.get('/karma/:userId', async (req: Request, res: Response) => {
       },
     });
   } catch (error: any) {
-    console.error('Error fetching karma:', error);
+    (req as any).logger?.error('Error fetching karma', error instanceof Error ? error : new Error(String(error)), { service: 'reputation-service' });
     res.status(500).json({
       success: false,
       message: 'Failed to fetch karma',
@@ -91,7 +91,7 @@ router.get('/trust/:userId', async (req: Request, res: Response) => {
       data: result,
     });
   } catch (error: any) {
-    console.error('Error fetching overall trust score:', error);
+    (req as any).logger?.error('Error fetching overall trust score', error instanceof Error ? error : new Error(String(error)), { service: 'reputation-service' });
     res.status(500).json({
       success: false,
       message: 'Failed to fetch overall trust score',
@@ -112,7 +112,7 @@ router.get('/trust/:userId/:communityId', async (req: Request, res: Response) =>
       data: trustScore,
     });
   } catch (error: any) {
-    console.error('Error fetching trust score:', error);
+    (req as any).logger?.error('Error fetching trust score', error instanceof Error ? error : new Error(String(error)), { service: 'reputation-service' });
     res.status(500).json({
       success: false,
       message: 'Failed to fetch trust score',
@@ -143,7 +143,7 @@ router.get('/community-trust/:communityId', async (req: Request, res: Response) 
 
     res.json({ success: true, data: trustScore });
   } catch (error: any) {
-    console.error('Error fetching community trust score:', error);
+    (req as any).logger?.error('Error fetching community trust score', error instanceof Error ? error : new Error(String(error)), { service: 'reputation-service' });
     res.status(500).json({
       success: false,
       message: 'Failed to fetch community trust score',
@@ -165,7 +165,7 @@ router.get('/leaderboard/:communityId', async (req: Request, res: Response) => {
       data: leaderboard,
     });
   } catch (error: any) {
-    console.error('Error fetching leaderboard:', error);
+    (req as any).logger?.error('Error fetching leaderboard', error instanceof Error ? error : new Error(String(error)), { service: 'reputation-service' });
     res.status(500).json({
       success: false,
       message: 'Failed to fetch leaderboard',
@@ -214,7 +214,7 @@ router.get('/history/:userId', async (req: Request, res: Response) => {
       count: result.rowCount,
     });
   } catch (error: any) {
-    console.error('Error fetching karma history:', error);
+    (req as any).logger?.error('Error fetching karma history', error instanceof Error ? error : new Error(String(error)), { service: 'reputation-service' });
     res.status(500).json({
       success: false,
       message: 'Failed to fetch karma history',
@@ -240,7 +240,7 @@ router.get('/badges/:userId', async (req: Request, res: Response) => {
       data: result.rows,
     });
   } catch (error: any) {
-    console.error('Error fetching badges:', error);
+    (req as any).logger?.error('Error fetching badges', error instanceof Error ? error : new Error(String(error)), { service: 'reputation-service' });
     res.status(500).json({
       success: false,
       message: 'Failed to fetch badges',
@@ -278,7 +278,7 @@ router.get('/me/karma', authMiddleware, async (req: AuthenticatedRequest, res: R
       data: karmaData,
     });
   } catch (error: any) {
-    console.error('Error fetching user karma:', error);
+    (req as any).logger?.error('Error fetching user karma', error instanceof Error ? error : new Error(String(error)), { service: 'reputation-service' });
     res.status(500).json({
       success: false,
       message: 'Failed to fetch karma',
@@ -330,12 +330,12 @@ router.post('/feedback', authMiddleware, async (req: AuthenticatedRequest, res: 
         await evaluateUserEvolution(to_user_id, community_id, signal, { triggerEventId: match_id });
       }
     } catch (evolutionErr) {
-      console.error('[trust-evolution] Error in feedback evolution:', evolutionErr);
+      (req as any).logger?.error('[trust-evolution] Error in feedback evolution', evolutionErr instanceof Error ? evolutionErr : new Error(String(evolutionErr)), { service: 'reputation-service' });
     }
 
     res.json({ success: true, data: { score } });
   } catch (error: any) {
-    console.error('Error submitting feedback:', error);
+    (req as any).logger?.error('Error submitting feedback', error instanceof Error ? error : new Error(String(error)), { service: 'reputation-service' });
     res.status(500).json({ success: false, message: 'Failed to submit feedback', error: error.message });
   }
 });
@@ -347,7 +347,7 @@ router.get('/users/:userId/badges', async (req: Request, res: Response) => {
     const badges = await getUserBadges(userId);
     res.json({ success: true, data: badges });
   } catch (error: any) {
-    console.error('Error fetching badges:', error);
+    (req as any).logger?.error('Error fetching badges', error instanceof Error ? error : new Error(String(error)), { service: 'reputation-service' });
     res.status(500).json({ success: false, message: 'Failed to fetch badges', error: error.message });
   }
 });
@@ -371,7 +371,7 @@ router.get('/trust-config/:userId/:communityId/history', authMiddleware, async (
     const history = await getEvolutionLog(userId, communityId, limit, offset);
     return res.json({ success: true, data: history });
   } catch (err) {
-    console.error(err);
+    (req as any).logger?.error('Route error', err instanceof Error ? err : new Error(String(err)), { service: 'reputation-service' });
     return res.status(500).json({ success: false, message: 'Internal server error' });
   }
 });
@@ -401,7 +401,7 @@ router.get('/trust-config/:userId/:communityId', authMiddleware, async (req: Aut
       },
     });
   } catch (err) {
-    console.error(err);
+    (req as any).logger?.error('Route error', err instanceof Error ? err : new Error(String(err)), { service: 'reputation-service' });
     return res.status(500).json({ success: false, message: 'Internal server error' });
   }
 });
@@ -421,7 +421,7 @@ router.put('/trust-config/:userId/:communityId', authMiddleware, async (req: Aut
     await upsertUserTrustConfig(userId, communityId, { evolution_enabled });
     return res.json({ success: true, data: { evolution_enabled } });
   } catch (err) {
-    console.error(err);
+    (req as any).logger?.error('Route error', err instanceof Error ? err : new Error(String(err)), { service: 'reputation-service' });
     return res.status(500).json({ success: false, message: 'Internal server error' });
   }
 });
@@ -445,7 +445,7 @@ router.get('/communities/:communityId/trust-evolution', authMiddleware, async (r
       data: { ...config, opted_in_rate: optInRate },
     });
   } catch (err) {
-    console.error(err);
+    (req as any).logger?.error('Route error', err instanceof Error ? err : new Error(String(err)), { service: 'reputation-service' });
     return res.status(500).json({ success: false, message: 'Internal server error' });
   }
 });
@@ -475,7 +475,7 @@ router.put('/communities/:communityId/trust-evolution', authMiddleware, async (r
     await updateCommunityEvolutionConfig(communityId, patch);
     return res.json({ success: true, data: patch });
   } catch (err) {
-    console.error(err);
+    (req as any).logger?.error('Route error', err instanceof Error ? err : new Error(String(err)), { service: 'reputation-service' });
     return res.status(500).json({ success: false, message: 'Internal server error' });
   }
 });
@@ -493,7 +493,7 @@ router.get('/community/:communityId/evolution/history', authMiddleware, async (r
     const history = await getCommunityEvolutionHistory(communityId, limit, offset);
     return res.json({ success: true, data: history });
   } catch (err) {
-    console.error(err);
+    (req as any).logger?.error('Route error', err instanceof Error ? err : new Error(String(err)), { service: 'reputation-service' });
     return res.status(500).json({ success: false, message: 'Internal server error' });
   }
 });
@@ -509,7 +509,7 @@ router.get('/community/:communityId/evolution/summary', authMiddleware, async (r
     const summary = await getCommunityEvolutionSummary(communityId);
     return res.json({ success: true, data: summary });
   } catch (err) {
-    console.error(err);
+    (req as any).logger?.error('Route error', err instanceof Error ? err : new Error(String(err)), { service: 'reputation-service' });
     return res.status(500).json({ success: false, message: 'Internal server error' });
   }
 });
@@ -529,7 +529,7 @@ router.put('/community/:communityId/evolution/toggle', authMiddleware, async (re
     await updateCommunityEvolutionConfig(communityId, { community_evolution_enabled: enabled });
     return res.json({ success: true, data: { community_evolution_enabled: enabled } });
   } catch (err) {
-    console.error(err);
+    (req as any).logger?.error('Route error', err instanceof Error ? err : new Error(String(err)), { service: 'reputation-service' });
     return res.status(500).json({ success: false, message: 'Internal server error' });
   }
 });
@@ -551,7 +551,7 @@ router.get('/users/:userId/effective-params', authMiddleware, async (req: Authen
     const params = await getCachedEffectiveParams(userId, communityId);
     return res.json({ success: true, data: params });
   } catch (err) {
-    console.error(err);
+    (req as any).logger?.error('Route error', err instanceof Error ? err : new Error(String(err)), { service: 'reputation-service' });
     return res.status(500).json({ success: false, message: 'Internal server error' });
   }
 });
@@ -566,7 +566,7 @@ router.get('/users/:userId/evolution-global', authMiddleware, async (req: Authen
     const enabled = await getGlobalEvolutionPreference(userId);
     return res.json({ success: true, data: { global_evolution_enabled: enabled } });
   } catch (err) {
-    console.error(err);
+    (req as any).logger?.error('Route error', err instanceof Error ? err : new Error(String(err)), { service: 'reputation-service' });
     return res.status(500).json({ success: false, message: 'Internal server error' });
   }
 });
@@ -585,7 +585,7 @@ router.put('/users/:userId/evolution-global', authMiddleware, async (req: Authen
     await upsertGlobalEvolutionPreference(userId, global_evolution_enabled);
     return res.json({ success: true, data: { global_evolution_enabled } });
   } catch (err) {
-    console.error(err);
+    (req as any).logger?.error('Route error', err instanceof Error ? err : new Error(String(err)), { service: 'reputation-service' });
     return res.status(500).json({ success: false, message: 'Internal server error' });
   }
 });

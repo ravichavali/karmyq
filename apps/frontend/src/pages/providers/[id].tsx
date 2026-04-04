@@ -86,7 +86,7 @@ export default function ProviderDetailPage() {
       setProvider(providerResp.data)
       setReviews(reviewResp.data ?? [])
     } catch (err) {
-      console.error('Failed to fetch provider', err)
+      console.error('Failed to fetch provider', { error: err instanceof Error ? err.message : String(err) })
     } finally {
       setLoading(false)
     }

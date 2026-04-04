@@ -43,7 +43,7 @@ export default function Feed({ userId, limit = 20 }: FeedProps) {
       const data = await response.json();
       setFeedItems(data.data.items || []);
     } catch (err) {
-      console.error('Error fetching feed:', err);
+      console.error('Error fetching feed', { error: err instanceof Error ? err.message : String(err) });
       setError(err instanceof Error ? err.message : 'Failed to load feed');
     } finally {
       setLoading(false);
@@ -71,7 +71,7 @@ export default function Feed({ userId, limit = 20 }: FeedProps) {
         setFeedItems(prev => prev.filter(item => item.id !== itemId));
       }
     } catch (err) {
-      console.error('Error dismissing item:', err);
+      console.error('Error dismissing item', { error: err instanceof Error ? err.message : String(err) });
     }
   };
 

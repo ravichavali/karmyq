@@ -1,6 +1,7 @@
 import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import { authMiddleware, globalRateLimiter, rateLimiters } from '@karmyq/shared/middleware';
+import { createLogger, requestLoggingMiddleware } from '@karmyq/shared/utils/logger';
 import { logger } from './config/logger';
 import { pool } from './config/database';
 import invitationRoutes from './routes/invitations';
@@ -11,6 +12,7 @@ import { initEventSubscriber } from './events/subscriber';
 
 const app = express();
 const PORT = process.env.PORT || 3010;
+const sharedLogger = createLogger('social-graph-service');
 
 // Middleware
 app.use(cors({
@@ -18,6 +20,7 @@ app.use(cors({
   credentials: true,
 }));
 app.use(express.json());
+app.use(requestLoggingMiddleware(sharedLogger));
 app.use(globalRateLimiter);
 
 // Health check (unauthenticated)

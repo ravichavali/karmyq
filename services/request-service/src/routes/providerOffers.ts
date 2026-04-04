@@ -69,7 +69,7 @@ router.post('/offers', authMiddleware, async (req: AuthenticatedRequest, res: Re
         });
       }
     } catch (eventErr) {
-      console.error('[providerOffers] Failed to publish offer_submitted event:', eventErr);
+      (req as any).logger?.error('[providerOffers] Failed to publish offer_submitted event', eventErr instanceof Error ? eventErr : new Error(String(eventErr)), { service: 'request-service' });
     }
 
     res.status(201).json({ success: true, data: offer });
@@ -81,7 +81,7 @@ router.post('/offers', authMiddleware, async (req: AuthenticatedRequest, res: Re
         error: 'DUPLICATE_OFFER',
       });
     }
-    console.error('Error creating provider offer:', err);
+    (req as any).logger?.error('Error creating provider offer', err instanceof Error ? err : new Error(String(err)), { service: 'request-service' });
     res.status(500).json({ success: false, message: 'Failed to create offer', error: err.message });
   }
 });
@@ -95,7 +95,7 @@ router.get('/offers', authMiddleware, async (req: AuthenticatedRequest, res: Res
     const offers = await getMyProviderOffers(req.user!.userId);
     res.json({ success: true, data: offers });
   } catch (err: any) {
-    console.error('Error fetching provider offers:', err);
+    (req as any).logger?.error('Error fetching provider offers', err instanceof Error ? err : new Error(String(err)), { service: 'request-service' });
     res.status(500).json({ success: false, message: 'Failed to fetch offers', error: err.message });
   }
 });
@@ -116,7 +116,7 @@ router.put('/offers/:id/withdraw', authMiddleware, async (req: AuthenticatedRequ
     }
     res.json({ success: true, data: offer });
   } catch (err: any) {
-    console.error('Error withdrawing provider offer:', err);
+    (req as any).logger?.error('Error withdrawing provider offer', err instanceof Error ? err : new Error(String(err)), { service: 'request-service' });
     res.status(500).json({ success: false, message: 'Failed to withdraw offer', error: err.message });
   }
 });

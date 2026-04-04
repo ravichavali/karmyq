@@ -116,7 +116,7 @@ export default function ProviderProfileTab({ providers, collectives }: ProviderP
       const cards = (resp.data.data ?? resp.data) as RateCard[]
       setRateCards((prev) => ({ ...prev, [providerId]: cards }))
     } catch (err) {
-      console.error('Failed to fetch rate cards', err)
+      console.error('Failed to fetch rate cards', { error: err instanceof Error ? err.message : String(err) })
     }
   }
 
@@ -166,7 +166,7 @@ export default function ProviderProfileTab({ providers, collectives }: ProviderP
       await fetchRateCards(showRateCardModal)
       setShowRateCardModal(null)
     } catch (err) {
-      console.error('Failed to save rate card', err)
+      console.error('Failed to save rate card', { error: err instanceof Error ? err.message : String(err) })
       alert('Failed to save rate card')
     } finally {
       setModalSaving(false)
@@ -179,7 +179,7 @@ export default function ProviderProfileTab({ providers, collectives }: ProviderP
       await requestApi.delete(`/providers/${providerId}/rate-cards/${cardId}`)
       await fetchRateCards(providerId)
     } catch (err) {
-      console.error('Failed to remove rate card', err)
+      console.error('Failed to remove rate card', { error: err instanceof Error ? err.message : String(err) })
       alert('Failed to remove rate card')
     }
   }

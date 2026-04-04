@@ -167,11 +167,11 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ conversationId }) => {
             {messages.map((message) => {
               // Debug logging
               if (!message || typeof message !== 'object') {
-                console.error('Invalid message in ChatWindow:', message)
+                console.error('Invalid message in ChatWindow', { error: String(message) })
                 return null
               }
               if (!message.id) {
-                console.error('Message missing id:', message)
+                console.error('Message missing id', { error: String(message) })
                 return null
               }
               return (

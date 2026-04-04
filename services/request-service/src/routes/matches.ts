@@ -85,7 +85,7 @@ router.get('/', async (req: Request, res: Response) => {
       total: result.rowCount,
     }, HTTP_STATUS.OK, { requestId: (req as any).id });
   } catch (error: any) {
-    console.error('Error fetching matches:', error);
+    (req as any).logger?.error('Error fetching matches', error instanceof Error ? error : new Error(String(error)), { service: 'request-service' });
     sendInternalError(res, 'Failed to fetch matches', error instanceof Error ? error : undefined, { requestId: (req as any).id });
   }
 });
@@ -135,7 +135,7 @@ router.get('/:id', async (req: Request, res: Response) => {
       data: result.rows[0],
     });
   } catch (error: any) {
-    console.error('Error fetching match:', error);
+    (req as any).logger?.error('Error fetching match', error instanceof Error ? error : new Error(String(error)), { service: 'request-service' });
     res.status(500).json({
       success: false,
       message: 'Failed to fetch match',
@@ -271,7 +271,7 @@ router.post('/', async (req: Request, res: Response) => {
          VALUES ($1, $2, 'offer_made')
          ON CONFLICT DO NOTHING`,
         [responder_id, request_id]
-      ).catch((e: any) => console.error({ service: 'request-service', step: 'feed-offer-log', error: e.message }));
+      ).catch((e: any) => (req as any).logger?.error('feed-offer-log failed', e instanceof Error ? e : new Error(String(e)), { service: 'request-service', step: 'feed-offer-log' }));
     });
 
     res.status(201).json({
@@ -280,7 +280,7 @@ router.post('/', async (req: Request, res: Response) => {
       message: 'Match created successfully',
     });
   } catch (error: any) {
-    console.error('Error creating match:', error);
+    (req as any).logger?.error('Error creating match', error instanceof Error ? error : new Error(String(error)), { service: 'request-service' });
     res.status(500).json({
       success: false,
       message: 'Failed to create match',
@@ -391,7 +391,7 @@ router.put('/:id/accept', async (req: Request, res: Response) => {
       data: enriched.rows[0],
     });
   } catch (error: any) {
-    console.error('Error accepting match:', error);
+    (req as any).logger?.error('Error accepting match', error instanceof Error ? error : new Error(String(error)), { service: 'request-service' });
     res.status(500).json({
       success: false,
       message: 'Failed to accept match',
@@ -468,7 +468,7 @@ router.put('/:id/reject', async (req: Request, res: Response) => {
       message: 'Match rejected successfully',
     });
   } catch (error: any) {
-    console.error('Error rejecting match:', error);
+    (req as any).logger?.error('Error rejecting match', error instanceof Error ? error : new Error(String(error)), { service: 'request-service' });
     res.status(500).json({
       success: false,
       message: 'Failed to reject match',
@@ -558,7 +558,7 @@ router.put('/:id/complete', async (req: Request, res: Response) => {
          VALUES ($1, $2, 'match_completed')
          ON CONFLICT DO NOTHING`,
         [match.responder_id, match.request_id]
-      ).catch((e: any) => console.error({ service: 'request-service', step: 'feed-completion-log', error: e.message }));
+      ).catch((e: any) => (req as any).logger?.error('feed-completion-log failed', e instanceof Error ? e : new Error(String(e)), { service: 'request-service', step: 'feed-completion-log' }));
     }
 
     res.json({
@@ -574,7 +574,7 @@ router.put('/:id/complete', async (req: Request, res: Response) => {
         : 'Your completion recorded — waiting for the other party',
     });
   } catch (error: any) {
-    console.error('Error completing match:', error);
+    (req as any).logger?.error('Error completing match', error instanceof Error ? error : new Error(String(error)), { service: 'request-service' });
     res.status(500).json({
       success: false,
       message: 'Failed to complete match',
@@ -653,7 +653,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
       message: 'Match cancelled successfully',
     });
   } catch (error: any) {
-    console.error('Error cancelling match:', error);
+    (req as any).logger?.error('Error cancelling match', error instanceof Error ? error : new Error(String(error)), { service: 'request-service' });
     res.status(500).json({
       success: false,
       message: 'Failed to cancel match',

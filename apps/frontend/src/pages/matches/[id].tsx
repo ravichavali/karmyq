@@ -19,7 +19,7 @@ export default function MatchRedirectPage() {
         // Redirect to the request detail page
         router.replace(`/requests/${match.request_id}`)
       } catch (err: any) {
-        console.error('Error fetching match:', err)
+        console.error('Error fetching match', { error: err instanceof Error ? err.message : String(err) })
         setError('Match not found')
       }
     }

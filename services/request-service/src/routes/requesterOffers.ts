@@ -18,7 +18,7 @@ router.get('/:id/offers', authMiddleware, async (req: AuthenticatedRequest, res:
     }
     res.json({ success: true, data: offers });
   } catch (err: any) {
-    console.error('[requesterOffers] Error fetching offers for request:', err);
+    (req as any).logger?.error('[requesterOffers] Error fetching offers for request', err instanceof Error ? err : new Error(String(err)), { service: 'request-service' });
     res.status(500).json({ success: false, message: 'Failed to fetch offers', error: err.message });
   }
 });
@@ -53,12 +53,12 @@ router.put('/offers/:id/accept', authMiddleware, async (req: AuthenticatedReques
         requesterName: req.user!.email,
       });
     } catch (eventErr) {
-      console.error('[requesterOffers] Failed to publish offer_accepted event:', eventErr);
+      (req as any).logger?.error('[requesterOffers] Failed to publish offer_accepted event', eventErr instanceof Error ? eventErr : new Error(String(eventErr)), { service: 'request-service' });
     }
 
     res.json({ success: true, data: offer });
   } catch (err: any) {
-    console.error('[requesterOffers] Error accepting offer:', err);
+    (req as any).logger?.error('[requesterOffers] Error accepting offer', err instanceof Error ? err : new Error(String(err)), { service: 'request-service' });
     res.status(500).json({ success: false, message: 'Failed to accept offer', error: err.message });
   }
 });
@@ -92,12 +92,12 @@ router.put('/offers/:id/decline', authMiddleware, async (req: AuthenticatedReque
         providerUserId: offer.provider_user_id,
       });
     } catch (eventErr) {
-      console.error('[requesterOffers] Failed to publish offer_declined event:', eventErr);
+      (req as any).logger?.error('[requesterOffers] Failed to publish offer_declined event', eventErr instanceof Error ? eventErr : new Error(String(eventErr)), { service: 'request-service' });
     }
 
     res.json({ success: true, data: offer });
   } catch (err: any) {
-    console.error('[requesterOffers] Error declining offer:', err);
+    (req as any).logger?.error('[requesterOffers] Error declining offer', err instanceof Error ? err : new Error(String(err)), { service: 'request-service' });
     res.status(500).json({ success: false, message: 'Failed to decline offer', error: err.message });
   }
 });

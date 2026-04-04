@@ -41,7 +41,7 @@ router.get('/:communityId/members', async (req: Request, res: Response) => {
       count: result.rowCount,
     });
   } catch (error: any) {
-    console.error('Error fetching members:', error);
+    (req as any).logger?.error('Error fetching members', error instanceof Error ? error : new Error(String(error)), { service: 'community-service', endpoint: 'GET /:communityId/members' });
     res.status(500).json({
       success: false,
       message: 'Failed to fetch members',
@@ -147,7 +147,7 @@ router.post('/:communityId/join', async (req: any, res: Response) => {
       },
     });
   } catch (error: any) {
-    console.error('Error joining community:', error);
+    (req as any).logger?.error('Error joining community', error instanceof Error ? error : new Error(String(error)), { service: 'community-service', endpoint: 'POST /:communityId/join' });
     return sendInternalError(res, 'Failed to join community', error);
   }
 });
@@ -241,7 +241,7 @@ router.post('/:communityId/members', async (req: Request, res: Response) => {
       message: 'Member added successfully',
     });
   } catch (error: any) {
-    console.error('Error adding member:', error);
+    (req as any).logger?.error('Error adding member', error instanceof Error ? error : new Error(String(error)), { service: 'community-service', endpoint: 'POST /:communityId/members' });
     res.status(500).json({
       success: false,
       message: 'Failed to add member',
@@ -343,7 +343,7 @@ router.put('/:communityId/members/:userId', async (req: Request, res: Response) 
       message: 'Member updated successfully',
     });
   } catch (error: any) {
-    console.error('Error updating member:', error);
+    (req as any).logger?.error('Error updating member', error instanceof Error ? error : new Error(String(error)), { service: 'community-service', endpoint: 'PUT /:communityId/members/:userId' });
     res.status(500).json({
       success: false,
       message: 'Failed to update member',
@@ -436,7 +436,7 @@ router.delete('/:communityId/members/:userId', async (req: Request, res: Respons
       message: isSelfRemove ? 'Left community successfully' : 'Member removed successfully',
     });
   } catch (error: any) {
-    console.error('Error removing member:', error);
+    (req as any).logger?.error('Error removing member', error instanceof Error ? error : new Error(String(error)), { service: 'community-service', endpoint: 'DELETE /:communityId/members/:userId' });
     res.status(500).json({
       success: false,
       message: 'Failed to remove member',

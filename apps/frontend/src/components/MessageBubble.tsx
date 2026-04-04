@@ -9,7 +9,7 @@ interface MessageBubbleProps {
 const MessageBubble: React.FC<MessageBubbleProps> = ({ message, isOwn }) => {
   // Defensive check - ensure message is valid
   if (!message || typeof message !== 'object') {
-    console.error('Invalid message object:', message)
+    console.error('Invalid message object', { error: String(message) })
     return null
   }
 

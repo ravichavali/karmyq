@@ -57,7 +57,7 @@ export default function FloatingChat() {
       const total = convos.reduce((sum: number, conv: Conversation) => sum + (conv.unread_count || 0), 0)
       setUnreadTotal(total)
     } catch (err) {
-      console.error('Failed to load conversations:', err)
+      console.error('Failed to load conversations', { error: err instanceof Error ? err.message : String(err) })
     } finally {
       setLoading(false)
     }

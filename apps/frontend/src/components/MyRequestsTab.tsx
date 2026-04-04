@@ -59,7 +59,7 @@ export default function MyRequestsTab({ onNewRequest }: MyRequestsTabProps) {
 
       setRequests(enriched)
     }).catch((err) => {
-      console.error('Failed to load my requests:', err)
+      console.error('Failed to load my requests', { error: err instanceof Error ? err.message : String(err) })
     }).finally(() => {
       setLoading(false)
     })

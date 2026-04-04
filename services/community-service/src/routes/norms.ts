@@ -43,7 +43,7 @@ router.get('/:communityId/norms', async (req: Request, res: Response) => {
       count: result.rowCount,
     });
   } catch (error: any) {
-    console.error('Error fetching norms:', error);
+    (req as any).logger?.error('Error fetching norms', error instanceof Error ? error : new Error(String(error)), { service: 'community-service', endpoint: 'GET /:communityId/norms' });
     res.status(500).json({
       success: false,
       message: 'Failed to fetch norms',
@@ -98,7 +98,7 @@ router.get('/:communityId/norms/:normId', async (req: Request, res: Response) =>
       data: norm,
     });
   } catch (error: any) {
-    console.error('Error fetching norm:', error);
+    (req as any).logger?.error('Error fetching norm', error instanceof Error ? error : new Error(String(error)), { service: 'community-service', endpoint: 'GET /:communityId/norms/:normId' });
     res.status(500).json({
       success: false,
       message: 'Failed to fetch norm',
@@ -168,7 +168,7 @@ router.post('/:communityId/norms', async (req: Request, res: Response) => {
       message: 'Norm proposed successfully',
     });
   } catch (error: any) {
-    console.error('Error creating norm:', error);
+    (req as any).logger?.error('Error creating norm', error instanceof Error ? error : new Error(String(error)), { service: 'community-service', endpoint: 'POST /:communityId/norms' });
     res.status(500).json({
       success: false,
       message: 'Failed to create norm',
@@ -299,7 +299,7 @@ router.post('/:communityId/norms/:normId/approve', async (req: Request, res: Res
       },
     });
   } catch (error: any) {
-    console.error('Error approving norm:', error);
+    (req as any).logger?.error('Error approving norm', error instanceof Error ? error : new Error(String(error)), { service: 'community-service', endpoint: 'POST /:communityId/norms/:normId/approve' });
     res.status(500).json({
       success: false,
       message: 'Failed to approve norm',
@@ -357,7 +357,7 @@ router.delete('/:communityId/norms/:normId', async (req: Request, res: Response)
       message: 'Norm archived successfully',
     });
   } catch (error: any) {
-    console.error('Error archiving norm:', error);
+    (req as any).logger?.error('Error archiving norm', error instanceof Error ? error : new Error(String(error)), { service: 'community-service' });
     res.status(500).json({
       success: false,
       message: 'Failed to archive norm',

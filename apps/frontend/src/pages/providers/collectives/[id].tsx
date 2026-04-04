@@ -85,7 +85,7 @@ export default function CollectiveDetailPage() {
         setMembersLoaded(true)
       }
     } catch (err) {
-      console.error('Failed to fetch collective', err)
+      console.error('Failed to fetch collective', { error: err instanceof Error ? err.message : String(err) })
       setMembersLoaded(true)
     } finally {
       setLoading(false)
@@ -115,7 +115,7 @@ export default function CollectiveDetailPage() {
         .map((r) => r.value)
       setMembersWithRateCards(withCards)
     } catch (err) {
-      console.error('Failed to fetch member pricing', err)
+      console.error('Failed to fetch member pricing', { error: err instanceof Error ? err.message : String(err) })
     } finally {
       setMembersLoaded(true)
     }

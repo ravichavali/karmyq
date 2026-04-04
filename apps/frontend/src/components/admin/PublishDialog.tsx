@@ -19,7 +19,7 @@ export default function PublishDialog({ isOpen, schema, onPublish, onCancel }: P
       onCancel()
       alert('Schema published successfully!')
     } catch (err: any) {
-      console.error('Failed to publish:', err)
+      console.error('Failed to publish', { error: err instanceof Error ? err.message : String(err) })
       setLoading(false)
     }
   }

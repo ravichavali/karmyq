@@ -51,7 +51,7 @@ export default function LeftSidebar({ user, communities, activeCommunityId, karm
           rank: karma?.rank,
         })
       } catch (err) {
-        console.error('Failed to fetch karma:', err)
+        console.error('Failed to fetch karma', { error: err instanceof Error ? err.message : String(err) })
       }
     }
 

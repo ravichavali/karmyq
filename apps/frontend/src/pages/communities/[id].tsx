@@ -316,7 +316,7 @@ export default function CommunityDetailPage() {
       const response = await communityService.getNorms(id as string)
       setNorms(response.data.norms || response.data)
     } catch (err: any) {
-      console.error('Failed to load norms:', err)
+      console.error('Failed to load norms', { error: err instanceof Error ? err.message : String(err) })
     }
   }
 
@@ -328,7 +328,7 @@ export default function CommunityDetailPage() {
       setConfig(response.data.config)
       setEditedConfig(response.data.config)
     } catch (err: any) {
-      console.error('Failed to load configuration:', err)
+      console.error('Failed to load configuration', { error: err instanceof Error ? err.message : String(err) })
     }
   }
 
@@ -354,7 +354,7 @@ export default function CommunityDetailPage() {
       const response = await communityService.getStats(id as string)
       setStats(response.data)
     } catch (err: any) {
-      console.error('Failed to load statistics:', err)
+      console.error('Failed to load statistics', { error: err instanceof Error ? err.message : String(err) })
     } finally {
       setLoadingStats(false)
     }
@@ -386,7 +386,7 @@ export default function CommunityDetailPage() {
       const requests = Array.isArray(data) ? data : (data?.requests ?? [])
       setCommunityRequests(requests)
     } catch (err: any) {
-      console.error('Failed to load community requests:', err)
+      console.error('Failed to load community requests', { error: err instanceof Error ? err.message : String(err) })
       setCommunityRequests([])
     } finally {
       setLoadingRequests(false)

@@ -348,6 +348,6 @@ export async function initGeocodingCache(): Promise<void> {
     await seedCommonLocations()
     console.log('✅ Geocoding cache initialized')
   } catch (error) {
-    console.error('Failed to initialize geocoding cache:', error)
+    console.error('Failed to initialize geocoding cache', { error: error instanceof Error ? error.message : String(error) })
   }
 }

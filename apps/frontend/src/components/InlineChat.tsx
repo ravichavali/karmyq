@@ -61,7 +61,7 @@ export default function InlineChat({
       setConversationId(response.data.data.conversation_id)
       // Messages will be loaded by the hook after conversationId is set
     } catch (error) {
-      console.error('Error fetching conversation:', error)
+      console.error('Error fetching conversation', { error: error instanceof Error ? error.message : String(error) })
     }
   }
 
@@ -86,7 +86,7 @@ export default function InlineChat({
       // Scroll to bottom after sending
       setTimeout(() => scrollToBottom(), 100)
     } catch (error) {
-      console.error('Error sending message:', error)
+      console.error('Error sending message', { error: error instanceof Error ? error.message : String(error) })
       const err = error as { message?: string }
       alert(err.message || 'Failed to send message')
     } finally {

@@ -42,7 +42,7 @@ export const socialGraphClient = {
       if (error.response?.status === 404) {
         return null
       }
-      console.error('[SocialGraph] Error fetching path:', error)
+      console.error('[SocialGraph] Error fetching path', { error: error instanceof Error ? error.message : String(error) })
       return null
     }
   },
@@ -75,7 +75,7 @@ export const socialGraphClient = {
       }
       return pathMap
     } catch (error) {
-      console.error('[SocialGraph] Error fetching batch paths:', error)
+      console.error('[SocialGraph] Error fetching batch paths', { error: error instanceof Error ? error.message : String(error) })
       return {}
     }
   },
@@ -94,7 +94,7 @@ export const socialGraphClient = {
       const response = await socialGraphApi.post('/invitations/generate')
       return response.data
     } catch (error) {
-      console.error('[SocialGraph] Error generating invitation:', error)
+      console.error('[SocialGraph] Error generating invitation', { error: error instanceof Error ? error.message : String(error) })
       return null
     }
   },
@@ -111,7 +111,7 @@ export const socialGraphClient = {
       const response = await socialGraphApi.get('/invitations')
       return response.data
     } catch (error) {
-      console.error('[SocialGraph] Error fetching invitation history:', error)
+      console.error('[SocialGraph] Error fetching invitation history', { error: error instanceof Error ? error.message : String(error) })
       return null
     }
   },
@@ -132,7 +132,7 @@ export const socialGraphClient = {
       const response = await socialGraphApi.get('/invitations/stats')
       return response.data
     } catch (error) {
-      console.error('[SocialGraph] Error fetching inviter stats:', error)
+      console.error('[SocialGraph] Error fetching inviter stats', { error: error instanceof Error ? error.message : String(error) })
       return null
     }
   },

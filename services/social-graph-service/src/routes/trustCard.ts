@@ -1,5 +1,6 @@
 import { Router, Response } from 'express';
 import { AuthenticatedRequest } from '@karmyq/shared/middleware/auth';
+import { logger } from '../config/logger';
 import { computeTrustPath, computeInvitationPath } from '../services/pathComputation';
 import axios from 'axios';
 
@@ -79,7 +80,7 @@ router.get('/:targetUserId', async (req: AuthenticatedRequest, res: Response) =>
       },
     });
   } catch (err) {
-    console.error('trust-card error:', err);
+    logger.error('trust-card error', { err });
     res.status(500).json({ success: false, message: 'Failed to load trust card' });
   }
 });

@@ -53,7 +53,7 @@ export default function SchemaListPage() {
       setSchemas(response.data.schemas)
       setError('')
     } catch (err: any) {
-      console.error('Failed to fetch schemas:', err)
+      console.error('Failed to fetch schemas', { error: err instanceof Error ? err.message : String(err) })
       setError(err.response?.data?.message || 'Failed to load schemas')
     } finally {
       setLoading(false)

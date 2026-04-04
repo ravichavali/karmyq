@@ -31,7 +31,11 @@ export async function registerForPushNotificationsAsync(): Promise<
     // Handle both old (string) and new (object with 'granted' property) API responses
     if (typeof existingStatus === "string") {
       finalStatus = existingStatus;
-    } else if (existingStatus && typeof existingStatus === "object" && "granted" in existingStatus) {
+    } else if (
+      existingStatus &&
+      typeof existingStatus === "object" &&
+      "granted" in existingStatus
+    ) {
       // New API: status is an object, check if 'granted' is truthy
       finalStatus = existingStatus.granted ? "granted" : "denied";
     }
@@ -41,7 +45,11 @@ export async function registerForPushNotificationsAsync(): Promise<
       // Handle new API response
       if (typeof permissions === "string") {
         finalStatus = permissions;
-      } else if (permissions && typeof permissions === "object" && "granted" in permissions) {
+      } else if (
+        permissions &&
+        typeof permissions === "object" &&
+        "granted" in permissions
+      ) {
         finalStatus = permissions.granted ? "granted" : "denied";
       }
     }

@@ -71,7 +71,7 @@ router.get('/:communityId/settings', async (req: Request, res: Response) => {
       data: result.rows[0],
     });
   } catch (error: any) {
-    console.error('Error fetching community settings:', error);
+    (req as any).logger?.error('Error fetching community settings', error instanceof Error ? error : new Error(String(error)), { service: 'community-service' });
     res.status(500).json({
       success: false,
       message: 'Failed to fetch community settings',
@@ -217,7 +217,7 @@ router.patch('/:communityId/settings', async (req: Request, res: Response) => {
       message: 'Community settings updated successfully',
     });
   } catch (error: any) {
-    console.error('Error updating community settings:', error);
+    (req as any).logger?.error('Error updating community settings', error instanceof Error ? error : new Error(String(error)), { service: 'community-service' });
     res.status(500).json({
       success: false,
       message: 'Failed to update community settings',
@@ -279,7 +279,7 @@ router.get('/:communityId/settings/decay-preview', async (req: Request, res: Res
       },
     });
   } catch (error: any) {
-    console.error('Error generating decay preview:', error);
+    (req as any).logger?.error('Error generating decay preview', error instanceof Error ? error : new Error(String(error)), { service: 'community-service' });
     res.status(500).json({
       success: false,
       message: 'Failed to generate decay preview',

@@ -67,7 +67,7 @@ router.get('/', authMiddleware, async (req: AuthenticatedRequest, res: Response)
       })),
     });
   } catch (error: any) {
-    console.error('Error fetching collectives:', error);
+    (req as any).logger?.error('Error fetching collectives', error instanceof Error ? error : new Error(String(error)), { service: 'request-service' });
     res.status(500).json({ success: false, message: 'Failed to fetch collectives', error: error.message });
   }
 });
@@ -88,7 +88,7 @@ router.get('/my', authMiddleware, async (req: AuthenticatedRequest, res: Respons
     `, [userId]);
     res.json({ success: true, data: result.rows });
   } catch (error: any) {
-    console.error('Error fetching user collectives:', error);
+    (req as any).logger?.error('Error fetching user collectives', error instanceof Error ? error : new Error(String(error)), { service: 'request-service' });
     res.status(500).json({ success: false, message: 'Failed to fetch collectives', error: error.message });
   }
 });
@@ -153,7 +153,7 @@ router.get('/:id/stats', authMiddleware, async (req: AuthenticatedRequest, res: 
       },
     });
   } catch (error: any) {
-    console.error('Error fetching collective stats:', error);
+    (req as any).logger?.error('Error fetching collective stats', error instanceof Error ? error : new Error(String(error)), { service: 'request-service' });
     res.status(500).json({ success: false, message: 'Failed to fetch collective stats', error: error.message });
   }
 });
@@ -220,7 +220,7 @@ router.get('/:id', authMiddleware, async (req: AuthenticatedRequest, res: Respon
       },
     });
   } catch (error: any) {
-    console.error('Error fetching collective:', error);
+    (req as any).logger?.error('Error fetching collective', error instanceof Error ? error : new Error(String(error)), { service: 'request-service' });
     res.status(500).json({ success: false, message: 'Failed to fetch collective', error: error.message });
   }
 });
@@ -262,7 +262,7 @@ router.post('/', authMiddleware, async (req: AuthenticatedRequest, res: Response
 
     res.status(201).json({ success: true, data: collective });
   } catch (error: any) {
-    console.error('Error creating collective:', error);
+    (req as any).logger?.error('Error creating collective', error instanceof Error ? error : new Error(String(error)), { service: 'request-service' });
     res.status(500).json({ success: false, message: 'Failed to create collective', error: error.message });
   }
 });
@@ -312,7 +312,7 @@ router.put('/:id', authMiddleware, async (req: AuthenticatedRequest, res: Respon
 
     res.json({ success: true, data: result.rows[0] });
   } catch (error: any) {
-    console.error('Error updating collective:', error);
+    (req as any).logger?.error('Error updating collective', error instanceof Error ? error : new Error(String(error)), { service: 'request-service' });
     res.status(500).json({ success: false, message: 'Failed to update collective', error: error.message });
   }
 });
@@ -335,7 +335,7 @@ router.delete('/:id', authMiddleware, async (req: AuthenticatedRequest, res: Res
     await query(`DELETE FROM requests.provider_collectives WHERE id = $1`, [id]);
     res.json({ success: true, message: 'Collective deleted' });
   } catch (error: any) {
-    console.error('Error deleting collective:', error);
+    (req as any).logger?.error('Error deleting collective', error instanceof Error ? error : new Error(String(error)), { service: 'request-service' });
     res.status(500).json({ success: false, message: 'Failed to delete collective', error: error.message });
   }
 });
@@ -381,7 +381,7 @@ router.post('/:id/members', authMiddleware, async (req: AuthenticatedRequest, re
 
     res.status(201).json({ success: true, message: 'Joined collective' });
   } catch (error: any) {
-    console.error('Error joining collective:', error);
+    (req as any).logger?.error('Error joining collective', error instanceof Error ? error : new Error(String(error)), { service: 'request-service' });
     res.status(500).json({ success: false, message: 'Failed to join collective', error: error.message });
   }
 });
@@ -418,7 +418,7 @@ router.delete('/:id/members/:providerId', authMiddleware, async (req: Authentica
 
     res.json({ success: true, message: 'Member removed' });
   } catch (error: any) {
-    console.error('Error removing member:', error);
+    (req as any).logger?.error('Error removing member', error instanceof Error ? error : new Error(String(error)), { service: 'request-service' });
     res.status(500).json({ success: false, message: 'Failed to remove member', error: error.message });
   }
 });
@@ -462,7 +462,7 @@ router.post('/:id/communities', authMiddleware, async (req: AuthenticatedRequest
 
     res.status(201).json({ success: true, message: 'Linked to community' });
   } catch (error: any) {
-    console.error('Error linking community:', error);
+    (req as any).logger?.error('Error linking community', error instanceof Error ? error : new Error(String(error)), { service: 'request-service' });
     res.status(500).json({ success: false, message: 'Failed to link community', error: error.message });
   }
 });
@@ -498,7 +498,7 @@ router.delete('/:id/communities/:communityId', authMiddleware, async (req: Authe
 
     res.json({ success: true, message: 'Unlinked from community' });
   } catch (error: any) {
-    console.error('Error unlinking community:', error);
+    (req as any).logger?.error('Error unlinking community', error instanceof Error ? error : new Error(String(error)), { service: 'request-service' });
     res.status(500).json({ success: false, message: 'Failed to unlink community', error: error.message });
   }
 });

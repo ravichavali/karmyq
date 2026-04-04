@@ -77,7 +77,7 @@ router.get('/:userId', async (req: Request, res: Response) => {
       },
     });
   } catch (error: any) {
-    console.error('Error fetching notifications:', error);
+    (req as any).logger?.error('Error fetching notifications', error instanceof Error ? error : new Error(String(error)), { service: 'notification-service' });
     res.status(500).json({
       success: false,
       message: error.message || 'Failed to fetch notifications',
@@ -96,7 +96,7 @@ router.get('/:userId/unread-count', async (req: Request, res: Response) => {
       data: { count },
     });
   } catch (error: any) {
-    console.error('Error fetching unread count:', error);
+    (req as any).logger?.error('Error fetching unread count', error instanceof Error ? error : new Error(String(error)), { service: 'notification-service' });
     res.status(500).json({
       success: false,
       message: error.message || 'Failed to fetch unread count',
@@ -132,7 +132,7 @@ router.put('/:notificationId/read', async (req: Request, res: Response) => {
       message: 'Notification marked as read',
     });
   } catch (error: any) {
-    console.error('Error marking notification as read:', error);
+    (req as any).logger?.error('Error marking notification as read', error instanceof Error ? error : new Error(String(error)), { service: 'notification-service' });
     res.status(500).json({
       success: false,
       message: error.message || 'Failed to mark notification as read',
@@ -153,7 +153,7 @@ router.put('/:userId/read-all', async (req: Request, res: Response) => {
       message: `${count} notifications marked as read`,
     });
   } catch (error: any) {
-    console.error('Error marking all as read:', error);
+    (req as any).logger?.error('Error marking all as read', error instanceof Error ? error : new Error(String(error)), { service: 'notification-service' });
     res.status(500).json({
       success: false,
       message: error.message || 'Failed to mark all as read',
@@ -188,7 +188,7 @@ router.delete('/:notificationId', async (req: Request, res: Response) => {
       message: 'Notification deleted',
     });
   } catch (error: any) {
-    console.error('Error deleting notification:', error);
+    (req as any).logger?.error('Error deleting notification', error instanceof Error ? error : new Error(String(error)), { service: 'notification-service' });
     res.status(500).json({
       success: false,
       message: error.message || 'Failed to delete notification',
@@ -207,7 +207,7 @@ router.get('/:userId/preferences', async (req: Request, res: Response) => {
       data: preferences,
     });
   } catch (error: any) {
-    console.error('Error fetching preferences:', error);
+    (req as any).logger?.error('Error fetching preferences', error instanceof Error ? error : new Error(String(error)), { service: 'notification-service' });
     res.status(500).json({
       success: false,
       message: error.message || 'Failed to fetch preferences',
@@ -233,7 +233,7 @@ router.put('/:userId/preferences', async (req: Request, res: Response) => {
       message: 'Preferences updated',
     });
   } catch (error: any) {
-    console.error('Error updating preferences:', error);
+    (req as any).logger?.error('Error updating preferences', error instanceof Error ? error : new Error(String(error)), { service: 'notification-service' });
     res.status(500).json({
       success: false,
       message: error.message || 'Failed to update preferences',

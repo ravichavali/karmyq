@@ -28,7 +28,7 @@ export default function InviteGenerator() {
           }
         }
       } catch (err) {
-        console.error('Error fetching communities:', err);
+        console.error('Error fetching communities', { error: err instanceof Error ? err.message : String(err) });
       }
     };
     fetchUserCommunities();
@@ -49,7 +49,7 @@ export default function InviteGenerator() {
     } catch (err) {
       const error = err as { response?: { data?: { message?: string } } }
       setError(error.response?.data?.message || 'Failed to generate invitation code');
-      console.error('Error generating invitation code:', err);
+      console.error('Error generating invitation code', { error: err instanceof Error ? err.message : String(err) });
     } finally {
       setLoading(false);
     }
@@ -63,7 +63,7 @@ export default function InviteGenerator() {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
-      console.error('Failed to copy link:', err);
+      console.error('Failed to copy link', { error: err instanceof Error ? err.message : String(err) });
     }
   };
 
@@ -75,7 +75,7 @@ export default function InviteGenerator() {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
-      console.error('Failed to copy code:', err);
+      console.error('Failed to copy code', { error: err instanceof Error ? err.message : String(err) });
     }
   };
 

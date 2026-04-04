@@ -244,7 +244,7 @@ router.post('/logout', async (req: any, res) => {
 
     sendSuccess(res, { message: 'Logged out successfully' }, HTTP_STATUS.OK, { requestId: req.id });
   } catch (error) {
-    console.error('Logout error:', error);
+    (req as any).logger?.error('Logout error', error instanceof Error ? error : new Error(String(error)), { service: 'auth-service', endpoint: 'POST /logout' });
     sendInternalError(res, 'Failed to logout', error instanceof Error ? error : undefined, { requestId: req.id });
   }
 });

@@ -98,7 +98,7 @@ router.get('/community-health/:communityId', async (req: Request, res: Response)
       },
     });
   } catch (error) {
-    console.error('Error fetching community health:', error);
+    (req as any).logger?.error('Error fetching community health', error instanceof Error ? error : new Error(String(error)), { service: 'reputation-service' });
     res.status(500).json({
       success: false,
       message: 'Failed to fetch community health metrics',
@@ -136,7 +136,7 @@ router.get('/milestones/:communityId', async (req: Request, res: Response) => {
       count: result.rowCount,
     });
   } catch (error) {
-    console.error('Error fetching milestones:', error);
+    (req as any).logger?.error('Error fetching milestones', error instanceof Error ? error : new Error(String(error)), { service: 'reputation-service' });
     res.status(500).json({
       success: false,
       message: 'Failed to fetch milestones',
@@ -270,7 +270,7 @@ router.get('/network-metrics/:communityId', async (req: Request, res: Response) 
     const metrics = await computeNetworkCohesion(communityId);
     res.json({ success: true, data: metrics });
   } catch (error) {
-    console.error('Error computing network cohesion metrics:', error);
+    (req as any).logger?.error('Error computing network cohesion metrics', error instanceof Error ? error : new Error(String(error)), { service: 'reputation-service' });
     res.status(500).json({
       success: false,
       message: 'Failed to compute network cohesion metrics',

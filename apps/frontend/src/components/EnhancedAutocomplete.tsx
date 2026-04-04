@@ -97,7 +97,7 @@ export default function EnhancedAutocomplete({
 
           setSuggestions([...commonLocations, ...addressSuggestions, ...timeSuggestions])
         } catch (error) {
-          console.error('Address search error:', error)
+          console.error('Address search error', { error: error instanceof Error ? error.message : String(error) })
         } finally {
           setLoading(false)
         }

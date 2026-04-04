@@ -174,7 +174,7 @@ router.post('/:matchId/feedback', async (req: Request, res: Response) => {
       message: 'Feedback submitted successfully',
     });
   } catch (error) {
-    console.error('Error submitting feedback:', error);
+    (req as any).logger?.error('Error submitting feedback', error instanceof Error ? error : new Error(String(error)), { service: 'request-service' });
     res.status(500).json({
       success: false,
       message: 'Failed to submit feedback',
@@ -275,7 +275,7 @@ router.get('/:matchId/feedback', async (req: Request, res: Response) => {
       },
     });
   } catch (error) {
-    console.error('Error fetching feedback:', error);
+    (req as any).logger?.error('Error fetching feedback', error instanceof Error ? error : new Error(String(error)), { service: 'request-service' });
     res.status(500).json({
       success: false,
       message: 'Failed to fetch feedback',

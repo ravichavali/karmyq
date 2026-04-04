@@ -53,7 +53,7 @@ export default function KarmaPage() {
       })
       setLeaderboard(Array.isArray(leaderboardData) ? leaderboardData : [])
     } catch (err) {
-      console.error('Failed to fetch karma data:', err)
+      console.error('Failed to fetch karma data', { error: err instanceof Error ? err.message : String(err) })
     } finally {
       setLoading(false)
     }

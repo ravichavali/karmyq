@@ -275,19 +275,19 @@ export default function ProfilePage() {
             const actualData = karmaResponse.data?.data || karmaResponse.data || karmaResponse
             setKarmaData(actualData)
           } catch (err: any) {
-            console.error('Failed to load karma:', err)
+            console.error('Failed to load karma', { error: err instanceof Error ? err.message : String(err) })
             setKarmaData(null)
           } finally {
             setLoadingKarma(false)
           }
         }
       } catch (err: any) {
-        console.error('Failed to load privacy settings:', err)
+        console.error('Failed to load privacy settings', { error: err instanceof Error ? err.message : String(err) })
         // Don't throw - just set default values
         setShowKarmaToMe(false)
       }
     } catch (err: any) {
-      console.error('Failed to initialize karma data:', err)
+      console.error('Failed to initialize karma data', { error: err instanceof Error ? err.message : String(err) })
       // Don't throw - let the profile page load without karma
     }
   }
@@ -304,7 +304,7 @@ export default function ProfilePage() {
         setSelectedCommunityId(communitiesData[0].id)
       }
     } catch (err: any) {
-      console.error('Failed to load communities:', err)
+      console.error('Failed to load communities', { error: err instanceof Error ? err.message : String(err) })
     }
   }
 
@@ -315,7 +315,7 @@ export default function ProfilePage() {
       const settings = response.data || response
       setShowKarmaToMe(settings.show_my_karma_to_me || false)
     } catch (err: any) {
-      console.error('Failed to load privacy settings:', err)
+      console.error('Failed to load privacy settings', { error: err instanceof Error ? err.message : String(err) })
     }
   }
 
@@ -343,7 +343,7 @@ export default function ProfilePage() {
         setTrustScore(null)
       }
     } catch (err: any) {
-      console.error('Failed to load karma:', err)
+      console.error('Failed to load karma', { error: err instanceof Error ? err.message : String(err) })
       setKarmaData(null)
       setTrustScore(null)
     } finally {
@@ -383,7 +383,7 @@ export default function ProfilePage() {
       const response = await api.get(`/users/${userId}/skills`)
       setSkills(response.data.data || [])
     } catch (err: any) {
-      console.error('Failed to load skills:', err)
+      console.error('Failed to load skills', { error: err instanceof Error ? err.message : String(err) })
     } finally {
       setLoading(false)
     }

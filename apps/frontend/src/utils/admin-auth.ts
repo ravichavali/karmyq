@@ -39,7 +39,7 @@ export function isAdmin(): boolean {
     // Check if user has admin role in at least one community
     return user.communities?.some((c) => c.role === 'admin') || false;
   } catch (error) {
-    console.error('Failed to parse user data:', error);
+    console.error('Failed to parse user data', { error: error instanceof Error ? error.message : String(error) });
     return false;
   }
 }
@@ -57,7 +57,7 @@ export function getCurrentUser(): User | null {
   try {
     return JSON.parse(userData);
   } catch (error) {
-    console.error('Failed to parse user data:', error);
+    console.error('Failed to parse user data', { error: error instanceof Error ? error.message : String(error) });
     return null;
   }
 }

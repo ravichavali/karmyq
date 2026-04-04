@@ -106,7 +106,7 @@ router.get('/', async (req: Request, res: Response) => {
       total: result.rowCount,
     }, HTTP_STATUS.OK, { requestId: (req as any).id });
   } catch (error: any) {
-    console.error('Error fetching requests:', error);
+    (req as any).logger?.error('Error fetching requests', error instanceof Error ? error : new Error(String(error)), { service: 'request-service' });
     sendInternalError(res, 'Failed to fetch requests', error instanceof Error ? error : undefined, { requestId: (req as any).id });
   }
 });
@@ -181,7 +181,7 @@ router.get('/matched/for-user', async (req: Request, res: Response) => {
       count: result.rowCount,
     });
   } catch (error: any) {
-    console.error('Error fetching matched requests:', error);
+    (req as any).logger?.error('Error fetching matched requests', error instanceof Error ? error : new Error(String(error)), { service: 'request-service' });
     res.status(500).json({
       success: false,
       message: 'Failed to fetch matched requests',
@@ -534,7 +534,7 @@ router.get('/curated', async (req: Request, res: Response) => {
           priorInteractionMap.set(row.other_user_id, row.type as 'exchange' | 'community');
         }
       } catch (e: any) {
-        console.error({ service: 'request-service', endpoint: '/requests/curated', step: 'prior-interaction-batch', error: e.message });
+        (req as any).logger?.error('prior-interaction-batch failed', e instanceof Error ? e : new Error(String(e)), { service: 'request-service', step: 'prior-interaction-batch' });
         // Non-fatal — continue without prior interaction signal
       }
     }
@@ -769,12 +769,12 @@ router.get('/curated', async (req: Request, res: Response) => {
             flatValues
           );
         } catch (e: any) {
-          console.error({ service: 'request-service', step: 'feed-impression-log', error: e.message });
+          (req as any).logger?.error('feed-impression-log failed', e instanceof Error ? e : new Error(String(e)), { service: 'request-service', step: 'feed-impression-log' });
         }
       })();
     });
   } catch (error: any) {
-    console.error('Error fetching curated requests:', error);
+    (req as any).logger?.error('Error fetching curated requests', error instanceof Error ? error : new Error(String(error)), { service: 'request-service' });
     sendInternalError(
       res,
       'Failed to fetch curated requests',
@@ -820,7 +820,7 @@ router.get('/:id', async (req: Request, res: Response) => {
       data: result.rows[0],
     });
   } catch (error: any) {
-    console.error('Error fetching request:', error);
+    (req as any).logger?.error('Error fetching request', error instanceof Error ? error : new Error(String(error)), { service: 'request-service' });
     res.status(500).json({
       success: false,
       message: 'Failed to fetch request',
@@ -1060,7 +1060,7 @@ router.post('/', async (req: Request, res: Response) => {
       communities: targetCommunityIds,
     });
   } catch (error: any) {
-    console.error('Error creating request:', error);
+    (req as any).logger?.error('Error creating request', error instanceof Error ? error : new Error(String(error)), { service: 'request-service' });
     res.status(500).json({
       success: false,
       message: 'Failed to create request',
@@ -1151,7 +1151,7 @@ router.put('/:id', async (req: Request, res: Response) => {
       message: 'Request updated successfully',
     });
   } catch (error: any) {
-    console.error('Error updating request:', error);
+    (req as any).logger?.error('Error updating request', error instanceof Error ? error : new Error(String(error)), { service: 'request-service' });
     res.status(500).json({
       success: false,
       message: 'Failed to update request',
@@ -1205,7 +1205,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
       message: 'Request cancelled successfully',
     });
   } catch (error: any) {
-    console.error('Error cancelling request:', error);
+    (req as any).logger?.error('Error cancelling request', error instanceof Error ? error : new Error(String(error)), { service: 'request-service' });
     res.status(500).json({
       success: false,
       message: 'Failed to cancel request',
@@ -1299,7 +1299,7 @@ router.put('/:id/privacy', async (req: Request, res: Response) => {
       message: 'Privacy settings updated',
     });
   } catch (error: any) {
-    console.error('Error updating privacy settings:', error);
+    (req as any).logger?.error('Error updating privacy settings', error instanceof Error ? error : new Error(String(error)), { service: 'request-service' });
     res.status(500).json({
       success: false,
       message: 'Failed to update privacy settings',
@@ -1383,7 +1383,7 @@ router.patch('/:id/admin-triage', async (req: Request, res: Response) => {
 
     sendSuccess(res, { message: 'Triage saved' });
   } catch (error: any) {
-    console.error('Error saving admin triage:', error);
+    (req as any).logger?.error('Error saving admin triage', error instanceof Error ? error : new Error(String(error)), { service: 'request-service' });
     sendInternalError(res, 'Failed to save triage', error instanceof Error ? error : undefined, { requestId: (req as any).id });
   }
 });

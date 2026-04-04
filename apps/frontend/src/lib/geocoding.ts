@@ -162,7 +162,7 @@ export async function searchAddresses(query: string): Promise<AddressSuggestion[
         console.error('Geocoding error:', error.message)
       }
     } else {
-      console.error('Unknown geocoding error:', error)
+      console.error('Unknown geocoding error', { error: error instanceof Error ? error.message : String(error) })
     }
     return []
   }
