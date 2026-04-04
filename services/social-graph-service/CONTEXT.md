@@ -655,6 +655,11 @@ curl http://localhost:3010/paths/$USER_B_ID \
 
 ## Recent Changes
 
+### Sprint 44: Structured Logging (2026-04-04)
+- **NEW**: Added `createLogger` + `requestLoggingMiddleware` from `@karmyq/shared/utils/logger` to `src/index.ts`
+- Route handler errors now emit `{ service: 'social-graph-service', endpoint, error.message }` structured objects via `(req as any).logger?.error()`
+- `src/routes/trustCard.ts` uses module-level `logger` from `./config/logger` for catch blocks
+
 ### Sprint 38: Trust Card Endpoint (2026-03-24)
 - **NEW**: Added `GET /trust-card/:targetUserId` endpoint returning trust tier, path, and invitation chain for a target user
 - **Logic**: Computes primary path via `computeTrustPath` (exchange → community → invitation), then separately computes invitation path for side-by-side display

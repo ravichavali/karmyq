@@ -317,6 +317,15 @@ Cleanup Service (Daily 3 AM)
 - **Redis**: Not used (could add for job locks in multi-instance setup)
 - **Other Services**: Independent (can run standalone)
 
+## Recent Changes
+
+### Sprint 44: Structured Logging + Type Safety (2026-04-04)
+- **NEW**: Added `createLogger` + `requestLoggingMiddleware` from `@karmyq/shared/utils/logger` to `src/index.ts` — request-scoped logging now active
+- **FIXED**: Replaced `any` types in Express middleware helpers with typed `ExtendedRequest`, `Response`, `NextFunction` interfaces
+- **FIXED**: Catch variable `error: any` replaced with `unknown` + `instanceof Error` narrowing
+- **FIXED**: `db.ts` query helper params typed as `unknown[]` instead of `any[]`
+- Route handler cron and admin endpoint errors now emit structured `{ service, step/endpoint, error.message }` via `(req as any).logger?.error()`
+
 ## Future Enhancements
 
 - [ ] Redis-based job locks for multi-instance deployment

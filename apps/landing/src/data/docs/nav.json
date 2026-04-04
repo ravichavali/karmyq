@@ -79,6 +79,10 @@
         {
           "label": "Provider Mode",
           "href": "/docs/concepts/provider-mode"
+        },
+        {
+          "label": "Observability & Logging",
+          "href": "/docs/concepts/observability-logging"
         }
       ]
     },
