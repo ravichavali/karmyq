@@ -19,7 +19,7 @@ export default function ArchiveDialog({ isOpen, schema, onArchive, onCancel }: A
       onCancel()
       alert('Schema archived successfully!')
     } catch (err: any) {
-      console.error('Failed to archive:', err)
+      console.error('Failed to archive', { error: err instanceof Error ? err.message : String(err) })
       setLoading(false)
     }
   }

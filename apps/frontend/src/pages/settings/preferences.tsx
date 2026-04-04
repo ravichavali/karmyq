@@ -140,7 +140,7 @@ export default function PreferencesPage() {
         setSelectedInterests(selected);
       }
     } catch (error) {
-      console.error('Error fetching preferences:', error);
+      console.error('Error fetching preferences', { error: error instanceof Error ? error.message : String(error) });
       alert('Failed to load preferences');
     } finally {
       setLoading(false);
@@ -158,7 +158,7 @@ export default function PreferencesPage() {
 
       setPreferences({ ...preferences, [requestType]: newValue });
     } catch (error) {
-      console.error('Error updating preference:', error);
+      console.error('Error updating preference', { error: error instanceof Error ? error.message : String(error) });
       alert('Failed to update preference');
     }
   };
@@ -210,7 +210,7 @@ export default function PreferencesPage() {
         }
       }
     } catch (error) {
-      console.error('Error toggling interest:', error);
+      console.error('Error toggling interest', { error: error instanceof Error ? error.message : String(error) });
       alert('Failed to update interest');
     }
   };
@@ -229,7 +229,7 @@ export default function PreferencesPage() {
 
       alert('Preferences saved successfully!');
     } catch (error) {
-      console.error('Error saving preferences:', error);
+      console.error('Error saving preferences', { error: error instanceof Error ? error.message : String(error) });
       alert('Failed to save preferences');
     } finally {
       setSaving(false);

@@ -71,7 +71,7 @@ export const MessagingProvider: React.FC<MessagingProviderProps> = ({ children }
           setUserId(user.id)
           setUserName(user.name)
         } catch (e) {
-          console.error('Failed to parse user:', e)
+          console.error('Failed to parse user', { error: e instanceof Error ? e.message : String(e) })
         }
       }
     }
@@ -121,7 +121,7 @@ export const MessagingProvider: React.FC<MessagingProviderProps> = ({ children }
 
       // Validate message structure
       if (!message || typeof message !== 'object' || !message.id || !message.content) {
-        console.error('Invalid message structure received:', message)
+        console.error('Invalid message structure received', { error: message instanceof Error ? message.message : String(message) })
         return
       }
 
@@ -177,7 +177,7 @@ export const MessagingProvider: React.FC<MessagingProviderProps> = ({ children }
     })
 
     newSocket.on('message_error', ({ error }) => {
-      console.error('Message error:', error)
+      console.error('Message error', { error: error instanceof Error ? error.message : String(error) })
       setError(error)
     })
 
@@ -199,7 +199,7 @@ export const MessagingProvider: React.FC<MessagingProviderProps> = ({ children }
       const response = await messagingService.getConversations()
       setConversations(response.data.data)
     } catch (err: any) {
-      console.error('Failed to fetch conversations:', err)
+      console.error('Failed to fetch conversations', { error: err instanceof Error ? err.message : String(err) })
       setError(err.message || 'Failed to fetch conversations')
     } finally {
       setLoading(false)
@@ -236,7 +236,7 @@ export const MessagingProvider: React.FC<MessagingProviderProps> = ({ children }
       // Mark messages as read
       socket.emit('mark_as_read', { conversationId, userId })
     } catch (err: any) {
-      console.error('Failed to select conversation:', err)
+      console.error('Failed to select conversation', { error: err instanceof Error ? err.message : String(err) })
       setError(err.message || 'Failed to select conversation')
     } finally {
       setLoading(false)
@@ -303,7 +303,7 @@ export const MessagingProvider: React.FC<MessagingProviderProps> = ({ children }
 
       return conversation
     } catch (err: any) {
-      console.error('Failed to create conversation:', err)
+      console.error('Failed to create conversation', { error: err instanceof Error ? err.message : String(err) })
       throw err
     }
   }, [])

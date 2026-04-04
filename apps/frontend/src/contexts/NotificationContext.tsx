@@ -55,7 +55,7 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
           const user = JSON.parse(userStr)
           setUserId(user.id)
         } catch (e) {
-          console.error('Failed to parse user:', e)
+          console.error('Failed to parse user', { error: e instanceof Error ? e.message : String(e) })
         }
       }
     }
@@ -77,7 +77,7 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
       setNotifications(notificationsRes.data?.notifications || [])
       setUnreadCount(unreadCountRes.data?.count || 0)
     } catch (err: any) {
-      console.error('Failed to fetch notifications:', err)
+      console.error('Failed to fetch notifications', { error: err instanceof Error ? err.message : String(err) })
       setError(err.message || 'Failed to fetch notifications')
       // Set empty state on error
       setNotifications([])
@@ -102,7 +102,7 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
       )
       setUnreadCount(prev => Math.max(0, prev - 1))
     } catch (err: any) {
-      console.error('Failed to mark notification as read:', err)
+      console.error('Failed to mark notification as read', { error: err instanceof Error ? err.message : String(err) })
       setError(err.message || 'Failed to mark notification as read')
     }
   }, [userId])
@@ -120,7 +120,7 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
       )
       setUnreadCount(0)
     } catch (err: any) {
-      console.error('Failed to mark all as read:', err)
+      console.error('Failed to mark all as read', { error: err instanceof Error ? err.message : String(err) })
       setError(err.message || 'Failed to mark all as read')
     }
   }, [userId])
@@ -139,7 +139,7 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
         setUnreadCount(prev => Math.max(0, prev - 1))
       }
     } catch (err: any) {
-      console.error('Failed to delete notification:', err)
+      console.error('Failed to delete notification', { error: err instanceof Error ? err.message : String(err) })
       setError(err.message || 'Failed to delete notification')
     }
   }, [userId, notifications])
@@ -172,12 +172,12 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
 
         console.log('New notification received:', newNotification)
       } catch (err) {
-        console.error('Failed to parse SSE message:', err)
+        console.error('Failed to parse SSE message', { error: err instanceof Error ? err.message : String(err) })
       }
     }
 
     es.onerror = (error) => {
-      console.error('SSE error:', error)
+      console.error('SSE error', { error: error instanceof Error ? error.message : String(error) })
       es.close()
       setEventSource(null)
 

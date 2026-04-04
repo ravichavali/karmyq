@@ -46,7 +46,7 @@ export default function LocationPicker({
         const results = await searchAddresses(address)
         setSuggestions(results)
       } catch (error) {
-        console.error('Geocoding error:', error)
+        console.error('Geocoding error', { error: error instanceof Error ? error.message : String(error) })
         setSuggestions([])
       } finally {
         setLoading(false)

@@ -51,7 +51,7 @@ export default function NewSchemaPage() {
       })
       router.push(`/admin/schemas/${response.data.schema.id}/edit`)
     } catch (err: any) {
-      console.error('Failed to create schema:', err)
+      console.error('Failed to create schema', { error: err instanceof Error ? err.message : String(err) })
       setError(err.response?.data?.message || 'Failed to create schema')
     } finally {
       setLoading(false)

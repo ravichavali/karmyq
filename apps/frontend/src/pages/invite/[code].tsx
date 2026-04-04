@@ -110,7 +110,7 @@ export default function InviteAcceptance() {
         localStorage.setItem('user', JSON.stringify(updatedUser));
         api.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
       } catch (acceptErr) {
-        console.error('Failed to accept invitation or refresh session:', acceptErr);
+        console.error('Failed to accept invitation or refresh session', { error: acceptErr instanceof Error ? acceptErr.message : String(acceptErr) });
         // Don't fail the signup if invitation acceptance fails
         // User is already registered at this point
       }

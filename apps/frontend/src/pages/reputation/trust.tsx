@@ -31,7 +31,7 @@ export default function TrustScorePage() {
       const trustRes = await reputationService.getOverallTrustScore(userId)
       setOverallData(trustRes.data)
     } catch (err) {
-      console.error('Failed to fetch trust data:', err)
+      console.error('Failed to fetch trust data', { error: err instanceof Error ? err.message : String(err) })
     } finally {
       setLoading(false)
     }

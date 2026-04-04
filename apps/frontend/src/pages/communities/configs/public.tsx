@@ -71,7 +71,7 @@ export default function ThrivingCommunitiesPage() {
       setCommunities(communities)
       setError(null)
     } catch (err: any) {
-      console.error('Error fetching thriving communities:', err)
+      console.error('Error fetching thriving communities', { error: err instanceof Error ? err.message : String(err) })
       setError(err.response?.data?.error || 'Failed to load communities')
     } finally {
       setLoading(false)
@@ -87,7 +87,7 @@ export default function ThrivingCommunitiesPage() {
         .map((c: any) => ({ id: c.id, name: c.name }))
       setMyFoundedCommunities(founded)
     } catch (err: any) {
-      console.error('Error fetching my communities:', err)
+      console.error('Error fetching my communities', { error: err instanceof Error ? err.message : String(err) })
     }
   }
 

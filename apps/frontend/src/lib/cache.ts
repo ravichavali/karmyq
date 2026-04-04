@@ -68,7 +68,7 @@ class CacheService {
           return entry.data
         }
       } catch (error) {
-        console.error('IndexedDB get error:', error)
+        console.error('IndexedDB get error', { error: error instanceof Error ? error.message : String(error) })
       }
     }
 
@@ -84,7 +84,7 @@ class CacheService {
         }
       }
     } catch (error) {
-      console.error('localStorage get error:', error)
+      console.error('localStorage get error', { error: error instanceof Error ? error.message : String(error) })
     }
 
     return null
@@ -108,7 +108,7 @@ class CacheService {
         await this.setInIndexedDB(key, entry)
         return
       } catch (error) {
-        console.error('IndexedDB set error:', error)
+        console.error('IndexedDB set error', { error: error instanceof Error ? error.message : String(error) })
       }
     }
 
@@ -116,7 +116,7 @@ class CacheService {
     try {
       localStorage.setItem(`cache:${key}`, JSON.stringify(entry))
     } catch (error) {
-      console.error('localStorage set error:', error)
+      console.error('localStorage set error', { error: error instanceof Error ? error.message : String(error) })
       // Quota exceeded - clear old entries
       this.clearExpired()
     }
@@ -191,7 +191,7 @@ class CacheService {
           }
         }
       } catch (error) {
-        console.error('IndexedDB clear error:', error)
+        console.error('IndexedDB clear error', { error: error instanceof Error ? error.message : String(error) })
       }
     }
 
@@ -216,7 +216,7 @@ class CacheService {
       }
       keysToRemove.forEach(key => localStorage.removeItem(key))
     } catch (error) {
-      console.error('localStorage clear error:', error)
+      console.error('localStorage clear error', { error: error instanceof Error ? error.message : String(error) })
     }
   }
 
@@ -233,7 +233,7 @@ class CacheService {
         const store = transaction.objectStore(STORE_NAME)
         store.clear()
       } catch (error) {
-        console.error('IndexedDB clear error:', error)
+        console.error('IndexedDB clear error', { error: error instanceof Error ? error.message : String(error) })
       }
     }
 
@@ -248,7 +248,7 @@ class CacheService {
       }
       keysToRemove.forEach(key => localStorage.removeItem(key))
     } catch (error) {
-      console.error('localStorage clear error:', error)
+      console.error('localStorage clear error', { error: error instanceof Error ? error.message : String(error) })
     }
   }
 }

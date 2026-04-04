@@ -69,7 +69,7 @@ export default function ProvidersPage() {
       const data = res.data?.data ?? res.data ?? []
       setProviders(Array.isArray(data) ? data : [])
     } catch (err) {
-      console.error('Failed to fetch providers:', err)
+      console.error('Failed to fetch providers', { error: err instanceof Error ? err.message : String(err) })
       setProviders([])
     } finally {
       setLoading(false)

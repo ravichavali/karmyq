@@ -66,7 +66,7 @@ export default function ProvidersPage() {
         setCollectives(response.data ?? [])
       }
     } catch (err) {
-      console.error('Failed to fetch', err)
+      console.error('Failed to fetch', { error: err instanceof Error ? err.message : String(err) })
     } finally {
       setLoading(false)
     }

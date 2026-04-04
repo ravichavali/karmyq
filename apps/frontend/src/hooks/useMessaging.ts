@@ -177,7 +177,7 @@ export function useMessaging({
       const data = await response.json()
       setMessages(data.data.messages || [])
     } catch (error) {
-      console.error('Error fetching messages:', error)
+      console.error('Error fetching messages', { error: error instanceof Error ? error.message : String(error) })
     } finally {
       setLoading(false)
     }
@@ -219,7 +219,7 @@ export function useMessaging({
           // Refresh messages to show the sent message
           await refreshMessages()
         } catch (error) {
-          console.error('Error sending message:', error)
+          console.error('Error sending message', { error: error instanceof Error ? error.message : String(error) })
           throw error
         }
       }

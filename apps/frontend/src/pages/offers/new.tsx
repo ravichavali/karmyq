@@ -44,7 +44,7 @@ export default function NewOfferPage() {
       const response = await communityService.getCommunities({ limit: 100 })
       setCommunities(response.data.data)
     } catch (error) {
-      console.error('Error fetching communities:', error)
+      console.error('Error fetching communities', { error: error instanceof Error ? error.message : String(error) })
     }
   }
 
@@ -76,7 +76,7 @@ export default function NewOfferPage() {
       alert('Offer created successfully!')
       router.push('/offers')
     } catch (error: any) {
-      console.error('Error creating offer:', error)
+      console.error('Error creating offer', { error: error instanceof Error ? error.message : String(error) })
       alert(error.response?.data?.message || 'Failed to create offer')
     } finally {
       setSubmitting(false)

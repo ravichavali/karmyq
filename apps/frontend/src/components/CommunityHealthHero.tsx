@@ -34,7 +34,7 @@ export default function CommunityHealthHero({ communityId }: CommunityHealthHero
         const response = await feedApi.get(`/feed/community-health?community_id=${communityId}`)
         setHealthData(response.data.data)
       } catch (err) {
-        console.error('Failed to fetch community health:', err)
+        console.error('Failed to fetch community health', { error: err instanceof Error ? err.message : String(err) })
         const error = err as { response?: { data?: { message?: string } } }
         setError(error.response?.data?.message || 'Failed to load community health')
       } finally {

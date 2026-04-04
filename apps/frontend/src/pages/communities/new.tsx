@@ -112,7 +112,7 @@ export default function NewCommunityPage() {
         setFormData(prev => ({ ...prev, max_members: template.member_cap }))
       }
     } catch (err) {
-      console.error('Error fetching template:', err)
+      console.error('Error fetching template', { error: err instanceof Error ? err.message : String(err) })
     } finally {
       setTemplateLoading(false)
     }

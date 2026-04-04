@@ -137,7 +137,7 @@ export default function Dashboard() {
       const milestonesRes = await feedApi.get(`/feed/milestones?community_id=${communityId}&limit=5`)
       setMilestones(milestonesRes.data || [])
     } catch (err) {
-      console.error('Failed to fetch milestones:', err)
+      console.error('Failed to fetch milestones', { error: err instanceof Error ? err.message : String(err) })
       setMilestones([])
     }
   }
@@ -176,7 +176,7 @@ export default function Dashboard() {
           setMilestones([]) // Temporarily disabled
         }
       } catch (err) {
-        console.error('Failed to fetch milestones:', err)
+        console.error('Failed to fetch milestones', { error: err instanceof Error ? err.message : String(err) })
         setMilestones([])
       }
 
@@ -320,7 +320,7 @@ export default function Dashboard() {
       setFeedItems(feed)
       setUserCommunities(communitiesRes.data.communities || [])
     } catch (err) {
-      console.error('Failed to load dashboard data:', err)
+      console.error('Failed to load dashboard data', { error: err instanceof Error ? err.message : String(err) })
     } finally {
       setLoading(false)
     }
@@ -338,7 +338,7 @@ export default function Dashboard() {
       // Refresh data to show as "YOUR OFFER" - no popup needed
       await fetchDashboardData(user.id)
     } catch (error: any) {
-      console.error('Error offering to help:', error)
+      console.error('Error offering to help', { error: error instanceof Error ? error.message : String(error) })
       // Only show alert on error
       alert(error.response?.data?.message || 'Failed to offer help')
     }
@@ -352,7 +352,7 @@ export default function Dashboard() {
       // Refresh data to show updated status
       await fetchDashboardData(user.id)
     } catch (error: any) {
-      console.error('Error accepting match:', error)
+      console.error('Error accepting match', { error: error instanceof Error ? error.message : String(error) })
       alert(error.response?.data?.message || 'Failed to accept offer')
     }
   }
@@ -365,7 +365,7 @@ export default function Dashboard() {
       // Refresh data
       await fetchDashboardData(user.id)
     } catch (error: any) {
-      console.error('Error rejecting match:', error)
+      console.error('Error rejecting match', { error: error instanceof Error ? error.message : String(error) })
       alert(error.response?.data?.message || 'Failed to reject offer')
     }
   }
@@ -379,7 +379,7 @@ export default function Dashboard() {
       await fetchDashboardData(user.id)
       setKarmaRefreshKey((k) => k + 1)
     } catch (error: any) {
-      console.error('Error completing match:', error)
+      console.error('Error completing match', { error: error instanceof Error ? error.message : String(error) })
       alert(error.response?.data?.message || 'Failed to mark complete')
     }
   }

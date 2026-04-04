@@ -90,7 +90,7 @@ export default function SchemaEditorPage() {
       setSchema(response.data.schema)
       setValidationErrors([])
     } catch (err: any) {
-      console.error('Failed to load schema:', err)
+      console.error('Failed to load schema', { error: err instanceof Error ? err.message : String(err) })
       setError(err.response?.data?.message || 'Failed to load schema')
     } finally {
       setLoading(false)
@@ -102,7 +102,7 @@ export default function SchemaEditorPage() {
       const response = await uiSchemaService.getSchemaVersions(id as string)
       setVersions(response.data.versions)
     } catch (err: any) {
-      console.error('Failed to load versions:', err)
+      console.error('Failed to load versions', { error: err instanceof Error ? err.message : String(err) })
       setError('Failed to load version history')
     }
   }
@@ -117,7 +117,7 @@ export default function SchemaEditorPage() {
       setError('')
       await loadSchema() // Reload to update status
     } catch (err: any) {
-      console.error('Failed to publish schema:', err)
+      console.error('Failed to publish schema', { error: err instanceof Error ? err.message : String(err) })
       const data = err.response?.data
       const detail = data?.errors?.length
         ? `${data.message}:\n• ${data.errors.join('\n• ')}`
@@ -138,7 +138,7 @@ export default function SchemaEditorPage() {
       setError('')
       await loadSchema() // Reload to update status
     } catch (err: any) {
-      console.error('Failed to archive schema:', err)
+      console.error('Failed to archive schema', { error: err instanceof Error ? err.message : String(err) })
       setError(err.response?.data?.message || 'Failed to archive schema')
     } finally {
       setSaving(false)
@@ -155,7 +155,7 @@ export default function SchemaEditorPage() {
       await loadSchema() // Reload to update version
       await loadVersions() // Reload version history
     } catch (err: any) {
-      console.error('Failed to rollback schema:', err)
+      console.error('Failed to rollback schema', { error: err instanceof Error ? err.message : String(err) })
       setError(err.response?.data?.message || 'Failed to rollback schema')
     } finally {
       setSaving(false)
@@ -174,7 +174,7 @@ export default function SchemaEditorPage() {
       })
       setError('')
     } catch (err: any) {
-      console.error('Failed to save schema:', err)
+      console.error('Failed to save schema', { error: err instanceof Error ? err.message : String(err) })
       setError(err.response?.data?.message || 'Failed to save schema')
     } finally {
       setSaving(false)
@@ -320,7 +320,7 @@ export default function SchemaEditorPage() {
         setValidationErrors(response.data.errors || [])
       }
     } catch (err: any) {
-      console.error('Validation failed:', err)
+      console.error('Validation failed', { error: err instanceof Error ? err.message : String(err) })
       setValidationErrors([err.response?.data?.message || 'Validation failed'])
     }
   }

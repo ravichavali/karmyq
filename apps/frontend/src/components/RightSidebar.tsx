@@ -45,7 +45,7 @@ export default function RightSidebar({ communityId }: RightSidebarProps) {
         setHealthData(null)
         setMilestones([])
       } catch (err) {
-        console.error('Failed to fetch sidebar data:', err)
+        console.error('Failed to fetch sidebar data', { error: err instanceof Error ? err.message : String(err) })
       } finally {
         setLoading(false)
       }

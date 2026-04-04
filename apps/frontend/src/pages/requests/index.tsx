@@ -86,7 +86,7 @@ export default function RequestsPage() {
         setRequests(response.data.data.requests || response.data.data || [])
       }
     } catch (error) {
-      console.error('Error fetching requests:', error)
+      console.error('Error fetching requests', { error: error instanceof Error ? error.message : String(error) })
     } finally {
       setLoading(false)
     }

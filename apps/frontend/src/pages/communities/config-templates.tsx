@@ -33,7 +33,7 @@ export default function ConfigTemplates() {
       setTemplates(response.data.templates || [])
       setError(null)
     } catch (err: any) {
-      console.error('Error fetching templates:', err)
+      console.error('Error fetching templates', { error: err instanceof Error ? err.message : String(err) })
       setError(err.response?.data?.message || err.response?.data?.error || 'Failed to load templates')
     } finally {
       setLoading(false)

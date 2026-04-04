@@ -44,7 +44,7 @@ export default function OffersPage() {
       const response = await requestService.getOffers(params)
       setOffers(response.data.data)
     } catch (error) {
-      console.error('Error fetching offers:', error)
+      console.error('Error fetching offers', { error: error instanceof Error ? error.message : String(error) })
     } finally {
       setLoading(false)
     }

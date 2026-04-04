@@ -162,7 +162,7 @@ export default function CommitmentsTab({ onDibsLoaded }: CommitmentsTabProps = {
         openRequests.forEach((r: any) => fetchOffersForRequest(r.id))
       })
     }).catch((err) => {
-      console.error('Failed to load commitments:', err)
+      console.error('Failed to load commitments', { error: err instanceof Error ? err.message : String(err) })
     }).finally(() => {
       setLoading(false)
     })

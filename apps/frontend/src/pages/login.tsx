@@ -26,7 +26,7 @@ export default function Login() {
       console.log('User:', response.data?.user)
 
       if (!response.data || !response.data.token || !response.data.user) {
-        console.error('Invalid response structure:', response)
+        console.error('Invalid response structure', { error: response instanceof Error ? response.message : String(response) })
         setError('Invalid response from server')
         setLoading(false)
         return
@@ -38,11 +38,11 @@ export default function Login() {
       console.log('Redirecting to dashboard...')
       router.push('/dashboard')
     } catch (err: any) {
-      console.error('Login error:', err)
+      console.error('Login error', { error: err instanceof Error ? err.message : String(err) })
       console.error('Error response:', err.response)
       console.error('Error data:', err.response?.data)
       const errorMessage = err.response?.data?.error || err.message || 'Login failed'
-      console.error('Setting error:', errorMessage)
+      console.error('Setting error', { error: errorMessage instanceof Error ? errorMessage.message : String(errorMessage) })
       setError(errorMessage)
     } finally {
       setLoading(false)
