@@ -49,11 +49,14 @@ export interface CommunityConfig {
   join_approval_required?: boolean;
   joining_counts_as_interaction?: boolean;
 
-  // Feed Scoring Weights (ADR-031)
+  // Feed Scoring Weights (7 signals, Sprint 43 v2)
   feed_weight_skill_match?: number;
   feed_weight_trust_distance?: number;
   feed_weight_community_relevance?: number;
   feed_weight_urgency?: number;
+  feed_weight_requester_trust?: number;
+  feed_weight_prior_interaction?: number;
+  feed_weight_recency?: number;
 
   // Metadata
   template_source?: string;
@@ -251,12 +254,15 @@ export function validateCommunityConfig(config: Partial<CommunityConfig>): Valid
     }
   }
 
-  // Feed Weight Validations (ADR-031)
+  // Feed Weight Validations (7 signals — no sum constraint, normalized at query time)
   const feedWeightFields = [
     'feed_weight_skill_match',
     'feed_weight_trust_distance',
     'feed_weight_community_relevance',
     'feed_weight_urgency',
+    'feed_weight_requester_trust',
+    'feed_weight_prior_interaction',
+    'feed_weight_recency',
   ] as const;
 
   for (const field of feedWeightFields) {
@@ -267,18 +273,6 @@ export function validateCommunityConfig(config: Partial<CommunityConfig>): Valid
           message: `${field} must be between 0.0 and 1.0`,
         });
       }
-    }
-  }
-
-  // Feed Weights Sum Validation (only if all four are present)
-  const feedWeights = feedWeightFields.map(f => config[f]);
-  if (feedWeights.every(w => w !== undefined)) {
-    const sum = (feedWeights as number[]).reduce((a, b) => a + b, 0);
-    if (Math.abs(sum - 1.0) >= 0.01) {
-      errors.push({
-        field: 'feed_weights',
-        message: 'feed_weight_skill_match + feed_weight_trust_distance + feed_weight_community_relevance + feed_weight_urgency must sum to 1.0 (±0.01 tolerance)',
-      });
     }
   }
 

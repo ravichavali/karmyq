@@ -900,3 +900,20 @@ export const collectiveService = {
   discoverCollectives: (params?: { unlinked_from?: string; limit?: number }) =>
     requestApi.get('/collectives', { params }),
 }
+
+export const trustQuestionsService = {
+  list: () => communityApi.get('/communities/trust-questions'),
+  createQuestion: (data: { slug: string; question_text: string; subtext?: string; display_order: number }) =>
+    communityApi.post('/communities/trust-questions', data),
+  updateQuestion: (id: string, data: Partial<{ question_text: string; subtext: string; display_order: number; active: boolean }>) =>
+    communityApi.put(`/communities/trust-questions/${id}`, data),
+  deleteQuestion: (id: string) =>
+    communityApi.delete(`/communities/trust-questions/${id}`),
+  createChoice: (questionId: string, data: { value: string; label: string; description?: string; config_delta: object; display_order: number }) =>
+    communityApi.post(`/communities/trust-questions/${questionId}/choices`, data),
+  updateChoice: (questionId: string, choiceId: string, data: object) =>
+    communityApi.put(`/communities/trust-questions/${questionId}/choices/${choiceId}`, data),
+  deleteChoice: (questionId: string, choiceId: string) =>
+    communityApi.delete(`/communities/trust-questions/${questionId}/choices/${choiceId}`),
+}
+

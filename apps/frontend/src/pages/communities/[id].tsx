@@ -13,7 +13,7 @@ const CommunityConfigEditor = dynamic(() => import('@/components/CommunityConfig
 import CommunityTrustQuestionnaire from '@/components/CommunityTrustQuestionnaire'
 import TrustModelDiff from '@/components/TrustModelDiff'
 import { CommunityConfig } from '@/types/community-config'
-import { answersToConfig, QuestionnaireAnswers } from '@/lib/trust-model'
+
 import { REQUEST_TYPES } from '@/components/requests/RequestTypeSelector'
 import CommunityLinks from '@/components/community/CommunityLinks'
 import CollectiveCardRich from '@/components/providers/CollectiveCardRich'
@@ -1367,8 +1367,7 @@ export default function CommunityDetailPage() {
                           <div className="mb-6 rounded-lg border border-border bg-surface p-6">
                             <CommunityTrustQuestionnaire
                               mode="revisit"
-                              onComplete={(answers: QuestionnaireAnswers) => {
-                                const inferred = answersToConfig(answers)
+                              onComplete={(inferred) => {
                                 setProposedConfig(inferred)
                                 setShowQuestionnaire(false)
                                 setShowDiff(true)
@@ -1411,6 +1410,40 @@ export default function CommunityDetailPage() {
                               onChange={(newConfig: CommunityConfig) => { setEditedConfig(newConfig); setConfigErrors({}) }}
                               errors={configErrors}
                             />
+
+                            {/* Feed Signal Weights — admin only */}
+                            <div className="mt-8 space-y-4">
+                              <h3 className="text-base font-semibold text-text">Feed Signal Weights</h3>
+                              <p className="text-sm text-text-muted">
+                                These weights shape which requests appear first in members&apos; feeds.
+                                Values are normalized automatically — you don&apos;t need to sum to 1.0.
+                              </p>
+                              {([
+                                { field: 'feed_weight_skill_match',         label: 'Skill Match' },
+                                { field: 'feed_weight_trust_distance',      label: 'Trust Distance' },
+                                { field: 'feed_weight_community_relevance', label: 'Community Relevance' },
+                                { field: 'feed_weight_urgency',             label: 'Urgency' },
+                                { field: 'feed_weight_requester_trust',     label: 'Requester Trust' },
+                                { field: 'feed_weight_prior_interaction',   label: 'Prior Interaction' },
+                                { field: 'feed_weight_recency',             label: 'Recency' },
+                              ] as Array<{ field: keyof CommunityConfig; label: string }>).map(({ field, label }) => (
+                                <div key={field}>
+                                  <label className="text-sm font-medium text-text">{label}</label>
+                                  <div className="flex items-center gap-3 mt-1">
+                                    <input
+                                      type="range" min="0" max="1" step="0.05"
+                                      value={(editedConfig as any)[field] ?? 0}
+                                      onChange={e => setEditedConfig(prev => prev ? { ...prev, [field]: parseFloat(e.target.value) } : prev)}
+                                      className="flex-1"
+                                    />
+                                    <span className="text-sm text-text-muted w-10 text-right">
+                                      {((editedConfig as any)[field] ?? 0).toFixed(2)}
+                                    </span>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+
                             <div className="flex justify-end gap-3 mt-6 pt-6 border-t">
                               <button onClick={() => { setEditedConfig(config); setConfigErrors({}) }} className="px-6 py-2 bg-gray-200 text-text-muted rounded hover:bg-gray-300">Reset</button>
                               <button onClick={handleSaveConfig} disabled={configSaving} className="px-6 py-2 bg-primary text-white rounded hover:bg-primary-dark disabled:bg-primary-medium">

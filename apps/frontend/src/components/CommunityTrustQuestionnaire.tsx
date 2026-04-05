@@ -1,10 +1,13 @@
 import { useState } from 'react'
-import { QUESTIONS, QuestionnaireAnswers } from '@/lib/trust-model'
+import { useTrustQuestions } from '@/hooks/useTrustQuestions'
+import { answersToConfig } from '@/lib/answersToConfig'
+import type { TrustQuestionnaireAnswers } from '@/lib/trust-model'
+import type { CommunityConfig } from '@/types/community-config'
 
 interface CommunityTrustQuestionnaireProps {
-  onComplete: (answers: QuestionnaireAnswers) => void
+  onComplete: (config: Partial<CommunityConfig>) => void
   onBack?: () => void
-  initialAnswers?: Partial<QuestionnaireAnswers>
+  initialAnswers?: TrustQuestionnaireAnswers
   mode?: 'create' | 'revisit'
 }
 
@@ -14,18 +17,46 @@ export default function CommunityTrustQuestionnaire({
   initialAnswers = {},
   mode = 'create',
 }: CommunityTrustQuestionnaireProps) {
+  const { questions, loading, error } = useTrustQuestions()
   const [currentIndex, setCurrentIndex] = useState(0)
-  const [answers, setAnswers] = useState<Partial<QuestionnaireAnswers>>(initialAnswers)
+  const [answers, setAnswers] = useState<TrustQuestionnaireAnswers>(initialAnswers)
   const [advancing, setAdvancing] = useState(false)
 
-  const question = QUESTIONS[currentIndex]
-  const totalQuestions = QUESTIONS.length
+  if (loading) {
+    return (
+      <div className="space-y-8">
+        <div>
+          <div className="h-3 w-32 rounded bg-surface-raised animate-pulse mb-2" />
+          <div className="h-6 w-64 rounded bg-surface-raised animate-pulse mb-1" />
+          <div className="h-4 w-80 rounded bg-surface-raised animate-pulse" />
+        </div>
+        <div className="space-y-3">
+          {[1, 2, 3].map(i => (
+            <div key={i} className="rounded-lg border-2 border-border bg-surface-raised h-20 animate-pulse" />
+          ))}
+        </div>
+      </div>
+    )
+  }
+
+  if (error || questions.length === 0) {
+    return (
+      <div className="rounded-lg border border-border bg-surface p-6 text-center">
+        <p className="text-sm text-text-muted">
+          {error ?? 'No questions available. Please try again.'}
+        </p>
+      </div>
+    )
+  }
+
+  const question = questions[currentIndex]
+  const totalQuestions = questions.length
   const currentAnswer = answers[question.id]
 
   function handleSelect(value: string) {
     if (advancing) return
 
-    const updated = { ...answers, [question.id]: value } as Partial<QuestionnaireAnswers>
+    const updated: TrustQuestionnaireAnswers = { ...answers, [question.id]: value }
     setAnswers(updated)
     setAdvancing(true)
 
@@ -34,8 +65,7 @@ export default function CommunityTrustQuestionnaire({
         setCurrentIndex(currentIndex + 1)
         setAdvancing(false)
       } else {
-        // All answered — fire onComplete
-        onComplete(updated as QuestionnaireAnswers)
+        onComplete(answersToConfig(questions, updated))
       }
     }, 200)
   }
@@ -50,7 +80,6 @@ export default function CommunityTrustQuestionnaire({
   }
 
   function handleDotClick(index: number) {
-    // Only allow navigating to already-answered questions
     if (index < currentIndex) {
       setCurrentIndex(index)
       setAdvancing(false)
@@ -74,7 +103,7 @@ export default function CommunityTrustQuestionnaire({
 
       {/* Progress dots */}
       <div className="flex items-center gap-2">
-        {QUESTIONS.map((q, i) => (
+        {questions.map((q, i) => (
           <button
             key={q.id}
             onClick={() => handleDotClick(i)}
@@ -96,7 +125,7 @@ export default function CommunityTrustQuestionnaire({
 
       {/* Question */}
       <div>
-        <h3 className="text-lg font-semibold text-text mb-1">{question.text}</h3>
+        <h3 className="text-lg font-semibold text-text mb-1">{question.question_text}</h3>
         {question.subtext && (
           <p className="text-sm text-text-muted mb-4">{question.subtext}</p>
         )}
@@ -128,7 +157,9 @@ export default function CommunityTrustQuestionnaire({
                   </div>
                   <div>
                     <p className="font-medium text-text">{choice.label}</p>
-                    <p className="text-sm text-text-muted mt-0.5">{choice.description}</p>
+                    {choice.description && (
+                      <p className="text-sm text-text-muted mt-0.5">{choice.description}</p>
+                    )}
                   </div>
                 </div>
               </button>

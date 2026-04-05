@@ -12,7 +12,7 @@ const CommunityConfigEditor = dynamic(() => import('@/components/CommunityConfig
 })
 import CommunityTrustQuestionnaire from '@/components/CommunityTrustQuestionnaire'
 import { CommunityConfig, ConfigTemplate } from '@/types/community-config'
-import { answersToConfig, QuestionnaireAnswers } from '@/lib/trust-model'
+
 
 const CATEGORIES = [
   'Neighborhood',
@@ -428,8 +428,7 @@ export default function NewCommunityPage() {
               {step === 'questionnaire' && (
                 <CommunityTrustQuestionnaire
                   mode="create"
-                  onComplete={(answers: QuestionnaireAnswers) => {
-                    const inferred = answersToConfig(answers)
+                  onComplete={(inferred) => {
                     setCustomConfig(prev => prev ? { ...prev, ...inferred } : null)
                     setStep('config')
                   }}

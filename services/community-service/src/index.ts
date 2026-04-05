@@ -12,6 +12,7 @@ import exportRouter from './routes/export';
 import statsRouter from './routes/stats';
 import configRouter from './routes/config';
 import linksRouter from './routes/links';
+import trustQuestionsRouter from './routes/trust-questions';
 import { createLogger, requestLoggingMiddleware } from '@karmyq/shared/utils/logger';
 import {
   authMiddleware,
@@ -49,6 +50,15 @@ app.get('/health', (req: any, res: Response) => {
 // Routes with authentication and tenant context
 // IMPORTANT: Register routes in order from most specific to least specific
 // Routes with optionalAuth must come FIRST to avoid being blocked by authMiddleware
+
+// Trust Questions routes — MUST come before configRouter (config router has catch-all /:id param)
+// GET is public; admin CRUD uses auth checks inside the route handlers
+app.use(
+  '/communities',
+  optionalAuthMiddleware,
+  dbContextMiddleware(pool),
+  trustQuestionsRouter  // Trust question routes: /communities/trust-questions[/:id[/choices[/:choiceId]]]
+);
 
 // Config routes (PUBLIC ACCESS - must come FIRST)
 // Uses optionalAuthMiddleware to allow public access to templates and public configs

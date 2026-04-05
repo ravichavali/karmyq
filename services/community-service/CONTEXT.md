@@ -126,11 +126,14 @@ CREATE TABLE communities.community_configs (
     trust_path_max_hops INTEGER DEFAULT 3,
     min_interactions_for_trust INTEGER DEFAULT 1,
 
-    -- Feed Scoring Weights (ADR-031, must sum to 1.0)
-    feed_weight_skill_match DECIMAL(4,3) DEFAULT 0.400,
-    feed_weight_trust_distance DECIMAL(4,3) DEFAULT 0.250,
-    feed_weight_community_relevance DECIMAL(4,3) DEFAULT 0.200,
-    feed_weight_urgency DECIMAL(4,3) DEFAULT 0.150,
+    -- Feed Scoring Weights (7 signals, Sprint 43 v2 — normalized at query time)
+    feed_weight_skill_match DECIMAL(3,2) DEFAULT 0.25,
+    feed_weight_trust_distance DECIMAL(3,2) DEFAULT 0.20,
+    feed_weight_community_relevance DECIMAL(3,2) DEFAULT 0.15,
+    feed_weight_urgency DECIMAL(3,2) DEFAULT 0.10,
+    feed_weight_requester_trust DECIMAL(3,2) DEFAULT 0.15,
+    feed_weight_prior_interaction DECIMAL(3,2) DEFAULT 0.10,
+    feed_weight_recency DECIMAL(3,2) DEFAULT 0.05,
 
     -- Community Onboarding
     request_approval_required BOOLEAN DEFAULT FALSE,
@@ -874,6 +877,31 @@ Remove a link (sets status to `inactive`). Either community's admin can do this.
 - `user_left_community` - When user leaves or is removed from community
 - `norm_proposed` - When new norm is proposed
 - `norm_established` - When norm reaches approval threshold
+
+### Trust Questions (Sprint 45)
+
+#### GET /communities/trust-questions
+Returns active trust questionnaire questions with choices, ordered by `display_order`. Public endpoint — no auth required.
+
+#### POST /communities/trust-questions
+Create a trust question. Platform admin only.
+
+#### PUT /communities/trust-questions/:id
+Update question text, subtext, display_order, or active status. Platform admin only.
+
+#### DELETE /communities/trust-questions/:id
+Deactivate a trust question (sets active=false). Platform admin only.
+
+#### POST /communities/trust-questions/:id/choices
+Add a choice to a question. Platform admin only.
+
+#### PUT /communities/trust-questions/:id/choices/:choiceId
+Update a choice's label, description, config_delta, or display_order. Platform admin only.
+
+#### DELETE /communities/trust-questions/:id/choices/:choiceId
+Remove a choice permanently. Platform admin only.
+
+---
 
 ### Events Consumed
 - None

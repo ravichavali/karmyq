@@ -61,6 +61,15 @@ export interface CommunityConfig {
   /** Whether joining the community counts as an interaction for trust */
   joining_counts_as_interaction: boolean;
 
+  // Feed Scoring Weights (7 signals, Sprint 43 v2 — normalized at query time)
+  feed_weight_skill_match?: number;
+  feed_weight_trust_distance?: number;
+  feed_weight_community_relevance?: number;
+  feed_weight_urgency?: number;
+  feed_weight_requester_trust?: number;
+  feed_weight_prior_interaction?: number;
+  feed_weight_recency?: number;
+
   // Metadata
   /** Name of the template this config was created from (optional) */
   template_source?: string;

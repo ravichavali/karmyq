@@ -51,6 +51,9 @@ router.get('/:id/config', async (req: Request, res: Response) => {
         feed_weight_trust_distance,
         feed_weight_community_relevance,
         feed_weight_urgency,
+        feed_weight_requester_trust,
+        feed_weight_prior_interaction,
+        feed_weight_recency,
         template_source,
         provider_services_enabled,
         provider_min_personal_trust_score,
@@ -78,6 +81,9 @@ router.get('/:id/config', async (req: Request, res: Response) => {
     config.feed_weight_trust_distance = parseFloat(config.feed_weight_trust_distance);
     config.feed_weight_community_relevance = parseFloat(config.feed_weight_community_relevance);
     config.feed_weight_urgency = parseFloat(config.feed_weight_urgency);
+    if (config.feed_weight_requester_trust != null) config.feed_weight_requester_trust = parseFloat(config.feed_weight_requester_trust);
+    if (config.feed_weight_prior_interaction != null) config.feed_weight_prior_interaction = parseFloat(config.feed_weight_prior_interaction);
+    if (config.feed_weight_recency != null) config.feed_weight_recency = parseFloat(config.feed_weight_recency);
 
     res.json({
       success: true,
@@ -158,6 +164,9 @@ router.put('/:id/config', async (req: Request, res: Response) => {
     existingConfig.feed_weight_trust_distance = parseFloat(existingConfig.feed_weight_trust_distance);
     existingConfig.feed_weight_community_relevance = parseFloat(existingConfig.feed_weight_community_relevance);
     existingConfig.feed_weight_urgency = parseFloat(existingConfig.feed_weight_urgency);
+    if (existingConfig.feed_weight_requester_trust != null) existingConfig.feed_weight_requester_trust = parseFloat(existingConfig.feed_weight_requester_trust);
+    if (existingConfig.feed_weight_prior_interaction != null) existingConfig.feed_weight_prior_interaction = parseFloat(existingConfig.feed_weight_prior_interaction);
+    if (existingConfig.feed_weight_recency != null) existingConfig.feed_weight_recency = parseFloat(existingConfig.feed_weight_recency);
 
     // Merge and validate
     const validation = mergeAndValidateConfig(existingConfig, configUpdates);
@@ -197,11 +206,14 @@ router.put('/:id/config', async (req: Request, res: Response) => {
          feed_weight_trust_distance = $19,
          feed_weight_community_relevance = $20,
          feed_weight_urgency = $21,
-         provider_services_enabled = $23,
-         provider_min_personal_trust_score = $24,
-         provider_services_list = $25,
+         provider_services_enabled = $22,
+         provider_min_personal_trust_score = $23,
+         provider_services_list = $24,
+         feed_weight_requester_trust = $25,
+         feed_weight_prior_interaction = $26,
+         feed_weight_recency = $27,
          updated_at = CURRENT_TIMESTAMP
-       WHERE community_id = $22
+       WHERE community_id = $28
        RETURNING *`,
       [
         mergedConfig.member_cap,
@@ -225,10 +237,13 @@ router.put('/:id/config', async (req: Request, res: Response) => {
         mergedConfig.feed_weight_trust_distance,
         mergedConfig.feed_weight_community_relevance,
         mergedConfig.feed_weight_urgency,
-        communityId,
         configUpdates.provider_services_enabled ?? existingConfig.provider_services_enabled,
         configUpdates.provider_min_personal_trust_score ?? existingConfig.provider_min_personal_trust_score,
         configUpdates.provider_services_list ?? existingConfig.provider_services_list,
+        mergedConfig.feed_weight_requester_trust ?? existingConfig.feed_weight_requester_trust,
+        mergedConfig.feed_weight_prior_interaction ?? existingConfig.feed_weight_prior_interaction,
+        mergedConfig.feed_weight_recency ?? existingConfig.feed_weight_recency,
+        communityId,
       ]
     );
 

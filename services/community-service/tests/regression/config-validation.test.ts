@@ -427,13 +427,13 @@ describe('Community Configuration Validation', () => {
     });
   });
 
-  describe('Feed Weight Validation (ADR-031)', () => {
-    it('should accept valid feed weights that sum to 1.0', () => {
+  describe('Feed Weight Validation (Sprint 43+45 — no sum constraint, normalized at query time)', () => {
+    it('should accept feed weights that do not sum to 1.0 (no sum constraint)', () => {
       const config = {
-        feed_weight_skill_match: 0.40,
-        feed_weight_trust_distance: 0.25,
+        feed_weight_skill_match: 0.50,
+        feed_weight_trust_distance: 0.30,
         feed_weight_community_relevance: 0.20,
-        feed_weight_urgency: 0.15,
+        feed_weight_urgency: 0.20, // Sum = 1.2 — allowed since Sprint 43
       };
 
       const result = validateCommunityConfig(config);
@@ -441,22 +441,20 @@ describe('Community Configuration Validation', () => {
       expect(result.errors).toHaveLength(0);
     });
 
-    it('should reject feed weights that do not sum to 1.0', () => {
+    it('should accept all 7 feed weights with any values in 0-1 range', () => {
       const config = {
-        feed_weight_skill_match: 0.50,
-        feed_weight_trust_distance: 0.30,
-        feed_weight_community_relevance: 0.20,
-        feed_weight_urgency: 0.20, // Sum = 1.2
+        feed_weight_skill_match: 0.25,
+        feed_weight_trust_distance: 0.20,
+        feed_weight_community_relevance: 0.15,
+        feed_weight_urgency: 0.10,
+        feed_weight_requester_trust: 0.15,
+        feed_weight_prior_interaction: 0.10,
+        feed_weight_recency: 0.05,
       };
 
       const result = validateCommunityConfig(config);
-      expect(result.isValid).toBe(false);
-      expect(result.errors).toContainEqual(
-        expect.objectContaining({
-          field: 'feed_weights',
-          message: expect.stringContaining('must sum to 1.0'),
-        })
-      );
+      expect(result.isValid).toBe(true);
+      expect(result.errors).toHaveLength(0);
     });
 
     it('should reject individual feed weight outside 0.0-1.0', () => {

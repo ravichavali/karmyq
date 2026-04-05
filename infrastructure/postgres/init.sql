@@ -1085,11 +1085,14 @@ CREATE TABLE communities.community_configs (
     join_approval_required BOOLEAN DEFAULT TRUE,
     joining_counts_as_interaction BOOLEAN DEFAULT TRUE,
 
-    -- Feed Scoring Weights (ADR-031: must sum to 1.0)
-    feed_weight_skill_match DECIMAL(3,2) DEFAULT 0.40 CHECK (feed_weight_skill_match BETWEEN 0.0 AND 1.0),
-    feed_weight_trust_distance DECIMAL(3,2) DEFAULT 0.25 CHECK (feed_weight_trust_distance BETWEEN 0.0 AND 1.0),
-    feed_weight_community_relevance DECIMAL(3,2) DEFAULT 0.20 CHECK (feed_weight_community_relevance BETWEEN 0.0 AND 1.0),
-    feed_weight_urgency DECIMAL(3,2) DEFAULT 0.15 CHECK (feed_weight_urgency BETWEEN 0.0 AND 1.0),
+    -- Feed Scoring Weights (7 signals; normalized at query time — no sum constraint)
+    feed_weight_skill_match DECIMAL(3,2) DEFAULT 0.25 CHECK (feed_weight_skill_match BETWEEN 0.0 AND 1.0),
+    feed_weight_trust_distance DECIMAL(3,2) DEFAULT 0.20 CHECK (feed_weight_trust_distance BETWEEN 0.0 AND 1.0),
+    feed_weight_community_relevance DECIMAL(3,2) DEFAULT 0.15 CHECK (feed_weight_community_relevance BETWEEN 0.0 AND 1.0),
+    feed_weight_urgency DECIMAL(3,2) DEFAULT 0.10 CHECK (feed_weight_urgency BETWEEN 0.0 AND 1.0),
+    feed_weight_requester_trust   DECIMAL(3,2) NOT NULL DEFAULT 0.15,
+    feed_weight_prior_interaction DECIMAL(3,2) NOT NULL DEFAULT 0.10,
+    feed_weight_recency           DECIMAL(3,2) NOT NULL DEFAULT 0.05,
 
     -- Individual Trust Evolution (ADR-046)
     community_evolution_enabled BOOLEAN DEFAULT TRUE,
@@ -1103,14 +1106,34 @@ CREATE TABLE communities.community_configs (
     -- Validation constraint: trust weights must sum to 1.0
     CONSTRAINT trust_weights_sum CHECK (
         ABS((trust_depth_weight + trust_breadth_weight) - 1.0) < 0.01
-    ),
-    -- Validation constraint: feed weights must sum to 1.0
-    CONSTRAINT feed_weights_sum CHECK (
-        ABS((feed_weight_skill_match + feed_weight_trust_distance + feed_weight_community_relevance + feed_weight_urgency) - 1.0) < 0.01
     )
 );
 
 COMMENT ON TABLE communities.community_configs IS 'Comprehensive configuration for community trust, karma, and coordination mechanics';
+
+-- Trust Questions Table (Sprint 45: externalized questionnaire)
+CREATE TABLE IF NOT EXISTS communities.trust_questions (
+    id            UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    slug          VARCHAR(60) NOT NULL UNIQUE,
+    question_text TEXT NOT NULL,
+    subtext       TEXT,
+    display_order INTEGER NOT NULL DEFAULT 0,
+    active        BOOLEAN NOT NULL DEFAULT true,
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Trust Question Choices Table
+CREATE TABLE IF NOT EXISTS communities.trust_question_choices (
+    id            UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    question_id   UUID NOT NULL REFERENCES communities.trust_questions(id) ON DELETE CASCADE,
+    value         VARCHAR(60) NOT NULL,
+    label         TEXT NOT NULL,
+    description   TEXT,
+    config_delta  JSONB NOT NULL DEFAULT '{}',
+    display_order INTEGER NOT NULL DEFAULT 0,
+    UNIQUE(question_id, value)
+);
 
 -- Config Templates Table
 CREATE TABLE communities.config_templates (

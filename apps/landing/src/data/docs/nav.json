@@ -79,10 +79,6 @@
         {
           "label": "Provider Mode",
           "href": "/docs/concepts/provider-mode"
-        },
-        {
-          "label": "Observability & Logging",
-          "href": "/docs/concepts/observability-logging"
         }
       ]
     },
@@ -227,6 +223,10 @@
         {
           "label": "Community Trust Model Questionnaire",
           "href": "/docs/concepts/adr-044-community-trust-questionnaire"
+        },
+        {
+          "label": "Trust Questions",
+          "href": "/docs/concepts/trust-questions"
         },
         {
           "label": "Network Cohesion Score",
