@@ -51,10 +51,10 @@ app.get('/health', (req: any, res: Response) => {
 // IMPORTANT: Register routes in order from most specific to least specific
 // Routes with optionalAuth must come FIRST to avoid being blocked by authMiddleware
 
-// Trust Questions routes — MUST come before configRouter (config router has catch-all /:id param)
+// Trust Questions routes — mount at full path so router.get('/') → GET /communities/trust-questions
 // GET is public; admin CRUD uses auth checks inside the route handlers
 app.use(
-  '/communities',
+  '/communities/trust-questions',
   optionalAuthMiddleware,
   dbContextMiddleware(pool),
   trustQuestionsRouter  // Trust question routes: /communities/trust-questions[/:id[/choices[/:choiceId]]]
