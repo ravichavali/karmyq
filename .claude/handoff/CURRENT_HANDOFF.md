@@ -1,33 +1,25 @@
-# SPRINT 46 — Error Visibility & Committed Match State
+# SPRINT 47 — Group Communities
 
 ## Handoff Document
 
-**Date**: 2026-04-06
-**Current Version**: v9.11.0 → v9.12.0
-**Status**: Plan approved. Ready to execute.
+**Date**: 2026-04-07
+**Current Version**: v9.12.0 → v9.13.0 (Sprint 47 in progress)
+**Status**: Spec + plan written. Ready to execute.
 
 ---
 
 ## Quick Start
 
 1. Read this handoff
-2. Check out branch: `git checkout -b feature/sprint-46-error-visibility`
-3. Open plan: `docs/superpowers/plans/2026-04-06-sprint-46-error-visibility.md`
+2. Check out branch: `git checkout -b feature/sprint-47-group-communities`
+3. Open plan: `docs/superpowers/plans/2026-04-07-sprint-47-group-communities.md`
 4. Run: `/execute-plan` (uses superpowers:subagent-driven-development)
 
 ---
 
-## Sprint 46 Goal
+## Sprint 47 Goal
 
-Make errors observable in Grafana (structured `error_type` field, `X-Request-Id` response header, provisioned error dashboard) and fix CommitmentsTab showing stale "My Open Requests" after a match is accepted.
-
----
-
-## Sprint 45 — COMPLETE ✅
-
-Two commits shipped:
-- `52db2fc` — feat(trust-config): externalize questionnaire to DB, expose all 7 feed weight sliders
-- `824b5e2` — fix(community-service): mount trust-questions router at full path
+Introduce **Group Communities** as a first-class community type. By end of sprint, a user can create a group community (sports team, fitness group, hobby club), schedule an activity with a date/time/location/participant cap, and other members can join or leave. Karma/trust is stubbed (event emitted, no processing). Simulation extended with group community templates and activity workflows.
 
 ---
 
@@ -35,64 +27,81 @@ Two commits shipped:
 
 | Sprint | Theme | Status |
 |--------|-------|--------|
-| Sprint 43 | Feed Ranking v2 + Logging | ✅ Complete |
-| Sprint 44 | Tech Debt + Architecture Review | ✅ Complete |
 | Sprint 45 | Trust Configuration Externalization | ✅ Complete |
-| **Sprint 46** | **Error Visibility + Committed Match State** | 🟡 Ready to execute |
-| Sprint 47 | Group Communities / Onboarding | ⬜ Future |
-
----
-
-## Sprint 46 — What Gets Built
-
-### Error Visibility
-- **`packages/shared/utils/logger.ts`**: Add `error_type: 'user_error' | 'system_error'` to `LogContext`/`LogEntry`. Set `X-Request-Id` response header immediately after generating `requestId` (before `next()`). Log `error_type` in `res.on('finish')` based on status code.
-- **`apps/frontend/src/pages/_app.tsx`**: Class-based `ErrorBoundary` wrapping `<Component>`. Shows friendly message + `refId` for 5xx errors.
-- **`apps/frontend/src/lib/api.ts`**: Axios response interceptor captures `x-request-id` header from 5xx responses, attaches as `error.refId`.
-- **`infrastructure/observability/grafana/provisioning/dashboards/json/error-visibility.json`**: New Grafana dashboard — 5 Loki panels (error rate by service, rate over time, recent system/user errors, errors with request IDs). Auto-provisioned on next Grafana restart.
-
-### CommitmentsTab Fix
-- **`apps/frontend/src/components/CommitmentsTab.tsx`**: In `handleAccept` (requester-side), after match acceptance, remove the accepted request from `myOpenRequests` state. The backend already updates request status to `matched` correctly. This is a frontend state stale update only.
-
-### Carryover Cleanup
-- **`apps/frontend/tests/tdd/CommunityTrustQuestionnaire.test.tsx`**: Fix broken imports from Sprint 45 (`QUESTIONS`/`answersToConfig` from removed `trust-model.ts` exports).
-
-### Docs
-- ADR-032: error visibility convention
-- ADR-015: status → Implemented
-- Landing page: `observability.json` concept + `adr-032-error-visibility.json`
-
----
-
-## Critical Implementation Notes
-
-1. **`X-Request-Id` header timing**: set `res.setHeader('X-Request-Id', requestId)` BEFORE calling `next()` in `requestLoggingMiddleware` — NOT inside `res.on('finish')` (too late).
-
-2. **`error_type` is a JSON body field, not a Promtail label**: write it as a normal `LogContext` field; LogQL queries it with `| json | error_type="system_error"`. No Promtail config changes needed.
-
-3. **CommitmentsTab fix is requester-side only**: `handleAccept` with `side === 'requested'` — use `requested.find(m => m.id === matchId)?.request_id` to locate the request to filter from `myOpenRequests`.
-
-4. **Grafana dashboard JSON**: must include `uid: "karmyq-error-visibility"`, `schemaVersion: 38`. Loki datasource: `{ "type": "loki", "uid": "loki" }`. Validate with `node -e "JSON.parse(...)"` before committing.
-
-5. **No DB migration needed**: no schema changes in this sprint.
-
-6. **Stale TDD test (`CommunityTrustQuestionnaire.test.tsx`)**: imports `QUESTIONS` and `answersToConfig` from `@/lib/trust-model` — both removed in Sprint 45. Fix or rewrite in Task 1.
+| Sprint 46 | Error Visibility + Committed Match State | ✅ Complete |
+| **Sprint 47** | **Group Communities — Data Model + Activity Scheduling** | ⬜ Ready to execute |
+| Sprint 48 | Onboarding — First-Run UX + Community Type Selection | Upcoming |
+| Sprint 49 | Karma + Trust for Group Activities | Upcoming |
 
 ---
 
 ## Spec & Plan
 
-- Spec: `docs/superpowers/specs/2026-04-06-sprint-46-error-visibility-design.md`
-- Plan: `docs/superpowers/plans/2026-04-06-sprint-46-error-visibility.md`
+- **Design spec**: `docs/superpowers/specs/2026-04-07-sprint-47-group-communities-design.md`
+- **Implementation plan**: `docs/superpowers/plans/2026-04-07-sprint-47-group-communities.md`
+
+---
+
+## ⚠️ Critical Implementation Notes
+
+1. **`community_type` defaults to `'mutual_aid'`** — all existing communities get this default via migration. No behavior change.
+2. **Activity endpoints are member-scoped** — check `communities.members` for the calling user before any activity operation.
+3. **`current_participants` is a denormalized counter** — increment/decrement inside the same transaction as participant insert/delete. Never recalculate from `COUNT(*)` on read.
+4. **Admin-only activity creation** — check `role = 'admin'` in `communities.members`.
+5. **Activities router mount order** — mount `/communities/:communityId/activities` BEFORE the generic `/communities/:id` route in `index.ts`.
+6. **`scheduled_at` is TIMESTAMPTZ** — store UTC, display in browser local time. No server-side conversion.
+7. **Karma this sprint = event emit only** — `publishEvent('activity_joined', {...})` is the complete karma implementation. No reputation DB writes.
+8. **Simulation: check `community_type` before scheduling** — `schedule-activity-workflow` must call `GET /communities/:id` and verify `community_type === 'group'`.
+
+---
+
+## Task Summary (12 tasks)
+
+| # | Task | Key files |
+|---|------|-----------|
+| 1 | Feature branch + DB migration | `migrations/20260407-group-communities.sql`, `init.sql` |
+| 2 | Community service — expose community_type in GET/POST | `routes/communities.ts` |
+| 3 | Community service — activities router | `routes/activities.ts`, `index.ts` |
+| 4 | Frontend — community type toggle in creation modal | `CreateCommunityModal.tsx` |
+| 5 | Frontend — Activities tab + components | `ActivitiesTab.tsx`, `ActivityCard.tsx`, `CreateActivityModal.tsx`, `communities/[id].tsx` |
+| 6 | Simulation — GROUP_COMMUNITIES templates + API client | `realistic-data.ts`, `api-client.ts` |
+| 7 | Simulation — schedule/join workflows + profile weights | `schedule-activity-workflow.ts`, `join-activity-workflow.ts`, `profiles/index.ts`, `simulator.ts` |
+| 8 | ADR-050 + user guide + landing page docs | `ADR-050-group-communities.md`, `docs/concepts/group-communities.md`, `generate-docs.ts` |
+| 9 | CONTEXT.md + registry.json | `community-service/CONTEXT.md`, `registry.json`, `simulation-service/CONTEXT.md` |
+| 10 | TDD integration test | `tests/tdd/group-communities.test.ts` |
+| 11 | Type check + pre-push verification | `tsc --noEmit`, `npm test`, `feedback:check` |
+| 12 | Merge + Deploy + SSH migration | `git push`, GitHub Actions, `psql migration` |
+
+---
+
+## Sprint 46 — COMPLETE ✅
+
+Commit: `b1760cb` — pushed to master, GitHub Actions deployed.
+
+### What was built
+
+**Error Visibility**
+- `packages/shared/utils/logger.ts`: `error_type: 'user_error' | 'system_error'` discriminator + `X-Request-Id` response header
+- `apps/frontend/src/pages/_app.tsx`: ErrorBoundary with `refId` state; renders reference string for 5xx
+- `apps/frontend/src/lib/api.ts`: `errorInterceptor` captures `x-request-id` and attaches as `error.refId`
+- `infrastructure/observability/grafana/provisioning/dashboards/json/error-visibility.json`: New Grafana dashboard (5 Loki panels)
+
+**CommitmentsTab Fix**
+- `apps/frontend/src/components/CommitmentsTab.tsx`: `handleAccept` removes accepted request from `myOpenRequests` state
+
+**ADR + Docs**
+- `docs/adr/ADR-049-error-visibility.md`: New ADR (next available number was 049)
+- `docs/adr/ADR-015-observability-stack.md`: Status → Implemented
+- `docs/concepts/observability.md`: New concept page
 
 ---
 
 ## Architecture Gotchas (Persistent)
 
-- **Router mount paths**: always mount at the full path (e.g. `/communities/trust-questions`) when router uses `router.get('/')`.
-- **`apps/landing/src/data/docs/`** is gitignored — generated at build time. Edit sources in `docs/concepts/`, `docs/guides/`, or `scripts/generate-docs.ts`.
+- **Landing page docs source**: edit `docs/concepts/*.md` + `scripts/generate-docs.ts`. Run `cd apps/landing && npm run generate-docs` to regenerate. Never hand-edit `apps/landing/src/data/docs/` directly (gitignored/generated).
+- **ADR numbering**: highest existing ADR is 049. Next is **050** (used for Group Communities).
+- **Router mount paths**: always mount at full path (e.g. `/communities/trust-questions`) when router uses `router.get('/')`.
 - **JWT field** is `communities` not `communityMemberships` — always `user.communities ?? []`.
 - **Feed weights**: no sum constraint; normalized at query time in feed-service.
-- **PUT /config param order**: provider=$22–$24, v2 feed weights=$25–$27, communityId=$28.
 - **trust-questions route**: must be registered BEFORE the generic config route in `community-service/src/index.ts`.
-- **`answersToConfig`**: merges config_deltas in `display_order` ASC; Q6 (order 50) overrides Q2's `request_approval_required`.
+- **Pre-existing TDD failures**: `sprint-39-provider-ux` (7 tests fail) and `sprint-43-feed-ranking` (crashes). These are NOT regressions — do not attempt to fix them.
