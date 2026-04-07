@@ -27,12 +27,14 @@ export default function ActivitiesTab({ communityId, isAdmin }: ActivitiesTabPro
   const [loading, setLoading] = useState(true)
   const [joiningId, setJoiningId] = useState<string | null>(null)
   const [showCreateModal, setShowCreateModal] = useState(false)
+  const [joinError, setJoinError] = useState<string | null>(null)
 
   const fetchActivities = useCallback(async () => {
     setLoading(true)
     try {
       const res = await communityService.getActivities(communityId)
-      setActivities(res.data?.data ?? res.data ?? [])
+      const raw = res.data?.data ?? res.data ?? []
+      setActivities(Array.isArray(raw) ? raw : [])
     } catch {
       setActivities([])
     } finally {
@@ -46,9 +48,12 @@ export default function ActivitiesTab({ communityId, isAdmin }: ActivitiesTabPro
 
   async function handleJoin(activityId: string) {
     setJoiningId(activityId)
+    setJoinError(null)
     try {
       await communityService.joinActivity(communityId, activityId)
       await fetchActivities()
+    } catch (err: any) {
+      setJoinError(err?.response?.data?.message ?? 'Failed to join activity')
     } finally {
       setJoiningId(null)
     }
@@ -56,6 +61,7 @@ export default function ActivitiesTab({ communityId, isAdmin }: ActivitiesTabPro
 
   async function handleLeave(activityId: string) {
     setJoiningId(activityId)
+    setJoinError(null)
     try {
       await communityService.leaveActivity(communityId, activityId)
       await fetchActivities()
@@ -78,6 +84,13 @@ export default function ActivitiesTab({ communityId, isAdmin }: ActivitiesTabPro
           </button>
         )}
       </div>
+
+      {/* Join/Leave error */}
+      {joinError && (
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4 text-sm">
+          {joinError}
+        </div>
+      )}
 
       {/* List */}
       {loading ? (
