@@ -349,6 +349,16 @@ export const communityService = {
 
   getThrivingCommunities: (minMembers = 5) =>
     communityApi.get('/communities/configs/public', { params: { min_members: minMembers } }),
+
+  // Activities
+  getActivities: (communityId: string) =>
+    communityApi.get(`/communities/${communityId}/activities`),
+  joinActivity: (communityId: string, activityId: string) =>
+    communityApi.post(`/communities/${communityId}/activities/${activityId}/join`),
+  leaveActivity: (communityId: string, activityId: string) =>
+    communityApi.delete(`/communities/${communityId}/activities/${activityId}/leave`),
+  createActivity: (communityId: string, data: object) =>
+    communityApi.post(`/communities/${communityId}/activities`, data),
 }
 
 // Admin Schema Management (Server-Driven UI - Phase 2)

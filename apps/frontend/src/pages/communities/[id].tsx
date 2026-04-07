@@ -19,6 +19,7 @@ import CommunityLinks from '@/components/community/CommunityLinks'
 import CollectiveCardRich from '@/components/providers/CollectiveCardRich'
 import CollectiveDiscoveryPanel from '@/components/providers/CollectiveDiscoveryPanel'
 import { isBoostActive } from '@/utils/boost'
+import ActivitiesTab from '@/components/ActivitiesTab'
 
 interface Member {
   id: string
@@ -64,9 +65,10 @@ interface Community {
   creator_name: string
   status: string
   members: Member[]
+  community_type?: string
 }
 
-type ValidTab = 'overview' | 'people' | 'requests' | 'providers' | 'settings';
+type ValidTab = 'overview' | 'people' | 'requests' | 'providers' | 'settings' | 'activities';
 
 const OLD_TAB_MAP: Record<string, ValidTab> = {
   manage: 'people',
@@ -80,7 +82,7 @@ const OLD_TAB_MAP: Record<string, ValidTab> = {
   links: 'settings',
 };
 
-const VALID_TABS: ValidTab[] = ['overview', 'people', 'requests', 'providers', 'settings'];
+const VALID_TABS: ValidTab[] = ['overview', 'people', 'requests', 'providers', 'settings', 'activities'];
 
 
 function CommunityTrustEvolutionSection({ communityId }: { communityId: string }) {
@@ -714,6 +716,19 @@ export default function CommunityDetailPage() {
                     ) : tab}
                   </button>
                 ))}
+
+                {community?.community_type === 'group' && (
+                  <button
+                    onClick={() => setActiveTab('activities')}
+                    className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm ${
+                      activeTab === 'activities'
+                        ? 'border-primary text-primary'
+                        : 'border-transparent text-text-muted hover:text-text hover:border-border'
+                    }`}
+                  >
+                    Activities
+                  </button>
+                )}
 
                 {isAdminOrMod && (
                   <>
@@ -1972,6 +1987,14 @@ export default function CommunityDetailPage() {
                     </div>
                   )}
                 </div>
+              )}
+
+              {/* Activities Tab */}
+              {activeTab === 'activities' && community?.community_type === 'group' && (
+                <ActivitiesTab
+                  communityId={community.id}
+                  isAdmin={isAdmin}
+                />
               )}
             </div>
           </div>
