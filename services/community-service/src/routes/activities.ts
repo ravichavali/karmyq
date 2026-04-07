@@ -89,6 +89,14 @@ router.post('/', async (req: any, res: Response) => {
       return sendValidationError(res, `activity_type must be one of: ${validActivityTypes.join(', ')}`, { requestId: req.id });
     }
 
+    const scheduledDate = new Date(scheduled_at);
+    if (isNaN(scheduledDate.getTime())) {
+      return sendValidationError(res, 'scheduled_at must be a valid ISO 8601 date', { requestId: req.id });
+    }
+    if (scheduledDate <= new Date()) {
+      return sendValidationError(res, 'scheduled_at must be in the future', { requestId: req.id });
+    }
+
     const result = await query(
       `INSERT INTO communities.activities
          (community_id, created_by, title, description, activity_type, scheduled_at, duration_minutes, location, max_participants)
@@ -128,7 +136,7 @@ router.get('/:activityId', async (req: any, res: Response) => {
     );
 
     if (activityResult.rowCount === 0) {
-      return sendNotFound(res, 'Activity not found', { requestId: req.id });
+      return sendNotFound(res, 'Activity', { requestId: req.id });
     }
 
     const participantsResult = await query(
@@ -165,16 +173,16 @@ router.post('/:activityId/join', async (req: any, res: Response) => {
       return sendForbidden(res, 'You are not a member of this community', { requestId: req.id });
     }
 
-    // Fetch activity to check capacity
+    // Fetch activity to verify it exists, belongs to this community, and is open
     const activityResult = await query(
-      `SELECT id, activity_type, scheduled_at, max_participants, current_participants, status, community_id
+      `SELECT id, activity_type, scheduled_at, max_participants, current_participants, status
        FROM communities.activities
        WHERE id = $1 AND community_id = $2`,
       [activityId, communityId]
     );
 
     if (activityResult.rowCount === 0) {
-      return sendNotFound(res, 'Activity not found', { requestId: req.id });
+      return sendNotFound(res, 'Activity', { requestId: req.id });
     }
 
     const activity = activityResult.rows[0];
@@ -183,11 +191,7 @@ router.post('/:activityId/join', async (req: any, res: Response) => {
       return sendValidationError(res, 'Activity is not open for joining', { requestId: req.id });
     }
 
-    if (activity.max_participants !== null && activity.current_participants >= activity.max_participants) {
-      return res.status(400).json({ success: false, message: 'Activity is full', error: 'ACTIVITY_FULL', requestId: req.id });
-    }
-
-    // Insert participant (ON CONFLICT DO NOTHING for idempotent join)
+    // Step 1: Try to insert participant — ON CONFLICT DO NOTHING makes this idempotent
     const insertResult = await query(
       `INSERT INTO communities.activity_participants (activity_id, user_id)
        VALUES ($1, $2)
@@ -195,32 +199,41 @@ router.post('/:activityId/join', async (req: any, res: Response) => {
       [activityId, userId]
     );
 
-    // Only increment counter if a new row was inserted
-    if (insertResult.rowCount && insertResult.rowCount > 0) {
-      await query(
-        `UPDATE communities.activities
-         SET current_participants = current_participants + 1
-         WHERE id = $1`,
-        [activityId]
-      );
-
-      // Emit event (karma this sprint = event emit only, no DB writes)
-      await publishEvent('activity_joined', {
-        activityId,
-        userId,
-        communityId,
-        activityType: activity.activity_type,
-        scheduledAt: activity.scheduled_at,
-      });
+    if (!insertResult.rowCount || insertResult.rowCount === 0) {
+      // Row already existed — user has already joined
+      return res.status(409).json({ success: false, message: 'Already joined this activity', error: 'ALREADY_JOINED' });
     }
 
-    // Return updated activity
-    const updatedResult = await query(
-      `SELECT * FROM communities.activities WHERE id = $1`,
+    // Step 2: Increment counter WITH capacity guard — prevents race condition where two
+    // concurrent joins both passed the status check but only one slot remains
+    const updateResult = await query(
+      `UPDATE communities.activities
+       SET current_participants = current_participants + 1
+       WHERE id = $1
+         AND (max_participants IS NULL OR current_participants < max_participants)
+       RETURNING *`,
       [activityId]
     );
 
-    sendSuccess(res, { activity: updatedResult.rows[0] }, HTTP_STATUS.OK, { requestId: req.id });
+    if (!updateResult.rowCount || updateResult.rowCount === 0) {
+      // Capacity was reached between our insert and this update — undo the insert
+      await query(
+        `DELETE FROM communities.activity_participants WHERE activity_id = $1 AND user_id = $2`,
+        [activityId, userId]
+      );
+      return sendValidationError(res, 'Activity is full', { requestId: req.id });
+    }
+
+    // Emit event (karma this sprint = event emit only, no DB writes)
+    await publishEvent('activity_joined', {
+      activityId,
+      userId,
+      communityId,
+      activityType: activity.activity_type,
+      scheduledAt: activity.scheduled_at,
+    });
+
+    sendSuccess(res, { activity: updateResult.rows[0] }, HTTP_STATUS.OK, { requestId: req.id });
   } catch (error: any) {
     (req as any).logger?.error('Error joining activity', error instanceof Error ? error : new Error(String(error)), { service: 'community-service', endpoint: 'POST /activities/:activityId/join' });
     sendInternalError(res, 'Failed to join activity', error instanceof Error ? error : undefined, { requestId: req.id });

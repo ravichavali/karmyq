@@ -125,6 +125,7 @@ app.use(
 app.use(
   '/communities/:communityId/activities',
   authMiddleware,
+  optionalTenantMiddleware,
   dbContextMiddleware(pool),
   activitiesRouter
 );
