@@ -50,6 +50,7 @@ router.get('/', async (req: any, res: Response) => {
             c.id, c.name, c.description, c.location, c.category,
             c.max_members, c.current_members, c.access_type,
             c.creator_id, c.status, c.created_at, c.updated_at,
+            c.community_type,
             u.name as creator_name,
             COALESCE(ls.inner_circle, 0) as inner_circle_count,
             COALESCE(ls.active_community, 0) as active_community_count,
@@ -77,6 +78,7 @@ router.get('/', async (req: any, res: Response) => {
               c.id, c.name, c.description, c.location, c.category,
               c.max_members, c.current_members, c.access_type,
               c.creator_id, c.status, c.created_at, c.updated_at,
+              c.community_type,
               u.name as creator_name,
               COALESCE(ls.inner_circle, 0) as inner_circle_count,
               COALESCE(ls.active_community, 0) as active_community_count,
@@ -120,6 +122,7 @@ router.get('/', async (req: any, res: Response) => {
             c.id, c.name, c.description, c.location, c.category,
             c.max_members, c.current_members, c.access_type,
             c.creator_id, c.status, c.created_at, c.updated_at,
+            c.community_type,
             u.name as creator_name,
             COALESCE(ls.inner_circle, 0) as inner_circle_count,
             COALESCE(ls.active_community, 0) as active_community_count,
@@ -194,6 +197,7 @@ router.get('/', async (req: any, res: Response) => {
         c.id, c.name, c.description, c.location, c.category,
         c.max_members, c.current_members, c.access_type,
         c.creator_id, c.status, c.created_at, c.updated_at,
+        c.community_type,
         u.name as creator_name,
         COALESCE(ls.inner_circle, 0) as inner_circle_count,
         COALESCE(ls.active_community, 0) as active_community_count,
@@ -239,6 +243,7 @@ router.get('/my/communities', async (req: Request, res: Response) => {
         c.id, c.name, c.description, c.location, c.category,
         c.max_members, c.current_members, c.access_type,
         c.creator_id, c.status, c.created_at, c.updated_at,
+        c.community_type,
         u.name as creator_name,
         m.role, m.joined_at
       FROM communities.members m
@@ -289,6 +294,7 @@ router.get('/:id', async (req: Request, res: Response) => {
         c.id, c.name, c.description, c.location, c.category,
         c.max_members, c.current_members, c.access_type,
         c.creator_id, c.status, c.created_at, c.updated_at,
+        c.community_type,
         u.name as creator_name
       FROM communities.communities c
       LEFT JOIN auth.users u ON c.creator_id = u.id
@@ -326,7 +332,7 @@ router.get('/:id', async (req: Request, res: Response) => {
 // SECURITY: creator_id comes from verified JWT token, not from request body
 router.post('/', async (req: Request, res: Response) => {
   try {
-    const { name, description, location, category, max_members = 150, access_type = 'public', config } = req.body;
+    const { name, description, location, category, max_members = 150, access_type = 'public', config, community_type = 'mutual_aid' } = req.body;
     // SECURITY: Always use verified userId from JWT, never trust client-provided creator_id
     const creator_id = (req as any).user?.userId;
 
@@ -350,6 +356,11 @@ router.post('/', async (req: Request, res: Response) => {
     // Validate access_type
     if (access_type && !['public', 'private'].includes(access_type)) {
       return sendValidationError(res, 'Access type must be either "public" or "private"', { requestId: (req as any).id });
+    }
+
+    // Validate community_type
+    if (community_type && !['mutual_aid', 'group'].includes(community_type)) {
+      return sendValidationError(res, 'community_type must be "mutual_aid" or "group"', { requestId: (req as any).id });
     }
 
     // Determine configuration to use
@@ -413,10 +424,10 @@ router.post('/', async (req: Request, res: Response) => {
     // Create community
     const result = await query(
       `INSERT INTO communities.communities
-        (name, description, location, category, max_members, current_members, access_type, creator_id, status)
-      VALUES ($1, $2, $3, $4, $5, 1, $6, $7, 'active')
+        (name, description, location, category, max_members, current_members, access_type, creator_id, community_type, status)
+      VALUES ($1, $2, $3, $4, $5, 1, $6, $7, $8, 'active')
       RETURNING *`,
-      [name, description, location, category, max_members, access_type, creator_id]
+      [name, description, location, category, max_members, access_type, creator_id, community_type]
     );
 
     const community = result.rows[0];
