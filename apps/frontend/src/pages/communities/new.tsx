@@ -41,6 +41,7 @@ export default function NewCommunityPage() {
     category: '',
     max_members: 150,
     access_type: 'public' as 'public' | 'private',
+    community_type: 'mutual_aid' as 'mutual_aid' | 'group',
   })
   const [selectedTemplate, setSelectedTemplate] = useState<ConfigTemplate | null>(null)
   // Initialize with default config to allow customization even without template
@@ -178,6 +179,7 @@ export default function NewCommunityPage() {
         creator_id: user.id,
         max_members: formData.max_members,
         access_type: formData.access_type,
+        community_type: formData.community_type,
       }
 
       // Include config if template selected or custom config exists
@@ -317,6 +319,42 @@ export default function NewCommunityPage() {
                       className="w-full px-4 py-2 border border-border rounded focus:ring-2 focus:ring-primary focus:border-transparent"
                       placeholder="e.g., Downtown Neighbors"
                     />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-text-muted mb-2">
+                      Community Type
+                    </label>
+                    <div className="grid grid-cols-2 gap-3">
+                      <label className={`flex items-start p-3 border rounded cursor-pointer ${formData.community_type === 'mutual_aid' ? 'border-primary bg-primary-light' : 'border-border hover:border-primary'}`}>
+                        <input
+                          type="radio"
+                          name="community_type"
+                          value="mutual_aid"
+                          checked={formData.community_type === 'mutual_aid'}
+                          onChange={() => setFormData({ ...formData, community_type: 'mutual_aid' })}
+                          className="mt-0.5 mr-2"
+                        />
+                        <div>
+                          <div className="font-medium text-sm text-text">Mutual Aid</div>
+                          <div className="text-xs text-text-muted mt-0.5">Help neighbors with everyday requests</div>
+                        </div>
+                      </label>
+                      <label className={`flex items-start p-3 border rounded cursor-pointer ${formData.community_type === 'group' ? 'border-primary bg-primary-light' : 'border-border hover:border-primary'}`}>
+                        <input
+                          type="radio"
+                          name="community_type"
+                          value="group"
+                          checked={formData.community_type === 'group'}
+                          onChange={() => setFormData({ ...formData, community_type: 'group' })}
+                          className="mt-0.5 mr-2"
+                        />
+                        <div>
+                          <div className="font-medium text-sm text-text">Group</div>
+                          <div className="text-xs text-text-muted mt-0.5">Coordinate activities, events, and meetups</div>
+                        </div>
+                      </label>
+                    </div>
                   </div>
 
                   <div>
