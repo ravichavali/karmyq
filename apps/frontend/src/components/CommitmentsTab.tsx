@@ -212,13 +212,17 @@ export default function CommitmentsTab({ onDibsLoaded }: CommitmentsTabProps = {
 
       await requestService.acceptMatch(matchId, currentUser.id)
 
-      if (side === 'helping') {
-        setHelping((prev) =>
-          prev.map((m) => m.id === matchId ? { ...m, status: 'matched' } : m)
+      if (side === 'requested') {
+        const acceptedMatch = requested.find((m) => m.id === matchId)
+        if (acceptedMatch?.request_id) {
+          setMyOpenRequests((prev) => prev.filter((r) => r.id !== acceptedMatch.request_id))
+        }
+        setRequested((prev) =>
+          prev.map((m) => (m.id === matchId ? { ...m, status: 'matched' } : m))
         )
       } else {
-        setRequested((prev) =>
-          prev.map((m) => m.id === matchId ? { ...m, status: 'matched' } : m)
+        setHelping((prev) =>
+          prev.map((m) => (m.id === matchId ? { ...m, status: 'matched' } : m))
         )
       }
     } catch (err: any) {

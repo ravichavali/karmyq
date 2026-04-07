@@ -116,7 +116,7 @@
       "slug": "adr-015-observability-stack",
       "number": "015",
       "title": "ADR-015: Observability Stack (Grafana/Loki/Prometheus)",
-      "status": "accepted",
+      "status": "implemented",
       "description": "**Date**: 2025-12-29",
       "filename": "ADR-015-observability-stack.md"
     },
@@ -367,6 +367,14 @@
       "status": "implemented",
       "description": "**Status**: Implemented",
       "filename": "ADR-048-feed-ranking-v2.md"
+    },
+    {
+      "slug": "adr-049-error-visibility",
+      "number": "049",
+      "title": "ADR-049: Error Visibility — `error_type` Discriminator and `X-Request-Id` Convention",
+      "status": "implemented",
+      "description": "**Date**: 2026-04-06",
+      "filename": "ADR-049-error-visibility.md"
     }
   ]
 }

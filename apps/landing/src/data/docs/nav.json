@@ -79,6 +79,14 @@
         {
           "label": "Provider Mode",
           "href": "/docs/concepts/provider-mode"
+        },
+        {
+          "label": "Trust Questions",
+          "href": "/docs/concepts/trust-questions"
+        },
+        {
+          "label": "Error Observability",
+          "href": "/docs/concepts/observability"
         }
       ]
     },
@@ -225,10 +233,6 @@
           "href": "/docs/concepts/adr-044-community-trust-questionnaire"
         },
         {
-          "label": "Trust Questions",
-          "href": "/docs/concepts/trust-questions"
-        },
-        {
           "label": "Network Cohesion Score",
           "href": "/docs/concepts/adr-045-network-cohesion-score"
         },
@@ -338,6 +342,10 @@
         {
           "label": "Observability Stack (Grafana/Loki/Prometheus)",
           "href": "/docs/concepts/adr-015-observability-stack"
+        },
+        {
+          "label": "Error Visibility — `error_type` Discriminator and `X-Request-Id` Convention",
+          "href": "/docs/concepts/adr-049-error-visibility"
         },
         {
           "label": "Natural Language Parsing for Location Input",

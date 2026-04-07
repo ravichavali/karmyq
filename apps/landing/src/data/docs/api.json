@@ -234,6 +234,41 @@
           "method": "DELETE",
           "path": "/communities/:communityId/links/:linkId",
           "description": "Remove a link (sets status to `inactive`). Either community's admin can do this."
+        },
+        {
+          "method": "GET",
+          "path": "/communities/trust-questions",
+          "description": "Returns active trust questionnaire questions with choices, ordered by `display_order`. Public endpoint — no auth required."
+        },
+        {
+          "method": "POST",
+          "path": "/communities/trust-questions",
+          "description": "Create a trust question. Platform admin only."
+        },
+        {
+          "method": "PUT",
+          "path": "/communities/trust-questions/:id",
+          "description": "Update question text, subtext, display_order, or active status. Platform admin only."
+        },
+        {
+          "method": "DELETE",
+          "path": "/communities/trust-questions/:id",
+          "description": "Deactivate a trust question (sets active=false). Platform admin only."
+        },
+        {
+          "method": "POST",
+          "path": "/communities/trust-questions/:id/choices",
+          "description": "Add a choice to a question. Platform admin only."
+        },
+        {
+          "method": "PUT",
+          "path": "/communities/trust-questions/:id/choices/:choiceId",
+          "description": "Update a choice's label, description, config_delta, or display_order. Platform admin only."
+        },
+        {
+          "method": "DELETE",
+          "path": "/communities/trust-questions/:id/choices/:choiceId",
+          "description": "Remove a choice permanently. Platform admin only."
         }
       ]
     },

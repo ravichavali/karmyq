@@ -454,6 +454,7 @@ const ADR_GROUPS: Array<{ label: string; slugs: string[] }> = [
       'adr-030-community-configuration-system',
       'adr-009-ephemeral-data',
       'adr-015-observability-stack',
+      'adr-049-error-visibility',
       'adr-001-natural-language-location-parsing',
       'adr-002-geocoding-cache-architecture',
       'adr-012-realtime-communication',
@@ -494,7 +495,7 @@ function generateNav(
 
   // Non-technical concept pages (split into Why Karmyq / How It Works)
   const whyKarmyq = ['platform-overview', 'the-village-model', 'neighborhood-service-layer', 'community-design'];
-  const howItWorks = ['trust-and-karma', 'trust-score', 'what-is-karma', 'trust-paths', 'trust-path', 'reputation-decay', 'why-ratings-are-private', 'community-scale', 'network-cohesion', 'trust-model-evolution', 'community-evolution', 'fractal-feed', 'community-discovery', 'provider-mode', 'trust-questions'];
+  const howItWorks = ['trust-and-karma', 'trust-score', 'what-is-karma', 'trust-paths', 'trust-path', 'reputation-decay', 'why-ratings-are-private', 'community-scale', 'network-cohesion', 'trust-model-evolution', 'community-evolution', 'fractal-feed', 'community-discovery', 'provider-mode', 'trust-questions', 'observability'];
 
   const nav = {
     sections: [

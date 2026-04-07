@@ -167,6 +167,12 @@ const responseInterceptor = (response: any) => {
 
 // Handle auth errors
 const errorInterceptor = (error: any) => {
+  // Capture X-Request-Id from 5xx responses so ErrorBoundary can surface a reference ID
+  if (error.response?.status >= 500) {
+    const refId = error.response.headers?.['x-request-id']
+    if (refId) error.refId = refId
+  }
+
   // Transform error response to match expected format
   if (error.response?.data && typeof error.response.data === 'object') {
     // New format: { success: false, error: { code, message } }

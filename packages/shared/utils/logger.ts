@@ -15,6 +15,7 @@ export interface LogContext {
   userId?: string;
   requestId?: string;
   service?: string;
+  error_type?: 'user_error' | 'system_error';
   [key: string]: any;
 }
 
@@ -30,6 +31,7 @@ export interface LogEntry {
     stack?: string;
   };
   duration?: number;
+  error_type?: 'user_error' | 'system_error';
 }
 
 class Logger {
@@ -258,6 +260,9 @@ export function requestLoggingMiddleware(logger: Logger) {
     // Add request ID to request object
     req.requestId = requestId;
 
+    // Set X-Request-Id response header so clients can correlate errors
+    res.setHeader('X-Request-Id', requestId);
+
     // Create request-specific logger
     req.logger = logger.child({
       requestId,
@@ -276,6 +281,10 @@ export function requestLoggingMiddleware(logger: Logger) {
     res.on('finish', () => {
       const duration = Date.now() - start;
       const level = res.statusCode >= 500 ? 'error' : res.statusCode >= 400 ? 'warn' : 'info';
+      const error_type =
+        res.statusCode >= 500 ? 'system_error' :
+        res.statusCode >= 400 ? 'user_error' :
+        undefined;
 
       req.logger.log(
         level,
@@ -285,6 +294,7 @@ export function requestLoggingMiddleware(logger: Logger) {
           path: req.path,
           statusCode: res.statusCode,
           ip: req.ip,
+          ...(error_type && { error_type }),
         },
         undefined,
         duration

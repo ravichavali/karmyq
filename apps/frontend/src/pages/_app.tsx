@@ -6,17 +6,19 @@ import { ProviderProvider } from '@/contexts/ProviderContext'
 import { MessagingProvider } from '@/contexts/MessagingContext'
 import { Component as ReactComponent, ErrorInfo, ReactNode, useEffect } from 'react'
 
+interface ErrorBoundaryState { hasError: boolean; refId?: string }
+
 class ErrorBoundary extends ReactComponent<
   { children: ReactNode },
-  { hasError: boolean }
+  ErrorBoundaryState
 > {
   constructor(props: { children: ReactNode }) {
     super(props)
     this.state = { hasError: false }
   }
 
-  static getDerivedStateFromError() {
-    return { hasError: true }
+  static getDerivedStateFromError(error: any): ErrorBoundaryState {
+    return { hasError: true, refId: error?.refId }
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
@@ -31,8 +33,13 @@ class ErrorBoundary extends ReactComponent<
     if (this.state.hasError) {
       return (
         <div style={{ padding: '2rem', textAlign: 'center' }}>
-          <h2>Something went wrong</h2>
-          <button onClick={() => this.setState({ hasError: false })}>Try again</button>
+          <h2>Something went wrong.</h2>
+          <p>Try refreshing the page.</p>
+          {this.state.refId && (
+            <p style={{ fontSize: '0.75rem', color: '#999' }}>
+              Reference: {this.state.refId}
+            </p>
+          )}
         </div>
       )
     }

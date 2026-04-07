@@ -1,7 +1,7 @@
 # ADR-015: Observability Stack (Grafana/Loki/Prometheus)
 
 **Date**: 2025-12-29
-**Status**: Accepted
+**Status**: Implemented
 **Deciders**: Development Team
 **Related**: infrastructure/docker/docker-compose.yml
 

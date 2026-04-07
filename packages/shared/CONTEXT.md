@@ -1,6 +1,6 @@
 # @karmyq/shared — Context
 
-**Last Updated**: 2026-02-27
+**Last Updated**: 2026-04-06
 
 Shared TypeScript library consumed by all Karmyq services and frontend apps.
 
@@ -11,7 +11,7 @@ Shared TypeScript library consumed by all Karmyq services and frontend apps.
 | Subpath | Contents |
 |---------|----------|
 | `.` | Root re-exports |
-| `./utils/logger` | `createLogger`, `requestLoggingMiddleware` |
+| `./utils/logger` | `createLogger`, `requestLoggingMiddleware`, `LogContext`, `LogEntry`, `LogLevel` |
 | `./utils/response` | `sendSuccess`, `sendError`, `sendValidationError`, `sendNotFound`, `sendInternalError`, `HTTP_STATUS`, `validateRequest`, `requestIdMiddleware` |
 | `./middleware` | All middleware barrel |
 | `./middleware/auth` | `authMiddleware`, `AuthenticatedRequest` |
@@ -29,6 +29,22 @@ Shared TypeScript library consumed by all Karmyq services and frontend apps.
 | `./schemas/requests` | Zod schemas for request types (generic, ride, service, event, borrow) |
 | `./schemas/ui` | UI schema types for DynamicForm |
 | `./schemas/providers` | TypeScript interfaces for provider profiles, reviews, trust scores (ADR-041/042) |
+
+---
+
+## Logger: error_type + X-Request-Id (added 2026-04-06, ADR-049)
+
+`requestLoggingMiddleware` now:
+- Sets `X-Request-Id` response header (echoes `requestId`) **before** calling `next()`, so clients can always read it.
+- Computes `error_type` on `res.on('finish')`: `'system_error'` for 5xx, `'user_error'` for 4xx, `undefined` for 2xx/3xx.
+
+`LogContext` and `LogEntry` both include `error_type?: 'user_error' | 'system_error'`.
+
+Query in Grafana/Loki:
+```logql
+{level="error"} | json | error_type="system_error"
+{level="warn"}  | json | error_type="user_error"
+```
 
 ---
 

@@ -76,6 +76,41 @@
           "method": "PUT",
           "path": "/communities/:id/location",
           "description": "Update community geographic coordinates (admin only)"
+        },
+        {
+          "method": "GET",
+          "path": "/communities/trust-questions",
+          "description": "List active trust questionnaire questions with choices"
+        },
+        {
+          "method": "POST",
+          "path": "/communities/trust-questions",
+          "description": "Create a trust question (platform admin)"
+        },
+        {
+          "method": "PUT",
+          "path": "/communities/trust-questions/:id",
+          "description": "Update a trust question (platform admin)"
+        },
+        {
+          "method": "DELETE",
+          "path": "/communities/trust-questions/:id",
+          "description": "Deactivate a trust question (platform admin)"
+        },
+        {
+          "method": "POST",
+          "path": "/communities/trust-questions/:id/choices",
+          "description": "Add a choice to a trust question (platform admin)"
+        },
+        {
+          "method": "PUT",
+          "path": "/communities/trust-questions/:id/choices/:choiceId",
+          "description": "Update a trust question choice (platform admin)"
+        },
+        {
+          "method": "DELETE",
+          "path": "/communities/trust-questions/:id/choices/:choiceId",
+          "description": "Remove a trust question choice (platform admin)"
         }
       ],
       "dependencies": [

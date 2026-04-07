@@ -1,0 +1,75 @@
+{
+  "title": "Error Visibility",
+  "uid": "karmyq-error-visibility",
+  "tags": ["karmyq", "errors", "observability"],
+  "timezone": "browser",
+  "refresh": "30s",
+  "schemaVersion": 38,
+  "time": { "from": "now-24h", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "title": "System Errors by Service (24h)",
+      "type": "stat",
+      "datasource": { "type": "loki", "uid": "loki" },
+      "gridPos": { "x": 0, "y": 0, "w": 12, "h": 4 },
+      "targets": [{
+        "expr": "sum by(service) (count_over_time({level=\"error\"}[24h]))",
+        "datasource": { "type": "loki", "uid": "loki" },
+        "legendFormat": "{{service}}"
+      }],
+      "options": { "colorMode": "background", "graphMode": "area", "orientation": "horizontal" },
+      "fieldConfig": { "defaults": { "unit": "short", "color": { "mode": "thresholds" }, "thresholds": { "steps": [{"color": "green", "value": 0}, {"color": "yellow", "value": 5}, {"color": "red", "value": 20}] } } }
+    },
+    {
+      "id": 2,
+      "title": "Error Rate Over Time (by service)",
+      "type": "timeseries",
+      "datasource": { "type": "loki", "uid": "loki" },
+      "gridPos": { "x": 12, "y": 0, "w": 12, "h": 4 },
+      "targets": [{
+        "expr": "sum by(service) (rate({level=\"error\"}[5m]))",
+        "datasource": { "type": "loki", "uid": "loki" },
+        "legendFormat": "{{service}}"
+      }],
+      "fieldConfig": { "defaults": { "unit": "reqps" } }
+    },
+    {
+      "id": 3,
+      "title": "Recent System Errors (5xx)",
+      "type": "logs",
+      "datasource": { "type": "loki", "uid": "loki" },
+      "gridPos": { "x": 0, "y": 4, "w": 24, "h": 8 },
+      "targets": [{
+        "expr": "{level=\"error\"} | json | error_type=\"system_error\"",
+        "datasource": { "type": "loki", "uid": "loki" }
+      }],
+      "options": { "showTime": true, "showLabels": true, "wrapLogMessage": true }
+    },
+    {
+      "id": 4,
+      "title": "Recent User Errors (4xx)",
+      "type": "logs",
+      "datasource": { "type": "loki", "uid": "loki" },
+      "gridPos": { "x": 0, "y": 12, "w": 24, "h": 8 },
+      "targets": [{
+        "expr": "{level=\"warn\"} | json | error_type=\"user_error\"",
+        "datasource": { "type": "loki", "uid": "loki" }
+      }],
+      "options": { "showTime": true, "showLabels": true, "wrapLogMessage": true }
+    },
+    {
+      "id": 5,
+      "title": "Errors with Request ID (last 50)",
+      "type": "logs",
+      "datasource": { "type": "loki", "uid": "loki" },
+      "gridPos": { "x": 0, "y": 20, "w": 24, "h": 6 },
+      "targets": [{
+        "expr": "{level=\"error\"} | json | requestId != \"\"",
+        "datasource": { "type": "loki", "uid": "loki" },
+        "maxLines": 50
+      }],
+      "options": { "showTime": true, "showLabels": true, "wrapLogMessage": false }
+    }
+  ]
+}

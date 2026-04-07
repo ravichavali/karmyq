@@ -50,7 +50,7 @@ When code implementing an ADR is deployed, update the status from `Accepted` →
 
 ### Development & Operations
 - [ADR-014: Testing Strategy (Integration + E2E + Unit)](ADR-014-testing-strategy.md) — Accepted
-- [ADR-015: Observability Stack (Grafana/Loki/Prometheus)](ADR-015-observability-stack.md) — Accepted
+- [ADR-015: Observability Stack (Grafana/Loki/Prometheus)](ADR-015-observability-stack.md) — Implemented
 - [ADR-023: Infrastructure Standardization and Environment Management](ADR-023-infrastructure-standardization.md) — Accepted
 - [ADR-024: Synthetic User Simulation for Demo Environment](ADR-024-synthetic-user-simulation.md) — Proposed
 - [ADR-027: Docker Image Size Optimization (Deferred Technical Debt)](ADR-027-docker-image-optimization-deferred.md) — Accepted
@@ -82,6 +82,7 @@ When code implementing an ADR is deployed, update the status from `Accepted` →
 - [ADR-044: Community Trust Model Questionnaire](ADR-044-community-trust-questionnaire.md) — **Implemented**
 - [ADR-045: Network Cohesion Score — Graph Topology Metrics for Community Health](ADR-045-network-cohesion-score.md) — **Implemented**
 - [ADR-048: Feed Ranking v2 — 7-Signal Formula + Interaction Logging](ADR-048-feed-ranking-v2.md) — **Implemented**
+- [ADR-049: Error Visibility — `error_type` Discriminator and `X-Request-Id` Convention](ADR-049-error-visibility.md) — **Implemented**
 
 ## Creating a New ADR
 

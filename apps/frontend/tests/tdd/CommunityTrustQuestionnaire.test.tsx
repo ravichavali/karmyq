@@ -1,43 +1,70 @@
 import React from 'react'
 import { render, screen, fireEvent, act } from '@testing-library/react'
 import CommunityTrustQuestionnaire from '../../src/components/CommunityTrustQuestionnaire'
-import { QUESTIONS } from '../../src/lib/trust-model'
 
 jest.useFakeTimers()
 
+// Mock the hook instead of the removed trust-model exports
+const mockQuestions = [
+  {
+    id: 'q1',
+    question_text: 'How open is your community to new members?',
+    subtext: null,
+    display_order: 10,
+    choices: [
+      { value: 'open', label: 'Open to all', description: 'Anyone can join', config_delta: {} },
+      { value: 'gated', label: 'Application required', description: 'Members apply first', config_delta: {} },
+    ],
+  },
+  {
+    id: 'q2',
+    question_text: 'How should help requests be approved?',
+    subtext: 'This affects your approval workflow.',
+    display_order: 20,
+    choices: [
+      { value: 'auto', label: 'Automatic', description: 'No approval needed', config_delta: {} },
+      { value: 'manual', label: 'Manual review', description: 'Admin approves each', config_delta: {} },
+    ],
+  },
+]
+
+jest.mock('../../src/hooks/useTrustQuestions', () => ({
+  useTrustQuestions: () => ({
+    questions: mockQuestions,
+    loading: false,
+    error: null,
+  }),
+}))
+
 const noop = jest.fn()
 
-describe('CommunityTrustQuestionnaire', () => {
-  beforeEach(() => { noop.mockClear() })
-
-  it('renders the first question on mount', () => {
-    render(<CommunityTrustQuestionnaire onComplete={noop} />)
-    expect(screen.getByText(QUESTIONS[0].text)).toBeInTheDocument()
-    expect(screen.getByText('1 of 6')).toBeInTheDocument()
+describe('CommunityTrustQuestionnaire (data-driven)', () => {
+  beforeEach(() => {
+    noop.mockClear()
   })
 
-  it('shows Q2 after selecting an answer on Q1 (200ms delay)', () => {
+  it('renders the first question from the API response', () => {
     render(<CommunityTrustQuestionnaire onComplete={noop} />)
-    const firstChoice = screen.getByText(QUESTIONS[0].choices[0].label)
-    fireEvent.click(firstChoice)
+    expect(screen.getByText(mockQuestions[0].question_text)).toBeInTheDocument()
+    expect(screen.getByText('1 of 2')).toBeInTheDocument()
+  })
+
+  it('shows the second question after selecting an answer (200ms delay)', () => {
+    render(<CommunityTrustQuestionnaire onComplete={noop} />)
+    fireEvent.click(screen.getByText(mockQuestions[0].choices[0].label))
     act(() => { jest.advanceTimersByTime(200) })
-    expect(screen.getByText(QUESTIONS[1].text)).toBeInTheDocument()
-    expect(screen.getByText('2 of 6')).toBeInTheDocument()
+    expect(screen.getByText(mockQuestions[1].question_text)).toBeInTheDocument()
+    expect(screen.getByText('2 of 2')).toBeInTheDocument()
   })
 
-  it('calls onComplete only after all 6 questions are answered', () => {
+  it('calls onComplete after all questions are answered', () => {
     render(<CommunityTrustQuestionnaire onComplete={noop} />)
-    QUESTIONS.forEach((q, i) => {
-      // answer current question with first choice
-      fireEvent.click(screen.getByText(q.choices[0].label))
-      act(() => { jest.advanceTimersByTime(200) })
-      if (i < QUESTIONS.length - 1) {
-        expect(noop).not.toHaveBeenCalled()
-      }
-    })
+    fireEvent.click(screen.getByText(mockQuestions[0].choices[0].label))
+    act(() => { jest.advanceTimersByTime(200) })
+    expect(noop).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByText(mockQuestions[1].choices[0].label))
+    act(() => { jest.advanceTimersByTime(200) })
     expect(noop).toHaveBeenCalledTimes(1)
-    expect(noop.mock.calls[0][0]).toHaveProperty('q1')
-    expect(noop.mock.calls[0][0]).toHaveProperty('q6')
   })
 
   it('calls onBack when back button is clicked on Q1', () => {
@@ -50,11 +77,10 @@ describe('CommunityTrustQuestionnaire', () => {
   it('navigates back to Q1 from Q2 without calling onBack', () => {
     const onBack = jest.fn()
     render(<CommunityTrustQuestionnaire onComplete={noop} onBack={onBack} />)
-    fireEvent.click(screen.getByText(QUESTIONS[0].choices[0].label))
+    fireEvent.click(screen.getByText(mockQuestions[0].choices[0].label))
     act(() => { jest.advanceTimersByTime(200) })
-    // Now on Q2 — click back
     fireEvent.click(screen.getByText(/previous question/i))
     expect(onBack).not.toHaveBeenCalled()
-    expect(screen.getByText(QUESTIONS[0].text)).toBeInTheDocument()
+    expect(screen.getByText(mockQuestions[0].question_text)).toBeInTheDocument()
   })
 })
