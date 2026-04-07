@@ -359,7 +359,7 @@ router.post('/', async (req: Request, res: Response) => {
     }
 
     // Validate community_type
-    if (community_type && !['mutual_aid', 'group'].includes(community_type)) {
+    if (!['mutual_aid', 'group'].includes(community_type)) {
       return sendValidationError(res, 'community_type must be "mutual_aid" or "group"', { requestId: (req as any).id });
     }
 
