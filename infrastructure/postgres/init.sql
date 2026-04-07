@@ -263,8 +263,8 @@ CREATE TABLE IF NOT EXISTS communities.activities (
     max_participants INTEGER,
     current_participants INTEGER DEFAULT 0,
     status VARCHAR(50) NOT NULL DEFAULT 'open',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     CONSTRAINT chk_activity_status CHECK (status IN ('open', 'cancelled', 'completed')),
     CONSTRAINT chk_activity_type CHECK (activity_type IN ('pickup_game', 'group_run', 'workout', 'social', 'other'))
 );

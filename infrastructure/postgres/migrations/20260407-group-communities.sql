@@ -1,12 +1,23 @@
 -- infrastructure/postgres/migrations/20260407-group-communities.sql
+-- Sprint 47: Group Communities (ADR-050)
+
+BEGIN;
 
 -- 1. Add community_type to existing communities table
 ALTER TABLE communities.communities
   ADD COLUMN IF NOT EXISTS community_type VARCHAR(50) NOT NULL DEFAULT 'mutual_aid';
 
-ALTER TABLE communities.communities
-  ADD CONSTRAINT IF NOT EXISTS chk_community_type
-  CHECK (community_type IN ('mutual_aid', 'group'));
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.table_constraints
+    WHERE constraint_name = 'chk_community_type'
+      AND table_schema = 'communities'
+  ) THEN
+    ALTER TABLE communities.communities
+      ADD CONSTRAINT chk_community_type
+      CHECK (community_type IN ('mutual_aid', 'group'));
+  END IF;
+END$$;
 
 -- 2. Activities table
 CREATE TABLE IF NOT EXISTS communities.activities (
@@ -24,8 +35,8 @@ CREATE TABLE IF NOT EXISTS communities.activities (
     max_participants INTEGER,
     current_participants INTEGER DEFAULT 0,
     status VARCHAR(50) NOT NULL DEFAULT 'open',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     CONSTRAINT chk_activity_status CHECK (status IN ('open', 'cancelled', 'completed')),
     CONSTRAINT chk_activity_type CHECK (activity_type IN ('pickup_game', 'group_run', 'workout', 'social', 'other'))
 );
@@ -49,3 +60,5 @@ CREATE INDEX IF NOT EXISTS idx_activity_participants_user_id ON communities.acti
 -- Grants
 GRANT ALL PRIVILEGES ON communities.activities TO karmyq_user;
 GRANT ALL PRIVILEGES ON communities.activity_participants TO karmyq_user;
+
+COMMIT;
