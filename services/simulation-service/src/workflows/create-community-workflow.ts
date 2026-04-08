@@ -7,7 +7,7 @@
 
 import { Workflow } from '../types';
 import { delay, pickRandom } from '../utils';
-import { COMMUNITIES } from '../data/realistic-data';
+import { COMMUNITIES, GROUP_COMMUNITIES } from '../data/realistic-data';
 
 /**
  * User creates a new community from a realistic template
@@ -31,8 +31,9 @@ export const createCommunityWorkflow: Workflow = async (context) => {
       return;
     }
 
-    // Pick a random community template
-    const template = pickRandom(COMMUNITIES);
+    // Pick a random community template — 3:1 weight toward mutual aid communities
+    const weightedPool = [...COMMUNITIES, ...COMMUNITIES, ...COMMUNITIES, ...GROUP_COMMUNITIES];
+    const template = pickRandom(weightedPool);
 
     const communityName = template.name;
 
@@ -48,7 +49,8 @@ export const createCommunityWorkflow: Workflow = async (context) => {
         description: template.description,
         location: template.location,
         category: template.category,
-        access_type: 'public'
+        access_type: 'public',
+        community_type: (template as any).community_type ?? 'mutual_aid',
       })
     );
 

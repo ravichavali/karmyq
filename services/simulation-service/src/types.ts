@@ -33,6 +33,8 @@ export interface UserProfile {
     joinCollective?: ActionWeight;
     browseProviders?: ActionWeight;
     inviteUser?: ActionWeight;
+    scheduleActivity?: ActionWeight;
+    joinActivity?: ActionWeight;
   };
   sessionDuration: TimeRange;
   responseTime: TimeRange;

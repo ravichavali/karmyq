@@ -17,7 +17,8 @@ export const ACTIVE_HELPER: UserProfile = {
     createRequests: { weight: 0.1, avgPerSession: 0.3 },
     registerAsProvider: { weight: 0.08, avgPerSession: 0.15 },
     joinCollective: { weight: 0.05, avgPerSession: 0.05 },
-    browseProviders: { weight: 0.05, avgPerSession: 0.2 }
+    browseProviders: { weight: 0.05, avgPerSession: 0.2 },
+    joinActivity: { weight: 0.15, avgPerSession: 1 }
   },
   sessionDuration: { min: 15, max: 45, unit: 'minutes' },
   responseTime: { min: 5, max: 30, unit: 'minutes' }
@@ -32,7 +33,8 @@ export const REQUESTER: UserProfile = {
     completeMatches: { weight: 0.6, avgPerSession: 1.5 },  // must complete their side too
     sendMessages: { weight: 0.5, avgPerSession: 3 },
     browseRequests: { weight: 0.3, avgPerSession: 2 },
-    offerHelp: { weight: 0.1, avgPerSession: 0.2 }
+    offerHelp: { weight: 0.1, avgPerSession: 0.2 },
+    joinActivity: { weight: 0.05, avgPerSession: 0.2 }
   },
   sessionDuration: { min: 10, max: 30, unit: 'minutes' },
   responseTime: { min: 30, max: 120, unit: 'minutes' }
@@ -46,7 +48,8 @@ export const BROWSER: UserProfile = {
     viewProfiles: { weight: 0.4, avgPerSession: 3 },
     browseProviders: { weight: 0.1, avgPerSession: 0.5 },
     offerHelp: { weight: 0.1, avgPerSession: 0.5 },
-    createRequests: { weight: 0.05, avgPerSession: 0.1 }
+    createRequests: { weight: 0.05, avgPerSession: 0.1 },
+    joinActivity: { weight: 0.02, avgPerSession: 0.1 }
   },
   sessionDuration: { min: 5, max: 15, unit: 'minutes' },
   responseTime: { min: 60, max: 240, unit: 'minutes' }
@@ -65,7 +68,9 @@ export const COMMUNITY_BUILDER: UserProfile = {
     completeMatches: { weight: 0.4, avgPerSession: 1.5 },
     browseRequests: { weight: 0.5, avgPerSession: 3 },
     registerAsProvider: { weight: 0.15, avgPerSession: 0.1 },
-    joinCollective: { weight: 0.05, avgPerSession: 0.05 }
+    joinCollective: { weight: 0.05, avgPerSession: 0.05 },
+    scheduleActivity: { weight: 0.15, avgPerSession: 0.3 },
+    joinActivity: { weight: 0.10, avgPerSession: 0.5 }
   },
   sessionDuration: { min: 20, max: 60, unit: 'minutes' },
   responseTime: { min: 10, max: 60, unit: 'minutes' }
@@ -80,7 +85,8 @@ export const SOCIAL_USER: UserProfile = {
     viewProfiles: { weight: 0.7, avgPerSession: 6 },
     offerHelp: { weight: 0.3, avgPerSession: 1 },
     createRequests: { weight: 0.2, avgPerSession: 0.5 },
-    registerAsProvider: { weight: 0.1, avgPerSession: 0.05 }
+    registerAsProvider: { weight: 0.1, avgPerSession: 0.05 },
+    joinActivity: { weight: 0.20, avgPerSession: 1 }
   },
   sessionDuration: { min: 15, max: 45, unit: 'minutes' },
   responseTime: { min: 2, max: 15, unit: 'minutes' }

@@ -15,3 +15,5 @@ export { createCollectiveWorkflow } from './create-collective-workflow';
 export { joinCollectiveWorkflow } from './join-collective-workflow';
 export { browseProvidersWorkflow } from './browse-providers-workflow';
 export { registerNewUser } from './register-user-workflow';
+export { scheduleActivityWorkflow } from './schedule-activity-workflow';
+export { joinActivityWorkflow } from './join-activity-workflow';

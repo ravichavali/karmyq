@@ -19,6 +19,8 @@ import {
   createCollectiveWorkflow,
   joinCollectiveWorkflow,
   browseProvidersWorkflow,
+  scheduleActivityWorkflow,
+  joinActivityWorkflow,
   registerNewUser
 } from './workflows';
 import { initPool, closePool, getRandomUser, getUserCount, userExistsByEmail } from './db-user-loader';
@@ -256,6 +258,8 @@ export class Simulator {
     if (actions.createCollective) workflows.push({ weight: actions.createCollective.weight, workflow: createCollectiveWorkflow, name: 'createCollective' });
     if (actions.joinCollective) workflows.push({ weight: actions.joinCollective.weight, workflow: joinCollectiveWorkflow, name: 'joinCollective' });
     if (actions.browseProviders) workflows.push({ weight: actions.browseProviders.weight, workflow: browseProvidersWorkflow, name: 'browseProviders' });
+    if (actions.scheduleActivity) workflows.push({ weight: actions.scheduleActivity.weight, workflow: scheduleActivityWorkflow, name: 'scheduleActivity' });
+    if (actions.joinActivity) workflows.push({ weight: actions.joinActivity.weight, workflow: joinActivityWorkflow, name: 'joinActivity' });
 
     const totalWeight = workflows.reduce((sum, w) => sum + w.weight, 0);
     let random = Math.random() * totalWeight;
