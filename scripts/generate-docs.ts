@@ -256,6 +256,7 @@ const CONCEPT_ORDER = [
   'reputation-decay',
   'why-ratings-are-private',
   'community-design',
+  'group-communities',
 ];
 
 function generateConceptPages(): ConceptPage[] {
@@ -312,6 +313,7 @@ const GUIDE_ORDER = [
   'managing-commitments-guide',
   'finding-communities-guide',
   'admin-community-guide',
+  'group-communities-guide',
   'community-trust-model-guide',
   'understanding-karma-guide',
   'trust-connections-guide',
@@ -330,6 +332,7 @@ const GUIDE_LABELS: Record<string, string> = {
   'managing-commitments-guide': 'Managing Your Commitments',
   'finding-communities-guide': 'Finding Communities',
   'admin-community-guide': 'Running a Community',
+  'group-communities-guide': 'Using Group Communities',
   'community-trust-model-guide': "Setting Your Community's Trust Model",
   'understanding-karma-guide': 'Your Karma & Reputation',
   'trust-connections-guide': 'Trust Connections in Your Feed',
@@ -348,6 +351,7 @@ const GUIDE_SLUGS: Record<string, string> = {
   'managing-commitments-guide': 'managing-commitments',
   'finding-communities-guide': 'finding-communities',
   'admin-community-guide': 'admin-community',
+  'group-communities-guide': 'group-communities',
   'community-trust-model-guide': 'community-trust-model',
   'understanding-karma-guide': 'understanding-karma',
   'trust-connections-guide': 'trust-connections',
@@ -431,6 +435,7 @@ const ADR_GROUPS: Array<{ label: string; slugs: string[] }> = [
       'adr-018-community-splitting-mechanics',
       'adr-019-referral-chain-trust',
       'adr-021-trust-path-filtering',
+      'adr-050-group-communities',
     ],
   },
   {
