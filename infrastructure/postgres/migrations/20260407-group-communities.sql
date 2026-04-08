@@ -57,8 +57,4 @@ CREATE INDEX IF NOT EXISTS idx_activities_status ON communities.activities(statu
 CREATE INDEX IF NOT EXISTS idx_activity_participants_activity_id ON communities.activity_participants(activity_id);
 CREATE INDEX IF NOT EXISTS idx_activity_participants_user_id ON communities.activity_participants(user_id);
 
--- Grants
-GRANT ALL PRIVILEGES ON communities.activities TO karmyq_user;
-GRANT ALL PRIVILEGES ON communities.activity_participants TO karmyq_user;
-
 COMMIT;
