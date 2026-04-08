@@ -9,7 +9,7 @@ export function useTrustQuestions() {
 
   useEffect(() => {
     trustQuestionsService.list()
-      .then(res => setQuestions(res.data.data.questions))
+      .then(res => setQuestions(res.data.questions))
       .catch(err => setError(err.message ?? 'Failed to load questions'))
       .finally(() => setLoading(false))
   }, [])
