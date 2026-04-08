@@ -168,6 +168,54 @@ export class ApiClient {
   }
 
   /**
+   * Activity API - Get activities for a community
+   */
+  async getActivities(communityId: string): Promise<any[]> {
+    const response = await executeWithRetry(() =>
+      this.client.get(`/communities/${communityId}/activities`)
+    );
+    const activities = response.data.data?.activities || response.data.data || [];
+    return Array.isArray(activities) ? activities : [];
+  }
+
+  /**
+   * Activity API - Create an activity in a community (admin only)
+   */
+  async createActivity(communityId: string, data: {
+    title: string;
+    activity_type: string;
+    scheduled_at: string;
+    description?: string;
+    duration_minutes?: number;
+    max_participants?: number;
+  }): Promise<any> {
+    const response = await executeWithRetry(() =>
+      this.client.post(`/communities/${communityId}/activities`, data)
+    );
+    return response.data.data;
+  }
+
+  /**
+   * Activity API - Join an activity
+   */
+  async joinActivity(communityId: string, activityId: string): Promise<any> {
+    const response = await executeWithRetry(() =>
+      this.client.post(`/communities/${communityId}/activities/${activityId}/join`)
+    );
+    return response.data.data;
+  }
+
+  /**
+   * Activity API - Leave an activity
+   */
+  async leaveActivity(communityId: string, activityId: string): Promise<any> {
+    const response = await executeWithRetry(() =>
+      this.client.delete(`/communities/${communityId}/activities/${activityId}/leave`)
+    );
+    return response.data.data;
+  }
+
+  /**
    * Feed API - Get dashboard feed
    */
   async getDashboard(): Promise<any> {
@@ -190,7 +238,7 @@ export class ApiClient {
   /**
    * Community API - Create a new community
    */
-  async createCommunity(data: { name: string; description?: string; location?: string; category?: string; access_type?: string }): Promise<any> {
+  async createCommunity(data: { name: string; description?: string; location?: string; category?: string; access_type?: string; community_type?: string }): Promise<any> {
     const response = await executeWithRetry(() =>
       this.client.post('/communities', data)
     );

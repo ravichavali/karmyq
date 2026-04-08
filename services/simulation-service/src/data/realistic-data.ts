@@ -88,6 +88,60 @@ export const COMMUNITIES = [
   }
 ];
 
+export const GROUP_COMMUNITIES = [
+  {
+    name: 'Portland Pickup Basketball Crew',
+    description: 'Weekly pickup games at Laurelhurst Park. All skill levels welcome — just bring yourself and some water.',
+    location: 'Portland, OR',
+    category: 'sports',
+    community_type: 'group',
+    defaultActivityType: 'pickup_game',
+  },
+  {
+    name: 'SE Portland Running Club',
+    description: 'Group runs every Tuesday morning and Saturday afternoon. Routes vary from 3K to 10K.',
+    location: 'Portland, OR',
+    category: 'fitness',
+    community_type: 'group',
+    defaultActivityType: 'group_run',
+  },
+  {
+    name: 'Hawthorne Yoga Collective',
+    description: 'Community yoga sessions in Sewallcrest Park. Free, donation-based, all levels.',
+    location: 'Portland, OR',
+    category: 'wellness',
+    community_type: 'group',
+    defaultActivityType: 'workout',
+  },
+  {
+    name: 'Portland Board Game Society',
+    description: 'Weekly board game nights at rotating locations. From gateway games to heavy euros.',
+    location: 'Portland, OR',
+    category: 'social',
+    community_type: 'group',
+    defaultActivityType: 'social',
+  },
+];
+
+export const ACTIVITY_TEMPLATES: Record<string, Array<{title: string, description: string, duration_minutes: number}>> = {
+  pickup_game: [
+    { title: 'Saturday Pickup Basketball', description: '5v5 at the park, all skill levels welcome', duration_minutes: 90 },
+    { title: 'Sunday Morning Hoops', description: 'Casual run — show up and play', duration_minutes: 60 },
+  ],
+  group_run: [
+    { title: 'Tuesday Morning Run', description: '5K loop around the park. Meet at the fountain.', duration_minutes: 45 },
+    { title: 'Saturday Long Run', description: '8-10K depending on group pace. Coffee after!', duration_minutes: 75 },
+  ],
+  workout: [
+    { title: 'Sunday Morning Yoga', description: 'All levels. Bring a mat if you have one.', duration_minutes: 60 },
+    { title: 'Midweek Flow', description: 'Gentle 45-minute session, donations welcome', duration_minutes: 45 },
+  ],
+  social: [
+    { title: 'Weekly Game Night', description: 'We have a mix of games — come and play whatever sounds fun', duration_minutes: 180 },
+    { title: 'Strategy Saturday', description: 'Heavier games this week: Brass, Wingspan, or GMT games', duration_minutes: 240 },
+  ],
+};
+
 export const FOUNDERS = [
   { firstName: 'Maria', lastName: 'Reyes', bio: 'Community organizer and mutual aid advocate in SE Portland.' },
   { firstName: 'James', lastName: 'Okafor', bio: 'Longtime Northeast Portland resident focused on neighbor connections.' },
