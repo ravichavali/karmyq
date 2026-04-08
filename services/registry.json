@@ -74,7 +74,12 @@
           {"method": "DELETE", "path": "/communities/trust-questions/:id", "description": "Deactivate a trust question (platform admin)"},
           {"method": "POST", "path": "/communities/trust-questions/:id/choices", "description": "Add a choice to a trust question (platform admin)"},
           {"method": "PUT", "path": "/communities/trust-questions/:id/choices/:choiceId", "description": "Update a trust question choice (platform admin)"},
-          {"method": "DELETE", "path": "/communities/trust-questions/:id/choices/:choiceId", "description": "Remove a trust question choice (platform admin)"}
+          {"method": "DELETE", "path": "/communities/trust-questions/:id/choices/:choiceId", "description": "Remove a trust question choice (platform admin)"},
+          {"method": "GET", "path": "/communities/:id/activities", "description": "List upcoming open activities for a group community with is_joined flag."},
+          {"method": "POST", "path": "/communities/:id/activities", "description": "Create a new activity in a group community (admin only)."},
+          {"method": "GET", "path": "/communities/:id/activities/:activityId", "description": "Get activity detail with participant list."},
+          {"method": "POST", "path": "/communities/:id/activities/:activityId/join", "description": "Join an activity (returns 400 if full, 409 if already joined)."},
+          {"method": "DELETE", "path": "/communities/:id/activities/:activityId/leave", "description": "Leave an activity."}
         ],
         "consumes": [
           "/auth/verify"
@@ -90,11 +95,12 @@
           "user_joined_community",
           "community_created",
           "community.config.created",
-          "community.config.updated"
+          "community.config.updated",
+          "activity_joined"
         ],
         "subscribes": []
       },
-      "notes": "Sprint 15: Community Links (fractal community model Phase 1) — voluntary linking between communities with trust carry and sister feeds"
+      "notes": "Sprint 47: Group Communities — community_type field, activities + activity_participants tables, activities API endpoints, activity_joined event"
     },
     "request-service": {
       "port": 3003,

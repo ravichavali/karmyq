@@ -48,6 +48,8 @@ src/
 | `create-collective-workflow.ts` | Create a provider collective, link to community | COMMUNITY_BUILDER |
 | `join-collective-workflow.ts` | Join an existing provider collective | ACTIVE_HELPER |
 | `browse-providers-workflow.ts` | Browse service provider listings | BROWSER, ACTIVE_HELPER |
+| `schedule-activity-workflow.ts` | COMMUNITY_BUILDER admins create activities in group communities (2-10 days out) | COMMUNITY_BUILDER |
+| `join-activity-workflow.ts` | Members join open activities in their communities | ACTIVE_HELPER, SOCIAL_USER, COMMUNITY_BUILDER |
 
 ---
 

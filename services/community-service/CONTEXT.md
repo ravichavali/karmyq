@@ -30,7 +30,10 @@ CREATE TABLE communities.communities (
     -- Sprint 36: Geographic and interest-based discovery (Migration 014)
     latitude NUMERIC(10, 7),                   -- geographic coordinate
     longitude NUMERIC(10, 7),                  -- geographic coordinate
-    tags TEXT[] DEFAULT '{}'                   -- interest tags for discovery
+    tags TEXT[] DEFAULT '{}',                  -- interest tags for discovery
+
+    -- Sprint 47: Group Communities (Migration 020)
+    community_type VARCHAR(50) DEFAULT 'mutual_aid'  -- mutual_aid | group
 );
 
 -- communities.members
@@ -179,6 +182,35 @@ CREATE TABLE communities.community_links (
   UNIQUE (community_a_id, community_b_id),
   CHECK (community_a_id <> community_b_id)
 );
+
+### communities.activities
+| Column | Type | Notes |
+|--------|------|-------|
+| id | UUID PK | |
+| community_id | UUID FK | → communities.communities(id) ON DELETE CASCADE |
+| created_by | UUID FK | → auth.users(id) |
+| title | VARCHAR(255) | Required |
+| description | TEXT | Optional |
+| activity_type | VARCHAR(100) | pickup_game \| group_run \| workout \| social \| other |
+| scheduled_at | TIMESTAMPTZ | UTC, display in browser local time |
+| duration_minutes | INTEGER | Optional |
+| location | TEXT | Optional |
+| latitude | NUMERIC(10,7) | Optional |
+| longitude | NUMERIC(10,7) | Optional |
+| max_participants | INTEGER | Optional cap |
+| current_participants | INTEGER | Denormalized counter — increment/decrement in same op as participant insert/delete |
+| status | VARCHAR(50) | open \| cancelled \| completed |
+| created_at | TIMESTAMPTZ | |
+| updated_at | TIMESTAMPTZ | |
+
+### communities.activity_participants
+| Column | Type | Notes |
+|--------|------|-------|
+| id | UUID PK | |
+| activity_id | UUID FK | → communities.activities(id) ON DELETE CASCADE |
+| user_id | UUID FK | → auth.users(id) ON DELETE CASCADE |
+| joined_at | TIMESTAMP | |
+| | UNIQUE(activity_id, user_id) | |
 
 ### Tables Read by This Service
 - `auth.users` - User details for member profiles and creator names
@@ -856,6 +888,15 @@ List all links involving this community. Optional `?status=pending|active|inacti
 
 #### DELETE /communities/:communityId/links/:linkId
 Remove a link (sets status to `inactive`). Either community's admin can do this.
+
+### Activities (Sprint 47)
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | /communities/:id/activities | member | List upcoming open activities with is_joined flag |
+| POST | /communities/:id/activities | admin | Create activity (validates type enum, future date) |
+| GET | /communities/:id/activities/:activityId | member | Get activity detail with participant list |
+| POST | /communities/:id/activities/:activityId/join | member | Join activity (400 if full, 409 if already joined) |
+| DELETE | /communities/:id/activities/:activityId/leave | member | Leave activity |
 
 ## Dependencies
 
