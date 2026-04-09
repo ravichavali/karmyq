@@ -1,18 +1,29 @@
-# SPRINT 49 — Community Discovery + Empty States
+# SPRINT 49 — New User Journey
 
 ## Handoff Document
 
 **Date**: 2026-04-09
 **Current Version**: v9.14.0 → v9.15.0
-**Status**: Sprint 48 complete and deployed. Sprint 49 ready to plan.
+**Status**: Sprint 49 specced and planned. Ready to execute.
 
 ---
 
 ## Quick Start
 
 1. Read this handoff
-2. Run `/sprint-planning` to spec and plan Sprint 49
-3. Or if the plan already exists: `git checkout -b feature/sprint-49-discovery` and execute
+2. Check out branch: `git checkout -b feature/sprint-49-new-user-journey`
+3. Open plan: `docs/superpowers/plans/2026-04-09-sprint-49-new-user-journey.md`
+4. Run: `/execute-plan` (uses superpowers:subagent-driven-development)
+
+---
+
+## Sprint 49 Goal
+
+A first-time visitor can register, find a community, join it, and see their feed — without hitting a dead end or empty screen.
+
+**Why this matters:** Karmyq is being shared with real people for the first time. The current flow routes new users to `/dashboard` immediately after registration — but their feed is empty (no communities yet). The WelcomeModal explains the concept passively and dismisses, leaving the user on an empty screen with nothing to do. They have to discover `/communities` on their own.
+
+**What we're fixing:** Route, banner, redirect, and empty states — 6 frontend files, no backend changes.
 
 ---
 
@@ -29,46 +40,51 @@ Deployed to karmyq.com via commit `7985fe4`. CI/CD pipeline run 24172247204 comp
 - Wired into: `dashboard.tsx` (feed), `communities/index.tsx`, `requests/index.tsx`, `ActivitiesTab.tsx`
 - State stored in `localStorage` under key `karmyq_onboarding` — JSON object with per-workflow seen flags
 
-**Tests**
-- `tests/tdd/sprint-48-onboarding.test.ts` — 22 tests covering hook logic, step navigation, corrupt localStorage handling, and workflow config integrity. All passing.
-
-**Docs**
-- `docs/guides/onboarding-guide.md` — source file for user guide
-- `scripts/generate-docs.ts` — updated GUIDE_ORDER / GUIDE_LABELS / GUIDE_SLUGS to include `onboarding-guide`
-- Landing page regenerated: `apps/landing/src/data/docs/guides/onboarding.json` + nav entry added
-- `claude.md` — added "Onboarding content updated" checklist item to Documentation section
-
-### Key lessons from Sprint 48
-
-- **generate-docs deletes and recreates OUT_DIR** — never hand-edit `apps/landing/src/data/docs/` directly. Always add guide source to `docs/guides/` and update the three arrays in `scripts/generate-docs.ts` (GUIDE_ORDER, GUIDE_LABELS, GUIDE_SLUGS). The "write directly" exception in the Sprint 48 handoff was wrong.
-- **generate-docs is triggered by `prebuild`** which runs before every turbo `test` run — any direct edits to `apps/landing/src/data/docs/` will be overwritten on the next test run.
-- **`claude.md` is tracked in git as lowercase** — `git add CLAUDE.md` silently does nothing on Windows. Use `git add claude.md`.
-- **`git add` on gitignored tracked files** — `apps/landing/src/data/docs/` is gitignored but files are tracked (force-added). Use `git add -u apps/landing/src/data/docs/` to stage modified tracked files; use `git add -f` for new files in that directory.
-- **Pre-existing TDD failures** remain: `sprint-39-provider-ux` (7 tests fail) and `sprint-43-feed-ranking` (crashes). Do not attempt to fix them.
-
 ---
 
 ## Multi-Sprint Arc
 
 | Sprint | Theme | Status |
 |--------|-------|--------|
-| Sprint 45 | Trust Configuration Externalization | ✅ Complete |
-| Sprint 46 | Error Visibility + Committed Match State | ✅ Complete |
 | Sprint 47 | Group Communities — Data Model + Activity Scheduling | ✅ Complete |
 | Sprint 48 | Onboarding — Contextual Workflow Guides | ✅ Complete |
-| **Sprint 49** | **Community Discovery + Empty States** | 🔵 Ready to plan |
+| **Sprint 49** | **New User Journey** | 🔵 Ready to execute |
 | Sprint 50 | TBD | Upcoming |
 
 ---
 
-## Sprint 49 Direction
+## What Sprint 49 Changes
 
-The roadmap names "Community Discovery + Empty States" as the next sprint. Likely scope:
+**6 files, frontend-only, no backend changes:**
 
-- **Empty states** for zero-content views: feed with no requests, communities page before joining any, requests page for new users, ActivitiesTab with no activities scheduled
-- **Community discovery improvements**: better search UX, suggested communities based on location/interests, onboarding flow that leads new users to join their first community
+| File | Change |
+|------|--------|
+| `apps/frontend/src/pages/register.tsx:44` | `router.push('/dashboard')` → `router.push('/communities?welcome=true')` |
+| `apps/frontend/src/pages/communities/index.tsx` | Welcome banner when `?welcome=true`; hide filters by default; detect first join; set `karmyq_onboarded`; redirect to `/dashboard` after first public join |
+| `apps/frontend/src/pages/dashboard.tsx` | Zero-community empty state when `!loading && userCommunities.length === 0` |
+| `apps/frontend/src/components/WelcomeModal.tsx` | "Get started" → "Browse my feed" (final CTA label only) |
+| `apps/frontend/src/components/BrowseFeed.tsx` | Add `noCommunities` prop — shows CTA to `/communities` when true |
+| `apps/frontend/src/pages/requests/index.tsx` | Improve empty state copy for new users |
 
-This is not yet specced. Start with `/sprint-planning` to nail down the exact scope before implementation.
+**Also ships:**
+- `docs/guides/onboarding-guide.md` — new section on the first-visit flow
+- `tests/tdd/sprint-49-new-user-journey.test.ts` — 7 tests covering first-join logic
+
+---
+
+## ⚠️ Critical Implementation Notes
+
+1. **First-join detection uses pre-join state**: Check `(user.communities ?? []).length === 0` BEFORE calling `communityService.joinCommunity()`. JWT in localStorage is not refreshed after joining.
+
+2. **Set `karmyq_onboarded` before redirecting**: `localStorage.setItem('karmyq_onboarded', '1')` must happen before `router.push('/dashboard')`. Otherwise WelcomeModal fires on the dashboard, duplicating the welcome experience.
+
+3. **`?welcome=true` is cosmetic-only**: Only affects which banner is shown. Must NOT affect the communities API call or filtering logic.
+
+4. **Zero-community check must wait for loading**: Only show when `!loading && userCommunities.length === 0`, not during the loading phase.
+
+5. **Private community first-join**: Don't redirect after requesting to join a private community — the user is "pending", not "joined". Only redirect on `accessType === 'public'` first joins.
+
+6. **`showFilters` state init**: `useState(!isWelcomeFlow)` — `isWelcomeFlow` must be derived from `router.query.welcome` before the state is initialized. Since `useState` only reads the initial value once, derive `isWelcomeFlow` as a const before the state declarations.
 
 ---
 
