@@ -1,25 +1,71 @@
-# SPRINT 47 — Group Communities
+# SPRINT 48 — Onboarding: Contextual Workflow Guides
 
 ## Handoff Document
 
-**Date**: 2026-04-07
-**Current Version**: v9.12.0 → v9.13.0 (Sprint 47 in progress)
-**Status**: Spec + plan written. Ready to execute.
+**Date**: 2026-04-08
+**Current Version**: v9.13.0 → v9.14.0
+**Status**: Sprint 47 complete. Sprint 48 spec + plan written. Ready to execute.
 
 ---
 
 ## Quick Start
 
 1. Read this handoff
-2. Check out branch: `git checkout -b feature/sprint-47-group-communities`
-3. Open plan: `docs/superpowers/plans/2026-04-07-sprint-47-group-communities.md`
+2. Check out branch: `git checkout -b feature/sprint-48-onboarding`
+3. Open plan: `docs/superpowers/plans/2026-04-08-sprint-48-onboarding.md`
 4. Run: `/execute-plan` (uses superpowers:subagent-driven-development)
 
 ---
 
-## Sprint 47 Goal
+## Sprint 48 Goal
 
-Introduce **Group Communities** as a first-class community type. By end of sprint, a user can create a group community (sports team, fitness group, hobby club), schedule an activity with a date/time/location/participant cap, and other members can join or leave. Karma/trust is stubbed (event emitted, no processing). Simulation extended with group community templates and activity workflows.
+Add contextual onboarding overlays to four workflows (feed, communities, requests, activities). Each overlay shows once per device on first visit, explains the concept in 2–4 steps, and never appears again after dismissal. All content lives in one config file for easy maintenance.
+
+---
+
+## What This Sprint Builds
+
+- `apps/frontend/src/lib/onboarding/workflows.ts` — central content config (all step definitions)
+- `apps/frontend/src/hooks/useOnboarding.ts` — localStorage read/write hook
+- `apps/frontend/src/components/OnboardingOverlay.tsx` — reusable step-by-step modal
+- Wired into: `dashboard.tsx`, `communities/index.tsx`, `requests/index.tsx`, `ActivitiesTab.tsx`
+- User guide on landing page + CLAUDE.md checklist update
+- No database changes — localStorage only
+
+---
+
+## ⚠️ Critical Implementation Notes
+
+1. **`shouldShow` must be false during SSR** — `localStorage` is not available server-side. Initialize state to `false`, set in a `useEffect`. Never read localStorage outside of a `useEffect` or event handler.
+2. **One overlay at a time** — only the current page's overlay shows. Do not queue or stack overlays.
+3. **Skip and Done are equivalent** — both call `markSeen()` and `onDismiss()`. "Skip" is labelled to feel lower-commitment; there is no functional difference.
+4. **Overlay renders on top of everything** — use `z-50` and a full-screen backdrop. Page content must not be interactive while overlay is open.
+5. **localStorage key is `"karmyq_onboarding"`** — a JSON object. Always read the full object, update the relevant key, and write back. Never write per-key localStorage entries.
+6. **ActivitiesTab trigger** — the activities overlay fires on first render of the tab component, not on page load. A user visiting a mutual_aid community (no Activities tab) must NOT consume the `activities` seen-state.
+7. **No backend change** — `onboarding_completed` on `auth.users` is explicitly out of scope. localStorage is sufficient for the demo.
+
+---
+
+## Task Summary (9 tasks)
+
+| # | Task | Key files |
+|---|------|-----------|
+| 1 | Feature branch + central config file | `src/lib/onboarding/workflows.ts` |
+| 2 | `useOnboarding` hook | `src/hooks/useOnboarding.ts` |
+| 3 | `OnboardingOverlay` component | `src/components/OnboardingOverlay.tsx` |
+| 4 | Wire into feed + communities | `dashboard.tsx`, `communities/index.tsx` |
+| 5 | Wire into requests + ActivitiesTab | `requests/index.tsx`, `ActivitiesTab.tsx` |
+| 6 | TDD tests | `tests/tdd/sprint-48-onboarding.test.ts` |
+| 7 | User guide + nav.json + CLAUDE.md checklist | `guides/onboarding.json`, `nav.json`, `CLAUDE.md` |
+| 8 | Full verification (tsc, tests, feedback:check, smoke test) | — |
+| 9 | Merge + Deploy | `git push`, GitHub Actions |
+
+---
+
+## Spec & Plan
+
+- **Design spec**: `docs/superpowers/specs/2026-04-08-sprint-48-onboarding-design.md`
+- **Implementation plan**: `docs/superpowers/plans/2026-04-08-sprint-48-onboarding.md`
 
 ---
 
@@ -29,77 +75,52 @@ Introduce **Group Communities** as a first-class community type. By end of sprin
 |--------|-------|--------|
 | Sprint 45 | Trust Configuration Externalization | ✅ Complete |
 | Sprint 46 | Error Visibility + Committed Match State | ✅ Complete |
-| **Sprint 47** | **Group Communities — Data Model + Activity Scheduling** | ⬜ Ready to execute |
-| Sprint 48 | Onboarding — First-Run UX + Community Type Selection | Upcoming |
-| Sprint 49 | Karma + Trust for Group Activities | Upcoming |
+| Sprint 47 | Group Communities — Data Model + Activity Scheduling | ✅ Complete |
+| **Sprint 48** | **Onboarding — Contextual Workflow Guides** | 🔵 Ready to execute |
+| Sprint 49 | Community Discovery + Empty States | Upcoming |
 
 ---
 
-## Spec & Plan
+## Sprint 47 — COMPLETE ✅
 
-- **Design spec**: `docs/superpowers/specs/2026-04-07-sprint-47-group-communities-design.md`
-- **Implementation plan**: `docs/superpowers/plans/2026-04-07-sprint-47-group-communities.md`
-
----
-
-## ⚠️ Critical Implementation Notes
-
-1. **`community_type` defaults to `'mutual_aid'`** — all existing communities get this default via migration. No behavior change.
-2. **Activity endpoints are member-scoped** — check `communities.members` for the calling user before any activity operation.
-3. **`current_participants` is a denormalized counter** — increment/decrement inside the same transaction as participant insert/delete. Never recalculate from `COUNT(*)` on read.
-4. **Admin-only activity creation** — check `role = 'admin'` in `communities.members`.
-5. **Activities router mount order** — mount `/communities/:communityId/activities` BEFORE the generic `/communities/:id` route in `index.ts`.
-6. **`scheduled_at` is TIMESTAMPTZ** — store UTC, display in browser local time. No server-side conversion.
-7. **Karma this sprint = event emit only** — `publishEvent('activity_joined', {...})` is the complete karma implementation. No reputation DB writes.
-8. **Simulation: check `community_type` before scheduling** — `schedule-activity-workflow` must call `GET /communities/:id` and verify `community_type === 'group'`.
-
----
-
-## Task Summary (12 tasks)
-
-| # | Task | Key files |
-|---|------|-----------|
-| 1 | Feature branch + DB migration | `migrations/20260407-group-communities.sql`, `init.sql` |
-| 2 | Community service — expose community_type in GET/POST | `routes/communities.ts` |
-| 3 | Community service — activities router | `routes/activities.ts`, `index.ts` |
-| 4 | Frontend — community type toggle in creation modal | `CreateCommunityModal.tsx` |
-| 5 | Frontend — Activities tab + components | `ActivitiesTab.tsx`, `ActivityCard.tsx`, `CreateActivityModal.tsx`, `communities/[id].tsx` |
-| 6 | Simulation — GROUP_COMMUNITIES templates + API client | `realistic-data.ts`, `api-client.ts` |
-| 7 | Simulation — schedule/join workflows + profile weights | `schedule-activity-workflow.ts`, `join-activity-workflow.ts`, `profiles/index.ts`, `simulator.ts` |
-| 8 | ADR-050 + user guide + landing page docs | `ADR-050-group-communities.md`, `docs/concepts/group-communities.md`, `generate-docs.ts` |
-| 9 | CONTEXT.md + registry.json | `community-service/CONTEXT.md`, `registry.json`, `simulation-service/CONTEXT.md` |
-| 10 | TDD integration test | `tests/tdd/group-communities.test.ts` |
-| 11 | Type check + pre-push verification | `tsc --noEmit`, `npm test`, `feedback:check` |
-| 12 | Merge + Deploy + SSH migration | `git push`, GitHub Actions, `psql migration` |
-
----
-
-## Sprint 46 — COMPLETE ✅
-
-Commit: `b1760cb` — pushed to master, GitHub Actions deployed.
+Deployed to karmyq.com via commit `479212c`. CI/CD pipeline run 24115305660 completed success.
 
 ### What was built
 
-**Error Visibility**
-- `packages/shared/utils/logger.ts`: `error_type: 'user_error' | 'system_error'` discriminator + `X-Request-Id` response header
-- `apps/frontend/src/pages/_app.tsx`: ErrorBoundary with `refId` state; renders reference string for 5xx
-- `apps/frontend/src/lib/api.ts`: `errorInterceptor` captures `x-request-id` and attaches as `error.refId`
-- `infrastructure/observability/grafana/provisioning/dashboards/json/error-visibility.json`: New Grafana dashboard (5 Loki panels)
+**Database**
+- Migration `20260407-group-communities.sql`: adds `community_type` column, creates `communities.activities` + `communities.activity_participants` tables, 5 indexes
+- `init.sql` updated with full schema (for fresh deploys)
 
-**CommitmentsTab Fix**
-- `apps/frontend/src/components/CommitmentsTab.tsx`: `handleAccept` removes accepted request from `myOpenRequests` state
+**Community Service**
+- `community_type` exposed on all community GET/POST endpoints
+- New `routes/activities.ts`: 5 endpoints (list, create, get, join, leave) with two-step atomic join, capacity guard, denormalized `current_participants`
 
-**ADR + Docs**
-- `docs/adr/ADR-049-error-visibility.md`: New ADR (next available number was 049)
-- `docs/adr/ADR-015-observability-stack.md`: Status → Implemented
-- `docs/concepts/observability.md`: New concept page
+**Frontend**
+- Community creation page: mutual_aid / group radio toggle
+- `ActivitiesTab.tsx`, `ActivityCard.tsx`, `CreateActivityModal.tsx` — Activities tab shown only on group communities
+- API client updated with getActivities, joinActivity, leaveActivity, createActivity
+
+**Simulation**
+- 4 GROUP_COMMUNITIES templates, ACTIVITY_TEMPLATES data
+- `schedule-activity-workflow.ts`, `join-activity-workflow.ts`
+- Profile weights updated (SOCIAL_USER, ACTIVE_HELPER, COMMUNITY_BUILDER get joinActivity)
+
+**Docs**
+- ADR-050 (Implemented), concept page, user guide, landing page regenerated
+
+### Key lessons from Sprint 47
+- `ADD CONSTRAINT IF NOT EXISTS` is not valid PostgreSQL — use `DO $$ BEGIN IF NOT EXISTS ... THEN ... END IF; END$$;`
+- GRANT statements in migrations fail on demo if the role doesn't exist in pg_roles; init.sql's blanket grant covers it
+- Simulation workflows must call `client.getCommunities()` — SimulatedUser has no decoded JWT communities field
+- `Router({ mergeParams: true })` required for nested routers; mount specific paths BEFORE generic ones in index.ts
 
 ---
 
 ## Architecture Gotchas (Persistent)
 
 - **Landing page docs source**: edit `docs/concepts/*.md` + `scripts/generate-docs.ts`. Run `cd apps/landing && npm run generate-docs` to regenerate. Never hand-edit `apps/landing/src/data/docs/` directly (gitignored/generated).
-- **ADR numbering**: highest existing ADR is 049. Next is **050** (used for Group Communities).
+  - **Exception for Sprint 48**: `guides/onboarding.json` and `nav.json` are written directly (they are not generated by generate-docs).
+- **ADR numbering**: highest existing ADR is 050. Next is **051**.
 - **Router mount paths**: always mount at full path (e.g. `/communities/trust-questions`) when router uses `router.get('/')`.
 - **JWT field** is `communities` not `communityMemberships` — always `user.communities ?? []`.
 - **Feed weights**: no sum constraint; normalized at query time in feed-service.
