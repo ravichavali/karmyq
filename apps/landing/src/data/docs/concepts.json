@@ -375,6 +375,14 @@
       "status": "implemented",
       "description": "**Date**: 2026-04-06",
       "filename": "ADR-049-error-visibility.md"
+    },
+    {
+      "slug": "adr-050-group-communities",
+      "number": "050",
+      "title": "ADR-050: Group Communities as a Distinct Community Type",
+      "status": "implemented",
+      "description": "**Status**: Implemented",
+      "filename": "ADR-050-group-communities.md"
     }
   ]
 }

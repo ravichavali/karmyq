@@ -118,6 +118,10 @@
           "href": "/docs/guides/admin-community"
         },
         {
+          "label": "Using Group Communities",
+          "href": "/docs/guides/group-communities"
+        },
+        {
           "label": "Setting Your Community's Trust Model",
           "href": "/docs/guides/community-trust-model"
         },
@@ -152,6 +156,10 @@
         {
           "label": "Your Profile",
           "href": "/docs/guides/profile-guide"
+        },
+        {
+          "label": "Getting Started with Karmyq",
+          "href": "/docs/guides/onboarding"
         }
       ]
     },
@@ -280,6 +288,10 @@
         {
           "label": "Configurable Trust Path Filtering & Adaptive Trust Preferences",
           "href": "/docs/concepts/adr-021-trust-path-filtering"
+        },
+        {
+          "label": "Group Communities as a Distinct Community Type",
+          "href": "/docs/concepts/adr-050-group-communities"
         },
         {
           "label": "— Requests & Matching —",

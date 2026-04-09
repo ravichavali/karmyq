@@ -168,6 +168,7 @@ Every feature branch or phase of work **must pass all items** before merging to 
   - New workflow step → add to the relevant guide
   - New navigation path → document where to find it
   - New integration between two features → document the connection end-to-end
+- [ ] **Onboarding content updated** if you changed a workflow's UI or behavior: update `apps/frontend/src/lib/onboarding/workflows.ts` for the affected workflow key
 - [ ] **CONTEXT.md updated** for any changed service (endpoint, schema, events)
 - [ ] **services/registry.json updated** for new endpoints or events
 - [ ] **ADR created or updated** if this is an architectural decision

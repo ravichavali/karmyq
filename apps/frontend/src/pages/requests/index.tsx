@@ -6,6 +6,10 @@ import { requestService } from '../../lib/api'
 import Layout from '@/components/Layout'
 import ConnectionBadge from '@/components/requests/ConnectionBadge'
 import EmptyState from '@/components/EmptyState'
+// Onboarding: see src/lib/onboarding/workflows.ts → 'requests'
+import { useOnboarding } from '@/hooks/useOnboarding'
+import OnboardingOverlay from '@/components/OnboardingOverlay'
+import { WORKFLOWS } from '@/lib/onboarding/workflows'
 
 interface HelpRequest {
   id: string
@@ -44,6 +48,7 @@ export default function RequestsPage() {
   const [useCuratedFeed, setUseCuratedFeed] = useState(true)
   const [minMatchScore, setMinMatchScore] = useState(30)
   const [currentUser, setCurrentUser] = useState<any>(null)
+  const { shouldShow: showRequestsOnboarding, markSeen: markRequestsSeen } = useOnboarding('requests')
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -113,6 +118,9 @@ export default function RequestsPage() {
 
   return (
     <>
+      {showRequestsOnboarding && (
+        <OnboardingOverlay workflow={WORKFLOWS.requests} onDismiss={markRequestsSeen} />
+      )}
       <Head>
         <title>Help Requests - Karmyq</title>
       </Head>

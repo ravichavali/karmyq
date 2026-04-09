@@ -323,6 +323,7 @@ const GUIDE_ORDER = [
   'managing-notifications-guide',
   'understanding-trust',
   'profile-guide',
+  'onboarding-guide',
 ];
 
 const GUIDE_LABELS: Record<string, string> = {
@@ -342,6 +343,7 @@ const GUIDE_LABELS: Record<string, string> = {
   'managing-notifications-guide': 'Managing Your Notifications',
   'understanding-trust': 'Understanding Trust on Karmyq',
   'profile-guide': 'Your Profile',
+  'onboarding-guide': 'Getting Started with Karmyq',
 };
 
 const GUIDE_SLUGS: Record<string, string> = {
@@ -361,6 +363,7 @@ const GUIDE_SLUGS: Record<string, string> = {
   'managing-notifications-guide': 'managing-notifications',
   'understanding-trust': 'understanding-trust',
   'profile-guide': 'profile-guide',
+  'onboarding-guide': 'onboarding',
 };
 
 function generateGuides(): GuidePage[] {

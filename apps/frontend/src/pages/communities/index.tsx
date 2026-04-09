@@ -6,6 +6,10 @@ import { communityService, reputationService } from '@/lib/api'
 import Layout from '@/components/Layout'
 import EmptyState from '@/components/EmptyState'
 import DiscoveryToggle, { type DiscoveryMode, readDiscoveryMode } from '@/components/DiscoveryToggle'
+// Onboarding: see src/lib/onboarding/workflows.ts → 'communities'
+import { useOnboarding } from '@/hooks/useOnboarding'
+import OnboardingOverlay from '@/components/OnboardingOverlay'
+import { WORKFLOWS } from '@/lib/onboarding/workflows'
 
 interface Community {
   id: string
@@ -282,6 +286,8 @@ export default function CommunitiesPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedTags])
 
+  const { shouldShow: showCommunitiesOnboarding, markSeen: markCommunitiesSeen } = useOnboarding('communities')
+
   const handleDiscoveryModeChange = (newMode: DiscoveryMode) => {
     setSelectedTags([])
     setDiscoveryMode(newMode)
@@ -328,6 +334,9 @@ export default function CommunitiesPage() {
 
   return (
     <>
+      {showCommunitiesOnboarding && (
+        <OnboardingOverlay workflow={WORKFLOWS.communities} onDismiss={markCommunitiesSeen} />
+      )}
       <Head>
         <title>Discover Communities - Karmyq</title>
       </Head>

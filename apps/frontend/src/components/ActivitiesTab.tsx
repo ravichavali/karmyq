@@ -2,6 +2,10 @@ import React, { useCallback, useEffect, useState } from 'react'
 import { communityService } from '@/lib/api'
 import ActivityCard from './ActivityCard'
 import CreateActivityModal from './CreateActivityModal'
+// Onboarding: see src/lib/onboarding/workflows.ts → 'activities'
+import { useOnboarding } from '@/hooks/useOnboarding'
+import OnboardingOverlay from '@/components/OnboardingOverlay'
+import { WORKFLOWS } from '@/lib/onboarding/workflows'
 
 interface Activity {
   id: string
@@ -28,6 +32,7 @@ export default function ActivitiesTab({ communityId, isAdmin }: ActivitiesTabPro
   const [joiningId, setJoiningId] = useState<string | null>(null)
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [joinError, setJoinError] = useState<string | null>(null)
+  const { shouldShow: showActivitiesOnboarding, markSeen: markActivitiesSeen } = useOnboarding('activities')
 
   const fetchActivities = useCallback(async () => {
     setLoading(true)
@@ -72,6 +77,9 @@ export default function ActivitiesTab({ communityId, isAdmin }: ActivitiesTabPro
 
   return (
     <div className="space-y-4">
+      {showActivitiesOnboarding && (
+        <OnboardingOverlay workflow={WORKFLOWS.activities} onDismiss={markActivitiesSeen} />
+      )}
       {/* Header */}
       <div className="flex items-center justify-between">
         <h3 className="text-base font-semibold text-text">Activities</h3>

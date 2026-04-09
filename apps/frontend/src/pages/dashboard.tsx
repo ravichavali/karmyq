@@ -15,6 +15,10 @@ import RequestWizard from '@/components/RequestWizard'
 import { useProvider } from '@/contexts/ProviderContext'
 import ProviderDashboardCard from '@/components/ProviderDashboardCard'
 import ProviderMatchingRequests from '@/components/ProviderMatchingRequests'
+// Onboarding: see src/lib/onboarding/workflows.ts → 'feed'
+import { useOnboarding } from '@/hooks/useOnboarding'
+import OnboardingOverlay from '@/components/OnboardingOverlay'
+import { WORKFLOWS } from '@/lib/onboarding/workflows'
 
 
 interface HelpRequest {
@@ -83,6 +87,7 @@ export default function Dashboard() {
 
   const { providerMode, providerServiceTypes, providerProfiles } = useProvider()
   const isProviderMode = providerMode === 'provider'
+  const { shouldShow: showFeedOnboarding, markSeen: markFeedSeen } = useOnboarding('feed')
 
   useEffect(() => {
     // Only run on client-side (not during SSR)
@@ -415,6 +420,9 @@ export default function Dashboard() {
 
   return (
     <>
+      {showFeedOnboarding && (
+        <OnboardingOverlay workflow={WORKFLOWS.feed} onDismiss={markFeedSeen} />
+      )}
       <Head>
         <title>Dashboard - Karmyq</title>
       </Head>
