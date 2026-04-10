@@ -70,6 +70,10 @@ function CommunityCardSkeleton() {
 
 export default function CommunitiesPage() {
   const router = useRouter()
+
+  // Derive before state declarations so useState(!isWelcomeFlow) reads the correct initial value
+  const isWelcomeFlow = router.query.welcome === 'true'
+
   const [user, setUser] = useState<any>(null)
   const [communities, setCommunities] = useState<Community[]>([])
   const [membershipStatus, setMembershipStatus] = useState<MembershipStatus>({})
@@ -95,6 +99,7 @@ export default function CommunitiesPage() {
   const [categoryFilter, setCategoryFilter] = useState('')
   const [hasSpaceFilter, setHasSpaceFilter] = useState(false)
   const [sortBy, setSortBy] = useState('newest')
+  const [showFilters, setShowFilters] = useState(!isWelcomeFlow)
   const [initialized, setInitialized] = useState(false)
 
   // Refs for stable fetchCommunities callback
@@ -302,6 +307,9 @@ export default function CommunitiesPage() {
   const handleJoinCommunity = async (communityId: string, accessType: 'public' | 'private') => {
     if (!user) return
 
+    // Capture before async call — JWT is not refreshed after joining
+    const isFirstJoin = (user.communities ?? []).length === 0
+
     try {
       setJoiningId(communityId)
       await communityService.joinCommunity(communityId, { user_id: user.id })
@@ -310,6 +318,13 @@ export default function CommunitiesPage() {
         ...prev,
         [communityId]: accessType === 'public' ? 'active' : 'pending'
       }))
+
+      if (isFirstJoin && accessType === 'public') {
+        // Suppress WelcomeModal (they got their welcome experience here)
+        localStorage.setItem('karmyq_onboarded', '1')
+        router.push('/dashboard')
+        return
+      }
 
       fetchCommunities({ mode: discoveryMode })
     } catch (err: any) {
@@ -358,34 +373,48 @@ export default function CommunitiesPage() {
             </Link>
           </div>
 
-          {/* Configuration Resources */}
-          <div className="bg-gradient-to-r from-primary-light to-accent-light border border-primary-medium rounded-lg p-4 mb-6">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="text-2xl">⚙️</span>
+          {/* Welcome banner for new users; config banner for returning users */}
+          {isWelcomeFlow ? (
+            <div className="bg-gradient-to-r from-primary-light to-accent-light border border-primary-medium rounded-lg p-4 mb-6">
+              <div className="flex items-center gap-3">
+                <span className="text-2xl">👋</span>
                 <div>
-                  <h3 className="font-semibold text-text">Community Configuration</h3>
+                  <h3 className="font-semibold text-text">Welcome to Karmyq!</h3>
                   <p className="text-sm text-text-muted">
-                    Explore how different communities set up their karma and trust mechanics
+                    Join a community near you to get started — it's where requests, activities, and mutual aid happen.
                   </p>
                 </div>
               </div>
-              <div className="flex gap-3">
-                <Link
-                  href="/communities/config-templates"
-                  className="px-4 py-2 bg-surface-raised border border-primary-medium text-primary-dark rounded hover:bg-primary-light text-sm font-medium transition-colors"
-                >
-                  📋 Browse Templates
-                </Link>
-                <Link
-                  href="/communities/configs/public"
-                  className="px-4 py-2 bg-primary text-white rounded hover:bg-primary-dark text-sm font-medium transition-colors"
-                >
-                  ⭐ Thriving Communities
-                </Link>
+            </div>
+          ) : (
+            <div className="bg-gradient-to-r from-primary-light to-accent-light border border-primary-medium rounded-lg p-4 mb-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-2xl">⚙️</span>
+                  <div>
+                    <h3 className="font-semibold text-text">Community Configuration</h3>
+                    <p className="text-sm text-text-muted">
+                      Explore how different communities set up their karma and trust mechanics
+                    </p>
+                  </div>
+                </div>
+                <div className="flex gap-3">
+                  <Link
+                    href="/communities/config-templates"
+                    className="px-4 py-2 bg-surface-raised border border-primary-medium text-primary-dark rounded hover:bg-primary-light text-sm font-medium transition-colors"
+                  >
+                    📋 Browse Templates
+                  </Link>
+                  <Link
+                    href="/communities/configs/public"
+                    className="px-4 py-2 bg-primary text-white rounded hover:bg-primary-dark text-sm font-medium transition-colors"
+                  >
+                    ⭐ Thriving Communities
+                  </Link>
+                </div>
               </div>
             </div>
-          </div>
+          )}
 
           {/* Discovery Toggle */}
           <div className="mb-4">
@@ -417,7 +446,18 @@ export default function CommunitiesPage() {
             </div>
           )}
 
+          {/* Filter toggle for welcome flow */}
+          {isWelcomeFlow && (
+            <button
+              onClick={() => setShowFilters(f => !f)}
+              className="text-sm text-text-muted hover:text-text mb-4 flex items-center gap-1"
+            >
+              {showFilters ? '▲ Hide filters' : '▼ Filter communities'}
+            </button>
+          )}
+
           {/* Search and Filters */}
+          {showFilters && (
           <div className="bg-surface-raised rounded-xl border border-border p-6 mb-6">
             <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
               {/* Search */}
@@ -501,6 +541,7 @@ export default function CommunitiesPage() {
               </button>
             </div>
           </div>
+          )}
 
           {error && (
             <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg mb-4">

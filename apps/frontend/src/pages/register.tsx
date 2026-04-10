@@ -41,7 +41,7 @@ export default function Register() {
       localStorage.setItem('token', response.data.token)
       localStorage.setItem('user', JSON.stringify(response.data.user))
 
-      router.push('/dashboard')
+      router.push('/communities?welcome=true')
     } catch (err: any) {
       setError(err.response?.data?.error || 'Registration failed')
     } finally {

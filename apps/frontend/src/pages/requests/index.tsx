@@ -262,8 +262,8 @@ export default function RequestsPage() {
         ) : requests.length === 0 ? (
           <EmptyState
             icon="📋"
-            heading="No requests yet"
-            body="Be the first to ask for help — or check back soon."
+            heading="No requests found"
+            body="Try adjusting your filters, or post a request if you need help."
             ctaLabel="Post a Request"
             ctaHref="/dashboard"
           />

@@ -66,7 +66,7 @@ export default function WelcomeModal({ user }: WelcomeModalProps) {
           </button>
           {isLast ? (
             <button onClick={handleClose} className="btn-primary">
-              Get started
+              Browse my feed
             </button>
           ) : (
             <button onClick={handleNext} className="btn-primary">

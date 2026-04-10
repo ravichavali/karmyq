@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/router'
 import Head from 'next/head'
+import Link from 'next/link'
 import { requestService, communityService } from '@/lib/api'
 import { feedApi } from '@/lib/api'
 import Layout from '@/components/Layout'
@@ -444,50 +445,71 @@ export default function Dashboard() {
           </select>
         </div>
 
-        {/* Provider mode summary card */}
-        {isProviderMode && (
-          <ProviderDashboardCard
-            activeCommitments={activeCommitmentsCount}
-            providerId={providerProfiles[0]?.id}
-          />
-        )}
-
-        {/* Open requests for providers who are on-duty */}
-        {providerMode === 'provider' && providerProfiles[0]?.is_available && (
-          <ProviderMatchingRequests />
-        )}
-
-        {/* Desktop tab bar */}
-        <TabBar
-          activeTab={activeTab}
-          onChange={setActiveTab}
-          browseLabel={isProviderMode ? 'Requests for Me' : undefined}
-          dibsCount={pendingDibsCount}
-        />
-
-        {/* Tab content */}
-        <div className="pb-20 md:pb-0">
-          {activeTab === 'browse' && (
-            <div key="browse">
-              <BrowseFeed
-                communityId={activeCommunityId || undefined}
-                serviceTypeFilter={isProviderMode ? providerServiceTypes : undefined}
+        {/* Zero-community state — shown when user hasn't joined any community yet */}
+        {!loading && userCommunities.length === 0 ? (
+          <div className="max-w-md mx-auto px-4 py-16 text-center">
+            <div className="text-5xl mb-4">🏘️</div>
+            <h2 className="text-xl font-semibold text-text mb-2">You haven't joined a community yet</h2>
+            <p className="text-text-muted text-sm mb-8">
+              Communities are where requests, activities, and mutual aid happen.
+              Join one near you to see your feed.
+            </p>
+            <Link
+              href="/communities"
+              className="px-6 py-3 bg-primary text-white rounded-lg font-medium hover:bg-primary-dark transition-colors inline-flex"
+            >
+              Find Communities
+            </Link>
+          </div>
+        ) : (
+          <>
+            {/* Provider mode summary card */}
+            {isProviderMode && (
+              <ProviderDashboardCard
+                activeCommitments={activeCommitmentsCount}
+                providerId={providerProfiles[0]?.id}
               />
+            )}
+
+            {/* Open requests for providers who are on-duty */}
+            {providerMode === 'provider' && providerProfiles[0]?.is_available && (
+              <ProviderMatchingRequests />
+            )}
+
+            {/* Desktop tab bar */}
+            <TabBar
+              activeTab={activeTab}
+              onChange={setActiveTab}
+              browseLabel={isProviderMode ? 'Requests for Me' : undefined}
+              dibsCount={pendingDibsCount}
+            />
+
+            {/* Tab content */}
+            <div className="pb-20 md:pb-0">
+              {activeTab === 'browse' && (
+                <div key="browse">
+                  <BrowseFeed
+                    communityId={activeCommunityId || undefined}
+                    serviceTypeFilter={isProviderMode ? providerServiceTypes : undefined}
+                    noCommunities={userCommunities.length === 0}
+                  />
+                </div>
+              )}
+              {activeTab === 'commitments' && <div key="commitments"><CommitmentsTab onDibsLoaded={setPendingDibsCount} /></div>}
+              {activeTab === 'my-requests' && <div key="my-requests"><MyRequestsTab onNewRequest={() => setShowWizard(true)} /></div>}
+              {activeTab === 'profile' && (
+                <div key="profile" className="max-w-2xl mx-auto px-4 py-8">
+                  <EmptyState
+                    heading="Profile"
+                    body="View your full profile, karma history, and settings."
+                    ctaLabel="Go to Profile"
+                    ctaHref="/profile"
+                  />
+                </div>
+              )}
             </div>
-          )}
-          {activeTab === 'commitments' && <div key="commitments"><CommitmentsTab onDibsLoaded={setPendingDibsCount} /></div>}
-          {activeTab === 'my-requests' && <div key="my-requests"><MyRequestsTab onNewRequest={() => setShowWizard(true)} /></div>}
-          {activeTab === 'profile' && (
-            <div key="profile" className="max-w-2xl mx-auto px-4 py-8">
-              <EmptyState
-                heading="Profile"
-                body="View your full profile, karma history, and settings."
-                ctaLabel="Go to Profile"
-                ctaHref="/profile"
-              />
-            </div>
-          )}
-        </div>
+          </>
+        )}
 
         <SpeedDialFab
           activeTab={activeTab}

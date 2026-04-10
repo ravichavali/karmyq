@@ -59,9 +59,10 @@ function formatTime(timestamp: string): string {
 interface BrowseFeedProps {
   communityId?: string
   serviceTypeFilter?: string[]  // if non-empty, show only requests matching these types
+  noCommunities?: boolean
 }
 
-export default function BrowseFeed({ communityId, serviceTypeFilter }: BrowseFeedProps) {
+export default function BrowseFeed({ communityId, serviceTypeFilter, noCommunities }: BrowseFeedProps) {
   const [requests, setRequests] = useState<HelpRequest[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
@@ -151,10 +152,20 @@ export default function BrowseFeed({ communityId, serviceTypeFilter }: BrowseFee
       />
 
       {filtered.length === 0 ? (
-        <EmptyState
-          heading="No open requests"
-          body={activeType !== 'all' || activeUrgency !== 'all' ? 'Try clearing your filters.' : 'Check back soon — your community will post requests here.'}
-        />
+        noCommunities ? (
+          <EmptyState
+            icon="🏘️"
+            heading="Join a community to see requests"
+            body="Once you're part of a community, you'll see requests here from your neighbours."
+            ctaLabel="Find Communities"
+            ctaHref="/communities"
+          />
+        ) : (
+          <EmptyState
+            heading="No open requests"
+            body={activeType !== 'all' || activeUrgency !== 'all' ? 'Try clearing your filters.' : 'Check back soon — your community will post requests here.'}
+          />
+        )
       ) : (
         <div className="space-y-3 pb-4">
           {filtered.map((request) => (
