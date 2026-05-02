@@ -1,44 +1,49 @@
-# SPRINT 49 — New User Journey
+# SPRINT 50 — TBD (Sprint 49 Complete)
 
 ## Handoff Document
 
-**Date**: 2026-04-09
-**Current Version**: v9.14.0 → v9.15.0
-**Status**: Sprint 49 specced and planned. Ready to execute.
+**Date**: 2026-04-10
+**Current Version**: v9.15.0
+**Status**: Sprint 49 complete and deployed. Ready to plan Sprint 50.
 
 ---
 
 ## Quick Start
 
 1. Read this handoff
-2. Check out branch: `git checkout -b feature/sprint-49-new-user-journey`
-3. Open plan: `docs/superpowers/plans/2026-04-09-sprint-49-new-user-journey.md`
-4. Run: `/execute-plan` (uses superpowers:subagent-driven-development)
+2. Run `/sprint-planning` to brainstorm and plan Sprint 50
+3. Once plan is ready, run `/execute-plan Sprint 50`
 
 ---
 
-## Sprint 49 Goal
+## Sprint 49 — COMPLETE ✅
 
-A first-time visitor can register, find a community, join it, and see their feed — without hitting a dead end or empty screen.
+Deployed to karmyq.com via commit `d1415aa`. CI/CD pipeline run 24226519934 in progress at time of handoff.
 
-**Why this matters:** Karmyq is being shared with real people for the first time. The current flow routes new users to `/dashboard` immediately after registration — but their feed is empty (no communities yet). The WelcomeModal explains the concept passively and dismisses, leaving the user on an empty screen with nothing to do. They have to discover `/communities` on their own.
+### What Was Built
 
-**What we're fixing:** Route, banner, redirect, and empty states — 6 frontend files, no backend changes.
+**Frontend — New User Journey (6 files)**
 
----
+| File | What Changed |
+|------|-------------|
+| `apps/frontend/src/pages/register.tsx:44` | `router.push('/dashboard')` → `router.push('/communities?welcome=true')` |
+| `apps/frontend/src/pages/communities/index.tsx` | `isWelcomeFlow` const, welcome banner vs config banner, `showFilters` state with toggle, first-join detect + `karmyq_onboarded` flag + redirect to `/dashboard` after first public join |
+| `apps/frontend/src/pages/dashboard.tsx` | Added `Link` import; zero-community empty state wrapping TabBar/content (`!loading && userCommunities.length === 0`); `noCommunities` prop passed to `<BrowseFeed>` |
+| `apps/frontend/src/components/WelcomeModal.tsx:68` | "Get started" → "Browse my feed" |
+| `apps/frontend/src/components/BrowseFeed.tsx` | `noCommunities` prop — shows CTA to `/communities` when true and feed is empty |
+| `apps/frontend/src/pages/requests/index.tsx` | Empty state copy: "No requests yet" → "No requests found" with adjusted body |
 
-## Sprint 48 — COMPLETE ✅
+**Docs & Tests**
+- `docs/guides/onboarding-guide.md` — Added "Getting Started as a New User" section
+- `apps/landing/src/data/docs/guides/onboarding.json` — Regenerated
+- `tests/tdd/sprint-49-new-user-journey.test.ts` — 9 tests, all pass
 
-Deployed to karmyq.com via commit `7985fe4`. CI/CD pipeline run 24172247204 completed success (12m24s).
+### Key Implementation Decisions
 
-### What was built
-
-**Frontend — Onboarding Overlays**
-- `apps/frontend/src/lib/onboarding/workflows.ts` — central config for all four workflows (feed, communities, requests, activities)
-- `apps/frontend/src/hooks/useOnboarding.ts` — SSR-safe hook (initializes `shouldShow: false`, sets in `useEffect`)
-- `apps/frontend/src/components/OnboardingOverlay.tsx` — step modal with Back/Next/Skip/Done + dot indicators
-- Wired into: `dashboard.tsx` (feed), `communities/index.tsx`, `requests/index.tsx`, `ActivitiesTab.tsx`
-- State stored in `localStorage` under key `karmyq_onboarding` — JSON object with per-workflow seen flags
+- **First-join uses pre-join state**: `isFirstJoin` is captured before the `joinCommunity()` async call. JWT in localStorage is not refreshed post-join.
+- **Private community first-join**: No redirect — user status is `pending`, not `active`. Only redirect on `accessType === 'public'` first joins.
+- **WelcomeModal suppression**: `localStorage.setItem('karmyq_onboarded', '1')` is set before `router.push('/dashboard')` so WelcomeModal doesn't fire on arrival at dashboard.
+- **`showFilters` state**: Initialized to `!isWelcomeFlow`. `isWelcomeFlow` is derived as a const before all state declarations (before `useState(!isWelcomeFlow)` runs).
 
 ---
 
@@ -48,43 +53,8 @@ Deployed to karmyq.com via commit `7985fe4`. CI/CD pipeline run 24172247204 comp
 |--------|-------|--------|
 | Sprint 47 | Group Communities — Data Model + Activity Scheduling | ✅ Complete |
 | Sprint 48 | Onboarding — Contextual Workflow Guides | ✅ Complete |
-| **Sprint 49** | **New User Journey** | 🔵 Ready to execute |
-| Sprint 50 | TBD | Upcoming |
-
----
-
-## What Sprint 49 Changes
-
-**6 files, frontend-only, no backend changes:**
-
-| File | Change |
-|------|--------|
-| `apps/frontend/src/pages/register.tsx:44` | `router.push('/dashboard')` → `router.push('/communities?welcome=true')` |
-| `apps/frontend/src/pages/communities/index.tsx` | Welcome banner when `?welcome=true`; hide filters by default; detect first join; set `karmyq_onboarded`; redirect to `/dashboard` after first public join |
-| `apps/frontend/src/pages/dashboard.tsx` | Zero-community empty state when `!loading && userCommunities.length === 0` |
-| `apps/frontend/src/components/WelcomeModal.tsx` | "Get started" → "Browse my feed" (final CTA label only) |
-| `apps/frontend/src/components/BrowseFeed.tsx` | Add `noCommunities` prop — shows CTA to `/communities` when true |
-| `apps/frontend/src/pages/requests/index.tsx` | Improve empty state copy for new users |
-
-**Also ships:**
-- `docs/guides/onboarding-guide.md` — new section on the first-visit flow
-- `tests/tdd/sprint-49-new-user-journey.test.ts` — 7 tests covering first-join logic
-
----
-
-## ⚠️ Critical Implementation Notes
-
-1. **First-join detection uses pre-join state**: Check `(user.communities ?? []).length === 0` BEFORE calling `communityService.joinCommunity()`. JWT in localStorage is not refreshed after joining.
-
-2. **Set `karmyq_onboarded` before redirecting**: `localStorage.setItem('karmyq_onboarded', '1')` must happen before `router.push('/dashboard')`. Otherwise WelcomeModal fires on the dashboard, duplicating the welcome experience.
-
-3. **`?welcome=true` is cosmetic-only**: Only affects which banner is shown. Must NOT affect the communities API call or filtering logic.
-
-4. **Zero-community check must wait for loading**: Only show when `!loading && userCommunities.length === 0`, not during the loading phase.
-
-5. **Private community first-join**: Don't redirect after requesting to join a private community — the user is "pending", not "joined". Only redirect on `accessType === 'public'` first joins.
-
-6. **`showFilters` state init**: `useState(!isWelcomeFlow)` — `isWelcomeFlow` must be derived from `router.query.welcome` before the state is initialized. Since `useState` only reads the initial value once, derive `isWelcomeFlow` as a const before the state declarations.
+| Sprint 49 | New User Journey | ✅ Complete |
+| **Sprint 50** | **TBD** | 🔵 Ready to plan |
 
 ---
 
