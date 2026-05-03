@@ -8,8 +8,7 @@ import { useProvider } from '../contexts/ProviderContext'
 
 function HamburgerMenu() {
   const [open, setOpen] = useState(false)
-  const { providerMode } = useProvider()
-  const isProviderMode = providerMode === 'provider'
+  const { hasProviderProfile } = useProvider()
   return (
     <div className="relative md:hidden">
       <button
@@ -28,7 +27,7 @@ function HamburgerMenu() {
             <Link href="/communities" className="block px-4 py-2 text-sm text-text hover:bg-surface transition-colors" onClick={() => setOpen(false)}>
               Communities
             </Link>
-            {isProviderMode && (
+            {hasProviderProfile && (
               <Link href="/providers" className="block px-4 py-2 text-sm text-text hover:bg-surface transition-colors" onClick={() => setOpen(false)}>
                 Service Providers
               </Link>
@@ -60,8 +59,7 @@ interface User {
 const Layout: React.FC<LayoutProps> = ({ children, title }) => {
   const router = useRouter()
   const [user, setUser] = useState<User | null>(null)
-  const { providerMode } = useProvider()
-  const isProviderMode = providerMode === 'provider'
+  const { hasProviderProfile } = useProvider()
 
   useEffect(() => {
     const userData = localStorage.getItem('user')
@@ -101,7 +99,7 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
                   >
                     Communities
                   </Link>
-                  {isProviderMode && (
+                  {hasProviderProfile && (
                     <Link
                       href="/providers"
                       className={`px-3 py-2 text-sm font-medium rounded-lg transition-all ${

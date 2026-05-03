@@ -480,7 +480,7 @@ export default function Dashboard() {
             <TabBar
               activeTab={activeTab}
               onChange={setActiveTab}
-              browseLabel={isProviderMode ? 'Requests for Me' : undefined}
+              browseLabel={undefined}
               dibsCount={pendingDibsCount}
             />
 
@@ -490,7 +490,7 @@ export default function Dashboard() {
                 <div key="browse">
                   <BrowseFeed
                     communityId={activeCommunityId || undefined}
-                    serviceTypeFilter={isProviderMode ? providerServiceTypes : undefined}
+                    serviceTypeFilter={undefined}
                     noCommunities={userCommunities.length === 0}
                   />
                 </div>
@@ -515,7 +515,6 @@ export default function Dashboard() {
           activeTab={activeTab}
           onGetHelp={() => setShowWizard(true)}
           onGetService={() => setShowWizard(true)}
-          isProviderMode={isProviderMode}
         />
         {showWizard && (
           <RequestWizard
