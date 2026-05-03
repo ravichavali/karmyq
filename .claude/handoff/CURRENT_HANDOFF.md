@@ -1,62 +1,54 @@
-# SPRINT 50 — Provider Mode + Dibs (Ready to Execute)
+# SPRINT 50 — Complete ✅ | Sprint 51 Ready to Plan
 
 ## Handoff Document
 
 **Date**: 2026-05-03
-**Current Version**: v9.15.0 → v9.16.0
-**Status**: Spec + plan written. Ready to execute.
+**Current Version**: v9.16.0 (deployed to karmyq.com via commit `2b4847a`)
+**Status**: Sprint 50 complete and pushed. Sprint 51 not yet planned.
 
 ---
 
 ## Quick Start
 
+Sprint 50 is done. To start Sprint 51:
+
 1. Read this handoff
-2. Check out branch: `git checkout -b feature/sprint-50-provider-dibs`
-3. Open plan: `docs/superpowers/plans/2026-05-03-sprint-50-provider-dibs.md`
-4. Run: `/execute-plan` (uses superpowers:subagent-driven-development)
+2. Run `/sprint-planning` to spec + plan Sprint 51 (trust-score-integrated matching — see multi-sprint arc below)
+3. Or pick a different sprint goal if priorities have shifted
 
 ---
 
-## Sprint 50 Goal
+## What Sprint 50 Completed
 
-Wire the provider availability toggle to the API and lift the scheduled-only restriction from dibs — making both features work end-to-end for all request types. This is a loop-closing sprint, not a greenfield build.
+**Commit**: `2b4847a feat(provider): Sprint 50 — provider on/off duty API sync + dibs for all request types`
 
----
+### 5 gaps closed:
 
-## What Was Already Built (Don't Rebuild These)
+1. **Provider mode toggle now calls the API** — `ProviderContext.tsx` `setProviderMode` is now async; calls `PATCH /providers/:id/availability` for each active profile. Local state still updates synchronously first (UX is instant).
 
-Sprints 27–42 built the full provider/dibs infrastructure. All of this exists and is production-ready:
+2. **Dibs available for all request types** — removed `scheduled_for` guards from both `GET /:id/dibs-candidate` and `POST /:id/dibs` in `services/request-service/src/routes/dibs.ts`.
 
-- `requests.dibs` table — fully provisioned
-- All dibs backend routes: candidate suggestion, submit, accept, decline, expire (`services/request-service/src/routes/dibs.ts`)
-- `dibsScoringService.ts` — trust score + prior interactions + trust graph scoring
-- `cleanup-service` `expireDibs` job — runs on schedule, publishes events
-- `PATCH /providers/:id/availability` endpoint — exists in `services/request-service/src/routes/providers.ts`
-- `providerService.updateAvailability()` — exists in `apps/frontend/src/lib/api.ts` (line 852)
-- `ProviderModeSwitcher.tsx` — member/provider toggle UI
-- `ProviderContext.tsx` — loads profiles, `updateProviderAvailability` updates local state
-- `DibsPrompt.tsx` — post-creation dibs suggestion UI
-- `CommitmentsTab.tsx` — shows pending dibs to providers with Accept/Decline
-- `RequestWizard.tsx` — post-creation dibs flow exists, just restricted to scheduled requests
+3. **Mutual aid candidate query** — `getMutualAidCandidates()` in `dibsDb.ts` queries `auth.users` (not `provider_profiles`) for non-service requests. `getMutualAidBestCandidate()` wrapper in `dibsScoringService.ts`. `?type=service` → provider-profile candidates; anything else → mutual-aid candidates.
 
----
+4. **Off-duty confirmation** — `ProviderModeSwitcher.tsx` shows inline banner "Active commitments won't be affected" with Go off-duty / Stay on buttons when switching from Provider → Member.
 
-## The 5 Gaps Sprint 50 Closes
+5. **24h expiry for non-scheduled requests** — `POST /:id/dibs` now uses `DIBS_FIXED_WINDOW_MS = 24 * 60 * 60 * 1000` when `scheduled_for` is null.
 
-1. **`setProviderMode` doesn't call the API** — writes localStorage only; `PATCH /providers/:id/availability` is never called
-2. **Dibs locked to scheduled requests** — two backend guards in `dibs.ts` (lines 41–45 and 107–113); one frontend check in `RequestWizard.tsx` (line 166 checks `scheduled_for`)
-3. **Dibs candidate query excludes non-providers** — `getEligibleCandidates` joins `provider_profiles`; mutual aid requests need a separate query against `auth.users`
-4. **No off-duty confirmation** — no UI tells providers their commitments survive the toggle
-5. **Expiry for non-scheduled** — currently `leadTime * 0.20` only; needs `NOW() + 24h` fallback
-
----
-
-## Off-Duty Commitment Model (Confirmed)
-
-- Turning off provider mode → stops new requests/dibs from routing to you
-- Existing **accepted commitments** persist (like Uber going offline mid-trip)
-- Existing **pending dibs** remain actionable (provider can still accept/decline)
-- UI shows inline confirmation banner: "Active commitments won't be affected"
+### Key files changed:
+- `services/request-service/src/routes/dibs.ts`
+- `services/request-service/src/db/dibsDb.ts`
+- `services/request-service/src/services/dibsScoringService.ts`
+- `apps/frontend/src/contexts/ProviderContext.tsx`
+- `apps/frontend/src/components/ProviderModeSwitcher.tsx`
+- `apps/frontend/src/components/RequestWizard.tsx`
+- `apps/frontend/src/lib/api.ts`
+- `docs/guides/provider-dibs-guide.md` (new)
+- `docs/guides/dibs-request.md` (updated — removed stale scheduled-only language)
+- `docs/guides/provider-mode-guide.md` (appended off-duty section)
+- `docs/guides/using-service-providers-guide.md` (appended dibs from requester perspective)
+- `services/request-service/CONTEXT.md`
+- `services/registry.json`
+- `tests/tdd/sprint-50-provider-dibs.test.ts` (new — 11 `it.todo()` placeholders)
 
 ---
 
@@ -65,31 +57,8 @@ Sprints 27–42 built the full provider/dibs infrastructure. All of this exists 
 | Sprint | Theme | Status |
 |--------|-------|--------|
 | Sprint 37–42 | Provider profiles, rate cards, offers, dibs infrastructure | ✅ Complete |
-| **Sprint 50** | **Wire the toggle + lift the scheduled-only restriction** | 🔵 This sprint |
-| Sprint 51 | Trust-score-integrated matching | ⬜ Upcoming |
-
----
-
-## Spec + Plan
-
-- **Design spec**: `docs/superpowers/specs/2026-05-03-sprint-50-provider-dibs-design.md`
-- **Implementation plan**: `docs/superpowers/plans/2026-05-03-sprint-50-provider-dibs.md`
-
----
-
-## ⚠️ Critical Implementation Notes
-
-1. **`setProviderMode` → async**: Safe to make async — call sites use `onClick={() => setProviderMode(…)}` (fire-and-forget). `setProviderModeState` still runs synchronously first.
-
-2. **`getMutualAidCandidates` must return `RawCandidate[]`** with `isAvailable: true` for all rows (no provider availability field for non-providers). Keeps scoring service unchanged.
-
-3. **Keep `scheduled_for` in the DB SELECT** in the candidate route — remove only the eligibility guard, not the column fetch.
-
-4. **`?type=` routing in `/dibs-candidate`**: `type === 'service'` → `getBestCandidate` (provider_profiles). Anything else → `getMutualAidBestCandidate` (auth.users).
-
-5. **No DB migrations needed** — all schema already exists.
-
-6. **Docs location**: `docs/guides/provider-mode-guide.md` and `docs/guides/using-service-providers-guide.md` both exist — append sections, don't rewrite. Check `scripts/generate-docs.ts` arrays before adding new guide.
+| Sprint 50 | Wire the toggle + lift the scheduled-only restriction | ✅ Complete |
+| **Sprint 51** | **Trust-score-integrated matching** | ⬜ To plan |
 
 ---
 
@@ -104,3 +73,4 @@ Sprints 27–42 built the full provider/dibs infrastructure. All of this exists 
 - **`git add` on CLAUDE.md**: file is tracked as lowercase `claude.md` — always `git add claude.md`.
 - **Pre-existing TDD failures**: `sprint-39-provider-ux` (7 tests fail) and `sprint-43-feed-ranking` (crashes). These are NOT regressions — do not attempt to fix them.
 - **Solo dev — no worktrees**: work directly on feature branches (`git checkout -b feature/sprint-NN`). Worktrees cause hundreds of npm install prompts, lockfile conflicts, and jest path bugs.
+- **`?type=` routing in dibs-candidate**: `type === 'service'` → `getBestCandidate` (provider_profiles). Anything else → `getMutualAidBestCandidate` (auth.users).
