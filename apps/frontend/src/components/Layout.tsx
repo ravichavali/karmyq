@@ -2,13 +2,11 @@ import React, { useEffect, useState } from 'react'
 import { useRouter } from 'next/router'
 import Link from 'next/link'
 import NotificationBell from './NotificationBell'
-import ProviderModeSwitcher from './ProviderModeSwitcher'
-import ProviderNotificationBell from './ProviderNotificationBell'
 import { useProvider } from '../contexts/ProviderContext'
 
 function HamburgerMenu() {
   const [open, setOpen] = useState(false)
-  const { hasProviderProfile } = useProvider()
+  const { hasProviderProfile, isAvailable, setAvailability } = useProvider()
   return (
     <div className="relative md:hidden">
       <button
@@ -35,9 +33,22 @@ function HamburgerMenu() {
             <Link href="/profile" className="block px-4 py-2 text-sm text-text hover:bg-surface transition-colors" onClick={() => setOpen(false)}>
               Profile
             </Link>
-            <div className="px-4 py-2 border-t border-border">
-              <ProviderModeSwitcher />
-            </div>
+            {hasProviderProfile && (
+              <div className="px-4 py-2 border-t border-border">
+                <button
+                  onClick={() => { setAvailability(!isAvailable); setOpen(false) }}
+                  className="flex items-center gap-2 text-sm w-full"
+                >
+                  <span
+                    className="w-2 h-2 rounded-full flex-shrink-0"
+                    style={{ background: isAvailable ? 'rgb(34 197 94)' : 'rgb(var(--color-text-muted) / 0.4)' }}
+                  />
+                  <span style={{ color: isAvailable ? 'rgb(22 163 74)' : 'rgb(var(--color-text-muted))' }}>
+                    {isAvailable ? 'Available' : 'Off duty'}
+                  </span>
+                </button>
+              </div>
+            )}
           </div>
         </>
       )}
@@ -59,7 +70,7 @@ interface User {
 const Layout: React.FC<LayoutProps> = ({ children, title }) => {
   const router = useRouter()
   const [user, setUser] = useState<User | null>(null)
-  const { hasProviderProfile } = useProvider()
+  const { hasProviderProfile, isAvailable, setAvailability } = useProvider()
 
   useEffect(() => {
     const userData = localStorage.getItem('user')
@@ -116,9 +127,20 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
                 {user && (
                   <>
                     <div className="border-l border-border h-8 mx-2"></div>
-                    <ProviderModeSwitcher />
                     <NotificationBell />
-                    <ProviderNotificationBell />
+                    {hasProviderProfile && (
+                      <button
+                        onClick={() => setAvailability(!isAvailable)}
+                        className="relative p-2 rounded-lg transition-colors hover:bg-surface"
+                        aria-label={isAvailable ? 'Go off duty' : 'Go on duty'}
+                        title={isAvailable ? 'Click to go off duty' : 'Click to go on duty'}
+                      >
+                        <span
+                          className="block w-3 h-3 rounded-full"
+                          style={{ background: isAvailable ? 'rgb(34 197 94)' : 'rgb(var(--color-text-muted) / 0.4)' }}
+                        />
+                      </button>
+                    )}
 
                     {/* User Menu */}
                     <div className="flex items-center gap-3">

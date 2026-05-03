@@ -86,8 +86,7 @@ export default function Dashboard() {
   const [showWizard, setShowWizard] = useState(false)
   const [pendingDibsCount, setPendingDibsCount] = useState(0)
 
-  const { providerMode, providerServiceTypes, providerProfiles } = useProvider()
-  const isProviderMode = providerMode === 'provider'
+  const { hasProviderProfile, isAvailable, providerProfiles } = useProvider()
   const { shouldShow: showFeedOnboarding, markSeen: markFeedSeen } = useOnboarding('feed')
 
   useEffect(() => {
@@ -464,7 +463,7 @@ export default function Dashboard() {
         ) : (
           <>
             {/* Provider mode summary card */}
-            {isProviderMode && (
+            {hasProviderProfile && (
               <ProviderDashboardCard
                 activeCommitments={activeCommitmentsCount}
                 providerId={providerProfiles[0]?.id}
@@ -472,7 +471,7 @@ export default function Dashboard() {
             )}
 
             {/* Open requests for providers who are on-duty */}
-            {providerMode === 'provider' && providerProfiles[0]?.is_available && (
+            {hasProviderProfile && isAvailable && (
               <ProviderMatchingRequests />
             )}
 
