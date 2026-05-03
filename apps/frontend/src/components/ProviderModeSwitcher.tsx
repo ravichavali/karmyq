@@ -1,10 +1,9 @@
-import React, { useState } from 'react'
+import React from 'react'
 import Link from 'next/link'
 import { useProvider } from '../contexts/ProviderContext'
 
 const ProviderModeSwitcher: React.FC = () => {
-  const { hasProviderProfile, providerMode, setProviderMode, loading } = useProvider()
-  const [showConfirm, setShowConfirm] = useState(false)
+  const { hasProviderProfile, providerMode, setProviderMode, isAvailable, setAvailability, loading } = useProvider()
 
   if (loading) return null
 
@@ -20,26 +19,13 @@ const ProviderModeSwitcher: React.FC = () => {
     )
   }
 
-  const handleMemberClick = () => {
-    if (providerMode === 'provider') {
-      setShowConfirm(true)
-    } else {
-      setProviderMode('member')
-    }
-  }
-
-  const confirmOffDuty = () => {
-    setShowConfirm(false)
-    setProviderMode('member')
-  }
-
   return (
-    <div>
+    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
       <div className="provider-mode-switcher">
         <button
-          onClick={handleMemberClick}
+          onClick={() => setProviderMode('member')}
           aria-pressed={providerMode === 'member'}
-          aria-label="Switch to Member mode"
+          aria-label="Switch to Member view"
           className={`mode-btn ${providerMode === 'member' ? 'active' : ''}`}
         >
           Member
@@ -47,27 +33,23 @@ const ProviderModeSwitcher: React.FC = () => {
         <button
           onClick={() => setProviderMode('provider')}
           aria-pressed={providerMode === 'provider'}
-          aria-label="Switch to Provider mode"
+          aria-label="Switch to Provider view"
           className={`mode-btn ${providerMode === 'provider' ? 'active' : ''}`}
         >
           Provider
         </button>
       </div>
 
-      {showConfirm && (
-        <div className="off-duty-confirm" style={{ marginTop: 8, fontSize: 12, color: 'rgb(var(--color-text-muted))' }}>
-          <p style={{ margin: '0 0 6px' }}>
-            Active commitments won&apos;t be affected — you&apos;ll still fulfil them off-duty.
-          </p>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button onClick={confirmOffDuty} className="mode-btn" style={{ background: 'rgb(var(--color-primary))', color: 'white', padding: '3px 10px', fontSize: 12 }}>
-              Go off-duty
-            </button>
-            <button onClick={() => setShowConfirm(false)} className="mode-btn" style={{ padding: '3px 10px', fontSize: 12 }}>
-              Stay on
-            </button>
-          </div>
-        </div>
+      {providerMode === 'provider' && (
+        <button
+          onClick={() => setAvailability(!isAvailable)}
+          className={`availability-btn ${isAvailable ? 'on' : 'off'}`}
+          aria-label={isAvailable ? 'Go off duty' : 'Go on duty'}
+          title={isAvailable ? 'Click to go off duty' : 'Click to go on duty'}
+        >
+          <span className="dot" />
+          {isAvailable ? 'Available' : 'Off duty'}
+        </button>
       )}
 
       <style jsx>{`
@@ -101,10 +83,51 @@ const ProviderModeSwitcher: React.FC = () => {
           background: rgb(var(--color-primary));
           color: white;
         }
+
+        .availability-btn {
+          display: flex;
+          align-items: center;
+          gap: 5px;
+          padding: 4px 10px;
+          border-radius: 9999px;
+          border: 1px solid rgb(var(--color-border));
+          background: rgb(var(--color-surface));
+          font-size: 12px;
+          font-weight: 500;
+          cursor: pointer;
+          transition: background-color 0.15s, border-color 0.15s, color 0.15s;
+          color: rgb(var(--color-text-muted));
+        }
+
+        .availability-btn:hover {
+          border-color: rgb(var(--color-text-muted));
+          color: rgb(var(--color-text));
+        }
+
+        .availability-btn.on {
+          border-color: rgb(34 197 94 / 0.4);
+          color: rgb(22 163 74);
+        }
+
+        .availability-btn.on:hover {
+          border-color: rgb(22 163 74 / 0.6);
+          background: rgb(22 163 74 / 0.05);
+        }
+
+        .dot {
+          width: 6px;
+          height: 6px;
+          border-radius: 50%;
+          flex-shrink: 0;
+          background: rgb(var(--color-text-muted) / 0.4);
+        }
+
+        .availability-btn.on .dot {
+          background: rgb(34 197 94);
+        }
       `}</style>
     </div>
   )
 }
 
 export default ProviderModeSwitcher
-
