@@ -1,49 +1,62 @@
-# SPRINT 50 — TBD (Sprint 49 Complete)
+# SPRINT 50 — Provider Mode + Dibs (Ready to Execute)
 
 ## Handoff Document
 
-**Date**: 2026-04-10
-**Current Version**: v9.15.0
-**Status**: Sprint 49 complete and deployed. Ready to plan Sprint 50.
+**Date**: 2026-05-03
+**Current Version**: v9.15.0 → v9.16.0
+**Status**: Spec + plan written. Ready to execute.
 
 ---
 
 ## Quick Start
 
 1. Read this handoff
-2. Run `/sprint-planning` to brainstorm and plan Sprint 50
-3. Once plan is ready, run `/execute-plan Sprint 50`
+2. Check out branch: `git checkout -b feature/sprint-50-provider-dibs`
+3. Open plan: `docs/superpowers/plans/2026-05-03-sprint-50-provider-dibs.md`
+4. Run: `/execute-plan` (uses superpowers:subagent-driven-development)
 
 ---
 
-## Sprint 49 — COMPLETE ✅
+## Sprint 50 Goal
 
-Deployed to karmyq.com via commit `d1415aa`. CI/CD pipeline run 24226519934 in progress at time of handoff.
+Wire the provider availability toggle to the API and lift the scheduled-only restriction from dibs — making both features work end-to-end for all request types. This is a loop-closing sprint, not a greenfield build.
 
-### What Was Built
+---
 
-**Frontend — New User Journey (6 files)**
+## What Was Already Built (Don't Rebuild These)
 
-| File | What Changed |
-|------|-------------|
-| `apps/frontend/src/pages/register.tsx:44` | `router.push('/dashboard')` → `router.push('/communities?welcome=true')` |
-| `apps/frontend/src/pages/communities/index.tsx` | `isWelcomeFlow` const, welcome banner vs config banner, `showFilters` state with toggle, first-join detect + `karmyq_onboarded` flag + redirect to `/dashboard` after first public join |
-| `apps/frontend/src/pages/dashboard.tsx` | Added `Link` import; zero-community empty state wrapping TabBar/content (`!loading && userCommunities.length === 0`); `noCommunities` prop passed to `<BrowseFeed>` |
-| `apps/frontend/src/components/WelcomeModal.tsx:68` | "Get started" → "Browse my feed" |
-| `apps/frontend/src/components/BrowseFeed.tsx` | `noCommunities` prop — shows CTA to `/communities` when true and feed is empty |
-| `apps/frontend/src/pages/requests/index.tsx` | Empty state copy: "No requests yet" → "No requests found" with adjusted body |
+Sprints 27–42 built the full provider/dibs infrastructure. All of this exists and is production-ready:
 
-**Docs & Tests**
-- `docs/guides/onboarding-guide.md` — Added "Getting Started as a New User" section
-- `apps/landing/src/data/docs/guides/onboarding.json` — Regenerated
-- `tests/tdd/sprint-49-new-user-journey.test.ts` — 9 tests, all pass
+- `requests.dibs` table — fully provisioned
+- All dibs backend routes: candidate suggestion, submit, accept, decline, expire (`services/request-service/src/routes/dibs.ts`)
+- `dibsScoringService.ts` — trust score + prior interactions + trust graph scoring
+- `cleanup-service` `expireDibs` job — runs on schedule, publishes events
+- `PATCH /providers/:id/availability` endpoint — exists in `services/request-service/src/routes/providers.ts`
+- `providerService.updateAvailability()` — exists in `apps/frontend/src/lib/api.ts` (line 852)
+- `ProviderModeSwitcher.tsx` — member/provider toggle UI
+- `ProviderContext.tsx` — loads profiles, `updateProviderAvailability` updates local state
+- `DibsPrompt.tsx` — post-creation dibs suggestion UI
+- `CommitmentsTab.tsx` — shows pending dibs to providers with Accept/Decline
+- `RequestWizard.tsx` — post-creation dibs flow exists, just restricted to scheduled requests
 
-### Key Implementation Decisions
+---
 
-- **First-join uses pre-join state**: `isFirstJoin` is captured before the `joinCommunity()` async call. JWT in localStorage is not refreshed post-join.
-- **Private community first-join**: No redirect — user status is `pending`, not `active`. Only redirect on `accessType === 'public'` first joins.
-- **WelcomeModal suppression**: `localStorage.setItem('karmyq_onboarded', '1')` is set before `router.push('/dashboard')` so WelcomeModal doesn't fire on arrival at dashboard.
-- **`showFilters` state**: Initialized to `!isWelcomeFlow`. `isWelcomeFlow` is derived as a const before all state declarations (before `useState(!isWelcomeFlow)` runs).
+## The 5 Gaps Sprint 50 Closes
+
+1. **`setProviderMode` doesn't call the API** — writes localStorage only; `PATCH /providers/:id/availability` is never called
+2. **Dibs locked to scheduled requests** — two backend guards in `dibs.ts` (lines 41–45 and 107–113); one frontend check in `RequestWizard.tsx` (line 166 checks `scheduled_for`)
+3. **Dibs candidate query excludes non-providers** — `getEligibleCandidates` joins `provider_profiles`; mutual aid requests need a separate query against `auth.users`
+4. **No off-duty confirmation** — no UI tells providers their commitments survive the toggle
+5. **Expiry for non-scheduled** — currently `leadTime * 0.20` only; needs `NOW() + 24h` fallback
+
+---
+
+## Off-Duty Commitment Model (Confirmed)
+
+- Turning off provider mode → stops new requests/dibs from routing to you
+- Existing **accepted commitments** persist (like Uber going offline mid-trip)
+- Existing **pending dibs** remain actionable (provider can still accept/decline)
+- UI shows inline confirmation banner: "Active commitments won't be affected"
 
 ---
 
@@ -51,10 +64,32 @@ Deployed to karmyq.com via commit `d1415aa`. CI/CD pipeline run 24226519934 in p
 
 | Sprint | Theme | Status |
 |--------|-------|--------|
-| Sprint 47 | Group Communities — Data Model + Activity Scheduling | ✅ Complete |
-| Sprint 48 | Onboarding — Contextual Workflow Guides | ✅ Complete |
-| Sprint 49 | New User Journey | ✅ Complete |
-| **Sprint 50** | **TBD** | 🔵 Ready to plan |
+| Sprint 37–42 | Provider profiles, rate cards, offers, dibs infrastructure | ✅ Complete |
+| **Sprint 50** | **Wire the toggle + lift the scheduled-only restriction** | 🔵 This sprint |
+| Sprint 51 | Trust-score-integrated matching | ⬜ Upcoming |
+
+---
+
+## Spec + Plan
+
+- **Design spec**: `docs/superpowers/specs/2026-05-03-sprint-50-provider-dibs-design.md`
+- **Implementation plan**: `docs/superpowers/plans/2026-05-03-sprint-50-provider-dibs.md`
+
+---
+
+## ⚠️ Critical Implementation Notes
+
+1. **`setProviderMode` → async**: Safe to make async — call sites use `onClick={() => setProviderMode(…)}` (fire-and-forget). `setProviderModeState` still runs synchronously first.
+
+2. **`getMutualAidCandidates` must return `RawCandidate[]`** with `isAvailable: true` for all rows (no provider availability field for non-providers). Keeps scoring service unchanged.
+
+3. **Keep `scheduled_for` in the DB SELECT** in the candidate route — remove only the eligibility guard, not the column fetch.
+
+4. **`?type=` routing in `/dibs-candidate`**: `type === 'service'` → `getBestCandidate` (provider_profiles). Anything else → `getMutualAidBestCandidate` (auth.users).
+
+5. **No DB migrations needed** — all schema already exists.
+
+6. **Docs location**: `docs/guides/provider-mode-guide.md` and `docs/guides/using-service-providers-guide.md` both exist — append sections, don't rewrite. Check `scripts/generate-docs.ts` arrays before adding new guide.
 
 ---
 
