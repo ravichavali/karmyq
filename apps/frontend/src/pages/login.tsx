@@ -1,11 +1,9 @@
 import { useState } from 'react'
-import { useRouter } from 'next/router'
 import Link from 'next/link'
 import Head from 'next/head'
 import { api } from '@/lib/api'
 
 export default function Login() {
-  const router = useRouter()
   const [formData, setFormData] = useState({
     email: '',
     password: ''
@@ -35,8 +33,8 @@ export default function Login() {
       localStorage.setItem('token', response.data.token)
       localStorage.setItem('user', JSON.stringify(response.data.user))
 
-      console.log('Redirecting to dashboard...')
-      router.push('/dashboard')
+      // Hard redirect so ProviderContext (and other auth-gated contexts) re-mount with the token in place
+      window.location.href = '/dashboard'
     } catch (err: any) {
       console.error('Login error', { error: err instanceof Error ? err.message : String(err) })
       console.error('Error response:', err.response)
