@@ -22,7 +22,7 @@ interface ProviderContextValue {
   providerProfiles: ProviderProfile[]
   providerServiceTypes: string[]
   providerMode: 'member' | 'provider'
-  setProviderMode: (mode: 'member' | 'provider') => void
+  setProviderMode: (mode: 'member' | 'provider') => void | Promise<void>
   updateProviderAvailability: (providerId: string, isAvailable: boolean) => void
   loading: boolean
 }
@@ -75,10 +75,19 @@ export const ProviderProvider: React.FC<ProviderProviderProps> = ({ children }) 
       })
   }, [])
 
-  const setProviderMode = (mode: 'member' | 'provider') => {
+  const setProviderMode = async (mode: 'member' | 'provider') => {
     setProviderModeState(mode)
     if (typeof window !== 'undefined') {
       localStorage.setItem('karmyq_provider_mode', mode)
+    }
+    const isAvailable = mode === 'provider'
+    for (const profile of providerProfiles) {
+      try {
+        await providerService.updateAvailability(profile.id, isAvailable)
+        updateProviderAvailability(profile.id, isAvailable)
+      } catch {
+        // best-effort — local state already reflects the new mode
+      }
     }
   }
 

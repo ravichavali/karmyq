@@ -414,12 +414,12 @@
         {
           "method": "GET",
           "path": "/requests/:id/dibs-candidate",
-          "description": "Returns the top-scored dibs candidate for a scheduled request. Returns `null` if no eligible candidate exists."
+          "description": "Returns the top-scored dibs candidate for any request. Accepts optional `?type=` query param — `type=service` uses provider-profile candidates; any other value (or missing) uses mutual-aid candidates"
         },
         {
           "method": "POST",
           "path": "/requests/:id/dibs",
-          "description": "Send dibs to a specific provider. Only valid for scheduled requests."
+          "description": "Send dibs to a specific provider or community member. Valid for all request types (scheduled and ASAP)."
         },
         {
           "method": "PUT",

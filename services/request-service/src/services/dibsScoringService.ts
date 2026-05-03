@@ -1,4 +1,4 @@
-import { getEligibleCandidates, RawCandidate } from '../db/dibsDb';
+import { getEligibleCandidates, getMutualAidCandidates, RawCandidate } from '../db/dibsDb';
 
 // Re-export RawCandidate so callers can use the unified type
 export type { RawCandidate };
@@ -112,6 +112,22 @@ export async function getBestCandidate(
   const candidates = await getEligibleCandidates(requesterId, communityIds);
   if (candidates.length === 0) return null;
 
+  const ranked = rankCandidates(candidates);
+  return ranked[0] ?? null;
+}
+
+// ── getMutualAidBestCandidate ─────────────────────────────────────────────────
+
+/**
+ * Query mutual aid candidates (non-provider-profile users with prior interactions),
+ * score them, and return the top one. Used for non-service request types.
+ */
+export async function getMutualAidBestCandidate(
+  requesterId: string,
+  communityIds: string[]
+): Promise<ScoredCandidate | null> {
+  const candidates = await getMutualAidCandidates(requesterId, communityIds);
+  if (candidates.length === 0) return null;
   const ranked = rankCandidates(candidates);
   return ranked[0] ?? null;
 }

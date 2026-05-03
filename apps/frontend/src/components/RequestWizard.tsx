@@ -161,17 +161,20 @@ export default function RequestWizard({
         ...(preferredProviderId ? { preferred_provider_id: preferredProviderId } : {}),
       }
       const res = await requestService.createRequest(payload)
-      // Sprint 42: If the new request is scheduled, check for a dibs candidate
       const createdRequest = res.data
-      if (createdRequest?.scheduled_for && createdRequest?.id) {
+      if (createdRequest?.id) {
         try {
-          const candidateRes = await dibsService.getDibsCandidate(createdRequest.id)
+          const candidateRes = await dibsService.getDibsCandidate(createdRequest.id, requestType)
           const candidate = candidateRes.data as DibsCandidate | null
           if (candidate) {
-            // Calculate a 20% lead-time expiry window to display in the prompt
-            const scheduledMs = new Date(createdRequest.scheduled_for).getTime()
-            const leadTimeMs = scheduledMs - Date.now()
-            const expiresAt = new Date(Date.now() + leadTimeMs * 0.20).toISOString()
+            let expiresAt: string
+            if (createdRequest.scheduled_for) {
+              const scheduledMs = new Date(createdRequest.scheduled_for).getTime()
+              const leadTimeMs = scheduledMs - Date.now()
+              expiresAt = new Date(Date.now() + leadTimeMs * 0.20).toISOString()
+            } else {
+              expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+            }
             setDibsRequestId(createdRequest.id)
             setDibsScheduledFor(createdRequest.scheduled_for)
             setDibsExpiresAt(expiresAt)

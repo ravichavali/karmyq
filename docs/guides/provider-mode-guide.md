@@ -105,3 +105,25 @@ Your submitted offers appear in the **My Offers** section of your Provider Dashb
 - **Withdrawn** — you withdrew the offer before a response
 
 To withdraw a pending offer, tap **Withdraw** next to it.
+
+---
+
+## Going Off-Duty
+
+When you switch from **Provider** to **Member** mode, a brief confirmation banner appears:
+
+> _Active commitments won't be affected — you'll still fulfil them off-duty._
+
+Tap **Go off-duty** to confirm, or **Stay on** to cancel.
+
+### What changes when you go off-duty
+
+- No new requests will be routed to you (you won't appear in provider feed matching)
+- No new dibs invitations will be sent to you
+
+### What doesn't change
+
+- **Accepted commitments persist** — requests you've already been matched on remain in your Commitments tab and must be fulfilled as normal. Going off-duty is not a way to cancel them.
+- **Pending dibs invitations remain actionable** — if a requester sent you dibs before you went off-duty, you can still accept or decline it. The dibs window continues counting down; your off-duty status does not auto-decline it on your behalf.
+
+This mirrors the mental model of a ride-hailing driver going offline mid-shift: you stop receiving new jobs but must complete the one you accepted.

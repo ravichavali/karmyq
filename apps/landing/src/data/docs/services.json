@@ -247,12 +247,12 @@
         {
           "method": "GET",
           "path": "/requests/:id/dibs-candidate",
-          "description": "Returns top-scored dibs candidate for a scheduled request"
+          "description": "Returns top-scored dibs candidate for any request; ?type=service uses provider-profile candidates, all others use mutual-aid candidates"
         },
         {
           "method": "POST",
           "path": "/requests/:id/dibs",
-          "description": "Send dibs to a specific provider (scheduled requests only)"
+          "description": "Send dibs to a specific provider or community member — works for all request types (scheduled and ASAP)"
         },
         {
           "method": "PUT",

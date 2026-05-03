@@ -855,9 +855,9 @@ export const providerService = {
 
 // Dibs API Methods (Sprint 42)
 export const dibsService = {
-  // Get the top dibs candidate for a scheduled request (requester only)
-  getDibsCandidate: (requestId: string) =>
-    requestApi.get(`/requests/${requestId}/dibs-candidate`),
+  // Get the top dibs candidate for a request (requester only)
+  getDibsCandidate: (requestId: string, requestType?: string) =>
+    requestApi.get(`/requests/${requestId}/dibs-candidate${requestType ? `?type=${requestType}` : ''}`),
 
   // Submit a dibs invitation to a specific provider
   sendDibs: (requestId: string, providerUserId: string) =>

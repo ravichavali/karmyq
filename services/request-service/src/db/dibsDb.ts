@@ -130,6 +130,80 @@ export async function getEligibleCandidates(
 }
 
 /**
+ * Get community members who have prior completed interactions with the requester.
+ * Used for non-service (mutual aid) dibs candidate selection — does not require
+ * a provider profile, so it queries auth.users directly.
+ */
+export async function getMutualAidCandidates(
+  requesterId: string,
+  communityIds: string[]
+): Promise<RawCandidate[]> {
+  const result = await query(
+    `SELECT
+       u.id                                AS "providerId",
+       u.id                                AS "providerUserId",
+       u.name                              AS "displayName",
+       50                                  AS "trustScore",
+       prior.interaction_count             AS "priorInteractions",
+       COALESCE(
+         CASE sg.type
+           WHEN 'exchange'  THEN 'direct'
+           WHEN 'community' THEN 'indirect'
+           ELSE 'none'
+         END,
+         'none'
+       )                                   AS "trustGraphConnection",
+       true                                AS "isAvailable"
+     FROM auth.users u
+
+     JOIN (
+       SELECT
+         CASE
+           WHEN hr.requester_id = $1 THEN m.responder_id
+           ELSE hr.requester_id
+         END AS provider_user_id,
+         COUNT(*) AS interaction_count
+       FROM requests.matches m
+       JOIN requests.help_requests hr ON hr.id = m.request_id
+       WHERE m.status = 'completed'
+         AND (
+           (hr.requester_id = $1 AND m.responder_id != $1)
+           OR (m.responder_id = $1 AND hr.requester_id != $1)
+         )
+       GROUP BY
+         CASE
+           WHEN hr.requester_id = $1 THEN m.responder_id
+           ELSE hr.requester_id
+         END
+     ) prior ON prior.provider_user_id = u.id
+
+     LEFT JOIN social_graph.connections sg ON (
+       (sg.user_a_id = $1 AND sg.user_b_id = u.id)
+       OR (sg.user_b_id = $1 AND sg.user_a_id = u.id)
+     )
+
+     WHERE prior.interaction_count >= 1
+       AND u.id != $1
+       AND u.id IN (
+         SELECT DISTINCT cm.user_id
+         FROM communities.members cm
+         WHERE cm.community_id = ANY($2)
+       )`,
+    [requesterId, communityIds]
+  );
+
+  return result.rows.map((row: any) => ({
+    providerId: row.providerId,
+    providerUserId: row.providerUserId,
+    displayName: row.displayName ?? '',
+    trustScore: 50,
+    priorInteractions: Number(row.priorInteractions),
+    trustGraphConnection: row.trustGraphConnection as 'direct' | 'indirect' | 'none',
+    isAvailable: true,
+  }));
+}
+
+/**
  * Insert a new dibs record.
  */
 export async function createDibs(

@@ -142,6 +142,10 @@
           "href": "/docs/guides/provider-mode"
         },
         {
+          "label": "Dibs: Trusted First-Ask",
+          "href": "/docs/guides/provider-dibs"
+        },
+        {
           "label": "Sending a Private Request (Dibs)",
           "href": "/docs/guides/dibs-request"
         },

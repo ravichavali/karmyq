@@ -154,8 +154,8 @@
           {"method": "POST", "path": "/providers/offers", "description": "Submit a provider offer on an open help request"},
           {"method": "GET", "path": "/providers/offers", "description": "List offers submitted by the authenticated provider"},
           {"method": "PUT", "path": "/providers/offers/:id/withdraw", "description": "Withdraw a pending provider offer"},
-          {"method": "GET", "path": "/requests/:id/dibs-candidate", "description": "Returns top-scored dibs candidate for a scheduled request"},
-          {"method": "POST", "path": "/requests/:id/dibs", "description": "Send dibs to a specific provider (scheduled requests only)"},
+          {"method": "GET", "path": "/requests/:id/dibs-candidate", "description": "Returns top-scored dibs candidate for any request; ?type=service uses provider-profile candidates, all others use mutual-aid candidates"},
+          {"method": "POST", "path": "/requests/:id/dibs", "description": "Send dibs to a specific provider or community member — works for all request types (scheduled and ASAP)"},
           {"method": "PUT", "path": "/requests/dibs/:id/accept", "description": "Provider accepts dibs — creates matches record and sets request status to matched"},
           {"method": "PUT", "path": "/requests/dibs/:id/decline", "description": "Provider declines dibs — request reverts to open"},
           {"method": "GET", "path": "/requests/dibs/pending-for-provider", "description": "Returns authenticated provider's pending dibs"}

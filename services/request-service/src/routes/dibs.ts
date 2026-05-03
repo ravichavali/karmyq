@@ -11,7 +11,7 @@ import {
   getPendingDibsForProvider,
   getEligibleCandidates,
 } from '../db/dibsDb';
-import { getBestCandidate } from '../services/dibsScoringService';
+import { getBestCandidate, getMutualAidBestCandidate } from '../services/dibsScoringService';
 
 const router = Router();
 
@@ -37,15 +37,6 @@ router.get('/:id/dibs-candidate', authMiddleware, async (req: AuthenticatedReque
 
     const request = requestResult.rows[0];
 
-    // Must be a scheduled request
-    if (!request.scheduled_for) {
-      return res.status(400).json({
-        success: false,
-        message: 'Only scheduled requests are eligible for dibs',
-        error: 'ASAP_NOT_ELIGIBLE',
-      });
-    }
-
     // Caller must be the requester
     if (request.requester_id !== userId) {
       return res.status(403).json({ success: false, message: 'Not authorized', error: 'FORBIDDEN' });
@@ -58,7 +49,10 @@ router.get('/:id/dibs-candidate', authMiddleware, async (req: AuthenticatedReque
     );
     const communityIds: string[] = communitiesResult.rows.map((r: any) => r.community_id);
 
-    const candidate = await getBestCandidate(userId, communityIds);
+    const requestType = req.query.type as string | undefined;
+    const candidate = requestType === 'service'
+      ? await getBestCandidate(userId, communityIds)
+      : await getMutualAidBestCandidate(userId, communityIds);
 
     return res.json({ success: true, data: candidate });
   } catch (err: any) {
@@ -100,15 +94,6 @@ router.post('/:id/dibs', authMiddleware, async (req: AuthenticatedRequest, res: 
         success: false,
         message: 'Request is not available for dibs',
         error: 'REQUEST_NOT_OPEN',
-      });
-    }
-
-    // Must be a scheduled request
-    if (!request.scheduled_for) {
-      return res.status(400).json({
-        success: false,
-        message: 'Only scheduled requests are eligible for dibs',
-        error: 'ASAP_NOT_ELIGIBLE',
       });
     }
 
@@ -160,20 +145,19 @@ router.post('/:id/dibs', authMiddleware, async (req: AuthenticatedRequest, res: 
       });
     }
 
-    // Calculate expiry: 20% of lead time from now to scheduled_for
     const now = new Date();
-    const scheduledFor = new Date(request.scheduled_for);
-    const leadTime = scheduledFor.getTime() - now.getTime();
-
-    if (leadTime <= 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'scheduled_for must be in the future',
-        error: 'SCHEDULED_FOR_IN_PAST',
-      });
+    const DIBS_FIXED_WINDOW_MS = 24 * 60 * 60 * 1000;
+    let expiresAt: Date;
+    if (request.scheduled_for) {
+      const scheduledFor = new Date(request.scheduled_for);
+      const leadTime = scheduledFor.getTime() - now.getTime();
+      if (leadTime <= 0) {
+        return res.status(400).json({ success: false, message: 'scheduled_for must be in the future', error: 'SCHEDULED_FOR_IN_PAST' });
+      }
+      expiresAt = new Date(now.getTime() + leadTime * 0.20);
+    } else {
+      expiresAt = new Date(now.getTime() + DIBS_FIXED_WINDOW_MS);
     }
-
-    const expiresAt = new Date(now.getTime() + leadTime * 0.20);
 
     // Wrap dibs creation and request status update in a transaction
     const client = await pool.connect();

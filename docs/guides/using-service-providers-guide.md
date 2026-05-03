@@ -104,3 +104,23 @@ From the Commitments tab → Offers Received:
 - Tap **Decline** to decline. The provider is notified and can offer on other requests.
 
 You can receive multiple offers on the same request and accept the one that works best for you. Once you accept one offer, the request moves to matched status.
+
+---
+
+## Sending a Private Heads-Up (Dibs)
+
+After creating any request, Karmyq may suggest a person you've worked with before and offer to send them a private notification before the request goes public. This is called **dibs**.
+
+**How it works (requester side):**
+
+1. You submit a request (scheduled or ASAP).
+2. A prompt appears: _"Send [Name] a private heads-up before this goes public?"_
+3. Tap **Send Dibs** — the person is privately notified. Your request is not visible in the public feed yet.
+4. They have a limited window to accept or decline:
+   - **Scheduled requests**: 20% of your lead time
+   - **ASAP requests**: 24 hours
+5. If they accept, you're matched directly. If they decline or the window closes, the request automatically broadcasts.
+
+**If no prompt appears:** either you have no prior completed interactions with community members, or no eligible candidate was found. The request posts publicly as usual.
+
+See [Dibs: Trusted First-Ask Before Broadcasting](provider-dibs) for the full guide, including the provider side of the workflow.

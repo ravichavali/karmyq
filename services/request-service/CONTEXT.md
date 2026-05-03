@@ -1389,20 +1389,21 @@ Withdraw a pending provider offer.
 
 ### 3.3c Dibs Endpoints (Sprint 42)
 
-Dibs is a private first-refusal window for scheduled requests. Only scheduled requests (`scheduled_for IS NOT NULL`) are eligible; ASAP requests are always broadcast publicly.
+Dibs is a private first-refusal window for any request type. All requests (scheduled and ASAP) are eligible for dibs as of Sprint 50.
 
 **Eligibility rules:**
-- Request must have `scheduled_for` set (not an ASAP request)
-- Provider must have `priorInteractions >= 1` with the requester
-- Provider must be `is_available = true`
+- For service requests (`type = 'service'`): candidate must have a provider profile with `is_available = true` and `priorInteractions >= 1`
+- For all other request types (mutual aid, ride, event, borrow, generic): any community member with `priorInteractions >= 1` is eligible
 - Only one active dibs record per request (`UNIQUE(request_id)`)
 
-**Window formula:** `expires_at = created_at + 0.20 × (scheduled_for − created_at)`
+**Window formula:**
+- Scheduled: `expires_at = created_at + 0.20 × (scheduled_for − created_at)`
+- ASAP / non-scheduled: `expires_at = created_at + 24h`
 
 **Status flow:** `open` → `dibs_pending` → `matched` (accept) | `open` (decline/expire)
 
 #### GET /requests/:id/dibs-candidate
-Returns the top-scored dibs candidate for a scheduled request. Returns `null` if no eligible candidate exists.
+Returns the top-scored dibs candidate for any request. Accepts optional `?type=` query param — `type=service` uses provider-profile candidates; any other value (or missing) uses mutual-aid candidates (community members with prior interactions). Returns `null` if no eligible candidate exists.
 
 **Authentication:** Required (JWT token — must be the requester)
 
@@ -1423,7 +1424,7 @@ Returns `"data": null` when no eligible candidate is found.
 **Implementation:** `src/routes/dibs.ts`
 
 #### POST /requests/:id/dibs
-Send dibs to a specific provider. Only valid for scheduled requests.
+Send dibs to a specific provider or community member. Valid for all request types (scheduled and ASAP).
 
 **Authentication:** Required (JWT token — must be the requester)
 

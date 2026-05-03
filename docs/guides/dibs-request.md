@@ -6,7 +6,7 @@ Give a trusted provider first right of refusal before your request goes public.
 
 ## What Is Dibs?
 
-When you create a *scheduled* request, Karmyq can privately notify one trusted provider before the request appears in the public feed. That provider has a limited window to accept or decline. If they accept, you're matched directly — no public broadcast, no competition. If they decline or the window expires, your request automatically goes public.
+When you create a request on Karmyq, Karmyq can privately notify one trusted person before the request appears in the public feed. That person has a limited window to accept or decline. If they accept, you're matched directly — no public broadcast, no competition. If they decline or the window expires, your request automatically goes public.
 
 This is called giving someone "dibs."
 
@@ -14,20 +14,24 @@ This is called giving someone "dibs."
 
 ## Who Is Eligible?
 
-Two conditions must both be true for the dibs option to appear:
+One condition must be true for the dibs option to appear:
 
-1. **Your request must be scheduled** — you set a future date and time for when you need help. ASAP requests always broadcast immediately; there is no dibs option for them.
-2. **There must be a trusted provider with prior history** — Karmyq only surfaces providers you have at least one prior completed interaction with. New providers you have never worked with are never shown as dibs candidates.
+- **There must be a trusted person with prior history** — Karmyq only surfaces community members you have at least one prior completed interaction with. New people you have never worked with are never shown as dibs candidates.
 
-If no eligible provider is found, the dibs prompt is silently skipped and your request posts publicly as normal.
+For **service requests**, the candidate must also have an active provider profile. For all other request types (mutual aid, rides, borrows, events), any community member with prior interaction history is eligible.
+
+If no eligible candidate is found, the dibs prompt is silently skipped and your request posts publicly as normal.
 
 ---
 
 ## How the Window Works
 
-The dibs window is 20% of your lead time — calculated from when you post to when you need the help.
+The dibs window depends on whether your request is scheduled or immediate:
 
-For example:
+- **Scheduled requests**: window is 20% of your lead time (from posting to scheduled date)
+- **ASAP / non-scheduled requests**: window is 24 hours
+
+Scheduled example:
 
 | You post | Scheduled for | Lead time | Dibs window |
 |---|---|---|---|
@@ -35,14 +39,14 @@ For example:
 | Friday 3pm | Saturday 3pm | 24 hours | ~4 hours 48 min |
 | Monday 9am | Monday 11am | 2 hours | ~24 minutes |
 
-There is no minimum window. If you post close to the scheduled time, the window will be short — that is the cost of scheduling late. The provider sees the exact expiry time when they receive the notification.
+The person receiving dibs sees the exact expiry time when they receive the notification.
 
 ---
 
 ## How to Send a Dibs Request
 
-1. **Create a scheduled request** — use the + button, fill in your request details, and set a future date and time in the "Scheduled for" field.
-2. **Post the request** — after you submit, Karmyq checks for eligible providers.
+1. **Create any request** — use the + button and fill in your request details. Set a future date/time if scheduled, or leave it blank for ASAP.
+2. **Post the request** — after you submit, Karmyq checks for eligible candidates.
 3. **Review the suggestion** — if an eligible provider is found, a prompt appears: _"Send [Name] a private heads-up before this goes public?"_ The prompt shows their trust tier and how many times you've worked together.
 4. **Confirm or skip** — tap **Send Dibs** to notify them privately, or **Skip** to post publicly right away.
 

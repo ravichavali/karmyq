@@ -1,9 +1,10 @@
-import React from 'react'
+import React, { useState } from 'react'
 import Link from 'next/link'
 import { useProvider } from '../contexts/ProviderContext'
 
 const ProviderModeSwitcher: React.FC = () => {
   const { hasProviderProfile, providerMode, setProviderMode, loading } = useProvider()
+  const [showConfirm, setShowConfirm] = useState(false)
 
   if (loading) return null
 
@@ -19,24 +20,55 @@ const ProviderModeSwitcher: React.FC = () => {
     )
   }
 
+  const handleMemberClick = () => {
+    if (providerMode === 'provider') {
+      setShowConfirm(true)
+    } else {
+      setProviderMode('member')
+    }
+  }
+
+  const confirmOffDuty = () => {
+    setShowConfirm(false)
+    setProviderMode('member')
+  }
+
   return (
-    <div className="provider-mode-switcher">
-      <button
-        onClick={() => setProviderMode('member')}
-        aria-pressed={providerMode === 'member'}
-        aria-label="Switch to Member mode"
-        className={`mode-btn ${providerMode === 'member' ? 'active' : ''}`}
-      >
-        Member
-      </button>
-      <button
-        onClick={() => setProviderMode('provider')}
-        aria-pressed={providerMode === 'provider'}
-        aria-label="Switch to Provider mode"
-        className={`mode-btn ${providerMode === 'provider' ? 'active' : ''}`}
-      >
-        Provider
-      </button>
+    <div>
+      <div className="provider-mode-switcher">
+        <button
+          onClick={handleMemberClick}
+          aria-pressed={providerMode === 'member'}
+          aria-label="Switch to Member mode"
+          className={`mode-btn ${providerMode === 'member' ? 'active' : ''}`}
+        >
+          Member
+        </button>
+        <button
+          onClick={() => setProviderMode('provider')}
+          aria-pressed={providerMode === 'provider'}
+          aria-label="Switch to Provider mode"
+          className={`mode-btn ${providerMode === 'provider' ? 'active' : ''}`}
+        >
+          Provider
+        </button>
+      </div>
+
+      {showConfirm && (
+        <div className="off-duty-confirm" style={{ marginTop: 8, fontSize: 12, color: 'rgb(var(--color-text-muted))' }}>
+          <p style={{ margin: '0 0 6px' }}>
+            Active commitments won&apos;t be affected — you&apos;ll still fulfil them off-duty.
+          </p>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button onClick={confirmOffDuty} className="mode-btn" style={{ background: 'rgb(var(--color-primary))', color: 'white', padding: '3px 10px', fontSize: 12 }}>
+              Go off-duty
+            </button>
+            <button onClick={() => setShowConfirm(false)} className="mode-btn" style={{ padding: '3px 10px', fontSize: 12 }}>
+              Stay on
+            </button>
+          </div>
+        </div>
+      )}
 
       <style jsx>{`
         .provider-mode-switcher {
@@ -75,3 +107,4 @@ const ProviderModeSwitcher: React.FC = () => {
 }
 
 export default ProviderModeSwitcher
+
