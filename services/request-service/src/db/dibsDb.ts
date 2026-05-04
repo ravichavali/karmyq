@@ -143,8 +143,12 @@ export async function getMutualAidCandidates(
        u.id                                AS "providerId",
        u.id                                AS "providerUserId",
        u.name                              AS "displayName",
-       50                                  AS "trustScore",
-       prior.interaction_count             AS "priorInteractions",
+       COALESCE(
+         (SELECT MAX(score) FROM reputation.trust_scores
+          WHERE user_id = u.id AND community_id = ANY($2)),
+         50
+       )                                   AS "trustScore",
+       COALESCE(prior.interaction_count, 0) AS "priorInteractions",
        COALESCE(
          CASE sg.type
            WHEN 'exchange'  THEN 'direct'
@@ -156,7 +160,7 @@ export async function getMutualAidCandidates(
        true                                AS "isAvailable"
      FROM auth.users u
 
-     JOIN (
+     LEFT JOIN (
        SELECT
          CASE
            WHEN hr.requester_id = $1 THEN m.responder_id
@@ -182,12 +186,15 @@ export async function getMutualAidCandidates(
        OR (sg.user_b_id = $1 AND sg.user_a_id = u.id)
      )
 
-     WHERE prior.interaction_count >= 1
-       AND u.id != $1
+     WHERE u.id != $1
        AND u.id IN (
          SELECT DISTINCT cm.user_id
          FROM communities.members cm
          WHERE cm.community_id = ANY($2)
+       )
+       AND (
+         COALESCE(prior.interaction_count, 0) >= 1
+         OR (sg.type = 'exchange' AND COALESCE(prior.interaction_count, 0) = 0)
        )`,
     [requesterId, communityIds]
   );
@@ -196,7 +203,7 @@ export async function getMutualAidCandidates(
     providerId: row.providerId,
     providerUserId: row.providerUserId,
     displayName: row.displayName ?? '',
-    trustScore: 50,
+    trustScore: Number(row.trustScore),
     priorInteractions: Number(row.priorInteractions),
     trustGraphConnection: row.trustGraphConnection as 'direct' | 'indirect' | 'none',
     isAvailable: true,

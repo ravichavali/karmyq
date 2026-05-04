@@ -1403,7 +1403,15 @@ Dibs is a private first-refusal window for any request type. All requests (sched
 **Status flow:** `open` → `dibs_pending` → `matched` (accept) | `open` (decline/expire)
 
 #### GET /requests/:id/dibs-candidate
-Returns the top-scored dibs candidate for any request. Accepts optional `?type=` query param — `type=service` uses provider-profile candidates; any other value (or missing) uses mutual-aid candidates (community members with prior interactions). Returns `null` if no eligible candidate exists.
+Returns the top-scored dibs candidate for any request. Accepts optional `?type=` query param — `type=service` uses provider-profile candidates; any other value (or missing) uses mutual-aid candidates.
+
+**Candidate selection — two-tier explore/exploit (ADR-051, Sprint 51):**
+- **Tier 1 (exploit):** Prior interactions ≥ 1 + available. Preferred.
+- **Tier 2 (explore):** 0 prior interactions + `trustGraphConnection = 'direct'` (exchange connections only) + available. Fallback when Tier 1 is empty.
+
+**Mutual aid trust scores (Sprint 51):** `getMutualAidCandidates` reads `reputation.trust_scores` via correlated subquery (`MAX(score)` across requester's communities, default 50). Previously hardcoded to 50.
+
+Returns `null` if no eligible candidate exists in either tier.
 
 **Authentication:** Required (JWT token — must be the requester)
 

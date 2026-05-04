@@ -1,0 +1,6 @@
+{
+  "slug": "group-communities",
+  "title": "Group Communities",
+  "description": "Group communities are communities organized around shared recurring activities — sports teams, fitness groups, hobby clubs — rather than help requests.",
+  "content": "# Group Communities\n\nGroup communities are communities organized around shared recurring activities — sports teams, fitness groups, hobby clubs — rather than help requests.\n\n## How They're Different\n\n| | Mutual Aid | Group |\n|---|---|---|\n| Coordination unit | Help request | Scheduled activity |\n| Karma | Earned by helping | Earned by participating (Sprint 49) |\n| Feed | Requests feed | Activities feed |\n\n## Creating a Group Community\n\nWhen creating a community, choose \"Group\" as the community type. Group communities show an Activities tab instead of a Requests feed.\n\n## Scheduling Activities\n\nCommunity admins can create activities with a title, type, date/time, location, and participant cap. Members can join or leave until the activity starts.\n\n## Activity Types\n\n- **Pickup Game** — informal sports games\n- **Group Run** — running or walking groups  \n- **Workout** — fitness classes or sessions\n- **Social** — board games, book clubs, general meetups\n- **Other** — anything else\n"
+}

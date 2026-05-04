@@ -1,0 +1,9 @@
+{
+  "slug": "adr-050-group-communities",
+  "number": "050",
+  "title": "ADR-050: Group Communities as a Distinct Community Type",
+  "status": "implemented",
+  "description": "**Status**: Implemented",
+  "content": "# ADR-050: Group Communities as a Distinct Community Type\n\n**Status**: Implemented\n**Date**: 2026-04-07\n**Sprint**: 47\n\n## Context\n\nKarmyq communities have historically been uniform: all are mutual aid networks coordinating help requests. As the platform grows, users want to coordinate recurring shared activities — sports, fitness, social events — where the coordination unit is a scheduled event, not a help request.\n\n## Decision\n\nIntroduce `community_type` as an explicit enum on the communities table (`'mutual_aid'` | `'group'`). Group communities expose activity scheduling endpoints and an Activities tab in the UI. Mutual aid communities are unchanged.\n\n## Consequences\n\n- **Positive**: Clear model for different coordination types; extensible to future types (e.g., `'provider_collective'`).\n- **Positive**: Mutual aid behavior is entirely unchanged — no risk to existing communities.\n- **Negative**: UI must branch on `community_type` — adds a conditional rendering path.\n- **Neutral**: Karma/trust for group activities deferred to Sprint 49.\n\n## Alternatives Considered\n\n- **Single community type with flags**: e.g., `has_activities: boolean`. Rejected — flags accumulate and obscure the community's identity.\n- **Separate service**: Activities as a new microservice. Rejected — activities are community-scoped and owned by community-service; a separate service adds cross-service queries for no benefit at current scale.\n",
+  "filename": "ADR-050-group-communities.md"
+}

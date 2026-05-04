@@ -47,6 +47,25 @@ See [Using Provider Mode](provider-mode) for provider-specific workflow details.
 
 For **service requests** (paid provider work): the candidate must have an active provider profile with availability on.
 
-For **all other request types** (mutual aid, rides, events, borrows): anyone in your community with at least one prior completed interaction with you is eligible.
+For **all other request types** (mutual aid, rides, events, borrows): anyone in your community is eligible under the two-tier selection below.
 
-In both cases, the candidate with the highest trust score and most prior interactions is suggested.
+### Two-Tier Candidate Selection (Explore / Exploit)
+
+Karmyq selects dibs candidates using a fallback system:
+
+**Tier 1 — Prior interactions (exploit):** Anyone in your community with at least one completed interaction with you who is available. This tier is always preferred.
+
+**Tier 2 — Trusted new connections (explore):** If no Tier 1 candidates exist, Karmyq looks for community members with a direct exchange connection in the trust graph but no prior interactions. Community-only connections don't qualify — only people who have a completed exchange relationship with someone in your trust network.
+
+In both cases, the candidate with the highest combined trust score and interaction history is suggested.
+
+### Trust Context in the Prompt
+
+The dibs prompt now shows live context instead of a static label:
+
+- **"2 prior exchanges · direct connection"** — known relationship, direct trust link
+- **"1 prior exchange"** — known relationship, no trust graph data
+- **"New connection · direct connection"** — explore-tier candidate, first contact
+- **"New connection"** — no prior history, no direct trust link (rare fallback)
+
+The trust score shown in the prompt reflects the candidate's actual reputation score in your community, not a default value.

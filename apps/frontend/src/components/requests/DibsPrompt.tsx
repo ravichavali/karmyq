@@ -12,6 +12,7 @@ export interface DibsCandidate {
   score: number
   trustScore: number
   priorInteractions: number
+  trustGraphConnection: 'direct' | 'indirect' | 'none'
 }
 
 interface DibsPromptProps {
@@ -36,6 +37,23 @@ function formatWindow(expiresAt: string): string {
   if (hours > 0 && minutes > 0) return `~${hours}h ${minutes}m`
   if (hours > 0) return `~${hours}h`
   return `~${minutes}m`
+}
+
+function trustContextSummary(
+  priorInteractions: number,
+  trustGraphConnection: 'direct' | 'indirect' | 'none'
+): string {
+  const parts: string[] = []
+  if (priorInteractions > 0) {
+    parts.push(`${priorInteractions} prior exchange${priorInteractions === 1 ? '' : 's'}`)
+  }
+  if (trustGraphConnection === 'direct') {
+    parts.push('direct connection')
+  } else if (trustGraphConnection === 'indirect') {
+    parts.push('indirect connection')
+  }
+  if (parts.length === 0) return 'New connection'
+  return parts.join(' · ')
 }
 
 export default function DibsPrompt({
@@ -101,7 +119,9 @@ export default function DibsPrompt({
                 </div>
                 <div>
                   <p className="font-medium text-text">{candidate.displayName || 'A trusted provider'}</p>
-                  <p className="text-xs text-text-muted">Trusted provider</p>
+                  <p className="text-xs text-text-muted">
+                    {trustContextSummary(candidate.priorInteractions, candidate.trustGraphConnection)}
+                  </p>
                 </div>
               </div>
 

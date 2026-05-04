@@ -51,13 +51,16 @@ export function scoreCandidate(candidate: RawCandidate): number {
 // ── filterEligibleCandidates ──────────────────────────────────────────────────
 
 /**
- * Filter candidates by eligibility gates:
- *   - priorInteractions >= 1
- *   - isAvailable = true
+ * Two-tier explore/exploit filter (ADR-051):
+ *   Tier 1 (exploit): prior interactions >= 1 + available — preferred
+ *   Tier 2 (explore): 0 prior interactions + direct exchange connection + available
+ *                     — fallback only when Tier 1 is empty
  */
 export function filterEligibleCandidates(candidates: RawCandidate[]): RawCandidate[] {
+  const exploit = candidates.filter(c => c.priorInteractions >= 1 && c.isAvailable);
+  if (exploit.length > 0) return exploit;
   return candidates.filter(
-    (c) => c.priorInteractions >= 1 && c.isAvailable === true
+    c => c.priorInteractions === 0 && c.trustGraphConnection === 'direct' && c.isAvailable
   );
 }
 

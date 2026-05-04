@@ -331,6 +331,10 @@
           "href": "/docs/concepts/adr-042-provider-trust-score"
         },
         {
+          "label": "Explore/Exploit Two-Tier Dibs Candidate Selection",
+          "href": "/docs/concepts/adr-051-explore-exploit-dibs"
+        },
+        {
           "label": "Offer Fulfillment Workflow",
           "href": "/docs/concepts/adr-033-offer-fulfillment-workflow"
         },

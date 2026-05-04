@@ -383,6 +383,14 @@
       "status": "implemented",
       "description": "**Status**: Implemented",
       "filename": "ADR-050-group-communities.md"
+    },
+    {
+      "slug": "adr-051-explore-exploit-dibs",
+      "number": "051",
+      "title": "ADR-051: Explore/Exploit Two-Tier Dibs Candidate Selection",
+      "status": "implemented",
+      "description": "**Status**: Implemented",
+      "filename": "ADR-051-explore-exploit-dibs.md"
     }
   ]
 }
