@@ -1,10 +1,10 @@
-# SPRINT 53 — Code-as-Story Docs + Landing Page Catch-Up | Ready to Plan
+# SPRINT 53 — Test Coverage: Critical Paths | Ready to Plan
 
 ## Handoff Document
 
 **Date**: 2026-05-06
 **Current Version**: v9.19.0 (bumped from Sprint 52 merge)
-**Status**: Sprint 52 complete + deployed. Sprint 53 ready to plan.
+**Status**: Sprint 52 complete + deployed. Sprint 53 scope agreed — ready to plan.
 
 ---
 
@@ -12,7 +12,7 @@
 
 1. Read this handoff
 2. Run `/sprint-planning` to spec and plan Sprint 53
-3. Sprint 53 theme: Code-as-story feature tour docs + landing page catch-up (Sprints 42–52)
+3. Sprint 53 scope is already agreed (see below) — start from Step 3 (write spec)
 
 ---
 
@@ -24,7 +24,9 @@
 | Sprint 50 | Wire toggle + lift scheduled-only restriction + nav simplification | ✅ Complete |
 | Sprint 51 | Trust scores + explore/exploit + trust context UI | ✅ Complete |
 | Sprint 52 | Trust-path visibility — names, hops, full path in DibsPrompt | ✅ Complete |
-| **Sprint 53** | **Code-as-story docs + new user journey + landing page catch-up** | 🔮 Ready to plan |
+| **Sprint 53** | **Test coverage: critical paths + CI enforcement** | 🔮 Ready to plan |
+| Sprint 54 | UI Facelift (Claude Design) — research-first | 🔮 Planned |
+| Sprint 5X | Code-as-story docs + landing page catch-up | 🔮 Deferred |
 
 ---
 
@@ -60,23 +62,31 @@
 
 ---
 
-## Sprint 53 — Goals (Discussed, Not Yet Specced)
+## Sprint 53 — Scope Agreed (ready to spec + plan)
 
-**Theme**: Code-as-story documentation + landing page catch-up
+**Theme**: Test coverage — critical paths + CI enforcement
 
-### Feature-tour documents
-- One doc per major system area (dibs/matching, trust scores, feed, provider flow)
-- Each doc traces a single user action from UI click → DB write → response, with real `file:line` references
-- Useful for both human contributors and AI tools starting cold in the codebase
-- Focus: new user journey, not just dibs internals
+**Goal**: Add meaningful tests to the three highest-risk silent-failure areas, replace misleading placeholders, and enforce the existing 80% coverage threshold in CI so missing tests actually block.
 
-### Landing page catch-up
-- Update landing page to reflect everything shipped since last major update (Sprints 42–52)
-- Key systems to document: dibs, explore/exploit candidate selection, trust scores, trust path visibility, provider nav simplification
+### In scope
 
-### Sprint 53 is a doc sprint — no service code changes expected
-- Primary deliverables: markdown docs + landing page JSON updates
-- Validate doc generation pipeline still works after Sprint 52
+| Area | Work |
+|------|------|
+| **cleanup-service** | Unit tests for `expirationJob.ts` and `reputationDecayJob.ts` — time-based logic, cron trigger behavior |
+| **auth-service** | Tests for permission boundaries, multi-community JWT claims, role enforcement |
+| **feed-service** | Unit tests for the ranking/scoring algorithm (currently 0 unit tests for ~1,934 LOC) |
+| **community-service** | Delete `expect(true).toBe(true)` placeholder tests; replace with real regression tests |
+| **CI enforcement** | Remove `passWithNoTests: true` from affected services; wire 80% threshold so it blocks on push |
+
+### Out of scope (deferred)
+- messaging-service socket.io tests — hard to set up, separate sprint
+- mobile app tests — separate sprint
+- Landing page / docs catch-up — deferred after UI Facelift
+
+### Definition of done
+- Meaningful unit/integration tests on the risky logic in each area (not just happy-path stubs)
+- `npm test` fails if threshold is not met
+- No `expect(true).toBe(true)` anywhere in the codebase
 
 ---
 
