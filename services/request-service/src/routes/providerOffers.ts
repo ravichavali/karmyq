@@ -38,8 +38,7 @@ router.post('/offers', authMiddleware, async (req: AuthenticatedRequest, res: Re
     }
     const providerId = providerResult.rows[0].id;
 
-    const communityIds = (req.user!.communities ?? []).map((m: { id: string }) => m.id);
-    const validation = await validateRequestForOffer(request_id, communityIds);
+    const validation = await validateRequestForOffer(request_id, userId);
     if (!validation.valid) {
       return res.status(404).json({ success: false, message: validation.reason!, error: 'REQUEST_NOT_FOUND' });
     }

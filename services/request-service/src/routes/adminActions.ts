@@ -129,7 +129,7 @@ router.post('/:id/propose-match', async (req: Request, res: Response) => {
     // Verify proposed user is a member of one of this request's communities
     const memberCheck = await query(`
       SELECT 1
-      FROM community.members cm
+      FROM communities.members cm
       JOIN requests.request_communities rc ON rc.community_id = cm.community_id
       WHERE rc.request_id = $1
         AND cm.user_id = $2

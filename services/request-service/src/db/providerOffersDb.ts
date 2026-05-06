@@ -2,23 +2,22 @@ import { query } from '../database/db';
 
 /**
  * Validate that a request exists in at least one of the provider's communities and is still open.
+ * Membership is checked against the DB, not the JWT, so stale tokens never block valid providers.
  */
 export async function validateRequestForOffer(
   requestId: string,
-  communityIds: string[]
+  providerUserId: string
 ): Promise<{ valid: boolean; reason?: string }> {
-  if (communityIds.length === 0) {
-    return { valid: false, reason: 'Provider has no community memberships' };
-  }
-
   const result = await query(
     `SELECT hr.id, hr.status
      FROM requests.help_requests hr
      JOIN requests.request_communities rc ON rc.request_id = hr.id
+     JOIN communities.members m ON m.community_id = rc.community_id
      WHERE hr.id = $1
-       AND rc.community_id = ANY($2)
+       AND m.user_id = $2
+       AND m.status = 'active'
      LIMIT 1`,
-    [requestId, communityIds]
+    [requestId, providerUserId]
   );
 
   if (result.rows.length === 0) {
