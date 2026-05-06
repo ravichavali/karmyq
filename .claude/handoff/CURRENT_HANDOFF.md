@@ -3,8 +3,8 @@
 ## Handoff Document
 
 **Date**: 2026-05-06
-**Current Version**: v9.19.0 (bumped from Sprint 52 merge)
-**Status**: Sprint 52 complete + deployed. Sprint 53 scope agreed — ready to plan.
+**Current Version**: v9.19.0
+**Status**: Sprint 52 complete + deployed. Two post-sprint bug fixes shipped. Sprint 53 scope agreed — ready to plan.
 
 ---
 
@@ -27,6 +27,40 @@
 | **Sprint 53** | **Test coverage: critical paths + CI enforcement** | 🔮 Ready to plan |
 | Sprint 54 | UI Facelift (Claude Design) — research-first | 🔮 Planned |
 | Sprint 5X | Code-as-story docs + landing page catch-up | 🔮 Deferred |
+
+---
+
+## What Was Just Completed (Post-Sprint 52 Bug Fixes)
+
+Two bugs found and fixed in this session — both shipped to demo.
+
+### Bug fix 1: Provider offer validation used stale JWT (commits `d8040fa`)
+
+**Symptom**: "Request not found in your communities" when making a provider offer.
+
+**Root cause**: `validateRequestForOffer` compared provider's JWT community array against request communities. Stale JWT (or >15 communities) caused false negatives.
+
+**Fix**: Rewrote to JOIN `communities.members` live — no more JWT dependency.
+
+| File | Change |
+|------|--------|
+| `services/request-service/src/db/providerOffersDb.ts` | `validateRequestForOffer` now takes `providerUserId`, does live DB JOIN on `communities.members` |
+| `services/request-service/src/routes/providerOffers.ts` | Removed communityIds extraction from JWT; pass `userId` directly |
+| `services/request-service/src/routes/adminActions.ts` | Fixed wrong schema `community.members` → `communities.members` |
+
+### Bug fix 2: Accepting a provider offer left request open (commit `f8227cd`)
+
+**Symptom**: "Match must be in proposed state to accept" — Accept button appeared for a match that was already superseded.
+
+**Root cause**: `offersDb.acceptOffer` inserted a `matched` match record but never set `requests.help_requests.status = 'matched'`. Request stayed `open`, old `proposed` matches remained visible in CommitmentsTab.
+
+**Fix**: Added `UPDATE requests.help_requests SET status = 'matched'` + bulk-reject of remaining `proposed` matches after offer acceptance — mirrors dibs/match accept paths.
+
+| File | Change |
+|------|--------|
+| `services/request-service/src/db/offersDb.ts` | Added request status update + proposed match rejection after offer acceptance |
+
+**Data cleanup**: Ran audit SQL on demo server — 0 affected rows (provider offer acceptance had not been exercised end-to-end in demo yet).
 
 ---
 
@@ -105,3 +139,12 @@
 - **Provider nav (post Sprint 50)**: `ProviderModeSwitcher` and `ProviderNotificationBell` are no longer rendered. Do not add them back. Only provider control in nav is the availability dot in `Layout.tsx`.
 - **Explore tier — `sg.type = 'exchange'` only**: community-only connections do NOT qualify for explore dibs tier.
 - **Trust path URL pattern**: `http://social-graph-service:3010/social-graph/paths/:userId` — nginx strips `/api` prefix but NOT the service prefix (`/social-graph`). Always use the full path when calling from request-service.
+- **Provider offer acceptance**: `offersDb.acceptOffer` now correctly closes the request and rejects proposed matches. Mirrors `dibs.ts` and `matches.ts` accept paths — keep consistent if any new acceptance path is added.
+- **Offer validation**: `providerOffersDb.validateRequestForOffer` uses live DB JOIN — no JWT community array. If touching this function, do not reintroduce JWT-based auth.
+
+---
+
+## Ideas Captured This Session (docs/IDEAS.md)
+
+- **ux**: Community and provider are 2 facets of the same user — provider should be able to browse community dashboard and act as a community member without switching contexts.
+- **ux**: Provider and community facets should have different color patterns — visual language that signals which context you're in.
