@@ -2467,6 +2467,16 @@ CREATE TABLE auth.user_interests (
    - Solution: Changed to relative path imports from workspace root
    - Files: All unit test files
 
+5. ✅ **Provider offer acceptance did not close the request** (Resolved 2026-05-06)
+   - Issue: `offersDb.acceptOffer` inserted a `matched` match record but never set `requests.help_requests.status = 'matched'`, leaving the request `open`. Old proposed matches remained visible in CommitmentsTab with an Accept button that fired "Match must be in proposed state to accept".
+   - Solution: Added `UPDATE requests.help_requests SET status = 'matched'` and a bulk reject of remaining `proposed` matches — same pattern used by `dibs.ts` and `matches.ts` accept paths.
+   - Files: `src/db/offersDb.ts`
+
+6. ✅ **validateRequestForOffer used stale JWT community IDs** (Resolved 2026-05-06)
+   - Issue: Offer validation compared provider's JWT community array against request communities. Stale JWTs (or membership in >15 communities) caused "Request not found in your communities" for valid providers.
+   - Solution: Rewrote to JOIN `communities.members` live, removing the JWT-sourced `communityIds` parameter.
+   - Files: `src/db/providerOffersDb.ts`, `src/routes/providerOffers.ts`
+
 **Performance Considerations:**
 
 - JSONB payload queries are fast with GIN indexes but not as fast as native columns

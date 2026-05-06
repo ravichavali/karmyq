@@ -56,6 +56,17 @@ export async function acceptOffer(offerId: string, requesterUserId: string) {
     [offer.request_id, offer.provider_user_id]
   );
 
+  // Close the request and reject any other proposed matches — mirrors the dibs/match accept path
+  await query(
+    `UPDATE requests.help_requests SET status = 'matched', updated_at = NOW() WHERE id = $1`,
+    [offer.request_id]
+  );
+  await query(
+    `UPDATE requests.matches SET status = 'rejected', updated_at = NOW()
+     WHERE request_id = $1 AND status = 'proposed'`,
+    [offer.request_id]
+  );
+
   return offer;
 }
 
