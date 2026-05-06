@@ -69,3 +69,15 @@ The dibs prompt now shows live context instead of a static label:
 - **"New connection"** — no prior history, no direct trust link (rare fallback)
 
 The trust score shown in the prompt reflects the candidate's actual reputation score in your community, not a default value.
+
+---
+
+## Trust path
+
+When reviewing a dibs candidate, you'll see how you're connected to them through your exchange network. For example, "You → Jordan → Alice" means Jordan has exchanged help with both you and Alice — Alice comes recommended through a shared connection, not as a stranger.
+
+- **Direct connection**: You and this person have exchanged help before.
+- **2° connection**: You share a mutual exchange partner.
+- **3° connection**: You are three exchanges apart in the network.
+
+The path updates as your network grows. If no path is shown, the candidate was selected through a direct social-graph connection even without prior exchanges.

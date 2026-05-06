@@ -5,6 +5,7 @@
  */
 
 import React, { useState } from 'react'
+import TrustPathBadge, { TrustPath } from '../TrustPathBadge'
 
 export interface DibsCandidate {
   providerUserId: string
@@ -13,6 +14,7 @@ export interface DibsCandidate {
   trustScore: number
   priorInteractions: number
   trustGraphConnection: 'direct' | 'indirect' | 'none'
+  trustPath: TrustPath | null
 }
 
 interface DibsPromptProps {
@@ -119,9 +121,13 @@ export default function DibsPrompt({
                 </div>
                 <div>
                   <p className="font-medium text-text">{candidate.displayName || 'A trusted provider'}</p>
-                  <p className="text-xs text-text-muted">
-                    {trustContextSummary(candidate.priorInteractions, candidate.trustGraphConnection)}
-                  </p>
+                  {candidate.trustPath ? (
+                    <TrustPathBadge trustPath={candidate.trustPath} className="mt-2" />
+                  ) : (
+                    <p className="text-xs text-text-muted">
+                      {trustContextSummary(candidate.priorInteractions, candidate.trustGraphConnection)}
+                    </p>
+                  )}
                 </div>
               </div>
 

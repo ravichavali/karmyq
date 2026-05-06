@@ -64,7 +64,7 @@ Cache Hit (< 7 days old):
 
 Cache Miss:
   - Run BFS algorithm
-  - Max depth: 4 degrees
+  - Max depth: 3 degrees
   - Cache result for 7 days
   - ~500ms response time (first time)
 ```
@@ -383,7 +383,7 @@ SELECT auth.generate_invitation_code('Mike Chen', 2024);
 1. Build adjacency list from `auth.user_invitations`
 2. Treat graph as bidirectional (trust flows both ways)
 3. BFS from source to target
-4. Max depth: 4 degrees
+4. Max depth: 3 degrees
 5. Return `null` if no path found
 
 **Optimization**: Bidirectional search reduces search space from O(b^d) to O(2 * b^(d/2))

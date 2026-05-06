@@ -54,7 +54,32 @@ router.get('/:id/dibs-candidate', authMiddleware, async (req: AuthenticatedReque
       ? await getBestCandidate(userId, communityIds)
       : await getMutualAidBestCandidate(userId, communityIds);
 
-    return res.json({ success: true, data: candidate });
+    let trustPath: object | null = null;
+
+    if (candidate) {
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 3000);
+        const pathRes = await fetch(
+          `${process.env.SOCIAL_GRAPH_API_URL || 'http://social-graph-service:3010'}/social-graph/paths/${candidate.providerUserId}`,
+          {
+            headers: { Authorization: req.headers.authorization || '' },
+            signal: controller.signal,
+          }
+        );
+        clearTimeout(timeout);
+        if (pathRes.ok) {
+          const pathData = await pathRes.json() as { success: boolean; data?: object };
+          if (pathData.success && pathData.data) {
+            trustPath = pathData.data;
+          }
+        }
+      } catch {
+        // Non-fatal — trust path is enhancement only
+      }
+    }
+
+    return res.json({ success: true, data: candidate ? { ...candidate, trustPath } : null });
   } catch (err: any) {
     (req as any).logger?.error('[dibs] Error fetching dibs candidate', err instanceof Error ? err : new Error(String(err)), { service: 'request-service' });
     return res.status(500).json({ success: false, message: 'Failed to fetch dibs candidate', error: err.message });

@@ -32,7 +32,7 @@ export async function computeShortestPath(
   targetUserId: string,
   communityId: string
 ): Promise<TrustPath | null> {
-  const MAX_DEPTH = 4;
+  const MAX_DEPTH = 3;
 
   // Build adjacency list from completed exchanges (platform-wide, not community-scoped)
   // Trust paths emerge from actual exchanges, not invitation links

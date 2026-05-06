@@ -1415,7 +1415,7 @@ Returns `null` if no eligible candidate exists in either tier.
 
 **Authentication:** Required (JWT token — must be the requester)
 
-**Response:**
+**Response (Sprint 52):** includes `trustPath` fetched from social-graph-service.
 ```json
 {
   "success": true,
@@ -1423,10 +1423,16 @@ Returns `null` if no eligible candidate exists in either tier.
     "provider_user_id": "uuid",
     "provider_id": "uuid",
     "match_score": 87,
-    "prior_interactions": 3
+    "prior_interactions": 3,
+    "trustPath": {
+      "degrees_of_separation": 2,
+      "path": [{ "id": "...", "name": "You" }, { "id": "...", "name": "Jordan" }, { "id": "...", "name": "Alice" }],
+      "connection_type": "exchange"
+    }
   }
 }
 ```
+`trustPath` is `null` if no path found or social-graph is unavailable (non-fatal degradation).
 Returns `"data": null` when no eligible candidate is found.
 
 **Implementation:** `src/routes/dibs.ts`
