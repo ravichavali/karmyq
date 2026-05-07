@@ -1,18 +1,19 @@
-# SPRINT 54 — UI Facelift (Claude Design) | Research-First
+# SPRINT 54 — UI Simplification Arc | Design Brief Phase
 
 ## Handoff Document
 
-**Date**: 2026-05-07
-**Current Version**: v9.20.0 (just shipped Sprint 53)
-**Status**: Sprint 53 complete + deployed. Sprint 54 is research-first — no implementation until UX audit done.
+**Date**: 2026-05-06
+**Current Version**: v9.20.0 (Sprint 53 complete + deployed)
+**Status**: Audit complete. Waiting for Claude Design tool feedback before writing spec.
 
 ---
 
-## Quick Start
+## Quick Start (next session)
 
 1. Read this handoff
-2. Sprint 54 begins with a **layout audit + reference product research** phase — NOT with code
-3. Run `/sprint-planning` to kick off Sprint 54 with the brainstorming skill
+2. Paste the Claude Design tool feedback into the conversation
+3. Run `/sprint-planning` — the feedback + audit findings below become the design brief
+4. Sprint 54 spec → implementation plan → execute
 
 ---
 
@@ -23,57 +24,79 @@
 | Sprint 51 | Trust scores + explore/exploit | ✅ Complete |
 | Sprint 52 | Trust-path visibility in DibsPrompt | ✅ Complete |
 | Sprint 53 | Test coverage: critical paths + CI enforcement | ✅ Complete + deployed |
-| **Sprint 54** | **UI Facelift (Claude Design) — research-first** | 🔵 Next |
+| **Sprint 54** | **UI Simplification — design brief + first pass** | 🔵 In progress (audit done, awaiting Claude Design feedback) |
+| Sprint 55+ | UI Simplification — subsequent passes | ⬜ Upcoming |
+
+**Arc goal**: Make the UI intuitive. Simplify. Most common users should have their core flows handled cleanly with minimal friction.
 
 ---
 
-## What Was Just Completed (Sprint 53)
+## Sprint 54 — Agreed Direction
 
-**Commit**: `903085b` — `feat(tests): Sprint 53 — critical-path test coverage + CI enforcement`
+### Goal
+The whole UI feels non-intuitive. Simplify it. The most common user flows should be obvious and frictionless. This is a multi-sprint simplification arc, not a cosmetic polish pass.
 
-### New test files (32 tests total across 5 files)
+### Core user mental model (confirmed)
+Both roles are the **same person** in different contexts:
+- **Community member facet**: Post a request for help → see responses → accept help → track commitment
+- **Provider facet**: Browse requests matching skills → offer to help → get matched → fulfill
 
-| File | Tests | What it covers |
-|------|-------|----------------|
-| `services/cleanup-service/tests/unit/expirationJob.test.ts` | 5 | markExpiredData: 4-table UPDATE, error propagation |
-| `services/cleanup-service/tests/unit/reputationDecayJob.test.ts` | 6 | updateDecayedTrustScores: formula, skip logic, UPDATE uses id not user_id |
-| `services/auth-service/tests/unit/jwtClaims.test.ts` | 6 | JWT payload shape: communities field (NOT communityMemberships), role encoding |
-| `services/auth-service/tests/unit/authMiddleware.test.ts` | 6 | authMiddleware: valid/expired/missing/tampered token → 401 |
-| `services/feed-service/tests/unit/basicFeedRanker.test.ts` | 9 | BasicFeedRanker: proximity ordering, urgency ordering, recency, determinism, error resilience |
+Large component refactors are **in scope** (CommitmentsTab 616 lines, communities/[id].tsx 2,257 lines — these are symptoms of UX complexity, not just code smell).
 
-### Config changes
-- `services/cleanup-service/jest.config.js` — removed `passWithNoTests: true`
-- `services/community-service/jest.config.js` — threshold raised from 0 → 60 (scoped to `src/services/`), added `coverageProvider: 'v8'` to fix babel instrumentation bug
-- `services/community-service/tests/regression/communities.test.ts` — replaced `expect(true).toBe(true)` with 8 real HTTP tests (using supertest + mocked DB + JWT)
-
-### Docs
-- `docs/adr/ADR-029-tdd-test-framework.md` — status: Accepted → Implemented
-- `apps/landing/src/data/docs/concepts/adr-029-tdd-test-framework.json` — regenerated via `generate-docs`
-- `package.json` — bumped to v9.20.0
+### Design input
+- Claude Design tool feedback (pending — user waiting on limits to reset)
+- Audit findings below
 
 ---
 
-## Sprint 54 — What To Do Next
+## Audit Findings (completed 2026-05-06)
 
-### Theme: UI Facelift (Claude Design) — research-first
+### What exists
+- **33 pages**, 99 components, ~26k lines of frontend
+- **Styling**: Tailwind CSS + CSS custom properties. Semantic tokens exist but are used inconsistently.
+- **Typography**: Fraunces serif (display) + Inter (body) — solid pairing, keep
+- **Layout shell**: Three-column desktop (left sidebar / main / right sidebar), mobile bottom tab bar
+- **Design tokens**: Warm earthy palette — Karmyq Green (#2d6e28), Accent Teal (#268882), Cream (#faf8f3), Brown text (#5c3e30)
 
-**The plan agreed in memory**:
-> UX sprints start with layout audit + reference products before any implementation plan.
+### Inconsistencies found
+- Status badges use hardcoded Tailwind colors (`red-100`, `amber-100`) instead of semantic tokens — inconsistent throughout `CommitmentsTab`, `FeedItem`, `BrowseFeed`
+- Direct palette references mixed with semantic tokens (`from-karmyq-green-500`) vs `primary`
+- Provider availability toggle appears in two nav locations (duplication)
+- Right sidebar loads leaderboard/milestone data even when not in view
 
-### Phase 1 (required before any code): Layout Audit + Research
-1. **Audit current frontend layout** — document what's there, what's broken, what's inconsistent
-2. **Identify reference products** — find 2-3 design references in the mutual aid / civic / social space
-3. **Produce a design brief** — before touching any component, agree on direction
+### Complexity hotspots
+| File | Lines | Problem |
+|------|-------|---------|
+| `apps/frontend/src/pages/communities/[id].tsx` | 2,257 | Everything in one file |
+| `apps/frontend/src/components/CommitmentsTab.tsx` | 616 | Filtering + status + offers inline |
+| `apps/frontend/src/components/CommunityConfigEditor.tsx` | 592 | WYSIWYG schema editor monolith |
+| `apps/frontend/src/components/Feed/FeedItem.tsx` | 358 | Renders all request type variations inline |
+| `apps/frontend/src/components/ProviderProfileTab.tsx` | 414 | Profile display + edit combined |
 
-### Key areas likely in scope (TBD after audit):
-- Community dashboard and request feed visual design
-- Typography, spacing, color system
-- Navigation and layout structure
-- Mobile responsiveness
+### Navigation pain points
+- Mobile: Communities and Providers only in hamburger — missing from bottom tab bar
+- No pre-auth nav on mobile
+- Dashboard has 4 tabs (Browse / Commitments / My Requests / Profile) — may be too many
 
-### Ideas captured in docs/IDEAS.md (relevant to Sprint 54):
-- **ux**: Community and provider are 2 facets of the same user — provider should browse community dashboard without switching contexts
-- **ux**: Provider and community facets should have different color patterns — visual language that signals which context you're in
+### Ideas from IDEAS.md (relevant)
+- Provider and community are 2 facets of the same user — no mode toggle needed
+- Different color patterns per facet — visual language that signals context
+- UI simplification is a **continuous lens**, not a one-time sprint — apply to every sprint going forward
+- CommitmentsTab density flagged as a priority area to watch
+
+---
+
+## What To Do When Claude Design Feedback Arrives
+
+1. Paste feedback into a new conversation
+2. Run `/sprint-planning`
+3. The spec should address:
+   - What pages/flows to simplify first (prioritize by user frequency)
+   - Navigation restructure (especially mobile)
+   - Dashboard tab reduction (4 → 2 or 3?)
+   - Token consistency fix (semantic tokens everywhere)
+   - Facet color system design (community green vs provider teal?)
+   - Which large components to break up in Sprint 54 vs defer
 
 ---
 
@@ -95,10 +118,3 @@
 - **Provider offer acceptance**: `offersDb.acceptOffer` now correctly closes the request and rejects proposed matches. Mirrors `dibs.ts` and `matches.ts` accept paths — keep consistent if any new acceptance path is added.
 - **Offer validation**: `providerOffersDb.validateRequestForOffer` uses live DB JOIN — no JWT community array. If touching this function, do not reintroduce JWT-based auth.
 - **community-service coverage**: scoped to `src/services/**/*.ts` (NOT all src files) because DB-dependent routes can't reach 60% without a live DB. coverageProvider set to 'v8' to fix babel instrumentation bug.
-
----
-
-## Ideas Captured (docs/IDEAS.md)
-
-- **ux**: Community and provider are 2 facets of the same user — provider should be able to browse community dashboard and act as a community member without switching contexts.
-- **ux**: Provider and community facets should have different color patterns — visual language that signals which context you're in.
