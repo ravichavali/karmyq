@@ -1,18 +1,25 @@
-# SPRINT 53 — Test Coverage: Critical Paths | Ready to Plan
+# SPRINT 53 — Test Coverage: Critical Paths | Ready to Execute
 
 ## Handoff Document
 
 **Date**: 2026-05-06
-**Current Version**: v9.19.0
-**Status**: Sprint 52 complete + deployed. Two post-sprint bug fixes shipped. Sprint 53 scope agreed — ready to plan.
+**Current Version**: v9.19.0 → v9.20.0 this sprint
+**Status**: Spec + plan written. Ready to execute.
 
 ---
 
 ## Quick Start
 
 1. Read this handoff
-2. Run `/sprint-planning` to spec and plan Sprint 53
-3. Sprint 53 scope is already agreed (see below) — start from Step 3 (write spec)
+2. Check out branch: `git checkout -b feature/sprint-53-test-coverage`
+3. Open plan: `docs/superpowers/plans/2026-05-06-sprint-53-test-coverage.md`
+4. Run: `/execute-plan` (uses superpowers:subagent-driven-development)
+
+---
+
+## Sprint Goal
+
+Close the CI coverage enforcement gap: add meaningful unit tests to the four highest-risk silent-failure areas, replace `expect(true).toBe(true)` placeholders, and remove the `passWithNoTests: true` and zero-threshold bypasses so `npm test` actually blocks on missing coverage.
 
 ---
 
@@ -20,107 +27,64 @@
 
 | Sprint | Theme | Status |
 |--------|-------|--------|
-| Sprint 37–42 | Provider profiles, rate cards, offers, dibs infrastructure | ✅ Complete |
-| Sprint 50 | Wire toggle + lift scheduled-only restriction + nav simplification | ✅ Complete |
-| Sprint 51 | Trust scores + explore/exploit + trust context UI | ✅ Complete |
-| Sprint 52 | Trust-path visibility — names, hops, full path in DibsPrompt | ✅ Complete |
-| **Sprint 53** | **Test coverage: critical paths + CI enforcement** | 🔮 Ready to plan |
+| Sprint 51 | Trust scores + explore/exploit | ✅ Complete |
+| Sprint 52 | Trust-path visibility in DibsPrompt | ✅ Complete |
+| **Sprint 53** | **Test coverage: critical paths + CI enforcement** | 🔵 Ready to execute |
 | Sprint 54 | UI Facelift (Claude Design) — research-first | 🔮 Planned |
-| Sprint 5X | Code-as-story docs + landing page catch-up | 🔮 Deferred |
 
 ---
 
 ## What Was Just Completed (Post-Sprint 52 Bug Fixes)
 
-Two bugs found and fixed in this session — both shipped to demo.
+Two bugs found and fixed — both shipped to demo.
 
-### Bug fix 1: Provider offer validation used stale JWT (commits `d8040fa`)
-
-**Symptom**: "Request not found in your communities" when making a provider offer.
-
-**Root cause**: `validateRequestForOffer` compared provider's JWT community array against request communities. Stale JWT (or >15 communities) caused false negatives.
-
+### Bug fix 1: Provider offer validation used stale JWT (`d8040fa`)
+**Root cause**: `validateRequestForOffer` compared provider's JWT community array against request communities. Stale JWT caused false negatives.
 **Fix**: Rewrote to JOIN `communities.members` live — no more JWT dependency.
 
-| File | Change |
-|------|--------|
-| `services/request-service/src/db/providerOffersDb.ts` | `validateRequestForOffer` now takes `providerUserId`, does live DB JOIN on `communities.members` |
-| `services/request-service/src/routes/providerOffers.ts` | Removed communityIds extraction from JWT; pass `userId` directly |
-| `services/request-service/src/routes/adminActions.ts` | Fixed wrong schema `community.members` → `communities.members` |
-
-### Bug fix 2: Accepting a provider offer left request open (commit `f8227cd`)
-
-**Symptom**: "Match must be in proposed state to accept" — Accept button appeared for a match that was already superseded.
-
-**Root cause**: `offersDb.acceptOffer` inserted a `matched` match record but never set `requests.help_requests.status = 'matched'`. Request stayed `open`, old `proposed` matches remained visible in CommitmentsTab.
-
-**Fix**: Added `UPDATE requests.help_requests SET status = 'matched'` + bulk-reject of remaining `proposed` matches after offer acceptance — mirrors dibs/match accept paths.
-
-| File | Change |
-|------|--------|
-| `services/request-service/src/db/offersDb.ts` | Added request status update + proposed match rejection after offer acceptance |
-
-**Data cleanup**: Ran audit SQL on demo server — 0 affected rows (provider offer acceptance had not been exercised end-to-end in demo yet).
+### Bug fix 2: Accepting a provider offer left request open (`f8227cd`)
+**Root cause**: `offersDb.acceptOffer` inserted a `matched` match but never set `requests.help_requests.status = 'matched'`.
+**Fix**: Added request status update + bulk-reject of remaining `proposed` matches after offer acceptance.
 
 ---
 
-## What Was Just Completed (Sprint 52)
+## Sprint 53 — What To Build
 
-**Commit**: `f035ba4 feat(dibs): Sprint 52 — trust-path visibility in DibsPrompt + feed cards`
+### Services in scope
 
-### Changes shipped
+| Area | What to do |
+|------|-----------|
+| **cleanup-service** | Create `tests/unit/expirationJob.test.ts` and `tests/unit/reputationDecayJob.test.ts`. Then remove `passWithNoTests: true` from `jest.config.js`. |
+| **auth-service** | Create `tests/unit/jwtClaims.test.ts` (JWT payload shape, multi-community, role encoding) and `tests/unit/authMiddleware.test.ts` (valid/expired/missing token). Create `tests/unit/` directory first. |
+| **feed-service** | Create `tests/unit/basicFeedRanker.test.ts` (social proximity, urgency, recency ranking). Create `tests/unit/` directory first. |
+| **community-service** | Replace `expect(true).toBe(true)` in `tests/regression/communities.test.ts`. Raise coverage thresholds from 0% to 60% in `jest.config.js`. |
+| **CI enforcement** | All threshold bypasses removed after real tests are in place. |
 
-| File | Change |
-|------|--------|
-| `services/social-graph-service/src/services/pathComputation.ts` | `MAX_DEPTH` 4 → 3 in `computeShortestPath` |
-| `services/request-service/src/routes/dibs.ts` | After candidate selection, fetch trust path from social-graph-service (non-fatal, 3s AbortController timeout); attach `trustPath` to response |
-| `apps/frontend/src/components/requests/DibsPrompt.tsx` | Added `trustPath: TrustPath \| null` to `DibsCandidate`; renders `TrustPathBadge` (full) when available, falls back to `trustContextSummary` text |
-| `apps/frontend/src/components/BrowseFeed.tsx` | Already had compact trust path badge — verified, no change needed |
-| `apps/frontend/src/components/Feed/FeedItem.tsx` | Already had compact trust path badge — verified, no change needed |
-| `docs/guides/provider-dibs-guide.md` | Added "Trust path" section after "Trust context" section |
-| `services/request-service/CONTEXT.md` | Updated dibs-candidate response shape to include `trustPath` |
-| `services/social-graph-service/CONTEXT.md` | Updated "Max depth: 4 degrees" → "Max depth: 3 degrees" (two occurrences) |
-| `services/registry.json` | Bumped `updated` to 2026-05-06 |
-| `services/request-service/tests/tdd/sprint-52-trust-path.test.ts` | 3 new TDD tests — all passing |
-
-### Test results
-- `sprint-52-trust-path.test.ts`: 3/3 pass
-- Unit + regression (`npm test`): 27/27 task suites pass
-- TypeScript: request-service, social-graph-service, frontend — all clean
-
-### Key implementation decisions
-- **Internal URL**: `http://social-graph-service:3010/social-graph/paths/:userId` (nginx strips `/api`, not service prefix)
-- **Forward Authorization header**: social-graph reads `req.user?.userId` from JWT — header must be forwarded
-- **Non-fatal**: trust path fetch wrapped in try/catch + 3s timeout; `trustPath: null` on any error
-- **Feed cards already wired**: `BrowseFeed.tsx` and `FeedItem.tsx` already had `useTrustPath` + compact `TrustPathBadge` — Sprint 52 verified, no code change needed
+### Spec and plan files
+- Spec: `docs/superpowers/specs/2026-05-06-sprint-53-test-coverage-design.md`
+- Plan: `docs/superpowers/plans/2026-05-06-sprint-53-test-coverage.md`
 
 ---
 
-## Sprint 53 — Scope Agreed (ready to spec + plan)
+## ⚠️ Critical Implementation Notes
 
-**Theme**: Test coverage — critical paths + CI enforcement
+1. **Mock target for cleanup jobs**: Both import `{ query }` from `'../database/db'`. Mock with `jest.mock('../database/db', () => ({ query: jest.fn() }))`. Return `{ rowCount: N, rows: [] }`.
 
-**Goal**: Add meaningful tests to the three highest-risk silent-failure areas, replace misleading placeholders, and enforce the existing 80% coverage threshold in CI so missing tests actually block.
+2. **Write tests BEFORE removing CI bypasses.** Remove `passWithNoTests` from cleanup-service only after its tests pass. Raise community-service threshold only after real tests pass.
 
-### In scope
+3. **auth-service `tests/unit/` doesn't exist** — must create directory. Jest config's `roots: ['<rootDir>/src', '<rootDir>/tests']` auto-discovers it once created.
 
-| Area | Work |
-|------|------|
-| **cleanup-service** | Unit tests for `expirationJob.ts` and `reputationDecayJob.ts` — time-based logic, cron trigger behavior |
-| **auth-service** | Tests for permission boundaries, multi-community JWT claims, role enforcement |
-| **feed-service** | Unit tests for the ranking/scoring algorithm (currently 0 unit tests for ~1,934 LOC) |
-| **community-service** | Delete `expect(true).toBe(true)` placeholder tests; replace with real regression tests |
-| **CI enforcement** | Remove `passWithNoTests: true` from affected services; wire 80% threshold so it blocks on push |
+4. **feed-service `tests/unit/` doesn't exist** — must create. Service jest config already includes `tests/unit/**/*.test.ts` in testMatch.
 
-### Out of scope (deferred)
-- messaging-service socket.io tests — hard to set up, separate sprint
-- mobile app tests — separate sprint
-- Landing page / docs catch-up — deferred after UI Facelift
+5. **JWT field is `communities`** — NOT `communityMemberships`. Tests must verify this exact field name.
 
-### Definition of done
-- Meaningful unit/integration tests on the risky logic in each area (not just happy-path stubs)
-- `npm test` fails if threshold is not met
-- No `expect(true).toBe(true)` anywhere in the codebase
+6. **Task stubs in the plan have placeholder `expect(true).toBe(true)`** for auth middleware and basicFeedRanker — these are scaffolding ONLY. Read the source files first, then replace with real assertions. The stubs must not be left as placeholders after Task 4 and 5.
+
+7. **community-service threshold**: Set to `60`, not `80`. Database-dependent routes can't reach 80% without a live DB.
+
+8. **Version bump**: Root `package.json` → v9.20.0.
+
+9. **Pre-existing TDD failures to ignore**: `sprint-39-provider-ux` (7 failures), `sprint-43-feed-ranking` (crashes), schema-related tests. Do NOT fix.
 
 ---
 
@@ -144,7 +108,7 @@ Two bugs found and fixed in this session — both shipped to demo.
 
 ---
 
-## Ideas Captured This Session (docs/IDEAS.md)
+## Ideas Captured (docs/IDEAS.md)
 
 - **ux**: Community and provider are 2 facets of the same user — provider should be able to browse community dashboard and act as a community member without switching contexts.
 - **ux**: Provider and community facets should have different color patterns — visual language that signals which context you're in.
