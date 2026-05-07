@@ -1,6 +1,6 @@
 # ADR-029: Test-Driven Development (TDD) Framework
 
-**Status**: Accepted
+**Status**: Implemented
 **Date**: 2026-01-31
 **Deciders**: Development Team
 
@@ -348,3 +348,9 @@ This ADR was created after implementing the TDD framework in response to:
 The framework has been validated by successful pushes with all unit + regression tests passing.
 
 **Core Tenant Reminder**: Going forward, we should NEVER skip the unit + regression suite. That is a core tenant of our TDD framework.
+
+---
+
+## Implementation History
+
+**2026-05-06 (Sprint 53)**: Coverage enforcement gap closed. Removed `passWithNoTests: true` from cleanup-service and raised community-service threshold from 0% to 60% (scoped to `src/services/` — DB-dependent routes excluded). All four critical-path services (cleanup-service, auth-service, feed-service, community-service) now have meaningful unit tests. Total new tests: 32 across 5 new test files.

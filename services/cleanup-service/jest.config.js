@@ -6,9 +6,6 @@ module.exports = {
   rootDir: '.',
   displayName: 'cleanup-service',
 
-  // Pass when no tests are found (until we write tests)
-  passWithNoTests: true,
-
   // Remove setup files requirement
   setupFilesAfterEnv: [],
 };

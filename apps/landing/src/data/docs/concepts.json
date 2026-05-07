@@ -212,8 +212,8 @@
       "slug": "adr-029-tdd-test-framework",
       "number": "029",
       "title": "ADR-029: Test-Driven Development (TDD) Framework",
-      "status": "accepted",
-      "description": "**Status**: Accepted",
+      "status": "implemented",
+      "description": "**Status**: Implemented",
       "filename": "ADR-029-tdd-test-framework.md"
     },
     {
