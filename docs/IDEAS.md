@@ -182,3 +182,15 @@ Feed improvement: a confirmed match should be considered as a commitment for bot
 **Ongoing**: The UI needs to be continuously simplified — not a single sprint, but a lens applied to every sprint. Each sprint should ask: what can we remove, consolidate, or make less noisy? Priority areas to watch: tab count, card density in CommitmentsTab, provider mode switcher discoverability, and the dashboard header area.
 
 ---
+
+## [2026-05-06] ux
+
+Community and provider are 2 facets of the same user — not separate modes. A provider should be able to browse the community user dashboard and act as a community member without switching contexts.
+
+---
+
+## [2026-05-06] ux
+
+Provider and community facets should have different color patterns — visual language that signals which context you're operating in without requiring a mode toggle.
+
+---
