@@ -1,6 +1,6 @@
-import { Request, Response, NextFunction } from 'express';
+import { Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
-import { authMiddleware } from '../../../../packages/shared/middleware/auth';
+import { authMiddleware } from '@karmyq/shared/middleware/auth';
 
 const secret = process.env.JWT_SECRET!;
 
