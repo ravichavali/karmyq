@@ -1,19 +1,18 @@
-# SPRINT 54 — UI Simplification Arc | Design Brief Phase
+# SPRINT 54 — Security Hardening | Scoping In Progress
 
 ## Handoff Document
 
-**Date**: 2026-05-06
+**Date**: 2026-05-10
 **Current Version**: v9.20.0 (Sprint 53 complete + deployed)
-**Status**: Audit complete. Waiting for Claude Design tool feedback before writing spec.
+**Status**: Sprint 54 repurposed — security hardening sprint. UI Facelift deferred to Sprint 55+.
 
 ---
 
 ## Quick Start (next session)
 
 1. Read this handoff
-2. Paste the Claude Design tool feedback into the conversation
-3. Run `/sprint-planning` — the feedback + audit findings below become the design brief
-4. Sprint 54 spec → implementation plan → execute
+2. Run `/sprint-planning` to scope and plan the security sprint
+3. Sprint 54 spec → implementation plan → execute
 
 ---
 
@@ -24,79 +23,23 @@
 | Sprint 51 | Trust scores + explore/exploit | ✅ Complete |
 | Sprint 52 | Trust-path visibility in DibsPrompt | ✅ Complete |
 | Sprint 53 | Test coverage: critical paths + CI enforcement | ✅ Complete + deployed |
-| **Sprint 54** | **UI Simplification — design brief + first pass** | 🔵 In progress (audit done, awaiting Claude Design feedback) |
-| Sprint 55+ | UI Simplification — subsequent passes | ⬜ Upcoming |
-
-**Arc goal**: Make the UI intuitive. Simplify. Most common users should have their core flows handled cleanly with minimal friction.
+| **Sprint 54** | **Security hardening** | 🔵 Scoping |
+| Sprint 55+ | UI Facelift (Claude Design) — deferred | ⬜ Upcoming |
 
 ---
 
-## Sprint 54 — Agreed Direction
+## Sprint 54 — What To Do Next
 
-### Goal
-The whole UI feels non-intuitive. Simplify it. The most common user flows should be obvious and frictionless. This is a multi-sprint simplification arc, not a cosmetic polish pass.
+**Theme**: Security hardening — scope to be defined via `/sprint-planning`.
 
-### Core user mental model (confirmed)
-Both roles are the **same person** in different contexts:
-- **Community member facet**: Post a request for help → see responses → accept help → track commitment
-- **Provider facet**: Browse requests matching skills → offer to help → get matched → fulfill
+### UI Facelift — deferred context (for Sprint 55+)
 
-Large component refactors are **in scope** (CommitmentsTab 616 lines, communities/[id].tsx 2,257 lines — these are symptoms of UX complexity, not just code smell).
-
-### Design input
-- Claude Design tool feedback (pending — user waiting on limits to reset)
-- Audit findings below
-
----
-
-## Audit Findings (completed 2026-05-06)
-
-### What exists
-- **33 pages**, 99 components, ~26k lines of frontend
-- **Styling**: Tailwind CSS + CSS custom properties. Semantic tokens exist but are used inconsistently.
-- **Typography**: Fraunces serif (display) + Inter (body) — solid pairing, keep
-- **Layout shell**: Three-column desktop (left sidebar / main / right sidebar), mobile bottom tab bar
-- **Design tokens**: Warm earthy palette — Karmyq Green (#2d6e28), Accent Teal (#268882), Cream (#faf8f3), Brown text (#5c3e30)
-
-### Inconsistencies found
-- Status badges use hardcoded Tailwind colors (`red-100`, `amber-100`) instead of semantic tokens — inconsistent throughout `CommitmentsTab`, `FeedItem`, `BrowseFeed`
-- Direct palette references mixed with semantic tokens (`from-karmyq-green-500`) vs `primary`
-- Provider availability toggle appears in two nav locations (duplication)
-- Right sidebar loads leaderboard/milestone data even when not in view
-
-### Complexity hotspots
-| File | Lines | Problem |
-|------|-------|---------|
-| `apps/frontend/src/pages/communities/[id].tsx` | 2,257 | Everything in one file |
-| `apps/frontend/src/components/CommitmentsTab.tsx` | 616 | Filtering + status + offers inline |
-| `apps/frontend/src/components/CommunityConfigEditor.tsx` | 592 | WYSIWYG schema editor monolith |
-| `apps/frontend/src/components/Feed/FeedItem.tsx` | 358 | Renders all request type variations inline |
-| `apps/frontend/src/components/ProviderProfileTab.tsx` | 414 | Profile display + edit combined |
-
-### Navigation pain points
-- Mobile: Communities and Providers only in hamburger — missing from bottom tab bar
-- No pre-auth nav on mobile
-- Dashboard has 4 tabs (Browse / Commitments / My Requests / Profile) — may be too many
-
-### Ideas from IDEAS.md (relevant)
-- Provider and community are 2 facets of the same user — no mode toggle needed
-- Different color patterns per facet — visual language that signals context
-- UI simplification is a **continuous lens**, not a one-time sprint — apply to every sprint going forward
-- CommitmentsTab density flagged as a priority area to watch
-
----
-
-## What To Do When Claude Design Feedback Arrives
-
-1. Paste feedback into a new conversation
-2. Run `/sprint-planning`
-3. The spec should address:
-   - What pages/flows to simplify first (prioritize by user frequency)
-   - Navigation restructure (especially mobile)
-   - Dashboard tab reduction (4 → 2 or 3?)
-   - Token consistency fix (semantic tokens everywhere)
-   - Facet color system design (community green vs provider teal?)
-   - Which large components to break up in Sprint 54 vs defer
+Audit was completed 2026-05-10. Key findings preserved here for when Sprint 55 starts:
+- **Dashboard**: 4 tabs → 3 (Browse / Active / Profile), remove sidebars (full-width), merge Commitments + My Requests into action-first "Active" tab
+- **Design decisions confirmed**: no sidebars, 3 tabs, action-first filter (items needing response by default)
+- **Claude Design tool feedback pending** — user waiting on limits to reset; paste feedback into sprint planning session when available
+- **Audit findings**: `apps/frontend/src/components/CommitmentsTab.tsx` (616 lines), `apps/frontend/src/pages/communities/[id].tsx` (2,257 lines) are the main complexity hotspots
+- **Token inconsistency**: hardcoded `red-100`, `amber-100`, `blue-500` throughout — needs semantic token pass
 
 ---
 
