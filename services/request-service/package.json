@@ -15,7 +15,8 @@
     "test:tdd": "jest tests/tdd --passWithNoTests"
   },
   "dependencies": {
-    "@karmyq/shared": "*"
+    "@karmyq/shared": "*",
+    "helmet": "^8.1.0"
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",

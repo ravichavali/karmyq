@@ -63,6 +63,17 @@ CREATE TABLE auth.device_push_tokens (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(user_id, expo_push_token)
 );
+
+-- auth.refresh_tokens (Sprint 54 — ADR-052)
+CREATE TABLE auth.refresh_tokens (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    token_hash VARCHAR(64) NOT NULL UNIQUE,  -- SHA-256 hash of the raw token
+    expires_at TIMESTAMPTZ NOT NULL,
+    used_at TIMESTAMPTZ,
+    revoked BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
 ```
 
 ### Tables Read by This Service
@@ -92,7 +103,8 @@ Register a new user account.
     "email": "alice@example.com",
     "created_at": "2025-01-10T12:00:00Z"
   },
-  "token": "jwt-token-here"
+  "token": "jwt-token-here (1hr lifetime)",
+  "refreshToken": "raw-refresh-token-here (7-day lifetime)"
 }
 ```
 
@@ -118,11 +130,35 @@ Authenticate user and receive JWT token.
     "name": "Alice Smith",
     "email": "alice@example.com"
   },
-  "token": "jwt-token-here"
+  "token": "jwt-token-here (1hr lifetime)",
+  "refreshToken": "raw-refresh-token-here (7-day lifetime)"
 }
 ```
 
 **Implementation:** `src/routes/auth.ts:45`
+
+### POST /auth/refresh
+Issue a new access token using a refresh token. Rotates the refresh token on each call (old token revoked, new one issued). Replay attack protection: if an already-used token is presented, all tokens for that user are revoked.
+
+**Request:**
+```json
+{
+  "refreshToken": "raw-refresh-token-here"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "token": "new-jwt-token (1hr lifetime)",
+    "refreshToken": "new-refresh-token (7-day lifetime)"
+  }
+}
+```
+
+**Implementation:** `src/routes/auth.ts` (ADR-052, Sprint 54)
 
 ### GET /verify
 Verify JWT token and return user info.

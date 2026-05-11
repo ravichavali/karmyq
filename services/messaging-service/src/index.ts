@@ -2,6 +2,7 @@ import express from 'express';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
+import helmet from 'helmet';
 import dotenv from 'dotenv';
 import jwt from 'jsonwebtoken';
 import pool from './database/db';
@@ -27,10 +28,9 @@ if (!JWT_SECRET) {
 const httpServer = createServer(app);
 
 // Allowed origins for CORS
-const ALLOWED_ORIGINS = process.env.CORS_ORIGINS?.split(',') || [
-  'http://localhost:3000',
-  'http://localhost:3001',
-];
+const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || 'http://localhost:3000')
+  .split(',')
+  .map(o => o.trim());
 
 // Initialize Socket.IO with proper CORS and JWT authentication
 const io = new Server(httpServer, {
@@ -64,7 +64,17 @@ io.use((socket, next) => {
 });
 
 // Middleware
-app.use(cors());
+app.use(helmet());
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin || ALLOWED_ORIGINS.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error(`CORS blocked: ${origin}`));
+    }
+  },
+  credentials: true,
+}));
 app.use(express.json());
 app.use(requestIdMiddleware);
 app.use(requestLoggingMiddleware(logger));

@@ -1,5 +1,6 @@
 import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
 import dotenv from 'dotenv';
 import { initDatabase } from './database/db';
 import { initEventPublisher } from './events/publisher';
@@ -32,8 +33,22 @@ const app = express();
 const PORT = process.env.PORT || 3002;
 const logger = createLogger('community-service');
 
+const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'http://localhost:3000')
+  .split(',')
+  .map(o => o.trim());
+
 // Middleware
-app.use(cors());
+app.use(helmet());
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error(`CORS blocked: ${origin}`));
+    }
+  },
+  credentials: true,
+}));
 app.use(express.json());
 app.use(requestIdMiddleware);
 app.use(requestLoggingMiddleware(logger));

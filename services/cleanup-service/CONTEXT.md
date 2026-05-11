@@ -47,6 +47,21 @@ reputation.calculate_decayed_karma(user_id, community_id)
   → Formula: karma * 0.5^(months_ago / half_life_months)
 ```
 
+## Security (Sprint 54 — ADR-052)
+
+### SQL Injection Protection — `batchHardDelete()`
+`batchHardDelete()` in `src/jobs/expirationJob.ts` interpolates a table name directly into a SQL query. Sprint 54 added `ALLOWED_CLEANUP_TABLES` (exported constant) that gates all calls:
+```typescript
+export const ALLOWED_CLEANUP_TABLES = new Set([
+  'requests.help_requests', 'requests.help_offers',
+  'messaging.messages', 'notifications.notifications',
+]);
+```
+Any table name not in this set throws immediately before any DB call. This prevents SQL injection via the table parameter.
+
+### Schema Typo Fix
+`src/index.ts` admin auth check queried `community.members` (wrong schema). Fixed to `communities.members`. The bug caused all admin-authenticated endpoints to always return 403.
+
 ## API Endpoints (Manual Triggers)
 
 All endpoints are for testing/admin purposes. Normal operation uses cron.

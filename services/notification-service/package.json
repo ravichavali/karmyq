@@ -15,7 +15,8 @@
     "test:tdd": "jest tests/tdd --passWithNoTests"
   },
   "dependencies": {
-    "expo-server-sdk": "^6.1.0"
+    "expo-server-sdk": "^6.1.0",
+    "helmet": "^8.1.0"
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",

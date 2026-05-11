@@ -391,6 +391,14 @@
       "status": "implemented",
       "description": "**Status**: Implemented",
       "filename": "ADR-051-explore-exploit-dibs.md"
+    },
+    {
+      "slug": "adr-052-security-hardening",
+      "number": "052",
+      "title": "ADR-052: Security Hardening — OWASP Top 10 Baseline",
+      "status": "implemented",
+      "description": "**Date**: 2026-05-10",
+      "filename": "ADR-052-security-hardening.md"
     }
   ]
 }

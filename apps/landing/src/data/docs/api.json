@@ -15,6 +15,11 @@
           "description": "Authenticate user and receive JWT token."
         },
         {
+          "method": "POST",
+          "path": "/auth/refresh",
+          "description": "Issue a new access token using a refresh token. Rotates the refresh token on each call (old token revoked, new one issued). Replay attack protection: if an already-used token is presented, all tokens"
+        },
+        {
           "method": "GET",
           "path": "/verify",
           "description": "Verify JWT token and return user info."

@@ -1,5 +1,7 @@
 import express, { Request, Response, NextFunction } from 'express';
 import cron from 'node-cron';
+import cors from 'cors';
+import helmet from 'helmet';
 import dotenv from 'dotenv';
 import jwt from 'jsonwebtoken';
 import rateLimit from 'express-rate-limit';
@@ -103,7 +105,7 @@ const adminAuthMiddleware = async (req: ExtendedRequest, res: Response, next: Ne
     // Check if user is an admin in at least one community
     const adminCheck = await pool.query(
       `SELECT EXISTS(
-        SELECT 1 FROM community.members
+        SELECT 1 FROM communities.members
         WHERE user_id = $1 AND role = 'admin' AND status = 'active'
       ) as is_admin`,
       [decoded.userId]
@@ -130,6 +132,21 @@ const adminAuthMiddleware = async (req: ExtendedRequest, res: Response, next: Ne
   }
 };
 
+const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'http://localhost:3000')
+  .split(',')
+  .map(o => o.trim());
+
+app.use(helmet());
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error(`CORS blocked: ${origin}`));
+    }
+  },
+  credentials: true,
+}));
 app.use(express.json());
 app.use(requestLoggingMiddleware(sharedLogger));
 app.use(requestIdMiddleware);

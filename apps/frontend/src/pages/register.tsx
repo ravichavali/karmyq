@@ -39,6 +39,7 @@ export default function Register() {
       })
 
       localStorage.setItem('token', response.data.token)
+      localStorage.setItem('refreshToken', response.data.refreshToken)
       localStorage.setItem('user', JSON.stringify(response.data.user))
 
       router.push('/communities?welcome=true')

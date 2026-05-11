@@ -31,7 +31,7 @@ import {
 const router = Router();
 
 // GET /reputation/karma/:userId - Get user's karma
-router.get('/karma/:userId', async (req: Request, res: Response) => {
+router.get('/karma/:userId', authMiddleware, async (req: Request, res: Response) => {
   try {
     const { userId } = req.params;
     const { community_id } = req.query;
@@ -80,7 +80,7 @@ router.get('/karma/:userId', async (req: Request, res: Response) => {
 });
 
 // GET /reputation/trust/:userId - Get user's overall (weighted average) trust score across all communities
-router.get('/trust/:userId', async (req: Request, res: Response) => {
+router.get('/trust/:userId', authMiddleware, async (req: Request, res: Response) => {
   try {
     const { userId } = req.params;
 
@@ -101,7 +101,7 @@ router.get('/trust/:userId', async (req: Request, res: Response) => {
 });
 
 // GET /reputation/trust/:userId/:communityId - Get user's trust score in a community
-router.get('/trust/:userId/:communityId', async (req: Request, res: Response) => {
+router.get('/trust/:userId/:communityId', authMiddleware, async (req: Request, res: Response) => {
   try {
     const { userId, communityId } = req.params;
 
@@ -122,7 +122,7 @@ router.get('/trust/:userId/:communityId', async (req: Request, res: Response) =>
 });
 
 // GET /reputation/community-trust/:communityId - Get community trust score (ADR-040)
-router.get('/community-trust/:communityId', async (req: Request, res: Response) => {
+router.get('/community-trust/:communityId', authMiddleware, async (req: Request, res: Response) => {
   try {
     const { communityId } = req.params;
     const { recalculate } = req.query;
@@ -153,7 +153,7 @@ router.get('/community-trust/:communityId', async (req: Request, res: Response) 
 });
 
 // GET /reputation/leaderboard/:communityId - Get community leaderboard
-router.get('/leaderboard/:communityId', async (req: Request, res: Response) => {
+router.get('/leaderboard/:communityId', authMiddleware, async (req: Request, res: Response) => {
   try {
     const { communityId } = req.params;
     const { limit = 10 } = req.query;
@@ -175,7 +175,7 @@ router.get('/leaderboard/:communityId', async (req: Request, res: Response) => {
 });
 
 // GET /reputation/history/:userId - Get karma transaction history
-router.get('/history/:userId', async (req: Request, res: Response) => {
+router.get('/history/:userId', authMiddleware, async (req: Request, res: Response) => {
   try {
     const { userId } = req.params;
     const { community_id, limit = 50, offset = 0 } = req.query;
@@ -224,7 +224,7 @@ router.get('/history/:userId', async (req: Request, res: Response) => {
 });
 
 // GET /reputation/badges/:userId - Get user's badges
-router.get('/badges/:userId', async (req: Request, res: Response) => {
+router.get('/badges/:userId', authMiddleware, async (req: Request, res: Response) => {
   try {
     const { userId } = req.params;
 
@@ -340,8 +340,8 @@ router.post('/feedback', authMiddleware, async (req: AuthenticatedRequest, res: 
   }
 });
 
-// GET /reputation/users/:userId/badges - Get prestige badges for a user (public)
-router.get('/users/:userId/badges', async (req: Request, res: Response) => {
+// GET /reputation/users/:userId/badges - Get prestige badges for a user
+router.get('/users/:userId/badges', authMiddleware, async (req: Request, res: Response) => {
   try {
     const { userId } = req.params;
     const badges = await getUserBadges(userId);

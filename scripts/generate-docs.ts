@@ -455,6 +455,7 @@ const ADR_GROUPS: Array<{ label: string; slugs: string[] }> = [
       'adr-041-two-layer-mutual-aid-services',
       'adr-042-provider-trust-score',
       'adr-051-explore-exploit-dibs',
+      'adr-052-security-hardening',
       'adr-033-offer-fulfillment-workflow',
     ],
   },

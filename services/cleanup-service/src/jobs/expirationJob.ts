@@ -131,10 +131,20 @@ export async function hardDeleteExpiredData(): Promise<void> {
  * Batch delete with progress logging
  * For very large datasets, delete in batches to avoid long locks
  */
+export const ALLOWED_CLEANUP_TABLES = new Set([
+  'requests.help_requests',
+  'requests.help_offers',
+  'messaging.messages',
+  'notifications.notifications',
+]);
+
 export async function batchHardDelete(
   table: string,
   batchSize: number = 1000
 ): Promise<number> {
+  if (!ALLOWED_CLEANUP_TABLES.has(table)) {
+    throw new Error(`batchHardDelete: table '${table}' is not in the allowed list`);
+  }
   const deleteThreshold = new Date();
   deleteThreshold.setDate(deleteThreshold.getDate() - 7);
   const threshold = deleteThreshold.toISOString();

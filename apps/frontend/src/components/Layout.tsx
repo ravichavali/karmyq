@@ -81,6 +81,7 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
 
   const handleLogout = () => {
     localStorage.removeItem('token')
+    localStorage.removeItem('refreshToken')
     localStorage.removeItem('user')
     router.push('/')
   }

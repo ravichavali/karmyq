@@ -1,5 +1,15 @@
 import axios from 'axios'
 
+// Module-level refresh state — MUST be outside interceptor function body.
+// If declared inside, they reset on every request and the queue never works.
+let isRefreshing = false
+let pendingRequests: Array<(token: string) => void> = []
+
+function drainPendingRequests(newToken: string) {
+  pendingRequests.forEach(resolve => resolve(newToken))
+  pendingRequests = []
+}
+
 const AUTH_API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
 const COMMUNITY_API_URL = process.env.NEXT_PUBLIC_COMMUNITY_API_URL || 'http://localhost:3002'
 const REQUEST_API_URL = process.env.NEXT_PUBLIC_REQUEST_API_URL || 'http://localhost:3003'
@@ -165,8 +175,8 @@ const responseInterceptor = (response: any) => {
   return response
 }
 
-// Handle auth errors
-const errorInterceptor = (error: any) => {
+// Handle auth errors with refresh token support
+const errorInterceptor = async (error: any) => {
   // Capture X-Request-Id from 5xx responses so ErrorBoundary can surface a reference ID
   if (error.response?.status >= 500) {
     const refId = error.response.headers?.['x-request-id']
@@ -175,34 +185,64 @@ const errorInterceptor = (error: any) => {
 
   // Transform error response to match expected format
   if (error.response?.data && typeof error.response.data === 'object') {
-    // New format: { success: false, error: { code, message } }
     if ('error' in error.response.data && error.response.data.error) {
       error.response.data.error = error.response.data.error.message || error.response.data.error
     }
   }
 
-  // Only logout on 401 for critical auth endpoints, not for optional features
-  if (error.response?.status === 401) {
-    // Endpoints that should NOT trigger logout (optional features)
-    const optionalEndpoints = [
-      '/invitations',      // Invitation chain is optional
-      '/me/settings',      // Privacy settings are optional
-      '/me/karma',         // Karma display is optional
-    ]
+  const optionalEndpoints = ['/invitations', '/me/settings', '/me/karma']
+  const url = error.config?.url || ''
+  const isOptionalEndpoint = optionalEndpoints.some(ep => url.includes(ep))
 
-    const url = error.config?.url || ''
-    const isOptionalEndpoint = optionalEndpoints.some(endpoint => url.includes(endpoint))
+  if (error.response?.status === 401 && !error.config?._retry && !isOptionalEndpoint) {
+    if (typeof window === 'undefined') return Promise.reject(error)
 
-    // Only force logout if it's NOT an optional endpoint
-    if (!isOptionalEndpoint && typeof window !== 'undefined') {
-      console.warn('[API] 401 Unauthorized - logging out')
+    const storedRefreshToken = localStorage.getItem('refreshToken')
+    if (!storedRefreshToken) {
       localStorage.removeItem('token')
       localStorage.removeItem('user')
       window.location.href = '/login'
-    } else {
-      console.warn('[API] 401 on optional endpoint, not logging out:', url)
+      return Promise.reject(error)
+    }
+
+    if (isRefreshing) {
+      return new Promise(resolve => {
+        pendingRequests.push((token: string) => {
+          error.config.headers.Authorization = `Bearer ${token}`
+          error.config._retry = true
+          resolve(axios(error.config))
+        })
+      })
+    }
+
+    error.config._retry = true
+    isRefreshing = true
+
+    try {
+      const response = await axios.post(`${AUTH_API_URL}/auth/refresh`, {
+        refreshToken: storedRefreshToken,
+      })
+      const { token: newToken, refreshToken: newRefreshToken } = response.data.data ?? response.data
+      localStorage.setItem('token', newToken)
+      localStorage.setItem('refreshToken', newRefreshToken)
+      drainPendingRequests(newToken)
+      error.config.headers.Authorization = `Bearer ${newToken}`
+      return axios(error.config)
+    } catch {
+      localStorage.removeItem('token')
+      localStorage.removeItem('refreshToken')
+      localStorage.removeItem('user')
+      window.location.href = '/login'
+      return Promise.reject(error)
+    } finally {
+      isRefreshing = false
     }
   }
+
+  if (error.response?.status === 401 && isOptionalEndpoint) {
+    console.warn('[API] 401 on optional endpoint, not logging out:', url)
+  }
+
   return Promise.reject(error)
 }
 

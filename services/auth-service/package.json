@@ -17,6 +17,7 @@
   "dependencies": {
     "@karmyq/shared": "*",
     "bcryptjs": "^2.4.3",
+    "helmet": "^8.1.0",
     "winston-daily-rotate-file": "^5.0.0"
   },
   "devDependencies": {

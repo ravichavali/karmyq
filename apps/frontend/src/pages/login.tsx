@@ -31,6 +31,7 @@ export default function Login() {
       }
 
       localStorage.setItem('token', response.data.token)
+      localStorage.setItem('refreshToken', response.data.refreshToken)
       localStorage.setItem('user', JSON.stringify(response.data.user))
 
       // Hard redirect so ProviderContext (and other auth-gated contexts) re-mount with the token in place

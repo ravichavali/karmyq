@@ -38,6 +38,20 @@ CREATE TABLE auth.user_skills (
 
 CREATE INDEX idx_auth_users_email ON auth.users(email);
 CREATE INDEX idx_auth_sessions_user_id ON auth.sessions(user_id);
+
+-- Refresh tokens (Sprint 54 — ADR-052)
+CREATE TABLE IF NOT EXISTS auth.refresh_tokens (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    token_hash VARCHAR(64) NOT NULL UNIQUE,
+    expires_at TIMESTAMPTZ NOT NULL,
+    used_at TIMESTAMPTZ,
+    revoked BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user_id ON auth.refresh_tokens(user_id);
+CREATE INDEX IF NOT EXISTS idx_refresh_tokens_token_hash ON auth.refresh_tokens(token_hash);
 CREATE INDEX idx_auth_user_skills_user_id ON auth.user_skills(user_id);
 
 -- Social Graph tables (Social Graph Service - Port 3010)
