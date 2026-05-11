@@ -14,7 +14,7 @@
     "bull": "^4.11.5",
     "helmet": "^8.1.0",
     "node-cron": "^3.0.3",
-    "uuid": "^9.0.1"
+    "uuid": "^14.0.0"
   },
   "devDependencies": {
     "@types/bull": "^4.10.0",
