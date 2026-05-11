@@ -5,7 +5,7 @@ import helmet from 'helmet';
 import dotenv from 'dotenv';
 import jwt from 'jsonwebtoken';
 import rateLimit from 'express-rate-limit';
-import { v4 as uuidv4 } from 'uuid';
+import { randomUUID } from 'crypto';
 import { createLogger, requestLoggingMiddleware } from '@karmyq/shared/utils/logger';
 import { logger } from './utils/logger';
 import { markExpiredData, hardDeleteExpiredData } from './jobs/expirationJob';
@@ -39,7 +39,7 @@ type Meta = Record<string, unknown>;
 
 // Inline response helpers (cleanup-service doesn't use shared package)
 const requestIdMiddleware = (req: ExtendedRequest, _res: Response, next: NextFunction): void => {
-  req.id = uuidv4();
+  req.id = randomUUID();
   next();
 };
 

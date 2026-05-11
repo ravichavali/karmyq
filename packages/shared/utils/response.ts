@@ -6,7 +6,7 @@
  */
 
 import { Response } from 'express';
-import { v4 as uuidv4 } from 'uuid';
+import { randomUUID } from 'crypto';
 
 /**
  * Standard success response format
@@ -349,7 +349,7 @@ export function sendInternalError(
  * app.use(requestIdMiddleware);
  */
 export function requestIdMiddleware(req: any, res: any, next: any): void {
-  req.id = uuidv4();
+  req.id = randomUUID();
   next();
 }
 
