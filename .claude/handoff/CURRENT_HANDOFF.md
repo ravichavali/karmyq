@@ -40,6 +40,55 @@ These label renames happen during Sprint 58 (Dashboard UX), which is where the t
 
 ---
 
+## Baseline Metrics (captured 2026-05-17)
+
+Track these after each sprint to measure actual reduction.
+
+### Sprint 56 files
+
+| File | Lines | Expected after |
+|------|-------|----------------|
+| `services/auth-service/src/utils/logger.ts` | 73 | ~1 (re-export) |
+| `services/social-graph-service/src/config/logger.ts` | 21 | ~1 (re-export) |
+| `services/auth-service/src/events/publisher.ts` | 50 | ~2 (import) |
+| `services/request-service/src/events/publisher.ts` | 37 | ~2 (import) |
+| `services/community-service/src/events/publisher.ts` | 37 | ~2 (import) |
+| `services/reputation-service/src/events/publisher.ts` | 37 | ~2 (import) |
+| `services/request-service/src/routes/requests.ts` | 1,391 | <1,300 (query builder extracted) |
+| `services/auth-service/tests/regression/auth.routes.test.ts` | 27 | ~27 (same, real assertions) |
+| `services/reputation-service/tests/regression/placeholder.test.ts` | 8 | 0 (deleted or todos) |
+| `services/social-graph-service/tests/regression/placeholder.test.ts` | 8 | 0 (deleted or todos) |
+| `tests/tdd/community-evolution-flow.test.ts` | 36 | ~36 (todos) |
+| `tests/tdd/fractal-feed-flow.test.ts` | 50 | ~50 (todos) |
+| `tests/integration/complete-workflow.test.ts` | 553 | ~553 (real assertions) |
+| **New:** `packages/shared/src/events/publisher.ts` | — | ~30 |
+| **New:** `services/request-service/src/utils/queryBuilder.ts` | — | ~100 |
+| **Sprint 56 total** | **2,328** | **~2,100** |
+
+### Sprint 57 files
+
+| File | Lines | Expected after |
+|------|-------|----------------|
+| `apps/frontend/src/lib/api.ts` | 975 | ~750 (factory removes ~250 lines of boilerplate) |
+| `apps/frontend/src/pages/communities/[id].tsx` | 2,257 | <300 (tab shell only) |
+| **New:** `apps/frontend/src/hooks/useCommunityData.ts` | — | ~120 |
+| **New:** `apps/frontend/src/components/community/CommunityHeader.tsx` | — | ~80 |
+| **New:** `apps/frontend/src/components/community/tabs/BrowseTab.tsx` | — | ~150 |
+| **New:** `apps/frontend/src/components/community/tabs/ActiveTab.tsx` | — | ~200 |
+| **New:** `apps/frontend/src/components/community/tabs/ProfileTab.tsx` | — | ~150 |
+| **Sprint 57 total** | **3,232** | **~1,750** (net ~1,500 reduction after new files) |
+
+### Combined baseline
+
+| | Lines |
+|-|-------|
+| All files being touched | **5,560** |
+| Expected after Sprint 56 | ~5,350 |
+| Expected after Sprint 57 | ~4,100 |
+| **Expected total reduction** | **~1,460 lines** |
+
+---
+
 ## Sprint 56 — Backend Simplification
 
 ### Goal
