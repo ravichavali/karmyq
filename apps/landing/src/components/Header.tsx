@@ -31,8 +31,9 @@ export default function Header() {
     >
       <nav className="max-w-6xl mx-auto px-6 md:px-12 flex items-center justify-between h-16 md:h-20">
         {/* Logo */}
-        <a href="#" className="font-serif text-2xl font-bold text-karmyq-green-700">
-          Karmyq
+        <a href="#" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
+          <img src="/brand/karmyq-mark-1level.svg" width={28} height={28} alt="" />
+          <span className="font-serif text-2xl font-bold text-karmyq-green-700">Karmyq</span>
         </a>
 
         {/* Desktop nav */}

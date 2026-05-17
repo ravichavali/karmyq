@@ -1,4 +1,2 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
-  <circle cx="16" cy="16" r="14" fill="#3d8b35"/>
-  <text x="16" y="22" text-anchor="middle" font-family="Georgia,serif" font-size="18" font-weight="bold" fill="white">K</text>
-</svg>
+<?xml version="1.0"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" role="img" aria-label="Karmyq"><rect width="200" height="200" rx="44" fill="#fdfcf9"></rect><circle cx="138" cy="100" r="13" fill="#2d6e28"></circle><circle cx="119" cy="132.909" r="13" fill="#2d6e28"></circle><circle cx="81" cy="132.909" r="13" fill="#2d6e28"></circle><circle cx="62" cy="100" r="13" fill="#2d6e28"></circle><circle cx="81" cy="67.091" r="13" fill="#2d6e28"></circle><circle cx="119" cy="67.091" r="13" fill="#2d6e28"></circle><circle cx="100" cy="100" r="18" fill="#245621"></circle></svg>
