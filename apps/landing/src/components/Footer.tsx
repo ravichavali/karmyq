@@ -42,9 +42,10 @@ export default function Footer() {
         <div className="grid md:grid-cols-4 gap-12">
           {/* Brand */}
           <div>
-            <p className="font-serif text-2xl font-bold text-white mb-4">
-              Karmyq
-            </p>
+            <div className="flex items-center gap-2 mb-4">
+              <img src="/brand/karmyq-mark-dark.svg" width={32} height={32} alt="" />
+              <span className="font-serif text-2xl font-bold text-white">Karmyq</span>
+            </div>
             <p className="text-karmyq-brown-400 text-sm leading-relaxed mb-6">
               Open-source infrastructure for community cooperation.
               Built with care in Foster City, CA.

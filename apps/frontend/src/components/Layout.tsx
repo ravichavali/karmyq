@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { useRouter } from 'next/router'
 import Link from 'next/link'
+import Image from 'next/image'
 import NotificationBell from './NotificationBell'
 import { useProvider } from '../contexts/ProviderContext'
 
@@ -94,8 +95,9 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
         <nav className="bg-surface-raised shadow sticky top-0 z-50">
           <div className="container mx-auto px-4 py-4">
             <div className="flex justify-between items-center">
-              <Link href="/dashboard" className="text-2xl font-bold font-serif text-primary hover:text-primary-dark">
-                Karmyq
+              <Link href="/dashboard" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
+                <Image src="/brand/karmyq-mark-1level.svg" width={28} height={28} alt="" />
+                <span className="text-2xl font-bold font-serif text-primary">Karmyq</span>
               </Link>
 
               <div className="flex gap-4 items-center">
