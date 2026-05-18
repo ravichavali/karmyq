@@ -103,7 +103,7 @@ export default function Principles() {
       <div className="container-wide">
         <AnimateOnScroll>
           <div className="text-center mb-16">
-            <p className="text-karmyq-green-600 font-medium text-sm tracking-widest uppercase mb-4">
+            <p className="text-karmyq-green-600 font-medium text-xs tracking-widest uppercase mb-4">
               Our principles
             </p>
             <h2 className="heading-2 text-karmyq-brown-900 mb-4">

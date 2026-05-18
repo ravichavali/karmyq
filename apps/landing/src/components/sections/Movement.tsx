@@ -13,10 +13,10 @@ export default function Movement() {
   };
 
   return (
-    <section id="cohort" className="section-padding bg-karmyq-green-50/40 bg-organic-2">
+    <section id="cohort" className="section-padding bg-karmyq-green-50/40">
       <div className="container-narrow">
         <AnimateOnScroll>
-          <p className="text-karmyq-orange-500 font-medium text-sm tracking-widest uppercase mb-4">
+          <p className="text-karmyq-orange-500 font-medium text-xs tracking-widest uppercase mb-4">
             Join the movement
           </p>
         </AnimateOnScroll>
@@ -78,19 +78,19 @@ export default function Movement() {
               Get occasional updates on new communities, research, and platform developments. No spam.
               Unsubscribe anytime.
             </p>
-            <div className="flex flex-col sm:flex-row gap-0">
+            <div className="flex flex-col gap-3">
               <input
                 type="email"
                 placeholder="your@email.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="flex-grow px-5 py-3 border border-karmyq-brown-200 sm:border-r-0 text-karmyq-brown-800 placeholder:text-karmyq-brown-300 focus:outline-none focus:ring-2 focus:ring-karmyq-green-400 focus:border-transparent text-sm"
+                className="w-full px-5 py-3 rounded-full border border-karmyq-brown-200 text-karmyq-brown-800 placeholder:text-karmyq-brown-300 focus:outline-none focus:ring-2 focus:ring-karmyq-green-400 focus:border-transparent text-sm"
                 aria-label="Email address"
               />
               <button
                 type="button"
                 onClick={handleSubscribe}
-                className="px-6 py-3 bg-karmyq-green-600 text-white text-xs font-medium uppercase tracking-widest hover:bg-karmyq-brown-900 transition-colors whitespace-nowrap"
+                className="w-full px-6 py-3 rounded-full bg-karmyq-green-600 text-white text-sm font-medium hover:bg-karmyq-green-700 transition-colors"
               >
                 Subscribe
               </button>

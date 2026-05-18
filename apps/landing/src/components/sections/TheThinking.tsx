@@ -32,7 +32,7 @@ export default function TheThinking() {
         {/* Section label */}
         <AnimateOnScroll>
           <div className="flex items-center gap-4 mb-14">
-            <p className="text-karmyq-brown-400 font-medium text-xs tracking-widest uppercase whitespace-nowrap">
+            <p className="text-karmyq-green-600 font-medium text-xs tracking-widest uppercase whitespace-nowrap">
               The thinking
             </p>
             <div className="flex-1 h-px bg-karmyq-brown-200" />
@@ -92,7 +92,7 @@ export default function TheThinking() {
             </p>
             <p>
               Our abundance of safety and comfort quietly destroyed the conditions in which trust grows. We
-              optimised away the friction that makes people need each other. A society that never practices
+              optimized away the friction that makes people need each other. A society that never practices
               trusting loses the capacity for it — as surely as a muscle that is never used.
             </p>
             <p>There is no villain in this story. That is what makes it hard to fix.</p>
@@ -138,7 +138,7 @@ export default function TheThinking() {
         <AnimateOnScroll delay={0.1}>
           <div className="space-y-5 body-large mb-6">
             <p>
-              We should be honest about this. Exploitation is not irrational — it optimises for the wrong
+              We should be honest about this. Exploitation is not irrational — it optimizes for the wrong
               horizon. Colonialism extracted real wealth. Industrial monocultures fed billions. The structures
               that dismantled slower, more sustainable cultures <em>worked</em>, in the near term. The peoples
               and ecosystems they consumed had spent generations building something more durable. They lost
@@ -312,7 +312,7 @@ export default function TheThinking() {
         {/* Go Deeper cluster */}
         <AnimateOnScroll delay={0.15}>
           <div className="mt-4 p-8 border border-karmyq-brown-200 bg-karmyq-cream">
-            <p className="text-karmyq-brown-400 font-medium text-xs tracking-widest uppercase mb-3">
+            <p className="text-karmyq-green-600 font-medium text-xs tracking-widest uppercase mb-3">
               Go deeper
             </p>
             <h3 className="font-serif text-xl font-semibold text-karmyq-brown-900 mb-6">

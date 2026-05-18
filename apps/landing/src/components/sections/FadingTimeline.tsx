@@ -20,8 +20,8 @@ export default function FadingTimeline() {
           {/* Left: Explanation */}
           <div>
             <AnimateOnScroll>
-              <p className="text-karmyq-teal-600 font-medium text-sm tracking-widest uppercase mb-4">
-                Designed to Fade
+              <p className="text-karmyq-green-600 font-medium text-xs tracking-widest uppercase mb-4">
+                Designed to fade
               </p>
             </AnimateOnScroll>
 

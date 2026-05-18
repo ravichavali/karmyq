@@ -4,8 +4,29 @@ import AnimateOnScroll from '../AnimateOnScroll';
 
 export default function HowItWorks() {
   return (
-    <section id="product" className="section-padding bg-white">
+    <section id="product" className="section-padding bg-karmyq-cream">
       <div className="container-narrow">
+
+        {/* What Karmyq actually is */}
+        <AnimateOnScroll>
+          <p className="text-karmyq-green-600 font-medium text-xs tracking-widest uppercase mb-4">
+            How it works
+          </p>
+        </AnimateOnScroll>
+        <AnimateOnScroll delay={0.1}>
+          <h2 className="heading-2 text-karmyq-brown-900 mb-8">
+            What Karmyq actually is.
+          </h2>
+        </AnimateOnScroll>
+        <AnimateOnScroll delay={0.2}>
+          <p className="body-large mb-16">
+            A toolkit. An open-source platform that lets communities design their own cooperation systems —
+            not one model handed down, but infrastructure flexible enough to hold mutual aid, skill sharing,
+            tool lending, local services, or any combination a community needs. The platform doesn&apos;t decide
+            what your community values. It gives your community the means to decide for itself, and to
+            change its mind over time.
+          </p>
+        </AnimateOnScroll>
 
         {/* Reputation without the performance */}
         <AnimateOnScroll>
@@ -17,7 +38,7 @@ export default function HowItWorks() {
           <div className="space-y-5 body-large mb-8">
             <p>
               On Karmyq, your worth is not a public score. There are no leaderboards, no star ratings to
-              optimise, no anxiety about your profile falling behind someone else&apos;s. Karma moves like
+              optimize, no anxiety about your profile falling behind someone else&apos;s. Karma moves like
               ambient knowledge in a village: people remember who shows up, but nobody keeps a public
               spreadsheet on their neighbors.
             </p>

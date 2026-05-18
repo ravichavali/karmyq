@@ -44,7 +44,7 @@ export default function Footer() {
           <div>
             <div className="flex items-center gap-2 mb-4">
               <img src="/brand/karmyq-mark-dark.svg" width={32} height={32} alt="" />
-              <span className="font-serif text-2xl font-bold text-white">Karmyq</span>
+              <span className="font-serif text-2xl font-semibold tracking-tight text-white">Karmyq</span>
             </div>
             <p className="text-karmyq-brown-400 text-sm leading-relaxed mb-6">
               Open-source infrastructure for community cooperation.

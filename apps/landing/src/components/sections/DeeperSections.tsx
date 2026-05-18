@@ -31,7 +31,7 @@ function Accordion({ id, eyebrow, title, subtitle, children }: AccordionProps) {
   const [open, setOpen] = useState(false);
 
   return (
-    <div id={id} className={`border ${open ? 'border-karmyq-green-300' : 'border-karmyq-brown-200'} bg-karmyq-cream`}>
+    <div id={id} className={`rounded-2xl overflow-hidden border ${open ? 'border-karmyq-green-300' : 'border-karmyq-brown-200'} bg-karmyq-cream`}>
       <button
         onClick={() => setOpen(!open)}
         className="w-full text-left px-6 py-5 flex items-center justify-between gap-4 hover:bg-karmyq-green-50/50 transition-colors"

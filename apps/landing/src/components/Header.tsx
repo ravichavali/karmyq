@@ -33,7 +33,7 @@ export default function Header() {
         {/* Logo */}
         <a href="#story" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
           <img src="/brand/karmyq-mark-1level.svg" width={28} height={28} alt="" />
-          <span className="font-serif text-2xl font-bold text-karmyq-green-700">Karmyq</span>
+          <span className="font-serif text-2xl font-semibold tracking-tight text-karmyq-green-700">Karmyq</span>
         </a>
 
         {/* Desktop nav */}

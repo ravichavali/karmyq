@@ -4,7 +4,7 @@ import AnimateOnScroll from '../AnimateOnScroll';
 
 export default function CommunityStories() {
   return (
-    <section className="section-padding bg-organic-1">
+    <section className="section-padding bg-karmyq-cream">
       <div className="container-narrow">
 
         {/* Founder's note */}
@@ -71,7 +71,7 @@ export default function CommunityStories() {
 
         {/* Contact placeholder */}
         <AnimateOnScroll delay={0.2}>
-          <div className="border border-dashed border-karmyq-brown-300 p-8 text-center bg-karmyq-warmWhite/60">
+          <div className="card text-center">
             <p className="font-serif text-lg italic text-karmyq-brown-500 mb-4">
               &ldquo;We&apos;re looking for communities ready to write the next chapter.
               If that&apos;s you, we want to hear from you.&rdquo;

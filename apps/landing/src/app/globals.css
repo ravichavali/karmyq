@@ -76,6 +76,18 @@
   .organic-blob {
     border-radius: 30% 70% 70% 30% / 30% 30% 70% 70%;
   }
+
+  .eyebrow {
+    @apply text-xs font-medium tracking-widest uppercase;
+  }
+
+  .eyebrow-green {
+    @apply text-xs font-medium tracking-widest uppercase text-karmyq-green-600;
+  }
+
+  .eyebrow-orange {
+    @apply text-xs font-medium tracking-widest uppercase text-karmyq-orange-500;
+  }
 }
 
 /* Organic background shapes */

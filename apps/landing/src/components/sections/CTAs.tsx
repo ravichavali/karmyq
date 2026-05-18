@@ -57,7 +57,7 @@ export default function CTAs() {
       <div className="container-wide">
         <AnimateOnScroll>
           <div className="text-center mb-16">
-            <p className="text-karmyq-green-600 font-medium text-sm tracking-widest uppercase mb-4">
+            <p className="text-karmyq-green-600 font-medium text-xs tracking-widest uppercase mb-4">
               Get involved
             </p>
             <h2 className="heading-2 text-karmyq-brown-900 mb-4">
@@ -69,7 +69,7 @@ export default function CTAs() {
         <div className="grid md:grid-cols-3 gap-8">
           {AUDIENCES.map((audience, i) => (
             <AnimateOnScroll key={audience.title} delay={0.15 + i * 0.1}>
-              <div className="bg-white rounded-3xl overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300 h-full flex flex-col">
+              <div className="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300 h-full flex flex-col">
                 {/* Gradient header */}
                 <div className={`bg-gradient-to-br ${audience.gradient} p-6 flex items-center gap-4`}>
                   <div className="w-14 h-14 rounded-2xl bg-white/20 flex items-center justify-center">

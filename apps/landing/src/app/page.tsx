@@ -3,7 +3,6 @@
 import Header from '../components/Header';
 import TheStory from '../components/sections/TheStory';
 import TheThinking from '../components/sections/TheThinking';
-import WhatIsKarmyq from '../components/sections/WhatIsKarmyq';
 import Principles from '../components/sections/Principles';
 import HowItWorks from '../components/sections/HowItWorks';
 import FadingTimeline from '../components/sections/FadingTimeline';
@@ -20,7 +19,6 @@ export default function Home() {
       <main>
         <TheStory />
         <TheThinking />
-        <WhatIsKarmyq />
         <Principles />
         <HowItWorks />
         <FadingTimeline />
