@@ -3,7 +3,6 @@
  */
 
 import { searchAddresses, getCommonLocations } from '../../src/lib/geocoding'
-import { cache } from '../../src/lib/cache'
 
 // Mock fetch
 global.fetch = jest.fn()
@@ -17,26 +16,6 @@ if (!AbortSignal.timeout) {
   }
 }
 
-// Mock IndexedDB
-const mockIDBDatabase = {
-  transaction: jest.fn(() => ({
-    objectStore: jest.fn(() => ({
-      clear: jest.fn(() => ({ onsuccess: null, onerror: null }))
-    }))
-  }))
-}
-
-const mockIDBOpenDBRequest = {
-  onupgradeneeded: null,
-  onsuccess: null,
-  onerror: null,
-  result: mockIDBDatabase
-}
-
-global.indexedDB = {
-  open: jest.fn(() => mockIDBOpenDBRequest)
-} as any
-
 // Mock geocodingCache module to avoid IndexedDB
 jest.mock('../../src/lib/geocodingCache', () => ({
   searchCommonLocations: jest.fn(async () => []),
@@ -45,16 +24,20 @@ jest.mock('../../src/lib/geocodingCache', () => ({
   initGeocodingCache: jest.fn(async () => {})
 }))
 
-describe.skip('Geocoding Service', () => {
-  beforeEach(() => {
-    jest.clearAllMocks()
-    // Skip cache clearing to avoid indexedDB calls in tests
-    // cache.clear()
+describe('Geocoding Service', () => {
+  beforeEach(async () => {
+    // Reset only fetch; geocodingCache mocks retain their implementations
+    ;(fetch as jest.Mock).mockReset()
+    // Re-apply geocodingCache defaults after reset
+    const geocodingCache = await import('../../src/lib/geocodingCache')
+    ;(geocodingCache.searchCommonLocations as jest.Mock).mockResolvedValue([])
+    ;(geocodingCache.getCachedResult as jest.Mock).mockResolvedValue(null)
+    ;(geocodingCache.cacheAPIResult as jest.Mock).mockResolvedValue(undefined)
   })
 
   describe('searchAddresses', () => {
-    it('should return empty array for queries less than 3 characters', async () => {
-      const result = await searchAddresses('SF')
+    it('should return empty array for queries less than 2 characters', async () => {
+      const result = await searchAddresses('S')
       expect(result).toEqual([])
       expect(fetch).not.toHaveBeenCalled()
     })
@@ -75,16 +58,18 @@ describe.skip('Geocoding Service', () => {
         }
       ]
 
-      ;(fetch as jest.Mock).mockResolvedValueOnce({
-        ok: true,
-        json: async () => mockResponse
+      ;(fetch as jest.Mock).mockImplementation((url: string) => {
+        if (typeof url === 'string' && url.includes('nominatim')) {
+          return Promise.resolve({ ok: true, json: async () => mockResponse })
+        }
+        return Promise.reject(new Error('Backend unavailable'))
       })
 
       const result = await searchAddresses('San Francisco')
 
       expect(result).toHaveLength(1)
       expect(result[0]).toMatchObject({
-        address: 'San Francisco',
+        address: 'San Francisco, California, USA',
         lat: 37.7749,
         lng: -122.4194,
         type: 'city'
@@ -101,19 +86,34 @@ describe.skip('Geocoding Service', () => {
         }
       ]
 
-      ;(fetch as jest.Mock).mockResolvedValueOnce({
-        ok: true,
-        json: async () => mockResponse
+      // Route by URL: backend calls fail, Nominatim succeeds
+      ;(fetch as jest.Mock).mockImplementation((url: string) => {
+        if (typeof url === 'string' && url.includes('nominatim')) {
+          return Promise.resolve({ ok: true, json: async () => mockResponse })
+        }
+        return Promise.reject(new Error('Backend unavailable'))
       })
 
-      // First call - should hit API
-      await searchAddresses('Oakland')
-      expect(fetch).toHaveBeenCalledTimes(1)
+      // First call - should hit Nominatim (backend unavailable)
+      const first = await searchAddresses('Oakland')
+      expect(first).toHaveLength(1)
 
-      // Second call - should use cache
-      const cached = await searchAddresses('Oakland')
-      expect(fetch).toHaveBeenCalledTimes(1) // Still 1, not 2
-      expect(cached).toHaveLength(1)
+      const nominatimCallsAfterFirst = (fetch as jest.Mock).mock.calls.filter(
+        ([url]) => typeof url === 'string' && url.includes('nominatim')
+      ).length
+      expect(nominatimCallsAfterFirst).toBe(1)
+
+      // Wait for fire-and-forget cache write to complete
+      await new Promise(resolve => setTimeout(resolve, 50))
+
+      // Second call - should hit localStorage cache (no new Nominatim calls)
+      const second = await searchAddresses('Oakland')
+      expect(second).toHaveLength(1)
+
+      const nominatimCallsAfterSecond = (fetch as jest.Mock).mock.calls.filter(
+        ([url]) => typeof url === 'string' && url.includes('nominatim')
+      ).length
+      expect(nominatimCallsAfterSecond).toBe(1) // still 1, cache was used
     })
 
     it('should handle API errors gracefully', async () => {
