@@ -1,10 +1,10 @@
-# SPRINT 57 — Frontend Simplification | Ready to Execute
+# SPRINT 58 — Dashboard UX Redesign | Ready to Execute
 
 ## Handoff Document
 
 **Date**: 2026-05-17
-**Current Version**: v9.23.0 (Sprint 56 shipped)
-**Status**: Sprint 56 complete + deployed. Sprint 57 (Frontend Simplification) is next. Sprint 58 (Dashboard UX) follows.
+**Current Version**: v9.24.0 (Sprint 57 shipped)
+**Status**: Sprint 57 complete + deployed. Sprint 58 (Dashboard UX Redesign) is next.
 
 ---
 
@@ -107,45 +107,45 @@ Shipped as v9.23.0. Merged to master 2026-05-17. GitHub Actions deploying.
 
 ---
 
-## Sprint 57 — Frontend Simplification (Next)
+## Sprint 57 — Frontend Simplification ✅
 
-### Goal
+Shipped as v9.24.0. Merged to master 2026-05-17.
 
-Collapse 8 duplicated axios client setups into a factory function. Decompose the 2,257-line community page into focused components (prepares Sprint 58). Unblock 20+ skipped geocoding tests.
-
-### Spec + Plan
-
-- Spec: `docs/superpowers/specs/2026-05-17-sprint-57-frontend-simplification-design.md`
-- Plan: `docs/superpowers/plans/2026-05-17-sprint-57-frontend-simplification.md`
-
-### Quick Start for Sprint 57
-
-1. Confirm Sprint 56 is merged and deployed
-2. Check out branch: `git checkout -b feature/sprint-57-frontend-simplification`
-3. Open plan: `docs/superpowers/plans/2026-05-17-sprint-57-frontend-simplification.md`
-4. Run: `/execute-plan`
-
-### ⚠️ Critical Implementation Notes
-
-1. **Named exports from `lib/api.ts` must stay identical.** `communityApi`, `requestApi`, etc. are imported by exact name — only the implementation changes.
-
-2. **Read lines 73–78 of `[id].tsx` before touching tab logic.** Legacy tab-ID mapping may be load-bearing for URL navigation.
-
-3. **Do not implement the 4→3 tab redesign.** Sprint 58 owns that. This sprint only decomposes existing structure into components.
-
-4. **`fake-indexeddb` in global jest setup.** `require('fake-indexeddb/auto')` in the setup file, not per-test.
-
-5. **Run dev server after decomposition.** Navigate to a community page to verify it renders — type checking does not confirm rendering.
+| Task | Result |
+|------|--------|
+| Axios factory | `createApiClient(baseURL)` factory in `api.ts`; 8 repeated setups replaced; `isRefreshing`/`pendingRequests` preserved as module-level |
+| useCommunityData hook | `apps/frontend/src/hooks/useCommunityData.ts` — all 10 fetch functions + refetch callbacks |
+| CommunityHeader | `apps/frontend/src/components/community/CommunityHeader.tsx` — 75 lines |
+| BrowseTab | `apps/frontend/src/components/community/tabs/BrowseTab.tsx` — 586 lines |
+| ActiveTab | `apps/frontend/src/components/community/tabs/ActiveTab.tsx` — 446 lines |
+| ProfileTab | `apps/frontend/src/components/community/tabs/ProfileTab.tsx` — multi-section (overview/providers/settings), 608 lines |
+| [id].tsx slimmed | 2,257 → 236 lines (tab shell + hook only) |
+| Geocoding tests | 20 tests unblocked: `fake-indexeddb/auto` in jest.setup.js, `structuredClone` polyfill, mock routing by URL |
+| Smoke tests | 12 new tests in `tests/tdd/community-decomposition.test.tsx` |
+| Version | 9.23.0 → 9.24.0 |
 
 ---
 
-## Sprint 58 — Dashboard UX Redesign (After Sprint 57)
+## Sprint 58 — Dashboard UX Redesign (Next)
 
-Previously this was Sprint 56. Deferred for 2 simplification sprints.
+### Goal
+
+---
+
+### Sprint 58 Detail
+
+Previously Sprint 56. Deferred for 2 simplification sprints.
 
 - **Dashboard**: 4 tabs → 3 (Browse / Active / Profile), remove sidebars (full-width), merge Commitments + My Requests into action-first "Active" tab
 - **Tab renames**: `commitments→helping`, `my-requests→asks`, `profile→me`
-- **Foundation**: Sprint 57's `ActiveTab.tsx` + `useCommunityData.ts` make this sprint easier
+- **Foundation**: Sprint 57's `ActiveTab.tsx` + `useCommunityData.ts` make this sprint much easier — components already decomposed
+
+### Quick Start for Sprint 58
+
+1. Confirm Sprint 57 is merged (✅ done)
+2. Check out branch: `git checkout -b feature/sprint-58-dashboard-ux`
+3. Write plan or open existing spec
+4. Run: `/execute-plan`
 
 ---
 
@@ -182,9 +182,9 @@ Signals emitted by `trustEvolutionService.ts` have no subscriber that processes 
 | Sprint 53 | Test coverage: critical paths + CI enforcement | ✅ Complete |
 | Sprint 54 | OWASP security hardening | ✅ Complete + deployed |
 | Sprint 55 | Brand rollout (Refined Fractal mark) | ✅ Complete + deployed |
-| **Sprint 56** | **Backend simplification — DRY + TDD health** | 🔵 Next up |
-| Sprint 57 | Frontend simplification — API factory + community page | 🔮 Planned |
-| Sprint 58 | Dashboard UX Redesign (4→3 tabs, full-width) | 🔮 Planned |
+| Sprint 56 | Backend simplification — DRY + TDD health | ✅ Complete |
+| Sprint 57 | Frontend simplification — API factory + community page | ✅ Complete + deployed |
+| **Sprint 58** | **Dashboard UX Redesign (4→3 tabs, full-width)** | 🔵 Next up |
 
 ---
 
