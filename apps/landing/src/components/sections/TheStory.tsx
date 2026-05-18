@@ -12,26 +12,21 @@ export default function TheStory() {
       </div>
 
       <div className="relative z-10 w-full section-padding container-narrow pt-28 md:pt-36 pb-24">
-        {/* Wordmark + tagline */}
-        <motion.div
+        {/* Tagline eyebrow */}
+        <motion.p
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.2 }}
-          className="mb-8"
+          className="text-karmyq-brown-400 text-xs font-light tracking-widest uppercase mb-6"
         >
-          <h1 className="font-serif text-5xl md:text-6xl font-light tracking-widest text-karmyq-green-700 uppercase mb-2">
-            Karmyq
-          </h1>
-          <p className="text-karmyq-brown-400 text-xs font-light tracking-widest uppercase">
-            Meaning-making, not accounting
-          </p>
-        </motion.div>
+          Meaning-making, not accounting
+        </motion.p>
 
         {/* Functional subheadline */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.4 }}
+          transition={{ duration: 0.6, delay: 0.35 }}
           className="border-l-4 border-karmyq-green-400 bg-karmyq-green-50/80 pl-6 py-4 pr-6 mb-10 max-w-2xl"
         >
           <p className="text-karmyq-brown-600 text-base font-light leading-relaxed">
