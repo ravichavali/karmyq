@@ -1,4 +1,4 @@
-import axios from 'axios'
+import axios, { InternalAxiosRequestConfig } from 'axios'
 
 // Module-level refresh state — MUST be outside interceptor function body.
 // If declared inside, they reset on every request and the queue never works.
@@ -31,72 +31,7 @@ export const API_CONFIG = {
   SOCIAL_GRAPH_API_URL,
 }
 
-// Auth Service API
-export const api = axios.create({
-  baseURL: AUTH_API_URL,
-  headers: {
-    'Content-Type': 'application/json'
-  }
-})
-
-// Community Service API
-export const communityApi = axios.create({
-  baseURL: COMMUNITY_API_URL,
-  headers: {
-    'Content-Type': 'application/json'
-  }
-})
-
-// Request Service API
-export const requestApi = axios.create({
-  baseURL: REQUEST_API_URL,
-  headers: {
-    'Content-Type': 'application/json'
-  }
-})
-
-// Notification Service API
-export const notificationApi = axios.create({
-  baseURL: NOTIFICATION_API_URL,
-  headers: {
-    'Content-Type': 'application/json'
-  }
-})
-
-// Messaging Service API
-export const messagingApi = axios.create({
-  baseURL: MESSAGING_API_URL,
-  headers: {
-    'Content-Type': 'application/json'
-  }
-})
-
-// Reputation Service API
-export const reputationApi = axios.create({
-  baseURL: REPUTATION_API_URL,
-  headers: {
-    'Content-Type': 'application/json'
-  }
-})
-
-// Feed Service API
-export const feedApi = axios.create({
-  baseURL: FEED_API_URL,
-  headers: {
-    'Content-Type': 'application/json'
-  }
-})
-
-// Social Graph Service API
-export const socialGraphApi = axios.create({
-  baseURL: SOCIAL_GRAPH_API_URL,
-  headers: {
-    'Content-Type': 'application/json'
-  }
-})
-
-// Add auth token to requests if available
-const authInterceptor = (config: any) => {
+function authInterceptor(config: InternalAxiosRequestConfig) {
   if (typeof window !== 'undefined') {
     const token = localStorage.getItem('token')
     if (token) {
@@ -119,7 +54,7 @@ function decodeJwtPayload(token: string): any {
 // Inject X-Community-ID into every reputation request.
 // Reads from stored user object first; falls back to JWT payload.
 // Without this, tenantMiddleware returns 400 for pages that don't pass communityId explicitly.
-const reputationCommunityInterceptor = (config: any) => {
+const reputationCommunityInterceptor = (config: InternalAxiosRequestConfig) => {
   if (typeof window === 'undefined') return config
   // Skip if the caller already set X-Community-ID
   if (config.headers['X-Community-ID'] || config.headers['x-community-id']) return config
@@ -149,26 +84,15 @@ const reputationCommunityInterceptor = (config: any) => {
   return config
 }
 
-api.interceptors.request.use(authInterceptor)
-communityApi.interceptors.request.use(authInterceptor)
-requestApi.interceptors.request.use(authInterceptor)
-notificationApi.interceptors.request.use(authInterceptor)
-messagingApi.interceptors.request.use(authInterceptor)
-reputationApi.interceptors.request.use(authInterceptor)
-reputationApi.interceptors.request.use(reputationCommunityInterceptor)
-feedApi.interceptors.request.use(authInterceptor)
-socialGraphApi.interceptors.request.use(authInterceptor)
-
 // Unwrap standardized API response format
 // The backend now returns: { success: true, data: {...}, meta: {...} }
 // We unwrap it so the frontend can access response.data.token instead of response.data.data.token
 const responseInterceptor = (response: any) => {
-  // If response has the standardized format, unwrap the data
   if (response.data && typeof response.data === 'object' && 'success' in response.data && 'data' in response.data) {
     return {
       ...response,
-      data: response.data.data, // Unwrap the data property
-      meta: response.data.meta, // Preserve meta for debugging
+      data: response.data.data,
+      meta: response.data.meta,
       success: response.data.success
     }
   }
@@ -183,7 +107,6 @@ const errorInterceptor = async (error: any) => {
     if (refId) error.refId = refId
   }
 
-  // Transform error response to match expected format
   if (error.response?.data && typeof error.response.data === 'object') {
     if ('error' in error.response.data && error.response.data.error) {
       error.response.data.error = error.response.data.error.message || error.response.data.error
@@ -246,14 +169,37 @@ const errorInterceptor = async (error: any) => {
   return Promise.reject(error)
 }
 
-api.interceptors.response.use(responseInterceptor, errorInterceptor)
-communityApi.interceptors.response.use(responseInterceptor, errorInterceptor)
-requestApi.interceptors.response.use(responseInterceptor, errorInterceptor)
-notificationApi.interceptors.response.use(responseInterceptor, errorInterceptor)
-messagingApi.interceptors.response.use(responseInterceptor, errorInterceptor)
-reputationApi.interceptors.response.use(responseInterceptor, errorInterceptor)
-socialGraphApi.interceptors.response.use(responseInterceptor, errorInterceptor)
-feedApi.interceptors.response.use(responseInterceptor, errorInterceptor)
+function createApiClient(baseURL: string) {
+  const client = axios.create({ baseURL, headers: { 'Content-Type': 'application/json' } })
+  client.interceptors.request.use(authInterceptor)
+  client.interceptors.response.use(responseInterceptor, errorInterceptor)
+  return client
+}
+
+// Auth Service API
+export const api = createApiClient(AUTH_API_URL)
+
+// Community Service API
+export const communityApi = createApiClient(COMMUNITY_API_URL)
+
+// Request Service API
+export const requestApi = createApiClient(REQUEST_API_URL)
+
+// Reputation Service API
+export const reputationApi = createApiClient(REPUTATION_API_URL)
+reputationApi.interceptors.request.use(reputationCommunityInterceptor)
+
+// Notification Service API
+export const notificationApi = createApiClient(NOTIFICATION_API_URL)
+
+// Messaging Service API
+export const messagingApi = createApiClient(MESSAGING_API_URL)
+
+// Feed Service API
+export const feedApi = createApiClient(FEED_API_URL)
+
+// Social Graph Service API
+export const socialGraphApi = createApiClient(SOCIAL_GRAPH_API_URL)
 
 // Community API Methods
 export const communityService = {
@@ -498,11 +444,11 @@ export const requestService = {
     post_to_all_communities?: boolean;
     title?: string;
     description: string;
-    type?: string; // Legacy field for backward compatibility
-    request_type?: string; // New polymorphic type field
+    type?: string;
+    request_type?: string;
     urgency?: string;
-    payload?: any; // Type-specific payload (e.g., ride origin/destination)
-    requirements?: any; // Type-specific requirements
+    payload?: any;
+    requirements?: any;
   }) =>
     requestApi.post('/requests', data),
 
@@ -595,31 +541,24 @@ export const requestService = {
 
 // Notification Service API Methods
 export const notificationService = {
-  // Get user notifications
   getNotifications: (userId: string, params?: { limit?: number; offset?: number }) =>
     notificationApi.get(`/notifications/${userId}`, { params }),
 
-  // Get unread count
   getUnreadCount: (userId: string) =>
     notificationApi.get(`/notifications/${userId}/unread-count`),
 
-  // Mark notification as read
   markAsRead: (notificationId: string, user_id: string) =>
     notificationApi.put(`/notifications/${notificationId}/read`, { user_id }),
 
-  // Mark all as read
   markAllAsRead: (userId: string) =>
     notificationApi.put(`/notifications/${userId}/read-all`),
 
-  // Delete notification
   deleteNotification: (notificationId: string, user_id: string) =>
     notificationApi.delete(`/notifications/${notificationId}`, { data: { user_id } }),
 
-  // Get preferences
   getPreferences: (userId: string) =>
     notificationApi.get(`/notifications/${userId}/preferences`),
 
-  // Update preferences
   updatePreferences: (userId: string, preferences: {
     in_app_enabled?: boolean;
     push_enabled?: boolean;
@@ -635,37 +574,30 @@ export const notificationService = {
 // Messaging Service API Methods
 // Note: userId is extracted from JWT token on the backend, not passed as parameter
 export const messagingService = {
-  // Get user's conversations (userId from JWT)
   getConversations: () =>
     messagingApi.get('/conversations'),
 
-  // Get or create conversation for a match
   createConversation: (matchId: string, participantIds: string[]) =>
     messagingApi.post('/conversations', {
       match_id: matchId,
       participant_ids: participantIds,
     }),
 
-  // Get conversation details (userId from JWT)
   getConversation: (conversationId: string) =>
     messagingApi.get(`/conversations/${conversationId}`),
 
-  // Get messages for a conversation (userId from JWT)
   getMessages: (conversationId: string, params?: { limit?: number; offset?: number }) =>
     messagingApi.get(`/conversations/${conversationId}/messages`, {
       params: params,
     }),
 
-  // Send message (REST fallback) - senderId from JWT
   sendMessage: (conversationId: string, content: string) =>
     messagingApi.post(`/conversations/${conversationId}/messages`, {
       content,
     }),
 
-  // WebSocket URL
   getSocketUrl: () => MESSAGING_API_URL,
 
-  // Match-based messaging
   getMatchConversation: (matchId: string) =>
     messagingApi.get(`/match/${matchId}`),
 
@@ -681,53 +613,45 @@ export const messagingService = {
 
 // Reputation Service API Methods
 export const reputationService = {
-  // Get user karma
   getKarma: (userId: string, communityId?: string) =>
     reputationApi.get(`/reputation/karma/${userId}`, {
       headers: communityId ? { 'X-Community-ID': communityId } : {},
     }),
 
-  // Get current user's karma with decay (authenticated)
   getMyKarma: (communityId: string) =>
     reputationApi.get('/reputation/me/karma', {
       params: { community_id: communityId },
     }),
 
-  // Get karma history
   getKarmaHistory: (userId: string, params?: { limit?: number; offset?: number }, communityId?: string) =>
     reputationApi.get(`/reputation/history/${userId}`, {
       params,
       headers: communityId ? { 'X-Community-ID': communityId } : {},
     }),
 
-  // Get trust score — community-specific or overall (weighted average across all communities)
   getTrustScore: (userId: string, communityId?: string) =>
     communityId
       ? reputationApi.get(`/reputation/trust/${userId}/${communityId}`)
       : reputationApi.get(`/reputation/trust/${userId}`),
 
-  // Get overall trust score with community breakdown
   getOverallTrustScore: (userId: string) =>
     reputationApi.get(`/reputation/trust/${userId}`),
 
-  // Get community trust score (ADR-040)
   getCommunityTrust: (communityId: string) =>
     reputationApi.get(`/reputation/community-trust/${communityId}`, { headers: { 'X-Community-ID': communityId } }),
 
-  // Get network cohesion metrics for a community
   getNetworkMetrics: (communityId: string) =>
     reputationApi.get(`/reputation/network-metrics/${communityId}`, { headers: { 'X-Community-ID': communityId } }),
 
-  // Get leaderboard
   getLeaderboard: (communityId: string, params?: { limit?: number }) =>
     reputationApi.get(`/reputation/leaderboard/${communityId}`, {
       params,
       headers: { 'X-Community-ID': communityId },
     }),
+
   submitFeedback: (data: { match_id: string; to_user_id: string; community_id: string; rating: number }) =>
     reputationApi.post('/reputation/feedback', data),
 
-  // Trust Evolution (Sprint 30)
   getTrustConfig: (userId: string, communityId: string) =>
     reputationApi.get(`/reputation/trust-config/${userId}/${communityId}`),
 
@@ -752,7 +676,6 @@ export const reputationService = {
   toggleCommunityEvolution: (communityId: string, enabled: boolean) =>
     reputationApi.put(`/reputation/community/${communityId}/evolution/toggle`, { enabled }),
 
-  // Sprint 32: Global evolution opt-out + effective params
   getGlobalEvolutionSetting: (userId: string) =>
     reputationApi.get(`/reputation/users/${userId}/evolution-global`),
 
@@ -765,15 +688,12 @@ export const reputationService = {
 
 // User Settings API Methods (Auth Service)
 export const userSettingsService = {
-  // Get current user's privacy settings
   getPrivacySettings: () =>
     api.get('/users/me/settings'),
 
-  // Update current user's privacy settings
   updatePrivacySettings: (settings: { show_my_karma_to_me: boolean }) =>
     api.patch('/users/me/settings', settings),
 
-  // Day 8: Request Type Preferences
   getRequestTypePreferences: () =>
     api.get('/preferences/request-types'),
 
@@ -783,7 +703,6 @@ export const userSettingsService = {
   bulkUpdatePreferences: (preferences: Array<{ request_type: string; subscribed: boolean }>) =>
     api.put('/preferences/request-types/bulk', { preferences }),
 
-  // Day 8: User Interests
   getInterests: () =>
     api.get('/preferences/interests'),
 
@@ -796,24 +715,20 @@ export const userSettingsService = {
 
 // Feed Service API Methods
 export const feedService = {
-  // Get user feed
   getFeed: (params?: { limit?: number; offset?: number }, communityId?: string) =>
     feedApi.get('/feed', {
       params,
       headers: communityId ? { 'X-Community-ID': communityId } : {},
     }),
 
-  // Dismiss feed item
   dismissItem: (feedItemId: string, communityId?: string) =>
     feedApi.post(`/feed/${feedItemId}/dismiss`, {}, {
       headers: communityId ? { 'X-Community-ID': communityId } : {},
     }),
 
-  // Get feed preferences
   getPreferences: () =>
     feedApi.get('/feed/preferences'),
 
-  // Update feed preferences
   updatePreferences: (preferences: {
     show_requests?: boolean;
     show_offers?: boolean;
@@ -825,39 +740,31 @@ export const feedService = {
 
 // Social Graph API Methods
 export const socialGraphService = {
-  // Generate invitation code
   generateInvitationCode: (communityId?: string) =>
     socialGraphApi.post('/invitations/generate', {}, {
       headers: communityId ? { 'X-Community-ID': communityId } : {},
     }),
 
-  // Validate invitation code (public endpoint)
   validateInvitationCode: (invitationCode: string) =>
     axios.get(`${SOCIAL_GRAPH_API_URL}/invitations/validate/${invitationCode}`),
 
-  // Accept invitation code
   acceptInvitationCode: (invitationCode: string) =>
     socialGraphApi.post('/invitations/accept', { invitation_code: invitationCode }),
 
-  // Get invitation history
   getInvitations: (communityId?: string) =>
     socialGraphApi.get('/invitations', {
       headers: communityId ? { 'X-Community-ID': communityId } : {},
     }),
 
-  // Get inviter statistics
   getInviterStats: () =>
     socialGraphApi.get('/invitations/stats'),
 
-  // Get trust path to a specific user
   getTrustPath: (targetUserId: string) =>
     socialGraphApi.get(`/paths/${targetUserId}`),
 
-  // Get trust paths to multiple users (for feed ranking)
   getBatchTrustPaths: (targetUserIds: string[]) =>
     socialGraphApi.post('/paths/batch', { target_user_ids: targetUserIds }),
 
-  // Get network information
   getNetwork: () => socialGraphApi.get('/network'),
 }
 
@@ -895,23 +802,18 @@ export const providerService = {
 
 // Dibs API Methods (Sprint 42)
 export const dibsService = {
-  // Get the top dibs candidate for a request (requester only)
   getDibsCandidate: (requestId: string, requestType?: string) =>
     requestApi.get(`/requests/${requestId}/dibs-candidate${requestType ? `?type=${requestType}` : ''}`),
 
-  // Submit a dibs invitation to a specific provider
   sendDibs: (requestId: string, providerUserId: string) =>
     requestApi.post(`/requests/${requestId}/dibs`, { provider_user_id: providerUserId }),
 
-  // Get all pending dibs for the authenticated provider
   getPendingDibsForProvider: () =>
     requestApi.get('/requests/dibs/pending-for-provider'),
 
-  // Provider accepts a dibs invitation
   acceptDibs: (dibsId: string) =>
     requestApi.put(`/requests/dibs/${dibsId}/accept`),
 
-  // Provider declines a dibs invitation
   declineDibs: (dibsId: string) =>
     requestApi.put(`/requests/dibs/${dibsId}/decline`),
 }
@@ -972,4 +874,3 @@ export const trustQuestionsService = {
   deleteChoice: (questionId: string, choiceId: string) =>
     communityApi.delete(`/communities/trust-questions/${questionId}/choices/${choiceId}`),
 }
-
