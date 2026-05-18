@@ -1,10 +1,10 @@
-# SPRINT 56 — Backend Simplification | Ready to Execute
+# SPRINT 57 — Frontend Simplification | Ready to Execute
 
 ## Handoff Document
 
 **Date**: 2026-05-17
-**Current Version**: v9.22.0 (Sprint 55 shipped)
-**Status**: Sprint 55 complete + deployed. Sprint 56 (Backend Simplification) is next. Sprint 57 (Frontend Simplification) follows.
+**Current Version**: v9.23.0 (Sprint 56 shipped)
+**Status**: Sprint 56 complete + deployed. Sprint 57 (Frontend Simplification) is next. Sprint 58 (Dashboard UX) follows.
 
 ---
 
@@ -89,44 +89,25 @@ Track these after each sprint to measure actual reduction.
 
 ---
 
-## Sprint 56 — Backend Simplification
+## Sprint 56 — Backend Simplification ✅
 
-### Goal
+Shipped as v9.23.0. Merged to master 2026-05-17. GitHub Actions deploying.
 
-Remove duplicated infrastructure (event publishers, loggers) by centralizing in `packages/shared`. Extract query-building logic from the request service's 1,391-line route file. Replace placeholder `expect(true).toBe(true)` tests with real assertions. Wire the TDD promotion pipeline.
-
-### Spec + Plan
-
-- Spec: `docs/superpowers/specs/2026-05-17-sprint-56-backend-simplification-design.md`
-- Plan: `docs/superpowers/plans/2026-05-17-sprint-56-backend-simplification.md`
-
-### What's being simplified
-
-| Problem | Fix |
-|---------|-----|
-| 4 services have identical event publishers | Create `packages/shared/src/events/publisher.ts`; services import `createPublisher` |
-| 2 services have custom loggers despite shared one existing | Migrate to `packages/shared/utils/logger.ts` (already 309 lines, full-featured) |
-| `services/request-service/src/routes/requests.ts` is 1,391 lines | Extract SQL query builder to `services/request-service/src/utils/queryBuilder.ts` |
-| ~25% of regression tests have `expect(true).toBe(true)` | Replace with real assertions or honest `it.todo()` |
-| TDD promotion script exists but never runs | Wire into `posttest` npm script |
-
-### ⚠️ Critical Implementation Notes
-
-1. **Check shared logger API before migrating services.** Read `packages/shared/utils/logger.ts` exports first — confirm the call signature so all migration sites match.
-
-2. **`@karmyq/shared` must be in each service's `package.json` dependencies.** Missing → Turbo skips building shared first → import failures.
-
-3. **`moduleResolution: node16` for subpath imports.** Services importing from `@karmyq/shared/src/events/publisher` need this in their `tsconfig.json`.
-
-4. **Query builder scope: lines 35–99 only.** Extract the `paramCount++` SQL builder block. Do not refactor route handlers.
-
-5. **Delete placeholder files if they'd be all-todos.** An empty `describe` block causes jest warnings. `it.todo()` stubs are fine; zero assertions in a file is not.
-
-6. **Do not use `--no-verify`.** Fix assertions, don't bypass the pre-push hook.
+| Task | Result |
+|------|--------|
+| Shared event publisher | `packages/shared/events/publisher.ts` — `createPublisher(source)` factory |
+| 4 service publishers migrated | auth, community, reputation, request → 3-line delegates |
+| Social-graph logger migrated | `createLogger` from shared; 12 call sites fixed for new `error()` signature |
+| Query builder extracted | `services/request-service/src/utils/queryBuilder.ts`; routes/requests.ts 1,391→1,334 lines |
+| Placeholder tests fixed | Real assertions in auth regression; `it.todo()` in reputation + social-graph + integration |
+| TDD promotion wired | `posttest` runs `promote-tdd-tests.js`; 9 tests promoted; 6 DB tests correctly kept in tdd/ |
+| TDD script bugs fixed | Windows path bug, wrong cwd, `--passWithNoTests` false-positive — all resolved |
+| CONTEXT.md updated | auth, community, reputation, request, social-graph + packages/shared |
+| registry.json updated | `@karmyq/shared` added to community + reputation service dependencies |
 
 ---
 
-## Sprint 57 — Frontend Simplification (After Sprint 56)
+## Sprint 57 — Frontend Simplification (Next)
 
 ### Goal
 
