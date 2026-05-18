@@ -12,15 +12,15 @@ export default function TheStory() {
       </div>
 
       <div className="relative z-10 w-full section-padding container-narrow pt-28 md:pt-36 pb-24">
-        {/* Tagline eyebrow */}
-        <motion.p
+        {/* Hero tagline — the thesis, not the brand name */}
+        <motion.h1
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.2 }}
-          className="text-karmyq-brown-400 text-xs font-light tracking-widest uppercase mb-6"
+          className="font-serif text-4xl md:text-5xl lg:text-6xl font-light text-karmyq-green-700 leading-tight tracking-tight mb-10 max-w-2xl"
         >
-          Meaning-making, not accounting
-        </motion.p>
+          Meaning-making,<br className="hidden sm:block" /> not accounting.
+        </motion.h1>
 
         {/* Functional subheadline */}
         <motion.div
