@@ -84,7 +84,7 @@ router.get('/', async (req: AuthenticatedRequest, res: Response) => {
 
     return res.json({ success: true, data: { nodes, edges } });
   } catch (error) {
-    logger.error('GET /network error', { userId, error });
+    logger.error('GET /network error', error instanceof Error ? error : undefined, { userId });
     return res.status(500).json({ success: false, message: 'Failed to fetch network' });
   }
 });

@@ -1,8 +1,5 @@
-// Placeholder unit test
-// TODO: Add proper mocked unit tests
-
 describe('Reputation Service', () => {
-  it('should pass placeholder test', () => {
-    expect(true).toBe(true);
-  });
+  it.todo('karma allocation correctly distributes points between requester and helper');
+  it.todo('karma decay reduces scores over time for inactive users');
+  it.todo('trust score updates when match is completed');
 });

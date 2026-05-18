@@ -530,24 +530,8 @@ describe('Multi-Community Request Posting', () => {
 });
 
 describe('Accept/Reject Flow Edge Cases', () => {
-  it('Cannot accept a match that is already matched', async () => {
-    // This would require setting up a full workflow, skipping for now
-    // but should be tested in a real scenario
-    expect(true).toBe(true);
-  });
-
-  it('Cannot reject a match that is already matched', async () => {
-    // Similar to above
-    expect(true).toBe(true);
-  });
-
-  it('Cannot complete a match that is still proposed', async () => {
-    // Should return error
-    expect(true).toBe(true);
-  });
-
-  it('Helper cannot accept their own offer', async () => {
-    // Only requester can accept
-    expect(true).toBe(true);
-  });
+  it.todo('cannot accept a match that is already matched — requires full workflow setup');
+  it.todo('cannot reject a match that is already matched — requires full workflow setup');
+  it.todo('cannot complete a match that is still proposed — requires full workflow setup');
+  it.todo('helper cannot accept their own offer — only requester can accept');
 });

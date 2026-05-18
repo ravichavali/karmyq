@@ -38,12 +38,13 @@ function findTestFiles(dir) {
   return files;
 }
 
-function runTestFile(filePath) {
+function runTestFile(filePath, serviceDir) {
   try {
-    // Run jest for this specific file
-    execSync(`npx jest "${filePath}" --passWithNoTests`, {
+    // Use forward slashes so jest can use the path as a regex filter on Windows
+    const posixPath = filePath.replace(/\\/g, '/');
+    execSync(`npx jest "${posixPath}"`, {
       stdio: 'pipe',
-      cwd: path.dirname(path.dirname(filePath))
+      cwd: serviceDir,
     });
     return true;
   } catch (error) {
@@ -68,7 +69,7 @@ function promoteTddTests() {
       const testName = path.basename(testFile);
       console.log(`  Testing: ${service}/tests/tdd/${testName}`);
 
-      if (runTestFile(testFile)) {
+      if (runTestFile(testFile, path.join(SERVICES_DIR, service))) {
         // Test passed! Promote to regression
         const regressionDir = path.join(SERVICES_DIR, service, 'tests', 'regression');
         fs.mkdirSync(regressionDir, { recursive: true });

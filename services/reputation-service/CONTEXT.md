@@ -5,6 +5,8 @@
 
 ## Recent Changes
 
+- **2026-05-17 (Sprint 56 — Publisher centralization)**: `src/events/publisher.ts` now delegates to `createPublisher('reputation-service')` from `@karmyq/shared`; local 37-line Bull setup removed. Added `@karmyq/shared` to `package.json` dependencies.
+
 - **2026-05-10 (Sprint 54 — OWASP security hardening, ADR-052)**: Added `authMiddleware` per-route to 8 endpoints that were previously unauthenticated: `GET /karma/:userId`, `GET /trust/:userId`, `GET /trust/:userId/:communityId`, `GET /community-trust/:communityId`, `GET /leaderboard/:communityId`, `GET /history/:userId`, `GET /badges/:userId`, `GET /users/:userId/badges`. Per-route (not router-level) to avoid breaking internal service calls. Added `helmet()` + CORS allowlist via `ALLOWED_ORIGINS` env var. Access to all these endpoints now requires a valid JWT.
 
 - **2026-03-20 (Sprint 32 — Fractal Feed, ADR-046 complete)**: `updateTrustScore()` now fetches evolved `depth_weight`/`breadth_weight` via `getCachedEffectiveParams()` (Redis cache, TTL 4h) instead of static community defaults. `isEvolutionEligible()` now checks global opt-out (`reputation.user_trust_preferences`) first. New table: `reputation.user_trust_preferences (user_id, global_evolution_enabled)`. 3 new endpoints: GET `/reputation/users/:userId/effective-params?communityId=`, GET/PUT `/reputation/users/:userId/evolution-global`. New file: `effectiveParamsCache.ts`. Curated feed in request-service uses `cross_community_prior × 100` as trust distance for null-degree requesters. ADR-046 status: Implemented.

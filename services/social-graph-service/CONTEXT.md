@@ -655,6 +655,10 @@ curl http://localhost:3010/paths/$USER_B_ID \
 
 ## Recent Changes
 
+### Sprint 56: Logger migration (2026-05-17)
+- **CHANGED**: `src/config/logger.ts` — now uses `createLogger('social-graph-service')` from `@karmyq/shared`; local 21-line winston setup removed
+- **FIXED**: 12 call sites across `subscriber.ts`, `index.ts`, `invitations.ts`, `network.ts`, `paths.ts`, `trustCard.ts` updated from `logger.error('msg', { error })` to `logger.error('msg', error instanceof Error ? error : undefined)` to match shared logger signature
+
 ### Sprint 44: Structured Logging (2026-04-04)
 - **NEW**: Added `createLogger` + `requestLoggingMiddleware` from `@karmyq/shared/utils/logger` to `src/index.ts`
 - Route handler errors now emit `{ service: 'social-graph-service', endpoint, error.message }` structured objects via `(req as any).logger?.error()`

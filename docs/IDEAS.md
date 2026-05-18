@@ -194,3 +194,9 @@ Community and provider are 2 facets of the same user — not separate modes. A p
 Provider and community facets should have different color patterns — visual language that signals which context you're operating in without requiring a mode toggle.
 
 ---
+
+## [2026-05-17] framing
+
+Make sure that simplicity is the default. When in doubt, do less — simpler code, simpler abstractions, simpler flows. Complexity should require justification; simplicity should not.
+
+---

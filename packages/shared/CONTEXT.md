@@ -29,6 +29,7 @@ Shared TypeScript library consumed by all Karmyq services and frontend apps.
 | `./schemas/requests` | Zod schemas for request types (generic, ride, service, event, borrow) |
 | `./schemas/ui` | UI schema types for DynamicForm |
 | `./schemas/providers` | TypeScript interfaces for provider profiles, reviews, trust scores (ADR-041/042) |
+| `./events/publisher` | `createPublisher(source)` — Bull queue factory; returns `{ initEventPublisher, publishEvent, getEventQueue }` |
 
 ---
 

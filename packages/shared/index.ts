@@ -8,3 +8,6 @@ export * from './middleware';
 // Utilities
 export * from './utils/logger';
 export * from './utils/response';
+
+// Events
+export { createPublisher } from './events/publisher';
