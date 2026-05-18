@@ -6,8 +6,8 @@ const AUDIENCES = [
   {
     title: 'For Community Organizers',
     description:
-      'Launch your own cooperation experiment. Configure request types, set governance rules, and grow your community organically.',
-    cta: 'Start a Community',
+      'Configure request types, set governance rules, grow your community organically. The first communities will shape everything that comes after.',
+    cta: 'Start a community',
     href: 'https://karmyq.com',
     gradient: 'from-karmyq-green-500 to-karmyq-green-700',
     icon: (
@@ -22,7 +22,7 @@ const AUDIENCES = [
   {
     title: 'For Developers',
     description:
-      'Karmyq is open source. Contribute to the platform, build integrations, or fork it to create something entirely new.',
+      'Karmyq is open source. Contribute to the platform, build integrations, or fork it for your context. The governance service is intentionally minimal — great territory for contributors.',
     cta: 'View on GitHub',
     href: 'https://github.com/ravichavali/karmyq',
     gradient: 'from-karmyq-brown-600 to-karmyq-brown-800',
@@ -38,9 +38,9 @@ const AUDIENCES = [
   {
     title: 'For Researchers',
     description:
-      'Study cooperation models in the wild. Access anonymized data, publish findings, and help build the evidence base for community infrastructure.',
-    cta: 'Read the Research',
-    href: '#research',
+      'Help build the evidence base for community infrastructure. Publish findings. Hold us accountable to the research. The platform is designed to be a living laboratory for the questions Ostrom, Dunbar, and Henrich spent careers asking.',
+    cta: 'Read the research',
+    href: '#deeper-research',
     gradient: 'from-karmyq-teal-500 to-karmyq-teal-700',
     icon: (
       <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 32 32" stroke="currentColor" strokeWidth="1.5">
@@ -58,15 +58,11 @@ export default function CTAs() {
         <AnimateOnScroll>
           <div className="text-center mb-16">
             <p className="text-karmyq-green-600 font-medium text-sm tracking-widest uppercase mb-4">
-              Get Involved
+              Get involved
             </p>
             <h2 className="heading-2 text-karmyq-brown-900 mb-4">
-              Every contribution matters
+              There&apos;s a place for you here.
             </h2>
-            <p className="body-large max-w-2xl mx-auto">
-              Whether you&apos;re organizing a community, writing code, or
-              studying cooperation — there&apos;s a place for you.
-            </p>
           </div>
         </AnimateOnScroll>
 

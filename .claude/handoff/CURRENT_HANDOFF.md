@@ -1,18 +1,18 @@
-# SPRINT 58 — Dashboard UX Redesign | Ready to Execute
+# SPRINT 59 — Dashboard UX Redesign | Ready to Execute
 
 ## Handoff Document
 
-**Date**: 2026-05-17
-**Current Version**: v9.24.0 (Sprint 57 shipped)
-**Status**: Sprint 57 complete + deployed. Sprint 58 (Dashboard UX Redesign) is next.
+**Date**: 2026-05-18
+**Current Version**: v9.25.0 (Sprint 58 shipped)
+**Status**: Sprint 58 complete + deployed. Sprint 59 (Dashboard UX Redesign) is next.
 
 ---
 
 ## Quick Start
 
 1. Read this handoff
-2. Check out branch: `git checkout -b feature/sprint-56-backend-simplification`
-3. Open plan: `docs/superpowers/plans/2026-05-17-sprint-56-backend-simplification.md`
+2. Check out branch: `git checkout -b feature/sprint-59-dashboard-ux`
+3. Write plan or open existing spec
 4. Run: `/execute-plan` (uses superpowers:subagent-driven-development)
 
 ---
@@ -36,7 +36,7 @@ Refined Fractal mark rolled out across the monorepo (PR #18, merged to master, d
 - `profile` → `me` (same files)
 - Mobile: `Feed` → `Browse`, `Requests` → `Asks`, `Profile` → `Me` (apps/mobile/app/(tabs)/_layout.tsx)
 
-These label renames happen during Sprint 58 (Dashboard UX), which is where the tab structure changes.
+These label renames happen during Sprint 59 (Dashboard UX), which is where the tab structure changes.
 
 ---
 
@@ -126,24 +126,52 @@ Shipped as v9.24.0. Merged to master 2026-05-17.
 
 ---
 
-## Sprint 58 — Dashboard UX Redesign (Next)
+## Sprint 58 — karmyq.org Rebuild ✅
 
-### Goal
+Shipped as v9.25.0. Merged to master 2026-05-18.
+
+Full rebuild of the karmyq.org landing page. Content-complete from `karmyq-org-v3.html`. Aesthetics preserved from existing site (color palette, typography, NetworkVisualization animation).
+
+| Task | Result |
+|------|--------|
+| TheStory.tsx (NEW) | Layer 1: emotional narrative, wordmark/tagline, functional subheadline, NetworkVisualization bg |
+| TheThinking.tsx (NEW) | Layer 2: 8 philosophical sections + Go Deeper cluster |
+| DeeperSections.tsx (NEW) | 4 collapsible accordion sections (Stars, Gossip, Village, Research with 9 thinkers) |
+| HowItWorks.tsx (rewrite) | Reputation, trust scoring, service layer, community governance |
+| CommunityStories.tsx (rewrite) | Ravi's founder's note replaces lorem ipsum; community contact placeholder |
+| Movement.tsx (rewrite) | Founding cohort CTA; email signup (mailto interim); stats row removed |
+| WhatIsKarmyq.tsx (update) | Simplified to "toolkit" paragraph |
+| FadingTimeline.tsx (update) | Diverse global names (Priya/Maria/Carlos/Aisha/Wei/Mohamed/Yuki/James/Amara/Lena) |
+| CTAs.tsx (update) | Updated audience descriptions + researchers link → #deeper-research |
+| Header.tsx (update) | Nav: Story · Thinking · How It Works · Go Deeper · Docs; CTA: "Find your neighbors" |
+| page.tsx (restructure) | Removed: ComparisonTable, Research, TheCrack, Opportunity, Hero |
+| Sections removed | ComparisonTable (comparison table), old lorem ipsum community stories, stats row, old hero copy |
+
+**Pending before launch (do not ship without resolving):**
+- Replace `mailto:` email signup in `Movement.tsx` with Buttondown/Mailchimp
+- Update `ravichavali@gmail.com` → `hello@karmyq.org` once non-profit registration completes
+- Confirm karmyq.com platform landing state before "Find your neighbors" CTA goes live
 
 ---
 
-### Sprint 58 Detail
+## Sprint 59 — Dashboard UX Redesign (Next)
 
-Previously Sprint 56. Deferred for 2 simplification sprints.
+### Goal
+
+Redesign the community dashboard: 4 tabs → 3 (Browse / Active / Profile), remove sidebars, merge Commitments + My Requests into action-first "Active" tab.
+
+### Sprint 59 Detail
+
+Previously Sprint 58. Deferred one sprint for karmyq.org rebuild.
 
 - **Dashboard**: 4 tabs → 3 (Browse / Active / Profile), remove sidebars (full-width), merge Commitments + My Requests into action-first "Active" tab
 - **Tab renames**: `commitments→helping`, `my-requests→asks`, `profile→me`
 - **Foundation**: Sprint 57's `ActiveTab.tsx` + `useCommunityData.ts` make this sprint much easier — components already decomposed
 
-### Quick Start for Sprint 58
+### Quick Start for Sprint 59
 
-1. Confirm Sprint 57 is merged (✅ done)
-2. Check out branch: `git checkout -b feature/sprint-58-dashboard-ux`
+1. Confirm Sprint 58 is merged + deployed (✅ done)
+2. Check out branch: `git checkout -b feature/sprint-59-dashboard-ux`
 3. Write plan or open existing spec
 4. Run: `/execute-plan`
 
@@ -184,7 +212,8 @@ Signals emitted by `trustEvolutionService.ts` have no subscriber that processes 
 | Sprint 55 | Brand rollout (Refined Fractal mark) | ✅ Complete + deployed |
 | Sprint 56 | Backend simplification — DRY + TDD health | ✅ Complete |
 | Sprint 57 | Frontend simplification — API factory + community page | ✅ Complete + deployed |
-| **Sprint 58** | **Dashboard UX Redesign (4→3 tabs, full-width)** | 🔵 Next up |
+| Sprint 58 | karmyq.org rebuild — 3-layer content, deeper sections | ✅ Complete + deployed |
+| **Sprint 59** | **Dashboard UX Redesign (4→3 tabs, full-width)** | 🔵 Next up |
 
 ---
 

@@ -2,71 +2,106 @@
 
 import AnimateOnScroll from '../AnimateOnScroll';
 
-const STEPS = [
-  {
-    number: '01',
-    title: 'Start a Community',
-    description:
-      'Create a space for your neighborhood, co-op, or interest group. Choose which cooperation models fit your values — mutual aid, skill sharing, tool lending, or all of the above.',
-    color: 'bg-karmyq-green-100 text-karmyq-green-700',
-  },
-  {
-    number: '02',
-    title: 'Ask and Offer',
-    description:
-      'Post requests for help or offer your skills and time. Need a ride to the airport? Know how to fix a leaky faucet? Looking for someone to watch your dog? Every act of helping strengthens the community fabric.',
-    color: 'bg-karmyq-orange-100 text-karmyq-orange-700',
-  },
-  {
-    number: '03',
-    title: 'Trust Grows Naturally',
-    description:
-      'As people help each other, trust and reputation build organically. No artificial gamification — just real relationships forming through real interactions. Over time, your community becomes resilient.',
-    color: 'bg-karmyq-teal-100 text-karmyq-teal-700',
-  },
-];
-
 export default function HowItWorks() {
   return (
-    <section className="section-padding bg-white">
-      <div className="container-wide">
+    <section id="product" className="section-padding bg-white">
+      <div className="container-narrow">
+
+        {/* Reputation without the performance */}
         <AnimateOnScroll>
-          <div className="text-center mb-16">
-            <p className="text-karmyq-orange-500 font-medium text-sm tracking-widest uppercase mb-4">
-              How It Works
-            </p>
-            <h2 className="heading-2 text-karmyq-brown-900 mb-4">
-              Simple to start, deep to grow
-            </h2>
-            <p className="body-large max-w-2xl mx-auto">
-              You don&apos;t need to read a manifesto to get started. Just neighbors
-              helping neighbors — with infrastructure that lets the complexity emerge.
+          <h2 className="heading-2 text-karmyq-brown-900 mb-6">
+            Reputation without the performance.
+          </h2>
+        </AnimateOnScroll>
+        <AnimateOnScroll delay={0.1}>
+          <div className="space-y-5 body-large mb-8">
+            <p>
+              On Karmyq, your worth is not a public score. There are no leaderboards, no star ratings to
+              optimise, no anxiety about your profile falling behind someone else&apos;s. Karma moves like
+              ambient knowledge in a village: people remember who shows up, but nobody keeps a public
+              spreadsheet on their neighbors.
             </p>
           </div>
         </AnimateOnScroll>
 
-        <div className="grid md:grid-cols-3 gap-8 lg:gap-12">
-          {STEPS.map((step, i) => (
-            <AnimateOnScroll key={step.number} delay={0.2 + i * 0.15}>
-              <div className="relative">
-                {/* Connector line (hidden on mobile) */}
-                {i < STEPS.length - 1 && (
-                  <div className="hidden md:block absolute top-12 left-full w-full h-px bg-gradient-to-r from-karmyq-brown-200 to-transparent z-0" />
-                )}
+        {/* Feature highlight box */}
+        <AnimateOnScroll delay={0.15}>
+          <div className="border-l-4 border-karmyq-green-400 bg-karmyq-green-50 p-6 mb-12">
+            <h3 className="font-serif text-xl font-semibold text-karmyq-green-700 mb-3">
+              You are free to help without being perceived.
+            </h3>
+            <p className="text-karmyq-brown-700 leading-relaxed">
+              Every completed interaction generates standing for both people — the person who helped and the
+              person who asked. Communities configure how that standing flows. What they can&apos;t configure:
+              standing comes from doing, not from who you are when you arrive. Old interactions fade over
+              time using a six-month half-life. What remains is a living picture of who someone is in this
+              community, right now — not a permanent record of everything they&apos;ve ever done.
+            </p>
+          </div>
+        </AnimateOnScroll>
 
-                <div className={`w-16 h-16 rounded-2xl ${step.color} flex items-center justify-center font-serif text-2xl font-bold mb-6`}>
-                  {step.number}
-                </div>
-                <h3 className="font-serif text-2xl font-semibold text-karmyq-brown-900 mb-4">
-                  {step.title}
-                </h3>
-                <p className="text-karmyq-brown-600 leading-relaxed text-lg">
-                  {step.description}
-                </p>
-              </div>
-            </AnimateOnScroll>
-          ))}
-        </div>
+        {/* How trust is measured */}
+        <AnimateOnScroll>
+          <h2 className="heading-2 text-karmyq-brown-900 mb-6">
+            How trust is measured.
+          </h2>
+        </AnimateOnScroll>
+        <AnimateOnScroll delay={0.1}>
+          <div className="space-y-5 body-large mb-12">
+            <p>
+              Trust scores combine five signals: the volume of recent interactions, the quality of feedback
+              received, the depth of relationships with repeat partners, the breadth of connections across
+              different people, and milestone recognition as trust accumulates.
+            </p>
+            <p>
+              <strong>Trust paths.</strong>{' '}
+              The platform can show you how you&apos;re connected to any other member — through shared exchanges,
+              communities, or invitations — up to four degrees of separation. Not as a number. As a map of
+              actual human connection.
+            </p>
+            <p>
+              <strong>Cross-community trust.</strong>{' '}
+              When you join a new community where no one knows you yet, a portion of the trust you&apos;ve built
+              elsewhere travels with you. You don&apos;t start from zero. You start from something.
+            </p>
+          </div>
+        </AnimateOnScroll>
+
+        {/* The service layer */}
+        <AnimateOnScroll>
+          <h2 className="heading-2 text-karmyq-brown-900 mb-6">
+            The service layer.
+          </h2>
+        </AnimateOnScroll>
+        <AnimateOnScroll delay={0.1}>
+          <div className="space-y-5 body-large mb-12">
+            <p>
+              Communities that choose to can enable a professional services layer — off by default, opted
+              into deliberately. Providers must meet a minimum trust score before they can offer services.
+              Karmyq never processes payment; it coordinates the connection and nothing more. A single
+              identity carries both roles: the neighbor who helped you move last month and the electrician
+              you hire this month are the same person, with the same trust history.
+            </p>
+          </div>
+        </AnimateOnScroll>
+
+        {/* How communities govern themselves */}
+        <AnimateOnScroll>
+          <h2 className="heading-2 text-karmyq-brown-900 mb-6">
+            How communities govern themselves.
+          </h2>
+        </AnimateOnScroll>
+        <AnimateOnScroll delay={0.1}>
+          <div className="space-y-5 body-large">
+            <p>
+              Each community is sovereign — up to 150 members, the threshold at which genuine relationship
+              becomes possible and beyond which it frays. It sets its own membership rules, configures how
+              trust and karma flow, decides which kinds of help to enable. No platform override. The platform
+              holds the infrastructure; the community holds the power.
+            </p>
+          </div>
+        </AnimateOnScroll>
+
       </div>
     </section>
   );

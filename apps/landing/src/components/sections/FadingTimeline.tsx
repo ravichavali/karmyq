@@ -3,13 +3,13 @@
 import AnimateOnScroll from '../AnimateOnScroll';
 
 const TIMELINE_EVENTS = [
-  { time: 'Today', text: 'Maria helps James move a couch', opacity: 1 },
-  { time: '2 weeks ago', text: 'Priya gave Wei a ride to the airport', opacity: 0.85 },
-  { time: '1 month ago', text: 'Carlos fixed Aisha\'s leaky faucet', opacity: 0.7 },
-  { time: '3 months ago', text: 'Liam taught Yuki to make sourdough', opacity: 0.5 },
-  { time: '6 months ago', text: 'Sarah organized a neighborhood cleanup', opacity: 0.35 },
-  { time: '1 year ago', text: 'Mohamed watched Elena\'s dog for a week', opacity: 0.2 },
-  { time: '2 years ago', text: 'David helped Mei set up her garden...', opacity: 0.08 },
+  { time: 'Today', text: 'Priya helped Maria move a couch', opacity: 1 },
+  { time: '2 weeks ago', text: 'Carlos gave Aisha a ride to the airport', opacity: 0.85 },
+  { time: '1 month ago', text: 'Wei fixed Mohamed\'s leaky faucet', opacity: 0.7 },
+  { time: '3 months ago', text: 'Yuki taught James to make sourdough', opacity: 0.5 },
+  { time: '6 months ago', text: 'Sarah organised a neighbourhood cleanup', opacity: 0.35 },
+  { time: '1 year ago', text: 'Amara watched Lena\'s dog for a week', opacity: 0.2 },
+  { time: '2 years ago', text: 'David helped Mei set up her garden', opacity: 0.08 },
 ];
 
 export default function FadingTimeline() {

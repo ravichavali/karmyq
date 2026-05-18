@@ -2,83 +2,89 @@
 
 import AnimateOnScroll from '../AnimateOnScroll';
 
-const STORIES = [
-  {
-    name: 'Neighborhood Tool Library',
-    location: 'Foster City, CA',
-    quote:
-      'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris.',
-    author: 'Community Organizer',
-    type: 'Tool Lending',
-    color: 'border-karmyq-green-300',
-  },
-  {
-    name: 'Bay Area Care Circle',
-    location: 'Foster City, CA',
-    quote:
-      'Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt.',
-    author: 'Circle Member',
-    type: 'Mutual Aid',
-    color: 'border-karmyq-orange-300',
-  },
-  {
-    name: 'Peninsula Time Bank',
-    location: 'Foster City, CA',
-    quote:
-      'Ut enim ad minima veniam, quis nostrum exercitationem ullam corporis suscipit laboriosam, nisi ut aliquid ex ea commodi consequatur. Quis autem vel eum iure reprehenderit.',
-    author: 'Time Banker',
-    type: 'Time Banking',
-    color: 'border-karmyq-teal-300',
-  },
-];
-
 export default function CommunityStories() {
   return (
-    <section id="stories" className="section-padding bg-organic-1">
-      <div className="container-wide">
+    <section className="section-padding bg-organic-1">
+      <div className="container-narrow">
+
+        {/* Founder's note */}
         <AnimateOnScroll>
-          <div className="text-center mb-16">
-            <p className="text-karmyq-orange-500 font-medium text-sm tracking-widest uppercase mb-4">
-              Community Stories
-            </p>
-            <h2 className="heading-2 text-karmyq-brown-900 mb-4">
-              Real communities, real cooperation
-            </h2>
-            <p className="body-large max-w-2xl mx-auto">
-              Every community finds its own way. Here are some of the experiments
-              in cooperation happening right now.
+          <h2 className="heading-2 text-karmyq-brown-900 mb-8">
+            Why we&apos;re building this.
+          </h2>
+        </AnimateOnScroll>
+
+        <AnimateOnScroll delay={0.1}>
+          <div className="card border border-karmyq-brown-200 mb-8">
+            <div className="mb-4">
+              <p className="text-xs font-medium text-karmyq-green-600 uppercase tracking-widest mb-1">
+                Founder&apos;s note
+              </p>
+              <p className="text-xs text-karmyq-brown-400 tracking-wide">
+                Foster City, CA
+              </p>
+            </div>
+
+            <div className="font-serif text-lg italic leading-relaxed text-karmyq-brown-700 space-y-5">
+              <p>
+                My neighborhood runs on driveway waves. You know the kind — eye contact, a half-lift of the
+                hand, back inside. Polite. Sufficient. Not quite community.
+              </p>
+              <p>
+                Then a couple moved in a few doors down. They were the kind of people who stop. Who start
+                conversations. Who remember names. Slowly, without anyone deciding it, something shifted.
+              </p>
+              <p>
+                When they went on vacation, they asked if we&apos;d look after their cat. A small thing. But it
+                was the first real ask — the moment a wave becomes something more.
+              </p>
+              <p>
+                A few months later, I had to travel for three weeks. My wife would have been alone with our
+                dog — the logistics, the cost, the quiet weight of it. Before I could figure out what to do,
+                our neighbors were there. They stepped in. What could have been expensive and stressful became
+                something we laughed about over dinner afterward. Proof that we&apos;d built something real,
+                without quite meaning to.
+              </p>
+              <p>
+                We didn&apos;t use an app. We didn&apos;t need one — we&apos;d been lucky enough to find each other.
+              </p>
+              <p>
+                But I kept thinking about everyone on my street who hadn&apos;t. The neighbors managing alone
+                because no one found the right opening. The professional a few houses down whose skills
+                nobody knows about. The person who moved here a year ago and still doesn&apos;t know anyone&apos;s name.
+              </p>
+              <p>
+                Most neighborhoods aren&apos;t waiting for connection. They&apos;re waiting for a reason to start.
+              </p>
+              <p className="not-italic text-karmyq-brown-600">
+                That&apos;s why we&apos;re building Karmyq. Not to replace what happened between us — you can&apos;t build
+                that with software. But to create the conditions. To make the first ask a little easier. To
+                give people the infrastructure for the thing that wants to happen anyway.
+              </p>
+            </div>
+
+            <p className="mt-6 text-sm font-medium text-karmyq-green-700">
+              — Ravi Chavali, founder
             </p>
           </div>
         </AnimateOnScroll>
 
-        <div className="grid md:grid-cols-3 gap-8">
-          {STORIES.map((story, i) => (
-            <AnimateOnScroll key={story.name} delay={0.15 + i * 0.1}>
-              <div className={`card h-full border-t-4 ${story.color}`}>
-                <div className="flex items-center gap-2 mb-4">
-                  <span className="text-xs font-medium px-3 py-1 rounded-full bg-karmyq-brown-50 text-karmyq-brown-600">
-                    {story.type}
-                  </span>
-                  <span className="text-xs text-karmyq-brown-400">
-                    {story.location}
-                  </span>
-                </div>
+        {/* Contact placeholder */}
+        <AnimateOnScroll delay={0.2}>
+          <div className="border border-dashed border-karmyq-brown-300 p-8 text-center bg-karmyq-warmWhite/60">
+            <p className="font-serif text-lg italic text-karmyq-brown-500 mb-4">
+              &ldquo;We&apos;re looking for communities ready to write the next chapter.
+              If that&apos;s you, we want to hear from you.&rdquo;
+            </p>
+            <a
+              href="mailto:ravichavali@gmail.com"
+              className="text-sm text-karmyq-green-700 border-b border-karmyq-brown-200 hover:text-karmyq-brown-900 hover:border-karmyq-brown-500 transition-colors"
+            >
+              Tell us about your community →
+            </a>
+          </div>
+        </AnimateOnScroll>
 
-                <h3 className="font-serif text-xl font-semibold text-karmyq-brown-900 mb-4">
-                  {story.name}
-                </h3>
-
-                <blockquote className="text-karmyq-brown-700 leading-relaxed italic mb-6 flex-grow">
-                  &ldquo;{story.quote}&rdquo;
-                </blockquote>
-
-                <p className="text-sm font-medium text-karmyq-green-700">
-                  &mdash; {story.author}
-                </p>
-              </div>
-            </AnimateOnScroll>
-          ))}
-        </div>
       </div>
     </section>
   );
