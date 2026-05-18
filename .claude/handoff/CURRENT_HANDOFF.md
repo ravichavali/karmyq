@@ -143,9 +143,11 @@ Full rebuild of the karmyq.org landing page. Content-complete from `karmyq-org-v
 | WhatIsKarmyq.tsx (update) | Simplified to "toolkit" paragraph |
 | FadingTimeline.tsx (update) | Diverse global names (Priya/Maria/Carlos/Aisha/Wei/Mohamed/Yuki/James/Amara/Lena) |
 | CTAs.tsx (update) | Updated audience descriptions + researchers link → #deeper-research |
-| Header.tsx (update) | Nav: Story · Thinking · How It Works · Go Deeper · Docs; CTA: "Find your neighbors" |
-| page.tsx (restructure) | Removed: ComparisonTable, Research, TheCrack, Opportunity, Hero |
-| Sections removed | ComparisonTable (comparison table), old lorem ipsum community stories, stats row, old hero copy |
+| Header.tsx (update) | Nav: Story · Thinking · How it works · Go deeper · Docs; CTA: "Find your neighbors" |
+| page.tsx (restructure) | Removed: ComparisonTable, Research, TheCrack, Opportunity, Hero, WhatIsKarmyq (absorbed) |
+| **Pass 1 — Voice** | US spellings throughout; sentence case all titles; trailing periods on H2s; dedupe philosophy quote from FadingTimeline; nav labels sentence case |
+| **Pass 2 — Tokens** | `.eyebrow` / `.eyebrow-green` / `.eyebrow-orange` utility classes; all eyebrows → text-xs + correct color; backgrounds aligned (HowItWorks→cream, CommunityStories→cream, Movement drops bg-organic-2); CTAs rounded-3xl→rounded-2xl; DeeperSections accordion rounded-2xl overflow-hidden; email signup stacked + rounded-full; wordmark font-semibold tracking-tight; WhatIsKarmyq absorbed into HowItWorks top |
+| **Pass 3 — CTA/footer** | CTA cards de-gradient → solid colors (green/brown/teal); CommunityStories id="stories"; Footer 4→3 col (Resources removed); footer anchors corrected; sentence case; contact unified to ravichavali@gmail.com |
 
 **Pending before launch (do not ship without resolving):**
 - Replace `mailto:` email signup in `Movement.tsx` with Buttondown/Mailchimp
