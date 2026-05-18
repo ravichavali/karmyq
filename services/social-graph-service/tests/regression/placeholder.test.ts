@@ -1,8 +1,5 @@
-// Placeholder unit test for social-graph-service
-// TODO: Add proper mocked unit tests
-
 describe('Social Graph Service', () => {
-  it('should pass placeholder test', () => {
-    expect(true).toBe(true);
-  });
+  it.todo('trust path is computed correctly for direct connections');
+  it.todo('invitation codes are generated and accepted correctly');
+  it.todo('network graph returns nodes and edges for a user');
 });

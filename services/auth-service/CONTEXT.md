@@ -679,6 +679,10 @@ src/
 
 ## Recent Changes
 
+### Sprint 56: Publisher + Logger centralization (2026-05-17)
+- **CHANGED**: `src/events/publisher.ts` — now delegates to `createPublisher('auth-service')` from `@karmyq/shared`; local 37-line Bull setup removed
+- **CHANGED**: `src/utils/logger.ts` — now re-exports `createLogger` from `@karmyq/shared`; local winston setup removed
+
 ### Sprint 41: Expo Push Token API (2026-03-26)
 - **NEW**: `POST /auth/push-tokens` — registers an Expo push token for the authenticated user; stored in `auth.device_push_tokens`
 - **NEW**: `DELETE /auth/push-tokens` — removes an Expo push token for the authenticated user

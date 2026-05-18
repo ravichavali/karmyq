@@ -48,6 +48,9 @@
         "services": [
           "auth-service"
         ],
+        "packages": [
+          "@karmyq/shared"
+        ],
         "infrastructure": [
           "postgres",
           "redis",
@@ -198,6 +201,9 @@
       "dependencies": {
         "services": [
           "auth-service"
+        ],
+        "packages": [
+          "@karmyq/shared"
         ],
         "infrastructure": [
           "postgres",

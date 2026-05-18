@@ -57,6 +57,10 @@
       "types": "./dist/api/mobile-storage.d.ts",
       "default": "./dist/api/mobile-storage.js"
     },
+    "./events/publisher": {
+      "types": "./dist/events/publisher.d.ts",
+      "default": "./dist/events/publisher.js"
+    },
     "./api/web-storage": {
       "types": "./dist/api/web-storage.d.ts",
       "default": "./dist/api/web-storage.js"

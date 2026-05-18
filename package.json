@@ -1,6 +1,6 @@
 {
   "name": "karmyq",
-  "version": "9.20.0",
+  "version": "9.23.0",
   "private": true,
   "description": "Community Mutual Aid Platform - Privacy-First Community Health Platform",
   "workspaces": [
@@ -13,6 +13,7 @@
     "dev": "turbo run dev",
     "build": "turbo run build",
     "test": "turbo run test",
+    "posttest": "node scripts/promote-tdd-tests.js",
     "test:unit": "turbo run test:unit",
     "test:regression": "turbo run test:regression",
     "test:tdd": "turbo run test:tdd",

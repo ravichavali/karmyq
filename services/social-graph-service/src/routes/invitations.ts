@@ -82,7 +82,7 @@ router.post('/generate', async (req: AuthenticatedRequest, res: Response) => {
       },
     });
   } catch (error) {
-    logger.error('Error generating invitation code', { error });
+    logger.error('Error generating invitation code', error instanceof Error ? error : undefined);
     res.status(500).json({
       success: false,
       message: 'Failed to generate invitation code',
@@ -181,7 +181,7 @@ router.post('/accept', async (req: AuthenticatedRequest, res: Response) => {
       },
     });
   } catch (error) {
-    logger.error('Error accepting invitation', { error });
+    logger.error('Error accepting invitation', error instanceof Error ? error : undefined);
     res.status(500).json({
       success: false,
       message: 'Failed to accept invitation',
@@ -266,7 +266,7 @@ router.get('/', async (req: AuthenticatedRequest, res: Response) => {
       },
     });
   } catch (error) {
-    logger.error('Error fetching invitations', { error });
+    logger.error('Error fetching invitations', error instanceof Error ? error : undefined);
     res.status(500).json({
       success: false,
       message: 'Failed to fetch invitations',
@@ -324,7 +324,7 @@ router.get('/stats', async (req: AuthenticatedRequest, res: Response) => {
       data: statsResult.rows[0],
     });
   } catch (error) {
-    logger.error('Error fetching inviter stats', { error });
+    logger.error('Error fetching inviter stats', error instanceof Error ? error : undefined);
     res.status(500).json({
       success: false,
       message: 'Failed to fetch inviter stats',

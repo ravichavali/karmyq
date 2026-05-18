@@ -80,7 +80,7 @@ router.get('/:targetUserId', async (req: AuthenticatedRequest, res: Response) =>
       },
     });
   } catch (err) {
-    logger.error('trust-card error', { err });
+    logger.error('trust-card error', err instanceof Error ? err : undefined);
     res.status(500).json({ success: false, message: 'Failed to load trust card' });
   }
 });

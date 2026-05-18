@@ -1383,6 +1383,10 @@ src/
 
 ## Recent Changes
 
+### Sprint 56 (2026-05-17) — Publisher centralization
+- **CHANGED**: `src/events/publisher.ts` — delegates to `createPublisher('community-service')` from `@karmyq/shared`; local Bull setup removed
+- **CHANGED**: `package.json` — added `@karmyq/shared` to dependencies (was missing, caused implicit resolution)
+
 ### Sprint 40 (2026-03-25) — Geo Mode Graceful Fallback
 - `GET /communities?mode=geography` now falls back to returning all communities when the geo query returns 0 rows (no communities have coordinates); response includes `fallback: true`
 

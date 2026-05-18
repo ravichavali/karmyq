@@ -105,7 +105,7 @@ app.get('/invitations/validate/:code', rateLimiters.auth, async (req: Request, r
       },
     });
   } catch (error) {
-    logger.error('Error validating invitation', { error });
+    logger.error('Error validating invitation', error instanceof Error ? error : undefined);
     res.status(500).json({
       success: false,
       message: 'Failed to validate invitation code',
@@ -124,11 +124,7 @@ app.use('/trust-card', rateLimiters.readLight, trustCardRoutes);
 
 // Error handling
 app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
-  logger.error('Unhandled error', {
-    error: err.message,
-    stack: err.stack,
-    path: req.path,
-  });
+  logger.error('Unhandled error', err, { path: req.path });
 
   res.status(500).json({
     success: false,

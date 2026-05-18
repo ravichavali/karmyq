@@ -2286,6 +2286,13 @@ router.get('/health', async (req, res) => {
 
 ### 10.3 Recent Changes (v9.10)
 
+**Version 9.23.0 - Sprint 56 (2026-05-17)**
+
+- **CHANGED**: `src/events/publisher.ts` — now delegates to `createPublisher('request-service')` from `@karmyq/shared`; local Bull setup removed
+- **NEW**: `src/utils/queryBuilder.ts` — extracted 65-line SQL builder from `src/routes/requests.ts`; exports `buildRequestsQuery(filters)` returning `{ queryText, params }`
+- **CHANGED**: `src/routes/requests.ts` — GET /requests inline SQL builder replaced with `buildRequestsQuery()` call; line count 1,391 → 1,334
+- **TESTS**: `tests/unit/queryBuilder.test.ts` — 9 unit tests covering all filter combinations
+
 **Version 9.15.0 - Sprint 41 (2026-03-26)**
 
 Provider offer flow — providers can now submit, list, and withdraw priced offers on open requests; requesters can accept or decline pending offers.

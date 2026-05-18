@@ -41,14 +41,14 @@ export async function initEventSubscriber() {
         );
         logger.info('✅ social_graph.connections upserted', { requester_id, responder_id });
       } catch (error) {
-        logger.error('❌ Failed to process match_completed', { requester_id, responder_id, error });
+        logger.error('❌ Failed to process match_completed', error instanceof Error ? error : undefined, { requester_id, responder_id });
         throw error;
       }
     });
 
     logger.info('✅ Social graph event subscriber initialized');
   } catch (error) {
-    logger.error('❌ Event subscriber initialization failed', { error });
+    logger.error('❌ Event subscriber initialization failed', error instanceof Error ? error : undefined);
     throw error;
   }
 }

@@ -137,7 +137,7 @@ router.get('/:targetUserId', async (req: AuthenticatedRequest, res: Response) =>
       },
     });
   } catch (error) {
-    logger.error('Error computing path', { error });
+    logger.error('Error computing path', error instanceof Error ? error : undefined);
     res.status(500).json({
       success: false,
       message: 'Failed to compute path',
@@ -281,7 +281,7 @@ router.post('/batch', async (req: AuthenticatedRequest, res: Response) => {
       data: results,
     });
   } catch (error) {
-    logger.error('Error computing batch paths', { error });
+    logger.error('Error computing batch paths', error instanceof Error ? error : undefined);
     res.status(500).json({
       success: false,
       message: 'Failed to compute batch paths',
