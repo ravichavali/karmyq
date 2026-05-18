@@ -13,7 +13,7 @@ const PRINCIPLES = [
         <path d="M17 36h6" strokeLinecap="round" />
       </svg>
     ),
-    title: 'Open Source',
+    title: 'Open source',
     description:
       'Every line of code is public. Fork it, improve it, make it yours. Knowledge wants to be free — and so does the infrastructure for cooperation.',
     color: 'bg-karmyq-green-50 text-karmyq-green-600',
@@ -28,7 +28,7 @@ const PRINCIPLES = [
         <path d="M14 18v-3a6 6 0 0112 0v3" />
       </svg>
     ),
-    title: 'Community Sovereignty',
+    title: 'Community sovereignty',
     description:
       'Each community governs itself. Choose your own rules, reputation model, and request types. No one-size-fits-all. No platform override.',
     color: 'bg-karmyq-orange-50 text-karmyq-orange-600',
@@ -44,7 +44,7 @@ const PRINCIPLES = [
         <path d="M10 30l-3 3M30 30l3 3" strokeLinecap="round" opacity="0.25" />
       </svg>
     ),
-    title: 'Privacy as Default',
+    title: 'Privacy as default',
     description:
       'No tracking. No profiling. No ads. Interactions fade over time like footprints in sand. Your data belongs to your community.',
     color: 'bg-karmyq-teal-50 text-karmyq-teal-600',
@@ -59,7 +59,7 @@ const PRINCIPLES = [
         <path d="M20 28v4" strokeLinecap="round" />
       </svg>
     ),
-    title: 'Meaning-Making',
+    title: 'Meaning-making',
     description:
       'We don\'t reduce relationships to transactions. Helping builds meaning — stories, not spreadsheets. Community, not currency.',
     color: 'bg-karmyq-brown-50 text-karmyq-brown-500',
@@ -76,7 +76,7 @@ const PRINCIPLES = [
         <path d="M14 14l4 4M22 18l4-4M18 22l-4 4M22 22l4 4" strokeLinecap="round" opacity="0.5" />
       </svg>
     ),
-    title: 'Biomimetic Design',
+    title: 'Biomimetic design',
     description:
       'Inspired by how living systems organize — mycelium networks, bee colonies, forest ecosystems. Resilient, adaptive, decentralized.',
     color: 'bg-karmyq-green-50 text-karmyq-green-600',
@@ -90,7 +90,7 @@ const PRINCIPLES = [
         <path d="M20 14v8" strokeLinecap="round" opacity="0.3" />
       </svg>
     ),
-    title: 'No Extraction',
+    title: 'No extraction',
     description:
       'We don\'t extract value from communities. No venture capital growth mandates. No monetization of relationships. Built to serve, not to scale.',
     color: 'bg-karmyq-orange-50 text-karmyq-orange-600',
@@ -104,10 +104,10 @@ export default function Principles() {
         <AnimateOnScroll>
           <div className="text-center mb-16">
             <p className="text-karmyq-green-600 font-medium text-sm tracking-widest uppercase mb-4">
-              Our Principles
+              Our principles
             </p>
             <h2 className="heading-2 text-karmyq-brown-900 mb-4">
-              Built on values, not valuations
+              Built on values, not valuations.
             </h2>
             <p className="body-large max-w-2xl mx-auto">
               Every technical decision flows from these principles.

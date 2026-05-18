@@ -7,7 +7,7 @@ const TIMELINE_EVENTS = [
   { time: '2 weeks ago', text: 'Carlos gave Aisha a ride to the airport', opacity: 0.85 },
   { time: '1 month ago', text: 'Wei fixed Mohamed\'s leaky faucet', opacity: 0.7 },
   { time: '3 months ago', text: 'Yuki taught James to make sourdough', opacity: 0.5 },
-  { time: '6 months ago', text: 'Sarah organised a neighbourhood cleanup', opacity: 0.35 },
+  { time: '6 months ago', text: 'Sarah organized a neighborhood cleanup', opacity: 0.35 },
   { time: '1 year ago', text: 'Amara watched Lena\'s dog for a week', opacity: 0.2 },
   { time: '2 years ago', text: 'David helped Mei set up her garden', opacity: 0.08 },
 ];
@@ -27,7 +27,7 @@ export default function FadingTimeline() {
 
             <AnimateOnScroll delay={0.1}>
               <h2 className="heading-2 text-karmyq-brown-900 mb-8">
-                Trust is a living thing, not a permanent record
+                Trust is a living thing, not a permanent record.
               </h2>
             </AnimateOnScroll>
 
@@ -46,11 +46,6 @@ export default function FadingTimeline() {
               </div>
             </AnimateOnScroll>
 
-            <AnimateOnScroll delay={0.3}>
-              <blockquote className="pull-quote mt-8">
-                &ldquo;Meaning-making matters, not accounting.&rdquo;
-              </blockquote>
-            </AnimateOnScroll>
           </div>
 
           {/* Right: Fading timeline visualization */}

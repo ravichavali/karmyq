@@ -4,7 +4,7 @@ import AnimateOnScroll from '../AnimateOnScroll';
 
 const AUDIENCES = [
   {
-    title: 'For Community Organizers',
+    title: 'For community organizers',
     description:
       'Configure request types, set governance rules, grow your community organically. The first communities will shape everything that comes after.',
     cta: 'Start a community',
@@ -20,7 +20,7 @@ const AUDIENCES = [
     ),
   },
   {
-    title: 'For Developers',
+    title: 'For developers',
     description:
       'Karmyq is open source. Contribute to the platform, build integrations, or fork it for your context. The governance service is intentionally minimal — great territory for contributors.',
     cta: 'View on GitHub',
@@ -36,7 +36,7 @@ const AUDIENCES = [
     ),
   },
   {
-    title: 'For Researchers',
+    title: 'For researchers',
     description:
       'Help build the evidence base for community infrastructure. Publish findings. Hold us accountable to the research. The platform is designed to be a living laboratory for the questions Ostrom, Dunbar, and Henrich spent careers asking.',
     cta: 'Read the research',

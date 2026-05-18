@@ -6,8 +6,8 @@ import { motion, AnimatePresence } from 'motion/react';
 const NAV_LINKS = [
   { label: 'Story', href: '#story' },
   { label: 'Thinking', href: '#thinking' },
-  { label: 'How It Works', href: '#product' },
-  { label: 'Go Deeper', href: '#deeper' },
+  { label: 'How it works', href: '#product' },
+  { label: 'Go deeper', href: '#deeper' },
   { label: 'Docs', href: '/docs' },
 ];
 
