@@ -9,7 +9,8 @@ const AUDIENCES = [
       'Configure request types, set governance rules, grow your community organically. The first communities will shape everything that comes after.',
     cta: 'Start a community',
     href: 'https://karmyq.com',
-    gradient: 'from-karmyq-green-500 to-karmyq-green-700',
+    headerClass: 'bg-karmyq-green-600',
+    btnClass: 'bg-karmyq-green-600 hover:bg-karmyq-green-700',
     icon: (
       <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 32 32" stroke="currentColor" strokeWidth="1.5">
         <circle cx="16" cy="10" r="4" />
@@ -25,7 +26,8 @@ const AUDIENCES = [
       'Karmyq is open source. Contribute to the platform, build integrations, or fork it for your context. The governance service is intentionally minimal — great territory for contributors.',
     cta: 'View on GitHub',
     href: 'https://github.com/ravichavali/karmyq',
-    gradient: 'from-karmyq-brown-600 to-karmyq-brown-800',
+    headerClass: 'bg-karmyq-brown-700',
+    btnClass: 'bg-karmyq-brown-700 hover:bg-karmyq-brown-900',
     icon: (
       <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 32 32" stroke="currentColor" strokeWidth="1.5">
         <path d="M10 20l4-8 4 8M12 17h4" strokeLinecap="round" strokeLinejoin="round" />
@@ -41,7 +43,8 @@ const AUDIENCES = [
       'Help build the evidence base for community infrastructure. Publish findings. Hold us accountable to the research. The platform is designed to be a living laboratory for the questions Ostrom, Dunbar, and Henrich spent careers asking.',
     cta: 'Read the research',
     href: '#deeper-research',
-    gradient: 'from-karmyq-teal-500 to-karmyq-teal-700',
+    headerClass: 'bg-karmyq-teal-600',
+    btnClass: 'bg-karmyq-teal-600 hover:bg-karmyq-teal-700',
     icon: (
       <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 32 32" stroke="currentColor" strokeWidth="1.5">
         <path d="M8 6h16v20l-8-4-8 4V6z" strokeLinejoin="round" />
@@ -63,6 +66,9 @@ export default function CTAs() {
             <h2 className="heading-2 text-karmyq-brown-900 mb-4">
               There&apos;s a place for you here.
             </h2>
+            <p className="body-large max-w-2xl mx-auto">
+              Whether you&apos;re organizing a neighborhood, contributing code, or studying community dynamics — we&apos;re building this in the open and want the right people shaping it.
+            </p>
           </div>
         </AnimateOnScroll>
 
@@ -70,8 +76,8 @@ export default function CTAs() {
           {AUDIENCES.map((audience, i) => (
             <AnimateOnScroll key={audience.title} delay={0.15 + i * 0.1}>
               <div className="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300 h-full flex flex-col">
-                {/* Gradient header */}
-                <div className={`bg-gradient-to-br ${audience.gradient} p-6 flex items-center gap-4`}>
+                {/* Solid header */}
+                <div className={`${audience.headerClass} p-6 flex items-center gap-4`}>
                   <div className="w-14 h-14 rounded-2xl bg-white/20 flex items-center justify-center">
                     {audience.icon}
                   </div>
@@ -87,7 +93,7 @@ export default function CTAs() {
                   </p>
                   <a
                     href={audience.href}
-                    className={`inline-flex items-center justify-center gap-2 px-6 py-3 rounded-full bg-gradient-to-r ${audience.gradient} text-white font-medium hover:opacity-90 transition-opacity`}
+                    className={`inline-flex items-center justify-center gap-2 px-6 py-3 rounded-full ${audience.btnClass} text-white font-medium transition-colors`}
                   >
                     {audience.cta}
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>

@@ -4,7 +4,7 @@ import AnimateOnScroll from '../AnimateOnScroll';
 
 export default function CommunityStories() {
   return (
-    <section className="section-padding bg-karmyq-cream">
+    <section id="stories" className="section-padding bg-karmyq-cream">
       <div className="container-narrow">
 
         {/* Founder's note */}

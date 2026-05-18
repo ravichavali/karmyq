@@ -1,22 +1,16 @@
 import AnimateOnScroll from './AnimateOnScroll';
 
 const LINKS = {
-  'The Vision': [
-    { label: 'About Karmyq', href: '#about' },
-    { label: 'Our Principles', href: '#principles' },
-    { label: 'Community Stories', href: '#stories' },
-    { label: 'Research Foundations', href: '#research' },
-  ],
-  Resources: [
-    { label: 'Pattern Library', href: '#' },
-    { label: 'Technical Docs', href: '#' },
-    { label: 'Community Guide', href: '#' },
-    { label: 'API Documentation', href: '#' },
+  'The vision': [
+    { label: 'Our story', href: '#story' },
+    { label: 'Our principles', href: '#principles' },
+    { label: 'Community stories', href: '#stories' },
+    { label: 'Research foundations', href: '#deeper-research' },
   ],
   Community: [
     { label: 'GitHub', href: 'https://github.com/ravichavali/karmyq' },
     { label: 'OpenCollective', href: 'https://opencollective.com/karmyq' },
-    { label: 'Contact', href: 'mailto:hello@karmyq.org' },
+    { label: 'Contact', href: 'mailto:ravichavali@gmail.com' },
   ],
 };
 
@@ -31,7 +25,7 @@ export default function Footer() {
               &ldquo;Meaning-making matters, not accounting.&rdquo;
             </blockquote>
             <p className="mt-4 text-sm text-karmyq-brown-400">
-              &mdash; The Karmyq Philosophy
+              &mdash; The Karmyq philosophy
             </p>
           </AnimateOnScroll>
         </div>
@@ -39,7 +33,7 @@ export default function Footer() {
 
       {/* Main footer */}
       <div className="max-w-6xl mx-auto px-6 md:px-12 py-16">
-        <div className="grid md:grid-cols-4 gap-12">
+        <div className="grid md:grid-cols-3 gap-12">
           {/* Brand */}
           <div>
             <div className="flex items-center gap-2 mb-4">
