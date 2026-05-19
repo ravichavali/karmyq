@@ -1,94 +1,31 @@
-import AnimateOnScroll from './AnimateOnScroll';
-
-const LINKS = {
-  'The vision': [
-    { label: 'Our story', href: '#story' },
-    { label: 'Our principles', href: '#principles' },
-    { label: 'Community stories', href: '#stories' },
-    { label: 'Research foundations', href: '#deeper-research' },
-  ],
-  Community: [
-    { label: 'GitHub', href: 'https://github.com/ravichavali/karmyq' },
-    { label: 'OpenCollective', href: 'https://opencollective.com/karmyq' },
-    { label: 'Contact', href: 'mailto:ravichavali@gmail.com' },
-  ],
-};
-
 export default function Footer() {
   return (
-    <footer className="bg-karmyq-brown-900 text-karmyq-brown-200">
-      {/* Quote banner */}
-      <div className="border-b border-karmyq-brown-800">
-        <div className="max-w-4xl mx-auto px-6 md:px-12 py-12 text-center">
-          <AnimateOnScroll>
-            <blockquote className="font-serif text-2xl md:text-3xl italic text-karmyq-brown-100 leading-relaxed">
-              &ldquo;Meaning-making matters, not accounting.&rdquo;
-            </blockquote>
-            <p className="mt-4 text-sm text-karmyq-brown-400">
-              &mdash; The Karmyq philosophy
-            </p>
-          </AnimateOnScroll>
-        </div>
-      </div>
+    <footer className="bg-karmyq-brown-900 text-karmyq-brown-400">
+      <div className="max-w-4xl mx-auto px-6 md:px-12 py-12 text-center space-y-4">
+        <p className="font-serif text-2xl md:text-3xl italic text-karmyq-brown-100 leading-relaxed">
+          &ldquo;Meaning-making matters, not accounting.&rdquo;
+        </p>
+        <p className="text-sm text-karmyq-brown-500">
+          &mdash; The Karmyq philosophy
+        </p>
 
-      {/* Main footer */}
-      <div className="max-w-6xl mx-auto px-6 md:px-12 py-16">
-        <div className="grid md:grid-cols-3 gap-12">
-          {/* Brand */}
-          <div>
-            <div className="flex items-center gap-2 mb-4">
-              <img src="/brand/karmyq-mark-dark.svg" width={32} height={32} alt="" />
-              <span className="font-serif text-2xl font-semibold tracking-tight text-white">Karmyq</span>
-            </div>
-            <p className="text-karmyq-brown-400 text-sm leading-relaxed mb-6">
-              Open-source infrastructure for community cooperation.
-              Built with care in Foster City, CA.
-            </p>
-            <div className="space-y-1 text-sm text-karmyq-brown-400">
-              <p>
-                <a href="https://karmyq.com" className="hover:text-karmyq-green-400 transition-colors">
-                  karmyq.com
-                </a>{' '}
-                &mdash; The platform
-              </p>
-              <p>
-                <a href="https://karmyq.org" className="hover:text-karmyq-green-400 transition-colors">
-                  karmyq.org
-                </a>{' '}
-                &mdash; The commons
-              </p>
-            </div>
-          </div>
-
-          {/* Link columns */}
-          {Object.entries(LINKS).map(([heading, links]) => (
-            <div key={heading}>
-              <h4 className="text-sm font-semibold text-white uppercase tracking-wider mb-4">
-                {heading}
-              </h4>
-              <ul className="space-y-3">
-                {links.map((link) => (
-                  <li key={link.label}>
-                    <a
-                      href={link.href}
-                      className="text-sm text-karmyq-brown-400 hover:text-karmyq-green-400 transition-colors"
-                    >
-                      {link.label}
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
-        </div>
-
-        {/* Bottom bar */}
-        <div className="mt-16 pt-8 border-t border-karmyq-brown-800 flex flex-col md:flex-row items-center justify-between gap-4">
-          <p className="text-sm text-karmyq-brown-500">
-            Open Source &middot; AGPLv3 License
+        <div className="pt-6 border-t border-karmyq-brown-800 space-y-3">
+          <p className="text-sm">
+            <a href="https://karmyq.org" className="hover:text-karmyq-green-400 transition-colors">karmyq.org</a>
+            {' '}&mdash; the commons{' '}&middot;{' '}
+            <a href="https://karmyq.com" className="hover:text-karmyq-green-400 transition-colors">karmyq.com</a>
+            {' '}&mdash; the platform
           </p>
-          <p className="text-sm text-karmyq-brown-500">
-            Built for communities, by communities
+          <p className="text-sm">
+            <a href="https://opencollective.com/karmyq" className="hover:text-karmyq-green-400 transition-colors">OpenCollective</a>
+            {' '}&middot;{' '}
+            <a href="https://github.com/ravichavali/karmyq" className="hover:text-karmyq-green-400 transition-colors">GitHub</a>
+            {' '}&middot;{' '}
+            <a href="mailto:ravichavali@gmail.com" className="hover:text-karmyq-green-400 transition-colors">Contact</a>
+            {' '}&middot;{' '}
+            Open source, AGPLv3
+            {' '}&middot;{' '}
+            No ads{' '}&middot;{' '}No tracking
           </p>
         </div>
       </div>

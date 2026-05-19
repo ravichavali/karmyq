@@ -176,6 +176,13 @@ export default function DeeperSections() {
                   layer, seed trust when someone joins a new community. But even the trust score is not
                   shown as a number between members. It is infrastructure, not interface.
                 </p>
+                <p>
+                  And it is not static. The system is designed to calibrate toward what is actually true —
+                  not to push trust higher as a goal, but to reflect what a community&apos;s behavior actually
+                  shows over time. The principle, built into the architecture, is accuracy over direction.
+                  Trust that is earned looks different from trust that is performed. The system, over time,
+                  learns the difference.
+                </p>
               </div>
             </Accordion>
           </AnimateOnScroll>

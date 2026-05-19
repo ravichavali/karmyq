@@ -120,6 +120,16 @@ export default function HowItWorks() {
               trust and karma flow, decides which kinds of help to enable. No platform override. The platform
               holds the infrastructure; the community holds the power.
             </p>
+            <p>
+              When a community is created, it goes through a short initialization process that sets its
+              starting trust character — how it weights deep relationships over broad ones, how open it is
+              to people beyond its immediate circle, what its default posture is toward other communities.
+              These become the community&apos;s starting parameters. Not fixed permanently — the model evolves
+              as the community actually behaves. Communities that cross boundaries frequently find their
+              model shifting toward openness. Communities that deepen existing relationships find the
+              opposite. The system calibrates toward what is actually true, not what was declared at
+              founding.
+            </p>
           </div>
         </AnimateOnScroll>
 

@@ -268,11 +268,12 @@ export default function TheThinking() {
               never yours.
             </p>
             <p>
-              Karmyq is designed to return the echo. Acts of helping inside a community become visible —
-              not as scores, but as the kind of textured, ambient knowledge that villages ran on for
-              millennia. Deliberately not reducible to a single number, because a single number can be
-              gamed and a genuine reputation cannot. The community knows who shows up. That knowing —
-              distributed, living, resistant to extraction — is the infrastructure.
+              Karmyq is designed to return the echo — but not by making acts visible. What someone has
+              done is not broadcast to the community. That would be surveillance with better branding.
+              Instead, the pattern of acts quietly shapes how the platform connects people: which requests
+              surface in your feed, how much trust you carry when you join a new community, how the path
+              between you and a stranger is weighted. The effect travels through the system. The ledger
+              does not.
             </p>
             <p>
               And the measure of success is not how much you use this platform. It is how little you

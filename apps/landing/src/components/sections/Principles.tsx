@@ -15,7 +15,7 @@ const PRINCIPLES = [
     ),
     title: 'Open source',
     description:
-      'Every line of code is public. Fork it, improve it, make it yours. Knowledge wants to be free — and so does the infrastructure for cooperation.',
+      'Every line of code is public. The infrastructure for community cooperation should belong to communities, not to a company with a growth mandate. Fork it, run it yourself, or build something better.',
     color: 'bg-karmyq-green-50 text-karmyq-green-600',
   },
   {
@@ -30,7 +30,7 @@ const PRINCIPLES = [
     ),
     title: 'Community sovereignty',
     description:
-      'Each community governs itself. Choose your own rules, reputation model, and request types. No one-size-fits-all. No platform override.',
+      'Each community sets its own rules — membership criteria, how trust flows, what kinds of help to enable. No platform override, ever. The platform holds the infrastructure; the community holds the power.',
     color: 'bg-karmyq-orange-50 text-karmyq-orange-600',
   },
   {
@@ -46,7 +46,7 @@ const PRINCIPLES = [
     ),
     title: 'Privacy as default',
     description:
-      'No tracking. No profiling. No ads. Interactions fade over time like footprints in sand. Your data belongs to your community.',
+      'No tracking. No ads. No profiling. Your interaction history belongs to your community, not to a database that outlives your membership. What you do inside a community stays inside a community.',
     color: 'bg-karmyq-teal-50 text-karmyq-teal-600',
   },
   {
@@ -61,7 +61,7 @@ const PRINCIPLES = [
     ),
     title: 'Meaning-making',
     description:
-      'We don\'t reduce relationships to transactions. Helping builds meaning — stories, not spreadsheets. Community, not currency.',
+      'The point is not efficiency. It is the relationship that forms when someone shows up, and the one that forms when you let them. We are not optimizing a transaction. We are building the conditions for community.',
     color: 'bg-karmyq-brown-50 text-karmyq-brown-500',
   },
   {
@@ -78,7 +78,7 @@ const PRINCIPLES = [
     ),
     title: 'Biomimetic design',
     description:
-      'Inspired by how living systems organize — mycelium networks, bee colonies, forest ecosystems. Resilient, adaptive, decentralized.',
+      'Healthy ecosystems are diverse, adaptive, and resistant to monoculture. So is Karmyq. A thousand communities with different rules, different trust models, different ways of cooperating — each adapted to its people.',
     color: 'bg-karmyq-green-50 text-karmyq-green-600',
   },
   {
@@ -92,7 +92,7 @@ const PRINCIPLES = [
     ),
     title: 'No extraction',
     description:
-      'We don\'t extract value from communities. No venture capital growth mandates. No monetization of relationships. Built to serve, not to scale.',
+      'Karmyq does not take a cut of trust. No ads, no data brokering, no VC growth mandate. The measure of success is not how much you use this platform. It is how little you eventually need to.',
     color: 'bg-karmyq-orange-50 text-karmyq-orange-600',
   },
 ];
