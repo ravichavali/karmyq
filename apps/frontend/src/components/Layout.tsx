@@ -145,14 +145,15 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
                     {hasProviderProfile && (
                       <button
                         onClick={() => setAvailability(!isAvailable)}
-                        className="relative p-2 rounded-lg transition-colors hover:bg-surface"
-                        aria-label={isAvailable ? 'Go off duty' : 'Go on duty'}
+                        className={`hidden md:flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-full border transition-all ${
+                          isAvailable
+                            ? 'bg-green-50 border-green-200 text-green-700 hover:bg-green-100'
+                            : 'bg-surface border-border text-text-muted hover:bg-surface-raised'
+                        }`}
                         title={isAvailable ? 'Click to go off duty' : 'Click to go on duty'}
                       >
-                        <span
-                          className="block w-3 h-3 rounded-full"
-                          style={{ background: isAvailable ? 'rgb(34 197 94)' : 'rgb(var(--color-text-muted) / 0.4)' }}
-                        />
+                        <span className={`w-2 h-2 rounded-full flex-shrink-0 ${isAvailable ? 'bg-green-500' : 'bg-gray-300'}`} />
+                        {isAvailable ? 'Available' : 'Off duty'}
                       </button>
                     )}
 

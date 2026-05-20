@@ -140,6 +140,10 @@ body {
            shadow-md text-sm font-medium text-text whitespace-nowrap
            hover:bg-primary hover:text-white hover:border-primary transition-all;
   }
+  /* Trigger button inside the expandable speed-dial container — same look as .fab but without fixed positioning */
+  .fab-trigger {
+    @apply btn-primary shadow-lg rounded-full px-5 py-3 flex items-center gap-2 text-sm font-semibold;
+  }
 
   /* ── Request Wizard ── */
   .wizard-step { @apply flex flex-col gap-4; }

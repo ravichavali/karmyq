@@ -77,7 +77,7 @@ export default function SpeedDialFab({ activeTab, onGetHelp, onGetService }: Spe
       )}
 
       <button
-        className="fab focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+        className="fab-trigger focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
         onClick={() => setExpanded(!expanded)}
         aria-label={expanded ? 'Close actions' : 'Open actions'}
         aria-expanded={expanded}
