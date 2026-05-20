@@ -1,19 +1,38 @@
-# SPRINT 59 — Dashboard UX Simplification | Ready to Execute
+# SPRINT 60 — Next Sprint | Ready to Plan
 
 ## Handoff Document
 
 **Date**: 2026-05-19
-**Current Version**: v9.25.0 (Sprint 58 shipped)
-**Status**: Sprint 58 complete + deployed. Sprint 59 spec + plan written — ready to execute.
+**Current Version**: v9.26.0 (Sprint 59 shipped)
+**Status**: Sprint 59 complete + pushed to master. GitHub Actions deploying. Sprint 60 not yet planned.
 
 ---
 
 ## Quick Start
 
-1. Read this handoff
-2. Check out branch: `git checkout -b feature/sprint-59-dashboard-ux`
-3. Open plan: `docs/superpowers/plans/2026-05-19-sprint-59-dashboard-ux.md`
-4. Run: `/execute-plan` (uses superpowers:subagent-driven-development)
+1. Read this handoff for context
+2. Discuss Sprint 60 goals (see Platform Coherence Backlog below for candidates)
+3. Run `/sprint-planning` to produce spec + plan for Sprint 60
+
+---
+
+## Sprint 59 — Dashboard UX Simplification ✅
+
+Shipped as v9.26.0. Merged to master 2026-05-19. Deploying via GitHub Actions.
+
+| Task | Result |
+|------|--------|
+| TabBar restructure | 4 tabs → 3: Browse / Helping / Asks. Profile tab removed entirely |
+| Tab renames | `commitments` → `helping`, `my-requests` → `asks` (TabId type, TABS array, badge logic) |
+| SpeedDialFab updated | `'commitments'` → `'helping'`, `'my-requests'` → `'asks'`; profile case removed |
+| requests/[id].tsx | Redirect updated: `?tab=commitments` → `?tab=helping` |
+| dashboard.tsx | Removed `ProviderDashboardCard` + `ProviderMatchingRequests` renders and their imports; removed `activeCommitmentsCount` |
+| Layout.tsx | Desktop nav + mobile hamburger: `{hasProviderProfile ? <Providers> : <Become a provider → /providers/new>}` |
+| Feed fix verified | All acceptance paths (dibs, matches, offers) already set `status = 'matched'`; BrowseFeed already filters `r.status === 'open'` — no backend change needed |
+| Landing email | `ravichavali@gmail.com` → `contact@karmyq.org` in Footer, CommunityStories, Movement |
+| Docs guides | "Commitments tab" → "Helping tab", "My Requests" → "Asks" in 6 source markdown files; landing JSON regenerated |
+| TDD tests | `apps/frontend/tests/tdd/sprint-59-dashboard-ux.test.tsx` — 4 tests, all passing |
+| Version | 9.24.0 → 9.26.0 |
 
 ---
 
@@ -223,7 +242,8 @@ Signals emitted by `trustEvolutionService.ts` have no subscriber that processes 
 | Sprint 56 | Backend simplification — DRY + TDD health | ✅ Complete |
 | Sprint 57 | Frontend simplification — API factory + community page | ✅ Complete + deployed |
 | Sprint 58 | karmyq.org rebuild — 3-layer content, deeper sections | ✅ Complete + deployed |
-| **Sprint 59** | **Dashboard UX Simplification (3 tabs, provider re-entry, feed fix)** | 🔵 Planned — ready to execute |
+| Sprint 59 | Dashboard UX Simplification (3 tabs, provider re-entry, feed fix) | ✅ Complete + deployed |
+| **Sprint 60** | **TBD — see Platform Coherence Backlog** | 🔵 Not yet planned |
 
 ---
 
@@ -231,7 +251,7 @@ Signals emitted by `trustEvolutionService.ts` have no subscriber that processes 
 
 - **Landing page docs source**: edit `docs/guides/*.md` + update `scripts/generate-docs.ts` arrays. Run `cd apps/landing && npm run generate-docs` to regenerate. Never hand-edit `apps/landing/src/data/docs/` directly.
 - **ADR numbering**: next ADR is **053**.
-- **TDD test placement**: sprint TDD tests go in `services/request-service/tests/tdd/` (NOT root `tests/tdd/`). Imports are relative: `../../src/...`.
+- **TDD test placement**: backend sprint tests go in `services/request-service/tests/tdd/` (NOT root `tests/tdd/`). Frontend sprint tests go in `apps/frontend/tests/tdd/`. Imports are relative to respective source dirs.
 - **Router mount paths**: always mount at full path (e.g. `/communities/trust-questions`) when router uses `router.get('/')`.
 - **JWT field** is `communities` not `communityMemberships` — always `user.communities ?? []`.
 - **Feed weights**: no sum constraint; normalized at query time in feed-service.
