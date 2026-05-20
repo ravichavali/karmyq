@@ -61,7 +61,11 @@
       "owner": "core",
       "path": "services/community-service",
       "apis": [
-        "/communities",
+        {
+          "method": "GET",
+          "path": "/communities",
+          "description": "List communities with filtering and sorting (sort: activity, newest, members, alphabetical)"
+        },
         "/communities/join",
         "/communities/my/communities",
         "/communities/:id/config",

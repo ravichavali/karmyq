@@ -471,11 +471,8 @@ export default function Dashboard() {
                 <div key="browse">
                   <BrowseFeed
                     communityId={activeCommunityId || undefined}
-                    serviceTypeFilter={
-                      hasProviderProfile && isAvailable && (providerServiceTypes?.length ?? 0) > 0
-                        ? providerServiceTypes
-                        : undefined
-                    }
+                    isOnDuty={hasProviderProfile && isAvailable}
+                    providerServiceTypes={providerServiceTypes ?? []}
                     noCommunities={userCommunities.length === 0}
                   />
                 </div>

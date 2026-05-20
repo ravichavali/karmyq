@@ -56,19 +56,31 @@ function formatTime(timestamp: string): string {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 
+type BrowseMode = 'community' | 'provider' | 'both'
+
 interface BrowseFeedProps {
   communityId?: string
-  serviceTypeFilter?: string[]  // if non-empty, show only requests matching these types
+  isOnDuty?: boolean
+  providerServiceTypes?: string[]
   noCommunities?: boolean
 }
 
-export default function BrowseFeed({ communityId, serviceTypeFilter, noCommunities }: BrowseFeedProps) {
+export default function BrowseFeed({ communityId, isOnDuty, providerServiceTypes, noCommunities }: BrowseFeedProps) {
   const [requests, setRequests] = useState<HelpRequest[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
   const [activeType, setActiveType] = useState<RequestTypeFilter>('all')
   const [activeUrgency, setActiveUrgency] = useState<UrgencyFilter>('all')
   const [offering, setOffering] = useState<string | null>(null)
+  const [browseMode, setBrowseMode] = useState<BrowseMode>(() => {
+    if (typeof window === 'undefined') return 'provider'
+    return (localStorage.getItem('karmyq_browse_mode') as BrowseMode) ?? 'provider'
+  })
+
+  const handleBrowseModeChange = (mode: BrowseMode) => {
+    setBrowseMode(mode)
+    localStorage.setItem('karmyq_browse_mode', mode)
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -98,7 +110,11 @@ export default function BrowseFeed({ communityId, serviceTypeFilter, noCommuniti
   const filtered = requests.filter((r) => {
     const typeMatch = activeType === 'all' || r.request_type === activeType
     const urgencyMatch = activeUrgency === 'all' || r.urgency === activeUrgency
-    const serviceMatch = !serviceTypeFilter?.length || serviceTypeFilter.includes(r.request_type ?? '')
+    const serviceMatch =
+      !isOnDuty ||
+      browseMode === 'community' ||
+      browseMode === 'both' ||
+      (browseMode === 'provider' && (providerServiceTypes ?? []).includes(r.request_type ?? ''))
     return typeMatch && urgencyMatch && serviceMatch
   })
 
@@ -144,18 +160,30 @@ export default function BrowseFeed({ communityId, serviceTypeFilter, noCommuniti
 
   return (
     <div className="max-w-2xl mx-auto px-4">
+      {isOnDuty && (
+        <div className="flex gap-1 mb-3 mt-1">
+          {(['community', 'provider', 'both'] as BrowseMode[]).map((mode) => (
+            <button
+              key={mode}
+              onClick={() => handleBrowseModeChange(mode)}
+              className={`flex-1 py-1.5 text-sm font-medium rounded-lg border transition-colors capitalize ${
+                browseMode === mode
+                  ? 'bg-primary text-white border-primary'
+                  : 'bg-surface text-text-muted border-border hover:border-primary hover:text-text'
+              }`}
+            >
+              {mode === 'community' ? 'Community' : mode === 'provider' ? 'Provider' : 'Both'}
+            </button>
+          ))}
+        </div>
+      )}
+
       <FilterChipRow
         activeType={activeType}
         activeUrgency={activeUrgency}
         onTypeChange={setActiveType}
         onUrgencyChange={setActiveUrgency}
       />
-
-      {serviceTypeFilter && serviceTypeFilter.length > 0 && (
-        <p className="text-xs text-text-muted mb-3">
-          Showing requests matching your service types
-        </p>
-      )}
 
       {filtered.length === 0 ? (
         noCommunities ? (
@@ -174,8 +202,13 @@ export default function BrowseFeed({ communityId, serviceTypeFilter, noCommuniti
         )
       ) : (
         <div className="space-y-3 pb-4">
-          {filtered.map((request) => (
-            <div key={request.id} className="feed-card">
+          {filtered.map((request) => {
+            const isProviderMatch =
+              isOnDuty &&
+              browseMode !== 'community' &&
+              (providerServiceTypes ?? []).includes(request.request_type ?? '')
+            return (
+            <div key={request.id} className={`feed-card ${isProviderMatch ? 'border-l-4 border-amber-400' : ''}`}>
               <div className="flex items-start justify-between gap-3 mb-2">
                 <div className="flex items-center gap-2 min-w-0">
                   <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-white text-xs font-semibold shrink-0">
@@ -195,6 +228,12 @@ export default function BrowseFeed({ communityId, serviceTypeFilter, noCommuniti
               </div>
 
               <h3 className="font-medium text-text mb-1">{request.title}</h3>
+
+              {isProviderMatch && (
+                <span className="inline-block text-xs px-2 py-0.5 rounded-full text-amber-600 bg-amber-50 mb-2">
+                  Provider match
+                </span>
+              )}
 
               {request.description && (
                 <p className="text-sm text-text-muted mb-3 line-clamp-2">{request.description}</p>
@@ -225,7 +264,8 @@ export default function BrowseFeed({ communityId, serviceTypeFilter, noCommuniti
                 </button>
               </div>
             </div>
-          ))}
+            )
+          })}
         </div>
       )}
     </div>
