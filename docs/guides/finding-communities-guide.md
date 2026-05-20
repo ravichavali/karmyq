@@ -4,6 +4,16 @@ Karmyq starts with geography because mutual aid is fundamentally local — the p
 
 ---
 
+## Your Communities
+
+At the top of the communities page, you'll see a **Your Communities** strip listing every community you've already joined. Each chip is a direct link to that community's page, and shows your role (member, admin, etc.) as a small badge.
+
+This strip is populated entirely from the information in your login token — no extra API call is made. It updates when you log in or rejoin, and disappears when you're not signed in or haven't joined any communities yet.
+
+Communities in this strip are automatically excluded from the discover grid below it, so you only see new communities to explore.
+
+---
+
 ## Geography Mode (Default)
 
 When you open the communities page, you're in **Near Me** mode. The page requests your location from the browser and sorts communities by distance from you.
@@ -43,6 +53,21 @@ Admins set their community's tags from the community admin page (Settings tab). 
 The toggle you choose (Geography or By Interest) is saved in your browser. The next time you open the communities page, you'll return to whichever mode you were using last.
 
 This uses your browser's `localStorage` — it's device-specific and doesn't sync across devices or browsers.
+
+---
+
+## Sorting Communities
+
+The communities grid defaults to **Most Active** order — communities with the most active members (inner circle and active community layers) appear first. This surfaces communities where real help is already happening rather than just the newest or largest ones.
+
+You can change the sort using the **Sort By** dropdown in the filters panel:
+
+| Option | What it does |
+|--------|-------------|
+| Most Active | Inner circle + active member count, then total members |
+| Newest First | Most recently created communities at the top |
+| Most Members | Largest communities first |
+| A-Z | Alphabetical by community name |
 
 ---
 

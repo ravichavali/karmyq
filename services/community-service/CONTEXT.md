@@ -228,7 +228,7 @@ Get all communities with optional filters.
 - `location` - Filter by location
 - `category` - Filter by category
 - `has_space` - Filter communities with available space ('true')
-- `sort` - Sort order: 'newest', 'members', 'alphabetical'
+- `sort` - Sort order: 'activity' (default), 'newest', 'members', 'alphabetical'
 
 **Response:**
 ```json

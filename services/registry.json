@@ -59,7 +59,7 @@
       },
       "apis": {
         "provides": [
-          "/communities",
+          {"method": "GET", "path": "/communities", "description": "List communities with filtering and sorting (sort: activity, newest, members, alphabetical)"},
           "/communities/join",
           "/communities/my/communities",
           "/communities/:id/config",

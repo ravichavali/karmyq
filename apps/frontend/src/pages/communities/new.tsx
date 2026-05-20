@@ -291,6 +291,13 @@ export default function NewCommunityPage() {
                   // Templates already have values set — skip to config. Otherwise, show questionnaire.
                   setStep(selectedTemplate ? 'config' : 'questionnaire')
                 }} className="space-y-6">
+                  <p className="text-sm text-text-muted mb-6">
+                    Set up your community's basic details.{' '}
+                    <Link href="/communities/config-templates" className="text-primary hover:text-primary-dark underline">
+                      Browse templates
+                    </Link>{' '}
+                    to see how other communities configure karma and trust.
+                  </p>
                   {!selectedTemplate && (
                     <div className="bg-surface border border-border rounded-lg p-4 mb-6">
                       <p className="text-sm text-text-muted mb-2">

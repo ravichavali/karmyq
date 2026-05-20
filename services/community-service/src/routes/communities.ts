@@ -185,6 +185,8 @@ router.get('/', async (req: any, res: Response) => {
     let orderBy = 'c.created_at DESC';
     if (sort === 'members') {
       orderBy = 'c.current_members DESC, c.created_at DESC';
+    } else if (sort === 'activity') {
+      orderBy = 'COALESCE(ls.inner_circle, 0) DESC, COALESCE(ls.active_community, 0) DESC, c.current_members DESC, c.created_at DESC';
     } else if (sort === 'alphabetical') {
       orderBy = 'c.name ASC';
     }

@@ -83,7 +83,7 @@ export default function Dashboard() {
   const [showWizard, setShowWizard] = useState(false)
   const [pendingDibsCount, setPendingDibsCount] = useState(0)
 
-  const { hasProviderProfile, isAvailable, providerProfiles } = useProvider()
+  const { hasProviderProfile, isAvailable, providerProfiles, providerServiceTypes } = useProvider()
   const { shouldShow: showFeedOnboarding, markSeen: markFeedSeen } = useOnboarding('feed')
 
   useEffect(() => {
@@ -471,7 +471,11 @@ export default function Dashboard() {
                 <div key="browse">
                   <BrowseFeed
                     communityId={activeCommunityId || undefined}
-                    serviceTypeFilter={undefined}
+                    serviceTypeFilter={
+                      hasProviderProfile && isAvailable && (providerServiceTypes?.length ?? 0) > 0
+                        ? providerServiceTypes
+                        : undefined
+                    }
                     noCommunities={userCommunities.length === 0}
                   />
                 </div>

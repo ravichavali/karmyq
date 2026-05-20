@@ -98,7 +98,7 @@ export default function CommunitiesPage() {
   const [locationFilter, setLocationFilter] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('')
   const [hasSpaceFilter, setHasSpaceFilter] = useState(false)
-  const [sortBy, setSortBy] = useState('newest')
+  const [sortBy, setSortBy] = useState('activity')
   const [showFilters, setShowFilters] = useState(!isWelcomeFlow)
   const [initialized, setInitialized] = useState(false)
 
@@ -343,7 +343,7 @@ export default function CommunitiesPage() {
     setLocationFilter('')
     setCategoryFilter('')
     setHasSpaceFilter(false)
-    setSortBy('newest')
+    setSortBy('activity')
     setSelectedTags([])
   }
 
@@ -355,7 +355,7 @@ export default function CommunitiesPage() {
       <Head>
         <title>Discover Communities - Karmyq</title>
       </Head>
-      <Layout title="Discover Communities">
+      <Layout>
         <div className="container mx-auto px-4 py-8">
           {/* Header */}
           <div className="mb-6 flex justify-between items-center">
@@ -373,8 +373,8 @@ export default function CommunitiesPage() {
             </Link>
           </div>
 
-          {/* Welcome banner for new users; config banner for returning users */}
-          {isWelcomeFlow ? (
+          {/* Welcome banner for new users only */}
+          {isWelcomeFlow && (
             <div className="bg-gradient-to-r from-primary-light to-accent-light border border-primary-medium rounded-lg p-4 mb-6">
               <div className="flex items-center gap-3">
                 <span className="text-2xl">👋</span>
@@ -386,32 +386,27 @@ export default function CommunitiesPage() {
                 </div>
               </div>
             </div>
-          ) : (
-            <div className="bg-gradient-to-r from-primary-light to-accent-light border border-primary-medium rounded-lg p-4 mb-6">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="text-2xl">⚙️</span>
-                  <div>
-                    <h3 className="font-semibold text-text">Community Configuration</h3>
-                    <p className="text-sm text-text-muted">
-                      Explore how different communities set up their karma and trust mechanics
-                    </p>
-                  </div>
-                </div>
-                <div className="flex gap-3">
+          )}
+
+          {/* Your Communities strip — zero API calls, reads JWT from user state */}
+          {user && (user.communities ?? []).length > 0 && (
+            <div className="mb-6">
+              <h2 className="text-sm font-semibold text-text-muted uppercase tracking-wide mb-3">
+                Your Communities
+              </h2>
+              <div className="flex flex-wrap gap-2">
+                {(user.communities ?? []).map((c: { id: string; name: string; role: string }) => (
                   <Link
-                    href="/communities/config-templates"
-                    className="px-4 py-2 bg-surface-raised border border-primary-medium text-primary-dark rounded hover:bg-primary-light text-sm font-medium transition-colors"
+                    key={c.id}
+                    href={`/communities/${c.id}`}
+                    className="inline-flex items-center gap-2 px-3 py-2 bg-surface-raised border border-border rounded-lg text-sm font-medium text-text hover:border-primary hover:text-primary transition-colors"
                   >
-                    📋 Browse Templates
+                    {c.name}
+                    <span className="text-xs text-text-subtle capitalize bg-surface px-1.5 py-0.5 rounded-full">
+                      {c.role}
+                    </span>
                   </Link>
-                  <Link
-                    href="/communities/configs/public"
-                    className="px-4 py-2 bg-primary text-white rounded hover:bg-primary-dark text-sm font-medium transition-colors"
-                  >
-                    ⭐ Thriving Communities
-                  </Link>
-                </div>
+                ))}
               </div>
             </div>
           )}
@@ -515,6 +510,7 @@ export default function CommunitiesPage() {
                   onChange={(e) => setSortBy(e.target.value)}
                   className="w-full px-3 py-2 border border-border rounded-lg bg-surface text-text focus:outline-none focus:ring-2 focus:ring-primary"
                 >
+                  <option value="activity">Most Active</option>
                   <option value="newest">Newest First</option>
                   <option value="members">Most Members</option>
                   <option value="alphabetical">A-Z</option>
@@ -572,11 +568,27 @@ export default function CommunitiesPage() {
             />
           ) : (
             <>
-              <div className="mb-4 text-sm text-text-muted">
-                Found {communities.length} {communities.length === 1 ? 'community' : 'communities'}
-              </div>
-              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {communities.map((community) => {
+              {(() => {
+                const joinedIds = new Set((user?.communities ?? []).map((c: any) => c.id))
+                const discoverCommunities = communities.filter(c => !joinedIds.has(c.id))
+                return (
+                  <>
+                    {discoverCommunities.length > 0 && (user?.communities ?? []).length > 0 && (
+                      <h2 className="text-sm font-semibold text-text-muted uppercase tracking-wide mb-4">
+                        Discover More
+                      </h2>
+                    )}
+                    {discoverCommunities.length === 0 && communities.length > 0 ? (
+                      <div className="mb-4 text-sm text-text-muted">
+                        You've joined all available communities in this view.
+                      </div>
+                    ) : (
+                      <div className="mb-4 text-sm text-text-muted">
+                        Found {discoverCommunities.length} {discoverCommunities.length === 1 ? 'community' : 'communities'}
+                      </div>
+                    )}
+                    <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                      {discoverCommunities.map((community) => {
                   const memberStatus = membershipStatus[community.id]
                   const isFull = community.current_members >= community.max_members
 
@@ -735,8 +747,11 @@ export default function CommunitiesPage() {
                       </div>
                     </div>
                   )
-                })}
-              </div>
+                      })}
+                    </div>
+                  </>
+                )
+              })()}
 
               {/* Load More Button */}
               {hasMore && (

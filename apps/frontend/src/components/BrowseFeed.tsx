@@ -151,6 +151,12 @@ export default function BrowseFeed({ communityId, serviceTypeFilter, noCommuniti
         onUrgencyChange={setActiveUrgency}
       />
 
+      {serviceTypeFilter && serviceTypeFilter.length > 0 && (
+        <p className="text-xs text-text-muted mb-3">
+          Showing requests matching your service types
+        </p>
+      )}
+
       {filtered.length === 0 ? (
         noCommunities ? (
           <EmptyState
