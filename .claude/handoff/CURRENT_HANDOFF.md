@@ -1,27 +1,61 @@
-# SPRINT 60 — Provider Browse Fork | Ready to Plan
+# SPRINT 60 — Provider Browse Fork + Communities Polish | Ready to Execute
 
 ## Handoff Document
 
 **Date**: 2026-05-20
 **Current Version**: v9.26.0 (Sprint 59 shipped)
-**Status**: Sprint 59 complete + deployed. Sprint 60 direction decided — run `/sprint-planning` to produce spec + plan.
+**Status**: Sprint 60 spec + plan written. Ready to execute.
 
 ---
 
 ## Quick Start
 
 1. Read this handoff
-2. Run `/sprint-planning` with this goal:
+2. Check out branch: `git checkout -b feature/sprint-60-browse-fork-communities`
+3. Open plan: `docs/superpowers/plans/2026-05-20-sprint-60-browse-fork-communities.md`
+4. Run: `/execute-plan` (uses superpowers:subagent-driven-development)
 
-> **Sprint 60 — Provider Browse Fork**
-> The availability toggle (Available / Off duty pill in the nav) should fork what Browse shows:
-> - **On-duty** → Browse shows only requests matching the provider's service type (provider feed)
-> - **Off-duty** → Browse shows the normal community feed
-> No extra toggles, no new tabs. The availability pill is the only control.
->
-> Key files: `apps/frontend/src/pages/dashboard.tsx`, `apps/frontend/src/components/BrowseFeed.tsx`, `apps/frontend/src/contexts/ProviderContext.tsx`
-> `BrowseFeed` already accepts `serviceTypeFilter?: string[]` prop — passing provider's service types when on-duty is likely most of the work.
-> `ProviderContext` exposes `isAvailable` and `providerServiceTypes` already.
+---
+
+## Sprint 60 Goal
+
+**Two tracks, one sprint:**
+
+**Track A — Provider Browse Fork**: The availability toggle (Available / Off duty pill in the nav) forks what Browse shows:
+- **On-duty** → Browse shows only requests matching the provider's service types
+- **Off-duty** → Browse shows the normal community feed
+
+**Track B — Communities Page Polish**:
+- Fix duplicate "Discover Communities" heading (Layout + in-page both render it)
+- Remove Community Configuration banner from discover page; move "Browse Templates" link into community creation step 1
+- Add "Your Communities" strip at top using JWT data (zero extra API calls)
+- Filter already-joined communities out of the discover grid
+- Add `activity` sort option to backend; change frontend default from `newest` → `activity`
+
+---
+
+## Spec + Plan
+
+- Spec: `docs/superpowers/specs/2026-05-20-sprint-60-browse-fork-communities-design.md`
+- Plan: `docs/superpowers/plans/2026-05-20-sprint-60-browse-fork-communities.md`
+
+---
+
+## ⚠️ Critical Implementation Notes
+
+1. **Provider Browse Fork — only fork for providers**: Only pass `serviceTypeFilter` when `hasProviderProfile && isAvailable && providerServiceTypes.length > 0`. Non-providers always see the normal community feed.
+
+2. **BrowseFeed `serviceTypeFilter` wiring**: Verify the prop filters in the API call, not just client-side display.
+
+3. **"Your Communities" zero API calls**: Use `user.communities` from the JWT in localStorage. Shape: `Array<{id, name, role}>`.
+
+4. **Activity sort alias**: The default community query branch selects `COALESCE(ls.inner_circle, 0) as inner_circle_count`. PostgreSQL ORDER BY can reference this alias. Use `inner_circle_count DESC, active_community_count DESC`.
+
+5. **Filter joined client-side only**: Build a `Set` in render, filter `communities` array there — do NOT filter in state (preserves correct Load More offsets).
+
+6. **Default sort change**: `useState('activity')` → confirm the `initialized` guard in the filter-change effect prevents double-fetch on first render.
+
+7. **Browse Templates link**: Goes in the `basic` step of `/communities/new`, before the first form field. Subtle: `text-sm text-text-muted` + `text-primary` inline link.
 
 ---
 
@@ -252,7 +286,7 @@ Signals emitted by `trustEvolutionService.ts` have no subscriber that processes 
 | Sprint 57 | Frontend simplification — API factory + community page | ✅ Complete + deployed |
 | Sprint 58 | karmyq.org rebuild — 3-layer content, deeper sections | ✅ Complete + deployed |
 | Sprint 59 | Dashboard UX Simplification (3 tabs, provider re-entry, feed fix) | ✅ Complete + deployed |
-| **Sprint 60** | **TBD — see Platform Coherence Backlog** | 🔵 Not yet planned |
+| **Sprint 60** | **Provider Browse Fork + Communities Polish** | 🟡 Ready to execute |
 
 ---
 
