@@ -1,10 +1,10 @@
-# SPRINT 59 — Dashboard UX Redesign | Ready to Execute
+# SPRINT 59 — Dashboard UX Simplification | Ready to Execute
 
 ## Handoff Document
 
-**Date**: 2026-05-18
+**Date**: 2026-05-19
 **Current Version**: v9.25.0 (Sprint 58 shipped)
-**Status**: Sprint 58 complete + deployed. Sprint 59 (Dashboard UX Redesign) is next.
+**Status**: Sprint 58 complete + deployed. Sprint 59 spec + plan written — ready to execute.
 
 ---
 
@@ -12,7 +12,7 @@
 
 1. Read this handoff
 2. Check out branch: `git checkout -b feature/sprint-59-dashboard-ux`
-3. Write plan or open existing spec
+3. Open plan: `docs/superpowers/plans/2026-05-19-sprint-59-dashboard-ux.md`
 4. Run: `/execute-plan` (uses superpowers:subagent-driven-development)
 
 ---
@@ -156,26 +156,34 @@ Full rebuild of the karmyq.org landing page. Content-complete from `karmyq-org-v
 
 ---
 
-## Sprint 59 — Dashboard UX Redesign (Next)
+## Sprint 59 — Dashboard UX Simplification (Ready to Execute)
 
 ### Goal
 
-Redesign the community dashboard: 4 tabs → 3 (Browse / Active / Profile), remove sidebars, merge Commitments + My Requests into action-first "Active" tab.
+Simplify the personal dashboard: drop the Profile tab stub (profile is already accessible via name click in nav), rename Commitments→Helping and My Requests→Asks, remove the ProviderDashboardCard stat panel (anti-gamification), restore a "Become a provider" entry point in nav for non-providers, and fix the feed bug where confirmed matches still appear as open requests in Browse.
 
-### Sprint 59 Detail
+### Scope
 
-Previously Sprint 58. Deferred one sprint for karmyq.org rebuild.
+- **Tab restructure**: 4 tabs → 3 (Browse / Helping / Asks). Profile tab removed entirely.
+- **Tab renames**: `commitments` → `helping`, `my-requests` → `asks`
+- **Remove provider stat cards**: `ProviderDashboardCard` + `ProviderMatchingRequests` removed from dashboard.tsx render (components stay in codebase)
+- **Provider re-entry**: Add "Become a provider" link in desktop nav + mobile hamburger for users without a provider profile → `/providers/new`
+- **Feed fix**: Verify and fix that accepting a match updates the request status to `matched`; BrowseFeed already filters `status === 'open'`
 
-- **Dashboard**: 4 tabs → 3 (Browse / Active / Profile), remove sidebars (full-width), merge Commitments + My Requests into action-first "Active" tab
-- **Tab renames**: `commitments→helping`, `my-requests→asks`, `profile→me`
-- **Foundation**: Sprint 57's `ActiveTab.tsx` + `useCommunityData.ts` make this sprint much easier — components already decomposed
+### Spec + Plan
 
-### Quick Start for Sprint 59
+- Spec: `docs/superpowers/specs/2026-05-19-sprint-59-dashboard-ux-design.md`
+- Plan: `docs/superpowers/plans/2026-05-19-sprint-59-dashboard-ux.md`
 
-1. Confirm Sprint 58 is merged + deployed (✅ done)
-2. Check out branch: `git checkout -b feature/sprint-59-dashboard-ux`
-3. Write plan or open existing spec
-4. Run: `/execute-plan`
+### Key Files
+
+| File | Change |
+|------|--------|
+| `apps/frontend/src/components/TabBar.tsx` | Remove `'profile'` from `TabId`, rename tabs |
+| `apps/frontend/src/pages/dashboard.tsx` | Remove profile render + provider stat cards; update tab IDs |
+| `apps/frontend/src/components/Layout.tsx` | Add "Become a provider" link for non-providers |
+| `apps/frontend/src/pages/requests/[id].tsx` | Update `?tab=commitments` → `?tab=helping` |
+| `services/request-service/src/routes/requests.ts` | Verify match acceptance sets request status to `matched` |
 
 ---
 
@@ -215,7 +223,7 @@ Signals emitted by `trustEvolutionService.ts` have no subscriber that processes 
 | Sprint 56 | Backend simplification — DRY + TDD health | ✅ Complete |
 | Sprint 57 | Frontend simplification — API factory + community page | ✅ Complete + deployed |
 | Sprint 58 | karmyq.org rebuild — 3-layer content, deeper sections | ✅ Complete + deployed |
-| **Sprint 59** | **Dashboard UX Redesign (4→3 tabs, full-width)** | 🔵 Next up |
+| **Sprint 59** | **Dashboard UX Simplification (3 tabs, provider re-entry, feed fix)** | 🔵 Planned — ready to execute |
 
 ---
 
@@ -231,7 +239,7 @@ Signals emitted by `trustEvolutionService.ts` have no subscriber that processes 
 - **Pre-existing TDD failures**: `sprint-39-provider-ux` (7 tests fail), `sprint-43-feed-ranking` (crashes), schema-related tests. Do NOT fix.
 - **Solo dev — no worktrees**: work directly on feature branches (`git checkout -b feature/sprint-NN`). Worktrees cause hundreds of npm install prompts, lockfile conflicts, and jest path bugs.
 - **`?type=` routing in dibs-candidate**: `type === 'service'` → `getBestCandidate` (provider_profiles). Anything else → `getMutualAidBestCandidate` (auth.users).
-- **Provider nav (post Sprint 50)**: `ProviderModeSwitcher` and `ProviderNotificationBell` are no longer rendered. Do not add them back.
+- **Provider nav (post Sprint 50)**: `ProviderModeSwitcher` and `ProviderNotificationBell` are no longer rendered. Do not add them back. Sprint 59 adds a "Become a provider" link (`/providers/new`) for non-provider users in the nav — that's the intended replacement for re-entry.
 - **Explore tier — `sg.type = 'exchange'` only**: community-only connections do NOT qualify for explore dibs tier.
 - **Trust path URL pattern**: `http://social-graph-service:3010/social-graph/paths/:userId` — nginx strips `/api` prefix but NOT the service prefix (`/social-graph`).
 - **Provider offer acceptance**: `offersDb.acceptOffer` closes the request and rejects proposed matches. Keep consistent if any new acceptance path is added.
