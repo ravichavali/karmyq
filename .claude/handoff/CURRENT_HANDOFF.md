@@ -1,27 +1,84 @@
-# SPRINT 61 — Next Sprint TBD | Sprint 60 Shipped
+# SPRINT 61 — On-Duty Browse Refinement | Ready to Execute
 
 ## Handoff Document
 
 **Date**: 2026-05-20
-**Current Version**: v9.27.0 (Sprint 60 shipped)
-**Status**: Sprint 60 merged + pushed. GitHub Actions deploying to karmyq.com. No active plan.
+**Current Version**: v9.27.0 → v9.28.0 (Sprint 61 in progress)
+**Status**: Spec + plan written. No code started. Branch not yet created.
 
 ---
 
 ## Quick Start
 
-Sprint 60 is complete. No active handoff task. Pick from the Platform Coherence Backlog or plan Sprint 61.
+1. Read this handoff
+2. Create branch: `git checkout -b feature/sprint-61-on-duty-browse`
+3. Open plan: `docs/superpowers/plans/2026-05-20-sprint-61-on-duty-browse.md`
+4. Run: `/execute-plan` (uses superpowers:subagent-driven-development)
 
-```bash
-# Check deploy status
-gh run list --branch master --limit 3
-```
+---
+
+## Sprint 61 Goal
+
+Replace the binary on-duty feed fork (Sprint 60) with a 3-chip segmented control — **Community / Provider / Both** — and add amber left-border card accents on provider-match requests. Pure frontend. No backend changes. No migrations.
+
+---
+
+## What Was Shipped Last (Sprint 60)
+
+v9.27.0 shipped:
+- Provider Browse Fork: `serviceTypeFilter` passed to `BrowseFeed` when provider is on-duty + has service types
+- "Showing requests matching your service types" static label in `BrowseFeed`
+- Communities polish (duplicate heading, config banner, Your Communities strip, activity sort)
+
+Sprint 61 **replaces** the `serviceTypeFilter` prop pattern with `isOnDuty + providerServiceTypes`.
+
+---
+
+## Sprint 61 — Key Design Decisions
+
+**Prop change (breaking, safe):**
+- `BrowseFeed` interface: remove `serviceTypeFilter?: string[]`, add `isOnDuty?: boolean` + `providerServiceTypes?: string[]`
+- Only one callsite: `apps/frontend/src/pages/dashboard.tsx:472-479`
+
+**State:**
+- `browseMode: 'community' | 'provider' | 'both'` owned by `BrowseFeed`
+- Initialized from `localStorage.getItem('karmyq_browse_mode')` — default `'provider'` when on-duty
+- Persisted to `localStorage` on chip click
+
+**Segmented control:**
+- Renders inside `BrowseFeed` above `<FilterChipRow>`, only when `isOnDuty`
+- Off-duty: control hidden, no filtering, no accents (behavior identical to pre-Sprint-60)
+
+**Card accents (provider-match cards):**
+- Left-border: `border-l-4 border-amber-400`
+- Badge below title: `text-amber-600 bg-amber-50` "Provider match"
+- Active in `'provider'` and `'both'` modes; hidden in `'community'` mode
+
+**TDD:** write tests FIRST in Task 2 — tests fail until implementation is complete (Task 3–6).
+
+---
+
+## Sprint 61 — File Map
+
+| File | Change |
+|------|--------|
+| `apps/frontend/src/components/BrowseFeed.tsx` | Props refactor + browseMode state + segmented control UI + filter logic + card accents |
+| `apps/frontend/src/pages/dashboard.tsx` | Update `<BrowseFeed>` props |
+| `apps/frontend/tests/tdd/sprint-61-on-duty-browse.test.tsx` | TDD tests (written first) |
+| `docs/guides/provider-mode-guide.md` | Update for current on-duty UX + new Feed Modes section |
+
+---
+
+## Sprint 61 — Links
+
+- **Design spec**: `docs/superpowers/specs/2026-05-20-sprint-61-on-duty-browse-design.md`
+- **Implementation plan**: `docs/superpowers/plans/2026-05-20-sprint-61-on-duty-browse.md`
 
 ---
 
 ## Sprint 60 — Provider Browse Fork + Communities Polish ✅
 
-Shipped as v9.27.0. Merged to master 2026-05-20. GitHub Actions deploying.
+Shipped as v9.27.0. Merged to master 2026-05-20.
 
 | Task | Result |
 |------|--------|
@@ -39,12 +96,6 @@ Shipped as v9.27.0. Merged to master 2026-05-20. GitHub Actions deploying.
 | CONTEXT.md | `services/community-service/CONTEXT.md` updated with `activity` sort option |
 | registry.json | `GET /communities` entry updated with sort options description |
 | Version | 9.26.0 → 9.27.0 |
-
-### Key implementation details
-- **BrowseFeed filtering is client-side**: `serviceTypeFilter` filters the 50-item fetched list in render. Backend `getCuratedRequests` doesn't need a service_type param — fetching all types and filtering locally is sufficient for demo scale.
-- **`useProvider()` hook** (not `useProviderContext`) — the correct export from `ProviderContext.tsx`
-- **Your Communities IIFE in render**: `joinedIds` and `discoverCommunities` are derived inside an IIFE in the JSX return (not in state) to keep "Load More" offsets correct.
-- **Activity sort uses full expressions**: `COALESCE(ls.inner_circle, 0) DESC` not alias `inner_circle_count DESC` — avoids any PostgreSQL ambiguity with lateral join aliases in ORDER BY.
 
 ---
 
@@ -87,7 +138,7 @@ Signals emitted by `trustEvolutionService.ts` have no subscriber that processes 
 | Sprint 58 | karmyq.org rebuild — 3-layer content, deeper sections | ✅ Complete + deployed |
 | Sprint 59 | Dashboard UX Simplification (3 tabs, provider re-entry, feed fix) | ✅ Complete + deployed |
 | Sprint 60 | Provider Browse Fork + Communities Polish | ✅ Complete + deployed |
-| **Sprint 61** | **TBD** | 🔲 Not planned |
+| **Sprint 61** | **On-Duty Browse Refinement** | 🔲 In planning — execute now |
 
 ---
 
@@ -120,7 +171,7 @@ Signals emitted by `trustEvolutionService.ts` have no subscriber that processes 
   - Brand assets live in `public/brand/` (not `public/` root).
 - **Frontend lint pre-existing failure**: `@next/eslint-plugin-next` not found in CI — pre-existing. Not a blocker.
 - **Version drift (pre-existing)**: 5 packages have version drift flagged by `npm run analyze:services`. Defer to a dedicated chore PR.
-- **BrowseFeed serviceTypeFilter**: client-side only (filters the 50-item fetched array). Backend curated endpoint doesn't support service_type param — this is intentional for demo scale.
+- **BrowseFeed serviceTypeFilter (Sprint 60 — REPLACED in Sprint 61)**: Sprint 60 used `serviceTypeFilter` prop. Sprint 61 replaces it with `isOnDuty` + `providerServiceTypes` + `browseMode` state.
 - **Communities index IIFE pattern**: `joinedIds` + `discoverCommunities` are derived in an IIFE `{(() => { ... return (...) })()}` inside JSX so they don't pollute component state and Load More offsets stay correct.
 
 ---
@@ -133,4 +184,4 @@ ssh ubuntu@karmyq.com
 psql -U postgres -d karmyq < ~/karmyq/infrastructure/postgres/migrations/20260510-refresh-tokens.sql
 ```
 
-Sprint 56–60 have **no schema changes** — no migrations needed.
+Sprint 56–61 have **no schema changes** — no migrations needed.
