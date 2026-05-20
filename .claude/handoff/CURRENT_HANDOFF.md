@@ -1,18 +1,27 @@
-# SPRINT 60 — Next Sprint | Ready to Plan
+# SPRINT 60 — Provider Browse Fork | Ready to Plan
 
 ## Handoff Document
 
-**Date**: 2026-05-19
+**Date**: 2026-05-20
 **Current Version**: v9.26.0 (Sprint 59 shipped)
-**Status**: Sprint 59 complete + pushed to master. GitHub Actions deploying. Sprint 60 not yet planned.
+**Status**: Sprint 59 complete + deployed. Sprint 60 direction decided — run `/sprint-planning` to produce spec + plan.
 
 ---
 
 ## Quick Start
 
-1. Read this handoff for context
-2. Discuss Sprint 60 goals (see Platform Coherence Backlog below for candidates)
-3. Run `/sprint-planning` to produce spec + plan for Sprint 60
+1. Read this handoff
+2. Run `/sprint-planning` with this goal:
+
+> **Sprint 60 — Provider Browse Fork**
+> The availability toggle (Available / Off duty pill in the nav) should fork what Browse shows:
+> - **On-duty** → Browse shows only requests matching the provider's service type (provider feed)
+> - **Off-duty** → Browse shows the normal community feed
+> No extra toggles, no new tabs. The availability pill is the only control.
+>
+> Key files: `apps/frontend/src/pages/dashboard.tsx`, `apps/frontend/src/components/BrowseFeed.tsx`, `apps/frontend/src/contexts/ProviderContext.tsx`
+> `BrowseFeed` already accepts `serviceTypeFilter?: string[]` prop — passing provider's service types when on-duty is likely most of the work.
+> `ProviderContext` exposes `isAvailable` and `providerServiceTypes` already.
 
 ---
 
