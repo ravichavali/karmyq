@@ -7,6 +7,7 @@ import { sortByActionPriority } from '../utils/commitmentSort'
 import ExpandableConversation from './ExpandableConversation'
 import { TrustCard } from './TrustCard'
 import DibsCard from './commitments/DibsCard'
+import BrowseModeControl, { BrowseMode } from './BrowseModeControl'
 
 interface Match {
   id: string
@@ -89,9 +90,12 @@ function SectionBlock({
 
 interface CommitmentsTabProps {
   onDibsLoaded?: (count: number) => void
+  isOnDuty?: boolean
+  browseMode?: BrowseMode
+  onBrowseModeChange?: (mode: BrowseMode) => void
 }
 
-export default function CommitmentsTab({ onDibsLoaded }: CommitmentsTabProps = {}) {
+export default function CommitmentsTab({ onDibsLoaded, isOnDuty, browseMode, onBrowseModeChange }: CommitmentsTabProps = {}) {
   const [helping, setHelping] = useState<Match[]>([])
   const [requested, setRequested] = useState<Match[]>([])
   const [myOpenRequests, setMyOpenRequests] = useState<any[]>([])
@@ -462,6 +466,10 @@ export default function CommitmentsTab({ onDibsLoaded }: CommitmentsTabProps = {
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-4 space-y-8">
+      {isOnDuty && browseMode && onBrowseModeChange && (
+        <BrowseModeControl browseMode={browseMode} onChange={onBrowseModeChange} />
+      )}
+
       {/* Dibs Requests — shown first so provider can't miss them */}
       {pendingDibs.length > 0 && (
         <section>

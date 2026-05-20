@@ -4,6 +4,7 @@ import FilterChipRow, { RequestTypeFilter, UrgencyFilter } from './FilterChipRow
 import EmptyState from './EmptyState'
 import TrustPathBadge, { TrustPathBadgeSkeleton } from './TrustPathBadge'
 import { useTrustPath } from '@/hooks/useTrustPath'
+import BrowseModeControl, { BrowseMode } from './BrowseModeControl'
 
 interface HelpRequest {
   id: string
@@ -56,30 +57,33 @@ function formatTime(timestamp: string): string {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 
-type BrowseMode = 'community' | 'provider' | 'both'
-
 interface BrowseFeedProps {
   communityId?: string
   isOnDuty?: boolean
   providerServiceTypes?: string[]
   noCommunities?: boolean
+  browseMode?: BrowseMode
+  onBrowseModeChange?: (mode: BrowseMode) => void
 }
 
-export default function BrowseFeed({ communityId, isOnDuty, providerServiceTypes, noCommunities }: BrowseFeedProps) {
+export default function BrowseFeed({ communityId, isOnDuty, providerServiceTypes, noCommunities, browseMode: externalBrowseMode, onBrowseModeChange }: BrowseFeedProps) {
   const [requests, setRequests] = useState<HelpRequest[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
   const [activeType, setActiveType] = useState<RequestTypeFilter>('all')
   const [activeUrgency, setActiveUrgency] = useState<UrgencyFilter>('all')
   const [offering, setOffering] = useState<string | null>(null)
-  const [browseMode, setBrowseMode] = useState<BrowseMode>(() => {
+  const [internalBrowseMode, setInternalBrowseMode] = useState<BrowseMode>(() => {
     if (typeof window === 'undefined') return 'provider'
     return (localStorage.getItem('karmyq_browse_mode') as BrowseMode) ?? 'provider'
   })
 
+  const browseMode = externalBrowseMode ?? internalBrowseMode
+
   const handleBrowseModeChange = (mode: BrowseMode) => {
-    setBrowseMode(mode)
+    setInternalBrowseMode(mode)
     localStorage.setItem('karmyq_browse_mode', mode)
+    onBrowseModeChange?.(mode)
   }
 
   useEffect(() => {
@@ -161,21 +165,7 @@ export default function BrowseFeed({ communityId, isOnDuty, providerServiceTypes
   return (
     <div className="max-w-2xl mx-auto px-4">
       {isOnDuty && (
-        <div className="flex gap-1 mb-3 mt-1">
-          {(['community', 'provider', 'both'] as BrowseMode[]).map((mode) => (
-            <button
-              key={mode}
-              onClick={() => handleBrowseModeChange(mode)}
-              className={`flex-1 py-1.5 text-sm font-medium rounded-lg border transition-colors capitalize ${
-                browseMode === mode
-                  ? 'bg-primary text-white border-primary'
-                  : 'bg-surface text-text-muted border-border hover:border-primary hover:text-text'
-              }`}
-            >
-              {mode === 'community' ? 'Community' : mode === 'provider' ? 'Provider' : 'Both'}
-            </button>
-          ))}
-        </div>
+        <BrowseModeControl browseMode={browseMode} onChange={handleBrowseModeChange} />
       )}
 
       <FilterChipRow

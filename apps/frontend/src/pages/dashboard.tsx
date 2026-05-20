@@ -10,6 +10,7 @@ import TabBar, { TabId } from '@/components/TabBar'
 import BrowseFeed from '@/components/BrowseFeed'
 import CommitmentsTab from '@/components/CommitmentsTab'
 import MyRequestsTab from '@/components/MyRequestsTab'
+import type { BrowseMode } from '@/components/BrowseModeControl'
 import SpeedDialFab from '@/components/SpeedDialFab'
 import RequestWizard from '@/components/RequestWizard'
 import { useProvider } from '@/contexts/ProviderContext'
@@ -83,6 +84,15 @@ export default function Dashboard() {
   const [showWizard, setShowWizard] = useState(false)
   const [pendingDibsCount, setPendingDibsCount] = useState(0)
 
+  const [browseMode, setBrowseMode] = useState<BrowseMode>(() => {
+    if (typeof window === 'undefined') return 'provider'
+    return (localStorage.getItem('karmyq_browse_mode') as BrowseMode) ?? 'provider'
+  })
+  const handleBrowseModeChange = (mode: BrowseMode) => {
+    setBrowseMode(mode)
+    localStorage.setItem('karmyq_browse_mode', mode)
+  }
+
   const { hasProviderProfile, isAvailable, providerProfiles, providerServiceTypes } = useProvider()
   const { shouldShow: showFeedOnboarding, markSeen: markFeedSeen } = useOnboarding('feed')
 
@@ -117,6 +127,11 @@ export default function Dashboard() {
       setActiveTab(tabParam)
     }
   }, [router.isReady, router.query.tab])
+
+  // Scroll to top on tab switch so each tab starts at the right position
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior })
+  }, [activeTab])
 
   // Re-fetch when filters or active community change (skip on initial mount — handled above)
   const filtersInitialized = typeof window !== 'undefined'
@@ -474,11 +489,13 @@ export default function Dashboard() {
                     isOnDuty={hasProviderProfile && isAvailable}
                     providerServiceTypes={providerServiceTypes ?? []}
                     noCommunities={userCommunities.length === 0}
+                    browseMode={browseMode}
+                    onBrowseModeChange={handleBrowseModeChange}
                   />
                 </div>
               )}
-              {activeTab === 'helping' && <div key="helping"><CommitmentsTab onDibsLoaded={setPendingDibsCount} /></div>}
-              {activeTab === 'asks' && <div key="asks"><MyRequestsTab onNewRequest={() => setShowWizard(true)} /></div>}
+              {activeTab === 'helping' && <div key="helping"><CommitmentsTab onDibsLoaded={setPendingDibsCount} isOnDuty={hasProviderProfile && isAvailable} browseMode={browseMode} onBrowseModeChange={handleBrowseModeChange} /></div>}
+              {activeTab === 'asks' && <div key="asks"><MyRequestsTab onNewRequest={() => setShowWizard(true)} isOnDuty={hasProviderProfile && isAvailable} browseMode={browseMode} onBrowseModeChange={handleBrowseModeChange} /></div>}
             </div>
           </>
         )}
