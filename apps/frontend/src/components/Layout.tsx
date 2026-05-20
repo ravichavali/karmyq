@@ -26,9 +26,13 @@ function HamburgerMenu() {
             <Link href="/communities" className="block px-4 py-2 text-sm text-text hover:bg-surface transition-colors" onClick={() => setOpen(false)}>
               Communities
             </Link>
-            {hasProviderProfile && (
+            {hasProviderProfile ? (
               <Link href="/providers" className="block px-4 py-2 text-sm text-text hover:bg-surface transition-colors" onClick={() => setOpen(false)}>
                 Service Providers
+              </Link>
+            ) : (
+              <Link href="/providers/new" className="block px-4 py-2 text-sm text-text hover:bg-surface transition-colors" onClick={() => setOpen(false)}>
+                Become a provider
               </Link>
             )}
             <Link href="/profile" className="block px-4 py-2 text-sm text-text hover:bg-surface transition-colors" onClick={() => setOpen(false)}>
@@ -113,7 +117,7 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
                   >
                     Communities
                   </Link>
-                  {hasProviderProfile && (
+                  {hasProviderProfile ? (
                     <Link
                       href="/providers"
                       className={`px-3 py-2 text-sm font-medium rounded-lg transition-all ${
@@ -123,6 +127,13 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
                       }`}
                     >
                       Providers
+                    </Link>
+                  ) : (
+                    <Link
+                      href="/providers/new"
+                      className="px-3 py-2 text-sm font-medium rounded-lg transition-all text-text-muted hover:bg-surface"
+                    >
+                      Become a provider
                     </Link>
                   )}
                 </div>

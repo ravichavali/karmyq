@@ -17,7 +17,7 @@ export default function RequestDetailPage() {
   useEffect(() => {
     // Fire once on mount. Use replace (not push) so this redirect page
     // is not added to browser history — back button skips it.
-    router.replace('/dashboard?tab=commitments')
+    router.replace('/dashboard?tab=helping')
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 

@@ -21,7 +21,7 @@ export default function Footer() {
             {' '}&middot;{' '}
             <a href="https://github.com/ravichavali/karmyq" className="hover:text-karmyq-green-400 transition-colors">GitHub</a>
             {' '}&middot;{' '}
-            <a href="mailto:ravichavali@gmail.com" className="hover:text-karmyq-green-400 transition-colors">Contact</a>
+            <a href="mailto:contact@karmyq.org" className="hover:text-karmyq-green-400 transition-colors">Contact</a>
             {' '}&middot;{' '}
             Open source, AGPLv3
             {' '}&middot;{' '}

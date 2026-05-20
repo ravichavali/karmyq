@@ -5,7 +5,6 @@ import Link from 'next/link'
 import { requestService, communityService } from '@/lib/api'
 import { feedApi } from '@/lib/api'
 import Layout from '@/components/Layout'
-import EmptyState from '@/components/EmptyState'
 import WelcomeModal from '@/components/WelcomeModal'
 import TabBar, { TabId } from '@/components/TabBar'
 import BrowseFeed from '@/components/BrowseFeed'
@@ -14,8 +13,6 @@ import MyRequestsTab from '@/components/MyRequestsTab'
 import SpeedDialFab from '@/components/SpeedDialFab'
 import RequestWizard from '@/components/RequestWizard'
 import { useProvider } from '@/contexts/ProviderContext'
-import ProviderDashboardCard from '@/components/ProviderDashboardCard'
-import ProviderMatchingRequests from '@/components/ProviderMatchingRequests'
 // Onboarding: see src/lib/onboarding/workflows.ts → 'feed'
 import { useOnboarding } from '@/hooks/useOnboarding'
 import OnboardingOverlay from '@/components/OnboardingOverlay'
@@ -112,11 +109,11 @@ export default function Dashboard() {
     setLoading(false)
   }, [router])
 
-  // Honor ?tab= query param once router is ready (e.g. notification links → commitments tab)
+  // Honor ?tab= query param once router is ready (e.g. notification links → helping tab)
   useEffect(() => {
     if (!router.isReady) return
     const tabParam = router.query.tab as string | undefined
-    if (tabParam === 'commitments' || tabParam === 'my-requests' || tabParam === 'profile') {
+    if (tabParam === 'helping' || tabParam === 'asks') {
       setActiveTab(tabParam)
     }
   }, [router.isReady, router.query.tab])
@@ -416,8 +413,6 @@ export default function Dashboard() {
     )
   }
 
-  const activeCommitmentsCount = upcomingMatches.filter((m: any) => m.responder_id === user?.id).length
-
   return (
     <>
       {showFeedOnboarding && (
@@ -462,19 +457,6 @@ export default function Dashboard() {
           </div>
         ) : (
           <>
-            {/* Provider mode summary card */}
-            {hasProviderProfile && (
-              <ProviderDashboardCard
-                activeCommitments={activeCommitmentsCount}
-                providerId={providerProfiles[0]?.id}
-              />
-            )}
-
-            {/* Open requests for providers who are on-duty */}
-            {hasProviderProfile && isAvailable && (
-              <ProviderMatchingRequests />
-            )}
-
             {/* Desktop tab bar */}
             <TabBar
               activeTab={activeTab}
@@ -494,18 +476,8 @@ export default function Dashboard() {
                   />
                 </div>
               )}
-              {activeTab === 'commitments' && <div key="commitments"><CommitmentsTab onDibsLoaded={setPendingDibsCount} /></div>}
-              {activeTab === 'my-requests' && <div key="my-requests"><MyRequestsTab onNewRequest={() => setShowWizard(true)} /></div>}
-              {activeTab === 'profile' && (
-                <div key="profile" className="max-w-2xl mx-auto px-4 py-8">
-                  <EmptyState
-                    heading="Profile"
-                    body="View your full profile, karma history, and settings."
-                    ctaLabel="Go to Profile"
-                    ctaHref="/profile"
-                  />
-                </div>
-              )}
+              {activeTab === 'helping' && <div key="helping"><CommitmentsTab onDibsLoaded={setPendingDibsCount} /></div>}
+              {activeTab === 'asks' && <div key="asks"><MyRequestsTab onNewRequest={() => setShowWizard(true)} /></div>}
             </div>
           </>
         )}

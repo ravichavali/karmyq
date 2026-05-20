@@ -76,7 +76,7 @@ Allows you to connect a specific member to a request. When you propose a match:
 1. Select the member you think can help
 2. Confirm the proposal
 3. A real match record is created in the system with `proposed` status
-4. The proposed member sees the request appear in their Commitments tab under **"Needs Your Response"**
+4. The proposed member sees the request appear in their Helping tab under **"Needs Your Response"**
 5. They can accept or decline — it's always their choice
 
 This is the key tool for high-touch facilitation. It doesn't force anyone into anything; it surfaces the opportunity where the proposed helper will see it.
@@ -93,7 +93,7 @@ Click the ⚡ Boost button on any open request in the Requests tab. The request 
 
 ### Suggest a Helper (Propose a Match)
 
-Click **Propose a Match** on any open request. Select a community member from the picker. They'll see "Suggested by your community admin" in their Commitments tab and can Accept or Decline the suggestion. You're surfacing the opportunity — the decision stays with them.
+Click **Propose a Match** on any open request. Select a community member from the picker. They'll see "Suggested by your community admin" in their Helping tab and can Accept or Decline the suggestion. You're surfacing the opportunity — the decision stays with them.
 
 ### When to Use Each
 

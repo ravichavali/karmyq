@@ -1,6 +1,6 @@
 # Managing Your Commitments
 
-Your commitments tab shows every active exchange you're part of — requests you've offered to help with, matches proposed to you by an admin, and exchanges you've already completed. Cards are sorted by what needs your attention most urgently.
+Your Helping tab shows every active exchange you're part of — requests you've offered to help with, matches proposed to you by an admin, and exchanges you've already completed. Cards are sorted by what needs your attention most urgently.
 
 ---
 

@@ -77,7 +77,7 @@ export default function CommunityStories() {
               If that&apos;s you, we want to hear from you.&rdquo;
             </p>
             <a
-              href="mailto:ravichavali@gmail.com"
+              href="mailto:contact@karmyq.org"
               className="text-sm text-karmyq-green-700 border-b border-karmyq-brown-200 hover:text-karmyq-brown-900 hover:border-karmyq-brown-500 transition-colors"
             >
               Tell us about your community →

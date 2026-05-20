@@ -31,12 +31,11 @@ After registering, head to **Communities** in the nav.
 
 ## 3. Navigate the App
 
-After logging in, you'll see four tabs at the top (or bottom on mobile):
+After logging in, you'll see three tabs at the top (or bottom on mobile):
 
 - **Browse** — See requests from your community that you can help with
-- **Commitments** — Track everything you've agreed to do (and everything you're waiting on)
-- **My Requests** — Manage the help you've asked for and incoming offers
-- **Profile** — Your karma, trust score, and settings
+- **Helping** — Track everything you've agreed to do (and everything you're waiting on)
+- **Asks** — Manage the help you've asked for and incoming offers
 
 Use the **community selector** at the top to filter by a specific community, or leave it as "All" to see everything.
 

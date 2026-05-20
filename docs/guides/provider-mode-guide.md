@@ -21,7 +21,7 @@ Your mode is saved in your browser — it persists across page loads until you c
 ## What Stays the Same in Provider Mode
 
 - **Communities tab**: Your community memberships, norms, and community activity are always visible.
-- **Commitments tab**: Your active commitments (both helping and being helped) are unaffected by mode.
+- **Helping tab**: Your active commitments (both helping and being helped) are unaffected by mode.
 - **Community notification bell**: The red bell for community activity — match offers, karma awards, community invites — always shows regardless of mode.
 - **Profile and karma**: Your karma score, trust tier, and profile are not affected by the mode toggle.
 
@@ -123,7 +123,7 @@ Tap **Go off-duty** to confirm, or **Stay on** to cancel.
 
 ### What doesn't change
 
-- **Accepted commitments persist** — requests you've already been matched on remain in your Commitments tab and must be fulfilled as normal. Going off-duty is not a way to cancel them.
+- **Accepted commitments persist** — requests you've already been matched on remain in your Helping tab and must be fulfilled as normal. Going off-duty is not a way to cancel them.
 - **Pending dibs invitations remain actionable** — if a requester sent you dibs before you went off-duty, you can still accept or decline it. The dibs window continues counting down; your off-duty status does not auto-decline it on your behalf.
 
 This mirrors the mental model of a ride-hailing driver going offline mid-shift: you stop receiving new jobs but must complete the one you accepted.

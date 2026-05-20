@@ -58,7 +58,7 @@ You can only send dibs to one provider per request. There is no retry: once a te
 
 **If the provider accepts:**
 - You are matched directly. No one else sees the request.
-- The match appears in your Commitments tab immediately.
+- The match appears in your Helping tab immediately.
 - Karma works the same as any other match.
 
 **If the provider declines:**

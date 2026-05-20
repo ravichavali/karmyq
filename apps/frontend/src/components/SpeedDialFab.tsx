@@ -2,8 +2,7 @@
  * SpeedDialFab — Tab-aware expandable FAB.
  *
  * - browse tab: expands to "Get Help" + "Get Service"
- * - commitments / my-requests: single "Get Help" action (no expansion)
- * - profile: hidden
+ * - helping / asks: single "Get Help" action (no expansion)
  *
  * Z-index: actions z-40, backdrop z-39, wizard modal z-50
  */
@@ -15,9 +14,8 @@ type ActionId = 'get-help' | 'get-service'
 function getVisibleActions(tab: TabId): ActionId[] {
   switch (tab) {
     case 'browse': return ['get-help', 'get-service']
-    case 'commitments': return ['get-help']
-    case 'my-requests': return ['get-help']
-    case 'profile': return []
+    case 'helping': return ['get-help']
+    case 'asks': return ['get-help']
   }
 }
 

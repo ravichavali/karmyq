@@ -8,7 +8,7 @@ export default function Movement() {
 
   const handleSubscribe = () => {
     if (email) {
-      window.location.href = `mailto:ravichavali@gmail.com?subject=Karmyq updates&body=Please add me to the Karmyq updates list. My email: ${email}`;
+      window.location.href = `mailto:contact@karmyq.org?subject=Karmyq updates&body=Please add me to the Karmyq updates list. My email: ${email}`;
     }
   };
 
@@ -97,8 +97,8 @@ export default function Movement() {
             </div>
             <p className="text-xs text-karmyq-brown-400 mt-3">
               No tracking. No selling your address. Ever.{' '}
-              <a href="mailto:ravichavali@gmail.com" className="hover:text-karmyq-brown-600 transition-colors">
-                ravichavali@gmail.com
+              <a href="mailto:contact@karmyq.org" className="hover:text-karmyq-brown-600 transition-colors">
+                contact@karmyq.org
               </a>
             </p>
           </div>
