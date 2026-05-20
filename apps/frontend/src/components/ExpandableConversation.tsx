@@ -63,10 +63,12 @@ export default function ExpandableConversation({ matchId, otherUserName, current
     }
   }, [conversationId, expanded, refreshMessages])
 
-  // Scroll to bottom when messages change
+  // Scroll to bottom when messages change — only when the widget is open
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
+    if (expanded) {
+      bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+    }
+  }, [messages, expanded])
 
   // Count messages from the other user that arrive while the widget is collapsed
   useEffect(() => {

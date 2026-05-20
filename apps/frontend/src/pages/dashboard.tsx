@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useLayoutEffect, useState } from 'react'
 import { useRouter } from 'next/router'
 import Head from 'next/head'
 import Link from 'next/link'
@@ -128,9 +128,9 @@ export default function Dashboard() {
     }
   }, [router.isReady, router.query.tab])
 
-  // Scroll to top on tab switch so each tab starts at the right position
-  useEffect(() => {
-    window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior })
+  // Scroll to top on tab switch before the browser paints the new content
+  useLayoutEffect(() => {
+    window.scrollTo(0, 0)
   }, [activeTab])
 
   // Re-fetch when filters or active community change (skip on initial mount — handled above)
