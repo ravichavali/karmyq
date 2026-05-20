@@ -475,7 +475,7 @@ export default function Dashboard() {
             {/* Desktop tab bar */}
             <TabBar
               activeTab={activeTab}
-              onChange={setActiveTab}
+              onChange={(tab) => { window.scrollTo(0, 0); setActiveTab(tab) }}
               browseLabel={undefined}
               dibsCount={pendingDibsCount}
             />
