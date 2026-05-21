@@ -139,13 +139,16 @@ As your community matures, you can revisit the questionnaire at any time:
 Choose which types your community supports. Enable or disable:
 - General Help, Rides, Services, Events, Borrowing
 
-For each enabled type, set a **karma multiplier** — how much karma helpers earn. Use multipliers to signal which kinds of help your community values most.
+**Enforcement:** When you configure enabled request types, the platform enforces them. Members who try to post a request type not on your list will receive a clear error. Communities with no configured types accept all types — enforcement is opt-in.
+
+For each enabled type, set a **karma multiplier** — how much karma helpers earn relative to the base pool. A multiplier of `1.5` means helpers earn 50% more karma for that type than usual. Use multipliers to signal which kinds of help your community values most (e.g., set a higher multiplier for rides or childcare to incentivize underserved needs).
 
 **Custom types:** If your community has specific needs, create custom types via the **Schema Manager** linked from the Settings tab.
 
 ### Karma Mechanics
 
 - **Split (helper/requestor):** How karma is divided between helpers and people who ask
+- **Karma multipliers by request type:** Applied automatically when a match completes — the base karma pool is scaled by the multiplier for that request type before distribution
 - **Decay rate (half-life):** How quickly reputation fades during inactivity
 
 ### Trust Mechanics

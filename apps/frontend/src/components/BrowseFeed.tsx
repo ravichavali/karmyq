@@ -59,6 +59,7 @@ function formatTime(timestamp: string): string {
 
 interface BrowseFeedProps {
   communityId?: string
+  communityType?: 'mutual_aid' | 'group'
   isOnDuty?: boolean
   providerServiceTypes?: string[]
   noCommunities?: boolean
@@ -66,7 +67,7 @@ interface BrowseFeedProps {
   onBrowseModeChange?: (mode: BrowseMode) => void
 }
 
-export default function BrowseFeed({ communityId, isOnDuty, providerServiceTypes, noCommunities, browseMode: externalBrowseMode, onBrowseModeChange }: BrowseFeedProps) {
+export default function BrowseFeed({ communityId, communityType, isOnDuty, providerServiceTypes, noCommunities, browseMode: externalBrowseMode, onBrowseModeChange }: BrowseFeedProps) {
   const [requests, setRequests] = useState<HelpRequest[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
@@ -168,6 +169,13 @@ export default function BrowseFeed({ communityId, isOnDuty, providerServiceTypes
         <BrowseModeControl browseMode={browseMode} onChange={handleBrowseModeChange} />
       )}
 
+      {communityType === 'group' && (
+        <div className="text-sm text-muted-foreground bg-muted/50 rounded-md px-3 py-2 mb-3 border border-border">
+          This is a group community. Use the <strong>Activities</strong> tab for event coordination.
+          Help requests from group members appear below.
+        </div>
+      )}
+
       <FilterChipRow
         activeType={activeType}
         activeUrgency={activeUrgency}
@@ -183,6 +191,11 @@ export default function BrowseFeed({ communityId, isOnDuty, providerServiceTypes
             body="Once you're part of a community, you'll see requests here from your neighbours."
             ctaLabel="Find Communities"
             ctaHref="/communities"
+          />
+        ) : communityType === 'group' ? (
+          <EmptyState
+            heading="No requests yet"
+            body="Group members can post help requests, or check the Activities tab for upcoming events."
           />
         ) : (
           <EmptyState

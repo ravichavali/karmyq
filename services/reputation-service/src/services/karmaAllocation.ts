@@ -9,10 +9,16 @@
  * added to the function signature here without touching karmaService.ts.
  */
 
+export interface RequestTypeConfig {
+  name: string;
+  karma_multiplier?: number;
+}
+
 export interface CommunityKarmaConfig {
   community_id: string;
   karma_split_helper: number;    // Percentage to helper, e.g. 60
   karma_split_requestor: number; // Percentage to requester, e.g. 40
+  enabled_request_types?: RequestTypeConfig[];
 }
 
 export interface CommunityAllocation {
@@ -39,20 +45,32 @@ export interface CommunityAllocation {
  * // Community B: pool=7.5 → helper=3.75, requester=3.75
  * // After rounding: A=(5,3), B=(4,3) — total helper=9, requester=6, sum=15 ✓
  */
+function getRequestTypeMultiplier(config: CommunityKarmaConfig, requestType?: string): number {
+  if (!requestType || !config.enabled_request_types?.length) return 1.0;
+  const entry = config.enabled_request_types.find((t) => t.name === requestType);
+  return entry?.karma_multiplier ?? 1.0;
+}
+
 export function allocateKarma(
   configs: CommunityKarmaConfig[],
-  totalPool: number
+  totalPool: number,
+  requestType?: string
 ): CommunityAllocation[] {
   if (configs.length === 0) return [];
 
-  const poolPerCommunity = totalPool / configs.length;
+  const basePoolPerCommunity = totalPool / configs.length;
 
   // Compute exact (float) allocations per community per role
-  const exact = configs.map((config) => ({
-    community_id: config.community_id,
-    helperExact: poolPerCommunity * (config.karma_split_helper / 100),
-    requesterExact: poolPerCommunity * (config.karma_split_requestor / 100),
-  }));
+  // Apply per-community karma multiplier for the request type (default 1.0 = no change)
+  const exact = configs.map((config) => {
+    const multiplier = getRequestTypeMultiplier(config, requestType);
+    const poolPerCommunity = basePoolPerCommunity * multiplier;
+    return {
+      community_id: config.community_id,
+      helperExact: poolPerCommunity * (config.karma_split_helper / 100),
+      requesterExact: poolPerCommunity * (config.karma_split_requestor / 100),
+    };
+  });
 
   // Flatten all allocations into a single list for largest-remainder rounding
   // Each entry: { community_id, role, exact, floored, remainder }
@@ -82,8 +100,9 @@ export function allocateKarma(
   ]);
 
   // Total assigned so far (sum of floors)
+  const adjustedTotal = exact.reduce((sum, e) => sum + e.helperExact + e.requesterExact, 0);
   const totalFloored = entries.reduce((sum, e) => sum + e.floored, 0);
-  let remainder = Math.round(totalPool - totalFloored); // points left to distribute
+  let remainder = Math.round(adjustedTotal - totalFloored); // points left to distribute
 
   // Sort by remainder descending — highest fractional parts get the extra point
   entries.sort((a, b) => b.remainder - a.remainder);

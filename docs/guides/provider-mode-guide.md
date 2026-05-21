@@ -41,6 +41,16 @@ Community requests (not matching your service types) show no accent.
 - **Helping tab**: Active commitments are always visible.
 - **Profile and karma**: Your karma score, trust tier, and profile are not affected.
 
+## Managing Active Offers
+
+Once you've offered to help on a request, it appears in your **Active** tab.
+
+**Withdrawing an offer:** If you've offered to help but need to step back, open the Active tab and click **Withdraw Offer** on the relevant request. This removes your offer and returns the request to the open pool so another helper can pick it up. Withdrawal is immediate — no confirmation needed.
+
+## Managing Your Provider Profile
+
+If you already have a provider profile, you'll see a **My profile** link in the navigation bar (alongside the "Providers" browse link). Click it to view your profile as others see it — your service type, trust score, and reviews. To edit your profile details, use the form on the profile page.
+
 ## Unlocking Provider Mode
 
 Provider Mode is only available to users with at least one provider profile. If you haven't created one yet, you'll see a **Become a Provider** link in the nav instead of the availability toggle.

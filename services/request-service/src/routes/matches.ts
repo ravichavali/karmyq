@@ -426,11 +426,11 @@ router.put('/:id/reject', async (req: Request, res: Response) => {
 
     const match = matchCheck.rows[0];
 
-    // Verify user is the requester
-    if (match.requester_id !== user_id) {
+    // Verify user is a match participant
+    if (match.requester_id !== user_id && match.responder_id !== user_id) {
       return res.status(403).json({
         success: false,
-        message: 'Only the requester can reject this match',
+        message: 'Only match participants can reject or withdraw.',
       });
     }
 

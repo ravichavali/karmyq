@@ -13,6 +13,7 @@ interface MatchCompletionData {
   request_id: string;
   requester_id: string;
   responder_id: string;
+  request_type?: string;
 }
 
 // Default karma points (used when community has no config)
@@ -35,7 +36,8 @@ const MAX_COMMUNITIES_PER_KARMA_AWARD = 3;
  */
 async function getCommunityKarmaConfig(community_id: string) {
   const result = await query(
-    `SELECT karma_split_helper, karma_split_requestor, base_karma_pool_per_request
+    `SELECT karma_split_helper, karma_split_requestor, base_karma_pool_per_request,
+            config->'enabled_request_types' AS enabled_request_types
      FROM communities.community_configs
      WHERE community_id = $1`,
     [community_id]
@@ -46,6 +48,7 @@ async function getCommunityKarmaConfig(community_id: string) {
       karma_split_helper: 60,
       karma_split_requestor: 40,
       base_karma_pool: KARMA_DEFAULTS.BASE_KARMA_POOL,
+      enabled_request_types: undefined,
     };
   }
 
@@ -54,6 +57,7 @@ async function getCommunityKarmaConfig(community_id: string) {
     karma_split_helper: row.karma_split_helper ?? 60,
     karma_split_requestor: row.karma_split_requestor ?? 40,
     base_karma_pool: row.base_karma_pool_per_request ?? KARMA_DEFAULTS.BASE_KARMA_POOL,
+    enabled_request_types: Array.isArray(row.enabled_request_types) ? row.enabled_request_types : undefined,
   };
 }
 
@@ -103,6 +107,16 @@ async function getSharedRequestCommunities(
 export async function awardKarmaForCompletedMatch(data: MatchCompletionData) {
   const { match_id, request_id, requester_id, responder_id } = data;
 
+  // Resolve request_type: use provided value or fetch from DB
+  let requestType = data.request_type;
+  if (!requestType) {
+    const rtResult = await query(
+      `SELECT request_type FROM requests.help_requests WHERE id = $1`,
+      [request_id]
+    );
+    requestType = rtResult.rows[0]?.request_type ?? undefined;
+  }
+
   // Find shared communities (request communities ∩ both users' memberships)
   const sharedCommunities = await getSharedRequestCommunities(request_id, requester_id, responder_id);
 
@@ -120,15 +134,15 @@ export async function awardKarmaForCompletedMatch(data: MatchCompletionData) {
 
   // Fetch all community configs upfront, then compute allocations once.
   // allocateKarma() divides a fixed pool across communities using each
-  // community's split ratio, with largest-remainder rounding so the
-  // integer awards always sum exactly to BASE_KARMA_POOL (no inflation).
+  // community's split ratio and request-type multiplier, with largest-remainder
+  // rounding so the integer awards always sum exactly to BASE_KARMA_POOL (no inflation).
   const communityConfigs: CommunityKarmaConfig[] = await Promise.all(
     sharedCommunities.map(async (id) => {
       const cfg = await getCommunityKarmaConfig(id);
       return { community_id: id, ...cfg };
     })
   );
-  const allocations = allocateKarma(communityConfigs, KARMA_DEFAULTS.BASE_KARMA_POOL);
+  const allocations = allocateKarma(communityConfigs, KARMA_DEFAULTS.BASE_KARMA_POOL, requestType);
 
   let totalHelperKarma = 0;
   let totalRequesterKarma = 0;

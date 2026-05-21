@@ -48,3 +48,20 @@ Activities with a participant cap show a **Full** badge when no spots remain.
 | Workout | Fitness classes, yoga, strength sessions |
 | Social | Board games, book clubs, general meetups |
 | Other | Anything that doesn't fit the above |
+
+## Help Requests in Group Communities
+
+Group communities also support standard help requests. If a group member needs help — a ride to the venue, equipment borrowed, or anything else — they can post a request just like in a mutual aid community.
+
+When you browse a group community's feed, you'll see a banner reminding you that the Activities tab is the primary coordination tool for this community. Help requests from group members appear below the banner.
+
+## Group vs. Mutual Aid Communities
+
+| | Group | Mutual Aid |
+|---|---|---|
+| **Best for** | Organizations, sports teams, event-based communities | Neighborhoods, general aid networks |
+| **Primary feature** | Activities tab — event scheduling and RSVPs | Browse feed — help requests and provider matching |
+| **Help requests** | Available for member needs | Core feature |
+| **Karma and trust** | Earned through help, same as mutual aid | Core feature |
+
+Both community types support the same trust, karma, and provider systems. The difference is emphasis: group communities center on coordinated events, mutual aid communities center on neighbor-to-neighbor help.

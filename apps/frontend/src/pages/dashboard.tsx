@@ -55,6 +55,7 @@ interface Match {
 interface Community {
   id: string
   name: string
+  community_type?: 'mutual_aid' | 'group'
 }
 
 
@@ -486,6 +487,7 @@ export default function Dashboard() {
                 <div key="browse">
                   <BrowseFeed
                     communityId={activeCommunityId || undefined}
+                    communityType={userCommunities.find(c => c.id === activeCommunityId)?.community_type}
                     isOnDuty={hasProviderProfile && isAvailable}
                     providerServiceTypes={providerServiceTypes ?? []}
                     noCommunities={userCommunities.length === 0}

@@ -885,15 +885,30 @@ router.post('/', async (req: Request, res: Response) => {
       targetCommunityIds = [community_id];
     }
 
-    // Get TTL settings and default_request_scope from the first community
+    // Get TTL settings, default_request_scope, and enabled_request_types from the first community
     const settingsResult = await query(
-      `SELECT s.request_ttl_days, c.default_request_scope
+      `SELECT s.request_ttl_days, c.default_request_scope,
+              cc.enabled_request_types
        FROM communities.settings s
        JOIN communities.communities c ON c.id = s.community_id
+       LEFT JOIN communities.community_configs cc ON cc.community_id = s.community_id
        WHERE s.community_id = $1`,
       [targetCommunityIds[0]]
     );
     const ttlDays = settingsResult.rows[0]?.request_ttl_days || 60; // Default to 60 days
+
+    // Validate request type against community's enabled types (if configured)
+    const enabledTypes = settingsResult.rows[0]?.enabled_request_types;
+    if (Array.isArray(enabledTypes) && enabledTypes.length > 0) {
+      const allowedNames = enabledTypes.map((t: { name: string }) => t.name);
+      if (!allowedNames.includes(validatedData.request_type)) {
+        return res.status(400).json({
+          success: false,
+          message: `Request type '${validatedData.request_type}' is not enabled in this community.`,
+          error: 'REQUEST_TYPE_NOT_ENABLED',
+        });
+      }
+    }
     const expiresAt = new Date(Date.now() + ttlDays * 24 * 60 * 60 * 1000);
 
     // ADR-022: Resolve visibility scope

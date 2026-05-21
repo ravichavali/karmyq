@@ -7,7 +7,8 @@ import { useProvider } from '../contexts/ProviderContext'
 
 function HamburgerMenu() {
   const [open, setOpen] = useState(false)
-  const { hasProviderProfile, isAvailable, setAvailability } = useProvider()
+  const { hasProviderProfile, isAvailable, setAvailability, providerProfiles } = useProvider()
+  const myProviderId = providerProfiles[0]?.id
   return (
     <div className="relative md:hidden">
       <button
@@ -27,9 +28,16 @@ function HamburgerMenu() {
               Communities
             </Link>
             {hasProviderProfile ? (
-              <Link href="/providers" className="block px-4 py-2 text-sm text-text hover:bg-surface transition-colors" onClick={() => setOpen(false)}>
-                Service Providers
-              </Link>
+              <>
+                <Link href="/providers" className="block px-4 py-2 text-sm text-text hover:bg-surface transition-colors" onClick={() => setOpen(false)}>
+                  Service Providers
+                </Link>
+                {myProviderId && (
+                  <Link href={`/providers/${myProviderId}`} className="block px-4 py-2 text-sm text-text-muted hover:bg-surface transition-colors" onClick={() => setOpen(false)}>
+                    Manage my profile
+                  </Link>
+                )}
+              </>
             ) : (
               <Link href="/providers/new" className="block px-4 py-2 text-sm text-text hover:bg-surface transition-colors" onClick={() => setOpen(false)}>
                 Become a provider
@@ -75,7 +83,8 @@ interface User {
 const Layout: React.FC<LayoutProps> = ({ children, title }) => {
   const router = useRouter()
   const [user, setUser] = useState<User | null>(null)
-  const { hasProviderProfile, isAvailable, setAvailability } = useProvider()
+  const { hasProviderProfile, isAvailable, setAvailability, providerProfiles } = useProvider()
+  const myProviderId = providerProfiles[0]?.id
 
   useEffect(() => {
     const userData = localStorage.getItem('user')
@@ -118,16 +127,26 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
                     Communities
                   </Link>
                   {hasProviderProfile ? (
-                    <Link
-                      href="/providers"
-                      className={`px-3 py-2 text-sm font-medium rounded-lg transition-all ${
-                        router.pathname.startsWith('/providers')
-                          ? 'bg-primary-light text-primary'
-                          : 'text-text-muted hover:bg-surface'
-                      }`}
-                    >
-                      Providers
-                    </Link>
+                    <>
+                      <Link
+                        href="/providers"
+                        className={`px-3 py-2 text-sm font-medium rounded-lg transition-all ${
+                          router.pathname.startsWith('/providers')
+                            ? 'bg-primary-light text-primary'
+                            : 'text-text-muted hover:bg-surface'
+                        }`}
+                      >
+                        Providers
+                      </Link>
+                      {myProviderId && (
+                        <Link
+                          href={`/providers/${myProviderId}`}
+                          className="px-3 py-2 text-sm font-medium rounded-lg transition-all text-text-muted hover:bg-surface"
+                        >
+                          My profile
+                        </Link>
+                      )}
+                    </>
                   ) : (
                     <Link
                       href="/providers/new"

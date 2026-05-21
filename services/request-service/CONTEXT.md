@@ -2286,6 +2286,11 @@ router.get('/health', async (req, res) => {
 
 ### 10.3 Recent Changes (v9.10)
 
+**Version 9.29.0 - Sprint 62 (2026-05-21)**
+
+- **CHANGED**: `PUT /matches/:id/reject` — guard expanded to allow both requester AND responder to reject/withdraw. Previously only the requester could call this endpoint; responders received 403. Error message updated to "Only match participants can reject or withdraw."
+- **CHANGED**: `POST /requests` — now validates `request_type` against `community.community_configs.enabled_request_types` for the target community. If the community has configured enabled types, any request type not in the list is rejected with `400 REQUEST_TYPE_NOT_ENABLED`. Communities with no configured types continue to accept all request types (opt-in enforcement).
+
 **Version 9.23.0 - Sprint 56 (2026-05-17)**
 
 - **CHANGED**: `src/events/publisher.ts` — now delegates to `createPublisher('request-service')` from `@karmyq/shared`; local Bull setup removed

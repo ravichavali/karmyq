@@ -5,6 +5,8 @@
 
 ## Recent Changes
 
+- **2026-05-21 (Sprint 62 — Karma multipliers)**: `src/services/karmaAllocation.ts` — `allocateKarma()` now accepts optional `requestType?: string` parameter. Added `getRequestTypeMultiplier()` helper that reads `enabled_request_types` from `CommunityKarmaConfig` and returns the configured `karma_multiplier` (defaults to `1.0`). Extended `CommunityKarmaConfig` with optional `enabled_request_types?: RequestTypeConfig[]`. `karmaService.ts` — `getCommunityKarmaConfig()` now fetches `config->'enabled_request_types'` alongside existing columns. `awardKarmaForCompletedMatch()` now resolves `request_type` (from event payload or DB lookup) and passes it to `allocateKarma()`, so per-community multipliers are applied at match completion.
+
 - **2026-05-17 (Sprint 56 — Publisher centralization)**: `src/events/publisher.ts` now delegates to `createPublisher('reputation-service')` from `@karmyq/shared`; local 37-line Bull setup removed. Added `@karmyq/shared` to `package.json` dependencies.
 
 - **2026-05-10 (Sprint 54 — OWASP security hardening, ADR-052)**: Added `authMiddleware` per-route to 8 endpoints that were previously unauthenticated: `GET /karma/:userId`, `GET /trust/:userId`, `GET /trust/:userId/:communityId`, `GET /community-trust/:communityId`, `GET /leaderboard/:communityId`, `GET /history/:userId`, `GET /badges/:userId`, `GET /users/:userId/badges`. Per-route (not router-level) to avoid breaking internal service calls. Added `helmet()` + CORS allowlist via `ALLOWED_ORIGINS` env var. Access to all these endpoints now requires a valid JWT.
@@ -233,7 +235,8 @@ Karma is awarded via a **fixed-pool model** — a total of `BASE_KARMA_POOL` poi
 | 50 Exchanges | 50 | Completing 50 help exchanges |
 | 100 Exchanges | 100 | Completing 100 help exchanges |
 
-**Tuning surface:** `src/services/karmaAllocation.ts` — `allocateKarma(configs, totalPool)`
+**Tuning surface:** `src/services/karmaAllocation.ts` — `allocateKarma(configs, totalPool, requestType?)`
+**Request type multipliers:** Per-community multipliers read from `CommunityKarmaConfig.enabled_request_types[].karma_multiplier`. Default: 1.0 (no change). Applied per community before distribution.
 **Configuration defaults:** `src/services/karmaService.ts` — `KARMA_DEFAULTS`
 
 ## Trust Score Calculation
