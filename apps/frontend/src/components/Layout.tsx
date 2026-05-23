@@ -83,8 +83,7 @@ interface User {
 const Layout: React.FC<LayoutProps> = ({ children, title }) => {
   const router = useRouter()
   const [user, setUser] = useState<User | null>(null)
-  const { hasProviderProfile, isAvailable, setAvailability, providerProfiles } = useProvider()
-  const myProviderId = providerProfiles[0]?.id
+  const { hasProviderProfile, isAvailable, setAvailability } = useProvider()
 
   useEffect(() => {
     const userData = localStorage.getItem('user')
@@ -138,14 +137,6 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
                       >
                         Providers
                       </Link>
-                      {myProviderId && (
-                        <Link
-                          href={`/providers/${myProviderId}`}
-                          className="px-3 py-2 text-sm font-medium rounded-lg transition-all text-text-muted hover:bg-surface"
-                        >
-                          My profile
-                        </Link>
-                      )}
                     </>
                   ) : (
                     <Link

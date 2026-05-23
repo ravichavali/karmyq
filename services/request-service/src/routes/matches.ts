@@ -409,7 +409,7 @@ router.put('/:id/reject', async (req: Request, res: Response) => {
     // Get match details
     const matchCheck = await query(
       `SELECT
-        m.id, m.request_id, m.status,
+        m.id, m.request_id, m.status, m.responder_id,
         r.requester_id
       FROM requests.matches m
       LEFT JOIN requests.help_requests r ON m.request_id = r.id
