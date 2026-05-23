@@ -74,6 +74,7 @@ export default function BrowseFeed({ communityId, communityType, isOnDuty, provi
   const [activeType, setActiveType] = useState<RequestTypeFilter>('all')
   const [activeUrgency, setActiveUrgency] = useState<UrgencyFilter>('all')
   const [offering, setOffering] = useState<string | null>(null)
+  const [lastOffered, setLastOffered] = useState<string | null>(null)
   const [internalBrowseMode, setInternalBrowseMode] = useState<BrowseMode>(() => {
     if (typeof window === 'undefined') return 'provider'
     return (localStorage.getItem('karmyq_browse_mode') as BrowseMode) ?? 'provider'
@@ -131,8 +132,9 @@ export default function BrowseFeed({ communityId, communityType, isOnDuty, provi
     setOffering(requestId)
     try {
       await requestService.createMatch({ request_id: requestId, responder_id: currentUser.id })
-      // Remove from feed after offering
       setRequests((prev) => prev.filter((r) => r.id !== requestId))
+      setLastOffered(requestId)
+      setTimeout(() => setLastOffered(null), 6000)
     } catch (err: any) {
       alert(err.response?.data?.message || 'Failed to offer help')
     } finally {
@@ -182,6 +184,18 @@ export default function BrowseFeed({ communityId, communityType, isOnDuty, provi
         onTypeChange={setActiveType}
         onUrgencyChange={setActiveUrgency}
       />
+
+      {lastOffered && (
+        <div className="flex items-center justify-between gap-2 text-sm bg-primary-light text-primary border border-primary/20 rounded-lg px-3 py-2 mb-3">
+          <span>Offer sent!</span>
+          <a
+            href="/?tab=helping"
+            className="font-medium underline underline-offset-2 hover:no-underline"
+          >
+            Track in Active tab →
+          </a>
+        </div>
+      )}
 
       {filtered.length === 0 ? (
         noCommunities ? (

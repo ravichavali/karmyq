@@ -95,6 +95,7 @@ export default function Dashboard() {
   }
 
   const { hasProviderProfile, isAvailable, providerProfiles, providerServiceTypes } = useProvider()
+  const isOnDuty = hasProviderProfile && isAvailable
   const { shouldShow: showFeedOnboarding, markSeen: markFeedSeen } = useOnboarding('feed')
 
   useEffect(() => {
@@ -453,6 +454,11 @@ export default function Dashboard() {
               <option key={c.id} value={c.id}>{c.name}</option>
             ))}
           </select>
+          {isOnDuty && (
+            <span className="ml-auto inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700 border border-amber-200">
+              On duty
+            </span>
+          )}
         </div>
 
         {/* Zero-community state — shown when user hasn't joined any community yet */}
@@ -488,7 +494,7 @@ export default function Dashboard() {
                   <BrowseFeed
                     communityId={activeCommunityId || undefined}
                     communityType={userCommunities.find(c => c.id === activeCommunityId)?.community_type}
-                    isOnDuty={hasProviderProfile && isAvailable}
+                    isOnDuty={isOnDuty}
                     providerServiceTypes={providerServiceTypes ?? []}
                     noCommunities={userCommunities.length === 0}
                     browseMode={browseMode}

@@ -14,7 +14,9 @@ export default function BrowseModeControl({ browseMode, onChange }: BrowseModeCo
           onClick={() => onChange(mode)}
           className={`flex-1 py-1.5 text-sm font-medium rounded-lg border transition-colors capitalize ${
             browseMode === mode
-              ? 'bg-primary text-white border-primary'
+              ? mode === 'provider'
+                ? 'bg-amber-500 text-white border-amber-500'
+                : 'bg-primary text-white border-primary'
               : 'bg-surface text-text-muted border-border hover:border-primary hover:text-text'
           }`}
         >
