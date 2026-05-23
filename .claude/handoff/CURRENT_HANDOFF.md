@@ -2,18 +2,22 @@
 
 ## Handoff Document
 
-**Date**: 2026-05-21
+**Date**: 2026-05-23
 **Current Version**: v9.29.0
-**Status**: Sprint 62 complete. Merged to master. GitHub Actions deploying to karmyq.com.
+**Status**: Sprint 62 complete + post-sprint fixes shipped. Ready to plan Sprint 63.
 
 ---
 
 ## Quick Start
 
-1. Read this handoff
-2. Check out branch: `git checkout -b feature/sprint-62-platform-coherence`
-3. Open plan: `docs/superpowers/plans/2026-05-21-sprint-62-platform-coherence.md`
-4. Run: `/execute-plan` (uses superpowers:subagent-driven-development)
+Sprint 62 is complete. Next conversation should plan Sprint 63.
+
+**Post-sprint fixes shipped (same session):**
+- Withdraw offer still 403'd: `m.responder_id` was missing from the SELECT in the reject query — added it
+- Removed redundant "My profile" desktop nav link (avatar already goes there; hamburger "Manage my profile" kept)
+- Restored `ProviderNotificationBell` (suitcase icon) next to community bell — was removed in Sprint 37 nav simplification, two bells serve different inboxes
+- Fixed `BrowseModeControl` layout shift on provider mode toggle: switched from conditional render to `invisible pointer-events-none` so space is always reserved
+- Removed non-functional `BrowseModeControl` from Active + Asks tabs — it was rendered but never filtered anything; Browse tab is the only tab where mode filtering is meaningful
 
 ---
 
@@ -95,8 +99,8 @@ Close 5 platform coherence gaps so community config, match guards, and community
 | Sprint 59 | Dashboard UX Simplification | ✅ Complete + deployed |
 | Sprint 60 | Provider Browse Fork + Communities Polish | ✅ Complete + deployed |
 | Sprint 61 | On-Duty Browse Refinement (segmented control + card accents) | ✅ Complete + deployed |
-| **Sprint 62** | **Platform Coherence — 5 coherence gaps** | ✅ Complete + deployed |
-| Sprint 63 | Fit-for-purpose feeds redesign | 🔲 Planned |
+| **Sprint 62** | **Platform Coherence — 5 coherence gaps + post-sprint fixes** | ✅ Complete + deployed |
+| Sprint 63 | TBD — to be planned in next conversation | 🔲 Not started |
 
 ---
 
