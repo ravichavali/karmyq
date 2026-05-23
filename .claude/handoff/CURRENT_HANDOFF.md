@@ -1,54 +1,61 @@
-# Sprint 62: Platform Coherence | COMPLETE ✅
+# Sprint 63: UX Coherence | READY TO EXECUTE
 
 ## Handoff Document
 
 **Date**: 2026-05-23
-**Current Version**: v9.29.0
-**Status**: Sprint 62 complete + post-sprint fixes shipped. Ready to plan Sprint 63.
+**Current Version**: v9.29.0 → v9.30.0 (this sprint)
+**Status**: Spec + plan written. Ready to execute.
 
 ---
 
 ## Quick Start
 
-Sprint 62 is complete. Next conversation should plan Sprint 63.
-
-**Post-sprint fixes shipped (same session):**
-- Withdraw offer still 403'd: `m.responder_id` was missing from the SELECT in the reject query — added it
-- Removed redundant "My profile" desktop nav link (avatar already goes there; hamburger "Manage my profile" kept)
-- Restored `ProviderNotificationBell` (suitcase icon) next to community bell — was removed in Sprint 37 nav simplification, two bells serve different inboxes
-- Fixed `BrowseModeControl` layout shift on provider mode toggle: switched from conditional render to `invisible pointer-events-none` so space is always reserved
-- Removed non-functional `BrowseModeControl` from Active + Asks tabs — it was rendered but never filtered anything; Browse tab is the only tab where mode filtering is meaningful
+1. Read this handoff
+2. Check out branch: `git checkout -b feature/sprint-63-ux-coherence`
+3. Open plan: `docs/superpowers/plans/2026-05-23-sprint-63-ux-coherence.md`
+4. Run: `/execute-plan` (uses superpowers:subagent-driven-development)
 
 ---
 
-## Sprint 62 Goal
+## Sprint 63 Goal
 
-Close 5 platform coherence gaps so community config, match guards, and community type actually drive behavior — not silently ignored.
+Three targeted UX improvements — unified community people tab, feed coherence after match acceptance, and amber visual language for provider context.
 
 ---
 
-## What This Sprint Fixes (in priority order)
+## What This Sprint Delivers
 
-### 1. Withdraw Offer bug — HIGH (active user-facing error)
-**Symptom**: Clicking "Withdraw Offer" on the Active tab returns "Only the requester can reject this match."
-**Fix**: Expand the guard in `services/request-service/src/routes/matches.ts` (~line 429) to allow `responder_id === user_id` as well as `requester_id === user_id`.
-**Frontend**: No change needed — `CommitmentsTab.tsx handleDecline` already calls the right endpoint.
+### 1. Admin Page Simplification — `ActiveTab.tsx`
 
-### 2. Provider Mode Re-entry — HIGH (broken navigation)
-**Symptom**: After creating a provider profile, there's no UI to manage/edit it. The "Providers" link goes to the community browse page, not the user's own profile.
-**Fix**: Investigate what provider management pages exist, then add a "Manage profile" link in `apps/frontend/src/components/Layout.tsx` when `hasProviderProfile === true`.
+**Problem:** The community people tab has 3 conceptual layers for admins:
+- Sub-tab: Members | Norms
+- Filter: Active | Pending
+- Separate table per filter
 
-### 3. Karma Multipliers per Request Type — MEDIUM
-**Symptom**: Communities configure per-type karma multipliers (stored in `community_configs.config->'enabled_request_types'[].karma_multiplier`) but `karmaAllocation.ts` never reads them.
-**Fix**: Add `requestType` parameter to `services/reputation-service/src/services/karmaAllocation.ts`; update the `match_completed` event handler to fetch multiplier and pass adjusted pool.
+**Fix:** Unified single-scroll view:
+- Pending members at top with inline Approve/Reject (only shown when there are pending members)
+- Active members table below
+- Norms as a collapsible accordion section at the bottom
 
-### 4. Request Type Enforcement — MEDIUM
-**Symptom**: `community_configs.config->'enabled_request_types'` is configured but `POST /requests` never validates against it — any request type is accepted.
-**Fix**: Extend the community settings query in `services/request-service/src/routes/requests.ts` (~line 819) to also fetch `enabled_request_types`, then validate.
+Remove `peopleSubTab` and `memberFilter` state. Add `normsOpen` state (defaults false).
 
-### 5. Community Type Differentiation — MEDIUM
-**Symptom**: `community_type` (mutual_aid | group) is stored but almost no code branches on it. Group communities should feel different from mutual aid communities.
-**Fix**: Add community type awareness to `apps/frontend/src/components/BrowseFeed.tsx` — show a group-context banner and different empty state when `communityType === 'group'`.
+### 2. Feed Coherence — `BrowseFeed.tsx` + `matches.ts` verification
+
+**Problem:** After offering help, users get no confirmation and no clear path to track the offer. The IDEAS note also flags matched requests potentially appearing in the feed.
+
+**Fix:**
+- Verify match acceptance sets `status = 'matched'` in all code paths in `matches.ts` (read-only check, fix only if broken)
+- After `createMatch` succeeds in BrowseFeed, show a 6-second "Offer sent → Track in Active tab" banner with a link to `?tab=helping`
+- CommitmentsTab refetches when the user navigates to the `helping` tab
+
+### 3. Provider/Community Visual Language — dashboard + BrowseModeControl
+
+**Problem:** Provider context has no global visual signal beyond amber card borders in the feed.
+
+**Fix:**
+- Amber "On duty" badge in dashboard header when `isOnDuty`
+- BrowseModeControl: amber active chip when `browseMode === 'provider'` (vs green for Community/Both)
+- All color tokens: `bg-amber-500`, `text-amber-600`, `border-amber-400` — already used in codebase
 
 ---
 
@@ -56,38 +63,40 @@ Close 5 platform coherence gaps so community config, match guards, and community
 
 | Item | Files |
 |------|-------|
-| Withdraw Offer fix | `services/request-service/src/routes/matches.ts` |
-| Provider Re-entry | `apps/frontend/src/components/Layout.tsx` |
-| Karma Multipliers | `services/reputation-service/src/services/karmaAllocation.ts` + event handler |
-| Request Type Enforcement | `services/request-service/src/routes/requests.ts` |
-| Community Type | `apps/frontend/src/components/BrowseFeed.tsx`, `apps/frontend/src/pages/dashboard.tsx` |
+| Admin simplification | `apps/frontend/src/components/community/tabs/ActiveTab.tsx` |
+| BrowseFeed confirmation | `apps/frontend/src/components/BrowseFeed.tsx` |
+| BrowseModeControl amber | `apps/frontend/src/components/BrowseModeControl.tsx` |
+| Dashboard badge + refetch | `apps/frontend/src/pages/dashboard.tsx` |
+| Match acceptance verify | `services/request-service/src/routes/matches.ts` |
+| Landing docs | `apps/landing/src/data/docs/guides/community-management.json`, `provider-mode.json` |
+| TDD tests | `apps/frontend/tests/tdd/sprint-63-ux-coherence.test.tsx` |
 
 ---
 
 ## Critical Implementation Notes (read before any code)
 
-1. **Withdraw Offer guard change is one line** — `requester_id !== user_id` → `requester_id !== user_id && responder_id !== user_id`. Match status after withdrawal → `'cancelled'`. Verify CommitmentsTab.tsx handles `cancelled` vs `rejected` statuses.
+1. **ActiveTab norms accordion** — `useState(false)` + simple button toggle. No library.
 
-2. **Request type enforcement is opt-in** — if `enabled_request_types` is null, empty, or missing, ALL request types remain allowed. Never break communities without config.
+2. **Pending section guard** — `isAdminOrMod && pendingCount > 0` only. Non-admins never see it.
 
-3. **Karma multiplier default is 1.0** — if config is missing or has no entry for the request type, multiply by 1.0 (no-op). Never fail on missing config.
+3. **BrowseModeControl amber** — active chip: `browseMode === 'provider' ? 'bg-amber-500 text-white border-amber-500' : 'bg-primary text-white border-primary'`. BrowseMode type export stays in BrowseModeControl.tsx.
 
-4. **Investigate before adding nav link** — check what provider profile management pages exist before adding a link in Layout.tsx. A dead link is worse than no link.
+4. **On-duty badge** — `isOnDuty` already computed as `hasProviderProfile && isAvailable` in dashboard.tsx. No new state.
 
-5. **`community_type` is likely already in dashboard state** — check before adding a new API call.
+5. **CommitmentsTab id is `'helping'`** — deep-link URL is `/?tab=helping`. Do NOT change the id.
 
-6. **Pre-existing TDD failures**: `sprint-39-provider-ux` (7 tests), `sprint-43-feed-ranking` (crashes). Do NOT fix. Ignore.
+6. **Feed coherence is mostly verification** — if matches.ts already sets status correctly, the only code change is the post-offer UX banner in BrowseFeed.tsx.
 
-7. **community_configs is in `community` schema** — use `community.community_configs`, not `communities.community_configs`.
+7. **git add CLAUDE.md on Windows** — tracked as `claude.md` lowercase. Always `git add claude.md`.
 
-8. **`git add` on Windows**: `CLAUDE.md` tracked as `claude.md` — always `git add claude.md`.
+8. **Pre-existing TDD failures**: `sprint-39-provider-ux` (7 tests), `sprint-43-feed-ranking` (crashes). Do NOT fix.
 
 ---
 
 ## Spec + Plan Links
 
-- Spec: `docs/superpowers/specs/2026-05-21-sprint-62-platform-coherence-design.md`
-- Plan: `docs/superpowers/plans/2026-05-21-sprint-62-platform-coherence.md`
+- Spec: `docs/superpowers/specs/2026-05-23-sprint-63-ux-coherence-design.md`
+- Plan: `docs/superpowers/plans/2026-05-23-sprint-63-ux-coherence.md`
 
 ---
 
@@ -95,12 +104,19 @@ Close 5 platform coherence gaps so community config, match guards, and community
 
 | Sprint | Theme | Status |
 |--------|-------|--------|
-| Sprint 58 | karmyq.org rebuild | ✅ Complete + deployed |
 | Sprint 59 | Dashboard UX Simplification | ✅ Complete + deployed |
 | Sprint 60 | Provider Browse Fork + Communities Polish | ✅ Complete + deployed |
 | Sprint 61 | On-Duty Browse Refinement (segmented control + card accents) | ✅ Complete + deployed |
-| **Sprint 62** | **Platform Coherence — 5 coherence gaps + post-sprint fixes** | ✅ Complete + deployed |
-| Sprint 63 | TBD — to be planned in next conversation | 🔲 Not started |
+| Sprint 62 | Platform Coherence — 5 coherence gaps + post-sprint fixes | ✅ Complete + deployed |
+| **Sprint 63** | **UX Coherence — admin simplification, feed, visual language** | 🔲 Ready to execute |
+| Sprint 64 | Admin-as-connector (boost, DM) + Feed design doc (ADR) | 🔲 Planned |
+
+---
+
+## Sprint 64 Preview
+
+- **Admin-as-connector (full)**: Admin sees all open community requests, can boost a request to top of member feeds, and DM a specific member to suggest they help. Requires new backend endpoint (boost) + frontend admin requests tab enhancement.
+- **Feed design doc (ADR-053)**: Write the design philosophy for Karmyq feeds — purpose-built, not social-media-style. No code, just the ADR + landing concept page.
 
 ---
 
@@ -108,15 +124,14 @@ Close 5 platform coherence gaps so community config, match guards, and community
 
 - **Landing page docs source**: edit `docs/guides/*.md` + update `scripts/generate-docs.ts` arrays. Run `cd apps/landing && npm run generate-docs` to regenerate. Never hand-edit `apps/landing/src/data/docs/` directly.
 - **ADR numbering**: next ADR is **053**.
-- **TDD test placement**: backend sprint tests go in `services/request-service/tests/tdd/` (NOT root `tests/tdd/`). Frontend sprint tests go in `apps/frontend/tests/tdd/`. Imports are relative to respective source dirs.
+- **TDD test placement**: frontend sprint tests go in `apps/frontend/tests/tdd/`. Imports are relative to frontend source.
 - **JWT field** is `communities` not `communityMemberships` — always `user.communities ?? []`.
 - **`git add` on CLAUDE.md**: file is tracked as lowercase `claude.md` — always `git add claude.md`.
-- **Pre-existing TDD failures**: `sprint-39-provider-ux` (7 tests fail), `sprint-43-feed-ranking` (crashes), schema-related tests. Do NOT fix.
-- **Solo dev — no worktrees**: work directly on feature branches. Worktrees cause hundreds of npm install prompts, lockfile conflicts, and jest path bugs.
-- **BrowseModeControl (Sprint 61)**: shared component at `apps/frontend/src/components/BrowseModeControl.tsx`. `BrowseMode` type exported from there. `browseMode` state lives in `dashboard.tsx` and is passed to BrowseFeed (controlled), CommitmentsTab, MyRequestsTab.
-- **ExpandableConversation scroll**: `scrollIntoView` is now gated on `expanded` — only fires when the widget is open. Do not remove this guard.
+- **Pre-existing TDD failures**: `sprint-39-provider-ux` (7 tests fail), `sprint-43-feed-ranking` (crashes). Do NOT fix.
+- **Solo dev — no worktrees**: work directly on feature branches. Worktrees cause npm install prompts, lockfile conflicts, and jest path bugs.
+- **BrowseModeControl (Sprint 61)**: shared component at `apps/frontend/src/components/BrowseModeControl.tsx`. `BrowseMode` type exported from there. `browseMode` state lives in `dashboard.tsx` and is passed to BrowseFeed (controlled).
 - **Tab id vs label**: Active tab has `id: 'helping'` (for URL routing) but label "Active". Do not change the id.
-- **Flaky CI**: `feed-service` Docker build occasionally fails with npm install timeout. Not caused by code — retry or ignore if tests otherwise pass.
+- **Flaky CI**: `feed-service` Docker build occasionally fails with npm install timeout. Not caused by code — retry if tests otherwise pass.
 - **Sprint 54 migration still needed on demo server** (if not yet run):
   ```bash
   ssh ubuntu@karmyq.com
