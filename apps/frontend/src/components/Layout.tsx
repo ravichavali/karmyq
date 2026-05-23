@@ -3,6 +3,7 @@ import { useRouter } from 'next/router'
 import Link from 'next/link'
 import Image from 'next/image'
 import NotificationBell from './NotificationBell'
+import ProviderNotificationBell from './ProviderNotificationBell'
 import { useProvider } from '../contexts/ProviderContext'
 
 function HamburgerMenu() {
@@ -152,6 +153,7 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
                   <>
                     <div className="border-l border-border h-8 mx-2"></div>
                     <NotificationBell />
+                    <ProviderNotificationBell />
                     {hasProviderProfile && (
                       <button
                         onClick={() => setAvailability(!isAvailable)}

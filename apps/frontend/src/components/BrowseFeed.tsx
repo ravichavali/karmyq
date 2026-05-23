@@ -165,9 +165,9 @@ export default function BrowseFeed({ communityId, communityType, isOnDuty, provi
 
   return (
     <div className="max-w-2xl mx-auto px-4">
-      {isOnDuty && (
+      <div className={isOnDuty ? '' : 'invisible pointer-events-none'}>
         <BrowseModeControl browseMode={browseMode} onChange={handleBrowseModeChange} />
-      )}
+      </div>
 
       {communityType === 'group' && (
         <div className="text-sm text-muted-foreground bg-muted/50 rounded-md px-3 py-2 mb-3 border border-border">
