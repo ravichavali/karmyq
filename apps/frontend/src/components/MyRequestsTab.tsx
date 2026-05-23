@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { requestService } from '@/lib/api'
 import EmptyState from './EmptyState'
-import BrowseModeControl, { BrowseMode } from './BrowseModeControl'
 
 interface Offer {
   id: string
@@ -22,12 +21,9 @@ interface MyRequest {
 
 interface MyRequestsTabProps {
   onNewRequest: () => void
-  isOnDuty?: boolean
-  browseMode?: BrowseMode
-  onBrowseModeChange?: (mode: BrowseMode) => void
 }
 
-export default function MyRequestsTab({ onNewRequest, isOnDuty, browseMode, onBrowseModeChange }: MyRequestsTabProps) {
+export default function MyRequestsTab({ onNewRequest }: MyRequestsTabProps) {
   const [requests, setRequests] = useState<MyRequest[]>([])
   const [expanded, setExpanded] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -123,10 +119,6 @@ export default function MyRequestsTab({ onNewRequest, isOnDuty, browseMode, onBr
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-4">
-      {isOnDuty && browseMode && onBrowseModeChange && (
-        <BrowseModeControl browseMode={browseMode} onChange={onBrowseModeChange} />
-      )}
-
       <div className="flex items-center justify-between mb-4">
         <h2 className="section-heading !mb-0">My Requests</h2>
         <button className="btn-primary text-sm" onClick={onNewRequest}>+ New Request</button>

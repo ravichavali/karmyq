@@ -496,8 +496,8 @@ export default function Dashboard() {
                   />
                 </div>
               )}
-              {activeTab === 'helping' && <div key="helping"><CommitmentsTab onDibsLoaded={setPendingDibsCount} isOnDuty={hasProviderProfile && isAvailable} browseMode={browseMode} onBrowseModeChange={handleBrowseModeChange} /></div>}
-              {activeTab === 'asks' && <div key="asks"><MyRequestsTab onNewRequest={() => setShowWizard(true)} isOnDuty={hasProviderProfile && isAvailable} browseMode={browseMode} onBrowseModeChange={handleBrowseModeChange} /></div>}
+              {activeTab === 'helping' && <div key="helping"><CommitmentsTab onDibsLoaded={setPendingDibsCount} /></div>}
+              {activeTab === 'asks' && <div key="asks"><MyRequestsTab onNewRequest={() => setShowWizard(true)} /></div>}
             </div>
           </>
         )}
