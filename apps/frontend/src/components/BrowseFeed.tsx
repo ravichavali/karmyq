@@ -189,7 +189,7 @@ export default function BrowseFeed({ communityId, communityType, isOnDuty, provi
         <div className="flex items-center justify-between gap-2 text-sm bg-primary-light text-primary border border-primary/20 rounded-lg px-3 py-2 mb-3">
           <span>Offer sent!</span>
           <a
-            href="/?tab=helping"
+            href="/dashboard?tab=helping"
             className="font-medium underline underline-offset-2 hover:no-underline"
           >
             Track in Active tab →

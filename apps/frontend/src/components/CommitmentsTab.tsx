@@ -493,7 +493,7 @@ export default function CommitmentsTab({ onDibsLoaded }: CommitmentsTabProps = {
         ) : (
           <>
             <SectionBlock
-              label="Needs Your Response"
+              label="Awaiting Acceptance"
               items={helpingGroups.proposed}
               renderItem={renderHelpingCard}
             />
