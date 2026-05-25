@@ -19,6 +19,8 @@ interface Match {
   requester_name?: string
   responder_name?: string
   admin_proposed?: boolean
+  requester_done_at?: string | null
+  responder_done_at?: string | null
 }
 
 interface PendingDibs {
@@ -176,8 +178,15 @@ export default function CommitmentsTab({ onDibsLoaded }: CommitmentsTabProps = {
 
     setMarkingDone(matchId)
     try {
-      await requestService.completeMatch(matchId, currentUser.id)
-      setHelping((prev) => prev.map((m) => m.id === matchId ? { ...m, status: 'completed' } : m))
+      const res = await requestService.completeMatch(matchId, currentUser.id)
+      const { fully_completed } = res.data?.data ?? res.data ?? {}
+      const now = new Date().toISOString()
+      setHelping((prev) => prev.map((m) => m.id === matchId
+        ? fully_completed
+          ? { ...m, status: 'completed', responder_done_at: now }
+          : { ...m, responder_done_at: now }
+        : m
+      ))
     } catch (err: any) {
       alert(err.response?.data?.message || 'Failed to mark done')
     } finally {
@@ -193,8 +202,15 @@ export default function CommitmentsTab({ onDibsLoaded }: CommitmentsTabProps = {
 
     setMarkingDone(matchId)
     try {
-      await requestService.completeMatch(matchId, currentUser.id)
-      setRequested((prev) => prev.map((m) => m.id === matchId ? { ...m, status: 'completed' } : m))
+      const res = await requestService.completeMatch(matchId, currentUser.id)
+      const { fully_completed } = res.data?.data ?? res.data ?? {}
+      const now = new Date().toISOString()
+      setRequested((prev) => prev.map((m) => m.id === matchId
+        ? fully_completed
+          ? { ...m, status: 'completed', requester_done_at: now }
+          : { ...m, requester_done_at: now }
+        : m
+      ))
     } catch (err: any) {
       alert(err.response?.data?.message || 'Failed to confirm done')
     } finally {
@@ -360,7 +376,7 @@ export default function CommitmentsTab({ onDibsLoaded }: CommitmentsTabProps = {
             </button>
           </div>
         )}
-        {m.status === 'matched' && (
+        {m.status === 'matched' && !m.responder_done_at && (
           <div className="flex justify-end mt-3">
             <button
               className="btn-primary text-sm py-1 px-3 disabled:opacity-50"
@@ -370,6 +386,9 @@ export default function CommitmentsTab({ onDibsLoaded }: CommitmentsTabProps = {
               {markingDone === m.id ? 'Saving…' : 'Mark Done'}
             </button>
           </div>
+        )}
+        {m.status === 'matched' && m.responder_done_at && (
+          <p className="text-xs text-text-muted text-right mt-3">Waiting for requester to confirm</p>
         )}
       </div>
     )
@@ -433,7 +452,7 @@ export default function CommitmentsTab({ onDibsLoaded }: CommitmentsTabProps = {
             </button>
           </div>
         )}
-        {m.status === 'pending-confirmation' && (
+        {m.status === 'matched' && !m.requester_done_at && (
           <div className="flex justify-end mt-3">
             <button
               className="btn-primary text-sm py-1 px-3 disabled:opacity-50"
@@ -443,6 +462,9 @@ export default function CommitmentsTab({ onDibsLoaded }: CommitmentsTabProps = {
               {markingDone === m.id ? 'Saving…' : 'Confirm Done'}
             </button>
           </div>
+        )}
+        {m.status === 'matched' && m.requester_done_at && (
+          <p className="text-xs text-text-muted text-right mt-3">Waiting for helper to confirm</p>
         )}
       </div>
     )
