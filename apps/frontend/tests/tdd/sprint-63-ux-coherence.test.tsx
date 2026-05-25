@@ -211,7 +211,7 @@ describe('BrowseFeed — post-offer confirmation', () => {
     })
 
     const trackLink = screen.getByRole('link', { name: /Track in Active tab/i })
-    expect(trackLink).toHaveAttribute('href', '/?tab=helping')
+    expect(trackLink).toHaveAttribute('href', '/dashboard?tab=helping')
   })
 
   it('removes the offered request from feed after offer is sent', async () => {

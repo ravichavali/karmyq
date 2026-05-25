@@ -502,7 +502,7 @@ export default function Dashboard() {
                   />
                 </div>
               )}
-              {activeTab === 'helping' && <div key="helping"><CommitmentsTab onDibsLoaded={setPendingDibsCount} /></div>}
+              {activeTab === 'helping' && <div key="helping"><CommitmentsTab onDibsLoaded={setPendingDibsCount} communityId={activeCommunityId} /></div>}
               {activeTab === 'asks' && <div key="asks"><MyRequestsTab onNewRequest={() => setShowWizard(true)} /></div>}
             </div>
           </>

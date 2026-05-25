@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
-import { requestService, dibsService } from '@/lib/api'
+import { requestService, dibsService, reputationService } from '@/lib/api'
 import { getOffersForRequest, acceptOffer, declineOffer } from '@/lib/api/providerApi'
 import EmptyState from './EmptyState'
 import { sortByActionPriority } from '../utils/commitmentSort'
@@ -29,6 +29,36 @@ interface PendingDibs {
   scheduledFor: string
   expiresAt: string
   requesterName?: string
+}
+
+// ── Rating prompt ─────────────────────────────────────────────────────────────
+
+function RatingPrompt({ onRate }: { onRate: (rating: number | null) => void }) {
+  const [hovered, setHovered] = useState(0)
+  return (
+    <div className="flex items-center justify-end gap-3 mt-3">
+      <span className="text-xs text-text-muted">Rate this exchange:</span>
+      <div className="flex gap-0.5">
+        {[1, 2, 3, 4, 5].map((star) => (
+          <button
+            key={star}
+            className="text-base leading-none text-amber-400 hover:text-amber-500 transition-colors"
+            onMouseEnter={() => setHovered(star)}
+            onMouseLeave={() => setHovered(0)}
+            onClick={() => onRate(star)}
+          >
+            {star <= hovered ? '★' : '☆'}
+          </button>
+        ))}
+      </div>
+      <button
+        className="text-xs text-text-muted hover:text-text underline underline-offset-2"
+        onClick={() => onRate(null)}
+      >
+        Skip
+      </button>
+    </div>
+  )
 }
 
 // ── Step indicator ────────────────────────────────────────────────────────────
@@ -91,9 +121,10 @@ function SectionBlock({
 
 interface CommitmentsTabProps {
   onDibsLoaded?: (count: number) => void
+  communityId?: string
 }
 
-export default function CommitmentsTab({ onDibsLoaded }: CommitmentsTabProps = {}) {
+export default function CommitmentsTab({ onDibsLoaded, communityId }: CommitmentsTabProps = {}) {
   const [helping, setHelping] = useState<Match[]>([])
   const [requested, setRequested] = useState<Match[]>([])
   const [myOpenRequests, setMyOpenRequests] = useState<any[]>([])
@@ -102,6 +133,7 @@ export default function CommitmentsTab({ onDibsLoaded }: CommitmentsTabProps = {
   const [pendingDibs, setPendingDibs] = useState<PendingDibs[]>([])
   const [loading, setLoading] = useState(true)
   const [markingDone, setMarkingDone] = useState<string | null>(null)
+  const [pendingRatingId, setPendingRatingId] = useState<string | null>(null)
   const [actioning, setActioning] = useState<string | null>(null)
   const [offerActioning, setOfferActioning] = useState<string | null>(null)
   const [currentUserId, setCurrentUserId] = useState<string>('')
@@ -187,6 +219,7 @@ export default function CommitmentsTab({ onDibsLoaded }: CommitmentsTabProps = {
           : { ...m, responder_done_at: now }
         : m
       ))
+      setPendingRatingId(matchId)
     } catch (err: any) {
       alert(err.response?.data?.message || 'Failed to mark done')
     } finally {
@@ -211,11 +244,32 @@ export default function CommitmentsTab({ onDibsLoaded }: CommitmentsTabProps = {
           : { ...m, requester_done_at: now }
         : m
       ))
+      setPendingRatingId(matchId)
     } catch (err: any) {
       alert(err.response?.data?.message || 'Failed to confirm done')
     } finally {
       setMarkingDone(null)
     }
+  }
+
+  const handleRate = async (match: Match, rating: number | null) => {
+    if (rating !== null && communityId) {
+      const isHelper = match.responder_id === currentUserId
+      const toUserId = isHelper ? match.requester_id : match.responder_id
+      if (toUserId) {
+        try {
+          await reputationService.submitFeedback({
+            match_id: match.id,
+            to_user_id: toUserId,
+            community_id: communityId,
+            rating,
+          })
+        } catch {
+          // Silently ignore — feedback is best-effort
+        }
+      }
+    }
+    setPendingRatingId(null)
   }
 
   const handleAccept = async (matchId: string, side: 'helping' | 'requested') => {
@@ -387,7 +441,10 @@ export default function CommitmentsTab({ onDibsLoaded }: CommitmentsTabProps = {
             </button>
           </div>
         )}
-        {m.status === 'matched' && m.responder_done_at && (
+        {pendingRatingId === m.id && (
+          <RatingPrompt onRate={(rating) => handleRate(m, rating)} />
+        )}
+        {m.status === 'matched' && m.responder_done_at && pendingRatingId !== m.id && (
           <p className="text-xs text-text-muted text-right mt-3">Waiting for requester to confirm</p>
         )}
       </div>
@@ -463,7 +520,10 @@ export default function CommitmentsTab({ onDibsLoaded }: CommitmentsTabProps = {
             </button>
           </div>
         )}
-        {m.status === 'matched' && m.requester_done_at && (
+        {pendingRatingId === m.id && (
+          <RatingPrompt onRate={(rating) => handleRate(m, rating)} />
+        )}
+        {m.status === 'matched' && m.requester_done_at && pendingRatingId !== m.id && (
           <p className="text-xs text-text-muted text-right mt-3">Waiting for helper to confirm</p>
         )}
       </div>

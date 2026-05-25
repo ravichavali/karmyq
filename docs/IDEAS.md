@@ -200,3 +200,93 @@ Provider and community facets should have different color patterns — visual la
 Make sure that simplicity is the default. When in doubt, do less — simpler code, simpler abstractions, simpler flows. Complexity should require justification; simplicity should not.
 
 ---
+
+## [2026-05-19] architecture
+
+**Community fission — two models (both still ideas)**
+
+*Split (mitosis):* Triggered at ~Dunbar ±10. Full trust inheritance. Groups formed by interaction density clustering, random tiebreaker for ambiguous cases. Requires collective decision by moderators/admins. Daughter communities should start with a high cross-community prior with each other — they share history.
+
+*Small group fission (pioneering):* A subset breaks off. Partial trust inheritance only. Two distinct motivations need different mechanics: deliberate offshoot vs. schism. Nothing designed yet.
+
+---
+
+## [2026-05-19] architecture
+
+**Governance model**
+
+- Founder group: 5–6 people, initialized at community creation, handles moderation/admin/governance.
+- No permanent roles: roles reflect current trust, not historical status. Power flows toward demonstrated trustworthiness over time.
+- Governance as a function of trust: governance rights expand as community trust matures. Prevents bad actors from creating a community and immediately setting harmful norms.
+- Templates: communities can start from scratch or from templates. Questionnaire matching finds similar communities and suggests their governance models — cultural transmission by design.
+
+---
+
+## [2026-05-19] framing
+
+**Macro argument — hold for later (do not add to site yet)**
+
+Every major technological shift follows a consolidation → diffusion arc. Current warning flags — oligarchy, low engagement, populism, inequality — are all symptoms of captured trust and hollowed community. Karmyq as infrastructure for the diffusion phase.
+
+Hold until: governance layer is built, federation exists, third-level fractal has real mechanics behind it.
+
+---
+
+## [2026-05-19] architecture
+
+**Anti-oligarchy as architectural principle**
+
+Non-permanent roles are the community-level answer to entrenchment. Eligibility gated by trust score, ratified by community. Roles are a reflection of current trust, not a reward for past trust.
+
+---
+
+## [2026-05-19] other
+
+**Blog on karmyq.org — testimonials and stories**
+
+Add a blog to the landing site where community members can post testimonials and stories. Needs: governance on who can publish (e.g. community trust threshold, admin nomination), an editorial process (draft → review → publish), and a content model. Good surface for social proof and mission framing.
+
+---
+
+## [2026-05-20] ux
+
+**Browse feed filter in On-duty mode (Sprint 61 candidate)**
+
+Sprint 60 forks Browse by provider availability but the on-duty experience is too blunt — it only shows provider-matched requests. Better model:
+
+- **Off-duty**: community feed, no controls (current behavior)
+- **On-duty**: 3-chip segmented control above the feed — **Community / Provider / Both**
+  - *Community* → normal unfiltered community feed
+  - *Provider* → filtered by provider service types (current on-duty behavior)
+  - *Both* → unfiltered, but provider-type requests get a visual callout
+
+State: persist choice in `localStorage` keyed to provider mode. Default for on-duty → *Provider*.
+
+**Color coding for request origin:**
+Cards in the feed should have a subtle visual signal to distinguish request type, especially in *Both* mode:
+- Provider requests (matching provider service types) → amber/orange left-border accent
+- Community requests → existing primary/green accent
+
+Color is derived client-side from `request_type` — no backend change. Could also use a small "Provider match" badge on the card rather than (or in addition to) the border.
+
+Files to change: `apps/frontend/src/components/BrowseFeed.tsx`, `apps/frontend/src/pages/dashboard.tsx` (pass `browseMode` state down).
+
+---
+
+## [2026-05-20] other
+
+Bug: clicking "Withdraw Offer" on the Active tab returns "Only the requester can reject this match." The withdraw action is calling the wrong endpoint or passing the wrong role — the responder (helper) should be able to withdraw their own proposed offer, but the rejection guard is treating it as a requester-only action.
+
+---
+
+## [2026-05-20] framing
+
+Feeds and dashboards need to be designed fit-for-purpose. These are not Facebook-style infinite feeds — they don't have to keep scrolling forever, and curation probably matters more than volume. Need to start from what the platform is actually trying to do (connect people who need help with people who can give it, within a community of trust) and design the feed/dashboard experience backwards from that goal — not borrow patterns from social media.
+
+---
+
+## [2026-05-24] architecture
+
+Data cleanup should be a priority in coming weeks — stale simulation data, orphaned records, and test state are accumulating on the demo server and making the platform harder to evaluate clearly.
+
+---
