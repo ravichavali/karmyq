@@ -419,7 +419,25 @@ export default function CommitmentsTab({ onDibsLoaded, communityId }: Commitment
           />
         )}
         {/* Footer actions: right-aligned */}
-        {m.status === 'proposed' && (
+        {m.status === 'proposed' && m.admin_proposed && (
+          <div className="flex justify-end gap-2 mt-3">
+            <button
+              className="text-xs py-1 px-2 rounded bg-green-100 text-green-700 hover:bg-green-200 disabled:opacity-50"
+              disabled={actioning === m.id}
+              onClick={() => handleAccept(m.id, 'helping')}
+            >
+              Accept
+            </button>
+            <button
+              className="text-xs py-1 px-2 rounded bg-red-100 text-red-700 hover:bg-red-200 disabled:opacity-50"
+              disabled={actioning === m.id}
+              onClick={() => handleDecline(m.id, 'helping')}
+            >
+              Decline
+            </button>
+          </div>
+        )}
+        {m.status === 'proposed' && !m.admin_proposed && (
           <div className="flex justify-end mt-3">
             <button
               className="text-xs py-1 px-2 rounded bg-red-100 text-red-700 hover:bg-red-200 disabled:opacity-50"
@@ -491,7 +509,12 @@ export default function CommitmentsTab({ onDibsLoaded, communityId }: Commitment
           />
         )}
         {/* Footer actions: right-aligned */}
-        {m.status === 'proposed' && (
+        {m.status === 'proposed' && m.admin_proposed && (
+          <p className="text-xs text-text-muted text-right mt-3">
+            Waiting for {m.responder_name ?? 'suggested helper'} to respond
+          </p>
+        )}
+        {m.status === 'proposed' && !m.admin_proposed && (
           <div className="flex justify-end gap-2 mt-3">
             <button
               className="text-xs py-1 px-2 rounded bg-green-100 text-green-700 hover:bg-green-200 disabled:opacity-50"

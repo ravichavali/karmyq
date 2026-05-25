@@ -298,7 +298,7 @@ router.put('/:id/accept', async (req: Request, res: Response) => {
     // Get match details
     const matchCheck = await query(
       `SELECT
-        m.id, m.request_id, m.offer_id, m.responder_id, m.status,
+        m.id, m.request_id, m.offer_id, m.responder_id, m.status, m.admin_proposed,
         r.requester_id
       FROM requests.matches m
       LEFT JOIN requests.help_requests r ON m.request_id = r.id
@@ -315,12 +315,21 @@ router.put('/:id/accept', async (req: Request, res: Response) => {
 
     const match = matchCheck.rows[0];
 
-    // Verify user is the requester
-    if (match.requester_id !== user_id) {
-      return res.status(403).json({
-        success: false,
-        message: 'Only the requester can accept this match',
-      });
+    // For admin-proposed matches the suggested helper accepts; for normal offers the requester accepts
+    if (match.admin_proposed) {
+      if (match.responder_id !== user_id) {
+        return res.status(403).json({
+          success: false,
+          message: 'Only the suggested helper can accept this match',
+        });
+      }
+    } else {
+      if (match.requester_id !== user_id) {
+        return res.status(403).json({
+          success: false,
+          message: 'Only the requester can accept this match',
+        });
+      }
     }
 
     // Verify match is in proposed state
