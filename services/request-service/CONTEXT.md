@@ -1,7 +1,7 @@
 # Request Service - Complete Context Documentation
 
-> **Last Updated:** 2026-04-03
-> **Version:** v9.18.0
+> **Last Updated:** 2026-05-25
+> **Version:** v9.40.0
 > **Port:** 3003
 > **Status:** Production (Polymorphic Request System + Curated Feed)
 
@@ -1022,9 +1022,9 @@ At least one of `urgency` or `note` must be provided (400 if neither is present)
 **Implementation:** `src/routes/requests.ts` (Sprint 25)
 
 #### POST /requests/:id/boost
-Boost a request for 48 hours, adding a +0.3 feed score bonus via the feed-service boost scoring rule (Sprint 36). Admin only.
+Boost a request for 48 hours, adding a +0.3 feed score bonus via the feed-service boost scoring rule (Sprint 36). Admin or moderator.
 
-**Auth:** Caller must be an active admin of the community.
+**Auth:** Caller must be an active admin or moderator of the community (Sprint 64).
 
 **Request:**
 ```json
@@ -1050,14 +1050,14 @@ Boost a request for 48 hours, adding a +0.3 feed score bonus via the feed-servic
 Sets `is_boosted=TRUE`, `boosted_at=NOW()`, `boosted_expires_at=NOW()+48h`, `boosted_by=<caller>`.
 
 **Errors:**
-- `403` — Caller is not an admin of the community
+- `403` — Caller is not an admin or moderator of the community
 
 **Implementation:** `src/routes/adminActions.ts`
 
 #### DELETE /requests/:id/boost
-Remove an active boost from a request (Sprint 36). Admin only.
+Remove an active boost from a request (Sprint 36). Admin or moderator.
 
-**Auth:** Caller must be an active admin of the community.
+**Auth:** Caller must be an active admin or moderator of the community (Sprint 64).
 
 **Query Parameters:**
 - `community_id` (UUID, required)
@@ -2285,6 +2285,10 @@ router.get('/health', async (req, res) => {
 - Monitor with: `docker stats karmyq-request-service`
 
 ### 10.3 Recent Changes (v9.10)
+
+**Version 9.40.0 - Sprint 64 (2026-05-25)**
+
+- **CHANGED**: `src/routes/adminActions.ts` — `isAdminOfRequestCommunity` renamed to `isAdminOrModOfRequestCommunity`; filter now accepts `role === 'admin' || role === 'moderator'`. All four admin action endpoints (boost, remove-boost, propose-match, urgent-toggle) now accept moderator role in addition to admin. Frontend already showed boost/propose buttons to mods — backend was silently 403ing them.
 
 **Version 9.29.0 - Sprint 62 (2026-05-21)**
 

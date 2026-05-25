@@ -5,6 +5,7 @@ import EmptyState from './EmptyState'
 import TrustPathBadge, { TrustPathBadgeSkeleton } from './TrustPathBadge'
 import { useTrustPath } from '@/hooks/useTrustPath'
 import BrowseModeControl, { BrowseMode } from './BrowseModeControl'
+import { isBoostActive } from '@/utils/boost'
 
 interface HelpRequest {
   id: string
@@ -18,6 +19,8 @@ interface HelpRequest {
   requester_name?: string
   created_at: string
   match_score?: number
+  is_boosted?: boolean | null
+  boosted_expires_at?: string | null
 }
 
 function RequestTrustBadge({ requesterId }: { requesterId?: string }) {
@@ -249,6 +252,12 @@ export default function BrowseFeed({ communityId, communityType, isOnDuty, provi
               {isProviderMatch && (
                 <span className="inline-block text-xs px-2 py-0.5 rounded-full text-amber-600 bg-amber-50 mb-2">
                   Provider match
+                </span>
+              )}
+
+              {isBoostActive(request) && (
+                <span className="inline-block text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium mb-2">
+                  ⚡ Community Pick
                 </span>
               )}
 

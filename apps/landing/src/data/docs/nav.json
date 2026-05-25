@@ -339,6 +339,11 @@
           "href": "/docs/concepts/adr-052-security-hardening"
         },
         {
+          "label": "Feed Design Philosophy",
+          "href": "/docs/concepts/adr-053-feed-design-philosophy",
+          "description": "Feed as a work surface — priority order, trust-weighted surfacing, admin boost as the only curation signal."
+        },
+        {
           "label": "Offer Fulfillment Workflow",
           "href": "/docs/concepts/adr-033-offer-fulfillment-workflow"
         },

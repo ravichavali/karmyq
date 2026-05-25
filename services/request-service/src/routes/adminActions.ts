@@ -4,11 +4,11 @@ import { publishEvent } from '../events/publisher';
 
 const router = Router();
 
-// Helper: check if the authenticated user is an admin of any community this request belongs to
-async function isAdminOfRequestCommunity(requestId: string, user: any): Promise<boolean> {
+// Helper: check if the authenticated user is an admin or moderator of any community this request belongs to
+async function isAdminOrModOfRequestCommunity(requestId: string, user: any): Promise<boolean> {
   const memberships: Array<{ id: string; role: string }> = user.communities ?? [];
   const adminCommunityIds = memberships
-    .filter((m) => m.role === 'admin')
+    .filter((m) => m.role === 'admin' || m.role === 'moderator')
     .map((m) => m.id);
 
   if (adminCommunityIds.length === 0) return false;
@@ -38,7 +38,7 @@ router.post('/:id/boost', async (req: Request, res: Response) => {
     }
 
     // Verify admin access
-    const isAdmin = await isAdminOfRequestCommunity(id, user);
+    const isAdmin = await isAdminOrModOfRequestCommunity(id, user);
     if (!isAdmin) {
       return res.status(403).json({ success: false, message: 'Not an admin of this request\'s community' });
     }
@@ -77,7 +77,7 @@ router.delete('/:id/boost', async (req: Request, res: Response) => {
     }
 
     // Verify admin access
-    const isAdmin = await isAdminOfRequestCommunity(id, user);
+    const isAdmin = await isAdminOrModOfRequestCommunity(id, user);
     if (!isAdmin) {
       return res.status(403).json({ success: false, message: 'Not an admin of this request\'s community' });
     }
@@ -121,7 +121,7 @@ router.post('/:id/propose-match', async (req: Request, res: Response) => {
     }
 
     // Verify admin access
-    const isAdmin = await isAdminOfRequestCommunity(id, user);
+    const isAdmin = await isAdminOrModOfRequestCommunity(id, user);
     if (!isAdmin) {
       return res.status(403).json({ success: false, message: 'Not an admin of this request\'s community' });
     }
@@ -199,7 +199,7 @@ router.patch('/:id/urgent', async (req: Request, res: Response) => {
     }
 
     // Verify admin access
-    const isAdmin = await isAdminOfRequestCommunity(id, user);
+    const isAdmin = await isAdminOrModOfRequestCommunity(id, user);
     if (!isAdmin) {
       return res.status(403).json({ success: false, message: 'Not an admin of this request\'s community' });
     }
