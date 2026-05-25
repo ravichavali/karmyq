@@ -35,7 +35,7 @@ export function TrustCard({ userId, onClose }: { userId: string; onClose: () => 
 
   useEffect(() => {
     socialGraphApi.get(`/trust-card/${userId}`)
-      .then(res => setData(res.data.data))
+      .then(res => setData(res.data))
       .catch(() => setData(null))
       .finally(() => setLoading(false));
   }, [userId]);
