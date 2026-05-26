@@ -35,6 +35,12 @@ export default function TrustGraph({ graphData, currentUserId }: TrustGraphProps
     })
   }, [])
 
+  // Normalize to fixed visual ranges so raw score magnitude doesn't matter
+  const maxTrust = Math.max(...graphData.nodes.map(n => n.trust_score), 1)
+  const maxWeight = Math.max(...graphData.links.map(l => l.effective_weight), 1)
+  const nodeSize = (score: number) => 3 + (score / maxTrust) * 6   // 3–9 px radius
+  const linkThickness = (w: number) => 1 + (w / maxWeight) * 3     // 1–4 px width
+
   const fgData = {
     nodes: graphData.nodes.map(n => ({ ...n })),
     links: graphData.links.map(l => ({ ...l })),
@@ -69,13 +75,14 @@ export default function TrustGraph({ graphData, currentUserId }: TrustGraphProps
           width={700}
           height={500}
           nodeLabel={(node: any) => node.name}
-          nodeVal={(node: any) => Math.max(5, node.trust_score / 10)}
+          nodeVal={(node: any) => nodeSize(node.trust_score)}
           nodeColor={(node: any) => {
             if (selectedNodeId && !connectedNodeIds?.has(node.id)) return '#94a3b8'
             if (node.isCurrentUser || node.id === currentUserId) return '#10b981'
             return '#6366f1'
           }}
-          linkWidth={(link: any) => Math.max(1, link.effective_weight / 5)}
+          linkWidth={(link: any) => linkThickness(link.effective_weight)}
+          linkDistance={80}
           linkColor={(link: any) => {
             if (!selectedNodeId) return 'rgba(99,102,241,0.4)'
             const src = typeof link.source === 'object' ? link.source.id : link.source
@@ -89,6 +96,7 @@ export default function TrustGraph({ graphData, currentUserId }: TrustGraphProps
           }}
           onBackgroundClick={() => setSelectedNodeId(null)}
           backgroundColor="transparent"
+          cooldownTicks={100}
         />
       )}
 
