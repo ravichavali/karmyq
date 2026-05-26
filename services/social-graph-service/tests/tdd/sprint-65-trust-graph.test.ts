@@ -7,6 +7,15 @@
  * Prove mathematical invariants with exact numbers.
  */
 
+// Bull/ioredis connects to Redis at module scope — mock to prevent hang when Redis unavailable
+jest.mock('bull', () =>
+  jest.fn().mockImplementation(() => ({
+    process: jest.fn(),
+    on: jest.fn(),
+    close: jest.fn().mockResolvedValue(undefined),
+  }))
+);
+
 jest.mock('../../src/config/database', () => {
   const { Pool } = require('pg');
   const pool = new Pool({
