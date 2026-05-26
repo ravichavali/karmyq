@@ -15,6 +15,7 @@ jest.mock('../../src/config/database', () => {
     database: process.env.DB_NAME || 'karmyq_test',
     user: process.env.DB_USER || 'karmyq_user',
     password: process.env.DB_PASSWORD || 'test_password',
+    connectionTimeoutMillis: 2000,
   });
   return { pool };
 });
@@ -44,6 +45,7 @@ const pool = new Pool({
   database: process.env.DB_NAME || 'karmyq_test',
   user: process.env.DB_USER || 'karmyq_user',
   password: process.env.DB_PASSWORD || 'test_password',
+  connectionTimeoutMillis: 2000,
 });
 
 // Test fixture IDs — seeded in beforeAll
