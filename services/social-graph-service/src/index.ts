@@ -134,10 +134,12 @@ app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
   });
 });
 
-// Start server
-app.listen(PORT, async () => {
-  logger.info(`Social Graph Service running on port ${PORT}`);
-  await initEventSubscriber();
-});
+// Start server only when run directly (not when imported by tests)
+if (require.main === module) {
+  app.listen(PORT, async () => {
+    logger.info(`Social Graph Service running on port ${PORT}`);
+    await initEventSubscriber();
+  });
+}
 
 export default app;
