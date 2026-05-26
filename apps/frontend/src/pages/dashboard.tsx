@@ -175,18 +175,26 @@ export default function Dashboard() {
         limit: 50,
       })
 
-      // Fetch all data in parallel
-      const [myRequestsRes, allMatchesRes, suggestedRes, matchedRequestsRes, communitiesRes] = await Promise.all([
-        requestService.getRequests({ requester_id: userId, limit: 50 }), // Get MY requests (all statuses)
-        requestService.getMatches({ user_id: userId, limit: 200 }),
-        suggestedFetch, // Community requests — curated when community selected, raw when viewing all
-        requestService.getRequests({ status: 'matched', limit: 50 }), // Get matched requests (for offers I'm helping with)
-        communityService.getMyCommunities(userId),
-      ])
+      // Fetch all data in parallel — use allSettled so one service being down
+      // doesn't blank out unrelated data (e.g. feed down should not hide communities)
+      const [myRequestsResult, allMatchesResult, suggestedResult, matchedRequestsResult, communitiesResult] =
+        await Promise.allSettled([
+          requestService.getRequests({ requester_id: userId, limit: 50 }),
+          requestService.getMatches({ user_id: userId, limit: 200 }),
+          suggestedFetch,
+          requestService.getRequests({ status: 'matched', limit: 50 }),
+          communityService.getMyCommunities(userId),
+        ])
+
+      const myRequestsRes   = myRequestsResult.status      === 'fulfilled' ? myRequestsResult.value      : null
+      const allMatchesRes   = allMatchesResult.status      === 'fulfilled' ? allMatchesResult.value      : null
+      const suggestedRes    = suggestedResult.status       === 'fulfilled' ? suggestedResult.value       : null
+      const matchedRequestsRes = matchedRequestsResult.status === 'fulfilled' ? matchedRequestsResult.value : null
+      const communitiesRes  = communitiesResult.status     === 'fulfilled' ? communitiesResult.value     : null
 
       // Fetch milestones for first community
       try {
-        const communities = communitiesRes.data.communities || []
+        const communities = communitiesRes?.data?.communities || []
         if (communities.length > 0) {
           // TODO: Re-enable when milestone_events table is created (See ROADMAP.md Backlog #24)
           // const communityToUse = activeCommunityId || communities[0].id
@@ -199,10 +207,10 @@ export default function Dashboard() {
         setMilestones([])
       }
 
-      const allRequests = myRequestsRes.data.requests || []
-      const allMatches = allMatchesRes.data.matches || []
-      const suggestedRequests = suggestedRes.data.requests || []
-      const matchedRequests = matchedRequestsRes.data.requests || []
+      const allRequests = myRequestsRes?.data?.requests || []
+      const allMatches = allMatchesRes?.data?.matches || []
+      const suggestedRequests = suggestedRes?.data?.requests || []
+      const matchedRequests = matchedRequestsRes?.data?.requests || []
 
       // Combine all requests (my requests + open requests + matched requests) for lookup
       const allRequestsCombined = [...allRequests, ...suggestedRequests, ...matchedRequests]
@@ -337,7 +345,7 @@ export default function Dashboard() {
       })
 
       setFeedItems(feed)
-      setUserCommunities(communitiesRes.data.communities || [])
+      setUserCommunities(communitiesRes?.data?.communities || [])
     } catch (err) {
       console.error('Failed to load dashboard data', { error: err instanceof Error ? err.message : String(err) })
     } finally {
