@@ -874,6 +874,16 @@
         },
         {
           "method": "GET",
+          "path": "/trust/graph/:communityId",
+          "description": "Return the weighted trust graph for a community — nodes (members) and edges (trust_edges with effective_weight applied)."
+        },
+        {
+          "method": "GET",
+          "path": "/trust/edge",
+          "description": "Return a single trust edge for a user pair in a community."
+        },
+        {
+          "method": "GET",
           "path": "/network",
           "description": "Get the current user's local network graph from the materialized connections table."
         }

@@ -1284,6 +1284,55 @@ CREATE UNIQUE INDEX IF NOT EXISTS connections_normalized_pair
 CREATE INDEX IF NOT EXISTS connections_user_a_idx ON social_graph.connections (user_a_id);
 CREATE INDEX IF NOT EXISTS connections_user_b_idx ON social_graph.connections (user_b_id);
 
+-- Sprint 65: Trust Graph Foundation — weighted trust edges
+CREATE TABLE IF NOT EXISTS social_graph.trust_edges (
+  id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id_a             UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  user_id_b             UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  community_id          UUID NOT NULL REFERENCES communities.communities(id) ON DELETE CASCADE,
+  match_completed_count INT NOT NULL DEFAULT 0,
+  endorsement_count     INT NOT NULL DEFAULT 0,
+  karma_given_count     INT NOT NULL DEFAULT 0,
+  event_count           INT NOT NULL DEFAULT 0,
+  raw_weight            FLOAT NOT NULL DEFAULT 0,
+  last_interaction_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  created_at            TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at            TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CONSTRAINT trust_edges_normalized CHECK (user_id_a::text < user_id_b::text),
+  UNIQUE(user_id_a, user_id_b, community_id)
+);
+
+CREATE INDEX IF NOT EXISTS trust_edges_user_a_community ON social_graph.trust_edges(user_id_a, community_id);
+CREATE INDEX IF NOT EXISTS trust_edges_user_b_community ON social_graph.trust_edges(user_id_b, community_id);
+CREATE INDEX IF NOT EXISTS trust_edges_community ON social_graph.trust_edges(community_id);
+CREATE INDEX IF NOT EXISTS trust_edges_weight ON social_graph.trust_edges(raw_weight DESC);
+
+CREATE TABLE IF NOT EXISTS social_graph.interaction_weights (
+  id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  community_id     UUID REFERENCES communities.communities(id) ON DELETE CASCADE,
+  interaction_type TEXT NOT NULL CHECK (interaction_type IN ('match_completed','endorsement','karma_given','event')),
+  weight           FLOAT NOT NULL DEFAULT 1.0,
+  UNIQUE(community_id, interaction_type)
+);
+
+INSERT INTO social_graph.interaction_weights (community_id, interaction_type, weight) VALUES
+  (NULL, 'match_completed', 10.0),
+  (NULL, 'endorsement',      5.0),
+  (NULL, 'karma_given',      3.0),
+  (NULL, 'event',            2.0)
+ON CONFLICT DO NOTHING;
+
+CREATE TABLE IF NOT EXISTS social_graph.community_trust_edges (
+  id                      UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  community_id_a          UUID NOT NULL REFERENCES communities.communities(id) ON DELETE CASCADE,
+  community_id_b          UUID NOT NULL REFERENCES communities.communities(id) ON DELETE CASCADE,
+  cross_interaction_count INT NOT NULL DEFAULT 0,
+  weight                  FLOAT NOT NULL DEFAULT 0,
+  last_interaction_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CONSTRAINT community_trust_normalized CHECK (community_id_a::text < community_id_b::text),
+  UNIQUE(community_id_a, community_id_b)
+);
+
 -- Sprint 41: Device push tokens for Expo notifications
 CREATE TABLE IF NOT EXISTS auth.device_push_tokens (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

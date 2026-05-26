@@ -29,9 +29,35 @@ auth.users.invitation_accepted_at
 auth.users.show_connection_path
 auth.users.show_who_invited_me
 auth.users.show_who_i_invited
+
+-- Sprint 65: Trust graph (weighted, community-scoped edges)
+social_graph.trust_edges (
+  id, user_id_a, user_id_b,         -- normalized: user_id_a < user_id_b
+  community_id,                      -- community scope
+  match_completed_count,             -- per-type interaction counts
+  endorsement_count,
+  karma_given_count,
+  event_count,
+  raw_weight,                        -- sum of count × type_weight
+  last_interaction_at,               -- used for half-life decay
+  created_at, updated_at
+)
+
+social_graph.interaction_weights (
+  id, community_id,                  -- NULL community_id = platform default
+  interaction_type,                  -- match_completed | endorsement | karma_given | event
+  weight                             -- platform defaults: 10, 5, 3, 2
+)
+
+social_graph.community_trust_edges (
+  id, community_id_a, community_id_b,  -- normalized pair
+  cross_interaction_count,
+  weight,
+  last_interaction_at
+)
 ```
 
-See [migration 009_social_graph.sql](../../infrastructure/postgres/migrations/009_social_graph.sql) for complete schema.
+See [migration 009_social_graph.sql](../../infrastructure/postgres/migrations/009_social_graph.sql) and [migration 20260525-trust-graph-foundation.sql](../../infrastructure/postgres/migrations/20260525-trust-graph-foundation.sql) for complete schema.
 
 ### Tables Read by This Service
 
@@ -299,6 +325,43 @@ Get paths for multiple target users (optimized for feed ranking).
 
 ---
 
+### GET /trust/graph/:communityId
+
+Return the weighted trust graph for a community — nodes (members) and edges (trust_edges with effective_weight applied).
+
+**Auth required**: Bearer JWT. Caller must be an active member of the community.
+
+**Response**:
+```json
+{
+  "success": true,
+  "data": {
+    "nodes": [{ "id": "uuid", "name": "Alice", "trust_score": 42.5, "karma": 120 }],
+    "edges": [{
+      "source": "uuid-a", "target": "uuid-b",
+      "raw_weight": 10.0, "effective_weight": 9.1,
+      "match_completed_count": 1, "endorsement_count": 0,
+      "karma_given_count": 0, "event_count": 0,
+      "last_interaction_at": "2026-05-01T00:00:00Z"
+    }]
+  }
+}
+```
+
+**Primary consumer**: Sprint 66 trust graph visualizer.
+
+---
+
+### GET /trust/edge
+
+Return a single trust edge for a user pair in a community.
+
+**Query params**: `userA`, `userB`, `communityId`
+
+**Response**: Edge object with `effective_weight`, or `{ success: true, data: null }` if no edge exists (not 404).
+
+---
+
 ### GET /network
 
 Get the current user's local network graph from the materialized connections table.
@@ -522,13 +585,15 @@ None currently. Future consideration:
 
 ### match_completed
 
-When a match is marked complete in the Request Service, this event triggers upserting a new connection into `social_graph.connections` if one doesn't already exist.
+When a match is marked complete in the Request Service.
 
-**Listener**: [src/queues/matchCompleted.ts](src/queues/matchCompleted.ts)
+**Listener**: [src/events/subscriber.ts](src/events/subscriber.ts)
 
-**Action**: Upsert connection record between the two matched users with `connection_type = 'exchange'` and increment strength counter.
-
-**Side Effect**: Updates materialized view `social_graph.connections` for network graph queries.
+**Actions** (in order):
+1. Clear trust path cache (`auth.social_distances`) for the two users
+2. Upsert `social_graph.connections` exchange edge
+3. Upsert `social_graph.trust_edges` weighted edge for the community (Sprint 65)
+4. If users have different primary communities, increment `social_graph.community_trust_edges` (Sprint 65)
 
 ---
 
@@ -654,6 +719,17 @@ curl http://localhost:3010/paths/$USER_B_ID \
 ---
 
 ## Recent Changes
+
+### Sprint 65: Trust Graph Foundation (2026-05-25)
+- **NEW**: `social_graph.trust_edges` — weighted, community-scoped, bidirectional user-user edges
+- **NEW**: `social_graph.interaction_weights` — modular per-type weights (match_completed=10, endorsement=5, karma_given=3, event=2), overridable per community
+- **NEW**: `social_graph.community_trust_edges` — community-to-community bonds (fractal level 2)
+- **NEW**: `GET /trust/graph/:communityId` — graph data for Sprint 66 visualizer
+- **NEW**: `GET /trust/edge` — single edge lookup
+- **CHANGED**: `src/events/subscriber.ts` — now also calls `processMatchCompleted` to upsert trust edges on `match_completed`
+- **CHANGED**: `src/services/pathComputation.ts` — trust score now derived from edge `effective_weight` (sum of path edge weights) instead of intermediate node karma
+- **NEW**: `docs/adr/ADR-054-trust-graph-architecture.md`
+- **BACKFILL**: Migration populates trust_edges from existing `requests.matches` for demo server
 
 ### Sprint 56: Logger migration (2026-05-17)
 - **CHANGED**: `src/config/logger.ts` — now uses `createLogger('social-graph-service')` from `@karmyq/shared`; local 21-line winston setup removed

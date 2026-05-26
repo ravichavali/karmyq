@@ -572,6 +572,16 @@
           "method": "GET",
           "path": "/trust-card/:targetUserId",
           "description": "Returns trust tier, karma, trust path, and invitation chain for a target user relative to the current user."
+        },
+        {
+          "method": "GET",
+          "path": "/trust/graph/:communityId",
+          "description": "Returns weighted trust graph (nodes + edges with effective_weight) for a community. Primary data source for Sprint 66 visualizer."
+        },
+        {
+          "method": "GET",
+          "path": "/trust/edge",
+          "description": "Returns a single trust edge for a user pair in a community. Returns { data: null } if no edge exists."
         }
       ],
       "dependencies": [
@@ -589,7 +599,7 @@
         ]
       },
       "healthCheck": "http://localhost:3010/health",
-      "notes": "Trust-first design foundation. Sprint 27: Added match_completed subscription to upsert exchange connections into social_graph.connections.",
+      "notes": "Trust-first design foundation. Sprint 27: match_completed → social_graph.connections. Sprint 65: match_completed → social_graph.trust_edges (weighted, decaying, community-scoped). GET /trust/graph/:communityId feeds Sprint 66 visualizer.",
       "databaseSchemas": [
         "social_graph"
       ]

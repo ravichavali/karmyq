@@ -273,6 +273,10 @@
           "href": "/docs/concepts/adr-035-karma-allocation-trust-score-strategy"
         },
         {
+          "label": "Trust Graph Architecture",
+          "href": "/docs/concepts/adr-054-trust-graph-architecture"
+        },
+        {
           "label": "— Community & Scale —",
           "href": "/docs/concepts",
           "divider": true
@@ -340,8 +344,11 @@
         },
         {
           "label": "Feed Design Philosophy",
-          "href": "/docs/concepts/adr-053-feed-design-philosophy",
-          "description": "Feed as a work surface — priority order, trust-weighted surfacing, admin boost as the only curation signal."
+          "href": "/docs/concepts/adr-053-feed-design-philosophy"
+        },
+        {
+          "label": "Trust Graph Architecture",
+          "href": "/docs/concepts/adr-054-trust-graph-architecture"
         },
         {
           "label": "Offer Fulfillment Workflow",
