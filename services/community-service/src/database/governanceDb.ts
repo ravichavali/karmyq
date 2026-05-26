@@ -40,18 +40,31 @@ export async function getGovernanceState(communityId: string) {
     threshold: settings.eligibility_threshold,
   };
 
-  // Eligible members: active community members whose total trust raw_weight >= threshold
+  // Eligible members: active community members whose total trust raw_weight >= threshold.
+  // Trust score uses a scalar subquery so it matches the nomination validation exactly —
+  // a JOIN against both trust_edges and karma_records causes cross-product row inflation
+  // which inflates SUM(raw_weight) and makes members appear eligible when they are not.
   const eligibleRes = await pool.query(`
     SELECT u.id AS user_id, u.name,
-           COALESCE(SUM(te.raw_weight), 0) AS trust_score,
-           COALESCE(SUM(kr.points), 0) AS karma
+           COALESCE((
+             SELECT SUM(te.raw_weight)
+             FROM social_graph.trust_edges te
+             WHERE te.community_id = $1
+               AND (te.user_id_a = u.id OR te.user_id_b = u.id)
+           ), 0) AS trust_score,
+           COALESCE((
+             SELECT SUM(kr.points)
+             FROM reputation.karma_records kr
+             WHERE kr.user_id = u.id AND kr.community_id = $1
+           ), 0) AS karma
     FROM auth.users u
     JOIN communities.members cm ON cm.user_id = u.id AND cm.community_id = $1 AND cm.status = 'active'
-    LEFT JOIN social_graph.trust_edges te ON (te.user_id_a = u.id OR te.user_id_b = u.id)
-      AND te.community_id = $1
-    LEFT JOIN reputation.karma_records kr ON kr.user_id = u.id AND kr.community_id = $1
-    GROUP BY u.id, u.name
-    HAVING COALESCE(SUM(te.raw_weight), 0) >= $2
+    WHERE COALESCE((
+      SELECT SUM(te.raw_weight)
+      FROM social_graph.trust_edges te
+      WHERE te.community_id = $1
+        AND (te.user_id_a = u.id OR te.user_id_b = u.id)
+    ), 0) >= $2
   `, [communityId, settings.eligibility_threshold]);
 
   // Pending nominations with ratification counts
@@ -94,13 +107,15 @@ export async function getGovernanceState(communityId: string) {
   // Current governance role holders
   const roleHoldersRes = await pool.query(`
     SELECT u.id AS user_id, u.name, cm.role,
-           COALESCE(SUM(te.raw_weight), 0) AS trust_score
+           COALESCE((
+             SELECT SUM(te.raw_weight)
+             FROM social_graph.trust_edges te
+             WHERE te.community_id = $1
+               AND (te.user_id_a = u.id OR te.user_id_b = u.id)
+           ), 0) AS trust_score
     FROM communities.members cm
     JOIN auth.users u ON u.id = cm.user_id
-    LEFT JOIN social_graph.trust_edges te ON (te.user_id_a = u.id OR te.user_id_b = u.id)
-      AND te.community_id = $1
     WHERE cm.community_id = $1 AND cm.role IN ('admin', 'moderator') AND cm.status = 'active'
-    GROUP BY u.id, u.name, cm.role
   `, [communityId]);
 
   return {
