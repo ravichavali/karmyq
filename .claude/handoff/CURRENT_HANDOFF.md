@@ -1,10 +1,10 @@
-# Sprint 66: Trust Graph Visualization + Governance ADR | COMPLETE ✅
+# Sprint 67: Governance Implementation | READY TO PLAN 🔲
 
 ## Handoff Document
 
 **Date**: 2026-05-26
-**Current Version**: v9.60.0 (Sprint 66 shipped)
-**Status**: Implementation complete. Merged to master and deploying.
+**Current Version**: v9.60.0 (Sprint 66 shipped) → v9.70.0 (this sprint)
+**Status**: Sprint 66 complete and deployed. Sprint 67 scope below.
 
 ---
 
@@ -102,14 +102,49 @@
 | Sprint | Theme | Target | Status |
 |--------|-------|--------|--------|
 | **65** | Trust Graph Foundation | May 25 | ✅ Shipped v9.50.0 |
-| **66** | Trust Graph Visualization + Governance ADR | ~June 5 | 🔲 Ready to execute |
-| 67 | Governance Implementation | ~June 10 | 🔲 Planned |
+| **66** | Trust Graph Visualization + Governance ADR | June 5 | ✅ Shipped v9.60.0 |
+| **67** | Governance Implementation | ~June 10 | 🔲 Next |
 | 68 | Data Half-life + Demo Cleanup | ~June 15 | 🔲 Planned |
 | 69 | Fission Mechanism | ~June 25 | 🔲 Planned |
 | 70 | Fusion Mechanism | ~July 2 | 🔲 Planned |
 | 71 | v10.0 Polish + karmyq.org update | ~July 8 | 🔲 Planned |
 
 **June 19th LinkedIn share target**: Sprints 65–68 complete.
+
+---
+
+## Sprint 66 — What Was Shipped
+
+- `TrustGraph.tsx` — force-directed graph, SSR-safe dynamic import, click-to-highlight, detail panel
+- `TrustGraphTab.tsx` — data-fetching wrapper, loading/empty/error states
+- Community page `[id].tsx` — "trust graph" tab (isMember-gated, URL-routable)
+- `socialGraphService.getTrustGraph(communityId)` in api.ts
+- ADR-055: Trust-Based Governance Architecture (doc-only, Sprint 67 implements)
+- Landing: trust-graph user guide + ADR-055 concept page
+- TDD: sprint-66 integration tests (DB schema invariants)
+- Bug fix: `infrastructure/nginx/nginx.conf` — added missing `/api/trust/` route (caught by PRV)
+- Sprint-65 TDD tests promoted to regression
+
+**PRV finding**: nginx was missing the `/api/trust/` location block since Sprint 65. The trust graph tab showed "Failed to load" until the fix was deployed. Route now active.
+
+---
+
+## Design Decision for Sprint 67/68: Unify Both Network Graphs
+
+**Context**: Sprint 66 PRV revealed we now have two graphs:
+1. **"Your Network"** on the dashboard (`NetworkGraph.tsx`, `GET /network`) — binary edges, no weights, pre-trust-graph architecture
+2. **Trust Graph** on community tab (`TrustGraph.tsx`, `GET /trust/graph/:id`) — weighted edges, trust_score node sizing, the real data
+
+**Decision**: Both graphs should tell the same story with the same visual language. The "Your Network" graph uses stale binary-connection data. It should be replaced with a personal trust graph using trust_edges data.
+
+**What this requires**:
+- New endpoint: `GET /trust/graph` (no `communityId`) — returns user's trust_edges aggregated across all their communities
+- Replace `NetworkGraph.tsx` with a variant of `TrustGraph.tsx` scoped to the user rather than a community
+- Retire the old `GET /network` endpoint (or keep it for backwards compat, but stop calling it from the frontend)
+
+**Why it matters before Sprint 67**: Governance relies on members understanding their trust scores. If the personal graph still shows binary connections, users won't have built the mental model for trust-gated roles. The personal trust graph makes trust *legible* at the individual level the same way the community graph makes it legible at the community level.
+
+**Recommended sprint**: Fold into Sprint 67 as a small addition (1 new endpoint + component swap) or make it the first task of Sprint 68.
 
 ---
 
