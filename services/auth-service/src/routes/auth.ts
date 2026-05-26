@@ -312,12 +312,14 @@ router.post('/refresh', async (req: any, res) => {
     const newRawRefreshToken = await validateAndRotateRefreshToken(refreshToken);
     if (!newRawRefreshToken) return sendUnauthorized(res, 'Refresh token rotation failed', { requestId: req.id });
 
-    // Update session with new access token
+    // Replace all sessions for this user — old rows accumulate per login and
+    // the shared token column makes a bulk UPDATE hit a unique constraint.
     const sessionExpiresAt = new Date();
     sessionExpiresAt.setHours(sessionExpiresAt.getHours() + 1);
+    await query('DELETE FROM auth.sessions WHERE user_id = $1', [id]);
     await query(
-      'UPDATE auth.sessions SET token = $1, expires_at = $2 WHERE user_id = $3',
-      [newAccessToken, sessionExpiresAt, id]
+      'INSERT INTO auth.sessions (user_id, token, expires_at) VALUES ($1, $2, $3)',
+      [id, newAccessToken, sessionExpiresAt]
     );
 
     req.logger?.info('Token refreshed', { userId: id });
