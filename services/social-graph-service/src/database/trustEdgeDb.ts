@@ -174,7 +174,10 @@ export async function getTrustGraph(communityId: string): Promise<{ nodes: Graph
   );
 
   const edgesResult = await pool.query(
-    `SELECT * FROM social_graph.trust_edges WHERE community_id = $1`,
+    `SELECT te.* FROM social_graph.trust_edges te
+     WHERE te.community_id = $1
+       AND te.user_id_a IN (SELECT user_id FROM communities.members WHERE community_id = $1 AND status = 'active')
+       AND te.user_id_b IN (SELECT user_id FROM communities.members WHERE community_id = $1 AND status = 'active')`,
     [communityId]
   );
 
