@@ -780,11 +780,11 @@ export const socialGraphService = {
 
   getNetwork: () => socialGraphApi.get('/network'),
 
-  getTrustGraph: (communityId: string) =>
-    socialGraphApi.get(`/trust/graph/${communityId}`),
+  getTrustGraph: (communityId: string, center?: string) =>
+    socialGraphApi.get(`/trust/graph/${communityId}${center ? `?center=${encodeURIComponent(center)}` : ''}`),
 
-  getTrustGraphAggregate: () =>
-    socialGraphApi.get('/trust/graph'),
+  getTrustGraphAggregate: (center?: string) =>
+    socialGraphApi.get(`/trust/graph${center ? `?center=${encodeURIComponent(center)}` : ''}`),
 }
 
 export const providerService = {

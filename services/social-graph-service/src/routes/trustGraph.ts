@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { getTrustGraphForCommunity, getTrustGraphAggregate } from '../services/trustEdgeService';
+import { getTrustGraphForCommunity, getTrustGraphAggregate, getTrustGraphAggregateForCenter } from '../services/trustEdgeService';
 import { getTrustEdge } from '../database/trustEdgeDb';
 import { computeEffectiveWeight } from '../services/trustEdgeService';
 import { logger } from '../config/logger';
@@ -8,11 +8,15 @@ import { pool } from '../config/database';
 const router = Router();
 
 // GET /trust/graph — aggregate ego-network across all of the calling user's communities
+// ?center=userId expands a neighbor's ego-network restricted to shared communities
 // MUST be declared before /:communityId to avoid param matching
 router.get('/graph', async (req: Request, res: Response) => {
   try {
     const callingUserId = (req as any).user?.userId;
-    const graph = await getTrustGraphAggregate(callingUserId);
+    const centerUserId = req.query.center as string | undefined;
+    const graph = centerUserId && centerUserId !== callingUserId
+      ? await getTrustGraphAggregateForCenter(callingUserId, centerUserId)
+      : await getTrustGraphAggregate(callingUserId);
     res.json({ success: true, data: graph });
   } catch (error) {
     logger.error('Error fetching aggregate trust graph', error instanceof Error ? error : undefined);
@@ -20,11 +24,12 @@ router.get('/graph', async (req: Request, res: Response) => {
   }
 });
 
-// GET /trust/graph/:communityId — ego-network for calling user in a specific community
+// GET /trust/graph/:communityId — ego-network centered on calling user (or ?center=userId for expansion)
 router.get('/graph/:communityId', async (req: Request, res: Response) => {
   try {
     const { communityId } = req.params;
     const callingUserId = (req as any).user?.userId;
+    const centerUserId = (req.query.center as string) || callingUserId;
 
     // Verify caller is a member of the community
     const memberCheck = await pool.query(
@@ -40,7 +45,19 @@ router.get('/graph/:communityId', async (req: Request, res: Response) => {
       });
     }
 
-    const graph = await getTrustGraphForCommunity(communityId, callingUserId);
+    // When center differs from caller, verify center user is also a member
+    if (centerUserId !== callingUserId) {
+      const centerCheck = await pool.query(
+        `SELECT 1 FROM communities.members
+         WHERE community_id = $1 AND user_id = $2 AND status = 'active'`,
+        [communityId, centerUserId]
+      );
+      if (centerCheck.rows.length === 0) {
+        return res.status(404).json({ success: false, message: 'Center user is not a member of this community' });
+      }
+    }
+
+    const graph = await getTrustGraphForCommunity(communityId, centerUserId);
 
     res.json({
       success: true,

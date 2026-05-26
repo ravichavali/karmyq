@@ -297,6 +297,82 @@ export async function getTrustGraphAggregate(
   };
 }
 
+// Ego-network for centerUserId, limited to communities both callingUserId and centerUserId share.
+export async function getTrustGraphAggregateForCenter(
+  callingUserId: string,
+  centerUserId: string
+): Promise<{ nodes: TrustNode[]; links: TrustLink[] }> {
+  const sharedCommunitiesCTE = `
+    SELECT m1.community_id
+    FROM communities.members m1
+    JOIN communities.members m2 ON m2.community_id = m1.community_id
+    WHERE m1.user_id = $1::uuid AND m1.status = 'active'
+      AND m2.user_id = $2::uuid AND m2.status = 'active'
+  `;
+
+  const neighborsCTE = `
+    SELECT DISTINCT CASE WHEN te.user_id_a = $2::uuid THEN te.user_id_b ELSE te.user_id_a END AS neighbor_id
+    FROM social_graph.trust_edges te
+    WHERE te.community_id IN (${sharedCommunitiesCTE})
+      AND (te.user_id_a = $2::uuid OR te.user_id_b = $2::uuid)
+  `;
+
+  const nodesQuery = `
+    WITH shared AS (${sharedCommunitiesCTE}),
+         neighbors AS (${neighborsCTE})
+    SELECT u.id, u.name,
+      COALESCE((
+        SELECT SUM(te2.raw_weight) FROM social_graph.trust_edges te2
+        WHERE (te2.user_id_a = u.id OR te2.user_id_b = u.id)
+          AND te2.community_id IN (SELECT community_id FROM shared)
+      ), 0) AS trust_score,
+      COALESCE((
+        SELECT SUM(kr.points) FROM reputation.karma_records kr WHERE kr.user_id = u.id
+      ), 0) AS karma,
+      (u.id = $2::uuid) AS is_current_user
+    FROM auth.users u
+    WHERE u.id = $2::uuid
+       OR u.id IN (SELECT neighbor_id FROM neighbors)
+  `;
+
+  const edgesQuery = `
+    WITH shared AS (${sharedCommunitiesCTE}),
+         neighbors AS (${neighborsCTE})
+    SELECT te.user_id_a AS source, te.user_id_b AS target,
+           SUM(te.raw_weight) AS effective_weight
+    FROM social_graph.trust_edges te
+    WHERE te.community_id IN (SELECT community_id FROM shared)
+      AND (
+        te.user_id_a = $2::uuid OR te.user_id_b = $2::uuid
+        OR (
+          te.user_id_a IN (SELECT neighbor_id FROM neighbors)
+          AND te.user_id_b IN (SELECT neighbor_id FROM neighbors)
+        )
+      )
+    GROUP BY te.user_id_a, te.user_id_b
+  `;
+
+  const [nodesResult, edgesResult] = await Promise.all([
+    pool.query(nodesQuery, [callingUserId, centerUserId]),
+    pool.query(edgesQuery, [callingUserId, centerUserId]),
+  ]);
+
+  return {
+    nodes: nodesResult.rows.map(r => ({
+      id: r.id,
+      name: r.name,
+      trust_score: parseFloat(r.trust_score) || 0,
+      karma: parseFloat(r.karma) || 0,
+      isCurrentUser: r.is_current_user,
+    })),
+    links: edgesResult.rows.map(r => ({
+      source: r.source,
+      target: r.target,
+      effective_weight: parseFloat(r.effective_weight) || 1,
+    })),
+  };
+}
+
 export async function upsertCommunityTrustEdge(communityA: string, communityB: string): Promise<void> {
   const commIdA = communityA < communityB ? communityA : communityB;
   const commIdB = communityA < communityB ? communityB : communityA;
