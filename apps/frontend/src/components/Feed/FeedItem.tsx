@@ -18,6 +18,13 @@ interface FeedItemProps {
   onDismiss?: (itemId: string) => void;
 }
 
+function completedFadeOpacity(completedAt: string | null | undefined): number {
+  if (!completedAt) return 1;
+  const days = (Date.now() - new Date(completedAt).getTime()) / 86_400_000;
+  const fadeFactor = Math.min(1, days / 30);
+  return 1 - fadeFactor * 0.55; // 1.0 (fresh) → 0.45 (at 30 days)
+}
+
 export default function FeedItem({ item, onDismiss }: FeedItemProps) {
   switch (item.type) {
     case 'community_activity':
@@ -138,8 +145,12 @@ function OpenRequestItem({ data, itemId, onDismiss }: OpenRequestItemProps) {
   const { trustPath, loading: loadingPath } = useTrustPath(data.requester_id);
   const [selectedTrustUserId, setSelectedTrustUserId] = useState<string | null>(null);
 
+  const fadeOpacity = data.status === 'completed'
+    ? completedFadeOpacity(data.completed_at ?? data.updated_at)
+    : 1;
+
   return (
-    <div className="bg-surface-raised rounded-lg shadow-sm border border-border p-6 mb-4 hover:shadow-md transition-shadow">
+    <div className="bg-surface-raised rounded-lg shadow-sm border border-border p-6 mb-4 hover:shadow-md transition-shadow" style={{ opacity: fadeOpacity }}>
       <div className="flex justify-between items-start mb-3">
         <div className="flex-1">
           <div className="flex items-center mb-2">

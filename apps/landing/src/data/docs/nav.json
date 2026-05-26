@@ -172,6 +172,10 @@
         {
           "label": "Understanding Your Community's Trust Graph",
           "href": "/docs/guides/trust-graph"
+        },
+        {
+          "label": "Interaction Half-Life: How Trust Fades and Endures",
+          "href": "/docs/guides/interaction-half-life"
         }
       ]
     },
@@ -287,6 +291,10 @@
         {
           "label": "Trust-Based Governance Architecture",
           "href": "/docs/concepts/adr-055-trust-governance-architecture"
+        },
+        {
+          "label": "Intrinsic Trust Decay (Interaction Half-Life)",
+          "href": "/docs/concepts/adr-056-intrinsic-trust-decay"
         },
         {
           "label": "— Community & Scale —",

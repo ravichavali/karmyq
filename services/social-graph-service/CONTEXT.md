@@ -38,8 +38,26 @@ social_graph.trust_edges (
   endorsement_count,
   karma_given_count,
   event_count,
-  raw_weight,                        -- sum of count × type_weight
-  last_interaction_at,               -- used for half-life decay
+  raw_weight,                        -- peak weight (never decayed; grows with interactions)
+  stability,                         -- Sprint 68: multiplier for effective half-life (starts 1.0, grows 20%/interaction)
+  last_interaction_at,               -- used for Ebbinghaus decay computation
+  created_at, updated_at
+)
+
+-- Sprint 68: Live view — computes current_weight via Ebbinghaus decay at query time
+-- Formula: raw_weight × e^(-days_since_interaction / (stability × half_life))
+-- NEVER INSERT or UPDATE this view — it is read-only.
+social_graph.trust_edges_live (
+  ... all trust_edges columns ...,
+  current_weight                     -- computed column: effective weight right now
+)
+
+-- Sprint 68: Per-community decay tuning
+social_graph.trust_decay_config (
+  id, community_id,                  -- NULL community_id = global default
+  base_half_life_days,               -- default: 30 days
+  stability_growth_rate,             -- default: 0.20 (20% per interaction)
+  disappearance_threshold,           -- default: 0.5 (edge swept when current_weight falls below)
   created_at, updated_at
 )
 
@@ -724,7 +742,37 @@ curl http://localhost:3010/paths/$USER_B_ID \
 
 ---
 
+## Trust Decay Model (Sprint 68)
+
+The trust decay model uses **intrinsic Ebbinghaus decay** computed live by a PostgreSQL view. No background job modifies trust weights — time and the view formula do all the work.
+
+- `raw_weight`: Peak accumulated weight. Only grows when a new interaction is recorded. Never decayed.
+- `stability`: Starts at 1.0. Grows by 20% per interaction: `stability = stability × 1.20`. A higher stability value produces a longer effective half-life.
+- `current_weight`: Computed by `trust_edges_live` at query time: `raw_weight × e^(-days / (stability × half_life))`
+- `trust_decay_config`: Per-community tuning table. A global row (`community_id = NULL`) acts as the platform default.
+
+All `getTrustGraph*` functions query `trust_edges_live`, never `trust_edges` directly.
+
+The daily trust edge sweep job (`trustEdgeSweepJob.ts`) removes edges where `current_weight < disappearance_threshold`.
+
+See [ADR-056](../../docs/adr/ADR-056-intrinsic-trust-decay.md) for full decision record.
+
+---
+
 ## Recent Changes
+
+### Sprint 68: Interaction Half-Life (2026-05-26)
+- **NEW**: `stability FLOAT NOT NULL DEFAULT 1.0` column on `social_graph.trust_edges`
+- **NEW**: `social_graph.trust_decay_config` table — per-community Ebbinghaus decay parameters
+- **NEW**: `social_graph.trust_edges_live` VIEW — computes `current_weight` at query time
+- **CHANGED**: `upsertTrustEdge` — now also grows `stability` on each interaction
+- **CHANGED**: All `getTrustGraph*` functions — query `trust_edges_live`; return `raw_weight` + `effective_weight` per link
+- **NEW**: `GET /trust/decay-config` — global decay config
+- **NEW**: `GET /trust/decay-config/:communityId` — community-specific decay config (falls back to global)
+- **NEW**: `PUT /trust/decay-config/:communityId` — admin-only: update community decay parameters
+- **NEW**: `src/database/trustDecayConfigDb.ts` — decay config read/upsert helpers
+- **NEW**: `src/routes/trustDecayConfig.ts` — decay config router
+- **NEW**: Migration: `infrastructure/postgres/migrations/20260526-interaction-halflife.sql`
 
 ### Sprint 67: Ego-Network Rewrite + Aggregate Endpoint (2026-05-26)
 - **CHANGED**: `GET /trust/graph/:communityId` — now returns ego-network (calling user + direct neighbors only), not full community graph. Response shape changed from `{ nodes, edges }` to `{ nodes, links }`.

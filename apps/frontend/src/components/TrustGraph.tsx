@@ -11,6 +11,7 @@ interface TrustNode {
 interface TrustLink {
   source: string
   target: string
+  raw_weight: number
   effective_weight: number
 }
 
@@ -121,12 +122,16 @@ export default function TrustGraph({
           linkWidth={(link: any) => linkThickness(link.effective_weight)}
           linkDistance={80}
           linkColor={(link: any) => {
-            if (!selectedNodeId) return 'rgba(99,102,241,0.4)'
+            const decayRatio = link.raw_weight > 0
+              ? Math.min(1, link.effective_weight / link.raw_weight)
+              : 1
+            const baseOpacity = 0.2 + decayRatio * 0.8
+            if (!selectedNodeId) return `rgba(99,102,241,${baseOpacity.toFixed(2)})`
             const src = typeof link.source === 'object' ? link.source.id : link.source
             const tgt = typeof link.target === 'object' ? link.target.id : link.target
             return src === selectedNodeId || tgt === selectedNodeId
-              ? 'rgba(99,102,241,0.9)'
-              : 'rgba(99,102,241,0.1)'
+              ? `rgba(99,102,241,${Math.min(1, baseOpacity + 0.3).toFixed(2)})`
+              : `rgba(99,102,241,${(baseOpacity * 0.15).toFixed(2)})`
           }}
           onNodeClick={(node: any) => {
             setSelectedNodeId(prev => (prev === node.id ? null : node.id))

@@ -11,10 +11,19 @@ interface Match {
   responder_name?: string;
   status: string;
   created_at: string;
+  completed_at?: string;
+  updated_at?: string;
   request_type?: string;
   payload?: Record<string, any>;
   scheduled_at?: string;
   request_title?: string;
+}
+
+function completedFadeOpacity(completedAt: string | null | undefined): number {
+  if (!completedAt) return 1;
+  const days = (Date.now() - new Date(completedAt).getTime()) / 86_400_000;
+  const fadeFactor = Math.min(1, days / 30);
+  return 1 - fadeFactor * 0.55; // 1.0 (fresh) → 0.45 (at 30 days)
 }
 
 interface OfferItemProps {
@@ -42,8 +51,12 @@ export default function OfferItem({
   const showFulfillmentPanel =
     comment.status === 'matched' && comment.request_type && comment.payload;
 
+  const fadeOpacity = comment.status === 'completed'
+    ? completedFadeOpacity(comment.completed_at ?? comment.updated_at ?? comment.created_at)
+    : 1;
+
   return (
-    <div className="bg-surface-raised rounded-lg p-4 border border-border">
+    <div className="bg-surface-raised rounded-lg p-4 border border-border" style={{ opacity: fadeOpacity }}>
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-center gap-3 min-w-0">
           <div className="w-8 h-8 bg-gradient-to-br from-karmyq-green-500 to-karmyq-teal-600 rounded-full flex items-center justify-center text-white text-sm font-semibold flex-shrink-0">

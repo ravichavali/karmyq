@@ -14,6 +14,18 @@ Each node represents a community member. **Larger nodes** have a higher trust sc
 ### Edges (lines)
 Lines between nodes represent trust bonds. **Thicker lines** mean a stronger recent relationship — more completed exchanges, endorsements, or karma interactions between those two members. Edge thickness reflects *effective weight*, which factors in how recent the interactions were.
 
+### Reading Edge Opacity
+
+Edge opacity tells you how *alive* a relationship currently is:
+
+- **Full opacity** — the relationship has been active recently. The trust bond is strong.
+- **Faded edge** — the relationship exists but hasn't been reinforced in a while. The bond is weakening.
+- **Very faint edge** — the relationship is near the disappearance threshold. Without a new interaction, it will eventually be removed by the nightly cleanup.
+
+Opacity is computed from the **interaction half-life**: `opacity = 0.2 + (current_weight / peak_weight) × 0.8`. A single exchange fades to half-strength after about 30 days. Repeated interactions build **stability**, extending the relationship's half-life significantly — a relationship built on 10+ exchanges has a half-life measured in months to years.
+
+See [Interaction Half-Life](/docs/guides/interaction-half-life) for a full explanation of how trust decays and stabilizes.
+
 ## Interacting with the Graph
 
 **Click any node** to highlight that member's direct connections. Their edges brighten and all other connections dim, making it easy to see who they have strong bonds with. The panel below the graph shows their trust score, karma, and number of connections.

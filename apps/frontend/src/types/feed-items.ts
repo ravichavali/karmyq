@@ -38,6 +38,9 @@ export interface OpenRequestData {
   requesterTrustScore?: number;
   is_boosted?: boolean;
   boosted_expires_at?: string;
+  status?: string;
+  completed_at?: string;
+  updated_at?: string;
 }
 
 export interface SuggestedRequestData {

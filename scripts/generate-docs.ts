@@ -326,6 +326,7 @@ const GUIDE_ORDER = [
   'profile-guide',
   'onboarding-guide',
   'trust-graph',
+  'interaction-half-life',
 ];
 
 const GUIDE_LABELS: Record<string, string> = {
@@ -348,6 +349,7 @@ const GUIDE_LABELS: Record<string, string> = {
   'profile-guide': 'Your Profile',
   'onboarding-guide': 'Getting Started with Karmyq',
   'trust-graph': 'Understanding Your Community\'s Trust Graph',
+  'interaction-half-life': 'Interaction Half-Life: How Trust Fades and Endures',
 };
 
 const GUIDE_SLUGS: Record<string, string> = {
@@ -370,6 +372,7 @@ const GUIDE_SLUGS: Record<string, string> = {
   'profile-guide': 'profile-guide',
   'onboarding-guide': 'onboarding',
   'trust-graph': 'trust-graph',
+  'interaction-half-life': 'interaction-half-life',
 };
 
 function generateGuides(): GuidePage[] {
@@ -437,6 +440,7 @@ const ADR_GROUPS: Array<{ label: string; slugs: string[] }> = [
       'adr-035-karma-allocation-trust-score-strategy',
       'adr-054-trust-graph-architecture',
       'adr-055-trust-governance-architecture',
+      'adr-056-intrinsic-trust-decay',
     ],
   },
   {

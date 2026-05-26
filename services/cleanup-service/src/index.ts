@@ -16,6 +16,8 @@ import {
 } from './jobs/reputationDecayJob';
 import { sendMatchReminders } from './jobs/matchReminderJob';
 import { expireDibs } from './jobs/expireDibs';
+import { sweepDeadTrustEdges } from './jobs/trustEdgeSweepJob';
+import { sweepExpiredRequests } from './jobs/requestTtlSweepJob';
 import pool from './database/db';
 
 dotenv.config();
@@ -229,6 +231,28 @@ app.post('/jobs/expire-dibs', adminRateLimiter, adminAuthMiddleware, async (req:
   }
 });
 
+app.post('/jobs/sweep-trust-edges', adminRateLimiter, adminAuthMiddleware, async (req: ExtendedRequest, res: Response) => {
+  try {
+    logger.info('Manual trigger: sweep dead trust edges');
+    const deleted = await sweepDeadTrustEdges();
+    sendSuccess(res, { message: `Swept ${deleted} dead trust edge(s)` }, 200, { requestId: req.id });
+  } catch (error) {
+    logger.error('Manual trust edge sweep failed', { error });
+    sendInternalError(res, error instanceof Error ? error.message : String(error), error, { requestId: req.id });
+  }
+});
+
+app.post('/jobs/sweep-request-ttl', adminRateLimiter, adminAuthMiddleware, async (req: ExtendedRequest, res: Response) => {
+  try {
+    logger.info('Manual trigger: sweep expired requests');
+    const deleted = await sweepExpiredRequests();
+    sendSuccess(res, { message: `Swept ${deleted} expired request(s)` }, 200, { requestId: req.id });
+  } catch (error) {
+    logger.error('Manual request TTL sweep failed', { error });
+    sendInternalError(res, error instanceof Error ? error.message : String(error), error, { requestId: req.id });
+  }
+});
+
 // ============= SCHEDULED JOBS =============
 
 /**
@@ -328,6 +352,34 @@ cron.schedule('0 9 * * 1', async () => {
   }
 });
 
+/**
+ * Trust Edge Sweep Job
+ * Runs daily at 4:30 AM
+ * Deletes trust edges where current_weight has decayed below the disappearance threshold
+ */
+cron.schedule('30 4 * * *', async () => {
+  logger.info('Cron: Running trust edge sweep job');
+  try {
+    await sweepDeadTrustEdges();
+  } catch (error) {
+    logger.error('Scheduled trust edge sweep failed', { error });
+  }
+});
+
+/**
+ * Request TTL Sweep Job
+ * Runs daily at 2:30 AM
+ * Hard-deletes completed+rated requests older than 30 days (matches first, then help_requests)
+ */
+cron.schedule('30 2 * * *', async () => {
+  logger.info('Cron: Running request TTL sweep job');
+  try {
+    await sweepExpiredRequests();
+  } catch (error) {
+    logger.error('Scheduled request TTL sweep failed', { error });
+  }
+});
+
 // ============= START SERVER =============
 
 async function startServer() {
@@ -346,6 +398,8 @@ async function startServer() {
       logger.info('  - Reputation decay: Daily at 3:00 AM');
       logger.info('  - Activity log cleanup: Weekly Sunday at 4:00 AM');
       logger.info('  - Decay report: Weekly Monday at 9:00 AM');
+      logger.info('  - Request TTL sweep: Daily at 2:30 AM');
+      logger.info('  - Trust edge sweep: Daily at 4:30 AM');
     });
   } catch (error) {
     logger.error('Failed to start cleanup service', { error });

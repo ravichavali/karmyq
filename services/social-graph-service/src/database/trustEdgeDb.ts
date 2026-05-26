@@ -10,9 +10,14 @@ export interface TrustEdgeRow {
   karma_given_count: number;
   event_count: number;
   raw_weight: number;
+  stability: number;
   last_interaction_at: Date;
   created_at: Date;
   updated_at: Date;
+}
+
+export interface TrustEdgeLiveRow extends TrustEdgeRow {
+  current_weight: number;
 }
 
 export interface GraphNode {
@@ -45,6 +50,7 @@ export interface TrustNode {
 export interface TrustLink {
   source: string;
   target: string;
+  raw_weight: number;
   effective_weight: number;
 }
 
@@ -147,11 +153,25 @@ export async function upsertTrustEdge(params: {
   const interactionWeights = await getInteractionWeightsForCommunity(communityId);
   const rawWeight = computeRawWeight(counts, interactionWeights);
 
+  // Fetch stability growth rate for this community (fall back to global)
+  const configResult = await pool.query(
+    `SELECT stability_growth_rate FROM social_graph.trust_decay_config
+     WHERE community_id = $1 OR community_id IS NULL
+     ORDER BY community_id NULLS LAST
+     LIMIT 1`,
+    [communityId]
+  );
+  const growthRate = configResult.rows.length > 0
+    ? configResult.rows[0].stability_growth_rate
+    : 0.20;
+
   await pool.query(
     `UPDATE social_graph.trust_edges
-     SET raw_weight = $1, updated_at = NOW()
-     WHERE user_id_a = $2 AND user_id_b = $3 AND community_id = $4`,
-    [rawWeight, userIdA, userIdB, communityId]
+     SET raw_weight = $1,
+         stability  = stability * $2,
+         updated_at = NOW()
+     WHERE user_id_a = $3 AND user_id_b = $4 AND community_id = $5`,
+    [rawWeight, 1 + growthRate, userIdA, userIdB, communityId]
   );
 }
 
@@ -196,8 +216,9 @@ export async function getTrustGraph(
   const edgesQuery = `
     WITH neighbors AS (${neighborsCTE})
     SELECT te.user_id_a AS source, te.user_id_b AS target,
-           te.raw_weight AS effective_weight
-    FROM social_graph.trust_edges te
+           te.raw_weight,
+           te.current_weight AS effective_weight
+    FROM social_graph.trust_edges_live te
     WHERE te.community_id = $1
       AND (
         te.user_id_a = $2::uuid OR te.user_id_b = $2::uuid
@@ -224,7 +245,8 @@ export async function getTrustGraph(
     links: edgesResult.rows.map(r => ({
       source: r.source,
       target: r.target,
-      effective_weight: parseFloat(r.effective_weight) || 1,
+      raw_weight: parseFloat(r.raw_weight) || 0,
+      effective_weight: parseFloat(r.effective_weight) || 0,
     })),
   };
 }
@@ -263,8 +285,9 @@ export async function getTrustGraphAggregate(
   const edgesQuery = `
     WITH neighbors AS (${neighborsCTE})
     SELECT te.user_id_a AS source, te.user_id_b AS target,
-           SUM(te.raw_weight) AS effective_weight
-    FROM social_graph.trust_edges te
+           SUM(te.raw_weight) AS raw_weight,
+           SUM(te.current_weight) AS effective_weight
+    FROM social_graph.trust_edges_live te
     WHERE te.community_id IN (${userCommunitiesCTE})
       AND (
         te.user_id_a = $1::uuid OR te.user_id_b = $1::uuid
@@ -292,7 +315,8 @@ export async function getTrustGraphAggregate(
     links: edgesResult.rows.map(r => ({
       source: r.source,
       target: r.target,
-      effective_weight: parseFloat(r.effective_weight) || 1,
+      raw_weight: parseFloat(r.raw_weight) || 0,
+      effective_weight: parseFloat(r.effective_weight) || 0,
     })),
   };
 }
@@ -339,8 +363,9 @@ export async function getTrustGraphAggregateForCenter(
     WITH shared AS (${sharedCommunitiesCTE}),
          neighbors AS (${neighborsCTE})
     SELECT te.user_id_a AS source, te.user_id_b AS target,
-           SUM(te.raw_weight) AS effective_weight
-    FROM social_graph.trust_edges te
+           SUM(te.raw_weight) AS raw_weight,
+           SUM(te.current_weight) AS effective_weight
+    FROM social_graph.trust_edges_live te
     WHERE te.community_id IN (SELECT community_id FROM shared)
       AND (
         te.user_id_a = $2::uuid OR te.user_id_b = $2::uuid
@@ -368,7 +393,8 @@ export async function getTrustGraphAggregateForCenter(
     links: edgesResult.rows.map(r => ({
       source: r.source,
       target: r.target,
-      effective_weight: parseFloat(r.effective_weight) || 1,
+      raw_weight: parseFloat(r.raw_weight) || 0,
+      effective_weight: parseFloat(r.effective_weight) || 0,
     })),
   };
 }

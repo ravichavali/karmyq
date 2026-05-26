@@ -22,6 +22,8 @@ The Cleanup Service handles:
 | Activity Log Cleanup | Weekly Sun 4:00 AM | Remove old activity logs (>90 days) |
 | Decay Report | Weekly Mon 9:00 AM | Generate community decay statistics |
 | Expire Dibs | Every 5 minutes | Find pending `requests.dibs` records past `expires_at`, set `status=expired`, reset `help_requests.status` to `open`, publish `dibs_expired` event |
+| Trust Edge Sweep | Daily 4:30 AM | Delete `social_graph.trust_edges` where `current_weight < disappearance_threshold` (via `trust_edges_live` view) |
+| Request TTL Sweep | Daily 2:30 AM | Hard-delete completed+rated `requests.help_requests` older than 30 days (deletes `requests.matches` first, FK constraint) |
 
 ## Database Schema
 
@@ -81,6 +83,12 @@ POST /jobs/cleanup-activity-logs
 
 GET /jobs/decay-report
   // Generate decay report (check logs)
+
+POST /jobs/sweep-trust-edges
+  // Manually trigger trust edge sweep (delete decayed edges below threshold)
+
+POST /jobs/sweep-request-ttl
+  // Manually trigger request TTL sweep (hard-delete completed+rated requests >30 days)
 
 GET /health
   // Service health check

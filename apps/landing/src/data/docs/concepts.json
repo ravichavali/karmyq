@@ -423,6 +423,14 @@
       "status": "implemented",
       "description": "**Status**: Implemented",
       "filename": "ADR-055-trust-governance-architecture.md"
+    },
+    {
+      "slug": "adr-056-intrinsic-trust-decay",
+      "number": "056",
+      "title": "ADR-056: Intrinsic Trust Decay (Interaction Half-Life)",
+      "status": "implemented",
+      "description": "**Status**: Implemented",
+      "filename": "ADR-056-intrinsic-trust-decay.md"
     }
   ]
 }

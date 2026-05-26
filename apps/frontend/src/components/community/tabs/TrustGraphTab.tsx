@@ -18,6 +18,7 @@ interface TrustNode {
 interface TrustLink {
   source: string
   target: string
+  raw_weight: number
   effective_weight: number
 }
 
