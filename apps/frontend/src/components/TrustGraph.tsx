@@ -54,8 +54,9 @@ export default function TrustGraph({ graphData, currentUserId }: TrustGraphProps
 
   if (graphData.links.length === 0) {
     return (
-      <div className="flex items-center justify-center py-16 text-text-muted text-sm">
-        No trust connections yet — complete help exchanges to build the graph.
+      <div className="flex flex-col items-center justify-center py-16 gap-2 text-center">
+        <p className="text-text-muted text-sm">You don't have any direct trust connections in this community yet.</p>
+        <p className="text-text-muted text-xs">Complete a help exchange with a member to appear on the graph.</p>
       </div>
     )
   }

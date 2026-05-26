@@ -47,9 +47,9 @@ export default function TrustGraphTab({ communityId, currentUserId }: TrustGraph
   return (
     <div>
       <div className="mb-4">
-        <h3 className="text-base font-semibold text-text">Community Trust Graph</h3>
+        <h3 className="text-base font-semibold text-text">Your Trust Neighborhood</h3>
         <p className="text-sm text-text-muted mt-1">
-          Node size = trust score · Edge thickness = relationship strength · Click a node to highlight connections
+          Shows you and the members you've directly exchanged with. Node size = trust score · Click a node to highlight connections.
         </p>
       </div>
       <TrustGraph graphData={graphData} currentUserId={currentUserId} />
