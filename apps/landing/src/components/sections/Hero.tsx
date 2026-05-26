@@ -38,7 +38,7 @@ export default function Hero() {
           transition={{ duration: 0.6, delay: 0.6 }}
           className="body-large max-w-2xl mx-auto mb-10"
         >
-          Karmyq connects neighbours who help each other — rides, borrowed tools, childcare, home repairs. No money changes hands. Just community.
+          Karmyq connects neighbors who help each other — rides, borrowed tools, childcare, home repairs. No money changes hands. Just community.
         </motion.p>
 
         <motion.div

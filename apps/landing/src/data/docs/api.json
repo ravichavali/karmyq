@@ -329,12 +329,12 @@
         {
           "method": "POST",
           "path": "/requests/:id/boost",
-          "description": "Boost a request for 48 hours, adding a +0.3 feed score bonus via the feed-service boost scoring rule (Sprint 36). Admin only."
+          "description": "Boost a request for 48 hours, adding a +0.3 feed score bonus via the feed-service boost scoring rule (Sprint 36). Admin or moderator."
         },
         {
           "method": "DELETE",
           "path": "/requests/:id/boost",
-          "description": "Remove an active boost from a request (Sprint 36). Admin only."
+          "description": "Remove an active boost from a request (Sprint 36). Admin or moderator."
         },
         {
           "method": "POST",

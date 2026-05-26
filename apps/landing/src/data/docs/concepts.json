@@ -399,6 +399,14 @@
       "status": "implemented",
       "description": "**Date**: 2026-05-10",
       "filename": "ADR-052-security-hardening.md"
+    },
+    {
+      "slug": "adr-053-feed-design-philosophy",
+      "number": "053",
+      "title": "ADR-053: Feed Design Philosophy",
+      "status": "accepted",
+      "description": "**Status**: Accepted",
+      "filename": "ADR-053-feed-design-philosophy.md"
     }
   ]
 }
