@@ -42,9 +42,10 @@ function runTestFile(filePath, serviceDir) {
   try {
     // Use forward slashes so jest can use the path as a regex filter on Windows
     const posixPath = filePath.replace(/\\/g, '/');
-    execSync(`npx jest "${posixPath}"`, {
+    execSync(`npx jest "${posixPath}" --forceExit --testTimeout=10000`, {
       stdio: 'pipe',
       cwd: serviceDir,
+      timeout: 60000,
     });
     return true;
   } catch (error) {
