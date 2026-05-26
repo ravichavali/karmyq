@@ -21,7 +21,7 @@ export default function TrustGraphTab({ communityId, currentUserId }: TrustGraph
     setLoading(true)
     setError(null)
     socialGraphService.getTrustGraph(communityId)
-      .then((res: any) => setGraphData(res.data.data))
+      .then((res: any) => setGraphData(res.data))
       .catch(() => setError('Failed to load trust graph.'))
       .finally(() => setLoading(false))
   }, [communityId])
