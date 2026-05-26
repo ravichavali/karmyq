@@ -407,6 +407,14 @@
       "status": "accepted",
       "description": "**Status**: Accepted",
       "filename": "ADR-053-feed-design-philosophy.md"
+    },
+    {
+      "slug": "adr-054-trust-graph-architecture",
+      "number": "054",
+      "title": "ADR-054: Trust Graph Architecture",
+      "status": "implemented",
+      "description": "**Status**: Implemented",
+      "filename": "ADR-054-trust-graph-architecture.md"
     }
   ]
 }

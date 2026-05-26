@@ -9,6 +9,7 @@ import invitationRoutes from './routes/invitations';
 import pathRoutes from './routes/paths';
 import networkRoutes from './routes/network';
 import trustCardRoutes from './routes/trustCard';
+import trustGraphRoutes from './routes/trustGraph';
 import { initEventSubscriber } from './events/subscriber';
 
 const app = express();
@@ -121,6 +122,7 @@ app.use('/invitations', rateLimiters.standard, invitationRoutes);
 app.use('/paths', rateLimiters.readLight, pathRoutes);
 app.use('/network', rateLimiters.readLight, networkRoutes);
 app.use('/trust-card', rateLimiters.readLight, trustCardRoutes);
+app.use('/trust', rateLimiters.readLight, trustGraphRoutes);
 
 // Error handling
 app.use((err: Error, req: Request, res: Response, next: NextFunction) => {

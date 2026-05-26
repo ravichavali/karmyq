@@ -1,5 +1,6 @@
 import Queue from 'bull';
 import { clearTrustPathCache } from '../services/pathComputation';
+import { processMatchCompleted } from '../services/trustEdgeService';
 import { logger } from '../config/logger';
 import { pool } from '../config/database';
 
@@ -40,6 +41,13 @@ export async function initEventSubscriber() {
           [requester_id, responder_id]
         );
         logger.info('✅ social_graph.connections upserted', { requester_id, responder_id });
+
+        // 3. Upsert weighted trust edge (Sprint 65)
+        const community_id = payload.community_id;
+        if (community_id) {
+          await processMatchCompleted({ requesterId: requester_id, responderId: responder_id, communityId: community_id });
+          logger.info('✅ Trust edge upserted', { requester_id, responder_id, community_id });
+        }
       } catch (error) {
         logger.error('❌ Failed to process match_completed', error instanceof Error ? error : undefined, { requester_id, responder_id });
         throw error;

@@ -1,5 +1,7 @@
 import { pool } from '../config/database';
 import { logger } from '../config/logger';
+import { getTrustEdge } from '../database/trustEdgeDb';
+import { computeEffectiveWeight } from './trustEdgeService';
 
 export interface TrustPath {
   degrees: number;
@@ -192,13 +194,19 @@ export async function computeShortestPath(
     return obj;
   });
 
-  // Calculate trust score (sum of intermediate karma scores)
-  const trustScore = pathUserIds
-    .slice(1, -1) // Exclude source and target
-    .reduce((sum, userId) => {
-      const details = userDetailsMap.get(userId);
-      return sum + (details?.karma || 0);
-    }, 0);
+  // Calculate trust score: sum of effective_weight for each edge along the path.
+  // Falls back to 0 per edge if trust_edges table not populated yet.
+  let trustScore = 0;
+  for (let i = 0; i < pathUserIds.length - 1; i++) {
+    try {
+      const edgeRow = await getTrustEdge(pathUserIds[i], pathUserIds[i + 1], communityId);
+      if (edgeRow) {
+        trustScore += computeEffectiveWeight(edgeRow.raw_weight, edgeRow.last_interaction_at);
+      }
+    } catch {
+      // Trust edge not found or table not yet available — contribute 0
+    }
+  }
 
   logger.info('Path computed successfully', {
     sourceUserId,

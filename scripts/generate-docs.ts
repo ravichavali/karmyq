@@ -432,6 +432,7 @@ const ADR_GROUPS: Array<{ label: string; slugs: string[] }> = [
       'adr-016-prestige-based-recognition',
       'adr-043-three-score-model',
       'adr-035-karma-allocation-trust-score-strategy',
+      'adr-054-trust-graph-architecture',
     ],
   },
   {
@@ -456,6 +457,7 @@ const ADR_GROUPS: Array<{ label: string; slugs: string[] }> = [
       'adr-042-provider-trust-score',
       'adr-051-explore-exploit-dibs',
       'adr-052-security-hardening',
+      'adr-053-feed-design-philosophy',
       'adr-033-offer-fulfillment-workflow',
     ],
   },
