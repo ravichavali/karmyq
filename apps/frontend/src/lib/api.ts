@@ -766,6 +766,9 @@ export const socialGraphService = {
     socialGraphApi.post('/paths/batch', { target_user_ids: targetUserIds }),
 
   getNetwork: () => socialGraphApi.get('/network'),
+
+  getTrustGraph: (communityId: string) =>
+    socialGraphApi.get(`/trust/graph/${communityId}`),
 }
 
 export const providerService = {

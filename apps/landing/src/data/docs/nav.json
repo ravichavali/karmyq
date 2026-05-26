@@ -164,6 +164,10 @@
         {
           "label": "Getting Started with Karmyq",
           "href": "/docs/guides/onboarding"
+        },
+        {
+          "label": "Understanding Your Community's Trust Graph",
+          "href": "/docs/guides/trust-graph"
         }
       ]
     },
@@ -277,6 +281,10 @@
           "href": "/docs/concepts/adr-054-trust-graph-architecture"
         },
         {
+          "label": "Trust-Based Governance Architecture",
+          "href": "/docs/concepts/adr-055-trust-governance-architecture"
+        },
+        {
           "label": "— Community & Scale —",
           "href": "/docs/concepts",
           "divider": true
@@ -345,10 +353,6 @@
         {
           "label": "Feed Design Philosophy",
           "href": "/docs/concepts/adr-053-feed-design-philosophy"
-        },
-        {
-          "label": "Trust Graph Architecture",
-          "href": "/docs/concepts/adr-054-trust-graph-architecture"
         },
         {
           "label": "Offer Fulfillment Workflow",

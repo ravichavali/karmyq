@@ -348,7 +348,7 @@ Return the weighted trust graph for a community — nodes (members) and edges (t
 }
 ```
 
-**Primary consumer**: Sprint 66 trust graph visualizer.
+**Primary consumer**: `apps/frontend/src/components/community/tabs/TrustGraphTab.tsx` (Sprint 66)
 
 ---
 

@@ -84,6 +84,8 @@ When code implementing an ADR is deployed, update the status from `Accepted` →
 - [ADR-048: Feed Ranking v2 — 7-Signal Formula + Interaction Logging](ADR-048-feed-ranking-v2.md) — **Implemented**
 - [ADR-049: Error Visibility — `error_type` Discriminator and `X-Request-Id` Convention](ADR-049-error-visibility.md) — **Implemented**
 - [ADR-052: Security Hardening — OWASP Top 10 Baseline](ADR-052-security-hardening.md) — **Implemented**
+- [ADR-054: Trust Graph Architecture](ADR-054-trust-graph-architecture.md) — **Implemented**
+- [ADR-055: Trust-Based Governance Architecture](ADR-055-trust-governance-architecture.md) — **Accepted**
 
 ## Creating a New ADR
 

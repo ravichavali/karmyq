@@ -433,6 +433,7 @@ const ADR_GROUPS: Array<{ label: string; slugs: string[] }> = [
       'adr-043-three-score-model',
       'adr-035-karma-allocation-trust-score-strategy',
       'adr-054-trust-graph-architecture',
+      'adr-055-trust-governance-architecture',
     ],
   },
   {

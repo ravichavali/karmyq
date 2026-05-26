@@ -9,8 +9,9 @@ import ActiveTab from '@/components/community/tabs/ActiveTab'
 import ProfileTab from '@/components/community/tabs/ProfileTab'
 import { useCommunityData } from '@/hooks/useCommunityData'
 import { communityService } from '@/lib/api'
+import TrustGraphTab from '@/components/community/tabs/TrustGraphTab'
 
-type ValidTab = 'overview' | 'people' | 'requests' | 'providers' | 'settings' | 'activities'
+type ValidTab = 'overview' | 'people' | 'requests' | 'providers' | 'settings' | 'activities' | 'trust'
 
 const OLD_TAB_MAP: Record<string, ValidTab> = {
   manage: 'people',
@@ -24,7 +25,7 @@ const OLD_TAB_MAP: Record<string, ValidTab> = {
   links: 'settings',
 }
 
-const VALID_TABS: ValidTab[] = ['overview', 'people', 'requests', 'providers', 'settings', 'activities']
+const VALID_TABS: ValidTab[] = ['overview', 'people', 'requests', 'providers', 'settings', 'activities', 'trust']
 
 export default function CommunityDetailPage() {
   const router = useRouter()
@@ -170,6 +171,11 @@ export default function CommunityDetailPage() {
                     {tab}
                   </button>
                 ))}
+                {isMember && (
+                  <button onClick={() => setActiveTab('trust')} className={tabBtnClass('trust')}>
+                    trust graph
+                  </button>
+                )}
                 {isAdmin && (
                   <button onClick={() => setActiveTab('settings')} className={tabBtnClass('settings')}>
                     settings
@@ -226,6 +232,9 @@ export default function CommunityDetailPage() {
               )}
               {activeTab === 'activities' && (
                 <ActivitiesTab communityId={communityId!} isAdmin={isAdmin ?? false} />
+              )}
+              {activeTab === 'trust' && (
+                <TrustGraphTab communityId={communityId!} currentUserId={currentUser?.id ?? ''} />
               )}
             </div>
           </div>
