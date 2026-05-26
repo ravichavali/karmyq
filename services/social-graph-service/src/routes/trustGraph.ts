@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { getTrustGraphForCommunity } from '../services/trustEdgeService';
+import { getTrustGraphForCommunity, getTrustGraphAggregate } from '../services/trustEdgeService';
 import { getTrustEdge } from '../database/trustEdgeDb';
 import { computeEffectiveWeight } from '../services/trustEdgeService';
 import { logger } from '../config/logger';
@@ -7,17 +7,30 @@ import { pool } from '../config/database';
 
 const router = Router();
 
-// GET /trust/graph/:communityId — graph data for the Sprint 66 visualizer
+// GET /trust/graph — aggregate ego-network across all of the calling user's communities
+// MUST be declared before /:communityId to avoid param matching
+router.get('/graph', async (req: Request, res: Response) => {
+  try {
+    const callingUserId = (req as any).user?.userId;
+    const graph = await getTrustGraphAggregate(callingUserId);
+    res.json({ success: true, data: graph });
+  } catch (error) {
+    logger.error('Error fetching aggregate trust graph', error instanceof Error ? error : undefined);
+    res.status(500).json({ success: false, message: 'Failed to fetch aggregate trust graph' });
+  }
+});
+
+// GET /trust/graph/:communityId — ego-network for calling user in a specific community
 router.get('/graph/:communityId', async (req: Request, res: Response) => {
   try {
     const { communityId } = req.params;
-    const user = (req as any).user;
+    const callingUserId = (req as any).user?.userId;
 
     // Verify caller is a member of the community
     const memberCheck = await pool.query(
       `SELECT 1 FROM communities.members
        WHERE community_id = $1 AND user_id = $2 AND status = 'active'`,
-      [communityId, user.userId]
+      [communityId, callingUserId]
     );
 
     if (memberCheck.rows.length === 0) {
@@ -27,7 +40,7 @@ router.get('/graph/:communityId', async (req: Request, res: Response) => {
       });
     }
 
-    const graph = await getTrustGraphForCommunity(communityId);
+    const graph = await getTrustGraphForCommunity(communityId, callingUserId);
 
     res.json({
       success: true,

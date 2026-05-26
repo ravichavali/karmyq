@@ -85,6 +85,10 @@
           "href": "/docs/concepts/trust-questions"
         },
         {
+          "label": "Trust-Gated Governance",
+          "href": "/docs/concepts/governance"
+        },
+        {
           "label": "Error Observability",
           "href": "/docs/concepts/observability"
         }

@@ -1383,6 +1383,15 @@ src/
 
 ## Recent Changes
 
+### Sprint 67 (2026-05-26) — Trust-Gated Governance
+- **NEW**: `GET /communities/:id/governance` — returns governance state: settings, maturity (constrained/mature), eligible members, pending nominations, current role holders
+- **NEW**: `POST /communities/:id/governance/nominate` — nominate eligible member for a role; validates trust score ≥ eligibility threshold; 409 on duplicate pending nomination
+- **NEW**: `POST /communities/:id/governance/ratify/:nominationId` — ratify a nomination; auto-grants role at quorum in a single transaction
+- **NEW**: `communities.governance_nominations` + `communities.governance_ratifications` tables (migration 009-governance-schema.sql)
+- **NEW**: `communities.communities.governance_settings` JSONB column (eligibility_threshold, quorum_size, template)
+- **NEW**: `src/database/governanceDb.ts` — all governance DB queries
+- **NEW**: `src/routes/governance.ts` — governance route handlers
+
 ### Sprint 56 (2026-05-17) — Publisher centralization
 - **CHANGED**: `src/events/publisher.ts` — delegates to `createPublisher('community-service')` from `@karmyq/shared`; local Bull setup removed
 - **CHANGED**: `package.json` — added `@karmyq/shared` to dependencies (was missing, caused implicit resolution)

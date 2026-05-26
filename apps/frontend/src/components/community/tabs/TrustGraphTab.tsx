@@ -9,7 +9,7 @@ interface TrustGraphTabProps {
 
 interface TrustGraphData {
   nodes: any[]
-  edges: any[]
+  links: any[]
 }
 
 export default function TrustGraphTab({ communityId, currentUserId }: TrustGraphTabProps) {

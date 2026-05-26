@@ -1,6 +1,6 @@
 # ADR-055: Trust-Based Governance Architecture
 
-**Status**: Accepted
+**Status**: Implemented
 **Date**: 2026-05-25
 **Deciders**: Ravi Chavali
 **Supersedes**: —

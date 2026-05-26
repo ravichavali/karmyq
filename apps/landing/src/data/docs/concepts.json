@@ -415,6 +415,14 @@
       "status": "implemented",
       "description": "**Status**: Implemented",
       "filename": "ADR-054-trust-graph-architecture.md"
+    },
+    {
+      "slug": "adr-055-trust-governance-architecture",
+      "number": "055",
+      "title": "ADR-055: Trust-Based Governance Architecture",
+      "status": "implemented",
+      "description": "**Status**: Implemented",
+      "filename": "ADR-055-trust-governance-architecture.md"
     }
   ]
 }

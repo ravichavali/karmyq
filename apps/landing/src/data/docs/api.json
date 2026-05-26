@@ -874,8 +874,13 @@
         },
         {
           "method": "GET",
+          "path": "/trust/graph",
+          "description": "Aggregate ego-network across all of the calling user's communities (Sprint 67). Returns calling user + direct neighbors + edges among them, de-duplicated and summed across communities."
+        },
+        {
+          "method": "GET",
           "path": "/trust/graph/:communityId",
-          "description": "Return the weighted trust graph for a community — nodes (members) and edges (trust_edges with effective_weight applied)."
+          "description": "Ego-network for the calling user in a specific community — calling user + direct neighbors + edges among them (Sprint 67 rewrite). Returns the calling user's ego-centric neighborhood, never the full"
         },
         {
           "method": "GET",

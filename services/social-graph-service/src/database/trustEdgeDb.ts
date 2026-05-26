@@ -34,6 +34,20 @@ export interface GraphEdge {
   last_interaction_at: Date;
 }
 
+export interface TrustNode {
+  id: string;
+  name: string;
+  trust_score: number;
+  karma: number;
+  isCurrentUser: boolean;
+}
+
+export interface TrustLink {
+  source: string;
+  target: string;
+  effective_weight: number;
+}
+
 export type InteractionType = 'match_completed' | 'endorsement' | 'karma_given' | 'event';
 
 export interface InteractionCounts {
@@ -151,39 +165,135 @@ export async function getTrustEdge(userA: string, userB: string, communityId: st
   return result.rows.length > 0 ? result.rows[0] : null;
 }
 
-export async function getTrustGraph(communityId: string): Promise<{ nodes: GraphNode[]; edges: TrustEdgeRow[] }> {
-  const nodesResult = await pool.query(
-    `SELECT
-       u.id,
-       u.name,
-       COALESCE((
-         SELECT SUM(kr.points)
-         FROM reputation.karma_records kr
-         WHERE kr.user_id = u.id AND kr.community_id = $1
-       ), 0) AS karma,
-       COALESCE((
-         SELECT SUM(te.raw_weight)
-         FROM social_graph.trust_edges te
-         WHERE (te.user_id_a = u.id OR te.user_id_b = u.id)
-           AND te.community_id = $1
-       ), 0) AS trust_score
-     FROM auth.users u
-     JOIN communities.members cm ON cm.user_id = u.id
-     WHERE cm.community_id = $1 AND cm.status = 'active'`,
-    [communityId]
-  );
+export async function getTrustGraph(
+  communityId: string,
+  callingUserId: string
+): Promise<{ nodes: TrustNode[]; links: TrustLink[] }> {
+  const neighborsCTE = `
+    SELECT CASE WHEN user_id_a = $2::uuid THEN user_id_b ELSE user_id_a END AS neighbor_id
+    FROM social_graph.trust_edges
+    WHERE community_id = $1
+      AND (user_id_a = $2::uuid OR user_id_b = $2::uuid)
+  `;
 
-  const edgesResult = await pool.query(
-    `SELECT te.* FROM social_graph.trust_edges te
-     WHERE te.community_id = $1
-       AND te.user_id_a IN (SELECT user_id FROM communities.members WHERE community_id = $1 AND status = 'active')
-       AND te.user_id_b IN (SELECT user_id FROM communities.members WHERE community_id = $1 AND status = 'active')`,
-    [communityId]
-  );
+  const nodesQuery = `
+    WITH neighbors AS (${neighborsCTE})
+    SELECT u.id, u.name,
+      COALESCE((
+        SELECT SUM(te2.raw_weight) FROM social_graph.trust_edges te2
+        WHERE (te2.user_id_a = u.id OR te2.user_id_b = u.id) AND te2.community_id = $1
+      ), 0) AS trust_score,
+      COALESCE((
+        SELECT SUM(kr.points) FROM reputation.karma_records kr
+        WHERE kr.user_id = u.id AND kr.community_id = $1
+      ), 0) AS karma,
+      (u.id = $2::uuid) AS is_current_user
+    FROM auth.users u
+    WHERE u.id = $2::uuid
+       OR u.id IN (SELECT neighbor_id FROM neighbors)
+  `;
+
+  const edgesQuery = `
+    WITH neighbors AS (${neighborsCTE})
+    SELECT te.user_id_a AS source, te.user_id_b AS target,
+           te.raw_weight AS effective_weight
+    FROM social_graph.trust_edges te
+    WHERE te.community_id = $1
+      AND (
+        te.user_id_a = $2::uuid OR te.user_id_b = $2::uuid
+        OR (
+          te.user_id_a IN (SELECT neighbor_id FROM neighbors)
+          AND te.user_id_b IN (SELECT neighbor_id FROM neighbors)
+        )
+      )
+  `;
+
+  const [nodesResult, edgesResult] = await Promise.all([
+    pool.query(nodesQuery, [communityId, callingUserId]),
+    pool.query(edgesQuery, [communityId, callingUserId]),
+  ]);
 
   return {
-    nodes: nodesResult.rows,
-    edges: edgesResult.rows,
+    nodes: nodesResult.rows.map(r => ({
+      id: r.id,
+      name: r.name,
+      trust_score: parseFloat(r.trust_score) || 0,
+      karma: parseFloat(r.karma) || 0,
+      isCurrentUser: r.is_current_user,
+    })),
+    links: edgesResult.rows.map(r => ({
+      source: r.source,
+      target: r.target,
+      effective_weight: parseFloat(r.effective_weight) || 1,
+    })),
+  };
+}
+
+export async function getTrustGraphAggregate(
+  callingUserId: string
+): Promise<{ nodes: TrustNode[]; links: TrustLink[] }> {
+  const userCommunitiesCTE = `
+    SELECT community_id FROM communities.members WHERE user_id = $1 AND status = 'active'
+  `;
+
+  const neighborsCTE = `
+    SELECT DISTINCT CASE WHEN te.user_id_a = $1::uuid THEN te.user_id_b ELSE te.user_id_a END AS neighbor_id
+    FROM social_graph.trust_edges te
+    WHERE te.community_id IN (${userCommunitiesCTE})
+      AND (te.user_id_a = $1::uuid OR te.user_id_b = $1::uuid)
+  `;
+
+  const nodesQuery = `
+    WITH neighbors AS (${neighborsCTE})
+    SELECT u.id, u.name,
+      COALESCE((
+        SELECT SUM(te2.raw_weight) FROM social_graph.trust_edges te2
+        WHERE (te2.user_id_a = u.id OR te2.user_id_b = u.id)
+          AND te2.community_id IN (${userCommunitiesCTE})
+      ), 0) AS trust_score,
+      COALESCE((
+        SELECT SUM(kr.points) FROM reputation.karma_records kr WHERE kr.user_id = u.id
+      ), 0) AS karma,
+      (u.id = $1::uuid) AS is_current_user
+    FROM auth.users u
+    WHERE u.id = $1::uuid
+       OR u.id IN (SELECT neighbor_id FROM neighbors)
+  `;
+
+  const edgesQuery = `
+    WITH neighbors AS (${neighborsCTE})
+    SELECT te.user_id_a AS source, te.user_id_b AS target,
+           SUM(te.raw_weight) AS effective_weight
+    FROM social_graph.trust_edges te
+    WHERE te.community_id IN (${userCommunitiesCTE})
+      AND (
+        te.user_id_a = $1::uuid OR te.user_id_b = $1::uuid
+        OR (
+          te.user_id_a IN (SELECT neighbor_id FROM neighbors)
+          AND te.user_id_b IN (SELECT neighbor_id FROM neighbors)
+        )
+      )
+    GROUP BY te.user_id_a, te.user_id_b
+  `;
+
+  const [nodesResult, edgesResult] = await Promise.all([
+    pool.query(nodesQuery, [callingUserId]),
+    pool.query(edgesQuery, [callingUserId]),
+  ]);
+
+  return {
+    nodes: nodesResult.rows.map(r => ({
+      id: r.id,
+      name: r.name,
+      trust_score: parseFloat(r.trust_score) || 0,
+      karma: parseFloat(r.karma) || 0,
+      isCurrentUser: r.is_current_user,
+    })),
+    links: edgesResult.rows.map(r => ({
+      source: r.source,
+      target: r.target,
+      effective_weight: parseFloat(r.effective_weight) || 1,
+    })),
   };
 }
 

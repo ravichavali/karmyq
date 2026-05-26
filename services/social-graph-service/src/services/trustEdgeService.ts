@@ -3,9 +3,9 @@ import {
   upsertTrustEdge,
   upsertCommunityTrustEdge,
   getTrustGraph,
-  GraphNode,
-  GraphEdge,
-  TrustEdgeRow,
+  getTrustGraphAggregate,
+  TrustNode,
+  TrustLink,
 } from '../database/trustEdgeDb';
 
 const HALF_LIFE_MS = 6 * 30 * 24 * 60 * 60 * 1000; // 6 months
@@ -57,23 +57,11 @@ export async function processMatchCompleted(params: {
   }
 }
 
-export async function getTrustGraphForCommunity(communityId: string): Promise<{
-  nodes: GraphNode[];
-  edges: GraphEdge[];
-}> {
-  const { nodes, edges: rawEdges } = await getTrustGraph(communityId);
-
-  const edges: GraphEdge[] = rawEdges.map((edge: TrustEdgeRow) => ({
-    source: edge.user_id_a,
-    target: edge.user_id_b,
-    raw_weight: edge.raw_weight,
-    effective_weight: computeEffectiveWeight(edge.raw_weight, edge.last_interaction_at),
-    match_completed_count: edge.match_completed_count,
-    endorsement_count: edge.endorsement_count,
-    karma_given_count: edge.karma_given_count,
-    event_count: edge.event_count,
-    last_interaction_at: edge.last_interaction_at,
-  }));
-
-  return { nodes, edges };
+export async function getTrustGraphForCommunity(
+  communityId: string,
+  callingUserId: string
+): Promise<{ nodes: TrustNode[]; links: TrustLink[] }> {
+  return getTrustGraph(communityId, callingUserId);
 }
+
+export { getTrustGraphAggregate };

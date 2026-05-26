@@ -5,23 +5,18 @@ interface TrustNode {
   name: string
   trust_score: number
   karma: number
+  isCurrentUser?: boolean
 }
 
-interface TrustEdge {
+interface TrustLink {
   source: string
   target: string
-  raw_weight: number
   effective_weight: number
-  match_completed_count: number
-  endorsement_count: number
-  karma_given_count: number
-  event_count: number
-  last_interaction_at: string
 }
 
 interface TrustGraphData {
   nodes: TrustNode[]
-  edges: TrustEdge[]
+  links: TrustLink[]
 }
 
 interface TrustGraphProps {
@@ -42,7 +37,7 @@ export default function TrustGraph({ graphData, currentUserId }: TrustGraphProps
 
   const fgData = {
     nodes: graphData.nodes.map(n => ({ ...n })),
-    links: graphData.edges.map(e => ({ ...e })),
+    links: graphData.links.map(l => ({ ...l })),
   }
 
   const selectedNode = selectedNodeId
@@ -51,13 +46,13 @@ export default function TrustGraph({ graphData, currentUserId }: TrustGraphProps
 
   const connectedNodeIds = selectedNodeId
     ? new Set(
-        graphData.edges
-          .filter(e => e.source === selectedNodeId || e.target === selectedNodeId)
-          .flatMap(e => [e.source, e.target])
+        graphData.links
+          .filter(l => l.source === selectedNodeId || l.target === selectedNodeId)
+          .flatMap(l => [l.source, l.target])
       )
     : null
 
-  if (graphData.edges.length === 0) {
+  if (graphData.links.length === 0) {
     return (
       <div className="flex items-center justify-center py-16 text-text-muted text-sm">
         No trust connections yet — complete help exchanges to build the graph.
@@ -76,7 +71,7 @@ export default function TrustGraph({ graphData, currentUserId }: TrustGraphProps
           nodeVal={(node: any) => Math.max(5, node.trust_score / 10)}
           nodeColor={(node: any) => {
             if (selectedNodeId && !connectedNodeIds?.has(node.id)) return '#94a3b8'
-            if (node.id === currentUserId) return '#10b981'
+            if (node.isCurrentUser || node.id === currentUserId) return '#10b981'
             return '#6366f1'
           }}
           linkWidth={(link: any) => Math.max(1, link.effective_weight / 5)}
@@ -104,7 +99,7 @@ export default function TrustGraph({ graphData, currentUserId }: TrustGraphProps
             <span>Karma</span><span className="text-text">{selectedNode.karma}</span>
             <span>Connections</span>
             <span className="text-text">
-              {graphData.edges.filter(e => e.source === selectedNode.id || e.target === selectedNode.id).length}
+              {graphData.links.filter(l => l.source === selectedNode.id || l.target === selectedNode.id).length}
             </span>
           </div>
         </div>

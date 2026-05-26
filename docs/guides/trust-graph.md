@@ -37,6 +37,14 @@ Older interactions contribute less than recent ones — trust bonds reflect curr
 
 If the graph shows "No trust connections yet," the community hasn't completed any help exchanges between members. Complete a request to start building the graph.
 
-## What's Coming
+## Your Personal Trust Graph
 
-Sprint 67 will use this trust graph to power community governance — role eligibility, ratification, and rotation are all grounded in trust scores.
+The trust graph is always centered on you. It shows the people you've directly interacted with in this community — your direct neighbors — along with the trust connections among them. You won't see the entire community graph, because at scale that would be noise, not signal.
+
+This is permanent by design. The graph shows your position in the community's trust network, not a bird's-eye view of everyone's connections.
+
+## Trust-Gated Governance
+
+The trust graph powers community governance. Members with high enough trust scores become eligible for governance roles (Admin, Moderator). Eligible members can be nominated and ratified through the **Governance** tab on any community page.
+
+See [Trust-Gated Governance](/docs/concepts/governance) for the full governance model.

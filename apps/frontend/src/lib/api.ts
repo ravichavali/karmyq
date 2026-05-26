@@ -345,6 +345,19 @@ export const communityService = {
     communityApi.delete(`/communities/${communityId}/activities/${activityId}/leave`),
   createActivity: (communityId: string, data: object) =>
     communityApi.post(`/communities/${communityId}/activities`, data),
+
+  // Governance
+  getGovernanceState: (communityId: string) =>
+    communityApi.get(`/communities/${communityId}/governance`),
+
+  nominateForRole: (communityId: string, nominatedUserId: string, role: string) =>
+    communityApi.post(`/communities/${communityId}/governance/nominate`, {
+      nominated_user_id: nominatedUserId,
+      role,
+    }),
+
+  ratifyNomination: (communityId: string, nominationId: string) =>
+    communityApi.post(`/communities/${communityId}/governance/ratify/${nominationId}`),
 }
 
 // Admin Schema Management (Server-Driven UI - Phase 2)
@@ -769,6 +782,9 @@ export const socialGraphService = {
 
   getTrustGraph: (communityId: string) =>
     socialGraphApi.get(`/trust/graph/${communityId}`),
+
+  getTrustGraphAggregate: () =>
+    socialGraphApi.get('/trust/graph'),
 }
 
 export const providerService = {

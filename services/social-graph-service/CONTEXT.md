@@ -325,9 +325,21 @@ Get paths for multiple target users (optimized for feed ranking).
 
 ---
 
+### GET /trust/graph
+
+Aggregate ego-network across all of the calling user's communities (Sprint 67). Returns calling user + direct neighbors + edges among them, de-duplicated and summed across communities.
+
+**Auth required**: Bearer JWT.
+
+**Response**: `{ nodes: TrustNode[], links: TrustLink[] }` — nodes include `trust_score`, `karma`, `isCurrentUser`; links include `effective_weight`.
+
+**Primary consumer**: `apps/frontend/src/components/NetworkGraph.tsx` (dashboard Your Network panel)
+
+---
+
 ### GET /trust/graph/:communityId
 
-Return the weighted trust graph for a community — nodes (members) and edges (trust_edges with effective_weight applied).
+Ego-network for the calling user in a specific community — calling user + direct neighbors + edges among them (Sprint 67 rewrite). Returns the calling user's ego-centric neighborhood, never the full community graph.
 
 **Auth required**: Bearer JWT. Caller must be an active member of the community.
 
@@ -336,19 +348,13 @@ Return the weighted trust graph for a community — nodes (members) and edges (t
 {
   "success": true,
   "data": {
-    "nodes": [{ "id": "uuid", "name": "Alice", "trust_score": 42.5, "karma": 120 }],
-    "edges": [{
-      "source": "uuid-a", "target": "uuid-b",
-      "raw_weight": 10.0, "effective_weight": 9.1,
-      "match_completed_count": 1, "endorsement_count": 0,
-      "karma_given_count": 0, "event_count": 0,
-      "last_interaction_at": "2026-05-01T00:00:00Z"
-    }]
+    "nodes": [{ "id": "uuid", "name": "Alice", "trust_score": 42.5, "karma": 120, "isCurrentUser": false }],
+    "links": [{ "source": "uuid-a", "target": "uuid-b", "effective_weight": 10.0 }]
   }
 }
 ```
 
-**Primary consumer**: `apps/frontend/src/components/community/tabs/TrustGraphTab.tsx` (Sprint 66)
+**Primary consumer**: `apps/frontend/src/components/community/tabs/TrustGraphTab.tsx`
 
 ---
 
@@ -719,6 +725,12 @@ curl http://localhost:3010/paths/$USER_B_ID \
 ---
 
 ## Recent Changes
+
+### Sprint 67: Ego-Network Rewrite + Aggregate Endpoint (2026-05-26)
+- **CHANGED**: `GET /trust/graph/:communityId` — now returns ego-network (calling user + direct neighbors only), not full community graph. Response shape changed from `{ nodes, edges }` to `{ nodes, links }`.
+- **NEW**: `GET /trust/graph` — aggregate ego-network across all of calling user's communities. Used by dashboard Your Network panel.
+- **CHANGED**: `src/database/trustEdgeDb.ts` — `getTrustGraph` now accepts `callingUserId`; added `getTrustGraphAggregate`. New `TrustNode` (with `isCurrentUser`) and `TrustLink` interfaces.
+- **CHANGED**: `src/components/NetworkGraph.tsx` — now calls `getTrustGraphAggregate` instead of deprecated `/network` endpoint.
 
 ### Sprint 65: Trust Graph Foundation (2026-05-25)
 - **NEW**: `social_graph.trust_edges` — weighted, community-scoped, bidirectional user-user edges

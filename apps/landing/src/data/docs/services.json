@@ -150,6 +150,21 @@
           "method": "DELETE",
           "path": "/communities/:id/activities/:activityId/leave",
           "description": "Leave an activity."
+        },
+        {
+          "method": "GET",
+          "path": "/communities/:id/governance",
+          "description": "Get governance state: settings, maturity, eligible members, pending nominations with ratifier counts, and current role holders."
+        },
+        {
+          "method": "POST",
+          "path": "/communities/:id/governance/nominate",
+          "description": "Nominate an eligible member (trust score >= threshold) for Admin or Moderator role. Returns 409 if pending nomination already exists."
+        },
+        {
+          "method": "POST",
+          "path": "/communities/:id/governance/ratify/:nominationId",
+          "description": "Ratify an open nomination (role-holders only). Auto-grants role when quorum is reached."
         }
       ],
       "dependencies": [
@@ -575,8 +590,13 @@
         },
         {
           "method": "GET",
+          "path": "/trust/graph",
+          "description": "Aggregate ego-network across all of calling user's communities (Sprint 67). Returns calling user + direct neighbors + edges. Used by dashboard Your Network panel."
+        },
+        {
+          "method": "GET",
           "path": "/trust/graph/:communityId",
-          "description": "Returns weighted trust graph (nodes + edges with effective_weight) for a community. Primary data source for Sprint 66 visualizer."
+          "description": "Ego-network for calling user in a community (Sprint 67 rewrite). Returns calling user + direct neighbors only. Response: { nodes, links } with isCurrentUser on nodes."
         },
         {
           "method": "GET",
@@ -599,7 +619,7 @@
         ]
       },
       "healthCheck": "http://localhost:3010/health",
-      "notes": "Trust-first design foundation. Sprint 27: match_completed → social_graph.connections. Sprint 65: match_completed → social_graph.trust_edges (weighted, decaying, community-scoped). GET /trust/graph/:communityId feeds Sprint 66 visualizer.",
+      "notes": "Trust-first design foundation. Sprint 27: match_completed → social_graph.connections. Sprint 65: match_completed → social_graph.trust_edges. Sprint 67: ego-network rewrite — GET /trust/graph (aggregate) + GET /trust/graph/:communityId (community ego-network). Governance endpoints are in community-service.",
       "databaseSchemas": [
         "social_graph"
       ]

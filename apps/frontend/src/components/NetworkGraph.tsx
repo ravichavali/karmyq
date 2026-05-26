@@ -1,22 +1,18 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { useRouter } from 'next/router'
 import { socialGraphService } from '@/lib/api'
 
-interface GraphNode {
+interface TrustNode {
   id: string
   name: string
-  provider_id: string | null
+  trust_score: number
+  karma: number
+  isCurrentUser: boolean
 }
 
-interface GraphEdge {
+interface TrustLink {
   source: string
   target: string
-  type: 'exchange' | 'community'
-}
-
-interface NetworkData {
-  nodes: GraphNode[]
-  edges: GraphEdge[]
+  effective_weight: number
 }
 
 interface NetworkGraphProps {
@@ -24,9 +20,9 @@ interface NetworkGraphProps {
 }
 
 export default function NetworkGraph({ currentUserId }: NetworkGraphProps) {
-  const router = useRouter()
   const containerRef = useRef<HTMLDivElement>(null)
-  const [networkData, setNetworkData] = useState<NetworkData | null>(null)
+  const [nodes, setNodes] = useState<TrustNode[]>([])
+  const [links, setLinks] = useState<TrustLink[]>([])
   const [loading, setLoading] = useState(false)
   const [loaded, setLoaded] = useState(false)
   const [ForceGraph, setForceGraph] = useState<any>(null)
@@ -35,20 +31,20 @@ export default function NetworkGraph({ currentUserId }: NetworkGraphProps) {
     if (loaded) return
     setLoading(true)
     try {
-      const resp = await socialGraphService.getNetwork()
-      setNetworkData(resp.data)
-      // Dynamically import to avoid SSR issues
+      const resp = await socialGraphService.getTrustGraphAggregate()
+      setNodes(resp.data?.nodes ?? [])
+      setLinks(resp.data?.links ?? [])
       const { default: FG } = await import('react-force-graph-2d')
       setForceGraph(() => FG)
     } catch {
-      setNetworkData({ nodes: [], edges: [] })
+      setNodes([])
+      setLinks([])
     } finally {
       setLoading(false)
       setLoaded(true)
     }
   }, [loaded])
 
-  // Lazy-load: only fetch when scrolled into view
   useEffect(() => {
     const el = containerRef.current
     if (!el) return
@@ -65,12 +61,10 @@ export default function NetworkGraph({ currentUserId }: NetworkGraphProps) {
     return () => observer.disconnect()
   }, [fetchNetwork])
 
-  const graphData = networkData
-    ? {
-        nodes: networkData.nodes.map(n => ({ ...n, label: n.name })),
-        links: networkData.edges.map(e => ({ ...e })),
-      }
-    : { nodes: [], links: [] }
+  const graphData = {
+    nodes: nodes.map(n => ({ ...n, label: n.name })),
+    links: links.map(l => ({ ...l })),
+  }
 
   return (
     <div ref={containerRef} className="bg-surface-raised rounded-xl border border-border p-4 mb-6">
@@ -82,31 +76,26 @@ export default function NetworkGraph({ currentUserId }: NetworkGraphProps) {
         </div>
       )}
 
-      {!loading && loaded && networkData && networkData.edges.length === 0 && (
+      {!loading && loaded && links.length === 0 && (
         <div className="text-center py-8 text-text-muted text-sm">
-          No connections yet — complete a help exchange to build your network.
+          No trust connections yet — complete a help exchange to build your network.
         </div>
       )}
 
-      {!loading && loaded && ForceGraph && networkData && networkData.edges.length > 0 && (
+      {!loading && loaded && ForceGraph && links.length > 0 && (
         <ForceGraph
           graphData={graphData}
           width={600}
           height={400}
           nodeLabel="name"
+          nodeVal={(node: any) => Math.max(4, node.trust_score / 10)}
           nodeColor={(node: any) => {
-            if (node.id === currentUserId) return '#10b981'   // center: green
-            if (node.provider_id) return '#6366f1'            // provider: indigo
-            return '#94a3b8'                                   // peer: slate
+            if (node.isCurrentUser || node.id === currentUserId) return '#10b981'
+            return '#6366f1'
           }}
-          linkColor={(link: any) =>
-            link.type === 'exchange' ? '#10b981' : '#6366f1'
-          }
-          onNodeClick={(node: any) => {
-            if (node.provider_id) {
-              router.push(`/providers/${node.provider_id}`)
-            }
-          }}
+          linkWidth={(link: any) => Math.max(1, link.effective_weight / 5)}
+          linkColor={() => 'rgba(99,102,241,0.4)'}
+          backgroundColor="transparent"
         />
       )}
     </div>
