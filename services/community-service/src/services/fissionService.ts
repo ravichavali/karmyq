@@ -104,7 +104,7 @@ export async function clusterCommunityMembers(
   const members: string[] = membersRes.rows.map((r: any) => r.user_id);
 
   const edgesRes = await pool.query(
-    `SELECT user_id_a, user_id_b, effective_weight
+    `SELECT user_id_a, user_id_b, current_weight AS effective_weight
      FROM social_graph.trust_edges_live
      WHERE community_id = $1
        AND user_id_a = ANY($2::uuid[])
