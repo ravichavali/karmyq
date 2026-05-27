@@ -64,6 +64,7 @@ router.post('/:communityId/splits', async (req: any, res: Response) => {
     if (err.code === '23505') {
       return res.status(409).json({ success: false, message: 'An active split proposal already exists for this community' });
     }
+    console.error('[splits] createSplitProposal error:', err);
     res.status(500).json({ success: false, message: 'Failed to create split proposal' });
   }
 });
