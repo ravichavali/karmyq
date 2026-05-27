@@ -15,12 +15,19 @@ interface Match {
   requester_id?: string
   status: string
   created_at: string
+  completed_at?: string | null
   request_title?: string
   requester_name?: string
   responder_name?: string
   admin_proposed?: boolean
   requester_done_at?: string | null
   responder_done_at?: string | null
+}
+
+function completedFadeOpacity(completedAt: string | null | undefined): number {
+  if (!completedAt) return 1
+  const days = (Date.now() - new Date(completedAt).getTime()) / 86_400_000
+  return 1 - Math.min(1, days / 30) * 0.55
 }
 
 interface PendingDibs {
@@ -383,8 +390,11 @@ export default function CommitmentsTab({ onDibsLoaded, communityId }: Commitment
 
   function renderHelpingCard(m: Match) {
     const showConversation = m.status === 'proposed' || m.status === 'matched'
+    const fadeOpacity = m.status === 'completed'
+      ? completedFadeOpacity(m.completed_at ?? m.responder_done_at)
+      : 1
     return (
-      <div key={m.id} className="card p-4 mb-3">
+      <div key={m.id} className="card p-4 mb-3" style={{ opacity: fadeOpacity }}>
         {/* Top row: title + step indicator */}
         <div className="flex items-start justify-between gap-4">
           <div className="flex-1 min-w-0">
@@ -471,8 +481,11 @@ export default function CommitmentsTab({ onDibsLoaded, communityId }: Commitment
 
   function renderRequestedCard(m: Match) {
     const showConversation = m.status === 'proposed' || m.status === 'matched'
+    const fadeOpacity = m.status === 'completed'
+      ? completedFadeOpacity(m.completed_at ?? m.requester_done_at)
+      : 1
     return (
-      <div key={m.id} className="card p-4 mb-3">
+      <div key={m.id} className="card p-4 mb-3" style={{ opacity: fadeOpacity }}>
         {/* Top row: title + step indicator */}
         <div className="flex items-start justify-between gap-4">
           <div className="flex-1 min-w-0">
