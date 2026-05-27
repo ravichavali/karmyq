@@ -212,8 +212,50 @@ CREATE TABLE communities.community_links (
 | joined_at | TIMESTAMP | |
 | | UNIQUE(activity_id, user_id) | |
 
+### communities.split_proposals (Sprint 69)
+| Column | Type | Notes |
+|--------|------|-------|
+| id | UUID PK | |
+| community_id | UUID FK | → communities.communities(id) |
+| proposed_by | UUID FK | → auth.users(id) |
+| split_type | TEXT | size_threshold \| admin_initiated |
+| rationale | TEXT | Optional |
+| group_a_name | TEXT | Required |
+| group_b_name | TEXT | Required |
+| status | TEXT | discussion → voting → approved/rejected → executed |
+| quorum_pct | INTEGER | Default 60 |
+| approval_pct | INTEGER | Default 60 |
+| voting_ends_at | TIMESTAMPTZ | Set when voting opens |
+| executed_at | TIMESTAMPTZ | Set on execution |
+| child_community_a_id | UUID FK | Set on execution |
+| child_community_b_id | UUID FK | Set on execution |
+| | UNIQUE(community_id, status) | One active proposal per community |
+
+### communities.split_votes (Sprint 69)
+| Column | Type | Notes |
+|--------|------|-------|
+| id | UUID PK | |
+| proposal_id | UUID FK | → communities.split_proposals(id) ON DELETE CASCADE |
+| user_id | UUID FK | → auth.users(id) |
+| vote | TEXT | yes \| no \| abstain |
+| prestige_weight | NUMERIC(8,2) | Community-scoped trust score at vote time |
+| voted_at | TIMESTAMPTZ | |
+| | UNIQUE(proposal_id, user_id) | One vote per member per proposal |
+
+### communities.split_member_assignments (Sprint 69)
+| Column | Type | Notes |
+|--------|------|-------|
+| id | UUID PK | |
+| proposal_id | UUID FK | → communities.split_proposals(id) ON DELETE CASCADE |
+| user_id | UUID FK | → auth.users(id) |
+| assigned_to | TEXT | group_a \| group_b \| unassigned |
+| cluster_suggestion | TEXT | Algorithm's initial guess: group_a \| group_b \| NULL |
+| admin_overridden | BOOLEAN | TRUE if admin changed from cluster_suggestion |
+| | UNIQUE(proposal_id, user_id) | One assignment per member per proposal |
+
 ### Tables Read by This Service
 - `auth.users` - User details for member profiles and creator names
+- `social_graph.trust_edges_live` - Read-only view used for clustering algorithm and prestige weight computation
 
 ## API Endpoints
 
@@ -1382,6 +1424,21 @@ src/
 - JOIN queries limited to necessary data only
 
 ## Recent Changes
+
+### Sprint 69 (2026-05-27) — Fission Mechanism
+- **MODIFIED**: `GET /communities/:id` — now returns `size_alert` ('approaching'|'recommend_split'|'urgent_split'|null) computed from `current_members`, and `active_split_proposal` (id, status, group names) if a non-executed/rejected proposal exists
+- **NEW**: `POST /communities/:id/splits` — admin creates split proposal; runs trust-graph clustering; seeds `split_member_assignments`
+- **NEW**: `GET /communities/:id/splits/:splitId` — get proposal detail + member assignments + prestige-weighted vote tally
+- **NEW**: `PUT /communities/:id/splits/:splitId/assignments` — admin bulk-updates member assignments
+- **NEW**: `POST /communities/:id/splits/:splitId/start-vote` — admin transitions proposal from `discussion` → `voting`
+- **NEW**: `POST /communities/:id/splits/:splitId/vote` — member casts vote (prestige-weighted by community trust score)
+- **NEW**: `POST /communities/:id/splits/:splitId/execute` — admin executes approved split (atomic transaction: creates 2 child communities, moves members, creates split_origin link, marks parent status='split')
+- **NEW**: `communities.split_proposals` table — proposal lifecycle
+- **NEW**: `communities.split_votes` table — per-member prestige-weighted votes
+- **NEW**: `communities.split_member_assignments` table — per-member group assignment (cluster_suggestion vs assigned_to)
+- **NEW**: `src/database/splitsDb.ts` — DB query functions for proposals, votes, assignments
+- **NEW**: `src/services/fissionService.ts` — greedy bisection clustering algorithm + atomic execute transaction
+- **NEW**: `src/routes/splits.ts` — all 6 split route handlers (mounted at /communities)
 
 ### Sprint 67 (2026-05-26) — Trust-Gated Governance
 - **NEW**: `GET /communities/:id/governance` — returns governance state: settings, maturity (constrained/mature), eligible members, pending nominations, current role holders

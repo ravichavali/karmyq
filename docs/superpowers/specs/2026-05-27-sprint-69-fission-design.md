@@ -143,7 +143,7 @@ All fission routes live under `/communities/:communityId/splits`.
 | `GET` | `/communities/:id/splits/:splitId` | member | Get proposal detail + member assignments + vote counts |
 | `PUT` | `/communities/:id/splits/:splitId/assignments` | admin | Bulk-update member assignments (body: `[{userId, assignedTo}]`) |
 | `POST` | `/communities/:id/splits/:splitId/start-vote` | admin | Transition `discussion → voting`; sets `voting_ends_at` |
-| `POST` | `/communities/:id/splits/:splitId/vote` | member | Cast a vote (`yes` / `no` / `abstain`); records karma as prestige_weight |
+| `POST` | `/communities/:id/splits/:splitId/vote` | member | Cast a vote (`yes` / `no` / `abstain`); records community-scoped trust score as prestige_weight |
 | `POST` | `/communities/:id/splits/:splitId/execute` | admin | Execute approved split; atomic: create communities, move members, create link |
 
 **Execute logic (atomic transaction):**

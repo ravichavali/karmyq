@@ -8,9 +8,10 @@ interface Props {
   isAdmin: boolean
   joiningCommunity: boolean
   onJoin: () => void
+  onShowFission?: () => void
 }
 
-export default function CommunityHeader({ community, isMember, isPending, isAdmin, joiningCommunity, onJoin }: Props) {
+export default function CommunityHeader({ community, isMember, isPending, isAdmin, joiningCommunity, onJoin, onShowFission }: Props) {
   return (
     <div className="bg-surface-raised rounded-lg shadow-md p-8 mb-6">
       <div className="flex justify-between items-start mb-4">
@@ -70,6 +71,21 @@ export default function CommunityHeader({ community, isMember, isPending, isAdmi
           />
         </div>
       </div>
+
+      {community.size_alert && (
+        <div className="mt-4 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-sm text-amber-800">
+          {community.size_alert === 'urgent_split'
+            ? `⚠️ This community has ${community.current_members} members — consider splitting to maintain cohesion.`
+            : community.size_alert === 'recommend_split'
+            ? `This community is approaching its optimal size. A split may help maintain trust.`
+            : `Community growing — ${community.current_members}/${community.max_members} members.`}
+          {isAdmin && !community.active_split_proposal && onShowFission && (
+            <button onClick={onShowFission} className="ml-2 underline font-medium">
+              Propose Split →
+            </button>
+          )}
+        </div>
+      )}
     </div>
   )
 }

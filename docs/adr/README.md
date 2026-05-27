@@ -86,6 +86,8 @@ When code implementing an ADR is deployed, update the status from `Accepted` →
 - [ADR-052: Security Hardening — OWASP Top 10 Baseline](ADR-052-security-hardening.md) — **Implemented**
 - [ADR-054: Trust Graph Architecture](ADR-054-trust-graph-architecture.md) — **Implemented**
 - [ADR-055: Trust-Based Governance Architecture](ADR-055-trust-governance-architecture.md) — **Accepted**
+- [ADR-056: Intrinsic Trust Decay (Interaction Half-Life)](ADR-056-intrinsic-trust-decay.md) — **Implemented**
+- [ADR-057: Community Fission Mechanism](ADR-057-fission-mechanism.md) — **Implemented**
 
 ## Creating a New ADR
 

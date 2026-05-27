@@ -165,6 +165,36 @@
           "method": "POST",
           "path": "/communities/:id/governance/ratify/:nominationId",
           "description": "Ratify an open nomination (role-holders only). Auto-grants role when quorum is reached."
+        },
+        {
+          "method": "POST",
+          "path": "/communities/:id/splits",
+          "description": "Admin creates a split proposal; runs trust-graph clustering and seeds member assignments."
+        },
+        {
+          "method": "GET",
+          "path": "/communities/:id/splits/:splitId",
+          "description": "Get proposal detail, member assignments, and prestige-weighted vote tally."
+        },
+        {
+          "method": "PUT",
+          "path": "/communities/:id/splits/:splitId/assignments",
+          "description": "Admin bulk-updates member group assignments."
+        },
+        {
+          "method": "POST",
+          "path": "/communities/:id/splits/:splitId/start-vote",
+          "description": "Admin transitions proposal from discussion to voting phase."
+        },
+        {
+          "method": "POST",
+          "path": "/communities/:id/splits/:splitId/vote",
+          "description": "Member casts a prestige-weighted vote (yes/no/abstain) on a split proposal."
+        },
+        {
+          "method": "POST",
+          "path": "/communities/:id/splits/:splitId/execute",
+          "description": "Admin executes an approved split: creates two child communities, moves members, creates split_origin link, marks parent as split."
         }
       ],
       "dependencies": [

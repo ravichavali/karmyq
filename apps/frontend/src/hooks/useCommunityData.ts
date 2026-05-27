@@ -25,6 +25,13 @@ export interface CommunitySettings {
   karma_half_life_months: number
 }
 
+export interface SplitProposalSummary {
+  id: string
+  status: string
+  group_a_name: string
+  group_b_name: string
+}
+
 export interface Community {
   id: string
   name: string
@@ -37,6 +44,8 @@ export interface Community {
   status: string
   members: Member[]
   community_type?: string
+  size_alert?: 'approaching' | 'recommend_split' | 'urgent_split' | null
+  active_split_proposal?: SplitProposalSummary | null
 }
 
 export function useCommunityData(communityId: string | undefined) {

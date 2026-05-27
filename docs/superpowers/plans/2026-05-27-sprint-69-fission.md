@@ -180,7 +180,13 @@ cd services/community-service && npx tsc --noEmit
 
   For **`POST /splits`**: call `clusterCommunityMembers()`, then `insertProposal()`, then `insertAssignments()` with cluster_suggestion values.
 
-  For **`POST /splits/:id/vote`**: fetch member's karma from reputation-service OR query `reputation.karma_records` directly (same pattern as governance) to get prestige_weight.
+  For **`POST /splits/:id/vote`**: compute `prestige_weight` as the member's trust score within the community — same query used for governance eligibility in `governance.ts`:
+  ```sql
+  SELECT COALESCE(SUM(raw_weight), 0) AS trust_score
+  FROM social_graph.trust_edges
+  WHERE community_id = $1 AND (user_id_a = $2 OR user_id_b = $2)
+  ```
+  This is intentionally community-scoped (not global karma) — weight in the split vote reflects how much *this* community trusts the voter.
 
   For **`POST /splits/:id/execute`**: call `executeSplit()` from fissionService.
 

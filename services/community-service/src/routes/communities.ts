@@ -323,6 +323,22 @@ router.get('/:id', async (req: Request, res: Response) => {
     const community = communityResult.rows[0];
     community.members = membersResult.rows;
 
+    // Size alert — computed from current_members, no background job needed
+    const memberCount = community.current_members ?? 0;
+    if (memberCount >= 140) community.size_alert = 'urgent_split';
+    else if (memberCount >= 130) community.size_alert = 'recommend_split';
+    else if (memberCount >= 120) community.size_alert = 'approaching';
+    else community.size_alert = null;
+
+    // Active split proposal (if any) — shown to members during voting phase
+    const proposalRes = await query(
+      `SELECT id, status, group_a_name, group_b_name FROM communities.split_proposals
+       WHERE community_id = $1 AND status NOT IN ('executed', 'rejected')
+       LIMIT 1`,
+      [id]
+    );
+    community.active_split_proposal = proposalRes.rows[0] ?? null;
+
     sendSuccess(res, community, HTTP_STATUS.OK, { requestId: (req as any).id });
   } catch (error: any) {
     (req as any).logger?.error('Error fetching community', error instanceof Error ? error : new Error(String(error)), { service: 'community-service', endpoint: 'GET /:id' });

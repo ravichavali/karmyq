@@ -178,10 +178,15 @@ CREATE TABLE communities.community_links (
 **Feed integration** (feed-service):
 - `GET /requests/curated?includeSisterCommunities=true` — includes requests from linked communities where `show_in_sister_feeds=true`, scored at `trust_carry_factor × original_score`
 
-### Phase 2: Monitoring & Split Proposal (v10.0)
-- Track community size; alert admins at thresholds (120, 130, 140)
-- `split_proposals` table for admin-initiated guided splits
-- Member assignment and prestige-weighted voting
+### Phase 2: Fission Mechanism — Implemented (v9.90.0, Sprint 69) ✅
+
+See **ADR-057** for full decision record.
+
+- `GET /communities/:id` returns `size_alert` at thresholds (120/130/140)
+- `communities.split_proposals`, `split_votes`, `split_member_assignments` tables created
+- Trust-graph-driven greedy bisection algorithm clusters members at proposal time
+- Prestige-weighted community vote (quorum 60%, approval 60%)
+- Atomic execution: creates two child communities, moves members, creates `split_origin` link, marks parent `status='split'`
 
 ### Phase 3: Cross-Community Features (v11.0+)
 - Cross-community request posting

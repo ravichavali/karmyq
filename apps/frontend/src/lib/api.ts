@@ -358,6 +358,25 @@ export const communityService = {
 
   ratifyNomination: (communityId: string, nominationId: string) =>
     communityApi.post(`/communities/${communityId}/governance/ratify/${nominationId}`),
+
+  // Fission (Community Splits)
+  createSplitProposal: (communityId: string, data: { group_a_name: string; group_b_name: string; rationale?: string }) =>
+    communityApi.post(`/communities/${communityId}/splits`, data),
+
+  getSplitProposal: (communityId: string, splitId: string) =>
+    communityApi.get(`/communities/${communityId}/splits/${splitId}`),
+
+  updateSplitAssignments: (communityId: string, splitId: string, changes: Array<{ userId: string; assignedTo: string }>) =>
+    communityApi.put(`/communities/${communityId}/splits/${splitId}/assignments`, changes),
+
+  startSplitVote: (communityId: string, splitId: string) =>
+    communityApi.post(`/communities/${communityId}/splits/${splitId}/start-vote`),
+
+  castSplitVote: (communityId: string, splitId: string, vote: 'yes' | 'no' | 'abstain') =>
+    communityApi.post(`/communities/${communityId}/splits/${splitId}/vote`, { vote }),
+
+  executeSplit: (communityId: string, splitId: string) =>
+    communityApi.post(`/communities/${communityId}/splits/${splitId}/execute`),
 }
 
 // Admin Schema Management (Server-Driven UI - Phase 2)

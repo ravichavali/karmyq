@@ -431,6 +431,14 @@
       "status": "implemented",
       "description": "**Status**: Implemented",
       "filename": "ADR-056-intrinsic-trust-decay.md"
+    },
+    {
+      "slug": "adr-057-fission-mechanism",
+      "number": "057",
+      "title": "ADR-057: Community Fission Mechanism",
+      "status": "implemented",
+      "description": "**Status**: Implemented",
+      "filename": "ADR-057-fission-mechanism.md"
     }
   ]
 }

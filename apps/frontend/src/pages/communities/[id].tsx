@@ -11,8 +11,9 @@ import { useCommunityData } from '@/hooks/useCommunityData'
 import { communityService } from '@/lib/api'
 import TrustGraphTab from '@/components/community/tabs/TrustGraphTab'
 import GovernanceTab from '@/components/GovernanceTab'
+import FissionTab from '@/components/community/tabs/FissionTab'
 
-type ValidTab = 'overview' | 'people' | 'requests' | 'providers' | 'settings' | 'activities' | 'trust' | 'governance'
+type ValidTab = 'overview' | 'people' | 'requests' | 'providers' | 'settings' | 'activities' | 'trust' | 'governance' | 'fission'
 
 const OLD_TAB_MAP: Record<string, ValidTab> = {
   manage: 'people',
@@ -26,7 +27,7 @@ const OLD_TAB_MAP: Record<string, ValidTab> = {
   links: 'settings',
 }
 
-const VALID_TABS: ValidTab[] = ['overview', 'people', 'requests', 'providers', 'settings', 'activities', 'trust', 'governance']
+const VALID_TABS: ValidTab[] = ['overview', 'people', 'requests', 'providers', 'settings', 'activities', 'trust', 'governance', 'fission']
 
 export default function CommunityDetailPage() {
   const router = useRouter()
@@ -145,6 +146,7 @@ export default function CommunityDetailPage() {
             isAdmin={isAdmin ?? false}
             joiningCommunity={joiningCommunity}
             onJoin={handleJoinCommunity}
+            onShowFission={() => setActiveTab('fission')}
           />
 
           <div className="bg-surface-raised rounded-lg shadow-md mb-6">
@@ -185,6 +187,11 @@ export default function CommunityDetailPage() {
                 {isAdmin && (
                   <button onClick={() => setActiveTab('settings')} className={tabBtnClass('settings')}>
                     settings
+                  </button>
+                )}
+                {(isAdmin || community.active_split_proposal != null) && (
+                  <button onClick={() => setActiveTab('fission')} className={tabBtnClass('fission')}>
+                    split
                   </button>
                 )}
               </nav>
@@ -244,6 +251,13 @@ export default function CommunityDetailPage() {
               )}
               {activeTab === 'governance' && isMember && (
                 <GovernanceTab communityId={communityId!} />
+              )}
+              {activeTab === 'fission' && (
+                <FissionTab
+                  community={community}
+                  isAdmin={isAdmin ?? false}
+                  onRefresh={refetchCommunity}
+                />
               )}
             </div>
           </div>

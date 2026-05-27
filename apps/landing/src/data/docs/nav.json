@@ -176,6 +176,10 @@
         {
           "label": "Interaction Half-Life: How Trust Fades and Endures",
           "href": "/docs/guides/interaction-half-life"
+        },
+        {
+          "label": "Splitting a Community",
+          "href": "/docs/guides/community-fission"
         }
       ]
     },
@@ -295,6 +299,10 @@
         {
           "label": "Intrinsic Trust Decay (Interaction Half-Life)",
           "href": "/docs/concepts/adr-056-intrinsic-trust-decay"
+        },
+        {
+          "label": "Community Fission Mechanism",
+          "href": "/docs/concepts/adr-057-fission-mechanism"
         },
         {
           "label": "— Community & Scale —",
