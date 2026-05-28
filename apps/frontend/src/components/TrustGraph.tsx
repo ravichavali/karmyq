@@ -130,9 +130,7 @@ export default function TrustGraph({
           graphData={fgData}
           width={graphWidth}
           height={groupMap ? 380 : 500}
-          // In fission mode: lock down zoom/pan/drag so the graph stays put
-          enableZoomInteraction={!groupMap}
-          enablePanInteraction={!groupMap}
+          // In fission mode: allow zoom/pan but not dragging individual nodes
           enableNodeDrag={!groupMap}
           nodeLabel={(node: any) => {
             if (groupMap) return node.isIsolated ? `${node.name} · no trust connections` : node.name
