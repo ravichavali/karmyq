@@ -132,6 +132,30 @@ export default function HowItWorks() {
             </p>
           </div>
         </AnimateOnScroll>
+        <AnimateOnScroll delay={0.2}>
+          <div className="space-y-5 body-large mt-8">
+            <p>
+              As a community grows, the platform watches. When membership approaches the
+              Dunbar threshold — the cognitive limit above which genuine relationship becomes
+              difficult — a size alert appears for admins. No automatic action. Just a signal
+              that the community might be ready to evolve.
+            </p>
+            <p>
+              Communities that choose to split do so through a governed process: an admin
+              proposes two child communities, the trust graph suggests which members belong
+              together based on their actual interaction history, and members vote with
+              weights proportional to their standing. The algorithm offers a starting point.
+              The community decides.
+            </p>
+            <p>
+              The reverse is also possible. Two communities that have grown closer — through
+              shared members, inter-community trust, or aligned purpose — can choose to merge.
+              Both sets of admins propose, both communities vote in parallel, and the merge
+              executes atomically if both pass. The platform calls this fusion. Communities
+              call it becoming one thing.
+            </p>
+          </div>
+        </AnimateOnScroll>
 
       </div>
     </section>

@@ -45,6 +45,7 @@ export default function TrustGraph({
   onSwitchGroup,
 }: TrustGraphProps) {
   const containerRef = useRef<HTMLDivElement>(null)
+  const fgRef = useRef<any>(null)
   const [ForceGraph, setForceGraph] = useState<any>(null)
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
   const [switching, setSwitching] = useState(false)
@@ -66,6 +67,29 @@ export default function TrustGraph({
     return () => observer.disconnect()
   }, [])
 
+  useEffect(() => {
+    if (!fgRef.current || !groupMap) return
+    const fg = fgRef.current
+
+    const xForce = (alpha: number) => {
+      const data = fg.graphData()
+      if (!data?.nodes) return
+      data.nodes.forEach((node: any) => {
+        const group = groupMap[node.id]
+        const targetX = group === 'group_a'
+          ? graphWidth * 0.28
+          : group === 'group_b'
+          ? graphWidth * 0.72
+          : graphWidth * 0.5
+
+        node.vx = (node.vx ?? 0) + (targetX - (node.x ?? 0)) * 0.4 * alpha
+      })
+    }
+
+    fg.d3Force('x-group', xForce)
+    fg.d3ReheatSimulation()
+  }, [graphData, groupMap, graphWidth])
+
   const maxTrust = Math.max(...graphData.nodes.map(n => n.trust_score), 1)
   const maxWeight = Math.max(...graphData.links.map(l => l.effective_weight), 1)
   const nodeSize = (score: number) => 3 + (score / maxTrust) * 6
@@ -74,9 +98,12 @@ export default function TrustGraph({
   // Memoized so the force simulation doesn't restart on every parent re-render.
   // groupMap intentionally excluded — it only drives colors, not graph structure.
   const fgData = useMemo(() => ({
-    nodes: graphData.nodes.map(n => ({ ...n })),
+    nodes: graphData.nodes.map(n => ({
+      ...n,
+      ...(n.id === currentUserId ? { fx: 0, fy: 0 } : {}),
+    })),
     links: graphData.links.map(l => ({ ...l })),
-  }), [graphData])
+  }), [graphData, currentUserId])
 
   const selectedNode = selectedNodeId
     ? graphData.nodes.find(n => n.id === selectedNodeId)
@@ -127,9 +154,12 @@ export default function TrustGraph({
     <div ref={containerRef}>
       {ForceGraph && (
         <ForceGraph
+          ref={fgRef}
           graphData={fgData}
           width={graphWidth}
           height={groupMap ? 380 : 500}
+          warmupTicks={120}
+          cooldownTicks={50}
           // In fission mode: allow zoom/pan but not dragging individual nodes
           enableNodeDrag={!groupMap}
           nodeLabel={(node: any) => {
@@ -225,7 +255,6 @@ export default function TrustGraph({
           }}
           onBackgroundClick={() => setSelectedNodeId(null)}
           backgroundColor="transparent"
-          cooldownTicks={100}
         />
       )}
 

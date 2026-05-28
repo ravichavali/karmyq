@@ -11,6 +11,10 @@ Open any community you belong to and click the **Trust Graph** tab in the commun
 ### Nodes (circles)
 Each node represents a community member. **Larger nodes** have a higher trust score — they've been consistently rated as reliable and helpful by other members. **Your own node** appears in green; other members appear in indigo.
 
+### Your position
+
+You are always at the center. The graph pins your node at the center of the canvas — your direct trust connections arrange themselves around you. If you have no trust connections yet, you'll see an empty-state message instead.
+
 ### Edges (lines)
 Lines between nodes represent trust bonds. **Thicker lines** mean a stronger recent relationship — more completed exchanges, endorsements, or karma interactions between those two members. Edge thickness reflects *effective weight*, which factors in how recent the interactions were.
 
@@ -60,3 +64,7 @@ This is permanent by design. The graph shows your position in the community's tr
 The trust graph powers community governance. Members with high enough trust scores become eligible for governance roles (Admin, Moderator). Eligible members can be nominated and ratified through the **Governance** tab on any community page.
 
 See [Trust-Gated Governance](/docs/concepts/governance) for the full governance model.
+
+## Fission Group Assignment View
+
+When your community has an active fission proposal, the Trust Graph tab switches to a group assignment view. Members are color-coded by their proposed group (blue = Group A, orange = Group B, gray = unassigned) and the layout places the two groups in opposite halves of the canvas. Click any member to see their trust connections and, if you're an admin, move them between groups.
