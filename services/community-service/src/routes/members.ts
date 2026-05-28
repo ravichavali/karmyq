@@ -1,4 +1,5 @@
 import { Router, Request, Response } from 'express';
+import jwt from 'jsonwebtoken';
 import { query } from '../database/db';
 import { publishEvent } from '../events/publisher';
 import {
@@ -137,13 +138,41 @@ router.post('/:communityId/join', async (req: any, res: Response) => {
       });
     }
 
+    // Re-issue JWT with updated community list so the client stays in sync.
+    // Only do this for public joins (status='active'); pending joins don't grant access yet.
+    let newToken: string | undefined;
+    if (memberStatus === 'active') {
+      const communitiesResult = await query(
+        `SELECT c.id, c.name, m.role
+         FROM communities.communities c
+         JOIN communities.members m ON m.community_id = c.id
+         WHERE m.user_id = $1 AND m.status = 'active'
+         ORDER BY c.name`,
+        [user_id]
+      );
+      newToken = jwt.sign(
+        {
+          userId: user_id,
+          email: (req as any).user.email,
+          communities: communitiesResult.rows.map((row: any) => ({
+            id: row.id,
+            role: row.role,
+            name: row.name,
+          })),
+        },
+        process.env.JWT_SECRET!,
+        { expiresIn: '7d' }
+      );
+    }
+
     res.status(200).json({
       success: true,
       data: {
         ...memberResult.rows[0],
         message: memberStatus === 'active'
           ? 'Successfully joined community'
-          : 'Join request submitted. Waiting for approval.'
+          : 'Join request submitted. Waiting for approval.',
+        ...(newToken ? { token: newToken } : {}),
       },
     });
   } catch (error: any) {

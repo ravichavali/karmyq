@@ -96,7 +96,20 @@ export default function CommunityDetailPage() {
     if (!currentUser || !communityId || !community) return
     setJoiningCommunity(true)
     try {
-      await communityService.joinCommunity(communityId, { user_id: currentUser.id })
+      const joinRes = await communityService.joinCommunity(communityId, { user_id: currentUser.id })
+
+      // Persist refreshed JWT so other pages reflect the new membership immediately
+      const newToken = joinRes?.data?.token
+      if (newToken && community.access_type === 'public') {
+        localStorage.setItem('token', newToken)
+        const stored = localStorage.getItem('user')
+        if (stored) {
+          const u = JSON.parse(stored)
+          u.communities = [...(u.communities ?? []), { id: communityId, role: 'member' }]
+          localStorage.setItem('user', JSON.stringify(u))
+        }
+      }
+
       await refetchCommunity()
       alert(
         community.access_type === 'public'

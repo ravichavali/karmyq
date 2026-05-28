@@ -307,12 +307,20 @@ export default function CommunitiesPage() {
   const handleJoinCommunity = async (communityId: string, accessType: 'public' | 'private') => {
     if (!user) return
 
-    // Capture before async call — JWT is not refreshed after joining
     const isFirstJoin = (user.communities ?? []).length === 0
 
     try {
       setJoiningId(communityId)
-      await communityService.joinCommunity(communityId, { user_id: user.id })
+      const joinRes = await communityService.joinCommunity(communityId, { user_id: user.id })
+
+      // Persist refreshed JWT so buildMembershipStatusFromToken uses up-to-date community list
+      const newToken = joinRes?.data?.token
+      if (newToken && accessType === 'public') {
+        localStorage.setItem('token', newToken)
+        const updatedUser = { ...user, communities: [...(user.communities ?? []), { id: communityId, role: 'member' }] }
+        localStorage.setItem('user', JSON.stringify(updatedUser))
+        setUser(updatedUser)
+      }
 
       setMembershipStatus(prev => ({
         ...prev,
