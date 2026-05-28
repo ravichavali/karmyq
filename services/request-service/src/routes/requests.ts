@@ -260,13 +260,15 @@ router.get('/curated', async (req: Request, res: Response) => {
     for (const row of communityConfigsResult.rows) {
       communityConfigs.set(row.community_id, {
         weights: {
-          feed_weight_skill_match: parseFloat(row.feed_weight_skill_match) || DEFAULT_FEED_WEIGHTS.feed_weight_skill_match,
-          feed_weight_trust_distance: parseFloat(row.feed_weight_trust_distance) || DEFAULT_FEED_WEIGHTS.feed_weight_trust_distance,
-          feed_weight_community_relevance: parseFloat(row.feed_weight_community_relevance) || DEFAULT_FEED_WEIGHTS.feed_weight_community_relevance,
-          feed_weight_urgency: parseFloat(row.feed_weight_urgency) || DEFAULT_FEED_WEIGHTS.feed_weight_urgency,
-          feed_weight_requester_trust: parseFloat(row.feed_weight_requester_trust) || DEFAULT_FEED_WEIGHTS.feed_weight_requester_trust,
-          feed_weight_prior_interaction: parseFloat(row.feed_weight_prior_interaction) || DEFAULT_FEED_WEIGHTS.feed_weight_prior_interaction,
-          feed_weight_recency: parseFloat(row.feed_weight_recency) || DEFAULT_FEED_WEIGHTS.feed_weight_recency,
+          // Use ?? (not ||): 0 is a valid weight value. || treats 0 as "missing"
+          // and replaces it with a default, pushing the sum above 1.0 → 500.
+          feed_weight_skill_match: row.feed_weight_skill_match != null ? parseFloat(row.feed_weight_skill_match) : DEFAULT_FEED_WEIGHTS.feed_weight_skill_match,
+          feed_weight_trust_distance: row.feed_weight_trust_distance != null ? parseFloat(row.feed_weight_trust_distance) : DEFAULT_FEED_WEIGHTS.feed_weight_trust_distance,
+          feed_weight_community_relevance: row.feed_weight_community_relevance != null ? parseFloat(row.feed_weight_community_relevance) : DEFAULT_FEED_WEIGHTS.feed_weight_community_relevance,
+          feed_weight_urgency: row.feed_weight_urgency != null ? parseFloat(row.feed_weight_urgency) : DEFAULT_FEED_WEIGHTS.feed_weight_urgency,
+          feed_weight_requester_trust: row.feed_weight_requester_trust != null ? parseFloat(row.feed_weight_requester_trust) : DEFAULT_FEED_WEIGHTS.feed_weight_requester_trust,
+          feed_weight_prior_interaction: row.feed_weight_prior_interaction != null ? parseFloat(row.feed_weight_prior_interaction) : DEFAULT_FEED_WEIGHTS.feed_weight_prior_interaction,
+          feed_weight_recency: row.feed_weight_recency != null ? parseFloat(row.feed_weight_recency) : DEFAULT_FEED_WEIGHTS.feed_weight_recency,
         },
         enabledTypes: row.enabled_request_types || [],
       });

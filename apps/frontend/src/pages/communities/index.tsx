@@ -224,7 +224,23 @@ export default function CommunitiesPage() {
     }
 
     if (userData) {
-      setUser(JSON.parse(userData))
+      try {
+        const stored = JSON.parse(userData)
+        // Heal user.communities from JWT — the token always has complete {id, name, role}.
+        // Guards against a prior optimistic update that wrote {id, role} without name.
+        const payload = token
+          ? JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')))
+          : null
+        if (payload?.communities?.length) {
+          const healed = { ...stored, communities: payload.communities }
+          localStorage.setItem('user', JSON.stringify(healed))
+          setUser(healed)
+        } else {
+          setUser(stored)
+        }
+      } catch {
+        setUser(JSON.parse(userData))
+      }
     }
 
     const persistedMode = readDiscoveryMode()
