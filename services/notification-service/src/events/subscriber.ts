@@ -628,6 +628,40 @@ export async function initEventSubscriber() {
       }
     });
 
+    // Handle split_vote_started event — notify all community members that voting is open
+    eventQueue.process('split_vote_started', async (job) => {
+      console.log('Processing split_vote_started event:', job.data);
+      const { payload } = job.data;
+      const { community_id, proposal_id, group_a_name, group_b_name, voting_ends_at } = payload;
+
+      try {
+        const communityResult = await query(
+          `SELECT name FROM communities.communities WHERE id = $1`,
+          [community_id]
+        );
+        if (!communityResult.rows.length) return;
+        const community_name = communityResult.rows[0].name;
+
+        const membersResult = await query(
+          `SELECT user_id FROM communities.members WHERE community_id = $1 AND status = 'active'`,
+          [community_id]
+        );
+
+        for (const member of membersResult.rows) {
+          await createNotification({
+            user_id: member.user_id,
+            type: 'split_vote_started',
+            data: { community_id, proposal_id, community_name, group_a_name, group_b_name, voting_ends_at },
+          });
+        }
+
+        console.log(`✅ split_vote_started notifications sent to ${membersResult.rows.length} members`);
+      } catch (error) {
+        console.error('❌ Failed to process split_vote_started event:', error);
+        throw error;
+      }
+    });
+
     console.log('✅ Event subscriber initialized');
   } catch (error) {
     console.error('❌ Event subscriber initialization failed:', error);

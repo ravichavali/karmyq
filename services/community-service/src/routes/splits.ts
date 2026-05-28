@@ -12,6 +12,7 @@ import {
   updateProposalStatus,
 } from '../database/splitsDb';
 import { clusterCommunityMembers, executeSplit } from '../services/fissionService';
+import { publishEvent } from '../events/publisher';
 
 const router = Router();
 
@@ -93,12 +94,14 @@ router.get('/:communityId/splits/:splitId', async (req: any, res: Response) => {
     const votedCount = votes.length;
     const weightedYes = votes.filter((v: any) => v.vote === 'yes').reduce((s: number, v: any) => s + parseFloat(v.prestige_weight), 0);
     const weightedTotal = votes.reduce((s: number, v: any) => s + parseFloat(v.prestige_weight), 0);
+    const myVote = votes.find((v: any) => v.user_id === userId)?.vote ?? null;
 
     res.json({
       success: true,
       data: {
         proposal,
         assignments,
+        my_vote: myVote,
         vote_tally: {
           total_members: totalMembers,
           voted_count: votedCount,
@@ -158,6 +161,16 @@ router.post('/:communityId/splits/:splitId/start-vote', async (req: any, res: Re
     // Voting window: 7 days
     const votingEndsAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
     const updated = await updateProposalStatus(splitId, 'voting', { voting_ends_at: votingEndsAt });
+
+    // Notify all community members that the vote has opened
+    publishEvent('split_vote_started', {
+      community_id: communityId,
+      proposal_id: splitId,
+      group_a_name: proposal.group_a_name,
+      group_b_name: proposal.group_b_name,
+      voting_ends_at: votingEndsAt,
+    }).catch((err: any) => console.error('[splits] split_vote_started publish failed:', err));
+
     res.json({ success: true, data: updated });
   } catch {
     res.status(500).json({ success: false, message: 'Failed to start vote' });

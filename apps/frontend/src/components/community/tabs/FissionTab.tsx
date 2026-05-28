@@ -32,6 +32,7 @@ interface ProposalDetail {
     cluster_suggestion: string | null
     admin_overridden: boolean
   }>
+  my_vote: string | null
   vote_tally: {
     total_members: number
     voted_count: number
@@ -64,6 +65,7 @@ export default function FissionTab({ community, currentUserId, isAdmin, onRefres
     try {
       const res = await communityService.getSplitProposal(community.id, proposal.id)
       setProposalDetail(res.data)
+      if (res.data.my_vote) setMyVote(res.data.my_vote)
     } catch {
       setError('Failed to load proposal details')
     } finally {

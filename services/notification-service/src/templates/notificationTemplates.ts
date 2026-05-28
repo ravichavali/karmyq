@@ -21,7 +21,8 @@ export type NotificationType =
   | 'dibs_submitted'
   | 'dibs_accepted'
   | 'dibs_declined'
-  | 'dibs_expired';
+  | 'dibs_expired'
+  | 'split_vote_started';
 
 export type NotificationPriority = 'low' | 'medium' | 'high' | 'critical';
 
@@ -267,6 +268,17 @@ export const notificationTemplates: Record<NotificationType, NotificationTemplat
     ctaLabel: 'View Request',
     actionUrl: (data: any) => `/requests/${data.request_id}`,
     channels: { in_app: true, push: false, email: false },
+  },
+
+  split_vote_started: {
+    type: 'split_vote_started',
+    priority: 'high',
+    title: (data) => `Vote open: should ${data.community_name} split?`,
+    body: (data) => `A vote has started on splitting into "${data.group_a_name}" and "${data.group_b_name}". Your voice counts.`,
+    icon: 'users',
+    ctaLabel: 'Cast Your Vote',
+    actionUrl: (data) => `/communities/${data.community_id}?tab=fission`,
+    channels: { in_app: true, push: true, email: false },
   },
 
   dibs_expired: {
