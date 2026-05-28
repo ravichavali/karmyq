@@ -6,6 +6,7 @@ interface TrustNode {
   trust_score: number
   karma: number
   isCurrentUser?: boolean
+  isIsolated?: boolean
 }
 
 interface TrustLink {
@@ -96,7 +97,7 @@ export default function TrustGraph({
     return '#6366f1'
   }
 
-  if (graphData.links.length === 0) {
+  if (!groupMap && graphData.links.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-16 gap-2 text-center">
         <p className="text-text-muted text-sm">You don't have any direct trust connections in this community yet.</p>
@@ -113,6 +114,7 @@ export default function TrustGraph({
           width={700}
           height={500}
           nodeLabel={(node: any) => {
+            if (groupMap) return node.isIsolated ? `${node.name} · no trust connections` : node.name
             const canExpand = onExpandNode && !expandedNodes.has(node.id) && node.id !== currentUserId
             return `${node.name}${canExpand ? ' · click to expand' : ''}`
           }}
@@ -121,16 +123,32 @@ export default function TrustGraph({
           nodeCanvasObjectMode={() => 'after'}
           nodeCanvasObject={(node: any, ctx: CanvasRenderingContext2D, globalScale: number) => {
             if (groupMap) {
-              // White ring around the current user so they're identifiable within their group color
-              if (node.id !== currentUserId) return
-              const r = Math.sqrt(nodeSize(node.trust_score)) * 4 + 2
-              ctx.save()
-              ctx.beginPath()
-              ctx.arc(node.x, node.y, r, 0, 2 * Math.PI)
-              ctx.strokeStyle = 'white'
-              ctx.lineWidth = 2 / globalScale
-              ctx.stroke()
-              ctx.restore()
+              const r = Math.sqrt(nodeSize(node.trust_score || 1)) * 4 + 2
+              if (node.id === currentUserId) {
+                // White solid ring to identify the current user within their group color
+                ctx.save()
+                ctx.beginPath()
+                ctx.arc(node.x, node.y, r, 0, 2 * Math.PI)
+                ctx.strokeStyle = 'white'
+                ctx.lineWidth = 2 / globalScale
+                ctx.stroke()
+                ctx.restore()
+              } else if (node.isIsolated) {
+                // Dashed ring to signal "no trust connections in this community"
+                const group = groupMap[node.id]
+                ctx.save()
+                ctx.beginPath()
+                ctx.arc(node.x, node.y, r, 0, 2 * Math.PI)
+                ctx.setLineDash([2, 2])
+                ctx.strokeStyle = group === 'group_a'
+                  ? 'rgba(59,130,246,0.45)'
+                  : group === 'group_b'
+                    ? 'rgba(249,115,22,0.45)'
+                    : 'rgba(148,163,184,0.45)'
+                ctx.lineWidth = 1 / globalScale
+                ctx.stroke()
+                ctx.restore()
+              }
               return
             }
             // Draw a dashed ring on unexpanded non-self nodes to signal they're expandable
@@ -193,7 +211,7 @@ export default function TrustGraph({
           <span className="flex items-center gap-1">
             <span className="inline-block w-2.5 h-2.5 rounded-full bg-orange-500" /> {groupBLabel}
           </span>
-          <span className="flex items-center gap-1 text-gray-400">— white ring = you</span>
+          <span className="flex items-center gap-1 text-gray-400">— white ring = you · dashed ring = no connections</span>
         </div>
       ) : (
         <div className="flex gap-4 text-xs text-text-muted mt-2 px-1">
@@ -219,13 +237,17 @@ export default function TrustGraph({
             <span className="text-text">{selectedNode.karma}</span>
             <span>Connections</span>
             <span className="text-text">
-              {graphData.links.filter(l => {
-                const src = typeof l.source === 'object' ? (l.source as any).id : l.source
-                const tgt = typeof l.target === 'object' ? (l.target as any).id : l.target
-                return src === selectedNode.id || tgt === selectedNode.id
-              }).length}
+              {(selectedNode as any).isIsolated ? (
+                <span className="text-gray-400 italic">none yet</span>
+              ) : (
+                graphData.links.filter(l => {
+                  const src = typeof l.source === 'object' ? (l.source as any).id : l.source
+                  const tgt = typeof l.target === 'object' ? (l.target as any).id : l.target
+                  return src === selectedNode.id || tgt === selectedNode.id
+                }).length
+              )}
             </span>
-            {!expandedNodes.has(selectedNode.id) && selectedNode.id !== currentUserId && (
+            {!groupMap && !expandedNodes.has(selectedNode.id) && selectedNode.id !== currentUserId && (
               <>
                 <span>Network</span>
                 <span className="text-indigo-400">loading…</span>

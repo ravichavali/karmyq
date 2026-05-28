@@ -54,6 +54,7 @@ export default function FissionTab({ community, currentUserId, isAdmin, onRefres
   const [myVote, setMyVote] = useState<string | null>(null)
   const [childIds, setChildIds] = useState<{ a: string; b: string } | null>(null)
   const [graphData, setGraphData] = useState<{ nodes: any[]; links: any[] } | null>(null)
+  const [tableExpanded, setTableExpanded] = useState(false)
 
   const proposal = community.active_split_proposal
 
@@ -187,33 +188,67 @@ export default function FissionTab({ community, currentUserId, isAdmin, onRefres
         groupMap[a.user_id] = a.assigned_to
       }
     }
+
+    const connectedIds = new Set<string>()
+    for (const l of (graphData?.links ?? [])) {
+      connectedIds.add(typeof (l as any).source === 'object' ? (l as any).source.id : (l as any).source)
+      connectedIds.add(typeof (l as any).target === 'object' ? (l as any).target.id : (l as any).target)
+    }
+    const existingNodeIds = new Set((graphData?.nodes ?? []).map((n: any) => n.id))
+    const fissionGraphData = graphData ? {
+      nodes: [
+        ...graphData.nodes.map((n: any) => ({ ...n, isIsolated: !connectedIds.has(n.id) })),
+        ...proposalDetail.assignments
+          .filter(a => !existingNodeIds.has(a.user_id))
+          .map(a => ({ id: a.user_id, name: a.user_name, trust_score: 0, karma: 0, isIsolated: true })),
+      ],
+      links: graphData.links,
+    } : null
+
+    const groupACount = proposalDetail.assignments.filter(a => a.assigned_to === 'group_a').length
+    const groupBCount = proposalDetail.assignments.filter(a => a.assigned_to === 'group_b').length
+
     return (
-      <div className="space-y-6">
-        <FissionAssignmentView
-          communityId={community.id}
-          splitId={proposal.id}
-          proposal={proposalDetail.proposal}
-          assignments={proposalDetail.assignments}
-          onStartVote={() => { onRefresh(); fetchDetail() }}
-          onRefresh={fetchDetail}
-        />
-        {graphData && (
-          <div>
-            <h4 className="text-sm font-medium text-gray-500 mb-1">Trust graph — proposed groupings</h4>
-            <p className="text-xs text-gray-400 mb-3">
-              Blue nodes are assigned to <strong>{proposalDetail.proposal.group_a_name}</strong>.
-              Orange nodes to <strong>{proposalDetail.proposal.group_b_name}</strong>.
-              Links within each group are colored; cross-group links are gray.
-            </p>
-            <TrustGraph
-              graphData={graphData}
-              currentUserId={currentUserId}
-              groupMap={groupMap}
-              groupALabel={proposalDetail.proposal.group_a_name}
-              groupBLabel={proposalDetail.proposal.group_b_name}
-            />
-          </div>
+      <div className="space-y-4">
+        {fissionGraphData ? (
+          <TrustGraph
+            graphData={fissionGraphData}
+            currentUserId={currentUserId}
+            groupMap={groupMap}
+            groupALabel={proposalDetail.proposal.group_a_name}
+            groupBLabel={proposalDetail.proposal.group_b_name}
+          />
+        ) : (
+          <div className="py-8 text-center text-gray-300 text-sm">Loading trust graph…</div>
         )}
+
+        <div className="border border-gray-200 rounded-lg overflow-hidden">
+          <button
+            onClick={() => setTableExpanded(v => !v)}
+            className="w-full px-4 py-3 flex items-center justify-between bg-gray-50 hover:bg-gray-100 text-sm text-left"
+          >
+            <span className="text-gray-700">
+              <span className="font-medium">Member assignments</span>
+              {' — '}
+              <span className="text-blue-600">{groupACount} in {proposalDetail.proposal.group_a_name}</span>
+              {', '}
+              <span className="text-orange-600">{groupBCount} in {proposalDetail.proposal.group_b_name}</span>
+            </span>
+            <span className="text-gray-400 text-xs shrink-0 ml-4">{tableExpanded ? 'collapse ↑' : 'expand ↓'}</span>
+          </button>
+          {tableExpanded && (
+            <div className="p-4 border-t border-gray-200">
+              <FissionAssignmentView
+                communityId={community.id}
+                splitId={proposal.id}
+                proposal={proposalDetail.proposal}
+                assignments={proposalDetail.assignments}
+                onStartVote={() => { onRefresh(); fetchDetail() }}
+                onRefresh={fetchDetail}
+              />
+            </div>
+          )}
+        </div>
       </div>
     )
   }
@@ -221,34 +256,55 @@ export default function FissionTab({ community, currentUserId, isAdmin, onRefres
   // Voting phase — all members vote
   if (proposal.status === 'voting' && proposalDetail) {
     const { vote_tally: tally, proposal: detail, assignments } = proposalDetail
-    const userAssignment = assignments.find((a) => typeof window !== 'undefined' && a.user_id)
-    const groupAMembers = assignments.filter((a) => a.assigned_to === 'group_a').map((a) => a.user_name)
-    const groupBMembers = assignments.filter((a) => a.assigned_to === 'group_b').map((a) => a.user_name)
+    const userAssignment = assignments.find(a => a.user_id === currentUserId)
+
+    const voteGroupMap = Object.fromEntries(
+      assignments
+        .filter(a => a.assigned_to === 'group_a' || a.assigned_to === 'group_b')
+        .map(a => [a.user_id, a.assigned_to as 'group_a' | 'group_b'])
+    )
+    const voteConnectedIds = new Set<string>()
+    for (const l of (graphData?.links ?? [])) {
+      voteConnectedIds.add(typeof (l as any).source === 'object' ? (l as any).source.id : (l as any).source)
+      voteConnectedIds.add(typeof (l as any).target === 'object' ? (l as any).target.id : (l as any).target)
+    }
+    const voteExistingIds = new Set((graphData?.nodes ?? []).map((n: any) => n.id))
+    const voteFissionGraphData = graphData ? {
+      nodes: [
+        ...graphData.nodes.map((n: any) => ({ ...n, isIsolated: !voteConnectedIds.has(n.id) })),
+        ...assignments
+          .filter(a => !voteExistingIds.has(a.user_id))
+          .map(a => ({ id: a.user_id, name: a.user_name, trust_score: 0, karma: 0, isIsolated: true })),
+      ],
+      links: graphData.links,
+    } : null
 
     return (
       <div className="space-y-5">
+        {voteFissionGraphData ? (
+          <TrustGraph
+            graphData={voteFissionGraphData}
+            currentUserId={currentUserId}
+            groupMap={voteGroupMap}
+            groupALabel={detail.group_a_name}
+            groupBLabel={detail.group_b_name}
+          />
+        ) : (
+          <div className="py-8 text-center text-gray-300 text-sm">Loading trust graph…</div>
+        )}
+
         <div>
-          <h3 className="text-lg font-semibold mb-1">Community Vote — Proposed Split</h3>
+          <h3 className="text-base font-semibold mb-1">Community Vote — Proposed Split</h3>
           {detail.rationale && (
             <p className="text-sm text-gray-500 italic">"{detail.rationale}"</p>
           )}
-        </div>
-
-        <div className="grid grid-cols-2 gap-4">
-          <div className="border border-blue-200 bg-blue-50 rounded-lg p-4">
-            <div className="text-sm font-semibold text-blue-800 mb-2">{detail.group_a_name}</div>
-            <ul className="text-xs text-blue-700 space-y-0.5">
-              {groupAMembers.slice(0, 8).map((n) => <li key={n}>{n}</li>)}
-              {groupAMembers.length > 8 && <li className="text-blue-500">+{groupAMembers.length - 8} more</li>}
-            </ul>
-          </div>
-          <div className="border border-green-200 bg-green-50 rounded-lg p-4">
-            <div className="text-sm font-semibold text-green-800 mb-2">{detail.group_b_name}</div>
-            <ul className="text-xs text-green-700 space-y-0.5">
-              {groupBMembers.slice(0, 8).map((n) => <li key={n}>{n}</li>)}
-              {groupBMembers.length > 8 && <li className="text-green-500">+{groupBMembers.length - 8} more</li>}
-            </ul>
-          </div>
+          {userAssignment && (
+            <p className="text-sm text-gray-500 mt-1">
+              You are in: <strong className={userAssignment.assigned_to === 'group_a' ? 'text-blue-600' : 'text-orange-600'}>
+                {userAssignment.assigned_to === 'group_a' ? detail.group_a_name : detail.group_b_name}
+              </strong>
+            </p>
+          )}
         </div>
 
         <div className="bg-gray-50 rounded-lg p-4 space-y-2">
@@ -267,12 +323,6 @@ export default function FissionTab({ community, currentUserId, isAdmin, onRefres
             <div className="bg-green-500 h-1.5 rounded-full" style={{ width: `${Math.min(tally.approval_ratio, 100)}%` }} />
           </div>
         </div>
-
-        {userAssignment && (
-          <p className="text-sm text-gray-600">
-            You are assigned to: <strong>{userAssignment.assigned_to === 'group_a' ? detail.group_a_name : detail.group_b_name}</strong>
-          </p>
-        )}
 
         {!myVote ? (
           <div className="flex gap-3">
@@ -299,23 +349,6 @@ export default function FissionTab({ community, currentUserId, isAdmin, onRefres
           <p className="text-xs text-gray-400 text-center">
             Voting closes {new Date(detail.voting_ends_at).toLocaleDateString()}
           </p>
-        )}
-
-        {graphData && (
-          <div className="pt-2 border-t border-gray-100">
-            <h4 className="text-sm font-medium text-gray-500 mb-3">Trust graph — proposed groupings</h4>
-            <TrustGraph
-              graphData={graphData}
-              currentUserId={currentUserId}
-              groupMap={Object.fromEntries(
-                assignments
-                  .filter((a) => a.assigned_to === 'group_a' || a.assigned_to === 'group_b')
-                  .map((a) => [a.user_id, a.assigned_to as 'group_a' | 'group_b'])
-              )}
-              groupALabel={detail.group_a_name}
-              groupBLabel={detail.group_b_name}
-            />
-          </div>
         )}
       </div>
     )
