@@ -30,6 +30,7 @@ interface TrustGraphProps {
   groupMap?: Record<string, 'group_a' | 'group_b'>
   groupALabel?: string
   groupBLabel?: string
+  onSwitchGroup?: (nodeId: string, currentGroup: 'group_a' | 'group_b' | null) => Promise<void>
 }
 
 export default function TrustGraph({
@@ -41,10 +42,12 @@ export default function TrustGraph({
   groupMap,
   groupALabel = 'Group A',
   groupBLabel = 'Group B',
+  onSwitchGroup,
 }: TrustGraphProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [ForceGraph, setForceGraph] = useState<any>(null)
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
+  const [switching, setSwitching] = useState(false)
 
   useEffect(() => {
     import('react-force-graph-2d').then(({ default: FG }) => {
@@ -230,30 +233,76 @@ export default function TrustGraph({
       {selectedNode && (
         <div className="mt-4 p-4 bg-surface rounded-lg border border-border text-sm">
           <div className="font-semibold text-text mb-2">{selectedNode.name}</div>
-          <div className="grid grid-cols-2 gap-2 text-text-muted">
-            <span>Trust score</span>
-            <span className="text-text">{Number(selectedNode.trust_score).toFixed(1)}</span>
-            <span>Karma</span>
-            <span className="text-text">{selectedNode.karma}</span>
-            <span>Connections</span>
-            <span className="text-text">
-              {(selectedNode as any).isIsolated ? (
-                <span className="text-gray-400 italic">none yet</span>
-              ) : (
-                graphData.links.filter(l => {
+          {groupMap ? (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between text-text-muted">
+                <span>Group</span>
+                {groupMap[selectedNode.id] === 'group_a' ? (
+                  <span className="font-medium text-blue-600">{groupALabel}</span>
+                ) : groupMap[selectedNode.id] === 'group_b' ? (
+                  <span className="font-medium text-orange-600">{groupBLabel}</span>
+                ) : (
+                  <span className="text-gray-400 italic">unassigned</span>
+                )}
+              </div>
+              <div className="flex items-center justify-between text-text-muted">
+                <span>Connections</span>
+                {(selectedNode as any).isIsolated ? (
+                  <span className="text-gray-400 italic">none yet</span>
+                ) : (
+                  <span className="text-text">
+                    {graphData.links.filter(l => {
+                      const src = typeof l.source === 'object' ? (l.source as any).id : l.source
+                      const tgt = typeof l.target === 'object' ? (l.target as any).id : l.target
+                      return src === selectedNode.id || tgt === selectedNode.id
+                    }).length}
+                  </span>
+                )}
+              </div>
+              {onSwitchGroup && selectedNode.id !== currentUserId && groupMap[selectedNode.id] && (
+                <button
+                  disabled={switching}
+                  onClick={async () => {
+                    setSwitching(true)
+                    try {
+                      await onSwitchGroup(selectedNode.id, groupMap![selectedNode.id] ?? null)
+                      setSelectedNodeId(null)
+                    } finally {
+                      setSwitching(false)
+                    }
+                  }}
+                  className={`w-full py-1.5 rounded text-sm font-medium transition-colors disabled:opacity-50 ${
+                    groupMap[selectedNode.id] === 'group_a'
+                      ? 'bg-orange-100 text-orange-700 hover:bg-orange-200'
+                      : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                  }`}
+                >
+                  {switching ? '…' : `Move to ${groupMap[selectedNode.id] === 'group_a' ? groupBLabel : groupALabel}`}
+                </button>
+              )}
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-2 text-text-muted">
+              <span>Trust score</span>
+              <span className="text-text">{Number(selectedNode.trust_score).toFixed(1)}</span>
+              <span>Karma</span>
+              <span className="text-text">{selectedNode.karma}</span>
+              <span>Connections</span>
+              <span className="text-text">
+                {graphData.links.filter(l => {
                   const src = typeof l.source === 'object' ? (l.source as any).id : l.source
                   const tgt = typeof l.target === 'object' ? (l.target as any).id : l.target
                   return src === selectedNode.id || tgt === selectedNode.id
-                }).length
+                }).length}
+              </span>
+              {!expandedNodes.has(selectedNode.id) && selectedNode.id !== currentUserId && (
+                <>
+                  <span>Network</span>
+                  <span className="text-indigo-400">loading…</span>
+                </>
               )}
-            </span>
-            {!groupMap && !expandedNodes.has(selectedNode.id) && selectedNode.id !== currentUserId && (
-              <>
-                <span>Network</span>
-                <span className="text-indigo-400">loading…</span>
-              </>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       )}
     </div>

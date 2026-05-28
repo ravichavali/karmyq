@@ -217,6 +217,13 @@ export default function FissionTab({ community, currentUserId, isAdmin, onRefres
             groupMap={groupMap}
             groupALabel={proposalDetail.proposal.group_a_name}
             groupBLabel={proposalDetail.proposal.group_b_name}
+            onSwitchGroup={isAdmin ? async (nodeId, currentGroup) => {
+              const newGroup = currentGroup === 'group_a' ? 'group_b' : 'group_a'
+              await communityService.updateSplitAssignments(community.id, proposal.id, [
+                { userId: nodeId, assignedTo: newGroup },
+              ])
+              await fetchDetail()
+            } : undefined}
           />
         ) : (
           <div className="py-8 text-center text-gray-300 text-sm">Loading trust graph…</div>
