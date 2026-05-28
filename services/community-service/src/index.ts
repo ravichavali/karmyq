@@ -17,6 +17,7 @@ import activitiesRouter from './routes/activities';
 import trustQuestionsRouter from './routes/trust-questions';
 import governanceRouter from './routes/governance';
 import splitsRouter from './routes/splits';
+import fusionsRouter from './routes/fusions';
 import { createLogger, requestLoggingMiddleware } from '@karmyq/shared/utils/logger';
 import {
   authMiddleware,
@@ -152,6 +153,14 @@ app.use(
   optionalTenantMiddleware,
   dbContextMiddleware(pool),
   splitsRouter  // Splits routes: /communities/:communityId/splits[/:splitId[/assignments|/start-vote|/vote|/execute]]
+);
+
+app.use(
+  '/communities',
+  authMiddleware,
+  optionalTenantMiddleware,
+  dbContextMiddleware(pool),
+  fusionsRouter  // Fusions routes: /communities/:communityId/fusions[/:fusionId[/accept|/reject|/start-vote|/vote|/execute]]
 );
 
 // Activities routes — mount BEFORE generic community router to avoid :id param conflict

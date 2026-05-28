@@ -12,8 +12,9 @@ import { communityService } from '@/lib/api'
 import TrustGraphTab from '@/components/community/tabs/TrustGraphTab'
 import GovernanceTab from '@/components/GovernanceTab'
 import FissionTab from '@/components/community/tabs/FissionTab'
+import FusionTab from '@/components/community/tabs/FusionTab'
 
-type ValidTab = 'overview' | 'people' | 'requests' | 'providers' | 'settings' | 'activities' | 'trust' | 'governance' | 'fission'
+type ValidTab = 'overview' | 'people' | 'requests' | 'providers' | 'settings' | 'activities' | 'trust' | 'governance' | 'fission' | 'fusion'
 
 const OLD_TAB_MAP: Record<string, ValidTab> = {
   manage: 'people',
@@ -27,7 +28,7 @@ const OLD_TAB_MAP: Record<string, ValidTab> = {
   links: 'settings',
 }
 
-const VALID_TABS: ValidTab[] = ['overview', 'people', 'requests', 'providers', 'settings', 'activities', 'trust', 'governance', 'fission']
+const VALID_TABS: ValidTab[] = ['overview', 'people', 'requests', 'providers', 'settings', 'activities', 'trust', 'governance', 'fission', 'fusion']
 
 export default function CommunityDetailPage() {
   const router = useRouter()
@@ -194,6 +195,12 @@ export default function CommunityDetailPage() {
                     split
                   </button>
                 )}
+                {(isAdmin || community.active_fusion_proposal != null) && (
+                  <button onClick={() => setActiveTab('fusion')} className={tabBtnClass('fusion')}>
+                    fusion
+                    {community.active_fusion_proposal && <span className="ml-1 text-xs text-amber-600">●</span>}
+                  </button>
+                )}
               </nav>
             </div>
 
@@ -254,6 +261,14 @@ export default function CommunityDetailPage() {
               )}
               {activeTab === 'fission' && (
                 <FissionTab
+                  community={community}
+                  currentUserId={currentUser?.id ?? ''}
+                  isAdmin={isAdmin ?? false}
+                  onRefresh={refetchCommunity}
+                />
+              )}
+              {activeTab === 'fusion' && (
+                <FusionTab
                   community={community}
                   currentUserId={currentUser?.id ?? ''}
                   isAdmin={isAdmin ?? false}

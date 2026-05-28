@@ -439,6 +439,14 @@
       "status": "implemented",
       "description": "**Status**: Implemented",
       "filename": "ADR-057-fission-mechanism.md"
+    },
+    {
+      "slug": "adr-058-fusion-mechanism",
+      "number": "058",
+      "title": "ADR-058: Fusion Mechanism",
+      "status": "implemented",
+      "description": "**Status**: Implemented",
+      "filename": "ADR-058-fusion-mechanism.md"
     }
   ]
 }

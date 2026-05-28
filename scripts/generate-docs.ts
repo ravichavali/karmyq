@@ -328,6 +328,7 @@ const GUIDE_ORDER = [
   'trust-graph',
   'interaction-half-life',
   'community-fission',
+  'fusion',
 ];
 
 const GUIDE_LABELS: Record<string, string> = {
@@ -352,6 +353,7 @@ const GUIDE_LABELS: Record<string, string> = {
   'trust-graph': 'Understanding Your Community\'s Trust Graph',
   'interaction-half-life': 'Interaction Half-Life: How Trust Fades and Endures',
   'community-fission': 'Splitting a Community',
+  'fusion': 'Community Fusion',
 };
 
 const GUIDE_SLUGS: Record<string, string> = {
@@ -376,6 +378,7 @@ const GUIDE_SLUGS: Record<string, string> = {
   'trust-graph': 'trust-graph',
   'interaction-half-life': 'interaction-half-life',
   'community-fission': 'community-fission',
+  'fusion': 'fusion',
 };
 
 function generateGuides(): GuidePage[] {
@@ -445,6 +448,7 @@ const ADR_GROUPS: Array<{ label: string; slugs: string[] }> = [
       'adr-055-trust-governance-architecture',
       'adr-056-intrinsic-trust-decay',
       'adr-057-fission-mechanism',
+      'adr-058-fusion-mechanism',
     ],
   },
   {

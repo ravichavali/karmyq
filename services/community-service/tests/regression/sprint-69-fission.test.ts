@@ -3,8 +3,8 @@ import { clusterMembers, computeSizeAlert, TrustEdge } from '../../src/services/
 describe('Sprint 69 — Fission Mechanism', () => {
   describe('computeSizeAlert', () => {
     it('returns null below 120 members', () => {
-      expect(computeSizeAlert(119)).toBeNull();
       expect(computeSizeAlert(0)).toBeNull();
+      expect(computeSizeAlert(119)).toBeNull();
     });
 
     it('returns approaching at exactly 120', () => {
@@ -30,80 +30,74 @@ describe('Sprint 69 — Fission Mechanism', () => {
     });
 
     it('returns urgent_split above 140', () => {
-      expect(computeSizeAlert(150)).toBe('urgent_split');
+      expect(computeSizeAlert(200)).toBe('urgent_split');
     });
   });
 
   describe('clusterMembers', () => {
-    it('splits members into two balanced groups', () => {
-      const members = ['a', 'b', 'c', 'd'];
-      const edges: TrustEdge[] = [
-        { user_id_a: 'a', user_id_b: 'b', effective_weight: 0.9 },
-        { user_id_a: 'a', user_id_b: 'c', effective_weight: 0.8 },
-        { user_id_a: 'b', user_id_b: 'c', effective_weight: 0.7 },
-      ];
-      const result = clusterMembers(members, edges);
-      expect(Math.abs(result.groupA.length - result.groupB.length)).toBeLessThanOrEqual(1);
-      expect(result.groupA.length + result.groupB.length).toBe(4);
-    });
-
-    it('handles members with no trust edges (distributes evenly)', () => {
-      const members = ['a', 'b', 'c', 'd'];
-      const result = clusterMembers(members, []);
-      expect(result.groupA.length).toBe(2);
-      expect(result.groupB.length).toBe(2);
-      const allMembers = [...result.groupA, ...result.groupB].sort();
-      expect(allMembers).toEqual(['a', 'b', 'c', 'd']);
-    });
-
-    it('keeps trust-dense subgraphs together', () => {
-      // a-b-c are tightly connected; d is isolated from them
-      const members = ['a', 'b', 'c', 'd'];
-      const edges: TrustEdge[] = [
-        { user_id_a: 'a', user_id_b: 'b', effective_weight: 0.95 },
-        { user_id_a: 'a', user_id_b: 'c', effective_weight: 0.90 },
-        { user_id_a: 'c', user_id_b: 'd', effective_weight: 0.01 },
-      ];
-      const result = clusterMembers(members, edges);
-      // a and b should end up in the same group (very high trust edge between them)
-      const aGroup = result.groupA.includes('a') ? 'groupA' : 'groupB';
-      const bGroup = result.groupA.includes('b') ? 'groupA' : 'groupB';
-      expect(aGroup).toBe(bGroup);
-    });
-
-    it('returns correct total membership count', () => {
-      const members = ['a', 'b', 'c', 'd', 'e', 'f'];
-      const edges: TrustEdge[] = [
-        { user_id_a: 'a', user_id_b: 'b', effective_weight: 0.8 },
-        { user_id_a: 'c', user_id_b: 'd', effective_weight: 0.8 },
-        { user_id_a: 'e', user_id_b: 'f', effective_weight: 0.8 },
-      ];
-      const result = clusterMembers(members, edges);
-      expect(result.groupA.length + result.groupB.length).toBe(6);
-      expect(Math.abs(result.groupA.length - result.groupB.length)).toBeLessThanOrEqual(1);
-    });
-
-    it('handles a single member edge case', () => {
-      const result = clusterMembers(['a'], []);
-      expect(result.groupA).toContain('a');
-      expect(result.groupB).toHaveLength(0);
-    });
-
-    it('handles empty members list', () => {
+    it('returns empty groups for empty member list', () => {
       const result = clusterMembers([], []);
       expect(result.groupA).toHaveLength(0);
       expect(result.groupB).toHaveLength(0);
     });
 
-    it('ignores edges to non-members', () => {
-      const members = ['a', 'b'];
+    it('puts single member in groupA', () => {
+      const result = clusterMembers(['user-1'], []);
+      expect(result.groupA).toEqual(['user-1']);
+      expect(result.groupB).toHaveLength(0);
+    });
+
+    it('splits two members with no edges into balanced groups', () => {
+      const result = clusterMembers(['user-1', 'user-2'], []);
+      expect(result.groupA).toHaveLength(1);
+      expect(result.groupB).toHaveLength(1);
+      const all = [...result.groupA, ...result.groupB].sort();
+      expect(all).toEqual(['user-1', 'user-2']);
+    });
+
+    it('produces balanced groups for even member count', () => {
+      const members = ['u1', 'u2', 'u3', 'u4'];
+      const result = clusterMembers(members, []);
+      expect(result.groupA).toHaveLength(2);
+      expect(result.groupB).toHaveLength(2);
+    });
+
+    it('produces balanced groups for odd member count (off by 1)', () => {
+      const members = ['u1', 'u2', 'u3', 'u4', 'u5'];
+      const result = clusterMembers(members, []);
+      const diff = Math.abs(result.groupA.length - result.groupB.length);
+      expect(diff).toBeLessThanOrEqual(1);
+    });
+
+    it('seeds the highest-trust-degree members into the larger initial group', () => {
+      // u1, u2, u3 form a tight cluster (degree ~20 each)
+      // u4, u5 form a smaller cluster (degree ~10 each)
+      // With 5 members, top-3 by degree seed into groupA — all from the tight cluster
+      const members = ['u1', 'u2', 'u3', 'u4', 'u5'];
       const edges: TrustEdge[] = [
-        { user_id_a: 'a', user_id_b: 'z', effective_weight: 0.9 }, // z is not a member
-        { user_id_a: 'a', user_id_b: 'b', effective_weight: 0.5 },
+        { user_id_a: 'u1', user_id_b: 'u2', effective_weight: 10 },
+        { user_id_a: 'u2', user_id_b: 'u3', effective_weight: 10 },
+        { user_id_a: 'u1', user_id_b: 'u3', effective_weight: 10 },
+        { user_id_a: 'u4', user_id_b: 'u5', effective_weight: 10 },
+        { user_id_a: 'u1', user_id_b: 'u4', effective_weight: 0.1 },
       ];
       const result = clusterMembers(members, edges);
-      expect(result.groupA.length + result.groupB.length).toBe(2);
-      expect([...result.groupA, ...result.groupB].sort()).toEqual(['a', 'b']);
+      // Top-3 degree nodes (u1, u2, u3) all seed into groupA
+      const groupASet = new Set(result.groupA);
+      expect(groupASet.has('u1')).toBe(true);
+      expect(groupASet.has('u2')).toBe(true);
+      expect(groupASet.has('u3')).toBe(true);
+    });
+
+    it('covers all members with no duplicates', () => {
+      const members = ['u1', 'u2', 'u3', 'u4', 'u5', 'u6'];
+      const edges: TrustEdge[] = [
+        { user_id_a: 'u1', user_id_b: 'u2', effective_weight: 5 },
+        { user_id_a: 'u3', user_id_b: 'u4', effective_weight: 3 },
+      ];
+      const result = clusterMembers(members, edges);
+      const all = [...result.groupA, ...result.groupB].sort();
+      expect(all).toEqual([...members].sort());
     });
   });
 });

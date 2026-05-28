@@ -195,6 +195,41 @@
           "method": "POST",
           "path": "/communities/:id/splits/:splitId/execute",
           "description": "Admin executes an approved split: creates two child communities, moves members, creates split_origin link, marks parent as split."
+        },
+        {
+          "method": "POST",
+          "path": "/communities/:id/fusions",
+          "description": "Admin A creates a fusion proposal targeting another community."
+        },
+        {
+          "method": "POST",
+          "path": "/communities/:id/fusions/:fusionId/accept",
+          "description": "Admin B accepts the fusion proposal, moving it to discussion."
+        },
+        {
+          "method": "POST",
+          "path": "/communities/:id/fusions/:fusionId/reject",
+          "description": "Admin B rejects the fusion proposal."
+        },
+        {
+          "method": "GET",
+          "path": "/communities/:id/fusions/:fusionId",
+          "description": "Get proposal detail, both community vote tallies, and my_vote."
+        },
+        {
+          "method": "POST",
+          "path": "/communities/:id/fusions/:fusionId/start-vote",
+          "description": "Either admin opens the parallel community vote."
+        },
+        {
+          "method": "POST",
+          "path": "/communities/:id/fusions/:fusionId/vote",
+          "description": "Member casts a prestige-weighted vote (yes/no/abstain) for their community."
+        },
+        {
+          "method": "POST",
+          "path": "/communities/:id/fusions/:fusionId/execute",
+          "description": "Either admin executes an approved fusion: creates merged community, migrates members + trust (×0.70) + karma, creates fusion_origin links, archives originals."
         }
       ],
       "dependencies": [
@@ -211,7 +246,8 @@
           "community_created",
           "community.config.created",
           "community.config.updated",
-          "activity_joined"
+          "activity_joined",
+          "fusion_vote_started"
         ],
         "subscribes": []
       },

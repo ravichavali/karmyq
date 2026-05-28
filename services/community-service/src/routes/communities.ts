@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
 import { query } from '../database/db';
 import { publishEvent } from '../events/publisher';
+import { getActiveFusionProposalForCommunityRoute } from './fusions';
 import {
   sendSuccess,
   sendError,
@@ -338,6 +339,8 @@ router.get('/:id', async (req: Request, res: Response) => {
       [id]
     );
     community.active_split_proposal = proposalRes.rows[0] ?? null;
+
+    community.active_fusion_proposal = await getActiveFusionProposalForCommunityRoute(id);
 
     sendSuccess(res, community, HTTP_STATUS.OK, { requestId: (req as any).id });
   } catch (error: any) {

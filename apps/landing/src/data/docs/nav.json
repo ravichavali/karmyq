@@ -180,6 +180,10 @@
         {
           "label": "Splitting a Community",
           "href": "/docs/guides/community-fission"
+        },
+        {
+          "label": "Community Fusion",
+          "href": "/docs/guides/fusion"
         }
       ]
     },
@@ -303,6 +307,10 @@
         {
           "label": "Community Fission Mechanism",
           "href": "/docs/concepts/adr-057-fission-mechanism"
+        },
+        {
+          "label": "Fusion Mechanism",
+          "href": "/docs/concepts/adr-058-fusion-mechanism"
         },
         {
           "label": "— Community & Scale —",

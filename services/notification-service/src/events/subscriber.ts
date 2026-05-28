@@ -662,6 +662,46 @@ export async function initEventSubscriber() {
       }
     });
 
+    // Handle fusion_vote_started — notify members in both communities that voting is open
+    eventQueue.process('fusion_vote_started', async (job) => {
+      console.log('Processing fusion_vote_started event:', job.data);
+      const { payload } = job.data;
+      const { proposal_id, community_a_id, community_b_id, merged_community_name, voting_ends_at } = payload;
+
+      try {
+        // Notify community A members
+        const membersA = await query(
+          `SELECT user_id FROM communities.members WHERE community_id = $1 AND status = 'active'`,
+          [community_a_id]
+        );
+        for (const member of membersA.rows) {
+          await createNotification({
+            user_id: member.user_id,
+            type: 'fusion_vote_started',
+            data: { proposal_id, community_a_id, merged_community_name, voting_ends_at },
+          });
+        }
+
+        // Notify community B members (link points to B's fusion tab)
+        const membersB = await query(
+          `SELECT user_id FROM communities.members WHERE community_id = $1 AND status = 'active'`,
+          [community_b_id]
+        );
+        for (const member of membersB.rows) {
+          await createNotification({
+            user_id: member.user_id,
+            type: 'fusion_vote_started',
+            data: { proposal_id, community_a_id: community_b_id, merged_community_name, voting_ends_at },
+          });
+        }
+
+        console.log(`✅ fusion_vote_started notifications sent to ${membersA.rows.length + membersB.rows.length} members`);
+      } catch (error) {
+        console.error('❌ Failed to process fusion_vote_started event:', error);
+        throw error;
+      }
+    });
+
     console.log('✅ Event subscriber initialized');
   } catch (error) {
     console.error('❌ Event subscriber initialization failed:', error);

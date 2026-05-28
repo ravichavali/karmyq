@@ -377,6 +377,28 @@ export const communityService = {
 
   executeSplit: (communityId: string, splitId: string) =>
     communityApi.post(`/communities/${communityId}/splits/${splitId}/execute`),
+
+  // Fusion
+  createFusionProposal: (communityId: string, body: { target_community_id: string; merged_community_name: string; rationale?: string }) =>
+    communityApi.post(`/communities/${communityId}/fusions`, body),
+
+  getFusionProposal: (communityId: string, fusionId: string) =>
+    communityApi.get(`/communities/${communityId}/fusions/${fusionId}`),
+
+  acceptFusionProposal: (communityId: string, fusionId: string) =>
+    communityApi.post(`/communities/${communityId}/fusions/${fusionId}/accept`),
+
+  rejectFusionProposal: (communityId: string, fusionId: string) =>
+    communityApi.post(`/communities/${communityId}/fusions/${fusionId}/reject`),
+
+  startFusionVote: (communityId: string, fusionId: string) =>
+    communityApi.post(`/communities/${communityId}/fusions/${fusionId}/start-vote`),
+
+  castFusionVote: (communityId: string, fusionId: string, vote: 'yes' | 'no' | 'abstain') =>
+    communityApi.post(`/communities/${communityId}/fusions/${fusionId}/vote`, { vote }),
+
+  executeFusion: (communityId: string, fusionId: string) =>
+    communityApi.post(`/communities/${communityId}/fusions/${fusionId}/execute`),
 }
 
 // Admin Schema Management (Server-Driven UI - Phase 2)

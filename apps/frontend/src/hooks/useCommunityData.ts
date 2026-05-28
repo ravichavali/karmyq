@@ -46,6 +46,7 @@ export interface Community {
   community_type?: string
   size_alert?: 'approaching' | 'recommend_split' | 'urgent_split' | null
   active_split_proposal?: SplitProposalSummary | null
+  active_fusion_proposal?: any | null
 }
 
 export function useCommunityData(communityId: string | undefined) {

@@ -253,6 +253,35 @@ CREATE TABLE communities.community_links (
 | admin_overridden | BOOLEAN | TRUE if admin changed from cluster_suggestion |
 | | UNIQUE(proposal_id, user_id) | One assignment per member per proposal |
 
+### communities.fusion_proposals (Sprint 70)
+| Column | Type | Notes |
+|--------|------|-------|
+| id | UUID PK | |
+| community_a_id | UUID FK | → communities.communities(id) — proposing community |
+| community_b_id | UUID FK | → communities.communities(id) — target community |
+| proposed_by | UUID FK | → auth.users(id) |
+| merged_community_name | TEXT | Required |
+| rationale | TEXT | Optional |
+| status | TEXT | pending_acceptance → discussion → voting → approved/rejected → executed |
+| quorum_pct | INTEGER | Default 60 |
+| approval_pct | INTEGER | Default 60 |
+| accepted_by | UUID FK | → auth.users(id) — admin B who accepted |
+| voting_ends_at | TIMESTAMPTZ | Set when voting opens |
+| executed_at | TIMESTAMPTZ | Set on execution |
+| merged_community_id | UUID FK | → communities.communities(id) — set on execution |
+
+### communities.fusion_votes (Sprint 70)
+| Column | Type | Notes |
+|--------|------|-------|
+| id | UUID PK | |
+| proposal_id | UUID FK | → communities.fusion_proposals(id) ON DELETE CASCADE |
+| community_id | UUID FK | → communities.communities(id) — which community this vote belongs to |
+| user_id | UUID FK | → auth.users(id) |
+| vote | TEXT | yes \| no \| abstain |
+| prestige_weight | NUMERIC(8,2) | Community-scoped trust score at vote time |
+| voted_at | TIMESTAMPTZ | |
+| | UNIQUE(proposal_id, user_id) | One vote per member per proposal |
+
 ### Tables Read by This Service
 - `auth.users` - User details for member profiles and creator names
 - `social_graph.trust_edges_live` - Read-only view used for clustering algorithm and prestige weight computation
@@ -1424,6 +1453,22 @@ src/
 - JOIN queries limited to necessary data only
 
 ## Recent Changes
+
+### Sprint 70 (2026-05-28) — Fusion Mechanism
+- **MODIFIED**: `GET /communities/:id` — now also returns `active_fusion_proposal` (id, status, community_a/b_id, merged_community_name) if a non-executed/rejected proposal exists
+- **NEW**: `POST /communities/:id/fusions` — admin A creates fusion proposal targeting another community
+- **NEW**: `POST /communities/:id/fusions/:fusionId/accept` — admin B accepts, moves to discussion
+- **NEW**: `POST /communities/:id/fusions/:fusionId/reject` — admin B rejects proposal
+- **NEW**: `GET /communities/:id/fusions/:fusionId` — proposal detail + both community tallies + my_vote + my_community
+- **NEW**: `POST /communities/:id/fusions/:fusionId/start-vote` — either admin opens parallel vote
+- **NEW**: `POST /communities/:id/fusions/:fusionId/vote` — member casts trust-weighted vote for their community
+- **NEW**: `POST /communities/:id/fusions/:fusionId/execute` — either admin executes approved fusion (atomic: creates merged community, migrates members + trust×0.70 + karma, creates fusion_origin links, archives originals)
+- **NEW**: `communities.fusion_proposals` table — bilateral proposal lifecycle (status: `pending_acceptance → discussion → voting → approved → executed | rejected`)
+- **NEW**: `communities.fusion_votes` table — per-member, per-community votes with prestige weighting
+- **NEW**: `community_links.link_type` CHECK extended to include `'fusion_origin'`
+- **NEW**: `src/database/fusionsDb.ts` — DB query functions for fusion tables
+- **NEW**: `src/services/fusionService.ts` — atomic execute transaction
+- **NEW**: `src/routes/fusions.ts` — all 7 fusion route handlers (mounted at /communities)
 
 ### Sprint 69 (2026-05-27) — Fission Mechanism
 - **MODIFIED**: `GET /communities/:id` — now returns `size_alert` ('approaching'|'recommend_split'|'urgent_split'|null) computed from `current_members`, and `active_split_proposal` (id, status, group names) if a non-executed/rejected proposal exists

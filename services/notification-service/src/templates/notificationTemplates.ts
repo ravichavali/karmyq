@@ -22,7 +22,8 @@ export type NotificationType =
   | 'dibs_accepted'
   | 'dibs_declined'
   | 'dibs_expired'
-  | 'split_vote_started';
+  | 'split_vote_started'
+  | 'fusion_vote_started';
 
 export type NotificationPriority = 'low' | 'medium' | 'high' | 'critical';
 
@@ -278,6 +279,17 @@ export const notificationTemplates: Record<NotificationType, NotificationTemplat
     icon: 'users',
     ctaLabel: 'Cast Your Vote',
     actionUrl: (data) => `/communities/${data.community_id}?tab=fission`,
+    channels: { in_app: true, push: true, email: false },
+  },
+
+  fusion_vote_started: {
+    type: 'fusion_vote_started',
+    priority: 'high',
+    title: (_data: any) => 'Fusion vote is open',
+    body: (data: any) => `Your community is voting on merging to form "${data.merged_community_name}". Vote before ${new Date(data.voting_ends_at).toLocaleDateString()}.`,
+    icon: 'users',
+    ctaLabel: 'Cast Your Vote',
+    actionUrl: (data: any) => `/communities/${data.community_a_id}?tab=fusion`,
     channels: { in_app: true, push: true, email: false },
   },
 
