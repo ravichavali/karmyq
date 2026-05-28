@@ -317,9 +317,17 @@ export default function CommunitiesPage() {
       const newToken = joinRes?.data?.token
       if (newToken && accessType === 'public') {
         localStorage.setItem('token', newToken)
-        const updatedUser = { ...user, communities: [...(user.communities ?? []), { id: communityId, role: 'member' }] }
-        localStorage.setItem('user', JSON.stringify(updatedUser))
-        setUser(updatedUser)
+        try {
+          // Decode the new JWT to get the complete community list (id + name + role)
+          const payload = JSON.parse(atob(newToken.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')))
+          if (payload?.communities) {
+            const updatedUser = { ...user, communities: payload.communities }
+            localStorage.setItem('user', JSON.stringify(updatedUser))
+            setUser(updatedUser)
+          }
+        } catch {
+          // Non-fatal: token decode failed, communities list stays stale until next login
+        }
       }
 
       setMembershipStatus(prev => ({

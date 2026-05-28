@@ -102,11 +102,17 @@ export default function CommunityDetailPage() {
       const newToken = joinRes?.data?.token
       if (newToken && community.access_type === 'public') {
         localStorage.setItem('token', newToken)
-        const stored = localStorage.getItem('user')
-        if (stored) {
-          const u = JSON.parse(stored)
-          u.communities = [...(u.communities ?? []), { id: communityId, role: 'member' }]
-          localStorage.setItem('user', JSON.stringify(u))
+        try {
+          const payload = JSON.parse(atob(newToken.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')))
+          if (payload?.communities) {
+            const stored = localStorage.getItem('user')
+            if (stored) {
+              const u = { ...JSON.parse(stored), communities: payload.communities }
+              localStorage.setItem('user', JSON.stringify(u))
+            }
+          }
+        } catch {
+          // Non-fatal: token decode failed, communities list stays stale until next login
         }
       }
 
