@@ -1,11 +1,15 @@
 import { useState, useEffect, useCallback } from 'react'
-import { communityService } from '@/lib/api'
+import dynamic from 'next/dynamic'
+import { communityService, socialGraphService } from '@/lib/api'
 import type { Community } from '@/hooks/useCommunityData'
 import FissionProposalModal from '@/components/FissionProposalModal'
 import FissionAssignmentView from '@/components/FissionAssignmentView'
 
+const TrustGraph = dynamic(() => import('@/components/TrustGraph'), { ssr: false })
+
 interface Props {
   community: Community
+  currentUserId: string
   isAdmin: boolean
   onRefresh: () => void
 }
@@ -40,7 +44,7 @@ interface ProposalDetail {
   }
 }
 
-export default function FissionTab({ community, isAdmin, onRefresh }: Props) {
+export default function FissionTab({ community, currentUserId, isAdmin, onRefresh }: Props) {
   const [showModal, setShowModal] = useState(false)
   const [proposalDetail, setProposalDetail] = useState<ProposalDetail | null>(null)
   const [loading, setLoading] = useState(false)
@@ -49,6 +53,7 @@ export default function FissionTab({ community, isAdmin, onRefresh }: Props) {
   const [error, setError] = useState('')
   const [myVote, setMyVote] = useState<string | null>(null)
   const [childIds, setChildIds] = useState<{ a: string; b: string } | null>(null)
+  const [graphData, setGraphData] = useState<{ nodes: any[]; links: any[] } | null>(null)
 
   const proposal = community.active_split_proposal
 
@@ -68,6 +73,13 @@ export default function FissionTab({ community, isAdmin, onRefresh }: Props) {
   useEffect(() => {
     fetchDetail()
   }, [fetchDetail])
+
+  useEffect(() => {
+    if (!proposal || !['discussion', 'voting', 'approved'].includes(proposal.status)) return
+    socialGraphService.getTrustGraph(community.id)
+      .then((res: any) => setGraphData(res.data))
+      .catch(() => {})
+  }, [community.id, proposal?.status])
 
   const handleProposalCreated = () => {
     setShowModal(false)
@@ -169,15 +181,40 @@ export default function FissionTab({ community, isAdmin, onRefresh }: Props) {
 
   // Discussion phase — admin reviews assignments
   if (proposal.status === 'discussion' && proposalDetail) {
+    const groupMap: Record<string, 'group_a' | 'group_b'> = {}
+    for (const a of proposalDetail.assignments) {
+      if (a.assigned_to === 'group_a' || a.assigned_to === 'group_b') {
+        groupMap[a.user_id] = a.assigned_to
+      }
+    }
     return (
-      <FissionAssignmentView
-        communityId={community.id}
-        splitId={proposal.id}
-        proposal={proposalDetail.proposal}
-        assignments={proposalDetail.assignments}
-        onStartVote={() => { onRefresh(); fetchDetail() }}
-        onRefresh={fetchDetail}
-      />
+      <div className="space-y-6">
+        <FissionAssignmentView
+          communityId={community.id}
+          splitId={proposal.id}
+          proposal={proposalDetail.proposal}
+          assignments={proposalDetail.assignments}
+          onStartVote={() => { onRefresh(); fetchDetail() }}
+          onRefresh={fetchDetail}
+        />
+        {graphData && (
+          <div>
+            <h4 className="text-sm font-medium text-gray-500 mb-1">Trust graph — proposed groupings</h4>
+            <p className="text-xs text-gray-400 mb-3">
+              Blue nodes are assigned to <strong>{proposalDetail.proposal.group_a_name}</strong>.
+              Orange nodes to <strong>{proposalDetail.proposal.group_b_name}</strong>.
+              Links within each group are colored; cross-group links are gray.
+            </p>
+            <TrustGraph
+              graphData={graphData}
+              currentUserId={currentUserId}
+              groupMap={groupMap}
+              groupALabel={proposalDetail.proposal.group_a_name}
+              groupBLabel={proposalDetail.proposal.group_b_name}
+            />
+          </div>
+        )}
+      </div>
     )
   }
 
@@ -262,6 +299,23 @@ export default function FissionTab({ community, isAdmin, onRefresh }: Props) {
           <p className="text-xs text-gray-400 text-center">
             Voting closes {new Date(detail.voting_ends_at).toLocaleDateString()}
           </p>
+        )}
+
+        {graphData && (
+          <div className="pt-2 border-t border-gray-100">
+            <h4 className="text-sm font-medium text-gray-500 mb-3">Trust graph — proposed groupings</h4>
+            <TrustGraph
+              graphData={graphData}
+              currentUserId={currentUserId}
+              groupMap={Object.fromEntries(
+                assignments
+                  .filter((a) => a.assigned_to === 'group_a' || a.assigned_to === 'group_b')
+                  .map((a) => [a.user_id, a.assigned_to as 'group_a' | 'group_b'])
+              )}
+              groupALabel={detail.group_a_name}
+              groupBLabel={detail.group_b_name}
+            />
+          </div>
         )}
       </div>
     )

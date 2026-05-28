@@ -255,6 +255,7 @@ export default function CommunityDetailPage() {
               {activeTab === 'fission' && (
                 <FissionTab
                   community={community}
+                  currentUserId={currentUser?.id ?? ''}
                   isAdmin={isAdmin ?? false}
                   onRefresh={refetchCommunity}
                 />
