@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useMemo } from 'react'
 
 interface TrustNode {
   id: string
@@ -48,6 +48,7 @@ export default function TrustGraph({
   const [ForceGraph, setForceGraph] = useState<any>(null)
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
   const [switching, setSwitching] = useState(false)
+  const [graphWidth, setGraphWidth] = useState(700)
 
   useEffect(() => {
     import('react-force-graph-2d').then(({ default: FG }) => {
@@ -55,21 +56,34 @@ export default function TrustGraph({
     })
   }, [])
 
+  useEffect(() => {
+    if (!containerRef.current) return
+    const el = containerRef.current
+    const update = () => setGraphWidth(el.clientWidth || 700)
+    update()
+    const observer = new ResizeObserver(update)
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
+
   const maxTrust = Math.max(...graphData.nodes.map(n => n.trust_score), 1)
   const maxWeight = Math.max(...graphData.links.map(l => l.effective_weight), 1)
   const nodeSize = (score: number) => 3 + (score / maxTrust) * 6
   const linkThickness = (w: number) => 1 + (w / maxWeight) * 3
 
-  const fgData = {
+  // Memoized so the force simulation doesn't restart on every parent re-render.
+  // groupMap intentionally excluded — it only drives colors, not graph structure.
+  const fgData = useMemo(() => ({
     nodes: graphData.nodes.map(n => ({ ...n })),
     links: graphData.links.map(l => ({ ...l })),
-  }
+  }), [graphData])
 
   const selectedNode = selectedNodeId
     ? graphData.nodes.find(n => n.id === selectedNodeId)
     : null
 
-  const connectedNodeIds = selectedNodeId
+  // Only used in non-groupMap mode for connection highlighting
+  const connectedNodeIds = (!groupMap && selectedNodeId)
     ? new Set(
         graphData.links
           .filter(l => {
@@ -87,7 +101,7 @@ export default function TrustGraph({
 
   const nodeColor = (node: any) => {
     if (groupMap) {
-      if (selectedNodeId && !connectedNodeIds?.has(node.id)) return '#94a3b8'
+      // In fission mode: group color is always the signal, no dimming on selection
       const group = groupMap[node.id]
       if (group === 'group_a') return '#3b82f6'  // blue-500
       if (group === 'group_b') return '#f97316'  // orange-500
@@ -114,8 +128,12 @@ export default function TrustGraph({
       {ForceGraph && (
         <ForceGraph
           graphData={fgData}
-          width={700}
-          height={500}
+          width={graphWidth}
+          height={groupMap ? 380 : 500}
+          // In fission mode: lock down zoom/pan/drag so the graph stays put
+          enableZoomInteraction={!groupMap}
+          enablePanInteraction={!groupMap}
+          enableNodeDrag={!groupMap}
           nodeLabel={(node: any) => {
             if (groupMap) return node.isIsolated ? `${node.name} · no trust connections` : node.name
             const canExpand = onExpandNode && !expandedNodes.has(node.id) && node.id !== currentUserId
@@ -127,8 +145,18 @@ export default function TrustGraph({
           nodeCanvasObject={(node: any, ctx: CanvasRenderingContext2D, globalScale: number) => {
             if (groupMap) {
               const r = Math.sqrt(nodeSize(node.trust_score || 1)) * 4 + 2
+              // Amber ring on selected node
+              if (node.id === selectedNodeId) {
+                ctx.save()
+                ctx.beginPath()
+                ctx.arc(node.x, node.y, r + 3 / globalScale, 0, 2 * Math.PI)
+                ctx.strokeStyle = '#fbbf24'
+                ctx.lineWidth = 2.5 / globalScale
+                ctx.stroke()
+                ctx.restore()
+              }
               if (node.id === currentUserId) {
-                // White solid ring to identify the current user within their group color
+                // White solid ring to identify current user within their group color
                 ctx.save()
                 ctx.beginPath()
                 ctx.arc(node.x, node.y, r, 0, 2 * Math.PI)
@@ -137,7 +165,7 @@ export default function TrustGraph({
                 ctx.stroke()
                 ctx.restore()
               } else if (node.isIsolated) {
-                // Dashed ring to signal "no trust connections in this community"
+                // Dashed ring: "no trust connections in this community"
                 const group = groupMap[node.id]
                 ctx.save()
                 ctx.beginPath()
@@ -154,7 +182,7 @@ export default function TrustGraph({
               }
               return
             }
-            // Draw a dashed ring on unexpanded non-self nodes to signal they're expandable
+            // Non-fission: dashed ring on unexpanded nodes to signal they're expandable
             if (expandedNodes.has(node.id) || node.id === currentUserId) return
             const r = Math.sqrt(nodeSize(node.trust_score)) * 4 + 2
             ctx.save()
@@ -172,9 +200,7 @@ export default function TrustGraph({
             const src = typeof link.source === 'object' ? link.source.id : link.source
             const tgt = typeof link.target === 'object' ? link.target.id : link.target
             if (groupMap) {
-              if (selectedNodeId && src !== selectedNodeId && tgt !== selectedNodeId) {
-                return 'rgba(156,163,175,0.08)'
-              }
+              // No selection-based dimming in fission mode — group color is always visible
               const srcGroup = groupMap[src]
               const tgtGroup = groupMap[tgt]
               if (srcGroup && tgtGroup && srcGroup === tgtGroup) {
@@ -195,7 +221,7 @@ export default function TrustGraph({
           }}
           onNodeClick={(node: any) => {
             setSelectedNodeId(prev => (prev === node.id ? null : node.id))
-            if (onExpandNode && node.id !== currentUserId && !expandedNodes.has(node.id)) {
+            if (!groupMap && onExpandNode && node.id !== currentUserId && !expandedNodes.has(node.id)) {
               onExpandNode(node.id)
             }
           }}
@@ -207,14 +233,14 @@ export default function TrustGraph({
 
       {/* Legend */}
       {groupMap ? (
-        <div className="flex gap-4 text-xs text-text-muted mt-2 px-1">
+        <div className="flex flex-wrap gap-4 text-xs text-text-muted mt-2 px-1">
           <span className="flex items-center gap-1">
             <span className="inline-block w-2.5 h-2.5 rounded-full bg-blue-500" /> {groupALabel}
           </span>
           <span className="flex items-center gap-1">
             <span className="inline-block w-2.5 h-2.5 rounded-full bg-orange-500" /> {groupBLabel}
           </span>
-          <span className="flex items-center gap-1 text-gray-400">— white ring = you · dashed ring = no connections</span>
+          <span className="flex items-center gap-1 text-gray-400">— click a node to select · white ring = you · dashed = no connections</span>
         </div>
       ) : (
         <div className="flex gap-4 text-xs text-text-muted mt-2 px-1">
@@ -231,7 +257,7 @@ export default function TrustGraph({
       )}
 
       {selectedNode && (
-        <div className="mt-4 p-4 bg-surface rounded-lg border border-border text-sm">
+        <div className="mt-3 p-4 bg-surface rounded-lg border border-border text-sm">
           <div className="font-semibold text-text mb-2">{selectedNode.name}</div>
           {groupMap ? (
             <div className="space-y-3">
