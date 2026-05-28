@@ -1,27 +1,61 @@
-# Sprint 69: Fission Mechanism | READY TO EXECUTE 🔲
+# Sprint 70: Plan in Next Chat 🔲
 
 ## Handoff Document
 
-**Date**: 2026-05-27
-**Current Version**: v9.80.0 (Sprint 68 shipped) → v9.90.0 (Sprint 69 target)
-**Status**: Sprint 69 fully planned. Design spec + implementation plan written. Ready to execute.
+**Date**: 2026-05-28
+**Current Version**: v9.90.0 (Sprint 69 + post-sprint fixes shipped)
+**Status**: Sprint 69 fully complete and deployed. Several post-sprint bugs fixed this session. Sprint 70 to be planned in the next conversation.
 
 ---
 
 ## Quick Start
 
 1. Read this handoff
-2. Check out branch: `git checkout -b feature/sprint-69-fission`
-3. Open plan: `docs/superpowers/plans/2026-05-27-sprint-69-fission.md`
-4. Run: `/execute-plan` (uses superpowers:subagent-driven-development)
+2. Run `/sprint-planning` to plan Sprint 70 (Fusion Mechanism)
+3. The arc context and carry-forward items below are the key inputs
 
 ---
 
-## Sprint 69 Goal
+## What Was Completed This Session (post-Sprint 69 fixes)
 
-Build the complete community fission lifecycle: size-triggered auto-suggest → admin split proposal with trust-graph-driven member clustering → prestige-weighted community vote → executed split that creates two child communities.
+All committed and deployed to karmyq.com via GitHub Actions.
 
-This is **ADR-018 Phase 2** — the structural mechanics that turn the `community_links` schema (Phase 1, Sprint 15) into the output of a governed split process.
+### Graph UX Fixes (`TrustGraph.tsx`)
+- `fgData` memoized with `useMemo` — force simulation no longer restarts when parent re-renders (was the root cause of "flakiness")
+- Selection dimming removed in `groupMap` mode — group colors (blue/orange) always visible, selected node gets an amber ring instead
+- Zoom/pan re-enabled after over-correction (was fully disabled, now only node drag is disabled in fission mode)
+- Graph width tracks container via `ResizeObserver` (was hardcoded 700px)
+
+### Governance Fix (`governance.ts`)
+- Ratify endpoint now requires **active membership** (was incorrectly requiring admin/moderator role — blocked Wei Zhang's ratification of Priya's elevation)
+- Self-ratification blocked: nominated person cannot ratify their own nomination
+- UI: Ratify button replaced with "your nomination" / "✓ Ratified" states based on `currentUserId`
+- `GovernanceTab` now receives `currentUserId` prop
+
+### Fission Vote Fixes (`splits.ts`, `FissionTab.tsx`)
+- GET `/splits/:splitId` now returns `my_vote` (current user's choice) — vote buttons correctly hidden after page refresh
+- `FissionTab` seeds `myVote` from server on every `fetchDetail()` call
+
+### Vote-Opened Notifications (`splits.ts`, `subscriber.ts`, `notificationTemplates.ts`)
+- `start-vote` route publishes `split_vote_started` event (non-blocking)
+- Notification service handles it: notifies all active community members with in-app + push, links to fission tab
+- `split_vote_started` added to `NotificationType` union and template registry
+
+---
+
+## Open Design Questions (noted for future sprints)
+
+### Ratification Quorum
+With any active member able to ratify, the default quorum of 3 is trivially easy to hit in communities with 20+ members. Options to revisit:
+- Trust-gated ratification (only members above `eligibility_threshold`)
+- Weighted quorum (trust-score-weighted, like the split vote)
+- Higher quorum defaults (5–7, or % of eligible members)
+
+### Graph Polish Sprint (deferred)
+Two surfaces flagged for a dedicated polish sprint:
+- **TrustGraphTab (ego-network)**: user wants more polish, specific issues TBD at sprint time
+- **Fission graph**: force-directed is a poor fit for "which group" view — bipartite SVG layout (two columns, trust arcs between them) would be better
+Start with a layout audit + reference products before any implementation.
 
 ---
 
@@ -33,73 +67,35 @@ This is **ADR-018 Phase 2** — the structural mechanics that turn the `communit
 | **66** | Trust Graph Visualization + Governance ADR | ✅ Shipped v9.60.0 |
 | **67** | Ego-Network + Governance | ✅ Shipped v9.70.0 |
 | **68** | Interaction Half-Life (Ebbinghaus decay) | ✅ Shipped v9.80.0 |
-| **69** | Fission Mechanism | 🔲 Ready to execute |
-| **70** | Fusion Mechanism | 🔲 Planned |
+| **69** | Fission Mechanism | ✅ Shipped v9.90.0 |
+| **70** | Fusion Mechanism | 🔲 Next sprint |
 | **71** | v10.0 Polish + karmyq.org update | 🔲 Planned |
 
 ---
 
-## Sprint 69 Context
+## Sprint 70 Context (Fusion)
 
-### What's being built
+The counterpart to fission — two communities merge into one. Governed by the same trust-weighted vote pattern as fission. Key design questions to discuss in planning:
+- Who can propose a fusion? (both admins? one admin + member vote?)
+- What happens to trust edges across the two communities after merge?
+- Does the merged community inherit both communities' karma records?
+- What `community_link` type does this produce? (`fusion_origin`?)
+- How does the community_link sprint-15 schema support this? (it has `link_type` + `trust_carry_factor`)
 
-**4-stage lifecycle:**
-1. **Size alert**: `GET /communities/:id` returns `size_alert: null | 'approaching' | 'recommend_split' | 'urgent_split'` computed from `current_members` (120/130/140 thresholds). No background job.
-2. **Propose**: Admin creates a `split_proposal`. Community-service runs greedy bisection on `social_graph.trust_edges_live` (cross-schema query — same DB) to seed `split_member_assignments`. Admin reviews/adjusts the assignment table.
-3. **Vote**: Admin opens voting. Community votes prestige-weighted (same pattern as Sprint 67 governance). Quorum + approval threshold required.
-4. **Execute**: Atomic transaction — creates two child communities, moves members, creates `split_origin` community_link, marks parent `status='split'`.
-
-### New DB tables (community schema)
-- `community.split_proposals` — proposal lifecycle
-- `community.split_votes` — prestige-weighted member votes
-- `community.split_member_assignments` — per-member group assignment (with cluster_suggestion vs admin override)
-
-### New files
-- `infrastructure/postgres/migrations/20260527-fission.sql`
-- `services/community-service/src/routes/splits.ts`
-- `services/community-service/src/database/splitsDb.ts`
-- `services/community-service/src/services/fissionService.ts`
-- `apps/frontend/src/components/community/tabs/FissionTab.tsx`
-- `apps/frontend/src/components/FissionProposalModal.tsx`
-- `apps/frontend/src/components/FissionAssignmentView.tsx`
-- `docs/adr/ADR-057-fission-mechanism.md`
-
-### Key references
-- **Design spec**: `docs/superpowers/specs/2026-05-27-sprint-69-fission-design.md`
-- **Implementation plan**: `docs/superpowers/plans/2026-05-27-sprint-69-fission.md`
-- `docs/adr/ADR-018-community-splitting-mechanics.md` — Phase 2 being implemented this sprint
-- `docs/adr/ADR-047-community-evolution-engine.md` — arc context
-- `services/community-service/src/routes/governance.ts` — copy auth pattern + prestige-weight pattern from here
-- `services/community-service/CONTEXT.md` — service overview
-
----
-
-## ⚠️ Critical Implementation Notes (Persistent)
-
-1. **`trust_edges_live` is read-only VIEW** — clustering reads from it; never write to it; writes go to `trust_edges`.
-2. **JWT field is `communities`, not `communityMemberships`** — always `user.communities ?? []`.
-3. **Parent community is NOT deleted on execute** — set `status='split'`; karma records + history reference the parent ID.
-4. **`UNIQUE (community_id, status)` caveat** — prevents second proposal after execution (two `executed` rows). Demo-scope acceptable; document it.
-5. **Landing page docs are in `.gitignore`** — always `git add -f apps/landing/src/data/docs/`.
-6. **nav.json silently reverts** — add new slugs to hardcoded list in `scripts/generate-docs.ts`.
-7. **TDD tests go in `services/community-service/tests/tdd/`** — not root `tests/tdd/`.
-8. **ADR-057 is next** — verify with `ls docs/adr/ | sort | tail -5`.
-9. **Clustering runs at proposal creation time only** — stored in `split_member_assignments`; does not re-run on admin adjustments.
-10. **Unassigned members at execute time** — auto-assign to the smaller group before transaction proceeds.
+ADR-018 (community splitting mechanics) covers fission. Fusion likely needs its own ADR or an extension — worth discussing at planning time.
 
 ---
 
 ## Architecture Gotchas (Persistent)
 
-- **Landing page docs**: `apps/landing/src/data/docs/` is in `.gitignore` — always `git add -f`.
-- **ADR numbering**: Next ADR is **057**.
-- **TDD test placement**: Community tests in `services/community-service/tests/tdd/`. Social-graph tests in `services/social-graph-service/tests/tdd/`.
-- **JWT field** is `communities` not `communityMemberships` — always `user.communities ?? []`.
-- **`git add` on CLAUDE.md**: Tracked as lowercase `claude.md` — always `git add claude.md`.
-- **Pre-existing TDD failures**: `sprint-39-provider-ux` (7 fail), `sprint-43-feed-ranking` (crashes), `sprint-68-halflife` (6 DB connection tests, no local migration). Do NOT fix.
-- **Solo dev — no worktrees**: Work directly on feature branches.
-- **nav.json revert bug**: `generate-docs.ts` regenerates nav.json on every build. Always add new slugs to the hardcoded list in `scripts/generate-docs.ts`.
-- **Demo DB credentials**: Use `./scripts/deploy.sh` for deploys — never manual `docker compose up` with the compose file's hardcoded dev credentials against the prod volume.
-- **trust_edges_live is a view**: Never INSERT or UPDATE it. Use `trust_edges` for writes, `trust_edges_live` for reads.
-- **CommitmentsTab renders its own cards**: Does not use `OfferItem`. Any new card-level behavior must be applied in `renderHelpingCard` and `renderRequestedCard` directly.
-- **Demo server note**: If the demo server is unresponsive, run `./scripts/deploy.sh` via SSH — not manual `docker compose up`.
+- **Landing page docs**: `apps/landing/src/data/docs/` is in `.gitignore` — always `git add -f`
+- **ADR numbering**: Next ADR is **057** (verify with `ls docs/adr/ | sort | tail -5`)
+- **TDD test placement**: Community tests in `services/community-service/tests/tdd/`
+- **JWT field** is `communities` not `communityMemberships` — always `user.communities ?? []`
+- **`git add` on CLAUDE.md**: Tracked as lowercase `claude.md` — always `git add claude.md`
+- **Pre-existing TDD failures**: `sprint-39-provider-ux` (7 fail), `sprint-43-feed-ranking` (crashes), `sprint-68-halflife` (6 DB connection tests). Do NOT fix.
+- **Solo dev — no worktrees**: Work directly on feature branches
+- **nav.json revert bug**: `generate-docs.ts` regenerates nav.json on every build — always add new slugs to the hardcoded list in `scripts/generate-docs.ts`
+- **trust_edges_live is a VIEW**: Never INSERT/UPDATE it. Use `trust_edges` for writes, `trust_edges_live` for reads
+- **`trust_edges_live` column**: exposes `current_weight` (not `effective_weight`) — use `current_weight AS effective_weight` alias when querying
+- **API response unwrap**: `createApiClient` interceptor already unwraps envelope — use `res.data`, not `res.data.data`
