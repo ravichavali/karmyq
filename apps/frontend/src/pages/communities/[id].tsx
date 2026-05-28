@@ -250,7 +250,7 @@ export default function CommunityDetailPage() {
                 <TrustGraphTab communityId={communityId!} currentUserId={currentUser?.id ?? ''} />
               )}
               {activeTab === 'governance' && isMember && (
-                <GovernanceTab communityId={communityId!} />
+                <GovernanceTab communityId={communityId!} currentUserId={currentUser?.id ?? ''} />
               )}
               {activeTab === 'fission' && (
                 <FissionTab

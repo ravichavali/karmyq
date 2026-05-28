@@ -74,12 +74,25 @@ router.post('/:communityId/governance/ratify/:nominationId', async (req: any, re
   const ratifierId = req.user?.userId;
 
   try {
-    const roleCheck = await pool.query(`
-      SELECT role FROM communities.members
-      WHERE community_id = $1 AND user_id = $2 AND role IN ('admin', 'moderator') AND status = 'active'
+    // Any active member can ratify — quorum lets the community collectively elevate role-holders
+    const memberCheck = await pool.query(`
+      SELECT id FROM communities.members
+      WHERE community_id = $1 AND user_id = $2 AND status = 'active'
     `, [communityId, ratifierId]);
-    if (!roleCheck.rows.length) {
-      return res.status(403).json({ success: false, message: 'Only current role-holders can ratify nominations' });
+    if (!memberCheck.rows.length) {
+      return res.status(403).json({ success: false, message: 'Must be an active member to ratify' });
+    }
+
+    // Prevent the nominated person from ratifying their own elevation
+    const nomCheck = await pool.query(`
+      SELECT nominated_user_id FROM communities.governance_nominations
+      WHERE id = $1 AND community_id = $2 AND status = 'pending'
+    `, [nominationId, communityId]);
+    if (!nomCheck.rows.length) {
+      return res.status(404).json({ success: false, message: 'Nomination not found' });
+    }
+    if (nomCheck.rows[0].nominated_user_id === ratifierId) {
+      return res.status(422).json({ success: false, message: 'Cannot ratify your own nomination' });
     }
 
     const result = await addRatification(nominationId, ratifierId);

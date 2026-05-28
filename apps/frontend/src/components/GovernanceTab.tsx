@@ -3,9 +3,10 @@ import { communityService } from '@/lib/api'
 
 interface GovernanceTabProps {
   communityId: string
+  currentUserId: string
 }
 
-export default function GovernanceTab({ communityId }: GovernanceTabProps) {
+export default function GovernanceTab({ communityId, currentUserId }: GovernanceTabProps) {
   const [state, setState] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -96,12 +97,18 @@ export default function GovernanceTab({ communityId }: GovernanceTabProps) {
                     <span className="ml-2 px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded text-xs">{nom.role}</span>
                     <p className="text-xs text-gray-500 mt-0.5">Nominated by {nom.nominator.name}</p>
                   </div>
-                  <button
-                    onClick={() => handleRatify(nom.id)}
-                    className="text-sm px-3 py-1 bg-emerald-600 text-white rounded hover:bg-emerald-700"
-                  >
-                    Ratify
-                  </button>
+                  {nom.nominated_user.user_id === currentUserId ? (
+                    <span className="text-xs text-gray-400 italic">your nomination</span>
+                  ) : nom.ratifiers.some((r: any) => r.user_id === currentUserId) ? (
+                    <span className="text-xs text-emerald-600 font-medium">✓ Ratified</span>
+                  ) : (
+                    <button
+                      onClick={() => handleRatify(nom.id)}
+                      className="text-sm px-3 py-1 bg-emerald-600 text-white rounded hover:bg-emerald-700"
+                    >
+                      Ratify
+                    </button>
+                  )}
                 </div>
                 <div className="mt-3">
                   <div className="flex justify-between text-xs text-gray-500 mb-1">
