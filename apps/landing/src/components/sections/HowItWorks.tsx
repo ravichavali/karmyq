@@ -113,7 +113,7 @@ export default function HowItWorks() {
           </h2>
         </AnimateOnScroll>
         <AnimateOnScroll delay={0.1}>
-          <div className="space-y-5 body-large">
+          <div className="space-y-5 body-large mb-12">
             <p>
               Each community is sovereign — up to 150 members, the threshold at which genuine relationship
               becomes possible and beyond which it frays. It sets its own membership rules, configures how
@@ -130,29 +130,54 @@ export default function HowItWorks() {
               opposite. The system calibrates toward what is actually true, not what was declared at
               founding.
             </p>
+            <p>
+              Governance in Karmyq is gated by trust. To be nominated for a governance role, a member must
+              first earn a minimum trust score within the community — standing built through actual
+              interactions, not assumed at entry. Nominations are made by members and ratified by existing
+              role-holders. When contested decisions arise, votes are weighted by trust score — the members
+              the community has come to rely on most carry more weight in shaping its direction.
+            </p>
+            <p>
+              No role is permanent. The nomination and ratification process runs in both directions. A member
+              whose trust has grown can be elevated. A role-holder whose presence has faded can be replaced.
+              Governance reflects who the community currently trusts — not who it trusted at founding.
+            </p>
+            <p>
+              Members are not restricted to one community; standing earned in one can, with that
+              community&apos;s consent, travel.
+            </p>
           </div>
         </AnimateOnScroll>
-        <AnimateOnScroll delay={0.2}>
-          <div className="space-y-5 body-large mt-8">
+
+        {/* How communities grow and change */}
+        <AnimateOnScroll>
+          <h2 className="heading-2 text-karmyq-brown-900 mb-6">
+            How communities grow and change.
+          </h2>
+        </AnimateOnScroll>
+        <AnimateOnScroll delay={0.1}>
+          <div className="space-y-5 body-large">
             <p>
-              As a community grows, the platform watches. When membership approaches the
-              Dunbar threshold — the cognitive limit above which genuine relationship becomes
-              difficult — a size alert appears for admins. No automatic action. Just a signal
-              that the community might be ready to evolve.
+              Communities don&apos;t have to stay the same shape forever.
             </p>
             <p>
-              Communities that choose to split do so through a governed process: an admin
-              proposes two child communities, the trust graph suggests which members belong
-              together based on their actual interaction history, and members vote with
-              weights proportional to their standing. The algorithm offers a starting point.
-              The community decides.
+              When a community approaches its natural size limit, its members can propose a split. The
+              platform reads the existing patterns of interaction and suggests who belongs together —
+              those who have helped each other most stay together. The proposed division goes to a vote
+              weighted by standing: the members the community trusts most have the most say in how it
+              divides. If the vote passes, two daughter communities form — each carrying the full trust
+              history of its members, and each starting with a special relationship to the other. Sisters
+              remember they share a past.
             </p>
             <p>
-              The reverse is also possible. Two communities that have grown closer — through
-              shared members, inter-community trust, or aligned purpose — can choose to merge.
-              Both sets of admins propose, both communities vote in parallel, and the merge
-              executes atomically if both pass. The platform calls this fusion. Communities
-              call it becoming one thing.
+              When two communities have built enough trust across their boundary to want to become one,
+              they can propose a fusion. Both communities vote independently. If both pass, the merged
+              community inherits the full karma history of both parents and carries forward the trust
+              relationships built in each. What was built in two places becomes the foundation of one.
+            </p>
+            <p>
+              Neither process is automatic. Communities decide when the time is right. The platform
+              provides the mechanics; the community provides the judgment.
             </p>
           </div>
         </AnimateOnScroll>
