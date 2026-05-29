@@ -92,7 +92,15 @@ This is what real mutual aid looks like. The trust graph builds naturally from c
 | `joinCommunity` | 0.30 | 0.10 (communities already exist and are populated) |
 | `registerAsProvider` | 0.08–0.15 | 0.03 (one-time, most users already registered) |
 
-Fission and fusion workflows do **not** exist in the simulation and will not be added in this sprint. They are platform features, not simulation scenarios.
+**Fission and fusion initiation** workflows are not added — these remain near-zero frequency events initiated by admins. However, once a split or fusion proposal enters `voting` status, members need to participate or the vote will stall forever.
+
+A single `vote-on-governance-workflow.ts` handles this:
+1. Query DB for `communities.split_proposals WHERE status = 'voting'` in any of the user's communities
+2. Check if user has already voted (via `communities.split_votes`)
+3. If not: `POST /communities/:communityId/splits/:splitId/vote { vote: 'yes' }` (80% yes, 15% abstain, 5% no)
+4. Repeat for `communities.fusion_proposals` in the same pass
+
+This workflow fires at very low weight (0.03–0.05) but will advance any in-flight governance proposal to quorum organically. The auto-approve logic in the vote endpoint handles the rest.
 
 ### New user registration
 New user registration (`register-user-workflow.ts`) stays as a low-frequency growth action within the normal workflow distribution — it is **not** a special bootstrap phase. The DB already has users. New users join organically at the configured growth rate.

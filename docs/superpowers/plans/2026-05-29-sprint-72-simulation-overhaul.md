@@ -17,6 +17,7 @@
 | File | Responsibility |
 |------|---------------|
 | `services/simulation-service/src/worker-pool.ts` | WorkerPool class — 10 concurrent async workers |
+| `services/simulation-service/src/workflows/vote-on-governance-workflow.ts` | Cast votes on active split/fusion proposals in user's communities |
 | `services/simulation-service/tests/tdd/sprint-72-simulation-engine.test.ts` | Unit + integration tests for WorkerPool and behavioral invariants |
 
 ### Existing files to modify
@@ -24,7 +25,9 @@
 |------|--------|
 | `services/simulation-service/src/simulator.ts` | Wire WorkerPool, extract growth to setInterval, remove business hours gate |
 | `services/simulation-service/src/config/default.json` | Add worker config, disable business hours |
-| `services/simulation-service/src/profiles/index.ts` | Calibrate weights: near-zero for community/collective creation, high for everyday mutual aid loop |
+| `services/simulation-service/src/profiles/index.ts` | Calibrate weights: near-zero for community/collective creation, high for everyday mutual aid loop; add governance voting |
+| `services/simulation-service/src/workflows/index.ts` | Export new vote-on-governance workflow |
+| `services/simulation-service/src/api-client.ts` | Add `voteOnSplit()` and `voteOnFusion()` methods |
 | `services/simulation-service/src/data/realistic-data.ts` | Expand request templates to 20+ per type, add geographic anchoring |
 | `services/simulation-service/CONTEXT.md` | Update architecture section |
 | `apps/landing/src/data/docs/guides/demo-data.json` | New user guide: "Understanding the Demo" |
@@ -41,8 +44,9 @@
 5. **Growth engine to standalone setInterval**: Extract `maybeRegisterNewUser()` from the main loop into `setInterval(growthTick, 3 * 60 * 1000)`.
 6. **No bootstrap guard**: The DB already has users — workers sample them immediately on start. New user registration stays as a low-frequency workflow action.
 7. **Session affinity = probability weight only**: If sampled user has open requests, weight toward `acceptOffer` or `completeMatch` — no stateful session tracking.
-8. **Community/collective creation = near-zero**: `createCommunities` → 0.005, `createCollective` → 0.02. Fission and fusion workflows do NOT exist in the simulation and should NOT be added.
-9. **`git add claude.md`** (lowercase) when staging CLAUDE.md on Windows.
+8. **Community/collective creation = near-zero**: `createCommunities` → 0.005, `createCollective` → 0.02. Fission and fusion *initiation* should NOT be added — only voting on existing proposals.
+9. **Governance voting uses direct DB query + API vote**: Query `communities.split_proposals` / `communities.fusion_proposals` via DB (simulation already has pool access) to find `status = 'voting'` proposals in the user's communities. Then cast vote via API. Check `split_votes` / `fusion_votes` tables first to avoid double-voting.
+10. **`git add claude.md`** (lowercase) when staging CLAUDE.md on Windows.
 
 ---
 
@@ -251,7 +255,105 @@ The goal: the dominant activity should be the everyday mutual aid lifecycle (bro
 
 ---
 
-## Task 6: Expand Request Templates — Mission Alignment
+## Task 6: Governance Voting Workflow
+
+**Files:**
+- Create: `services/simulation-service/src/workflows/vote-on-governance-workflow.ts`
+- Modify: `services/simulation-service/src/workflows/index.ts`
+- Modify: `services/simulation-service/src/api-client.ts`
+
+The goal: when a split or fusion enters `voting` status, simulated members cast votes so governance proposals actually advance to quorum and execute.
+
+- [ ] Create `vote-on-governance-workflow.ts`:
+
+```typescript
+import { SimulatedUser } from '../types';
+import { ApiClient } from '../api-client';
+import { pool } from '../db-user-loader'; // re-use existing pool
+
+const VOTE_DISTRIBUTION = { yes: 0.80, abstain: 0.15, no: 0.05 };
+
+function pickVote(): 'yes' | 'abstain' | 'no' {
+  const r = Math.random();
+  if (r < VOTE_DISTRIBUTION.yes) return 'yes';
+  if (r < VOTE_DISTRIBUTION.yes + VOTE_DISTRIBUTION.abstain) return 'abstain';
+  return 'no';
+}
+
+export async function voteOnGovernanceWorkflow(user: SimulatedUser, client: ApiClient): Promise<void> {
+  // Get user's community memberships from DB
+  const memberRes = await pool.query(
+    `SELECT community_id FROM communities.members WHERE user_id = $1 AND status = 'active'`,
+    [user.id]
+  );
+  const communityIds: string[] = memberRes.rows.map((r: any) => r.community_id);
+  if (communityIds.length === 0) return;
+
+  // Check active split votes
+  const splitRes = await pool.query(
+    `SELECT id, community_id FROM communities.split_proposals
+     WHERE status = 'voting' AND community_id = ANY($1)`,
+    [communityIds]
+  );
+  for (const proposal of splitRes.rows) {
+    const alreadyVoted = await pool.query(
+      `SELECT 1 FROM communities.split_votes WHERE proposal_id = $1 AND voter_id = $2`,
+      [proposal.id, user.id]
+    );
+    if (alreadyVoted.rows.length === 0) {
+      await client.voteOnSplit(proposal.community_id, proposal.id, pickVote());
+    }
+  }
+
+  // Check active fusion votes
+  const fusionRes = await pool.query(
+    `SELECT id, community_a_id, community_b_id FROM communities.fusion_proposals
+     WHERE status = 'voting' AND (community_a_id = ANY($1) OR community_b_id = ANY($1))`,
+    [communityIds]
+  );
+  for (const proposal of fusionRes.rows) {
+    const communityId = communityIds.includes(proposal.community_a_id)
+      ? proposal.community_a_id
+      : proposal.community_b_id;
+    const alreadyVoted = await pool.query(
+      `SELECT 1 FROM communities.fusion_votes WHERE proposal_id = $1 AND voter_id = $2`,
+      [proposal.id, user.id]
+    );
+    if (alreadyVoted.rows.length === 0) {
+      await client.voteOnFusion(communityId, proposal.id, pickVote());
+    }
+  }
+}
+```
+
+- [ ] Add `voteOnSplit()` and `voteOnFusion()` methods to `api-client.ts`:
+
+```typescript
+async voteOnSplit(communityId: string, splitId: string, vote: 'yes' | 'no' | 'abstain') {
+  return this.post(`/communities/${communityId}/splits/${splitId}/vote`, { vote });
+}
+
+async voteOnFusion(communityId: string, fusionId: string, vote: 'yes' | 'no' | 'abstain') {
+  return this.post(`/communities/${communityId}/fusions/${fusionId}/vote`, { vote });
+}
+```
+
+- [ ] Export `voteOnGovernanceWorkflow` from `workflows/index.ts`.
+
+- [ ] Add `voteOnGovernance` to relevant profiles in `profiles/index.ts`:
+  - `COMMUNITY_BUILDER`: weight 0.05
+  - `ACTIVE_HELPER`: weight 0.03
+  - `SOCIAL_USER`: weight 0.03
+
+- [ ] Verify: check column name for voter ID in `split_votes` and `fusion_votes` tables (may be `voter_id` or `user_id`) — read the migration SQL before assuming.
+
+  ```bash
+  grep -A5 "CREATE TABLE.*split_votes\|CREATE TABLE.*fusion_votes" infrastructure/postgres/migrations/20260527-fission.sql infrastructure/postgres/migrations/20260527-fusion.sql
+  ```
+
+---
+
+## Task 7: Expand Request Templates — Mission Alignment
 
 **Files:**
 - Modify: `services/simulation-service/src/data/realistic-data.ts`
@@ -272,7 +374,7 @@ The goal: the dominant activity should be the everyday mutual aid lifecycle (bro
 
 ---
 
-## Task 7: User Guide — "Understanding the Demo"
+## Task 8: User Guide — "Understanding the Demo"
 
 **Files:**
 - Create: `apps/landing/src/data/docs/guides/demo-data.json`
@@ -301,7 +403,7 @@ The goal: the dominant activity should be the everyday mutual aid lifecycle (bro
 
 ---
 
-## Task 8: CONTEXT.md Update
+## Task 9: CONTEXT.md Update
 
 **Files:**
 - Modify: `services/simulation-service/CONTEXT.md`
@@ -316,7 +418,7 @@ The goal: the dominant activity should be the everyday mutual aid lifecycle (bro
 
 ---
 
-## Task 9: TDD Tests
+## Task 10: TDD Tests
 
 **Files:**
 - Create: `services/simulation-service/tests/tdd/sprint-72-simulation-engine.test.ts`
@@ -343,7 +445,7 @@ The goal: the dominant activity should be the everyday mutual aid lifecycle (bro
 
 ---
 
-## Task 10: Type Check + Pre-Push Verification
+## Task 11: Type Check + Pre-Push Verification
 
 **Files:** None
 
@@ -374,7 +476,7 @@ The goal: the dominant activity should be the everyday mutual aid lifecycle (bro
 
 ---
 
-## Task 11: Merge + Deploy
+## Task 12: Merge + Deploy
 
 - [ ] Run the `/deploy` skill to merge to master, push, and monitor GitHub Actions.
 - [ ] After deploy: SSH to karmyq.com and restart simulation service:
