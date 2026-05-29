@@ -2,14 +2,14 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Karmyq — Infrastructure for Community Cooperation',
+  title: 'Karmyq — Meaning-making, not accounting',
   description:
-    'Communities are experiments in cooperation. Karmyq provides the infrastructure to run those experiments — preserving the rich diversity of mutual aid that thrived before we simplified everything to scale.',
+    'Karmyq is open-source infrastructure for neighborhoods, mutual aid groups, and local communities to coordinate help, share skills, and build trust — without surveillance, ads, or platform extraction.',
   icons: { icon: '/favicon.svg' },
   openGraph: {
-    title: 'Karmyq — Infrastructure for Community Cooperation',
+    title: 'Karmyq — Meaning-making, not accounting',
     description:
-      'Communities are experiments in cooperation. Karmyq provides the infrastructure to run those experiments at scale.',
+      'Karmyq is open-source infrastructure for neighborhoods, mutual aid groups, and local communities to coordinate help, share skills, and build trust — without surveillance, ads, or platform extraction.',
     url: 'https://karmyq.org',
     siteName: 'Karmyq',
     type: 'website',
