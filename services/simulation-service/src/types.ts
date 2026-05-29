@@ -35,6 +35,12 @@ export interface UserProfile {
     inviteUser?: ActionWeight;
     scheduleActivity?: ActionWeight;
     joinActivity?: ActionWeight;
+    voteOnGovernance?: ActionWeight;
+    submitFeedback?: ActionWeight;
+    callDibs?: ActionWeight;
+    acceptOrDeclineDibs?: ActionWeight;
+    nominateMember?: ActionWeight;
+    ratifyNomination?: ActionWeight;
   };
   sessionDuration: TimeRange;
   responseTime: TimeRange;
@@ -77,9 +83,13 @@ export interface SimulationConfig {
       timezone: string;
     };
   };
+  workers?: {
+    count: number;
+    delayMs: { min: number; max: number };
+  };
   users: {
     total: number;
-    concurrentSessions: {
+    concurrentSessions?: {
       min: number;
       max: number;
     };

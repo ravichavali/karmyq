@@ -184,6 +184,10 @@
         {
           "label": "Community Fusion",
           "href": "/docs/guides/fusion"
+        },
+        {
+          "label": "Understanding the Demo",
+          "href": "/docs/guides/demo-data"
         }
       ]
     },

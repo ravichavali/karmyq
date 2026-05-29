@@ -28,6 +28,13 @@ export async function closePool(): Promise<void> {
   }
 }
 
+/**
+ * Get the initialized pool for direct DB queries in workflows
+ */
+export function getPool(): Pool {
+  return pool;
+}
+
 interface DbUser {
   id: string;
   email: string;

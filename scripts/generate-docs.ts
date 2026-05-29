@@ -329,6 +329,7 @@ const GUIDE_ORDER = [
   'interaction-half-life',
   'community-fission',
   'fusion',
+  'demo-data',
 ];
 
 const GUIDE_LABELS: Record<string, string> = {
@@ -354,6 +355,7 @@ const GUIDE_LABELS: Record<string, string> = {
   'interaction-half-life': 'Interaction Half-Life: How Trust Fades and Endures',
   'community-fission': 'Splitting a Community',
   'fusion': 'Community Fusion',
+  'demo-data': 'Understanding the Demo',
 };
 
 const GUIDE_SLUGS: Record<string, string> = {
@@ -379,6 +381,7 @@ const GUIDE_SLUGS: Record<string, string> = {
   'interaction-half-life': 'interaction-half-life',
   'community-fission': 'community-fission',
   'fusion': 'fusion',
+  'demo-data': 'demo-data',
 };
 
 function generateGuides(): GuidePage[] {

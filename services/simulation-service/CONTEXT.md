@@ -17,18 +17,31 @@ Generates realistic synthetic activity on the karmyq.com demo environment. Simul
 ### Key Directories
 ```
 src/
-├── config/           # default.json — user count, concurrent sessions, profile distribution
+├── config/           # default.json — worker count, profile distribution, growth rate
 ├── data/
-│   └── realistic-data.ts  # COMMUNITIES, request templates, PROVIDER_TEMPLATES, name lists
+│   └── realistic-data.ts  # COMMUNITIES, request templates, PROVIDER_TEMPLATES, FEEDBACK_COMMENTS, name lists
 ├── profiles/
-│   └── index.ts      # User behavior profiles (ACTIVE_HELPER, REQUESTER, BROWSER, COMMUNITY_BUILDER, SOCIAL_USER)
-├── types.ts          # UserProfile, ActionWeight, Workflow, SimulatedUser types
-├── simulator.ts      # Main orchestrator — session management, action selection
-├── session-manager.ts
+│   └── index.ts      # User behavior profiles + selectWorkflow() — picks action based on weights
+├── types.ts          # UserProfile, ActionWeight, SimulatedUser, SimulationConfig types
+├── simulator.ts      # Main orchestrator — bootstrapFounders, growth setInterval, WorkerPool launch
+├── worker-pool.ts    # WorkerPool class — 10 concurrent async workers running 24/7
 ├── api-client.ts     # HTTP client wrapping all karmyq API endpoints
-├── db-user-loader.ts # Loads real sim users from PostgreSQL
+├── db-user-loader.ts # Loads real sim users from PostgreSQL; exports getPool()
 └── workflows/        # One file per action type
 ```
+
+### WorkerPool Architecture (Sprint 72)
+
+`WorkerPool` runs 10 independent async worker loops via `Promise.all`. Each worker:
+1. Picks a random DB user
+2. Assigns a profile based on config distribution
+3. Generates a JWT token directly (bypasses login API)
+4. Creates an `ApiClient` instance with the token
+5. Calls `selectWorkflow()` to pick an action weighted by profile
+6. Executes the action; catches and logs errors without stopping the loop
+7. Sleeps 5–30 seconds before the next iteration
+
+Growth (new user registration) runs on a standalone `setInterval` every 3 minutes, decoupled from workers. Business hours gate has been removed — simulation runs 24/7.
 
 ---
 
@@ -40,33 +53,40 @@ src/
 | `offer-workflow.ts` | Offer help on an open request | ACTIVE_HELPER, COMMUNITY_BUILDER |
 | `accept-offer-workflow.ts` | Accept a proposed match | REQUESTER |
 | `complete-match-workflow.ts` | Mark match complete (both sides) | ACTIVE_HELPER, REQUESTER, COMMUNITY_BUILDER |
+| `submit-feedback-workflow.ts` | Rate a completed match (helpfulness/responsiveness/clarity) | ACTIVE_HELPER, REQUESTER, COMMUNITY_BUILDER, SOCIAL_USER |
 | `browse-workflow.ts` | Browse requests (no side effects) | BROWSER, others |
 | `message-workflow.ts` | Send a message in a match conversation | SOCIAL_USER, ACTIVE_HELPER |
 | `join-community-workflow.ts` | Discover and join communities | All profiles (forced if 0 communities) |
-| `create-community-workflow.ts` | Create a new community from template | COMMUNITY_BUILDER |
-| `register-provider-workflow.ts` | Register as a service provider | ACTIVE_HELPER |
-| `create-collective-workflow.ts` | Create a provider collective, link to community | COMMUNITY_BUILDER |
-| `join-collective-workflow.ts` | Join an existing provider collective | ACTIVE_HELPER |
+| `create-community-workflow.ts` | Create a new community from template | COMMUNITY_BUILDER (weight 0.001) |
+| `register-provider-workflow.ts` | Register as a service provider | ACTIVE_HELPER (weight 0.02) |
+| `create-collective-workflow.ts` | Create a provider collective, link to community | COMMUNITY_BUILDER (weight 0.01) |
+| `join-collective-workflow.ts` | Join an existing provider collective | ACTIVE_HELPER (weight 0.01) |
 | `browse-providers-workflow.ts` | Browse service provider listings | BROWSER, ACTIVE_HELPER |
-| `schedule-activity-workflow.ts` | COMMUNITY_BUILDER admins create activities in group communities (2-10 days out) | COMMUNITY_BUILDER |
-| `join-activity-workflow.ts` | Members join open activities in their communities | ACTIVE_HELPER, SOCIAL_USER, COMMUNITY_BUILDER |
+| `schedule-activity-workflow.ts` | Create activities in group communities | COMMUNITY_BUILDER |
+| `join-activity-workflow.ts` | Join open activities in communities | ACTIVE_HELPER, SOCIAL_USER, COMMUNITY_BUILDER |
+| `vote-on-governance-workflow.ts` | Vote on active split/fusion proposals | ACTIVE_HELPER, COMMUNITY_BUILDER, SOCIAL_USER |
+| `dibs-workflow.ts` | Requester calls dibs on a prior provider; provider accepts/declines | REQUESTER, ACTIVE_HELPER |
+| `governance-nominate-workflow.ts` | Nominate high-trust members for moderator; ratify pending nominations | COMMUNITY_BUILDER, ACTIVE_HELPER, SOCIAL_USER |
 
 ---
 
-## Key Behavioral Parameters (Sprint 21)
+## Key Behavioral Parameters (Sprint 72)
 
 | Parameter | Value | File | Notes |
 |-----------|-------|------|-------|
-| Community cap | 15 | `create-community-workflow.ts` | Was 5; raised to accommodate 9 templates + organic growth |
-| Join guard | `>= 6` communities → skip | `join-community-workflow.ts` | Was `>= 3`; target 5-6 communities per user |
-| Open request cap | 2 per user | `request-workflow.ts` | Prevents request glut; skip if user already has 2+ open |
-| Growth rate | 10-15 users/day | `simulator.ts` + `config/default.json` | Configurable via `GROWTH_USERS_PER_DAY` env var |
-| Max users | 500 | `config/default.json` | Configurable via `GROWTH_MAX_USERS` env var |
+| Worker count | 10 | `config/default.json` + `worker-pool.ts` | 10 concurrent async workers running 24/7 |
+| Worker delay | 5–30s | `config/default.json` | Random sleep between actions per worker |
+| Business hours | Disabled | `simulator.ts` (removed gate) | Simulation runs 24/7 |
+| Growth rate | 5 new users/day | `config/default.json` | ~480 growth ticks/day; probability per tick = 5/480 |
+| Max users | 500 | `config/default.json` | |
+| Community cap | 15 | `create-community-workflow.ts` | |
+| Join guard | `>= 6` communities → skip | `join-community-workflow.ts` | |
+| Open request cap | 2 per user | `request-workflow.ts` | |
 | Email domain | `@test.karmyq.com` | `db-user-loader.ts` | All sim user queries filtered to this domain |
-| REQUESTER createRequests weight | 0.3 | `profiles/index.ts` | Was 0.8; reduced to avoid request glut |
-| ACTIVE_HELPER registerAsProvider weight | 0.08 | `profiles/index.ts` | Was 0.05; nudges toward 1:10 provider ratio |
-| Match completion rate | 50% | `complete-match-workflow.ts` | Unchanged from Sprint 20 |
-| Provider service types | ride, tradesperson, tutor, other | `realistic-data.ts` | Unchanged from Sprint 20 |
+| `createCommunities` weight (COMMUNITY_BUILDER) | 0.001 | `profiles/index.ts` | Near-zero — avoids community proliferation |
+| `createCollective` weight (COMMUNITY_BUILDER) | 0.01 | `profiles/index.ts` | Near-zero |
+| `submitFeedback` weight (ACTIVE_HELPER) | 0.25 | `profiles/index.ts` | High weight — drives Social Karma data |
+| `submitFeedback` weight (REQUESTER) | 0.30 | `profiles/index.ts` | Requesters rate their helpers |
 
 ---
 
@@ -139,6 +159,20 @@ Ride providers include `ride_details` (vehicle_type, max_passengers, advance_boo
 ---
 
 ## Recent Changes
+
+### Sprint 72 (2026-05-29)
+- WorkerPool class: 10 concurrent async workers via `Promise.all` running 24/7
+- Business hours gate removed from `simulator.ts` entirely
+- Growth engine moved to standalone `setInterval(3min)`, decoupled from workers
+- `selectWorkflow()` added to `profiles/index.ts` — replaces `performRandomAction()` in simulator
+- 4 new workflows: vote-on-governance, submit-feedback, dibs (call + respond), governance nominations (nominate + ratify)
+- All new api-client methods: `voteOnSplit`, `voteOnFusion`, `submitMatchFeedback`, `callDibs`, `getPendingDibsForProvider`, `acceptDibs`, `declineDibs`, `getGovernanceState`, `getCommunityMembers`, `nominateMember`, `ratifyNomination`
+- Session affinity: if user has open requests, `acceptOffer`/`completeMatch` weights doubled
+- Workflow weight calibration: `createCommunities` → 0.001, `createCollective` → 0.01, `submitFeedback` → 0.25–0.30
+- Request templates expanded: 20+ authentic Portland mutual aid templates in GENERIC_REQUESTS
+- `FEEDBACK_COMMENTS` pool (15 entries) added to `realistic-data.ts`
+- User guide: "Understanding the Demo" added to landing site
+- `getPool()` exported from db-user-loader.ts for direct DB queries in governance workflows
 
 ### Sprint 21 (2026-03-10)
 - Organic user growth engine: 5 founders bootstrapped on startup, 10-15 new users/day via API registration

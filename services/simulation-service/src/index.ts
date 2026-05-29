@@ -31,11 +31,7 @@ function loadConfig(): SimulationConfig {
     users: {
       ...defaultConfig.users,
       total: process.env.TOTAL_USERS ? parseInt(process.env.TOTAL_USERS) : defaultConfig.users.total,
-      concurrentSessions: {
-        min: process.env.MIN_CONCURRENT_SESSIONS ? parseInt(process.env.MIN_CONCURRENT_SESSIONS) : defaultConfig.users.concurrentSessions.min,
-        max: process.env.MAX_CONCURRENT_SESSIONS ? parseInt(process.env.MAX_CONCURRENT_SESSIONS) : defaultConfig.users.concurrentSessions.max
-      },
-      profiles: defaultConfig.users.profiles
+      profiles: defaultConfig.users.profiles,
     },
 
     // Override growth config from environment

@@ -3,7 +3,6 @@
  */
 
 import axios, { AxiosInstance } from 'axios';
-import { SimulatedUser } from './types';
 import { executeWithRetry } from './utils';
 
 export class ApiClient {
@@ -381,6 +380,62 @@ export class ApiClient {
       this.client.post(`/collectives/${collectiveId}/members`, {})
     );
     return response.data.data;
+  }
+
+  async voteOnSplit(communityId: string, splitId: string, vote: 'yes' | 'no' | 'abstain'): Promise<any> {
+    return this.client.post(`/communities/${communityId}/splits/${splitId}/vote`, { vote }).catch(() => null);
+  }
+
+  async voteOnFusion(communityId: string, fusionId: string, vote: 'yes' | 'no' | 'abstain'): Promise<any> {
+    return this.client.post(`/communities/${communityId}/fusions/${fusionId}/vote`, { vote }).catch(() => null);
+  }
+
+  async submitMatchFeedback(matchId: string, data: {
+    from_user_id: string;
+    helpfulness?: number;
+    responsiveness?: number;
+    clarity?: number;
+    comment?: string;
+    allow_featuring?: boolean;
+  }): Promise<any> {
+    return this.client.post(`/matches/${matchId}/feedback`, data).catch(() => null);
+  }
+
+  async callDibs(requestId: string, providerUserId: string): Promise<any> {
+    return this.client.post(`/requests/${requestId}/dibs`, { provider_user_id: providerUserId }).catch(() => null);
+  }
+
+  async getPendingDibsForProvider(): Promise<any[]> {
+    const res = await this.client.get(`/requests/dibs/pending-for-provider`).catch(() => null);
+    return res?.data?.data || [];
+  }
+
+  async acceptDibs(dibsId: string): Promise<any> {
+    return this.client.put(`/requests/dibs/${dibsId}/accept`, {}).catch(() => null);
+  }
+
+  async declineDibs(dibsId: string): Promise<any> {
+    return this.client.put(`/requests/dibs/${dibsId}/decline`, {}).catch(() => null);
+  }
+
+  async getGovernanceState(communityId: string): Promise<any> {
+    const res = await this.client.get(`/communities/${communityId}/governance`).catch(() => null);
+    return res?.data?.data || null;
+  }
+
+  async getCommunityMembers(communityId: string): Promise<any[]> {
+    const res = await this.client.get(`/communities/${communityId}/members`).catch(() => null);
+    return res?.data?.data?.members || [];
+  }
+
+  async nominateMember(communityId: string, nominatedUserId: string, role: 'moderator' | 'admin'): Promise<any> {
+    return this.client.post(`/communities/${communityId}/governance/nominate`, {
+      nominated_user_id: nominatedUserId, role
+    }).catch(() => null);
+  }
+
+  async ratifyNomination(communityId: string, nominationId: string): Promise<any> {
+    return this.client.post(`/communities/${communityId}/governance/ratify/${nominationId}`, {}).catch(() => null);
   }
 
   /**

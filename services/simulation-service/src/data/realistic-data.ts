@@ -15,7 +15,9 @@ export const FIRST_NAMES = [
   'Mohamed', 'Elena', 'David', 'Mei', 'Omar',
   'Sofia', 'Raj', 'Nadia', 'Lucas', 'Hannah',
   'Kwame', 'Isabella', 'Chen', 'Amara', 'Ethan',
-  'Leila', 'Takeshi', 'Zara', 'Andre', 'Ingrid'
+  'Leila', 'Takeshi', 'Zara', 'Andre', 'Ingrid',
+  'Destiny', 'Marcus', 'Amina', 'Rowan', 'Yolanda',
+  'Tariq', 'Brigitte', 'Sione', 'Luz', 'Calvin',
 ];
 
 export const LAST_NAMES = [
@@ -24,7 +26,9 @@ export const LAST_NAMES = [
   'Ahmed', 'Thompson', 'Liu', 'Garcia', 'Nakamura',
   'Martinez', 'Sato', 'Brown', 'Ali', 'Johansson',
   'Nguyen', 'Davis', 'Hernandez', 'Park', 'Wilson',
-  'Kumar', 'White', 'Zhao', 'Lopez', 'Anderson'
+  'Kumar', 'White', 'Zhao', 'Lopez', 'Anderson',
+  'Baptiste', 'Ferreira', 'Ito', 'Olawale', 'Castillo',
+  'Yamamoto', 'Reyes', 'Osei', 'Petrova', 'Mensah',
 ];
 
 // ============================================================================
@@ -142,6 +146,29 @@ export const ACTIVITY_TEMPLATES: Record<string, Array<{title: string, descriptio
   ],
 };
 
+// ============================================================================
+// Feedback Comment Pool
+// Imported by submit-feedback-workflow.ts
+// ============================================================================
+
+export const FEEDBACK_COMMENTS = [
+  'Really helpful, showed up on time and went above and beyond.',
+  'Great communication throughout. Would ask again.',
+  'Friendly and efficient. Made everything easy.',
+  'Genuinely kind — this is what neighbors are for.',
+  'Quick response and followed through exactly as promised.',
+  'A little hard to coordinate timing but ultimately came through.',
+  'Did the job well. No complaints.',
+  'Could not have managed without this help — so grateful.',
+  'Super patient and thoughtful. Real community spirit.',
+  'Flexible scheduling made it work for both of us. Thank you.',
+  'Came through on short notice. Portland neighbors are the best.',
+  'Reliable and kind. Exactly what mutual aid should feel like.',
+  'We ended up having great conversation too. Unexpected bonus!',
+  'Offered to help with other things too. Very generous.',
+  'Did not hesitate when I reached out. That means everything.',
+];
+
 export const FOUNDERS = [
   { firstName: 'Maria', lastName: 'Reyes', bio: 'Community organizer and mutual aid advocate in SE Portland.' },
   { firstName: 'James', lastName: 'Okafor', bio: 'Longtime Northeast Portland resident focused on neighbor connections.' },
@@ -166,7 +193,19 @@ export const GENERIC_REQUESTS = [
   { title: 'Need a ride to my medical appointment', description: 'Have a doctor appointment at OHSU next Tuesday at 2pm. Need a ride from SE Portland and back.', urgency: 'high' },
   { title: 'Help moving boxes to storage unit', description: 'About 15 medium-sized boxes need to go from my garage to a storage unit in Sellwood. Have a truck but need help loading.', urgency: 'medium' },
   { title: 'Need help hanging shelves and curtain rods', description: 'Just moved into a new place and need to hang several shelves and curtain rods. I have the hardware but not confident with a drill.', urgency: 'low' },
-  { title: 'Seeking help clearing out a garage', description: 'Cleaning out years of accumulated stuff. Need help organizing, sorting, and hauling items to donation centers.', urgency: 'low' }
+  { title: 'Seeking help clearing out a garage', description: 'Cleaning out years of accumulated stuff. Need help organizing, sorting, and hauling items to donation centers.', urgency: 'low' },
+  { title: 'Lift from Hawthorne to OHSU on Thursday', description: 'My car is in the shop and I have a medical appointment at OHSU on Thursday morning — would anyone be able to give me a lift from Hawthorne? Happy to return the favor.', urgency: 'high' },
+  { title: 'Help carrying groceries up to my apartment', description: 'I live on the third floor with no elevator and just had knee surgery. Even just 20 minutes of help getting bags upstairs would mean a lot.', urgency: 'medium' },
+  { title: 'Urgent: need someone to sit with my mom this afternoon', description: 'My mom lives alone in Buckman and I got called into work unexpectedly. She is recovering from a fall and should not be alone. I would be incredibly grateful for a few hours of company.', urgency: 'high' },
+  { title: 'Help installing a window AC unit in Sellwood', description: 'I have an AC unit but the installation is tricky from the outside and I cannot do it safely by myself. Paying it forward with homemade tamales!', urgency: 'medium' },
+  { title: 'Looking for someone to help with composting setup', description: 'I got a compost bin from the city but have no idea how to get started. Would love 30 minutes with someone who has done it before — lots of questions.', urgency: 'low' },
+  { title: 'Can someone help me translate at a city housing meeting?', description: 'My grandmother speaks only Vietnamese and has a meeting at Portland Housing Bureau about her voucher. Would anyone be able to come translate? It would change her situation significantly.', urgency: 'high' },
+  { title: 'Light yard work — mostly pulling weeds in Alberta', description: 'I have been sick for two weeks and my yard has gotten out of control. Looking for 2 hours of help weeding the front garden. I have tools and snacks.', urgency: 'low' },
+  { title: 'Help shoveling after the snowstorm', description: 'Cannot clear my sidewalk safely and my neighbors are relying on me to keep the path open. If anyone has a few minutes I would be so grateful — I am on the corner near Division.', urgency: 'high' },
+  { title: 'Need a quiet place to study for my GED exam', description: 'My apartment is loud and I have my GED test in 10 days. Does anyone have a quiet corner I could use for 2-3 hours on weekday mornings? Near St. Johns or Kenton would be ideal.', urgency: 'medium' },
+  { title: 'Someone to help hang a ceiling fan in North Portland', description: 'I bought a ceiling fan at IKEA and realized I am in over my head electrically. Looking for someone comfortable with wiring who can make sure it is done safely.', urgency: 'low' },
+  { title: 'Help setting up auto-pay and budgeting apps', description: 'I am trying to get on top of my finances and keep missing bills. Would love 1-2 hours with someone patient who can walk me through setting up auto-pay and a simple budget tracker. No judgement — just need guidance.', urgency: 'medium' },
+  { title: 'Need rides to dialysis appointments next week in Mississippi district', description: 'My ride arrangement fell through and I have three dialysis appointments next week. Uber is too expensive and the bus is too exhausting after treatment. I live near Mississippi Ave.', urgency: 'high' }
 ];
 
 // ============================================================================
