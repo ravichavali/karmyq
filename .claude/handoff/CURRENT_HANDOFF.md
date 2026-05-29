@@ -1,80 +1,104 @@
-# Sprint 71: v10.0 Polish + karmyq.org Update — COMPLETE ✅
-## karmyq.org Content Upgrade (post-Sprint 71) — COMPLETE ✅
+# Sprint 72: Simulation Engine Overhaul — Ready to Execute
 
 ## Handoff Document
 
 **Date**: 2026-05-29
-**Current Version**: v10.0.0 ✅ (shipped)
-**Status**: Sprint 71 complete. karmyq.org content upgrade complete. Trust Network Arc done. Next sprint TBD — start with /sprint-planning.
+**Current Version**: v10.0.0 → v10.1.0 (this sprint)
+**Status**: Sprint 71 + karmyq.org content complete. Sprint 72 planned and ready to execute.
 
 ---
 
-## karmyq.org Post-Sprint Content (3 commits shipped to master)
+## Quick Start
 
-All changes live in `apps/landing/` (the Next.js app that serves karmyq.org).
+1. Read this handoff
+2. Create branch: `git checkout -b feature/sprint-72-simulation-overhaul`
+3. Open plan: `docs/superpowers/plans/2026-05-29-sprint-72-simulation-overhaul.md`
+4. Run: `/execute-plan` (uses superpowers:subagent-driven-development)
 
-| Commit | Change |
+---
+
+## Sprint 72 Goal
+
+*Replace the single-loop simulation engine with 10 concurrent async workers running 24/7, so the Karmyq demo looks like a living mutual aid network — not a test fixture.*
+
+---
+
+## Public Launch Polish Arc
+
+Sprint 72 is the start of a multi-sprint arc targeting a **June 19th public launch**. Each sprint polishes one service with all five tracks: functional, tests, docs, mission alignment, UI consistency.
+
+| Sprint | Service | Status |
+|--------|---------|--------|
+| **72** | Simulation Engine | Ready to execute |
+| **73** | Request Service | TBD |
+| **74** | Community / Governance | TBD |
+| **75** | Feed + Discovery | TBD |
+| **76+** | Final pass + launch prep | TBD |
+
+---
+
+## What's Wrong With the Current Simulation
+
+- **Single-loop architecture**: one async loop, 5-20 sessions scheduled sequentially per tick
+- **Business hours only**: 09:00–21:00 PT — simulator sleeps 12 hours/day
+- **Almost no trust edges**: trust edges are built via `match_completed` Bull event, but so few matches complete that the trust graph is nearly empty
+- **Small user set**: `@test.karmyq.com` users grow slowly (12/day) and new envs start cold
+
+---
+
+## The Fix (Sprint 72)
+
+| Change | Detail |
 |--------|--------|
-| `0718045` | Sprint 71 — ego-network anchor, fission bipartite layout |
-| `a68e48a` | Governance manifesto copy + principles v3 |
-| `0c86e4a` | Meta title + description updated to manifesto voice |
-
-### What landed
-
-**`HowItWorks.tsx`** — governance section fully rewritten:
-- 5 paragraphs: sovereignty → initialization → trust-gated eligibility → no permanent roles → cross-community standing
-- New h2 "How communities grow and change." with manifesto-voice fission/fusion (no implementation language)
-- "Sisters remember they share a past." / "The platform provides the mechanics; the community provides the judgment."
-
-**`Principles.tsx`** — all 6 card descriptions updated to v3 final copy (tighter, more declarative)
-
-**`layout.tsx`** — meta title: "Meaning-making, not accounting" · description: functional subheadline, applied to both `<meta>` and OpenGraph
-
-**Already-correct (no changes needed):**
-- `TheThinking.tsx` — "Trust has been taken from us" already had surveillance-accurate version
-- `DeeperSections.tsx` — trust evolution paragraph already present
-- `Footer.tsx` — already simplified
-- `FadingTimeline.tsx` — diverse name set already correct
+| `WorkerPool` class | 10 concurrent async workers via `Promise.all`, each independently sampling users |
+| 24/7 operation | Business hours gate removed from `simulator.ts` entirely |
+| Bootstrap guard | `bootstrapMinUsers()` ensures ≥30 users exist before workers start |
+| Growth engine | Moves to standalone `setInterval(3min)`, decoupled from workers |
+| Session affinity | Workers prefer to advance open requests over creating new ones (probability weight, not state) |
+| Mission-aligned content | Request templates expanded to 20+/type, Portland neighborhood anchors, authentic voice |
+| User guide | "Understanding the Demo" added to landing site |
 
 ---
 
----
+## ⚠️ Critical Implementation Notes
 
-## v10.0 Trust Network Arc — COMPLETE
-
-| Sprint | Theme | Status |
-|--------|-------|--------|
-| **65** | Trust Graph Foundation | ✅ Shipped v9.50.0 |
-| **66** | Trust Graph Visualization + Governance ADR | ✅ Shipped v9.60.0 |
-| **67** | Ego-Network + Governance | ✅ Shipped v9.70.0 |
-| **68** | Interaction Half-Life (Ebbinghaus decay) | ✅ Shipped v9.80.0 |
-| **69** | Fission Mechanism | ✅ Shipped v9.90.0 |
-| **70** | Fusion Mechanism | ✅ Shipped v9.95.0 |
-| **71** | v10.0 Polish + karmyq.org update | ✅ **Shipped v10.0.0** |
+1. **Trust edges are built via Bull queue, not API**: `match_completed` event → social-graph subscriber → `upsertTrustEdge()`. No direct trust API call needed.
+2. **Workers are async, not OS threads**: `Promise.all` over 10 async loops is correct — Node.js event loop handles I/O concurrency.
+3. **Business hours gate must be removed from code**: Remove the `isBusinessHours()` conditional in `simulator.ts` — don't just set `enabled: false` in config.
+4. **Worker errors must not propagate**: Each worker loop needs `try/catch` that logs and continues, not re-throws.
+5. **`bootstrapMinUsers` runs before WorkerPool.start()**: Workers must not start until DB has ≥30 users.
+6. **Session affinity = probability weight only**: If sampled user has open requests, weight toward `acceptOffer`/`completeMatch` — no stateful session tracking.
+7. **nav.json revert bug**: After editing `nav.json`, always `grep "demo-data" apps/landing/src/data/docs/nav.json` to verify it persisted — if not, re-apply and add slug to the hardcoded list in `scripts/generate-docs.ts`.
 
 ---
 
-## What Sprint 71 Built (complete ✅)
+## Key Files for Sprint 72
 
-- **Ego-network anchor**: Current user node pinned at `fx: 0, fy: 0` in `fgData` useMemo. `warmupTicks={120}`, `cooldownTicks={50}` for faster settle.
-- **Fission bipartite layout**: Custom d3 x-force applied via `fgRef` post-mount. Group A nodes attract to `graphWidth * 0.28`, Group B to `graphWidth * 0.72`. Named `'x-group'` to avoid overwriting d3 centering force.
-- **karmyq.org lifecycle narrative**: 3 paragraphs added to "How communities govern themselves" in `HowItWorks.tsx` — size alert → fission → fusion.
-- **Version bump**: Root `package.json` 9.50.0 → 10.0.0.
-- **User guide**: `docs/guides/trust-graph.md` + `apps/landing/src/data/docs/guides/trust-graph.json` — "Your position" anchor note + "Fission Group Assignment View" section.
-- **TDD tests**: `services/community-service/tests/tdd/sprint-71-v10-polish.test.ts` (auto-promoted to regression: 3 pass).
-- All 200+ unit + regression tests pass across all services.
+| File | Change |
+|------|--------|
+| `services/simulation-service/src/worker-pool.ts` | **NEW** — WorkerPool class |
+| `services/simulation-service/src/simulator.ts` | Wire WorkerPool, extract growth to setInterval, remove business hours gate |
+| `services/simulation-service/src/config/default.json` | Add workers config, disable business hours, add bootstrapMinUsers |
+| `services/simulation-service/src/profiles/index.ts` | Session affinity weight adjustment |
+| `services/simulation-service/src/data/realistic-data.ts` | Expand request templates, add neighborhood anchors |
+| `apps/landing/src/data/docs/guides/demo-data.json` | **NEW** — "Understanding the Demo" user guide |
+| `apps/landing/src/data/docs/nav.json` | Add demo-data to User Guides section |
+| `services/simulation-service/CONTEXT.md` | Architecture update |
+| `services/simulation-service/tests/tdd/sprint-72-simulation-engine.test.ts` | **NEW** — WorkerPool + invariant tests |
 
 ---
 
-## Next Sprint Direction
+## Per-Sprint Polish Checklist (applies to Sprint 72 and all future polish sprints)
 
-The Trust Network Arc is complete at v10.0.0. Next sprint direction is TBD.
+Every sprint in this arc must complete all five tracks:
 
-**Candidates for Sprint 72:**
-- Mobile app parity (fission/fusion flows on React Native)
-- Request matching improvements
-- Community discovery / public listings
-- Performance: trust score caching at scale
+| Track | Sprint 72 scope |
+|-------|----------------|
+| **Functional** | WorkerPool, 24/7 operation, bootstrap guard, workflow follow-through |
+| **Tests** | WorkerPool unit tests, behavioral invariants, content quality assertions |
+| **Docs** | CONTEXT.md updated, user guide created |
+| **Mission alignment** | Request templates rewritten to authentic mutual aid voice |
+| **UI consistency** | N/A (simulation is backend-only) |
 
 ---
 
@@ -83,7 +107,7 @@ The Trust Network Arc is complete at v10.0.0. Next sprint direction is TBD.
 - **Landing page docs**: `apps/landing/src/data/docs/` is in `.gitignore` — always `git add -f`
 - **ADR numbering**: Next ADR is **059**
 - **ADR-057 and ADR-058**: Already `implemented` in both source `.md` and landing `.json`
-- **TDD test placement**: Community tests in `services/community-service/tests/tdd/`
+- **TDD test placement**: Community tests in `services/community-service/tests/tdd/`; simulation tests in `services/simulation-service/tests/tdd/`
 - **JWT field** is `communities` not `communityMemberships` — always `user.communities ?? []`
 - **`git add` on CLAUDE.md**: Tracked as lowercase `claude.md` — always `git add claude.md`
 - **Solo dev — no worktrees**: Work directly on feature branches
@@ -94,7 +118,7 @@ The Trust Network Arc is complete at v10.0.0. Next sprint direction is TBD.
 - **trust_edges normalized constraint**: `social_graph.trust_edges` requires `user_id_a::text < user_id_b::text` — always sort: `const [a, b] = [uid1, uid2].sort()`
 - **community_links UNIQUE**: fusion_origin links must be (merged↔A) and (merged↔B), NOT (A↔B)
 - **TrustGraph fission mode ref**: `fgRef.current.d3Force(...)` is only callable after mount — always guard with `if (!fgRef.current) return`
-- **Root package.json version**: Now 10.0.0.
+- **Root package.json version**: 10.0.0 (bump to 10.1.0 in this sprint)
 
 ---
 
