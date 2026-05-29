@@ -84,13 +84,16 @@ The dominant workflow cycle should be:
 
 This is what real mutual aid looks like. The trust graph builds naturally from completed matches.
 
+### New user registration
+New user rate drops to **5/day** (from 12). The DB already has users. New registrations are a slow organic trickle.
+
 ### Low-frequency governance — near-zero
 | Workflow | Current weight | Target |
 |----------|---------------|--------|
-| `createCommunities` | 0.05 | 0.005 |
-| `createCollective` | 0.10 | 0.02 |
-| `joinCommunity` | 0.30 | 0.10 (communities already exist and are populated) |
-| `registerAsProvider` | 0.08–0.15 | 0.03 (one-time, most users already registered) |
+| `createCommunities` | 0.05 | 0.001 |
+| `createCollective` | 0.10 | 0.01 |
+| `joinCommunity` | 0.30 | 0.08 (communities already populated) |
+| `registerAsProvider` | 0.08–0.15 | 0.02 (most already registered) |
 
 **Fission and fusion initiation** workflows are not added — these remain near-zero frequency events initiated by admins. However, once a split or fusion proposal enters `voting` status, members need to participate or the vote will stall forever.
 
@@ -101,6 +104,14 @@ A single `vote-on-governance-workflow.ts` handles this:
 4. Repeat for `communities.fusion_proposals` in the same pass
 
 This workflow fires at very low weight (0.03–0.05) but will advance any in-flight governance proposal to quorum organically. The auto-approve logic in the vote endpoint handles the rest.
+
+### Missing workflows now added
+
+**`submit-feedback-workflow.ts`** — The most impactful gap. After a match completes, both sides should rate the interaction via `POST /matches/:matchId/feedback` with helpfulness/responsiveness/clarity (1–5). Without this, the Social Karma system has no data. Weight: 0.20–0.30 on REQUESTER and ACTIVE_HELPER.
+
+**`dibs-workflow.ts`** — Provider-initiated matching path. A provider browses open requests and calls dibs (`POST /requests/:id/dibs`). The requester sees the dibs and accepts or declines. Two entry points: `callDibsWorkflow` (ACTIVE_HELPER, 0.10) and `respondToDibsWorkflow` (REQUESTER, 0.10). Shows the provider UX in the demo.
+
+**`governance-nominate-workflow.ts`** — Over time, trusted members should get elevated roles. COMMUNITY_BUILDER occasionally nominates a high-trust member for `moderator`. Other members ratify pending nominations. Two entry points: `nominateMemberWorkflow` (COMMUNITY_BUILDER, 0.02) and `ratifyNominationWorkflow` (COMMUNITY_BUILDER + ACTIVE_HELPER + SOCIAL_USER, 0.03–0.05). Note: nomination endpoint requires nominated user's trust score ≥ eligibility_threshold (default 50) — only nominate active users with real interaction history.
 
 ### New user registration
 New user registration (`register-user-workflow.ts`) stays as a low-frequency growth action within the normal workflow distribution — it is **not** a special bootstrap phase. The DB already has users. New users join organically at the configured growth rate.

@@ -54,8 +54,11 @@ Sprint 72 is the start of a multi-sprint arc targeting a **June 19th public laun
 | 24/7 operation | Business hours gate removed from `simulator.ts` entirely |
 | Growth engine | Moves to standalone `setInterval(3min)`, decoupled from workers |
 | Session affinity | Workers prefer to advance open requests over creating new ones (probability weight, not state) |
-| Workflow calibration | `createCommunities` → 0.005, `createCollective` → 0.02; everyday loop dominates; fission/fusion initiation NOT added |
-| Governance voting | New `vote-on-governance-workflow.ts` — participates in active split/fusion votes so proposals reach quorum |
+| Workflow calibration | `createCommunities` → 0.001, `createCollective` → 0.01, new users 5/day; everyday loop dominates |
+| Governance voting | `vote-on-governance-workflow.ts` — votes on active split/fusion proposals so they reach quorum |
+| Post-match feedback | `submit-feedback-workflow.ts` — rates helpfulness/responsiveness/clarity after completed matches (Social Karma data) |
+| Dibs | `dibs-workflow.ts` — provider calls dibs on request; requester accepts/declines |
+| Governance nominations | `governance-nominate-workflow.ts` — nominates high-trust members; others ratify |
 | Mission-aligned content | Request templates expanded to 20+/type, Portland neighborhood anchors, authentic voice |
 | User guide | "Understanding the Demo" added to landing site |
 
@@ -70,7 +73,10 @@ Sprint 72 is the start of a multi-sprint arc targeting a **June 19th public laun
 5. **No bootstrap guard**: The DB already has users — workers sample them immediately. New user registration stays as a low-frequency workflow action.
 6. **Session affinity = probability weight only**: If sampled user has open requests, weight toward `acceptOffer`/`completeMatch` — no stateful session tracking.
 7. **Community/collective creation = near-zero**: `createCommunities` → 0.005, `createCollective` → 0.02. Fission/fusion *initiation* should NOT be added — only voting on existing proposals.
-8. **Governance voting uses DB query + API vote**: Query `communities.split_proposals`/`fusion_proposals` WHERE `status = 'voting'` (simulation has pool access). Check `split_votes`/`fusion_votes` to avoid double-voting. Vote 'yes' 80% of the time. Vote endpoint at `POST /communities/:communityId/splits/:splitId/vote`. Verify column name for voter ID in migration SQL before assuming.
+8. **Governance voting uses DB query + API vote**: Query `communities.split_proposals`/`fusion_proposals` WHERE `status = 'voting'`. Check `split_votes`/`fusion_votes` to avoid double-voting. Verify voter ID column name in migration SQL before coding.
+9. **Post-match feedback is a separate endpoint**: `POST /matches/:matchId/feedback` with `{ from_user_id, helpfulness, responsiveness, clarity, comment }`. NOT part of `completeMatch`. This feeds the Social Karma system.
+10. **Dibs**: `POST /requests/:id/dibs` (provider), `PUT /dibs/:id/accept` or `decline` (requester). Read `dibs.ts` before coding — verify exact body shape and what `GET /requests/:id/dibs-candidate` returns.
+11. **Governance nominations require trust threshold**: Nomination rejects if nominee trust score < `eligibility_threshold` (default 50). Only nominate users with real interaction history (completed matches → trust edges).
 9. **nav.json revert bug**: After editing `nav.json`, always `grep "demo-data" apps/landing/src/data/docs/nav.json` to verify it persisted — if not, re-apply and add slug to the hardcoded list in `scripts/generate-docs.ts`.
 
 ---
@@ -83,8 +89,11 @@ Sprint 72 is the start of a multi-sprint arc targeting a **June 19th public laun
 | `services/simulation-service/src/simulator.ts` | Wire WorkerPool, extract growth to setInterval, remove business hours gate |
 | `services/simulation-service/src/config/default.json` | Add workers config, disable business hours, add bootstrapMinUsers |
 | `services/simulation-service/src/workflows/vote-on-governance-workflow.ts` | **NEW** — vote on active split/fusion proposals |
-| `services/simulation-service/src/api-client.ts` | Add `voteOnSplit()` and `voteOnFusion()` methods |
-| `services/simulation-service/src/profiles/index.ts` | Workflow calibration + governance voting weights |
+| `services/simulation-service/src/workflows/submit-feedback-workflow.ts` | **NEW** — post-match helpfulness/responsiveness/clarity ratings |
+| `services/simulation-service/src/workflows/dibs-workflow.ts` | **NEW** — provider calls dibs; requester accepts/declines |
+| `services/simulation-service/src/workflows/governance-nominate-workflow.ts` | **NEW** — nominate high-trust members; ratify nominations |
+| `services/simulation-service/src/api-client.ts` | Add vote, feedback, dibs, nominate, ratify methods |
+| `services/simulation-service/src/profiles/index.ts` | Full workflow calibration with all new workflows |
 | `services/simulation-service/src/data/realistic-data.ts` | Expand request templates, add neighborhood anchors |
 | `apps/landing/src/data/docs/guides/demo-data.json` | **NEW** — "Understanding the Demo" user guide |
 | `apps/landing/src/data/docs/nav.json` | Add demo-data to User Guides section |
