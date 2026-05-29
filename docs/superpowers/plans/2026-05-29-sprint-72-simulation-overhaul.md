@@ -5,7 +5,7 @@
 
 **Goal:** Replace the single-loop simulation engine with 10 concurrent async workers running 24/7, producing realistic mutual aid activity and a populated trust graph.
 
-**Architecture:** New `WorkerPool` class runs 10 independent async worker loops via `Promise.all`. Growth engine moves to a standalone `setInterval`. Business hours gate removed entirely.
+**Architecture:** New `WorkerPool` class runs 10 independent async worker loops via `Promise.all`. Growth engine moves to a standalone `setInterval`. Business hours gate removed entirely. Workflow weights calibrated so everyday mutual aid (request → offer → accept → complete) dominates; community/collective creation near-zero.
 
 **Tech Stack:** Node.js/Express/TypeScript, Next.js 14, PostgreSQL 15, Bull queue.
 
@@ -23,8 +23,8 @@
 | File | Change |
 |------|--------|
 | `services/simulation-service/src/simulator.ts` | Wire WorkerPool, extract growth to setInterval, remove business hours gate |
-| `services/simulation-service/src/config/default.json` | Add worker config, disable business hours, add bootstrapMinUsers |
-| `services/simulation-service/src/profiles/index.ts` | Adjust workflow weights for better follow-through (advance open requests) |
+| `services/simulation-service/src/config/default.json` | Add worker config, disable business hours |
+| `services/simulation-service/src/profiles/index.ts` | Calibrate weights: near-zero for community/collective creation, high for everyday mutual aid loop |
 | `services/simulation-service/src/data/realistic-data.ts` | Expand request templates to 20+ per type, add geographic anchoring |
 | `services/simulation-service/CONTEXT.md` | Update architecture section |
 | `apps/landing/src/data/docs/guides/demo-data.json` | New user guide: "Understanding the Demo" |
@@ -36,12 +36,13 @@
 
 1. **Trust edges via Bull queue only**: `match_completed` event → social-graph subscriber → `upsertTrustEdge()`. No direct trust API call needed from simulation.
 2. **Workers are async, not OS threads**: `Promise.all` over 10 async loops is correct. Node.js event loop handles I/O concurrency.
-3. **Business hours gate must be removed from code**: Remove the `isBusinessHours()` conditional in `simulator.ts` — don't just set `enabled: false`.
+3. **Business hours gate must be removed from code**: Remove the `isBusinessHours()` conditional in `simulator.ts` — don't just set `enabled: false` in config.
 4. **Worker errors must not propagate**: Each worker loop needs `try/catch` that logs and continues, not re-throws.
 5. **Growth engine to standalone setInterval**: Extract `maybeRegisterNewUser()` from the main loop into `setInterval(growthTick, 3 * 60 * 1000)`.
-6. **`bootstrapMinUsers` runs before WorkerPool.start()**: Workers must not start until DB has ≥30 users.
-7. **Session affinity = probability weight only**: If sampled user has open requests, weight toward `acceptOffer` or `completeMatch` workflow — no stateful session tracking.
-8. **`git add claude.md`** (lowercase) when staging CLAUDE.md on Windows.
+6. **No bootstrap guard**: The DB already has users — workers sample them immediately on start. New user registration stays as a low-frequency workflow action.
+7. **Session affinity = probability weight only**: If sampled user has open requests, weight toward `acceptOffer` or `completeMatch` — no stateful session tracking.
+8. **Community/collective creation = near-zero**: `createCommunities` → 0.005, `createCollective` → 0.02. Fission and fusion workflows do NOT exist in the simulation and should NOT be added.
+9. **`git add claude.md`** (lowercase) when staging CLAUDE.md on Windows.
 
 ---
 
@@ -134,41 +135,7 @@ export class WorkerPool {
 
 ---
 
-## Task 3: Bootstrap Guard
-
-**Files:**
-- Modify: `services/simulation-service/src/simulator.ts`
-
-- [ ] Add `bootstrapMinUsers()` method to `Simulator` that registers users in parallel batches of 5 until `getUserCount() >= config.growth.bootstrapMinUsers`:
-
-```typescript
-private async bootstrapMinUsers(): Promise<void> {
-  const { bootstrapMinUsers = 30, emailDomain, password } = this.config.growth;
-  let count = await getUserCount();
-  if (count >= bootstrapMinUsers) {
-    console.log(`✅ Bootstrap check: ${count} users already exist`);
-    return;
-  }
-  console.log(`🌱 Fast bootstrap: registering users until ${bootstrapMinUsers} exist...`);
-  while (count < bootstrapMinUsers) {
-    const batch = Math.min(5, bootstrapMinUsers - count);
-    await Promise.all(
-      Array.from({ length: batch }, () =>
-        registerNewUser(this.config.apiBaseUrl, emailDomain, password).catch(() => null)
-      )
-    );
-    count = await getUserCount();
-    console.log(`[bootstrap] ${count}/${bootstrapMinUsers} users`);
-  }
-  console.log(`✅ Bootstrap complete: ${count} users`);
-}
-```
-
-- [ ] Add `bootstrapMinUsers` field to `SimulationConfig.growth` type and the growth config in `default.json`.
-
----
-
-## Task 4: Refactor `simulator.ts` — Wire WorkerPool + Remove Business Hours
+## Task 3: Refactor `simulator.ts` — Wire WorkerPool + Remove Business Hours
 
 **Files:**
 - Modify: `services/simulation-service/src/simulator.ts`
@@ -185,7 +152,6 @@ async start() {
   this.isRunning = true;
 
   await this.bootstrapFounders();
-  await this.bootstrapMinUsers();
 
   // Growth engine: register new users on a fixed interval
   const growthInterval = setInterval(
@@ -209,7 +175,7 @@ async start() {
 
 ---
 
-## Task 5: Update Config
+## Task 4: Update Config
 
 **Files:**
 - Modify: `services/simulation-service/src/config/default.json`
@@ -246,7 +212,6 @@ async start() {
   "growth": {
     "newUsersPerDay": 15,
     "maxUsers": 500,
-    "bootstrapMinUsers": 30,
     "emailDomain": "test.karmyq.com",
     "password": "password123"
   },
@@ -261,18 +226,32 @@ async start() {
 
 ---
 
-## Task 6: Session Affinity — Workflow Priority Weights
+## Task 5: Workflow Calibration
 
 **Files:**
 - Modify: `services/simulation-service/src/profiles/index.ts`
 
-- [ ] In `selectWorkflow()` (or wherever the workflow is chosen for a user), add an affinity check: if the sampled user has open requests, increase the weight of `acceptOfferWorkflow` and `completeMatchWorkflow` by 2x. This ensures lifecycle follow-through without complex state tracking.
+The goal: the dominant activity should be the everyday mutual aid lifecycle (browse → offer → accept → complete). Governance actions (create community, create collective) should be rare enough that they almost never fire.
 
-- [ ] Check how the existing `profiles/index.ts` selects workflows, and thread the user's open-request state through if not already available. If an API call is needed to check open requests, make it part of the workflow selector (it's already called in `createRequestWorkflow` to check the cap).
+- [ ] Update `COMMUNITY_BUILDER` profile weights:
+  - `createCommunities`: `0.05` → `0.005`
+  - `createCollective`: `0.10` → `0.02`
+  - `joinCommunity`: `0.30` → `0.10` (communities are already populated)
+  - `registerAsProvider`: `0.15` → `0.03` (most users already registered as providers)
+  - Compensate by increasing `offerHelp`, `acceptOffers`, `completeMatches` proportionally
+
+- [ ] Update `ACTIVE_HELPER` profile weights:
+  - `registerAsProvider`: `0.08` → `0.02` (most already registered)
+  - `joinCollective`: `0.05` → `0.01`
+  - Increase `completeMatches` and `offerHelp` to compensate
+
+- [ ] Add session affinity: in the workflow selector (wherever `profiles/index.ts` builds the action list for a user), if the user has open requests (check via API or pass as context), double the weight of `acceptOffers` and `completeMatches`. This ensures lifecycle follow-through. Keep it as a probability tweak — no stateful session tracking.
+
+- [ ] Verify no fission or fusion workflow files exist in `workflows/` — they should not be added.
 
 ---
 
-## Task 7: Expand Request Templates — Mission Alignment
+## Task 6: Expand Request Templates — Mission Alignment
 
 **Files:**
 - Modify: `services/simulation-service/src/data/realistic-data.ts`
@@ -293,7 +272,7 @@ async start() {
 
 ---
 
-## Task 8: User Guide — "Understanding the Demo"
+## Task 7: User Guide — "Understanding the Demo"
 
 **Files:**
 - Create: `apps/landing/src/data/docs/guides/demo-data.json`
@@ -322,14 +301,14 @@ async start() {
 
 ---
 
-## Task 9: CONTEXT.md Update
+## Task 8: CONTEXT.md Update
 
 **Files:**
 - Modify: `services/simulation-service/CONTEXT.md`
 
 - [ ] Update "Architecture" section to describe WorkerPool (new) and remove SessionManager (retired).
 
-- [ ] Update "Key Behavioral Parameters" table with new values (worker count 10, bootstrapMinUsers 30, newUsersPerDay 15, business hours disabled).
+- [ ] Update "Key Behavioral Parameters" table with new values (worker count 10, newUsersPerDay 15, business hours disabled, `createCommunities` 0.005, `createCollective` 0.02).
 
 - [ ] Add "Recent Changes" entry for Sprint 72 with date 2026-05-29.
 
@@ -337,7 +316,7 @@ async start() {
 
 ---
 
-## Task 10: TDD Tests
+## Task 9: TDD Tests
 
 **Files:**
 - Create: `services/simulation-service/tests/tdd/sprint-72-simulation-engine.test.ts`
@@ -347,9 +326,10 @@ async start() {
   - Verify workers restart after a single workflow error (error isolation)
   - Verify worker count matches config
 
-- [ ] Write behavioral invariant tests (using DB or mocked API client):
+- [ ] Write behavioral invariant tests:
   - A user with open requests is more likely to advance them than create new ones (session affinity probability check)
-  - `bootstrapMinUsers()` registers users until threshold is met
+  - `createCommunities` weight on COMMUNITY_BUILDER profile is ≤ 0.01
+  - `createCollective` weight on COMMUNITY_BUILDER profile is ≤ 0.03
 
 - [ ] Write content quality assertions for `realistic-data.ts`:
   - Each request type has ≥10 template variants
@@ -363,7 +343,7 @@ async start() {
 
 ---
 
-## Task 11: Type Check + Pre-Push Verification
+## Task 10: Type Check + Pre-Push Verification
 
 **Files:** None
 
@@ -394,7 +374,7 @@ async start() {
 
 ---
 
-## Task 12: Merge + Deploy
+## Task 11: Merge + Deploy
 
 - [ ] Run the `/deploy` skill to merge to master, push, and monitor GitHub Actions.
 - [ ] After deploy: SSH to karmyq.com and restart simulation service:

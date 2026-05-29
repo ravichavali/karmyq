@@ -54,7 +54,7 @@ Sessions are scheduled sequentially in one loop tick. On a slow API, this means 
 
 ```
 Simulator.start()
-  ├── bootstrapMinUsers()      ← ensure ≥30 users before workers start
+  ├── bootstrapFounders()      ← 5 named founders (existing)
   ├── WorkerPool.start(10)     ← 10 concurrent workers, Promise.all
   │     Worker 0: getRandomUser → token → selectWorkflow → execute → delay(5-30s) → repeat
   │     Worker 1: same, independent
@@ -70,15 +70,35 @@ Each worker is a `while (true)` async loop. Errors are caught per-worker — a s
 
 ---
 
-## Bootstrap Guard
+## Workflow Frequency Calibration
 
-If `getUserCount() < bootstrapMinUsers` (default: 30) on startup, the simulator registers users in parallel (5 at a time) until the threshold is reached before starting workers. This ensures new demo environments are never empty.
+The current simulation has two problems: it creates many requests but completes few of them, and rare governance actions (community creation, collective creation) fire too frequently relative to everyday mutual aid activity.
 
----
+### Everyday loop — high frequency
+The dominant workflow cycle should be:
+1. Browse open requests
+2. Offer help on one
+3. Accept an offer (requester side)
+4. Complete the match (both sides)
+5. Send messages during the match
 
-## Workflow Follow-Through
+This is what real mutual aid looks like. The trust graph builds naturally from completed matches.
 
-The current simulation creates many requests but few completions because the same user who creates a request rarely gets picked again to accept an offer and complete it. Workers will be given **session affinity**: a worker that creates a request will, on its next iteration, check that user's open requests first and prefer to advance them (accept an offer or complete a match) before picking a new action. This is a simple priority weight adjustment in the workflow selector, not a stateful session system.
+### Low-frequency governance — near-zero
+| Workflow | Current weight | Target |
+|----------|---------------|--------|
+| `createCommunities` | 0.05 | 0.005 |
+| `createCollective` | 0.10 | 0.02 |
+| `joinCommunity` | 0.30 | 0.10 (communities already exist and are populated) |
+| `registerAsProvider` | 0.08–0.15 | 0.03 (one-time, most users already registered) |
+
+Fission and fusion workflows do **not** exist in the simulation and will not be added in this sprint. They are platform features, not simulation scenarios.
+
+### New user registration
+New user registration (`register-user-workflow.ts`) stays as a low-frequency growth action within the normal workflow distribution — it is **not** a special bootstrap phase. The DB already has users. New users join organically at the configured growth rate.
+
+### Session affinity (follow-through)
+Workers will prefer to advance a sampled user's open requests (accept an offer, complete a match) over creating new ones. This is a probability weight adjustment in the workflow selector — not a stateful session system.
 
 ---
 
@@ -105,7 +125,6 @@ No new endpoints.
 | `workers.count` | (new) | `10` |
 | `workers.delayMs.min` | (new) | `5000` |
 | `workers.delayMs.max` | (new) | `30000` |
-| `growth.bootstrapMinUsers` | (new) | `30` |
 | `growth.newUsersPerDay` | `12` | `15` |
 
 ---
@@ -158,4 +177,4 @@ Content: Explains that karmyq.com runs a live simulation of a mutual aid network
 
 7. **Session affinity is a priority weight only**: Do not build a stateful session system. A worker picks the "advance open request" workflow with higher probability when the sampled user has one. Simple probability tweak, not architecture.
 
-8. **`bootstrapMinUsers` runs before `WorkerPool.start()`**: Workers must not start until the DB has enough users, or they will spin in empty-result loops.
+8. **No bootstrap guard**: The DB already has users. Workers sample existing users immediately on start. New user registration is a low-frequency workflow action, not a startup phase. Do not add a bulk bootstrap step.

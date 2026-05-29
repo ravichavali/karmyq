@@ -52,9 +52,9 @@ Sprint 72 is the start of a multi-sprint arc targeting a **June 19th public laun
 |--------|--------|
 | `WorkerPool` class | 10 concurrent async workers via `Promise.all`, each independently sampling users |
 | 24/7 operation | Business hours gate removed from `simulator.ts` entirely |
-| Bootstrap guard | `bootstrapMinUsers()` ensures ≥30 users exist before workers start |
 | Growth engine | Moves to standalone `setInterval(3min)`, decoupled from workers |
 | Session affinity | Workers prefer to advance open requests over creating new ones (probability weight, not state) |
+| Workflow calibration | `createCommunities` → 0.005, `createCollective` → 0.02, `joinCommunity` → 0.10; everyday loop dominates |
 | Mission-aligned content | Request templates expanded to 20+/type, Portland neighborhood anchors, authentic voice |
 | User guide | "Understanding the Demo" added to landing site |
 
@@ -66,9 +66,10 @@ Sprint 72 is the start of a multi-sprint arc targeting a **June 19th public laun
 2. **Workers are async, not OS threads**: `Promise.all` over 10 async loops is correct — Node.js event loop handles I/O concurrency.
 3. **Business hours gate must be removed from code**: Remove the `isBusinessHours()` conditional in `simulator.ts` — don't just set `enabled: false` in config.
 4. **Worker errors must not propagate**: Each worker loop needs `try/catch` that logs and continues, not re-throws.
-5. **`bootstrapMinUsers` runs before WorkerPool.start()**: Workers must not start until DB has ≥30 users.
+5. **No bootstrap guard**: The DB already has users — workers sample them immediately. New user registration stays as a low-frequency workflow action.
 6. **Session affinity = probability weight only**: If sampled user has open requests, weight toward `acceptOffer`/`completeMatch` — no stateful session tracking.
-7. **nav.json revert bug**: After editing `nav.json`, always `grep "demo-data" apps/landing/src/data/docs/nav.json` to verify it persisted — if not, re-apply and add slug to the hardcoded list in `scripts/generate-docs.ts`.
+7. **Community/collective creation = near-zero**: `createCommunities` → 0.005, `createCollective` → 0.02. Fission/fusion workflows do NOT exist in the simulation and should NOT be added.
+8. **nav.json revert bug**: After editing `nav.json`, always `grep "demo-data" apps/landing/src/data/docs/nav.json` to verify it persisted — if not, re-apply and add slug to the hardcoded list in `scripts/generate-docs.ts`.
 
 ---
 
