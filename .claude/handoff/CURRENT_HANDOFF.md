@@ -1,10 +1,42 @@
 # Sprint 71: v10.0 Polish + karmyq.org Update — COMPLETE ✅
+## karmyq.org Content Upgrade (post-Sprint 71) — COMPLETE ✅
 
 ## Handoff Document
 
-**Date**: 2026-05-28
+**Date**: 2026-05-29
 **Current Version**: v10.0.0 ✅ (shipped)
-**Status**: Sprint 71 complete. Trust Network Arc (Sprints 65–71) complete.
+**Status**: Sprint 71 complete. karmyq.org content upgrade complete. Trust Network Arc done. Next sprint TBD — start with /sprint-planning.
+
+---
+
+## karmyq.org Post-Sprint Content (3 commits shipped to master)
+
+All changes live in `apps/landing/` (the Next.js app that serves karmyq.org).
+
+| Commit | Change |
+|--------|--------|
+| `0718045` | Sprint 71 — ego-network anchor, fission bipartite layout |
+| `a68e48a` | Governance manifesto copy + principles v3 |
+| `0c86e4a` | Meta title + description updated to manifesto voice |
+
+### What landed
+
+**`HowItWorks.tsx`** — governance section fully rewritten:
+- 5 paragraphs: sovereignty → initialization → trust-gated eligibility → no permanent roles → cross-community standing
+- New h2 "How communities grow and change." with manifesto-voice fission/fusion (no implementation language)
+- "Sisters remember they share a past." / "The platform provides the mechanics; the community provides the judgment."
+
+**`Principles.tsx`** — all 6 card descriptions updated to v3 final copy (tighter, more declarative)
+
+**`layout.tsx`** — meta title: "Meaning-making, not accounting" · description: functional subheadline, applied to both `<meta>` and OpenGraph
+
+**Already-correct (no changes needed):**
+- `TheThinking.tsx` — "Trust has been taken from us" already had surveillance-accurate version
+- `DeeperSections.tsx` — trust evolution paragraph already present
+- `Footer.tsx` — already simplified
+- `FadingTimeline.tsx` — diverse name set already correct
+
+---
 
 ---
 
