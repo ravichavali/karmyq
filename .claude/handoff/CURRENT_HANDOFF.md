@@ -1,19 +1,34 @@
-# Sprint 75: Dependency Vulnerability Remediation — READY TO EXECUTE
+# Sprint 75: Dependency Vulnerability Remediation — COMPLETE ✅
 
 ## Handoff Document
 
 **Date**: 2026-05-30
-**Current Version**: v10.3.0 → v10.4.0 (this sprint)
-**Status**: 📋 Spec + plan written, ready to execute. Sprint 74 (Trust Graph Foundation) complete + deployed.
+**Current Version**: v10.4.0 (shipped)
+**Status**: ✅ Sprint 75 complete. All 31 npm-audit vulns → 0; blocking CI gate live (ADR-059). Tests 27/27, 4 SDLC gates passed. Deploying via CI/CD. **Next: Sprint 76 (code scanning remediation, ADR-060).**
 
 ---
 
-## Quick Start
+## Sprint 75 Completion Notes
 
-1. Read this handoff
-2. Check out branch: `git checkout -b feature/sprint-75-dependency-remediation`
-3. Open plan: `docs/superpowers/plans/2026-05-30-sprint-75-dependency-remediation.md`
-4. Run: `/execute-plan` (uses superpowers:subagent-driven-development)
+**Shipped (v10.4.0):**
+- **0 npm-audit vulnerabilities** (was 31: 6 high, 25 moderate). `axios`→`^1.16.0` (direct); the rest patched at the leaf via root `overrides`.
+- **Blocking CI gate**: `security:` job now `npm audit --package-lock-only --audit-level=high` (was `critical`). Codified as **ADR-059** + landing concept page + `GITHUB_ACTIONS_SETUP.md` security section.
+- Regression invariant test `tests/regression/sprint-75-security-gate.test.ts` (asserts gate config + axios patched + high/critical=0 — deliberately NOT moderate/low, to match the gate + 2-week SLA).
+
+**Key execution decision (owner-approved):** Reaching 0 required a **from-scratch lockfile regen** (npm overrides don't reach `apps/*` workspace subtrees incrementally), which re-floated ~302 transitive deps. Chose this over the surgical ~15-pkg diff (which left 14 build/test-tooling vulns) per explicit owner choice.
+
+**Re-float fallout fixed (all in `overrides`):** `uuid ^11.1.1` (14 is ESM-only → breaks bull/Jest), `tar 7.5.15` exact (range/nested both failed), `@swc/helpers 0.5.15` (regen drops it → next build fails), `ts-jest 29.4.6` (29.4.11 breaks node16 subpath resolution → TS2307). Full gotcha list: ADR-059 + memory `feedback_npm_workspace_overrides`.
+
+**Not a regression:** `apps/mobile` type-check was already red on master (FlatList overloads) and is not gated; mobile uses Expo Router not @react-navigation.
+
+---
+
+## Quick Start (Sprint 76)
+
+1. Read this handoff + the Sprint 76 preview section below
+2. `git checkout master && git pull`
+3. `git checkout -b feature/sprint-76-code-scanning`
+4. Triage the 15 CodeQL alerts (most SSRF ones are likely false positives — path-only into fixed host)
 
 ---
 

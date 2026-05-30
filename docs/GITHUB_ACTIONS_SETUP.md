@@ -123,6 +123,22 @@ Typical deployment takes **5-10 minutes**:
 - 3-5 min: Docker build (on server)
 - 30 sec: Health verification
 
+## Security Gates (Blocking)
+
+CI runs a standing **dependency security gate** ([ADR-059](adr/ADR-059-dependency-security-gate.md)). The `security:` job in `.github/workflows/ci.yml` runs:
+
+```yaml
+- name: Run npm audit (blocking — no high/critical vulns; see ADR-059)
+  run: npm audit --package-lock-only --audit-level=high
+```
+
+- **Blocking**: any **high or critical** dependency vulnerability fails the build — no deploy proceeds.
+- **SLA**: no high/critical open > **1 week**; no vulnerability of any severity open > **2 weeks**.
+- **Remediation**: patch transitive vulns at the leaf via root-`package.json` `overrides`; bump direct deps directly. Never `npm audit fix --force` (it installs breaking framework downgrades). See ADR-059 for the override gotchas (`uuid` ESM cap, exact-version `tar`, `@swc/helpers`/`ts-jest` pins).
+- **Emergency escape**: if the gate blocks a genuine hotfix, `git push --no-verify` bypasses the local hook; CI remains the backstop. Use only to unblock, then remediate within the SLA.
+
+Code scanning (CodeQL) is a separate gate under ADR-060.
+
 ## Manual Deployment Override
 
 If GitHub Actions is down or you need to deploy urgently:

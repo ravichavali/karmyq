@@ -1,6 +1,6 @@
 {
   "name": "karmyq",
-  "version": "10.3.0",
+  "version": "10.4.0",
   "private": true,
   "description": "Community Mutual Aid Platform - Privacy-First Community Health Platform",
   "workspaces": [
@@ -48,7 +48,7 @@
   },
   "dependencies": {
     "@alloc/quick-lru": "^5.2.0",
-    "axios": "1.15.2",
+    "axios": "^1.16.0",
     "bcryptjs": "^2.4.3",
     "bull": "^4.11.5",
     "cors": "^2.8.5",
@@ -63,10 +63,23 @@
     "zod": "^4.1.12"
   },
   "overrides": {
-    "tar": ">=7.5.11",
+    "tar": "7.5.15",
     "minimatch": ">=9.0.5",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "@xmldom/xmldom": "^0.8.13",
+    "node-forge": ">=1.4.0",
+    "fast-uri": ">=3.1.2",
+    "qs": ">=6.15.2",
+    "ip-address": ">=10.1.1",
+    "postcss": "^8.5.10",
+    "uuid": "^11.1.1",
+    "picomatch@3.0.0 - 3.0.1": ">=4.0.4",
+    "ws@8.0.0 - 8.20.0": ">=8.20.1",
+    "brace-expansion@5.0.2 - 5.0.5": ">=5.0.6",
+    "jsdom": { "ws": ">=8.20.1" },
+    "@swc/helpers": "0.5.15",
+    "ts-jest": "29.4.6"
   },
   "packageManager": "npm@10.8.2"
 }

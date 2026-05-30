@@ -78,8 +78,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Run npm audit (critical only — high vulns in expo@54 are unfixable until SDK upgrade)
-        run: npm audit --package-lock-only --audit-level=critical
+      - name: Run npm audit (blocking — no high/critical vulns; see ADR-059)
+        run: npm audit --package-lock-only --audit-level=high
 
   # Build and verify landing page
   build-landing:
