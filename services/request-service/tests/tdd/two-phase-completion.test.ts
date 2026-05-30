@@ -81,7 +81,8 @@ describe('PUT /matches/:id/complete — two-phase completion', () => {
         rows: [{ requester_done_at: new Date(), responder_done_at: new Date() }],
       })
       .mockResolvedValueOnce({ rows: [] })                                   // UPDATE status='completed'
-      .mockResolvedValueOnce({ rows: [] });                                   // UPDATE help_requests status='completed'
+      .mockResolvedValueOnce({ rows: [] })                                   // UPDATE help_requests status='completed'
+      .mockResolvedValueOnce({ rows: [] });                                   // feed_events INSERT (fire-and-forget)
 
     const app = await buildApp();
     const res = await request(app)

@@ -125,11 +125,7 @@ router.get('/matched/for-user', async (req: Request, res: Response) => {
     });
   } catch (error: any) {
     (req as any).logger?.error('Error fetching matched requests', error instanceof Error ? error : new Error(String(error)), { service: 'request-service' });
-    res.status(500).json({
-      success: false,
-      message: 'Failed to fetch matched requests',
-      error: error.message,
-    });
+    sendInternalError(res, 'Failed to fetch matched requests', error instanceof Error ? error : undefined);
   }
 });
 
@@ -167,15 +163,13 @@ async function getUserProfile(userId: string): Promise<UserProfile> {
 
 // GET /requests/curated - Get curated feed based on user skills, trust, community config, and urgency
 // ADR-031: Unified trust-scored feed with community-configurable weights
-router.get('/curated', async (req: Request, res: Response) => {
+async function handleCuratedFeed(req: Request, res: Response): Promise<void> {
   try {
     const userId = (req as any).user?.userId;
 
     if (!userId) {
-      return res.status(401).json({
-        success: false,
-        message: 'Authentication required',
-      });
+      res.status(401).json({ success: false, message: 'Authentication required' });
+      return;
     }
 
     // Get query parameters
@@ -727,7 +721,9 @@ router.get('/curated', async (req: Request, res: Response) => {
       { requestId: (req as any).id }
     );
   }
-});
+}
+
+router.get('/curated', handleCuratedFeed);
 
 // GET /requests/:id - Get specific request
 router.get('/:id', async (req: Request, res: Response) => {
@@ -766,11 +762,7 @@ router.get('/:id', async (req: Request, res: Response) => {
     });
   } catch (error: any) {
     (req as any).logger?.error('Error fetching request', error instanceof Error ? error : new Error(String(error)), { service: 'request-service' });
-    res.status(500).json({
-      success: false,
-      message: 'Failed to fetch request',
-      error: error.message,
-    });
+    sendInternalError(res, 'Failed to fetch request', error instanceof Error ? error : undefined);
   }
 });
 
@@ -1021,11 +1013,7 @@ router.post('/', async (req: Request, res: Response) => {
     });
   } catch (error: any) {
     (req as any).logger?.error('Error creating request', error instanceof Error ? error : new Error(String(error)), { service: 'request-service' });
-    res.status(500).json({
-      success: false,
-      message: 'Failed to create request',
-      error: error.message,
-    });
+    sendInternalError(res, 'Failed to create request', error instanceof Error ? error : undefined);
   }
 });
 
@@ -1112,11 +1100,7 @@ router.put('/:id', async (req: Request, res: Response) => {
     });
   } catch (error: any) {
     (req as any).logger?.error('Error updating request', error instanceof Error ? error : new Error(String(error)), { service: 'request-service' });
-    res.status(500).json({
-      success: false,
-      message: 'Failed to update request',
-      error: error.message,
-    });
+    sendInternalError(res, 'Failed to update request', error instanceof Error ? error : undefined);
   }
 });
 
@@ -1166,11 +1150,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
     });
   } catch (error: any) {
     (req as any).logger?.error('Error cancelling request', error instanceof Error ? error : new Error(String(error)), { service: 'request-service' });
-    res.status(500).json({
-      success: false,
-      message: 'Failed to cancel request',
-      error: error.message,
-    });
+    sendInternalError(res, 'Failed to cancel request', error instanceof Error ? error : undefined);
   }
 });
 
@@ -1260,11 +1240,7 @@ router.put('/:id/privacy', async (req: Request, res: Response) => {
     });
   } catch (error: any) {
     (req as any).logger?.error('Error updating privacy settings', error instanceof Error ? error : new Error(String(error)), { service: 'request-service' });
-    res.status(500).json({
-      success: false,
-      message: 'Failed to update privacy settings',
-      error: error.message,
-    });
+    sendInternalError(res, 'Failed to update privacy settings', error instanceof Error ? error : undefined);
   }
 });
 

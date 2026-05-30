@@ -145,6 +145,7 @@ export default function CommitmentsTab({ onDibsLoaded, communityId }: Commitment
   const [offerActioning, setOfferActioning] = useState<string | null>(null)
   const [currentUserId, setCurrentUserId] = useState<string>('')
   const [selectedProfileUserId, setSelectedProfileUserId] = useState<string | null>(null)
+  const [actionError, setActionError] = useState<string | null>(null)
 
   const fetchOffersForRequest = async (requestId: string) => {
     setOffersLoading((prev) => ({ ...prev, [requestId]: true }))
@@ -228,7 +229,7 @@ export default function CommitmentsTab({ onDibsLoaded, communityId }: Commitment
       ))
       setPendingRatingId(matchId)
     } catch (err: any) {
-      alert(err.response?.data?.message || 'Failed to mark done')
+      setActionError(err.response?.data?.error?.message || err.response?.data?.message || 'Failed to mark done')
     } finally {
       setMarkingDone(null)
     }
@@ -253,7 +254,7 @@ export default function CommitmentsTab({ onDibsLoaded, communityId }: Commitment
       ))
       setPendingRatingId(matchId)
     } catch (err: any) {
-      alert(err.response?.data?.message || 'Failed to confirm done')
+      setActionError(err.response?.data?.error?.message || err.response?.data?.message || 'Failed to confirm done')
     } finally {
       setMarkingDone(null)
     }
@@ -303,7 +304,7 @@ export default function CommitmentsTab({ onDibsLoaded, communityId }: Commitment
         )
       }
     } catch (err: any) {
-      alert(err.response?.data?.message || 'Failed to accept offer')
+      setActionError(err.response?.data?.error?.message || err.response?.data?.message || 'Failed to accept offer')
     } finally {
       setActioning(null)
     }
@@ -325,7 +326,7 @@ export default function CommitmentsTab({ onDibsLoaded, communityId }: Commitment
         setRequested((prev) => prev.filter((m) => m.id !== matchId))
       }
     } catch (err: any) {
-      alert(err.response?.data?.message || 'Failed to decline offer')
+      setActionError(err.response?.data?.error?.message || err.response?.data?.message || 'Failed to decline offer')
     } finally {
       setActioning(null)
     }
@@ -337,7 +338,7 @@ export default function CommitmentsTab({ onDibsLoaded, communityId }: Commitment
       await acceptOffer(offerId)
       await fetchOffersForRequest(requestId)
     } catch (err: any) {
-      alert(err.response?.data?.message || 'Failed to accept offer')
+      setActionError(err.response?.data?.error?.message || err.response?.data?.message || 'Failed to accept offer')
     } finally {
       setOfferActioning(null)
     }
@@ -349,7 +350,7 @@ export default function CommitmentsTab({ onDibsLoaded, communityId }: Commitment
       await declineOffer(offerId)
       await fetchOffersForRequest(requestId)
     } catch (err: any) {
-      alert(err.response?.data?.message || 'Failed to decline offer')
+      setActionError(err.response?.data?.error?.message || err.response?.data?.message || 'Failed to decline offer')
     } finally {
       setOfferActioning(null)
     }
@@ -361,7 +362,7 @@ export default function CommitmentsTab({ onDibsLoaded, communityId }: Commitment
       // Optimistic: remove from list on success
       setPendingDibs((prev) => prev.filter((d) => d.id !== dibsId))
     } catch (err: any) {
-      alert(err.response?.data?.message || 'Failed to accept dibs invitation')
+      setActionError(err.response?.data?.error?.message || err.response?.data?.message || 'Failed to accept dibs invitation')
     }
   }
 
@@ -371,7 +372,7 @@ export default function CommitmentsTab({ onDibsLoaded, communityId }: Commitment
       // Optimistic: remove from list on success
       setPendingDibs((prev) => prev.filter((d) => d.id !== dibsId))
     } catch (err: any) {
-      alert(err.response?.data?.message || 'Failed to decline dibs invitation')
+      setActionError(err.response?.data?.error?.message || err.response?.data?.message || 'Failed to decline dibs invitation')
     }
   }
 
@@ -580,6 +581,18 @@ export default function CommitmentsTab({ onDibsLoaded, communityId }: Commitment
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-4 space-y-8">
+      {actionError && (
+        <div className="flex items-start justify-between gap-3 px-4 py-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">
+          <span>{actionError}</span>
+          <button
+            className="shrink-0 text-red-400 hover:text-red-600"
+            onClick={() => setActionError(null)}
+            aria-label="Dismiss"
+          >
+            ✕
+          </button>
+        </div>
+      )}
       {/* Dibs Requests — shown first so provider can't miss them */}
       {pendingDibs.length > 0 && (
         <section>

@@ -114,6 +114,10 @@
           "href": "/docs/guides/managing-commitments"
         },
         {
+          "label": "Match Lifecycle",
+          "href": "/docs/guides/match-lifecycle"
+        },
+        {
           "label": "Finding Communities",
           "href": "/docs/guides/finding-communities"
         },

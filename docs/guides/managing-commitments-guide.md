@@ -77,12 +77,29 @@ The conversation stays open as you scroll — it only closes when you explicitly
 
 ---
 
-## When a Commitment Completes
+## Completing an Exchange (Two-Phase Confirmation)
 
-After the help is done, the requester marks it as fulfilled:
+Completion requires **both parties** to confirm. This prevents karma from transferring until the help has genuinely happened.
 
-1. The card moves to the **Completed** tier
-2. Karma transfers from the requester to you
-3. Your trust score updates to reflect the exchange
+**How it works:**
 
-Completed commitments stay visible in your tab for reference and as part of your history.
+1. After the help is done, both the helper and the requester click **Mark Done** / **Confirm Done** on their commitment card
+2. The first person to click sees: *"Your completion recorded — waiting for the other party"*
+3. Once the second person confirms, the exchange is **fully completed**:
+   - The card moves to the **Completed** tier
+   - Karma transfers from the requester to the helper
+   - Your trust score updates to reflect the exchange
+
+**If the other party doesn't confirm:** The exchange stays "In Progress." You can message them via the inline conversation to let them know you've marked your side done.
+
+---
+
+## Withdrawing an Offer
+
+If you've offered to help but circumstances change **before the requester accepts**, you can withdraw your offer:
+
+1. Find the proposed commitment in the **"Awaiting Acceptance"** section of your Helping tab
+2. Click **Withdraw Offer**
+3. The offer is removed and the request returns to open status
+
+You can only withdraw before the requester accepts. Once a match is accepted ("In Progress"), reach out via the inline conversation instead.

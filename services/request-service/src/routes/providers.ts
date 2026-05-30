@@ -351,6 +351,9 @@ router.post('/', authMiddleware, async (req: AuthenticatedRequest, res: Response
 
     res.status(201).json({ success: true, data: profile, message: 'Provider profile created' });
   } catch (error: any) {
+    if (error.code === '23505') {
+      return res.status(409).json({ success: false, message: 'Provider profile already exists for this service type' });
+    }
     (req as any).logger?.error('Error creating provider', error instanceof Error ? error : new Error(String(error)), { service: 'request-service' });
     res.status(500).json({ success: false, message: 'Failed to create provider profile', error: error.message });
   }

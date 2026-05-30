@@ -81,7 +81,9 @@ describe('Provider Profiles API (TDD)', () => {
         id: 'p1', display_name: 'Ali', service_type: 'ride',
         vehicle_type: 'rickshaw', max_passengers: 2
       };
-      mockQuery.mockResolvedValueOnce({ rows: [provider] });
+      mockQuery
+        .mockResolvedValueOnce({ rows: [provider] })   // SELECT provider profile
+        .mockResolvedValueOnce({ rows: [] });            // SELECT rate_cards
 
       const res = await request(app).get('/providers/p1');
       expect(res.status).toBe(200);

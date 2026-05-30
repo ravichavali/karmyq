@@ -2286,6 +2286,17 @@ router.get('/health', async (req, res) => {
 
 ### 10.3 Recent Changes (v9.10)
 
+**Version 10.2.0 - Sprint 73 (2026-05-29)**
+
+- **DELETED**: `src/services/matchService.ts` — dead service class; routes use inline SQL; never called by any route
+- **DELETED**: `tests/regression/matchingLogic.test.ts` — regression tests for deleted matchService.ts
+- **DELETED**: `tests/tdd/dynamic-schemas-api.test.ts`, `schema-caching.test.ts`, `schema-fallback.test.ts` — placeholder tests; pool never initialized
+- **CHANGED**: `src/routes/matches.ts` — removed commented-out `find-candidates` endpoint and dead import block; removed debug `console.log`; standardized GET /:id and POST / success/error responses to use `sendSuccess`/`sendInternalError`
+- **CHANGED**: `src/routes/requests.ts` — extracted 562-line GET /curated handler into `handleCuratedFeed` named function; standardized catch-block 500 responses to use `sendInternalError`
+- **FIXED**: `src/routes/providers.ts` — POST / now returns 409 when pg duplicate key error (code 23505)
+- **TESTS**: `tests/tdd/two-phase-completion.test.ts` — fixed missing 5th mock for fire-and-forget feed_events INSERT
+- **TESTS**: `tests/tdd/providers-api.test.ts` — fixed GET /:providerId mock (was missing rate_cards query)
+
 **Version 9.40.0 - Sprint 64 (2026-05-25)**
 
 - **CHANGED**: `src/routes/adminActions.ts` — `isAdminOfRequestCommunity` renamed to `isAdminOrModOfRequestCommunity`; filter now accepts `role === 'admin' || role === 'moderator'`. All four admin action endpoints (boost, remove-boost, propose-match, urgent-toggle) now accept moderator role in addition to admin. Frontend already showed boost/propose buttons to mods — backend was silently 403ing them.

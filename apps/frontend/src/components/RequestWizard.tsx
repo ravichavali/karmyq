@@ -190,7 +190,7 @@ export default function RequestWizard({
       onClose()
     } catch (err) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      setError((err as any)?.response?.data?.message ?? 'Failed to create request. Please try again.')
+      setError((err as any)?.response?.data?.error?.message ?? (err as any)?.response?.data?.message ?? 'Failed to create request. Please try again.')
     } finally {
       setCreating(false)
     }

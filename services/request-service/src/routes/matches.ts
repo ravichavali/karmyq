@@ -6,9 +6,6 @@ import {
   sendInternalError,
   HTTP_STATUS
 } from '@karmyq/shared/utils/response';
-// Temporarily commented out - matching feature
-// import { findMatches } from '@karmyq/shared/matching';
-// import type { UserProfile } from '@karmyq/shared/matching';
 
 const router = Router();
 
@@ -69,16 +66,6 @@ router.get('/', async (req: Request, res: Response) => {
 
     const result = await query(queryText, params);
 
-    // Debug: Log first match to verify data structure
-    if (result.rows.length > 0) {
-      console.log('Sample match data:', {
-        id: result.rows[0].id,
-        requester_name: result.rows[0].requester_name,
-        responder_name: result.rows[0].responder_name,
-        request_description: result.rows[0].request_description ? 'present' : 'missing'
-      });
-    }
-
     sendSuccess(res, {
       matches: result.rows,
       count: result.rowCount,
@@ -90,14 +77,6 @@ router.get('/', async (req: Request, res: Response) => {
   }
 });
 
-// Temporarily disabled - matching feature needs Docker rebuild
-// GET /matches/find-candidates/:request_id - Find potential helpers for a request using matching algorithm
-/*
-router.get('/find-candidates/:request_id', async (req: Request, res: Response) => {
-  // ... matching algorithm endpoint code ...
-  // Commented out temporarily until shared package is available in Docker
-});
-*/
 // GET /matches/:id - Get specific match
 router.get('/:id', async (req: Request, res: Response) => {
   try {
@@ -130,17 +109,10 @@ router.get('/:id', async (req: Request, res: Response) => {
       });
     }
 
-    res.json({
-      success: true,
-      data: result.rows[0],
-    });
+    sendSuccess(res, result.rows[0]);
   } catch (error: any) {
     (req as any).logger?.error('Error fetching match', error instanceof Error ? error : new Error(String(error)), { service: 'request-service' });
-    res.status(500).json({
-      success: false,
-      message: 'Failed to fetch match',
-      error: error.message,
-    });
+    sendInternalError(res, 'Failed to fetch match', error instanceof Error ? error : undefined);
   }
 });
 
@@ -274,18 +246,10 @@ router.post('/', async (req: Request, res: Response) => {
       ).catch((e: any) => (req as any).logger?.error('feed-offer-log failed', e instanceof Error ? e : new Error(String(e)), { service: 'request-service', step: 'feed-offer-log' }));
     });
 
-    res.status(201).json({
-      success: true,
-      data: match,
-      message: 'Match created successfully',
-    });
+    sendSuccess(res, match, HTTP_STATUS.CREATED);
   } catch (error: any) {
     (req as any).logger?.error('Error creating match', error instanceof Error ? error : new Error(String(error)), { service: 'request-service' });
-    res.status(500).json({
-      success: false,
-      message: 'Failed to create match',
-      error: error.message,
-    });
+    sendInternalError(res, 'Failed to create match', error instanceof Error ? error : undefined);
   }
 });
 
