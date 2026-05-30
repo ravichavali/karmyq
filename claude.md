@@ -236,7 +236,17 @@ The public docs site at `apps/landing/` has three doc types — keep all three i
 - [ ] If work continues next session: update handoff with current state and next steps
 - [ ] Success criteria in handoff are checked off
 
-### 5. Quick Verification
+### 5. Code & Security Review (Non-Negotiable)
+
+Testing, simplify, **code review**, and **security review** are the four standing SDLC quality gates — run on every sprint before merge, not just when something feels risky.
+
+- [ ] **`/simplify`** run on the branch diff (reuse, simplification, altitude) — already standard per-task; do a final pass on the whole diff
+- [ ] **`/code-review`** run on the branch diff — resolve correctness/logic findings before merge
+- [ ] **`/security-review`** run on the branch diff — resolve real findings; dismiss false positives only with a written justification
+- [ ] **Standing CI security gates pass**: dependency audit ([ADR-059](docs/adr/ADR-059-dependency-security-gate.md), blocking at `--audit-level=high`) and code scanning ([ADR-060](docs/adr/ADR-060-code-scanning-gate.md), CodeQL). These run automatically on push; `/security-review` is the human-level complement, not a replacement
+- [ ] **SLA**: no high/critical vulnerability (dependency or code scanning) open > 1 week; no finding of any severity open > 2 weeks
+
+### 6. Quick Verification
 
 ```bash
 # Run this before every push
@@ -244,6 +254,8 @@ npm test                    # Must pass (unit + regression)
 npm run test:tdd            # Must pass (or document known failures)
 npm run feedback:check      # Must pass (docs complete)
 npm run analyze:services    # If service dependencies changed
+npm audit --package-lock-only --audit-level=high   # Must be clean (ADR-059 gate)
+# Then: /simplify, /code-review, /security-review on the diff before merge
 ```
 
 ---

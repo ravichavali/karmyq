@@ -184,11 +184,23 @@ File: `docs/superpowers/plans/YYYY-MM-DD-sprint-NN-{slug}.md`
 | Position | Task content |
 |----------|-------------|
 | Task 1 | Feature branch + DB migration (if schema changes) or first new file |
-| Tasks 2–(N-3) | Core implementation (backend services, routes, frontend, events) |
-| Task N-2 | User guides + landing page docs (mandatory every sprint) + ADR (if architectural decision) |
-| Task N-1 | CONTEXT.md + registry.json + TDD integration test |
+| Tasks 2–(N-4) | Core implementation (backend services, routes, frontend, events) |
+| Task N-3 | User guides + landing page docs (mandatory every sprint) + ADR (if architectural decision) |
+| Task N-2 | CONTEXT.md + registry.json + TDD integration test |
+| Task N-1 | **SDLC quality gates** (mandatory every sprint) — see below |
 | Task N | Final type check + pre-push verification (`npm test`, `npm run feedback:check`) |
 | Task N+1 | **Merge + Deploy** — merge to master, push, monitor GitHub Actions, SSH if migration scripts needed. Use the `/deploy` skill. **Omit this task only if the plan is tagged `no-deploy`**. |
+
+**SDLC quality gates — every sprint runs all four (this is the standing process, not optional):**
+
+| Gate | How | When |
+|------|-----|------|
+| **Testing** | TDD tests written before implementation; `npm test` (unit + regression) green | Throughout + final |
+| **Simplify** | `/simplify` after each implementation task, and a final pass on the diff | Per-task + Task N-1 |
+| **Code review** | `/code-review` on the branch diff; resolve correctness findings before merge | Task N-1 |
+| **Security review** | `/security-review` on the branch diff; resolve real findings, justify dismissals | Task N-1 |
+
+The Task N-1 quality-gate task MUST list `/simplify`, `/code-review`, and `/security-review` as explicit steps with a verification line each. Standing CI security gates (dependency audit per ADR-059, code scanning per ADR-060) run automatically on push — the per-sprint `/security-review` is the human-level complement, not a replacement.
 
 **TDD requirement — embed in the test task:**
 - Unit tests are written BEFORE implementation (TDD) — the task that creates the test file must precede the implementation task
