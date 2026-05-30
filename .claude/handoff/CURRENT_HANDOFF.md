@@ -1,27 +1,26 @@
-# Sprint 73: Request Service Simplification — Ready to Execute
+# Sprint 73: Request Service Simplification — COMPLETE ✅
 
 ## Handoff Document
 
 **Date**: 2026-05-29
-**Current Version**: v10.1.0 → v10.2.0 (Sprint 73)
-**Status**: Spec + plan written. Ready to execute.
+**Current Version**: v10.2.0 (just shipped)
+**Status**: Sprint 73 complete + deployed. Ready to plan Sprint 74.
 
 ---
 
 ## Quick Start
 
-1. Read this handoff
-2. Check out branch: `git checkout -b feature/sprint-73-request-simplification`
-3. Open plan: `docs/superpowers/plans/2026-05-29-sprint-73-request-service-simplification.md`
-4. Run: `/execute-plan` (uses superpowers:subagent-driven-development)
+Sprint 73 is done. The next conversation should plan Sprint 74 (Community / Governance service polish).
 
----
+```bash
+# Confirm deployment went through
+# Check GitHub Actions at github.com/ravichavali/karmyq/actions
+# Verify karmyq.com is running v10.2.0
 
-## Sprint Goal
-
-Simplify the request service — delete dead code, remove stale service class, clean up 1,351-line route file, standardize error responses, delete three never-implemented TDD placeholder tests — then fix the deployed "Withdraw Offer" bug via deploy, polish the request UX (CommitmentsTab), and ship updated docs.
-
-**No new features. Delete before you add.**
+# Start Sprint 74 planning
+cat .claude/handoff/CURRENT_HANDOFF.md
+# Then: /sprint-planning
+```
 
 ---
 
@@ -30,78 +29,77 @@ Simplify the request service — delete dead code, remove stale service class, c
 | Sprint | Service | Status |
 |--------|---------|--------|
 | **72** | Simulation Engine | ✅ Complete + deployed |
-| **73** | Request Service | ⬅ This sprint |
-| **74** | Community / Governance | TBD |
+| **73** | Request Service | ✅ Complete + deployed |
+| **74** | Community / Governance | ⬅ Next sprint |
 | **75** | Feed + Discovery | TBD |
 | **76+** | Final pass + launch prep | TBD |
 
 ---
 
-## Sprint 73 Spec + Plan
+## What Sprint 73 Shipped
 
-- **Design spec**: `docs/superpowers/specs/2026-05-29-sprint-73-request-service-simplification-design.md`
-- **Implementation plan**: `docs/superpowers/plans/2026-05-29-sprint-73-request-service-simplification.md`
+**Commit**: `28ad730` — `feat(request-service): Sprint 73 — simplify routes, delete dead code, UX polish v10.2.0`
 
----
+### Dead code deleted
+- `services/request-service/src/services/matchService.ts` — dead service class, never called by routes
+- `services/request-service/tests/regression/matchingLogic.test.ts` — regression tests for deleted class
+- `services/request-service/tests/tdd/dynamic-schemas-api.test.ts` — placeholder, pool uninitialized
+- `services/request-service/tests/tdd/schema-caching.test.ts` — placeholder, pool+Redis uninitialized
+- `services/request-service/tests/tdd/schema-fallback.test.ts` — placeholder, pool uninitialized
 
-## What Gets Done
+### Route simplification
+- **matches.ts**: Removed commented-out `find-candidates` endpoint + dead import block; removed debug `console.log`; standardized GET /:id and POST / success/error responses to `sendSuccess`/`sendInternalError`
+- **requests.ts**: Extracted 562-line GET /curated handler into `handleCuratedFeed()` named function; standardized all catch-block 500 responses to `sendInternalError`
 
-### 1. Delete dead code
-- `services/request-service/src/services/matchService.ts` — routes use inline SQL; this class is never called; stale `rejectMatch()` causes confusion
-- `tests/tdd/dynamic-schemas-api.test.ts` — placeholder, `pool` never initialized
-- `tests/tdd/schema-caching.test.ts` — placeholder, `pool` + Redis never initialized
-- `tests/tdd/schema-fallback.test.ts` — placeholder, `pool` never initialized
+### Bug fixes
+- **providers.ts**: POST / now returns 409 on pg duplicate key error (code 23505) — was always returning 500
+- **Withdraw Offer bug** (deployed fix): Local code was already correct (matches both requester_id and responder_id). Was failing on karmyq.com with old code. Sprint 73 deploy pushed the fix live.
 
-### 2. Simplify matches.ts (674 lines)
-- Remove two commented-out dead code blocks (disabled `find-candidates` endpoint)
-- Remove debug `console.log('Sample match data:', ...)`
-- Standardize raw `res.status().json()` calls to use `sendSuccess` / `sendInternalError`
+### TDD tests fixed
+- `two-phase-completion.test.ts` — added missing 5th mock for fire-and-forget feed_events INSERT
+- `providers-api.test.ts` — added missing rate_cards query mock for GET /:providerId; added 2nd mock for provider-by-id test
 
-### 3. Simplify requests.ts (1,351 lines)
-- Extract the 562-line `GET /curated` handler body into a `buildCuratedFeed()` helper
-- Standardize remaining raw response calls
+### Frontend UX
+- **CommitmentsTab.tsx**: Replaced 8 `alert()` calls with inline dismissible error banner (`actionError` state); updated error message reading to handle both old (`data.message`) and new (`data.error.message`) response formats
+- **RequestWizard.tsx**: Updated error message reading to handle both formats
 
-### 4. Withdraw Offer bug (fixed by deploy)
-- Local `routes/matches.ts` reject handler already checks both `requester_id` and `responder_id` (fixed)
-- karmyq.com still has the old code — deploying Sprint 73 pushes the fix live
-- No code change needed to routes/matches.ts
+### Docs
+- **docs/guides/managing-commitments-guide.md**: Updated "When a Commitment Completes" → "Completing an Exchange (Two-Phase Confirmation)"; added "Withdrawing an Offer" section
+- **docs/guides/match-lifecycle.md**: New guide covering the full match lifecycle (Proposed → Accepted → Both Mark Done → Completed), Withdraw Offer, karma transfer, waiting states
+- Landing JSON regenerated and force-added
 
-### 5. TDD tests — verify
-- `two-phase-completion.test.ts` — verify passes (looks solid)
-- `providers-api.test.ts` — verify passes; fix if failing
-
-### 6. Frontend UX
-- CommitmentsTab: replace `alert()` with inline error state; verify labels; add empty states
-- Request creation flow: audit labels and confirmation state
-
-### 7. Docs
-- `apps/landing/.../guides/help-requests.json` — add two-phase + withdraw explanation
-- `apps/landing/.../guides/match-lifecycle.json` — update/create
-- `apps/landing/.../services/request-service.json` — remove dead `find-candidates` endpoint
-
-### 8. Version bump 10.1.0 → 10.2.0
-- Root `package.json`
-- Version invariant test in `services/community-service/tests/regression/sprint-71-v10-polish.test.ts`
+### Version
+- Root `package.json`: 10.1.0 → 10.2.0
+- Version invariant test updated to assert 10.2.0
 
 ---
 
-## ⚠️ Critical Implementation Notes
+## Sprint 73 Test Results (on master)
 
-1. **matchService.ts is NOT called by routes** — confirm with `grep -rn "matchService\|new MatchService\|from.*matchService" services/request-service/src` before deleting. If anything imports it, fix that import first, then delete.
+- **Unit + regression**: 9 suites, 163 tests — all pass ✅
+- **TDD two-phase-completion**: 4/4 pass ✅
+- **TDD providers-api**: 10/10 pass ✅
+- **Pre-existing TDD failures** (unchanged, do NOT fix):
+  - `sprint-39-provider-ux` (7 fail)
+  - `sprint-43-feed-ranking` (crashes)
+  - `admin-schemas-api.test.ts` (request-service)
+  - `sprint-68-halflife` (6 DB connection tests)
+  - `sprint-67-governance` (DB connection tests)
+  - `social-graph-service/tests/tdd/sprint-66-trust-graph-visualization.test.ts`
+  - `social-graph-service/tests/tdd/sprint-67-ego-network.test.ts`
+  - `social-graph-service/tests/tdd/sprint-68-halflife.test.ts`
 
-2. **Delete means delete** — do not comment out placeholder TDD tests; `rm` the files.
+---
 
-3. **Response format helpers**: `sendSuccess`, `sendInternalError`, `sendNotFound`, `HTTP_STATUS` from `@karmyq/shared/utils/response`. Do not change HTTP behavior, just call style.
+## Key Decisions Made This Sprint
 
-4. **admin-schemas.ts auth is at app level** — `index.ts` applies `...adminAuth` at mount. Do not add middleware inside the route file.
+1. **matchingLogic.test.ts deleted** — The plan listed only the 3 placeholder TDD files for deletion, but `matchingLogic.test.ts` imported `matchService.ts` and was a regression test for dead code. Deleted alongside the source.
 
-5. **nav.json revert bug** — `scripts/generate-docs.ts` regenerates nav.json. Add slugs to `GUIDE_ORDER`, `GUIDE_LABELS`, `GUIDE_SLUGS` in that file first; regenerate; then `git add -f`.
+2. **Response format gotcha**: `sendInternalError` uses `{ error: { code, message } }` nested format vs old raw `{ message }`. CommitmentsTab now reads `data.error?.message || data.message` to handle both. Frontend still works with 403/404/400 errors because those still use raw format.
 
-6. **Version invariant test**: After bumping to 10.2.0, update `services/community-service/tests/regression/sprint-71-v10-polish.test.ts` (asserts `pkg.version === '10.1.0'`).
+3. **providers.ts 409 fix** — The test was testing correct expected behavior (409 for duplicate), not wrong test. Route was missing the `error.code === '23505'` check. Fixed the route.
 
-7. **Withdraw Offer bug**: Local code already correct. Bug lives on deployed server. Fixed by deploy. No code change to routes/matches.ts needed.
-
-8. **Solo dev — no worktrees**: Work on `feature/sprint-73-request-simplification` directly.
+4. **fire-and-forget gotcha**: `void query(...).catch(...)` pattern fails in tests when mock is exhausted — `query()` returns `undefined`, `.catch(undefined)` throws TypeError caught by outer try/catch → 500. Fix: always mock the fire-and-forget query in tests.
 
 ---
 
@@ -114,36 +112,19 @@ Simplify the request service — delete dead code, remove stale service class, c
 - **JWT field** is `communities` not `communityMemberships` — always `user.communities ?? []`
 - **`git add` on CLAUDE.md**: Tracked as lowercase `claude.md` — always `git add claude.md`
 - **Solo dev — no worktrees**: Work directly on feature branches
-- **nav.json revert bug**: `generate-docs.ts` regenerates nav.json — always add new slugs to GUIDE_ORDER + GUIDE_LABELS + GUIDE_SLUGS in `scripts/generate-docs.ts`
+- **nav.json revert bug**: `generate-docs.ts` regenerates nav.json — always add new slugs to GUIDE_ORDER + GUIDE_LABELS + GUIDE_SLUGS in `scripts/generate-docs.ts`; run generate-docs from `apps/landing/` (`npm run generate-docs`), not root
 - **trust_edges_live is a VIEW**: Never INSERT/UPDATE it. Use `trust_edges` for writes, `trust_edges_live` for reads
 - **API response unwrap**: `createApiClient` interceptor already unwraps envelope — use `res.data`, not `res.data.data`
 - **trust_edges normalized constraint**: `social_graph.trust_edges` requires `user_id_a::text < user_id_b::text` — always sort
 - **community_links UNIQUE**: fusion_origin links must be (merged↔A) and (merged↔B), NOT (A↔B)
-- **TrustGraph fission mode ref**: `fgRef.current.d3Force(...)` only callable after mount — guard with `if (!fgRef.current) return`
-- **Root package.json version**: 10.1.0 (being bumped to 10.2.0 this sprint)
-- **Version invariant test**: `services/community-service/tests/regression/sprint-71-v10-polish.test.ts` checks `pkg.version` — update to 10.2.0 this sprint
+- **Root package.json version**: 10.2.0
 
 ---
 
-## Pre-existing TDD Failures (do NOT fix unless sprint targets them)
+## Sprint 74 Candidates (Community / Governance)
 
-- `sprint-39-provider-ux` (7 fail)
-- `sprint-43-feed-ranking` (crashes)
-- `sprint-68-halflife` (6 DB connection tests)
-- `sprint-67-governance` (DB connection tests)
-- `social-graph-service/tests/tdd/sprint-66-trust-graph-visualization.test.ts` (fails)
-- `social-graph-service/tests/tdd/sprint-67-ego-network.test.ts` (fails)
-- `social-graph-service/tests/tdd/sprint-68-halflife.test.ts` (fails)
-
-**Sprint 73 resolves**: `dynamic-schemas-api`, `schema-caching`, `schema-fallback` (deleted)
-**Sprint 73 verifies**: `two-phase-completion`, `providers-api`
-
----
-
-## What Sprint 72 Shipped (Context)
-
-**Goal**: Replace single-loop simulation engine with 10 concurrent async workers running 24/7.
-- WorkerPool class, 4 new workflow types (vote, feedback, dibs, nominate/ratify)
-- Session affinity, selectWorkflow() dispatcher
-- 18 regression tests, all green
-- v10.0.0 → v10.1.0
+Not yet spec'd. Candidates to discuss:
+- Community governance UI cleanup (nomination/ratification flows)
+- Community admin panel polish
+- Trust graph polish (ego-network display)
+- Governance ratification quorum design (see open question in memory)
