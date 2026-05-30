@@ -4,37 +4,43 @@ Every community on karmyq builds a trust graph over time. Each completed help ex
 
 ## How to Access It
 
-Open any community you belong to and click the **Trust Graph** tab in the community navigation.
+Open any community you belong to and click the **Trust Graph** tab in the community navigation. You'll find two sub-tabs: **Community** and **My Network**.
 
-## Reading the Graph
+## Community View
 
-### Nodes (circles)
-Each node represents a community member. **Larger nodes** have a higher trust score — they've been consistently rated as reliable and helpful by other members. **Your own node** appears in green; other members appear in indigo.
+The Community tab shows **every member** of your community arranged on a circle, grouped by how closely they're connected. Edges bundle together when they follow similar paths through the network — a technique called *hierarchical edge bundling*. The result reveals the community's structure at a glance.
 
-### Your position
+**What you see:**
 
-You are always at the center. The graph pins your node at the center of the canvas — your direct trust connections arrange themselves around you. If you have no trust connections yet, you'll see an empty-state message instead.
+- **Nodes on the circle** are community members. Larger nodes have higher trust scores — they've been consistently rated as reliable and helpful.
+- **Bright, bundled edges within a group** are strong, active relationships — the dense core of a sub-community.
+- **Thin, muted threads crossing between groups** are weak connections — the ties that would break first in a split.
+- **Amber edges** are *your* connections — every line touching your node is highlighted so you can find yourself in the wider network.
 
-### Edges (lines)
-Lines between nodes represent trust bonds. **Thicker lines** mean a stronger recent relationship — more completed exchanges, endorsements, or karma interactions between those two members. Edge thickness reflects *effective weight*, which factors in how recent the interactions were.
+Groups are detected automatically from the strongest connections, so the layout reflects how the community actually clusters rather than any imposed structure.
 
-### Reading Edge Opacity
+## My Network View
 
-Edge opacity tells you how *alive* a relationship currently is:
+The My Network tab centers the view on **you**. Your direct connections appear in the first ring, ordered by connection strength. Their connections appear in the second ring. Degree of separation is a spatial property — no clicking required, two degrees of your network are visible immediately.
 
-- **Full opacity** — the relationship has been active recently. The trust bond is strong.
-- **Faded edge** — the relationship exists but hasn't been reinforced in a while. The bond is weakening.
-- **Very faint edge** — the relationship is near the disappearance threshold. Without a new interaction, it will eventually be removed by the nightly cleanup.
+- **You** sit at the center in indigo.
+- **Closer rings** are stronger, more trusted connections.
+- **Thicker, brighter edges** mean a stronger recent relationship.
+- **Amber edges** are your direct connections.
 
-Opacity is computed from the **interaction half-life**: `opacity = 0.2 + (current_weight / peak_weight) × 0.8`. A single exchange fades to half-strength after about 30 days. Repeated interactions build **stability**, extending the relationship's half-life significantly — a relationship built on 10+ exchanges has a half-life measured in months to years.
+**Click any neighbor** to recenter the view on them and explore their network. Click them again (or your own node) to return to your own view.
+
+## Reading Edge Strength
+
+Edge thickness and opacity tell you how *alive* a relationship currently is:
+
+- **Thick, bright edge** — active recently. The trust bond is strong.
+- **Thin, faded edge** — exists but hasn't been reinforced in a while. The bond is weakening.
+- **Very faint thread** — near the disappearance threshold. Without a new interaction it will eventually be removed by the nightly cleanup.
+
+Strength is computed from the **interaction half-life**. A single exchange fades to half-strength after about 30 days. Repeated interactions build **stability**, extending the relationship's half-life significantly — a relationship built on 10+ exchanges has a half-life measured in months to years.
 
 See [Interaction Half-Life](/docs/guides/interaction-half-life) for a full explanation of how trust decays and stabilizes.
-
-## Interacting with the Graph
-
-**Click any node** to highlight that member's direct connections. Their edges brighten and all other connections dim, making it easy to see who they have strong bonds with. The panel below the graph shows their trust score, karma, and number of connections.
-
-**Click the background** (or the same node again) to deselect and return to the full view.
 
 ## What Drives Trust?
 
@@ -49,22 +55,18 @@ Four interaction types contribute to trust bonds:
 
 Older interactions contribute less than recent ones — trust bonds reflect current relationships, not just historical ones.
 
-## Empty Graph
+## Fission Split View
 
-If the graph shows "No trust connections yet," the community hasn't completed any help exchanges between members. Complete a request to start building the graph.
+When your community has an active fission proposal, the trust graph shows the same circular, bundled layout — but cluster assignment comes from the proposed split groups rather than automatic detection. Members are color-coded by their proposed group (blue = Group A, orange = Group B, gray = unassigned).
 
-## Your Personal Trust Graph
+- **Green edges** are strong within-group connections — relationships that stay intact after the split.
+- **Red threads** are cross-group connections — the contested relationships that span the proposed boundary and make a split costly.
+- A **dashed ring** marks members with no trust connections yet.
 
-The trust graph is always centered on you. It shows the people you've directly interacted with in this community — your direct neighbors — along with the trust connections among them. You won't see the entire community graph, because at scale that would be noise, not signal.
-
-This is permanent by design. The graph shows your position in the community's trust network, not a bird's-eye view of everyone's connections.
+Click any member to see their trust score and connections. If you're an admin, you can move them between the proposed groups from the panel below the graph.
 
 ## Trust-Gated Governance
 
 The trust graph powers community governance. Members with high enough trust scores become eligible for governance roles (Admin, Moderator). Eligible members can be nominated and ratified through the **Governance** tab on any community page.
 
 See [Trust-Gated Governance](/docs/concepts/governance) for the full governance model.
-
-## Fission Group Assignment View
-
-When your community has an active fission proposal, the Trust Graph tab switches to a group assignment view. Members are color-coded by their proposed group (blue = Group A, orange = Group B, gray = unassigned) and the layout places the two groups in opposite halves of the canvas. Click any member to see their trust connections and, if you're an admin, move them between groups.

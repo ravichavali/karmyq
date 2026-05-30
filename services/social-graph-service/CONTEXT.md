@@ -372,7 +372,30 @@ Ego-network for the calling user in a specific community — calling user + dire
 }
 ```
 
-**Primary consumer**: `apps/frontend/src/components/community/tabs/TrustGraphTab.tsx`
+**Primary consumer**: `apps/frontend/src/components/community/tabs/TrustGraphTab.tsx` (My Network sub-tab)
+
+---
+
+### GET /trust/graph/:communityId/full
+
+Full community trust graph (Sprint 74) — the top 149 members ranked by trust score, UNION the calling user (always included), plus every edge between that member set. Unlike `/trust/graph/:communityId` (which returns only the caller's ego-network), this returns the whole community topology, capped at 150 nodes. Reads decay-adjusted weights from the `trust_edges_live` VIEW.
+
+Implemented by `getFullCommunityGraph(communityId, callingUserId)` in `src/database/trustEdgeDb.ts`. Registered **before** `/trust/graph/:communityId` so Express doesn't match `full` as a communityId.
+
+**Auth required**: Bearer JWT. Caller must be an active member of the community.
+
+**Response**:
+```json
+{
+  "success": true,
+  "data": {
+    "nodes": [{ "id": "uuid", "name": "Alice", "trust_score": 42.5, "karma": 180, "isCurrentUser": true }],
+    "links": [{ "source": "uuid-a", "target": "uuid-b", "raw_weight": 12, "effective_weight": 8.4 }]
+  }
+}
+```
+
+**Primary consumer**: `apps/frontend/src/components/community/tabs/TrustGraphTab.tsx` (Community sub-tab — hierarchical edge bundling)
 
 ---
 

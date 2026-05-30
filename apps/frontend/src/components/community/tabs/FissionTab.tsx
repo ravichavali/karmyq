@@ -214,6 +214,7 @@ export default function FissionTab({ community, currentUserId, isAdmin, onRefres
       <div className="space-y-4">
         {fissionGraphData ? (
           <TrustGraph
+            mode="fission"
             graphData={fissionGraphData}
             currentUserId={currentUserId}
             groupMap={groupMap}
@@ -292,6 +293,7 @@ export default function FissionTab({ community, currentUserId, isAdmin, onRefres
       <div className="space-y-5">
         {voteFissionGraphData ? (
           <TrustGraph
+            mode="fission"
             graphData={voteFissionGraphData}
             currentUserId={currentUserId}
             groupMap={voteGroupMap}

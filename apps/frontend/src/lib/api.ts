@@ -824,6 +824,9 @@ export const socialGraphService = {
   getTrustGraph: (communityId: string, center?: string) =>
     socialGraphApi.get(`/trust/graph/${communityId}${center ? `?center=${encodeURIComponent(center)}` : ''}`),
 
+  getFullCommunityGraph: (communityId: string) =>
+    socialGraphApi.get(`/trust/graph/${communityId}/full`),
+
   getTrustGraphAggregate: (center?: string) =>
     socialGraphApi.get(`/trust/graph${center ? `?center=${encodeURIComponent(center)}` : ''}`),
 }

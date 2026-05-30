@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { getTrustGraphForCommunity, getTrustGraphAggregate, getTrustGraphAggregateForCenter } from '../services/trustEdgeService';
-import { getTrustEdge } from '../database/trustEdgeDb';
+import { getTrustEdge, getFullCommunityGraph } from '../database/trustEdgeDb';
 import { computeEffectiveWeight } from '../services/trustEdgeService';
 import { logger } from '../config/logger';
 import { pool } from '../config/database';
@@ -21,6 +21,41 @@ router.get('/graph', async (req: Request, res: Response) => {
   } catch (error) {
     logger.error('Error fetching aggregate trust graph', error instanceof Error ? error : undefined);
     res.status(500).json({ success: false, message: 'Failed to fetch aggregate trust graph' });
+  }
+});
+
+// GET /trust/graph/:communityId/full — full community trust graph (up to 150 members + all inter-member edges)
+// MUST be declared before /graph/:communityId — Express matches "full" as a communityId otherwise
+router.get('/graph/:communityId/full', async (req: Request, res: Response) => {
+  try {
+    const { communityId } = req.params;
+    const callingUserId = (req as any).user?.userId;
+
+    const memberCheck = await pool.query(
+      `SELECT 1 FROM communities.members
+       WHERE community_id = $1 AND user_id = $2 AND status = 'active'`,
+      [communityId, callingUserId]
+    );
+
+    if (memberCheck.rows.length === 0) {
+      return res.status(403).json({
+        success: false,
+        message: 'Not a member of this community',
+      });
+    }
+
+    const graph = await getFullCommunityGraph(communityId, callingUserId);
+
+    res.json({
+      success: true,
+      data: graph,
+    });
+  } catch (error) {
+    logger.error('Error fetching full community trust graph', error instanceof Error ? error : undefined);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch full community trust graph',
+    });
   }
 });
 

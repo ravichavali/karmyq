@@ -27,105 +27,103 @@ interface GraphData {
   links: TrustLink[]
 }
 
-function mergeGraphData(existing: GraphData, incoming: GraphData): GraphData {
-  const nodeMap = new Map(existing.nodes.map(n => [n.id, n]))
-  const linkKeys = new Set(
-    existing.links.map(l => {
-      const src = typeof l.source === 'object' ? (l.source as any).id : l.source
-      const tgt = typeof l.target === 'object' ? (l.target as any).id : l.target
-      return [src, tgt].sort().join('|')
-    })
-  )
-
-  for (const node of incoming.nodes) {
-    if (!nodeMap.has(node.id)) nodeMap.set(node.id, node)
-  }
-
-  const mergedLinks = [...existing.links]
-  for (const link of incoming.links) {
-    const src = typeof link.source === 'object' ? (link.source as any).id : link.source
-    const tgt = typeof link.target === 'object' ? (link.target as any).id : link.target
-    const key = [src, tgt].sort().join('|')
-    if (!linkKeys.has(key)) {
-      mergedLinks.push(link)
-      linkKeys.add(key)
-    }
-  }
-
-  return { nodes: [...nodeMap.values()], links: mergedLinks }
-}
+type SubTab = 'community' | 'ego'
 
 export default function TrustGraphTab({ communityId, currentUserId }: TrustGraphTabProps) {
-  const [graphData, setGraphData] = useState<GraphData | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [subTab, setSubTab] = useState<SubTab>('community')
+  const [communityGraph, setCommunityGraph] = useState<GraphData | null>(null)
+  const [egoGraph, setEgoGraph] = useState<GraphData | null>(null)
+  const [egoCenter, setEgoCenter] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set())
-  const [expandingNodeId, setExpandingNodeId] = useState<string | null>(null)
 
+  // Fetch the full community graph once.
   useEffect(() => {
     setLoading(true)
     setError(null)
-    socialGraphService.getTrustGraph(communityId)
-      .then((res: any) => {
-        setGraphData(res.data)
-        setExpandedNodes(new Set([currentUserId]))
-      })
-      .catch(() => setError('Failed to load trust graph.'))
+    socialGraphService.getFullCommunityGraph(communityId)
+      .then((res: any) => setCommunityGraph(res.data))
+      .catch(() => setError('Failed to load community graph.'))
       .finally(() => setLoading(false))
-  }, [communityId, currentUserId])
+  }, [communityId])
 
-  const handleExpandNode = useCallback(async (nodeId: string) => {
-    if (expandedNodes.has(nodeId) || expandingNodeId) return
-    setExpandingNodeId(nodeId)
-    try {
-      const res: any = await socialGraphService.getTrustGraph(communityId, nodeId)
-      setGraphData(prev => prev ? mergeGraphData(prev, res.data) : res.data)
-      setExpandedNodes(prev => new Set([...prev, nodeId]))
-    } catch {
-      // silently ignore — node stays unexpanded
-    } finally {
-      setExpandingNodeId(null)
+  // Fetch the ego graph (centered on the calling user, or a clicked neighbor).
+  const loadEgo = useCallback((center?: string) => {
+    setLoading(true)
+    setError(null)
+    socialGraphService.getTrustGraph(communityId, center)
+      .then((res: any) => setEgoGraph(res.data))
+      .catch(() => setError('Failed to load your network.'))
+      .finally(() => setLoading(false))
+  }, [communityId])
+
+  useEffect(() => {
+    if (subTab === 'ego' && !egoGraph) loadEgo()
+  }, [subTab, egoGraph, loadEgo])
+
+  const handleEgoNodeClick = useCallback((nodeId: string) => {
+    if (nodeId === egoCenter || nodeId === currentUserId) {
+      setEgoCenter(null)
+      loadEgo()
+    } else {
+      setEgoCenter(nodeId)
+      loadEgo(nodeId)
     }
-  }, [communityId, expandedNodes, expandingNodeId])
+  }, [egoCenter, currentUserId, loadEgo])
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-16 text-text-muted text-sm">
-        Loading trust graph…
-      </div>
-    )
-  }
-
-  if (error) {
-    return (
-      <div className="flex items-center justify-center py-16 text-red-500 text-sm">
-        {error}
-      </div>
-    )
-  }
-
-  if (!graphData) return null
+  const tabClass = (active: boolean) =>
+    `px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+      active ? 'bg-indigo-600 text-white' : 'bg-surface text-text-muted hover:text-text'
+    }`
 
   return (
     <div>
-      <div className="mb-4 flex items-start justify-between">
-        <div>
-          <h3 className="text-base font-semibold text-text">Your Trust Neighborhood</h3>
-          <p className="text-sm text-text-muted mt-1">
-            Shows your direct connections. <span className="text-indigo-400">Click a neighbor</span> to expand their network.
-          </p>
-        </div>
-        {expandingNodeId && (
-          <span className="text-xs text-text-muted mt-1">Expanding…</span>
+      <div className="mb-4">
+        <h3 className="text-base font-semibold text-text">Trust Graph</h3>
+        <p className="text-sm text-text-muted mt-1">
+          {subTab === 'community'
+            ? 'Every member, grouped by how closely they connect. Amber lines are your connections.'
+            : 'You at the center. Closer rings are stronger connections. Click a neighbor to recenter.'}
+        </p>
+      </div>
+
+      <div className="flex gap-2 mb-3">
+        <button onClick={() => setSubTab('community')} className={tabClass(subTab === 'community')}>
+          Community
+        </button>
+        <button onClick={() => setSubTab('ego')} className={tabClass(subTab === 'ego')}>
+          My Network
+        </button>
+      </div>
+
+      <div className="w-full min-h-[600px] h-[calc(100vh-320px)]">
+        {error ? (
+          <div className="flex items-center justify-center py-16 text-red-500 text-sm">{error}</div>
+        ) : loading && (subTab === 'community' ? !communityGraph : !egoGraph) ? (
+          <div className="flex items-center justify-center py-16 text-text-muted text-sm">
+            Loading trust graph…
+          </div>
+        ) : subTab === 'community' ? (
+          communityGraph && (
+            <TrustGraph
+              mode="community"
+              graphData={communityGraph}
+              currentUserId={currentUserId}
+              height={560}
+            />
+          )
+        ) : (
+          egoGraph && (
+            <TrustGraph
+              mode="ego"
+              graphData={egoGraph}
+              currentUserId={currentUserId}
+              onNodeClick={handleEgoNodeClick}
+              height={560}
+            />
+          )
         )}
       </div>
-      <TrustGraph
-        graphData={graphData}
-        currentUserId={currentUserId}
-        expandedNodes={expandedNodes}
-        expandingNodeId={expandingNodeId}
-        onExpandNode={handleExpandNode}
-      />
     </div>
   )
 }
