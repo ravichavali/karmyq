@@ -43,6 +43,21 @@ Make trust graphs actually useful: replace the click-heavy ego-network with a **
 
 ---
 
+## Visualization Architecture (revised)
+
+Three purpose-built visualizations replace the single force-directed graph:
+
+| View | Component | Library | When |
+|------|-----------|---------|------|
+| Community full graph | `TrustGraphHEB.tsx` | D3 (hierarchical edge bundling) | Community tab default |
+| My Network (ego) | `TrustGraphRadial.tsx` | Cytoscape.js (concentric) | My Network sub-tab |
+| Fission split | `TrustGraphHEB.tsx` (fission mode) | D3 HEB, A/B as clusters | FissionTab |
+| Cross-community aggregate | `NetworkGraph.tsx` | react-force-graph-2d (unchanged) | Not changed this sprint |
+
+`TrustGraph.tsx` becomes a thin mode router. `react-force-graph-2d` stays only for `NetworkGraph.tsx`.
+
+New deps: `d3`, `@types/d3`, `cytoscape`, `react-cytoscapejs`, `@types/cytoscape`
+
 ## What This Sprint Ships
 
 ### Backend (social-graph-service)
@@ -52,9 +67,15 @@ Make trust graphs actually useful: replace the click-heavy ego-network with a **
 - New route `GET /trust/graph/:communityId/full` (registered BEFORE `/:communityId` — see gotcha #1)
 
 ### Frontend
-- `TrustGraph.tsx`: new `'community'` mode, edge width/opacity driven by `effective_weight`, amber highlight for edges touching current user, node sizing by trust score, 600px+ container height
-- `TrustGraphTab.tsx`: two sub-tabs — **Community** (full graph, no clicking) and **My Network** (ego, 2-degree pre-load)
-- `NetworkGraph.tsx`: screen space improvements
+- `graphs/TrustGraphHEB.tsx`: D3 hierarchical edge bundling — nodes on a circle by cluster, bundled splines, strong/weak edge differentiation, amber highlights for my connections
+- `graphs/TrustGraphRadial.tsx`: Cytoscape.js concentric — you at center, rings by trust score, 2-degree pre-loaded
+- `TrustGraph.tsx`: thin router (mode → component)
+- `TrustGraphTab.tsx`: Community tab (HEB) + My Network tab (Radial)
+- `FissionTab.tsx`: uses HEB with A/B groupMap as cluster assignment
+- `NetworkGraph.tsx`: screen space improvements only
+
+## Simplify Standard
+Run `/simplify` after each implementation task before moving to the next.
 
 ### Docs
 - Trust graph user guide (landing)
@@ -68,19 +89,23 @@ Make trust graphs actually useful: replace the click-heavy ego-network with a **
 
 ## ⚠️ Critical Implementation Notes
 
-1. **Route order matters**: Register `GET /trust/graph/:communityId/full` BEFORE `GET /trust/graph/:communityId`. Express matches params greedily — "full" will be treated as a communityId if registered second. **This will silently break both routes.**
+1. **Route order**: Register `GET /trust/graph/:communityId/full` BEFORE `GET /trust/graph/:communityId`. Express matches `full` as a communityId if registered second — silently breaks both routes.
 
-2. **trust_edges_live is a VIEW**: Never INSERT or UPDATE it. Write to `trust_edges`, read from `trust_edges_live` (which applies time decay via `current_weight`).
+2. **trust_edges_live is a VIEW**: Never INSERT/UPDATE. Write to `trust_edges`, read from `trust_edges_live`.
 
-3. **Calling user always included**: The 150-node cap is `top 149 by trust_score UNION calling_user_uuid`. Do not drop the UNION.
+3. **Calling user always included**: `top 149 UNION calling_user_uuid`. Never drop the UNION.
 
-4. **Edge weight normalization is client-side**: `maxEffectiveWeight = Math.max(...links.map(l => l.effective_weight))`. Compute from response payload, not a fixed constant.
+4. **D3 HEB angle math**: `d3.lineRadial().curve(d3.curveBundle.beta(0.85))`. For each link call `source.path(target)` from d3-hierarchy to get the bundling path.
 
-5. **react-force-graph-2d APIs**: `linkColor`, `linkWidth`, `nodeVal`, `nodeColor` are all function props. When checking source/target IDs from links, after simulation runs they become objects — always extract: `typeof link.source === 'object' ? link.source.id : link.source`.
+5. **react-cytoscapejs SSR crash**: Use `dynamic(() => import('./graphs/TrustGraphRadial'), { ssr: false })` in `TrustGraph.tsx`.
 
-6. **Landing docs gitignored**: `apps/landing/src/data/docs/` — always `git add -f` those files.
+6. **D3 + React DOM conflict**: Render D3 into `svgRef.current` in a `useEffect`. Always `d3.select(svgRef.current).selectAll('*').remove()` before re-rendering.
 
-7. **nav.json revert bug**: New guide slugs must be added to `GUIDE_ORDER`, `GUIDE_LABELS`, `GUIDE_SLUGS` in `scripts/generate-docs.ts`. Run `npm run generate-docs` from `apps/landing/`, not root. Grep-verify after running.
+7. **Cytoscape mapData**: Compute `maxWeight` and `maxScore` from the data before building the stylesheet — `mapData` needs explicit min/max.
+
+8. **Landing docs gitignored**: `apps/landing/src/data/docs/` — always `git add -f`.
+
+9. **nav.json revert bug**: Add new slugs to `GUIDE_ORDER`, `GUIDE_LABELS`, `GUIDE_SLUGS` in `scripts/generate-docs.ts` before running `npm run generate-docs` from `apps/landing/`.
 
 ---
 

@@ -3,11 +3,13 @@
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development
 > (recommended) or superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** Replace click-heavy ego-network with a full community graph (all members + edges, no expansion) and a smarter ego-view that pre-loads 2 degrees — making trust graphs immediately readable and useful.
+**Goal:** Replace the click-heavy ego-network with three purpose-built visualizations: hierarchical edge bundling for community + fission views (D3), radial/concentric layout for the ego view (Cytoscape.js), and a new full-community-graph endpoint that makes the whole thing possible.
 
-**Architecture:** New `GET /trust/graph/:communityId/full` endpoint in social-graph-service returns up to 150 members and all their edges. Frontend TrustGraphTab switches to this full-graph view as the default, with edge weight driving visual thickness/opacity and amber highlights marking the current user's connections.
+**Architecture:** New `GET /trust/graph/:communityId/full` endpoint in social-graph-service. Frontend introduces `TrustGraphHEB.tsx` (D3 SVG) and `TrustGraphRadial.tsx` (Cytoscape.js) as purpose-built graph components. `TrustGraph.tsx` becomes a thin router delegating to the right component. `react-force-graph-2d` stays for the cross-community `NetworkGraph.tsx`.
 
-**Tech Stack:** Node.js/Express/TypeScript, Next.js 14, PostgreSQL 15, react-force-graph-2d.
+**Tech Stack:** Node.js/Express/TypeScript, Next.js 14, PostgreSQL 15, D3 (HEB), Cytoscape.js (radial), react-force-graph-2d (existing aggregate view).
+
+**Simplify standard:** Run `/simplify` after each implementation task (Tasks 1–9) before moving to the next. Focus on any newly written code — remove dead branches, flatten unnecessary wrappers, clean up one-off variable names.
 
 ---
 
@@ -16,20 +18,24 @@
 ### New files to create
 | File | Responsibility |
 |------|----------------|
-| `services/social-graph-service/tests/tdd/sprint-74-trust-graph-full.test.ts` | TDD integration test for new endpoint |
+| `apps/frontend/src/components/graphs/TrustGraphHEB.tsx` | D3 hierarchical edge bundling — community + fission views |
+| `apps/frontend/src/components/graphs/TrustGraphRadial.tsx` | Cytoscape.js concentric — ego / My Network view |
+| `services/social-graph-service/tests/tdd/sprint-74-trust-graph-full.test.ts` | TDD test for new endpoint |
 
 ### Existing files to modify
 | File | Change |
 |------|--------|
 | `services/social-graph-service/src/database/trustEdgeDb.ts` | Add `getFullCommunityGraph()` |
-| `services/social-graph-service/src/routes/trustGraph.ts` | Add `GET /trust/graph/:communityId/full` route (before existing param route) |
+| `services/social-graph-service/src/routes/trustGraph.ts` | Add `GET /trust/graph/:communityId/full` (before existing param route) |
 | `apps/frontend/src/lib/api.ts` | Add `getFullCommunityGraph()` to `socialGraphService` |
-| `apps/frontend/src/components/TrustGraph.tsx` | Visual encoding overhaul — mode prop, edge weight, highlight layer, screen space |
-| `apps/frontend/src/components/community/tabs/TrustGraphTab.tsx` | Switch to full graph endpoint, add Community / My Network sub-tabs |
-| `apps/frontend/src/components/NetworkGraph.tsx` | Screen space improvements, ego pre-load |
-| `apps/landing/src/data/docs/guides/trust-graph.json` | Create/update trust graph user guide |
-| `apps/landing/src/data/docs/concepts/trust-graph.json` | Update concept page — community topology section |
-| `apps/landing/src/data/docs/nav.json` | Add guide entry if new |
+| `apps/frontend/src/components/TrustGraph.tsx` | Thin router — delegates to HEB or Radial by mode |
+| `apps/frontend/src/components/community/tabs/TrustGraphTab.tsx` | Community + My Network sub-tabs, uses new components |
+| `apps/frontend/src/components/community/tabs/FissionTab.tsx` | Switch to TrustGraphHEB in fission mode |
+| `apps/frontend/src/components/NetworkGraph.tsx` | Screen space improvements (react-force-graph-2d unchanged) |
+| `apps/frontend/package.json` | Add d3, @types/d3, cytoscape, react-cytoscapejs, @types/cytoscape |
+| `apps/landing/src/data/docs/guides/trust-graph.json` | Create trust graph user guide |
+| `apps/landing/src/data/docs/concepts/trust-graph.json` | Update/create concept page |
+| `apps/landing/src/data/docs/nav.json` | Add guide entry |
 | `scripts/generate-docs.ts` | Add trust-graph slug to GUIDE_ORDER + GUIDE_LABELS + GUIDE_SLUGS |
 | `services/social-graph-service/CONTEXT.md` | Document new endpoint |
 | `services/registry.json` | Add endpoint to social-graph-service apis.provides |
@@ -40,21 +46,23 @@
 
 ## ⚠️ Critical Implementation Notes (read before Task 2)
 
-1. **Route order matters**: Register `GET /trust/graph/:communityId/full` BEFORE `GET /trust/graph/:communityId`. Express matches params greedily — "full" will be treated as a communityId if registered second.
+1. **Route order**: Register `GET /trust/graph/:communityId/full` BEFORE `GET /trust/graph/:communityId`. Express matches `full` as a communityId if registered second — silently breaks both routes.
 
-2. **trust_edges_live is a VIEW**: Never INSERT or UPDATE it. Write to `trust_edges`, read from `trust_edges_live` (which applies time decay via `current_weight`).
+2. **trust_edges_live is a VIEW**: Never INSERT/UPDATE. Read from `trust_edges_live`, write to `trust_edges`.
 
-3. **Calling user always included**: The 150-node cap is implemented as `top 149 by trust_score UNION calling_user_uuid`. Do not drop the UNION or the current user may disappear from their own community graph.
+3. **Calling user always included**: `top 149 ORDER BY trust_score UNION calling_user_uuid`. Never drop the UNION.
 
-4. **Edge weight normalization is client-side**: `maxEffectiveWeight` is computed from the response payload — `Math.max(...links.map(l => l.effective_weight))`. Do not assume a fixed max.
+4. **D3 HEB angle math**: Use `d3.lineRadial().curve(d3.curveBundle.beta(0.85))`. For each link, call `source.path(target)` from d3-hierarchy to get the bundling path. Convert polar to Cartesian: `x = r * Math.cos(angle - Math.PI/2)`, `y = r * Math.sin(angle - Math.PI/2)`.
 
-5. **react-force-graph-2d APIs**: Edge color → `linkColor` prop as a function. Edge width → `linkWidth` as a function. Node size → `nodeVal` prop. Node color → `nodeColor` prop. All are functions receiving the node/link object.
+5. **react-cytoscapejs SSR crash**: Next.js will fail to SSR the Cytoscape import. In `TrustGraph.tsx`, load `TrustGraphRadial` with `dynamic(() => import('./graphs/TrustGraphRadial'), { ssr: false })`.
 
-6. **Landing docs gitignored**: `apps/landing/src/data/docs/` is in `.gitignore` — always `git add -f` those files.
+6. **D3 + React DOM conflict**: D3 mutates the DOM; React does too. Render D3 into `svgRef.current` inside a `useEffect`. Always call `d3.select(svgRef.current).selectAll('*').remove()` before re-rendering.
 
-7. **nav.json revert bug**: `generate-docs.ts` regenerates nav.json. New slugs must be in `GUIDE_ORDER`, `GUIDE_LABELS`, `GUIDE_SLUGS` before running `npm run generate-docs`. Run from `apps/landing/`, not root.
+7. **Cytoscape mapData**: `mapData(field, from, to, mapFrom, mapTo)` needs the field's min/max across the dataset. Compute `maxWeight` and `maxScore` from the response before building the stylesheet.
 
-8. **trust_edges normalized constraint**: `user_id_a::text < user_id_b::text`. Edges query reads from `trust_edges_live` which already enforces this — no re-sorting needed in the new query.
+8. **Landing docs gitignored**: `apps/landing/src/data/docs/` — always `git add -f`.
+
+9. **nav.json revert bug**: Add new slugs to `GUIDE_ORDER`, `GUIDE_LABELS`, `GUIDE_SLUGS` in `scripts/generate-docs.ts` before running `npm run generate-docs` from `apps/landing/`.
 
 ---
 
@@ -63,7 +71,7 @@
 **Files:**
 - Modify: `services/social-graph-service/src/database/trustEdgeDb.ts`
 
-- [ ] Check out branch: `git checkout -b feature/sprint-74-trust-graph-foundation`
+- [ ] `git checkout -b feature/sprint-74-trust-graph-foundation`
 
 - [ ] Add `getFullCommunityGraph(communityId, callingUserId)` to `trustEdgeDb.ts`:
 
@@ -72,15 +80,13 @@ export async function getFullCommunityGraph(
   communityId: string,
   callingUserId: string
 ): Promise<{ nodes: TrustNode[]; links: TrustLink[] }> {
-  const nodesQuery = `
+  const memberCTE = `
     WITH active_members AS (
       SELECT user_id FROM communities.members
       WHERE community_id = $1 AND status = 'active'
     ),
     member_scores AS (
-      SELECT
-        am.user_id,
-        COALESCE(SUM(tel.current_weight), 0) AS trust_score
+      SELECT am.user_id, COALESCE(SUM(tel.current_weight), 0) AS trust_score
       FROM active_members am
       LEFT JOIN social_graph.trust_edges_live tel
         ON (tel.user_id_a = am.user_id OR tel.user_id_b = am.user_id)
@@ -92,8 +98,11 @@ export async function getFullCommunityGraph(
       UNION
       (SELECT $2::uuid)
     )
-    SELECT
-      u.id, u.name,
+  `;
+
+  const nodesQuery = `
+    ${memberCTE}
+    SELECT u.id, u.name,
       COALESCE(ms.trust_score, 0) AS trust_score,
       COALESCE((
         SELECT SUM(kr.points) FROM reputation.karma_records kr
@@ -106,30 +115,9 @@ export async function getFullCommunityGraph(
   `;
 
   const edgesQuery = `
-    WITH active_members AS (
-      SELECT user_id FROM communities.members
-      WHERE community_id = $1 AND status = 'active'
-    ),
-    member_scores AS (
-      SELECT
-        am.user_id,
-        COALESCE(SUM(tel.current_weight), 0) AS trust_score
-      FROM active_members am
-      LEFT JOIN social_graph.trust_edges_live tel
-        ON (tel.user_id_a = am.user_id OR tel.user_id_b = am.user_id)
-        AND tel.community_id = $1
-      GROUP BY am.user_id
-    ),
-    top_members AS (
-      (SELECT user_id FROM member_scores ORDER BY trust_score DESC LIMIT 149)
-      UNION
-      (SELECT $2::uuid)
-    )
-    SELECT
-      tel.user_id_a AS source,
-      tel.user_id_b AS target,
-      tel.raw_weight,
-      tel.current_weight AS effective_weight
+    ${memberCTE}
+    SELECT tel.user_id_a AS source, tel.user_id_b AS target,
+           tel.raw_weight, tel.current_weight AS effective_weight
     FROM social_graph.trust_edges_live tel
     WHERE tel.community_id = $1
       AND tel.user_id_a IN (SELECT user_id FROM top_members)
@@ -143,15 +131,13 @@ export async function getFullCommunityGraph(
 
   return {
     nodes: nodesResult.rows.map(r => ({
-      id: r.id,
-      name: r.name,
+      id: r.id, name: r.name,
       trust_score: parseFloat(r.trust_score) || 0,
       karma: parseFloat(r.karma) || 0,
       isCurrentUser: r.is_current_user,
     })),
     links: edgesResult.rows.map(r => ({
-      source: r.source,
-      target: r.target,
+      source: r.source, target: r.target,
       raw_weight: parseFloat(r.raw_weight) || 0,
       effective_weight: parseFloat(r.effective_weight) || 0,
     })),
@@ -159,7 +145,9 @@ export async function getFullCommunityGraph(
 }
 ```
 
-- [ ] **Verification**: Function compiles — `cd services/social-graph-service && npx tsc --noEmit`
+- [ ] `/simplify` — check for duplicated CTE string, any unnecessary intermediate vars
+
+- [ ] `cd services/social-graph-service && npx tsc --noEmit`
 
 ---
 
@@ -170,15 +158,14 @@ export async function getFullCommunityGraph(
 
 - [ ] Import `getFullCommunityGraph` from `trustEdgeDb`
 
-- [ ] Register the new route **before** the existing `router.get('/:communityId', ...)` handler:
+- [ ] Register the new route **before** the existing `router.get('/:communityId', ...)`:
 
 ```typescript
-// Full community graph — MUST be before /:communityId route
+// MUST be before /:communityId — see implementation note #1
 router.get('/:communityId/full', authenticateToken, async (req, res) => {
   const { communityId } = req.params;
   const callingUserId = req.user!.userId;
 
-  // Verify community membership
   const memberCheck = await pool.query(
     `SELECT 1 FROM communities.members
      WHERE community_id = $1 AND user_id = $2 AND status = 'active'`,
@@ -193,176 +180,312 @@ router.get('/:communityId/full', authenticateToken, async (req, res) => {
 });
 ```
 
-- [ ] **Verification**: `curl -H "Authorization: Bearer <token>" http://localhost:3010/trust/graph/<communityId>/full` returns `{ success: true, data: { nodes: [...], links: [...] } }`
+- [ ] `/simplify`
+
+- [ ] Verify route ordering by checking `router.stack` log or manual test: `curl -H "Authorization: Bearer <token>" http://localhost:3010/trust/graph/<communityId>/full`
 
 ---
 
-## Task 3: API client
+## Task 3: API client + install packages
 
 **Files:**
 - Modify: `apps/frontend/src/lib/api.ts`
+- Modify: `apps/frontend/package.json`
 
-- [ ] Add to `socialGraphService` object:
+- [ ] Add to `socialGraphService` in `api.ts`:
 
 ```typescript
 getFullCommunityGraph: (communityId: string) =>
   api.get(`/social-graph/trust/graph/${communityId}/full`),
 ```
 
-- [ ] **Verification**: TypeScript compiles — `cd apps/frontend && npx tsc --noEmit`
+- [ ] Install new dependencies from `apps/frontend/`:
+
+```bash
+npm install d3 cytoscape react-cytoscapejs
+npm install --save-dev @types/d3 @types/cytoscape
+```
+
+- [ ] `/simplify` — verify no duplicate api method signatures
+
+- [ ] `npx tsc --noEmit`
 
 ---
 
-## Task 4: TrustGraph.tsx — visual encoding overhaul
+## Task 4: TrustGraphHEB.tsx — hierarchical edge bundling
+
+**Files:**
+- Create: `apps/frontend/src/components/graphs/TrustGraphHEB.tsx`
+
+- [ ] Create the component. Key implementation steps:
+
+**Cluster detection** (used in 'community' mode; fission mode skips this):
+```typescript
+function detectClusters(nodes: TrustNode[], links: TrustLink[]): Map<string, number> {
+  const parent = new Map(nodes.map(n => [n.id, n.id]));
+  const find = (x: string): string => {
+    if (parent.get(x) !== x) parent.set(x, find(parent.get(x)!));
+    return parent.get(x)!;
+  };
+  const union = (a: string, b: string) => parent.set(find(a), find(b));
+
+  [...links]
+    .sort((a, b) => b.effective_weight - a.effective_weight)
+    .slice(0, Math.floor(links.length * 0.4)) // merge on top 40% strongest edges
+    .forEach(l => union(l.source as string, l.target as string));
+
+  const rootToCluster = new Map<string, number>();
+  let nextId = 0;
+  const result = new Map<string, number>();
+  nodes.forEach(n => {
+    const root = find(n.id);
+    if (!rootToCluster.has(root)) rootToCluster.set(root, nextId++);
+    result.set(n.id, rootToCluster.get(root)!);
+  });
+  return result;
+}
+```
+
+**D3 HEB rendering** (in `useEffect` on `svgRef.current`):
+- Build hierarchy: `d3.hierarchy({ children: clusters.map(c => ({ children: c.nodes })) })`
+- `d3.cluster().size([2 * Math.PI, radius])` — positions nodes
+- Sort nodes by cluster so same-cluster nodes are adjacent on the circle
+- `d3.lineRadial().curve(d3.curveBundle.beta(0.85))` — bundled splines
+- For each link: `sourceNode.path(targetNode)` → array of hierarchy nodes → pass to line generator
+- Draw links first (z-order), then nodes, then labels
+- Edge colors:
+  - Same cluster: `rgba(99, 102, 241, 0.6)` (indigo)
+  - Cross cluster: `rgba(148, 163, 184, 0.25)` (muted)
+  - My edges: `rgba(251, 146, 60, 0.85)` (amber, rendered last/on top)
+- Node radius: `4 + Math.min((trust_score / maxScore) * 6, 6)` → range 4–10px
+- Labels: `textAnchor` and `transform rotate` based on angle
+
+**Props interface:**
+```typescript
+interface TrustGraphHEBProps {
+  nodes: TrustNode[];
+  links: TrustLink[];
+  currentUserId: string;
+  mode: 'community' | 'fission';
+  groupMap?: Map<string, 'A' | 'B'>; // fission only
+  width?: number;
+  height?: number;
+}
+```
+
+- [ ] `/simplify` — the D3 rendering chain tends to accumulate intermediate variables; collapse any that are used only once
+
+- [ ] Render check in dev: community tab should show nodes on a circle with bundled edges
+
+---
+
+## Task 5: TrustGraphRadial.tsx — Cytoscape concentric layout
+
+**Files:**
+- Create: `apps/frontend/src/components/graphs/TrustGraphRadial.tsx`
+
+- [ ] Create the component using `react-cytoscapejs`:
+
+```typescript
+import CytoscapeComponent from 'react-cytoscapejs';
+import type { ElementDefinition, StylesheetStyle } from 'cytoscape';
+
+interface TrustGraphRadialProps {
+  nodes: TrustNode[];
+  links: TrustLink[];
+  currentUserId: string;
+  onNodeClick?: (nodeId: string) => void;
+}
+```
+
+**Elements**: map nodes to `{ data: { id, label: name, trust_score, isCurrentUser } }` and links to `{ data: { source, target, effective_weight } }`
+
+**Layout**:
+```typescript
+const layout = {
+  name: 'concentric',
+  concentric: (node: any) => node.data('isCurrentUser') ? 1000 : node.data('trust_score') + 1,
+  levelWidth: () => 3,
+  minNodeSpacing: 30,
+  animate: true,
+  animationDuration: 400,
+};
+```
+
+**Stylesheet** (compute `maxWeight`, `maxScore` from props before building):
+```typescript
+const stylesheet: StylesheetStyle[] = [
+  { selector: 'node', style: {
+    'background-color': '#64748b',
+    'width': `mapData(trust_score, 0, ${maxScore}, 16, 32)`,
+    'height': `mapData(trust_score, 0, ${maxScore}, 16, 32)`,
+    'label': 'data(label)',
+    'font-size': '10px',
+    'color': '#e2e8f0',
+    'text-valign': 'bottom',
+    'text-margin-y': 4,
+  }},
+  { selector: 'node[?isCurrentUser]', style: {
+    'background-color': '#6366f1',
+    'width': 36, 'height': 36,
+    'font-size': '11px',
+    'font-weight': 'bold',
+  }},
+  { selector: 'edge', style: {
+    'line-color': '#94a3b8',
+    'width': `mapData(effective_weight, 0, ${maxWeight}, 1, 5)`,
+    'opacity': `mapData(effective_weight, 0, ${maxWeight}, 0.2, 0.85)`,
+    'curve-style': 'bezier',
+  }},
+  // amber edges touching current user — applied via cy.on('render') or edge class
+];
+```
+
+- [ ] Amber highlight: after mount, `cy.edges().forEach(e => { if (e.source().id() === currentUserId || e.target().id() === currentUserId) e.addClass('my-edge'); })`. Add `.my-edge` style entry with `line-color: #fb923c`.
+
+- [ ] `/simplify`
+
+- [ ] Render check in dev: My Network tab shows concentric rings with you at center
+
+---
+
+## Task 6: TrustGraph.tsx — thin router
 
 **Files:**
 - Modify: `apps/frontend/src/components/TrustGraph.tsx`
 
-- [ ] Add `'community'` to the `mode` prop type: `mode: 'ego' | 'community' | 'fission'`
+- [ ] Rewrite `TrustGraph.tsx` as a mode router. Keep the existing prop interface (backward compat for any callers not yet updated), add `mode: 'ego' | 'community' | 'fission'`:
 
-- [ ] Add `currentUserId?: string` prop (pass through for highlight layer)
-
-- [ ] Compute `maxEffectiveWeight` from the links dataset:
 ```typescript
-const maxEffectiveWeight = useMemo(
-  () => Math.max(1, ...graphData.links.map((l: TrustLink) => l.effective_weight)),
-  [graphData.links]
+const TrustGraphRadial = dynamic(
+  () => import('./graphs/TrustGraphRadial'),
+  { ssr: false }
 );
-```
+import TrustGraphHEB from './graphs/TrustGraphHEB';
 
-- [ ] Set `linkWidth` as a function:
-```typescript
-linkWidth={(link: TrustLink) => Math.max(1, Math.log1p(link.effective_weight) * 1.5)}
-```
-
-- [ ] Set `linkColor` as a function — amber for my edges, muted slate for others:
-```typescript
-linkColor={(link: TrustLink) => {
-  const src = typeof link.source === 'object' ? (link.source as any).id : link.source;
-  const tgt = typeof link.target === 'object' ? (link.target as any).id : link.target;
-  return src === currentUserId || tgt === currentUserId
-    ? 'rgba(251, 146, 60, 0.85)'
-    : 'rgba(148, 163, 184, 0.45)';
-}}
-```
-
-- [ ] Set `linkOpacity` (if supported, else fold into `linkColor` alpha)
-
-- [ ] Set `nodeVal` as a function for node sizing:
-```typescript
-nodeVal={(node: TrustNode) =>
-  node.isCurrentUser ? 22 : 5 + Math.min((node.trust_score || 0) / 10, 15)
+export default function TrustGraph(props: TrustGraphProps) {
+  if (props.mode === 'ego') return <TrustGraphRadial {...props} />;
+  return <TrustGraphHEB {...props} />;
 }
 ```
 
-- [ ] Set `nodeColor` — current user gets bright accent, others use trust-score-based shade
+- [ ] Remove any force-directed logic that was previously in TrustGraph.tsx — it's fully replaced
 
-- [ ] In `community` mode: disable click-to-expand (no `onNodeClick` data fetch). Clicking a node recenters the simulation on that node without fetching new data.
+- [ ] `/simplify`
 
-- [ ] Increase default graph container height to 600px minimum in the component's outer div
-
-- [ ] **Verification**: TrustGraph renders in Storybook or dev — no TypeScript errors
+- [ ] `npx tsc --noEmit`
 
 ---
 
-## Task 5: TrustGraphTab.tsx — Community / My Network sub-tabs
+## Task 7: TrustGraphTab.tsx + FissionTab.tsx
 
 **Files:**
 - Modify: `apps/frontend/src/components/community/tabs/TrustGraphTab.tsx`
+- Modify: `apps/frontend/src/components/community/tabs/FissionTab.tsx`
 
-- [ ] Add a `subTab` state: `'community' | 'ego'`, defaulting to `'community'`
+**TrustGraphTab.tsx:**
 
-- [ ] Add a two-button toggle above the graph (e.g., `Community` | `My Network`)
+- [ ] Add `subTab: 'community' | 'ego'` state, default `'community'`
 
-- [ ] **Community sub-tab**: call `socialGraphService.getFullCommunityGraph(communityId)` on mount, render `<TrustGraph mode="community" currentUserId={userId} ... />`
+- [ ] Add a two-button toggle above the graph:
+```tsx
+<div className="flex gap-2 mb-3">
+  <button onClick={() => setSubTab('community')} className={subTab === 'community' ? 'active-tab' : 'tab'}>
+    Community
+  </button>
+  <button onClick={() => setSubTab('ego')} className={subTab === 'ego' ? 'active-tab' : 'tab'}>
+    My Network
+  </button>
+</div>
+```
 
-- [ ] **My Network sub-tab**: call `socialGraphService.getTrustGraph(communityId)` on mount (no center param — loads caller's ego), render `<TrustGraph mode="ego" currentUserId={userId} ... />`. Remove click-to-expand behavior; clicking a node calls `getTrustGraph(communityId, nodeId)` to recenter.
+- [ ] Community sub-tab: call `socialGraphService.getFullCommunityGraph(communityId)` on mount (or when switching to this tab), render `<TrustGraph mode="community" currentUserId={userId} nodes={...} links={...} />`
 
-- [ ] Update graph container div: `className="w-full min-h-[600px] h-[calc(100vh-320px)]"`
+- [ ] My Network sub-tab: call `socialGraphService.getTrustGraph(communityId)` on mount, render `<TrustGraph mode="ego" currentUserId={userId} nodes={...} links={...} onNodeClick={...} />`
 
-- [ ] **Verification**: Both sub-tabs load and render data in dev environment
+- [ ] Container div: `className="w-full min-h-[600px] h-[calc(100vh-320px)]"`
+
+**FissionTab.tsx:**
+
+- [ ] Replace the existing `<TrustGraph mode="fission" groupMap={groupMap} ...>` prop pass-through — it should now work automatically since `TrustGraph.tsx` routes `mode="fission"` to `TrustGraphHEB`
+
+- [ ] Verify `groupMap` prop flows through correctly
+
+- [ ] `/simplify` on both files
 
 ---
 
-## Task 6: NetworkGraph.tsx — screen space + ego pre-load
+## Task 8: NetworkGraph.tsx — screen space
 
 **Files:**
 - Modify: `apps/frontend/src/components/NetworkGraph.tsx`
 
-- [ ] Update container height to match TrustGraphTab pattern: `min-h-[600px]`
+- [ ] Update container height: `min-h-[600px] h-[calc(100vh-300px)]`
 
-- [ ] On mount, load ego-network once (no waiting for user to click). The component currently loads on viewport intersection — keep that, but once loaded, show depth-1 + depth-2 connections without requiring expansion clicks.
+- [ ] Canvas width/height: `width="100%" height="100%"` (react-force-graph-2d already respects these)
 
-- [ ] Apply the same `linkColor`, `linkWidth`, `nodeVal` visual encoding from Task 4 (extract shared constants or duplicate for now)
-
-- [ ] **Verification**: NetworkGraph renders full ego-network on first load
+- [ ] `/simplify`
 
 ---
 
-## Task 7: User guides + landing page docs
+## Task 9: User guides + landing page docs
 
 **Files:**
 - Modify/create: `apps/landing/src/data/docs/guides/trust-graph.json`
-- Modify: `apps/landing/src/data/docs/concepts/trust-graph.json` (if exists, else create)
-- Modify: `scripts/generate-docs.ts` (if trust-graph not yet in GUIDE_ORDER)
-- Modify: `apps/landing/src/data/docs/nav.json`
+- Modify/create: `apps/landing/src/data/docs/concepts/trust-graph.json`
+- Modify: `scripts/generate-docs.ts`
+- Run: `npm run generate-docs` from `apps/landing/`
+- Force-add: `git add -f apps/landing/src/data/docs/`
 
-- [ ] Create or update `guides/trust-graph.json`:
+- [ ] Create `guides/trust-graph.json`:
 ```json
 {
   "slug": "trust-graph",
   "title": "Reading the Trust Graph",
-  "description": "How to interpret community trust graphs and your ego-network view.",
-  "content": "# Reading the Trust Graph\n\n## Community Graph\n\nThe Community tab shows all members of your community and every connection between them — up to 150 members ranked by trust score.\n\n**What you see:**\n- Each node is a community member. Larger nodes have higher trust scores.\n- Edges (lines) between nodes represent trust built through interactions — exchanges completed, endorsements given, karma awarded.\n- Thicker, more opaque edges mean stronger, more recent connections.\n- **Amber edges** are your connections — every line touching your node is highlighted so you can immediately see where you sit in the network.\n\n## My Network Tab\n\nThe My Network tab centers the view on you and pre-loads your 2-degree neighborhood — your direct connections and their connections. Click any node to recenter.\n\n## What makes a strong connection?\n\nConnection strength is based on interactions weighted by recency. A match completed last week counts more than one from a year ago. The platform applies a 6-month half-life so trust graphs reflect current relationships, not historical ones."
+  "description": "How to interpret community trust graphs, your ego-network view, and fission visualizations.",
+  "content": "# Reading the Trust Graph\n\n## Community Graph\n\nThe Community tab shows every member of your community arranged in a circle, grouped by how closely they're connected. Edges bundle together when they follow similar paths through the network — this is called hierarchical edge bundling.\n\n**What you see:**\n- Nodes on the circle are community members. Larger nodes have higher trust scores.\n- Thick, bright edges within a group mean strong, active relationships.\n- Thin, muted threads crossing between groups are weak connections — the ties that would break in a split.\n- **Amber edges** are your connections — every line touching your node.\n\n## My Network\n\nThe My Network tab centers the view on you. Your direct connections appear in the first ring, ordered by connection strength. Their connections appear in the second ring. No clicking required — two degrees of your network are visible immediately.\n\n## Fission View\n\nWhen a community proposes splitting, the fission graph shows the same hierarchical layout but with two clusters: the proposed Group A and Group B. Green edges are strong within-group connections. Red threads are cross-group connections — the relationships that span the proposed boundary.\n\n## What makes a strong connection?\n\nConnection strength is based on completed exchanges, endorsements, karma, and shared events — weighted by recency. A 6-month half-life means recent interactions count more than old ones."
 }
 ```
 
-- [ ] Check if `trust-graph` is in `GUIDE_ORDER`, `GUIDE_LABELS`, `GUIDE_SLUGS` in `scripts/generate-docs.ts`. Add if missing.
+- [ ] Check `scripts/generate-docs.ts` for `GUIDE_ORDER`, `GUIDE_LABELS`, `GUIDE_SLUGS` — add `trust-graph` entry to each if missing
 
-- [ ] Run from `apps/landing/`: `npm run generate-docs`
+- [ ] `cd apps/landing && npm run generate-docs`
 
-- [ ] Verify nav.json has the trust-graph entry, re-apply if generate-docs reverted it
+- [ ] Grep-verify `trust-graph` appears in the regenerated `nav.json`; re-apply if missing
 
-- [ ] `git add -f apps/landing/src/data/docs/` (gitignored directory)
+- [ ] `git add -f apps/landing/src/data/docs/`
 
 ---
 
-## Task 8: CONTEXT.md + registry.json + TDD test
+## Task 10: CONTEXT.md + registry.json + TDD test + version bump
 
 **Files:**
 - Modify: `services/social-graph-service/CONTEXT.md`
 - Modify: `services/registry.json`
 - Create: `services/social-graph-service/tests/tdd/sprint-74-trust-graph-full.test.ts`
-- Modify: `package.json` (root) — bump to 10.3.0
-- Modify: `tests/regression/version.test.ts` — update invariant to 10.3.0
+- Modify: `package.json` (root) — 10.2.0 → 10.3.0
+- Modify: `tests/regression/version.test.ts` — assert 10.3.0
 
-- [ ] Update `services/social-graph-service/CONTEXT.md` — add under API Endpoints:
+- [ ] Add to `services/social-graph-service/CONTEXT.md` under API Endpoints:
   ```
-  GET /trust/graph/:communityId/full — Full community graph (up to 150 members + all edges)
+  GET /trust/graph/:communityId/full — Full community trust graph (up to 150 members + all inter-member edges)
   ```
 
-- [ ] Update `services/registry.json` — add to social-graph-service `apis.provides`:
+- [ ] Add to `services/registry.json` social-graph-service `apis.provides`:
   ```json
-  {
-    "method": "GET",
-    "path": "/trust/graph/:communityId/full",
-    "description": "Full community trust graph — up to 150 members ranked by trust score with all inter-member edges"
-  }
+  { "method": "GET", "path": "/trust/graph/:communityId/full", "description": "Full community trust graph — up to 150 members ranked by trust score with all inter-member edges" }
   ```
 
-- [ ] Bump root `package.json` version `10.2.0` → `10.3.0`
+- [ ] Bump root `package.json` `10.2.0` → `10.3.0`
 
 - [ ] Update `tests/regression/version.test.ts` to assert `10.3.0`
 
-- [ ] Create `services/social-graph-service/tests/tdd/sprint-74-trust-graph-full.test.ts`:
+- [ ] Create TDD test `services/social-graph-service/tests/tdd/sprint-74-trust-graph-full.test.ts`:
 
 ```typescript
 import { describe, it, expect, jest, beforeEach } from '@jest/globals';
 
-// Mock the database pool
-jest.mock('../../src/config/database', () => ({
-  pool: { query: jest.fn() }
-}));
+jest.mock('../../src/config/database', () => ({ pool: { query: jest.fn() } }));
 
 import { pool } from '../../src/config/database';
 import { getFullCommunityGraph } from '../../src/database/trustEdgeDb';
@@ -372,85 +495,73 @@ const mockPool = pool as jest.Mocked<typeof pool>;
 describe('getFullCommunityGraph', () => {
   beforeEach(() => jest.clearAllMocks());
 
-  it('returns nodes and links for a community', async () => {
-    const nodes = [
-      { id: 'user-a', name: 'Alice', trust_score: '10', karma: '50', is_current_user: true },
-      { id: 'user-b', name: 'Bob', trust_score: '8', karma: '30', is_current_user: false },
-    ];
-    const links = [
-      { source: 'user-a', target: 'user-b', raw_weight: '5', effective_weight: '4.2' }
-    ];
-
+  it('returns parsed nodes and links', async () => {
     (mockPool.query as jest.Mock)
-      .mockResolvedValueOnce({ rows: nodes })   // nodes query
-      .mockResolvedValueOnce({ rows: links });  // edges query
+      .mockResolvedValueOnce({ rows: [
+        { id: 'ua', name: 'Alice', trust_score: '10', karma: '50', is_current_user: true },
+        { id: 'ub', name: 'Bob',   trust_score: '8',  karma: '30', is_current_user: false },
+      ]})
+      .mockResolvedValueOnce({ rows: [
+        { source: 'ua', target: 'ub', raw_weight: '5', effective_weight: '4.2' }
+      ]});
 
-    const result = await getFullCommunityGraph('comm-1', 'user-a');
+    const result = await getFullCommunityGraph('comm-1', 'ua');
 
     expect(result.nodes).toHaveLength(2);
-    expect(result.nodes[0]).toMatchObject({
-      id: 'user-a', name: 'Alice', trust_score: 10, karma: 50, isCurrentUser: true
-    });
-    expect(result.links).toHaveLength(1);
-    expect(result.links[0]).toMatchObject({
-      source: 'user-a', target: 'user-b', raw_weight: 5, effective_weight: 4.2
-    });
+    expect(result.nodes[0]).toMatchObject({ id: 'ua', trust_score: 10, isCurrentUser: true });
+    expect(result.links[0]).toMatchObject({ source: 'ua', target: 'ub', effective_weight: 4.2 });
   });
 
-  it('always includes calling user even if outside top 149', async () => {
-    // Verify both queries are called with the communityId and callingUserId params
+  it('passes communityId and callingUserId to both queries', async () => {
     (mockPool.query as jest.Mock)
-      .mockResolvedValueOnce({ rows: [] })
-      .mockResolvedValueOnce({ rows: [] });
+      .mockResolvedValue({ rows: [] });
 
     await getFullCommunityGraph('comm-1', 'user-z');
 
-    const [nodesCall, edgesCall] = (mockPool.query as jest.Mock).mock.calls;
-    expect(nodesCall[1]).toEqual(['comm-1', 'user-z']);
-    expect(edgesCall[1]).toEqual(['comm-1', 'user-z']);
+    const calls = (mockPool.query as jest.Mock).mock.calls;
+    expect(calls[0][1]).toEqual(['comm-1', 'user-z']);
+    expect(calls[1][1]).toEqual(['comm-1', 'user-z']);
   });
 });
 ```
 
-- [ ] **Verification**: `cd services/social-graph-service && npx jest tests/tdd/sprint-74-trust-graph-full.test.ts`
+- [ ] `cd services/social-graph-service && npx jest tests/tdd/sprint-74-trust-graph-full.test.ts`
 
 ---
 
-## Task 9: Type check + full test suite
+## Task 11: Type check + full test suite
 
-- [ ] TypeScript check across all modified packages:
+- [ ] TypeScript check:
 ```bash
 cd services/social-graph-service && npx tsc --noEmit
 cd apps/frontend && npx tsc --noEmit
 ```
 
-- [ ] Run full test suite:
+- [ ] Full test suite:
 ```bash
 npm test
 ```
-All unit + regression tests must pass (163+ tests green).
+163+ unit + regression tests must pass.
 
-- [ ] Run TDD suite — new test must pass:
+- [ ] TDD suite:
 ```bash
 npm run test:tdd
 ```
+New sprint-74 test must pass. Pre-existing failures (listed in handoff) are unchanged — do not fix them.
 
-- [ ] Run feedback check:
+- [ ] Docs check:
 ```bash
 npm run feedback:check
 ```
 
-- [ ] **Verification**: All commands exit 0. No new failures beyond the pre-existing known TDD failures listed in the handoff.
-
 ---
 
-## Task 10: Merge + Deploy
+## Task 12: Merge + Deploy
 
-- [ ] Use the `/deploy` skill to merge and deploy.
+- [ ] Use the `/deploy` skill.
 
 ```bash
 git add -A
-git commit -m "feat(trust-graph): Sprint 74 — full community graph, visual encoding, v10.3.0"
+git commit -m "feat(trust-graph): Sprint 74 — HEB community graph, radial ego view, v10.3.0"
 git push origin feature/sprint-74-trust-graph-foundation
-# Merge to master, push, monitor GitHub Actions
 ```
