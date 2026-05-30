@@ -8,10 +8,10 @@ import * as path from 'path'
 
 describe('Sprint 71 — v10.0 polish invariants', () => {
   describe('version', () => {
-    it('root package.json is 10.3.0', () => {
+    it('root package.json is 10.4.0', () => {
       const pkgPath = path.resolve(__dirname, '../../../../package.json')
       const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'))
-      expect(pkg.version).toBe('10.3.0')
+      expect(pkg.version).toBe('10.4.0')
     })
   })
 

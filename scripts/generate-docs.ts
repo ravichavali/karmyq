@@ -499,6 +499,7 @@ const ADR_GROUPS: Array<{ label: string; slugs: string[] }> = [
       'adr-023-infrastructure-standardization',
       'adr-024-synthetic-user-simulation',
       'adr-027-docker-image-optimization-deferred',
+      'adr-059-dependency-security-gate',
     ],
   },
 ];

@@ -447,6 +447,14 @@
       "status": "implemented",
       "description": "**Status**: Implemented",
       "filename": "ADR-058-fusion-mechanism.md"
+    },
+    {
+      "slug": "adr-059-dependency-security-gate",
+      "number": "059",
+      "title": "ADR-059: Dependency Vulnerability Remediation + Blocking CI Security Gate",
+      "status": "implemented",
+      "description": "**Status**: Implemented",
+      "filename": "ADR-059-dependency-security-gate.md"
     }
   ]
 }

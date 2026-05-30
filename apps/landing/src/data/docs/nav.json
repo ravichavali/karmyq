@@ -450,6 +450,10 @@
         {
           "label": "Docker Image Size Optimization (Deferred Technical Debt)",
           "href": "/docs/concepts/adr-027-docker-image-optimization-deferred"
+        },
+        {
+          "label": "Dependency Vulnerability Remediation + Blocking CI Security Gate",
+          "href": "/docs/concepts/adr-059-dependency-security-gate"
         }
       ]
     },
