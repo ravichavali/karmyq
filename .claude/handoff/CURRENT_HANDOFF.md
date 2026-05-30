@@ -1,118 +1,107 @@
-# Sprint 72: Simulation Engine Overhaul — Ready to Execute
+# Sprint 73: Request Service Simplification — Ready to Execute
 
 ## Handoff Document
 
 **Date**: 2026-05-29
-**Current Version**: v10.0.0 → v10.1.0 (this sprint)
-**Status**: Sprint 71 + karmyq.org content complete. Sprint 72 planned and ready to execute.
+**Current Version**: v10.1.0 → v10.2.0 (Sprint 73)
+**Status**: Spec + plan written. Ready to execute.
 
 ---
 
 ## Quick Start
 
 1. Read this handoff
-2. Create branch: `git checkout -b feature/sprint-72-simulation-overhaul`
-3. Open plan: `docs/superpowers/plans/2026-05-29-sprint-72-simulation-overhaul.md`
+2. Check out branch: `git checkout -b feature/sprint-73-request-simplification`
+3. Open plan: `docs/superpowers/plans/2026-05-29-sprint-73-request-service-simplification.md`
 4. Run: `/execute-plan` (uses superpowers:subagent-driven-development)
 
 ---
 
-## Sprint 72 Goal
+## Sprint Goal
 
-*Replace the single-loop simulation engine with 10 concurrent async workers running 24/7, so the Karmyq demo looks like a living mutual aid network — not a test fixture.*
+Simplify the request service — delete dead code, remove stale service class, clean up 1,351-line route file, standardize error responses, delete three never-implemented TDD placeholder tests — then fix the deployed "Withdraw Offer" bug via deploy, polish the request UX (CommitmentsTab), and ship updated docs.
+
+**No new features. Delete before you add.**
 
 ---
 
 ## Public Launch Polish Arc
 
-Sprint 72 is the start of a multi-sprint arc targeting a **June 19th public launch**. Each sprint polishes one service with all five tracks: functional, tests, docs, mission alignment, UI consistency.
-
 | Sprint | Service | Status |
 |--------|---------|--------|
-| **72** | Simulation Engine | Ready to execute |
-| **73** | Request Service | TBD |
+| **72** | Simulation Engine | ✅ Complete + deployed |
+| **73** | Request Service | ⬅ This sprint |
 | **74** | Community / Governance | TBD |
 | **75** | Feed + Discovery | TBD |
 | **76+** | Final pass + launch prep | TBD |
 
 ---
 
-## What's Wrong With the Current Simulation
+## Sprint 73 Spec + Plan
 
-- **Single-loop architecture**: one async loop, 5-20 sessions scheduled sequentially per tick
-- **Business hours only**: 09:00–21:00 PT — simulator sleeps 12 hours/day
-- **Almost no trust edges**: trust edges are built via `match_completed` Bull event, but so few matches complete that the trust graph is nearly empty
-- **Small user set**: `@test.karmyq.com` users grow slowly (12/day) and new envs start cold
+- **Design spec**: `docs/superpowers/specs/2026-05-29-sprint-73-request-service-simplification-design.md`
+- **Implementation plan**: `docs/superpowers/plans/2026-05-29-sprint-73-request-service-simplification.md`
 
 ---
 
-## The Fix (Sprint 72)
+## What Gets Done
 
-| Change | Detail |
-|--------|--------|
-| `WorkerPool` class | 10 concurrent async workers via `Promise.all`, each independently sampling users |
-| 24/7 operation | Business hours gate removed from `simulator.ts` entirely |
-| Growth engine | Moves to standalone `setInterval(3min)`, decoupled from workers |
-| Session affinity | Workers prefer to advance open requests over creating new ones (probability weight, not state) |
-| Workflow calibration | `createCommunities` → 0.001, `createCollective` → 0.01, new users 5/day; everyday loop dominates |
-| Governance voting | `vote-on-governance-workflow.ts` — votes on active split/fusion proposals so they reach quorum |
-| Post-match feedback | `submit-feedback-workflow.ts` — rates helpfulness/responsiveness/clarity after completed matches (Social Karma data) |
-| Dibs | `dibs-workflow.ts` — provider calls dibs on request; requester accepts/declines |
-| Governance nominations | `governance-nominate-workflow.ts` — nominates high-trust members; others ratify |
-| Mission-aligned content | Request templates expanded to 20+/type, Portland neighborhood anchors, authentic voice |
-| User guide | "Understanding the Demo" added to landing site |
+### 1. Delete dead code
+- `services/request-service/src/services/matchService.ts` — routes use inline SQL; this class is never called; stale `rejectMatch()` causes confusion
+- `tests/tdd/dynamic-schemas-api.test.ts` — placeholder, `pool` never initialized
+- `tests/tdd/schema-caching.test.ts` — placeholder, `pool` + Redis never initialized
+- `tests/tdd/schema-fallback.test.ts` — placeholder, `pool` never initialized
+
+### 2. Simplify matches.ts (674 lines)
+- Remove two commented-out dead code blocks (disabled `find-candidates` endpoint)
+- Remove debug `console.log('Sample match data:', ...)`
+- Standardize raw `res.status().json()` calls to use `sendSuccess` / `sendInternalError`
+
+### 3. Simplify requests.ts (1,351 lines)
+- Extract the 562-line `GET /curated` handler body into a `buildCuratedFeed()` helper
+- Standardize remaining raw response calls
+
+### 4. Withdraw Offer bug (fixed by deploy)
+- Local `routes/matches.ts` reject handler already checks both `requester_id` and `responder_id` (fixed)
+- karmyq.com still has the old code — deploying Sprint 73 pushes the fix live
+- No code change needed to routes/matches.ts
+
+### 5. TDD tests — verify
+- `two-phase-completion.test.ts` — verify passes (looks solid)
+- `providers-api.test.ts` — verify passes; fix if failing
+
+### 6. Frontend UX
+- CommitmentsTab: replace `alert()` with inline error state; verify labels; add empty states
+- Request creation flow: audit labels and confirmation state
+
+### 7. Docs
+- `apps/landing/.../guides/help-requests.json` — add two-phase + withdraw explanation
+- `apps/landing/.../guides/match-lifecycle.json` — update/create
+- `apps/landing/.../services/request-service.json` — remove dead `find-candidates` endpoint
+
+### 8. Version bump 10.1.0 → 10.2.0
+- Root `package.json`
+- Version invariant test in `services/community-service/tests/regression/sprint-71-v10-polish.test.ts`
 
 ---
 
 ## ⚠️ Critical Implementation Notes
 
-1. **Trust edges are built via Bull queue, not API**: `match_completed` event → social-graph subscriber → `upsertTrustEdge()`. No direct trust API call needed.
-2. **Workers are async, not OS threads**: `Promise.all` over 10 async loops is correct — Node.js event loop handles I/O concurrency.
-3. **Business hours gate must be removed from code**: Remove the `isBusinessHours()` conditional in `simulator.ts` — don't just set `enabled: false` in config.
-4. **Worker errors must not propagate**: Each worker loop needs `try/catch` that logs and continues, not re-throws.
-5. **No bootstrap guard**: The DB already has users — workers sample them immediately. New user registration stays as a low-frequency workflow action.
-6. **Session affinity = probability weight only**: If sampled user has open requests, weight toward `acceptOffer`/`completeMatch` — no stateful session tracking.
-7. **Community/collective creation = near-zero**: `createCommunities` → 0.005, `createCollective` → 0.02. Fission/fusion *initiation* should NOT be added — only voting on existing proposals.
-8. **Governance voting uses DB query + API vote**: Query `communities.split_proposals`/`fusion_proposals` WHERE `status = 'voting'`. Check `split_votes`/`fusion_votes` to avoid double-voting. Verify voter ID column name in migration SQL before coding.
-9. **Post-match feedback is a separate endpoint**: `POST /matches/:matchId/feedback` with `{ from_user_id, helpfulness, responsiveness, clarity, comment }`. NOT part of `completeMatch`. This feeds the Social Karma system.
-10. **Dibs**: `POST /requests/:id/dibs` (provider), `PUT /dibs/:id/accept` or `decline` (requester). Read `dibs.ts` before coding — verify exact body shape and what `GET /requests/:id/dibs-candidate` returns.
-11. **Governance nominations require trust threshold**: Nomination rejects if nominee trust score < `eligibility_threshold` (default 50). Only nominate users with real interaction history (completed matches → trust edges).
-9. **nav.json revert bug**: After editing `nav.json`, always `grep "demo-data" apps/landing/src/data/docs/nav.json` to verify it persisted — if not, re-apply and add slug to the hardcoded list in `scripts/generate-docs.ts`.
+1. **matchService.ts is NOT called by routes** — confirm with `grep -rn "matchService\|new MatchService\|from.*matchService" services/request-service/src` before deleting. If anything imports it, fix that import first, then delete.
 
----
+2. **Delete means delete** — do not comment out placeholder TDD tests; `rm` the files.
 
-## Key Files for Sprint 72
+3. **Response format helpers**: `sendSuccess`, `sendInternalError`, `sendNotFound`, `HTTP_STATUS` from `@karmyq/shared/utils/response`. Do not change HTTP behavior, just call style.
 
-| File | Change |
-|------|--------|
-| `services/simulation-service/src/worker-pool.ts` | **NEW** — WorkerPool class |
-| `services/simulation-service/src/simulator.ts` | Wire WorkerPool, extract growth to setInterval, remove business hours gate |
-| `services/simulation-service/src/config/default.json` | Add workers config, disable business hours, add bootstrapMinUsers |
-| `services/simulation-service/src/workflows/vote-on-governance-workflow.ts` | **NEW** — vote on active split/fusion proposals |
-| `services/simulation-service/src/workflows/submit-feedback-workflow.ts` | **NEW** — post-match helpfulness/responsiveness/clarity ratings |
-| `services/simulation-service/src/workflows/dibs-workflow.ts` | **NEW** — provider calls dibs; requester accepts/declines |
-| `services/simulation-service/src/workflows/governance-nominate-workflow.ts` | **NEW** — nominate high-trust members; ratify nominations |
-| `services/simulation-service/src/api-client.ts` | Add vote, feedback, dibs, nominate, ratify methods |
-| `services/simulation-service/src/profiles/index.ts` | Full workflow calibration with all new workflows |
-| `services/simulation-service/src/data/realistic-data.ts` | Expand request templates, add neighborhood anchors |
-| `apps/landing/src/data/docs/guides/demo-data.json` | **NEW** — "Understanding the Demo" user guide |
-| `apps/landing/src/data/docs/nav.json` | Add demo-data to User Guides section |
-| `services/simulation-service/CONTEXT.md` | Architecture update |
-| `services/simulation-service/tests/tdd/sprint-72-simulation-engine.test.ts` | **NEW** — WorkerPool + invariant tests |
+4. **admin-schemas.ts auth is at app level** — `index.ts` applies `...adminAuth` at mount. Do not add middleware inside the route file.
 
----
+5. **nav.json revert bug** — `scripts/generate-docs.ts` regenerates nav.json. Add slugs to `GUIDE_ORDER`, `GUIDE_LABELS`, `GUIDE_SLUGS` in that file first; regenerate; then `git add -f`.
 
-## Per-Sprint Polish Checklist (applies to Sprint 72 and all future polish sprints)
+6. **Version invariant test**: After bumping to 10.2.0, update `services/community-service/tests/regression/sprint-71-v10-polish.test.ts` (asserts `pkg.version === '10.1.0'`).
 
-Every sprint in this arc must complete all five tracks:
+7. **Withdraw Offer bug**: Local code already correct. Bug lives on deployed server. Fixed by deploy. No code change to routes/matches.ts needed.
 
-| Track | Sprint 72 scope |
-|-------|----------------|
-| **Functional** | WorkerPool, 24/7 operation, bootstrap guard, workflow follow-through |
-| **Tests** | WorkerPool unit tests, behavioral invariants, content quality assertions |
-| **Docs** | CONTEXT.md updated, user guide created |
-| **Mission alignment** | Request templates rewritten to authentic mutual aid voice |
-| **UI consistency** | N/A (simulation is backend-only) |
+8. **Solo dev — no worktrees**: Work on `feature/sprint-73-request-simplification` directly.
 
 ---
 
@@ -121,24 +110,40 @@ Every sprint in this arc must complete all five tracks:
 - **Landing page docs**: `apps/landing/src/data/docs/` is in `.gitignore` — always `git add -f`
 - **ADR numbering**: Next ADR is **059**
 - **ADR-057 and ADR-058**: Already `implemented` in both source `.md` and landing `.json`
-- **TDD test placement**: Community tests in `services/community-service/tests/tdd/`; simulation tests in `services/simulation-service/tests/tdd/`
+- **TDD test placement**: Request service tests in `services/request-service/tests/tdd/`
 - **JWT field** is `communities` not `communityMemberships` — always `user.communities ?? []`
 - **`git add` on CLAUDE.md**: Tracked as lowercase `claude.md` — always `git add claude.md`
 - **Solo dev — no worktrees**: Work directly on feature branches
-- **nav.json revert bug**: `generate-docs.ts` regenerates nav.json on every build — always add new slugs to the hardcoded list in `scripts/generate-docs.ts`
+- **nav.json revert bug**: `generate-docs.ts` regenerates nav.json — always add new slugs to GUIDE_ORDER + GUIDE_LABELS + GUIDE_SLUGS in `scripts/generate-docs.ts`
 - **trust_edges_live is a VIEW**: Never INSERT/UPDATE it. Use `trust_edges` for writes, `trust_edges_live` for reads
-- **`trust_edges_live` column**: exposes `current_weight` (not `effective_weight`) — use `current_weight AS effective_weight` alias when querying
 - **API response unwrap**: `createApiClient` interceptor already unwraps envelope — use `res.data`, not `res.data.data`
-- **trust_edges normalized constraint**: `social_graph.trust_edges` requires `user_id_a::text < user_id_b::text` — always sort: `const [a, b] = [uid1, uid2].sort()`
+- **trust_edges normalized constraint**: `social_graph.trust_edges` requires `user_id_a::text < user_id_b::text` — always sort
 - **community_links UNIQUE**: fusion_origin links must be (merged↔A) and (merged↔B), NOT (A↔B)
-- **TrustGraph fission mode ref**: `fgRef.current.d3Force(...)` is only callable after mount — always guard with `if (!fgRef.current) return`
-- **Root package.json version**: 10.0.0 (bump to 10.1.0 in this sprint)
+- **TrustGraph fission mode ref**: `fgRef.current.d3Force(...)` only callable after mount — guard with `if (!fgRef.current) return`
+- **Root package.json version**: 10.1.0 (being bumped to 10.2.0 this sprint)
+- **Version invariant test**: `services/community-service/tests/regression/sprint-71-v10-polish.test.ts` checks `pkg.version` — update to 10.2.0 this sprint
 
 ---
 
-## Pre-existing TDD Failures (do NOT fix)
+## Pre-existing TDD Failures (do NOT fix unless sprint targets them)
 
 - `sprint-39-provider-ux` (7 fail)
 - `sprint-43-feed-ranking` (crashes)
 - `sprint-68-halflife` (6 DB connection tests)
 - `sprint-67-governance` (DB connection tests)
+- `social-graph-service/tests/tdd/sprint-66-trust-graph-visualization.test.ts` (fails)
+- `social-graph-service/tests/tdd/sprint-67-ego-network.test.ts` (fails)
+- `social-graph-service/tests/tdd/sprint-68-halflife.test.ts` (fails)
+
+**Sprint 73 resolves**: `dynamic-schemas-api`, `schema-caching`, `schema-fallback` (deleted)
+**Sprint 73 verifies**: `two-phase-completion`, `providers-api`
+
+---
+
+## What Sprint 72 Shipped (Context)
+
+**Goal**: Replace single-loop simulation engine with 10 concurrent async workers running 24/7.
+- WorkerPool class, 4 new workflow types (vote, feedback, dibs, nominate/ratify)
+- Session affinity, selectWorkflow() dispatcher
+- 18 regression tests, all green
+- v10.0.0 → v10.1.0
