@@ -16,20 +16,22 @@
 ### New files to create
 | File | Responsibility |
 |------|---------------|
-| `docs/adr/ADR-060-code-scanning-gate.md` | ADR: blocking code-scanning gate, disposition discipline, SLA, default-setup-poll design |
-| `docs/adr/ADR-061-supply-chain-hardening.md` | ADR: ignore-scripts, npm ci everywhere, npm audit signatures, install-hooks tradeoff |
+| `docs/adr/ADR-060-code-scanning-gate.md` | ADR: blocking gate, CodeQL config upgrades (security-extended + remote_and_local), disposition discipline, SLA, poll design, PR-gate future option |
+| `docs/adr/ADR-061-supply-chain-and-secrets-hardening.md` | ADR: ignore-scripts, npm ci, audit signatures, OSV-Scanner (+ Socket rec), dependabot.yml, secret-scanning toggles, install-hooks tradeoff |
 | `apps/landing/src/data/docs/concepts/adr-060-code-scanning-gate.json` | Landing concept page for ADR-060 |
-| `apps/landing/src/data/docs/concepts/adr-061-supply-chain-hardening.json` | Landing concept page for ADR-061 |
-| `tests/regression/sprint-76-code-scanning-gate.test.ts` | Invariant test: gate job config present + supply-chain hardening present |
+| `apps/landing/src/data/docs/concepts/adr-061-supply-chain-and-secrets-hardening.json` | Landing concept page for ADR-061 |
+| `.github/dependabot.yml` | Review-gated, grouped security+version update PRs; NO auto-merge |
+| `tests/regression/sprint-76-code-scanning-gate.test.ts` | Invariant test: gate job + osv step + dependabot.yml + ignore-scripts + encoding present |
 
 ### Existing files to modify
 | File | Change |
 |------|--------|
 | `apps/frontend/src/lib/api.ts` | `encodeURIComponent` path params for raw-axios/unencoded SSRF cases (≥ line 803) |
 | `apps/landing/src/components/sections/Movement.tsx` | `encodeURIComponent(email)` + trim in the `mailto:` href (clears the real XSS alert) |
-| `.github/workflows/ci.yml` | Add `code-scanning-gate` job that fails on open critical/high; add `npm audit signatures` step |
+| `.github/workflows/ci.yml` | Add `code-scanning-gate` job (fails on open critical/high); add `npm audit signatures` + OSV-Scanner steps |
 | `.github/workflows/e2e-tests.yml` | `npm install` → `npm ci` (lines 26, 50) |
 | `.npmrc` | Add `ignore-scripts=true` |
+| repo settings (via `gh api`) | CodeQL `query_suite`→`security-extended`, `threat_model`→`remote_and_local`; secret-scanning validity + non-provider patterns ON |
 | `package.json` (root) | `postinstall` no longer auto-installs hooks (or document explicit run); version 10.4.0 → 10.5.0 |
 | `CLAUDE.md` | Note: hooks install explicitly via `npm run hooks:install` (ignore-scripts) |
 | `docs/GITHUB_ACTIONS_SETUP.md` | Extend security section: code-scanning gate + supply-chain hardening + manual hooks note |
@@ -45,13 +47,17 @@
 3. **Dismissals use the API, not code.** `gh api -X PATCH repos/:owner/:repo/code-scanning/alerts/{n} -f state=dismissed -f dismissed_reason='false positive'|'won't fix' -f dismissed_comment='<justification from triage table>'`. Gate can't go green until 13 dismissals + 2 fixes are done.
 4. **`encodeURIComponent` may not auto-clear the SSRF alerts** — CodeQL doesn't always treat path-encoding as a sanitizer. Harden anyway; expect to still dismiss with justification.
 5. **`ignore-scripts=true` breaks auto hook-install.** Root `postinstall` runs `scripts/install-hooks.sh`. After the change a clean `npm ci` will NOT install hooks. Verify `npm run hooks:install` standalone + update docs.
-6. **Can't flip the gate to blocking until the board is at zero.** Triage/fix/dismiss all 15 → confirm 0 open critical/high → enable gate → negative-test it.
-7. **ADR numbering:** 060 = code-scanning gate, 061 = supply-chain hardening.
-8. **Landing docs dir is `.gitignore`d** — `git add -f`. **nav.json revert bug** — grep-verify after generate-docs; re-apply if reverted.
-9. **Version bump 10.4.0 → 10.5.0** (minor — new behavioral gate).
-10. **`e2e-tests.yml` is the only remaining `npm install`** (lines 26, 50) → `npm ci`.
+6. **Upgrade the CodeQL suite FIRST (Task 1b), then re-scan, then triage.** `security-extended` + `remote_and_local` will surface *new* alerts. Triage the *extended* set, not the stale 15. Gate can't flip until the extended board is at zero. If the PATCH doesn't auto-trigger a scan, push a no-op commit / wait for next push.
+7. **Can't flip the gate to blocking until the board is at zero.** Order: upgrade suite → re-scan → triage/fix/dismiss the full set → confirm 0 open critical/high → enable gate → negative-test it.
+8. **OSV-Scanner is advisory-based, not behavioral** — broadens CVE coverage past `npm audit` but won't catch a brand-new malicious package. Commit it as a CI step; recommend the **Socket GitHub App** in ADR-061 as the behavioral complement (console install, not a committed gate).
+9. **`dependabot.yml`: review-gated, grouped, NO auto-merge** (auto-merge is itself an ingestion path).
+10. **ADR numbering:** 060 = code-scanning gate (+ CodeQL config upgrades), 061 = supply-chain & secrets hardening.
+11. **Landing docs dir is `.gitignore`d** — `git add -f`. **nav.json revert bug** — grep-verify after generate-docs; re-apply if reverted.
+12. **Version bump 10.4.0 → 10.5.0** (minor — new behavioral gate).
+13. **`e2e-tests.yml` is the only remaining `npm install`** (lines 26, 50) → `npm ci`.
+14. **Secret-scanning + CodeQL config are `gh api -X PATCH` settings**, not file changes — document them in the ADRs + GITHUB_ACTIONS_SETUP.md so they're reproducible.
 
-### The 15 alerts (triage reference)
+### The 15 alerts (triage reference — baseline before the suite upgrade; expect MORE after Task 1b)
 
 | # | Sev | Rule | Location | Disposition |
 |---|-----|------|----------|-------------|
@@ -83,7 +89,44 @@ gh api repos/:owner/:repo/code-scanning/alerts --paginate \
   | sort -t$'\t' -k2
 ```
 
-Expect 15 lines (10 critical request-forgery, 5 high). If counts differ, re-triage before proceeding.
+Expect 15 lines (10 critical request-forgery, 5 high). This is the *baseline* — the suite upgrade in Task 1b will likely add more.
+
+---
+
+## Task 1b: Upgrade scanner config + re-scan (do BEFORE triage)
+
+**Files:** repo settings (via `gh api`) — no committed files
+
+- [ ] **Bump CodeQL default-setup to the extended suite + local threat model**
+
+```bash
+gh api -X PATCH repos/:owner/:repo/code-scanning/default-setup \
+  -f query_suite=extended -f threat_model=remote_and_local
+# verify
+gh api repos/:owner/:repo/code-scanning/default-setup --jq '{query_suite, threat_model, state}'
+```
+
+> If the API rejects `threat_model` for JS/TS, apply `query_suite=extended` alone and set the threat model in the UI (Settings → Code security → CodeQL → Edit). Record whichever path worked in ADR-060.
+
+- [ ] **Enable secret-scanning validity checks + non-provider patterns**
+
+```bash
+gh api -X PATCH repos/:owner/:repo \
+  -f 'security_and_analysis[secret_scanning_validity_checks][status]=enabled' \
+  -f 'security_and_analysis[secret_scanning_non_provider_patterns][status]=enabled'
+gh api repos/:owner/:repo --jq '.security_and_analysis'
+```
+
+- [ ] **Trigger + await a fresh CodeQL analysis on the extended suite**, then re-snapshot the FULL open set
+
+```bash
+# PATCH usually re-runs default setup; if not, push a no-op or wait for the branch push.
+gh api repos/:owner/:repo/code-scanning/alerts --paginate \
+  -q '.[] | select(.state=="open") | "\(.number)\t\(.rule.security_severity_level // .rule.severity)\t\(.rule.id)\t\(.most_recent_instance.location.path):\(.most_recent_instance.location.start_line)"' \
+  | sort -t$'\t' -k2
+```
+
+- [ ] **Re-triage:** classify any NEW alerts the extended suite surfaced (fix-or-dismiss, same discipline). Extend the triage table in this plan with each new alert + disposition before touching Task 4. **The gate (Task 5) cannot flip until this full extended set is at zero.**
 
 ---
 
@@ -143,7 +186,9 @@ npm run test:unit -- sprint-76-encoding
 
 ---
 
-## Task 4: Dismiss the 13 false-positive / won't-fix alerts (with justifications)
+## Task 4: Dismiss the false-positive / won't-fix alerts (with justifications)
+
+> Baseline = 13 dismissals (10 SSRF + 2 XSS + 2 randomness, minus the 1 fixed). Add any extra dismissals the Task 1b extended-suite re-scan surfaced.
 
 **Files:** none (code-scanning API)
 
@@ -237,9 +282,10 @@ npx --yes @action-validator/cli .github/workflows/ci.yml || yamllint .github/wor
 
 ---
 
-## Task 6: Supply-chain hardening quick wins (ADR-061)
+## Task 6: Supply-chain & secrets hardening (ADR-061)
 
 **Files:**
+- Create: `.github/dependabot.yml`
 - Modify: `.npmrc`, `.github/workflows/e2e-tests.yml`, `.github/workflows/ci.yml`, `package.json`, `CLAUDE.md`
 
 - [ ] **`.npmrc`: add `ignore-scripts=true`**
@@ -258,13 +304,43 @@ npm run hooks:install && ls -la .git/hooks/pre-push .git/hooks/pre-commit
 grep -n 'npm install' .github/workflows/e2e-tests.yml   # expect: no matches after edit
 ```
 
-- [ ] **Add `npm audit signatures` step to `ci.yml`** (in the `security:` job, after `npm ci` is available — or as a non-blocking informational step first, then decide blocking). Document the chosen blocking-ness in ADR-061.
+- [ ] **Add `npm audit signatures` step to `ci.yml`** (in the `security:` job, after `npm ci`; non-blocking informational first, then decide blocking). Document the chosen blocking-ness in ADR-061.
+
+- [ ] **Add an OSV-Scanner step to `ci.yml`** — broader advisory DB than `npm audit` (note #8). Use the official action, non-blocking first:
+
+```yaml
+      - name: OSV-Scanner (supply-chain advisory scan)
+        uses: google/osv-scanner-action/osv-scanner-action@v2  # pin to a released SHA/tag
+        with:
+          scan-args: |-
+            --lockfile=package-lock.json
+        continue-on-error: true   # informational first; ADR-061 records when this flips blocking
+```
+
+- [ ] **Create `.github/dependabot.yml`** — review-gated, **grouped**, **no auto-merge** (note #9):
+
+```yaml
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: "/"
+    schedule: { interval: weekly }
+    open-pull-requests-limit: 10
+    groups:
+      production-deps: { dependency-type: production }
+      dev-deps: { dependency-type: development }
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule: { interval: weekly }
+```
 
 - [ ] **Confirm a clean install still works end-to-end with scripts ignored**
 
 ```bash
 rm -rf node_modules && npm ci && npm run build
 ```
+
+> Note: CodeQL `security-extended`/`remote_and_local` and the secret-scanning toggles were applied in **Task 1b** (settings, not files). This task is the file-committed half of ADR-061.
 
 ---
 
@@ -279,20 +355,20 @@ rm -rf node_modules && npm ci && npm run build
 ## Task 8: ADR-060 + ADR-061 + landing pages + docs
 
 **Files:**
-- Create: `docs/adr/ADR-060-code-scanning-gate.md`, `docs/adr/ADR-061-supply-chain-hardening.md`
-- Create: `apps/landing/src/data/docs/concepts/adr-060-code-scanning-gate.json`, `apps/landing/src/data/docs/concepts/adr-061-supply-chain-hardening.json`
+- Create: `docs/adr/ADR-060-code-scanning-gate.md`, `docs/adr/ADR-061-supply-chain-and-secrets-hardening.md`
+- Create: `apps/landing/src/data/docs/concepts/adr-060-code-scanning-gate.json`, `apps/landing/src/data/docs/concepts/adr-061-supply-chain-and-secrets-hardening.json`
 - Modify: `docs/adr/README.md`, `apps/landing/src/data/docs/nav.json`, `docs/GITHUB_ACTIONS_SETUP.md`
 
-- [ ] **Write ADR-060** (status: Implemented) — gate design, default-setup-poll + fail-open-on-missing-analysis decision, disposition discipline, SLA (high/crit ≤1wk, any ≤2wk), `git push --no-verify` escape hatch.
-- [ ] **Write ADR-061** (status: Implemented) — ignore-scripts + the install-hooks tradeoff, npm ci everywhere, npm audit signatures; relation to ADR-059/060; remaining backlog items 4–5.
+- [ ] **Write ADR-060** (status: Implemented) — gate design + poll/fail-open-on-missing-analysis decision; **CodeQL config upgrades** (`security-extended` + `remote_and_local`, with the exact `gh api` commands used); disposition discipline; SLA (high/crit ≤1wk, any ≤2wk); `git push --no-verify` escape hatch; **PR-based native gate recorded as a future option** (and why direct-push poll-gate was chosen for now).
+- [ ] **Write ADR-061** (status: Implemented) — ignore-scripts + install-hooks tradeoff; npm ci everywhere; npm audit signatures; **OSV-Scanner** (+ Socket App recommendation, note #8); **dependabot.yml** (grouped, review-gated, no auto-merge); **secret-scanning validity + non-provider toggles**; relation to ADR-059/060; remaining backlog items 4–5 (token hygiene; auto-merge-as-ingestion-path).
 - [ ] **Index both in `docs/adr/README.md`**
 - [ ] **Create both landing concept JSONs** (mirror `adr-059-dependency-security-gate.json` shape: `slug`, `number`, `title`, `status`, `description`, `content`, `filename`)
 - [ ] **Add both to `nav.json` "Architecture Decisions"**; if a `generate-docs` step exists, run it from `apps/landing/` then grep-verify (nav revert bug)
-- [ ] **Extend `docs/GITHUB_ACTIONS_SETUP.md`** security section: code-scanning gate, supply-chain hardening, manual `npm run hooks:install` note
+- [ ] **Extend `docs/GITHUB_ACTIONS_SETUP.md`** security section: code-scanning gate, CodeQL config upgrades, OSV-Scanner, dependabot.yml, secret-scanning toggles, manual `npm run hooks:install` note
 - [ ] **Verify landing add + nav integrity**
 
 ```bash
-git add -f apps/landing/src/data/docs/concepts/adr-060-code-scanning-gate.json apps/landing/src/data/docs/concepts/adr-061-supply-chain-hardening.json
+git add -f apps/landing/src/data/docs/concepts/adr-060-code-scanning-gate.json apps/landing/src/data/docs/concepts/adr-061-supply-chain-and-secrets-hardening.json
 grep -c 'adr-060\|adr-061' apps/landing/src/data/docs/nav.json   # expect >=2
 ```
 
@@ -307,15 +383,20 @@ grep -c 'adr-060\|adr-061' apps/landing/src/data/docs/nav.json   # expect >=2
 - [ ] **Write the invariant regression test** — asserts the gate + hardening can't silently regress
 
 ```ts
-// .github/workflows/ci.yml contains a code-scanning-gate job
+// .github/workflows/ci.yml contains a code-scanning-gate job + OSV-Scanner
 expect(ci).toMatch(/code-scanning-gate/);
+expect(ci).toMatch(/osv-scanner/i);
 // .npmrc enforces ignore-scripts
 expect(npmrc).toMatch(/^ignore-scripts=true/m);
+// dependabot config exists and does NOT enable auto-merge
+expect(fs.existsSync('.github/dependabot.yml')).toBe(true);
 // e2e workflow uses npm ci, not npm install
 expect(e2e).not.toMatch(/npm install/);
 // Movement.tsx encodes the mailto email
 expect(movement).toMatch(/encodeURIComponent\(\s*(email|body|addr)/);
 ```
+
+> Config-only changes (CodeQL suite, secret-scanning toggles) live in repo settings, not files — they can't be asserted in a repo test. ADR-060/061 are their durable record; the gate job is the runtime enforcement.
 
 - [ ] **Bump version** 10.4.0 → 10.5.0 in root `package.json`
 - [ ] **Run the feedback loop check**

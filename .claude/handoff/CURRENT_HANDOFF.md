@@ -4,7 +4,7 @@
 
 **Date**: 2026-05-30
 **Current Version**: v10.4.0 (shipped) → v10.5.0 (this sprint)
-**Status**: 📋 Sprint 76 planned — spec + plan written, ready to execute. Triage 15 CodeQL alerts → 0, activate blocking code-scanning gate (ADR-060), fold in 3 supply-chain hardening quick wins (ADR-061).
+**Status**: 📋 Sprint 76 planned — spec + plan written, ready to execute. Upgrade CodeQL coverage (security-extended + remote_and_local), triage the re-scanned alert set → 0, activate blocking code-scanning gate (ADR-060), fold in supply-chain & secrets hardening — ignore-scripts, npm ci, audit signatures, OSV-Scanner, dependabot.yml, secret-scanning toggles (ADR-061).
 
 ---
 
@@ -32,9 +32,12 @@ Drive the **15 open CodeQL alerts to zero** (fix 2 real ones, dismiss 13 false-p
 
 ## Decisions made this planning session
 
-1. **Scope**: CodeQL remediation + ADR-060 gate **PLUS** supply-chain hardening quick wins (items 1–3) folded in → ADR-061. (Security-themed sprint; cohesive fit.)
+1. **Scope**: CodeQL remediation + ADR-060 gate **PLUS** supply-chain & secrets hardening → ADR-061. (Security-themed sprint; cohesive fit.)
 2. **SSRF (10 critical)**: harden the cheap unencoded cases (`encodeURIComponent`, esp. `api.ts:803` raw axios) **then dismiss all 10** as false-positive with justification (fixed host, path-only taint).
 3. **Version**: 10.4.0 → **10.5.0** (minor — ships a new behavioral CI gate, mirroring Sprint 75's 10.3.0→10.4.0).
+4. **Scanner hardening folded in** (answer to "does default give unrealistic assurance?" — yes): bump CodeQL to **`security-extended` + `remote_and_local`** (was the conservative `default`/`remote` → partial coverage); add **OSV-Scanner** CI step + **`.github/dependabot.yml`** (grouped, review-gated, no auto-merge); enable **secret-scanning validity checks + non-provider patterns** (were disabled). Recommend the **Socket GitHub App** for behavioral malicious-package detection.
+5. **Gate workflow**: keep **direct-push-to-master** + best-effort poll-gate for now. The stronger PR-based native severity gate is recorded as a future option in ADR-060, NOT adopted this sprint.
+6. **Secret scanning + push protection are ALREADY enabled** — don't "add" them; only the two sub-toggles are off.
 
 ---
 
@@ -51,7 +54,7 @@ Drive the **15 open CodeQL alerts to zero** (fix 2 real ones, dismiss 13 false-p
 
 ---
 
-## The 15 alerts — triage reference (grounded in actual code, 2026-05-30)
+## The 15 alerts — triage reference (BASELINE before the suite upgrade; expect more after Task 1b)
 
 | # | Sev | Rule | Location | Disposition |
 |---|-----|------|----------|-------------|
@@ -73,21 +76,30 @@ Drive the **15 open CodeQL alerts to zero** (fix 2 real ones, dismiss 13 false-p
 3. **Dismissals use the API, not code:** `gh api -X PATCH .../code-scanning/alerts/{n} -f state=dismissed -f dismissed_reason=... -f dismissed_comment='<justification>'`. Gate can't go green until 13 dismissals + 2 fixes done.
 4. **`encodeURIComponent` may not auto-clear the SSRF alerts** — CodeQL doesn't always treat path-encoding as a sanitizer. Harden anyway (correct); expect to still dismiss with justification.
 5. **`ignore-scripts=true` breaks auto hook-install.** Root `postinstall` runs `scripts/install-hooks.sh`; a clean `npm ci` will NOT install hooks after this change. Verify `npm run hooks:install` standalone + update CLAUDE.md + README + GITHUB_ACTIONS_SETUP.md.
-6. **Can't flip the gate to blocking until the board is at zero** — triage/fix/dismiss all 15 → confirm 0 open crit/high → enable gate → negative-test it.
-7. **ADR numbering:** 060 = code-scanning gate, 061 = supply-chain hardening. 059 stays dependency-only.
+6. **Upgrade CodeQL suite FIRST (Task 1b), then re-scan, then triage.** `security-extended` + `remote_and_local` will surface NEW alerts — triage the *extended* set, not the stale 15. Gate can't flip until the extended board is at zero.
+7. **Can't flip the gate to blocking until the board is at zero** — upgrade suite → re-scan → triage/fix/dismiss the full set → confirm 0 open crit/high → enable gate → negative-test it.
+8. **OSV-Scanner is advisory-based** (broadens CVE coverage past npm audit, won't catch a brand-new malicious package); **Socket App** is the behavioral complement (console install). **dependabot.yml: grouped, review-gated, NO auto-merge.**
+9. **CodeQL config + secret-scanning toggles are `gh api -X PATCH` settings, not files** — ADR-060/061 are their durable record.
+10. **ADR numbering:** 060 = code-scanning gate (+ CodeQL config upgrades), 061 = supply-chain & secrets hardening. 059 stays dependency-only.
 8. **Landing docs dir is `.gitignore`d** — `git add -f`. **nav.json revert bug** — grep-verify after generate-docs; re-apply if reverted.
 9. **Version bump 10.4.0 → 10.5.0** in root `package.json`.
 10. **`e2e-tests.yml` is the only remaining `npm install`** (lines 26, 50) → `npm ci`.
 
 ---
 
-## Supply-chain hardening — the 3 folded-in items (ADR-061)
+## Supply-chain & secrets hardening (ADR-061)
 
+**Install-script & lockfile:**
 1. **`ignore-scripts=true` in `.npmrc`** — removes the worm execution vector (lifecycle scripts). Tradeoff: hooks now install via explicit `npm run hooks:install` (see note #5).
 2. **`e2e-tests.yml`: `npm install` → `npm ci`** (lines 26, 50) — last non-deterministic install in CI.
 3. **`npm audit signatures` step in CI** — verifies registry provenance on the installed tree.
 
-Backlog remainder (items 4–5, NOT this sprint): `.github/dependabot.yml` review-gating; CI token hygiene (short-lived, narrow-scope).
+**Detective + process:**
+4. **OSV-Scanner CI step** — broader advisory DB than npm audit (committed step, no App, fits direct-push). Non-blocking first. Socket App recommended as behavioral complement.
+5. **`.github/dependabot.yml`** — grouped, review-gated security+version PRs; **no auto-merge**.
+6. **Secret-scanning toggles** — enable validity checks + non-provider patterns (currently disabled).
+
+Backlog remainder (NOT this sprint): CI token hygiene (short-lived, narrow-scope); keep dependabot PRs human-reviewed (auto-merge = ingestion path).
 
 ---
 
@@ -122,7 +134,7 @@ A NEW failure during this sprint is a real regression — resolve it, don't wave
 ## Architecture Gotchas (Persistent)
 
 - **Landing page docs**: `apps/landing/src/data/docs/` is in `.gitignore` — always `git add -f`
-- **ADR numbering**: 059 = dependency gate. **060 = code-scanning gate (this sprint). 061 = supply-chain hardening (this sprint).**
+- **ADR numbering**: 059 = dependency gate. **060 = code-scanning gate + CodeQL config upgrades (this sprint). 061 = supply-chain & secrets hardening (this sprint).**
 - **nav.json revert bug**: `generate-docs.ts` regenerates nav.json — add slugs to `GUIDE_ORDER` + `GUIDE_LABELS` + `GUIDE_SLUGS` in `scripts/generate-docs.ts`; run from `apps/landing/` (`npm run generate-docs`), not root; grep-verify after
 - **JWT field** is `communities` not `communityMemberships` — always `user.communities ?? []`
 - **`git add` on CLAUDE.md**: tracked as lowercase `claude.md` — always `git add claude.md`
