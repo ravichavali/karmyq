@@ -44,9 +44,10 @@ Clear all **25 open Dependabot alerts** (16 high, 8 moderate, 1 low) to zero, th
 |--------|-------|--------|
 | **73** | Request Service Simplification | ✅ Complete + deployed |
 | **74** | Trust Graph Foundation (HEB + radial) | ✅ Complete + deployed |
-| **75** | Dependency Vulnerability Remediation + CI security gate (ADR-059) | ⬅ This sprint |
+| **75** | Dependency Vulnerability Remediation + CI security gate (ADR-059) | ✅ Complete + deployed (v10.4.0) |
 | **76** | Code Scanning Remediation (CodeQL) + code-scanning gate (ADR-060) | Upcoming (scope below) |
 | **77** | Trust Graph Viz Polish + Depth | Upcoming (scope preserved below) |
+| **TBD** | Supply-Chain Hardening (Shai-Hulud defenses) | Backlog (scope below) |
 
 ---
 
@@ -110,6 +111,20 @@ Separate from Sprint 75. Decided this planning session: code scanning is a **dis
 | high | `js/insecure-randomness` | `simulation-service` (`api-client.ts`, `dibs-workflow.ts`) | 2 | Dismissible — `Math.random()` in a sim engine, not security-sensitive |
 
 **Approach**: triage-first (this is mostly a judgment exercise, not a rewrite). Per-alert: fix real ones, dismiss false positives with a written reason. Then activate the **blocking** CodeQL gate (can't flip to blocking until all 15 are resolved/dismissed — same discipline as the dependency gate). ADR-060 + CI/CD doc + landing concept page.
+
+---
+
+## Backlog — Supply-Chain Hardening (Shai-Hulud defenses)
+
+Distinct from ADR-059 (which gates **known-CVE** deps). Shai-Hulud-style worms ship via **malicious install scripts** in compromised package versions → steal tokens → self-propagate. Current posture: committed lockfile + integrity hashes + `npm ci` in `ci.yml`/`test.yml` are the main defenses. Gaps to close (highest leverage first):
+
+1. **`ignore-scripts=true` in `.npmrc`** — lifecycle scripts currently run unguarded (root `postinstall` → `install-hooks.sh`); this is the worm's execution vector. Set globally, run trusted scripts explicitly (or at minimum `--ignore-scripts` on CI installs + allowlist packages that legitimately need build scripts).
+2. **`e2e-tests.yml` uses `npm install`, not `npm ci`** (lines ~26/50) — can drift to a newer (poisoned) version. Switch to `npm ci`.
+3. **Add `npm audit signatures` to CI** — verifies registry/provenance signatures on the installed tree.
+4. **No `.github/dependabot.yml`** — keep Dependabot PRs review-gated (never auto-merge, which would be an ingestion path).
+5. **Token hygiene** — short-lived, narrowly-scoped CI tokens; no long-lived `NPM_TOKEN` in env unless publishing (limits the exfiltration/propagation payoff).
+
+Items 1–3 are the quick wins. Could fold into Sprint 76 (security-themed) or stand alone.
 
 ---
 
