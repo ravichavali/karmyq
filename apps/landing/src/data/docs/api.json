@@ -884,6 +884,11 @@
         },
         {
           "method": "GET",
+          "path": "/trust/graph/:communityId/full",
+          "description": "Full community trust graph (Sprint 74) — the top 149 members ranked by trust score, UNION the calling user (always included), plus every edge between that member set. Unlike `/trust/graph/:community"
+        },
+        {
+          "method": "GET",
           "path": "/trust/edge",
           "description": "Return a single trust edge for a user pair in a community."
         },

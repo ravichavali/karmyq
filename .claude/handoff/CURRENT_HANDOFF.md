@@ -1,11 +1,28 @@
-# Sprint 74: Trust Graph Foundation — Ready to Execute
+# Sprint 74: Trust Graph Foundation — COMPLETE
 
 ## Handoff Document
 
 **Date**: 2026-05-29
-**Current Version**: v10.2.0 (on master)
-**Target Version**: v10.3.0
-**Status**: Sprint 74 spec + plan written. Ready to execute.
+**Current Version**: v10.3.0
+**Status**: ✅ Sprint 74 implemented. All 12 plan tasks done, tests + feedback:check green, deploying via CI/CD.
+
+---
+
+## Sprint 74 Completion Notes
+
+**Shipped:**
+- Backend: `getFullCommunityGraph()` + `GET /trust/graph/:communityId/full` (top 149 by trust score UNION calling user, all inter-member edges from `trust_edges_live`).
+- Frontend: `graphs/TrustGraphHEB.tsx` (D3 hierarchical edge bundling — community + fission), `graphs/TrustGraphRadial.tsx` (Cytoscape concentric ego view). `TrustGraph.tsx` is now a thin mode router (`ego`→Radial, `community`/`fission`→HEB).
+- `TrustGraphTab.tsx`: Community + My Network sub-tabs. `FissionTab.tsx`: routes to HEB fission mode.
+- New TDD test auto-promoted to `services/social-graph-service/tests/regression/sprint-74-trust-graph-full.test.ts`.
+- Docs: `docs/guides/trust-graph.md` rewritten for the three views; regenerated landing JSON.
+
+**Two plan deviations resolved during execution (the plan's literal code didn't match the codebase):**
+1. **Route/api conventions**: plan wrote `router.get('/:communityId/full', authenticateToken, ...)` and `api.get('/social-graph/...')`. Actual: route is `/graph/:communityId/full` (router mounted at `/trust`, auth applied at mount via `(req as any).user`), api uses `socialGraphApi.get('/trust/graph/:id/full')`. Adapted to match.
+2. **Fission parity (user decision: "Port full parity into HEB")**: TrustGraphHEB carries `onSwitchGroup`, group labels, isolated-member dashed rings, and the selection panel so FissionTab lost nothing. Kept existing `groupMap: Record<id,'group_a'|'group_b'>` shape (not the plan's `Map<'A'|'B'>`).
+3. **NetworkGraph gap**: the spec assumed `react-force-graph-2d` lived in `NetworkGraph.tsx`, but it actually delegated to the old force-directed `TrustGraph`. Ported the force-directed ego rendering directly into `NetworkGraph.tsx` (cross-community aggregate "Your Network" card) so its behaviour is unchanged; `react-force-graph-2d` is now isolated there.
+
+**Next sprint**: Sprint 75 — Trust Graph Depth (inter-community zoom view; fission edge differentiation refinements).
 
 ---
 
