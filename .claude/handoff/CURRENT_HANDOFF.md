@@ -29,8 +29,9 @@ Clear all **25 open Dependabot alerts** (16 high, 8 moderate, 1 low) to zero, th
 |--------|-------|--------|
 | **73** | Request Service Simplification | ✅ Complete + deployed |
 | **74** | Trust Graph Foundation (HEB + radial) | ✅ Complete + deployed |
-| **75** | Dependency Vulnerability Remediation + CI security gate | ⬅ This sprint |
-| **76** | Trust Graph Viz Polish + Depth | Upcoming (scope preserved below) |
+| **75** | Dependency Vulnerability Remediation + CI security gate (ADR-059) | ⬅ This sprint |
+| **76** | Code Scanning Remediation (CodeQL) + code-scanning gate (ADR-060) | Upcoming (scope below) |
+| **77** | Trust Graph Viz Polish + Depth | Upcoming (scope preserved below) |
 
 ---
 
@@ -81,7 +82,23 @@ All 25 alerts surface through the **single root `package-lock.json`** (npm works
 
 ---
 
-## Deferred — Trust Graph Viz Polish + Depth (now Sprint 76)
+## Sprint 76 preview — Code Scanning Remediation (CodeQL)
+
+Separate from Sprint 75. Decided this planning session: code scanning is a **distinct alert class** with a **separate gate** (branch-protection required status check on the CodeQL workflow, set to fail on critical/high — NOT `npm audit`). Documented under its **own ADR-060** (Sprint 75's ADR-059 stays dependency-only).
+
+**15 open CodeQL alerts as of 2026-05-30:**
+
+| Sev | Rule | Location | Count | Likely disposition |
+|-----|------|----------|-------|--------------------|
+| critical | `js/request-forgery` (SSRF) | `apps/frontend/src/lib/api.ts` (lines ~341–360, ~803–828) | 10 | **Likely false positives** — path interpolated into a fixed-host baseURL (`process.env.NEXT_PUBLIC_*`); no attacker-controlled host. Triage → dismiss-with-justification and/or `encodeURIComponent` path params |
+| high | `js/xss-through-dom` | frontend `communities/index.tsx`, landing `Movement.tsx` | 3 | **Likely real** — fix the DOM sink |
+| high | `js/insecure-randomness` | `simulation-service` (`api-client.ts`, `dibs-workflow.ts`) | 2 | Dismissible — `Math.random()` in a sim engine, not security-sensitive |
+
+**Approach**: triage-first (this is mostly a judgment exercise, not a rewrite). Per-alert: fix real ones, dismiss false positives with a written reason. Then activate the **blocking** CodeQL gate (can't flip to blocking until all 15 are resolved/dismissed — same discipline as the dependency gate). ADR-060 + CI/CD doc + landing concept page.
+
+---
+
+## Deferred — Trust Graph Viz Polish + Depth (now Sprint 77)
 
 User feedback after seeing Sprint 74 deployed (preserve verbatim for next sprint):
 - **Community + Split (HEB) views land well** — keep the graphical, structure-first approach.
@@ -112,7 +129,7 @@ If `npm test` surfaces a NEW failure post-override, it's an override incompatibi
 ## Architecture Gotchas (Persistent)
 
 - **Landing page docs**: `apps/landing/src/data/docs/` is in `.gitignore` — always `git add -f`
-- **ADR numbering**: Next ADR is **059** (this sprint uses it)
+- **ADR numbering**: **059** = dependency security gate (Sprint 75, this sprint). **060** reserved = code-scanning gate (Sprint 76).
 - **nav.json revert bug**: `generate-docs.ts` regenerates nav.json — add new slugs to `GUIDE_ORDER` + `GUIDE_LABELS` + `GUIDE_SLUGS` in `scripts/generate-docs.ts`; run generate-docs from `apps/landing/` (`npm run generate-docs`), not root; grep-verify after
 - **JWT field** is `communities` not `communityMemberships` — always `user.communities ?? []`
 - **`git add` on CLAUDE.md**: Tracked as lowercase `claude.md` — always `git add claude.md`
