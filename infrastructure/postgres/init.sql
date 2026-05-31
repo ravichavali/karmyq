@@ -257,6 +257,11 @@ CREATE INDEX idx_communities_category ON communities.communities(category);
 CREATE INDEX idx_communities_status ON communities.communities(status);
 CREATE INDEX IF NOT EXISTS idx_communities_location_geo ON communities.communities (latitude, longitude) WHERE latitude IS NOT NULL AND longitude IS NOT NULL;  -- Sprint 36: Geo-based community discovery
 CREATE INDEX IF NOT EXISTS idx_communities_tags ON communities.communities USING GIN (tags);  -- Sprint 36: Tag-based community discovery
+-- Sprint 77 (ADR-062): one active community per identity (name+location, case-insensitive).
+-- Partial on status='active' so archived/split/fused names stay re-creatable.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_communities_identity_active
+  ON communities.communities (LOWER(TRIM(name)), LOWER(TRIM(COALESCE(location, ''))))
+  WHERE status = 'active';
 CREATE INDEX idx_members_community_id ON communities.members(community_id);
 CREATE INDEX idx_members_user_id ON communities.members(user_id);
 CREATE INDEX idx_norms_community_id ON communities.norms(community_id);

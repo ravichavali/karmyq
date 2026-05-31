@@ -79,10 +79,10 @@ Growth (new user registration) runs on a standalone `setInterval` every 3 minute
 | Business hours | Disabled | `simulator.ts` (removed gate) | Simulation runs 24/7 |
 | Growth rate | 5 new users/day | `config/default.json` | ~480 growth ticks/day; probability per tick = 5/480 |
 | Max users | 500 | `config/default.json` | |
-| Community cap | 15 | `create-community-workflow.ts` | |
+| Community cap | 50 | `create-community-workflow.ts` | Sprint 77: was a dead `>=15` check against `limit:11` (unreachable); now `MAX_COMMUNITIES=50` |
 | Join guard | `>= 6` communities → skip | `join-community-workflow.ts` | |
 | Open request cap | 2 per user | `request-workflow.ts` | |
-| Email domain | `@test.karmyq.com` | `db-user-loader.ts` | All sim user queries filtered to this domain |
+| Email domain | `@test.karmyq.com` | `db-user-loader.ts` | All sim user queries filtered to this domain via `SIM_ACTOR_POOL_FILTER`; explicitly excludes `@karmyq.test` e2e fixtures (Sprint 77) |
 | `createCommunities` weight (COMMUNITY_BUILDER) | 0.001 | `profiles/index.ts` | Near-zero — avoids community proliferation |
 | `createCollective` weight (COMMUNITY_BUILDER) | 0.01 | `profiles/index.ts` | Near-zero |
 | `submitFeedback` weight (ACTIVE_HELPER) | 0.25 | `profiles/index.ts` | High weight — drives Social Karma data |
@@ -159,6 +159,10 @@ Ride providers include `ride_details` (vehicle_type, max_passengers, advance_boo
 ---
 
 ## Recent Changes
+
+### Sprint 77 (2026-05-30) — Data hygiene (ADR-062)
+- **FIXED (cap bug)**: `create-community-workflow.ts` fetched `discoverCommunities({limit:11})` then checked `>= 15` — unreachable. Now `MAX_COMMUNITIES=50`, fetching `limit:51`. (Idempotent `POST /communities` makes runaway duplication impossible regardless; the cap just bounds churn.)
+- **FIXED (actor pool)**: `db-user-loader.ts` now uses `SIM_ACTOR_POOL_FILTER` — selects `@test.karmyq.com` and explicitly excludes `@karmyq.test` e2e/integration fixtures so sim workflows never corrupt those accounts.
 
 ### Sprint 72 (2026-05-29)
 - WorkerPool class: 10 concurrent async workers via `Promise.all` running 24/7

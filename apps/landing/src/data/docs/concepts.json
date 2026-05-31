@@ -471,6 +471,14 @@
       "status": "implemented",
       "description": "**Status**: Implemented",
       "filename": "ADR-061-supply-chain-and-secrets-hardening.md"
+    },
+    {
+      "slug": "adr-062-community-identity-idempotent-creation",
+      "number": "062",
+      "title": "ADR-062: Community Identity & Idempotent Creation",
+      "status": "implemented",
+      "description": "**Status**: Implemented",
+      "filename": "ADR-062-community-identity-idempotent-creation.md"
     }
   ]
 }

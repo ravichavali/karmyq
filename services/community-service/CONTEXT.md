@@ -454,7 +454,14 @@ Get specific community with all members.
 **Implementation:** `src/routes/communities.ts:136`
 
 ### POST /communities
-Create new community.
+Create new community — **idempotent on community identity** (ADR-062).
+
+A community's identity is `(LOWER(TRIM(name)), LOWER(TRIM(COALESCE(location,''))))`. Before inserting, the route looks up an **active** community by this identity key:
+- **Match found (public):** the caller is joined (`communities.members` upsert, `current_members` bumped only if newly inserted) and the existing community is returned with `existing: true` and HTTP **200** — no duplicate row is created.
+- **Match found (private):** not auto-joined; returns `existing: true, joined: false` and an approval-required message.
+- **No match:** the community is created as before and returned with `existing: false` and HTTP **201**.
+
+Clients should read the `existing` flag rather than assuming a new row was created. A partial unique index `idx_communities_identity_active` enforces one active community per identity.
 
 **Request:**
 ```json
@@ -463,28 +470,39 @@ Create new community.
   "description": "Mutual aid in Brooklyn",
   "location": "Brooklyn, NY",
   "category": "General",
-  "max_members": 100,
-  "creator_id": "uuid"
+  "max_members": 100
 }
 ```
 
-**Response:**
+**Response (created):**
 ```json
 {
   "success": true,
   "data": {
-    "id": "uuid",
-    "name": "Brooklyn Helpers",
-    "current_members": 1,
-    "created_at": "2025-01-10T12:00:00Z"
-  },
-  "message": "Community created successfully"
+    "community": { "id": "uuid", "name": "Brooklyn Helpers", "current_members": 1, "role": "admin" },
+    "existing": false,
+    "config": { },
+    "token": "<refreshed-jwt>"
+  }
 }
 ```
 
-**Implementation:** `src/routes/communities.ts:190`
+**Response (joined existing):**
+```json
+{
+  "success": true,
+  "data": {
+    "community": { "id": "uuid", "name": "Brooklyn Helpers", "role": "member" },
+    "existing": true,
+    "joined": true,
+    "token": "<refreshed-jwt>"
+  }
+}
+```
 
-**Events Published:** `community_created`
+**Implementation:** `src/routes/communities.ts` — `POST /` (identity lookup before insert)
+
+**Events Published:** `community_created` (only on actual creation)
 
 ### PUT /communities/:id
 Update community details (admin only).
@@ -1453,6 +1471,13 @@ src/
 - JOIN queries limited to necessary data only
 
 ## Recent Changes
+
+### Sprint 77 (2026-05-30) — Community Identity & Idempotent Creation (ADR-062)
+- **MODIFIED**: `POST /communities` is now **idempotent on community identity** `(LOWER(TRIM(name)), LOWER(TRIM(COALESCE(location,''))))`. An active match is joined (returns `existing: true`, HTTP 200) instead of inserting a duplicate; a new identity creates as before (`existing: false`, HTTP 201). Private matches are not auto-joined. Extracted `buildRefreshedToken()` helper (shared by create + join paths) and `src/utils/identity.ts` (`identityKey`, `pickCanonical`).
+- **NEW**: partial unique index `idx_communities_identity_active` on `communities.communities (LOWER(TRIM(name)), LOWER(TRIM(COALESCE(location,'')))) WHERE status='active'` — enforces one active community per identity going forward; partial-on-active so archived/split/fused names stay re-creatable.
+- **NEW**: one-time de-duplication migration `infrastructure/postgres/migrations/20260530-community-dedup.sql` — FK-discovery-driven re-parent-before-delete that collapsed the demo DB's 707 communities (~23 distinct identities) onto the oldest canonical survivor per identity. Inter-duplicate relationship rows (community_links, community_trust_edges, fusion/split proposals) are dropped rather than re-parented; `community_trust_edges` is recomputable.
+- **FIXED (cap bug, sim)**: `create-community-workflow.ts` previously fetched `discoverCommunities({limit:11})` then checked `>= 15` — unreachable dead code. Replaced with a coherent `MAX_COMMUNITIES = 50` bound.
+- **FIXED (sim hygiene)**: simulation actor pool now explicitly excludes `@karmyq.test` e2e/integration fixture accounts (`SIM_ACTOR_POOL_FILTER`).
 
 ### Sprint 70 (2026-05-28) — Fusion Mechanism
 - **MODIFIED**: `GET /communities/:id` — now also returns `active_fusion_proposal` (id, status, community_a/b_id, merged_community_name) if a non-executed/rejected proposal exists

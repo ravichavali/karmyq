@@ -57,6 +57,10 @@
           "href": "/docs/concepts/community-scale"
         },
         {
+          "label": "One Community Per Name & Place",
+          "href": "/docs/concepts/community-identity"
+        },
+        {
           "label": "Network Cohesion",
           "href": "/docs/concepts/network-cohesion"
         },
@@ -344,6 +348,10 @@
         {
           "label": "Group Communities as a Distinct Community Type",
           "href": "/docs/concepts/adr-050-group-communities"
+        },
+        {
+          "label": "Community Identity & Idempotent Creation",
+          "href": "/docs/concepts/adr-062-community-identity-idempotent-creation"
         },
         {
           "label": "— Requests & Matching —",

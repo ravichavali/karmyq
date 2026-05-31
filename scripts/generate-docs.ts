@@ -465,6 +465,7 @@ const ADR_GROUPS: Array<{ label: string; slugs: string[] }> = [
       'adr-019-referral-chain-trust',
       'adr-021-trust-path-filtering',
       'adr-050-group-communities',
+      'adr-062-community-identity-idempotent-creation',
     ],
   },
   {
@@ -500,6 +501,8 @@ const ADR_GROUPS: Array<{ label: string; slugs: string[] }> = [
       'adr-024-synthetic-user-simulation',
       'adr-027-docker-image-optimization-deferred',
       'adr-059-dependency-security-gate',
+      'adr-060-code-scanning-gate',
+      'adr-061-supply-chain-and-secrets-hardening',
     ],
   },
 ];
@@ -533,7 +536,7 @@ function generateNav(
 
   // Non-technical concept pages (split into Why Karmyq / How It Works)
   const whyKarmyq = ['platform-overview', 'the-village-model', 'neighborhood-service-layer', 'community-design'];
-  const howItWorks = ['trust-and-karma', 'trust-score', 'what-is-karma', 'trust-paths', 'trust-path', 'reputation-decay', 'why-ratings-are-private', 'community-scale', 'network-cohesion', 'trust-model-evolution', 'community-evolution', 'fractal-feed', 'community-discovery', 'provider-mode', 'trust-questions', 'governance', 'observability'];
+  const howItWorks = ['trust-and-karma', 'trust-score', 'what-is-karma', 'trust-paths', 'trust-path', 'reputation-decay', 'why-ratings-are-private', 'community-scale', 'community-identity', 'network-cohesion', 'trust-model-evolution', 'community-evolution', 'fractal-feed', 'community-discovery', 'provider-mode', 'trust-questions', 'governance', 'observability'];
 
   const nav = {
     sections: [

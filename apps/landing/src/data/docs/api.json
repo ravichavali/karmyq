@@ -128,7 +128,7 @@
         {
           "method": "POST",
           "path": "/communities",
-          "description": "Create new community."
+          "description": "Create new community — **idempotent on community identity** (ADR-062)."
         },
         {
           "method": "PUT",

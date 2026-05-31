@@ -18,16 +18,22 @@ export const createCommunityWorkflow: Workflow = async (context) => {
 
   console.log(`[${session.user.email}] Considering creating a community...`);
 
+  // Bound how many communities the sim will spin up. Idempotent creation
+  // (ADR-062) already collapses duplicate templates onto a single community, so
+  // runaway duplication is impossible regardless; this cap just limits churn.
+  const MAX_COMMUNITIES = 50;
+
   try {
-    // Check how many communities already exist - cap at 10
+    // Fetch one past the cap so the comparison can actually fire (the previous
+    // limit:11 vs >=15 check was unreachable dead code).
     const existing = await sessionManager.executeAction(
       session,
       'discoverCommunities',
-      () => client.discoverCommunities({ limit: 11 })
+      () => client.discoverCommunities({ limit: MAX_COMMUNITIES + 1 })
     );
 
-    if (existing && existing.length >= 15) {
-      console.log(`[${session.user.email}] Already ${existing.length} communities, skipping creation`);
+    if (existing && existing.length >= MAX_COMMUNITIES) {
+      console.log(`[${session.user.email}] Already ${existing.length} communities (cap ${MAX_COMMUNITIES}), skipping creation`);
       return;
     }
 
