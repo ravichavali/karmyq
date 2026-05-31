@@ -20,6 +20,7 @@ The `vote-on-governance-workflow` now does **propose → vote → execute** end-
 
 ### Remaining caveats
 - **Latency is improved but not instant**: a community must wait for its single admin to roll the governance workflow and for ~60% of members to vote. Acceptable for a demo; if you want it snappier, raise the weight further or lower split `quorum_pct`.
+- **Fission strands activity (decided: let the sim repopulate)**: `executeSplit` copies *members* into the two children but does NOT migrate community-scoped activity (requests, trust edges, karma) — those stay on the now-`status='split'` parent (~1,400 request-links + ~300 trust edges currently orphaned on the 9 parents). Children start near-empty of history. **Decision (2026-05-31): do NOT migrate**; the sim repopulates children organically — `GET /communities/my/communities` filters `c.status='active'`, so sim request/offer workflows post only into the active children. If a future sprint wants children to inherit history, the proper fix is to make `executeSplit` re-link requests to the child the requester joined + trust edges where both endpoints co-land (option B, declined for now).
 - **Discover UX (not a bug)**: "Discover" hides communities you've already joined ([communities/index.tsx:605]) and paginates 12 at a time (`PAGE_SIZE`); `has_space` filter defaults off. Joined communities only appear under "Your Communities" by design.
 
 ---
