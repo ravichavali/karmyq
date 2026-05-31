@@ -196,6 +196,30 @@ export async function executeSplit(
       );
     }
 
+    // 6b. Ensure both children have an admin (the executing admin) and a correct
+    //     member count. executeSplit previously left children with current_members
+    //     at the table default (0) and no admin row — so they rendered empty and
+    //     un-administrable. Promote the executing admin in both children and
+    //     recompute current_members from the actual active membership.
+    for (const childId of [childAId, childBId]) {
+      await client.query(
+        `INSERT INTO communities.members (community_id, user_id, role, status)
+         VALUES ($1, $2, 'admin', 'active')
+         ON CONFLICT (community_id, user_id)
+         DO UPDATE SET role = 'admin', status = 'active'`,
+        [childId, adminId]
+      );
+      await client.query(
+        `UPDATE communities.communities c
+         SET current_members = (
+           SELECT count(*) FROM communities.members m
+           WHERE m.community_id = c.id AND m.status = 'active'
+         )
+         WHERE c.id = $1`,
+        [childId]
+      );
+    }
+
     // 7. Create split_origin community link between siblings
     await client.query(
       `INSERT INTO communities.community_links

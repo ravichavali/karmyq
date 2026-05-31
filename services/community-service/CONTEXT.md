@@ -1472,6 +1472,10 @@ src/
 
 ## Recent Changes
 
+### Sprint 78 (2026-05-31) — Autonomous fission fixes (ADR-057)
+- **FIXED (`executeSplit`)**: child communities were created with `current_members` left at the table default (0) and **no admin member** (only `creator_id` was set) — so they rendered empty and un-administrable. `executeSplit` now upserts the executing admin as an active `admin` in BOTH children and recomputes `current_members` from actual membership. (`src/services/fissionService.ts`)
+- Enables autonomous fission: the simulation votes split proposals to `approved` (auto-approve at quorum in the vote route), then a sim admin executes them. Used to split the post-dedup over-cap communities (>150) back under Dunbar's number.
+
 ### Sprint 77 (2026-05-30) — Community Identity & Idempotent Creation (ADR-062)
 - **MODIFIED**: `POST /communities` is now **idempotent on community identity** `(LOWER(TRIM(name)), LOWER(TRIM(COALESCE(location,''))))`. An active match is joined (returns `existing: true`, HTTP 200) instead of inserting a duplicate; a new identity creates as before (`existing: false`, HTTP 201). Private matches are not auto-joined. Extracted `buildRefreshedToken()` helper (shared by create + join paths) and `src/utils/identity.ts` (`identityKey`, `pickCanonical`).
 - **NEW**: partial unique index `idx_communities_identity_active` on `communities.communities (LOWER(TRIM(name)), LOWER(TRIM(COALESCE(location,'')))) WHERE status='active'` — enforces one active community per identity going forward; partial-on-active so archived/split/fused names stay re-creatable.
