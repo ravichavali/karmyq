@@ -35,6 +35,17 @@ export function getPool(): Pool {
   return pool;
 }
 
+/**
+ * SQL predicate selecting the simulation actor pool: only synthetic sim users
+ * (@test.karmyq.com), and explicitly never the e2e/integration fixture accounts
+ * (@karmyq.test). The positive domain filter already excludes the latter; the
+ * NOT LIKE is defense-in-depth so the fixtures stay protected even if the
+ * positive filter is ever loosened. Sending sim workflows to e2e accounts would
+ * corrupt their state and flake the test suite.
+ */
+export const SIM_ACTOR_POOL_FILTER =
+  "email LIKE '%@test.karmyq.com' AND email NOT LIKE '%@karmyq.test'";
+
 interface DbUser {
   id: string;
   email: string;
@@ -52,7 +63,7 @@ interface CommunityMembership {
  */
 export async function getRandomUser(): Promise<DbUser> {
   const result = await pool.query(
-    "SELECT id, email, name FROM auth.users WHERE email LIKE '%@test.karmyq.com' ORDER BY RANDOM() LIMIT 1"
+    `SELECT id, email, name FROM auth.users WHERE ${SIM_ACTOR_POOL_FILTER} ORDER BY RANDOM() LIMIT 1`
   );
 
   if (result.rows.length === 0) {
@@ -67,7 +78,7 @@ export async function getRandomUser(): Promise<DbUser> {
  */
 export async function getUserCount(): Promise<number> {
   const result = await pool.query(
-    "SELECT COUNT(*) as count FROM auth.users WHERE email LIKE '%@test.karmyq.com'"
+    `SELECT COUNT(*) as count FROM auth.users WHERE ${SIM_ACTOR_POOL_FILTER}`
   );
   return parseInt(result.rows[0].count, 10);
 }

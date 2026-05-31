@@ -66,6 +66,11 @@
           "path": "/communities",
           "description": "List communities with filtering and sorting (sort: activity, newest, members, alphabetical)"
         },
+        {
+          "method": "POST",
+          "path": "/communities",
+          "description": "Create a community — idempotent on identity (name+location, case-insensitive, ADR-062). Joins the existing active community if one matches (returns existing:true, HTTP 200); otherwise creates it (existing:false, HTTP 201)."
+        },
         "/communities/join",
         "/communities/my/communities",
         "/communities/:id/config",

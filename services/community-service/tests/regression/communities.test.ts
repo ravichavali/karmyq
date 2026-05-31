@@ -115,13 +115,14 @@ describe('Community Routes', () => {
     it('returns 201 with success:true when valid body is submitted', async () => {
       const communityId = '123e4567-e89b-12d3-a456-426614174000';
       mockQuery
-        .mockResolvedValueOnce({ rows: [], rowCount: 0 } as any) // duplicate check
+        .mockResolvedValueOnce({ rows: [], rowCount: 0 } as any) // identity check (ADR-062): no active match
+        .mockResolvedValueOnce({ rows: [], rowCount: 0 } as any) // config template lookup → fall back to default
         .mockResolvedValueOnce({
           rows: [{ id: communityId, name: 'Valid Community' }],
           rowCount: 1,
         } as any) // INSERT community
-        .mockResolvedValueOnce({ rows: [], rowCount: 1 } as any) // INSERT member
-        .mockResolvedValueOnce({ rows: [], rowCount: 1 } as any); // INSERT settings
+        .mockResolvedValueOnce({ rows: [], rowCount: 1 } as any) // INSERT settings
+        .mockResolvedValueOnce({ rows: [], rowCount: 1 } as any); // INSERT member
 
       const res = await request(app)
         .post('/communities')

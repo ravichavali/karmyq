@@ -18,6 +18,33 @@ import { normalizeTags } from '../utils/tags';
 
 const router = Router();
 
+/**
+ * Build a fresh JWT carrying the user's current active community list.
+ * Used after create and after idempotent-join so the caller can immediately
+ * access the community without a 403 from a stale token.
+ */
+async function buildRefreshedToken(
+  userId: string,
+  email: string,
+  currentCommunityId: string
+): Promise<{ token: string; communities: Array<{ id: string; role: string; name: string }> }> {
+  const memberCommunities = await query(
+    `SELECT c.id, c.name, m.role
+     FROM communities.communities c
+     JOIN communities.members m ON m.community_id = c.id
+     WHERE m.user_id = $1 AND m.status = 'active'
+     ORDER BY c.name`,
+    [userId]
+  );
+  const communities = memberCommunities.rows.map((row: any) => ({ id: row.id, role: row.role, name: row.name }));
+  const token = jwt.sign(
+    { userId, email, communities, currentCommunityId },
+    process.env.JWT_SECRET!,
+    { expiresIn: '7d' }
+  );
+  return { token, communities };
+}
+
 // GET /communities - Get all communities (with optional filters, search, and discovery modes)
 router.get('/', async (req: any, res: Response) => {
   try {
@@ -384,6 +411,63 @@ router.post('/', async (req: Request, res: Response) => {
       return sendValidationError(res, 'community_type must be "mutual_aid" or "group"', { requestId: (req as any).id });
     }
 
+    // Idempotent create (ADR-062): a community's identity is its case-insensitive,
+    // trimmed (name, location) pair. If an active community with this identity
+    // already exists, join it instead of minting a duplicate. The ORDER BY picks
+    // the canonical (oldest) row, consistent with the dedup migration's survivor rule.
+    const identityMatch = await query(
+      `SELECT * FROM communities.communities
+       WHERE status = 'active'
+         AND LOWER(TRIM(name)) = LOWER(TRIM($1))
+         AND LOWER(TRIM(COALESCE(location, ''))) = LOWER(TRIM(COALESCE($2, '')))
+       ORDER BY created_at ASC, id ASC
+       LIMIT 1`,
+      [name, location ?? null]
+    );
+
+    if (identityMatch.rowCount && identityMatch.rowCount > 0) {
+      const existing = identityMatch.rows[0];
+
+      // Private communities require approval — don't auto-join, just point the caller at it.
+      if (existing.access_type === 'private') {
+        return sendSuccess(res, {
+          community: existing,
+          existing: true,
+          joined: false,
+          message: 'A private community with this name and location already exists. Request approval to join.',
+        }, HTTP_STATUS.OK, { requestId: (req as any).id });
+      }
+
+      // Upsert the caller as a member; only bump the count if a new row was inserted.
+      const joinResult = await query(
+        `INSERT INTO communities.members (community_id, user_id, role, status)
+         VALUES ($1, $2, 'member', 'active')
+         ON CONFLICT (community_id, user_id) DO NOTHING`,
+        [existing.id, creator_id]
+      );
+      if (joinResult.rowCount && joinResult.rowCount > 0) {
+        await query(
+          `UPDATE communities.communities SET current_members = current_members + 1 WHERE id = $1`,
+          [existing.id]
+        );
+        existing.current_members = (existing.current_members ?? 0) + 1;
+      }
+
+      // Refresh JWT with the updated community list (mirrors the create path).
+      const { token: joinToken, communities: joinCommunities } =
+        await buildRefreshedToken((req as any).user.userId, (req as any).user.email, existing.id);
+      // Reflect the caller's actual role (ON CONFLICT DO NOTHING preserves a prior
+      // admin/member role rather than demoting a re-joining admin to 'member').
+      const callerRole = joinCommunities.find((c) => c.id === existing.id)?.role ?? 'member';
+
+      return sendSuccess(res, {
+        community: { ...existing, role: callerRole },
+        existing: true,
+        joined: true,
+        token: joinToken,
+      }, HTTP_STATUS.OK, { requestId: (req as any).id });
+    }
+
     // Determine configuration to use
     let communityConfig: any = null;
     let templateSource: string | null = null;
@@ -511,30 +595,7 @@ router.post('/', async (req: Request, res: Response) => {
 
     // Refresh JWT token with updated community list
     // This prevents 403 errors when creator tries to access the new community immediately
-    const communitiesResult = await query(
-      `SELECT c.id, c.name, m.role
-       FROM communities.communities c
-       JOIN communities.members m ON m.community_id = c.id
-       WHERE m.user_id = $1 AND m.status = 'active'
-       ORDER BY c.name`,
-      [creator_id]
-    );
-
-    // Generate new JWT with updated community list
-    const newToken = jwt.sign(
-      {
-        userId: creator_id,
-        email: (req as any).user.email,
-        communities: communitiesResult.rows.map((row: any) => ({
-          id: row.id,
-          role: row.role,
-          name: row.name,
-        })),
-        currentCommunityId: community.id,
-      },
-      process.env.JWT_SECRET!,
-      { expiresIn: '7d' }
-    );
+    const { token: newToken } = await buildRefreshedToken(creator_id, (req as any).user.email, community.id);
 
     // Publish events
     await publishEvent('community_created', {
@@ -555,6 +616,7 @@ router.post('/', async (req: Request, res: Response) => {
         ...community,
         role: 'admin',
       },
+      existing: false,
       config: communityConfig,
       token: newToken, // Include refreshed JWT token
     }, HTTP_STATUS.CREATED, { requestId: (req as any).id });
