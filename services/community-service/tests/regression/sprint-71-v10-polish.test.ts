@@ -8,10 +8,13 @@ import * as path from 'path'
 
 describe('Sprint 71 — v10.0 polish invariants', () => {
   describe('version', () => {
-    it('root package.json is 10.4.0', () => {
+    it('root package.json is on the v10+ line (Sprint 71 floor)', () => {
+      // Sprint 71 established the v10 line; guard that floor with valid semver
+      // rather than pinning an exact version (which broke on every later bump).
       const pkgPath = path.resolve(__dirname, '../../../../package.json')
       const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'))
-      expect(pkg.version).toBe('10.4.0')
+      expect(pkg.version).toMatch(/^\d+\.\d+\.\d+$/)
+      expect(parseInt(pkg.version.split('.')[0], 10)).toBeGreaterThanOrEqual(10)
     })
   })
 
