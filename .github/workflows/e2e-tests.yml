@@ -23,7 +23,7 @@ jobs:
           node-version: '24'
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
       - name: Start Docker services
         run: docker-compose -f infrastructure/docker/docker-compose.yml up -d
@@ -47,7 +47,7 @@ jobs:
       - name: Run E2E tests
         run: |
           cd tests/e2e
-          npm install
+          npm ci
           npx playwright install --with-deps chromium
           npm test -- --project=chromium --workers=1 --reporter=list tests/01-auth.spec.ts tests/02-communities.spec.ts tests/03-requests.spec.ts tests/10-social-karma-v2.spec.ts
         timeout-minutes: 10

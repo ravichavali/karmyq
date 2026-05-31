@@ -81,12 +81,14 @@ Git hooks automatically run checks on commit/push:
 **IMPORTANT**: Unit + regression tests MUST pass before push. This is a core tenant of our TDD framework ([ADR-029](docs/adr/ADR-029-tdd-test-framework.md)).
 
 ```bash
-npm run hooks:install  # Install/update hooks
+npm run hooks:install  # Install/update hooks — RUN THIS AFTER CLONE
 git commit             # Hooks run automatically
 git push               # Runs unit+regression (blocks if fails), TDD (reports only)
 git push --no-verify   # Emergency only - skips all hooks
 SKIP_PREPUSH=1 git push # Skip pre-push checks only
 ```
+
+> **⚠️ Hooks no longer auto-install on `npm install`.** `.npmrc` sets `ignore-scripts=true` (supply-chain hardening, [ADR-061](docs/adr/ADR-061-supply-chain-and-secrets-hardening.md)), which disables all lifecycle scripts including the root `postinstall`. After cloning, run `npm run hooks:install` once to wire up the git hooks.
 
 See [Testing section](#testing-tdd-framework) below for complete TDD workflow.
 

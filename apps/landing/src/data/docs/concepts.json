@@ -455,6 +455,22 @@
       "status": "implemented",
       "description": "**Status**: Implemented",
       "filename": "ADR-059-dependency-security-gate.md"
+    },
+    {
+      "slug": "adr-060-code-scanning-gate",
+      "number": "060",
+      "title": "ADR-060: Code Scanning Remediation + Blocking CI Code-Scanning Gate",
+      "status": "implemented",
+      "description": "**Status**: Implemented",
+      "filename": "ADR-060-code-scanning-gate.md"
+    },
+    {
+      "slug": "adr-061-supply-chain-and-secrets-hardening",
+      "number": "061",
+      "title": "ADR-061: Supply-Chain & Secrets Hardening",
+      "status": "implemented",
+      "description": "**Status**: Implemented",
+      "filename": "ADR-061-supply-chain-and-secrets-hardening.md"
     }
   ]
 }

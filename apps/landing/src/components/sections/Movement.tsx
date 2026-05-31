@@ -2,13 +2,14 @@
 
 import { useState } from 'react';
 import AnimateOnScroll from '../AnimateOnScroll';
+import { buildSubscribeMailto } from '../../lib/buildSubscribeMailto';
 
 export default function Movement() {
   const [email, setEmail] = useState('');
 
   const handleSubscribe = () => {
-    if (email) {
-      window.location.href = `mailto:contact@karmyq.org?subject=Karmyq updates&body=Please add me to the Karmyq updates list. My email: ${email}`;
+    if (email.trim()) {
+      window.location.href = buildSubscribeMailto(email);
     }
   };
 

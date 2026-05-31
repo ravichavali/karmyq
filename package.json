@@ -1,6 +1,6 @@
 {
   "name": "karmyq",
-  "version": "10.4.0",
+  "version": "10.5.0",
   "private": true,
   "description": "Community Mutual Aid Platform - Privacy-First Community Health Platform",
   "workspaces": [
@@ -29,8 +29,7 @@
     "feedback:check": "node scripts/feedback-loop.js",
     "context:generate": "node scripts/generate-service-context.js",
     "hooks:install": "sh scripts/install-hooks.sh",
-    "audit": "npm audit --audit-level=high",
-    "postinstall": "test -f scripts/install-hooks.sh && sh scripts/install-hooks.sh || exit 0"
+    "audit": "npm audit --audit-level=high"
   },
   "devDependencies": {
     "@types/jsonwebtoken": "^9.0.10",
