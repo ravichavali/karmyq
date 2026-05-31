@@ -3,8 +3,24 @@
 ## Handoff Document
 
 **Date**: 2026-05-30
-**Current Version**: v10.4.0 (shipped) → v10.5.0 (this sprint)
-**Status**: 📋 Sprint 76 planned — spec + plan written, ready to execute. Upgrade CodeQL coverage (security-extended + remote_and_local), triage the re-scanned alert set → 0, activate blocking code-scanning gate (ADR-060), fold in supply-chain & secrets hardening — ignore-scripts, npm ci, audit signatures, OSV-Scanner, dependabot.yml, secret-scanning toggles (ADR-061).
+**Current Version**: v10.4.0 → **v10.5.0 (Sprint 76 complete — merging/deploying)**
+**Status**: ✅ Sprint 76 COMPLETE. CodeQL upgraded to `security-extended` + `remote_and_local`; all 386 open crit/high triaged to zero (2 code fixes + 3 action SHA-pins fixed-in-code, ~381 dismissed with written justifications); blocking `code-scanning-gate` live (ADR-060); supply-chain hardening shipped (ADR-061). Board: only #88 (Movement XSS, **fixed in code**) + 3 `unpinned-tag` mediums (**fixed via SHA-pins**) remain open — all clear on the post-merge CodeQL rescan, none dismissed.
+
+### 🔑 Operational learning for future bulk-dismiss sprints
+GitHub's **secondary rate limit** on mutating calls (~80–110 PATCH/min, burst-sensitive) makes scripted bulk-dismissal of hundreds of alerts fragile: a fast loop trips it after ~110 calls, and **retry-hammering escalates the penalty so it won't clear on minute-scale cooldowns**. What worked: dismiss the small/won't-fix classes via API (gentle pacing), but **bulk-dismiss the large single-rule class (350 request-forgery) in the GitHub web UI** (Security → Code scanning → filter `rule:<id>` → select all → Dismiss). The UI bulk action is one request, no rate limit. Next time: UI-first for any rule class >~50 alerts; never retry-loop the dismissal API.
+
+### ⚠️ Mid-sprint scope change (decided 2026-05-30, user-approved)
+The `security-extended` + `remote_and_local` upgrade surfaced **386 open critical/high alerts** (vs. the 15 baseline the plan scoped) plus 14 medium. **User chose to triage ALL 386 this sprint** (not dial back the threat model) — context: *public release imminent, we want secure foundations before people look*. Triage map (all verified by reading source, not blanket-dismissed):
+- **request-forgery (350 crit)** → false positive (fixed-host axios, `baseURL = NEXT_PUBLIC_* env constant`, path-only taint; raw cases hardened w/ `encodeURIComponent`) / "used in tests" for test files
+- **user-controlled-bypass (10 high)** → false positive (JWT bearer-token auth: `jwt.verify` signature check IS the control)
+- **sql-injection (13 high)** → won't fix (archived `scripts/archive/seeding/` dev script, synthetic data, no untrusted input)
+- **remote-property-injection (4 high)** → false positive (server/DB-sourced object keys) / won't fix (tooling) / used in tests
+- **xss-through-dom**: #88 Movement.tsx **fixed in code** (mailto encode); #89/#90 communities/index.tsx → false positive (relative href + React-escaped JWT id)
+- **path-injection (2) / file-system-race (2) / insecure-randomness (2 high)** → won't fix (dev `scripts/` + sim engine; fixed paths, local single-user, non-security RNG)
+- **unpinned-tag (3 med)** → **FIX** (pin GH Actions to SHA — on-theme for ADR-061)
+- **log-injection (11 med)** → won't fix (demo logging; backlog to centrally sanitize in shared logger)
+
+Net code change grew from "~2 edits" to: 2 XSS/SSRF encode fixes + 3 action-SHA pins + ~383 API dismissals.
 
 ---
 

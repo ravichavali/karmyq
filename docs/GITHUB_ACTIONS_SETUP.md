@@ -137,7 +137,30 @@ CI runs a standing **dependency security gate** ([ADR-059](adr/ADR-059-dependenc
 - **Remediation**: patch transitive vulns at the leaf via root-`package.json` `overrides`; bump direct deps directly. Never `npm audit fix --force` (it installs breaking framework downgrades). See ADR-059 for the override gotchas (`uuid` ESM cap, exact-version `tar`, `@swc/helpers`/`ts-jest` pins).
 - **Emergency escape**: if the gate blocks a genuine hotfix, `git push --no-verify` bypasses the local hook; CI remains the backstop. Use only to unblock, then remediate within the SLA.
 
-Code scanning (CodeQL) is a separate gate under ADR-060.
+### Code-Scanning Gate (CodeQL) — [ADR-060](adr/ADR-060-code-scanning-gate.md)
+
+A second blocking gate, the `code-scanning-gate` job, fails the build on **open critical/high CodeQL alerts**. Because CodeQL runs via **GitHub default setup** (no committed `codeql.yml`), the gate is a CI job that queries the code-scanning API rather than a CodeQL workflow step.
+
+- **CodeQL config** (repo settings, applied via API — not a file):
+  ```bash
+  gh api -X PATCH repos/:owner/:repo/code-scanning/default-setup \
+    -f query_suite=extended -f threat_model=remote_and_local
+  ```
+  (`security-extended` + `remote_and_local` — deeper coverage than the prior `default`/`remote`.)
+- **Fail-open on *missing analysis* only**: default-setup analysis is async, so the job polls for an analysis on the pushed SHA (bounded). No analysis in the window → warn + pass. Analysis present with open critical/high → **fail**. Never fails open on present findings.
+- **Disposition discipline**: fix real findings; dismiss false-positive/won't-fix **with a written justification** via `gh api -X PATCH .../code-scanning/alerts/{n} -f state=dismissed …`. A "fixed" alert clears on the next scan — never dismiss it.
+- **SLA**: same as the dependency gate (high/crit ≤ 1 week, any ≤ 2 weeks).
+
+### Supply-Chain & Secrets Hardening — [ADR-061](adr/ADR-061-supply-chain-and-secrets-hardening.md)
+
+Shipped alongside the gates:
+
+- **`ignore-scripts=true`** in `.npmrc` blocks dependency lifecycle scripts (worm vector). ⚠️ **Git hooks no longer auto-install** — run `npm run hooks:install` after clone.
+- **`npm ci` everywhere** (incl. `e2e-tests.yml`) — deterministic, lockfile-only installs.
+- **`npm audit signatures`** + **OSV-Scanner** steps in the `security:` job — registry-provenance + broader advisory coverage (informational first). **Socket GitHub App** recommended as the behavioral complement (console install).
+- **`.github/dependabot.yml`** — grouped, weekly, review-gated; **no auto-merge**.
+- **Third-party Actions pinned to commit SHA** (`docker/*`, `osv-scanner-action`).
+- **Secret scanning + push protection** already enabled; validity-checks + non-provider-patterns sub-toggles are a UI/org-move follow-up (see ADR-061).
 
 ## Manual Deployment Override
 

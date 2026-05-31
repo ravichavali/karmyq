@@ -454,6 +454,14 @@
         {
           "label": "Dependency Vulnerability Remediation + Blocking CI Security Gate",
           "href": "/docs/concepts/adr-059-dependency-security-gate"
+        },
+        {
+          "label": "Code Scanning Remediation + Blocking CI Code-Scanning Gate",
+          "href": "/docs/concepts/adr-060-code-scanning-gate"
+        },
+        {
+          "label": "Supply-Chain & Secrets Hardening",
+          "href": "/docs/concepts/adr-061-supply-chain-and-secrets-hardening"
         }
       ]
     },

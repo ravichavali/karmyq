@@ -78,8 +78,62 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
       - name: Run npm audit (blocking — no high/critical vulns; see ADR-059)
         run: npm audit --package-lock-only --audit-level=high
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify registry provenance (npm audit signatures — informational; ADR-061)
+        run: npm audit signatures || echo "::warning::npm audit signatures reported issues (non-blocking; see ADR-061)"
+
+      - name: OSV-Scanner (supply-chain advisory scan — informational; ADR-061)
+        uses: google/osv-scanner-action/osv-scanner-action@e69cc6c86b31f1e7e23935bbe7031b50e51082de # v2.0.2
+        continue-on-error: true
+        with:
+          scan-args: |-
+            --lockfile=package-lock.json
+
+  # Code scanning gate — blocks on open critical/high CodeQL alerts (ADR-060)
+  code-scanning-gate:
+    name: Code Scanning Gate (ADR-060)
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: read
+    steps:
+      - name: Fail on open critical/high CodeQL alerts
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # CodeQL runs via GitHub default setup and is async, so poll for an
+          # analysis on this SHA with a bounded timeout. Fail-open ONLY when no
+          # analysis exists yet; never fail-open on present findings (ADR-060).
+          analyses=0
+          for i in $(seq 1 10); do
+            analyses=$(gh api "repos/${{ github.repository }}/code-scanning/analyses?ref=${{ github.ref }}&sha=${{ github.sha }}&per_page=1" --jq 'length' 2>/dev/null || echo 0)
+            [ "${analyses:-0}" -gt 0 ] && break
+            echo "No analysis yet for ${{ github.sha }} (attempt $i) — waiting…"; sleep 30
+          done
+          if [ "${analyses:-0}" -eq 0 ]; then
+            echo "::warning::No code-scanning analysis available for this SHA within timeout — passing (fail-open on missing analysis, see ADR-060)."
+            exit 0
+          fi
+          # Severity filtering done in jq (the alerts endpoint's severity filter is unreliable).
+          open=$(gh api "repos/${{ github.repository }}/code-scanning/alerts?ref=${{ github.ref }}&state=open&per_page=100" --paginate \
+            --jq '.[] | select(.rule.security_severity_level=="critical" or .rule.security_severity_level=="high") | .number' | wc -l)
+          if [ "$open" -gt 0 ]; then
+            echo "::error::$open open critical/high code-scanning alert(s) — blocking (ADR-060)."
+            gh api "repos/${{ github.repository }}/code-scanning/alerts?ref=${{ github.ref }}&state=open&per_page=100" --paginate \
+              --jq '.[] | select(.rule.security_severity_level=="critical" or .rule.security_severity_level=="high") | "  - #\(.number) \(.rule.id) \(.most_recent_instance.location.path):\(.most_recent_instance.location.start_line)"'
+            exit 1
+          fi
+          echo "Code-scanning gate clean: 0 open critical/high (ADR-060)."
 
   # Build and verify landing page
   build-landing:
@@ -169,7 +223,7 @@ jobs:
   build-images:
     name: Build Docker Images
     runs-on: ubuntu-latest
-    needs: [test-backend, lint, test-integration, build-landing, security]
+    needs: [test-backend, lint, test-integration, build-landing, security, code-scanning-gate]
 
     strategy:
       matrix:
@@ -187,10 +241,10 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
 
       - name: Build ${{ matrix.service }}
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@ca052bb54ab0790a636c9b5f226502c73d547a25 # v5
         with:
           context: .
           file: ./services/${{ matrix.service }}/Dockerfile

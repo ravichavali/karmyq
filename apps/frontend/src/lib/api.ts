@@ -1,4 +1,5 @@
 import axios, { InternalAxiosRequestConfig } from 'axios'
+import { buildValidateInvitationUrl } from './socialGraphUrls'
 
 // Module-level refresh state — MUST be outside interceptor function body.
 // If declared inside, they reset on every request and the queue never works.
@@ -800,7 +801,7 @@ export const socialGraphService = {
     }),
 
   validateInvitationCode: (invitationCode: string) =>
-    axios.get(`${SOCIAL_GRAPH_API_URL}/invitations/validate/${invitationCode}`),
+    axios.get(buildValidateInvitationUrl(SOCIAL_GRAPH_API_URL, invitationCode)),
 
   acceptInvitationCode: (invitationCode: string) =>
     socialGraphApi.post('/invitations/accept', { invitation_code: invitationCode }),
@@ -822,10 +823,10 @@ export const socialGraphService = {
   getNetwork: () => socialGraphApi.get('/network'),
 
   getTrustGraph: (communityId: string, center?: string) =>
-    socialGraphApi.get(`/trust/graph/${communityId}${center ? `?center=${encodeURIComponent(center)}` : ''}`),
+    socialGraphApi.get(`/trust/graph/${encodeURIComponent(communityId)}${center ? `?center=${encodeURIComponent(center)}` : ''}`),
 
   getFullCommunityGraph: (communityId: string) =>
-    socialGraphApi.get(`/trust/graph/${communityId}/full`),
+    socialGraphApi.get(`/trust/graph/${encodeURIComponent(communityId)}/full`),
 
   getTrustGraphAggregate: (center?: string) =>
     socialGraphApi.get(`/trust/graph${center ? `?center=${encodeURIComponent(center)}` : ''}`),
