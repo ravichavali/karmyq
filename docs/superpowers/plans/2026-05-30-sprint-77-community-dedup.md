@@ -210,13 +210,36 @@ npm test && npm run feedback:check && npm audit --package-lock-only --audit-leve
 
 ---
 
-## Task 11: Run the data repair on the demo DB (manual, deliberate)
+## Task 11: Run the data repair on the demo DB (agent-run)
 
-> This is the one-time 707→~23 repair. The code deploy (Task 10) only stops *new* duplicates; this fixes the existing ones.
+> This is the one-time 707→~23 repair. The code deploy (Task 10) only stops *new* duplicates; this fixes the existing ones. **The executing agent runs this directly** — SSH + DB access is verified working (see "Demo DB access" box below). The user has authorized running the backup + repair.
 
-- [ ] SSH to karmyq.com. Take a DB snapshot/dump of `karmyq_prod` first (rollback safety).
-- [ ] Run the migration in **dry-run** mode; verify the NOTICE counts (~707 communities → ~23 groups; per-table re-parent counts look sane; no unexpected zero-row tables).
-- [ ] Run the migration **for real** inside the transaction.
-- [ ] **Verify**: `SELECT COUNT(*), COUNT(DISTINCT (LOWER(TRIM(name)), LOWER(TRIM(COALESCE(location,''))))) FROM communities.communities WHERE status='active';` → counts converge (~23/23). Spot-check that "PDX Service Providers Network" is now a single row with consolidated members + requests. Confirm the unique index exists.
+**Demo DB access (verified 2026-05-31):**
+- Host: `ssh ubuntu@karmyq.com` (key-based, `BatchMode` works)
+- DB: container `karmyq-postgres`, **user `karmyq_prod`, database `karmyq_prod`** (NOT `karmyq_user` — that role doesn't exist)
+- psql pattern: `docker exec karmyq-postgres psql -U karmyq_prod -d karmyq_prod -c "<sql>"`
+- Baseline counts confirmed: **707 total / 707 active / 23 distinct identities**
+
+- [ ] **Backup first (rollback safety).** Take a fresh custom-format dump and copy it off the container:
+```bash
+ssh ubuntu@karmyq.com 'mkdir -p ~/backups && TS=$(date +%Y%m%d-%H%M%S) && \
+  docker exec karmyq-postgres pg_dump -U karmyq_prod -d karmyq_prod -Fc -f /tmp/pre-dedup-$TS.dump && \
+  docker cp karmyq-postgres:/tmp/pre-dedup-$TS.dump ~/backups/ && \
+  docker exec karmyq-postgres rm /tmp/pre-dedup-$TS.dump && ls -lh ~/backups/pre-dedup-$TS.dump'
+```
+  (A verified baseline dump already exists at `~/backups/karmyq_prod-20260531-044657.dump` from planning — take a fresh one anyway, immediately before the repair.)
+- [ ] **Copy the migration to the server** and run it in **dry-run** mode; verify the NOTICE counts (~707 communities → ~23 groups; per-table re-parent counts look sane; no unexpected zero-row tables). Pattern:
+```bash
+scp infrastructure/postgres/migrations/20260530-community-dedup.sql ubuntu@karmyq.com:/tmp/
+ssh ubuntu@karmyq.com 'docker cp /tmp/20260530-community-dedup.sql karmyq-postgres:/tmp/ && \
+  docker exec karmyq-postgres psql -U karmyq_prod -d karmyq_prod -v dryrun=1 -f /tmp/20260530-community-dedup.sql'
+```
+- [ ] Run the migration **for real** inside the transaction (`-v dryrun=0`).
+- [ ] **Verify**:
+```bash
+ssh ubuntu@karmyq.com "docker exec karmyq-postgres psql -U karmyq_prod -d karmyq_prod -tAc \
+  \"SELECT COUNT(*), COUNT(DISTINCT (LOWER(TRIM(name)),LOWER(TRIM(COALESCE(location,''))))) FROM communities.communities WHERE status='active';\""
+```
+  → counts converge (~23/23). Spot-check "PDX Service Providers Network" is now a single row with consolidated members + requests. Confirm `idx_communities_identity_active` exists.
 - [ ] Browse the demo UI: communities now show consolidated membership/activity, not empty shells.
 - [ ] Update the handoff: Sprint 77 complete + deployed + DB repaired.

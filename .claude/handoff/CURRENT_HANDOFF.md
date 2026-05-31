@@ -59,7 +59,7 @@ Two root causes, both in code:
 6. **`@karmyq.test` filter** goes in actor/session selection, not a workflow.
 7. **JWT field is `communities`** (`user.communities ?? []`), never `communityMemberships`.
 8. **Schema is `communities.communities`** (plural) — ignore stale `community.*` comments.
-9. **Migration runs on the demo server** against `karmyq_prod` — one-time manual dry-run → verify → real run during deploy (Task 11). `git push` ships only the code; the data repair is deliberate and manual, snapshot first.
+9. **Migration runs on the demo server** against `karmyq_prod` — the **executing agent** runs it directly in Task 11 (backup → dry-run → verify → real run). `git push` ships only the code; the data repair is a deliberate agent-run step, fresh backup first. **Verified access (2026-05-31):** `ssh ubuntu@karmyq.com`; container `karmyq-postgres`; **user/DB `karmyq_prod`** (NOT `karmyq_user`); baseline 707/707/23 confirmed; backup tested → `~/backups/karmyq_prod-20260531-044657.dump`.
 10. **Version 10.5.0 → 10.6.0**; update the `v10-polish` version invariant test if it pins the number (broke on the 10.5.0 bump — commit `d8342be`).
 
 ---
