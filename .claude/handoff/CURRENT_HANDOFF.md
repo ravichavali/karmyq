@@ -1,19 +1,29 @@
-# Sprint 77: Simulation Data Hygiene — Community De-duplication — 📋 READY TO EXECUTE
+# Sprint 77: Simulation Data Hygiene — Community De-duplication — ✅ COMPLETE + DEPLOYED (v10.6.0)
 
 ## Handoff Document
 
-**Date**: 2026-05-30
-**Current Version**: v10.5.0 → **v10.6.0** (this sprint)
-**Status**: 📋 Spec + plan written, ready to execute. Sprint 76 (v10.5.0) shipped + deployed.
+**Date**: 2026-05-31
+**Current Version**: **v10.6.0 — Sprint 77 COMPLETE + DEPLOYED + DB REPAIRED**
+**Status**: ✅ Shipped. Idempotent `POST /communities` (ADR-062) live; sim cap fixed; `@karmyq.test` excluded from sim actor pool. Demo DB repaired: **707 → 23** active communities (23/23/23 converged). Merged to master (`5833edf`), CI/CD deploying.
 
 ---
 
-## Quick Start
+## What shipped (Sprint 77, v10.6.0)
 
-1. Read this handoff
-2. Check out branch: `git checkout -b feature/sprint-77-community-dedup`
-3. Open plan: `docs/superpowers/plans/2026-05-30-sprint-77-community-dedup.md`
-4. Run: `/execute-plan` (uses superpowers:subagent-driven-development)
+- **Idempotent `POST /communities`** (ADR-062): identity = `(LOWER(TRIM(name)), LOWER(TRIM(COALESCE(location,''))))`. Active match → join (`existing:true`, 200); else create (`existing:false`, 201). Private not auto-joined. Partial unique index `idx_communities_identity_active` enforces it; added to `init.sql` for fresh DBs.
+- **De-dup migration** `infrastructure/postgres/migrations/20260530-community-dedup.sql` — FK-discovery-driven, re-parent-before-delete, collision-safe via window-rank. **Ran on demo DB**: 707 → 23, PDX network consolidated to 1 row (241 members, 174 request-links). Backup at `~/backups/pre-dedup-20260531-134011.dump`.
+- **Sim cap fix**: dead `limit:11`/`>=15` → `MAX_COMMUNITIES=50`.
+- **Sim actor pool**: `SIM_ACTOR_POOL_FILTER` excludes `@karmyq.test` e2e fixtures.
+- **Docs**: ADR-062 + concept page + landing docs; `generate-docs` `ADR_GROUPS` now includes ADR-060/061/062 (fixed the nav.json revert at the source).
+
+### Gotcha for next time
+- The **dry-run caught a real bug** (multi-duplicate shared-key collision in `members`); the original EXISTS-against-canonical delete missed users belonging to two duplicates of the same group. Fixed with a window-function rank over the post-re-parent target key (commit `5833edf`). **Always dry-run FK-discovery migrations against real data before committing the approach.**
+
+---
+
+## Next Sprint → 78: Trust Graph Viz Polish + Depth
+
+Scope preserved in the "Deferred — Trust Graph Viz Polish + Depth (Sprint 78)" section below.
 
 ---
 
