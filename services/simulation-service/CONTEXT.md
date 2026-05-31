@@ -160,6 +160,10 @@ Ride providers include `ride_details` (vehicle_type, max_passengers, advance_boo
 
 ## Recent Changes
 
+### Sprint 78 (2026-05-31) — Autonomous fission
+- **`vote-on-governance-workflow.ts`**: in addition to voting on `voting` split/fusion proposals, an **admin** now executes any split proposal already voted to `approved` for their communities (`client.executeSplit`). Closes the fission loop — over-cap communities now split without human action.
+- **`api-client.ts`**: added `executeSplit(communityId, splitId)` → `POST /communities/:id/splits/:splitId/execute`.
+
 ### Sprint 77 (2026-05-30) — Data hygiene (ADR-062)
 - **FIXED (cap bug)**: `create-community-workflow.ts` fetched `discoverCommunities({limit:11})` then checked `>= 15` — unreachable. Now `MAX_COMMUNITIES=50`, fetching `limit:51`. (Idempotent `POST /communities` makes runaway duplication impossible regardless; the cap just bounds churn.)
 - **FIXED (actor pool)**: `db-user-loader.ts` now uses `SIM_ACTOR_POOL_FILTER` — selects `@test.karmyq.com` and explicitly excludes `@karmyq.test` e2e/integration fixtures so sim workflows never corrupt those accounts.

@@ -390,6 +390,10 @@ export class ApiClient {
     return this.client.post(`/communities/${communityId}/fusions/${fusionId}/vote`, { vote }).catch(() => null);
   }
 
+  async executeSplit(communityId: string, splitId: string): Promise<any> {
+    return this.client.post(`/communities/${communityId}/splits/${splitId}/execute`).catch(() => null);
+  }
+
   async submitMatchFeedback(matchId: string, data: {
     from_user_id: string;
     helpfulness?: number;
