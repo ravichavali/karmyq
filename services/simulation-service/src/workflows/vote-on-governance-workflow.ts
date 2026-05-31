@@ -20,11 +20,33 @@ export async function voteOnGovernanceWorkflow(user: SimulatedUser, client: ApiC
     .filter((r: any) => r.role === 'admin')
     .map((r: any) => r.community_id);
 
-  // As an admin, execute any split proposal the community has already voted to
-  // 'approved'. Voting auto-approves at quorum (splits.ts), but execution is a
-  // separate admin action — without this the over-cap community never actually
-  // splits. This closes the autonomous fission loop (ADR-057 / Sprint 78).
+  // As an admin, PROPOSE a split for any of my communities that has outgrown the
+  // urgent size threshold (>= 140, matching computeSizeAlert's 'urgent_split')
+  // and has no active proposal yet. This is the first leg of autonomous fission:
+  // propose -> members vote (auto-approve at quorum) -> admin executes.
   if (adminCommunityIds.length) {
+    const overCap = await pool.query(
+      `SELECT c.id, c.name FROM communities.communities c
+       WHERE c.id = ANY($1) AND c.status = 'active' AND c.current_members >= 140
+         AND NOT EXISTS (
+           SELECT 1 FROM communities.split_proposals sp
+           WHERE sp.community_id = c.id AND sp.status NOT IN ('executed', 'rejected')
+         )`,
+      [adminCommunityIds]
+    );
+    for (const c of overCap.rows) {
+      const created = await client.createSplitProposal(c.id, {
+        group_a_name: `${c.name} — Group A`,
+        group_b_name: `${c.name} — Group B`,
+        rationale: 'Community has outgrown Dunbar\'s number; proposing a split.',
+      });
+      const splitId = created?.proposal?.id;
+      if (splitId) await client.startSplitVote(c.id, splitId).catch(() => null);
+    }
+
+    // Execute any split proposal the community has already voted to 'approved'.
+    // Voting auto-approves at quorum (splits.ts), but execution is a separate
+    // admin action — without this the over-cap community never actually splits.
     const approvedRes = await pool.query(
       `SELECT id, community_id FROM communities.split_proposals
        WHERE status = 'approved' AND community_id = ANY($1)`,

@@ -161,8 +161,9 @@ Ride providers include `ride_details` (vehicle_type, max_passengers, advance_boo
 ## Recent Changes
 
 ### Sprint 78 (2026-05-31) — Autonomous fission
-- **`vote-on-governance-workflow.ts`**: in addition to voting on `voting` split/fusion proposals, an **admin** now executes any split proposal already voted to `approved` for their communities (`client.executeSplit`). Closes the fission loop — over-cap communities now split without human action.
-- **`api-client.ts`**: added `executeSplit(communityId, splitId)` → `POST /communities/:id/splits/:splitId/execute`.
+- **`vote-on-governance-workflow.ts`** now drives the full fission loop for an admin's communities: (1) **propose** a split when `current_members >= 140` (urgent threshold) and no active proposal exists; (2) **vote** on `voting` split/fusion proposals; (3) **execute** any `approved` split. Over-cap communities now split with zero human action.
+- **`api-client.ts`**: added `executeSplit`, `createSplitProposal`, `startSplitVote`.
+- **`profiles/index.ts`**: bumped `voteOnGovernance` weight (0.03/0.05 → 0.10/0.12) so the propose→vote→execute loop progresses in reasonable time (it was too slow with a single admin per community).
 
 ### Sprint 77 (2026-05-30) — Data hygiene (ADR-062)
 - **FIXED (cap bug)**: `create-community-workflow.ts` fetched `discoverCommunities({limit:11})` then checked `>= 15` — unreachable. Now `MAX_COMMUNITIES=50`, fetching `limit:51`. (Idempotent `POST /communities` makes runaway duplication impossible regardless; the cap just bounds churn.)

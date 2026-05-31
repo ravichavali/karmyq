@@ -394,6 +394,15 @@ export class ApiClient {
     return this.client.post(`/communities/${communityId}/splits/${splitId}/execute`).catch(() => null);
   }
 
+  async createSplitProposal(communityId: string, body: { group_a_name: string; group_b_name: string; rationale?: string }): Promise<any> {
+    const res = await this.client.post(`/communities/${communityId}/splits`, body).catch(() => null);
+    return res?.data?.data ?? null; // { proposal, assignments }
+  }
+
+  async startSplitVote(communityId: string, splitId: string): Promise<any> {
+    return this.client.post(`/communities/${communityId}/splits/${splitId}/start-vote`).catch(() => null);
+  }
+
   async submitMatchFeedback(matchId: string, data: {
     from_user_id: string;
     helpfulness?: number;
