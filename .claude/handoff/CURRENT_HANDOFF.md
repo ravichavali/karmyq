@@ -3,7 +3,7 @@
 ## Handoff Document
 
 **Date**: 2026-05-31
-**Current Version**: **v10.6.1 — Sprint 78 COMPLETE + DEPLOYED**; Sprint 77 (v10.6.0) also complete + DB repaired.
+**Current Version**: **v10.6.2 — Sprint 78 COMPLETE + DEPLOYED** (fully autonomous fission); Sprint 77 (v10.6.0) also complete + DB repaired.
 **Status**: ✅ Shipped. Sprint 77 de-dup left 9 communities over Dunbar's 150 cap + admin bloat (dedup merged every duplicate's creator-admin). Sprint 78 fixed `executeSplit`, added sim auto-execute of approved splits, trimmed admins to 1, and split all 9 over-cap communities. Demo now: **32 active communities, 0 over-cap, 0 without an admin**, all `current_members` accurate.
 
 ---
@@ -15,9 +15,11 @@
 - **Admin bloat trim** (demo DB): dedup left 33–52 admins per merged community; trimmed to the 1 oldest per community (415 demotions). All 23 → exactly 1 admin.
 - **Split all 9 over-cap communities** (demo DB): seeded split proposals (real trust-graph clustering) + opened voting; the sim began voting (organic). To fix the demo immediately, forced approval + executed all 9 via the real admin execute path → 18 sub-150 children, each with 1 admin and correct counts; 9 parents → `status='split'`.
 
-### Follow-ups / known caveats
-- **Autonomous-execution latency**: with 1 admin per community and `voteOnGovernance` at 0.03–0.05 weight, organic approve→execute can take a long time (the single admin must roll that workflow). The loop is deployed + unit-tested but slow. Consider bumping the governance workflow weight, or making execution not depend on a single admin.
-- **Auto-propose missing for full autonomy**: the sim now *votes* + *executes* splits but does **not** *propose* them. Future over-cap communities won't auto-split until a proposal exists. Add a sim workflow where an admin proposes a split when `current_members` crosses the urgent threshold (size_alert='urgent_split') for end-to-end autonomy.
+### Fully autonomous fission (v10.6.2)
+The `vote-on-governance-workflow` now does **propose → vote → execute** end-to-end: an admin proposes a split when their community hits `current_members >= 140`, members vote (auto-approve at 60% quorum), and the admin executes. `voteOnGovernance` weight bumped (0.03/0.05 → 0.10/0.12) so the loop progresses in reasonable time. Future over-cap communities self-split with zero human action — no manual seeding needed again.
+
+### Remaining caveats
+- **Latency is improved but not instant**: a community must wait for its single admin to roll the governance workflow and for ~60% of members to vote. Acceptable for a demo; if you want it snappier, raise the weight further or lower split `quorum_pct`.
 - **Discover UX (not a bug)**: "Discover" hides communities you've already joined ([communities/index.tsx:605]) and paginates 12 at a time (`PAGE_SIZE`); `has_space` filter defaults off. Joined communities only appear under "Your Communities" by design.
 
 ---
