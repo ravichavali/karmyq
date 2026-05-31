@@ -1,10 +1,10 @@
-# Sprint 76: Code Scanning Remediation + Supply-Chain Hardening — READY TO EXECUTE
+# Sprint 76: Code Scanning Remediation + Supply-Chain Hardening — ✅ COMPLETE + DEPLOYED (v10.5.0)
 
 ## Handoff Document
 
 **Date**: 2026-05-30
-**Current Version**: v10.4.0 → **v10.5.0 (Sprint 76 complete — merging/deploying)**
-**Status**: ✅ Sprint 76 COMPLETE. CodeQL upgraded to `security-extended` + `remote_and_local`; all 386 open crit/high triaged to zero (2 code fixes + 3 action SHA-pins fixed-in-code, ~381 dismissed with written justifications); blocking `code-scanning-gate` live (ADR-060); supply-chain hardening shipped (ADR-061). Board: only #88 (Movement XSS, **fixed in code**) + 3 `unpinned-tag` mediums (**fixed via SHA-pins**) remain open — all clear on the post-merge CodeQL rescan, none dismissed.
+**Current Version**: v10.4.0 → **v10.5.0 — Sprint 76 COMPLETE + DEPLOYED to karmyq.com** (full CI/CD green, commits `19e752b` + `d8342be`)
+**Status**: ✅ Sprint 76 shipped. CodeQL upgraded to `security-extended` + `remote_and_local`; all 386 open crit/high driven to **0** (2 code fixes + 3 action SHA-pins fixed-in-code, the rest dismissed with written justifications); blocking `code-scanning-gate` **passed in CI** (ADR-060); supply-chain hardening live (ADR-061: ignore-scripts, npm ci, audit signatures, OSV-Scanner, Dependabot, SHA-pins). Board confirmed **0 open critical/high**. **Next: Sprint 77 — Trust Graph Viz Polish + Depth** (scope preserved below).
 
 ### 🔑 Operational learning for future bulk-dismiss sprints
 GitHub's **secondary rate limit** on mutating calls (~80–110 PATCH/min, burst-sensitive) makes scripted bulk-dismissal of hundreds of alerts fragile: a fast loop trips it after ~110 calls, and **retry-hammering escalates the penalty so it won't clear on minute-scale cooldowns**. What worked: dismiss the small/won't-fix classes via API (gentle pacing), but **bulk-dismiss the large single-rule class (350 request-forgery) in the GitHub web UI** (Security → Code scanning → filter `rule:<id>` → select all → Dismiss). The UI bulk action is one request, no rate limit. Next time: UI-first for any rule class >~50 alerts; never retry-loop the dismissal API.
@@ -64,7 +64,7 @@ Drive the **15 open CodeQL alerts to zero** (fix 2 real ones, dismiss 13 false-p
 | **73** | Request Service Simplification | ✅ Complete + deployed |
 | **74** | Trust Graph Foundation (HEB + radial) | ✅ Complete + deployed |
 | **75** | Dependency Vuln Remediation + CI security gate (ADR-059) | ✅ Complete + deployed (v10.4.0) |
-| **76** | Code Scanning Remediation (ADR-060) + Supply-Chain Hardening (ADR-061) | 📋 Planned — execute now (v10.5.0) |
+| **76** | Code Scanning Remediation (ADR-060) + Supply-Chain Hardening (ADR-061) | ✅ Complete + deployed (v10.5.0) |
 | **77** | Trust Graph Viz Polish + Depth | Upcoming (scope preserved below) |
 | **TBD** | Supply-Chain Hardening remainder (items 4–5) | Backlog (below) |
 
