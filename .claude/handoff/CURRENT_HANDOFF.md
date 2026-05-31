@@ -1,10 +1,43 @@
-# Sprint 77: Simulation Data Hygiene — Community De-duplication — ✅ COMPLETE + DEPLOYED (v10.6.0)
+# Sprint 78: Autonomous Fission + Post-Dedup Remediation — ✅ COMPLETE + DEPLOYED (v10.6.1)
 
 ## Handoff Document
 
 **Date**: 2026-05-31
-**Current Version**: **v10.6.0 — Sprint 77 COMPLETE + DEPLOYED + DB REPAIRED**
-**Status**: ✅ Shipped. Idempotent `POST /communities` (ADR-062) live; sim cap fixed; `@karmyq.test` excluded from sim actor pool. Demo DB repaired: **707 → 23** active communities (23/23/23 converged). Merged to master (`5833edf`), CI/CD deploying.
+**Current Version**: **v10.6.1 — Sprint 78 COMPLETE + DEPLOYED**; Sprint 77 (v10.6.0) also complete + DB repaired.
+**Status**: ✅ Shipped. Sprint 77 de-dup left 9 communities over Dunbar's 150 cap + admin bloat (dedup merged every duplicate's creator-admin). Sprint 78 fixed `executeSplit`, added sim auto-execute of approved splits, trimmed admins to 1, and split all 9 over-cap communities. Demo now: **32 active communities, 0 over-cap, 0 without an admin**, all `current_members` accurate.
+
+---
+
+## What shipped (Sprint 78, v10.6.1)
+
+- **`executeSplit` bug fix** (`fissionService.ts`): children were created with `current_members=0` and **no admin** (only `creator_id`). Now upserts the executing admin as `admin` in BOTH children and recomputes `current_members`. TDD test `sprint-78-fission-execute.test.ts`. Merged `b04f8f2`.
+- **Sim auto-executes approved splits** (`vote-on-governance-workflow.ts` + `api-client.executeSplit`): the sim already *votes* splits to `approved` (auto-approve at 60% quorum); now an admin also *executes* them — closing the autonomous fission loop.
+- **Admin bloat trim** (demo DB): dedup left 33–52 admins per merged community; trimmed to the 1 oldest per community (415 demotions). All 23 → exactly 1 admin.
+- **Split all 9 over-cap communities** (demo DB): seeded split proposals (real trust-graph clustering) + opened voting; the sim began voting (organic). To fix the demo immediately, forced approval + executed all 9 via the real admin execute path → 18 sub-150 children, each with 1 admin and correct counts; 9 parents → `status='split'`.
+
+### Follow-ups / known caveats
+- **Autonomous-execution latency**: with 1 admin per community and `voteOnGovernance` at 0.03–0.05 weight, organic approve→execute can take a long time (the single admin must roll that workflow). The loop is deployed + unit-tested but slow. Consider bumping the governance workflow weight, or making execution not depend on a single admin.
+- **Auto-propose missing for full autonomy**: the sim now *votes* + *executes* splits but does **not** *propose* them. Future over-cap communities won't auto-split until a proposal exists. Add a sim workflow where an admin proposes a split when `current_members` crosses the urgent threshold (size_alert='urgent_split') for end-to-end autonomy.
+- **Discover UX (not a bug)**: "Discover" hides communities you've already joined ([communities/index.tsx:605]) and paginates 12 at a time (`PAGE_SIZE`); `has_space` filter defaults off. Joined communities only appear under "Your Communities" by design.
+
+---
+
+## What shipped (Sprint 77, v10.6.0)
+
+- **Idempotent `POST /communities`** (ADR-062): identity = `(LOWER(TRIM(name)), LOWER(TRIM(COALESCE(location,''))))`. Active match → join (`existing:true`, 200); else create (`existing:false`, 201). Private not auto-joined. Partial unique index `idx_communities_identity_active` enforces it; added to `init.sql` for fresh DBs.
+- **De-dup migration** `infrastructure/postgres/migrations/20260530-community-dedup.sql` — FK-discovery-driven, re-parent-before-delete, collision-safe via window-rank. **Ran on demo DB**: 707 → 23, PDX network consolidated to 1 row (241 members, 174 request-links). Backup at `~/backups/pre-dedup-20260531-134011.dump`.
+- **Sim cap fix**: dead `limit:11`/`>=15` → `MAX_COMMUNITIES=50`.
+- **Sim actor pool**: `SIM_ACTOR_POOL_FILTER` excludes `@karmyq.test` e2e fixtures.
+- **Docs**: ADR-062 + concept page + landing docs; `generate-docs` `ADR_GROUPS` now includes ADR-060/061/062 (fixed the nav.json revert at the source).
+
+### Gotcha for next time
+- The **dry-run caught a real bug** (multi-duplicate shared-key collision in `members`); the original EXISTS-against-canonical delete missed users belonging to two duplicates of the same group. Fixed with a window-function rank over the post-re-parent target key (commit `5833edf`). **Always dry-run FK-discovery migrations against real data before committing the approach.**
+
+---
+
+## Still queued → Trust Graph Viz Polish + Depth
+
+The originally-planned "Sprint 78" (Trust Graph Viz Polish) was preempted by this remediation. Scope preserved in the "Deferred — Trust Graph Viz Polish + Depth" section below.
 
 ---
 
