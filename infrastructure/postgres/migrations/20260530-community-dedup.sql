@@ -180,26 +180,34 @@ BEGIN
     LOOP
       other_cols := array_remove(uidx.cols, fk.child_col);
 
-      -- Build "t2.col IS NOT DISTINCT FROM t.col AND ..." over the non-FK
-      -- columns of the unique key. Empty for 1:1 tables (FK is the whole key).
+      -- The post-re-parent unique key is (canonical_id, other_cols). Collisions
+      -- arise not only against rows already on the canonical, but ALSO among
+      -- multiple duplicates that share the same other-cols (e.g. a user who is a
+      -- member of two duplicates of the same group). Rank every row by its TARGET
+      -- key — target community = canonical_id if the row is on a duplicate, else
+      -- its own community_id — and delete all but the first per key, preferring to
+      -- keep the row already on a non-duplicate community (cm.canonical_id IS NULL).
+      -- For 1:1 tables (other_cols empty) this keeps exactly one row per canonical.
       IF array_length(other_cols, 1) IS NULL THEN
-        match_pred := 'TRUE';
+        match_pred := '';   -- partition by target community only
       ELSE
-        SELECT string_agg(
-                 format('t2.%I IS NOT DISTINCT FROM t.%I', c, c), ' AND ')
+        SELECT ', ' || string_agg(format('t.%I', c), ', ')
           INTO match_pred
         FROM unnest(other_cols) AS c;
       END IF;
 
       del_sql := format($q$
-        DELETE FROM %1$s t
-        USING canonical_map cm
-        WHERE t.%2$I = cm.dup_id
-          AND EXISTS (
-            SELECT 1 FROM %1$s t2
-            WHERE t2.%2$I = cm.canonical_id
-              AND %3$s
-          )
+        WITH ranked AS (
+          SELECT t.ctid AS _ctid,
+                 row_number() OVER (
+                   PARTITION BY COALESCE(cm.canonical_id, t.%2$I)%3$s
+                   ORDER BY (cm.canonical_id IS NULL) DESC, t.ctid
+                 ) AS rn
+          FROM %1$s t
+          LEFT JOIN canonical_map cm ON t.%2$I = cm.dup_id
+        )
+        DELETE FROM %1$s t USING ranked
+        WHERE t.ctid = ranked._ctid AND ranked.rn > 1
       $q$, fk.child_tbl, fk.child_col, match_pred);
 
       EXECUTE del_sql;
