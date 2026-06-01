@@ -195,7 +195,7 @@ export default function BrowseFeed({ communityId, communityType, isOnDuty, provi
             href="/dashboard?tab=helping"
             className="font-medium underline underline-offset-2 hover:no-underline"
           >
-            Track in Active tab →
+            Track in Helping tab →
           </a>
         </div>
       )}

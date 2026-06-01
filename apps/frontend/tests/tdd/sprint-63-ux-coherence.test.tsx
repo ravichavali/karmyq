@@ -194,7 +194,7 @@ describe('BrowseFeed — post-offer confirmation', () => {
     requestService.createMatch.mockResolvedValue({ data: { id: 'match-1' } })
   })
 
-  it('shows offer confirmation with Active tab link after successful match creation', async () => {
+  it('shows offer confirmation with Helping tab link after successful match creation', async () => {
     render(<BrowseFeed />)
 
     await waitFor(() => {
@@ -210,7 +210,7 @@ describe('BrowseFeed — post-offer confirmation', () => {
       expect(screen.getByText('Offer sent!')).toBeInTheDocument()
     })
 
-    const trackLink = screen.getByRole('link', { name: /Track in Active tab/i })
+    const trackLink = screen.getByRole('link', { name: /Track in Helping tab/i })
     expect(trackLink).toHaveAttribute('href', '/dashboard?tab=helping')
   })
 

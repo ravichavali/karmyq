@@ -186,7 +186,7 @@ export default function DibsPrompt({
                 className="btn-primary w-full"
                 onClick={onSkip}
               >
-                View My Requests
+                View My Asks
               </button>
             )}
           </div>

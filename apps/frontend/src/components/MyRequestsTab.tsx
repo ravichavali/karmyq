@@ -120,8 +120,8 @@ export default function MyRequestsTab({ onNewRequest }: MyRequestsTabProps) {
   return (
     <div className="max-w-2xl mx-auto px-4 py-4">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="section-heading !mb-0">My Requests</h2>
-        <button className="btn-primary text-sm" onClick={onNewRequest}>+ New Request</button>
+        <h2 className="section-heading !mb-0">Asks</h2>
+        <button className="btn-primary text-sm" onClick={onNewRequest}>+ New Ask</button>
       </div>
 
       {requests.length === 0 ? (
