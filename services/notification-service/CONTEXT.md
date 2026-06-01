@@ -99,12 +99,15 @@ The service uses template-based notifications for consistency:
 
 ## API Endpoints
 
-### GET /notifications/stream/:userId
-Server-Sent Events (SSE) endpoint for real-time notifications.
+### GET /notifications/stream
+Authenticated Server-Sent Events (SSE) endpoint for real-time notifications.
 
 **Usage:**
 ```javascript
-const eventSource = new EventSource(`http://localhost:3005/notifications/stream/${userId}`);
+const token = localStorage.getItem('token');
+const eventSource = new EventSource(
+  `http://localhost:3005/notifications/stream?access_token=${encodeURIComponent(token)}`
+);
 
 eventSource.onmessage = (event) => {
   const notification = JSON.parse(event.data);
@@ -124,8 +127,12 @@ data: {"id":"uuid","type":"match_created","title":"Someone wants to help!","body
 **Features:**
 - Keep-alive heartbeat every 30 seconds
 - Automatic cleanup on client disconnect
-- Only sends notifications for the specific user
+- User identity is derived from JWT (not URL path)
 - Real-time push as soon as notification is created
+
+### GET /notifications/stream/:userId (legacy compatibility)
+Compatibility route for older clients. Requires JWT auth and rejects streams where
+`:userId` does not match `token.userId`.
 
 ### GET /notifications/:userId
 Get user's notifications (paginated).
@@ -727,14 +734,20 @@ WHERE id = $1 AND user_id = $2  -- Ensures ownership
 ```
 
 ### SSE Connection Security
-- Only sends notifications to correct user
+- SSE endpoint requires JWT authentication
+- Supports browser `EventSource` by accepting `access_token` query param
+- Stream user identity is derived from JWT
 - Automatic cleanup on disconnect
-- No cross-user notification leaks
+- Legacy `/:userId` route enforces path-user and token-user equality
 
 ```typescript
 // src/routes/notifications.ts
+const tokenUserId = req.user?.userId;
+if (requestedUserId && requestedUserId !== tokenUserId) {
+  return res.status(403).json({ success: false, error: 'FORBIDDEN' });
+}
 const notificationHandler = (data: any) => {
-  if (data.user_id === userId) {  // Filter by user
+  if (data.user_id === tokenUserId) {
     res.write(`data: ${JSON.stringify(data.notification)}\n\n`);
   }
 };
@@ -756,7 +769,8 @@ const notificationHandler = (data: any) => {
 1. Check browser console for connection errors
 2. Verify port 3005 is accessible
 3. Check CORS headers are set correctly
-4. Test with curl: `curl -N http://localhost:3005/notifications/stream/user-uuid`
+4. Test with curl:
+   `curl -N "http://localhost:3005/notifications/stream?access_token=<jwt>"`
 5. Check service logs for "SSE connection established"
 
 ### Notifications not appearing
@@ -797,6 +811,7 @@ curl "http://localhost:3005/notifications/user-uuid?limit=10"
 **SSE Stream:**
 ```bash
 curl -N "http://localhost:3005/notifications/stream/user-uuid"
+curl -N "http://localhost:3005/notifications/stream?access_token=<jwt>"
 ```
 
 **Mark as Read:**

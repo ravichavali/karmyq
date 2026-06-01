@@ -6,6 +6,7 @@ import pool from './database/db';
 import { initEventSubscriber } from './events/subscriber';
 import notificationRoutes from './routes/notifications';
 import pushRouter from './routes/push';
+import { sseAuthMiddleware } from './middleware/sseAuth';
 import { createLogger, requestLoggingMiddleware } from '@karmyq/shared/utils/logger';
 import {
   authMiddleware,
@@ -51,9 +52,11 @@ app.get('/health', (req: any, res) => {
 // Import the SSE route handler
 import { sseHandler } from './routes/notifications';
 
-// SSE endpoint (no auth required because EventSource doesn't support custom headers)
-// Security: userId is in URL, and SSE only streams notifications for that specific user
-app.get('/notifications/stream/:userId', rateLimiters.relaxed, sseHandler);
+// Authenticated SSE endpoints.
+// Preferred endpoint: token-authenticated /notifications/stream (identity from JWT).
+// Compatibility endpoint: /notifications/stream/:userId validates route user matches JWT user.
+app.get('/notifications/stream', rateLimiters.relaxed, sseAuthMiddleware, sseHandler);
+app.get('/notifications/stream/:userId', rateLimiters.relaxed, sseAuthMiddleware, sseHandler);
 
 // Internal push delivery route (no auth — internal only, behind nginx)
 app.use('/notifications', pushRouter);
@@ -101,7 +104,7 @@ async function initialize() {
         port: PORT,
         environment: process.env.NODE_ENV || 'development',
         url: `http://localhost:${PORT}`,
-        sse_endpoint: '/notifications/stream/:userId'
+        sse_endpoint: '/notifications/stream'
       });
     });
   } catch (error) {

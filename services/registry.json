@@ -292,7 +292,8 @@
       "apis": {
         "provides": [
           "/notifications",
-          "/notifications/sse",
+          { "method": "GET", "path": "/notifications/stream", "description": "Authenticated SSE stream. Uses JWT identity from Authorization header or access_token query param (EventSource-compatible)." },
+          { "method": "GET", "path": "/notifications/stream/:userId", "description": "Legacy compatibility SSE route. Requires JWT auth and rejects if route userId does not match token userId." },
           "/notifications/preferences",
           { "method": "POST", "path": "/notifications/push/send", "description": "Internal: send Expo push notifications to a list of users" }
         ],

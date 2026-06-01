@@ -9,18 +9,39 @@ import {
   updateGlobalPreferences,
   notificationEmitter,
 } from '../services/notificationService';
+import type { SSEAuthenticatedRequest } from '../middleware/sseAuth';
 
 const router = Router();
 
 // Server-Sent Events (SSE) endpoint for real-time notifications
-export const sseHandler = (req: Request, res: Response) => {
-  const userId = String(req.params.userId).replace(/[\r\n]/g, '').slice(0, 100);
+export const sseHandler = (req: SSEAuthenticatedRequest, res: Response) => {
+  const tokenUserId = req.user?.userId;
+  if (!tokenUserId) {
+    return res.status(401).json({
+      success: false,
+      message: 'Authentication required',
+      error: 'UNAUTHORIZED',
+    });
+  }
+
+  const requestedUserId = req.params.userId
+    ? String(req.params.userId).replace(/[\r\n]/g, '').slice(0, 100)
+    : undefined;
+
+  if (requestedUserId && requestedUserId !== tokenUserId) {
+    return res.status(403).json({
+      success: false,
+      message: 'Forbidden: stream user does not match token user',
+      error: 'FORBIDDEN',
+    });
+  }
+
+  const userId = tokenUserId;
 
   // Set headers for SSE
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
   res.setHeader('Connection', 'keep-alive');
-  res.setHeader('Access-Control-Allow-Origin', '*');
 
   // Send initial connection message
   res.write('data: {"type":"connected"}\n\n');

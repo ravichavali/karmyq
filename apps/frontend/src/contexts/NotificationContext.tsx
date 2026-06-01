@@ -147,8 +147,10 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
   // Connect to SSE
   const connectSSE = useCallback(() => {
     if (!userId || eventSource) return
+    const token = localStorage.getItem('token')
+    if (!token) return
 
-    const url = notificationService.getStreamUrl(userId)
+    const url = notificationService.getStreamUrl(token)
     const es = new EventSource(url)
 
     es.onopen = () => {
