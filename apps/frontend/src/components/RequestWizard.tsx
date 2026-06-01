@@ -65,6 +65,11 @@ export default function RequestWizard({
   const [dibsRequestId, setDibsRequestId] = useState<string>('')
   const [dibsScheduledFor, setDibsScheduledFor] = useState<string>('')
   const [dibsExpiresAt, setDibsExpiresAt] = useState<string>('')
+  const hasDraft =
+    !!requestType ||
+    description.trim().length > 0 ||
+    Object.keys(dynamicPayload).length > 0 ||
+    !!communityId
 
   // On mount: fetch available types + user communities
   useEffect(() => {
@@ -207,6 +212,17 @@ export default function RequestWizard({
     onClose()
   }
 
+  const handleAttemptClose = () => {
+    if (creating) return
+    if (!hasDraft) {
+      onClose()
+      return
+    }
+    if (window.confirm('Discard this request draft?')) {
+      onClose()
+    }
+  }
+
   // Sprint 42: Show dibs prompt overlay when a candidate is available
   if (dibsCandidate) {
     return (
@@ -226,7 +242,7 @@ export default function RequestWizard({
       {/* Backdrop */}
       <div
         className="fixed inset-0 bg-black/50 z-[49]"
-        onClick={onClose}
+        onClick={handleAttemptClose}
       />
 
       {/* Modal */}
@@ -254,7 +270,7 @@ export default function RequestWizard({
             </div>
             <button
               className="btn-ghost p-1.5 rounded-full"
-              onClick={onClose}
+              onClick={handleAttemptClose}
               aria-label="Close"
             >
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>

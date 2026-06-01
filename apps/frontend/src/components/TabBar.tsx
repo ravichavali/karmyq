@@ -28,7 +28,7 @@ const RequestsIcon = () => (
 )
 const TABS: Tab[] = [
   { id: 'browse', label: 'Browse', mobileLabel: 'Browse', icon: <BrowseIcon /> },
-  { id: 'helping', label: 'Active', mobileLabel: 'Active', icon: <CommitmentsIcon /> },
+  { id: 'helping', label: 'Helping', mobileLabel: 'Helping', icon: <CommitmentsIcon /> },
   { id: 'asks', label: 'Asks', mobileLabel: 'Asks', icon: <RequestsIcon /> },
 ]
 
