@@ -35,7 +35,7 @@ export interface AuthenticatedRequest extends Request {
  * @returns Decoded JWT payload
  * @throws JsonWebTokenError if token is invalid with both keys
  */
-function verifyTokenWithRotation(token: string): JWTPayload {
+export function verifyTokenWithRotation(token: string): JWTPayload {
   const JWT_SECRET = process.env.JWT_SECRET;
   const JWT_SECRET_PREVIOUS = process.env.JWT_SECRET_PREVIOUS;
 

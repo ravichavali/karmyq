@@ -621,9 +621,10 @@ export const notificationService = {
   }) =>
     notificationApi.put(`/notifications/${userId}/preferences`, preferences),
 
-  // SSE connection URL
-  getStreamUrl: (userId: string) =>
-    `${NOTIFICATION_API_URL}/notifications/stream/${userId}`,
+  // SSE connection URL (EventSource does not support custom headers in browsers)
+  // We pass the access token as query param and backend derives stream user from JWT.
+  getStreamUrl: (token: string) =>
+    `${NOTIFICATION_API_URL}/notifications/stream?access_token=${encodeURIComponent(token)}`,
 }
 
 // Messaging Service API Methods

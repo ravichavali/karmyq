@@ -26,6 +26,9 @@ Service health check
 ### Real-time
 
 - `GET /notifications/stream` - SSE stream for real-time notifications
+  - Requires JWT auth
+  - Browser `EventSource` clients pass `access_token` as query param
+  - Stream identity is derived from token user (not URL user parameter)
 
 ### Preferences
 
