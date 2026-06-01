@@ -9,11 +9,21 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 10
+    # Groups bundle only minor + patch bumps. MAJOR bumps are deliberately left
+    # OUT of the groups so each surfaces as its own clearly-labeled PR — a major
+    # framework upgrade (e.g. Express 4→5) must never ride in hidden among a 20+
+    # package "chore" group, where it can break the build past Turbo's cache.
     groups:
       production-deps:
         dependency-type: production
+        update-types:
+          - minor
+          - patch
       dev-deps:
         dependency-type: development
+        update-types:
+          - minor
+          - patch
 
   - package-ecosystem: github-actions
     directory: "/"
