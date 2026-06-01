@@ -2,6 +2,11 @@
 
 **Version**: 9.1.0 | **Status**: Demo/Development
 
+> **Multi-agent note:** [`AGENTS.md`](AGENTS.md) is the shared cross-agent bootstrap (Codex,
+> Claude, others). It points every agent at this file, the skill system, the handoff, and
+> memory. **This file (`CLAUDE.md`) remains the source of truth** — if the two ever disagree,
+> `CLAUDE.md` wins. Keep them in sync when you change global rules.
+
 ---
 
 ## 🚀 Starting a New Conversation?
