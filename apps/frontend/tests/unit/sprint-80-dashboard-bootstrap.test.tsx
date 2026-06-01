@@ -12,7 +12,7 @@
  * isolates the bootstrap branching (the only thing this sprint changed).
  */
 import React from 'react'
-import { render, act } from '@testing-library/react'
+import { render, act, screen, fireEvent, waitFor } from '@testing-library/react'
 
 // Stable router object — returning a fresh object each call would make
 // dashboard's `[router]`-keyed effect re-run forever (unmemoized-prop loop).
@@ -115,5 +115,20 @@ describe('Sprint 80 — Dashboard session bootstrap', () => {
     // Valid session leaves auth storage intact.
     expect(localStorage.getItem('token')).toBe('jwt')
     expect(localStorage.getItem('user')).not.toBeNull()
+  })
+
+  it('shows a retry banner when community load fails and retries on click', async () => {
+    localStorage.setItem('token', 'jwt')
+    localStorage.setItem('user', JSON.stringify({ id: 'user-123', name: 'Ada' }))
+    mockGetMyCommunities
+      .mockRejectedValueOnce(new Error('network down'))
+      .mockResolvedValueOnce({ data: { communities: [] } })
+
+    await mountDashboard()
+
+    expect(screen.getByText('We could not load your communities. You can retry now.')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
+
+    await waitFor(() => expect(mockGetMyCommunities).toHaveBeenCalledTimes(2))
   })
 })

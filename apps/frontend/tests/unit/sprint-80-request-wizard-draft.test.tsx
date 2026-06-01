@@ -91,4 +91,21 @@ describe('Sprint 80 — RequestWizard draft protection', () => {
     expect(confirmSpy).toHaveBeenCalledTimes(1)
     expect(onClose).not.toHaveBeenCalled()
   })
+
+  it('exposes accessible toggle state for urgency and community scope', async () => {
+    const onClose = jest.fn()
+    await renderWizard(onClose)
+
+    fireEvent.click(screen.getByText('General'))
+
+    const urgencyButton = screen.getByRole('button', { name: 'Urgent' })
+    fireEvent.click(urgencyButton)
+    expect(urgencyButton).toHaveAttribute('aria-pressed', 'true')
+
+    const scopeButton = screen.getByRole('button', { name: /Post to: All communities/i })
+    expect(scopeButton).toHaveAttribute('aria-expanded', 'false')
+    fireEvent.click(scopeButton)
+    expect(scopeButton).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getByRole('combobox')).toBeInTheDocument()
+  })
 })

@@ -255,6 +255,7 @@ export default function RequestWizard({
             <div className="flex items-center gap-3">
               {step === 2 && !preferredProviderServiceType && (
                 <button
+                  type="button"
                   className="btn-ghost px-2 py-1 text-sm"
                   onClick={() => { setStep(1); setRequestType(null); setCurrentSchema(null); setDynamicPayload({}) }}
                 >
@@ -270,6 +271,7 @@ export default function RequestWizard({
               </h2>
             </div>
             <button
+              type="button"
               className="btn-ghost p-1.5 rounded-full"
               onClick={handleAttemptClose}
               aria-label="Close"
@@ -289,6 +291,7 @@ export default function RequestWizard({
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                   {availableTypes.map((type) => (
                     <button
+                      type="button"
                       key={type.value}
                       className="type-card"
                       onClick={() => handleSelectType(type.value)}
@@ -346,6 +349,9 @@ export default function RequestWizard({
                     onChange={(e) => setDescription(e.target.value)}
                     autoFocus
                   />
+                  <p className="mt-1 text-xs text-text-subtle">
+                    Include what you need, relevant timing, and location details if helpful.
+                  </p>
                 </div>
 
                 {/* Urgency chips */}
@@ -356,9 +362,11 @@ export default function RequestWizard({
                   <div className="flex gap-2">
                     {(['normal', 'urgent', 'critical'] as UrgencyLevel[]).map((level) => (
                       <button
+                        type="button"
                         key={level}
                         className={`urgency-option ${urgency === level ? 'selected' : ''}`}
                         onClick={() => setUrgency(level)}
+                        aria-pressed={urgency === level}
                       >
                         {level.charAt(0).toUpperCase() + level.slice(1)}
                       </button>
@@ -369,8 +377,11 @@ export default function RequestWizard({
                 {/* Community scope */}
                 <div>
                   <button
+                    type="button"
                     className="text-sm text-text-muted hover:text-text transition-colors"
                     onClick={() => setShowCommunitySelect(!showCommunitySelect)}
+                    aria-expanded={showCommunitySelect}
+                    aria-controls="community-scope-select"
                   >
                     Post to: {communityId
                       ? (userCommunities.find((c) => c.id === communityId)?.name ?? 'selected community')
@@ -379,6 +390,7 @@ export default function RequestWizard({
                   </button>
                   {showCommunitySelect && (
                     <select
+                      id="community-scope-select"
                       className="mt-2 w-full px-3 py-2 rounded-lg border border-border bg-surface text-text text-sm
                                  focus:outline-none focus:ring-2 focus:ring-primary"
                       value={communityId}
