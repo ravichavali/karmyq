@@ -12,14 +12,14 @@
     "test": "jest --passWithNoTests"
   },
   "dependencies": {
-    "framer-motion": "12.34.0",
-    "motion": "12.34.0",
-    "next": "^15.5.18",
+    "framer-motion": "12.40.0",
+    "motion": "12.40.0",
+    "next": "^16.2.6",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-markdown": "^10.1.0",
     "remark-gfm": "^4.0.1",
-    "styled-jsx": "5.1.6"
+    "styled-jsx": "5.1.7"
   },
   "devDependencies": {
     "@types/node": "^20",
