@@ -7,6 +7,7 @@
 export {
   authMiddleware,
   optionalAuthMiddleware,
+  verifyTokenWithRotation,
   JWTPayload,
   AuthenticatedRequest,
 } from './auth';

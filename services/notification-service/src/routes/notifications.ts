@@ -70,9 +70,6 @@ export const sseHandler = (req: SSEAuthenticatedRequest, res: Response) => {
   console.log(`SSE connection established for user ${userId}`);
 };
 
-// Also register it on the router for completeness
-router.get('/stream/:userId', sseHandler);
-
 // Get user's notifications
 router.get('/:userId', async (req: Request, res: Response) => {
   const safeUserId = String(req.params.userId).replace(/[\r\n]/g, '').slice(0, 100);
