@@ -241,6 +241,7 @@ export default function RequestWizard({
     <>
       {/* Backdrop */}
       <div
+        data-testid="request-wizard-backdrop"
         className="fixed inset-0 bg-black/50 z-[49]"
         onClick={handleAttemptClose}
       />
