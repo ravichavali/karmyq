@@ -142,7 +142,7 @@ export default function RequestsScreen() {
                 filter === f && styles.filterTextActive,
               ]}
             >
-                {f === "all" ? "All" : f === "open" ? "Open" : "My Asks"}
+              {f === "all" ? "All" : f === "open" ? "Open" : "My Asks"}
             </Text>
           </TouchableOpacity>
         ))}
