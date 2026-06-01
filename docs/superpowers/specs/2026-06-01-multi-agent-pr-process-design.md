@@ -39,6 +39,29 @@ the repo and the PR.
 - **Approach A** chosen over a semantic PR-body linter (B, brittle/redundant) and
   review-only (C, no signal when the template is ignored).
 
+### Operating model (roles)
+
+- **Admin (maintainer):** approves scope, merge, and deploy.
+- **Claude (orchestrator):** assigns scoped work, validates gates, owns the final merge
+  decision, and is the **only** agent allowed to mark a sprint complete.
+- **Contributor agents (Codex / others):** implement scoped tasks only; open PRs; never
+  self-merge; never resolve cross-agent conflicts independently.
+
+### Branch ownership (non-overlap rule)
+
+- **One agent per branch.** No agent pushes to another agent's branch. No direct commits to
+  `master`.
+- **Agent lane naming:** `agent/<agent-name>/<slug>` (e.g. `agent/codex/dashboard-retry`),
+  optionally `agent/<agent-name>/<ticket>-<slug>` once an issue/ticket queue exists.
+- **Human lanes** keep the conventional prefixes: `feature/`, `fix/`, `docs/`, `refactor/`,
+  `chore/`.
+
+### Conflict policy
+
+- If two agents need the same file area, the second agent **pauses and requests reassignment**
+  from the orchestrator. Claude re-scopes or rebases; contributor agents do not resolve
+  cross-agent conflicts themselves. (Moot while work is serial; stated so the rule exists.)
+
 ## Artifacts
 
 ### 1. `.github/pull_request_template.md` (new)
@@ -86,8 +109,8 @@ The token has `admin: true`, so this is applied directly.
 The current file is stale OSS boilerplate that contradicts the real process. Fixes:
 
 - Make the **branch-based in-repo flow** primary (keep a short fork path for external humans).
-- Correct branch prefixes to what's actually used: `feature/`, `fix/`, `docs/`, `refactor/`,
-  `chore/`, and the agent lane `codex/`.
+- Correct branch prefixes: human lanes `feature/`, `fix/`, `docs/`, `refactor/`, `chore/`;
+  agent lane `agent/<agent-name>/<slug>` (replaces the bare `codex/` prefix).
 - Remove the dead `CHANGELOG.md` step (no such file exists).
 - Replace the generic PR checklist with a pointer to the PR template + the CLAUDE.md
   Pre-Merge Checklist.
@@ -97,8 +120,12 @@ The current file is stale OSS boilerplate that contradicts the real process. Fix
 ### 5. `AGENTS.md` "Lanes & Merge Authority" section (new section)
 Codifies the process so agents follow it closely:
 
-- **Lanes:** Codex implements on `codex/*` → opens PR; Claude reviews / merges / owns
-  architecture; the maintainer sets direction and approves; external humans fork + PR.
+- **Roles & lanes:** the operating model above — Admin approves scope/merge/deploy; Claude
+  orchestrates, validates gates, owns the merge decision, and is the only agent that marks a
+  sprint complete; contributor agents implement scoped tasks on `agent/<name>/<slug>` branches
+  → open PRs. External humans fork + PR.
+- **Branch ownership:** one agent per branch; no pushing to another agent's branch; no direct
+  commits to `master`.
 - **No self-merge:** agents never merge their own PRs; a human/Claude reviews and merges;
   nothing merges red.
 - **Templates are known (critical):** GitHub only auto-injects `pull_request_template.md` in
@@ -109,12 +136,37 @@ Codifies the process so agents follow it closely:
   `.github/ISSUE_TEMPLATE/`.
 - **Out-of-band actions** (e.g. dismissing a security alert) MUST be recorded in the PR body
   with a written justification + link.
+- **Handoff vs PR body:** the **PR body** carries per-task detail (what changed, files, tests,
+  risks) via the template; **`CURRENT_HANDOFF.md`** carries rolling cross-session state and
+  active branch/ownership. Do not duplicate the full PR contract into the handoff — they drift.
+- **Conflict policy:** second agent into a shared file area pauses and requests reassignment;
+  Claude re-scopes/rebases.
 - **Shared state lives in-repo** (`AGENTS.md` / `CONTEXT.md` / ADR / handoff / PR body), never
   in an agent-private memory store — this closes the "Codex can't see Claude's memory" gap.
+
+### 6. Concurrency escalation playbook (documented, NOT activated now)
+Codex proposed two stronger concurrency-control mechanisms. They solve a problem that does
+not exist while work is **serial** (one agent at a time), so they are **documented as an
+escalation in `AGENTS.md`, not run as default overhead**. Activation trigger: **2+ agents
+working the same sprint concurrently.** When that day comes:
+
+- **File-ownership manifest per task:** at sprint start the orchestrator posts a file-ownership
+  list in the PR/handoff; contributor agents may edit only listed files; a new file requires a
+  lock-update request before editing.
+- **PR layering:** contributor PRs target a Claude-maintained integration branch; Claude owns
+  the final integration PR to `master`. (Note: this needs its own branch protection or it
+  becomes a second unprotected mainline — apply protection to the integration branch too when
+  activated.)
+
+Until the trigger fires, the default is direct contributor-PR-to-`master` with required review
+(Artifacts 1–5). This keeps standing overhead at zero while the playbook is ready to drop in.
 
 ## Non-goals (YAGNI)
 
 - No semantic PR-body parser (Approach B) — brittle and redundant with the required reviewer.
+- **No file-ownership manifest or integration-branch PR layering as default** — documented as
+  the Artifact 6 escalation, activated only when 2+ agents work concurrently. Running them now
+  is standing overhead against collisions that don't occur in serial work.
 - No per-issue handoff decomposition yet — the single `CURRENT_HANDOFF.md` is fine while work
   is serial; revisit when agents/humans work concurrently.
 - No GitHub Issues work-queue / labels rollout yet — deferred until multiple humans join.
@@ -134,7 +186,8 @@ Codifies the process so agents follow it closely:
 
 ## Rollout / validation
 
-1. Land artifacts 1, 2, 4, 5 in one PR (this PR will itself use the new template — dogfood).
+1. Land artifacts 1, 2, 4, 5 in one PR (artifact 6 is documentation that ships inside the
+   `AGENTS.md` change in artifact 5). This PR will itself use the new template — dogfood.
 2. Apply branch protection (artifact 3) via `gh api` after the `pr-contract` check has run at
    least once (so the check name is registerable as a required status).
 3. Verify: open a throwaway PR with an empty body → `pr-contract` fails. Restore body → passes.
