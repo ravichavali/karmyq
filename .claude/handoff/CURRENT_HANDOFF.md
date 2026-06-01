@@ -70,6 +70,15 @@ Validation:
 - `apps/frontend`: `npx tsc --noEmit` ✅
 - `apps/frontend`: `npm run test:unit` ✅ (60 passing)
 
+### PR #43 polish follow-up (2026-06-01)
+- Fixed a stale docs string in `apps/frontend/CONTEXT.md`:
+  - `Browse + Commitments only` → `Browse + Helping only`
+- Aligned mobile filter copy in `apps/mobile/app/(tabs)/requests.tsx`:
+  - `My Requests` → `My Asks`
+- Re-ran frontend gates:
+  - `npx tsc --noEmit` ✅
+  - `npm run test:unit` ✅ (60 passing)
+
 ## Handoff Document
 
 **Date**: 2026-05-31

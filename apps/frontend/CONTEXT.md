@@ -192,7 +192,7 @@ dashboard.tsx
 │   ├── <BrowseFeed communityId={activeCommunityId} />
 │   ├── <CommitmentsTab />
 │   └── <MyRequestsTab onNewRequest={...} />
-└── FAB ("Get Help") — visible on Browse + Commitments only
+└── FAB ("Get Help") — visible on Browse + Helping only
 ```
 
 ### Single Responsive Breakpoint
