@@ -41,6 +41,15 @@ Next.js 14 web application (Pages Router) consuming all Karmyq backend services.
 
 ---
 
+## Product Taxonomy Alignment (Sprint 81)
+
+### Navigation labels
+- Dashboard tab labels are standardized to: `Browse`, `Helping`, `Asks`.
+- Request/offer confirmation copy updated from “Active tab”/“My Requests” language to `Helping`/`Asks`.
+- Mobile tab titles standardized to `Browse`, `Asks`, `Me`.
+
+---
+
 ## New Components (Sprint 35)
 
 ### `RequestWizard.tsx`
@@ -62,8 +71,7 @@ Two-step request creation modal. Fully self-contained — owns type fetch, schem
 Tab-aware expandable FAB. Replaces the old static `.fab` button.
 
 - **browse**: expands to "Get Help" + "Get Service" action stack.
-- **commitments** / **my-requests**: single "Get Help" action (plain FAB, no expansion).
-- **profile**: hidden (returns null).
+- **helping** / **asks**: single "Get Help" action (plain FAB, no expansion).
 - Props: `activeTab: TabId`, `onGetHelp: () => void`, `onGetService: () => void`
 - Z-index: actions `z-40`, backdrop `z-39` (wizard modal is `z-50`).
 
@@ -81,7 +89,7 @@ Tab navigation component. Renders horizontal tab bar on desktop (`md:`) and stic
 - **Desktop**: `div.tab-bar.hidden.md:flex` — horizontal tabs below top nav
 - **Mobile**: `nav.bottom-nav` — fixed to `bottom-0`, hidden at `md:` breakpoint
 - Props: `activeTab: TabId`, `onChange: (tab: TabId) => void`, `commitmentCount?: number`
-- `TabId` = `'browse' | 'commitments' | 'my-requests' | 'profile'`
+- `TabId` = `'browse' | 'helping' | 'asks'`
 - Shows commitment count dot/badge on Commitments tab when `commitmentCount > 0`
 
 ### `BrowseFeed.tsx`
@@ -179,13 +187,12 @@ The Trust Evolution toggle was removed from `reputation/trust.tsx` and moved to 
 ```
 dashboard.tsx
 ├── Community selector (top bar, filters BrowseFeed)
-├── TabBar (Browse | Commitments | My Requests | Profile)
+├── TabBar (Browse | Helping | Asks)
 ├── Tab content area
 │   ├── <BrowseFeed communityId={activeCommunityId} />
 │   ├── <CommitmentsTab />
-│   ├── <MyRequestsTab onNewRequest={...} />
-│   └── <Profile stub → /profile link>
-└── FAB ("Get Help") — visible on Browse + Commitments only
+│   └── <MyRequestsTab onNewRequest={...} />
+└── FAB ("Get Help") — visible on Browse + Helping only
 ```
 
 ### Single Responsive Breakpoint

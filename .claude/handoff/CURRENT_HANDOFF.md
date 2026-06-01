@@ -22,6 +22,63 @@ Validation run:
 
 No commits made in this session; changes are working-tree only for Claude-led PR review.
 
+## Follow-up — PR #42 SSE auth hardening (reviewed, approved 2026-06-01)
+
+PR #42 (`codex/step1-sse-auth-hardening`) closed the unauthenticated notification SSE
+hole: `/notifications/stream` now requires a JWT (header **or** `access_token` query
+param for browser `EventSource`), identity is derived from the token, and the legacy
+`/notifications/stream/:userId` route 403s on path/token mismatch. Reviewed over three
+rounds; backend (5) + frontend (2) tests pass; merge-ready.
+
+Final polish added before merge (strict checklist alignment):
+- Backend: deduped verifier logic by exporting/reusing `verifyTokenWithRotation` from shared middleware.
+- Backend: removed redundant router-level `/stream/:userId` registration.
+- Backend tests: `services/notification-service/tests/tdd/sprint-81-sse-auth.test.ts` (5 passing).
+- Frontend test: `apps/frontend/tests/unit/sprint-81-notification-sse-wiring.test.tsx` (2 passing) covering:
+  - token-present path opens EventSource using token-based stream URL
+  - token-missing path does not attempt SSE connect
+
+**Residual risk to carry forward (not a blocker, do NOT lose this):**
+- **JWT-in-URL exposure.** Because browser `EventSource` can't set headers, the access
+  token rides in the query string and therefore lands in **nginx access logs**, proxy
+  logs, and `Referer` headers. Two follow-ups:
+  1. **Scrub `access_token` from nginx access logs** for the `/notifications/stream`
+     location (e.g. `map`/`set` to mask the query arg before `log_format`). Coordinate
+     with the nginx deploy step ([infrastructure/nginx/nginx.conf](infrastructure/nginx/nginx.conf)) — changes only take effect on deploy.
+  2. **Keep access tokens short-lived** so a leaked URL token has a small blast radius.
+- Backend SSE auth tests currently sit in `tdd/` — promote to a blocking tier
+  (`regression/`) once they've ridden a few green runs, since they lock a security contract.
+
+## Step 2 in progress — Product taxonomy consistency (2026-06-01)
+
+Completed label/deep-link consistency pass across web + mobile nav surfaces:
+
+- Web
+  - `Track in Active tab` → `Track in Helping tab` in `BrowseFeed`.
+  - `My Requests` heading/button language → `Asks` / `+ New Ask` in `MyRequestsTab`.
+  - Dibs completion CTA `View My Requests` → `View My Asks`.
+  - Updated related TDD assertion wording (`sprint-63-ux-coherence`).
+- Mobile
+  - Tab titles updated in `apps/mobile/app/(tabs)/_layout.tsx`:
+    - `Feed` → `Browse`
+    - `Requests` → `Asks`
+    - `Profile` → `Me`
+- Docs
+  - Updated `apps/frontend/CONTEXT.md` tab taxonomy and architecture notes to match current IDs/labels.
+
+Validation:
+- `apps/frontend`: `npx tsc --noEmit` ✅
+- `apps/frontend`: `npm run test:unit` ✅ (60 passing)
+
+### PR #43 polish follow-up (2026-06-01)
+- Fixed a stale docs string in `apps/frontend/CONTEXT.md`:
+  - `Browse + Commitments only` → `Browse + Helping only`
+- Aligned mobile filter copy in `apps/mobile/app/(tabs)/requests.tsx`:
+  - `My Requests` → `My Asks`
+- Re-ran frontend gates:
+  - `npx tsc --noEmit` ✅
+  - `npm run test:unit` ✅ (60 passing)
+
 ## Handoff Document
 
 **Date**: 2026-05-31
