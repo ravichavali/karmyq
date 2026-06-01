@@ -894,6 +894,11 @@
         },
         {
           "method": "GET",
+          "path": "/trust/communities (Sprint 79 — inter-community depth)",
+          "description": "Inter-community depth graph for the calling user. Nodes are the caller's active"
+        },
+        {
+          "method": "GET",
           "path": "/network",
           "description": "Get the current user's local network graph from the materialized connections table."
         }

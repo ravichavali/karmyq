@@ -1,8 +1,4 @@
-import dynamic from 'next/dynamic'
 import TrustGraphHEB from './graphs/TrustGraphHEB'
-
-// Cytoscape can't be server-rendered — load the radial view client-side only.
-const TrustGraphRadial = dynamic(() => import('./graphs/TrustGraphRadial'), { ssr: false })
 
 interface TrustNode {
   id: string
@@ -28,32 +24,20 @@ interface TrustGraphData {
 interface TrustGraphProps {
   graphData: TrustGraphData
   currentUserId: string
-  /** ego = radial (Cytoscape), community/fission = hierarchical edge bundling (D3). */
+  /** All modes render via hierarchical edge bundling (D3 HEB). ego/community share
+   *  cluster visuals + amber your-edges; fission colors by the proposed split groups. */
   mode?: 'ego' | 'community' | 'fission'
   // Fission props (forwarded to HEB)
   groupMap?: Record<string, 'group_a' | 'group_b'>
   groupALabel?: string
   groupBLabel?: string
   onSwitchGroup?: (nodeId: string, currentGroup: 'group_a' | 'group_b' | null) => Promise<void>
-  // Ego props (forwarded to Radial)
-  onNodeClick?: (nodeId: string) => void
   height?: number
 }
 
 export default function TrustGraph(props: TrustGraphProps) {
   // Default keeps older callers working: a groupMap means fission, otherwise ego.
   const mode = props.mode ?? (props.groupMap ? 'fission' : 'ego')
-
-  if (mode === 'ego') {
-    return (
-      <TrustGraphRadial
-        graphData={props.graphData}
-        currentUserId={props.currentUserId}
-        onNodeClick={props.onNodeClick}
-        height={props.height}
-      />
-    )
-  }
 
   return (
     <TrustGraphHEB

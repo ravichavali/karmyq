@@ -93,6 +93,7 @@ When code implementing an ADR is deployed, update the status from `Accepted` →
 - [ADR-060: Code Scanning Remediation + Blocking CI Code-Scanning Gate](ADR-060-code-scanning-gate.md) — **Implemented**
 - [ADR-061: Supply-Chain & Secrets Hardening](ADR-061-supply-chain-and-secrets-hardening.md) — **Implemented**
 - [ADR-062: Community Identity & Idempotent Creation](ADR-062-community-identity-idempotent-creation.md) — **Implemented**
+- [ADR-063: Canonical Decayed Trust Metric & Unified Graph Visualization](ADR-063-canonical-trust-metric-and-unified-graph.md) — **Implemented**
 
 ## Creating a New ADR
 

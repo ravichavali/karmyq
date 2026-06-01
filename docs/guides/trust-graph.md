@@ -4,7 +4,16 @@ Every community on karmyq builds a trust graph over time. Each completed help ex
 
 ## How to Access It
 
-Open any community you belong to and click the **Trust Graph** tab in the community navigation. You'll find two sub-tabs: **Community** and **My Network**.
+Open any community you belong to and click the **Trust Graph** tab in the community navigation. You'll find two sub-tabs: **Community** and **My Network**. Your dashboard also has a **Your Trust Network** panel with a **People / Communities** toggle.
+
+## One visual language (Sprint 79)
+
+All trust-graph views now share one look so an intuition learned in one carries to the next:
+
+- **Every node is the same size.** Node size no longer encodes trust, so it can't mislead — you read *structure* (who clusters together, who bridges groups), not dot size.
+- **You are enlarged and white-ringed** as a "you are here" anchor.
+- **Your connections are amber.** Every line touching your node is highlighted so you can find yourself in the wider network.
+- **One trust number.** A node's trust score is the *decayed* current strength of its relationships — the same value in every view.
 
 ## Community View
 
@@ -12,23 +21,32 @@ The Community tab shows **every member** of your community arranged on a circle,
 
 **What you see:**
 
-- **Nodes on the circle** are community members. Larger nodes have higher trust scores — they've been consistently rated as reliable and helpful.
+- **Nodes on the circle** are community members, grouped into clusters by their strongest connections.
 - **Bright, bundled edges within a group** are strong, active relationships — the dense core of a sub-community.
 - **Thin, muted threads crossing between groups** are weak connections — the ties that would break first in a split.
-- **Amber edges** are *your* connections — every line touching your node is highlighted so you can find yourself in the wider network.
+- **Amber edges** are *your* connections.
 
 Groups are detected automatically from the strongest connections, so the layout reflects how the community actually clusters rather than any imposed structure.
 
 ## My Network View
 
-The My Network tab centers the view on **you**. Your direct connections appear in the first ring, ordered by connection strength. Their connections appear in the second ring. Degree of separation is a spatial property — no clicking required, two degrees of your network are visible immediately.
+The My Network tab shows **your first-degree network within this community** — the people you've built trust with here — clustered by how closely they connect to each other. It's a static, structure-revealing view; click any node to open its detail panel (trust score, karma, connection count).
 
-- **You** sit at the center in indigo.
-- **Closer rings** are stronger, more trusted connections.
-- **Thicker, brighter edges** mean a stronger recent relationship.
-- **Amber edges** are your direct connections.
+## Your Trust Network (dashboard)
 
-**Click any neighbor** to recenter the view on them and explore their network. Click them again (or your own node) to return to your own view.
+The dashboard panel toggles between two views of your trust:
+
+- **People** — your trust network aggregated across **all** your communities, in the same clustered ego style as My Network.
+- **Communities** — the inter-community **depth view** (below).
+
+## Communities (depth) View
+
+Each community is a node, sized by membership. Two kinds of links connect them:
+
+- **Organic ties (solid, slate).** Accrued automatically as members exchange help *across* community lines — a sign two communities are genuinely intertwined. Thicker = stronger.
+- **Fission lineage (dashed, violet).** Parent → child links left behind when a community splits. This is how you trace a community's family tree after a [fission](/docs/guides/community-fission).
+
+Your own communities are emerald and white-ringed; communities you can see but aren't a member of are indigo. Click any community for its member count and status.
 
 ## Reading Edge Strength
 
@@ -53,7 +71,7 @@ Four interaction types contribute to trust bonds:
 | Karma given | 3 |
 | Shared event | 2 |
 
-Older interactions contribute less than recent ones — trust bonds reflect current relationships, not just historical ones.
+Older interactions contribute less than recent ones — trust bonds reflect current relationships, not just historical ones. The trust score you see is the *decayed* total, so active trust is what counts.
 
 ## Fission Split View
 

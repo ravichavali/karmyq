@@ -25,13 +25,20 @@ interface TrustGraphData {
 interface TrustGraphHEBProps {
   graphData: TrustGraphData
   currentUserId: string
-  mode: 'community' | 'fission'
+  /** community + ego share visuals (cluster color + amber your-edges); fission uses the split groups. */
+  mode: 'community' | 'fission' | 'ego'
   groupMap?: Record<string, 'group_a' | 'group_b'>
   groupALabel?: string
   groupBLabel?: string
   onSwitchGroup?: (nodeId: string, currentGroup: 'group_a' | 'group_b' | null) => Promise<void>
   height?: number
 }
+
+// Uniform node sizing (ADR-063): every node is the same radius so the eye reads
+// structure (clusters, ties) rather than mistaking dot size for importance. Only
+// the current user is enlarged + white-ringed as a "you are here" anchor.
+const NODE_RADIUS = 5
+const CURRENT_USER_RADIUS = NODE_RADIUS + 3
 
 // Greedy union-find clustering: merge nodes joined by the strongest 40% of edges.
 function detectClusters(nodes: TrustNode[], links: TrustLink[]): Map<string, number> {
@@ -102,10 +109,6 @@ export default function TrustGraphHEB({
     return detectClusters(graphData.nodes, graphData.links)
   }, [graphData, groupMap, mode])
 
-  const maxScore = useMemo(
-    () => Math.max(...graphData.nodes.map(n => n.trust_score), 1),
-    [graphData.nodes]
-  )
   const maxWeight = useMemo(
     () => Math.max(...graphData.links.map(l => l.effective_weight), 1),
     [graphData.links]
@@ -185,10 +188,8 @@ export default function TrustGraphHEB({
       if (n.isCurrentUser || n.id === currentUserId) return '#10b981'
       return '#818cf8'
     }
-    const nodeRadius = (n: TrustNode) => {
-      const base = 4 + Math.min((n.trust_score / maxScore) * 6, 6)
-      return n.id === currentUserId ? base + 3 : base
-    }
+    const nodeRadius = (n: TrustNode) =>
+      n.id === currentUserId ? CURRENT_USER_RADIUS : NODE_RADIUS
 
     const node = g.append('g')
       .selectAll('g')
@@ -225,7 +226,7 @@ export default function TrustGraphHEB({
       .attr('fill', '#94a3b8')
       .style('pointer-events', 'none')
       .text(d => (d.data.id === currentUserId ? `${d.data.name} (you)` : d.data.name))
-  }, [graphData, clusterOf, mode, groupMap, currentUserId, width, height, maxScore, maxWeight])
+  }, [graphData, clusterOf, mode, groupMap, currentUserId, width, height, maxWeight])
 
   const selectedNode = selectedNodeId
     ? graphData.nodes.find(n => n.id === selectedNodeId)
@@ -238,6 +239,15 @@ export default function TrustGraphHEB({
       <div className="flex flex-col items-center justify-center py-16 gap-2 text-center">
         <p className="text-text-muted text-sm">This community doesn&apos;t have any trust connections yet.</p>
         <p className="text-text-muted text-xs">Connections appear as members complete help exchanges.</p>
+      </div>
+    )
+  }
+
+  if (mode === 'ego' && graphData.links.length === 0 && graphData.nodes.length <= 1) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 gap-2 text-center">
+        <p className="text-text-muted text-sm">You don&apos;t have any trust connections yet.</p>
+        <p className="text-text-muted text-xs">Connections appear as you complete help exchanges with others.</p>
       </div>
     )
   }

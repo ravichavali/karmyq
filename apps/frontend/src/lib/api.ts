@@ -830,6 +830,11 @@ export const socialGraphService = {
 
   getTrustGraphAggregate: (center?: string) =>
     socialGraphApi.get(`/trust/graph${center ? `?center=${encodeURIComponent(center)}` : ''}`),
+
+  // Inter-community depth graph: the caller's communities as nodes, with organic
+  // and fission-lineage links. Callers read `res.data` (interceptor unwraps the envelope).
+  getCommunityGraph: () =>
+    socialGraphApi.get('/trust/communities'),
 }
 
 export const providerService = {

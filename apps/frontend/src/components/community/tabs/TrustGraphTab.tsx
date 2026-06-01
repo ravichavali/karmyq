@@ -33,7 +33,6 @@ export default function TrustGraphTab({ communityId, currentUserId }: TrustGraph
   const [subTab, setSubTab] = useState<SubTab>('community')
   const [communityGraph, setCommunityGraph] = useState<GraphData | null>(null)
   const [egoGraph, setEgoGraph] = useState<GraphData | null>(null)
-  const [egoCenter, setEgoCenter] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -47,11 +46,11 @@ export default function TrustGraphTab({ communityId, currentUserId }: TrustGraph
       .finally(() => setLoading(false))
   }, [communityId])
 
-  // Fetch the ego graph (centered on the calling user, or a clicked neighbor).
-  const loadEgo = useCallback((center?: string) => {
+  // Fetch the ego graph (the calling user's first-degree network in this community).
+  const loadEgo = useCallback(() => {
     setLoading(true)
     setError(null)
-    socialGraphService.getTrustGraph(communityId, center)
+    socialGraphService.getTrustGraph(communityId)
       .then((res: any) => setEgoGraph(res.data))
       .catch(() => setError('Failed to load your network.'))
       .finally(() => setLoading(false))
@@ -60,16 +59,6 @@ export default function TrustGraphTab({ communityId, currentUserId }: TrustGraph
   useEffect(() => {
     if (subTab === 'ego' && !egoGraph) loadEgo()
   }, [subTab, egoGraph, loadEgo])
-
-  const handleEgoNodeClick = useCallback((nodeId: string) => {
-    if (nodeId === egoCenter || nodeId === currentUserId) {
-      setEgoCenter(null)
-      loadEgo()
-    } else {
-      setEgoCenter(nodeId)
-      loadEgo(nodeId)
-    }
-  }, [egoCenter, currentUserId, loadEgo])
 
   const tabClass = (active: boolean) =>
     `px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
@@ -83,7 +72,7 @@ export default function TrustGraphTab({ communityId, currentUserId }: TrustGraph
         <p className="text-sm text-text-muted mt-1">
           {subTab === 'community'
             ? 'Every member, grouped by how closely they connect. Amber lines are your connections.'
-            : 'You at the center. Closer rings are stronger connections. Click a neighbor to recenter.'}
+            : 'Your first-degree network, clustered by how closely your connections connect to each other. Amber lines are yours.'}
         </p>
       </div>
 
@@ -118,7 +107,6 @@ export default function TrustGraphTab({ communityId, currentUserId }: TrustGraph
               mode="ego"
               graphData={egoGraph}
               currentUserId={currentUserId}
-              onNodeClick={handleEgoNodeClick}
               height={560}
             />
           )

@@ -1,19 +1,26 @@
-# Sprint 79: Trust Graph Viz Polish + Depth — 📋 READY TO EXECUTE (v10.7.0)
+# Sprint 79: Trust Graph Viz Polish + Depth — ✅ COMPLETE (v10.7.0), deploying
 
 ## Handoff Document
 
 **Date**: 2026-05-31
-**Current Version**: v10.6.2 (Sprint 78 autonomous fission shipped) → **targeting v10.7.0**
-**Status**: 📋 Spec + plan written, ready to execute. Sprints 77 (dedup) and 78 (autonomous fission) complete + deployed.
+**Current Version**: **v10.7.0 — Sprint 79 complete**, merging to master + deploying via CI/CD.
+**Status**: ✅ All 13 plan tasks done. Backend decayed-metric swap (3 fns) + new `GET /trust/communities` depth endpoint; frontend unified on D3 HEB with `ego` mode + uniform node sizing; radial (Cytoscape) + force-graph (react-force-graph) retired and deps removed; dashboard "Your Network" now People/Communities toggle (`TrustNetworkWidget`). Shared `useLazyGraphData` hook extracted. ADR-063 + user guide + concept page + landing docs shipped. All gates green: tsc (FE+BE), `npm test` 27/27, sprint-79 TDD 6/6, `npm audit` 0 vulns, feedback:check clean; /simplify, /code-review, /security-review run (no high/medium findings).
+
+### Verified this session
+- Decayed node metric: `SUM(current_weight)` from `trust_edges_live` in getTrustGraph / getTrustGraphAggregate / getTrustGraphAggregateForCenter (matches getFullCommunityGraph).
+- `getCommunityDepthGraph(callingUserId)`: seed = caller's active communities; reachable = seed ∪ organic-edge neighbors ∪ fission parents/children; organic + fission link queries parallelized; scoped (no global enumeration).
+- Deps removed from apps/frontend/package.json: cytoscape, cytoscape-cola, react-cytoscapejs, react-force-graph-2d.
+
+### Deferred (noted by /simplify, not blocking)
+- `getTrustGraphAggregateForCenter` + the `center?` param chain are now orphaned (click-to-recenter/expand removed). Safe to delete in a follow-up cleanup; left in place this sprint (named metric-fix target + has a passing test).
+- `TrustGraph.tsx` dispatcher is now a thin pass-through to HEB; could be inlined at its callers later.
 
 ---
 
-## Quick Start
+## Quick Start (next sprint)
 
-1. Read this handoff
-2. Check out branch: `git checkout -b feature/sprint-79-trust-graph-viz-polish`
-3. Open plan: `docs/superpowers/plans/2026-05-31-sprint-79-trust-graph-viz-polish.md`
-4. Run: `/execute-plan` (uses superpowers:subagent-driven-development)
+1. Read this handoff — Sprint 79 is shipped; pick the next sprint or the deferred cleanup above.
+2. Plan/spec for this sprint: `docs/superpowers/plans/2026-05-31-sprint-79-trust-graph-viz-polish.md`
 
 ---
 

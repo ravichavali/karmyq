@@ -33,6 +33,10 @@
           "href": "/docs/concepts/trust-score"
         },
         {
+          "label": "Reading the Trust Graph",
+          "href": "/docs/concepts/reading-the-trust-graph"
+        },
+        {
           "label": "What is Karma?",
           "href": "/docs/concepts/what-is-karma"
         },
@@ -323,6 +327,10 @@
         {
           "label": "Fusion Mechanism",
           "href": "/docs/concepts/adr-058-fusion-mechanism"
+        },
+        {
+          "label": "Canonical Decayed Trust Metric & Unified Graph Visualization",
+          "href": "/docs/concepts/adr-063-canonical-trust-metric-and-unified-graph"
         },
         {
           "label": "— Community & Scale —",

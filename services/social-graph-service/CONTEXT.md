@@ -343,6 +343,13 @@ Get paths for multiple target users (optimized for feed ranking).
 
 ---
 
+> **Canonical metric (Sprint 79 / ADR-063):** every node `trust_score` across
+> the graph endpoints is the *decayed* sum — `SUM(current_weight)` from
+> `social_graph.trust_edges_live` — in `getTrustGraph`, `getTrustGraphAggregate`,
+> `getTrustGraphAggregateForCenter`, and `getFullCommunityGraph`. The earlier
+> raw-weight node aggregate on the ego/aggregate endpoints was retired so node and
+> edge values agree.
+
 ### GET /trust/graph
 
 Aggregate ego-network across all of the calling user's communities (Sprint 67). Returns calling user + direct neighbors + edges among them, de-duplicated and summed across communities.
@@ -406,6 +413,28 @@ Return a single trust edge for a user pair in a community.
 **Query params**: `userA`, `userB`, `communityId`
 
 **Response**: Edge object with `effective_weight`, or `{ success: true, data: null }` if no edge exists (not 404).
+
+---
+
+### GET /trust/communities (Sprint 79 — inter-community depth)
+
+Inter-community depth graph for the calling user. Nodes are the caller's active
+communities plus any community reachable by an inter-community edge (organic
+trust or fission lineage): `{ id, name, member_count, status, is_member }`. Links
+come in two types:
+
+- `organic` — undirected ties from `social_graph.community_trust_edges` (accrued
+  as members exchange help across communities); `weight` = interaction strength.
+- `fission` — directed parent→child lineage from executed
+  `communities.split_proposals`; `weight` = 1.
+
+Scoped to the caller's communities + one hop of reach, so a user only sees
+communities adjacent to ones they belong to (no global enumeration). Implemented
+by `getCommunityDepthGraph(callingUserId)` in `src/database/trustEdgeDb.ts`.
+
+**Auth required**: Bearer JWT.
+
+**Primary consumer**: `apps/frontend/src/components/graphs/CommunityDepthGraph.tsx` (dashboard "Your Trust Network" → Communities).
 
 ---
 

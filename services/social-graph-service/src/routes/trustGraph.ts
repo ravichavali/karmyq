@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { getTrustGraphForCommunity, getTrustGraphAggregate, getTrustGraphAggregateForCenter } from '../services/trustEdgeService';
-import { getTrustEdge, getFullCommunityGraph } from '../database/trustEdgeDb';
+import { getTrustEdge, getFullCommunityGraph, getCommunityDepthGraph } from '../database/trustEdgeDb';
 import { computeEffectiveWeight } from '../services/trustEdgeService';
 import { logger } from '../config/logger';
 import { pool } from '../config/database';
@@ -149,6 +149,25 @@ router.get('/edge', async (req: Request, res: Response) => {
       success: false,
       message: 'Failed to fetch trust edge',
     });
+  }
+});
+
+/**
+ * GET /trust/communities
+ * Inter-community depth graph for the calling user: their communities (plus
+ * edge/lineage-reachable ones) as nodes, with organic trust edges and fission
+ * lineage edges. Distinct literal path — does not collide with /graph/:communityId.
+ */
+router.get('/communities', async (req: Request, res: Response) => {
+  try {
+    const callingUserId = (req as any).user?.userId;
+
+    const graph = await getCommunityDepthGraph(callingUserId);
+
+    res.json({ success: true, data: graph });
+  } catch (error) {
+    logger.error('Error fetching community depth graph', error instanceof Error ? error : undefined);
+    res.status(500).json({ success: false, message: 'Failed to fetch community depth graph' });
   }
 });
 

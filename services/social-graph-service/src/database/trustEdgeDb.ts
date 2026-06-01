@@ -200,8 +200,8 @@ export async function getTrustGraph(
     WITH neighbors AS (${neighborsCTE})
     SELECT u.id, u.name,
       COALESCE((
-        SELECT SUM(te2.raw_weight) FROM social_graph.trust_edges te2
-        WHERE (te2.user_id_a = u.id OR te2.user_id_b = u.id) AND te2.community_id = $1
+        SELECT SUM(tel.current_weight) FROM social_graph.trust_edges_live tel
+        WHERE (tel.user_id_a = u.id OR tel.user_id_b = u.id) AND tel.community_id = $1
       ), 0) AS trust_score,
       COALESCE((
         SELECT SUM(kr.points) FROM reputation.karma_records kr
@@ -342,9 +342,9 @@ export async function getTrustGraphAggregate(
     WITH neighbors AS (${neighborsCTE})
     SELECT u.id, u.name,
       COALESCE((
-        SELECT SUM(te2.raw_weight) FROM social_graph.trust_edges te2
-        WHERE (te2.user_id_a = u.id OR te2.user_id_b = u.id)
-          AND te2.community_id IN (${userCommunitiesCTE})
+        SELECT SUM(tel.current_weight) FROM social_graph.trust_edges_live tel
+        WHERE (tel.user_id_a = u.id OR tel.user_id_b = u.id)
+          AND tel.community_id IN (${userCommunitiesCTE})
       ), 0) AS trust_score,
       COALESCE((
         SELECT SUM(kr.points) FROM reputation.karma_records kr WHERE kr.user_id = u.id
@@ -419,9 +419,9 @@ export async function getTrustGraphAggregateForCenter(
          neighbors AS (${neighborsCTE})
     SELECT u.id, u.name,
       COALESCE((
-        SELECT SUM(te2.raw_weight) FROM social_graph.trust_edges te2
-        WHERE (te2.user_id_a = u.id OR te2.user_id_b = u.id)
-          AND te2.community_id IN (SELECT community_id FROM shared)
+        SELECT SUM(tel.current_weight) FROM social_graph.trust_edges_live tel
+        WHERE (tel.user_id_a = u.id OR tel.user_id_b = u.id)
+          AND tel.community_id IN (SELECT community_id FROM shared)
       ), 0) AS trust_score,
       COALESCE((
         SELECT SUM(kr.points) FROM reputation.karma_records kr WHERE kr.user_id = u.id
@@ -470,6 +470,127 @@ export async function getTrustGraphAggregateForCenter(
       effective_weight: parseFloat(r.effective_weight) || 0,
     })),
   };
+}
+
+export interface CommunityDepthNode {
+  id: string;
+  name: string;
+  member_count: number;
+  status: string;
+  is_member: boolean;
+}
+
+export interface CommunityDepthLink {
+  source: string;
+  target: string;
+  weight: number;
+  type: 'organic' | 'fission';
+}
+
+// Inter-community depth graph for a user: their active communities plus any
+// community reachable by an inter-community edge (organic trust or fission
+// lineage). Organic links come from social_graph.community_trust_edges
+// (undirected); fission links come from executed communities.split_proposals
+// (directed parent→child). The node set is intentionally widened beyond the
+// user's own communities so a member of a child community still sees its parent
+// and sibling — otherwise lineage would be invisible after a split archives the
+// parent. Links are emitted only between communities in the resolved node set.
+export async function getCommunityDepthGraph(
+  callingUserId: string
+): Promise<{ nodes: CommunityDepthNode[]; links: CommunityDepthLink[] }> {
+  // seed = the caller's active communities; reachable = seed ∪ edge/lineage neighbors.
+  const nodesQuery = `
+    WITH seed AS (
+      SELECT c.id
+      FROM communities.communities c
+      INNER JOIN communities.members m ON m.community_id = c.id
+      WHERE m.user_id = $1 AND m.status = 'active'
+    ),
+    reachable AS (
+      SELECT id FROM seed
+      UNION
+      SELECT cte.community_id_a FROM social_graph.community_trust_edges cte
+        WHERE cte.community_id_b IN (SELECT id FROM seed)
+      UNION
+      SELECT cte.community_id_b FROM social_graph.community_trust_edges cte
+        WHERE cte.community_id_a IN (SELECT id FROM seed)
+      UNION
+      SELECT sp.community_id FROM communities.split_proposals sp
+        WHERE sp.status = 'executed'
+          AND (sp.child_community_a_id IN (SELECT id FROM seed)
+               OR sp.child_community_b_id IN (SELECT id FROM seed))
+      UNION
+      SELECT sp.child_community_a_id FROM communities.split_proposals sp
+        WHERE sp.status = 'executed' AND sp.community_id IN (SELECT id FROM seed)
+          AND sp.child_community_a_id IS NOT NULL
+      UNION
+      SELECT sp.child_community_b_id FROM communities.split_proposals sp
+        WHERE sp.status = 'executed' AND sp.community_id IN (SELECT id FROM seed)
+          AND sp.child_community_b_id IS NOT NULL
+    )
+    SELECT c.id, c.name, c.current_members AS member_count, c.status,
+           (c.id IN (SELECT id FROM seed)) AS is_member
+    FROM communities.communities c
+    WHERE c.id IN (SELECT id FROM reachable)
+  `;
+
+  const nodesResult = await pool.query(nodesQuery, [callingUserId]);
+  if (nodesResult.rows.length === 0) {
+    return { nodes: [], links: [] };
+  }
+
+  const nodes: CommunityDepthNode[] = nodesResult.rows.map(r => ({
+    id: r.id,
+    name: r.name,
+    member_count: parseInt(r.member_count, 10) || 0,
+    status: r.status,
+    is_member: !!r.is_member,
+  }));
+  const nodeIds = nodes.map(n => n.id);
+  const idSet = new Set(nodeIds);
+
+  const organicQuery = `
+    SELECT cte.community_id_a AS source, cte.community_id_b AS target, cte.weight AS weight
+    FROM social_graph.community_trust_edges cte
+    WHERE cte.community_id_a = ANY($1::uuid[]) AND cte.community_id_b = ANY($1::uuid[])
+  `;
+
+  // Only executed splits carry lineage; parent must be in the node set.
+  const fissionQuery = `
+    SELECT sp.community_id AS parent,
+           sp.child_community_a_id AS child_a,
+           sp.child_community_b_id AS child_b
+    FROM communities.split_proposals sp
+    WHERE sp.status = 'executed' AND sp.community_id = ANY($1::uuid[])
+  `;
+
+  const [organicResult, fissionResult] = await Promise.all([
+    pool.query(organicQuery, [nodeIds]),
+    pool.query(fissionQuery, [nodeIds]),
+  ]);
+
+  const links: CommunityDepthLink[] = [];
+
+  // organicQuery already constrains both endpoints to nodeIds via `= ANY($1)`.
+  for (const r of organicResult.rows) {
+    links.push({
+      source: r.source,
+      target: r.target,
+      weight: parseFloat(r.weight) || 0,
+      type: 'organic',
+    });
+  }
+
+  // fissionQuery constrains the parent to nodeIds; only the child needs checking.
+  for (const r of fissionResult.rows) {
+    for (const child of [r.child_a, r.child_b]) {
+      if (child && idSet.has(child)) {
+        links.push({ source: r.parent, target: child, weight: 1, type: 'fission' });
+      }
+    }
+  }
+
+  return { nodes, links };
 }
 
 export async function upsertCommunityTrustEdge(communityA: string, communityB: string): Promise<void> {

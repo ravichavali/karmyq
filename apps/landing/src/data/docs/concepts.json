@@ -479,6 +479,14 @@
       "status": "implemented",
       "description": "**Status**: Implemented",
       "filename": "ADR-062-community-identity-idempotent-creation.md"
+    },
+    {
+      "slug": "adr-063-canonical-trust-metric-and-unified-graph",
+      "number": "063",
+      "title": "ADR-063: Canonical Decayed Trust Metric & Unified Graph Visualization",
+      "status": "implemented",
+      "description": "**Status**: Implemented",
+      "filename": "ADR-063-canonical-trust-metric-and-unified-graph.md"
     }
   ]
 }
