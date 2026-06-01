@@ -96,6 +96,17 @@ Unify all trust-graph relationship views onto one clustered, structure-revealing
 | **78** | Autonomous Fission (propose→vote→execute) | ✅ Complete + deployed (v10.6.2) |
 | **79** | **Trust Graph Viz Polish + Depth** | 📋 Ready to execute (v10.7.0) |
 | **TBD** | Supply-Chain Hardening remainder (ADR-061 items 4–5; Socket App; log sanitization) | Backlog |
+| **TBD** | **Express 4 → 5 migration** (all 11 services) | Backlog — do as a deliberate sprint, NOT a Dependabot auto-merge |
+
+> **Express 5 upgrade (why it's its own sprint):** On 2026-06-01, Dependabot's grouped
+> `production-deps` PR (#26) silently bundled a major Express `4.22.2 → 5.2.1` bump (+ `@types/express`
+> 4→5, `express-rate-limit` 7→8). It passed PR CI on Turbo's build cache but broke the backend build
+> on master (cache-cold) — `notification-service` alone threw 8× `TS2345` where `req.params`/`req.query`
+> are now `string | string[]`. Reverted in `ebf67b5`. Express 5 is a real migration: stricter request
+> typing (coerce params to `string`), changed route-matching syntax (`:param`/`*`/optional `?`),
+> immutable `req.query`, removed methods (`res.json(obj,status)`, `app.del`, `req.param()`). Plan it as
+> a dedicated sprint across all 11 services with full integration testing. Dependabot is now configured
+> (PR #29) to keep majors out of groups so this surfaces as its own labeled PR next time.
 
 ---
 
