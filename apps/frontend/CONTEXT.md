@@ -1,10 +1,35 @@
 # Frontend CONTEXT.md
 
-**Last updated**: 2026-06-01 (Sprint 80)
+**Last updated**: 2026-06-01 (Step 3 UX pass)
 
 ## Overview
 
 Next.js 14 web application (Pages Router) consuming all Karmyq backend services.
+
+---
+
+## UX Usability Pass (Step 3, 2026-06-01)
+
+### `dashboard.tsx` community-load recovery feedback
+**Path**: `src/pages/dashboard.tsx`
+
+- Adds an inline warning banner when community loading fails.
+- Includes a `Retry` action that re-runs `fetchCommunities(user.id)` without forcing a full page refresh.
+- Keeps failure feedback visible and actionable instead of logging-only behavior.
+
+### `RequestWizard.tsx` accessibility + guidance polish
+**Path**: `src/components/RequestWizard.tsx`
+
+- Adds `type="button"` on non-submit controls to prevent accidental default submit behavior.
+- Adds `aria-pressed` to urgency chips.
+- Adds `aria-expanded` + `aria-controls` to community scope toggle.
+- Adds short helper guidance below Description to improve request quality.
+
+### Tests updated
+- `tests/unit/sprint-80-dashboard-bootstrap.test.tsx`
+  - new case: failed community load shows retry banner and retry re-calls API.
+- `tests/unit/sprint-80-request-wizard-draft.test.tsx`
+  - new case: urgency and community scope controls expose expected accessibility state.
 
 ---
 

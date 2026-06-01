@@ -22,13 +22,13 @@ Validation run:
 
 No commits made in this session; changes are working-tree only for Claude-led PR review.
 
-## Follow-up — PR #42 SSE auth hardening (reviewed, approved 2026-06-01)
+## Sprint 81 — SSE auth hardening (PR #42) ✅ merged to master (2026-06-01)
 
 PR #42 (`codex/step1-sse-auth-hardening`) closed the unauthenticated notification SSE
 hole: `/notifications/stream` now requires a JWT (header **or** `access_token` query
 param for browser `EventSource`), identity is derived from the token, and the legacy
 `/notifications/stream/:userId` route 403s on path/token mismatch. Reviewed over three
-rounds; backend (5) + frontend (2) tests pass; merge-ready.
+rounds; backend (5) + frontend (2) tests pass; merged.
 
 Final polish added before merge (strict checklist alignment):
 - Backend: deduped verifier logic by exporting/reusing `verifyTokenWithRotation` from shared middleware.
@@ -49,7 +49,7 @@ Final polish added before merge (strict checklist alignment):
 - Backend SSE auth tests currently sit in `tdd/` — promote to a blocking tier
   (`regression/`) once they've ridden a few green runs, since they lock a security contract.
 
-## Step 2 in progress — Product taxonomy consistency (2026-06-01)
+## Sprint 82 — Product taxonomy consistency (PR #43) ✅ merged to master (2026-06-01)
 
 Completed label/deep-link consistency pass across web + mobile nav surfaces:
 
@@ -70,7 +70,7 @@ Validation:
 - `apps/frontend`: `npx tsc --noEmit` ✅
 - `apps/frontend`: `npm run test:unit` ✅ (60 passing)
 
-### PR #43 polish follow-up (2026-06-01)
+### PR #43 polish follow-up (included before merge, 2026-06-01)
 - Fixed a stale docs string in `apps/frontend/CONTEXT.md`:
   - `Browse + Commitments only` → `Browse + Helping only`
 - Aligned mobile filter copy in `apps/mobile/app/(tabs)/requests.tsx`:
@@ -78,6 +78,37 @@ Validation:
 - Re-ran frontend gates:
   - `npx tsc --noEmit` ✅
   - `npm run test:unit` ✅ (60 passing)
+
+## Next Sprint Recommendation — Step 3 UX expert pass
+
+Goal: run a focused usability sprint across the primary dashboard flow and ship small, high-impact UX improvements with tests/docs.
+
+Scope:
+- Audit: `Dashboard` → `Browse` → `Helping`/`Asks` → `RequestWizard`.
+- Fix 2-3 low-risk UX issues (copy clarity, empty/loading/error states, mobile spacing/tap targets).
+- Add/adjust unit tests for any new conditional UX behavior.
+- Update `apps/frontend/CONTEXT.md` and this handoff with outcomes.
+
+Acceptance checks:
+- `apps/frontend`: `npx tsc --noEmit` passes.
+- `apps/frontend`: `npm run test:unit` passes.
+- UX changes verified on desktop and mobile viewport in local run.
+
+## Step 3 UX pass — in progress (2026-06-01)
+
+Implemented (web frontend):
+- `dashboard.tsx`: community fetch failures now show an inline actionable banner with `Retry` instead of console-only feedback.
+- `RequestWizard.tsx`: improved control accessibility and usability:
+  - `type="button"` on non-submit controls
+  - `aria-pressed` on urgency chips
+  - `aria-expanded` + `aria-controls` on community scope toggle
+  - added helper copy under Description for better request quality
+
+Test coverage added:
+- `apps/frontend/tests/unit/sprint-80-dashboard-bootstrap.test.tsx`
+  - failed community load shows retry banner; retry re-calls API
+- `apps/frontend/tests/unit/sprint-80-request-wizard-draft.test.tsx`
+  - urgency/community controls expose expected accessibility state
 
 ## Handoff Document
 

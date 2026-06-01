@@ -33,6 +33,7 @@ export default function Dashboard() {
 
   const [userCommunities, setUserCommunities] = useState<Community[]>([])
   const [activeCommunityId, setActiveCommunityId] = useState<string>('')
+  const [communityLoadError, setCommunityLoadError] = useState<string | null>(null)
 
   // Tab shell state
   const [activeTab, setActiveTab] = useState<TabId>('browse')
@@ -111,9 +112,11 @@ export default function Dashboard() {
   const fetchCommunities = async (userId: string) => {
     try {
       setLoading(true)
+      setCommunityLoadError(null)
       const communitiesRes = await communityService.getMyCommunities(userId)
       setUserCommunities(communitiesRes?.data?.communities || [])
     } catch (err) {
+      setCommunityLoadError('We could not load your communities. You can retry now.')
       console.error('Failed to load communities', { error: err instanceof Error ? err.message : String(err) })
     } finally {
       setLoading(false)
@@ -161,6 +164,18 @@ export default function Dashboard() {
             </span>
           )}
         </div>
+        {communityLoadError && (
+          <div className="mx-4 mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 flex items-center justify-between gap-3">
+            <span>{communityLoadError}</span>
+            <button
+              type="button"
+              className="btn-ghost px-2 py-1 text-xs"
+              onClick={() => fetchCommunities(user.id)}
+            >
+              Retry
+            </button>
+          </div>
+        )}
 
         {/* Zero-community state — shown when user hasn't joined any community yet */}
         {!loading && userCommunities.length === 0 ? (
