@@ -1,5 +1,27 @@
 # Sprint 79: Trust Graph Viz Polish + Depth — ✅ COMPLETE (v10.7.0), deploying
 
+## Update — 2026-06-01 (Codex follow-up, ready for Claude PR review)
+
+Implemented a focused frontend reliability/UX hardening pass (post-Sprint-79) with no backend/schema changes:
+
+- `apps/frontend/src/pages/dashboard.tsx`
+  - Fixed auth bootstrap edge case that could cause infinite loading when `token` exists but `user` storage is missing/corrupt.
+  - Added guarded parse + missing-id handling; clears stale auth storage and redirects to `/login`.
+- `apps/frontend/src/components/Layout.tsx`
+  - Guarded `localStorage.user` parsing with try/catch to avoid runtime crashes on malformed storage.
+- `apps/frontend/src/components/RequestWizard.tsx`
+  - Added draft-protection on backdrop/X close via confirm dialog to prevent accidental data loss.
+- `apps/frontend/src/components/TabBar.tsx`
+  - Normalized label from `Active` → `Helping` (desktop + mobile) for taxonomy consistency.
+- `apps/frontend/CONTEXT.md`
+  - Updated with Sprint 80 reliability hardening notes.
+
+Validation run:
+- `apps/frontend`: `npx tsc --noEmit` ✅
+- `apps/frontend`: `npm run test:unit` ✅ (46 tests passed)
+
+No commits made in this session; changes are working-tree only for Claude-led PR review.
+
 ## Handoff Document
 
 **Date**: 2026-05-31

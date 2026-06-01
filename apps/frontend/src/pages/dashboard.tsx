@@ -63,13 +63,32 @@ export default function Dashboard() {
 
     if (!token) {
       router.push('/login')
+      setLoading(false)
       return
     }
 
-    if (userData) {
+    if (!userData) {
+      localStorage.removeItem('token')
+      localStorage.removeItem('refreshToken')
+      router.push('/login')
+      setLoading(false)
+      return
+    }
+
+    try {
       const parsedUser = JSON.parse(userData)
+      if (!parsedUser?.id) {
+        throw new Error('Missing user id in local storage')
+      }
       setUser(parsedUser)
       fetchCommunities(parsedUser.id)
+    } catch {
+      localStorage.removeItem('token')
+      localStorage.removeItem('refreshToken')
+      localStorage.removeItem('user')
+      router.push('/login')
+      setLoading(false)
+      return
     }
 
     setLoading(false)

@@ -1,10 +1,43 @@
 # Frontend CONTEXT.md
 
-**Last updated**: 2026-03-22 (Sprint 35)
+**Last updated**: 2026-06-01 (Sprint 80)
 
 ## Overview
 
 Next.js 14 web application (Pages Router) consuming all Karmyq backend services.
+
+---
+
+## Reliability Hardening (Sprint 80)
+
+### `dashboard.tsx` auth/session bootstrap
+**Path**: `src/pages/dashboard.tsx`
+
+- Prevents infinite spinner state when `token` exists but localStorage `user` is missing/corrupt.
+- Behavior:
+  - missing token → redirect to `/login`
+  - token present but missing `user` → clear token/refresh token and redirect
+  - malformed/invalid `user` JSON or missing `id` → clear auth storage and redirect
+- Ensures `loading` is explicitly set false in all redirect branches.
+
+### `Layout.tsx` localStorage parsing guard
+**Path**: `src/components/Layout.tsx`
+
+- Wraps `JSON.parse(localStorage.user)` in try/catch.
+- On parse failure, clears stale `user` storage instead of throwing.
+
+### `RequestWizard.tsx` safe close
+**Path**: `src/components/RequestWizard.tsx`
+
+- Adds draft protection on backdrop/X close:
+  - if no draft, close immediately
+  - if draft exists, asks for confirmation before discarding
+- Prevents accidental request draft loss.
+
+### `TabBar.tsx` label consistency
+**Path**: `src/components/TabBar.tsx`
+
+- Renames tab label from `Active` to `Helping` (desktop + mobile) to align with approved navigation taxonomy.
 
 ---
 
