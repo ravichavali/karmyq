@@ -18,14 +18,16 @@ jest.mock('../../src/events/publisher', () => ({ publishEvent: (...args: any[]) 
 import express from 'express';
 import request from 'supertest';
 
-// Build a minimal app that mounts just the matches router
-async function buildApp() {
+// Build a minimal app that mounts just the matches router. The authenticated
+// identity (`req.user.userId`) is the basis for authorization (ADR-064), so the
+// acting user is injected per-test rather than read from the request body.
+async function buildApp(userId: string = 'requester-user') {
   const { default: matchesRouter } = await import('../../src/routes/matches');
   const app = express();
   app.use(express.json());
   // Inject a fake authenticated user so auth middleware is bypassed
   app.use((req: any, _res: any, next: any) => {
-    req.user = { userId: 'requester-user', email: 'r@test.com', communities: [] };
+    req.user = { userId, email: 'r@test.com', communities: [] };
     next();
   });
   app.use('/matches', matchesRouter);
@@ -54,10 +56,10 @@ describe('PUT /matches/:id/complete — two-phase completion', () => {
         rows: [{ requester_done_at: new Date(), responder_done_at: null }],
       })
 
-    const app = await buildApp();
+    const app = await buildApp('requester-user');
     const res = await request(app)
       .put('/matches/match-1/complete')
-      .send({ user_id: 'requester-user' });
+      .send({});
 
     expect(res.status).toBe(200);
     expect(res.body.data.fully_completed).toBe(false);
@@ -84,10 +86,10 @@ describe('PUT /matches/:id/complete — two-phase completion', () => {
       .mockResolvedValueOnce({ rows: [] })                                   // UPDATE help_requests status='completed'
       .mockResolvedValueOnce({ rows: [] });                                   // feed_events INSERT (fire-and-forget)
 
-    const app = await buildApp();
+    const app = await buildApp('helper-user');
     const res = await request(app)
       .put('/matches/match-1/complete')
-      .send({ user_id: 'helper-user' });
+      .send({});
 
     expect(res.status).toBe(200);
     expect(res.body.data.fully_completed).toBe(true);
@@ -105,10 +107,10 @@ describe('PUT /matches/:id/complete — two-phase completion', () => {
   it('returns 403 when caller is not a party to the match', async () => {
     mockQuery.mockResolvedValueOnce({ rowCount: 1, rows: [BASE_MATCH] });
 
-    const app = await buildApp();
+    const app = await buildApp('random-stranger');
     const res = await request(app)
       .put('/matches/match-1/complete')
-      .send({ user_id: 'random-stranger' });
+      .send({});
 
     expect(res.status).toBe(403);
     expect(mockPublishEvent).not.toHaveBeenCalled();

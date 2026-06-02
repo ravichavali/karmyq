@@ -346,9 +346,13 @@ Get paths for multiple target users (optimized for feed ranking).
 > **Canonical metric (Sprint 79 / ADR-063):** every node `trust_score` across
 > the graph endpoints is the *decayed* sum — `SUM(current_weight)` from
 > `social_graph.trust_edges_live` — in `getTrustGraph`, `getTrustGraphAggregate`,
-> `getTrustGraphAggregateForCenter`, and `getFullCommunityGraph`. The earlier
-> raw-weight node aggregate on the ego/aggregate endpoints was retired so node and
-> edge values agree.
+> and `getFullCommunityGraph`. The earlier raw-weight node aggregate on the
+> ego/aggregate endpoints was retired so node and edge values agree.
+
+> **Removed (Sprint 83):** `getTrustGraphAggregateForCenter` and the `GET
+> /trust/graph?center=` expansion path were deleted as orphaned code — Sprint 79
+> dropped click-to-recenter, leaving this path unreachable. `GET /trust/graph` now
+> always returns the calling user's own aggregate ego-network.
 
 ### GET /trust/graph
 

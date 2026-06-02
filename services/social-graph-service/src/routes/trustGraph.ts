@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { getTrustGraphForCommunity, getTrustGraphAggregate, getTrustGraphAggregateForCenter } from '../services/trustEdgeService';
+import { getTrustGraphForCommunity, getTrustGraphAggregate } from '../services/trustEdgeService';
 import { getTrustEdge, getFullCommunityGraph, getCommunityDepthGraph } from '../database/trustEdgeDb';
 import { computeEffectiveWeight } from '../services/trustEdgeService';
 import { logger } from '../config/logger';
@@ -8,15 +8,11 @@ import { pool } from '../config/database';
 const router = Router();
 
 // GET /trust/graph — aggregate ego-network across all of the calling user's communities
-// ?center=userId expands a neighbor's ego-network restricted to shared communities
 // MUST be declared before /:communityId to avoid param matching
 router.get('/graph', async (req: Request, res: Response) => {
   try {
     const callingUserId = (req as any).user?.userId;
-    const centerUserId = req.query.center as string | undefined;
-    const graph = centerUserId && centerUserId !== callingUserId
-      ? await getTrustGraphAggregateForCenter(callingUserId, centerUserId)
-      : await getTrustGraphAggregate(callingUserId);
+    const graph = await getTrustGraphAggregate(callingUserId);
     res.json({ success: true, data: graph });
   } catch (error) {
     logger.error('Error fetching aggregate trust graph', error instanceof Error ? error : undefined);

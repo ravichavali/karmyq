@@ -1,4 +1,5 @@
 import { Router, Request, Response } from 'express';
+import { AuthenticatedRequest } from '@karmyq/shared/middleware/auth';
 import { query } from '../database/db';
 import { publishEvent } from '../events/publisher';
 import {
@@ -254,10 +255,14 @@ router.post('/', async (req: Request, res: Response) => {
 });
 
 // PUT /matches/:id/accept - Accept a proposed match
-router.put('/:id/accept', async (req: Request, res: Response) => {
+router.put('/:id/accept', async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { id } = req.params;
-    const { user_id, travel_time_minutes = 60 } = req.body;
+    // ADR-064: authorize from the verified JWT identity, never a client-supplied
+    // body field. `body.user_id` (if any) is ignored. `travel_time_minutes` is
+    // legitimate scheduling input and still comes from the body.
+    const user_id = req.user!.userId;
+    const { travel_time_minutes = 60 } = req.body;
 
     // Get match details
     const matchCheck = await query(
@@ -374,10 +379,11 @@ router.put('/:id/accept', async (req: Request, res: Response) => {
 });
 
 // PUT /matches/:id/reject - Reject a proposed match
-router.put('/:id/reject', async (req: Request, res: Response) => {
+router.put('/:id/reject', async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { id } = req.params;
-    const { user_id } = req.body;
+    // ADR-064: authorize from the verified JWT identity, never `body.user_id`.
+    const user_id = req.user!.userId;
 
     // Get match details
     const matchCheck = await query(
@@ -451,10 +457,13 @@ router.put('/:id/reject', async (req: Request, res: Response) => {
 });
 
 // PUT /matches/:id/complete - Mark match as completed
-router.put('/:id/complete', async (req: Request, res: Response) => {
+router.put('/:id/complete', async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { id } = req.params;
-    const { user_id } = req.body;
+    // ADR-064: authorize from the verified JWT identity, never `body.user_id`.
+    // `complete` is the highest-impact action — a forged completion publishes
+    // `match_completed`, which awards karma.
+    const user_id = req.user!.userId;
 
     // Get match details
     const matchCheck = await query(
@@ -557,10 +566,11 @@ router.put('/:id/complete', async (req: Request, res: Response) => {
 });
 
 // DELETE /matches/:id - Cancel match
-router.delete('/:id', async (req: Request, res: Response) => {
+router.delete('/:id', async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { id } = req.params;
-    const { user_id } = req.body;
+    // ADR-064: authorize from the verified JWT identity, never `body.user_id`.
+    const user_id = req.user!.userId;
 
     // Get match details
     const matchCheck = await query(

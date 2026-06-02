@@ -2286,6 +2286,11 @@ router.get('/health', async (req, res) => {
 
 ### 10.3 Recent Changes (v9.10)
 
+**Version 10.8.0 - Sprint 83 (2026-06-02)**
+
+- **SECURITY (ADR-064)**: `PUT /matches/:id/accept`, `/reject`, `/complete` now authorize from the authenticated JWT identity (`req.user!.userId`), **not** `req.body.user_id`. Previously any logged-in user could act on another user's match by supplying a participant's id in the body (broken access control / IDOR). `complete` was the most damaging — a forged completion published `match_completed`, which awards karma. The guard *comparison* logic is unchanged; only the identity *source* moved from body to token. A leftover `body.user_id` from un-deployed clients is tolerated (ignored). Non-identity body input (`accept`'s `travel_time_minutes`) still comes from the body. Locked by `tests/regression/sprint-83-match-action-auth.test.ts`.
+- **KNOWN ISSUE**: `DELETE /matches/:id` (cancel) still reads `body.user_id` — same IDOR class, deferred to a follow-up (outside Sprint 83 scope). See ADR-064 follow-ups.
+
 **Version 10.2.0 - Sprint 73 (2026-05-29)**
 
 - **DELETED**: `src/services/matchService.ts` — dead service class; routes use inline SQL; never called by any route

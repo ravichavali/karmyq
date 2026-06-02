@@ -126,8 +126,9 @@ export const api = {
   completeMatch: (id: string, user_id: string) =>
     requestClient.put(`/matches/${id}/complete`, { user_id }),
 
-  cancelMatch: (id: string, user_id: string) =>
-    requestClient.delete(`/matches/${id}`, { data: { user_id } }),
+  // ADR-064: the server authorizes cancel from the JWT identity; no user_id sent.
+  cancelMatch: (id: string) =>
+    requestClient.delete(`/matches/${id}`),
 
   // Messages (port 3006) - Match-based messaging
   getMatchMessages: (matchId: string) =>

@@ -478,6 +478,10 @@
         {
           "label": "Supply-Chain & Secrets Hardening",
           "href": "/docs/concepts/adr-061-supply-chain-and-secrets-hardening"
+        },
+        {
+          "label": "Authorize Mutations from Authenticated Identity, Not Client-Supplied IDs",
+          "href": "/docs/concepts/adr-064-authorize-from-authenticated-identity"
         }
       ]
     },

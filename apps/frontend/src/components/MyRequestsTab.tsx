@@ -70,13 +70,9 @@ export default function MyRequestsTab({ onNewRequest }: MyRequestsTabProps) {
   }, [])
 
   const handleAccept = async (offerId: string, _requestId: string) => {
-    const userData = typeof window !== 'undefined' ? localStorage.getItem('user') : null
-    const currentUser = userData ? JSON.parse(userData) : null
-    if (!currentUser) return
-
     setActing(offerId)
     try {
-      await requestService.acceptMatch(offerId, currentUser.id)
+      await requestService.acceptMatch(offerId)
       fetchMyRequests()
       setExpanded(null)
     } catch (err: any) {
@@ -89,11 +85,7 @@ export default function MyRequestsTab({ onNewRequest }: MyRequestsTabProps) {
   const handleDecline = async (offerId: string) => {
     setActing(offerId)
     try {
-      const userData = typeof window !== 'undefined' ? localStorage.getItem('user') : null
-      const currentUser = userData ? JSON.parse(userData) : null
-      if (!currentUser) return
-
-      await requestService.rejectMatch(offerId, currentUser.id)
+      await requestService.rejectMatch(offerId)
       fetchMyRequests()
     } catch (err: any) {
       alert(err.response?.data?.message || 'Failed to decline offer')

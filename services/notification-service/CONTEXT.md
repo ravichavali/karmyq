@@ -130,6 +130,20 @@ data: {"id":"uuid","type":"match_created","title":"Someone wants to help!","body
 - User identity is derived from JWT (not URL path)
 - Real-time push as soon as notification is created
 
+**Security — JWT-in-URL log scrub (ADR-064, Sprint 83):** Browser `EventSource`
+cannot set headers, so the JWT rides in the URL as `access_token`. To keep it out
+of nginx access logs, the `/api/notifications` location logs through a custom
+`log_format` whose request line is rewritten by an http-scope `map` that masks the
+`access_token` value to `***` ([nginx.conf](../../infrastructure/nginx/nginx.conf)).
+Takes effect on deploy (`deploy.sh` reloads nginx).
+
+**Token TTL decision (ADR-064):** access tokens are retained at **1 hour** with
+rotation — the balance of long-lived stream UX vs. blast radius. Not shortened:
+a shorter TTL degrades SSE streams without a refresh-on-SSE story (out of scope).
+The Sprint-81 SSE auth contract is locked in `tests/regression/sprint-81-sse-auth.test.ts`
+(promoted from `tdd/` in Sprint 83; the regression tier is now wired into
+`jest.config.js` `testMatch`).
+
 ### GET /notifications/stream/:userId (legacy compatibility)
 Compatibility route for older clients. Requires JWT auth and rejects streams where
 `:userId` does not match `token.userId`.

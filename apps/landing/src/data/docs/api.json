@@ -705,8 +705,13 @@
       "endpoints": [
         {
           "method": "GET",
-          "path": "/notifications/stream/:userId",
-          "description": "Server-Sent Events (SSE) endpoint for real-time notifications."
+          "path": "/notifications/stream",
+          "description": "Authenticated Server-Sent Events (SSE) endpoint for real-time notifications."
+        },
+        {
+          "method": "GET",
+          "path": "/notifications/stream/:userId (legacy compatibility)",
+          "description": "Compatibility route for older clients. Requires JWT auth and rejects streams where"
         },
         {
           "method": "GET",

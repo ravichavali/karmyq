@@ -211,14 +211,9 @@ export default function CommitmentsTab({ onDibsLoaded, communityId }: Commitment
   }, [])
 
   const handleMarkDone = async (matchId: string) => {
-    const userData = typeof window !== 'undefined' ? localStorage.getItem('user') : null
-    let currentUser = null
-    try { currentUser = userData ? JSON.parse(userData) : null } catch { currentUser = null }
-    if (!currentUser) return
-
     setMarkingDone(matchId)
     try {
-      const res = await requestService.completeMatch(matchId, currentUser.id)
+      const res = await requestService.completeMatch(matchId)
       const { fully_completed } = res.data?.data ?? res.data ?? {}
       const now = new Date().toISOString()
       setHelping((prev) => prev.map((m) => m.id === matchId
@@ -236,14 +231,9 @@ export default function CommitmentsTab({ onDibsLoaded, communityId }: Commitment
   }
 
   const handleConfirmDone = async (matchId: string) => {
-    const userData = typeof window !== 'undefined' ? localStorage.getItem('user') : null
-    let currentUser = null
-    try { currentUser = userData ? JSON.parse(userData) : null } catch { currentUser = null }
-    if (!currentUser) return
-
     setMarkingDone(matchId)
     try {
-      const res = await requestService.completeMatch(matchId, currentUser.id)
+      const res = await requestService.completeMatch(matchId)
       const { fully_completed } = res.data?.data ?? res.data ?? {}
       const now = new Date().toISOString()
       setRequested((prev) => prev.map((m) => m.id === matchId
@@ -283,12 +273,7 @@ export default function CommitmentsTab({ onDibsLoaded, communityId }: Commitment
   const handleAccept = async (matchId: string, side: 'helping' | 'requested') => {
     setActioning(matchId)
     try {
-      const userData = typeof window !== 'undefined' ? localStorage.getItem('user') : null
-      let currentUser = null
-      try { currentUser = userData ? JSON.parse(userData) : null } catch { currentUser = null }
-      if (!currentUser) return
-
-      await requestService.acceptMatch(matchId, currentUser.id)
+      await requestService.acceptMatch(matchId)
 
       if (side === 'requested') {
         const acceptedMatch = requested.find((m) => m.id === matchId)
@@ -313,12 +298,7 @@ export default function CommitmentsTab({ onDibsLoaded, communityId }: Commitment
   const handleDecline = async (matchId: string, side: 'helping' | 'requested') => {
     setActioning(matchId)
     try {
-      const userData = typeof window !== 'undefined' ? localStorage.getItem('user') : null
-      let currentUser = null
-      try { currentUser = userData ? JSON.parse(userData) : null } catch { currentUser = null }
-      if (!currentUser) return
-
-      await requestService.rejectMatch(matchId, currentUser.id)
+      await requestService.rejectMatch(matchId)
 
       if (side === 'helping') {
         setHelping((prev) => prev.filter((m) => m.id !== matchId))

@@ -47,11 +47,11 @@ export const notificationTemplates: Record<NotificationType, NotificationTemplat
   match_created: {
     type: 'match_created',
     priority: 'high',
-    title: (data) => 'Someone Wants to Help!',
+    title: (data) => 'New Match for Your Request',
     body: (data) => `${data.responder_name} wants to help with "${data.request_title}"`,
     icon: 'handshake',
     ctaLabel: 'View Offer',
-    actionUrl: (data) => `/requests/${data.request_id}`,
+    actionUrl: (data) => `/dashboard`,
     channels: { in_app: true, push: true, email: false },
   },
 
@@ -68,7 +68,7 @@ export const notificationTemplates: Record<NotificationType, NotificationTemplat
 
   match_completed: {
     type: 'match_completed',
-    priority: 'high',
+    priority: 'medium',
     title: (data) => 'Match Completed — Leave a Rating',
     body: (data) => `Your match for "${data.request_title}" has been completed. Rate your experience!`,
     icon: 'star',
@@ -96,18 +96,18 @@ export const notificationTemplates: Record<NotificationType, NotificationTemplat
     icon: 'award',
     ctaLabel: 'View Karma',
     actionUrl: (data) => `/profile/karma`,
-    channels: { in_app: false, push: false, email: false }, // Disabled: vanity notification that doesn't drive interaction
+    channels: { in_app: true, push: false, email: false }, // In-app only: a quiet record of earned karma
   },
 
   karma_milestone: {
     type: 'karma_milestone',
-    priority: 'low',
+    priority: 'medium',
     title: (data) => 'Karma Milestone Reached!',
     body: (data) => `Congratulations! You've reached ${data.total_karma} total karma points`,
     icon: 'trophy',
     ctaLabel: 'View Karma',
     actionUrl: (data) => `/profile/karma`,
-    channels: { in_app: true, push: false, email: false }, // Downgraded: vanity, no push
+    channels: { in_app: true, push: true, email: false }, // Milestones are worth a push
   },
 
   new_request: {
@@ -213,7 +213,7 @@ export const notificationTemplates: Record<NotificationType, NotificationTemplat
     icon: 'star',
     ctaLabel: 'View Request',
     actionUrl: (data: any) => `/requests/${data.request_id}`,
-    channels: { in_app: true, push: false, email: false },
+    channels: { in_app: true, push: true, email: false }, // High-priority: time-sensitive pre-selection deserves push
   },
 
   provider_request_matched: {
@@ -224,7 +224,7 @@ export const notificationTemplates: Record<NotificationType, NotificationTemplat
     icon: 'briefcase',
     ctaLabel: 'View Request',
     actionUrl: (data) => `/requests/${data.request_id}`,
-    channels: { in_app: true, push: false, email: false },
+    channels: { in_app: true, push: true, email: false }, // High-priority: a fresh provider match deserves push
   },
 
   provider_review_received: {

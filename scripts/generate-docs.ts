@@ -504,6 +504,7 @@ const ADR_GROUPS: Array<{ label: string; slugs: string[] }> = [
       'adr-059-dependency-security-gate',
       'adr-060-code-scanning-gate',
       'adr-061-supply-chain-and-secrets-hardening',
+      'adr-064-authorize-from-authenticated-identity',
     ],
   },
 ];

@@ -94,6 +94,7 @@ When code implementing an ADR is deployed, update the status from `Accepted` →
 - [ADR-061: Supply-Chain & Secrets Hardening](ADR-061-supply-chain-and-secrets-hardening.md) — **Implemented**
 - [ADR-062: Community Identity & Idempotent Creation](ADR-062-community-identity-idempotent-creation.md) — **Implemented**
 - [ADR-063: Canonical Decayed Trust Metric & Unified Graph Visualization](ADR-063-canonical-trust-metric-and-unified-graph.md) — **Implemented**
+- [ADR-064: Authorize Mutations from Authenticated Identity, Not Client-Supplied IDs](ADR-064-authorize-from-authenticated-identity.md) — **Implemented**
 
 ## Creating a New ADR
 

@@ -487,6 +487,14 @@
       "status": "implemented",
       "description": "**Status**: Implemented",
       "filename": "ADR-063-canonical-trust-metric-and-unified-graph.md"
+    },
+    {
+      "slug": "adr-064-authorize-from-authenticated-identity",
+      "number": "064",
+      "title": "ADR-064: Authorize Mutations from Authenticated Identity, Not Client-Supplied IDs",
+      "status": "implemented",
+      "description": "**Status**: Implemented",
+      "filename": "ADR-064-authorize-from-authenticated-identity.md"
     }
   ]
 }
