@@ -579,8 +579,9 @@ export const requestService = {
   completeMatch: (id: string) =>
     requestApi.put(`/matches/${id}/complete`, {}),
 
-  cancelMatch: (id: string, user_id: string) =>
-    requestApi.delete(`/matches/${id}`, { data: { user_id } }),
+  // ADR-064: the server authorizes cancel from the JWT identity; no user_id sent.
+  cancelMatch: (id: string) =>
+    requestApi.delete(`/matches/${id}`),
 
   // Boost / Urgent / Propose Match (Sprint 36)
   boostRequest: (id: string, data: { community_id: string }) =>

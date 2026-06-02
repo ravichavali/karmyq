@@ -125,4 +125,35 @@ describe('Sprint 83: Match-action authorization derives identity from JWT, not b
     expect(res.body.data.fully_completed).toBe(false);
     expect(res.body.data.waiting_for).toBe('helper');
   });
+
+  // ─── cancel (DELETE) ─────────────────────────────────────────────────────────
+
+  it('cancel: forbids a third user even when they forge a participant id in the body → 403', async () => {
+    mockQuery.mockResolvedValueOnce({ rowCount: 1, rows: [MATCHED_MATCH] }); // matchCheck
+
+    const app = await buildMatchesApp('stranger-user');
+    const res = await request(app)
+      .delete('/matches/match-1')
+      .send({ user_id: 'requester-user' }); // forged body id MUST be ignored
+    expect(res.status).toBe(403);
+    expect(res.body.success).toBe(false);
+    // The forged body id must not have driven a cancellation
+    expect(mockPublishEvent).not.toHaveBeenCalled();
+  });
+
+  it('cancel: lets a legitimate participant identified by JWT cancel → 200', async () => {
+    mockQuery
+      .mockResolvedValueOnce({ rowCount: 1, rows: [MATCHED_MATCH] })        // matchCheck
+      .mockResolvedValueOnce({ rowCount: 1, rows: [] })                     // UPDATE status='cancelled'
+      .mockResolvedValueOnce({ rowCount: 1, rows: [] })                     // UPDATE help_requests status='open'
+      .mockResolvedValueOnce({ rowCount: 1, rows: [] });                    // UPDATE help_offers status='active'
+
+    const app = await buildMatchesApp('helper-user');
+    const res = await request(app)
+      .delete('/matches/match-1')
+      .send({}); // no user_id in body — identity is the JWT
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(mockPublishEvent).toHaveBeenCalledWith('match_cancelled', expect.objectContaining({ match_id: 'match-1' }));
+  });
 });

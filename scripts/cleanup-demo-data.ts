@@ -49,6 +49,22 @@ const SIM_USER_FILTER = "email LIKE '%@test.karmyq.com' AND email NOT LIKE '%@ka
 const TERMINAL_REQUEST_STATES = "('completed', 'cancelled', 'expired', 'closed')";
 const TERMINAL_OFFER_STATES = "('completed', 'cancelled', 'expired', 'withdrawn')";
 
+// PRESERVE REVIEWED EXCHANGES. `feedback.feedback.request_match_id` (NOT NULL) and
+// `governance.conflict_cases.related_request_match_id` both reference requests.matches
+// with NO cascade — deleting such a match (directly, or via a help_requests cascade)
+// would raise an FK violation and roll back the whole --apply transaction. So a match
+// referenced by feedback or a conflict case is "protected": we never delete it, and we
+// never delete a request that owns one. These rows represent real, reviewed exchanges
+// worth keeping in the demo anyway.
+const matchProtected = (m: string) => `(
+        EXISTS (SELECT 1 FROM feedback.feedback f WHERE f.request_match_id = ${m}.id)
+        OR EXISTS (SELECT 1 FROM governance.conflict_cases cc WHERE cc.related_request_match_id = ${m}.id)
+      )`;
+const requestHasProtectedMatch = (r: string) => `EXISTS (
+        SELECT 1 FROM requests.matches pm
+        WHERE pm.request_id = ${r}.id AND ${matchProtected('pm')}
+      )`;
+
 interface CleanupTarget {
   key: string;
   description: string;
@@ -65,31 +81,35 @@ interface CleanupTarget {
 const TARGETS: CleanupTarget[] = [
   {
     key: 'orphan_matches_missing_request',
-    description: 'Matches whose request_id no longer resolves to a help_requests row',
+    description: 'Matches whose request_id no longer resolves to a help_requests row (excludes reviewed)',
     selectSql: `
       SELECT m.id, m.request_id, m.responder_id, m.status, m.created_at
       FROM requests.matches m
       LEFT JOIN requests.help_requests r ON r.id = m.request_id
-      WHERE r.id IS NULL`,
+      WHERE r.id IS NULL
+        AND NOT ${matchProtected('m')}`,
     deleteSql: `
       DELETE FROM requests.matches m
       WHERE NOT EXISTS (
         SELECT 1 FROM requests.help_requests r WHERE r.id = m.request_id
-      )`,
+      )
+        AND NOT ${matchProtected('m')}`,
   },
   {
     key: 'orphan_matches_missing_responder',
-    description: 'Matches whose responder_id no longer resolves to an auth.users row',
+    description: 'Matches whose responder_id no longer resolves to an auth.users row (excludes reviewed)',
     selectSql: `
       SELECT m.id, m.request_id, m.responder_id, m.status, m.created_at
       FROM requests.matches m
       LEFT JOIN auth.users u ON u.id = m.responder_id
-      WHERE u.id IS NULL`,
+      WHERE u.id IS NULL
+        AND NOT ${matchProtected('m')}`,
     deleteSql: `
       DELETE FROM requests.matches m
       WHERE NOT EXISTS (
         SELECT 1 FROM auth.users u WHERE u.id = m.responder_id
-      )`,
+      )
+        AND NOT ${matchProtected('m')}`,
   },
   {
     key: 'orphan_offers_missing_offerer',
@@ -107,50 +127,56 @@ const TARGETS: CleanupTarget[] = [
   },
   {
     key: 'orphan_requests_missing_requester',
-    description: 'Help requests whose requester_id no longer resolves to an auth.users row',
+    description: 'Help requests whose requester_id no longer resolves to an auth.users row (excludes reviewed)',
     selectSql: `
       SELECT r.id, r.requester_id, r.title, r.status, r.created_at
       FROM requests.help_requests r
       LEFT JOIN auth.users u ON u.id = r.requester_id
-      WHERE u.id IS NULL`,
+      WHERE u.id IS NULL
+        AND NOT ${requestHasProtectedMatch('r')}`,
     deleteSql: `
       DELETE FROM requests.help_requests r
       WHERE NOT EXISTS (
         SELECT 1 FROM auth.users u WHERE u.id = r.requester_id
-      )`,
+      )
+        AND NOT ${requestHasProtectedMatch('r')}`,
   },
   {
     key: 'stale_terminal_requests',
-    description: `Requests in a terminal state, expired more than ${TTL_DAYS} days ago`,
+    description: `Requests in a terminal state, expired more than ${TTL_DAYS} days ago (excludes reviewed)`,
     selectSql: `
       SELECT r.id, r.requester_id, r.title, r.status, r.expires_at
       FROM requests.help_requests r
       WHERE (r.expired = TRUE OR r.status IN ${TERMINAL_REQUEST_STATES})
         AND r.expires_at IS NOT NULL
-        AND r.expires_at < NOW() - INTERVAL '${TTL_DAYS} days'`,
+        AND r.expires_at < NOW() - INTERVAL '${TTL_DAYS} days'
+        AND NOT ${requestHasProtectedMatch('r')}`,
     deleteSql: `
       DELETE FROM requests.help_requests r
       WHERE (r.expired = TRUE OR r.status IN ${TERMINAL_REQUEST_STATES})
         AND r.expires_at IS NOT NULL
-        AND r.expires_at < NOW() - INTERVAL '${TTL_DAYS} days'`,
+        AND r.expires_at < NOW() - INTERVAL '${TTL_DAYS} days'
+        AND NOT ${requestHasProtectedMatch('r')}`,
   },
   {
     key: 'stale_simulation_requests',
-    description: `Simulation-owned requests in a terminal state, created more than ${TTL_DAYS} days ago`,
+    description: `Simulation-owned requests in a terminal state, created more than ${TTL_DAYS} days ago (excludes reviewed)`,
     selectSql: `
       SELECT r.id, r.requester_id, r.title, r.status, r.created_at
       FROM requests.help_requests r
       JOIN auth.users u ON u.id = r.requester_id
       WHERE u.${SIM_USER_FILTER}
         AND r.status IN ${TERMINAL_REQUEST_STATES}
-        AND r.created_at < NOW() - INTERVAL '${TTL_DAYS} days'`,
+        AND r.created_at < NOW() - INTERVAL '${TTL_DAYS} days'
+        AND NOT ${requestHasProtectedMatch('r')}`,
     deleteSql: `
       DELETE FROM requests.help_requests r
       USING auth.users u
       WHERE u.id = r.requester_id
         AND u.${SIM_USER_FILTER}
         AND r.status IN ${TERMINAL_REQUEST_STATES}
-        AND r.created_at < NOW() - INTERVAL '${TTL_DAYS} days'`,
+        AND r.created_at < NOW() - INTERVAL '${TTL_DAYS} days'
+        AND NOT ${requestHasProtectedMatch('r')}`,
   },
   {
     key: 'stale_terminal_offers',

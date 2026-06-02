@@ -566,10 +566,11 @@ router.put('/:id/complete', async (req: AuthenticatedRequest, res: Response) => 
 });
 
 // DELETE /matches/:id - Cancel match
-router.delete('/:id', async (req: Request, res: Response) => {
+router.delete('/:id', async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { id } = req.params;
-    const { user_id } = req.body;
+    // ADR-064: authorize from the verified JWT identity, never `body.user_id`.
+    const user_id = req.user!.userId;
 
     // Get match details
     const matchCheck = await query(
