@@ -42,7 +42,8 @@ None
 ## Follow-ups / known issues
 
 <!-- Anything deferred, or "None". -->
+None
 
 ## Lane
 
-<!-- Who authored this PR: codex / claude / human -->
+<!-- Required — one of: codex | claude | human -->
