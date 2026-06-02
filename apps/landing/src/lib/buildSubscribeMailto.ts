@@ -1,12 +1,22 @@
-// Builds the "follow the build" subscribe mailto: href.
-// Extracted as a pure helper so the email — user-controlled input — is always
-// percent-encoded before it lands in the href, closing the DOM-XSS vector
-// CodeQL flagged on Movement.tsx (Sprint 76, ADR-060).
-export function buildSubscribeMailto(email: string): string {
-  const addr = email.trim();
-  const subject = encodeURIComponent('Karmyq updates');
+export type FoundingCircleMailtoFields = {
+  email: string;
+  lens: string;
+  contribution: string;
+  concern: string;
+};
+
+export function buildFoundingCircleMailto(fields: FoundingCircleMailtoFields): string {
+  const subject = encodeURIComponent('Founding circle interest');
   const body = encodeURIComponent(
-    `Please add me to the Karmyq updates list. My email: ${addr}`
+    [
+      'I am interested in the Karmyq founding circle.',
+      '',
+      `Email: ${fields.email.trim()}`,
+      `Lens: ${fields.lens.trim()}`,
+      `What I can contribute: ${fields.contribution.trim()}`,
+      `What I want to pressure-test: ${fields.concern.trim()}`,
+    ].join('\n')
   );
+
   return `mailto:contact@karmyq.org?subject=${subject}&body=${body}`;
 }

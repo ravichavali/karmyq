@@ -495,6 +495,14 @@
       "status": "implemented",
       "description": "**Status**: Implemented",
       "filename": "ADR-064-authorize-from-authenticated-identity.md"
+    },
+    {
+      "slug": "adr-065-karmyq-org-and-com-domain-roles",
+      "number": "065",
+      "title": "ADR-065: Karmyq.org and Karmyq.com Domain Roles",
+      "status": "implemented",
+      "description": "**Status**: Implemented",
+      "filename": "ADR-065-karmyq-org-and-com-domain-roles.md"
     }
   ]
 }
