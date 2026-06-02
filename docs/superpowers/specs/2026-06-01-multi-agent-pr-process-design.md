@@ -41,9 +41,12 @@ the repo and the PR.
 
 ### Operating model (roles)
 
-- **Admin (maintainer):** approves scope, merge, and deploy.
-- **Claude (orchestrator):** assigns scoped work, validates gates, owns the final merge
-  decision, and is the **only** agent allowed to mark a sprint complete.
+- **Admin (maintainer):** owns scope approval, **merge authority**, and deploy. The merge
+  decision and the authorization to deploy are the Admin's.
+- **Claude (orchestrator):** assigns scoped work, validates gates, and owns **merge-readiness
+  validation and the merge recommendation**. Claude may *execute* the merge only once the
+  Admin has authorized it (e.g. "pull it in"). Claude is the **only** agent allowed to mark a
+  sprint complete.
 - **Contributor agents (Codex / others):** implement scoped tasks only; open PRs; never
   self-merge; never resolve cross-agent conflicts independently.
 
@@ -93,10 +96,15 @@ gutted. It does **not** semantically validate content; that judgment stays with 
 The token has `admin: true`, so this is applied directly.
 
 - Require a pull request before merging (no direct pushes to `master`).
-- Require status checks to pass before merging, strict (up to date with base). Required set:
+- Require status checks to pass before merging, strict (up to date with base). Intended set:
   `pr-contract`, `Lint & Type Check`, `Test Frontend`,
   `Test Backend Services (Unit + Regression)`, `Code Scanning Gate (ADR-060)`,
-  `Security Audit`, `CodeQL`. **Not** `Deploy to Demo` (skipped on PRs).
+  `Security Audit`, and CodeQL analysis. **Not** `Deploy to Demo` (skipped on PRs).
+  **Validate exact context names before applying** — GitHub reports some checks under variant
+  contexts (e.g. CodeQL surfaces as `CodeQL` *and* `Analyze (javascript-typescript)` /
+  `Analyze (actions)`). Run `gh pr checks <a-live-PR>` and copy the exact check names into the
+  `gh api` protection call; a required check whose name doesn't match a reported context blocks
+  every merge forever.
 - Require **1 approving review**.
 - **Admin bypass allowed** (`enforce_admins: false`). Rationale: GitHub forbids a PR author
   approving their own PR; Codex cannot approve anything, so agent PRs naturally route through
@@ -126,8 +134,9 @@ Codifies the process so agents follow it closely:
   → open PRs. External humans fork + PR.
 - **Branch ownership:** one agent per branch; no pushing to another agent's branch; no direct
   commits to `master`.
-- **No self-merge:** agents never merge their own PRs; a human/Claude reviews and merges;
-  nothing merges red.
+- **No self-merge:** contributor agents never merge their own PRs. Claude validates
+  merge-readiness and recommends; the Admin authorizes; Claude (or the Admin) then executes the
+  merge. Nothing merges red.
 - **Templates are known (critical):** GitHub only auto-injects `pull_request_template.md` in
   the **web** create-PR UI. When opening a PR via `gh pr create` or the API (how agents work),
   the template is **not** applied automatically. Agents MUST populate the PR body *from*
@@ -143,6 +152,9 @@ Codifies the process so agents follow it closely:
   Claude re-scopes/rebases.
 - **Shared state lives in-repo** (`AGENTS.md` / `CONTEXT.md` / ADR / handoff / PR body), never
   in an agent-private memory store — this closes the "Codex can't see Claude's memory" gap.
+  Claude's persistent memory is **advisory only**: convenient for the maintainer's own
+  sessions, but any decision or process state that another agent must honor MUST be written to
+  repo docs, the handoff, an ADR, or the PR body. AGENTS.md states this explicitly.
 
 ### 6. Concurrency escalation playbook (documented, NOT activated now)
 Codex proposed two stronger concurrency-control mechanisms. They solve a problem that does
@@ -188,7 +200,9 @@ Until the trigger fires, the default is direct contributor-PR-to-`master` with r
 
 1. Land artifacts 1, 2, 4, 5 in one PR (artifact 6 is documentation that ships inside the
    `AGENTS.md` change in artifact 5). This PR will itself use the new template — dogfood.
-2. Apply branch protection (artifact 3) via `gh api` after the `pr-contract` check has run at
-   least once (so the check name is registerable as a required status).
+2. Apply branch protection (artifact 3) via `gh api` **after this PR's checks have run at least
+   once** — then run `gh pr checks <this-PR>` and copy the *exact* reported context names
+   (including the CodeQL/Analyze variants) into the protection call. Applying a required check
+   whose name doesn't match a real context blocks every future merge.
 3. Verify: open a throwaway PR with an empty body → `pr-contract` fails. Restore body → passes.
 4. Verify: a direct push to `master` is rejected.
