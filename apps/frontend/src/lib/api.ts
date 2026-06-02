@@ -568,14 +568,16 @@ export const requestService = {
   }) =>
     requestApi.post('/matches', data),
 
-  acceptMatch: (id: string, user_id: string, travel_time_minutes?: number) =>
-    requestApi.put(`/matches/${id}/accept`, { user_id, ...(travel_time_minutes !== undefined && { travel_time_minutes }) }),
+  // ADR-064: the server authorizes these actions from the JWT identity, so the
+  // client no longer sends a user_id. accept still sends scheduling input.
+  acceptMatch: (id: string, travel_time_minutes?: number) =>
+    requestApi.put(`/matches/${id}/accept`, { ...(travel_time_minutes !== undefined && { travel_time_minutes }) }),
 
-  rejectMatch: (id: string, user_id: string) =>
-    requestApi.put(`/matches/${id}/reject`, { user_id }),
+  rejectMatch: (id: string) =>
+    requestApi.put(`/matches/${id}/reject`, {}),
 
-  completeMatch: (id: string, user_id: string) =>
-    requestApi.put(`/matches/${id}/complete`, { user_id }),
+  completeMatch: (id: string) =>
+    requestApi.put(`/matches/${id}/complete`, {}),
 
   cancelMatch: (id: string, user_id: string) =>
     requestApi.delete(`/matches/${id}`, { data: { user_id } }),
@@ -829,8 +831,10 @@ export const socialGraphService = {
   getFullCommunityGraph: (communityId: string) =>
     socialGraphApi.get(`/trust/graph/${encodeURIComponent(communityId)}/full`),
 
-  getTrustGraphAggregate: (center?: string) =>
-    socialGraphApi.get(`/trust/graph${center ? `?center=${encodeURIComponent(center)}` : ''}`),
+  // Sprint 79 dropped click-to-recenter; the aggregate graph is always the
+  // calling user's own ego-network across their communities (no ?center=).
+  getTrustGraphAggregate: () =>
+    socialGraphApi.get(`/trust/graph`),
 
   // Inter-community depth graph: the caller's communities as nodes, with organic
   // and fission-lineage links. Callers read `res.data` (interceptor unwraps the envelope).

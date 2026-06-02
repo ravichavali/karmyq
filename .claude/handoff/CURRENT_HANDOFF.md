@@ -1,8 +1,31 @@
-# Sprint 83: Consolidation — 📋 READY TO EXECUTE (v10.8.0)
+# Sprint 83: Consolidation — ✅ IMPLEMENTED, PR open, awaiting Admin merge (v10.8.0)
 
-> **▶ NEXT SESSION = EXECUTE SPRINT 83.** Spec + plan are written and committed. Start by
-> checking out the branch and running `/execute-plan`. The Trust Graph arc (74→79) is closed;
-> Sprints 80–82 were standalone Codex follow-ups. This is a debt-paydown consolidation sprint.
+> **▶ STATUS:** All 4 items implemented on `feature/sprint-83-consolidation` with tests + docs.
+> Quality gates run (simplify/code-review/security-review clean; audit 0 vulns; feedback:check clean).
+> PR open against master — **awaiting Admin authorization to merge** ("pull it in"). On merge,
+> GitHub Actions deploys to demo; an **SSH step is required** to confirm the nginx reload picked up
+> the log-scrub, and to run `node scripts/cleanup-demo-data.ts` dry-run → `--apply` after review.
+
+## What shipped this sprint
+1. **Match-action auth hardening (ADR-064)** — accept/reject/complete authorize from `req.user.userId`,
+   never `body.user_id`; closes an IDOR (forged `complete` → karma award). Regression test locks it.
+   Frontend (`api.ts`, `CommitmentsTab`, `MyRequestsTab`) stops sending `user_id`.
+2. **SSE JWT log scrub** — nginx http-scope `map` masks `access_token` in the `/api/notifications`
+   access log; SSE auth test promoted `tdd/`→`regression/`. **Discovered + fixed:** notification-service
+   `jest.config.js` never included the regression tier — wiring it in un-dormanted `notificationTemplates.test.ts`
+   (52 tests). Per Admin decision, **fixed the templates to the test's documented design intent** (match_completed
+   `high`→`medium`, karma_milestone `low`/no-push → `medium`/push, karma_awarded in_app on, match_created title +
+   `/dashboard` URL, provider templates get push). Token TTL retained at 1h (documented).
+3. **Sprint-79 orphan graph code deleted** — `getTrustGraphAggregateForCenter` + `?center=` aggregate path
+   removed across db/service/route + frontend `getTrustGraphAggregate(center?)`; sprint-79 test trimmed.
+   `TrustGraph.tsx` dispatcher left in place (not a clean inline — 2 callers rely on its mode default).
+4. **`scripts/cleanup-demo-data.ts`** — dry-run by default, `--apply` to mutate; orphan detection via
+   `NOT EXISTS` against real FK targets; stale-terminal + sim-owned (`@test.karmyq.com`) targets; `--ttl-days` flag.
+
+## ⚠️ Known follow-up (logged in ADR-064)
+- `DELETE /matches/:id` (cancel) still reads `body.user_id` — same IDOR class, deferred (was outside scope).
+- `match_created` action URL changed `/requests/:id` → `/dashboard` to match test intent — revisit if the
+  per-request deep link is preferred UX.
 
 ---
 

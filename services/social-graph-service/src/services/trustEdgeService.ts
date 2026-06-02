@@ -4,7 +4,6 @@ import {
   upsertCommunityTrustEdge,
   getTrustGraph,
   getTrustGraphAggregate,
-  getTrustGraphAggregateForCenter,
   TrustNode,
   TrustLink,
 } from '../database/trustEdgeDb';
@@ -65,4 +64,4 @@ export async function getTrustGraphForCommunity(
   return getTrustGraph(communityId, callingUserId);
 }
 
-export { getTrustGraphAggregate, getTrustGraphAggregateForCenter };
+export { getTrustGraphAggregate };

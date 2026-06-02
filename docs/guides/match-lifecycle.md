@@ -72,3 +72,14 @@ Karma transfers only when **both parties confirm done**. This prevents either pa
 | Helper marked done | "Waiting for requester to confirm" |
 | Requester confirmed done | "Waiting for helper to confirm" |
 | Both confirmed | Exchange moves to Completed |
+
+---
+
+## Your Actions Are Tied to Your Identity
+
+Accepting, declining, withdrawing, and marking a match done are always tied to the
+account you're signed in as. Only the two people in a match — the requester and the
+helper — can act on it, and the platform decides who you are from your secure login
+session, not from anything your browser sends. There's nothing to configure; it's
+just how these actions are protected. (Behind the scenes this is enforced by
+ADR-064 — authorize from the authenticated identity, never a client-supplied id.)

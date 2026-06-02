@@ -220,7 +220,8 @@ describe('CommitmentsTab — I\'m Helping (proposed)', () => {
     fireEvent.click(screen.getByRole('button', { name: /withdraw offer/i }));
 
     await waitFor(() => {
-      expect(requestService.rejectMatch).toHaveBeenCalledWith('match-helping-1', 'user-me');
+      // ADR-064: identity comes from the JWT server-side, so no user_id arg is sent.
+      expect(requestService.rejectMatch).toHaveBeenCalledWith('match-helping-1');
     });
   });
 
@@ -264,7 +265,8 @@ describe('CommitmentsTab — I Asked For Help (proposed)', () => {
     fireEvent.click(screen.getByRole('button', { name: /^accept$/i }));
 
     await waitFor(() => {
-      expect(requestService.acceptMatch).toHaveBeenCalledWith('match-req-1', 'user-me');
+      // ADR-064: identity comes from the JWT server-side, so no user_id arg is sent.
+      expect(requestService.acceptMatch).toHaveBeenCalledWith('match-req-1');
     });
   });
 
@@ -276,7 +278,8 @@ describe('CommitmentsTab — I Asked For Help (proposed)', () => {
     fireEvent.click(screen.getByRole('button', { name: /^decline$/i }));
 
     await waitFor(() => {
-      expect(requestService.rejectMatch).toHaveBeenCalledWith('match-req-1', 'user-me');
+      // ADR-064: identity comes from the JWT server-side, so no user_id arg is sent.
+      expect(requestService.rejectMatch).toHaveBeenCalledWith('match-req-1');
     });
   });
 

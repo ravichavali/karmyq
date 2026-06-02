@@ -6,7 +6,6 @@ import { pool } from '../../src/config/database';
 import {
   getTrustGraph,
   getTrustGraphAggregate,
-  getTrustGraphAggregateForCenter,
   getCommunityDepthGraph,
 } from '../../src/database/trustEdgeDb';
 
@@ -61,19 +60,6 @@ describe('sprint-79 trust metric + community depth', () => {
       mockQuery.mockResolvedValueOnce(decayedNodeRows).mockResolvedValueOnce({ rows: [] });
 
       const result = await getTrustGraphAggregate('u1');
-
-      const nodeSql = nodeSqlOf();
-      expect(nodeSql).toMatch(/trust_edges_live/);
-      expect(nodeSql).toMatch(/current_weight/);
-      expect(nodeSql).not.toMatch(/raw_weight/);
-
-      expect(result.nodes[0].trust_score).toBe(2.5);
-    });
-
-    it('getTrustGraphAggregateForCenter aggregates the node trust_score from the decayed live view', async () => {
-      mockQuery.mockResolvedValueOnce(decayedNodeRows).mockResolvedValueOnce({ rows: [] });
-
-      const result = await getTrustGraphAggregateForCenter('u1', 'center-1');
 
       const nodeSql = nodeSqlOf();
       expect(nodeSql).toMatch(/trust_edges_live/);
