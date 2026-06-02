@@ -8,6 +8,13 @@ it plus the skill system, handoff, and memory so no agent starts blind.
 > **Why this exists:** Claude Code auto-loads `CLAUDE.md`; Codex auto-loads `AGENTS.md`.
 > This file makes both converge on the same context. **`CLAUDE.md` is the source of
 > truth** — when this file and `CLAUDE.md` ever disagree, `CLAUDE.md` wins.
+>
+> **This file is a one-way bridge:** it adapts non-Claude agents *into* the canonical
+> **Sprint Session Bootstrap** defined in [`CLAUDE.md`](CLAUDE.md) ("🚀 Starting a New
+> Conversation?") — including the *one-chat-per-sprint* cadence. It does **not** define a
+> separate process. The STEP 1–4 sequence below is how a non-Claude agent *executes* that
+> canonical bootstrap (with the tool-name mapping Claude doesn't need); the rule itself lives in
+> `CLAUDE.md`. Claude reaches the bootstrap by auto-loading `CLAUDE.md` and need not read this file.
 
 ---
 
@@ -148,6 +155,9 @@ concurrently**:
 
 ---
 
-**At session start, confirm you have loaded `CLAUDE.md`, the current handoff, and `MEMORY.md`,
-then summarize: what the last session left, current blockers, and what you recommend tackling
-first. Do not start coding until then.**
+**At session start, execute the canonical Sprint Session Bootstrap from
+[`CLAUDE.md`](CLAUDE.md) → "🚀 Starting a New Conversation?":** confirm you have loaded
+`CLAUDE.md`, the current handoff, and `MEMORY.md`, then summarize what the last session left,
+current blockers, and what you recommend tackling first. Do not start coding until then. (A new
+sprint warrants a fresh chat; same-PR follow-ups stay in the current one — see the cadence table
+in `CLAUDE.md`.)
