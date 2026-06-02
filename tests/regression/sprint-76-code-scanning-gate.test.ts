@@ -48,6 +48,6 @@ describe('Sprint 76 — code-scanning gate + supply-chain hardening invariants',
     expect(read('apps/landing/src/lib/buildSubscribeMailto.ts')).toMatch(/encodeURIComponent/);
     expect(read('apps/frontend/src/lib/socialGraphUrls.ts')).toMatch(/encodeURIComponent/);
     // Movement.tsx must route through the encoding helper, not build the href inline
-    expect(read('apps/landing/src/components/sections/Movement.tsx')).toMatch(/buildSubscribeMailto/);
+    expect(read('apps/landing/src/components/sections/Movement.tsx')).toMatch(/buildFoundingCircleMailto/);
   });
 });

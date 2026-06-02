@@ -228,6 +228,10 @@
           "href": "/docs/concepts/adr-013-monorepo-turborepo"
         },
         {
+          "label": "Karmyq.org and Karmyq.com Domain Roles",
+          "href": "/docs/concepts/adr-065-karmyq-org-and-com-domain-roles"
+        },
+        {
           "label": "Multi-Tenant Row-Level Security (RLS) Database Design",
           "href": "/docs/concepts/adr-003-multi-tenant-rls"
         },

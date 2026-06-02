@@ -4,11 +4,11 @@ import AnimateOnScroll from '../AnimateOnScroll';
 
 const AUDIENCES = [
   {
-    title: 'For community organizers',
+    title: 'For specialists',
     description:
-      'Configure request types, set governance rules, grow your community organically. The first communities will shape everything that comes after.',
-    cta: 'Start a community',
-    href: 'https://karmyq.com',
+      'Bring lived expertise from care, local services, education, facilitation, therapy, public health, design, or civic systems. Help define what trust needs before the platform scales.',
+    cta: 'Join the circle',
+    href: '#founding-circle',
     headerClass: 'bg-karmyq-green-600',
     btnClass: 'bg-karmyq-green-600 hover:bg-karmyq-green-700',
     icon: (
@@ -21,9 +21,9 @@ const AUDIENCES = [
     ),
   },
   {
-    title: 'For developers',
+    title: 'For builders',
     description:
-      'Karmyq is open source. Contribute to the platform, build integrations, or fork it for your context. The governance service is intentionally minimal — great territory for contributors.',
+      'Karmyq is open source. Help turn the proof-of-concept into durable commons infrastructure: safer flows, clearer docs, better governance, and fewer sharp edges for communities.',
     cta: 'View on GitHub',
     href: 'https://github.com/ravichavali/karmyq',
     headerClass: 'bg-karmyq-brown-700',
@@ -38,11 +38,11 @@ const AUDIENCES = [
     ),
   },
   {
-    title: 'For researchers',
+    title: 'For organizers',
     description:
-      'Help build the evidence base for community infrastructure. Publish findings. Hold us accountable to the research. The platform is designed to be a living laboratory for the questions Ostrom, Dunbar, and Henrich spent careers asking.',
-    cta: 'Read the research',
-    href: '#deeper-research',
+      'Pressure-test whether this can serve real groups: mutual aid circles, neighborhood associations, cohousing communities, school networks, and local experiments in cooperation.',
+    cta: 'Start the conversation',
+    href: '#founding-circle',
     headerClass: 'bg-karmyq-teal-600',
     btnClass: 'bg-karmyq-teal-600 hover:bg-karmyq-teal-700',
     icon: (
@@ -61,13 +61,13 @@ export default function CTAs() {
         <AnimateOnScroll>
           <div className="text-center mb-16">
             <p className="text-karmyq-green-600 font-medium text-xs tracking-widest uppercase mb-4">
-              Get involved
+              Choose your lane
             </p>
             <h2 className="heading-2 text-karmyq-brown-900 mb-4">
-              There&apos;s a place for you here.
+              The founding circle needs more than software.
             </h2>
             <p className="body-large max-w-2xl mx-auto">
-              Whether you&apos;re organizing a neighborhood, contributing code, or studying community dynamics — we&apos;re building this in the open and want the right people shaping it.
+              The first launch is a conversation among people who can make the idea sharper, safer, and more useful before a broader public push.
             </p>
           </div>
         </AnimateOnScroll>

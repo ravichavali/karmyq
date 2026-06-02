@@ -4,10 +4,9 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 
 const NAV_LINKS = [
-  { label: 'Story', href: '#story' },
-  { label: 'Thinking', href: '#thinking' },
-  { label: 'How it works', href: '#product' },
-  { label: 'Go deeper', href: '#deeper' },
+  { label: 'Invitation', href: '#invitation' },
+  { label: 'Why now', href: '#thinking' },
+  { label: 'Founding circle', href: '#founding-circle' },
   { label: 'Docs', href: '/docs' },
 ];
 
@@ -31,7 +30,7 @@ export default function Header() {
     >
       <nav className="max-w-6xl mx-auto px-6 md:px-12 flex items-center justify-between h-16 md:h-20">
         {/* Logo */}
-        <a href="#story" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
+        <a href="#invitation" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
           <img src="/brand/karmyq-mark-1level.svg" width={28} height={28} alt="" />
           <span className="font-serif text-2xl font-semibold tracking-tight text-karmyq-green-700">Karmyq</span>
         </a>
@@ -48,10 +47,10 @@ export default function Header() {
             </a>
           ))}
           <a
-            href="https://karmyq.com"
+            href="#founding-circle"
             className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-karmyq-green-600 text-white text-sm font-medium hover:bg-karmyq-green-700 transition-colors"
           >
-            Find your neighbors
+            Join the circle
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
             </svg>
@@ -95,10 +94,11 @@ export default function Header() {
                 </a>
               ))}
               <a
-                href="https://karmyq.com"
+                href="#founding-circle"
                 className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-full bg-karmyq-green-600 text-white text-base font-medium mt-2"
+                onClick={() => setMenuOpen(false)}
               >
-                Find your neighbors
+                Join the circle
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
                 </svg>

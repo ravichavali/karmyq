@@ -2,14 +2,14 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Karmyq — Meaning-making, not accounting',
+  title: 'Karmyq — Join the founding circle',
   description:
-    'Karmyq is open-source infrastructure for neighborhoods, mutual aid groups, and local communities to coordinate help, share skills, and build trust — without surveillance, ads, or platform extraction.',
+    'A founding-circle invitation for specialists, organizers, builders, and researchers shaping open-source infrastructure for local trust.',
   icons: { icon: '/favicon.svg' },
   openGraph: {
-    title: 'Karmyq — Meaning-making, not accounting',
+    title: 'Karmyq — Join the founding circle',
     description:
-      'Karmyq is open-source infrastructure for neighborhoods, mutual aid groups, and local communities to coordinate help, share skills, and build trust — without surveillance, ads, or platform extraction.',
+      'A founding-circle invitation for specialists, organizers, builders, and researchers shaping open-source infrastructure for local trust.',
     url: 'https://karmyq.org',
     siteName: 'Karmyq',
     type: 'website',
