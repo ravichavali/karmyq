@@ -78,6 +78,74 @@ to your own (`Read`→your read tool, `Bash`→your shell, `TodoWrite`→`update
 - **Host is Windows / PowerShell.** Use PowerShell syntax (`$null`, `$env:VAR`).
 - **End of session: UPDATE the handoff** before stopping.
 
+## Lanes & Merge Authority
+
+This repo runs an **enforced multi-agent PR process**. The PR is the contract between
+agents; shared state lives in the repo, never in an agent-private memory store.
+
+### Roles
+- **Admin (maintainer):** owns scope approval, **merge authority**, and deploy. The merge
+  decision and deploy authorization are the Admin's.
+- **Claude (orchestrator):** assigns scoped work, validates gates, owns **merge-readiness
+  validation and the merge recommendation**, and may *execute* a merge only once the Admin has
+  authorized it (e.g. "pull it in"). Claude is the **only** agent that marks a sprint complete.
+- **Contributor agents (Codex / others):** implement scoped tasks only; open PRs; never
+  self-merge; never resolve cross-agent conflicts independently.
+
+### Branch ownership (non-overlap)
+- One agent per branch. No agent pushes to another agent's branch. No direct commits to `master`.
+- Agent lane: `agent/<agent-name>/<slug>` (e.g. `agent/codex/dashboard-retry`).
+- Human lanes: `feature/`, `fix/`, `docs/`, `refactor/`, `chore/`.
+
+> **Enforcement reality (read this):** `master` branch protection enforces by **authenticated
+> GitHub identity, not by folder, agent, or commit author.** Because protection is set with
+> `enforce_admins: false` (so the solo maintainer isn't locked out of their own PRs), any push
+> using the maintainer's **admin** credentials **bypasses** the rules — and on the maintainer's
+> machine, *every* agent (Claude, Codex, …) shares those same `gh`/git credentials. So for
+> same-machine agents, "no direct commits to `master`" is a **convention enforced by this
+> document, not a hard gate** — GitHub will let an admin-credentialed push through (it did once,
+> on purpose, leaving an empty marker commit on `master`). The gate is only *hard* for non-admin
+> identities (a write-only bot account/PAT, or external fork contributors). To hard-enforce it
+> for agents, give them a non-admin identity; flipping `enforce_admins: true` would also bind the
+> maintainer and remove self-merge. Until then: **agents MUST honor the branch/PR rules by
+> discipline.**
+
+### The PR contract — templates are known
+- Every task = one branch = one PR carrying the contract in [`.github/pull_request_template.md`](.github/pull_request_template.md).
+- **GitHub only auto-injects the template in the web "create PR" UI.** When you open a PR with
+  `gh pr create` or the API, the template is **NOT** applied — you MUST copy
+  `.github/pull_request_template.md` into your `--body` and fill every section. The
+  `pr-contract` CI check fails the PR if the required headers are missing.
+- Issue templates live under [`.github/ISSUE_TEMPLATE/`](.github/ISSUE_TEMPLATE/).
+- **Out-of-band actions** (e.g. dismissing a CodeQL/audit alert) MUST be recorded in the PR
+  body's "Security dismissals" section with a justification + link.
+- **No merge without all gates green:** `tsc --noEmit`, unit/regression tests, docs updates,
+  `/code-review`, `/security-review`, and the required status checks.
+
+### Handoff vs PR body (no duplication)
+- The **PR body** carries per-task detail (what changed, files, tests, risks).
+- **`CURRENT_HANDOFF.md`** carries rolling cross-session state + the active branch/ownership.
+- Do not copy the full PR contract into the handoff — they drift.
+
+### Shared state lives in-repo
+- Claude's persistent memory is **advisory only** (maintainer-local convenience). Any decision
+  or process state another agent must honor MUST be written to repo docs, `CURRENT_HANDOFF.md`,
+  an ADR, or the PR body.
+
+### Conflict policy
+- If two agents need the same file area, the second agent **pauses and requests reassignment**.
+  Claude re-scopes/rebases; contributor agents do not resolve cross-agent conflicts themselves.
+
+### Concurrency escalation (documented, NOT active)
+While work is **serial** (one agent at a time) the default is direct contributor-PR-to-`master`
+with required review. Activate the following ONLY when **2+ agents work the same sprint
+concurrently**:
+- **File-ownership manifest per task:** orchestrator posts a per-task file-ownership list in the
+  PR/handoff; contributors edit only listed files; new files need a lock-update request first.
+- **PR layering:** contributor PRs target a Claude-maintained integration branch; Claude owns
+  the final integration PR to `master`. The integration branch needs its own branch protection
+  (else it becomes a second unprotected mainline).
+
 ---
 
 **At session start, confirm you have loaded `CLAUDE.md`, the current handoff, and `MEMORY.md`,

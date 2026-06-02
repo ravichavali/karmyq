@@ -1,121 +1,52 @@
 # Contributing to Karmyq
 
-Thank you for your interest in contributing to Karmyq! This document provides guidelines and instructions for contributing.
+Karmyq uses an **enforced multi-agent PR process**. AI agents (Claude, Codex) and the
+maintainer work on branches in this repo; external contributors fork. Either way, the PR is
+the contract and nothing merges to `master` without review + green checks.
 
-## 🚀 Quick Start
+**Canonical process:** [`AGENTS.md`](AGENTS.md) (entry point for every contributor, human or
+agent). **Source of truth for rules:** [`CLAUDE.md`](CLAUDE.md). If the two disagree,
+`CLAUDE.md` wins.
 
-1. **Fork the repository**
-2. **Clone your fork**
-   ```bash
-   git clone https://github.com/YOUR-USERNAME/karmyq.git
-   cd karmyq
-   ```
-
-3. **Install dependencies and start**
-   ```bash
-   ./scripts/dev/start.sh
-   ```
-
-4. **Make your changes**
-5. **Submit a pull request**
-
-## 📋 Development Workflow
-
-See [docs/development/workflow.md](docs/development/workflow.md) for detailed workflow information.
-
-### Branch Naming
-
-- `feature/` - New features
-- `fix/` - Bug fixes
-- `docs/` - Documentation changes
-- `refactor/` - Code refactoring
-
-Example: `feature/add-skill-endorsements`
-
-### Commit Messages
-
-Follow conventional commits:
-
-```
-feat: add skill endorsement system
-fix: resolve karma calculation bug
-docs: update API documentation
-refactor: simplify matching algorithm
-```
-
-## 🧪 Testing
-
-All new code should include tests:
+## Quick start
 
 ```bash
-# Run all tests
-npm test
-
-# Run tests for specific service
-cd services/auth-service
-npm test
+git clone https://github.com/ravichavali/karmyq.git
+cd karmyq
+npm install
+npm run hooks:install   # wire up git hooks (not auto-installed; see CLAUDE.md)
 ```
 
-## 📚 Documentation
+External contributors: fork first, then clone your fork.
 
-- Update relevant documentation in `docs/`
-- Add API documentation for new endpoints
-- Include code comments for complex logic
+## Workflow
 
-## 🎨 Code Style
+1. Branch off `master`. Naming:
+   - Humans: `feature/`, `fix/`, `docs/`, `refactor/`, `chore/`
+   - Agents: `agent/<agent-name>/<slug>` (e.g. `agent/codex/dashboard-retry`)
+2. Make scoped changes. One agent per branch; no direct commits to `master`.
+3. Follow the **Pre-Merge Checklist** in [`CLAUDE.md`](CLAUDE.md): tests, docs feedback loop,
+   `/simplify`, `/code-review`, `/security-review`.
+4. Open a PR. The PR body MUST follow
+   [`.github/pull_request_template.md`](.github/pull_request_template.md) — agents using
+   `gh pr create`/API must copy it into `--body` (GitHub only auto-injects it in the web UI).
+   The `pr-contract` check fails the PR if required sections are missing.
+5. A reviewer (maintainer/Claude) verifies the contract and merges. Contributor agents never
+   self-merge.
 
-- We use ESLint and Prettier
-- Run linting before committing: `npm run lint`
-- Format code: `npm run format`
+## Tests
 
-## 🔍 Pull Request Process
+`master` requires unit + regression green. See the Testing section in [`CLAUDE.md`](CLAUDE.md).
 
-1. Update documentation as needed
-2. Add tests for new functionality
-3. Ensure all tests pass
-4. Update CHANGELOG.md if applicable
-5. Request review from maintainers
+```bash
+npm test            # unit + regression (must pass)
+npm run test:tdd    # WIP tests (informational)
+```
 
-### PR Checklist
+## Reporting bugs / suggesting features
 
-- [ ] Code follows style guidelines
-- [ ] Tests added/updated
-- [ ] Documentation updated
-- [ ] All tests passing
-- [ ] No merge conflicts
+Use the GitHub issue templates in [`.github/ISSUE_TEMPLATE/`](.github/ISSUE_TEMPLATE/).
 
-## 🐛 Reporting Bugs
+## License
 
-Use GitHub Issues with the bug report template:
-
-- Clear description of the bug
-- Steps to reproduce
-- Expected vs actual behavior
-- Screenshots if applicable
-- Environment details (OS, Docker version, etc.)
-
-## 💡 Suggesting Features
-
-Use GitHub Issues with the feature request template:
-
-- Clear description of the feature
-- Use case and benefits
-- Possible implementation approach
-- Mockups/diagrams if applicable
-
-## 📖 Additional Resources
-
-- [Full Documentation](docs/README.md)
-- [Architecture Overview](docs/architecture/overview.md)
-- [Creating a Service](docs/development/creating-a-service.md)
-- [API Documentation](docs/api/)
-
-## ❓ Questions?
-
-- Open a GitHub Discussion
-- Check existing documentation
-- Ask in pull request comments
-
-## 📄 License
-
-By contributing, you agree that your contributions will be licensed under the MIT License.
+By contributing, you agree your contributions are licensed under the MIT License.
