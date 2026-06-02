@@ -9,15 +9,46 @@
 
 ---
 
-## 🚀 Starting a New Conversation?
+## 🚀 Starting a New Conversation? (Sprint Session Bootstrap)
 
-**CHECK FOR HANDOFF FIRST!**
+**This is the canonical session-start protocol for every agent.** [`AGENTS.md`](AGENTS.md)
+adapts non-Claude agents (Codex, others) *into* this protocol — it does not define a separate
+one. Claude Code auto-loads this file directly; non-Claude agents reach it via `AGENTS.md`.
+The reference is one-way: `AGENTS.md` bridges into `CLAUDE.md`; Claude does **not** need to read
+`AGENTS.md` for process rules (it's the cross-agent adapter, not a second rulebook).
 
-Before starting work, check if there's an active handoff document:
+### One chat per sprint (the cadence)
 
-```bash
-cat .claude/handoff/CURRENT_HANDOFF.md
-```
+Run a fresh conversation per sprint so each chat is a bounded execution window instead of an
+ever-growing context pile. Rule of thumb:
+
+| Situation | Action |
+|-----------|--------|
+| New sprint, or a new architectural direction | **New chat** |
+| Same PR's polish / review follow-up cycle | **Same chat** (continuing is more efficient) |
+| Major context confusion or model drift | **New chat** |
+| 2+ agents working the same sprint concurrently | **One chat per agent branch**; Claude orchestrates through handoff/PR state |
+
+Sprint planning produces the spec + plan + handoff (via the `sprint-planning` skill) in one
+chat; the **next** chat executes from the handoff. Don't open a new chat for every small PR
+comment.
+
+### Bootstrap — do this BEFORE any work, in order
+
+1. **This file (`CLAUDE.md`)** — global rules; they OVERRIDE your defaults.
+2. **[`.claude/handoff/CURRENT_HANDOFF.md`](.claude/handoff/CURRENT_HANDOFF.md)** — the ONLY doc
+   that carries state between sessions. **CHECK FOR HANDOFF FIRST**: `cat .claude/handoff/CURRENT_HANDOFF.md`.
+   If one exists, follow its Quick Start.
+3. **Persistent memory** — the `MEMORY.md` index plus any memory file matching the task
+   (advisory only; verify any file/flag/function it names still exists before relying on it).
+4. **[`services/registry.json`](services/registry.json)** — services, ports, endpoints, events.
+5. **Local context** for the area you'll touch — `services/<name>/.claude/README.md` (+ `CONTEXT.md`),
+   `apps/frontend/.claude/README.md`, etc.
+
+**Then summarize before coding:** state the active sprint, branch, blockers, and your
+recommended first action. **Do not start implementation until that summary is complete.**
+
+### Handoffs
 
 **What is a handoff?**
 - A detailed implementation plan left by the previous conversation
