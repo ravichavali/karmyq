@@ -1,0 +1,37 @@
+name: PR Contract
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  pull-requests: read
+  contents: read
+
+jobs:
+  pr-contract:
+    name: pr-contract
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify PR body satisfies the contract
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const author = pr.user.login;
+            if (author === 'dependabot[bot]') {
+              core.info('Dependabot PR — contract check not required. Passing.');
+              return;
+            }
+            const body = (pr.body || '').trim();
+            if (body.length === 0) {
+              core.setFailed('PR body is empty. Copy .github/pull_request_template.md into the PR description and fill it in.');
+              return;
+            }
+            const required = ['## Summary', '## Validation', '## Quality gates', '## Security dismissals'];
+            const missing = required.filter((h) => !body.includes(h));
+            if (missing.length > 0) {
+              core.setFailed(`PR body is missing required section(s): ${missing.join(', ')}. Populate from .github/pull_request_template.md.`);
+              return;
+            }
+            core.info('PR contract sections present.');
