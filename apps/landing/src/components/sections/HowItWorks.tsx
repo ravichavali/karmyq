@@ -70,20 +70,16 @@ export default function HowItWorks() {
         <AnimateOnScroll delay={0.1}>
           <div className="space-y-5 body-large mb-12">
             <p>
-              Trust scores combine five signals: the volume of recent interactions, the quality of feedback
-              received, the depth of relationships with repeat partners, the breadth of connections across
-              different people, and milestone recognition as trust accumulates.
+              Trust isn&apos;t a score. It&apos;s a pattern — how you show up, how reliably, with whom,
+              how broadly. The platform reads the pattern. No one sees a number.
             </p>
             <p>
-              <strong>Trust paths.</strong>{' '}
-              The platform can show you how you&apos;re connected to any other member — through shared exchanges,
-              communities, or invitations — up to four degrees of separation. Not as a number. As a map of
-              actual human connection.
+              Trust paths show you how you&apos;re connected to a stranger. Through whom, in how many
+              steps. Not a number. A map of actual human connection.
             </p>
             <p>
-              <strong>Cross-community trust.</strong>{' '}
-              When you join a new community where no one knows you yet, a portion of the trust you&apos;ve built
-              elsewhere travels with you. You don&apos;t start from zero. You start from something.
+              Cross-community trust travels with you. When you join somewhere new, a portion of what
+              you&apos;ve built elsewhere doesn&apos;t disappear. You don&apos;t start from zero.
             </p>
           </div>
         </AnimateOnScroll>

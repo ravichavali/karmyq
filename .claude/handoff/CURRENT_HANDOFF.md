@@ -1,71 +1,59 @@
-# LinkedIn Launch Relaunch — ✅ IMPLEMENTED on Codex branch, awaiting PR review
+# karmyq.org Content Voice Pass — reconciled from v3 brief — ✅ IMPLEMENTED
 
-> **▶ STATUS:** Sprint 83 merge verified on `origin/master`; local `master` fast-forwarded to `f34eb2e`.
-> Codex branched from fresh master as `agent/codex/linkedin-launch-relaunch` and implemented the
-> accepted karmyq.org LinkedIn Launch Relaunch scope. Claude should review the PR; agents must not
-> self-merge.
+> **▶ STATUS (2026-06-03):** Sprint 83 "LinkedIn Launch Relaunch" is **fully merged** (PR #51,
+> `0e42b61`) on `origin/master`. A new content brief (`karmyq-org-v3.html` + handover) arrived
+> proposing a manifesto-first rewrite. **Reviewed and reconciled:** the brief was written against a
+> pre–Sprint-83 (deploy-drifted) snapshot. Decision = **keep Sprint 83 founding-circle positioning;
+> cherry-pick only the non-conflicting content fixes.** Codex implemented the four remaining
+> manifesto-body copy edits on `agent/codex/content-voice-pass` (PR #52); Claude review/merge is next.
 
-## What shipped this sprint
-1. **Homepage relaunch copy** — `apps/landing` now leads with a LinkedIn-launch founding-circle invitation
-   instead of the manifesto-first "find your neighbors" funnel.
-2. **CTA consolidation** — Header, hero, Movement, and CTA cards point at `#founding-circle`; `karmyq.com`
-   is secondary "Try the PoC" positioning.
-3. **Founding-circle mailto** — `buildFoundingCircleMailto()` encodes email/lens/contribution/concern;
-   `contact@karmyq.org` remains visible and copyable as fallback.
-4. **ADR-065** — documents domain roles: `karmyq.org` = commons/invitation/docs, `karmyq.com` = working PoC.
-5. **Landing docs generated** — ADR-065 JSON exists under `apps/landing/src/data/docs/concepts/` and
-   aggregate docs JSON reflects ADR count 63.
-6. **PR #51 review fixes** — added ADR-065 to the `generate-docs.ts` ADR nav source so `nav.json`
-   persists after regeneration, removed the old production-dead `buildSubscribeMailto()` helper, updated
-   Sprint 76 encoding/code-scanning tests to lock the new founding-circle helper, and marked ADR-065
-   Implemented.
+## The decision (do not re-debate)
+- The v3 brief restores manifesto-first positioning ("Find your neighbors" → karmyq.com primary).
+  That **reverses Sprint 83 / ADR-065** (karmyq.org = commons/invitation; karmyq.com = secondary PoC).
+- **Chosen: "stale — reconcile first."** Sprint 83 positioning + `contact@karmyq.org` stay. ADR-065 is
+  untouched (no pivot). Only additive voice/accuracy fixes that don't touch the conversion funnel land.
 
-## Validation run
-- ✅ `npm test -- --runInBand` from `apps/landing` — 2 suites, 22 tests passed.
-- ✅ `npm run build` from `apps/landing` — passed; existing `Header.tsx` `<img>` lint warning remains.
-- ✅ `npm run feedback:check` from root — passed, but reported no staged changes.
-- ✅ `npx turbo run test -- --passWithNoTests` from root — 27 tasks successful.
-- ✅ Review-fix targeted tests:
-  `npx jest tests/unit/frontend/sprint-76-encoding.test.ts --runInBand`;
-  `npm run test:regression -- --runInBand sprint-76-code-scanning-gate.test.ts` from `tests`;
-  `npm test -- --runInBand` from `apps/landing`; `npm run build` from `apps/landing`.
-- ⚠️ `npx tsc --noEmit` from root — exits with TypeScript help because root has no tsconfig project.
-- ⚠️ `npm run test:unit` from root — Turbo reports missing `test:unit` task.
-- ⚠️ Plain `npm test -- --passWithNoTests` from root forwards args incorrectly to Turbo; use
-  `npx turbo run test -- --passWithNoTests` instead.
+## Reconciled scope — per-fix verdict
+| Fix | State on master | Verdict |
+|---|---|---|
+| 1 — "Trust has been taken" surveillance correction | ✅ done (`TheThinking.tsx` §7) | skip |
+| 2 — Governance/fission/fusion voice | ✅ done (`HowItWorks.tsx`; trust→daughters, karma+trust→fusion correct) | skip |
+| 3 — Trust-evolution paragraph | ✅ done (`DeeperSections.tsx`, "accuracy over direction") | skip |
+| 4 — Footer cleanup | ✅ done (`Footer.tsx`, no placeholder links) | skip |
+| 5 — Links/CTA/email | ⚠️ footer + `contact@karmyq.org` already correct; "Find your neighbors primary" + gmail **conflict** | **drop conflicting parts** |
+| 6 — Principles copy | ✅ done (`Principles.tsx` matches v3 verbatim) | skip |
+| 7 — Timeline names | ✅ done (`FadingTimeline.tsx`, Priya/Maria/Aisha…) | skip |
+| **8 — "How trust is measured" → compressed** | ✅ implemented (`HowItWorks.tsx`) | PR review |
+| **9 — "Who gets believed" → banality of goodness** | ✅ implemented (`TheThinking.tsx`) | PR review |
+| **10 — "Trust when you can afford to" → sharper** | ✅ implemented (`TheThinking.tsx`) | PR review |
+| **11 — Three Layer-2 tightening cuts** | ✅ implemented (`TheThinking.tsx`) | PR review |
 
-## Preflight live-site sync
-- `karmyq.org` was checked before implementation and is still out of sync with fresh `master` content.
-- This appears to be deploy/live-site drift, not a branch issue. Do not judge the relaunch by current live
-  content until deploy status is confirmed after PR merge.
+## Sprint Goal
+Land the four remaining manifesto-body copy edits (Fixes 8, 9, 10, 11) in their exact brief wording,
+without touching the Sprint 83 founding-circle funnel (Header/Hero/Movement/CTAs/Footer) or ADR-065.
+This is now implemented; the next step is Claude PR review and Admin merge authorization.
 
 ---
 
 ## Quick Start
+1. Review PR #52 / branch `agent/codex/content-voice-pass`.
+2. Confirm scope stayed copy-only in:
+   - `apps/landing/src/components/sections/TheThinking.tsx`
+   - `apps/landing/src/components/sections/HowItWorks.tsx`
+3. Confirm guardrails stayed intact: no Header/Hero/Movement/CTAs/Footer/nav changes, no ADR-065/docs-JSON/nav regen, no Gmail/unencoded mailto.
+4. Validation completed by Codex:
+   - `apps/landing`: `npm test -- --runInBand` ✅ 2 suites / 22 tests passed
+   - `apps/landing`: `npm run build` ✅ passed; existing `Header.tsx` `<img>` lint warning only
+   - repo root: `npm run feedback:check` ✅ passed ("No staged changes detected")
+5. Run `/simplify`, `/code-review`, and `/security-review` on the final diff; Admin merges after Claude recommendation.
 
-1. Read this handoff
-2. Check out branch: `git switch agent/codex/linkedin-launch-relaunch`
-3. Review diff, especially `apps/landing/src/lib/buildSubscribeMailto.ts` and
-   `apps/landing/tests/regression/founding-circle-mailto.test.ts`
-4. Force-add ignored landing docs before commit/PR:
-   `git add -f apps/landing/src/data/docs/concepts/adr-065-karmyq-org-and-com-domain-roles.json`
-5. Open PR with `.github/pull_request_template.md` body; Claude reviews, Admin merges
-
----
-
-## Sprint Goal
-
-Refocus `karmyq.org` from manifesto-first into a LinkedIn-launch invitation for specialists to join the
-founding circle, while documenting the `.org`/`.com` role split and preserving mailto safety.
-
----
-
-## Review checklist
-- Confirm the homepage tone matches the accepted LinkedIn launch plan.
-- Confirm every user-provided mailto field is encoded and covered by exact-output regression.
-- Confirm `contact@karmyq.org` is visible/copyable, not only hidden behind protocol handling.
-- ADR-065 nav/source/status review items are fixed; Claude should re-check the updated PR diff.
-- Confirm ignored generated docs are included in the PR with forced add.
+## Guardrails (do NOT do)
+- ❌ Do **not** change Header/Hero/Movement/CTAs nav or primary CTA (keeps `#founding-circle`).
+- ❌ Do **not** reintroduce the brief's unencoded mailto signup or `ravichavali@gmail.com` —
+  `contact@karmyq.org` is canonical.
+- ❌ No ADR change (no pivot → ADR-065 stays). No docs-JSON/nav regen (body copy only) → nav.json revert
+  gotcha doesn't apply.
+- ❌ Don't add claims beyond what's true (trust paths + cross-community carry exist; don't overstate).
 
 ---
 
@@ -92,11 +80,16 @@ The 8 open dependabot PRs (#33–41) predate `pr-contract.yml`; their stale bran
 - **trust_edges_live is a VIEW**: never INSERT/UPDATE it — write `trust_edges`, read `trust_edges_live`
 - **`git add` on CLAUDE.md**: tracked as lowercase `claude.md`
 - **Solo dev — no worktrees**: work directly on feature branches
-- **Root package.json version**: 10.7.0 (→ 10.8.0 this sprint)
+- **Root package.json version**: 10.8.0 (Sprint 83 shipped)
 - **CI security gates**: dependency audit (ADR-059, blocking `--audit-level=high`) + CodeQL code-scanning gate (ADR-060) run automatically on push
 
 ### Pre-Existing TDD Failures (do NOT fix — a NEW failure this sprint is a real regression)
 `sprint-39-provider-ux` (7), `sprint-43-feed-ranking` (crashes), `admin-schemas-api.test.ts` (request-service), `sprint-68-halflife` (6 DB-conn), `sprint-67-governance` (DB-conn), social-graph-service tdd `sprint-66`/`sprint-67`/`sprint-68`.
 
-### Sprint 81 residual (now being addressed by item #2 above)
-- JWT-in-URL exposure → nginx log scrub (item 2). Token TTL kept at 1h (documented). SSE auth tests promoted to regression.
+### ⚠️ Deploy drift watch
+`karmyq.org` live content was out of sync with `master` at Sprint 83 implementation time (deploy/live-site
+drift, not a branch issue). The v3 brief was written against that stale live site — which is *why* six of
+its fixes were already done on master. Confirm live deploy status after merge before judging by live content.
+
+### Sprint 81 residual (carried)
+- JWT-in-URL exposure → nginx log scrub (shipped Sprint 83). Token TTL kept at 1h (documented). SSE auth tests promoted to regression.

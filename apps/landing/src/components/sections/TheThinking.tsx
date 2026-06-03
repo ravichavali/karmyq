@@ -48,23 +48,21 @@ export default function TheThinking() {
         <AnimateOnScroll delay={0.1}>
           <div className="space-y-5 body-large mb-16">
             <p>
-              Think of your most reliable friend. The one who showed up at 2am, who never once let you
-              down. You don&apos;t save them for emergencies — you call them first, because they&apos;ve earned it.
-              Demonstrated reliability becomes the reason to rely on them more.
+              Think of your most reliable friend. The one who showed up at 2am. You don&apos;t save them
+              for emergencies. You call them first, because they&apos;ve earned it.
             </p>
             <p>
-              Trust works the same way. In every flood, every crisis, every moment where the structures fall
-              away, people show up for each other without being asked. Trust proves itself, every time.
+              That logic applies at the community scale, and we&apos;ve abandoned it. The contracts,
+              ratings, background checks, platform guarantees we layer over modern life are inferior
+              substitutes. Trust between people who actually know each other came before all of them,
+              and still outperforms them when conditions allow.
             </p>
             <p>
-              And yet we treat it as a last resort. We reach for it only after the contract, the rating, the
-              background check, the platform guarantee have all been exhausted. We&apos;ve seen what trust can do,
-              and we still won&apos;t call it first.
+              Crisis doesn&apos;t create trust. It reveals the trust that was already there.
             </p>
             <p>
-              Karmyq is built on the logic we already apply to our best friends. Trust has earned the right
-              to be used freely. We want to help communities build enough of it — before the crisis — so that
-              when things fall apart, it&apos;s the first call, not the last.
+              Karmyq is built on the logic we apply to our best friends. The point isn&apos;t to prepare
+              for the crisis. It&apos;s to stop deferring to inferior systems.
             </p>
           </div>
         </AnimateOnScroll>
@@ -78,10 +76,10 @@ export default function TheThinking() {
         <AnimateOnScroll delay={0.1}>
           <div className="space-y-5 body-large mb-16">
             <p>
-              A century ago, sociologists noticed something happening to modern societies. As cities grew and
-              institutions expanded, people stopped relying on each other and started relying on systems. The
-              personal gave way to the procedural. Relationships were replaced, slowly, by contracts. Neighbors
-              became strangers who happened to share a wall.
+              A century ago, sociologists noticed something. As cities grew and institutions expanded,
+              people stopped relying on each other and started relying on systems. The personal gave way
+              to the procedural. Relationships were replaced, slowly, by contracts. Neighbors became
+              strangers who happened to share a wall.
             </p>
             <p>
               This wasn&apos;t malice. It was convenience, compounded. <em>Just to be safe</em>, we stopped letting
@@ -93,7 +91,7 @@ export default function TheThinking() {
             <p>
               Our abundance of safety and comfort quietly destroyed the conditions in which trust grows. We
               optimized away the friction that makes people need each other. A society that never practices
-              trusting loses the capacity for it — as surely as a muscle that is never used.
+              trusting loses the capacity for it.
             </p>
             <p>There is no villain in this story. That is what makes it hard to fix.</p>
           </div>
@@ -108,23 +106,32 @@ export default function TheThinking() {
         <AnimateOnScroll delay={0.1}>
           <div className="space-y-5 body-large mb-16">
             <p>
-              When trust between strangers is scarce, we don&apos;t abandon it — we ration it. And rationed trust
-              flows to the familiar. Accent. Postcode. University. Skin. These become the signals that open
-              doors — not because they reliably predict trustworthiness, but because they approximate it
-              cheaply. In a world where we can&apos;t afford to find out who someone actually is, we use shorthand.
-            </p>
-            <p>The shorthand is inherited. It is not neutral.</p>
-            <p>
-              A world that runs on false trust signals selects for people who are good at{' '}
-              <em>performing</em> trustworthiness rather than practicing it. It is, by design, exploitable.
-              And the cruelest part: those who exploit it rarely feel they are doing anything wrong. The system
-              taught them the signals. They learned to perform them. This is rational behavior inside an
-              irrational structure.
+              Hannah Arendt showed that evil doesn&apos;t need monsters. Ordinary people, going along,
+              not asking questions, are enough.
             </p>
             <p>
-              Karmyq ties standing to acts, not identity. What you&apos;ve done inside a community is what the
-              community knows about you. The platform cannot eliminate the biases people bring to their
-              choices — no platform can — but it can refuse to amplify them.
+              We&apos;ve internalized it halfway — applied outward only. Sophisticated about institutions.
+              Suspicious of strangers.
+            </p>
+            <p>
+              The harder move — what Arendt actually pointed toward — is inward. <em>I</em> am the
+              ordinary person who might be participating in something I haven&apos;t examined.
+            </p>
+            <p>
+              The third move, which almost nobody makes: extend to others the assumption of banal
+              goodness. The same person who can thoughtlessly harm can also thoughtlessly help, when
+              conditions allow. The Covid kitchens weren&apos;t heroic — they were the ordinary human
+              response when the systems that usually mediate it fell away.
+            </p>
+            <p>
+              We&apos;ve learned to see the banality of evil in others. We haven&apos;t learned to see the
+              banality of goodness in the same people. That asymmetry is most of what passes for caution
+              about strangers.
+            </p>
+            <p>
+              Karmyq is not asking for heroism. It builds conditions in which the banal goodness already
+              there has somewhere to go. Standing comes from acts, not identity — because acts are the
+              only evidence of the goodness that was always present.
             </p>
           </div>
         </AnimateOnScroll>
@@ -138,11 +145,10 @@ export default function TheThinking() {
         <AnimateOnScroll delay={0.1}>
           <div className="space-y-5 body-large mb-6">
             <p>
-              We should be honest about this. Exploitation is not irrational — it optimizes for the wrong
-              horizon. Colonialism extracted real wealth. Industrial monocultures fed billions. The structures
-              that dismantled slower, more sustainable cultures <em>worked</em>, in the near term. The peoples
-              and ecosystems they consumed had spent generations building something more durable. They lost
-              anyway.
+              Exploitation is not irrational — it optimizes for the wrong horizon. Colonialism extracted
+              real wealth. Industrial monocultures fed billions. The structures that dismantled slower,
+              more sustainable cultures <em>worked</em>, in the near term. The peoples and ecosystems
+              they consumed had spent generations building something more durable. They lost anyway.
             </p>
             <p>
               The same arithmetic gave us mutually assured destruction. Climate change. The quiet collapse of
