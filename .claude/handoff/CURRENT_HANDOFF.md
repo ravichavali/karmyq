@@ -1,44 +1,71 @@
-# Sprint 84 — Unified Feed & Dashboard Redesign (Research & Direction) — ✅ COMPLETE · Sprint 85 = implement
+# Sprint 85 — Unified Feed: Dashboard Home — 📋 READY TO EXECUTE
 
-> **▶ STATUS (2026-06-03):** Sprint 84 **deliverable is complete** on branch
-> `feature/sprint-84-unified-feed-redesign-research`. The design-direction doc + three throwaway
-> HTML/Tailwind mockups are written; quality gates (simplify/code-review/security-review, adapted
-> for a docs/mockup diff) passed. `no-deploy` — version stays 10.8.0; merging the docs PR to
-> `master` is the completion. **Next session executes Sprint 85: implement the unified feed**
-> (recommended first slice = Dashboard Home).
+> **▶ STATUS (2026-06-03):** Sprint 84 (research & direction) is complete and merged. Sprint 85 is
+> **planned and ready to execute** — spec + plan written, all four scoping decisions made (recommended
+> options). This sprint **implements** the unified feed's first vertical slice (Dashboard Home).
+> Version bumps **10.8.0 → 10.9.0**. This sprint ships code, schema, API, and docs — **not** `no-deploy`.
 
-## Sprint 84 deliverable (complete)
-- **Direction doc:** [`docs/design/sprint-84-unified-feed/README.md`](../../docs/design/sprint-84-unified-feed/README.md)
-  — audit of the 3 feed surfaces → data/action inventory → 5-product reference study → 8 principles
-  → unified IA (one model, two views) → open questions + Sprint 85 recommendations.
-- **Mockups:** [`docs/design/sprint-84-unified-feed/mockups/`](../../docs/design/sprint-84-unified-feed/mockups/)
-  — `dashboard-home.html`, `community-feed.html`, `index.html` (standalone, Tailwind CDN, throwaway).
+## Quick Start
 
-## Sprint 85 goal (next session)
-Implement the unified feed model, **Dashboard Home first** (highest traffic; best payoff for action
-altitude). Per the direction doc §7.2 build sequence:
-1. Canonical `request` card component (absorbs `RequestPayloadRenderer` + trust/Karma badges + status token + inline Offer-to-Help).
-2. Unified feed endpoint / item shape (`request | decision | activity | story` union) — resolve source-of-truth open question (Feed svc 3007 vs `request-service` `/requests/curated` + `view=` param).
-3. `decision` band (promote `CommitmentsTab`'s "Needs Your Response" into the home feed top band).
-4. Community Feed view (same components, `community_id` scope) + split admin console out of `BrowseTab`.
-5. Texture layer (`activity` + `story`, dismissible, capped, below fold).
-6. Retire unmounted `Feed/Feed.tsx`; de-dup `FeedFilterPanel` vs `FilterChipRow`.
-- **Write ADR-066** (Unified Feed Model) against real S85 code (reserved per gotchas below).
-- **Carry into S85:** Withdraw-Offer role bug, urgency/request_type vocabulary reconciliation,
-  `match_score` scale normalization, server-side action altitude, on-duty filter generalization,
-  mobile parity (see direction doc §7.4).
+1. Read this handoff
+2. Check out branch: `git checkout -b feature/sprint-85-unified-feed-dashboard-home`
+3. Open plan: `docs/superpowers/plans/2026-06-03-sprint-85-unified-feed-dashboard-home.md`
+4. Run: `/execute-plan` (uses superpowers:subagent-driven-development)
+
+## Sprint 85 goal (one sentence)
+
+Build the unified feed's first vertical slice — a canonical `request` card + a server-computed `decision`
+top band on **Dashboard Home**, served from `GET /requests/curated?view=home` — landing the
+urgency/status/`match_score` reconciliations the card depends on and verify-locking Withdraw-Offer.
+
+## Scoping decisions (made 2026-06-03 — all recommended)
+
+1. **Scope = first vertical slice (steps 1–3):** canonical card + unified item shape + decision band on
+   Dashboard Home. Community Feed view, texture layer, and legacy retirement → **Sprint 86**.
+2. **Source of truth = extend `request-service`** `/requests/curated` with `view=home` (NOT the Feed
+   service). It already owns ranking + the live dashboard wiring.
+3. **Vocabulary reconciliation ships now:** one urgency scale (`urgent|high|medium|low`, `critical→urgent`),
+   one status token (`proposed` replaces `pending` on `help_requests`), one `match_score` scale (0–100 +
+   `match_reason`). `request_type` enum is already canonical (payload subtypes are separate).
+4. **Withdraw-Offer fix = verify-lock:** backend already allows both participants (Sprint 62). S85 wires the
+   decision band's Withdraw to `rejectMatch(matchId)`, adds a regression test (responder withdraws own offer),
+   and confirms deploy runs current `src` (stale `'Only the requester can reject'` lives only in `dist/`).
 
 ## Multi-sprint arc
-- **Sprint 83** — founding-circle positioning + ADR-065 (complete; closed the outward/marketing phase).
-- **Sprint 84** — unified feed research & direction. ✅ **Complete (doc + mockups, no code).**
-- **Sprint 85 (next)** — implement the unified feed, Dashboard Home first. Spec/plan via `sprint-planning`.
 
-## Sprint 84 reference (complete — full detail in the spec + direction doc)
-- **Spec:** `docs/superpowers/specs/2026-06-03-sprint-84-unified-feed-redesign-research-design.md`
-- **Plan:** `docs/superpowers/plans/2026-06-03-sprint-84-unified-feed-redesign-research.md`
-- Sprint 84 was `no-deploy` (doc + throwaway mockups, no production code/schema/API). The audited
-  surfaces and full reasoning are recorded in the direction doc above; Sprint 85 reads that, not
-  this handoff, for the design detail.
+- **Sprint 84** — unified feed research & direction. ✅ Complete (doc + mockups, `no-deploy`).
+- **Sprint 85 (this)** — implement the unified feed, **Dashboard Home first** (steps 1–3). 📋 Ready.
+- **Sprint 86 (next)** — Community Feed view + admin-console split + `activity`/`story` texture layer +
+  retire `Feed/Feed.tsx` + de-dup `FeedFilterPanel`/`FilterChipRow` + mobile parity (steps 4–6).
+
+## Reference
+
+- **Spec:** `docs/superpowers/specs/2026-06-03-sprint-85-unified-feed-dashboard-home-design.md`
+- **Plan:** `docs/superpowers/plans/2026-06-03-sprint-85-unified-feed-dashboard-home.md`
+- **Direction doc (read for full design reasoning):** `docs/design/sprint-84-unified-feed/README.md`
+  (audit §2, data/action inventory §3, principles §5, unified IA §6, build sequence §7.2, open questions §7.4)
+- **Mockups:** `docs/design/sprint-84-unified-feed/mockups/` (`dashboard-home.html` is the target)
+
+## ⚠️ Critical Implementation Notes (copied from spec — these prevent the bugs)
+
+1. **Source of truth is `request-service`, not the Feed service** — extend `/requests/curated` with `view=home`.
+2. **Withdraw-Offer already works at the backend** (Sprint 62: `PUT /matches/:id/reject` allows both
+   participants, `matches.ts:408`). Stale guard string lives only in `dist/`/`coverage/` — never edit those; a
+   clean rebuild purges them. S85 = wire decision-band Withdraw + regression test (responder withdraws) + confirm
+   deploy runs `src`.
+3. **`request_type` is the 5-value `request_type_enum`** (`generic|ride|borrow|service|event`), already canonical.
+   The 6 payload subtypes (transportation/moving_help/childcare/tech_help/home_repair/food) are a **separate
+   `payload` concept** — do NOT migrate or conflate. No `request_type` DB change.
+4. **Urgency: map `critical → urgent` before the CHECK; use `??`/`!= null` not `||`** for defaults (0 is valid).
+5. **`match_score` is one 0–100 integer scale** + a `match_reason` string; normalize at the API boundary.
+6. **Status token: `proposed` replaces `pending`** on `help_requests` ONLY. Grep all services + frontend +
+   simulation for `status = 'pending'` writes/reads on `help_requests`; the `dibs`/`offers` tables keep their own
+   `pending` lifecycle — do NOT migrate those.
+7. **Action altitude is server-side** — compute `priority` in the curated handler; client renders in array order.
+   Leave `CommitmentsTab` working unchanged (it stays home of the action handlers the band reuses).
+8. **ADR-066 is reserved** for the Unified Feed Model — write it against real S85 code.
+9. **Migration is idempotent + dry-run first** — `SELECT DISTINCT status/urgency` before adding CHECKs so no live
+   row violates them (FK-dedup migration dry-run discipline).
 
 ---
 
@@ -58,21 +85,21 @@ The open dependabot PRs (#34–50) predate `pr-contract.yml`; their stale branch
 ### Architecture Gotchas (Persistent)
 - **Landing page docs**: `apps/landing/src/data/docs/` is in `.gitignore` — always `git add -f`. (Note: `docs/design/` is NOT gitignored — only the landing data dir is.)
 - **nav.json revert bug**: `generate-docs.ts` regenerates nav.json — run from `apps/landing/`; grep-verify after; re-apply if reverted
-- **ADR numbering**: 059 = dependency gate, 060 = code-scanning gate, 061 = supply-chain hardening, 062 = community identity/idempotent creation, 063 = canonical trust metric + unified graph viz, 064 = authorize from authenticated identity, **065 = karmyq.org/karmyq.com domain roles**. (Next free: 066 — reserve for the Sprint 85 unified-feed ADR.)
+- **ADR numbering**: 059 = dependency gate, 060 = code-scanning gate, 061 = supply-chain hardening, 062 = community identity/idempotent creation, 063 = canonical trust metric + unified graph viz, 064 = authorize from authenticated identity, 065 = karmyq.org/karmyq.com domain roles, **066 = reserved for Sprint 85 unified-feed model**. (Next free after 066: 067.)
 - **JWT field** is `communities` not `communityMemberships` — always `user.communities ?? []`
 - **Schema is `communities.communities`** (plural schema name) — older `community.*` comments are stale
 - **API response unwrap**: `createApiClient` interceptor already unwraps the envelope — use `res.data`, not `res.data.data`
 - **trust_edges_live is a VIEW**: never INSERT/UPDATE it — write `trust_edges`, read `trust_edges_live`
 - **`git add` on CLAUDE.md**: tracked as lowercase `claude.md`
 - **Solo dev — no worktrees**: work directly on feature branches
-- **Root package.json version**: 10.8.0 (Sprint 83 shipped; content voice pass + Sprint 84 research do not bump it)
+- **Root package.json version**: 10.8.0 (Sprint 83 shipped; Sprint 84 research was no-deploy). **Sprint 85 bumps it to 10.9.0.**
 - **CI security gates**: dependency audit (ADR-059, blocking `--audit-level=high`) + CodeQL code-scanning gate (ADR-060) run automatically on push
 
 ### Pre-Existing TDD Failures (do NOT fix — a NEW failure this sprint is a real regression)
 `sprint-39-provider-ux` (7), `sprint-43-feed-ranking` (crashes), `admin-schemas-api.test.ts` (request-service), `sprint-68-halflife` (6 DB-conn), `sprint-67-governance` (DB-conn), social-graph-service tdd `sprint-66`/`sprint-67`/`sprint-68`.
 
 ### ⚠️ Deploy drift watch
-`karmyq.org` live content drifted from `master` around Sprint 83. PR #51 + #52 are merged — if judging by live content, first confirm the "Deploy to Demo" GitHub Actions run succeeded and live `karmyq.org` matches `master`. (Not relevant to Sprint 84, which ships no live content.)
+`karmyq.org` live content drifted from `master` around Sprint 83. PR #51 + #52 are merged — if judging by live content, first confirm the "Deploy to Demo" GitHub Actions run succeeded and live `karmyq.org` matches `master`.
 
 ### Sprint 81 residual (carried)
 - JWT-in-URL exposure → nginx log scrub (shipped Sprint 83). Token TTL kept at 1h (documented). SSE auth tests promoted to regression.
