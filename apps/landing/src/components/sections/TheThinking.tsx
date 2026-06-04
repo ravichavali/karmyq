@@ -169,7 +169,7 @@ export default function TheThinking() {
               cells holding specialized, interdependent roles. Cancer is what happens when one line of cells
               abandons the contract — it simplifies, stops specializing, grows fast, takes everything near
               it, and wins, locally, right up until it kills the thing that fed it. The pattern that overran
-              the slower world followed that pattern. Simpler. Faster. Blind to the whole it depended on.
+              the slower world followed the same logic. Simpler. Faster. Blind to the whole it depended on.
             </p>
             <p>
               That is the trade we keep making, now at the scale of a civilization. The cost never
@@ -185,8 +185,8 @@ export default function TheThinking() {
               Karmyq is a bet on that slower game. Not because it always wins — it often hasn&apos;t — but
               because the thing that beat it is now coming due, and because the one ingredient cooperation
               always needed was people able to see the good in each other before they had to gamble on it.
-              We&apos;re not asking anyone to become good. We&apos;re building the conditions where the goodness
-              already here has somewhere to go — and where you can see it in your neighbors first.
+              We&apos;re not asking anyone to become good. We&apos;re making the goodness already here visible
+              enough to trust, close enough to act on, and local enough to begin with your neighbors.
             </p>
           </div>
         </AnimateOnScroll>
