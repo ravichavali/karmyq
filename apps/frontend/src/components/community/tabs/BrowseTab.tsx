@@ -183,7 +183,7 @@ export default function BrowseTab({
                       {req.title}
                     </Link>
                     <span className={`flex-shrink-0 text-xs px-2 py-0.5 rounded-full ${
-                      req.urgency === 'critical' ? 'bg-red-100 text-red-700' :
+                      req.urgency === 'urgent' ? 'bg-red-100 text-red-700' :
                       req.urgency === 'high' ? 'bg-orange-100 text-orange-700' :
                       req.urgency === 'medium' ? 'bg-yellow-100 text-yellow-700' :
                       'bg-surface-raised text-text-muted'
@@ -437,10 +437,10 @@ export default function BrowseTab({
                 className="w-full border border-border rounded px-3 py-2 text-sm"
               >
                 <option value="">— no override —</option>
-                <option value="low">low</option>
-                <option value="medium">medium</option>
+                <option value="urgent">urgent</option>
                 <option value="high">high</option>
-                <option value="critical">critical</option>
+                <option value="medium">medium</option>
+                <option value="low">low</option>
               </select>
             </div>
             <div className="mb-4">
@@ -462,7 +462,7 @@ export default function BrowseTab({
                   try {
                     await requestService.adminTriageRequest(selectedRequest.id, {
                       community_id: communityId,
-                      ...(triageUrgency && { urgency: triageUrgency as 'low' | 'medium' | 'high' | 'critical' }),
+                      ...(triageUrgency && { urgency: triageUrgency as 'urgent' | 'high' | 'medium' | 'low' }),
                       ...(triageNote && { note: triageNote }),
                     })
                     await refetchCommunityRequests()

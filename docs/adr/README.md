@@ -96,6 +96,7 @@ When code implementing an ADR is deployed, update the status from `Accepted` →
 - [ADR-063: Canonical Decayed Trust Metric & Unified Graph Visualization](ADR-063-canonical-trust-metric-and-unified-graph.md) — **Implemented**
 - [ADR-064: Authorize Mutations from Authenticated Identity, Not Client-Supplied IDs](ADR-064-authorize-from-authenticated-identity.md) — **Implemented**
 - [ADR-065: Karmyq.org and Karmyq.com Domain Roles](ADR-065-karmyq-org-and-com-domain-roles.md) — **Implemented**
+- [ADR-066: Unified Feed Model](ADR-066-unified-feed-model.md) — **Implemented**
 
 ## Creating a New ADR
 

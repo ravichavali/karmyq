@@ -15,16 +15,20 @@ export const WORKFLOWS: Record<string, WorkflowDef> = {
     workflowTitle: 'Your Feed',
     steps: [
       {
-        title: 'What is the feed?',
-        body: 'The feed shows help requests posted by people in your communities. Posts surface based on urgency, your trust relationships, and community relevance.',
+        title: 'One feed, ordered by what needs you',
+        body: 'Dashboard Home is a single feed. The decisions you owe rise to the top; the requests you can fill follow, ranked by your skills, trust path, and urgency.',
       },
       {
-        title: 'Responding to a request',
-        body: 'Tap any request to offer help, ask a question, or pass it along. Your response is visible to the requester and tied to your reputation.',
+        title: 'Needs your response',
+        body: 'A band at the very top surfaces the responses you owe right now — an offer to accept or decline, your own offer to withdraw, a reserved request to confirm, or a finished exchange to mark done. It disappears when you are all caught up.',
       },
       {
-        title: 'Commitments',
-        body: "When a requester accepts your offer, it becomes a commitment — trackable for both sides in the Commitments tab.",
+        title: 'Requests you can fill',
+        body: 'Each card shows the requester, your trust path and their Karma, and an explainable match score like "42% · 2nd-degree trust" — never a bare number. Tap Offer to Help to send your offer; track it in the Helping tab.',
+      },
+      {
+        title: "You're caught up",
+        body: 'When there are no open requests you can fill, the feed says so and points you to your communities — instead of padding the list.',
       },
     ],
   },

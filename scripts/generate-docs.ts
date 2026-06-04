@@ -308,6 +308,7 @@ interface GuidePage {
 // Ordered list controls sidebar display order
 const GUIDE_ORDER = [
   'getting-started-guide',
+  'dashboard-home',
   'making-requests-guide',
   'fulfilling-requests-guide',
   'managing-commitments-guide',
@@ -335,6 +336,7 @@ const GUIDE_ORDER = [
 
 const GUIDE_LABELS: Record<string, string> = {
   'getting-started-guide': 'Getting Started',
+  'dashboard-home': 'Your Dashboard Home',
   'making-requests-guide': 'Asking for Help',
   'fulfilling-requests-guide': 'Helping Others',
   'managing-commitments-guide': 'Managing Your Commitments',
@@ -484,6 +486,7 @@ const ADR_GROUPS: Array<{ label: string; slugs: string[] }> = [
       'adr-052-security-hardening',
       'adr-053-feed-design-philosophy',
       'adr-033-offer-fulfillment-workflow',
+      'adr-066-unified-feed-model',
     ],
   },
   {
@@ -539,7 +542,7 @@ function generateNav(
 
   // Non-technical concept pages (split into Why Karmyq / How It Works)
   const whyKarmyq = ['platform-overview', 'the-village-model', 'neighborhood-service-layer', 'community-design'];
-  const howItWorks = ['trust-and-karma', 'trust-score', 'reading-the-trust-graph', 'what-is-karma', 'trust-paths', 'trust-path', 'reputation-decay', 'why-ratings-are-private', 'community-scale', 'community-identity', 'network-cohesion', 'trust-model-evolution', 'community-evolution', 'fractal-feed', 'community-discovery', 'provider-mode', 'trust-questions', 'governance', 'observability'];
+  const howItWorks = ['trust-and-karma', 'trust-score', 'reading-the-trust-graph', 'what-is-karma', 'trust-paths', 'trust-path', 'reputation-decay', 'why-ratings-are-private', 'unified-feed', 'community-scale', 'community-identity', 'network-cohesion', 'trust-model-evolution', 'community-evolution', 'fractal-feed', 'community-discovery', 'provider-mode', 'trust-questions', 'governance', 'observability'];
 
   const nav = {
     sections: [

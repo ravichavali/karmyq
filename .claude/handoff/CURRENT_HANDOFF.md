@@ -1,9 +1,45 @@
-# Sprint 85 — Unified Feed: Dashboard Home — 📋 READY TO EXECUTE
+# Sprint 85 — Unified Feed: Dashboard Home — ✅ IMPLEMENTED, AWAITING MERGE
 
-> **▶ STATUS (2026-06-03):** Sprint 84 (research & direction) is complete and merged. Sprint 85 is
-> **planned and ready to execute** — spec + plan written, all four scoping decisions made (recommended
-> options). This sprint **implements** the unified feed's first vertical slice (Dashboard Home).
-> Version bumps **10.8.0 → 10.9.0**. This sprint ships code, schema, API, and docs — **not** `no-deploy`.
+> **▶ STATUS (2026-06-04):** Sprint 85 is **fully implemented** on
+> `feature/sprint-85-unified-feed-dashboard-home` (Tasks 1–11 complete). Version **10.9.0**. All quality
+> gates pass (tsc ×4 workspaces clean; npm audit 0 vulns; shared 106 + request-service unit/regression 199
+> + frontend 429 tests pass — **zero new failures** vs the 5 pre-existing trust/provider TDD suites proven
+> on clean master). **Task 12 (merge + deploy) awaits Admin authorization** — agents never self-merge.
+>
+> **What shipped:** canonical `RequestCard` + `DecisionBand` + `UnifiedFeed` on Dashboard Home (replaces
+> BrowseFeed's bespoke card; BrowseFeed retained for S86 retirement); `GET /requests/curated?view=home`
+> returns the `UnifiedFeedItem` union with server-side action altitude; decayed prior-interaction signal
+> (`trust_edges_live.current_weight`); urgency + status vocab reconciliation migration; Withdraw-Offer
+> verify-lock (+ reopen-on-last-withdrawal regression); ADR-066 + concept + guide + onboarding docs.
+>
+> **Code-review fixes applied:** `scoreUrgency` now scores `urgent`(100) strictly above `high`(80) so urgent
+> wins the curated composite (the priority CASE isn't on that path); phantom `status='pending'` filter removed
+> from `expirationJob.ts`.
+>
+> **Known seam (documented in ADR-066):** `RequestCardData.request_type` carries the request_type_enum at
+> runtime but is typed as the payload-subtype union, so `RequestPayloadRenderer` renders no payload detail for
+> curated cards (no regression — BrowseFeed showed none either; lights up when the model is unified in S86).
+>
+> **Task 12 next steps:** commit → push branch → open PR (contract body) → Admin authorizes merge → CI/CD
+> deploys → validate on demo (migration auto-applies via deploy.sh; `GET /requests/curated?view=home` smoke;
+> `SELECT DISTINCT status, urgency`; Dashboard Home decision band + cards + caught-up + responder withdraw).
+>
+> **⚠️ COURSE CORRECTION (Task 1, dry-run finding):** The spec's status reconciliation
+> ("`proposed` replaces `pending` on `help_requests`") was based on a **false premise** — the demo-DB
+> dry-run (1416 rows) confirmed `help_requests.status` is only `open`/`completed`/`matched`, and the
+> schema lifecycle is `open → dibs_pending → matched → completed` (+`cancelled`). There is **no `pending`
+> status on `help_requests`** — `pending`/`proposed` are tokens on the `matches`/`dibs`/`offers` tables.
+> **Decision (user-approved): fix to the real lifecycle.** The migration's status CHECK is
+> `('open','dibs_pending','matched','completed','cancelled')` — no no-op `pending→proposed` UPDATE, no
+> unused `proposed` in the table constraint. The member-facing "proposed" display token (a request whose
+> offer awaits the requester's acceptance) is **derived in the curated handler** (Task 3) from request +
+> match state, NOT stored on the row. Urgency reconciliation unchanged: `critical→urgent`, CHECK
+> `(urgent,high,medium,low)`, 1 live row affected.
+>
+> **⚠️ Migration NOT pre-applied to demo** — it ships atomically with the code via `deploy.sh` so the
+> currently-deployed producers (which still emit `critical`) don't 500 against the new urgency CHECK.
+> Two urgency *consumers* also needed `urgent` added or it would score *lowest*: `scoreUrgency` and
+> `applyUrgencyBonus` in `packages/shared` (plan only listed producers).
 
 ## Quick Start
 
@@ -25,8 +61,9 @@ urgency/status/`match_score` reconciliations the card depends on and verify-lock
 2. **Source of truth = extend `request-service`** `/requests/curated` with `view=home` (NOT the Feed
    service). It already owns ranking + the live dashboard wiring.
 3. **Vocabulary reconciliation ships now:** one urgency scale (`urgent|high|medium|low`, `critical→urgent`),
-   one status token (`proposed` replaces `pending` on `help_requests`), one `match_score` scale (0–100 +
-   `match_reason`). `request_type` enum is already canonical (payload subtypes are separate).
+   a status CHECK on the **real** `help_requests` lifecycle (`open|dibs_pending|matched|completed|cancelled`
+   — see COURSE CORRECTION; the member-facing `proposed` token is derived, not stored), one `match_score`
+   scale (0–100 + `match_reason`). `request_type` enum is already canonical (payload subtypes are separate).
 4. **Withdraw-Offer fix = verify-lock:** backend already allows both participants (Sprint 62). S85 wires the
    decision band's Withdraw to `rejectMatch(matchId)`, adds a regression test (responder withdraws own offer),
    and confirms deploy runs current `src` (stale `'Only the requester can reject'` lives only in `dist/`).
@@ -58,9 +95,10 @@ urgency/status/`match_score` reconciliations the card depends on and verify-lock
    `payload` concept** — do NOT migrate or conflate. No `request_type` DB change.
 4. **Urgency: map `critical → urgent` before the CHECK; use `??`/`!= null` not `||`** for defaults (0 is valid).
 5. **`match_score` is one 0–100 integer scale** + a `match_reason` string; normalize at the API boundary.
-6. **Status token: `proposed` replaces `pending`** on `help_requests` ONLY. Grep all services + frontend +
-   simulation for `status = 'pending'` writes/reads on `help_requests`; the `dibs`/`offers` tables keep their own
-   `pending` lifecycle — do NOT migrate those.
+6. **Status token — SUPERSEDED by the COURSE CORRECTION above.** `help_requests` has no `pending` status;
+   the migration locks the real lifecycle CHECK (`open|dibs_pending|matched|completed|cancelled`) and the
+   member-facing `proposed` token is DERIVED in the curated handler from request + match state, not stored.
+   The `dibs`/`offers`/`matches` tables keep their own `pending`/`proposed` lifecycle — do NOT migrate those.
 7. **Action altitude is server-side** — compute `priority` in the curated handler; client renders in array order.
    Leave `CommitmentsTab` working unchanged (it stays home of the action handlers the band reuses).
 8. **ADR-066 is reserved** for the Unified Feed Model — write it against real S85 code.

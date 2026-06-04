@@ -212,16 +212,8 @@ router.patch('/:id/urgent', async (req: Request, res: Response) => {
       );
       return res.json({ success: true, data: { request: result.rows[0] } });
     } else {
-      // Only downgrade 'urgent' → 'medium'; do not overwrite 'critical'
-      const current = await query(`SELECT urgency FROM requests.help_requests WHERE id = $1`, [id]);
-      const currentUrgency = current.rows[0]?.urgency;
-
-      if (currentUrgency === 'critical') {
-        // No-op: urgent: false does not affect critical requests
-        const existing = await query(`SELECT * FROM requests.help_requests WHERE id = $1`, [id]);
-        return res.json({ success: true, data: { request: existing.rows[0] } });
-      }
-
+      // Downgrade 'urgent' → 'medium'. ('critical' was retired in Sprint 85 / ADR-066;
+      // 'urgent' is now the single top tier, so there is no special-case to preserve.)
       const result = await query(
         `UPDATE requests.help_requests SET urgency = 'medium', updated_at = NOW() WHERE id = $1 RETURNING *`,
         [id]

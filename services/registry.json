@@ -145,7 +145,7 @@
         "provides": [
           "/requests",
           "/requests/:id",
-          "/requests/curated",
+          {"method": "GET", "path": "/requests/curated", "description": "Curated feed scored on 7 signals. Sprint 85/ADR-066: view=home returns the UnifiedFeedItem union ({ items }) with server-computed action-altitude priority (decisions rank above requests); view absent keeps the legacy request-array shape. Prior-interaction signal reads the decayed trust_edges_live.current_weight."},
           "/offers",
           "/matches",
           "/matches/:id/complete",

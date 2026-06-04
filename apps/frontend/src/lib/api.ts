@@ -487,8 +487,9 @@ export const requestService = {
   getMatchedRequests: (user_id: string, limit?: number) =>
     requestApi.get('/requests/matched/for-user', { params: { user_id, limit } }),
 
-  // Day 7: Curated feed with match scores
-  getCuratedRequests: (params?: { minScore?: number; limit?: number; community_id?: string; trust_distance?: string; request_type?: string }) =>
+  // Day 7: Curated feed with match scores. Sprint 85 / ADR-066: view='home' returns the
+  // unified feed item union ({ items: UnifiedFeedItem[] }); absent view keeps the legacy shape.
+  getCuratedRequests: (params?: { minScore?: number; limit?: number; community_id?: string; trust_distance?: string; request_type?: string; view?: 'home' }) =>
     requestApi.get('/requests/curated', { params }),
 
   getRequest: (id: string) =>
@@ -521,7 +522,7 @@ export const requestService = {
 
   adminTriageRequest: (id: string, data: {
     community_id: string;
-    urgency?: 'low' | 'medium' | 'high' | 'critical';
+    urgency?: 'urgent' | 'high' | 'medium' | 'low';
     note?: string;
   }) =>
     requestApi.patch(`/requests/${id}/admin-triage`, data),

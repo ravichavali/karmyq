@@ -18,7 +18,7 @@ export async function markExpiredData(): Promise<void> {
     const requests = await query(
       `UPDATE requests.help_requests
        SET expired = TRUE, updated_at = CURRENT_TIMESTAMP
-       WHERE expires_at <= $1 AND expired = FALSE AND status IN ('open', 'pending')
+       WHERE expires_at <= $1 AND expired = FALSE AND status = 'open'
        RETURNING id`,
       [now]
     );

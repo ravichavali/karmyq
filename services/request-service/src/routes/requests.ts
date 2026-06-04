@@ -23,6 +23,16 @@ import {
   DEFAULT_FEED_PREFERENCES,
 } from '@karmyq/shared/matching';
 import type { UserProfile, FeedScoringWeights, VisibilityScope } from '@karmyq/shared/matching/types';
+import {
+  scorePriorInteraction,
+  normalizeMatchScore,
+  buildRequestItem,
+  buildDecisionItem,
+  assembleHomeFeed,
+  type DecisionData,
+  type DecisionAction,
+  type UnifiedFeedItem,
+} from '../services/unifiedFeed';
 
 const router = Router();
 
@@ -76,6 +86,7 @@ router.get('/matched/for-user', async (req: Request, res: Response) => {
         u.name as requester_name,
         STRING_AGG(DISTINCT c.name, ', ') as community_name,
         CASE
+          WHEN r.urgency = 'urgent' THEN 4
           WHEN r.urgency = 'high' THEN 3
           WHEN r.urgency = 'medium' THEN 2
           ELSE 1
@@ -456,32 +467,33 @@ async function handleCuratedFeed(req: Request, res: Response): Promise<void> {
       }
     }
 
-    // Batch prior interaction lookup (social_graph.connections)
-    const priorInteractionMap = new Map<string, 'exchange' | 'community'>();
+    // Batch prior-interaction lookup — the DECAYED edge weight (ADR-066 "designed to forget").
+    // We read social_graph.trust_edges_live.current_weight (raw_weight × e^(-Δt/(stability·half_life)),
+    // a VIEW — never written here) instead of the binary social_graph.connections.type, so feed
+    // ranking reflects relationship *shape* (recency-decayed), not raw interaction history. Edges are
+    // per-community and normalized (user_id_a < user_id_b); we take the member's strongest live edge
+    // to each requester across their shared communities.
+    const priorWeightMap = new Map<string, number>();
     if (requesterIds.length > 0) {
       try {
-        const connResult = await query(
-          `SELECT
-             CASE WHEN user_a_id = $1 THEN user_b_id ELSE user_a_id END as other_user_id,
-             type
-           FROM social_graph.connections
-           WHERE (user_a_id = $1 OR user_b_id = $1)
-             AND (CASE WHEN user_a_id = $1 THEN user_b_id ELSE user_a_id END) = ANY($2::uuid[])`,
+        const edgeResult = await query(
+          `SELECT other_user_id, MAX(current_weight) AS weight FROM (
+             SELECT CASE WHEN user_id_a = $1 THEN user_id_b ELSE user_id_a END AS other_user_id,
+                    current_weight
+             FROM social_graph.trust_edges_live
+             WHERE (user_id_a = $1 AND user_id_b = ANY($2::uuid[]))
+                OR (user_id_b = $1 AND user_id_a = ANY($2::uuid[]))
+           ) e
+           GROUP BY other_user_id`,
           [userId, requesterIds]
         );
-        for (const row of connResult.rows) {
-          priorInteractionMap.set(row.other_user_id, row.type as 'exchange' | 'community');
+        for (const row of edgeResult.rows) {
+          priorWeightMap.set(row.other_user_id, parseFloat(row.weight));
         }
       } catch (e: any) {
         (req as any).logger?.error('prior-interaction-batch failed', e instanceof Error ? e : new Error(String(e)), { service: 'request-service', step: 'prior-interaction-batch' });
-        // Non-fatal — continue without prior interaction signal
+        // Non-fatal — continue without the prior-interaction signal
       }
-    }
-
-    function scorePriorInteraction(type: 'exchange' | 'community' | undefined): number {
-      if (type === 'exchange') return 100;
-      if (type === 'community') return 50;
-      return 0;
     }
 
     // Calculate weighted feed scores and determine source tier
@@ -541,8 +553,8 @@ async function handleCuratedFeed(req: Request, res: Response): Promise<void> {
         feedPrefs,
       });
 
-      // New signals: prior interaction, recency, requester trust
-      const priorInteraction = scorePriorInteraction(priorInteractionMap.get(request.requester_id));
+      // New signals: prior interaction (decayed edge weight), recency, requester trust
+      const priorInteraction = scorePriorInteraction(priorWeightMap.get(request.requester_id));
       const recency = scoreRecency(request.created_at);
 
       // Weighted feed score
@@ -606,7 +618,7 @@ async function handleCuratedFeed(req: Request, res: Response): Promise<void> {
       const requesterReputation = requesterKarmaMap.get(request.requester_id) || {
         totalKarma: 0, trustScore: 50,
       };
-      const sisterPriorInteraction = scorePriorInteraction(priorInteractionMap.get(request.requester_id));
+      const sisterPriorInteraction = scorePriorInteraction(priorWeightMap.get(request.requester_id));
       const sisterRecency = scoreRecency(request.created_at);
       const feedResult = calculateFeedScore(
         {
@@ -656,6 +668,14 @@ async function handleCuratedFeed(req: Request, res: Response): Promise<void> {
         return tierDiff !== 0 ? tierDiff : b.feedScore - a.feedScore;
       })
       .slice(0, limit);
+
+    // Sprint 85 / ADR-066 — Unified feed: view=home returns the action-altitude union
+    // ({ items }) instead of the legacy request array. `view` absent keeps the legacy shape
+    // (back-compat for the existing BrowseFeed/community callers).
+    if (req.query.view === 'home') {
+      await respondHomeFeed(req, res, userId, filteredRequests);
+      return;
+    }
 
     // Count by tier for response metadata
     const tierCounts = filteredRequests.reduce((acc: Record<string, number>, r: any) => {
@@ -721,6 +741,141 @@ async function handleCuratedFeed(req: Request, res: Response): Promise<void> {
       { requestId: (req as any).id }
     );
   }
+}
+
+/**
+ * Sprint 85 / ADR-066 — Map an already-scored curated request row to the canonical request-card
+ * payload (RequestCardData on the wire). Curated requests are always status='open' (the member
+ * could fill them); the member-facing 'proposed' token applies to the member's OWN requests, which
+ * surface as decisions, not request items. match_score is normalized to one 0–100 integer scale.
+ */
+function toRequestCardData(r: any): Record<string, unknown> {
+  const communityId = (r.community_ids || '').split(',').filter(Boolean)[0] || '';
+  return {
+    request_id: r.id,
+    requester_id: r.requester_id,
+    title: r.title,
+    description: r.description,
+    author_name: r.requester_name,
+    community_id: communityId,
+    community_name: r.community_name || '',
+    urgency: r.urgency,
+    status: 'open',
+    request_type: r.request_type || 'generic',
+    payload: r.payload || {},
+    requirements: r.requirements || {},
+    is_boosted: !!r.is_boosted,
+    boosted_expires_at: r.boosted_expires_at || undefined,
+    created_at: r.created_at,
+    updated_at: r.updated_at,
+    match_score: normalizeMatchScore(r.matchScore),
+    match_reason: Array.isArray(r.matchReasons) ? r.matchReasons.join(' · ') : '',
+    trust_degree: r.trustDegrees ?? null,
+    requesterKarma: r.requesterKarma,
+    requesterTrustScore: r.requesterTrustScore,
+  };
+}
+
+/**
+ * Fetch the decisions the member owes — the "needs your response" band. Reads the same
+ * matches/dibs data the Commitments tab does: proposed offers awaiting accept/decline (member is
+ * requester) or withdraw (member is responder), matched items awaiting the member's mark-done, and
+ * pending dibs on the member's own requests. Each failure is non-fatal — a decision-query error
+ * degrades to "no decisions" rather than breaking the whole feed.
+ */
+async function fetchDecisions(req: Request, userId: string): Promise<UnifiedFeedItem<DecisionData>[]> {
+  const decisions: DecisionData[] = [];
+
+  try {
+    const matchRows = await query(
+      `SELECT m.id, m.request_id, m.status, m.created_at,
+              m.requester_done_at, m.responder_done_at,
+              hr.requester_id, m.responder_id, hr.title,
+              requester.name AS requester_name, responder.name AS responder_name,
+              STRING_AGG(DISTINCT c.name, ', ') AS community_name
+       FROM requests.matches m
+       JOIN requests.help_requests hr ON m.request_id = hr.id
+       JOIN auth.users requester ON hr.requester_id = requester.id
+       JOIN auth.users responder ON m.responder_id = responder.id
+       LEFT JOIN requests.request_communities rc ON hr.id = rc.request_id
+       LEFT JOIN communities.communities c ON rc.community_id = c.id
+       WHERE (hr.requester_id = $1 OR m.responder_id = $1)
+         AND m.status IN ('proposed', 'matched')
+       GROUP BY m.id, m.request_id, m.status, m.created_at, m.requester_done_at,
+                m.responder_done_at, hr.requester_id, m.responder_id, hr.title,
+                requester.name, responder.name`,
+      [userId]
+    );
+
+    for (const m of matchRows.rows) {
+      const isRequester = m.requester_id === userId;
+      let actions: DecisionAction[] = [];
+      if (m.status === 'proposed') {
+        actions = isRequester ? ['accept_offer', 'decline_offer'] : ['withdraw_offer'];
+      } else if (m.status === 'matched') {
+        // Only owe a mark-done if this member hasn't already confirmed (two-phase completion).
+        const alreadyDone = isRequester ? m.requester_done_at != null : m.responder_done_at != null;
+        if (alreadyDone) continue;
+        actions = ['mark_done'];
+      }
+      decisions.push({
+        subject_id: m.id,
+        subject_kind: 'match',
+        request_id: m.request_id,
+        title: m.title,
+        community_name: m.community_name || '',
+        counterparty_name: isRequester ? m.responder_name : m.requester_name,
+        member_role: isRequester ? 'requester' : 'responder',
+        actions,
+        created_at: m.created_at,
+      });
+    }
+  } catch (e: any) {
+    (req as any).logger?.error('home-feed match decisions failed', e instanceof Error ? e : new Error(String(e)), { service: 'request-service', step: 'home-decisions-matches' });
+  }
+
+  try {
+    const dibsRows = await query(
+      `SELECT d.id, d.request_id, d.created_at, hr.title,
+              provider.name AS provider_name,
+              STRING_AGG(DISTINCT c.name, ', ') AS community_name
+       FROM requests.dibs d
+       JOIN requests.help_requests hr ON d.request_id = hr.id
+       JOIN auth.users provider ON d.provider_user_id = provider.id
+       LEFT JOIN requests.request_communities rc ON hr.id = rc.request_id
+       LEFT JOIN communities.communities c ON rc.community_id = c.id
+       WHERE hr.requester_id = $1 AND d.status = 'pending'
+       GROUP BY d.id, d.request_id, d.created_at, hr.title, provider.name`,
+      [userId]
+    );
+
+    for (const d of dibsRows.rows) {
+      decisions.push({
+        subject_id: d.id,
+        subject_kind: 'dibs',
+        request_id: d.request_id,
+        title: d.title,
+        community_name: d.community_name || '',
+        counterparty_name: d.provider_name,
+        member_role: 'requester',
+        actions: ['accept_dibs', 'decline_dibs'],
+        created_at: d.created_at,
+      });
+    }
+  } catch (e: any) {
+    (req as any).logger?.error('home-feed dibs decisions failed', e instanceof Error ? e : new Error(String(e)), { service: 'request-service', step: 'home-decisions-dibs' });
+  }
+
+  return decisions.map(buildDecisionItem);
+}
+
+/** Sprint 85 / ADR-066 — assemble + send the Dashboard Home unified feed ({ items }). */
+async function respondHomeFeed(req: Request, res: Response, userId: string, scoredRequests: any[]): Promise<void> {
+  const decisionItems = await fetchDecisions(req, userId);
+  const requestItems = scoredRequests.map((r) => buildRequestItem(toRequestCardData(r), r.feedScore));
+  const { items } = assembleHomeFeed([...decisionItems, ...requestItems]);
+
+  sendSuccess(res, { items, count: items.length }, HTTP_STATUS.OK, { requestId: (req as any).id });
 }
 
 router.get('/curated', handleCuratedFeed);
@@ -1294,7 +1449,7 @@ router.patch('/:id/admin-triage', async (req: Request, res: Response) => {
       });
     }
 
-    const VALID_URGENCY = ['low', 'medium', 'high', 'critical'] as const;
+    const VALID_URGENCY = ['urgent', 'high', 'medium', 'low'] as const;
     type UrgencyValue = typeof VALID_URGENCY[number];
 
     if (urgency) {
