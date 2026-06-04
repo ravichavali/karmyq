@@ -19,6 +19,37 @@ interface RequestPayloadRendererProps {
 }
 
 /**
+ * Does the payload actually match the shape its detail component dereferences?
+ *
+ * Sprint 86 / ADR-067: `payload_type` is derived from the mixed-vocab `category` column, so a
+ * legacy/sim row can declare a type (e.g. 'moving_help') while carrying a different/near-empty
+ * payload shape. The detail components access nested fields unconditionally (e.g.
+ * `payload.current_address.address`, `payload.num_servings.toString()`), so rendering a mismatched
+ * payload throws and trips the dashboard's error boundary. Guard on the exact fields each component
+ * dereferences without a fallback — when it doesn't match, the renderer no-ops (the safe behavior
+ * ADR-067 documents). `pet_care`/`event_help`/`other` have no detail renderer → always no-op.
+ */
+function payloadMatchesType(type: RequestType, p: any): boolean {
+  if (!p) return false;
+  switch (type) {
+    case 'transportation':
+      return !!p.pickup_location?.address && !!p.dropoff_location?.address && p.passengers != null && p.luggage != null;
+    case 'moving_help':
+      return !!p.current_address?.address && !!p.new_address?.address && p.num_helpers_needed != null;
+    case 'childcare':
+      return Array.isArray(p.children) && !!p.location?.address;
+    case 'tech_help':
+      return typeof p.device_type === 'string' && typeof p.urgency_level === 'string';
+    case 'home_repair':
+      return typeof p.repair_type === 'string' && typeof p.location_in_home === 'string';
+    case 'food':
+      return typeof p.service_type === 'string' && Array.isArray(p.dietary_restrictions) && p.num_servings != null;
+    default:
+      return false;
+  }
+}
+
+/**
  * Renders type-specific request payload data
  */
 export default function RequestPayloadRenderer({
@@ -32,14 +63,22 @@ export default function RequestPayloadRenderer({
     return null;
   }
 
+  // Only render the type detail when the payload actually matches the type's shape (heterogeneous
+  // DB data — ADR-067). If there's nothing legible to show, no-op rather than render an empty box.
+  const showDetail = payloadMatchesType(type, payload);
+  const hasRequirements = !!requirements && Object.keys(requirements).length > 0;
+  if (!showDetail && !preferredStartDate && !hasRequirements) {
+    return null;
+  }
+
   return (
     <div className={`bg-surface rounded-md p-4 space-y-3 ${className}`}>
-      {type === 'transportation' && <TransportationDetails payload={payload as TransportationPayload} />}
-      {type === 'moving_help' && <MovingHelpDetails payload={payload as MovingHelpPayload} />}
-      {type === 'childcare' && <ChildcareDetails payload={payload as ChildcarePayload} />}
-      {type === 'tech_help' && <TechHelpDetails payload={payload as TechHelpPayload} />}
-      {type === 'home_repair' && <HomeRepairDetails payload={payload as HomeRepairPayload} />}
-      {type === 'food' && <FoodDetails payload={payload as FoodPayload} />}
+      {showDetail && type === 'transportation' && <TransportationDetails payload={payload as TransportationPayload} />}
+      {showDetail && type === 'moving_help' && <MovingHelpDetails payload={payload as MovingHelpPayload} />}
+      {showDetail && type === 'childcare' && <ChildcareDetails payload={payload as ChildcarePayload} />}
+      {showDetail && type === 'tech_help' && <TechHelpDetails payload={payload as TechHelpPayload} />}
+      {showDetail && type === 'home_repair' && <HomeRepairDetails payload={payload as HomeRepairPayload} />}
+      {showDetail && type === 'food' && <FoodDetails payload={payload as FoodPayload} />}
 
       {preferredStartDate && (
         <div className="flex items-center text-sm text-text-muted pt-2 border-t border-border">
