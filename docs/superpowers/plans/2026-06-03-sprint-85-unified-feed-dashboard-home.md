@@ -79,10 +79,19 @@ retirement are Sprint 86.
 
 ---
 
-## Task 1: Feature branch + vocabulary reconciliation migration
+## Task 1: Feature branch + vocabulary reconciliation (migration + ALL producers, atomic)
+
+> **⚠️ The urgency CHECK and every urgency producer MUST ship in the same branch.** Three urgency
+> vocabularies exist today — if the CHECK lands without fixing the producers, request creation and admin
+> triage will write a rejected value and 500. This task reconciles the DB **and** all producers together.
 
 **Files:**
 - Create: `infrastructure/postgres/migrations/20260603-feed-vocab-reconciliation.sql`
+- Modify (urgency producers/validators/types/labels): `services/request-service/src/routes/requests.ts`
+  (VALID_URGENCY validator ~line 1297), `services/request-service/src/routes/adminActions.ts`
+  (critical-handling ~line 215), `apps/frontend/src/components/RequestWizard.tsx` (UrgencyLevel
+  `normal|urgent|critical` ~line 15/363), `apps/frontend/src/components/community/tabs/BrowseTab.tsx`
+  (triage dropdown + color map ~line 186/443/465), `apps/frontend/src/lib/api.ts` (triage urgency type ~line 524)
 
 - [ ] Create branch `git checkout -b feature/sprint-85-unified-feed-dashboard-home`
 - [ ] **Dry-run first** — before writing the migration, inspect real values so the CHECK won't reject a live row:
@@ -93,17 +102,35 @@ psql "$DATABASE_URL" -c "SELECT status, count(*) FROM requests.help_requests GRO
 psql "$DATABASE_URL" -c "SELECT urgency, count(*) FROM requests.help_requests GROUP BY urgency;"
 ```
 
+- [ ] **Canonical scale = `urgent | high | medium | low`.** Mapping for migration AND every producer:
+  `critical → urgent`, `normal → medium` (RequestWizard's third vocabulary). No `request_type` change.
+- [ ] **Grep every urgency producer/validator/type/label** and reconcile to the canonical scale — do this
+  BEFORE adding the CHECK so nothing writes a rejected value:
+
+```bash
+# Find every urgency vocabulary site across backend + frontend + simulation (expect the 3 vocabularies)
+grep -rn "critical\|'normal'\|\"normal\"\|VALID_URGENCY\|UrgencyLevel" services apps/frontend/src --include=*.ts --include=*.tsx | grep -i urgen
+```
+  - `requests.ts` VALID_URGENCY → `['urgent','high','medium','low']` (drop `critical`; accept `urgent`).
+  - `adminActions.ts` triage → treat `urgent` as the top tier; remove the `critical` special-case.
+  - `RequestWizard.tsx` → emit `low|medium|high|urgent` (map the old `normal`→`medium`, `critical`→`urgent`).
+  - `BrowseTab.tsx` triage `<option>`s + the urgency→color map → canonical four; drop the `critical` option.
+  - `api.ts` triage urgency type → `'urgent' | 'high' | 'medium' | 'low'`.
 - [ ] **Write the idempotent migration** (urgency `critical→urgent` + CHECK; status `pending→proposed` + CHECK;
   no `request_type` change). Guards: `DROP CONSTRAINT IF EXISTS` before each `ADD CONSTRAINT`. Include the
   `cancelled` status in the allowed set so existing cancelled requests pass.
-
-- [ ] **Verify** the migration applies cleanly and is re-runnable:
+- [ ] **Verify** — migration re-runnable, no producer still emits a rejected value, both apps type-check:
 
 ```bash
 psql "$DATABASE_URL" -f infrastructure/postgres/migrations/20260603-feed-vocab-reconciliation.sql
 psql "$DATABASE_URL" -f infrastructure/postgres/migrations/20260603-feed-vocab-reconciliation.sql  # idempotent: no error
 psql "$DATABASE_URL" -c "SELECT DISTINCT status, urgency FROM requests.help_requests;"  # all within CHECK sets
+grep -rn "'critical'\|\"critical\"\|'normal'\|\"normal\"" services/request-service/src apps/frontend/src | grep -i urgen \
+  && echo "FAIL: stale urgency vocab remains" || echo "OK: no stale critical/normal urgency producers"
+cd services/request-service && npx tsc --noEmit && cd ../../apps/frontend && npx tsc --noEmit
 ```
+
+- [ ] **`/simplify`** the producer-reconciliation diff.
 
 ---
 
@@ -142,6 +169,15 @@ cd apps/frontend && npx tsc --noEmit && npm test -- sprint-85-request-card
   assign server-side `priority` (decisions > fillable requests), return the union. Keep `view` absent → legacy shape.
 - [ ] **Grep + reconcile** every `status = 'pending'` write/read on `help_requests` across services/frontend/simulation
   → `'proposed'` (leave `dibs`/`offers` `pending` alone).
+- [ ] **"Designed to forget" — make the prior-interaction signal decayed (manifesto/ADR-066 promise 1 & 3).**
+  Today `handleCuratedFeed` feeds `scorePriorInteraction(...)` from `social_graph.connections.type`
+  (`'exchange' | 'community'`, ~requests.ts:459/545) — a binary-ish category, NOT a half-life-decayed weight.
+  Change the prior-interaction input to read the **decayed** edge weight (`trust_edges_live.current_weight`
+  or the ADR-011 / `20260526-interaction-halflife` decayed value), so feed ranking reflects relationship
+  *shape*, not raw history. **Read `trust_edges_live`, never write it** (it's a VIEW).
+- [ ] **Assert it in the unit test**: prove the prior-interaction component reads the decayed weight (e.g. two
+  requesters with equal raw interaction counts but different recency/decayed weights rank differently; a fully
+  decayed edge contributes ~0). No raw-count assertion that would pass on undecayed data.
 - [ ] **Verify**
 
 ```bash
@@ -311,8 +347,17 @@ npm audit --package-lock-only --audit-level=high   # ADR-059 gate clean
 ## Task 12: Merge + Deploy
 
 - [ ] Use the **`/deploy`** skill: merge to `master`, push, monitor GitHub Actions ("Deploy to Demo").
-- [ ] **Run the migration on the demo server** (`20260603-feed-vocab-reconciliation.sql`) — schema change, so SSH
-  and apply it as part of deploy (the dry-run from Task 1 confirms it's safe).
+- [ ] **Confirm the migration applied automatically — do NOT rerun it manually.** `deploy.sh` Step 6 runs
+  `scripts/apply-migrations.sh` before service deployment, so the new migration ships with the deploy. Verify it
+  registered and took effect (only apply manually if deploy *skipped* migrations, e.g. an emergency `SKIP_TESTS`/
+  partial run):
+
+```bash
+# On demo (or via the deploy logs): confirm the migration is recorded + the CHECKs are live
+psql "$DATABASE_URL" -c "SELECT * FROM schema_migrations WHERE version LIKE '20260603%';"   # registered
+psql "$DATABASE_URL" -c "SELECT DISTINCT status, urgency FROM requests.help_requests;"      # within CHECK sets
+```
+
 - [ ] **Validate on demo** (human validation step): API smoke (`GET /requests/curated?view=home` returns the union),
   DB check (`SELECT DISTINCT status, urgency` within CHECK sets), UI check (Dashboard Home shows the decision band +
   canonical cards + caught-up end-state; responder can withdraw an offer from the band).

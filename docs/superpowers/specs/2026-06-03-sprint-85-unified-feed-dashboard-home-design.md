@@ -180,9 +180,13 @@ didn't revert** (run generate-docs from `apps/landing/`, re-apply if reverted).
    canonical. The 6 payload subtypes (transportation/moving_help/childcare/tech_help/home_repair/food) are a
    **separate `payload` concept** — do NOT migrate or conflate them with `request_type`. Document the
    distinction in ADR-066; no request_type DB change.
-4. **Urgency uses `??` not `||`** anywhere a default is applied, and the migration maps `critical → urgent`
-   before adding the CHECK. The feed scoring code already has the `!= null` (not `||`) discipline for numeric
-   weights — keep it; `||` treats 0 as missing → weight sum blows up → 500.
+4. **Urgency: the CHECK and ALL producers ship together (atomic) or creation 500s.** Canonical scale is
+   `urgent | high | medium | low`. **Three** producer vocabularies exist today and must all be reconciled in
+   the same branch *before* the CHECK lands: request creation validator `VALID_URGENCY` (`low|medium|high|critical`,
+   `requests.ts:~1297`), admin triage critical-handling (`adminActions.ts:~215`, `BrowseTab.tsx:~443`,
+   `api.ts:~524`), and `RequestWizard.tsx`'s `normal|urgent|critical` (`~line 15`). Mapping: `critical → urgent`,
+   `normal → medium`. Use `??`/`!= null` (not `||`) for any default — `||` treats 0 as missing → weight sum blows
+   up → 500. See Task 1 (it owns the migration + every producer).
 5. **`match_score` is one 0–100 integer scale** with a `match_reason` string. The two legacy scales (0–1 in
    BrowseFeed, 0–100 in Feed) collapse to 0–100; normalize at the API boundary so the card never sees 0–1.
 6. **Status token: `proposed` replaces `pending`.** Migrate `help_requests` rows and add the CHECK; update
