@@ -16,6 +16,12 @@
 > wins the curated composite (the priority CASE isn't on that path); phantom `status='pending'` filter removed
 > from `expirationJob.ts`.
 >
+> **Post-PR review fixes (553697c):** (1) **Dibs decision ownership was inverted** — accept/decline is owed by
+> the PROVIDER (`dibs.provider_user_id`), not the requester; `fetchDecisions` now emits dibs with
+> `member_role='responder'`, queries `d.provider_user_id=$1`, excludes expired dibs. (2) **Provider offers**
+> (`provider.offers`) now surfaced as requester decisions (`subject_kind='offer'`) — DecisionBand already routed
+> them. Locked by `tests/unit/fetch-decisions.test.ts`; request-service unit+regression 203 green.
+>
 > **Known seam (documented in ADR-066):** `RequestCardData.request_type` carries the request_type_enum at
 > runtime but is typed as the payload-subtype union, so `RequestPayloadRenderer` renders no payload detail for
 > curated cards (no regression — BrowseFeed showed none either; lights up when the model is unified in S86).
