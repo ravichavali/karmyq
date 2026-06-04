@@ -24,7 +24,7 @@ ranked by extended action-altitude bands; the frontend `UnifiedFeed` gains a `vi
 | `apps/frontend/src/components/Feed/ActivityCard.tsx` | Presentational community-activity texture card. |
 | `apps/frontend/src/components/Feed/StoryCard.tsx` | Presentational story texture card. |
 | `services/request-service/src/services/communityTexture.ts` | Pure builders + priority bands for `activity`/`story` items (unit-testable). |
-| `services/request-service/src/services/payloadType.ts` | `categoryToPayloadType()` — maps the messy `category` column to the renderer's `PayloadType` (seam fix). |
+| `services/request-service/src/services/payloadType.ts` | **Canonical vocabulary adapter for this sprint** — `categoryToPayloadType()` maps the messy `category` column to the renderer's `PayloadType`. ALL `category`↔payload-subtype translation routes through here; do NOT scatter inline maps in routes/components. |
 | `services/request-service/tests/unit/community-texture.test.ts` | Unit tests for texture builders + ranking (TDD, written first). |
 | `services/request-service/tests/unit/payload-type.test.ts` | Unit tests for the `category → PayloadType` map incl. legacy aliases (`moving`→`moving_help`, `tech_support`→`tech_help`) + unknown→undefined. |
 | `services/request-service/tests/integration/sprint-86-community-feed.test.ts` | Real-DB test: `view=community` returns ranked request+activity+story union; 400 on missing `community_id`; non-member gets no texture. |
