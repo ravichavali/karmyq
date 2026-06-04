@@ -12,7 +12,8 @@ import DynamicForm from '@/components/requests/DynamicForm'
 import DibsPrompt, { DibsCandidate } from '@/components/requests/DibsPrompt'
 import type { UISchema } from '@karmyq/shared/schemas/ui'
 
-type UrgencyLevel = 'normal' | 'urgent' | 'critical'
+// Canonical urgency scale (Sprint 85 / ADR-066): one scale, urgent is the top tier.
+type UrgencyLevel = 'low' | 'medium' | 'high' | 'urgent'
 
 const DEFAULT_TYPES = [
   { value: 'generic', label: 'General', icon: '🤝' },
@@ -24,12 +25,6 @@ const DEFAULT_TYPES = [
 
 // Module-level schema cache to avoid redundant fetches
 const schemaCache: Record<string, UISchema> = {}
-
-function mapUrgencyToApi(urgency: UrgencyLevel): string {
-  if (urgency === 'normal') return 'medium'
-  if (urgency === 'urgent') return 'high'
-  return urgency
-}
 
 interface RequestWizardProps {
   onClose: () => void
@@ -53,7 +48,7 @@ export default function RequestWizard({
   const [schemaLoading, setSchemaLoading] = useState(false)
   const [dynamicPayload, setDynamicPayload] = useState<Record<string, unknown>>({})
   const [description, setDescription] = useState('')
-  const [urgency, setUrgency] = useState<UrgencyLevel>('normal')
+  const [urgency, setUrgency] = useState<UrgencyLevel>('medium')
   const [communityId, setCommunityId] = useState<string>('')
   const [showCommunitySelect, setShowCommunitySelect] = useState(false)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -160,7 +155,7 @@ export default function RequestWizard({
       const payload = {
         request_type: requestType,
         description: description.trim(),
-        urgency: mapUrgencyToApi(urgency),
+        urgency,
         payload: Object.keys(dynamicPayload).length > 0 ? dynamicPayload : undefined,
         ...(communityId ? { community_id: communityId } : { post_to_all_communities: true }),
         ...(preferredProviderId ? { preferred_provider_id: preferredProviderId } : {}),
@@ -360,7 +355,7 @@ export default function RequestWizard({
                     Urgency
                   </label>
                   <div className="flex gap-2">
-                    {(['normal', 'urgent', 'critical'] as UrgencyLevel[]).map((level) => (
+                    {(['low', 'medium', 'high', 'urgent'] as UrgencyLevel[]).map((level) => (
                       <button
                         type="button"
                         key={level}

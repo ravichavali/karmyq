@@ -6,7 +6,7 @@ import { communityService } from '@/lib/api'
 import Layout from '@/components/Layout'
 import WelcomeModal from '@/components/WelcomeModal'
 import TabBar, { TabId } from '@/components/TabBar'
-import BrowseFeed from '@/components/BrowseFeed'
+import UnifiedFeed from '@/components/Feed/UnifiedFeed'
 import CommitmentsTab from '@/components/CommitmentsTab'
 import MyRequestsTab from '@/components/MyRequestsTab'
 import type { BrowseMode } from '@/components/BrowseModeControl'
@@ -207,7 +207,7 @@ export default function Dashboard() {
             <div className="pb-20 md:pb-0">
               {activeTab === 'browse' && (
                 <div key="browse">
-                  <BrowseFeed
+                  <UnifiedFeed
                     communityId={activeCommunityId || undefined}
                     communityType={userCommunities.find(c => c.id === activeCommunityId)?.community_type}
                     isOnDuty={isOnDuty}

@@ -254,8 +254,14 @@ describe('calculateFeedScore — new signals in breakdown', () => {
 });
 
 describe('scoreUrgency', () => {
-  it('scores high urgency as 100', () => {
-    expect(scoreUrgency('high')).toBe(100);
+  it('scores urgent (canonical top tier, Sprint 85) at the 100 ceiling, strictly above high', () => {
+    expect(scoreUrgency('urgent')).toBe(100);
+    // urgent must rank STRICTLY above high so it wins the curated composite signal
+    expect(scoreUrgency('urgent')).toBeGreaterThan(scoreUrgency('high'));
+  });
+
+  it('scores high urgency as 80 (below urgent, above medium)', () => {
+    expect(scoreUrgency('high')).toBe(80);
   });
 
   it('scores medium urgency as 60', () => {

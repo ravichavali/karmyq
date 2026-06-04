@@ -1,8 +1,23 @@
 # @karmyq/shared — Context
 
-**Last Updated**: 2026-04-06
+**Last Updated**: 2026-06-04
 
 Shared TypeScript library consumed by all Karmyq services and frontend apps.
+
+---
+
+## Canonical urgency scale (Sprint 85 / ADR-066)
+
+`./matching` scorers use one canonical urgency scale — `urgent | high | medium | low` — with `urgent`
+as the top tier (it replaces the retired `critical`):
+
+- `scoreUrgency(urgency)` → `urgent: 100, high: 80, medium: 60, low: 30` (default 30). `urgent` scores
+  **strictly above** `high` so it wins the curated home-feed composite signal (the feed ranks on this
+  composite, not a SQL CASE).
+- `applyUrgencyBonus(urgency, base)` → `urgent: +20, high: +15, medium: +5, low: 0`.
+
+Producers must emit only the canonical four; `critical`/`normal` are retired. See
+[ADR-066](../../docs/adr/ADR-066-unified-feed-model.md).
 
 ---
 

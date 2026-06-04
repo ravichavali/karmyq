@@ -37,7 +37,7 @@ jest.mock('@/hooks/useOnboarding', () => ({
 jest.mock('@/components/Layout', () => ({ children }: { children: React.ReactNode }) => <div>{children}</div>)
 jest.mock('@/components/WelcomeModal', () => () => null)
 jest.mock('@/components/TabBar', () => ({ __esModule: true, default: () => null }))
-jest.mock('@/components/BrowseFeed', () => () => null)
+jest.mock('@/components/Feed/UnifiedFeed', () => () => null)
 jest.mock('@/components/CommitmentsTab', () => () => null)
 jest.mock('@/components/MyRequestsTab', () => () => null)
 jest.mock('@/components/SpeedDialFab', () => () => null)

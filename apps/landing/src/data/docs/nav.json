@@ -57,6 +57,10 @@
           "href": "/docs/concepts/why-ratings-are-private"
         },
         {
+          "label": "One Feed, Two Views",
+          "href": "/docs/concepts/unified-feed"
+        },
+        {
           "label": "Community Scale: The Fractal Community Model",
           "href": "/docs/concepts/community-scale"
         },
@@ -108,6 +112,10 @@
         {
           "label": "Getting Started",
           "href": "/docs/guides/getting-started"
+        },
+        {
+          "label": "Your Dashboard Home",
+          "href": "/docs/guides/dashboard-home"
         },
         {
           "label": "Asking for Help",
@@ -413,6 +421,10 @@
         {
           "label": "Offer Fulfillment Workflow",
           "href": "/docs/concepts/adr-033-offer-fulfillment-workflow"
+        },
+        {
+          "label": "Unified Feed Model",
+          "href": "/docs/concepts/adr-066-unified-feed-model"
         },
         {
           "label": "— Infrastructure —",

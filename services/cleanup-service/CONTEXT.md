@@ -16,7 +16,7 @@ The Cleanup Service handles:
 
 | Job | Schedule | Description |
 |-----|----------|-------------|
-| Mark Expired | Every hour (`:00`) | Soft delete data past `expires_at` |
+| Mark Expired | Every hour (`:00`) | Soft delete data past `expires_at` (help_requests filtered to `status = 'open'` — Sprint 85 dropped the phantom `'pending'` token, never a real help_requests status) |
 | Hard Delete | Daily 2:00 AM | Permanently delete data expired >7 days |
 | Reputation Decay | Daily 3:00 AM | Recalculate trust scores with decay |
 | Activity Log Cleanup | Weekly Sun 4:00 AM | Remove old activity logs (>90 days) |

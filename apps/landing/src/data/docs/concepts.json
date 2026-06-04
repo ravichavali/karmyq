@@ -503,6 +503,14 @@
       "status": "implemented",
       "description": "**Status**: Implemented",
       "filename": "ADR-065-karmyq-org-and-com-domain-roles.md"
+    },
+    {
+      "slug": "adr-066-unified-feed-model",
+      "number": "066",
+      "title": "ADR-066: Unified Feed Model",
+      "status": "implemented",
+      "description": "**Status**: Implemented",
+      "filename": "ADR-066-unified-feed-model.md"
     }
   ]
 }

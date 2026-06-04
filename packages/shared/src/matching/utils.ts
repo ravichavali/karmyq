@@ -111,7 +111,9 @@ export function scoreBySchedule(
  * High urgency requests get priority in matching
  */
 export function applyUrgencyBonus(urgency: string, baseScore: number): number {
+  // Canonical urgency scale (Sprint 85 / ADR-066): urgent > high > medium > low.
   const bonuses = {
+    urgent: 20,
     high: 15,
     medium: 5,
     low: 0,
@@ -200,8 +202,12 @@ export function calculateFeedScore(
  * Different from applyUrgencyBonus which adds a bonus to an existing score.
  */
 export function scoreUrgency(urgency: string): number {
+  // Canonical urgency scale (Sprint 85 / ADR-066): urgent is the top tier (it replaces the
+  // retired 'critical') and must score STRICTLY above high — the curated home feed ranks on this
+  // composite signal, not the urgency_priority CASE, so a tie would erase urgent's advantage.
   const scores: Record<string, number> = {
-    high: 100,
+    urgent: 100,
+    high: 80,
     medium: 60,
     low: 30,
   };
