@@ -416,21 +416,27 @@ Get curated feed scored on 7 signals: skill match, trust distance, community rel
 - `community_id` (UUID) - Filter by specific community (optional)
 - `tier` (string) - Filter by visibility tier: `community`, `trust_network`, `platform`, `sister_community` (optional)
 - `includeSisterCommunities` (boolean) - Include requests from linked sister communities where `show_in_sister_feeds=true`, scored with trust_carry_factor applied (Sprint 15)
-- `view` (string, Sprint 85 / ADR-066) - When `view=home`, returns the **unified feed item union** `{ items: UnifiedFeedItem[] }` for Dashboard Home instead of the legacy request array. `view` absent keeps the legacy shape (back-compat).
+- `view` (string, Sprint 85/86 / ADR-066) - When `view=home`, returns the **unified feed item union** `{ items: UnifiedFeedItem[] }` (decisions + requests) for Dashboard Home. When `view=community`, returns the community-scoped union (requests + activity + story texture, **no decisions**) for a community's Requests tab. `view` absent keeps the legacy request-array shape (back-compat).
 
-**`view=home` response (Sprint 85 / ADR-066 — Unified Feed Model):**
+**`view=home` / `view=community` response (Sprint 85/86 / ADR-066 — Unified Feed Model):**
 Each item is a discriminated union carrying a server-computed `priority` (action altitude — the client renders in array order):
 ```ts
 type UnifiedFeedItem =
-  | { kind: 'request';  priority: number; data: RequestCardData }   // a request you can fill
-  | { kind: 'decision'; priority: number; data: DecisionData }      // a response you owe
-  | { kind: 'activity'; priority: number; data: ActivityData }      // texture (S86, shape only)
-  | { kind: 'story';    priority: number; data: StoryData }         // texture (S86, shape only)
+  | { kind: 'request';  priority: number; data: RequestCardData }   // a request you can fill (1000–1100)
+  | { kind: 'decision'; priority: number; data: DecisionData }      // a response you owe (>=2000, home only)
+  | { kind: 'activity'; priority: number; data: ActivityData }      // community texture (500, community only)
+  | { kind: 'story';    priority: number; data: StoryData }         // community texture (100, community only)
 ```
-- **Decisions rank above requests**: decision priority `>= 2000`, request priority `1000–1100` (= `1000 + feedScore`). Within decisions, a response a counterparty awaits (accept/decline) ranks above the member's own housekeeping (withdraw/mark-done).
-- `decision` items are built from the member's proposed matches/offers (accept/decline as requester, withdraw as responder), matched items awaiting the member's mark-done, and pending dibs on the member's requests — the same data the Commitments tab reads.
+- **Action altitude bands**: decisions `>= 2000` > requests `1000–1100` (= `1000 + feedScore`) > activity `500` > story `100`. Within decisions, a response a counterparty awaits (accept/decline) ranks above the member's own housekeeping (withdraw/mark-done).
+- `decision` items (home only) are built from the member's proposed matches/offers (accept/decline as requester, withdraw as responder), matched items awaiting the member's mark-done, and pending dibs on the member's requests — the same data the Commitments tab reads.
 - **`match_score` is normalized to one 0–100 integer scale** at the API boundary (never 0–1), with a human-readable `match_reason`.
+- **`payload_type` (Sprint 86 / ADR-067)** — each `request` item carries a fine payload subtype derived from the `category` column via `categoryToPayloadType()` (distinct from the coarse `request_type` enum); it drives the card's `RequestPayloadRenderer`. Unmapped categories → `undefined` (renderer no-ops, safe).
 - **Prior-interaction signal reads the decayed edge weight** (`social_graph.trust_edges_live.current_weight`, ADR-011 / `20260526-interaction-halflife`), not a raw count — feed ranking reflects relationship shape, not history ("designed to forget"). `trust_edges_live` is a VIEW (read-only).
+
+**`view=community` specifics (Sprint 86 / ADR-066):**
+- Assembled entirely from request-service's own DB reads — **no feed-service call** (ADR-066 single-source). Texture queries are best-effort (each in try/catch; a failure degrades to "no texture", never breaks the feed).
+- **Requires `community_id`** → `400 COMMUNITY_ID_REQUIRED` if missing. **Caller must be a member** of that community (JWT `communities` claim) → `403 NOT_A_MEMBER` otherwise, before any texture read.
+- `activity` = one community pulse (exchanges completed this week, new members, open-requests count, recent helpers). `story` = recent first-exchange narratives. Never includes a `decision` item.
 
 **Vocabulary reconciliation (Sprint 85 / ADR-066, migration `20260603-feed-vocab-reconciliation.sql`):**
 - **Urgency** is one scale `urgent | high | medium | low` (`critical → urgent`), enforced by CHECK `chk_help_requests_urgency`.

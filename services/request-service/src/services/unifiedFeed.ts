@@ -45,9 +45,12 @@ export interface DecisionData {
 }
 
 // ── Priority bands ──
-// Decisions (>=2000) always outrank requests (1000–1100), which outrank texture (S86).
+// Decisions (>=2000) always outrank requests (1000–1100), which outrank texture: the community
+// activity summary (500) ranks below every request, and stories (100) rank below activity (S86).
 export const PRIORITY_DECISION_BASE = 2000;
 export const PRIORITY_REQUEST_BASE = 1000;
+export const PRIORITY_ACTIVITY_BASE = 500;
+export const PRIORITY_STORY_BASE = 100;
 
 // Within the decision band, the response a counterparty is waiting on outranks the member's
 // own housekeeping (withdraw / mark-done). Kept < 1000 so the band can never collide with
@@ -107,14 +110,18 @@ export function buildRequestItem<T>(data: T, feedScore: number): UnifiedFeedItem
 }
 
 /**
- * Assemble the home feed: a stable sort by descending priority (action altitude). Ties keep
- * input order, so callers can pre-sort within a band (e.g. requests by feed score) and trust
- * that ordering to survive.
+ * Assemble a unified feed (either view): a stable sort by descending priority (action altitude).
+ * Ties keep input order, so callers can pre-sort within a band (e.g. requests by feed score, or
+ * stories by recency) and trust that ordering to survive. Serves both `view=home` (decisions +
+ * requests) and `view=community` (requests + activity + story).
  */
-export function assembleHomeFeed(items: UnifiedFeedItem[]): { items: UnifiedFeedItem[] } {
+export function assembleFeed(items: UnifiedFeedItem[]): { items: UnifiedFeedItem[] } {
   const sorted = items
     .map((item, index) => ({ item, index }))
     .sort((a, b) => b.item.priority - a.item.priority || a.index - b.index)
     .map(({ item }) => item);
   return { items: sorted };
 }
+
+/** Back-compat alias for the original `view=home` caller/tests. */
+export const assembleHomeFeed = assembleFeed;

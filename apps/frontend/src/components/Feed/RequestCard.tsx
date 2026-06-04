@@ -111,9 +111,11 @@ export default function RequestCard({ data, currentUserId, onOffered }: RequestC
         <p className="text-sm text-text-muted mb-3 line-clamp-2">{data.description}</p>
       )}
 
-      {data.request_type && data.payload && (
+      {/* ADR-067: render payload off the fine `payload_type` (from DB category), not the coarse
+          `request_type` enum. Renderer no-ops on an unmapped type / empty payload (safe fallback). */}
+      {data.payload_type && data.payload && (
         <RequestPayloadRenderer
-          type={data.request_type}
+          type={data.payload_type}
           payload={data.payload}
           requirements={data.requirements}
           preferredStartDate={data.preferred_start_date}

@@ -4,18 +4,25 @@ import FilterChipRow, { RequestTypeFilter, UrgencyFilter } from '@/components/Fi
 import EmptyState from '@/components/EmptyState'
 import BrowseModeControl, { BrowseMode } from '@/components/BrowseModeControl'
 import RequestCard from './RequestCard'
+import ActivityCard from './ActivityCard'
+import StoryCard from './StoryCard'
 import DecisionBand from './DecisionBand'
-import type { DecisionData, RequestCardData, UnifiedFeedItem } from '@/types/unified-feed'
+import type { ActivityData, DecisionData, RequestCardData, UnifiedFeedItem } from '@/types/unified-feed'
+import type { StoryData } from '@/types/feed-items'
 
 /**
- * Dashboard Home — the unified feed (Sprint 85 / ADR-066). Renders ONE model in array order:
- * the decisions you owe (DecisionBand) on top, then the requests you can fill (the canonical
- * RequestCard), already ranked server-side by action altitude. When no fillable requests remain,
- * the "you're caught up" end-state points the member toward their communities. Replaces BrowseFeed's
- * bespoke card with the canonical one.
+ * The unified feed (Sprint 85/86 / ADR-066) — ONE model rendered in two views, in server-ranked
+ * array order:
+ *   - view="home" (Dashboard Home): the decisions you owe (DecisionBand) on top, then the requests
+ *     you can fill, ranked by action altitude.
+ *   - view="community" (Community tab): the requests you can fill, then the community texture
+ *     (ActivityCard summary, then StoryCards). NO decision band, no provider browse-mode control.
+ * Replaces every legacy bespoke card surface with the canonical RequestCard + texture cards.
  */
 
 interface UnifiedFeedProps {
+  /** Which view to render/fetch. 'home' = decisions + requests; 'community' = requests + texture. */
+  view?: 'home' | 'community'
   communityId?: string
   communityType?: 'mutual_aid' | 'group'
   isOnDuty?: boolean
@@ -31,6 +38,7 @@ function readCurrentUserId(): string | null {
 }
 
 export default function UnifiedFeed({
+  view = 'home',
   communityId,
   communityType,
   isOnDuty,
@@ -39,6 +47,7 @@ export default function UnifiedFeed({
   browseMode: externalBrowseMode,
   onBrowseModeChange,
 }: UnifiedFeedProps) {
+  const isCommunity = view === 'community'
   const [items, setItems] = useState<UnifiedFeedItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
@@ -66,7 +75,7 @@ export default function UnifiedFeed({
 
     requestService
       .getCuratedRequests({
-        view: 'home',
+        view,
         community_id: communityId && communityId !== 'all' ? communityId : undefined,
         limit: 50,
       })
@@ -87,11 +96,20 @@ export default function UnifiedFeed({
     }
   }
 
-  useEffect(fetchFeed, [communityId])
+  useEffect(fetchFeed, [communityId, view])
 
   const decisions = items
     .filter((i): i is Extract<UnifiedFeedItem, { kind: 'decision' }> => i.kind === 'decision')
     .map((i) => i.data)
+
+  // Texture layer (community view): server-ranked below requests; rendered in array order.
+  const activityCards = items
+    .filter((i): i is Extract<UnifiedFeedItem, { kind: 'activity' }> => i.kind === 'activity')
+    .map((i) => i.data as ActivityData)
+  const storyCards = items
+    .filter((i): i is Extract<UnifiedFeedItem, { kind: 'story' }> => i.kind === 'story')
+    .map((i) => i.data as StoryData)
+  const hasTexture = activityCards.length > 0 || storyCards.length > 0
 
   const requestCards = items
     .filter((i): i is Extract<UnifiedFeedItem, { kind: 'request' }> => i.kind === 'request')
@@ -102,7 +120,9 @@ export default function UnifiedFeed({
       const requestType = (r.request_type as string | undefined) ?? ''
       const typeMatch = activeType === 'all' || requestType === activeType
       const urgencyMatch = activeUrgency === 'all' || r.urgency === activeUrgency
+      // Provider browse-mode filtering is a Home concern; the community view shows every request.
       const serviceMatch =
+        isCommunity ||
         !isOnDuty ||
         browseMode === 'community' ||
         browseMode === 'both' ||
@@ -141,9 +161,12 @@ export default function UnifiedFeed({
 
   return (
     <div className="max-w-2xl mx-auto px-4">
-      <div className={isOnDuty ? '' : 'invisible pointer-events-none'}>
-        <BrowseModeControl browseMode={browseMode} onChange={handleBrowseModeChange} />
-      </div>
+      {/* Provider browse-mode + decision band are Home-only — the community view omits them. */}
+      {!isCommunity && (
+        <div className={isOnDuty ? '' : 'invisible pointer-events-none'}>
+          <BrowseModeControl browseMode={browseMode} onChange={handleBrowseModeChange} />
+        </div>
+      )}
 
       {communityType === 'group' && (
         <div className="text-sm text-muted-foreground bg-muted/50 rounded-md px-3 py-2 mb-3 border border-border">
@@ -152,7 +175,7 @@ export default function UnifiedFeed({
         </div>
       )}
 
-      <DecisionBand decisions={decisions} onResolved={dropDecision} />
+      {!isCommunity && <DecisionBand decisions={decisions} onResolved={dropDecision} />}
 
       <FilterChipRow
         activeType={activeType}
@@ -172,6 +195,15 @@ export default function UnifiedFeed({
           />
         ) : activeType !== 'all' || activeUrgency !== 'all' ? (
           <EmptyState heading="No matching requests" body="Try clearing your filters." />
+        ) : isCommunity ? (
+          // Community view: only show the "nothing here" state when there's no texture either.
+          !hasTexture ? (
+            <EmptyState
+              icon="🤝"
+              heading="No open requests right now"
+              body="When a neighbour asks for help here, it'll show up in this feed."
+            />
+          ) : null
         ) : (
           <EmptyState
             icon="✅"
@@ -185,6 +217,18 @@ export default function UnifiedFeed({
         <div className="space-y-3 pb-4">
           {requestCards.map((data) => (
             <RequestCard key={data.request_id} data={data} currentUserId={currentUserId} onOffered={dropRequest} />
+          ))}
+        </div>
+      )}
+
+      {/* Community texture, server-ranked below the requests. */}
+      {isCommunity && hasTexture && (
+        <div className="space-y-3 pb-4">
+          {activityCards.map((data) => (
+            <ActivityCard key={`activity-${data.community_id}`} data={data} />
+          ))}
+          {storyCards.map((data, idx) => (
+            <StoryCard key={`story-${data.type}-${idx}`} data={data} />
           ))}
         </div>
       )}
