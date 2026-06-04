@@ -29,10 +29,13 @@ import {
   buildRequestItem,
   buildDecisionItem,
   assembleHomeFeed,
+  assembleFeed,
   type DecisionData,
   type DecisionAction,
   type UnifiedFeedItem,
 } from '../services/unifiedFeed';
+import { categoryToPayloadType } from '../services/payloadType';
+import { buildActivityItem, buildStoryItem, type StoryData } from '../services/communityTexture';
 
 const router = Router();
 
@@ -677,6 +680,13 @@ async function handleCuratedFeed(req: Request, res: Response): Promise<void> {
       return;
     }
 
+    // Sprint 86 / ADR-066 — view=community returns the community-scoped union (requests + texture,
+    // no decision band). community_id is required and the caller must be a member (guarded inside).
+    if (req.query.view === 'community') {
+      await respondCommunityFeed(req, res, communityId, filteredRequests);
+      return;
+    }
+
     // Count by tier for response metadata
     const tierCounts = filteredRequests.reduce((acc: Record<string, number>, r: any) => {
       acc[r.sourceTier] = (acc[r.sourceTier] || 0) + 1;
@@ -762,6 +772,9 @@ function toRequestCardData(r: any): Record<string, unknown> {
     urgency: r.urgency,
     status: 'open',
     request_type: r.request_type || 'generic',
+    // ADR-067 seam fix: the fine payload subtype the card renders, normalized from the mixed-vocab
+    // `category` column (never a raw passthrough). Undefined for unmapped categories → renderer no-ops.
+    payload_type: categoryToPayloadType(r.category),
     payload: r.payload || {},
     requirements: r.requirements || {},
     is_boosted: !!r.is_boosted,
@@ -915,6 +928,127 @@ async function respondHomeFeed(req: Request, res: Response, userId: string, scor
   const { items } = assembleHomeFeed([...decisionItems, ...requestItems]);
 
   sendSuccess(res, { items, count: items.length }, HTTP_STATUS.OK, { requestId: (req as any).id });
+}
+
+/**
+ * Sprint 86 / ADR-066 — assemble + send the Community Feed unified feed ({ items }): the requests
+ * the member can fill in this community, then the community texture (one activity summary, then
+ * stories). NO decision band — decisions are the member's cross-community queue, a Dashboard-Home
+ * concern. Requires a community_id (400) and verifies the caller is a member (403) BEFORE any
+ * texture read, so a non-member can never pull a community's texture. Texture queries are
+ * best-effort: a failure degrades to "no texture" and logs, never breaking the feed.
+ */
+async function respondCommunityFeed(
+  req: Request,
+  res: Response,
+  communityId: string | undefined,
+  scoredRequests: any[],
+): Promise<void> {
+  const meta = { requestId: (req as any).id };
+
+  // Guard 1: the community feed is community-scoped — a missing community_id is a client error.
+  if (!communityId) {
+    sendError(res, 'COMMUNITY_ID_REQUIRED', 'community_id is required for the community feed', HTTP_STATUS.BAD_REQUEST, undefined, meta);
+    return;
+  }
+
+  // Guard 2: only members see a community's feed + texture (JWT `communities` claim).
+  const memberships = (req as any).user?.communities ?? [];
+  if (!memberships.some((c: any) => c.id === communityId)) {
+    sendError(res, 'NOT_A_MEMBER', 'You must be a member of this community to view its feed', HTTP_STATUS.FORBIDDEN, undefined, meta);
+    return;
+  }
+
+  // Requests the member can fill (the curated query already scoped these to this community).
+  const requestItems = scoredRequests.map((r) => buildRequestItem(toRequestCardData(r), r.feedScore));
+
+  // Texture: best-effort + non-fatal (same pattern as fetchDecisions). Ranked below requests.
+  const textureItems: UnifiedFeedItem[] = [];
+
+  try {
+    const activityResult = await query(
+      `SELECT
+         c.name AS community_name,
+         (SELECT COUNT(*) FROM requests.matches m
+            JOIN requests.request_communities rc ON m.request_id = rc.request_id
+            WHERE rc.community_id = $1 AND m.status = 'completed'
+              AND m.completed_at >= NOW() - INTERVAL '7 days') AS exchanges_completed_week,
+         (SELECT COUNT(*) FROM communities.members mem
+            WHERE mem.community_id = $1 AND mem.status = 'active'
+              AND mem.joined_at >= NOW() - INTERVAL '7 days') AS new_members_count,
+         (SELECT COUNT(*) FROM requests.help_requests hr
+            JOIN requests.request_communities rc ON hr.id = rc.request_id
+            WHERE rc.community_id = $1 AND hr.status = 'open' AND hr.expired = FALSE) AS open_requests_count
+       FROM communities.communities c
+       WHERE c.id = $1`,
+      [communityId]
+    );
+    const row = activityResult.rows[0];
+    if (row) {
+      const helpersResult = await query(
+        `SELECT u.name, COUNT(*)::int AS help_count
+           FROM requests.matches m
+           JOIN requests.request_communities rc ON m.request_id = rc.request_id
+           JOIN auth.users u ON m.responder_id = u.id
+           WHERE rc.community_id = $1 AND m.status = 'completed'
+             AND m.completed_at >= NOW() - INTERVAL '7 days'
+           GROUP BY u.name
+           ORDER BY help_count DESC
+           LIMIT 3`,
+        [communityId]
+      );
+      const recentHelpers = helpersResult.rows.map((h: any) => ({ name: h.name, help_count: Number(h.help_count) }));
+      textureItems.push(
+        buildActivityItem({
+          community_id: communityId,
+          community_name: row.community_name || '',
+          exchanges_completed_week: Number(row.exchanges_completed_week) || 0,
+          new_members_count: Number(row.new_members_count) || 0,
+          open_requests_count: Number(row.open_requests_count) || 0,
+          ...(recentHelpers.length > 0 ? { recent_helpers: recentHelpers } : {}),
+        })
+      );
+    }
+  } catch (e: any) {
+    (req as any).logger?.error('community-feed activity failed', e instanceof Error ? e : new Error(String(e)), { service: 'request-service', step: 'community-activity' });
+  }
+
+  try {
+    // First-exchange stories: a member whose FIRST completed exchange in this community is recent.
+    const storyResult = await query(
+      `SELECT u.name AS helper_name, hr.title, c.name AS community_name
+         FROM requests.matches m
+         JOIN requests.request_communities rc ON m.request_id = rc.request_id
+         JOIN requests.help_requests hr ON m.request_id = hr.id
+         JOIN auth.users u ON m.responder_id = u.id
+         LEFT JOIN communities.communities c ON rc.community_id = c.id
+         WHERE rc.community_id = $1 AND m.status = 'completed'
+           AND m.completed_at >= NOW() - INTERVAL '14 days'
+           AND NOT EXISTS (
+             SELECT 1 FROM requests.matches m2
+             JOIN requests.request_communities rc2 ON m2.request_id = rc2.request_id
+             WHERE rc2.community_id = $1 AND m2.responder_id = m.responder_id
+               AND m2.status = 'completed' AND m2.completed_at < m.completed_at
+           )
+         ORDER BY m.completed_at DESC
+         LIMIT 3`,
+      [communityId]
+    );
+    for (const s of storyResult.rows) {
+      const story: StoryData = {
+        type: 'first_timer',
+        title: `${s.helper_name} helped for the first time`,
+        description: `Completed "${s.title}" — a first exchange in the community.`,
+        community_name: s.community_name || undefined,
+      };
+      textureItems.push(buildStoryItem(story));
+    }
+  } catch (e: any) {
+    (req as any).logger?.error('community-feed stories failed', e instanceof Error ? e : new Error(String(e)), { service: 'request-service', step: 'community-stories' });
+  }
+
+  const { items } = assembleFeed([...requestItems, ...textureItems]);
+  sendSuccess(res, { items, count: items.length }, HTTP_STATUS.OK, meta);
 }
 
 router.get('/curated', handleCuratedFeed);

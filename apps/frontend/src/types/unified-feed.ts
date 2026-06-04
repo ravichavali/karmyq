@@ -2,8 +2,8 @@
  * Unified Feed model (Sprint 85 / ADR-066).
  *
  * One feed-item union rendered in two views, ordered by server-computed action altitude.
- * S85 populates the `request` and `decision` kinds for Dashboard Home; `activity` and
- * `story` are shape-only here and get populated in S86 (Community Feed + texture layer).
+ * S85 populates the `request` and `decision` kinds for Dashboard Home; S86 populates the
+ * `activity` and `story` texture kinds for the Community Feed view.
  *
  * This module is the canonical home for the reconciled feed vocabulary — the single
  * urgency scale, the member-facing status token, and the `match_score` normalizer — so
@@ -11,6 +11,7 @@
  */
 
 import type { CommunityActivityData, OpenRequestData, StoryData } from './feed-items'
+import type { RequestType } from './request-payloads'
 
 // ── Urgency: one scale (urgent is the top tier; 'critical'/'normal' retired in S85) ──
 export const URGENCY_LEVELS = ['urgent', 'high', 'medium', 'low'] as const
@@ -58,13 +59,25 @@ export function normalizeStatusToken(raw: string | null | undefined): RequestSta
 }
 
 /**
+ * The fine payload subtype the card's `RequestPayloadRenderer` switches on — distinct from
+ * `request_type` (the coarse 5-value `request_type_enum` filter dimension). Sourced from the
+ * DB `category` column via the request-service `categoryToPayloadType()` adapter (ADR-067).
+ * It is structurally the renderer's `RequestType` union, aliased here so there is one source
+ * of truth for the payload-subtype vocabulary the renderer accepts.
+ */
+export type PayloadType = RequestType
+
+/**
  * The canonical request-card payload. Reuses the existing `OpenRequestData` shape (whose
  * `urgency` is already the canonical scale) and tightens `status` to the member-facing
  * token, then adds the reconciled card fields: a normalized match score + explainable
- * reason, and the trust-path signal.
+ * reason, the trust-path signal, and the fine payload subtype that drives payload rendering.
  */
 export interface RequestCardData extends Omit<OpenRequestData, 'status'> {
   status: RequestStatusToken
+  // Fine payload subtype (ADR-067): from DB `category`, drives RequestPayloadRenderer. Distinct
+  // from `request_type` (the coarse enum filter). Undefined when the category has no payload mapping.
+  payload_type?: PayloadType
   // Explainable match signal (Principle 5): one 0–100 score + a human-readable reason.
   match_score: number | null
   match_reason: string
@@ -107,7 +120,7 @@ export interface DecisionData {
   created_at?: string
 }
 
-/** Texture layer (S86) — re-uses the existing community-activity shape. */
+/** Texture layer (S86, Community Feed view) — re-uses the existing community-activity shape. */
 export type ActivityData = CommunityActivityData
 
 /**

@@ -101,13 +101,21 @@ These are not aspirations — they constrain the implementation and any future c
 - A single urgency scale, status token, and match-score scale across DB, API, and UI.
 - The "designed to forget" promise is now structurally enforced in ranking, not just documented.
 
-**Harder / deferred:**
-- The legacy `BrowseFeed`/`Feed.tsx`/`BrowseTab` cards still exist for non-Home surfaces; their
-  retirement and the `activity`/`story` texture layer are **Sprint 86**.
-- `RequestCardData.request_type` is typed as the payload-subtype union but carries the enum value at
-  runtime — a pre-existing modelling seam left untouched this sprint (compared as string).
+**Harder / deferred → resolved in Sprint 86:**
+- ~~The legacy `BrowseFeed`/`Feed.tsx`/`BrowseTab` cards still exist for non-Home surfaces; their
+  retirement and the `activity`/`story` texture layer are **Sprint 86**.~~ **Resolved (S86):** the
+  Community Feed view (`GET /requests/curated?view=community`) renders the union's second view with the
+  populated `activity`/`story` texture layer, and `BrowseFeed`/`Feed.tsx`/`FeedItem.tsx`/`FeedFilterPanel`
+  were deleted. The community Browse tab now renders `<UnifiedFeed view="community" />` for all members
+  (admins keep a separate all-status management list, since the curated feed serves only open requests).
+- ~~`RequestCardData.request_type` is typed as the payload-subtype union but carries the enum value at
+  runtime — a pre-existing modelling seam left untouched this sprint.~~ **Resolved (S86, [ADR-067](ADR-067-request-type-payload-vocabulary.md)):**
+  `request_type` stays the coarse 5-value enum (filter); a separate `payload_type` (derived from the
+  `category` column via `categoryToPayloadType()`) now drives `RequestPayloadRenderer`, so payload detail
+  finally renders on canonical cards.
 
 ## References
+- [ADR-067: request_type vs payload_type Vocabulary](ADR-067-request-type-payload-vocabulary.md) — closes the S85 seam
 - [Sprint 84 direction doc](../design/sprint-84-unified-feed/README.md)
 - [ADR-011: Reputation Decay](ADR-011-reputation-decay.md)
 - [ADR-031: Unified Trust-Scored Feed](ADR-031-feed-scoring.md) (where present)

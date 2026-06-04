@@ -2,9 +2,9 @@
  * Sprint 40 TDD Tests: Admin Connector Tools + Provider Toggle + Geo Fix
  *
  * Tests:
- * - FeedItem shows "Community Pick" badge when is_boosted=true and not expired
- * - FeedItem hides badge when is_boosted=false
- * - FeedItem hides badge when boosted_expires_at is in the past
+ * - RequestCard shows "Community Pick" badge when is_boosted=true and not expired (Sprint 86: migrated from FeedItem)
+ * - RequestCard hides badge when is_boosted=false
+ * - RequestCard hides badge when boosted_expires_at is in the past
  * - CommitmentsTab shows "Suggested by your community admin" when admin_proposed=true
  * - CommitmentsTab hides label when admin_proposed=false or undefined
  * - ProviderDashboardCard renders Available button when isAvailable=true
@@ -83,33 +83,27 @@ jest.mock('../../src/utils/commitmentSort', () => ({
   sortByActionPriority: (arr: any[]) => arr,
 }));
 
-// ─── FeedItem: Community Pick badge ───────────────────────────────────────────
+// ─── RequestCard: Community Pick badge (migrated from the retired FeedItem, Sprint 86) ─────────
 
-const FeedItem = require('../../src/components/Feed/FeedItem').default;
+const RequestCard = require('../../src/components/Feed/RequestCard').default;
 
 const FUTURE_DATE = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(); // 7 days from now
 const PAST_DATE = new Date(Date.now() - 60 * 1000).toISOString(); // 1 minute ago
 
-function makeOpenRequestItem(overrides: Record<string, unknown> = {}) {
+function makeRequestCardData(overrides: Record<string, unknown> = {}) {
   return {
-    id: 'item-boost-test',
-    type: 'open_request' as const,
-    priority: 20,
-    created_at: '2026-01-01T00:00:00Z',
-    data: {
-      request_id: 'req-boost',
-      requester_id: 'user-1',
-      community_id: 'comm-1',
-      title: 'Need help with groceries',
-      description: 'Can someone pick up some groceries?',
-      urgency: 'medium',
-      author_name: 'Alice',
-      community_name: 'Test Community',
-      expected_duration: '1 hour',
-      offers_count: 1,
-      required_skills: [],
-      ...overrides,
-    },
+    request_id: 'req-boost',
+    requester_id: 'user-1',
+    community_id: 'comm-1',
+    community_name: 'Test Community',
+    title: 'Need help with groceries',
+    description: 'Can someone pick up some groceries?',
+    author_name: 'Alice',
+    urgency: 'medium',
+    status: 'open',
+    match_score: null,
+    match_reason: '',
+    ...overrides,
   };
 }
 
@@ -118,32 +112,20 @@ describe('Sprint 40: Admin Connector Tools', () => {
     jest.clearAllMocks();
   });
 
-  describe('FeedItem Community Pick badge', () => {
+  describe('RequestCard Community Pick badge', () => {
     it('shows "Community Pick" badge when is_boosted=true and not expired', () => {
-      const item = makeOpenRequestItem({
-        is_boosted: true,
-        boosted_expires_at: FUTURE_DATE,
-      });
-      render(<FeedItem item={item} />);
-      expect(screen.getByText('Community Pick')).toBeTruthy();
+      render(<RequestCard data={makeRequestCardData({ is_boosted: true, boosted_expires_at: FUTURE_DATE })} />);
+      expect(screen.getByText(/Community Pick/)).toBeTruthy();
     });
 
     it('hides badge when is_boosted=false', () => {
-      const item = makeOpenRequestItem({
-        is_boosted: false,
-        boosted_expires_at: FUTURE_DATE,
-      });
-      render(<FeedItem item={item} />);
-      expect(screen.queryByText('Community Pick')).toBeNull();
+      render(<RequestCard data={makeRequestCardData({ is_boosted: false, boosted_expires_at: FUTURE_DATE })} />);
+      expect(screen.queryByText(/Community Pick/)).toBeNull();
     });
 
     it('hides badge when boosted_expires_at is in the past', () => {
-      const item = makeOpenRequestItem({
-        is_boosted: true,
-        boosted_expires_at: PAST_DATE,
-      });
-      render(<FeedItem item={item} />);
-      expect(screen.queryByText('Community Pick')).toBeNull();
+      render(<RequestCard data={makeRequestCardData({ is_boosted: true, boosted_expires_at: PAST_DATE })} />);
+      expect(screen.queryByText(/Community Pick/)).toBeNull();
     });
   });
 

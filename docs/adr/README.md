@@ -97,6 +97,7 @@ When code implementing an ADR is deployed, update the status from `Accepted` →
 - [ADR-064: Authorize Mutations from Authenticated Identity, Not Client-Supplied IDs](ADR-064-authorize-from-authenticated-identity.md) — **Implemented**
 - [ADR-065: Karmyq.org and Karmyq.com Domain Roles](ADR-065-karmyq-org-and-com-domain-roles.md) — **Implemented**
 - [ADR-066: Unified Feed Model](ADR-066-unified-feed-model.md) — **Implemented**
+- [ADR-067: request_type vs payload_type Vocabulary](ADR-067-request-type-payload-vocabulary.md) — **Implemented**
 
 ## Creating a New ADR
 

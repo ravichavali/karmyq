@@ -1,7 +1,6 @@
 import React from 'react'
-import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import ActiveTab from '../../src/components/community/tabs/ActiveTab'
-import BrowseFeed from '../../src/components/BrowseFeed'
 
 jest.mock('../../src/lib/api', () => ({
   communityService: {
@@ -158,76 +157,6 @@ describe('ActiveTab — unified layout', () => {
   })
 })
 
-// --- BrowseFeed tests ---
-
-describe('BrowseFeed — post-offer confirmation', () => {
-  const mockRequest = {
-    id: 'req-1',
-    title: 'Help moving furniture',
-    description: 'Need a hand',
-    status: 'open',
-    urgency: 'medium',
-    request_type: 'generic',
-    requester_id: 'other-user',
-    requester_name: 'Alice',
-    created_at: '2024-01-01T00:00:00Z',
-  }
-
-  beforeEach(() => {
-    jest.clearAllMocks()
-    Object.defineProperty(window, 'localStorage', {
-      value: {
-        getItem: jest.fn((key: string) => {
-          if (key === 'user') return JSON.stringify({ id: 'current-user' })
-          if (key === 'karmyq_browse_mode') return 'provider'
-          return null
-        }),
-        setItem: jest.fn(),
-        removeItem: jest.fn(),
-      },
-      writable: true,
-    })
-    const { requestService } = require('../../src/lib/api')
-    requestService.getCuratedRequests.mockResolvedValue({
-      data: { requests: [mockRequest] },
-    })
-    requestService.createMatch.mockResolvedValue({ data: { id: 'match-1' } })
-  })
-
-  it('shows offer confirmation with Helping tab link after successful match creation', async () => {
-    render(<BrowseFeed />)
-
-    await waitFor(() => {
-      expect(screen.getByText('Help moving furniture')).toBeInTheDocument()
-    })
-
-    const offerButton = screen.getByRole('button', { name: 'Offer to Help' })
-    await act(async () => {
-      fireEvent.click(offerButton)
-    })
-
-    await waitFor(() => {
-      expect(screen.getByText('Offer sent!')).toBeInTheDocument()
-    })
-
-    const trackLink = screen.getByRole('link', { name: /Track in Helping tab/i })
-    expect(trackLink).toHaveAttribute('href', '/dashboard?tab=helping')
-  })
-
-  it('removes the offered request from feed after offer is sent', async () => {
-    render(<BrowseFeed />)
-
-    await waitFor(() => {
-      expect(screen.getByText('Help moving furniture')).toBeInTheDocument()
-    })
-
-    const offerButton = screen.getByRole('button', { name: 'Offer to Help' })
-    await act(async () => {
-      fireEvent.click(offerButton)
-    })
-
-    await waitFor(() => {
-      expect(screen.queryByText('Help moving furniture')).not.toBeInTheDocument()
-    })
-  })
-})
+// Note: the "BrowseFeed — post-offer confirmation" suite was removed in Sprint 86 with the
+// BrowseFeed retirement. The canonical RequestCard's post-offer confirmation + optimistic removal
+// are covered by tests/tdd/sprint-85-unified-feed.test.tsx.

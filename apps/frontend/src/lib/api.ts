@@ -487,9 +487,10 @@ export const requestService = {
   getMatchedRequests: (user_id: string, limit?: number) =>
     requestApi.get('/requests/matched/for-user', { params: { user_id, limit } }),
 
-  // Day 7: Curated feed with match scores. Sprint 85 / ADR-066: view='home' returns the
-  // unified feed item union ({ items: UnifiedFeedItem[] }); absent view keeps the legacy shape.
-  getCuratedRequests: (params?: { minScore?: number; limit?: number; community_id?: string; trust_distance?: string; request_type?: string; view?: 'home' }) =>
+  // Day 7: Curated feed with match scores. Sprint 85/86 / ADR-066: view='home' returns the
+  // decisions+requests union; view='community' returns the requests+activity+story union (no
+  // decision band). Both yield { items: UnifiedFeedItem[] }; absent view keeps the legacy shape.
+  getCuratedRequests: (params?: { minScore?: number; limit?: number; community_id?: string; trust_distance?: string; request_type?: string; view?: 'home' | 'community' }) =>
     requestApi.get('/requests/curated', { params }),
 
   getRequest: (id: string) =>

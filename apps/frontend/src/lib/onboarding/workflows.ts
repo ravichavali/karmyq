@@ -30,6 +30,10 @@ export const WORKFLOWS: Record<string, WorkflowDef> = {
         title: "You're caught up",
         body: 'When there are no open requests you can fill, the feed says so and points you to your communities — instead of padding the list.',
       },
+      {
+        title: 'The same feed inside a community',
+        body: "A community's Requests tab shows the very same cards, scoped to that community. There's no \"needs your response\" band there (decisions are personal), but you'll see community texture below the requests — a this-week activity summary and the occasional story of a neighbour's first exchange.",
+      },
     ],
   },
   communities: {

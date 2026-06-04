@@ -511,6 +511,14 @@
       "status": "implemented",
       "description": "**Status**: Implemented",
       "filename": "ADR-066-unified-feed-model.md"
+    },
+    {
+      "slug": "adr-067-request-type-payload-vocabulary",
+      "number": "067",
+      "title": "ADR-067: `request_type` vs `payload_type` Vocabulary",
+      "status": "implemented",
+      "description": "**Status**: Implemented",
+      "filename": "ADR-067-request-type-payload-vocabulary.md"
     }
   ]
 }

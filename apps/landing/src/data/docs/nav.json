@@ -427,6 +427,10 @@
           "href": "/docs/concepts/adr-066-unified-feed-model"
         },
         {
+          "label": "`request_type` vs `payload_type` Vocabulary",
+          "href": "/docs/concepts/adr-067-request-type-payload-vocabulary"
+        },
+        {
           "label": "— Infrastructure —",
           "href": "/docs/concepts",
           "divider": true

@@ -1,5 +1,5 @@
 import React from 'react'
-import { render, screen, act } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 
 jest.mock('@/contexts/ProviderContext', () => ({
   useProvider: () => ({ hasProviderProfile: false, isAvailable: false, setAvailability: jest.fn(), providerProfiles: [] }),
@@ -42,26 +42,7 @@ describe('Sprint 59 — Dashboard UX', () => {
     })
   })
 
-  describe('BrowseFeed — matched requests excluded', () => {
-    it('filters out matched-status requests, showing only open ones', async () => {
-      const { requestService } = require('@/lib/api')
-      requestService.getCuratedRequests.mockResolvedValue({
-        data: {
-          requests: [
-            { id: '1', title: 'Open request', status: 'open', urgency: 'medium', requester_id: 'other-user', created_at: new Date().toISOString() },
-            { id: '2', title: 'Matched request', status: 'matched', urgency: 'medium', requester_id: 'other-user', created_at: new Date().toISOString() },
-          ],
-        },
-      })
-
-      const BrowseFeed = require('@/components/BrowseFeed').default
-
-      await act(async () => {
-        render(<BrowseFeed />)
-      })
-
-      expect(screen.getByText('Open request')).toBeInTheDocument()
-      expect(screen.queryByText('Matched request')).toBeNull()
-    })
-  })
+  // Note: the "BrowseFeed — matched requests excluded" suite was removed in Sprint 86 with the
+  // BrowseFeed retirement. The unified feed model excludes non-open requests server-side (the
+  // curated query is WHERE status='open'), so the client no longer filters matched requests.
 })

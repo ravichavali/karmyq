@@ -487,6 +487,7 @@ const ADR_GROUPS: Array<{ label: string; slugs: string[] }> = [
       'adr-053-feed-design-philosophy',
       'adr-033-offer-fulfillment-workflow',
       'adr-066-unified-feed-model',
+      'adr-067-request-type-payload-vocabulary',
     ],
   },
   {

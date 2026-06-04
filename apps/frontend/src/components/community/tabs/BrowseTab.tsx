@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { requestService } from '@/lib/api'
 import { isBoostActive } from '@/utils/boost'
+import UnifiedFeed from '@/components/Feed/UnifiedFeed'
 import type { Community, Member } from '@/hooks/useCommunityData'
 
 interface Props {
@@ -141,10 +142,24 @@ export default function BrowseTab({
         </div>
       )}
 
-      {/* Request list with filters */}
+      {/* Member-facing community feed — the canonical unified feed + community texture (everyone).
+          Sprint 86 / ADR-066: replaces BrowseTab's bespoke request cards. */}
+      <div>
+        <h3 className="text-xl font-semibold mb-4">Community Requests</h3>
+        <UnifiedFeed
+          view="community"
+          communityId={communityId}
+          communityType={community?.community_type === 'group' ? 'group' : 'mutual_aid'}
+        />
+      </div>
+
+      {/* Admin management list: all-status requests with triage/boost/propose controls. Kept here
+          (not in the canonical feed) because the unified feed only serves open, fillable requests —
+          admins still need to see/manage pending/matched/completed. */}
+      {isAdminOrMod && (
       <div>
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-xl font-semibold">Community Requests</h3>
+          <h3 className="text-xl font-semibold">Manage requests</h3>
           <div className="flex gap-2">
             {(['open', 'pending', 'matched', 'completed'] as const).map(s => (
               <button
@@ -278,6 +293,7 @@ export default function BrowseTab({
           </div>
         )}
       </div>
+      )}
 
       {/* Insights panels */}
       {isAdminOrMod && (

@@ -335,6 +335,15 @@ cd apps/frontend && npx jest tests/tdd/sprint-86-unified-feed-community.test.tsx
   Keep the triage modal, export, member-picker, and status filter that are community-management (not feed
   rendering).
 
+  > **Task 7 scoping decision (2026-06-04, user-confirmed): "Split — feed for all, mgmt panel for admins."**
+  > The per-card admin actions (Triage / Boost / Mark Urgent / Propose Match) and the open/pending/matched/
+  > completed status filter are *interwoven with the bespoke card list* and depend on non-open statuses the
+  > curated `view=community` feed (`WHERE r.status='open'`) does not serve. So: **all members** see
+  > `<UnifiedFeed view="community" />` (canonical cards + texture) at the top; **for `isAdminOrMod`**, keep
+  > the existing all-status request list (status filter + per-card Triage/Actions▾) intact as a separate
+  > "Manage requests" panel *below* the feed. The `communityRequests`/`refetchCommunityRequests`/triage/
+  > member-picker plumbing stays wired to that admin panel — no management capability is lost.
+
 - [ ] Grep for every import of the doomed components, then delete them:
 
 ```bash

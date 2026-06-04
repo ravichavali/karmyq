@@ -145,7 +145,7 @@
         "provides": [
           "/requests",
           "/requests/:id",
-          {"method": "GET", "path": "/requests/curated", "description": "Curated feed scored on 7 signals. Sprint 85/ADR-066: view=home returns the UnifiedFeedItem union ({ items }) with server-computed action-altitude priority (decisions rank above requests); view absent keeps the legacy request-array shape. Prior-interaction signal reads the decayed trust_edges_live.current_weight."},
+          {"method": "GET", "path": "/requests/curated", "description": "Curated feed scored on 7 signals. Sprint 85/86 ADR-066: view=home returns the UnifiedFeedItem union ({ items }) of decisions+requests; view=community returns the community-scoped union of requests+activity+story texture (no decisions), requires community_id (400) + caller membership (403), assembled from request-service's own DB reads (no feed-service call), texture best-effort. Action altitude bands: decisions>=2000 > requests 1000-1100 > activity 500 > story 100. Each request item carries payload_type (ADR-067, from category via categoryToPayloadType). view absent keeps the legacy request-array shape. Prior-interaction signal reads the decayed trust_edges_live.current_weight."},
           "/offers",
           "/matches",
           "/matches/:id/complete",

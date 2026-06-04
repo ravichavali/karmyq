@@ -120,6 +120,8 @@ const baseCard: RequestCardData = {
   urgency: 'high',
   status: 'proposed',
   request_type: 'transportation',
+  // ADR-067 (Sprint 86): payload detail now renders off payload_type (from DB category), not request_type.
+  payload_type: 'transportation',
   payload: {
     pickup_location: { address: '123 SE Main', city: 'Portland' },
     dropoff_location: { address: 'PDX', city: 'Portland' },
