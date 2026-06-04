@@ -324,9 +324,13 @@ Led by the job; each principle states what it rejects.
 5. **Trust is shown, not scored opaquely.** Lead with the *path* and *reason* (degree of separation,
    shared community, karma) over a bare percentage. *Rejects:* black-box relevance scores.
 
-6. **Status is first-class and identical across views.** `open / proposed / matched / completed`
-   render as the same token whether on the home feed or a community feed. *Rejects:* per-surface
-   status vocabularies and hidden states.
+6. **Status is first-class and identical across views.** One reconciled status token renders the same
+   whether on the home feed or a community feed. Today two lifecycles coexist — *request* status
+   (`open / pending / matched / completed / dibs_pending`, §2.5/§3.1) and *match* status
+   (`proposed / matched / completed`, from `CommitmentsTab`'s `StepIndicator`). The unified token
+   should map them to one member-facing vocabulary (e.g. `proposed` replacing `pending` for the
+   awaiting-acceptance state); the exact mapping is a §7.4 reconciliation question. *Rejects:*
+   per-surface status vocabularies and hidden states.
 
 7. **Stories and activity are texture, not altitude.** Community-activity and story items can warm
    the feed but must never outrank an open request needing a helper, and must be dismissible.
@@ -364,7 +368,7 @@ invent new entities.
 |---|---|---|
 | **Job statement** (written at top of view) | *"What needs me, across all my communities — and who can I help right now?"* | *"What's happening in **this** community, and what can I do here?"* |
 | **Scope** | all the member's communities (`community_id = undefined`) | one community (`community_id = X`) |
-| **Ordering** | **action altitude first**: decisions you owe → requests you can fill (ranked, explainable) → activity → story | same altitude rule, scoped; community admins also see triage/management affordances inline |
+| **Ordering** | **action altitude first**: decisions you owe → requests you can fill (ranked, explainable) → activity → story | same altitude rule, scoped; community admins additionally get triage/management affordances in a **separate admin region** (see §6.3), not on the feed cards |
 | **Top band** | `decision` items (accept offers, dibs, mark-done) | community `decision` items |
 | **Body** | ranked `request` cards across communities, each tagged with its community | `request` cards for this community |
 | **Texture** | `activity` + `story`, dismissible, below the fold | community `activity` + `story` |
@@ -426,9 +430,12 @@ community feed. (ADR-066 is reserved for this per the handoff.)
    ranking, or grow `request-service`'s `/requests/curated` with a `view=home|community` param and
    add the decision/activity/story union there? (Trade-off: Feed service already owns
    dismiss/story/activity; request service already owns ranking + the live dashboard wiring.)
-2. **Urgency + request_type vocabulary reconciliation**: pick one urgency scale
-   (`urgent|high|medium|low` vs `…|critical`) and one type taxonomy (the 5 display chips vs the 6
-   payload types) — a small migration + type change, scoped to S85.
+2. **Urgency + request_type + status vocabulary reconciliation**: pick one urgency scale
+   (`urgent|high|medium|low` vs `…|critical`), one type taxonomy (the 5 display chips vs the 6
+   payload types), and one **status** vocabulary unifying the request lifecycle
+   (`open / pending / matched / completed / dibs_pending`) with the match lifecycle
+   (`proposed / matched / completed`) into the single first-class token from Principle 6 (likely
+   `proposed` replaces `pending`) — a small migration + type change, scoped to S85.
 3. **`match_score` normalization + explainability**: one scale and a human-readable "why" string.
 4. **Server-side action altitude**: should `sortByActionPriority` move server-side so both views and
    mobile share it, rather than re-deriving per client?
