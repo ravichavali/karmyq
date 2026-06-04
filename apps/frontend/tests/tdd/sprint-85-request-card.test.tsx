@@ -226,6 +226,23 @@ describe('DecisionBand', () => {
     await waitFor(() => expect(requestService.rejectMatch).toHaveBeenCalledWith('match-9'))
   })
 
+  it('labels a dibs first-ask "First ask from", not "Your offer to"', () => {
+    render(
+      <DecisionBand
+        decisions={[decision({ subject_kind: 'dibs', member_role: 'responder', counterparty_name: 'Rana', actions: ['accept_dibs', 'decline_dibs'] })]}
+      />,
+    )
+    expect(screen.getByText(/First ask from Rana/)).toBeInTheDocument()
+    expect(screen.queryByText(/Your offer to Rana/)).toBeNull()
+  })
+
+  it('labels a responder match decision "Your offer to"', () => {
+    render(
+      <DecisionBand decisions={[decision({ member_role: 'responder', counterparty_name: 'Sam', actions: ['withdraw_offer'] })]} />,
+    )
+    expect(screen.getByText(/Your offer to Sam/)).toBeInTheDocument()
+  })
+
   it('accepts/declines a dibs via the dibs service', async () => {
     render(
       <DecisionBand

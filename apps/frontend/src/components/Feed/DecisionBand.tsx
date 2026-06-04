@@ -23,6 +23,16 @@ const ACTION_LABELS: Record<DecisionAction, string> = {
 // Primary (filled) vs secondary (text) action styling.
 const PRIMARY_ACTIONS = new Set<DecisionAction>(['accept_offer', 'accept_dibs', 'mark_done'])
 
+/**
+ * Relationship label before the counterparty's name. A requester sees offers/dibs/matches coming
+ * "From" a helper; a responder sees "Your offer to" the requester — except a dib is the requester's
+ * first-ask TO the provider, so it reads "First ask from".
+ */
+function relationLabel(decision: DecisionData): string {
+  if (decision.member_role === 'requester') return 'From'
+  return decision.subject_kind === 'dibs' ? 'First ask from' : 'Your offer to'
+}
+
 /** Route a decision action to the canonical service call (shared with CommitmentsTab). */
 function runDecisionAction(action: DecisionAction, subjectKind: DecisionData['subject_kind'], subjectId: string): Promise<unknown> {
   switch (action) {
@@ -76,7 +86,7 @@ export default function DecisionBand({ decisions, onResolved }: DecisionBandProp
             <div className="min-w-0">
               <p className="text-sm font-medium text-text truncate">{decision.title}</p>
               <p className="text-xs text-text-muted truncate">
-                {decision.member_role === 'requester' ? 'From' : 'Your offer to'} {decision.counterparty_name}
+                {relationLabel(decision)} {decision.counterparty_name}
                 {decision.community_name ? ` · ${decision.community_name}` : ''}
               </p>
             </div>
