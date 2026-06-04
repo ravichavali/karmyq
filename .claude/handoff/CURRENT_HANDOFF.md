@@ -1,10 +1,28 @@
-# Sprint 85 — Unified Feed: Dashboard Home — ✅ IMPLEMENTED, AWAITING MERGE
+# Sprint 85 — Unified Feed: Dashboard Home — ✅ SHIPPED (next: Sprint 86)
 
-> **▶ STATUS (2026-06-04):** Sprint 85 is **fully implemented** on
-> `feature/sprint-85-unified-feed-dashboard-home` (Tasks 1–11 complete). Version **10.9.0**. All quality
-> gates pass (tsc ×4 workspaces clean; npm audit 0 vulns; shared 106 + request-service unit/regression 199
-> + frontend 429 tests pass — **zero new failures** vs the 5 pre-existing trust/provider TDD suites proven
-> on clean master). **Task 12 (merge + deploy) awaits Admin authorization** — agents never self-merge.
+> **▶ STATUS (2026-06-04):** Sprint 85 **shipped** — merged to master (squash `c5954d1`, PR #58) and
+> **deployed to demo** ("Deploy to Demo" success in 7m16s). Version **10.9.0**.
+>
+> **Demo validation passed:** migration `20260603-feed-vocab-reconciliation.sql` auto-applied (18:03:17);
+> both CHECKs live (`chk_help_requests_urgency`, `chk_help_requests_status`); urgency remap worked
+> (`urgent: 1`, no `critical` remains); status all within the CHECK set (open/completed/matched);
+> `GET /requests/curated?view=home` live + auth-gated; CI Integration Tests (real Postgres) green for the
+> union/decision path.
+>
+> **⏳ One manual UI check remains for the human:** on demo Dashboard Home (logged in), confirm the
+> "Needs your response" decision band + canonical request cards + "you're caught up" end-state render, and a
+> responder can withdraw an offer from the band.
+>
+> ---
+>
+> ## ▶ NEXT: Sprint 86 — Unified Feed, Community Feed view + texture (steps 4–6)
+> Open a fresh chat. Build the **Community Feed view** of the unified feed; add the `activity`/`story`
+> **texture layer** (shapes exist in `UnifiedFeedItem`, not yet populated); **retire legacy feed components**
+> (`Feed/Feed.tsx`, fold/remove `BrowseFeed`, de-dup `FeedFilterPanel`/`FilterChipRow`); **mobile parity**.
+> Also fix the **request_type modelling seam** (ADR-066 Consequences): `RequestCardData.request_type` carries
+> the request_type_enum at runtime but is typed as the payload-subtype union, so `RequestPayloadRenderer`
+> shows no payload detail on curated cards — unify the vocabulary so commitment legibility lights up. Consider
+> home-feed impression logging for `view=home` (analytics gap). Spec/plan: write via `sprint-planning` skill.
 >
 > **What shipped:** canonical `RequestCard` + `DecisionBand` + `UnifiedFeed` on Dashboard Home (replaces
 > BrowseFeed's bespoke card; BrowseFeed retained for S86 retirement); `GET /requests/curated?view=home`
