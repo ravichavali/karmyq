@@ -53,12 +53,17 @@ modelling seam so payload detail finally renders on canonical cards (ADR-067). *
 
 1. **Texture is computed in request-service, NOT feed-service.** `view=community` assembles request +
    activity + story from request-service's own DB reads. No feed-service call (ADR-066 single-source).
-2. **Seam fix = two fields, no migration.** `request_type` stays the 5-value enum
-   (`generic|ride|borrow|service|event`, the filter). Add `payload_type` from the existing `category`
-   column (already holds `transportation`/`moving_help`/… — matching keys off it: `r.category =
-   'transportation'`). `RequestPayloadRenderer` switches on `payload_type`.
-3. **Community view has NO decision band** — `view=community` returns `request`/`activity`/`story` only;
-   never call `fetchDecisions` on that path (decisions are a cross-community Dashboard-Home concern).
+2. **Seam fix = two fields + a normalization map, no migration. A raw `r.category` passthrough is WRONG.**
+   `request_type` stays the 5-value enum (filter). Derive `payload_type` via `categoryToPayloadType()`:
+   on INSERT `category` and `request_type` get the *same* value (`requests.ts:1147`), so newer rows hold
+   the enum while older/sim rows hold skill tokens (`moving`, `tech_support`, `gardening`, …) that the
+   matching SQL keys off (`requests.ts:112–123`). The renderer switches on `moving_help`/`tech_help`/etc.,
+   so the map translates known aliases and returns `undefined` for the rest (renderer no-ops safely —
+   no regression). Build the map from the real distinct `category` values (Task 1 dry-run).
+3. **Community view has NO decision band, and needs a `community_id` + membership guard** — `view=community`
+   returns `request`/`activity`/`story` only (never call `fetchDecisions`). MUST 400 on missing
+   `community_id` and verify the caller is a member (JWT `user.communities`) before texture reads, so a
+   non-member can't pull a community's texture.
 4. **Texture ranks below requests; stories below activity.** Extend priority bands in `unifiedFeed.ts`:
    requests (1000–1100, existing) > activity (~500) > story (~100). Reuse the stable descending-priority
    sort — client renders in array order, server owns ordering.
@@ -71,11 +76,11 @@ modelling seam so payload detail finally renders on canonical cards (ADR-067). *
 7. **`UnifiedFeed` already takes `communityId`** and passes it to `getCuratedRequests`. S86 adds a `view`
    prop, the `activity`/`story` renderers, and conditional decision-band/browse-mode hiding — don't
    rebuild the fetch/filter plumbing, extend it.
-8. **`view=home` request items also gain `payload_type`** (`r.category || undefined` in `toRequestCardData`)
-   — the seam fix lights up payload detail on Dashboard Home too.
-9. **Dry-run `category` population** on the demo DB before trusting `payload_type`
-   (`SELECT request_type, category, COUNT(*) FROM requests.help_requests GROUP BY 1,2`). Null `category`
-   → `RequestPayloadRenderer` already no-ops on empty payload (safe fallback).
+8. **`view=home` request items also gain `payload_type`** (`categoryToPayloadType(r.category)` in
+   `toRequestCardData`) — the seam fix lights up payload detail on Dashboard Home too.
+9. **Dry-run the `category` vocabulary** on the demo DB to build the map + its unit test
+   (`SELECT request_type, category, COUNT(*) FROM requests.help_requests GROUP BY 1,2`). Null/unknown
+   `category` → `payload_type` undefined → `RequestPayloadRenderer` no-ops on empty payload (safe).
 10. **`res.data.items` not `res.data.data.items`** (interceptor unwraps). **JWT field is `communities`.**
 11. **Landing docs dir is gitignored** → `git add -f`. Run `generate-docs` from `apps/landing/`,
     **grep-verify nav.json after** (it silently reverts).

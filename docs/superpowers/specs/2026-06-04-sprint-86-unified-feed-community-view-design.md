@@ -68,7 +68,9 @@ A third mode of `GET /requests/curated` (after the legacy array and `view=home`)
 `{ items, count }` union scoped to one community: the community's open `request` items (canonical
 card payload), **without** the personal "needs your response" decision band (decisions are a
 Dashboard-Home concern — the member's cross-community action queue, not a per-community view), plus
-the texture layer below. Requires `community_id`.
+the texture layer below. **Requires `community_id`** — the handler 400s if it's missing and verifies the
+caller is a member of that community (JWT `user.communities`) before running texture reads, so a non-member
+can never pull a community's activity/story texture even when no request rows match the request filter.
 
 ### Texture layer — `activity` and `story` items
 The two `UnifiedFeedItem` kinds whose shapes shipped empty in S85:
@@ -85,10 +87,15 @@ The two `UnifiedFeedItem` kinds whose shapes shipped empty in S85:
 ### `payload_type` (the seam fix, ADR-067)
 A new explicit field on the request-card payload carrying the **fine payload subtype**
 (`transportation|moving_help|childcare|tech_help|home_repair|food|pet_care|event_help|other`), distinct
-from `request_type` (the coarse 5-value `request_type_enum`). Sourced from the existing DB `category`
-column (matching already keys off it: `r.category = 'transportation'`). `RequestPayloadRenderer` switches
-on `payload_type`; `request_type` remains the filter dimension. No DB migration — `category` already holds
-the value; this is a plumb-through + type-correctness change.
+from `request_type` (the coarse 5-value `request_type_enum`). Derived from the existing DB `category` column
+via a `categoryToPayloadType()` **normalization map** — **not** a raw passthrough. The `category` column is
+messy: on INSERT it's set to the *same* value as `request_type` (so newer wizard rows hold the enum), while
+older/simulation rows hold skill-ish tokens (`moving`, `tech_support`, `gardening`, `cooking`, …) that the
+matching SQL keys off. The renderer switches on `moving_help`/`tech_help`/etc. The map translates known
+aliases (`moving`→`moving_help`, `tech_support`→`tech_help`, `transportation`, `childcare`, `home_repair`,
+`cooking`/`food`→`food`, `pet_care`) and returns `undefined` for anything unrecognized — `RequestPayloadRenderer`
+already no-ops on an unknown type / empty payload, so unmapped rows render exactly as today (no regression).
+`request_type` remains the filter dimension. No DB migration — only a plumb-through + the map.
 
 ---
 
@@ -98,7 +105,7 @@ the value; this is a plumb-through + type-correctness change.
 
 | Source column | Used for |
 |---------------|----------|
-| `requests.help_requests.category` (VARCHAR) | `payload_type` discriminator (already populated) |
+| `requests.help_requests.category` (VARCHAR) | `payload_type` discriminator — via `categoryToPayloadType()` map (mixed vocabulary: enum values on newer rows, skill tokens like `moving`/`tech_support` on older/sim rows) |
 | `requests.help_requests.request_type` (enum) | `request_type` filter dimension (unchanged) |
 | `requests.matches` (completed this week) | `activity.exchanges_completed_week`, `story` (first exchanges) |
 | `communities.members` (joined this week) | `activity.new_members_count` |
@@ -113,8 +120,8 @@ story** rather than adding a cross-service call (texture is best-effort; ADR-066
 
 | Method | Path | Change | Auth | Response |
 |--------|------|--------|------|----------|
-| GET | `/requests/curated?view=community&community_id=:id` | **New view branch.** Returns the community-scoped union: `request` items + one `activity` item + `story` items, ranked by action altitude (requests above activity above stories). No `decision` band. | JWT | `{ success, data: { items: UnifiedFeedItem[], count } }` |
-| GET | `/requests/curated?view=home` | **Modified.** Each `request` item's `data` now carries `payload_type` (the fine subtype from `category`) alongside `request_type`. | JWT | unchanged shape + `payload_type` field |
+| GET | `/requests/curated?view=community&community_id=:id` | **New view branch.** Returns the community-scoped union: `request` items + one `activity` item + `story` items, ranked by action altitude (requests above activity above stories). No `decision` band. **400** if `community_id` missing; **403** (or no texture) for a non-member. | JWT | `{ success, data: { items: UnifiedFeedItem[], count } }` |
+| GET | `/requests/curated?view=home` | **Modified.** Each `request` item's `data` now carries `payload_type` (the fine subtype via `categoryToPayloadType(category)`) alongside `request_type`. | JWT | unchanged shape + `payload_type` field |
 
 `view` absent → legacy request array (unchanged back-compat — but all in-repo callers move off it this sprint).
 
@@ -125,6 +132,7 @@ story** rather than adding a cross-service call (texture is best-effort; ADR-066
 | File | Change |
 |------|--------|
 | `apps/frontend/src/types/unified-feed.ts` | Add `payload_type?: PayloadType` to `RequestCardData`; export `PayloadType`. Keep `request_type` as the enum. Update the `activity`/`story` doc comments to "populated S86". |
+| `apps/frontend/src/lib/api.ts` | Widen `getCuratedRequests` `view?: 'home'` → `view?: 'home' \| 'community'` (current type rejects `'community'`). |
 | `apps/frontend/src/components/Feed/RequestCard.tsx` | Pass `data.payload_type` (not `data.request_type`) to `RequestPayloadRenderer`. |
 | `apps/frontend/src/components/Feed/UnifiedFeed.tsx` | Render `activity` and `story` kinds (new `ActivityCard`/`StoryCard` presentational components); accept a `view: 'home' \| 'community'` prop and request that view; community view hides the decision band and browse-mode control. |
 | `apps/frontend/src/components/Feed/ActivityCard.tsx` (new) | Presentational community-activity texture card. |
@@ -160,13 +168,18 @@ Mandatory — every sprint ships doc updates.
 1. **Texture is computed in request-service, NOT feed-service.** Add a `view=community` branch to
    `/requests/curated` that assembles request + activity + story items from request-service's own DB
    reads. Do **not** call feed-service — that reintroduces the dependency ADR-066 consolidated away.
-2. **The `request_type` seam fix = two fields, no migration.** `request_type` stays the 5-value enum
-   (`generic|ride|borrow|service|event`, the filter dimension). Add `payload_type` carrying the fine
-   subtype from the existing `category` column. `RequestPayloadRenderer` switches on `payload_type`.
-   No DB change — `category` already holds `transportation`/`moving_help`/etc. (matching keys off it).
-3. **Community view has NO decision band.** Decisions are the member's cross-community action queue —
-   a Dashboard-Home concern. `view=community` returns `request`/`activity`/`story` only. Do not call
-   `fetchDecisions` on that path.
+2. **The `request_type` seam fix = two fields + a normalization map, no migration. A raw `r.category`
+   passthrough is WRONG.** `request_type` stays the 5-value enum (`generic|ride|borrow|service|event`, the
+   filter dimension). Derive `payload_type` from `category` via `categoryToPayloadType()`: on INSERT,
+   `category` and `request_type` get the *same* value, so newer rows hold the enum while older/sim rows hold
+   skill tokens (`moving`, `tech_support`, `gardening`, …) that the matching SQL keys off. The renderer
+   switches on `moving_help`/`tech_help`/etc., so the map must translate the known aliases and return
+   `undefined` for the rest (renderer no-ops safely). `RequestPayloadRenderer` switches on `payload_type`.
+3. **Community view has NO decision band, and requires a `community_id` + membership guard.** Decisions are
+   the member's cross-community action queue — a Dashboard-Home concern. `view=community` returns
+   `request`/`activity`/`story` only (never call `fetchDecisions`). It MUST 400 on a missing `community_id`
+   and verify the caller is a member (JWT `user.communities`) before running texture reads, so a non-member
+   can't pull a community's texture.
 4. **Texture ranks below requests; stories below activity.** Extend the priority bands in
    `unifiedFeed.ts`: requests (1000–1100, existing) > activity (e.g. 500) > story (e.g. 100). Reuse
    `assembleHomeFeed`'s stable descending-priority sort (rename to `assembleFeed` if it now serves both
@@ -182,10 +195,12 @@ Mandatory — every sprint ships doc updates.
    `view` prop (`'home' | 'community'`), the `activity`/`story` renderers, and the conditional decision-band
    / browse-mode hiding for the community view. Don't rebuild the fetch/filter plumbing — extend it.
 8. **`view=home` request items also gain `payload_type`** — the seam fix benefits Dashboard Home too
-   (payload detail renders there now). Add `payload_type: r.category || undefined` in `toRequestCardData`.
-9. **Verify `category` is populated for curated rows.** Dry-run `SELECT request_type, category, COUNT(*)
-   FROM requests.help_requests GROUP BY 1,2` on the demo DB before trusting `payload_type`. If `category`
-   is null for a row, `RequestPayloadRenderer` already no-ops on empty payload — safe fallback.
+   (payload detail renders there now). Add `payload_type: categoryToPayloadType(r.category)` in
+   `toRequestCardData`.
+9. **Dry-run the `category` vocabulary to build the map.** `SELECT request_type, category, COUNT(*) FROM
+   requests.help_requests GROUP BY 1,2` on the demo DB — drive `categoryToPayloadType`'s alias cases and its
+   unit test from the real distinct values. Null/unknown `category` → `payload_type` undefined →
+   `RequestPayloadRenderer` no-ops on empty payload (safe fallback, same as today).
 10. **API response unwrap**: `createApiClient` already unwraps the envelope → use `res.data.items`, not
     `res.data.data.items`. **JWT field is `communities`**, not `communityMemberships`.
 11. **Landing docs dir is gitignored** — `git add -f apps/landing/src/data/docs/...`. Run `generate-docs`

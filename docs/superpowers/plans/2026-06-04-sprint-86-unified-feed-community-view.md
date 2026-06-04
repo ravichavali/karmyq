@@ -24,9 +24,11 @@ ranked by extended action-altitude bands; the frontend `UnifiedFeed` gains a `vi
 | `apps/frontend/src/components/Feed/ActivityCard.tsx` | Presentational community-activity texture card. |
 | `apps/frontend/src/components/Feed/StoryCard.tsx` | Presentational story texture card. |
 | `services/request-service/src/services/communityTexture.ts` | Pure builders + priority bands for `activity`/`story` items (unit-testable). |
+| `services/request-service/src/services/payloadType.ts` | `categoryToPayloadType()` — maps the messy `category` column to the renderer's `PayloadType` (seam fix). |
 | `services/request-service/tests/unit/community-texture.test.ts` | Unit tests for texture builders + ranking (TDD, written first). |
-| `services/request-service/tests/tdd/sprint-86-community-feed.test.ts` | Integration test: `view=community` returns ranked request+activity+story union. |
-| `apps/frontend/tests/tdd/sprint-86-unified-feed-community.test.tsx` | UnifiedFeed renders community view (cards + texture, no decision band); `payload_type` reaches the renderer. |
+| `services/request-service/tests/unit/payload-type.test.ts` | Unit tests for the `category → PayloadType` map incl. legacy aliases (`moving`→`moving_help`, `tech_support`→`tech_help`) + unknown→undefined. |
+| `services/request-service/tests/integration/sprint-86-community-feed.test.ts` | Real-DB test: `view=community` returns ranked request+activity+story union; 400 on missing `community_id`; non-member gets no texture. |
+| `apps/frontend/tests/tdd/sprint-86-unified-feed-community.test.tsx` | UnifiedFeed renders community view (cards + texture, no decision band); `payload_type` reaches the renderer; community view requests `view=community`. |
 | `docs/adr/ADR-067-request-type-payload-vocabulary.md` | The `request_type` vs `payload_type` separation. |
 | `apps/landing/src/data/docs/concepts/adr-067-request-type-payload-vocabulary.json` | Landing-site ADR-067. |
 
@@ -35,7 +37,8 @@ ranked by extended action-altitude bands; the frontend `UnifiedFeed` gains a `vi
 |------|--------|
 | `apps/frontend/src/types/unified-feed.ts` | Add `payload_type?: PayloadType` to `RequestCardData`; export `PayloadType`; update activity/story doc comments. |
 | `services/request-service/src/services/unifiedFeed.ts` | Extend priority bands (activity/story); generalize `assembleHomeFeed` → also serve community view. |
-| `services/request-service/src/routes/requests.ts` | `view=community` branch (`respondCommunityFeed`); add `payload_type: r.category` in `toRequestCardData`. |
+| `services/request-service/src/routes/requests.ts` | `view=community` branch (`respondCommunityFeed`) with `community_id` + membership guard; add `payload_type: categoryToPayloadType(r.category)` in `toRequestCardData`. |
+| `apps/frontend/src/lib/api.ts` | Widen `getCuratedRequests` `view?: 'home'` → `view?: 'home' \| 'community'`. |
 | `apps/frontend/src/components/Feed/RequestCard.tsx` | Pass `data.payload_type` to `RequestPayloadRenderer`. |
 | `apps/frontend/src/components/Feed/UnifiedFeed.tsx` | `view` prop; render `activity`/`story`; hide decision band + browse-mode in community view. |
 | `apps/frontend/src/components/community/tabs/BrowseTab.tsx` | Replace bespoke card list with `<UnifiedFeed view="community" communityId={…} />`; keep management controls. |
@@ -57,11 +60,19 @@ ranked by extended action-altitude bands; the frontend `UnifiedFeed` gains a `vi
 
 1. **Texture is computed in request-service, NOT feed-service.** `view=community` assembles request +
    activity + story from request-service's own DB reads. No feed-service call (ADR-066 single-source).
-2. **Seam fix = two fields, no migration.** `request_type` stays the 5-value enum (filter). Add
-   `payload_type` from the existing `category` column (already holds `transportation`/`moving_help`/…).
-   `RequestPayloadRenderer` switches on `payload_type`.
-3. **Community view has NO decision band** — `view=community` returns `request`/`activity`/`story` only;
-   never call `fetchDecisions` on that path.
+2. **Seam fix = two fields + a normalization map, no migration. A raw `r.category` passthrough is WRONG.**
+   `request_type` stays the 5-value enum (filter). Derive `payload_type` from `category` via
+   `categoryToPayloadType()`: on INSERT, `category` and `request_type` get the *same* value
+   (`requests.ts:1147`), so newer rows hold the enum while older/sim rows hold skill tokens (`moving`,
+   `tech_support`, `gardening`, …) that the matching SQL keys off (`requests.ts:112–123`). The renderer
+   switches on `moving_help`/`tech_help`/etc. The map translates known aliases (`moving`→`moving_help`,
+   `tech_support`→`tech_help`, plus `transportation`/`childcare`/`home_repair`/`cooking`→`food`/`pet_care`)
+   and returns `undefined` for anything unrecognized — `RequestPayloadRenderer` already no-ops on an unknown
+   type / empty payload (safe, no regression).
+3. **Community view has NO decision band, and needs a community_id + membership guard.** `view=community`
+   returns `request`/`activity`/`story` only (never call `fetchDecisions`). MUST 400 on a missing
+   `community_id` and verify the caller is a member of that community (JWT `user.communities`) before running
+   texture reads — otherwise a non-member could pull community texture even when no request rows match.
 4. **Texture ranks below requests; stories below activity.** Extend priority bands in `unifiedFeed.ts`:
    requests (1000–1100) > activity (~500) > story (~100). Reuse the stable descending-priority sort.
 5. **Texture queries are best-effort** — each wrapped in try/catch, degrade to "no texture", log; never
@@ -71,11 +82,12 @@ ranked by extended action-altitude bands; the frontend `UnifiedFeed` gains a `vi
    *card rendering* is replaced.
 7. **`UnifiedFeed` already takes `communityId`** — extend it (add `view` prop + texture renderers +
    conditional band hiding); don't rebuild its fetch/filter plumbing.
-8. **`view=home` request items also gain `payload_type`** (`r.category || undefined` in `toRequestCardData`)
-   — payload detail now renders on Dashboard Home too.
-9. **Dry-run `category` population** on the demo DB before trusting `payload_type`
-   (`SELECT request_type, category, COUNT(*) FROM requests.help_requests GROUP BY 1,2`). Null `category`
-   → renderer no-ops on empty payload (safe).
+8. **`view=home` request items also gain `payload_type`** (`categoryToPayloadType(r.category)` in
+   `toRequestCardData`) — payload detail now renders on Dashboard Home too.
+9. **Dry-run `category` population** on the demo DB before trusting the map
+   (`SELECT request_type, category, COUNT(*) FROM requests.help_requests GROUP BY 1,2`) — use the real
+   distinct `category` values to drive the map's alias cases and its unit test. Null/unknown `category`
+   → `payload_type` undefined → renderer no-ops on empty payload (safe).
 10. **`res.data.items` not `res.data.data.items`** (interceptor unwraps). **JWT field is `communities`.**
 11. **Landing docs dir is gitignored** → `git add -f`. Run `generate-docs` from `apps/landing/`,
     **grep-verify nav.json after** (it silently reverts).
@@ -92,6 +104,15 @@ ranked by extended action-altitude bands; the frontend `UnifiedFeed` gains a `vi
 
 ```bash
 git checkout -b feature/sprint-86-unified-feed-community-view
+```
+
+- [ ] **Dry-run the `category` vocabulary** (drives the Task 2 `categoryToPayloadType` map + its test).
+  Run against the demo DB (read-only); capture the real distinct values so the map covers every alias that
+  actually occurs:
+
+```bash
+# psql to the demo DB (read-only)
+SELECT request_type, category, COUNT(*) FROM requests.help_requests GROUP BY 1,2 ORDER BY 3 DESC;
 ```
 
 - [ ] Export a `PayloadType` union and add `payload_type` to `RequestCardData` (keep `request_type` as the
@@ -121,17 +142,45 @@ cd apps/frontend && npx tsc --noEmit
 
 ---
 
-## Task 2: Texture builders + priority bands (TDD — test first)
+## Task 2: Texture builders + priority bands + `category → payload_type` map (TDD — test first)
 
 **Files:**
 - Create: `services/request-service/tests/unit/community-texture.test.ts` (FIRST)
+- Create: `services/request-service/tests/unit/payload-type.test.ts` (FIRST)
 - Create: `services/request-service/src/services/communityTexture.ts`
+- Create: `services/request-service/src/services/payloadType.ts`
 - Modify: `services/request-service/src/services/unifiedFeed.ts`
 
-- [ ] **Write the unit test first** (`community-texture.test.ts`): assert `buildActivityItem` /
-  `buildStoryItem` produce items whose `priority` falls strictly below `PRIORITY_REQUEST_BASE`, that
-  activity outranks story, and that `assembleFeed` keeps requests > activity > story after sorting a
-  shuffled input. Assert exact priority values (no stubs for the logic under test).
+- [ ] **Write `payload-type.test.ts` first** (the sleeper-bug guard): assert `categoryToPayloadType` maps
+  the real distinct `category` values (from the Task 0 dry-run) — at minimum the legacy aliases
+  `'moving' → 'moving_help'` and `'tech_support' → 'tech_help'`, the already-aligned `'transportation'`,
+  `'childcare'`, `'home_repair'`, the `'cooking'/'food' → 'food'` and `'pet_care'` cases — and returns
+  `undefined` for unrecognized tokens (`'gardening'`, `'generic'`, `'ride'`, `''`, `null`). Assert exact
+  values (no stubs).
+
+- [ ] Implement `payloadType.ts`:
+
+```typescript
+import type { PayloadType } from '...'; // mirror the frontend union
+const CATEGORY_TO_PAYLOAD_TYPE: Record<string, PayloadType> = {
+  transportation: 'transportation', ride: 'transportation',
+  moving: 'moving_help', moving_help: 'moving_help',
+  childcare: 'childcare',
+  tech_support: 'tech_help', tech_help: 'tech_help',
+  home_repair: 'home_repair',
+  cooking: 'food', food: 'food',
+  pet_care: 'pet_care',
+};
+// Unknown/null → undefined: RequestPayloadRenderer no-ops on an unknown type / empty payload (safe).
+export function categoryToPayloadType(category: string | null | undefined): PayloadType | undefined {
+  return category ? CATEGORY_TO_PAYLOAD_TYPE[category] : undefined;
+}
+```
+
+- [ ] **Write `community-texture.test.ts` first**: assert `buildActivityItem` / `buildStoryItem` produce
+  items whose `priority` falls strictly below `PRIORITY_REQUEST_BASE`, that activity outranks story, and
+  that `assembleFeed` keeps requests > activity > story after sorting a shuffled input. Assert exact
+  priority values (no stubs for the logic under test).
 
 - [ ] Add priority bands + builders. Extend `unifiedFeed.ts`:
 
@@ -147,7 +196,7 @@ export const PRIORITY_STORY_BASE = 100;
 - [ ] Verify:
 
 ```bash
-cd services/request-service && npx jest tests/unit/community-texture.test.ts
+cd services/request-service && npx jest tests/unit/community-texture.test.ts tests/unit/payload-type.test.ts
 ```
 
 - [ ] Run `/simplify` on this task's diff.
@@ -159,17 +208,22 @@ cd services/request-service && npx jest tests/unit/community-texture.test.ts
 **Files:**
 - Modify: `services/request-service/src/routes/requests.ts`
 
-- [ ] In `toRequestCardData`, add `payload_type: r.category || undefined` (seam fix — both views benefit).
+- [ ] In `toRequestCardData`, add `payload_type: categoryToPayloadType(r.category)` (seam fix — both views
+  benefit; import from `services/payloadType.ts`). **Do NOT use a raw `r.category` passthrough** (Critical
+  Note 2).
 
-- [ ] Add `respondCommunityFeed(req, res, userId, communityId, scoredRequests)`: build request items
-  (reuse `buildRequestItem`/`toRequestCardData`), then **best-effort** texture:
+- [ ] Add `respondCommunityFeed(req, res, userId, communityId, scoredRequests)`. **Guard first:** if
+  `communityId` is missing/empty → `sendError(res, 400, …)`; then verify the caller is a member of that
+  community (`(req.user.communities ?? []).some(c => c.id === communityId)`) → 403 if not. Only after the
+  guard, build request items (reuse `buildRequestItem`/`toRequestCardData`), then **best-effort** texture:
   - one `activity` item from `requests.matches` (completed this week), `communities.members` (joined this
     week), and open `requests.help_requests` count for the community — each in its own try/catch.
   - `story` items from recently-completed first exchanges / visible karma milestones — try/catch, degrade
     to none.
   Then `assembleFeed([...requestItems, activityItem, ...storyItems])` and send `{ items, count }`.
 
-- [ ] Wire the branch in `handleCuratedFeed` next to the existing `view=home` check:
+- [ ] Wire the branch in `handleCuratedFeed` next to the existing `view=home` check (`community_id` is read
+  the same way the existing handler reads it):
 
 ```typescript
 if (req.query.view === 'community') {
@@ -188,20 +242,27 @@ cd services/request-service && npm run build
 
 ---
 
-## Task 4: `view=community` integration test (TDD)
+## Task 4: `view=community` integration test (real Postgres)
 
 **Files:**
-- Create: `services/request-service/tests/tdd/sprint-86-community-feed.test.ts`
+- Create: `services/request-service/tests/integration/sprint-86-community-feed.test.ts`
 
-- [ ] Test against real Postgres (the union/decision-path tier CI already runs): `GET
-  /requests/curated?view=community&community_id=:id` returns `{ items }` containing `request` items
-  ranked above the single `activity` item ranked above any `story` items, and **no `decision` item**.
-  Assert a request item's `data.payload_type` is present when `category` is set.
+> Placed in `tests/integration/` (DB-gated, runs in the real-Postgres CI tier — blocks when DB is
+> available) rather than `tests/tdd/`, so the endpoint's real-DB behavior isn't commingled with the
+> tolerated pre-existing TDD failures. The pure ranking + `payload_type` logic is already locked by the
+> Task 2 **unit** tests; this test exercises the wired endpoint against a real schema.
+
+- [ ] Test `GET /requests/curated?view=community&community_id=:id` (caller is a member): returns `{ items }`
+  with `request` items ranked above the single `activity` item ranked above any `story` items, and **no
+  `decision` item**. Assert a request item's `data.payload_type` resolves via the map (e.g. a `moving`-
+  category row → `'moving_help'`).
+- [ ] Assert the guards: **400** when `community_id` is omitted; a **non-member** caller gets 403 (or no
+  texture, per the implemented guard) — never another community's texture.
 
 - [ ] Verify:
 
 ```bash
-cd services/request-service && npx jest tests/tdd/sprint-86-community-feed.test.ts
+cd services/request-service && npx jest tests/integration/sprint-86-community-feed.test.ts
 ```
 
 ---
@@ -238,11 +299,16 @@ cd apps/frontend && npx tsc --noEmit
 
 **Files:**
 - Create: `apps/frontend/tests/tdd/sprint-86-unified-feed-community.test.tsx` (FIRST)
+- Modify: `apps/frontend/src/lib/api.ts`
 - Modify: `apps/frontend/src/components/Feed/UnifiedFeed.tsx`
+
+- [ ] Widen `getCuratedRequests` in `api.ts`: `view?: 'home'` → `view?: 'home' | 'community'` (its current
+  type would reject `view: 'community'`).
 
 - [ ] **Write the test first**: in `view="community"` UnifiedFeed renders request cards + `ActivityCard` +
   `StoryCard` and does **not** render the `DecisionBand` or `BrowseModeControl`; in `view="home"` the
-  decision band still renders. Assert `payload_type` reaches `RequestPayloadRenderer` (payload detail shows).
+  decision band still renders. Assert it calls `getCuratedRequests` with `view: 'community'`, and that
+  `payload_type` reaches `RequestPayloadRenderer` (payload detail shows).
 
 - [ ] Add a `view: 'home' | 'community'` prop (default `'home'`). Request that view via
   `getCuratedRequests({ view, community_id, limit })`. Render `activity`/`story` items in array order
