@@ -783,7 +783,7 @@ function toRequestCardData(r: any): Record<string, unknown> {
  * pending dibs on the member's own requests. Each failure is non-fatal — a decision-query error
  * degrades to "no decisions" rather than breaking the whole feed.
  */
-async function fetchDecisions(req: Request, userId: string): Promise<UnifiedFeedItem<DecisionData>[]> {
+export async function fetchDecisions(req: Request, userId: string): Promise<UnifiedFeedItem<DecisionData>[]> {
   const decisions: DecisionData[] = [];
 
   try {
@@ -835,17 +835,21 @@ async function fetchDecisions(req: Request, userId: string): Promise<UnifiedFeed
   }
 
   try {
+    // A dib is a private first-ask the REQUESTER sent to a provider; the PROVIDER owes the
+    // accept/decline (PUT /dibs/:id/accept|decline require dibs.provider_user_id === caller). So
+    // the decision belongs to the provider (member_role 'responder'), with the requester as the
+    // counterparty. Only surface live (non-expired) pending dibs — an expired one would 410.
     const dibsRows = await query(
       `SELECT d.id, d.request_id, d.created_at, hr.title,
-              provider.name AS provider_name,
+              requester.name AS requester_name,
               STRING_AGG(DISTINCT c.name, ', ') AS community_name
        FROM requests.dibs d
        JOIN requests.help_requests hr ON d.request_id = hr.id
-       JOIN auth.users provider ON d.provider_user_id = provider.id
+       JOIN auth.users requester ON hr.requester_id = requester.id
        LEFT JOIN requests.request_communities rc ON hr.id = rc.request_id
        LEFT JOIN communities.communities c ON rc.community_id = c.id
-       WHERE hr.requester_id = $1 AND d.status = 'pending'
-       GROUP BY d.id, d.request_id, d.created_at, hr.title, provider.name`,
+       WHERE d.provider_user_id = $1 AND d.status = 'pending' AND d.expires_at > NOW()
+       GROUP BY d.id, d.request_id, d.created_at, hr.title, requester.name`,
       [userId]
     );
 
@@ -856,14 +860,49 @@ async function fetchDecisions(req: Request, userId: string): Promise<UnifiedFeed
         request_id: d.request_id,
         title: d.title,
         community_name: d.community_name || '',
-        counterparty_name: d.provider_name,
-        member_role: 'requester',
+        counterparty_name: d.requester_name,
+        member_role: 'responder',
         actions: ['accept_dibs', 'decline_dibs'],
         created_at: d.created_at,
       });
     }
   } catch (e: any) {
     (req as any).logger?.error('home-feed dibs decisions failed', e instanceof Error ? e : new Error(String(e)), { service: 'request-service', step: 'home-decisions-dibs' });
+  }
+
+  try {
+    // Provider (service-directory) offers on the member's OWN requests: the REQUESTER (request
+    // owner) accepts/declines (PUT /requests/offers/:id/accept|decline). subject_kind 'offer' routes
+    // the band to acceptOffer/declineOffer. Distinct from the match-as-offer flow above.
+    const offerRows = await query(
+      `SELECT o.id, o.request_id, o.created_at, hr.title,
+              provider.name AS provider_name,
+              STRING_AGG(DISTINCT c.name, ', ') AS community_name
+       FROM provider.offers o
+       JOIN requests.help_requests hr ON o.request_id = hr.id
+       JOIN auth.users provider ON o.provider_user_id = provider.id
+       LEFT JOIN requests.request_communities rc ON hr.id = rc.request_id
+       LEFT JOIN communities.communities c ON rc.community_id = c.id
+       WHERE hr.requester_id = $1 AND o.status = 'pending'
+       GROUP BY o.id, o.request_id, o.created_at, hr.title, provider.name`,
+      [userId]
+    );
+
+    for (const o of offerRows.rows) {
+      decisions.push({
+        subject_id: o.id,
+        subject_kind: 'offer',
+        request_id: o.request_id,
+        title: o.title,
+        community_name: o.community_name || '',
+        counterparty_name: o.provider_name,
+        member_role: 'requester',
+        actions: ['accept_offer', 'decline_offer'],
+        created_at: o.created_at,
+      });
+    }
+  } catch (e: any) {
+    (req as any).logger?.error('home-feed offer decisions failed', e instanceof Error ? e : new Error(String(e)), { service: 'request-service', step: 'home-decisions-offers' });
   }
 
   return decisions.map(buildDecisionItem);
