@@ -1,7 +1,32 @@
-# Sprint 86 — Unified Feed: Community Feed view + texture — 📋 READY TO EXECUTE
+# Sprint 86 — Unified Feed: Community Feed view + texture — 🔵 PR OPEN, AWAITING MERGE
 
-> **▶ STATUS (2026-06-04):** Sprint 85 **shipped + deployed** (v10.9.0, PR #58). Sprint 86 spec + plan
-> written and ready. Open a fresh chat and execute from the plan below. Target version **v10.10.0**.
+> **▶ STATUS (2026-06-04):** Sprint 86 **executed** on branch
+> `feature/sprint-86-unified-feed-community-view`, **PR [#60](https://github.com/ravichavali/karmyq/pull/60)**
+> open against master (commit `cfe6614`, v10.10.0). CI running; `pr-contract` ✅. **Awaiting Admin
+> "pull it in" to admin-merge → CI/CD "Deploy to Demo".** No DB migration this sprint.
+>
+> **All 12 plan tasks done.** Verification: request-service 212 unit+regression pass + build clean;
+> frontend 62 unit+regression pass + tsc clean; new S86 tests green (payload-type 4, community-texture 5,
+> community integration [DB-tier], UnifiedFeed community view 4); `npm audit` 0 high/critical (ADR-059);
+> **TDD failures are all pre-existing (zero new)** — verified against master baseline.
+>
+> **Scoping decision executed (Task 7):** community Browse tab = `<UnifiedFeed view="community" />` for all
+> members + a **separate admin all-status management list** (triage/boost/propose), since the curated feed
+> serves only open requests.
+>
+> **Post-merge TODO:** (1) monitor "Deploy to Demo" via `/deploy`; (2) demo validation —
+> `GET /requests/curated?view=community&community_id=:id` returns the ranked request+activity+story union
+> (auth-gated, no decision item); community Requests tab shows canonical cards **with payload detail** (seam
+> fix) + activity summary + stories; Dashboard Home still shows the decision band + payload detail; confirm
+> the deleted legacy components don't appear anywhere.
+>
+> **Carry to Sprint 87:** mobile parity (both views); impression logging on the union path; **`minScore`
+> on community view** — it inherits the default `minScore=30` (relevance-first, ADR-066), so the community
+> tab shows only requests scoring ≥30 vs the old BrowseTab's all-open (admins still see all via the mgmt
+> list) — candidate "show all" toggle.
+>
+> **(Original READY-TO-EXECUTE note, for reference):** Sprint 85 shipped + deployed (v10.9.0, PR #58);
+> Sprint 86 spec + plan written. Target version v10.10.0.
 
 ---
 
