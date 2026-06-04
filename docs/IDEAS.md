@@ -283,6 +283,11 @@ Bug: clicking "Withdraw Offer" on the Active tab returns "Only the requester can
 
 Feeds and dashboards need to be designed fit-for-purpose. These are not Facebook-style infinite feeds — they don't have to keep scrolling forever, and curation probably matters more than volume. Need to start from what the platform is actually trying to do (connect people who need help with people who can give it, within a community of trust) and design the feed/dashboard experience backwards from that goal — not borrow patterns from social media.
 
+> **Addressed by Sprint 84** (2026-06-03): turned into a design direction — see
+> [`docs/design/sprint-84-unified-feed/README.md`](design/sprint-84-unified-feed/README.md). Sprint
+> 85 implements the unified feed (Dashboard Home first). The Withdraw-Offer role bug in the
+> [2026-05-20] "other" note above is carried to Sprint 85 (§7.4).
+
 ---
 
 ## [2026-05-24] architecture

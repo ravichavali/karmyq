@@ -1,59 +1,44 @@
-# karmyq.org Content Voice Pass — reconciled from v3 brief — ✅ IMPLEMENTED
+# Sprint 84 — Unified Feed & Dashboard Redesign (Research & Direction) — ✅ COMPLETE · Sprint 85 = implement
 
-> **▶ STATUS (2026-06-03):** Sprint 83 "LinkedIn Launch Relaunch" is **fully merged** (PR #51,
-> `0e42b61`) on `origin/master`. A new content brief (`karmyq-org-v3.html` + handover) arrived
-> proposing a manifesto-first rewrite. **Reviewed and reconciled:** the brief was written against a
-> pre–Sprint-83 (deploy-drifted) snapshot. Decision = **keep Sprint 83 founding-circle positioning;
-> cherry-pick only the non-conflicting content fixes.** Codex implemented the four remaining
-> manifesto-body copy edits on `agent/codex/content-voice-pass` (PR #52); Claude review/merge is next.
+> **▶ STATUS (2026-06-03):** Sprint 84 **deliverable is complete** on branch
+> `feature/sprint-84-unified-feed-redesign-research`. The design-direction doc + three throwaway
+> HTML/Tailwind mockups are written; quality gates (simplify/code-review/security-review, adapted
+> for a docs/mockup diff) passed. `no-deploy` — version stays 10.8.0; merging the docs PR to
+> `master` is the completion. **Next session executes Sprint 85: implement the unified feed**
+> (recommended first slice = Dashboard Home).
 
-## The decision (do not re-debate)
-- The v3 brief restores manifesto-first positioning ("Find your neighbors" → karmyq.com primary).
-  That **reverses Sprint 83 / ADR-065** (karmyq.org = commons/invitation; karmyq.com = secondary PoC).
-- **Chosen: "stale — reconcile first."** Sprint 83 positioning + `contact@karmyq.org` stay. ADR-065 is
-  untouched (no pivot). Only additive voice/accuracy fixes that don't touch the conversion funnel land.
+## Sprint 84 deliverable (complete)
+- **Direction doc:** [`docs/design/sprint-84-unified-feed/README.md`](../../docs/design/sprint-84-unified-feed/README.md)
+  — audit of the 3 feed surfaces → data/action inventory → 5-product reference study → 8 principles
+  → unified IA (one model, two views) → open questions + Sprint 85 recommendations.
+- **Mockups:** [`docs/design/sprint-84-unified-feed/mockups/`](../../docs/design/sprint-84-unified-feed/mockups/)
+  — `dashboard-home.html`, `community-feed.html`, `index.html` (standalone, Tailwind CDN, throwaway).
 
-## Reconciled scope — per-fix verdict
-| Fix | State on master | Verdict |
-|---|---|---|
-| 1 — "Trust has been taken" surveillance correction | ✅ done (`TheThinking.tsx` §7) | skip |
-| 2 — Governance/fission/fusion voice | ✅ done (`HowItWorks.tsx`; trust→daughters, karma+trust→fusion correct) | skip |
-| 3 — Trust-evolution paragraph | ✅ done (`DeeperSections.tsx`, "accuracy over direction") | skip |
-| 4 — Footer cleanup | ✅ done (`Footer.tsx`, no placeholder links) | skip |
-| 5 — Links/CTA/email | ⚠️ footer + `contact@karmyq.org` already correct; "Find your neighbors primary" + gmail **conflict** | **drop conflicting parts** |
-| 6 — Principles copy | ✅ done (`Principles.tsx` matches v3 verbatim) | skip |
-| 7 — Timeline names | ✅ done (`FadingTimeline.tsx`, Priya/Maria/Aisha…) | skip |
-| **8 — "How trust is measured" → compressed** | ✅ implemented (`HowItWorks.tsx`) | PR review |
-| **9 — "Who gets believed" → banality of goodness** | ✅ implemented (`TheThinking.tsx`) | PR review |
-| **10 — "Trust when you can afford to" → sharper** | ✅ implemented (`TheThinking.tsx`) | PR review |
-| **11 — Three Layer-2 tightening cuts** | ✅ implemented (`TheThinking.tsx`) | PR review |
+## Sprint 85 goal (next session)
+Implement the unified feed model, **Dashboard Home first** (highest traffic; best payoff for action
+altitude). Per the direction doc §7.2 build sequence:
+1. Canonical `request` card component (absorbs `RequestPayloadRenderer` + trust/Karma badges + status token + inline Offer-to-Help).
+2. Unified feed endpoint / item shape (`request | decision | activity | story` union) — resolve source-of-truth open question (Feed svc 3007 vs `request-service` `/requests/curated` + `view=` param).
+3. `decision` band (promote `CommitmentsTab`'s "Needs Your Response" into the home feed top band).
+4. Community Feed view (same components, `community_id` scope) + split admin console out of `BrowseTab`.
+5. Texture layer (`activity` + `story`, dismissible, capped, below fold).
+6. Retire unmounted `Feed/Feed.tsx`; de-dup `FeedFilterPanel` vs `FilterChipRow`.
+- **Write ADR-066** (Unified Feed Model) against real S85 code (reserved per gotchas below).
+- **Carry into S85:** Withdraw-Offer role bug, urgency/request_type vocabulary reconciliation,
+  `match_score` scale normalization, server-side action altitude, on-duty filter generalization,
+  mobile parity (see direction doc §7.4).
 
-## Sprint Goal
-Land the four remaining manifesto-body copy edits (Fixes 8, 9, 10, 11) in their exact brief wording,
-without touching the Sprint 83 founding-circle funnel (Header/Hero/Movement/CTAs/Footer) or ADR-065.
-This is now implemented; the next step is Claude PR review and Admin merge authorization.
+## Multi-sprint arc
+- **Sprint 83** — founding-circle positioning + ADR-065 (complete; closed the outward/marketing phase).
+- **Sprint 84** — unified feed research & direction. ✅ **Complete (doc + mockups, no code).**
+- **Sprint 85 (next)** — implement the unified feed, Dashboard Home first. Spec/plan via `sprint-planning`.
 
----
-
-## Quick Start
-1. Review PR #52 / branch `agent/codex/content-voice-pass`.
-2. Confirm scope stayed copy-only in:
-   - `apps/landing/src/components/sections/TheThinking.tsx`
-   - `apps/landing/src/components/sections/HowItWorks.tsx`
-3. Confirm guardrails stayed intact: no Header/Hero/Movement/CTAs/Footer/nav changes, no ADR-065/docs-JSON/nav regen, no Gmail/unencoded mailto.
-4. Validation completed by Codex:
-   - `apps/landing`: `npm test -- --runInBand` ✅ 2 suites / 22 tests passed
-   - `apps/landing`: `npm run build` ✅ passed; existing `Header.tsx` `<img>` lint warning only
-   - repo root: `npm run feedback:check` ✅ passed ("No staged changes detected")
-5. Run `/simplify`, `/code-review`, and `/security-review` on the final diff; Admin merges after Claude recommendation.
-
-## Guardrails (do NOT do)
-- ❌ Do **not** change Header/Hero/Movement/CTAs nav or primary CTA (keeps `#founding-circle`).
-- ❌ Do **not** reintroduce the brief's unencoded mailto signup or `ravichavali@gmail.com` —
-  `contact@karmyq.org` is canonical.
-- ❌ No ADR change (no pivot → ADR-065 stays). No docs-JSON/nav regen (body copy only) → nav.json revert
-  gotcha doesn't apply.
-- ❌ Don't add claims beyond what's true (trust paths + cross-community carry exist; don't overstate).
+## Sprint 84 reference (complete — full detail in the spec + direction doc)
+- **Spec:** `docs/superpowers/specs/2026-06-03-sprint-84-unified-feed-redesign-research-design.md`
+- **Plan:** `docs/superpowers/plans/2026-06-03-sprint-84-unified-feed-redesign-research.md`
+- Sprint 84 was `no-deploy` (doc + throwaway mockups, no production code/schema/API). The audited
+  surfaces and full reasoning are recorded in the direction doc above; Sprint 85 reads that, not
+  this handoff, for the design detail.
 
 ---
 
@@ -63,33 +48,31 @@ This is now implemented; the next step is Claude PR review and Admin merge autho
 - `.github/pull_request_template.md` = the cross-agent PR contract (Summary / Validation / Docs / Quality gates / Security dismissals / Follow-ups / Lane).
 - `.github/workflows/pr-contract.yml` fails a PR whose body is empty or missing the four required headers; `dependabot[bot]` passes through.
 - master **branch protection**: required checks = `pr-contract`, `Lint & Type Check`, `Test Frontend`, `Test Backend Services (Unit + Regression)`, `Code Scanning Gate (ADR-060)`, `Security Audit`; `strict: true`; 1 approving review; `enforce_admins: false`.
-- **Merge authority:** Admin owns approval + merge; Claude validates merge-readiness and recommends, executes merge only on Admin authorization ("pull it in"). Agents never self-merge.
+- **Merge authority:** Admin owns approval + merge; Claude validates merge-readiness and recommends, executes merge only on Admin authorization ("pull it in"). Agents never self-merge. (PR #52 was admin-merged via `gh pr merge --admin` after explicit author authorization, since branch protection requires a review the solo-dev flow can't self-supply.)
 - **Enforcement is identity-based** — same-machine agents (Claude, Codex) share admin `gh` creds, so "no direct push to master" is convention-by-discipline for them, not a hard gate. See AGENTS.md "Enforcement reality".
 - A deliberate empty marker commit `90b9067` exists on master — do NOT "clean it up".
 
 ### ⚠️ NEXT-SESSION WARM-UP — unblock dependabot PRs
-The 8 open dependabot PRs (#33–41) predate `pr-contract.yml`; their stale branches have no `pr-contract` status, so the now-required check **blocks** them. To unblock each: comment **`@dependabot rebase`** → recreated branch includes the workflow and passes via bot pass-through. Then review/merge per dependabot merge discipline (**inspect grouped PRs for MAJOR bumps; don't rapid-merge** — 5 concurrent deploys caused ENOTEMPTY).
+The open dependabot PRs (#34–50) predate `pr-contract.yml`; their stale branches have no `pr-contract` status, so the now-required check **blocks** them. To unblock each: comment **`@dependabot rebase`** → recreated branch includes the workflow and passes via bot pass-through. Then review/merge per dependabot merge discipline (**inspect grouped PRs for MAJOR bumps; don't rapid-merge** — 5 concurrent deploys caused ENOTEMPTY). Several here ARE major bumps (tailwindcss 3→4 #41, typescript-eslint 6→8 #40, expo/vector-icons 14→15 #39, gesture-handler 2→3 #37, eslint-config-expo 8→56 #36, eslint-config-next 15→16 #35) — inspect before merging.
 
 ### Architecture Gotchas (Persistent)
-- **Landing page docs**: `apps/landing/src/data/docs/` is in `.gitignore` — always `git add -f`
+- **Landing page docs**: `apps/landing/src/data/docs/` is in `.gitignore` — always `git add -f`. (Note: `docs/design/` is NOT gitignored — only the landing data dir is.)
 - **nav.json revert bug**: `generate-docs.ts` regenerates nav.json — run from `apps/landing/`; grep-verify after; re-apply if reverted
-- **ADR numbering**: 059 = dependency gate, 060 = code-scanning gate, 061 = supply-chain hardening, 062 = community identity/idempotent creation, 063 = canonical trust metric + unified graph viz, 064 = authorize from authenticated identity, **065 = karmyq.org/karmyq.com domain roles**.
+- **ADR numbering**: 059 = dependency gate, 060 = code-scanning gate, 061 = supply-chain hardening, 062 = community identity/idempotent creation, 063 = canonical trust metric + unified graph viz, 064 = authorize from authenticated identity, **065 = karmyq.org/karmyq.com domain roles**. (Next free: 066 — reserve for the Sprint 85 unified-feed ADR.)
 - **JWT field** is `communities` not `communityMemberships` — always `user.communities ?? []`
 - **Schema is `communities.communities`** (plural schema name) — older `community.*` comments are stale
 - **API response unwrap**: `createApiClient` interceptor already unwraps the envelope — use `res.data`, not `res.data.data`
 - **trust_edges_live is a VIEW**: never INSERT/UPDATE it — write `trust_edges`, read `trust_edges_live`
 - **`git add` on CLAUDE.md**: tracked as lowercase `claude.md`
 - **Solo dev — no worktrees**: work directly on feature branches
-- **Root package.json version**: 10.8.0 (Sprint 83 shipped)
+- **Root package.json version**: 10.8.0 (Sprint 83 shipped; content voice pass + Sprint 84 research do not bump it)
 - **CI security gates**: dependency audit (ADR-059, blocking `--audit-level=high`) + CodeQL code-scanning gate (ADR-060) run automatically on push
 
 ### Pre-Existing TDD Failures (do NOT fix — a NEW failure this sprint is a real regression)
 `sprint-39-provider-ux` (7), `sprint-43-feed-ranking` (crashes), `admin-schemas-api.test.ts` (request-service), `sprint-68-halflife` (6 DB-conn), `sprint-67-governance` (DB-conn), social-graph-service tdd `sprint-66`/`sprint-67`/`sprint-68`.
 
 ### ⚠️ Deploy drift watch
-`karmyq.org` live content was out of sync with `master` at Sprint 83 implementation time (deploy/live-site
-drift, not a branch issue). The v3 brief was written against that stale live site — which is *why* six of
-its fixes were already done on master. Confirm live deploy status after merge before judging by live content.
+`karmyq.org` live content drifted from `master` around Sprint 83. PR #51 + #52 are merged — if judging by live content, first confirm the "Deploy to Demo" GitHub Actions run succeeded and live `karmyq.org` matches `master`. (Not relevant to Sprint 84, which ships no live content.)
 
 ### Sprint 81 residual (carried)
 - JWT-in-URL exposure → nginx log scrub (shipped Sprint 83). Token TTL kept at 1h (documented). SSE auth tests promoted to regression.
