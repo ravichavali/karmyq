@@ -20,9 +20,11 @@
 > runtime but is typed as the payload-subtype union, so `RequestPayloadRenderer` renders no payload detail for
 > curated cards (no regression — BrowseFeed showed none either; lights up when the model is unified in S86).
 >
-> **Task 12 next steps:** commit → push branch → open PR (contract body) → Admin authorizes merge → CI/CD
-> deploys → validate on demo (migration auto-applies via deploy.sh; `GET /requests/curated?view=home` smoke;
-> `SELECT DISTINCT status, urgency`; Dashboard Home decision band + cards + caught-up + responder withdraw).
+> **Task 12 IN PROGRESS:** committed (`b17820a`) + pushed; **PR #58** open against master with the contract
+> body. CI running (pr-contract ✓). **Awaiting Admin merge authorization** — agents never self-merge.
+> On "pull it in": admin-merge → CI/CD "Deploy to Demo" runs → migration auto-applies via deploy.sh Step 6
+> (do NOT rerun manually) → validate on demo (`GET /requests/curated?view=home` smoke; `SELECT DISTINCT
+> status, urgency` within CHECK sets; Dashboard Home decision band + cards + caught-up + responder withdraw).
 >
 > **⚠️ COURSE CORRECTION (Task 1, dry-run finding):** The spec's status reconciliation
 > ("`proposed` replaces `pending` on `help_requests`") was based on a **false premise** — the demo-DB
