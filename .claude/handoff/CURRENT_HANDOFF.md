@@ -1,9 +1,25 @@
-# Sprint 86 — Unified Feed: Community Feed view + texture — 🔵 PR OPEN, AWAITING MERGE
+# Sprint 86 — Unified Feed: Community Feed view + texture — ✅ SHIPPED + DEPLOYED (v10.10.0)
 
-> **▶ STATUS (2026-06-04):** Sprint 86 **executed** on branch
-> `feature/sprint-86-unified-feed-community-view`, **PR [#60](https://github.com/ravichavali/karmyq/pull/60)**
-> open against master (commit `cfe6614`, v10.10.0). CI running; `pr-contract` ✅. **Awaiting Admin
-> "pull it in" to admin-merge → CI/CD "Deploy to Demo".** No DB migration this sprint.
+> **▶ STATUS (2026-06-04):** Sprint 86 **shipped + deployed**. PR [#60](https://github.com/ravichavali/karmyq/pull/60)
+> admin-merged to master (squash `bfec38c`, v10.10.0); CI/CD "Deploy to Demo" run `26984734200`
+> **succeeded** (health-check passed, no rollback). Demo live at v10.10.0: `GET /requests/curated?view=community`
+> is registered + auth-gated (returns the canonical UNAUTHORIZED envelope un-authed — route wired, no 404/500).
+> No DB migration this sprint.
+>
+> **Remaining human check (needs a logged-in MEMBER session — couldn't be driven from the agent sandbox):**
+> on demo, open a community's Requests tab → confirm canonical cards render **with payload detail** (the
+> ADR-067 seam fix) + the activity summary + any stories, and **no decision band**; confirm Dashboard Home
+> still shows the decision band + payload detail; confirm the deleted legacy components appear nowhere.
+> (Endpoint behavior — guards 400/403, the union, payload_type — is locked by the passing integration +
+> unit tests.)
+>
+> **▶ NEXT: Sprint 87** — mobile parity for both feed views; impression logging on the `view=home`/
+> `view=community` union path (currently only the legacy array path logs to `requests.feed_events`);
+> and the **`minScore` on community view** decision — the community tab inherits the default `minScore=30`
+> (relevance-first per ADR-066), so it shows only requests scoring ≥30 vs the old BrowseTab's all-open
+> (admins still see all via the new management list) — decide whether to add a "show all" toggle.
+>
+> **(history)** Sprint 86 was executed on branch `feature/sprint-86-unified-feed-community-view`.
 >
 > **All 12 plan tasks done.** Verification: request-service 212 unit+regression pass + build clean;
 > frontend 62 unit+regression pass + tsc clean; new S86 tests green (payload-type 4, community-texture 5,
@@ -58,7 +74,7 @@ modelling seam so payload detail finally renders on canonical cards (ADR-067). *
 
 - **Sprint 84** — unified feed research & direction. ✅ Complete (`no-deploy`).
 - **Sprint 85** — unified feed, Dashboard Home first (steps 1–3). ✅ Shipped v10.9.0.
-- **Sprint 86 (this)** — Community Feed view + texture + legacy retirement + seam fix (steps 4–6). 📋 Ready.
+- **Sprint 86** — Community Feed view + texture + legacy retirement + seam fix (steps 4–6). ✅ Shipped v10.10.0 (PR #60).
 - **Sprint 87 (next)** — mobile parity (both views) + home-feed impression logging for the unified-feed
   path (the `feed_events` impression log currently only fires on the **legacy array** path, not the
   `view=home`/`view=community` union — analytics gap carried from S85).
