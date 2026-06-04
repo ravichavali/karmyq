@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Karmyq — Unified Feed Mockup · Community Feed</title>
+  <!-- Throwaway mockup (Sprint 84). Tailwind via CDN; not wired into the app. -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: { extend: { colors: {
+        primary: '#0d9488', 'primary-dark': '#0f766e', accent: '#6366f1',
+        surface: '#ffffff', 'surface-raised': '#f8fafc', border: '#e2e8f0',
+      } } }
+    }
+  </script>
+</head>
+<body class="bg-slate-100 text-slate-800">
+  <div class="bg-amber-100 text-amber-800 text-xs text-center py-1.5 px-4 border-b border-amber-200">
+    Sprint 84 throwaway mockup — <strong>Community Feed</strong> (same feed model, single-community scope). Admin console is a separate region, not the feed. Not production code.
+  </div>
+
+  <header class="bg-surface border-b border-border">
+    <div class="max-w-2xl mx-auto px-4 py-3">
+      <div class="flex items-center gap-2 text-sm text-slate-400 mb-1">
+        <a href="#" class="hover:underline">Communities</a> <span>/</span> <span class="text-slate-600">Oak Street Neighbours</span>
+      </div>
+      <h1 class="text-xl font-semibold">Oak Street Neighbours</h1>
+      <div class="flex gap-4 text-sm text-slate-500 mt-1">
+        <span>48 members</span><span>·</span><span>Mutual aid</span><span>·</span><span class="text-primary">You're a member</span>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-2xl mx-auto px-4 py-5 space-y-8">
+
+    <!-- Job statement, scoped -->
+    <p class="text-sm text-slate-500 italic border-l-2 border-primary pl-3">
+      What's happening in this community, and what can I do here?
+    </p>
+
+    <!-- ════ TOP BAND: decisions you owe in THIS community ════ -->
+    <section>
+      <h2 class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3 flex items-center gap-2">
+        <span class="w-2 h-2 rounded-full bg-amber-500"></span> Needs your response here · 1
+      </h2>
+      <article class="bg-surface rounded-xl border border-accent/40 shadow-sm p-4">
+        <div class="flex items-center gap-2 mb-1">
+          <span class="text-xs font-medium bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full">Admin proposed a match</span>
+        </div>
+        <p class="font-medium">Walk Mrs. Lee's dog while she recovers</p>
+        <p class="text-sm text-slate-500 mt-0.5">Your community admin suggested you · ●○○ direct trust</p>
+        <div class="flex justify-end gap-2 mt-3">
+          <button class="text-sm py-1.5 px-3 rounded-lg bg-red-50 text-red-700 hover:bg-red-100">Decline</button>
+          <button class="text-sm py-1.5 px-4 rounded-lg bg-primary text-white hover:bg-primary-dark">Accept</button>
+        </div>
+      </article>
+    </section>
+
+    <!-- ════ BODY: canonical request cards for this community + status filter ════ -->
+    <section>
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="text-xs font-semibold text-slate-500 uppercase tracking-wide">Community requests</h2>
+        <!-- first-class shared status vocabulary (from BrowseTab filters) -->
+        <div class="flex gap-1 text-xs">
+          <button class="px-2.5 py-1 rounded-full border border-primary bg-primary text-white">Open</button>
+          <button class="px-2.5 py-1 rounded-full border border-border bg-surface text-slate-500">Matched</button>
+          <button class="px-2.5 py-1 rounded-full border border-border bg-surface text-slate-500">Completed</button>
+        </div>
+      </div>
+
+      <div class="space-y-3">
+        <!-- SAME canonical request card component as dashboard-home.html -->
+        <article class="bg-surface rounded-xl border border-border shadow-sm p-4">
+          <div class="flex items-start justify-between gap-3 mb-2">
+            <div class="flex items-center gap-2 min-w-0">
+              <div class="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-accent text-white grid place-items-center text-xs font-semibold shrink-0">D</div>
+              <div class="min-w-0">
+                <span class="text-sm font-medium block">Dana M.</span>
+                <span class="text-xs text-primary">● Direct trust · 31 karma</span>
+              </div>
+            </div>
+            <div class="text-right shrink-0">
+              <span class="text-xs font-medium bg-green-100 text-green-700 px-2 py-0.5 rounded-full">open</span>
+              <span class="text-xs text-slate-400 block mt-0.5">3h ago</span>
+            </div>
+          </div>
+          <h3 class="font-medium mb-1">Ride to the airport Friday 6am</h3>
+          <div class="bg-surface-raised rounded-lg p-3 text-sm grid grid-cols-2 gap-2 mb-3 border border-border">
+            <div><span class="text-slate-400 text-xs block">Pickup</span> 18 Oak St</div>
+            <div><span class="text-slate-400 text-xs block">Dropoff</span> Intl Airport T2</div>
+            <div><span class="text-slate-400 text-xs block">Passengers</span> 1 · 1 bag</div>
+            <div><span class="text-slate-400 text-xs block">Return trip</span> No</div>
+          </div>
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2 text-xs">
+              <span class="px-2 py-0.5 rounded-full bg-surface border border-border text-slate-500">🚗 Ride</span>
+              <span class="px-2 py-0.5 rounded-full font-medium text-orange-600 bg-orange-50">high</span>
+            </div>
+            <button class="text-sm py-1.5 px-4 rounded-lg bg-primary text-white hover:bg-primary-dark">Offer to Help</button>
+          </div>
+        </article>
+
+        <article class="bg-surface rounded-xl border border-border shadow-sm p-4">
+          <div class="flex items-start justify-between gap-3 mb-2">
+            <div class="flex items-center gap-2 min-w-0">
+              <div class="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-accent text-white grid place-items-center text-xs font-semibold shrink-0">R</div>
+              <div class="min-w-0">
+                <span class="text-sm font-medium block">Raj S.</span>
+                <span class="text-xs text-slate-500">○●○ 2nd-degree · via Dana M.</span>
+              </div>
+            </div>
+            <div class="text-right shrink-0">
+              <span class="text-xs font-medium bg-green-100 text-green-700 px-2 py-0.5 rounded-full">open</span>
+              <span class="text-xs text-slate-400 block mt-0.5">yesterday</span>
+            </div>
+          </div>
+          <h3 class="font-medium mb-1">Meal train for the Patels (new baby) 🍲</h3>
+          <p class="text-sm text-slate-500 mb-3 line-clamp-2">Coordinating dinners this week. Two slots left — Wed and Fri.</p>
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2 text-xs">
+              <span class="px-2 py-0.5 rounded-full bg-surface border border-border text-slate-500">🔧 Service</span>
+              <span class="px-2 py-0.5 rounded-full font-medium text-amber-600 bg-amber-50">medium</span>
+            </div>
+            <button class="text-sm py-1.5 px-4 rounded-lg bg-primary text-white hover:bg-primary-dark">Offer to Help</button>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <!-- ════ TEXTURE ════ -->
+    <section>
+      <h2 class="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">Community activity</h2>
+      <article class="bg-surface-raised rounded-xl border border-border p-4 flex items-start justify-between gap-3">
+        <div class="text-sm">
+          <p class="text-slate-500"><strong>Top helpers this week:</strong> Dana M. (4), Aisha K. (3), Sam W. (2)</p>
+        </div>
+        <button class="text-slate-300 hover:text-slate-500" aria-label="Dismiss">✕</button>
+      </article>
+    </section>
+
+    <!-- ════ ADMIN CONSOLE — explicitly NOT part of the feed ════ -->
+    <section class="border-t-2 border-dashed border-slate-300 pt-6">
+      <div class="flex items-center gap-2 mb-3">
+        <h2 class="text-sm font-semibold text-slate-600">Admin console</h2>
+        <span class="text-xs bg-slate-200 text-slate-500 px-2 py-0.5 rounded-full">visible to admins/mods only · separate from the feed</span>
+      </div>
+      <div class="grid grid-cols-3 gap-3 mb-4">
+        <div class="bg-surface-raised rounded-lg p-3 border-l-4 border-primary">
+          <div class="text-xs text-slate-400">Open requests</div>
+          <div class="text-2xl font-bold text-primary">6</div>
+        </div>
+        <div class="bg-surface-raised rounded-lg p-3 border-l-4 border-emerald-500">
+          <div class="text-xs text-slate-400">Fulfilled rate</div>
+          <div class="text-2xl font-bold text-emerald-600">82%</div>
+        </div>
+        <div class="bg-surface-raised rounded-lg p-3 border-l-4 border-accent">
+          <div class="text-xs text-slate-400">Avg response</div>
+          <div class="text-2xl font-bold text-accent">4h</div>
+        </div>
+      </div>
+      <div class="bg-surface-raised rounded-lg p-4 border border-border text-sm text-slate-500">
+        Triage · Boost · Propose a Match · Trust &amp; Cohesion panels · Export
+        <span class="text-slate-400">— these management tools live here, not on the member-facing request cards above.</span>
+      </div>
+    </section>
+
+  </main>
+
+  <p class="max-w-2xl mx-auto px-4 pb-10 text-xs text-slate-400">
+    Mockup notes: identical feed model and <em>request</em> card as Dashboard Home, scoped to one community.
+    The old <code>BrowseTab</code> mixed a member feed with an admin console — the redesign keeps them separate.
+    See <a href="../README.md" class="underline">the direction doc</a>.
+  </p>
+</body>
+</html>

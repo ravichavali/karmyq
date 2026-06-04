@@ -1,69 +1,44 @@
-# Sprint 84 — Unified Feed & Dashboard Redesign (Research & Direction) — 📋 SPECCED, READY TO EXECUTE
+# Sprint 84 — Unified Feed & Dashboard Redesign (Research & Direction) — ✅ COMPLETE · Sprint 85 = implement
 
-> **▶ STATUS (2026-06-03):** Sprint 83 + the karmyq.org content voice pass (PR #52) are merged to
-> `master` (`47ad11b`). Sprint 84 is **scoped and specced** via `sprint-planning`. This is a
-> **research/direction sprint — the deliverable is a design doc + throwaway HTML mockups, not
-> code.** Next session executes the plan.
+> **▶ STATUS (2026-06-03):** Sprint 84 **deliverable is complete** on branch
+> `feature/sprint-84-unified-feed-redesign-research`. The design-direction doc + three throwaway
+> HTML/Tailwind mockups are written; quality gates (simplify/code-review/security-review, adapted
+> for a docs/mockup diff) passed. `no-deploy` — version stays 10.8.0; merging the docs PR to
+> `master` is the completion. **Next session executes Sprint 85: implement the unified feed**
+> (recommended first slice = Dashboard Home).
 
-## Sprint goal (one sentence)
-Produce a purpose-driven, research-backed design direction for a single **unified feed system**
-spanning the dashboard home and the community feed — delivered as a markdown direction doc +
-browser-viewable HTML/Tailwind mockups — ready for Sprint 85 to implement.
+## Sprint 84 deliverable (complete)
+- **Direction doc:** [`docs/design/sprint-84-unified-feed/README.md`](../../docs/design/sprint-84-unified-feed/README.md)
+  — audit of the 3 feed surfaces → data/action inventory → 5-product reference study → 8 principles
+  → unified IA (one model, two views) → open questions + Sprint 85 recommendations.
+- **Mockups:** [`docs/design/sprint-84-unified-feed/mockups/`](../../docs/design/sprint-84-unified-feed/mockups/)
+  — `dashboard-home.html`, `community-feed.html`, `index.html` (standalone, Tailwind CDN, throwaway).
 
-## Quick Start
-1. Read this handoff.
-2. Check out branch: `git checkout -b feature/sprint-84-unified-feed-redesign-research`
-3. Open plan: `docs/superpowers/plans/2026-06-03-sprint-84-unified-feed-redesign-research.md`
-4. Run: `/execute-plan` (uses superpowers:subagent-driven-development)
-
-**Spec:** `docs/superpowers/specs/2026-06-03-sprint-84-unified-feed-redesign-research-design.md`
+## Sprint 85 goal (next session)
+Implement the unified feed model, **Dashboard Home first** (highest traffic; best payoff for action
+altitude). Per the direction doc §7.2 build sequence:
+1. Canonical `request` card component (absorbs `RequestPayloadRenderer` + trust/Karma badges + status token + inline Offer-to-Help).
+2. Unified feed endpoint / item shape (`request | decision | activity | story` union) — resolve source-of-truth open question (Feed svc 3007 vs `request-service` `/requests/curated` + `view=` param).
+3. `decision` band (promote `CommitmentsTab`'s "Needs Your Response" into the home feed top band).
+4. Community Feed view (same components, `community_id` scope) + split admin console out of `BrowseTab`.
+5. Texture layer (`activity` + `story`, dismissible, capped, below fold).
+6. Retire unmounted `Feed/Feed.tsx`; de-dup `FeedFilterPanel` vs `FilterChipRow`.
+- **Write ADR-066** (Unified Feed Model) against real S85 code (reserved per gotchas below).
+- **Carry into S85:** Withdraw-Offer role bug, urgency/request_type vocabulary reconciliation,
+  `match_score` scale normalization, server-side action altitude, on-duty filter generalization,
+  mobile parity (see direction doc §7.4).
 
 ## Multi-sprint arc
 - **Sprint 83** — founding-circle positioning + ADR-065 (complete; closed the outward/marketing phase).
-- **Sprint 84 (this)** — unified feed research & direction. **Doc + mockups, no code.**
-- **Sprint 85+** — implement the unified feed, one vertical slice at a time (likely dashboard
-  home first). Sequencing is a Sprint 85 planning call.
+- **Sprint 84** — unified feed research & direction. ✅ **Complete (doc + mockups, no code).**
+- **Sprint 85 (next)** — implement the unified feed, Dashboard Home first. Spec/plan via `sprint-planning`.
 
-## Deliverables this sprint produces
-- `docs/design/sprint-84-unified-feed/README.md` — the design-direction doc (audit → data/action
-  inventory → reference study → principles → unified IA → Sprint 85 recommendations).
-- `docs/design/sprint-84-unified-feed/mockups/*.html` — standalone HTML/Tailwind mockups of the
-  redesigned dashboard-home feed and community feed (Tailwind via CDN; throwaway).
-
-## Critical implementation notes (from the spec — verbatim)
-1. **Deliverable is a document, not code.** Don't write production feed components — that's Sprint 85.
-2. **Mockups are throwaway.** Standalone HTML + Tailwind CDN under
-   `docs/design/sprint-84-unified-feed/mockups/`. Don't wire into the Next.js build, don't add to
-   `apps/frontend`, don't import app components.
-3. **Design backward from the job** — "connect need with help inside a community of trust." Every
-   recommendation traces to it; reject borrowed social-feed patterns unless re-justified.
-   (Source: `docs/IDEAS.md` [2026-05-20] framing note.)
-4. **Audit before inventing.** Read all three current feed surfaces — `BrowseFeed`, community
-   `BrowseTab` (586 lines), `Feed/Feed.tsx` — before proposing the unified model. Their
-   duplication is the thing being collapsed, so document it first.
-5. **No schema/API/endpoint changes.** Missing data the redesign wants → log as a Sprint 85
-   recommendation, don't build it.
-6. **Unify, don't add a fourth surface.** Output is ONE feed model in two views (dashboard home /
-   community feed), not a new parallel feed.
-7. **`no-deploy` sprint.** No version bump (stays 10.8.0); nothing reaches `karmyq.com`. Merging
-   the docs PR to master is the completion.
-8. **`docs/design/` is NOT gitignored** (only `apps/landing/src/data/docs/` is) — normal
-   `git add` works.
-
-## Scope boundaries
-- **In:** audit, data/action inventory, reference study, principles, unified IA, mockups, Sprint
-  85 recommendations.
-- **Out (later/separate):** writing production feed components, schema/API changes, the on-duty
-  Community/Provider/Both feed filter, and the **Withdraw-Offer role bug** (`docs/IDEAS.md`
-  [2026-05-20] — responder can't withdraw own proposed offer). Both stay on the backlog.
-
-## Audit sources (read-only — do NOT modify)
-`apps/frontend/src/pages/dashboard.tsx`, `components/BrowseFeed.tsx`, `components/BrowseModeControl.tsx`,
-`components/community/tabs/BrowseTab.tsx`, `components/Feed/Feed.tsx` + `FeedItem.tsx` +
-`RequestPayloadRenderer.tsx`, `components/FeedFilterPanel.tsx`, `components/TabBar.tsx`,
-`components/CommitmentsTab.tsx`, `components/MyRequestsTab.tsx`,
-`components/dashboard/TrustNetworkWidget.tsx`, `components/ProviderDashboardCard.tsx`,
-`types/feed-items.ts`.
+## Sprint 84 reference (complete — full detail in the spec + direction doc)
+- **Spec:** `docs/superpowers/specs/2026-06-03-sprint-84-unified-feed-redesign-research-design.md`
+- **Plan:** `docs/superpowers/plans/2026-06-03-sprint-84-unified-feed-redesign-research.md`
+- Sprint 84 was `no-deploy` (doc + throwaway mockups, no production code/schema/API). The audited
+  surfaces and full reasoning are recorded in the direction doc above; Sprint 85 reads that, not
+  this handoff, for the design detail.
 
 ---
 
