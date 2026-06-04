@@ -196,3 +196,28 @@ didn't revert** (run generate-docs from `apps/landing/`, re-apply if reverted).
    stays the canonical home of the action handlers the decision band reuses) — do not delete it.
 9. **ADR-066 is reserved** for the Unified Feed Model. Write it against real S85 code. Next free ADR after 065.
 10. **Pre-existing TDD failures are not S85 regressions** — see the handoff list. A *new* failure is real.
+
+---
+
+## Manifesto Alignment — public promises ADR-066 must honor
+
+The karmyq.org "The thinking" manifesto (§7, *"Trust wasn't taken from us. We forgot how."*,
+[`apps/landing/src/components/sections/TheThinking.tsx`](../../../apps/landing/src/components/sections/TheThinking.tsx))
+now makes these **public product promises** about trust and the feed. Sprint 85's unified feed/trust
+work must not contradict them, and **ADR-066 must record them as binding constraints**:
+
+1. **"Designed to forget."** Interaction *details* expire after a few months; only the *shape* of
+   relationships persists — not a permanent ledger of acts. Grounded in existing decay work (ADR-011
+   reputation decay, `20260526-interaction-halflife`). S85 must not introduce a permanent public ledger
+   of individual acts; if the feed surfaces any history, it must be the decayed/relationship-shaped
+   signal, not raw historical transactions.
+2. **No broadcast reputation feed.** What a member has done is never broadcast to the community. The
+   `decision`/`activity`/`story` items and the `match_reason` string may explain *connection* ("2nd-degree
+   trust · matches your service type") but must **not** publish a member's act history to others. The
+   `activity`/`story` texture (S86) must respect this too — community texture, not an acts ledger.
+3. **Feed ranking uses decayed, relationship-shaped trust signals**, not exposed raw transaction
+   history. The curated handler's `feed_weight_prior_interaction` input must be a decayed signal
+   consistent with promise 1 — confirm it reads the half-life-decayed interaction value, not a raw count.
+4. **Sovereignty framing = "own rules, own context, own trust model."** Do **not** claim or imply each
+   community "runs its own instance" in ADR-066 or any doc until the architecture supports it. The
+   current, accurate framing is per-community rules/context/trust model on shared infrastructure.

@@ -243,6 +243,12 @@ cd apps/frontend && npx tsc --noEmit && npm test
   server-side action altitude, the chosen source-of-truth endpoint (`request-service` `view=home`), the vocab
   reconciliation (urgency / status `proposed` / `match_score` 0–100 + reason; `request_type` enum canonical vs
   payload subtype), and the deferred Community Feed/texture/retirement (S86). Add to `docs/adr/README.md` index.
+- [ ] **ADR-066 must record the manifesto promises as binding constraints** (see spec "Manifesto Alignment"):
+  (a) "designed to forget" — no permanent public ledger of acts; feed history is decayed/relationship-shaped only;
+  (b) no broadcast reputation feed — `match_reason`/items explain *connection*, never publish a member's act
+  history; (c) `feed_weight_prior_interaction` must read the half-life-decayed signal (ADR-011 /
+  `20260526-interaction-halflife`), not a raw count — **verify this in the curated handler**; (d) sovereignty
+  framing is "own rules, own context, own trust model" — do NOT claim per-community "instances".
 - [ ] **Landing docs** (`git add -f` — dir is gitignored): ADR-066 JSON, `unified-feed` concept, `dashboard-home`
   guide, `request-service.json` `view=home` param; add all to nav.json. **Grep-verify nav.json didn't revert**
   (run generate-docs from `apps/landing/`; re-apply if reverted).

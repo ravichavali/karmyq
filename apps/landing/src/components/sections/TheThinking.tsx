@@ -255,47 +255,64 @@ export default function TheThinking() {
           </div>
         </AnimateOnScroll>
 
-        {/* 7 — Trust has been taken from us */}
+        {/* 7 — Trust wasn't taken from us. We forgot how. */}
         <AnimateOnScroll>
           <h2 className="heading-2 text-karmyq-brown-900 mb-6">
-            Trust has been taken from us.
+            Trust wasn&apos;t taken from us. We forgot how.
           </h2>
         </AnimateOnScroll>
         <AnimateOnScroll delay={0.1}>
           <div className="space-y-5 body-large mb-16">
             <p>
-              When you help someone through a platform, who knows? The platform does. It records the
-              transaction, updates a score, stores the signal. The act of trust — the thing that should
-              reverberate through your community — gets absorbed into a database that belongs to a
-              corporation. You helped. But the community doesn&apos;t know.
+              For most of human history, trusting the people nearby was a skill you practiced daily,
+              because nothing else held the community together. Then we built things that could hold it
+              for us: institutions, contracts, platforms, ratings. Each one let us extend a little less
+              of ourselves to the people around us, because the system would vouch for them instead. It
+              was convenient. It also let the muscle go slack. The capacity to read a stranger, take a
+              small risk on them, and let it come back — we have less practice with that now. Not because
+              anyone took it, but because we stopped needing it day to day. That&apos;s the harder thing
+              to admit: the loss was partly ours.
             </p>
             <p>
-              In a functioning village, generosity was never private. When you helped a neighbor, others
-              witnessed it. The act traveled through conversation, through presence, through what
-              anthropologists describe as the round-robin of social life — repaid not once but repeatedly,
-              because everyone knew, and knowing changed how they treated you. Reputation wasn&apos;t a number.
-              It was ambient knowledge, alive in the community. Helping Alice meant Bob trusted you more,
-              even without ever seeing it happen. Good deeds echoed.
+              When you help someone through a platform, who holds the memory of it? Not your neighbors.
+              The platform does — it records the transaction, updates a score, files the signal in a
+              database it owns. You helped. But your community never finds out, and you never build
+              anything with the person you helped. The relationship that should have thickened between
+              you stays exactly as thin as it started. That&apos;s the real cost — not just that the stars
+              vanish when you leave, but that the platform sat between you the whole time, making sure a
+              transaction never became a tie. Platforms are built for volume: many people, many exchanges,
+              every connection kept thin enough to scale. Depth doesn&apos;t monetize.
             </p>
             <p>
-              Modern platforms broke that echo. They captured the trust relationship and put it in escrow —
-              holding it on behalf of people who could have held it themselves. They gave you a star rating
-              instead of a reputation. When you leave the platform, the stars vanish. The relationship was
-              never yours.
+              A village did the opposite — and we should be honest about how it worked. When you helped a
+              neighbor, others came to know, not because anyone announced it but because life was lived in
+              the open. Helping Alice meant Bob trusted you more, even though Bob never saw it happen.
+              Reputation wasn&apos;t a number; it was ambient, alive, repaid not once but for years. That
+              was the warmth. It also had teeth: the same machinery that rewarded generosity punished
+              difference, remembered every mistake, and gave you nowhere to hide. Ambient reputation and a
+              social credit score run on the same engine. The village isn&apos;t a paradise to restore.
+              It&apos;s a mechanism to learn from — keep the echo, lose the panopticon.
             </p>
             <p>
-              Karmyq is designed to return the echo — but not by making acts visible. What someone has
-              done is not broadcast to the community. That would be surveillance with better branding.
-              Instead, the pattern of acts quietly shapes how the platform connects people: which requests
-              surface in your feed, how much trust you carry when you join a new community, how the path
-              between you and a stranger is weighted. The effect travels through the system. The ledger
-              does not.
+              Karmyq is built to return the echo without the surveillance. What you&apos;ve done is never
+              broadcast to the community — that would be surveillance with better branding. Instead, the
+              pattern of your acts quietly shapes the connections the system makes: which requests reach
+              you, how much trust you carry into a new community, how short the path runs between you and a
+              stranger. And then the system is designed to forget. The details of an interaction expire
+              after a few months, the way human memory does; what persists is the shape of your
+              relationships, not a ledger of them. No corporation should hold that record in escrow. Your
+              community keeps its own rules, its own context, and its own trust model — and the system is
+              built so those relationships are not trapped inside the platform. The trust is yours because
+              nothing is standing in escrow on your behalf.
             </p>
             <p>
-              And the measure of success is not how much you use this platform. It is how little you
-              eventually need to. A ride coordinated here today should, over time, become a phone call
-              between people who trust each other. The platform is scaffolding — meant to be outgrown.
-              That is the opposite of what platforms are built to do.
+              And success here looks strange for a platform: it&apos;s measured by how little you end up
+              needing it. A ride coordinated through Karmyq today should, over months, become a phone call
+              between two people who simply trust each other. The platform lives at the edge of your trust
+              network — among the not-yet-neighbors — and its job is to keep dissolving that edge,
+              graduating relationships out into ordinary life while new strangers arrive to begin the same
+              passage. It&apos;s scaffolding. The whole point is to be outgrown. That is the opposite of
+              what platforms are built to do.
             </p>
           </div>
         </AnimateOnScroll>
