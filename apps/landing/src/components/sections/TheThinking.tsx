@@ -139,44 +139,54 @@ export default function TheThinking() {
         {/* 4 — Short-termism */}
         <AnimateOnScroll>
           <h2 className="heading-2 text-karmyq-brown-900 mb-6">
-            Short-termism won. The bill is arriving.
+            Short-termism won. The bill is coming due.
           </h2>
         </AnimateOnScroll>
         <AnimateOnScroll delay={0.1}>
           <div className="space-y-5 body-large mb-6">
             <p>
-              Exploitation is not irrational — it optimizes for the wrong horizon. Colonialism extracted
-              real wealth. Industrial monocultures fed billions. The structures that dismantled slower,
-              more sustainable cultures <em>worked</em>, in the near term. The peoples and ecosystems
-              they consumed had spent generations building something more durable. They lost anyway.
+              Exploitation was never irrational. It optimized for the wrong horizon. Colonialism extracted
+              real wealth. Industrial monocultures fed billions. The structures that overran slower, more
+              woven ways of living <em>worked</em> — in the near term. What they consumed had taken
+              generations to build and broke in a fraction of the time. It lost anyway.
             </p>
             <p>
-              The same arithmetic gave us mutually assured destruction. Climate change. The quiet collapse of
-              social trust in communities that once held each other.
+              The same arithmetic gave us mutually assured destruction, a warming planet, and the quiet
+              emptying-out of communities that once held each other.
             </p>
           </div>
         </AnimateOnScroll>
         <AnimateOnScroll delay={0.15}>
           <blockquote className="pull-quote mb-10">
-            &ldquo;The simplification that got us here won&apos;t get us there. We traded the rich complexity of
-            human cooperation for something that scales — and lost the soul of community in the process.&rdquo;
+            The simplification that got us here won&apos;t get us there. We traded the density of human
+            cooperation for something that scales — and left the soul of community somewhere behind us.
           </blockquote>
         </AnimateOnScroll>
         <AnimateOnScroll delay={0.2}>
           <div className="space-y-5 body-large mb-16">
             <p>
-              Ecologists call it a tragedy of the commons: when individual short-term interest and collective
-              long-term survival point in opposite directions, individuals win and collectives pay. We have
-              run this experiment at planetary scale. The results are in.
+              Biology already knows this shape. A body is the proof that cooperation scales: trillions of
+              cells holding specialized, interdependent roles. Cancer is what happens when one line of cells
+              abandons the contract — it simplifies, stops specializing, grows fast, takes everything near
+              it, and wins, locally, right up until it kills the thing that fed it. The pattern that overran
+              the slower world followed the same logic. Simpler. Faster. Blind to the whole it depended on.
             </p>
             <p>
-              <strong>The bill is always paid late, and by people who did not write the cheque.</strong>
+              That is the trade we keep making, now at the scale of a civilization. The cost never
+              disappears. It moves downstream — paid late, by people who never signed the cheque.
             </p>
             <p>
-              Collaboration has always been slower. It requires investment before return, trust before
-              certainty, the willingness to believe that the person across from you is worth the risk.
-              Karmyq is a bet on the longer game — the only game, historically, that anyone has ever won
-              for long.
+              Cooperation has always been the slower game. It asks for investment before return, trust before
+              certainty, the willingness to believe the person across from you is worth the risk — before
+              they&apos;ve given you proof. That belief is the hard part. Not because people aren&apos;t good, but
+              because no one wants to be the only one who is.
+            </p>
+            <p>
+              Karmyq is a bet on that slower game. Not because it always wins — it often hasn&apos;t — but
+              because the thing that beat it is now coming due, and because the one ingredient cooperation
+              always needed was people able to see the good in each other before they had to gamble on it.
+              We&apos;re not asking anyone to become good. We&apos;re making the goodness already here visible
+              enough to trust, close enough to act on, and local enough to begin with your neighbors.
             </p>
           </div>
         </AnimateOnScroll>
