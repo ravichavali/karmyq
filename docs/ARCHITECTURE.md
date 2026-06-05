@@ -1,8 +1,8 @@
 # Karmyq Architecture
 
-**Version**: 8.0.0
-**Last Updated**: 2025-12-27
-**Status**: Production
+**Version**: 10.11.0
+**Last Updated**: 2026-06-05
+**Status**: Demo/Development
 
 ---
 
@@ -112,11 +112,11 @@ Karmyq is a **multi-tenant SaaS mutual aid platform** where community members he
 |---------|------|---------|----------------|--------|
 | **auth-service** | 3001 | User authentication, JWT tokens | `auth` | ✅ Production |
 | **community-service** | 3002 | Community management, memberships | `community` | ✅ Production |
-| **request-service** | 3003 | Help requests, offers, matching | `requests` | ✅ Production |
+| **request-service** | 3003 | Help requests, offers, matching, **unified feed source-of-truth** (ADR-066) | `requests` | ✅ Production |
 | **reputation-service** | 3004 | Karma tracking, trust scores | `reputation` | ✅ Production |
 | **notification-service** | 3005 | Real-time notifications (SSE) | `notifications` | ✅ Production |
 | **messaging-service** | 3006 | Direct messaging, conversations | `messaging` | ✅ Production |
-| **feed-service** | 3007 | Personalized activity feed | - (reads all) | ✅ Production |
+| **feed-service** | 3007 | Personalized activity feed (legacy; **consolidation candidate** — the unified feed is served by request-service `GET /requests/curated` per ADR-066, so feed-service is slated for review in Sprint 92) | - (reads all) | ✅ Production |
 | **cleanup-service** | 3008 | Data expiration, reputation decay | - (writes all) | ✅ Production |
 
 ### Service Responsibilities
@@ -157,7 +157,7 @@ Karmyq is a **multi-tenant SaaS mutual aid platform** where community members he
 - User notification preferences
 - Mark read/unread
 - **Consumes**: All events (creates notifications)
-- **No authentication on SSE** (userId in URL)
+- **SSE is authenticated** via a short-lived JWT passed as a query param (EventSource can't set headers); nginx scrubs the token from access logs (Sprint 83). Token TTL 1h. SSE auth tests are in the regression tier.
 
 #### Messaging Service (3006)
 - Direct conversations between users
@@ -233,14 +233,16 @@ Now all queries automatically filter by this community!
 
 ### Multi-Community Users
 
-Users can belong to multiple communities. The JWT contains:
+Users can belong to multiple communities. The JWT contains a `communities` array (field name is
+**`communities`**, NOT `communityMemberships` — auth middleware reads `user.communities`; the wrong field
+always 403s):
 ```json
 {
   "userId": "uuid",
   "email": "user@example.com",
-  "communityMemberships": [
-    { "communityId": "uuid1", "role": "admin" },
-    { "communityId": "uuid2", "role": "member" }
+  "communities": [
+    { "id": "uuid1", "name": "Community A", "role": "admin" },
+    { "id": "uuid2", "name": "Community B", "role": "member" }
   ]
 }
 ```
@@ -470,13 +472,16 @@ See [DATA_MODEL.md](DATA_MODEL.md) for complete schema documentation with ERD di
 {
   "userId": "uuid",
   "email": "user@example.com",
-  "communityMemberships": [
-    { "communityId": "uuid", "role": "admin" }
+  "communities": [
+    { "id": "uuid", "name": "Community A", "role": "admin" }
   ],
   "iat": 1234567890,
   "exp": 1234567890
 }
 ```
+
+> ⚠️ The membership array field is **`communities`**, not `communityMemberships`, and each entry's id key
+> is **`id`**, not `communityId`. Auth middleware MUST read `user.communities`; the wrong field 403s.
 
 ### Middleware Chain
 
@@ -492,8 +497,8 @@ export const authMiddleware = (req, res, next) => {
 // 2. Extract Community Context
 export const tenantMiddleware = (req, res, next) => {
   const communityId = req.headers['x-community-context'];
-  const membership = req.user.communityMemberships.find(
-    m => m.communityId === communityId
+  const membership = (req.user.communities ?? []).find(
+    m => m.id === communityId
   );
   req.communityId = communityId;
   req.role = membership?.role;
@@ -1020,6 +1025,6 @@ See [operations/logging-and-monitoring.md](../operations/logging-and-monitoring.
 
 ---
 
-**Version**: 8.0.0
-**Last Updated**: 2025-12-27
+**Version**: 10.11.0
+**Last Updated**: 2026-06-05
 **Maintained by**: Karmyq Development Team

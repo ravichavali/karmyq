@@ -1,0 +1,108 @@
+<!-- Status: APPROVED — approved direction (2026-06-05) (Sprint 87 throwaway mockup; not wired to apps/frontend) -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Profile & Trust — Karmyq (APPROVED mockup)</title>
+<link rel="stylesheet" href="shared.css">
+<style>
+  .pcols { display:grid; gap: 22px; }
+  @media (min-width: 780px){ .pcols { grid-template-columns: 1fr 1fr; align-items:start; } .span2{ grid-column: 1 / -1; } }
+  .phead { display:flex; gap: 18px; align-items:center; padding: 24px; }
+  .phead .big { width: 64px; height:64px; border-radius:50%; background: var(--green-600); color:#fff;
+    display:grid; place-items:center; font: 600 26px var(--serif); flex:none; }
+  .phead h2 { font: 400 26px var(--serif); color: var(--brown-900); }
+  .phead .sub { color: var(--brown-500); font-size: 14px; margin-top: 2px; }
+  .fade-item { transition: opacity .3s; }
+  .privacy { display:flex; gap: 12px; align-items:flex-start; padding: 16px 18px; background: var(--teal-50); border-color:#bfe7e2; }
+  .privacy .ic { font-size: 20px; }
+  .toggle { width: 42px; height: 24px; border-radius: 99px; background: var(--green-600); position:relative; flex:none; }
+  .toggle::after { content:""; position:absolute; top:3px; right:3px; width:18px; height:18px; border-radius:50%; background:#fff; }
+  .toggle.off { background: var(--brown-200); }
+  .toggle.off::after { right: auto; left: 3px; }
+  .legendline { display:flex; align-items:center; gap:8px; font-size:12.5px; color:var(--brown-400); margin-top:10px; }
+  .swatch { width:34px; height:8px; border-radius:99px; background: linear-gradient(90deg, var(--green-600), rgba(45,110,40,.12)); }
+</style>
+</head>
+<body>
+<div class="proposed-banner">Status: <b>APPROVED</b> — Sprint 87 direction mockup — approved basis for Sprint 88 (2026-06-05)</div>
+
+<header class="topbar">
+  <div class="wordmark"><span class="seed"></span>Karmyq</div>
+  <nav><a href="dashboard-home.html">Home</a><a href="#">Communities</a><a href="#">Providers</a></nav>
+  <div class="spacer"></div>
+  <div class="bell"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0"/></svg><span class="dot"></span></div>
+  <div class="me"><div class="avatar">A</div><span>Aisha</span></div>
+</header>
+
+<main class="shell">
+  <div class="card phead">
+    <div class="big">A</div>
+    <div>
+      <div class="eyebrow">Your place in the commons</div>
+      <h2>Aisha White</h2>
+      <div class="sub">Member of 11 neighbourhoods · here since 2024</div>
+    </div>
+  </div>
+
+  <div class="pcols" style="margin-top:22px">
+    <!-- CONTRIBUTION STORY, not a score to grow -->
+    <section>
+      <div class="section-label" style="margin-top:0">What you've done for neighbours</div>
+      <div class="card pad">
+        <p class="muted" style="font-size:14.5px; margin-bottom:14px">A quiet record of help — yours to
+          see, not a leaderboard to climb.</p>
+        <div class="thread">
+          <div class="ev fade-item" style="opacity:1"><div class="when">This week</div><div class="what">Walked Sofia's dog while she recovered</div></div>
+          <div class="ev fade-item" style="opacity:.92"><div class="when">2 weeks ago</div><div class="what">Drove Mohammed to a clinic appointment</div></div>
+          <div class="ev fade-item" style="opacity:.7"><div class="when">Last month</div><div class="what">Helped Wei fix a leaky faucet</div></div>
+          <div class="ev fade-item" style="opacity:.45"><div class="when">3 months ago</div><div class="what">Sorted donations at the shelter</div></div>
+          <div class="ev fade-item" style="opacity:.22"><div class="when">Earlier this year</div><div class="what">Taught a sourdough workshop</div></div>
+        </div>
+        <div class="legendline"><span class="swatch"></span> Recent help is vivid; older help quietly fades — the way memory works.</div>
+      </div>
+    </section>
+
+    <!-- LIVING / FADING TRUST -->
+    <section>
+      <div class="section-label" style="margin-top:0">How you're connected</div>
+      <div class="card pad">
+        <p class="muted" style="font-size:14.5px; margin-bottom:14px">Trust here is relational and
+          alive — it grows with recent contact and gently fades when you drift apart.</p>
+        <div class="reasons" style="display:grid; gap:12px">
+          <div class="reason" style="opacity:1"><span class="ic" style="width:30px;height:30px;border-radius:50%;background:var(--green-600);color:#fff;display:grid;place-items:center;font-size:12px;font-weight:700">R</span>
+            <div><b>Raj Okafor</b> — close, you help each other often</div></div>
+          <div class="reason" style="opacity:.8"><span class="ic" style="width:30px;height:30px;border-radius:50%;background:var(--green-300);display:grid;place-items:center;font-size:12px;font-weight:700">SD</span>
+            <div><b>Sofia Davis</b> — warm, a few recent exchanges</div></div>
+          <div class="reason" style="opacity:.5"><span class="ic" style="width:30px;height:30px;border-radius:50%;background:var(--brown-200);display:grid;place-items:center;font-size:12px;font-weight:700">MK</span>
+            <div><b>Mei Kim</b> — fading; you haven't connected in a while</div></div>
+        </div>
+        <p class="note" style="margin-top:14px">No numbers, no “grow your trust score.” Just who you
+          actually know, and how recently.</p>
+      </div>
+    </section>
+
+    <!-- PRIVACY / FORGETTING — made visible, the manifesto promise -->
+    <section class="span2">
+      <div class="section-label">Privacy &amp; forgetting</div>
+      <div class="card privacy" style="margin-bottom:12px">
+        <span class="ic">🛡️</span>
+        <div><b>Private by default.</b> Your history is yours. Neighbours see that you're trusted and
+          nearby — never a public scoreboard of your karma.</div>
+      </div>
+      <div class="card pad" style="display:flex; align-items:center; gap:16px">
+        <div style="flex:1">
+          <div style="font-weight:600">Designed to forget</div>
+          <div class="muted" style="font-size:14px">Old interactions fade from your trust and your
+            record automatically. You can let them fade — or keep a few that mattered.</div>
+        </div>
+        <div class="toggle" title="Forgetting is on"></div>
+      </div>
+      <p class="note" style="margin-top:10px">Replaces the old “enable karma display … stay engaged”
+        framing. Memory that fades, not a meter to maximise.</p>
+    </section>
+  </div>
+</main>
+</body>
+</html>

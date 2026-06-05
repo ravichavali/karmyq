@@ -1,0 +1,86 @@
+<!-- Status: APPROVED — approved direction (2026-06-05) (Sprint 87 throwaway mockups; not wired to apps/frontend) -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sprint 87 Mockups — Karmyq (APPROVED)</title>
+<link rel="stylesheet" href="shared.css">
+<style>
+  .sheet { display:grid; gap: 18px; grid-template-columns: 1fr; }
+  @media (min-width: 720px){ .sheet { grid-template-columns: 1fr 1fr; } }
+  .tile { display:block; text-decoration:none; color: inherit; overflow:hidden; transition: transform .15s, box-shadow .15s; }
+  .tile:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+  .tile .framewrap { height: 300px; overflow:hidden; border-bottom:1px solid var(--brown-100); background: var(--cream); position:relative; }
+  .tile iframe { width: 1280px; height: 1000px; border:0; transform: scale(.5); transform-origin: top left; pointer-events:none; }
+  .tile .cap { padding: 16px 18px; }
+  .tile .cap h3 { font: 500 18px var(--serif); color: var(--brown-900); }
+  .tile .cap p { font-size: 13.5px; color: var(--brown-500); margin-top: 3px; }
+  .tile .tag { font: 600 11px var(--sans); letter-spacing:.08em; text-transform:uppercase; color: var(--green-600); }
+  .intro { max-width: 70ch; }
+  .intro p { color: var(--brown-700); font-size: 15.5px; margin-top: 10px; }
+  .principles { display:flex; flex-wrap:wrap; gap:8px; margin-top:18px; }
+  .principles span { background: var(--green-50); border:1px solid var(--green-300); color: var(--green-700);
+    border-radius:999px; padding:6px 13px; font-size:13px; font-weight:600; }
+</style>
+</head>
+<body>
+<div class="proposed-banner">Status: <b>APPROVED</b> — Sprint 87 direction mockups — approved basis for Sprint 88 (2026-06-05)</div>
+
+<header class="topbar">
+  <div class="wordmark"><span class="seed"></span>Karmyq</div>
+  <div class="spacer"></div>
+  <span class="muted" style="font-size:13px">Sprint 87 · Product Truth &amp; UX Reset</span>
+</header>
+
+<main class="shell-wide">
+  <div class="intro">
+    <div class="eyebrow">Direction for Sprint 88 · for maintainer approval</div>
+    <h1 class="page">Warm commons, calm behavior.</h1>
+    <p>Five throwaway mockups proposing how Karmyq should <em>present</em> its founding promises —
+      a warm neighbourhood library, not a SaaS dashboard. Relationships and the ask lead; scores recede;
+      queues are finite; privacy and forgetting are visible. These are static HTML/CSS, not wired to the
+      app — they exist to win agreement on direction before any Sprint 88 code.</p>
+    <div class="principles">
+      <span>Relationship leads, score recedes</span><span>Finite queues, “you're caught up”</span>
+      <span>No per-person karma badge</span><span>Meaning over accounting</span>
+      <span>Forgetting made visible</span><span>One warm palette</span>
+    </div>
+    <p class="note" style="margin-top:16px">Tip: each tile is a live, scaled preview — click to open the
+      full page. See <code>../ux-audit.md</code>, <code>../scorecard.md</code> and
+      <code>../presentation-rules.md</code> for the reasoning.</p>
+  </div>
+
+  <div class="section-label">The five surfaces</div>
+  <div class="sheet">
+    <a class="tile card" href="dashboard-home.html">
+      <div class="framewrap"><iframe src="dashboard-home.html" scrolling="no" tabindex="-1" title="Dashboard Home preview"></iframe></div>
+      <div class="cap"><span class="tag">Help loop</span><h3>Dashboard Home</h3><p>Relationship-led decision band + a finite queue that ends with “you're caught up.”</p></div>
+    </a>
+    <a class="tile card" href="request-card.html">
+      <div class="framewrap"><iframe src="request-card.html" scrolling="no" tabindex="-1" title="Request Card preview"></iframe></div>
+      <div class="cap"><span class="tag">The card</span><h3>Request Card</h3><p>The S88 hierarchy: relationship → ask → scope → action; score demoted; no KarmaBadge.</p></div>
+    </a>
+    <a class="tile card" href="community-home.html">
+      <div class="framewrap"><iframe src="community-home.html" scrolling="no" tabindex="-1" title="Community Home preview"></iframe></div>
+      <div class="cap"><span class="tag">Sovereignty</span><h3>Community Home</h3><p>Member-first: who's here, who needs what, a 150 cap bar — not empty KPI tiles.</p></div>
+    </a>
+    <a class="tile card" href="profile-trust.html">
+      <div class="framewrap"><iframe src="profile-trust.html" scrolling="no" tabindex="-1" title="Profile & Trust preview"></iframe></div>
+      <div class="cap"><span class="tag">Meaning · privacy</span><h3>Profile &amp; Trust</h3><p>A contribution story, living/fading trust, and visible “designed to forget.”</p></div>
+    </a>
+    <a class="tile card" href="governance-fission-fusion.html">
+      <div class="framewrap"><iframe src="governance-fission-fusion.html" scrolling="no" tabindex="-1" title="Governance preview"></iframe></div>
+      <div class="cap"><span class="tag">Stewardship</span><h3>Governance · Fission/Fusion</h3><p>Human framing over thresholds; staged consent + a community picker, not UUIDs.</p></div>
+    </a>
+    <div class="tile card" style="display:flex; align-items:center; justify-content:center; min-height:200px; cursor:default">
+      <div style="text-align:center; padding:24px">
+        <div style="font-size:30px">🌿</div>
+        <p class="serif" style="font-family:var(--serif); font-size:17px; font-style:italic; color:var(--brown-700); margin-top:8px">One direction, five surfaces.</p>
+        <p class="note" style="margin-top:6px">Approve, revise, or defer — recorded in<br><code>../sprint-88-recommendation.md</code>.</p>
+      </div>
+    </div>
+  </div>
+</main>
+</body>
+</html>
