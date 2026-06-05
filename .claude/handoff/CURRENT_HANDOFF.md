@@ -1,5 +1,13 @@
 # Sprint 86 — Unified Feed: Community Feed view + texture — ✅ SHIPPED + DEPLOYED (v10.10.0)
 
+> **▶ HOTFIX IN PROGRESS (2026-06-05):** Branch `fix/sprint-86-decision-band-reconcile` addresses post-Sprint-86
+> dashboard logs `Match must be in proposed state to accept`. Root cause confirmed from demo logs/DB: accepting one
+> proposed match rejects sibling matches for the same request, but Dashboard Home only dropped the clicked decision and
+> did not refetch; stale sibling decisions could still be clicked. Fix: `UnifiedFeed` background-refetches `view=home`
+> after a `DecisionBand` action. Validation: `npx jest tests/tdd/sprint-85-unified-feed.test.tsx --runInBand`,
+> `npx jest tests/tdd/sprint-86-unified-feed-community.test.tsx --runInBand`, and `npx tsc --noEmit`
+> from `apps/frontend` all pass.
+
 > **▶ STATUS (2026-06-04):** Sprint 86 **shipped + deployed**. PR [#60](https://github.com/ravichavali/karmyq/pull/60)
 > admin-merged to master (squash `bfec38c`, v10.10.0); CI/CD "Deploy to Demo" run `26984734200`
 > **succeeded** (health-check passed, no rollback). Demo live at v10.10.0: `GET /requests/curated?view=community`
