@@ -85,12 +85,23 @@
 
 ---
 
-## Quick Start
+## Quick Start — Sprint 87: Product Truth & UX Reset
 
-1. Read this handoff
-2. Check out branch: `git checkout -b feature/sprint-86-unified-feed-community-view`
-3. Open plan: `docs/superpowers/plans/2026-06-04-sprint-86-unified-feed-community-view.md`
-4. Run: `/execute-plan` (uses superpowers:subagent-driven-development)
+1. Read this handoff (top status + the locked decisions) **and** the roadmap spec:
+   `docs/superpowers/specs/2026-06-05-sprint-87-90-polish-reset-review-and-roadmap.md`.
+2. Confirm **lane ownership** with the maintainer (Codex ↔ Claude; one owner per artifact;
+   every plan/PR/branch/commit is reviewed by the agent that did NOT author it).
+3. Sprint 87 is a **manifesto-first presentation reset — design-research-first, NOT a code-execute sprint:**
+   - **Quick wins** (safe to ship): stale version/source-of-truth metadata (`CLAUDE.md`, `README.md`,
+     `docs/README.md`, `docs/ARCHITECTURE.md`), `apps/frontend/CONTEXT.md` BrowseFeed drift, landing
+     placeholder stories; clean/seed representative demo data **before** the UX audit.
+   - Then: screenshot UX audit + throwaway mockups against the **warm-commons / calm** aesthetic.
+   - **No production UI rewrite until the maintainer approves the mockup direction.** The Sprint 88
+     implementation plan is written only after that approval.
+
+> **(Historical)** Sprint 86 is complete + shipped (v10.10.0, PRs #60–#66 — see status block above). Its
+> old Quick Start (branch `feature/sprint-86-unified-feed-community-view`, plan
+> `docs/superpowers/plans/2026-06-04-sprint-86-unified-feed-community-view.md`) no longer applies.
 
 ## Sprint 86 goal (one sentence)
 
