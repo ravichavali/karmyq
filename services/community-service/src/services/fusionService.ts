@@ -74,9 +74,10 @@ export async function executeFusion(proposalId: string, adminId: string, pool: P
       [mergedId]
     );
 
-    // 6. Copy trust edges (with carry factor, maintaining normalization constraint)
+    // 6. Copy trust edges (raw_weight × carry factor; stability carried as-is — it's the bond's
+    //    decay-resistance, not its strength — so trust_edges_live decay math is preserved).
     const edgesRes = await client.query(
-      `SELECT user_id_a, user_id_b, raw_weight
+      `SELECT user_id_a, user_id_b, raw_weight, stability
        FROM social_graph.trust_edges
        WHERE community_id = ANY($1)`,
       [[aId, bId]]
@@ -85,10 +86,10 @@ export async function executeFusion(proposalId: string, adminId: string, pool: P
       const [ua, ub] = [edge.user_id_a, edge.user_id_b].sort(); // enforce normalization
       await client.query(
         `INSERT INTO social_graph.trust_edges
-           (user_id_a, user_id_b, community_id, raw_weight, last_interaction_at)
-         VALUES ($1, $2, $3, $4, NOW())
+           (user_id_a, user_id_b, community_id, raw_weight, stability, last_interaction_at)
+         VALUES ($1, $2, $3, $4, $5, NOW())
          ON CONFLICT (user_id_a, user_id_b, community_id) DO NOTHING`,
-        [ua, ub, mergedId, Math.round(parseFloat(edge.raw_weight) * TRUST_CARRY_FACTOR * 100) / 100]
+        [ua, ub, mergedId, Math.round(parseFloat(edge.raw_weight) * TRUST_CARRY_FACTOR * 100) / 100, edge.stability]
       );
     }
 

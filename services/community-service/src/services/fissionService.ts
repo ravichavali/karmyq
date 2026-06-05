@@ -230,9 +230,9 @@ export async function executeSplit(
         await client.query(
           `INSERT INTO social_graph.trust_edges
              (user_id_a, user_id_b, community_id, match_completed_count, endorsement_count,
-              karma_given_count, event_count, raw_weight, last_interaction_at)
+              karma_given_count, event_count, raw_weight, stability, last_interaction_at)
            SELECT user_id_a, user_id_b, $1, match_completed_count, endorsement_count,
-                  karma_given_count, event_count, raw_weight, last_interaction_at
+                  karma_given_count, event_count, raw_weight, stability, last_interaction_at
            FROM social_graph.trust_edges
            WHERE community_id = $2 AND user_id_a = ANY($3::uuid[]) AND user_id_b = ANY($3::uuid[])
            ON CONFLICT (user_id_a, user_id_b, community_id) DO NOTHING`,

@@ -80,6 +80,8 @@ describe('Sprint 78 — executeSplit child finalization', () => {
     expect(trustCarries).toHaveLength(2);
     expect(trustCarries.map((c) => c.params[0]).sort()).toEqual([CHILD_A, CHILD_B].sort());
     trustCarries.forEach((c) => expect(c.params[1]).toBe(COMMUNITY_ID)); // copied FROM the parent
+    // must carry `stability` (Sprint 68 half-life) — omitting it resets stable bonds to the 1.0 default
+    trustCarries.forEach((c) => expect(c.sql).toMatch(/stability/));
     // each child scoped to exactly its assigned group
     const childAGroup = trustCarries.find((c) => c.params[0] === CHILD_A)!.params[2];
     const childBGroup = trustCarries.find((c) => c.params[0] === CHILD_B)!.params[2];
