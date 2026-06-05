@@ -1,5 +1,37 @@
 # Sprint 86 — Unified Feed (Community view + texture) — ✅ SHIPPED + DEPLOYED (v10.10.0) + post-ship bug-bash
 
+> **▶ PRODUCT POLISH REVIEW (2026-06-05, Codex):** user flagged feature drift + stale UX and asked
+> for a thorough review against the karmyq.org manifesto/docs. Review artifact written:
+> `docs/superpowers/specs/2026-06-05-sprint-87-90-polish-reset-review-and-roadmap.md`.
+>
+> **Recommendation:** do **not** let Sprint 87 default straight to mobile parity. First run
+> **Sprint 87: Product Truth and UX Reset** to align repo/public docs, landing placeholders, product
+> scorecard, screenshot-based UX audit, and the community feed `minScore` decision. Then proceed:
+> Sprint 88 core help-loop polish, Sprint 89 community sovereignty polish, Sprint 90 trust/forgetting
+> + profile polish, Sprint 91 mobile parity from the clarified model, Sprint 92 architecture/service
+> pruning.
+>
+> **Status:** ✅ **direction approved + decisions locked (2026-06-05)** — full detail in "Decisions Locked"
+> at the top of the roadmap spec. Summary: (1) aesthetic = **warm commons, calm behavior** (warmth =
+> identity, calm = discipline; not cold SaaS, not loud civic); (2) Sprint 87 **includes quick wins**
+> (stale metadata, `apps/frontend/CONTEXT.md` BrowseFeed drift, landing placeholders) — no production UI
+> rewrite until mockups approved; (3) **score-vs-relationship rule**: keep the relationship path, remove
+> per-person karma/trust SCORES, de-emphasize match % — `RequestCard` KarmaBadge removal **folds into the
+> Sprint 88 card redesign**; (4) community "show all open" = **both** member affordance + admin list (#64);
+> (5) "designed to forget" stays **Sprint 90**, seeded small in 88. Added S87 scope: clean/seed demo data
+> before the UX audit; a11y + responsive as explicit presentation rules.
+>
+> **Multi-agent process:** every plan/PR/branch/commit is reviewed by the agent that did NOT author it
+> (Codex ↔ Claude). One owner per artifact — don't co-edit the same doc. (This roadmap: Codex authored,
+> Claude reviewed; Claude now owns these two planning docs' finalization + commit.)
+>
+> **Maintainer direction added:** "Nothing is too sacred" in the presentation layer. Current layout,
+> navigation, cards, tabs, visual system, and interaction patterns are not constraints. The next
+> sprint should be a **manifesto-first presentation reset**, with visual research + throwaway mockups
+> before implementation planning. Preserve working domain behavior, but let the UI change shape if it
+> better expresses community sovereignty, meaning over accounting, privacy/forgetting, and a finite
+> humane help loop.
+>
 > **▶ STATUS (2026-06-05):** Sprint 86 shipped (v10.10.0, PR #60) and a post-ship bug-bash cleared every
 > issue surfaced on demo. **All merged + deployed:**
 > - **#60** Sprint 86 feature (Community feed view + texture + ADR-067 seam).
@@ -12,19 +44,20 @@
 > - **#64** Decision-band inline expand + withdraw-offer moved to Helping + `fetchSeq` sequence-guard.
 > - **#65** Split carries trust edges (+`stability`) + karma into children (don't reset bonds); backfill
 >   `20260605-split-carry-trust-karma-backfill.sql` (applied on demo, verified). Fusion trust copy also fixed to carry `stability`.
-> - **(this branch `chore/feed-followups-decision-band`)** review follow-ups: `UnifiedFeed` unmount guard
->   (`mountedRef`); DecisionBand row HTML purity (`<span>` not `<p>` inside the `<button>`).
+> - **#66** review follow-ups (merged + deployed): `UnifiedFeed` unmount guard (`mountedRef`);
+>   DecisionBand row HTML purity (`<span>` not `<p>` inside the `<button>`).
 >
 > **Remaining human checks (need a logged-in MEMBER session):** community Requests tab shows canonical cards
 > **with payload detail** + activity summary + stories, no decision band; Dashboard Home shows the decision
 > band (rows **expand inline**, **no withdraw rows**) + payload detail, no crash; a merged community's member
 > count is consistent (header == list); a split child shows real connections/karma (not 0).
 >
-> **▶ NEXT: Sprint 87** — mobile parity for both feed views; impression logging on the `view=home`/
-> `view=community` union path (currently only the legacy array path logs to `requests.feed_events`);
-> and the **`minScore` on community view** decision — the community tab inherits the default `minScore=30`
-> (relevance-first per ADR-066), so it shows only requests scoring ≥30 vs the old BrowseTab's all-open
-> (admins still see all via the new management list) — decide whether to add a "show all" toggle.
+> **▶ NEXT: Sprint 87 = Product Truth & UX Reset** (NOT mobile parity — that moved to Sprint 91). A
+> manifesto-first presentation reset: stale-docs quick wins, demo-data cleanup, screenshot UX audit, and
+> throwaway mockups against the **warm-commons/calm** aesthetic, before any production UI rewrite. See the
+> roadmap spec for the full 87→92 arc. The items previously parked here — **impression logging** on the
+> `view=home`/`view=community` union path (only the legacy array path logs to `requests.feed_events`) and
+> the **community `minScore`** "show all open" affordance — now land in **Sprint 88** (help-loop redesign).
 >
 > **(history)** Sprint 86 was executed on branch `feature/sprint-86-unified-feed-community-view`.
 >
@@ -43,22 +76,32 @@
 > fix) + activity summary + stories; Dashboard Home still shows the decision band + payload detail; confirm
 > the deleted legacy components don't appear anywhere.
 >
-> **Carry to Sprint 87:** mobile parity (both views); impression logging on the union path; **`minScore`
-> on community view** — it inherits the default `minScore=30` (relevance-first, ADR-066), so the community
-> tab shows only requests scoring ≥30 vs the old BrowseTab's all-open (admins still see all via the mgmt
-> list) — candidate "show all" toggle.
+> **Carried items (re-homed by the polish roadmap):** impression logging on the union path → **Sprint 88**;
+> community `minScore` "show all open" affordance → **Sprint 88** (decision = both member + admin); mobile
+> parity → **Sprint 91** (after the web model is polished, so it doesn't fossilize current drift).
 >
 > **(Original READY-TO-EXECUTE note, for reference):** Sprint 85 shipped + deployed (v10.9.0, PR #58);
 > Sprint 86 spec + plan written. Target version v10.10.0.
 
 ---
 
-## Quick Start
+## Quick Start — Sprint 87: Product Truth & UX Reset
 
-1. Read this handoff
-2. Check out branch: `git checkout -b feature/sprint-86-unified-feed-community-view`
-3. Open plan: `docs/superpowers/plans/2026-06-04-sprint-86-unified-feed-community-view.md`
-4. Run: `/execute-plan` (uses superpowers:subagent-driven-development)
+1. Read this handoff (top status + the locked decisions) **and** the roadmap spec:
+   `docs/superpowers/specs/2026-06-05-sprint-87-90-polish-reset-review-and-roadmap.md`.
+2. Confirm **lane ownership** with the maintainer (Codex ↔ Claude; one owner per artifact;
+   every plan/PR/branch/commit is reviewed by the agent that did NOT author it).
+3. Sprint 87 is a **manifesto-first presentation reset — design-research-first, NOT a code-execute sprint:**
+   - **Quick wins** (safe to ship): stale version/source-of-truth metadata (`CLAUDE.md`, `README.md`,
+     `docs/README.md`, `docs/ARCHITECTURE.md`), `apps/frontend/CONTEXT.md` BrowseFeed drift, landing
+     placeholder stories; clean/seed representative demo data **before** the UX audit.
+   - Then: screenshot UX audit + throwaway mockups against the **warm-commons / calm** aesthetic.
+   - **No production UI rewrite until the maintainer approves the mockup direction.** The Sprint 88
+     implementation plan is written only after that approval.
+
+> **(Historical)** Sprint 86 is complete + shipped (v10.10.0, PRs #60–#66 — see status block above). Its
+> old Quick Start (branch `feature/sprint-86-unified-feed-community-view`, plan
+> `docs/superpowers/plans/2026-06-04-sprint-86-unified-feed-community-view.md`) no longer applies.
 
 ## Sprint 86 goal (one sentence)
 
@@ -71,7 +114,8 @@ modelling seam so payload detail finally renders on canonical cards (ADR-067). *
 ## Scoping decisions (made 2026-06-04 — all confirmed with user)
 
 1. **Scope = full step-4–6 bundle, web-only:** Community Feed view + texture layer + legacy retirement +
-   the `request_type` seam fix. **Mobile parity → Sprint 87.**
+   the `request_type` seam fix. **Mobile parity → Sprint 87.** _(Superseded 2026-06-05: mobile parity is
+   now Sprint 91; Sprint 87 = Product Truth & UX Reset.)_
 2. **Seam fix ships now (ADR-067):** separate `request_type` (5-value enum, filter) from `payload_type`
    (fine subtype, payload rendering, sourced from the existing `category` column). **No DB migration.**
 3. **Texture computed in request-service** via `view=community` — request-service's own DB reads, **no
@@ -82,9 +126,10 @@ modelling seam so payload detail finally renders on canonical cards (ADR-067). *
 - **Sprint 84** — unified feed research & direction. ✅ Complete (`no-deploy`).
 - **Sprint 85** — unified feed, Dashboard Home first (steps 1–3). ✅ Shipped v10.9.0.
 - **Sprint 86** — Community Feed view + texture + legacy retirement + seam fix (steps 4–6). ✅ Shipped v10.10.0 (PR #60).
-- **Sprint 87 (next)** — mobile parity (both views) + home-feed impression logging for the unified-feed
-  path (the `feed_events` impression log currently only fires on the **legacy array** path, not the
-  `view=home`/`view=community` union — analytics gap carried from S85).
+- **Sprint 87 (next)** — **Product Truth & UX Reset** (manifesto-first presentation reset; see roadmap
+  spec). NOT mobile parity — that's now **Sprint 91**. Then: 88 help-loop redesign (incl. impression
+  logging + community `minScore`), 89 community sovereignty, 90 trust/forgetting/profile, 91 mobile
+  parity, 92 architecture pruning.
 
 ## Reference
 
@@ -180,7 +225,7 @@ The open dependabot PRs predate `pr-contract.yml`; their stale branches have no 
 ### Sprint 85 residual / carry-forward
 - **Home-feed impression logging gap**: the `requests.feed_events` impression INSERT only fires on the
   **legacy array** path of `handleCuratedFeed`, not the `view=home` (or new `view=community`) union path.
-  Carried to **Sprint 87** (analytics).
+  Carried to **Sprint 88** (help-loop redesign; re-homed from S87 by the polish roadmap).
 - **One manual UI check from S85** (low priority now): confirm on demo Dashboard Home that a responder can
   withdraw an offer from the decision band — covered by the S85 verify-lock test; visual confirm only.
 
