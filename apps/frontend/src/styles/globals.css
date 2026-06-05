@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..900&family=Inter:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..900&family=Hanken+Grotesk:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -46,7 +46,7 @@
 }
 
 body {
-  font-family: 'Inter', system-ui, sans-serif;
+  font-family: 'Hanken Grotesk', 'Inter', system-ui, sans-serif;
   color: rgb(var(--color-text));
   background-color: rgb(var(--color-surface));
 }
@@ -93,7 +93,7 @@ body {
 
   /* ── FAB (Floating Action Button) ── */
   .fab {
-    @apply fixed bottom-24 right-6 z-40 btn-primary shadow-lg rounded-full
+    @apply fixed bottom-28 right-6 z-40 btn-primary shadow-lg rounded-full
            px-5 py-3 flex items-center gap-2 text-sm font-semibold
            md:bottom-8;
   }

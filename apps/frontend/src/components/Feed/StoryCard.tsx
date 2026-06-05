@@ -14,7 +14,7 @@ const STORY_ICONS: Record<StoryData['type'], string> = {
 
 export default function StoryCard({ data }: { data: StoryData }) {
   return (
-    <div className="feed-card bg-gradient-to-r from-karmyq-green-50 to-primary-light">
+    <div className="feed-card kq-card bg-primary-light">
       <div className="flex items-center gap-2 mb-1">
         <span className="text-xl" aria-hidden>{STORY_ICONS[data.type] ?? '✨'}</span>
         <h3 className="font-semibold text-text">{data.title}</h3>

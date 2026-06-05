@@ -1,7 +1,7 @@
 # Request Service - Complete Context Documentation
 
-> **Last Updated:** 2026-05-25
-> **Version:** v9.40.0
+> **Last Updated:** 2026-06-05
+> **Version:** v10.12.0
 > **Port:** 3003
 > **Status:** Production (Polymorphic Request System + Curated Feed)
 
@@ -408,15 +408,15 @@ Get requests matching user's skills from their communities (skill-based matching
 - Only includes communities user is a member of
 
 #### GET /requests/curated (v9.18 + ADR-048 Feed Ranking v2)
-Get curated feed scored on 7 signals: skill match, trust distance, community relevance, urgency, requester trust, prior interaction, and recency. Response includes `priorInteractionScore` and `recencyScore` in each request object. Impressions are logged fire-and-forget to `requests.feed_events`.
+Get curated feed scored on 7 signals: skill match, trust distance, community relevance, urgency, requester trust, prior interaction, and recency. Response includes `priorInteractionScore` and `recencyScore` in each request object. Request impressions are logged fire-and-forget to `requests.feed_events` on the legacy request-array path and on the `view=home` / `view=community` union paths.
 
 **Query Parameters:**
-- `minScore` (number) - Minimum match score 0-100 (default: 30)
+- `minScore` (number) - Minimum match score 0-100 (default: 30). Explicit `minScore=0` is valid and widens the feed to all open asks; do not implement this as `parseInt(...) || 30`, because that coerces `0` back to `30`.
 - `limit` (number) - Max results (default: 20)
 - `community_id` (UUID) - Filter by specific community (optional)
 - `tier` (string) - Filter by visibility tier: `community`, `trust_network`, `platform`, `sister_community` (optional)
 - `includeSisterCommunities` (boolean) - Include requests from linked sister communities where `show_in_sister_feeds=true`, scored with trust_carry_factor applied (Sprint 15)
-- `view` (string, Sprint 85/86 / ADR-066) - When `view=home`, returns the **unified feed item union** `{ items: UnifiedFeedItem[] }` (decisions + requests) for Dashboard Home. When `view=community`, returns the community-scoped union (requests + activity + story texture, **no decisions**) for a community's Requests tab. `view` absent keeps the legacy request-array shape (back-compat).
+- `view` (string, Sprint 85/86 / ADR-066) - When `view=home`, returns the **unified feed item union** `{ items: UnifiedFeedItem[] }` (decisions + requests) for Dashboard Home. When `view=community`, returns the community-scoped union (requests + activity + story texture, **no decisions**) for a community's Requests tab. `view` absent keeps the legacy request-array shape (back-compat). Sprint 88 logs impressions for request items before both union early returns.
 
 **`view=home` / `view=community` response (Sprint 85/86 / ADR-066 — Unified Feed Model):**
 Each item is a discriminated union carrying a server-computed `priority` (action altitude — the client renders in array order):
@@ -2310,6 +2310,12 @@ router.get('/health', async (req, res) => {
 - Monitor with: `docker stats karmyq-request-service`
 
 ### 10.3 Recent Changes (v9.10)
+
+**Version 10.12.0 - Sprint 88 (2026-06-05) — Core Help-Loop Redesign**
+
+- **FIXED**: `GET /requests/curated` now parses `minScore` with explicit `0` support; missing or invalid values still default to `30`, but `minScore=0` no longer falls through to `30`. This repairs the new Dashboard Home / Community Home **Show more open requests** affordance and the pre-existing frontend Show All slider that already sent `minScore: 0`.
+- **CHANGED**: `view=home` and `view=community` union responses now log request impressions to `requests.feed_events` before their early returns. Decision, activity, and story union items are not logged as request impressions.
+- **TESTS**: `tests/tdd/sprint-88-curated-feed-controls.test.ts` locks the parser behavior, min-score filter widening, and mocked impression INSERT shape without real-DB / `setTimeout` timing.
 
 **Version 10.9.0 - Sprint 85 (2026-06-03) — Unified Feed: Dashboard Home (ADR-066)**
 

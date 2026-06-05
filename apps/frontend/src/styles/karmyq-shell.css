@@ -1,0 +1,48 @@
+.kq-page {
+  @apply max-w-2xl mx-auto px-4;
+}
+
+.kq-page-header {
+  @apply mb-6 pt-4;
+}
+
+.kq-eyebrow {
+  @apply text-xs uppercase tracking-[0.12em] text-primary font-semibold;
+}
+
+.kq-headline {
+  font-family: 'Fraunces', Georgia, serif;
+  @apply text-[30px] leading-tight font-semibold text-text mt-1;
+}
+
+.kq-lede {
+  @apply text-[15px] leading-6 text-text-muted mt-2;
+}
+
+.kq-card {
+  @apply bg-surface-raised rounded-lg border border-border p-5 transition-colors;
+}
+
+.kq-card:hover {
+  @apply border-primary-medium;
+}
+
+.kq-path-badge {
+  @apply inline-flex items-center gap-1.5 rounded-full border border-primary-medium bg-primary-light px-2.5 py-1 text-xs font-medium text-primary-dark;
+}
+
+.kq-pill {
+  @apply inline-flex items-center rounded-full border border-border bg-surface px-2.5 py-1 text-xs text-text-muted;
+}
+
+.kq-action-band {
+  @apply rounded-lg border border-border bg-surface-raised p-4;
+}
+
+.kq-finite-state {
+  @apply rounded-lg border border-border bg-surface-raised px-5 py-8 text-center;
+}
+
+.kq-quiet-meta {
+  @apply text-xs leading-5 text-text-muted;
+}

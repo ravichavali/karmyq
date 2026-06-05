@@ -8,7 +8,7 @@ import type { ActivityData } from '@/types/unified-feed'
  */
 export default function ActivityCard({ data }: { data: ActivityData }) {
   return (
-    <div className="feed-card">
+    <div className="feed-card kq-card">
       <div className="flex items-center gap-3 mb-3">
         <div className="w-10 h-10 bg-primary-light rounded-full flex items-center justify-center shrink-0">
           <svg className="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">

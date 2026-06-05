@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import { requestService } from '@/lib/api'
 import RequestPayloadRenderer from '@/components/Feed/RequestPayloadRenderer'
-import KarmaBadge from '@/components/KarmaBadge'
 import TrustPathBadge, { TrustPathBadgeSkeleton } from '@/components/TrustPathBadge'
 import { useTrustPath } from '@/hooks/useTrustPath'
 import { isBoostActive } from '@/utils/boost'
+import { describeMatchSignal } from '@/utils/matchSignal'
 import type { RequestCardData, RequestStatusToken, UrgencyLevel } from '@/types/unified-feed'
 
 /**
@@ -21,14 +21,11 @@ const URGENCY_COLORS: Record<UrgencyLevel, string> = {
 }
 
 const TYPE_LABELS: Record<string, string> = {
-  transportation: '🚗 Ride',
-  moving_help: '📦 Moving',
-  childcare: '🧸 Childcare',
-  tech_help: '💻 Tech',
-  home_repair: '🔧 Repair',
-  food: '🍲 Food',
-  pet_care: '🐾 Pet care',
-  event_help: '🎉 Event',
+  generic: 'Everyday help',
+  ride: 'Ride',
+  service: 'Service',
+  event: 'Event',
+  borrow: 'Borrow',
 }
 
 // Member-facing status labels. 'proposed' is the awaiting-acceptance state (ADR-066 Principle 6).
@@ -61,6 +58,7 @@ export default function RequestCard({ data, currentUserId, onOffered }: RequestC
   const [error, setError] = useState<string | null>(null)
 
   const isOwnRequest = !!currentUserId && data.requester_id === currentUserId
+  const matchSignal = describeMatchSignal(data.match_score, data.match_reason)
 
   const handleOffer = async () => {
     if (!currentUserId) return
@@ -78,37 +76,35 @@ export default function RequestCard({ data, currentUserId, onOffered }: RequestC
   }
 
   return (
-    <div className="feed-card">
-      <div className="flex items-start justify-between gap-3 mb-2">
-        <div className="flex items-center gap-2 min-w-0">
-          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-white text-xs font-semibold shrink-0">
-            {data.author_name?.charAt(0).toUpperCase() ?? '?'}
-          </div>
-          <div className="min-w-0">
-            <span className="text-sm font-medium text-text truncate block">{data.author_name ?? 'Community member'}</span>
-            <span className="flex items-center gap-1.5">
-              {data.requester_id && <RequestTrustBadge requesterId={data.requester_id} />}
-              <KarmaBadge karma={data.requesterKarma ?? 0} trustScore={data.requesterTrustScore} />
-            </span>
-          </div>
+    <article className="feed-card kq-card">
+      {data.requester_id && (
+        <div className="mb-3 flex items-center gap-2">
+          <RequestTrustBadge requesterId={data.requester_id} />
         </div>
-        {data.match_score != null && (
-          <span className="text-xs text-primary font-medium shrink-0 text-right">
-            {data.match_score}%{data.match_reason ? ` · ${data.match_reason}` : ''}
-          </span>
-        )}
+      )}
+
+      <div className="flex items-start gap-3 mb-3">
+        <div className="w-9 h-9 rounded-full bg-primary text-white flex items-center justify-center text-sm font-semibold shrink-0">
+          {data.author_name?.charAt(0).toUpperCase() ?? '?'}
+        </div>
+        <div className="min-w-0">
+          <span className="text-sm font-medium text-text block truncate">{data.author_name ?? 'Community member'}</span>
+          {data.community_name && <span className="kq-quiet-meta block">{data.community_name}</span>}
+        </div>
       </div>
 
-      <h3 className="font-medium text-text mb-1">{data.title}</h3>
+      <h3 className="mb-2 text-[22px] leading-snug font-semibold text-text" style={{ fontFamily: "'Fraunces', Georgia, serif" }}>
+        {data.title}
+      </h3>
 
       {isBoostActive(data) && (
-        <span className="inline-block text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium mb-2">
-          ⚡ Community Pick
+        <span className="inline-block text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium mb-3">
+          Community pick
         </span>
       )}
 
       {data.description && (
-        <p className="text-sm text-text-muted mb-3 line-clamp-2">{data.description}</p>
+        <p className="text-sm text-text-muted mb-4 line-clamp-2">{data.description}</p>
       )}
 
       {/* ADR-067: render payload off the fine `payload_type` (from DB category), not the coarse
@@ -123,10 +119,10 @@ export default function RequestCard({ data, currentUserId, onOffered }: RequestC
         />
       )}
 
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div className="flex items-center gap-2 flex-wrap">
           {data.request_type && (
-            <span className="text-xs px-2 py-0.5 rounded-full bg-surface border border-border text-text-muted">
+            <span className="kq-pill">
               {TYPE_LABELS[data.request_type] ?? data.request_type}
             </span>
           )}
@@ -138,9 +134,6 @@ export default function RequestCard({ data, currentUserId, onOffered }: RequestC
           <span className="text-xs px-2 py-0.5 rounded-full bg-surface-raised text-text-muted" title={data.status}>
             {STATUS_LABELS[data.status] ?? data.status}
           </span>
-          {data.community_name && (
-            <span className="text-xs text-text-subtle">{data.community_name}</span>
-          )}
         </div>
         {!isOwnRequest && (
           offered ? (
@@ -162,7 +155,8 @@ export default function RequestCard({ data, currentUserId, onOffered }: RequestC
         )}
       </div>
 
+      {matchSignal && <p className="kq-quiet-meta mt-3">{matchSignal}</p>}
       {error && <p className="text-xs text-red-600 mt-2">{error}</p>}
-    </div>
+    </article>
   )
 }

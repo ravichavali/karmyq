@@ -94,8 +94,8 @@ export default function DecisionBand({ decisions, onResolved }: DecisionBandProp
           const isExpanded = expanded.has(decision.subject_id)
           const canExpand = !!decision.description || !!(decision.payload_type && decision.payload)
           return (
-            <div key={decision.subject_id} className="feed-card border-l-4 border-primary">
-              <div className="flex items-center justify-between gap-3">
+            <div key={decision.subject_id} className="feed-card kq-action-band border-l-4 border-primary">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <button
                   type="button"
                   onClick={() => canExpand && toggleExpanded(decision.subject_id)}
@@ -103,18 +103,18 @@ export default function DecisionBand({ decisions, onResolved }: DecisionBandProp
                   className={`min-w-0 text-left flex-1 ${canExpand ? 'cursor-pointer' : 'cursor-default'}`}
                 >
                   {/* spans (phrasing content) inside the <button> — block-level <p> would be invalid HTML */}
-                  <span className="block text-sm font-medium text-text truncate flex items-center gap-1">
+                  <span className="flex items-start gap-1 text-sm font-medium text-text whitespace-normal">
                     {canExpand && (
-                      <span className={`text-text-subtle transition-transform ${isExpanded ? 'rotate-90' : ''}`} aria-hidden>›</span>
+                      <span className={`text-text-subtle transition-transform shrink-0 ${isExpanded ? 'rotate-90' : ''}`} aria-hidden>›</span>
                     )}
                     {decision.title}
                   </span>
-                  <span className="block text-xs text-text-muted truncate">
+                  <span className="block text-xs text-text-muted whitespace-normal">
                     {relationLabel(decision)} {decision.counterparty_name}
                     {decision.community_name ? ` · ${decision.community_name}` : ''}
                   </span>
                 </button>
-                <div className="flex items-center gap-2 shrink-0">
+                <div className="flex flex-wrap items-center gap-2 shrink-0">
                   {decision.actions.map((action) => (
                     <button
                       key={action}
