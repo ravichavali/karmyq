@@ -1,0 +1,89 @@
+<!-- Status: PROPOSED — not approved direction (Sprint 87 throwaway mockup; not wired to apps/frontend) -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Request Card — Karmyq (PROPOSED mockup)</title>
+<link rel="stylesheet" href="shared.css">
+<style>
+  .hierarchy { display:grid; grid-template-columns: 1fr; gap: 28px; }
+  @media (min-width: 760px){ .hierarchy { grid-template-columns: 1.3fr .9fr; align-items:start; } }
+  .annot { font-size: 12.5px; color: var(--brown-400); }
+  .annot b { color: var(--green-600); }
+  .legend { display:grid; gap: 14px; }
+  .legend .row { display:flex; gap: 12px; }
+  .legend .n { width: 24px; height:24px; border-radius:50%; background:var(--green-50); border:1px solid var(--green-300);
+    color: var(--green-700); display:grid; place-items:center; font-weight:700; font-size:12px; flex:none; }
+  .legend .row.crossed .lbl { text-decoration: line-through; color: var(--brown-400); }
+  .reasons { display:grid; gap:8px; }
+  .reason { display:flex; gap:10px; align-items:center; font-size:14px; color: var(--brown-700); }
+  .reason .ic { width:26px;height:26px;border-radius:8px; background:var(--green-50); display:grid; place-items:center; flex:none; }
+</style>
+</head>
+<body>
+<div class="proposed-banner">Status: <b>PROPOSED</b> — Sprint 87 direction mockup, not adopted design</div>
+
+<header class="topbar">
+  <div class="wordmark"><span class="seed"></span>Karmyq</div>
+  <nav><a href="dashboard-home.html">Home</a><a href="#">Communities</a><a href="#">Providers</a></nav>
+  <div class="spacer"></div>
+  <div class="bell"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0"/></svg><span class="dot"></span></div>
+  <div class="me"><div class="avatar">A</div><span>Aisha</span></div>
+</header>
+
+<main class="shell">
+  <div class="eyebrow">The help loop, one card</div>
+  <h1 class="page">What a request should say first.</h1>
+  <p class="lede">Relationship → the ask → what's involved → the action. The score is a quiet trailing
+    signal, never the headline. No per-person karma badge.</p>
+
+  <div class="hierarchy" style="margin-top:26px">
+    <!-- THE CARD -->
+    <article class="req card" style="padding:26px 26px">
+      <span class="path"><span class="face">R</span> You're connected through Raj Okafor</span>
+      <div class="ask">Help sorting donations for the shelter</div>
+      <p class="body">I'm volunteering at the downtown shelter this Saturday morning and could use
+        2–3 people to sort clothing and household donations. It's warm, easy work and good company —
+        coffee and pastries on me.</p>
+      <div class="scope">
+        <span class="pill">Lend a hand</span>
+        <span class="pill">Saturday, 9–11am</span>
+        <span class="pill">Downtown, near the library</span>
+      </div>
+      <hr class="soft" style="margin:6px 0">
+      <div class="foot">
+        <div>
+          <div style="font-weight:600">Lucas Garcia</div>
+          <div class="signal" style="margin-top:2px">A neighbour in Northeast PDX Community Circle</div>
+        </div>
+        <button class="btn btn-primary">Offer to help</button>
+      </div>
+      <div class="signal" style="margin-top:4px">Seems a <b>good match</b> for what you like to do · 3 neighbours already offered</div>
+    </article>
+
+    <!-- WHY IT'S ORDERED THIS WAY -->
+    <aside>
+      <div class="section-label" style="margin-top:0">Reading order</div>
+      <div class="legend">
+        <div class="row"><span class="n">1</span><div><div class="lbl" style="font-weight:600">Relationship reason</div><div class="annot">“Through Raj Okafor” — <b>leads</b>. Why you'd trust this ask.</div></div></div>
+        <div class="row"><span class="n">2</span><div><div class="lbl" style="font-weight:600">The ask</div><div class="annot">Plain-language, serif, human. The one job of the card.</div></div></div>
+        <div class="row"><span class="n">3</span><div><div class="lbl" style="font-weight:600">What's involved</div><div class="annot">Kind, time, place — no <code>generic</code> database labels.</div></div></div>
+        <div class="row"><span class="n">4</span><div><div class="lbl" style="font-weight:600">The action</div><div class="annot">One clear primary: <b>Offer to help</b>.</div></div></div>
+        <div class="row"><span class="n">·</span><div><div class="lbl" style="font-weight:600">Quiet match signal</div><div class="annot">“good match”, demoted to a trailing line — <b>no 68% headline</b>.</div></div></div>
+        <div class="row crossed"><span class="n">✕</span><div><div class="lbl" style="font-weight:600">Per-person KarmaBadge ⭐75</div><div class="annot">Removed (Decision 3) — people aren't scores.</div></div></div>
+      </div>
+
+      <div class="section-label">Why you're seeing this</div>
+      <div class="reasons">
+        <div class="reason"><span class="ic">🔗</span> Raj Okafor connects you to Lucas</div>
+        <div class="reason"><span class="ic">📍</span> Both in Northeast PDX Community Circle</div>
+        <div class="reason"><span class="ic">🧺</span> You've helped with sorting before</div>
+      </div>
+      <p class="note" style="margin-top:14px">Relationship and reasons — not a relevance percentage —
+        are what a neighbour acts on.</p>
+    </aside>
+  </div>
+</main>
+</body>
+</html>

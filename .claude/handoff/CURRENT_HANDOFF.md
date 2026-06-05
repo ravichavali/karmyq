@@ -1,10 +1,30 @@
-# Sprint 87 — Product Truth & UX Reset — 📋 SPEC + PLAN READY TO EXECUTE
+# Sprint 87 — Product Truth & UX Reset — ✅ EXECUTED (artifacts PROPOSED, direction DEFERRED)
 
-> **▶ STATUS (2026-06-05):** Sprint 86 shipped + bug-bashed clean (v10.10.0, PRs #60–#66). Sprint 87
-> **spec + plan written and ready to execute.** Sprint 87 is a **manifesto-first presentation reset** —
-> design-research-first, **NOT** a code-execute sprint. It ships only low-risk quick wins; the core
-> deliverables are research/design artifacts under `docs/design/sprint-87/`. **No production UI rewrite
-> happens until the maintainer approves the mockup direction** (then the Sprint 88 plan is written).
+> **▶ STATUS (2026-06-05):** Sprint 87 **executed** — all 14 plan tasks complete. Quick wins done
+> (version → **10.11.0**; `apps/frontend/CONTEXT.md` BrowseFeed→UnifiedFeed drift fixed; landing
+> `CommunityStories.tsx` was already honest = no change). Demo DB **cleaned** (de-spammed 23.6k matches
+> → max offers/request 876→6; enforced the 150 Dunbar cap, −785 over-cap members; backup + rollback in
+> `docs/design/sprint-87/data-prep-log.md`). Deliverables in `docs/design/sprint-87/`: scorecard,
+> member-login UX audit (10 screenshots), visual research, **5 high-fidelity HTML mockups + contact
+> sheet**, presentation rules, S88 recommendation.
+>
+> **▶ DIRECTION VERDICT = DEFERRED** (maintainer, 2026-06-05): artifacts merge as **PROPOSED** (banners
+> NOT flipped to APPROVED); the **Sprint 88 help-loop visual direction is officially TBD** — the S88
+> implementation plan is **NOT** written yet. The `minScore` decision + score-vs-relationship taxonomy
+> remain locked roadmap decisions; only the *visual direction* is deferred.
+>
+> **▶ MERGE STATE:** PR open (quick wins + design artifacts); **awaiting maintainer authorization to
+> merge** ("pull it in" — admin-merge authority). Gates green: `npm test` 27/27, landing build ✓,
+> `npm audit` 0 vulns, `feedback:check` ✓; no new TDD failures (zero production logic changed).
+>
+> **▶ NEXT:** (1) maintainer authorizes merge → `/deploy`, monitor Deploy-to-Demo green. (2) A later
+> planning pass approves/revises/supersedes the deferred S87 direction **before** any S88 help-loop code.
+> Carry-forward bugs for whenever S88 runs: em-dash **mojibake** in community-name rendering; cumulative
+> **"— Group A — Group B"** fission names; **mobile FAB overlapping** the card CTA; empty community
+> **KPI tiles**; home-feed **impression-logging gap** on the `view=home`/`view=community` union path.
+>
+> _(superseded original status:)_ Sprint 86 shipped + bug-bashed clean (v10.10.0, PRs #60–#66). Sprint 87
+> was a **manifesto-first presentation reset** — design-research-first, NOT a code-execute sprint.
 >
 > **Execution decisions locked (2026-06-05):**
 > - **Deploy posture:** quick wins ship in one PR (real deploy); design artifacts ride along but touch no production UI.

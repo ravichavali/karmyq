@@ -1,6 +1,6 @@
 # Karmyq - Mutual Aid Platform
 
-**Version**: 9.1.0 | **Status**: Demo/Development
+**Version**: 10.11.0 | **Status**: Demo/Development
 
 > **Multi-agent note:** [`AGENTS.md`](AGENTS.md) is the shared cross-agent bootstrap (Codex,
 > Claude, others). It points every agent at this file, the skill system, the handoff, and

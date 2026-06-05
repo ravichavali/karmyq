@@ -1,7 +1,7 @@
 # Karmyq Documentation
 
-**Version**: 8.1.0
-**Last Updated**: 2026-01-14
+**Version**: 10.11.0
+**Last Updated**: 2026-06-05
 
 ---
 

@@ -1,6 +1,6 @@
 # Frontend CONTEXT.md
 
-**Last updated**: 2026-06-05 (Sprint 86 hotfix)
+**Last updated**: 2026-06-05 (Sprint 87 — unified-feed CONTEXT drift fix)
 
 ## Overview
 
@@ -132,14 +132,18 @@ Tab navigation component. Renders horizontal tab bar on desktop (`md:`) and stic
 - `TabId` = `'browse' | 'helping' | 'asks'`
 - Shows commitment count dot/badge on Commitments tab when `commitmentCount > 0`
 
-### `BrowseFeed.tsx`
-**Path**: `src/components/BrowseFeed.tsx`
-Single-column feed of open community requests the current user can help with.
+### `Feed/UnifiedFeed.tsx` (current feed surface — replaced the retired `BrowseFeed`)
+**Path**: `src/components/Feed/UnifiedFeed.tsx`
+Single-column unified feed. The same component powers two surfaces via a `view` prop:
+- **Dashboard Home** (`view=home`) — rendered by `pages/dashboard.tsx`
+- **Community Home** (`view=community`) — rendered by `components/community/tabs/BrowseTab.tsx`
 
-- Fetches via `requestService.getCuratedRequests()` — filters to `status === 'open'` and `requester_id !== currentUser`
-- Props: `communityId?: string` — passed from community selector in dashboard
-- Renders `FilterChipRow` at top; uses `EmptyState` for empty/error states
-- Shows match score badge when `match_score` is available
+- Fetches via `requestService.getCuratedRequests({ view, minScore?, community_id?, ... })` → `GET /requests/curated`. request-service is the **feed source-of-truth** (ADR-066); when a `view` is passed the response is `{ items: UnifiedFeedItem[] }`.
+- `UnifiedFeedItem` is a discriminated union of four kinds rendered in priority order: `decision` (`DecisionBand` — proposed matches needing your accept/reject), `request` (`RequestCard` — open asks you can help with), `activity` (`ActivityCard`), `story` (`StoryCard`). The texture layer (activity/story cards) is ADR-066/067.
+- `RequestCard` surfaces `category` as `payload_type` and switches its body on it via `RequestPayloadRenderer` (ADR-067).
+- After a decision-band action resolves, Dashboard Home optimistically drops the acted-on decision and background-refetches `view=home` (see Sprint 86 Hotfix above).
+
+> **Retired in Sprint 86:** the legacy `BrowseFeed.tsx`, `Feed.tsx`, `FeedItem.tsx`, and `FeedFilterPanel` components no longer exist — do not reference them as live. The unified feed (ADR-066) replaced them.
 
 ### `FilterChipRow.tsx`
 **Path**: `src/components/FilterChipRow.tsx`
@@ -219,21 +223,23 @@ The Trust Evolution toggle was removed from `reputation/trust.tsx` and moved to 
 
 ---
 
-## Layout & Navigation (Sprint 34)
+## Layout & Navigation (Sprint 34, updated Sprint 86)
 
 ### Tab-Based Dashboard Architecture
-`dashboard.tsx` is now a tab shell — it does NOT own feed logic. The active tab drives which component renders.
+`dashboard.tsx` is a tab shell — it does NOT own feed logic. The active tab drives which component renders. As of Sprint 86 the Browse tab renders `UnifiedFeed` (`view=home`), not the retired `BrowseFeed`.
 
 ```
 dashboard.tsx
-├── Community selector (top bar, filters BrowseFeed)
+├── Community selector (top bar, scopes the feed)
 ├── TabBar (Browse | Helping | Asks)
 ├── Tab content area
-│   ├── <BrowseFeed communityId={activeCommunityId} />
+│   ├── <UnifiedFeed view="home" communityId={activeCommunityId} />   # decisions + open requests + texture
 │   ├── <CommitmentsTab />
 │   └── <MyRequestsTab onNewRequest={...} />
 └── FAB ("Get Help") — visible on Browse + Helping only
 ```
+
+The community page (`communities/[id]`) renders the same `UnifiedFeed` with `view="community"` inside `components/community/tabs/BrowseTab.tsx`.
 
 ### Single Responsive Breakpoint
 `md:` (768px) is the only breakpoint for layout:

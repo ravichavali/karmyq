@@ -1,0 +1,116 @@
+<!-- Status: PROPOSED — not approved direction (Sprint 87 throwaway mockup; not wired to apps/frontend) -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dashboard Home — Karmyq (PROPOSED mockup)</title>
+<link rel="stylesheet" href="shared.css">
+<style>
+  .help-loop { display: grid; gap: 6px; }
+  .loop-meta { display:flex; align-items:baseline; justify-content: space-between; }
+  .loop-meta .count { font-size: 13px; color: var(--brown-400); }
+</style>
+</head>
+<body>
+<div class="proposed-banner">Status: <b>PROPOSED</b> — Sprint 87 direction mockup, not adopted design</div>
+
+<header class="topbar">
+  <div class="wordmark"><span class="seed"></span>Karmyq</div>
+  <nav><a class="active" href="#">Home</a><a href="#">Communities</a><a href="#">Providers</a></nav>
+  <div class="spacer"></div>
+  <div class="bell" title="A few updates">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+    <span class="dot"></span>
+  </div>
+  <div class="me"><div class="avatar">A</div><span>Aisha</span></div>
+</header>
+
+<main class="shell">
+  <div class="eyebrow">Your neighbourhood, today</div>
+  <h1 class="page">Good afternoon, Aisha.</h1>
+  <p class="lede">Two neighbours are waiting on you, and a handful nearby could use a hand.</p>
+
+  <!-- 1) RELATIONSHIP-LED DECISION BAND (the top of the loop) -->
+  <div class="section-label">Waiting on your reply</div>
+  <div class="band-card card">
+    <div class="grow">
+      <div class="ask">Dog walking while I recover</div>
+      <div class="who">Sofia Davis asked you directly · PDX Rides Collective</div>
+    </div>
+    <button class="btn btn-primary">Yes, I can</button>
+    <button class="btn-text">Not this time</button>
+  </div>
+  <div class="band-card card">
+    <div class="grow">
+      <div class="ask">Borrow a pressure washer this weekend</div>
+      <div class="who">Omar Tanaka · you're connected through Raj Okafor</div>
+    </div>
+    <button class="btn btn-primary">Yes, I can</button>
+    <button class="btn-text">Not this time</button>
+  </div>
+
+  <!-- 2) A FINITE, RELATIONSHIP-LED QUEUE OF OPEN ASKS -->
+  <div class="section-label">A few nearby could use a hand</div>
+  <div class="filters" style="margin-bottom:16px">
+    <span class="chip on">Everything</span><span class="chip">Rides</span>
+    <span class="chip">Lending</span><span class="chip">A skill</span><span class="chip">Events</span>
+  </div>
+
+  <div class="help-loop">
+    <!-- relationship → ask → detail → scope → action; score is a quiet trailing signal; NO KarmaBadge -->
+    <article class="req card">
+      <span class="path"><span class="face">R</span> Through Raj Okafor</span>
+      <div class="ask"><a href="request-card.html">Help sorting donations for the shelter</a></div>
+      <p class="body">Volunteering at the downtown shelter Saturday — could use 2–3 people to sort
+        clothing and household donations. Coffee's on me.</p>
+      <div class="scope">
+        <span class="pill">Lend a hand</span><span class="pill">Saturday AM</span>
+        <span>Northeast PDX Community Circle</span>
+      </div>
+      <div class="foot">
+        <span class="signal">Lucas Garcia · <b>good match</b> for your skills</span>
+        <button class="btn btn-primary">Offer to help</button>
+      </div>
+    </article>
+
+    <article class="req card">
+      <span class="path"><span class="face">S</span> A neighbour you both know</span>
+      <div class="ask"><a href="request-card.html">Shovelling after the snowstorm</a></div>
+      <p class="body">Can't clear my sidewalk safely and neighbours rely on the path staying open.
+        A few minutes would mean a lot.</p>
+      <div class="scope">
+        <span class="pill urgent">Time-sensitive</span><span class="pill">On the corner near Alberta</span>
+        <span>Northeast PDX Community Circle</span>
+      </div>
+      <div class="foot">
+        <span class="signal">Priya Garcia · <b>close by</b></span>
+        <button class="btn btn-primary">Offer to help</button>
+      </div>
+    </article>
+
+    <article class="req card">
+      <span class="path"><span class="face">M</span> Direct connection</span>
+      <div class="ask"><a href="request-card.html">A ride to a Tuesday clinic appointment</a></div>
+      <p class="body">9:30am downtown and back — about an hour all in. Happy to chip in for gas.</p>
+      <div class="scope">
+        <span class="pill">Ride</span><span class="pill">Tue 9:30am</span>
+        <span>PDX Rides Collective</span>
+      </div>
+      <div class="foot">
+        <span class="signal">Mohammed Ali · <b>on your way</b></span>
+        <button class="btn btn-primary">Offer to help</button>
+      </div>
+    </article>
+  </div>
+
+  <!-- 3) THE QUEUE ENDS — calm, finite, no doomscroll -->
+  <div class="caughtup">
+    <div class="mark">🌿</div>
+    <p class="serif">That's everyone for now.</p>
+    <p>You're caught up. We'll let you know when a neighbour needs you — quietly.</p>
+    <button class="btn btn-quiet" style="margin-top:14px">Show older open asks</button>
+  </div>
+</main>
+</body>
+</html>

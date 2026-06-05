@@ -1,0 +1,195 @@
+/* ============================================================================
+   Karmyq — Sprint 87 mockups — shared design system
+   STATUS: PROPOSED — not approved direction (throwaway; not wired to apps/frontend)
+   Aesthetic: "warm commons, calm behavior" — neighbourhood library / thoughtful newsletter.
+   Tokens mirror the live Karmyq theme (apps/frontend globals.css / apps/landing tailwind).
+   ============================================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400..600;1,9..144,400..500&family=Hanken+Grotesk:wght@400;500;600;700&display=swap');
+
+:root {
+  /* surfaces */
+  --cream:        #faf8f3;   /* page */
+  --warm-white:   #fdfcf9;   /* raised / card */
+  --cream-sunk:   #f3eee4;   /* recessed wells */
+  /* greens (action / agreement) */
+  --green-700:    #245621;
+  --green-600:    #2d6e28;
+  --green-500:    #3d8b35;
+  --green-300:    #88bf84;
+  --green-50:     #f0f7f0;
+  /* teal (sparing accent) */
+  --teal-600:     #268882;
+  --teal-50:      #effcf9;
+  /* browns (text / border) */
+  --brown-900:    #5c3e30;
+  --brown-700:    #714a38;
+  --brown-500:    #b48455;
+  --brown-400:    #c19a6f;
+  --brown-200:    #e4d3bc;
+  --brown-100:    #f2eade;
+  /* orange (urgency ONLY) */
+  --orange-600:   #de5d16;
+  --orange-500:   #ed7620;
+  --orange-50:    #fef7ee;
+
+  --shadow-sm: 0 1px 2px rgba(92,62,48,.06), 0 1px 3px rgba(92,62,48,.05);
+  --shadow-md: 0 4px 16px rgba(92,62,48,.08);
+  --radius:    14px;
+  --radius-lg: 20px;
+  --measure:   680px;
+
+  --serif: 'Fraunces', Georgia, 'Times New Roman', serif;
+  --sans:  'Hanken Grotesk', ui-sans-serif, system-ui, sans-serif;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
+body {
+  font-family: var(--sans);
+  color: var(--brown-900);
+  background: var(--cream);
+  line-height: 1.5;
+  font-size: 15px;
+  /* faint paper grain */
+  background-image:
+    radial-gradient(circle at 20% 10%, rgba(136,191,132,.05), transparent 40%),
+    radial-gradient(circle at 85% 0%, rgba(237,118,32,.04), transparent 35%);
+  background-attachment: fixed;
+}
+
+/* ---- PROPOSED ribbon (every mockup carries this) ---- */
+.proposed-banner {
+  background: repeating-linear-gradient(45deg, var(--orange-50), var(--orange-50) 12px, #fff4e8 12px, #fff4e8 24px);
+  border-bottom: 1px solid var(--brown-200);
+  color: var(--orange-600);
+  font: 600 12px/1 var(--sans);
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  text-align: center;
+  padding: 8px 16px;
+}
+.proposed-banner b { color: var(--brown-700); }
+
+/* ---- top bar: ONE quiet notification, no count-badge clusters ---- */
+.topbar {
+  display: flex; align-items: center; gap: 20px;
+  padding: 16px 28px;
+  background: var(--warm-white);
+  border-bottom: 1px solid var(--brown-100);
+  position: sticky; top: 0; z-index: 10;
+}
+.wordmark { font: 600 22px/1 var(--serif); color: var(--green-700); letter-spacing: -.01em; display:flex; align-items:center; gap:9px; }
+.wordmark .seed { width: 20px; height: 20px; border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, var(--green-300), var(--green-600)); display:inline-block; }
+.topbar nav { display:flex; gap: 22px; margin-left: 8px; }
+.topbar nav a { color: var(--brown-500); text-decoration: none; font-weight: 500; font-size: 14px; }
+.topbar nav a.active { color: var(--green-700); }
+.topbar .spacer { flex: 1; }
+.bell { position: relative; color: var(--brown-500); width: 22px; height: 22px; cursor: pointer; }
+.bell .dot { position:absolute; top:-1px; right:-1px; width:7px; height:7px; border-radius:50%;
+  background: var(--orange-500); border: 1.5px solid var(--warm-white); }   /* a quiet dot, NOT a count */
+.me { display:flex; align-items:center; gap: 9px; }
+.avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--green-600); color:#fff;
+  display:grid; place-items:center; font-weight: 600; font-size: 14px; }
+.me span { font-weight: 600; font-size: 14px; color: var(--brown-900); }
+
+/* ---- page shell ---- */
+.shell { max-width: var(--measure); margin: 0 auto; padding: 32px 24px 80px; }
+.shell-wide { max-width: 920px; margin: 0 auto; padding: 32px 24px 80px; }
+
+.eyebrow { font: 600 12px/1 var(--sans); letter-spacing: .12em; text-transform: uppercase; color: var(--green-600); }
+h1.page { font: 400 30px/1.15 var(--serif); color: var(--brown-900); letter-spacing: -.01em; margin: 6px 0 4px; }
+.lede { color: var(--brown-500); font-size: 15px; }
+.section-label { font: 600 13px/1 var(--sans); letter-spacing:.06em; text-transform: uppercase; color: var(--brown-400); margin: 30px 0 14px; }
+
+/* ---- cards ---- */
+.card { background: var(--warm-white); border: 1px solid var(--brown-200); border-radius: var(--radius); box-shadow: var(--shadow-sm); }
+.card.pad { padding: 22px 24px; }
+
+/* ---- the relationship-led request card (the S88 hierarchy) ---- */
+.req { padding: 20px 22px; display: grid; gap: 10px; }
+.req + .req { margin-top: 14px; }
+.req .path {                                   /* 1. RELATIONSHIP REASON — leads */
+  display:inline-flex; align-items:center; gap:7px; align-self:flex-start;
+  background: var(--green-50); border:1px solid var(--green-300); color: var(--green-700);
+  border-radius: 999px; padding: 5px 11px 5px 9px; font-size: 13px; font-weight: 600;
+}
+.req .path .face { width:20px;height:20px;border-radius:50%; background:var(--brown-400); color:#fff;
+  display:grid;place-items:center;font-size:10px;font-weight:700; }
+.req .ask { font: 500 19px/1.25 var(--serif); color: var(--brown-900); }   /* 2. THE ASK */
+.req .ask a { color: inherit; text-decoration: none; }
+.req .body { color: var(--brown-500); font-size: 14.5px; }                  /* 3. plain-language detail */
+.req .scope { display:flex; flex-wrap:wrap; gap: 8px 14px; align-items:center; font-size:13px; color: var(--brown-400); } /* 4. SCOPE */
+.req .scope .pill { background: var(--cream-sunk); border-radius: 8px; padding: 3px 9px; color: var(--brown-700); font-weight:500; }
+.req .scope .pill.urgent { background: var(--orange-50); color: var(--orange-600); }
+.req .foot { display:flex; align-items:center; justify-content: space-between; gap: 14px; margin-top: 2px; }
+.req .signal { font-size: 12.5px; color: var(--brown-400); }               /* quiet match signal — recedes */
+.req .signal b { color: var(--green-600); font-weight: 600; }
+
+.btn { font-family: var(--sans); font-weight: 600; font-size: 14px; border-radius: 10px; padding: 9px 18px; cursor: pointer; border: 1px solid transparent; }
+.btn-primary { background: var(--green-600); color: #fff; }
+.btn-primary:hover { background: var(--green-700); }
+.btn-quiet { background: var(--warm-white); color: var(--brown-700); border-color: var(--brown-200); }
+.btn-text { background: none; color: var(--brown-500); border: none; font-weight: 600; cursor: pointer; padding: 9px 6px; }
+
+/* ---- decision band ---- */
+.band-card { padding: 16px 20px; display:flex; align-items:center; gap: 16px; border-left: 3px solid var(--green-500); }
+.band-card + .band-card { margin-top: 10px; }
+.band-card .grow { flex: 1; }
+.band-card .ask { font: 500 16px/1.3 var(--serif); }
+.band-card .who { font-size: 13px; color: var(--brown-500); margin-top: 2px; }
+
+/* ---- finite-queue "caught up" end state ---- */
+.caughtup { text-align: center; padding: 40px 24px; color: var(--brown-400); }
+.caughtup .mark { font-size: 30px; }
+.caughtup p { margin-top: 8px; font-size: 14.5px; }
+.caughtup .serif { font-family: var(--serif); font-size: 18px; color: var(--brown-700); font-style: italic; }
+
+/* ---- Dunbar cap bar ---- */
+.capbar { height: 8px; border-radius: 99px; background: var(--cream-sunk); overflow: hidden; }
+.capbar > span { display:block; height: 100%; background: linear-gradient(90deg, var(--green-500), var(--green-600)); border-radius: 99px; }
+
+/* ---- chips / filters ---- */
+.filters { display:flex; gap: 9px; flex-wrap: wrap; }
+.chip { border:1px solid var(--brown-200); background: var(--warm-white); color: var(--brown-700);
+  border-radius: 999px; padding: 7px 14px; font-size: 13.5px; font-weight: 500; cursor: pointer; }
+.chip.on { background: var(--green-600); color:#fff; border-color: var(--green-600); }
+
+/* ---- tabs ---- */
+.tabs { display:flex; gap: 4px; border-bottom: 1px solid var(--brown-200); margin-bottom: 22px; }
+.tabs a { padding: 10px 14px; font-weight: 600; font-size: 14px; color: var(--brown-400); text-decoration:none; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+.tabs a.active { color: var(--green-700); border-bottom-color: var(--green-600); }
+
+/* ---- contribution / fading list (profile) ---- */
+.thread { position: relative; padding-left: 26px; }
+.thread::before { content:""; position:absolute; left: 7px; top: 6px; bottom: 6px; width: 2px;
+  background: linear-gradient(180deg, var(--green-400, var(--green-500)), transparent); }
+.thread .ev { position: relative; padding: 9px 0; }
+.thread .ev::before { content:""; position:absolute; left:-23px; top: 14px; width: 10px; height:10px; border-radius:50%;
+  background: var(--warm-white); border: 2px solid var(--green-500); }
+.thread .ev .when { font-size: 12px; color: var(--brown-400); }
+.thread .ev .what { font-size: 14.5px; color: var(--brown-700); }
+
+/* ---- consent / fission cards ---- */
+.consent { display:grid; gap: 12px; }
+.stage { display:flex; gap: 14px; align-items:flex-start; padding: 16px 18px; }
+.stage .num { width: 26px; height: 26px; border-radius: 50%; background: var(--green-50); color: var(--green-700);
+  border:1px solid var(--green-300); display:grid; place-items:center; font-weight:700; font-size: 13px; flex:none; }
+.stage.done .num { background: var(--green-600); color:#fff; border-color: var(--green-600); }
+.stage .h { font: 500 16px/1.3 var(--serif); }
+.stage .d { font-size: 14px; color: var(--brown-500); margin-top: 3px; }
+
+/* ---- a community PICKER (not a UUID field) ---- */
+.picker { display:grid; gap: 8px; }
+.picker .opt { display:flex; align-items:center; gap: 12px; padding: 12px 14px; border:1px solid var(--brown-200);
+  border-radius: 12px; background: var(--warm-white); cursor: pointer; }
+.picker .opt.sel { border-color: var(--green-500); background: var(--green-50); }
+.picker .opt .mark { width:18px;height:18px;border-radius:50%; border:2px solid var(--brown-300, var(--brown-400)); flex:none; }
+.picker .opt.sel .mark { border-color: var(--green-600); background: var(--green-600); box-shadow: inset 0 0 0 3px var(--green-50); }
+.picker .opt .nm { font-weight: 600; }
+.picker .opt .mt { font-size: 13px; color: var(--brown-400); }
+
+.note { font-size: 13px; color: var(--brown-400); font-style: italic; }
+.muted { color: var(--brown-500); }
+hr.soft { border: none; border-top: 1px solid var(--brown-100); margin: 22px 0; }
