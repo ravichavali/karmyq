@@ -1,10 +1,25 @@
 # Frontend CONTEXT.md
 
-**Last updated**: 2026-06-01 (Step 3 UX pass)
+**Last updated**: 2026-06-05 (Sprint 86 hotfix)
 
 ## Overview
 
 Next.js 14 web application (Pages Router) consuming all Karmyq backend services.
+
+---
+
+## Sprint 86 Hotfix (2026-06-05)
+
+### `UnifiedFeed.tsx` decision-band reconciliation
+**Path**: `src/components/Feed/UnifiedFeed.tsx`
+
+- After a decision-band action resolves, Dashboard Home optimistically drops the acted-on decision and background-refetches `view=home` without showing the loading skeleton.
+- Prevents stale sibling offer decisions from remaining after the backend accepts one proposed match and rejects the other proposed matches for the same request.
+- Fixes repeated `Match must be in proposed state to accept` 400s caused by clicking stale rejected match decisions.
+
+### Tests updated
+- `tests/tdd/sprint-85-unified-feed.test.tsx`
+  - new case: accepting one decision refetches and removes sibling decisions rejected by the server.
 
 ---
 

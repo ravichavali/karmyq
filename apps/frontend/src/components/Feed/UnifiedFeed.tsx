@@ -67,10 +67,12 @@ export default function UnifiedFeed({
     onBrowseModeChange?.(mode)
   }
 
-  const fetchFeed = () => {
+  const fetchFeed = (showLoading = true) => {
     let cancelled = false
-    setLoading(true)
-    setError(false)
+    if (showLoading) {
+      setLoading(true)
+      setError(false)
+    }
     setCurrentUserId(readCurrentUserId())
 
     requestService
@@ -85,10 +87,10 @@ export default function UnifiedFeed({
         setItems((res.data?.items as UnifiedFeedItem[]) ?? [])
       })
       .catch(() => {
-        if (!cancelled) setError(true)
+        if (!cancelled && showLoading) setError(true)
       })
       .finally(() => {
-        if (!cancelled) setLoading(false)
+        if (!cancelled && showLoading) setLoading(false)
       })
 
     return () => {
@@ -96,7 +98,7 @@ export default function UnifiedFeed({
     }
   }
 
-  useEffect(fetchFeed, [communityId, view])
+  useEffect(() => fetchFeed(true), [communityId, view])
 
   const decisions = items
     .filter((i): i is Extract<UnifiedFeedItem, { kind: 'decision' }> => i.kind === 'decision')
@@ -135,6 +137,10 @@ export default function UnifiedFeed({
     setItems((prev) => prev.filter((i) => !(i.kind === 'request' && (i.data as RequestCardData).request_id === requestId)))
   const dropDecision = (subjectId: string) =>
     setItems((prev) => prev.filter((i) => !(i.kind === 'decision' && (i.data as DecisionData).subject_id === subjectId)))
+  const resolveDecision = (subjectId: string) => {
+    dropDecision(subjectId)
+    fetchFeed(false)
+  }
 
   if (loading) {
     return (
@@ -175,7 +181,7 @@ export default function UnifiedFeed({
         </div>
       )}
 
-      {!isCommunity && <DecisionBand decisions={decisions} onResolved={dropDecision} />}
+      {!isCommunity && <DecisionBand decisions={decisions} onResolved={resolveDecision} />}
 
       <FilterChipRow
         activeType={activeType}

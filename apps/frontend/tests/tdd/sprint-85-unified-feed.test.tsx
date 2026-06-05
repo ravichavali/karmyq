@@ -12,12 +12,13 @@ import type { DecisionData, RequestCardData, UnifiedFeedItem } from '@/types/uni
 
 const getCuratedRequests = jest.fn()
 const createMatch = jest.fn().mockResolvedValue({})
+const acceptMatch = jest.fn().mockResolvedValue({})
 
 jest.mock('@/lib/api', () => ({
   requestService: {
     getCuratedRequests: (...args: unknown[]) => getCuratedRequests(...args),
     createMatch: (...args: unknown[]) => createMatch(...args),
-    acceptMatch: jest.fn().mockResolvedValue({}),
+    acceptMatch: (...args: unknown[]) => acceptMatch(...args),
     rejectMatch: jest.fn().mockResolvedValue({}),
     completeMatch: jest.fn().mockResolvedValue({}),
   },
@@ -55,6 +56,7 @@ function decisionItem(over: Partial<DecisionData> = {}): UnifiedFeedItem {
 beforeEach(() => {
   getCuratedRequests.mockReset()
   createMatch.mockClear()
+  acceptMatch.mockClear()
   localStorage.setItem('user', JSON.stringify({ id: 'me' }))
 })
 
@@ -95,6 +97,39 @@ describe('UnifiedFeed', () => {
     await waitFor(() => expect(createMatch).toHaveBeenCalledWith({ request_id: 'r1', responder_id: 'me' }))
     await waitFor(() => expect(screen.queryByText('Plumbing help')).toBeNull())
     expect(screen.getByText('Garden help')).toBeInTheDocument() // the other card stays
+  })
+
+  it('reconciles decisions after accepting one offer so rejected sibling offers disappear', async () => {
+    getCuratedRequests
+      .mockResolvedValueOnce({
+        data: {
+          items: [
+            decisionItem({
+              subject_id: 'match-accepted',
+              request_id: 'same-request',
+              title: 'Borrow a tile saw',
+              counterparty_name: 'Alex',
+            }),
+            decisionItem({
+              subject_id: 'match-rejected-by-server',
+              request_id: 'same-request',
+              title: 'Borrow a tile saw',
+              counterparty_name: 'Blair',
+            }),
+          ],
+        },
+      })
+      .mockResolvedValueOnce({ data: { items: [] } })
+
+    render(<UnifiedFeed />)
+    await screen.findByText(/Alex/)
+    expect(screen.getByText(/Blair/)).toBeInTheDocument()
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'Accept' })[0])
+
+    await waitFor(() => expect(acceptMatch).toHaveBeenCalledWith('match-accepted'))
+    await waitFor(() => expect(getCuratedRequests).toHaveBeenCalledTimes(2))
+    await waitFor(() => expect(screen.queryByText(/Blair/)).toBeNull())
   })
 
   it('renders the error state when the feed fetch fails', async () => {
