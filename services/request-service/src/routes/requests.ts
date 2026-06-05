@@ -803,7 +803,7 @@ export async function fetchDecisions(req: Request, userId: string): Promise<Unif
     const matchRows = await query(
       `SELECT m.id, m.request_id, m.status, m.created_at,
               m.requester_done_at, m.responder_done_at,
-              hr.requester_id, m.responder_id, hr.title,
+              hr.requester_id, m.responder_id, hr.title, hr.description, hr.payload, hr.category,
               requester.name AS requester_name, responder.name AS responder_name,
               STRING_AGG(DISTINCT c.name, ', ') AS community_name
        FROM requests.matches m
@@ -816,7 +816,7 @@ export async function fetchDecisions(req: Request, userId: string): Promise<Unif
          AND m.status IN ('proposed', 'matched')
        GROUP BY m.id, m.request_id, m.status, m.created_at, m.requester_done_at,
                 m.responder_done_at, hr.requester_id, m.responder_id, hr.title,
-                requester.name, responder.name`,
+                hr.description, hr.payload, hr.category, requester.name, responder.name`,
       [userId]
     );
 
@@ -824,7 +824,11 @@ export async function fetchDecisions(req: Request, userId: string): Promise<Unif
       const isRequester = m.requester_id === userId;
       let actions: DecisionAction[] = [];
       if (m.status === 'proposed') {
-        actions = isRequester ? ['accept_offer', 'decline_offer'] : ['withdraw_offer'];
+        // Only the REQUESTER owes a response (accept/decline). A responder's own proposed offer is
+        // awaiting the requester — not a decision the responder owes — and already appears in the
+        // Helping tab with a Withdraw action, so it is no longer surfaced in the decision band (S86 UX).
+        if (!isRequester) continue;
+        actions = ['accept_offer', 'decline_offer'];
       } else if (m.status === 'matched') {
         // Only owe a mark-done if this member hasn't already confirmed (two-phase completion).
         const alreadyDone = isRequester ? m.requester_done_at != null : m.responder_done_at != null;
@@ -836,6 +840,9 @@ export async function fetchDecisions(req: Request, userId: string): Promise<Unif
         subject_kind: 'match',
         request_id: m.request_id,
         title: m.title,
+        description: m.description ?? '',
+        payload: m.payload ?? undefined,
+        payload_type: categoryToPayloadType(m.category),
         community_name: m.community_name || '',
         counterparty_name: isRequester ? m.responder_name : m.requester_name,
         member_role: isRequester ? 'requester' : 'responder',
@@ -853,7 +860,7 @@ export async function fetchDecisions(req: Request, userId: string): Promise<Unif
     // the decision belongs to the provider (member_role 'responder'), with the requester as the
     // counterparty. Only surface live (non-expired) pending dibs — an expired one would 410.
     const dibsRows = await query(
-      `SELECT d.id, d.request_id, d.created_at, hr.title,
+      `SELECT d.id, d.request_id, d.created_at, hr.title, hr.description, hr.payload, hr.category,
               requester.name AS requester_name,
               STRING_AGG(DISTINCT c.name, ', ') AS community_name
        FROM requests.dibs d
@@ -862,7 +869,7 @@ export async function fetchDecisions(req: Request, userId: string): Promise<Unif
        LEFT JOIN requests.request_communities rc ON hr.id = rc.request_id
        LEFT JOIN communities.communities c ON rc.community_id = c.id
        WHERE d.provider_user_id = $1 AND d.status = 'pending' AND d.expires_at > NOW()
-       GROUP BY d.id, d.request_id, d.created_at, hr.title, requester.name`,
+       GROUP BY d.id, d.request_id, d.created_at, hr.title, hr.description, hr.payload, hr.category, requester.name`,
       [userId]
     );
 
@@ -872,6 +879,9 @@ export async function fetchDecisions(req: Request, userId: string): Promise<Unif
         subject_kind: 'dibs',
         request_id: d.request_id,
         title: d.title,
+        description: d.description ?? '',
+        payload: d.payload ?? undefined,
+        payload_type: categoryToPayloadType(d.category),
         community_name: d.community_name || '',
         counterparty_name: d.requester_name,
         member_role: 'responder',
@@ -888,7 +898,7 @@ export async function fetchDecisions(req: Request, userId: string): Promise<Unif
     // owner) accepts/declines (PUT /requests/offers/:id/accept|decline). subject_kind 'offer' routes
     // the band to acceptOffer/declineOffer. Distinct from the match-as-offer flow above.
     const offerRows = await query(
-      `SELECT o.id, o.request_id, o.created_at, hr.title,
+      `SELECT o.id, o.request_id, o.created_at, hr.title, hr.description, hr.payload, hr.category,
               provider.name AS provider_name,
               STRING_AGG(DISTINCT c.name, ', ') AS community_name
        FROM provider.offers o
@@ -897,7 +907,7 @@ export async function fetchDecisions(req: Request, userId: string): Promise<Unif
        LEFT JOIN requests.request_communities rc ON hr.id = rc.request_id
        LEFT JOIN communities.communities c ON rc.community_id = c.id
        WHERE hr.requester_id = $1 AND o.status = 'pending'
-       GROUP BY o.id, o.request_id, o.created_at, hr.title, provider.name`,
+       GROUP BY o.id, o.request_id, o.created_at, hr.title, hr.description, hr.payload, hr.category, provider.name`,
       [userId]
     );
 
@@ -907,6 +917,9 @@ export async function fetchDecisions(req: Request, userId: string): Promise<Unif
         subject_kind: 'offer',
         request_id: o.request_id,
         title: o.title,
+        description: o.description ?? '',
+        payload: o.payload ?? undefined,
+        payload_type: categoryToPayloadType(o.category),
         community_name: o.community_name || '',
         counterparty_name: o.provider_name,
         member_role: 'requester',

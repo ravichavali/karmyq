@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { requestService, dibsService } from '@/lib/api'
 import { acceptOffer, declineOffer } from '@/lib/api/providerApi'
+import RequestPayloadRenderer from './RequestPayloadRenderer'
 import type { DecisionData, DecisionAction } from '@/types/unified-feed'
 
 /**
@@ -60,6 +61,14 @@ interface DecisionBandProps {
 export default function DecisionBand({ decisions, onResolved }: DecisionBandProps) {
   const [busy, setBusy] = useState<string | null>(null) // `${subject_id}:${action}`
   const [error, setError] = useState<string | null>(null)
+  const [expanded, setExpanded] = useState<Set<string>>(new Set())
+
+  const toggleExpanded = (subjectId: string) =>
+    setExpanded((prev) => {
+      const next = new Set(prev)
+      next.has(subjectId) ? next.delete(subjectId) : next.add(subjectId)
+      return next
+    })
 
   // Empty band renders nothing — no "needs your response" chrome when there's nothing to respond to.
   if (decisions.length === 0) return null
@@ -81,33 +90,60 @@ export default function DecisionBand({ decisions, onResolved }: DecisionBandProp
     <section aria-label="Needs your response" className="mb-4">
       <h2 className="text-sm font-semibold text-text mb-2">Needs your response</h2>
       <div className="space-y-2">
-        {decisions.map((decision) => (
-          <div key={decision.subject_id} className="feed-card border-l-4 border-primary flex items-center justify-between gap-3">
-            <div className="min-w-0">
-              <p className="text-sm font-medium text-text truncate">{decision.title}</p>
-              <p className="text-xs text-text-muted truncate">
-                {relationLabel(decision)} {decision.counterparty_name}
-                {decision.community_name ? ` · ${decision.community_name}` : ''}
-              </p>
-            </div>
-            <div className="flex items-center gap-2 shrink-0">
-              {decision.actions.map((action) => (
+        {decisions.map((decision) => {
+          const isExpanded = expanded.has(decision.subject_id)
+          const canExpand = !!decision.description || !!(decision.payload_type && decision.payload)
+          return (
+            <div key={decision.subject_id} className="feed-card border-l-4 border-primary">
+              <div className="flex items-center justify-between gap-3">
                 <button
-                  key={action}
-                  onClick={() => handle(decision, action)}
-                  disabled={busy !== null}
-                  className={
-                    PRIMARY_ACTIONS.has(action)
-                      ? 'btn-primary text-sm py-1.5 px-3 disabled:opacity-50'
-                      : 'text-sm py-1.5 px-3 text-text-muted hover:text-text disabled:opacity-50'
-                  }
+                  type="button"
+                  onClick={() => canExpand && toggleExpanded(decision.subject_id)}
+                  aria-expanded={canExpand ? isExpanded : undefined}
+                  className={`min-w-0 text-left flex-1 ${canExpand ? 'cursor-pointer' : 'cursor-default'}`}
                 >
-                  {busy === `${decision.subject_id}:${action}` ? '…' : ACTION_LABELS[action]}
+                  <p className="text-sm font-medium text-text truncate flex items-center gap-1">
+                    {canExpand && (
+                      <span className={`text-text-subtle transition-transform ${isExpanded ? 'rotate-90' : ''}`} aria-hidden>›</span>
+                    )}
+                    {decision.title}
+                  </p>
+                  <p className="text-xs text-text-muted truncate">
+                    {relationLabel(decision)} {decision.counterparty_name}
+                    {decision.community_name ? ` · ${decision.community_name}` : ''}
+                  </p>
                 </button>
-              ))}
+                <div className="flex items-center gap-2 shrink-0">
+                  {decision.actions.map((action) => (
+                    <button
+                      key={action}
+                      onClick={() => handle(decision, action)}
+                      disabled={busy !== null}
+                      className={
+                        PRIMARY_ACTIONS.has(action)
+                          ? 'btn-primary text-sm py-1.5 px-3 disabled:opacity-50'
+                          : 'text-sm py-1.5 px-3 text-text-muted hover:text-text disabled:opacity-50'
+                      }
+                    >
+                      {busy === `${decision.subject_id}:${action}` ? '…' : ACTION_LABELS[action]}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {isExpanded && canExpand && (
+                <div className="mt-3 pt-3 border-t border-border">
+                  {decision.description && (
+                    <p className="text-sm text-text-muted mb-2">{decision.description}</p>
+                  )}
+                  {decision.payload_type && decision.payload && (
+                    <RequestPayloadRenderer type={decision.payload_type} payload={decision.payload} />
+                  )}
+                </div>
+              )}
             </div>
-          </div>
-        ))}
+          )
+        })}
       </div>
       {error && <p className="text-xs text-red-600 mt-2">{error}</p>}
     </section>
