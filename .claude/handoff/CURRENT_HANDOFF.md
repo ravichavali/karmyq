@@ -1,25 +1,24 @@
-# Sprint 86 — Unified Feed: Community Feed view + texture — ✅ SHIPPED + DEPLOYED (v10.10.0)
+# Sprint 86 — Unified Feed (Community view + texture) — ✅ SHIPPED + DEPLOYED (v10.10.0) + post-ship bug-bash
 
-> **▶ HOTFIX IN PROGRESS (2026-06-05):** Branch `fix/sprint-86-decision-band-reconcile` addresses post-Sprint-86
-> dashboard logs `Match must be in proposed state to accept`. Root cause confirmed from demo logs/DB: accepting one
-> proposed match rejects sibling matches for the same request, but Dashboard Home only dropped the clicked decision and
-> did not refetch; stale sibling decisions could still be clicked. Fix: `UnifiedFeed` background-refetches `view=home`
-> after a `DecisionBand` action. Validation: `npx jest tests/tdd/sprint-85-unified-feed.test.tsx --runInBand`,
-> `npx jest tests/tdd/sprint-86-unified-feed-community.test.tsx --runInBand`, and `npx tsc --noEmit`
-> from `apps/frontend` all pass.
-
-> **▶ STATUS (2026-06-04):** Sprint 86 **shipped + deployed**. PR [#60](https://github.com/ravichavali/karmyq/pull/60)
-> admin-merged to master (squash `bfec38c`, v10.10.0); CI/CD "Deploy to Demo" run `26984734200`
-> **succeeded** (health-check passed, no rollback). Demo live at v10.10.0: `GET /requests/curated?view=community`
-> is registered + auth-gated (returns the canonical UNAUTHORIZED envelope un-authed — route wired, no 404/500).
-> No DB migration this sprint.
+> **▶ STATUS (2026-06-05):** Sprint 86 shipped (v10.10.0, PR #60) and a post-ship bug-bash cleared every
+> issue surfaced on demo. **All merged + deployed:**
+> - **#60** Sprint 86 feature (Community feed view + texture + ADR-067 seam).
+> - **#61** Dashboard crash hotfix — `RequestPayloadRenderer` shape guards (the seam fix newly exercised the
+>   payload renderers on heterogeneous real data → `Cannot read … 'address'`; now no-ops on mismatched payloads).
+> - **#62** Decision-band stale-sibling reconcile (Codex) — `UnifiedFeed` background-refetches after a
+>   `DecisionBand` action so server-auto-rejected sibling matches disappear ("Match must be in proposed state").
+> - **#63** Fusion member-count (0-vs-N) — `executeFusion` now recomputes `current_members`; backfill migration
+>   `20260605-fusion-member-count-backfill.sql` (applied on demo, verified in deploy log).
+> - **#64** Decision-band inline expand + withdraw-offer moved to Helping + `fetchSeq` sequence-guard.
+> - **#65** Split carries trust edges (+`stability`) + karma into children (don't reset bonds); backfill
+>   `20260605-split-carry-trust-karma-backfill.sql` (applied on demo, verified). Fusion trust copy also fixed to carry `stability`.
+> - **(this branch `chore/feed-followups-decision-band`)** review follow-ups: `UnifiedFeed` unmount guard
+>   (`mountedRef`); DecisionBand row HTML purity (`<span>` not `<p>` inside the `<button>`).
 >
-> **Remaining human check (needs a logged-in MEMBER session — couldn't be driven from the agent sandbox):**
-> on demo, open a community's Requests tab → confirm canonical cards render **with payload detail** (the
-> ADR-067 seam fix) + the activity summary + any stories, and **no decision band**; confirm Dashboard Home
-> still shows the decision band + payload detail; confirm the deleted legacy components appear nowhere.
-> (Endpoint behavior — guards 400/403, the union, payload_type — is locked by the passing integration +
-> unit tests.)
+> **Remaining human checks (need a logged-in MEMBER session):** community Requests tab shows canonical cards
+> **with payload detail** + activity summary + stories, no decision band; Dashboard Home shows the decision
+> band (rows **expand inline**, **no withdraw rows**) + payload detail, no crash; a merged community's member
+> count is consistent (header == list); a split child shows real connections/karma (not 0).
 >
 > **▶ NEXT: Sprint 87** — mobile parity for both feed views; impression logging on the `view=home`/
 > `view=community` union path (currently only the legacy array path logs to `requests.feed_events`);

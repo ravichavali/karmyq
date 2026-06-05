@@ -71,10 +71,18 @@ export default function UnifiedFeed({
   // background reconcile (fetchFeed(false) after a decision action) landing after a newer fetch — a
   // fast Accept-then-navigate could otherwise let a stale Home response overwrite the current view.
   const fetchSeq = useRef(0)
+  // Don't apply a fetch that resolves after the component unmounted (e.g. navigate away mid-reconcile).
+  const mountedRef = useRef(true)
+  useEffect(() => {
+    mountedRef.current = true
+    return () => {
+      mountedRef.current = false
+    }
+  }, [])
 
   const fetchFeed = (showLoading = true) => {
     const seq = ++fetchSeq.current
-    const isStale = () => seq !== fetchSeq.current
+    const isStale = () => seq !== fetchSeq.current || !mountedRef.current
     if (showLoading) {
       setLoading(true)
       setError(false)
