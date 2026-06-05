@@ -153,10 +153,11 @@ describe('RequestCard', () => {
     expect(screen.getByText('Pickup')).toBeInTheDocument()
   })
 
-  it('renders the Karma badge and the explainable match score (never a bare percentage)', () => {
+  it('does not render a Karma badge or leading match percentage; match signal is quiet language', () => {
     render(<RequestCard data={baseCard} currentUserId="helper-1" />)
-    expect(screen.getByText('42% · 2nd-degree trust')).toBeInTheDocument()
-    expect(screen.getByText(/120/)).toBeInTheDocument() // Karma badge
+    expect(screen.queryByText('42% · 2nd-degree trust')).toBeNull()
+    expect(screen.queryByText(/120/)).toBeNull()
+    expect(screen.getByText('nearby fit · 2nd-degree trust')).toBeInTheDocument()
   })
 
   it('wires inline Offer to Help to createMatch with the right request + responder', async () => {

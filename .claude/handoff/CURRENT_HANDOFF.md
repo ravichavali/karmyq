@@ -1,4 +1,101 @@
-# Sprint 87 — Product Truth & UX Reset — ✅ EXECUTED (direction APPROVED)
+# Sprint 88 — Core Help-Loop Redesign — IMPLEMENTED (ready for review/PR)
+
+> **▶ STATUS (2026-06-05):** Sprint 88 has been executed on
+> `feature/sprint-88-core-help-loop-redesign`. Spec and implementation plan:
+> `docs/superpowers/specs/2026-06-05-sprint-88-core-help-loop-redesign-design.md` and
+> `docs/superpowers/plans/2026-06-05-sprint-88-core-help-loop-redesign.md`.
+>
+> **▶ MERGE BASE:** PR **#69** was reported merged by the maintainer before execution. Sprint 88 bumps root
+> package version to **10.12.0**. No commit has been made by Codex.
+>
+> **▶ SCOPE CONFIRMED (maintainer, 2026-06-05):** keep **Community Home (`view=community`) in Sprint 88**.
+> Sprint 88 includes shared shell + Dashboard Home + Community Home. Sprint 89 handles broader community
+> sovereignty beyond the feed.
+>
+> **▶ IMPLEMENTED:** request-service `minScore=0` parser fix + union-path impression logging; shared
+> shell CSS/type; relationship-led `RequestCard` with `KarmaBadge` removed and qualitative match signal;
+> Dashboard Home + Community Home shell headers; `Show more open requests`; mobile CTA/FAB spacing;
+> request-wizard copy; split/fusion name cleanup; docs + landing docs regenerated.
+>
+> **▶ REVIEW FOLLOW-UP APPLIED:** `Show more open requests` now renders after non-empty curated request
+> lists as well as empty/caught-up states, and `RequestCard` no longer invents an "In your community"
+> relationship badge when `requester_id` is unavailable.
+
+---
+
+## Quick Start — Sprint 88 Review / PR Prep
+
+1. Read this handoff.
+2. Stay on branch: `feature/sprint-88-core-help-loop-redesign`
+3. Review changed files and generated landing docs (`apps/landing/src/data/docs/` is gitignored, so remember `git add -f` if staging).
+4. If opening a PR via `gh`, copy `.github/pull_request_template.md` manually into the PR body.
+5. Before commit/PR, run `pre-commit-check` and the repo’s required review/security loops per `CLAUDE.md`.
+
+## Sprint 88 goal (one sentence)
+
+Ship the approved warm-commons/calm behavior help loop by building the shared shell and re-skinning
+Dashboard Home plus Community Home on top of it.
+
+## Multi-sprint arc
+
+- **Sprint 84** — unified feed research & direction. ✅ Complete (`no-deploy`).
+- **Sprint 85** — unified feed, Dashboard Home first. ✅ Shipped v10.9.0.
+- **Sprint 86** — Community Feed view + texture + legacy retirement + seam fix. ✅ Shipped v10.10.0.
+- **Sprint 87** — Product Truth & UX Reset. ✅ Executed v10.11.0; direction approved.
+- **Sprint 88 (CURRENT)** — Core help-loop redesign: shared shell + Dashboard Home + Community Home. ✅ Implemented; PR/review pending.
+- **Sprint 89** — Community sovereignty redesign beyond the feed.
+- **Sprint 90** — Trust, forgetting, profile polish.
+- **Sprint 91** — Mobile parity from the polished model.
+- **Sprint 92** — Architecture & service pruning.
+
+## Critical Implementation Notes (copied from spec)
+
+1. **PR #69 merge gate satisfied.** Sprint 88 was executed only after the maintainer reported PR #69 merged; branch starts from the approved Sprint 87 artifacts and bumps root version to `10.12.0`.
+2. **Branch:** use `feature/sprint-88-core-help-loop-redesign`; agents do not commit to `master` directly.
+3. **Dashboard Home and Community Home are both in scope.** Community Home is not deferred to Sprint 89; Sprint 89 handles broader community sovereignty beyond the feed.
+4. **No schema change expected.** Fix impression logging by reusing existing scored request rows before the union return paths; log request items only, never decisions/activity/story texture.
+5. **`minScore` default stays 30, but `0` is valid.** "Show more open requests" intentionally lowers/removes the threshold after user action; parse `minScore` with an explicit finite check, not `parseInt(...) || 30`.
+6. **Remove `KarmaBadge` from `RequestCard`.** Per-person score display is banned on help cards; do not replace it with another numeric person score.
+7. **Keep `TrustPathBadge` and promote it.** Relationship/path reason leads the card above title and match signal.
+8. **Match % becomes qualitative copy.** Do not render `68% Match` as a leading card element; map it to quiet labels and keep raw values out of the primary hierarchy.
+9. **Use global JWT truth:** membership is `user.communities`, not `communityMemberships`; the request-service local README is stale here.
+10. **API unwrap rule:** frontend `createApiClient` already unwraps response envelopes; consume `res.data`, not `res.data.data`.
+11. **Payload seam:** keep using `payload_type` derived via ADR-067 normalization; never render raw `generic` or mixed `category` tokens as user-facing labels.
+12. **Mobile is part of done.** The FAB must not overlap card CTAs; decision-band text wraps rather than truncates; tap targets stay at least 40px.
+13. **Do not rewrite admin management.** Community admin all-status tools remain separate altitude; only remove empty/noisy KPI presentation and align styling where it shares the surface.
+14. **Docs are in scope.** This sprint ships real behavior changes, so user guides, frontend context, request-service context, and landing docs must be updated.
+
+## Carry-forward issues included in Sprint 88
+
+- ✅ Home/community union impression logging gap fixed by logging request rows before both union early returns.
+- ✅ `RequestCard` removes `KarmaBadge`, leads with trust path, and demotes match score to qualitative copy.
+- ✅ Curated default remains `minScore=30`; **Show more open requests** explicitly sends `minScore=0`, appears after non-empty curated lists and caught-up states, and backend now honors `0`.
+- ✅ Mobile FAB/decision-band/card CTA spacing adjusted; decision-band text wraps.
+- ✅ Cumulative `"Group A - Group B"` / `"— Group A — Group B"` split/fusion names cleaned on submit.
+- ✅ Empty community KPI tiles are suppressed or replaced with meaningful quiet copy.
+
+## Verification run by Codex (2026-06-05)
+
+- ✅ `services/request-service`: `npx jest tests/tdd/sprint-88-curated-feed-controls.test.ts --runInBand` — 4/4 passing.
+- ✅ `apps/frontend`: Sprint 88 focused TDD — 3 suites / 11 tests passing.
+- ✅ `apps/frontend`: adjacent Sprint 85/86 feed TDD — 5 suites / 40 tests passing.
+- ✅ `services/request-service`: `npm run build` — TypeScript build passing.
+- ✅ `apps/frontend`: `npm run build` — passing; pre-existing warning remains: `next.config.js` unrecognized `swcMinify`.
+- ✅ `apps/landing`: `npm run generate-docs` and `npm run build` — passing; pre-existing `<img>` lint warning in `src/components/Header.tsx`.
+- ✅ `git diff --check` — exit 0; Windows line-ending warning only for `apps/frontend/src/styles/globals.css`.
+- ⚠️ Root `npx tsc --noEmit` is not a valid gate here: no root `tsconfig.json`, so TypeScript prints help and exits 1.
+
+## Reference
+
+- **Spec:** `docs/superpowers/specs/2026-06-05-sprint-88-core-help-loop-redesign-design.md`
+- **Plan:** `docs/superpowers/plans/2026-06-05-sprint-88-core-help-loop-redesign.md`
+- **Approved presentation rules:** `docs/design/sprint-87/presentation-rules.md`
+- **S88 recommendation:** `docs/design/sprint-87/sprint-88-recommendation.md`
+- **S87 roadmap arc:** `docs/superpowers/specs/2026-06-05-sprint-87-90-polish-reset-review-and-roadmap.md`
+
+---
+
+# Archived Context — Sprint 87 Product Truth & UX Reset — ✅ EXECUTED (direction APPROVED)
 
 > **▶ STATUS (2026-06-05):** Sprint 87 **executed** — all 14 plan tasks complete. Quick wins done
 > (version → **10.11.0**; `apps/frontend/CONTEXT.md` BrowseFeed→UnifiedFeed drift fixed; landing
@@ -144,7 +241,7 @@ The open dependabot PRs predate `pr-contract.yml`; their stale branches have no 
 - **trust_edges_live is a VIEW**: never INSERT/UPDATE it — write `trust_edges`, read `trust_edges_live`
 - **`git add` on CLAUDE.md**: tracked as lowercase `claude.md`
 - **Solo dev — no worktrees**: work directly on feature branches
-- **Root package.json version**: **10.11.0** (Sprint 87 executed; bumped from 10.10.0). **Sprint 88 → 10.12.0.**
+- **Root package.json version**: **10.12.0** (Sprint 88 executed; bumped from 10.11.0).
 - **CI security gates**: dependency audit (ADR-059, blocking `--audit-level=high`) + CodeQL code-scanning gate (ADR-060) run automatically on push
 - **`request_type` vs `category`**: `request_type` = 5-value `request_type_enum` (filter); `category` = fine
   payload subtype (`transportation` etc., what `RequestPayloadRenderer` switches on, what matching keys off).

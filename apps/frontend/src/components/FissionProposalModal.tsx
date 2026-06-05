@@ -1,6 +1,13 @@
 import { useState } from 'react'
 import { communityService } from '@/lib/api'
 
+function cleanGroupName(name: string): string {
+  return name
+    .replace(/\s+[—-]\s+Group [AB](?:\s+[—-]\s+Group [AB])*/gi, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
 interface Props {
   communityId: string
   onSuccess: () => void
@@ -23,9 +30,11 @@ export default function FissionProposalModal({ communityId, onSuccess, onCancel 
     setSubmitting(true)
     setError('')
     try {
+      const cleanedA = cleanGroupName(groupAName)
+      const cleanedB = cleanGroupName(groupBName)
       await communityService.createSplitProposal(communityId, {
-        group_a_name: groupAName.trim(),
-        group_b_name: groupBName.trim(),
+        group_a_name: cleanedA,
+        group_b_name: cleanedB,
         rationale: rationale.trim(),
       })
       onSuccess()

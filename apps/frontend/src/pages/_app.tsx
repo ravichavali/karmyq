@@ -1,4 +1,5 @@
 import '@/styles/globals.css'
+import '@/styles/karmyq-shell.css'
 import type { AppProps } from 'next/app'
 import { ThemeProvider } from '@/contexts/ThemeContext'
 import { NotificationProvider } from '@/contexts/NotificationContext'

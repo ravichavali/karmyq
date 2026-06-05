@@ -1,10 +1,31 @@
 # Frontend CONTEXT.md
 
-**Last updated**: 2026-06-05 (Sprint 87 — unified-feed CONTEXT drift fix)
+**Last updated**: 2026-06-05 (Sprint 88 — core help-loop redesign)
 
 ## Overview
 
 Next.js 14 web application (Pages Router) consuming all Karmyq backend services.
+
+---
+
+## Sprint 88 Help-Loop Redesign (2026-06-05)
+
+### Shared shell and feed hierarchy
+**Paths**: `src/styles/karmyq-shell.css`, `src/pages/dashboard.tsx`, `src/components/community/tabs/BrowseTab.tsx`, `src/components/Feed/*`
+
+- Adds the warm shared shell layer: Fraunces headings, Hanken Grotesk body type, `kq-page`, `kq-page-header`, `kq-card`, `kq-path-badge`, `kq-action-band`, and `kq-finite-state`.
+- Dashboard Browse now leads with a calm Home header before `UnifiedFeed view="home"`.
+- Community Browse now leads with a Community Home header before `UnifiedFeed view="community"` and suppresses empty KPI tiles.
+- `RequestCard` is relationship-led: `RequestTrustBadge` / `TrustPathBadge` is the lead element, raw `KarmaBadge` is removed, and match percentage is demoted to a qualitative `describeMatchSignal()` line.
+- `UnifiedFeed` defaults to `minScore=30`; the quiet **Show more open requests** affordance explicitly re-fetches with `minScore=0` so sub-30 open asks can appear on demand.
+- `DecisionBand` and card shells wrap on mobile; `.fab` and `SpeedDialFab` use `bottom-28` on mobile to avoid CTA overlap.
+
+### Copy and affordance polish
+**Paths**: `src/components/RequestWizard.tsx`, `src/components/Layout.tsx`, `src/components/FissionProposalModal.tsx`, `src/components/FusionProposalModal.tsx`
+
+- Request wizard copy now asks in neighbourly language (`Ask neighbours`) while keeping the warm emoji type picker.
+- Layout keeps one quiet notification affordance by removing the extra provider notification bell from the top nav.
+- Split/fusion proposal names are cleaned before submit so repeated `— Group A/B` suffixes do not accumulate.
 
 ---
 
@@ -138,9 +159,9 @@ Single-column unified feed. The same component powers two surfaces via a `view` 
 - **Dashboard Home** (`view=home`) — rendered by `pages/dashboard.tsx`
 - **Community Home** (`view=community`) — rendered by `components/community/tabs/BrowseTab.tsx`
 
-- Fetches via `requestService.getCuratedRequests({ view, minScore?, community_id?, ... })` → `GET /requests/curated`. request-service is the **feed source-of-truth** (ADR-066); when a `view` is passed the response is `{ items: UnifiedFeedItem[] }`.
+- Fetches via `requestService.getCuratedRequests({ view, minScore?, community_id?, ... })` → `GET /requests/curated`. request-service is the **feed source-of-truth** (ADR-066); when a `view` is passed the response is `{ items: UnifiedFeedItem[] }`. Sprint 88: default feed calls pass `minScore=30`; **Show more open requests** passes explicit `minScore=0` and must not omit the param.
 - `UnifiedFeedItem` is a discriminated union of four kinds rendered in priority order: `decision` (`DecisionBand` — proposed matches needing your accept/reject), `request` (`RequestCard` — open asks you can help with), `activity` (`ActivityCard`), `story` (`StoryCard`). The texture layer (activity/story cards) is ADR-066/067.
-- `RequestCard` surfaces `category` as `payload_type` and switches its body on it via `RequestPayloadRenderer` (ADR-067).
+- `RequestCard` surfaces `category` as `payload_type` and switches its body on it via `RequestPayloadRenderer` (ADR-067). Sprint 88: it leads with the trust path, removes requester Karma from the card, and renders `match_score` only as qualitative quiet meta via `describeMatchSignal()`.
 - After a decision-band action resolves, Dashboard Home optimistically drops the acted-on decision and background-refetches `view=home` (see Sprint 86 Hotfix above).
 
 > **Retired in Sprint 86:** the legacy `BrowseFeed.tsx`, `Feed.tsx`, `FeedItem.tsx`, and `FeedFilterPanel` components no longer exist — do not reference them as live. The unified feed (ADR-066) replaced them.
@@ -251,14 +272,14 @@ All tab content areas use `max-w-2xl mx-auto` (672px).
 
 ### FAB Positioning
 ```css
-.fab { @apply fixed bottom-24 right-6 md:bottom-8; }
+.fab { @apply fixed bottom-28 right-6 md:bottom-8; }
 ```
-`bottom-24` clears the bottom nav (h-16) on mobile. On desktop (`md:`), drops to `bottom-8`.
+`bottom-28` clears the bottom nav and feed card CTAs on mobile. On desktop (`md:`), drops to `bottom-8`.
 
 ### Layout.tsx Changes (Sprint 34)
 Top nav simplified:
-- **Desktop**: Logo | Communities | Providers | [Bell] | [Avatar] | [Logout]
-- **Mobile**: Logo | [Bell] | [Avatar] | [☰ hamburger → Communities, Providers, Profile]
+- **Desktop**: Logo | Communities | Providers | [Avatar] | [Logout]
+- **Mobile**: Logo | [Avatar] | [☰ hamburger → Communities, Providers, Profile]
 - Dashboard / main nav links removed — tabs replace them on the dashboard page
 - `LeftSidebar` and `RightSidebar` kept in codebase but NOT rendered in `dashboard.tsx` (available for other pages if needed)
 

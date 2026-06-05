@@ -46,7 +46,7 @@ export default function SpeedDialFab({ activeTab, onGetHelp, onGetService }: Spe
 
   // Two actions — expandable speed dial
   return (
-    <div className="fixed bottom-24 right-6 z-40 flex flex-col items-end gap-3 md:bottom-8">
+    <div className="fixed bottom-28 right-6 z-40 flex flex-col items-end gap-3 md:bottom-8">
       {expanded && (
         <>
           {/* Backdrop click-catcher */}

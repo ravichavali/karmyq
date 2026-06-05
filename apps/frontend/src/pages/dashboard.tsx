@@ -207,6 +207,11 @@ export default function Dashboard() {
             <div className="pb-20 md:pb-0">
               {activeTab === 'browse' && (
                 <div key="browse">
+                  <section className="kq-page-header kq-page">
+                    <p className="kq-eyebrow">Home</p>
+                    <h1 className="kq-headline">Good to see you, {user.name ?? 'neighbour'}.</h1>
+                    <p className="kq-lede">A calm queue of decisions and asks, led by the relationships that make help possible.</p>
+                  </section>
                   <UnifiedFeed
                     communityId={activeCommunityId || undefined}
                     communityType={userCommunities.find(c => c.id === activeCommunityId)?.community_type}

@@ -54,12 +54,14 @@ export default function UnifiedFeed({
   const [activeType, setActiveType] = useState<RequestTypeFilter>('all')
   const [activeUrgency, setActiveUrgency] = useState<UrgencyFilter>('all')
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
+  const [showingMoreOpen, setShowingMoreOpen] = useState(false)
   const [internalBrowseMode, setInternalBrowseMode] = useState<BrowseMode>(() => {
     if (typeof window === 'undefined') return 'provider'
     return (localStorage.getItem('karmyq_browse_mode') as BrowseMode) ?? 'provider'
   })
 
   const browseMode = externalBrowseMode ?? internalBrowseMode
+  const minScore = showingMoreOpen ? 0 : 30
 
   const handleBrowseModeChange = (mode: BrowseMode) => {
     setInternalBrowseMode(mode)
@@ -93,6 +95,7 @@ export default function UnifiedFeed({
       .getCuratedRequests({
         view,
         community_id: communityId && communityId !== 'all' ? communityId : undefined,
+        minScore,
         limit: 50,
       })
       .then((res) => {
@@ -108,7 +111,7 @@ export default function UnifiedFeed({
       })
   }
 
-  useEffect(() => fetchFeed(true), [communityId, view])
+  useEffect(() => fetchFeed(true), [communityId, view, minScore])
 
   const decisions = items
     .filter((i): i is Extract<UnifiedFeedItem, { kind: 'decision' }> => i.kind === 'decision')
@@ -151,6 +154,18 @@ export default function UnifiedFeed({
     dropDecision(subjectId)
     fetchFeed(false)
   }
+
+  const canShowMoreOpen =
+    !showingMoreOpen &&
+    !noCommunities &&
+    activeType === 'all' &&
+    activeUrgency === 'all'
+
+  const showMoreOpenButton = canShowMoreOpen ? (
+    <button type="button" className="btn-ghost mt-4" onClick={() => setShowingMoreOpen(true)}>
+      Show more open requests
+    </button>
+  ) : null
 
   if (loading) {
     return (
@@ -214,26 +229,45 @@ export default function UnifiedFeed({
         ) : isCommunity ? (
           // Community view: only show the "nothing here" state when there's no texture either.
           !hasTexture ? (
-            <EmptyState
-              icon="🤝"
-              heading="No open requests right now"
-              body="When a neighbour asks for help here, it'll show up in this feed."
-            />
+            <div className="kq-finite-state">
+              <EmptyState
+                icon="🤝"
+                heading="No open requests right now"
+                body={
+                  showingMoreOpen
+                    ? "That's everyone for now. We'll let you know when a neighbour needs help here."
+                    : "You're caught up on the most relevant asks here."
+                }
+              />
+              {showMoreOpenButton}
+            </div>
           ) : null
         ) : (
-          <EmptyState
-            icon="✅"
-            heading="You're caught up"
-            body="No open requests you can fill right now. Browse your communities to see what's happening."
-            ctaLabel="Browse communities"
-            ctaHref="/communities"
-          />
+          <div className="kq-finite-state">
+            <EmptyState
+              icon="✅"
+              heading="You're caught up"
+              body={
+                showingMoreOpen
+                  ? "That's everyone for now. We'll let you know when a neighbour needs you — quietly."
+                  : "No open requests you can fill right now. You can look further, or browse your communities."
+              }
+              ctaLabel="Browse communities"
+              ctaHref="/communities"
+            />
+            {showMoreOpenButton}
+          </div>
         )
       ) : (
         <div className="space-y-3 pb-4">
           {requestCards.map((data) => (
             <RequestCard key={data.request_id} data={data} currentUserId={currentUserId} onOffered={dropRequest} />
           ))}
+          {showMoreOpenButton && (
+            <div className="pt-1 text-center">
+              {showMoreOpenButton}
+            </div>
+          )}
         </div>
       )}
 

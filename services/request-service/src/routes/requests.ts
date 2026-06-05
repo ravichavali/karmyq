@@ -39,6 +39,52 @@ import { buildActivityItem, buildStoryItem, type StoryData } from '../services/c
 
 const router = Router();
 
+interface ImpressionRequestRow {
+  id: string;
+  feedScore: number;
+  sourceTier: string;
+}
+
+export function parseMinScore(value: unknown): number {
+  const parsed = parseInt(String(value ?? ''), 10);
+  return Number.isFinite(parsed) ? parsed : 30;
+}
+
+export function requestMeetsMinScore(request: { feedScore?: number | string | null }, minScore: number): boolean {
+  const feedScore = typeof request.feedScore === 'string' ? parseFloat(request.feedScore) : request.feedScore;
+  return typeof feedScore === 'number' && Number.isFinite(feedScore) && feedScore >= minScore;
+}
+
+export function buildImpressionInsert(userId: string, requests: ImpressionRequestRow[]): { queryText: string; values: unknown[] } | null {
+  if (requests.length === 0) return null;
+  const placeholders = requests.map(
+    (_: any, i: number) => `($${i * 5 + 1}, $${i * 5 + 2}, 'impression', $${i * 5 + 3}, $${i * 5 + 4}, $${i * 5 + 5})`
+  ).join(', ');
+  const values = requests.flatMap((r: ImpressionRequestRow, idx: number) => [
+    userId, r.id, r.feedScore, idx + 1, r.sourceTier,
+  ]);
+  return {
+    queryText: `INSERT INTO requests.feed_events (user_id, request_id, event_type, feed_score, feed_rank, source_tier)
+             VALUES ${placeholders}
+             ON CONFLICT DO NOTHING`,
+    values,
+  };
+}
+
+export function logRequestImpressions(req: Request, userId: string, requests: ImpressionRequestRow[]): void {
+  setImmediate(() => {
+    void (async () => {
+      try {
+        const insert = buildImpressionInsert(userId, requests);
+        if (!insert) return;
+        await query(insert.queryText, insert.values);
+      } catch (e: any) {
+        (req as any).logger?.error('feed-impression-log failed', e instanceof Error ? e : new Error(String(e)), { service: 'request-service', step: 'feed-impression-log' });
+      }
+    })();
+  });
+}
+
 // GET /requests - Get all requests (with filters)
 router.get('/', async (req: Request, res: Response) => {
   try {
@@ -187,7 +233,7 @@ async function handleCuratedFeed(req: Request, res: Response): Promise<void> {
     }
 
     // Get query parameters
-    const minMatchScore = parseInt(req.query.minScore as string) || 30; // Default 30%
+    const minMatchScore = parseMinScore(req.query.minScore); // Default 30%, but explicit 0 is valid
     const limit = parseInt(req.query.limit as string) || 20;
     const communityId = req.query.community_id as string | undefined;
     const tierFilter = req.query.tier as string | undefined; // Optional: 'community', 'trust_network', 'platform'
@@ -665,7 +711,7 @@ async function handleCuratedFeed(req: Request, res: Response): Promise<void> {
       .filter((req: any) => req.sourceTier !== null)
       .filter((req: any) => !tierFilter || req.sourceTier === tierFilter)
       .filter((req: any) => subscribedTypes.includes(req.request_type || 'generic'))
-      .filter((req: any) => req.feedScore >= minMatchScore)
+      .filter((req: any) => requestMeetsMinScore(req, minMatchScore))
       .sort((a: any, b: any) => {
         const tierDiff = (tierOrder[a.sourceTier] ?? 3) - (tierOrder[b.sourceTier] ?? 3);
         return tierDiff !== 0 ? tierDiff : b.feedScore - a.feedScore;
@@ -676,6 +722,7 @@ async function handleCuratedFeed(req: Request, res: Response): Promise<void> {
     // ({ items }) instead of the legacy request array. `view` absent keeps the legacy shape
     // (back-compat for the existing BrowseFeed/community callers).
     if (req.query.view === 'home') {
+      logRequestImpressions(req, userId, filteredRequests);
       await respondHomeFeed(req, res, userId, filteredRequests);
       return;
     }
@@ -683,6 +730,7 @@ async function handleCuratedFeed(req: Request, res: Response): Promise<void> {
     // Sprint 86 / ADR-066 — view=community returns the community-scoped union (requests + texture,
     // no decision band). community_id is required and the caller must be a member (guarded inside).
     if (req.query.view === 'community') {
+      logRequestImpressions(req, userId, filteredRequests);
       await respondCommunityFeed(req, res, communityId, filteredRequests);
       return;
     }
@@ -721,27 +769,7 @@ async function handleCuratedFeed(req: Request, res: Response): Promise<void> {
     );
 
     // Fire-and-forget: log impressions to feed_events (never block feed response)
-    setImmediate(() => {
-      void (async () => {
-        try {
-          if (filteredRequests.length === 0) return;
-          const placeholders = filteredRequests.map(
-            (_: any, i: number) => `($${i * 5 + 1}, $${i * 5 + 2}, 'impression', $${i * 5 + 3}, $${i * 5 + 4}, $${i * 5 + 5})`
-          ).join(', ');
-          const flatValues = filteredRequests.flatMap((r: any, idx: number) => [
-            userId, r.id, r.feedScore, idx + 1, r.sourceTier,
-          ]);
-          await query(
-            `INSERT INTO requests.feed_events (user_id, request_id, event_type, feed_score, feed_rank, source_tier)
-             VALUES ${placeholders}
-             ON CONFLICT DO NOTHING`,
-            flatValues
-          );
-        } catch (e: any) {
-          (req as any).logger?.error('feed-impression-log failed', e instanceof Error ? e : new Error(String(e)), { service: 'request-service', step: 'feed-impression-log' });
-        }
-      })();
-    });
+    logRequestImpressions(req, userId, filteredRequests);
   } catch (error: any) {
     (req as any).logger?.error('Error fetching curated requests', error instanceof Error ? error : new Error(String(error)), { service: 'request-service' });
     sendInternalError(

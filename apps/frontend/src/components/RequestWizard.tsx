@@ -259,10 +259,10 @@ export default function RequestWizard({
               )}
               <h2 className="text-lg font-semibold text-text">
                 {step === 1
-                  ? 'What kind of help do you need?'
+                  ? 'What kind of help would make today easier?'
                   : preferredProviderName
                     ? `Request from ${preferredProviderName}`
-                    : 'What do you need?'}
+                    : 'Tell neighbours what would help'}
               </h2>
             </div>
             <button
@@ -339,13 +339,13 @@ export default function RequestWizard({
                                placeholder:text-text-subtle resize-none focus:outline-none focus:ring-2
                                focus:ring-primary focus:ring-offset-2 focus:border-primary transition-colors"
                     rows={3}
-                    placeholder="Describe what you need…"
+                    placeholder="A few plain details are enough."
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
                     autoFocus
                   />
                   <p className="mt-1 text-xs text-text-subtle">
-                    Include what you need, relevant timing, and location details if helpful.
+                    Include the timing, place, and any small detail that helps someone say yes.
                   </p>
                 </div>
 
@@ -378,7 +378,7 @@ export default function RequestWizard({
                     aria-expanded={showCommunitySelect}
                     aria-controls="community-scope-select"
                   >
-                    Post to: {communityId
+                    Share with: {communityId
                       ? (userCommunities.find((c) => c.id === communityId)?.name ?? 'selected community')
                       : 'All communities'
                     } ▾
@@ -415,7 +415,7 @@ export default function RequestWizard({
                 disabled={!isValid || creating}
                 onClick={handleSubmit}
               >
-                {creating ? 'Posting…' : 'Post Request'}
+                {creating ? 'Posting…' : 'Ask neighbours'}
               </button>
             </div>
           )}

@@ -102,7 +102,7 @@ describe('Sprint 80 — RequestWizard draft protection', () => {
     fireEvent.click(urgencyButton)
     expect(urgencyButton).toHaveAttribute('aria-pressed', 'true')
 
-    const scopeButton = screen.getByRole('button', { name: /Post to: All communities/i })
+    const scopeButton = screen.getByRole('button', { name: /Share with: All communities/i })
     expect(scopeButton).toHaveAttribute('aria-expanded', 'false')
     fireEvent.click(scopeButton)
     expect(scopeButton).toHaveAttribute('aria-expanded', 'true')

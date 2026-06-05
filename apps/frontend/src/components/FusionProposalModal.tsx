@@ -1,6 +1,13 @@
 import { useState } from 'react'
 import { communityService } from '@/lib/api'
 
+function cleanMergedCommunityName(name: string): string {
+  return name
+    .replace(/\s+[—-]\s+Group [AB](?:\s+[—-]\s+Group [AB])*/gi, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
 interface Props {
   communityId: string
   onSuccess: () => void
@@ -25,7 +32,7 @@ export default function FusionProposalModal({ communityId, onSuccess, onCancel }
     try {
       await communityService.createFusionProposal(communityId, {
         target_community_id: targetCommunityId.trim(),
-        merged_community_name: mergedCommunityName.trim(),
+        merged_community_name: cleanMergedCommunityName(mergedCommunityName),
         rationale: rationale.trim() || undefined,
       })
       onSuccess()

@@ -42,6 +42,14 @@ export default function BrowseTab({
   const [memberPickerSearch, setMemberPickerSearch] = useState('')
   const [memberPickerSelected, setMemberPickerSelected] = useState<Member | null>(null)
   const [memberPickerConfirm, setMemberPickerConfirm] = useState(false)
+  const hasRequestStats =
+    !!stats &&
+    ((stats.requests?.open_requests ?? 0) > 0 ||
+      (stats.requests?.matched_requests ?? 0) > 0 ||
+      (stats.requests?.total_requests ?? 0) > 0 ||
+      (stats.matches?.completed_matches ?? 0) > 0 ||
+      (stats.matches?.matches_completed_this_week ?? 0) > 0 ||
+      stats.matches?.avg_response_time_hours)
 
   // Close action dropdown on outside click
   useEffect(() => {
@@ -114,7 +122,7 @@ export default function BrowseTab({
                 </div>
               ))}
             </div>
-          ) : stats ? (
+          ) : hasRequestStats ? (
             <div className="grid md:grid-cols-3 gap-4 mb-2">
               <div className="bg-surface-raised rounded-lg p-4 border-l-4 border-primary">
                 <div className="text-sm text-text-muted mb-1">Open Requests</div>
@@ -138,20 +146,26 @@ export default function BrowseTab({
                 <div className="text-xs text-text-subtle mt-1">{stats.matches?.matches_completed_this_week || 0} this week</div>
               </div>
             </div>
+          ) : stats ? (
+            <div className="kq-card text-sm text-text-muted">
+              No request activity to summarize yet.
+            </div>
           ) : null}
         </div>
       )}
 
       {/* Member-facing community feed — the canonical unified feed + community texture (everyone).
           Sprint 86 / ADR-066: replaces BrowseTab's bespoke request cards. */}
-      <div>
-        <h3 className="text-xl font-semibold mb-4">Community Requests</h3>
+      <section className="kq-page-header">
+        <p className="kq-eyebrow">Community home</p>
+        <h3 className="kq-headline">Ways neighbours can help here</h3>
+        <p className="kq-lede">A calm queue of open asks, led by the relationships that make them feel close.</p>
         <UnifiedFeed
           view="community"
           communityId={communityId}
           communityType={community?.community_type === 'group' ? 'group' : 'mutual_aid'}
         />
-      </div>
+      </section>
 
       {/* Admin management list: all-status requests with triage/boost/propose controls. Kept here
           (not in the canonical feed) because the unified feed only serves open, fillable requests —
@@ -159,7 +173,7 @@ export default function BrowseTab({
       {isAdminOrMod && (
       <div>
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-xl font-semibold">Manage requests</h3>
+          <h3 className="text-xl font-semibold">Steward requests</h3>
           <div className="flex gap-2">
             {(['open', 'pending', 'matched', 'completed'] as const).map(s => (
               <button

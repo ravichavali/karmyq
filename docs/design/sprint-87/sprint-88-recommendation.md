@@ -24,10 +24,15 @@ open ask if they want to." The default is curated; the firehose is one deliberat
 gets the full ledger.
 
 **Implementation note for S88:** `getCuratedRequests({ view, minScore })` already accepts `minScore`. The
-"show more open" control re-requests with a lower (or no) `minScore`; the curated default stays `≥30`. Pair
-this with the carried-forward **home-feed impression-logging gap** (the `requests.feed_events` INSERT
-only fires on the legacy array path of `handleCuratedFeed`, not the `view=home`/`view=community` union
-path) — S88 must log impressions on both union views so curation has data.
+"show more open" control re-requests with explicit `minScore=0`; the curated default stays `≥30`, and
+omitting the param is not the show-more contract. S88 also fixes the backend parser so explicit `0` is
+honored instead of being coerced back to `30` by `parseInt(...) || 30`. Pair this with the
+carried-forward **home-feed impression-logging gap** (the `requests.feed_events` INSERT only fires on
+the legacy array path of `handleCuratedFeed`, not the `view=home`/`view=community` union path) — S88 must
+log impressions on both union views so curation has data.
+
+**Executed in S88:** the backend `minScore=0` fix also repairs the pre-existing frontend Show All slider
+that already sent `minScore: 0`.
 
 ## 2. Score-vs-relationship taxonomy applied to the RequestCard (Decision 3)
 
