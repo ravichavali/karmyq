@@ -163,7 +163,9 @@ rewrites land with their implementing sprints (88–90). Specifically this sprin
 - **Public docs freshness** — verify the unified-feed guide + ADR-066/067 concept pages are present in
   the landing docs nav and the build metadata isn't behind repo state.
 - **No new user guide** is required because no new user-facing *workflow* ships — the design rules and
-  scorecard are internal artifacts. (Sprint 88 ships the help-loop guide updates.)
+  scorecard are internal artifacts. (Sprint 88 ships the help-loop guide updates.) **This is a deliberate
+  exception to the "user guides every sprint" rule** and MUST be called out explicitly in the PR's Docs
+  section, not left implicit — a reviewer should see it was a conscious decision, not an oversight.
 
 ---
 

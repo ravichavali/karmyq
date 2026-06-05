@@ -80,11 +80,15 @@ HTML/CSS via the `frontend-design` skill. UX audit: Playwright MCP against demo.
 - [ ] Bump `package.json` version `10.10.0` → `10.11.0`
 - [ ] Fix `CLAUDE.md` version header `9.1.0` → `10.11.0`
 - [ ] Refresh version/update metadata in `README.md`, `docs/README.md`, `docs/ARCHITECTURE.md`; note in `ARCHITECTURE.md` that request-service is the feed source-of-truth (ADR-066) and feed-service is a consolidation candidate (S92)
-- [ ] **Verification** — grep shows no remaining pre-10.11 version strings in those files:
+- [ ] **Verification** — the version **header/metadata** fields read 10.11.0 (do NOT grep for bare `10.10.0` — it legitimately appears as Sprint 86 *history* in README/ARCHITECTURE changelogs; only the current-version header/badge must change):
 
 ```bash
-git grep -nE "9\.1\.0|10\.10\.0" -- CLAUDE.md README.md docs/README.md docs/ARCHITECTURE.md
+# CLAUDE.md header must no longer say 9.1.0; the metadata lines must say 10.11.0
+git grep -nE "^\*\*Version\*\*: 9\.1\.0" -- CLAUDE.md   # expect: no matches
+git grep -nE "10\.11\.0" -- CLAUDE.md README.md docs/README.md docs/ARCHITECTURE.md   # expect: header/metadata hits
 ```
+
+Manually confirm each remaining `10.10.0` is a dated history/changelog reference, not a current-version field.
 
 ## Task 2: Fix `apps/frontend/CONTEXT.md` BrowseFeed drift
 
@@ -120,11 +124,18 @@ cd apps/landing && npm run build
 
 **Files:**
 - Reference: simulation-service flows; demo DB
+- Create: `docs/design/sprint-87/data-prep-log.md` (the script/command log + rollback note)
+
+> ⚠️ **This task DELETES rows on the live demo DB. Treat it as a destructive data op with a rollback
+> boundary — not a casual reseed.** No deletion runs until the backup exists, the exact commands are
+> dry-run-previewed, and the maintainer approves the deletion set.
 
 - [ ] Confirm the latest "Deploy to Demo" GitHub Actions run succeeded and demo content matches master (deploy-drift watch)
-- [ ] Inventory stale/orphaned/test data on the demo DB (old sim runs, orphaned requests/matches). Document what's removed in `docs/design/sprint-87/ux-audit.md` "Data prep" section
-- [ ] Clean + reseed representative data via existing simulation-service flows so each audited surface has honest, non-noisy content
-- [ ] **Verification** — demo shows a coherent member experience (open requests, a community with members/activity, a profile with history). Capture the seed summary in the audit doc.
+- [ ] **Backup first:** `pg_dump` the demo DB to a timestamped dump before any deletion; record the dump path + restore command in `data-prep-log.md` (this is the rollback path)
+- [ ] **Dry-run inventory:** run the inventory as read-only `SELECT … COUNT(*)` first; list exactly which rows/tables would be deleted (old sim runs, orphaned requests/matches) in `data-prep-log.md`. **Do NOT delete yet.**
+- [ ] **Maintainer approval gate:** present the proposed deletion set + counts; get explicit approval before running any `DELETE`/truncate
+- [ ] Run the approved cleanup, logging **every exact command** (and row counts affected) to `data-prep-log.md`; then reseed representative data via existing simulation-service flows so each audited surface has honest, non-noisy content
+- [ ] **Verification** — demo shows a coherent member experience (open requests, a community with members/activity, a profile with history); `data-prep-log.md` contains backup path, dry-run inventory, approval note, exact commands, and the rollback/restore command. Capture the seed summary in the audit doc.
 
 ## Task 5: Product-polish scorecard
 
@@ -158,6 +169,7 @@ cd apps/landing && npm run build
 - Create: `docs/design/sprint-87/mockups/{index,dashboard-home,community-home,request-card,profile-trust,governance-fission-fusion}.html`
 
 - [ ] REQUIRED SUB-SKILL: use `frontend-design` to build standalone HTML/CSS mockups (no app wiring) for each surface, applying visual-research direction + the score-vs-relationship taxonomy (relationship reason leads; no `KarmaBadge`; de-emphasized %)
+- [ ] Add a `<!-- Status: PROPOSED — not approved direction -->` banner (visible in the rendered page header) to every mockup so a reader on master never mistakes a throwaway artifact for adopted design (flipped to APPROVED in Task 14 on verdict)
 - [ ] Request Card mockup explicitly shows the S88 target hierarchy (relationship/task/scope/action above score)
 - [ ] Profile/Trust mockup shows contribution history + living/fading trust + privacy posture (no "grow your score" nudge)
 - [ ] Governance/Fission-Fusion mockup uses canonical-feel tokens + staged consent cards + a community *picker* (not a UUID field)
@@ -214,11 +226,26 @@ npm audit --package-lock-only --audit-level=high
 - [ ] `npm run feedback:check` (docs complete)
 - [ ] **Verification** — all three green; TDD baseline unchanged (the pre-existing failures list in the handoff is the baseline — zero NEW failures)
 
-## Task 14: Merge + Deploy (quick wins)
+## Task 14: Direction review (PRE-merge gate) → Merge + Deploy (quick wins)
 
-> Quick wins deploy; design artifacts ride along in the same PR but change no production UI.
+> Quick wins deploy; design artifacts ride along in the same PR but change no production UI. Every
+> mockup/rules file carries a `> **Status: PROPOSED — not approved direction**` banner at the top so a
+> reader on master never mistakes a throwaway artifact for adopted design. The direction review happens
+> **before** merge so master never reflects an un-reviewed direction.
 
-- [ ] Use the `/deploy` skill: open PR with the cross-agent contract body (Summary / Validation / Docs / Quality gates / Security dismissals / Follow-ups / Lane); on maintainer authorization, merge to master
+- [ ] **PRE-merge direction review (gate 1):** present the mockup contact sheet + presentation rules +
+  scorecard to the maintainer. Capture the verdict in `docs/design/sprint-87/sprint-88-recommendation.md`:
+  **approved** (S88 proceeds from these), **revise** (iterate Tasks 8–9 before merge), or **deferred**
+  (artifacts merge as PROPOSED, S88 direction TBD). **Do not merge until this verdict is recorded.**
+- [ ] Mark every file under `docs/design/sprint-87/mockups/` + `presentation-rules.md` with the
+  `Status: PROPOSED`/`Status: APPROVED` banner matching the verdict
+- [ ] Open PR with the cross-agent contract body (Summary / Validation / Docs / Quality gates / Security
+  dismissals / Follow-ups / Lane). **The Docs section MUST call out the deliberate exception:** no new
+  user guide ships this sprint because no new user-facing *workflow* ships — only the landing
+  placeholder-stories quick win (see Task 3) and internal design artifacts. This is the intentional
+  divergence from the "user guides every sprint" rule; the help-loop guide updates land in S88.
+- [ ] On maintainer authorization, merge to master via the `/deploy` skill
 - [ ] Monitor "Deploy to Demo" GitHub Actions run to green
-- [ ] **Verification** — demo shows the corrected landing (no fabricated stories), version metadata consistent; per-service health green post-deploy
-- [ ] **Maintainer approval gate** — present the mockup contact sheet + presentation rules; **Sprint 88 implementation plan is written only after the maintainer approves the direction**
+- [ ] **Verification** — demo shows the corrected landing (no fabricated stories), version metadata
+  consistent; per-service health green post-deploy; the recorded direction verdict + PROPOSED/APPROVED
+  banners are committed. **The Sprint 88 implementation plan is written only after an `approved` verdict.**
