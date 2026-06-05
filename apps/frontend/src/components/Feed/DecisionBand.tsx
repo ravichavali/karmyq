@@ -102,16 +102,17 @@ export default function DecisionBand({ decisions, onResolved }: DecisionBandProp
                   aria-expanded={canExpand ? isExpanded : undefined}
                   className={`min-w-0 text-left flex-1 ${canExpand ? 'cursor-pointer' : 'cursor-default'}`}
                 >
-                  <p className="text-sm font-medium text-text truncate flex items-center gap-1">
+                  {/* spans (phrasing content) inside the <button> — block-level <p> would be invalid HTML */}
+                  <span className="block text-sm font-medium text-text truncate flex items-center gap-1">
                     {canExpand && (
                       <span className={`text-text-subtle transition-transform ${isExpanded ? 'rotate-90' : ''}`} aria-hidden>›</span>
                     )}
                     {decision.title}
-                  </p>
-                  <p className="text-xs text-text-muted truncate">
+                  </span>
+                  <span className="block text-xs text-text-muted truncate">
                     {relationLabel(decision)} {decision.counterparty_name}
                     {decision.community_name ? ` · ${decision.community_name}` : ''}
-                  </p>
+                  </span>
                 </button>
                 <div className="flex items-center gap-2 shrink-0">
                   {decision.actions.map((action) => (
