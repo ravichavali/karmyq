@@ -1,4 +1,4 @@
-# Sprint 87 — Product Truth & UX Reset — ✅ EXECUTED (artifacts PROPOSED, direction DEFERRED)
+# Sprint 87 — Product Truth & UX Reset — ✅ EXECUTED (direction APPROVED)
 
 > **▶ STATUS (2026-06-05):** Sprint 87 **executed** — all 14 plan tasks complete. Quick wins done
 > (version → **10.11.0**; `apps/frontend/CONTEXT.md` BrowseFeed→UnifiedFeed drift fixed; landing
@@ -8,20 +8,25 @@
 > member-login UX audit (10 screenshots), visual research, **5 high-fidelity HTML mockups + contact
 > sheet**, presentation rules, S88 recommendation.
 >
-> **▶ DIRECTION VERDICT = DEFERRED** (maintainer, 2026-06-05): artifacts merge as **PROPOSED** (banners
-> NOT flipped to APPROVED); the **Sprint 88 help-loop visual direction is officially TBD** — the S88
-> implementation plan is **NOT** written yet. The `minScore` decision + score-vs-relationship taxonomy
-> remain locked roadmap decisions; only the *visual direction* is deferred.
+> **▶ DIRECTION VERDICT = APPROVED** (maintainer, 2026-06-05): the warm-commons/calm direction in the
+> mockups + presentation rules is the **adopted basis for Sprint 88**. All mockup + `presentation-rules.md`
+> banners flipped **PROPOSED → APPROVED**. The S88 implementation plan is written from this **next**
+> (shared design-system shell + Dashboard Home first, per `sprint-88-recommendation.md` §3).
 >
-> **▶ MERGE STATE:** PR open (quick wins + design artifacts); **awaiting maintainer authorization to
-> merge** ("pull it in" — admin-merge authority). Gates green: `npm test` 27/27, landing build ✓,
-> `npm audit` 0 vulns, `feedback:check` ✓; no new TDD failures (zero production logic changed).
+> **▶ MERGE STATE:** PR **#69** open (quick wins + design artifacts + Codex-review fixes); **awaiting
+> maintainer "pull it in"** (admin-merge authority). Codex review applied pre-merge: ARCHITECTURE
+> source-of-truth fixes (SSE is authenticated; JWT field is **`communities`** not `communityMemberships`;
+> middleware example), handoff version state. Gates green: `npm test` 27/27, landing build ✓, `npm audit`
+> 0 vulns, `feedback:check` ✓; no new TDD failures (zero production logic changed). Codex flagged
+> Integration Tests still in-progress at review time — confirm green before merge.
 >
-> **▶ NEXT:** (1) maintainer authorizes merge → `/deploy`, monitor Deploy-to-Demo green. (2) A later
-> planning pass approves/revises/supersedes the deferred S87 direction **before** any S88 help-loop code.
-> Carry-forward bugs for whenever S88 runs: em-dash **mojibake** in community-name rendering; cumulative
-> **"— Group A — Group B"** fission names; **mobile FAB overlapping** the card CTA; empty community
-> **KPI tiles**; home-feed **impression-logging gap** on the `view=home`/`view=community` union path.
+> **▶ NEXT:** (1) maintainer authorizes merge → `/deploy`, monitor Deploy-to-Demo green. (2) **Write the
+> Sprint 88 plan** from the approved direction (`sprint-88-recommendation.md`): shared shell + Dashboard
+> Home; relationship-led card; KarmaBadge removal; match-% demote; `minScore≥30` curated + "show more
+> open"; impression logging on the `view=home`/`view=community` union path; finite "caught up" state.
+> Carry-forward bugs to fix in S88: em-dash **mojibake** in community-name rendering; cumulative
+> **"— Group A — Group B"** fission names; **mobile FAB overlapping** the card CTA; empty community **KPI
+> tiles**.
 >
 > _(superseded original status:)_ Sprint 86 shipped + bug-bashed clean (v10.10.0, PRs #60–#66). Sprint 87
 > was a **manifesto-first presentation reset** — design-research-first, NOT a code-execute sprint.
@@ -139,7 +144,7 @@ The open dependabot PRs predate `pr-contract.yml`; their stale branches have no 
 - **trust_edges_live is a VIEW**: never INSERT/UPDATE it — write `trust_edges`, read `trust_edges_live`
 - **`git add` on CLAUDE.md**: tracked as lowercase `claude.md`
 - **Solo dev — no worktrees**: work directly on feature branches
-- **Root package.json version**: **10.10.0** (Sprint 86 shipped). **Sprint 87 bumps it to 10.11.0.**
+- **Root package.json version**: **10.11.0** (Sprint 87 executed; bumped from 10.10.0). **Sprint 88 → 10.12.0.**
 - **CI security gates**: dependency audit (ADR-059, blocking `--audit-level=high`) + CodeQL code-scanning gate (ADR-060) run automatically on push
 - **`request_type` vs `category`**: `request_type` = 5-value `request_type_enum` (filter); `category` = fine
   payload subtype (`transportation` etc., what `RequestPayloadRenderer` switches on, what matching keys off).

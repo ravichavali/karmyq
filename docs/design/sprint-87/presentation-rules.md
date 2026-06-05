@@ -1,8 +1,8 @@
 # Karmyq Presentation Rules — "warm commons, calm behavior"
 
-> **Status: PROPOSED — not approved direction.** The design language extracted from the Sprint 87
-> mockups (`./mockups/`). This is the source Sprint 88 implementation builds from once the maintainer
-> approves the direction. Every category below carries at least one concrete, buildable rule.
+> **Status: APPROVED (2026-06-05) — basis for Sprint 88.** The design language extracted from the
+> Sprint 87 mockups (`./mockups/`), approved by the maintainer as the direction the Sprint 88
+> implementation builds from. Every category below carries at least one concrete, buildable rule.
 
 **The one-line test for any screen:** *Would this feel at home in a well-run neighbourhood library or a
 thoughtful newsletter?* If it feels like a SaaS dashboard or an engagement feed, it's wrong.

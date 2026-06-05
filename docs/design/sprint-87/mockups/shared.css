@@ -1,6 +1,6 @@
 /* ============================================================================
    Karmyq — Sprint 87 mockups — shared design system
-   STATUS: PROPOSED — not approved direction (throwaway; not wired to apps/frontend)
+   STATUS: APPROVED — approved direction (2026-06-05) (throwaway; not wired to apps/frontend)
    Aesthetic: "warm commons, calm behavior" — neighbourhood library / thoughtful newsletter.
    Tokens mirror the live Karmyq theme (apps/frontend globals.css / apps/landing tailwind).
    ============================================================================ */
@@ -58,7 +58,7 @@ body {
   background-attachment: fixed;
 }
 
-/* ---- PROPOSED ribbon (every mockup carries this) ---- */
+/* ---- status ribbon (every mockup carries this; APPROVED 2026-06-05) ---- */
 .proposed-banner {
   background: repeating-linear-gradient(45deg, var(--orange-50), var(--orange-50) 12px, #fff4e8 12px, #fff4e8 24px);
   border-bottom: 1px solid var(--brown-200);

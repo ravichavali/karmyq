@@ -1,9 +1,9 @@
 # Sprint 88 Recommendation — from the Product Truth & UX Reset
 
-> **Status: PROPOSED — not approved direction.** Records the decisions and the explicit S88
+> **Status: APPROVED (2026-06-05) — basis for Sprint 88.** Records the decisions and the explicit S88
 > first-implementation target derived from the Sprint 87 audit + mockups + presentation rules. The
-> maintainer's direction verdict is recorded at the bottom (Task 14 gate); the S88 implementation plan is
-> written only after an **approved** verdict.
+> maintainer **approved** this direction (verdict at the bottom); the Sprint 88 implementation plan is
+> written from it next.
 
 ---
 
@@ -85,15 +85,15 @@ re-skins **Dashboard Home** on top of it in the same sprint.
 > The PRE-merge direction review presents the mockup contact sheet (`mockups/index.html`) +
 > `presentation-rules.md` + `scorecard.md` to the maintainer. Record the verdict here before merge.
 
-- **Verdict:** **DEFERRED** (2026-06-05, maintainer)
-- **Decision:** ☐ Approved · ☐ Revise · ☑ **Deferred** — artifacts merge as **PROPOSED**; the Sprint 88
-  help-loop direction is officially **TBD**. The audit, scorecard, visual research, mockups, presentation
-  rules, and this recommendation land on master as a reviewed *proposal*, not an adopted direction.
-- **Notes:** No APPROVED banner flip — every mockup + `presentation-rules.md` keeps its `Status: PROPOSED`
-  banner. **The Sprint 88 implementation plan is NOT written from this yet**; S88 scope/direction is
-  revisited in a later planning pass. The `minScore` decision (§1) and the score-vs-relationship taxonomy
-  (§2) remain the locked roadmap decisions regardless; only the *visual direction* is deferred.
+- **Verdict:** **APPROVED** (2026-06-05, maintainer)
+- **Decision:** ☑ **Approved** — the warm-commons/calm direction in the mockups + presentation rules is
+  the adopted basis for Sprint 88. · ☐ Revise · ☐ Deferred.
+- **Notes:** Maintainer reviewed the mockups and approved ("they are good. I approve"). Every mockup +
+  `presentation-rules.md` banner flipped **PROPOSED → APPROVED (2026-06-05)**. The `minScore` decision
+  (§1), the score-vs-relationship taxonomy (§2), and the shell-first recommendation (§3) are the locked
+  basis the **Sprint 88 implementation plan is written from next**. Codex PR review applied pre-merge
+  (ARCHITECTURE source-of-truth fixes: SSE-auth + `communities` JWT field; handoff version state).
 - **Recorded by / date:** Maintainer (via Claude), 2026-06-05.
 
-_Because the verdict is **Deferred**, the PROPOSED banners stay as-is; nothing flips to APPROVED. A future
-sprint either approves, revises, or supersedes this direction before any S88 help-loop code is written._
+_Verdict **Approved** → banners flipped to APPROVED; the Sprint 88 implementation plan is written from
+this direction in the next planning pass (shared shell + Dashboard Home first, per §3)._
