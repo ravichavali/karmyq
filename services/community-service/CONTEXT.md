@@ -1472,6 +1472,17 @@ src/
 
 ## Recent Changes
 
+### Sprint 86 follow-up (2026-06-05) — Split carries trust + karma forward
+- **FIXED (`executeSplit`)**: a split moved members to child communities but left their trust edges
+  (`social_graph.trust_edges`) and karma (`reputation.karma_records`) under the parent `community_id`,
+  so each child started at 0 — connections "vanished" even though the split clusters on strong bonds.
+  `executeSplit` now copies, per child: **within-group trust edges at full weight** (both endpoints in
+  the same child; cross-group trust still flows via the `split_origin` link at 0.40) and the group's
+  **karma records**. (`src/services/fissionService.ts`)
+- **Data repair**: `infrastructure/postgres/migrations/20260605-split-carry-trust-karma-backfill.sql`
+  backfills already-split communities — within-group parent edges → child (ON CONFLICT DO NOTHING),
+  and group karma → child (guarded to children with no karma yet, so re-runs never duplicate the ledger).
+
 ### Sprint 86 follow-up (2026-06-05) — Fusion member-count fix
 - **FIXED (`executeFusion`)**: the merged community was created with `current_members` left at the table default (0) and the count was **never recomputed** after migrating members — so a merged community rendered "0 members" in the header while the member list showed everyone (the same class of bug Sprint 78 fixed for `executeSplit`, but the fix had never been applied to the fusion path). `executeFusion` now upserts the executing admin as an active `admin` and recomputes `current_members` from actual active membership. (`src/services/fusionService.ts`)
 - **Data repair**: `infrastructure/postgres/migrations/20260605-fusion-member-count-backfill.sql` recomputes `current_members` from actual active rows for already-drifted communities (past fusions, pre-fix splits, or ordinary join/leave counter drift). Idempotent.

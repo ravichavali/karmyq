@@ -196,12 +196,18 @@ export async function executeSplit(
       );
     }
 
-    // 6b. Ensure both children have an admin (the executing admin) and a correct
-    //     member count. executeSplit previously left children with current_members
-    //     at the table default (0) and no admin row — so they rendered empty and
-    //     un-administrable. Promote the executing admin in both children and
-    //     recompute current_members from the actual active membership.
-    for (const childId of [childAId, childBId]) {
+    // The members assigned to each child — used to carry their existing bonds + karma forward.
+    const groupA = finalAssignments.rows.filter((r: any) => r.assigned_to === 'group_a').map((r: any) => r.user_id);
+    const groupB = finalAssignments.rows.filter((r: any) => r.assigned_to === 'group_b').map((r: any) => r.user_id);
+
+    // 6b. Finalize each child: promote the executing admin, recompute current_members, and CARRY the
+    //     members' existing relationships forward. executeSplit previously moved members but left their
+    //     trust edges + karma under the (now 'split') parent community_id, so each child started at 0 —
+    //     defeating the whole point of clustering on strong bonds. We now copy, per child:
+    //       • within-group trust edges at FULL strength (the relationship is intact; the split just
+    //         relabels the container). Cross-group trust still flows via the split_origin link (0.40).
+    //       • karma records, so reputation doesn't reset on a split.
+    for (const [childId, group] of [[childAId, groupA], [childBId, groupB]] as const) {
       await client.query(
         `INSERT INTO communities.members (community_id, user_id, role, status)
          VALUES ($1, $2, 'admin', 'active')
@@ -218,6 +224,29 @@ export async function executeSplit(
          WHERE c.id = $1`,
         [childId]
       );
+
+      if (group.length > 0) {
+        // Within-group trust edges → child, full weight (both endpoints stayed together).
+        await client.query(
+          `INSERT INTO social_graph.trust_edges
+             (user_id_a, user_id_b, community_id, match_completed_count, endorsement_count,
+              karma_given_count, event_count, raw_weight, stability, last_interaction_at)
+           SELECT user_id_a, user_id_b, $1, match_completed_count, endorsement_count,
+                  karma_given_count, event_count, raw_weight, stability, last_interaction_at
+           FROM social_graph.trust_edges
+           WHERE community_id = $2 AND user_id_a = ANY($3::uuid[]) AND user_id_b = ANY($3::uuid[])
+           ON CONFLICT (user_id_a, user_id_b, community_id) DO NOTHING`,
+          [childId, communityId, group]
+        );
+        // Karma records → child, so members don't restart at 0.
+        await client.query(
+          `INSERT INTO reputation.karma_records (user_id, community_id, points, reason, related_entity_id, created_at)
+           SELECT user_id, $1, points, reason, related_entity_id, created_at
+           FROM reputation.karma_records
+           WHERE community_id = $2 AND user_id = ANY($3::uuid[])`,
+          [childId, communityId, group]
+        );
+      }
     }
 
     // 7. Create split_origin community link between siblings

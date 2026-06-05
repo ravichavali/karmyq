@@ -66,6 +66,37 @@ describe('Sprint 78 — executeSplit child finalization', () => {
     expect(recomputes.map((c) => c.params[0]).sort()).toEqual([CHILD_A, CHILD_B].sort());
   });
 
+  it('carries each group\'s within-group trust edges + karma into its child (S86)', async () => {
+    const calls: Array<{ sql: string; params: any[] }> = [];
+    const pool = makeMockPool(calls); // assignments: u1→group_a (childA), u2→group_b (childB)
+
+    await executeSplit(PROPOSAL_ID, ADMIN_ID, pool);
+
+    // One trust-edge carry per child, copying FROM the parent community INTO the child, scoped to the
+    // child's member group (full weight — no carry factor applied to within-group edges).
+    const trustCarries = calls.filter(
+      (c) => /INSERT INTO social_graph\.trust_edges/i.test(c.sql) && /FROM social_graph\.trust_edges/i.test(c.sql)
+    );
+    expect(trustCarries).toHaveLength(2);
+    expect(trustCarries.map((c) => c.params[0]).sort()).toEqual([CHILD_A, CHILD_B].sort());
+    trustCarries.forEach((c) => expect(c.params[1]).toBe(COMMUNITY_ID)); // copied FROM the parent
+    // must carry `stability` (Sprint 68 half-life) — omitting it resets stable bonds to the 1.0 default
+    trustCarries.forEach((c) => expect(c.sql).toMatch(/stability/));
+    // each child scoped to exactly its assigned group
+    const childAGroup = trustCarries.find((c) => c.params[0] === CHILD_A)!.params[2];
+    const childBGroup = trustCarries.find((c) => c.params[0] === CHILD_B)!.params[2];
+    expect(childAGroup).toEqual(['u1']);
+    expect(childBGroup).toEqual(['u2']);
+
+    // One karma carry per child, parent → child, same group scoping.
+    const karmaCarries = calls.filter(
+      (c) => /INSERT INTO reputation\.karma_records/i.test(c.sql) && /FROM reputation\.karma_records/i.test(c.sql)
+    );
+    expect(karmaCarries).toHaveLength(2);
+    expect(karmaCarries.map((c) => c.params[0]).sort()).toEqual([CHILD_A, CHILD_B].sort());
+    karmaCarries.forEach((c) => expect(c.params[1]).toBe(COMMUNITY_ID));
+  });
+
   it('refuses to execute a proposal that is not approved', async () => {
     const calls: Array<{ sql: string; params: any[] }> = [];
     const pool = makeMockPool(calls, 'voting');
