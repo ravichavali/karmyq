@@ -53,6 +53,27 @@ export async function executeFusion(proposalId: string, adminId: string, pool: P
       );
     }
 
+    // 5b. Ensure the executing admin administers the merged community, and set the denormalized
+    //     current_members to match the actual active membership. Without the recompute the merged
+    //     community is created with current_members at the table default (0) — so the header shows
+    //     "0 members" while the member list shows everyone (mirror of executeSplit, fissionService).
+    await client.query(
+      `INSERT INTO communities.members (community_id, user_id, role, status)
+       VALUES ($1, $2, 'admin', 'active')
+       ON CONFLICT (community_id, user_id)
+       DO UPDATE SET role = 'admin', status = 'active'`,
+      [mergedId, adminId]
+    );
+    await client.query(
+      `UPDATE communities.communities c
+       SET current_members = (
+         SELECT count(*) FROM communities.members m
+         WHERE m.community_id = c.id AND m.status = 'active'
+       )
+       WHERE c.id = $1`,
+      [mergedId]
+    );
+
     // 6. Copy trust edges (with carry factor, maintaining normalization constraint)
     const edgesRes = await client.query(
       `SELECT user_id_a, user_id_b, raw_weight

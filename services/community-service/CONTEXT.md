@@ -1472,6 +1472,10 @@ src/
 
 ## Recent Changes
 
+### Sprint 86 follow-up (2026-06-05) — Fusion member-count fix
+- **FIXED (`executeFusion`)**: the merged community was created with `current_members` left at the table default (0) and the count was **never recomputed** after migrating members — so a merged community rendered "0 members" in the header while the member list showed everyone (the same class of bug Sprint 78 fixed for `executeSplit`, but the fix had never been applied to the fusion path). `executeFusion` now upserts the executing admin as an active `admin` and recomputes `current_members` from actual active membership. (`src/services/fusionService.ts`)
+- **Data repair**: `infrastructure/postgres/migrations/20260605-fusion-member-count-backfill.sql` recomputes `current_members` from actual active rows for already-drifted communities (past fusions, pre-fix splits, or ordinary join/leave counter drift). Idempotent.
+
 ### Sprint 78 (2026-05-31) — Autonomous fission fixes (ADR-057)
 - **FIXED (`executeSplit`)**: child communities were created with `current_members` left at the table default (0) and **no admin member** (only `creator_id` was set) — so they rendered empty and un-administrable. `executeSplit` now upserts the executing admin as an active `admin` in BOTH children and recomputes `current_members` from actual membership. (`src/services/fissionService.ts`)
 - Enables autonomous fission: the simulation votes split proposals to `approved` (auto-approve at quorum in the vote route), then a sim admin executes them. Used to split the post-dedup over-cap communities (>150) back under Dunbar's number.
