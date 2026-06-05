@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { requestService } from '@/lib/api'
 import FilterChipRow, { RequestTypeFilter, UrgencyFilter } from '@/components/FilterChipRow'
 import EmptyState from '@/components/EmptyState'
@@ -67,8 +67,14 @@ export default function UnifiedFeed({
     onBrowseModeChange?.(mode)
   }
 
+  // Monotonic request id: only the LATEST fetch may apply its result. Guards against an out-of-order
+  // background reconcile (fetchFeed(false) after a decision action) landing after a newer fetch — a
+  // fast Accept-then-navigate could otherwise let a stale Home response overwrite the current view.
+  const fetchSeq = useRef(0)
+
   const fetchFeed = (showLoading = true) => {
-    let cancelled = false
+    const seq = ++fetchSeq.current
+    const isStale = () => seq !== fetchSeq.current
     if (showLoading) {
       setLoading(true)
       setError(false)
@@ -82,20 +88,16 @@ export default function UnifiedFeed({
         limit: 50,
       })
       .then((res) => {
-        if (cancelled) return
+        if (isStale()) return
         // createApiClient unwraps the envelope → res.data is { items, count }.
         setItems((res.data?.items as UnifiedFeedItem[]) ?? [])
       })
       .catch(() => {
-        if (!cancelled && showLoading) setError(true)
+        if (!isStale() && showLoading) setError(true)
       })
       .finally(() => {
-        if (!cancelled && showLoading) setLoading(false)
+        if (!isStale() && showLoading) setLoading(false)
       })
-
-    return () => {
-      cancelled = true
-    }
   }
 
   useEffect(() => fetchFeed(true), [communityId, view])

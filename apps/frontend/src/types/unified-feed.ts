@@ -11,7 +11,7 @@
  */
 
 import type { CommunityActivityData, OpenRequestData, StoryData } from './feed-items'
-import type { RequestType } from './request-payloads'
+import type { RequestType, RequestPayload } from './request-payloads'
 
 // ── Urgency: one scale (urgent is the top tier; 'critical'/'normal' retired in S85) ──
 export const URGENCY_LEVELS = ['urgent', 'high', 'medium', 'low'] as const
@@ -118,6 +118,10 @@ export interface DecisionData {
   match_score?: number | null
   match_reason?: string
   created_at?: string
+  // S86 — request context for the decision band's inline expand (description + payload detail).
+  description?: string
+  payload?: RequestPayload
+  payload_type?: PayloadType
 }
 
 /** Texture layer (S86, Community Feed view) — re-uses the existing community-activity shape. */

@@ -73,15 +73,28 @@ describe('fetchDecisions — provider offers are owed by the request owner', () 
 describe('fetchDecisions — match role mapping', () => {
   const match = (over: any) => ({ id: 'm1', request_id: 'r', requester_id: 'x', responder_id: 'y', status: 'proposed', requester_done_at: null, responder_done_at: null, title: 'T', requester_name: 'Req', responder_name: 'Resp', community_name: 'C', ...over });
 
-  it('a proposed match: requester accepts/declines, responder withdraws', async () => {
+  it('a proposed match: the requester accepts/declines; the responder owes nothing here (S86)', async () => {
     seq([match({ requester_id: USER })], [], []);
     let items = await fetchDecisions(noReq, USER);
     expect(items[0].data).toMatchObject({ member_role: 'requester', actions: ['accept_offer', 'decline_offer'], counterparty_name: 'Resp' });
 
+    // S86 UX: the responder's own proposed offer is awaiting the requester — it's not a decision they
+    // owe (it lives in the Helping tab with a Withdraw action), so the band shows no row for it.
     mockQuery.mockReset();
     seq([match({ responder_id: USER })], [], []);
     items = await fetchDecisions(noReq, USER);
-    expect(items[0].data).toMatchObject({ member_role: 'responder', actions: ['withdraw_offer'], counterparty_name: 'Req' });
+    expect(items).toHaveLength(0);
+  });
+
+  it('enriches each decision with request context for the inline expand (description + payload_type)', async () => {
+    // category='moving' → payload_type 'moving_help' (ADR-067 map); description passes through.
+    seq([match({ requester_id: USER, description: 'Need a hand Saturday', payload: { num_helpers_needed: 2 }, category: 'moving' })], [], []);
+    const items = await fetchDecisions(noReq, USER);
+    expect(items[0].data).toMatchObject({
+      description: 'Need a hand Saturday',
+      payload_type: 'moving_help',
+      payload: { num_helpers_needed: 2 },
+    });
   });
 
   it('a matched exchange owes mark-done only until this member has confirmed', async () => {

@@ -42,6 +42,10 @@ export interface DecisionData {
   match_score?: number | null;
   match_reason?: string;
   created_at?: string;
+  // S86 — request context for the decision band's inline expand (description + payload detail).
+  description?: string;
+  payload?: unknown;
+  payload_type?: string;
 }
 
 // ── Priority bands ──
