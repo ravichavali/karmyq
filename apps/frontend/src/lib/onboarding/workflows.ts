@@ -32,7 +32,7 @@ export const WORKFLOWS: Record<string, WorkflowDef> = {
       },
       {
         title: 'The same feed inside a community',
-        body: "A community's Requests tab shows the very same cards, scoped to that community. There's no \"needs your response\" band there (decisions are personal), but you'll see community texture below the requests — a this-week activity summary and the occasional story of a neighbour's first exchange.",
+        body: "A community's Home tab shows the very same cards, scoped to that community. There's no \"needs your response\" band there (decisions are personal). Above the asks, the warm hero carries a \"this week in the neighbourhood\" pulse, and the occasional story of a neighbour's first exchange appears below.",
       },
     ],
   },
@@ -51,6 +51,10 @@ export const WORKFLOWS: Record<string, WorkflowDef> = {
       {
         title: 'Joining and creating',
         body: 'Join a public community instantly, or request access to a private one. You can also create your own and invite people you trust.',
+      },
+      {
+        title: 'Finding your way around',
+        body: "A community opens on warm Home — its hero, the weekly pulse, and the open asks. People shows who's here and the trust between you; How we're connected is the trust graph; Stewardship is where shared decisions, splits, merges, and (for admins) the management tools live.",
       },
     ],
   },

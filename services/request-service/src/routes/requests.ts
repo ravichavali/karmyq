@@ -971,6 +971,71 @@ async function respondHomeFeed(req: Request, res: Response, userId: string, scor
   sendSuccess(res, { items, count: items.length }, HTTP_STATUS.OK, { requestId: (req as any).id });
 }
 
+/** The community's weekly help-loop pulse (wire shape for GET /community/:id/pulse). */
+interface CommunityPulse {
+  communityName: string;
+  helpedThisWeek: number;
+  openAsks: number;
+  timeSensitive: number;
+  recentJoins: number;
+  recentHelpers: { name: string; count: number }[];
+}
+
+/**
+ * Sprint 86 / Sprint 89 (ADR-068) — the community's weekly help-loop pulse. SINGLE source of truth
+ * for both the in-feed community-texture `ActivityCard` (`respondCommunityFeed`) and the hero-level
+ * `GET /community/:id/pulse` endpoint, so the two numbers can never diverge. Read-only; all facts
+ * derive from existing tables. `openAsks`/`timeSensitive` count only `status='open' AND expired=FALSE`
+ * (so the pulse never overcounts vs the feed). Returns null when the community is unknown.
+ */
+async function fetchCommunityPulse(communityId: string): Promise<CommunityPulse | null> {
+  const activityResult = await query(
+    `SELECT
+       c.name AS community_name,
+       (SELECT COUNT(*) FROM requests.matches m
+          JOIN requests.request_communities rc ON m.request_id = rc.request_id
+          WHERE rc.community_id = $1 AND m.status = 'completed'
+            AND m.completed_at >= NOW() - INTERVAL '7 days') AS exchanges_completed_week,
+       (SELECT COUNT(*) FROM communities.members mem
+          WHERE mem.community_id = $1 AND mem.status = 'active'
+            AND mem.joined_at >= NOW() - INTERVAL '7 days') AS new_members_count,
+       (SELECT COUNT(*) FROM requests.help_requests hr
+          JOIN requests.request_communities rc ON hr.id = rc.request_id
+          WHERE rc.community_id = $1 AND hr.status = 'open' AND hr.expired = FALSE) AS open_requests_count,
+       (SELECT COUNT(*) FROM requests.help_requests hr
+          JOIN requests.request_communities rc ON hr.id = rc.request_id
+          WHERE rc.community_id = $1 AND hr.status = 'open' AND hr.expired = FALSE
+            AND hr.urgency IN ('urgent','high')) AS time_sensitive
+     FROM communities.communities c
+     WHERE c.id = $1`,
+    [communityId]
+  );
+  const row = activityResult.rows[0];
+  if (!row) return null;
+
+  const helpersResult = await query(
+    `SELECT u.name, COUNT(*)::int AS help_count
+       FROM requests.matches m
+       JOIN requests.request_communities rc ON m.request_id = rc.request_id
+       JOIN auth.users u ON m.responder_id = u.id
+       WHERE rc.community_id = $1 AND m.status = 'completed'
+         AND m.completed_at >= NOW() - INTERVAL '7 days'
+       GROUP BY u.name
+       ORDER BY help_count DESC
+       LIMIT 3`,
+    [communityId]
+  );
+
+  return {
+    communityName: row.community_name || '',
+    helpedThisWeek: Number(row.exchanges_completed_week) || 0,
+    openAsks: Number(row.open_requests_count) || 0,
+    timeSensitive: Number(row.time_sensitive) || 0,
+    recentJoins: Number(row.new_members_count) || 0,
+    recentHelpers: helpersResult.rows.map((h: any) => ({ name: h.name, count: Number(h.help_count) })),
+  };
+}
+
 /**
  * Sprint 86 / ADR-066 — assemble + send the Community Feed unified feed ({ items }): the requests
  * the member can fill in this community, then the community texture (one activity summary, then
@@ -1007,46 +1072,20 @@ async function respondCommunityFeed(
   const textureItems: UnifiedFeedItem[] = [];
 
   try {
-    const activityResult = await query(
-      `SELECT
-         c.name AS community_name,
-         (SELECT COUNT(*) FROM requests.matches m
-            JOIN requests.request_communities rc ON m.request_id = rc.request_id
-            WHERE rc.community_id = $1 AND m.status = 'completed'
-              AND m.completed_at >= NOW() - INTERVAL '7 days') AS exchanges_completed_week,
-         (SELECT COUNT(*) FROM communities.members mem
-            WHERE mem.community_id = $1 AND mem.status = 'active'
-              AND mem.joined_at >= NOW() - INTERVAL '7 days') AS new_members_count,
-         (SELECT COUNT(*) FROM requests.help_requests hr
-            JOIN requests.request_communities rc ON hr.id = rc.request_id
-            WHERE rc.community_id = $1 AND hr.status = 'open' AND hr.expired = FALSE) AS open_requests_count
-       FROM communities.communities c
-       WHERE c.id = $1`,
-      [communityId]
-    );
-    const row = activityResult.rows[0];
-    if (row) {
-      const helpersResult = await query(
-        `SELECT u.name, COUNT(*)::int AS help_count
-           FROM requests.matches m
-           JOIN requests.request_communities rc ON m.request_id = rc.request_id
-           JOIN auth.users u ON m.responder_id = u.id
-           WHERE rc.community_id = $1 AND m.status = 'completed'
-             AND m.completed_at >= NOW() - INTERVAL '7 days'
-           GROUP BY u.name
-           ORDER BY help_count DESC
-           LIMIT 3`,
-        [communityId]
-      );
-      const recentHelpers = helpersResult.rows.map((h: any) => ({ name: h.name, help_count: Number(h.help_count) }));
+    // Reuse the single pulse aggregation so the in-feed ActivityCard and the /pulse endpoint
+    // (Sprint 89 / ADR-068) report identical weekly numbers.
+    const pulse = await fetchCommunityPulse(communityId);
+    if (pulse) {
       textureItems.push(
         buildActivityItem({
           community_id: communityId,
-          community_name: row.community_name || '',
-          exchanges_completed_week: Number(row.exchanges_completed_week) || 0,
-          new_members_count: Number(row.new_members_count) || 0,
-          open_requests_count: Number(row.open_requests_count) || 0,
-          ...(recentHelpers.length > 0 ? { recent_helpers: recentHelpers } : {}),
+          community_name: pulse.communityName,
+          exchanges_completed_week: pulse.helpedThisWeek,
+          new_members_count: pulse.recentJoins,
+          open_requests_count: pulse.openAsks,
+          ...(pulse.recentHelpers.length > 0
+            ? { recent_helpers: pulse.recentHelpers.map((h) => ({ name: h.name, help_count: h.count })) }
+            : {}),
         })
       );
     }
@@ -1093,6 +1132,47 @@ async function respondCommunityFeed(
 }
 
 router.get('/curated', handleCuratedFeed);
+
+/**
+ * Sprint 89 / ADR-068 — GET /requests/community/:communityId/pulse
+ * The community's weekly help-loop pulse for the warm community Home hero. Members-only: gated on
+ * the JWT `communities` claim (NOT `communityMemberships`, which is always undefined → always 403).
+ * Reuses the single S86 texture aggregation, so the hero pulse and the in-feed ActivityCard agree.
+ */
+router.get('/community/:communityId/pulse', async (req: Request, res: Response) => {
+  const meta = { requestId: (req as any).id };
+  const { communityId } = req.params;
+
+  const memberships = (req as any).user?.communities ?? [];
+  if (!memberships.some((c: any) => c.id === communityId)) {
+    sendError(res, 'NOT_A_MEMBER', 'You must be a member of this community to view its pulse', HTTP_STATUS.FORBIDDEN, undefined, meta);
+    return;
+  }
+
+  try {
+    const pulse = await fetchCommunityPulse(communityId);
+    if (!pulse) {
+      sendNotFound(res, 'Community', meta);
+      return;
+    }
+    sendSuccess(
+      res,
+      {
+        helpedThisWeek: pulse.helpedThisWeek,
+        openAsks: pulse.openAsks,
+        timeSensitive: pulse.timeSensitive,
+        recentJoins: pulse.recentJoins,
+        recentHelpers: pulse.recentHelpers,
+        windowDays: 7,
+      },
+      HTTP_STATUS.OK,
+      meta
+    );
+  } catch (e: any) {
+    (req as any).logger?.error('community pulse failed', e instanceof Error ? e : new Error(String(e)), { service: 'request-service', step: 'community-pulse' });
+    sendInternalError(res, 'Failed to load community pulse', e instanceof Error ? e : undefined, meta);
+  }
+});
 
 // GET /requests/:id - Get specific request
 router.get('/:id', async (req: Request, res: Response) => {

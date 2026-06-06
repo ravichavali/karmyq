@@ -493,6 +493,11 @@ export const requestService = {
   getCuratedRequests: (params?: { minScore?: number; limit?: number; community_id?: string; trust_distance?: string; request_type?: string; view?: 'home' | 'community' }) =>
     requestApi.get('/requests/curated', { params }),
 
+  // Sprint 89 / ADR-068: the community's weekly help-loop pulse for the warm Home hero.
+  // Members-only (server gates on JWT communities). Envelope already unwrapped → read res.data.
+  getCommunityPulse: (communityId: string) =>
+    requestApi.get(`/requests/community/${communityId}/pulse`),
+
   getRequest: (id: string) =>
     requestApi.get(`/requests/${id}`),
 

@@ -1,10 +1,22 @@
-# Sprint 89 — Community Sovereignty Redesign — READY TO EXECUTE
+# Sprint 89 — Community Sovereignty Redesign — IMPLEMENTED, IN REVIEW
 
-> **▶ STATUS (2026-06-06):** Sprint 89 is **planned and ready to execute**. Spec + implementation
-> plan written; this is the next sprint after Sprint 88 (shipped v10.12.0). Version target
-> **10.12.0 → 10.13.0**.
+> **▶ STATUS (2026-06-06):** Sprint 89 is **implemented on `feature/sprint-89-community-sovereignty-redesign`
+> and awaiting maintainer merge authorization** (PR open). Version bumped **10.12.0 → 10.13.0**. All 12
+> plan tasks executed: pulse endpoint (reuses the S86 texture aggregation via shared `fetchCommunityPulse`
+> + new `timeSensitive`, members-only gate), warm four-tab page (`Home · People · How we're connected ·
+> Stewardship` + group-only Activities), warm Home default for **all roles** (headline bug fixed),
+> `CommunityHero` + `CommunityPulse`, `BrowseTab` split → `StewardRequestsAdmin` under `StewardshipTab`,
+> centralized `lib/communityTabs.ts` deep-link resolver, `UnifiedFeed.suppressActivity` de-dup, ADR-068 +
+> landing docs + onboarding + CONTEXT/registry. Gates green: `npm test` (27 tasks), tsc (request-service +
+> frontend), landing build, `npm audit` (0 high), feedback:check + analyze:services. New TDD: frontend IA
+> suite (9 pass); backend pulse suite (DB-gated → runs in CI integration). 5 pre-existing frontend TDD
+> failures unchanged (trust-model / useTrustQuestions / sprint-38/39/40 — proven via stash).
 >
-> **▶ SCOPE (locked with maintainer, 2026-06-06):** Bring the whole `/communities/[id]` page up to
+> **▶ NEXT (post-merge):** Verify CI/CD + CodeQL green (dismiss the recurring `api.ts` js/request-forgery
+> FP), member-login UI check on demo (land on warm Home, click the four tabs, old `?tab=overview` deep link
+> resolves), then set **Sprint 90 — Trust, forgetting, profile polish** (visible decay; "designed to forget").
+>
+> **▶ ORIGINAL SCOPE (locked with maintainer, 2026-06-06):** Bring the whole `/communities/[id]` page up to
 > the approved `community-home.html` mockup. Three decisions locked:
 > 1. **Full consolidation to four warm tabs** — Home · People · How we're connected · Stewardship
 >    (admin Settings/Providers fold under Stewardship; Activities stays a group-only 5th tab).

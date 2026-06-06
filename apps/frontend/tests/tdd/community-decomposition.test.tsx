@@ -97,16 +97,18 @@ const mockCommunity = {
   community_type: 'mutual_aid',
 }
 
-describe('CommunityHeader', () => {
-  let CommunityHeader: React.ComponentType<any>
+// Sprint 89 / ADR-068: CommunityHeader was retired in favour of the warm CommunityHero, which
+// embeds the same join-CTA logic. These assertions follow that behaviour onto the hero.
+describe('CommunityHero', () => {
+  let CommunityHero: React.ComponentType<any>
 
   beforeAll(async () => {
-    CommunityHeader = (await import('@/components/community/CommunityHeader')).default
+    CommunityHero = (await import('@/components/community/CommunityHero')).default
   })
 
-  it('renders community name and description', () => {
+  it('renders community name and mission', () => {
     render(
-      <CommunityHeader
+      <CommunityHero
         community={mockCommunity}
         isMember={false}
         isPending={false}
@@ -116,12 +118,12 @@ describe('CommunityHeader', () => {
       />
     )
     expect(screen.getByText('Test Community')).toBeInTheDocument()
-    expect(screen.getByText('A test community')).toBeInTheDocument()
+    expect(screen.getByText(/A test community/)).toBeInTheDocument()
   })
 
   it('shows join button for non-members', () => {
     render(
-      <CommunityHeader
+      <CommunityHero
         community={mockCommunity}
         isMember={false}
         isPending={false}
@@ -135,7 +137,7 @@ describe('CommunityHeader', () => {
 
   it('shows pending badge when join request is pending', () => {
     render(
-      <CommunityHeader
+      <CommunityHero
         community={mockCommunity}
         isMember={false}
         isPending={true}
@@ -149,7 +151,7 @@ describe('CommunityHeader', () => {
 
   it('hides join button for active members', () => {
     render(
-      <CommunityHeader
+      <CommunityHero
         community={mockCommunity}
         isMember={true}
         isPending={false}
@@ -163,7 +165,7 @@ describe('CommunityHeader', () => {
 
   it('shows Schema Manager link for admins', () => {
     render(
-      <CommunityHeader
+      <CommunityHero
         community={mockCommunity}
         isMember={true}
         isPending={false}
@@ -178,7 +180,7 @@ describe('CommunityHeader', () => {
   it('shows "Community Full" when at capacity', () => {
     const fullCommunity = { ...mockCommunity, current_members: 50, max_members: 50 }
     render(
-      <CommunityHeader
+      <CommunityHero
         community={fullCommunity}
         isMember={false}
         isPending={false}
@@ -193,7 +195,7 @@ describe('CommunityHeader', () => {
   it('shows "Request to Join" for private communities', () => {
     const privateCommunity = { ...mockCommunity, access_type: 'private' as const }
     render(
-      <CommunityHeader
+      <CommunityHero
         community={privateCommunity}
         isMember={false}
         isPending={false}
@@ -205,9 +207,9 @@ describe('CommunityHeader', () => {
     expect(screen.getByText('Request to Join')).toBeInTheDocument()
   })
 
-  it('shows member count', () => {
+  it('shows the warm capline with neighbours count and room remaining', () => {
     render(
-      <CommunityHeader
+      <CommunityHero
         community={mockCommunity}
         isMember={false}
         isPending={false}
@@ -216,7 +218,8 @@ describe('CommunityHeader', () => {
         onJoin={jest.fn()}
       />
     )
-    expect(screen.getByText(/5 \/ 50 members/)).toBeInTheDocument()
+    expect(screen.getByText(/room for/)).toBeInTheDocument()
+    expect(screen.getByText(/45/)).toBeInTheDocument() // 50 cap − 5 members
   })
 })
 
