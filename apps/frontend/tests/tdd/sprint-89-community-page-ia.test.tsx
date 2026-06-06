@@ -8,7 +8,7 @@
  */
 
 import { render, screen } from '@testing-library/react'
-import { resolveCommunityTab, VALID_TABS } from '@/lib/communityTabs'
+import { resolveCommunityTab, resolveStewardshipSection, VALID_TABS } from '@/lib/communityTabs'
 import CommunityPulse from '@/components/community/CommunityPulse'
 
 // ── Mocks: keep the page render light + deterministic ───────────────────────────────────────────
@@ -136,6 +136,23 @@ describe('resolveCommunityTab (deep-link preservation)', () => {
   it('exposes exactly the canonical tab set', () => {
     expect(VALID_TABS).toEqual(['home', 'people', 'connected', 'stewardship', 'activities'])
   })
+
+  it('preserves the Stewardship sub-surface a legacy alias used to open', () => {
+    // These all resolve to the Stewardship tab, but pointed at different sub-sections before.
+    expect(resolveStewardshipSection('settings')).toBe('settings')
+    expect(resolveStewardshipSection('config')).toBe('settings')
+    expect(resolveStewardshipSection('links')).toBe('settings')
+    expect(resolveStewardshipSection('providers')).toBe('providers')
+    expect(resolveStewardshipSection('fission')).toBe('split')
+    expect(resolveStewardshipSection('fusion')).toBe('fusion')
+    expect(resolveStewardshipSection('governance')).toBe('decisions')
+    expect(resolveStewardshipSection('stats')).toBe('requests')
+    expect(resolveStewardshipSection('insights')).toBe('requests')
+    expect(resolveStewardshipSection('export')).toBe('requests')
+    // No specific sub-section → undefined (Stewardship opens on its default, Decisions).
+    expect(resolveStewardshipSection('stewardship')).toBeUndefined()
+    expect(resolveStewardshipSection(undefined)).toBeUndefined()
+  })
 })
 
 // ── Page IA: default Home for all roles, four warm tabs, no steward manager on Home ──────────────
@@ -170,6 +187,14 @@ describe('Community page information architecture', () => {
     communityDataOverride = { community: buildCommunity({ community_type: 'group' }) }
     renderPage()
     expect(screen.getByRole('button', { name: /^Activities$/i })).toBeInTheDocument()
+  })
+
+  it('does NOT render the member-only feed for a non-member viewer (avoids a 403 broken feed)', () => {
+    // A visitor who isn't in the members list lands on Home but the feed/pulse are members-only.
+    communityDataOverride = { currentUser: { id: 'visitor-1' } }
+    renderPage()
+    expect(screen.queryByTestId('unified-feed')).not.toBeInTheDocument()
+    expect(screen.getByText(/Join to see the neighbourhood/i)).toBeInTheDocument()
   })
 })
 

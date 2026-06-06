@@ -12,7 +12,7 @@ import StewardshipTab from '@/components/community/tabs/StewardshipTab'
 import { useCommunityData } from '@/hooks/useCommunityData'
 import { useCommunityPulse } from '@/hooks/useCommunityPulse'
 import { communityService } from '@/lib/api'
-import { resolveCommunityTab, type CommunityTab } from '@/lib/communityTabs'
+import { resolveCommunityTab, resolveStewardshipSection, type CommunityTab, type StewardshipSection } from '@/lib/communityTabs'
 
 export default function CommunityDetailPage() {
   const router = useRouter()
@@ -28,9 +28,23 @@ export default function CommunityDetailPage() {
   } = useCommunityData(communityId)
 
   const [activeTab, setActiveTab] = useState<CommunityTab>('home')
+  const [stewardshipSection, setStewardshipSection] = useState<StewardshipSection | undefined>(undefined)
   const [joiningCommunity, setJoiningCommunity] = useState(false)
 
-  const { pulse, loading: loadingPulse } = useCommunityPulse(communityId, activeTab === 'home')
+  const membershipRecord = community?.members.find((m) => m.user_id === currentUser?.id)
+  const isMember = membershipRecord?.status === 'active'
+  const isPending = membershipRecord?.status === 'pending'
+  const isAdmin = membershipRecord?.role === 'admin' && membershipRecord?.status === 'active'
+  const isModerator = membershipRecord?.role === 'moderator' && membershipRecord?.status === 'active'
+  const isAdminOrMod = isAdmin || isModerator
+  const pendingCount = isAdminOrMod
+    ? (community?.members ?? []).filter((m) => m.status === 'pending').length
+    : 0
+
+  // The pulse and the community feed are members-only (the server returns 403 to non-members), so
+  // only fetch the pulse when an actual member is viewing Home — a visitor/pending user would just
+  // get a 403 and a broken feed.
+  const { pulse, loading: loadingPulse } = useCommunityPulse(communityId, activeTab === 'home' && !!isMember)
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -38,12 +52,14 @@ export default function CommunityDetailPage() {
   }, [router])
 
   // URL tab sync + backwards-compat: resolve ANY legacy alias into the warm four-tab model, and
-  // rewrite the URL to the canonical tab so old deep links never dead-end (ADR-068).
+  // rewrite the URL to the canonical tab so old deep links never dead-end (ADR-068). Stewardship
+  // aliases (?tab=settings/fission/…) also carry their original sub-section so the link opens there.
   useEffect(() => {
     const raw = router.query.tab as string | undefined
     if (!raw) return
     const resolved = resolveCommunityTab(raw)
     setActiveTab(resolved)
+    setStewardshipSection(resolved === 'stewardship' ? resolveStewardshipSection(raw) : undefined)
     if (resolved !== raw) {
       router.replace(
         { pathname: router.pathname, query: { ...router.query, tab: resolved } },
@@ -66,16 +82,6 @@ export default function CommunityDetailPage() {
       refetchCommunityCollectives()
     }
   }, [activeTab]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  const membershipRecord = community?.members.find((m) => m.user_id === currentUser?.id)
-  const isMember = membershipRecord?.status === 'active'
-  const isPending = membershipRecord?.status === 'pending'
-  const isAdmin = membershipRecord?.role === 'admin' && membershipRecord?.status === 'active'
-  const isModerator = membershipRecord?.role === 'moderator' && membershipRecord?.status === 'active'
-  const isAdminOrMod = isAdmin || isModerator
-  const pendingCount = isAdminOrMod
-    ? (community?.members ?? []).filter((m) => m.status === 'pending').length
-    : 0
 
   const handleJoinCommunity = async () => {
     if (!currentUser || !communityId || !community) return
@@ -176,10 +182,26 @@ export default function CommunityDetailPage() {
           </div>
 
           {activeTab === 'home' && (
-            <div className="space-y-2">
-              <CommunityPulse pulse={pulse} loading={loadingPulse} />
-              <BrowseTab community={community} communityId={communityId!} />
-            </div>
+            isMember ? (
+              <div className="space-y-2">
+                <CommunityPulse pulse={pulse} loading={loadingPulse} />
+                <BrowseTab community={community} communityId={communityId!} />
+              </div>
+            ) : (
+              // Visitors/pending users aren't members yet — the community feed + pulse are member-
+              // only (server returns 403), so invite them in rather than render a broken feed.
+              <div className="kq-finite-state">
+                <div className="text-3xl mb-2">🏡</div>
+                <p className="kq-headline text-[22px]">
+                  {isPending ? 'Your request is pending' : 'Join to see the neighbourhood'}
+                </p>
+                <p className="kq-lede mt-1">
+                  {isPending
+                    ? 'Once a steward approves you, this is where open asks and the weekly pulse will live.'
+                    : 'Open asks and this week’s pulse are shared with members. Join to see who needs a hand here.'}
+                </p>
+              </div>
+            )
           )}
           {activeTab === 'people' && (
             <ActiveTab
@@ -203,6 +225,7 @@ export default function CommunityDetailPage() {
               refetchCommunity={refetchCommunity}
               refetchCommunityRequests={refetchCommunityRequests}
               refetchCommunityCollectives={refetchCommunityCollectives}
+              initialSection={stewardshipSection}
             />
           )}
           {activeTab === 'activities' && (

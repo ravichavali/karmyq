@@ -51,3 +51,32 @@ export function resolveCommunityTab(raw: string | undefined | null): CommunityTa
   if (!raw) return 'home'
   return TAB_ALIASES[raw] ?? 'home'
 }
+
+/** Sub-sections inside the Stewardship tab (some are admin-gated by `StewardshipTab`). */
+export type StewardshipSection = 'decisions' | 'split' | 'fusion' | 'requests' | 'settings' | 'providers'
+
+/**
+ * Several legacy aliases collapse into Stewardship but pointed at *different* sub-surfaces
+ * (`?tab=settings` opened settings, `?tab=fission` opened the split tool, …). This maps the raw
+ * alias to the Stewardship sub-section it used to open, so an old deep link lands where it meant to
+ * — not just on Stewardship's default. Returns `undefined` when there's no specific sub-section
+ * (the tab then opens on Decisions).
+ */
+const STEWARDSHIP_SECTION_ALIASES: Record<string, StewardshipSection> = {
+  governance: 'decisions',
+  fission: 'split',
+  fusion: 'fusion',
+  settings: 'settings',
+  config: 'settings',
+  links: 'settings',
+  providers: 'providers',
+  stats: 'requests',
+  insights: 'requests',
+  export: 'requests',
+}
+
+/** Map a raw `?tab=` alias to the Stewardship sub-section it historically opened (or undefined). */
+export function resolveStewardshipSection(raw: string | undefined | null): StewardshipSection | undefined {
+  if (!raw) return undefined
+  return STEWARDSHIP_SECTION_ALIASES[raw]
+}

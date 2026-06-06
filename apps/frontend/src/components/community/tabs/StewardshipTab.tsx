@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import GovernanceTab from '@/components/GovernanceTab'
 import FissionTab from '@/components/community/tabs/FissionTab'
 import FusionTab from '@/components/community/tabs/FusionTab'
 import ProfileTab from '@/components/community/tabs/ProfileTab'
 import StewardRequestsAdmin from '@/components/community/StewardRequestsAdmin'
 import type { Community } from '@/hooks/useCommunityData'
+import type { StewardshipSection } from '@/lib/communityTabs'
 
 interface Props {
   community: Community
@@ -25,9 +26,11 @@ interface Props {
   refetchCommunity: () => Promise<void>
   refetchCommunityRequests: (status?: string) => Promise<void>
   refetchCommunityCollectives: () => Promise<void>
+  /** The sub-section a legacy deep link (`?tab=settings`, `?tab=fission`, …) resolved to. */
+  initialSection?: StewardshipSection
 }
 
-type Section = 'decisions' | 'split' | 'fusion' | 'requests' | 'settings' | 'providers'
+type Section = StewardshipSection
 
 /**
  * Sprint 89 / ADR-068 — Stewardship: where the community's management lives, one altitude below
@@ -41,6 +44,7 @@ export default function StewardshipTab({
   communityTrust, loadingTrust, networkMetrics,
   communityRequests, loadingRequests,
   refetchCommunity, refetchCommunityRequests, refetchCommunityCollectives,
+  initialSection,
 }: Props) {
   const showSplit = isAdmin || community.active_split_proposal != null
   const showFusion = isAdmin || community.active_fusion_proposal != null
@@ -55,7 +59,16 @@ export default function StewardshipTab({
     ...(isAdmin ? [{ key: 'providers' as Section, label: 'Providers' }] : []),
   ]
 
-  const [section, setSection] = useState<Section>('decisions')
+  const [section, setSection] = useState<Section>(initialSection ?? 'decisions')
+
+  // A legacy deep link (`?tab=settings`, `?tab=fission`, …) resolves to a Stewardship sub-section
+  // after mount; honour it so the old link opens where it meant to, not on the default Decisions.
+  useEffect(() => {
+    if (initialSection) setSection(initialSection)
+  }, [initialSection])
+
+  // Fall back to Decisions if the chosen sub-section isn't available to this viewer (e.g. a member
+  // deep-linked to an admin-only Settings section).
   const active = sections.some((s) => s.key === section) ? section : 'decisions'
 
   return (
