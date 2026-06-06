@@ -42,7 +42,7 @@ function RequestTrustBadge({ requesterId }: { requesterId?: string }) {
   const { trustPath, loading } = useTrustPath(requesterId)
   if (loading) return <TrustPathBadgeSkeleton compact />
   if (!trustPath) return null
-  return <TrustPathBadge trustPath={trustPath} compact />
+  return <TrustPathBadge trustPath={trustPath} compact presentation="feed" />
 }
 
 interface RequestCardProps {

@@ -19,9 +19,10 @@ interface TrustPathBadgeProps {
   trustPath: TrustPath | null;
   compact?: boolean; // Show condensed version for smaller spaces
   className?: string;
+  presentation?: 'default' | 'feed';
 }
 
-export default function TrustPathBadge({ trustPath, compact = false, className = '' }: TrustPathBadgeProps) {
+export default function TrustPathBadge({ trustPath, compact = false, className = '', presentation = 'default' }: TrustPathBadgeProps) {
   if (!trustPath || trustPath.degrees_of_separation === null || !trustPath.path) {
     return null; // No connection found
   }
@@ -86,6 +87,29 @@ export default function TrustPathBadge({ trustPath, compact = false, className =
     return `${degrees_of_separation}° connection`;
   };
 
+  const getFeedConnectionText = () => {
+    if (isCommunityMember) {
+      const adminName = path.length >= 2 ? path[1]?.name : null;
+      if (adminName && degrees_of_separation === 2) return `via ${adminName}`;
+      return community_name ? `in ${community_name}` : 'fellow member';
+    }
+
+    if (isInvitationChain) {
+      const inviterName = path.length >= 2 ? path[1]?.name : null;
+      return inviterName ? `through ${inviterName}` : 'invited connection';
+    }
+
+    if (degrees_of_separation === 1) return 'direct connection';
+    if (degrees_of_separation === 2 && path.length >= 2) return `via ${path[1].name}`;
+    if (degrees_of_separation === 3 && path.length >= 3) return `via ${path[1].name} + ${path[2].name}`;
+    return `${degrees_of_separation}° connection`;
+  };
+
+  const getFeedAvatarLabel = () => {
+    if (degrees_of_separation === 1) return path[path.length - 1]?.name ?? 'Connection';
+    return path[1]?.name ?? path[path.length - 1]?.name ?? 'Connection';
+  };
+
   // Trust score stars (out of 5)
   const renderTrustStars = (score: number) => {
     const stars = Math.min(5, Math.floor((score / 100) * 5));
@@ -116,6 +140,16 @@ export default function TrustPathBadge({ trustPath, compact = false, className =
 
   // Compact view: Just show the connection text
   if (compact) {
+    if (presentation === 'feed') {
+      const avatarLabel = getFeedAvatarLabel();
+      return (
+        <span className={`kq-path-badge ${className}`} aria-label={getConnectionText()}>
+          <span className="kq-path-avatar" aria-hidden="true">{avatarLabel.charAt(0).toUpperCase()}</span>
+          {getFeedConnectionText()}
+        </span>
+      );
+    }
+
     return (
       <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded border text-xs font-medium ${badgeColor} ${className}`}>
         <span aria-hidden="true">{getIcon()}</span>

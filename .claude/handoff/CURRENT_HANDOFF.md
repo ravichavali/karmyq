@@ -20,6 +20,11 @@
 > **▶ REVIEW FOLLOW-UP APPLIED:** `Show more open requests` now renders after non-empty curated request
 > lists as well as empty/caught-up states, and `RequestCard` no longer invents an "In your community"
 > relationship badge when `requester_id` is unavailable.
+>
+> **▶ FIDELITY FOLLOW-UP APPLIED:** the in-scope feed shell now matches the approved frames more closely:
+> feed-only relationship face-pill (`TrustPathBadge presentation="feed"`), faint paper-grain background,
+> warm seed-dot topbar with Home nav, and quiet notification dot instead of a count badge. The bell keeps
+> unread activity accessible via `aria-label="Notifications, unread"`.
 
 ---
 
@@ -73,11 +78,13 @@ Dashboard Home plus Community Home on top of it.
 - ✅ Mobile FAB/decision-band/card CTA spacing adjusted; decision-band text wraps.
 - ✅ Cumulative `"Group A - Group B"` / `"— Group A — Group B"` split/fusion names cleaned on submit.
 - ✅ Empty community KPI tiles are suppressed or replaced with meaningful quiet copy.
+- ✅ Fidelity tightening: request-card trust path uses the approved green face-pill; shell includes paper grain, seed-dot wordmark, Home nav, and quiet notification dot with unread aria-label.
 
 ## Verification run by Codex (2026-06-05)
 
 - ✅ `services/request-service`: `npx jest tests/tdd/sprint-88-curated-feed-controls.test.ts --runInBand` — 4/4 passing.
 - ✅ `apps/frontend`: Sprint 88 focused TDD — 3 suites / 11 tests passing.
+- ✅ `apps/frontend`: fidelity + legacy badge TDD — `TrustPathBadge` plus Sprint 88 focused shell/feed tests, 5 suites / 43 tests passing.
 - ✅ `apps/frontend`: adjacent Sprint 85/86 feed TDD — 5 suites / 40 tests passing.
 - ✅ `services/request-service`: `npm run build` — TypeScript build passing.
 - ✅ `apps/frontend`: `npm run build` — passing; pre-existing warning remains: `next.config.js` unrecognized `swcMinify`.

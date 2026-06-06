@@ -67,10 +67,12 @@ describe('Sprint 88 RequestCard', () => {
   it('leads with the relationship badge before the ask', () => {
     render(<RequestCard data={card} currentUserId="helper-1" />)
 
-    const relationship = screen.getByText(/through Raj/i)
+    const relationship = screen.getByText(/via Raj/i)
     const ask = screen.getByRole('heading', { name: /Could someone bring soup tonight/i })
 
     expect(relationship.compareDocumentPosition(ask) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(relationship.closest('.kq-path-badge')).toBeTruthy()
+    expect(screen.getByText('R')).toHaveClass('kq-path-avatar')
   })
 
   it('does not render per-person score badges or leading match percentages', () => {
