@@ -14,9 +14,10 @@ Next.js 14 web application (Pages Router) consuming all Karmyq backend services.
 **Paths**: `src/styles/karmyq-shell.css`, `src/pages/dashboard.tsx`, `src/components/community/tabs/BrowseTab.tsx`, `src/components/Feed/*`
 
 - Adds the warm shared shell layer: Fraunces headings, Hanken Grotesk body type, `kq-page`, `kq-page-header`, `kq-card`, `kq-path-badge`, `kq-action-band`, and `kq-finite-state`.
+- Fidelity follow-up: `body` now carries the approved faint paper-grain radial texture, and `Layout` uses the mockup-aligned warm topbar (`kq-topbar`, seed-dot `kq-wordmark`, Home / Communities / Providers nav, one quiet notification dot).
 - Dashboard Browse now leads with a calm Home header before `UnifiedFeed view="home"`.
 - Community Browse now leads with a Community Home header before `UnifiedFeed view="community"` and suppresses empty KPI tiles.
-- `RequestCard` is relationship-led: `RequestTrustBadge` / `TrustPathBadge` is the lead element, raw `KarmaBadge` is removed, and match percentage is demoted to a qualitative `describeMatchSignal()` line.
+- `RequestCard` is relationship-led: `RequestTrustBadge` / `TrustPathBadge` is the lead element, rendered with the feed-only `presentation="feed"` green face-pill; raw `KarmaBadge` is removed, and match percentage is demoted to a qualitative `describeMatchSignal()` line.
 - `UnifiedFeed` defaults to `minScore=30`; the quiet **Show more open requests** affordance explicitly re-fetches with `minScore=0` so sub-30 open asks can appear on demand.
 - `DecisionBand` and card shells wrap on mobile; `.fab` and `SpeedDialFab` use `bottom-28` on mobile to avoid CTA overlap.
 

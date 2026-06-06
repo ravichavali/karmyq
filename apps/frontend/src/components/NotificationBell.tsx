@@ -6,6 +6,7 @@ const NotificationBell: React.FC = () => {
   const { communityUnreadCount } = useNotifications()
   const [isOpen, setIsOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
+  const ariaLabel = communityUnreadCount > 0 ? 'Notifications, unread' : 'Notifications'
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -29,7 +30,7 @@ const NotificationBell: React.FC = () => {
       <button
         className="notification-bell-button"
         onClick={() => setIsOpen(!isOpen)}
-        aria-label="Notifications"
+        aria-label={ariaLabel}
       >
         <svg
           width="24"
@@ -45,7 +46,7 @@ const NotificationBell: React.FC = () => {
           <path d="M13.73 21a2 2 0 0 1-3.46 0" />
         </svg>
         {communityUnreadCount > 0 && (
-          <span className="notification-badge">{communityUnreadCount > 99 ? '99+' : communityUnreadCount}</span>
+          <span className="notification-dot" aria-hidden="true" />
         )}
       </button>
 
@@ -66,7 +67,7 @@ const NotificationBell: React.FC = () => {
           display: flex;
           align-items: center;
           justify-content: center;
-          color: rgb(var(--color-text));
+          color: rgb(var(--color-text-muted));
           transition: color 0.2s;
         }
 
@@ -74,18 +75,15 @@ const NotificationBell: React.FC = () => {
           color: rgb(var(--color-primary));
         }
 
-        .notification-badge {
+        .notification-dot {
           position: absolute;
-          top: 4px;
-          right: 4px;
-          background: rgb(var(--color-error));
-          color: white;
-          border-radius: 10px;
-          padding: 2px 6px;
-          font-size: 11px;
-          font-weight: bold;
-          min-width: 18px;
-          text-align: center;
+          top: 7px;
+          right: 7px;
+          width: 7px;
+          height: 7px;
+          background: rgb(var(--color-warn));
+          border: 1.5px solid rgb(var(--color-surface-raised));
+          border-radius: 9999px;
         }
       `}</style>
     </div>

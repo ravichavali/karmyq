@@ -49,6 +49,10 @@ body {
   font-family: 'Hanken Grotesk', 'Inter', system-ui, sans-serif;
   color: rgb(var(--color-text));
   background-color: rgb(var(--color-surface));
+  background-image:
+    radial-gradient(circle at 20% 10%, rgb(var(--color-primary-medium) / 0.05), transparent 40%),
+    radial-gradient(circle at 85% 0%, rgb(var(--color-warn) / 0.04), transparent 35%);
+  background-attachment: fixed;
 }
 
 @layer components {

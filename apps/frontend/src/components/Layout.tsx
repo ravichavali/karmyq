@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { useRouter } from 'next/router'
 import Link from 'next/link'
-import Image from 'next/image'
 import NotificationBell from './NotificationBell'
 import { useProvider } from '../contexts/ProviderContext'
 
@@ -24,6 +23,9 @@ function HamburgerMenu() {
         <>
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
           <div className="absolute right-0 mt-1 w-48 bg-surface-raised border border-border rounded-xl shadow-lg z-50 py-1">
+            <Link href="/dashboard" className="block px-4 py-2 text-sm text-text hover:bg-surface transition-colors" onClick={() => setOpen(false)}>
+              Home
+            </Link>
             <Link href="/communities" className="block px-4 py-2 text-sm text-text hover:bg-surface transition-colors" onClick={() => setOpen(false)}>
               Communities
             </Link>
@@ -108,24 +110,26 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
   return (
     <div className="min-h-screen bg-surface">
       {!isAuthPage && (
-        <nav className="bg-surface-raised shadow sticky top-0 z-50">
+        <nav className="kq-topbar">
           <div className="container mx-auto px-4 py-4">
             <div className="flex justify-between items-center">
-              <Link href="/dashboard" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-                <Image src="/brand/karmyq-mark-1level.svg" width={28} height={28} alt="" />
-                <span className="text-2xl font-bold font-serif text-primary">Karmyq</span>
+              <Link href="/dashboard" className="kq-wordmark">
+                <span className="kq-wordmark-seed" aria-hidden="true" />
+                Karmyq
               </Link>
 
               <div className="flex gap-4 items-center">
                 {/* Secondary nav — desktop only */}
-                <div className="hidden md:flex gap-2 items-center">
+                <div className="kq-topnav">
+                  <Link
+                    href="/dashboard"
+                    className={`kq-topnav-link ${router.pathname === '/dashboard' ? 'active' : ''}`}
+                  >
+                    Home
+                  </Link>
                   <Link
                     href="/communities"
-                    className={`px-3 py-2 text-sm font-medium rounded-lg transition-all ${
-                      router.pathname.startsWith('/communities')
-                        ? 'bg-primary-light text-primary'
-                        : 'text-text-muted hover:bg-surface'
-                    }`}
+                    className={`kq-topnav-link ${router.pathname.startsWith('/communities') ? 'active' : ''}`}
                   >
                     Communities
                   </Link>
@@ -133,11 +137,7 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
                     <>
                       <Link
                         href="/providers"
-                        className={`px-3 py-2 text-sm font-medium rounded-lg transition-all ${
-                          router.pathname.startsWith('/providers')
-                            ? 'bg-primary-light text-primary'
-                            : 'text-text-muted hover:bg-surface'
-                        }`}
+                        className={`kq-topnav-link ${router.pathname.startsWith('/providers') ? 'active' : ''}`}
                       >
                         Providers
                       </Link>
@@ -145,7 +145,7 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
                   ) : (
                     <Link
                       href="/providers/new"
-                      className="px-3 py-2 text-sm font-medium rounded-lg transition-all text-text-muted hover:bg-surface"
+                      className="kq-topnav-link"
                     >
                       Become a provider
                     </Link>
@@ -175,9 +175,9 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
                     <div className="flex items-center gap-3">
                       <Link
                         href="/profile"
-                        className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-surface transition-colors"
+                        className="flex items-center gap-2 rounded-lg px-2 py-1.5 transition-colors hover:bg-surface"
                       >
-                        <div className="w-8 h-8 bg-gradient-to-br from-primary to-accent rounded-full flex items-center justify-center text-white font-semibold text-sm">
+                        <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center text-white font-semibold text-sm">
                           {user.name?.charAt(0).toUpperCase()}
                         </div>
                         <span className="text-sm font-medium text-text">{user.name}</span>
