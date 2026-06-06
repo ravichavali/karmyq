@@ -17,21 +17,37 @@ See [Setting Your Community's Trust Model](/docs/guides/community-trust-model) f
 
 ---
 
-## Admin Tab Structure
+## The Community Page (warm four-tab model)
 
-The community admin page is organized into **five tabs**. The tabs you see depend on your role:
+As of Sprint 89 ([ADR-068](/docs/concepts/adr-068-community-page-information-architecture)), the
+community page opens as a *neighbourhood*, not a console — and **everyone, admins included, lands on
+the warm Home tab**, not on a management view. A community is [a place you belong to](/docs/concepts/community-home),
+and running it lives one altitude down.
 
-| Tab | Visible to |
-|-----|------------|
-| **Overview** | All members |
-| **People** | Admins and moderators |
-| **Requests** | Admins and moderators |
-| **Providers** | Admins and moderators |
-| **Settings** | Community admins only |
+| Tab | What's there | Visible to |
+|-----|--------------|------------|
+| **Home** (default) | The warm hero (with the Dunbar cap bar), the weekly **"this week in the neighbourhood" pulse**, and the open asks members can help with | Everyone |
+| **People** | Members + their trust, and your community's norms | Everyone |
+| **How we're connected** | The community trust graph | Members |
+| **Stewardship** | Decisions, Split, Fusion (all members) + the admin **Steward requests** manager, **Settings**, and **Providers** (admins) | Members; admin tools gated within |
+
+Group communities also see an **Activities** tab.
+
+> **Where management moved.** The old `Requests`, `Settings`, and `Providers` admin tabs now live as
+> sub-sections **inside Stewardship**. Everything below still works exactly as before — it's reached
+> via *Stewardship → Steward requests / Settings / Providers* instead of its own top-level tab. Old
+> deep links (`?tab=requests`, `?tab=settings`, …) redirect into the new model automatically.
+
+### The weekly pulse
+
+Home replaces the old empty KPI tiles with an honest weekly summary: how many neighbours helped each
+other, how many open asks are waiting (and how many are time-sensitive), and who recently joined.
+Rows with nothing to report are hidden rather than shown as "0". The same numbers power the in-feed
+activity card — there's one source of truth, so the pulse and the feed never disagree.
 
 ---
 
-## People Tab (Members + Norms)
+## People (Members + Norms)
 
 The People tab consolidates member management and community norms in one place.
 
@@ -44,9 +60,10 @@ This keeps community culture and membership in context with each other, since a 
 
 ---
 
-## Requests Tab (Requests + Insights + Admin Actions)
+## Stewardship → Steward requests (Requests + Insights + Admin Actions)
 
-The Requests tab is the primary tool for admins who play an active role in matching and facilitation.
+The **Steward requests** sub-section of Stewardship is the primary tool for admins who play an active
+role in matching and facilitation.
 
 ### Summary Cards
 
@@ -89,7 +106,7 @@ Admins don't just maintain a community — you connect people. These two tools a
 
 ### Spotlight a Request (Boost)
 
-Click the ⚡ Boost button on any open request in the Requests tab. The request rises in member feeds with a "Community Pick" badge for 48 hours. Use this for requests that need urgent community attention — a member in a difficult situation, a time-sensitive need, or a request that's been waiting too long.
+Click the ⚡ Boost button on any open request in Stewardship → Steward requests. The request rises in member feeds with a "Community Pick" badge for 48 hours. Use this for requests that need urgent community attention — a member in a difficult situation, a time-sensitive need, or a request that's been waiting too long.
 
 ### Suggest a Helper (Propose a Match)
 
@@ -105,15 +122,15 @@ These tools work best when used with intention. Boosting everything dilutes the 
 
 ---
 
-## Providers Tab
+## Stewardship → Providers
 
 Browse the service providers who have listed themselves in your community. Useful for recommending vetted providers to members who post service requests.
 
 ---
 
-## Settings Tab (Community Settings + Trust Configuration)
+## Stewardship → Settings (Community Settings + Trust Configuration)
 
-The Settings tab consolidates all community configuration in one place — previously split across a separate Config tab and other locations.
+The **Settings** sub-section of Stewardship consolidates all community configuration in one place — previously a separate top-level tab.
 
 ### Location & Discovery
 
@@ -128,7 +145,7 @@ Access the trust model questionnaire and all configuration parameters:
 **Revisiting Your Trust Model**
 
 As your community matures, you can revisit the questionnaire at any time:
-1. Open your community → **Settings** tab
+1. Open your community → **Stewardship → Settings**
 2. Click **Revisit trust model**
 3. Answer the six questions reflecting your community as it is now
 4. Review the diff: see exactly which fields would change, with current and proposed values
@@ -143,7 +160,7 @@ Choose which types your community supports. Enable or disable:
 
 For each enabled type, set a **karma multiplier** — how much karma helpers earn relative to the base pool. A multiplier of `1.5` means helpers earn 50% more karma for that type than usual. Use multipliers to signal which kinds of help your community values most (e.g., set a higher multiplier for rides or childcare to incentivize underserved needs).
 
-**Custom types:** If your community has specific needs, create custom types via the **Schema Manager** linked from the Settings tab.
+**Custom types:** If your community has specific needs, create custom types via the **Schema Manager** linked from the hero and from Stewardship → Settings.
 
 ### Karma Mechanics
 

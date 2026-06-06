@@ -79,3 +79,74 @@
 .kq-topnav-link.active {
   @apply text-primary-dark;
 }
+
+/* Sprint 89 / ADR-068 — warm community page: hero, Dunbar cap bar, weekly pulse, four-tab bar. */
+.kq-hero {
+  @apply bg-surface-raised rounded-lg border border-border p-8 mb-6;
+}
+
+.kq-hero-name {
+  font-family: 'Fraunces', Georgia, serif;
+  @apply text-[32px] leading-tight font-semibold text-text tracking-[-0.01em] mt-1;
+}
+
+.kq-hero-mission {
+  font-family: 'Fraunces', Georgia, serif;
+  @apply italic text-[18px] leading-relaxed text-text-muted mt-2.5 mb-5 max-w-[46ch];
+}
+
+.kq-capline {
+  @apply flex flex-wrap items-center gap-x-3 gap-y-1 text-[13.5px] text-text-muted;
+}
+
+.kq-faces {
+  @apply flex -space-x-2;
+}
+
+.kq-face {
+  @apply grid h-7 w-7 place-items-center rounded-full bg-primary-light text-[11px] font-semibold text-primary-dark ring-2 ring-surface-raised;
+}
+
+.kq-face.more {
+  @apply bg-surface text-text-muted;
+}
+
+.kq-capbar {
+  @apply mt-3 h-2 w-full max-w-[420px] rounded-full bg-border-light overflow-hidden;
+}
+
+.kq-capbar-fill {
+  @apply h-2 rounded-full bg-primary;
+}
+
+.kq-pulse {
+  @apply grid gap-2.5;
+}
+
+.kq-pulse-row {
+  @apply flex items-center gap-3 px-4 py-3;
+}
+
+.kq-pulse-ic {
+  @apply grid h-9 w-9 flex-none place-items-center rounded-[10px] bg-primary-light text-lg;
+}
+
+.kq-tabbar {
+  @apply -mb-px flex gap-1 overflow-x-auto;
+}
+
+.kq-tab {
+  @apply whitespace-nowrap rounded-t-lg border-b-2 px-4 py-3 text-sm font-medium transition-colors;
+}
+
+.kq-tab-inactive {
+  @apply border-transparent text-text-muted hover:text-text hover:border-border;
+}
+
+.kq-tab-active {
+  @apply border-primary text-primary-dark;
+}
+
+.kq-section-label {
+  @apply text-xs uppercase tracking-[0.12em] text-text-muted font-semibold mb-3 mt-6;
+}

@@ -1,10 +1,23 @@
 # Frontend CONTEXT.md
 
-**Last updated**: 2026-06-05 (Sprint 88 — core help-loop redesign)
+**Last updated**: 2026-06-06 (Sprint 89 — community sovereignty redesign)
 
 ## Overview
 
 Next.js 14 web application (Pages Router) consuming all Karmyq backend services.
+
+---
+
+## Sprint 89 Community Sovereignty Redesign (2026-06-06, ADR-068)
+
+### Community page → warm four-tab model
+**Paths**: `src/pages/communities/[id].tsx`, `src/lib/communityTabs.ts`, `src/components/community/CommunityHero.tsx`, `src/components/community/CommunityPulse.tsx`, `src/components/community/StewardRequestsAdmin.tsx`, `src/components/community/tabs/StewardshipTab.tsx`, `src/components/community/tabs/BrowseTab.tsx`, `src/components/Feed/UnifiedFeed.tsx`, `src/hooks/useCommunityPulse.ts`, `src/styles/karmyq-shell.css`
+
+- The `/communities/[id]` page is restructured from ~10 pre-shell tabs into **four warm tabs** — **Home · People · How we're connected · Stewardship** (+ a group-only **Activities**). The initial `activeTab` is **`home` for every role** (the `overview` default is gone). This fixes the headline S88 bug: the warm feed (`BrowseTab` → `UnifiedFeed`) was admin-gated under the old `requests` tab, so members never reached it.
+- **`lib/communityTabs.ts`** is the single exported deep-link resolver (`resolveCommunityTab`, `VALID_TABS`). It maps every legacy `?tab=` alias into the four-tab model (`overview`/`requests`→home, `trust`→connected, `governance`/`fission`/`fusion`/`settings`/`config`/`links`/`providers`/`stats`/`insights`/`export`→stewardship, `manage`/`pending`/`members`/`norms`→people, unknown→home). The page **and** the IA test import it — never copy the map.
+- **`BrowseTab` was split.** It now renders the member `UnifiedFeed` only (Home, all roles). Its admin steward-request manager (all-status list, triage/boost/propose, member picker, insights, export) was **extracted verbatim** into `StewardRequestsAdmin`, relocated under **Stewardship** (admin-only). `CommunityHeader` is **retired** in favour of `CommunityHero` (warm serif hero + member faces + Dunbar cap bar + embedded join CTA).
+- **`CommunityPulse`** ("This week in the neighbourhood") replaces empty KPI tiles, fed by `useCommunityPulse` → `GET /requests/community/:id/pulse`. Zero/meaningless rows are suppressed. To avoid a double summary, `UnifiedFeed` gained a **`suppressActivity`** prop that hides the in-feed `ActivityCard` on community Home (the hero pulse renders it once).
+- **`StewardshipTab`** composes the existing Governance/Split/Fusion (all members) + admin `StewardRequestsAdmin`/Settings/Providers under a warm sub-nav — a relocation, not a rewrite.
 
 ---
 

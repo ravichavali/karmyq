@@ -1,227 +1,140 @@
-# Sprint 88 — Core Help-Loop Redesign — IMPLEMENTED (ready for review/PR)
+# Sprint 89 — Community Sovereignty Redesign — IMPLEMENTED, IN REVIEW
 
-> **▶ STATUS (2026-06-05):** Sprint 88 has been executed on
-> `feature/sprint-88-core-help-loop-redesign`. Spec and implementation plan:
-> `docs/superpowers/specs/2026-06-05-sprint-88-core-help-loop-redesign-design.md` and
-> `docs/superpowers/plans/2026-06-05-sprint-88-core-help-loop-redesign.md`.
+> **▶ STATUS (2026-06-06):** Sprint 89 is **implemented on `feature/sprint-89-community-sovereignty-redesign`
+> and awaiting maintainer merge authorization** (PR open). Version bumped **10.12.0 → 10.13.0**. All 12
+> plan tasks executed: pulse endpoint (reuses the S86 texture aggregation via shared `fetchCommunityPulse`
+> + new `timeSensitive`, members-only gate), warm four-tab page (`Home · People · How we're connected ·
+> Stewardship` + group-only Activities), warm Home default for **all roles** (headline bug fixed),
+> `CommunityHero` + `CommunityPulse`, `BrowseTab` split → `StewardRequestsAdmin` under `StewardshipTab`,
+> centralized `lib/communityTabs.ts` deep-link resolver, `UnifiedFeed.suppressActivity` de-dup, ADR-068 +
+> landing docs + onboarding + CONTEXT/registry. Gates green: `npm test` (27 tasks), tsc (request-service +
+> frontend), landing build, `npm audit` (0 high), feedback:check + analyze:services. New TDD: frontend IA
+> suite (9 pass); backend pulse suite (DB-gated → runs in CI integration). 5 pre-existing frontend TDD
+> failures unchanged (trust-model / useTrustQuestions / sprint-38/39/40 — proven via stash).
 >
-> **▶ MERGE BASE:** PR **#69** was reported merged by the maintainer before execution. Sprint 88 bumps root
-> package version to **10.12.0**. No commit has been made by Codex.
+> **▶ NEXT (post-merge):** Verify CI/CD + CodeQL green (dismiss the recurring `api.ts` js/request-forgery
+> FP), member-login UI check on demo (land on warm Home, click the four tabs, old `?tab=overview` deep link
+> resolves), then set **Sprint 90 — Trust, forgetting, profile polish** (visible decay; "designed to forget").
 >
-> **▶ SCOPE CONFIRMED (maintainer, 2026-06-05):** keep **Community Home (`view=community`) in Sprint 88**.
-> Sprint 88 includes shared shell + Dashboard Home + Community Home. Sprint 89 handles broader community
-> sovereignty beyond the feed.
+> **▶ ORIGINAL SCOPE (locked with maintainer, 2026-06-06):** Bring the whole `/communities/[id]` page up to
+> the approved `community-home.html` mockup. Three decisions locked:
+> 1. **Full consolidation to four warm tabs** — Home · People · How we're connected · Stewardship
+>    (admin Settings/Providers fold under Stewardship; Activities stays a group-only 5th tab).
+> 2. **Pulse endpoint reuses the existing S86 texture aggregation** (helped / open asks / recent
+>    joins / helpers, all already computed server-side) + a new `timeSensitive` field; the duplicate
+>    in-feed `ActivityCard` is suppressed on Home. (Codex review corrected the original "new endpoint
+>    + client-side recent-joins" framing — that would have triple-counted the same numbers.)
+> 3. **Everyone lands on warm Home** (members + admins); admins reach tools via Stewardship.
 >
-> **▶ IMPLEMENTED:** request-service `minScore=0` parser fix + union-path impression logging; shared
-> shell CSS/type; relationship-led `RequestCard` with `KarmaBadge` removed and qualitative match signal;
-> Dashboard Home + Community Home shell headers; `Show more open requests`; mobile CTA/FAB spacing;
-> request-wizard copy; split/fusion name cleanup; docs + landing docs regenerated.
->
-> **▶ REVIEW FOLLOW-UP APPLIED:** `Show more open requests` now renders after non-empty curated request
-> lists as well as empty/caught-up states, and `RequestCard` no longer invents an "In your community"
-> relationship badge when `requester_id` is unavailable.
->
-> **▶ FIDELITY FOLLOW-UP APPLIED:** the in-scope feed shell now matches the approved frames more closely:
-> feed-only relationship face-pill (`TrustPathBadge presentation="feed"`), faint paper-grain background,
-> warm seed-dot topbar with Home nav, and quiet notification dot instead of a count badge. The bell keeps
-> unread activity accessible via `aria-label="Notifications, unread"`.
+> **▶ HEADLINE BUG THIS SPRINT FIXES:** the S88 warm feed (`BrowseTab` → `UnifiedFeed`) is currently
+> rendered only on the `requests` tab, which is gated behind `isAdminOrMod` in `[id].tsx` (~line 192).
+> **Regular members never reach the redesigned feed.** Promoting it to the default Home for all roles
+> is the core fix.
 
 ---
 
-## Quick Start — Sprint 88 Review / PR Prep
+## Quick Start — Next Session
 
 1. Read this handoff.
-2. Stay on branch: `feature/sprint-88-core-help-loop-redesign`
-3. Review changed files and generated landing docs (`apps/landing/src/data/docs/` is gitignored, so remember `git add -f` if staging).
-4. If opening a PR via `gh`, copy `.github/pull_request_template.md` manually into the PR body.
-5. Before commit/PR, run `pre-commit-check` and the repo’s required review/security loops per `CLAUDE.md`.
+2. Check out branch: `git checkout -b feature/sprint-89-community-sovereignty-redesign`
+3. Open plan: `docs/superpowers/plans/2026-06-06-sprint-89-community-sovereignty-redesign.md`
+4. Run: `/execute-plan` (uses superpowers:subagent-driven-development)
 
-## Sprint 88 goal (one sentence)
+## Sprint 89 goal (one sentence)
 
-Ship the approved warm-commons/calm behavior help loop by building the shared shell and re-skinning
-Dashboard Home plus Community Home on top of it.
+Bring the whole `/communities/[id]` page up to the approved warm `community-home` mockup — four warm
+tabs (Home · People · How we're connected · Stewardship), warm Home as the default for every role, a
+serif hero with the visible Dunbar cap bar, and a real "this week in the neighbourhood" pulse.
 
 ## Multi-sprint arc
 
-- **Sprint 84** — unified feed research & direction. ✅ Complete (`no-deploy`).
-- **Sprint 85** — unified feed, Dashboard Home first. ✅ Shipped v10.9.0.
-- **Sprint 86** — Community Feed view + texture + legacy retirement + seam fix. ✅ Shipped v10.10.0.
-- **Sprint 87** — Product Truth & UX Reset. ✅ Executed v10.11.0; direction approved.
-- **Sprint 88 (CURRENT)** — Core help-loop redesign: shared shell + Dashboard Home + Community Home. ✅ Implemented; PR/review pending.
-- **Sprint 89** — Community sovereignty redesign beyond the feed.
-- **Sprint 90** — Trust, forgetting, profile polish.
+- **Sprint 85** — unified feed, Dashboard Home first. ✅ v10.9.0.
+- **Sprint 86** — Community Feed view + texture + legacy retirement + seam fix. ✅ v10.10.0.
+- **Sprint 87** — Product Truth & UX Reset; warm-commons direction approved. ✅ v10.11.0.
+- **Sprint 88** — Core help-loop redesign: shared shell + Dashboard Home + Community **feed**. ✅ v10.12.0.
+- **Sprint 89 (THIS)** — Community sovereignty redesign: the whole community **page**. Target v10.13.0.
+- **Sprint 90** — Trust, forgetting, profile polish (visible decay; "designed to forget").
 - **Sprint 91** — Mobile parity from the polished model.
 - **Sprint 92** — Architecture & service pruning.
 
-## Critical Implementation Notes (copied from spec)
+## Critical Implementation Notes (copied verbatim from spec)
 
-1. **PR #69 merge gate satisfied.** Sprint 88 was executed only after the maintainer reported PR #69 merged; branch starts from the approved Sprint 87 artifacts and bumps root version to `10.12.0`.
-2. **Branch:** use `feature/sprint-88-core-help-loop-redesign`; agents do not commit to `master` directly.
-3. **Dashboard Home and Community Home are both in scope.** Community Home is not deferred to Sprint 89; Sprint 89 handles broader community sovereignty beyond the feed.
-4. **No schema change expected.** Fix impression logging by reusing existing scored request rows before the union return paths; log request items only, never decisions/activity/story texture.
-5. **`minScore` default stays 30, but `0` is valid.** "Show more open requests" intentionally lowers/removes the threshold after user action; parse `minScore` with an explicit finite check, not `parseInt(...) || 30`.
-6. **Remove `KarmaBadge` from `RequestCard`.** Per-person score display is banned on help cards; do not replace it with another numeric person score.
-7. **Keep `TrustPathBadge` and promote it.** Relationship/path reason leads the card above title and match signal.
-8. **Match % becomes qualitative copy.** Do not render `68% Match` as a leading card element; map it to quiet labels and keep raw values out of the primary hierarchy.
-9. **Use global JWT truth:** membership is `user.communities`, not `communityMemberships`; the request-service local README is stale here.
-10. **API unwrap rule:** frontend `createApiClient` already unwraps response envelopes; consume `res.data`, not `res.data.data`.
-11. **Payload seam:** keep using `payload_type` derived via ADR-067 normalization; never render raw `generic` or mixed `category` tokens as user-facing labels.
-12. **Mobile is part of done.** The FAB must not overlap card CTAs; decision-band text wraps rather than truncates; tap targets stay at least 40px.
-13. **Do not rewrite admin management.** Community admin all-status tools remain separate altitude; only remove empty/noisy KPI presentation and align styling where it shares the surface.
-14. **Docs are in scope.** This sprint ships real behavior changes, so user guides, frontend context, request-service context, and landing docs must be updated.
+1. **Headline bug + BrowseTab is two surfaces.** The warm feed is admin-gated today (`requests` tab
+   under `isAdminOrMod` in `[id].tsx`), so members never see it. But `BrowseTab` contains BOTH the
+   member `UnifiedFeed` AND an admin steward-request manager (all-status list, triage/boost/propose/
+   insights/export). Home renders the **member `UnifiedFeed` only**, for every role; the admin block
+   is **extracted** to `StewardRequestsAdmin` under Stewardship. Whole-BrowseTab-on-Home re-strands
+   admins in management; UnifiedFeed-only without extracting loses the admin tools.
+2. **Default tab = Home for all roles.** Initial `activeTab` is `'home'`; remove the `overview`
+   default. Admins reach management via **Stewardship**, not by landing on it.
+3. **Preserve EVERY deep link via a centralized exported resolver** (`lib/communityTabs.ts`). The
+   live map aliases more than the obvious set — remap ALL: `overview`/`requests`→`home`;
+   `trust`→`connected`; `governance`/`fission`/`fusion`→`stewardship`;
+   `settings`/`config`/`links`/`providers`→`stewardship` (admin sub-section);
+   `manage`/`pending`/`members`/`norms`→`people`; `stats`/`insights`/`export`→`stewardship`. The
+   redirect test currently owns a *copied* map — change it to import the real resolver.
+4. **Pulse reuses the S86 texture aggregation — no second query; de-dup the in-feed card.**
+   request-service already computes the same weekly numbers at `requests.ts ~L1010–1051`
+   (`exchanges_completed_week`, `new_members_count`, `open_requests_count` with `expired = FALSE`,
+   `recent_helpers`) and appends an in-feed `ActivityCard`. Extract/reuse that query (adding only
+   `timeSensitive`); `recentJoins` comes from the endpoint (server already reads `members.joined_at`
+   — no client-side seam). **Suppress the in-feed `ActivityCard` on community Home** so the pulse
+   isn't rendered twice.
+5. **Pulse endpoint must enforce membership.** Gate on `user.communities` (active membership in
+   `:communityId`), **not** `communityMemberships` (always `undefined` → always 403). Non-members → 403.
+6. **`openAsks` excludes expired** — `status='open' AND expired = FALSE` (match the existing query).
+7. **No empty tiles.** The pulse suppresses rows with no meaningful data; the Dunbar capline always renders.
+8. **API unwrap rule:** `createApiClient` already unwraps the envelope — consume `res.data`, not `res.data.data`.
+9. **Don't rewrite admin management (carry S88 note 13).** Stewardship *relocates* existing components
+   (incl. extracted `StewardRequestsAdmin`) under sub-nav. `/communities/[id]/admin` is a back-compat
+   redirect, not a live config home.
+10. **Cap bar uses the real cap** — `current_members` / `max_members` (both present; fall back to 150 only if null).
+11. **`community_type` matters.** Activities stays a group-only tab; do not surface it for `mutual_aid`.
+12. **Schema name is `communities.*` (plural).** The request-service local README is stale on the JWT field.
+13. **nav.json reverts.** After `generate-docs`, grep-verify and re-apply; landing docs gitignored → `git add -f`.
 
-## Carry-forward issues included in Sprint 88
+## Tab mapping (where everything goes)
 
-- ✅ Home/community union impression logging gap fixed by logging request rows before both union early returns.
-- ✅ `RequestCard` removes `KarmaBadge`, leads with trust path, and demotes match score to qualitative copy.
-- ✅ Curated default remains `minScore=30`; **Show more open requests** explicitly sends `minScore=0`, appears after non-empty curated lists and caught-up states, and backend now honors `0`.
-- ✅ Mobile FAB/decision-band/card CTA spacing adjusted; decision-band text wraps.
-- ✅ Cumulative `"Group A - Group B"` / `"— Group A — Group B"` split/fusion names cleaned on submit.
-- ✅ Empty community KPI tiles are suppressed or replaced with meaningful quiet copy.
-- ✅ Fidelity tightening: request-card trust path uses the approved green face-pill; shell includes paper grain, seed-dot wordmark, Home nav, and quiet notification dot with unread aria-label.
-
-## Verification run by Codex (2026-06-05)
-
-- ✅ `services/request-service`: `npx jest tests/tdd/sprint-88-curated-feed-controls.test.ts --runInBand` — 4/4 passing.
-- ✅ `apps/frontend`: Sprint 88 focused TDD — 3 suites / 11 tests passing.
-- ✅ `apps/frontend`: fidelity + legacy badge TDD — `TrustPathBadge` plus Sprint 88 focused shell/feed tests, 5 suites / 43 tests passing.
-- ✅ `apps/frontend`: adjacent Sprint 85/86 feed TDD — 5 suites / 40 tests passing.
-- ✅ `services/request-service`: `npm run build` — TypeScript build passing.
-- ✅ `apps/frontend`: `npm run build` — passing; pre-existing warning remains: `next.config.js` unrecognized `swcMinify`.
-- ✅ `apps/landing`: `npm run generate-docs` and `npm run build` — passing; pre-existing `<img>` lint warning in `src/components/Header.tsx`.
-- ✅ `git diff --check` — exit 0; Windows line-ending warning only for `apps/frontend/src/styles/globals.css`.
-- ⚠️ Root `npx tsc --noEmit` is not a valid gate here: no root `tsconfig.json`, so TypeScript prints help and exits 1.
-
-## Reference
-
-- **Spec:** `docs/superpowers/specs/2026-06-05-sprint-88-core-help-loop-redesign-design.md`
-- **Plan:** `docs/superpowers/plans/2026-06-05-sprint-88-core-help-loop-redesign.md`
-- **Approved presentation rules:** `docs/design/sprint-87/presentation-rules.md`
-- **S88 recommendation:** `docs/design/sprint-87/sprint-88-recommendation.md`
-- **S87 roadmap arc:** `docs/superpowers/specs/2026-06-05-sprint-87-90-polish-reset-review-and-roadmap.md`
-
----
-
-# Archived Context — Sprint 87 Product Truth & UX Reset — ✅ EXECUTED (direction APPROVED)
-
-> **▶ STATUS (2026-06-05):** Sprint 87 **executed** — all 14 plan tasks complete. Quick wins done
-> (version → **10.11.0**; `apps/frontend/CONTEXT.md` BrowseFeed→UnifiedFeed drift fixed; landing
-> `CommunityStories.tsx` was already honest = no change). Demo DB **cleaned** (de-spammed 23.6k matches
-> → max offers/request 876→6; enforced the 150 Dunbar cap, −785 over-cap members; backup + rollback in
-> `docs/design/sprint-87/data-prep-log.md`). Deliverables in `docs/design/sprint-87/`: scorecard,
-> member-login UX audit (10 screenshots), visual research, **5 high-fidelity HTML mockups + contact
-> sheet**, presentation rules, S88 recommendation.
->
-> **▶ DIRECTION VERDICT = APPROVED** (maintainer, 2026-06-05): the warm-commons/calm direction in the
-> mockups + presentation rules is the **adopted basis for Sprint 88**. All mockup + `presentation-rules.md`
-> banners flipped **PROPOSED → APPROVED**. The S88 implementation plan is written from this **next**
-> (shared design-system shell + Dashboard Home first, per `sprint-88-recommendation.md` §3).
->
-> **▶ MERGE STATE:** PR **#69** open (quick wins + design artifacts + Codex-review fixes); **awaiting
-> maintainer "pull it in"** (admin-merge authority). Codex review applied pre-merge: ARCHITECTURE
-> source-of-truth fixes (SSE is authenticated; JWT field is **`communities`** not `communityMemberships`;
-> middleware example), handoff version state. Gates green: `npm test` 27/27, landing build ✓, `npm audit`
-> 0 vulns, `feedback:check` ✓; no new TDD failures (zero production logic changed). Codex flagged
-> Integration Tests still in-progress at review time — confirm green before merge.
->
-> **▶ NEXT:** (1) maintainer authorizes merge → `/deploy`, monitor Deploy-to-Demo green. (2) **Write the
-> Sprint 88 plan** from the approved direction (`sprint-88-recommendation.md`): shared shell + Dashboard
-> Home; relationship-led card; KarmaBadge removal; match-% demote; `minScore≥30` curated + "show more
-> open"; impression logging on the `view=home`/`view=community` union path; finite "caught up" state.
-> Carry-forward bugs to fix in S88: em-dash **mojibake** in community-name rendering; cumulative
-> **"— Group A — Group B"** fission names; **mobile FAB overlapping** the card CTA; empty community **KPI
-> tiles**.
->
-> _(superseded original status:)_ Sprint 86 shipped + bug-bashed clean (v10.10.0, PRs #60–#66). Sprint 87
-> was a **manifesto-first presentation reset** — design-research-first, NOT a code-execute sprint.
->
-> **Execution decisions locked (2026-06-05):**
-> - **Deploy posture:** quick wins ship in one PR (real deploy); design artifacts ride along but touch no production UI.
-> - **Mockup fidelity:** static HTML/CSS throwaway pages (`frontend-design`) under `docs/design/sprint-87/mockups/`.
-> - **Mockup scope:** all five surfaces (Dashboard Home, Community Home, Request Card, Profile/Trust, Governance/Fission-Fusion).
-> - **UX audit capture:** Claude drives demo via Playwright MCP (member login → navigate → screenshot → notes).
->
-> **Multi-agent process:** every plan/PR/branch/commit is reviewed by the agent that did NOT author it
-> (Codex ↔ Claude). One owner per artifact. The roadmap (`...sprint-87-90-polish-reset-review-and-roadmap.md`)
-> was Codex-authored / Claude-reviewed; **Claude authored this Sprint 87 spec + plan**, so Codex reviews them.
-
----
-
-## Quick Start — Sprint 87: Product Truth & UX Reset
-
-1. Read this handoff **and** the roadmap spec: `docs/superpowers/specs/2026-06-05-sprint-87-90-polish-reset-review-and-roadmap.md` (locked decisions at top).
-2. Check out branch: `git checkout -b feature/sprint-87-product-truth-and-ux-reset`
-3. Open plan: `docs/superpowers/plans/2026-06-05-sprint-87-product-truth-and-ux-reset.md`
-4. Run: `/execute-plan` (uses superpowers:subagent-driven-development)
-
-**Order matters:** quick wins (Tasks 1–3) → **clean/seed demo data (Task 4)** → UX audit (Task 6) →
-visual research (Task 7) → mockups (Task 8) → presentation rules (Task 9) → S88 recommendation (Task 10)
-→ gates/verify/deploy. The audit is only as honest as the data behind it — do not audit before the reseed.
-
-## Sprint 87 goal (one sentence)
-
-Establish Karmyq's new manifesto-first presentation direction — ship low-risk source-of-truth & landing
-quick wins, clean demo data, and produce a product-polish scorecard + screenshot UX audit + visual
-research + throwaway HTML mockups (5 surfaces) + a written presentation-rules system — so Sprint 88
-executes the help-loop redesign from an approved direction.
-
-## Decisions locked (2026-06-05, maintainer — full detail in the roadmap spec)
-
-1. **Aesthetic = "warm commons, calm behavior"** — warmth is identity (people/stories/relationship reasons
-   lead, humane voice); calm is discipline (finite queues, no engagement chrome, quiet density, visible
-   privacy/decay). Reference feel: neighborhood library / thoughtful newsletter. Not cold SaaS, not loud civic.
-2. **Quick wins are in scope** — stale metadata, `apps/frontend/CONTEXT.md` BrowseFeed drift, landing
-   placeholder stories. **No production UI rewrite until direction approved.**
-3. **Score-vs-relationship taxonomy** — lead with relationship path (`TrustPathBadge`/"via X"); remove
-   per-person reputation/trust SCORES (`KarmaBadge`); de-emphasize match %. **KarmaBadge removal folds
-   into the S88 card redesign** — S87 only documents the rule, does NOT edit `RequestCard`.
-4. **Community feed "show all open" = both** — curated-first (`minScore≥30`) + low-altitude member "show
-   more open" + admin all-status list (#64). Implements S88; S87 records the decision.
-5. **"Designed to forget" stays Sprint 90**, seeded small in Sprint 88.
-
-## Multi-sprint arc
-
-- **Sprint 84** — unified feed research & direction. ✅ Complete (`no-deploy`).
-- **Sprint 85** — unified feed, Dashboard Home first. ✅ Shipped v10.9.0.
-- **Sprint 86** — Community Feed view + texture + legacy retirement + seam fix. ✅ Shipped v10.10.0.
-- **Sprint 87 (THIS)** — Product Truth & UX Reset (quick wins + demo-data + scorecard + audit + mockups + rules). Target v10.11.0.
-- **Sprint 88** — Core help-loop redesign (RequestCard hierarchy, KarmaBadge removal, finite-queue states,
-  impression logging on `view=home`/`view=community`, community `minScore` "show more open", seed of "what fades", RequestWizard copy).
-- **Sprint 89** — Community sovereignty redesign. **Sprint 90** — Trust/forgetting/profile.
-  **Sprint 91** — Mobile parity from the polished model. **Sprint 92** — Architecture & service pruning.
-
-## Reference
-
-- **Roadmap (arc + locked decisions):** `docs/superpowers/specs/2026-06-05-sprint-87-90-polish-reset-review-and-roadmap.md`
-- **Spec:** `docs/superpowers/specs/2026-06-05-sprint-87-product-truth-and-ux-reset-design.md`
-- **Plan:** `docs/superpowers/plans/2026-06-05-sprint-87-product-truth-and-ux-reset.md`
-- **Design artifacts land in:** `docs/design/sprint-87/` (NOT gitignored).
-- **High-signal findings (what the audit/mockups respond to):** see roadmap §High-Signal Findings #1–8.
-
-## ⚠️ Critical Implementation Notes (copied from spec — these prevent scope creep + the common bugs)
-
-1. **No production UI rewrite this sprint.** Only the two quick wins touch production code
-   (`CommunityStories.tsx`, `apps/frontend/CONTEXT.md`) + metadata. Everything else is
-   `docs/design/sprint-87/` artifacts. Resist scope creep into S88 card/shell work.
-2. **`KarmaBadge` is NOT removed this sprint** (Decision 3 folds it into the S88 card redesign). Document
-   the taxonomy rule; do not edit `RequestCard`.
-3. **Clean/seed demo data BEFORE the screenshot audit** — an audit on stale-sim data judges noise.
-   Order: data cleanup → audit → mockups.
-4. **Drive the audit via Playwright with a real MEMBER login** (JWT field is `communities`). Capture each
-   surface as a member, not just admin. If demo looks wrong, confirm the latest "Deploy to Demo" run
-   succeeded first (deploy-drift watch).
-5. **Mockups are throwaway & standalone** — static HTML/CSS, not wired into `apps/frontend`. Build with
-   `frontend-design` against warm-commons/calm.
-6. **Landing docs dir is gitignored** (`apps/landing/src/data/docs/`) → `git add -f`. **`docs/design/`
-   is NOT gitignored.** Run `generate-docs` from `apps/landing/`; **grep-verify nav.json after** (it reverts).
-7. **`git add` CLAUDE.md** is lowercase `claude.md` on Windows.
-8. **Optimize deliverables for the maintainer's approval decision**, not for completeness — the mockups +
-   presentation rules are the gate to S88.
+| Warm tab | Source today | Audience |
+|----------|--------------|----------|
+| **Home** (default) | hero + pulse + `BrowseTab`'s **member `UnifiedFeed` only** (was admin-gated `requests`); `overview` retired | Everyone |
+| **People** | `ActiveTab` (`people`) | Everyone |
+| **How we're connected** | `TrustGraphTab` (`trust`) | Members |
+| **Stewardship** | `GovernanceTab` + `FissionTab` + `FusionTab` + admin `StewardRequestsAdmin` (extracted from `BrowseTab`) + admin `ProfileTab(settings\|providers)` | Members (admin tools gated within) |
+| **Activities** (5th, conditional) | `ActivitiesTab` | `community_type==='group'` only |
 
 ## ADR numbering
 
-No ADR this sprint (design direction, not an architectural decision). Next free ADR number = **068**.
-066 = unified-feed model (S85), 067 = `request_type` vs `payload_type` seam (S86).
+**ADR-068 — Community Page Information Architecture (warm four-tab model)** is created this sprint.
+Records the four-tab consolidation, warm-Home default, member/admin altitude split, and the pulse
+seam. Next free ADR after this = **069**. (066 = unified-feed model S85; 067 = `request_type` vs
+`payload_type` seam S86.)
+
+## Reference
+
+- **Spec:** `docs/superpowers/specs/2026-06-06-sprint-89-community-sovereignty-redesign-design.md`
+- **Plan:** `docs/superpowers/plans/2026-06-06-sprint-89-community-sovereignty-redesign.md`
+- **Target mockup:** `docs/design/sprint-87/mockups/community-home.html` (the whole page, not just the feed)
+- **Approved presentation rules:** `docs/design/sprint-87/presentation-rules.md`
+- **S88 spec/plan:** `docs/superpowers/specs/2026-06-05-sprint-88-core-help-loop-redesign-design.md`,
+  `docs/superpowers/plans/2026-06-05-sprint-88-core-help-loop-redesign.md`
+- **Reusable blocks shipped S88:** `apps/frontend/src/styles/karmyq-shell.css` (`.kq-*`),
+  `TrustPathBadge presentation="feed"` (green relationship face-pill).
+
+---
+
+# Archived Context — Sprint 88 Core Help-Loop Redesign — ✅ MERGED + DEPLOYED (v10.12.0)
+
+> Sprint 88 shipped via PR **#71** (core) + PR **#72** (shell-fidelity follow-up, `95fa62c`).
+> Implemented: shared `.kq-*` shell; relationship-led `RequestCard` (KarmaBadge removed, match-%
+> demoted to qualitative copy, `TrustPathBadge` promoted); Dashboard Home + Community **feed**
+> headers; `Show more open requests` (backend `minScore=0` honored, finite-check parser); union-path
+> impression logging; mobile FAB/decision-band spacing; split/fusion name cleanup; docs regenerated.
+> Deployed green (CI/CD `27069900734`, Tests `27069900728`, CodeQL `27069900546`); demo home HTTP 200.
+> Spec/plan: `docs/superpowers/.../2026-06-05-sprint-88-core-help-loop-redesign{-design,}.md`.
+>
+> **Note that fed Sprint 89:** S88 re-skinned the **feed surface only**; the community **page** chrome
+> + tab structure were untouched, and the warm feed ended up admin-gated. That is exactly what S89 fixes.
 
 ---
 
@@ -231,7 +144,7 @@ No ADR this sprint (design direction, not an architectural decision). Next free 
 - `.github/pull_request_template.md` = the cross-agent PR contract (Summary / Validation / Docs / Quality gates / Security dismissals / Follow-ups / Lane).
 - `.github/workflows/pr-contract.yml` fails a PR whose body is empty or missing the four required headers; `dependabot[bot]` passes through.
 - master **branch protection**: required checks = `pr-contract`, `Lint & Type Check`, `Test Frontend`, `Test Backend Services (Unit + Regression)`, `Code Scanning Gate (ADR-060)`, `Security Audit`; `strict: true`; 1 approving review; `enforce_admins: false`.
-- **Merge authority:** Admin owns approval + merge; Claude validates merge-readiness and recommends, executes merge only on Admin authorization ("pull it in"). Agents never self-merge. (PR #52/#58 were admin-merged via `gh pr merge --admin` after explicit author authorization, since branch protection requires a review the solo-dev flow can't self-supply.)
+- **Merge authority:** Admin owns approval + merge; Claude validates merge-readiness and recommends, executes merge only on Admin authorization ("pull it in"). Agents never self-merge.
 - **Enforcement is identity-based** — same-machine agents (Claude, Codex) share admin `gh` creds, so "no direct push to master" is convention-by-discipline for them, not a hard gate. See AGENTS.md "Enforcement reality".
 - A deliberate empty marker commit `90b9067` exists on master — do NOT "clean it up".
 
@@ -241,14 +154,14 @@ The open dependabot PRs predate `pr-contract.yml`; their stale branches have no 
 ### Architecture Gotchas (Persistent)
 - **Landing page docs**: `apps/landing/src/data/docs/` is in `.gitignore` — always `git add -f`. (`docs/design/` is NOT gitignored — only the landing data dir is.)
 - **nav.json revert bug**: `generate-docs.ts` regenerates nav.json — run from `apps/landing/`; grep-verify after; re-apply if reverted
-- **ADR numbering**: see "ADR numbering" above (next free = 068).
+- **ADR numbering**: ADR-068 created in S89; next free = 069.
 - **JWT field** is `communities` not `communityMemberships` — always `user.communities ?? []`
 - **Schema is `communities.communities`** (plural schema name) — older `community.*` comments are stale
 - **API response unwrap**: `createApiClient` interceptor already unwraps the envelope — use `res.data`, not `res.data.data`
 - **trust_edges_live is a VIEW**: never INSERT/UPDATE it — write `trust_edges`, read `trust_edges_live`
 - **`git add` on CLAUDE.md**: tracked as lowercase `claude.md`
 - **Solo dev — no worktrees**: work directly on feature branches
-- **Root package.json version**: **10.12.0** (Sprint 88 executed; bumped from 10.11.0).
+- **Root package.json version**: **10.12.0** (Sprint 88 shipped; S89 bumps to 10.13.0).
 - **CI security gates**: dependency audit (ADR-059, blocking `--audit-level=high`) + CodeQL code-scanning gate (ADR-060) run automatically on push
 - **`request_type` vs `category`**: `request_type` = 5-value `request_type_enum` (filter); `category` = fine
   payload subtype (`transportation` etc., what `RequestPayloadRenderer` switches on, what matching keys off).
@@ -259,13 +172,6 @@ The open dependabot PRs predate `pr-contract.yml`; their stale branches have no 
 
 ### ⚠️ Deploy drift watch
 `karmyq.org` live content drifted from `master` around Sprint 83. If judging by live content, first confirm the most recent "Deploy to Demo" GitHub Actions run succeeded and live content matches `master`.
-
-### Sprint 85 residual / carry-forward
-- **Home-feed impression logging gap**: the `requests.feed_events` impression INSERT only fires on the
-  **legacy array** path of `handleCuratedFeed`, not the `view=home` (or `view=community`) union path.
-  Carried to **Sprint 88** (help-loop redesign).
-- **One manual UI check from S85** (low priority): confirm on demo Dashboard Home that a responder can
-  withdraw an offer from the decision band — covered by the S85 verify-lock test; visual confirm only.
 
 ### Sprint 81 residual (carried)
 - JWT-in-URL exposure → nginx log scrub (shipped Sprint 83). Token TTL kept at 1h (documented). SSE auth tests promoted to regression.

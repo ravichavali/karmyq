@@ -61,6 +61,10 @@
           "href": "/docs/concepts/unified-feed"
         },
         {
+          "label": "The Community Home",
+          "href": "/docs/concepts/community-home"
+        },
+        {
           "label": "Community Scale: The Fractal Community Model",
           "href": "/docs/concepts/community-scale"
         },
@@ -429,6 +433,10 @@
         {
           "label": "`request_type` vs `payload_type` Vocabulary",
           "href": "/docs/concepts/adr-067-request-type-payload-vocabulary"
+        },
+        {
+          "label": "Community Page Information Architecture (warm four-tab model)",
+          "href": "/docs/concepts/adr-068-community-page-information-architecture"
         },
         {
           "label": "— Infrastructure —",

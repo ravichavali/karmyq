@@ -522,6 +522,39 @@ type UnifiedFeedItem =
 
 **Implementation:** `src/routes/requests.ts:194`
 
+#### GET /requests/community/:communityId/pulse (Sprint 89 / ADR-068)
+The community's weekly help-loop **pulse** for the warm community Home hero ("This week in the
+neighbourhood"). **Reuses the exact S86 community-feed texture aggregation** (extracted into the
+shared `fetchCommunityPulse()` helper that also builds the in-feed `activity` card), so the hero
+pulse and the in-feed `ActivityCard` can never report different numbers. Adds one new field
+`timeSensitive`. Read-only; no schema change.
+
+**Authentication:** Required (JWT). **Members-only** — gated on the JWT `communities` claim (NOT
+`communityMemberships`, which is always `undefined` → always 403). A non-member caller → `403 NOT_A_MEMBER`.
+Unknown community → `404`.
+
+**Window:** last 7 days. `openAsks`/`timeSensitive` count only `status='open' AND expired = FALSE`
+(matches the texture query so the pulse never overcounts vs the feed). `recentJoins` comes from the
+server (`communities.members.joined_at` within 7 days) — there is no client-side member-recency seam.
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "helpedThisWeek": 6,
+    "openAsks": 4,
+    "timeSensitive": 2,
+    "recentJoins": 1,
+    "recentHelpers": [{ "name": "Priya Sharma", "count": 3 }],
+    "windowDays": 7
+  }
+}
+```
+
+**Implementation:** `src/routes/requests.ts` — `router.get('/community/:communityId/pulse')` + the
+shared `fetchCommunityPulse()` helper.
+
 #### GET /requests/:id
 Get specific request details.
 

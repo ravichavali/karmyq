@@ -30,6 +30,11 @@ interface UnifiedFeedProps {
   noCommunities?: boolean
   browseMode?: BrowseMode
   onBrowseModeChange?: (mode: BrowseMode) => void
+  /**
+   * Sprint 89 / ADR-068 — on community Home the weekly summary is rendered once by the hero-level
+   * CommunityPulse, so suppress the duplicate in-feed ActivityCard here. Stories still render.
+   */
+  suppressActivity?: boolean
 }
 
 function readCurrentUserId(): string | null {
@@ -46,6 +51,7 @@ export default function UnifiedFeed({
   noCommunities,
   browseMode: externalBrowseMode,
   onBrowseModeChange,
+  suppressActivity = false,
 }: UnifiedFeedProps) {
   const isCommunity = view === 'community'
   const [items, setItems] = useState<UnifiedFeedItem[]>([])
@@ -118,9 +124,9 @@ export default function UnifiedFeed({
     .map((i) => i.data)
 
   // Texture layer (community view): server-ranked below requests; rendered in array order.
-  const activityCards = items
+  const activityCards = (suppressActivity ? [] : items
     .filter((i): i is Extract<UnifiedFeedItem, { kind: 'activity' }> => i.kind === 'activity')
-    .map((i) => i.data as ActivityData)
+    .map((i) => i.data as ActivityData))
   const storyCards = items
     .filter((i): i is Extract<UnifiedFeedItem, { kind: 'story' }> => i.kind === 'story')
     .map((i) => i.data as StoryData)

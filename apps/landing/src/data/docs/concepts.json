@@ -519,6 +519,14 @@
       "status": "implemented",
       "description": "**Status**: Implemented",
       "filename": "ADR-067-request-type-payload-vocabulary.md"
+    },
+    {
+      "slug": "adr-068-community-page-information-architecture",
+      "number": "068",
+      "title": "ADR-068: Community Page Information Architecture (warm four-tab model)",
+      "status": "implemented",
+      "description": "**Status**: Implemented",
+      "filename": "ADR-068-community-page-information-architecture.md"
     }
   ]
 }

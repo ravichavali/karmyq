@@ -298,6 +298,11 @@
         },
         {
           "method": "GET",
+          "path": "/requests/community/:communityId/pulse (Sprint 89 / ADR-068)",
+          "description": "The community's weekly help-loop **pulse** for the warm community Home hero (\"This week in the"
+        },
+        {
+          "method": "GET",
           "path": "/requests/:id",
           "description": "Get specific request details."
         },

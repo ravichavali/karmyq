@@ -98,6 +98,7 @@ When code implementing an ADR is deployed, update the status from `Accepted` →
 - [ADR-065: Karmyq.org and Karmyq.com Domain Roles](ADR-065-karmyq-org-and-com-domain-roles.md) — **Implemented**
 - [ADR-066: Unified Feed Model](ADR-066-unified-feed-model.md) — **Implemented**
 - [ADR-067: request_type vs payload_type Vocabulary](ADR-067-request-type-payload-vocabulary.md) — **Implemented**
+- [ADR-068: Community Page Information Architecture (warm four-tab model)](ADR-068-community-page-information-architecture.md) — **Implemented**
 
 ## Creating a New ADR
 
