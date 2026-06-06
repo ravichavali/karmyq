@@ -8,8 +8,10 @@
 > the approved `community-home.html` mockup. Three decisions locked:
 > 1. **Full consolidation to four warm tabs** — Home · People · How we're connected · Stewardship
 >    (admin Settings/Providers fold under Stewardship; Activities stays a group-only 5th tab).
-> 2. **New request-service pulse endpoint** backs "This week in the neighbourhood" (helped / open
->    asks / time-sensitive); **recent-joins is derived client-side** from already-loaded members.
+> 2. **Pulse endpoint reuses the existing S86 texture aggregation** (helped / open asks / recent
+>    joins / helpers, all already computed server-side) + a new `timeSensitive` field; the duplicate
+>    in-feed `ActivityCard` is suppressed on Home. (Codex review corrected the original "new endpoint
+>    + client-side recent-joins" framing — that would have triple-counted the same numbers.)
 > 3. **Everyone lands on warm Home** (members + admins); admins reach tools via Stewardship.
 >
 > **▶ HEADLINE BUG THIS SPRINT FIXES:** the S88 warm feed (`BrowseTab` → `UnifiedFeed`) is currently
@@ -45,43 +47,48 @@ serif hero with the visible Dunbar cap bar, and a real "this week in the neighbo
 
 ## Critical Implementation Notes (copied verbatim from spec)
 
-1. **The warm feed is currently admin-gated — that is the headline bug to fix.** In `[id].tsx` the
-   `requests` tab button renders only under `isAdminOrMod`, so members never reach `BrowseTab`. Home
-   must render the warm feed for **every** role. Verify a *member* (not admin) login lands on Home
-   and sees relationship-led cards.
+1. **Headline bug + BrowseTab is two surfaces.** The warm feed is admin-gated today (`requests` tab
+   under `isAdminOrMod` in `[id].tsx`), so members never see it. But `BrowseTab` contains BOTH the
+   member `UnifiedFeed` AND an admin steward-request manager (all-status list, triage/boost/propose/
+   insights/export). Home renders the **member `UnifiedFeed` only**, for every role; the admin block
+   is **extracted** to `StewardRequestsAdmin` under Stewardship. Whole-BrowseTab-on-Home re-strands
+   admins in management; UnifiedFeed-only without extracting loses the admin tools.
 2. **Default tab = Home for all roles.** Initial `activeTab` is `'home'`; remove the `overview`
    default. Admins reach management via **Stewardship**, not by landing on it.
-3. **Preserve deep links / backwards-compat.** Old `?tab=` values must still resolve:
-   `overview`/`requests` → `home`; `trust` → `connected`; `governance`/`fission`/`fusion` →
-   `stewardship` (with the right sub-section); `settings`/`providers` → `stewardship` (admin
-   sub-section). Keep `OLD_TAB_MAP` working and extend it; existing redirect tests must stay green.
-4. **Pulse seam: endpoint owns help-loop facts; recent-joins is client-derived.** The new endpoint
-   lives in **request-service** and returns only `helpedThisWeek`/`openAsks`/`timeSensitive` — facts
-   that genuinely require aggregating the `requests` schema. **Recent joins is derived client-side**
-   from `community.members` (already loaded, has `joined_at`). Do **not** make request-service read
-   member-recency — deliberate decision, not an oversight.
+3. **Preserve EVERY deep link via a centralized exported resolver** (`lib/communityTabs.ts`). The
+   live map aliases more than the obvious set — remap ALL: `overview`/`requests`→`home`;
+   `trust`→`connected`; `governance`/`fission`/`fusion`→`stewardship`;
+   `settings`/`config`/`links`/`providers`→`stewardship` (admin sub-section);
+   `manage`/`pending`/`members`/`norms`→`people`; `stats`/`insights`/`export`→`stewardship`. The
+   redirect test currently owns a *copied* map — change it to import the real resolver.
+4. **Pulse reuses the S86 texture aggregation — no second query; de-dup the in-feed card.**
+   request-service already computes the same weekly numbers at `requests.ts ~L1010–1051`
+   (`exchanges_completed_week`, `new_members_count`, `open_requests_count` with `expired = FALSE`,
+   `recent_helpers`) and appends an in-feed `ActivityCard`. Extract/reuse that query (adding only
+   `timeSensitive`); `recentJoins` comes from the endpoint (server already reads `members.joined_at`
+   — no client-side seam). **Suppress the in-feed `ActivityCard` on community Home** so the pulse
+   isn't rendered twice.
 5. **Pulse endpoint must enforce membership.** Gate on `user.communities` (active membership in
    `:communityId`), **not** `communityMemberships` (always `undefined` → always 403). Non-members → 403.
-6. **No empty tiles.** The pulse suppresses rows with no meaningful data (no completed help this week
-   → hide that row). The Dunbar capline ("room for M more") always renders.
-7. **API unwrap rule:** `createApiClient` already unwraps the envelope — consume `res.data`, not
-   `res.data.data`.
-8. **Don't rewrite admin management (carry S88 note 13).** Stewardship *relocates* existing
-   governance/split/fusion/settings/providers components under one warm tab with sub-nav.
-9. **Capline math uses the real cap** (`max_members` if present, else 150 Dunbar); cap-bar width =
-   `count / cap`.
-10. **`community_type` matters.** Activities stays a group-only tab; do not surface it for `mutual_aid`.
-11. **Schema name is `communities.*` (plural).** The request-service local README is stale on the JWT field.
-12. **nav.json reverts.** After `generate-docs`, grep-verify and re-apply; landing docs gitignored → `git add -f`.
+6. **`openAsks` excludes expired** — `status='open' AND expired = FALSE` (match the existing query).
+7. **No empty tiles.** The pulse suppresses rows with no meaningful data; the Dunbar capline always renders.
+8. **API unwrap rule:** `createApiClient` already unwraps the envelope — consume `res.data`, not `res.data.data`.
+9. **Don't rewrite admin management (carry S88 note 13).** Stewardship *relocates* existing components
+   (incl. extracted `StewardRequestsAdmin`) under sub-nav. `/communities/[id]/admin` is a back-compat
+   redirect, not a live config home.
+10. **Cap bar uses the real cap** — `current_members` / `max_members` (both present; fall back to 150 only if null).
+11. **`community_type` matters.** Activities stays a group-only tab; do not surface it for `mutual_aid`.
+12. **Schema name is `communities.*` (plural).** The request-service local README is stale on the JWT field.
+13. **nav.json reverts.** After `generate-docs`, grep-verify and re-apply; landing docs gitignored → `git add -f`.
 
 ## Tab mapping (where everything goes)
 
 | Warm tab | Source today | Audience |
 |----------|--------------|----------|
-| **Home** (default) | hero + pulse + `BrowseTab`→`UnifiedFeed` (was admin-gated `requests`) + `overview` retired | Everyone |
+| **Home** (default) | hero + pulse + `BrowseTab`'s **member `UnifiedFeed` only** (was admin-gated `requests`); `overview` retired | Everyone |
 | **People** | `ActiveTab` (`people`) | Everyone |
 | **How we're connected** | `TrustGraphTab` (`trust`) | Members |
-| **Stewardship** | `GovernanceTab` + `FissionTab` + `FusionTab` + admin `ProfileTab(settings\|providers)` | Members (admin tools gated within) |
+| **Stewardship** | `GovernanceTab` + `FissionTab` + `FusionTab` + admin `StewardRequestsAdmin` (extracted from `BrowseTab`) + admin `ProfileTab(settings\|providers)` | Members (admin tools gated within) |
 | **Activities** (5th, conditional) | `ActivitiesTab` | `community_type==='group'` only |
 
 ## ADR numbering
