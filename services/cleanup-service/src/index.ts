@@ -18,6 +18,7 @@ import { sendMatchReminders } from './jobs/matchReminderJob';
 import { expireDibs } from './jobs/expireDibs';
 import { sweepDeadTrustEdges } from './jobs/trustEdgeSweepJob';
 import { sweepExpiredRequests } from './jobs/requestTtlSweepJob';
+import { forgetExchangeContent } from './jobs/memoryRetentionJob';
 import pool from './database/db';
 
 dotenv.config();
@@ -253,6 +254,17 @@ app.post('/jobs/sweep-request-ttl', adminRateLimiter, adminAuthMiddleware, async
   }
 });
 
+app.post('/jobs/forget-content', adminRateLimiter, adminAuthMiddleware, async (req: ExtendedRequest, res: Response) => {
+  try {
+    logger.info('Manual trigger: forget exchange content');
+    const counts = await forgetExchangeContent();
+    sendSuccess(res, { message: 'Memory retention sweep complete', ...counts }, 200, { requestId: req.id });
+  } catch (error) {
+    logger.error('Manual memory retention sweep failed', { error });
+    sendInternalError(res, error instanceof Error ? error.message : String(error), error, { requestId: req.id });
+  }
+});
+
 // ============= SCHEDULED JOBS =============
 
 /**
@@ -380,6 +392,21 @@ cron.schedule('30 2 * * *', async () => {
   }
 });
 
+/**
+ * Memory Retention Job (Sprint 90 — Designed to Forget)
+ * Runs daily at 3:30 AM
+ * Anonymizes aged completed-request free-text + cascade-forgets messages, hard-deletes expired/unmatched
+ * requests, and backstops old messages. Aggregates (matches, karma_records) are left untouched.
+ */
+cron.schedule('30 3 * * *', async () => {
+  logger.info('Cron: Running memory retention job');
+  try {
+    await forgetExchangeContent();
+  } catch (error) {
+    logger.error('Scheduled memory retention job failed', { error });
+  }
+});
+
 // ============= START SERVER =============
 
 async function startServer() {
@@ -399,6 +426,7 @@ async function startServer() {
       logger.info('  - Activity log cleanup: Weekly Sunday at 4:00 AM');
       logger.info('  - Decay report: Weekly Monday at 9:00 AM');
       logger.info('  - Request TTL sweep: Daily at 2:30 AM');
+      logger.info('  - Memory retention (designed to forget): Daily at 3:30 AM');
       logger.info('  - Trust edge sweep: Daily at 4:30 AM');
     });
   } catch (error) {

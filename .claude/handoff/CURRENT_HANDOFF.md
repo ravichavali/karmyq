@@ -1,9 +1,31 @@
-# Sprint 90 — Designed to Forget — PLANNED, READY TO EXECUTE
+# Sprint 90 — Designed to Forget — IMPLEMENTED, AWAITING MERGE AUTHORIZATION
 
-> **▶ STATUS (2026-06-07):** Sprint 89 (Community Sovereignty Redesign) **shipped to master** as
-> `ae63e9f` (#73), **v10.13.0** — the whole `/communities/[id]` page is now four warm tabs with warm
-> Home default + pulse. Sprint 90 is **planned and ready to execute**. Spec + plan written; version will
-> bump **10.13.0 → 10.14.0**. No code written yet — next session executes the plan.
+> **▶ STATUS (2026-06-07):** Sprint 90 (Designed to Forget) **fully implemented on
+> `feature/sprint-90-designed-to-forget`**, version bumped **10.13.0 → 10.14.0**. All 13 build tasks
+> done; PR opened with the contract body. **Awaiting maintainer "pull it in" authorization** before
+> merge to master (agents never self-merge; branch protection requires 1 approving review).
+>
+> **What shipped (all 14 plan tasks):** migration `20260607-designed-to-forget.sql` (retention_config +
+> marker columns, validated by migration-validator); `memoryRetentionJob` in cleanup-service
+> (anonymize completed free-text + cascade messages in one CTE, hard-delete expired/unmatched, backstop;
+> karma untouched) wired to 3:30am cron + `POST /jobs/forget-content`; shared `classifyDecayTier`
+> helper (`@karmyq/shared/trust/decayTier`); social-graph `/trust/graph(/full)` edges carry
+> currentWeight/disappearanceThreshold/decayTier + new `/trust/me/memory` + `/trust/relationships/fading`;
+> request-service `GET /retention-policy` (before `/:id`); frontend — `.kq-decay-*` fade tokens,
+> `TrustPathBadge` decayTier fade, HEB edge fade, `ReWarmingNudge`, `/about/memory` transparency page,
+> profile warm hero + `MemorySection`; ADR-069 + ADR-070; landing concept/guide/ADR docs + onboarding;
+> CONTEXT.md ×3 + registry.json; integration test.
+>
+> **Verification:** all type-checks green (cleanup/social-graph/request/frontend/shared); new unit/pure
+> tests pass (memoryRetentionJob 11, decay-tier 9, retention-policy pure 4, memory-surfaces 7);
+> TrustPathBadge regression 54 green; `npm audit --audit-level=high` clean. DB-dependent integration
+> tests (sprint-90-forgetting-integration, sprint-90-retention-policy member path) run in CI/deploy.
+>
+> **Post-merge:** flip ADR-069 + ADR-070 status `Accepted → Implemented`; on deploy, ensure the
+> migration is applied to the demo DB before the 3:30am job first runs; dismiss the recurring `api.ts`
+> `js/request-forgery` CodeQL FP after rescan if it re-fires (new client calls).
+>
+> _(Original planning brief retained below for reference.)_
 
 ---
 

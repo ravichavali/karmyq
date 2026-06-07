@@ -45,6 +45,43 @@ interface ImpressionRequestRow {
   sourceTier: string;
 }
 
+// Sprint 90 / ADR-069 — retention window resolution: community row → global (NULL) row → hardcoded
+// fallback. Mirrors the cleanup-service job's resolution so the transparency page and the actual
+// forgetting job agree on the windows. Pure, so it can be unit-tested without a database.
+export interface RetentionWindows {
+  completedRequestWindowDays: number;
+  expiredRequestWindowDays: number;
+  messageWindowDays: number;
+}
+
+interface RetentionConfigRow {
+  community_id: string | null;
+  completed_request_window_days: number;
+  expired_request_window_days: number;
+  message_window_days: number;
+}
+
+const RETENTION_FALLBACK: RetentionWindows = {
+  completedRequestWindowDays: 180,
+  expiredRequestWindowDays: 30,
+  messageWindowDays: 180,
+};
+
+export function resolveRetentionWindows(
+  rows: RetentionConfigRow[],
+  communityId?: string
+): RetentionWindows {
+  const row =
+    (communityId != null && rows.find((r) => r.community_id === communityId)) ||
+    rows.find((r) => r.community_id == null);
+  if (!row) return { ...RETENTION_FALLBACK };
+  return {
+    completedRequestWindowDays: row.completed_request_window_days,
+    expiredRequestWindowDays: row.expired_request_window_days,
+    messageWindowDays: row.message_window_days,
+  };
+}
+
 export function parseMinScore(value: unknown): number {
   const parsed = parseInt(String(value ?? ''), 10);
   return Number.isFinite(parsed) ? parsed : 30;
@@ -1171,6 +1208,63 @@ router.get('/community/:communityId/pulse', async (req: Request, res: Response) 
   } catch (e: any) {
     (req as any).logger?.error('community pulse failed', e instanceof Error ? e : new Error(String(e)), { service: 'request-service', step: 'community-pulse' });
     sendInternalError(res, 'Failed to load community pulse', e instanceof Error ? e : undefined, meta);
+  }
+});
+
+/**
+ * Sprint 90 / ADR-069 — GET /requests/retention-policy?communityId=
+ * Backs the "What Karmyq remembers" transparency page: the resolved retention windows plus a count of
+ * the member's OWN requests currently held vs already forgotten. Read-only, no PII (no titles/bodies).
+ * Membership-gated on the JWT `communities` claim when a communityId is supplied.
+ *
+ * ⚠️ Route order: MUST be registered BEFORE `router.get('/:id', ...)` below — Express matches top-down,
+ * so a later registration would let `/:id` capture "retention-policy" as an id.
+ */
+router.get('/retention-policy', async (req: Request, res: Response) => {
+  const meta = { requestId: (req as any).id };
+  const userId = (req as any).user?.userId;
+  const communityId = req.query.communityId as string | undefined;
+
+  // Gate: if scoped to a community, the caller must be a member of it.
+  if (communityId) {
+    const memberships = (req as any).user?.communities ?? [];
+    if (!memberships.some((c: any) => c.id === communityId)) {
+      sendError(res, 'NOT_A_MEMBER', 'You must be a member of this community to view its retention policy', HTTP_STATUS.FORBIDDEN, undefined, meta);
+      return;
+    }
+  }
+
+  try {
+    const cfg = await query(
+      `SELECT community_id, completed_request_window_days, expired_request_window_days, message_window_days
+         FROM requests.retention_config`
+    );
+    const windows = resolveRetentionWindows(cfg.rows, communityId);
+
+    // Counts of the member's own requests: held (free-text intact) vs forgotten (anonymized).
+    const countsResult = await query(
+      `SELECT
+         COUNT(*) FILTER (WHERE r.content_forgotten_at IS NULL)     AS held,
+         COUNT(*) FILTER (WHERE r.content_forgotten_at IS NOT NULL) AS forgotten
+       FROM requests.help_requests r
+       ${communityId ? 'JOIN requests.request_communities rc ON rc.request_id = r.id AND rc.community_id = $2' : ''}
+       WHERE r.requester_id = $1`,
+      communityId ? [userId, communityId] : [userId]
+    );
+    const row = countsResult.rows[0] ?? { held: 0, forgotten: 0 };
+
+    sendSuccess(
+      res,
+      {
+        windows,
+        counts: { held: Number(row.held) || 0, forgotten: Number(row.forgotten) || 0 },
+      },
+      HTTP_STATUS.OK,
+      meta
+    );
+  } catch (e: any) {
+    (req as any).logger?.error('retention policy failed', e instanceof Error ? e : new Error(String(e)), { service: 'request-service', step: 'retention-policy' });
+    sendInternalError(res, 'Failed to load retention policy', e instanceof Error ? e : undefined, meta);
   }
 });
 

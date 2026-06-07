@@ -1,4 +1,21 @@
 import React from 'react';
+import type { DecayTier } from '@karmyq/shared/trust/decayTier';
+
+// Sprint 90 / ADR-070 — the shared relationship face fades by decayTier. Human-readable labels are
+// shown on hover so the fade is legible, not mysterious.
+const DECAY_TIER_LABEL: Record<DecayTier, string> = {
+  strong: 'Strong bond',
+  warm: 'Warm bond',
+  fading: 'This bond is fading',
+  nearly_forgotten: 'Nearly forgotten — reconnect to keep it',
+  swept: 'Faded away',
+};
+
+/** Build the fade className + hover label for a decayTier (no-op when undefined or strong). */
+export function decayPresentation(decayTier?: DecayTier): { className: string; title?: string } {
+  if (!decayTier || decayTier === 'strong') return { className: '' };
+  return { className: ` kq-decay kq-decay-${decayTier}`, title: DECAY_TIER_LABEL[decayTier] };
+}
 
 export interface TrustPath {
   degrees_of_separation: number | null;
@@ -20,9 +37,10 @@ interface TrustPathBadgeProps {
   compact?: boolean; // Show condensed version for smaller spaces
   className?: string;
   presentation?: 'default' | 'feed';
+  decayTier?: DecayTier; // Sprint 90: fade the badge by how quiet the bond has gone
 }
 
-export default function TrustPathBadge({ trustPath, compact = false, className = '', presentation = 'default' }: TrustPathBadgeProps) {
+export default function TrustPathBadge({ trustPath, compact = false, className = '', presentation = 'default', decayTier }: TrustPathBadgeProps) {
   if (!trustPath || trustPath.degrees_of_separation === null || !trustPath.path) {
     return null; // No connection found
   }
@@ -51,6 +69,7 @@ export default function TrustPathBadge({ trustPath, compact = false, className =
   };
 
   const badgeColor = getBadgeColor();
+  const decay = decayPresentation(decayTier);
 
   // Get icon based on connection type
   const getIcon = () => {
@@ -143,7 +162,7 @@ export default function TrustPathBadge({ trustPath, compact = false, className =
     if (presentation === 'feed') {
       const avatarLabel = getFeedAvatarLabel();
       return (
-        <span className={`kq-path-badge ${className}`} aria-label={getConnectionText()}>
+        <span className={`kq-path-badge ${className}${decay.className}`} aria-label={getConnectionText()} title={decay.title}>
           <span className="kq-path-avatar" aria-hidden="true">{avatarLabel.charAt(0).toUpperCase()}</span>
           {getFeedConnectionText()}
         </span>
@@ -151,7 +170,7 @@ export default function TrustPathBadge({ trustPath, compact = false, className =
     }
 
     return (
-      <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded border text-xs font-medium ${badgeColor} ${className}`}>
+      <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded border text-xs font-medium ${badgeColor} ${className}${decay.className}`} title={decay.title}>
         <span aria-hidden="true">{getIcon()}</span>
         {getConnectionText()}
       </span>
@@ -160,7 +179,7 @@ export default function TrustPathBadge({ trustPath, compact = false, className =
 
   // Full view: Show path and details
   return (
-    <div className={`border-l-4 ${getBorderColor()} rounded-md p-3 ${className}`}>
+    <div className={`border-l-4 ${getBorderColor()} rounded-md p-3 ${className}${decay.className}`} title={decay.title}>
       {/* Header */}
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">

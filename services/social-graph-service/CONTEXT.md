@@ -817,6 +817,13 @@ See [ADR-056](../../docs/adr/ADR-056-intrinsic-trust-decay.md) for full decision
 
 ## Recent Changes
 
+### Sprint 90: Visible Decay Model (2026-06-07, ADR-070)
+- **NEW**: `classifyDecayTier(currentWeight, threshold)` in `@karmyq/shared` (`src/trust/decayTier.ts`) — the SINGLE source of the band math (`strong` r≥3, `warm` 2–3, `fading` 1.3–2, `nearly_forgotten` 1–1.3, `swept` r<1). Consumed by the routes + tests; never inline the bands.
+- **CHANGED**: `GET /trust/graph/:communityId` + `/trust/graph/:communityId/full` — each edge now also carries `currentWeight` (= live `effective_weight`), `disappearanceThreshold` (resolved via `getDecayConfig`), and `decayTier`. Enriched in `trustGraph.ts` via the pure `enrichLinksWithDecay(links, threshold)` (exported, unit-tested).
+- **NEW**: `GET /trust/me/memory?communityId=` — `{ activeCount, fading[], nearlyForgotten[] }` from `trust_edges_live`; backs the profile Memory section. Members-only (DB member check).
+- **NEW**: `GET /trust/relationships/fading?communityId=` — nearly-forgotten bonds for the re-warming nudge.
+- **NEW**: pure helpers `buildMemoryResponse(rows, threshold)` + `enrichLinksWithDecay` exported from `src/routes/trustGraph.ts` (tested in `tests/tdd/sprint-90-decay-tier.test.ts`). Reads only — `trust_edges_live` is a VIEW.
+
 ### Sprint 68: Interaction Half-Life (2026-05-26)
 - **NEW**: `stability FLOAT NOT NULL DEFAULT 1.0` column on `social_graph.trust_edges`
 - **NEW**: `social_graph.trust_decay_config` table — per-community Ebbinghaus decay parameters

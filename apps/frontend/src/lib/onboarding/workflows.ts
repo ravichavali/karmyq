@@ -56,6 +56,10 @@ export const WORKFLOWS: Record<string, WorkflowDef> = {
         title: 'Finding your way around',
         body: "A community opens on warm Home — its hero, the weekly pulse, and the open asks. People shows who's here and the trust between you; How we're connected is the trust graph; Stewardship is where shared decisions, splits, merges, and (for admins) the management tools live.",
       },
+      {
+        title: 'Relationships that fade — and how to keep them',
+        body: "Karmyq is designed to forget. On How we're connected, bonds you've drifted from look fainter, and a gentle nudge invites you to reconnect before a once-close one is let go. Your profile's memory section shows what you're tending and what's going quiet — and the What Karmyq Remembers page explains exactly what's kept versus let go. Forgetting the details never touches your karma or trust.",
+      },
     ],
   },
   requests: {

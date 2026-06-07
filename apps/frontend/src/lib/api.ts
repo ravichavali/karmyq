@@ -498,6 +498,13 @@ export const requestService = {
   getCommunityPulse: (communityId: string) =>
     requestApi.get(`/requests/community/${communityId}/pulse`),
 
+  // Sprint 90 / ADR-069: resolved retention windows + the member's own held/forgotten counts.
+  // Backs the "What Karmyq remembers" transparency page. Members-only when community-scoped.
+  getRetentionPolicy: (communityId?: string) =>
+    requestApi.get('/requests/retention-policy', {
+      params: communityId ? { communityId } : undefined,
+    }),
+
   getRequest: (id: string) =>
     requestApi.get(`/requests/${id}`),
 
@@ -848,6 +855,15 @@ export const socialGraphService = {
   // and fission-lineage links. Callers read `res.data` (interceptor unwraps the envelope).
   getCommunityGraph: () =>
     socialGraphApi.get('/trust/communities'),
+
+  // Sprint 90 / ADR-070 — the caller's relationship memory in a community: activeCount + fading[] +
+  // nearlyForgotten[] (each with decayTier). Backs the profile Memory section. Read `res.data`.
+  getRelationshipMemory: (communityId: string) =>
+    socialGraphApi.get(`/trust/me/memory?communityId=${encodeURIComponent(communityId)}`),
+
+  // Nearly-forgotten bonds for the re-warming nudge (decayTier === 'nearly_forgotten').
+  getFadingRelationships: (communityId: string) =>
+    socialGraphApi.get(`/trust/relationships/fading?communityId=${encodeURIComponent(communityId)}`),
 }
 
 export const providerService = {

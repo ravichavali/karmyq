@@ -99,6 +99,8 @@ When code implementing an ADR is deployed, update the status from `Accepted` →
 - [ADR-066: Unified Feed Model](ADR-066-unified-feed-model.md) — **Implemented**
 - [ADR-067: request_type vs payload_type Vocabulary](ADR-067-request-type-payload-vocabulary.md) — **Implemented**
 - [ADR-068: Community Page Information Architecture (warm four-tab model)](ADR-068-community-page-information-architecture.md) — **Implemented**
+- [ADR-069: Data Retention and Forgetting (content anonymization policy)](ADR-069-data-retention-and-forgetting.md) — **Accepted**
+- [ADR-070: Visible Decay Model (decay tiers + re-warming nudge)](ADR-070-visible-decay-model.md) — **Accepted**
 
 ## Creating a New ADR
 

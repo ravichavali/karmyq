@@ -84,6 +84,10 @@
     "./schemas/providers": {
       "types": "./dist/src/schemas/providers/index.d.ts",
       "default": "./dist/src/schemas/providers/index.js"
+    },
+    "./trust/decayTier": {
+      "types": "./dist/src/trust/decayTier.d.ts",
+      "default": "./dist/src/trust/decayTier.js"
     }
   },
   "scripts": {

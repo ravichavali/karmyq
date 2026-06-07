@@ -13,6 +13,7 @@ const TrustNetworkWidget = dynamic(() => import('@/components/dashboard/TrustNet
 })
 import ProviderProfileTab from '@/components/ProviderProfileTab'
 import { ProfileTagsSection } from '@/components/ProfileTagsSection'
+import MemorySection from '@/components/profile/MemorySection'
 import { useInvitationChain } from '@/hooks/useInvitationChain'
 
 // Build version to force cache invalidation
@@ -474,13 +475,14 @@ export default function ProfilePage() {
       </Head>
       <Layout>
         <div className="container mx-auto px-4 py-8 max-w-4xl">
-          {/* Header */}
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold mb-2">My Profile</h1>
-            <p className="text-text-muted">
-              Manage your profile information and skills to help match you with relevant requests
+          {/* Warm-commons hero (Sprint 90 — S87–89 look) */}
+          <header className="kq-hero mb-6">
+            <p className="kq-section-label !mt-0">Your profile</p>
+            <h1 className="kq-hero-name">{user.name}</h1>
+            <p className="kq-hero-mission mt-2">
+              Your skills, your communities, and the relationships you&apos;re tending.
             </p>
-          </div>
+          </header>
 
           {/* Success/Error Messages */}
           {error && (
@@ -737,6 +739,12 @@ export default function ProfilePage() {
               </div>
             )}
           </div>
+
+          {/* Memory Section (Sprint 90 / ADR-070) — what we hold and what fades. Self-suppresses
+              when there's nothing to remember yet, and only when a community is selected. */}
+          {selectedCommunityId && (
+            <MemorySection communityId={selectedCommunityId} karmaTrend={karmaData?.trend ?? null} />
+          )}
 
           {/* Communities Section */}
           <div className="bg-surface-raised rounded-lg shadow-md p-6 mb-6">

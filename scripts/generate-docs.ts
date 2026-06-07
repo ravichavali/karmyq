@@ -258,6 +258,7 @@ const CONCEPT_ORDER = [
   'community-design',
   'community-home',
   'group-communities',
+  'designed-to-forget',
 ];
 
 function generateConceptPages(): ConceptPage[] {
@@ -332,6 +333,7 @@ const GUIDE_ORDER = [
   'interaction-half-life',
   'community-fission',
   'fusion',
+  'your-memory-and-relationships-guide',
   'demo-data',
 ];
 
@@ -360,6 +362,7 @@ const GUIDE_LABELS: Record<string, string> = {
   'interaction-half-life': 'Interaction Half-Life: How Trust Fades and Endures',
   'community-fission': 'Splitting a Community',
   'fusion': 'Community Fusion',
+  'your-memory-and-relationships-guide': 'Your Memory & Relationships',
   'demo-data': 'Understanding the Demo',
 };
 
@@ -387,6 +390,7 @@ const GUIDE_SLUGS: Record<string, string> = {
   'interaction-half-life': 'interaction-half-life',
   'community-fission': 'community-fission',
   'fusion': 'fusion',
+  'your-memory-and-relationships-guide': 'your-memory-and-relationships',
   'demo-data': 'demo-data',
 };
 
@@ -460,6 +464,8 @@ const ADR_GROUPS: Array<{ label: string; slugs: string[] }> = [
       'adr-057-fission-mechanism',
       'adr-058-fusion-mechanism',
       'adr-063-canonical-trust-metric-and-unified-graph',
+      'adr-069-data-retention-and-forgetting',
+      'adr-070-visible-decay-model',
     ],
   },
   {
@@ -545,7 +551,7 @@ function generateNav(
 
   // Non-technical concept pages (split into Why Karmyq / How It Works)
   const whyKarmyq = ['platform-overview', 'the-village-model', 'neighborhood-service-layer', 'community-design'];
-  const howItWorks = ['trust-and-karma', 'trust-score', 'reading-the-trust-graph', 'what-is-karma', 'trust-paths', 'trust-path', 'reputation-decay', 'why-ratings-are-private', 'unified-feed', 'community-home', 'community-scale', 'community-identity', 'network-cohesion', 'trust-model-evolution', 'community-evolution', 'fractal-feed', 'community-discovery', 'provider-mode', 'trust-questions', 'governance', 'observability'];
+  const howItWorks = ['trust-and-karma', 'trust-score', 'reading-the-trust-graph', 'what-is-karma', 'trust-paths', 'trust-path', 'reputation-decay', 'designed-to-forget', 'why-ratings-are-private', 'unified-feed', 'community-home', 'community-scale', 'community-identity', 'network-cohesion', 'trust-model-evolution', 'community-evolution', 'fractal-feed', 'community-discovery', 'provider-mode', 'trust-questions', 'governance', 'observability'];
 
   const nav = {
     sections: [

@@ -150,3 +150,29 @@
 .kq-section-label {
   @apply text-xs uppercase tracking-[0.12em] text-text-muted font-semibold mb-3 mt-6;
 }
+
+/* Sprint 90 / ADR-070 — Visible decay. A relationship's decayTier maps to an opacity + desaturation
+ * ramp so bonds perceptibly fade as they go quiet. Applied consistently to the shared relationship
+ * face (TrustPathBadge) and any element that renders a bond. `strong` is the baseline (no fade). */
+.kq-decay {
+  transition: opacity 220ms ease, filter 220ms ease;
+}
+.kq-decay-strong {
+  opacity: 1;
+}
+.kq-decay-warm {
+  opacity: 0.92;
+  filter: saturate(0.9);
+}
+.kq-decay-fading {
+  opacity: 0.7;
+  filter: saturate(0.6) grayscale(0.15);
+}
+.kq-decay-nearly_forgotten {
+  opacity: 0.5;
+  filter: saturate(0.35) grayscale(0.35);
+}
+.kq-decay-swept {
+  opacity: 0.3;
+  filter: saturate(0.15) grayscale(0.6);
+}
