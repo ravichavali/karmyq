@@ -1,140 +1,146 @@
-# Sprint 89 — Community Sovereignty Redesign — IMPLEMENTED, IN REVIEW
+# Sprint 90 — Designed to Forget — PLANNED, READY TO EXECUTE
 
-> **▶ STATUS (2026-06-06):** Sprint 89 is **implemented on `feature/sprint-89-community-sovereignty-redesign`
-> and awaiting maintainer merge authorization** (PR open). Version bumped **10.12.0 → 10.13.0**. All 12
-> plan tasks executed: pulse endpoint (reuses the S86 texture aggregation via shared `fetchCommunityPulse`
-> + new `timeSensitive`, members-only gate), warm four-tab page (`Home · People · How we're connected ·
-> Stewardship` + group-only Activities), warm Home default for **all roles** (headline bug fixed),
-> `CommunityHero` + `CommunityPulse`, `BrowseTab` split → `StewardRequestsAdmin` under `StewardshipTab`,
-> centralized `lib/communityTabs.ts` deep-link resolver, `UnifiedFeed.suppressActivity` de-dup, ADR-068 +
-> landing docs + onboarding + CONTEXT/registry. Gates green: `npm test` (27 tasks), tsc (request-service +
-> frontend), landing build, `npm audit` (0 high), feedback:check + analyze:services. New TDD: frontend IA
-> suite (9 pass); backend pulse suite (DB-gated → runs in CI integration). 5 pre-existing frontend TDD
-> failures unchanged (trust-model / useTrustQuestions / sprint-38/39/40 — proven via stash).
->
-> **▶ NEXT (post-merge):** Verify CI/CD + CodeQL green (dismiss the recurring `api.ts` js/request-forgery
-> FP), member-login UI check on demo (land on warm Home, click the four tabs, old `?tab=overview` deep link
-> resolves), then set **Sprint 90 — Trust, forgetting, profile polish** (visible decay; "designed to forget").
->
-> **▶ ORIGINAL SCOPE (locked with maintainer, 2026-06-06):** Bring the whole `/communities/[id]` page up to
-> the approved `community-home.html` mockup. Three decisions locked:
-> 1. **Full consolidation to four warm tabs** — Home · People · How we're connected · Stewardship
->    (admin Settings/Providers fold under Stewardship; Activities stays a group-only 5th tab).
-> 2. **Pulse endpoint reuses the existing S86 texture aggregation** (helped / open asks / recent
->    joins / helpers, all already computed server-side) + a new `timeSensitive` field; the duplicate
->    in-feed `ActivityCard` is suppressed on Home. (Codex review corrected the original "new endpoint
->    + client-side recent-joins" framing — that would have triple-counted the same numbers.)
-> 3. **Everyone lands on warm Home** (members + admins); admins reach tools via Stewardship.
->
-> **▶ HEADLINE BUG THIS SPRINT FIXES:** the S88 warm feed (`BrowseTab` → `UnifiedFeed`) is currently
-> rendered only on the `requests` tab, which is gated behind `isAdminOrMod` in `[id].tsx` (~line 192).
-> **Regular members never reach the redesigned feed.** Promoting it to the default Home for all roles
-> is the core fix.
+> **▶ STATUS (2026-06-07):** Sprint 89 (Community Sovereignty Redesign) **shipped to master** as
+> `ae63e9f` (#73), **v10.13.0** — the whole `/communities/[id]` page is now four warm tabs with warm
+> Home default + pulse. Sprint 90 is **planned and ready to execute**. Spec + plan written; version will
+> bump **10.13.0 → 10.14.0**. No code written yet — next session executes the plan.
 
 ---
 
-## Quick Start — Next Session
+## Quick Start
 
 1. Read this handoff.
-2. Check out branch: `git checkout -b feature/sprint-89-community-sovereignty-redesign`
-3. Open plan: `docs/superpowers/plans/2026-06-06-sprint-89-community-sovereignty-redesign.md`
+2. Branch already exists with the planning commit — just check it out:
+   `git checkout feature/sprint-90-designed-to-forget` (NOT `-b` — it exists).
+3. Open plan: `docs/superpowers/plans/2026-06-07-sprint-90-designed-to-forget.md`
 4. Run: `/execute-plan` (uses superpowers:subagent-driven-development)
 
-## Sprint 89 goal (one sentence)
+## Sprint 90 goal (one sentence)
 
-Bring the whole `/communities/[id]` page up to the approved warm `community-home` mockup — four warm
-tabs (Home · People · How we're connected · Stewardship), warm Home as the default for every role, a
-serif hero with the visible Dunbar cap bar, and a real "this week in the neighbourhood" pulse.
+Make Karmyq's "designed to forget" promise **real for content** (a `memoryRetentionJob` that anonymizes
+completed-exchange free-text to sentinels, hard-deletes expired/unmatched requests, and cascade-forgets
+messages — all keeping aggregates, karma untouched) and **visible for members** (relationships
+that perceptibly fade by `decayTier`, a re-warming nudge, a transparency page, and a warm-restyled
+profile with a memory section).
 
-## Multi-sprint arc
+## Why now
 
-- **Sprint 85** — unified feed, Dashboard Home first. ✅ v10.9.0.
-- **Sprint 86** — Community Feed view + texture + legacy retirement + seam fix. ✅ v10.10.0.
-- **Sprint 87** — Product Truth & UX Reset; warm-commons direction approved. ✅ v10.11.0.
-- **Sprint 88** — Core help-loop redesign: shared shell + Dashboard Home + Community **feed**. ✅ v10.12.0.
-- **Sprint 89 (THIS)** — Community sovereignty redesign: the whole community **page**. Target v10.13.0.
-- **Sprint 90** — Trust, forgetting, profile polish (visible decay; "designed to forget").
-- **Sprint 91** — Mobile parity from the polished model.
-- **Sprint 92** — Architecture & service pruning.
+Forgetting is already real at the **edge layer** (`trustEdgeSweepJob` deletes decayed trust edges below
+`disappearance_threshold`; reputation decays; requests expire) but it's **invisible** and content
+(request free-text, messages) is retained forever. IDEAS.md [2026-06-04] flags this as a
+strategic gap: "ranking math, not a visible, trustworthy promise." Sprint 90 closes it.
+
+## Scope decisions locked with maintainer (2026-06-07)
+
+1. **Spine = deepen the policy AND polish the profile** (both options 2 + 3 from scoping). Big sprint;
+   sequenced so the visible-decay surfaces don't block on the backend retention policy landing first.
+2. **What forgets:** completed-request free-text — `title`/`description`/`payload`/`requirements` —
+   (anonymize to `'[forgotten]'` sentinel), expired/unmatched requests (hard-delete), messages (cascade
+   with parent exchange). **Karma is OUT** (review correction 2026-06-07): `karma_records` has no PII and
+   `reason` is a load-bearing enum filtered by trust math — touching it corrupts trust scores. Left intact.
+3. **Method = anonymize to sentinels (NOT NULL columns), keep aggregates** (reputation/trust/pulse math
+   must stay correct). Expired-unmatched is the one hard-delete (no aggregate value).
+4. **Member controls = transparency only** this sprint (see, don't yet hand-delete/export).
+5. **Profile = warm restyle + memory section** (full S87–89 commons look).
+6. **All four visible surfaces ship:** fading relationship visuals, transparency page, profile memory
+   section, re-warming nudge.
+
+## The Exchange Unit cascade (the maintainer's question, answered)
+
+A `help_request` + its `match` + the `conversation` (`messaging.conversations.request_match_id`) + that
+conversation's `messages` are **one Exchange Unit**. Forgetting cascades along it: when a completed
+request's free-text is forgotten, its conversation's messages forget in the **same transaction**. The
+`match` and `karma_records` are **never touched** (they are the aggregate). Expired/unmatched requests
+have no match → no conversation → clean hard-delete with nothing to cascade.
 
 ## Critical Implementation Notes (copied verbatim from spec)
 
-1. **Headline bug + BrowseTab is two surfaces.** The warm feed is admin-gated today (`requests` tab
-   under `isAdminOrMod` in `[id].tsx`), so members never see it. But `BrowseTab` contains BOTH the
-   member `UnifiedFeed` AND an admin steward-request manager (all-status list, triage/boost/propose/
-   insights/export). Home renders the **member `UnifiedFeed` only**, for every role; the admin block
-   is **extracted** to `StewardRequestsAdmin` under Stewardship. Whole-BrowseTab-on-Home re-strands
-   admins in management; UnifiedFeed-only without extracting loses the admin tools.
-2. **Default tab = Home for all roles.** Initial `activeTab` is `'home'`; remove the `overview`
-   default. Admins reach management via **Stewardship**, not by landing on it.
-3. **Preserve EVERY deep link via a centralized exported resolver** (`lib/communityTabs.ts`). The
-   live map aliases more than the obvious set — remap ALL: `overview`/`requests`→`home`;
-   `trust`→`connected`; `governance`/`fission`/`fusion`→`stewardship`;
-   `settings`/`config`/`links`/`providers`→`stewardship` (admin sub-section);
-   `manage`/`pending`/`members`/`norms`→`people`; `stats`/`insights`/`export`→`stewardship`. The
-   redirect test currently owns a *copied* map — change it to import the real resolver.
-4. **Pulse reuses the S86 texture aggregation — no second query; de-dup the in-feed card.**
-   request-service already computes the same weekly numbers at `requests.ts ~L1010–1051`
-   (`exchanges_completed_week`, `new_members_count`, `open_requests_count` with `expired = FALSE`,
-   `recent_helpers`) and appends an in-feed `ActivityCard`. Extract/reuse that query (adding only
-   `timeSensitive`); `recentJoins` comes from the endpoint (server already reads `members.joined_at`
-   — no client-side seam). **Suppress the in-feed `ActivityCard` on community Home** so the pulse
-   isn't rendered twice.
-5. **Pulse endpoint must enforce membership.** Gate on `user.communities` (active membership in
-   `:communityId`), **not** `communityMemberships` (always `undefined` → always 403). Non-members → 403.
-6. **`openAsks` excludes expired** — `status='open' AND expired = FALSE` (match the existing query).
-7. **No empty tiles.** The pulse suppresses rows with no meaningful data; the Dunbar capline always renders.
-8. **API unwrap rule:** `createApiClient` already unwraps the envelope — consume `res.data`, not `res.data.data`.
-9. **Don't rewrite admin management (carry S88 note 13).** Stewardship *relocates* existing components
-   (incl. extracted `StewardRequestsAdmin`) under sub-nav. `/communities/[id]/admin` is a back-compat
-   redirect, not a live config home.
-10. **Cap bar uses the real cap** — `current_members` / `max_members` (both present; fall back to 150 only if null).
-11. **`community_type` matters.** Activities stays a group-only tab; do not surface it for `mutual_aid`.
-12. **Schema name is `communities.*` (plural).** The request-service local README is stale on the JWT field.
-13. **nav.json reverts.** After `generate-docs`, grep-verify and re-apply; landing docs gitignored → `git add -f`.
+1. **`karma_records` is OFF LIMITS — never write to it.** No PII; `reason` is a load-bearing enum
+   (`'Provided help'`/`'Received help'`/milestones) filtered across `trustMetricsDb`, `trustEvolutionDb`,
+   `communityTrustService`, `reputation.ts`. Touching `reason`/`points` silently corrupts trust scores.
+   Forgetting only ever writes `help_requests` and `messages`.
+2. **Target columns are `NOT NULL` → sentinel, never `NULL`.** `help_requests.title`/`description` and
+   `messages.content` are `NOT NULL`; `NULL` throws. Write `'[forgotten]'` (+ `'{}'::jsonb` for
+   `payload`/`requirements`). **`messages.content` is the column, NOT `body`.** Conversations link to an
+   exchange via `messaging.conversations.request_match_id` (the cascade join).
+3. **Forget ALL request free-text** — `title`, `description`, `payload`, `requirements` — not just
+   `description` (else PII stays in `title`/`payload`).
+4. **Exchange Unit cascade runs in one transaction per exchange** — request + its conversation's messages
+   forget together or none. Karma is NOT part of the cascade.
+5. **Expired model is the `expired` boolean, NOT `status='expired'`.** `status` is
+   `open`/`dibs_pending`/`matched`/`completed`/`cancelled` (CHECK in `20260603-feed-vocab-reconciliation.sql`)
+   — never `expired`; the expiration job sets the separate `expired = TRUE` flag. Hard-delete only
+   `expired = TRUE` with NO match row, **aging from `updated_at`** (the job stamps it when it flips the
+   flag — `created_at` would delete a just-expired old request immediately). Completed-anonymize trigger:
+   `status='completed' AND updated_at < now() - window` (no `completed_at` column exists).
+6. **`retention_config` NULL-row idempotency:** a bare `UNIQUE(community_id)` does NOT make the NULL
+   global row unique in Postgres (`ON CONFLICT` won't fire on re-run → dup rows). Add a partial unique
+   index `WHERE community_id IS NULL` + seed with `WHERE NOT EXISTS`. Resolution: community → global →
+   hardcoded fallback. (Cross-schema FK to `communities.communities` is the established precedent — run
+   the migration-validator agent anyway.)
+7. **`classifyDecayTier(currentWeight, threshold)` is ONE shared pure helper** (`@karmyq/shared`) consumed
+   by endpoints + tests — never inline the band math twice. Bands: `strong` r≥3, `warm` 2–3, `fading`
+   1.3–2, `nearly_forgotten` 1–1.3 (nudge fires here), swept r<1.
+8. **The job lives in cleanup-service** alongside `trustEdgeSweepJob` / `reputationDecayJob` /
+   `expirationJob` / `requestTtlSweepJob`, wired into the same scheduler in `src/index.ts`; writes to
+   `requests` + `messaging` schemas (cleanup-service already does cross-schema work).
+9. **JWT field is `communities`** (`user.communities ?? []`) for the membership gate on new endpoints.
+10. **API unwrap:** frontend consumes `res.data`, not `res.data.data`.
+11. **`trust_edges_live` is a VIEW** — read `current_weight`; never write it. Sweep deletes from
+    `trust_edges` base table.
+12. **No empty profile tiles** — memory section suppresses rows with no data.
+13. **Landing docs gitignored** (`git add -f`); **nav.json reverts** after `generate-docs` (grep-verify, re-apply).
+14. **ADR numbering:** ADR-069 (retention/forgetting) + ADR-070 (visible decay) this sprint; next free = **071**.
+15. **Idempotent migration + guarded global-row seed**; job no-ops safely on empty config (fallback windows).
 
-## Tab mapping (where everything goes)
+## Data model (one migration: `20260607-designed-to-forget.sql`)
 
-| Warm tab | Source today | Audience |
-|----------|--------------|----------|
-| **Home** (default) | hero + pulse + `BrowseTab`'s **member `UnifiedFeed` only** (was admin-gated `requests`); `overview` retired | Everyone |
-| **People** | `ActiveTab` (`people`) | Everyone |
-| **How we're connected** | `TrustGraphTab` (`trust`) | Members |
-| **Stewardship** | `GovernanceTab` + `FissionTab` + `FusionTab` + admin `StewardRequestsAdmin` (extracted from `BrowseTab`) + admin `ProfileTab(settings\|providers)` | Members (admin tools gated within) |
-| **Activities** (5th, conditional) | `ActivitiesTab` | `community_type==='group'` only |
+- New `requests.retention_config` (mirrors `trust_decay_config`) — 3 windows (completed/expired/message)
+  + partial unique index on the NULL global row + `WHERE NOT EXISTS` guarded seed.
+- `help_requests.content_forgotten_at`, `messages.forgotten_at`. **No karma column** (karma is untouched).
+- Two partial indexes (`WHERE ... forgotten_at IS NULL`) so each sweep scans only un-forgotten rows.
 
-## ADR numbering
+## New endpoints
 
-**ADR-068 — Community Page Information Architecture (warm four-tab model)** is created this sprint.
-Records the four-tab consolidation, warm-Home default, member/admin altitude split, and the pulse
-seam. Next free ADR after this = **069**. (066 = unified-feed model S85; 067 = `request_type` vs
-`payload_type` seam S86.)
+- **Extend** `/trust/graph/:communityId/full` + `/trust/graph/:communityId` (the routes that power
+  `TrustGraphTab` via `getFullCommunityGraph()`/`getTrustGraph()`, in
+  `services/social-graph-service/src/routes/trustGraph.ts`) — add per-edge `currentWeight`,
+  `disappearanceThreshold`, `decayTier`. **There is NO `/connections` endpoint** — don't invent one.
+- `GET /trust/me/memory?communityId=` (active + fading + nearly-forgotten) — new, same router
+- `GET /trust/relationships/fading?communityId=` (nudge feed) — new, same router
+- `GET /api/requests/retention-policy?communityId=` (resolved windows + held/forgotten counts; no PII)
 
 ## Reference
 
-- **Spec:** `docs/superpowers/specs/2026-06-06-sprint-89-community-sovereignty-redesign-design.md`
-- **Plan:** `docs/superpowers/plans/2026-06-06-sprint-89-community-sovereignty-redesign.md`
-- **Target mockup:** `docs/design/sprint-87/mockups/community-home.html` (the whole page, not just the feed)
-- **Approved presentation rules:** `docs/design/sprint-87/presentation-rules.md`
-- **S88 spec/plan:** `docs/superpowers/specs/2026-06-05-sprint-88-core-help-loop-redesign-design.md`,
-  `docs/superpowers/plans/2026-06-05-sprint-88-core-help-loop-redesign.md`
-- **Reusable blocks shipped S88:** `apps/frontend/src/styles/karmyq-shell.css` (`.kq-*`),
-  `TrustPathBadge presentation="feed"` (green relationship face-pill).
+- **Spec:** `docs/superpowers/specs/2026-06-07-sprint-90-designed-to-forget-design.md`
+- **Plan:** `docs/superpowers/plans/2026-06-07-sprint-90-designed-to-forget.md`
+- **Existing decay infra (reuse, don't duplicate):** `services/cleanup-service/src/jobs/trustEdgeSweepJob.ts`,
+  `reputationDecayJob.ts`; `social_graph.trust_edges_live` view + `trust_decay_config`
+  (migration `20260526-interaction-halflife.sql`); manifesto §7 / ADR-066 / ADR-056.
+- **Warm-commons style assets (S88):** `apps/frontend/src/styles/karmyq-shell.css` (`.kq-*`),
+  `TrustPathBadge presentation="feed"`.
 
 ---
 
-# Archived Context — Sprint 88 Core Help-Loop Redesign — ✅ MERGED + DEPLOYED (v10.12.0)
+## Multi-sprint arc
 
-> Sprint 88 shipped via PR **#71** (core) + PR **#72** (shell-fidelity follow-up, `95fa62c`).
-> Implemented: shared `.kq-*` shell; relationship-led `RequestCard` (KarmaBadge removed, match-%
-> demoted to qualitative copy, `TrustPathBadge` promoted); Dashboard Home + Community **feed**
-> headers; `Show more open requests` (backend `minScore=0` honored, finite-check parser); union-path
-> impression logging; mobile FAB/decision-band spacing; split/fusion name cleanup; docs regenerated.
-> Deployed green (CI/CD `27069900734`, Tests `27069900728`, CodeQL `27069900546`); demo home HTTP 200.
-> Spec/plan: `docs/superpowers/.../2026-06-05-sprint-88-core-help-loop-redesign{-design,}.md`.
->
-> **Note that fed Sprint 89:** S88 re-skinned the **feed surface only**; the community **page** chrome
-> + tab structure were untouched, and the warm feed ended up admin-gated. That is exactly what S89 fixes.
+- **Sprint 87** — Product Truth & UX Reset; warm-commons approved. ✅ v10.11.0.
+- **Sprint 88** — Core help-loop redesign: shell + Dashboard Home + Community feed. ✅ v10.12.0.
+- **Sprint 89** — Community sovereignty redesign: the whole community page. ✅ v10.13.0.
+- **Sprint 90 (THIS)** — Designed to forget: real content retention + visible decay + profile memory. → v10.14.0.
+- **Sprint 91** — Mobile parity from the polished web model.
+- **Sprint 92** — Architecture & service pruning.
+
+---
+
+# Archived Context — Sprint 89 Community Sovereignty Redesign — ✅ MERGED + DEPLOYED (v10.13.0)
+
+> Sprint 89 shipped via PR **#73** (`ae63e9f`). Implemented: members-gated pulse endpoint (reuses the S86
+> texture aggregation via shared `fetchCommunityPulse` + new `timeSensitive`); warm four-tab page
+> (`Home · People · How we're connected · Stewardship` + group-only Activities); warm Home default for ALL
+> roles (headline bug — warm feed was admin-gated — fixed); `CommunityHero` + `CommunityPulse`; `BrowseTab`
+> split → `StewardRequestsAdmin` under `StewardshipTab`; centralized `lib/communityTabs.ts` deep-link
+> resolver; ADR-068 + landing docs + onboarding + CONTEXT/registry. All quality gates green.
 
 ---
 
@@ -154,21 +160,22 @@ The open dependabot PRs predate `pr-contract.yml`; their stale branches have no 
 ### Architecture Gotchas (Persistent)
 - **Landing page docs**: `apps/landing/src/data/docs/` is in `.gitignore` — always `git add -f`. (`docs/design/` is NOT gitignored — only the landing data dir is.)
 - **nav.json revert bug**: `generate-docs.ts` regenerates nav.json — run from `apps/landing/`; grep-verify after; re-apply if reverted
-- **ADR numbering**: ADR-068 created in S89; next free = 069.
+- **ADR numbering**: ADR-069 + ADR-070 created in S90; next free = 071.
 - **JWT field** is `communities` not `communityMemberships` — always `user.communities ?? []`
 - **Schema is `communities.communities`** (plural schema name) — older `community.*` comments are stale
 - **API response unwrap**: `createApiClient` interceptor already unwraps the envelope — use `res.data`, not `res.data.data`
 - **trust_edges_live is a VIEW**: never INSERT/UPDATE it — write `trust_edges`, read `trust_edges_live`
+- **messaging schema**: `messages.content` (NOT `body`); `conversations.request_match_id` links a thread to its exchange.
 - **`git add` on CLAUDE.md**: tracked as lowercase `claude.md`
 - **Solo dev — no worktrees**: work directly on feature branches
-- **Root package.json version**: **10.12.0** (Sprint 88 shipped; S89 bumps to 10.13.0).
+- **Root package.json version**: **10.13.0** (Sprint 89 shipped; S90 bumps to 10.14.0).
 - **CI security gates**: dependency audit (ADR-059, blocking `--audit-level=high`) + CodeQL code-scanning gate (ADR-060) run automatically on push
 - **`request_type` vs `category`**: `request_type` = 5-value `request_type_enum` (filter); `category` = fine
   payload subtype (`transportation` etc., what `RequestPayloadRenderer` switches on, what matching keys off).
   S86 surfaces `category` as `payload_type` on the card (ADR-067).
 
 ### Pre-Existing TDD Failures (do NOT fix — a NEW failure this sprint is a real regression)
-`sprint-39-provider-ux` (7), `sprint-43-feed-ranking` (crashes), `admin-schemas-api.test.ts` (request-service), `sprint-68-halflife` (6 DB-conn), `sprint-67-governance` (DB-conn), social-graph-service tdd `sprint-66`/`sprint-67`/`sprint-68`.
+`sprint-39-provider-ux` (7), `sprint-43-feed-ranking` (crashes), `admin-schemas-api.test.ts` (request-service), `sprint-68-halflife` (6 DB-conn), `sprint-67-governance` (DB-conn), social-graph-service tdd `sprint-66`/`sprint-67`/`sprint-68`, plus the 5 frontend TDD failures noted in S89 (trust-model / useTrustQuestions / sprint-38/39/40).
 
 ### ⚠️ Deploy drift watch
 `karmyq.org` live content drifted from `master` around Sprint 83. If judging by live content, first confirm the most recent "Deploy to Demo" GitHub Actions run succeeded and live content matches `master`.
