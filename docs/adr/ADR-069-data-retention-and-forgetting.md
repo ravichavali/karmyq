@@ -18,9 +18,10 @@ not a trustworthy, perceptible promise. PII accumulated indefinitely in `help_re
 ## Decision
 
 Introduce a real **content retention policy**, enforced by a new `memoryRetentionJob` in
-cleanup-service (joining `trustEdgeSweepJob` / `reputationDecayJob` / `expirationJob` /
-`requestTtlSweepJob`), governed by a `requests.retention_config` table that mirrors
-`social_graph.trust_decay_config` (per-community rows + a global `NULL` default row).
+cleanup-service (joining `trustEdgeSweepJob` / `reputationDecayJob` / `expirationJob`; it also
+**supersedes and retires** the old `requestTtlSweepJob` — see below), governed by a
+`requests.retention_config` table that mirrors `social_graph.trust_decay_config` (per-community rows +
+a global `NULL` default row).
 
 ### What forgets, and how
 

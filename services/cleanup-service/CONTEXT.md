@@ -122,8 +122,9 @@ GET /jobs/decay-report
 POST /jobs/sweep-trust-edges
   // Manually trigger trust edge sweep (delete decayed edges below threshold)
 
-POST /jobs/sweep-request-ttl
-  // Manually trigger request TTL sweep (hard-delete completed+rated requests >30 days)
+POST /jobs/forget-content
+  // Manually trigger memory retention (Sprint 90 / ADR-069): anonymize aged completed-request
+  // free-text + cascade-forget messages, hard-delete expired/unmatched requests. Karma untouched.
 
 GET /health
   // Service health check
