@@ -66,7 +66,9 @@ describe('Sprint 90: GET /requests/retention-policy (route)', () => {
   });
 
   // DB-backed: a member gets the resolved policy, proving the static path is NOT shadowed by `/:id`.
-  describe('member path (integration — requires DB)', () => {
+  // Gated on DATABASE_URL so it runs in the deploy integration step but skips cleanly without a DB.
+  const describeDb = process.env.DATABASE_URL ? describe : describe.skip;
+  describeDb('member path (integration — requires DB)', () => {
     let communityId: string;
     let memberId: string;
     const createdRequestIds: string[] = [];

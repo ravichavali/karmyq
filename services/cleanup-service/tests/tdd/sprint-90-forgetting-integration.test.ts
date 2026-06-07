@@ -16,7 +16,12 @@
 import { forgetExchangeContent } from '../../src/jobs/memoryRetentionJob';
 import { query } from '../../src/database/db';
 
-describe('Sprint 90: forgetExchangeContent (integration)', () => {
+// DB-dependent: runs only where a database is configured (deploy integration step, or local with a DB).
+// cleanup-service's `npm test` runs the full jest config (incl. this tdd tier), so gate on DATABASE_URL
+// to skip cleanly in CI's no-DB backend job instead of failing it on ECONNREFUSED.
+const describeDb = process.env.DATABASE_URL ? describe : describe.skip;
+
+describeDb('Sprint 90: forgetExchangeContent (integration)', () => {
   let requesterId: string;
   let helperId: string;
   let communityId: string;
