@@ -129,6 +129,21 @@ describe('forgetExchangeContent', () => {
     expect(sql).not.toContain('created_at'); // NEVER created_at — would delete just-expired old rows
   });
 
+  it('resolves the completed + expired windows per-community (honors retention_config overrides)', async () => {
+    await forgetExchangeContent();
+    const completed = findSql(
+      (s) => s.includes('requests.help_requests') && s.includes('content_forgotten_at')
+    );
+    const expired = findSql((s) => s.includes('DELETE') && s.includes('expired = TRUE'));
+    // Both branches join through request_communities → retention_config and take the per-request
+    // effective window (community override else global), not a flat global window.
+    for (const sql of [completed, expired]) {
+      expect(sql).toContain('requests.request_communities');
+      expect(sql).toContain('retention_config');
+      expect(sql).toMatch(/window_days/);
+    }
+  });
+
   it('never writes karma_records (off limits — load-bearing enum, no PII)', async () => {
     await forgetExchangeContent();
     for (const sql of issuedSql()) {

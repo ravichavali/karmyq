@@ -69,25 +69,44 @@ export async function forgetExchangeContent(): Promise<{
     `SELECT community_id, completed_request_window_days, expired_request_window_days, message_window_days
        FROM requests.retention_config`
   );
+  // Global (or hardcoded) fallback windows — used as the per-request default and for the message backstop.
   const windows = resolveRetentionWindows(cfg.rows as RetentionConfigRow[]);
+
+  // Per-request window resolution honors per-community overrides (ADR-069): a request's effective window
+  // is the MAX over its communities of (that community's override window, else the global $1 default).
+  // MAX is the conservative choice — never forget a shared request earlier than ANY owning community
+  // wants. A request with no community rows falls back to the global default. `$N` is the global window;
+  // `$col` is the retention_config column for that branch.
+  const reqWindowCte = (col: string, param: string) =>
+    `SELECT h.id AS request_id,
+            COALESCE(MAX(COALESCE(rc.${col}, ${param})), ${param}) AS window_days
+       FROM requests.help_requests h
+       LEFT JOIN requests.request_communities rcj ON rcj.request_id = h.id
+       LEFT JOIN requests.retention_config rc ON rc.community_id = rcj.community_id`;
 
   // 1. Exchange Unit cascade — anonymize aged completed-request free-text AND its conversation's
   //    messages in ONE statement (one implicit transaction → they forget together or not at all).
-  //    The first CTE forgets the requests; the second forgets every message whose conversation links
+  //    `req_window` resolves each completed request's effective window (community → global); the first
+  //    UPDATE forgets the aged ones; the second forgets every message whose conversation links
   //    (request → match → conversation → messages) to a just-forgotten request; the SELECT returns both
   //    counts without a second round-trip.
   const completed = await query(
-    `WITH forgotten_requests AS (
-       UPDATE requests.help_requests
+    `WITH req_window AS (
+       ${reqWindowCte('completed_request_window_days', '$1')}
+       WHERE h.status = 'completed' AND h.content_forgotten_at IS NULL
+       GROUP BY h.id
+     ),
+     forgotten_requests AS (
+       UPDATE requests.help_requests h
           SET title = '${SENTINEL}',
               description = '${SENTINEL}',
               payload = '{}'::jsonb,
               requirements = '{}'::jsonb,
               content_forgotten_at = NOW()
-        WHERE status = 'completed'
-          AND content_forgotten_at IS NULL
-          AND updated_at < NOW() - make_interval(days => $1::int)
-        RETURNING id
+         FROM req_window rw
+        WHERE h.id = rw.request_id
+          AND h.updated_at < NOW() - make_interval(days => rw.window_days::int)
+       RETURNING h.id
      ),
      cascaded_messages AS (
        UPDATE messaging.messages m
@@ -108,21 +127,28 @@ export async function forgetExchangeContent(): Promise<{
   const requestsForgotten = completed.rows[0]?.requests_forgotten ?? 0;
   const messagesCascaded = completed.rows[0]?.messages_cascaded ?? 0;
 
-  // 2. Hard-delete aged EXPIRED + UNMATCHED requests. Age from updated_at (the expiration job stamps it
-  //    when it flips the flag) — never created_at, which would delete a just-expired old request.
+  // 2. Hard-delete aged EXPIRED + UNMATCHED requests, with per-community windows. Age from updated_at
+  //    (the expiration job stamps it when it flips the flag) — never created_at, which would delete a
+  //    just-expired old request.
   const expired = await query(
-    `DELETE FROM requests.help_requests
-      WHERE expired = TRUE
-        AND NOT EXISTS (
-          SELECT 1 FROM requests.matches m WHERE m.request_id = requests.help_requests.id
-        )
-        AND updated_at < NOW() - make_interval(days => $1::int)`,
+    `DELETE FROM requests.help_requests h
+       USING (
+         ${reqWindowCte('expired_request_window_days', '$1')}
+         WHERE h.expired = TRUE
+           AND NOT EXISTS (SELECT 1 FROM requests.matches m WHERE m.request_id = h.id)
+         GROUP BY h.id
+       ) ew
+      WHERE h.id = ew.request_id
+        AND h.updated_at < NOW() - make_interval(days => ew.window_days::int)`,
     [windows.expiredRequestWindowDays]
   );
   const expiredDeleted = expired.rowCount ?? 0;
 
   // 3. Standalone message backstop — forget any old messages the Exchange Unit cascade missed
   //    (e.g. very long-lived conversations whose request hasn't aged into the completed window).
+  //    Uses the global message window: a standalone message isn't reliably attributable to one
+  //    community, and per-community windows are already honored where it matters — via the cascade,
+  //    which forgets messages on their request's per-community completed window.
   const backstop = await query(
     `UPDATE messaging.messages
         SET content = '${SENTINEL}',

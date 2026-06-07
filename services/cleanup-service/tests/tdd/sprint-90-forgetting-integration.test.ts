@@ -33,6 +33,9 @@ describeDb('Sprint 90: forgetExchangeContent (integration)', () => {
   let expiredUnmatchedId: string;
   let expiredMatchedId: string;
   let expiredMatchedMatchId: string;
+  let overrideCommunityId: string;
+  let overrideReqId: string;
+  let globalWindowReqId: string;
 
   beforeAll(async () => {
     const r = await query(
@@ -117,6 +120,40 @@ describeDb('Sprint 90: forgetExchangeContent (integration)', () => {
     );
     expiredMatchedMatchId = emMatch.rows[0].id;
 
+    // 4) Per-community override: a community with a SHORT completed window (10 days) + a completed
+    //    request in it aged 15 days. Under the global 180-day window it would NOT be forgotten; the
+    //    override must make it forgotten. A sibling completed request in NO override community, aged
+    //    15 days, must stay held (proves the override is what changed behavior, not the age).
+    const oc = await query(
+      `INSERT INTO communities.communities (name, description) VALUES ($1,$2) RETURNING id`,
+      ['S90 Override Community', 'short retention override'],
+    );
+    overrideCommunityId = oc.rows[0].id;
+    await query(
+      `INSERT INTO requests.retention_config (community_id, completed_request_window_days, expired_request_window_days, message_window_days)
+       VALUES ($1, 10, 30, 180)`,
+      [overrideCommunityId],
+    );
+    const ovr = await query(
+      `INSERT INTO requests.help_requests
+         (requester_id, request_type, category, title, description, status, urgency, payload, updated_at)
+       VALUES ($1,'generic','generic','Override ask','forget me early','completed','medium','{}', NOW() - INTERVAL '15 days')
+       RETURNING id`,
+      [requesterId],
+    );
+    overrideReqId = ovr.rows[0].id;
+    await query(`INSERT INTO requests.request_communities (request_id, community_id) VALUES ($1,$2)`, [overrideReqId, overrideCommunityId]);
+
+    const glob = await query(
+      `INSERT INTO requests.help_requests
+         (requester_id, request_type, category, title, description, status, urgency, payload, updated_at)
+       VALUES ($1,'generic','generic','Global ask','keep me','completed','medium','{}', NOW() - INTERVAL '15 days')
+       RETURNING id`,
+      [requesterId],
+    );
+    globalWindowReqId = glob.rows[0].id;
+    await query(`INSERT INTO requests.request_communities (request_id, community_id) VALUES ($1,$2)`, [globalWindowReqId, communityId]);
+
     await forgetExchangeContent();
   });
 
@@ -125,8 +162,10 @@ describeDb('Sprint 90: forgetExchangeContent (integration)', () => {
     await query(`DELETE FROM messaging.conversations WHERE id = $1`, [conversationId]).catch(() => {});
     await query(`DELETE FROM reputation.karma_records WHERE id = $1`, [karmaId]).catch(() => {});
     await query(`DELETE FROM requests.matches WHERE id = ANY($1)`, [[completedMatchId, expiredMatchedMatchId]]).catch(() => {});
-    await query(`DELETE FROM requests.help_requests WHERE id = ANY($1)`, [[completedReqId, expiredMatchedId]]).catch(() => {});
-    await query(`DELETE FROM communities.communities WHERE id = $1`, [communityId]).catch(() => {});
+    await query(`DELETE FROM requests.request_communities WHERE request_id = ANY($1)`, [[overrideReqId, globalWindowReqId]]).catch(() => {});
+    await query(`DELETE FROM requests.help_requests WHERE id = ANY($1)`, [[completedReqId, expiredMatchedId, overrideReqId, globalWindowReqId]]).catch(() => {});
+    await query(`DELETE FROM requests.retention_config WHERE community_id = $1`, [overrideCommunityId]).catch(() => {});
+    await query(`DELETE FROM communities.communities WHERE id = ANY($1)`, [[communityId, overrideCommunityId]]).catch(() => {});
     await query(`DELETE FROM auth.users WHERE id = ANY($1)`, [[requesterId, helperId]]).catch(() => {});
   });
 
@@ -169,5 +208,24 @@ describeDb('Sprint 90: forgetExchangeContent (integration)', () => {
   it('does NOT hard-delete the expired + matched request', async () => {
     const res = await query(`SELECT 1 FROM requests.help_requests WHERE id = $1`, [expiredMatchedId]);
     expect(res.rows.length).toBe(1);
+  });
+
+  it('honors a per-community window override (10d) that the global window (180d) would not', async () => {
+    // 15 days old, in a community with a 10-day override → anonymized.
+    const overridden = await query(
+      `SELECT title, content_forgotten_at FROM requests.help_requests WHERE id = $1`,
+      [overrideReqId],
+    );
+    expect(overridden.rows[0].title).toBe('[forgotten]');
+    expect(overridden.rows[0].content_forgotten_at).not.toBeNull();
+
+    // 15 days old, only in a community with NO override → still held under the global 180-day window.
+    // This proves the override (not the age) is what changed the behavior.
+    const held = await query(
+      `SELECT title, content_forgotten_at FROM requests.help_requests WHERE id = $1`,
+      [globalWindowReqId],
+    );
+    expect(held.rows[0].title).toBe('Global ask');
+    expect(held.rows[0].content_forgotten_at).toBeNull();
   });
 });

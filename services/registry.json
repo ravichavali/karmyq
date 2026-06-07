@@ -422,7 +422,7 @@
         ],
         "subscribes": []
       },
-      "notes": "CANDIDATE FOR REPLACEMENT: Could be replaced with pg_cron scheduled jobs. Scheduled jobs: dibs expiry (5m), match reminders (15m), mark-expired (hourly), hard-delete (2am), request TTL sweep (2:30am), reputation decay (3am), memoryRetentionJob (3:30am, Sprint 90/ADR-069 — anonymizes completed-exchange free-text to '[forgotten]' sentinels + cascade-forgets messages, hard-deletes expired/unmatched requests; karma_records left untouched), trust edge sweep (4:30am), activity log cleanup (weekly), decay report (weekly). Governed by requests.retention_config."
+      "notes": "CANDIDATE FOR REPLACEMENT: Could be replaced with pg_cron scheduled jobs. Scheduled jobs: dibs expiry (5m), match reminders (15m), mark-expired (hourly), hard-delete (2am), reputation decay (3am), memoryRetentionJob (3:30am, Sprint 90/ADR-069 — anonymizes completed-exchange free-text to '[forgotten]' sentinels + cascade-forgets messages, hard-deletes expired/unmatched requests; karma_records left untouched; per-community retention windows via request_communities → retention_config), trust edge sweep (4:30am), activity log cleanup (weekly), decay report (weekly). Sprint 90 RETIRED requestTtlSweepJob (it hard-deleted completed+rated exchanges at 30d, destroying aggregates before the anonymize window — superseded by memoryRetentionJob). Governed by requests.retention_config."
     },
     "geocoding-service": {
       "port": 3009,

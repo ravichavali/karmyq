@@ -58,6 +58,23 @@ writes the sentinel `'[forgotten]'` (and `'{}'::jsonb` for the JSONB columns), n
 (reputation, trust, community pulse) keep computing correctly because only anonymizable free-text is
 removed — never the numbers downstream systems depend on.
 
+### Per-community windows
+
+Windows resolve **per request**, honoring per-community overrides: a request's effective window is the
+`MAX` over its communities (via `request_communities`) of that community's `retention_config` override,
+falling back to the global row, then a hardcoded default. `MAX` is deliberate — a request shared across
+communities is never forgotten earlier than **any** owning community wants. The standalone message
+backstop uses the global window (a loose message isn't reliably attributable to one community;
+per-community message retention is honored via the Exchange Unit cascade).
+
+### Supersedes `requestTtlSweepJob`
+
+The pre-existing `requestTtlSweepJob` hard-deleted completed+rated requests **and their matches** (which
+FK-cascade-deleted conversations and messages) at 30 days. That both **destroyed the aggregate this ADR
+promises to keep** and fired long before the 180-day anonymize window. It is **retired** — the
+`memoryRetentionJob` now owns the completed-request lifecycle (anonymize, keep aggregates). The job file,
+its cron, and the `/jobs/sweep-request-ttl` endpoint were removed.
+
 ### Idempotency
 
 `retention_config` uses a partial unique index `WHERE community_id IS NULL` plus a `WHERE NOT EXISTS`
