@@ -1,176 +1,118 @@
-# Sprint 90 — Designed to Forget — IMPLEMENTED, AWAITING MERGE AUTHORIZATION
+# Sprint 91 — Service Consolidation (Phase 1) — 📋 PLANNED · Ready to execute (v10.14.0 → v11.0.0)
 
-> **▶ STATUS (2026-06-07):** Sprint 90 (Designed to Forget) **fully implemented on
-> `feature/sprint-90-designed-to-forget`**, version bumped **10.13.0 → 10.14.0**. All 13 build tasks
-> done; PR opened with the contract body. **Awaiting maintainer "pull it in" authorization** before
-> merge to master (agents never self-merge; branch protection requires 1 approving review).
+> **▶ STATUS (2026-06-07):** Sprint 90 (Designed to Forget) shipped + closed as PR **#74**
+> (`7d39fd6`), **v10.14.0**. **Mobile parity (the originally-planned Sprint 91) is DEFERRED** —
+> maintainer redirected Sprint 91 to **architecture & service pruning** (the arc item previously
+> scoped as Sprint 92, pulled forward).
 >
-> **What shipped (all 14 plan tasks):** migration `20260607-designed-to-forget.sql` (retention_config +
-> marker columns, validated by migration-validator); `memoryRetentionJob` in cleanup-service
-> (anonymize completed free-text + cascade messages in one CTE, hard-delete expired/unmatched, backstop;
-> karma untouched) wired to 3:30am cron + `POST /jobs/forget-content`; shared `classifyDecayTier`
-> helper (`@karmyq/shared/trust/decayTier`); social-graph `/trust/graph(/full)` edges carry
-> currentWeight/disappearanceThreshold/decayTier + new `/trust/me/memory` + `/trust/relationships/fading`;
-> request-service `GET /retention-policy` (before `/:id`); frontend — `.kq-decay-*` fade tokens,
-> `TrustPathBadge` decayTier fade, HEB edge fade, `ReWarmingNudge`, `/about/memory` transparency page,
-> profile warm hero + `MemorySection`; ADR-069 + ADR-070; landing concept/guide/ADR docs + onboarding;
-> CONTEXT.md ×3 + registry.json; integration test.
+> **Sprint 91 = fold feed-service into request-service** (11 services → 10) + **ADR-071** with a
+> phased decommission plan for the remaining candidates (geocoding → client-side in S92; cleanup
+> KEPT). Spec + plan written; branch not yet created. **Start by executing the plan.**
 >
-> **Verification:** all type-checks green (cleanup/social-graph/request/frontend/shared); new unit/pure
-> tests pass (memoryRetentionJob 11, decay-tier 9, retention-policy pure 4, memory-surfaces 7);
-> TrustPathBadge regression 54 green; `npm audit --audit-level=high` clean. DB-dependent integration
-> tests (sprint-90-forgetting-integration, sprint-90-retention-policy member path) run in CI/deploy.
->
-> **Codex cross-agent review round (addressed, `2f70213`):** (HIGH) retired `requestTtlSweepJob` — it
-> hard-deleted completed+rated requests + their matches (FK-cascading conversations/messages) at 30d,
-> destroying the aggregate ADR-069 keeps before the anonymize window; `memoryRetentionJob` now owns the
-> completed lifecycle. (MED) `memoryRetentionJob` now resolves per-community windows in SQL
-> (`MAX(COALESCE(community_override, global))` over `request_communities` → `retention_config`) for the
-> completed + expired branches; integration test proves a 10d community override forgets a 15d request
-> the global 180d window wouldn't. All required checks green on the fix commit.
->
-> **Post-merge:** flip ADR-069 + ADR-070 status `Accepted → Implemented`; on deploy, ensure the
-> migration is applied to the demo DB before the 3:30am job first runs; dismiss the recurring `api.ts`
-> `js/request-forgery` CodeQL FP after rescan if it re-fires (new client calls).
->
-> _(Original planning brief retained below for reference.)_
+> **⚠️ UNCOMMITTED S90 DOC TAIL — folds into Sprint 91's FIRST commit (Task 1), do NOT push
+> standalone:** ADR-069/070 status → Implemented (md + README + regenerated landing JSON), this
+> handoff, and `docs/BUGS.md` are working-tree changes only — a docs-only master push triggers a
+> redundant deploy that transiently breaks the demo (`feedback_no_docs_push_to_master`).
 
 ---
 
 ## Quick Start
 
 1. Read this handoff.
-2. Branch already exists with the planning commit — just check it out:
-   `git checkout feature/sprint-90-designed-to-forget` (NOT `-b` — it exists).
-3. Open plan: `docs/superpowers/plans/2026-06-07-sprint-90-designed-to-forget.md`
+2. The branch already exists with the planning commit (spec + plan + handoff + the S90 doc
+   tail) — just check it out: `git checkout feature/sprint-91-service-consolidation`
+   (NOT `-b` — it exists). Task 1 in the plan is therefore already done.
+3. Open plan: `docs/superpowers/plans/2026-06-07-sprint-91-service-consolidation.md`
 4. Run: `/execute-plan` (uses superpowers:subagent-driven-development)
 
-## Sprint 90 goal (one sentence)
+## Sprint 91 goal (one sentence)
 
-Make Karmyq's "designed to forget" promise **real for content** (a `memoryRetentionJob` that anonymizes
-completed-exchange free-text to sentinels, hard-deletes expired/unmatched requests, and cascade-forgets
-messages — all keeping aggregates, karma untouched) and **visible for members** (relationships
-that perceptibly fade by `decayTier`, a re-warming nudge, a transparency page, and a warm-restyled
-profile with a memory section).
+Fold the 5 live feed-service endpoints into request-service as a `/requests/feed/*` view layer,
+drop the 4 dead endpoints, and decommission feed-service — taking the platform from 11 services
+to 10 with **no change to feed behavior** — and publish ADR-071 with the phased decommission plan
+for the rest of the prune.
 
 ## Why now
 
-Forgetting is already real at the **edge layer** (`trustEdgeSweepJob` deletes decayed trust edges below
-`disappearance_threshold`; reputation decays; requests expire) but it's **invisible** and content
-(request free-text, messages) is retained forever. IDEAS.md [2026-06-04] flags this as a
-strategic gap: "ranking math, not a visible, trustworthy promise." Sprint 90 closes it.
+The registry has long flagged feed-service / geocoding-service / cleanup-service as redundant
+(`statistics.candidates_for_removal: 2`). feed-service is the cleanest first cut: **pure
+read/view layer, no Bull queue / cron / events**, already reads the `requests` schema over the
+shared `DATABASE_URL`, and **only 5 of its 9 endpoints are live** (the other 4 are dead code).
+Mobile parity deferred → this pulls the architecture-pruning arc forward.
 
 ## Scope decisions locked with maintainer (2026-06-07)
 
-1. **Spine = deepen the policy AND polish the profile** (both options 2 + 3 from scoping). Big sprint;
-   sequenced so the visible-decay surfaces don't block on the backend retention policy landing first.
-2. **What forgets:** completed-request free-text — `title`/`description`/`payload`/`requirements` —
-   (anonymize to `'[forgotten]'` sentinel), expired/unmatched requests (hard-delete), messages (cascade
-   with parent exchange). **Karma is OUT** (review correction 2026-06-07): `karma_records` has no PII and
-   `reason` is a load-bearing enum filtered by trust math — touching it corrupts trust scores. Left intact.
-3. **Method = anonymize to sentinels (NOT NULL columns), keep aggregates** (reputation/trust/pulse math
-   must stay correct). Expired-unmatched is the one hard-delete (no aggregate value).
-4. **Member controls = transparency only** this sprint (see, don't yet hand-delete/export).
-5. **Profile = warm restyle + memory section** (full S87–89 commons look).
-6. **All four visible surfaces ship:** fading relationship visuals, transparency page, profile memory
-   section, re-warming nudge.
-
-## The Exchange Unit cascade (the maintainer's question, answered)
-
-A `help_request` + its `match` + the `conversation` (`messaging.conversations.request_match_id`) + that
-conversation's `messages` are **one Exchange Unit**. Forgetting cascades along it: when a completed
-request's free-text is forgotten, its conversation's messages forget in the **same transaction**. The
-`match` and `karma_records` are **never touched** (they are the aggregate). Expired/unmatched requests
-have no match → no conversation → clean hard-delete with nothing to cascade.
+1. **Appetite = execute one real merge** (not audit-only): actually fold feed-service this sprint
+   + write ADR-071 with the decommission plan for the deferred candidates.
+2. **Route shape = fold under `/api/requests`** → feed becomes `/requests/feed/*`; frontend
+   `feedApi` calls migrate to `requestApi`; **no new nginx block** (existing `/api/requests` block
+   serves it); the dead `/api/feed` location + `feed_service` upstream are removed.
+3. **Version = v11.0.0 (MAJOR)** — removing a service is a breaking architectural change.
+4. **Drop the 4 dead endpoints** (`/feed/requests`, `/feed/milestones`, `/feed/featured-stories`,
+   `/feed/mixed`) + `feed.featured_stories` usage — don't carry dead code into request-service.
+5. **geocoding-service = DEFER to Sprint 92** (needs a real client-side geocoder migration, not a
+   delete). **cleanup-service = KEEP** (Sprint 90's `memoryRetentionJob` lives there; jobs carry
+   real TS logic pg_cron can't host). Both recorded in ADR-071.
 
 ## Critical Implementation Notes (copied verbatim from spec)
 
-1. **`karma_records` is OFF LIMITS — never write to it.** No PII; `reason` is a load-bearing enum
-   (`'Provided help'`/`'Received help'`/milestones) filtered across `trustMetricsDb`, `trustEvolutionDb`,
-   `communityTrustService`, `reputation.ts`. Touching `reason`/`points` silently corrupts trust scores.
-   Forgetting only ever writes `help_requests` and `messages`.
-2. **Target columns are `NOT NULL` → sentinel, never `NULL`.** `help_requests.title`/`description` and
-   `messages.content` are `NOT NULL`; `NULL` throws. Write `'[forgotten]'` (+ `'{}'::jsonb` for
-   `payload`/`requirements`). **`messages.content` is the column, NOT `body`.** Conversations link to an
-   exchange via `messaging.conversations.request_match_id` (the cascade join).
-3. **Forget ALL request free-text** — `title`, `description`, `payload`, `requirements` — not just
-   `description` (else PII stays in `title`/`payload`).
-4. **Exchange Unit cascade runs in one transaction per exchange** — request + its conversation's messages
-   forget together or none. Karma is NOT part of the cascade.
-5. **Expired model is the `expired` boolean, NOT `status='expired'`.** `status` is
-   `open`/`dibs_pending`/`matched`/`completed`/`cancelled` (CHECK in `20260603-feed-vocab-reconciliation.sql`)
-   — never `expired`; the expiration job sets the separate `expired = TRUE` flag. Hard-delete only
-   `expired = TRUE` with NO match row, **aging from `updated_at`** (the job stamps it when it flips the
-   flag — `created_at` would delete a just-expired old request immediately). Completed-anonymize trigger:
-   `status='completed' AND updated_at < now() - window` (no `completed_at` column exists).
-6. **`retention_config` NULL-row idempotency:** a bare `UNIQUE(community_id)` does NOT make the NULL
-   global row unique in Postgres (`ON CONFLICT` won't fire on re-run → dup rows). Add a partial unique
-   index `WHERE community_id IS NULL` + seed with `WHERE NOT EXISTS`. Resolution: community → global →
-   hardcoded fallback. (Cross-schema FK to `communities.communities` is the established precedent — run
-   the migration-validator agent anyway.)
-7. **`classifyDecayTier(currentWeight, threshold)` is ONE shared pure helper** (`@karmyq/shared`) consumed
-   by endpoints + tests — never inline the band math twice. Bands: `strong` r≥3, `warm` 2–3, `fading`
-   1.3–2, `nearly_forgotten` 1–1.3 (nudge fires here), swept r<1.
-8. **The job lives in cleanup-service** alongside `trustEdgeSweepJob` / `reputationDecayJob` /
-   `expirationJob` / `requestTtlSweepJob`, wired into the same scheduler in `src/index.ts`; writes to
-   `requests` + `messaging` schemas (cleanup-service already does cross-schema work).
-9. **JWT field is `communities`** (`user.communities ?? []`) for the membership gate on new endpoints.
-10. **API unwrap:** frontend consumes `res.data`, not `res.data.data`.
-11. **`trust_edges_live` is a VIEW** — read `current_weight`; never write it. Sweep deletes from
-    `trust_edges` base table.
-12. **No empty profile tiles** — memory section suppresses rows with no data.
-13. **Landing docs gitignored** (`git add -f`); **nav.json reverts** after `generate-docs` (grep-verify, re-apply).
-14. **ADR numbering:** ADR-069 (retention/forgetting) + ADR-070 (visible decay) this sprint; next free = **071**.
-15. **Idempotent migration + guarded global-row seed**; job no-ops safely on empty config (fallback windows).
+1. **FOLD THE UNCOMMITTED S90 DOC TAIL INTO SPRINT 91's FIRST COMMIT** (ADR-069/070 → Implemented
+   md + README + landing JSON + handoff + BUGS.md). NOT a standalone push
+   (`feedback_no_docs_push_to_master`).
+2. **feed-service is a pure read/view layer — no Bull queue, no cron, no events.** Grep-confirm
+   before deleting. No scheduler/event rewiring.
+3. **Only 5 of 9 endpoints live — DROP the 4 dead** + the `feed.featured_stories` read path.
+4. **Mount feed router at `/requests/feed`** — existing `/api/requests` nginx block serves it;
+   REMOVE the dead `/api/feed` location + `feed_service` upstream. nginx applies on deploy only
+   (`feedback_nginx_config`).
+5. **Frontend:** `feedApi`(`FEED_API_URL`:3007) → `requestApi`(`REQUEST_API_URL`:3003); paths
+   `/requests/feed/*`. Remove `FEED_API_URL` + `feedApi`. Unwrap `res.data`, not `res.data.data`.
+6. **Reconcile dismiss path** — canonical `/requests/feed/dismiss/:itemId`; fix frontend (currently
+   `/feed/:itemId/dismiss`, likely dead/failing).
+7. **Do NOT `DROP SCHEMA feed`** — `feed.preferences` + `feed.dismissed_items` stay; request-service
+   owns them. No migration. `feed.featured_stories` orphaned (note in ADR-071, don't drop).
+8. **social-graph proximity:** reuse request-service's existing `SOCIAL_GRAPH_API_URL` (`dibs.ts`);
+   ensure it's in request-service compose env.
+9. **request-service DB role already has cross-schema read** — composer reads work unchanged.
+10. **Version 10.14.0 → 11.0.0 (MAJOR)** — bump root + request-service package.json.
+11. **JWT field `communities`** — carry feed-service's auth gate; don't loosen it.
+12. **`npm run analyze:services` after deleting feed-service** regenerates dependency-graph /
+    impact-analysis / version-drift — GENERATED, never hand-edit.
+13. **Landing docs gitignored** (`git add -f`); **nav.json reverts** (grep-verify, re-apply).
+14. **ADR numbering: next free = 071.**
+15. **Behavior-preserving** — the 5 endpoints return identical shapes; tests assert the contract.
 
-## Data model (one migration: `20260607-designed-to-forget.sql`)
+## What moves / drops / stays (the merge at a glance)
 
-- New `requests.retention_config` (mirrors `trust_decay_config`) — 3 windows (completed/expired/message)
-  + partial unique index on the NULL global row + `WHERE NOT EXISTS` guarded seed.
-- `help_requests.content_forgotten_at`, `messages.forgotten_at`. **No karma column** (karma is untouched).
-- Two partial indexes (`WHERE ... forgotten_at IS NULL`) so each sweep scans only un-forgotten rows.
-
-## New endpoints
-
-- **Extend** `/trust/graph/:communityId/full` + `/trust/graph/:communityId` (the routes that power
-  `TrustGraphTab` via `getFullCommunityGraph()`/`getTrustGraph()`, in
-  `services/social-graph-service/src/routes/trustGraph.ts`) — add per-edge `currentWeight`,
-  `disappearanceThreshold`, `decayTier`. **There is NO `/connections` endpoint** — don't invent one.
-- `GET /trust/me/memory?communityId=` (active + fading + nearly-forgotten) — new, same router
-- `GET /trust/relationships/fading?communityId=` (nudge feed) — new, same router
-- `GET /api/requests/retention-policy?communityId=` (resolved windows + held/forgotten counts; no PII)
+- **MOVES (request-service `src/services/feed/`):** `feedComposer.ts`, `socialKarmaFeedComposer.ts`,
+  `basicFeedRanker.ts`, feed types → new `routes/feed.ts` mounted at `/requests/feed`.
+- **LIVE endpoints absorbed:** `GET /feed`, `GET`/`PUT /feed/preferences`, `POST /dismiss/:itemId`,
+  `GET /feed/community-health`.
+- **DROPPED:** `GET /feed/requests`, `/feed/milestones`, `/feed/featured-stories`, `/feed/mixed`.
+- **DELETED:** `services/feed-service/`, its docker-compose service, registry entry, nginx
+  upstream + `/api/feed` block, `apps/landing/.../services/feed-service.json`.
+- **STAYS:** `feed.preferences` + `feed.dismissed_items` tables (no migration).
 
 ## Reference
 
-- **Spec:** `docs/superpowers/specs/2026-06-07-sprint-90-designed-to-forget-design.md`
-- **Plan:** `docs/superpowers/plans/2026-06-07-sprint-90-designed-to-forget.md`
-- **Existing decay infra (reuse, don't duplicate):** `services/cleanup-service/src/jobs/trustEdgeSweepJob.ts`,
-  `reputationDecayJob.ts`; `social_graph.trust_edges_live` view + `trust_decay_config`
-  (migration `20260526-interaction-halflife.sql`); manifesto §7 / ADR-066 / ADR-056.
-- **Warm-commons style assets (S88):** `apps/frontend/src/styles/karmyq-shell.css` (`.kq-*`),
-  `TrustPathBadge presentation="feed"`.
+- **Spec:** `docs/superpowers/specs/2026-06-07-sprint-91-service-consolidation-design.md`
+- **Plan:** `docs/superpowers/plans/2026-06-07-sprint-91-service-consolidation.md`
+- **feed-service (to fold):** `services/feed-service/src/{routes/feed.ts, services/*Composer.ts, services/basicFeedRanker.ts}`
+- **request-service (target):** `src/index.ts` route mounts; `dibs.ts` for the `SOCIAL_GRAPH_API_URL` pattern.
+- **Open bugs (triage backlog, `docs/BUGS.md`):** BUG-001 community w/ no admin; BUG-002 feed
+  reload shows already-offered requests; BUG-003 providers say "Offer help"; BUG-004 missing
+  wordmark; BUG-005 "Mark as done" doesn't unlock rating. **Not in S91 scope** — candidates for a
+  future bug-fix sprint.
 
 ---
 
 ## Multi-sprint arc
 
-- **Sprint 87** — Product Truth & UX Reset; warm-commons approved. ✅ v10.11.0.
-- **Sprint 88** — Core help-loop redesign: shell + Dashboard Home + Community feed. ✅ v10.12.0.
-- **Sprint 89** — Community sovereignty redesign: the whole community page. ✅ v10.13.0.
-- **Sprint 90 (THIS)** — Designed to forget: real content retention + visible decay + profile memory. → v10.14.0.
-- **Sprint 91** — Mobile parity from the polished web model.
-- **Sprint 92** — Architecture & service pruning.
-
----
-
-# Archived Context — Sprint 89 Community Sovereignty Redesign — ✅ MERGED + DEPLOYED (v10.13.0)
-
-> Sprint 89 shipped via PR **#73** (`ae63e9f`). Implemented: members-gated pulse endpoint (reuses the S86
-> texture aggregation via shared `fetchCommunityPulse` + new `timeSensitive`); warm four-tab page
-> (`Home · People · How we're connected · Stewardship` + group-only Activities); warm Home default for ALL
-> roles (headline bug — warm feed was admin-gated — fixed); `CommunityHero` + `CommunityPulse`; `BrowseTab`
-> split → `StewardRequestsAdmin` under `StewardshipTab`; centralized `lib/communityTabs.ts` deep-link
-> resolver; ADR-068 + landing docs + onboarding + CONTEXT/registry. All quality gates green.
+- **Sprint 89** — Community sovereignty redesign. ✅ v10.13.0.
+- **Sprint 90** — Designed to forget: content retention + visible decay + profile memory. ✅ v10.14.0.
+- **Sprint 91 (THIS)** — Service Consolidation Phase 1: fold feed-service (11→10). → v11.0.0.
+- **Sprint 92** — Service Consolidation Phase 2: geocoding → client-side (per ADR-071); cleanup kept.
+- **Deferred** — Mobile parity (originally S91); a bug-fix sprint for BUG-001..005.
 
 ---
 
@@ -190,7 +132,7 @@ The open dependabot PRs predate `pr-contract.yml`; their stale branches have no 
 ### Architecture Gotchas (Persistent)
 - **Landing page docs**: `apps/landing/src/data/docs/` is in `.gitignore` — always `git add -f`. (`docs/design/` is NOT gitignored — only the landing data dir is.)
 - **nav.json revert bug**: `generate-docs.ts` regenerates nav.json — run from `apps/landing/`; grep-verify after; re-apply if reverted
-- **ADR numbering**: ADR-069 + ADR-070 created in S90; next free = 071.
+- **ADR numbering**: ADR-069 + ADR-070 created in S90; **ADR-071 created in S91; next free = 072.**
 - **JWT field** is `communities` not `communityMemberships` — always `user.communities ?? []`
 - **Schema is `communities.communities`** (plural schema name) — older `community.*` comments are stale
 - **API response unwrap**: `createApiClient` interceptor already unwraps the envelope — use `res.data`, not `res.data.data`
@@ -198,11 +140,12 @@ The open dependabot PRs predate `pr-contract.yml`; their stale branches have no 
 - **messaging schema**: `messages.content` (NOT `body`); `conversations.request_match_id` links a thread to its exchange.
 - **`git add` on CLAUDE.md**: tracked as lowercase `claude.md`
 - **Solo dev — no worktrees**: work directly on feature branches
-- **Root package.json version**: **10.13.0** (Sprint 89 shipped; S90 bumps to 10.14.0).
+- **Root package.json version**: **10.14.0** (Sprint 90 shipped; **S91 bumps to 11.0.0**).
 - **CI security gates**: dependency audit (ADR-059, blocking `--audit-level=high`) + CodeQL code-scanning gate (ADR-060) run automatically on push
 - **`request_type` vs `category`**: `request_type` = 5-value `request_type_enum` (filter); `category` = fine
   payload subtype (`transportation` etc., what `RequestPayloadRenderer` switches on, what matching keys off).
   S86 surfaces `category` as `payload_type` on the card (ADR-067).
+- **request-service already calls social-graph** via `SOCIAL_GRAPH_API_URL` (`dibs.ts`) — reuse for the feed proximity call.
 
 ### Pre-Existing TDD Failures (do NOT fix — a NEW failure this sprint is a real regression)
 `sprint-39-provider-ux` (7), `sprint-43-feed-ranking` (crashes), `admin-schemas-api.test.ts` (request-service), `sprint-68-halflife` (6 DB-conn), `sprint-67-governance` (DB-conn), social-graph-service tdd `sprint-66`/`sprint-67`/`sprint-68`, plus the 5 frontend TDD failures noted in S89 (trust-model / useTrustQuestions / sprint-38/39/40).

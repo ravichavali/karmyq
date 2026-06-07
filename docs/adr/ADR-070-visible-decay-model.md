@@ -1,6 +1,6 @@
 # ADR-070: Visible Decay Model (decay tiers + re-warming nudge)
 
-**Status**: Accepted
+**Status**: Implemented
 **Date**: 2026-06-07
 **Sprint**: 90
 **Version**: 10.14.0
