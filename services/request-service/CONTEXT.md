@@ -555,6 +555,26 @@ server (`communities.members.joined_at` within 7 days) — there is no client-si
 **Implementation:** `src/routes/requests.ts` — `router.get('/community/:communityId/pulse')` + the
 shared `fetchCommunityPulse()` helper.
 
+#### GET /requests/retention-policy (Sprint 90 / ADR-069)
+Backs the `/about/memory` transparency page. Returns the **resolved retention windows**
+(`completed`/`expired`/`message`, community → global → fallback via `requests.retention_config`) plus
+the member's **own** held vs forgotten request counts. Read-only, **no PII**.
+
+```json
+{ "success": true, "data": {
+  "windows": { "completedRequestWindowDays": 180, "expiredRequestWindowDays": 30, "messageWindowDays": 180 },
+  "counts": { "held": 4, "forgotten": 2 }
+} }
+```
+
+Membership-gated on the JWT `communities` claim when `?communityId=` is supplied (non-member → 403).
+**Route order:** registered **before** `router.get('/:id')` so the static path isn't captured as an id.
+Window resolution is the pure exported `resolveRetentionWindows(rows, communityId?)` (mirrors the
+cleanup-service `memoryRetentionJob` so the page and the forgetting job agree). The actual forgetting
+runs in cleanup-service (ADR-069); this endpoint only reports.
+
+**Implementation:** `src/routes/requests.ts` — `router.get('/retention-policy')` + `resolveRetentionWindows()`.
+
 #### GET /requests/:id
 Get specific request details.
 

@@ -53,6 +53,10 @@
           "href": "/docs/concepts/reputation-decay"
         },
         {
+          "label": "Designed to Forget",
+          "href": "/docs/concepts/designed-to-forget"
+        },
+        {
           "label": "Why Ratings Are Private",
           "href": "/docs/concepts/why-ratings-are-private"
         },
@@ -210,6 +214,10 @@
           "href": "/docs/guides/fusion"
         },
         {
+          "label": "Your Memory & Relationships",
+          "href": "/docs/guides/your-memory-and-relationships"
+        },
+        {
           "label": "Understanding the Demo",
           "href": "/docs/guides/demo-data"
         }
@@ -347,6 +355,14 @@
         {
           "label": "Canonical Decayed Trust Metric & Unified Graph Visualization",
           "href": "/docs/concepts/adr-063-canonical-trust-metric-and-unified-graph"
+        },
+        {
+          "label": "Data Retention and Forgetting (content anonymization policy)",
+          "href": "/docs/concepts/adr-069-data-retention-and-forgetting"
+        },
+        {
+          "label": "Visible Decay Model (decay tiers + re-warming nudge)",
+          "href": "/docs/concepts/adr-070-visible-decay-model"
         },
         {
           "label": "— Community & Scale —",

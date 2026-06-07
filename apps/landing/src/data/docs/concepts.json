@@ -527,6 +527,22 @@
       "status": "implemented",
       "description": "**Status**: Implemented",
       "filename": "ADR-068-community-page-information-architecture.md"
+    },
+    {
+      "slug": "adr-069-data-retention-and-forgetting",
+      "number": "069",
+      "title": "ADR-069: Data Retention and Forgetting (content anonymization policy)",
+      "status": "accepted",
+      "description": "**Status**: Accepted",
+      "filename": "ADR-069-data-retention-and-forgetting.md"
+    },
+    {
+      "slug": "adr-070-visible-decay-model",
+      "number": "070",
+      "title": "ADR-070: Visible Decay Model (decay tiers + re-warming nudge)",
+      "status": "accepted",
+      "description": "**Status**: Accepted",
+      "filename": "ADR-070-visible-decay-model.md"
     }
   ]
 }

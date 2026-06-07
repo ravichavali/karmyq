@@ -17,7 +17,7 @@ import {
 import { sendMatchReminders } from './jobs/matchReminderJob';
 import { expireDibs } from './jobs/expireDibs';
 import { sweepDeadTrustEdges } from './jobs/trustEdgeSweepJob';
-import { sweepExpiredRequests } from './jobs/requestTtlSweepJob';
+import { forgetExchangeContent } from './jobs/memoryRetentionJob';
 import pool from './database/db';
 
 dotenv.config();
@@ -242,13 +242,13 @@ app.post('/jobs/sweep-trust-edges', adminRateLimiter, adminAuthMiddleware, async
   }
 });
 
-app.post('/jobs/sweep-request-ttl', adminRateLimiter, adminAuthMiddleware, async (req: ExtendedRequest, res: Response) => {
+app.post('/jobs/forget-content', adminRateLimiter, adminAuthMiddleware, async (req: ExtendedRequest, res: Response) => {
   try {
-    logger.info('Manual trigger: sweep expired requests');
-    const deleted = await sweepExpiredRequests();
-    sendSuccess(res, { message: `Swept ${deleted} expired request(s)` }, 200, { requestId: req.id });
+    logger.info('Manual trigger: forget exchange content');
+    const counts = await forgetExchangeContent();
+    sendSuccess(res, { message: 'Memory retention sweep complete', ...counts }, 200, { requestId: req.id });
   } catch (error) {
-    logger.error('Manual request TTL sweep failed', { error });
+    logger.error('Manual memory retention sweep failed', { error });
     sendInternalError(res, error instanceof Error ? error.message : String(error), error, { requestId: req.id });
   }
 });
@@ -366,17 +366,23 @@ cron.schedule('30 4 * * *', async () => {
   }
 });
 
+// Sprint 90 (ADR-069): the Request TTL Sweep Job was RETIRED. It hard-deleted completed+rated requests
+// (and cascade-deleted their matches → conversations → messages) at 30 days, which destroyed the
+// aggregate that ADR-069 promises to keep and fired before the 180-day anonymization window. The
+// memoryRetentionJob below now owns the completed-request lifecycle (anonymize, keep aggregates).
+
 /**
- * Request TTL Sweep Job
- * Runs daily at 2:30 AM
- * Hard-deletes completed+rated requests older than 30 days (matches first, then help_requests)
+ * Memory Retention Job (Sprint 90 — Designed to Forget)
+ * Runs daily at 3:30 AM
+ * Anonymizes aged completed-request free-text + cascade-forgets messages, hard-deletes expired/unmatched
+ * requests, and backstops old messages. Aggregates (matches, karma_records) are left untouched.
  */
-cron.schedule('30 2 * * *', async () => {
-  logger.info('Cron: Running request TTL sweep job');
+cron.schedule('30 3 * * *', async () => {
+  logger.info('Cron: Running memory retention job');
   try {
-    await sweepExpiredRequests();
+    await forgetExchangeContent();
   } catch (error) {
-    logger.error('Scheduled request TTL sweep failed', { error });
+    logger.error('Scheduled memory retention job failed', { error });
   }
 });
 
@@ -398,7 +404,7 @@ async function startServer() {
       logger.info('  - Reputation decay: Daily at 3:00 AM');
       logger.info('  - Activity log cleanup: Weekly Sunday at 4:00 AM');
       logger.info('  - Decay report: Weekly Monday at 9:00 AM');
-      logger.info('  - Request TTL sweep: Daily at 2:30 AM');
+      logger.info('  - Memory retention (designed to forget): Daily at 3:30 AM');
       logger.info('  - Trust edge sweep: Daily at 4:30 AM');
     });
   } catch (error) {

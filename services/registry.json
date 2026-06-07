@@ -147,6 +147,7 @@
           "/requests/:id",
           {"method": "GET", "path": "/requests/curated", "description": "Curated feed scored on 7 signals. Sprint 85/86 ADR-066: view=home returns the UnifiedFeedItem union ({ items }) of decisions+requests; view=community returns the community-scoped union of requests+activity+story texture (no decisions), requires community_id (400) + caller membership (403), assembled from request-service's own DB reads (no feed-service call), texture best-effort. Action altitude bands: decisions>=2000 > requests 1000-1100 > activity 500 > story 100. Each request item carries payload_type (ADR-067, from category via categoryToPayloadType). view absent keeps the legacy request-array shape. Prior-interaction signal reads the decayed trust_edges_live.current_weight. Sprint 88: minScore defaults to 30, explicit minScore=0 is valid for show-more/all-open expansion, and request impressions are logged for legacy and union request items."},
           {"method": "GET", "path": "/requests/community/:communityId/pulse", "description": "Sprint 89 / ADR-068: the community's weekly help-loop pulse for the warm community Home hero (helpedThisWeek, openAsks, timeSensitive, recentJoins, recentHelpers, windowDays:7). Reuses the exact S86 texture aggregation (shared fetchCommunityPulse helper that also builds the in-feed activity card, so the two never diverge) + one new timeSensitive count. openAsks/timeSensitive count only status=open AND expired=FALSE. Members-only: gated on the JWT communities claim (not communityMemberships) -> 403 for non-members; unknown community -> 404. Read-only, no schema change."},
+          {"method": "GET", "path": "/requests/retention-policy", "description": "Sprint 90 / ADR-069: resolved retention windows (completed/expired/message, community->global->fallback via requests.retention_config) + the member's own held vs forgotten request counts. Backs the /about/memory transparency page. Read-only, no PII. Membership-gated on the JWT communities claim when ?communityId= is supplied (non-member -> 403). MUST be registered before /requests/:id (route-order)."},
           "/offers",
           "/matches",
           "/matches/:id/complete",
@@ -405,7 +406,9 @@
         ]
       },
       "apis": {
-        "provides": [],
+        "provides": [
+          {"method": "POST", "path": "/jobs/forget-content", "description": "Sprint 90 / ADR-069: admin-triggered run of the memory retention job (memoryRetentionJob.forgetExchangeContent). Anonymizes aged completed-request free-text + cascade-forgets messages, hard-deletes expired/unmatched requests, backstops old messages. Returns per-branch counts. Also runs daily at 3:30 AM via cron."}
+        ],
         "consumes": []
       },
       "database_schemas": [
@@ -419,7 +422,7 @@
         ],
         "subscribes": []
       },
-      "notes": "CANDIDATE FOR REPLACEMENT: Could be replaced with pg_cron scheduled jobs"
+      "notes": "CANDIDATE FOR REPLACEMENT: Could be replaced with pg_cron scheduled jobs. Scheduled jobs: dibs expiry (5m), match reminders (15m), mark-expired (hourly), hard-delete (2am), reputation decay (3am), memoryRetentionJob (3:30am, Sprint 90/ADR-069 — anonymizes completed-exchange free-text to '[forgotten]' sentinels + cascade-forgets messages, hard-deletes expired/unmatched requests; karma_records left untouched; per-community retention windows via request_communities → retention_config), trust edge sweep (4:30am), activity log cleanup (weekly), decay report (weekly). Sprint 90 RETIRED requestTtlSweepJob (it hard-deleted completed+rated exchanges at 30d, destroying aggregates before the anonymize window — superseded by memoryRetentionJob). Governed by requests.retention_config."
     },
     "geocoding-service": {
       "port": 3009,
@@ -471,7 +474,9 @@
           { "method": "GET", "path": "/trust-card/:targetUserId", "description": "Returns trust tier, karma, trust path, and invitation chain for a target user relative to the current user." },
           { "method": "GET", "path": "/trust/graph", "description": "Aggregate ego-network across all of calling user's communities (Sprint 67). Returns calling user + direct neighbors + edges. Used by dashboard Your Network panel." },
           { "method": "GET", "path": "/trust/graph/:communityId", "description": "Ego-network for calling user in a community (Sprint 67 rewrite). Returns calling user + direct neighbors only. Response: { nodes, links } with isCurrentUser on nodes." },
-          { "method": "GET", "path": "/trust/graph/:communityId/full", "description": "Full community trust graph (Sprint 74) — up to 150 members ranked by trust score (top 149 + calling user) with all inter-member edges. Powers the Community sub-tab hierarchical edge bundling view. Response: { nodes, links } with isCurrentUser on nodes." },
+          { "method": "GET", "path": "/trust/graph/:communityId/full", "description": "Full community trust graph (Sprint 74) — up to 150 members ranked by trust score (top 149 + calling user) with all inter-member edges. Powers the Community sub-tab hierarchical edge bundling view. Response: { nodes, links } with isCurrentUser on nodes. Sprint 90: each edge also carries currentWeight, disappearanceThreshold, and decayTier (ADR-070)." },
+          { "method": "GET", "path": "/trust/me/memory", "description": "Sprint 90 (ADR-070): the calling member's relationship memory in a community (?communityId=) — { activeCount, fading[], nearlyForgotten[] } with per-peer decayTier. Backs the profile Memory section. Members-only." },
+          { "method": "GET", "path": "/trust/relationships/fading", "description": "Sprint 90 (ADR-070): nearly-forgotten bonds (?communityId=) for the re-warming nudge (decayTier === 'nearly_forgotten'). Members-only." },
           { "method": "GET", "path": "/trust/communities", "description": "Inter-community depth graph (Sprint 79) — the caller's communities as nodes plus edge/lineage-reachable ones, with organic trust links (from community_trust_edges) and fission lineage links (parent→child from executed split_proposals). Response: { nodes, links } with type tags." },
           { "method": "GET", "path": "/trust/edge", "description": "Returns a single trust edge for a user pair in a community. Returns { data: null } if no edge exists." },
           { "method": "GET", "path": "/trust/decay-config", "description": "Returns global Ebbinghaus decay config (base_half_life_days, stability_growth_rate, disappearance_threshold)." },
@@ -493,7 +498,7 @@
           "match_completed"
         ]
       },
-      "notes": "Trust-first design foundation. Sprint 27: match_completed → social_graph.connections. Sprint 65: match_completed → social_graph.trust_edges. Sprint 67: ego-network rewrite — GET /trust/graph (aggregate) + GET /trust/graph/:communityId (community ego-network). Sprint 68: intrinsic Ebbinghaus decay via trust_edges_live view + decay config endpoints. Governance endpoints are in community-service."
+      "notes": "Trust-first design foundation. Sprint 27: match_completed → social_graph.connections. Sprint 65: match_completed → social_graph.trust_edges. Sprint 67: ego-network rewrite — GET /trust/graph (aggregate) + GET /trust/graph/:communityId (community ego-network). Sprint 68: intrinsic Ebbinghaus decay via trust_edges_live view + decay config endpoints. Sprint 90: visible decay (ADR-070) — graph edges carry decayTier; new /trust/me/memory + /trust/relationships/fading endpoints; classifyDecayTier lives in @karmyq/shared. Governance endpoints are in community-service."
     },
     "simulation-service": {
       "port": null,

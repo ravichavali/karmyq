@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { socialGraphService } from '@/lib/api'
 import TrustGraph from '@/components/TrustGraph'
+import ReWarmingNudge from '@/components/relationships/ReWarmingNudge'
 
 interface TrustGraphTabProps {
   communityId: string
@@ -20,6 +21,7 @@ interface TrustLink {
   target: string
   raw_weight: number
   effective_weight: number
+  decayTier?: 'strong' | 'warm' | 'fading' | 'nearly_forgotten' | 'swept' // Sprint 90 / ADR-070
 }
 
 interface GraphData {
@@ -84,6 +86,9 @@ export default function TrustGraphTab({ communityId, currentUserId }: TrustGraph
           My Network
         </button>
       </div>
+
+      {/* Sprint 90 / ADR-070 — re-warm bonds about to be swept. Self-suppresses when none. */}
+      <ReWarmingNudge communityId={communityId} className="mb-4" />
 
       <div className="w-full min-h-[600px] h-[calc(100vh-320px)]">
         {error ? (

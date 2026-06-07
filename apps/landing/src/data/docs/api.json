@@ -303,6 +303,11 @@
         },
         {
           "method": "GET",
+          "path": "/requests/retention-policy (Sprint 90 / ADR-069)",
+          "description": "Backs the `/about/memory` transparency page. Returns the **resolved retention windows**"
+        },
+        {
+          "method": "GET",
           "path": "/requests/:id",
           "description": "Get specific request details."
         },

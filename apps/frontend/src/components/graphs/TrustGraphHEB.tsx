@@ -15,6 +15,17 @@ interface TrustLink {
   target: string
   raw_weight: number
   effective_weight: number
+  decayTier?: 'strong' | 'warm' | 'fading' | 'nearly_forgotten' | 'swept' // Sprint 90 / ADR-070
+}
+
+// Sprint 90 / ADR-070 — visible decay: fade an edge's opacity by how quiet the bond has gone, so the
+// graph perceptibly fades alongside the relationship faces. `strong`/undefined = no extra fade.
+const DECAY_OPACITY_FACTOR: Record<NonNullable<TrustLink['decayTier']>, number> = {
+  strong: 1,
+  warm: 0.92,
+  fading: 0.7,
+  nearly_forgotten: 0.5,
+  swept: 0.3,
 }
 
 interface TrustGraphData {
@@ -152,9 +163,10 @@ export default function TrustGraphHEB({
     }
     const edgeOpacity = (l: TrustLink): number => {
       const base = 0.12 + 0.7 * (l.effective_weight / maxWeight)
-      if (mode === 'community' && isMyEdge(l)) return Math.max(0.7, base)
-      if (mode === 'community' && !sameCluster(l)) return Math.min(base, 0.3)
-      return base
+      const decay = l.decayTier ? DECAY_OPACITY_FACTOR[l.decayTier] : 1
+      if (mode === 'community' && isMyEdge(l)) return Math.max(0.7, base) * decay
+      if (mode === 'community' && !sameCluster(l)) return Math.min(base, 0.3) * decay
+      return base * decay
     }
 
     // Resolve each link to its bundled hierarchical path; drop edges whose endpoints aren't present.

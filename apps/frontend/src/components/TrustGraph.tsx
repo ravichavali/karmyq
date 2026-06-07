@@ -14,6 +14,7 @@ interface TrustLink {
   target: string
   raw_weight: number
   effective_weight: number
+  decayTier?: 'strong' | 'warm' | 'fading' | 'nearly_forgotten' | 'swept' // Sprint 90 / ADR-070
 }
 
 interface TrustGraphData {

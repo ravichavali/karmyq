@@ -23,7 +23,41 @@ The Cleanup Service handles:
 | Decay Report | Weekly Mon 9:00 AM | Generate community decay statistics |
 | Expire Dibs | Every 5 minutes | Find pending `requests.dibs` records past `expires_at`, set `status=expired`, reset `help_requests.status` to `open`, publish `dibs_expired` event |
 | Trust Edge Sweep | Daily 4:30 AM | Delete `social_graph.trust_edges` where `current_weight < disappearance_threshold` (via `trust_edges_live` view) |
-| Request TTL Sweep | Daily 2:30 AM | Hard-delete completed+rated `requests.help_requests` older than 30 days (deletes `requests.matches` first, FK constraint) |
+| ~~Request TTL Sweep~~ | **RETIRED (Sprint 90 / ADR-069)** | `requestTtlSweepJob` (`sweepExpiredRequests`) hard-deleted completed+rated requests + their matches (cascade-deleting conversations/messages) at 30 days — destroyed the aggregate ADR-069 keeps, before the 180-day anonymize window. **Superseded by Memory Retention** (anonymize, keep aggregates). Job file, cron, and `/jobs/sweep-request-ttl` endpoint removed. |
+| Memory Retention (Sprint 90 / ADR-069) | Daily 3:30 AM | `memoryRetentionJob.forgetExchangeContent()` — anonymize aged completed-request free-text (`title`/`description`/`payload`/`requirements` → `'[forgotten]'`/`'{}'`) **and cascade-forget its conversation's `messages.content` in one atomic CTE** (the Exchange Unit); hard-delete `expired = TRUE` + **unmatched** requests aged from `updated_at`; backstop old messages. **`reputation.karma_records` is never touched** (no PII; `reason` is a load-bearing enum). Windows resolve **per-request: per-community override → global → fallback** (MAX over the request's communities via `request_communities` → `retention_config`). Manual trigger: `POST /jobs/forget-content`. |
+
+## Memory Retention Job (Sprint 90 — ADR-069)
+
+`src/jobs/memoryRetentionJob.ts`. Three statements per run, each idempotent via partial-index predicates:
+
+1. **Exchange Unit cascade** — one data-modifying CTE: `UPDATE requests.help_requests` (completed, aged
+   past `completed_request_window_days`, `content_forgotten_at IS NULL`) → sentinel + stamp
+   `content_forgotten_at`; the second CTE forgets every `messaging.messages.content` whose conversation
+   links (request → match → conversation, `conversations.request_match_id`) to a just-forgotten request.
+   Atomic — request text and its messages forget together or not at all.
+2. **Expired hard-delete** — `DELETE FROM requests.help_requests WHERE expired = TRUE AND NOT EXISTS (a
+   match) AND updated_at < now() - expired_request_window_days`. Age from `updated_at` (the expiration
+   job stamps it when it flips the flag), **never `created_at`**.
+3. **Message backstop** — anonymize any `messages.content` older than `message_window_days` the cascade
+   missed (`forgotten_at IS NULL`).
+
+Per-community windows: the completed-anonymize and expired-delete branches resolve each request's
+effective window in SQL as `MAX(COALESCE(community_override, global))` over the request's communities
+(`request_communities` → `retention_config`) — the conservative choice, so a shared request is never
+forgotten earlier than ANY owning community wants; a request with no community rows uses the global
+default. The standalone message backstop uses the global window (a loose message isn't reliably
+attributable to one community; per-community message retention is honored via the cascade).
+
+`resolveRetentionWindows(rows, communityId?)` is a pure exported helper (community → global → hardcoded
+fallback `{180, 30, 180}`) used to resolve the global default passed to the SQL. Config table:
+`requests.retention_config` (partial unique index on the NULL global row + `WHERE NOT EXISTS` guarded
+seed). Marker columns: `help_requests.content_forgotten_at`, `messages.forgotten_at`, each with a partial
+index `WHERE ... IS NULL`.
+
+**Sprint 90 retired `requestTtlSweepJob`** (`sweepExpiredRequests`): it hard-deleted completed+rated
+requests and their matches (cascade-deleting conversations + messages) at 30 days, which both destroyed
+the aggregate ADR-069 keeps and fired before the 180-day anonymize window. The memory retention job now
+owns the completed-request lifecycle. The job file, its cron, and `/jobs/sweep-request-ttl` were removed.
 
 ## Database Schema
 
@@ -32,10 +66,11 @@ The Cleanup Service handles:
 - `communities.settings` - Per-community TTL and decay configuration
 - `reputation.activity_log` - User activity tracking
 - `reputation.trust_scores` - Trust scores with `last_activity_at`
-- `requests.help_requests` - `expires_at`, `expired` columns; `status` reset to `open` on dibs expiry
+- `requests.help_requests` - `expires_at`, `expired` columns; `status` reset to `open` on dibs expiry; Sprint 90: `content_forgotten_at` marker (anonymization stamp)
+- `requests.retention_config` - Sprint 90 (ADR-069): per-community + global retention windows (`completed_request_window_days`/`expired_request_window_days`/`message_window_days`)
 - `requests.dibs` - `status`, `expires_at` columns (Sprint 42)
 - `requests.help_offers` - `expires_at`, `expired` columns
-- `messaging.messages` - `expires_at`, `expired` columns
+- `messaging.messages` - `expires_at`, `expired` columns; Sprint 90: `content` anonymized + `forgotten_at` marker on cascade
 - `notifications.notifications` - `expires_at`, `expired` columns
 
 ### Functions Used
@@ -87,8 +122,9 @@ GET /jobs/decay-report
 POST /jobs/sweep-trust-edges
   // Manually trigger trust edge sweep (delete decayed edges below threshold)
 
-POST /jobs/sweep-request-ttl
-  // Manually trigger request TTL sweep (hard-delete completed+rated requests >30 days)
+POST /jobs/forget-content
+  // Manually trigger memory retention (Sprint 90 / ADR-069): anonymize aged completed-request
+  // free-text + cascade-forget messages, hard-delete expired/unmatched requests. Karma untouched.
 
 GET /health
   // Service health check
