@@ -21,6 +21,14 @@
 > TrustPathBadge regression 54 green; `npm audit --audit-level=high` clean. DB-dependent integration
 > tests (sprint-90-forgetting-integration, sprint-90-retention-policy member path) run in CI/deploy.
 >
+> **Codex cross-agent review round (addressed, `2f70213`):** (HIGH) retired `requestTtlSweepJob` — it
+> hard-deleted completed+rated requests + their matches (FK-cascading conversations/messages) at 30d,
+> destroying the aggregate ADR-069 keeps before the anonymize window; `memoryRetentionJob` now owns the
+> completed lifecycle. (MED) `memoryRetentionJob` now resolves per-community windows in SQL
+> (`MAX(COALESCE(community_override, global))` over `request_communities` → `retention_config`) for the
+> completed + expired branches; integration test proves a 10d community override forgets a 15d request
+> the global 180d window wouldn't. All required checks green on the fix commit.
+>
 > **Post-merge:** flip ADR-069 + ADR-070 status `Accepted → Implemented`; on deploy, ensure the
 > migration is applied to the demo DB before the 3:30am job first runs; dismiss the recurring `api.ts`
 > `js/request-forgery` CodeQL FP after rescan if it re-fires (new client calls).
