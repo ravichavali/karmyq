@@ -301,3 +301,15 @@ Data cleanup should be a priority in coming weeks — stale simulation data, orp
 We need to deliver the "platform forgets" claim in a serious way soon. The "designed to forget" / trust-atrophy promise (manifesto §7, ADR-066) is currently only *structurally enforced in feed ranking* via the decayed trust-edge weight (`trust_edges_live.current_weight`) — that's ranking math, not a visible, trustworthy promise. To honor the claim we need real forgetting members can see and feel: actual data retention/forgetting policy (what's deleted/decayed and when), visible decay in the UI (a relationship/trust edge perceptibly fading over time), and possibly user-facing controls or transparency about what the platform remembers vs. lets go. Not just an invisible exponential in the sort key.
 
 ---
+
+## [2026-06-07] ux
+
+The landing page on karmyq.org can have an analytics section that shows the trends that helps tell the story. This is for development in the far future.
+
+---
+
+## [2026-06-08] ux
+
+Community / service-provider link-up seems confusing. We need to clean it up.
+
+---
