@@ -1,9 +1,13 @@
-# Sprint 91 — Service Consolidation (Phase 1) — ✅ IMPLEMENTED · ready for review gates + PR (v11.0.0)
+# Sprint 91 — Service Consolidation (Phase 1) — ✅ PR #75 OPEN · awaiting maintainer merge (v11.0.0)
 
-> **▶ STATUS (2026-06-07):** feed-service folded into request-service. **11 → 10 services.** All
-> blocking gates green (build, tsc, audit, feedback:check, full turbo test 25/25, Sprint 91
-> feed-router TDD 6/6). Remaining before merge: SDLC review gates (`/code-review`,
-> `/security-review`) and the PR + deploy.
+> **▶ STATUS (2026-06-07):** feed-service folded into request-service. **11 → 10 services.**
+> **PR #75 open** (https://github.com/ravichavali/karmyq/pull/75), branch
+> `feature/sprint-91-service-consolidation`. All blocking gates green (build, tsc, audit,
+> feedback:check, full turbo test 25/25, Sprint 91 feed-router TDD 6/6). `/code-review` +
+> `/security-review` ran — no blocking findings. Codex cross-agent review addressed (ARCHITECTURE.md
+> de-staled, feedback-loop.js ignores deletions). **Awaiting maintainer "pull it in" → merge → Deploy
+> to Demo.** Post-deploy: confirm `GET /api/requests/feed` + dashboard/community feed render; dismiss
+> the `api.ts` CodeQL request-forgery FP after rescan if it re-fires.
 >
 > **NO DATABASE MIGRATION.** `feed.preferences` + `feed.dismissed_items` stay in place; ownership
 > moved to request-service at the app layer only. `feed.featured_stories` orphaned-in-place (not
