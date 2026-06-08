@@ -21,7 +21,7 @@ set START_TIME=%time%
 
 REM Ensure services are running
 echo [33m🔧 Checking services...[0m
-curl -s http://localhost:3007/health >nul 2>&1
+curl -s http://localhost:3003/health >nul 2>&1
 if errorlevel 1 (
   echo [33mStarting Docker services...[0m
   docker-compose -f infrastructure\docker\docker-compose.yml up -d

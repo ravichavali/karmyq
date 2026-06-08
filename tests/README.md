@@ -184,7 +184,6 @@ REQUEST_SERVICE_URL=http://localhost:3003
 REPUTATION_SERVICE_URL=http://localhost:3004
 NOTIFICATION_SERVICE_URL=http://localhost:3005
 MESSAGING_SERVICE_URL=http://localhost:3006
-FEED_SERVICE_URL=http://localhost:3007
 ```
 
 ## Test Data Cleanup

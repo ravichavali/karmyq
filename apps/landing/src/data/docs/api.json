@@ -339,7 +339,7 @@
         {
           "method": "POST",
           "path": "/requests/:id/boost",
-          "description": "Boost a request for 48 hours, adding a +0.3 feed score bonus via the feed-service boost scoring rule (Sprint 36). Admin or moderator."
+          "description": "Boost a request for 48 hours, adding a +0.3 feed score bonus via the request-service feed ranker (Sprint 36). Admin or moderator."
         },
         {
           "method": "DELETE",
@@ -455,6 +455,31 @@
           "method": "POST",
           "path": "/requests/dibs/:id/expire",
           "description": "TEST-ONLY: Force-expire a dibs record regardless of `expires_at`. Sets status to `expired` and reverts request to `open`."
+        },
+        {
+          "method": "GET",
+          "path": "/requests/feed",
+          "description": "Ranked personalized feed for the authenticated user. Items are sorted by the ranker's score"
+        },
+        {
+          "method": "GET",
+          "path": "/requests/feed/preferences",
+          "description": "Return the caller's feed preferences; returns sensible defaults when no row exists."
+        },
+        {
+          "method": "PUT",
+          "path": "/requests/feed/preferences",
+          "description": "Upsert the caller's feed preferences (round-trips with GET)."
+        },
+        {
+          "method": "POST",
+          "path": "/requests/feed/dismiss/:itemId",
+          "description": "Dismiss a feed item (writes `feed.dismissed_items`); the item is excluded from the next"
+        },
+        {
+          "method": "GET",
+          "path": "/requests/feed/community-health",
+          "description": "Community health hero metrics for the `CommunityHealthHero` component. Requires `community_id`"
         },
         {
           "method": "POST",
@@ -793,32 +818,6 @@
           "method": "POST",
           "path": "/messages/:conversationId/mark-read",
           "description": "Mark all messages in conversation as read."
-        }
-      ]
-    },
-    {
-      "service": "feed-service",
-      "port": 3007,
-      "endpoints": [
-        {
-          "method": "GET",
-          "path": "/feed",
-          "description": "Get personalized feed for user."
-        },
-        {
-          "method": "POST",
-          "path": "/feed/dismiss",
-          "description": "Dismiss item from feed."
-        },
-        {
-          "method": "GET",
-          "path": "/feed/preferences",
-          "description": "Get user's feed preferences."
-        },
-        {
-          "method": "PUT",
-          "path": "/feed/preferences",
-          "description": "Update feed preferences."
         }
       ]
     },

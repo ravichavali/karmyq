@@ -905,7 +905,7 @@ See [ADR-056](../../docs/adr/ADR-056-intrinsic-trust-decay.md) for full decision
 
 - **Design Document**: [docs/features/SOCIAL_GRAPH_TRUST_PATHS.md](../../docs/features/SOCIAL_GRAPH_TRUST_PATHS.md)
 - **Migration**: [infrastructure/postgres/migrations/009_social_graph.sql](../../infrastructure/postgres/migrations/009_social_graph.sql)
-- **Feed Integration**: [services/feed-service/CONTEXT.md](../feed-service/CONTEXT.md)
+- **Feed Integration**: [services/request-service/CONTEXT.md](../request-service/CONTEXT.md) (`/requests/feed`)
 
 ---
 

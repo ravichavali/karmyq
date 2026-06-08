@@ -37,12 +37,13 @@ reads the `requests` schema over the shared `DATABASE_URL`. Its composers + rank
 | `services/request-service/src/index.ts` | Mount feed router at `/requests/feed`; ensure `SOCIAL_GRAPH_API_URL` available |
 | `apps/frontend/src/lib/api.ts` | Remove `FEED_API_URL` + `feedApi`; migrate 5 calls to `requestApi` `/requests/feed/*`; fix dismiss path |
 | `apps/frontend/src/components/CommunityHealthHero.tsx` | `feedApi` → `requestApi`, path `/requests/feed/community-health` |
-| `infrastructure/nginx/nginx.conf` | Remove `feed_service` upstream + `/api/feed` location |
-| `infrastructure/docker/docker-compose.yml` | Remove `feed-service:` service |
+| `apps/frontend/Dockerfile`, `apps/mobile/config/api.ts`, `apps/mobile/services/api.ts`, `apps/mobile/README.md` | Remove/repoint feed-service client config |
+| `.github/workflows/ci.yml`, `.github/workflows/e2e-tests.yml`, `scripts/deploy.sh`, `scripts/smoke-test.sh`, `tests/docker-compose.test.yml`, `tests/setup.ts`, `tests/integration/setup.ts`, `tests/fixtures/index.ts`, `tests/e2e/tests/utils/api-helpers.ts`, `tests/load/load-test.ts` | Remove feed-service expectations and route feed traffic through request-service |
+| `infrastructure/nginx/*.conf`, `infrastructure/docker/docker-compose*.yml`, `infrastructure/scripts/setup_env.sh`, `infrastructure/observability/grafana/provisioning/dashboards/json/service-overview.json` | Remove `feed_service`, port 3007, and FEED_* wiring |
 | `services/registry.json` | Remove feed-service; add feed endpoints to request-service; update statistics (11→10, candidates 2→1) |
 | `services/request-service/CONTEXT.md` | Document feed view layer + `feed.*` schema ownership + dropped endpoints |
 | `services/request-service/.claude/README.md` | Note it now serves the feed |
-| `services/request-service/package.json`, root `package.json` | Version → 11.0.0 |
+| root `package.json`, `package-lock.json` | Product version → 11.0.0; remove feed-service workspace lock entries |
 | `docs/adr/README.md` | Add ADR-071 index entry |
 | `docs/ARCHITECTURE.md` | Service count 11→10; remove feed-service mention |
 | `apps/landing/src/data/docs/services/request-service.json` | Add feed endpoints |
@@ -76,14 +77,25 @@ reads the `requests` schema over the shared `DATABASE_URL`. Its composers + rank
 7. **Do NOT `DROP SCHEMA feed`** — `feed.preferences` + `feed.dismissed_items` stay; request-service
    owns them. No migration. `feed.featured_stories` becomes orphaned — note in ADR-071, don't drop.
 8. **social-graph proximity:** reuse request-service's existing `SOCIAL_GRAPH_API_URL` pattern
-   (`dibs.ts`); ensure it's in request-service compose env.
-9. **Version 10.14.0 → 11.0.0 (MAJOR)** — service removed = breaking architectural change.
-10. **JWT field `communities`** — carry feed-service's existing auth gate; don't loosen it.
-11. **`npm run analyze:services` after deleting feed-service** regenerates dependency-graph /
+   (`dibs.ts`); ensure it's in request-service compose/test env. Forward the caller's
+   `Authorization` header to `/paths/batch`; do **not** keep the old `x-user-id` shortcut.
+9. **Mount order + middleware are behavior-critical.** Register `/requests/feed` **before** the
+   generic `/requests` router so it isn't swallowed by `GET /requests/:id`; mount with
+   `rateLimiters.relaxed` (or `readHeavy`), `authMiddleware`, `optionalTenantMiddleware`, and
+   `dbContextMiddleware(pool)`.
+10. **Version 10.14.0 → 11.0.0 (MAJOR)** — service removed = breaking architectural change.
+    Bump the root product version only; service packages remain on their existing package versions.
+11. **JWT field `communities`** — carry feed-service's existing auth gate; don't loosen it.
+12. **Port/adapt existing feed-service tests** (`basicFeedRanker`, `feedComposer`, and relevant
+    `socialKarmaFeedComposer` health-summary coverage) before deleting the service directory.
+13. **Decommission every active feed-service reference**, not just compose/nginx. Grep
+    `.github`, `scripts`, `tests`, `infrastructure`, `apps`, and `services` for
+    `feed-service|feed_service|3007|FEED_API_URL|FEED_SERVICE_URL|NEXT_PUBLIC_FEED_API_URL`.
+14. **`npm run analyze:services` after deleting feed-service** regenerates dependency-graph /
     impact-analysis / version-drift — GENERATED, never hand-edit.
-12. **Landing docs gitignored** (`git add -f`); **nav.json reverts** (grep-verify, re-apply).
-13. **ADR numbering: next free = 071.**
-14. **Behavior-preserving** — the 5 endpoints return identical shapes; tests assert the contract.
+15. **Landing docs gitignored** (`git add -f`); **nav.json reverts** (grep-verify, re-apply).
+16. **ADR numbering: next free = 071.**
+17. **Behavior-preserving** — the 5 endpoints return identical shapes; tests assert the contract.
 
 ---
 
@@ -138,9 +150,15 @@ grep -rhoE "feed\.[a-z_]+" services/feed-service/src | sort | uniq -c
 
 **Files:**
 - Create: `services/request-service/tests/unit/feed-composer.test.ts`
+  `services/request-service/tests/unit/basicFeedRanker.test.ts`,
+  `services/request-service/tests/regression/feedComposer.test.ts`,
+  `services/request-service/tests/regression/socialKarmaFeedComposer.test.ts`
 
-- [ ] Write failing unit tests for the composition/ranking invariants you're moving. Assert exact
-  values, not just "truthy" (per `feedback_testing_standard`). Cover at minimum:
+- [ ] Port/adapt the existing feed-service unit/regression tests before moving implementation.
+  The imports should point at request-service paths and fail because the feed classes do not
+  exist yet. Preserve exact assertions from the old tests where the behavior is still live.
+- [ ] Write/keep failing unit tests for the composition/ranking invariants you're moving. Assert
+  exact values, not just "truthy" (per `feedback_testing_standard`). Cover at minimum:
   - Composer returns items sorted by the ranker's score (descending), stable for ties
   - Dismissed items are excluded from the composed feed
   - Social-proximity scoring is applied when `/paths/batch` returns data, and the composer
@@ -165,7 +183,8 @@ cd services/request-service && npm test -- feed-composer 2>&1 | tail -20
   Rewire imports to request-service's `db`/pool and `@karmyq/shared`. Remove the
   `feed.featured_stories` code path (it belonged to a dropped endpoint).
 - [ ] Point the social-graph call at request-service's existing env convention
-  (`SOCIAL_GRAPH_API_URL`, as used in `dibs.ts`).
+  (`SOCIAL_GRAPH_API_URL`, as used in `dibs.ts`) and accept the caller authorization header so the
+  batch call sends `Authorization: <original header>` to social-graph.
 - [ ] Make the Task 3 unit tests pass:
 
 ```bash
@@ -186,11 +205,18 @@ cd services/request-service && npm test -- feed-composer 2>&1 | tail -20
 - [ ] Implement the 5 live endpoints in `feed.ts`, carrying the existing auth gate
   (`user.communities ?? []` where feed-service gated). Canonical dismiss path:
   `POST /dismiss/:itemId` (mounted under `/requests/feed`). Do NOT port the 4 dead endpoints.
-- [ ] Mount in `index.ts`:
+- [ ] Mount in `index.ts` **before** the generic `/requests` router:
 
 ```typescript
 import feedRouter from './routes/feed';
-app.use('/requests/feed', rateLimiters.standard, feedRouter);
+app.use(
+  '/requests/feed',
+  rateLimiters.relaxed,
+  authMiddleware,
+  optionalTenantMiddleware,
+  dbContextMiddleware(pool),
+  feedRouter
+);
 ```
 
 - [ ] Type-check + build:
@@ -230,13 +256,25 @@ cd apps/frontend && npm run type-check 2>&1 | tail -20
 ## Task 7: Decommission feed-service (infra + registry + delete)
 
 **Files:**
-- Modify: `infrastructure/nginx/nginx.conf`, `infrastructure/docker/docker-compose.yml`,
-  `services/registry.json`
+- Modify: `infrastructure/nginx/*.conf`, `infrastructure/docker/docker-compose*.yml`,
+  `.github/workflows/ci.yml`, `.github/workflows/e2e-tests.yml`, `scripts/deploy.sh`,
+  `scripts/smoke-test.sh`, `scripts/test-local.*`, `scripts/test-all.*`,
+  `scripts/add-tdd-scripts.js`, `scripts/update-service-tdd-docs.js`,
+  `infrastructure/scripts/setup_env.sh`, `infrastructure/observability/grafana/provisioning/dashboards/json/service-overview.json`,
+  `apps/frontend/Dockerfile`, `apps/mobile/config/api.ts`, `apps/mobile/services/api.ts`,
+  `apps/mobile/README.md`, `tests/docker-compose.test.yml`, `tests/setup.ts`,
+  `tests/integration/setup.ts`, `tests/fixtures/index.ts`, `tests/e2e/tests/utils/api-helpers.ts`,
+  `tests/load/load-test.ts`, `services/registry.json`
 - Delete: `services/feed-service/`
 
 - [ ] nginx: remove `upstream feed_service { … }` and `location ~ ^/api/feed(/.*)?$`.
 - [ ] docker-compose: remove the `feed-service:` service definition (and any `depends_on:
   feed-service` references — grep).
+- [ ] CI/deploy/test scripts: remove feed-service from Docker image matrices, health checks,
+  rebuilt-service arrays, smoke tests, test compose services, test env URL exports, and local test
+  helpers. Route any remaining feed test client to `REQUEST_SERVICE_URL` + `/requests/feed`.
+- [ ] Frontend/mobile env: remove `NEXT_PUBLIC_FEED_API_URL`/`FEED_API_URL`; point mobile
+  `FEED_URL`/`getFeed` at request-service `/requests/feed`.
 - [ ] registry.json: delete the `feed-service` entry, add the 5 endpoints under
   `request-service.apis.provides`, update `statistics` (`total_services` 11→10,
   `candidates_for_removal` 2→1, `production_services` 10→9).
@@ -250,7 +288,7 @@ npm run analyze:services
 - [ ] Grep for any lingering feed-service references:
 
 ```bash
-grep -rn "feed-service\|feed_service\|3007" infrastructure services apps --include=*.ts --include=*.tsx --include=*.json --include=*.conf --include=*.yml | grep -v node_modules
+grep -rn "feed-service\|feed_service\|3007\|FEED_API_URL\|FEED_SERVICE_URL\|NEXT_PUBLIC_FEED_API_URL" .github scripts tests infrastructure services apps --include=*.ts --include=*.tsx --include=*.js --include=*.json --include=*.conf --include=*.yml --include=*.yaml --include=*.md | grep -v node_modules
 ```
 
 - [ ] `/simplify` the infra diff.
@@ -342,9 +380,11 @@ npm run test:integration 2>&1 | tail -20 || echo "no local DB — runs in CI"
 ## Task 12: Version bump + final verification
 
 **Files:**
-- Modify: root `package.json`, `services/request-service/package.json`
+- Modify: root `package.json`, `package-lock.json`
 
-- [ ] Bump versions to `11.0.0` (root + request-service).
+- [ ] Bump the root product version to `11.0.0`. Do **not** bump `services/request-service/package.json`
+  unless the repo establishes service package semver parity later.
+- [ ] Update `package-lock.json` after deleting `services/feed-service` so the removed workspace is gone.
 - [ ] Full pre-push verification:
 
 ```bash

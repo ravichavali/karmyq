@@ -17,7 +17,6 @@ const REQUEST_API_URL = process.env.NEXT_PUBLIC_REQUEST_API_URL || 'http://local
 const REPUTATION_API_URL = process.env.NEXT_PUBLIC_REPUTATION_API_URL || 'http://localhost:3004'
 const NOTIFICATION_API_URL = process.env.NEXT_PUBLIC_NOTIFICATION_API_URL || 'http://localhost:3005'
 const MESSAGING_API_URL = process.env.NEXT_PUBLIC_MESSAGING_API_URL || 'http://localhost:3006'
-const FEED_API_URL = process.env.NEXT_PUBLIC_FEED_API_URL || 'http://localhost:3007'
 const SOCIAL_GRAPH_API_URL = process.env.NEXT_PUBLIC_SOCIAL_GRAPH_API_URL || 'http://localhost:3010'
 
 // Export API configuration
@@ -28,7 +27,6 @@ export const API_CONFIG = {
   REPUTATION_API_URL,
   NOTIFICATION_API_URL,
   MESSAGING_API_URL,
-  FEED_API_URL,
   SOCIAL_GRAPH_API_URL,
 }
 
@@ -195,9 +193,6 @@ export const notificationApi = createApiClient(NOTIFICATION_API_URL)
 
 // Messaging Service API
 export const messagingApi = createApiClient(MESSAGING_API_URL)
-
-// Feed Service API
-export const feedApi = createApiClient(FEED_API_URL)
 
 // Social Graph Service API
 export const socialGraphApi = createApiClient(SOCIAL_GRAPH_API_URL)
@@ -786,29 +781,33 @@ export const userSettingsService = {
     api.delete(`/preferences/interests/${id}`),
 }
 
-// Feed Service API Methods
+// Feed API Methods (served by request-service)
 export const feedService = {
   getFeed: (params?: { limit?: number; offset?: number }, communityId?: string) =>
-    feedApi.get('/feed', {
+    requestApi.get('/requests/feed', {
       params,
       headers: communityId ? { 'X-Community-ID': communityId } : {},
     }),
 
   dismissItem: (feedItemId: string, communityId?: string) =>
-    feedApi.post(`/feed/${feedItemId}/dismiss`, {}, {
+    requestApi.post(`/requests/feed/dismiss/${feedItemId}`, {}, {
       headers: communityId ? { 'X-Community-ID': communityId } : {},
     }),
 
   getPreferences: () =>
-    feedApi.get('/feed/preferences'),
+    requestApi.get('/requests/feed/preferences'),
 
   updatePreferences: (preferences: {
-    show_requests?: boolean;
-    show_offers?: boolean;
-    show_matches?: boolean;
-    show_community_updates?: boolean;
+    show_community_activity?: boolean;
+    show_open_requests?: boolean;
+    show_completed_exchanges?: boolean;
+    suggest_adjacent_requests?: boolean;
+    exploration_level?: 'conservative' | 'balanced' | 'adventurous';
+    show_explanations?: boolean;
+    show_broader_stories?: boolean;
+    allow_public_featuring?: boolean;
   }) =>
-    feedApi.put('/feed/preferences', preferences),
+    requestApi.put('/requests/feed/preferences', preferences),
 }
 
 // Social Graph API Methods

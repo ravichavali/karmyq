@@ -49,7 +49,7 @@ print_elapsed() {
 
 # Ensure services are running
 echo -e "${YELLOW}🔧 Checking services...${NC}"
-if ! curl -s http://localhost:3007/health > /dev/null 2>&1; then
+if ! curl -s http://localhost:3003/health > /dev/null 2>&1; then
   echo -e "${YELLOW}Starting Docker services...${NC}"
   docker-compose -f infrastructure/docker/docker-compose.yml up -d
   echo "Waiting for services to be ready..."

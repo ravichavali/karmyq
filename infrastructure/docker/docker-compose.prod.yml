@@ -59,6 +59,7 @@ services:
       JWT_SECRET: ${JWT_SECRET}
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-https://karmyq.com}
       REPUTATION_API_URL: http://reputation-service:3004
+      SOCIAL_GRAPH_API_URL: http://social-graph-service:3010
     deploy:
       resources:
         limits:
@@ -111,25 +112,6 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3006
-      RATE_LIMIT_DISABLED: ${RATE_LIMIT_DISABLED:-false}
-      DATABASE_URL: ${DATABASE_URL}
-      REDIS_URL: ${REDIS_URL}
-      JWT_SECRET: ${JWT_SECRET}
-      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-https://karmyq.com}
-    deploy:
-      resources:
-        limits:
-          cpus: '0.50'
-          memory: 512M
-
-  # Feed Service
-  feed-service:
-    restart: always
-    volumes: ~
-    command: []
-    environment:
-      NODE_ENV: production
-      PORT: 3007
       RATE_LIMIT_DISABLED: ${RATE_LIMIT_DISABLED:-false}
       DATABASE_URL: ${DATABASE_URL}
       REDIS_URL: ${REDIS_URL}
@@ -209,7 +191,6 @@ services:
         NEXT_PUBLIC_REPUTATION_API_URL: ${NEXT_PUBLIC_REPUTATION_API_URL:-/api}
         NEXT_PUBLIC_NOTIFICATION_API_URL: ${NEXT_PUBLIC_NOTIFICATION_API_URL:-/api}
         NEXT_PUBLIC_MESSAGING_API_URL: ${NEXT_PUBLIC_MESSAGING_API_URL:-/api}
-        NEXT_PUBLIC_FEED_API_URL: ${NEXT_PUBLIC_FEED_API_URL:-/api}
         NEXT_PUBLIC_SOCIAL_GRAPH_API_URL: ${NEXT_PUBLIC_SOCIAL_GRAPH_API_URL:-/api}
     environment:
       NODE_ENV: production

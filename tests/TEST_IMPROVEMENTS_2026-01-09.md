@@ -21,7 +21,7 @@ Fixed critical test infrastructure issues that were causing Jest worker crashes 
 
 ## Fixes Applied
 
-### 1. Fixed Circular JSON Serialization (feed-service.test.ts)
+### 1. Fixed Circular JSON Serialization (request-service-feed.test.ts)
 
 **Problem**: Jest workers crashed trying to serialize axios response objects with circular references
 
@@ -37,7 +37,7 @@ Fixed critical test infrastructure issues that were causing Jest worker crashes 
 - No axios responses stored in global scope
 
 **Files Changed**:
-- `tests/integration/feed-service.test.ts`
+- `tests/integration/request-service-feed.test.ts`
 
 ### 2. Fixed Unclosed Database Connections (social-graph.test.ts)
 
@@ -65,7 +65,7 @@ Fixed critical test infrastructure issues that were causing Jest worker crashes 
 **Files Changed**:
 - `tests/integration/social-graph.test.ts`
 
-### 4. Fixed Test User Creation (feed-service.test.ts)
+### 4. Fixed Test User Creation (request-service-feed.test.ts)
 
 **Problem**: Test trying to login with non-existent user `isabella.thomas0@example.com`
 
@@ -76,7 +76,7 @@ Fixed critical test infrastructure issues that were causing Jest worker crashes 
 - Add proper cleanup in afterAll
 
 **Files Changed**:
-- `tests/integration/feed-service.test.ts`
+- `tests/integration/request-service-feed.test.ts`
 
 ---
 
@@ -107,7 +107,7 @@ Fixed critical test infrastructure issues that were causing Jest worker crashes 
 
 ## Code Changes
 
-### tests/integration/feed-service.test.ts
+### tests/integration/request-service-feed.test.ts
 
 **Before**:
 ```typescript
@@ -310,7 +310,7 @@ await pool.query('DELETE FROM users WHERE id = $1', [userId]);
 ### Run Specific Test File
 ```bash
 cd tests
-npm test -- --testPathPattern="feed-service"
+npm test -- --testPathPattern="request-service-feed"
 npm test -- --testPathPattern="social-graph"
 ```
 

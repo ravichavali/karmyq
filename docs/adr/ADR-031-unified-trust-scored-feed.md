@@ -462,7 +462,7 @@ Where `W_*` come from `communities.community_configs`. Trust distance uses neutr
 
 ### Neutral
 
-- **Feed service role clarified**: Feed service (`port 3007`) handles social activity (milestones, stories, community health). Request-service handles curated request feed. These are complementary, not competing.
+- **Superseded in Sprint 91 by ADR-071**: the remaining live feed read endpoints moved into request-service under `/requests/feed/*`; the old feed-service on port 3007 was removed.
 - **Existing tests unaffected**: Current unit/regression tests don't test cross-service scoring. New integration tests needed for the connected behavior.
 - **No breaking API changes**: All new scoring is additive — existing curated feed responses gain new fields but don't lose existing ones.
 
@@ -472,9 +472,9 @@ Where `W_*` come from `communities.community_configs`. Trust distance uses neutr
 
 ### Alternative 1: Build Everything in Feed Service
 
-Move curated request feed from request-service to feed-service, making feed-service the single orchestrator.
+Move curated request feed from request-service to a separate feed service, making that service the single orchestrator.
 
-**Why rejected**: The curated feed is deeply integrated with request-service's database (request types, matching logic, type-specific schemas). Moving it would create tight coupling between feed-service and request-service's database, violating service boundaries.
+**Why rejected**: The curated feed is deeply integrated with request-service's database (request types, matching logic, type-specific schemas). Moving it would create tight coupling between service boundaries.
 
 ### Alternative 2: Karma in ALL Communities (Not Just Shared)
 

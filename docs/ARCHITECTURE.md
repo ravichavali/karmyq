@@ -29,7 +29,7 @@ Karmyq is a **multi-tenant SaaS mutual aid platform** where community members he
 
 ### Key Characteristics
 
-- **Microservices Architecture** - 8 independent backend services
+- **Microservices Architecture** - 9 independent backend services (feed folded into request-service, Sprint 91 / ADR-071)
 - **Multi-Tenant SaaS** - Row-Level Security (RLS) for data isolation
 - **Event-Driven** - Asynchronous communication via Redis/Bull queues
 - **Ephemeral Data** - Configurable TTL for requests and reputation decay
@@ -71,10 +71,11 @@ Karmyq is a **multi-tenant SaaS mutual aid platform** where community members he
 │  └─────────┘  └──────────┘  └─────────┘  └──────────┘     │
 │                                                              │
 │  ┌──────────┐  ┌──────────┐  ┌─────────┐  ┌──────────┐    │
-│  │Notifica- │  │Messaging │  │  Feed   │  │ Cleanup  │    │
-│  │ tion     │  │  :3006   │  │ :3007   │  │  :3008   │    │
+│  │Notifica- │  │Messaging │  │Soc-Graph│  │ Cleanup  │    │
+│  │ tion     │  │  :3006   │  │ :3010   │  │  :3008   │    │
 │  │  :3005   │  └──────────┘  └─────────┘  └──────────┘    │
 │  └──────────┘                                               │
+│  (the personalized feed is served by Request at /requests/feed) │
 └───────────────┬──────────────────┬──────────────────────────┘
                 │                  │
      ┌──────────▼──────────┐      │
@@ -116,7 +117,6 @@ Karmyq is a **multi-tenant SaaS mutual aid platform** where community members he
 | **reputation-service** | 3004 | Karma tracking, trust scores | `reputation` | ✅ Production |
 | **notification-service** | 3005 | Real-time notifications (SSE) | `notifications` | ✅ Production |
 | **messaging-service** | 3006 | Direct messaging, conversations | `messaging` | ✅ Production |
-| **feed-service** | 3007 | Personalized activity feed (legacy; **consolidation candidate** — the unified feed is served by request-service `GET /requests/curated` per ADR-066, so feed-service is slated for review in Sprint 92) | - (reads all) | ✅ Production |
 | **cleanup-service** | 3008 | Data expiration, reputation decay | - (writes all) | ✅ Production |
 
 ### Service Responsibilities
@@ -165,11 +165,10 @@ Karmyq is a **multi-tenant SaaS mutual aid platform** where community members he
 - Read receipts
 - **Dependencies**: Auth, Community
 
-#### Feed Service (3007)
-- Aggregate activity across all schemas
-- Personalized feed per user
-- Read-only, cross-schema queries
-- **No database writes**
+#### Feed (served by Request Service at `/requests/feed`, Sprint 91 / ADR-071)
+- Aggregate activity across schemas; personalized feed per user
+- Folded into request-service as a `/requests/feed/*` view layer (no standalone feed-service)
+- Owns the `feed.preferences` + `feed.dismissed_items` tables
 
 #### Cleanup Service (3008)
 - Expire old requests (configurable TTL)
@@ -254,9 +253,9 @@ X-Community-Context: uuid1
 
 ### Special Services
 
-#### Feed Service & Cleanup Service
-These services operate across all communities:
-- **Feed Service**: Read-only, no RLS needed
+#### Feed View Layer & Cleanup Service
+These operate across all communities:
+- **Feed** (request-service `/requests/feed`): Read-only cross-schema queries, no RLS needed
 - **Cleanup Service**: Writes with RLS disabled (after authorization)
 
 ```typescript
@@ -326,7 +325,7 @@ See [TR-002: Multi-Tenancy](../requirements/technical/TR-002-multi-tenancy.md) f
 
 #### 3. request_created
 **Published by**: request-service
-**Consumed by**: notification-service, feed-service
+**Consumed by**: notification-service
 
 ```typescript
 {
@@ -637,7 +636,6 @@ karmyq/
 │   ├── reputation-service/# Port 3004
 │   ├── notification-service/ # Port 3005
 │   ├── messaging-service/ # Port 3006
-│   ├── feed-service/      # Port 3007
 │   └── cleanup-service/   # Port 3008
 ├── packages/
 │   └── shared/            # Shared middleware, types, utils
@@ -796,7 +794,7 @@ services:
   grafana:
     image: grafana/grafana:latest
     ports:
-      - "3007:3000"
+      - "3011:3000"
     environment:
       - GF_AUTH_ANONYMOUS_ENABLED=true
 ```
@@ -858,7 +856,7 @@ logger.error('Database error', {
 
 ### Grafana Dashboards
 
-Access at: http://localhost:3007
+Access at: http://localhost:3011
 
 **Dashboards**:
 - Service logs (query by service, level, user, community)

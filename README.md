@@ -96,11 +96,10 @@ Enables admin UI for schema management without deployments, A/B testing, and mob
 Each service has a `CONTEXT.md` file for context-efficient development:
 - [Auth Service](services/auth-service/CONTEXT.md) - JWT with multi-community support
 - [Community Service](services/community-service/CONTEXT.md) - Community CRUD
-- [Request Service](services/request-service/CONTEXT.md) - Help requests/offers
+- [Request Service](services/request-service/CONTEXT.md) - Help requests/offers and `/requests/feed`
 - [Reputation Service](services/reputation-service/CONTEXT.md) - Karma & trust scores
 - [Notification Service](services/notification-service/CONTEXT.md) - SSE notifications
 - [Messaging Service](services/messaging-service/CONTEXT.md) - Real-time chat
-- [Feed Service](services/feed-service/CONTEXT.md) - Personalized activity feed
 
 ## 🏗️ Tech Stack
 

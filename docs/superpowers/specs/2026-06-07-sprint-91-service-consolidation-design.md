@@ -129,6 +129,7 @@ upstream get removed).
 | `apps/frontend/src/components/CommunityHealthHero.tsx` | `feedApi.get('/feed/community-health…')` → `requestApi.get('/requests/feed/community-health…')` |
 | Any other `feedApi.*` call sites | Repoint to `requestApi` + `/requests/feed/*` (grep `feedApi` to find all) |
 | `apps/frontend/.env*` / env docs | Remove `NEXT_PUBLIC_FEED_API_URL` references |
+| `apps/mobile/config/api.ts`, `apps/mobile/services/api.ts`, `apps/mobile/README.md` | Point mobile feed reads at request-service `/requests/feed`; remove port 3007/feed-service references |
 
 No UI/UX behavior change — same data, same components, different base URL + path prefix.
 
@@ -138,11 +139,15 @@ No UI/UX behavior change — same data, same components, different base URL + pa
 
 | File | Change |
 |---|---|
-| `infrastructure/nginx/nginx.conf` | Remove `upstream feed_service { … }` and the `location ~ ^/api/feed(/.*)?$` block. (`/api/requests/feed` is served by the existing `/api/requests` block) |
-| `infrastructure/docker/docker-compose.yml` | Remove the `feed-service:` service definition |
+| `infrastructure/nginx/*.conf` | Remove `upstream feed_service { … }` and `/api/feed` locations. (`/api/requests/feed` is served by the existing `/api/requests` block) |
+| `infrastructure/docker/docker-compose*.yml`, `tests/docker-compose.test.yml` | Remove the `feed-service:` / `feed-service-test:` service definitions and FEED_* env wiring |
+| `.github/workflows/*.yml`, `scripts/deploy.sh`, `scripts/smoke-test.sh`, local test helpers | Remove feed-service from Docker image matrices, health checks, rebuilt-service arrays, and smoke tests |
+| `apps/frontend/Dockerfile`, `infrastructure/scripts/setup_env.sh`, `.env.demo.example` | Remove `NEXT_PUBLIC_FEED_API_URL` / `FEED_API_URL` |
+| `infrastructure/observability/grafana/provisioning/dashboards/json/service-overview.json` | Remove feed-service log panels/queries |
 | `services/registry.json` | Remove the `feed-service` entry; move its 5 live endpoints under `request-service.apis.provides`; update `statistics` (total 11→10, candidates_for_removal 2→1) |
 | `services/feed-service/` | **Delete the directory** |
 | `services/dependency-graph.md`, `services/impact-analysis.md`, `services/version-drift.md` | **Regenerated** by `npm run analyze:services` — do not hand-edit |
+| `package-lock.json` | Regenerate/update so the deleted feed-service workspace entries disappear |
 
 ---
 
@@ -184,7 +189,11 @@ the new architecture:
 4. **Mount the feed router at `/requests/feed` in request-service `index.ts`.** The existing
    `/api/requests` nginx block routes `/api/requests/feed/*` to it — **no new nginx location**.
    **Remove** the now-dead `/api/feed` location + `feed_service` upstream from nginx.conf.
-   **nginx.conf changes only take effect on deploy** (`feedback_nginx_config`).
+   Register this mount **before** the generic `/requests` router so `GET /requests/feed` is not
+   captured by `GET /requests/:id`. Mount it with the feed-service-equivalent middleware:
+   `rateLimiters.relaxed` (or `readHeavy`), `authMiddleware`, `optionalTenantMiddleware`, and
+   `dbContextMiddleware(pool)`. **nginx.conf changes only take effect on deploy**
+   (`feedback_nginx_config`).
 5. **Frontend: replace `feedApi` (`FEED_API_URL`:3007) with `requestApi` (`REQUEST_API_URL`:3003);
    paths become `/requests/feed/*`.** Remove `FEED_API_URL` + `feedApi`. requestApi resource
    calls already use `/requests/...` paths (verified). **API unwrap: `res.data`, not
@@ -196,18 +205,28 @@ the new architecture:
    (unread) — note in ADR-071, don't drop it on the demo this sprint.
 8. **social-graph proximity call:** `basicFeedRanker` POSTs `SOCIAL_GRAPH_API_URL /paths/batch`.
    request-service already calls social-graph in `dibs.ts` via `SOCIAL_GRAPH_API_URL` — reuse the
-   same env var/pattern. Ensure it's set in request-service's compose env.
+   same env var/pattern. Forward the caller's `Authorization` header to `/paths/batch`; do not
+   keep feed-service's old `x-user-id` shortcut. Ensure the env var is set in request-service's
+   compose/test env.
 9. **request-service DB role already has cross-schema read** (same `DATABASE_URL`) — the feed
    composers' reads of `requests`/`community`/`auth`/`reputation` work unchanged.
 10. **Version bump 10.14.0 → 11.0.0 (MAJOR)** — removing a service is a breaking architectural
-    change. Bump root `package.json` + `services/request-service/package.json`.
+    change. Bump the root product version only; service package versions currently do not track
+    product semver.
 11. **JWT field is `communities`** (`user.communities ?? []`) for any membership gate on the
     moved endpoints (carry feed-service's existing auth — don't loosen it).
-12. **Run `npm run analyze:services` after deleting feed-service** to regenerate
+12. **Port/adapt feed-service tests before deleting the directory** — preserve `basicFeedRanker`,
+    `feedComposer`, and relevant `socialKarmaFeedComposer` coverage under request-service so the
+    move does not silently drop regression protection.
+13. **Decommission every active feed-service reference**, not just compose/nginx. Grep `.github`,
+    `scripts`, `tests`, `infrastructure`, `apps`, and `services` for `feed-service`,
+    `feed_service`, `3007`, `FEED_API_URL`, `FEED_SERVICE_URL`, and
+    `NEXT_PUBLIC_FEED_API_URL`.
+14. **Run `npm run analyze:services` after deleting feed-service** to regenerate
     `dependency-graph.md` / `impact-analysis.md` / `version-drift.md` — these are GENERATED, never
     hand-edit (a hook blocks it).
-13. **Landing docs are gitignored** (`git add -f`); **nav.json reverts** after `generate-docs`
+15. **Landing docs are gitignored** (`git add -f`); **nav.json reverts** after `generate-docs`
     (grep-verify, re-apply).
-14. **ADR numbering: next free = 071.** This sprint creates ADR-071.
-15. **Behavior-preserving:** the 5 live endpoints must return identical shapes. The TDD/integration
+16. **ADR numbering: next free = 071.** This sprint creates ADR-071.
+17. **Behavior-preserving:** the 5 live endpoints must return identical shapes. The TDD/integration
     test asserts request-service serves them with the same response contract feed-service did.

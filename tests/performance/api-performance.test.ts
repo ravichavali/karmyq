@@ -32,7 +32,6 @@ const THRESHOLDS = {
   },
   feed: {
     getFeed: 1000,
-    getMilestones: 500,
     getCommunityHealth: 500
   },
   reputation: {
@@ -67,7 +66,6 @@ class PerformanceTest {
       results.push(await this.testAuthLogin())
       results.push(await this.testAuthRefresh())
       results.push(await this.testGetFeed())
-      results.push(await this.testGetMilestones())
       results.push(await this.testGetCommunityHealth())
       results.push(await this.testGetKarma())
       results.push(await this.testGetTrustScore())
@@ -194,19 +192,9 @@ class PerformanceTest {
   // Feed tests
   private async testGetFeed(): Promise<PerformanceResult> {
     return this.measureEndpoint(
-      'GET /feed',
+      'GET /requests/feed',
       'GET',
-      `http://localhost:3007/feed?user_id=${this.userId}&community_id=${this.communityId}&limit=20`,
-      undefined,
-      100
-    )
-  }
-
-  private async testGetMilestones(): Promise<PerformanceResult> {
-    return this.measureEndpoint(
-      'GET /feed/milestones',
-      'GET',
-      `http://localhost:3007/feed/milestones?community_id=${this.communityId}&limit=5`,
+      `http://localhost:3003/requests/feed?community_id=${this.communityId}&limit=20`,
       undefined,
       100
     )
@@ -214,9 +202,9 @@ class PerformanceTest {
 
   private async testGetCommunityHealth(): Promise<PerformanceResult> {
     return this.measureEndpoint(
-      'GET /feed/community-health',
+      'GET /requests/feed/community-health',
       'GET',
-      `http://localhost:3007/feed/community-health?community_id=${this.communityId}`,
+      `http://localhost:3003/requests/feed/community-health?community_id=${this.communityId}`,
       undefined,
       100
     )
@@ -369,8 +357,7 @@ class PerformanceTest {
   private getThreshold(endpoint: string): number | null {
     if (endpoint.includes('login')) return THRESHOLDS.auth.login
     if (endpoint.includes('refresh')) return THRESHOLDS.auth.refresh
-    if (endpoint.includes('/feed') && !endpoint.includes('milestones') && !endpoint.includes('health')) return THRESHOLDS.feed.getFeed
-    if (endpoint.includes('milestones')) return THRESHOLDS.feed.getMilestones
+    if (endpoint.includes('/requests/feed') && !endpoint.includes('health')) return THRESHOLDS.feed.getFeed
     if (endpoint.includes('community-health')) return THRESHOLDS.feed.getCommunityHealth
     if (endpoint.includes('karma-history')) return THRESHOLDS.reputation.getHistory
     if (endpoint.includes('karma')) return THRESHOLDS.reputation.getKarma

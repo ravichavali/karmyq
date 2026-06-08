@@ -338,8 +338,5 @@ BEGIN
   RAISE NOTICE '- Growth: +12.5%% (7-day)';
   RAISE NOTICE '';
   RAISE NOTICE 'Test the endpoints:';
-  RAISE NOTICE 'GET /feed/milestones?community_id=%', v_community_id;
-  RAISE NOTICE 'GET /feed/featured-stories?community_id=%', v_community_id;
-  RAISE NOTICE 'GET /feed/community-health?community_id=%', v_community_id;
-  RAISE NOTICE 'GET /feed/mixed?community_id=%', v_community_id;
+  RAISE NOTICE 'GET /requests/feed/community-health?community_id=%', v_community_id;
 END $$;

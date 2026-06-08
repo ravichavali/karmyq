@@ -5,6 +5,7 @@ import dotenv from 'dotenv';
 import { initDatabase } from './database/db';
 import { initEventPublisher } from './events/publisher';
 import pool from './database/db';
+import feedRouter from './routes/feed';
 import requestsRouter from './routes/requests';
 import offersRouter from './routes/offers';
 import providerOffersRouter from './routes/providerOffers';
@@ -89,6 +90,15 @@ app.use(
 
 // Routes with authentication and optional tenant context
 // Tenant context is optional because requests themselves contain community_id
+app.use(
+  '/requests/feed',
+  rateLimiters.relaxed,
+  authMiddleware,
+  optionalTenantMiddleware,
+  dbContextMiddleware(pool),
+  feedRouter
+);
+
 app.use(
   '/requests',
   rateLimiters.standard,

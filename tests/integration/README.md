@@ -100,7 +100,6 @@ Old tests with `.test.ts` suffix (no `.integration` marker) use complex fixtures
 │  │  • request-service-test   :3003  │                  │
 │  │  • reputation-service-test:3004  │                  │
 │  │  • notification-service   :3005  │                  │
-│  │  • feed-service-test      :3007  │                  │
 │  └──────────────────────────────────┘                  │
 │                                                         │
 │  ┌──────────────┐                                      │

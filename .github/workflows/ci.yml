@@ -234,7 +234,6 @@ jobs:
           - reputation-service
           - notification-service
           - messaging-service
-          - feed-service
           - cleanup-service
 
     steps:
@@ -323,7 +322,6 @@ jobs:
               "3004:reputation-service"
               "3005:notification-service"
               "3006:messaging-service"
-              "3007:feed-service"
               "3008:cleanup-service"
               "3009:geocoding-service"
               "3010:social-graph-service"

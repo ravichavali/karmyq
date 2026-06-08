@@ -102,7 +102,7 @@ The app connects to KarmyQ backend services:
 - Reputation Service: Port 3004
 - Notification Service: Port 3005
 - Messaging Service: Port 3006
-- Feed Service: Port 3007
+- Feed endpoints: Request Service port 3003 (`/requests/feed`)
 
 ## Building for Production
 

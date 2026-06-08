@@ -382,6 +382,31 @@
           "method": "GET",
           "path": "/requests/dibs/pending-for-provider",
           "description": "Returns authenticated provider's pending dibs"
+        },
+        {
+          "method": "GET",
+          "path": "/requests/feed",
+          "description": "Sprint 91 / ADR-071: ranked personalized feed (absorbed from feed-service). Returns { items, count }. Social-proximity scored via social-graph /paths/batch (caller Authorization forwarded). Mounted before generic /requests so it isn't swallowed by /requests/:id."
+        },
+        {
+          "method": "GET",
+          "path": "/requests/feed/preferences",
+          "description": "Sprint 91 / ADR-071: the caller's feed preferences (absorbed from feed-service). Returns defaults when no row exists."
+        },
+        {
+          "method": "PUT",
+          "path": "/requests/feed/preferences",
+          "description": "Sprint 91 / ADR-071: upsert the caller's feed preferences (absorbed from feed-service). Round-trips with GET."
+        },
+        {
+          "method": "POST",
+          "path": "/requests/feed/dismiss/:itemId",
+          "description": "Sprint 91 / ADR-071: dismiss a feed item (writes feed.dismissed_items); dismissed items are excluded from the next GET /requests/feed. itemId is <item_type>_<id>. Canonical dismiss path (old frontend /feed/:itemId/dismiss retired)."
+        },
+        {
+          "method": "GET",
+          "path": "/requests/feed/community-health",
+          "description": "Sprint 91 / ADR-071: community health hero metrics (absorbed from feed-service). Requires community_id (400) and returns 404 for unknown community."
         }
       ],
       "dependencies": [
@@ -412,7 +437,8 @@
       "healthCheck": "http://localhost:3003/health",
       "notes": "Server-driven UI: Schema API provides dynamic form definitions. Admin API enables zero-code request type creation. Sprint 43: feed_events table logs impressions/outcomes for weight tuning (ADR-048).",
       "databaseSchemas": [
-        "requests"
+        "requests",
+        "feed"
       ]
     },
     {
@@ -553,37 +579,6 @@
       "notes": "",
       "databaseSchemas": [
         "messaging"
-      ]
-    },
-    {
-      "name": "feed-service",
-      "port": 3007,
-      "status": "production",
-      "criticality": "important",
-      "owner": "core",
-      "path": "services/feed-service",
-      "apis": [
-        "/feed"
-      ],
-      "dependencies": [
-        "auth-service"
-      ],
-      "infrastructure": [
-        "postgres",
-        "redis"
-      ],
-      "events": {
-        "publishes": [],
-        "subscribes": [
-          "request_created",
-          "match_completed",
-          "user_joined_community"
-        ]
-      },
-      "healthCheck": "http://localhost:3007/health",
-      "notes": "CANDIDATE FOR MERGE: Could be merged into request-service as view layer",
-      "databaseSchemas": [
-        "feed"
       ]
     },
     {
@@ -781,12 +776,12 @@
     }
   ],
   "statistics": {
-    "total_services": 11,
-    "production_services": 10,
+    "total_services": 10,
+    "production_services": 9,
     "development_services": 1,
     "deprecated_services": 0,
     "critical_services": 7,
-    "candidates_for_removal": 2
+    "candidates_for_removal": 1
   },
   "infrastructure": {
     "postgres": {
@@ -800,7 +795,6 @@
         "reputation-service",
         "notification-service",
         "messaging-service",
-        "feed-service",
         "cleanup-service",
         "social-graph-service"
       ]
@@ -824,5 +818,5 @@
       ]
     }
   },
-  "updated": "2026-05-06"
+  "updated": "2026-06-07"
 }

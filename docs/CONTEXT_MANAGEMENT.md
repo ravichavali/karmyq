@@ -201,7 +201,7 @@ pm2 logs karmyq-auth --lines 50
 - reputation-service (auth verification)
 - notification-service (auth verification)
 - messaging-service (auth verification)
-- feed-service (auth verification)
+- request-service (feed auth verification)
 - social-graph-service (auth verification)
 
 **Impact**: If this service is down, 7 services fail!

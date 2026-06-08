@@ -1,117 +1,97 @@
-# Sprint 91 — Service Consolidation (Phase 1) — 📋 PLANNED · Ready to execute (v10.14.0 → v11.0.0)
+# Sprint 91 — Service Consolidation (Phase 1) — ✅ IMPLEMENTED · ready for review gates + PR (v11.0.0)
 
-> **▶ STATUS (2026-06-07):** Sprint 90 (Designed to Forget) shipped + closed as PR **#74**
-> (`7d39fd6`), **v10.14.0**. **Mobile parity (the originally-planned Sprint 91) is DEFERRED** —
-> maintainer redirected Sprint 91 to **architecture & service pruning** (the arc item previously
-> scoped as Sprint 92, pulled forward).
+> **▶ STATUS (2026-06-07):** feed-service folded into request-service. **11 → 10 services.** All
+> blocking gates green (build, tsc, audit, feedback:check, full turbo test 25/25, Sprint 91
+> feed-router TDD 6/6). Remaining before merge: SDLC review gates (`/code-review`,
+> `/security-review`) and the PR + deploy.
 >
-> **Sprint 91 = fold feed-service into request-service** (11 services → 10) + **ADR-071** with a
-> phased decommission plan for the remaining candidates (geocoding → client-side in S92; cleanup
-> KEPT). Spec + plan written; branch not yet created. **Start by executing the plan.**
->
-> **⚠️ UNCOMMITTED S90 DOC TAIL — folds into Sprint 91's FIRST commit (Task 1), do NOT push
-> standalone:** ADR-069/070 status → Implemented (md + README + regenerated landing JSON), this
-> handoff, and `docs/BUGS.md` are working-tree changes only — a docs-only master push triggers a
-> redundant deploy that transiently breaks the demo (`feedback_no_docs_push_to_master`).
+> **NO DATABASE MIGRATION.** `feed.preferences` + `feed.dismissed_items` stay in place; ownership
+> moved to request-service at the app layer only. `feed.featured_stories` orphaned-in-place (not
+> dropped, see ADR-071). The deploy removes only the stateless feed-service container — DB untouched.
 
 ---
 
-## Quick Start
+## What shipped this session (continuation of Codex's partial work)
 
-1. Read this handoff.
-2. The branch already exists with the planning commit (spec + plan + handoff + the S90 doc
-   tail) — just check it out: `git checkout feature/sprint-91-service-consolidation`
-   (NOT `-b` — it exists). Task 1 in the plan is therefore already done.
-3. Open plan: `docs/superpowers/plans/2026-06-07-sprint-91-service-consolidation.md`
-4. Run: `/execute-plan` (uses superpowers:subagent-driven-development)
+Codex implemented the core fold (router, composers/ranker move, frontend/mobile repoint, infra
+decommission, ADR-071, test migration) but was blocked on tooling for the finish. This session
+completed the blocked items:
 
-## Sprint 91 goal (one sentence)
+- **`services/registry.json`** — removed `feed-service` entry; added the 5 feed endpoints to
+  `request-service.apis.provides`; added `feed` to request-service `database_schemas` + `/paths/batch`
+  to consumes; removed feed-service from postgres `required_for`; stats `total_services` 11→10,
+  `production_services` 10→9, `candidates_for_removal` 2→1; `updated` 2026-06-07. (Validated: parses, 10 services.)
+- **`package-lock.json`** — physically deleted the half-deleted `services/feed-service/` dir + stale
+  `node_modules/karmyq-feed-service` symlink, then regenerated from scratch (`npm install
+  --package-lock-only --ignore-scripts`). 0 feed-service refs; lock version 11.0.0; `npm audit` clean.
+- **`packages/shared/constants/config.ts`** + `apps/frontend/.env.production` + `.env.local.example`
+  + `.env.demo.example` + `tests/{.env.test,e2e/.env,load/.env}.example` — removed all `FEED_API_URL` /
+  `FEED_SERVICE_URL` / `NEXT_PUBLIC_FEED_API_URL` (FEED_API_URL was defined-but-unused in shared).
+- **`npm run analyze:services`** — regenerated dependency-graph / impact-analysis / version-drift
+  (GENERATED). No circular deps; no feed-service. Version drift (pg, axios) is pre-existing.
+- **Landing docs** — regenerated via `apps/landing` `generate-docs` (wipes + rebuilds the whole
+  gitignored `src/data/docs/` from sources). `feed-service.json` gone; `request-service.json` carries
+  the 5 feed endpoints; `adr-071-service-consolidation-feed-service` concept JSON + nav entry present.
+  Added the ADR-071 slug to `ADR_GROUPS` (Infrastructure) in `scripts/generate-docs.ts`.
+- **ADR-071** status `Accepted` → `Implemented`; added to `docs/adr/README.md` index.
+- **`claude.md`** — service table 11→10 (Feed row removed + S91 note); event routing dropped Feed
+  from `request_created` / `user_joined_community`.
+- **`services/request-service/CONTEXT.md`** — new §3.3d Feed View Layer (5 endpoint headings →
+  picked up by generate-docs), `feed.*` schema ownership, dropped-endpoints note.
+- **`services/auth-service/.claude/README.md`** — dependents 7→6 (feed-service removed).
 
-Fold the 5 live feed-service endpoints into request-service as a `/requests/feed/*` view layer,
-drop the 4 dead endpoints, and decommission feed-service — taking the platform from 11 services
-to 10 with **no change to feed behavior** — and publish ADR-071 with the phased decommission plan
-for the rest of the prune.
+## Verification (this session, all green)
 
-## Why now
+| Gate | Result |
+|------|--------|
+| `services/request-service` build (`tsc`) | ✅ clean |
+| `apps/frontend` `tsc --noEmit` | ✅ clean |
+| `npm audit --package-lock-only --audit-level=high` (ADR-059) | ✅ 0 vulnerabilities |
+| `npm run feedback:check` | ✅ exit 0 |
+| `turbo run test` (all unit+regression) | ✅ 25/25 tasks |
+| request-service unit (incl. ported ranker: proximity/urgency/recency, Auth-forward, graceful-degrade) | ✅ 128/128 |
+| request-service regression | ✅ 141/141 |
+| `tests/tdd/sprint-91-feed-router.test.ts` (incl. dropped-endpoints 404) | ✅ 6/6 |
 
-The registry has long flagged feed-service / geocoding-service / cleanup-service as redundant
-(`statistics.candidates_for_removal: 2`). feed-service is the cleanest first cut: **pure
-read/view layer, no Bull queue / cron / events**, already reads the `requests` schema over the
-shared `DATABASE_URL`, and **only 5 of its 9 endpoints are live** (the other 4 are dead code).
-Mobile parity deferred → this pulls the architecture-pruning arc forward.
+**Pre-existing TDD failures unchanged** (DB-connection: sprint-89-community-pulse, sprint-68-halflife,
+sprint-67, admin-schemas-api, social-graph sprint-66/67/68, frontend trust-model set). The DB-backed
+integration test `tests/integration/request-service-feed.test.ts` runs in CI/deploy (no local Postgres).
 
-## Scope decisions locked with maintainer (2026-06-07)
+## Reference sweep (complete)
 
-1. **Appetite = execute one real merge** (not audit-only): actually fold feed-service this sprint
-   + write ADR-071 with the decommission plan for the deferred candidates.
-2. **Route shape = fold under `/api/requests`** → feed becomes `/requests/feed/*`; frontend
-   `feedApi` calls migrate to `requestApi`; **no new nginx block** (existing `/api/requests` block
-   serves it); the dead `/api/feed` location + `feed_service` upstream are removed.
-3. **Version = v11.0.0 (MAJOR)** — removing a service is a breaking architectural change.
-4. **Drop the 4 dead endpoints** (`/feed/requests`, `/feed/milestones`, `/feed/featured-stories`,
-   `/feed/mixed`) + `feed.featured_stories` usage — don't carry dead code into request-service.
-5. **geocoding-service = DEFER to Sprint 92** (needs a real client-side geocoder migration, not a
-   delete). **cleanup-service = KEEP** (Sprint 90's `memoryRetentionJob` lives there; jobs carry
-   real TS logic pg_cron can't host). Both recorded in ADR-071.
+All ACTIVE wiring is decommissioned. Remaining `feed-service`/`3007` matches are intentional:
+immutable migration comment (`015_ui_schemas_dynamic.sql`), archived scripts (`scripts/archive/*`),
+historical docs/examples, ADR-071/CONTEXT mentions, and generated landing ADR content.
 
-## Critical Implementation Notes (copied verbatim from spec)
+## Remaining steps (next action)
 
-1. **FOLD THE UNCOMMITTED S90 DOC TAIL INTO SPRINT 91's FIRST COMMIT** (ADR-069/070 → Implemented
-   md + README + landing JSON + handoff + BUGS.md). NOT a standalone push
-   (`feedback_no_docs_push_to_master`).
-2. **feed-service is a pure read/view layer — no Bull queue, no cron, no events.** Grep-confirm
-   before deleting. No scheduler/event rewiring.
-3. **Only 5 of 9 endpoints live — DROP the 4 dead** + the `feed.featured_stories` read path.
-4. **Mount feed router at `/requests/feed`** — existing `/api/requests` nginx block serves it;
-   REMOVE the dead `/api/feed` location + `feed_service` upstream. nginx applies on deploy only
-   (`feedback_nginx_config`).
-5. **Frontend:** `feedApi`(`FEED_API_URL`:3007) → `requestApi`(`REQUEST_API_URL`:3003); paths
-   `/requests/feed/*`. Remove `FEED_API_URL` + `feedApi`. Unwrap `res.data`, not `res.data.data`.
-6. **Reconcile dismiss path** — canonical `/requests/feed/dismiss/:itemId`; fix frontend (currently
-   `/feed/:itemId/dismiss`, likely dead/failing).
-7. **Do NOT `DROP SCHEMA feed`** — `feed.preferences` + `feed.dismissed_items` stay; request-service
-   owns them. No migration. `feed.featured_stories` orphaned (note in ADR-071, don't drop).
-8. **social-graph proximity:** reuse request-service's existing `SOCIAL_GRAPH_API_URL` (`dibs.ts`);
-   ensure it's in request-service compose env.
-9. **request-service DB role already has cross-schema read** — composer reads work unchanged.
-10. **Version 10.14.0 → 11.0.0 (MAJOR)** — bump root + request-service package.json.
-11. **JWT field `communities`** — carry feed-service's auth gate; don't loosen it.
-12. **`npm run analyze:services` after deleting feed-service** regenerates dependency-graph /
-    impact-analysis / version-drift — GENERATED, never hand-edit.
-13. **Landing docs gitignored** (`git add -f`); **nav.json reverts** (grep-verify, re-apply).
-14. **ADR numbering: next free = 071.**
-15. **Behavior-preserving** — the 5 endpoints return identical shapes; tests assert the contract.
-
-## What moves / drops / stays (the merge at a glance)
-
-- **MOVES (request-service `src/services/feed/`):** `feedComposer.ts`, `socialKarmaFeedComposer.ts`,
-  `basicFeedRanker.ts`, feed types → new `routes/feed.ts` mounted at `/requests/feed`.
-- **LIVE endpoints absorbed:** `GET /feed`, `GET`/`PUT /feed/preferences`, `POST /dismiss/:itemId`,
-  `GET /feed/community-health`.
-- **DROPPED:** `GET /feed/requests`, `/feed/milestones`, `/feed/featured-stories`, `/feed/mixed`.
-- **DELETED:** `services/feed-service/`, its docker-compose service, registry entry, nginx
-  upstream + `/api/feed` block, `apps/landing/.../services/feed-service.json`.
-- **STAYS:** `feed.preferences` + `feed.dismissed_items` tables (no migration).
+1. **`/code-review`** the branch diff — esp. composer move, dismiss-path reconciliation, auth-gate carry-over.
+2. **`/security-review`** the branch diff — the `api.ts` `js/request-forgery` CodeQL FP may re-fire on
+   the new requestApi feed calls; dismiss after rescan (`feedback_request_forgery_api_baseurl_fp`).
+3. **`/simplify`** final pass over the full diff if not already clean.
+4. **Open PR** (cross-agent contract body). Title:
+   `Sprint 91 — Service Consolidation (v11.0.0): fold feed-service into request-service (11→10 services)`.
+5. On maintainer "pull it in" → merge → monitor GitHub Actions (tests + images + integration vs real
+   Postgres + Deploy to Demo). Post-deploy: confirm `GET /api/requests/feed` works + dashboard/community
+   feed render; watch per-service health during rollout (`feedback_no_docs_push_to_master`).
 
 ## Reference
 
 - **Spec:** `docs/superpowers/specs/2026-06-07-sprint-91-service-consolidation-design.md`
 - **Plan:** `docs/superpowers/plans/2026-06-07-sprint-91-service-consolidation.md`
-- **feed-service (to fold):** `services/feed-service/src/{routes/feed.ts, services/*Composer.ts, services/basicFeedRanker.ts}`
-- **request-service (target):** `src/index.ts` route mounts; `dibs.ts` for the `SOCIAL_GRAPH_API_URL` pattern.
-- **Open bugs (triage backlog, `docs/BUGS.md`):** BUG-001 community w/ no admin; BUG-002 feed
-  reload shows already-offered requests; BUG-003 providers say "Offer help"; BUG-004 missing
-  wordmark; BUG-005 "Mark as done" doesn't unlock rating. **Not in S91 scope** — candidates for a
-  future bug-fix sprint.
+- **ADR-071:** `docs/adr/ADR-071-service-consolidation-feed-service.md` (Implemented)
+- **Feed code (folded):** `services/request-service/src/routes/feed.ts` + `src/services/feed/*` + `src/types/`
+- **request-service mount:** `src/index.ts` — `/requests/feed` before generic `/requests`, with
+  `rateLimiters.relaxed` + auth + optionalTenant + dbContext.
 
 ---
 
 ## Multi-sprint arc
 
 - **Sprint 89** — Community sovereignty redesign. ✅ v10.13.0.
-- **Sprint 90** — Designed to forget: content retention + visible decay + profile memory. ✅ v10.14.0.
-- **Sprint 91 (THIS)** — Service Consolidation Phase 1: fold feed-service (11→10). → v11.0.0.
-- **Sprint 92** — Service Consolidation Phase 2: geocoding → client-side (per ADR-071); cleanup kept.
+- **Sprint 90** — Designed to forget. ✅ v10.14.0.
+- **Sprint 91 (THIS)** — Service Consolidation Phase 1: fold feed-service (11→10). → v11.0.0. ✅ implemented; review+deploy pending.
+- **Sprint 92** — Service Consolidation Phase 2: geocoding → client-side (per ADR-071); cleanup KEPT.
 - **Deferred** — Mobile parity (originally S91); a bug-fix sprint for BUG-001..005.
 
 ---
@@ -123,35 +103,33 @@ Mobile parity deferred → this pulls the architecture-pruning arc forward.
 - `.github/workflows/pr-contract.yml` fails a PR whose body is empty or missing the four required headers; `dependabot[bot]` passes through.
 - master **branch protection**: required checks = `pr-contract`, `Lint & Type Check`, `Test Frontend`, `Test Backend Services (Unit + Regression)`, `Code Scanning Gate (ADR-060)`, `Security Audit`; `strict: true`; 1 approving review; `enforce_admins: false`.
 - **Merge authority:** Admin owns approval + merge; Claude validates merge-readiness and recommends, executes merge only on Admin authorization ("pull it in"). Agents never self-merge.
-- **Enforcement is identity-based** — same-machine agents (Claude, Codex) share admin `gh` creds, so "no direct push to master" is convention-by-discipline for them, not a hard gate. See AGENTS.md "Enforcement reality".
 - A deliberate empty marker commit `90b9067` exists on master — do NOT "clean it up".
 
 ### ⚠️ Open dependabot PRs (#34–50) still need unblocking
-The open dependabot PRs predate `pr-contract.yml`; their stale branches have no `pr-contract` status, so the now-required check **blocks** them. To unblock each: comment **`@dependabot rebase`** → recreated branch includes the workflow and passes via bot pass-through. Then review/merge per dependabot merge discipline (**inspect grouped PRs for MAJOR bumps; don't rapid-merge** — 5 concurrent deploys caused ENOTEMPTY). Several are major bumps (tailwindcss 3→4 #41, typescript-eslint 6→8 #40, expo/vector-icons 14→15 #39, gesture-handler 2→3 #37, eslint-config-expo 8→56 #36, eslint-config-next 15→16 #35) — inspect before merging.
+Comment `@dependabot rebase` to pick up `pr-contract.yml`, then review per dependabot merge discipline
+(inspect grouped PRs for MAJOR bumps; don't rapid-merge). Several are major bumps (tailwindcss 3→4 #41,
+typescript-eslint 6→8 #40, expo/vector-icons 14→15 #39, gesture-handler 2→3 #37, eslint-config-expo
+8→56 #36, eslint-config-next 15→16 #35).
 
 ### Architecture Gotchas (Persistent)
-- **Landing page docs**: `apps/landing/src/data/docs/` is in `.gitignore` — always `git add -f`. (`docs/design/` is NOT gitignored — only the landing data dir is.)
-- **nav.json revert bug**: `generate-docs.ts` regenerates nav.json — run from `apps/landing/`; grep-verify after; re-apply if reverted
-- **ADR numbering**: ADR-069 + ADR-070 created in S90; **ADR-071 created in S91; next free = 072.**
+- **Landing page docs**: `apps/landing/src/data/docs/` is gitignored — `git add -f`. Generated by
+  `scripts/generate-docs.ts` (wipes the dir each run); edit SOURCES (CONTEXT.md / ADR md / generate-docs.ts), never the JSON.
+- **ADR numbering**: ADR-071 created in S91; **next free = 072.**
 - **JWT field** is `communities` not `communityMemberships` — always `user.communities ?? []`
-- **Schema is `communities.communities`** (plural schema name) — older `community.*` comments are stale
+- **Schema is `communities.communities`** (plural schema name)
 - **API response unwrap**: `createApiClient` interceptor already unwraps the envelope — use `res.data`, not `res.data.data`
-- **trust_edges_live is a VIEW**: never INSERT/UPDATE it — write `trust_edges`, read `trust_edges_live`
-- **messaging schema**: `messages.content` (NOT `body`); `conversations.request_match_id` links a thread to its exchange.
+- **trust_edges_live is a VIEW**: never INSERT/UPDATE it
 - **`git add` on CLAUDE.md**: tracked as lowercase `claude.md`
 - **Solo dev — no worktrees**: work directly on feature branches
-- **Root package.json version**: **10.14.0** (Sprint 90 shipped; **S91 bumps to 11.0.0**).
-- **CI security gates**: dependency audit (ADR-059, blocking `--audit-level=high`) + CodeQL code-scanning gate (ADR-060) run automatically on push
-- **`request_type` vs `category`**: `request_type` = 5-value `request_type_enum` (filter); `category` = fine
-  payload subtype (`transportation` etc., what `RequestPayloadRenderer` switches on, what matching keys off).
-  S86 surfaces `category` as `payload_type` on the card (ADR-067).
-- **request-service already calls social-graph** via `SOCIAL_GRAPH_API_URL` (`dibs.ts`) — reuse for the feed proximity call.
+- **Root package.json version**: **11.0.0** (Sprint 91).
+- **CI security gates**: dependency audit (ADR-059) + CodeQL (ADR-060) run automatically on push
+- **request-service already calls social-graph** via `SOCIAL_GRAPH_API_URL` (`dibs.ts` + now the feed ranker).
 
-### Pre-Existing TDD Failures (do NOT fix — a NEW failure this sprint is a real regression)
-`sprint-39-provider-ux` (7), `sprint-43-feed-ranking` (crashes), `admin-schemas-api.test.ts` (request-service), `sprint-68-halflife` (6 DB-conn), `sprint-67-governance` (DB-conn), social-graph-service tdd `sprint-66`/`sprint-67`/`sprint-68`, plus the 5 frontend TDD failures noted in S89 (trust-model / useTrustQuestions / sprint-38/39/40).
+### Open bugs (triage backlog, `docs/BUGS.md`)
+BUG-001 community w/ no admin; BUG-002 feed reload shows already-offered requests; BUG-003 providers
+say "Offer help"; BUG-004 missing wordmark; BUG-005 "Mark as done" doesn't unlock rating. Candidates
+for a future bug-fix sprint.
 
 ### ⚠️ Deploy drift watch
-`karmyq.org` live content drifted from `master` around Sprint 83. If judging by live content, first confirm the most recent "Deploy to Demo" GitHub Actions run succeeded and live content matches `master`.
-
-### Sprint 81 residual (carried)
-- JWT-in-URL exposure → nginx log scrub (shipped Sprint 83). Token TTL kept at 1h (documented). SSE auth tests promoted to regression.
+`karmyq.org` live content drifted from `master` around Sprint 83. Confirm the most recent "Deploy to
+Demo" run succeeded and live content matches `master` before judging by live content.

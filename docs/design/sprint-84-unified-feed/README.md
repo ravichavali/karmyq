@@ -81,8 +81,7 @@ request), plus three supporting tabs and two dashboard widgets. Read order and f
 
 - **Where**: [`components/Feed/Feed.tsx`](../../../apps/frontend/src/components/Feed/Feed.tsx).
   **Not currently mounted by `dashboard.tsx`** — it's the legacy general feed component.
-- **Data**: raw `fetch` to `${FEED_API_URL}/feed?limit=20` with an `x-user-id` header (the only
-  surface that calls the **Feed service**, port 3007, directly rather than the request service).
+- **Data**: request-service `/requests/feed?limit=20` with the caller `Authorization` header.
 - **Renders**: a **polymorphic** item list over four `FeedItem` types from
   [`types/feed-items.ts`](../../../apps/frontend/src/types/feed-items.ts):
   - `community_activity` — weekly exchanges, top helpers, new members, "N requests need help".
@@ -92,7 +91,7 @@ request), plus three supporting tabs and two dashboard widgets. Read order and f
     two actions: **View Details** + **Offer to Help** (both links to `/requests/:id`).
   - `suggested_request` — "Suggested for You" with a `match_score` and a "Why suggested" reason.
   - `story` — first-timer / milestone / pay-it-forward / unexpected-match narrative cards.
-- **Actions**: per-item **Dismiss** (`POST /feed/dismiss/:id`), **Refresh**, **Load more**.
+- **Actions**: per-item **Dismiss** (`POST /requests/feed/dismiss/:id`), **Refresh**, **Load more**.
 - **Notable**: the most *editorially* ambitious surface (stories, suggestions, activity digests)
   and the only one with a **dismiss/feedback signal** — but it duplicates the open-request card a
   third time, with a third visual language, and isn't wired into the live dashboard.
@@ -121,7 +120,7 @@ request), plus three supporting tabs and two dashboard widgets. Read order and f
 | Concern | Surface A (BrowseFeed) | Surface B (Community BrowseTab) | Surface C (Feed/FeedItem) |
 |---|---|---|---|
 | Mounted in live app | ✅ dashboard | ✅ community page | ❌ legacy/unmounted |
-| Backing endpoint | `/requests/curated` | community requests (props) | `/feed` (Feed service) |
+| Backing endpoint | `/requests/curated` | community requests (props) | `/requests/feed` (request-service) |
 | Card visual language | rounded `feed-card` | dense row | rich `bg-surface-raised` card |
 | Open-request card defined | once | once (different) | once (different) | 
 | Ranking / `match_score` | ✅ | ❌ | ✅ (+ suggestions) |
@@ -200,7 +199,7 @@ the `HelpRequest` shapes in `BrowseFeed`/`BrowseTab`:
 | Rate exchange | `reputationService.submitFeedback` | CommitmentsTab |
 | Accept / decline First Dibs | `dibsService.accept/declineDibs` | CommitmentsTab |
 | Accept / decline provider offer | `acceptOffer` / `declineOffer` | CommitmentsTab |
-| Dismiss feed item | `POST /feed/dismiss/:id` | Feed/FeedItem only |
+| Dismiss feed item | `POST /requests/feed/dismiss/:id` | Feed/FeedItem only |
 | Admin: triage (urgency + note) | `adminTriageRequest` | BrowseTab |
 | Admin: boost / remove boost | `boostRequest` / `removeBoost` | BrowseTab |
 | Admin: mark urgent | `markUrgent` | BrowseTab |
@@ -212,7 +211,7 @@ the `HelpRequest` shapes in `BrowseFeed`/`BrowseTab`:
 - **Surface A** → `GET /requests/curated` (request service, 3003).
 - **Surface B** → community requests + stats + trust + network metrics (community/reputation/
   social-graph), admin mutations on request service.
-- **Surface C** → `GET /feed`, `POST /feed/dismiss/:id` (feed service, 3007).
+- **Surface C** → `GET /requests/feed`, `POST /requests/feed/dismiss/:id` (request-service).
 - **Helping/Asks** → `GET /matches`, `GET /requests?requester_id=`, dibs + provider-offer APIs.
 
 **Data gaps the redesign will want (→ S85):**
@@ -426,7 +425,7 @@ community feed. (ADR-066 is reserved for this per the handoff.)
 
 ### 7.4 Open questions for Sprint 85 planning
 
-1. **Source of truth for the unified feed**: extend the **Feed service** (3007) to absorb curated
+1. **Source of truth for the unified feed**: extend the request-service feed view to absorb curated
    ranking, or grow `request-service`'s `/requests/curated` with a `view=home|community` param and
    add the decision/activity/story union there? (Trade-off: Feed service already owns
    dismiss/story/activity; request service already owns ranking + the live dashboard wiring.)

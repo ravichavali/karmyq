@@ -17,7 +17,6 @@ export const ServiceUrls = {
   REPUTATION: process.env.REPUTATION_SERVICE_URL || 'http://localhost:3004',
   NOTIFICATION: process.env.NOTIFICATION_SERVICE_URL || 'http://localhost:3005',
   MESSAGING: process.env.MESSAGING_SERVICE_URL || 'http://localhost:3006',
-  FEED: process.env.FEED_SERVICE_URL || 'http://localhost:3007',
   CLEANUP: process.env.CLEANUP_SERVICE_URL || 'http://localhost:3008',
   SOCIAL_GRAPH: process.env.SOCIAL_GRAPH_SERVICE_URL || 'http://localhost:3010',
 };

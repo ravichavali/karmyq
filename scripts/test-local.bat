@@ -22,7 +22,7 @@ echo.
 REM 1. Type Check
 if not "%MODE%"=="e2e" (
   echo [33m📝 Running TypeScript type check...[0m
-  call npm run type-check --workspace=services/feed-service --if-present
+  call npm run type-check --workspace=services/request-service --if-present
   if errorlevel 1 (
     echo [31m❌ Type check failed[0m
     exit /b 1
@@ -36,23 +36,23 @@ if not "%MODE%"=="e2e" (
   echo [33m🧪 Running integration tests...[0m
 
   REM Check if services are running
-  curl -s http://localhost:3007/health >nul 2>&1
+  curl -s http://localhost:3003/health >nul 2>&1
   if errorlevel 1 (
-    echo [31m⚠️  Feed Service not running. Starting services...[0m
+    echo [31m⚠️  Request Service not running. Starting services...[0m
     docker-compose -f infrastructure\docker\docker-compose.yml up -d
     echo Waiting for services to be ready...
     timeout /t 10 >nul
   )
 
   REM Run integration tests
-  cd tests
-  call npm test integration/feed-service.test.ts
+  cd services\request-service
+  call npm run test:tdd -- --runTestsByPath tests/tdd/sprint-91-feed-router.test.ts
   if errorlevel 1 (
     echo [31m❌ Integration tests failed[0m
-    cd ..
+    cd ..\..
     exit /b 1
   )
-  cd ..
+  cd ..\..
 
   echo [32m✅ Integration tests passed[0m
   echo.

@@ -113,6 +113,7 @@ services:
       REDIS_URL: redis://redis-test:6379
       AUTH_SERVICE_URL: http://auth-service-test:3001
       COMMUNITY_SERVICE_URL: http://community-service-test:3002
+      SOCIAL_GRAPH_API_URL: http://social-graph-service-test:3010
       JWT_SECRET: test_jwt_secret_change_me
     ports:
       - "3003:3003"
@@ -189,30 +190,30 @@ services:
       timeout: 5s
       retries: 3
 
-  feed-service-test:
+  social-graph-service-test:
     build:
       context: ..
-      dockerfile: ./services/feed-service/Dockerfile
-    container_name: karmyq-feed-service-test
+      dockerfile: ./services/social-graph-service/Dockerfile
+    container_name: karmyq-social-graph-service-test
     environment:
       NODE_ENV: test
-      PORT: 3007
-      DATABASE_URL: postgresql://karmyq_test:test_password@postgres-test:5432/karmyq_test
-      REDIS_URL: redis://redis-test:6379
-      AUTH_SERVICE_URL: http://auth-service-test:3001
-      REQUEST_SERVICE_URL: http://request-service-test:3003
+      PORT: 3010
+      DB_HOST: postgres-test
+      DB_PORT: 5432
+      DB_NAME: karmyq_test
+      DB_USER: karmyq_test
+      DB_PASSWORD: test_password
       JWT_SECRET: test_jwt_secret_change_me
+      RATE_LIMIT_DISABLED: "true"
     ports:
-      - "3007:3007"
+      - "3010:3010"
     networks:
       - test-network
     depends_on:
       postgres-test:
         condition: service_healthy
-      redis-test:
-        condition: service_healthy
     healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3007/health"]
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3010/health"]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -232,7 +233,7 @@ services:
       REQUEST_SERVICE_URL: http://request-service-test:3003
       REPUTATION_SERVICE_URL: http://reputation-service-test:3004
       NOTIFICATION_SERVICE_URL: http://notification-service-test:3005
-      FEED_SERVICE_URL: http://feed-service-test:3007
+      SOCIAL_GRAPH_API_URL: http://social-graph-service-test:3010
       JWT_SECRET: test_jwt_secret_change_me
     networks:
       - test-network
@@ -246,6 +247,8 @@ services:
       community-service-test:
         condition: service_healthy
       request-service-test:
+        condition: service_healthy
+      social-graph-service-test:
         condition: service_healthy
     volumes:
       - ../tests:/app/tests

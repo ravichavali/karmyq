@@ -283,7 +283,6 @@ simulation-service   -      development ✗        optional      0 services
    - Update service package.json files
 
 9. **Consolidate services** (per ARCHITECTURE_RESET_ANALYSIS.md)
-   - Merge `feed-service` → `request-service`
    - Convert `cleanup-service` → pg_cron
    - Delete `geocoding-service` (use browser API)
 
@@ -311,7 +310,6 @@ simulation-service   -      development ✗        optional      0 services
 
 ### Important Services (Degraded experience if down)
 - notification-service
-- feed-service
 
 ### Optional Services (Dev/testing only)
 - simulation-service

@@ -125,7 +125,7 @@ npx ts-node test-connection.ts
 ✅ reputation-service (3004)
 ✅ notification-service (3005)
 ✅ messaging-service (3006)
-✅ feed-service (3007)
+✅ request-service feed endpoints (3003)
 ✅ cleanup-service (3008)
 ✅ geocoding-service (3009)
 ✅ social-graph-service (3010)

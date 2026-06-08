@@ -25,7 +25,6 @@ const API_CONFIG = {
   REPUTATION_URL: process.env.REPUTATION_API_URL || 'http://localhost:3004',
   NOTIFICATION_URL: process.env.NOTIFICATION_API_URL || 'http://localhost:3005',
   MESSAGING_URL: process.env.MESSAGING_API_URL || 'http://localhost:3006',
-  FEED_URL: process.env.FEED_API_URL || 'http://localhost:3007',
 };
 
 // Load test configuration
@@ -213,7 +212,7 @@ async function simulateUserActivity(user: TestUser, durationMs: number): Promise
       case 4: {
         // Get feed
         const { status, latency, body } = await makeRequest(
-          `${API_CONFIG.FEED_URL}/feed`,
+          `${API_CONFIG.REQUEST_URL}/requests/feed`,
           { headers: authHeaders }
         );
         trackMetrics(status, latency, status >= 400 ? body?.error : undefined);

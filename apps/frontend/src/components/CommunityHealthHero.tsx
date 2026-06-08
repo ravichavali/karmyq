@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { feedApi } from '@/lib/api'
+import { requestApi } from '@/lib/api'
 
 interface CommunityHealthData {
   communityId: string
@@ -31,8 +31,8 @@ export default function CommunityHealthHero({ communityId }: CommunityHealthHero
       try {
         setLoading(true)
         setError(null)
-        const response = await feedApi.get(`/feed/community-health?community_id=${communityId}`)
-        setHealthData(response.data.data)
+        const response = await requestApi.get(`/requests/feed/community-health?community_id=${communityId}`)
+        setHealthData(response.data)
       } catch (err) {
         console.error('Failed to fetch community health', { error: err instanceof Error ? err.message : String(err) })
         const error = err as { response?: { data?: { message?: string } } }

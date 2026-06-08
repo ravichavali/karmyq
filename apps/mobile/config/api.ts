@@ -34,7 +34,6 @@ export const API_CONFIG = {
   REPUTATION_URL: `http://${API_HOST}:3004`,
   NOTIFICATION_URL: `http://${API_HOST}:3005`,
   MESSAGING_URL: `http://${API_HOST}:3006`,
-  FEED_URL: `http://${API_HOST}:3007`,
 
   // Base host for constructing custom URLs
   BASE_HOST: API_HOST,
