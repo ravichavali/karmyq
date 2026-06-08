@@ -39,6 +39,13 @@ import { buildActivityItem, buildStoryItem, type StoryData } from '../services/c
 
 const router = Router();
 
+// The 5 built-in request types (the request_type_enum). Used to default feed-preference
+// subscriptions and to gate request-type enforcement. Legacy config names (meal_share,
+// tool_borrow, childcare, … from older seed data — init.sql / migrations 011-012) are NOT
+// built-ins; the enforcement below ignores them so an all-legacy enabled_request_types reads
+// as "unrestricted" (mirrors CommunityConfigEditor's normalization). See BUG-006.
+const BUILTIN_REQUEST_TYPES = ['generic', 'ride', 'service', 'event', 'borrow'] as const;
+
 interface ImpressionRequestRow {
   id: string;
   feedScore: number;
@@ -290,7 +297,7 @@ async function handleCuratedFeed(req: Request, res: Response): Promise<void> {
     const subscribedTypes =
       preferencesResult.rowCount > 0
         ? preferencesResult.rows.map((row: any) => row.request_type)
-        : ['generic', 'ride', 'service', 'event', 'borrow'];
+        : [...BUILTIN_REQUEST_TYPES];
 
     // ADR-022: Fetch user feed preferences for multi-tier visibility
     const feedPrefsResult = await query(
@@ -1434,11 +1441,17 @@ router.post('/', async (req: Request, res: Response) => {
     );
     const ttlDays = settingsResult.rows[0]?.request_ttl_days || 60; // Default to 60 days
 
-    // Validate request type against community's enabled types (if configured)
+    // Validate request type against community's enabled types (if configured).
+    // Only enforce against KNOWN built-in type names — legacy names (meal_share, tool_borrow,
+    // childcare, … from older seed data) are ignored. If a config lists no built-in types
+    // (all-legacy) it reads as unrestricted, matching the empty/null case and the frontend
+    // CommunityConfigEditor normalization. See BUG-006.
     const enabledTypes = settingsResult.rows[0]?.enabled_request_types;
     if (Array.isArray(enabledTypes) && enabledTypes.length > 0) {
-      const allowedNames = enabledTypes.map((t: { name: string }) => t.name);
-      if (!allowedNames.includes(validatedData.request_type)) {
+      const allowedNames = enabledTypes
+        .map((t: { name: string }) => t.name)
+        .filter((name: string) => (BUILTIN_REQUEST_TYPES as readonly string[]).includes(name));
+      if (allowedNames.length > 0 && !allowedNames.includes(validatedData.request_type)) {
         return res.status(400).json({
           success: false,
           message: `Request type '${validatedData.request_type}' is not enabled in this community.`,

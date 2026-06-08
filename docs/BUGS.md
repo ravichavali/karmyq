@@ -34,3 +34,11 @@ Karmyq logo turned into a green dot (the "Karmyq" wordmark text appears to be mi
 "Mark as done" isn't triggering the ability to rate (completing an exchange should unlock the rating flow, but doesn't).
 
 ---
+
+## BUG-006 · [2026-06-08] · fixed
+
+Request creation fails with "Request type 'generic' is not enabled in this community" when `community_configs.enabled_request_types` holds legacy type names (childcare/meal_share/tool_borrow from init.sql + migrations 011/012). Backend (request-service `requests.ts:1439`) enforces against raw legacy names while the frontend `CommunityConfigEditor` normalizes them to the 5 built-ins — so the admin UI shows all types enabled but creation 400s. Pre-existing (not Sprint 91). Proper fix: backend should ignore legacy names when enforcing — only restrict against known built-in request types, and treat all-legacy/empty as unrestricted.
+
+**Fixed (2026-06-08, branch `fix/request-type-legacy-names`):** `requests.ts` enforcement filters `enabled_request_types` to known built-in names (`BUILTIN_REQUEST_TYPES`) before gating; all-legacy/empty ⇒ unrestricted. Covered by `tests/regression/bug-006-legacy-request-type-names.test.ts`.
+
+---
