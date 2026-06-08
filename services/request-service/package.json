@@ -16,7 +16,7 @@
   },
   "dependencies": {
     "@karmyq/shared": "*",
-    "axios": "^1.16.0",
+    "axios": "^1.17.0",
     "helmet": "^8.1.0"
   },
   "devDependencies": {
