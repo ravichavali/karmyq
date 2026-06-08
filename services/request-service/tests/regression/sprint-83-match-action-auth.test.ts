@@ -60,6 +60,7 @@ describe('Sprint 83: Match-action authorization derives identity from JWT, not b
     mockQuery
       .mockResolvedValueOnce({ rowCount: 1, rows: [PROPOSED_MATCH] })       // matchCheck
       .mockResolvedValueOnce({ rowCount: 1, rows: [] })                     // UPDATE status='rejected'
+      .mockResolvedValueOnce({ rowCount: 1, rows: [] })                     // UPDATE help_offers status='active' (BUG-008)
       .mockResolvedValueOnce({ rowCount: 1, rows: [{ count: '1' }] });      // remaining proposed (skip reopen)
 
     const app = await buildMatchesApp('helper-user');

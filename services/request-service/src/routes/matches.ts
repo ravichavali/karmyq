@@ -336,6 +336,19 @@ router.put('/:id/accept', async (req: AuthenticatedRequest, res: Response) => {
       [match.request_id]
     );
 
+    // Free the offers of the sibling matches we're about to reject so those
+    // helpers re-enter the active pool (BUG-008). Run BEFORE the reject UPDATE so
+    // the subquery still sees the siblings as 'proposed'.
+    await query(
+      `UPDATE requests.help_offers
+       SET status = 'active'
+       WHERE id IN (
+         SELECT offer_id FROM requests.matches
+         WHERE request_id = $1 AND id != $2 AND status = 'proposed' AND offer_id IS NOT NULL
+       )`,
+      [match.request_id, id]
+    );
+
     // Reject all other proposed matches for this request
     await query(
       `UPDATE requests.matches
@@ -388,7 +401,7 @@ router.put('/:id/reject', async (req: AuthenticatedRequest, res: Response) => {
     // Get match details
     const matchCheck = await query(
       `SELECT
-        m.id, m.request_id, m.status, m.responder_id,
+        m.id, m.request_id, m.offer_id, m.status, m.responder_id,
         r.requester_id
       FROM requests.matches m
       LEFT JOIN requests.help_requests r ON m.request_id = r.id
@@ -420,6 +433,16 @@ router.put('/:id/reject', async (req: AuthenticatedRequest, res: Response) => {
        WHERE id = $1`,
       [id]
     );
+
+    // Free the linked offer back to the active pool so the helper re-enters
+    // matching (mirrors the cancel path). Without this the offer is stranded in
+    // 'matched' forever and the helper silently disappears from /offers (BUG-008).
+    if (match.offer_id) {
+      await query(
+        `UPDATE requests.help_offers SET status = 'active' WHERE id = $1`,
+        [match.offer_id]
+      );
+    }
 
     // Check if there are any remaining proposed matches
     const remainingMatches = await query(

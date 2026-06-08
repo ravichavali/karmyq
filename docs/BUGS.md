@@ -53,4 +53,18 @@ Dibs shows up a provider when it is a request for a neighbor. I think this is th
 
 Request matching logic seems broken.
 
+**Root cause (Sprint 92 diagnosis, systematic-debugging):** the match lifecycle strands
+`requests.help_offers` rows in `'matched'` state. Creating a match sets the linked offer to
+`'matched'` (`matches.ts` POST `/`), but only DELETE/cancel ever restores it to `'active'`. The two
+other transitions that take a match out of play do not: `PUT /matches/:id/reject` reopens the
+request (when no proposed siblings remain) but never frees the offer — its `matchCheck` SELECT
+doesn't even read `offer_id`; and `PUT /matches/:id/accept` bulk-rejects sibling proposed matches
+(`matches.ts` ~L340) without freeing their offers. Net effect: after a requester rejects a match, or
+accepts one helper and thereby rejects the others, the affected helpers' offers remain `'matched'`
+forever — they disappear from the active-offer pool (`GET /offers` defaults to `status='active'`)
+and the reopened request can never be re-matched through them. Repro test:
+`services/request-service/tests/tdd/sprint-92-matching.test.ts` (RED before fix). Fix: reset the
+linked offer(s) to `'active'` in both the reject path and the accept path's sibling rejection,
+mirroring cancel.
+
 ---
