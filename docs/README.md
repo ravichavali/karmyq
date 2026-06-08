@@ -29,7 +29,6 @@ docs/
 | reputation-service | 3004 | [CONTEXT.md](../services/reputation-service/CONTEXT.md) | Core |
 | notification-service | 3005 | [CONTEXT.md](../services/notification-service/CONTEXT.md) | Core |
 | messaging-service | 3006 | [CONTEXT.md](../services/messaging-service/CONTEXT.md) | Core |
-| feed-service | 3007 | [CONTEXT.md](../services/feed-service/CONTEXT.md) | Review |
 | cleanup-service | 3008 | [CONTEXT.md](../services/cleanup-service/CONTEXT.md) | Review |
 | geocoding-service | 3009 | [CONTEXT.md](../services/geocoding-service/CONTEXT.md) | Review |
 | social-graph-service | 3010 | [CONTEXT.md](../services/social-graph-service/CONTEXT.md) | Core |

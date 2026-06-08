@@ -38,7 +38,7 @@ This loads the review skill, which walks through each section below against the 
 - Any new exchange types that aren't covered by the trust model?
 
 ### 4. Feed & Ranking
-- Is feed scoring logic still in one place (feed-service) or leaking into frontend?
+- Is feed scoring logic still in one place (request-service feed ranker) or leaking into frontend?
 - Are curated feed parameters (`feed_weight_trust_distance`, multipliers) documented?
 - Any ranking signals added without being reflected in ADRs?
 

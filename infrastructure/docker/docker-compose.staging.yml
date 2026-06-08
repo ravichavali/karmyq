@@ -44,13 +44,6 @@ services:
     ports:
       - "3006:3006"
 
-  feed-service:
-    restart: unless-stopped
-    environment:
-      NODE_ENV: staging
-    ports:
-      - "3007:3007"
-
   cleanup-service:
     restart: unless-stopped
     environment:

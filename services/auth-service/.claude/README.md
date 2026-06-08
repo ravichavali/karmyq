@@ -26,11 +26,10 @@
 - reputation-service (critical)
 - notification-service (important)
 - messaging-service (critical)
-- feed-service (important)
 - social-graph-service (critical)
 
 
-**⚠️ IMPACT**: If this service fails, 7 service(s) will be affected!
+**⚠️ IMPACT**: If this service fails, 6 service(s) will be affected!
 
 
 ---

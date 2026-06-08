@@ -219,8 +219,5 @@ BEGIN
   RAISE NOTICE '🎉 Social Karma v2.0 test data seeded!';
   RAISE NOTICE '';
   RAISE NOTICE 'Test endpoints with community_id: %', v_community_id;
-  RAISE NOTICE '  GET /feed/milestones?community_id=<id>';
-  RAISE NOTICE '  GET /feed/featured-stories?community_id=<id>';
-  RAISE NOTICE '  GET /feed/community-health?community_id=<id>';
-  RAISE NOTICE '  GET /feed/mixed?community_id=<id>';
+  RAISE NOTICE '  GET /requests/feed/community-health?community_id=<id>';
 END $$;

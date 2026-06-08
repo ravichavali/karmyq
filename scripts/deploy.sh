@@ -274,7 +274,6 @@ REBUILD_SERVICES=(
     "karmyq-reputation-service"
     "karmyq-notification-service"
     "karmyq-messaging-service"
-    "karmyq-feed-service"
     "karmyq-cleanup-service"
     "karmyq-geocoding-service"
     "karmyq-social-graph-service"
@@ -349,7 +348,6 @@ if [ "$SKIP_TESTS" != "1" ]; then
     export REPUTATION_SERVICE_URL="http://localhost:3004"
     export NOTIFICATION_SERVICE_URL="http://localhost:3005"
     export MESSAGING_SERVICE_URL="http://localhost:3006"
-    export FEED_SERVICE_URL="http://localhost:3007"
     export SOCIAL_GRAPH_SERVICE_URL="http://localhost:3010"
 
     if cd tests && npm run test:integration > "$TEST_OUTPUT" 2>&1; then

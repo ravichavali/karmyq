@@ -3,7 +3,7 @@ const fs = require('fs');
 const path = require('path');
 
 const SERVICES = [
-  'auth-service', 'community-service', 'feed-service',
+  'auth-service', 'community-service',
   'notification-service', 'reputation-service',
   'request-service', 'social-graph-service'
 ];

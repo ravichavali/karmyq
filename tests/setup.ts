@@ -26,7 +26,6 @@ const serviceMapping: Record<string, { env: string; port: string }> = {
   'reputation-service': { env: 'REPUTATION_SERVICE_URL', port: '3004' },
   'notification-service': { env: 'NOTIFICATION_SERVICE_URL', port: '3005' },
   'messaging-service': { env: 'MESSAGING_SERVICE_URL', port: '3006' },
-  'feed-service': { env: 'FEED_SERVICE_URL', port: '3007' },
   'cleanup-service': { env: 'CLEANUP_SERVICE_URL', port: '3008' },
   'geocoding-service': { env: 'GEOCODING_SERVICE_URL', port: '3009' },
   'social-graph-service': { env: 'SOCIAL_GRAPH_API_URL', port: '3010' },
@@ -40,10 +39,6 @@ Object.entries(serviceMapping).forEach(([serviceName, config]) => {
   }
 });
 
-// Also convert *_API_URL variables (used by some tests instead of *_SERVICE_URL)
-if (process.env.FEED_API_URL && process.env.FEED_API_URL.includes('feed-service')) {
-  process.env.FEED_API_URL = 'http://localhost:3007';
-}
 if (process.env.MESSAGING_API_URL && process.env.MESSAGING_API_URL.includes('messaging-service')) {
   process.env.MESSAGING_API_URL = 'http://localhost:3006';
 }
@@ -55,7 +50,6 @@ process.env.REQUEST_SERVICE_URL = process.env.REQUEST_SERVICE_URL || 'http://loc
 process.env.REPUTATION_SERVICE_URL = process.env.REPUTATION_SERVICE_URL || 'http://localhost:3004';
 process.env.NOTIFICATION_SERVICE_URL = process.env.NOTIFICATION_SERVICE_URL || 'http://localhost:3005';
 process.env.MESSAGING_SERVICE_URL = process.env.MESSAGING_SERVICE_URL || 'http://localhost:3006';
-process.env.FEED_SERVICE_URL = process.env.FEED_SERVICE_URL || 'http://localhost:3007';
 process.env.SOCIAL_GRAPH_API_URL = process.env.SOCIAL_GRAPH_API_URL || 'http://localhost:3010';
 process.env.DATABASE_URL = process.env.DATABASE_URL || 'postgresql://karmyq_user:karmyq_password_dev@localhost:5432/karmyq_db';
 

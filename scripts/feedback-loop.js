@@ -14,8 +14,16 @@ const REGISTRY_PATH = path.join(__dirname, '../services/registry.json');
 
 function getChangedFiles() {
   try {
-    const output = execSync('git diff --cached --name-only', { encoding: 'utf8' });
-    return output.trim().split('\n').filter(Boolean);
+    // --name-status so we can drop deletions: a removed route/schema/package file
+    // (e.g. decommissioning a service) is not a live change needing a CONTEXT/registry update.
+    const output = execSync('git diff --cached --name-status', { encoding: 'utf8' });
+    return output
+      .trim()
+      .split('\n')
+      .filter(Boolean)
+      .map(line => line.split('\t'))
+      .filter(([status]) => status && status[0] !== 'D')
+      .map(parts => parts[parts.length - 1]); // path (renames put the new path last)
   } catch (error) {
     return [];
   }

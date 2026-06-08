@@ -16,6 +16,7 @@ services:
   request-service:
     environment:
       RATE_LIMIT_DISABLED: "true"
+      SOCIAL_GRAPH_API_URL: http://social-graph-service:3010
 
   reputation-service:
     environment:
@@ -26,10 +27,6 @@ services:
       RATE_LIMIT_DISABLED: "true"
 
   messaging-service:
-    environment:
-      RATE_LIMIT_DISABLED: "true"
-
-  feed-service:
     environment:
       RATE_LIMIT_DISABLED: "true"
 

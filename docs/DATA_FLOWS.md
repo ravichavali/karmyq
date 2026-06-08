@@ -137,8 +137,8 @@ This document maps how data flows through the Karmyq system, from user input thr
                              ↓
 ┌─────────────────────────────────────────────────────────────────┐
 │ Step 4: Feed Aggregation                                        │
-│ Service: Feed Service (Port 3007)                               │
-│ File: services/feed-service/src/routes/feed.ts                  │
+│ Service: Request Service (Port 3003)                            │
+│ File: services/request-service/src/routes/feed.ts               │
 │                                                                  │
 │ Query:                                                           │
 │   SELECT                                                         │

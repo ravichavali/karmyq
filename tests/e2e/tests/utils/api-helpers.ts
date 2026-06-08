@@ -15,7 +15,6 @@ const API_URLS = {
   REPUTATION: process.env.REPUTATION_API_URL || 'http://localhost:3004',
   NOTIFICATION: process.env.NOTIFICATION_API_URL || 'http://localhost:3005',
   MESSAGING: process.env.MESSAGING_API_URL || 'http://localhost:3006',
-  FEED: process.env.FEED_API_URL || 'http://localhost:3007',
   CLEANUP: process.env.CLEANUP_API_URL || 'http://localhost:3008',
 };
 
@@ -280,7 +279,7 @@ export class ApiHelpers {
     if (params?.limit) queryParams.set('limit', String(params.limit));
     if (params?.offset) queryParams.set('offset', String(params.offset));
 
-    const url = `${API_URLS.FEED}/feed${queryParams.toString() ? '?' + queryParams : ''}`;
+    const url = `${API_URLS.REQUEST}/requests/feed${queryParams.toString() ? '?' + queryParams : ''}`;
     return await this.makeAuthenticatedRequest(url, {}, communityId);
   }
 

@@ -104,7 +104,7 @@ created_at        TIMESTAMPTZ
 | GET | `/communities/:id/links` | List links for a community |
 | DELETE | `/communities/:id/links/:linkId` | Remove a link |
 
-### Feed Service (port 3007)
+### Feed View (request-service `/requests/feed`)
 
 `GET /requests/curated` now accepts `?includeSisterCommunities=true` — adds requests from linked communities where `show_in_sister_feeds = true`, scored by trust_carry_factor.
 

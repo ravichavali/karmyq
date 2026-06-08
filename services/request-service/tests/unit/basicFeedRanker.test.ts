@@ -1,4 +1,4 @@
-import { BasicFeedRanker } from '../../src/services/basicFeedRanker';
+import { BasicFeedRanker } from '../../src/services/feed/basicFeedRanker';
 
 jest.mock('../../src/database/db', () => ({ query: jest.fn() }));
 jest.mock('axios');
@@ -183,6 +183,22 @@ describe('BasicFeedRanker', () => {
 
     const result = await ranker.generateFeed('viewer-1');
     expect(result[0].data.social_proximity?.degrees).toBe(2);
+  });
+
+  it('forwards the caller Authorization header to social graph batch paths', async () => {
+    const req = makeRequest({ request_id: 'r1', requester_id: 'u1' });
+    mockQuery.mockResolvedValueOnce({ rows: [req], rowCount: 1 } as any);
+    mockAxiosPost.mockResolvedValueOnce(
+      proximityResponse([{ id: 'u1', degrees: 1 }]) as any
+    );
+
+    await ranker.generateFeed('viewer-1', 20, 'Bearer signed-token');
+
+    expect(mockAxiosPost).toHaveBeenCalledWith(
+      expect.stringContaining('/paths/batch'),
+      { target_user_ids: ['u1'] },
+      { headers: { Authorization: 'Bearer signed-token' } }
+    );
   });
 
   it('gracefully handles social graph service failure — still returns feed', async () => {

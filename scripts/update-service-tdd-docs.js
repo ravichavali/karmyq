@@ -9,7 +9,6 @@ const path = require('path');
 const SERVICES = [
   'cleanup-service',
   'community-service',
-  'feed-service',
   'geocoding-service',
   'messaging-service',
   'notification-service',

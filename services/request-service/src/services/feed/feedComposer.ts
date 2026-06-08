@@ -1,4 +1,4 @@
-import { query } from '../database/db';
+import { query } from '../../database/db';
 import {
   FeedItem,
   FeedComposition,
@@ -7,7 +7,7 @@ import {
   OpenRequest,
   SuggestedRequest,
   Story
-} from '../types';
+} from '../../types/feed';
 
 export class FeedComposer {
   /**

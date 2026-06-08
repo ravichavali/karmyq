@@ -460,6 +460,10 @@
           "divider": true
         },
         {
+          "label": "Fold Feed Service Into Request Service",
+          "href": "/docs/concepts/adr-071-service-consolidation-feed-service"
+        },
+        {
           "label": "NPM Workspace Package for Shared Code in Docker",
           "href": "/docs/concepts/adr-028-npm-workspace-docker-build"
         },
@@ -568,10 +572,6 @@
         {
           "label": "Messaging",
           "href": "/docs/services/messaging-service"
-        },
-        {
-          "label": "Feed",
-          "href": "/docs/services/feed-service"
         },
         {
           "label": "Cleanup",

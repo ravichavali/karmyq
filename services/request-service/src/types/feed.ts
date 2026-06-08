@@ -53,7 +53,7 @@ export interface SuggestedRequest {
   community_id: number;
   community_name: string;
   urgency: 'low' | 'medium' | 'high' | 'urgent';
-  reason: string; // Why this is suggested
+  reason: string;
   match_score: number;
   required_skills: string[];
 }

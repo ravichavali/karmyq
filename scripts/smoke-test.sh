@@ -45,7 +45,6 @@ check "Request Service"      "http://127.0.0.1:3003/health"
 check "Reputation Service"   "http://127.0.0.1:3004/health"
 check "Notification Service" "http://127.0.0.1:3005/health"
 check "Messaging Service"    "http://127.0.0.1:3006/health"
-check "Feed Service"         "http://127.0.0.1:3007/health"
 check "Social Graph Service" "http://127.0.0.1:3010/health"
 
 # Optional services — warn but don't fail

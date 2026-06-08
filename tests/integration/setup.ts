@@ -40,7 +40,6 @@ if (isDockerEnvironment) {
   process.env.REQUEST_SERVICE_URL = process.env.REQUEST_SERVICE_URL || 'http://localhost:3003';
   process.env.REPUTATION_SERVICE_URL = process.env.REPUTATION_SERVICE_URL || 'http://localhost:3004';
   process.env.NOTIFICATION_SERVICE_URL = process.env.NOTIFICATION_SERVICE_URL || 'http://localhost:3005';
-  process.env.FEED_SERVICE_URL = process.env.FEED_SERVICE_URL || 'http://localhost:3007';
 }
 
 // Common test environment variables

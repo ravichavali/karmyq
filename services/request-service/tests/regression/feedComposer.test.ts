@@ -11,7 +11,7 @@
  * - Content interleaving
  */
 
-import { FeedComposer } from '../../src/services/feedComposer';
+import { FeedComposer } from '../../src/services/feed/feedComposer';
 import { query } from '../../src/database/db';
 
 // Mock the database module

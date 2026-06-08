@@ -5,7 +5,6 @@
  * 1. Create help request (request-service)
  * 2. Verify event published to queue
  * 3. Verify notification created (notification-service subscribes to event)
- * 4. Verify feed updated (feed-service subscribes to event)
  *
  * This test verifies inter-service communication through Redis/Bull queues.
  */
@@ -18,7 +17,6 @@ const AUTH_SERVICE_URL = process.env.AUTH_SERVICE_URL || 'http://localhost:3001'
 const COMMUNITY_SERVICE_URL = process.env.COMMUNITY_SERVICE_URL || 'http://localhost:3002';
 const REQUEST_SERVICE_URL = process.env.REQUEST_SERVICE_URL || 'http://localhost:3003';
 const NOTIFICATION_SERVICE_URL = process.env.NOTIFICATION_SERVICE_URL || 'http://localhost:3005';
-const FEED_SERVICE_URL = process.env.FEED_SERVICE_URL || 'http://localhost:3007';
 const DATABASE_URL = process.env.DATABASE_URL ||
   'postgresql://karmyq_test:test_password@localhost:5433/karmyq_test';
 
@@ -157,34 +155,6 @@ describe('Event-Driven Flow', () => {
         expect(data.request_id).toBe(testRequestId);
       } else {
         console.warn('⚠️  Notification not in database - event subscription may not be implemented yet');
-      }
-    });
-  });
-
-  describe('Feed Service Event Handling', () => {
-    it('should add request to feed from request_created event', async () => {
-      // Wait for event processing
-      await new Promise(resolve => setTimeout(resolve, 2000));
-
-      const response = await request(FEED_SERVICE_URL)
-        .get(`/feed?community_id=${testCommunityId}`)
-        .set('Authorization', `Bearer ${authToken}`)
-        .expect(200);
-
-      expect(response.body.success).toBe(true);
-      expect(response.body.data).toHaveProperty('items');
-      expect(response.body.data.items).toBeInstanceOf(Array);
-
-      // Find feed item for the request
-      const feedItem = response.body.data.items.find(
-        (item: any) => item.entity_type === 'request' && item.entity_id === testRequestId
-      );
-
-      if (feedItem) {
-        expect(feedItem.action).toBe('created');
-        expect(feedItem.community_id).toBe(testCommunityId);
-      } else {
-        console.warn('⚠️  Feed item not found - event subscription may not be implemented yet');
       }
     });
   });

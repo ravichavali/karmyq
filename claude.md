@@ -300,8 +300,11 @@ npm audit --package-lock-only --audit-level=high   # Must be clean (ADR-059 gate
 
 ## System Architecture
 
-### Services (11 total)
+### Services (10 total)
 See **[services/registry.json](services/registry.json)** for complete list.
+
+> **Sprint 91 (ADR-071):** feed-service was folded into request-service as a `/requests/feed/*`
+> view layer (11→10 services). The feed is now served by request-service; there is no feed-service.
 
 | Service | Port | Criticality | Dependents |
 |---------|------|-------------|------------|
@@ -312,7 +315,6 @@ See **[services/registry.json](services/registry.json)** for complete list.
 | Notification | 3005 | Critical | 0 services |
 | Messaging | 3006 | Critical | 0 services |
 | Social-Graph | 3010 | Critical | 0 services |
-| Feed | 3007 | Important | 0 services |
 | Cleanup | 3008 | Important | 0 services |
 | Geocoding | 3009 | Optional | 0 services |
 | Simulation | dev | Optional | 0 services |
@@ -394,8 +396,8 @@ Errors:
 Services communicate via Bull queue (`karmyq-events`):
 - `match_completed` → Reputation, Notification
 - `karma_awarded` → Notification
-- `request_created` → Feed, Notification
-- `user_joined_community` → Feed, Notification
+- `request_created` → Notification
+- `user_joined_community` → Notification
 
 See [services/registry.json](services/registry.json) for event publishers/subscribers.
 

@@ -10,7 +10,6 @@ const SERVICES = {
   reputation: API_CONFIG.REPUTATION_URL,
   notification: API_CONFIG.NOTIFICATION_URL,
   messaging: API_CONFIG.MESSAGING_URL,
-  feed: API_CONFIG.FEED_URL,
 };
 
 // Create axios instance with auth interceptor
@@ -40,7 +39,6 @@ const requestClient = createClient(SERVICES.request);
 const reputationClient = createClient(SERVICES.reputation);
 const notificationClient = createClient(SERVICES.notification);
 const messagingClient = createClient(SERVICES.messaging);
-const feedClient = createClient(SERVICES.feed);
 
 export const api = {
   // Auth (port 3001)
@@ -52,8 +50,8 @@ export const api = {
 
   getProfile: () => authClient.get("/auth/verify"),
 
-  // Feed (port 3007) - userId comes from JWT token
-  getFeed: () => feedClient.get("/feed"),
+  // Feed (served by request-service) - userId comes from JWT token
+  getFeed: () => requestClient.get("/requests/feed"),
 
   // Communities (port 3002)
   getCommunities: () => communityClient.get("/communities"),

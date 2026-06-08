@@ -47,7 +47,7 @@ REQUEST_API_URL=http://localhost:3003
 REPUTATION_API_URL=http://localhost:3004
 NOTIFICATION_API_URL=http://localhost:3005
 MESSAGING_API_URL=http://localhost:3006
-FEED_API_URL=http://localhost:3007
+REQUEST_API_URL=http://localhost:3003
 
 # Load Test Parameters
 LOAD_TEST_USERS=10        # Concurrent users

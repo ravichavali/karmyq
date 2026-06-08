@@ -37,7 +37,7 @@ services:
     image: grafana/grafana:10.2.0
     container_name: karmyq-grafana
     ports:
-      - "3007:3000"
+      - "3011:3000"
     environment:
       - GF_SECURITY_ADMIN_USER=admin
       - GF_SECURITY_ADMIN_PASSWORD=admin

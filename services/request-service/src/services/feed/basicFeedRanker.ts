@@ -8,10 +8,10 @@
  * 3. Recency
  */
 
-import { query } from '../database/db';
+import { query } from '../../database/db';
 import axios from 'axios';
 
-const SOCIAL_GRAPH_SERVICE_URL = process.env.SOCIAL_GRAPH_SERVICE_URL || 'http://social-graph-service:3010';
+const SOCIAL_GRAPH_API_URL = process.env.SOCIAL_GRAPH_API_URL || 'http://social-graph-service:3010';
 
 interface FeedRequest {
   request_id: string;
@@ -67,7 +67,7 @@ interface FeedItem {
 
 /**
  * Returns true if the request currently has an active boost.
- * Copied inline from request-service — feed-service cannot import across service boundaries.
+ * Kept inline with the feed ranker so scoring does not import route-layer helpers.
  */
 function isBoostActive(req: { is_boosted?: boolean; boosted_expires_at?: string | null }): boolean {
   if (!req.is_boosted) return false
@@ -79,7 +79,11 @@ export class BasicFeedRanker {
   /**
    * Generate a personalized feed for a user
    */
-  async generateFeed(userId: string, limit: number = 20): Promise<FeedItem[]> {
+  async generateFeed(
+    userId: string,
+    limit: number = 20,
+    authorizationHeader?: string
+  ): Promise<FeedItem[]> {
     // Step 1: Fetch open requests from user's communities
     const requests = await this.fetchOpenRequests(userId);
 
@@ -89,7 +93,7 @@ export class BasicFeedRanker {
 
     // Step 2: Get social proximity data for all requesters
     const requesterIds = [...new Set(requests.map(r => r.requester_id))];
-    const proximityMap = await this.fetchSocialProximity(userId, requesterIds);
+    const proximityMap = await this.fetchSocialProximity(userId, requesterIds, authorizationHeader);
 
     // Step 3: Score and rank each request
     const scoredItems = requests.map(request => {
@@ -167,6 +171,14 @@ export class BasicFeedRanker {
       -- dibs_pending requests are excluded by the status = 'open' equality check
       WHERE hr.status = 'open'
         AND hr.requester_id != $1
+        AND NOT EXISTS (
+          SELECT 1
+          FROM feed.dismissed_items di
+          WHERE di.user_id = $1
+            AND di.item_type = 'open_request'
+            AND di.item_id = hr.id::text
+            AND di.dismissed_at > NOW() - INTERVAL '7 days'
+        )
         AND c.id IN (
           SELECT community_id
           FROM communities.members
@@ -184,7 +196,8 @@ export class BasicFeedRanker {
    */
   private async fetchSocialProximity(
     userId: string,
-    targetUserIds: string[]
+    targetUserIds: string[],
+    authorizationHeader?: string
   ): Promise<Map<string, SocialProximity>> {
     if (targetUserIds.length === 0) {
       return new Map();
@@ -193,11 +206,11 @@ export class BasicFeedRanker {
     try {
       // Call social graph service batch endpoint
       const response = await axios.post(
-        `${SOCIAL_GRAPH_SERVICE_URL}/paths/batch`,
+        `${SOCIAL_GRAPH_API_URL}/paths/batch`,
         { target_user_ids: targetUserIds },
         {
           headers: {
-            'x-user-id': userId
+            Authorization: authorizationHeader || ''
           }
         }
       );

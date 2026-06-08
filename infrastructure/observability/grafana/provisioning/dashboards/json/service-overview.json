@@ -14,7 +14,7 @@
       "datasource": { "type": "loki", "uid": "loki" },
       "gridPos": { "x": 0, "y": 0, "w": 4, "h": 3 },
       "targets": [{
-        "expr": "sum(count_over_time({service=~\"(auth|community|request|reputation|notification|messaging|feed|cleanup|geocoding|social-graph)-service\"}[1h]))",
+        "expr": "sum(count_over_time({service=~\"(auth|community|request|reputation|notification|messaging|cleanup|geocoding|social-graph)-service\"}[1h]))",
         "datasource": { "type": "loki", "uid": "loki" }
       }],
       "options": { "colorMode": "background", "graphMode": "none" },
@@ -59,7 +59,6 @@
         { "expr": "count_over_time({service=\"reputation-service\"} |~ \"(?i)(error|exception)\" [2m])", "legendFormat": "reputation", "datasource": { "type": "loki", "uid": "loki" } },
         { "expr": "count_over_time({service=\"messaging-service\"} |~ \"(?i)(error|exception)\" [2m])", "legendFormat": "messaging", "datasource": { "type": "loki", "uid": "loki" } },
         { "expr": "count_over_time({service=\"notification-service\"} |~ \"(?i)(error|exception)\" [2m])", "legendFormat": "notification", "datasource": { "type": "loki", "uid": "loki" } },
-        { "expr": "count_over_time({service=\"feed-service\"} |~ \"(?i)(error|exception)\" [2m])", "legendFormat": "feed", "datasource": { "type": "loki", "uid": "loki" } },
         { "expr": "count_over_time({service=\"social-graph-service\"} |~ \"(?i)(error|exception)\" [2m])", "legendFormat": "social-graph", "datasource": { "type": "loki", "uid": "loki" } }
       ],
       "options": { "tooltip": { "mode": "multi" } },
@@ -109,15 +108,6 @@
       "options": { "showTime": true, "enableLogDetails": true, "sortOrder": "Descending", "dedupStrategy": "none" }
     },
     {
-      "id": 6,
-      "title": "Feed Service",
-      "type": "logs",
-      "datasource": { "type": "loki", "uid": "loki" },
-      "gridPos": { "x": 0, "y": 25, "w": 12, "h": 7 },
-      "targets": [{ "expr": "{service=\"feed-service\"}", "datasource": { "type": "loki", "uid": "loki" } }],
-      "options": { "showTime": true, "enableLogDetails": true, "sortOrder": "Descending", "dedupStrategy": "none" }
-    },
-    {
       "id": 7,
       "title": "Social Graph Service",
       "type": "logs",
@@ -158,7 +148,7 @@
       "datasource": { "type": "loki", "uid": "loki" },
       "gridPos": { "x": 0, "y": 40, "w": 24, "h": 9 },
       "targets": [{
-        "expr": "{service=~\"(auth|community|request|reputation|notification|messaging|feed|cleanup|geocoding|social-graph)-service\"} |~ \"(?i)(error|exception|fatal)\"",
+        "expr": "{service=~\"(auth|community|request|reputation|notification|messaging|cleanup|geocoding|social-graph)-service\"} |~ \"(?i)(error|exception|fatal)\"",
         "datasource": { "type": "loki", "uid": "loki" }
       }],
       "options": { "showTime": true, "enableLogDetails": true, "sortOrder": "Descending", "dedupStrategy": "none", "showLabels": true }

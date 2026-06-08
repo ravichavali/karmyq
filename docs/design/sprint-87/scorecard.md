@@ -28,7 +28,7 @@ data-cleanup). "Owning sprint" is where the fix lands in the locked roadmap.
 - **S89** owns promise **1** (community sovereignty: member-home altitude, fission/fusion).
 - **S90** owns promise **3** and deepens **5** (forgetting/profile/trust).
 - **S91** carries the polished web model to **mobile**; **S92** prunes architecture (no promise on the
-  user surface, but removes the feed-service/cleanup-service drift that makes "source of truth" murky).
+  user surface, and Sprint 91 removes the feed view drift by folding it into request-service).
 
 Every row above has a **current** state, a **target** state, and an **owning sprint** — this table is the
 acceptance rubric each of S88–S92 is checked against at its own pre-merge gate.

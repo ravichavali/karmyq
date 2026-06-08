@@ -39,7 +39,7 @@ print_status() {
 # 1. Type Check
 if [ "$MODE" != "e2e" ]; then
   echo -e "${YELLOW}📝 Running TypeScript type check...${NC}"
-  npm run type-check --workspace=services/feed-service --if-present
+  npm run type-check --workspace=services/request-service --if-present
   print_status $? "Type check passed"
   echo ""
 fi
@@ -49,18 +49,18 @@ if [ "$MODE" != "e2e" ]; then
   echo -e "${YELLOW}🧪 Running integration tests...${NC}"
 
   # Check if services are running
-  if ! curl -s http://localhost:3007/health > /dev/null 2>&1; then
-    echo -e "${RED}⚠️  Feed Service not running. Starting services...${NC}"
+  if ! curl -s http://localhost:3003/health > /dev/null 2>&1; then
+    echo -e "${RED}⚠️  Request Service not running. Starting services...${NC}"
     docker-compose -f infrastructure/docker/docker-compose.yml up -d
     echo "Waiting for services to be ready..."
     sleep 10
   fi
 
-  # Run integration tests
-  cd tests
-  npm test integration/feed-service.test.ts 2>&1 | tee /tmp/karmyq-test-output.log
+  # Run request-service feed tests
+  cd services/request-service
+  npm run test:tdd -- --runTestsByPath tests/tdd/sprint-91-feed-router.test.ts 2>&1 | tee /tmp/karmyq-test-output.log
   TEST_RESULT=${PIPESTATUS[0]}
-  cd ..
+  cd ../..
 
   print_status $TEST_RESULT "Integration tests passed"
   echo ""

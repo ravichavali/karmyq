@@ -434,7 +434,7 @@ type UnifiedFeedItem =
 - **Prior-interaction signal reads the decayed edge weight** (`social_graph.trust_edges_live.current_weight`, ADR-011 / `20260526-interaction-halflife`), not a raw count — feed ranking reflects relationship shape, not history ("designed to forget"). `trust_edges_live` is a VIEW (read-only).
 
 **`view=community` specifics (Sprint 86 / ADR-066):**
-- Assembled entirely from request-service's own DB reads — **no feed-service call** (ADR-066 single-source). Texture queries are best-effort (each in try/catch; a failure degrades to "no texture", never breaks the feed).
+- Assembled entirely from request-service's own DB reads — **no external feed service call** (ADR-066 single-source). Texture queries are best-effort (each in try/catch; a failure degrades to "no texture", never breaks the feed).
 - **Requires `community_id`** → `400 COMMUNITY_ID_REQUIRED` if missing. **Caller must be a member** of that community (JWT `communities` claim) → `403 NOT_A_MEMBER` otherwise, before any texture read.
 - `activity` = one community pulse (exchanges completed this week, new members, open-requests count, recent helpers). `story` = recent first-exchange narratives. Never includes a `decision` item.
 
@@ -1100,7 +1100,7 @@ At least one of `urgency` or `note` must be provided (400 if neither is present)
 **Implementation:** `src/routes/requests.ts` (Sprint 25)
 
 #### POST /requests/:id/boost
-Boost a request for 48 hours, adding a +0.3 feed score bonus via the feed-service boost scoring rule (Sprint 36). Admin or moderator.
+Boost a request for 48 hours, adding a +0.3 feed score bonus via the request-service feed ranker (Sprint 36). Admin or moderator.
 
 **Auth:** Caller must be an active admin or moderator of the community (Sprint 64).
 
@@ -1630,6 +1630,81 @@ TEST-ONLY: Force-expire a dibs record regardless of `expires_at`. Sets status to
 ```
 
 **Implementation:** `src/routes/dibs.ts`
+
+### 3.3d Feed View Layer (Sprint 91 / ADR-071)
+
+The personalized activity feed was **folded in from the decommissioned feed-service** (Sprint 91,
+ADR-071). feed-service was a pure read/view layer with no Bull queue, cron, or events, so its five
+live endpoints now serve from request-service under `/requests/feed/*`. The composers + ranker live
+in `src/services/feed/` (`feedComposer.ts`, `socialKarmaFeedComposer.ts`, `basicFeedRanker.ts`); the
+router is `src/routes/feed.ts`, mounted **before** the generic `/requests` router so it isn't
+swallowed by `GET /requests/:id`, with `rateLimiters.relaxed`, `authMiddleware`,
+`optionalTenantMiddleware`, and `dbContextMiddleware(pool)`.
+
+**Schema ownership:** request-service now owns the `feed` schema — `feed.preferences` and
+`feed.dismissed_items` (no migration; the tables stayed in place). `feed.featured_stories` is
+orphaned (it backed a dropped endpoint) and is left in place, not dropped (see ADR-071).
+
+**Social proximity:** the ranker calls social-graph `POST /paths/batch` via `SOCIAL_GRAPH_API_URL`
+(same convention as `dibs.ts`), **forwarding the caller's `Authorization` header** (the old
+`x-user-id` shortcut was dropped). It degrades gracefully (no throw) when social-graph is unavailable.
+
+**Dropped endpoints:** the four dead feed-service endpoints (`GET /feed/requests`,
+`GET /feed/milestones`, `GET /feed/featured-stories`, `GET /feed/mixed`) were **not** carried over —
+they had no frontend caller. They now 404 under request-service.
+
+#### GET /requests/feed
+Ranked personalized feed for the authenticated user. Items are sorted by the ranker's score
+(descending; stable for ties); dismissed items are excluded.
+
+**Authentication:** Required (JWT token)
+
+**Query Parameters:**
+- `limit` (number) - Max items (default: 20)
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "items": [ { "id": "request_uuid", "type": "open_request", "data": {} } ],
+    "count": 1
+  }
+}
+```
+
+**Implementation:** `src/routes/feed.ts` + `src/services/feed/basicFeedRanker.ts`
+
+#### GET /requests/feed/preferences
+Return the caller's feed preferences; returns sensible defaults when no row exists.
+
+**Authentication:** Required (JWT token)
+
+**Implementation:** `src/routes/feed.ts`
+
+#### PUT /requests/feed/preferences
+Upsert the caller's feed preferences (round-trips with GET).
+
+**Authentication:** Required (JWT token)
+
+**Implementation:** `src/routes/feed.ts`
+
+#### POST /requests/feed/dismiss/:itemId
+Dismiss a feed item (writes `feed.dismissed_items`); the item is excluded from the next
+`GET /requests/feed`. `itemId` is `<item_type>_<id>`. Canonical dismiss path (the old frontend
+`/feed/:itemId/dismiss` was retired).
+
+**Authentication:** Required (JWT token)
+
+**Implementation:** `src/routes/feed.ts`
+
+#### GET /requests/feed/community-health
+Community health hero metrics for the `CommunityHealthHero` component. Requires `community_id`
+(`400` if missing); returns `404` for an unknown community.
+
+**Authentication:** Required (JWT token)
+
+**Implementation:** `src/routes/feed.ts` + `src/services/feed/socialKarmaFeedComposer.ts`
 
 ### 3.4 Interaction Feedback (Social Karma v2.0)
 
@@ -2436,7 +2511,7 @@ New admin action endpoints giving community admins direct control over request v
 1. **Boost System** — `POST /requests/:id/boost` / `DELETE /requests/:id/boost`
    - Sets `is_boosted=TRUE` with a 48-hour expiry on `requests.help_requests`
    - New columns added via migration 015: `is_boosted`, `boosted_at`, `boosted_expires_at`, `boosted_by`
-   - Boosted requests receive a +0.3 feed score bonus in the feed-service (capped at 1.0)
+   - Boosted requests receive a +0.3 feed score bonus in the request-service feed ranker (capped at 1.0)
 2. **Propose Match** — `POST /requests/:id/propose-match`
    - Admin can propose a specific community member as a helper
    - Creates a `requests.matches` row with `status='proposed'`

@@ -17,7 +17,7 @@
 | reputation-service | 3004 | ~300 | **YES** | Core - karma system |
 | notification-service | 3005 | ~300 | MAYBE | Could be Bull queue + simple handler |
 | messaging-service | 3006 | ~400 | **YES** | Core - communication |
-| feed-service | 3007 | ~500 | MAYBE | Could be a view layer on request-service |
+| feed view layer | request-service | ~500 | DONE | Folded into request-service in Sprint 91 |
 | cleanup-service | 3008 | ~200 | MAYBE | Could be a cron job |
 | geocoding-service | 3009 | ~300 | MAYBE | Could be frontend-only |
 | social-graph-service | 3010 | ~400 | **YES** | Core - trust paths |
@@ -107,7 +107,7 @@ When frontend builds, it tries to compile:
 - social-graph-service
 
 **Merge into existing services**:
-- `feed-service` -> merge into `request-service` (it's just a view layer)
+- Feed view layer -> merged into `request-service` in Sprint 91
 - `notification-service` -> merge into event handlers in relevant services
 - `cleanup-service` -> PostgreSQL scheduled jobs or single cron container
 - `geocoding-service` -> frontend-only with browser Geolocation API
@@ -188,7 +188,7 @@ When frontend builds, it tries to compile:
 
 ### This Week
 
-1. [ ] Merge feed-service into request-service
+1. [x] Merge feed-service into request-service
 2. [ ] Convert cleanup-service to PostgreSQL cron
 3. [ ] Delete simulation-service, matching-service
 4. [ ] Archive 80% of documentation
@@ -416,7 +416,7 @@ services/
 ### REMOVE/MERGE (6 services)
 ```
 services/
-  feed-service/       # MERGE into request-service
+  request-service/    # Owns /requests/feed after Sprint 91
   notification-service/ # MERGE into event handlers
   cleanup-service/    # REPLACE with pg_cron
   geocoding-service/  # REMOVE (use browser API)
