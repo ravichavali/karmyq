@@ -10,6 +10,7 @@ import {
   updateDibsStatus,
   getPendingDibsForProvider,
   getEligibleCandidates,
+  getMutualAidCandidates,
 } from '../db/dibsDb';
 import { getBestCandidate, getMutualAidBestCandidate } from '../services/dibsScoringService';
 
@@ -103,7 +104,7 @@ router.post('/:id/dibs', authMiddleware, async (req: AuthenticatedRequest, res: 
   try {
     // Fetch the request
     const requestResult = await query(
-      `SELECT id, requester_id, scheduled_for, status FROM requests.help_requests WHERE id = $1`,
+      `SELECT id, requester_id, scheduled_for, status, request_type FROM requests.help_requests WHERE id = $1`,
       [requestId]
     );
 
@@ -144,28 +145,37 @@ router.post('/:id/dibs', authMiddleware, async (req: AuthenticatedRequest, res: 
     );
     const communityIds: string[] = communitiesResult.rows.map((r: any) => r.community_id);
 
-    // Verify the nominated provider is in the eligible candidates list
-    const eligibleCandidates = await getEligibleCandidates(userId, communityIds);
+    // Verify the nominee is eligible. BUG-007 (Option A): a non-service request is
+    // a neighbor first-ask — validate against the mutual-aid candidate pool
+    // (ordinary community members), NOT the provider-only pool, or a neighbor with
+    // no provider profile always 403s (NO_PRIOR_INTERACTION).
+    const isService = request.request_type === 'service';
+    const eligibleCandidates = isService
+      ? await getEligibleCandidates(userId, communityIds)
+      : await getMutualAidCandidates(userId, communityIds);
     const nominatedCandidate = eligibleCandidates.find((c) => c.providerUserId === providerUserId);
 
     if (!nominatedCandidate) {
-      // Determine reason: check if provider exists but is unavailable vs no prior interaction
-      const providerCheck = await query(
-        `SELECT pp.is_available FROM requests.provider_profiles pp WHERE pp.user_id = $1 AND pp.is_active = true LIMIT 1`,
-        [providerUserId]
-      );
+      // Provider availability only applies to the provider pool; neighbors have no
+      // provider profile, so a non-eligible neighbor falls straight to NO_PRIOR_INTERACTION.
+      if (isService) {
+        const providerCheck = await query(
+          `SELECT pp.is_available FROM requests.provider_profiles pp WHERE pp.user_id = $1 AND pp.is_active = true LIMIT 1`,
+          [providerUserId]
+        );
 
-      if (providerCheck.rows.length > 0 && !providerCheck.rows[0].is_available) {
-        return res.status(422).json({
-          success: false,
-          message: 'Provider is not currently available',
-          error: 'PROVIDER_NOT_AVAILABLE',
-        });
+        if (providerCheck.rows.length > 0 && !providerCheck.rows[0].is_available) {
+          return res.status(422).json({
+            success: false,
+            message: 'Provider is not currently available',
+            error: 'PROVIDER_NOT_AVAILABLE',
+          });
+        }
       }
 
       return res.status(403).json({
         success: false,
-        message: 'Provider has no prior completed interaction with requester',
+        message: 'This person has no prior connection with you yet',
         error: 'NO_PRIOR_INTERACTION',
       });
     }

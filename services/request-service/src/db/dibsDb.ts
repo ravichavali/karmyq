@@ -34,6 +34,13 @@ export interface RawCandidate {
   priorInteractions: number;
   trustGraphConnection: 'direct' | 'indirect' | 'none';
   isAvailable: boolean;
+  /**
+   * BUG-007 (Option A): which facet of the platform this candidate represents.
+   * 'provider' for service requests (provider_profiles), 'neighbor' for mutual-aid
+   * requests (ordinary community members). Drives neighbor-vs-provider framing in
+   * the dibs/first-ask UI — a neighbor must never be shown as a "provider."
+   */
+  kind: 'neighbor' | 'provider';
 }
 
 // ── Queries ───────────────────────────────────────────────────────────────────
@@ -126,6 +133,7 @@ export async function getEligibleCandidates(
     priorInteractions: Number(row.priorInteractions),
     trustGraphConnection: row.trustGraphConnection as 'direct' | 'indirect' | 'none',
     isAvailable: Boolean(row.isAvailable),
+    kind: 'provider',
   }));
 }
 
@@ -207,6 +215,7 @@ export async function getMutualAidCandidates(
     priorInteractions: Number(row.priorInteractions),
     trustGraphConnection: row.trustGraphConnection as 'direct' | 'indirect' | 'none',
     isAvailable: true,
+    kind: 'neighbor',
   }));
 }
 

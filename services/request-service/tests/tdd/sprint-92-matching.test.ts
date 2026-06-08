@@ -32,10 +32,24 @@
  */
 
 const mockQuery = jest.fn();
-jest.mock('../../src/database/db', () => ({ query: (...args: any[]) => mockQuery(...args) }));
+const mockClient = { query: jest.fn().mockResolvedValue({ rows: [] }), release: jest.fn() };
+const mockPool = { connect: jest.fn().mockResolvedValue(mockClient) };
+jest.mock('../../src/database/db', () => ({
+  __esModule: true,
+  default: mockPool,
+  query: (...args: any[]) => mockQuery(...args),
+}));
 
 const mockPublishEvent = jest.fn();
 jest.mock('../../src/events/publisher', () => ({ publishEvent: (...args: any[]) => mockPublishEvent(...args) }));
+
+// Pass-through auth that injects the JWT identity from an x-test-user header.
+jest.mock('@karmyq/shared/middleware/auth', () => ({
+  authMiddleware: (req: any, _res: any, next: any) => {
+    req.user = { userId: req.headers['x-test-user'] || 'requester-user', email: 'u@test.com', communities: [] };
+    next();
+  },
+}));
 
 import express from 'express';
 import request from 'supertest';
@@ -117,5 +131,50 @@ describe('Sprint 92 BUG-008: rejecting/accepting a match frees the linked offer(
       typeof sql === 'string' && /help_offers/i.test(sql) && /status\s*=\s*'active'/i.test(sql)
     );
     expect(resetCall).toBeDefined();
+  });
+});
+
+describe('Sprint 92 BUG-007: neighbor first-ask submit validates via the mutual-aid path', () => {
+  async function buildDibsApp() {
+    const { default: dibsRouter } = await import('../../src/routes/dibs');
+    const app = express();
+    app.use(express.json());
+    app.use('/requests', dibsRouter);
+    return app;
+  }
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockPublishEvent.mockResolvedValue(undefined);
+    mockClient.query.mockResolvedValue({ rows: [] });
+    mockPool.connect.mockResolvedValue(mockClient);
+  });
+
+  it('accepts a valid neighbor on a non-service request (validated against auth.users, not provider_profiles)', async () => {
+    const future = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    mockQuery
+      .mockResolvedValueOnce({ rowCount: 1, rows: [{ id: 'req-1', requester_id: 'requester-user', scheduled_for: null, status: 'open', request_type: 'generic' }] }) // request lookup
+      .mockResolvedValueOnce({ rowCount: 0, rows: [] })                                   // getDibsByRequestId → none
+      .mockResolvedValueOnce({ rowCount: 1, rows: [{ community_id: 'c1' }] })             // request_communities
+      .mockResolvedValueOnce({ rows: [{ providerId: 'n1', providerUserId: 'neighbor-user', displayName: 'N', trustScore: 55, priorInteractions: 1, trustGraphConnection: 'direct' }] }) // mutual-aid candidates
+      .mockResolvedValueOnce({ rows: [{ id: 'dibs-1', request_id: 'req-1', requester_id: 'requester-user', provider_user_id: 'neighbor-user', status: 'pending', expires_at: future }] }); // createDibs
+
+    const app = await buildDibsApp();
+    const res = await request(app)
+      .post('/requests/req-1/dibs')
+      .set('x-test-user', 'requester-user')
+      .send({ provider_user_id: 'neighbor-user' });
+
+    // Not a 403 NO_PRIOR_INTERACTION — the neighbor is accepted.
+    expect(res.status).toBe(201);
+    // Proof the branch used the mutual-aid (neighbor) query, not provider-only.
+    const validated = mockQuery.mock.calls.some(([sql]: [string]) =>
+      typeof sql === 'string' && /from\s+auth\.users/i.test(sql)
+    );
+    expect(validated).toBe(true);
+    const usedProviderOnly = mockQuery.mock.calls.some(([sql]: [string]) =>
+      typeof sql === 'string' && /from\s+requests\.provider_profiles/i.test(sql)
+    );
+    expect(usedProviderOnly).toBe(false);
   });
 });

@@ -9,6 +9,7 @@ const base: RawCandidate = {
   priorInteractions: 2,
   trustGraphConnection: 'direct',
   isAvailable: true,
+  kind: 'provider',
 };
 
 describe('filterEligibleCandidates — explore/exploit two-tier', () => {
