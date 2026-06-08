@@ -2476,6 +2476,7 @@ router.get('/health', async (req, res) => {
 
 - **CHANGED**: `PUT /matches/:id/reject` — guard expanded to allow both requester AND responder to reject/withdraw. Previously only the requester could call this endpoint; responders received 403. Error message updated to "Only match participants can reject or withdraw."
 - **CHANGED**: `POST /requests` — now validates `request_type` against `community.community_configs.enabled_request_types` for the target community. If the community has configured enabled types, any request type not in the list is rejected with `400 REQUEST_TYPE_NOT_ENABLED`. Communities with no configured types continue to accept all request types (opt-in enforcement).
+  - **BUG-006 FIX (2026-06-08):** enforcement now only considers **known built-in type names** (`generic|ride|service|event|borrow`). Legacy names from older seed data (`meal_share`, `tool_borrow`, `childcare`, … — init.sql / migrations 011-012) are ignored, so an `enabled_request_types` that contains *only* legacy names reads as unrestricted (accepts any type), matching the empty/null case and the frontend `CommunityConfigEditor` normalization. Previously the raw legacy names were enforced verbatim, 400-ing valid `generic` requests while the admin UI showed all types enabled.
 
 **Version 9.23.0 - Sprint 56 (2026-05-17)**
 
