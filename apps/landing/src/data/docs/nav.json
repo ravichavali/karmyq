@@ -69,6 +69,10 @@
           "href": "/docs/concepts/community-home"
         },
         {
+          "label": "Community and Provider: Two Facets of the Same Person",
+          "href": "/docs/concepts/community-and-provider-two-facets"
+        },
+        {
           "label": "Community Scale: The Fractal Community Model",
           "href": "/docs/concepts/community-scale"
         },
@@ -429,6 +433,10 @@
         {
           "label": "Explore/Exploit Two-Tier Dibs Candidate Selection",
           "href": "/docs/concepts/adr-051-explore-exploit-dibs"
+        },
+        {
+          "label": "Dibs Scope — the Neighbor/Provider First-Ask Seam",
+          "href": "/docs/concepts/adr-072-dibs-scope"
         },
         {
           "label": "Security Hardening — OWASP Top 10 Baseline",

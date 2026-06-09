@@ -102,6 +102,7 @@ When code implementing an ADR is deployed, update the status from `Accepted` →
 - [ADR-069: Data Retention and Forgetting (content anonymization policy)](ADR-069-data-retention-and-forgetting.md) — **Implemented**
 - [ADR-070: Visible Decay Model (decay tiers + re-warming nudge)](ADR-070-visible-decay-model.md) — **Implemented**
 - [ADR-071: Service Consolidation — Fold Feed Service Into Request Service (11→10 services)](ADR-071-service-consolidation-feed-service.md) — **Implemented**
+- [ADR-072: Dibs Scope — the Neighbor/Provider First-Ask Seam](ADR-072-dibs-scope.md) — **Implemented**
 
 ## Creating a New ADR
 

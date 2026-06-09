@@ -22,6 +22,20 @@ For **service requests**, the candidate must also have an active provider profil
 
 If no eligible candidate is found, the dibs prompt is silently skipped and your request posts publicly as normal.
 
+### Neighbour "first ask" vs provider "dibs"
+
+The same mechanic is framed to fit who you're asking, because community and provider are two facets
+of the same person ([Community and Provider: Two Facets](/docs/concepts/community-and-provider-two-facets)):
+
+- On a **service request**, the prompt is a provider **dibs** — a trusted provider gets first right
+  of refusal, shown with their provider trust score.
+- On a **mutual-aid request** (everyday help, rides, borrows, events), the prompt is a neighbour
+  **first ask** — warm, neighbour-framed copy with no "provider" language, offered to a trusted
+  community member you've worked with before.
+
+Either way it's the same private, time-boxed first invitation before your request goes public, and
+either way you can accept a neighbour or a provider as your first-ask without being blocked.
+
 ---
 
 ## How the Window Works

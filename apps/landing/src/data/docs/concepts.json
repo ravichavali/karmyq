@@ -551,6 +551,14 @@
       "status": "implemented",
       "description": "**Status:** Implemented",
       "filename": "ADR-071-service-consolidation-feed-service.md"
+    },
+    {
+      "slug": "adr-072-dibs-scope",
+      "number": "072",
+      "title": "ADR-072: Dibs Scope — the Neighbor/Provider First-Ask Seam",
+      "status": "implemented",
+      "description": "**Status:** Implemented",
+      "filename": "ADR-072-dibs-scope.md"
     }
   ]
 }
