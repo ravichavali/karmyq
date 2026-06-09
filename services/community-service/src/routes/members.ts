@@ -334,6 +334,34 @@ router.put('/:communityId/members/:userId', async (req: Request, res: Response) 
     }
     // callerRole === 'admin': allow all updates
 
+    // Last-admin guard (BUG-001): demoting or deactivating the sole active admin
+    // would leave the community adminless. The DELETE (leave/kick) path already
+    // guards this; the role-update path did not. Block it — assign another admin first.
+    const demotesRole = role !== undefined && role !== 'admin';
+    const deactivates = status !== undefined && status !== 'active';
+    if (demotesRole || deactivates) {
+      const target = await query(
+        `SELECT role, status FROM communities.members
+         WHERE community_id = $1 AND user_id = $2`,
+        [communityId, userId]
+      );
+      const isActiveAdmin =
+        target.rows[0]?.role === 'admin' && target.rows[0]?.status === 'active';
+      if (isActiveAdmin) {
+        const adminCount = await query(
+          `SELECT COUNT(*) as count FROM communities.members
+           WHERE community_id = $1 AND role = 'admin' AND status = 'active'`,
+          [communityId]
+        );
+        if (Number(adminCount.rows[0].count) <= 1) {
+          return res.status(400).json({
+            success: false,
+            message: 'Cannot demote the last admin. Assign another admin first.',
+          });
+        }
+      }
+    }
+
     // Build update query
     const updates: string[] = [];
     const values: any[] = [];
