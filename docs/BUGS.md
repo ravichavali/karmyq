@@ -23,9 +23,23 @@ Providers say "Offer help" — probably should say "Offer service".
 
 ---
 
-## BUG-004 · [2026-06-07] · planned (Sprint 92)
+## BUG-004 · [2026-06-07] · cannot-reproduce (Sprint 92)
 
 Karmyq logo turned into a green dot (the "Karmyq" wordmark text appears to be missing next to the seed dot).
+
+**Investigation (Sprint 92, reproduce-first):** the in-app wordmark is the only surface that
+renders the seed, and it always renders the "Karmyq" text beside it —
+[Layout.tsx:116-118](../apps/frontend/src/components/Layout.tsx) (`.kq-wordmark` → `.kq-wordmark-seed`
+span + the literal text "Karmyq"). The CSS gives the text high contrast — `text-primary-dark`
+(#245621 dark green) on a `bg-surface-raised` (#fdfcf9 warm-white) topbar — with a `Georgia, serif`
+fallback if the Fraunces webfont fails, so the text is never invisible. There is no standalone
+"seed-only" logo component anywhere in `apps/frontend/src`, and there is no dark theme that could
+collapse the text colour into the background. Auth pages (`/`, `/login`, `/register`) suppress the
+whole topbar, so they show no wordmark at all — not "just a dot." The browser-tab favicon
+(`public/favicon.svg`) is intentionally a mark-only constellation of green circles (a favicon can't
+legibly carry a wordmark; the full wordmark lives in `public/brand/karmyq-wordmark.svg`) — the most
+likely source of "the logo is a green dot." No reproducible defect in the app wordmark; marking
+`cannot-reproduce` rather than blind-editing a correct component (per the sprint plan).
 
 ---
 
