@@ -5,21 +5,37 @@ Status is `open` at capture; planning sessions hand-edit to `planned` or `fixed`
 
 ---
 
-## BUG-001 · [2026-06-07] · planned (Sprint 92)
+## BUG-001 · [2026-06-07] · fixed
 
 https://karmyq.com/communities/ec1b8b22-c0f3-43ce-a13e-ada6b76a0553 doesn't have an admin.
 
+**Fixed (Sprint 92, branch `feature/sprint-92-matching-repair`):** idempotent data-repair migration
+`infrastructure/postgres/migrations/20260608-backfill-community-admins.sql` promotes an admin for
+every adminless community (creator_id if active, else earliest-joined active member); plus a
+last-admin guard on `PUT /communities/:id/members/:userId` blocking demotion/deactivation of the
+sole active admin. Test: `services/community-service/tests/tdd/sprint-92-last-admin-guard.test.ts`.
+
 ---
 
-## BUG-002 · [2026-06-07] · planned (Sprint 92)
+## BUG-002 · [2026-06-07] · fixed
 
 Feed: when there are no more open requests, a reload seems to show already-offered requests.
 
+**Fixed (Sprint 92, branch `feature/sprint-92-matching-repair`):** every browsable open-request query
+(GET /requests, curated feed, sister-community feed) now excludes requests where the viewer already
+has a live (proposed/matched) match as responder. Server-side only. Test:
+`services/request-service/tests/regression/sprint-92-feed-exclusion.test.ts`.
+
 ---
 
-## BUG-003 · [2026-06-07] · planned (Sprint 92)
+## BUG-003 · [2026-06-07] · fixed
 
 Providers say "Offer help" — probably should say "Offer service".
+
+**Fixed (Sprint 92, branch `feature/sprint-92-matching-repair`):** the shared RequestCard offer
+button reads "Offer service" for a service (provider-context) request and keeps "Offer to Help" for
+mutual-aid — branched on `request_type === 'service'`, not a blanket replace. Test:
+`apps/frontend/tests/tdd/sprint-92-provider-copy.test.tsx`.
 
 ---
 
@@ -43,9 +59,15 @@ likely source of "the logo is a green dot." No reproducible defect in the app wo
 
 ---
 
-## BUG-005 · [2026-06-07] · planned (Sprint 92)
+## BUG-005 · [2026-06-07] · fixed
 
 "Mark as done" isn't triggering the ability to rate (completing an exchange should unlock the rating flow, but doesn't).
+
+**Fixed (Sprint 92, branch `feature/sprint-92-matching-repair`):** both the Dashboard DecisionBand
+and the CommitmentsTab now fire the rating prompt on the same signal — the completeMatch transition
+to `fully_completed` — via a shared `utils/completion.ts` + shared `RatingPrompt`. A one-sided done
+no longer prompts; the Dashboard unlocks rating in place on full completion. Test:
+`apps/frontend/tests/tdd/sprint-92-completion-rating.test.tsx`.
 
 ---
 
@@ -57,15 +79,23 @@ Request creation fails with "Request type 'generic' is not enabled in this commu
 
 ---
 
-## BUG-007 · [2026-06-08] · planned (Sprint 92)
+## BUG-007 · [2026-06-08] · fixed
 
 Dibs shows up a provider when it is a request for a neighbor. I think this is the wrong behavior.
 
+**Fixed (Sprint 92, branch `feature/sprint-92-matching-repair`, ADR-072 Option A reframe):** dibs
+candidates carry a `kind: 'neighbor' | 'provider'` discriminator; the submit path validates a
+non-service nominee via the mutual-aid pool (no more spurious `NO_PRIOR_INTERACTION`); DibsPrompt
+shows neighbour-framed copy + warm visual for neighbours. Tests:
+`services/request-service/tests/unit/dibs-candidate-kind.test.ts`,
+`services/request-service/tests/tdd/sprint-92-matching.test.ts` (submit path),
+`apps/frontend/tests/tdd/sprint-92-dibs-prompt.test.tsx`.
+
 ---
 
-## BUG-008 · [2026-06-08] · planned (Sprint 92)
+## BUG-008 · [2026-06-08] · fixed
 
-Request matching logic seems broken.
+Request matching logic seems broken. — **fixed** (Sprint 92, branch `feature/sprint-92-matching-repair`).
 
 **Root cause (Sprint 92 diagnosis, systematic-debugging):** the match lifecycle strands
 `requests.help_offers` rows in `'matched'` state. Creating a match sets the linked offer to

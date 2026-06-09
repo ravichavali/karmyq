@@ -2615,7 +2615,28 @@ CREATE TABLE auth.user_interests (
 - `payload = {}` for backward compatibility
 - No breaking changes to existing API contracts
 
-### 10.4 Known Issues
+### 10.4 Recent Fixes
+
+**Sprint 92 — Matching & Dibs Repair (v11.1.0, branch `feature/sprint-92-matching-repair`):**
+
+- **BUG-008 — stranded `help_offers` on match reject/accept.** Creating a match set the linked offer
+  to `'matched'`, but only the cancel path restored it to `'active'`. `PUT /matches/:id/reject` and
+  the `accept` path's sibling rejection now free the linked offer(s) back to `'active'`, so a
+  reopened request is re-matchable and freed helpers re-enter the pool.
+  Test: `tests/tdd/sprint-92-matching.test.ts`.
+- **BUG-007 — dibs neighbor/provider framing (ADR-072 Option A).** Candidates carry a
+  `kind: 'neighbor' | 'provider'` discriminator (`getMutualAidCandidates` vs `getEligibleCandidates`);
+  `POST /requests/:id/dibs` validates a non-service nominee against the mutual-aid pool (no spurious
+  `NO_PRIOR_INTERACTION`). Tests: `tests/unit/dibs-candidate-kind.test.ts`,
+  `tests/tdd/sprint-92-matching.test.ts`.
+- **BUG-005 — completion → rating unification.** The decisions feed (`fetchDecisions`) now returns
+  `counterparty_id` + `community_id` so the Dashboard can attribute a rating; the rating prompt fires
+  on `fully_completed` from both surfaces (frontend shared helper).
+- **BUG-002 — feed excludes the viewer's already-engaged requests.** Every browsable open-request
+  query excludes requests where the viewer has a live (proposed/matched) match as responder.
+  Test: `tests/regression/sprint-92-feed-exclusion.test.ts`.
+
+### 10.5 Known Issues
 
 **Current Issues (v9.0.0):**
 
