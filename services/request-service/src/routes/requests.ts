@@ -196,6 +196,14 @@ router.get('/matched/for-user', async (req: Request, res: Response) => {
         AND m.user_id = $1
         AND m.status = 'active'
         AND r.requester_id != $1
+        -- BUG-002: hide requests the viewer already has a live offer/match on, so a
+        -- request they already engaged never reappears as browsable on reload.
+        AND NOT EXISTS (
+          SELECT 1 FROM requests.matches m_self
+          WHERE m_self.request_id = r.id
+            AND m_self.responder_id = $1
+            AND m_self.status IN ('proposed', 'matched')
+        )
         AND EXISTS (
           -- Match request category to user skills
           SELECT 1 FROM auth.user_skills s
@@ -397,6 +405,13 @@ async function handleCuratedFeed(req: Request, res: Response): Promise<void> {
       WHERE r.status = 'open'
         AND r.expired = FALSE
         AND r.requester_id != $1
+        -- BUG-002: hide requests the viewer already has a live offer/match on.
+        AND NOT EXISTS (
+          SELECT 1 FROM requests.matches m_self
+          WHERE m_self.request_id = r.id
+            AND m_self.responder_id = $1
+            AND m_self.status IN ('proposed', 'matched')
+        )
         AND (
           -- Tier 1: User's communities (always included)
           EXISTS (
@@ -488,6 +503,13 @@ async function handleCuratedFeed(req: Request, res: Response): Promise<void> {
            WHERE r.status = 'open'
              AND r.expired = FALSE
              AND r.requester_id != $1
+             -- BUG-002: hide requests the viewer already has a live offer/match on.
+             AND NOT EXISTS (
+               SELECT 1 FROM requests.matches m_self
+               WHERE m_self.request_id = r.id
+                 AND m_self.responder_id = $1
+                 AND m_self.status IN ('proposed', 'matched')
+             )
              AND rc.community_id = ANY($2::uuid[])
              AND r.id != ALL($3::uuid[])
            GROUP BY r.id, r.requester_id, r.title, r.description, r.category, r.urgency,
