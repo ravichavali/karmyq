@@ -69,19 +69,28 @@ judgment; the client renders it, it does not recompute it.
   ```
 
   `relationshipContext` is computed from completed matches between the two people (count, most
-  recent timestamp, whether any shared this request's category). `reason` is derived from the facet
-  + history: `provider_match` for service requests; `prior_similar_success` for a neighbour with a
-  prior completed match in the same category; otherwise `trusted_neighbor`. The UI renders the
-  judgment ("You've worked with Maya on something similar before — ask them first?") instead of
-  re-deriving the rules client-side.
+  recent timestamp, whether any shared this request's task-similarity key). `reason` is derived from
+  the facet + history: `provider_match` for service requests; `prior_similar_success` for a neighbour
+  with a prior completed match sharing the similarity key; otherwise `trusted_neighbor`. The UI
+  renders the judgment ("You've worked with Maya on something similar before — ask them first?")
+  instead of re-deriving the rules client-side.
 
 - **Candidate selection routes by similarity, not just total interactions.** The scorer adds a
-  heavily-weighted term for completed matches with the requester in the **same category** as the
-  request (`similarPriorInteractions`, computed per-candidate in `getEligibleCandidates` /
-  `getMutualAidCandidates` from the request's category). One prior similar task (+40) outweighs the
+  heavily-weighted term for completed matches with the requester sharing the request's
+  **task-similarity key** (`similarPriorInteractions`, computed per-candidate in
+  `getEligibleCandidates` / `getMutualAidCandidates`). One prior similar task (+40) outweighs the
   entire unrelated-interaction component (max ≈ 35), so a single prior similar success beats someone
   with many unrelated interactions — the routing *implements* the "send a similar future ask to
   someone you've done a similar task with" intent, rather than only explaining it after selection.
+
+- **The similarity key is canonical, not the raw `category` column.** New rows store the coarse
+  `request_type` in the legacy `category` column, so comparing raw categories would make "similar"
+  mean "both service" rather than "both plumbing". `deriveSimilarityKey` (TS) and
+  `SIMILARITY_KEY_SQL` (its SQL twin) resolve the finest task key available —
+  `payload.service_category` ('plumbing', 'tutoring', …) for service, `payload.item_category`
+  ('tools', …) for borrow, falling back to `category` for types with no finer subtype (ride / event
+  / generic) and for legacy rows whose `category` holds skill tokens. Candidate routing,
+  `POST /dibs` validation, and `relationshipContext.similarCategory` all compare on this one key.
 
 ### 3. One completion → rating source of truth
 

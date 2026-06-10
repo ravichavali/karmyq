@@ -2633,7 +2633,11 @@ CREATE TABLE auth.user_interests (
   (`priorCompletedMatches`/`lastInteractionAt`/`similarCategory`) so the UI renders the relationship
   judgment rather than recomputing it (ADR-072 §2 — server-side relationship routing). Candidate
   **selection** also routes by similarity: the scorer weights `similarPriorInteractions` (completed
-  matches in the request's category) so one prior similar task outranks many unrelated interactions.
+  matches sharing the request's task-similarity key — `deriveSimilarityKey`/`SIMILARITY_KEY_SQL`:
+  payload subtype like `service_category`/`item_category` when present, else `category`) so one
+  prior similar task outranks many unrelated interactions. Match `accept` AND `reject` are
+  race-serialized (request-row `FOR UPDATE` + conditional status update → 409 on a lost race), and
+  the dibs INSERT runs on the same transaction as the `dibs_pending` transition.
   Tests:
   `tests/unit/dibs-candidate-kind.test.ts`, `tests/regression/sprint-52-trust-path.test.ts`,
   `tests/tdd/sprint-92-matching.test.ts`.

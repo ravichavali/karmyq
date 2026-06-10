@@ -101,7 +101,8 @@ describe('Sprint 92 BUG-008: rejecting/accepting a match frees the linked offer(
   it('reject: restores the linked help_offer to active so the helper re-enters the pool', async () => {
     mockQuery
       .mockResolvedValueOnce({ rowCount: 1, rows: [PROPOSED_MATCH] }) // matchCheck (must expose offer_id)
-      .mockResolvedValueOnce({ rowCount: 1, rows: [] })               // UPDATE matches status='rejected'
+      .mockResolvedValueOnce({ rowCount: 1, rows: [{ id: 'req-1' }] })// SELECT request FOR UPDATE
+      .mockResolvedValueOnce({ rowCount: 1, rows: [] })               // conditional UPDATE matches status='rejected'
       .mockResolvedValueOnce({ rowCount: 1, rows: [] })               // UPDATE help_offers status='active'
       .mockResolvedValueOnce({ rowCount: 1, rows: [{ count: '0' }] }) // remaining proposed = 0 → reopen
       .mockResolvedValueOnce({ rowCount: 1, rows: [] });              // UPDATE help_requests status='open'
@@ -135,6 +136,25 @@ describe('Sprint 92 BUG-008: rejecting/accepting a match frees the linked offer(
       typeof sql === 'string' && /help_offers/i.test(sql) && /status\s*=\s*'active'/i.test(sql)
     );
     expect(resetCall).toBeDefined();
+  });
+
+  it('reject: returns 409 and mutates nothing when the match already left proposed (raced an accept)', async () => {
+    mockQuery
+      .mockResolvedValueOnce({ rowCount: 1, rows: [PROPOSED_MATCH] }) // matchCheck (stale read: accept landed after)
+      .mockResolvedValueOnce({ rowCount: 1, rows: [{ id: 'req-1' }] })// SELECT request FOR UPDATE
+      .mockResolvedValueOnce({ rowCount: 0, rows: [] });              // conditional reject matched 0 rows → conflict
+
+    const app = await buildMatchesApp('helper-user');
+    const res = await request(app).put('/matches/match-1/reject').send({});
+
+    expect(res.status).toBe(409);
+    expect(res.body.error).toBe('MATCH_NOT_PROPOSED');
+    // A lost reject race must not free the offer, reopen the request, or publish.
+    expect(mockPublishEvent).not.toHaveBeenCalled();
+    const mutation = mockQuery.mock.calls.find(([sql]: [string]) =>
+      typeof sql === 'string' && /UPDATE requests\.(help_offers|help_requests)/i.test(sql)
+    );
+    expect(mutation).toBeUndefined();
   });
 
   it('accept: returns 409 when a sibling won the race (conditional update matches 0 rows)', async () => {

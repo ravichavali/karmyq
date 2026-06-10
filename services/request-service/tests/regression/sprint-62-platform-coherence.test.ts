@@ -49,6 +49,7 @@ describe('Sprint 62: Withdraw Offer (PUT /matches/:id/reject)', () => {
   it('allows requester to reject a match', async () => {
     mockQuery
       .mockResolvedValueOnce({ rowCount: 1, rows: [BASE_MATCH] })          // matchCheck
+      .mockResolvedValueOnce({ rowCount: 1, rows: [{ id: 'req-1' }] })     // SELECT request FOR UPDATE
       .mockResolvedValueOnce({ rowCount: 1, rows: [] })                    // UPDATE status='rejected'
       .mockResolvedValueOnce({ rowCount: 1, rows: [{ count: '1' }] });    // remaining proposed (> 0, skip reopen)
 
@@ -63,6 +64,7 @@ describe('Sprint 62: Withdraw Offer (PUT /matches/:id/reject)', () => {
   it('allows responder to withdraw their offer', async () => {
     mockQuery
       .mockResolvedValueOnce({ rowCount: 1, rows: [BASE_MATCH] })          // matchCheck
+      .mockResolvedValueOnce({ rowCount: 1, rows: [{ id: 'req-1' }] })     // SELECT request FOR UPDATE
       .mockResolvedValueOnce({ rowCount: 1, rows: [] })                    // UPDATE status='rejected'
       .mockResolvedValueOnce({ rowCount: 1, rows: [{ count: '1' }] });    // remaining proposed (> 0, skip reopen)
 

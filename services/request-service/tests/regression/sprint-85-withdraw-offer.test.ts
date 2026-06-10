@@ -51,7 +51,8 @@ describe('Sprint 85: decision-band Withdraw Offer (PUT /matches/:id/reject)', ()
   it('lets the responder withdraw their only offer AND reopens the request', async () => {
     mockQuery
       .mockResolvedValueOnce({ rowCount: 1, rows: [PROPOSED_MATCH] }) // matchCheck
-      .mockResolvedValueOnce({ rowCount: 1, rows: [] })              // UPDATE matches SET status='rejected'
+      .mockResolvedValueOnce({ rowCount: 1, rows: [{ id: 'req-1' }] })// SELECT request FOR UPDATE (race serialization)
+      .mockResolvedValueOnce({ rowCount: 1, rows: [] })              // conditional UPDATE matches SET status='rejected'
       .mockResolvedValueOnce({ rowCount: 1, rows: [{ count: '0' }] })// no remaining proposed → reopen
       .mockResolvedValueOnce({ rowCount: 1, rows: [] });             // UPDATE help_requests SET status='open'
 
@@ -83,7 +84,8 @@ describe('Sprint 85: decision-band Withdraw Offer (PUT /matches/:id/reject)', ()
   it('does NOT reopen the request when other proposed offers remain', async () => {
     mockQuery
       .mockResolvedValueOnce({ rowCount: 1, rows: [PROPOSED_MATCH] }) // matchCheck
-      .mockResolvedValueOnce({ rowCount: 1, rows: [] })              // UPDATE matches SET status='rejected'
+      .mockResolvedValueOnce({ rowCount: 1, rows: [{ id: 'req-1' }] })// SELECT request FOR UPDATE (race serialization)
+      .mockResolvedValueOnce({ rowCount: 1, rows: [] })              // conditional UPDATE matches SET status='rejected'
       .mockResolvedValueOnce({ rowCount: 1, rows: [{ count: '2' }] });// other proposed remain → no reopen
 
     const app = await buildMatchesApp('helper-user');

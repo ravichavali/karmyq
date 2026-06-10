@@ -1,6 +1,6 @@
 import { Router, Response } from 'express';
 import { authMiddleware, AuthenticatedRequest } from '@karmyq/shared/middleware/auth';
-import { query } from '../database/db';
+import { query, withTransaction } from '../database/db';
 import pool from '../database/db';
 import { publishEvent } from '../events/publisher';
 import {
@@ -12,6 +12,7 @@ import {
   getEligibleCandidates,
   getMutualAidCandidates,
   getRelationshipContext,
+  deriveSimilarityKey,
   RelationshipContext,
 } from '../db/dibsDb';
 import { getBestCandidate, getMutualAidBestCandidate } from '../services/dibsScoringService';
@@ -42,7 +43,7 @@ router.get('/:id/dibs-candidate', authMiddleware, async (req: AuthenticatedReque
   try {
     // Fetch the request
     const requestResult = await query(
-      `SELECT id, requester_id, scheduled_for, request_type, category FROM requests.help_requests WHERE id = $1`,
+      `SELECT id, requester_id, scheduled_for, request_type, category, payload FROM requests.help_requests WHERE id = $1`,
       [requestId]
     );
 
@@ -67,9 +68,13 @@ router.get('/:id/dibs-candidate', authMiddleware, async (req: AuthenticatedReque
     // BUG-007: derive provider-vs-neighbor from the PERSISTED request_type so the GET
     // candidate framing can never disagree with the POST /dibs submit validation (which
     // also keys off the stored request_type). The legacy ?type= query param is ignored.
+    // ADR-072: routing compares on the task-similarity key (payload subtype when one
+    // exists, e.g. service_category 'plumbing'), not the raw category column — new rows
+    // store the coarse request_type there, which would make "similar" mean "both service".
+    const similarityKey = deriveSimilarityKey(request);
     const candidate = request.request_type === 'service'
-      ? await getBestCandidate(userId, communityIds, request.category ?? null)
-      : await getMutualAidBestCandidate(userId, communityIds, request.category ?? null);
+      ? await getBestCandidate(userId, communityIds, similarityKey)
+      : await getMutualAidBestCandidate(userId, communityIds, similarityKey);
 
     let trustPath: object | null = null;
     let relationshipContext: RelationshipContext | null = null;
@@ -80,7 +85,7 @@ router.get('/:id/dibs-candidate', authMiddleware, async (req: AuthenticatedReque
       // first-ask (prior similar success / trusted neighbour / provider match) from
       // stored relationship history, so the UI renders the server's judgment rather
       // than recreating the rules. Same facet rules as POST /dibs.
-      relationshipContext = await getRelationshipContext(userId, candidate.providerUserId, request.category ?? null);
+      relationshipContext = await getRelationshipContext(userId, candidate.providerUserId, similarityKey);
       reason = deriveDibsReason(candidate.kind, relationshipContext);
 
       try {
@@ -132,7 +137,7 @@ router.post('/:id/dibs', authMiddleware, async (req: AuthenticatedRequest, res: 
   try {
     // Fetch the request
     const requestResult = await query(
-      `SELECT id, requester_id, scheduled_for, status, request_type, category FROM requests.help_requests WHERE id = $1`,
+      `SELECT id, requester_id, scheduled_for, status, request_type, category, payload FROM requests.help_requests WHERE id = $1`,
       [requestId]
     );
 
@@ -179,8 +184,8 @@ router.post('/:id/dibs', authMiddleware, async (req: AuthenticatedRequest, res: 
     // no provider profile always 403s (NO_PRIOR_INTERACTION).
     const isService = request.request_type === 'service';
     const eligibleCandidates = isService
-      ? await getEligibleCandidates(userId, communityIds, request.category ?? null)
-      : await getMutualAidCandidates(userId, communityIds, request.category ?? null);
+      ? await getEligibleCandidates(userId, communityIds, deriveSimilarityKey(request))
+      : await getMutualAidCandidates(userId, communityIds, deriveSimilarityKey(request));
     const nominatedCandidate = eligibleCandidates.find((c) => c.providerUserId === providerUserId);
 
     if (!nominatedCandidate) {
@@ -222,26 +227,19 @@ router.post('/:id/dibs', authMiddleware, async (req: AuthenticatedRequest, res: 
       expiresAt = new Date(now.getTime() + DIBS_FIXED_WINDOW_MS);
     }
 
-    // Wrap dibs creation and request status update in a transaction
-    const client = await pool.connect();
-    let dibsRecord: any;
-    try {
-      await client.query('BEGIN');
+    // Dibs insert + request status transition commit or roll back together. The insert
+    // must run on the SAME transaction client (passed as `q`) — on the pool it would
+    // survive a rollback of the status update, leaving an orphaned dibs row.
+    const dibsRecord = await withTransaction(async (q) => {
+      const created = await createDibs(requestId, userId, providerUserId, expiresAt, q);
 
-      dibsRecord = await createDibs(requestId, userId, providerUserId, expiresAt);
-
-      await client.query(
+      await q(
         `UPDATE requests.help_requests SET status = 'dibs_pending' WHERE id = $1`,
         [requestId]
       );
 
-      await client.query('COMMIT');
-    } catch (txErr) {
-      await client.query('ROLLBACK');
-      throw txErr;
-    } finally {
-      client.release();
-    }
+      return created;
+    });
 
     // Publish event (best-effort — Redis outage must not fail the dibs creation)
     try {

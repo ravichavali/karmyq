@@ -455,13 +455,26 @@ router.put('/:id/reject', async (req: AuthenticatedRequest, res: Response) => {
     // Atomic reject: mark rejected → free the linked offer → reopen the request when
     // no proposed matches remain, all in one transaction so a mid-sequence failure
     // can't strand the offer or split match/request state.
-    await withTransaction(async (q) => {
+    const rejected = await withTransaction(async (q) => {
+      // Serialize against a concurrent accept on the same request (accept locks the
+      // same row), so reject can never run between accept's read and commit.
       await q(
+        `SELECT id FROM requests.help_requests WHERE id = $1 FOR UPDATE`,
+        [match.request_id]
+      );
+
+      // Reject only while still proposed. Without the status guard a reject racing an
+      // accept could flip an accepted (or completed) match back to 'rejected' and
+      // reopen a request that is already matched.
+      const result = await q(
         `UPDATE requests.matches
          SET status = 'rejected'
-         WHERE id = $1`,
+         WHERE id = $1 AND status = 'proposed'`,
         [id]
       );
+      if (result.rowCount === 0) {
+        return false;
+      }
 
       // Free the linked offer back to the active pool so the helper re-enters
       // matching (mirrors the cancel path). Without this the offer is stranded in
@@ -480,14 +493,26 @@ router.put('/:id/reject', async (req: AuthenticatedRequest, res: Response) => {
         [match.request_id]
       );
 
-      // If no more proposed matches, reopen the request
+      // If no more proposed matches, reopen the request — but never reopen one that a
+      // concurrent accept just transitioned to 'matched'.
       if (remainingMatches.rows[0].count === '0') {
         await q(
-          `UPDATE requests.help_requests SET status = 'open' WHERE id = $1`,
+          `UPDATE requests.help_requests SET status = 'open' WHERE id = $1 AND status != 'matched'`,
           [match.request_id]
         );
       }
+      return true;
     });
+
+    // The match left 'proposed' before we got the lock (accepted/completed/cancelled
+    // concurrently, or already rejected) — nothing to reject.
+    if (!rejected) {
+      return res.status(409).json({
+        success: false,
+        message: 'Match is no longer awaiting a response',
+        error: 'MATCH_NOT_PROPOSED',
+      });
+    }
 
     // Publish event
     await publishEvent('match_rejected', {

@@ -128,9 +128,9 @@ export function rankCandidates(candidates: RawCandidate[]): ScoredCandidate[] {
 export async function getBestCandidate(
   requesterId: string,
   communityIds: string[],
-  category: string | null = null
+  similarityKey: string | null = null
 ): Promise<ScoredCandidate | null> {
-  const candidates = await getEligibleCandidates(requesterId, communityIds, category);
+  const candidates = await getEligibleCandidates(requesterId, communityIds, similarityKey);
   if (candidates.length === 0) return null;
 
   const ranked = rankCandidates(candidates);
@@ -146,9 +146,9 @@ export async function getBestCandidate(
 export async function getMutualAidBestCandidate(
   requesterId: string,
   communityIds: string[],
-  category: string | null = null
+  similarityKey: string | null = null
 ): Promise<ScoredCandidate | null> {
-  const candidates = await getMutualAidCandidates(requesterId, communityIds, category);
+  const candidates = await getMutualAidCandidates(requesterId, communityIds, similarityKey);
   if (candidates.length === 0) return null;
   const ranked = rankCandidates(candidates);
   return ranked[0] ?? null;
