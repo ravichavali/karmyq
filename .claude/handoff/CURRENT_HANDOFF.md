@@ -1,7 +1,16 @@
-# Sprint 92 — Matching & Dibs Repair + Bug Sweep — 📋 READY TO EXECUTE (v11.0.0 → v11.1.0)
+# Sprint 92 — Matching & Dibs Repair + Bug Sweep — ✅ IMPLEMENTED, awaiting PR review (v11.0.0 → v11.1.0)
 
-> **▶ STATUS (2026-06-08):** Sprint 92 **planned, not started.** Spec + plan written; this handoff
-> is the execution entry point. Sprint 91 (service consolidation, v11.0.0) is complete and live.
+> **▶ STATUS (2026-06-09):** Sprint 92 **implemented on `feature/sprint-92-matching-repair`** — all
+> 8 bugs addressed (BUG-001/002/003/005/007/008 fixed with tests; BUG-004 cannot-reproduce; BUG-006
+> was already fixed in S91). All four SDLC gates run; full suite green; version bumped to 11.1.0.
+> **Next:** open the PR, maintainer reviews + merges ("pull it in"), GitHub Actions deploys to demo,
+> then run the post-deploy smoke (incl. applying the admin-backfill migration). Sprint 91 (v11.0.0)
+> is live.
+>
+> **Per-bug result:** BUG-008 stranded-offer lifecycle fix (matches.ts) · BUG-007 neighbor/provider
+> dibs reframe (ADR-072 Option A) · BUG-005 unified completion→rating (shared util + RatingPrompt) ·
+> BUG-002 feed excludes already-engaged requests · BUG-001 admin backfill migration + last-admin
+> guard · BUG-003 provider "Offer service" copy · BUG-004 cannot-reproduce (documented in BUGS.md).
 
 **Sprint goal (one sentence):** Root-cause and fix the matching/dibs/completion seam (BUG-007,
 BUG-008, BUG-005) and sweep the remaining open bug backlog (BUG-002, BUG-001, BUG-003, BUG-004),
