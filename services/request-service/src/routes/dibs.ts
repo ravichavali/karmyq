@@ -1,6 +1,6 @@
 import { Router, Response } from 'express';
 import { authMiddleware, AuthenticatedRequest } from '@karmyq/shared/middleware/auth';
-import { query } from '../database/db';
+import { query, withTransaction } from '../database/db';
 import pool from '../database/db';
 import { publishEvent } from '../events/publisher';
 import {
@@ -10,8 +10,24 @@ import {
   updateDibsStatus,
   getPendingDibsForProvider,
   getEligibleCandidates,
+  getMutualAidCandidates,
+  getRelationshipContext,
+  deriveSimilarityKey,
+  RelationshipContext,
 } from '../db/dibsDb';
 import { getBestCandidate, getMutualAidBestCandidate } from '../services/dibsScoringService';
+
+/**
+ * Why this candidate is the first-ask (ADR-072). Derived server-side from the
+ * candidate's facet + relationship history so the UI renders the judgment, not the rules.
+ */
+type DibsReason = 'prior_similar_success' | 'trusted_neighbor' | 'provider_match';
+
+function deriveDibsReason(kind: 'neighbor' | 'provider', ctx: RelationshipContext): DibsReason {
+  if (kind === 'provider') return 'provider_match';
+  if (ctx.priorCompletedMatches >= 1 && ctx.similarCategory) return 'prior_similar_success';
+  return 'trusted_neighbor';
+}
 
 const router = Router();
 
@@ -27,7 +43,7 @@ router.get('/:id/dibs-candidate', authMiddleware, async (req: AuthenticatedReque
   try {
     // Fetch the request
     const requestResult = await query(
-      `SELECT id, requester_id, scheduled_for FROM requests.help_requests WHERE id = $1`,
+      `SELECT id, requester_id, scheduled_for, request_type, category, payload FROM requests.help_requests WHERE id = $1`,
       [requestId]
     );
 
@@ -49,14 +65,29 @@ router.get('/:id/dibs-candidate', authMiddleware, async (req: AuthenticatedReque
     );
     const communityIds: string[] = communitiesResult.rows.map((r: any) => r.community_id);
 
-    const requestType = req.query.type as string | undefined;
-    const candidate = requestType === 'service'
-      ? await getBestCandidate(userId, communityIds)
-      : await getMutualAidBestCandidate(userId, communityIds);
+    // BUG-007: derive provider-vs-neighbor from the PERSISTED request_type so the GET
+    // candidate framing can never disagree with the POST /dibs submit validation (which
+    // also keys off the stored request_type). The legacy ?type= query param is ignored.
+    // ADR-072: routing compares on the task-similarity key (payload subtype when one
+    // exists, e.g. service_category 'plumbing'), not the raw category column — new rows
+    // store the coarse request_type there, which would make "similar" mean "both service".
+    const similarityKey = deriveSimilarityKey(request);
+    const candidate = request.request_type === 'service'
+      ? await getBestCandidate(userId, communityIds, similarityKey)
+      : await getMutualAidBestCandidate(userId, communityIds, similarityKey);
 
     let trustPath: object | null = null;
+    let relationshipContext: RelationshipContext | null = null;
+    let reason: DibsReason | null = null;
 
     if (candidate) {
+      // ADR-072: server-side relationship routing — compute WHY this person is the
+      // first-ask (prior similar success / trusted neighbour / provider match) from
+      // stored relationship history, so the UI renders the server's judgment rather
+      // than recreating the rules. Same facet rules as POST /dibs.
+      relationshipContext = await getRelationshipContext(userId, candidate.providerUserId, similarityKey);
+      reason = deriveDibsReason(candidate.kind, relationshipContext);
+
       try {
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 3000);
@@ -79,7 +110,10 @@ router.get('/:id/dibs-candidate', authMiddleware, async (req: AuthenticatedReque
       }
     }
 
-    return res.json({ success: true, data: candidate ? { ...candidate, trustPath } : null });
+    return res.json({
+      success: true,
+      data: candidate ? { ...candidate, trustPath, reason, relationshipContext } : null,
+    });
   } catch (err: any) {
     (req as any).logger?.error('[dibs] Error fetching dibs candidate', err instanceof Error ? err : new Error(String(err)), { service: 'request-service' });
     return res.status(500).json({ success: false, message: 'Failed to fetch dibs candidate', error: err.message });
@@ -103,7 +137,7 @@ router.post('/:id/dibs', authMiddleware, async (req: AuthenticatedRequest, res: 
   try {
     // Fetch the request
     const requestResult = await query(
-      `SELECT id, requester_id, scheduled_for, status FROM requests.help_requests WHERE id = $1`,
+      `SELECT id, requester_id, scheduled_for, status, request_type, category, payload FROM requests.help_requests WHERE id = $1`,
       [requestId]
     );
 
@@ -144,28 +178,37 @@ router.post('/:id/dibs', authMiddleware, async (req: AuthenticatedRequest, res: 
     );
     const communityIds: string[] = communitiesResult.rows.map((r: any) => r.community_id);
 
-    // Verify the nominated provider is in the eligible candidates list
-    const eligibleCandidates = await getEligibleCandidates(userId, communityIds);
+    // Verify the nominee is eligible. BUG-007 (Option A): a non-service request is
+    // a neighbor first-ask — validate against the mutual-aid candidate pool
+    // (ordinary community members), NOT the provider-only pool, or a neighbor with
+    // no provider profile always 403s (NO_PRIOR_INTERACTION).
+    const isService = request.request_type === 'service';
+    const eligibleCandidates = isService
+      ? await getEligibleCandidates(userId, communityIds, deriveSimilarityKey(request))
+      : await getMutualAidCandidates(userId, communityIds, deriveSimilarityKey(request));
     const nominatedCandidate = eligibleCandidates.find((c) => c.providerUserId === providerUserId);
 
     if (!nominatedCandidate) {
-      // Determine reason: check if provider exists but is unavailable vs no prior interaction
-      const providerCheck = await query(
-        `SELECT pp.is_available FROM requests.provider_profiles pp WHERE pp.user_id = $1 AND pp.is_active = true LIMIT 1`,
-        [providerUserId]
-      );
+      // Provider availability only applies to the provider pool; neighbors have no
+      // provider profile, so a non-eligible neighbor falls straight to NO_PRIOR_INTERACTION.
+      if (isService) {
+        const providerCheck = await query(
+          `SELECT pp.is_available FROM requests.provider_profiles pp WHERE pp.user_id = $1 AND pp.is_active = true LIMIT 1`,
+          [providerUserId]
+        );
 
-      if (providerCheck.rows.length > 0 && !providerCheck.rows[0].is_available) {
-        return res.status(422).json({
-          success: false,
-          message: 'Provider is not currently available',
-          error: 'PROVIDER_NOT_AVAILABLE',
-        });
+        if (providerCheck.rows.length > 0 && !providerCheck.rows[0].is_available) {
+          return res.status(422).json({
+            success: false,
+            message: 'Provider is not currently available',
+            error: 'PROVIDER_NOT_AVAILABLE',
+          });
+        }
       }
 
       return res.status(403).json({
         success: false,
-        message: 'Provider has no prior completed interaction with requester',
+        message: 'This person has no prior connection with you yet',
         error: 'NO_PRIOR_INTERACTION',
       });
     }
@@ -184,26 +227,19 @@ router.post('/:id/dibs', authMiddleware, async (req: AuthenticatedRequest, res: 
       expiresAt = new Date(now.getTime() + DIBS_FIXED_WINDOW_MS);
     }
 
-    // Wrap dibs creation and request status update in a transaction
-    const client = await pool.connect();
-    let dibsRecord: any;
-    try {
-      await client.query('BEGIN');
+    // Dibs insert + request status transition commit or roll back together. The insert
+    // must run on the SAME transaction client (passed as `q`) — on the pool it would
+    // survive a rollback of the status update, leaving an orphaned dibs row.
+    const dibsRecord = await withTransaction(async (q) => {
+      const created = await createDibs(requestId, userId, providerUserId, expiresAt, q);
 
-      dibsRecord = await createDibs(requestId, userId, providerUserId, expiresAt);
-
-      await client.query(
+      await q(
         `UPDATE requests.help_requests SET status = 'dibs_pending' WHERE id = $1`,
         [requestId]
       );
 
-      await client.query('COMMIT');
-    } catch (txErr) {
-      await client.query('ROLLBACK');
-      throw txErr;
-    } finally {
-      client.release();
-    }
+      return created;
+    });
 
     // Publish event (best-effort — Redis outage must not fail the dibs creation)
     try {

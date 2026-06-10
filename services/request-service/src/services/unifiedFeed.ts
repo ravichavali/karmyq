@@ -37,6 +37,9 @@ export interface DecisionData {
   title: string;
   community_name: string;
   counterparty_name: string;
+  // BUG-005: ids the Dashboard rating prompt needs to attribute a rating on mark_done.
+  counterparty_id?: string;
+  community_id?: string;
   member_role: 'requester' | 'responder';
   actions: DecisionAction[];
   match_score?: number | null;

@@ -179,7 +179,7 @@
           {"method": "POST", "path": "/providers/offers", "description": "Submit a provider offer on an open help request"},
           {"method": "GET", "path": "/providers/offers", "description": "List offers submitted by the authenticated provider"},
           {"method": "PUT", "path": "/providers/offers/:id/withdraw", "description": "Withdraw a pending provider offer"},
-          {"method": "GET", "path": "/requests/:id/dibs-candidate", "description": "Returns top-scored dibs candidate for any request; ?type=service uses provider-profile candidates, all others use mutual-aid candidates"},
+          {"method": "GET", "path": "/requests/:id/dibs-candidate", "description": "Returns the top-scored first-ask candidate with server-computed kind (neighbor|provider), reason, and relationshipContext (priorCompletedMatches/lastInteractionAt/similarCategory). Facet derives from the persisted request_type; the ?type= param is ignored (ADR-072)"},
           {"method": "POST", "path": "/requests/:id/dibs", "description": "Send dibs to a specific provider or community member — works for all request types (scheduled and ASAP)"},
           {"method": "PUT", "path": "/requests/dibs/:id/accept", "description": "Provider accepts dibs — creates matches record and sets request status to matched"},
           {"method": "PUT", "path": "/requests/dibs/:id/decline", "description": "Provider declines dibs — request reverts to open"},

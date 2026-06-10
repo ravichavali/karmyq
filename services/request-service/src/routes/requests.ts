@@ -142,6 +142,8 @@ router.get('/', async (req: Request, res: Response) => {
       limit: limit as string,
       offset: offset as string,
       include_admin_notes: include_admin_notes as string,
+      // BUG-002: exclude the viewer's already-engaged requests from the generic browse.
+      viewer_id: (req as any).user?.userId,
     });
 
     const result = await query(queryText, params);
@@ -196,6 +198,14 @@ router.get('/matched/for-user', async (req: Request, res: Response) => {
         AND m.user_id = $1
         AND m.status = 'active'
         AND r.requester_id != $1
+        -- BUG-002: hide requests the viewer already has a live offer/match on, so a
+        -- request they already engaged never reappears as browsable on reload.
+        AND NOT EXISTS (
+          SELECT 1 FROM requests.matches m_self
+          WHERE m_self.request_id = r.id
+            AND m_self.responder_id = $1
+            AND m_self.status IN ('proposed', 'matched')
+        )
         AND EXISTS (
           -- Match request category to user skills
           SELECT 1 FROM auth.user_skills s
@@ -397,6 +407,13 @@ async function handleCuratedFeed(req: Request, res: Response): Promise<void> {
       WHERE r.status = 'open'
         AND r.expired = FALSE
         AND r.requester_id != $1
+        -- BUG-002: hide requests the viewer already has a live offer/match on.
+        AND NOT EXISTS (
+          SELECT 1 FROM requests.matches m_self
+          WHERE m_self.request_id = r.id
+            AND m_self.responder_id = $1
+            AND m_self.status IN ('proposed', 'matched')
+        )
         AND (
           -- Tier 1: User's communities (always included)
           EXISTS (
@@ -488,6 +505,13 @@ async function handleCuratedFeed(req: Request, res: Response): Promise<void> {
            WHERE r.status = 'open'
              AND r.expired = FALSE
              AND r.requester_id != $1
+             -- BUG-002: hide requests the viewer already has a live offer/match on.
+             AND NOT EXISTS (
+               SELECT 1 FROM requests.matches m_self
+               WHERE m_self.request_id = r.id
+                 AND m_self.responder_id = $1
+                 AND m_self.status IN ('proposed', 'matched')
+             )
              AND rc.community_id = ANY($2::uuid[])
              AND r.id != ALL($3::uuid[])
            GROUP BY r.id, r.requester_id, r.title, r.description, r.category, r.urgency,
@@ -877,7 +901,8 @@ export async function fetchDecisions(req: Request, userId: string): Promise<Unif
               m.requester_done_at, m.responder_done_at,
               hr.requester_id, m.responder_id, hr.title, hr.description, hr.payload, hr.category,
               requester.name AS requester_name, responder.name AS responder_name,
-              STRING_AGG(DISTINCT c.name, ', ') AS community_name
+              STRING_AGG(DISTINCT c.name, ', ') AS community_name,
+              MIN(rc.community_id::text) AS community_id
        FROM requests.matches m
        JOIN requests.help_requests hr ON m.request_id = hr.id
        JOIN auth.users requester ON hr.requester_id = requester.id
@@ -917,6 +942,8 @@ export async function fetchDecisions(req: Request, userId: string): Promise<Unif
         payload_type: categoryToPayloadType(m.category),
         community_name: m.community_name || '',
         counterparty_name: isRequester ? m.responder_name : m.requester_name,
+        counterparty_id: isRequester ? m.responder_id : m.requester_id,
+        community_id: m.community_id ?? undefined,
         member_role: isRequester ? 'requester' : 'responder',
         actions,
         created_at: m.created_at,

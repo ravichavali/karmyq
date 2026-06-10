@@ -27,4 +27,29 @@ export async function query(text: string, params?: any[]) {
   return res;
 }
 
+/**
+ * Run `fn` inside a single DB transaction. `fn` receives a `q` that runs on the
+ * transaction's dedicated client; all statements commit together or roll back
+ * together. Used for multi-statement lifecycle mutations (match accept/reject/
+ * complete/cancel, last-admin guard) so a mid-sequence failure can never leave
+ * split match/request/offer state, and `SELECT … FOR UPDATE` reads can serialize
+ * concurrent writers.
+ */
+export async function withTransaction<T>(
+  fn: (q: (text: string, params?: any[]) => Promise<any>) => Promise<T>
+): Promise<T> {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const result = await fn((text, params) => client.query(text, params));
+    await client.query('COMMIT');
+    return result;
+  } catch (err) {
+    try { await client.query('ROLLBACK'); } catch { /* ignore rollback failure */ }
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
 export default pool;

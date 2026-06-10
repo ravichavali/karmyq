@@ -15,6 +15,17 @@ export interface DibsCandidate {
   priorInteractions: number
   trustGraphConnection: 'direct' | 'indirect' | 'none'
   trustPath: TrustPath | null
+  // BUG-007 (Option A): 'neighbor' for mutual-aid first-asks, 'provider' for
+  // service requests. Defaults to provider framing when absent.
+  kind?: 'neighbor' | 'provider'
+  // ADR-072: server-computed relationship routing. The UI renders this judgment;
+  // it does not recompute the rules.
+  reason?: 'prior_similar_success' | 'trusted_neighbor' | 'provider_match'
+  relationshipContext?: {
+    priorCompletedMatches: number
+    lastInteractionAt: string | null
+    similarCategory: boolean
+  }
 }
 
 interface DibsPromptProps {
@@ -95,6 +106,44 @@ export default function DibsPrompt({
 
   const windowLabel = formatWindow(expiresAt)
 
+  // BUG-007 (Option A): neighbor first-ask vs provider dibs framing. A mutual-aid
+  // candidate is a neighbour, never a "provider"; provider terminology stays for
+  // service requests only.
+  const isNeighbor = candidate.kind === 'neighbor'
+  const title = isNeighbor ? 'Ask a neighbour first?' : 'Offer First Dibs?'
+  const subtitle = isNeighbor
+    ? 'Give a trusted neighbour a private window to say yes before your request goes public.'
+    : 'A trusted provider can get an exclusive window to accept your request before it goes public.'
+  const nameFallback = isNeighbor ? 'A trusted neighbour' : 'A trusted provider'
+  const avatarFallback = isNeighbor ? 'N' : 'P'
+  const windowTitle = isNeighbor ? 'Response window' : 'Dibs window'
+  const sendLabel = isNeighbor ? 'Send Invite' : 'Send Dibs'
+  const sentMessage = isNeighbor
+    ? 'Invite sent! Your neighbour has been notified.'
+    : 'Dibs sent! The provider has been notified.'
+  const cardAccent = isNeighbor ? 'bg-amber-50 border-amber-200' : 'bg-primary-light border-primary-medium'
+  const avatarAccent = isNeighbor ? 'bg-amber-500' : 'bg-primary'
+
+  // ADR-072: render the server's relationship-routing judgment when present, so the
+  // prompt explains WHY this person ("worked together on something similar") rather
+  // than generic copy. Falls back to the facet subtitle.
+  const name = candidate.displayName || (isNeighbor ? 'a trusted neighbour' : 'a trusted provider')
+  const reasonLine = ((): string | null => {
+    switch (candidate.reason) {
+      case 'prior_similar_success':
+        return `You've worked with ${name} on something similar before. Ask them first?`
+      case 'trusted_neighbor':
+        return `You've worked with ${name} before. Ask them first?`
+      case 'provider_match':
+        return (candidate.relationshipContext?.priorCompletedMatches ?? 0) > 0
+          ? `${name} has helped with this kind of service before. Offer it to them first?`
+          : null
+      default:
+        return null
+    }
+  })()
+  const headerSubtitle = reasonLine ?? subtitle
+
   return (
     <>
       {/* Backdrop */}
@@ -106,21 +155,21 @@ export default function DibsPrompt({
 
           {/* Header */}
           <div className="px-5 py-4 border-b border-border">
-            <h2 className="text-lg font-semibold text-text">Offer First Dibs?</h2>
+            <h2 className="text-lg font-semibold text-text">{title}</h2>
             <p className="text-sm text-text-muted mt-0.5">
-              A trusted provider can get an exclusive window to accept your request before it goes public.
+              {headerSubtitle}
             </p>
           </div>
 
           {/* Candidate details */}
           <div className="px-5 py-4 space-y-3">
-            <div className="bg-primary-light border border-primary-medium rounded-lg p-4 space-y-2">
+            <div className={`${cardAccent} border rounded-lg p-4 space-y-2`}>
               <div className="flex items-center gap-2">
-                <div className="w-9 h-9 rounded-full bg-primary flex items-center justify-center text-white font-semibold text-sm">
-                  {candidate.displayName ? candidate.displayName.charAt(0).toUpperCase() : 'P'}
+                <div className={`w-9 h-9 rounded-full ${avatarAccent} flex items-center justify-center text-white font-semibold text-sm`}>
+                  {candidate.displayName ? candidate.displayName.charAt(0).toUpperCase() : avatarFallback}
                 </div>
                 <div>
-                  <p className="font-medium text-text">{candidate.displayName || 'A trusted provider'}</p>
+                  <p className="font-medium text-text">{candidate.displayName || nameFallback}</p>
                   {candidate.trustPath ? (
                     <TrustPathBadge trustPath={candidate.trustPath} className="mt-2" />
                   ) : (
@@ -144,11 +193,13 @@ export default function DibsPrompt({
             </div>
 
             <div className="text-sm text-text-muted space-y-1">
+              {scheduledFor && (
+                <p>
+                  <span className="font-medium text-text">Scheduled:</span> {scheduledLabel}
+                </p>
+              )}
               <p>
-                <span className="font-medium text-text">Scheduled:</span> {scheduledLabel}
-              </p>
-              <p>
-                <span className="font-medium text-text">Dibs window:</span> {windowLabel}
+                <span className="font-medium text-text">{windowTitle}:</span> {windowLabel}
               </p>
             </div>
 
@@ -158,7 +209,7 @@ export default function DibsPrompt({
 
             {sent && (
               <p className="text-sm text-success bg-success-light rounded-lg px-3 py-2">
-                Dibs sent! The provider has been notified.
+                {sentMessage}
               </p>
             )}
           </div>
@@ -172,7 +223,7 @@ export default function DibsPrompt({
                   onClick={handleSend}
                   disabled={sending}
                 >
-                  {sending ? 'Sending…' : 'Send Dibs'}
+                  {sending ? 'Sending…' : sendLabel}
                 </button>
                 <button
                   className="btn-ghost w-full"

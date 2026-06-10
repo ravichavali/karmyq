@@ -301,3 +301,30 @@ Data cleanup should be a priority in coming weeks — stale simulation data, orp
 We need to deliver the "platform forgets" claim in a serious way soon. The "designed to forget" / trust-atrophy promise (manifesto §7, ADR-066) is currently only *structurally enforced in feed ranking* via the decayed trust-edge weight (`trust_edges_live.current_weight`) — that's ranking math, not a visible, trustworthy promise. To honor the claim we need real forgetting members can see and feel: actual data retention/forgetting policy (what's deleted/decayed and when), visible decay in the UI (a relationship/trust edge perceptibly fading over time), and possibly user-facing controls or transparency about what the platform remembers vs. lets go. Not just an invisible exponential in the sort key.
 
 ---
+
+## [2026-06-07] ux
+
+The landing page on karmyq.org can have an analytics section that shows the trends that helps tell the story. This is for development in the far future.
+
+---
+
+## [2026-06-08] ux
+
+Community / service-provider link-up seems confusing. We need to clean it up.
+
+---
+
+## [2026-06-09] architecture
+
+**Dibs candidate as server-side relationship routing (not a UI hint).** `GET /requests/:id/dibs-candidate` should treat first-ask as relationship routing that *strengthens existing bonds*: route similar future asks toward someone the requester has successfully interacted with before. Sprint 92 (PR #77) shipped the correctness floor — derive provider-vs-neighbour `kind` from the **persisted** `request_type` (ignore `?type=`), matching `POST /dibs` rules so client can't influence the pool. The next step is to return the server's *judgment*, not just a pool result:
+
+```
+candidate: {
+  userId,
+  kind: 'neighbor' | 'provider',
+  reason: 'prior_similar_success' | 'trusted_neighbor' | 'provider_match',
+  relationshipContext: { priorCompletedMatches, lastInteractionAt, similarCategory }
+}
+```
+
+Server rules: what kind of request is this? who has helped this requester before? was the prior interaction completed/successful? is the task similar enough (category)? still eligible/active/trusted/in-community? frame as "ask this neighbour first" vs "book this provider again". UI then renders the server's reason ("You've worked with Maya on something similar — ask them first?") instead of recreating the logic. Scope: response-contract change + DibsPrompt copy rework + tests + ADR-072 update. Candidate for the next sprint.

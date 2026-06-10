@@ -11,6 +11,12 @@ const MAX_PRIOR_INTERACTIONS = 3;
 const TRUST_GRAPH_BONUS_DIRECT = 15;
 const TRUST_GRAPH_BONUS_INDIRECT = 10;
 const MAX_RANKED_CANDIDATES = 5;
+// ADR-072: a prior completed task in the SAME category dominates the score so the
+// first-ask routes similar future asks to someone you've done a similar task with.
+// One similar interaction (40) outweighs the entire unrelated-interaction component
+// (max 3 × 11.67 ≈ 35), so a single prior similar success beats many unrelated ones.
+const SIMILAR_INTERACTION_MULTIPLIER = 40;
+const MAX_SIMILAR_INTERACTIONS = 2;
 
 // ── Scored candidate ──────────────────────────────────────────────────────────
 
@@ -26,6 +32,7 @@ export interface ScoredCandidate extends RawCandidate {
  * Formula:
  *   score = trustScore * 0.50
  *         + min(priorInteractions, 3) * 11.67
+ *         + min(similarPriorInteractions, 2) * 40   (ADR-072: similar-task routing)
  *         + trustGraphBonus
  *
  * trustGraphBonus:
@@ -38,6 +45,11 @@ export function scoreCandidate(candidate: RawCandidate): number {
     Math.min(candidate.priorInteractions, MAX_PRIOR_INTERACTIONS) *
     PRIOR_INTERACTION_MULTIPLIER;
 
+  // ADR-072: a prior completed task in the same category routes this ask to that person.
+  const similarComponent =
+    Math.min(candidate.similarPriorInteractions ?? 0, MAX_SIMILAR_INTERACTIONS) *
+    SIMILAR_INTERACTION_MULTIPLIER;
+
   let trustGraphBonus = 0;
   if (candidate.trustGraphConnection === 'direct') {
     trustGraphBonus = TRUST_GRAPH_BONUS_DIRECT;
@@ -45,7 +57,12 @@ export function scoreCandidate(candidate: RawCandidate): number {
     trustGraphBonus = TRUST_GRAPH_BONUS_INDIRECT;
   }
 
-  return candidate.trustScore * TRUST_SCORE_WEIGHT + interactionComponent + trustGraphBonus;
+  return (
+    candidate.trustScore * TRUST_SCORE_WEIGHT +
+    interactionComponent +
+    similarComponent +
+    trustGraphBonus
+  );
 }
 
 // ── filterEligibleCandidates ──────────────────────────────────────────────────
@@ -110,9 +127,10 @@ export function rankCandidates(candidates: RawCandidate[]): ScoredCandidate[] {
  */
 export async function getBestCandidate(
   requesterId: string,
-  communityIds: string[]
+  communityIds: string[],
+  similarityKey: string | null = null
 ): Promise<ScoredCandidate | null> {
-  const candidates = await getEligibleCandidates(requesterId, communityIds);
+  const candidates = await getEligibleCandidates(requesterId, communityIds, similarityKey);
   if (candidates.length === 0) return null;
 
   const ranked = rankCandidates(candidates);
@@ -127,9 +145,10 @@ export async function getBestCandidate(
  */
 export async function getMutualAidBestCandidate(
   requesterId: string,
-  communityIds: string[]
+  communityIds: string[],
+  similarityKey: string | null = null
 ): Promise<ScoredCandidate | null> {
-  const candidates = await getMutualAidCandidates(requesterId, communityIds);
+  const candidates = await getMutualAidCandidates(requesterId, communityIds, similarityKey);
   if (candidates.length === 0) return null;
   const ranked = rankCandidates(candidates);
   return ranked[0] ?? null;

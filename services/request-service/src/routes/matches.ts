@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { AuthenticatedRequest } from '@karmyq/shared/middleware/auth';
-import { query } from '../database/db';
+import { query, withTransaction } from '../database/db';
 import { publishEvent } from '../events/publisher';
 import {
   sendSuccess,
@@ -320,38 +320,77 @@ router.put('/:id/accept', async (req: AuthenticatedRequest, res: Response) => {
       scheduled_at = req_payload.payload.departure_time;
     }
 
-    // Accept match, store scheduling info
-    await query(
-      `UPDATE requests.matches
-       SET status = 'matched', scheduled_at = $2, travel_time_minutes = $3
-       WHERE id = $1`,
-      [id, scheduled_at, travel_time_minutes]
-    );
+    // Atomic accept: match → request → free sibling offers → reject siblings, all in
+    // one transaction so a mid-sequence failure can't split match/request/offer state.
+    const result = await withTransaction(async (q) => {
+      // Serialize concurrent accepts on the SAME request by locking the request row
+      // first. Without this, two sibling proposed matches could both read 'proposed'
+      // and both commit as 'matched'. The lock makes the two accepts run one-at-a-time.
+      await q(
+        `SELECT id FROM requests.help_requests WHERE id = $1 FOR UPDATE`,
+        [match.request_id]
+      );
 
-    // Update request status to matched
-    await query(
-      `UPDATE requests.help_requests
-       SET status = 'matched'
-       WHERE id = $1`,
-      [match.request_id]
-    );
+      // Accept THIS match only if it is still proposed. The row-count guard turns a
+      // lost race (the sibling won and rejected this match) into a clean 409.
+      const accepted = await q(
+        `UPDATE requests.matches
+         SET status = 'matched', scheduled_at = $2, travel_time_minutes = $3
+         WHERE id = $1 AND status = 'proposed'`,
+        [id, scheduled_at, travel_time_minutes]
+      );
+      if (accepted.rowCount === 0) {
+        return { conflict: true as const };
+      }
 
-    // Reject all other proposed matches for this request
-    await query(
-      `UPDATE requests.matches
-       SET status = 'rejected'
-       WHERE request_id = $1 AND id != $2 AND status = 'proposed'`,
-      [match.request_id, id]
-    );
+      // Update request status to matched
+      await q(
+        `UPDATE requests.help_requests
+         SET status = 'matched'
+         WHERE id = $1`,
+        [match.request_id]
+      );
 
-    // Fetch enriched match data for response (includes payload for frontend fulfillment panel)
-    const enriched = await query(
-      `SELECT m.*, r.request_type, r.payload, r.title as request_title
-       FROM requests.matches m
-       JOIN requests.help_requests r ON m.request_id = r.id
-       WHERE m.id = $1`,
-      [id]
-    );
+      // Free the offers of the sibling matches we're about to reject so those
+      // helpers re-enter the active pool (BUG-008). Run BEFORE the reject UPDATE so
+      // the subquery still sees the siblings as 'proposed'.
+      await q(
+        `UPDATE requests.help_offers
+         SET status = 'active'
+         WHERE id IN (
+           SELECT offer_id FROM requests.matches
+           WHERE request_id = $1 AND id != $2 AND status = 'proposed' AND offer_id IS NOT NULL
+         )`,
+        [match.request_id, id]
+      );
+
+      // Reject all other proposed matches for this request
+      await q(
+        `UPDATE requests.matches
+         SET status = 'rejected'
+         WHERE request_id = $1 AND id != $2 AND status = 'proposed'`,
+        [match.request_id, id]
+      );
+
+      // Fetch enriched match data for response (includes payload for frontend fulfillment panel)
+      const enriched = await q(
+        `SELECT m.*, r.request_type, r.payload, r.title as request_title
+         FROM requests.matches m
+         JOIN requests.help_requests r ON m.request_id = r.id
+         WHERE m.id = $1`,
+        [id]
+      );
+      return { enriched };
+    });
+
+    // Lost the race: a sibling match was accepted first (this one is now rejected).
+    if ('conflict' in result) {
+      return res.status(409).json({
+        success: false,
+        message: 'This request was just matched with someone else',
+        error: 'ALREADY_MATCHED',
+      });
+    }
 
     // Publish event
     await publishEvent('match_accepted', {
@@ -366,7 +405,7 @@ router.put('/:id/accept', async (req: AuthenticatedRequest, res: Response) => {
     res.json({
       success: true,
       message: 'Match accepted successfully',
-      data: enriched.rows[0],
+      data: result.enriched.rows[0],
     });
   } catch (error: any) {
     (req as any).logger?.error('Error accepting match', error instanceof Error ? error : new Error(String(error)), { service: 'request-service' });
@@ -388,7 +427,7 @@ router.put('/:id/reject', async (req: AuthenticatedRequest, res: Response) => {
     // Get match details
     const matchCheck = await query(
       `SELECT
-        m.id, m.request_id, m.status, m.responder_id,
+        m.id, m.request_id, m.offer_id, m.status, m.responder_id,
         r.requester_id
       FROM requests.matches m
       LEFT JOIN requests.help_requests r ON m.request_id = r.id
@@ -413,27 +452,66 @@ router.put('/:id/reject', async (req: AuthenticatedRequest, res: Response) => {
       });
     }
 
-    // Reject match
-    await query(
-      `UPDATE requests.matches
-       SET status = 'rejected'
-       WHERE id = $1`,
-      [id]
-    );
-
-    // Check if there are any remaining proposed matches
-    const remainingMatches = await query(
-      `SELECT COUNT(*) as count FROM requests.matches
-       WHERE request_id = $1 AND status = 'proposed'`,
-      [match.request_id]
-    );
-
-    // If no more proposed matches, reopen the request
-    if (remainingMatches.rows[0].count === '0') {
-      await query(
-        `UPDATE requests.help_requests SET status = 'open' WHERE id = $1`,
+    // Atomic reject: mark rejected → free the linked offer → reopen the request when
+    // no proposed matches remain, all in one transaction so a mid-sequence failure
+    // can't strand the offer or split match/request state.
+    const rejected = await withTransaction(async (q) => {
+      // Serialize against a concurrent accept on the same request (accept locks the
+      // same row), so reject can never run between accept's read and commit.
+      await q(
+        `SELECT id FROM requests.help_requests WHERE id = $1 FOR UPDATE`,
         [match.request_id]
       );
+
+      // Reject only while still proposed. Without the status guard a reject racing an
+      // accept could flip an accepted (or completed) match back to 'rejected' and
+      // reopen a request that is already matched.
+      const result = await q(
+        `UPDATE requests.matches
+         SET status = 'rejected'
+         WHERE id = $1 AND status = 'proposed'`,
+        [id]
+      );
+      if (result.rowCount === 0) {
+        return false;
+      }
+
+      // Free the linked offer back to the active pool so the helper re-enters
+      // matching (mirrors the cancel path). Without this the offer is stranded in
+      // 'matched' forever and the helper silently disappears from /offers (BUG-008).
+      if (match.offer_id) {
+        await q(
+          `UPDATE requests.help_offers SET status = 'active' WHERE id = $1`,
+          [match.offer_id]
+        );
+      }
+
+      // Check if there are any remaining proposed matches
+      const remainingMatches = await q(
+        `SELECT COUNT(*) as count FROM requests.matches
+         WHERE request_id = $1 AND status = 'proposed'`,
+        [match.request_id]
+      );
+
+      // If no more proposed matches, reopen the request — but never reopen one that a
+      // concurrent accept just transitioned to 'matched'.
+      if (remainingMatches.rows[0].count === '0') {
+        await q(
+          `UPDATE requests.help_requests SET status = 'open' WHERE id = $1 AND status != 'matched'`,
+          [match.request_id]
+        );
+      }
+      return true;
+    });
+
+    // The match left 'proposed' before we got the lock (accepted/completed/cancelled
+    // concurrently, or already rejected) — nothing to reject.
+    if (!rejected) {
+      return res.status(409).json({
+        success: false,
+        message: 'Match is no longer awaiting a response',
+        error: 'MATCH_NOT_PROPOSED',
+      });
     }
 
     // Publish event
@@ -498,34 +576,43 @@ router.put('/:id/complete', async (req: AuthenticatedRequest, res: Response) => 
     const isRequester = match.requester_id === user_id;
     const doneAtColumn = isRequester ? 'requester_done_at' : 'responder_done_at';
 
-    // Record this party's completion. Use a RETURNING clause to get both done_at
-    // values in a single query so we can check if both parties have now confirmed.
-    const updateResult = await query(
-      `UPDATE requests.matches
-       SET ${doneAtColumn} = CURRENT_TIMESTAMP
-       WHERE id = $1
-       RETURNING requester_done_at, responder_done_at`,
-      [id]
-    );
-
-    const updated = updateResult.rows[0];
-    const bothDone = updated.requester_done_at !== null && updated.responder_done_at !== null;
-
-    if (bothDone) {
-      // Both parties have confirmed — finalize the match
-      await query(
+    // Atomic completion: record this party's done_at and, when both parties have now
+    // confirmed, finalize the match + request together so completion can never leave
+    // the match 'completed' while the request lags (or vice versa).
+    const bothDone = await withTransaction(async (q) => {
+      // Use a RETURNING clause to get both done_at values in a single statement so we
+      // can check if both parties have now confirmed.
+      const updateResult = await q(
         `UPDATE requests.matches
-         SET status = 'completed', completed_at = CURRENT_TIMESTAMP
-         WHERE id = $1`,
+         SET ${doneAtColumn} = CURRENT_TIMESTAMP
+         WHERE id = $1
+         RETURNING requester_done_at, responder_done_at`,
         [id]
       );
 
-      await query(
-        `UPDATE requests.help_requests SET status = 'completed' WHERE id = $1`,
-        [match.request_id]
-      );
+      const updated = updateResult.rows[0];
+      const finished = updated.requester_done_at !== null && updated.responder_done_at !== null;
 
-      // Publish event once, only when fully complete (karma is awarded here)
+      if (finished) {
+        // Both parties have confirmed — finalize the match
+        await q(
+          `UPDATE requests.matches
+           SET status = 'completed', completed_at = CURRENT_TIMESTAMP
+           WHERE id = $1`,
+          [id]
+        );
+
+        await q(
+          `UPDATE requests.help_requests SET status = 'completed' WHERE id = $1`,
+          [match.request_id]
+        );
+      }
+      return finished;
+    });
+
+    if (bothDone) {
+      // Publish event once, only when fully complete (karma is awarded here). After
+      // commit so we never publish on a rolled-back completion.
       await publishEvent('match_completed', {
         match_id: id,
         request_id: match.request_id,
@@ -602,27 +689,29 @@ router.delete('/:id', async (req: AuthenticatedRequest, res: Response) => {
       });
     }
 
-    // Cancel match
-    await query(
-      `UPDATE requests.matches
-       SET status = 'cancelled'
-       WHERE id = $1`,
-      [id]
-    );
-
-    // Reopen request
-    await query(
-      `UPDATE requests.help_requests SET status = 'open' WHERE id = $1`,
-      [match.request_id]
-    );
-
-    // Reopen offer if it exists
-    if (match.offer_id) {
-      await query(
-        `UPDATE requests.help_offers SET status = 'active' WHERE id = $1`,
-        [match.offer_id]
+    // Atomic cancel: cancel the match → reopen the request → reopen the offer, all in
+    // one transaction so a mid-sequence failure can't split match/request/offer state.
+    await withTransaction(async (q) => {
+      await q(
+        `UPDATE requests.matches
+         SET status = 'cancelled'
+         WHERE id = $1`,
+        [id]
       );
-    }
+
+      await q(
+        `UPDATE requests.help_requests SET status = 'open' WHERE id = $1`,
+        [match.request_id]
+      );
+
+      // Reopen offer if it exists
+      if (match.offer_id) {
+        await q(
+          `UPDATE requests.help_offers SET status = 'active' WHERE id = $1`,
+          [match.offer_id]
+        );
+      }
+    });
 
     // Publish event
     await publishEvent('match_cancelled', {

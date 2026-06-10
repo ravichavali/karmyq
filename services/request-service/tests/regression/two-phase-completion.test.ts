@@ -9,7 +9,10 @@
 // The complete endpoint uses the `query` helper from '../database/db'.
 // We mock it so we can simulate different DB states without a real DB.
 const mockQuery = jest.fn();
-jest.mock('../../src/database/db', () => ({ query: (...args: any[]) => mockQuery(...args) }));
+jest.mock('../../src/database/db', () => ({
+  query: (...args: any[]) => mockQuery(...args),
+  withTransaction: (fn: any) => fn((...args: any[]) => mockQuery(...args)),
+}));
 
 const mockPublishEvent = jest.fn();
 jest.mock('../../src/events/publisher', () => ({ publishEvent: (...args: any[]) => mockPublishEvent(...args) }));

@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
-import { requestService, dibsService, reputationService } from '@/lib/api'
+import { requestService, dibsService } from '@/lib/api'
 import { getOffersForRequest, acceptOffer, declineOffer } from '@/lib/api/providerApi'
 import EmptyState from './EmptyState'
 import { sortByActionPriority } from '../utils/commitmentSort'
 import ExpandableConversation from './ExpandableConversation'
 import { TrustCard } from './TrustCard'
 import DibsCard from './commitments/DibsCard'
+import RatingPrompt from './RatingPrompt'
+import { extractCompletion, submitExchangeRating } from '../utils/completion'
 
 interface Match {
   id: string
@@ -36,36 +38,6 @@ interface PendingDibs {
   scheduledFor: string
   expiresAt: string
   requesterName?: string
-}
-
-// ── Rating prompt ─────────────────────────────────────────────────────────────
-
-function RatingPrompt({ onRate }: { onRate: (rating: number | null) => void }) {
-  const [hovered, setHovered] = useState(0)
-  return (
-    <div className="flex items-center justify-end gap-3 mt-3">
-      <span className="text-xs text-text-muted">Rate this exchange:</span>
-      <div className="flex gap-0.5">
-        {[1, 2, 3, 4, 5].map((star) => (
-          <button
-            key={star}
-            className="text-base leading-none text-amber-400 hover:text-amber-500 transition-colors"
-            onMouseEnter={() => setHovered(star)}
-            onMouseLeave={() => setHovered(0)}
-            onClick={() => onRate(star)}
-          >
-            {star <= hovered ? '★' : '☆'}
-          </button>
-        ))}
-      </div>
-      <button
-        className="text-xs text-text-muted hover:text-text underline underline-offset-2"
-        onClick={() => onRate(null)}
-      >
-        Skip
-      </button>
-    </div>
-  )
 }
 
 // ── Step indicator ────────────────────────────────────────────────────────────
@@ -214,15 +186,17 @@ export default function CommitmentsTab({ onDibsLoaded, communityId }: Commitment
     setMarkingDone(matchId)
     try {
       const res = await requestService.completeMatch(matchId)
-      const { fully_completed } = res.data?.data ?? res.data ?? {}
+      const { fullyCompleted } = extractCompletion(res)
       const now = new Date().toISOString()
       setHelping((prev) => prev.map((m) => m.id === matchId
-        ? fully_completed
+        ? fullyCompleted
           ? { ...m, status: 'completed', responder_done_at: now }
           : { ...m, responder_done_at: now }
         : m
       ))
-      setPendingRatingId(matchId)
+      // BUG-005: rating unlocks only on the transition to fully completed, never on
+      // a one-sided done.
+      if (fullyCompleted) setPendingRatingId(matchId)
     } catch (err: any) {
       setActionError(err.response?.data?.error?.message || err.response?.data?.message || 'Failed to mark done')
     } finally {
@@ -234,15 +208,16 @@ export default function CommitmentsTab({ onDibsLoaded, communityId }: Commitment
     setMarkingDone(matchId)
     try {
       const res = await requestService.completeMatch(matchId)
-      const { fully_completed } = res.data?.data ?? res.data ?? {}
+      const { fullyCompleted } = extractCompletion(res)
       const now = new Date().toISOString()
       setRequested((prev) => prev.map((m) => m.id === matchId
-        ? fully_completed
+        ? fullyCompleted
           ? { ...m, status: 'completed', requester_done_at: now }
           : { ...m, requester_done_at: now }
         : m
       ))
-      setPendingRatingId(matchId)
+      // BUG-005: rating unlocks only on the transition to fully completed.
+      if (fullyCompleted) setPendingRatingId(matchId)
     } catch (err: any) {
       setActionError(err.response?.data?.error?.message || err.response?.data?.message || 'Failed to confirm done')
     } finally {
@@ -251,22 +226,10 @@ export default function CommitmentsTab({ onDibsLoaded, communityId }: Commitment
   }
 
   const handleRate = async (match: Match, rating: number | null) => {
-    if (rating !== null && communityId) {
-      const isHelper = match.responder_id === currentUserId
-      const toUserId = isHelper ? match.requester_id : match.responder_id
-      if (toUserId) {
-        try {
-          await reputationService.submitFeedback({
-            match_id: match.id,
-            to_user_id: toUserId,
-            community_id: communityId,
-            rating,
-          })
-        } catch {
-          // Silently ignore — feedback is best-effort
-        }
-      }
-    }
+    const isHelper = match.responder_id === currentUserId
+    const toUserId = isHelper ? match.requester_id : match.responder_id
+    // BUG-005: shared rating submitter (one source of truth with DecisionBand).
+    await submitExchangeRating({ matchId: match.id, toUserId, communityId, rating })
     setPendingRatingId(null)
   }
 

@@ -34,6 +34,50 @@ export interface RawCandidate {
   priorInteractions: number;
   trustGraphConnection: 'direct' | 'indirect' | 'none';
   isAvailable: boolean;
+  /**
+   * BUG-007 (Option A): which facet of the platform this candidate represents.
+   * 'provider' for service requests (provider_profiles), 'neighbor' for mutual-aid
+   * requests (ordinary community members). Drives neighbor-vs-provider framing in
+   * the dibs/first-ask UI — a neighbor must never be shown as a "provider."
+   */
+  kind: 'neighbor' | 'provider';
+  /**
+   * ADR-072: completed interactions with the requester sharing this request's
+   * task-similarity key (deriveSimilarityKey). The scorer weights this heavily so the first-ask actually
+   * routes a similar future ask toward someone you've done a similar task with —
+   * not just someone with many unrelated interactions. 0 when no category is given.
+   */
+  similarPriorInteractions: number;
+}
+
+// ── Task similarity key (ADR-072) ─────────────────────────────────────────────
+
+/**
+ * SQL expression for a request's canonical task-similarity key. New rows store the
+ * coarse request_type in the legacy `category` column, so raw `hr.category` would
+ * make "similar" mean "both service" instead of "both plumbing". Where the payload
+ * carries a finer task key we use it: service → payload.service_category
+ * ('plumbing', 'tutoring', …), borrow → payload.item_category ('tools', …); for
+ * ride/event/generic (no finer subtype) and legacy rows (skill tokens in category)
+ * the category column is the best available signal.
+ *
+ * `deriveSimilarityKey` is the TS twin — derive the CURRENT request's key with it
+ * and compare prior matches via this expression, so both sides use the same vocabulary.
+ */
+export const SIMILARITY_KEY_SQL =
+  `COALESCE(hr.payload->>'service_category', hr.payload->>'item_category', hr.category)`;
+
+export function deriveSimilarityKey(request: {
+  payload?: Record<string, unknown> | null;
+  category?: string | null;
+}): string | null {
+  const payload = (request.payload ?? {}) as Record<string, unknown>;
+  return (
+    (payload.service_category as string | undefined) ??
+    (payload.item_category as string | undefined) ??
+    request.category ??
+    null
+  );
 }
 
 // ── Queries ───────────────────────────────────────────────────────────────────
@@ -54,7 +98,8 @@ export interface RawCandidate {
  */
 export async function getEligibleCandidates(
   requesterId: string,
-  communityIds: string[]
+  communityIds: string[],
+  similarityKey: string | null = null
 ): Promise<RawCandidate[]> {
   const result = await query(
     `SELECT
@@ -63,6 +108,7 @@ export async function getEligibleCandidates(
        pp.display_name                    AS "displayName",
        COALESCE(pts.trust_score, 50)      AS "trustScore",
        prior.interaction_count            AS "priorInteractions",
+       COALESCE(prior_similar.interaction_count, 0) AS "similarPriorInteractions",
        COALESCE(
          CASE sg.type
            WHEN 'exchange'  THEN 'direct'
@@ -97,6 +143,30 @@ export async function getEligibleCandidates(
          END
      ) prior ON prior.provider_user_id = pp.user_id
 
+     -- ADR-072: completed interactions sharing the request's task-similarity key.
+     LEFT JOIN (
+       SELECT
+         CASE
+           WHEN hr.requester_id = $1 THEN m.responder_id
+           ELSE hr.requester_id
+         END AS provider_user_id,
+         COUNT(*) AS interaction_count
+       FROM requests.matches m
+       JOIN requests.help_requests hr ON hr.id = m.request_id
+       WHERE m.status = 'completed'
+         AND ${SIMILARITY_KEY_SQL} = $3
+         AND (
+           (hr.requester_id = $1 AND m.responder_id != $1)
+           OR
+           (m.responder_id = $1 AND hr.requester_id != $1)
+         )
+       GROUP BY
+         CASE
+           WHEN hr.requester_id = $1 THEN m.responder_id
+           ELSE hr.requester_id
+         END
+     ) prior_similar ON prior_similar.provider_user_id = pp.user_id
+
      -- Optional: cached trust score from reputation service (defaults to 50 if no reviews yet)
      LEFT JOIN reputation.provider_trust_scores pts ON pts.provider_id = pp.id
 
@@ -115,7 +185,7 @@ export async function getEligibleCandidates(
          WHERE cm.community_id = ANY($2)
        )
        AND pp.user_id != $1`,
-    [requesterId, communityIds]
+    [requesterId, communityIds, similarityKey]
   );
 
   return result.rows.map((row: any) => ({
@@ -124,8 +194,10 @@ export async function getEligibleCandidates(
     displayName: row.displayName ?? '',
     trustScore: Number(row.trustScore),
     priorInteractions: Number(row.priorInteractions),
+    similarPriorInteractions: Number(row.similarPriorInteractions ?? 0),
     trustGraphConnection: row.trustGraphConnection as 'direct' | 'indirect' | 'none',
     isAvailable: Boolean(row.isAvailable),
+    kind: 'provider',
   }));
 }
 
@@ -136,7 +208,8 @@ export async function getEligibleCandidates(
  */
 export async function getMutualAidCandidates(
   requesterId: string,
-  communityIds: string[]
+  communityIds: string[],
+  similarityKey: string | null = null
 ): Promise<RawCandidate[]> {
   const result = await query(
     `SELECT
@@ -149,6 +222,7 @@ export async function getMutualAidCandidates(
          50
        )                                   AS "trustScore",
        COALESCE(prior.interaction_count, 0) AS "priorInteractions",
+       COALESCE(prior_similar.interaction_count, 0) AS "similarPriorInteractions",
        COALESCE(
          CASE sg.type
            WHEN 'exchange'  THEN 'direct'
@@ -181,6 +255,29 @@ export async function getMutualAidCandidates(
          END
      ) prior ON prior.provider_user_id = u.id
 
+     -- ADR-072: completed interactions sharing the request's task-similarity key.
+     LEFT JOIN (
+       SELECT
+         CASE
+           WHEN hr.requester_id = $1 THEN m.responder_id
+           ELSE hr.requester_id
+         END AS provider_user_id,
+         COUNT(*) AS interaction_count
+       FROM requests.matches m
+       JOIN requests.help_requests hr ON hr.id = m.request_id
+       WHERE m.status = 'completed'
+         AND ${SIMILARITY_KEY_SQL} = $3
+         AND (
+           (hr.requester_id = $1 AND m.responder_id != $1)
+           OR (m.responder_id = $1 AND hr.requester_id != $1)
+         )
+       GROUP BY
+         CASE
+           WHEN hr.requester_id = $1 THEN m.responder_id
+           ELSE hr.requester_id
+         END
+     ) prior_similar ON prior_similar.provider_user_id = u.id
+
      LEFT JOIN social_graph.connections sg ON (
        (sg.user_a_id = $1 AND sg.user_b_id = u.id)
        OR (sg.user_b_id = $1 AND sg.user_a_id = u.id)
@@ -196,7 +293,7 @@ export async function getMutualAidCandidates(
          COALESCE(prior.interaction_count, 0) >= 1
          OR (sg.type = 'exchange' AND COALESCE(prior.interaction_count, 0) = 0)
        )`,
-    [requesterId, communityIds]
+    [requesterId, communityIds, similarityKey]
   );
 
   return result.rows.map((row: any) => ({
@@ -205,21 +302,71 @@ export async function getMutualAidCandidates(
     displayName: row.displayName ?? '',
     trustScore: Number(row.trustScore),
     priorInteractions: Number(row.priorInteractions),
+    similarPriorInteractions: Number(row.similarPriorInteractions ?? 0),
     trustGraphConnection: row.trustGraphConnection as 'direct' | 'indirect' | 'none',
     isAvailable: true,
+    kind: 'neighbor',
   }));
 }
 
 /**
- * Insert a new dibs record.
+ * Server-computed relationship history between the requester and a candidate, used to
+ * frame the first-ask as relationship routing ("you've worked with X on something
+ * similar before") rather than a bare pool result. ADR-072.
+ */
+export interface RelationshipContext {
+  priorCompletedMatches: number;
+  lastInteractionAt: string | null;
+  similarCategory: boolean;
+}
+
+/**
+ * Count completed matches between requester and candidate, the most recent one's
+ * timestamp, and whether any of them shared this request's task-similarity key
+ * (deriveSimilarityKey / SIMILARITY_KEY_SQL — same vocabulary as candidate routing).
+ * Direction-agnostic (either party may have been the requester). `similarityKey` may
+ * be null (then similarCategory is false).
+ */
+export async function getRelationshipContext(
+  requesterId: string,
+  candidateUserId: string,
+  similarityKey: string | null
+): Promise<RelationshipContext> {
+  const result = await query(
+    `SELECT
+       COUNT(*)::int                              AS prior_completed_matches,
+       MAX(m.completed_at)                        AS last_interaction_at,
+       COALESCE(BOOL_OR(${SIMILARITY_KEY_SQL} = $3), false) AS similar_category
+     FROM requests.matches m
+     JOIN requests.help_requests hr ON hr.id = m.request_id
+     WHERE m.status = 'completed'
+       AND (
+         (hr.requester_id = $1 AND m.responder_id = $2)
+         OR (m.responder_id = $1 AND hr.requester_id = $2)
+       )`,
+    [requesterId, candidateUserId, similarityKey]
+  );
+  const row = result.rows[0] ?? {};
+  return {
+    priorCompletedMatches: Number(row.prior_completed_matches ?? 0),
+    lastInteractionAt: row.last_interaction_at ? new Date(row.last_interaction_at).toISOString() : null,
+    similarCategory: Boolean(row.similar_category),
+  };
+}
+
+/**
+ * Insert a new dibs record. Pass the transaction's query executor as `q` when the
+ * insert must commit/roll back with other statements (POST /dibs pairs it with the
+ * request → 'dibs_pending' transition); defaults to the pool for standalone use.
  */
 export async function createDibs(
   requestId: string,
   requesterId: string,
   providerUserId: string,
-  expiresAt: Date
+  expiresAt: Date,
+  q: (text: string, params?: any[]) => Promise<any> = query
 ): Promise<Dibs> {
-  const result = await query(
+  const result = await q(
     `INSERT INTO requests.dibs (request_id, requester_id, provider_user_id, expires_at)
      VALUES ($1, $2, $3, $4)
      RETURNING *`,

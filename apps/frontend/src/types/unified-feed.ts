@@ -112,6 +112,9 @@ export interface DecisionData {
   title: string
   community_name: string
   counterparty_name: string
+  /** BUG-005: ids needed to attribute a rating when mark_done completes from the band. */
+  counterparty_id?: string
+  community_id?: string
   /** 'requester' = the member owns the request; 'responder' = the member made the offer. */
   member_role: 'requester' | 'responder'
   actions: DecisionAction[]

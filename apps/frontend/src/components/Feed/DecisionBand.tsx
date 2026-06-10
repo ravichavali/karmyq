@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { requestService, dibsService } from '@/lib/api'
 import { acceptOffer, declineOffer } from '@/lib/api/providerApi'
 import RequestPayloadRenderer from './RequestPayloadRenderer'
+import RatingPrompt from '../RatingPrompt'
+import { extractCompletion, submitExchangeRating } from '../../utils/completion'
 import type { DecisionData, DecisionAction } from '@/types/unified-feed'
 
 /**
@@ -62,6 +64,8 @@ export default function DecisionBand({ decisions, onResolved }: DecisionBandProp
   const [busy, setBusy] = useState<string | null>(null) // `${subject_id}:${action}`
   const [error, setError] = useState<string | null>(null)
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
+  // BUG-005: subject_id whose mark_done completed the exchange and now awaits a rating.
+  const [ratingFor, setRatingFor] = useState<string | null>(null)
 
   const toggleExpanded = (subjectId: string) =>
     setExpanded((prev) => {
@@ -77,13 +81,31 @@ export default function DecisionBand({ decisions, onResolved }: DecisionBandProp
     setBusy(`${decision.subject_id}:${action}`)
     setError(null)
     try {
-      await runDecisionAction(action, decision.subject_kind, decision.subject_id)
+      const res = await runDecisionAction(action, decision.subject_kind, decision.subject_id)
+      // BUG-005: when a mark_done completes the exchange, unlock the rating prompt in
+      // place instead of silently dropping the row. A one-sided done drops the row as
+      // before (it's now the other party's turn).
+      if (action === 'mark_done' && extractCompletion(res).fullyCompleted) {
+        setRatingFor(decision.subject_id)
+        return
+      }
       onResolved?.(decision.subject_id)
     } catch (err: any) {
       setError(err?.response?.data?.message ?? 'Action failed — try again')
     } finally {
       setBusy(null)
     }
+  }
+
+  const handleRate = async (decision: DecisionData, rating: number | null) => {
+    await submitExchangeRating({
+      matchId: decision.subject_id,
+      toUserId: decision.counterparty_id,
+      communityId: decision.community_id,
+      rating,
+    })
+    setRatingFor(null)
+    onResolved?.(decision.subject_id)
   }
 
   return (
@@ -114,22 +136,26 @@ export default function DecisionBand({ decisions, onResolved }: DecisionBandProp
                     {decision.community_name ? ` · ${decision.community_name}` : ''}
                   </span>
                 </button>
-                <div className="flex flex-wrap items-center gap-2 shrink-0">
-                  {decision.actions.map((action) => (
-                    <button
-                      key={action}
-                      onClick={() => handle(decision, action)}
-                      disabled={busy !== null}
-                      className={
-                        PRIMARY_ACTIONS.has(action)
-                          ? 'btn-primary text-sm py-1.5 px-3 disabled:opacity-50'
-                          : 'text-sm py-1.5 px-3 text-text-muted hover:text-text disabled:opacity-50'
-                      }
-                    >
-                      {busy === `${decision.subject_id}:${action}` ? '…' : ACTION_LABELS[action]}
-                    </button>
-                  ))}
-                </div>
+                {ratingFor === decision.subject_id ? (
+                  <RatingPrompt onRate={(rating) => handleRate(decision, rating)} />
+                ) : (
+                  <div className="flex flex-wrap items-center gap-2 shrink-0">
+                    {decision.actions.map((action) => (
+                      <button
+                        key={action}
+                        onClick={() => handle(decision, action)}
+                        disabled={busy !== null}
+                        className={
+                          PRIMARY_ACTIONS.has(action)
+                            ? 'btn-primary text-sm py-1.5 px-3 disabled:opacity-50'
+                            : 'text-sm py-1.5 px-3 text-text-muted hover:text-text disabled:opacity-50'
+                        }
+                      >
+                        {busy === `${decision.subject_id}:${action}` ? '…' : ACTION_LABELS[action]}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {isExpanded && canExpand && (

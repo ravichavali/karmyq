@@ -2615,7 +2615,40 @@ CREATE TABLE auth.user_interests (
 - `payload = {}` for backward compatibility
 - No breaking changes to existing API contracts
 
-### 10.4 Known Issues
+### 10.4 Recent Fixes
+
+**Sprint 92 — Matching & Dibs Repair (v11.1.0, branch `feature/sprint-92-matching-repair`):**
+
+- **BUG-008 — stranded `help_offers` on match reject/accept.** Creating a match set the linked offer
+  to `'matched'`, but only the cancel path restored it to `'active'`. `PUT /matches/:id/reject` and
+  the `accept` path's sibling rejection now free the linked offer(s) back to `'active'`, so a
+  reopened request is re-matchable and freed helpers re-enter the pool.
+  Test: `tests/tdd/sprint-92-matching.test.ts`.
+- **BUG-007 — dibs neighbor/provider framing (ADR-072 Option A).** Candidates carry a
+  `kind: 'neighbor' | 'provider'` discriminator (`getMutualAidCandidates` vs `getEligibleCandidates`);
+  `POST /requests/:id/dibs` validates a non-service nominee against the mutual-aid pool (no spurious
+  `NO_PRIOR_INTERACTION`). `GET /requests/:id/dibs-candidate` derives the facet from the **persisted**
+  `request_type` (ignores `?type=`) and returns a server-computed `reason`
+  (`prior_similar_success` | `trusted_neighbor` | `provider_match`) + `relationshipContext`
+  (`priorCompletedMatches`/`lastInteractionAt`/`similarCategory`) so the UI renders the relationship
+  judgment rather than recomputing it (ADR-072 §2 — server-side relationship routing). Candidate
+  **selection** also routes by similarity: the scorer weights `similarPriorInteractions` (completed
+  matches sharing the request's task-similarity key — `deriveSimilarityKey`/`SIMILARITY_KEY_SQL`:
+  payload subtype like `service_category`/`item_category` when present, else `category`) so one
+  prior similar task outranks many unrelated interactions. Match `accept` AND `reject` are
+  race-serialized (request-row `FOR UPDATE` + conditional status update → 409 on a lost race), and
+  the dibs INSERT runs on the same transaction as the `dibs_pending` transition.
+  Tests:
+  `tests/unit/dibs-candidate-kind.test.ts`, `tests/regression/sprint-52-trust-path.test.ts`,
+  `tests/tdd/sprint-92-matching.test.ts`.
+- **BUG-005 — completion → rating unification.** The decisions feed (`fetchDecisions`) now returns
+  `counterparty_id` + `community_id` so the Dashboard can attribute a rating; the rating prompt fires
+  on `fully_completed` from both surfaces (frontend shared helper).
+- **BUG-002 — feed excludes the viewer's already-engaged requests.** Every browsable open-request
+  query excludes requests where the viewer has a live (proposed/matched) match as responder.
+  Test: `tests/regression/sprint-92-feed-exclusion.test.ts`.
+
+### 10.5 Known Issues
 
 **Current Issues (v9.0.0):**
 

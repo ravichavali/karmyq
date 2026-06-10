@@ -12,7 +12,10 @@
  */
 
 const mockQuery = jest.fn();
-jest.mock('../../src/database/db', () => ({ query: (...args: any[]) => mockQuery(...args) }));
+jest.mock('../../src/database/db', () => ({
+  query: (...args: any[]) => mockQuery(...args),
+  withTransaction: (fn: any) => fn((...args: any[]) => mockQuery(...args)),
+}));
 
 const mockPublishEvent = jest.fn();
 jest.mock('../../src/events/publisher', () => ({ publishEvent: (...args: any[]) => mockPublishEvent(...args) }));
@@ -59,7 +62,9 @@ describe('Sprint 83: Match-action authorization derives identity from JWT, not b
   it('reject: lets the responder (helper) withdraw their own match → 200', async () => {
     mockQuery
       .mockResolvedValueOnce({ rowCount: 1, rows: [PROPOSED_MATCH] })       // matchCheck
-      .mockResolvedValueOnce({ rowCount: 1, rows: [] })                     // UPDATE status='rejected'
+      .mockResolvedValueOnce({ rowCount: 1, rows: [{ id: 'req-1' }] })      // SELECT request FOR UPDATE
+      .mockResolvedValueOnce({ rowCount: 1, rows: [] })                     // conditional UPDATE status='rejected'
+      .mockResolvedValueOnce({ rowCount: 1, rows: [] })                     // UPDATE help_offers status='active' (BUG-008)
       .mockResolvedValueOnce({ rowCount: 1, rows: [{ count: '1' }] });      // remaining proposed (skip reopen)
 
     const app = await buildMatchesApp('helper-user');

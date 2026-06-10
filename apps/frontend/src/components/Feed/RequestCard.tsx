@@ -149,7 +149,10 @@ export default function RequestCard({ data, currentUserId, onOffered }: RequestC
               disabled={offering}
               className="btn-primary text-sm py-1.5 px-4 disabled:opacity-50 shrink-0"
             >
-              {offering ? 'Offering…' : 'Offer to Help'}
+              {/* BUG-003: provider-context (service) requests read "Offer service"; the
+                  shared mutual-aid button keeps "Offer to Help". request_type carries the
+                  coarse enum at runtime ('service'), though typed as the fine subtype. */}
+              {offering ? 'Offering…' : (String(data.request_type) === 'service' ? 'Offer service' : 'Offer to Help')}
             </button>
           )
         )}

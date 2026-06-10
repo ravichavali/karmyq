@@ -7,8 +7,10 @@ const base: RawCandidate = {
   displayName: 'Alice',
   trustScore: 75,
   priorInteractions: 2,
+  similarPriorInteractions: 0,
   trustGraphConnection: 'direct',
   isAvailable: true,
+  kind: 'provider',
 };
 
 describe('filterEligibleCandidates — explore/exploit two-tier', () => {
@@ -59,5 +61,24 @@ describe('scoreCandidate — trust score flows through formula', () => {
     const exploit = scoreCandidate({ ...base, priorInteractions: 1, trustGraphConnection: 'direct' });
     const explore = scoreCandidate({ ...base, priorInteractions: 0, trustGraphConnection: 'direct' });
     expect(exploit).toBeGreaterThan(explore);
+  });
+
+  // ADR-072: one prior SIMILAR completed task beats many unrelated interactions.
+  it('routes by similarity: one similar interaction outranks many unrelated ones', () => {
+    const similar = scoreCandidate({
+      ...base, trustScore: 50, priorInteractions: 1, similarPriorInteractions: 1, trustGraphConnection: 'none',
+    });
+    const manyUnrelated = scoreCandidate({
+      ...base, trustScore: 50, priorInteractions: 3, similarPriorInteractions: 0, trustGraphConnection: 'none',
+    });
+    expect(similar).toBeGreaterThan(manyUnrelated);
+  });
+
+  it('similar-task bonus stacks but is capped', () => {
+    const one = scoreCandidate({ ...base, similarPriorInteractions: 1 });
+    const two = scoreCandidate({ ...base, similarPriorInteractions: 2 });
+    const three = scoreCandidate({ ...base, similarPriorInteractions: 3 });
+    expect(two).toBeGreaterThan(one);
+    expect(three).toBe(two); // capped at 2
   });
 });
