@@ -38,6 +38,11 @@ interface Dibs_Candidate {
   priorInteractions: number;
   trustGraphConnection: 'direct' | 'indirect' | 'none';
   isAvailable: boolean;
+  // Sprint 92 (ADR-072): RawCandidate gained a facet discriminator and a similar-task
+  // count. similarPriorInteractions=0 keeps every score expectation below unchanged
+  // (the similarity term contributes 0).
+  kind: 'neighbor' | 'provider';
+  similarPriorInteractions: number;
 }
 
 const baseCandidate: Dibs_Candidate = {
@@ -48,6 +53,8 @@ const baseCandidate: Dibs_Candidate = {
   priorInteractions: 2,
   trustGraphConnection: 'none',
   isAvailable: true,
+  kind: 'provider',
+  similarPriorInteractions: 0,
 };
 
 // ── scoreCandidate ─────────────────────────────────────────────────────────────
