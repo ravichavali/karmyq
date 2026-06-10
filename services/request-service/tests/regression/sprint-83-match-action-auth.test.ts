@@ -12,7 +12,10 @@
  */
 
 const mockQuery = jest.fn();
-jest.mock('../../src/database/db', () => ({ query: (...args: any[]) => mockQuery(...args) }));
+jest.mock('../../src/database/db', () => ({
+  query: (...args: any[]) => mockQuery(...args),
+  withTransaction: (fn: any) => fn((...args: any[]) => mockQuery(...args)),
+}));
 
 const mockPublishEvent = jest.fn();
 jest.mock('../../src/events/publisher', () => ({ publishEvent: (...args: any[]) => mockPublishEvent(...args) }));

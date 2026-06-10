@@ -38,6 +38,9 @@ jest.mock('../../src/database/db', () => ({
   __esModule: true,
   default: mockPool,
   query: (...args: any[]) => mockQuery(...args),
+  // Run the transaction body inline against mockQuery so the existing per-statement
+  // mock sequences and call assertions hold unchanged.
+  withTransaction: (fn: any) => fn((...args: any[]) => mockQuery(...args)),
 }));
 
 const mockPublishEvent = jest.fn();

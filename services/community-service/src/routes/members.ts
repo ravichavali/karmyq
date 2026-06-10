@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
-import { query } from '../database/db';
+import { query, withTransaction } from '../database/db';
 import { publishEvent } from '../events/publisher';
 import {
   sendSuccess,
@@ -334,35 +334,7 @@ router.put('/:communityId/members/:userId', async (req: Request, res: Response) 
     }
     // callerRole === 'admin': allow all updates
 
-    // Last-admin guard (BUG-001): demoting or deactivating the sole active admin
-    // would leave the community adminless. The DELETE (leave/kick) path already
-    // guards this; the role-update path did not. Block it — assign another admin first.
-    const demotesRole = role !== undefined && role !== 'admin';
-    const deactivates = status !== undefined && status !== 'active';
-    if (demotesRole || deactivates) {
-      const target = await query(
-        `SELECT role, status FROM communities.members
-         WHERE community_id = $1 AND user_id = $2`,
-        [communityId, userId]
-      );
-      const isActiveAdmin =
-        target.rows[0]?.role === 'admin' && target.rows[0]?.status === 'active';
-      if (isActiveAdmin) {
-        const adminCount = await query(
-          `SELECT COUNT(*) as count FROM communities.members
-           WHERE community_id = $1 AND role = 'admin' AND status = 'active'`,
-          [communityId]
-        );
-        if (Number(adminCount.rows[0].count) <= 1) {
-          return res.status(400).json({
-            success: false,
-            message: 'Cannot demote the last admin. Assign another admin first.',
-          });
-        }
-      }
-    }
-
-    // Build update query
+    // Build the update set (validation only — no DB yet).
     const updates: string[] = [];
     const values: any[] = [];
     let paramCount = 1;
@@ -383,17 +355,45 @@ router.put('/:communityId/members/:userId', async (req: Request, res: Response) 
       });
     }
 
-    values.push(communityId, userId);
+    // Last-admin guard (BUG-001): demoting or deactivating the sole active admin would
+    // leave the community adminless. Run the count-check and the write in ONE
+    // transaction, locking the active-admin rows (FOR UPDATE) so two concurrent
+    // demotions serialize instead of both seeing count=2 and dropping the community to
+    // zero admins (the DELETE path below guards the same way).
+    const demotesRole = role !== undefined && role !== 'admin';
+    const deactivates = status !== undefined && status !== 'active';
 
-    const result = await query(
-      `UPDATE communities.members
-       SET ${updates.join(', ')}
-       WHERE community_id = $${paramCount} AND user_id = $${paramCount + 1}
-       RETURNING *`,
-      values
-    );
+    const outcome = await withTransaction(async (q) => {
+      if (demotesRole || deactivates) {
+        const admins = await q(
+          `SELECT user_id FROM communities.members
+           WHERE community_id = $1 AND role = 'admin' AND status = 'active'
+           FOR UPDATE`,
+          [communityId]
+        );
+        const targetIsSoleAdmin =
+          admins.rows.some((r: any) => r.user_id === userId) && admins.rows.length <= 1;
+        if (targetIsSoleAdmin) return { lastAdmin: true as const };
+      }
 
-    if (result.rowCount === 0) {
+      const result = await q(
+        `UPDATE communities.members
+         SET ${updates.join(', ')}
+         WHERE community_id = $${paramCount} AND user_id = $${paramCount + 1}
+         RETURNING *`,
+        [...values, communityId, userId]
+      );
+      return { result };
+    });
+
+    if ('lastAdmin' in outcome) {
+      return res.status(400).json({
+        success: false,
+        message: 'Cannot demote the last admin. Assign another admin first.',
+      });
+    }
+
+    if (outcome.result.rowCount === 0) {
       return res.status(404).json({
         success: false,
         message: 'Member not found',
@@ -402,7 +402,7 @@ router.put('/:communityId/members/:userId', async (req: Request, res: Response) 
 
     res.json({
       success: true,
-      data: result.rows[0],
+      data: outcome.result.rows[0],
       message: 'Member updated successfully',
     });
   } catch (error: any) {
@@ -454,37 +454,48 @@ router.delete('/:communityId/members/:userId', async (req: Request, res: Respons
       });
     }
 
-    // Prevent removing the last admin
-    if (memberResult.rows[0].role === 'admin') {
-      const adminCount = await query(
-        `SELECT COUNT(*) as count FROM communities.members
-         WHERE community_id = $1 AND role = 'admin' AND status = 'active'`,
-        [communityId]
+    const isTargetAdmin = memberResult.rows[0].role === 'admin';
+
+    // Atomic last-admin guard + soft delete (BUG-001): lock the active-admin rows
+    // (FOR UPDATE) so two concurrent removals serialize and can't both pass the count
+    // check and leave the community with zero admins.
+    const lastAdmin = await withTransaction(async (q) => {
+      if (isTargetAdmin) {
+        const admins = await q(
+          `SELECT user_id FROM communities.members
+           WHERE community_id = $1 AND role = 'admin' AND status = 'active'
+           FOR UPDATE`,
+          [communityId]
+        );
+        const targetIsSoleAdmin =
+          admins.rows.some((r: any) => r.user_id === userId) && admins.rows.length <= 1;
+        if (targetIsSoleAdmin) return true;
+      }
+
+      // Remove member (soft delete)
+      await q(
+        `UPDATE communities.members
+         SET status = 'inactive'
+         WHERE community_id = $1 AND user_id = $2`,
+        [communityId, userId]
       );
 
-      if (adminCount.rows[0].count <= 1) {
-        return res.status(400).json({
-          success: false,
-          message: 'Cannot remove the last admin. Assign another admin first.',
-        });
-      }
+      // Decrement current_members count
+      await q(
+        `UPDATE communities.communities
+         SET current_members = current_members - 1
+         WHERE id = $1`,
+        [communityId]
+      );
+      return false;
+    });
+
+    if (lastAdmin) {
+      return res.status(400).json({
+        success: false,
+        message: 'Cannot remove the last admin. Assign another admin first.',
+      });
     }
-
-    // Remove member (soft delete)
-    await query(
-      `UPDATE communities.members
-       SET status = 'inactive'
-       WHERE community_id = $1 AND user_id = $2`,
-      [communityId, userId]
-    );
-
-    // Decrement current_members count
-    await query(
-      `UPDATE communities.communities
-       SET current_members = current_members - 1
-       WHERE id = $1`,
-      [communityId]
-    );
 
     // Publish event
     await publishEvent('user_left_community', {
