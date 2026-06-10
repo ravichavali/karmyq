@@ -11,8 +11,22 @@ import {
   getPendingDibsForProvider,
   getEligibleCandidates,
   getMutualAidCandidates,
+  getRelationshipContext,
+  RelationshipContext,
 } from '../db/dibsDb';
 import { getBestCandidate, getMutualAidBestCandidate } from '../services/dibsScoringService';
+
+/**
+ * Why this candidate is the first-ask (ADR-072). Derived server-side from the
+ * candidate's facet + relationship history so the UI renders the judgment, not the rules.
+ */
+type DibsReason = 'prior_similar_success' | 'trusted_neighbor' | 'provider_match';
+
+function deriveDibsReason(kind: 'neighbor' | 'provider', ctx: RelationshipContext): DibsReason {
+  if (kind === 'provider') return 'provider_match';
+  if (ctx.priorCompletedMatches >= 1 && ctx.similarCategory) return 'prior_similar_success';
+  return 'trusted_neighbor';
+}
 
 const router = Router();
 
@@ -28,7 +42,7 @@ router.get('/:id/dibs-candidate', authMiddleware, async (req: AuthenticatedReque
   try {
     // Fetch the request
     const requestResult = await query(
-      `SELECT id, requester_id, scheduled_for, request_type FROM requests.help_requests WHERE id = $1`,
+      `SELECT id, requester_id, scheduled_for, request_type, category FROM requests.help_requests WHERE id = $1`,
       [requestId]
     );
 
@@ -58,8 +72,17 @@ router.get('/:id/dibs-candidate', authMiddleware, async (req: AuthenticatedReque
       : await getMutualAidBestCandidate(userId, communityIds);
 
     let trustPath: object | null = null;
+    let relationshipContext: RelationshipContext | null = null;
+    let reason: DibsReason | null = null;
 
     if (candidate) {
+      // ADR-072: server-side relationship routing — compute WHY this person is the
+      // first-ask (prior similar success / trusted neighbour / provider match) from
+      // stored relationship history, so the UI renders the server's judgment rather
+      // than recreating the rules. Same facet rules as POST /dibs.
+      relationshipContext = await getRelationshipContext(userId, candidate.providerUserId, request.category ?? null);
+      reason = deriveDibsReason(candidate.kind, relationshipContext);
+
       try {
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 3000);
@@ -82,7 +105,10 @@ router.get('/:id/dibs-candidate', authMiddleware, async (req: AuthenticatedReque
       }
     }
 
-    return res.json({ success: true, data: candidate ? { ...candidate, trustPath } : null });
+    return res.json({
+      success: true,
+      data: candidate ? { ...candidate, trustPath, reason, relationshipContext } : null,
+    });
   } catch (err: any) {
     (req as any).logger?.error('[dibs] Error fetching dibs candidate', err instanceof Error ? err : new Error(String(err)), { service: 'request-service' });
     return res.status(500).json({ success: false, message: 'Failed to fetch dibs candidate', error: err.message });

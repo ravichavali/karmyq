@@ -49,7 +49,33 @@ useful trust gesture) and preserves the existing mutual-aid candidate scoring ra
 it. The visible cost is more surface area (a discriminator threaded through candidate selection, the
 submit validation, and the prompt copy) — acceptable for the product value.
 
-### 2. One completion → rating source of truth
+### 2. Dibs candidate is server-side relationship routing, not a UI hint
+
+The first-ask exists to **strengthen existing bonds** — route similar future asks toward someone
+the requester has successfully worked with before. So the candidate endpoint owns the relationship
+judgment; the client renders it, it does not recompute it.
+
+- `GET /requests/:id/dibs-candidate` derives the facet (`kind`) from the **persisted**
+  `request_type` (the `?type=` query param is ignored), so it can never disagree with the
+  `POST /dibs` submit validation.
+- It returns a server-computed `reason` and `relationshipContext` alongside the candidate:
+
+  ```
+  candidate: {
+    providerUserId, displayName, kind: 'neighbor' | 'provider',
+    reason: 'prior_similar_success' | 'trusted_neighbor' | 'provider_match',
+    relationshipContext: { priorCompletedMatches, lastInteractionAt, similarCategory }
+  }
+  ```
+
+  `relationshipContext` is computed from completed matches between the two people (count, most
+  recent timestamp, whether any shared this request's category). `reason` is derived from the facet
+  + history: `provider_match` for service requests; `prior_similar_success` for a neighbour with a
+  prior completed match in the same category; otherwise `trusted_neighbor`. The UI renders the
+  judgment ("You've worked with Maya on something similar before — ask them first?") instead of
+  re-deriving the rules client-side.
+
+### 3. One completion → rating source of truth
 
 The rating prompt fires on exactly one signal — the `completeMatch` transition to
 `fully_completed` (two-phase completion) — from **both** surfaces. A shared
@@ -61,8 +87,9 @@ unlocks rating in place on full completion instead of dropping the row.
 
 - A neighbour can be given a first-ask with honest, neighbour-framed copy; the provider dibs flow is
   unchanged.
-- The dibs candidate contract gains a `kind` discriminator (internal; no breaking API change). The
-  decisions feed gains `counterparty_id` + `community_id` so the Dashboard can attribute a rating.
+- The dibs candidate contract gains `kind`, a server-computed `reason`, and `relationshipContext`
+  (additive — existing consumers ignore the new fields). The decisions feed gains `counterparty_id`
+  + `community_id` so the Dashboard can attribute a rating.
 - Completion and rating behave identically wherever a member closes an exchange, removing a class of
   "I marked it done but couldn't rate" confusion.
 - "Dibs" remains provider-vocabulary; the neighbour equivalent is surfaced as a **first ask**. If we

@@ -62,11 +62,15 @@ function seedRequestQuery() {
   // First query: find the request
   mockQuery.mockResolvedValueOnce({
     rowCount: 1,
-    rows: [{ id: REQUEST_ID, requester_id: REQUESTER_ID, scheduled_for: null }],
+    rows: [{ id: REQUEST_ID, requester_id: REQUESTER_ID, scheduled_for: null, request_type: 'generic', category: 'moving' }],
   });
   // Second query: community IDs for the request
   mockQuery.mockResolvedValueOnce({
     rows: [{ community_id: 'community-1' }],
+  });
+  // Third query: relationship context (ADR-072)
+  mockQuery.mockResolvedValueOnce({
+    rows: [{ prior_completed_matches: 0, last_interaction_at: null, similar_category: false }],
   });
 }
 
@@ -160,12 +164,13 @@ describe('Sprint 52 — Trust Path in Dibs Candidate', () => {
   // BUG-007: GET derives provider-vs-neighbor from the PERSISTED request_type, never the
   // ?type= query string, so it can't disagree with the POST /dibs submit validation.
   describe('candidate facet derives from persisted request_type', () => {
-    function seedRequest(request_type: string) {
+    function seedRequest(request_type: string, rel = { prior_completed_matches: 0, last_interaction_at: null, similar_category: false }) {
       mockQuery.mockResolvedValueOnce({
         rowCount: 1,
-        rows: [{ id: REQUEST_ID, requester_id: REQUESTER_ID, scheduled_for: null, request_type }],
+        rows: [{ id: REQUEST_ID, requester_id: REQUESTER_ID, scheduled_for: null, request_type, category: 'moving' }],
       });
       mockQuery.mockResolvedValueOnce({ rows: [{ community_id: 'community-1' }] });
+      mockQuery.mockResolvedValueOnce({ rows: [rel] }); // relationship context
       global.fetch = jest.fn().mockResolvedValueOnce({
         ok: true, json: async () => ({ success: true, data: null }),
       } as unknown as Response);
@@ -195,6 +200,60 @@ describe('Sprint 52 — Trust Path in Dibs Candidate', () => {
       expect(res.status).toBe(200);
       expect(mockGetMutualAidBestCandidate).toHaveBeenCalled();
       expect(mockGetBestCandidate).not.toHaveBeenCalled();
+    });
+  });
+
+  // ADR-072: server returns a relationship-routing judgment (reason + context).
+  describe('server-computed reason + relationshipContext', () => {
+    function seedRequest(request_type: string, rel: any) {
+      mockQuery.mockResolvedValueOnce({
+        rowCount: 1,
+        rows: [{ id: REQUEST_ID, requester_id: REQUESTER_ID, scheduled_for: null, request_type, category: 'moving' }],
+      });
+      mockQuery.mockResolvedValueOnce({ rows: [{ community_id: 'community-1' }] });
+      mockQuery.mockResolvedValueOnce({ rows: [rel] });
+      global.fetch = jest.fn().mockResolvedValueOnce({
+        ok: true, json: async () => ({ success: true, data: null }),
+      } as unknown as Response);
+    }
+
+    it('neighbour with a prior similar completed match → prior_similar_success', async () => {
+      seedRequest('generic', { prior_completed_matches: 2, last_interaction_at: '2026-05-01T00:00:00Z', similar_category: true });
+      mockGetMutualAidBestCandidate.mockResolvedValueOnce({ ...mockCandidate, kind: 'neighbor' });
+
+      const res = await request(app)
+        .get(`/requests/${REQUEST_ID}/dibs-candidate`)
+        .set('Authorization', `Bearer ${makeToken()}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.reason).toBe('prior_similar_success');
+      expect(res.body.data.relationshipContext.priorCompletedMatches).toBe(2);
+      expect(res.body.data.relationshipContext.similarCategory).toBe(true);
+      expect(res.body.data.relationshipContext.lastInteractionAt).toBe('2026-05-01T00:00:00.000Z');
+    });
+
+    it('neighbour worked-with-before but different category → trusted_neighbor', async () => {
+      seedRequest('generic', { prior_completed_matches: 1, last_interaction_at: '2026-04-01T00:00:00Z', similar_category: false });
+      mockGetMutualAidBestCandidate.mockResolvedValueOnce({ ...mockCandidate, kind: 'neighbor' });
+
+      const res = await request(app)
+        .get(`/requests/${REQUEST_ID}/dibs-candidate`)
+        .set('Authorization', `Bearer ${makeToken()}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.reason).toBe('trusted_neighbor');
+    });
+
+    it('service request → provider_match', async () => {
+      seedRequest('service', { prior_completed_matches: 3, last_interaction_at: '2026-03-01T00:00:00Z', similar_category: true });
+      mockGetBestCandidate.mockResolvedValueOnce({ ...mockCandidate, kind: 'provider' });
+
+      const res = await request(app)
+        .get(`/requests/${REQUEST_ID}/dibs-candidate`)
+        .set('Authorization', `Bearer ${makeToken()}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.reason).toBe('provider_match');
     });
   });
 });

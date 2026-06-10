@@ -18,6 +18,14 @@ export interface DibsCandidate {
   // BUG-007 (Option A): 'neighbor' for mutual-aid first-asks, 'provider' for
   // service requests. Defaults to provider framing when absent.
   kind?: 'neighbor' | 'provider'
+  // ADR-072: server-computed relationship routing. The UI renders this judgment;
+  // it does not recompute the rules.
+  reason?: 'prior_similar_success' | 'trusted_neighbor' | 'provider_match'
+  relationshipContext?: {
+    priorCompletedMatches: number
+    lastInteractionAt: string | null
+    similarCategory: boolean
+  }
 }
 
 interface DibsPromptProps {
@@ -116,6 +124,26 @@ export default function DibsPrompt({
   const cardAccent = isNeighbor ? 'bg-amber-50 border-amber-200' : 'bg-primary-light border-primary-medium'
   const avatarAccent = isNeighbor ? 'bg-amber-500' : 'bg-primary'
 
+  // ADR-072: render the server's relationship-routing judgment when present, so the
+  // prompt explains WHY this person ("worked together on something similar") rather
+  // than generic copy. Falls back to the facet subtitle.
+  const name = candidate.displayName || (isNeighbor ? 'a trusted neighbour' : 'a trusted provider')
+  const reasonLine = ((): string | null => {
+    switch (candidate.reason) {
+      case 'prior_similar_success':
+        return `You've worked with ${name} on something similar before. Ask them first?`
+      case 'trusted_neighbor':
+        return `You've worked with ${name} before. Ask them first?`
+      case 'provider_match':
+        return (candidate.relationshipContext?.priorCompletedMatches ?? 0) > 0
+          ? `${name} has helped with this kind of service before. Offer it to them first?`
+          : null
+      default:
+        return null
+    }
+  })()
+  const headerSubtitle = reasonLine ?? subtitle
+
   return (
     <>
       {/* Backdrop */}
@@ -129,7 +157,7 @@ export default function DibsPrompt({
           <div className="px-5 py-4 border-b border-border">
             <h2 className="text-lg font-semibold text-text">{title}</h2>
             <p className="text-sm text-text-muted mt-0.5">
-              {subtitle}
+              {headerSubtitle}
             </p>
           </div>
 

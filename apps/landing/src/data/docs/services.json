@@ -361,7 +361,7 @@
         {
           "method": "GET",
           "path": "/requests/:id/dibs-candidate",
-          "description": "Returns top-scored dibs candidate for any request; ?type=service uses provider-profile candidates, all others use mutual-aid candidates"
+          "description": "Returns the top-scored first-ask candidate with server-computed kind (neighbor|provider), reason, and relationshipContext (priorCompletedMatches/lastInteractionAt/similarCategory). Facet derives from the persisted request_type; the ?type= param is ignored (ADR-072)"
         },
         {
           "method": "POST",

@@ -2627,7 +2627,12 @@ CREATE TABLE auth.user_interests (
 - **BUG-007 — dibs neighbor/provider framing (ADR-072 Option A).** Candidates carry a
   `kind: 'neighbor' | 'provider'` discriminator (`getMutualAidCandidates` vs `getEligibleCandidates`);
   `POST /requests/:id/dibs` validates a non-service nominee against the mutual-aid pool (no spurious
-  `NO_PRIOR_INTERACTION`). Tests: `tests/unit/dibs-candidate-kind.test.ts`,
+  `NO_PRIOR_INTERACTION`). `GET /requests/:id/dibs-candidate` derives the facet from the **persisted**
+  `request_type` (ignores `?type=`) and returns a server-computed `reason`
+  (`prior_similar_success` | `trusted_neighbor` | `provider_match`) + `relationshipContext`
+  (`priorCompletedMatches`/`lastInteractionAt`/`similarCategory`) so the UI renders the relationship
+  judgment rather than recomputing it (ADR-072 §2 — server-side relationship routing). Tests:
+  `tests/unit/dibs-candidate-kind.test.ts`, `tests/regression/sprint-52-trust-path.test.ts`,
   `tests/tdd/sprint-92-matching.test.ts`.
 - **BUG-005 — completion → rating unification.** The decisions feed (`fetchDecisions`) now returns
   `counterparty_id` + `community_id` so the Dashboard can attribute a rating; the rating prompt fires

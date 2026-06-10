@@ -220,6 +220,50 @@ export async function getMutualAidCandidates(
 }
 
 /**
+ * Server-computed relationship history between the requester and a candidate, used to
+ * frame the first-ask as relationship routing ("you've worked with X on something
+ * similar before") rather than a bare pool result. ADR-072.
+ */
+export interface RelationshipContext {
+  priorCompletedMatches: number;
+  lastInteractionAt: string | null;
+  similarCategory: boolean;
+}
+
+/**
+ * Count completed matches between requester and candidate, the most recent one's
+ * timestamp, and whether any of them shared this request's category. Direction-agnostic
+ * (either party may have been the requester). `category` may be null (then similarCategory
+ * is false).
+ */
+export async function getRelationshipContext(
+  requesterId: string,
+  candidateUserId: string,
+  category: string | null
+): Promise<RelationshipContext> {
+  const result = await query(
+    `SELECT
+       COUNT(*)::int                              AS prior_completed_matches,
+       MAX(m.completed_at)                        AS last_interaction_at,
+       COALESCE(BOOL_OR(hr.category = $3), false) AS similar_category
+     FROM requests.matches m
+     JOIN requests.help_requests hr ON hr.id = m.request_id
+     WHERE m.status = 'completed'
+       AND (
+         (hr.requester_id = $1 AND m.responder_id = $2)
+         OR (m.responder_id = $1 AND hr.requester_id = $2)
+       )`,
+    [requesterId, candidateUserId, category]
+  );
+  const row = result.rows[0] ?? {};
+  return {
+    priorCompletedMatches: Number(row.prior_completed_matches ?? 0),
+    lastInteractionAt: row.last_interaction_at ? new Date(row.last_interaction_at).toISOString() : null,
+    similarCategory: Boolean(row.similar_category),
+  };
+}
+
+/**
  * Insert a new dibs record.
  */
 export async function createDibs(

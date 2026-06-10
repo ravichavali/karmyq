@@ -51,4 +51,43 @@ describe('Sprint 92 BUG-007: DibsPrompt neighbor vs provider framing', () => {
     expect(screen.getByText('Offer First Dibs?')).toBeInTheDocument()
     expect(screen.getByText(/trusted provider/i)).toBeInTheDocument()
   })
+
+  // ADR-072: the prompt renders the server's relationship-routing reason.
+  it('renders the server reason for a prior similar success (neighbour)', () => {
+    render(
+      <DibsPrompt
+        candidate={{
+          ...base,
+          kind: 'neighbor',
+          reason: 'prior_similar_success',
+          relationshipContext: { priorCompletedMatches: 2, lastInteractionAt: '2026-05-01T00:00:00Z', similarCategory: true },
+        }}
+        requestId="r1"
+        scheduledFor={null as unknown as string}
+        expiresAt={new Date(Date.now() + 3600_000).toISOString()}
+        onSend={asyncNoop}
+        onSkip={noop}
+      />
+    )
+    expect(screen.getByText(/worked with Sam on something similar before/i)).toBeInTheDocument()
+  })
+
+  it('renders the provider_match reason copy', () => {
+    render(
+      <DibsPrompt
+        candidate={{
+          ...base,
+          kind: 'provider',
+          reason: 'provider_match',
+          relationshipContext: { priorCompletedMatches: 3, lastInteractionAt: '2026-03-01T00:00:00Z', similarCategory: true },
+        }}
+        requestId="r1"
+        scheduledFor={new Date(Date.now() + 7200_000).toISOString()}
+        expiresAt={new Date(Date.now() + 3600_000).toISOString()}
+        onSend={asyncNoop}
+        onSkip={noop}
+      />
+    )
+    expect(screen.getByText(/helped with this kind of service before/i)).toBeInTheDocument()
+  })
 })
