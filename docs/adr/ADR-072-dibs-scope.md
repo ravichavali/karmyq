@@ -75,6 +75,14 @@ judgment; the client renders it, it does not recompute it.
   judgment ("You've worked with Maya on something similar before — ask them first?") instead of
   re-deriving the rules client-side.
 
+- **Candidate selection routes by similarity, not just total interactions.** The scorer adds a
+  heavily-weighted term for completed matches with the requester in the **same category** as the
+  request (`similarPriorInteractions`, computed per-candidate in `getEligibleCandidates` /
+  `getMutualAidCandidates` from the request's category). One prior similar task (+40) outweighs the
+  entire unrelated-interaction component (max ≈ 35), so a single prior similar success beats someone
+  with many unrelated interactions — the routing *implements* the "send a similar future ask to
+  someone you've done a similar task with" intent, rather than only explaining it after selection.
+
 ### 3. One completion → rating source of truth
 
 The rating prompt fires on exactly one signal — the `completeMatch` transition to

@@ -68,8 +68,8 @@ router.get('/:id/dibs-candidate', authMiddleware, async (req: AuthenticatedReque
     // candidate framing can never disagree with the POST /dibs submit validation (which
     // also keys off the stored request_type). The legacy ?type= query param is ignored.
     const candidate = request.request_type === 'service'
-      ? await getBestCandidate(userId, communityIds)
-      : await getMutualAidBestCandidate(userId, communityIds);
+      ? await getBestCandidate(userId, communityIds, request.category ?? null)
+      : await getMutualAidBestCandidate(userId, communityIds, request.category ?? null);
 
     let trustPath: object | null = null;
     let relationshipContext: RelationshipContext | null = null;
@@ -132,7 +132,7 @@ router.post('/:id/dibs', authMiddleware, async (req: AuthenticatedRequest, res: 
   try {
     // Fetch the request
     const requestResult = await query(
-      `SELECT id, requester_id, scheduled_for, status, request_type FROM requests.help_requests WHERE id = $1`,
+      `SELECT id, requester_id, scheduled_for, status, request_type, category FROM requests.help_requests WHERE id = $1`,
       [requestId]
     );
 
@@ -179,8 +179,8 @@ router.post('/:id/dibs', authMiddleware, async (req: AuthenticatedRequest, res: 
     // no provider profile always 403s (NO_PRIOR_INTERACTION).
     const isService = request.request_type === 'service';
     const eligibleCandidates = isService
-      ? await getEligibleCandidates(userId, communityIds)
-      : await getMutualAidCandidates(userId, communityIds);
+      ? await getEligibleCandidates(userId, communityIds, request.category ?? null)
+      : await getMutualAidCandidates(userId, communityIds, request.category ?? null);
     const nominatedCandidate = eligibleCandidates.find((c) => c.providerUserId === providerUserId);
 
     if (!nominatedCandidate) {

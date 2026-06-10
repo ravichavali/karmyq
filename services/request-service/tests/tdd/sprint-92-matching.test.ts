@@ -119,7 +119,8 @@ describe('Sprint 92 BUG-008: rejecting/accepting a match frees the linked offer(
     mockQuery
       .mockResolvedValueOnce({ rowCount: 1, rows: [PROPOSED_MATCH] })                       // matchCheck
       .mockResolvedValueOnce({ rowCount: 1, rows: [{ request_type: 'generic', payload: null }] }) // requestData
-      .mockResolvedValueOnce({ rowCount: 1, rows: [] })                                     // UPDATE matches accept
+      .mockResolvedValueOnce({ rowCount: 1, rows: [{ id: 'req-1' }] })                      // SELECT request FOR UPDATE (lock)
+      .mockResolvedValueOnce({ rowCount: 1, rows: [] })                                     // UPDATE matches accept (conditional, rowCount 1)
       .mockResolvedValueOnce({ rowCount: 1, rows: [] })                                     // UPDATE help_requests matched
       .mockResolvedValueOnce({ rowCount: 1, rows: [] })                                     // UPDATE sibling help_offers active
       .mockResolvedValueOnce({ rowCount: 1, rows: [] })                                     // UPDATE sibling matches rejected
@@ -134,6 +135,26 @@ describe('Sprint 92 BUG-008: rejecting/accepting a match frees the linked offer(
       typeof sql === 'string' && /help_offers/i.test(sql) && /status\s*=\s*'active'/i.test(sql)
     );
     expect(resetCall).toBeDefined();
+  });
+
+  it('accept: returns 409 when a sibling won the race (conditional update matches 0 rows)', async () => {
+    mockQuery
+      .mockResolvedValueOnce({ rowCount: 1, rows: [PROPOSED_MATCH] })                       // matchCheck
+      .mockResolvedValueOnce({ rowCount: 1, rows: [{ request_type: 'generic', payload: null }] }) // requestData
+      .mockResolvedValueOnce({ rowCount: 1, rows: [{ id: 'req-1' }] })                      // SELECT request FOR UPDATE
+      .mockResolvedValueOnce({ rowCount: 0, rows: [] });                                    // conditional accept matched 0 rows → conflict
+
+    const app = await buildMatchesApp('requester-user');
+    const res = await request(app).put('/matches/match-1/accept').send({});
+
+    expect(res.status).toBe(409);
+    expect(res.body.error).toBe('ALREADY_MATCHED');
+    // Must NOT have transitioned the request or published an accept.
+    expect(mockPublishEvent).not.toHaveBeenCalled();
+    const requestMatched = mockQuery.mock.calls.find(([sql]: [string]) =>
+      typeof sql === 'string' && /help_requests/i.test(sql) && /status\s*=\s*'matched'/i.test(sql)
+    );
+    expect(requestMatched).toBeUndefined();
   });
 });
 

@@ -2631,7 +2631,10 @@ CREATE TABLE auth.user_interests (
   `request_type` (ignores `?type=`) and returns a server-computed `reason`
   (`prior_similar_success` | `trusted_neighbor` | `provider_match`) + `relationshipContext`
   (`priorCompletedMatches`/`lastInteractionAt`/`similarCategory`) so the UI renders the relationship
-  judgment rather than recomputing it (ADR-072 §2 — server-side relationship routing). Tests:
+  judgment rather than recomputing it (ADR-072 §2 — server-side relationship routing). Candidate
+  **selection** also routes by similarity: the scorer weights `similarPriorInteractions` (completed
+  matches in the request's category) so one prior similar task outranks many unrelated interactions.
+  Tests:
   `tests/unit/dibs-candidate-kind.test.ts`, `tests/regression/sprint-52-trust-path.test.ts`,
   `tests/tdd/sprint-92-matching.test.ts`.
 - **BUG-005 — completion → rating unification.** The decisions feed (`fetchDecisions`) now returns

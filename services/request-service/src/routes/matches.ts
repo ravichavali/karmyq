@@ -322,14 +322,26 @@ router.put('/:id/accept', async (req: AuthenticatedRequest, res: Response) => {
 
     // Atomic accept: match → request → free sibling offers → reject siblings, all in
     // one transaction so a mid-sequence failure can't split match/request/offer state.
-    const enriched = await withTransaction(async (q) => {
-      // Accept match, store scheduling info
+    const result = await withTransaction(async (q) => {
+      // Serialize concurrent accepts on the SAME request by locking the request row
+      // first. Without this, two sibling proposed matches could both read 'proposed'
+      // and both commit as 'matched'. The lock makes the two accepts run one-at-a-time.
       await q(
+        `SELECT id FROM requests.help_requests WHERE id = $1 FOR UPDATE`,
+        [match.request_id]
+      );
+
+      // Accept THIS match only if it is still proposed. The row-count guard turns a
+      // lost race (the sibling won and rejected this match) into a clean 409.
+      const accepted = await q(
         `UPDATE requests.matches
          SET status = 'matched', scheduled_at = $2, travel_time_minutes = $3
-         WHERE id = $1`,
+         WHERE id = $1 AND status = 'proposed'`,
         [id, scheduled_at, travel_time_minutes]
       );
+      if (accepted.rowCount === 0) {
+        return { conflict: true as const };
+      }
 
       // Update request status to matched
       await q(
@@ -361,14 +373,24 @@ router.put('/:id/accept', async (req: AuthenticatedRequest, res: Response) => {
       );
 
       // Fetch enriched match data for response (includes payload for frontend fulfillment panel)
-      return q(
+      const enriched = await q(
         `SELECT m.*, r.request_type, r.payload, r.title as request_title
          FROM requests.matches m
          JOIN requests.help_requests r ON m.request_id = r.id
          WHERE m.id = $1`,
         [id]
       );
+      return { enriched };
     });
+
+    // Lost the race: a sibling match was accepted first (this one is now rejected).
+    if ('conflict' in result) {
+      return res.status(409).json({
+        success: false,
+        message: 'This request was just matched with someone else',
+        error: 'ALREADY_MATCHED',
+      });
+    }
 
     // Publish event
     await publishEvent('match_accepted', {
@@ -383,7 +405,7 @@ router.put('/:id/accept', async (req: AuthenticatedRequest, res: Response) => {
     res.json({
       success: true,
       message: 'Match accepted successfully',
-      data: enriched.rows[0],
+      data: result.enriched.rows[0],
     });
   } catch (error: any) {
     (req as any).logger?.error('Error accepting match', error instanceof Error ? error : new Error(String(error)), { service: 'request-service' });

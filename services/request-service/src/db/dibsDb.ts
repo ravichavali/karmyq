@@ -41,6 +41,13 @@ export interface RawCandidate {
    * the dibs/first-ask UI — a neighbor must never be shown as a "provider."
    */
   kind: 'neighbor' | 'provider';
+  /**
+   * ADR-072: completed interactions with the requester in the SAME category as the
+   * request being routed. The scorer weights this heavily so the first-ask actually
+   * routes a similar future ask toward someone you've done a similar task with —
+   * not just someone with many unrelated interactions. 0 when no category is given.
+   */
+  similarPriorInteractions: number;
 }
 
 // ── Queries ───────────────────────────────────────────────────────────────────
@@ -61,7 +68,8 @@ export interface RawCandidate {
  */
 export async function getEligibleCandidates(
   requesterId: string,
-  communityIds: string[]
+  communityIds: string[],
+  category: string | null = null
 ): Promise<RawCandidate[]> {
   const result = await query(
     `SELECT
@@ -70,6 +78,7 @@ export async function getEligibleCandidates(
        pp.display_name                    AS "displayName",
        COALESCE(pts.trust_score, 50)      AS "trustScore",
        prior.interaction_count            AS "priorInteractions",
+       COALESCE(prior_similar.interaction_count, 0) AS "similarPriorInteractions",
        COALESCE(
          CASE sg.type
            WHEN 'exchange'  THEN 'direct'
@@ -104,6 +113,30 @@ export async function getEligibleCandidates(
          END
      ) prior ON prior.provider_user_id = pp.user_id
 
+     -- ADR-072: completed interactions in the SAME category as the request being routed.
+     LEFT JOIN (
+       SELECT
+         CASE
+           WHEN hr.requester_id = $1 THEN m.responder_id
+           ELSE hr.requester_id
+         END AS provider_user_id,
+         COUNT(*) AS interaction_count
+       FROM requests.matches m
+       JOIN requests.help_requests hr ON hr.id = m.request_id
+       WHERE m.status = 'completed'
+         AND hr.category = $3
+         AND (
+           (hr.requester_id = $1 AND m.responder_id != $1)
+           OR
+           (m.responder_id = $1 AND hr.requester_id != $1)
+         )
+       GROUP BY
+         CASE
+           WHEN hr.requester_id = $1 THEN m.responder_id
+           ELSE hr.requester_id
+         END
+     ) prior_similar ON prior_similar.provider_user_id = pp.user_id
+
      -- Optional: cached trust score from reputation service (defaults to 50 if no reviews yet)
      LEFT JOIN reputation.provider_trust_scores pts ON pts.provider_id = pp.id
 
@@ -122,7 +155,7 @@ export async function getEligibleCandidates(
          WHERE cm.community_id = ANY($2)
        )
        AND pp.user_id != $1`,
-    [requesterId, communityIds]
+    [requesterId, communityIds, category]
   );
 
   return result.rows.map((row: any) => ({
@@ -131,6 +164,7 @@ export async function getEligibleCandidates(
     displayName: row.displayName ?? '',
     trustScore: Number(row.trustScore),
     priorInteractions: Number(row.priorInteractions),
+    similarPriorInteractions: Number(row.similarPriorInteractions ?? 0),
     trustGraphConnection: row.trustGraphConnection as 'direct' | 'indirect' | 'none',
     isAvailable: Boolean(row.isAvailable),
     kind: 'provider',
@@ -144,7 +178,8 @@ export async function getEligibleCandidates(
  */
 export async function getMutualAidCandidates(
   requesterId: string,
-  communityIds: string[]
+  communityIds: string[],
+  category: string | null = null
 ): Promise<RawCandidate[]> {
   const result = await query(
     `SELECT
@@ -157,6 +192,7 @@ export async function getMutualAidCandidates(
          50
        )                                   AS "trustScore",
        COALESCE(prior.interaction_count, 0) AS "priorInteractions",
+       COALESCE(prior_similar.interaction_count, 0) AS "similarPriorInteractions",
        COALESCE(
          CASE sg.type
            WHEN 'exchange'  THEN 'direct'
@@ -189,6 +225,29 @@ export async function getMutualAidCandidates(
          END
      ) prior ON prior.provider_user_id = u.id
 
+     -- ADR-072: completed interactions in the SAME category as the request being routed.
+     LEFT JOIN (
+       SELECT
+         CASE
+           WHEN hr.requester_id = $1 THEN m.responder_id
+           ELSE hr.requester_id
+         END AS provider_user_id,
+         COUNT(*) AS interaction_count
+       FROM requests.matches m
+       JOIN requests.help_requests hr ON hr.id = m.request_id
+       WHERE m.status = 'completed'
+         AND hr.category = $3
+         AND (
+           (hr.requester_id = $1 AND m.responder_id != $1)
+           OR (m.responder_id = $1 AND hr.requester_id != $1)
+         )
+       GROUP BY
+         CASE
+           WHEN hr.requester_id = $1 THEN m.responder_id
+           ELSE hr.requester_id
+         END
+     ) prior_similar ON prior_similar.provider_user_id = u.id
+
      LEFT JOIN social_graph.connections sg ON (
        (sg.user_a_id = $1 AND sg.user_b_id = u.id)
        OR (sg.user_b_id = $1 AND sg.user_a_id = u.id)
@@ -204,7 +263,7 @@ export async function getMutualAidCandidates(
          COALESCE(prior.interaction_count, 0) >= 1
          OR (sg.type = 'exchange' AND COALESCE(prior.interaction_count, 0) = 0)
        )`,
-    [requesterId, communityIds]
+    [requesterId, communityIds, category]
   );
 
   return result.rows.map((row: any) => ({
@@ -213,6 +272,7 @@ export async function getMutualAidCandidates(
     displayName: row.displayName ?? '',
     trustScore: Number(row.trustScore),
     priorInteractions: Number(row.priorInteractions),
+    similarPriorInteractions: Number(row.similarPriorInteractions ?? 0),
     trustGraphConnection: row.trustGraphConnection as 'direct' | 'indirect' | 'none',
     isAvailable: true,
     kind: 'neighbor',
