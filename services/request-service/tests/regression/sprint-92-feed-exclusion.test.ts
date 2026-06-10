@@ -7,9 +7,12 @@
  * browsable feed queries — every one filtered only on `r.status='open'` +
  * `r.requester_id != $1`, never on the viewer's own engagement.
  *
- * Fix: every browsable open-request query (GET /requests, curated feed, sister-community
- * feed) excludes requests where the viewer ($1) already has a `proposed`/`matched` match
- * as responder. Non-open statuses remain excluded by the existing `r.status='open'`.
+ * Fix: every browsable open-request query excludes requests where the viewer ($1) already has
+ * a `proposed`/`matched` match as responder. In requests.ts these are the skill-matched feed
+ * (`/matched/for-user`), the curated feed, and the sister-community feed; the generic
+ * `GET /requests` route builds its SQL via `buildRequestsQuery` (utils/queryBuilder.ts), covered
+ * behaviorally in tests/unit/queryBuilder.test.ts. Non-open statuses remain excluded by the
+ * existing `r.status='open'`.
  *
  * Server-side only — no client-side filter (CLAUDE.md bug-fix rule). This locks the SQL
  * contract the way community-membership-feed.test.ts locks feed columns (behavioral
@@ -31,9 +34,10 @@ describe('Sprint 92 BUG-002: browsable feed excludes the viewer’s already-enga
   const exclusionRe =
     /NOT EXISTS \( SELECT 1 FROM requests\.matches m_self WHERE m_self\.request_id = r\.id AND m_self\.responder_id = \$1 AND m_self\.status IN \('proposed', 'matched'\) \)/g;
 
-  it('applies the self-engagement exclusion to every browsable open-request query', () => {
+  it('applies the self-engagement exclusion to every browsable requests.ts feed query', () => {
     const matches = flat.match(exclusionRe) ?? [];
-    // GET /requests, curated feed, sister-community feed = 3 browsable surfaces.
+    // /matched/for-user, curated feed, sister-community feed = 3 surfaces in requests.ts.
+    // (The generic GET /requests route is covered in tests/unit/queryBuilder.test.ts.)
     expect(matches.length).toBe(3);
   });
 

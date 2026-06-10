@@ -6,6 +6,14 @@ export interface RequestsQueryFilters {
   limit?: string | number;
   offset?: string | number;
   include_admin_notes?: string;
+  /**
+   * BUG-002: the authenticated viewer. When set, requests the viewer already has a
+   * live (proposed/matched) match on are excluded, so an already-engaged request
+   * never reappears as browsable on reload. (GET /requests is the generic browse
+   * route behind authMiddleware — the curated/sister/matched feeds exclude the same
+   * way in requests.ts.)
+   */
+  viewer_id?: string;
 }
 
 export interface RequestsQueryResult {
@@ -22,6 +30,7 @@ export function buildRequestsQuery(filters: RequestsQueryFilters): RequestsQuery
     limit = 50,
     offset = 0,
     include_admin_notes,
+    viewer_id,
   } = filters;
 
   const includeAdminNotes = include_admin_notes === 'true' && !!community_id;
@@ -82,6 +91,18 @@ export function buildRequestsQuery(filters: RequestsQueryFilters): RequestsQuery
   if (type) {
     queryText += ` AND r.category = $${paramCount}`;
     params.push(type);
+    paramCount++;
+  }
+
+  if (viewer_id) {
+    // BUG-002: exclude requests the viewer already has a live offer/match on.
+    queryText += ` AND NOT EXISTS (
+        SELECT 1 FROM requests.matches m_self
+        WHERE m_self.request_id = r.id
+          AND m_self.responder_id = $${paramCount}
+          AND m_self.status IN ('proposed', 'matched')
+      )`;
+    params.push(viewer_id);
     paramCount++;
   }
 

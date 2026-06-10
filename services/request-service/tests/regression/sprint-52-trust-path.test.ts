@@ -23,9 +23,10 @@ jest.mock('../../src/services/dibsScoringService', () => ({
 }));
 
 import { query } from '../../src/database/db';
-import { getMutualAidBestCandidate } from '../../src/services/dibsScoringService';
+import { getBestCandidate, getMutualAidBestCandidate } from '../../src/services/dibsScoringService';
 
 const mockQuery = query as jest.Mock;
+const mockGetBestCandidate = getBestCandidate as jest.Mock;
 const mockGetMutualAidBestCandidate = getMutualAidBestCandidate as jest.Mock;
 
 const REQUEST_ID = 'req-abc-123';
@@ -154,5 +155,46 @@ describe('Sprint 52 — Trust Path in Dibs Candidate', () => {
     expect(res.body.success).toBe(true);
     expect(res.body.data.displayName).toBe('Alice');
     expect(res.body.data.trustPath).toBeNull();
+  });
+
+  // BUG-007: GET derives provider-vs-neighbor from the PERSISTED request_type, never the
+  // ?type= query string, so it can't disagree with the POST /dibs submit validation.
+  describe('candidate facet derives from persisted request_type', () => {
+    function seedRequest(request_type: string) {
+      mockQuery.mockResolvedValueOnce({
+        rowCount: 1,
+        rows: [{ id: REQUEST_ID, requester_id: REQUESTER_ID, scheduled_for: null, request_type }],
+      });
+      mockQuery.mockResolvedValueOnce({ rows: [{ community_id: 'community-1' }] });
+      global.fetch = jest.fn().mockResolvedValueOnce({
+        ok: true, json: async () => ({ success: true, data: null }),
+      } as unknown as Response);
+    }
+
+    it('uses the provider pool for a persisted service request', async () => {
+      seedRequest('service');
+      mockGetBestCandidate.mockResolvedValueOnce(mockCandidate);
+
+      const res = await request(app)
+        .get(`/requests/${REQUEST_ID}/dibs-candidate`)
+        .set('Authorization', `Bearer ${makeToken()}`);
+
+      expect(res.status).toBe(200);
+      expect(mockGetBestCandidate).toHaveBeenCalled();
+      expect(mockGetMutualAidBestCandidate).not.toHaveBeenCalled();
+    });
+
+    it('uses the neighbour pool for a non-service request even when ?type=service is passed', async () => {
+      seedRequest('generic');
+      mockGetMutualAidBestCandidate.mockResolvedValueOnce(mockCandidate);
+
+      const res = await request(app)
+        .get(`/requests/${REQUEST_ID}/dibs-candidate?type=service`)
+        .set('Authorization', `Bearer ${makeToken()}`);
+
+      expect(res.status).toBe(200);
+      expect(mockGetMutualAidBestCandidate).toHaveBeenCalled();
+      expect(mockGetBestCandidate).not.toHaveBeenCalled();
+    });
   });
 });

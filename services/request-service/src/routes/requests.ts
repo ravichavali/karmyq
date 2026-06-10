@@ -142,6 +142,8 @@ router.get('/', async (req: Request, res: Response) => {
       limit: limit as string,
       offset: offset as string,
       include_admin_notes: include_admin_notes as string,
+      // BUG-002: exclude the viewer's already-engaged requests from the generic browse.
+      viewer_id: (req as any).user?.userId,
     });
 
     const result = await query(queryText, params);

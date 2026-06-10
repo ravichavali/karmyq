@@ -28,7 +28,7 @@ router.get('/:id/dibs-candidate', authMiddleware, async (req: AuthenticatedReque
   try {
     // Fetch the request
     const requestResult = await query(
-      `SELECT id, requester_id, scheduled_for FROM requests.help_requests WHERE id = $1`,
+      `SELECT id, requester_id, scheduled_for, request_type FROM requests.help_requests WHERE id = $1`,
       [requestId]
     );
 
@@ -50,8 +50,10 @@ router.get('/:id/dibs-candidate', authMiddleware, async (req: AuthenticatedReque
     );
     const communityIds: string[] = communitiesResult.rows.map((r: any) => r.community_id);
 
-    const requestType = req.query.type as string | undefined;
-    const candidate = requestType === 'service'
+    // BUG-007: derive provider-vs-neighbor from the PERSISTED request_type so the GET
+    // candidate framing can never disagree with the POST /dibs submit validation (which
+    // also keys off the stored request_type). The legacy ?type= query param is ignored.
+    const candidate = request.request_type === 'service'
       ? await getBestCandidate(userId, communityIds)
       : await getMutualAidBestCandidate(userId, communityIds);
 
