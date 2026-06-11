@@ -1,11 +1,9 @@
 /**
  * Sprint 93 — login-401 React #31 crash.
  *
- * The shared `sendError` envelope is `{ success:false, error:{ code, message } }` — an
- * OBJECT. When a client renders `data.error` directly into JSX (login.tsx:43 and four
- * sibling pages), an object child throws React #31 → the whole-app ErrorBoundary trips.
- * The api.ts interceptor normalizes `data.error` to a string EXCEPT when `.message` is
- * absent, and unit / interceptor-bypassed paths skip it entirely (codex review). These
+ * Pre-S94 shared `sendError` envelopes used `{ success:false, error:{ code, message } }`.
+ * When a client renders that object directly into JSX (login.tsx:43 and four sibling
+ * pages), an object child throws React #31 → the whole-app ErrorBoundary trips. These
  * tests pin the *page* behavior: a failed login must render a STRING, never an object.
  */
 
@@ -54,6 +52,19 @@ describe('Sprint 93: login renders a string error, never an object (React #31 gu
       expect(screen.getByText('UNAUTHORIZED')).toBeInTheDocument()
     })
   })
+
+  it('renders the human message, not the code, for the canonical S94 envelope', async () => {
+    // S94 server shape: top-level human `message` + string `error` CODE. The UI must show
+    // the message ("Invalid credentials"), never the raw code ("UNAUTHORIZED").
+    mockPost.mockRejectedValueOnce({
+      response: { status: 401, data: { success: false, message: 'Invalid credentials', error: 'UNAUTHORIZED' } },
+    })
+    fillAndSubmit()
+    await waitFor(() => {
+      expect(screen.getByText('Invalid credentials')).toBeInTheDocument()
+    })
+    expect(screen.queryByText('UNAUTHORIZED')).not.toBeInTheDocument()
+  })
 })
 
 describe('Sprint 93: getErrorMessage coerces any API error shape to a non-empty string', () => {
@@ -64,6 +75,16 @@ describe('Sprint 93: getErrorMessage coerces any API error shape to a non-empty 
 
   it('falls back to error.code when message is absent (the interceptor-gap shape)', () => {
     expect(getErrorMessage({ response: { data: { error: { code: 'UNAUTHORIZED' } } } }))
+      .toBe('UNAUTHORIZED')
+  })
+
+  it('prefers the top-level message over the string error CODE (canonical S94 envelope)', () => {
+    expect(getErrorMessage({ response: { data: { success: false, message: 'Invalid credentials', error: 'UNAUTHORIZED' } } }))
+      .toBe('Invalid credentials')
+  })
+
+  it('falls back to the string error CODE when the canonical envelope has no message', () => {
+    expect(getErrorMessage({ response: { data: { success: false, error: 'UNAUTHORIZED' } } }))
       .toBe('UNAUTHORIZED')
   })
 

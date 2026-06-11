@@ -344,3 +344,7 @@ ErrorBoundary (the Sprint 93 login-401 crash). Sprint 93 defended the **read** s
 migration). Follow-up: pick the canonical error contract (string `error` code + separate
 `message` field, or keep the object and update CLAUDE.md), then migrate every service + client
 consistently. Touches all services' error responses and the frontend error-handling paths.
+
+> **Addressed by Sprint 94 / ADR-074 (2026-06-11):** canonical contract is
+> `{ success:false, message:string, error:string }`; shared helpers and shared middleware now emit
+> the string-code shape. Direct route literals remain documented drift rather than a full sweep.

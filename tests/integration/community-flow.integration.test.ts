@@ -153,7 +153,8 @@ describe('Community Flow', () => {
         .expect(409); // 409 Conflict for duplicate resource
 
       expect(response.body.success).toBe(false);
-      expect(response.body.error.message).toMatch(/already.*member/i);
+      expect(response.body.error).toBe('CONFLICT');
+      expect(response.body.message).toMatch(/already.*member/i);
     });
 
     it('should reject join without auth', async () => {

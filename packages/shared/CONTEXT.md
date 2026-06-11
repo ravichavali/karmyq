@@ -50,6 +50,11 @@ Producers must emit only the canonical four; `critical`/`normal` are retired. Se
 > `adminUserId` argument — the community-service DELETE handler now derives the caller from the
 > verified JWT and ignores any request body, so clients must not send `admin_user_id`.
 
+> **Sprint 94 (ADR-074):** shared error helpers and shared middleware now emit the canonical error
+> envelope `{ success:false, message:string, error:string, details?, meta? }`. The old
+> `{ error:{ code, message } }` helper shape is retired; web clients remain dual-read tolerant for
+> one release, and direct route literals are catalogued drift rather than fully swept.
+
 ---
 
 ## Logger: error_type + X-Request-Id (added 2026-04-06, ADR-049)

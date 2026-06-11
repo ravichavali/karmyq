@@ -1,11 +1,11 @@
-# Sprint 94 — Error Contract Cleanup — 📋 PLANNED, ready to execute
+# Sprint 94 — Error Contract Cleanup — 🛠️ IMPLEMENTED, needs review/gates
 
 > **▶ STATUS (2026-06-11):** Sprint 93 is **DONE** — PR [#80](https://github.com/ravichavali/karmyq/pull/80)
 > **MERGED** (squash `1c843da`) + **DEPLOYED** (post-merge `CI/CD Pipeline` on master = success,
 > 20m23s, 2026-06-11 13:43Z). Provider↔Community link-up (FULL F1+F2+F3 bounded), ADR-064
 > members-DELETE JWT fix, login-401 crash defense, `community_connection` dibs reason — all shipped
-> at v11.2.0. **Sprint 94 is planned and ready to execute** on `feature/sprint-94-error-contract-cleanup`
-> (cut from updated master `1c843da`). Plan authored by Codex, reviewed + approved by Claude
+> at v11.2.0. **Sprint 94 implementation is now in the working tree** on
+> `feature/sprint-94-error-contract-cleanup` (cut from updated master `1c843da`). Plan authored by Codex, reviewed + approved by Claude
 > (cross-agent). Version target **11.2.0 → 11.3.0**. Next free ADR = **074**.
 >
 > ⚠️ **S93 closeout still owed:** post-deploy smoke + human validation on the live demo were not
@@ -24,9 +24,76 @@ tolerant for one release — resolving the S93 IDEAS [2026-06-10] envelope follo
 1. Read this handoff.
 2. Confirm you're on `feature/sprint-94-error-contract-cleanup` from master `1c843da` (already cut).
 3. Open the S94 plan (Codex) + this handoff's review notes below.
-4. Implement per the plan; Codex owns implementation (it authored the plan), Claude reviews.
+4. Review Codex's implementation, run any environment-dependent gates, then open the Sprint 94 PR.
 
-**Branch:** `feature/sprint-94-error-contract-cleanup` (clean, from `1c843da`).
+**Branch:** `feature/sprint-94-error-contract-cleanup` (working tree has Sprint 94 edits, from `1c843da`).
+
+---
+
+## Sprint 94 implementation status (Codex, 2026-06-11)
+
+**Review update (Claude, 2026-06-11)**
+- ✅ Implementation review passed: shared helper/middleware contract flip, frontend legacy dual-read,
+  ADR/doc updates, and downstream `.error.code` / `.error.message` audits all verified.
+- ✅ Claude independently ran the per-package typechecks Codex could not run from root:
+  request-service, community-service, auth-service, and frontend `tsc --noEmit` all passed.
+- ⚠️ Staging requirement: `apps/landing/src/data/docs/concepts/adr-074-canonical-error-response-contract.json`
+  is generated, gitignored, and referenced by tracked landing nav/concept data. It must be staged with
+  `git add -f` when preparing the PR, or the landing docs link will 404.
+- ✅ `/simplify`, `/code-review`, and `/security-review` completed after Codex implementation.
+  Claude made the resulting gate fixes in this same branch: migrated middleware literals to shared
+  helpers, fixed `getErrorMessage` to prefer canonical top-level `message` over string error codes,
+  added regression coverage, and confirmed `/security-review` had no findings.
+
+**Implemented**
+- `packages/shared/utils/response.ts` now emits canonical errors from `sendError` and wrappers:
+  `{ success:false, message:string, error:string, details?, meta? }`. `sendInternalError` moves
+  development stack traces to top-level `details.stack`.
+- Shared `validate`, `tenant`, and `rateLimit` middleware now emit top-level `message` plus string
+  `error` codes.
+- Added shared helper/middleware contract tests under `packages/shared/src/**/__tests__/`.
+- Updated old-object-shape assertions in:
+  `services/auth-service/tests/regression/auth.routes.test.ts`,
+  `services/auth-service/tests/unit/authMiddleware.test.ts`,
+  `tests/integration/auth-flow.integration.test.ts`, and
+  `tests/integration/community-flow.integration.test.ts`.
+- Kept the S93 web dual-read tests and updated comments to describe `{ error:{code,message} }` as
+  a pre-S94 legacy envelope, not the ongoing contract.
+- Added ADR-074, updated ADR-006/ADR index, `packages/shared/CONTEXT.md`, `docs/ARCHITECTURE.md`,
+  `docs/api/SCHEMA_API.md`, `docs/IDEAS.md`, `scripts/generate-docs.ts`, landing generated docs, and
+  bumped root version/package-lock to `11.3.0`.
+
+**Audit notes**
+- Live server/client readers for `.error.code` / `response.body.error.message` are clean.
+- Remaining object-shaped error envelope hits are intentional legacy web test fixtures/docs, plus
+  `services/cleanup-service/src/index.ts` local helper/rate-limit drift. ADR-074 catalogues this as
+  out-of-scope direct/local drift rather than claiming a service-wide sweep.
+- `apps/landing/src/data/docs/` is ignored by `apps/landing/.gitignore`; generated ADR-074 JSON
+  exists locally but is not shown by normal `git status`. Use `git add -f` if the PR convention wants
+  generated landing data committed.
+
+**Verification run**
+- ✅ `npm test` in `packages/shared` — 8 suites / 114 tests passed.
+- ✅ `npm run build` in `packages/shared` — passed.
+- ✅ `npm run test:unit -- authMiddleware.test.ts` in `services/auth-service` — passed.
+- ✅ `npm run test:regression -- auth.routes.test.ts` in `services/auth-service` — passed.
+- ✅ `npx jest --runTestsByPath tests/tdd/sprint-93-login-error-render.test.tsx` in `apps/frontend`
+  — 1 suite / 9 tests passed.
+- ✅ `npm run feedback:check` — passed (`No staged changes detected`).
+- ✅ `npm audit --package-lock-only --audit-level=high` — 0 vulnerabilities.
+- ✅ Claude post-gate verification: shared 114/114, frontend error test 12/12, and `tsc --noEmit`
+  clean on community-service, request-service, auth-service, and frontend.
+- ⚠️ Root `npx tsc --noEmit` exits 1 with TypeScript help because the repo root has no `tsconfig.json`;
+  no typecheck actually runs from that command.
+- ⚠️ Root `npm test` timed out after 5 minutes under Turbo without producing failure output.
+- ⚠️ Root `npm run test:tdd` exits immediately: Turbo reports missing `test:tdd` task in at least one
+  workspace.
+- ⚠️ Process-reviewer's literal `npm test -- --passWithNoTests` command is incompatible with current
+  Turbo CLI argument parsing (`unexpected argument '--passWithNoTests'`); use the per-package/CI gates
+  above as the effective test evidence.
+- ⚠️ Targeted root integration files start but require localhost services/database:
+  `npx jest --config jest.integration.config.js --runTestsByPath integration/auth-flow.integration.test.ts integration/community-flow.integration.test.ts`
+  fails with `AggregateError` for service/database connectivity.
 
 ---
 

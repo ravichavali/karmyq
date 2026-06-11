@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { z, ZodError, ZodSchema } from 'zod';
+import { sendValidationError, sendInternalError } from '../utils/response';
 
 /**
  * Validation target - which part of the request to validate
@@ -41,19 +42,13 @@ export function validate<T extends ZodSchema>(
           code: err.code,
         }));
 
-        return res.status(400).json({
-          success: false,
-          error: 'Validation failed',
-          details: errors,
-        });
+        sendValidationError(res, 'Validation failed', errors);
+        return;
       }
 
       // Unexpected error
       console.error('Validation error:', error);
-      return res.status(500).json({
-        success: false,
-        error: 'Internal validation error',
-      });
+      sendInternalError(res, 'Internal validation error', error as Error);
     }
   };
 }
@@ -101,11 +96,8 @@ export function validateMultiple(schemas: {
     }
 
     if (errors.length > 0) {
-      return res.status(400).json({
-        success: false,
-        error: 'Validation failed',
-        details: errors,
-      });
+      sendValidationError(res, 'Validation failed', errors);
+      return;
     }
 
     next();

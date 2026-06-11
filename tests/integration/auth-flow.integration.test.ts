@@ -81,7 +81,8 @@ describe('Authentication Flow', () => {
         .expect(409); // 409 Conflict is correct for duplicate resource
 
       expect(response.body.success).toBe(false);
-      expect(response.body.error.message).toMatch(/email.*exists|already.*registered/i);
+      expect(response.body.error).toBe('CONFLICT');
+      expect(response.body.message).toMatch(/email.*exists|already.*registered/i);
     });
 
     it('should validate password strength', async () => {
@@ -95,7 +96,8 @@ describe('Authentication Flow', () => {
         .expect(400);
 
       expect(response.body.success).toBe(false);
-      expect(response.body.error.message).toMatch(/password/i);
+      expect(response.body.error).toBe('VALIDATION_ERROR');
+      expect(response.body.message).toMatch(/password/i);
     });
   });
 
@@ -129,7 +131,8 @@ describe('Authentication Flow', () => {
         .expect(401);
 
       expect(response.body.success).toBe(false);
-      expect(response.body.error.message).toMatch(/invalid/i);
+      expect(response.body.error).toBe('UNAUTHORIZED');
+      expect(response.body.message).toMatch(/invalid/i);
     });
 
     it('should reject non-existent email', async () => {
@@ -142,7 +145,8 @@ describe('Authentication Flow', () => {
         .expect(401);
 
       expect(response.body.success).toBe(false);
-      expect(response.body.error.message).toMatch(/invalid/i);
+      expect(response.body.error).toBe('UNAUTHORIZED');
+      expect(response.body.message).toMatch(/invalid/i);
     });
   });
 
@@ -165,7 +169,8 @@ describe('Authentication Flow', () => {
         .expect(401);
 
       expect(response.body.success).toBe(false);
-      expect(response.body.error.message).toMatch(/token|unauthorized|authentication/i);
+      expect(response.body.error).toBe('UNAUTHORIZED');
+      expect(response.body.message).toMatch(/token|unauthorized|authentication/i);
     });
 
     it('should reject request with invalid token', async () => {
@@ -175,7 +180,8 @@ describe('Authentication Flow', () => {
         .expect(401);
 
       expect(response.body.success).toBe(false);
-      expect(response.body.error.message).toMatch(/token|invalid|unauthorized/i);
+      expect(response.body.error).toBe('UNAUTHORIZED');
+      expect(response.body.message).toMatch(/token|invalid|unauthorized/i);
     });
 
     it('should reject request with expired token', async () => {
@@ -192,7 +198,8 @@ describe('Authentication Flow', () => {
         .expect(401);
 
       expect(response.body.success).toBe(false);
-      expect(response.body.error.message).toMatch(/expired|token/i);
+      expect(response.body.error).toBe('UNAUTHORIZED');
+      expect(response.body.message).toMatch(/expired|token/i);
     });
   });
 

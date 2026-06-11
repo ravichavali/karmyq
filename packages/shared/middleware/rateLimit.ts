@@ -1,5 +1,6 @@
 import rateLimit, { RateLimitRequestHandler } from 'express-rate-limit';
 import { Request, Response, NextFunction } from 'express';
+import { ERROR_CODES } from '../utils/response';
 
 /**
  * Rate Limit Configuration Options
@@ -97,10 +98,14 @@ export function createRateLimiter(config: RateLimitConfig = {}): RateLimitReques
   // Apply multiplier to max requests (useful for testing)
   const effectiveMax = Math.ceil(max * rateLimitMultiplier);
 
+  // Canonical error body, shared by the static `message` option and the dynamic handler
+  // so the two 429 payloads can never drift apart.
+  const rateLimitBody = { success: false, message, error: ERROR_CODES.RATE_LIMIT_EXCEEDED };
+
   return rateLimit({
     windowMs,
     max: effectiveMax,
-    message: { success: false, error: message },
+    message: rateLimitBody,
     standardHeaders: true, // Return rate limit info in headers
     legacyHeaders: false, // Disable X-RateLimit-* headers
     skipSuccessfulRequests,
@@ -116,8 +121,7 @@ export function createRateLimiter(config: RateLimitConfig = {}): RateLimitReques
     },
     handler: (_req: Request, res: Response) => {
       res.status(429).json({
-        success: false,
-        error: message,
+        ...rateLimitBody,
         retryAfter: Math.ceil(windowMs / 1000),
       });
     },

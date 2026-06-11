@@ -22,7 +22,8 @@ describe('Auth Routes - Unit Tests', () => {
         .send({});
       expect(res.status).toBe(400);
       expect(res.body.success).toBe(false);
-      expect(res.body.error.message).toMatch(/email|name|password/i);
+      expect(res.body.error).toBe('VALIDATION_ERROR');
+      expect(res.body.message).toMatch(/email|name|password/i);
     });
   });
 
@@ -33,7 +34,8 @@ describe('Auth Routes - Unit Tests', () => {
         .send({});
       expect(res.status).toBe(400);
       expect(res.body.success).toBe(false);
-      expect(res.body.error.message).toMatch(/email|password/i);
+      expect(res.body.error).toBe('VALIDATION_ERROR');
+      expect(res.body.message).toMatch(/email|password/i);
     });
   });
 });

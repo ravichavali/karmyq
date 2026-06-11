@@ -264,6 +264,10 @@
           "href": "/docs/concepts/adr-006-standardized-api-response"
         },
         {
+          "label": "Canonical Error Response Contract",
+          "href": "/docs/concepts/adr-074-canonical-error-response-contract"
+        },
+        {
           "label": "Polymorphic Request System (\"Everything App\")",
           "href": "/docs/concepts/adr-007-polymorphic-request-system"
         },

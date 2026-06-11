@@ -45,12 +45,9 @@ export interface ApiPaginatedResponse<T = any> {
  */
 export interface ApiErrorResponse {
   success: false;
-  error: {
-    code: string;
-    message: string;
-    details?: any;
-    stack?: string;
-  };
+  message: string;
+  error: string;
+  details?: any;
   meta?: {
     timestamp: string;
     requestId?: string;
@@ -180,11 +177,9 @@ export function sendError(
 ): void {
   const response: ApiErrorResponse = {
     success: false,
-    error: {
-      code,
-      message,
-      ...(details && { details }),
-    },
+    message,
+    error: code,
+    ...(details != null && { details }),
   };
 
   if (options.includeTimestamp !== false) {
@@ -323,13 +318,11 @@ export function sendInternalError(
 ): void {
   const response: ApiErrorResponse = {
     success: false,
-    error: {
-      code: 'INTERNAL_ERROR',
-      message,
-      ...(process.env.NODE_ENV === 'development' && error && {
-        stack: error.stack,
-      }),
-    },
+    message,
+    error: 'INTERNAL_ERROR',
+    ...(process.env.NODE_ENV === 'development' && error && {
+      details: { stack: error.stack },
+    }),
   };
 
   if (options.includeTimestamp !== false) {
@@ -364,6 +357,7 @@ export const ERROR_CODES = {
   NOT_FOUND: 'NOT_FOUND',
   CONFLICT: 'CONFLICT',
   BAD_REQUEST: 'BAD_REQUEST',
+  RATE_LIMIT_EXCEEDED: 'RATE_LIMIT_EXCEEDED',
 
   // Server errors (5xx)
   INTERNAL_ERROR: 'INTERNAL_ERROR',
