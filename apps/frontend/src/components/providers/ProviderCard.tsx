@@ -12,6 +12,9 @@ export interface ProviderCardData {
   avg_stars?: number | string;
   total_reviews?: number;
   trust_score?: number | string;
+  // F1 (Sprint 93): communities the viewer and this provider share, annotated by the API
+  // for authenticated viewers. Drives the "in your community" badge + directory grouping.
+  shared_communities?: { id: string; name: string }[];
 }
 
 interface ProviderCardProps {
@@ -52,6 +55,11 @@ export default function ProviderCard({ provider, onGetService }: ProviderCardPro
               <span className="inline-block text-xs bg-primary-light text-primary rounded-full px-2 py-0.5 mt-0.5">
                 {SERVICE_TYPE_LABELS[provider.service_type] ?? provider.service_type}
               </span>
+              {provider.shared_communities && provider.shared_communities.length > 0 && (
+                <span className="block mt-1 text-xs text-green-700 truncate" title={provider.shared_communities.map(c => c.name).join(', ')}>
+                  ✓ In {provider.shared_communities[0].name}{provider.shared_communities.length > 1 ? ` +${provider.shared_communities.length - 1} more` : ''}
+                </span>
+              )}
             </div>
           </div>
           <TrustScoreBadge score={provider.trust_score != null ? Number(provider.trust_score) : undefined} size="sm" />

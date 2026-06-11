@@ -439,6 +439,10 @@
           "href": "/docs/concepts/adr-072-dibs-scope"
         },
         {
+          "label": "Provider↔Community Link-Up",
+          "href": "/docs/concepts/adr-073-provider-community-linkup"
+        },
+        {
           "label": "Security Hardening — OWASP Top 10 Baseline",
           "href": "/docs/concepts/adr-052-security-hardening"
         },

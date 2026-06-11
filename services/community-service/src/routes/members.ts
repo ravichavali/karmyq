@@ -419,17 +419,28 @@ router.put('/:communityId/members/:userId', async (req: Request, res: Response) 
 router.delete('/:communityId/members/:userId', async (req: Request, res: Response) => {
   try {
     const { communityId, userId } = req.params;
-    const { admin_user_id } = req.body;
+    // SECURITY (ADR-064): the caller's identity comes from the verified JWT, never the
+    // request body. Reading admin_user_id from req.body let an attacker spoof an admin —
+    // or set it equal to the target userId to fake a "self-remove" and skip the admin
+    // check entirely. Mirror the PUT handler's JWT-caller pattern (members.ts:294-295).
+    const caller = (req as any).user?.userId;
+
+    if (!caller) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required',
+      });
+    }
 
     // Check if self-remove or admin remove
-    const isSelfRemove = userId === admin_user_id;
+    const isSelfRemove = userId === caller;
 
     if (!isSelfRemove) {
       // Verify admin permission for removing others
       const adminCheck = await query(
         `SELECT role FROM communities.members
          WHERE community_id = $1 AND user_id = $2 AND status = 'active'`,
-        [communityId, admin_user_id]
+        [communityId, caller]
       );
 
       if (adminCheck.rowCount === 0 || adminCheck.rows[0].role !== 'admin') {
@@ -501,7 +512,7 @@ router.delete('/:communityId/members/:userId', async (req: Request, res: Respons
     await publishEvent('user_left_community', {
       community_id: communityId,
       user_id: userId,
-      removed_by: admin_user_id,
+      removed_by: caller,
       is_self_remove: isSelfRemove,
     });
 

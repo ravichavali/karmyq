@@ -2,6 +2,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import Head from 'next/head'
 import { api } from '@/lib/api'
+import { getErrorMessage } from '@/lib/errors'
 
 export default function Login() {
   const [formData, setFormData] = useState({
@@ -40,8 +41,8 @@ export default function Login() {
       console.error('Login error', { error: err instanceof Error ? err.message : String(err) })
       console.error('Error response:', err.response)
       console.error('Error data:', err.response?.data)
-      const errorMessage = err.response?.data?.error || err.message || 'Login failed'
-      console.error('Setting error', { error: errorMessage instanceof Error ? errorMessage.message : String(errorMessage) })
+      const errorMessage = getErrorMessage(err, 'Login failed')
+      console.error('Setting error', { error: errorMessage })
       setError(errorMessage)
     } finally {
       setLoading(false)

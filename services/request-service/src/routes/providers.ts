@@ -5,6 +5,27 @@ import { authMiddleware, AuthenticatedRequest } from '@karmyq/shared/middleware/
 import { publishEvent } from '../events/publisher';
 import type { CreateProviderProfileInput } from '@karmyq/shared/schemas/providers';
 
+/**
+ * Optionally decode the viewer from the bearer token. GET /providers is public, so a
+ * missing or invalid token simply yields null (no community annotation), never an error.
+ */
+function decodeOptionalViewer(req: any): { userId: string; communityIds: string[] } | null {
+  const authHeader = req.headers?.authorization;
+  if (!authHeader) return null;
+  try {
+    const secret = process.env.JWT_SECRET;
+    if (!secret) return null;
+    const decoded: any = jwt.verify(authHeader.replace('Bearer ', ''), secret);
+    const communities = Array.isArray(decoded.communities) ? decoded.communities : [];
+    return {
+      userId: decoded.userId,
+      communityIds: communities.map((c: any) => c.id).filter(Boolean),
+    };
+  } catch {
+    return null;
+  }
+}
+
 const router = Router();
 
 // GET /requests/providers - Browse providers (public, no auth required)
@@ -46,8 +67,38 @@ router.get('/', async (req: any, res: Response) => {
     params.push(limit, offset);
 
     const result = await query(queryText, params);
+    const providers = result.rows;
 
-    res.json({ success: true, data: result.rows });
+    // F1 (Sprint 93, ADR-073): when the directory is browsed by an authenticated member,
+    // annotate each provider with `shared_communities` — the communities the provider and
+    // viewer both belong to — so the UI can present the directory through the community
+    // trust lens that dibs/matching already use. Public (unauthenticated) responses are
+    // unchanged; no schema change (reuses communities.members).
+    const viewer = decodeOptionalViewer(req);
+    if (viewer) {
+      const byUser = new Map<string, { id: string; name: string }[]>();
+      if (viewer.communityIds.length > 0 && providers.length > 0) {
+        const shared = await query(
+          `SELECT cm.user_id, cm.community_id, c.name AS community_name
+           FROM communities.members cm
+           JOIN communities.communities c ON c.id = cm.community_id
+           WHERE cm.status = 'active'
+             AND cm.community_id = ANY($1)
+             AND cm.user_id = ANY($2)`,
+          [viewer.communityIds, providers.map((p: any) => p.user_id)]
+        );
+        for (const row of shared.rows) {
+          const list = byUser.get(row.user_id) ?? [];
+          list.push({ id: row.community_id, name: row.community_name });
+          byUser.set(row.user_id, list);
+        }
+      }
+      for (const p of providers) {
+        p.shared_communities = byUser.get(p.user_id) ?? [];
+      }
+    }
+
+    res.json({ success: true, data: providers });
   } catch (error: any) {
     (req as any).logger?.error('Error fetching providers', error instanceof Error ? error : new Error(String(error)), { service: 'request-service' });
     res.status(500).json({ success: false, message: 'Failed to fetch providers', error: error.message });

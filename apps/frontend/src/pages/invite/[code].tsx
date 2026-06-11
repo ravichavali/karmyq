@@ -3,6 +3,7 @@ import { useRouter } from 'next/router';
 import Head from 'next/head';
 import Link from 'next/link';
 import { api, socialGraphService } from '@/lib/api';
+import { getErrorMessage } from '@/lib/errors';
 
 interface InvitationInfo {
   inviter_name: string;
@@ -118,7 +119,7 @@ export default function InviteAcceptance() {
       // Redirect to dashboard
       router.push('/dashboard');
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Registration failed');
+      setError(getErrorMessage(err, 'Registration failed'));
     } finally {
       setLoading(false);
     }

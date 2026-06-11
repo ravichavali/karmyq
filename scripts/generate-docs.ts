@@ -492,6 +492,7 @@ const ADR_GROUPS: Array<{ label: string; slugs: string[] }> = [
       'adr-042-provider-trust-score',
       'adr-051-explore-exploit-dibs',
       'adr-072-dibs-scope',
+      'adr-073-provider-community-linkup',
       'adr-052-security-hardening',
       'adr-053-feed-design-philosophy',
       'adr-033-offer-fulfillment-workflow',

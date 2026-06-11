@@ -125,3 +125,6 @@ packages/shared/dist
 services/dependency-graph.md
 services/impact-analysis.md
 services/version-drift.md
+
+# Playwright MCP scratch artifacts (page/console dumps)
+.playwright-mcp/

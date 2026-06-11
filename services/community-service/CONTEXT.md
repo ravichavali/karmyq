@@ -620,16 +620,14 @@ Update member role or status.
 **Sprint 25 — Moderator support:** Moderators (`role='moderator'`) can update member `status` (e.g., approve or reject pending members) but cannot change member `role`. Admins retain full update capability (role + status). Non-admin/non-moderator callers receive `403`.
 
 ### DELETE /communities/:communityId/members/:userId
-Remove member from community (self-leave or admin kick).
+Remove member from community (self-leave or admin kick). **Auth required** (router mounts `authMiddleware`).
 
-**Request:**
-```json
-{
-  "admin_user_id": "uuid"
-}
-```
+**Request:** no body. The caller's identity is taken from the verified JWT (`req.user.userId`),
+**not** from the request body. Self-leave = JWT userId === `:userId`; removing another member
+requires the JWT caller to be an active `admin`. (ADR-064 close-out, Sprint 93 — the previous
+`admin_user_id` body field was spoofable and is now ignored; the last-admin guard is unchanged.)
 
-**Implementation:** `src/routes/members.ts:333`
+**Implementation:** `src/routes/members.ts` (DELETE handler)
 
 **Events Published:** `user_left_community`
 
@@ -1471,6 +1469,16 @@ src/
 - JOIN queries limited to necessary data only
 
 ## Recent Changes
+
+### Sprint 93 (2026-06-10) — Members DELETE derives caller from JWT (ADR-064 close-out)
+- **FIXED (`DELETE /communities/:communityId/members/:userId`)**: the handler read `admin_user_id`
+  from the request **body**, so an attacker could spoof an admin — or set it equal to the target
+  `:userId` to fake a "self-remove" and bypass the admin check entirely, removing any member. The
+  caller is now taken from the verified JWT (`req.user.userId`), mirroring the PUT handler; the body
+  is ignored. Last-admin guard and the `user_left_community` event (`removed_by` = JWT caller) are
+  unchanged. All clients dropped the `admin_user_id` argument (`apps/frontend/src/lib/api.ts`, shared
+  `packages/shared/api/client.ts`, `ActiveTab.tsx`). Test:
+  `tests/tdd/sprint-93-members-delete-jwt.test.ts`. (`src/routes/members.ts`)
 
 ### Sprint 86 follow-up (2026-06-05) — Split carries trust + karma forward
 - **FIXED (`executeSplit`)**: a split moved members to child communities but left their trust edges

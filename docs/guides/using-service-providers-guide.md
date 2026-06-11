@@ -21,6 +21,8 @@ Filter by service type to narrow results. Each card shows a trust score badge, a
 
 Click a provider card to see their full profile: bio, ride details (if applicable), which collectives they belong to, and all reviews.
 
+**Providers in your communities:** When you're signed in, the directory highlights providers you share a community with — they appear first under **"In your communities"** with a green "✓ In {community}" badge, ahead of **"Other providers."** This is the same community trust lens used for first-dibs and matching: a provider serves the communities they belong to. (Browsing logged out still shows the full public directory, just without the community grouping.)
+
 ---
 
 ## Becoming a Provider
@@ -31,7 +33,7 @@ Click a provider card to see their full profile: bio, ride details (if applicabl
 4. For rides: add your vehicle type and typical routes
 5. Submit — your profile is now visible in the directory
 
-You can edit or deactivate your profile at any time from the provider detail page.
+Your profile joins the neighborhood service directory. Members who share a community with you see you highlighted as "in your community" — the same trusted circles you already help through mutual aid. You can edit or deactivate your profile at any time from the provider detail page.
 
 ---
 
@@ -109,7 +111,7 @@ You can receive multiple offers on the same request and accept the one that work
 
 ## Sending a Private Heads-Up (Dibs)
 
-After creating any request, Karmyq may suggest a person you've worked with before and offer to send them a private notification before the request goes public. This is called **dibs**.
+After creating any request, Karmyq may suggest a person you've worked with before — or someone you're connected with in your community — and offer to send them a private notification before the request goes public. This is called **dibs**.
 
 **How it works (requester side):**
 
@@ -121,6 +123,6 @@ After creating any request, Karmyq may suggest a person you've worked with befor
    - **ASAP requests**: 24 hours
 5. If they accept, you're matched directly. If they decline or the window closes, the request automatically broadcasts.
 
-**If no prompt appears:** either you have no prior completed interactions with community members, or no eligible candidate was found. The request posts publicly as usual.
+**If no prompt appears:** no eligible candidate was found — no prior completed interactions and no community connection. The request posts publicly as usual.
 
 See [Dibs: Trusted First-Ask Before Broadcasting](provider-dibs) for the full guide, including the provider side of the workflow.

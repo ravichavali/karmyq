@@ -1,9 +1,16 @@
-# Sprint 93 — Provider↔Community Link-Up (Audit-First) + Carry-Forward Fixes — 📋 PLANNED, ready to execute
+# Sprint 93 — Provider↔Community Link-Up (Audit-First) + Carry-Forward Fixes — 🚧 IN PROGRESS
 
-> **▶ STATUS (2026-06-10):** Sprint 92 is DONE (v11.1.0, PR #77 merged + deployed + smoke-verified).
-> **Sprint 93 is planned and ready to execute**: spec + plan committed (LOCAL-ONLY on master — do
-> NOT push master; the sprint branch carries the planning commit into the PR). Version target
-> 11.1.0 → 11.2.0. Next free ADR = **073**.
+> **▶ STATUS (2026-06-10):** Sprint 93 EXECUTING on `feature/sprint-93-provider-linkup`.
+> **Tasks 1–7 DONE (all TDD, green, tsc clean):** branch ✅; audit ✅
+> (`docs/design/sprint-93-provider-linkup/AUDIT.md`, ratified FULL link-up F1+F2+F3); T3 members-DELETE
+> JWT (6 tests); T4 login-401 crash + `getErrorMessage` helper + 5 page sweep (9 tests); T5
+> `community_connection` dibs reason extracted to `dibsReason.ts` (5 server + 1 FE tests); T6 F1
+> community-scoped discovery (`GET /providers` annotates `shared_communities`, no schema change; 4
+> server + 4 card + 2 page tests) + F2 onboarding copy; T7 F3 community-framed provider home + duty
+> status (page test). **F3 NOTE:** delivered the bounded coherence increment, NOT the full
+> "facets-not-modes" nav redesign (IDEAS [2026-05-06]) — flagged for maintainer; logged as follow-up.
+> **Remaining: T8 docs (ADR-073 + ADR-072 addendum + 4 guides + landing), T9 CONTEXT/registry, T10
+> gates, T11 verify + bump 11.2.0, T12 PR.** Do NOT push master directly.
 
 **Sprint goal (one sentence):** Audit the full provider↔community journey on the demo
 (Playwright), implement the maintainer-ratified link-up fixes, and close three researched
