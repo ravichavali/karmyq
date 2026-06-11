@@ -112,3 +112,9 @@ linked offer(s) to `'active'` in both the reject path and the accept path's sibl
 mirroring cancel.
 
 ---
+
+## BUG-009 · [2026-06-08] · open
+
+In the community https://karmyq.com/communities/eb32c151-9953-409f-87ad-9abed720e4f4 the pulse shows This week, "4 neighbours helped each other thanks to Andre Chen, David Park, Maria Elena Reyes". However, when I go to "How we are connected", it shows no relationships. What's going on? (Pulse reports completed help / connections but the trust graph renders empty.)
+
+---
