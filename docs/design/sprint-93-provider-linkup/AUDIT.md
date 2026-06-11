@@ -136,14 +136,11 @@ dissonance.
 
 ## Recommendation to the maintainer
 
-**Ship the H1 MVP (F1) + onboarding copy (F2) this sprint; defer deeper H2 nav rework (F3).**
+**Ratified & shipped:** the maintainer chose the full link-up. **F1** (community-scoped discovery)
+and **F2** (onboarding framing) shipped in full. **F3** shipped as a **bounded provider-home
+coherence** increment (My Provider Presence = identity + duty status + community framing); the
+deeper "facets, not modes" nav redesign (IDEAS [2026-05-06]) is **deferred** as a design-led
+follow-up (see ADR-073 Consequences). **F4** (the `community_connection` dibs reason) and the other
+two carry-forward bug fixes (members-DELETE JWT, login-401 crash) proceeded regardless.
 
-- F1 is the core dissonance and has a clean, schema-free implementation leveraging the implicit
-  community link the platform already computes. Bounded effort, high payoff.
-- F2 is cheap and reinforces F1 at the point of creation.
-- F3 is real but mild; a copy/nav pass can ride along if time allows, full rework is its own sprint.
-- F4 proceeds regardless (pre-ratified Task 5), as do the other two carry-forward bug fixes
-  (members-DELETE JWT, login-401 crash).
-
-The ratification checkpoint (next) records the maintainer's actual choice in the **Ratified
-Scope** table above.
+The ratification decision is recorded in the **Ratified Scope** table at the top.

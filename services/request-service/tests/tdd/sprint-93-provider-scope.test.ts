@@ -2,10 +2,11 @@
  * Sprint 93 — F1 (ADR-073): community-scoped provider discovery.
  *
  * GET /providers stays public, but when called WITH a token it annotates each provider
- * with `shared_communities` — the communities the provider and the viewer both belong to.
- * The UI groups/badges "providers in your communities" vs others, putting the directory
- * behind the same community trust lens as dibs/matching. Unauthenticated responses are
- * unchanged. No schema change — uses existing communities.members.
+ * with `shared_communities` — the communities the provider and viewer both belong to.
+ * The viewer's communities are derived from LIVE `communities.members` (keyed on the
+ * signed JWT userId), NOT the JWT `communities` claim, so a stale token can't badge a
+ * community the viewer has since left. Unauthenticated responses are unchanged. No schema
+ * change — uses existing communities.members.
  */
 import request from 'supertest';
 import express from 'express';
@@ -54,19 +55,24 @@ describe('Sprint 93 F1: community-scoped provider discovery', () => {
     expect(bob.shared_communities).toEqual([]); // listed in the directory but not in a shared community
   });
 
-  it('scopes the shared-community lookup to the viewer community ids and the listed providers', async () => {
+  it('ignores the JWT communities claim — keys the live lookup on the signed userId (stale-token guard)', async () => {
+    // The token CLAIMS community c-stale, but the live membership join returns nothing
+    // (the viewer has since left). The provider in c-stale must NOT be badged.
     mockQuery
       .mockResolvedValueOnce({ rows: [{ id: 'p1', user_id: 'u1', display_name: 'Alice', service_type: 'tutor' }] })
-      .mockResolvedValueOnce({ rows: [] });
+      .mockResolvedValueOnce({ rows: [] }); // live-membership join → no shared communities
 
-    await request(app)
+    const res = await request(app)
       .get('/providers')
-      .set('Authorization', `Bearer ${tokenWith([{ id: 'c1', name: 'Berkeley' }, { id: 'c2', name: 'PDX' }])}`);
+      .set('Authorization', `Bearer ${tokenWith([{ id: 'c-stale', name: 'Left Community' }])}`);
 
+    expect(res.body.data[0].shared_communities).toEqual([]);
     const [sql, params] = mockQuery.mock.calls[1];
-    expect(String(sql)).toMatch(/communities\.members/);
-    expect(params[0]).toEqual(['c1', 'c2']); // viewer community ids
-    expect(params[1]).toEqual(['u1']);        // provider user ids
+    expect(String(sql)).toMatch(/communities\.members vm/);   // viewer's LIVE membership
+    expect(String(sql)).toMatch(/vm\.user_id = \$1/);
+    expect(params[0]).toBe('viewer-1');                        // signed userId, NOT the claimed community ids
+    expect(params[1]).toEqual(['u1']);                         // provider user ids
+    expect(params).not.toContainEqual(['c-stale']);            // the stale claim is never bound
   });
 
   it('does NOT annotate (and runs no extra query) for unauthenticated requests', async () => {
@@ -79,8 +85,10 @@ describe('Sprint 93 F1: community-scoped provider discovery', () => {
     expect(mockQuery).toHaveBeenCalledTimes(1);
   });
 
-  it('skips the shared-community query when the viewer has no communities (annotates [])', async () => {
-    mockQuery.mockResolvedValueOnce({ rows: [{ id: 'p1', user_id: 'u1', display_name: 'Alice', service_type: 'tutor' }] });
+  it('annotates [] for an authenticated viewer with no live shared community (still queries live membership)', async () => {
+    mockQuery
+      .mockResolvedValueOnce({ rows: [{ id: 'p1', user_id: 'u1', display_name: 'Alice', service_type: 'tutor' }] })
+      .mockResolvedValueOnce({ rows: [] });
 
     const res = await request(app)
       .get('/providers')
@@ -88,6 +96,6 @@ describe('Sprint 93 F1: community-scoped provider discovery', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.data[0].shared_communities).toEqual([]);
-    expect(mockQuery).toHaveBeenCalledTimes(1);
+    expect(mockQuery).toHaveBeenCalledTimes(2); // providers + live-membership join
   });
 });

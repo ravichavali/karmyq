@@ -1756,9 +1756,10 @@ Get feedback for a match.
 #### GET /providers
 List all provider profiles. Optional query param: `service_type`. **Public** (no auth required).
 **F1 (Sprint 93 / ADR-073):** when called WITH a bearer token, each provider is annotated with
-`shared_communities: [{ id, name }]` — the communities the provider and the viewer both belong to
-(join on `communities.members` ∩ the viewer's JWT community ids). Unauthenticated responses are
-unchanged (no `shared_communities` field). No schema change.
+`shared_communities: [{ id, name }]` — the communities the provider and the viewer both belong to,
+via a **live** `communities.members` join keyed on the signed JWT userId (not the JWT communities
+claim, so a stale token can't badge a left community). Unauthenticated responses are unchanged (no
+`shared_communities` field). No schema change.
 
 #### GET /providers/my
 Get the authenticated user's own provider profiles. Auth required.
@@ -2629,8 +2630,9 @@ CREATE TABLE auth.user_interests (
 
 - **F1 — community-scoped provider discovery (ADR-073).** `GET /providers` stays public, but when
   called WITH a token it annotates each provider with `shared_communities` (the communities the
-  provider and viewer both belong to, via a `communities.members` join on the viewer's JWT community
-  ids). No schema change; unauthenticated responses unchanged. The directory UI groups
+  provider and viewer both belong to, via a **live** `communities.members` join keyed on the signed
+  JWT userId — not the JWT communities claim, so a stale token can't badge a left community). No
+  schema change; unauthenticated responses unchanged. The directory UI groups
   "In your communities" vs "Other providers". Test: `tests/tdd/sprint-93-provider-scope.test.ts`.
 - **`community_connection` dibs reason (ADR-072 addendum).** `deriveDibsReason` (extracted to
   `src/services/dibsReason.ts`) returns the new `community_connection` reason for a zero-history

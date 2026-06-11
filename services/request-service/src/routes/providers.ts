@@ -9,18 +9,14 @@ import type { CreateProviderProfileInput } from '@karmyq/shared/schemas/provider
  * Optionally decode the viewer from the bearer token. GET /providers is public, so a
  * missing or invalid token simply yields null (no community annotation), never an error.
  */
-function decodeOptionalViewer(req: any): { userId: string; communityIds: string[] } | null {
+function decodeOptionalViewer(req: any): { userId: string } | null {
   const authHeader = req.headers?.authorization;
   if (!authHeader) return null;
   try {
     const secret = process.env.JWT_SECRET;
     if (!secret) return null;
     const decoded: any = jwt.verify(authHeader.replace('Bearer ', ''), secret);
-    const communities = Array.isArray(decoded.communities) ? decoded.communities : [];
-    return {
-      userId: decoded.userId,
-      communityIds: communities.map((c: any) => c.id).filter(Boolean),
-    };
+    return decoded.userId ? { userId: decoded.userId } : null;
   } catch {
     return null;
   }
@@ -75,23 +71,26 @@ router.get('/', async (req: any, res: Response) => {
     // trust lens that dibs/matching already use. Public (unauthenticated) responses are
     // unchanged; no schema change (reuses communities.members).
     const viewer = decodeOptionalViewer(req);
-    if (viewer) {
+    if (viewer && providers.length > 0) {
+      // Derive the viewer's shared communities from LIVE membership (communities.members),
+      // never the JWT 'communities' claim — a stale token must not badge a community the
+      // viewer has since left (the stale-JWT membership class noted in CONTEXT §10.5). We
+      // trust only the signed userId, then join the viewer's *active* membership against
+      // each listed provider's *active* membership.
+      const shared = await query(
+        `SELECT pm.user_id, pm.community_id, c.name AS community_name
+         FROM communities.members vm
+         JOIN communities.members pm ON pm.community_id = vm.community_id
+         JOIN communities.communities c ON c.id = vm.community_id
+         WHERE vm.user_id = $1 AND vm.status = 'active'
+           AND pm.user_id = ANY($2) AND pm.status = 'active'`,
+        [viewer.userId, providers.map((p: any) => p.user_id)]
+      );
       const byUser = new Map<string, { id: string; name: string }[]>();
-      if (viewer.communityIds.length > 0 && providers.length > 0) {
-        const shared = await query(
-          `SELECT cm.user_id, cm.community_id, c.name AS community_name
-           FROM communities.members cm
-           JOIN communities.communities c ON c.id = cm.community_id
-           WHERE cm.status = 'active'
-             AND cm.community_id = ANY($1)
-             AND cm.user_id = ANY($2)`,
-          [viewer.communityIds, providers.map((p: any) => p.user_id)]
-        );
-        for (const row of shared.rows) {
-          const list = byUser.get(row.user_id) ?? [];
-          list.push({ id: row.community_id, name: row.community_name });
-          byUser.set(row.user_id, list);
-        }
+      for (const row of shared.rows) {
+        const list = byUser.get(row.user_id) ?? [];
+        list.push({ id: row.community_id, name: row.community_name });
+        byUser.set(row.user_id, list);
       }
       for (const p of providers) {
         p.shared_communities = byUser.get(p.user_id) ?? [];

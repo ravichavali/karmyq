@@ -38,8 +38,9 @@ link (a provider's own community memberships), with no new schema.**
 
 `GET /requests/providers` stays public and unauthenticated-compatible, but when called **with a
 token** it annotates each provider with `shared_communities` — the communities the provider and
-the viewer both belong to — computed by joining `communities.members` on the viewer's JWT
-community IDs ∩ the provider's memberships. The directory UI groups "In your communities" ahead of
+the viewer both belong to — computed by joining the viewer's **live** `communities.members`
+(keyed on the signed JWT `userId`, never the JWT `communities` claim, so a stale token can't badge
+a community the viewer has since left) against each provider's memberships. The directory UI groups "In your communities" ahead of
 "Other providers" and badges each in-community card. Unauthenticated responses are unchanged (the
 directory stays publicly browsable). We deliberately did **not** add an explicit
 `provider_communities` table — the implicit "serves my own communities" link covers the dissonance
