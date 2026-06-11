@@ -20,7 +20,7 @@ export interface DibsCandidate {
   kind?: 'neighbor' | 'provider'
   // ADR-072: server-computed relationship routing. The UI renders this judgment;
   // it does not recompute the rules.
-  reason?: 'prior_similar_success' | 'trusted_neighbor' | 'provider_match'
+  reason?: 'prior_similar_success' | 'trusted_neighbor' | 'provider_match' | 'community_connection'
   relationshipContext?: {
     priorCompletedMatches: number
     lastInteractionAt: string | null
@@ -134,6 +134,8 @@ export default function DibsPrompt({
         return `You've worked with ${name} on something similar before. Ask them first?`
       case 'trusted_neighbor':
         return `You've worked with ${name} before. Ask them first?`
+      case 'community_connection':
+        return `You're connected with ${name} in your community. Ask them first?`
       case 'provider_match':
         return (candidate.relationshipContext?.priorCompletedMatches ?? 0) > 0
           ? `${name} has helped with this kind of service before. Offer it to them first?`

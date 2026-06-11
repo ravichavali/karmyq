@@ -163,7 +163,7 @@
         {
           "method": "DELETE",
           "path": "/communities/:communityId/members/:userId",
-          "description": "Remove member from community (self-leave or admin kick)."
+          "description": "Remove member from community (self-leave or admin kick). **Auth required** (router mounts `authMiddleware`)."
         },
         {
           "method": "GET",
@@ -494,7 +494,7 @@
         {
           "method": "GET",
           "path": "/providers",
-          "description": "List all provider profiles. Optional query param: service_type."
+          "description": "List all provider profiles. Optional query param: `service_type`. **Public** (no auth required)."
         },
         {
           "method": "GET",

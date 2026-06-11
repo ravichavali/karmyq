@@ -10,6 +10,7 @@ import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
 import { communityService } from '../../lib/api'
 import { ConfigTemplate } from '../../types/community-config'
+import { getErrorMessage } from '../../lib/errors'
 
 export default function ConfigTemplates() {
   const router = useRouter()
@@ -34,7 +35,7 @@ export default function ConfigTemplates() {
       setError(null)
     } catch (err: any) {
       console.error('Error fetching templates', { error: err instanceof Error ? err.message : String(err) })
-      setError(err.response?.data?.message || err.response?.data?.error || 'Failed to load templates')
+      setError(getErrorMessage(err, 'Failed to load templates'))
     } finally {
       setLoading(false)
     }

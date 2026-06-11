@@ -74,6 +74,25 @@ export default function ProvidersPage() {
 
   const isProvider = myProviders.length > 0
   const isInCollective = myCollectives.length > 0
+  const isOnDuty = myProviders.some((p: any) => p.is_available)
+
+  // F1 (Sprint 93, ADR-073): the API annotates each provider with the communities shared
+  // with the viewer. Group "in your communities" first so the directory reads through the
+  // community trust lens. Unauthenticated / no-shared-community responses fall back to a
+  // flat list.
+  const inCommunityProviders = providers.filter((p: any) => (p.shared_communities?.length ?? 0) > 0)
+  const otherProviders = providers.filter((p: any) => (p.shared_communities?.length ?? 0) === 0)
+  const providerGrid = (list: any[]) => (
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      {list.map(p => (
+        <ProviderCard
+          key={p.id}
+          provider={p}
+          onGetService={(provider) => setWizardProvider(provider)}
+        />
+      ))}
+    </div>
+  )
 
   return (
     <Layout>
@@ -83,7 +102,18 @@ export default function ProvidersPage() {
         {/* Provider dashboard — only shown when user is a provider */}
         {(isProvider || isInCollective) && (
           <div className="bg-surface-raised rounded-xl border border-border p-6">
-            <h2 className="text-base font-semibold text-text mb-4">My Provider Presence</h2>
+            {/* F3 (Sprint 93, ADR-073): the coherent provider home — identity, duty status,
+                and the community framing in one place, instead of scattered surfaces. */}
+            <div className="flex items-center justify-between gap-2 mb-1">
+              <h2 className="text-base font-semibold text-text">My Provider Presence</h2>
+              {isProvider && (
+                <span className={`inline-flex items-center gap-1.5 text-xs px-2 py-0.5 rounded-full border ${isOnDuty ? 'bg-green-50 text-green-700 border-green-200' : 'bg-surface text-text-muted border-border'}`}>
+                  <span className={`w-2 h-2 rounded-full ${isOnDuty ? 'bg-green-500' : 'bg-text-muted/40'}`} />
+                  {isOnDuty ? 'On duty' : 'Off duty'}
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-text-muted mb-4">Your provider profile is visible to neighbours in your communities — the same circles you help through mutual aid.</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {/* My profiles */}
               {isProvider && (
@@ -217,16 +247,21 @@ export default function ProvidersPage() {
           ) : tab === 'individuals' ? (
             providers.length === 0 ? (
               <div className="text-center py-16 text-text-muted text-sm">No providers found. Be the first!</div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {providers.map(p => (
-                  <ProviderCard
-                    key={p.id}
-                    provider={p}
-                    onGetService={(provider) => setWizardProvider(provider)}
-                  />
-                ))}
+            ) : inCommunityProviders.length > 0 ? (
+              <div className="space-y-8">
+                <section>
+                  <h2 className="text-sm font-semibold text-text mb-3">In your communities</h2>
+                  {providerGrid(inCommunityProviders)}
+                </section>
+                {otherProviders.length > 0 && (
+                  <section>
+                    <h2 className="text-sm font-semibold text-text-muted mb-3">Other providers</h2>
+                    {providerGrid(otherProviders)}
+                  </section>
+                )}
               </div>
+            ) : (
+              providerGrid(otherProviders)
             )
           ) : (
             collectives.length === 0 ? (

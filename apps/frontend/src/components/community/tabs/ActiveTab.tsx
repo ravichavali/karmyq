@@ -64,7 +64,7 @@ export default function ActiveTab({
   const handleRejectMember = async (userId: string) => {
     if (!currentUser) return
     try {
-      await communityService.removeMember(communityId, userId, currentUser.id)
+      await communityService.removeMember(communityId, userId)
       refetchCommunity()
     } catch (err: any) {
       alert(err.response?.data?.message || 'Failed to reject member')
@@ -75,7 +75,7 @@ export default function ActiveTab({
     if (!currentUser) return
     if (!confirm(`Are you sure you want to remove ${userName} from the community?`)) return
     try {
-      await communityService.removeMember(communityId, userId, currentUser.id)
+      await communityService.removeMember(communityId, userId)
       refetchCommunity()
     } catch (err: any) {
       alert(err.response?.data?.message || 'Failed to remove member')

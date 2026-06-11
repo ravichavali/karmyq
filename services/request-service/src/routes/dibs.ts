@@ -16,18 +16,7 @@ import {
   RelationshipContext,
 } from '../db/dibsDb';
 import { getBestCandidate, getMutualAidBestCandidate } from '../services/dibsScoringService';
-
-/**
- * Why this candidate is the first-ask (ADR-072). Derived server-side from the
- * candidate's facet + relationship history so the UI renders the judgment, not the rules.
- */
-type DibsReason = 'prior_similar_success' | 'trusted_neighbor' | 'provider_match';
-
-function deriveDibsReason(kind: 'neighbor' | 'provider', ctx: RelationshipContext): DibsReason {
-  if (kind === 'provider') return 'provider_match';
-  if (ctx.priorCompletedMatches >= 1 && ctx.similarCategory) return 'prior_similar_success';
-  return 'trusted_neighbor';
-}
+import { deriveDibsReason, DibsReason } from '../services/dibsReason';
 
 const router = Router();
 

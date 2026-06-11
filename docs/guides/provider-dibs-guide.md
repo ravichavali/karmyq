@@ -55,7 +55,7 @@ Karmyq selects dibs candidates using a fallback system:
 
 **Tier 1 — Prior interactions (exploit):** Anyone in your community with at least one completed interaction with you who is available. This tier is always preferred.
 
-**Tier 2 — Trusted new connections (explore):** If no Tier 1 candidates exist, Karmyq looks for community members with a direct exchange connection in the trust graph but no prior interactions. Community-only connections don't qualify — only people who have a completed exchange relationship with someone in your trust network.
+**Tier 2 — Trusted new connections (explore):** If no Tier 1 candidates exist, Karmyq looks for community members with a direct exchange connection in the trust graph but no prior interactions. Community-only connections don't qualify — only people who have a completed exchange relationship with someone in your trust network. Because there's no completed work to point to yet, the prompt frames a Tier 2 candidate honestly — _"You're connected with {name} in your community"_ — rather than claiming you've worked together (the `community_connection` reason, Sprint 93).
 
 In both cases, the candidate with the highest combined trust score and interaction history is suggested.
 

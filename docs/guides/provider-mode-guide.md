@@ -51,6 +51,8 @@ Once you've offered to help on a request, it appears in your **Active** tab.
 
 If you already have a provider profile, you'll see a **My profile** link in the navigation bar (alongside the "Providers" browse link). Click it to view your profile as others see it — your service type, trust score, and reviews. To edit your profile details, use the form on the profile page.
 
+Your **My Provider Presence** panel on the Providers page is your provider home — it gathers your profiles, your collectives, your current on/off-duty status, and a reminder that your profile is visible to neighbours in your communities, all in one place.
+
 ## Unlocking Provider Mode
 
 Provider Mode is only available to users with at least one provider profile. If you haven't created one yet, you'll see a **Become a Provider** link in the nav instead of the availability toggle.

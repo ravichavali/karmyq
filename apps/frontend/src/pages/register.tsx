@@ -3,6 +3,7 @@ import { useRouter } from 'next/router'
 import Link from 'next/link'
 import Head from 'next/head'
 import { api } from '@/lib/api'
+import { getErrorMessage } from '@/lib/errors'
 
 export default function Register() {
   const router = useRouter()
@@ -44,7 +45,7 @@ export default function Register() {
 
       router.push('/communities?welcome=true')
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Registration failed')
+      setError(getErrorMessage(err, 'Registration failed'))
     } finally {
       setLoading(false)
     }

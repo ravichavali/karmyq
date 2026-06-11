@@ -1513,6 +1513,10 @@ Returns `null` if no eligible candidate exists in either tier.
 `trustPath` is `null` if no path found or social-graph is unavailable (non-fatal degradation).
 Returns `"data": null` when no eligible candidate is found.
 
+The server-computed `reason` is `prior_similar_success | trusted_neighbor | provider_match | community_connection`
+(ADR-072 + Sprint 93 addendum); `community_connection` covers a zero-history community neighbour.
+`deriveDibsReason` lives in `src/services/dibsReason.ts`.
+
 **Implementation:** `src/routes/dibs.ts`
 
 #### POST /requests/:id/dibs
@@ -1750,7 +1754,12 @@ Get feedback for a match.
 ### 3.5 Health Check
 
 #### GET /providers
-List all provider profiles. Optional query param: service_type.
+List all provider profiles. Optional query param: `service_type`. **Public** (no auth required).
+**F1 (Sprint 93 / ADR-073):** when called WITH a bearer token, each provider is annotated with
+`shared_communities: [{ id, name }]` — the communities the provider and the viewer both belong to,
+via a **live** `communities.members` join keyed on the signed JWT userId (not the JWT communities
+claim, so a stale token can't badge a left community). Unauthenticated responses are unchanged (no
+`shared_communities` field). No schema change.
 
 #### GET /providers/my
 Get the authenticated user's own provider profiles. Auth required.
@@ -2616,6 +2625,21 @@ CREATE TABLE auth.user_interests (
 - No breaking changes to existing API contracts
 
 ### 10.4 Recent Fixes
+
+**Sprint 93 — Provider↔Community Link-Up (v11.2.0, branch `feature/sprint-93-provider-linkup`):**
+
+- **F1 — community-scoped provider discovery (ADR-073).** `GET /providers` stays public, but when
+  called WITH a token it annotates each provider with `shared_communities` (the communities the
+  provider and viewer both belong to, via a **live** `communities.members` join keyed on the signed
+  JWT userId — not the JWT communities claim, so a stale token can't badge a left community). No
+  schema change; unauthenticated responses unchanged. The directory UI groups
+  "In your communities" vs "Other providers". Test: `tests/tdd/sprint-93-provider-scope.test.ts`.
+- **`community_connection` dibs reason (ADR-072 addendum).** `deriveDibsReason` (extracted to
+  `src/services/dibsReason.ts`) returns the new `community_connection` reason for a zero-history
+  neighbour (admitted via an exchange/community trust edge with 0 completed matches), instead of the
+  false `trusted_neighbor` ("you've worked with them before"). Reason union is now
+  `prior_similar_success | trusted_neighbor | provider_match | community_connection`. Pool admission
+  unchanged. Test: `tests/tdd/sprint-93-dibs-reason.test.ts`.
 
 **Sprint 92 — Matching & Dibs Repair (v11.1.0, branch `feature/sprint-92-matching-repair`):**
 

@@ -150,8 +150,9 @@ class ApiClient {
     return response.data;
   }
 
-  async removeCommunityMember(communityId: string, userId: string, adminUserId: string) {
-    const response = await this.client.delete(`/communities/${communityId}/members/${userId}`, { data: { admin_user_id: adminUserId } });
+  // Caller identity is derived from the JWT server-side (ADR-064); no admin_user_id body.
+  async removeCommunityMember(communityId: string, userId: string) {
+    const response = await this.client.delete(`/communities/${communityId}/members/${userId}`);
     return response.data;
   }
 

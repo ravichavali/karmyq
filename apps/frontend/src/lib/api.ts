@@ -108,7 +108,12 @@ const errorInterceptor = async (error: any) => {
 
   if (error.response?.data && typeof error.response.data === 'object') {
     if ('error' in error.response.data && error.response.data.error) {
-      error.response.data.error = error.response.data.error.message || error.response.data.error
+      // Never leave an object on data.error — the shared sendError envelope is
+      // { error: { code, message } }, and an object child thrown into JSX triggers
+      // React #31 (contract mismatch logged to docs/IDEAS.md). Coerce to a string:
+      // message, then code, then a generic fallback.
+      const e = error.response.data.error
+      error.response.data.error = typeof e === 'string' ? e : (e.message ?? e.code ?? 'Request failed')
     }
   }
 
@@ -231,8 +236,9 @@ export const communityService = {
   updateMember: (communityId: string, userId: string, data: { role?: string; status?: string; admin_user_id: string }) =>
     communityApi.put(`/communities/${communityId}/members/${userId}`, data),
 
-  removeMember: (communityId: string, userId: string, admin_user_id: string) =>
-    communityApi.delete(`/communities/${communityId}/members/${userId}`, { data: { admin_user_id } }),
+  // Caller identity is derived from the JWT server-side (ADR-064); no admin_user_id body.
+  removeMember: (communityId: string, userId: string) =>
+    communityApi.delete(`/communities/${communityId}/members/${userId}`),
 
   // Norms
   getNorms: (communityId: string, params?: { status?: string }) =>
@@ -254,8 +260,8 @@ export const communityService = {
   joinCommunity: (communityId: string, data: { user_id: string; message?: string }) =>
     communityApi.post(`/communities/${communityId}/join`, data),
 
-  leaveCommunity: (communityId: string, userId: string, admin_user_id: string) =>
-    communityApi.delete(`/communities/${communityId}/members/${userId}`, { data: { admin_user_id } }),
+  leaveCommunity: (communityId: string, userId: string) =>
+    communityApi.delete(`/communities/${communityId}/members/${userId}`),
 
   // Check membership status
   checkMembership: (communityId: string, userId: string) =>

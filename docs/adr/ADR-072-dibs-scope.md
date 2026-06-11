@@ -112,8 +112,22 @@ unlocks rating in place on full completion instead of dropping the row.
 - "Dibs" remains provider-vocabulary; the neighbour equivalent is surfaced as a **first ask**. If we
   later unify the vocabulary entirely, that is a follow-up, not a regression of this decision.
 
+## Addendum (Sprint 93, 2026-06-10): `community_connection` reason
+
+The reason union gained a fourth value, `community_connection`. A neighbour is admitted to the
+mutual-aid dibs pool either with ≥1 prior interaction **or** via an `exchange` (community) trust
+edge with **zero** completed matches (`getMutualAidCandidates`, `dibsDb.ts`). The zero-history case
+was previously labelled `trusted_neighbor`, so the prompt claimed "You've worked with {name}
+before" — false for someone you've never completed a match with. `deriveDibsReason` (extracted to
+`services/request-service/src/services/dibsReason.ts`) now returns `community_connection` for the
+zero-history neighbour and the honest copy "You're connected with {name} in your community";
+`trusted_neighbor` is only emitted with ≥1 completed match. **Pool admission is unchanged** — this
+re-labels the existing case only (GET/POST symmetry preserved). Reason union:
+`prior_similar_success | trusted_neighbor | provider_match | community_connection`.
+
 ## Related
 
+- ADR-073: Provider↔Community Link-Up (the community-as-trust-boundary decision this reason serves)
 - ADR-051: Explore/Exploit Dibs (the candidate scoring this builds on)
 - ADR-041: Two-Layer Mutual-Aid + Services (the two-facet model)
 - ADR-066: Unified Feed Model (the decision band these actions run through)

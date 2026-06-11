@@ -16,7 +16,7 @@ This is called giving someone "dibs."
 
 One condition must be true for the dibs option to appear:
 
-- **There must be a trusted person with prior history** — Karmyq only surfaces community members you have at least one prior completed interaction with. New people you have never worked with are never shown as dibs candidates.
+- **There must be a trusted relationship** — Karmyq surfaces a community member you have a prior completed interaction with, or who is a direct trust-graph (exchange) connection in your community even without completed work yet. Strangers with no community trust relationship are never shown as dibs candidates.
 
 For **service requests**, the candidate must also have an active provider profile. For all other request types (mutual aid, rides, borrows, events), any community member with prior interaction history is eligible.
 
@@ -31,7 +31,10 @@ of the same person ([Community and Provider: Two Facets](/docs/concepts/communit
   of refusal, shown with their provider trust score.
 - On a **mutual-aid request** (everyday help, rides, borrows, events), the prompt is a neighbour
   **first ask** — warm, neighbour-framed copy with no "provider" language, offered to a trusted
-  community member you've worked with before.
+  community member. If you've completed work together it says so ("You've worked with {name}
+  before"); if you're connected only through a shared-community trust edge with no completed work
+  yet, it honestly says "You're connected with {name} in your community" instead (the
+  `community_connection` framing, Sprint 93).
 
 Either way it's the same private, time-boxed first invitation before your request goes public, and
 either way you can accept a neighbour or a provider as your first-ask without being blocked.

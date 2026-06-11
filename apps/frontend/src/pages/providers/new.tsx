@@ -37,7 +37,11 @@ export default function NewProviderPage() {
       <div className="max-w-xl mx-auto px-4 sm:px-6 py-8">
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-text">Become a Provider</h1>
-          <p className="text-sm text-text-muted mt-1">Create your profile in the neighborhood service directory.</p>
+          <p className="text-sm text-text-muted mt-1">Offer paid services to the neighbours in your communities — the same trusted circles you already help through mutual aid.</p>
+        </div>
+        <div className="mb-4 rounded-lg bg-primary-light/40 border border-primary-medium px-4 py-3 text-sm">
+          <p className="font-medium text-text mb-1">How your profile connects to your communities</p>
+          <p className="text-text-muted">Your profile joins the neighborhood service directory. Members who share a community with you see you highlighted as <span className="font-medium text-text">&ldquo;in your community&rdquo;</span> — the same trust lens used for first-dibs and matching. You set your own rates; Karmyq never handles payment.</p>
         </div>
         {error && (
           <div className="mb-4 rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">

@@ -559,6 +559,14 @@
       "status": "implemented",
       "description": "**Status:** Implemented",
       "filename": "ADR-072-dibs-scope.md"
+    },
+    {
+      "slug": "adr-073-provider-community-linkup",
+      "number": "073",
+      "title": "ADR-073: Provider↔Community Link-Up",
+      "status": "accepted",
+      "description": "**Status:** Accepted",
+      "filename": "ADR-073-provider-community-linkup.md"
     }
   ]
 }

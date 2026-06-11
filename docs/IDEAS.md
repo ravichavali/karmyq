@@ -328,3 +328,19 @@ candidate: {
 ```
 
 Server rules: what kind of request is this? who has helped this requester before? was the prior interaction completed/successful? is the task similar enough (category)? still eligible/active/trusted/in-community? frame as "ask this neighbour first" vs "book this provider again". UI then renders the server's reason ("You've worked with Maya on something similar — ask them first?") instead of recreating the logic. Scope: response-contract change + DibsPrompt copy rework + tests + ADR-072 update. Candidate for the next sprint.
+
+---
+
+## [2026-06-10] architecture
+
+**Shared `sendError` envelope violates the CLAUDE.md `error: "CODE"` string contract.**
+`packages/shared/utils/response.ts` `sendError` emits `error: { code, message }` (an OBJECT),
+while CLAUDE.md's API contract specifies `error: "ERROR_CODE"` (a string). Rendering that object
+directly into JSX throws React #31 ("Objects are not valid as a React child") → the whole-app
+ErrorBoundary (the Sprint 93 login-401 crash). Sprint 93 defended the **read** side only —
+`api.ts` interceptor now coerces `data.error` to a string, and a shared `getErrorMessage` helper
+(`apps/frontend/src/lib/errors.ts`) guards the five JSX-bound page sites — but did NOT change
+`sendError`'s shape, because every backend consumer depends on it (flipping it is a cross-service
+migration). Follow-up: pick the canonical error contract (string `error` code + separate
+`message` field, or keep the object and update CLAUDE.md), then migrate every service + client
+consistently. Touches all services' error responses and the frontend error-handling paths.

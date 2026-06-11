@@ -11,6 +11,7 @@ import Head from 'next/head'
 import { communityService } from '../../../lib/api'
 import Layout from '../../../components/Layout'
 import { CommunityConfig } from '../../../types/community-config'
+import { getErrorMessage } from '../../../lib/errors'
 
 interface ThrivingCommunity {
   id: string
@@ -72,7 +73,7 @@ export default function ThrivingCommunitiesPage() {
       setError(null)
     } catch (err: any) {
       console.error('Error fetching thriving communities', { error: err instanceof Error ? err.message : String(err) })
-      setError(err.response?.data?.error || 'Failed to load communities')
+      setError(getErrorMessage(err, 'Failed to load communities'))
     } finally {
       setLoading(false)
     }
