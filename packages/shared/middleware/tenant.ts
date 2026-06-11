@@ -1,5 +1,6 @@
 import { Response, NextFunction } from 'express';
 import { AuthenticatedRequest } from './auth';
+import { sendError, sendForbidden, sendInternalError, sendUnauthorized } from '../utils/response';
 
 /**
  * Extended Request with tenant context
@@ -37,11 +38,7 @@ export function tenantMiddleware(
   try {
     // Ensure user is authenticated
     if (!req.user) {
-      res.status(401).json({
-        success: false,
-        error: 'Unauthorized',
-        message: 'Authentication required',
-      });
+      sendUnauthorized(res, 'Authentication required');
       return;
     }
 
@@ -54,11 +51,12 @@ export function tenantMiddleware(
       (req.params as any)?.id; // Some routes use :id instead of :communityId
 
     if (!communityId) {
-      res.status(400).json({
-        success: false,
-        error: 'Missing community context',
-        message: 'Community ID must be provided via X-Community-ID header, query param, request body, or URL parameter',
-      });
+      sendError(
+        res,
+        'BAD_REQUEST',
+        'Community ID must be provided via X-Community-ID header, query param, request body, or URL parameter',
+        400
+      );
       return;
     }
 
@@ -66,11 +64,7 @@ export function tenantMiddleware(
     const userCommunity = req.user.communities.find(c => c.id === communityId);
 
     if (!userCommunity) {
-      res.status(403).json({
-        success: false,
-        error: 'Access denied',
-        message: 'You do not have access to this community',
-      });
+      sendForbidden(res, 'You do not have access to this community');
       return;
     }
 
@@ -83,11 +77,7 @@ export function tenantMiddleware(
     next();
   } catch (error: any) {
     console.error('Tenant context error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Tenant context failed',
-      message: 'An error occurred while verifying community access',
-    });
+    sendInternalError(res, 'An error occurred while verifying community access', error as Error);
   }
 }
 
@@ -159,11 +149,7 @@ export function adminOnlyMiddleware(
   next: NextFunction
 ): void {
   if (!req.communityRole || req.communityRole !== 'admin') {
-    res.status(403).json({
-      success: false,
-      error: 'Admin access required',
-      message: 'This action requires community admin privileges',
-    });
+    sendForbidden(res, 'This action requires community admin privileges');
     return;
   }
 

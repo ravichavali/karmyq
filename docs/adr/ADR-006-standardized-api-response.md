@@ -3,7 +3,7 @@
 **Date**: 2025-12-29
 **Status**: Accepted
 **Deciders**: Development Team
-**Related**: docs/API_RESPONSE_STANDARD.md
+**Related**: ADR-074 (canonical error response contract)
 
 ## Context
 
@@ -43,16 +43,19 @@ Early implementations had inconsistent responses:
 ```json
 {
   "success": false,
-  "error": {
-    "code": "ERROR_CODE",
-    "message": "Human-readable message"
-  },
+  "message": "Human-readable message",
+  "error": "ERROR_CODE",
   "meta": {
     "timestamp": "2025-12-29T00:00:00.000Z",
     "requestId": "uuid-v4"
   }
 }
 ```
+
+> **Sprint 94 / ADR-074 update:** ADR-006 originally documented an object-shaped
+> `error: { code, message }` envelope. ADR-074 supersedes the error portion of this ADR: `message`
+> is top-level and `error` is always a string code for shared helpers and middleware. Success
+> envelopes remain unchanged.
 
 ### Data Wrapping Convention
 

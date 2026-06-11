@@ -575,11 +575,9 @@ See [FR-001: Authentication](../requirements/functional/FR-001-authentication.md
 ```json
 {
   "success": false,
-  "error": {
-    "code": "VALIDATION_ERROR",
-    "message": "Email is required",
-    "details": { ... }
-  }
+  "message": "Email is required",
+  "error": "VALIDATION_ERROR",
+  "details": { ... }
 }
 ```
 

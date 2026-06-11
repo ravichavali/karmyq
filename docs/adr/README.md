@@ -33,6 +33,7 @@ When code implementing an ADR is deployed, update the status from `Accepted` →
 - [ADR-003: Multi-Tenant RLS Database Design](ADR-003-multi-tenant-rls.md) — Accepted
 - [ADR-004: Microservices Event-Driven Architecture](ADR-004-microservices-event-driven.md) — Accepted
 - [ADR-006: Standardized API Response Format](ADR-006-standardized-api-response.md) — Accepted
+- [ADR-074: Canonical Error Response Contract](ADR-074-canonical-error-response-contract.md) — **Accepted**
 - [ADR-007: Polymorphic Request System ("Everything App")](ADR-007-polymorphic-request-system.md) — Accepted
 - [ADR-010: JWT-Based Multi-Community Authentication](ADR-010-jwt-multi-community-auth.md) — Accepted
 - [ADR-013: Monorepo with Turborepo](ADR-013-monorepo-turborepo.md) — Accepted

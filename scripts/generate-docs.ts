@@ -437,6 +437,7 @@ const ADR_GROUPS: Array<{ label: string; slugs: string[] }> = [
       'adr-065-karmyq-org-and-com-domain-roles',
       'adr-003-multi-tenant-rls',
       'adr-006-standardized-api-response',
+      'adr-074-canonical-error-response-contract',
       'adr-007-polymorphic-request-system',
       'adr-005-minimalist-dashboard',
       'adr-008-three-column-dashboard',

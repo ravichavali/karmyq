@@ -108,10 +108,8 @@ const errorInterceptor = async (error: any) => {
 
   if (error.response?.data && typeof error.response.data === 'object') {
     if ('error' in error.response.data && error.response.data.error) {
-      // Never leave an object on data.error — the shared sendError envelope is
-      // { error: { code, message } }, and an object child thrown into JSX triggers
-      // React #31 (contract mismatch logged to docs/IDEAS.md). Coerce to a string:
-      // message, then code, then a generic fallback.
+      // Backward-compat for pre-S94 envelopes that used { error: { code, message } }.
+      // Never leave an object on data.error; JSX can only render a string safely.
       const e = error.response.data.error
       error.response.data.error = typeof e === 'string' ? e : (e.message ?? e.code ?? 'Request failed')
     }

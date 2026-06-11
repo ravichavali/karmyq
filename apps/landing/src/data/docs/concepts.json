@@ -567,6 +567,14 @@
       "status": "accepted",
       "description": "**Status:** Accepted",
       "filename": "ADR-073-provider-community-linkup.md"
+    },
+    {
+      "slug": "adr-074-canonical-error-response-contract",
+      "number": "074",
+      "title": "ADR-074: Canonical Error Response Contract",
+      "status": "accepted",
+      "description": "**Status:** Accepted",
+      "filename": "ADR-074-canonical-error-response-contract.md"
     }
   ]
 }

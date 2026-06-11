@@ -451,10 +451,8 @@ All admin schema API responses follow this standard format:
 ```json
 {
   "success": false,
-  "error": {
-    "code": "ERROR_CODE",
-    "message": "Human-readable error message"
-  },
+  "message": "Human-readable error message",
+  "error": "ERROR_CODE",
   "data": null
 }
 ```

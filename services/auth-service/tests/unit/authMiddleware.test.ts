@@ -79,7 +79,8 @@ describe('authMiddleware', () => {
     expect(next).not.toHaveBeenCalled();
     expect(res.status).toHaveBeenCalledWith(401);
     const jsonCall = (res.json as jest.Mock).mock.calls[0][0];
-    expect(jsonCall.error.message).toContain('expired');
+    expect(jsonCall.error).toBe('UNAUTHORIZED');
+    expect(jsonCall.message).toContain('expired');
   });
 
   it('tampered token — returns 401', () => {
