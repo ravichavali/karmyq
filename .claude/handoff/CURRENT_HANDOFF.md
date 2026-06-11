@@ -9,8 +9,15 @@
 > server + 4 card + 2 page tests) + F2 onboarding copy; T7 F3 community-framed provider home + duty
 > status (page test). **F3 NOTE:** delivered the bounded coherence increment, NOT the full
 > "facets-not-modes" nav redesign (IDEAS [2026-05-06]) — flagged for maintainer; logged as follow-up.
-> **Remaining: T8 docs (ADR-073 + ADR-072 addendum + 4 guides + landing), T9 CONTEXT/registry, T10
-> gates, T11 verify + bump 11.2.0, T12 PR.** Do NOT push master directly.
+> **ALL TASKS DONE. PR [#80](https://github.com/ravichavali/karmyq/pull/80) OPEN** (commit `725114e`):
+> T8 docs (ADR-073 + 072 addendum + 4 guides + landing nav incl. adr-073), T9 CONTEXT/registry/shared,
+> T10 gates (simplify per-task + inline code/security review — no findings; `js/request-forgery` api.ts
+> baseURL is the known FP), T11 verify (31 new TDD + full `npm test` green, tsc clean across all 3
+> projects, `npm audit` clean, v11.1.0 → 11.2.0). **AWAITING ADMIN merge authorization** ("pull it in"
+> → `gh pr merge --admin --squash --delete-branch` → GitHub Actions deploy → post-deploy smoke + human
+> validation per sprint-validation). **Open question for maintainer:** accept the bounded F3
+> (provider-home coherence) for this sprint, or extend to the full facets-not-modes nav redesign before
+> merge? Do NOT push master / self-merge.
 
 **Sprint goal (one sentence):** Audit the full provider↔community journey on the demo
 (Playwright), implement the maintainer-ratified link-up fixes, and close three researched
