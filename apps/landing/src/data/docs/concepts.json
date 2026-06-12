@@ -575,6 +575,14 @@
       "status": "accepted",
       "description": "**Status:** Accepted",
       "filename": "ADR-074-canonical-error-response-contract.md"
+    },
+    {
+      "slug": "adr-075-karmyq-org-multi-route-relaunch",
+      "number": "075",
+      "title": "ADR-075: karmyq.org Multi-Route Relaunch",
+      "status": "accepted",
+      "description": "**Status**: Accepted",
+      "filename": "ADR-075-karmyq-org-multi-route-relaunch.md"
     }
   ]
 }

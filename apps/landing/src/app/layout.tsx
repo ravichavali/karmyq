@@ -1,16 +1,18 @@
 import type { Metadata } from 'next';
 import './globals.css';
+import { routeByKey, SITE_URL } from '../lib/landingRoutes';
+
+const home = routeByKey('home');
 
 export const metadata: Metadata = {
-  title: 'Karmyq — Join the founding circle',
-  description:
-    'A founding-circle invitation for specialists, organizers, builders, and researchers shaping open-source infrastructure for local trust.',
+  metadataBase: new URL(SITE_URL),
+  title: home.title,
+  description: home.description,
   icons: { icon: '/favicon.svg' },
   openGraph: {
-    title: 'Karmyq — Join the founding circle',
-    description:
-      'A founding-circle invitation for specialists, organizers, builders, and researchers shaping open-source infrastructure for local trust.',
-    url: 'https://karmyq.org',
+    title: home.title,
+    description: home.description,
+    url: SITE_URL,
     siteName: 'Karmyq',
     type: 'website',
   },

@@ -256,6 +256,10 @@
           "href": "/docs/concepts/adr-065-karmyq-org-and-com-domain-roles"
         },
         {
+          "label": "karmyq.org Multi-Route Relaunch",
+          "href": "/docs/concepts/adr-075-karmyq-org-multi-route-relaunch"
+        },
+        {
           "label": "Multi-Tenant Row-Level Security (RLS) Database Design",
           "href": "/docs/concepts/adr-003-multi-tenant-rls"
         },

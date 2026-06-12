@@ -1,14 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { motion, AnimatePresence } from 'motion/react';
-
-const NAV_LINKS = [
-  { label: 'Invitation', href: '#invitation' },
-  { label: 'Why now', href: '#thinking' },
-  { label: 'Founding circle', href: '#founding-circle' },
-  { label: 'Docs', href: '/docs' },
-];
+import { NAV_LINKS, CTA_LINK } from '../lib/landingRoutes';
 
 export default function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -22,39 +17,39 @@ export default function Header() {
 
   return (
     <header
-      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-        scrolled
-          ? 'bg-karmyq-warmWhite/95 backdrop-blur-md shadow-sm'
-          : 'bg-transparent'
+      className={`fixed top-0 left-0 right-0 z-50 bg-karmyq-warmWhite/95 backdrop-blur-md border-b border-karmyq-brown-100 transition-shadow duration-300 ${
+        scrolled ? 'shadow-sm' : ''
       }`}
     >
       <nav className="max-w-6xl mx-auto px-6 md:px-12 flex items-center justify-between h-16 md:h-20">
-        {/* Logo */}
-        <a href="#invitation" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
+        {/* Wordmark — route-safe home link */}
+        <Link href="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
           <img src="/brand/karmyq-mark-1level.svg" width={28} height={28} alt="" />
-          <span className="font-serif text-2xl font-semibold tracking-tight text-karmyq-green-700">Karmyq</span>
-        </a>
+          <span className="font-serif text-2xl font-semibold tracking-tight text-karmyq-green-700">
+            Karmyq
+          </span>
+        </Link>
 
         {/* Desktop nav */}
         <div className="hidden md:flex items-center gap-8">
           {NAV_LINKS.map((link) => (
-            <a
+            <Link
               key={link.href}
               href={link.href}
               className="text-sm font-medium text-karmyq-brown-700 hover:text-karmyq-green-600 transition-colors"
             >
               {link.label}
-            </a>
+            </Link>
           ))}
-          <a
-            href="#founding-circle"
+          <Link
+            href={CTA_LINK.href}
             className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-karmyq-green-600 text-white text-sm font-medium hover:bg-karmyq-green-700 transition-colors"
           >
-            Join the circle
+            {CTA_LINK.label}
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
             </svg>
-          </a>
+          </Link>
         </div>
 
         {/* Mobile hamburger */}
@@ -73,7 +68,7 @@ export default function Header() {
         </button>
       </nav>
 
-      {/* Mobile menu */}
+      {/* Mobile menu — full nav loop, closes after navigation */}
       <AnimatePresence>
         {menuOpen && (
           <motion.div
@@ -84,25 +79,25 @@ export default function Header() {
           >
             <div className="px-6 py-4 flex flex-col gap-4">
               {NAV_LINKS.map((link) => (
-                <a
+                <Link
                   key={link.href}
                   href={link.href}
                   className="text-base font-medium text-karmyq-brown-700 hover:text-karmyq-green-600 transition-colors py-2"
                   onClick={() => setMenuOpen(false)}
                 >
                   {link.label}
-                </a>
+                </Link>
               ))}
-              <a
-                href="#founding-circle"
+              <Link
+                href={CTA_LINK.href}
                 className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-full bg-karmyq-green-600 text-white text-base font-medium mt-2"
                 onClick={() => setMenuOpen(false)}
               >
-                Join the circle
+                {CTA_LINK.label}
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
                 </svg>
-              </a>
+              </Link>
             </div>
           </motion.div>
         )}
