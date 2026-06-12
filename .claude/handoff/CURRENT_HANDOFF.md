@@ -1,11 +1,13 @@
 # Sprint 95 — karmyq.org Multi-Route Relaunch — ✅ IMPLEMENTED, ready for PR/deploy
 
-> **▶ STATUS (2026-06-11):** Sprint 95 is **CODE-COMPLETE** on branch
-> `feature/sprint-95-karmyq-org-routes` (v11.4.0). All 13 plan tasks done; SDLC gates passed
-> (`/simplify` applied, `/code-review` → 2 fixes applied, `/security-review` → no findings,
-> `npm audit` → 0 vulns). Full monorepo `npm test` green (25/25 turbo tasks); landing build exports
-> all 6 routes (`/`, `/principles`, `/how-it-works`, `/research`, `/join`, `/docs`).
-> **Next:** open PR, merge after Admin authorization, then post-deploy mobile-nav + copy validation.
+> **▶ STATUS (2026-06-11):** Sprint 95 is **IN PR** —
+> [#83](https://github.com/ravichavali/karmyq/pull/83), branch
+> `feature/sprint-95-karmyq-org-routes` (v11.4.0), commit `2dd9f92`. All 13 plan tasks done; SDLC
+> gates passed (`/simplify` applied, `/code-review` → 2 fixes applied, `/security-review` → no
+> findings, `npm audit` → 0 vulns). Full monorepo `npm test` green (25/25 turbo tasks); landing build
+> exports all 6 routes (`/`, `/principles`, `/how-it-works`, `/research`, `/join`, `/docs`).
+> **Next:** await CI + Admin merge authorization (agents do not self-merge); on merge CI auto-deploys
+> v11.4.0, then run post-deploy mobile-nav + copy validation and bump ADR-075 → Implemented.
 > Sprint 96 = backend-backed founding-circle intake from `/join`.
 >
 > **What shipped:** five static routes built in the existing Tailwind/Fraunces design system
