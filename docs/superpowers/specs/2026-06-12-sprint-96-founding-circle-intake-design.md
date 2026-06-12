@@ -118,9 +118,10 @@ CREATE INDEX IF NOT EXISTS idx_founding_circle_status_created
   persisting** (silent drop).
 - Oversized/empty-required → `sendValidationError` (`{ success:false, message, error:"VALIDATION_ERROR" }`).
 
-**Success response** (`201`):
+**Success response** (`201`, via `sendSuccess(res, { id }, 201, …)` — note the shared helper emits
+**no top-level `message`**; it returns `data` + `meta`):
 ```json
-{ "success": true, "data": { "id": "<uuid>" }, "message": "Submission received" }
+{ "success": true, "data": { "id": "<uuid>" }, "meta": { "timestamp": "…", "requestId": "…" } }
 ```
 
 **Mounting:** `app.use('/founding-circle', foundingCircleRoutes)` in
@@ -142,9 +143,11 @@ rate-limit layer).
     success confirmation and an inline error on failure.
   - Keep the visible `contact@karmyq.org` fallback line always present (it is now the
     error-path fallback, not the primary channel).
-- **Env**: introduce `NEXT_PUBLIC_API_URL` for the landing app (e.g. `https://karmyq.com/api`),
-  with a sensible local default. Document in `apps/landing/.env.example` if one exists, else note
-  in landing README.
+- **Env**: introduce `NEXT_PUBLIC_API_URL` for the landing app (`https://karmyq.com/api` in
+  `.env.demo`), with a **production-safe fallback of `https://karmyq.com/api`** in the client (never
+  `localhost`/relative in production — the bundle is served from `karmyq.org`). `deploy.sh` sources
+  `.env.demo` before building, so the value is baked in at build time. Document in
+  `apps/landing/.env.example` if one exists, else note in landing README.
 
 `apps/landing/next.config.js` stays `output: 'export'` — the submit is a browser `fetch`, which is
 fully compatible with static export (no Next API route needed).
@@ -163,6 +166,9 @@ fully compatible with static export (no Next API route needed).
 - **CORS**: auth-service CORS is driven by `ALLOWED_ORIGINS`. Add `https://karmyq.org` (and
   `https://www.karmyq.org`) to `ALLOWED_ORIGINS` in `.env.demo`. The `cors()` middleware already
   handles the `OPTIONS` preflight. Without this, the cross-origin POST is blocked in the browser.
+- **Landing API base**: set `NEXT_PUBLIC_API_URL=https://karmyq.com/api` in `.env.demo` too — it is
+  consumed at **build time** (`deploy.sh` sources `.env.demo` before `npm run build`), not runtime.
+  These are two separate `.env.demo` changes; both are required for `/join` to work end-to-end.
 
 ---
 
@@ -174,9 +180,13 @@ fully compatible with static export (no Next API route needed).
   new page is created. (Generated docs are gitignored — `git add -f`.)
 - **ADR-076** (architectural): document the decision to host the first public unauthenticated
   intake endpoint in auth-service, the cross-origin static-landing → API pattern, the honeypot
-  approach, and the explicit "persist-only / no email transport yet" decision. Create both the
-  `docs/adr/ADR-076-*.md` and the landing `apps/landing/src/data/docs/concepts/adr-076-*.json` +
-  nav.json entry.
+  approach, and the explicit "persist-only / no email transport yet" decision. **Write only the
+  source `docs/adr/ADR-076-*.md`** — the landing concept JSON
+  (`apps/landing/src/data/docs/concepts/adr-076-*.json`) is **generated** by `generateConcepts()`
+  in `scripts/generate-docs.ts`, and the curated nav is rebuilt from `ADR_GROUPS` in that same
+  script into `apps/landing/src/data/docs/nav.json` (top-level, **not** `concepts/nav.json`). Add
+  the slug to `ADR_GROUPS`, regenerate, then `git add -f` the generated JSON + nav.json. Do not
+  hand-edit generated files — the landing `prebuild` overwrites them.
 - **CONTEXT.md**: update `services/auth-service/CONTEXT.md` — new endpoint + new table.
 - **registry.json**: add the new endpoint to auth-service `apis.provides`.
 
@@ -203,9 +213,23 @@ fully compatible with static export (no Next API route needed).
 8. **Mirror schema in both places:** the migration file *and* `init.sql` (auth schema block), so
    fresh databases and the demo both get the table. Migrations are plain SQL run via
    `run-migration.sh`; guard with `IF NOT EXISTS`.
-9. **Landing generated docs are gitignored** — `git add -f` any `apps/landing/src/data/docs/*`
-   JSON you create, and re-verify `nav.json` after editing (it has silently reverted before).
+9. **ADR docs are generated, not hand-authored.** Write `docs/adr/ADR-076-*.md`, add the slug to
+   `ADR_GROUPS` in `scripts/generate-docs.ts`, regenerate, then `git add -f` the generated
+   `concepts/adr-076-*.json` + `apps/landing/src/data/docs/nav.json` (top-level path, **not**
+   `concepts/nav.json`). The landing `prebuild` overwrites any hand-edited generated JSON.
 10. **Keep the visible `contact@karmyq.org` fallback** in the form at all times — it is the
     error-path escape hatch now that the primary path is a network call.
 11. **auth-service tests are service-local** (`services/auth-service/tests/{unit,tdd}`), not the
     root `tests/` tree — place new tests there.
+12. **No real integration test-DB harness in auth-service.** `tests/integration/*` are
+    `expect(true)` placeholders and `src/index.ts` calls `start()` unconditionally (cannot be
+    imported). Test the route with the existing **isolated-`express()`-app + `jest.mock`ed DB +
+    supertest** pattern (`tests/regression/auth.routes.test.ts`). Real persistence is verified by
+    the migration + post-deploy DB check, not an in-repo DB test.
+13. **Use exact shared response-helper signatures** (`packages/shared/utils/response.ts`):
+    `sendSuccess(res, data, statusCode, opts)` — **no top-level `message`**;
+    `sendValidationError(res, message, details?, opts)`;
+    `sendInternalError(res, message, err?, opts)` (emits `error:'INTERNAL_ERROR'`);
+    `sendError(res, code, message, statusCode, details?, opts)` — **code first, then message**.
+14. **Version bump touches `package-lock.json` too** — bump the root `version` field in the lock
+    in place (do not scratch-regen on Windows; see lockfile gotcha in memory).

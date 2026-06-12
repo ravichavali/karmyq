@@ -42,9 +42,11 @@
 
 1. **No email infrastructure exists** (no nodemailer/SMTP/SES) — persist-only by decision. Do not
    add an email send; defer notify to a later sprint.
-2. **Cross-origin is the whole game.** Landing is `karmyq.org`; API is `karmyq.com`. The POST fails
-   in-browser unless `ALLOWED_ORIGINS` in `.env.demo` includes `https://karmyq.org` (+ `www`). This
-   is a deploy-config step (Task 12), not just code.
+2. **Cross-origin is the whole game — TWO `.env.demo` changes at deploy (Task 12):**
+   (a) add `https://karmyq.org,https://www.karmyq.org` to `ALLOWED_ORIGINS` (CORS); and
+   (b) set `NEXT_PUBLIC_API_URL=https://karmyq.com/api` — consumed at **build time** (`deploy.sh`
+   sources `.env.demo` before building landing). Client must use a production-safe fallback of
+   `https://karmyq.com/api`, never `localhost`/relative. Missing either → `/join` silently fails.
 3. **Static export** (`output: 'export'`) — no Next API routes; the submit is a client `fetch` to
    `NEXT_PUBLIC_API_URL`.
 4. **Honeypot = silent success.** Non-empty `website` field → return success **without persisting**.
@@ -53,10 +55,19 @@
 6. **Do not add auth middleware** to the endpoint — it is public.
 7. **Mount without `rateLimiters.standard`** — rely on the app-wide `globalRateLimiter` only.
 8. **Mirror schema** in both the migration file and `init.sql`; guard with `IF NOT EXISTS`.
-9. **Landing generated docs are gitignored** — `git add -f` new `apps/landing/src/data/docs/*` and
-   re-verify `nav.json` after editing (it has silently reverted before).
+9. **ADR docs are GENERATED.** Write `docs/adr/ADR-076-*.md` + add slug to `ADR_GROUPS` in
+   `scripts/generate-docs.ts`, regenerate, then `git add -f` the generated `concepts/adr-076-*.json`
+   + `apps/landing/src/data/docs/nav.json` (top-level path — there is **no** `concepts/nav.json`).
+   Prebuild overwrites hand-edited generated JSON.
 10. **Keep the visible `contact@karmyq.org` fallback** in the form at all times.
 11. **auth-service tests are service-local** (`services/auth-service/tests/{unit,tdd}`).
+12. **No real integration test-DB harness in auth-service** — test the route with the isolated
+    `express()` + `jest.mock`ed DB + supertest pattern (`tests/regression/auth.routes.test.ts`);
+    real persistence is verified by migration + post-deploy DB check.
+13. **Exact response helpers:** `sendSuccess(res, data, status, opts)` has **no top-level message**;
+    `sendError(res, code, message, status, …)` is **code-first**; use `sendValidationError` /
+    `sendInternalError` for the error paths.
+14. **Version bump = `package.json` AND `package-lock.json`** (root `version`, in place).
 
 ---
 

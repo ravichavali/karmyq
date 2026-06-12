@@ -23,11 +23,10 @@ cross-origin (CORS + nginx) instead of opening a mailto, keeping the visible con
 | `infrastructure/postgres/migrations/20260612-founding-circle-submissions.sql` | Create `auth.founding_circle_submissions` table + index (IF NOT EXISTS). |
 | `services/auth-service/src/routes/foundingCircle.ts` | `POST /founding-circle/submissions` route: validation, honeypot, persist. |
 | `services/auth-service/src/database/foundingCircleDb.ts` | Insert helper for submissions (parameterized). |
-| `services/auth-service/tests/unit/foundingCircle.test.ts` | Unit tests: validation, honeypot drop, length caps, success shape. |
-| `services/auth-service/tests/tdd/foundingCircle.integration.test.ts` | TDD integration: POST persists / honeypot no-persist / bad email 400. |
+| `services/auth-service/tests/unit/foundingCircle.test.ts` | Unit tests for `validateSubmission`: validation, honeypot drop, length caps. |
+| `services/auth-service/tests/tdd/foundingCircle.route.test.ts` | Route-level supertest tests (isolated app, **mocked** DB insert) — see Task 7. |
 | `apps/landing/src/lib/submitFoundingCircle.ts` | Browser `fetch` client to the intake endpoint. |
-| `docs/adr/ADR-076-founding-circle-intake.md` | ADR: public intake in auth-service, cross-origin static→API, persist-only. |
-| `apps/landing/src/data/docs/concepts/adr-076-founding-circle-intake.json` | Landing copy of ADR-076. |
+| `docs/adr/ADR-076-founding-circle-intake.md` | **Source** ADR (the landing concept JSON is generated from this). |
 
 ### Existing files to modify
 | File | Change |
@@ -39,9 +38,15 @@ cross-origin (CORS + nginx) instead of opening a mailto, keeping the visible con
 | `infrastructure/nginx/nginx.conf` | Add `location ~ ^/api/founding-circle(/.*)?$` → auth_service. |
 | `apps/landing/src/components/landing/JoinForm.tsx` | POST instead of mailto; honeypot; success/error states; keep contact fallback. |
 | `apps/landing/src/lib/landingContent.ts` | **Copy swap** in `thinking` section (Task 8). |
-| `apps/landing/src/data/docs/concepts/nav.json` | Add ADR-076 entry. |
-| `.env.demo` (deploy) | Add `https://karmyq.org`,`https://www.karmyq.org` to `ALLOWED_ORIGINS`. |
-| Root `package.json` | Version bump `11.4.0` → `11.5.0`. |
+| `scripts/generate-docs.ts` | Add `'adr-076-founding-circle-intake'` to `ADR_GROUPS` so the ADR shows in the curated Technical nav. |
+| `.env.demo` (deploy) | Add `https://karmyq.org`,`https://www.karmyq.org` to `ALLOWED_ORIGINS` **and** `NEXT_PUBLIC_API_URL=https://karmyq.com/api`. |
+| Root `package.json` + `package-lock.json` | Version bump `11.4.0` → `11.5.0` in **both** (lock root `version` field at line ~3). |
+
+### Generated (do not hand-edit — produced by `npm run` docs generation, commit with `git add -f`)
+| File | Produced by |
+|------|-------------|
+| `apps/landing/src/data/docs/concepts/adr-076-founding-circle-intake.json` | `generateConcepts()` reads `docs/adr/ADR-076-*.md`. |
+| `apps/landing/src/data/docs/nav.json` | Regenerated from `ADR_GROUPS`; **top-level** path, not `concepts/nav.json`. |
 
 ---
 
@@ -154,12 +159,18 @@ cd services/auth-service && npx jest tests/unit/foundingCircle.test.ts
 - Create: `services/auth-service/src/routes/foundingCircle.ts`
 - Modify: `services/auth-service/src/index.ts`
 
-- [ ] Implement `POST /founding-circle/submissions`:
+- [ ] Implement `POST /founding-circle/submissions`. Use the **exact** shared helper signatures
+  (verified in `packages/shared/utils/response.ts`):
   - parse → `validateSubmission`;
-  - on validation error → `sendValidationError(res, msg, …)`;
-  - on `drop` (honeypot) → `sendSuccess`/`sendCreated` with a synthetic id, **no DB write**;
-  - else insert + return `201 { success:true, data:{ id }, message:'Submission received' }`;
-  - wrap DB errors → `sendError(... 'INTERNAL_ERROR')` (ADR-074 shape).
+  - on validation error → `sendValidationError(res, message, undefined, { requestId: req.id })`
+    (emits `{ success:false, message, error:'VALIDATION_ERROR' }`);
+  - on `drop` (honeypot) → `sendSuccess(res, { id: null, received: true }, 201, { requestId: req.id })`
+    with **no DB write** (silent success — do not reveal filtering);
+  - else insert → `sendSuccess(res, { id }, 201, { requestId: req.id })`. **Note:** `sendSuccess`
+    emits `{ success:true, data, meta }` with **no top-level `message`** field — do not expect one;
+  - wrap DB errors → `sendInternalError(res, 'Could not save submission', err, { requestId: req.id })`
+    (emits `error:'INTERNAL_ERROR'`). Do **not** call `sendError` with message-first arg order;
+    its signature is `sendError(res, code, message, statusCode, details?, options?)`.
 
 - [ ] Mount in `index.ts`: `app.use('/founding-circle', foundingCircleRoutes);` (no
   `rateLimiters.standard` — global limiter already applies). Place near the other `app.use` route
@@ -206,9 +217,12 @@ location ~ ^/api/founding-circle(/.*)?$ {
 - Modify: `apps/landing/src/components/landing/JoinForm.tsx`
 
 - [ ] `submitFoundingCircle({ email, lens, contribution, concern, website })`:
-  - `POST ${process.env.NEXT_PUBLIC_API_URL}/founding-circle/submissions` with JSON body;
-  - return `{ ok: true }` on 2xx, else `{ ok: false, message }`.
-  - Default base URL for local dev if env unset.
+  - resolve base = `process.env.NEXT_PUBLIC_API_URL` with a **production-safe** fallback of
+    `https://karmyq.com/api` (NOT `localhost`/relative — the static bundle is served from
+    `karmyq.org`, so an unset/relative base would POST to `karmyq.org/api`, which does not exist).
+    A `localhost` default is acceptable only when `process.env.NODE_ENV !== 'production'`.
+  - `POST ${base}/founding-circle/submissions` with JSON body;
+  - return `{ ok: true }` on 2xx, else `{ ok: false, message }` (network error or non-2xx).
 
 - [ ] Rework `JoinForm.tsx`:
   - add `status: 'idle' | 'submitting' | 'success' | 'error'` + `errorMsg` state;
@@ -229,17 +243,28 @@ cd apps/landing && npm run build
 
 ---
 
-## Task 7: TDD integration test
+## Task 7: Route-level tests (supertest + mocked DB)
 
 **Files:**
-- Create: `services/auth-service/tests/tdd/foundingCircle.integration.test.ts`
+- Create: `services/auth-service/tests/tdd/foundingCircle.route.test.ts`
 
-- [ ] Integration test (uses the auth-service test DB harness): POST valid body → row persisted +
-  `201`; honeypot body → `2xx` and **no** new row; malformed email → `400` with canonical error
-  shape.
+> **Why route-level, not a real DB:** auth-service has **no integration test-DB harness**
+> (`tests/integration/*` are `expect(true).toBe(true)` placeholders, and `src/index.ts` calls
+> `start()` unconditionally so it can't be imported). The existing pattern
+> (`tests/regression/auth.routes.test.ts`) builds an isolated `express()` app, mounts the router,
+> and `jest.mock`s the DB module + event publisher with supertest. Follow that exact pattern.
+
+- [ ] Mock the insert helper (`jest.mock('../../src/database/foundingCircleDb')`), build an isolated
+  `express()` app, mount `foundingCircleRoutes`, and assert via supertest:
+  - valid body → `201`, `res.body.success === true`, `res.body.data.id` present, insert called once;
+  - honeypot (`website` non-empty) → `2xx`, `res.body.success === true`, insert **not** called;
+  - malformed/empty email → `400`, `res.body.error === 'VALIDATION_ERROR'`, insert **not** called;
+  - over-length field → `400`.
+- [ ] Real persistence (row actually lands in `auth.founding_circle_submissions`) is verified by the
+  migration (Task 1) + **post-deploy DB validation** (Task 12), not by an in-repo integration DB test.
 
 ```bash
-cd services/auth-service && npx jest tests/tdd/foundingCircle.integration.test.ts
+cd services/auth-service && npx jest tests/tdd/foundingCircle.route.test.ts
 ```
 
 ---
@@ -268,22 +293,38 @@ cd apps/landing && npm run build   # confirm copy renders + export still builds
 
 ---
 
-## Task 9: Docs — ADR-076 + landing guide + CONTEXT + registry
+## Task 9: Docs — ADR-076 (generated) + landing guide + CONTEXT + registry
 
 **Files:**
-- Create: `docs/adr/ADR-076-founding-circle-intake.md` + index entry in `docs/adr/README.md`
-- Create: `apps/landing/src/data/docs/concepts/adr-076-founding-circle-intake.json`
-- Modify: `apps/landing/src/data/docs/concepts/nav.json` (add ADR-076)
-- Modify: landing "Join the circle" guide if copy implies email-only path
+- Create (source): `docs/adr/ADR-076-founding-circle-intake.md` + index entry in `docs/adr/README.md`
+- Modify (source): `scripts/generate-docs.ts` — add `'adr-076-founding-circle-intake'` to `ADR_GROUPS`
+- Modify (source): landing "Join the circle" guide if copy implies email-only path
 - Modify: `services/auth-service/CONTEXT.md`, `services/registry.json`
+- Generated (commit with `git add -f`): `apps/landing/src/data/docs/concepts/adr-076-*.json`, `apps/landing/src/data/docs/nav.json`
 
-- [ ] Write ADR-076: public unauthenticated intake in auth-service; cross-origin static-landing →
-  API pattern (CORS + nginx); honeypot anti-spam; **persist-only / no email transport yet** and
-  why; future notify path.
-- [ ] Add the landing ADR JSON (per CLAUDE.md ADR JSON schema) + nav.json entry.
+> **Do NOT hand-author the ADR concept JSON or edit `nav.json` directly.** `generateConcepts()`
+> reads `docs/adr/ADR-*.md` and writes `concepts/<slug>.json`; the curated nav is rebuilt from
+> `ADR_GROUPS`. The landing `prebuild` regenerates both, so any hand edits are overwritten. The
+> real `nav.json` is at `apps/landing/src/data/docs/nav.json`, **not** `concepts/nav.json`.
+
+- [ ] Write `docs/adr/ADR-076-founding-circle-intake.md`: public unauthenticated intake in
+  auth-service; cross-origin static-landing → API pattern (CORS + nginx); honeypot anti-spam;
+  **persist-only / no email transport yet** and why; future notify path. Match the heading/Status
+  format the generator parses (see an existing ADR md like `ADR-075-*.md`).
+- [ ] Add `'adr-076-founding-circle-intake'` to the appropriate `ADR_GROUPS` block in
+  `scripts/generate-docs.ts` (e.g. near `adr-075-karmyq-org-multi-route-relaunch`).
+- [ ] Regenerate docs and confirm the ADR + nav entry are produced:
+
+```bash
+npx tsx scripts/generate-docs.ts   # or: npm run docs:generate (check package.json for the script name)
+grep -l "adr-076" apps/landing/src/data/docs/concepts/adr-076-founding-circle-intake.json
+grep "adr-076" apps/landing/src/data/docs/nav.json
+```
+
 - [ ] Update auth-service `CONTEXT.md` (API Endpoints + Database Schema) and `registry.json`
   (`apis.provides`).
-- [ ] `git add -f` the generated landing docs; grep-verify nav.json kept the new entry.
+- [ ] `git add -f` the generated `apps/landing/src/data/docs/concepts/adr-076-*.json` and
+  `nav.json`; re-grep both after staging (nav.json has silently reverted before).
 
 ```bash
 npm run feedback:check
@@ -321,8 +362,10 @@ npm run feedback:check
 
 **Files:**
 - Modify: root `package.json` (`11.4.0` → `11.5.0`)
+- Modify: `package-lock.json` (root `version` field at line ~3, `11.4.0` → `11.5.0` — in place)
 
-- [ ] Bump version.
+- [ ] Bump version in **both** `package.json` and `package-lock.json` (do not scratch-regen the
+  lock on Windows — edit the root `version` field in place; see the lockfile gotcha in memory).
 - [ ] Full verification:
 
 ```bash
@@ -342,8 +385,12 @@ Use the `/deploy` skill.
 
 - [ ] Open one PR (copy `.github/pull_request_template.md` into the body). Cross-agent review:
   the agent that did not author the branch reviews it.
-- [ ] **Before/at deploy:** add `https://karmyq.org,https://www.karmyq.org` to `ALLOWED_ORIGINS`
-  in `.env.demo` on the demo server (CORS), and ensure the migration runs
+- [ ] **Before/at deploy — `.env.demo` on the demo server (two env changes, both required):**
+  1. add `https://karmyq.org,https://www.karmyq.org` to `ALLOWED_ORIGINS` (CORS for the cross-origin POST);
+  2. set `NEXT_PUBLIC_API_URL=https://karmyq.com/api` — **deploy.sh sources `.env.demo` (`set -a`)
+     before building the landing bundle, so this is baked in at build time.** Without it the static
+     `/join` form silently POSTs to a localhost/default base and submissions never arrive.
+  Also ensure the migration runs
   (`run-migration.sh 20260612-founding-circle-submissions.sql`). nginx.conf reloads via deploy.sh.
 - [ ] Merge to master → monitor GitHub Actions auto-deploy → SSH only if the migration/env step
   needs manual application.
