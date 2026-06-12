@@ -47,7 +47,9 @@ describe('Sprint 76 — code-scanning gate + supply-chain hardening invariants',
   it('the two real alerts are fixed: mailto + path-param encoding', () => {
     expect(read('apps/landing/src/lib/buildSubscribeMailto.ts')).toMatch(/encodeURIComponent/);
     expect(read('apps/frontend/src/lib/socialGraphUrls.ts')).toMatch(/encodeURIComponent/);
-    // Movement.tsx must route through the encoding helper, not build the href inline
-    expect(read('apps/landing/src/components/sections/Movement.tsx')).toMatch(/buildFoundingCircleMailto/);
+    // The /join composer must route through the encoding helper, not build the href inline.
+    // (Sprint 95 split the single landing page into routes; the mailto helper's caller moved
+    // from the now-removed Movement.tsx section to the JoinForm component.)
+    expect(read('apps/landing/src/components/landing/JoinForm.tsx')).toMatch(/buildFoundingCircleMailto/);
   });
 });

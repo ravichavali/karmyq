@@ -11,7 +11,7 @@ V7.0 introduced a complete UI overhaul focusing on information density and socia
 
 ## Decision
 
-**3-column layout inspired by Twitter/X and LinkedIn:**
+**3-column layout inspired by Twitter/X and professional networking platforms:**
 - **Left Sidebar (25%)**: User profile, karma, trust score, community selector
 - **Center Feed (50%)**: Quick create, milestones, feed posts, requests, inline chat
 - **Right Sidebar (25%)**: Community health, recent milestones, top helpers

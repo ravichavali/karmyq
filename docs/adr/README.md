@@ -105,6 +105,7 @@ When code implementing an ADR is deployed, update the status from `Accepted` →
 - [ADR-071: Service Consolidation — Fold Feed Service Into Request Service (11→10 services)](ADR-071-service-consolidation-feed-service.md) — **Implemented**
 - [ADR-072: Dibs Scope — the Neighbor/Provider First-Ask Seam](ADR-072-dibs-scope.md) — **Implemented**
 - [ADR-073: Provider↔Community Link-Up](ADR-073-provider-community-linkup.md) — **Accepted**
+- [ADR-075: karmyq.org Multi-Route Relaunch (five static public routes)](ADR-075-karmyq-org-multi-route-relaunch.md) — **Accepted**
 
 ## Creating a New ADR
 

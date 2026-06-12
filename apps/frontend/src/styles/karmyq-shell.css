@@ -62,10 +62,12 @@
 
 .kq-wordmark-seed {
   display: inline-block;
-  width: 20px;
-  height: 20px;
-  border-radius: 9999px;
-  background: radial-gradient(circle at 35% 30%, rgb(var(--color-primary-medium)), rgb(var(--color-primary)));
+  width: 24px;
+  height: 24px;
+  background-image: url('/brand/karmyq-mark.svg');
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
 }
 
 .kq-topnav {

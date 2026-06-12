@@ -1,210 +1,197 @@
-# Sprint 94 — Error Contract Cleanup — 🛠️ IMPLEMENTED, needs review/gates
+# Sprint 95 — karmyq.org Multi-Route Relaunch — ✅ IMPLEMENTED, ready for PR/deploy
 
-> **▶ STATUS (2026-06-11):** Sprint 93 is **DONE** — PR [#80](https://github.com/ravichavali/karmyq/pull/80)
-> **MERGED** (squash `1c843da`) + **DEPLOYED** (post-merge `CI/CD Pipeline` on master = success,
-> 20m23s, 2026-06-11 13:43Z). Provider↔Community link-up (FULL F1+F2+F3 bounded), ADR-064
-> members-DELETE JWT fix, login-401 crash defense, `community_connection` dibs reason — all shipped
-> at v11.2.0. **Sprint 94 implementation is now in the working tree** on
-> `feature/sprint-94-error-contract-cleanup` (cut from updated master `1c843da`). Plan authored by Codex, reviewed + approved by Claude
-> (cross-agent). Version target **11.2.0 → 11.3.0**. Next free ADR = **074**.
+> **▶ STATUS (2026-06-11):** Sprint 95 is **IN PR** —
+> [#83](https://github.com/ravichavali/karmyq/pull/83), branch
+> `feature/sprint-95-karmyq-org-routes` (v11.4.0), commit `2dd9f92`. All 13 plan tasks done; SDLC
+> gates passed (`/simplify` applied, `/code-review` → 2 fixes applied, `/security-review` → no
+> findings, `npm audit` → 0 vulns). Full monorepo `npm test` green (25/25 turbo tasks); landing build
+> exports all 6 routes (`/`, `/principles`, `/how-it-works`, `/research`, `/join`, `/docs`).
+> **Next:** await CI + Admin merge authorization (agents do not self-merge); on merge CI auto-deploys
+> v11.4.0, then run post-deploy mobile-nav + copy validation and bump ADR-075 → Implemented.
+> Sprint 96 = backend-backed founding-circle intake from `/join`.
 >
+> **What shipped:** five static routes built in the existing Tailwind/Fraunces design system
+> (decision: keep current design system, migrate v5 *content* only — not a redesign); route/nav/copy
+> contract extracted to `landingRoutes.ts` + `landingContent.ts` with a 22-assertion regression test;
+> route-aware Header (desktop + mobile loop, single Join CTA); merged reputation essay
+> ("The Problem with Stars") + new "Why No Role Is Permanent"; `/join` form-shaped with encoded
+> mailto + visible fallback; per-route OG/canonical metadata; ADR-075; queued logo fix folded in;
+> dead `components/sections/` deleted.
+>
+> ⚠️ **Post-deploy still owed:** desktop + mobile nav loop across all 5 routes + `/docs`; `/join`
+> mailto opens encoded note; live copy free of forbidden strings; frontend shell logo renders.
 > ⚠️ **S93 closeout still owed:** post-deploy smoke + human validation on the live demo were not
 > recorded as passed. Confirm the provider link-up + carry-forward fixes work on karmyq.com before
 > leaning on them.
 
-**Sprint goal (one sentence):** Canonicalize API error responses as
-`{ success:false, message:string, error:'ERROR_CODE' }` (the CLAUDE.md contract) by fixing the
-shared `sendError`/helpers + 3 middleware (the OBJECT-shape outlier), keeping web clients dual-read
-tolerant for one release — resolving the S93 IDEAS [2026-06-10] envelope follow-up at the source.
+**Sprint goal (one sentence):** Split `karmyq.org` from one long landing page into five static
+routes using the supplied v5 HTML files as content/organization source of truth, preserve `/docs`,
+preserve the current design system, and keep `/join` mailto-backed until Sprint 96 adds real
+backend intake.
+
+**Branch:** `feature/sprint-95-karmyq-org-routes` (create from `master`).
+
+**Spec:** `docs/superpowers/specs/2026-06-11-sprint-95-karmyq-org-routes-design.md`
+
+**Plan:** `docs/superpowers/plans/2026-06-11-sprint-95-karmyq-org-routes.md`
 
 ---
 
 ## Quick Start
 
 1. Read this handoff.
-2. Confirm you're on `feature/sprint-94-error-contract-cleanup` from master `1c843da` (already cut).
-3. Open the S94 plan (Codex) + this handoff's review notes below.
-4. Review Codex's implementation, run any environment-dependent gates, then open the Sprint 94 PR.
-
-**Branch:** `feature/sprint-94-error-contract-cleanup` (working tree has Sprint 94 edits, from `1c843da`).
-
----
-
-## Sprint 94 implementation status (Codex, 2026-06-11)
-
-**Review update (Claude, 2026-06-11)**
-- ✅ Implementation review passed: shared helper/middleware contract flip, frontend legacy dual-read,
-  ADR/doc updates, and downstream `.error.code` / `.error.message` audits all verified.
-- ✅ Claude independently ran the per-package typechecks Codex could not run from root:
-  request-service, community-service, auth-service, and frontend `tsc --noEmit` all passed.
-- ⚠️ Staging requirement: `apps/landing/src/data/docs/concepts/adr-074-canonical-error-response-contract.json`
-  is generated, gitignored, and referenced by tracked landing nav/concept data. It must be staged with
-  `git add -f` when preparing the PR, or the landing docs link will 404.
-- ✅ `/simplify`, `/code-review`, and `/security-review` completed after Codex implementation.
-  Claude made the resulting gate fixes in this same branch: migrated middleware literals to shared
-  helpers, fixed `getErrorMessage` to prefer canonical top-level `message` over string error codes,
-  added regression coverage, and confirmed `/security-review` had no findings.
-
-**Implemented**
-- `packages/shared/utils/response.ts` now emits canonical errors from `sendError` and wrappers:
-  `{ success:false, message:string, error:string, details?, meta? }`. `sendInternalError` moves
-  development stack traces to top-level `details.stack`.
-- Shared `validate`, `tenant`, and `rateLimit` middleware now emit top-level `message` plus string
-  `error` codes.
-- Added shared helper/middleware contract tests under `packages/shared/src/**/__tests__/`.
-- Updated old-object-shape assertions in:
-  `services/auth-service/tests/regression/auth.routes.test.ts`,
-  `services/auth-service/tests/unit/authMiddleware.test.ts`,
-  `tests/integration/auth-flow.integration.test.ts`, and
-  `tests/integration/community-flow.integration.test.ts`.
-- Kept the S93 web dual-read tests and updated comments to describe `{ error:{code,message} }` as
-  a pre-S94 legacy envelope, not the ongoing contract.
-- Added ADR-074, updated ADR-006/ADR index, `packages/shared/CONTEXT.md`, `docs/ARCHITECTURE.md`,
-  `docs/api/SCHEMA_API.md`, `docs/IDEAS.md`, `scripts/generate-docs.ts`, landing generated docs, and
-  bumped root version/package-lock to `11.3.0`.
-
-**Audit notes**
-- Live server/client readers for `.error.code` / `response.body.error.message` are clean.
-- Remaining object-shaped error envelope hits are intentional legacy web test fixtures/docs, plus
-  `services/cleanup-service/src/index.ts` local helper/rate-limit drift. ADR-074 catalogues this as
-  out-of-scope direct/local drift rather than claiming a service-wide sweep.
-- `apps/landing/src/data/docs/` is ignored by `apps/landing/.gitignore`; generated ADR-074 JSON
-  exists locally but is not shown by normal `git status`. Use `git add -f` if the PR convention wants
-  generated landing data committed.
-
-**Verification run**
-- ✅ `npm test` in `packages/shared` — 8 suites / 114 tests passed.
-- ✅ `npm run build` in `packages/shared` — passed.
-- ✅ `npm run test:unit -- authMiddleware.test.ts` in `services/auth-service` — passed.
-- ✅ `npm run test:regression -- auth.routes.test.ts` in `services/auth-service` — passed.
-- ✅ `npx jest --runTestsByPath tests/tdd/sprint-93-login-error-render.test.tsx` in `apps/frontend`
-  — 1 suite / 9 tests passed.
-- ✅ `npm run feedback:check` — passed (`No staged changes detected`).
-- ✅ `npm audit --package-lock-only --audit-level=high` — 0 vulnerabilities.
-- ✅ Claude post-gate verification: shared 114/114, frontend error test 12/12, and `tsc --noEmit`
-  clean on community-service, request-service, auth-service, and frontend.
-- ⚠️ Root `npx tsc --noEmit` exits 1 with TypeScript help because the repo root has no `tsconfig.json`;
-  no typecheck actually runs from that command.
-- ⚠️ Root `npm test` timed out after 5 minutes under Turbo without producing failure output.
-- ⚠️ Root `npm run test:tdd` exits immediately: Turbo reports missing `test:tdd` task in at least one
-  workspace.
-- ⚠️ Process-reviewer's literal `npm test -- --passWithNoTests` command is incompatible with current
-  Turbo CLI argument parsing (`unexpected argument '--passWithNoTests'`); use the per-package/CI gates
-  above as the effective test evidence.
-- ⚠️ Targeted root integration files start but require localhost services/database:
-  `npx jest --config jest.integration.config.js --runTestsByPath integration/auth-flow.integration.test.ts integration/community-flow.integration.test.ts`
-  fails with `AggregateError` for service/database connectivity.
+2. Check out branch: `git checkout -b feature/sprint-95-karmyq-org-routes`.
+3. Open plan: `docs/superpowers/plans/2026-06-11-sprint-95-karmyq-org-routes.md`.
+4. Run: `/execute-plan` (uses superpowers:subagent-driven-development).
+5. Preserve the existing unstaged logo fix in `apps/frontend/src/styles/karmyq-shell.css`.
 
 ---
 
-## Multi-sprint arc
+## Sprint 95 Scope
+
+### Route mapping
+
+| Source file | Route |
+|---|---|
+| `C:\Users\ravic\Downloads\Karmyq\karmyq-v5-home.html` | `/` |
+| `C:\Users\ravic\Downloads\Karmyq\karmyq-v5-principles.html` | `/principles` |
+| `C:\Users\ravic\Downloads\Karmyq\karmyq-v5-how-it-works.html` | `/how-it-works` |
+| `C:\Users\ravic\Downloads\Karmyq\karmyq-v5-research.html` | `/research` |
+| `C:\Users\ravic\Downloads\Karmyq\karmyq-v5-join.html` | `/join` |
+
+### Required nav
+
+Every public page needs:
+
+`Story` · `Principles` · `How it works` · `Research` · `Join the circle` · `Docs`
+
+`Join the circle` is the nav button. `/docs` remains unchanged.
+
+### Carry-forward logo fix
+
+There is already an uncommitted frontend logo fix in the working tree:
+
+- `apps/frontend/src/styles/karmyq-shell.css`
+- `.kq-wordmark-seed` uses `/brand/karmyq-mark.svg`
+- full 3-level mark, 24px
+
+Fold it into the Sprint 95 PR. Do not revert it.
+
+---
+
+## Critical Implementation Notes
+
+1. The five supplied HTML files are the content and organization source of truth, but the live landing design system remains the visual source of truth. Do not paste their standalone CSS wholesale.
+2. `/docs` must remain unchanged and reachable from every page.
+3. `apps/landing` is a static export (`output: 'export'`), so Sprint 95 cannot use Next API routes for join submission.
+4. Sprint 96 owns backend-backed founding-circle intake. Sprint 95 keeps mailto/contact fallback and should not create database/API surface.
+5. Use each source file's meta description exactly for its corresponding route.
+6. Never imply: acts broadcast to the community; karma carrying to daughter communities after fission; automatic splitting at the Dunbar threshold; a founder group; moderation features; governance templates; user-level questionnaires; Bayesian updating; federation; or a community-of-communities layer.
+7. Copy voice test: any sentence touched should feel like it could appear in a long-form magazine essay. Avoid body-copy spec language such as "executes atomically," "in parallel," "algorithm," and similar implementation phrasing.
+8. "The Problem with Stars" is the single merged reputation essay. "In Defense of Gossip" may appear as an internal section heading inside that essay only if it reads naturally, but not as a separate essay/card.
+9. `.star-line` text should be styled as isolated emphasis lines, not visually treated as body paragraphs.
+10. Mobile nav validation is mandatory after deployment because five pages make the hamburger menu a real primary navigation surface.
+11. Preserve the existing unstaged logo fix in `apps/frontend/src/styles/karmyq-shell.css`; do not revert it while editing landing files.
+12. `apps/landing` currently has a pure TypeScript Jest harness only (`**/tests/**/*.test.ts`, no `.tsx`, no jsdom). Do not create `.test.tsx` component-rendering tests unless the harness is explicitly upgraded. Prefer pure `.test.ts` tests against extracted route/nav/content modules.
+
+---
+
+## Cross-agent Review Fixes Applied
+
+Claude reviewed Codex's initial Sprint 95 plan and found one blocker: the proposed
+`apps/landing/tests/sprint-95-routes.test.tsx` would not run because the landing Jest harness only
+matches and transforms `.test.ts` files, and the package uses `jest --passWithNoTests`.
+
+Codex revised the plan to use option (b): pure `.test.ts` regression tests against extracted
+route/nav/content modules (`landingRoutes.ts`, `landingContent.ts`) instead of adding a React/jsdom
+component harness. The plan also now includes:
+
+- a guard to list/run the exact route test file so `--passWithNoTests` cannot mask a no-op;
+- a root `11.4.0` version-bump task;
+- explicit ADR-075 generated-docs/nav.json verification and `git add -f` reminder;
+- explicit homepage section split instructions.
+
+---
+
+## Sprint 96 Preview — Founding Circle Backend Intake
+
+The user considered replacing the `/join` mailto with a real backend write. Decision:
+**plan this into Sprint 96**, not Sprint 95.
+
+Likely Sprint 96 scope:
+
+- public endpoint such as `POST /founding-circle/submissions`;
+- database table and migration for submissions;
+- fields: email, lens, contribution, concern, source page, status, created_at, reviewed_at;
+- rate limit, honeypot/spam control, input validation, canonical error responses;
+- `/join` client submit flow with success/error states;
+- visible `contact@karmyq.org` fallback preserved;
+- optional email notification/export/admin review only if explicitly scoped.
+
+---
+
+## Multi-sprint Arc
 
 - **S92 (done):** Matching & Dibs Repair — dibs correctness floor, 8-bug sweep (v11.1.0).
 - **S93 (done):** Provider↔Community link-up (audit-first) + carry-forward fixes (v11.2.0, PR #80
   merged + deployed).
-- **S94 (this, CONFIRMED 2026-06-11):** Error Contract Cleanup — see plan below.
-- **S95 (next):** Service Consolidation Phase 2 — geocoding → client-side, 10→9 (ADR-071).
-- **Deferred to post-rollout:** mobile parity (incl. mobile error-read tolerance — see review note 4).
+- **S94 (done):** Error Contract Cleanup (v11.3.0, PR #82 merged + deployed).
+- **S95 (code-complete, v11.4.0):** `karmyq.org` multi-route relaunch + queued logo fix — branch
+  `feature/sprint-95-karmyq-org-routes`, awaiting PR/merge/deploy.
+- **S96 (next):** Backend-backed founding-circle intake for `/join`.
+- **Deferred:** Service Consolidation Phase 2 — geocoding → client-side, 10→9 (ADR-071).
+- **Deferred to post-rollout:** mobile parity, including mobile error-read tolerance.
 
 ---
 
-## S94 plan (Codex, v2 — RE-REVIEW PASSED, approved for execution)
+## Validation Focus
 
-**Canonical shape:** `{ success:false, message:string, error:'ERROR_CODE', details?, meta? }`.
-
-**Key changes**
-- Most direct route literals already emit top-level `message` + string `error`; the OUTLIER is
-  `packages/shared/utils/response.ts` (`sendError`/wrappers/`sendInternalError` emit OBJECT
-  `error:{code,message}`) plus shared middleware. Fix the outlier — **not** a service-wide route sweep.
-- `sendError`, wrapper helpers, `sendInternalError` → string `error` code + top-level `message`.
-- Move dev-only stack/details out of `error` into `details` (or drop).
-- Normalize shared `validate` / `tenant` / `rateLimit` middleware to the canonical shape.
-- Keep web client dual-read tolerance for legacy object envelopes; strip comments that frame the
-  object shape as the ongoing contract.
-- Audit inter-service consumers + shared clients for `.error.code`/`.error.message`; patch any live
-  server-side reader.
-
-**Docs**
-- ADR-074: canonical error contract + migration boundary. **Must be honest** — after S94, shared
-  helpers + middleware are canonical; direct route literals are NOT fully swept, and routes missing
-  `error` are catalogued drift, not claimed fixed.
-- Mark `docs/IDEAS.md` [2026-06-10] shared `sendError` mismatch as addressed/superseded.
-- Update CLAUDE.md wording only if precision needs it; relevant CONTEXT.md / landing docs.
-
-**Test plan**
-- Shared response tests for all helpers (`sendError`, `sendValidationError`, `sendUnauthorized`,
-  `sendForbidden`, `sendConflict`, `sendNotFound`, `sendInternalError`).
-- Middleware failure tests: validation, tenant, rate-limit.
-- **Blocking tests that assert the OLD object shape — must update (they go red on the flip):**
-  - `services/auth-service/tests/regression/auth.routes.test.ts`
-  - `tests/unit/authMiddleware.test.ts`
-  - `tests/integration/auth-flow.integration.test.ts`
-  - `tests/integration/community-flow.integration.test.ts`
-- Keep S93 frontend tests proving legacy object errors still render as strings.
-- Gates: `npx tsc --noEmit`, `npm test`, `npm run test:tdd`, `npm run feedback:check`,
-  `npm audit --package-lock-only --audit-level=high`, then `/simplify`, `/code-review`, `/security-review`.
-
-**Assumptions:** success envelopes unchanged; web is the S94 demo priority; socket/WS error payloads
-out of scope unless they reuse HTTP helpers; no all-services direct-route sweep.
+- Landing tests for route rendering, nav links, forbidden copy, and mailto encoding.
+- Static export build creates:
+  - `apps/landing/out/index.html`
+  - `apps/landing/out/principles/index.html`
+  - `apps/landing/out/how-it-works/index.html`
+  - `apps/landing/out/research/index.html`
+  - `apps/landing/out/join/index.html`
+  - `apps/landing/out/docs/index.html`
+- Human post-deploy validation must walk the desktop and mobile nav loops.
+- Live copy must not contain `LinkedIn`, `Roy`, or a standalone `In Defense of Gossip` essay.
 
 ---
 
-## Claude cross-agent review of the S94 plan (2026-06-11) — all findings folded into v2
+## Persistent Context
 
-Codex authored the plan; Claude reviewed (cross-agent protocol). v2 resolves all findings:
+### Multi-agent PR process — live on master
 
-1. **Scope reframed (was P1):** canonical shape is already the de-facto route standard (~689
-   `success:false, message:` literals across 74 files); the OBJECT-shape `sendError` helper is the
-   outlier. Emit-side migration = shared helper + 3 middleware, not a sweep.
-2. **Mobile (resolved):** parity deferred to post-rollout. **Accepted risk:** mobile error-read
-   paths are NOT made tolerant in S94 — a mobile client hitting the flipped contract may render
-   degraded error text until parity lands. Web-first demo → acceptable; ADR-074 states the boundary.
-3. **Blocking tests enumerated (was P1):** the four files above assert the object shape and are
-   must-pass tiers; named in the test plan so they don't surprise the push.
-4. **Inter-service audit (was P2):** near-empty — the only other `.error.code/.message` hit is
-   `packages/shared/utils/logger.ts`, which reads a JS `Error` (`.name/.message/.stack`), NOT the
-   HTTP envelope → false positive, no patch. Audit is cheap confirmation.
-5. **ADR-074 honesty (was P2):** many route literals omit `error`; post-S94 the string `error` field
-   is best-effort, not uniformly enforced. ADR must say so.
+- `.github/pull_request_template.md` = the cross-agent PR contract.
+- master branch protection requires CI checks, 1 approving review, and Admin merge authority.
+- Agents do not self-merge or push directly to `master`.
+- Every task = one branch = one PR.
+- When using `gh pr create`, manually copy `.github/pull_request_template.md` into the PR body.
 
----
+### Architecture Gotchas
 
-## Persistent Context (carry forward unchanged)
-
-### Multi-agent PR process — ✅ LIVE on master
-- `.github/pull_request_template.md` = the cross-agent PR contract (Summary / Validation / Docs /
-  Quality gates / Security dismissals / Follow-ups / Lane).
-- master branch protection: required checks = `pr-contract`, `Lint & Type Check`, `Test Frontend`,
-  `Test Backend Services (Unit + Regression)`, `Code Scanning Gate (ADR-060)`, `Security Audit`;
-  `strict: true`; 1 approving review; `enforce_admins: false`.
-- **Merge authority:** Admin owns approval + merge; agents merge only on Admin "pull it in"
-  (then `gh pr merge --admin --squash --delete-branch`). Never self-merge / never push master directly.
-- Deliberate empty marker commit `90b9067` on master — do NOT "clean it up".
-
-### ⚠️ Open dependabot PRs (#34–50) still need unblocking
-Comment `@dependabot rebase` to pick up `pr-contract.yml`, then review per dependabot merge discipline
-(inspect grouped PRs for MAJOR bumps; don't rapid-merge). Major bumps: tailwindcss 3→4 #41,
-typescript-eslint 6→8 #40, expo/vector-icons 14→15 #39, gesture-handler 2→3 #37, eslint-config-expo
-8→56 #36, eslint-config-next 15→16 #35. (Note: a newer production-deps group PR's CI/CD + Tests were
-failing as of 2026-06-11 — inspect before merging.)
-
-### Architecture Gotchas (Persistent)
-- **Landing page docs**: `apps/landing/src/data/docs/` is gitignored — `git add -f`. Generated by
-  `scripts/generate-docs.ts` (wipes the dir each run); edit SOURCES, never the JSON. Grep-verify
-  nav.json after editing (it silently reverts).
-- **ADR numbering**: ADR-073 created in S93; **next free = 074.**
-- **JWT field** is `communities` not `communityMemberships` — always `user.communities ?? []`.
+- **Landing page docs**: `apps/landing/src/data/docs/` is gitignored — `git add -f` when generated docs must be committed. Generated by `scripts/generate-docs.ts`; edit sources, never generated JSON.
+- **ADR numbering**: ADR-074 shipped in S94; **next free ADR = 075**.
+- **JWT field** is `communities`, not `communityMemberships`.
 - **Schema is `communities.communities`** (plural schema name).
-- **API response unwrap**: `createApiClient` interceptor already unwraps the envelope — use
-  `res.data`, not `res.data.data`.
+- **API response unwrap**: `createApiClient` interceptor already unwraps the envelope — use `res.data`, not `res.data.data`.
 - **trust_edges_live is a VIEW**: never INSERT/UPDATE it.
 - **`git add` on CLAUDE.md**: tracked as lowercase `claude.md`.
 - **Solo dev — no worktrees**: work directly on feature branches.
-- **Root package.json version**: **11.2.0** (Sprint 93) → bump to 11.3.0 in Sprint 94.
-- **CI security gates**: dependency audit (ADR-059) + CodeQL (ADR-060) run on push; `js/request-forgery`
-  on `apps/frontend/src/lib/api.ts` baseURL is a known recurring FP — dismiss.
-- **request-service serves the feed** now (`/requests/feed`); calls social-graph via `SOCIAL_GRAPH_API_URL`.
+- **Root package.json version**: `11.3.0`; Sprint 95 target is `11.4.0`.
+- **CI security gates**: dependency audit (ADR-059) + CodeQL (ADR-060) run on push.
+- **request-forgery FP on `apps/frontend/src/lib/api.ts`** is known recurring false positive.
+- **request-service serves the feed** now (`/requests/feed`); there is no feed-service.
 
-### ⚠️ Deploy drift watch
-`karmyq.org` live content has drifted from `master` before (around Sprint 83). Confirm the latest
-deploy succeeded and live content matches `master` before judging by live content.
+### Workflow Gotchas
+
+- Every sprint runs testing, `/simplify`, `/code-review`, and `/security-review`.
+- Every sprint updates docs; do not treat docs as optional.
+- UI sprints should start with structured page organization and layout reasoning before implementation.
+- No docs-only push to `master`; every master push triggers full deploy.
+- Cross-agent review protocol: the agent that did not author a plan/PR reviews it when two models are available.
+
+### Deploy Drift Watch
+
+`karmyq.org` live content has drifted from `master` before. Confirm the latest deploy succeeded and live content matches `master` before judging by live content.
