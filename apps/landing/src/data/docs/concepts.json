@@ -588,8 +588,8 @@
       "slug": "adr-076-founding-circle-intake",
       "number": "076",
       "title": "ADR-076: Founding-Circle Backend Intake",
-      "status": "implemented",
-      "description": "**Status**: Implemented",
+      "status": "accepted",
+      "description": "**Status**: Accepted",
       "filename": "ADR-076-founding-circle-intake.md"
     }
   ]

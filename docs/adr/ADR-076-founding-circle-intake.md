@@ -1,6 +1,6 @@
 # ADR-076: Founding-Circle Backend Intake
 
-**Status**: Implemented
+**Status**: Accepted
 
 ## Context
 
@@ -87,9 +87,12 @@ review-state column for future admin tooling; only `new` is written this sprint.
 - **Public unauthenticated write.** Mitigated by strict input validation, parameterized SQL, the
   honeypot, and the app-wide rate limiter; there is no dedup, so a determined actor could submit
   repeatedly within the rate limit.
-- **Cross-origin depends on deploy config.** If `ALLOWED_ORIGINS` or `NEXT_PUBLIC_API_URL` is
-  missing at deploy, the form silently fails in the browser — both are required and documented in the
-  deploy step.
+- **Cross-origin depends on deploy config.** `ALLOWED_ORIGINS` **must** include the landing origins
+  (`https://karmyq.org`, `www`) at deploy, or the browser blocks the cross-origin POST at the CORS
+  preflight. An absolute `NEXT_PUBLIC_API_URL` (e.g. `https://karmyq.com/api`) is optional but
+  preferred: the client treats a missing or relative value (the demo shares `/api` with the
+  same-origin frontend) as unset and hard-falls-back to `https://karmyq.com/api`, so a misconfigured
+  base does not silently fail — but CORS is the one hard requirement.
 
 ## Future
 

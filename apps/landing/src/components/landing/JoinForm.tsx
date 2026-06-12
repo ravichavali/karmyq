@@ -62,6 +62,13 @@ export default function JoinForm() {
         >
           Send another note
         </button>
+        <p className="mt-4 text-sm text-karmyq-brown-500">
+          Prefer email? Reach us directly at{' '}
+          <a href="mailto:contact@karmyq.org" className="font-medium text-karmyq-brown-900 underline">
+            contact@karmyq.org
+          </a>
+          .
+        </p>
       </div>
     );
   }
