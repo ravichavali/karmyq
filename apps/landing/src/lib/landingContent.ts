@@ -78,6 +78,8 @@ export interface HomeContent {
   thinkingCtas: LinkRef[];
   whyLabel: string;
   founderNote: FounderNote;
+  /** The quiet thesis the story has earned — a star line closing the founder note. */
+  closingLine: string;
   standTogether: string[];
 }
 
@@ -235,6 +237,7 @@ export const homeContent: HomeContent = {
     ],
     attribution: '— Ravi Chavali, founder',
   },
+  closingLine: 'Making good easy is the point.',
   standTogether: [
     `The platforms isolated us. Now they're degrading what they built.`,
     'We need each other before we need them.',
@@ -747,6 +750,7 @@ export function allRouteText(): string {
   parts.push(homeContent.founderNote.eyebrow, homeContent.founderNote.location);
   parts.push(...homeContent.founderNote.paragraphs);
   parts.push(homeContent.founderNote.attribution);
+  parts.push(homeContent.closingLine);
   parts.push(...homeContent.standTogether);
 
   // Principles

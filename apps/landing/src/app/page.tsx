@@ -69,6 +69,11 @@ export default function Home() {
           </span>
         </div>
 
+        {/* The thesis the story has earned — isolated emphasis, not a paragraph */}
+        <p className="font-serif text-xl md:text-2xl italic text-karmyq-green-700 leading-snug text-center my-12">
+          {homeContent.closingLine}
+        </p>
+
         {/* Stand together */}
         <div className="my-14 py-10 px-6 border-y-2 border-karmyq-green-500 text-center space-y-3">
           {standTogether.map((line, i) => (

@@ -114,6 +114,10 @@ describe('home is story-only', () => {
     expect(homeContent.founderNote.attribution).toContain('Ravi Chavali');
   });
 
+  test('home closes the founder note with the thesis line', () => {
+    expect(homeContent.closingLine).toBe('Making good easy is the point.');
+  });
+
   test('home does not inline the other routes’ page blocks', () => {
     const homeText =
       blocksToText(homeContent.hero) +
