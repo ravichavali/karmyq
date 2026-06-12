@@ -105,14 +105,14 @@ export const homeContent: HomeContent = {
   thinking: [
     h2('Trust when you can afford to.'),
     p(
-      `Think of your most reliable friend. The one who showed up at 2am. You don't save them for emergencies. You call them first, because they've earned it.`
+      `Think of your most reliable friend. The one who shows up at 2am. You didn't get there by saving them for emergencies — you got there by calling on each other for things big and small, until the trust was deep enough to hold the 2am call. Trace any friendship like that backwards and you find the same thing: small mutual dependence, repeated, until it became something you could stake everything on.`
     ),
     p(
-      `That logic applies at the community scale, and we've abandoned it. The contracts, ratings, background checks, platform guarantees we layer over modern life are inferior substitutes. Trust between people who actually know each other came before all of them, and still outperforms them when conditions allow.`
+      `That logic applies at the community scale, and we've abandoned it. The contracts, ratings, background checks, and platform guarantees we layer over modern life aren't worthless — but they're substitutes, and leaning on them lets the underlying muscle go slack.`
     ),
-    star(`Crisis doesn't create trust. It reveals the trust that was already there.`),
+    star(`Crisis doesn't create trust. It reveals the trust that was already there — or exposes its absence.`),
     p(
-      `Karmyq is built on the logic we apply to our best friends. The point isn't to prepare for the crisis. It's to stop deferring to inferior systems.`
+      `That's the real risk. Not that people are bad — the evidence runs the other way. It's that trust takes time to build, and we keep waiting until we need it. By then it's too late to start. Karmyq isn't a substitute for institutions, and it isn't a bet that people are angels. It's the practice ground for the relationships you can't summon on demand — built now, while there's no emergency, so they're there when there is.`
     ),
 
     h2('We didn’t choose distrust. We slipped into it.'),
@@ -705,8 +705,8 @@ export const joinContent: JoinContent = {
       audience: 'For specialists',
       body: `Bring lived expertise from care, local services, education, facilitation, therapy, public health, design, or civic systems. Help define what trust needs before the platform scales.`,
       cta: {
-        label: 'Join the circle',
-        href: 'mailto:contact@karmyq.org?subject=Founding%20circle%20%E2%80%94%20specialist',
+        label: 'Write your note',
+        href: '#join-form',
       },
     },
     {
@@ -718,8 +718,8 @@ export const joinContent: JoinContent = {
       audience: 'For organizers',
       body: `Pressure-test whether this can serve real groups: mutual aid circles, neighborhood associations, cohousing communities, school networks, and local experiments in cooperation.`,
       cta: {
-        label: 'Start the conversation',
-        href: 'mailto:contact@karmyq.org?subject=Founding%20circle%20%E2%80%94%20organizer',
+        label: 'Write your note',
+        href: '#join-form',
       },
     },
   ],

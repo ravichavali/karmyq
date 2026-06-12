@@ -436,6 +436,7 @@ const ADR_GROUPS: Array<{ label: string; slugs: string[] }> = [
       'adr-013-monorepo-turborepo',
       'adr-065-karmyq-org-and-com-domain-roles',
       'adr-075-karmyq-org-multi-route-relaunch',
+      'adr-076-founding-circle-intake',
       'adr-003-multi-tenant-rls',
       'adr-006-standardized-api-response',
       'adr-074-canonical-error-response-contract',

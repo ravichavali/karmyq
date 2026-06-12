@@ -178,6 +178,24 @@ CREATE TABLE auth.user_feed_preferences (
 
 CREATE INDEX idx_user_feed_prefs_user ON auth.user_feed_preferences(user_id);
 
+-- Sprint 96 (ADR-076): Founding-circle backend intake.
+-- Public, unauthenticated landing-page submissions captured into a review queue we own.
+-- Pre-account leads: no FK to auth.users by design.
+CREATE TABLE IF NOT EXISTS auth.founding_circle_submissions (
+    id            UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    email         VARCHAR(320) NOT NULL,          -- RFC 5321 max length
+    lens          VARCHAR(200),
+    contribution  TEXT,                            -- app-level cap 4000 chars
+    concern       TEXT,                            -- app-level cap 4000 chars
+    source_page   VARCHAR(64)  NOT NULL DEFAULT 'join',
+    status        VARCHAR(24)  NOT NULL DEFAULT 'new',  -- new | reviewed | contacted | archived
+    created_at    TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    reviewed_at   TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_founding_circle_status_created
+    ON auth.founding_circle_submissions (status, created_at DESC);
+
 -- ============= SHARED ENUMS =============
 -- ADR-022: Visibility scope enum for multi-tier feed (used by communities + requests)
 CREATE TYPE visibility_scope_enum AS ENUM ('community', 'trust_network', 'platform');

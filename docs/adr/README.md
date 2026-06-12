@@ -106,6 +106,7 @@ When code implementing an ADR is deployed, update the status from `Accepted` →
 - [ADR-072: Dibs Scope — the Neighbor/Provider First-Ask Seam](ADR-072-dibs-scope.md) — **Implemented**
 - [ADR-073: Provider↔Community Link-Up](ADR-073-provider-community-linkup.md) — **Accepted**
 - [ADR-075: karmyq.org Multi-Route Relaunch (five static public routes)](ADR-075-karmyq-org-multi-route-relaunch.md) — **Accepted**
+- [ADR-076: Founding-Circle Backend Intake (public persist-only landing submissions)](ADR-076-founding-circle-intake.md) — **Implemented**
 
 ## Creating a New ADR
 

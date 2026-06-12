@@ -1,8 +1,22 @@
-# Sprint 96 — Founding-Circle Backend Intake — 📋 READY TO EXECUTE (v11.4.0 → v11.5.0)
+# Sprint 96 — Founding-Circle Backend Intake — ✅ IMPLEMENTED, ready for PR/deploy (v11.4.0 → v11.5.0)
 
-> **▶ STATUS (2026-06-12):** Sprint 96 is **planned and ready to execute**. Spec + plan written;
-> this handoff is the entry point. Sprint 95 (karmyq.org multi-route relaunch, v11.4.0) is
-> **merged + deployed** at `bceb034`.
+> **▶ STATUS (2026-06-12):** Sprint 96 is **IMPLEMENTED** on branch
+> `feature/sprint-96-founding-circle-intake`. All 11 build tasks done; SDLC gates passed
+> (`/simplify` applied; `/code-review` → 5 fixes applied; `/security-review` → no findings;
+> `npm audit` → 0 vulns). Full monorepo `npm test` green (25/25 turbo tasks); auth-service unit
+> (25) + tdd (6) + regression (9) and landing (51) all pass; cross-workspace sprint-76 gate tests
+> re-pointed and green; landing static export builds. Version bumped to 11.5.0 in `package.json` +
+> `package-lock.json`. **Next:** open one PR, cross-agent review, then human Admin merge → CI
+> auto-deploys v11.5.0. **At deploy, the two `.env.demo` server changes + migration are still
+> required (see Task 12 below).**
+>
+> **Code-review fixes folded in (round 1):** (1) re-pointed the two cross-workspace Sprint-76 gate
+> tests that referenced the now-deleted `buildSubscribeMailto.ts` (the mailto DOM-XSS surface is
+> *eliminated*, not just encoded); (2) `resolveApiBase()` now rejects a relative
+> `NEXT_PUBLIC_API_URL` (shared `/api` with frontend) and falls back to `https://karmyq.com/api`;
+> (3) added `CREATE EXTENSION IF NOT EXISTS "uuid-ossp"` guard to the migration; (4) added
+> `karmyq.org`/`www` to `ALLOWED_ORIGINS` in `.env.demo.example`; (5) regenerated landing service
+> doc so `auth-service.json` lists the new endpoint.
 >
 > **Sprint 96 goal:** Replace the `/join` mailto with a real persisted founding-circle submission —
 > a public `POST /founding-circle/submissions` in **auth-service** writing to a new

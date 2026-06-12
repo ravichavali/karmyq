@@ -28,7 +28,8 @@
           { "method": "POST", "path": "/auth/push-tokens", "description": "Register an Expo push token for the authenticated user" },
           { "method": "DELETE", "path": "/auth/push-tokens", "description": "Remove an Expo push token for the authenticated user" },
           { "method": "POST", "path": "/auth/refresh", "description": "Issue new access token using refresh token (ADR-052). Rotates refresh token on each call." },
-          { "method": "POST", "path": "/auth/logout", "description": "Logout user, revoke access token session and optional refresh token." }
+          { "method": "POST", "path": "/auth/logout", "description": "Logout user, revoke access token session and optional refresh token." },
+          { "method": "POST", "path": "/founding-circle/submissions", "description": "Public (no auth) founding-circle intake from the karmyq.org/join form. Honeypot-screened, validated, persist-only (ADR-076)." }
         ],
         "consumes": []
       },
