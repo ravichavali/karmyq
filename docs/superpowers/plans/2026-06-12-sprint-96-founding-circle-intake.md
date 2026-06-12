@@ -26,6 +26,7 @@ cross-origin (CORS + nginx) instead of opening a mailto, keeping the visible con
 | `services/auth-service/tests/unit/foundingCircle.test.ts` | Unit tests for `validateSubmission`: validation, honeypot drop, length caps. |
 | `services/auth-service/tests/tdd/foundingCircle.route.test.ts` | Route-level supertest tests (isolated app, **mocked** DB insert) — see Task 7. |
 | `apps/landing/src/lib/submitFoundingCircle.ts` | Browser `fetch` client to the intake endpoint. |
+| `apps/landing/tests/submitFoundingCircle.test.ts` | Pure-TS Jest test for the client (mocked `fetch`) — see Task 6. |
 | `docs/adr/ADR-076-founding-circle-intake.md` | **Source** ADR (the landing concept JSON is generated from this). |
 
 ### Existing files to modify
@@ -36,8 +37,8 @@ cross-origin (CORS + nginx) instead of opening a mailto, keeping the visible con
 | `services/auth-service/CONTEXT.md` | Document new endpoint + new table. |
 | `services/registry.json` | Add endpoint to auth-service `apis.provides`. |
 | `infrastructure/nginx/nginx.conf` | Add `location ~ ^/api/founding-circle(/.*)?$` → auth_service. |
-| `apps/landing/src/components/landing/JoinForm.tsx` | POST instead of mailto; honeypot; success/error states; keep contact fallback. |
-| `apps/landing/src/lib/landingContent.ts` | **Copy swap** in `thinking` section (Task 8). |
+| `apps/landing/src/components/landing/JoinForm.tsx` | POST instead of mailto; honeypot; `id="join-form"`; success/error states; keep contact fallback. |
+| `apps/landing/src/lib/landingContent.ts` | **Copy swap** in `thinking` (Task 8) **+ retire the two `joinContent.lanes[*]` mailto CTAs → `#join-form`** (Task 6). |
 | `scripts/generate-docs.ts` | Add `'adr-076-founding-circle-intake'` to `ADR_GROUPS` so the ADR shows in the curated Technical nav. |
 | `.env.demo` (deploy) | Add `https://karmyq.org`,`https://www.karmyq.org` to `ALLOWED_ORIGINS` **and** `NEXT_PUBLIC_API_URL=https://karmyq.com/api`. |
 | Root `package.json` + `package-lock.json` | Version bump `11.4.0` → `11.5.0` in **both** (lock root `version` field at line ~3). |
@@ -210,11 +211,13 @@ location ~ ^/api/founding-circle(/.*)?$ {
 
 ---
 
-## Task 6: Landing client + JoinForm wiring
+## Task 6: Landing client + JoinForm wiring + retire stray `/join` mailto CTAs
 
 **Files:**
 - Create: `apps/landing/src/lib/submitFoundingCircle.ts`
+- Create: `apps/landing/tests/submitFoundingCircle.test.ts`
 - Modify: `apps/landing/src/components/landing/JoinForm.tsx`
+- Modify: `apps/landing/src/lib/landingContent.ts` (the two `joinContent.lanes[*].cta` mailto links)
 
 - [ ] `submitFoundingCircle({ email, lens, contribution, concern, website })`:
   - resolve base = `process.env.NEXT_PUBLIC_API_URL` with a **production-safe** fallback of
@@ -224,14 +227,38 @@ location ~ ^/api/founding-circle(/.*)?$ {
   - `POST ${base}/founding-circle/submissions` with JSON body;
   - return `{ ok: true }` on 2xx, else `{ ok: false, message }` (network error or non-2xx).
 
+- [ ] **Write `apps/landing/tests/submitFoundingCircle.test.ts` (pure TS, mocked `global.fetch`)** —
+  the landing jest harness matches `**/tests/**/*.test.ts` via ts-jest. Cover: base-URL selection
+  from `NEXT_PUBLIC_API_URL`; **production fallback** to `https://karmyq.com/api` when unset; POSTs
+  the correct JSON payload to `…/founding-circle/submissions`; 2xx → `{ ok:true }`; non-2xx →
+  `{ ok:false, message }`; network throw → `{ ok:false, message }`. Run it explicitly so
+  `--passWithNoTests` can't mask a no-op.
+
+```bash
+cd apps/landing && npx jest tests/submitFoundingCircle.test.ts
+```
+
 - [ ] Rework `JoinForm.tsx`:
   - add `status: 'idle' | 'submitting' | 'success' | 'error'` + `errorMsg` state;
   - add a visually-hidden honeypot input named `website` (`tabIndex={-1}`, `aria-hidden`,
     `autoComplete="off"`, off-screen styling — not `display:none` so some bots still fill it);
+  - give the form root `id="join-form"` (anchor target for the lane CTAs below);
   - `handleSubmit` → `submitFoundingCircle`; on success show a confirmation and clear fields; on
     error show inline error;
   - **keep** the visible `contact@karmyq.org` fallback paragraph;
   - disable submit button while `submitting`.
+
+- [ ] **Retire the stray `/join` mailto CTAs** (they render as visible `LaneCard` buttons *outside*
+  `JoinForm` and would compete with the real form). In `landingContent.ts`:
+  - `joinContent.lanes[0]` ("For specialists") `cta.href` `mailto:…specialist` → `#join-form`
+    (relabel e.g. "Write your note");
+  - `joinContent.lanes[2]` ("For organizers") `cta.href` `mailto:…organizer` → `#join-form`
+    (relabel e.g. "Write your note");
+  - leave `lanes[1]` ("For builders") GitHub link unchanged.
+  - The **only** remaining visible `mailto:contact@karmyq.org` on `/join` should be the
+    JoinForm fallback paragraph.
+  - Grep-verify: `grep -n "mailto:" apps/landing/src/lib/landingContent.ts` shows no
+    `mailto:` under `joinContent.lanes` afterward.
 
 - [ ] Build the landing app to confirm static export still succeeds.
 
@@ -293,14 +320,17 @@ cd apps/landing && npm run build   # confirm copy renders + export still builds
 
 ---
 
-## Task 9: Docs — ADR-076 (generated) + landing guide + CONTEXT + registry
+## Task 9: Docs — ADR-076 (generated) + CONTEXT + registry
 
 **Files:**
 - Create (source): `docs/adr/ADR-076-founding-circle-intake.md` + index entry in `docs/adr/README.md`
 - Modify (source): `scripts/generate-docs.ts` — add `'adr-076-founding-circle-intake'` to `ADR_GROUPS`
-- Modify (source): landing "Join the circle" guide if copy implies email-only path
 - Modify: `services/auth-service/CONTEXT.md`, `services/registry.json`
 - Generated (commit with `git add -f`): `apps/landing/src/data/docs/concepts/adr-076-*.json`, `apps/landing/src/data/docs/nav.json`
+
+> **No separate "Join the circle" user guide exists** in `docs/guides/`. The public `/join` copy
+> lives in `apps/landing/src/lib/landingContent.ts` (updated in Tasks 6 & 8); **ADR-076 is the docs
+> artifact** for this sprint. Do not invent a new guide file.
 
 > **Do NOT hand-author the ADR concept JSON or edit `nav.json` directly.** `generateConcepts()`
 > reads `docs/adr/ADR-*.md` and writes `concepts/<slug>.json`; the curated nav is rebuilt from
@@ -397,4 +427,6 @@ Use the `/deploy` skill.
 - [ ] **Post-deploy human validation (real browser):** submit the `/join` form on `karmyq.org` →
   confirm `201`, confirm a row in `auth.founding_circle_submissions`, confirm the success state
   renders, confirm a honeypot-filled request does not persist, confirm the new "2am" copy renders
-  on the story page, and confirm the `contact@karmyq.org` fallback is still visible.
+  on the story page, confirm the `contact@karmyq.org` fallback is still visible, and confirm the
+  lane CTAs ("For specialists" / "For organizers") now scroll to the form (no `mailto:` left on
+  `/join` except the single fallback line).

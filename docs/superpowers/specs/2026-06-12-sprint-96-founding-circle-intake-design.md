@@ -134,7 +134,12 @@ rate-limit layer).
 ## Frontend Changes (apps/landing — static export)
 
 - **New** `apps/landing/src/lib/submitFoundingCircle.ts` — minimal `fetch`-based client that POSTs
-  to `${NEXT_PUBLIC_API_URL}/founding-circle/submissions`, returns a typed `{ ok, error? }`.
+  to `${NEXT_PUBLIC_API_URL}/founding-circle/submissions`, returns a typed `{ ok, error? }`. Covered
+  by a pure-TS Jest test (`apps/landing/tests/submitFoundingCircle.test.ts`, mocked `fetch`).
+- **Modify** `apps/landing/src/lib/landingContent.ts` — retire the two `joinContent.lanes[*]` mailto
+  CTAs ("For specialists", "For organizers") that render as visible `LaneCard` buttons on `/join`.
+  Point them at the `#join-form` anchor instead, so the **only** remaining visible
+  `mailto:contact@karmyq.org` on `/join` is the JoinForm fallback paragraph.
 - **Modify** `apps/landing/src/components/landing/JoinForm.tsx`:
   - Primary "Write the note" button now `POST`s the four fields + honeypot instead of opening a mailto.
   - Add a visually-hidden honeypot input (`website`, `aria-hidden`, `tabIndex={-1}`,
