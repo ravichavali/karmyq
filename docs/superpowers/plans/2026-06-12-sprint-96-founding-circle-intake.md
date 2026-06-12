@@ -255,10 +255,13 @@ cd apps/landing && npx jest tests/submitFoundingCircle.test.ts
   - `joinContent.lanes[2]` ("For organizers") `cta.href` `mailto:…organizer` → `#join-form`
     (relabel e.g. "Write your note");
   - leave `lanes[1]` ("For builders") GitHub link unchanged.
-  - The **only** remaining visible `mailto:contact@karmyq.org` on `/join` should be the
-    JoinForm fallback paragraph.
-  - Grep-verify: `grep -n "mailto:" apps/landing/src/lib/landingContent.ts` shows no
-    `mailto:` under `joinContent.lanes` afterward.
+  - **Acceptance:** no `mailto:` remains in `joinContent.lanes` or the primary `/join` body **except
+    the JoinForm fallback paragraph**. The **global footer `Contact` link** (`Footer.tsx`, rendered
+    on every route via `PageShell`) is a separate shared `mailto:contact@karmyq.org` and is
+    **allowed** — do not touch it.
+  - Grep-verify (scoped to the join content file, which excludes the footer):
+    `grep -n "mailto:" apps/landing/src/lib/landingContent.ts` shows no `mailto:` under
+    `joinContent.lanes` afterward.
 
 - [ ] Build the landing app to confirm static export still succeeds.
 
@@ -428,5 +431,6 @@ Use the `/deploy` skill.
   confirm `201`, confirm a row in `auth.founding_circle_submissions`, confirm the success state
   renders, confirm a honeypot-filled request does not persist, confirm the new "2am" copy renders
   on the story page, confirm the `contact@karmyq.org` fallback is still visible, and confirm the
-  lane CTAs ("For specialists" / "For organizers") now scroll to the form (no `mailto:` left on
-  `/join` except the single fallback line).
+  lane CTAs ("For specialists" / "For organizers") now scroll to the form (no `mailto:` left in the
+  `/join` body/lanes except the single JoinForm fallback line — the global footer `Contact` link is
+  expected and allowed).

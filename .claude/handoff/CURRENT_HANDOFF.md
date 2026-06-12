@@ -70,8 +70,10 @@
 14. **Version bump = `package.json` AND `package-lock.json`** (root `version`, in place).
 15. **Retire the stray `/join` mailto CTAs.** `joinContent.lanes[*]` ("For specialists",
     "For organizers") render as visible `LaneCard` buttons *outside* JoinForm and still point to
-    `mailto:`. Repoint them at `#join-form` (Task 6) so the only visible `mailto:contact@karmyq.org`
-    left on `/join` is the JoinForm fallback. The landing client (`submitFoundingCircle`) needs a
+    `mailto:`. Repoint them at `#join-form` (Task 6). **Acceptance is scoped to the join
+    body/lanes** — no `mailto:` there except the JoinForm fallback; the **global footer `Contact`
+    link** (`Footer.tsx` via `PageShell`, on every route) is a separate shared mailto and is
+    **allowed**. The landing client (`submitFoundingCircle`) needs a
     pure-TS Jest test (`apps/landing/tests/*.test.ts`, mocked `fetch`). **No separate "Join the
     circle" user guide exists** — `/join` copy lives in `landingContent.ts`; ADR-076 is the docs
     artifact.

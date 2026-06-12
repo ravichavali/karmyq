@@ -138,8 +138,10 @@ rate-limit layer).
   by a pure-TS Jest test (`apps/landing/tests/submitFoundingCircle.test.ts`, mocked `fetch`).
 - **Modify** `apps/landing/src/lib/landingContent.ts` — retire the two `joinContent.lanes[*]` mailto
   CTAs ("For specialists", "For organizers") that render as visible `LaneCard` buttons on `/join`.
-  Point them at the `#join-form` anchor instead, so the **only** remaining visible
-  `mailto:contact@karmyq.org` on `/join` is the JoinForm fallback paragraph.
+  Point them at the `#join-form` anchor instead. **Acceptance:** no `mailto:` remains in
+  `joinContent.lanes` or the primary `/join` body except the JoinForm fallback paragraph. The global
+  footer `Contact` link (`Footer.tsx`, rendered on every route via `PageShell`) is a separate shared
+  `mailto:contact@karmyq.org` and is **allowed** — leave it.
 - **Modify** `apps/landing/src/components/landing/JoinForm.tsx`:
   - Primary "Write the note" button now `POST`s the four fields + honeypot instead of opening a mailto.
   - Add a visually-hidden honeypot input (`website`, `aria-hidden`, `tabIndex={-1}`,
@@ -179,10 +181,10 @@ fully compatible with static export (no Next API route needed).
 
 ## User Guide & Doc Updates (MANDATORY)
 
-- **Landing concept/guide** (`apps/landing/src/data/docs/`): update the "Join the circle" guide (or
-  add a short concept page) to describe that submissions are now captured directly and a person
-  will follow up — replacing any language implying email is the only path. Add nav.json entry if a
-  new page is created. (Generated docs are gitignored — `git add -f`.)
+- **No separate "Join the circle" user guide exists** in `docs/guides/` — do not invent one. The
+  public `/join` copy lives in `apps/landing/src/lib/landingContent.ts` (updated in this sprint) and
+  **ADR-076 is the docs artifact**. The form copy itself ("Send a short note…") already avoids
+  implying email is the only path once the backend submit lands.
 - **ADR-076** (architectural): document the decision to host the first public unauthenticated
   intake endpoint in auth-service, the cross-origin static-landing → API pattern, the honeypot
   approach, and the explicit "persist-only / no email transport yet" decision. **Write only the
