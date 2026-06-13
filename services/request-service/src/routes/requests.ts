@@ -1063,8 +1063,16 @@ async function fetchCommunityPulse(communityId: string): Promise<CommunityPulse 
   const activityResult = await query(
     `SELECT
        c.name AS community_name,
+       -- BUG-097-002: member-only semantics — count only exchanges whose responder is an active
+       -- member of THIS community, the same subset surfaced in recentHelpers below. This keeps the
+       -- "N helped this week" number from outrunning the named helpers (which would otherwise let
+       -- the pulse claim exchanges while naming zero qualifying members).
        (SELECT COUNT(*) FROM requests.matches m
           JOIN requests.request_communities rc ON m.request_id = rc.request_id
+          JOIN communities.members mem
+            ON mem.community_id = rc.community_id
+           AND mem.user_id = m.responder_id
+           AND mem.status = 'active'
           WHERE rc.community_id = $1 AND m.status = 'completed'
             AND m.completed_at >= NOW() - INTERVAL '7 days') AS exchanges_completed_week,
        (SELECT COUNT(*) FROM communities.members mem
@@ -1084,10 +1092,18 @@ async function fetchCommunityPulse(communityId: string): Promise<CommunityPulse 
   const row = activityResult.rows[0];
   if (!row) return null;
 
+  // BUG-097-002: scope recent helpers to active members of THIS community. Without the
+  // communities.members join a responder who helped on a request cross-posted to this community —
+  // but who belongs to a different community — would be named here, so the pulse could credit a
+  // neighbour who is not actually in the community being rendered.
   const helpersResult = await query(
     `SELECT u.name, COUNT(*)::int AS help_count
        FROM requests.matches m
        JOIN requests.request_communities rc ON m.request_id = rc.request_id
+       JOIN communities.members mem
+         ON mem.community_id = rc.community_id
+        AND mem.user_id = m.responder_id
+        AND mem.status = 'active'
        JOIN auth.users u ON m.responder_id = u.id
        WHERE rc.community_id = $1 AND m.status = 'completed'
          AND m.completed_at >= NOW() - INTERVAL '7 days'

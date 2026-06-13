@@ -161,11 +161,11 @@ export default function UnifiedFeed({
     fetchFeed(false)
   }
 
-  const canShowMoreOpen =
-    !showingMoreOpen &&
-    !noCommunities &&
-    activeType === 'all' &&
-    activeUrgency === 'all'
+  // The widen-feed affordance applies only to an unfiltered feed for a user who has communities.
+  // Before widening we offer "Show more"; after widening (minScore=0) we close it with a finite note.
+  const isUnfilteredFeed = !noCommunities && activeType === 'all' && activeUrgency === 'all'
+  const canShowMoreOpen = !showingMoreOpen && isUnfilteredFeed
+  const showWidenedTerminalNote = showingMoreOpen && isUnfilteredFeed
 
   const showMoreOpenButton = canShowMoreOpen ? (
     <button type="button" className="btn-ghost mt-4" onClick={() => setShowingMoreOpen(true)}>
@@ -272,6 +272,21 @@ export default function UnifiedFeed({
           {showMoreOpenButton && (
             <div className="pt-1 text-center">
               {showMoreOpenButton}
+            </div>
+          )}
+          {/* BUG-097-003: once the feed has been widened (minScore=0) there is no more to show,
+              so close it with a clear finite note — never before the user clicks Show more. */}
+          {showWidenedTerminalNote && (
+            <div className="kq-finite-state">
+              <EmptyState
+                icon="✅"
+                heading="That's everyone for now"
+                body={
+                  isCommunity
+                    ? "You're seeing every open ask in this community."
+                    : "You're seeing every open ask you can fill right now."
+                }
+              />
             </div>
           )}
         </div>

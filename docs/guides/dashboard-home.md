@@ -28,6 +28,8 @@ You will not see your own requests here — those appear in your Asks tab and, w
 
 Dashboard Home starts curated with `minScore=30`, so the default list stays finite and relevant. If you want the longer tail, **Show more open requests** re-fetches with explicit `minScore=0` and renders lower-scored open asks too. This is an on-demand expansion, not the default firehose.
 
+Once you've widened the feed, it has a clear bottom: a quiet **"That's everyone for now"** note tells you you're seeing every open ask you can fill, so the list never just trails off ambiguously. The note only appears after you choose to show more — the curated default ends with the **Show more** button instead.
+
 ## Filtering and Provider Mode
 
 Use the filter chips to narrow by type or urgency. If you run a service as a provider, the on-duty control lets you switch between your community feed, your provider matches, or both.

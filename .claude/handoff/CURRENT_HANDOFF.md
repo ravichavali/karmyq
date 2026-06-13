@@ -1,159 +1,213 @@
-# Sprint 96 — Founding-Circle Backend Intake — ✅ IMPLEMENTED, ready for PR/deploy (v11.4.0 → v11.5.0)
+# Sprint 97 - Release Readiness Data Quality + Functional Bug Bash - PR OPEN (#86), awaiting review + admin merge (v11.5.0 -> v11.6.0)
 
-> **▶ STATUS (2026-06-12):** Sprint 96 is **IMPLEMENTED** on branch
-> `feature/sprint-96-founding-circle-intake`. All 11 build tasks done; SDLC gates passed
-> (`/simplify` applied; `/code-review` → 5 fixes applied; `/security-review` → no findings;
-> `npm audit` → 0 vulns). Full monorepo `npm test` green (25/25 turbo tasks); auth-service unit
-> (25) + tdd (6) + regression (9) and landing (51) all pass; cross-workspace sprint-76 gate tests
-> re-pointed and green; landing static export builds. Version bumped to 11.5.0 in `package.json` +
-> `package-lock.json`. **Next:** open one PR, cross-agent review, then human Admin merge → CI
-> auto-deploys v11.5.0. **At deploy, the two `.env.demo` server changes + migration are still
-> required (see Task 12 below).**
+> **STATUS (2026-06-13, execution):** Implementation tasks 1–12 complete and pushed as
+> **PR #86** (`feature/sprint-97-release-readiness-data-quality` -> `master`), commit `c7cf279`.
+> The live demo audit ran (read-only) and is recorded in `docs/bugs/sprint-97-release-readiness.md`.
+> All three named bugs are fixed with tests; the membership-count drift repair migration is written;
+> docs + landing docs regenerated; version bumped to `11.6.0`; quality gates run; pre-push passed.
+> **Remaining:** cross-agent review of PR #86, admin merge (agents do not self-merge), CI/CD deploy,
+> then the Task 14 post-deploy human validation (login as maria.reyes, pulse on Test 1, feed terminal,
+> API smoke, re-run `scripts/audit-demo-data.sql` to confirm membership drift cleared).
+> **Note:** GitHub reports 2 Dependabot alerts on `master` (1 high, 1 low) — pre-existing, not from
+> this branch; recommend a follow-up against `master` per the security SLA.
 >
-> **Code-review fixes folded in (round 1):** (1) re-pointed the two cross-workspace Sprint-76 gate
-> tests that referenced the now-deleted `buildSubscribeMailto.ts` (the mailto DOM-XSS surface is
-> *eliminated*, not just encoded); (2) `resolveApiBase()` now rejects a relative
-> `NEXT_PUBLIC_API_URL` (shared `/api` with frontend) and falls back to `https://karmyq.com/api`;
-> (3) added `CREATE EXTENSION IF NOT EXISTS "uuid-ossp"` guard to the migration; (4) added
-> `karmyq.org`/`www` to `ALLOWED_ORIGINS` in `.env.demo.example`; (5) regenerated landing service
-> doc so `auth-service.json` lists the new endpoint.
->
-> **Sprint 96 goal:** Replace the `/join` mailto with a real persisted founding-circle submission —
-> a public `POST /founding-circle/submissions` in **auth-service** writing to a new
-> `auth.founding_circle_submissions` table, protected by a **honeypot + input validation**, reached
-> cross-origin from the static `karmyq.org` landing page (CORS + nginx), with success/error UI and
-> the visible `contact@karmyq.org` fallback preserved. **Persist-only — no email notify.**
->
-> **Decisions locked (this planning session):**
-> - **Host service:** auth-service (existing public front door; has CORS + global rate limiter).
-> - **Scope:** persist-only. There is **no email/SMTP infrastructure anywhere** in the platform, so
->   "notify the team" can't be done honestly without standing up email transport — explicitly
->   deferred to a later sprint. Review submissions via `psql` for now.
-> - **Anti-spam:** honeypot field (`website`) + app-level input validation. No dedicated rate-limit
->   layer (rely on the app-wide `globalRateLimiter`); no dedup.
-> - **Folded-in content change:** swap the "Trust when you can afford to." copy in
->   `apps/landing/src/lib/landingContent.ts` (the 2am-friend passage) — see Task 8. Rides this PR so
->   it is **not** a docs-only push to master.
+> **Audit outcome:** BUG-097-002 confirmed pervasive (186 non-member-helper pairs). Membership
+> drift on 10 fission-parent communities → idempotent repair migration
+> `infrastructure/postgres/migrations/20260613-demo-data-quality-repair.sql`. The "730 orphaned open
+> requests" the audit query flagged were a FALSE ALARM: split/merged communities keep full active
+> membership and the feed doesn't filter by community status, so those requests stay visible — no
+> fix needed. `helpedThisWeek` adopted member-only semantics. Primary tester `maria.reyes` confirmed.
 
-**Branch:** `feature/sprint-96-founding-circle-intake` (create from `master`).
+> **Prior status (planning):** Sprint 96 is merged on `master` as `9fb3308` / PR #84 and version
+> `11.5.0`. Sprint 97 is an audit-first release-readiness sprint focused on demo data quality and
+> first-run functional bugs before release week. The founding-circle admin review screen is
+> explicitly deferred because submissions can be queried directly from the DB for launch.
 
-**Spec:** `docs/superpowers/specs/2026-06-12-sprint-96-founding-circle-intake-design.md`
+**Branch:** `feature/sprint-97-release-readiness-data-quality` (create from `master`).
 
-**Plan:** `docs/superpowers/plans/2026-06-12-sprint-96-founding-circle-intake.md`
+**Spec:** `docs/superpowers/specs/2026-06-13-sprint-97-release-readiness-data-quality-design.md`
+
+**Plan:** `docs/superpowers/plans/2026-06-13-sprint-97-release-readiness-data-quality.md`
 
 ---
 
 ## Quick Start
 
 1. Read this handoff.
-2. Check out branch: `git checkout -b feature/sprint-96-founding-circle-intake`.
-3. Open plan: `docs/superpowers/plans/2026-06-12-sprint-96-founding-circle-intake.md`.
+2. Check out branch: `git checkout -b feature/sprint-97-release-readiness-data-quality`.
+3. Open plan: `docs/superpowers/plans/2026-06-13-sprint-97-release-readiness-data-quality.md`.
 4. Run: `/execute-plan` (uses superpowers:subagent-driven-development).
 
 ---
 
-## Critical Implementation Notes (from the spec — read before coding)
+## Sprint Goal
 
-1. **No email infrastructure exists** (no nodemailer/SMTP/SES) — persist-only by decision. Do not
-   add an email send; defer notify to a later sprint.
-2. **Cross-origin is the whole game — TWO `.env.demo` changes at deploy (Task 12):**
-   (a) add `https://karmyq.org,https://www.karmyq.org` to `ALLOWED_ORIGINS` (CORS); and
-   (b) set `NEXT_PUBLIC_API_URL=https://karmyq.com/api` — consumed at **build time** (`deploy.sh`
-   sources `.env.demo` before building landing). Client must use a production-safe fallback of
-   `https://karmyq.com/api`, never `localhost`/relative. Missing either → `/join` silently fails.
-3. **Static export** (`output: 'export'`) — no Next API routes; the submit is a client `fetch` to
-   `NEXT_PUBLIC_API_URL`.
-4. **Honeypot = silent success.** Non-empty `website` field → return success **without persisting**.
-5. **Canonical error contract (ADR-074):** `{ success:false, message, error:"CODE" }` via shared
-   `sendValidationError` / `sendError`. Never a literal object in `error`.
-6. **Do not add auth middleware** to the endpoint — it is public.
-7. **Mount without `rateLimiters.standard`** — rely on the app-wide `globalRateLimiter` only.
-8. **Mirror schema** in both the migration file and `init.sql`; guard with `IF NOT EXISTS`.
-9. **ADR docs are GENERATED.** Write `docs/adr/ADR-076-*.md` + add slug to `ADR_GROUPS` in
-   `scripts/generate-docs.ts`, regenerate, then `git add -f` the generated `concepts/adr-076-*.json`
-   + `apps/landing/src/data/docs/nav.json` (top-level path — there is **no** `concepts/nav.json`).
-   Prebuild overwrites hand-edited generated JSON.
-10. **Keep the visible `contact@karmyq.org` fallback** in the form at all times.
-11. **auth-service tests are service-local** (`services/auth-service/tests/{unit,tdd}`).
-12. **No real integration test-DB harness in auth-service** — test the route with the isolated
-    `express()` + `jest.mock`ed DB + supertest pattern (`tests/regression/auth.routes.test.ts`);
-    real persistence is verified by migration + post-deploy DB check.
-13. **Exact response helpers:** `sendSuccess(res, data, status, opts)` has **no top-level message**;
-    `sendError(res, code, message, status, …)` is **code-first**; use `sendValidationError` /
-    `sendInternalError` for the error paths.
-14. **Version bump = `package.json` AND `package-lock.json`** (root `version`, in place).
-15. **Retire the stray `/join` mailto CTAs.** `joinContent.lanes[*]` ("For specialists",
-    "For organizers") render as visible `LaneCard` buttons *outside* JoinForm and still point to
-    `mailto:`. Repoint them at `#join-form` (Task 6). **Acceptance is scoped to the join
-    body/lanes** — no `mailto:` there except the JoinForm fallback; the **global footer `Contact`
-    link** (`Footer.tsx` via `PageShell`, on every route) is a separate shared mailto and is
-    **allowed**. The landing client (`submitFoundingCircle`) needs a
-    pure-TS Jest test (`apps/landing/tests/*.test.ts`, mocked `fetch`). **No separate "Join the
-    circle" user guide exists** — `/join` copy lives in `landingContent.ts`; ADR-076 is the docs
-    artifact.
+Make the release demo path truthful and stable by auditing live/demo data quality, fixing the
+highest-risk first-run bugs, documenting a rich tester account, and validating the full
+signup-to-help flow before v11.6.0 deploy.
 
 ---
 
-## Data Model (new)
+## Scope
 
-```sql
-CREATE TABLE IF NOT EXISTS auth.founding_circle_submissions (
-  id            UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  email         VARCHAR(320) NOT NULL,
-  lens          VARCHAR(200),
-  contribution  TEXT,
-  concern       TEXT,
-  source_page   VARCHAR(64)  NOT NULL DEFAULT 'join',
-  status        VARCHAR(24)  NOT NULL DEFAULT 'new',
-  created_at    TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  reviewed_at   TIMESTAMP
-);
-CREATE INDEX IF NOT EXISTS idx_founding_circle_status_created
-  ON auth.founding_circle_submissions (status, created_at DESC);
+Release-critical flows:
+
+- Signup/login.
+- Join existing community and create community.
+- Dashboard load for users with one community, many communities, and no communities.
+- Create request from the dashboard wizard.
+- Browse the home feed, use "Show more open requests," and reach a finite terminal state.
+- Use dibs/matching and decision-band actions where seeded data allows.
+- Use provider offer flows where seeded data allows.
+- Open community pages, People, Home pulse, How we're connected, and Stewardship access boundaries.
+- Confirm landing/docs handoff routes still work.
+
+Explicitly deferred:
+
+- Founding-circle admin review surface.
+- Email/Slack notification transport for founding-circle submissions.
+- Broad redesign work unrelated to release-blocking bugs.
+
+---
+
+## Named Bugs / Acceptance Items
+
+### BUG-097-001 - Dashboard false zero-community state
+
+Users who are in multiple communities sometimes see "You haven't joined a community yet"; refresh
+fixes it. Likely source is `apps/frontend/src/pages/dashboard.tsx` setting render-ready/loading
+state before `fetchCommunities(parsedUser.id)` resolves.
+
+Acceptance: users with memberships never see the zero-community empty state before membership fetch
+completion; real fetch failure shows the retry banner, not the false empty state.
+
+### BUG-097-002 - Community pulse helper names bleed across membership truth
+
+Reported page:
+`https://karmyq.com/communities/12dbd705-8c7a-4ba8-a8d2-fcf1aee4e27f` (`Test 1`) rendered
+"thanks to David Park, Kwame Rodriguez, Chen Johansson," but Chen was not visible in that
+community's member list.
+
+Planning DB checks found:
+
+- `Test 1` has `current_members=65` and 65 active member rows, so the counter itself is consistent.
+- `Chen Johansson` exists globally as `chen.johansson2568@test.karmyq.com`.
+- Chen is active in `Test 2` and multiple other communities, but not in `Test 1`.
+
+Likely source: `fetchCommunityPulse()` in `services/request-service/src/routes/requests.ts`
+selects recent helpers through completed matches and `requests.request_communities`, but does not
+require `m.responder_id` to be an active member of the pulse community.
+
+Acceptance: recent helper names are active members of the community being rendered, or explicitly
+labeled as cross-community help. For release, prefer the safer member-only fix. Also choose and
+document the visible `helpedThisWeek` semantics so the pulse does not say neighbours helped each
+other while naming zero qualifying helpers.
+
+### BUG-097-003 - Feed terminal state after "Show more open requests"
+
+After widening the feed with "Show more open requests," the feed ends without clear "no more"
+copy.
+
+Acceptance: after `showingMoreOpen`/`minScore=0`, the bottom of the feed clearly says everyone/no
+more open asks are shown. It must not appear before the user clicks Show more.
+
+---
+
+## Tester Accounts
+
+Primary rich-state tester:
+
+```text
+maria.reyes@test.karmyq.com / password123
 ```
 
+Live demo evidence from planning query:
+
+- 15 active communities.
+- 28 trust edges.
+- 33 connections.
+- 19 created requests.
+- 418 responder matches.
+- 704 requester-side matches.
+- 4 provider profiles.
+- Provider availability true.
+
+Fallback simpler member tester:
+
+```text
+aisha.white6964@test.karmyq.com / password123
+```
+
+Previously confirmed as a plain member of Berkeley Community Care
+(`ff54a7d5-fe01-45ad-b816-ecf4d3e9ee23`).
+
 ---
 
-## Landing copy swap (Task 8 — verbatim new text)
+## Critical Implementation Notes
 
-Replace the `thinking` section blocks (`landingContent.ts` ~108–116). New order `p, p, star, p`:
-
-- **p:** Think of your most reliable friend. The one who shows up at 2am. You didn't get there by saving them for emergencies — you got there by calling on each other for things big and small, until the trust was deep enough to hold the 2am call. Trace any friendship like that backwards and you find the same thing: small mutual dependence, repeated, until it became something you could stake everything on.
-- **p:** That logic applies at the community scale, and we've abandoned it. The contracts, ratings, background checks, and platform guarantees we layer over modern life aren't worthless — but they're substitutes, and leaning on them lets the underlying muscle go slack.
-- **star:** Crisis doesn't create trust. It reveals the trust that was already there — or exposes its absence.
-- **p:** That's the real risk. Not that people are bad — the evidence runs the other way. It's that trust takes time to build, and we keep waiting until we need it. By then it's too late to start. Karmyq isn't a substitute for institutions, and it isn't a bet that people are angels. It's the practice ground for the relationships you can't summon on demand — built now, while there's no emergency, so they're there when there is.
+1. **Audit first.** Do not jump straight into the three known fixes before running the release
+   data-quality queries; the point of Sprint 97 is to find launch-risk bugs, not only fix the
+   examples already noticed.
+2. **No founding-circle admin screen in this sprint.** Direct DB queries are sufficient for release
+   week; keep this sprint on data quality and functional demo bugs.
+3. **Tester account:** use `maria.reyes@test.karmyq.com` / `password123` as the primary rich-state
+   tester unless the audit finds it broken. Keep `aisha.white6964@test.karmyq.com` / `password123`
+   as a simpler member-only fallback.
+4. **Dashboard bug is a loading-state bug until proven otherwise.** Fix the false empty state at
+   the frontend state boundary; do not paper over it with a timeout.
+5. **Pulse helper names must not lie.** Prefer joining `communities.members` on
+   `m.responder_id = members.user_id`, `members.community_id = $1`, `members.status='active'`.
+6. **Data repairs must be idempotent.** If demo data needs repair, write SQL that can run twice
+   safely and document exactly what it changes.
+7. **Do not hand-edit generated landing docs.** Update `docs/guides/*` and `scripts/generate-docs.ts`
+   if needed; generated `apps/landing/src/data/docs/*` is wiped by the generator and must be
+   committed with `git add -f` when changed.
+8. **Robust tests are required.** Frontend component tests belong in `apps/frontend/tests/tdd/*.test.tsx`
+   and run with `cd apps/frontend && npm run test:tdd`; root `tests/tdd` is for root harness tests,
+   not jsdom component rendering. Cover the actual bug conditions: async dashboard community load,
+   non-member helper excluded from pulse, and widened feed terminal copy.
+9. **Use live demo validation at the end.** The human checklist must hit API, DB, and UI on
+   `karmyq.com` after deploy.
+10. **Version bump:** root `package.json` and `package-lock.json` move `11.5.0` -> `11.6.0`.
 
 ---
 
-## Multi-sprint Arc
+## Post-Deploy Validation Required
+
+The plan ends with a human checklist:
+
+1. Login with `maria.reyes@test.karmyq.com` / `password123`; dashboard must not flash the false
+   no-community state.
+2. Open `Test 1`; pulse must not name `Chen Johansson` unless he is now an active member of that
+   exact community.
+3. Click **Show more open requests**; feed bottom must clearly say no more/everyone is shown.
+4. API-smoke `GET /api/requests/community/:id/pulse`; all recent helper names must be active
+   members of the community.
+5. Re-run `scripts/audit-demo-data.sql` on the demo DB; release-blocking drift must be fixed or
+   explicitly deferred in `docs/bugs/sprint-97-release-readiness.md`.
+
+---
+
+## Multi-Sprint Arc
 
 - **S92 (done):** Matching & Dibs Repair (v11.1.0).
-- **S93 (done):** Provider↔Community link-up + carry-forward fixes (v11.2.0, PR #80).
+- **S93 (done):** Provider<->Community link-up + carry-forward fixes (v11.2.0, PR #80).
 - **S94 (done):** Error Contract Cleanup / ADR-074 (v11.3.0, PR #82).
-- **S95 (done):** karmyq.org multi-route relaunch + logo fix (v11.4.0, PR #83, deployed at `bceb034`).
-- **S96 (this sprint, v11.5.0):** Founding-circle backend intake — persist-only.
-- **S97+ (deferred):** Notify on submission (needs email/Slack transport) + optional authenticated
-  admin review surface (list + status transitions).
-- **Deferred:** Service Consolidation Phase 2 — geocoding → client-side, 10→9 (ADR-071).
+- **S95 (done):** karmyq.org multi-route relaunch + logo fix (v11.4.0, PR #83).
+- **S96 (done):** Founding-circle backend intake (v11.5.0, PR #84).
+- **S97 (planned):** Release Readiness Data Quality + Functional Bug Bash (v11.6.0).
+- **S98+ (deferred):** Founding-circle notify/review surface or post-release UX hardening.
+- **Deferred:** Service Consolidation Phase 2 - geocoding -> client-side, 10->9 (ADR-071).
 - **Deferred to post-rollout:** mobile parity.
-
----
-
-## Carry-forward / still-owed from Sprint 95 (verify, do not re-do)
-
-- Mobile hamburger nav loop across all 5 routes + `/docs` (needs a real device) was not recorded as
-  validated. Confirm during S96 post-deploy if convenient.
-- ADR-075 status bump `Accepted` → `Implemented` was queued to fold into the next PR — fold into the
-  S96 PR if not already done (do **not** push docs-only to master).
 
 ---
 
 ## Persistent Context
 
-### Multi-agent PR process — live on master
+### Multi-agent PR process - live on master
 
 - `.github/pull_request_template.md` = the cross-agent PR contract.
-- master branch protection requires CI checks, 1 approving review, and Admin merge authority.
+- Master branch protection requires CI checks, 1 approving review, and Admin merge authority.
 - Agents do not self-merge or push directly to `master`.
 - Every task = one branch = one PR.
 - When using `gh pr create`, manually copy `.github/pull_request_template.md` into the PR body.
@@ -162,23 +216,20 @@ Replace the `thinking` section blocks (`landingContent.ts` ~108–116). New orde
 
 ### Architecture Gotchas
 
-- **Landing page docs**: `apps/landing/src/data/docs/` is gitignored — `git add -f` when generated
+- **Landing page docs:** `apps/landing/src/data/docs/` is gitignored - `git add -f` when generated
   docs must be committed. Generated by `scripts/generate-docs.ts`; edit sources, never generated JSON.
-- **ADR numbering**: ADR-075 shipped in S95; **next free ADR = 076** (this sprint).
+- **ADR numbering:** ADR-076 shipped in S96; next free ADR = 077.
 - **JWT field** is `communities`, not `communityMemberships`.
 - **Schema is `communities.communities`** (plural schema name); auth tables are `auth.*`.
-- **API response unwrap**: `createApiClient` interceptor already unwraps the envelope — use
+- **API response unwrap:** `createApiClient` interceptor already unwraps the envelope - use
   `res.data`, not `res.data.data`.
-- **Error contract (ADR-074)**: `{ success:false, message:string, error:string }`; use shared
+- **Error contract (ADR-074):** `{ success:false, message:string, error:string }`; use shared
   `sendError`/`sendValidationError`.
 - **CORS on auth-service** is driven by `ALLOWED_ORIGINS` env (comma-separated origins).
-- **auth-service public routes**: `/auth/login` + `/auth/register` are already unauthenticated;
-  the new `/founding-circle` route follows the same public pattern (no auth middleware).
-- **trust_edges_live is a VIEW**: never INSERT/UPDATE it.
-- **`git add` on CLAUDE.md**: tracked as lowercase `claude.md`.
-- **Solo dev — no worktrees**: work directly on feature branches.
-- **Root package.json version**: `11.4.0`; Sprint 96 target is `11.5.0`.
-- **CI security gates**: dependency audit (ADR-059) + CodeQL (ADR-060) run on push.
+- **trust_edges_live is a VIEW:** never INSERT/UPDATE it.
+- **`git add` on CLAUDE.md:** tracked as lowercase `claude.md`.
+- **Solo dev - no worktrees:** work directly on feature branches.
+- **CI security gates:** dependency audit (ADR-059) + CodeQL (ADR-060) run on push.
 - **request-forgery FP on `apps/frontend/src/lib/api.ts`** is a known recurring false positive.
 - **request-service serves the feed** now (`/requests/feed`); there is no feed-service.
 

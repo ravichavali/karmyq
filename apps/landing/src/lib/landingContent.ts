@@ -192,7 +192,7 @@ export const homeContent: HomeContent = {
 
     h2('Trust wasn’t taken from us. We forgot how.'),
     p(
-      `For most of human history, trusting the people nearby was a skill you practiced daily, because nothing else held the community together. Then we built things that could hold it for us: institutions, contracts, platforms, ratings. Each one let us extend a little less of ourselves to the people around us, because the system would vouch for them instead. It was convenient. It also let the muscle go slack. That's the harder thing to admit: the loss was partly ours.`
+      `For most of human history, trusting the people nearby was a skill you practiced daily, because nothing else held the community together. Then we built things that could hold it for us: institutions, contracts, platforms, ratings. Each one let us extend a little less of ourselves to the people around us, because the system would vouch for them instead. It was convenient. It also let the muscle go slack. That's the harder thing to admit: the fault was partly ours.`
     ),
     p(
       `When you help someone through a platform, who holds the memory of it? Not your neighbors. The platform does — it records the transaction, updates a score, files the signal in a database it owns. You helped. But your community never finds out, and you never build anything with the person you helped. The relationship that should have thickened between you stays exactly as thin as it started. Platforms are built for volume: many people, many exchanges, every connection kept thin enough to scale. Depth doesn't monetize.`
@@ -229,7 +229,7 @@ export const homeContent: HomeContent = {
       `My neighborhood runs on driveway waves. You know the kind — eye contact, a half-lift of the hand, back inside. Polite. Sufficient. Not quite community.`,
       `Then a couple moved in a few doors down. They were the kind of people who stop. Who start conversations. Who remember names. Slowly, without anyone deciding it, something shifted.`,
       `When they went on vacation, they asked if we'd look after their cat. A small thing. But it was the first real ask — the moment a wave becomes something more.`,
-      `A few months later, I had to travel for three weeks. My wife would have been alone with our dog — the logistics, the cost, the quiet weight of it. Before I could figure out what to do, our neighbors were there. They stepped in. What could have been expensive and stressful became something we laughed about over dinner afterward. Proof that we'd built something real, without quite meaning to.`,
+      `A few months later, I had to travel for three weeks. My wife would have been alone with our dog — the logistics, the cost, the quiet weight of it. Before I could figure out what to do, our neighbors were there. They stepped in. What could have been expensive and stressful became something that brought us even closer. Proof that we'd built something real, without quite meaning to.`,
       `We didn't use an app. We didn't need one — we'd been lucky enough to find each other.`,
       `But I kept thinking about everyone on my street who hadn't. The neighbors managing alone because no one found the right opening. The professional a few houses down whose skills nobody knows about. The person who moved here a year ago and still doesn't know anyone's name.`,
       `Most neighborhoods aren't waiting for connection. They're waiting for a reason to start.`,
@@ -239,8 +239,8 @@ export const homeContent: HomeContent = {
   },
   closingLine: 'Making good easy is the point.',
   standTogether: [
-    `The platforms isolated us. Now they're degrading what they built.`,
-    'We need each other before we need them.',
+    `The platforms were built to extract. Every signal of health was skin-deep, engineered to harvest. The ground went hard underneath.`,
+    'An ecosystem runs the other way: the network serves the people.',
     'That is what Karmyq is for.',
   ],
 };

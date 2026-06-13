@@ -30,6 +30,10 @@ export default function Dashboard() {
   const router = useRouter()
   const [user, setUser] = useState<any>(null)
   const [loading, setLoading] = useState(true)
+  // Membership fetch is tracked separately from auth bootstrap so the page never renders the
+  // zero-community empty state before getMyCommunities resolves (BUG-097-001). Starts true
+  // because an authenticated mount always fetches memberships.
+  const [communitiesLoading, setCommunitiesLoading] = useState(true)
 
   const [userCommunities, setUserCommunities] = useState<Community[]>([])
   const [activeCommunityId, setActiveCommunityId] = useState<string>('')
@@ -111,7 +115,7 @@ export default function Dashboard() {
 
   const fetchCommunities = async (userId: string) => {
     try {
-      setLoading(true)
+      setCommunitiesLoading(true)
       setCommunityLoadError(null)
       const communitiesRes = await communityService.getMyCommunities(userId)
       setUserCommunities(communitiesRes?.data?.communities || [])
@@ -119,11 +123,11 @@ export default function Dashboard() {
       setCommunityLoadError('We could not load your communities. You can retry now.')
       console.error('Failed to load communities', { error: err instanceof Error ? err.message : String(err) })
     } finally {
-      setLoading(false)
+      setCommunitiesLoading(false)
     }
   }
 
-  if (!user || loading) {
+  if (!user || loading || communitiesLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
@@ -177,8 +181,9 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* Zero-community state — shown when user hasn't joined any community yet */}
-        {!loading && userCommunities.length === 0 ? (
+        {/* Zero-community state — shown only after memberships resolve to genuinely empty.
+            A fetch failure surfaces the retry banner above instead of this false empty state. */}
+        {!communitiesLoading && !communityLoadError && userCommunities.length === 0 ? (
           <div className="max-w-md mx-auto px-4 py-16 text-center">
             <div className="text-5xl mb-4">🏘️</div>
             <h2 className="text-xl font-semibold text-text mb-2">You haven't joined a community yet</h2>
