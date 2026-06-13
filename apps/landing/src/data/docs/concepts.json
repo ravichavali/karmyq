@@ -583,6 +583,14 @@
       "status": "accepted",
       "description": "**Status**: Accepted",
       "filename": "ADR-075-karmyq-org-multi-route-relaunch.md"
+    },
+    {
+      "slug": "adr-076-founding-circle-intake",
+      "number": "076",
+      "title": "ADR-076: Founding-Circle Backend Intake",
+      "status": "accepted",
+      "description": "**Status**: Accepted",
+      "filename": "ADR-076-founding-circle-intake.md"
     }
   ]
 }

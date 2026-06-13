@@ -7,6 +7,7 @@ import userRoutes from './routes/users';
 import preferencesRoutes from './routes/preferences'; // Day 8
 import profileTagsRoutes from './routes/profileTags';
 import pushTokensRoutes from './routes/pushTokens';
+import foundingCircleRoutes from './routes/foundingCircle';
 import { initDatabase } from './database/db';
 import { initEventPublisher } from './events/publisher';
 import { createLogger, requestLoggingMiddleware } from '@karmyq/shared/utils/logger';
@@ -53,6 +54,9 @@ app.use('/users', rateLimiters.standard, userRoutes);
 app.use('/preferences', rateLimiters.standard, preferencesRoutes); // Day 8
 app.use('/auth/profile/tags', rateLimiters.standard, profileTagsRoutes);
 app.use('/auth', rateLimiters.standard, pushTokensRoutes);
+// Public founding-circle intake (Sprint 96, ADR-076) — no auth, no per-route limiter;
+// the app-wide globalRateLimiter above already applies.
+app.use('/founding-circle', foundingCircleRoutes);
 
 // Error handling
 app.use((err: any, req: any, res: express.Response, _next: express.NextFunction) => {

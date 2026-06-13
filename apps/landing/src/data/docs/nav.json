@@ -260,6 +260,10 @@
           "href": "/docs/concepts/adr-075-karmyq-org-multi-route-relaunch"
         },
         {
+          "label": "Founding-Circle Backend Intake",
+          "href": "/docs/concepts/adr-076-founding-circle-intake"
+        },
+        {
           "label": "Multi-Tenant Row-Level Security (RLS) Database Design",
           "href": "/docs/concepts/adr-003-multi-tenant-rls"
         },
