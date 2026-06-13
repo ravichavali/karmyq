@@ -1,11 +1,15 @@
-# Sprint 97 - Release Readiness Data Quality + Functional Bug Bash - IMPLEMENTED, pending review + merge (v11.5.0 -> v11.6.0)
+# Sprint 97 - Release Readiness Data Quality + Functional Bug Bash - PR OPEN (#86), awaiting review + admin merge (v11.5.0 -> v11.6.0)
 
-> **STATUS (2026-06-13, execution):** Implementation tasks 1–10 are complete on
-> `feature/sprint-97-release-readiness-data-quality`. The live demo audit ran (read-only) and is
-> recorded in `docs/bugs/sprint-97-release-readiness.md`. All three named bugs are fixed with
-> tests; the membership-count drift repair migration is written; docs + landing docs are
-> regenerated; version is bumped to `11.6.0`. Remaining: SDLC quality gates (Task 11), final
-> verification (Task 12), and PR/merge/deploy + post-deploy validation (Tasks 13–14).
+> **STATUS (2026-06-13, execution):** Implementation tasks 1–12 complete and pushed as
+> **PR #86** (`feature/sprint-97-release-readiness-data-quality` -> `master`), commit `c7cf279`.
+> The live demo audit ran (read-only) and is recorded in `docs/bugs/sprint-97-release-readiness.md`.
+> All three named bugs are fixed with tests; the membership-count drift repair migration is written;
+> docs + landing docs regenerated; version bumped to `11.6.0`; quality gates run; pre-push passed.
+> **Remaining:** cross-agent review of PR #86, admin merge (agents do not self-merge), CI/CD deploy,
+> then the Task 14 post-deploy human validation (login as maria.reyes, pulse on Test 1, feed terminal,
+> API smoke, re-run `scripts/audit-demo-data.sql` to confirm membership drift cleared).
+> **Note:** GitHub reports 2 Dependabot alerts on `master` (1 high, 1 low) — pre-existing, not from
+> this branch; recommend a follow-up against `master` per the security SLA.
 >
 > **Audit outcome:** BUG-097-002 confirmed pervasive (186 non-member-helper pairs). Membership
 > drift on 10 fission-parent communities → idempotent repair migration
