@@ -53,6 +53,25 @@ Or if you need something, post a request. Tap the **+** button at the bottom rig
 
 ---
 
+## The Five-Minute Demo Path
+
+Want to see the whole loop quickly? Walk it end to end:
+
+1. **Log in or register** — sign in, or create an account in under a minute (just email, name,
+   password). Evaluators can sign in as the prepared tester `maria.reyes@test.karmyq.com` /
+   `password123` to skip straight to a rich, populated account.
+2. **Join or create a community** — from **Communities**, join one near you, or click **Create
+   Community** to start your own.
+3. **Open Dashboard Home** — your feed loads with the open asks you can fill, decisions you owe on
+   top. (It won't claim you have no communities while it's still loading.)
+4. **Create an ask** — tap **+ → Get Help**, describe what you need, and post.
+5. **Browse and respond** — offer to help on an open request, then click **Show more open requests**
+   to widen the feed; the bottom tells you clearly when you've seen everything.
+6. **Open a community page** — visit a community to see its weekly pulse, People, and how you're
+   connected.
+
+---
+
 ## Next Steps
 
 - [Asking for Help](/docs/guides/making-requests)

@@ -1,11 +1,23 @@
-# Sprint 97 - Release Readiness Data Quality + Functional Bug Bash - PLANNED, ready to execute (v11.5.0 -> v11.6.0)
+# Sprint 97 - Release Readiness Data Quality + Functional Bug Bash - IMPLEMENTED, pending review + merge (v11.5.0 -> v11.6.0)
 
-> **STATUS (2026-06-13):** Sprint 96 is merged on `master` as `9fb3308` / PR #84 and version
-> `11.5.0`. The previous handoff was stale and still said Sprint 96 was pending; Sprint 97 planning
-> corrects that state. Sprint 97 is approved as an audit-first release-readiness sprint focused on
-> demo data quality and first-run functional bugs before release week. The founding-circle admin
-> review screen is explicitly deferred because submissions can be queried directly from the DB for
-> launch.
+> **STATUS (2026-06-13, execution):** Implementation tasks 1–10 are complete on
+> `feature/sprint-97-release-readiness-data-quality`. The live demo audit ran (read-only) and is
+> recorded in `docs/bugs/sprint-97-release-readiness.md`. All three named bugs are fixed with
+> tests; the membership-count drift repair migration is written; docs + landing docs are
+> regenerated; version is bumped to `11.6.0`. Remaining: SDLC quality gates (Task 11), final
+> verification (Task 12), and PR/merge/deploy + post-deploy validation (Tasks 13–14).
+>
+> **Audit outcome:** BUG-097-002 confirmed pervasive (186 non-member-helper pairs). Membership
+> drift on 10 fission-parent communities → idempotent repair migration
+> `infrastructure/postgres/migrations/20260613-demo-data-quality-repair.sql`. The "730 orphaned open
+> requests" the audit query flagged were a FALSE ALARM: split/merged communities keep full active
+> membership and the feed doesn't filter by community status, so those requests stay visible — no
+> fix needed. `helpedThisWeek` adopted member-only semantics. Primary tester `maria.reyes` confirmed.
+
+> **Prior status (planning):** Sprint 96 is merged on `master` as `9fb3308` / PR #84 and version
+> `11.5.0`. Sprint 97 is an audit-first release-readiness sprint focused on demo data quality and
+> first-run functional bugs before release week. The founding-circle admin review screen is
+> explicitly deferred because submissions can be queried directly from the DB for launch.
 
 **Branch:** `feature/sprint-97-release-readiness-data-quality` (create from `master`).
 
