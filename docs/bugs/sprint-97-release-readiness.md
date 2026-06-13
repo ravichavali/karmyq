@@ -120,5 +120,6 @@ tier — not introduced by this sprint.
 ## Tester Account Evidence
 
 `maria.reyes@test.karmyq.com`: 15 active communities, 28 trust edges, 33 connections, 19 created
-requests, 418 responder matches, 704 requester-side matches, 4 provider profiles, provider
-availability true.
+requests, 420 responder matches, 704 requester-side matches, 4 provider profiles, provider
+availability true. (Planning estimated 418 responder matches; the live audit returned 420 — the
+figure used here.)
