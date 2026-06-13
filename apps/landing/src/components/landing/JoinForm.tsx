@@ -9,7 +9,8 @@ import { SecondaryCta } from './primitives';
  * Founding-circle note composer. Sprint 96 (ADR-076) wires the four fields to a real
  * backend write: a cross-origin POST to the auth-service intake endpoint, replacing the
  * Sprint 95 mailto. A visually-hidden honeypot (`website`) screens bots, and the visible
- * contact@karmyq.org address remains as the error-path fallback if the submit fails.
+ * contact@karmyq.org address stays available in every state (form, error, and success) as a
+ * direct fallback.
  */
 const fieldClass =
   'w-full rounded-lg border border-karmyq-brown-200 bg-white px-4 py-2.5 text-base text-karmyq-brown-900 placeholder:text-karmyq-brown-400 focus:border-karmyq-green-500 focus:outline-none focus:ring-1 focus:ring-karmyq-green-500';
