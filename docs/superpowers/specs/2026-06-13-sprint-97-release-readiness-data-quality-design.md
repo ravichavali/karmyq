@@ -105,7 +105,9 @@ community whose pulse is being rendered.
 
 **Acceptance:** The community pulse only names helpers who are active members of the community at
 render time, or explicitly labels the row as cross-community help if the product chooses that
-meaning. For release, prefer the safer member-only fix.
+meaning. For release, prefer the safer member-only fix. The implementation must also choose and
+document the `helpedThisWeek` semantics so the UI does not say "5 neighbours helped each other"
+while naming zero qualifying helpers without explanation.
 
 ### BUG-097-003 - Feed terminal state after "Show more open requests"
 
@@ -254,7 +256,9 @@ the next number is ADR-077.
 7. **Do not hand-edit generated landing docs.** Update `docs/guides/*` and `scripts/generate-docs.ts`
    if needed; generated `apps/landing/src/data/docs/*` is wiped by the generator and must be
    committed with `git add -f` when changed.
-8. **Robust tests are required.** Cover the actual bug conditions: async dashboard community load,
+8. **Robust tests are required.** Frontend component tests belong in `apps/frontend/tests/tdd/*.test.tsx`
+   and run with `cd apps/frontend && npm run test:tdd`; root `tests/tdd` is for root harness tests,
+   not jsdom component rendering. Cover the actual bug conditions: async dashboard community load,
    non-member helper excluded from pulse, and widened feed terminal copy.
 9. **Use live demo validation at the end.** The human checklist must hit API, DB, and UI on
    `karmyq.com` after deploy.

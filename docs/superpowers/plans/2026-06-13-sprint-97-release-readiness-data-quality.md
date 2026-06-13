@@ -23,8 +23,8 @@ new product surfaces. Demo data repair, if needed, is idempotent SQL rather than
 |------|---------------|
 | `docs/bugs/sprint-97-release-readiness.md` | Audit findings, triage decisions, fixed/deferred bug list, and tester-account evidence. |
 | `scripts/audit-demo-data.sql` | Repeatable SQL checks for demo data quality: membership counts, pulse helper membership, request/community links, provider readiness, tester ranking. |
-| `tests/tdd/sprint-97-dashboard-community-load.test.tsx` | TDD/regression coverage for the dashboard not showing a false zero-community state during membership load. |
-| `tests/tdd/sprint-97-feed-terminal-state.test.tsx` | TDD/regression coverage for the feed terminal note after "Show more open requests." |
+| `apps/frontend/tests/tdd/sprint-97-dashboard-community-load.test.tsx` | TDD/regression coverage for the dashboard not showing a false zero-community state during membership load. |
+| `apps/frontend/tests/tdd/sprint-97-feed-terminal-state.test.tsx` | TDD/regression coverage for the feed terminal note after "Show more open requests." |
 | `services/request-service/tests/tdd/sprint-97-community-pulse.test.ts` | TDD coverage for excluding non-member helpers from community pulse helper names. |
 | `infrastructure/postgres/migrations/20260613-demo-data-quality-repair.sql` | Optional, only if audit finds release-blocking demo data drift that needs an idempotent DB repair. |
 
@@ -67,7 +67,9 @@ new product surfaces. Demo data repair, if needed, is idempotent SQL rather than
 7. **Do not hand-edit generated landing docs.** Update `docs/guides/*` and `scripts/generate-docs.ts`
    if needed; generated `apps/landing/src/data/docs/*` is wiped by the generator and must be
    committed with `git add -f` when changed.
-8. **Robust tests are required.** Cover the actual bug conditions: async dashboard community load,
+8. **Robust tests are required.** Frontend component tests belong in `apps/frontend/tests/tdd/*.test.tsx`
+   and run with `cd apps/frontend && npm run test:tdd`; root `tests/tdd` is for root harness tests,
+   not jsdom component rendering. Cover the actual bug conditions: async dashboard community load,
    non-member helper excluded from pulse, and widened feed terminal copy.
 9. **Use live demo validation at the end.** The human checklist must hit API, DB, and UI on
    `karmyq.com` after deploy.
@@ -269,7 +271,7 @@ ssh ubuntu@karmyq.com "docker cp /tmp/audit-demo-data.sql karmyq-postgres:/tmp/a
 ## Task 2: TDD - dashboard must not flash false no-community state
 
 **Files:**
-- Create: `tests/tdd/sprint-97-dashboard-community-load.test.tsx`
+- Create: `apps/frontend/tests/tdd/sprint-97-dashboard-community-load.test.tsx`
 - Implementation target: `apps/frontend/src/pages/dashboard.tsx`
 
 - [ ] Write a failing test that mocks a logged-in user and a delayed `communityService.getMyCommunities`
@@ -278,31 +280,31 @@ ssh ubuntu@karmyq.com "docker cp /tmp/audit-demo-data.sql karmyq-postgres:/tmp/a
 ```tsx
 import '@testing-library/jest-dom';
 import { render, screen, waitFor } from '@testing-library/react';
-import Dashboard from '../../apps/frontend/src/pages/dashboard';
-import { communityService } from '../../apps/frontend/src/lib/api';
+import Dashboard from '@/pages/dashboard';
+import { communityService } from '@/lib/api';
 
 jest.mock('next/router', () => ({
   useRouter: () => ({ push: jest.fn(), isReady: true, query: {} }),
 }));
 
-jest.mock('../../apps/frontend/src/lib/api', () => ({
+jest.mock('@/lib/api', () => ({
   communityService: { getMyCommunities: jest.fn() },
 }));
 
-jest.mock('../../apps/frontend/src/contexts/ProviderContext', () => ({
+jest.mock('@/contexts/ProviderContext', () => ({
   useProvider: () => ({ hasProviderProfile: false, isAvailable: false, providerServiceTypes: [] }),
 }));
 
-jest.mock('../../apps/frontend/src/hooks/useOnboarding', () => ({
+jest.mock('@/hooks/useOnboarding', () => ({
   useOnboarding: () => ({ shouldShow: false, markSeen: jest.fn() }),
 }));
 
-jest.mock('../../apps/frontend/src/components/Feed/UnifiedFeed', () => () => <div data-testid="feed" />);
-jest.mock('../../apps/frontend/src/components/Layout', () => ({ children }: { children: React.ReactNode }) => <div>{children}</div>);
-jest.mock('../../apps/frontend/src/components/WelcomeModal', () => () => null);
-jest.mock('../../apps/frontend/src/components/SpeedDialFab', () => () => null);
-jest.mock('../../apps/frontend/src/components/RequestWizard', () => () => null);
-jest.mock('../../apps/frontend/src/components/OnboardingOverlay', () => () => null);
+jest.mock('@/components/Feed/UnifiedFeed', () => () => <div data-testid="feed" />);
+jest.mock('@/components/Layout', () => ({ children }: { children: React.ReactNode }) => <div>{children}</div>);
+jest.mock('@/components/WelcomeModal', () => () => null);
+jest.mock('@/components/SpeedDialFab', () => () => null);
+jest.mock('@/components/RequestWizard', () => () => null);
+jest.mock('@/components/OnboardingOverlay', () => () => null);
 
 describe('Sprint 97 dashboard community loading', () => {
   beforeEach(() => {
@@ -335,8 +337,8 @@ describe('Sprint 97 dashboard community loading', () => {
 - [ ] Run the focused test and confirm it fails before implementation.
 
 ```bash
-cd tests
-npx jest tdd/sprint-97-dashboard-community-load.test.tsx --runInBand
+cd apps/frontend
+npm run test:tdd -- sprint-97-dashboard-community-load.test.tsx --runInBand
 ```
 
 - [ ] Run `/simplify` before implementing the fix.
@@ -347,7 +349,7 @@ npx jest tdd/sprint-97-dashboard-community-load.test.tsx --runInBand
 
 **Files:**
 - Modify: `apps/frontend/src/pages/dashboard.tsx`
-- Test: `tests/tdd/sprint-97-dashboard-community-load.test.tsx`
+- Test: `apps/frontend/tests/tdd/sprint-97-dashboard-community-load.test.tsx`
 - Documentation target: `apps/frontend/CONTEXT.md`
 
 - [ ] In `dashboard.tsx`, introduce an explicit membership loading state or keep `loading=true`
@@ -396,8 +398,8 @@ component unless it makes the code clearer.
 - [ ] Run the focused dashboard test.
 
 ```bash
-cd tests
-npx jest tdd/sprint-97-dashboard-community-load.test.tsx --runInBand
+cd apps/frontend
+npm run test:tdd -- sprint-97-dashboard-community-load.test.tsx --runInBand
 ```
 
 - [ ] Run relevant frontend unit tests.
@@ -423,6 +425,7 @@ npm run test:unit
   - responder user active in community B but not community A
   - an active community A helper
   - expected pulse only names the active community A helper
+  - expected `helpedThisWeek` semantics are documented in the test name or assertion
 
 Example assertion shape:
 
@@ -476,9 +479,26 @@ SELECT u.name, COUNT(*)::int AS help_count
   LIMIT 3
 ```
 
-- [ ] Consider whether `helpedThisWeek` should count all completed exchanges attached to the
-  community, or only exchanges with active member helpers. For release, leave the count unchanged
-  unless it also creates visible falsehood; fix the named helper list first.
+- [ ] Decide and document the visible `helpedThisWeek` semantics in
+  `docs/bugs/sprint-97-release-readiness.md`. Preferred release behavior: count the same active
+  member-helper subset used for `recentHelpers`, so the pulse cannot say neighbours helped each
+  other while naming no qualifying member helpers.
+
+- [ ] If choosing the preferred member-only semantics, update the `exchanges_completed_week`
+  subquery to join `communities.members` the same way as the helper query:
+
+```sql
+SELECT COUNT(*)
+FROM requests.matches m
+JOIN requests.request_communities rc ON m.request_id = rc.request_id
+JOIN communities.members member
+  ON member.community_id = rc.community_id
+ AND member.user_id = m.responder_id
+ AND member.status = 'active'
+WHERE rc.community_id = $1
+  AND m.status = 'completed'
+  AND m.completed_at >= NOW() - INTERVAL '7 days'
+```
 
 - [ ] Run the focused pulse test.
 
@@ -501,7 +521,7 @@ npm test
 ## Task 6: TDD - feed terminal state after showing more
 
 **Files:**
-- Create: `tests/tdd/sprint-97-feed-terminal-state.test.tsx`
+- Create: `apps/frontend/tests/tdd/sprint-97-feed-terminal-state.test.tsx`
 - Implementation target: `apps/frontend/src/components/Feed/UnifiedFeed.tsx`
 
 - [ ] Write a failing test that mocks two sequential feed responses:
@@ -520,8 +540,8 @@ expect(await screen.findByText(/that's everyone/i)).toBeInTheDocument();
 - [ ] Run the focused test and confirm it fails before implementation.
 
 ```bash
-cd tests
-npx jest tdd/sprint-97-feed-terminal-state.test.tsx --runInBand
+cd apps/frontend
+npm run test:tdd -- sprint-97-feed-terminal-state.test.tsx --runInBand
 ```
 
 - [ ] Run `/simplify` before implementing the fix.
@@ -532,21 +552,26 @@ npx jest tdd/sprint-97-feed-terminal-state.test.tsx --runInBand
 
 **Files:**
 - Modify: `apps/frontend/src/components/Feed/UnifiedFeed.tsx`
-- Test: `tests/tdd/sprint-97-feed-terminal-state.test.tsx`
+- Test: `apps/frontend/tests/tdd/sprint-97-feed-terminal-state.test.tsx`
 - Documentation target: `docs/guides/dashboard-home.md`, `apps/frontend/CONTEXT.md`
 
-- [ ] Add a terminal note rendered after request cards only when:
+- [ ] Add a terminal state rendered after request cards only when:
   - `showingMoreOpen === true`
   - loading/error are false
   - no type or urgency filter is active
   - `noCommunities` is false
 
-Suggested copy:
+Reuse the existing finite-state copy pattern rather than introducing a third phrasing. Prefer
+`EmptyState` or the same `kq-finite-state` structure already used in the zero-card branches.
 
 ```tsx
 {showingMoreOpen && activeType === 'all' && activeUrgency === 'all' && !noCommunities && (
-  <div className="kq-finite-state py-6 text-center text-sm text-text-subtle">
-    That's everyone for now. We'll let you know when a neighbour needs you.
+  <div className="kq-finite-state">
+    <EmptyState
+      icon="✅"
+      heading="That's everyone for now"
+      body="We'll let you know when a neighbour needs you — quietly."
+    />
   </div>
 )}
 ```
@@ -556,8 +581,8 @@ Suggested copy:
 - [ ] Run the focused feed test.
 
 ```bash
-cd tests
-npx jest tdd/sprint-97-feed-terminal-state.test.tsx --runInBand
+cd apps/frontend
+npm run test:tdd -- sprint-97-feed-terminal-state.test.tsx --runInBand
 ```
 
 - [ ] Run relevant frontend tests.
@@ -720,8 +745,8 @@ npm audit --package-lock-only --audit-level=high
 - [ ] Run the Sprint 97 root TDD tests directly instead of trusting Turbo cache.
 
 ```bash
-cd tests
-npx jest tdd/sprint-97-dashboard-community-load.test.tsx tdd/sprint-97-feed-terminal-state.test.tsx --runInBand
+cd apps/frontend
+npm run test:tdd -- sprint-97-dashboard-community-load.test.tsx sprint-97-feed-terminal-state.test.tsx --runInBand
 ```
 
 ---
