@@ -154,7 +154,7 @@ export const homeContent: HomeContent = {
     p(
       `Exploitation was never irrational. It optimized for the wrong horizon. Colonialism extracted real wealth. Industrial monocultures fed billions. The structures that overran slower, more woven ways of living `,
       { em: 'worked' },
-      ` — in the near term. What they consumed had taken generations to build and broke in a fraction of the time. It lost anyway.`
+      ` — in the near term. What they consumed had taken generations to build and broke in a fraction of the time.`
     ),
     p(
       `Biology already knows this shape. A body is the proof that cooperation scales: trillions of cells holding specialized, interdependent roles. Cancer is what happens when one line of cells abandons the contract — it simplifies, stops specializing, grows fast, takes everything near it, and wins, locally, right up until it kills the thing that fed it. The pattern that overran the slower world followed the same logic. Simpler. Faster. Blind to the whole it depended on.`
@@ -163,7 +163,7 @@ export const homeContent: HomeContent = {
       `That is the trade we keep making, now at the scale of a civilization. The cost never disappears. It moves downstream — paid late, by people who never signed the cheque.`
     ),
     p(
-      `Cooperation has always been the slower game. It asks for trust before certainty — the willingness to believe the person across from you is worth the risk before they've proven it. Nobody wants to be the only one who is.`
+      `Cooperation has always been the slower game. It asks for trust before certainty — the willingness to believe the person across from you is worth the risk before they've proven it.`
     ),
     star('Karmyq is a bet on the slower game.'),
     p(
