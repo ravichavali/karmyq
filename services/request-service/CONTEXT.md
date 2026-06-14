@@ -2626,6 +2626,22 @@ CREATE TABLE auth.user_interests (
 
 ### 10.4 Recent Fixes
 
+**Sprint 98 — Trust Truth Audit (v11.7.0, branch `feature/sprint-98-trust-truth-audit`):**
+
+- **BUG-098-004 — dibs candidates could be inactive members.** `getMutualAidCandidates` and `getEligibleCandidates` (`src/db/dibsDb.ts`) admitted anyone in `communities.members` of a shared community regardless of status, so a departed member could be surfaced as a first-ask candidate and labelled `community_connection`. Both selection subqueries now require `cm.status = 'active'`. This also closes the orphaned-`exchange`-connection admission path. `providers.ts` `shared_communities` already filtered active on both sides (no change). `deriveDibsReason` is now truthful by construction.
+
+**Sprint 97 — Release Readiness Data Quality (v11.6.0, branch `feature/sprint-97-release-readiness-data-quality`):**
+
+- **BUG-097-002 — community pulse named non-member helpers.** `fetchCommunityPulse()` derived recent
+  helper names through `requests.matches → request_communities` without requiring the responder to
+  be an active member of the community being rendered, so a helper who fulfilled a cross-posted
+  request from a *different* community could be credited on this community's pulse (the live audit
+  found 186 such pairs). The recent-helpers query now `JOIN communities.members mem ON
+  mem.community_id = rc.community_id AND mem.user_id = m.responder_id AND mem.status='active'`, and
+  the `exchanges_completed_week` (`helpedThisWeek`) count joins the same active-member subset
+  (member-only semantics) so the headline count can never exceed the named member helpers. Verified
+  read-only against the demo DB. Test: `tests/tdd/sprint-97-community-pulse.test.ts`.
+
 **Sprint 93 — Provider↔Community Link-Up (v11.2.0, branch `feature/sprint-93-provider-linkup`):**
 
 - **F1 — community-scoped provider discovery (ADR-073).** `GET /providers` stays public, but when

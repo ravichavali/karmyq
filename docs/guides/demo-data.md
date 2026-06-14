@@ -25,3 +25,51 @@ The trust network shows how trust has accumulated between simulated users throug
 ## Social Karma
 
 After each completed match, both participants rate the interaction on helpfulness, responsiveness, and clarity. These ratings feed the Social Karma system, which surfaces patterns of good community participation without reducing people to a single number. The karma data you see reflects real platform feedback flows, not pre-loaded scores.
+
+## Tester Account (for evaluators)
+
+To explore the platform with a rich, realistic profile already wired up, sign in with the primary
+tester account:
+
+```
+maria.reyes@test.karmyq.com / password123
+```
+
+This account is the most complete state in the demo: 15 active communities, 28 trust edges, 33
+connections, 19 created requests, hundreds of helper and requester matches, and an active provider
+profile. It exercises the dashboard, the community pages, trust surfaces, dibs/matching, and
+provider offers without any setup.
+
+If you want a plainer, member-only perspective (no provider profile, fewer communities), use the
+fallback:
+
+```
+aisha.white6964@test.karmyq.com / password123
+```
+
+All simulated accounts share the password `password123`.
+
+## Auditing Demo Data Quality
+
+The demo data is regenerated continuously, so its quality is checked with a repeatable read-only
+script rather than by hand: [`scripts/audit-demo-data.sql`](../../scripts/audit-demo-data.sql). It
+reports membership-count drift, pulse helpers who are not members of the community being rendered,
+open requests with no active community link, and a ranking of the richest tester accounts.
+
+Run it against the demo database (read-only):
+
+```bash
+scp scripts/audit-demo-data.sql ubuntu@karmyq.com:/tmp/audit-demo-data.sql
+ssh ubuntu@karmyq.com "docker cp /tmp/audit-demo-data.sql karmyq-postgres:/tmp/audit-demo-data.sql \
+  && docker exec karmyq-postgres sh -c 'PGPASSWORD=\$POSTGRES_PASSWORD psql -U \"\$POSTGRES_USER\" -d \"\$POSTGRES_DB\" -f /tmp/audit-demo-data.sql'"
+```
+
+## Trust truth audit (Sprint 98)
+
+A second read-only script, [`scripts/audit-trust-truth.sql`](../../scripts/audit-trust-truth.sql),
+checks that trust relationships describe the same truth across layers: trust-edge endpoints that are
+still active members of the edge community, `exchange` connections backed by a completed match,
+cached `social_distances` rows with valid community context, provider shared-communities active on
+both sides, and dibs candidates that share an active community. Run it the same way (swap the
+filename). Findings and dispositions live in
+[`docs/bugs/sprint-98-trust-truth-audit.md`](../bugs/sprint-98-trust-truth-audit.md).

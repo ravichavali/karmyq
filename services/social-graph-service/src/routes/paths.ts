@@ -2,7 +2,9 @@ import express, { Request, Response } from 'express';
 import { pool } from '../config/database';
 import { logger } from '../config/logger';
 import { AuthenticatedRequest } from '@karmyq/shared/middleware/auth';
+import { sendValidationError } from '@karmyq/shared';
 import { computeTrustPath, TrustPath } from '../services/pathComputation';
+import { resolveCommunityContext } from '../services/communityContext';
 
 const router = express.Router();
 
@@ -11,12 +13,6 @@ router.get('/:targetUserId', async (req: AuthenticatedRequest, res: Response) =>
   try {
     const currentUserId = req.user?.userId;
     const targetUserId = req.params.targetUserId;
-    // communityId is used for karma lookup and cache keying only.
-    // The exchange graph is platform-wide, so a missing communityId
-    // still allows path computation (karma will default to 0).
-    const communityId = req.headers['x-community-id'] as string
-      || req.user?.currentCommunityId
-      || 'platform';
 
     if (!currentUserId) {
       return res.status(401).json({
@@ -31,6 +27,19 @@ router.get('/:targetUserId', async (req: AuthenticatedRequest, res: Response) =>
         message: 'Cannot compute path to yourself',
       });
     }
+
+    // Resolve community context. The exchange-path TOPOLOGY is platform-wide; communityId
+    // is used only for karma/trust-score and cache keying. Never pass the literal string
+    // 'platform' into the UUID community_id column (BUG-098-002) — a missing context falls
+    // back to a labeled platform scope keyed by a sentinel UUID.
+    const resolved = resolveCommunityContext(
+      req.headers['x-community-id'] as string | undefined,
+      req.user?.currentCommunityId
+    );
+    if (!resolved.ok) {
+      return sendValidationError(res, resolved.reason);
+    }
+    const { communityId, scope } = resolved.context;
 
     // Check if path is already cached and not expired
     const cacheResult = await pool.query(
@@ -66,6 +75,7 @@ router.get('/:targetUserId', async (req: AuthenticatedRequest, res: Response) =>
           path: cached.shortest_path,
           trust_score: cached.path_trust_score,
           connection_type: cached.connection_type || 'exchange',
+          scope,
           cached: true,
           computed_at: cached.computed_at,
         },
@@ -88,6 +98,7 @@ router.get('/:targetUserId', async (req: AuthenticatedRequest, res: Response) =>
           degrees_of_separation: null,
           path: null,
           connection_type: null,
+          scope,
           message: 'No connection found',
         },
       });
@@ -133,6 +144,7 @@ router.get('/:targetUserId', async (req: AuthenticatedRequest, res: Response) =>
         trust_score: path.trustScore,
         connection_type: path.connectionType,
         community_name: path.communityName,
+        scope,
         cached: false,
       },
     });
@@ -149,9 +161,6 @@ router.get('/:targetUserId', async (req: AuthenticatedRequest, res: Response) =>
 router.post('/batch', async (req: AuthenticatedRequest, res: Response) => {
   try {
     const currentUserId = req.user?.userId;
-    const communityId = req.headers['x-community-id'] as string
-      || req.user?.currentCommunityId
-      || 'platform';
     const { target_user_ids } = req.body;
 
     if (!currentUserId) {
@@ -167,6 +176,16 @@ router.post('/batch', async (req: AuthenticatedRequest, res: Response) => {
         message: 'target_user_ids array required',
       });
     }
+
+    // Same community-context semantics as GET /paths/:targetUserId (see resolver docs).
+    const resolved = resolveCommunityContext(
+      req.headers['x-community-id'] as string | undefined,
+      req.user?.currentCommunityId
+    );
+    if (!resolved.ok) {
+      return sendValidationError(res, resolved.reason);
+    }
+    const { communityId, scope } = resolved.context;
 
     // Limit to 50 users for performance
     const limitedTargets = target_user_ids.slice(0, 50);
@@ -279,6 +298,7 @@ router.post('/batch', async (req: AuthenticatedRequest, res: Response) => {
     res.json({
       success: true,
       data: results,
+      scope,
     });
   } catch (error) {
     logger.error('Error computing batch paths', error instanceof Error ? error : undefined);

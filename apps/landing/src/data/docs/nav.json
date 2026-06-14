@@ -260,6 +260,10 @@
           "href": "/docs/concepts/adr-075-karmyq-org-multi-route-relaunch"
         },
         {
+          "label": "Founding-Circle Backend Intake",
+          "href": "/docs/concepts/adr-076-founding-circle-intake"
+        },
+        {
           "label": "Multi-Tenant Row-Level Security (RLS) Database Design",
           "href": "/docs/concepts/adr-003-multi-tenant-rls"
         },
@@ -375,6 +379,10 @@
         {
           "label": "Visible Decay Model (decay tiers + re-warming nudge)",
           "href": "/docs/concepts/adr-070-visible-decay-model"
+        },
+        {
+          "label": "Trust Path Topology is Platform-Wide; Strength is Community-Scoped",
+          "href": "/docs/concepts/adr-077-trust-path-platform-topology"
         },
         {
           "label": "— Community & Scale —",

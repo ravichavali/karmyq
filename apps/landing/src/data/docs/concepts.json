@@ -583,6 +583,22 @@
       "status": "accepted",
       "description": "**Status**: Accepted",
       "filename": "ADR-075-karmyq-org-multi-route-relaunch.md"
+    },
+    {
+      "slug": "adr-076-founding-circle-intake",
+      "number": "076",
+      "title": "ADR-076: Founding-Circle Backend Intake",
+      "status": "accepted",
+      "description": "**Status**: Accepted",
+      "filename": "ADR-076-founding-circle-intake.md"
+    },
+    {
+      "slug": "adr-077-trust-path-platform-topology",
+      "number": "077",
+      "title": "ADR-077: Trust Path Topology is Platform-Wide; Strength is Community-Scoped",
+      "status": "implemented",
+      "description": "**Status**: Implemented",
+      "filename": "ADR-077-trust-path-platform-topology.md"
     }
   ]
 }

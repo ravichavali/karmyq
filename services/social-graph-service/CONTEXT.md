@@ -817,6 +817,12 @@ See [ADR-056](../../docs/adr/ADR-056-intrinsic-trust-decay.md) for full decision
 
 ## Recent Changes
 
+### Sprint 98: Trust Truth Audit (2026-06-14, ADR-077)
+- **NEW**: `src/services/communityContext.ts` — `resolveCommunityContext(header, jwtCurrentCommunityId)` + `PLATFORM_COMMUNITY_ID` sentinel + `isUuid`. Single resolver used by `/paths/:id`, `/paths/batch`, `/trust-card/:id`. Fixes BUG-098-002: the routes no longer pass the literal string `'platform'` into the UUID `auth.social_distances.community_id` column (which 500'd for users with no `currentCommunityId`); a malformed `X-Community-ID` is now a 400, missing context falls back to the platform sentinel. Each response carries `scope: 'community' | 'platform'`.
+- **SEMANTICS (ADR-077)**: exchange-path topology is platform-wide (schema can't attribute a match to one community — `help_requests` has no `community_id`); `communityId` scopes only score/karma/cache key.
+- **FIX (BUG-098-003)**: `getTrustGraph` (ego) and `getTrustGraphAggregate` now filter neighbors through an `active_neighbors` CTE (`JOIN communities.members ... status='active'`) and constrain links to the resolved node set, so departed members no longer appear under "your network in this community". `getFullCommunityGraph` already filtered active members.
+- **LEGACY (BUG-098-006)**: `GET /network` marked legacy in source (frontend `getNetwork()` wrapper removed); use `/trust/graph*`. Orphaned `type='exchange'` connections cleaned by migration `20260614-trust-truth-repair.sql`.
+
 ### Sprint 90: Visible Decay Model (2026-06-07, ADR-070)
 - **NEW**: `classifyDecayTier(currentWeight, threshold)` in `@karmyq/shared` (`src/trust/decayTier.ts`) — the SINGLE source of the band math (`strong` r≥3, `warm` 2–3, `fading` 1.3–2, `nearly_forgotten` 1–1.3, `swept` r<1). Consumed by the routes + tests; never inline the bands.
 - **CHANGED**: `GET /trust/graph/:communityId` + `/trust/graph/:communityId/full` — each edge now also carries `currentWeight` (= live `effective_weight`), `disappearanceThreshold` (resolved via `getDecayConfig`), and `decayTier`. Enriched in `trustGraph.ts` via the pure `enrichLinksWithDecay(links, threshold)` (exported, unit-tested).

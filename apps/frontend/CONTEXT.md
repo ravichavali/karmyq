@@ -8,6 +8,38 @@ Next.js 14 web application (Pages Router) consuming all Karmyq backend services.
 
 ---
 
+## Sprint 98 Trust Truth Audit (2026-06-14, ADR-077)
+
+- **BUG-098-001 — trust-path community context.** `useTrustPath`/`useBatchTrustPaths` (`src/hooks/useTrustPath.ts`) now accept an optional `communityId` and pass it as `X-Community-ID` via `socialGraphService.getTrustPath/getBatchTrustPaths(id, communityId)` (`src/lib/api.ts`). `RequestCard` supplies the card's `data.community_id`, so a badge's path matches the visible surface; absent context = platform-wide. The localStorage `user` parse is guarded (`readCurrentUserId`) so a corrupt value can't crash the hook.
+- **BUG-098-005 — feed terminal state.** `UnifiedFeed` no longer shows "You're caught up" together with "Show more open requests"; "caught up" appears only after the feed is widened (`showingMoreOpen`). Onboarding workflow copy updated to match.
+- **BUG-098-006 — legacy `/network`.** Removed the unused `socialGraphService.getNetwork()` wrapper; all trust-graph surfaces use `getTrustGraph*`.
+- Relationship copy (DibsPrompt `community_connection`, ProviderCard "✓ In {community}") was already honest; the data-layer fixes make it true.
+
+## Sprint 97 Release Readiness Data Quality (2026-06-13)
+
+### `dashboard.tsx` membership bootstrap (BUG-097-001)
+
+The mount effect called `fetchCommunities()` (async, not awaited) and then ran `setLoading(false)`
+synchronously, so the page rendered with `loading=false` and an empty `userCommunities` before the
+membership fetch resolved — flashing the false "You haven't joined a community yet" state for users
+who *are* in communities. Fixed by tracking membership loading separately: a new
+`communitiesLoading` state (initialised `true`) gates the loading screen
+(`!user || loading || communitiesLoading`), `fetchCommunities` toggles it instead of `loading`, and
+the zero-community block is gated on `!communitiesLoading && !communityLoadError &&
+userCommunities.length === 0` — so a fetch failure shows the existing retry banner, never the false
+empty state. Test: `tests/tdd/sprint-97-dashboard-community-load.test.tsx`.
+
+### `Feed/UnifiedFeed.tsx` widened-feed terminal state (BUG-097-003)
+
+The "That's everyone for now" finite copy only existed in the zero-card empty states; when the
+widened feed (`showingMoreOpen`/`minScore=0`) still returned cards, the list just ended silently.
+Added a terminal note rendered after the request cards, gated on `showingMoreOpen && activeType ===
+'all' && activeUrgency === 'all' && !noCommunities`, so it appears only after the user clicks **Show
+more open requests** and only on an unfiltered widened feed. Test:
+`tests/tdd/sprint-97-feed-terminal-state.test.tsx`.
+
+---
+
 ## Sprint 89 Community Sovereignty Redesign (2026-06-06, ADR-068)
 
 ### Community page → warm four-tab model

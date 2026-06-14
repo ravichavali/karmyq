@@ -12,6 +12,15 @@ This strip is populated entirely from the information in your login token — no
 
 Communities in this strip are automatically excluded from the discover grid below it, so you only see new communities to explore.
 
+### When you have no communities yet
+
+Your **Dashboard Home** only shows the "You haven't joined a community yet" prompt once your
+memberships have finished loading and the list is genuinely empty — it never flashes that prompt
+while your communities are still being fetched. If the membership load actually fails, the dashboard
+shows a retry banner instead of the empty state, so you're never told you have no communities just
+because the network hiccuped. From there, **Find Communities** takes you to this page to join your
+first one.
+
 ---
 
 ## Geography Mode (Default)

@@ -83,6 +83,10 @@ When your community has an active fission proposal, the trust graph shows the sa
 
 Click any member to see their trust score and connections. If you're an admin, you can move them between the proposed groups from the panel below the graph.
 
+## Who Appears in the Graph
+
+The graph only shows people who are **currently active members** of the community context you're viewing. A trust edge can outlive membership — you might have completed an exchange with someone who later left — but a departed member is no longer shown under "your network in this community," because the graph is a picture of *who's here now*, not a historical archive. The aggregate "across your communities" view follows the same rule: it shows people you've built trust with who are still active in a community you share. Node trust scores and edge thickness use the decayed, recency-weighted trust metric ("designed to forget"), not raw lifetime counts.
+
 ## Trust-Gated Governance
 
 The trust graph powers community governance. Members with high enough trust scores become eligible for governance roles (Admin, Moderator). Eligible members can be nominated and ratified through the **Governance** tab on any community page.

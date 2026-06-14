@@ -105,14 +105,14 @@ export const homeContent: HomeContent = {
   thinking: [
     h2('Trust when you can afford to.'),
     p(
-      `Think of your most reliable friend. The one who showed up at 2am. You don't save them for emergencies. You call them first, because they've earned it.`
+      `Think of your most reliable friend. The one who shows up at 2am. You didn't get there by calling on them only when all else failed — you got there by calling on each other for things big and small, until the trust was deep enough to hold the 2am call. Trace any friendship like that backwards and you find the same thing: small mutual dependence, repeated, until it became something you could stake everything on.`
     ),
     p(
-      `That logic applies at the community scale, and we've abandoned it. The contracts, ratings, background checks, platform guarantees we layer over modern life are inferior substitutes. Trust between people who actually know each other came before all of them, and still outperforms them when conditions allow.`
+      `That logic applies at the community scale, and we've abandoned it. The contracts, ratings, background checks, and platform guarantees we layer over modern life aren't worthless — but they're substitutes, and leaning on them lets the underlying muscle — our capacity to depend on each other — go slack.`
     ),
-    star(`Crisis doesn't create trust. It reveals the trust that was already there.`),
+    star(`Crisis doesn't create trust. It reveals the trust that was already there — or exposes its absence.`),
     p(
-      `Karmyq is built on the logic we apply to our best friends. The point isn't to prepare for the crisis. It's to stop deferring to inferior systems.`
+      `That's the real risk. Not that people are bad — the evidence runs the other way. It's that trust takes time to build, and we keep waiting until we need it. By then it's too late to start. Karmyq isn't a substitute for institutions, and it isn't a bet that people are angels. It's the practice ground for the relationships you can't summon on demand — built now, while there's no emergency, so they're there when there is.`
     ),
 
     h2('We didn’t choose distrust. We slipped into it.'),
@@ -133,25 +133,28 @@ export const homeContent: HomeContent = {
     ),
     star('There is no villain in this story. That is what makes it hard to fix.'),
 
-    h2('Who gets believed is not random.'),
+    h2('Goodness is just as ordinary.'),
     p(
-      `Hannah Arendt showed that evil doesn't need monsters. Ordinary people, going along, are enough.`
+      `Hannah Arendt argued that evil doesn't need monsters. Ordinary people, going along, are enough.`
     ),
     p(
       `We learned that lesson halfway — outward only. Sophisticated about institutions. Suspicious of strangers. The move almost nobody makes is the mirror image: the same ordinary person who can thoughtlessly harm can thoughtlessly help, when conditions allow. The Covid kitchens weren't heroic. They were the default, briefly uncovered.`
+    ),
+    p(
+      `It holds at the extreme, too. The altruism that surfaces in war zones and disasters — strangers sheltering strangers, people stepping between others and danger — looks like heroism from the outside. From the inside it rarely does. The people the Carnegie Hero Medal honors for risking their lives almost all say the same thing afterward: they didn't decide, they just moved. Not courage summoned in the moment, but a reflex — built from a thousand smaller, ordinary moments of looking out for someone — that finally had a reason to fire.`
     ),
     star(
       `We've learned to see the banality of evil in others. We haven't learned to see the banality of goodness in the same people.`
     ),
     p(
-      `Karmyq doesn't ask for heroism. It builds conditions where the goodness already there has somewhere to go. Standing comes from acts, not identity — because acts are the only evidence that matters.`
+      `Karmyq doesn't ask for heroism. It builds conditions where the goodness already there has somewhere to go.`
     ),
 
     h2('Short-termism won. The bill is coming due.'),
     p(
       `Exploitation was never irrational. It optimized for the wrong horizon. Colonialism extracted real wealth. Industrial monocultures fed billions. The structures that overran slower, more woven ways of living `,
       { em: 'worked' },
-      ` — in the near term. What they consumed had taken generations to build and broke in a fraction of the time. It lost anyway.`
+      ` — in the near term. What they consumed had taken generations to build and broke in a fraction of the time.`
     ),
     p(
       `Biology already knows this shape. A body is the proof that cooperation scales: trillions of cells holding specialized, interdependent roles. Cancer is what happens when one line of cells abandons the contract — it simplifies, stops specializing, grows fast, takes everything near it, and wins, locally, right up until it kills the thing that fed it. The pattern that overran the slower world followed the same logic. Simpler. Faster. Blind to the whole it depended on.`
@@ -160,7 +163,7 @@ export const homeContent: HomeContent = {
       `That is the trade we keep making, now at the scale of a civilization. The cost never disappears. It moves downstream — paid late, by people who never signed the cheque.`
     ),
     p(
-      `Cooperation has always been the slower game. It asks for trust before certainty — the willingness to believe the person across from you is worth the risk before they've proven it. Nobody wants to be the only one who is.`
+      `Cooperation has always been the slower game. It asks for trust before certainty — the willingness to believe the person across from you is worth the risk before they've proven it.`
     ),
     star('Karmyq is a bet on the slower game.'),
     p(
@@ -192,7 +195,7 @@ export const homeContent: HomeContent = {
 
     h2('Trust wasn’t taken from us. We forgot how.'),
     p(
-      `For most of human history, trusting the people nearby was a skill you practiced daily, because nothing else held the community together. Then we built things that could hold it for us: institutions, contracts, platforms, ratings. Each one let us extend a little less of ourselves to the people around us, because the system would vouch for them instead. It was convenient. It also let the muscle go slack. That's the harder thing to admit: the loss was partly ours.`
+      `For most of human history, trusting the people nearby was a skill you practiced daily, because nothing else held the community together. Then we built things that could hold it for us: institutions, contracts, platforms, ratings. Each one let us extend a little less of ourselves to the people around us, because the system would vouch for them instead. It was convenient. It also let the muscle go slack. That's the harder thing to admit: the fault was partly ours.`
     ),
     p(
       `When you help someone through a platform, who holds the memory of it? Not your neighbors. The platform does — it records the transaction, updates a score, files the signal in a database it owns. You helped. But your community never finds out, and you never build anything with the person you helped. The relationship that should have thickened between you stays exactly as thin as it started. Platforms are built for volume: many people, many exchanges, every connection kept thin enough to scale. Depth doesn't monetize.`
@@ -229,7 +232,7 @@ export const homeContent: HomeContent = {
       `My neighborhood runs on driveway waves. You know the kind — eye contact, a half-lift of the hand, back inside. Polite. Sufficient. Not quite community.`,
       `Then a couple moved in a few doors down. They were the kind of people who stop. Who start conversations. Who remember names. Slowly, without anyone deciding it, something shifted.`,
       `When they went on vacation, they asked if we'd look after their cat. A small thing. But it was the first real ask — the moment a wave becomes something more.`,
-      `A few months later, I had to travel for three weeks. My wife would have been alone with our dog — the logistics, the cost, the quiet weight of it. Before I could figure out what to do, our neighbors were there. They stepped in. What could have been expensive and stressful became something we laughed about over dinner afterward. Proof that we'd built something real, without quite meaning to.`,
+      `A few months later, I had to travel for three weeks. My wife would have been alone with our dog — the logistics, the cost, the quiet weight of it. Before I could figure out what to do, our neighbors were there. They stepped in. What could have been expensive and stressful became something that brought us even closer. Proof that we'd built something real, without quite meaning to.`,
       `We didn't use an app. We didn't need one — we'd been lucky enough to find each other.`,
       `But I kept thinking about everyone on my street who hadn't. The neighbors managing alone because no one found the right opening. The professional a few houses down whose skills nobody knows about. The person who moved here a year ago and still doesn't know anyone's name.`,
       `Most neighborhoods aren't waiting for connection. They're waiting for a reason to start.`,
@@ -239,8 +242,8 @@ export const homeContent: HomeContent = {
   },
   closingLine: 'Making good easy is the point.',
   standTogether: [
-    `The platforms isolated us. Now they're degrading what they built.`,
-    'We need each other before we need them.',
+    `The platforms were built to extract. Every signal of health was skin-deep, engineered to harvest. The ground went hard underneath.`,
+    'An ecosystem runs the other way: the network serves the people.',
     'That is what Karmyq is for.',
   ],
 };
@@ -705,8 +708,8 @@ export const joinContent: JoinContent = {
       audience: 'For specialists',
       body: `Bring lived expertise from care, local services, education, facilitation, therapy, public health, design, or civic systems. Help define what trust needs before the platform scales.`,
       cta: {
-        label: 'Join the circle',
-        href: 'mailto:contact@karmyq.org?subject=Founding%20circle%20%E2%80%94%20specialist',
+        label: 'Write your note',
+        href: '#join-form',
       },
     },
     {
@@ -718,8 +721,8 @@ export const joinContent: JoinContent = {
       audience: 'For organizers',
       body: `Pressure-test whether this can serve real groups: mutual aid circles, neighborhood associations, cohousing communities, school networks, and local experiments in cooperation.`,
       cta: {
-        label: 'Start the conversation',
-        href: 'mailto:contact@karmyq.org?subject=Founding%20circle%20%E2%80%94%20organizer',
+        label: 'Write your note',
+        href: '#join-form',
       },
     },
   ],

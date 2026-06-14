@@ -6,6 +6,11 @@
       "endpoints": [
         {
           "method": "POST",
+          "path": "/founding-circle/submissions",
+          "description": "**Public — no auth.** Persist a founding-circle note from the static `karmyq.org/join` form"
+        },
+        {
+          "method": "POST",
           "path": "/register",
           "description": "Register a new user account."
         },

@@ -44,12 +44,15 @@ describe('Sprint 76 — code-scanning gate + supply-chain hardening invariants',
     expect(ci).toMatch(/docker\/setup-buildx-action@[0-9a-f]{40}/);
   });
 
-  it('the two real alerts are fixed: mailto + path-param encoding', () => {
-    expect(read('apps/landing/src/lib/buildSubscribeMailto.ts')).toMatch(/encodeURIComponent/);
+  it('the two real alerts stay fixed: path-param encoding + no inline mailto href', () => {
     expect(read('apps/frontend/src/lib/socialGraphUrls.ts')).toMatch(/encodeURIComponent/);
-    // The /join composer must route through the encoding helper, not build the href inline.
-    // (Sprint 95 split the single landing page into routes; the mailto helper's caller moved
-    // from the now-removed Movement.tsx section to the JoinForm component.)
-    expect(read('apps/landing/src/components/landing/JoinForm.tsx')).toMatch(/buildFoundingCircleMailto/);
+    // Sprint 96 (ADR-076) eliminated the mailto DOM-XSS surface entirely: the /join
+    // composer now POSTs JSON to the backend intake endpoint instead of interpolating
+    // user input into a mailto href. The remaining `mailto:contact@karmyq.org` is a
+    // static, parameter-less fallback link with no user input — assert the composer
+    // routes user input through the backend client and never builds a mailto from it.
+    const joinForm = read('apps/landing/src/components/landing/JoinForm.tsx');
+    expect(joinForm).toMatch(/submitFoundingCircle/);
+    expect(joinForm).not.toMatch(/mailto:[^"']*\$\{/);
   });
 });

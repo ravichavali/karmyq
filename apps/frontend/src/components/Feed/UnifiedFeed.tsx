@@ -161,11 +161,11 @@ export default function UnifiedFeed({
     fetchFeed(false)
   }
 
-  const canShowMoreOpen =
-    !showingMoreOpen &&
-    !noCommunities &&
-    activeType === 'all' &&
-    activeUrgency === 'all'
+  // The widen-feed affordance applies only to an unfiltered feed for a user who has communities.
+  // Before widening we offer "Show more"; after widening (minScore=0) we close it with a finite note.
+  const isUnfilteredFeed = !noCommunities && activeType === 'all' && activeUrgency === 'all'
+  const canShowMoreOpen = !showingMoreOpen && isUnfilteredFeed
+  const showWidenedTerminalNote = showingMoreOpen && isUnfilteredFeed
 
   const showMoreOpenButton = canShowMoreOpen ? (
     <button type="button" className="btn-ghost mt-4" onClick={() => setShowingMoreOpen(true)}>
@@ -242,7 +242,7 @@ export default function UnifiedFeed({
                 body={
                   showingMoreOpen
                     ? "That's everyone for now. We'll let you know when a neighbour needs help here."
-                    : "You're caught up on the most relevant asks here."
+                    : 'There may be more open requests below the most relevant asks. Look further below.'
                 }
               />
               {showMoreOpenButton}
@@ -250,13 +250,16 @@ export default function UnifiedFeed({
           ) : null
         ) : (
           <div className="kq-finite-state">
+            {/* BUG-098-005: "You're caught up" is a terminal claim — only show it once the
+                feed has been widened (minScore=0). Before widening, offer to look further
+                without contradicting it by also saying the user is caught up. */}
             <EmptyState
-              icon="✅"
-              heading="You're caught up"
+              icon={showingMoreOpen ? '✅' : '🔍'}
+              heading={showingMoreOpen ? "You're caught up" : 'No top matches right now'}
               body={
                 showingMoreOpen
                   ? "That's everyone for now. We'll let you know when a neighbour needs you — quietly."
-                  : "No open requests you can fill right now. You can look further, or browse your communities."
+                  : 'There may be more open requests below your top matches. Look further, or browse your communities.'
               }
               ctaLabel="Browse communities"
               ctaHref="/communities"
@@ -272,6 +275,21 @@ export default function UnifiedFeed({
           {showMoreOpenButton && (
             <div className="pt-1 text-center">
               {showMoreOpenButton}
+            </div>
+          )}
+          {/* BUG-097-003: once the feed has been widened (minScore=0) there is no more to show,
+              so close it with a clear finite note — never before the user clicks Show more. */}
+          {showWidenedTerminalNote && (
+            <div className="kq-finite-state">
+              <EmptyState
+                icon="✅"
+                heading="That's everyone for now"
+                body={
+                  isCommunity
+                    ? "You're seeing every open ask in this community."
+                    : "You're seeing every open ask you can fill right now."
+                }
+              />
             </div>
           )}
         </div>

@@ -43,6 +43,22 @@ Every time you complete an exchange with someone, a trust connection is created.
 
 ---
 
+## What Each Label Really Means
+
+We're careful that a badge never claims more than what actually happened. Each label maps to one specific kind of truth:
+
+| Label | What it means |
+|---|---|
+| Direct exchange connection | You completed a help exchange together (1°). |
+| Indirect exchange path | You're linked through completed exchanges, 2–3 steps away. |
+| Fellow community member | You're both **active** members of the same community — no exchange implied yet. |
+| Invitation connection | You joined through the same accepted-invitation lineage. |
+| Shared provider/community context | A provider you both actively share a community with — not a completed exchange. |
+
+**Trust paths are platform-wide.** A real exchange counts no matter which community it happened in, so the same connection shows up wherever you see that person. The badge's *strength* (and any Karma shown along the path) reflects your current community context, but the connection itself doesn't disappear when you switch communities. See [ADR-077](/docs/concepts/adr-077-trust-path-platform-topology) for the full model.
+
+---
+
 ## Related
 
 - [How Trust Paths Work](/docs/concepts/trust-paths)

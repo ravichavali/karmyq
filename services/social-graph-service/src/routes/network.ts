@@ -7,6 +7,11 @@ const router = express.Router();
 
 const NODE_CAP = 150;
 
+// LEGACY (Sprint 98 BUG-098-006): /network predates the decayed trust-graph endpoints
+// (/trust/graph, /trust/graph/:communityId[/full]) that every current UI surface uses. The
+// frontend getNetwork() wrapper was removed in Sprint 98; this route is retained for backward
+// compatibility but is no longer authoritative. Prefer /trust/graph*; do not build new UI on it.
+
 // GET /network — returns current user's local network graph
 router.get('/', async (req: AuthenticatedRequest, res: Response) => {
   const userId = req.user?.userId;

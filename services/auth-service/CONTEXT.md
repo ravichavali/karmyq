@@ -74,12 +74,52 @@ CREATE TABLE auth.refresh_tokens (
     revoked BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
+
+-- auth.founding_circle_submissions (Sprint 96 — ADR-076)
+-- Public, unauthenticated landing-page intake. Pre-account leads: no FK to auth.users.
+CREATE TABLE auth.founding_circle_submissions (
+    id            UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    email         VARCHAR(320) NOT NULL,
+    lens          VARCHAR(200),
+    contribution  TEXT,
+    concern       TEXT,
+    source_page   VARCHAR(64)  NOT NULL DEFAULT 'join',
+    status        VARCHAR(24)  NOT NULL DEFAULT 'new',  -- new | reviewed | contacted | archived
+    created_at    TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    reviewed_at   TIMESTAMP
+);
 ```
 
 ### Tables Read by This Service
 - None (auth service is fully self-contained)
 
 ## API Endpoints
+
+### POST /founding-circle/submissions
+**Public — no auth.** Persist a founding-circle note from the static `karmyq.org/join` form
+(Sprint 96, ADR-076). Validated and honeypot-screened; persist-only (no email notify).
+
+**Request:**
+```json
+{
+  "email": "you@example.com",
+  "lens": "community organizer",
+  "contribution": "What you'd bring.",
+  "concern": "The hardest concern to face.",
+  "website": ""
+}
+```
+- `email` required, valid shape, ≤ 320 chars; `lens` ≤ 200; `contribution`/`concern` ≤ 4000.
+- `website` is a honeypot — a non-empty value returns success **without persisting** (silent drop).
+
+**Response (`201`):**
+```json
+{ "success": true, "data": { "id": "<uuid>" }, "meta": { "timestamp": "…", "requestId": "…" } }
+```
+Errors use the ADR-074 contract (`sendValidationError` / `sendInternalError`). Mounted without a
+per-route limiter — the app-wide `globalRateLimiter` applies.
+
+**Implementation:** `src/routes/foundingCircle.ts`
 
 ### POST /register
 Register a new user account.
