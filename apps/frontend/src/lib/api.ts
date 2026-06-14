@@ -847,7 +847,8 @@ export const socialGraphService = {
       headers: communityId ? { 'X-Community-ID': communityId } : {},
     }),
 
-  getNetwork: () => socialGraphApi.get('/network'),
+  // (Sprint 98 BUG-098-006: the unused getNetwork() wrapper for the legacy /network
+  // endpoint was removed — all trust-graph surfaces use getTrustGraph* below.)
 
   getTrustGraph: (communityId: string, center?: string) =>
     socialGraphApi.get(`/trust/graph/${encodeURIComponent(communityId)}${center ? `?center=${encodeURIComponent(center)}` : ''}`),

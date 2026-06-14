@@ -96,4 +96,37 @@ user has **zero communities**. So the latent UUID-cast 500 fires for a community
 requests a trust path with no `X-Community-ID` header. Still a real bug to fix; just narrower than
 the plan assumed. The fix (platform sentinel instead of the `'platform'` string) is unchanged.
 
+## Legacy endpoint audit (BUG-098-006)
+
+- `socialGraphService.getNetwork()` (frontend `api.ts`) had **zero call sites** — removed the
+  unused wrapper.
+- `services/social-graph-service/src/routes/network.ts` (`GET /network`) is retained but marked
+  **LEGACY** in source: it predates `/trust/graph*`, which every current UI surface uses. Not
+  deleted (may have external callers); no new UI should use it.
+- `social_graph.connections` real readers: `subscriber.ts` (writer on `match_completed`),
+  `dibsDb.ts` (candidate trust-context label), `network.ts` (legacy route). `requests.ts` only
+  *mentions* it in a comment — it ranks on `trust_edges_live`, not connections.
+
+## Data repair (BUG-098-006, orphaned exchange connections)
+
+`infrastructure/postgres/migrations/20260614-trust-truth-repair.sql` deletes the 343 orphaned
+`type='exchange'` connections with no backing completed match. Idempotent + safe (connections are
+a derived cache re-created on `match_completed`). Applies automatically on deploy via
+`scripts/apply-migrations.sh`. Re-run audit check 2 post-deploy → expect 0 rows.
+
+**No repair for the 325 non-member trust edges** (audit check 1): trust edges are historical
+exchange truth and are filtered at the graph query layer (Task 6, active_neighbors CTE), not
+deleted — deleting would discard real history.
+
+## Final dispositions
+
+| ID | Status | Resolution |
+|---|---|---|
+| BUG-098-001 | Fixed | Frontend threads community context (`useTrustPath`/RequestCard); responses carry `scope`. |
+| BUG-098-002 | Fixed | Shared `resolveCommunityContext` + platform sentinel UUID; no more `'platform'`-string UUID-cast 500; malformed header → 400. |
+| BUG-098-003 | Fixed | Ego + aggregate graphs filter neighbors through active membership; full graph already did. |
+| BUG-098-004 | Fixed | Dibs candidate selection requires active shared membership; provider shared_communities already active-filtered; labels truthful. |
+| BUG-098-005 | Fixed | "You're caught up" only after widening; never shown with "Show more open requests". |
+| BUG-098-006 | Fixed/Documented | Unused `getNetwork` wrapper removed; `/network` documented legacy; orphaned exchange connections repaired by idempotent migration. |
+
 <!-- AUDIT RESULTS BELOW -->
