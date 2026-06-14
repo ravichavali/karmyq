@@ -64,7 +64,10 @@ describe('UnifiedFeed show-more open requests', () => {
 
     render(<UnifiedFeed view="home" />)
 
-    expect(await screen.findByText(/You're caught up/i)).toBeInTheDocument()
+    // Sprint 98 (BUG-098-005): before widening we offer "Show more" without claiming
+    // the user is caught up (the two no longer appear together).
+    expect(await screen.findByRole('button', { name: /show more open requests/i })).toBeInTheDocument()
+    expect(screen.queryByText(/You're caught up/i)).not.toBeInTheDocument()
     expect(getCuratedRequests).toHaveBeenNthCalledWith(1, expect.objectContaining({ view: 'home', minScore: 30 }))
 
     fireEvent.click(screen.getByRole('button', { name: /show more open requests/i }))

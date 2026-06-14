@@ -242,7 +242,7 @@ export default function UnifiedFeed({
                 body={
                   showingMoreOpen
                     ? "That's everyone for now. We'll let you know when a neighbour needs help here."
-                    : "You're caught up on the most relevant asks here."
+                    : 'There may be more open requests below the most relevant asks. Look further below.'
                 }
               />
               {showMoreOpenButton}
@@ -250,13 +250,16 @@ export default function UnifiedFeed({
           ) : null
         ) : (
           <div className="kq-finite-state">
+            {/* BUG-098-005: "You're caught up" is a terminal claim — only show it once the
+                feed has been widened (minScore=0). Before widening, offer to look further
+                without contradicting it by also saying the user is caught up. */}
             <EmptyState
-              icon="✅"
-              heading="You're caught up"
+              icon={showingMoreOpen ? '✅' : '🔍'}
+              heading={showingMoreOpen ? "You're caught up" : 'No top matches right now'}
               body={
                 showingMoreOpen
                   ? "That's everyone for now. We'll let you know when a neighbour needs you — quietly."
-                  : "No open requests you can fill right now. You can look further, or browse your communities."
+                  : 'There may be more open requests below your top matches. Look further, or browse your communities.'
               }
               ctaLabel="Browse communities"
               ctaHref="/communities"
