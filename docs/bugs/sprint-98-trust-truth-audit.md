@@ -75,4 +75,25 @@ A completed match therefore cannot be cleanly attributed to a single community.
 This codifies the relationship-truth model → **ADR-077** (Trust path topology is platform-wide;
 strength is community-scoped).
 
+## API Smoke (live demo, `maria.reyes`, run 2026-06-14)
+
+Run from the demo box (Windows curl + large JWT triggers a schannel TLS-renegotiation abort; Linux
+curl on the server is clean). Target `hannah.okafor` (`7ba50c00…`), community `4c9b09f7…`.
+
+| Surface | Result |
+|---|---|
+| `GET /paths/:id` with `X-Community-ID` | 200 · `connection_type: exchange` · degrees 1 · trust_score 0 |
+| `GET /paths/:id` **without** `X-Community-ID` | **200** (not 500) — JWT carries `currentCommunityId`, so `'platform'` fallback is never reached |
+| `POST /paths/batch` with community | 200 · same `exchange`/degree-1 result |
+| `GET /trust-card/:id` without community | 200 · `trustPath` agrees: exchange degree 1 |
+
+**All four surfaces agree** on relationship meaning (exchange, degree 1) — consistency is good.
+
+**BUG-098-002 trigger characterized:** the 500 does **not** fire for normal tokens because
+`currentCommunityId` is populated from `communities[0].id` at login
+([auth.ts:69](../../services/auth-service/src/routes/auth.ts#L69)). It is `undefined` only when a
+user has **zero communities**. So the latent UUID-cast 500 fires for a community-less user who
+requests a trust path with no `X-Community-ID` header. Still a real bug to fix; just narrower than
+the plan assumed. The fix (platform sentinel instead of the `'platform'` string) is unchanged.
+
 <!-- AUDIT RESULTS BELOW -->

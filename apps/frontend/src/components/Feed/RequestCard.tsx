@@ -38,8 +38,10 @@ const STATUS_LABELS: Record<RequestStatusToken, string> = {
   cancelled: 'Cancelled',
 }
 
-function RequestTrustBadge({ requesterId }: { requesterId?: string }) {
-  const { trustPath, loading } = useTrustPath(requesterId)
+function RequestTrustBadge({ requesterId, communityId }: { requesterId?: string; communityId?: string }) {
+  // Scope the path to the card's community so the badge matches the visible surface
+  // (BUG-098-001). On a cross-community surface community_id is absent => platform-wide.
+  const { trustPath, loading } = useTrustPath(requesterId, { communityId })
   if (loading) return <TrustPathBadgeSkeleton compact />
   if (!trustPath) return null
   return <TrustPathBadge trustPath={trustPath} compact presentation="feed" />
@@ -79,7 +81,7 @@ export default function RequestCard({ data, currentUserId, onOffered }: RequestC
     <article className="feed-card kq-card">
       {data.requester_id && (
         <div className="mb-3 flex items-center gap-2">
-          <RequestTrustBadge requesterId={data.requester_id} />
+          <RequestTrustBadge requesterId={data.requester_id} communityId={data.community_id} />
         </div>
       )}
 

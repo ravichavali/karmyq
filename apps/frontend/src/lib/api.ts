@@ -835,11 +835,17 @@ export const socialGraphService = {
   getInviterStats: () =>
     socialGraphApi.get('/invitations/stats'),
 
-  getTrustPath: (targetUserId: string) =>
-    socialGraphApi.get(`/paths/${targetUserId}`),
+  // Sprint 98 (BUG-098-001): pass the active community context so the badge's path
+  // is scoped to the surface the user is looking at. Omitted => platform-wide scope.
+  getTrustPath: (targetUserId: string, communityId?: string) =>
+    socialGraphApi.get(`/paths/${targetUserId}`, {
+      headers: communityId ? { 'X-Community-ID': communityId } : {},
+    }),
 
-  getBatchTrustPaths: (targetUserIds: string[]) =>
-    socialGraphApi.post('/paths/batch', { target_user_ids: targetUserIds }),
+  getBatchTrustPaths: (targetUserIds: string[], communityId?: string) =>
+    socialGraphApi.post('/paths/batch', { target_user_ids: targetUserIds }, {
+      headers: communityId ? { 'X-Community-ID': communityId } : {},
+    }),
 
   getNetwork: () => socialGraphApi.get('/network'),
 
