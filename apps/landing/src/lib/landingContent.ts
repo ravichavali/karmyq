@@ -105,10 +105,10 @@ export const homeContent: HomeContent = {
   thinking: [
     h2('Trust when you can afford to.'),
     p(
-      `Think of your most reliable friend. The one who shows up at 2am. You didn't get there by saving them for emergencies — you got there by calling on each other for things big and small, until the trust was deep enough to hold the 2am call. Trace any friendship like that backwards and you find the same thing: small mutual dependence, repeated, until it became something you could stake everything on.`
+      `Think of your most reliable friend. The one who shows up at 2am. You didn't get there by calling on them only when all else failed — you got there by calling on each other for things big and small, until the trust was deep enough to hold the 2am call. Trace any friendship like that backwards and you find the same thing: small mutual dependence, repeated, until it became something you could stake everything on.`
     ),
     p(
-      `That logic applies at the community scale, and we've abandoned it. The contracts, ratings, background checks, and platform guarantees we layer over modern life aren't worthless — but they're substitutes, and leaning on them lets the underlying muscle go slack.`
+      `That logic applies at the community scale, and we've abandoned it. The contracts, ratings, background checks, and platform guarantees we layer over modern life aren't worthless — but they're substitutes, and leaning on them lets the underlying muscle — our capacity to depend on each other — go slack.`
     ),
     star(`Crisis doesn't create trust. It reveals the trust that was already there — or exposes its absence.`),
     p(
@@ -133,18 +133,21 @@ export const homeContent: HomeContent = {
     ),
     star('There is no villain in this story. That is what makes it hard to fix.'),
 
-    h2('Who gets believed is not random.'),
+    h2('Goodness is just as ordinary.'),
     p(
-      `Hannah Arendt showed that evil doesn't need monsters. Ordinary people, going along, are enough.`
+      `Hannah Arendt argued that evil doesn't need monsters. Ordinary people, going along, are enough.`
     ),
     p(
       `We learned that lesson halfway — outward only. Sophisticated about institutions. Suspicious of strangers. The move almost nobody makes is the mirror image: the same ordinary person who can thoughtlessly harm can thoughtlessly help, when conditions allow. The Covid kitchens weren't heroic. They were the default, briefly uncovered.`
+    ),
+    p(
+      `It holds at the extreme, too. The altruism that surfaces in war zones and disasters — strangers sheltering strangers, people stepping between others and danger — looks like heroism from the outside. From the inside it rarely does. The people the Carnegie Hero Medal honors for risking their lives almost all say the same thing afterward: they didn't decide, they just moved. Not courage summoned in the moment, but a reflex — built from a thousand smaller, ordinary moments of looking out for someone — that finally had a reason to fire.`
     ),
     star(
       `We've learned to see the banality of evil in others. We haven't learned to see the banality of goodness in the same people.`
     ),
     p(
-      `Karmyq doesn't ask for heroism. It builds conditions where the goodness already there has somewhere to go. Standing comes from acts, not identity — because acts are the only evidence that matters.`
+      `Karmyq doesn't ask for heroism. It builds conditions where the goodness already there has somewhere to go.`
     ),
 
     h2('Short-termism won. The bill is coming due.'),
