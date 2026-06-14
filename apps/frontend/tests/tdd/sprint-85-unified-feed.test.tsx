@@ -73,12 +73,15 @@ describe('UnifiedFeed', () => {
     expect(getCuratedRequests).toHaveBeenCalledWith(expect.objectContaining({ view: 'home' }))
   })
 
-  it('shows the "you\'re caught up" end-state when no fillable requests remain', async () => {
+  it('shows the no-fillable-requests end-state when no request cards remain', async () => {
     getCuratedRequests.mockResolvedValue({ data: { items: [decisionItem()] } })
 
     render(<UnifiedFeed />)
 
-    expect(await screen.findByText(/caught up/i)).toBeInTheDocument()
+    // Sprint 98 (BUG-098-005): before widening, the empty feed offers "Show more" under
+    // honest copy ("No top matches right now") rather than claiming the user is caught up.
+    expect(await screen.findByText(/no top matches right now/i)).toBeInTheDocument()
+    expect(screen.queryByText(/you're caught up/i)).not.toBeInTheDocument()
     // the decision still shows even when there are no request cards
     expect(screen.getByText('Ride to PDX')).toBeInTheDocument()
   })
