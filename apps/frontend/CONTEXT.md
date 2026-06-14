@@ -8,6 +8,13 @@ Next.js 14 web application (Pages Router) consuming all Karmyq backend services.
 
 ---
 
+## Sprint 98 Trust Truth Audit (2026-06-14, ADR-077)
+
+- **BUG-098-001 — trust-path community context.** `useTrustPath`/`useBatchTrustPaths` (`src/hooks/useTrustPath.ts`) now accept an optional `communityId` and pass it as `X-Community-ID` via `socialGraphService.getTrustPath/getBatchTrustPaths(id, communityId)` (`src/lib/api.ts`). `RequestCard` supplies the card's `data.community_id`, so a badge's path matches the visible surface; absent context = platform-wide. The localStorage `user` parse is guarded (`readCurrentUserId`) so a corrupt value can't crash the hook.
+- **BUG-098-005 — feed terminal state.** `UnifiedFeed` no longer shows "You're caught up" together with "Show more open requests"; "caught up" appears only after the feed is widened (`showingMoreOpen`). Onboarding workflow copy updated to match.
+- **BUG-098-006 — legacy `/network`.** Removed the unused `socialGraphService.getNetwork()` wrapper; all trust-graph surfaces use `getTrustGraph*`.
+- Relationship copy (DibsPrompt `community_connection`, ProviderCard "✓ In {community}") was already honest; the data-layer fixes make it true.
+
 ## Sprint 97 Release Readiness Data Quality (2026-06-13)
 
 ### `dashboard.tsx` membership bootstrap (BUG-097-001)

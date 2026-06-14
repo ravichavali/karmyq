@@ -381,6 +381,10 @@
           "href": "/docs/concepts/adr-070-visible-decay-model"
         },
         {
+          "label": "Trust Path Topology is Platform-Wide; Strength is Community-Scoped",
+          "href": "/docs/concepts/adr-077-trust-path-platform-topology"
+        },
+        {
           "label": "— Community & Scale —",
           "href": "/docs/concepts",
           "divider": true

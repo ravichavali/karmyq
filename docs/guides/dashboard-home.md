@@ -36,6 +36,6 @@ Use the filter chips to narrow by type or urgency. If you run a service as a pro
 
 ## You’re caught up
 
-When there are no open requests you can fill, Dashboard Home tells you so and points you to your communities — rather than showing an empty or padded list.
+"You're caught up" and "Show more open requests" never appear at the same time — that would be a contradiction. Before you've widened the feed, Dashboard Home doesn't know whether lower-ranked asks exist, so it offers **Show more open requests** under honest copy ("No top matches right now") instead of claiming you're done. Only after you widen the feed (and there's genuinely nothing left) does it say **You're caught up** and drop the Show-more button. When there *are* lower-ranked asks, widening reveals them and closes with a single "That's everyone for now" note.
 
 See [One Feed, Two Views](/docs/concepts/unified-feed) for the thinking behind this.

@@ -470,6 +470,7 @@ const ADR_GROUPS: Array<{ label: string; slugs: string[] }> = [
       'adr-063-canonical-trust-metric-and-unified-graph',
       'adr-069-data-retention-and-forgetting',
       'adr-070-visible-decay-model',
+      'adr-077-trust-path-platform-topology',
     ],
   },
   {
