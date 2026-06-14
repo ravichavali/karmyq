@@ -1,120 +1,164 @@
-# Sprint 97 - Release Readiness Data Quality + Functional Bug Bash - DONE, DEPLOYED (v11.6.0)
+# Sprint 98 - Trust Truth Audit + Functional Repairs - IMPLEMENTED, pending PR/deploy (v11.7.0)
 
-> **STATUS (2026-06-14):** PR #86 squash-merged to `master`; CI/CD deployed **v11.6.0** to
-> karmyq.com (all 18 containers up, request-service healthy). Post-deploy validation passed: the
-> membership-drift repair migration applied (audit §1 = 0 rows) and the live pulse endpoint for Bay
-> Area Mutual Aid returns only active members (`helpedThisWeek` 19→10). All three named bugs fixed
-> with tests; details + post-deploy evidence in `docs/bugs/sprint-97-release-readiness.md`.
+> **STATUS (2026-06-14):** All 6 named bugs fixed on `feature/sprint-98-trust-truth-audit`,
+> committed, tests green, version bumped 11.6.0 → 11.7.0. Pending: open PR → review → merge → deploy
+> → post-deploy validation (Task 18 checklist below). The trust-truth repair migration
+> (`20260614-trust-truth-repair.sql`) applies on deploy.
 >
-> **This handoff edit is intentionally NOT pushed standalone** — a docs-only push to `master`
-> triggers a redundant full redeploy (known lesson). It rides with the next sprint's first push.
+> **Execution summary (Tasks 1–16 done):**
+> - **BUG-098-002** (UUID-cast 500): shared `resolveCommunityContext` + platform sentinel UUID;
+>   `/paths`,`/paths/batch`,`/trust-card` no longer send `'platform'` to a UUID column; malformed
+>   `X-Community-ID` → 400; responses carry `scope`. **ADR-077** records the platform-wide-topology
+>   decision (forced by `help_requests` having no `community_id`).
+> - **BUG-098-003** (graph membership): ego + aggregate graphs filter neighbors via `active_neighbors`
+>   CTE; full graph already did.
+> - **BUG-098-004** (relationship labels): dibs candidate selection requires `cm.status='active'`;
+>   provider `shared_communities` already active-filtered; live data was clean (audit checks 4,5 = 0).
+> - **BUG-098-001** (frontend context): `useTrustPath`/RequestCard thread `communityId`; localStorage
+>   parse guarded.
+> - **BUG-098-005** (feed state): "You're caught up" only after widening, never with "Show more".
+> - **BUG-098-006** (legacy): unused `getNetwork()` wrapper removed, `/network` marked legacy;
+>   343 orphaned exchange connections cleaned by idempotent migration.
+> - Audit: `scripts/audit-trust-truth.sql` run on demo; findings in
+>   `docs/bugs/sprint-98-trust-truth-audit.md`. Gates: inline code+security review, `npm audit`
+>   clean, 29 new TDD tests pass, SG/RS suites + all tsc green.
 >
-> **Follow-ups for next session:**
-> - 2 Dependabot alerts on `master` (1 high, 1 low) — pre-existing, address per the security SLA.
-> - Recurring `js/request-forgery` CodeQL FP on landing API base (alert #525 dismissed this sprint;
->   recurs each sprint that touches a landing client) — consider a CodeQL suppression/config fix.
-> - `analyze:services` version drift (pg, axios across geocoding/simulation/request).
-> - Deferred: founding-circle notify/review surface; service consolidation phase 2; mobile parity.
->
-> **Audit outcome:** BUG-097-002 confirmed pervasive (186 non-member-helper pairs). Membership
-> drift on 10 fission-parent communities → idempotent repair migration
-> `infrastructure/postgres/migrations/20260613-demo-data-quality-repair.sql`. The "730 orphaned open
-> requests" the audit query flagged were a FALSE ALARM: split/merged communities keep full active
-> membership and the feed doesn't filter by community status, so those requests stay visible — no
-> fix needed. `helpedThisWeek` adopted member-only semantics. Primary tester `maria.reyes` confirmed.
+> **This handoff edit is intentionally not pushed standalone** - a docs-only push to `master`
+> triggers a redundant full redeploy. It should ride with the Sprint 98 implementation PR.
 
-> **Prior status (planning):** Sprint 96 is merged on `master` as `9fb3308` / PR #84 and version
-> `11.5.0`. Sprint 97 is an audit-first release-readiness sprint focused on demo data quality and
-> first-run functional bugs before release week. The founding-circle admin review screen is
-> explicitly deferred because submissions can be queried directly from the DB for launch.
+**Branch:** `feature/sprint-98-trust-truth-audit` (create from `master`).
 
-**Branch:** `feature/sprint-97-release-readiness-data-quality` (create from `master`).
+**Spec:** `docs/superpowers/specs/2026-06-14-sprint-98-trust-truth-audit-design.md`
 
-**Spec:** `docs/superpowers/specs/2026-06-13-sprint-97-release-readiness-data-quality-design.md`
-
-**Plan:** `docs/superpowers/plans/2026-06-13-sprint-97-release-readiness-data-quality.md`
+**Plan:** `docs/superpowers/plans/2026-06-14-sprint-98-trust-truth-audit.md`
 
 ---
 
 ## Quick Start
 
 1. Read this handoff.
-2. Check out branch: `git checkout -b feature/sprint-97-release-readiness-data-quality`.
-3. Open plan: `docs/superpowers/plans/2026-06-13-sprint-97-release-readiness-data-quality.md`.
+2. Check out branch: `git checkout -b feature/sprint-98-trust-truth-audit`.
+3. Open plan: `docs/superpowers/plans/2026-06-14-sprint-98-trust-truth-audit.md`.
 4. Run: `/execute-plan` (uses superpowers:subagent-driven-development).
 
 ---
 
 ## Sprint Goal
 
-Make the release demo path truthful and stable by auditing live/demo data quality, fixing the
-highest-risk first-run bugs, documenting a rich tester account, and validating the full
-signup-to-help flow before v11.6.0 deploy.
+Make Karmyq's trust paths, graphs, relationship labels, and normal trust-dependent flows accurate
+from DB truth through API responses to the frontend.
 
 ---
 
 ## Scope
 
-Release-critical flows:
+Trust and relationship correctness:
 
-- Signup/login.
-- Join existing community and create community.
-- Dashboard load for users with one community, many communities, and no communities.
-- Create request from the dashboard wizard.
-- Browse the home feed, use "Show more open requests," and reach a finite terminal state.
-- Use dibs/matching and decision-band actions where seeded data allows.
-- Use provider offer flows where seeded data allows.
-- Open community pages, People, Home pulse, How we're connected, and Stewardship access boundaries.
-- Confirm landing/docs handoff routes still work.
+- Live/demo trust data audit and idempotent repair scripts if needed.
+- Dashboard "Your Trust Network" people graph.
+- Dashboard "Your Trust Network" communities graph.
+- Community "How we're connected" Community and My Network subtabs.
+- Trust path badges on feed request cards, offers, provider pages, and trust cards.
+- Dibs candidate reason copy and relationship context.
+- Request/feed relationship scoring inputs where visible copy depends on social proximity.
+- Provider directory shared-community labels.
+- Legacy `/network` and `socialGraphService.getNetwork()` usage audit.
+- Dashboard feed caught-up/show-more state coherence.
 
 Explicitly deferred:
 
-- Founding-circle admin review surface.
-- Email/Slack notification transport for founding-circle submissions.
-- Broad redesign work unrelated to release-blocking bugs.
+- Broad graph redesign for beauty alone.
+- New social features like introductions or endorsements.
+- Founding-circle review/notify surface.
+- Service consolidation phase 2.
+- Mobile parity unless a shared API bug demands it.
 
 ---
 
 ## Named Bugs / Acceptance Items
 
-### BUG-097-001 - Dashboard false zero-community state
+### BUG-098-001 - Trust path community context can drift from the visible surface
 
-Users who are in multiple communities sometimes see "You haven't joined a community yet"; refresh
-fixes it. Likely source is `apps/frontend/src/pages/dashboard.tsx` setting render-ready/loading
-state before `fetchCommunities(parsedUser.id)` resolves.
+`useTrustPath()` currently calls `socialGraphService.getTrustPath(targetUserId)` without a
+community header. The social-graph route then falls back to `req.user.currentCommunityId` or
+`platform`, while the UI may be rendering a specific community, provider page, feed scope, or offer.
 
-Acceptance: users with memberships never see the zero-community empty state before membership fetch
-completion; real fetch failure shows the retry banner, not the false empty state.
+Acceptance: every visible trust path fetch either passes the active community context or
+intentionally asks for a platform-wide path and labels it as such.
 
-### BUG-097-002 - Community pulse helper names bleed across membership truth
+### BUG-098-002 - Missing path community context can 500 before semantics are even reached
 
-Reported page:
-`https://karmyq.com/communities/12dbd705-8c7a-4ba8-a8d2-fcf1aee4e27f` (`Test 1`) rendered
-"thanks to David Park, Kwame Rodriguez, Chen Johansson," but Chen was not visible in that
-community's member list.
+`/paths/:targetUserId` and `/paths/batch` fall back to the literal string `platform` when neither
+`X-Community-ID` nor `req.user.currentCommunityId` exists. The cache query then compares that value
+to `auth.social_distances.community_id`, a UUID column, which can throw a UUID cast error and return
+500 before path semantics are reached. Separately, once a valid community ID exists,
+`computeShortestPath(source, target, communityId)` builds its adjacency from all completed matches,
+but later uses `communityId` for edge scoring and cache keying.
 
-Planning DB checks found:
+Acceptance: missing community context never produces a UUID cast 500. Then choose and document path
+semantics. Preferred: exchange paths are community-scoped when a real community ID is supplied, with
+labeled platform fallback only when no community context exists.
 
-- `Test 1` has `current_members=65` and 65 active member rows, so the counter itself is consistent.
-- `Chen Johansson` exists globally as `chen.johansson2568@test.karmyq.com`.
-- Chen is active in `Test 2` and multiple other communities, but not in `Test 1`.
+### BUG-098-003 - Graph APIs and UI claims may disagree about active membership
 
-Likely source: `fetchCommunityPulse()` in `services/request-service/src/routes/requests.ts`
-selects recent helpers through completed matches and `requests.request_communities`, but does not
-require `m.responder_id` to be an active member of the pulse community.
+Community full graphs read active members for nodes, while ego and aggregate graph queries derive
+neighbors from trust edges and may not prove active membership on every endpoint.
 
-Acceptance: recent helper names are active members of the community being rendered, or explicitly
-labeled as cross-community help. For release, prefer the safer member-only fix. Also choose and
-document the visible `helpedThisWeek` semantics so the pulse does not say neighbours helped each
-other while naming zero qualifying helpers.
+Acceptance: audit proves whether graph nodes and edges are active members of the relevant community
+context. If drift exists, graph endpoints filter or label it correctly.
 
-### BUG-097-003 - Feed terminal state after "Show more open requests"
+### BUG-098-004 - Relationship labels use multiple sources of truth
 
-After widening the feed with "Show more open requests," the feed ends without clear "no more"
-copy.
+Provider shared-community labels, dibs reasons, trust badges, trust-card paths, feed scoring, and
+graph widgets can all describe "connection" differently.
 
-Acceptance: after `showingMoreOpen`/`minScore=0`, the bottom of the feed clearly says everyone/no
-more open asks are shown. It must not appear before the user clicks Show more.
+Acceptance: create a concise relationship semantics table and update code/docs so visible labels
+use the correct term: direct exchange connection, indirect exchange path, fellow community member,
+invitation connection, shared provider/community context.
+
+### BUG-098-005 - Dashboard caught-up state conflicts with "Show more open requests"
+
+Dashboard Home can show "You're caught up" while also showing "Show more open requests."
+
+Acceptance: the feed chooses one coherent state. If lower-ranked open asks can be revealed, show
+"Show more open requests" without saying the user is fully caught up. If the user is genuinely
+caught up, do not show the affordance. After expansion, show one finite terminal state.
+
+### BUG-098-006 - Legacy relationship endpoints may still be reachable but no longer authoritative
+
+`/network` and `socialGraphService.getNetwork()` still exist even though current dashboard graph
+surfaces use `/trust/graph`.
+
+Acceptance: audit all references. Either confirm/document the endpoint as legacy, or retire unused
+frontend methods/routes in a safe follow-up.
+
+---
+
+## Critical Implementation Notes
+
+1. **Audit first.** Do not fix individual trust surfaces before running the DB/API/UI trust audit.
+   The likely problem is semantic drift across layers, not one component typo.
+2. **Find the root cause before fixing.** Use systematic debugging for each confirmed issue:
+   reproduce, trace source data, compare working surfaces, then write the failing test.
+3. **Community context is the main suspect.** Every path/badge/graph fix must answer whether the
+   relationship is community-scoped or platform-wide and label it accordingly.
+4. **Do not make client-side filters hide server truth.** If an API returns misleading relationship
+   data, fix the API or explicitly document the historical/platform meaning.
+5. **Use decayed trust consistently.** Graph node/edge trust metrics should read from
+   `social_graph.trust_edges_live` unless a test proves a different metric is intentional.
+6. **Active membership matters.** Any UI phrase that says "in this community" or "fellow member"
+   must be backed by active `communities.members` rows.
+7. **Cache invalidation matters.** `auth.social_distances` can preserve old path meaning. Include
+   cache rows in the audit and clear/recompute only with an idempotent script if needed.
+8. **Provider labels are not exchange trust.** Shared provider/community labels should not imply a
+   completed help exchange unless the exchange path exists.
+9. **Dashboard feed state must be coherent.** "You're caught up" and "Show more open requests"
+   should not appear together as competing terminal states.
+10. **Robust tests are required.** Prefer DB-backed tests for path and graph invariants. Mock only
+   browser rendering and external services.
+11. **Live demo validation is required.** Use `maria.reyes@test.karmyq.com` / `password123` as the
+   rich tester unless the audit finds a better account.
+12. **Version bump:** root `package.json` and `package-lock.json` move `11.6.0` -> `11.7.0`.
 
 ---
 
@@ -126,7 +170,7 @@ Primary rich-state tester:
 maria.reyes@test.karmyq.com / password123
 ```
 
-Live demo evidence from planning query:
+Sprint 97 evidence:
 
 - 15 active communities.
 - 28 trust edges.
@@ -148,48 +192,20 @@ Previously confirmed as a plain member of Berkeley Community Care
 
 ---
 
-## Critical Implementation Notes
-
-1. **Audit first.** Do not jump straight into the three known fixes before running the release
-   data-quality queries; the point of Sprint 97 is to find launch-risk bugs, not only fix the
-   examples already noticed.
-2. **No founding-circle admin screen in this sprint.** Direct DB queries are sufficient for release
-   week; keep this sprint on data quality and functional demo bugs.
-3. **Tester account:** use `maria.reyes@test.karmyq.com` / `password123` as the primary rich-state
-   tester unless the audit finds it broken. Keep `aisha.white6964@test.karmyq.com` / `password123`
-   as a simpler member-only fallback.
-4. **Dashboard bug is a loading-state bug until proven otherwise.** Fix the false empty state at
-   the frontend state boundary; do not paper over it with a timeout.
-5. **Pulse helper names must not lie.** Prefer joining `communities.members` on
-   `m.responder_id = members.user_id`, `members.community_id = $1`, `members.status='active'`.
-6. **Data repairs must be idempotent.** If demo data needs repair, write SQL that can run twice
-   safely and document exactly what it changes.
-7. **Do not hand-edit generated landing docs.** Update `docs/guides/*` and `scripts/generate-docs.ts`
-   if needed; generated `apps/landing/src/data/docs/*` is wiped by the generator and must be
-   committed with `git add -f` when changed.
-8. **Robust tests are required.** Frontend component tests belong in `apps/frontend/tests/tdd/*.test.tsx`
-   and run with `cd apps/frontend && npm run test:tdd`; root `tests/tdd` is for root harness tests,
-   not jsdom component rendering. Cover the actual bug conditions: async dashboard community load,
-   non-member helper excluded from pulse, and widened feed terminal copy.
-9. **Use live demo validation at the end.** The human checklist must hit API, DB, and UI on
-   `karmyq.com` after deploy.
-10. **Version bump:** root `package.json` and `package-lock.json` move `11.5.0` -> `11.6.0`.
-
----
-
 ## Post-Deploy Validation Required
 
 The plan ends with a human checklist:
 
-1. Login with `maria.reyes@test.karmyq.com` / `password123`; dashboard must not flash the false
-   no-community state.
-2. Open `Test 1`; pulse must not name `Chen Johansson` unless he is now an active member of that
-   exact community.
-3. Click **Show more open requests**; feed bottom must clearly say no more/everyone is shown.
-4. API-smoke `GET /api/requests/community/:id/pulse`; all recent helper names must be active
-   members of the community.
-5. Re-run `scripts/audit-demo-data.sql` on the demo DB; release-blocking drift must be fixed or
-   explicitly deferred in `docs/bugs/sprint-97-release-readiness.md`.
+1. API trust path smoke with `Authorization` and `X-Community-ID`; path type and scope must match
+   the semantics table.
+2. Graph membership smoke for `/api/trust/graph/:communityId`; nodes/links must match active
+   membership rules documented in the bug log.
+3. UI flow check as `maria.reyes@test.karmyq.com`: dashboard trust network, community How we're
+   connected, feed badges, provider labels, and dibs surfaces must not imply unproven exchange
+   trust.
+4. Dashboard feed check: "You're caught up" and "Show more open requests" must not appear together.
+5. Re-run `scripts/audit-trust-truth.sql` on demo DB; no release-blocking trust truth drift remains
+   unless explicitly deferred with rationale.
 
 ---
 
@@ -198,10 +214,11 @@ The plan ends with a human checklist:
 - **S92 (done):** Matching & Dibs Repair (v11.1.0).
 - **S93 (done):** Provider<->Community link-up + carry-forward fixes (v11.2.0, PR #80).
 - **S94 (done):** Error Contract Cleanup / ADR-074 (v11.3.0, PR #82).
-- **S95 (done):** karmyq.org multi-route relaunch + logo fix (v11.4.0, PR #83).
+- **S95 (done):** karmyq.org Multi-Route Relaunch (v11.4.0, PR #83).
 - **S96 (done):** Founding-circle backend intake (v11.5.0, PR #84).
-- **S97 (planned):** Release Readiness Data Quality + Functional Bug Bash (v11.6.0).
-- **S98+ (deferred):** Founding-circle notify/review surface or post-release UX hardening.
+- **S97 (done):** Release Readiness Data Quality + Functional Bug Bash (v11.6.0, PR #86).
+- **S98 (planned):** Trust Truth Audit + Functional Repairs (v11.7.0).
+- **S99+ (deferred):** Relationship UX polish or founding-circle notify/review surface.
 - **Deferred:** Service Consolidation Phase 2 - geocoding -> client-side, 10->9 (ADR-071).
 - **Deferred to post-rollout:** mobile parity.
 

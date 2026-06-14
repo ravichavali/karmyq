@@ -63,3 +63,13 @@ scp scripts/audit-demo-data.sql ubuntu@karmyq.com:/tmp/audit-demo-data.sql
 ssh ubuntu@karmyq.com "docker cp /tmp/audit-demo-data.sql karmyq-postgres:/tmp/audit-demo-data.sql \
   && docker exec karmyq-postgres sh -c 'PGPASSWORD=\$POSTGRES_PASSWORD psql -U \"\$POSTGRES_USER\" -d \"\$POSTGRES_DB\" -f /tmp/audit-demo-data.sql'"
 ```
+
+## Trust truth audit (Sprint 98)
+
+A second read-only script, [`scripts/audit-trust-truth.sql`](../../scripts/audit-trust-truth.sql),
+checks that trust relationships describe the same truth across layers: trust-edge endpoints that are
+still active members of the edge community, `exchange` connections backed by a completed match,
+cached `social_distances` rows with valid community context, provider shared-communities active on
+both sides, and dibs candidates that share an active community. Run it the same way (swap the
+filename). Findings and dispositions live in
+[`docs/bugs/sprint-98-trust-truth-audit.md`](../bugs/sprint-98-trust-truth-audit.md).

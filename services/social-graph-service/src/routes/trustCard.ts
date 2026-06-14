@@ -1,7 +1,9 @@
 import { Router, Response } from 'express';
 import { AuthenticatedRequest } from '@karmyq/shared/middleware/auth';
+import { sendValidationError } from '@karmyq/shared';
 import { logger } from '../config/logger';
 import { computeTrustPath, computeInvitationPath } from '../services/pathComputation';
+import { resolveCommunityContext } from '../services/communityContext';
 import axios from 'axios';
 
 const router = Router();
@@ -32,10 +34,16 @@ router.get('/:targetUserId', async (req: AuthenticatedRequest, res: Response) =>
       return res.status(400).json({ success: false, message: 'Cannot view trust card for yourself' });
     }
 
-    // Compute primary trust path (exchange → community → invitation)
-    const communityId = req.headers['x-community-id'] as string
-      || req.user?.currentCommunityId
-      || 'platform';
+    // Compute primary trust path (exchange → community → invitation).
+    // Same community-context semantics as /paths (see communityContext resolver docs).
+    const resolved = resolveCommunityContext(
+      req.headers['x-community-id'] as string | undefined,
+      req.user?.currentCommunityId
+    );
+    if (!resolved.ok) {
+      return sendValidationError(res, resolved.reason);
+    }
+    const { communityId, scope } = resolved.context;
 
     const pathResult = await computeTrustPath(currentUserId, targetUserId, communityId);
 
@@ -77,6 +85,7 @@ router.get('/:targetUserId', async (req: AuthenticatedRequest, res: Response) =>
         invitationPath,
         degrees: pathResult?.degrees ?? null,
         path_type: pathResult ? mapConnectionType(pathResult.connectionType) : null,
+        scope,
       },
     });
   } catch (err) {

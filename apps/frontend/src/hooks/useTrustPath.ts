@@ -4,6 +4,18 @@ import { TrustPath } from '../components/TrustPathBadge';
 
 interface UseTrustPathOptions {
   enabled?: boolean; // Set to false to disable automatic fetching
+  /** Active community context (BUG-098-001). Omitted => platform-wide path. */
+  communityId?: string;
+}
+
+/** Read the signed-in user's id from localStorage, tolerating a corrupt value. */
+function readCurrentUserId(): string | undefined {
+  if (typeof window === 'undefined') return undefined;
+  try {
+    return JSON.parse(localStorage.getItem('user') || 'null')?.id;
+  } catch {
+    return undefined;
+  }
 }
 
 /**
@@ -17,13 +29,10 @@ export function useTrustPath(targetUserId: string | null | undefined, options: U
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const { enabled = true } = options;
+  const { enabled = true, communityId } = options;
 
   useEffect(() => {
-    const currentUser = typeof window !== 'undefined'
-      ? JSON.parse(localStorage.getItem('user') || 'null')
-      : null;
-    const currentUserId = currentUser?.id;
+    const currentUserId = readCurrentUserId();
 
     if (!targetUserId || !enabled || targetUserId === currentUserId) {
       setTrustPath(null);
@@ -39,7 +48,7 @@ export function useTrustPath(targetUserId: string | null | undefined, options: U
       setError(null);
 
       try {
-        const response = await socialGraphService.getTrustPath(targetUserId);
+        const response = await socialGraphService.getTrustPath(targetUserId, communityId);
 
         if (!cancelled) {
           setTrustPath(response.data);
@@ -66,7 +75,7 @@ export function useTrustPath(targetUserId: string | null | undefined, options: U
     return () => {
       cancelled = true;
     };
-  }, [targetUserId, enabled]);
+  }, [targetUserId, enabled, communityId]);
 
   return { trustPath, loading, error };
 }
@@ -82,7 +91,7 @@ export function useBatchTrustPaths(targetUserIds: string[], options: UseTrustPat
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const { enabled = true } = options;
+  const { enabled = true, communityId } = options;
 
   useEffect(() => {
     if (!targetUserIds || targetUserIds.length === 0 || !enabled) {
@@ -97,7 +106,7 @@ export function useBatchTrustPaths(targetUserIds: string[], options: UseTrustPat
       setError(null);
 
       try {
-        const response = await socialGraphService.getBatchTrustPaths(targetUserIds);
+        const response = await socialGraphService.getBatchTrustPaths(targetUserIds, communityId);
 
         if (!cancelled) {
           const pathsMap = new Map();
@@ -132,7 +141,7 @@ export function useBatchTrustPaths(targetUserIds: string[], options: UseTrustPat
     return () => {
       cancelled = true;
     };
-  }, [JSON.stringify(targetUserIds), enabled]);
+  }, [JSON.stringify(targetUserIds), enabled, communityId]);
 
   return { trustPaths, loading, error };
 }

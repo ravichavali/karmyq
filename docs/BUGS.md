@@ -118,3 +118,9 @@ mirroring cancel.
 In the community https://karmyq.com/communities/eb32c151-9953-409f-87ad-9abed720e4f4 the pulse shows This week, "4 neighbours helped each other thanks to Andre Chen, David Park, Maria Elena Reyes". However, when I go to "How we are connected", it shows no relationships. What's going on? (Pulse reports completed help / connections but the trust graph renders empty.)
 
 ---
+
+## BUG-010 · [2026-06-14] · open
+
+Failed to execute split on this page: https://karmyq.com/communities/446c2c65-64e1-4e8e-9d87-54671939a4da
+
+---

@@ -189,15 +189,25 @@ export async function getTrustGraph(
   communityId: string,
   callingUserId: string
 ): Promise<{ nodes: TrustNode[]; links: TrustLink[] }> {
-  const neighborsCTE = `
-    SELECT CASE WHEN user_id_a = $2::uuid THEN user_id_b ELSE user_id_a END AS neighbor_id
-    FROM social_graph.trust_edges
-    WHERE community_id = $1
-      AND (user_id_a = $2::uuid OR user_id_b = $2::uuid)
+  // Sprint 98 (BUG-098-003): neighbors must be ACTIVE members of the requested
+  // community. A trust edge can outlive membership (user completed an exchange then
+  // left), so deriving neighbors from trust_edges alone surfaces non-members under
+  // copy that claims "your network in this community".
+  const activeNeighborsCTE = `
+    active_neighbors AS (
+      SELECT CASE WHEN te.user_id_a = $2::uuid THEN te.user_id_b ELSE te.user_id_a END AS neighbor_id
+      FROM social_graph.trust_edges te
+      JOIN communities.members m
+        ON m.user_id = (CASE WHEN te.user_id_a = $2::uuid THEN te.user_id_b ELSE te.user_id_a END)
+       AND m.community_id = $1
+       AND m.status = 'active'
+      WHERE te.community_id = $1
+        AND (te.user_id_a = $2::uuid OR te.user_id_b = $2::uuid)
+    )
   `;
 
   const nodesQuery = `
-    WITH neighbors AS (${neighborsCTE})
+    WITH ${activeNeighborsCTE}
     SELECT u.id, u.name,
       COALESCE((
         SELECT SUM(tel.current_weight) FROM social_graph.trust_edges_live tel
@@ -210,23 +220,24 @@ export async function getTrustGraph(
       (u.id = $2::uuid) AS is_current_user
     FROM auth.users u
     WHERE u.id = $2::uuid
-       OR u.id IN (SELECT neighbor_id FROM neighbors)
+       OR u.id IN (SELECT neighbor_id FROM active_neighbors)
   `;
 
+  // Links only between nodes in the resolved node set (caller ∪ active neighbors),
+  // so a caller↔departed-member edge can never dangle to a missing node.
   const edgesQuery = `
-    WITH neighbors AS (${neighborsCTE})
+    WITH ${activeNeighborsCTE},
+    node_set AS (
+      SELECT neighbor_id AS id FROM active_neighbors
+      UNION SELECT $2::uuid
+    )
     SELECT te.user_id_a AS source, te.user_id_b AS target,
            te.raw_weight,
            te.current_weight AS effective_weight
     FROM social_graph.trust_edges_live te
     WHERE te.community_id = $1
-      AND (
-        te.user_id_a = $2::uuid OR te.user_id_b = $2::uuid
-        OR (
-          te.user_id_a IN (SELECT neighbor_id FROM neighbors)
-          AND te.user_id_b IN (SELECT neighbor_id FROM neighbors)
-        )
-      )
+      AND te.user_id_a IN (SELECT id FROM node_set)
+      AND te.user_id_b IN (SELECT id FROM node_set)
   `;
 
   const [nodesResult, edgesResult] = await Promise.all([
@@ -327,24 +338,35 @@ export async function getFullCommunityGraph(
 export async function getTrustGraphAggregate(
   callingUserId: string
 ): Promise<{ nodes: TrustNode[]; links: TrustLink[] }> {
+  // Sprint 98 (BUG-098-003): the aggregate "people you've built trust with across your
+  // communities" must show people who are STILL active members of a community the caller
+  // is also active in — not edge endpoints who have since left.
   const userCommunitiesCTE = `
-    SELECT community_id FROM communities.members WHERE user_id = $1 AND status = 'active'
+    user_communities AS (
+      SELECT community_id FROM communities.members WHERE user_id = $1::uuid AND status = 'active'
+    )
   `;
 
-  const neighborsCTE = `
-    SELECT DISTINCT CASE WHEN te.user_id_a = $1::uuid THEN te.user_id_b ELSE te.user_id_a END AS neighbor_id
-    FROM social_graph.trust_edges te
-    WHERE te.community_id IN (${userCommunitiesCTE})
-      AND (te.user_id_a = $1::uuid OR te.user_id_b = $1::uuid)
+  const activeNeighborsCTE = `
+    active_neighbors AS (
+      SELECT DISTINCT CASE WHEN te.user_id_a = $1::uuid THEN te.user_id_b ELSE te.user_id_a END AS neighbor_id
+      FROM social_graph.trust_edges te
+      JOIN communities.members m
+        ON m.user_id = (CASE WHEN te.user_id_a = $1::uuid THEN te.user_id_b ELSE te.user_id_a END)
+       AND m.community_id = te.community_id
+       AND m.status = 'active'
+      WHERE te.community_id IN (SELECT community_id FROM user_communities)
+        AND (te.user_id_a = $1::uuid OR te.user_id_b = $1::uuid)
+    )
   `;
 
   const nodesQuery = `
-    WITH neighbors AS (${neighborsCTE})
+    WITH ${userCommunitiesCTE}, ${activeNeighborsCTE}
     SELECT u.id, u.name,
       COALESCE((
         SELECT SUM(tel.current_weight) FROM social_graph.trust_edges_live tel
         WHERE (tel.user_id_a = u.id OR tel.user_id_b = u.id)
-          AND tel.community_id IN (${userCommunitiesCTE})
+          AND tel.community_id IN (SELECT community_id FROM user_communities)
       ), 0) AS trust_score,
       COALESCE((
         SELECT SUM(kr.points) FROM reputation.karma_records kr WHERE kr.user_id = u.id
@@ -352,23 +374,22 @@ export async function getTrustGraphAggregate(
       (u.id = $1::uuid) AS is_current_user
     FROM auth.users u
     WHERE u.id = $1::uuid
-       OR u.id IN (SELECT neighbor_id FROM neighbors)
+       OR u.id IN (SELECT neighbor_id FROM active_neighbors)
   `;
 
   const edgesQuery = `
-    WITH neighbors AS (${neighborsCTE})
+    WITH ${userCommunitiesCTE}, ${activeNeighborsCTE},
+    node_set AS (
+      SELECT neighbor_id AS id FROM active_neighbors
+      UNION SELECT $1::uuid
+    )
     SELECT te.user_id_a AS source, te.user_id_b AS target,
            SUM(te.raw_weight) AS raw_weight,
            SUM(te.current_weight) AS effective_weight
     FROM social_graph.trust_edges_live te
-    WHERE te.community_id IN (${userCommunitiesCTE})
-      AND (
-        te.user_id_a = $1::uuid OR te.user_id_b = $1::uuid
-        OR (
-          te.user_id_a IN (SELECT neighbor_id FROM neighbors)
-          AND te.user_id_b IN (SELECT neighbor_id FROM neighbors)
-        )
-      )
+    WHERE te.community_id IN (SELECT community_id FROM user_communities)
+      AND te.user_id_a IN (SELECT id FROM node_set)
+      AND te.user_id_b IN (SELECT id FROM node_set)
     GROUP BY te.user_id_a, te.user_id_b
   `;
 

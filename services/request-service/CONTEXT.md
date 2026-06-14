@@ -2626,6 +2626,10 @@ CREATE TABLE auth.user_interests (
 
 ### 10.4 Recent Fixes
 
+**Sprint 98 — Trust Truth Audit (v11.7.0, branch `feature/sprint-98-trust-truth-audit`):**
+
+- **BUG-098-004 — dibs candidates could be inactive members.** `getMutualAidCandidates` and `getEligibleCandidates` (`src/db/dibsDb.ts`) admitted anyone in `communities.members` of a shared community regardless of status, so a departed member could be surfaced as a first-ask candidate and labelled `community_connection`. Both selection subqueries now require `cm.status = 'active'`. This also closes the orphaned-`exchange`-connection admission path. `providers.ts` `shared_communities` already filtered active on both sides (no change). `deriveDibsReason` is now truthful by construction.
+
 **Sprint 97 — Release Readiness Data Quality (v11.6.0, branch `feature/sprint-97-release-readiness-data-quality`):**
 
 - **BUG-097-002 — community pulse named non-member helpers.** `fetchCommunityPulse()` derived recent
