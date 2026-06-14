@@ -182,7 +182,7 @@ export async function getEligibleCandidates(
        AND pp.user_id IN (
          SELECT DISTINCT cm.user_id
          FROM communities.members cm
-         WHERE cm.community_id = ANY($2)
+         WHERE cm.community_id = ANY($2) AND cm.status = 'active'
        )
        AND pp.user_id != $1`,
     [requesterId, communityIds, similarityKey]
@@ -287,7 +287,7 @@ export async function getMutualAidCandidates(
        AND u.id IN (
          SELECT DISTINCT cm.user_id
          FROM communities.members cm
-         WHERE cm.community_id = ANY($2)
+         WHERE cm.community_id = ANY($2) AND cm.status = 'active'
        )
        AND (
          COALESCE(prior.interaction_count, 0) >= 1
