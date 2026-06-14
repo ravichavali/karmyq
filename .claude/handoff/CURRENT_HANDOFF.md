@@ -1,12 +1,30 @@
-# Sprint 98 - Trust Truth Audit + Functional Repairs - PLANNED (v11.7.0)
+# Sprint 98 - Trust Truth Audit + Functional Repairs - IMPLEMENTED, pending PR/deploy (v11.7.0)
 
-> **STATUS (2026-06-14):** Sprint 97 is done, merged, and deployed as **v11.6.0**. Sprint 98 is
-> planned as an audit-first trust/data-quality and normal-flow functionality sprint. The central
-> product risk is that trust paths, trust graphs, connection labels, provider shared-community
-> labels, and dibs reasons may not all describe the same relationship truth.
+> **STATUS (2026-06-14):** All 6 named bugs fixed on `feature/sprint-98-trust-truth-audit`,
+> committed, tests green, version bumped 11.6.0 → 11.7.0. Pending: open PR → review → merge → deploy
+> → post-deploy validation (Task 18 checklist below). The trust-truth repair migration
+> (`20260614-trust-truth-repair.sql`) applies on deploy.
+>
+> **Execution summary (Tasks 1–16 done):**
+> - **BUG-098-002** (UUID-cast 500): shared `resolveCommunityContext` + platform sentinel UUID;
+>   `/paths`,`/paths/batch`,`/trust-card` no longer send `'platform'` to a UUID column; malformed
+>   `X-Community-ID` → 400; responses carry `scope`. **ADR-077** records the platform-wide-topology
+>   decision (forced by `help_requests` having no `community_id`).
+> - **BUG-098-003** (graph membership): ego + aggregate graphs filter neighbors via `active_neighbors`
+>   CTE; full graph already did.
+> - **BUG-098-004** (relationship labels): dibs candidate selection requires `cm.status='active'`;
+>   provider `shared_communities` already active-filtered; live data was clean (audit checks 4,5 = 0).
+> - **BUG-098-001** (frontend context): `useTrustPath`/RequestCard thread `communityId`; localStorage
+>   parse guarded.
+> - **BUG-098-005** (feed state): "You're caught up" only after widening, never with "Show more".
+> - **BUG-098-006** (legacy): unused `getNetwork()` wrapper removed, `/network` marked legacy;
+>   343 orphaned exchange connections cleaned by idempotent migration.
+> - Audit: `scripts/audit-trust-truth.sql` run on demo; findings in
+>   `docs/bugs/sprint-98-trust-truth-audit.md`. Gates: inline code+security review, `npm audit`
+>   clean, 29 new TDD tests pass, SG/RS suites + all tsc green.
 >
 > **This handoff edit is intentionally not pushed standalone** - a docs-only push to `master`
-> triggers a redundant full redeploy. It should ride with the Sprint 98 planning/implementation PR.
+> triggers a redundant full redeploy. It should ride with the Sprint 98 implementation PR.
 
 **Branch:** `feature/sprint-98-trust-truth-audit` (create from `master`).
 
