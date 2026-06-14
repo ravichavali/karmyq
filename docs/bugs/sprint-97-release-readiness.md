@@ -111,7 +111,25 @@ because the S87 150-member cap drifted the counter after that backfill ran). No 
 | Finding 3 orphaned open requests | False alarm — no action |
 | helpedThisWeek semantics | Member-only (count matches named helpers) |
 
-Verification: frontend `tsc` clean; request-service `tsc` clean; frontend unit+regression 62 pass;
+### Post-deploy validation (v11.6.0, 2026-06-14, PR #86 merged)
+
+- **Membership drift (audit §1):** 0 rows — the repair migration applied on deploy; all 10 drifted
+  communities reconciled (`current_members` == active rows).
+- **Pulse endpoint (BUG-097-002):** live `GET /api/requests/community/28861244-…/pulse` (Bay Area
+  Mutual Aid Network) returns only active members — `Maria Elena Reyes` (4), `James Ali` (1),
+  `Emma Nakamura` (1); non-members `David Park`/`Andre Martinez` excluded; `helpedThisWeek` = 10
+  (member-only, down from 19). Audit §2 still lists the raw non-member-helper data condition by
+  design — it is the detector, not the fixed surface.
+- **Services:** all 18 containers up post-deploy; request-service `/health` OK.
+- **Dashboard no-flash (BUG-097-001) + feed terminal copy (BUG-097-003):** deployed; covered by the
+  three passing sprint-97 unit tests (the sub-second dashboard flash is not API-observable).
+- **Note:** the recurring `js/request-forgery` Code Scanning alert #525 on the Sprint 96 file
+  `submitFoundingCircle.ts` (landing API base from build-time env + hardcoded fallback) was
+  dismissed as a false positive to unblock the deploy gate; not introduced by Sprint 97.
+
+### Pre-deploy verification
+
+Frontend `tsc` clean; request-service `tsc` clean; frontend unit+regression 62 pass;
 request-service unit+regression 152 pass; 3 new sprint-97 tests pass; landing build green; npm audit
 0 vulnerabilities. The 6 failing frontend TDD suites (trust-model, useTrustQuestions, sprint-38/39/40,
 sprint-85) are pre-existing (confirmed: sprint-85 fails identically on HEAD) and in the can-fail TDD

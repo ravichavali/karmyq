@@ -1,15 +1,20 @@
-# Sprint 97 - Release Readiness Data Quality + Functional Bug Bash - PR OPEN (#86), awaiting review + admin merge (v11.5.0 -> v11.6.0)
+# Sprint 97 - Release Readiness Data Quality + Functional Bug Bash - DONE, DEPLOYED (v11.6.0)
 
-> **STATUS (2026-06-13, execution):** Implementation tasks 1–12 complete and pushed as
-> **PR #86** (`feature/sprint-97-release-readiness-data-quality` -> `master`), commit `c7cf279`.
-> The live demo audit ran (read-only) and is recorded in `docs/bugs/sprint-97-release-readiness.md`.
-> All three named bugs are fixed with tests; the membership-count drift repair migration is written;
-> docs + landing docs regenerated; version bumped to `11.6.0`; quality gates run; pre-push passed.
-> **Remaining:** cross-agent review of PR #86, admin merge (agents do not self-merge), CI/CD deploy,
-> then the Task 14 post-deploy human validation (login as maria.reyes, pulse on Test 1, feed terminal,
-> API smoke, re-run `scripts/audit-demo-data.sql` to confirm membership drift cleared).
-> **Note:** GitHub reports 2 Dependabot alerts on `master` (1 high, 1 low) — pre-existing, not from
-> this branch; recommend a follow-up against `master` per the security SLA.
+> **STATUS (2026-06-14):** PR #86 squash-merged to `master`; CI/CD deployed **v11.6.0** to
+> karmyq.com (all 18 containers up, request-service healthy). Post-deploy validation passed: the
+> membership-drift repair migration applied (audit §1 = 0 rows) and the live pulse endpoint for Bay
+> Area Mutual Aid returns only active members (`helpedThisWeek` 19→10). All three named bugs fixed
+> with tests; details + post-deploy evidence in `docs/bugs/sprint-97-release-readiness.md`.
+>
+> **This handoff edit is intentionally NOT pushed standalone** — a docs-only push to `master`
+> triggers a redundant full redeploy (known lesson). It rides with the next sprint's first push.
+>
+> **Follow-ups for next session:**
+> - 2 Dependabot alerts on `master` (1 high, 1 low) — pre-existing, address per the security SLA.
+> - Recurring `js/request-forgery` CodeQL FP on landing API base (alert #525 dismissed this sprint;
+>   recurs each sprint that touches a landing client) — consider a CodeQL suppression/config fix.
+> - `analyze:services` version drift (pg, axios across geocoding/simulation/request).
+> - Deferred: founding-circle notify/review surface; service consolidation phase 2; mobile parity.
 >
 > **Audit outcome:** BUG-097-002 confirmed pervasive (186 non-member-helper pairs). Membership
 > drift on 10 fission-parent communities → idempotent repair migration
