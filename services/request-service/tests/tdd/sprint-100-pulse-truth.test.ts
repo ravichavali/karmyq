@@ -115,7 +115,7 @@ describe('Sprint 100: community pulse counts distinct helpers + reachable open a
     await query(`DELETE FROM requests.help_requests WHERE id = ANY($1)`, [createdRequestIds]).catch(() => {});
     await query(`DELETE FROM communities.members WHERE community_id = $1`, [communityId]).catch(() => {});
     await query(`DELETE FROM communities.communities WHERE id = $1`, [communityId]).catch(() => {});
-    await query(`DELETE FROM auth.users WHERE id = ANY($1)`, [[busyHelperId, soloHelperId, requesterId, offererId]]).catch(() => {});
+    await query(`DELETE FROM auth.users WHERE id = ANY($1)`, [[busyHelperId, soloHelperId, requesterId]]).catch(() => {});
   });
 
   it('helpedThisWeek counts distinct responders, never raw match rows', async () => {

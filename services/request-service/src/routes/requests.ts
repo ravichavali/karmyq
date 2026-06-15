@@ -1047,7 +1047,11 @@ export async function fetchDecisions(req: Request, userId: string): Promise<Unif
 async function countOfferedAwaiting(userId: string): Promise<number> {
   try {
     const result = await query(
-      `SELECT COUNT(*)::int AS n
+      // COUNT(DISTINCT request_id), not COUNT(*): the band copy says "N open asks", and a helper can
+      // have more than one proposed match row on the same ask (matches has no unique (request_id,
+      // responder_id), and UNIQUE(request_id, offer_id) doesn't constrain NULL offer_id), which would
+      // otherwise overstate the count.
+      `SELECT COUNT(DISTINCT m.request_id)::int AS n
          FROM requests.matches m
          JOIN requests.help_requests hr ON hr.id = m.request_id
         WHERE m.responder_id = $1 AND m.status = 'proposed'
@@ -1130,6 +1134,9 @@ async function fetchCommunityPulse(communityId: string): Promise<CommunityPulse 
   // communities.members join a responder who helped on a request cross-posted to this community —
   // but who belongs to a different community — would be named here, so the pulse could credit a
   // neighbour who is not actually in the community being rendered.
+  // Sprint 100 / F1: group by responder_id (not name) so two distinct helpers who share a display
+  // name stay distinct — otherwise they'd collapse into one named entry while helpedThisWeek counts
+  // DISTINCT responder_id, breaking the "headline never outruns the named helpers" invariant.
   const helpersResult = await query(
     `SELECT u.name, COUNT(*)::int AS help_count
        FROM requests.matches m
@@ -1141,7 +1148,7 @@ async function fetchCommunityPulse(communityId: string): Promise<CommunityPulse 
        JOIN auth.users u ON m.responder_id = u.id
        WHERE rc.community_id = $1 AND m.status = 'completed'
          AND m.completed_at >= NOW() - INTERVAL '7 days'
-       GROUP BY u.name
+       GROUP BY m.responder_id, u.name
        ORDER BY help_count DESC
        LIMIT 3`,
     [communityId]

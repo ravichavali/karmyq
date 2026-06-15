@@ -23,21 +23,25 @@ import pool from '../../src/database/db';
 
 describe('Sprint 100 BUG-010: split_proposals active-only uniqueness (integration)', () => {
   let communityId: string;
+  let proposerId: string; // proposed_by FKs to auth.users(id) — must be a real user
   const proposalIds: string[] = [];
 
   async function insertProposal(status: string): Promise<string> {
     const res = await pool.query(
       `INSERT INTO communities.split_proposals
          (community_id, proposed_by, split_type, rationale, group_a_name, group_b_name, status)
-       VALUES ($1, $1, 'admin_initiated', 's100 g2', 'A', 'B', $2)
+       VALUES ($1, $2, 'admin_initiated', 's100 g2', 'A', 'B', $3)
        RETURNING id`,
-      [communityId, status],
+      [communityId, proposerId, status],
     );
     proposalIds.push(res.rows[0].id);
     return res.rows[0].id;
   }
 
   beforeAll(async () => {
+    proposerId = (
+      await pool.query(`INSERT INTO auth.users (email, name, password_hash) VALUES ($1,$2,'hash') RETURNING id`, ['s100-g2-proposer@example.com', 'S100 G2 Proposer'])
+    ).rows[0].id;
     communityId = (
       await pool.query(`INSERT INTO communities.communities (name, description) VALUES ($1,$2) RETURNING id`, ['S100 Re-split Community', 's100 g2'])
     ).rows[0].id;
@@ -46,6 +50,7 @@ describe('Sprint 100 BUG-010: split_proposals active-only uniqueness (integratio
   afterAll(async () => {
     await pool.query(`DELETE FROM communities.split_proposals WHERE community_id = $1`, [communityId]).catch(() => {});
     await pool.query(`DELETE FROM communities.communities WHERE id = $1`, [communityId]).catch(() => {});
+    await pool.query(`DELETE FROM auth.users WHERE id = $1`, [proposerId]).catch(() => {});
     await pool.end().catch(() => {});
   });
 
