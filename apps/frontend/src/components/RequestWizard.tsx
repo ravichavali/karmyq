@@ -369,6 +369,14 @@ export default function RequestWizard({
                   </div>
                 </div>
 
+                {/* S99-004: a provider Get Service request already carries preferred_provider_id,
+                    so make that routing visible instead of looking like a blind broadcast. */}
+                {preferredProviderName && (
+                  <p className="text-sm text-text-muted bg-primary-light border border-primary rounded-lg px-3 py-2">
+                    {preferredProviderName} will see this first. Nearby neighbours can also help if they’re available.
+                  </p>
+                )}
+
                 {/* Community scope */}
                 <div>
                   <button
@@ -415,7 +423,7 @@ export default function RequestWizard({
                 disabled={!isValid || creating}
                 onClick={handleSubmit}
               >
-                {creating ? 'Posting…' : 'Ask neighbours'}
+                {creating ? 'Posting…' : preferredProviderName ? `Ask ${preferredProviderName}` : 'Ask neighbours'}
               </button>
             </div>
           )}

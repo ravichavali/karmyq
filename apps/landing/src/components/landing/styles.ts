@@ -23,5 +23,13 @@ export const PRIMARY_CTA_CLASS =
 export const SECONDARY_CTA_CLASS =
   'inline-block font-medium text-sm tracking-wide uppercase text-karmyq-green-700 border-b border-karmyq-brown-200 pb-1 hover:text-karmyq-brown-900 hover:border-karmyq-brown-900 transition-colors';
 
+/**
+ * Outlined pill CTA — same footprint as the primary but with a green outline that fills on hover.
+ * Gives a secondary action (e.g. "Try the live demo") more pull than a plain text link without
+ * competing with the filled primary submit. The trailing arrow nudges right on hover.
+ */
+export const OUTLINE_CTA_CLASS =
+  'group inline-flex items-center gap-2 px-7 py-3 rounded-full border border-karmyq-green-600 text-karmyq-green-700 font-medium text-sm tracking-wide uppercase hover:bg-karmyq-green-600 hover:text-white transition-colors';
+
 /** Shared narrow essay-column width + horizontal padding. */
 export const COLUMN_CLASS = 'max-w-3xl mx-auto px-6 md:px-8';

@@ -1,15 +1,9 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
+import { connectionDistanceFor, rescaleNodes, type FieldNode } from '@/lib/networkField';
 
-interface Node {
-  x: number;
-  y: number;
-  vx: number;
-  vy: number;
-  radius: number;
-  color: string;
-}
+type Node = FieldNode;
 
 const COLORS = [
   'rgba(61, 139, 53, 0.6)',   // green
@@ -31,34 +25,42 @@ export default function NetworkVisualization() {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    const resize = () => {
-      canvas.width = canvas.offsetWidth * window.devicePixelRatio;
-      canvas.height = canvas.offsetHeight * window.devicePixelRatio;
-      ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
-    };
-
-    resize();
-    window.addEventListener('resize', resize);
-
-    // Initialize nodes
+    // Initialize nodes against the current CSS size.
     const count = window.innerWidth < 768 ? 20 : 35;
-    const w = canvas.offsetWidth;
-    const h = canvas.offsetHeight;
+    let prevW = canvas.offsetWidth;
+    let prevH = canvas.offsetHeight;
 
     nodesRef.current = Array.from({ length: count }, () => ({
-      x: Math.random() * w,
-      y: Math.random() * h,
+      x: Math.random() * prevW,
+      y: Math.random() * prevH,
       vx: (Math.random() - 0.5) * 0.4,
       vy: (Math.random() - 0.5) * 0.4,
       radius: 3 + Math.random() * 5,
       color: COLORS[Math.floor(Math.random() * COLORS.length)],
     }));
 
-    const connectionDistance = Math.min(w, h) * 0.2;
+    // Size the backing buffer for the device pixel ratio. Assigning canvas.width/height already
+    // resets the 2D transform to identity, so scaling once per resize never accumulates. On every
+    // resize we also redistribute the nodes into the new bounds (S99-005) so the field never
+    // clusters or clamps against stale dimensions.
+    const resize = () => {
+      const cssW = canvas.offsetWidth;
+      const cssH = canvas.offsetHeight;
+      canvas.width = cssW * window.devicePixelRatio;
+      canvas.height = cssH * window.devicePixelRatio;
+      ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+      nodesRef.current = rescaleNodes(nodesRef.current, prevW, prevH, cssW, cssH);
+      prevW = cssW;
+      prevH = cssH;
+    };
+
+    resize();
+    window.addEventListener('resize', resize);
 
     const draw = () => {
       const cw = canvas.offsetWidth;
       const ch = canvas.offsetHeight;
+      const connectionDistance = connectionDistanceFor(cw, ch);
       ctx.clearRect(0, 0, cw, ch);
 
       const nodes = nodesRef.current;

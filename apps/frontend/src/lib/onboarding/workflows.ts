@@ -28,7 +28,7 @@ export const WORKFLOWS: Record<string, WorkflowDef> = {
       },
       {
         title: "You're caught up",
-        body: 'When nothing ranks highly for you, the feed offers "Show more open requests" to widen the list — it never claims you are caught up while there is still more to show. Once widened, a quiet "you\'re caught up / that\'s everyone for now" closes the bottom so the list never just trails off.',
+        body: 'When nothing ranks highly for you, the feed offers "Show more open requests" to widen the list — it never claims you are caught up while there is still more to show. Once widened, the bottom closes cleanly with "you\'re caught up", and when your communities still have open asks it points you there to lend a hand rather than pretending there is nothing left.',
       },
       {
         title: 'The same feed inside a community',
