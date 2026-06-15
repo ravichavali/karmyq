@@ -6,13 +6,14 @@
 >
 > **PENDING (needs maintainer):**
 > 1. **Push branch → open PR → cross-agent review → admin merge → deploy** (agents don't self-merge).
-> 2. **Apply the S99-003 demo-data repair to the live demo DB** —
->    `infrastructure/postgres/migrations/20260614-release-experience-repair.sql`. The ad-hoc apply was
->    blocked by the safety classifier (shared-DB write). Apply at deploy or with explicit go-ahead, then
->    re-run `scripts/audit-release-experience.sql` and paste the (empty) result into the audit log.
-> 3. **Approve the invented community names** in that repair: `Test 1`→`Bayview Neighbors`,
->    `Test 2`→`Excelsior Mutual Aid`, `Test Community 1779770190663`→`Glen Park Community Care`
->    (renamed not deleted — they hold 60+ real members each). Change names if undesired before applying.
+> 2. **Run the S99-003 demo-data repair (post-deploy, manual)** —
+>    `scripts/repair-release-experience-demo-data.sql`. Codex review moved it OUT of `migrations/` so
+>    deploy does not auto-apply it; it is now a manual post-deploy DB script (maintainer approved running
+>    post-deploy scripts). It prints its own BEFORE/AFTER audit. The ad-hoc apply was blocked by the
+>    safety classifier (shared-DB write) — run it explicitly post-deploy and paste the empty AFTER audit.
+> 3. **Community names APPROVED** (maintainer): `Test 1`→`Bayview Neighbors`, `Test 2`→`Excelsior Mutual
+>    Aid`, `Test Community …`→`Glen Park Community Care` (renamed not deleted — 60+ real members each).
+>    Open: whether to normalize the em-dash `—` in single fission suffixes ("weird characters" note).
 > 4. **Post-deploy validation** (Task 14 below).
 >
 > Audit + all evidence: `docs/bugs/sprint-99-release-experience-audit.md`. Walkthrough was live

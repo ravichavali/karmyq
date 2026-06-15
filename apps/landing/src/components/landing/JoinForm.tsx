@@ -2,8 +2,7 @@
 
 import { useState } from 'react';
 import { submitFoundingCircle } from '../../lib/submitFoundingCircle';
-import { PRIMARY_CTA_CLASS } from './styles';
-import { SecondaryCta } from './primitives';
+import { PRIMARY_CTA_CLASS, OUTLINE_CTA_CLASS } from './styles';
 
 /**
  * Founding-circle note composer. Sprint 96 (ADR-076) wires the four fields to a real
@@ -156,7 +155,10 @@ export default function JoinForm() {
         <button type="submit" className={PRIMARY_CTA_CLASS} disabled={status === 'submitting'}>
           {status === 'submitting' ? 'Sending…' : 'Write the note'}
         </button>
-        <SecondaryCta href="https://karmyq.com">Try the proof-of-concept</SecondaryCta>
+        <a href="https://karmyq.com" className={OUTLINE_CTA_CLASS}>
+          Try the live demo
+          <span aria-hidden="true" className="transition-transform group-hover:translate-x-0.5">→</span>
+        </a>
       </div>
 
       <p className="text-sm text-karmyq-brown-500">

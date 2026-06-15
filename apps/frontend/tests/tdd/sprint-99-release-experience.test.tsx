@@ -16,8 +16,9 @@
  *            not see member emails.
  */
 
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, renderHook, screen, waitFor } from '@testing-library/react'
 import { canViewCommunityStats } from '@/lib/community/statsVisibility'
+import { useCommunityData } from '@/hooks/useCommunityData'
 import UnifiedFeed from '@/components/Feed/UnifiedFeed'
 import RequestWizard from '@/components/RequestWizard'
 import ActiveTab from '@/components/community/tabs/ActiveTab'
@@ -25,11 +26,17 @@ import ActiveTab from '@/components/community/tabs/ActiveTab'
 const getCuratedRequests = jest.fn()
 const getSchemas = jest.fn()
 const getMyCommunities = jest.fn()
+const getCommunity = jest.fn()
+const getNorms = jest.fn()
+const getConfig = jest.fn()
+const getSettings = jest.fn()
+const getStats = jest.fn()
 
 jest.mock('@/lib/api', () => ({
   requestService: {
     getCuratedRequests: (...a: unknown[]) => getCuratedRequests(...a),
     getSchemas: (...a: unknown[]) => getSchemas(...a),
+    getRequests: jest.fn().mockResolvedValue({ data: { requests: [] } }),
     createMatch: jest.fn().mockResolvedValue({}),
     acceptMatch: jest.fn().mockResolvedValue({}),
     rejectMatch: jest.fn().mockResolvedValue({}),
@@ -38,11 +45,18 @@ jest.mock('@/lib/api', () => ({
   },
   communityService: {
     getMyCommunities: (...a: unknown[]) => getMyCommunities(...a),
+    getCommunity: (...a: unknown[]) => getCommunity(...a),
+    getNorms: (...a: unknown[]) => getNorms(...a),
+    getConfig: (...a: unknown[]) => getConfig(...a),
+    getSettings: (...a: unknown[]) => getSettings(...a),
+    getStats: (...a: unknown[]) => getStats(...a),
     updateMember: jest.fn().mockResolvedValue({}),
     removeMember: jest.fn().mockResolvedValue({}),
     createNorm: jest.fn().mockResolvedValue({}),
     approveNorm: jest.fn().mockResolvedValue({}),
   },
+  reputationService: { getCommunityTrust: jest.fn().mockResolvedValue({ data: null }), getNetworkMetrics: jest.fn().mockResolvedValue({ data: null }), getTrustScore: jest.fn().mockResolvedValue({ data: { data: { score: null } } }) },
+  collectiveService: { listCollectivesByCommunity: jest.fn().mockResolvedValue({ data: [] }) },
   dibsService: { acceptDibs: jest.fn(), declineDibs: jest.fn(), sendDibs: jest.fn() },
 }))
 jest.mock('@/lib/api/providerApi', () => ({ acceptOffer: jest.fn(), declineOffer: jest.fn() }))
@@ -52,6 +66,11 @@ beforeEach(() => {
   getCuratedRequests.mockReset()
   getSchemas.mockReset().mockResolvedValue({ data: { schemas: [] } })
   getMyCommunities.mockReset().mockResolvedValue({ data: { communities: [] } })
+  getCommunity.mockReset().mockResolvedValue({ data: { id: 'c1', name: 'C', members: [] } })
+  getNorms.mockReset().mockResolvedValue({ data: [] })
+  getConfig.mockReset().mockResolvedValue({ data: {} })
+  getSettings.mockReset().mockResolvedValue({ data: {} })
+  getStats.mockReset().mockResolvedValue({ data: {} })
   localStorage.setItem('user', JSON.stringify({ id: 'me' }))
 })
 
@@ -60,6 +79,14 @@ describe('S99-001: community stats are admin-only on the client', () => {
   it('lets admins load stats and blocks everyone else (mirrors the 403 contract)', () => {
     expect(canViewCommunityStats({ isAdmin: true })).toBe(true)
     expect(canViewCommunityStats({ isAdmin: false })).toBe(false)
+  })
+
+  it('does NOT fetch stats on community load (no 403 spam before Stewardship opens)', async () => {
+    renderHook(() => useCommunityData('c1'))
+    // The community itself loads…
+    await waitFor(() => expect(getCommunity).toHaveBeenCalledWith('c1'))
+    // …but the admin-only stats endpoint is never hit eagerly.
+    expect(getStats).not.toHaveBeenCalled()
   })
 })
 

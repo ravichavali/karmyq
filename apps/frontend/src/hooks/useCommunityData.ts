@@ -80,7 +80,9 @@ export function useCommunityData(communityId: string | undefined) {
       fetchNorms()
       fetchConfig()
       fetchSettings()
-      fetchStats()
+      // S99-001: do NOT eager-load stats here — GET /communities/:id/stats is admin-only (403 for
+      // members → console spam on page load). The Stewardship tab effect in communities/[id].tsx
+      // fetches it gated behind canViewCommunityStats({ isAdmin }), so only admins request it.
     }
   }, [communityId]) // eslint-disable-line react-hooks/exhaustive-deps
 

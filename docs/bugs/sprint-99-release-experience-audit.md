@@ -52,7 +52,7 @@ Run in-page as maria (token from `localStorage.token`, same-origin `fetch`):
 |---|---|---|---|
 | S99-001 | Gate the admin-only `/stats` fetch to admins so members stop getting 403 + console errors on Stewardship | `apps/frontend/src/pages/communities/[id].tsx` (L79: `if (!stats) refetchStats()` → gate on `isAdmin`) | `apps/frontend/tests/tdd/sprint-99-release-experience.test.tsx` |
 | S99-002 | Make the dashboard terminal state truthful: don't claim "That's everyone" when the member's communities have open asks — scope the claim to "best matches" and keep the Browse CTA | `apps/frontend/src/components/Feed/UnifiedFeed.tsx` (non-community branch L256-265) | same test file |
-| S99-003 | Scripted, idempotent demo-data cleanup: remove/rename "Test 1"/"Test 2" test communities, fix "Aficianados"→"Aficionados" + "Foster city"→"Foster City" typo, collapse stacked fission suffixes | `scripts/audit-release-experience.sql` (read-only audit) + `infrastructure/postgres/migrations/20260614-release-experience-repair.sql` (idempotent repair) | SQL audit before/after counts recorded in this log |
+| S99-003 | Scripted, idempotent demo-data cleanup: rename (never delete) "Test 1"/"Test 2"/"Test Community …", fix "Aficianados"→"Aficionados" + "Foster city"→"Foster City" typo, collapse stacked fission suffixes | `scripts/audit-release-experience.sql` (read-only audit) + `scripts/repair-release-experience-demo-data.sql` (manual, idempotent, collision-guarded repair — **moved out of `migrations/` so deploy does not auto-apply it; Codex review #1**) | SQL audit before/after counts recorded in this log |
 | S99-004 | Copy-clarify provider Get Service: the payload already carries `preferred_provider_id` (RequestWizard L161), so tell the user the provider is contacted — button → "Ask {provider}" + a one-line note instead of bare "Ask neighbours" | `apps/frontend/src/components/RequestWizard.tsx` (L264 title, L381 scope label, L418 submit) | same test file |
 | S99-005 | NetworkVisualization resize: redistribute node positions proportionally + recompute `connectionDistance` on resize (NOT the transform/DPR change the plan hypothesised — that is already correct) | `apps/landing/src/components/NetworkVisualization.tsx` (L34-57) | `apps/landing/tests/tdd/sprint-99-network-visualization.test.tsx` |
 | S99-006 | Mask member emails on the People roster for non-admins (privacy + demo realism); keep visible to admins/mods | `apps/frontend/src/components/community/tabs/ActiveTab.tsx` (member table L247; gate on `isAdminOrMod`) | same frontend test file |
@@ -73,16 +73,19 @@ Run in-page as maria (token from `localStorage.token`, same-origin `fetch`):
 | Totals | 69 communities, 6525 members |
 
 **Decision: rename, never delete** — Test 1/2 and the grandchildren hold 60-83 real members each;
-deleting would strand thousands of memberships. Renames are id-stable. Repair:
-`infrastructure/postgres/migrations/20260614-release-experience-repair.sql` (idempotent + collision-guarded).
-Proposed renames: `Test 1`→`Bayview Neighbors`, `Test 2`→`Excelsior Mutual Aid`,
-`Test Community 1779770190663`→`Glen Park Community Care`, typo→`Foster City Cricket Aficionados`,
-stacked suffixes `… — Group A — Group A`→`… — Group AA` (AB/BA/BB).
+deleting would strand thousands of memberships. Renames are id-stable. Repair (manual script, run
+post-deploy): `scripts/repair-release-experience-demo-data.sql` (idempotent + collision-guarded
+against `idx_communities_identity_active`). Maintainer-approved renames: `Test 1`→`Bayview Neighbors`,
+`Test 2`→`Excelsior Mutual Aid`, `Test Community 1779770190663`→`Glen Park Community Care`,
+typo→`Foster City Cricket Aficionados`, stacked suffixes `… — Group A — Group A`→`… — Group AA` (AB/BA/BB).
 
-**AFTER evidence: PENDING.** Applying the repair to the live demo DB is a shared-database write that
-needs explicit maintainer authorization (the safety classifier blocked the ad-hoc apply, correctly).
-Apply at deploy or with explicit go-ahead, then re-run `scripts/audit-release-experience.sql` and paste
-the (empty) result here.
+**Weird-character note (maintainer raised):** the only non-ASCII character in any community name is the
+em-dash `—` in the " — Group X" fission suffixes (36 communities; 14 doubled, handled above). Whether to
+normalize the remaining single-suffix em-dashes to plain ASCII is an open question, not yet actioned.
+
+**AFTER evidence: PENDING maintainer apply** (`scripts/repair-release-experience-demo-data.sql` is a
+shared-DB write; the safety classifier blocked the ad-hoc apply, correctly). Run post-deploy, then the
+script's own embedded BEFORE/AFTER audit prints the (empty) result — paste it here.
 
 ### Frontend / landing repairs — test evidence
 
