@@ -113,14 +113,26 @@ mirroring cancel.
 
 ---
 
-## BUG-009 · [2026-06-08] · open
+## BUG-009 · [2026-06-08] · planned (Sprint 100)
 
 In the community https://karmyq.com/communities/eb32c151-9953-409f-87ad-9abed720e4f4 the pulse shows This week, "4 neighbours helped each other thanks to Andre Chen, David Park, Maria Elena Reyes". However, when I go to "How we are connected", it shows no relationships. What's going on? (Pulse reports completed help / connections but the trust graph renders empty.)
 
+**Planned (Sprint 100, finding F1):** two root causes — (1) `helpedThisWeek` counts completed `matches`
+rows, not distinct responders (`requests.ts:1070-1077`) → "4 neighbours" with only 3 named; (2) a
+community trust edge is only created when the `match_completed` event payload carries `community_id`
+(`subscriber.ts:45-50`), so counted exchanges produce no visible connection. S100 counts distinct
+responders AND reconciles connections from `request_communities` at completion (ADR-078), plus a
+backfill script for historical matches. See
+`docs/superpowers/plans/2026-06-15-sprint-100-pulse-truth-actionability.md`.
+
 ---
 
-## BUG-010 · [2026-06-14] · open
+## BUG-010 · [2026-06-14] · planned (Sprint 100)
 
 Failed to execute split on this page: https://karmyq.com/communities/446c2c65-64e1-4e8e-9d87-54671939a4da
+
+**Planned (Sprint 100, fold-in G2):** reproduce-first against the live community + server logs, fix at
+the correct layer, add a regression test (or document if not reproducible). See
+`docs/superpowers/plans/2026-06-15-sprint-100-pulse-truth-actionability.md` Task 9.
 
 ---
