@@ -1,12 +1,21 @@
 # Frontend CONTEXT.md
 
-**Last updated**: 2026-06-06 (Sprint 89 — community sovereignty redesign)
+**Last updated**: 2026-06-14 (Sprint 99 — release experience audit)
 
 ## Overview
 
 Next.js 14 web application (Pages Router) consuming all Karmyq backend services.
 
 ---
+
+## Sprint 99 Release Experience Audit (2026-06-14)
+
+Findings + evidence: `docs/bugs/sprint-99-release-experience-audit.md`.
+
+- **S99-001 — Stewardship 403.** `GET /communities/:id/stats` is admin-only (403 "Only community admins can view statistics"). The community page (`src/pages/communities/[id].tsx`) now gates `refetchStats()` behind `canViewCommunityStats({ isAdmin })` (`src/lib/community/statsVisibility.ts`) and re-runs the stewardship effect when `isAdmin` resolves, so members no longer flood the console with 403s.
+- **S99-002 — caught-up overclaim.** The empty *curated* home feed terminal copy (`Feed/UnifiedFeed.tsx`) no longer says "That's everyone for now"; an empty curated feed only means no direct matches, so it points to community open asks instead.
+- **S99-004 — provider Get Service routing.** `RequestWizard.tsx` already sends `preferred_provider_id`; the modal now surfaces it — submit reads "Ask {provider}" and a note says the provider will see it first — instead of looking like a blind "Ask neighbours" broadcast.
+- **S99-006 — member email privacy.** The member-facing People roster (`community/tabs/ActiveTab.tsx`) no longer renders member emails; they remain in the admin/mod management table only.
 
 ## Sprint 98 Trust Truth Audit (2026-06-14, ADR-077)
 

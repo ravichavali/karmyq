@@ -189,8 +189,8 @@ export default function ActiveTab({
           {community.members.map((member) => (
             <div key={member.id} className="flex items-center justify-between p-4 bg-surface rounded-lg">
               <div>
+                {/* S99-006: member emails are PII — only the admin/mod table below shows them. */}
                 <div className="font-semibold">{member.user_name}</div>
-                <div className="text-sm text-text-muted">{member.user_email}</div>
                 {member.invited_by_name && (
                   <div className="text-xs text-text-subtle">Invited by {member.invited_by_name}</div>
                 )}

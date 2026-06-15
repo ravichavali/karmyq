@@ -1,17 +1,40 @@
-# Sprint 99 - Release Experience Audit + Fine Tune - PLANNED (v11.8.0)
+# Sprint 99 - Release Experience Audit + Fine Tune - IMPLEMENTED, pending PR/deploy (v11.8.0)
 
-> **STATUS (2026-06-14):** Sprint 99 direction approved. This is an audit-first fine-tune sprint:
-> walk the full demo/evaluator experience, rank confusing or false states, freeze a small fix list,
-> and ship only bounded clarity/trust/demo-readiness repairs.
+> **STATUS (2026-06-14):** All 6 frozen repairs implemented + tested; version bumped 11.7.0→11.8.0;
+> SDLC gates passed (/simplify, /code-review, /security-review clean; `npm audit` 0 vulns; new TDD
+> 10/10 green; zero new failures vs master). Committed on `feature/sprint-99-release-experience-audit`.
 >
-> **Planning artifacts created:**
+> **PENDING (needs maintainer):**
+> 1. **Push branch → open PR → cross-agent review → admin merge → deploy** (agents don't self-merge).
+> 2. **Apply the S99-003 demo-data repair to the live demo DB** —
+>    `infrastructure/postgres/migrations/20260614-release-experience-repair.sql`. The ad-hoc apply was
+>    blocked by the safety classifier (shared-DB write). Apply at deploy or with explicit go-ahead, then
+>    re-run `scripts/audit-release-experience.sql` and paste the (empty) result into the audit log.
+> 3. **Approve the invented community names** in that repair: `Test 1`→`Bayview Neighbors`,
+>    `Test 2`→`Excelsior Mutual Aid`, `Test Community 1779770190663`→`Glen Park Community Care`
+>    (renamed not deleted — they hold 60+ real members each). Change names if undesired before applying.
+> 4. **Post-deploy validation** (Task 14 below).
+>
+> Audit + all evidence: `docs/bugs/sprint-99-release-experience-audit.md`. Walkthrough was live
+> Playwright as `maria.reyes@test.karmyq.com` across all 7 lanes.
+>
+> **Frozen fix list (6 repairs, maintainer-confirmed):**
+> - **S99-001** Stewardship 403 — gate admin-only `/stats` fetch to admins. `apps/frontend/src/pages/communities/[id].tsx` L79.
+> - **S99-002** "You're caught up" overclaims — scope terminal copy to best-matches. `apps/frontend/src/components/Feed/UnifiedFeed.tsx` L256-265.
+> - **S99-003** Demo-data cleanup — scripted/idempotent: drop Test 1/2, fix "Aficianados"/"Foster city" typos, collapse stacked fission suffixes. `scripts/audit-release-experience.sql` + `infrastructure/postgres/migrations/20260614-release-experience-repair.sql`.
+> - **S99-004** Provider Get Service copy — payload already sends `preferred_provider_id`; tell the user. `apps/frontend/src/components/RequestWizard.tsx` L264/381/418.
+> - **S99-005** Landing NetworkVisualization resize — redistribute nodes + recompute connectionDistance (the plan's DPR/transform hypothesis is WRONG; canvas.width assignment already resets transform). `apps/landing/src/components/NetworkVisualization.tsx`.
+> - **S99-006** Mask member emails on People roster for non-admins. `apps/frontend/src/components/community/tabs/ActiveTab.tsx` L247.
+>
+> **Deferred (logged, not fixed):** S99-007 docs ADR count 75 vs 72, S99-008 empty "—" column on People, S99-009 dual Available/On-duty indicators, S99-010 raw "Dibs, pending" label, S99-011 401 wall on logged-out splash.
+>
+> **Planning artifacts:**
 > - Spec: `docs/superpowers/specs/2026-06-14-sprint-99-release-experience-audit-design.md`
 > - Plan: `docs/superpowers/plans/2026-06-14-sprint-99-release-experience-audit.md`
+> - Audit log: `docs/bugs/sprint-99-release-experience-audit.md`
 >
-> **Branch to create:** `feature/sprint-99-release-experience-audit`
->
-> **Important:** Current workspace had a pre-existing modification in `docs/IDEAS.md` before Sprint
-> 99 planning artifacts were written. Do not overwrite or "clean up" that change unless the user asks.
+> **Important:** Pre-existing modification in `docs/IDEAS.md` predates Sprint 99. Do not overwrite
+> or "clean up" that change unless the user asks.
 
 ---
 

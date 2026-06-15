@@ -13,6 +13,7 @@ import { useCommunityData } from '@/hooks/useCommunityData'
 import { useCommunityPulse } from '@/hooks/useCommunityPulse'
 import { communityService } from '@/lib/api'
 import { resolveCommunityTab, resolveStewardshipSection, type CommunityTab, type StewardshipSection } from '@/lib/communityTabs'
+import { canViewCommunityStats } from '@/lib/community/statsVisibility'
 
 export default function CommunityDetailPage() {
   const router = useRouter()
@@ -76,12 +77,13 @@ export default function CommunityDetailPage() {
       refetchMemberTrustScores()
     } else if (activeTab === 'stewardship') {
       refetchCommunityRequests()
-      if (!stats) refetchStats()
+      // S99-001: GET /communities/:id/stats is admin-only (403 for members). Only admins fetch it.
+      if (canViewCommunityStats({ isAdmin: !!isAdmin }) && !stats) refetchStats()
       if (!communityTrust) refetchCommunityTrust()
       if (!networkMetrics) refetchNetworkMetrics()
       refetchCommunityCollectives()
     }
-  }, [activeTab]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [activeTab, isAdmin]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleJoinCommunity = async () => {
     if (!currentUser || !communityId || !community) return
