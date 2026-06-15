@@ -1,23 +1,30 @@
-# Sprint 99 - Release Experience Audit + Fine Tune - IMPLEMENTED, pending PR/deploy (v11.8.0)
+# Sprint 99 - Release Experience Audit + Fine Tune - DEPLOYED + VALIDATED (v11.8.0) ✅
 
-> **STATUS (2026-06-14):** All 6 frozen repairs implemented + tested; version bumped 11.7.0→11.8.0;
-> SDLC gates passed (/simplify, /code-review, /security-review clean; `npm audit` 0 vulns; new TDD
-> 10/10 green; zero new failures vs master). Committed on `feature/sprint-99-release-experience-audit`.
+> **STATUS (2026-06-15):** COMPLETE. PR #88 merged (squash `625bd74f`), CI/CD "Deploy to Demo"
+> green, **v11.8.0 live**. Demo-data repair applied post-deploy (18 rows; AFTER-counts all 0). All
+> 6 repairs validated live as maria.reyes. Two Codex review rounds resolved.
 >
-> **PENDING (needs maintainer):**
-> 1. **Push branch → open PR → cross-agent review → admin merge → deploy** (agents don't self-merge).
-> 2. **Run the S99-003 demo-data repair (post-deploy, manual)** —
->    `scripts/repair-release-experience-demo-data.sql`. Codex review moved it OUT of `migrations/` so
->    deploy does not auto-apply it; it is now a manual post-deploy DB script (maintainer approved running
->    post-deploy scripts). It prints its own BEFORE/AFTER audit. The ad-hoc apply was blocked by the
->    safety classifier (shared-DB write) — run it explicitly post-deploy and paste the empty AFTER audit.
-> 3. **Community names APPROVED** (maintainer): `Test 1`→`Bayview Neighbors`, `Test 2`→`Excelsior Mutual
->    Aid`, `Test Community …`→`Glen Park Community Care` (renamed not deleted — 60+ real members each).
->    Open: whether to normalize the em-dash `—` in single fission suffixes ("weird characters" note).
-> 4. **Post-deploy validation** (Task 14 below).
+> **Local-only note:** the post-deploy doc updates (this handoff + the audit-log Final Validation)
+> are committed LOCALLY on master and intentionally NOT pushed — a docs-only push to master triggers a
+> redundant full deploy (see memory `feedback_no_docs_push_to_master`). They ride the next sprint PR.
 >
-> Audit + all evidence: `docs/bugs/sprint-99-release-experience-audit.md`. Walkthrough was live
-> Playwright as `maria.reyes@test.karmyq.com` across all 7 lanes.
+> **Shipped + validated (see `docs/bugs/sprint-99-release-experience-audit.md` → Post-deploy validation):**
+> - S99-001 Stewardship 403 gone (0 console errors) · S99-002 truthful "caught up" copy ·
+>   S99-003 demo renames live (Bayview Neighbors / Excelsior Mutual Aid / Glen Park / Foster City typo /
+>   collapsed fission suffixes) · S99-004 provider Get Service copy · S99-005 NetworkVisualization resize ·
+>   S99-006 People emails masked · landing "Try the live demo →" CTA.
+> - **maria is lively again**: Home now shows a "Needs your response" band (4 actionable items). The
+>   earlier empty walkthrough was a point-in-time lull — `proposed` matches DO surface as decisions.
+>
+> **Open / next-sprint candidates (NOT done):**
+> 1. **Sprint 100 idea (captured in `docs/IDEAS.md`)**: raise simulation pace + spread fresh requests
+>    across more test users so multiple demo accounts look lively; investigate `proposed`-match surfacing
+>    on responder Home/Helping; sim variety (4 identical "groceries" asks for maria).
+> 2. **S99-006 backend hardening (deferred):** `community.members` still ships `user_email` in the payload
+>    (UI-masked only); omit it server-side for non-admins.
+> 3. **Em-dash normalization** on single fission suffixes — maintainer chose to LEAVE them.
+> 4. Deferred P2/P3: S99-007 docs ADR 75-vs-72, S99-008 empty "—" People column, S99-009 dual
+>    Available/On-duty, S99-010 raw "Dibs, pending" label, S99-011 401 wall on logged-out splash.
 >
 > **Frozen fix list (6 repairs, maintainer-confirmed):**
 > - **S99-001** Stewardship 403 — gate admin-only `/stats` fetch to admins. `apps/frontend/src/pages/communities/[id].tsx` L79.
