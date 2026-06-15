@@ -22,7 +22,7 @@
 > **Frozen fix list (6 repairs, maintainer-confirmed):**
 > - **S99-001** Stewardship 403 — gate admin-only `/stats` fetch to admins. `apps/frontend/src/pages/communities/[id].tsx` L79.
 > - **S99-002** "You're caught up" overclaims — scope terminal copy to best-matches. `apps/frontend/src/components/Feed/UnifiedFeed.tsx` L256-265.
-> - **S99-003** Demo-data cleanup — scripted/idempotent: drop Test 1/2, fix "Aficianados"/"Foster city" typos, collapse stacked fission suffixes. `scripts/audit-release-experience.sql` + `infrastructure/postgres/migrations/20260614-release-experience-repair.sql`.
+> - **S99-003** Demo-data cleanup — scripted/idempotent, **rename not delete** (Test 1/2 hold 60+ members each): rename Test 1/2 + Test Community, fix "Aficianados"/"Foster city" typos, collapse stacked fission suffixes. `scripts/audit-release-experience.sql` + `scripts/repair-release-experience-demo-data.sql` (manual post-deploy; NOT in migrations/).
 > - **S99-004** Provider Get Service copy — payload already sends `preferred_provider_id`; tell the user. `apps/frontend/src/components/RequestWizard.tsx` L264/381/418.
 > - **S99-005** Landing NetworkVisualization resize — redistribute nodes + recompute connectionDistance (the plan's DPR/transform hypothesis is WRONG; canvas.width assignment already resets transform). `apps/landing/src/components/NetworkVisualization.tsx`.
 > - **S99-006** Mask member emails on People roster for non-admins. `apps/frontend/src/components/community/tabs/ActiveTab.tsx` L247.

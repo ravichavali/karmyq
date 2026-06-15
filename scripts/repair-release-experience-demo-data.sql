@@ -25,8 +25,18 @@
 -- location is skipped (left as-is) rather than failing the script. Re-running is a no-op, and it is
 -- a no-op on any database that does not contain these seeded demo records.
 
-\echo '== S99-003 repair: BEFORE =='
-\i scripts/audit-release-experience.sql
+-- Abort (don't half-apply) on any error.
+\set ON_ERROR_STOP on
+
+-- Self-contained before/after summary (inlined so this runs from /tmp inside the container with no
+-- dependency on scripts/audit-release-experience.sql being present; that file remains the standalone
+-- detailed audit). Every column should read 0 AFTER the repair.
+\echo '== S99-003 repair: BEFORE (each column should be 0 after) =='
+SELECT
+  count(*) FILTER (WHERE name ~* '^test( |$|[0-9])' OR name ILIKE 'test %')          AS test_named,
+  count(*) FILTER (WHERE name ILIKE '%Aficianados%' OR name LIKE 'Foster city %')    AS typo,
+  count(*) FILTER (WHERE name ~ ' — Group \S+ — Group \S+$')                         AS stacked_suffix
+FROM communities.communities;
 
 BEGIN;
 
@@ -81,5 +91,9 @@ WHERE c.name ~ ' — Group \S+ — Group \S+$'
 
 COMMIT;
 
-\echo '== S99-003 repair: AFTER (all groups should be empty) =='
-\i scripts/audit-release-experience.sql
+\echo '== S99-003 repair: AFTER (every column should now be 0) =='
+SELECT
+  count(*) FILTER (WHERE name ~* '^test( |$|[0-9])' OR name ILIKE 'test %')          AS test_named,
+  count(*) FILTER (WHERE name ILIKE '%Aficianados%' OR name LIKE 'Foster city %')    AS typo,
+  count(*) FILTER (WHERE name ~ ' — Group \S+ — Group \S+$')                         AS stacked_suffix
+FROM communities.communities;
