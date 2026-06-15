@@ -667,13 +667,26 @@ None currently. Future consideration:
 
 When a match is marked complete in the Request Service.
 
-**Listener**: [src/events/subscriber.ts](src/events/subscriber.ts)
+**Listener**: [src/events/subscriber.ts](src/events/subscriber.ts) — the handler body is the exported
+`handleMatchCompleted(payload)` (Sprint 100), so the reconciliation is integration-testable without
+Redis/Bull.
 
 **Actions** (in order):
 1. Clear trust path cache (`auth.social_distances`) for the two users
 2. Upsert `social_graph.connections` exchange edge
-3. Upsert `social_graph.trust_edges` weighted edge for the community (Sprint 65)
-4. If users have different primary communities, increment `social_graph.community_trust_edges` (Sprint 65)
+3. **Reconcile per-community trust edges (Sprint 100 / ADR-078):** derive the request's communities
+   from `requests.request_communities` (via the payload's `request_id`) and upsert a
+   `social_graph.trust_edges` weighted edge for **each** — via `reconcileMatchCompletedCommunities()`
+   → `processMatchCompleted()`. **This no longer depends on the payload carrying `community_id`** (the
+   request-service publisher never set it, so the old `if (payload.community_id)` guard meant a
+   community trust edge essentially never formed — the live audit found 0 trust edges for two
+   communities whose pulses counted 9 completed exchanges each). A request cross-posted to several
+   communities now correctly forms an edge in all of them.
+4. Within `processMatchCompleted`, if users have different primary communities, increment
+   `social_graph.community_trust_edges` (Sprint 65)
+
+Historical gaps are repaired by the one-time idempotent backfill
+`scripts/backfill-community-connections.sql` (not a migration).
 
 ---
 

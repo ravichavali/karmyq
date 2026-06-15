@@ -385,6 +385,10 @@
           "href": "/docs/concepts/adr-077-trust-path-platform-topology"
         },
         {
+          "label": "Community Connection Reconciliation from `request_communities`",
+          "href": "/docs/concepts/adr-078-community-connection-reconciliation"
+        },
+        {
           "label": "— Community & Scale —",
           "href": "/docs/concepts",
           "divider": true

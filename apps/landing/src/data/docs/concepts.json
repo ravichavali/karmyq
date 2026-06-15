@@ -599,6 +599,14 @@
       "status": "implemented",
       "description": "**Status**: Implemented",
       "filename": "ADR-077-trust-path-platform-topology.md"
+    },
+    {
+      "slug": "adr-078-community-connection-reconciliation",
+      "number": "078",
+      "title": "ADR-078: Community Connection Reconciliation from `request_communities`",
+      "status": "accepted",
+      "description": "**Date**: 2026-06-15",
+      "filename": "ADR-078-community-connection-reconciliation.md"
     }
   ]
 }

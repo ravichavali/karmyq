@@ -1034,12 +1034,46 @@ export async function fetchDecisions(req: Request, userId: string): Promise<Unif
 }
 
 /** Sprint 85 / ADR-066 — assemble + send the Dashboard Home unified feed ({ items }). */
+/**
+ * Sprint 100 / G1 — how many open asks the member has OFFERED to help on and is still waiting to
+ * hear back on (responder, match still 'proposed', request still open + unexpired). The curated feed
+ * deliberately hides requests the viewer already offered on (BUG-002), and a responder's own pending
+ * offer is awaiting the requester — not a decision they owe — so it isn't in the decision band. That
+ * left an active helper's Home reading empty while they had many offers in flight (the live audit
+ * found one member with 330 such offers). This count powers a single honest Home summary band that
+ * points to the Helping tab, so the Home never feels empty for someone who is actively helping.
+ * Fail-soft: any error degrades to 0 (the band simply doesn't render) — it never breaks the feed.
+ */
+async function countOfferedAwaiting(userId: string): Promise<number> {
+  try {
+    const result = await query(
+      // COUNT(DISTINCT request_id), not COUNT(*): the band copy says "N open asks", and a helper can
+      // have more than one proposed match row on the same ask (matches has no unique (request_id,
+      // responder_id), and UNIQUE(request_id, offer_id) doesn't constrain NULL offer_id), which would
+      // otherwise overstate the count.
+      `SELECT COUNT(DISTINCT m.request_id)::int AS n
+         FROM requests.matches m
+         JOIN requests.help_requests hr ON hr.id = m.request_id
+        WHERE m.responder_id = $1 AND m.status = 'proposed'
+          AND hr.status = 'open' AND hr.expired = FALSE`,
+      [userId]
+    );
+    return result.rows[0]?.n ?? 0;
+  } catch {
+    return 0;
+  }
+}
+
 async function respondHomeFeed(req: Request, res: Response, userId: string, scoredRequests: any[]): Promise<void> {
-  const decisionItems = await fetchDecisions(req, userId);
+  // Decisions and the offered-awaiting count are independent reads — fetch them concurrently.
+  const [decisionItems, offeredAwaiting] = await Promise.all([
+    fetchDecisions(req, userId),
+    countOfferedAwaiting(userId),
+  ]);
   const requestItems = scoredRequests.map((r) => buildRequestItem(toRequestCardData(r), r.feedScore));
   const { items } = assembleHomeFeed([...decisionItems, ...requestItems]);
 
-  sendSuccess(res, { items, count: items.length }, HTTP_STATUS.OK, { requestId: (req as any).id });
+  sendSuccess(res, { items, count: items.length, offeredAwaiting }, HTTP_STATUS.OK, { requestId: (req as any).id });
 }
 
 /** The community's weekly help-loop pulse (wire shape for GET /community/:id/pulse). */
@@ -1067,7 +1101,11 @@ async function fetchCommunityPulse(communityId: string): Promise<CommunityPulse 
        -- member of THIS community, the same subset surfaced in recentHelpers below. This keeps the
        -- "N helped this week" number from outrunning the named helpers (which would otherwise let
        -- the pulse claim exchanges while naming zero qualifying members).
-       (SELECT COUNT(*) FROM requests.matches m
+       -- Sprint 100 / F1: COUNT(DISTINCT responder_id), not COUNT(*). The headline reads
+       -- "N neighbours helped each other this week" — one neighbour who completes three exchanges is
+       -- ONE helper, not three. Raw match rows let the number outrun recentHelpers (which is already
+       -- grouped per responder), making the headline unreachable against the named list.
+       (SELECT COUNT(DISTINCT m.responder_id) FROM requests.matches m
           JOIN requests.request_communities rc ON m.request_id = rc.request_id
           JOIN communities.members mem
             ON mem.community_id = rc.community_id
@@ -1096,6 +1134,9 @@ async function fetchCommunityPulse(communityId: string): Promise<CommunityPulse 
   // communities.members join a responder who helped on a request cross-posted to this community —
   // but who belongs to a different community — would be named here, so the pulse could credit a
   // neighbour who is not actually in the community being rendered.
+  // Sprint 100 / F1: group by responder_id (not name) so two distinct helpers who share a display
+  // name stay distinct — otherwise they'd collapse into one named entry while helpedThisWeek counts
+  // DISTINCT responder_id, breaking the "headline never outruns the named helpers" invariant.
   const helpersResult = await query(
     `SELECT u.name, COUNT(*)::int AS help_count
        FROM requests.matches m
@@ -1107,7 +1148,7 @@ async function fetchCommunityPulse(communityId: string): Promise<CommunityPulse 
        JOIN auth.users u ON m.responder_id = u.id
        WHERE rc.community_id = $1 AND m.status = 'completed'
          AND m.completed_at >= NOW() - INTERVAL '7 days'
-       GROUP BY u.name
+       GROUP BY m.responder_id, u.name
        ORDER BY help_count DESC
        LIMIT 3`,
     [communityId]
@@ -1258,6 +1299,71 @@ router.get('/community/:communityId/pulse', async (req: Request, res: Response) 
   } catch (e: any) {
     (req as any).logger?.error('community pulse failed', e instanceof Error ? e : new Error(String(e)), { service: 'request-service', step: 'community-pulse' });
     sendInternalError(res, 'Failed to load community pulse', e instanceof Error ? e : undefined, meta);
+  }
+});
+
+/**
+ * Sprint 100 / F2 — GET /requests/community/:communityId/open-asks
+ * The reachable, read-only backing for the pulse "N open asks across the community" row. Returns
+ * EVERY open + unexpired ask attached to the community — INCLUDING the member's own asks and asks
+ * they have already offered on — so the pulse number is reachable (the member can see exactly the
+ * things it counts). This uses the identical predicate as the pulse `open_requests_count`
+ * (`status='open' AND expired=FALSE`, scoped via `request_communities`), so the count and the rows
+ * can never diverge. The view is browse-only; the frontend renders these cards read-only (no Offer).
+ * Members-only, gated on the JWT `communities` claim (NOT `communityMemberships`).
+ */
+router.get('/community/:communityId/open-asks', async (req: Request, res: Response) => {
+  const meta = { requestId: (req as any).id };
+  const { communityId } = req.params;
+
+  const memberships = (req as any).user?.communities ?? [];
+  if (!memberships.some((c: any) => c.id === communityId)) {
+    sendError(res, 'NOT_A_MEMBER', 'You must be a member of this community to view its open asks', HTTP_STATUS.FORBIDDEN, undefined, meta);
+    return;
+  }
+
+  try {
+    const result = await query(
+      `SELECT r.id, r.requester_id, r.title, r.description, r.category, r.urgency, r.status,
+              r.created_at, r.updated_at, r.request_type, r.payload, r.requirements,
+              r.is_boosted, r.boosted_expires_at,
+              u.name AS requester_name,
+              c.name AS community_name
+         FROM requests.help_requests r
+         JOIN requests.request_communities rc ON r.id = rc.request_id AND rc.community_id = $1
+         LEFT JOIN auth.users u ON r.requester_id = u.id
+         LEFT JOIN communities.communities c ON c.id = $1
+        WHERE r.status = 'open' AND r.expired = FALSE
+        ORDER BY (r.urgency IN ('urgent','high')) DESC, r.created_at DESC`,
+      [communityId]
+    );
+
+    // Map to the canonical request-card shape, scoped to THIS community. No match_score — this is a
+    // browse view, not a scored feed — so the card simply omits the match signal.
+    const items = result.rows.map((r: any) => ({
+      request_id: r.id,
+      requester_id: r.requester_id,
+      title: r.title,
+      description: r.description,
+      author_name: r.requester_name,
+      community_id: communityId,
+      community_name: r.community_name || '',
+      urgency: r.urgency,
+      status: 'open',
+      request_type: r.request_type || 'generic',
+      payload_type: categoryToPayloadType(r.category),
+      payload: r.payload || {},
+      requirements: r.requirements || {},
+      is_boosted: !!r.is_boosted,
+      boosted_expires_at: r.boosted_expires_at || undefined,
+      created_at: r.created_at,
+      updated_at: r.updated_at,
+    }));
+
+    sendSuccess(res, { items, count: items.length }, HTTP_STATUS.OK, meta);
+  } catch (e: any) {
+    (req as any).logger?.error('community open-asks failed', e instanceof Error ? e : new Error(String(e)), { service: 'request-service', step: 'community-open-asks' });
+    sendInternalError(res, 'Failed to load community open asks', e instanceof Error ? e : undefined, meta);
   }
 });
 
