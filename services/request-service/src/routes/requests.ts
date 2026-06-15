@@ -1061,10 +1061,13 @@ async function countOfferedAwaiting(userId: string): Promise<number> {
 }
 
 async function respondHomeFeed(req: Request, res: Response, userId: string, scoredRequests: any[]): Promise<void> {
-  const decisionItems = await fetchDecisions(req, userId);
+  // Decisions and the offered-awaiting count are independent reads — fetch them concurrently.
+  const [decisionItems, offeredAwaiting] = await Promise.all([
+    fetchDecisions(req, userId),
+    countOfferedAwaiting(userId),
+  ]);
   const requestItems = scoredRequests.map((r) => buildRequestItem(toRequestCardData(r), r.feedScore));
   const { items } = assembleHomeFeed([...decisionItems, ...requestItems]);
-  const offeredAwaiting = await countOfferedAwaiting(userId);
 
   sendSuccess(res, { items, count: items.length, offeredAwaiting }, HTTP_STATUS.OK, { requestId: (req as any).id });
 }

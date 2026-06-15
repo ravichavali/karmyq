@@ -96,7 +96,9 @@ export default function RequestCard({ data, currentUserId, onOffered, readOnly =
       aria-label={`Open request: ${data.title}`}
       onClick={openRequest}
       onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
+        // Only the card itself activates on Enter/Space — a key press while focus is on an inner
+        // control (the Offer button, a link) bubbles here too, and must NOT also navigate away.
+        if ((e.key === 'Enter' || e.key === ' ') && e.target === e.currentTarget) {
           e.preventDefault()
           openRequest()
         }
