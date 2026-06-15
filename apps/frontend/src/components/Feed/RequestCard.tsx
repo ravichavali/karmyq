@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useRouter } from 'next/router'
 import { requestService } from '@/lib/api'
 import RequestPayloadRenderer from '@/components/Feed/RequestPayloadRenderer'
 import TrustPathBadge, { TrustPathBadgeSkeleton } from '@/components/TrustPathBadge'
@@ -52,15 +53,25 @@ interface RequestCardProps {
   currentUserId?: string | null
   /** Called after a successful offer so the container can optimistically remove the card. */
   onOffered?: (requestId: string) => void
+  /** Sprint 100 / F2 — browse-only surfaces (the community open-asks view) render the card with no
+   *  Offer action. Own + already-offered asks are shown for reachability, but not actioned here. */
+  readOnly?: boolean
 }
 
-export default function RequestCard({ data, currentUserId, onOffered }: RequestCardProps) {
+export default function RequestCard({ data, currentUserId, onOffered, readOnly = false }: RequestCardProps) {
+  const router = useRouter()
   const [offering, setOffering] = useState(false)
   const [offered, setOffered] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const isOwnRequest = !!currentUserId && data.requester_id === currentUserId
   const matchSignal = describeMatchSignal(data.match_score, data.match_reason)
+  const askerName = data.author_name ?? 'a community member'
+
+  // Sprint 100 / F4 — the whole card opens the request detail. Interactive descendants (the Offer
+  // button, the offer-sent link, the trust badge) stopPropagation so they keep their own behaviour.
+  const openRequest = () => router.push(`/requests/${data.request_id}`)
+  const stop = (e: React.MouseEvent) => e.stopPropagation()
 
   const handleOffer = async () => {
     if (!currentUserId) return
@@ -78,15 +89,33 @@ export default function RequestCard({ data, currentUserId, onOffered }: RequestC
   }
 
   return (
-    <article className="feed-card kq-card">
+    <article
+      className="feed-card kq-card cursor-pointer transition-shadow hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
+      role="link"
+      tabIndex={0}
+      aria-label={`Open request: ${data.title}`}
+      onClick={openRequest}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          openRequest()
+        }
+      }}
+    >
       {data.requester_id && (
-        <div className="mb-3 flex items-center gap-2">
+        <div className="mb-3 flex items-center gap-2" onClick={stop}>
           <RequestTrustBadge requesterId={data.requester_id} communityId={data.community_id} />
         </div>
       )}
 
       <div className="flex items-start gap-3 mb-3">
-        <div className="w-9 h-9 rounded-full bg-primary text-white flex items-center justify-center text-sm font-semibold shrink-0">
+        {/* Sprint 100 / F5 — the colored-initial avatar is the asker; label it so it isn't unexplained. */}
+        <div
+          className="w-9 h-9 rounded-full bg-primary text-white flex items-center justify-center text-sm font-semibold shrink-0"
+          role="img"
+          aria-label={`Asked by ${askerName}`}
+          title={`Asked by ${askerName}`}
+        >
           {data.author_name?.charAt(0).toUpperCase() ?? '?'}
         </div>
         <div className="min-w-0">
@@ -137,17 +166,18 @@ export default function RequestCard({ data, currentUserId, onOffered }: RequestC
             {STATUS_LABELS[data.status] ?? data.status}
           </span>
         </div>
-        {!isOwnRequest && (
+        {!isOwnRequest && !readOnly && (
           offered ? (
             <a
               href="/dashboard?tab=helping"
+              onClick={stop}
               className="text-sm font-medium text-primary underline underline-offset-2 hover:no-underline shrink-0"
             >
               Offer sent → Track in Helping
             </a>
           ) : (
             <button
-              onClick={handleOffer}
+              onClick={(e) => { stop(e); handleOffer() }}
               disabled={offering}
               className="btn-primary text-sm py-1.5 px-4 disabled:opacity-50 shrink-0"
             >

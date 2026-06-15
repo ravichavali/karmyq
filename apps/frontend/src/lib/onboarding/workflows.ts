@@ -24,11 +24,11 @@ export const WORKFLOWS: Record<string, WorkflowDef> = {
       },
       {
         title: 'Requests you can fill',
-        body: 'Each card shows the requester, your trust path and their Karma, and an explainable match score like "42% · 2nd-degree trust" — never a bare number. Tap Offer to Help to send your offer; track it in the Helping tab.',
+        body: 'Each card shows the requester (the colored circle is their initial — "Asked by …"), your trust path and their Karma, and an explainable match score like "42% · 2nd-degree trust" — never a bare number. Tap anywhere on a card to open the full request; tap Offer to Help to send your offer and track it in the Helping tab.',
       },
       {
         title: "You're caught up",
-        body: 'When nothing ranks highly for you, the feed offers "Show more open requests" to widen the list — it never claims you are caught up while there is still more to show. Once widened, the bottom closes cleanly with "you\'re caught up", and when your communities still have open asks it points you there to lend a hand rather than pretending there is nothing left.',
+        body: "When there are no direct matches for you, the feed shows one honest, calm message — \"You're caught up\" — and points you to your communities, which may still have open asks waiting. It doesn't pretend there's nothing left or push a \"show more\" nudge.",
       },
       {
         title: 'The same feed inside a community',

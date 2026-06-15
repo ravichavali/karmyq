@@ -186,7 +186,7 @@ export default function CommunityDetailPage() {
           {activeTab === 'home' && (
             isMember ? (
               <div className="space-y-2">
-                <CommunityPulse pulse={pulse} loading={loadingPulse} />
+                <CommunityPulse pulse={pulse} loading={loadingPulse} communityId={communityId!} />
                 <BrowseTab community={community} communityId={communityId!} />
               </div>
             ) : (

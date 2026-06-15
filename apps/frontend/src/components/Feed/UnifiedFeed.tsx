@@ -249,24 +249,17 @@ export default function UnifiedFeed({
             </div>
           ) : null
         ) : (
+          // Sprint 100 / F3: one honest, calm caught-up message — no "No top matches" first stage,
+          // no "Show more open requests" engagement nudge. An empty curated feed only means no
+          // DIRECT matches; the member's communities may still have open asks, so we point there.
           <div className="kq-finite-state">
-            {/* BUG-098-005: "You're caught up" is a terminal claim — only show it once the
-                feed has been widened (minScore=0). Before widening, offer to look further
-                without contradicting it by also saying the user is caught up.
-                S99-002: an empty *curated* feed only means no direct matches — the member's
-                communities may still have open asks, so don't claim "that's everyone". */}
             <EmptyState
-              icon={showingMoreOpen ? '✅' : '🔍'}
-              heading={showingMoreOpen ? "You're caught up" : 'No top matches right now'}
-              body={
-                showingMoreOpen
-                  ? 'No direct matches for you right now — but your communities may still have open asks waiting. Browse to lend a hand.'
-                  : 'There may be more open requests below your top matches. Look further, or browse your communities.'
-              }
+              icon="✅"
+              heading="You're caught up"
+              body="No direct matches for you right now — but your communities may still have open asks waiting. Browse to lend a hand."
               ctaLabel="Browse communities"
               ctaHref="/communities"
             />
-            {showMoreOpenButton}
           </div>
         )
       ) : (

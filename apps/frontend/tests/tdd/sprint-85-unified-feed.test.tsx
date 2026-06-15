@@ -78,10 +78,11 @@ describe('UnifiedFeed', () => {
 
     render(<UnifiedFeed />)
 
-    // Sprint 98 (BUG-098-005): before widening, the empty feed offers "Show more" under
-    // honest copy ("No top matches right now") rather than claiming the user is caught up.
-    expect(await screen.findByText(/no top matches right now/i)).toBeInTheDocument()
-    expect(screen.queryByText(/you're caught up/i)).not.toBeInTheDocument()
+    // Sprint 100 (F3): an empty Home feed shows ONE honest caught-up message that points to
+    // communities — no "No top matches" first stage, no "Show more" nudge.
+    expect(await screen.findByText(/you're caught up/i)).toBeInTheDocument()
+    expect(screen.queryByText(/no top matches right now/i)).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /show more open requests/i })).not.toBeInTheDocument()
     // the decision still shows even when there are no request cards
     expect(screen.getByText('Ride to PDX')).toBeInTheDocument()
   })

@@ -93,15 +93,16 @@ describe('S99-001: community stats are admin-only on the client', () => {
 // ── S99-002: empty curated feed must not deny community open asks ──
 describe('S99-002: caught-up state stays truthful about community open asks', () => {
   it('keeps the caught-up heading but points to communities instead of claiming "that\'s everyone"', async () => {
-    getCuratedRequests
-      .mockResolvedValueOnce({ data: { items: [] } }) // minScore 30
-      .mockResolvedValueOnce({ data: { items: [] } }) // widened minScore 0 — still empty
+    // Sprint 100 (F3): the empty Home shows the single caught-up message immediately — there is no
+    // "Show more open requests" widening step to click through first.
+    getCuratedRequests.mockResolvedValue({ data: { items: [] } })
 
     render(<UnifiedFeed view="home" />)
-    fireEvent.click(await screen.findByRole('button', { name: /show more open requests/i }))
 
-    // Heading contract from Sprint 98 is preserved.
+    // Heading contract is preserved.
     expect(await screen.findByText(/you're caught up/i)).toBeInTheDocument()
+    // No widening nudge on the empty Home.
+    expect(screen.queryByRole('button', { name: /show more open requests/i })).not.toBeInTheDocument()
     // The home empty state must no longer imply nothing exists anywhere.
     expect(screen.queryByText(/that's everyone for now/i)).not.toBeInTheDocument()
     expect(screen.queryByText(/we'll let you know when a neighbour needs you/i)).not.toBeInTheDocument()

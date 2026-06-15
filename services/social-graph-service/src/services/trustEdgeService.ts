@@ -57,6 +57,38 @@ export async function processMatchCompleted(params: {
   }
 }
 
+/**
+ * Sprint 100 / ADR-078 — reconcile a completed match's community trust edges from the request's
+ * communities, NOT the event payload's `community_id`.
+ *
+ * The `match_completed` payload historically carried no `community_id` (the request-service publisher
+ * omits it), so the old subscriber only ever created a trust edge when that field happened to be
+ * present — which was never. The result: completed exchanges that the community pulse counts, but
+ * "How we're connected" shows no edge for. The source of truth for which communities an exchange
+ * belongs to is `requests.request_communities` (a request can be cross-posted to several). We derive
+ * the community set from there and upsert a per-community trust edge for each, independent of the
+ * payload. Returns the community ids reconciled (for logging / backfill accounting).
+ */
+export async function reconcileMatchCompletedCommunities(params: {
+  requestId: string;
+  requesterId: string;
+  responderId: string;
+}): Promise<string[]> {
+  const { requestId, requesterId, responderId } = params;
+
+  const commRes = await pool.query(
+    `SELECT community_id FROM requests.request_communities WHERE request_id = $1`,
+    [requestId]
+  );
+  const communityIds: string[] = commRes.rows.map((r: { community_id: string }) => r.community_id);
+
+  for (const communityId of communityIds) {
+    await processMatchCompleted({ requesterId, responderId, communityId });
+  }
+
+  return communityIds;
+}
+
 export async function getTrustGraphForCommunity(
   communityId: string,
   callingUserId: string

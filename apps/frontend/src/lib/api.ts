@@ -497,6 +497,12 @@ export const requestService = {
   getCommunityPulse: (communityId: string) =>
     requestApi.get(`/requests/community/${communityId}/pulse`),
 
+  // Sprint 100 / F2: the reachable, read-only list behind the pulse "N open asks across the
+  // community" row — every open + unexpired ask in the community (own + already-offered included),
+  // same predicate as the pulse count so rows === count. Members-only. → { items, count }.
+  getCommunityOpenAsks: (communityId: string) =>
+    requestApi.get(`/requests/community/${communityId}/open-asks`),
+
   // Sprint 90 / ADR-069: resolved retention windows + the member's own held/forgotten counts.
   // Backs the "What Karmyq remembers" transparency page. Members-only when community-scoped.
   getRetentionPolicy: (communityId?: string) =>
