@@ -537,6 +537,11 @@ Unknown community → `404`.
 (matches the texture query so the pulse never overcounts vs the feed). `recentJoins` comes from the
 server (`communities.members.joined_at` within 7 days) — there is no client-side member-recency seam.
 
+**Sprint 100 / F1 — truth:** `helpedThisWeek` is `COUNT(DISTINCT m.responder_id)` (not `COUNT(*)`
+over `matches`), over the same member-scoped, completed-in-7-days subset that feeds `recentHelpers`,
+so the headline ("N neighbours helped each other") can never outrun the named helpers — one neighbour
+who completes three exchanges is one helper, not three.
+
 **Response:**
 ```json
 {
@@ -554,6 +559,23 @@ server (`communities.members.joined_at` within 7 days) — there is no client-si
 
 **Implementation:** `src/routes/requests.ts` — `router.get('/community/:communityId/pulse')` + the
 shared `fetchCommunityPulse()` helper.
+
+#### GET /requests/community/:communityId/open-asks (Sprint 100 / F2)
+The **reachable, read-only** list behind the pulse "N open asks across the community" row. Returns
+every open + unexpired ask attached to the community — **including the caller's own asks and asks
+already offered on** — using the identical predicate as the pulse `openAsks` count
+(`status='open' AND expired = FALSE`, scoped via `request_communities`), so the count and the rows
+can never diverge. Browse-only: the frontend renders these cards read-only (no Offer).
+**Members-only** (JWT `communities` claim → `403 NOT_A_MEMBER`). Returns `{ items, count }` of
+canonical request-card data scoped to this community. **Implementation:** `src/routes/requests.ts` —
+`router.get('/community/:communityId/open-asks')`.
+
+#### GET /requests/curated?view=home — `offeredAwaiting` (Sprint 100 / G1)
+The home-feed response now carries `offeredAwaiting`: the count of open asks the member has **offered
+to help on and is still waiting to hear back on** (responder, match `proposed`, request open +
+unexpired). The curated feed hides asks the viewer already offered on and a pending offer isn't a
+decision they owe, so this powers a single Home band ("You've offered to help on N open asks") that
+keeps an active helper's Home from reading empty. Fail-soft: any error → `0` (band hidden).
 
 #### GET /requests/retention-policy (Sprint 90 / ADR-069)
 Backs the `/about/memory` transparency page. Returns the **resolved retention windows**

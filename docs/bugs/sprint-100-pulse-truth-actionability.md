@@ -94,7 +94,9 @@ Maria Elena Reyes (`c5b0ba91…`, `maria.reyes@test.karmyq.com`) responder-match
 - A *new* proposal insert (default `status='discussion'`) **succeeds** (rolled-back repro confirmed) — creation is not the failure.
 - The failure is **execute**: [`fissionService.ts:261-266`](../../services/community-service/src/services/fissionService.ts) sets the proposal `status='executed'`. Because an `executed` row **already exists** for this community (from the 06-01 split), this creates a second `(446c2c65, 'executed')` row → **`23505` unique-constraint violation** → `ROLLBACK` → route returns **500 "Failed to execute split."** A community can therefore only ever be split **once**.
 
-**Decision:** Replace the over-strict full unique index with a **partial** unique index that guards only *active* proposals: `UNIQUE (community_id) WHERE status NOT IN ('executed','rejected')`. This still prevents two concurrent in-flight proposals (preserves the create 409) and aligns with `getActiveSplitProposal`'s existing `status NOT IN ('executed','rejected')` predicate, while allowing a community to split again after a prior split/merge. **Schema change → migration** in `infrastructure/postgres/migrations/` + RED regression test reproducing the second-execute collision.
+**Decision:** Replace the over-strict full unique index with a **partial** unique index that guards only *active* proposals: `UNIQUE (community_id) WHERE status NOT IN ('executed','rejected')`. This still prevents two concurrent in-flight proposals (preserves the create 409) and aligns with `getActiveSplitProposal`'s existing `status NOT IN ('executed','rejected')` predicate, while allowing a community to split again after a prior split/merge. **Schema change → migration** (`infrastructure/postgres/migrations/20260615-split-proposal-active-unique.sql`) + DB-backed regression test reproducing the second-execute collision (`services/community-service/tests/tdd/sprint-100-split-reexecute.test.ts`).
+
+**Migration dry-run (2026-06-15, rolled back against live data):** `DROP CONSTRAINT` + `CREATE UNIQUE INDEX … WHERE status NOT IN ('executed','rejected')` both apply cleanly. Pre-check confirmed **0 communities have 2+ active proposals**, so the partial index builds without violation. After deploy, the stuck `approved` proposal on 446c2c65 (06-08) becomes executable again.
 
 ---
 
@@ -108,7 +110,9 @@ Knobs identified:
 - `growth.newUsersPerDay` = 5; `users.total`/`growth.maxUsers` = 500.
 - Spread of *who* creates requests is governed by the worker→user assignment in the orchestrator + `request-workflow.ts` (not a single config field).
 
-**Decision:** Bounded config tuning (raise pace, lower delays) + ensure request creation spreads across active users (no schema change). Verify activity distributes across 3+ accounts, not just early users.
+**Finding:** `getRandomUser()` already selects `ORDER BY RANDOM()` over the **full** actor pool (`SIM_ACTOR_POOL_FILTER` = every `@test.karmyq.com` user, ~500) — so actor selection is already uniform; the historical clustering on early users was a pre-S87 data artifact, not a current selection bias. The actionable lever is therefore **pace**, not spread.
+
+**Decision (applied):** Bounded pace tuning in `default.json`: `workers.count` 10 → **16**, `workers.delayMs` `{5000,30000}` → **`{2500,12000}`** (≈3–4× more actions/min; still ≥ `rateLimit.minDelayMs` 2000). No schema change; growth/maxUsers left at 500. Post-deploy: sample 3+ accounts to confirm distributed activity.
 
 ---
 
@@ -128,3 +132,20 @@ Knobs identified:
 | G3 | `simulation-service` config + workflows | Raise pace, spread requests across users | 10 |
 
 **Out of scope (confirmed):** Withdraw-Offer (already fixed); broad UI facelift; karma/trust unification; governance/fission redesign.
+
+---
+
+## Test coverage note (Task 12)
+
+The end-to-end "completed match → distinct pulse count + visible connection" flow is covered by the
+two **service-level** DB-backed tests rather than a single cross-service root test:
+- `services/request-service/tests/tdd/sprint-100-pulse-truth.test.ts` — distinct-helper count + open-asks reachability.
+- `services/social-graph-service/tests/tdd/sprint-100-connection-reconcile.test.ts` — completed match → connection + per-community trust edge (no payload `community_id`).
+- `services/community-service/tests/tdd/sprint-100-split-reexecute.test.ts` — BUG-010 active-only uniqueness.
+- Frontend: `sprint-100-empty-state`, `sprint-100-request-card-clickable`, `sprint-100-g1-offered-band` (all green locally).
+
+A single cross-workspace root `tests/tdd/` test was deliberately **not** added: per
+[[feedback_turbo_cache_cross_workspace_test]], cross-workspace tests read files in other workspaces
+that turbo doesn't track, causing stale local cache passes while CI fails — and they break on file
+moves. Keeping each invariant in its owning workspace is the more robust coverage. The live audit +
+rolled-back dry-runs validated the end-to-end behaviour on real data.

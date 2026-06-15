@@ -11,8 +11,8 @@
     }
   },
   "workers": {
-    "count": 10,
-    "delayMs": { "min": 5000, "max": 30000 }
+    "count": 16,
+    "delayMs": { "min": 2500, "max": 12000 }
   },
   "users": {
     "total": 500,

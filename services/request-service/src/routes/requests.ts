@@ -1034,12 +1034,39 @@ export async function fetchDecisions(req: Request, userId: string): Promise<Unif
 }
 
 /** Sprint 85 / ADR-066 — assemble + send the Dashboard Home unified feed ({ items }). */
+/**
+ * Sprint 100 / G1 — how many open asks the member has OFFERED to help on and is still waiting to
+ * hear back on (responder, match still 'proposed', request still open + unexpired). The curated feed
+ * deliberately hides requests the viewer already offered on (BUG-002), and a responder's own pending
+ * offer is awaiting the requester — not a decision they owe — so it isn't in the decision band. That
+ * left an active helper's Home reading empty while they had many offers in flight (the live audit
+ * found one member with 330 such offers). This count powers a single honest Home summary band that
+ * points to the Helping tab, so the Home never feels empty for someone who is actively helping.
+ * Fail-soft: any error degrades to 0 (the band simply doesn't render) — it never breaks the feed.
+ */
+async function countOfferedAwaiting(userId: string): Promise<number> {
+  try {
+    const result = await query(
+      `SELECT COUNT(*)::int AS n
+         FROM requests.matches m
+         JOIN requests.help_requests hr ON hr.id = m.request_id
+        WHERE m.responder_id = $1 AND m.status = 'proposed'
+          AND hr.status = 'open' AND hr.expired = FALSE`,
+      [userId]
+    );
+    return result.rows[0]?.n ?? 0;
+  } catch {
+    return 0;
+  }
+}
+
 async function respondHomeFeed(req: Request, res: Response, userId: string, scoredRequests: any[]): Promise<void> {
   const decisionItems = await fetchDecisions(req, userId);
   const requestItems = scoredRequests.map((r) => buildRequestItem(toRequestCardData(r), r.feedScore));
   const { items } = assembleHomeFeed([...decisionItems, ...requestItems]);
+  const offeredAwaiting = await countOfferedAwaiting(userId);
 
-  sendSuccess(res, { items, count: items.length }, HTTP_STATUS.OK, { requestId: (req as any).id });
+  sendSuccess(res, { items, count: items.length, offeredAwaiting }, HTTP_STATUS.OK, { requestId: (req as any).id });
 }
 
 /** The community's weekly help-loop pulse (wire shape for GET /community/:id/pulse). */

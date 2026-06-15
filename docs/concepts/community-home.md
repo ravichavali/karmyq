@@ -11,9 +11,15 @@ Everyone — members and admins — lands on the warm **Home** tab:
 - **A warm hero** with the community's name, its mission, a few of your neighbours' faces, and a
   visible **cap bar**. Communities are capped (150 by default, "on purpose — small enough that people
   still know each other"), and the bar shows how full this one is and how much room remains.
-- **"This week in the neighbourhood"** — a small, honest pulse of real activity: neighbours who
-  helped each other, open asks waiting for a hand (and how many are time-sensitive), and who recently
-  joined. Rows with nothing to say are simply hidden — no empty "0" tiles.
+- **"This week in the neighbourhood"** — a small, honest pulse of real activity: **distinct**
+  neighbours who helped each other (one neighbour who helped three times is one helper, not three, so
+  the headline never outruns the named helpers), **open asks across the community** (and how many are
+  time-sensitive), and who recently joined. The open-asks row is a **link**: it opens a reachable,
+  read-only list of exactly those asks — including your own and ones already offered on — so every
+  number the pulse names can be seen. And because the pulse counts an exchange, that exchange also
+  shows up as a connection in "How we're connected" (the two are reconciled from the same source —
+  see [ADR-078](/docs/concepts/adr-078-community-connection-reconciliation)). Rows with nothing to say
+  are simply hidden — no empty "0" tiles.
 - **The open asks** themselves, led by the relationships that make them feel close (your trust path
   to the person, not a bare score).
 
