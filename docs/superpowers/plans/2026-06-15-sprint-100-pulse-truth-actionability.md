@@ -157,7 +157,7 @@ cd services/social-graph-service && npx jest tests/tdd/sprint-100-connection-rec
 **Files:**
 - Modify: `services/request-service/src/routes/requests.ts`, `services/request-service/src/utils/queryBuilder.ts`, `apps/frontend/src/components/community/CommunityPulse.tsx`, `apps/frontend/src/components/Feed/UnifiedFeed.tsx`
 
-- [ ] Backend: add a read-only community-wide open-asks mode (`includeAll`) returning all open+unexpired asks in the community (own + offered included), reusing the curated query path. Check **all** feed surfaces.
+- [ ] Backend: add a read-only community-wide open-asks mode (`includeAll`) to the **`/requests/curated`** path (the one `UnifiedFeed` actually calls via `getCuratedRequests`, NOT `/requests/feed`), returning all open+unexpired asks in the community (own + offered included). Check **all** feed surfaces (`requests.ts` curated handler + `queryBuilder.ts`); Task 1 may instead choose a dedicated endpoint if cleaner.
 - [ ] Frontend: make the `CommunityPulse` open-asks row a link to that view; copy → "N open asks across the community".
 - [ ] Frontend: `UnifiedFeed` renders own/offered asks read-only (no Offer button) in the open-asks view.
 - [ ] Test the count is reachable (pulse number === rows shown in the open-asks view); `/simplify`.
@@ -232,7 +232,7 @@ cd apps/frontend && npx jest tests/tdd/sprint-100-empty-state.test.tsx tests/tdd
 - [ ] Write/update the community/feed user guide **source** in `docs/guides/*.md`: pulse numbers (distinct helpers, open asks across the community), reachable open-asks view, calm caught-up state, clickable cards. Remove "show more open requests" language. If it's a new guide page, register it in `GUIDE_ORDER`/`GUIDE_LABELS`/`GUIDE_SLUGS`.
 - [ ] Add the ADR-078 **source** markdown (`docs/adr/ADR-078-*.md`) and add it to `docs/adr/README.md`.
 - [ ] Register `adr-078-community-connection-reconciliation` in `ADR_GROUPS` (Trust & Reputation group) in `scripts/generate-docs.ts`.
-- [ ] Regenerate landing docs (`npx ts-node scripts/generate-docs.ts` or the documented command); **grep-verify** ADR-078 + the guide appear in the generated `nav.json` after regen (nav.json silently reverts).
+- [ ] Regenerate landing docs (`cd apps/landing && npm run generate-docs` — uses tsx); **grep-verify** ADR-078 + the guide appear in the generated `nav.json` after regen (nav.json silently reverts).
 - [ ] `git add -f apps/landing/src/data/docs/` to commit the regenerated output.
 - [ ] Onboarding `workflows.ts` already updated in Task 7 — confirm it matches shipped behavior.
 - [ ] Update request-service + social-graph-service `CONTEXT.md` (pulse semantics, open-asks mode, connection reconciliation).

@@ -144,7 +144,7 @@ that are missing their community trust edge, with before/after counts.
 
 | Method | Path | Change | Auth |
 |--------|------|--------|------|
-| GET | `/requests/feed?community_id&minScore` | Existing community feed; gains an `includeAll=1` (or equivalent) mode that returns **all** open community asks read-only (own + already-offered included) for the open-asks reachability view | Member (403 non-member) |
+| GET | `/requests/curated?view=community&community_id&minScore&includeAll=1` | The community feed `UnifiedFeed` actually calls (`getCuratedRequests` → `/requests/curated`, NOT `/requests/feed`, which is the separate dismissable-feed surface). Gains an `includeAll=1` mode returning **all** open community asks read-only (own + already-offered included) for the open-asks reachability view. Task 1 may instead choose a dedicated endpoint if cleaner | Member (403 non-member) |
 | GET | `/requests/community/:communityId/pulse` | No contract change; `helpedThisWeek` now reflects distinct responders. (Note: the route doc-comment in `requests.ts` reads `/community/:id/pulse`, but it is mounted under `/requests` — the real client path is `/requests/community/:communityId/pulse`, per `apps/frontend/src/lib/api.ts:498` and `sprint-89-community-pulse.test.ts`) | Member |
 
 > The exact reachability mechanism (a feed mode vs. a dedicated community-open-asks listing) is **frozen
