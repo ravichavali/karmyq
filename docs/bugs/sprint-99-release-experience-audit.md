@@ -83,9 +83,25 @@ typo→`Foster City Cricket Aficionados`, stacked suffixes `… — Group A — 
 em-dash `—` in the " — Group X" fission suffixes (36 communities; 14 doubled, handled above). Whether to
 normalize the remaining single-suffix em-dashes to plain ASCII is an open question, not yet actioned.
 
-**AFTER evidence: PENDING maintainer apply** (`scripts/repair-release-experience-demo-data.sql` is a
-shared-DB write; the safety classifier blocked the ad-hoc apply, correctly). Run post-deploy, then the
-script's own embedded BEFORE/AFTER audit prints the (empty) result — paste it here.
+**AFTER evidence: APPLIED 2026-06-15 post-deploy (v11.8.0).** Ran
+`scripts/repair-release-experience-demo-data.sql` on demo `karmyq_prod`:
+BEFORE `test_named=3, typo=1, stacked_suffix=14` → 18 rows updated (4 targeted renames + 14 suffix
+collapses) → AFTER `test_named=0, typo=0, stacked_suffix=0`. Verified live in the dashboard community
+dropdown: "Bayview Neighbors", "Excelsior Mutual Aid", "Foster City Cricket Aficionados".
+
+### Post-deploy validation (2026-06-15, v11.8.0 live, as maria.reyes)
+
+- **S99-001** — Berkeley Stewardship tab as non-admin → 0 console errors (was 2× `403 /stats`). ✅
+- **S99-002** — widened home terminal now reads "You're caught up — No direct matches for you right now,
+  but your communities may still have open asks waiting. Browse to lend a hand." ✅
+- **S99-003** — dropdown shows Bayview Neighbors / Excelsior Mutual Aid / Foster City Cricket Aficionados;
+  repair AFTER-counts all 0. ✅
+- **S99-006** — People roster as non-admin → 0 member emails in page text (was 115). ✅
+- **Landing PoC CTA** — `/join` renders "Try the live demo →" (outlined pill, href karmyq.com). ✅
+- **Bonus (maria liveliness):** her Home now shows a "Needs your response" band with 4 actionable items
+  in Bayview Neighbors — confirms the sim feeds her and `proposed` matches DO surface as decisions; the
+  earlier empty walkthrough was a point-in-time lull. Sim variety (4 identical "groceries" asks) feeds
+  the Sprint 100 idea in `docs/IDEAS.md`.
 
 ### Frontend / landing repairs — test evidence
 

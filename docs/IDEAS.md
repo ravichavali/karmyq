@@ -277,6 +277,13 @@ Files to change: `apps/frontend/src/components/BrowseFeed.tsx`, `apps/frontend/s
 
 Bug: clicking "Withdraw Offer" on the Active tab returns "Only the requester can reject this match." The withdraw action is calling the wrong endpoint or passing the wrong role — the responder (helper) should be able to withdraw their own proposed offer, but the rejection guard is treating it as a requester-only action.
 
+> **Resolved — record-keeping only (verified 2026-06-15, Sprint 100 planning).** The reject/withdraw
+> guard at `services/request-service/src/routes/matches.ts:448-453` now permits **either match
+> participant** (requester *or* responder); the old requester-only string "Only the requester can
+> reject this match" no longer exists anywhere in the codebase (current message: "Only match
+> participants can reject or withdraw."). A responder can withdraw their own proposed offer. Fixed in
+> the Sprint 85/92 match-lifecycle work; this entry was just never annotated. No further action.
+
 ---
 
 ## [2026-05-20] framing
@@ -348,3 +355,19 @@ consistently. Touches all services' error responses and the frontend error-handl
 > **Addressed by Sprint 94 / ADR-074 (2026-06-11):** canonical contract is
 > `{ success:false, message:string, error:string }`; shared helpers and shared middleware now emit
 > the string-code shape. Direct route literals remain documented drift rather than a full sweep.
+
+## [2026-06-15] architecture
+
+Sprint 100 candidate: increase simulation pace / data growth so test users fill out with good,
+lively data. Maria has rich depth (15 communities, providers, trust) but her dashboard Home reads
+empty — root cause: ~335 `proposed` responder matches (103/week) that don't surface as actionable
+items on Home (they sit in `proposed` state). The sim is very active platform-wide (1019 open
+requests, 3543 matches in 2 days), but that activity isn't translating into responder-facing Home
+activity for established users. Two threads:
+(1) raise sim pace + spread fresh requests across more test users so multiple demo accounts look
+lively;
+(2) investigate whether `proposed` matches should surface on responder Home/Helping (possible
+feed/surfacing gap, bigger than the Sprint 99 frozen scope). See
+`docs/bugs/sprint-99-release-experience-audit.md`.
+
+---
