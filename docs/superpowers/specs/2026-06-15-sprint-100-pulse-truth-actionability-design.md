@@ -145,7 +145,7 @@ that are missing their community trust edge, with before/after counts.
 | Method | Path | Change | Auth |
 |--------|------|--------|------|
 | GET | `/requests/feed?community_id&minScore` | Existing community feed; gains an `includeAll=1` (or equivalent) mode that returns **all** open community asks read-only (own + already-offered included) for the open-asks reachability view | Member (403 non-member) |
-| GET | `/community/:id/pulse` | No contract change; `helpedThisWeek` now reflects distinct responders | Member |
+| GET | `/requests/community/:communityId/pulse` | No contract change; `helpedThisWeek` now reflects distinct responders. (Note: the route doc-comment in `requests.ts` reads `/community/:id/pulse`, but it is mounted under `/requests` — the real client path is `/requests/community/:communityId/pulse`, per `apps/frontend/src/lib/api.ts:498` and `sprint-89-community-pulse.test.ts`) | Member |
 
 > The exact reachability mechanism (a feed mode vs. a dedicated community-open-asks listing) is **frozen
 > in Task 1** against the live community before coding. The default is a read-only `includeAll` feed mode
@@ -164,13 +164,17 @@ that are missing their community trust edge, with before/after counts.
 
 ---
 
-## User Guide & Doc Updates
+> **Landing docs are generated.** `apps/landing/src/data/docs/` (incl. `nav.json`) is wiped + rebuilt by
+> `scripts/generate-docs.ts`. Edit the **sources** below and the generator's registries, then regenerate
+> and `git add -f` the output — never hand-edit the JSON or nav.json.
 
-- **`apps/landing/src/data/docs/guides/`** — update the community / feed guide(s) to describe: the pulse
-  numbers (distinct helpers, open asks across the community), the reachable open-asks view, the calm
-  caught-up state, and clickable request cards. Remove any "show more open requests" language.
-- **`apps/landing/src/data/docs/concepts/adr-078-…json`** — new ADR-078 (community connection
-  reconciliation) + nav.json "Architecture Decisions" entry.
+- **`docs/guides/*.md`** (source) — update the community / feed guide(s) to describe: the pulse numbers
+  (distinct helpers, open asks across the community), the reachable open-asks view, the calm caught-up
+  state, and clickable request cards. Remove any "show more open requests" language. Register a new guide
+  page in `scripts/generate-docs.ts` (`GUIDE_ORDER`/`GUIDE_LABELS`/`GUIDE_SLUGS`) if one is added.
+- **`docs/adr/ADR-078-community-connection-reconciliation.md`** (source) + **`docs/adr/README.md`** index
+  entry + register `adr-078-community-connection-reconciliation` in `ADR_GROUPS` (Trust & Reputation) in
+  `scripts/generate-docs.ts`. Regenerate, then grep-verify ADR-078 appears in the generated `nav.json`.
 - **Onboarding** — `apps/frontend/src/lib/onboarding/workflows.ts` feed-walkthrough copy updated (mandatory
   per workflow-UI-change rule).
 - **CONTEXT.md** — request-service (pulse semantics + open-asks feed mode) and social-graph-service

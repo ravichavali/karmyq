@@ -21,8 +21,7 @@ contained frontend changes to `CommunityPulse`, `UnifiedFeed`, and the canonical
 ### New files to create
 | File | Responsibility |
 |------|---------------|
-| `docs/adr/ADR-078-community-connection-reconciliation.md` | Decision: community trust edge/connection derives from `request_communities` at completion, not the event payload |
-| `apps/landing/src/data/docs/concepts/adr-078-community-connection-reconciliation.json` | Landing ADR page + nav entry |
+| `docs/adr/ADR-078-community-connection-reconciliation.md` | **Source** ADR: community trust edge/connection derives from `request_communities` at completion, not the event payload (landing JSON is generated from this — never hand-write the JSON) |
 | `scripts/backfill-community-connections.sql` | Idempotent backfill of missing connections/trust edges for historical completed matches (before/after counts; NOT a migration) |
 | `services/request-service/tests/tdd/sprint-100-pulse-truth.test.ts` | Distinct-helper count + open-asks reachability semantics |
 | `services/social-graph-service/tests/tdd/sprint-100-connection-reconcile.test.ts` | match_completed → connection + community trust edge derived from request communities |
@@ -40,8 +39,11 @@ contained frontend changes to `CommunityPulse`, `UnifiedFeed`, and the canonical
 | `apps/frontend/src/components/Feed/UnifiedFeed.tsx` | Collapse empty state to "You're caught up" (no Show-more); read-only community-wide open-asks path; surface `proposed` matches (G1) |
 | `apps/frontend/src/components/Feed/RequestCard.tsx` | Clickable body → /requests/[id]; clarify asker avatar (label + tooltip) |
 | `apps/frontend/src/lib/onboarding/workflows.ts` | Update feed-walkthrough copy (drop "Show more open requests" two-step) |
-| `simulation/workflows/*` + sim config | Raise pace + spread requests across more test users (G3) |
+| `services/simulation-service/src/workflows/*` + sim config | Raise pace + spread requests across more test users (G3) |
 | `services/community-service` (or fission path) | BUG-010 split fix (exact file frozen in Task 1) |
+| `docs/adr/README.md` | Add ADR-078 to the ADR index (required by the ADR process) |
+| `scripts/generate-docs.ts` | Register `adr-078-community-connection-reconciliation` in `ADR_GROUPS` (Trust & Reputation group); add the community/feed guide to `GUIDE_ORDER`/`GUIDE_LABELS`/`GUIDE_SLUGS` if a new guide page is created |
+| `docs/guides/*.md` | **Source** community/feed user guide(s) — the landing guide JSON regenerates from these |
 | root `package.json` + `package-lock.json` | `11.8.0` → `11.9.0` |
 
 ---
@@ -206,7 +208,7 @@ cd apps/frontend && npx jest tests/tdd/sprint-100-empty-state.test.tsx tests/tdd
 ## Task 10: G3 — simulation pace / liveliness
 
 **Files:**
-- Modify: `simulation/workflows/*` + simulation config
+- Modify: `services/simulation-service/src/workflows/*` + simulation config (see `services/simulation-service/CONTEXT.md`)
 
 - [ ] Raise the simulation pace and spread fresh requests across more test users (bounded config/distribution change; no schema change).
 - [ ] Verify locally that activity distributes across multiple accounts, not just early users.
@@ -216,13 +218,22 @@ cd apps/frontend && npx jest tests/tdd/sprint-100-empty-state.test.tsx tests/tdd
 
 ## Task 11: Docs — guides, landing, ADR, onboarding
 
+> **Landing docs are GENERATED.** `apps/landing/src/data/docs/` (incl. `nav.json`) is wiped and
+> rebuilt by `scripts/generate-docs.ts` (`fs.rmSync(OUT_DIR)` at ~L637). **Never hand-edit the JSON or
+> nav.json** — edit the markdown sources + the generator's registries, then regenerate and force-add
+> the output. (`apps/landing/src/data/docs/` is gitignored → `git add -f`.)
+
 **Files:**
-- Modify: `apps/landing/src/data/docs/guides/*`, `apps/landing/src/data/docs/nav.json`
-- Create: `apps/landing/src/data/docs/concepts/adr-078-community-connection-reconciliation.json`
+- Create: `docs/adr/ADR-078-community-connection-reconciliation.md` (if not already created in Task 4)
+- Modify: `docs/adr/README.md` (ADR index entry), `scripts/generate-docs.ts` (`ADR_GROUPS` + `GUIDE_*` registries)
+- Modify/Create: `docs/guides/*.md` (community/feed user guide source)
 - Modify: service `CONTEXT.md` (request-service, social-graph-service)
 
-- [ ] Update the community/feed user guide(s): pulse numbers (distinct helpers, open asks across the community), reachable open-asks view, calm caught-up state, clickable cards. Remove "show more open requests" language.
-- [ ] Add ADR-078 landing JSON + nav.json "Architecture Decisions" entry; **grep-verify nav.json after edit** (it silently reverts).
+- [ ] Write/update the community/feed user guide **source** in `docs/guides/*.md`: pulse numbers (distinct helpers, open asks across the community), reachable open-asks view, calm caught-up state, clickable cards. Remove "show more open requests" language. If it's a new guide page, register it in `GUIDE_ORDER`/`GUIDE_LABELS`/`GUIDE_SLUGS`.
+- [ ] Add the ADR-078 **source** markdown (`docs/adr/ADR-078-*.md`) and add it to `docs/adr/README.md`.
+- [ ] Register `adr-078-community-connection-reconciliation` in `ADR_GROUPS` (Trust & Reputation group) in `scripts/generate-docs.ts`.
+- [ ] Regenerate landing docs (`npx ts-node scripts/generate-docs.ts` or the documented command); **grep-verify** ADR-078 + the guide appear in the generated `nav.json` after regen (nav.json silently reverts).
+- [ ] `git add -f apps/landing/src/data/docs/` to commit the regenerated output.
 - [ ] Onboarding `workflows.ts` already updated in Task 7 — confirm it matches shipped behavior.
 - [ ] Update request-service + social-graph-service `CONTEXT.md` (pulse semantics, open-asks mode, connection reconciliation).
 
