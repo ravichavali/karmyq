@@ -1,8 +1,33 @@
-# Sprint 100 - Pulse Truth + Feed Actionability - READY TO EXECUTE (v11.8.0 → v11.9.0)
+# Sprint 100 - Pulse Truth + Feed Actionability - IMPLEMENTED, PR OPEN (v11.8.0 → v11.9.0)
 
-> **STATUS (2026-06-15):** PLANNED, ready to execute. Spec + plan written, scope confirmed with the
-> maintainer. Sprint 99 (v11.8.0) is live and validated. The local-only post-deploy docs from S99
-> (handoff + audit-log Final Validation) ride **this** sprint's PR (no docs-only push to master).
+> **STATUS (2026-06-15):** IMPLEMENTED + verified. **PR #89 open, HELD FOR REVIEW** (maintainer chose
+> to review before merge — nothing merged to master yet). All 14 implementation/verification tasks
+> done across 3 commits on `feature/sprint-100-pulse-truth-actionability`. Sprint 99 (v11.8.0) is live.
+>
+> **To finish (after review):**
+> 1. Review + merge PR #89 → master (triggers GitHub Actions deploy incl. the split-proposal migration).
+> 2. **Post-deploy, run the backfill** `scripts/backfill-community-connections.sql` against the demo DB
+>    (idempotent; dry-run delta: **+257 connections, +628 trust edges**) and record committed counts.
+> 3. Run the post-deploy validation (7 checks in the plan §Post-deploy validation).
+> 4. Dismiss the recurring CodeQL `js/request-forgery` FP on `apps/frontend/src/lib/api.ts`.
+>
+> **What shipped:** F1 pulse distinct-helpers + ADR-078 connection reconciliation (live audit: 0 trust
+> edges for two communities counting 9 exchanges each); F2 reachable open-asks view; F3 single
+> caught-up message; F4 clickable cards; F5 labelled avatar; G1 Home "offered to help" band (audit
+> found a member with 330 invisible proposed offers); G2 BUG-010 split partial-unique-index fix
+> (migration `20260615-split-proposal-active-unique.sql`); G3 sim pace 10→16 workers / 2.5–12s.
+>
+> **Known/flagged:** 7 pre-existing dependency highs (socket.io/ws/form-data) on master — NOT
+> introduced here; out of scope (dependency-hardening pass). Pre-existing frontend tdd failures
+> (trust-profile/provider-ux/admin-connectors/trust-model) confirmed unrelated via baseline.
+>
+> Audit log + every decision/dry-run: `docs/bugs/sprint-100-pulse-truth-actionability.md`.
+
+---
+
+> **Original planning context:** Spec + plan written, scope confirmed with the maintainer. Sprint 99
+> (v11.8.0) is live and validated. The local-only post-deploy docs from S99 (handoff + audit-log Final
+> Validation) ride **this** sprint's PR (no docs-only push to master).
 
 ---
 
