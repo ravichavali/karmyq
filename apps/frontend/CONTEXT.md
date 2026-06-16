@@ -1,10 +1,28 @@
 # Frontend CONTEXT.md
 
-**Last updated**: 2026-06-15 (Sprint 101 — actionability + state truth)
+**Last updated**: 2026-06-16 (Sprint 102 — visible memory + re-warm first step)
 
 ## Overview
 
 Next.js 14 web application (Pages Router) consuming all Karmyq backend services.
+
+---
+
+## Sprint 102 Visible Memory + Re-warm First Step (2026-06-16, ADR-070)
+
+Productizes the existing Sprint 90 forgetting/decay surfaces — no new endpoints, schema, or decay math.
+
+- **Profile memory is independent of karma visibility.** `profile.tsx` renders `MemorySection` for the
+  selected community regardless of `showKarmaToMe`, and the community selector is no longer gated on
+  karma display (single source of `selectedCommunityId` drives both karma stats and memory).
+- **Memory is text-legible.** `MemorySection` chips now carry a plain-text tier label
+  (`Active`/`Warm`/`Fading`/`Nearly forgotten`/`Let go`) — fading no longer relies on opacity alone.
+- **Re-warm is optional/gentle.** `ReWarmingNudge` reframes nearly-forgotten bonds as "Close to being
+  let go" with one non-punitive "Reconnect" action (`/messages?to=`), self-suppressing when none.
+- **Community graph memory legend.** `TrustGraphTab` renders a "How memory fades" legend (strong/warm,
+  fading, nearly forgotten) above the re-warm nudge; no change to graph fetching or `decayTier` flow.
+- **Community pulse reads as care.** `CommunityPulse` helped row now says "N neighbours showed up for
+  one another" with "with care from …" subcopy. Count semantics and zero-row suppression unchanged.
 
 ---
 

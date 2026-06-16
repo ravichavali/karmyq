@@ -51,14 +51,14 @@ export default function ReWarmingNudge({ communityId, relationships, className =
 
   return (
     <section className={`kq-card border-l-4 border-l-primary ${className}`} aria-label="Relationships to re-warm">
-      <p className="kq-section-label !mt-0">Before it fades</p>
+      <p className="kq-section-label !mt-0">Close to being let go</p>
       <ul className="grid gap-3">
         {fading.map((rel) => (
           <li key={rel.peerId} className="flex items-center justify-between gap-3">
             <div className="min-w-0">
               <p className="text-sm text-text">
-                You and <span className="font-semibold">{rel.peerName}</span> used to help each other
-                {rel.matchCompletedCount > 1 ? ' often' : ''} — reconnect before it fades.
+                You and <span className="font-semibold">{rel.peerName}</span> have a bond that is close
+                to fading from active memory — reconnect if this bond still matters.
               </p>
               <p className="kq-quiet-meta">
                 {rel.lastInteractionAt

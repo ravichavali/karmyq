@@ -58,7 +58,8 @@ describe('Sprint 90 — ReWarmingNudge', () => {
     })
     render(<ReWarmingNudge communityId="c1" />)
     expect(await screen.findByText(/Di/)).toBeInTheDocument()
-    expect(screen.getByText(/reconnect before it fades/i)).toBeInTheDocument()
+    // Sprint 102 reframed the re-warm copy to an optional "reconnect if this bond still matters".
+    expect(screen.getByText(/reconnect if this bond still matters/i)).toBeInTheDocument()
   })
 })
 
@@ -75,7 +76,9 @@ describe('Sprint 90 — MemorySection', () => {
     })
     render(<MemorySection communityId="c1" />)
     expect(await screen.findByText(/3/)).toBeInTheDocument()
-    expect(screen.getByText(/active/i)).toBeInTheDocument()
+    // Narrowed in Sprint 102: the footer now also contains "active bonds", so match a single text
+    // node unique to the active-count line instead of the broad /active/i.
+    expect(screen.getByText(/you're tending/i)).toBeInTheDocument()
     expect(screen.getByText(/Cy/)).toBeInTheDocument()
     expect(screen.getByText(/What we keep/i)).toBeInTheDocument()
   })
@@ -100,7 +103,7 @@ describe('Sprint 90 — MemorySection', () => {
       },
     })
     render(<MemorySection communityId="c1" />)
-    expect(await screen.findByText(/reconnect before it fades/i)).toBeInTheDocument()
+    expect(await screen.findByText(/reconnect if this bond still matters/i)).toBeInTheDocument()
     expect(screen.getByText(/Di/)).toBeInTheDocument()
   })
 })

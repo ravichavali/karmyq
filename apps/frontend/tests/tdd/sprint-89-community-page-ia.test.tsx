@@ -208,7 +208,8 @@ describe('CommunityPulse', () => {
       />,
     )
     expect(screen.getByText(/3/)).toBeInTheDocument()
-    expect(screen.getByText(/neighbours helped|helped/i)).toBeInTheDocument()
+    // Sprint 102 reframed the helped row from "helped each other" to "showed up for one another".
+    expect(screen.getByText(/neighbours showed up for one another/i)).toBeInTheDocument()
     expect(screen.getByText(/5/)).toBeInTheDocument()
   })
 

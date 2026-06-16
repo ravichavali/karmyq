@@ -1,96 +1,43 @@
-# Sprint 101 - Actionability + State Truth - DEPLOYED (v11.10.0)
+# Sprint 102 - Visible Memory + Re-warm First Step - IMPLEMENTED, PR #94 GREEN (awaiting merge)
 
-> **STATUS (2026-06-16):** Sprint 101 is **merged and deployed**. PR #92 merged to `master` (squash
-> `654937d5`); CI/CD run `27592828860` succeeded — all jobs green including **Deploy to Demo**
-> (deploy.sh health-check + auto-rollback passed). Live on karmyq.com; request-service responds with
-> the ADR-074 error contract post-deploy. Codex's review (High write-path + Medium silent-no-op) was
-> resolved before merge.
+> **STATUS (2026-06-16):** Sprint 102 is **implemented and committed** on
+> `feature/sprint-102-visible-memory-rewarm` (commit `26e3988a`). **PR #94** is open against `master`
+> with **all CI checks green** (backend unit+regression, frontend, integration, CodeQL, Code Scanning
+> Gate ADR-060, Security Audit, Docker builds, pr-contract). All four SDLC gates ran clean: testing,
+> `/simplify` (no fixes), `/code-review` (no findings), `/security-review` (no vulns). **Not yet
+> merged** — per plan Task 14, Admin owns merge authority; master push triggers the demo deploy.
+> Next action: Admin authorizes merge → run `/deploy` and monitor GitHub Actions deploy → run the
+> post-deploy validation checklist below.
 >
-> **Post-deploy UI validation still to run** (login `maria.reyes@test.karmyq.com / password123`):
-> 1. Dashboard Home shows pending offered **items** (not just a count), each linking to detail.
-> 2. A community open ask opens `/requests/[id]` with details + action (no redirect to dashboard).
-> 3. Offering from detail moves it to awaiting response / Helping.
-> 4. Expanding a **completed** Asks item does NOT say "No offers yet."
-> 5. Write-path truth (new): a direct/forged API offer on an expired-open or non-member ask returns
->    400/403, not 201; offering twice on the same ask returns 409.
+> **Pre-existing (not this PR):** GitHub Dependabot shows 1 high advisory on the default branch; local
+> `npm audit --package-lock-only --audit-level=high` is clean. Tracked under ADR-059 SLA.
 >
-> **RESOLVED — offer eligibility = feed VISIBILITY boundary.** PR #93 (branch
-> `fix/offer-eligibility-follows-feed`), CI green incl. Integration Tests; awaiting Admin merge.
-> Two iterations, both caught in Codex review:
-> 1. Sprint 101 over-gated (active-membership required) → 403'd legitimate cross-community offers.
-> 2. First hotfix overcorrected (any open UUID eligible) → leaked community-scoped asks to non-members.
-> Final: a shared `getRequestReachability()` (`src/db/eligibility.ts`) mirrors the curated feed's
-> VISIBILITY predicate — member of a request community OR trust_network/platform scope OR
-> sister-reachable (active `community_links` w/ `show_in_sister_feeds`) — used by BOTH the `can_offer`
-> read and `POST /matches`. Visibility = deterministic access boundary (gates eligibility); the feed's
-> stochastic ranking within the visible set is NOT re-gated. Out-of-audience → `403
-> REQUEST_NOT_REACHABLE` / `not_actionable`; invariants (identity/open/unexpired/own/dup) retained.
-> `trust_network` is scope-based (degree treated as ranking, not a hard wall) — flagged to Codex.
-> See memory `feedback_feed_is_eligibility_surface`.
->
-> **What shipped this sprint:**
-> - Request-service: `fetchOfferedAwaiting` returns `{count, items}`; `view=home` curated response now
->   carries `offeredAwaitingItems` (deduped preview, same predicate as the count). `GET /requests/:id`
->   is now the canonical viewer-aware read — derives `viewer_relation`
->   (`own_request|already_offered|can_offer|not_actionable`) + `viewer_match` + `payload_type`
->   server-side, and returns expired-open asks (finite state) instead of 404.
-> - Frontend: `OfferedAwaitingPanel` (item-level Home preview); `/requests/[id]` restored as a real
->   detail/action page (no more redirect shim); community open-asks + BrowseTab copy point at the
->   detail action path; `MyRequestsTab` empty-offer copy is lifecycle-aware; `CommunityDepthGraph`
->   ring ordering is deterministic (membership→degree→name).
-> - Docs: 6 user guides, onboarding `feed` workflow, frontend + request-service CONTEXT, registry, and
->   regenerated landing JSON.
->
-> **Verification:** `npm test` (25 tasks) pass; cross-cutting `tests/regression` (sprint-75/76) pass;
-> frontend tsc + request-service tsc clean; `npm audit --audit-level=high` clean (21 moderate within
-> ADR-059 SLA). New Sprint 101 TDD: 3 frontend suites + touched regressions all green. The
-> request-service TDD (`sprint-101-actionability-state.test.ts`) is DB-backed — it runs in CI / the
-> deploy integration step (no local DB here). Pre-existing unrelated TDD failures persist and were
-> confirmed on `master`: `sprint-38-trust-profile`, `sprint-39-provider-ux`, `sprint-40-admin-connectors`,
-> `trust-model`, `useTrustQuestions`, and the one `sprint-85-unified-feed` "optimistically removes a
-> card" case (verified failing on master's UnifiedFeed).
->
-> **SDLC gates:** `/simplify`, `/code-review`, `/security-review` all run on the branch diff.
->
-> **Cross-agent review (Codex) — both findings resolved:**
-> - **High (write-path eligibility):** `GET /requests/:id` derived `can_offer`, but `POST /matches`
->   still trusted a client `responder_id` and only checked `status='open'` — a stale tab/forged body
->   could offer on expired-open / non-member / duplicate asks or as another user. Fixed: `POST /matches`
->   now derives the responder from the JWT (ADR-064) and enforces the same `can_offer` predicate
->   (typed errors `REQUEST_NOT_OPEN` / `OWN_REQUEST` / `NOT_COMMUNITY_MEMBER` / `ALREADY_OFFERED`);
->   admin propose-match keeps its own route; DB-backed TDD added. CI Integration Tests verify it.
-> - **Medium (silent no-op):** the detail Offer button no longer reads `localStorage.user` or sends
->   `responder_id` — it calls `createMatch({ request_id })` and the server derives the responder.
-> - **Open product question for maintainer:** the membership requirement matches the approved
->   `can_offer` spec but narrows cross-community (trust-network tier) offers vs. prior behavior —
->   intentional, flagged in the PR for confirmation.
->
-> **Important carry-forward:** 19-21 moderate dependency advisories remain within ADR-059 SLA. They
-> are secondary unless a low-risk cleanup naturally fits; high/critical audit gate remains blocking.
+> **Branch state:** `docs/BUGS.md` (BUG-011, committed `920e62f9` via the bugs skill) is intentionally
+> part of this branch/PR. Untracked `scripts/founding-circle-submissions.sh` is separate user/local work,
+> not part of Sprint 102.
 
 ---
 
 ## Quick Start
 
 1. Read this handoff.
-2. Check out branch: `git checkout -b feature/sprint-101-actionability-state-truth`.
-3. Open plan: `docs/superpowers/plans/2026-06-15-sprint-101-actionability-state-truth.md`.
+2. Check out branch: `git checkout feature/sprint-102-visible-memory-rewarm` (or `git checkout -b feature/sprint-102-visible-memory-rewarm` if it does not exist locally).
+3. Open plan: `docs/superpowers/plans/2026-06-16-sprint-102-visible-memory-rewarm.md`.
 4. Run: `/execute-plan` (uses superpowers:subagent-driven-development).
 
 ---
 
 ## Sprint Goal
 
-Make every request surface state the lifecycle truth and offer the next real action: Home pending
-offers become item-level, community ask clicks open real detail/action, completed asks stop saying
-"No offers yet," and graph-crossing work stays bounded to simple deterministic improvements.
+Make Karmyq's "designed to forget" promise visible and trustworthy in Profile, community trust, and
+weekly pulse surfaces while keeping counts humane rather than accounting-like.
 
 ---
 
 ## Planning Artifacts
 
-- Spec: `docs/superpowers/specs/2026-06-15-sprint-101-actionability-state-truth-design.md`
-- Plan: `docs/superpowers/plans/2026-06-15-sprint-101-actionability-state-truth.md`
+- Spec: `docs/superpowers/specs/2026-06-16-sprint-102-visible-memory-rewarm-design.md`
+- Plan: `docs/superpowers/plans/2026-06-16-sprint-102-visible-memory-rewarm.md`
 
 ---
 
@@ -98,88 +45,124 @@ offers become item-level, community ask clicks open real detail/action, complete
 
 ### In Scope
 
-- **Per-item proposed-offer surfacing (G1 follow-up):** keep the Home `offeredAwaiting` count, add
-  `offeredAwaitingItems`, and render a compact Home preview of the actual asks waiting on requesters.
-- **Real request detail action route:** replace `/requests/[id]` redirect shim with a viewer-aware
-  detail page. Community open ask cards should open detail and offer action where eligible.
-- **State-aware Asks copy:** "No offers yet" appears only for open asks; completed/matched/cancelled
-  asks use lifecycle-true copy.
-- **Community Home/open-asks copy:** replace unclear "calm queue" copy with literal open-ask/action
-  language.
-- **Router test guardrail:** preserve the global `apps/frontend/jest.setup.js` `next/router` mock;
-  avoid scattered per-test mocks except when a custom spy is needed.
-- **Bounded graph layout spike:** try simple deterministic ordering only; document if crossings are
-  inherent and not worth hand-placement.
-- **Docs/onboarding/context:** update affected user guides, onboarding copy, frontend context, and
-  request-service API docs/registry when response contracts change.
+- **Profile memory as first-class surface:** `MemorySection` should render relationship memory for the
+  selected community even when karma display is off, and explain active/fading/nearly-forgotten bonds in
+  readable text.
+- **Re-warm first step:** `ReWarmingNudge` remains self-suppressed unless there are nearly-forgotten
+  bonds, then offers one gentle reconnect action with optional, non-punitive copy.
+- **Community trust memory legend:** the "How we're connected" tab should explain why some bonds look
+  softer and what nearly-forgotten means.
+- **Community pulse copy:** keep `helpedThisWeek` count semantics unchanged, but reframe the row from
+  "N neighbours helped each other" to "N neighbours showed up for one another" (or equivalent final copy)
+  so the count reads as care/evidence, not accounting.
+- **Docs/onboarding/context:** update memory guide, designed-to-forget concept, community-home concept,
+  reading-the-trust-graph concept, onboarding copy, frontend context, and regenerated landing docs.
 
 ### Out of Scope
 
-- Broad research-first UI facelift.
-- Full dependency-advisory cleanup unless low-risk and non-disruptive.
-- "Platform forgets" visible-decay delivery.
-- Manual graph layouts or tedious per-community graph tuning.
-- New service or schema changes.
+- New retention policy or schema changes.
+- Per-item delete/export controls.
+- New endpoints or API contracts.
+- New notifications, automated reminders, or engagement campaigns.
+- Broad profile redesign.
+- Trust graph algorithm or visualization rewrite.
+- New decay math or community-tunable decay bands.
 
 ---
 
 ## Critical Implementation Notes
 
-1. **Do not scatter router mocks.** `RequestCard` and `/requests/[id]` use Next routing. The global
-   `apps/frontend/jest.setup.js` `next/router` mock already exists; preserve it and use per-file mocks
-   only when a test needs a custom `push`/`replace` spy.
-2. **Keep keyboard navigation guarded.** Click `stopPropagation` is not enough: `RequestCard`
-   `onKeyDown` must keep `e.target === e.currentTarget` so Enter/Space on inner controls does not
-   also navigate.
-3. **Request detail is the action surface.** Do not send community open-ask clicks to Asks/Helping as
-   a substitute for detail. `/requests/[id]` should show the ask and the next valid action.
-4. **Pending responder offers are not decisions.** They await the requester. Surface them as "offered
-   awaiting" items, not in the "Needs your response" decision band.
-5. **Count and items must agree.** `offeredAwaiting` should count distinct open asks; preview items
-   should be selected from the same predicate and deduped by request.
-6. **State copy must be lifecycle-aware.** "No offers yet" is valid only for an open ask. Completed,
-   matched, cancelled, or expired asks need different copy.
-7. **Open-asks semantics stay community-wide.** The pulse/open-asks page includes own asks and
-   already-offered asks for count reachability; action eligibility is handled by the detail page.
-8. **No client-side truth workaround for server state.** Viewer relation (`own_request`,
-   `already_offered`, `can_offer`, `not_actionable`) must be derived server-side for request detail.
-   `can_offer` means the ask is open, unexpired, not the viewer's own request, the viewer has no live
-   proposed/matched responder match, and the viewer is an active member of at least one request
-   community. Expired or non-member open asks are `not_actionable`, not optimistic buttons that 403.
-9. **Graph layout is bounded.** Try deterministic ordering only if it is simple and formulaic. Do not
-   hand-place nodes or invent a tedious pattern.
-10. **Docs are part of done.** User guides, onboarding copy, frontend context, and API docs (if
-    contracts change) ship with the sprint.
-11. **Moderate dependency advisories remain secondary.** Clean them only if low-risk and not at the
-    expense of the product truth work; high/critical audit gate still blocks per ADR-059.
+1. **No new decay math.** Use existing `decayTier` values and `decayPresentation`; do not duplicate or
+   reinterpret `classifyDecayTier` thresholds in frontend code.
+2. **`trust_edges_live` is read-only.** It is a VIEW. Sprint 102 must not write to it or add a decay job.
+3. **Memory must not depend on karma visibility.** The profile memory section should render relationship
+   memory for a selected community even when the member has not enabled "Show My Karma."
+4. **Counts are evidence, not scoreboards.** Keep truthful counts, but phrase them as signs of care and
+   community memory. Do not add leaderboard, streak, productivity, or engagement language.
+5. **Re-warm is optional and gentle.** A nearly-forgotten bond may be let go. Copy must not imply failure,
+   penalty, or urgency manipulation.
+6. **No notification or messaging expansion.** Keep the existing `/messages?to=` reconnect action unless
+   implementation discovers it is broken; do not add automated reminders.
+7. **Fading must be text-legible.** Opacity alone is not enough. Add readable labels/explanations for
+   fading and nearly-forgotten states.
+8. **Do not scatter router mocks.** Preserve the global `apps/frontend/jest.setup.js` `next/router` mock;
+   use per-test mocks only when a custom query or spy is needed.
+9. **Avoid unsafe localStorage parsing.** If touching profile localStorage reads, wrap JSON parsing or use
+   existing guarded patterns.
+10. **Docs are part of done.** User guides, concept pages, onboarding, frontend context, and generated
+    landing docs ship with the sprint.
+11. **Generated landing docs are gitignored.** After regeneration, use `git add -f` for changed
+    `apps/landing/src/data/docs/*` files that must be committed.
+12. **Known CodeQL false positive.** Editing `apps/frontend/src/lib/api.ts` can re-trigger the recurring
+    `js/request-forgery` false positive on trusted `NEXT_PUBLIC_API_URL` base URLs. Avoid api.ts edits
+    unless necessary; if it recurs, dismiss with the documented false-positive rationale and re-run.
 
 ---
 
-## Tester Accounts
+## Carry-forward from Sprint 101
+
+- Post-deploy UI validation from Sprint 101 was still listed in the previous handoff:
+  1. Dashboard Home shows pending offered items, each linking to detail.
+  2. A community open ask opens `/requests/[id]` with details + action.
+  3. Offering from detail moves it to awaiting response / Helping.
+  4. Expanding a completed Asks item does not say "No offers yet."
+  5. Direct/forged API offer on expired-open or out-of-audience ask returns 400/403, and duplicate offer
+     returns 409.
+- PR #93 deploy re-triggered known CodeQL `js/request-forgery` false positives in
+  `apps/frontend/src/lib/api.ts` after nearby edits. If api.ts is edited and these recur, dismiss as the
+  documented trusted-env-baseURL false positive and re-run the gate.
+- Moderate dependency advisories remain within ADR-059 SLA; high/critical audit remains blocking.
+
+---
+
+## Sprint 102 - Post-Deploy Validation
+
+### 1. Profile memory smoke test
+
+Login:
 
 ```text
-maria.reyes@test.karmyq.com / password123        # rich state (15 communities, providers, trust)
-aisha.white6964@test.karmyq.com / password123    # simpler member (Berkeley Community Care)
+maria.reyes@test.karmyq.com / password123
 ```
 
-Useful validation flows:
+Open `https://karmyq.com/profile`.
 
-- Maria Dashboard Home should show pending offered items, not only one aggregate count.
-- A community open ask should open `/requests/[id]` and show detail/action.
-- Offering from detail should move the item to awaiting response / Helping.
-- Expanding a completed Asks item should not say "No offers yet."
+Expected: memory section appears for a selected community even if karma display is hidden; fading and
+nearly-forgotten states have readable text; `/about/memory` link works.
+
+### 2. Community trust smoke test
+
+Open one of Maria's communities, then **How we're connected**.
+
+Expected: graph area shows "How memory fades" legend; any re-warm nudge is gentle and optional; graph
+still renders.
+
+### 3. Community pulse copy check
+
+Open a community Home with weekly help activity.
+
+Expected: helped row says "N neighbours showed up for one another"; zero helped rows remain hidden;
+open asks row still links to `/communities/:id/open-asks`.
+
+### 4. Retention transparency check
+
+Open `https://karmyq.com/about/memory`.
+
+Expected: retention windows load; page still says private details are anonymized/deleted while aggregates
+are kept.
 
 ---
 
 ## Previous Sprint State
 
-- **Sprint 100 (v11.9.0) deployed + validated.** PR #89 merged (squash `4c2af914`); CI/CD deploy
-  succeeded. Dependency-audit gate was unblocked first via PR #90.
-- What shipped: pulse distinct helpers; reachable open-asks view; single caught-up message; clickable
-  cards; labelled avatar; Home offered-awaiting count; split partial-unique-index fix; faster sim.
-- Known/flagged: moderate advisories remain; pre-existing frontend TDD failures (trust-profile,
-  provider-ux, admin-connectors, trust-model) were confirmed unrelated in Sprint 100.
-- Audit log: `docs/bugs/sprint-100-pulse-truth-actionability.md`.
+- **Sprint 101 (v11.10.0) deployed + validated by CI.** PR #92 merged (squash `654937d5`).
+- **PR #93 eligibility fix deployed.** Offer eligibility now follows feed visibility boundary, not
+  membership-only and not any-UUID. PR #93 merged (squash `bbae8788`).
+- What shipped: offered-awaiting Home item preview, canonical request detail action page, lifecycle-true
+  Asks copy, community open-asks action path, deterministic community-depth ring ordering, and
+  write-path offer eligibility enforcement.
+- Verification from previous handoff: `npm test` pass; frontend and request-service type checks clean;
+  audit high gate clean; known unrelated TDD failures persisted on `master`.
 
 ---
 
@@ -189,9 +172,10 @@ Useful validation flows:
 - **S98 (done):** Trust Truth Audit + Functional Repairs (v11.7.0).
 - **S99 (done):** Release Experience Audit + Fine Tune (v11.8.0).
 - **S100 (done):** Pulse Truth + Feed Actionability (v11.9.0).
-- **S101 (this sprint):** Actionability + State Truth (v11.10.0).
-- **S102+ candidates:** research-first UI facelift; founding-circle review/notify surface;
-  community/provider link-up clarity; "platform forgets" visible-decay delivery.
+- **S101 (done):** Actionability + State Truth (v11.10.0).
+- **S102 (planned):** Visible Memory + Re-warm First Step (v11.11.0).
+- **S103+ candidates:** community/provider link-up clarity; founding-circle review/notify surface;
+  research-first UI facelift; member-controlled forget/export.
 - **Deferred:** Service Consolidation Phase 2 (geocoding -> client-side, ADR-071); mobile parity.
 
 ---
@@ -205,18 +189,18 @@ Useful validation flows:
 - Agents do not self-merge or push directly to `master`.
 - Every task = one branch = one PR.
 - When using `gh pr create`, manually copy `.github/pull_request_template.md` into the PR body.
-- Cross-agent review protocol: the agent that did not author a plan/PR reviews it when two models
-  are available.
+- Cross-agent review protocol: the agent that did not author a plan/PR/branch/commit reviews it when
+  two models are available.
 
 ### Architecture Gotchas
 
-- **Landing page docs:** `apps/landing/src/data/docs/` is gitignored - `git add -f` when generated
-  docs must be committed. Generated by `scripts/generate-docs.ts`; edit sources, never generated JSON.
+- **Landing page docs:** `apps/landing/src/data/docs/` is gitignored - `git add -f` when generated docs
+  must be committed. Generated by `scripts/generate-docs.ts`; edit sources, never generated JSON.
 - **ADR numbering:** ADR-078 shipped in S100; next free ADR = **079** if this sprint needs one.
 - **JWT field** is `communities`, not `communityMemberships`.
 - **Schema is `communities.communities`** (plural schema name); auth tables are `auth.*`.
-- **API response unwrap:** `createApiClient` interceptor already unwraps the envelope - use
-  `res.data`, not `res.data.data`.
+- **API response unwrap:** `createApiClient` interceptor already unwraps the envelope - use `res.data`,
+  not `res.data.data`.
 - **Error contract (ADR-074):** `{ success:false, message:string, error:string }`; use shared
   `sendError`/`sendValidationError`.
 - **CORS on auth-service** is driven by `ALLOWED_ORIGINS` env (comma-separated origins).
@@ -235,11 +219,12 @@ Useful validation flows:
 - Every sprint updates docs; do not treat docs as optional.
 - No docs-only push to `master`; every master push triggers a full deploy.
 - nginx.conf changes take effect on the next deploy (deploy.sh copies + reloads).
-- `nav.json` silently reverts — always grep-verify after editing.
-- Widely-rendered components using `useRouter` need the global `apps/frontend/jest.setup.js` router
-  mock. Do not patch many test files with duplicate router mocks.
+- `nav.json` silently reverts - always grep-verify after editing.
+- Widely-rendered components using `useRouter` need the global `apps/frontend/jest.setup.js` router mock.
+  Do not patch many test files with duplicate router mocks.
 
 ### Deploy Drift Watch
 
-`karmyq.org` live content has drifted from `master` before. Confirm the latest deploy succeeded and
-live content matches `master` before judging by live content.
+`karmyq.org` live content has drifted from `master` before. Confirm the latest deploy succeeded and live
+content matches `master` before judging by live content.
+

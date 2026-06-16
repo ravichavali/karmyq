@@ -55,3 +55,13 @@ exchange re-warms the bond.
 
 **Can I delete a specific exchange myself?** Not yet. Today you can *see* everything that's held and
 fading; per-item delete and export are planned for a future release.
+
+## Re-warming is optional
+
+When Karmyq says a bond is nearly forgotten, it is not a warning that you did something wrong. It means
+the relationship has been quiet long enough that the platform is close to letting it leave active
+memory. You can reconnect if the bond still matters, or you can let it fade.
+
+Your Memory section on the profile shows this without needing karma display turned on: active
+relationships you're tending, bonds that are going quiet, and the ones close to being let go — each
+labelled in plain text, not just a fainter colour.

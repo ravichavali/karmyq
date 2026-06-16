@@ -26,6 +26,15 @@ interface MemorySectionProps {
   karmaTrend?: string | null
 }
 
+/** Plain text label per tier, so fading never depends on opacity/hover alone (ADR-070). */
+const DECAY_COPY: Record<DecayTier, string> = {
+  strong: 'Active',
+  warm: 'Warm',
+  fading: 'Fading',
+  nearly_forgotten: 'Nearly forgotten',
+  swept: 'Let go',
+}
+
 /** Render a bond as a named chip, faded by its decayTier (same fade tokens as the trust faces). */
 function RelationshipFace({ rel }: { rel: Relationship }) {
   const decay = decayPresentation(rel.decayTier)
@@ -34,7 +43,8 @@ function RelationshipFace({ rel }: { rel: Relationship }) {
       <span className="kq-path-avatar" aria-hidden="true">
         {rel.peerName.charAt(0).toUpperCase()}
       </span>
-      {rel.peerName}
+      <span>{rel.peerName}</span>
+      <span className="text-[11px] font-medium text-text-muted">{DECAY_COPY[rel.decayTier]}</span>
     </span>
   )
 }
@@ -57,6 +67,9 @@ export default function MemorySection({ communityId, karmaTrend }: MemorySection
   useEffect(() => {
     if (!communityId) return
     let active = true
+    // Reset on community change so switching never flashes the previous community's memory.
+    setLoaded(false)
+    setData(null)
     socialGraphService
       .getRelationshipMemory(communityId)
       .then((res: any) => {
@@ -106,6 +119,9 @@ export default function MemorySection({ communityId, karmaTrend }: MemorySection
         {hasFading && (
           <div>
             <p className="kq-quiet-meta mb-2">Going quiet</p>
+            <p className="text-sm text-text-muted mb-2">
+              These bonds are still here, but they have been quieter lately.
+            </p>
             <div className="flex flex-wrap gap-2">
               {data.fading.map((rel) => (
                 <RelationshipFace key={rel.peerId} rel={rel} />
@@ -122,8 +138,9 @@ export default function MemorySection({ communityId, karmaTrend }: MemorySection
         )}
 
         <p className="kq-quiet-meta border-t border-border-light pt-3">
-          When a bond stays quiet, we let go of the details of your past exchanges — the words, not the
-          fact that you helped. <a href="/about/memory" className="underline">What we keep →</a>
+          We keep the fact that care happened — active bonds, completed exchanges, karma, and trust —
+          while private request and message details are let go on a schedule.{' '}
+          <a href="/about/memory" className="underline">What we keep →</a>
         </p>
       </div>
     </section>
