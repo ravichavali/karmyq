@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { query } from '../database/db';
+import { getRequestReachability } from '../db/eligibility';
 import { publishEvent } from '../events/publisher';
 import { buildRequestsQuery } from '../utils/queryBuilder';
 import {
@@ -1514,14 +1515,15 @@ router.get('/retention-policy', async (req: Request, res: Response) => {
 // guesses eligibility (and never shows an Offer button that 403s on click). It is one of:
 //   own_request    — the viewer is the requester
 //   already_offered — the viewer has a live proposed/matched responder match on this ask
-//   can_offer      — the ask is open + unexpired, not the viewer's own, and the viewer has no live match
-//   not_actionable — anything else (completed/cancelled/matched, or expired-open)
-// Eligibility-to-offer follows feed DISCOVERABILITY, not membership: the feed is a personalized
-// explore/exploit surface that spans trust-network / platform / sister communities the viewer doesn't
-// belong to, so can_offer does NOT require community membership (that would 403 legitimate
-// cross-community help). The write path (POST /matches) enforces the same invariants. Expired-open
-// asks still return (so the detail page can render a finite state) but are not_actionable, which is
-// why the WHERE no longer filters `expired = FALSE`.
+//   can_offer      — open + unexpired, not the viewer's own, no live match, AND the ask is within the
+//                    viewer's feed-VISIBILITY audience (member, trust_network/platform scope, or
+//                    sister-reachable) per getRequestReachability() — the same boundary POST /matches
+//                    enforces. A community-scoped ask the viewer can't see is not_actionable, not
+//                    can_offer (no fake Offer button on something outside their audience). The feed's
+//                    stochastic RANKING within the visible set is NOT re-gated here.
+//   not_actionable — anything else (completed/cancelled/matched, expired-open, or out-of-audience)
+// Expired-open asks still return (so the detail page can render a finite state) but are
+// not_actionable, which is why the WHERE no longer filters `expired = FALSE`.
 router.get('/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
@@ -1566,10 +1568,19 @@ router.get('/:id', async (req: Request, res: Response) => {
 
     const row = result.rows[0];
     const isOpenAndUnexpired = row.status === 'open' && row.expired === false;
+    const isOwn = !!userId && row.requester_id === userId;
+    const alreadyOffered = !!row.viewer_match_id;
+    // can_offer needs the request within the viewer's feed-visibility audience (shared boundary with
+    // POST /matches). Only check when it could matter — own/already-offered/closed asks short-circuit
+    // before the extra query.
+    const needsReachability = !isOwn && !alreadyOffered && isOpenAndUnexpired;
+    const reachable = needsReachability
+      ? (await getRequestReachability(id, userId ?? null)).reachable
+      : false;
     const viewerRelation: 'own_request' | 'already_offered' | 'can_offer' | 'not_actionable' =
-      userId && row.requester_id === userId ? 'own_request'
-      : row.viewer_match_id ? 'already_offered'
-      : isOpenAndUnexpired ? 'can_offer'
+      isOwn ? 'own_request'
+      : alreadyOffered ? 'already_offered'
+      : isOpenAndUnexpired && reachable ? 'can_offer'
       : 'not_actionable';
 
     // Strip the raw lateral-join columns from the wire shape; expose them as a clean contract.

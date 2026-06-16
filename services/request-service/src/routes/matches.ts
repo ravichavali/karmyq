@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { AuthenticatedRequest } from '@karmyq/shared/middleware/auth';
 import { query, withTransaction } from '../database/db';
+import { getRequestReachability } from '../db/eligibility';
 import { publishEvent } from '../events/publisher';
 import {
   sendSuccess,
@@ -119,13 +120,13 @@ router.get('/:id', async (req: Request, res: Response) => {
 
 // POST /matches - Create a member's offer to help (self-offer).
 //
-// Eligibility-to-offer follows feed DISCOVERABILITY, not a static gate. The feed is the platform's
-// personalized, stochastic explore/exploit surface — "if it can be shown in a feed, it should be
-// eligible" — and it deliberately spans your communities AND trust-network / platform / sister
-// communities you don't belong to. So this mutation must NOT re-gate on membership or reachability
-// (that's the feed's job, and it's per-user and non-deterministic). It enforces only the INVARIANTS
-// that must hold however the user reached the ask: verified JWT identity (ADR-064, never a body
-// responder_id), request open + unexpired, not the user's own, and no duplicate live offer.
+// Eligibility-to-offer follows the request's feed VISIBILITY boundary (can the feed ever show this
+// ask to this viewer?), shared with the read path via getRequestReachability(): a member of a request
+// community (community scope), any viewer for trust_network/platform scope, or a viewer reachable via
+// an active sister-community link. That boundary is deterministic; the feed's stochastic explore/
+// exploit RANKING within the visible set is NOT re-gated here. On top of visibility, the mutation
+// enforces the lifecycle invariants that must hold however the user reached the ask: verified JWT
+// identity (ADR-064, never a body responder_id), open + unexpired, not the user's own, no duplicate.
 // Admin-proposed matches use POST /requests/:id/propose-match (adminActions), not this route.
 router.post('/', async (req: Request, res: Response) => {
   try {
@@ -139,20 +140,17 @@ router.post('/', async (req: Request, res: Response) => {
       return res.status(400).json({ success: false, message: 'request_id is required' });
     }
 
-    // Request must exist, be open, and unexpired (expired-open asks are not actionable).
-    const requestCheck = await query(
-      `SELECT id, status, expired, requester_id FROM requests.help_requests WHERE id = $1`,
-      [request_id]
-    );
+    const reachability = await getRequestReachability(request_id, responder_id);
 
-    if (requestCheck.rowCount === 0) {
+    if (!reachability.exists) {
       return res.status(404).json({
         success: false,
         message: 'Request not found',
       });
     }
 
-    if (requestCheck.rows[0].status !== 'open' || requestCheck.rows[0].expired === true) {
+    // Request must be open and unexpired (expired-open asks are not actionable).
+    if (reachability.status !== 'open' || reachability.expired === true) {
       return res.status(400).json({
         success: false,
         message: 'Request is not open',
@@ -161,11 +159,22 @@ router.post('/', async (req: Request, res: Response) => {
     }
 
     // Self-match guard: a requester cannot offer on their own request.
-    if (requestCheck.rows[0].requester_id === responder_id) {
+    if (reachability.requesterId === responder_id) {
       return res.status(400).json({
         success: false,
         message: 'You cannot offer on your own request',
         error: 'OWN_REQUEST',
+      });
+    }
+
+    // Visibility boundary: the ask must be within the viewer's feed-visibility audience. A
+    // community-scoped ask the viewer can't see (non-member, no sister link) is not offerable even
+    // with a direct id — that would leak past the request's chosen audience.
+    if (!reachability.reachable) {
+      return res.status(403).json({
+        success: false,
+        message: 'This request is not available to you',
+        error: 'REQUEST_NOT_REACHABLE',
       });
     }
 
@@ -242,7 +251,7 @@ router.post('/', async (req: Request, res: Response) => {
       match_id: match.id,
       request_id,
       offer_id,
-      requester_id: requestCheck.rows[0].requester_id,
+      requester_id: reachability.requesterId,
       responder_id,
     });
 

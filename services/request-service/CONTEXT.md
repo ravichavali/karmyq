@@ -613,14 +613,15 @@ derives `viewer_relation` **server-side** so the UI never guesses eligibility (a
 Offer button that 403s on click).
 
 - `viewer_relation`: one of `own_request` | `already_offered` | `can_offer` | `not_actionable`.
-  - `can_offer` requires: ask `open` + `expired = FALSE`, **not** the viewer's own request, and the
-    viewer has **no** live `proposed`/`matched` responder match on it (lateral join on
-    `requests.matches`).
-  - **No membership requirement** — eligibility follows feed discoverability, which spans
-    trust-network / platform / sister communities the viewer doesn't belong to. A reachable open ask
-    in another community is `can_offer`, not `not_actionable`. The write path (`POST /matches`)
-    enforces the same invariants.
-  - Expired-open / completed / cancelled / matched asks resolve to `not_actionable` (no optimistic Offer).
+  - `can_offer` requires: ask `open` + `expired = FALSE`, **not** the viewer's own request, **no**
+    live `proposed`/`matched` responder match, AND the ask is within the viewer's **visibility
+    audience** (`getRequestReachability` — member, trust_network/platform scope, or sister-reachable;
+    the same boundary `POST /matches` enforces).
+  - Eligibility follows feed **visibility**, not membership and not "any UUID": a reachable open ask
+    in another community (trust-network / platform / sister) is `can_offer`, but a **community-scoped
+    ask the viewer can't see** is `not_actionable` (no fake Offer button on something outside their
+    audience). The feed's stochastic ranking within the visible set is not re-gated.
+  - Expired-open / completed / cancelled / matched / out-of-audience asks resolve to `not_actionable`.
 - `viewer_match`: `{ id, status }` when `already_offered`, else `null`.
 - `payload_type`: ADR-067 fine subtype from `category` (drives the detail page's payload renderer).
 - The detail query now selects `r.expired` and **no longer filters `expired = FALSE`** in the `WHERE`,
@@ -1330,13 +1331,17 @@ Create a member's offer to help (a proposed match). The responder is the **verif
 another user. Admin-proposed matches use `POST /requests/:id/propose-match` (adminActions), not this
 route.
 
-**Eligibility follows the feed, not membership.** The feed is the platform's personalized,
-stochastic explore/exploit discovery surface — *"if it can be shown in a feed, it should be
-eligible"* — and it deliberately spans your communities **and** trust-network / platform / sister
-communities you don't belong to. So this mutation does **NOT** re-gate on membership or reachability
-(that's the feed's job, and it's per-user and non-deterministic — re-deriving it here would 403
-legitimate cross-community help). It enforces only the **invariants** that must hold however the user
-reached the ask. The read path's `viewer_relation='can_offer'` uses the same invariants.
+**Eligibility = the request's feed-VISIBILITY boundary, not membership and not "any UUID".**
+*"If it can be shown in a feed, it should be eligible"* — the operative clause is **can be shown**.
+Visibility is the deterministic access boundary the requester chooses via `visibility_scope`
+(community / trust_network / platform) plus sister-community links; the feed's stochastic
+explore/exploit RANKING within that visible set is a separate concern and is NOT re-gated here. The
+shared helper `getRequestReachability(requestId, userId)` (`src/db/eligibility.ts`) mirrors the
+curated feed's visibility predicate and is used by BOTH this mutation and the `can_offer` read, so
+they never diverge: a member of a request community (community scope), any viewer for
+trust_network/platform scope, or a viewer reachable via an active sister-community link. A
+community-scoped ask the viewer can't see is **not** offerable even with a direct id. On top of
+visibility, the mutation enforces the lifecycle invariants below.
 
 **Request:**
 ```json
@@ -1349,13 +1354,16 @@ reached the ask. The read path's `viewer_relation='can_offer'` uses the same inv
 **Note:** `offer_id` is optional (direct response without offer). Any `responder_id` in the body is
 ignored — the responder is always the authenticated user.
 
-**Validation (invariants only):**
+**Validation:**
 - Request must exist, be `open`, and **unexpired** (`expired = FALSE`) → else `400 REQUEST_NOT_OPEN`
 - Responder cannot offer on their own request → `400 OWN_REQUEST`
+- Request must be within the responder's **visibility audience** (member OR trust_network/platform
+  scope OR sister-reachable, via `getRequestReachability`) → else `403 REQUEST_NOT_REACHABLE`. This
+  blocks offering on a community-private ask by direct id while allowing cross-community offers on
+  trust-network / platform / sister asks.
 - One live offer per responder per request (no existing `proposed`/`matched` match) → else
   `409 ALREADY_OFFERED` (best-effort; `matches` has no unique `(request_id, responder_id)`)
 - Linked offer (if `offer_id` provided) must exist, be `active`, and belong to the responder
-- **No membership gate** — cross-community offers (trust-network / platform / sister tiers) are allowed.
 
 **Events Published:** `match.created`
 

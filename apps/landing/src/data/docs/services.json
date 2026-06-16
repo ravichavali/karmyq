@@ -279,7 +279,7 @@
         {
           "method": "GET",
           "path": "/requests/:id",
-          "description": "Canonical viewer-aware request detail read. Sprint 101: derives viewer_relation server-side (own_request | already_offered | can_offer | not_actionable) so the UI never guesses eligibility — can_offer requires the ask open+unexpired, not the viewer's own, and no live proposed/matched responder match. Eligibility follows feed discoverability, NOT membership: a reachable open ask in another community (trust_network/platform/sister tiers) is can_offer, not not_actionable. Also returns viewer_match ({id,status}) when already_offered, and payload_type (ADR-067, from category). Expired-open asks return (finite-state display) rather than 404."
+          "description": "Canonical viewer-aware request detail read. Sprint 101: derives viewer_relation server-side (own_request | already_offered | can_offer | not_actionable) so the UI never guesses eligibility — can_offer requires the ask open+unexpired, not the viewer's own, no live proposed/matched responder match, AND within the viewer's feed-VISIBILITY audience (shared getRequestReachability: member OR trust_network/platform scope OR sister-reachable). A reachable cross-community ask is can_offer; a community-scoped ask the viewer can't see is not_actionable (not eligible by direct id). Also returns viewer_match ({id,status}) when already_offered, and payload_type (ADR-067, from category). Expired-open asks return (finite-state display) rather than 404."
         },
         {
           "method": "GET",
@@ -305,7 +305,7 @@
         {
           "method": "POST",
           "path": "/matches",
-          "description": "Create a member's offer to help (proposed match). Responder is the verified JWT identity (ADR-064; body responder_id ignored). Eligibility follows feed discoverability, NOT membership — cross-community offers (trust_network/platform/sister tiers) are allowed; the mutation enforces only invariants: open+unexpired (400 REQUEST_NOT_OPEN), not own (400 OWN_REQUEST), no existing live offer (409 ALREADY_OFFERED). Admin-proposed matches use POST /requests/:id/propose-match instead."
+          "description": "Create a member's offer to help (proposed match). Responder is the verified JWT identity (ADR-064; body responder_id ignored). Eligibility = the request's feed-VISIBILITY boundary (shared getRequestReachability helper, also used by GET /:id can_offer): member of a request community OR trust_network/platform scope OR sister-reachable. Out-of-audience (e.g. community-scoped ask the viewer can't see) -> 403 REQUEST_NOT_REACHABLE. Plus invariants: open+unexpired (400 REQUEST_NOT_OPEN), not own (400 OWN_REQUEST), no existing live offer (409 ALREADY_OFFERED). Admin-proposed matches use POST /requests/:id/propose-match instead."
         },
         "/matches/:id/complete",
         "/schemas",
