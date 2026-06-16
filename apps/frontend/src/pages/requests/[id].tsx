@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { requestService } from '@/lib/api'
 import RequestPayloadRenderer from '@/components/Feed/RequestPayloadRenderer'
 import type { PayloadType } from '@/types/unified-feed'
+import type { RequestPayload } from '@/types/request-payloads'
 
 /**
  * Request Detail / Action page (Sprint 101).
@@ -30,7 +31,7 @@ interface RequestDetail {
   requester_name?: string
   community_name?: string
   payload_type?: PayloadType
-  payload?: Record<string, unknown> | null
+  payload?: RequestPayload | null
   requirements?: Record<string, string | number | boolean>
   viewer_relation: ViewerRelation
   viewer_match?: { id: string; status: string } | null
