@@ -186,15 +186,19 @@ describe('Sprint 101: offered-awaiting items + request detail viewer relation (i
     expect(expiredOpen.status).toBe(200);
     expect(expiredOpen.body.data.viewer_relation).toBe('not_actionable');
 
+    // Eligibility-to-offer follows feed discoverability, NOT membership. An open, unexpired ask in a
+    // community the viewer doesn't belong to is reachable cross-community (trust_network / platform /
+    // sister tiers), so it is can_offer — not gated to members.
     const nonMemberOpen = await request(appAs(viewerId, member)).get(`/requests/${nonMemberOpenRequestId}`);
     expect(nonMemberOpen.status).toBe(200);
-    expect(nonMemberOpen.body.data.viewer_relation).toBe('not_actionable');
+    expect(nonMemberOpen.body.data.viewer_relation).toBe('can_offer');
   });
 
-  // Write-path eligibility (runs last so the can_offer read assertion above sees no fresh match):
-  // POST /matches MUST enforce the same predicate as viewer_relation='can_offer', so a stale tab or a
-  // forged body cannot offer where the read path forbids it.
-  it('POST /matches enforces the same eligibility as can_offer and derives responder from the JWT', async () => {
+  // Write-path INVARIANTS (runs last so the can_offer read assertions above see no fresh match):
+  // POST /matches enforces only the invariants that must hold however the user reached the ask —
+  // JWT identity, open + unexpired, not-own, no-duplicate. It does NOT re-gate on membership /
+  // reachability (that's the feed's job, and it's personalized + non-deterministic).
+  it('POST /matches enforces invariants (identity/open/unexpired/own/dup) and allows cross-community offers', async () => {
     // Forged body responder_id is ignored — the offer is recorded under the authenticated viewer.
     const forged = await request(matchesAppAs(viewerId))
       .post('/matches')
@@ -216,12 +220,13 @@ describe('Sprint 101: offered-awaiting items + request detail viewer relation (i
     expect(expired.status).toBe(400);
     expect(expired.body.error).toBe('REQUEST_NOT_OPEN');
 
-    // Non-member open ask → 403, not a silent success.
-    const nonMember = await request(matchesAppAs(viewerId))
+    // Cross-community: an open ask in a community the viewer is NOT a member of is offerable (201).
+    // The feed is the discovery gate, not membership — this is the regression-guard for that rule.
+    const crossCommunity = await request(matchesAppAs(viewerId))
       .post('/matches')
       .send({ request_id: nonMemberOpenRequestId });
-    expect(nonMember.status).toBe(403);
-    expect(nonMember.body.error).toBe('NOT_COMMUNITY_MEMBER');
+    expect(crossCommunity.status).toBe(201);
+    expect(crossCommunity.body.data.responder_id).toBe(viewerId);
 
     // Own request → 400.
     const own = await request(matchesAppAs(viewerId))

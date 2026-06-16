@@ -119,13 +119,14 @@ router.get('/:id', async (req: Request, res: Response) => {
 
 // POST /matches - Create a member's offer to help (self-offer).
 //
-// Sprint 101 (write-path eligibility): this is the mutation behind the Offer-to-Help action, so it
-// MUST enforce the SAME predicate the read path uses to derive viewer_relation='can_offer' on
-// GET /requests/:id. Otherwise a stale tab or a direct API call could offer on an expired-open ask,
-// a non-member ask, a duplicate already-offered ask, or AS another responder — exactly the cases the
-// UI is told are not actionable. The responder is the verified JWT identity (ADR-064), never a
-// client-supplied body field. Admin-proposed matches use POST /requests/:id/propose-match
-// (adminActions), not this route.
+// Eligibility-to-offer follows feed DISCOVERABILITY, not a static gate. The feed is the platform's
+// personalized, stochastic explore/exploit surface — "if it can be shown in a feed, it should be
+// eligible" — and it deliberately spans your communities AND trust-network / platform / sister
+// communities you don't belong to. So this mutation must NOT re-gate on membership or reachability
+// (that's the feed's job, and it's per-user and non-deterministic). It enforces only the INVARIANTS
+// that must hold however the user reached the ask: verified JWT identity (ADR-064, never a body
+// responder_id), request open + unexpired, not the user's own, and no duplicate live offer.
+// Admin-proposed matches use POST /requests/:id/propose-match (adminActions), not this route.
 router.post('/', async (req: Request, res: Response) => {
   try {
     const responder_id = (req as any).user?.userId;
@@ -165,27 +166,6 @@ router.post('/', async (req: Request, res: Response) => {
         success: false,
         message: 'You cannot offer on your own request',
         error: 'OWN_REQUEST',
-      });
-    }
-
-    // Eligibility: the responder must be an active member of at least one of the request's
-    // communities — the same membership predicate GET /requests/:id uses for can_offer.
-    const membershipCheck = await query(
-      `SELECT 1
-         FROM requests.request_communities rc
-         JOIN communities.members cm
-           ON cm.community_id = rc.community_id
-          AND cm.user_id = $2
-          AND cm.status = 'active'
-        WHERE rc.request_id = $1
-        LIMIT 1`,
-      [request_id, responder_id]
-    );
-    if (membershipCheck.rowCount === 0) {
-      return res.status(403).json({
-        success: false,
-        message: "You must be an active member of the request's community to offer",
-        error: 'NOT_COMMUNITY_MEMBER',
       });
     }
 

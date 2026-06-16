@@ -1514,11 +1514,14 @@ router.get('/retention-policy', async (req: Request, res: Response) => {
 // guesses eligibility (and never shows an Offer button that 403s on click). It is one of:
 //   own_request    — the viewer is the requester
 //   already_offered — the viewer has a live proposed/matched responder match on this ask
-//   can_offer      — the ask is open, unexpired, not the viewer's own, the viewer has no live match,
-//                    and the viewer is an active member of at least one of the ask's communities
-//   not_actionable — anything else (completed/cancelled/matched, expired-open, or non-member open)
-// Expired-open asks still return (so the detail page can render a finite state) but are
-// not_actionable, which is why the WHERE no longer filters `expired = FALSE`.
+//   can_offer      — the ask is open + unexpired, not the viewer's own, and the viewer has no live match
+//   not_actionable — anything else (completed/cancelled/matched, or expired-open)
+// Eligibility-to-offer follows feed DISCOVERABILITY, not membership: the feed is a personalized
+// explore/exploit surface that spans trust-network / platform / sister communities the viewer doesn't
+// belong to, so can_offer does NOT require community membership (that would 403 legitimate
+// cross-community help). The write path (POST /matches) enforces the same invariants. Expired-open
+// asks still return (so the detail page can render a finite state) but are not_actionable, which is
+// why the WHERE no longer filters `expired = FALSE`.
 router.get('/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
@@ -1535,8 +1538,7 @@ router.get('/:id', async (req: Request, res: Response) => {
         STRING_AGG(DISTINCT c.name, ', ') as community_name,
         STRING_AGG(DISTINCT rc.community_id::text, ',') as community_ids,
         viewer_match.id AS viewer_match_id,
-        viewer_match.status AS viewer_match_status,
-        viewer_membership.is_active_member AS viewer_is_member
+        viewer_match.status AS viewer_match_status
       FROM requests.help_requests r
       LEFT JOIN auth.users u ON r.requester_id = u.id
       LEFT JOIN requests.request_communities rc ON r.id = rc.request_id
@@ -1550,18 +1552,8 @@ router.get('/:id', async (req: Request, res: Response) => {
         ORDER BY created_at DESC
         LIMIT 1
       ) viewer_match ON TRUE
-      LEFT JOIN LATERAL (
-        SELECT TRUE AS is_active_member
-        FROM requests.request_communities rc2
-        JOIN communities.members cm
-          ON cm.community_id = rc2.community_id
-         AND cm.user_id = $2
-         AND cm.status = 'active'
-        WHERE rc2.request_id = r.id
-        LIMIT 1
-      ) viewer_membership ON TRUE
       WHERE r.id = $1
-      GROUP BY r.id, r.requester_id, r.title, r.description, r.category, r.urgency, r.status, r.expired, r.created_at, r.updated_at, r.request_type, r.payload, r.requirements, r.visibility_scope, r.visibility_max_degrees, r.scheduled_for, u.name, u.email, viewer_match.id, viewer_match.status, viewer_membership.is_active_member`,
+      GROUP BY r.id, r.requester_id, r.title, r.description, r.category, r.urgency, r.status, r.expired, r.created_at, r.updated_at, r.request_type, r.payload, r.requirements, r.visibility_scope, r.visibility_max_degrees, r.scheduled_for, u.name, u.email, viewer_match.id, viewer_match.status`,
       [id, userId ?? null]
     );
 
@@ -1574,15 +1566,14 @@ router.get('/:id', async (req: Request, res: Response) => {
 
     const row = result.rows[0];
     const isOpenAndUnexpired = row.status === 'open' && row.expired === false;
-    const isEligibleCommunityMember = row.viewer_is_member === true;
     const viewerRelation: 'own_request' | 'already_offered' | 'can_offer' | 'not_actionable' =
       userId && row.requester_id === userId ? 'own_request'
       : row.viewer_match_id ? 'already_offered'
-      : isOpenAndUnexpired && isEligibleCommunityMember ? 'can_offer'
+      : isOpenAndUnexpired ? 'can_offer'
       : 'not_actionable';
 
     // Strip the raw lateral-join columns from the wire shape; expose them as a clean contract.
-    const { viewer_match_id, viewer_match_status, viewer_is_member, ...request } = row;
+    const { viewer_match_id, viewer_match_status, ...request } = row;
     res.json({
       success: true,
       data: {

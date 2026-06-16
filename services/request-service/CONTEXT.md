@@ -613,11 +613,14 @@ derives `viewer_relation` **server-side** so the UI never guesses eligibility (a
 Offer button that 403s on click).
 
 - `viewer_relation`: one of `own_request` | `already_offered` | `can_offer` | `not_actionable`.
-  - `can_offer` requires: ask `open` + `expired = FALSE`, **not** the viewer's own request, the viewer
-    has **no** live `proposed`/`matched` responder match on it, and the viewer is an **active** member
-    of at least one of the ask's communities (lateral joins on `requests.matches` and
-    `communities.members`).
-  - Expired-open asks and non-member open asks resolve to `not_actionable` (no optimistic Offer).
+  - `can_offer` requires: ask `open` + `expired = FALSE`, **not** the viewer's own request, and the
+    viewer has **no** live `proposed`/`matched` responder match on it (lateral join on
+    `requests.matches`).
+  - **No membership requirement** — eligibility follows feed discoverability, which spans
+    trust-network / platform / sister communities the viewer doesn't belong to. A reachable open ask
+    in another community is `can_offer`, not `not_actionable`. The write path (`POST /matches`)
+    enforces the same invariants.
+  - Expired-open / completed / cancelled / matched asks resolve to `not_actionable` (no optimistic Offer).
 - `viewer_match`: `{ id, status }` when `already_offered`, else `null`.
 - `payload_type`: ADR-067 fine subtype from `category` (drives the detail page's payload renderer).
 - The detail query now selects `r.expired` and **no longer filters `expired = FALSE`** in the `WHERE`,
@@ -1322,12 +1325,18 @@ Get specific match details.
 **Implementation:** `src/routes/matches.ts:69`
 
 #### POST /matches
-Create a member's offer to help (a proposed match). **Sprint 101 (write-path eligibility):** this is
-the mutation behind Offer-to-Help, so it enforces the SAME predicate the read path uses for
-`viewer_relation='can_offer'` on `GET /requests/:id`. The responder is the **verified JWT identity**
+Create a member's offer to help (a proposed match). The responder is the **verified JWT identity**
 (ADR-064) — a `responder_id` in the body is ignored, so a stale tab or forged body can't offer as
 another user. Admin-proposed matches use `POST /requests/:id/propose-match` (adminActions), not this
 route.
+
+**Eligibility follows the feed, not membership.** The feed is the platform's personalized,
+stochastic explore/exploit discovery surface — *"if it can be shown in a feed, it should be
+eligible"* — and it deliberately spans your communities **and** trust-network / platform / sister
+communities you don't belong to. So this mutation does **NOT** re-gate on membership or reachability
+(that's the feed's job, and it's per-user and non-deterministic — re-deriving it here would 403
+legitimate cross-community help). It enforces only the **invariants** that must hold however the user
+reached the ask. The read path's `viewer_relation='can_offer'` uses the same invariants.
 
 **Request:**
 ```json
@@ -1340,14 +1349,13 @@ route.
 **Note:** `offer_id` is optional (direct response without offer). Any `responder_id` in the body is
 ignored — the responder is always the authenticated user.
 
-**Validation (mirrors `can_offer`):**
+**Validation (invariants only):**
 - Request must exist, be `open`, and **unexpired** (`expired = FALSE`) → else `400 REQUEST_NOT_OPEN`
 - Responder cannot offer on their own request → `400 OWN_REQUEST`
-- Responder must be an **active member of at least one of the request's communities** → else
-  `403 NOT_COMMUNITY_MEMBER`
 - One live offer per responder per request (no existing `proposed`/`matched` match) → else
   `409 ALREADY_OFFERED` (best-effort; `matches` has no unique `(request_id, responder_id)`)
 - Linked offer (if `offer_id` provided) must exist, be `active`, and belong to the responder
+- **No membership gate** — cross-community offers (trust-network / platform / sister tiers) are allowed.
 
 **Events Published:** `match.created`
 
