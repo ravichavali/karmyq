@@ -1,10 +1,17 @@
-# Sprint 101 - Actionability + State Truth - DEPLOYED (v11.10.0)
+# Sprint 101 - Actionability + State Truth - DEPLOYED (v11.10.0) + eligibility fix (PR #93)
 
-> **STATUS (2026-06-16):** Sprint 101 is **merged and deployed**. PR #92 merged to `master` (squash
-> `654937d5`); CI/CD run `27592828860` succeeded — all jobs green including **Deploy to Demo**
-> (deploy.sh health-check + auto-rollback passed). Live on karmyq.com; request-service responds with
-> the ADR-074 error contract post-deploy. Codex's review (High write-path + Medium silent-no-op) was
-> resolved before merge.
+> **STATUS (2026-06-16):** Sprint 101 is **merged and deployed**, plus the follow-up
+> offer-eligibility fix. PR #92 merged (squash `654937d5`); PR #93 (eligibility = feed visibility)
+> merged (squash `bbae8788`). Both live on karmyq.com.
+>
+> **PR #93 deploy note — request-forgery FP re-block:** the master deploy first FAILED on the Code
+> Scanning Gate: 2 `js/request-forgery` alerts (#531/#532) on `apps/frontend/src/lib/api.ts`
+> (getMatches/getMatch axios calls) — the **known recurring FP** (NEXT_PUBLIC_API_URL baseURL is
+> trusted env config; see memory `feedback_request_forgery_api_baseurl_fp`). They were re-fingerprinted
+> as new because the Sprint 101 `createMatch` edit shifted nearby lines. Dismissed both as false
+> positive; re-ran the deploy (`27629695211`) → all green incl. Deploy to Demo. **For next session:
+> if these recur after another api.ts edit, dismiss as FP and re-run the gate — don't treat as a real
+> finding.** Mobile lint warnings in the deploy log are non-blocking (continue-on-error).
 >
 > **Post-deploy UI validation still to run** (login `maria.reyes@test.karmyq.com / password123`):
 > 1. Dashboard Home shows pending offered **items** (not just a count), each linking to detail.
