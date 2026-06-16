@@ -179,7 +179,12 @@ describe('Sprint 102 - visible profile memory', () => {
 
     render(<MemorySection communityId="community-1" karmaTrend={null} />)
 
-    expect(await screen.findByText(/2 active relationships/i)).toBeInTheDocument()
+    expect(
+      await screen.findByText((_, node) =>
+        node?.tagName.toLowerCase() === 'p' &&
+        node.textContent === "2 active relationships you're tending.",
+      ),
+    ).toBeInTheDocument()
     expect(screen.getByText('Maya Patel')).toBeInTheDocument()
     expect(screen.getByText(/Going quiet/i)).toBeInTheDocument()
     expect(screen.getByText(/Sam Rivera/i)).toBeInTheDocument()
@@ -285,13 +290,10 @@ function RelationshipFace({ rel }: { rel: Relationship }) {
 )}
 
 {hasNearly && (
-  <div>
-    <p className="kq-quiet-meta mb-2">Close to being let go</p>
-    <ReWarmingNudge
-      communityId={communityId}
-      relationships={data.nearlyForgotten as FadingRelationship[]}
-    />
-  </div>
+  <ReWarmingNudge
+    communityId={communityId}
+    relationships={data.nearlyForgotten as FadingRelationship[]}
+  />
 )}
 ```
 
@@ -954,4 +956,3 @@ Open `https://karmyq.com/about/memory`.
 
 Expected: retention windows load; page still says private details are anonymized/deleted while aggregates
 are kept.
-
