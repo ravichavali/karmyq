@@ -1587,6 +1587,9 @@ router.get('/:id', async (req: Request, res: Response) => {
       success: true,
       data: {
         ...request,
+        // ADR-067 seam: the fine payload subtype the detail page's RequestPayloadRenderer switches on,
+        // normalized from the mixed-vocab `category` column (same derivation as the card path).
+        payload_type: categoryToPayloadType(row.category),
         viewer_relation: viewerRelation,
         viewer_match: viewer_match_id ? { id: viewer_match_id, status: viewer_match_status } : null,
       },

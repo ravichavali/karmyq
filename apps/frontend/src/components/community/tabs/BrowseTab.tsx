@@ -20,7 +20,7 @@ export default function BrowseTab({ community, communityId }: Props) {
     <section className="kq-page-header">
       <p className="kq-eyebrow">Community home</p>
       <h3 className="kq-headline">Ways neighbours can help here</h3>
-      <p className="kq-lede">A calm queue of open asks, led by the relationships that make them feel close.</p>
+      <p className="kq-lede">Open asks from this community. Open one to see details and the action available to you.</p>
       <UnifiedFeed
         view="community"
         communityId={communityId}
