@@ -32,11 +32,13 @@ export default function CommunityPulse({ pulse, loading, communityId }: Props) {
   const rows: { key: string; icon: string; lead: string; sub?: string; href?: string }[] = []
 
   if (pulse.helpedThisWeek > 0) {
+    // Sprint 102: the count is unchanged and still real/distinct, but the language frames it as
+    // evidence of care/community memory rather than an accounting scoreboard.
     rows.push({
       key: 'helped',
       icon: '🤝',
-      lead: `${pulse.helpedThisWeek} ${pulse.helpedThisWeek === 1 ? 'neighbour' : 'neighbours'} helped each other`,
-      sub: helpers.length > 0 ? `thanks to ${helpers.join(', ')}` : undefined,
+      lead: `${pulse.helpedThisWeek} ${pulse.helpedThisWeek === 1 ? 'neighbour' : 'neighbours'} showed up for one another`,
+      sub: helpers.length > 0 ? `with care from ${helpers.join(', ')}` : 'We keep the fact of care, not every private detail',
     })
   }
 

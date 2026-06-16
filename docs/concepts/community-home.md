@@ -41,6 +41,13 @@ merges are open to every member; the heavier admin tools (triaging requests, ins
 settings) live inside **Stewardship**, gated to stewards. The point is that running a community and
 *belonging* to one are different altitudes, and belonging comes first.
 
+## The weekly pulse reads as care, not accounting
+
+The pulse says how many neighbours showed up for one another. The count is still real and distinct; the
+language is softer because it is evidence of community life, not a scoreboard. Rows with no activity stay
+hidden — you'll never see "0 neighbours" — and open asks still link straight to the community's open-asks
+view.
+
 ## Old links still work
 
 Every older link into a community page (an `overview`, `requests`, `trust`, or `governance` link you

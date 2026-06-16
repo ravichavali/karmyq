@@ -25,3 +25,10 @@ Across all views:
 ## How relationships form and fade
 
 Completing a help exchange strengthens a tie; endorsements, karma, and shared events also contribute. Without continued interaction, a tie's weight **decays** over time — which is why the trust score is the *decayed* current weight. Active trust is what counts.
+
+## Fading bonds
+
+Some lines look softer because Karmyq weights recent, tended relationships more than old ones. A fading
+bond is still present — it has just been quieter lately. A nearly forgotten bond is close to leaving
+active memory; you may reconnect, or let it fade. The graph carries a small **How memory fades** legend
+so this is readable in words, not only in line opacity.

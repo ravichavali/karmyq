@@ -52,3 +52,10 @@ Forgetting is a feature, not a bug. It means:
   read exactly what's kept and what's let go on the [What Karmyq Remembers](/about/memory) page.
 
 A community you can trust is one that knows how to forget.
+
+## Memory, not scorekeeping
+
+Karmyq keeps enough memory for trust to stay honest: that care happened, who showed up, and which bonds
+are still alive. It does not need to keep every private detail forever, and it should not turn care into
+a productivity ledger. The counts you see — neighbours who showed up, completed exchanges, active bonds —
+are evidence of community life, not a scoreboard to climb.

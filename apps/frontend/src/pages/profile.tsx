@@ -650,11 +650,13 @@ export default function ProfilePage() {
               </button>
             </div>
 
-            {/* Community Selector */}
-            {showKarmaToMe && communities.length > 1 && (
+            {/* Community Selector — drives both karma stats and the Memory section below, so it stays
+                available even when karma display is off (Sprint 102 / ADR-070). Single source of the
+                selected community; no duplicate selector in the karma block. */}
+            {communities.length > 1 && (
               <div className="mb-4">
                 <label className="block text-sm font-medium text-text-muted mb-2">
-                  Select Community
+                  Community
                 </label>
                 <select
                   value={selectedCommunityId}

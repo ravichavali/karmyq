@@ -31,6 +31,32 @@ interface GraphData {
 
 type SubTab = 'community' | 'ego'
 
+/**
+ * Sprint 102 / ADR-070 — explain why some lines look softer, so fading is text-legible (not just
+ * lower opacity) and "nearly forgotten" reads as a gentle, optional state rather than a warning.
+ */
+function MemoryLegend() {
+  return (
+    <section className="kq-action-band mb-4" aria-label="How memory fades">
+      <p className="kq-section-label !mt-0">How memory fades</p>
+      <div className="grid gap-2 text-sm text-text-muted md:grid-cols-3">
+        <div>
+          <span className="font-semibold text-text">Strong and warm bonds</span>
+          <p>Recent or well-tended relationships stay vivid.</p>
+        </div>
+        <div>
+          <span className="font-semibold text-text">Fading bonds</span>
+          <p>Quiet relationships look softer so the graph reflects what is alive now.</p>
+        </div>
+        <div>
+          <span className="font-semibold text-text">Nearly forgotten bonds</span>
+          <p>You can reconnect, or let them fade from active memory.</p>
+        </div>
+      </div>
+    </section>
+  )
+}
+
 export default function TrustGraphTab({ communityId, currentUserId }: TrustGraphTabProps) {
   const [subTab, setSubTab] = useState<SubTab>('community')
   const [communityGraph, setCommunityGraph] = useState<GraphData | null>(null)
@@ -86,6 +112,9 @@ export default function TrustGraphTab({ communityId, currentUserId }: TrustGraph
           My Network
         </button>
       </div>
+
+      {/* Sprint 102 / ADR-070 — explain fading before the graph, then the gentle re-warm nudge. */}
+      <MemoryLegend />
 
       {/* Sprint 90 / ADR-070 — re-warm bonds about to be swept. Self-suppresses when none. */}
       <ReWarmingNudge communityId={communityId} className="mb-4" />
