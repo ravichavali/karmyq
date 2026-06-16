@@ -57,29 +57,14 @@ function finiteStateCopy(status: string, expired?: boolean): string {
   }
 }
 
-function readCurrentUserId(): string | null {
-  if (typeof window === 'undefined') return null
-  try {
-    const raw = localStorage.getItem('user')
-    return raw ? (JSON.parse(raw).id ?? null) : null
-  } catch {
-    return null
-  }
-}
-
 export default function RequestDetailPage() {
   const router = useRouter()
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const [detail, setDetail] = useState<RequestDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [offering, setOffering] = useState(false)
   const [offered, setOffered] = useState(false)
-
-  useEffect(() => {
-    setCurrentUserId(readCurrentUserId())
-  }, [])
 
   useEffect(() => {
     if (!router.isReady) return
@@ -108,11 +93,13 @@ export default function RequestDetailPage() {
   }, [router.isReady, router.query.id])
 
   const handleOffer = async () => {
-    if (!currentUserId || !detail) return
+    if (!detail) return
     setOffering(true)
     setError(null)
     try {
-      await requestService.createMatch({ request_id: detail.id, responder_id: currentUserId })
+      // No responder_id — the server derives it from the JWT (ADR-064), so the offer never depends on
+      // a present/valid localStorage.user (which a direct detail link may not have hydrated).
+      await requestService.createMatch({ request_id: detail.id })
       setOffered(true)
     } catch (err: any) {
       setError(err?.response?.data?.message ?? 'Failed to offer help')

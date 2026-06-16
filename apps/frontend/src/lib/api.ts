@@ -579,10 +579,12 @@ export const requestService = {
   getMatch: (id: string) =>
     requestApi.get(`/matches/${id}`),
 
+  // responder_id is optional and, since Sprint 101, ignored by the server — POST /matches derives the
+  // responder from the verified JWT identity (ADR-064). Callers may still pass it for back-compat.
   createMatch: (data: {
     request_id: string;
     offer_id?: string;
-    responder_id: string;
+    responder_id?: string;
     community_id?: string;
   }) =>
     requestApi.post('/matches', data),

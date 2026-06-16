@@ -60,15 +60,15 @@ beforeEach(() => {
 })
 
 describe('Sprint 101: actionable request detail page', () => {
-  it('offers help when viewer_relation is can_offer', async () => {
-    localStorage.setItem('user', JSON.stringify({ id: 'me' }))
+  it('offers help when viewer_relation is can_offer (no client identity needed — server derives it)', async () => {
+    // Deliberately NO localStorage.user — the offer must still fire (server derives responder via JWT).
     getRequest.mockResolvedValue({ data: detail({ viewer_relation: 'can_offer' }) })
     createMatch.mockResolvedValue({})
 
     render(<RequestDetailPage />)
     fireEvent.click(await screen.findByRole('button', { name: /Offer to Help/i }))
 
-    await waitFor(() => expect(createMatch).toHaveBeenCalledWith({ request_id: 'r1', responder_id: 'me' }))
+    await waitFor(() => expect(createMatch).toHaveBeenCalledWith({ request_id: 'r1' }))
     expect(replace).not.toHaveBeenCalledWith('/dashboard?tab=helping')
   })
 
@@ -95,13 +95,12 @@ describe('Sprint 101: actionable request detail page', () => {
   })
 
   it('labels a service request action "Offer service" but uses the same createMatch mutation', async () => {
-    localStorage.setItem('user', JSON.stringify({ id: 'me' }))
     getRequest.mockResolvedValue({ data: detail({ request_type: 'service', viewer_relation: 'can_offer' }) })
     createMatch.mockResolvedValue({})
 
     render(<RequestDetailPage />)
     fireEvent.click(await screen.findByRole('button', { name: /Offer service/i }))
-    await waitFor(() => expect(createMatch).toHaveBeenCalledWith({ request_id: 'r1', responder_id: 'me' }))
+    await waitFor(() => expect(createMatch).toHaveBeenCalledWith({ request_id: 'r1' }))
   })
 
   it('does not redirect to the dashboard anymore', async () => {
