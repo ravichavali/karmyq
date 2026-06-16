@@ -7,7 +7,8 @@ import RequestCard from './RequestCard'
 import ActivityCard from './ActivityCard'
 import StoryCard from './StoryCard'
 import DecisionBand from './DecisionBand'
-import type { ActivityData, DecisionData, RequestCardData, UnifiedFeedItem } from '@/types/unified-feed'
+import OfferedAwaitingPanel from './OfferedAwaitingPanel'
+import type { ActivityData, DecisionData, OfferedAwaitingItem, RequestCardData, UnifiedFeedItem } from '@/types/unified-feed'
 import type { StoryData } from '@/types/feed-items'
 
 /**
@@ -61,6 +62,7 @@ export default function UnifiedFeed({
   const [activeUrgency, setActiveUrgency] = useState<UrgencyFilter>('all')
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const [offeredAwaiting, setOfferedAwaiting] = useState(0)
+  const [offeredAwaitingItems, setOfferedAwaitingItems] = useState<OfferedAwaitingItem[]>([])
   const [showingMoreOpen, setShowingMoreOpen] = useState(false)
   const [internalBrowseMode, setInternalBrowseMode] = useState<BrowseMode>(() => {
     if (typeof window === 'undefined') return 'provider'
@@ -109,8 +111,10 @@ export default function UnifiedFeed({
         if (isStale()) return
         // createApiClient unwraps the envelope → res.data is { items, count, offeredAwaiting }.
         setItems((res.data?.items as UnifiedFeedItem[]) ?? [])
-        // Sprint 100 / G1 — home only; the count of open asks the member has offered on and awaits.
+        // Sprint 100 / G1 + Sprint 101 — home only; the count of open asks the member has offered on
+        // and awaits, plus a small preview of the actual asks (count and items share one predicate).
         setOfferedAwaiting((res.data?.offeredAwaiting as number) ?? 0)
+        setOfferedAwaitingItems((res.data?.offeredAwaitingItems as OfferedAwaitingItem[]) ?? [])
       })
       .catch(() => {
         if (!isStale() && showLoading) setError(true)
@@ -217,21 +221,12 @@ export default function UnifiedFeed({
 
       {!isCommunity && <DecisionBand decisions={decisions} onResolved={resolveDecision} />}
 
-      {/* Sprint 100 / G1 — an active helper's offers in flight aren't decisions they owe (they're
-          awaiting the requester) and the curated feed hides asks they've offered on, so Home would
-          otherwise read empty. This one honest band keeps Home alive and points to the Helping tab. */}
+      {/* Sprint 100 / G1 + Sprint 101 — an active helper's offers in flight aren't decisions they owe
+          (they're awaiting the requester) and the curated feed hides asks they've offered on, so Home
+          would otherwise read empty. This preview keeps Home alive, names the actual asks, and points
+          to the Helping tab. Home-only, positive count only. */}
       {!isCommunity && offeredAwaiting > 0 && (
-        <a
-          href="/dashboard?tab=helping"
-          className="flex items-center justify-between gap-3 kq-card mb-3 hover:bg-surface-raised transition-colors"
-        >
-          <span className="text-[14.5px] text-text">
-            <span aria-hidden className="mr-2">🤲</span>
-            You’ve offered to help on{' '}
-            <strong>{offeredAwaiting} open {offeredAwaiting === 1 ? 'ask' : 'asks'}</strong> — waiting to hear back.
-          </span>
-          <span className="text-sm font-medium text-primary shrink-0">View in Helping →</span>
-        </a>
+        <OfferedAwaitingPanel count={offeredAwaiting} items={offeredAwaitingItems} />
       )}
 
       <FilterChipRow
