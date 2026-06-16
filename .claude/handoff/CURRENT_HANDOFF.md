@@ -14,10 +14,15 @@
 > 5. Write-path truth (new): a direct/forged API offer on an expired-open or non-member ask returns
 >    400/403, not 201; offering twice on the same ask returns 409.
 >
-> **Open product question carried forward:** the `NOT_COMMUNITY_MEMBER` rule on `POST /matches`
-> matches the approved `can_offer` spec but narrows cross-community (trust-network tier) offers vs.
-> the prior unguarded behavior. Confirm whether cross-community helping should remain blocked or be
-> re-allowed (would require changing both the read `can_offer` derivation and the write predicate).
+> **RESOLVED — offer eligibility follows the feed, not membership.** The Sprint 101 membership gate
+> (on both `can_offer` and `POST /matches`) was a regression: it 403'd legitimate cross-community
+> offers (trust-network / platform / sister tiers the feed deliberately surfaces). Principle
+> confirmed by the maintainer: *"if it can be shown in a feed, it should be eligible"* — the feed is a
+> personalized, stochastic explore/exploit discovery surface, so eligibility must NOT be re-gated in
+> the mutation (membership or reachability). The membership gate + `viewer_membership` join were
+> removed; the offer path now enforces only invariants (JWT identity, open+unexpired, not-own,
+> no-duplicate). Shipped on branch `fix/offer-eligibility-follows-feed`. See memory
+> `feedback_feed_is_eligibility_surface`.
 >
 > **What shipped this sprint:**
 > - Request-service: `fetchOfferedAwaiting` returns `{count, items}`; `view=home` curated response now
