@@ -28,6 +28,7 @@ import express from 'express';
 import request from 'supertest';
 import { query } from '../../src/database/db';
 import requestsRouter from '../../src/routes/requests';
+import matchesRouter from '../../src/routes/matches';
 
 describe('Sprint 101: offered-awaiting items + request detail viewer relation (integration)', () => {
   let communityId: string;
@@ -53,6 +54,18 @@ describe('Sprint 101: offered-awaiting items + request detail viewer relation (i
       next();
     });
     app.use('/requests', requestsRouter);
+    return app;
+  }
+
+  /** A matches app authenticated as `userId` — the write path (POST /matches) for offers. */
+  function matchesAppAs(userId: string) {
+    const app = express();
+    app.use(express.json());
+    app.use((req: any, _res: any, next: any) => {
+      req.user = { userId, email: 'u@test.com', communities: [] };
+      next();
+    });
+    app.use('/matches', matchesRouter);
     return app;
   }
 
@@ -119,6 +132,9 @@ describe('Sprint 101: offered-awaiting items + request detail viewer relation (i
   });
 
   afterAll(async () => {
+    // Delete matches by request_id too — the write-path test creates matches via POST /matches whose
+    // ids aren't tracked in createdMatchIds.
+    await query(`DELETE FROM requests.matches WHERE request_id = ANY($1)`, [createdRequestIds]).catch(() => {});
     await query(`DELETE FROM requests.matches WHERE id = ANY($1)`, [createdMatchIds]).catch(() => {});
     await query(`DELETE FROM requests.request_communities WHERE request_id = ANY($1)`, [createdRequestIds]).catch(() => {});
     await query(`DELETE FROM requests.help_requests WHERE id = ANY($1)`, [createdRequestIds]).catch(() => {});
@@ -173,5 +189,45 @@ describe('Sprint 101: offered-awaiting items + request detail viewer relation (i
     const nonMemberOpen = await request(appAs(viewerId, member)).get(`/requests/${nonMemberOpenRequestId}`);
     expect(nonMemberOpen.status).toBe(200);
     expect(nonMemberOpen.body.data.viewer_relation).toBe('not_actionable');
+  });
+
+  // Write-path eligibility (runs last so the can_offer read assertion above sees no fresh match):
+  // POST /matches MUST enforce the same predicate as viewer_relation='can_offer', so a stale tab or a
+  // forged body cannot offer where the read path forbids it.
+  it('POST /matches enforces the same eligibility as can_offer and derives responder from the JWT', async () => {
+    // Forged body responder_id is ignored — the offer is recorded under the authenticated viewer.
+    const forged = await request(matchesAppAs(viewerId))
+      .post('/matches')
+      .send({ request_id: canOfferRequestId, responder_id: requesterId });
+    expect(forged.status).toBe(201);
+    expect(forged.body.data.responder_id).toBe(viewerId);
+
+    // Duplicate: viewer already has a live offer on this ask now → 409.
+    const dupe = await request(matchesAppAs(viewerId))
+      .post('/matches')
+      .send({ request_id: canOfferRequestId });
+    expect(dupe.status).toBe(409);
+    expect(dupe.body.error).toBe('ALREADY_OFFERED');
+
+    // Expired-open ask → not actionable on the write path.
+    const expired = await request(matchesAppAs(viewerId))
+      .post('/matches')
+      .send({ request_id: expiredOpenRequestId });
+    expect(expired.status).toBe(400);
+    expect(expired.body.error).toBe('REQUEST_NOT_OPEN');
+
+    // Non-member open ask → 403, not a silent success.
+    const nonMember = await request(matchesAppAs(viewerId))
+      .post('/matches')
+      .send({ request_id: nonMemberOpenRequestId });
+    expect(nonMember.status).toBe(403);
+    expect(nonMember.body.error).toBe('NOT_COMMUNITY_MEMBER');
+
+    // Own request → 400.
+    const own = await request(matchesAppAs(viewerId))
+      .post('/matches')
+      .send({ request_id: ownRequestId });
+    expect(own.status).toBe(400);
+    expect(own.body.error).toBe('OWN_REQUEST');
   });
 });

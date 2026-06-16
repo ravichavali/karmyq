@@ -1322,27 +1322,36 @@ Get specific match details.
 **Implementation:** `src/routes/matches.ts:69`
 
 #### POST /matches
-Create a match between request and responder.
+Create a member's offer to help (a proposed match). **Sprint 101 (write-path eligibility):** this is
+the mutation behind Offer-to-Help, so it enforces the SAME predicate the read path uses for
+`viewer_relation='can_offer'` on `GET /requests/:id`. The responder is the **verified JWT identity**
+(ADR-064) — a `responder_id` in the body is ignored, so a stale tab or forged body can't offer as
+another user. Admin-proposed matches use `POST /requests/:id/propose-match` (adminActions), not this
+route.
 
 **Request:**
 ```json
 {
   "request_id": "uuid",
-  "offer_id": "uuid",
-  "responder_id": "uuid"
+  "offer_id": "uuid"
 }
 ```
 
-**Note:** `offer_id` is optional (direct response without offer)
+**Note:** `offer_id` is optional (direct response without offer). Any `responder_id` in the body is
+ignored — the responder is always the authenticated user.
 
-**Validation:**
-- Request must exist and be 'open'
-- Offer must exist and be 'active' (if provided)
-- Responder cannot match their own request
+**Validation (mirrors `can_offer`):**
+- Request must exist, be `open`, and **unexpired** (`expired = FALSE`) → else `400 REQUEST_NOT_OPEN`
+- Responder cannot offer on their own request → `400 OWN_REQUEST`
+- Responder must be an **active member of at least one of the request's communities** → else
+  `403 NOT_COMMUNITY_MEMBER`
+- One live offer per responder per request (no existing `proposed`/`matched` match) → else
+  `409 ALREADY_OFFERED` (best-effort; `matches` has no unique `(request_id, responder_id)`)
+- Linked offer (if `offer_id` provided) must exist, be `active`, and belong to the responder
 
 **Events Published:** `match.created`
 
-**Implementation:** `src/routes/matches.ts:113`
+**Implementation:** `src/routes/matches.ts` — `router.post('/')`.
 
 #### PUT /matches/:id/complete
 Two-phase match completion. Each party calls this independently; the match

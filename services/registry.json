@@ -151,7 +151,7 @@
           {"method": "GET", "path": "/requests/community/:communityId/open-asks", "description": "Sprint 100 / F2: reachable read-only list behind the pulse 'N open asks across the community' row. Returns every open+unexpired ask attached to the community (incl. the caller's own and already-offered), identical predicate to the pulse openAsks count so rows===count. Browse-only (frontend renders read-only, no Offer). Members-only (JWT communities claim -> 403). Returns { items, count } of canonical request-card data scoped to this community."},
           {"method": "GET", "path": "/requests/retention-policy", "description": "Sprint 90 / ADR-069: resolved retention windows (completed/expired/message, community->global->fallback via requests.retention_config) + the member's own held vs forgotten request counts. Backs the /about/memory transparency page. Read-only, no PII. Membership-gated on the JWT communities claim when ?communityId= is supplied (non-member -> 403). MUST be registered before /requests/:id (route-order)."},
           "/offers",
-          "/matches",
+          {"method": "POST", "path": "/matches", "description": "Create a member's offer to help (proposed match). Sprint 101: responder is the verified JWT identity (ADR-064; body responder_id ignored), and the same eligibility as viewer_relation=can_offer is enforced server-side — open+unexpired (400 REQUEST_NOT_OPEN), not own (400 OWN_REQUEST), active member of >=1 request community (403 NOT_COMMUNITY_MEMBER), no existing live offer (409 ALREADY_OFFERED). Admin-proposed matches use POST /requests/:id/propose-match instead."},
           "/matches/:id/complete",
           "/schemas",
           "/schemas/:type",
