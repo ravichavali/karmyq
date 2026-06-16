@@ -28,8 +28,20 @@
 > `trust-model`, `useTrustQuestions`, and the one `sprint-85-unified-feed` "optimistically removes a
 > card" case (verified failing on master's UnifiedFeed).
 >
-> **SDLC gates:** `/simplify`, `/code-review`, `/security-review` all run on the branch diff — no
-> correctness or security findings; diff was already clean.
+> **SDLC gates:** `/simplify`, `/code-review`, `/security-review` all run on the branch diff.
+>
+> **Cross-agent review (Codex) — both findings resolved:**
+> - **High (write-path eligibility):** `GET /requests/:id` derived `can_offer`, but `POST /matches`
+>   still trusted a client `responder_id` and only checked `status='open'` — a stale tab/forged body
+>   could offer on expired-open / non-member / duplicate asks or as another user. Fixed: `POST /matches`
+>   now derives the responder from the JWT (ADR-064) and enforces the same `can_offer` predicate
+>   (typed errors `REQUEST_NOT_OPEN` / `OWN_REQUEST` / `NOT_COMMUNITY_MEMBER` / `ALREADY_OFFERED`);
+>   admin propose-match keeps its own route; DB-backed TDD added. CI Integration Tests verify it.
+> - **Medium (silent no-op):** the detail Offer button no longer reads `localStorage.user` or sends
+>   `responder_id` — it calls `createMatch({ request_id })` and the server derives the responder.
+> - **Open product question for maintainer:** the membership requirement matches the approved
+>   `can_offer` spec but narrows cross-community (trust-network tier) offers vs. prior behavior —
+>   intentional, flagged in the PR for confirmation.
 >
 > **Important carry-forward:** 19-21 moderate dependency advisories remain within ADR-059 SLA. They
 > are secondary unless a low-risk cleanup naturally fits; high/critical audit gate remains blocking.
