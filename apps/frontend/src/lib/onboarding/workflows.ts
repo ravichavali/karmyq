@@ -24,7 +24,11 @@ export const WORKFLOWS: Record<string, WorkflowDef> = {
       },
       {
         title: 'Requests you can fill',
-        body: 'Each card shows the requester (the colored circle is their initial — "Asked by …"), your trust path and their Karma, and an explainable match score like "42% · 2nd-degree trust" — never a bare number. Tap anywhere on a card to open the full request; tap Offer to Help to send your offer and track it in the Helping tab.',
+        body: 'Each card shows the requester (the colored circle is their initial — "Asked by …"), your trust path and their Karma, and an explainable match score like "42% · 2nd-degree trust" — never a bare number. Tap anywhere on a card to open its full detail page, which shows the ask and the one action available to you right now — offer to help, or, if you can\'t act on it, why.',
+      },
+      {
+        title: "Offers you're waiting on",
+        body: "When you've offered to help on open asks, Home shows them as a small preview — the actual asks, each linking to its detail — so you can pick up where you left off. They're waiting on the requester to respond, not on you; the full list lives in the Helping tab.",
       },
       {
         title: "You're caught up",
@@ -32,7 +36,7 @@ export const WORKFLOWS: Record<string, WorkflowDef> = {
       },
       {
         title: 'The same feed inside a community',
-        body: "A community's Home tab shows the very same cards, scoped to that community. There's no \"needs your response\" band there (decisions are personal). Above the asks, the warm hero carries a \"this week in the neighbourhood\" pulse, and the occasional story of a neighbour's first exchange appears below.",
+        body: "A community's Home tab shows the very same cards, scoped to that community — the community's open asks, not a sample of finished exchanges. There's no \"needs your response\" band there (decisions are personal). Above the asks, the warm hero carries a \"this week in the neighbourhood\" pulse, and the occasional story of a neighbour's first exchange appears below.",
       },
     ],
   },

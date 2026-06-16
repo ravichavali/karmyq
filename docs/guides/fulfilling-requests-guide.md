@@ -23,12 +23,18 @@ committing to before you offer.
 
 ---
 
+## Opening a Request
+
+A community's open-asks view (reached from its weekly pulse) lists every open ask across the community — including your own and ones you've already offered on, so the count is always reachable. Those cards don't offer inline; **opening a card is the action path**. Tapping one opens the request's **detail page**, which shows the ask and the single action available to you: **Offer to Help** (or **Offer service** for a service request) when you're eligible, **"waiting for the requester"** when you've already offered, **"This is your ask"** for your own, or a finite note when the ask is completed, cancelled, matched, or expired. Eligibility is decided server-side before the page renders, so you never tap an Offer button that fails.
+
+---
+
 ## Accepting a Request
 
-1. Click on a request to see full details
+1. Click on a request to open its detail page and see the full ask
 2. Check the description, location, timing, and effort involved
-3. Click **Accept Request** if you can help
-4. You'll be connected to the requester to coordinate details
+3. Click **Offer to Help** if you can help
+4. Your offer goes to the requester to accept; track it in the **Helping** tab
 
 ---
 

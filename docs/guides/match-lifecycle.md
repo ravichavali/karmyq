@@ -17,7 +17,7 @@ A helper offers to respond to your request, or your community admin suggests a m
 - **Helper's tab:** "Awaiting Acceptance" — they wait for you to accept
 - **Requester's tab:** "Needs Your Response" — you decide whether to accept or decline
 
-At this stage, no karma has moved and neither party is committed.
+At this stage, no karma has moved and neither party is committed. Because a proposed offer is awaiting the *requester*, it is **not** a decision the helper owes — so the helper sees it in their Dashboard Home **"You've offered to help"** preview (a calm list waiting on the requester), and on the request's own detail page as **"waiting for the requester to respond"**, never as an action they need to take.
 
 ### 2. Accepted (Matched / In Progress)
 
