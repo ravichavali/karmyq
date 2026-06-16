@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { AuthenticatedRequest } from '@karmyq/shared/middleware/auth';
 import { query, withTransaction } from '../database/db';
+import { getRequestReachability } from '../db/eligibility';
 import { publishEvent } from '../events/publisher';
 import {
   sendSuccess,
@@ -119,13 +120,14 @@ router.get('/:id', async (req: Request, res: Response) => {
 
 // POST /matches - Create a member's offer to help (self-offer).
 //
-// Sprint 101 (write-path eligibility): this is the mutation behind the Offer-to-Help action, so it
-// MUST enforce the SAME predicate the read path uses to derive viewer_relation='can_offer' on
-// GET /requests/:id. Otherwise a stale tab or a direct API call could offer on an expired-open ask,
-// a non-member ask, a duplicate already-offered ask, or AS another responder — exactly the cases the
-// UI is told are not actionable. The responder is the verified JWT identity (ADR-064), never a
-// client-supplied body field. Admin-proposed matches use POST /requests/:id/propose-match
-// (adminActions), not this route.
+// Eligibility-to-offer follows the request's feed VISIBILITY boundary (can the feed ever show this
+// ask to this viewer?), shared with the read path via getRequestReachability(): a member of a request
+// community (community scope), any viewer for trust_network/platform scope, or a viewer reachable via
+// an active sister-community link. That boundary is deterministic; the feed's stochastic explore/
+// exploit RANKING within the visible set is NOT re-gated here. On top of visibility, the mutation
+// enforces the lifecycle invariants that must hold however the user reached the ask: verified JWT
+// identity (ADR-064, never a body responder_id), open + unexpired, not the user's own, no duplicate.
+// Admin-proposed matches use POST /requests/:id/propose-match (adminActions), not this route.
 router.post('/', async (req: Request, res: Response) => {
   try {
     const responder_id = (req as any).user?.userId;
@@ -138,20 +140,17 @@ router.post('/', async (req: Request, res: Response) => {
       return res.status(400).json({ success: false, message: 'request_id is required' });
     }
 
-    // Request must exist, be open, and unexpired (expired-open asks are not actionable).
-    const requestCheck = await query(
-      `SELECT id, status, expired, requester_id FROM requests.help_requests WHERE id = $1`,
-      [request_id]
-    );
+    const reachability = await getRequestReachability(request_id, responder_id);
 
-    if (requestCheck.rowCount === 0) {
+    if (!reachability.exists) {
       return res.status(404).json({
         success: false,
         message: 'Request not found',
       });
     }
 
-    if (requestCheck.rows[0].status !== 'open' || requestCheck.rows[0].expired === true) {
+    // Request must be open and unexpired (expired-open asks are not actionable).
+    if (reachability.status !== 'open' || reachability.expired === true) {
       return res.status(400).json({
         success: false,
         message: 'Request is not open',
@@ -160,7 +159,7 @@ router.post('/', async (req: Request, res: Response) => {
     }
 
     // Self-match guard: a requester cannot offer on their own request.
-    if (requestCheck.rows[0].requester_id === responder_id) {
+    if (reachability.requesterId === responder_id) {
       return res.status(400).json({
         success: false,
         message: 'You cannot offer on your own request',
@@ -168,24 +167,14 @@ router.post('/', async (req: Request, res: Response) => {
       });
     }
 
-    // Eligibility: the responder must be an active member of at least one of the request's
-    // communities — the same membership predicate GET /requests/:id uses for can_offer.
-    const membershipCheck = await query(
-      `SELECT 1
-         FROM requests.request_communities rc
-         JOIN communities.members cm
-           ON cm.community_id = rc.community_id
-          AND cm.user_id = $2
-          AND cm.status = 'active'
-        WHERE rc.request_id = $1
-        LIMIT 1`,
-      [request_id, responder_id]
-    );
-    if (membershipCheck.rowCount === 0) {
+    // Visibility boundary: the ask must be within the viewer's feed-visibility audience. A
+    // community-scoped ask the viewer can't see (non-member, no sister link) is not offerable even
+    // with a direct id — that would leak past the request's chosen audience.
+    if (!reachability.reachable) {
       return res.status(403).json({
         success: false,
-        message: "You must be an active member of the request's community to offer",
-        error: 'NOT_COMMUNITY_MEMBER',
+        message: 'This request is not available to you',
+        error: 'REQUEST_NOT_REACHABLE',
       });
     }
 
@@ -262,7 +251,7 @@ router.post('/', async (req: Request, res: Response) => {
       match_id: match.id,
       request_id,
       offer_id,
-      requester_id: requestCheck.rows[0].requester_id,
+      requester_id: reachability.requesterId,
       responder_id,
     });
 

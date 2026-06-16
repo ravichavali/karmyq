@@ -1,10 +1,32 @@
-# Sprint 101 - Actionability + State Truth - IMPLEMENTED, AWAITING PR/DEPLOY
+# Sprint 101 - Actionability + State Truth - DEPLOYED (v11.10.0)
 
-> **STATUS (2026-06-15):** Sprint 101 is **implemented** on branch
-> `feature/sprint-101-actionability-state-truth` (root version bumped to `11.10.0`). All 14 plan tasks
-> are complete; local verification is green except for pre-existing/DB-gated failures (see below).
-> Remaining: open the PR, pass CI, get Admin approval, merge to `master`, and run post-deploy
-> validation.
+> **STATUS (2026-06-16):** Sprint 101 is **merged and deployed**. PR #92 merged to `master` (squash
+> `654937d5`); CI/CD run `27592828860` succeeded — all jobs green including **Deploy to Demo**
+> (deploy.sh health-check + auto-rollback passed). Live on karmyq.com; request-service responds with
+> the ADR-074 error contract post-deploy. Codex's review (High write-path + Medium silent-no-op) was
+> resolved before merge.
+>
+> **Post-deploy UI validation still to run** (login `maria.reyes@test.karmyq.com / password123`):
+> 1. Dashboard Home shows pending offered **items** (not just a count), each linking to detail.
+> 2. A community open ask opens `/requests/[id]` with details + action (no redirect to dashboard).
+> 3. Offering from detail moves it to awaiting response / Helping.
+> 4. Expanding a **completed** Asks item does NOT say "No offers yet."
+> 5. Write-path truth (new): a direct/forged API offer on an expired-open or non-member ask returns
+>    400/403, not 201; offering twice on the same ask returns 409.
+>
+> **RESOLVED — offer eligibility = feed VISIBILITY boundary.** PR #93 (branch
+> `fix/offer-eligibility-follows-feed`), CI green incl. Integration Tests; awaiting Admin merge.
+> Two iterations, both caught in Codex review:
+> 1. Sprint 101 over-gated (active-membership required) → 403'd legitimate cross-community offers.
+> 2. First hotfix overcorrected (any open UUID eligible) → leaked community-scoped asks to non-members.
+> Final: a shared `getRequestReachability()` (`src/db/eligibility.ts`) mirrors the curated feed's
+> VISIBILITY predicate — member of a request community OR trust_network/platform scope OR
+> sister-reachable (active `community_links` w/ `show_in_sister_feeds`) — used by BOTH the `can_offer`
+> read and `POST /matches`. Visibility = deterministic access boundary (gates eligibility); the feed's
+> stochastic ranking within the visible set is NOT re-gated. Out-of-audience → `403
+> REQUEST_NOT_REACHABLE` / `not_actionable`; invariants (identity/open/unexpired/own/dup) retained.
+> `trust_network` is scope-based (degree treated as ranking, not a hard wall) — flagged to Codex.
+> See memory `feedback_feed_is_eligibility_surface`.
 >
 > **What shipped this sprint:**
 > - Request-service: `fetchOfferedAwaiting` returns `{count, items}`; `view=home` curated response now

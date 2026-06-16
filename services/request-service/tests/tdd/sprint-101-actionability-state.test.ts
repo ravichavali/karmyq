@@ -36,12 +36,16 @@ describe('Sprint 101: offered-awaiting items + request detail viewer relation (i
   let viewerId: string; // the caller
   let requesterId: string; // owns the asks the viewer offered on / can offer on
 
+  let sisterCommunityId: string; // viewer NOT a member, but sister-linked to communityId
+
   let awaitingRequestId: string; // open ask the viewer offered on (proposed) — twice
   let ownRequestId: string; // open ask owned by the viewer
   let canOfferRequestId: string; // open ask in viewer's community, no match
   let completedRequestId: string; // completed ask
   let expiredOpenRequestId: string; // status=open but expired=TRUE
-  let nonMemberOpenRequestId: string; // open ask in a community the viewer is not in
+  let nonMemberCommunityRequestId: string; // community-scoped ask in a community the viewer is NOT in → out of audience
+  let wideScopeRequestId: string; // platform-scoped ask in the other community → cross-community reachable
+  let sisterRequestId: string; // community-scoped ask in a sister-linked community → reachable via link
 
   const createdRequestIds: string[] = [];
   const createdMatchIds: string[] = [];
@@ -72,15 +76,16 @@ describe('Sprint 101: offered-awaiting items + request detail viewer relation (i
   async function seedAsk(
     ownerId: string,
     title: string,
-    opts: { status?: string; expired?: boolean; communityId?: string } = {}
+    opts: { status?: string; expired?: boolean; communityId?: string; visibilityScope?: string } = {}
   ): Promise<string> {
     const status = opts.status ?? 'open';
     const expired = opts.expired ?? false;
     const cid = opts.communityId ?? communityId;
+    const scope = opts.visibilityScope ?? 'community';
     const r = await query(
-      `INSERT INTO requests.help_requests (requester_id, request_type, category, title, description, status, urgency, expired, payload)
-       VALUES ($1,'generic','generic',$2,$3,$4,'medium',$5,'{}') RETURNING id`,
-      [ownerId, title, 's101 ask', status, expired]
+      `INSERT INTO requests.help_requests (requester_id, request_type, category, title, description, status, urgency, expired, visibility_scope, payload)
+       VALUES ($1,'generic','generic',$2,$3,$4,'medium',$5,$6,'{}') RETURNING id`,
+      [ownerId, title, 's101 ask', status, expired, scope]
     );
     createdRequestIds.push(r.rows[0].id);
     await query(`INSERT INTO requests.request_communities (request_id, community_id) VALUES ($1,$2)`, [r.rows[0].id, cid]);
@@ -109,14 +114,26 @@ describe('Sprint 101: offered-awaiting items + request detail viewer relation (i
     otherCommunityId = (
       await query(`INSERT INTO communities.communities (name, description) VALUES ($1,$2) RETURNING id`, ['S101 Other Community', 's101 other'])
     ).rows[0].id;
+    sisterCommunityId = (
+      await query(`INSERT INTO communities.communities (name, description) VALUES ($1,$2) RETURNING id`, ['S101 Sister Community', 's101 sister'])
+    ).rows[0].id;
 
-    // Viewer + requester are active members of the main community. Viewer is NOT a member of "other".
+    // Viewer + requester are active members of the main community. Requester is also a member of
+    // "other" and "sister" (so they can own asks there). Viewer is NOT a member of "other"/"sister".
     await query(
       `INSERT INTO communities.members (community_id, user_id, role, status, joined_at) VALUES
          ($1,$2,'member','active', NOW() - INTERVAL '3 days'),
          ($1,$3,'member','active', NOW() - INTERVAL '3 days'),
-         ($4,$3,'member','active', NOW() - INTERVAL '3 days')`,
-      [communityId, viewerId, requesterId, otherCommunityId]
+         ($4,$3,'member','active', NOW() - INTERVAL '3 days'),
+         ($5,$3,'member','active', NOW() - INTERVAL '3 days')`,
+      [communityId, viewerId, requesterId, otherCommunityId, sisterCommunityId]
+    );
+
+    // Active sister link between the viewer's community and the sister community, with feeds shared.
+    await query(
+      `INSERT INTO communities.community_links (community_a_id, community_b_id, link_type, status, show_in_sister_feeds)
+       VALUES ($1,$2,'sister','active',TRUE)`,
+      [communityId, sisterCommunityId]
     );
 
     awaitingRequestId = await seedAsk(requesterId, 'Ceiling fan install');
@@ -128,7 +145,12 @@ describe('Sprint 101: offered-awaiting items + request detail viewer relation (i
     canOfferRequestId = await seedAsk(requesterId, 'Ride to appointment');
     completedRequestId = await seedAsk(requesterId, 'Completed ask', { status: 'completed' });
     expiredOpenRequestId = await seedAsk(requesterId, 'Expired open ask', { status: 'open', expired: true });
-    nonMemberOpenRequestId = await seedAsk(requesterId, 'Non-member open ask', { communityId: otherCommunityId });
+    // Community-scoped ask in a community the viewer is NOT in, with no sister link → out of audience.
+    nonMemberCommunityRequestId = await seedAsk(requesterId, 'Non-member community ask', { communityId: otherCommunityId });
+    // Platform-scoped ask in the other community → visible cross-community to anyone.
+    wideScopeRequestId = await seedAsk(requesterId, 'Platform-scope ask', { communityId: otherCommunityId, visibilityScope: 'platform' });
+    // Community-scoped ask in a sister-linked community → reachable via the active link.
+    sisterRequestId = await seedAsk(requesterId, 'Sister-linked ask', { communityId: sisterCommunityId });
   });
 
   afterAll(async () => {
@@ -138,8 +160,9 @@ describe('Sprint 101: offered-awaiting items + request detail viewer relation (i
     await query(`DELETE FROM requests.matches WHERE id = ANY($1)`, [createdMatchIds]).catch(() => {});
     await query(`DELETE FROM requests.request_communities WHERE request_id = ANY($1)`, [createdRequestIds]).catch(() => {});
     await query(`DELETE FROM requests.help_requests WHERE id = ANY($1)`, [createdRequestIds]).catch(() => {});
-    await query(`DELETE FROM communities.members WHERE community_id = ANY($1)`, [[communityId, otherCommunityId]]).catch(() => {});
-    await query(`DELETE FROM communities.communities WHERE id = ANY($1)`, [[communityId, otherCommunityId]]).catch(() => {});
+    await query(`DELETE FROM communities.community_links WHERE community_a_id = ANY($1) OR community_b_id = ANY($1)`, [[communityId, otherCommunityId, sisterCommunityId]]).catch(() => {});
+    await query(`DELETE FROM communities.members WHERE community_id = ANY($1)`, [[communityId, otherCommunityId, sisterCommunityId]]).catch(() => {});
+    await query(`DELETE FROM communities.communities WHERE id = ANY($1)`, [[communityId, otherCommunityId, sisterCommunityId]]).catch(() => {});
     await query(`DELETE FROM auth.users WHERE id = ANY($1)`, [[viewerId, requesterId]]).catch(() => {});
   });
 
@@ -186,16 +209,30 @@ describe('Sprint 101: offered-awaiting items + request detail viewer relation (i
     expect(expiredOpen.status).toBe(200);
     expect(expiredOpen.body.data.viewer_relation).toBe('not_actionable');
 
-    const nonMemberOpen = await request(appAs(viewerId, member)).get(`/requests/${nonMemberOpenRequestId}`);
-    expect(nonMemberOpen.status).toBe(200);
-    expect(nonMemberOpen.body.data.viewer_relation).toBe('not_actionable');
+    // Eligibility follows the request's feed-VISIBILITY boundary, not membership and not "any UUID".
+    // A COMMUNITY-scoped ask in a community the viewer isn't in (no sister link) is out of audience →
+    // not_actionable (the feed could never show it to them; a direct id must not unlock an Offer).
+    const nonMemberCommunity = await request(appAs(viewerId, member)).get(`/requests/${nonMemberCommunityRequestId}`);
+    expect(nonMemberCommunity.status).toBe(200);
+    expect(nonMemberCommunity.body.data.viewer_relation).toBe('not_actionable');
+
+    // A PLATFORM-scoped ask in another community IS within the audience cross-community → can_offer.
+    const wideScope = await request(appAs(viewerId, member)).get(`/requests/${wideScopeRequestId}`);
+    expect(wideScope.status).toBe(200);
+    expect(wideScope.body.data.viewer_relation).toBe('can_offer');
+
+    // A community-scoped ask in a SISTER-linked community is reachable via the link → can_offer.
+    const sister = await request(appAs(viewerId, member)).get(`/requests/${sisterRequestId}`);
+    expect(sister.status).toBe(200);
+    expect(sister.body.data.viewer_relation).toBe('can_offer');
   });
 
-  // Write-path eligibility (runs last so the can_offer read assertion above sees no fresh match):
-  // POST /matches MUST enforce the same predicate as viewer_relation='can_offer', so a stale tab or a
-  // forged body cannot offer where the read path forbids it.
-  it('POST /matches enforces the same eligibility as can_offer and derives responder from the JWT', async () => {
+  // Write-path = visibility boundary + lifecycle invariants (runs last so the can_offer read
+  // assertions above see no fresh match). POST /matches shares getRequestReachability() with the read
+  // path, then enforces JWT identity, open + unexpired, not-own, no-duplicate.
+  it('POST /matches enforces the visibility boundary + invariants (identity/open/unexpired/own/dup)', async () => {
     // Forged body responder_id is ignored — the offer is recorded under the authenticated viewer.
+    // canOfferRequest is in the viewer's own community (member) → reachable.
     const forged = await request(matchesAppAs(viewerId))
       .post('/matches')
       .send({ request_id: canOfferRequestId, responder_id: requesterId });
@@ -209,19 +246,33 @@ describe('Sprint 101: offered-awaiting items + request detail viewer relation (i
     expect(dupe.status).toBe(409);
     expect(dupe.body.error).toBe('ALREADY_OFFERED');
 
-    // Expired-open ask → not actionable on the write path.
+    // Expired-open ask → 400.
     const expired = await request(matchesAppAs(viewerId))
       .post('/matches')
       .send({ request_id: expiredOpenRequestId });
     expect(expired.status).toBe(400);
     expect(expired.body.error).toBe('REQUEST_NOT_OPEN');
 
-    // Non-member open ask → 403, not a silent success.
-    const nonMember = await request(matchesAppAs(viewerId))
+    // Out-of-audience: community-scoped ask in a community the viewer isn't in → 403, NOT a silent
+    // success. This is the regression guard against "any open request id is offerable".
+    const outOfAudience = await request(matchesAppAs(viewerId))
       .post('/matches')
-      .send({ request_id: nonMemberOpenRequestId });
-    expect(nonMember.status).toBe(403);
-    expect(nonMember.body.error).toBe('NOT_COMMUNITY_MEMBER');
+      .send({ request_id: nonMemberCommunityRequestId });
+    expect(outOfAudience.status).toBe(403);
+    expect(outOfAudience.body.error).toBe('REQUEST_NOT_REACHABLE');
+
+    // Platform-scope cross-community ask → offerable (201).
+    const wideScope = await request(matchesAppAs(viewerId))
+      .post('/matches')
+      .send({ request_id: wideScopeRequestId });
+    expect(wideScope.status).toBe(201);
+    expect(wideScope.body.data.responder_id).toBe(viewerId);
+
+    // Sister-linked community ask → offerable (201).
+    const sister = await request(matchesAppAs(viewerId))
+      .post('/matches')
+      .send({ request_id: sisterRequestId });
+    expect(sister.status).toBe(201);
 
     // Own request → 400.
     const own = await request(matchesAppAs(viewerId))
