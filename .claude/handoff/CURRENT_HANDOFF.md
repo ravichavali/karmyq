@@ -12,8 +12,9 @@
 > **Pre-existing (not this PR):** GitHub Dependabot shows 1 high advisory on the default branch; local
 > `npm audit --package-lock-only --audit-level=high` is clean. Tracked under ADR-059 SLA.
 >
-> **Important local state:** `docs/BUGS.md` and untracked `scripts/founding-circle-submissions.sh` are
-> user/local work — they were intentionally NOT staged or committed with Sprint 102.
+> **Branch state:** `docs/BUGS.md` (BUG-011, committed `920e62f9` via the bugs skill) is intentionally
+> part of this branch/PR. Untracked `scripts/founding-circle-submissions.sh` is separate user/local work,
+> not part of Sprint 102.
 
 ---
 

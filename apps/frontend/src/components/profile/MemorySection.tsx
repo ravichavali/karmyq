@@ -67,6 +67,9 @@ export default function MemorySection({ communityId, karmaTrend }: MemorySection
   useEffect(() => {
     if (!communityId) return
     let active = true
+    // Reset on community change so switching never flashes the previous community's memory.
+    setLoaded(false)
+    setData(null)
     socialGraphService
       .getRelationshipMemory(communityId)
       .then((res: any) => {
