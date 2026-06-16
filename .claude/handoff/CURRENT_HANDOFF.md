@@ -14,15 +14,19 @@
 > 5. Write-path truth (new): a direct/forged API offer on an expired-open or non-member ask returns
 >    400/403, not 201; offering twice on the same ask returns 409.
 >
-> **RESOLVED — offer eligibility follows the feed, not membership.** The Sprint 101 membership gate
-> (on both `can_offer` and `POST /matches`) was a regression: it 403'd legitimate cross-community
-> offers (trust-network / platform / sister tiers the feed deliberately surfaces). Principle
-> confirmed by the maintainer: *"if it can be shown in a feed, it should be eligible"* — the feed is a
-> personalized, stochastic explore/exploit discovery surface, so eligibility must NOT be re-gated in
-> the mutation (membership or reachability). The membership gate + `viewer_membership` join were
-> removed; the offer path now enforces only invariants (JWT identity, open+unexpired, not-own,
-> no-duplicate). Shipped on branch `fix/offer-eligibility-follows-feed`. See memory
-> `feedback_feed_is_eligibility_surface`.
+> **RESOLVED — offer eligibility = feed VISIBILITY boundary.** PR #93 (branch
+> `fix/offer-eligibility-follows-feed`), CI green incl. Integration Tests; awaiting Admin merge.
+> Two iterations, both caught in Codex review:
+> 1. Sprint 101 over-gated (active-membership required) → 403'd legitimate cross-community offers.
+> 2. First hotfix overcorrected (any open UUID eligible) → leaked community-scoped asks to non-members.
+> Final: a shared `getRequestReachability()` (`src/db/eligibility.ts`) mirrors the curated feed's
+> VISIBILITY predicate — member of a request community OR trust_network/platform scope OR
+> sister-reachable (active `community_links` w/ `show_in_sister_feeds`) — used by BOTH the `can_offer`
+> read and `POST /matches`. Visibility = deterministic access boundary (gates eligibility); the feed's
+> stochastic ranking within the visible set is NOT re-gated. Out-of-audience → `403
+> REQUEST_NOT_REACHABLE` / `not_actionable`; invariants (identity/open/unexpired/own/dup) retained.
+> `trust_network` is scope-based (degree treated as ranking, not a hard wall) — flagged to Codex.
+> See memory `feedback_feed_is_eligibility_surface`.
 >
 > **What shipped this sprint:**
 > - Request-service: `fetchOfferedAwaiting` returns `{count, items}`; `view=home` curated response now
