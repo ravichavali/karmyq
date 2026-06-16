@@ -404,7 +404,7 @@
         {
           "method": "POST",
           "path": "/matches",
-          "description": "Create a match between request and responder."
+          "description": "Create a member's offer to help (a proposed match). **Sprint 101 (write-path eligibility):** this is"
         },
         {
           "method": "PUT",
