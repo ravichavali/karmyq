@@ -308,13 +308,23 @@
         },
         {
           "method": "GET",
+          "path": "/requests/community/:communityId/open-asks (Sprint 100 / F2)",
+          "description": "The **reachable, read-only** list behind the pulse \"N open asks across the community\" row. Returns"
+        },
+        {
+          "method": "GET",
+          "path": "/requests/curated?view=home — `offeredAwaiting` (Sprint 100 / G1)",
+          "description": "The home-feed response now carries `offeredAwaiting`: the count of open asks the member has **offered"
+        },
+        {
+          "method": "GET",
           "path": "/requests/retention-policy (Sprint 90 / ADR-069)",
           "description": "Backs the `/about/memory` transparency page. Returns the **resolved retention windows**"
         },
         {
           "method": "GET",
-          "path": "/requests/:id",
-          "description": "Get specific request details."
+          "path": "/requests/:id (Sprint 101 — canonical viewer-aware detail)",
+          "description": "Get specific request details. **Sprint 101** makes this the canonical action surface: the response"
         },
         {
           "method": "POST",
@@ -394,7 +404,7 @@
         {
           "method": "POST",
           "path": "/matches",
-          "description": "Create a match between request and responder."
+          "description": "Create a member's offer to help (a proposed match). **Sprint 101 (write-path eligibility):** this is"
         },
         {
           "method": "PUT",

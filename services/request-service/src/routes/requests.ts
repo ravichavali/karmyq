@@ -1044,36 +1044,120 @@ export async function fetchDecisions(req: Request, userId: string): Promise<Unif
  * points to the Helping tab, so the Home never feels empty for someone who is actively helping.
  * Fail-soft: any error degrades to 0 (the band simply doesn't render) — it never breaks the feed.
  */
-async function countOfferedAwaiting(userId: string): Promise<number> {
+/** A single open ask the member has already offered on, awaiting the requester's response. */
+interface OfferedAwaitingItem {
+  match_id: string;
+  request_id: string;
+  title: string;
+  description: string;
+  author_name: string;
+  community_id?: string;
+  community_name?: string;
+  urgency?: string;
+  request_type?: string;
+  payload_type?: string;
+  payload?: unknown;
+  requirements?: unknown;
+  status: 'proposed';
+  offered_at: string;
+}
+
+function mapOfferedAwaitingRow(row: any): OfferedAwaitingItem {
+  return {
+    match_id: row.match_id,
+    request_id: row.request_id,
+    title: row.title,
+    description: row.description,
+    author_name: row.author_name || '',
+    community_id: row.community_id || undefined,
+    community_name: row.community_name || undefined,
+    urgency: row.urgency,
+    request_type: row.request_type || 'generic',
+    // ADR-067 seam fix: normalize the fine payload subtype from the mixed-vocab `category` column.
+    payload_type: categoryToPayloadType(row.category) as string | undefined,
+    payload: row.payload || {},
+    requirements: row.requirements || {},
+    status: 'proposed',
+    offered_at: row.offered_at,
+  };
+}
+
+/**
+ * Sprint 100 / Sprint 101 — the open asks the member has already offered on and now awaits the
+ * requester's response. Sprint 100 added the count band; Sprint 101 adds a small preview so Home can
+ * show the actual asks (not just "N"). Count and items derive from the SAME predicate so they can
+ * never disagree: COUNT(DISTINCT request_id) (a helper can hold more than one proposed match row on
+ * the same ask — matches has no unique (request_id, responder_id), and UNIQUE(request_id, offer_id)
+ * doesn't constrain NULL offer_id), and the preview uses DISTINCT ON (request_id) to dedupe to one
+ * item per ask. Fail-soft: any error degrades to an empty band rather than breaking the feed.
+ */
+async function fetchOfferedAwaiting(
+  userId: string,
+  previewLimit = 3
+): Promise<{ count: number; items: OfferedAwaitingItem[] }> {
   try {
-    const result = await query(
-      // COUNT(DISTINCT request_id), not COUNT(*): the band copy says "N open asks", and a helper can
-      // have more than one proposed match row on the same ask (matches has no unique (request_id,
-      // responder_id), and UNIQUE(request_id, offer_id) doesn't constrain NULL offer_id), which would
-      // otherwise overstate the count.
-      `SELECT COUNT(DISTINCT m.request_id)::int AS n
-         FROM requests.matches m
-         JOIN requests.help_requests hr ON hr.id = m.request_id
-        WHERE m.responder_id = $1 AND m.status = 'proposed'
-          AND hr.status = 'open' AND hr.expired = FALSE`,
-      [userId]
-    );
-    return result.rows[0]?.n ?? 0;
+    const [countResult, itemResult] = await Promise.all([
+      query(
+        `SELECT COUNT(DISTINCT m.request_id)::int AS n
+           FROM requests.matches m
+           JOIN requests.help_requests hr ON hr.id = m.request_id
+          WHERE m.responder_id = $1 AND m.status = 'proposed'
+            AND hr.status = 'open' AND hr.expired = FALSE`,
+        [userId]
+      ),
+      query(
+        // DISTINCT ON (request_id) keeps the preview one row per ask — the same dedupe the DISTINCT
+        // count applies — picking the most recent proposed match per ask. Community is a scalar
+        // subquery (a request can span communities; the card only needs one label).
+        `SELECT DISTINCT ON (m.request_id)
+                m.id AS match_id, m.request_id, m.created_at AS offered_at,
+                hr.title, hr.description, hr.urgency, hr.request_type, hr.category,
+                hr.payload, hr.requirements,
+                u.name AS author_name,
+                (SELECT rc.community_id::text FROM requests.request_communities rc
+                  WHERE rc.request_id = hr.id LIMIT 1) AS community_id,
+                (SELECT c.name FROM requests.request_communities rc
+                   JOIN communities.communities c ON c.id = rc.community_id
+                  WHERE rc.request_id = hr.id LIMIT 1) AS community_name
+           FROM requests.matches m
+           JOIN requests.help_requests hr ON hr.id = m.request_id
+           LEFT JOIN auth.users u ON u.id = hr.requester_id
+          WHERE m.responder_id = $1 AND m.status = 'proposed'
+            AND hr.status = 'open' AND hr.expired = FALSE
+          ORDER BY m.request_id, m.created_at DESC
+          LIMIT $2`,
+        [userId, previewLimit]
+      ),
+    ]);
+    return {
+      count: Number(countResult.rows[0]?.n) || 0,
+      items: itemResult.rows.map(mapOfferedAwaitingRow),
+    };
   } catch {
-    return 0;
+    return { count: 0, items: [] };
   }
 }
 
 async function respondHomeFeed(req: Request, res: Response, userId: string, scoredRequests: any[]): Promise<void> {
-  // Decisions and the offered-awaiting count are independent reads — fetch them concurrently.
+  // Decisions and the offered-awaiting read are independent — fetch them concurrently.
   const [decisionItems, offeredAwaiting] = await Promise.all([
     fetchDecisions(req, userId),
-    countOfferedAwaiting(userId),
+    fetchOfferedAwaiting(userId),
   ]);
   const requestItems = scoredRequests.map((r) => buildRequestItem(toRequestCardData(r), r.feedScore));
   const { items } = assembleHomeFeed([...decisionItems, ...requestItems]);
 
-  sendSuccess(res, { items, count: items.length, offeredAwaiting }, HTTP_STATUS.OK, { requestId: (req as any).id });
+  sendSuccess(
+    res,
+    {
+      items,
+      count: items.length,
+      offeredAwaiting: offeredAwaiting.count,
+      offeredAwaitingItems: offeredAwaiting.items,
+    },
+    HTTP_STATUS.OK,
+    { requestId: (req as any).id }
+  );
 }
 
 /** The community's weekly help-loop pulse (wire shape for GET /community/:id/pulse). */
@@ -1424,28 +1508,61 @@ router.get('/retention-policy', async (req: Request, res: Response) => {
   }
 });
 
-// GET /requests/:id - Get specific request
+// GET /requests/:id - Get specific request (canonical viewer-aware detail read)
+//
+// Sprint 101: this is the action surface. `viewer_relation` is derived SERVER-SIDE so the UI never
+// guesses eligibility (and never shows an Offer button that 403s on click). It is one of:
+//   own_request    — the viewer is the requester
+//   already_offered — the viewer has a live proposed/matched responder match on this ask
+//   can_offer      — the ask is open, unexpired, not the viewer's own, the viewer has no live match,
+//                    and the viewer is an active member of at least one of the ask's communities
+//   not_actionable — anything else (completed/cancelled/matched, expired-open, or non-member open)
+// Expired-open asks still return (so the detail page can render a finite state) but are
+// not_actionable, which is why the WHERE no longer filters `expired = FALSE`.
 router.get('/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
+    const userId = (req as any).user?.userId as string | undefined;
 
     const result = await query(
       `SELECT
         r.id, r.requester_id, r.title, r.description,
-        r.category, r.urgency, r.status, r.created_at, r.updated_at,
+        r.category, r.urgency, r.status, r.expired, r.created_at, r.updated_at,
         r.request_type, r.payload, r.requirements,
         r.visibility_scope, r.visibility_max_degrees,
         r.scheduled_for,
         u.name as requester_name, u.email as requester_email,
         STRING_AGG(DISTINCT c.name, ', ') as community_name,
-        STRING_AGG(DISTINCT rc.community_id::text, ',') as community_ids
+        STRING_AGG(DISTINCT rc.community_id::text, ',') as community_ids,
+        viewer_match.id AS viewer_match_id,
+        viewer_match.status AS viewer_match_status,
+        viewer_membership.is_active_member AS viewer_is_member
       FROM requests.help_requests r
       LEFT JOIN auth.users u ON r.requester_id = u.id
       LEFT JOIN requests.request_communities rc ON r.id = rc.request_id
       LEFT JOIN communities.communities c ON rc.community_id = c.id
-      WHERE r.id = $1 AND r.expired = FALSE
-      GROUP BY r.id, r.requester_id, r.title, r.description, r.category, r.urgency, r.status, r.created_at, r.updated_at, r.request_type, r.payload, r.requirements, r.visibility_scope, r.visibility_max_degrees, r.scheduled_for, u.name, u.email`,
-      [id]
+      LEFT JOIN LATERAL (
+        SELECT id, status
+        FROM requests.matches
+        WHERE request_id = r.id
+          AND responder_id = $2
+          AND status IN ('proposed', 'matched')
+        ORDER BY created_at DESC
+        LIMIT 1
+      ) viewer_match ON TRUE
+      LEFT JOIN LATERAL (
+        SELECT TRUE AS is_active_member
+        FROM requests.request_communities rc2
+        JOIN communities.members cm
+          ON cm.community_id = rc2.community_id
+         AND cm.user_id = $2
+         AND cm.status = 'active'
+        WHERE rc2.request_id = r.id
+        LIMIT 1
+      ) viewer_membership ON TRUE
+      WHERE r.id = $1
+      GROUP BY r.id, r.requester_id, r.title, r.description, r.category, r.urgency, r.status, r.expired, r.created_at, r.updated_at, r.request_type, r.payload, r.requirements, r.visibility_scope, r.visibility_max_degrees, r.scheduled_for, u.name, u.email, viewer_match.id, viewer_match.status, viewer_membership.is_active_member`,
+      [id, userId ?? null]
     );
 
     if (result.rowCount === 0) {
@@ -1455,9 +1572,27 @@ router.get('/:id', async (req: Request, res: Response) => {
       });
     }
 
+    const row = result.rows[0];
+    const isOpenAndUnexpired = row.status === 'open' && row.expired === false;
+    const isEligibleCommunityMember = row.viewer_is_member === true;
+    const viewerRelation: 'own_request' | 'already_offered' | 'can_offer' | 'not_actionable' =
+      userId && row.requester_id === userId ? 'own_request'
+      : row.viewer_match_id ? 'already_offered'
+      : isOpenAndUnexpired && isEligibleCommunityMember ? 'can_offer'
+      : 'not_actionable';
+
+    // Strip the raw lateral-join columns from the wire shape; expose them as a clean contract.
+    const { viewer_match_id, viewer_match_status, viewer_is_member, ...request } = row;
     res.json({
       success: true,
-      data: result.rows[0],
+      data: {
+        ...request,
+        // ADR-067 seam: the fine payload subtype the detail page's RequestPayloadRenderer switches on,
+        // normalized from the mixed-vocab `category` column (same derivation as the card path).
+        payload_type: categoryToPayloadType(row.category),
+        viewer_relation: viewerRelation,
+        viewer_match: viewer_match_id ? { id: viewer_match_id, status: viewer_match_status } : null,
+      },
     });
   } catch (error: any) {
     (req as any).logger?.error('Error fetching request', error instanceof Error ? error : new Error(String(error)), { service: 'request-service' });

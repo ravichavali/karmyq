@@ -8,13 +8,15 @@ import { requestService } from '@/lib/api'
 import type { RequestCardData } from '@/types/unified-feed'
 
 /**
- * Sprint 100 / F2 — the reachable, read-only open-asks view.
+ * Sprint 100 / F2 + Sprint 101 — the reachable open-asks view.
  *
  * The community pulse says "N open asks across the community". This page is exactly those N: every
  * open + unexpired ask attached to the community, INCLUDING the viewer's own asks and asks they have
  * already offered on (the server uses the same predicate as the pulse count, so the number is always
- * reachable). It is browse-only — cards render with no Offer action — so the count is honest without
- * implying every ask is fillable by the viewer. To offer, the member opens the ask itself.
+ * reachable). Cards here carry no inline Offer action — opening a card is the action path: the
+ * /requests/[id] detail page shows the ask and the action available to the viewer (offer, awaiting
+ * response, your own ask, or a finite state). The count stays honest without implying every ask is
+ * fillable by the viewer.
  */
 export default function CommunityOpenAsksPage() {
   const router = useRouter()
@@ -80,7 +82,7 @@ export default function CommunityOpenAsksPage() {
           <h1 className="kq-headline text-[26px] mt-3 mb-1">Open asks across the community</h1>
           <p className="kq-lede mb-6">
             {communityName ? `Everything ${communityName} has open right now` : 'Everything open right now'} — including
-            your own asks and ones you’ve already offered on. Open an ask to lend a hand.
+            your own asks and ones you’ve already offered on. Open an ask to see details and the action available to you.
           </p>
 
           {loading && <div className="text-text-subtle">Loading open asks…</div>}

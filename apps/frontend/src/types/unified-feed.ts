@@ -86,6 +86,27 @@ export interface RequestCardData extends Omit<OpenRequestData, 'status'> {
   created_at?: string
 }
 
+/**
+ * Sprint 101 — one open ask the member has already offered on and now awaits the requester's
+ * response. Surfaced as a Home preview (NOT a decision the member owes). Selected server-side from
+ * the same distinct-open-ask predicate as the `offeredAwaiting` count, so the count and the rendered
+ * items can never disagree.
+ */
+export interface OfferedAwaitingItem {
+  match_id: string
+  request_id: string
+  title: string
+  description?: string
+  author_name?: string
+  community_id?: string
+  community_name?: string
+  urgency?: UrgencyLevel
+  request_type?: string
+  payload_type?: PayloadType
+  status: 'proposed'
+  offered_at?: string
+}
+
 /** What a member owes on a decision item, surfaced by the decision band. */
 export type DecisionAction =
   | 'accept_offer'

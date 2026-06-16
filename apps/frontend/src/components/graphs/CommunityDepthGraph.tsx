@@ -58,10 +58,29 @@ export default function CommunityDepthGraph({ height = 400 }: CommunityDepthGrap
     const cy = height / 2;
     const radius = Math.min(width, height) / 2 - 60;
 
+    // Sprint 101 — bounded deterministic ordering. The ring order was raw API order, so a member
+    // and its well-connected neighbours could land on opposite sides, maximizing edge length and
+    // label churn between renders. Order by membership, then degree (compute it from links because
+    // DepthNode carries none), then name — a stable, formulaic sort (no force sim, no hand-placement)
+    // that clusters the emphasized + busiest nodes together and keeps the layout reproducible.
+    const degreeById = new Map<string, number>();
+    data.nodes.forEach((node) => degreeById.set(node.id, 0));
+    data.links.forEach((link) => {
+      degreeById.set(link.source, (degreeById.get(link.source) ?? 0) + 1);
+      degreeById.set(link.target, (degreeById.get(link.target) ?? 0) + 1);
+    });
+    const orderedNodes = [...data.nodes].sort((a, b) => {
+      const memberDiff = Number(b.is_member) - Number(a.is_member);
+      if (memberDiff) return memberDiff;
+      const degreeDiff = (degreeById.get(b.id) ?? 0) - (degreeById.get(a.id) ?? 0);
+      if (degreeDiff) return degreeDiff;
+      return a.name.localeCompare(b.name);
+    });
+
     // Deterministic circular layout — few nodes, so no force sim needed.
     const positions = new Map<string, { x: number; y: number }>();
-    const n = data.nodes.length;
-    data.nodes.forEach((node, i) => {
+    const n = orderedNodes.length;
+    orderedNodes.forEach((node, i) => {
       // Single node sits at center; otherwise spread evenly on the ring.
       if (n === 1) {
         positions.set(node.id, { x: cx, y: cy });

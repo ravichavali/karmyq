@@ -1,12 +1,43 @@
 # Frontend CONTEXT.md
 
-**Last updated**: 2026-06-14 (Sprint 99 — release experience audit)
+**Last updated**: 2026-06-15 (Sprint 101 — actionability + state truth)
 
 ## Overview
 
 Next.js 14 web application (Pages Router) consuming all Karmyq backend services.
 
 ---
+
+## Sprint 101 Actionability + State Truth (2026-06-15)
+
+Every request surface now states the lifecycle truth and offers the next real action for the viewer.
+
+- **Home pending-offers preview.** `Feed/OfferedAwaitingPanel.tsx` replaces the Sprint 100 count-only
+  band. It renders the actual open asks the member has offered on (from `offeredAwaitingItems` on the
+  `view=home` curated response), each linking to `/requests/{request_id}`, with a trailing "View all
+  in Helping" link. Still Home-only and positive-count-only; `UnifiedFeed.tsx` reads both
+  `offeredAwaiting` (count) and `offeredAwaitingItems` (preview).
+- **Actionable request detail.** `src/pages/requests/[id].tsx` is no longer a redirect shim — it
+  fetches `requestService.getRequest(id)` and renders the ask plus the one true next step from the
+  server-derived `viewer_relation`: `can_offer` → Offer to Help / Offer service (same `createMatch`
+  mutation as `RequestCard`); `already_offered` → "waiting for the requester" + Helping link;
+  `own_request` → "This is your ask" + Asks link; `not_actionable` → finite-state copy (completed/
+  cancelled/matched/expired), no fake action. Self-contained (no `Layout`, which pulls `useProvider`)
+  with a back link; `localStorage.user` read is try/caught.
+- **Community open-asks are the action path.** `communities/[id]/open-asks.tsx` and
+  `community/tabs/BrowseTab.tsx` copy now says opening an ask shows its detail + the available action
+  (replacing the read-only "calm queue" implication). Cards stay inline-action-free; the detail page
+  is where you act.
+- **State-aware Asks.** `MyRequestsTab.tsx` `emptyOfferCopy(status)` replaces the blanket "No offers
+  yet" — only an `open` ask says that; completed/matched/cancelled get lifecycle-true copy.
+- **Router test guardrail.** New tests reuse the global `apps/frontend/jest.setup.js` `next/router`
+  mock; only `sprint-101-request-detail-action.test.tsx` mocks `useRouter` locally (it needs a custom
+  `query.id` + a `replace` spy to prove the page no longer redirects).
+- **Graph layout.** `graphs/CommunityDepthGraph.tsx` orders ring nodes deterministically (membership,
+  then link-derived degree, then name) before circular placement — a bounded, formulaic reduction of
+  edge length / label churn, no force sim or hand-placement. `TrustGraphHEB` was left unchanged:
+  crossings there are inherent to dense topology + hierarchical edge bundling and can't be removed
+  formulaically without changing topology or hand-placing nodes (documented in the trust-graph guide).
 
 ## Sprint 99 Release Experience Audit (2026-06-14)
 

@@ -23,6 +23,21 @@ interface MyRequestsTabProps {
   onNewRequest: () => void
 }
 
+/**
+ * Lifecycle-aware empty copy for an expanded ask with no live offers. "No offers yet" is only true
+ * for an OPEN ask — a finished ask never had-or-no-longer-has live offers, and saying "No offers yet"
+ * about a completed ask reads as a lie about a closed exchange.
+ */
+function emptyOfferCopy(status: string): string {
+  switch (status) {
+    case 'open': return 'No offers yet.'
+    case 'completed': return 'This ask is completed.'
+    case 'matched': return 'This ask is already matched.'
+    case 'cancelled': return 'This ask was cancelled.'
+    default: return 'No active offers for this ask.'
+  }
+}
+
 export default function MyRequestsTab({ onNewRequest }: MyRequestsTabProps) {
   const [requests, setRequests] = useState<MyRequest[]>([])
   const [expanded, setExpanded] = useState<string | null>(null)
@@ -31,7 +46,13 @@ export default function MyRequestsTab({ onNewRequest }: MyRequestsTabProps) {
 
   const fetchMyRequests = () => {
     const userData = typeof window !== 'undefined' ? localStorage.getItem('user') : null
-    const currentUser = userData ? JSON.parse(userData) : null
+    let currentUser: { id?: string } | null = null
+    try {
+      currentUser = userData ? JSON.parse(userData) : null
+    } catch {
+      // Malformed localStorage.user must not crash Asks — degrade to "not signed in".
+      currentUser = null
+    }
     if (!currentUser) return
 
     Promise.all([
@@ -156,7 +177,7 @@ export default function MyRequestsTab({ onNewRequest }: MyRequestsTabProps) {
               {expanded === r.id && (
                 <div className="border-t border-border px-4 pb-4 pt-3 space-y-3">
                   {!r.offers || r.offers.length === 0 ? (
-                    <p className="text-sm text-text-muted">No offers yet.</p>
+                    <p className="text-sm text-text-muted">{emptyOfferCopy(r.status)}</p>
                   ) : (
                     r.offers.map((offer) => (
                       <div key={offer.id} className="flex items-center justify-between">

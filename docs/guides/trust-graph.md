@@ -28,6 +28,8 @@ The Community tab shows **every member** of your community arranged on a circle,
 
 Groups are detected automatically from the strongest connections, so the layout reflects how the community actually clusters rather than any imposed structure.
 
+**A note on crossing lines.** Hierarchical edge bundling reduces visual clutter by routing similar paths together, but some crossings remain — they're inherent to a dense, real network drawn on a circle, not a bug. The cross-community **depth** view (how your communities connect) now orders its ring deterministically — your own communities and the busiest, most-connected ones sit together — which shortens links and steadies labels between visits. The member-level trust graph keeps its cluster-based bundling: crossings there can't be removed by a simple reordering without either changing the underlying relationships or hand-placing nodes, neither of which we do.
+
 ## My Network View
 
 The My Network tab shows **your first-degree network within this community** — the people you've built trust with here — clustered by how closely they connect to each other. It's a static, structure-revealing view; click any node to open its detail panel (trust score, karma, connection count).

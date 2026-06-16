@@ -117,21 +117,30 @@ router.get('/:id', async (req: Request, res: Response) => {
   }
 });
 
-// POST /matches - Create a match
+// POST /matches - Create a member's offer to help (self-offer).
+//
+// Sprint 101 (write-path eligibility): this is the mutation behind the Offer-to-Help action, so it
+// MUST enforce the SAME predicate the read path uses to derive viewer_relation='can_offer' on
+// GET /requests/:id. Otherwise a stale tab or a direct API call could offer on an expired-open ask,
+// a non-member ask, a duplicate already-offered ask, or AS another responder — exactly the cases the
+// UI is told are not actionable. The responder is the verified JWT identity (ADR-064), never a
+// client-supplied body field. Admin-proposed matches use POST /requests/:id/propose-match
+// (adminActions), not this route.
 router.post('/', async (req: Request, res: Response) => {
   try {
-    const { request_id, offer_id, responder_id } = req.body;
+    const responder_id = (req as any).user?.userId;
+    const { request_id, offer_id } = req.body;
 
-    if (!request_id || !responder_id) {
-      return res.status(400).json({
-        success: false,
-        message: 'request_id and responder_id are required',
-      });
+    if (!responder_id) {
+      return res.status(401).json({ success: false, message: 'Authentication required' });
+    }
+    if (!request_id) {
+      return res.status(400).json({ success: false, message: 'request_id is required' });
     }
 
-    // Verify request exists and is open
+    // Request must exist, be open, and unexpired (expired-open asks are not actionable).
     const requestCheck = await query(
-      `SELECT id, status, requester_id FROM requests.help_requests WHERE id = $1`,
+      `SELECT id, status, expired, requester_id FROM requests.help_requests WHERE id = $1`,
       [request_id]
     );
 
@@ -142,17 +151,63 @@ router.post('/', async (req: Request, res: Response) => {
       });
     }
 
-    if (requestCheck.rows[0].status !== 'open') {
+    if (requestCheck.rows[0].status !== 'open' || requestCheck.rows[0].expired === true) {
       return res.status(400).json({
         success: false,
         message: 'Request is not open',
+        error: 'REQUEST_NOT_OPEN',
       });
     }
 
-    // Verify offer exists and is active (if provided)
-    let offerCheck = null;
+    // Self-match guard: a requester cannot offer on their own request.
+    if (requestCheck.rows[0].requester_id === responder_id) {
+      return res.status(400).json({
+        success: false,
+        message: 'You cannot offer on your own request',
+        error: 'OWN_REQUEST',
+      });
+    }
+
+    // Eligibility: the responder must be an active member of at least one of the request's
+    // communities — the same membership predicate GET /requests/:id uses for can_offer.
+    const membershipCheck = await query(
+      `SELECT 1
+         FROM requests.request_communities rc
+         JOIN communities.members cm
+           ON cm.community_id = rc.community_id
+          AND cm.user_id = $2
+          AND cm.status = 'active'
+        WHERE rc.request_id = $1
+        LIMIT 1`,
+      [request_id, responder_id]
+    );
+    if (membershipCheck.rowCount === 0) {
+      return res.status(403).json({
+        success: false,
+        message: "You must be an active member of the request's community to offer",
+        error: 'NOT_COMMUNITY_MEMBER',
+      });
+    }
+
+    // Duplicate guard: one live offer per responder per request (matches has no unique
+    // (request_id, responder_id), so enforce it here — best-effort against a racing double-submit).
+    const dupeCheck = await query(
+      `SELECT 1 FROM requests.matches
+        WHERE request_id = $1 AND responder_id = $2 AND status IN ('proposed', 'matched')
+        LIMIT 1`,
+      [request_id, responder_id]
+    );
+    if (dupeCheck.rowCount! > 0) {
+      return res.status(409).json({
+        success: false,
+        message: 'You have already offered to help on this request',
+        error: 'ALREADY_OFFERED',
+      });
+    }
+
+    // Verify offer exists and is active (if provided), and belongs to the responder.
     if (offer_id) {
-      offerCheck = await query(
+      const offerCheck = await query(
         `SELECT id, status, offerer_id FROM requests.help_offers WHERE id = $1`,
         [offer_id]
       );
@@ -171,37 +226,11 @@ router.post('/', async (req: Request, res: Response) => {
         });
       }
 
-      // Verify responder is the offerer
+      // The linked offer must belong to the responder (the JWT identity).
       if (offerCheck.rows[0].offerer_id !== responder_id) {
         return res.status(403).json({
           success: false,
-          message: 'responder_id must match the offerer_id',
-        });
-      }
-    }
-
-    // Self-match guard: requester cannot be their own responder
-    if (requestCheck.rows[0].requester_id === responder_id) {
-      return res.status(400).json({
-        success: false,
-        message: 'You cannot create a match for your own request',
-      });
-    }
-
-    // Optional community admin/moderator guard
-    const { community_id } = req.body;
-    if (community_id) {
-      const user = (req as any).user;
-      const guardResult = await query(
-        `SELECT 1 FROM communities.members
-         WHERE community_id = $1 AND user_id = $2
-           AND role IN ('admin', 'moderator') AND status = 'active'`,
-        [community_id, user.userId]
-      );
-      if (guardResult.rows.length === 0) {
-        return res.status(403).json({
-          success: false,
-          message: 'Not an admin or moderator of this community',
+          message: 'Offer must belong to the responder',
         });
       }
     }
@@ -212,7 +241,7 @@ router.post('/', async (req: Request, res: Response) => {
         (request_id, offer_id, responder_id, status)
       VALUES ($1, $2, $3, 'proposed')
       RETURNING *`,
-      [request_id, offer_id, responder_id]
+      [request_id, offer_id ?? null, responder_id]
     );
 
     const match = matchResult.rows[0];

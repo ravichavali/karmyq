@@ -577,6 +577,16 @@ unexpired). The curated feed hides asks the viewer already offered on and a pend
 decision they owe, so this powers a single Home band ("You've offered to help on N open asks") that
 keeps an active helper's Home from reading empty. Fail-soft: any error → `0` (band hidden).
 
+**Sprint 101 — `offeredAwaitingItems`:** the home-feed response now also carries
+`offeredAwaitingItems`, a small (server-capped, default 3) preview list so Home can render the actual
+awaiting asks, each linking to its `/requests/:id` detail. Selected from the **same** predicate as
+the count via `DISTINCT ON (request_id)` (count is `COUNT(DISTINCT request_id)`), so the count and the
+items can never disagree — a helper holding two `proposed` match rows on one ask still counts and
+previews as one. Each item carries `{ match_id, request_id, title, description, author_name,
+community_id, community_name, urgency, request_type, payload_type, status:'proposed', offered_at }`.
+Shared helper `fetchOfferedAwaiting(userId, previewLimit)` returns `{ count, items }`; fail-soft to
+`{ count: 0, items: [] }`.
+
 #### GET /requests/retention-policy (Sprint 90 / ADR-069)
 Backs the `/about/memory` transparency page. Returns the **resolved retention windows**
 (`completed`/`expired`/`message`, community → global → fallback via `requests.retention_config`) plus
@@ -597,8 +607,21 @@ runs in cleanup-service (ADR-069); this endpoint only reports.
 
 **Implementation:** `src/routes/requests.ts` — `router.get('/retention-policy')` + `resolveRetentionWindows()`.
 
-#### GET /requests/:id
-Get specific request details.
+#### GET /requests/:id (Sprint 101 — canonical viewer-aware detail)
+Get specific request details. **Sprint 101** makes this the canonical action surface: the response
+derives `viewer_relation` **server-side** so the UI never guesses eligibility (and never shows an
+Offer button that 403s on click).
+
+- `viewer_relation`: one of `own_request` | `already_offered` | `can_offer` | `not_actionable`.
+  - `can_offer` requires: ask `open` + `expired = FALSE`, **not** the viewer's own request, the viewer
+    has **no** live `proposed`/`matched` responder match on it, and the viewer is an **active** member
+    of at least one of the ask's communities (lateral joins on `requests.matches` and
+    `communities.members`).
+  - Expired-open asks and non-member open asks resolve to `not_actionable` (no optimistic Offer).
+- `viewer_match`: `{ id, status }` when `already_offered`, else `null`.
+- `payload_type`: ADR-067 fine subtype from `category` (drives the detail page's payload renderer).
+- The detail query now selects `r.expired` and **no longer filters `expired = FALSE`** in the `WHERE`,
+  so expired-open asks return for finite-state display (previously 404'd).
 
 **Response:**
 ```json
@@ -611,17 +634,21 @@ Get specific request details.
     "category": "moving",
     "urgency": "medium",
     "status": "open",
+    "expired": false,
     "requester_id": "uuid",
     "requester_name": "Alice Smith",
     "requester_email": "alice@example.com",
     "community_id": "uuid",
     "community_name": "Seattle Mutual Aid",
+    "payload_type": "moving_help",
+    "viewer_relation": "can_offer",
+    "viewer_match": null,
     "created_at": "2025-01-10T12:00:00Z"
   }
 }
 ```
 
-**Implementation:** `src/routes/requests.ts:134`
+**Implementation:** `src/routes/requests.ts` — `router.get('/:id')`.
 
 #### POST /requests (v9.0 Polymorphic + ADR-022 Visibility)
 Create new polymorphic help request (supports 5 types) with visibility scope.
@@ -1295,27 +1322,36 @@ Get specific match details.
 **Implementation:** `src/routes/matches.ts:69`
 
 #### POST /matches
-Create a match between request and responder.
+Create a member's offer to help (a proposed match). **Sprint 101 (write-path eligibility):** this is
+the mutation behind Offer-to-Help, so it enforces the SAME predicate the read path uses for
+`viewer_relation='can_offer'` on `GET /requests/:id`. The responder is the **verified JWT identity**
+(ADR-064) — a `responder_id` in the body is ignored, so a stale tab or forged body can't offer as
+another user. Admin-proposed matches use `POST /requests/:id/propose-match` (adminActions), not this
+route.
 
 **Request:**
 ```json
 {
   "request_id": "uuid",
-  "offer_id": "uuid",
-  "responder_id": "uuid"
+  "offer_id": "uuid"
 }
 ```
 
-**Note:** `offer_id` is optional (direct response without offer)
+**Note:** `offer_id` is optional (direct response without offer). Any `responder_id` in the body is
+ignored — the responder is always the authenticated user.
 
-**Validation:**
-- Request must exist and be 'open'
-- Offer must exist and be 'active' (if provided)
-- Responder cannot match their own request
+**Validation (mirrors `can_offer`):**
+- Request must exist, be `open`, and **unexpired** (`expired = FALSE`) → else `400 REQUEST_NOT_OPEN`
+- Responder cannot offer on their own request → `400 OWN_REQUEST`
+- Responder must be an **active member of at least one of the request's communities** → else
+  `403 NOT_COMMUNITY_MEMBER`
+- One live offer per responder per request (no existing `proposed`/`matched` match) → else
+  `409 ALREADY_OFFERED` (best-effort; `matches` has no unique `(request_id, responder_id)`)
+- Linked offer (if `offer_id` provided) must exist, be `active`, and belong to the responder
 
 **Events Published:** `match.created`
 
-**Implementation:** `src/routes/matches.ts:113`
+**Implementation:** `src/routes/matches.ts` — `router.post('/')`.
 
 #### PUT /matches/:id/complete
 Two-phase match completion. Each party calls this independently; the match

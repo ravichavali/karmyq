@@ -33,9 +33,11 @@ describe('Sprint 100 G1: Home "you offered to help" band', () => {
 
     render(<UnifiedFeed view="home" />)
 
+    // Sprint 101 made the band item-level (OfferedAwaitingPanel); the count + Helping link behavior
+    // is preserved, the trailing link copy is now "View all in Helping".
     expect(await screen.findByText(/3 open asks/i)).toBeInTheDocument()
     expect(screen.getByText(/offered to help on/i)).toBeInTheDocument()
-    const link = screen.getByText(/View in Helping/i).closest('a')
+    const link = screen.getByText(/View all in Helping/i).closest('a')
     expect(link).toHaveAttribute('href', '/dashboard?tab=helping')
   })
 
