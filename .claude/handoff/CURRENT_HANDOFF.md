@@ -36,11 +36,11 @@
 > low-severity follow-ups: empty-child split validation behavior and malformed founding-circle UUID error
 > code. Do not self-merge.
 >
-> **SECURITY HARDENING UPDATE (Codex, 2026-06-17):** founding-circle review access is being tightened
-> after the maintainer noted demo/test admin credentials could expose real messages. The API is
-> deny-by-default unless `FOUNDING_CIRCLE_REVIEWER_IDS` or `FOUNDING_CIRCLE_REVIEWER_EMAILS` explicitly
-> includes the signed-in user, and the user must still be an active community admin. The admin sidebar
-> no longer links to `/admin/founding-circle`; use the direct URL only for the allowlisted reviewer.
+> **SECURITY HARDENING UPDATE (Codex, 2026-06-17):** founding-circle review access is tightened in
+> follow-up PR #97: `https://github.com/ravichavali/karmyq/pull/97`. The API is deny-by-default unless
+> `FOUNDING_CIRCLE_REVIEWER_IDS` or `FOUNDING_CIRCLE_REVIEWER_EMAILS` explicitly includes the signed-in
+> user, and the user must still be an active community admin. The admin sidebar no longer links to
+> `/admin/founding-circle`; use the direct URL only for the allowlisted reviewer.
 
 ---
 
@@ -49,8 +49,8 @@
 1. Read this handoff.
 2. Check out branch: `git checkout -b feature/sprint-103-governance-intake-clarity`.
 3. Open plan: `docs/superpowers/plans/2026-06-17-sprint-103-governance-intake-clarity.md`.
-4. Configure `FOUNDING_CIRCLE_REVIEWER_IDS` or `FOUNDING_CIRCLE_REVIEWER_EMAILS` in demo deploy env
-   before testing `/admin/founding-circle`; then watch PR #96 checks and Admin decides merge/deploy.
+4. Review/merge PR #97, configure `FOUNDING_CIRCLE_REVIEWER_IDS` or `FOUNDING_CIRCLE_REVIEWER_EMAILS`
+   in demo deploy env before testing `/admin/founding-circle`, then Admin decides deploy.
 
 ---
 
