@@ -30,10 +30,15 @@ which facet a request touches:
 | First-ask | a private **first ask** to a trusted neighbour | **dibs** — first right of refusal to a trusted provider |
 | Who's eligible | a community member you've worked with before | a provider with an active profile you've worked with before |
 | Trust shown | your prior exchanges + connection | provider trust score + prior exchanges |
+| Offer action | **Offer to Help** | **Offer service** |
 
 This is why a mutual-aid request offers a warm, neighbour-framed "first ask" rather than a
 "provider" prompt — surfacing a neighbour as a "provider" was simply the wrong framing
 ([ADR-072](/docs/concepts/adr-072-dibs-scope)).
+
+The same boundary applies after a request is public. Mutual-aid asks keep the neighbour action
+language, **Offer to Help**. Service asks use service-specific language, **Offer service**, on both
+request cards and request detail pages.
 
 ---
 

@@ -793,6 +793,16 @@ export const userSettingsService = {
     api.delete(`/preferences/interests/${id}`),
 }
 
+export type FoundingCircleStatus = 'new' | 'reviewed' | 'contacted' | 'archived'
+
+export const foundingCircleAdminService = {
+  listSubmissions: (params?: { status?: FoundingCircleStatus; limit?: number; offset?: number }) =>
+    api.get('/founding-circle/submissions', { params }),
+
+  updateSubmissionStatus: (id: string, status: FoundingCircleStatus) =>
+    api.patch(`/founding-circle/submissions/${encodeURIComponent(id)}/status`, { status }),
+}
+
 // Feed API Methods (served by request-service)
 export const feedService = {
   getFeed: (params?: { limit?: number; offset?: number }, communityId?: string) =>

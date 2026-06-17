@@ -11,12 +11,53 @@ export interface ClusterResult {
   groupB: string[];
 }
 
+export interface SplitAdminSelectionContext {
+  executingAdminId: string;
+  parentAdmins: Set<string>;
+  joinedAtByUser: Map<string, string>;
+  trustEdges: TrustEdge[];
+}
+
 // Pure function — testable without DB
 export function computeSizeAlert(memberCount: number): string | null {
   if (memberCount >= 140) return 'urgent_split';
   if (memberCount >= 130) return 'recommend_split';
   if (memberCount >= 120) return 'approaching';
   return null;
+}
+
+function trustDegreeWithinGroup(userId: string, group: Set<string>, edges: TrustEdge[]): number {
+  return edges.reduce((total, edge) => {
+    const touchesUser = edge.user_id_a === userId || edge.user_id_b === userId;
+    const other = edge.user_id_a === userId ? edge.user_id_b : edge.user_id_a;
+    return touchesUser && group.has(other) ? total + Number(edge.effective_weight) : total;
+  }, 0);
+}
+
+function compareJoinedThenId(a: string, b: string, joinedAtByUser: Map<string, string>): number {
+  const joinedA = joinedAtByUser.get(a) ?? '';
+  const joinedB = joinedAtByUser.get(b) ?? '';
+  if (joinedA !== joinedB) return joinedA.localeCompare(joinedB);
+  return a.localeCompare(b);
+}
+
+export function selectChildAdmin(group: string[], context: SplitAdminSelectionContext): string {
+  if (group.length === 0) throw new Error('Cannot select admin for empty child group');
+  if (group.includes(context.executingAdminId)) return context.executingAdminId;
+
+  const assignedParentAdmins = group
+    .filter((userId) => context.parentAdmins.has(userId))
+    .sort((a, b) => compareJoinedThenId(a, b, context.joinedAtByUser));
+  if (assignedParentAdmins.length > 0) return assignedParentAdmins[0];
+
+  const groupSet = new Set(group);
+  return [...group].sort((a, b) => {
+    const degreeDelta =
+      trustDegreeWithinGroup(b, groupSet, context.trustEdges) -
+      trustDegreeWithinGroup(a, groupSet, context.trustEdges);
+    if (degreeDelta !== 0) return degreeDelta;
+    return compareJoinedThenId(a, b, context.joinedAtByUser);
+  })[0];
 }
 
 // Pure function — testable without DB
@@ -199,8 +240,35 @@ export async function executeSplit(
     // The members assigned to each child — used to carry their existing bonds + karma forward.
     const groupA = finalAssignments.rows.filter((r: any) => r.assigned_to === 'group_a').map((r: any) => r.user_id);
     const groupB = finalAssignments.rows.filter((r: any) => r.assigned_to === 'group_b').map((r: any) => r.user_id);
+    const parentMembersRes = await client.query(
+      `SELECT user_id, role, joined_at
+       FROM communities.members
+       WHERE community_id = $1 AND status = 'active'`,
+      [communityId]
+    );
+    const parentAdmins = new Set(
+      parentMembersRes.rows.filter((row: any) => row.role === 'admin').map((row: any) => row.user_id)
+    );
+    const joinedAtByUser = new Map(
+      parentMembersRes.rows.map((row: any) => [row.user_id, new Date(row.joined_at).toISOString()])
+    );
+    const assignedUserIds = finalAssignments.rows.map((row: any) => row.user_id);
+    const trustEdgesRes = await client.query(
+      `SELECT user_id_a, user_id_b, current_weight AS effective_weight
+       FROM social_graph.trust_edges_live
+       WHERE community_id = $1
+         AND user_id_a = ANY($2::uuid[])
+         AND user_id_b = ANY($2::uuid[])`,
+      [communityId, assignedUserIds]
+    );
+    const selectionContext: SplitAdminSelectionContext = {
+      executingAdminId: adminId,
+      parentAdmins,
+      joinedAtByUser,
+      trustEdges: trustEdgesRes.rows,
+    };
 
-    // 6b. Finalize each child: promote the executing admin, recompute current_members, and CARRY the
+    // 6b. Finalize each child: promote one child-local admin, recompute current_members, and CARRY the
     //     members' existing relationships forward. executeSplit previously moved members but left their
     //     trust edges + karma under the (now 'split') parent community_id, so each child started at 0 —
     //     defeating the whole point of clustering on strong bonds. We now copy, per child:
@@ -208,12 +276,13 @@ export async function executeSplit(
     //         relabels the container). Cross-group trust still flows via the split_origin link (0.40).
     //       • karma records, so reputation doesn't reset on a split.
     for (const [childId, group] of [[childAId, groupA], [childBId, groupB]] as const) {
+      const childAdminId = selectChildAdmin(group, selectionContext);
       await client.query(
         `INSERT INTO communities.members (community_id, user_id, role, status)
          VALUES ($1, $2, 'admin', 'active')
          ON CONFLICT (community_id, user_id)
          DO UPDATE SET role = 'admin', status = 'active'`,
-        [childId, adminId]
+        [childId, childAdminId]
       );
       await client.query(
         `UPDATE communities.communities c

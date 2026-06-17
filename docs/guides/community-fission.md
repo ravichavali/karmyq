@@ -84,15 +84,23 @@ Executing the split is **atomic** — all of the following happen in a single tr
 
 1. Two new communities are created (Group A and Group B)
 2. Each member is added to their assigned child community
-3. A `split_origin` link is created between the two siblings — their trust carry-over factor is set to 0.40 (members who land in different communities retain 40% of their cross-group trust)
-4. The parent community is marked `status = 'split'` — it is **not deleted**
-5. The proposal is marked `executed`
+3. Each child gets an admin selected from that child's assigned members
+4. A `split_origin` link is created between the two siblings — their trust carry-over factor is set to 0.40 (members who land in different communities retain 40% of their cross-group trust)
+5. The parent community is marked `status = 'split'` — it is **not deleted**
+6. The proposal is marked `executed`
+
+Admin authority is child-local after execution. The executing parent admin governs a child only if
+they were assigned to that child. If they are assigned to just one child, the sibling child receives
+an assigned parent admin if one is present there; otherwise Karmyq promotes the strongest assigned
+member by within-child trust degree, with deterministic `joined_at` and user-id tie-breaks.
 
 ---
 
 ## After the Split
 
 - **Both child communities are immediately active.** Members can post and fulfill requests right away.
+- **Each child has its own admin.** The `split_origin` link preserves sibling relationship and trust
+  carry-over; it does not create shared admin authority across both children.
 - **The parent community remains.** All historical karma records, help requests, and trust history reference the parent ID. You can visit it to see the full history of the community before the split.
 - **Cross-group trust persists at 40%.** Members who ended up in different communities still have trust connections — just slightly weaker. These may strengthen again through inter-community collaboration.
 - **A second split is currently a one-per-community feature.** After execution, the constraint prevents a second formal split proposal. This is a demo-scope limitation.

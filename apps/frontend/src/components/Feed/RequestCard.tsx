@@ -6,6 +6,7 @@ import TrustPathBadge, { TrustPathBadgeSkeleton } from '@/components/TrustPathBa
 import { useTrustPath } from '@/hooks/useTrustPath'
 import { isBoostActive } from '@/utils/boost'
 import { describeMatchSignal } from '@/utils/matchSignal'
+import { getOfferActionLabel, getOfferErrorFallback } from '@/lib/requestActionCopy'
 import type { RequestCardData, RequestStatusToken, UrgencyLevel } from '@/types/unified-feed'
 
 /**
@@ -82,7 +83,7 @@ export default function RequestCard({ data, currentUserId, onOffered, readOnly =
       setOffered(true)
       onOffered?.(data.request_id)
     } catch (err: any) {
-      setError(err?.response?.data?.message ?? 'Failed to offer help')
+      setError(err?.response?.data?.message ?? getOfferErrorFallback(data.request_type))
     } finally {
       setOffering(false)
     }
@@ -183,10 +184,7 @@ export default function RequestCard({ data, currentUserId, onOffered, readOnly =
               disabled={offering}
               className="btn-primary text-sm py-1.5 px-4 disabled:opacity-50 shrink-0"
             >
-              {/* BUG-003: provider-context (service) requests read "Offer service"; the
-                  shared mutual-aid button keeps "Offer to Help". request_type carries the
-                  coarse enum at runtime ('service'), though typed as the fine subtype. */}
-              {offering ? 'Offering…' : (String(data.request_type) === 'service' ? 'Offer service' : 'Offer to Help')}
+              {getOfferActionLabel(data.request_type, offering ? 'pending' : 'idle')}
             </button>
           )
         )}

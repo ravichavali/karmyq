@@ -1,6 +1,6 @@
 /**
- * Sprint 78 — executeSplit must leave both child communities usable:
- *   (a) each child gets the executing admin as an active 'admin' member, and
+ * Sprint 78/Sprint 103 — executeSplit must leave both child communities usable:
+ *   (a) each child gets one assigned child member as an active 'admin' member, and
  *   (b) each child's current_members is recomputed from actual membership
  *       (previously left at the table default 0, so children rendered empty).
  *
@@ -43,7 +43,7 @@ function makeMockPool(calls: Array<{ sql: string; params: any[] }>, proposalStat
 }
 
 describe('Sprint 78 — executeSplit child finalization', () => {
-  it('promotes the executing admin to admin and recomputes current_members for BOTH children', async () => {
+  it('promotes one assigned child member to admin and recomputes current_members for BOTH children', async () => {
     const calls: Array<{ sql: string; params: any[] }> = [];
     const pool = makeMockPool(calls);
 
@@ -53,11 +53,12 @@ describe('Sprint 78 — executeSplit child finalization', () => {
     const adminUpserts = calls.filter(
       (c) => /INSERT INTO communities\.members/i.test(c.sql) && /role\s*=\s*'admin'/i.test(c.sql)
     );
-    // One admin upsert per child, targeting each child id with the admin user.
+    // One admin upsert per child, targeting each child id with a member assigned to that child.
     expect(adminUpserts).toHaveLength(2);
     const upsertedChildIds = adminUpserts.map((c) => c.params[0]).sort();
     expect(upsertedChildIds).toEqual([CHILD_A, CHILD_B].sort());
-    adminUpserts.forEach((c) => expect(c.params[1]).toBe(ADMIN_ID));
+    expect(adminUpserts.find((c) => c.params[0] === CHILD_A)?.params[1]).toBe('u1');
+    expect(adminUpserts.find((c) => c.params[0] === CHILD_B)?.params[1]).toBe('u2');
 
     const recomputes = calls.filter(
       (c) => /UPDATE communities\.communities/i.test(c.sql) && /current_members\s*=\s*\(/i.test(c.sql)

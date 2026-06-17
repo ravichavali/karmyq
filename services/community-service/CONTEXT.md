@@ -1470,6 +1470,14 @@ src/
 
 ## Recent Changes
 
+### Sprint 103 (2026-06-17) — Split child admins are child-local
+- **FIXED (`executeSplit`)**: executing a split no longer promotes the executing parent admin into
+  both child communities by default. Each child now receives exactly one admin selected from that
+  child's assigned members: the executing admin if assigned there, otherwise an assigned parent admin,
+  otherwise the strongest assigned member by within-child trust degree with deterministic
+  `joined_at`/user-id tie-breaks. `split_origin` links and Sprint 86 trust/karma carry-forward remain
+  unchanged. (`src/services/fissionService.ts`)
+
 ### Sprint 93 (2026-06-10) — Members DELETE derives caller from JWT (ADR-064 close-out)
 - **FIXED (`DELETE /communities/:communityId/members/:userId`)**: the handler read `admin_user_id`
   from the request **body**, so an attacker could spoof an admin — or set it equal to the target

@@ -1,57 +1,64 @@
-# Sprint 102 - Visible Memory + Re-warm First Step - MERGED + DEPLOYED (reconnect follow-up in PR)
+# Sprint 103 - Governance + Intake Clarity - PR OPEN / REVIEWED
 
-> **STATUS (2026-06-16):** Sprint 102 is **merged and deployed** on karmyq.com. **PR #94** squash-merged
-> to `master` (`298c9fc6`); CI/CD run `27654806731` succeeded — **Deploy to Demo green in 6m50s**
-> (deploy.sh health-check + auto-rollback passed). Codex cross-agent review ran and its 3 findings
-> (stale Sprint 90 TDD copy, handoff/BUGS.md note, MemorySection stale-on-switch) were all resolved
-> before merge. All four SDLC gates ran clean: testing, `/simplify` (no fixes), `/code-review` (no
-> findings), `/security-review` (no vulns).
+> **STATUS (2026-06-17):** Sprint 103 planning is complete. The maintainer approved the combined scope:
+> repair split governance truth (BUG-011), lock service-vs-help action copy (BUG-012), and ship
+> founding-circle review tooling without outbound notifications. Sprint 102 and its reconnect follow-up
+> are merged and deployed (`298c9fc6`, `2745063`).
 >
-> **FOLLOW-UP (branch `fix/hide-reconnect-until-messaging`):** the per-peer "Reconnect" button was a dead
-> link — it pointed at `/messages?to=<peerId>`, a route that never existed, and Karmyq has no peer DM
-> (messaging is match-anchored). Decision: **remove the button**, keep the nudge informational
-> ("helping each other again keeps a bond alive"), and soften the docs/onboarding/legend that promised a
-> clickable reconnect. Restore a CTA only once real peer messaging (or a directed-ask flow) ships.
-> Also folds in `docs/BUGS.md` BUG-012 (offer-help vs offer-service regression — logged, not yet fixed).
+> **LOCAL STATE:** `scripts/founding-circle-submissions.sh` remains untracked user/local work. Do not
+> stage, remove, or rewrite it unless the maintainer explicitly asks. This handoff was rewritten for
+> Sprint 103 from the Sprint 102 deployed handoff.
 >
-> **Post-deploy UI validation still to run** (login `maria.reyes@test.karmyq.com / password123`):
-> 1. Profile memory shows for a selected community **even with karma display off**; fading/
->    nearly-forgotten states are readable text; `/about/memory` link works.
-> 2. Community **How we're connected** shows the "How memory fades" legend; re-warm nudge is gentle/
->    optional; graph still renders.
-> 3. Community Home helped row reads "N neighbours showed up for one another"; zero rows hidden; open
->    asks row links to `/communities/:id/open-asks`.
-> 4. `/about/memory` retention windows still load.
+> **REVIEW FOLLOW-UP (Claude, 2026-06-17):** plan reviewed as ready to execute. Three doc fixes were
+> folded in: Task 3 now says to modify the existing `executeSplit` carry-forward loop in place (no second
+> loop), the spec no longer leaves a status CHECK migration half-open, and pending offer copy keeps the
+> existing ellipsis glyph (`Offering…` / `Offering service…`).
 >
-> **Pre-existing (not this PR):** GitHub Dependabot shows 1 high advisory on the default branch; local
-> `npm audit --package-lock-only --audit-level=high` is clean. Tracked under ADR-059 SLA.
+> **EXECUTION UPDATE (Codex, 2026-06-17):** implementation tasks 1-10 are complete on
+> `feature/sprint-103-governance-intake-clarity`. Focused tests are green for split admin selection,
+> request action copy, founding-circle review endpoints, and the admin review page. Docs/contexts/
+> registry were updated and `apps/landing/src/data/docs/**` regenerated. Remaining work is focused
+> verification, type checks, SDLC gates, commit, push, and PR. `scripts/founding-circle-submissions.sh`
+> is still untracked local work and was not touched.
 >
-> **Local state:** `docs/BUGS.md` (BUG-011, `920e62f9` via the bugs skill) shipped with the sprint.
-> Untracked `scripts/founding-circle-submissions.sh` is separate user/local work, intentionally kept
-> out of the PR (added then dropped before merge); it remains on disk untracked.
+> **VERIFICATION UPDATE (Codex, 2026-06-17):** focused tests, service/frontend type checks,
+> `npm run feedback:check`, `npm run analyze:services`, `npm audit --package-lock-only --audit-level=high`,
+> `git diff --check`, process-reviewer, and root `npm test` are complete. Root `npm test` passes when
+> `TEMP`/`TMP` point at a workspace temp directory; default `%LOCALAPPDATA%\Temp` and `C:\tmp` produced
+> Jest cache permission errors in this sandbox. Root `npm run test:tdd` is not wired in Turbo; direct
+> workspace TDD runs still expose older DB-backed/frontend TDD failures outside Sprint 103, while all
+> Sprint 103 focused tests are green.
+>
+> **PR UPDATE (Codex, 2026-06-17):** PR #96 is open:
+> `https://github.com/ravichavali/karmyq/pull/96`. Commits `044bd4a8`, `402d258a`, and `aed33f14`
+> are pushed. Admin review completed; finding #1 (founding-circle filtered-list staleness after status
+> update) was fixed in `aed33f14` with a focused TDD update. Review also noted two non-blocking
+> low-severity follow-ups: empty-child split validation behavior and malformed founding-circle UUID error
+> code. Do not self-merge.
 
 ---
 
 ## Quick Start
 
 1. Read this handoff.
-2. Check out branch: `git checkout feature/sprint-102-visible-memory-rewarm` (or `git checkout -b feature/sprint-102-visible-memory-rewarm` if it does not exist locally).
-3. Open plan: `docs/superpowers/plans/2026-06-16-sprint-102-visible-memory-rewarm.md`.
-4. Run: `/execute-plan` (uses superpowers:subagent-driven-development).
+2. Check out branch: `git checkout -b feature/sprint-103-governance-intake-clarity`.
+3. Open plan: `docs/superpowers/plans/2026-06-17-sprint-103-governance-intake-clarity.md`.
+4. Watch PR #96 checks, handle any new review/CI findings, then Admin decides merge/deploy.
 
 ---
 
 ## Sprint Goal
 
-Make Karmyq's "designed to forget" promise visible and trustworthy in Profile, community trust, and
-weekly pulse surfaces while keeping counts humane rather than accounting-like.
+Make Karmyq's split governance, provider/mutual-aid actions, and founding-circle intake feel truthful
+and operable: no misleading inherited admins, no wrong "help/service" CTA language, and no black-box
+submissions.
 
 ---
 
 ## Planning Artifacts
 
-- Spec: `docs/superpowers/specs/2026-06-16-sprint-102-visible-memory-rewarm-design.md`
-- Plan: `docs/superpowers/plans/2026-06-16-sprint-102-visible-memory-rewarm.md`
+- Spec: `docs/superpowers/specs/2026-06-17-sprint-103-governance-intake-clarity-design.md`
+- Plan: `docs/superpowers/plans/2026-06-17-sprint-103-governance-intake-clarity.md`
 
 ---
 
@@ -59,124 +66,135 @@ weekly pulse surfaces while keeping counts humane rather than accounting-like.
 
 ### In Scope
 
-- **Profile memory as first-class surface:** `MemorySection` should render relationship memory for the
-  selected community even when karma display is off, and explain active/fading/nearly-forgotten bonds in
-  readable text.
-- **Re-warm first step:** `ReWarmingNudge` remains self-suppressed unless there are nearly-forgotten
-  bonds, then offers one gentle reconnect action with optional, non-punitive copy.
-- **Community trust memory legend:** the "How we're connected" tab should explain why some bonds look
-  softer and what nearly-forgotten means.
-- **Community pulse copy:** keep `helpedThisWeek` count semantics unchanged, but reframe the row from
-  "N neighbours helped each other" to "N neighbours showed up for one another" (or equivalent final copy)
-  so the count reads as care/evidence, not accounting.
-- **Docs/onboarding/context:** update memory guide, designed-to-forget concept, community-home concept,
-  reading-the-trust-graph concept, onboarding copy, frontend context, and regenerated landing docs.
+- **BUG-011 split child admins:** `executeSplit` should no longer promote the executing parent admin into
+  both children by default. Each child admin must be selected from that child's assigned members.
+- **BUG-012 offer action copy:** centralize action labels so service asks say "Offer service" and
+  mutual-aid asks say "Offer to Help" on both cards and detail pages.
+- **Founding-circle review tooling:** add authenticated reviewer endpoints and a small admin page to list
+  persisted submissions and mark them `new`, `reviewed`, `contacted`, or `archived`.
+- **Targeted community/provider clarity:** update copy/docs around the touched service surfaces only.
+- **Docs/context/registry:** update source docs, service contexts, frontend context, service registry, ADR-076,
+  and regenerated landing docs.
 
 ### Out of Scope
 
-- New retention policy or schema changes.
-- Per-item delete/export controls.
-- New endpoints or API contracts.
-- New notifications, automated reminders, or engagement campaigns.
-- Broad profile redesign.
-- Trust graph algorithm or visualization rewrite.
-- New decay math or community-tunable decay bands.
+- New platform-role schema or true platform-admin model.
+- Outbound founding-circle email, Slack, webhook, queue event, or notification transport.
+- Peer messaging, restored reconnect CTA, or directed-ask flow.
+- New governance roles beyond existing `admin`/`member`.
+- Broad provider/community redesign or UI facelift.
+- Changes to trust/karma carry-forward during splits.
 
 ---
 
 ## Critical Implementation Notes
 
-1. **No new decay math.** Use existing `decayTier` values and `decayPresentation`; do not duplicate or
-   reinterpret `classifyDecayTier` thresholds in frontend code.
-2. **`trust_edges_live` is read-only.** It is a VIEW. Sprint 102 must not write to it or add a decay job.
-3. **Memory must not depend on karma visibility.** The profile memory section should render relationship
-   memory for a selected community even when the member has not enabled "Show My Karma."
-4. **Counts are evidence, not scoreboards.** Keep truthful counts, but phrase them as signs of care and
-   community memory. Do not add leaderboard, streak, productivity, or engagement language.
-5. **Re-warm is optional and gentle.** A nearly-forgotten bond may be let go. Copy must not imply failure,
-   penalty, or urgency manipulation.
-6. **No notification or messaging expansion.** Keep the existing `/messages?to=` reconnect action unless
-   implementation discovers it is broken; do not add automated reminders.
-7. **Fading must be text-legible.** Opacity alone is not enough. Add readable labels/explanations for
-   fading and nearly-forgotten states.
-8. **Do not scatter router mocks.** Preserve the global `apps/frontend/jest.setup.js` `next/router` mock;
-   use per-test mocks only when a custom query or spy is needed.
-9. **Avoid unsafe localStorage parsing.** If touching profile localStorage reads, wrap JSON parsing or use
-   existing guarded patterns.
-10. **Docs are part of done.** User guides, concept pages, onboarding, frontend context, and generated
-    landing docs ship with the sprint.
-11. **Generated landing docs are gitignored.** After regeneration, use `git add -f` for changed
-    `apps/landing/src/data/docs/*` files that must be committed.
-12. **Known CodeQL false positive.** Editing `apps/frontend/src/lib/api.ts` can re-trigger the recurring
-    `js/request-forgery` false positive on trusted `NEXT_PUBLIC_API_URL` base URLs. Avoid api.ts edits
-    unless necessary; if it recurs, dismiss with the documented false-positive rationale and re-run.
+1. **Do not create a new platform-role system in Sprint 103.** Founding-circle reviewer permission is
+   defined as any active community admin, matching the existing admin UI gate. A true platform role is a
+   future architectural decision.
+2. **Split child admins must be child-local.** The executing parent admin is not automatically inserted
+   as admin into both children. Each child admin must be selected from that child's assigned members.
+3. **Keep the `split_origin` link.** The relationship between child communities is preserved by
+   `communities.community_links`, not by shared admin authority.
+4. **Never leave a child adminless.** If no assigned parent admin exists for a child, promote the
+   strongest assigned member by within-child trust degree with deterministic tie-breaks.
+5. **Do not change trust/karma carry-forward semantics.** Sprint 103 changes roles only; within-group
+   trust and karma copying from Sprint 86 stays intact.
+6. **Centralize offer action copy.** Do not reintroduce inline `request_type === 'service'` label checks
+   in multiple components.
+7. **Service asks are not peer messaging.** Do not restore the Sprint 102 reconnect CTA or add direct
+   peer messages as part of service/provider clarity.
+8. **Founding-circle review is not notification.** No email, Slack, webhook, queue event, or outbound
+   transport in this sprint.
+9. **Use the ADR-074 error contract.** New auth-service review endpoints return string `error` codes.
+10. **API interceptor unwraps envelopes.** Frontend callers should read `res.data`, not `res.data.data`.
+11. **Editing `apps/frontend/src/lib/api.ts` can retrigger CodeQL `js/request-forgery`.** If it recurs,
+    dismiss with the documented trusted env-baseURL rationale and re-run the gate.
+12. **Docs are part of done.** Update source docs, service contexts, registry, frontend context, and
+    regenerated landing docs in the same PR.
 
 ---
 
-## Carry-forward from Sprint 101
+## Implementation Tasks
 
-- Post-deploy UI validation from Sprint 101 was still listed in the previous handoff:
-  1. Dashboard Home shows pending offered items, each linking to detail.
-  2. A community open ask opens `/requests/[id]` with details + action.
-  3. Offering from detail moves it to awaiting response / Helping.
-  4. Expanding a completed Asks item does not say "No offers yet."
-  5. Direct/forged API offer on expired-open or out-of-audience ask returns 400/403, and duplicate offer
-     returns 409.
-- PR #93 deploy re-triggered known CodeQL `js/request-forgery` false positives in
-  `apps/frontend/src/lib/api.ts` after nearby edits. If api.ts is edited and these recur, dismiss as the
-  documented trusted-env-baseURL false positive and re-run the gate.
-- Moderate dependency advisories remain within ADR-059 SLA; high/critical audit remains blocking.
+Follow the plan exactly:
+
+1. Branch + context check.
+2. TDD for child-local split admin selection.
+3. Implement child-local split admins in `services/community-service/src/services/fissionService.ts`.
+4. TDD for shared offer action copy.
+5. Implement `apps/frontend/src/lib/requestActionCopy.ts` and consume it in request card/detail.
+6. TDD for founding-circle review endpoints.
+7. Implement auth-service list/update review endpoints.
+8. TDD for founding-circle admin page.
+9. Implement `/admin/founding-circle` and admin nav/API wrappers.
+10. Update docs, contexts, registry, ADR-076, and regenerated landing docs.
+11. Run focused verification.
+12. Run SDLC gates: testing, `/simplify`, `/code-review`, `/security-review`, feedback, audit.
+13. Final pre-push verification + PR.
+14. Merge + deploy only after Admin authorization.
 
 ---
 
-## Sprint 102 - Post-Deploy Validation
+## Carry-Forward / Known Issues
 
-### 1. Profile memory smoke test
+- **BUG-011** is fixed on this branch and verified: split child admins are selected from assigned
+  child members; executing parent admin is not inserted into both children by default.
+- **BUG-012** is fixed on this branch and verified: offer action copy is centralized in
+  `apps/frontend/src/lib/requestActionCopy.ts`.
+- **Reconnect CTA remains deferred:** restore only after real peer messaging or a directed-ask flow exists.
+- **Sprint 102 post-deploy UI validation still useful if not already done:**
+  1. Profile memory shows with karma display off.
+  2. Community graph memory legend renders.
+  3. Community pulse says "N neighbours showed up for one another."
+  4. `/about/memory` retention windows load.
+- **Pre-existing security drift:** GitHub Dependabot previously showed 1 high advisory on default branch
+  while local `npm audit --package-lock-only --audit-level=high` was clean. Track under ADR-059 SLA.
 
-Login:
+---
 
-```text
-maria.reyes@test.karmyq.com / password123
+## Sprint 103 - Post-Deploy Validation
+
+### 1. Split admin smoke test
+
+Create or use an approved split where the executing parent admin is assigned to only one child, execute it,
+then inspect both child communities.
+
+Expected: executing admin is admin only in their assigned child; sibling child has one assigned member as
+admin; siblings still have an active `split_origin` link.
+
+### 2. Offer action copy smoke test
+
+Open a mutual-aid ask and a service ask from both feed/card and detail.
+
+Expected: mutual-aid surfaces say "Offer to Help"; service surfaces say "Offer service"; offering still
+creates the same match.
+
+### 3. Founding-circle review smoke test
+
+Log in as an existing community admin and open `https://karmyq.com/admin/founding-circle`.
+
+Expected: submissions load, status filter works, and marking a row reviewed/contacted/archived updates
+the row without sending any notification.
+
+### 4. API verification
+
+```bash
+curl -H "Authorization: Bearer $TOKEN" "https://karmyq.com/api/founding-circle/submissions?status=new" | jq '.data.items | length'
 ```
 
-Open `https://karmyq.com/profile`.
-
-Expected: memory section appears for a selected community even if karma display is hidden; fading and
-nearly-forgotten states have readable text; `/about/memory` link works.
-
-### 2. Community trust smoke test
-
-Open one of Maria's communities, then **How we're connected**.
-
-Expected: graph area shows "How memory fades" legend; any re-warm nudge is gentle and optional; graph
-still renders.
-
-### 3. Community pulse copy check
-
-Open a community Home with weekly help activity.
-
-Expected: helped row says "N neighbours showed up for one another"; zero helped rows remain hidden;
-open asks row still links to `/communities/:id/open-asks`.
-
-### 4. Retention transparency check
-
-Open `https://karmyq.com/about/memory`.
-
-Expected: retention windows load; page still says private details are anonymized/deleted while aggregates
-are kept.
+Expected: authenticated reviewer gets a numeric length; non-reviewer gets `403 FORBIDDEN`.
 
 ---
 
 ## Previous Sprint State
 
-- **Sprint 101 (v11.10.0) deployed + validated by CI.** PR #92 merged (squash `654937d5`).
-- **PR #93 eligibility fix deployed.** Offer eligibility now follows feed visibility boundary, not
-  membership-only and not any-UUID. PR #93 merged (squash `bbae8788`).
-- What shipped: offered-awaiting Home item preview, canonical request detail action page, lifecycle-true
-  Asks copy, community open-asks action path, deterministic community-depth ring ordering, and
-  write-path offer eligibility enforcement.
-- Verification from previous handoff: `npm test` pass; frontend and request-service type checks clean;
-  audit high gate clean; known unrelated TDD failures persisted on `master`.
+- **Sprint 102 (v11.11.0) deployed.** PR #94 squash `298c9fc6`.
+- **Reconnect follow-up deployed.** PR #95 squash `2745063`; removed dead `/messages?to=<peerId>` CTA.
+- **Sprint 101 (v11.10.0) deployed + validated by CI.** PR #92 squash `654937d5`.
+- **PR #93 eligibility fix deployed.** Offer eligibility follows feed visibility boundary, not membership-only
+  and not any-UUID. PR #93 squash `bbae8788`.
+- Moderate dependency advisories remain within ADR-059 SLA; high/critical audit remains blocking.
 
 ---
 
@@ -187,9 +205,10 @@ are kept.
 - **S99 (done):** Release Experience Audit + Fine Tune (v11.8.0).
 - **S100 (done):** Pulse Truth + Feed Actionability (v11.9.0).
 - **S101 (done):** Actionability + State Truth (v11.10.0).
-- **S102 (planned):** Visible Memory + Re-warm First Step (v11.11.0).
-- **S103+ candidates:** community/provider link-up clarity; founding-circle review/notify surface;
-  research-first UI facelift; member-controlled forget/export.
+- **S102 (done):** Visible Memory + Re-warm First Step (v11.11.0).
+- **S103 (verified / PR-ready):** Governance + Intake Clarity (v11.12.0).
+- **S104+ candidates:** reconnect CTA once a real target exists; broader community/provider link-up
+  clarity; research-first UI facelift; member-controlled forget/export.
 - **Deferred:** Service Consolidation Phase 2 (geocoding -> client-side, ADR-071); mobile parity.
 
 ---
@@ -241,4 +260,3 @@ are kept.
 
 `karmyq.org` live content has drifted from `master` before. Confirm the latest deploy succeeded and live
 content matches `master` before judging by live content.
-
