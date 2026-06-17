@@ -1,4 +1,4 @@
-# Sprint 103 - Governance + Intake Clarity - VERIFIED / PR READY
+# Sprint 103 - Governance + Intake Clarity - PR OPEN / REVIEW NEEDED
 
 > **STATUS (2026-06-17):** Sprint 103 planning is complete. The maintainer approved the combined scope:
 > repair split governance truth (BUG-011), lock service-vs-help action copy (BUG-012), and ship
@@ -28,6 +28,11 @@
 > Jest cache permission errors in this sandbox. Root `npm run test:tdd` is not wired in Turbo; direct
 > workspace TDD runs still expose older DB-backed/frontend TDD failures outside Sprint 103, while all
 > Sprint 103 focused tests are green.
+>
+> **PR UPDATE (Codex, 2026-06-17):** commit `044bd4a8` was pushed and PR #96 is open:
+> `https://github.com/ravichavali/karmyq/pull/96`. The PR body is filled with validation evidence.
+> Formal `/code-review` is intentionally unchecked because the reviewer subagent hit a usage limit
+> before returning findings; Claude/Admin review is required before merge. Do not self-merge.
 
 ---
 
@@ -36,7 +41,7 @@
 1. Read this handoff.
 2. Check out branch: `git checkout -b feature/sprint-103-governance-intake-clarity`.
 3. Open plan: `docs/superpowers/plans/2026-06-17-sprint-103-governance-intake-clarity.md`.
-4. Commit, push, and open the Sprint 103 PR. Do not stage `scripts/founding-circle-submissions.sh`.
+4. Review PR #96, run formal `/code-review`, address any findings, then Admin decides merge/deploy.
 
 ---
 
