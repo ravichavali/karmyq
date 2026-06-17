@@ -1,4 +1,4 @@
-# Sprint 103 - Governance + Intake Clarity - PR OPEN / REVIEW NEEDED
+# Sprint 103 - Governance + Intake Clarity - PR OPEN / REVIEWED
 
 > **STATUS (2026-06-17):** Sprint 103 planning is complete. The maintainer approved the combined scope:
 > repair split governance truth (BUG-011), lock service-vs-help action copy (BUG-012), and ship
@@ -29,10 +29,12 @@
 > workspace TDD runs still expose older DB-backed/frontend TDD failures outside Sprint 103, while all
 > Sprint 103 focused tests are green.
 >
-> **PR UPDATE (Codex, 2026-06-17):** commit `044bd4a8` was pushed and PR #96 is open:
-> `https://github.com/ravichavali/karmyq/pull/96`. The PR body is filled with validation evidence.
-> Formal `/code-review` is intentionally unchecked because the reviewer subagent hit a usage limit
-> before returning findings; Claude/Admin review is required before merge. Do not self-merge.
+> **PR UPDATE (Codex, 2026-06-17):** PR #96 is open:
+> `https://github.com/ravichavali/karmyq/pull/96`. Commits `044bd4a8`, `402d258a`, and `aed33f14`
+> are pushed. Admin review completed; finding #1 (founding-circle filtered-list staleness after status
+> update) was fixed in `aed33f14` with a focused TDD update. Review also noted two non-blocking
+> low-severity follow-ups: empty-child split validation behavior and malformed founding-circle UUID error
+> code. Do not self-merge.
 
 ---
 
@@ -41,7 +43,7 @@
 1. Read this handoff.
 2. Check out branch: `git checkout -b feature/sprint-103-governance-intake-clarity`.
 3. Open plan: `docs/superpowers/plans/2026-06-17-sprint-103-governance-intake-clarity.md`.
-4. Review PR #96, run formal `/code-review`, address any findings, then Admin decides merge/deploy.
+4. Watch PR #96 checks, handle any new review/CI findings, then Admin decides merge/deploy.
 
 ---
 
