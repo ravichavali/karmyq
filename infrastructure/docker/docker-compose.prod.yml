@@ -20,6 +20,11 @@ services:
       REDIS_URL: ${REDIS_URL}
       JWT_SECRET: ${JWT_SECRET}
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-https://karmyq.com}
+      # Founding-circle review allowlist (ADR-076). Without these passthroughs the
+      # auth-service container never sees the values set in .env.demo, so the
+      # deny-by-default reviewer gate 403s everyone.
+      FOUNDING_CIRCLE_REVIEWER_IDS: ${FOUNDING_CIRCLE_REVIEWER_IDS:-}
+      FOUNDING_CIRCLE_REVIEWER_EMAILS: ${FOUNDING_CIRCLE_REVIEWER_EMAILS:-}
     deploy:
       resources:
         limits:
