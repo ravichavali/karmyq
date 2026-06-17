@@ -15,10 +15,14 @@ Next.js 14 web application (Pages Router) consuming all Karmyq backend services.
   mutual-aid asks render **Offer to Help** / **Offering…**. `Feed/RequestCard.tsx` and
   `pages/requests/[id].tsx` both consume the helper.
 - **Founding-circle review queue.** `pages/admin/founding-circle.tsx` lists persisted landing-page
-  submissions for authenticated admins, filters by `new`/`reviewed`/`contacted`/`archived`, and
-  updates status through `foundingCircleAdminService` in `src/lib/api.ts`. The API interceptor unwraps
-  envelopes, so callers read `res.data`.
-- **Admin navigation.** `components/admin/AdminLayout.tsx` now links to `/admin/founding-circle`.
+  submissions for authenticated, explicitly allowlisted reviewers, filters by
+  `new`/`reviewed`/`contacted`/`archived`, and updates status through `foundingCircleAdminService` in
+  `src/lib/api.ts`. The API interceptor unwraps envelopes, so callers read `res.data`. The backend is
+  deny-by-default unless `FOUNDING_CIRCLE_REVIEWER_IDS` or `FOUNDING_CIRCLE_REVIEWER_EMAILS` is set,
+  and still requires active community-admin status.
+- **Admin navigation.** `components/admin/AdminLayout.tsx` does not link to `/admin/founding-circle`;
+  the review queue is direct-URL only for the allowlisted reviewer because demo/test admin credentials
+  must not be invited into real submissions.
 - **No outbound review transport.** The admin page updates status only; it does not send email,
   Slack, webhook, queue events, or notifications.
 

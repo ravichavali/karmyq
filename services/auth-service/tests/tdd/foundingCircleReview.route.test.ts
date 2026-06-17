@@ -36,6 +36,8 @@ function app() {
 describe('Sprint 103 founding-circle review endpoints', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    delete process.env.FOUNDING_CIRCLE_REVIEWER_IDS;
+    delete process.env.FOUNDING_CIRCLE_REVIEWER_EMAILS;
     mockIsReviewer.mockImplementation(async (userId) => userId === 'reviewer');
   });
 
@@ -47,7 +49,17 @@ describe('Sprint 103 founding-circle review endpoints', () => {
     expect(mockList).not.toHaveBeenCalled();
   });
 
-  it('rejects authenticated non-reviewers', async () => {
+  it('rejects active community admins unless they are explicitly allowlisted', async () => {
+    const res = await request(app()).get('/founding-circle/submissions').set('Authorization', 'Bearer reviewer');
+
+    expect(res.status).toBe(403);
+    expect(res.body.error).toBe('FORBIDDEN');
+    expect(mockList).not.toHaveBeenCalled();
+  });
+
+  it('rejects allowlisted users who are not active community admins', async () => {
+    process.env.FOUNDING_CIRCLE_REVIEWER_IDS = 'member';
+
     const res = await request(app()).get('/founding-circle/submissions').set('Authorization', 'Bearer member');
 
     expect(res.status).toBe(403);
@@ -56,6 +68,7 @@ describe('Sprint 103 founding-circle review endpoints', () => {
   });
 
   it('lets reviewers list submissions by status', async () => {
+    process.env.FOUNDING_CIRCLE_REVIEWER_IDS = 'reviewer';
     mockList.mockResolvedValue({
       items: [
         {
@@ -85,6 +98,7 @@ describe('Sprint 103 founding-circle review endpoints', () => {
   });
 
   it('lets reviewers update submission status', async () => {
+    process.env.FOUNDING_CIRCLE_REVIEWER_EMAILS = 'REVIEWER@example.com';
     mockUpdate.mockResolvedValue({
       id: 's1',
       email: 'founder@example.com',
@@ -108,6 +122,7 @@ describe('Sprint 103 founding-circle review endpoints', () => {
   });
 
   it('rejects invalid status updates', async () => {
+    process.env.FOUNDING_CIRCLE_REVIEWER_IDS = 'reviewer';
     const res = await request(app())
       .patch('/founding-circle/submissions/s1/status')
       .set('Authorization', 'Bearer reviewer')
@@ -119,6 +134,7 @@ describe('Sprint 103 founding-circle review endpoints', () => {
   });
 
   it('returns 404 for missing submissions', async () => {
+    process.env.FOUNDING_CIRCLE_REVIEWER_IDS = 'reviewer';
     mockUpdate.mockResolvedValue(null);
 
     const res = await request(app())

@@ -45,6 +45,8 @@ const TEXT_FIELDS = [
 ] as const;
 
 const VALID_STATUSES: FoundingCircleStatus[] = ['new', 'reviewed', 'contacted', 'archived'];
+const REVIEWER_ID_ENV = 'FOUNDING_CIRCLE_REVIEWER_IDS';
+const REVIEWER_EMAIL_ENV = 'FOUNDING_CIRCLE_REVIEWER_EMAILS';
 
 function trimOrNull(v: unknown): string | null {
   if (typeof v !== 'string') return null;
@@ -115,10 +117,29 @@ function parseBoundedInt(value: unknown, fallback: number, min: number, max: num
   return Math.min(Math.max(Math.trunc(parsed), min), max);
 }
 
+function parseAllowlist(value?: string): Set<string> {
+  return new Set(
+    String(value ?? '')
+      .split(',')
+      .map((item) => item.trim().toLowerCase())
+      .filter(Boolean)
+  );
+}
+
+function isExplicitFoundingCircleReviewer(req: AuthenticatedRequest): boolean {
+  const ids = parseAllowlist(process.env[REVIEWER_ID_ENV]);
+  const emails = parseAllowlist(process.env[REVIEWER_EMAIL_ENV]);
+  if (ids.size === 0 && emails.size === 0) return false;
+
+  const userId = req.user?.userId?.toLowerCase();
+  const email = req.user?.email?.toLowerCase();
+  return Boolean((userId && ids.has(userId)) || (email && emails.has(email)));
+}
+
 async function requireReviewer(req: AuthenticatedRequest, res: Response): Promise<boolean> {
   const requestId = (req as any).id;
   const userId = req.user?.userId;
-  if (!userId || !(await isFoundingCircleReviewer(userId))) {
+  if (!userId || !isExplicitFoundingCircleReviewer(req) || !(await isFoundingCircleReviewer(userId))) {
     sendForbidden(res, 'Founding-circle reviewer access required', { requestId });
     return false;
   }
