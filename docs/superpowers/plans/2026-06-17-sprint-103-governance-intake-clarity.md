@@ -300,7 +300,9 @@ const trustEdgesRes = await client.query(
 );
 ```
 
-- [ ] Replace the old unconditional admin upsert inside the child loop.
+- [ ] Modify the existing carry-forward loop in place. Replace only the old unconditional admin upsert
+at the start of that loop; do not add a second loop around `childAId`/`childBId`, and do not duplicate
+the current-members recompute or trust/karma carry-forward queries.
 
 ```ts
 const selectionContext: SplitAdminSelectionContext = {
@@ -404,9 +406,9 @@ describe('Sprint 103 offer action copy', () => {
 
   it('centralizes idle and pending labels', () => {
     expect(getOfferActionLabel('service')).toBe('Offer service');
-    expect(getOfferActionLabel('service', 'pending')).toBe('Offering service...');
+    expect(getOfferActionLabel('service', 'pending')).toBe('Offering service…');
     expect(getOfferActionLabel('generic')).toBe('Offer to Help');
-    expect(getOfferActionLabel('ride', 'pending')).toBe('Offering...');
+    expect(getOfferActionLabel('ride', 'pending')).toBe('Offering…');
     expect(getOfferErrorFallback('service')).toBe('Failed to offer service');
     expect(getOfferErrorFallback('borrow')).toBe('Failed to offer help');
   });
@@ -467,7 +469,7 @@ export function getOfferActionLabel(
   requestType?: string | null,
   state: OfferActionState = 'idle'
 ): string {
-  if (state === 'pending') return isServiceRequest(requestType) ? 'Offering service...' : 'Offering...';
+  if (state === 'pending') return isServiceRequest(requestType) ? 'Offering service…' : 'Offering…';
   return isServiceRequest(requestType) ? 'Offer service' : 'Offer to Help';
 }
 

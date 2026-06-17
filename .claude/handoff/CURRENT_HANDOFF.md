@@ -8,6 +8,11 @@
 > **LOCAL STATE:** `scripts/founding-circle-submissions.sh` remains untracked user/local work. Do not
 > stage, remove, or rewrite it unless the maintainer explicitly asks. This handoff was rewritten for
 > Sprint 103 from the Sprint 102 deployed handoff.
+>
+> **REVIEW FOLLOW-UP (Claude, 2026-06-17):** plan reviewed as ready to execute. Three doc fixes were
+> folded in: Task 3 now says to modify the existing `executeSplit` carry-forward loop in place (no second
+> loop), the spec no longer leaves a status CHECK migration half-open, and pending offer copy keeps the
+> existing ellipsis glyph (`Offering…` / `Offering service…`).
 
 ---
 

@@ -83,7 +83,7 @@ small shared frontend helper so request cards and request detail cannot drift.
 
 ## Data Model
 
-No new tables are planned.
+No schema changes are planned.
 
 Existing founding-circle table is reused:
 
@@ -99,14 +99,6 @@ auth.founding_circle_submissions (
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   reviewed_at TIMESTAMP
 )
-```
-
-Sprint 103 may add an idempotent CHECK constraint migration only if one does not already exist:
-
-```sql
-ALTER TABLE auth.founding_circle_submissions
-  ADD CONSTRAINT founding_circle_status_check
-  CHECK (status IN ('new', 'reviewed', 'contacted', 'archived'));
 ```
 
 No reviewer metadata is added in this sprint. `reviewed_at` is set when a submission first leaves
@@ -149,7 +141,7 @@ Error contract remains ADR-074:
 
 - `apps/frontend/src/lib/requestActionCopy.ts`
   - New helper: `getOfferActionLabel(requestType?: string, state?: 'idle' | 'pending'): string`.
-  - `pending` returns `"Offering service..."` for service asks and `"Offering..."` for mutual-aid asks.
+  - `pending` returns `"Offering service…"` for service asks and `"Offering…"` for mutual-aid asks.
   - `idle` returns `"Offer service"` for service asks and `"Offer to Help"` otherwise.
 
 - `apps/frontend/src/components/Feed/RequestCard.tsx`
