@@ -1,0 +1,96 @@
+/* Sprint 104 UI-Facelift research mockups — shared tokens.
+ * THROWAWAY research artifact. Not imported by apps/frontend; not route-reachable; no API.
+ * Token values mirror apps/frontend/src/styles/globals.css :root and karmyq-shell.css so the
+ * directions are honestly expressed as deltas to the SHIPPED token system. */
+:root {
+  /* Palette (= globals.css :root, hex form for static mockups) */
+  --green-50:#f0f7f0; --green-300:#88bf84; --green-500:#3d8b35; --green-600:#2d6e28; --green-700:#245621; --green-900:#1a391a;
+  --teal-600:#268882; --teal-50:#effcf9;
+  --cream:#faf8f3; --warm-white:#fdfcf9; --cream-sunk:#f2eade;
+  --brown-400:#c19a6f; --brown-500:#b48455; --brown-700:#8b5b3f; --brown-900:#5c3e30;
+  --border:#e4d3bc; --border-light:#f2eade;
+  --warn:#ed7620; --warn-50:#fef7ee;
+  /* Type */
+  --serif:'Fraunces',Georgia,serif;
+  --sans:'Hanken Grotesk','Inter',system-ui,sans-serif;
+  /* S104 PROPOSED token deltas (the facelift) */
+  --measure:42rem;          /* P1: one reading column (= Tailwind max-w-2xl) */
+  --radius-card:10px;       /* P3: one card radius */
+  --radius-pill:999px;
+}
+* { box-sizing:border-box; margin:0; padding:0; }
+body {
+  font-family:var(--sans); color:var(--brown-900); background:var(--cream);
+  background-image:
+    radial-gradient(circle at 20% 10%, rgba(136,191,132,.05), transparent 40%),
+    radial-gradient(circle at 85% 0%, rgba(237,118,32,.04), transparent 35%);
+  background-attachment:fixed; -webkit-font-smoothing:antialiased; line-height:1.5; padding-bottom:60px;
+}
+.banner { background:var(--warn-50); border-bottom:1px solid var(--border); color:var(--brown-700);
+  font-size:12.5px; padding:8px 16px; text-align:center; }
+.banner b { color:var(--green-700); }
+
+/* Chrome (= .kq-topbar / .kq-wordmark / .kq-topnav, with the P-fixes applied) */
+.topbar { position:sticky; top:0; z-index:50; display:flex; align-items:center; gap:20px;
+  background:rgba(253,252,249,.95); border-bottom:1px solid var(--border-light); backdrop-filter:blur(6px);
+  padding:14px 22px; }
+.wordmark { font-family:var(--serif); font-weight:600; font-size:22px; letter-spacing:-.01em; color:var(--green-700);
+  display:flex; align-items:center; gap:8px; }
+.wordmark .seed { width:22px; height:22px; border-radius:50%; background:
+  radial-gradient(circle at 35% 35%, var(--green-300), var(--green-700)); display:inline-block; }
+.topnav { display:flex; gap:20px; }
+.topnav a { color:var(--brown-500); text-decoration:none; font-size:14px; font-weight:500; }
+.topnav a.active { color:var(--green-700); }
+.topbar .spacer { flex:1; }
+.bell { position:relative; color:var(--brown-500); width:22px; height:22px; }
+.bell .dot { position:absolute; top:-1px; right:-1px; width:7px; height:7px; border-radius:50%; background:var(--warn);
+  border:1.5px solid var(--warm-white); }
+.me { display:flex; align-items:center; gap:8px; font-size:14px; }
+.me .avatar { width:30px; height:30px; border-radius:50%; background:var(--green-600); color:#fff;
+  display:grid; place-items:center; font-weight:600; font-size:13px; }
+
+/* One reading column (P1) */
+.shell { max-width:var(--measure); margin:0 auto; padding:30px 18px; }
+.eyebrow { font-size:12px; text-transform:uppercase; letter-spacing:.12em; color:var(--green-700); font-weight:600; }
+.headline { font-family:var(--serif); font-weight:600; font-size:30px; line-height:1.15; color:var(--brown-900); margin-top:4px; }
+.headline-sm { font-family:var(--serif); font-weight:600; font-size:26px; line-height:1.25; color:var(--brown-900); } /* P4 token */
+.lede { font-size:15px; line-height:1.6; color:var(--brown-500); margin-top:8px; }
+
+/* One card (P2 border-not-shadow, P3 one radius) */
+.card { background:var(--warm-white); border:1px solid var(--border); border-radius:var(--radius-card); padding:20px;
+  transition:border-color .18s ease; }
+.card:hover { border-color:var(--green-300); }
+.section-label { font-size:12px; text-transform:uppercase; letter-spacing:.12em; color:var(--brown-500);
+  font-weight:600; margin:26px 0 12px; }
+
+/* Tabs (= .kq-tabbar / .kq-tab) */
+.tabs { display:flex; gap:4px; border-bottom:1px solid var(--border); margin:22px 0; }
+.tabs a { text-decoration:none; padding:11px 16px; font-size:14px; font-weight:500; color:var(--brown-500);
+  border-bottom:2px solid transparent; }
+.tabs a.active { color:var(--green-700); border-bottom-color:var(--green-600); }
+
+/* Request card — relationship-led (P6): path badge leads, ask, action, quiet match whisper */
+.req { display:grid; gap:10px; margin-bottom:14px; }
+.path { display:inline-flex; align-items:center; gap:8px; align-self:start; border:1px solid var(--green-300);
+  background:var(--green-50); color:var(--green-700); border-radius:var(--radius-pill); padding:4px 10px;
+  font-size:12px; font-weight:600; }
+.path .av { width:18px; height:18px; border-radius:50%; background:var(--green-600); color:#fff;
+  display:grid; place-items:center; font-size:10px; font-weight:700; }
+.req h3 { font-family:var(--serif); font-weight:600; font-size:19px; color:var(--brown-900); }
+.req .meta { font-size:13px; color:var(--brown-500); }
+.req .row { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+.pill { display:inline-flex; align-items:center; border:1px solid var(--border); background:var(--cream);
+  color:var(--brown-500); border-radius:var(--radius-pill); padding:3px 10px; font-size:12px; }
+.pill.warn { border-color:var(--warn); color:var(--warn); background:var(--warn-50); } /* P5: urgency from token */
+.btn { background:var(--green-600); color:#fff; border:none; border-radius:8px; padding:9px 18px;
+  font:600 14px var(--sans); cursor:pointer; }
+.btn:hover { background:var(--green-700); }
+.quiet { font-size:12px; color:var(--brown-500); } /* = .kq-quiet-meta; match whisper lives here */
+.finite { border:1px solid var(--border); background:var(--warm-white); border-radius:var(--radius-card);
+  padding:32px 20px; text-align:center; } /* P7: one warm caught-up state */
+.finite .ic { font-size:28px; margin-bottom:8px; }
+hr.rule { border:none; border-top:1px solid var(--border-light); margin:0; }
+
+/* Caption shown under each mockup so the contact sheet reads as research */
+.caption { max-width:var(--measure); margin:8px auto 0; padding:0 18px; font-size:12.5px; color:var(--brown-500); }
+.caption b { color:var(--brown-900); }

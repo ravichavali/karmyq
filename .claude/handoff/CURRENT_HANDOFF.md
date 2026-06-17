@@ -1,38 +1,53 @@
-# Sprint 104 - UI Facelift Research - READY TO EXECUTE
+# Sprint 104 - UI Facelift Research - COMPLETE (PR open, no-deploy) → S105 next
 
-> **STATUS (2026-06-17):** Sprint 104 planning is complete. Maintainer approved a **research-first,
-> no-deploy** UI facelift sprint. The deliverable is a single comprehensive design-research doc —
-> **no app implementation and no proof-of-concept page.** Scope covers all four surface clusters:
-> Dashboard/Home, Community page, Request feed + detail, and Profile + global chrome. Direction is
-> generated via the `frontend-design` skill, anchored to the existing CSS-variable token system.
+> **STATUS (2026-06-17):** Sprint 104 is **complete** on branch
+> `feature/sprint-104-ui-facelift-research`. All 9 plan tasks executed; the research deliverable is
+> written, ADR-079 ships **Proposed**, landing docs regenerated, SDLC gates passed (docs-appropriate),
+> guardrail clean (zero app-code changes). **PR open, awaiting Admin merge — no deploy** (research
+> sprint, no runtime change). Do NOT self-merge or push to master.
 >
-> **Sprint 103 is merged and deployed** (`124caea3` + follow-ups `#97` founding-circle access
-> lockdown, `#98` reviewer env vars). BUG-011 (split child admins) and BUG-012 (offer/service copy)
-> shipped there — they are still marked `open` in `docs/BUGS.md` but are fixed; close them when
-> convenient.
+> **Deliverable shipped:** `docs/design/sprint-104-ui-facelift/` — `README.md` (index),
+> `ux-audit.md` (four-cluster scorecard + cross-cluster drift), `visual-research.md` (3 directions),
+> `recommendations.md` (per-cluster S105 scope), `mockups/` (A/B/C static HTML). Plus
+> `docs/adr/ADR-079-visual-design-system-v2.md` (Proposed) and refreshed concept
+> `docs/concepts/ux-design-principles.md`.
+>
+> **Headline finding:** the warm-commons design system is real, good, and only **~60% adopted**. The
+> standalone Request feed (`pages/requests/index.tsx`), offers, and match detail are pre-S88 fossils
+> (match-% lead, off-palette raw Tailwind, SaaS chrome, wide grids). **Recommended direction: B —
+> "Field Guide"** (finish the system everywhere + harden into tokens + one on-brand step: paper grain,
+> serif ramp, leaf motif). A (convergence-only) is the budget fallback; C (Almanac) is parked.
+>
+> **Sprint 103 is merged and deployed** (`124caea3` + `#97` founding-circle access lockdown,
+> `#98` reviewer env vars). BUG-011/BUG-012 shipped there — still marked `open` in `docs/BUGS.md`;
+> close when convenient.
 >
 > **LOCAL STATE:** `scripts/founding-circle-submissions.sh` remains untracked user/local work. Do not
 > stage, remove, or rewrite it unless the maintainer explicitly asks.
 
 ---
 
-## Quick Start
+## Quick Start — S105 (UI Facelift Implementation)
 
-1. Read this handoff.
-2. Check out branch (it already exists from planning): `git checkout feature/sprint-104-ui-facelift-research`
-   (use `git checkout -b ...` only if it's missing in your checkout).
-3. Open plan: `docs/superpowers/plans/2026-06-17-sprint-104-ui-facelift-research.md`.
-4. Run: `/execute-plan` (uses superpowers:subagent-driven-development). Pair with the
-   `frontend-design` skill for the reference-research and direction tasks.
+1. Read this handoff + the S104 research: start at `docs/design/sprint-104-ui-facelift/README.md`,
+   then `recommendations.md` (the per-cluster S105 change list is the task source).
+2. Confirm the maintainer's direction pick (recommendation = **B "Field Guide"**; A is the fallback).
+3. New chat: run the `sprint-planning` skill to produce the S105 spec + plan from `recommendations.md`.
+4. S105 build order: **S105.0 token/component foundation first** (one reading-column token, one card
+   primitive, `kq-headline-sm`, status/color tokens, `kq-finite-state` everywhere, grain/leaf layer),
+   then **S105.1 Request feed** (reskin onto warm feed components or retire it), then Profile+chrome,
+   Dashboard (incl. empty-Home altitude), Community polish. Advance ADR-079 → Implemented as surfaces
+   land. Reconcile the version drift (`package.json` 11.10.0 vs handoff v11.12.0) in the S105 release.
+5. S105 IS a deploy sprint (unlike S104): per-surface PRs + demo validation.
 
 ---
 
-## Sprint Goal
+## S104 Sprint Goal (DONE)
 
-Produce one comprehensive **UI Facelift Research doc** that audits the current UI across all four
+Produced one comprehensive **UI Facelift Research doc** that audits the current UI across all four
 surface clusters, researches reference products + aesthetic directions (anchored to the existing
-token system), and recommends a concrete redesign direction specific enough to scope the S105
-implementation sprint. **Doc only — no implementation, no POC, no deploy.**
+token system), and recommends a concrete redesign direction specific enough to scope S105.
+**Doc only — no implementation, no POC, no deploy.** ✅ Complete.
 
 ---
 
@@ -124,11 +139,12 @@ Follow the plan exactly:
 - **S101 (done):** Actionability + State Truth (v11.10.0).
 - **S102 (done):** Visible Memory + Re-warm First Step (v11.11.0).
 - **S103 (done):** Governance + Intake Clarity (v11.12.0).
-- **S104 (planned / this sprint):** UI Facelift Research — whole-product visual audit + recommended
-  direction. Doc only, no-deploy.
-- **S105+ (upcoming):** UI Facelift Implementation — execute the recommended direction surface-by-
-  surface against the agreed reference; net-new code, token changes, per-surface rollout, deploy.
-  Advances ADR-079 to Accepted → Implemented. Reconcile the version drift here.
+- **S104 (done / this sprint):** UI Facelift Research — whole-product visual audit + recommended
+  direction (**B "Field Guide"**), ADR-079 Proposed. Doc only, no-deploy. PR open.
+- **S105 (next):** UI Facelift Implementation — execute Direction B surface-by-surface from
+  `docs/design/sprint-104-ui-facelift/recommendations.md`; foundation tokens first, Request feed next;
+  net-new code, token changes, per-surface rollout, deploy. Advances ADR-079 to Accepted →
+  Implemented. Reconcile the version drift here.
 - **Deferred:** reconnect CTA (needs a real target); responder Home actionability; Dibs relationship
   routing; member forget/export; Service Consolidation Phase 2; mobile parity.
 

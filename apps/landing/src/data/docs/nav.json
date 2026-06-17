@@ -25,6 +25,10 @@
       "title": "How It Works",
       "items": [
         {
+          "label": "UX Design Principles",
+          "href": "/docs/concepts/ux-design-principles"
+        },
+        {
           "label": "Trust and Karma: Three Scores Explained",
           "href": "/docs/concepts/trust-and-karma"
         },
@@ -485,6 +489,10 @@
         {
           "label": "Community Page Information Architecture (warm four-tab model)",
           "href": "/docs/concepts/adr-068-community-page-information-architecture"
+        },
+        {
+          "label": "Karmyq Visual Design System v2 (finish the warm system + harden it into tokens)",
+          "href": "/docs/concepts/adr-079-visual-design-system-v2"
         },
         {
           "label": "— Infrastructure —",
