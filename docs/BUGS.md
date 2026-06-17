@@ -137,14 +137,26 @@ the correct layer, add a regression test (or document if not reproducible). See
 
 ---
 
-## BUG-011 · [2026-06-16] · open
+## BUG-011 · [2026-06-16] · fixed
 
 When a community split happens, I think the admin of the parent group is assigned to both the groups. I am not sure if that is correct. We need to keep the relation between the communities, but having the same admin might defeat the purpose.
 
+**Fixed (Sprint 103, merged `124caea3`):** `executeSplit` in
+`services/community-service/src/services/fissionService.ts` no longer promotes the executing parent
+admin into both children. Each child admin is selected from that child's assigned members; if a child
+has no assigned parent admin, the strongest assigned member by within-child trust degree is promoted
+(deterministic tie-breaks). The `split_origin` link between siblings is preserved via
+`communities.community_links`, not shared admin authority.
+
 ---
 
-## BUG-012 · [2026-06-16] · open
+## BUG-012 · [2026-06-16] · fixed
 
 We had a regression between offer help and offer service distinction.
+
+**Fixed (Sprint 103, merged `124caea3`):** offer action copy is centralized in
+`apps/frontend/src/lib/requestActionCopy.ts` — service asks say "Offer service", mutual-aid asks say
+"Offer to Help" on both cards and detail pages. No more inline `request_type === 'service'` label
+checks scattered across components.
 
 ---

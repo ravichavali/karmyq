@@ -1,0 +1,88 @@
+<!-- Sprint 104 THROWAWAY research mockup — Direction B "Field Guide" (recommendation candidate). Not wired to apps/frontend; not route-reachable; no API. -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Direction B — Field Guide (S104 mockup)</title>
+<link rel="stylesheet" href="mockups.css">
+<style>
+  /* Direction B token deltas — all expressible in globals.css :root + one shell layer,
+     all behind tokens so a per-community ThemeProvider re-skin can drop them. */
+
+  /* P8: ONE whisper of paper grain, composited UNDER the existing body radial wash.
+     Implemented here as a faint SVG fractal-noise data-URI (a single extra background-image). */
+  body {
+    background-image:
+      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/></filter><rect width='120' height='120' filter='url(%23n)' opacity='0.025'/></svg>"),
+      radial-gradient(circle at 20% 10%, rgba(136,191,132,.05), transparent 40%),
+      radial-gradient(circle at 85% 0%, rgba(237,118,32,.04), transparent 35%);
+  }
+  /* Editorial section rhythm: hairline rule + leaf glyph beside the label (P4 + motif) */
+  .section-label.fg { display:flex; align-items:center; gap:10px; }
+  .section-label.fg::before { content:""; width:14px; height:14px; flex:none;
+    background:radial-gradient(circle at 35% 35%, var(--green-300), var(--green-700));
+    -webkit-mask:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M12 2C7 7 7 14 12 22C17 14 17 7 12 2Z'/></svg>") center/contain no-repeat;
+            mask:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M12 2C7 7 7 14 12 22C17 14 17 7 12 2Z'/></svg>") center/contain no-repeat; }
+  .section-label.fg::after { content:""; flex:1; border-top:1px solid var(--border-light); }
+  /* Cards gain a faint top hairline accent in the brand green — still border-not-shadow */
+  .card.fg { border-top:2px solid var(--green-300); }
+  /* The caught-up state uses the leaf motif as illustration, not a bare emoji */
+  .finite.fg .leaf { width:34px; height:34px; margin:0 auto 8px;
+    background:radial-gradient(circle at 35% 35%, var(--green-300), var(--green-700));
+    -webkit-mask:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M12 2C7 7 7 14 12 22C17 14 17 7 12 2Z'/></svg>") center/contain no-repeat;
+            mask:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M12 2C7 7 7 14 12 22C17 14 17 7 12 2Z'/></svg>") center/contain no-repeat; }
+</style>
+</head>
+<body>
+<div class="banner">Sprint 104 research mockup · <b>Direction B — Field Guide</b> · per A-plus verdict: optional, default-off token hooks (not the mandated scope) · throwaway, not wired to the app</div>
+
+<header class="topbar">
+  <div class="wordmark"><span class="seed"></span>Karmyq</div>
+  <nav class="topnav"><a class="active" href="#">Home</a><a href="#">Communities</a><a href="#">Become a provider</a></nav>
+  <div class="spacer"></div>
+  <div class="bell"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0"/></svg><span class="dot"></span></div>
+  <div class="me"><div class="avatar">A</div><span>Aisha</span></div>
+</header>
+
+<main class="shell">
+  <p class="eyebrow">Home</p>
+  <h1 class="headline">Good to see you, Aisha.</h1>
+  <p class="lede">A calm queue of decisions and asks, led by the relationships that make help possible.</p>
+
+  <div class="section-label fg">Needs your response</div>
+  <div class="card fg req">
+    <span class="path"><span class="av">SD</span> via Sofia Davis · direct connection</span>
+    <h3>A ride to my Thursday physio appointment</h3>
+    <p class="meta">Sofia Davis · PDX Rides Collective</p>
+    <div class="row">
+      <span class="pill warn">Soon</span><span class="pill">Ride</span>
+      <span style="flex:1"></span><button class="btn">Offer a ride</button>
+    </div>
+    <p class="quiet">Good match · about 1 mile away</p>
+  </div>
+
+  <div class="section-label fg">Open in your communities</div>
+  <div class="card fg req">
+    <span class="path"><span class="av">RO</span> fellow member via Raj Okafor</span>
+    <h3>Help moving a couch this weekend</h3>
+    <p class="meta">Marcus Lee · Northeast PDX Community Circle</p>
+    <div class="row"><span class="pill">Everyday help</span><span style="flex:1"></span><button class="btn">Offer to help</button></div>
+    <p class="quiet">Close by</p>
+  </div>
+
+  <div class="finite fg" style="margin-top:18px">
+    <div class="leaf"></div>
+    <p class="headline-sm">You're all caught up</p>
+    <p class="lede" style="margin-top:4px">That's the whole neighbourhood queue right now. We'll let you know when someone needs a hand.</p>
+  </div>
+</main>
+
+<p class="caption"><b>Direction B — Field Guide.</b> Everything in A, <b>plus one on-brand creative
+step</b>: a barely-there paper grain under the existing radial wash, a smooth Fraunces ramp, and a
+recurring seed/leaf motif (reused from the wordmark) as the section-divider glyph, the card top-rule,
+and the caught-up illustration — a printed neighbourhood field guide. Each addition is a token/CSS
+layer that a community re-skin can drop. Adds genuine character without leaving the shipped, approved
+aesthetic. <b>A-plus verdict: shipped as default-off token hooks, dialed up later — not the mandated S105 scope.</b></p>
+</body>
+</html>

@@ -607,6 +607,14 @@
       "status": "accepted",
       "description": "**Date**: 2026-06-15",
       "filename": "ADR-078-community-connection-reconciliation.md"
+    },
+    {
+      "slug": "adr-079-visual-design-system-v2",
+      "number": "079",
+      "title": "ADR-079: Karmyq Visual Design System v2 (finish the warm system + harden it into tokens)",
+      "status": "proposed",
+      "description": "**Status**: Proposed",
+      "filename": "ADR-079-visual-design-system-v2.md"
     }
   ]
 }

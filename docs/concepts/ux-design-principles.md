@@ -70,6 +70,27 @@ On Browse, the FAB is there because users who are browsing for others to help ar
 | Sprint 34 | Tab-based navigation, single-column content, FAB, filter chips |
 | Sprint 35 | Wizard / "Type-first: one decision per screen" — 3-click rule, SpeedDialFab, Get Service CTA |
 | Sprint 36 | Commitment depth (timeline, inline messaging) |
+| Sprint 88–90 | "Warm commons" visual system — the `.kq-*` shell, Fraunces + Hanken type, relationship-led cards, finite "caught up" states, visible decay |
+| Sprint 104 | Visual Design System v2 research — finish the warm system everywhere + harden it into tokens ([ADR-079](adr-079-visual-design-system-v2), proposed) |
+
+---
+
+## The Visual System: "Warm Commons" (v2 direction — proposed)
+
+Karmyq should feel like a **stewarded neighbourhood library**, not a SaaS dashboard and not a social
+engagement feed. Warmth is identity — people, stories, and the relationship reason for a connection
+lead every surface, in a humane voice, on a cream page with a Fraunces serif for human moments. Calm
+is discipline — finite queues that end with "you're all caught up", one quiet notification, no
+engagement counters, and color used only to carry meaning (green = action, orange = urgency, teal a
+sparing accent).
+
+The system is backed by **CSS-variable design tokens** so the whole app re-skins from one place, and
+each community can theme itself without breaking the shared structure. The direction for its next step
+(ADR-079, proposed) is to **finish** the system — every surface speaks the same visual language — and
+**harden it into tokens** so it can't drift again: one reading column, one card primitive (a hairline
+border, not a drop shadow), a smooth serif type ramp, status and urgency drawn from semantic tokens,
+one warm empty-state component, and a single quiet step toward more character (a whisper of paper-grain
+texture and a recurring seed/leaf motif) — evolution of the warm system, never a replacement of it.
 
 ## 3-Click Rule (Sprint 35)
 
