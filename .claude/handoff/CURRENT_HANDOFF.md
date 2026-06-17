@@ -1,112 +1,137 @@
-# Sprint 104 - UI Facelift Research - COMPLETE (PR open, no-deploy) → S105 next
+# Sprint 105 - UI Facelift Implementation - READY TO EXECUTE
 
-> **STATUS (2026-06-17):** Sprint 104 is **complete** on branch
-> `feature/sprint-104-ui-facelift-research`. All 9 plan tasks executed; the research deliverable is
-> written, ADR-079 ships **Proposed**, landing docs regenerated, SDLC gates passed (docs-appropriate),
-> guardrail clean (zero app-code changes). **PR open, awaiting Admin merge — no deploy** (research
-> sprint, no runtime change). Do NOT self-merge or push to master.
+> **STATUS (2026-06-17):** Sprint 105 is planned on branch
+> `feature/sprint-105-ui-facelift-implementation`. Scope is the full maintainer-approved **A-plus**
+> rollout from Sprint 104: foundation tokens/components first, then Request feed/detail fossils,
+> Profile + chrome, Dashboard Home, Community polish, docs, validation, PR, and deploy.
 >
-> **Deliverable shipped:** `docs/design/sprint-104-ui-facelift/` — `README.md` (index),
-> `ux-audit.md` (four-cluster scorecard + cross-cluster drift), `visual-research.md` (3 directions),
-> `recommendations.md` (per-cluster S105 scope), `mockups/` (A/B/C static HTML). Plus
-> `docs/adr/ADR-079-visual-design-system-v2.md` (Proposed) and refreshed concept
-> `docs/concepts/ux-design-principles.md`.
+> **Direction is decided:** A-plus = Direction A convergence is mandatory; Direction B contributes
+> token hooks only when a S105 finite-state/divider actually consumes them; Direction C is parked. Do
+> not re-run visual exploration.
 >
-> **Headline finding:** the warm-commons design system is real, good, and only **~60% adopted**. The
-> standalone Request feed (`pages/requests/index.tsx`), offers, and match detail are pre-S88 fossils
-> (match-% lead, off-palette raw Tailwind, SaaS chrome, wide grids).
+> **Cross-agent review folded in:** before implementation, Task 1 must force and record the Request
+> feed fate (reskin vs retire); tests should prioritize helper behavior + accessibility over brittle
+> class assertions; unused B hooks should be deferred; and any `EmptyState` change must validate all
+> direct consumers immediately after the foundation task.
 >
-> **DECIDED DIRECTION (maintainer, 2026-06-17): "A-plus".** Direction A (convergence — finish the warm
-> system everywhere, kill the fossils, standardize cards/width/status-color/type; **no new visual
-> personality required**) is the official S105 scope. Direction B contributes **optional, default-off
-> token hooks only** (paper grain / leaf motif / serif ramp; if used, sparse — finite states + section
-> dividers, enabled later after seeing it in the real app). Direction C parked. Verdict recorded in
-> `docs/design/sprint-104-ui-facelift/recommendations.md` → "Maintainer verdict".
->
-> **Sprint 103 is merged and deployed** (`124caea3` + `#97` founding-circle access lockdown,
-> `#98` reviewer env vars). BUG-011/BUG-012 shipped there — still marked `open` in `docs/BUGS.md`;
-> close when convenient.
+> **Sprint 104 state:** Sprint 104 research is complete and produced
+> `docs/design/sprint-104-ui-facelift/`, ADR-079 Proposed, and the maintainer verdict. If the S104 PR
+> has not merged before execution, verify the research files are present on the S105 branch before
+> implementing. Do not self-merge any PR.
 >
 > **LOCAL STATE:** `scripts/founding-circle-submissions.sh` remains untracked user/local work. Do not
 > stage, remove, or rewrite it unless the maintainer explicitly asks.
 
 ---
 
-## Quick Start — S105 (UI Facelift Implementation)
+## Quick Start
 
-1. Read this handoff + the S104 research: start at `docs/design/sprint-104-ui-facelift/README.md`,
-   then `recommendations.md` (the per-cluster S105 change list is the task source).
-2. Direction is already decided: **"A-plus"** (Direction A scope; B = default-off token hooks only; C
-   parked). No re-pick needed — see `recommendations.md` → "Maintainer verdict".
-3. New chat: run the `sprint-planning` skill to produce the S105 spec + plan from `recommendations.md`.
-4. S105 build order: **S105.0 token/component foundation first** (one reading-column token, one card
-   primitive, `kq-headline-sm`, status/color tokens, `kq-finite-state` everywhere, grain/leaf layer),
-   then **S105.1 Request feed** (reskin onto warm feed components or retire it), then Profile+chrome,
-   Dashboard (incl. empty-Home altitude), Community polish. Advance ADR-079 → Implemented as surfaces
-   land. Reconcile the version drift (`package.json` 11.10.0 vs handoff v11.12.0) in the S105 release.
-5. S105 IS a deploy sprint (unlike S104): per-surface PRs + demo validation.
+1. Read this handoff.
+2. Check out branch: `git checkout feature/sprint-105-ui-facelift-implementation` (or create it from
+   the correct base if absent).
+3. Open plan: `docs/superpowers/plans/2026-06-17-sprint-105-ui-facelift-implementation.md`.
+4. Run: `/execute-plan` (uses superpowers:subagent-driven-development).
+5. Start with Task 1 inventory, including the Request feed fate decision, then Task 2 TDD foundation
+   guardrails. Foundation lands before any surface migration.
 
 ---
 
-## S104 Sprint Goal (DONE)
+## Sprint Goal
 
-Produced one comprehensive **UI Facelift Research doc** that audits the current UI across all four
-surface clusters, researches reference products + aesthetic directions (anchored to the existing
-token system), and recommends a concrete redesign direction specific enough to scope S105.
-**Doc only — no implementation, no POC, no deploy.** ✅ Complete.
+Implement the Sprint 104 "A-plus" UI facelift across all frontend surface clusters so Karmyq speaks
+one warm commons design language from Dashboard to Request feed, Profile, chrome, and Community.
 
 ---
 
 ## Planning Artifacts
 
-- Spec: `docs/superpowers/specs/2026-06-17-sprint-104-ui-facelift-research-design.md`
-- Plan: `docs/superpowers/plans/2026-06-17-sprint-104-ui-facelift-research.md`
+- Spec: `docs/superpowers/specs/2026-06-17-sprint-105-ui-facelift-implementation-design.md`
+- Plan: `docs/superpowers/plans/2026-06-17-sprint-105-ui-facelift-implementation.md`
+- Source research: `docs/design/sprint-104-ui-facelift/README.md`
+- Sprint 105 task source: `docs/design/sprint-104-ui-facelift/recommendations.md`
+- ADR: `docs/adr/ADR-079-visual-design-system-v2.md`
 
 ---
 
 ## Scope
 
-### In Scope (research deliverables)
+### In Scope
 
-- **Current-state audit** of all four clusters against a shared scorecard (extend Sprint 87's).
-- **Reference & visual research** via the `frontend-design` skill, anchored to existing tokens.
-- **2–3 whole-product design directions** + one static throwaway HTML mockup each.
-- **Recommendation** of one direction + per-cluster change list sized for S105.
-- **ADR-079 (Proposed):** Karmyq Visual Design System v2 — source `docs/adr/ADR-079-*.md`.
-- **Landing docs (via generator):** edit source `docs/concepts/ux-design-principles.md` + add the
-  ADR-079 slug to `ADR_GROUPS` in `scripts/generate-docs.ts`, then `npm run generate-docs` and
-  `git add -f` the output. **Never hand-edit `apps/landing/src/data/docs/**` or `nav.json`.**
+- Shared visual foundation:
+  - `--measure`, `--radius-card`; `--texture` only if consumed by a S105 finite-state/divider.
+  - `kq-headline-sm`, consumer-backed motif/finite-state helpers, canonical `.kq-card` usage.
+  - Humanized status/urgency display helper with semantic token classes.
+- Request feed + detail cluster:
+  - Force the reskin-or-retire decision in Task 1, then implement that known fate for
+    `apps/frontend/src/pages/requests/index.tsx`.
+  - Remove `% Match` lead, Smart Filtering chrome, match-score slider, wide fossil grid.
+  - Migrate request detail, offers, and match detail to warm card/measure/status language.
+- Profile + global chrome:
+  - Migrate Profile body cards and raw colors.
+  - Tokenize Layout title bar and availability/on-duty control.
+- Dashboard:
+  - Tokenize selector row/on-duty pill.
+  - Use warm finite states.
+  - Add secondary Home altitude for established users with an empty queue.
+- Community:
+  - Tokenize pending/error states and make pending indicators non-color-only.
+- Docs:
+  - Advance ADR-079 as implementation lands.
+  - Update UX principles, affected guides, frontend context, onboarding copy if changed.
+  - Regenerate landing docs from source.
+- Version:
+  - Reconcile root `package.json` drift from `11.10.0` to S105 target `11.13.0`.
+- Full SDLC gates and demo validation.
 
 ### Out of Scope
 
-- Any edit to `apps/frontend/src/**`, `globals.css`, or `tailwind.config.js`.
-- A proof-of-concept page wired into the app.
-- Master deploy / demo-deploy validation (this is `no-deploy`).
-- API, schema, or platform-feature changes.
-- Moving ADR-079 to Accepted/Implemented (that's S105).
+- New backend endpoints, database migrations, service registry changes.
+- New visual direction beyond A-plus.
+- App-wide texture enabled by default.
+- Reconnect CTA, Dibs relationship-routing follow-up, member forget/export, service consolidation,
+  mobile parity beyond responsive validation of touched frontend surfaces.
+- Self-merging PRs or direct commits to `master`.
 
 ---
 
 ## Critical Implementation Notes
 
-1. **Research-first, no app code.** Do not touch `apps/frontend/src/pages/**`, `src/components/**`,
-   `globals.css`, or `tailwind.config.js`. Tempting "quick fixes" become S105 recommendations.
-2. **Anchor to the existing token system.** Express every direction as deltas to the existing
-   CSS-variable tokens (`apps/frontend/src/styles/globals.css` + `tailwind.config.js`). Per-community
-   ThemeProvider skins override tokens — any direction must survive re-skinning.
-3. **Extend Sprint 87, don't restart.** Reuse `docs/design/sprint-87/scorecard.md`, `ux-audit.md`,
-   `visual-research.md` as the baseline; cite what changed since S87.
-4. **Mockups are throwaway research artifacts.** Static HTML under
-   `docs/design/sprint-104-ui-facelift/mockups/`; no app imports, no API calls, not route-reachable.
-5. **No-deploy sprint.** No merge+deploy task; ships via a reviewed PR. No demo-deploy validation
-   (no runtime change). Do not push docs alone to master to "deploy."
-6. **frontend-design skill is the direction engine.** Feed it existing tokens + the cluster audit as
-   constraints; avoid generic Tailwind defaults.
-7. **ADR-079 ships Proposed, not Implemented.** S105 advances its status.
-8. **Version drift to flag (not fix here):** `package.json` reads `11.10.0` while the S103 handoff
-   tracks `v11.12.0`. Note it as S105 housekeeping; do not bump versions in a research sprint.
-9. **Demo screenshots optional.** Use the documented demo UX-audit access; fall back to local
-   `npm run dev` or annotated component inventory if the demo is unreachable.
+1. **Direction is already decided: A-plus.** Do not re-run visual exploration or pick a new aesthetic.
+   Direction A convergence is mandatory; B hooks are default-off and sparse; C is parked.
+2. **Foundation lands first.** Add the tokens/helpers/classes before touching the surfaces, so every
+   cluster consumes the same vocabulary instead of inventing local fixes.
+3. **Force the Request feed fate early.** Decide reskin vs retire during Task 1, record the decision
+   in the handoff, and write Task 4 tests against that known answer. Do not leave the highest-risk
+   route decision to mid-execution.
+4. **No unused B hooks.** `--texture` must default to off/none, and texture/motif hooks land only if a
+   S105 finite-state or divider consumes them. If there is no consumer, defer the hook instead of
+   shipping dead CSS.
+5. **One card language.** Live surfaces should migrate to `.kq-card` and border-based separation.
+   Avoid new shadows, new card radii, or nested cards.
+6. **One content measure by default.** Use the new measure token for member-facing reading surfaces.
+   Dense admin tools may opt out explicitly, but fossils must not keep `max-w-7xl` by habit.
+7. **No leading match percentage.** Match signal is qualitative quiet metadata via
+   `describeMatchSignal()`. Do not render `{matchScore}% Match` as a visual lead.
+8. **Semantic color only.** Status, urgency, errors, availability, and pending dots use tokenized
+   semantic colors plus text/aria where needed. No new raw `red-*`, `yellow-*`, `green-*`, or
+   `gray-*` status styling.
+9. **Test behavior and accessibility first.** Prefer helper output, route fate, visible copy, aria,
+   keyboard, and not-color-only assertions. Class-string assertions are allowed only as narrow
+   guardrails for fossil-pattern removal, not as the main proof of quality.
+10. **EmptyState has broader blast radius.** If `EmptyState` changes, validate all direct consumers:
+    requests, offers, communities index, CommitmentsTab, MyRequestsTab, and UnifiedFeed empty/error
+    states. Run the full frontend suite immediately after the foundation task.
+11. **Accessibility travels with the migration.** Verify contrast, visible focus, keyboard reachability,
+   mobile tap targets, and no color-only state on every touched surface.
+12. **Frontend-only unless re-scoped.** No database, service, or registry change is expected. If an
+   implementation task seems to need a backend endpoint, pause and ask for re-scope.
+13. **Version drift is part of the sprint.** Reconcile root `package.json` from `11.10.0` to the
+    correct S105 release target (`11.13.0`) and make the docs agree.
+14. **Docs are source-first.** Edit Markdown sources and generator mappings, then regenerate landing
+    JSON. Do not hand-edit generated landing docs.
+15. **Human validation is required.** This is a deploy sprint. Validate desktop and responsive mobile
+    web flows for Dashboard, Request feed/detail, Offers, Match detail, Profile, Community, and the
+    EmptyState ripple surfaces after deploy. This does not include React Native mobile parity.
 
 ---
 
@@ -114,28 +139,37 @@ token system), and recommends a concrete redesign direction specific enough to s
 
 Follow the plan exactly:
 
-1. Branch + baseline review (read S87 docs, token system, anchoring UX ADRs).
-2. Current-state audit — Dashboard/Home + Request feed/detail (+ shared scorecard).
-3. Current-state audit — Community page + Profile/global chrome (+ cross-cluster drift findings).
-4. Reference & visual research via `frontend-design` skill.
-5. Design-direction synthesis + 2–3 static mockups.
-6. Recommendation + per-cluster S105 scope + primary README.
-7. ADR-079 (Proposed) source + concept source + `ADR_GROUPS` slug → `npm run generate-docs` → `git add -f`.
-8. SDLC gates: `/simplify`, `/code-review`, `/security-review` (docs-appropriate) + guardrail check.
-9. Final verification + PR (no deploy) + handoff update.
+1. Branch, baseline, surface inventory, and Request feed fate decision.
+2. TDD - foundation guardrails.
+3. Implement shared token and component foundation; run full frontend tests immediately after if
+   `EmptyState` changes.
+4. TDD - Request feed/detail/offers/match cluster.
+5. Implement Request feed + detail convergence.
+6. TDD - Profile + global chrome.
+7. Implement Profile + global chrome convergence.
+8. TDD - Dashboard Home polish.
+9. Implement Dashboard Home convergence and secondary altitude.
+10. TDD - Community light polish.
+11. Implement Community reference-surface polish.
+12. User guides, ADR, landing docs, and version reconciliation.
+13. Promote/organize tests and run frontend verification.
+14. SDLC quality gates.
+15. Final pre-push and human validation.
+16. Merge + Deploy.
 
 ---
 
 ## Carry-Forward / Known Issues
 
-- **BUG-011 / BUG-012** fixed in S103; still marked `open` in `docs/BUGS.md` — close when convenient.
+- **S104 PR may still be open** depending on when S105 starts. Verify S104 research artifacts are on
+  the S105 base branch.
 - **Reconnect CTA remains deferred:** restore only after real peer messaging or a directed-ask flow.
-- **Responder Home actionability** (empty Home for established users; ~335 `proposed` matches that
-  never surface) is an S104+ functional candidate NOT chosen for S104 — keep on the list.
-- **Dibs server-side relationship routing** (IDEAS 2026-06-09, ADR-072 next step) still open.
-- **Member forget/export** privacy follow-on still open.
-- **Pre-existing security drift:** GitHub Dependabot previously showed 1 high advisory on default
-  branch while local `npm audit` was clean. Track under ADR-059 SLA.
+- **Responder Home actionability** remains a functional candidate. S105 only adds secondary Home
+  altitude for empty queues; do not solve proposed-match surfacing unless explicitly re-scoped.
+- **Dibs server-side relationship routing** remains open.
+- **Member forget/export** privacy follow-on remains open.
+- **Pre-existing security drift:** Dependabot/CodeQL alerts follow ADR-059/ADR-060 SLA. The recurring
+  request-forgery false positive on `apps/frontend/src/lib/api.ts` is known.
 
 ---
 
@@ -145,15 +179,11 @@ Follow the plan exactly:
 - **S101 (done):** Actionability + State Truth (v11.10.0).
 - **S102 (done):** Visible Memory + Re-warm First Step (v11.11.0).
 - **S103 (done):** Governance + Intake Clarity (v11.12.0).
-- **S104 (done / this sprint):** UI Facelift Research — whole-product visual audit + recommended
-  direction (**"A-plus"**: A scope + default-off B hooks; C parked), ADR-079 Proposed. Doc only,
-  no-deploy. PR open.
-- **S105 (next):** UI Facelift Implementation — execute the **A-plus** scope surface-by-surface from
-  `docs/design/sprint-104-ui-facelift/recommendations.md`; foundation tokens first, Request feed next;
-  net-new code, token changes, per-surface rollout, deploy. Advances ADR-079 to Accepted →
-  Implemented. Reconcile the version drift here.
-- **Deferred:** reconnect CTA (needs a real target); responder Home actionability; Dibs relationship
-  routing; member forget/export; Service Consolidation Phase 2; mobile parity.
+- **S104 (done / PR flow):** UI Facelift Research - A-plus verdict, ADR-079 Proposed, no deploy.
+- **S105 (this sprint):** UI Facelift Implementation - full A-plus rollout, ADR-079 implemented,
+  version reconciled to v11.13.0, deploy.
+- **Deferred:** reconnect CTA; responder Home actionability; Dibs relationship routing; member
+  forget/export; Service Consolidation Phase 2; mobile parity.
 
 ---
 
@@ -178,7 +208,7 @@ Follow the plan exactly:
   `docs/design/sprint-84-unified-feed/`. Extend, don't restart.
 - **Landing page docs:** `apps/landing/src/data/docs/` is gitignored - `git add -f` when generated
   docs must be committed. Generated by `scripts/generate-docs.ts`; edit sources, never generated JSON.
-- **ADR numbering:** ADR-078 is the highest shipped; next free = **079** (used by this sprint, Proposed).
+- **ADR numbering:** ADR-079 exists for visual design system v2. Next free = **080**.
 - **JWT field** is `communities`, not `communityMemberships`.
 - **Schema is `communities.communities`** (plural schema name); auth tables are `auth.*`.
 - **API response unwrap:** `createApiClient` interceptor already unwraps the envelope - use `res.data`,
@@ -193,13 +223,13 @@ Follow the plan exactly:
 
 ### Workflow Gotchas
 
-- Every sprint runs testing, `/simplify`, `/code-review`, and `/security-review` (docs-appropriate
-  for a research sprint).
-- Every sprint updates docs; for this sprint the docs ARE the deliverable.
-- No docs-only push to `master`; this `no-deploy` sprint ships via a reviewed PR, not a deploy push.
+- Every sprint runs testing, `/simplify`, `/code-review`, and `/security-review`.
+- Every sprint updates docs and landing docs.
+- No docs-only push to `master`; master push triggers a full deploy.
 - nginx.conf changes take effect on the next deploy (deploy.sh copies + reloads).
 - `nav.json` silently reverts - always grep-verify after editing.
-- Widely-rendered components using `useRouter` need the global `apps/frontend/jest.setup.js` router mock.
+- Widely-rendered components using `useRouter` need the global `apps/frontend/jest.setup.js` router
+  mock.
 
 ### Deploy Drift Watch
 
