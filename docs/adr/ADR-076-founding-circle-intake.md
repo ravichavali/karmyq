@@ -82,9 +82,16 @@ Sprint 103 adds authenticated reviewer tooling:
 - `PATCH /founding-circle/submissions/:id/status` moves a submission among `new`, `reviewed`,
   `contacted`, and `archived`.
 
-For this sprint, a founding-circle reviewer is any authenticated user who is an active admin in at
-least one community. That mirrors the existing admin UI gate and deliberately avoids introducing a
-new platform-admin role.
+For this sprint, a founding-circle reviewer must satisfy both checks:
+
+1. The authenticated user is explicitly allowlisted in `FOUNDING_CIRCLE_REVIEWER_IDS` or
+   `FOUNDING_CIRCLE_REVIEWER_EMAILS`.
+2. The authenticated user is still an active admin in at least one community.
+
+If neither allowlist is configured, the review endpoints deny every authenticated user with
+`403 FORBIDDEN`. This protects real founding-circle messages on the demo environment, where shared
+test credentials may include community-admin users. It deliberately avoids introducing a new
+platform-admin table or role during Sprint 103 while making demo access opt-in instead of broad.
 
 ## Consequences
 
@@ -102,6 +109,9 @@ new platform-admin role.
 - **Public unauthenticated write.** Mitigated by strict input validation, parameterized SQL, the
   honeypot, and the app-wide rate limiter; there is no dedup, so a determined actor could submit
   repeatedly within the rate limit.
+- **Reviewer access depends on secret deploy config.** The in-app review queue is deny-by-default
+  unless `FOUNDING_CIRCLE_REVIEWER_IDS` or `FOUNDING_CIRCLE_REVIEWER_EMAILS` contains the reviewer.
+  Demo/test community admins cannot read real submissions unless explicitly allowlisted.
 - **Cross-origin depends on deploy config.** `ALLOWED_ORIGINS` **must** include the landing origins
   (`https://karmyq.org`, `www`) at deploy, or the browser blocks the cross-origin POST at the CORS
   preflight. An absolute `NEXT_PUBLIC_API_URL` (e.g. `https://karmyq.com/api`) is optional but
@@ -112,5 +122,5 @@ new platform-admin role.
 ## Future
 
 When email/Slack transport is built, a later sprint can emit a `founding_circle_submitted` event on
-insert and deliver it. A future architecture decision can also replace the "any active community
-admin" reviewer rule with a true platform-admin role if that separation becomes necessary.
+insert and deliver it. A future architecture decision can also replace the env allowlist with a true
+platform-admin role if that separation becomes necessary.

@@ -91,8 +91,8 @@ CREATE TABLE auth.founding_circle_submissions (
 ```
 
 ### Tables Read by This Service
-- `communities.members` - Sprint 103 founding-circle reviewer check: any active community admin can
-  list/update intake submissions.
+- `communities.members` - Sprint 103 founding-circle reviewer check: allowlisted reviewers must also
+  be active community admins to list/update intake submissions.
 
 ## API Endpoints
 
@@ -127,9 +127,12 @@ per-route limiter — the app-wide `globalRateLimiter` applies.
 first, optionally filtered by `status=new|reviewed|contacted|archived`, with `limit` and `offset`
 pagination.
 
-For Sprint 103, a reviewer is any authenticated user with at least one active
-`communities.members` row where `role='admin'`. Non-reviewers receive `403 FORBIDDEN`. No email,
-Slack, webhook, queue event, or notification is sent.
+For Sprint 103, a reviewer must be explicitly allowlisted via `FOUNDING_CIRCLE_REVIEWER_IDS` or
+`FOUNDING_CIRCLE_REVIEWER_EMAILS` and must also have at least one active `communities.members` row
+where `role='admin'`. If neither allowlist is configured, every authenticated user receives
+`403 FORBIDDEN`. This is intentionally stricter than the generic admin UI gate because demo/test
+community-admin credentials must not expose real founding-circle messages. No email, Slack, webhook,
+queue event, or notification is sent.
 
 **Response (`200`):**
 ```json
@@ -507,6 +510,10 @@ DATABASE_URL=postgresql://user:password@localhost:5432/karmyq_db
 # JWT
 JWT_SECRET=your-secret-key-here  # MUST be strong in production
 JWT_EXPIRATION=7d                # Token validity period
+
+# Founding-circle review queue (comma-separated; deny-by-default when omitted)
+FOUNDING_CIRCLE_REVIEWER_IDS=
+FOUNDING_CIRCLE_REVIEWER_EMAILS=
 
 # Logging
 LOG_LEVEL=info                   # debug, info, warn, error
