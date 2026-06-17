@@ -58,8 +58,10 @@ describe('Sprint 90 — ReWarmingNudge', () => {
     })
     render(<ReWarmingNudge communityId="c1" />)
     expect(await screen.findByText(/Di/)).toBeInTheDocument()
-    // Sprint 102 reframed the re-warm copy to an optional "reconnect if this bond still matters".
-    expect(screen.getByText(/reconnect if this bond still matters/i)).toBeInTheDocument()
+    // The reconnect CTA was removed (it linked to a nonexistent /messages route); the card is now
+    // informational only and renders no link.
+    expect(screen.getByText(/close to\s+fading from active memory/i)).toBeInTheDocument()
+    expect(screen.queryByRole('link')).toBeNull()
   })
 })
 
@@ -103,7 +105,7 @@ describe('Sprint 90 — MemorySection', () => {
       },
     })
     render(<MemorySection communityId="c1" />)
-    expect(await screen.findByText(/reconnect if this bond still matters/i)).toBeInTheDocument()
+    expect(await screen.findByText(/Helping each other again would keep it alive/i)).toBeInTheDocument()
     expect(screen.getByText(/Di/)).toBeInTheDocument()
   })
 })

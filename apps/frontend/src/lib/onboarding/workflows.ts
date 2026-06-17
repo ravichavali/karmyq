@@ -62,7 +62,7 @@ export const WORKFLOWS: Record<string, WorkflowDef> = {
       },
       {
         title: 'Relationships that fade — and how to keep them',
-        body: "Karmyq is designed to forget. On How we're connected, a How memory fades legend explains why some bonds look softer, and a gentle, optional nudge invites you to reconnect with one that's close to being let go — or you can let it fade. Your profile's memory section shows the same in plain words — active bonds you're tending, ones going quiet, and ones nearly forgotten — even when your karma display is off. The What Karmyq Remembers page explains exactly what's kept versus let go. Forgetting the details never touches your karma or trust.",
+        body: "Karmyq is designed to forget. On How we're connected, a How memory fades legend explains why some bonds look softer, and a gentle, optional notice shows which bonds are close to being let go — helping each other again keeps a bond alive, or you can let it fade. Your profile's memory section shows the same in plain words — active bonds you're tending, ones going quiet, and ones nearly forgotten — even when your karma display is off. The What Karmyq Remembers page explains exactly what's kept versus let go. Forgetting the details never touches your karma or trust.",
       },
     ],
   },

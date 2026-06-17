@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import Link from 'next/link'
 import { socialGraphService } from '@/lib/api'
 
 /** A bond that has decayed to the nearly-forgotten tier — about to be swept. */
@@ -20,9 +19,14 @@ interface ReWarmingNudgeProps {
 }
 
 /**
- * Sprint 90 / ADR-070 — the re-warming nudge. When a once-strong bond has gone quiet enough to be
- * nearly forgotten, gently invite the member to reconnect before it fades. Renders NOTHING when there
- * are no nearly-forgotten bonds (no empty-state placeholder).
+ * Sprint 90 / ADR-070 — surfaces bonds that have gone quiet enough to be nearly forgotten, so the
+ * member can see what is close to being let go. Renders NOTHING when there are none (no empty-state
+ * placeholder).
+ *
+ * NOTE (2026-06-16): the per-peer "Reconnect" action was removed. It linked to `/messages?to=<peerId>`,
+ * a route that never existed — Karmyq messaging is match-anchored (a conversation only exists via a
+ * help exchange), so there is no peer-to-peer DM to land on. The card is informational until a real
+ * reconnect destination exists; restore a CTA here once peer messaging (or a directed-ask flow) ships.
  */
 export default function ReWarmingNudge({ communityId, relationships, className = '' }: ReWarmingNudgeProps) {
   const [fading, setFading] = useState<FadingRelationship[] | null>(relationships ?? null)
@@ -50,28 +54,21 @@ export default function ReWarmingNudge({ communityId, relationships, className =
   if (!fading || fading.length === 0) return null
 
   return (
-    <section className={`kq-card border-l-4 border-l-primary ${className}`} aria-label="Relationships to re-warm">
+    <section className={`kq-card border-l-4 border-l-primary ${className}`} aria-label="Bonds close to being let go">
       <p className="kq-section-label !mt-0">Close to being let go</p>
       <ul className="grid gap-3">
         {fading.map((rel) => (
-          <li key={rel.peerId} className="flex items-center justify-between gap-3">
-            <div className="min-w-0">
-              <p className="text-sm text-text">
-                You and <span className="font-semibold">{rel.peerName}</span> have a bond that is close
-                to fading from active memory — reconnect if this bond still matters.
-              </p>
-              <p className="kq-quiet-meta">
-                {rel.lastInteractionAt
-                  ? `Last connected ${new Date(rel.lastInteractionAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
-                  : 'It has been a while'}
-              </p>
-            </div>
-            <Link
-              href={`/messages?to=${encodeURIComponent(rel.peerId)}`}
-              className="kq-pill flex-none border-primary-medium bg-primary-light text-primary-dark hover:opacity-90"
-            >
-              Reconnect
-            </Link>
+          <li key={rel.peerId} className="min-w-0">
+            <p className="text-sm text-text">
+              You and <span className="font-semibold">{rel.peerName}</span> have a bond that is close to
+              fading from active memory. Helping each other again would keep it alive — or you can let
+              it fade.
+            </p>
+            <p className="kq-quiet-meta">
+              {rel.lastInteractionAt
+                ? `Last connected ${new Date(rel.lastInteractionAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
+                : 'It has been a while'}
+            </p>
           </li>
         ))}
       </ul>

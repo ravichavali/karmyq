@@ -50,7 +50,7 @@ function MemoryLegend() {
         </div>
         <div>
           <span className="font-semibold text-text">Nearly forgotten bonds</span>
-          <p>You can reconnect, or let them fade from active memory.</p>
+          <p>Helping each other again keeps them alive, or you can let them fade from active memory.</p>
         </div>
       </div>
     </section>

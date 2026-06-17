@@ -142,3 +142,9 @@ the correct layer, add a regression test (or document if not reproducible). See
 When a community split happens, I think the admin of the parent group is assigned to both the groups. I am not sure if that is correct. We need to keep the relation between the communities, but having the same admin might defeat the purpose.
 
 ---
+
+## BUG-012 · [2026-06-16] · open
+
+We had a regression between offer help and offer service distinction.
+
+---

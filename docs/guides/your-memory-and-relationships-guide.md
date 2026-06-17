@@ -17,14 +17,17 @@ Bonds you've drifted from appear dimmer and more washed-out. Hover over a faded 
 status spelled out. This isn't a judgement — it's an honest picture of which relationships are alive
 right now.
 
-## The re-warming nudge
+## The nearly-forgotten notice
 
-When a connection you once relied on is nearly forgotten, Karmyq shows a gentle prompt:
+When a connection you once relied on is nearly forgotten, Karmyq shows a gentle, informational note:
 
-> *You and Sam used to help each other often — reconnect before it fades.*
+> *You and Sam have a bond that is close to fading from active memory. Helping each other again would
+> keep it alive — or you can let it fade.*
 
-Tap **Reconnect** to open a message and pick things back up. The nudge only appears when there's
-genuinely a bond worth saving — if nothing is fading, you'll never see it.
+It's awareness, not a task: there's no reminder to dismiss and nothing you're failing at. On Karmyq a
+bond re-warms through a shared help exchange, so the way to keep it is simply to help each other again.
+The note only appears when there's genuinely a bond going quiet — if nothing is fading, you'll never
+see it.
 
 ## Your profile's memory section
 
@@ -60,7 +63,7 @@ fading; per-item delete and export are planned for a future release.
 
 When Karmyq says a bond is nearly forgotten, it is not a warning that you did something wrong. It means
 the relationship has been quiet long enough that the platform is close to letting it leave active
-memory. You can reconnect if the bond still matters, or you can let it fade.
+memory. Helping each other again keeps the bond alive if it still matters, or you can let it fade.
 
 Your Memory section on the profile shows this without needing karma display turned on: active
 relationships you're tending, bonds that are going quiet, and the ones close to being let go — each
