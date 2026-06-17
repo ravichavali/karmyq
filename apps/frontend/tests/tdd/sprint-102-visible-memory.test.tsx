@@ -83,8 +83,8 @@ describe('Sprint 102 - visible profile memory', () => {
   })
 })
 
-describe('Sprint 102 - re-warm first step', () => {
-  it('frames reconnect as optional memory care with one action', () => {
+describe('Sprint 102 - nearly-forgotten bonds notice', () => {
+  it('surfaces the bond as informational, with no dead reconnect action', () => {
     render(
       <ReWarmingNudge
         communityId="community-1"
@@ -94,7 +94,9 @@ describe('Sprint 102 - re-warm first step', () => {
 
     expect(screen.getByText(/Close to being let go/i)).toBeInTheDocument()
     expect(screen.getByText(/Sam Rivera/)).toBeInTheDocument()
-    expect(screen.getByText(/reconnect if this bond still matters/i)).toBeInTheDocument()
-    expect(screen.getAllByRole('link', { name: /Reconnect/i })).toHaveLength(1)
+    expect(screen.getByText(/Helping each other again would keep it alive/i)).toBeInTheDocument()
+    // The Reconnect button was removed — it pointed at a nonexistent /messages route, and Karmyq has
+    // no peer DM (messaging is match-anchored). The card must not render any dead link.
+    expect(screen.queryByRole('link')).toBeNull()
   })
 })

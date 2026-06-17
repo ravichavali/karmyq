@@ -30,5 +30,5 @@ Completing a help exchange strengthens a tie; endorsements, karma, and shared ev
 
 Some lines look softer because Karmyq weights recent, tended relationships more than old ones. A fading
 bond is still present — it has just been quieter lately. A nearly forgotten bond is close to leaving
-active memory; you may reconnect, or let it fade. The graph carries a small **How memory fades** legend
-so this is readable in words, not only in line opacity.
+active memory; helping each other again keeps it alive, or you can let it fade. The graph carries a
+small **How memory fades** legend so this is readable in words, not only in line opacity.

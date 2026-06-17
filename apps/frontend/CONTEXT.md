@@ -17,8 +17,11 @@ Productizes the existing Sprint 90 forgetting/decay surfaces — no new endpoint
   karma display (single source of `selectedCommunityId` drives both karma stats and memory).
 - **Memory is text-legible.** `MemorySection` chips now carry a plain-text tier label
   (`Active`/`Warm`/`Fading`/`Nearly forgotten`/`Let go`) — fading no longer relies on opacity alone.
-- **Re-warm is optional/gentle.** `ReWarmingNudge` reframes nearly-forgotten bonds as "Close to being
-  let go" with one non-punitive "Reconnect" action (`/messages?to=`), self-suppressing when none.
+- **Nearly-forgotten bonds are informational.** `ReWarmingNudge` surfaces bonds "Close to being let go"
+  (self-suppressing when none). The per-peer "Reconnect" CTA was **removed** (2026-06-16): it linked to
+  `/messages?to=<peerId>`, a route that never existed, and Karmyq messaging is match-anchored (no peer
+  DM to land on). Copy now frames re-warming as "helping each other again", with no dead link. Restore a
+  CTA once peer messaging or a directed-ask flow ships.
 - **Community graph memory legend.** `TrustGraphTab` renders a "How memory fades" legend (strong/warm,
   fading, nearly forgotten) above the re-warm nudge; no change to graph fetching or `decayTier` flow.
 - **Community pulse reads as care.** `CommunityPulse` helped row now says "N neighbours showed up for

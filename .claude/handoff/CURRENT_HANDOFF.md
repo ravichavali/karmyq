@@ -1,20 +1,34 @@
-# Sprint 102 - Visible Memory + Re-warm First Step - IMPLEMENTED, PR #94 GREEN (awaiting merge)
+# Sprint 102 - Visible Memory + Re-warm First Step - MERGED + DEPLOYED (reconnect follow-up in PR)
 
-> **STATUS (2026-06-16):** Sprint 102 is **implemented and committed** on
-> `feature/sprint-102-visible-memory-rewarm` (commit `26e3988a`). **PR #94** is open against `master`
-> with **all CI checks green** (backend unit+regression, frontend, integration, CodeQL, Code Scanning
-> Gate ADR-060, Security Audit, Docker builds, pr-contract). All four SDLC gates ran clean: testing,
-> `/simplify` (no fixes), `/code-review` (no findings), `/security-review` (no vulns). **Not yet
-> merged** — per plan Task 14, Admin owns merge authority; master push triggers the demo deploy.
-> Next action: Admin authorizes merge → run `/deploy` and monitor GitHub Actions deploy → run the
-> post-deploy validation checklist below.
+> **STATUS (2026-06-16):** Sprint 102 is **merged and deployed** on karmyq.com. **PR #94** squash-merged
+> to `master` (`298c9fc6`); CI/CD run `27654806731` succeeded — **Deploy to Demo green in 6m50s**
+> (deploy.sh health-check + auto-rollback passed). Codex cross-agent review ran and its 3 findings
+> (stale Sprint 90 TDD copy, handoff/BUGS.md note, MemorySection stale-on-switch) were all resolved
+> before merge. All four SDLC gates ran clean: testing, `/simplify` (no fixes), `/code-review` (no
+> findings), `/security-review` (no vulns).
+>
+> **FOLLOW-UP (branch `fix/hide-reconnect-until-messaging`):** the per-peer "Reconnect" button was a dead
+> link — it pointed at `/messages?to=<peerId>`, a route that never existed, and Karmyq has no peer DM
+> (messaging is match-anchored). Decision: **remove the button**, keep the nudge informational
+> ("helping each other again keeps a bond alive"), and soften the docs/onboarding/legend that promised a
+> clickable reconnect. Restore a CTA only once real peer messaging (or a directed-ask flow) ships.
+> Also folds in `docs/BUGS.md` BUG-012 (offer-help vs offer-service regression — logged, not yet fixed).
+>
+> **Post-deploy UI validation still to run** (login `maria.reyes@test.karmyq.com / password123`):
+> 1. Profile memory shows for a selected community **even with karma display off**; fading/
+>    nearly-forgotten states are readable text; `/about/memory` link works.
+> 2. Community **How we're connected** shows the "How memory fades" legend; re-warm nudge is gentle/
+>    optional; graph still renders.
+> 3. Community Home helped row reads "N neighbours showed up for one another"; zero rows hidden; open
+>    asks row links to `/communities/:id/open-asks`.
+> 4. `/about/memory` retention windows still load.
 >
 > **Pre-existing (not this PR):** GitHub Dependabot shows 1 high advisory on the default branch; local
 > `npm audit --package-lock-only --audit-level=high` is clean. Tracked under ADR-059 SLA.
 >
-> **Branch state:** `docs/BUGS.md` (BUG-011, committed `920e62f9` via the bugs skill) is intentionally
-> part of this branch/PR. Untracked `scripts/founding-circle-submissions.sh` is separate user/local work,
-> not part of Sprint 102.
+> **Local state:** `docs/BUGS.md` (BUG-011, `920e62f9` via the bugs skill) shipped with the sprint.
+> Untracked `scripts/founding-circle-submissions.sh` is separate user/local work, intentionally kept
+> out of the PR (added then dropped before merge); it remains on disk untracked.
 
 ---
 
