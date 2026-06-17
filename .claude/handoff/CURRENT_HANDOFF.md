@@ -14,9 +14,14 @@
 >
 > **Headline finding:** the warm-commons design system is real, good, and only **~60% adopted**. The
 > standalone Request feed (`pages/requests/index.tsx`), offers, and match detail are pre-S88 fossils
-> (match-% lead, off-palette raw Tailwind, SaaS chrome, wide grids). **Recommended direction: B —
-> "Field Guide"** (finish the system everywhere + harden into tokens + one on-brand step: paper grain,
-> serif ramp, leaf motif). A (convergence-only) is the budget fallback; C (Almanac) is parked.
+> (match-% lead, off-palette raw Tailwind, SaaS chrome, wide grids).
+>
+> **DECIDED DIRECTION (maintainer, 2026-06-17): "A-plus".** Direction A (convergence — finish the warm
+> system everywhere, kill the fossils, standardize cards/width/status-color/type; **no new visual
+> personality required**) is the official S105 scope. Direction B contributes **optional, default-off
+> token hooks only** (paper grain / leaf motif / serif ramp; if used, sparse — finite states + section
+> dividers, enabled later after seeing it in the real app). Direction C parked. Verdict recorded in
+> `docs/design/sprint-104-ui-facelift/recommendations.md` → "Maintainer verdict".
 >
 > **Sprint 103 is merged and deployed** (`124caea3` + `#97` founding-circle access lockdown,
 > `#98` reviewer env vars). BUG-011/BUG-012 shipped there — still marked `open` in `docs/BUGS.md`;
@@ -31,7 +36,8 @@
 
 1. Read this handoff + the S104 research: start at `docs/design/sprint-104-ui-facelift/README.md`,
    then `recommendations.md` (the per-cluster S105 change list is the task source).
-2. Confirm the maintainer's direction pick (recommendation = **B "Field Guide"**; A is the fallback).
+2. Direction is already decided: **"A-plus"** (Direction A scope; B = default-off token hooks only; C
+   parked). No re-pick needed — see `recommendations.md` → "Maintainer verdict".
 3. New chat: run the `sprint-planning` skill to produce the S105 spec + plan from `recommendations.md`.
 4. S105 build order: **S105.0 token/component foundation first** (one reading-column token, one card
    primitive, `kq-headline-sm`, status/color tokens, `kq-finite-state` everywhere, grain/leaf layer),
@@ -140,8 +146,9 @@ Follow the plan exactly:
 - **S102 (done):** Visible Memory + Re-warm First Step (v11.11.0).
 - **S103 (done):** Governance + Intake Clarity (v11.12.0).
 - **S104 (done / this sprint):** UI Facelift Research — whole-product visual audit + recommended
-  direction (**B "Field Guide"**), ADR-079 Proposed. Doc only, no-deploy. PR open.
-- **S105 (next):** UI Facelift Implementation — execute Direction B surface-by-surface from
+  direction (**"A-plus"**: A scope + default-off B hooks; C parked), ADR-079 Proposed. Doc only,
+  no-deploy. PR open.
+- **S105 (next):** UI Facelift Implementation — execute the **A-plus** scope surface-by-surface from
   `docs/design/sprint-104-ui-facelift/recommendations.md`; foundation tokens first, Request feed next;
   net-new code, token changes, per-surface rollout, deploy. Advances ADR-079 to Accepted →
   Implemented. Reconcile the version drift here.

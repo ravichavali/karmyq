@@ -1,51 +1,65 @@
 # Sprint 104 — Recommendation & Sprint 105 Scope
 
 **Date:** 2026-06-17
-**Status:** Proposed direction for maintainer review (no implementation in S104).
+**Status:** **DECIDED (2026-06-17, maintainer) — "A-plus".** Direction A is the official S105 scope;
+Direction B contributes optional token hooks only (default off / sparse); Direction C parked. Verdict
+recorded in §"Maintainer verdict" below.
 **Inputs:** [`ux-audit.md`](ux-audit.md) (current state + cross-cluster drift),
 [`visual-research.md`](visual-research.md) (references + three directions), [`mockups/`](mockups/)
 (A/B/C contact sheet).
 
 ---
 
-## Recommendation: **Direction B — "Field Guide"**
+## Recommendation (as decided): **"A-plus" — Direction A scope, B-compatible foundation, C parked**
 
-Adopt **Direction B**: finish the warm-commons design system across all four clusters **and** add one
-on-brand creative step (a whisper of paper grain, a smooth Fraunces type ramp, and a recurring
-seed/leaf motif), all expressed as token deltas that survive per-community re-skinning.
+> The S104 research originally led with Direction B. On review the maintainer chose **"A-plus"**:
+> adopt **Direction A** as the official, mandated S105 scope — *finish the warm system everywhere*,
+> with **no new visual personality required** — while building the foundation so it is
+> **B-compatible**: add the token hooks for paper grain / leaf motif / a smoother serif ramp, but ship
+> the expressive layer **off by default or applied sparingly** (finite states and section dividers
+> only), and only after seeing it in the real app. **Park C.**
 
-### Why B over A and C
+**Why this is the right call (and why "A" here is not timid):** S104's strongest finding is not "the
+app needs to be prettier" — it is **"the app is half-converted."** Request feed **2.1** vs Community
+**4.4** is real product drift that makes Karmyq feel *less intentional than it already is*. Direction A
+fixes exactly that: kill the cold SaaS fossils, remove the `% Match` badge, and standardize cards,
+width, status colors, finite states, and typography. That **is** a meaningful facelift —
+*"make the product finally look like the best page it already has."* The danger to avoid is letting
+"facelift" become "new costume"; A-plus keeps the personality the same and makes it *consistent*.
 
-| | A — Tidy Commons | **B — Field Guide** | C — Almanac |
+### The three directions, and what "A-plus" takes from each
+
+| | **A — Tidy Commons (scope)** | B — Field Guide (hooks only) | C — Almanac |
 |---|---|---|---|
-| Closes the cross-cluster drift (P1–P7) | ✅ | ✅ | ✅ |
-| Adds genuine, on-brand character | ❌ none | ✅ one step | ✅✅ several |
+| Closes the cross-cluster drift (P1–P7) | ✅ **mandated** | — | — |
+| New visual personality | none required | optional, sparse, default-off | (parked) |
 | Stays inside the shipped/approved aesthetic | ✅ | ✅ | ⚠ largest departure |
-| Survives per-community re-skin cleanly | ✅ | ✅ (texture behind a token) | ⚠ decorative accent risk |
-| Risk / effort | low / low | **low-med / med** | high / high |
+| Survives per-community re-skin cleanly | ✅ | ✅ (texture behind a token, default off) | ⚠ decorative accent risk |
+| Risk / effort | low / low | adds only token plumbing | high / high |
+| **S105 disposition** | **official scope** | **garnish: token hooks now, enable sparingly later** | **parked** |
 
-- **A** is correct but joyless — it makes the app *consistent* without making it *better* to look at.
-  The maintainer asked for a "facelift," and A delivers a cleanup. Keep A as the **fallback** if S105
-  budget is cut: P1–P7 alone are a real, shippable win.
-- **C** is the most memorable but the riskiest: bolder display pressures "quiet density," and promoting
-  the per-community accent into decorative rules means every community theme must be audited against
-  the new usage. It also departs furthest from the aesthetic the maintainer already approved
-  (`sprint-88-recommendation.md` §5). **Park C** as a future option, not this sprint's bet.
-- **B** is the smallest step that actually reads as a facelift. The texture is one CSS layer behind a
-  `--texture` token a re-skin can null out; the serif ramp just names steps the app already implies;
-  the leaf motif reuses the existing `karmyq-mark.svg`. It earns character without spending the
-  re-skin guarantee or re-opening the approved direction.
+- **A is the scope.** P1–P7 (one reading column, one card primitive, one radius, smooth-enough serif
+  ramp, color-from-tokens, quiet density, warm finite states) are the mandate. No expressive work is
+  *required* for S105 to be a success.
+- **B is a garnish, not a deliverable.** Build the `--texture` / motif / serif-ramp token hooks into
+  the S105.0 foundation so nothing has to be re-plumbed later, but leave texture **off by default**
+  (or scoped to finite states / section dividers) until it's been seen in the running app and judged
+  worth turning up. This preserves the option without spending S105 on personality.
+- **C is parked.** Bolder display pressures "quiet density" and decorative per-community accent raises
+  re-skin-collision risk; it departs furthest from the aesthetic approved in
+  `sprint-88-recommendation.md` §5. Revisit only if a future sprint explicitly wants a bolder step.
 
-### What B closes on the scorecard
+### What A-plus closes on the scorecard
 
-Adopting B lifts the two weak clusters to parity with the community page (the existing 4.4):
+Direction A alone lifts the two weak clusters to parity with the community page (the existing 4.4) —
+the convergence does the work; the optional B garnish is upside, not the reason the scores move:
 
-| Cluster | S104 avg | Projected post-B | What moves it |
+| Cluster | S104 avg | Projected post-A | What moves it (convergence alone) |
 |---------|:--------:|:----------------:|---------------|
 | Request feed + detail | **2.1** | ~4.2 | Reskin/retire the fossil feed; one card system; tokens for color/status; one reading column |
 | Profile + global chrome | **2.9** | ~4.2 | `.kq-card` body; serif title bar; token greens; drop raw grays |
 | Dashboard / Home | 4.0 | ~4.5 | Token the on-duty pill + selector; warm zero-community state; secondary-altitude Home |
-| Community page | 4.4 | ~4.6 | Token the red dot; texture/ramp polish (already the reference) |
+| Community page | 4.4 | ~4.6 | Token the red dot; tighten the ramp (already the reference) |
 
 ---
 
@@ -55,17 +69,24 @@ Each bullet is a concrete token or component change. **Shared foundation first**
 cluster), then per-cluster propagation.
 
 ### S105.0 — Token & component foundation (do first)
+
+*Direction A is the mandate here; the last bullet is the B-compatible garnish — build the hooks,
+leave the personality off by default.*
+
 - **Add tokens to `globals.css :root`:** `--measure` (one reading column = `max-w-2xl`),
-  `--radius-card`, `--texture` (the grain layer; default on, nullable per skin).
+  `--radius-card`. **(A, required.)**
 - **Add `kq-headline-sm`** (26px Fraunces) to `karmyq-shell.css` — fills the 30px→body gap that
-  `requests/[id].tsx:169` currently hand-rolls with an inline `style`.
+  `requests/[id].tsx:169` currently hand-rolls with an inline `style`. **(A, required.)**
 - **Settle the card primitive:** make `.kq-card` (border, no shadow, one radius) the only card; mark
-  `.card`/`.feed-card` shadow variants for migration/removal in `globals.css`.
+  `.card`/`.feed-card` shadow variants for migration/removal in `globals.css`. **(A, required.)**
 - **Map status + urgency to semantic tokens** in one helper (extend `lib/requestActionCopy.ts` or a
-  sibling) so no surface renders raw DB strings or raw Tailwind colors.
-- **Promote `kq-finite-state`** to the single empty/caught-up/closed component.
-- **Add the paper-grain + leaf motif** (B): one body `background-image` layer behind `--texture`; the
-  `karmyq-mark.svg` reused as section-divider glyph + finite-state illustration.
+  sibling) so no surface renders raw DB strings or raw Tailwind colors. **(A, required.)**
+- **Promote `kq-finite-state`** to the single empty/caught-up/closed component. **(A, required.)**
+- **Add the B-compatible hooks only:** define a `--texture` token (the grain layer) **defaulting to
+  `none`/off**, plus the `kq-headline`→`kq-hero-name` serif-ramp names and a leaf-motif class reusing
+  `karmyq-mark.svg`. **Do not enable texture app-wide.** If used at all in S105, scope the motif to
+  **finite states and section dividers only**, and turn texture up later **after seeing it in the
+  running app**. **(B garnish — optional, default-off, sparse.)**
 
 ### S105.1 — Request feed + detail (headline target, worst score)
 - **Decide feed fate:** reskin `pages/requests/index.tsx` to render the warm `UnifiedFeed`/`RequestCard`,
@@ -99,7 +120,8 @@ cluster), then per-cluster propagation.
 ### S105.4 — Community page (reference; light touch)
 - Tokenize the `bg-red-500` pending dot (`:178`) and `text-red-500` error (`:137`); add text/aria to
   the dot (not color-only).
-- Apply the B texture/ramp/motif polish consistently (it is already the closest to target).
+- Apply the convergence tokens consistently; it is already the closest to target. (Any B garnish here
+  stays default-off / sparse per the A-plus verdict.)
 
 ### Cross-cutting (fold in while touching every surface)
 - **Accessibility pass:** the scorecard's flat 3 — verify contrast on token pairs, add visible focus
@@ -113,11 +135,31 @@ cluster), then per-cluster propagation.
 2. **S105.1 Request feed** — highest score delta, highest traffic; the visible "facelift" proof point.
 3. **S105.2 Profile + chrome** — the other low cluster; chrome touches every page.
 4. **S105.3 Dashboard** polish + the empty-Home altitude (the one non-styling design item).
-5. **S105.4 Community** light polish + B texture pass app-wide.
+5. **S105.4 Community** light polish (token the red dot; no app-wide texture — garnish stays off-default).
 6. Per-surface deploy + demo validation (S105 is a deploy sprint, unlike S104).
 
 Each step is a branch + PR; the foundation (S105.0) should merge before the propagation PRs so they
 all consume the same tokens.
+
+---
+
+## Maintainer verdict (2026-06-17)
+
+> The PRE-merge direction review presents the audit + scorecard + the A/B/C mockup contact sheet
+> (`mockups/index.html`) to the maintainer. Recorded here before merge (mirrors the
+> `sprint-88-recommendation.md` §5 verdict pattern).
+
+- **Verdict:** **"A-plus"** — ☑ **Direction A is the official S105 scope** (finish the warm system
+  everywhere; no new visual personality required) · **Direction B = optional, default-off token hooks
+  only** (paper grain / leaf motif / serif ramp; if used, sparse — finite states + section dividers,
+  and only after seeing it in the real app) · **Direction C parked.**
+- **Reasoning (maintainer / Codex review):** S104's strongest finding is "the app is half-converted,"
+  not "needs prettier UI" — Request feed 2.1 vs Community 4.4 is real drift that makes the product feel
+  less intentional than it is. Direction A *is* a meaningful facelift ("make the product finally look
+  like the best page it already has"); the risk to avoid is letting "facelift" become "new costume."
+  Keep the personality the same; make it consistent. B's expressive layer is upside to dial up later,
+  not an S105 deliverable.
+- **Recorded by / date:** Maintainer (via Codex review, relayed through Claude), 2026-06-17.
 
 ---
 

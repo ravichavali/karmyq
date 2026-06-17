@@ -168,9 +168,14 @@ expressed as a delta to the existing tokens so it survives per-community re-skin
 | **Risk / effort** | low / low | **low-med / med** | high / high |
 | **Brand fit** | safe, plain | **warm, on-anchor** | exciting, boundary-testing |
 
-**Pointer to the recommendation (Task 6):** **Direction B ("Field Guide")** is the leading candidate —
-it satisfies every non-negotiable principle, adds exactly *one* on-brand creative step (texture +
-serif ramp + leaf motif) without departing from the shipped, approved aesthetic, and stays expressible
-as token deltas that survive re-skinning. A is the safe fallback if S105 budget is tight; C is parked
-as a future "expressive" option if the maintainer wants a bolder step. The mockups (Task 5) make A/B/C
-concrete so the maintainer chooses on artifacts, not prose.
+**Pointer to the recommendation (Task 6):** the research led with **Direction B ("Field Guide")** as
+the leading candidate — it satisfies every non-negotiable principle and adds exactly *one* on-brand
+creative step without departing from the approved aesthetic.
+
+> **Verdict (maintainer, 2026-06-17): "A-plus".** On review the maintainer chose **Direction A** as the
+> mandated S105 scope (convergence; no new visual personality required), with **B reduced to optional,
+> default-off token hooks** (used sparingly — finite states / section dividers — only after seeing it
+> in the running app), and **C parked**. The reasoning: S104's real finding is *"the app is
+> half-converted,"* and A fixes exactly that — a meaningful facelift without risking "new costume."
+> Full verdict in [`recommendations.md`](recommendations.md) → "Maintainer verdict". The A/B/C
+> rows below remain the research record the decision was made from.

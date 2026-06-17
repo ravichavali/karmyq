@@ -49,26 +49,30 @@ existing tokens + the audit as hard constraints, and made concrete as throwaway 
 The **community page is the reference** (4.4); the **Request feed is the worst surface** (2.1) and the
 headline S105 target. Accessibility is a flat 3 everywhere — present but unaudited.
 
-## The recommended direction: **B — "Field Guide"**
+## The decided direction: **"A-plus"** (maintainer verdict, 2026-06-17)
 
 All three directions keep the locked palette + type and close the cross-cluster drift (principles
-P1–P7). They differ on **P8 — texture / character**:
+P1–P7). They differ on **P8 — texture / character**. The research led with B; **the maintainer chose
+"A-plus"**:
 
-- **A — Tidy Commons:** convergence only, no new aesthetic. The safe fallback.
-- **B — Field Guide (recommended):** convergence **+ one on-brand step** — a whisper of paper grain, a
-  smooth Fraunces ramp, and a recurring seed/leaf motif. Character without leaving the approved
-  aesthetic; every addition is a droppable token. Lifts the two weak clusters to ~4.2.
-- **C — Almanac:** an expressive step-up (bolder display, duotone hero, accent expression). Most
-  memorable, highest risk; **parked** as a future option.
+- **A — Tidy Commons → the official S105 scope.** Convergence: finish the warm system everywhere, kill
+  the cold SaaS fossils, remove the `% Match` badge, standardize cards / width / status colors / finite
+  states / typography. **No new visual personality required** — and this alone lifts the two weak
+  clusters to ~4.2. ("Make the product finally look like the best page it already has.")
+- **B — Field Guide → optional, default-off token hooks only.** Build the `--texture` / leaf-motif /
+  serif-ramp hooks into the foundation so nothing is re-plumbed later, but ship the personality **off
+  by default** and, if used, **sparse** (finite states + section dividers), turned up only after seeing
+  it in the running app. Upside to dial later, not an S105 deliverable.
+- **C — Almanac → parked.** Too poster-like; per-community accent raises re-skin risk.
 
-See [`recommendations.md`](recommendations.md) for the full rationale and the per-cluster S105 task
-list.
+See [`recommendations.md`](recommendations.md) → "Maintainer verdict" for the full rationale and the
+per-cluster S105 task list.
 
 ## S105 entry point
 
 1. **S105.0 — token & component foundation** (one reading-column token, one card primitive,
-   `kq-headline-sm`, status/color tokens, `kq-finite-state` everywhere, the grain/leaf layer). Merge
-   first; everything else consumes it.
+   `kq-headline-sm`, status/color tokens, `kq-finite-state` everywhere; **plus B-compatible hooks with
+   texture default-off**). Merge first; everything else consumes it.
 2. **S105.1 — Request feed** (reskin onto the warm feed components or retire it; kill the `% Match`
    pill and the Smart-Filtering chrome). Highest score delta + the visible proof point.
 3. **S105.2 — Profile + chrome**, **S105.3 — Dashboard** (incl. the empty-Home altitude — the one

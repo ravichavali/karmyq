@@ -36,31 +36,41 @@ so it cannot drift again — not inventing a new aesthetic.
 ## Decision
 
 **Adopt a Visual Design System v2 that (1) completes adoption of the warm `.kq-*` system across all
-four clusters, (2) hardens the drift axes into named tokens, and (3) adds one on-brand creative step
-("Direction B — Field Guide"): a whisper of paper-grain texture, a smooth Fraunces type ramp, and a
-recurring seed/leaf motif — all expressed as token deltas that survive per-community re-skinning.**
+four clusters and (2) hardens the drift axes into named tokens. The maintainer chose "A-plus" (review
+2026-06-17): Direction A (convergence; no new visual personality required) is the mandated scope, and
+the foundation is built B-compatible — token hooks for paper grain / leaf motif / a smoother Fraunces
+ramp ship but are off by default (and, if used, sparse: finite states + section dividers only, enabled
+later after seeing it in the running app). All deltas are expressed against the CSS-variable tokens so
+they survive per-community re-skinning.**
 
 Three directions were studied (mockups in `docs/design/sprint-104-ui-facelift/mockups/`):
 
-- **A — Tidy Commons:** convergence only, no new aesthetic. Fallback if S105 budget is cut.
-- **B — Field Guide (chosen):** convergence + one on-brand step. Character without leaving the
-  approved aesthetic; every addition is a droppable token.
+- **A — Tidy Commons (chosen as the S105 scope):** convergence — finish the warm system everywhere,
+  kill the fossils, standardize cards/width/status-color/type. Alone, this lifts the two weak clusters
+  (Request feed 2.1, Profile/chrome 2.9) to ~4.2 — a meaningful facelift, not a cleanup.
+- **B — Field Guide (optional garnish only):** the convergence above + a whisper of paper-grain
+  texture, the serif ramp, and a leaf motif. Built as **default-off token hooks** so it can be dialed
+  up later without re-plumbing; not an S105 deliverable.
 - **C — Almanac:** an expressive step-up (bolder display, duotone hero, promoted accent). Most
   memorable, highest re-skin risk; **parked** as a future option.
+
+Rationale: S104's strongest finding is that the app is *half-converted* (Request feed 2.1 vs Community
+4.4 is real drift), not that it needs new personality. Direction A fixes exactly that and keeps the
+approved aesthetic intact; the failure mode to avoid is letting "facelift" become "new costume."
 
 ### Design principles (the rubric)
 
 P1 one reading column · P2 border-not-shadow elevation · P3 one radius per role · P4 smooth Fraunces
 ramp · P5 color = meaning, from tokens only · P6 quiet density (match-% always a whisper) · P7 warm
 finite states everywhere · P8 calm motion + an optional whisper of paper texture. P1–P7 are
-non-negotiable convergence; **P8 is the single creative dial**, and Direction B is the one-step
-setting of it.
+non-negotiable convergence and are the mandated S105 scope; **P8 is the single creative dial** —
+under the "A-plus" verdict its hook ships but stays **off by default** (dialed up later, sparingly).
 
 ### Token-system implications
 
 New/clarified tokens in `globals.css :root` + `karmyq-shell.css` (the rollout detail is S105):
-`--measure` (one content width), `--radius-card`, `--texture` (grain layer, default on, nullable per
-skin), `kq-headline-sm` (26px Fraunces, the mid-size step request detail currently hand-rolls inline),
+`--measure` (one content width), `--radius-card`, `--texture` (grain-layer hook, **default off** under
+A-plus, nullable per skin), `kq-headline-sm` (26px Fraunces, the mid-size step request detail currently hand-rolls inline),
 one canonical card primitive (`.kq-card`, retiring `.card` shadow variants), status/urgency mapped to
 existing semantic tokens (`warn`/`success`/`error`/`accent`), `kq-finite-state` as the single
 empty/caught-up/closed component, and a leaf motif reusing the existing `karmyq-mark.svg`. **No palette
@@ -82,8 +92,9 @@ change list is in `docs/design/sprint-104-ui-facelift/recommendations.md`.
 - One coherent design language across the app; the cross-cluster drift closes and is tokenized so it
   cannot silently recur.
 - The two weak clusters (Request feed 2.1, Profile/chrome 2.9) rise to parity with the community page.
-- A genuine, on-brand facelift (texture + serif ramp + motif) without re-opening the approved
-  aesthetic or spending the per-community re-skin guarantee.
+- A genuine facelift from convergence alone ("make the app look like its best page"), without
+  re-opening the approved aesthetic — with the texture/motif personality held in reserve behind
+  default-off hooks (the per-community re-skin guarantee is preserved either way).
 - An accessibility pass (contrast, focus, not-color-only) folds into the migration cheaply, since
   every surface is touched once.
 
