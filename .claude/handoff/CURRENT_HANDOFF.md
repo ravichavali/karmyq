@@ -1,124 +1,91 @@
-# Sprint 103 - Governance + Intake Clarity - PR OPEN / REVIEWED
+# Sprint 104 - UI Facelift Research - READY TO EXECUTE
 
-> **STATUS (2026-06-17):** Sprint 103 planning is complete. The maintainer approved the combined scope:
-> repair split governance truth (BUG-011), lock service-vs-help action copy (BUG-012), and ship
-> founding-circle review tooling without outbound notifications. Sprint 102 and its reconnect follow-up
-> are merged and deployed (`298c9fc6`, `2745063`).
+> **STATUS (2026-06-17):** Sprint 104 planning is complete. Maintainer approved a **research-first,
+> no-deploy** UI facelift sprint. The deliverable is a single comprehensive design-research doc —
+> **no app implementation and no proof-of-concept page.** Scope covers all four surface clusters:
+> Dashboard/Home, Community page, Request feed + detail, and Profile + global chrome. Direction is
+> generated via the `frontend-design` skill, anchored to the existing CSS-variable token system.
+>
+> **Sprint 103 is merged and deployed** (`124caea3` + follow-ups `#97` founding-circle access
+> lockdown, `#98` reviewer env vars). BUG-011 (split child admins) and BUG-012 (offer/service copy)
+> shipped there — they are still marked `open` in `docs/BUGS.md` but are fixed; close them when
+> convenient.
 >
 > **LOCAL STATE:** `scripts/founding-circle-submissions.sh` remains untracked user/local work. Do not
-> stage, remove, or rewrite it unless the maintainer explicitly asks. This handoff was rewritten for
-> Sprint 103 from the Sprint 102 deployed handoff.
->
-> **REVIEW FOLLOW-UP (Claude, 2026-06-17):** plan reviewed as ready to execute. Three doc fixes were
-> folded in: Task 3 now says to modify the existing `executeSplit` carry-forward loop in place (no second
-> loop), the spec no longer leaves a status CHECK migration half-open, and pending offer copy keeps the
-> existing ellipsis glyph (`Offering…` / `Offering service…`).
->
-> **EXECUTION UPDATE (Codex, 2026-06-17):** implementation tasks 1-10 are complete on
-> `feature/sprint-103-governance-intake-clarity`. Focused tests are green for split admin selection,
-> request action copy, founding-circle review endpoints, and the admin review page. Docs/contexts/
-> registry were updated and `apps/landing/src/data/docs/**` regenerated. Remaining work is focused
-> verification, type checks, SDLC gates, commit, push, and PR. `scripts/founding-circle-submissions.sh`
-> is still untracked local work and was not touched.
->
-> **VERIFICATION UPDATE (Codex, 2026-06-17):** focused tests, service/frontend type checks,
-> `npm run feedback:check`, `npm run analyze:services`, `npm audit --package-lock-only --audit-level=high`,
-> `git diff --check`, process-reviewer, and root `npm test` are complete. Root `npm test` passes when
-> `TEMP`/`TMP` point at a workspace temp directory; default `%LOCALAPPDATA%\Temp` and `C:\tmp` produced
-> Jest cache permission errors in this sandbox. Root `npm run test:tdd` is not wired in Turbo; direct
-> workspace TDD runs still expose older DB-backed/frontend TDD failures outside Sprint 103, while all
-> Sprint 103 focused tests are green.
->
-> **PR UPDATE (Codex, 2026-06-17):** PR #96 is open:
-> `https://github.com/ravichavali/karmyq/pull/96`. Commits `044bd4a8`, `402d258a`, and `aed33f14`
-> are pushed. Admin review completed; finding #1 (founding-circle filtered-list staleness after status
-> update) was fixed in `aed33f14` with a focused TDD update. Review also noted two non-blocking
-> low-severity follow-ups: empty-child split validation behavior and malformed founding-circle UUID error
-> code. Do not self-merge.
->
-> **SECURITY HARDENING UPDATE (Codex, 2026-06-17):** founding-circle review access is tightened in
-> follow-up PR #97: `https://github.com/ravichavali/karmyq/pull/97`. The API is deny-by-default unless
-> `FOUNDING_CIRCLE_REVIEWER_IDS` or `FOUNDING_CIRCLE_REVIEWER_EMAILS` explicitly includes the signed-in
-> user, and the user must still be an active community admin. The admin sidebar no longer links to
-> `/admin/founding-circle`; use the direct URL only for the allowlisted reviewer.
+> stage, remove, or rewrite it unless the maintainer explicitly asks.
 
 ---
 
 ## Quick Start
 
 1. Read this handoff.
-2. Check out branch: `git checkout -b feature/sprint-103-governance-intake-clarity`.
-3. Open plan: `docs/superpowers/plans/2026-06-17-sprint-103-governance-intake-clarity.md`.
-4. Review/merge PR #97, configure `FOUNDING_CIRCLE_REVIEWER_IDS` or `FOUNDING_CIRCLE_REVIEWER_EMAILS`
-   in demo deploy env before testing `/admin/founding-circle`, then Admin decides deploy.
+2. Check out branch (it already exists from planning): `git checkout feature/sprint-104-ui-facelift-research`
+   (use `git checkout -b ...` only if it's missing in your checkout).
+3. Open plan: `docs/superpowers/plans/2026-06-17-sprint-104-ui-facelift-research.md`.
+4. Run: `/execute-plan` (uses superpowers:subagent-driven-development). Pair with the
+   `frontend-design` skill for the reference-research and direction tasks.
 
 ---
 
 ## Sprint Goal
 
-Make Karmyq's split governance, provider/mutual-aid actions, and founding-circle intake feel truthful
-and operable: no misleading inherited admins, no wrong "help/service" CTA language, and no black-box
-submissions.
+Produce one comprehensive **UI Facelift Research doc** that audits the current UI across all four
+surface clusters, researches reference products + aesthetic directions (anchored to the existing
+token system), and recommends a concrete redesign direction specific enough to scope the S105
+implementation sprint. **Doc only — no implementation, no POC, no deploy.**
 
 ---
 
 ## Planning Artifacts
 
-- Spec: `docs/superpowers/specs/2026-06-17-sprint-103-governance-intake-clarity-design.md`
-- Plan: `docs/superpowers/plans/2026-06-17-sprint-103-governance-intake-clarity.md`
+- Spec: `docs/superpowers/specs/2026-06-17-sprint-104-ui-facelift-research-design.md`
+- Plan: `docs/superpowers/plans/2026-06-17-sprint-104-ui-facelift-research.md`
 
 ---
 
 ## Scope
 
-### In Scope
+### In Scope (research deliverables)
 
-- **BUG-011 split child admins:** `executeSplit` should no longer promote the executing parent admin into
-  both children by default. Each child admin must be selected from that child's assigned members.
-- **BUG-012 offer action copy:** centralize action labels so service asks say "Offer service" and
-  mutual-aid asks say "Offer to Help" on both cards and detail pages.
-- **Founding-circle review tooling:** add authenticated reviewer endpoints and a small admin page to list
-  persisted submissions and mark them `new`, `reviewed`, `contacted`, or `archived`.
-- **Targeted community/provider clarity:** update copy/docs around the touched service surfaces only.
-- **Docs/context/registry:** update source docs, service contexts, frontend context, service registry, ADR-076,
-  and regenerated landing docs.
+- **Current-state audit** of all four clusters against a shared scorecard (extend Sprint 87's).
+- **Reference & visual research** via the `frontend-design` skill, anchored to existing tokens.
+- **2–3 whole-product design directions** + one static throwaway HTML mockup each.
+- **Recommendation** of one direction + per-cluster change list sized for S105.
+- **ADR-079 (Proposed):** Karmyq Visual Design System v2 — source `docs/adr/ADR-079-*.md`.
+- **Landing docs (via generator):** edit source `docs/concepts/ux-design-principles.md` + add the
+  ADR-079 slug to `ADR_GROUPS` in `scripts/generate-docs.ts`, then `npm run generate-docs` and
+  `git add -f` the output. **Never hand-edit `apps/landing/src/data/docs/**` or `nav.json`.**
 
 ### Out of Scope
 
-- New platform-role schema or true platform-admin model.
-- Outbound founding-circle email, Slack, webhook, queue event, or notification transport.
-- Peer messaging, restored reconnect CTA, or directed-ask flow.
-- New governance roles beyond existing `admin`/`member`.
-- Broad provider/community redesign or UI facelift.
-- Changes to trust/karma carry-forward during splits.
+- Any edit to `apps/frontend/src/**`, `globals.css`, or `tailwind.config.js`.
+- A proof-of-concept page wired into the app.
+- Master deploy / demo-deploy validation (this is `no-deploy`).
+- API, schema, or platform-feature changes.
+- Moving ADR-079 to Accepted/Implemented (that's S105).
 
 ---
 
 ## Critical Implementation Notes
 
-1. **Do not create a new platform-role system in Sprint 103.** Founding-circle reviewer permission is
-   defined as any active community admin, matching the existing admin UI gate. A true platform role is a
-   future architectural decision.
-2. **Split child admins must be child-local.** The executing parent admin is not automatically inserted
-   as admin into both children. Each child admin must be selected from that child's assigned members.
-3. **Keep the `split_origin` link.** The relationship between child communities is preserved by
-   `communities.community_links`, not by shared admin authority.
-4. **Never leave a child adminless.** If no assigned parent admin exists for a child, promote the
-   strongest assigned member by within-child trust degree with deterministic tie-breaks.
-5. **Do not change trust/karma carry-forward semantics.** Sprint 103 changes roles only; within-group
-   trust and karma copying from Sprint 86 stays intact.
-6. **Centralize offer action copy.** Do not reintroduce inline `request_type === 'service'` label checks
-   in multiple components.
-7. **Service asks are not peer messaging.** Do not restore the Sprint 102 reconnect CTA or add direct
-   peer messages as part of service/provider clarity.
-8. **Founding-circle review is not notification.** No email, Slack, webhook, queue event, or outbound
-   transport in this sprint.
-9. **Use the ADR-074 error contract.** New auth-service review endpoints return string `error` codes.
-10. **API interceptor unwraps envelopes.** Frontend callers should read `res.data`, not `res.data.data`.
-11. **Editing `apps/frontend/src/lib/api.ts` can retrigger CodeQL `js/request-forgery`.** If it recurs,
-    dismiss with the documented trusted env-baseURL rationale and re-run the gate.
-12. **Docs are part of done.** Update source docs, service contexts, registry, frontend context, and
-    regenerated landing docs in the same PR.
+1. **Research-first, no app code.** Do not touch `apps/frontend/src/pages/**`, `src/components/**`,
+   `globals.css`, or `tailwind.config.js`. Tempting "quick fixes" become S105 recommendations.
+2. **Anchor to the existing token system.** Express every direction as deltas to the existing
+   CSS-variable tokens (`apps/frontend/src/styles/globals.css` + `tailwind.config.js`). Per-community
+   ThemeProvider skins override tokens — any direction must survive re-skinning.
+3. **Extend Sprint 87, don't restart.** Reuse `docs/design/sprint-87/scorecard.md`, `ux-audit.md`,
+   `visual-research.md` as the baseline; cite what changed since S87.
+4. **Mockups are throwaway research artifacts.** Static HTML under
+   `docs/design/sprint-104-ui-facelift/mockups/`; no app imports, no API calls, not route-reachable.
+5. **No-deploy sprint.** No merge+deploy task; ships via a reviewed PR. No demo-deploy validation
+   (no runtime change). Do not push docs alone to master to "deploy."
+6. **frontend-design skill is the direction engine.** Feed it existing tokens + the cluster audit as
+   constraints; avoid generic Tailwind defaults.
+7. **ADR-079 ships Proposed, not Implemented.** S105 advances its status.
+8. **Version drift to flag (not fix here):** `package.json` reads `11.10.0` while the S103 handoff
+   tracks `v11.12.0`. Note it as S105 housekeeping; do not bump versions in a research sprint.
+9. **Demo screenshots optional.** Use the documented demo UX-audit access; fall back to local
+   `npm run dev` or annotated component inventory if the demo is unreachable.
 
 ---
 
@@ -126,97 +93,44 @@ submissions.
 
 Follow the plan exactly:
 
-1. Branch + context check.
-2. TDD for child-local split admin selection.
-3. Implement child-local split admins in `services/community-service/src/services/fissionService.ts`.
-4. TDD for shared offer action copy.
-5. Implement `apps/frontend/src/lib/requestActionCopy.ts` and consume it in request card/detail.
-6. TDD for founding-circle review endpoints.
-7. Implement auth-service list/update review endpoints.
-8. TDD for founding-circle admin page.
-9. Implement `/admin/founding-circle` and admin nav/API wrappers.
-10. Update docs, contexts, registry, ADR-076, and regenerated landing docs.
-11. Run focused verification.
-12. Run SDLC gates: testing, `/simplify`, `/code-review`, `/security-review`, feedback, audit.
-13. Final pre-push verification + PR.
-14. Merge + deploy only after Admin authorization.
+1. Branch + baseline review (read S87 docs, token system, anchoring UX ADRs).
+2. Current-state audit — Dashboard/Home + Request feed/detail (+ shared scorecard).
+3. Current-state audit — Community page + Profile/global chrome (+ cross-cluster drift findings).
+4. Reference & visual research via `frontend-design` skill.
+5. Design-direction synthesis + 2–3 static mockups.
+6. Recommendation + per-cluster S105 scope + primary README.
+7. ADR-079 (Proposed) source + concept source + `ADR_GROUPS` slug → `npm run generate-docs` → `git add -f`.
+8. SDLC gates: `/simplify`, `/code-review`, `/security-review` (docs-appropriate) + guardrail check.
+9. Final verification + PR (no deploy) + handoff update.
 
 ---
 
 ## Carry-Forward / Known Issues
 
-- **BUG-011** is fixed on this branch and verified: split child admins are selected from assigned
-  child members; executing parent admin is not inserted into both children by default.
-- **BUG-012** is fixed on this branch and verified: offer action copy is centralized in
-  `apps/frontend/src/lib/requestActionCopy.ts`.
-- **Reconnect CTA remains deferred:** restore only after real peer messaging or a directed-ask flow exists.
-- **Sprint 102 post-deploy UI validation still useful if not already done:**
-  1. Profile memory shows with karma display off.
-  2. Community graph memory legend renders.
-  3. Community pulse says "N neighbours showed up for one another."
-  4. `/about/memory` retention windows load.
-- **Pre-existing security drift:** GitHub Dependabot previously showed 1 high advisory on default branch
-  while local `npm audit --package-lock-only --audit-level=high` was clean. Track under ADR-059 SLA.
-
----
-
-## Sprint 103 - Post-Deploy Validation
-
-### 1. Split admin smoke test
-
-Create or use an approved split where the executing parent admin is assigned to only one child, execute it,
-then inspect both child communities.
-
-Expected: executing admin is admin only in their assigned child; sibling child has one assigned member as
-admin; siblings still have an active `split_origin` link.
-
-### 2. Offer action copy smoke test
-
-Open a mutual-aid ask and a service ask from both feed/card and detail.
-
-Expected: mutual-aid surfaces say "Offer to Help"; service surfaces say "Offer service"; offering still
-creates the same match.
-
-### 3. Founding-circle review smoke test
-
-Log in as an existing community admin and open `https://karmyq.com/admin/founding-circle`.
-
-Expected: submissions load, status filter works, and marking a row reviewed/contacted/archived updates
-the row without sending any notification.
-
-### 4. API verification
-
-```bash
-curl -H "Authorization: Bearer $TOKEN" "https://karmyq.com/api/founding-circle/submissions?status=new" | jq '.data.items | length'
-```
-
-Expected: authenticated reviewer gets a numeric length; non-reviewer gets `403 FORBIDDEN`.
-
----
-
-## Previous Sprint State
-
-- **Sprint 102 (v11.11.0) deployed.** PR #94 squash `298c9fc6`.
-- **Reconnect follow-up deployed.** PR #95 squash `2745063`; removed dead `/messages?to=<peerId>` CTA.
-- **Sprint 101 (v11.10.0) deployed + validated by CI.** PR #92 squash `654937d5`.
-- **PR #93 eligibility fix deployed.** Offer eligibility follows feed visibility boundary, not membership-only
-  and not any-UUID. PR #93 squash `bbae8788`.
-- Moderate dependency advisories remain within ADR-059 SLA; high/critical audit remains blocking.
+- **BUG-011 / BUG-012** fixed in S103; still marked `open` in `docs/BUGS.md` — close when convenient.
+- **Reconnect CTA remains deferred:** restore only after real peer messaging or a directed-ask flow.
+- **Responder Home actionability** (empty Home for established users; ~335 `proposed` matches that
+  never surface) is an S104+ functional candidate NOT chosen for S104 — keep on the list.
+- **Dibs server-side relationship routing** (IDEAS 2026-06-09, ADR-072 next step) still open.
+- **Member forget/export** privacy follow-on still open.
+- **Pre-existing security drift:** GitHub Dependabot previously showed 1 high advisory on default
+  branch while local `npm audit` was clean. Track under ADR-059 SLA.
 
 ---
 
 ## Multi-Sprint Arc
 
-- **S97 (done):** Release Readiness Data Quality + Functional Bug Bash (v11.6.0).
-- **S98 (done):** Trust Truth Audit + Functional Repairs (v11.7.0).
-- **S99 (done):** Release Experience Audit + Fine Tune (v11.8.0).
 - **S100 (done):** Pulse Truth + Feed Actionability (v11.9.0).
 - **S101 (done):** Actionability + State Truth (v11.10.0).
 - **S102 (done):** Visible Memory + Re-warm First Step (v11.11.0).
-- **S103 (verified / PR-ready):** Governance + Intake Clarity (v11.12.0).
-- **S104+ candidates:** reconnect CTA once a real target exists; broader community/provider link-up
-  clarity; research-first UI facelift; member-controlled forget/export.
-- **Deferred:** Service Consolidation Phase 2 (geocoding -> client-side, ADR-071); mobile parity.
+- **S103 (done):** Governance + Intake Clarity (v11.12.0).
+- **S104 (planned / this sprint):** UI Facelift Research — whole-product visual audit + recommended
+  direction. Doc only, no-deploy.
+- **S105+ (upcoming):** UI Facelift Implementation — execute the recommended direction surface-by-
+  surface against the agreed reference; net-new code, token changes, per-surface rollout, deploy.
+  Advances ADR-079 to Accepted → Implemented. Reconcile the version drift here.
+- **Deferred:** reconnect CTA (needs a real target); responder Home actionability; Dibs relationship
+  routing; member forget/export; Service Consolidation Phase 2; mobile parity.
 
 ---
 
@@ -234,36 +148,37 @@ Expected: authenticated reviewer gets a numeric length; non-reviewer gets `403 F
 
 ### Architecture Gotchas
 
-- **Landing page docs:** `apps/landing/src/data/docs/` is gitignored - `git add -f` when generated docs
-  must be committed. Generated by `scripts/generate-docs.ts`; edit sources, never generated JSON.
-- **ADR numbering:** ADR-078 shipped in S100; next free ADR = **079** if this sprint needs one.
+- **Frontend is Pages Router** (`apps/frontend/src/pages`), not App Router.
+- **Design token system:** CSS-variable backed, in `apps/frontend/src/styles/globals.css` +
+  `apps/frontend/tailwind.config.js`; per-community skins via `ThemeContext`/ThemeProvider.
+- **Prior design research:** `docs/design/sprint-87/` (audit, scorecard, visual-research, mockups);
+  `docs/design/sprint-84-unified-feed/`. Extend, don't restart.
+- **Landing page docs:** `apps/landing/src/data/docs/` is gitignored - `git add -f` when generated
+  docs must be committed. Generated by `scripts/generate-docs.ts`; edit sources, never generated JSON.
+- **ADR numbering:** ADR-078 is the highest shipped; next free = **079** (used by this sprint, Proposed).
 - **JWT field** is `communities`, not `communityMemberships`.
 - **Schema is `communities.communities`** (plural schema name); auth tables are `auth.*`.
 - **API response unwrap:** `createApiClient` interceptor already unwraps the envelope - use `res.data`,
   not `res.data.data`.
-- **Error contract (ADR-074):** `{ success:false, message:string, error:string }`; use shared
-  `sendError`/`sendValidationError`.
-- **CORS on auth-service** is driven by `ALLOWED_ORIGINS` env (comma-separated origins).
+- **Error contract (ADR-074):** `{ success:false, message:string, error:string }`.
 - **trust_edges_live is a VIEW:** never INSERT/UPDATE it.
 - **`git add` on CLAUDE.md:** tracked as lowercase `claude.md`.
 - **Solo dev - no worktrees:** work directly on feature branches.
 - **CI security gates:** dependency audit (ADR-059) + CodeQL (ADR-060) run on push.
 - **request-forgery FP on `apps/frontend/src/lib/api.ts`** is a known recurring false positive.
 - **request-service serves the feed** now (`/requests/feed`); there is no feed-service.
-- **Pulse single source of truth:** `fetchCommunityPulse` feeds both the in-feed ActivityCard and
-  `GET /pulse`.
 
 ### Workflow Gotchas
 
-- Every sprint runs testing, `/simplify`, `/code-review`, and `/security-review`.
-- Every sprint updates docs; do not treat docs as optional.
-- No docs-only push to `master`; every master push triggers a full deploy.
+- Every sprint runs testing, `/simplify`, `/code-review`, and `/security-review` (docs-appropriate
+  for a research sprint).
+- Every sprint updates docs; for this sprint the docs ARE the deliverable.
+- No docs-only push to `master`; this `no-deploy` sprint ships via a reviewed PR, not a deploy push.
 - nginx.conf changes take effect on the next deploy (deploy.sh copies + reloads).
 - `nav.json` silently reverts - always grep-verify after editing.
 - Widely-rendered components using `useRouter` need the global `apps/frontend/jest.setup.js` router mock.
-  Do not patch many test files with duplicate router mocks.
 
 ### Deploy Drift Watch
 
-`karmyq.org` live content has drifted from `master` before. Confirm the latest deploy succeeded and live
-content matches `master` before judging by live content.
+`karmyq.org` live content has drifted from `master` before. Confirm the latest deploy succeeded and
+live content matches `master` before judging by live content.
