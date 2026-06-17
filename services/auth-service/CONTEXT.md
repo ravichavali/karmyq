@@ -91,7 +91,8 @@ CREATE TABLE auth.founding_circle_submissions (
 ```
 
 ### Tables Read by This Service
-- None (auth service is fully self-contained)
+- `communities.members` - Sprint 103 founding-circle reviewer check: any active community admin can
+  list/update intake submissions.
 
 ## API Endpoints
 
@@ -120,6 +121,54 @@ Errors use the ADR-074 contract (`sendValidationError` / `sendInternalError`). M
 per-route limiter — the app-wide `globalRateLimiter` applies.
 
 **Implementation:** `src/routes/foundingCircle.ts`
+
+### GET /founding-circle/submissions
+**Authenticated founding-circle reviewer only.** Lists persisted founding-circle submissions newest
+first, optionally filtered by `status=new|reviewed|contacted|archived`, with `limit` and `offset`
+pagination.
+
+For Sprint 103, a reviewer is any authenticated user with at least one active
+`communities.members` row where `role='admin'`. Non-reviewers receive `403 FORBIDDEN`. No email,
+Slack, webhook, queue event, or notification is sent.
+
+**Response (`200`):**
+```json
+{
+  "success": true,
+  "data": {
+    "items": [
+      {
+        "id": "<uuid>",
+        "email": "you@example.com",
+        "lens": "community organizer",
+        "contribution": "What you'd bring.",
+        "concern": "The hardest concern to face.",
+        "source_page": "join",
+        "status": "new",
+        "created_at": "2026-06-17T00:00:00.000Z",
+        "reviewed_at": null
+      }
+    ],
+    "count": 1,
+    "limit": 50,
+    "offset": 0
+  }
+}
+```
+
+**Implementation:** `src/routes/foundingCircle.ts`, `src/database/foundingCircleDb.ts`
+
+### PATCH /founding-circle/submissions/:id/status
+**Authenticated founding-circle reviewer only.** Marks a submission `new`, `reviewed`, `contacted`,
+or `archived`. `reviewed_at` is set the first time a submission leaves `new` and is preserved
+afterward. Unknown IDs return `404 NOT_FOUND`; invalid statuses return `400 VALIDATION_ERROR`.
+
+**Request:**
+```json
+{ "status": "reviewed" }
+```
+
+**Implementation:** `src/routes/foundingCircle.ts`, `src/database/foundingCircleDb.ts`
 
 ### POST /register
 Register a new user account.

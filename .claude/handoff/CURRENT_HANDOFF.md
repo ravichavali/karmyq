@@ -1,4 +1,4 @@
-# Sprint 103 - Governance + Intake Clarity - PLANNED / READY TO EXECUTE
+# Sprint 103 - Governance + Intake Clarity - VERIFIED / PR READY
 
 > **STATUS (2026-06-17):** Sprint 103 planning is complete. The maintainer approved the combined scope:
 > repair split governance truth (BUG-011), lock service-vs-help action copy (BUG-012), and ship
@@ -13,6 +13,21 @@
 > folded in: Task 3 now says to modify the existing `executeSplit` carry-forward loop in place (no second
 > loop), the spec no longer leaves a status CHECK migration half-open, and pending offer copy keeps the
 > existing ellipsis glyph (`Offering…` / `Offering service…`).
+>
+> **EXECUTION UPDATE (Codex, 2026-06-17):** implementation tasks 1-10 are complete on
+> `feature/sprint-103-governance-intake-clarity`. Focused tests are green for split admin selection,
+> request action copy, founding-circle review endpoints, and the admin review page. Docs/contexts/
+> registry were updated and `apps/landing/src/data/docs/**` regenerated. Remaining work is focused
+> verification, type checks, SDLC gates, commit, push, and PR. `scripts/founding-circle-submissions.sh`
+> is still untracked local work and was not touched.
+>
+> **VERIFICATION UPDATE (Codex, 2026-06-17):** focused tests, service/frontend type checks,
+> `npm run feedback:check`, `npm run analyze:services`, `npm audit --package-lock-only --audit-level=high`,
+> `git diff --check`, process-reviewer, and root `npm test` are complete. Root `npm test` passes when
+> `TEMP`/`TMP` point at a workspace temp directory; default `%LOCALAPPDATA%\Temp` and `C:\tmp` produced
+> Jest cache permission errors in this sandbox. Root `npm run test:tdd` is not wired in Turbo; direct
+> workspace TDD runs still expose older DB-backed/frontend TDD failures outside Sprint 103, while all
+> Sprint 103 focused tests are green.
 
 ---
 
@@ -21,7 +36,7 @@
 1. Read this handoff.
 2. Check out branch: `git checkout -b feature/sprint-103-governance-intake-clarity`.
 3. Open plan: `docs/superpowers/plans/2026-06-17-sprint-103-governance-intake-clarity.md`.
-4. Run: `/execute-plan` (uses superpowers:subagent-driven-development).
+4. Commit, push, and open the Sprint 103 PR. Do not stage `scripts/founding-circle-submissions.sh`.
 
 ---
 
@@ -116,8 +131,10 @@ Follow the plan exactly:
 
 ## Carry-Forward / Known Issues
 
-- **BUG-011** is planned in Sprint 103: parent admin currently becomes admin of both split children.
-- **BUG-012** is planned in Sprint 103: service asks can regress to mutual-aid "help" copy.
+- **BUG-011** is fixed on this branch and verified: split child admins are selected from assigned
+  child members; executing parent admin is not inserted into both children by default.
+- **BUG-012** is fixed on this branch and verified: offer action copy is centralized in
+  `apps/frontend/src/lib/requestActionCopy.ts`.
 - **Reconnect CTA remains deferred:** restore only after real peer messaging or a directed-ask flow exists.
 - **Sprint 102 post-deploy UI validation still useful if not already done:**
   1. Profile memory shows with karma display off.
@@ -182,7 +199,7 @@ Expected: authenticated reviewer gets a numeric length; non-reviewer gets `403 F
 - **S100 (done):** Pulse Truth + Feed Actionability (v11.9.0).
 - **S101 (done):** Actionability + State Truth (v11.10.0).
 - **S102 (done):** Visible Memory + Re-warm First Step (v11.11.0).
-- **S103 (planned):** Governance + Intake Clarity (v11.12.0).
+- **S103 (verified / PR-ready):** Governance + Intake Clarity (v11.12.0).
 - **S104+ candidates:** reconnect CTA once a real target exists; broader community/provider link-up
   clarity; research-first UI facelift; member-controlled forget/export.
 - **Deferred:** Service Consolidation Phase 2 (geocoding -> client-side, ADR-071); mobile parity.

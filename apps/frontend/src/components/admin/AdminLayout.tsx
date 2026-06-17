@@ -21,6 +21,12 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
               >
                 Schemas
               </Link>
+              <Link
+                href="/admin/founding-circle"
+                className="block px-4 py-2 rounded hover:bg-surface-raised text-text-muted hover:text-primary"
+              >
+                Founding Circle
+              </Link>
             </nav>
           </div>
         </div>

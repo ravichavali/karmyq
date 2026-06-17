@@ -13,11 +13,18 @@ import {
   sendSuccess,
   sendValidationError,
   sendInternalError,
+  sendForbidden,
+  sendNotFound,
   HTTP_STATUS,
 } from '@karmyq/shared/utils/response';
+import { authMiddleware, AuthenticatedRequest } from '@karmyq/shared/middleware';
 import {
   insertFoundingCircleSubmission,
   FoundingCircleSubmission,
+  FoundingCircleStatus,
+  isFoundingCircleReviewer,
+  listFoundingCircleSubmissions,
+  updateFoundingCircleSubmissionStatus,
 } from '../database/foundingCircleDb';
 
 const router = Router();
@@ -36,6 +43,8 @@ const TEXT_FIELDS = [
   { key: 'contribution', max: TEXT_MAX, label: 'Contribution' },
   { key: 'concern', max: TEXT_MAX, label: 'Concern' },
 ] as const;
+
+const VALID_STATUSES: FoundingCircleStatus[] = ['new', 'reviewed', 'contacted', 'archived'];
 
 function trimOrNull(v: unknown): string | null {
   if (typeof v !== 'string') return null;
@@ -96,6 +105,26 @@ export function validateSubmission(body: unknown): ValidationResult {
   };
 }
 
+function isValidStatus(status: unknown): status is FoundingCircleStatus {
+  return typeof status === 'string' && VALID_STATUSES.includes(status as FoundingCircleStatus);
+}
+
+function parseBoundedInt(value: unknown, fallback: number, min: number, max: number): number {
+  const parsed = typeof value === 'string' ? Number(value) : Number.NaN;
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.min(Math.max(Math.trunc(parsed), min), max);
+}
+
+async function requireReviewer(req: AuthenticatedRequest, res: Response): Promise<boolean> {
+  const requestId = (req as any).id;
+  const userId = req.user?.userId;
+  if (!userId || !(await isFoundingCircleReviewer(userId))) {
+    sendForbidden(res, 'Founding-circle reviewer access required', { requestId });
+    return false;
+  }
+  return true;
+}
+
 /**
  * POST /founding-circle/submissions
  * Public — no auth middleware. Persist a founding-circle note from the landing form.
@@ -120,6 +149,55 @@ router.post('/submissions', async (req: Request, res: Response) => {
     return sendInternalError(
       res,
       'Could not save submission',
+      error instanceof Error ? error : undefined,
+      { requestId }
+    );
+  }
+});
+
+router.get('/submissions', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  const requestId = (req as any).id;
+  try {
+    if (!(await requireReviewer(req, res))) return;
+
+    const rawStatus = req.query.status;
+    if (rawStatus !== undefined && !isValidStatus(rawStatus)) {
+      return sendValidationError(res, 'Invalid status', { status: rawStatus }, { requestId });
+    }
+    const status = isValidStatus(rawStatus) ? rawStatus : undefined;
+
+    const limit = parseBoundedInt(req.query.limit, 50, 1, 100);
+    const offset = parseBoundedInt(req.query.offset, 0, 0, Number.MAX_SAFE_INTEGER);
+    const data = await listFoundingCircleSubmissions({ status, limit, offset });
+    return sendSuccess(res, data, HTTP_STATUS.OK, { requestId });
+  } catch (error) {
+    return sendInternalError(
+      res,
+      'Could not list submissions',
+      error instanceof Error ? error : undefined,
+      { requestId }
+    );
+  }
+});
+
+router.patch('/submissions/:id/status', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  const requestId = (req as any).id;
+  try {
+    if (!(await requireReviewer(req, res))) return;
+
+    const status = req.body?.status;
+    if (!isValidStatus(status)) {
+      return sendValidationError(res, 'Invalid status', { status }, { requestId });
+    }
+
+    const updated = await updateFoundingCircleSubmissionStatus(req.params.id, status);
+    if (!updated) return sendNotFound(res, 'Founding-circle submission', { requestId });
+
+    return sendSuccess(res, updated, HTTP_STATUS.OK, { requestId });
+  } catch (error) {
+    return sendInternalError(
+      res,
+      'Could not update submission status',
       error instanceof Error ? error : undefined,
       { requestId }
     );

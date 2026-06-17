@@ -1,12 +1,26 @@
 # Frontend CONTEXT.md
 
-**Last updated**: 2026-06-16 (Sprint 102 — visible memory + re-warm first step)
+**Last updated**: 2026-06-17 (Sprint 103 — governance + intake clarity)
 
 ## Overview
 
 Next.js 14 web application (Pages Router) consuming all Karmyq backend services.
 
 ---
+
+## Sprint 103 Governance + Intake Clarity (2026-06-17)
+
+- **Request action copy is centralized.** `src/lib/requestActionCopy.ts` is the single helper for
+  offer labels and fallback error copy. Service asks render **Offer service** / **Offering service…**;
+  mutual-aid asks render **Offer to Help** / **Offering…**. `Feed/RequestCard.tsx` and
+  `pages/requests/[id].tsx` both consume the helper.
+- **Founding-circle review queue.** `pages/admin/founding-circle.tsx` lists persisted landing-page
+  submissions for authenticated admins, filters by `new`/`reviewed`/`contacted`/`archived`, and
+  updates status through `foundingCircleAdminService` in `src/lib/api.ts`. The API interceptor unwraps
+  envelopes, so callers read `res.data`.
+- **Admin navigation.** `components/admin/AdminLayout.tsx` now links to `/admin/founding-circle`.
+- **No outbound review transport.** The admin page updates status only; it does not send email,
+  Slack, webhook, queue events, or notifications.
 
 ## Sprint 102 Visible Memory + Re-warm First Step (2026-06-16, ADR-070)
 

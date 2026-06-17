@@ -107,6 +107,12 @@ From the Helping tab → Offers Received:
 
 You can receive multiple offers on the same request and accept the one that works best for you. Once you accept one offer, the request moves to matched status.
 
+## Offering on Service Asks
+
+When a service ask appears in the feed or on its detail page, the action reads **Offer service**.
+Mutual-aid asks keep **Offer to Help**. Both actions use the same offer/match flow; the copy changes
+only to keep provider/service requests legible as service work rather than neighbour help.
+
 ---
 
 ## Sending a Private Heads-Up (Dibs)

@@ -35,9 +35,10 @@ Key choices:
 - **Host in auth-service, not a new service.** `/auth/login` and `/auth/register` are already public;
   the intake follows the same unauthenticated public pattern with no new service, port, or deploy
   surface.
-- **Persist-only — no notify.** Because no email/Slack transport exists, the sprint deliberately
-  stops at durable capture. Submissions are reviewed via `psql` for now. Notify is deferred to a
-  later sprint that builds delivery properly (see *Future*).
+- **Persist first; review in-app; no notify.** Because no email/Slack transport exists, the original
+  sprint stopped at durable capture. Sprint 103 adds authenticated reviewer endpoints and a small
+  admin page so review no longer requires direct `psql` access. Notify is still deferred to a later
+  sprint that builds delivery properly (see *Future*).
 - **Anti-spam is a honeypot + app-level validation, not a dedicated rate-limit layer.** A
   visually-hidden `website` field (off-screen, `tabIndex={-1}`, `aria-hidden`) that real users never
   see; a non-empty value is treated as bot traffic and the server responds with success **without
@@ -68,8 +69,22 @@ CREATE TABLE IF NOT EXISTS auth.founding_circle_submissions (
 );
 ```
 
-No FK to `auth.users` — submitters are pre-account leads by definition. `status` is a free
-review-state column for future admin tooling; only `new` is written this sprint.
+No FK to `auth.users` — submitters are pre-account leads by definition. `status` is the reviewer
+state (`new`, `reviewed`, `contacted`, `archived`). Sprint 103 reuses the existing column; no schema
+change was needed.
+
+### Review endpoints
+
+Sprint 103 adds authenticated reviewer tooling:
+
+- `GET /founding-circle/submissions` lists submissions newest-first, with optional `status`, `limit`,
+  and `offset`.
+- `PATCH /founding-circle/submissions/:id/status` moves a submission among `new`, `reviewed`,
+  `contacted`, and `archived`.
+
+For this sprint, a founding-circle reviewer is any authenticated user who is an active admin in at
+least one community. That mirrors the existing admin UI gate and deliberately avoids introducing a
+new platform-admin role.
 
 ## Consequences
 
@@ -82,8 +97,8 @@ review-state column for future admin tooling; only `new` is written this sprint.
 
 **Negative / trade-offs**
 
-- **No notification.** Submissions must be polled via `psql` until a notify channel exists — easy to
-  miss a lead. This is an accepted, explicit trade-off given the absence of email transport.
+- **No outbound notification.** Submissions are reviewable in-app, but there is still no email,
+  Slack, webhook, queue event, or push transport for new notes. A reviewer must open the queue.
 - **Public unauthenticated write.** Mitigated by strict input validation, parameterized SQL, the
   honeypot, and the app-wide rate limiter; there is no dedup, so a determined actor could submit
   repeatedly within the rate limit.
@@ -97,5 +112,5 @@ review-state column for future admin tooling; only `new` is written this sprint.
 ## Future
 
 When email/Slack transport is built, a later sprint can emit a `founding_circle_submitted` event on
-insert and deliver it, and optionally add an authenticated admin review surface (list + status
-transitions through `new → reviewed → contacted → archived`).
+insert and deliver it. A future architecture decision can also replace the "any active community
+admin" reviewer rule with a true platform-admin role if that separation becomes necessary.

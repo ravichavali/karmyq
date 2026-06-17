@@ -18,6 +18,17 @@ New communities start in **Constrained** governance mode: limited configuration 
 
 This prevents governance capture by communities that haven't built real trust yet.
 
+## Split Governance
+
+When a community splits, the two child communities stay related through a `split_origin` link. That
+link carries lineage and cross-group trust context; it does not mean the same parent admin governs
+both children by default.
+
+Each child receives an admin from its own assigned members. If the executing admin is assigned to a
+child, they can administer that child. If they are not assigned to the sibling child, Karmyq selects
+an admin from the sibling's assigned members so authority follows the people who actually moved
+there.
+
 ## Governance Templates
 
 - **small-collective** (default): 3-member quorum, flat authority — good for small groups

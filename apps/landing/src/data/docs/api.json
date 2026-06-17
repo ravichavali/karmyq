@@ -10,6 +10,16 @@
           "description": "**Public — no auth.** Persist a founding-circle note from the static `karmyq.org/join` form"
         },
         {
+          "method": "GET",
+          "path": "/founding-circle/submissions",
+          "description": "**Authenticated founding-circle reviewer only.** Lists persisted founding-circle submissions newest"
+        },
+        {
+          "method": "PATCH",
+          "path": "/founding-circle/submissions/:id/status",
+          "description": "**Authenticated founding-circle reviewer only.** Marks a submission `new`, `reviewed`, `contacted`,"
+        },
+        {
           "method": "POST",
           "path": "/register",
           "description": "Register a new user account."

@@ -4,6 +4,7 @@ import Head from 'next/head'
 import Link from 'next/link'
 import { requestService } from '@/lib/api'
 import RequestPayloadRenderer from '@/components/Feed/RequestPayloadRenderer'
+import { getOfferActionLabel, getOfferErrorFallback } from '@/lib/requestActionCopy'
 import type { PayloadType } from '@/types/unified-feed'
 import type { RequestPayload } from '@/types/request-payloads'
 
@@ -102,7 +103,7 @@ export default function RequestDetailPage() {
       await requestService.createMatch({ request_id: detail.id })
       setOffered(true)
     } catch (err: any) {
-      setError(err?.response?.data?.message ?? 'Failed to offer help')
+      setError(err?.response?.data?.message ?? getOfferErrorFallback(detail.request_type))
     } finally {
       setOffering(false)
     }
@@ -144,8 +145,6 @@ export default function RequestDetailPage() {
   }
 
   if (!detail) return null
-
-  const isService = String(detail.request_type) === 'service'
 
   return (
     <>
@@ -200,7 +199,7 @@ export default function RequestDetailPage() {
                 </p>
               ) : (
                 <button onClick={handleOffer} disabled={offering} className="btn-primary text-sm py-2 px-5 disabled:opacity-50">
-                  {offering ? 'Offering…' : isService ? 'Offer service' : 'Offer to Help'}
+                  {getOfferActionLabel(detail.request_type, offering ? 'pending' : 'idle')}
                 </button>
               )
             )}

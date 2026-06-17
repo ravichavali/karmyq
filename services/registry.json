@@ -29,7 +29,9 @@
           { "method": "DELETE", "path": "/auth/push-tokens", "description": "Remove an Expo push token for the authenticated user" },
           { "method": "POST", "path": "/auth/refresh", "description": "Issue new access token using refresh token (ADR-052). Rotates refresh token on each call." },
           { "method": "POST", "path": "/auth/logout", "description": "Logout user, revoke access token session and optional refresh token." },
-          { "method": "POST", "path": "/founding-circle/submissions", "description": "Public (no auth) founding-circle intake from the karmyq.org/join form. Honeypot-screened, validated, persist-only (ADR-076)." }
+          { "method": "POST", "path": "/founding-circle/submissions", "description": "Public (no auth) founding-circle intake from the karmyq.org/join form. Honeypot-screened, validated, persist-only (ADR-076)." },
+          { "method": "GET", "path": "/founding-circle/submissions", "description": "Authenticated founding-circle reviewer list endpoint. Filters by status and returns paginated submissions for review." },
+          { "method": "PATCH", "path": "/founding-circle/submissions/:id/status", "description": "Authenticated founding-circle reviewer endpoint to mark a submission new, reviewed, contacted, or archived." }
         ],
         "consumes": []
       },
