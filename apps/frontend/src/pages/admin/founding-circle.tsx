@@ -70,7 +70,10 @@ export default function FoundingCircleAdminPage() {
   async function updateStatus(id: string, status: FoundingCircleStatus) {
     try {
       const res = await foundingCircleAdminService.updateSubmissionStatus(id, status)
-      setItems((current) => current.map((item) => (item.id === id ? res.data : item)))
+      setItems((current) => {
+        if (filter && res.data.status !== filter) return current.filter((item) => item.id !== id)
+        return current.map((item) => (item.id === id ? res.data : item))
+      })
       setError('')
     } catch (err: any) {
       setError(err?.response?.data?.message ?? 'Could not update submission')

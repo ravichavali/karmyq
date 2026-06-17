@@ -71,8 +71,20 @@ describe('Sprint 103 founding-circle admin page', () => {
     );
   });
 
-  it('marks a submission reviewed', async () => {
+  it('removes a submission from a filtered list when its status changes', async () => {
     render(<FoundingCircleAdminPage />);
+    fireEvent.click(await screen.findByRole('button', { name: /mark reviewed/i }));
+    await waitFor(() =>
+      expect(foundingCircleAdminService.updateSubmissionStatus).toHaveBeenCalledWith('s1', 'reviewed')
+    );
+    await waitFor(() => expect(screen.queryByText('founder@example.com')).not.toBeInTheDocument());
+    expect(screen.getByText('No submissions in this view.')).toBeInTheDocument();
+  });
+
+  it('updates a submission in place when the active filter still includes it', async () => {
+    render(<FoundingCircleAdminPage />);
+    await screen.findByText('founder@example.com');
+    fireEvent.click(screen.getByRole('button', { name: /^all$/i }));
     fireEvent.click(await screen.findByRole('button', { name: /mark reviewed/i }));
     await waitFor(() =>
       expect(foundingCircleAdminService.updateSubmissionStatus).toHaveBeenCalledWith('s1', 'reviewed')
