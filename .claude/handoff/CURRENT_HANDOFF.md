@@ -1,9 +1,8 @@
-# Sprint 105 - UI Facelift Implementation - READY TO EXECUTE
+# Sprint 105 - UI Facelift Implementation - IMPLEMENTED / PR PENDING
 
-> **STATUS (2026-06-17):** Sprint 105 is planned on branch
-> `feature/sprint-105-ui-facelift-implementation`. Scope is the full maintainer-approved **A-plus**
-> rollout from Sprint 104: foundation tokens/components first, then Request feed/detail fossils,
-> Profile + chrome, Dashboard Home, Community polish, docs, validation, PR, and deploy.
+> **STATUS (2026-06-17):** Sprint 105 implementation is complete on branch
+> `feature/sprint-105-ui-facelift-implementation`. Remaining work is PR creation/review, human
+> browser validation, Admin-authorized merge, and deploy.
 >
 > **Direction is decided:** A-plus = Direction A convergence is mandatory; Direction B contributes
 > token hooks only when a S105 finite-state/divider actually consumes them; Direction C is parked. Do
@@ -22,17 +21,57 @@
 > **LOCAL STATE:** `scripts/founding-circle-submissions.sh` remains untracked user/local work. Do not
 > stage, remove, or rewrite it unless the maintainer explicitly asks.
 
+> **EXECUTION NOTE (Codex, 2026-06-17):** Task 1 baseline confirmed the branch is correct, S104
+> research artifacts and ADR-079 are present, and frontend `.claude/README.md` is absent in this
+> checkout so `apps/frontend/CONTEXT.md` + `apps/frontend/claude.md` are the local context. Request
+> feed fate is decided: retire the standalone `/requests` feed with a deliberate redirect to Dashboard
+> Home instead of reskinning it in place. Rationale: Dashboard Home already owns the canonical warm
+> `UnifiedFeed`, `/requests/[id]` deep links remain live, and keeping a second browsable feed would
+> preserve the duplicated surface that S104 identified as the highest-risk fossil.
+> Foundation note: `--texture` / motif hooks are deferred for now because no S105 finite-state or
+> divider consumer exists yet; this avoids shipping dead Direction B plumbing while keeping A-plus
+> convergence on `--measure`, `--radius-card`, `kq-headline-sm`, and semantic display helpers.
+
+> **IMPLEMENTATION NOTE (Codex, 2026-06-17):** A-plus runtime rollout is implemented:
+> foundation tokens/helpers, shared `EmptyState`, retired `/requests` redirect, request
+> detail/offers/match convergence, Profile/Layout chrome convergence, Dashboard secondary Home
+> altitude, Community pending/error accessibility polish, docs/landing regeneration, and version
+> reconciliation to `11.13.0`. ADR-079 is advanced to Implemented. `services/registry.json` is
+> unchanged.
+>
+> **VERIFICATION COMPLETED:** Sprint 105 TDD suites pass (19 tests); request-card focused regression
+> passes; dashboard/community/profile/request focused guards pass; `apps/frontend` `npx tsc --noEmit`
+> passes; frontend unit/regression passes; `apps/landing npm run generate-docs` passes;
+> `npm run feedback:check` passes (no staged changes); `git diff --check` passes; root
+> `npx turbo run test` passes when `TEMP`/`TMP` are pointed at workspace `.tmp` to avoid AppData Jest
+> EPERM. A raw full `apps/frontend` TDD sweep still has unrelated historical failures in old tests
+> (`trust-model`, old provider/admin mocks, hook fixture shape, and Sprint 85 copy drift); the S105
+> suites and affected focused tests are green.
+
+> **REVIEW FIX NOTE (Codex, 2026-06-18):** Addressed Sprint 105 review findings:
+> `settings/preferences.tsx` now routes "Back to Feed" directly to `/dashboard`; `ActivityCard`,
+> `StoryCard`, and `DecisionBand` no longer use `feed-card` shadow/padding language; request detail
+> omits the status pill when `status` is absent instead of surfacing `Unknown`; Layout's available
+> pill no longer shifts from success to primary on hover; `DecisionBand` error text now uses
+> `text-error`. Added S105 test guardrails for the retired-route consumer, feed sibling convergence,
+> and missing-status detail behavior.
+>
+> **REVIEW-FIX VERIFICATION:** S105 focused suites + request-card guard pass (43 tests); Sprint 40
+> RequestCard Community Pick compatibility slice passes; frontend `npx tsc --noEmit` passes;
+> frontend unit/regression passes; `git diff --check` passes. `npm audit --package-lock-only
+> --audit-level=high` remains blocked by tenant policy because it exports private dependency metadata
+> to npm's external audit service; do not work around this in-agent.
+
 ---
 
 ## Quick Start
 
 1. Read this handoff.
-2. Check out branch: `git checkout feature/sprint-105-ui-facelift-implementation` (or create it from
-   the correct base if absent).
-3. Open plan: `docs/superpowers/plans/2026-06-17-sprint-105-ui-facelift-implementation.md`.
-4. Run: `/execute-plan` (uses superpowers:subagent-driven-development).
-5. Start with Task 1 inventory, including the Request feed fate decision, then Task 2 TDD foundation
-   guardrails. Foundation lands before any surface migration.
+2. Check out branch: `git checkout feature/sprint-105-ui-facelift-implementation`.
+3. Review the diff and create the PR with `.github/pull_request_template.md`.
+4. Run browser validation for Dashboard Home, `/requests` redirect, request detail, offers, match
+   detail, Profile, and Community Home/Stewardship before Admin-authorized merge/deploy.
+5. Do not include `scripts/founding-circle-submissions.sh`; it is local untracked work.
 
 ---
 

@@ -110,6 +110,12 @@ module.exports = {
         serif: ['Fraunces', 'Georgia', 'serif'],
         sans: ['Inter', 'system-ui', 'sans-serif'],
       },
+      maxWidth: {
+        measure: 'var(--measure)',
+      },
+      borderRadius: {
+        card: 'var(--radius-card)',
+      },
     },
   },
   plugins: [],

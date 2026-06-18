@@ -26,6 +26,8 @@
   /* ── Surfaces ── */
   --color-surface: 250 248 243;         /* karmyq-cream     #faf8f3 */
   --color-surface-raised: 253 252 249;  /* karmyq-warmWhite #fdfcf9 */
+  --measure: 42rem;                     /* one comfortable reading column */
+  --radius-card: 0.5rem;                /* 8px, shared warm card radius */
 
   /* ── Text ── */
   --color-text: 92 62 48;              /* karmyq-brown-900 #5c3e30 */
@@ -63,7 +65,7 @@ body {
   .btn-danger    { @apply bg-error text-white px-6 py-2.5 rounded-lg font-medium hover:opacity-90 transition-opacity min-h-[36px]; }
 
   /* ── Layout ── */
-  .card          { @apply bg-surface-raised rounded-xl border border-border shadow-sm; }
+  .card          { border-radius: var(--radius-card); @apply bg-surface-raised border border-border; }
   .input         { @apply w-full px-4 py-2.5 border border-border rounded-lg bg-surface text-text placeholder:text-text-subtle focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent; }
   .section-heading { @apply text-lg font-semibold text-text mb-4; }
 

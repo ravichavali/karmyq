@@ -474,7 +474,7 @@ export default function ProfilePage() {
         <title>My Profile - Karmyq</title>
       </Head>
       <Layout>
-        <div className="container mx-auto px-4 py-8 max-w-4xl">
+        <div className="kq-page py-8">
           {/* Warm-commons hero (Sprint 90 — S87–89 look) */}
           <header className="kq-hero mb-6">
             <p className="kq-section-label !mt-0">Your profile</p>
@@ -486,7 +486,7 @@ export default function ProfilePage() {
 
           {/* Success/Error Messages */}
           {error && (
-            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+            <div className="bg-error-light border border-error text-error px-4 py-3 rounded mb-4">
               {error}
             </div>
           )}
@@ -530,7 +530,7 @@ export default function ProfilePage() {
           <div>
 
           {/* Profile Information */}
-          <div className="bg-surface-raised rounded-lg shadow-md p-6 mb-6">
+          <div className="kq-card mb-6">
             <div className="flex justify-between items-start mb-4">
               <h2 className="section-heading">Profile Information</h2>
               {!editing && (
@@ -589,7 +589,7 @@ export default function ProfilePage() {
                     <button
                       type="submit"
                       disabled={saving}
-                      className="px-4 py-2 bg-primary text-white rounded hover:bg-primary-dark disabled:bg-gray-400"
+                      className="btn-primary disabled:opacity-50"
                     >
                       {saving ? 'Saving...' : 'Save Changes'}
                     </button>
@@ -600,7 +600,7 @@ export default function ProfilePage() {
                         setName(user.name)
                         setBio(user.bio || '')
                       }}
-                      className="px-4 py-2 bg-gray-300 text-text-muted rounded hover:bg-gray-400"
+                      className="btn-secondary"
                     >
                       Cancel
                     </button>
@@ -626,7 +626,7 @@ export default function ProfilePage() {
           </div>
 
           {/* Karma Section */}
-          <div className="bg-surface-raised rounded-lg shadow-md p-6 mb-6">
+          <div className="kq-card mb-6">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3">
                 <span className="text-3xl">⭐</span>
@@ -642,7 +642,7 @@ export default function ProfilePage() {
                 disabled={saving}
                 className={`px-4 py-2 text-sm rounded transition-colors ${
                   showKarmaToMe
-                    ? 'bg-gray-200 text-text-muted hover:bg-gray-300'
+                    ? 'bg-surface text-text-muted border border-border hover:bg-surface-raised'
                     : 'bg-primary text-white hover:bg-primary-dark'
                 } disabled:opacity-50`}
               >
@@ -749,7 +749,7 @@ export default function ProfilePage() {
           )}
 
           {/* Communities Section */}
-          <div className="bg-surface-raised rounded-lg shadow-md p-6 mb-6">
+          <div className="kq-card mb-6">
             <div className="flex justify-between items-start mb-4">
               <div>
                 <h2 className="section-heading mb-1">My Communities</h2>
@@ -767,7 +767,7 @@ export default function ProfilePage() {
 
             {communities.length === 0 ? (
               <div className="text-center py-8">
-                <svg className="w-16 h-16 mx-auto mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-16 h-16 mx-auto mb-4 text-text-subtle" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                 </svg>
                 <p className="text-text-muted mb-4">You're not a member of any communities yet</p>
@@ -792,7 +792,7 @@ export default function ProfilePage() {
                       <span className="text-text-subtle">
                         {community.current_members} members
                       </span>
-                      <div className="w-24 bg-gray-200 rounded-full h-2">
+                      <div className="w-24 bg-border-light rounded-full h-2">
                         <div
                           className="bg-primary h-2 rounded-full"
                           style={{
@@ -842,7 +842,7 @@ export default function ProfilePage() {
           {user && <TrustNetworkWidget currentUserId={user.id} />}
 
           {/* Skills Section */}
-          <div className="bg-surface-raised rounded-lg shadow-md p-6">
+          <div className="kq-card">
             <div className="flex justify-between items-start mb-4">
               <div>
                 <h2 className="section-heading mb-1">My Skills</h2>
@@ -889,7 +889,7 @@ export default function ProfilePage() {
                       setShowSkillSelector(false)
                       setSelectedSkill('')
                     }}
-                    className="px-4 py-2 bg-gray-300 text-text-muted rounded hover:bg-gray-400"
+                    className="btn-secondary"
                   >
                     Cancel
                   </button>
@@ -928,7 +928,7 @@ export default function ProfilePage() {
             {/* Skill Impact Info */}
             {skills.length > 0 && (
               <div className="mt-4 p-3 bg-success-light border border-success rounded">
-                <p className="text-sm text-green-800">
+                <p className="text-sm text-success">
                   💡 <strong>Your skills help us match you</strong> with relevant help requests on your dashboard.
                   The more skills you add, the more opportunities you'll see to help others!
                 </p>
@@ -938,7 +938,7 @@ export default function ProfilePage() {
 
           {/* Trust Evolution Settings */}
           {user && globalEvolutionEnabled !== null && (
-            <div className="bg-surface-raised rounded-xl border border-border shadow-sm p-6 mt-6">
+            <div className="kq-card mt-6">
               <h2 className="section-heading">Trust Evolution Settings</h2>
               <p className="text-text-muted text-sm mb-4">
                 When enabled, your trust model calibrates automatically based on your experiences.
@@ -990,7 +990,7 @@ export default function ProfilePage() {
 
 
           {/* Tags: Skills, Interests, Needs */}
-          <div className="bg-surface-raised rounded-lg shadow-md p-6 mb-6">
+          <div className="kq-card mb-6">
             <ProfileTagsSection />
           </div>
 

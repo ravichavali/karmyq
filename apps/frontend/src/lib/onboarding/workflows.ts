@@ -32,7 +32,7 @@ export const WORKFLOWS: Record<string, WorkflowDef> = {
       },
       {
         title: "You're caught up",
-        body: "When there are no direct matches for you, the feed shows one honest, calm message — \"You're caught up\" — and points you to your communities, which may still have open asks waiting. It doesn't pretend there's nothing left or push a \"show more\" nudge.",
+        body: "When there are no direct matches for you, the feed shows one honest, calm message — \"You're caught up\" — then offers a quieter path to browse your communities, which may still have open asks waiting. It doesn't pretend there's nothing left or push infinite-scroll urgency.",
       },
       {
         title: 'The same feed inside a community',

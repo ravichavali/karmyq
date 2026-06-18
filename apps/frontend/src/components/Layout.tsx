@@ -53,12 +53,14 @@ function HamburgerMenu() {
                 <button
                   onClick={() => { setAvailability(!isAvailable); setOpen(false) }}
                   className="flex items-center gap-2 text-sm w-full"
+                  aria-pressed={isAvailable}
+                  aria-label={isAvailable ? 'Available' : 'Off duty'}
                 >
                   <span
-                    className="w-2 h-2 rounded-full flex-shrink-0"
-                    style={{ background: isAvailable ? 'rgb(34 197 94)' : 'rgb(var(--color-text-muted) / 0.4)' }}
+                    aria-hidden="true"
+                    className={`w-2 h-2 rounded-full flex-shrink-0 ${isAvailable ? 'bg-success' : 'bg-border'}`}
                   />
-                  <span style={{ color: isAvailable ? 'rgb(22 163 74)' : 'rgb(var(--color-text-muted))' }}>
+                  <span className={isAvailable ? 'text-success' : 'text-text-muted'}>
                     {isAvailable ? 'Available' : 'Off duty'}
                   </span>
                 </button>
@@ -111,7 +113,7 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
     <div className="min-h-screen bg-surface">
       {!isAuthPage && (
         <nav className="kq-topbar">
-          <div className="container mx-auto px-4 py-4">
+          <div className="kq-page py-4">
             <div className="flex justify-between items-center">
               <Link href="/dashboard" className="kq-wordmark">
                 <span className="kq-wordmark-seed" aria-hidden="true" />
@@ -159,14 +161,16 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
                     {hasProviderProfile && (
                       <button
                         onClick={() => setAvailability(!isAvailable)}
+                        aria-pressed={isAvailable}
+                        aria-label={isAvailable ? 'Available' : 'Off duty'}
                         className={`hidden md:flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-full border transition-all ${
                           isAvailable
-                            ? 'bg-green-50 border-green-200 text-green-700 hover:bg-green-100'
+                            ? 'bg-success-light border-success text-success hover:bg-success-light'
                             : 'bg-surface border-border text-text-muted hover:bg-surface-raised'
                         }`}
                         title={isAvailable ? 'Click to go off duty' : 'Click to go on duty'}
                       >
-                        <span className={`w-2 h-2 rounded-full flex-shrink-0 ${isAvailable ? 'bg-green-500' : 'bg-gray-300'}`} />
+                        <span aria-hidden="true" className={`w-2 h-2 rounded-full flex-shrink-0 ${isAvailable ? 'bg-success' : 'bg-border'}`} />
                         {isAvailable ? 'Available' : 'Off duty'}
                       </button>
                     )}
@@ -204,7 +208,7 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
       <main>
         {title && !isAuthPage && (
           <div className="bg-surface-raised border-b border-border">
-            <div className="container mx-auto px-4 py-6">
+            <div className="kq-page py-5">
               <div className="flex items-center gap-4">
                 <button
                   onClick={() => router.back()}
@@ -224,7 +228,7 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
                     <path d="M19 12H5M12 19l-7-7 7-7" />
                   </svg>
                 </button>
-                <h1 className="text-3xl font-bold text-text">{title}</h1>
+                <h1 className="kq-headline-sm">{title}</h1>
               </div>
             </div>
           </div>

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/router'
 import { requestService } from '../../lib/api'
+import EmptyState from '@/components/EmptyState'
 
 export default function MatchRedirectPage() {
   const router = useRouter()
@@ -29,27 +30,23 @@ export default function MatchRedirectPage() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-primary-light via-surface-raised to-accent-light flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-text mb-4">Match Not Found</h1>
-          <p className="text-text-muted mb-6">{error}</p>
-          <button
-            onClick={() => router.push('/dashboard')}
-            className="px-6 py-3 bg-primary text-white rounded-lg hover:bg-primary-dark transition"
-          >
-            Go to Dashboard
-          </button>
-        </div>
-      </div>
+      <main className="kq-page py-10">
+        <EmptyState
+          heading="Match not found"
+          body={error}
+          ctaLabel="Go to Dashboard"
+          ctaOnClick={() => router.push('/dashboard')}
+        />
+      </main>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary-light via-surface-raised to-accent-light flex items-center justify-center">
-      <div className="text-center">
+    <main className="kq-page py-10">
+      <div className="kq-card text-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
         <p className="text-text-muted mt-4">Redirecting to request...</p>
       </div>
-    </div>
+    </main>
   )
 }

@@ -418,7 +418,7 @@ export default function PreferencesPage() {
                 {saving ? 'Saving...' : 'Save All Preferences'}
               </button>
               <button
-                onClick={() => router.push('/requests')}
+                onClick={() => router.push('/dashboard')}
                 className="flex-1 bg-gray-200 text-text-muted px-6 py-3 rounded-lg hover:bg-gray-300 transition font-semibold"
               >
                 Back to Feed

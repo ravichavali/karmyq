@@ -109,7 +109,7 @@ When code implementing an ADR is deployed, update the status from `Accepted` →
 - [ADR-076: Founding-Circle Backend Intake (public persist-only landing submissions)](ADR-076-founding-circle-intake.md) — **Accepted**
 - [ADR-077: Trust Path Topology is Platform-Wide; Strength is Community-Scoped](ADR-077-trust-path-platform-topology.md) — **Implemented**
 - [ADR-078: Community Connection Reconciliation from `request_communities`](ADR-078-community-connection-reconciliation.md) — **Accepted**
-- [ADR-079: Karmyq Visual Design System v2 (finish the warm system + harden it into tokens)](ADR-079-visual-design-system-v2.md) — **Proposed**
+- [ADR-079: Karmyq Visual Design System v2 (finish the warm system + harden it into tokens)](ADR-079-visual-design-system-v2.md) — **Implemented**
 
 ## Creating a New ADR
 

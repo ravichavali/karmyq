@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/router'
 import Head from 'next/head'
 import Link from 'next/link'
 import { requestService } from '../../lib/api'
 import Layout from '@/components/Layout'
 import EmptyState from '@/components/EmptyState'
+import { getRequestStatusDisplay } from '@/lib/requestDisplay'
 
 interface HelpOffer {
   id: string
@@ -21,7 +21,6 @@ interface HelpOffer {
 }
 
 export default function OffersPage() {
-  const router = useRouter()
   const [offers, setOffers] = useState<HelpOffer[]>([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState({
@@ -50,37 +49,25 @@ export default function OffersPage() {
     }
   }
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'active': return 'text-success bg-success-light'
-      case 'matched': return 'text-accent bg-accent-light'
-      case 'withdrawn': return 'text-text-muted bg-border-light'
-      default: return 'text-text-muted bg-border-light'
-    }
-  }
-
   return (
     <>
       <Head>
         <title>Help Offers - Karmyq</title>
       </Head>
       <Layout title="Help Offers">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="kq-page py-8">
           {/* Header */}
           <div className="flex justify-between items-center mb-8">
             <div>
               <p className="text-text-muted mt-2">Browse available help offers from community members</p>
             </div>
-          <Link
-            href="/offers/new"
-            className="bg-primary text-white px-6 py-3 rounded-lg hover:bg-primary-dark transition"
-          >
-            Create Offer
-          </Link>
-        </div>
+            <Link href="/offers/new" className="btn-primary inline-flex">
+              Create Offer
+            </Link>
+          </div>
 
         {/* Filters */}
-        <div className="bg-surface-raised rounded-lg shadow-sm p-6 mb-6">
+        <div className="kq-card mb-6">
           <div className="flex flex-wrap gap-4">
             <div>
               <label className="block text-sm font-medium text-text-muted mb-2">
@@ -136,57 +123,63 @@ export default function OffersPage() {
         ) : (
           <div className="grid gap-6">
             {offers.map((offer) => (
-              <div
-                key={offer.id}
-                className="bg-surface-raised rounded-lg shadow-sm p-6 hover:shadow-md transition"
-              >
-                <div className="flex justify-between items-start mb-4">
-                  <div className="flex-1">
-                    <h3 className="text-xl font-semibold text-text mb-2">
-                      {offer.title}
-                    </h3>
-                    <p className="text-text-muted line-clamp-2">{offer.description}</p>
-                  </div>
-                  <span className={`px-3 py-1 rounded-full text-xs font-semibold ml-4 ${getStatusColor(offer.status)}`}>
-                    {offer.status}
-                  </span>
-                </div>
-
-                <div className="flex items-center gap-6 text-sm text-text-subtle">
-                  <div className="flex items-center gap-2">
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                    </svg>
-                    <span>{offer.community_name}</span>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                    </svg>
-                    <span>{offer.helper_name}</span>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
-                    </svg>
-                    <span className="capitalize">{offer.category.replace(/_/g, ' ')}</span>
-                  </div>
-
-                  <div className="flex items-center gap-2 ml-auto">
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <span>{new Date(offer.created_at).toLocaleDateString()}</span>
-                  </div>
-                </div>
-              </div>
+              <OfferCard key={offer.id} offer={offer} />
             ))}
           </div>
         )}
         </div>
       </Layout>
     </>
+  )
+}
+
+function OfferCard({ offer }: { offer: HelpOffer }) {
+  const statusDisplay = getRequestStatusDisplay(offer.status)
+
+  return (
+    <div className="kq-card">
+      <div className="flex justify-between items-start mb-4">
+        <div className="flex-1">
+          <h3 className="text-xl font-semibold text-text mb-2">{offer.title}</h3>
+          <p className="text-text-muted line-clamp-2">{offer.description}</p>
+        </div>
+        <span
+          aria-label={`Status: ${statusDisplay.label}`}
+          className={`kq-pill border ml-4 ${statusDisplay.className}`}
+        >
+          {statusDisplay.label}
+        </span>
+      </div>
+
+      <div className="flex items-center gap-6 text-sm text-text-subtle">
+        <div className="flex items-center gap-2">
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+          </svg>
+          <span>{offer.community_name}</span>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+          </svg>
+          <span>{offer.helper_name}</span>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+          </svg>
+          <span className="capitalize">{offer.category.replace(/_/g, ' ')}</span>
+        </div>
+
+        <div className="flex items-center gap-2 ml-auto">
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <span>{new Date(offer.created_at).toLocaleDateString()}</span>
+        </div>
+      </div>
+    </div>
   )
 }

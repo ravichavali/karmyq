@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import Link from 'next/link'
 import { requestService } from '@/lib/api'
 import FilterChipRow, { RequestTypeFilter, UrgencyFilter } from '@/components/FilterChipRow'
 import EmptyState from '@/components/EmptyState'
@@ -41,6 +42,20 @@ interface UnifiedFeedProps {
 function readCurrentUserId(): string | null {
   const userData = typeof window !== 'undefined' ? localStorage.getItem('user') : null
   return userData ? (JSON.parse(userData).id ?? null) : null
+}
+
+function HomeSecondaryAltitude() {
+  return (
+    <section className="kq-card mt-3" aria-labelledby="home-secondary-altitude">
+      <h3 id="home-secondary-altitude" className="kq-headline-sm">Still want to lend a hand?</h3>
+      <p className="mt-2 text-sm text-text-muted">
+        Your communities may have open asks that are less tailored to you, but still worth a look.
+      </p>
+      <Link href="/communities" className="btn-secondary mt-4 inline-flex">
+        Browse your communities
+      </Link>
+    </section>
+  )
 }
 
 export default function UnifiedFeed({
@@ -250,7 +265,7 @@ export default function UnifiedFeed({
         ) : isCommunity ? (
           // Community view: only show the "nothing here" state when there's no texture either.
           !hasTexture ? (
-            <div className="kq-finite-state">
+            <>
               <EmptyState
                 icon="🤝"
                 heading="No open requests right now"
@@ -261,13 +276,13 @@ export default function UnifiedFeed({
                 }
               />
               {showMoreOpenButton}
-            </div>
+            </>
           ) : null
         ) : (
           // Sprint 100 / F3: one honest, calm caught-up message — no "No top matches" first stage,
           // no "Show more open requests" engagement nudge. An empty curated feed only means no
           // DIRECT matches; the member's communities may still have open asks, so we point there.
-          <div className="kq-finite-state">
+          <>
             <EmptyState
               icon="✅"
               heading="You're caught up"
@@ -275,7 +290,8 @@ export default function UnifiedFeed({
               ctaLabel="Browse communities"
               ctaHref="/communities"
             />
-          </div>
+            <HomeSecondaryAltitude />
+          </>
         )
       ) : (
         <div className="space-y-3 pb-4">
@@ -290,17 +306,15 @@ export default function UnifiedFeed({
           {/* BUG-097-003: once the feed has been widened (minScore=0) there is no more to show,
               so close it with a clear finite note — never before the user clicks Show more. */}
           {showWidenedTerminalNote && (
-            <div className="kq-finite-state">
-              <EmptyState
-                icon="✅"
-                heading="That's everyone for now"
-                body={
-                  isCommunity
-                    ? "You're seeing every open ask in this community."
-                    : "You're seeing every open ask you can fill right now."
-                }
-              />
-            </div>
+            <EmptyState
+              icon="✅"
+              heading="That's everyone for now"
+              body={
+                isCommunity
+                  ? "You're seeing every open ask in this community."
+                  : "You're seeing every open ask you can fill right now."
+              }
+            />
           )}
         </div>
       )}

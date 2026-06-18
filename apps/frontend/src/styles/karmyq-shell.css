@@ -1,5 +1,6 @@
 .kq-page {
-  @apply max-w-2xl mx-auto px-4;
+  max-width: var(--measure);
+  @apply mx-auto px-4;
 }
 
 .kq-page-header {
@@ -15,12 +16,18 @@
   @apply text-[30px] leading-tight font-semibold text-text mt-1;
 }
 
+.kq-headline-sm {
+  font-family: 'Fraunces', Georgia, serif;
+  @apply text-[26px] leading-tight font-semibold text-text;
+}
+
 .kq-lede {
   @apply text-[15px] leading-6 text-text-muted mt-2;
 }
 
 .kq-card {
-  @apply bg-surface-raised rounded-lg border border-border p-5 transition-colors;
+  border-radius: var(--radius-card);
+  @apply bg-surface-raised border border-border p-5 transition-colors;
 }
 
 .kq-card:hover {

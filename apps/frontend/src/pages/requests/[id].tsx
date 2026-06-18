@@ -4,7 +4,9 @@ import Head from 'next/head'
 import Link from 'next/link'
 import { requestService } from '@/lib/api'
 import RequestPayloadRenderer from '@/components/Feed/RequestPayloadRenderer'
+import EmptyState from '@/components/EmptyState'
 import { getOfferActionLabel, getOfferErrorFallback } from '@/lib/requestActionCopy'
+import { getRequestStatusDisplay, getRequestUrgencyDisplay } from '@/lib/requestDisplay'
 import type { PayloadType } from '@/types/unified-feed'
 import type { RequestPayload } from '@/types/request-payloads'
 
@@ -115,8 +117,8 @@ export default function RequestDetailPage() {
 
   if (loading) {
     return (
-      <div className="max-w-2xl mx-auto px-4 py-10">
-        <div className="card p-6 animate-pulse">
+      <div className="kq-page py-10">
+        <div className="kq-card animate-pulse">
           <div className="h-5 bg-border rounded w-2/3 mb-3" />
           <div className="h-3 bg-border rounded w-1/2" />
         </div>
@@ -126,9 +128,13 @@ export default function RequestDetailPage() {
 
   if (notFound) {
     return (
-      <div className="max-w-2xl mx-auto px-4 py-10">
-        <h1 className="text-xl font-semibold text-text mb-2">Request not found</h1>
-        <p className="text-text-muted mb-4">This ask may have been removed.</p>
+      <div className="kq-page py-10">
+        <EmptyState
+          heading="Request not found"
+          body="This ask may have been removed."
+          ctaLabel="Back to dashboard"
+          ctaHref="/dashboard"
+        />
         {backLink}
       </div>
     )
@@ -136,22 +142,28 @@ export default function RequestDetailPage() {
 
   if (error && !detail) {
     return (
-      <div className="max-w-2xl mx-auto px-4 py-10">
-        <h1 className="text-xl font-semibold text-text mb-2">Couldn’t load this request</h1>
-        <p className="text-text-muted mb-4">{error}</p>
+      <div className="kq-page py-10">
+        <EmptyState
+          heading="Couldn't load this request"
+          body={error}
+          ctaLabel="Back to dashboard"
+          ctaHref="/dashboard"
+        />
         {backLink}
       </div>
     )
   }
 
   if (!detail) return null
+  const statusDisplay = detail.status ? getRequestStatusDisplay(detail.status) : null
+  const urgencyDisplay = getRequestUrgencyDisplay(detail.urgency)
 
   return (
     <>
       <Head>
         <title>{detail.title} · Karmyq</title>
       </Head>
-      <div className="max-w-2xl mx-auto px-4 py-8">
+      <div className="kq-page py-8">
         <div className="mb-4">{backLink}</div>
 
         <article className="kq-card">
@@ -159,14 +171,19 @@ export default function RequestDetailPage() {
             {detail.request_type && (
               <span className="kq-pill">{TYPE_LABELS[detail.request_type] ?? detail.request_type}</span>
             )}
+            {statusDisplay && (
+              <span className={`kq-pill border ${statusDisplay.className}`}>
+                {statusDisplay.label}
+              </span>
+            )}
             {detail.urgency && (
-              <span className="text-xs px-2 py-0.5 rounded-full bg-surface-raised text-text-muted font-medium">
-                {detail.urgency}
+              <span className={`kq-pill border ${urgencyDisplay.className}`}>
+                {urgencyDisplay.label}
               </span>
             )}
           </div>
 
-          <h1 className="mb-2 text-[26px] leading-snug font-semibold text-text" style={{ fontFamily: "'Fraunces', Georgia, serif" }}>
+          <h1 className="kq-headline-sm mb-2">
             {detail.title}
           </h1>
 
@@ -228,7 +245,7 @@ export default function RequestDetailPage() {
               <p className="text-sm text-text-muted">{finiteStateCopy(detail.status, detail.expired)}</p>
             )}
 
-            {error && <p className="text-xs text-red-600 mt-2">{error}</p>}
+            {error && <p className="text-xs text-error mt-2">{error}</p>}
           </div>
         </article>
       </div>
