@@ -14,6 +14,13 @@ These are global — they apply across all your communities.
 
 Open your profile and scroll to the "About You" section. Click **+ Add** next to any category. You can pick from suggested tags or type your own. Tags save immediately.
 
+## Page Layout
+
+The Profile page uses the same warm shell as Dashboard and Community pages: a single reading measure,
+border-based cards, semantic success/error colors, and shared action buttons. Memory, karma visibility,
+privacy, and trust-evolution behavior are unchanged; the Sprint 105 update only converged the visual
+language.
+
 ## Why Keep It Simple
 
 Karmyq does not ask for a resumé. Skills, interests, and needs are lightweight signals — enough for the platform to start finding better matches over time, without requiring you to maintain a detailed profile. Let it evolve naturally.

@@ -43,6 +43,14 @@ Use the filter chips to narrow by type or urgency. If you run a service as a pro
 
 ## You’re caught up
 
-When there are no direct matches for you, Dashboard Home shows **one** honest, calm message — **"You're caught up"** — and points you to your communities, which may still have open asks waiting. It doesn't show a "No top matches" first stage or a "Show more" nudge on an empty Home; an empty *curated* feed only means no direct matches for *you*, not that there's nothing to do. Browse your communities (their weekly pulse links straight to every open ask across the community) to lend a hand.
+When there are no direct matches for you, Dashboard Home shows **one** honest, calm primary message —
+**"You're caught up"** — and then a quieter secondary row, **"Still want to lend a hand?"**, that links
+to your communities. It doesn't show a "No top matches" first stage or a "Show more" nudge on an empty
+Home; an empty *curated* feed only means no direct matches for *you*, not that there's nothing to do.
+Browse your communities (their weekly pulse links straight to every open ask across the community) to
+lend a hand.
+
+If you have not joined any communities yet, Home uses the shared finite-state treatment and points you
+to **Find Communities** before rendering any feed.
 
 See [One Feed, Two Views](/docs/concepts/unified-feed) for the thinking behind this.

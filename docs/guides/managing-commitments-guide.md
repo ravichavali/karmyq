@@ -4,6 +4,9 @@ Your Helping tab shows every active exchange you're part of — requests you've 
 
 When you've offered on open asks that are still waiting on the requester, Dashboard Home shows a short **"You've offered to help"** preview that links each ask to its detail page and points here with **View all in Helping** — so the full list of what you're waiting on always lives in this tab.
 
+Offers and match detail pages now use the same warm card shell and humanized status labels as request
+detail. The status chip should read like plain product language, not an internal token.
+
 ---
 
 ## Action-Priority Ordering

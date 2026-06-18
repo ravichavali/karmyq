@@ -1,9 +1,9 @@
 # ADR-079: Karmyq Visual Design System v2 (finish the warm system + harden it into tokens)
 
-**Status**: Proposed
+**Status**: Implemented
 **Date**: 2026-06-17
 **Sprint**: 104 (research) → implemented in 105
-**Version**: (target 11.x, set at S105 release)
+**Version**: 11.13.0
 
 ## Context
 
@@ -35,13 +35,12 @@ so it cannot drift again — not inventing a new aesthetic.
 
 ## Decision
 
-**Adopt a Visual Design System v2 that (1) completes adoption of the warm `.kq-*` system across all
-four clusters and (2) hardens the drift axes into named tokens. The maintainer chose "A-plus" (review
-2026-06-17): Direction A (convergence; no new visual personality required) is the mandated scope, and
-the foundation is built B-compatible — token hooks for paper grain / leaf motif / a smoother Fraunces
-ramp ship but are off by default (and, if used, sparse: finite states + section dividers only, enabled
-later after seeing it in the running app). All deltas are expressed against the CSS-variable tokens so
-they survive per-community re-skinning.**
+**Adopt and implement Visual Design System v2: (1) complete adoption of the warm `.kq-*` system across
+the live frontend clusters and (2) harden the drift axes into named tokens. The maintainer chose
+"A-plus" (review 2026-06-17): Direction A (convergence; no new visual personality required) is the
+mandated scope. B-style texture/motif hooks were intentionally deferred because no Sprint 105 finite
+state or divider consumed them. All shipped deltas are expressed against CSS-variable tokens so they
+survive per-community re-skinning.**
 
 Three directions were studied (mockups in `docs/design/sprint-104-ui-facelift/mockups/`):
 
@@ -62,29 +61,25 @@ approved aesthetic intact; the failure mode to avoid is letting "facelift" becom
 
 P1 one reading column · P2 border-not-shadow elevation · P3 one radius per role · P4 smooth Fraunces
 ramp · P5 color = meaning, from tokens only · P6 quiet density (match-% always a whisper) · P7 warm
-finite states everywhere · P8 calm motion + an optional whisper of paper texture. P1–P7 are
-non-negotiable convergence and are the mandated S105 scope; **P8 is the single creative dial** —
-under the "A-plus" verdict its hook ships but stays **off by default** (dialed up later, sparingly).
+finite states everywhere · P8 calm motion + an optional whisper of paper texture. P1–P7 shipped in
+Sprint 105; **P8 remains the single creative dial** and is deferred until a real surface consumes it.
 
 ### Token-system implications
 
-New/clarified tokens in `globals.css :root` + `karmyq-shell.css` (the rollout detail is S105):
-`--measure` (one content width), `--radius-card`, `--texture` (grain-layer hook, **default off** under
-A-plus, nullable per skin), `kq-headline-sm` (26px Fraunces, the mid-size step request detail currently hand-rolls inline),
-one canonical card primitive (`.kq-card`, retiring `.card` shadow variants), status/urgency mapped to
-existing semantic tokens (`warn`/`success`/`error`/`accent`), `kq-finite-state` as the single
-empty/caught-up/closed component, and a leaf motif reusing the existing `karmyq-mark.svg`. **No palette
-or type-family change** — the brand colors and Fraunces + Hanken pairing are unchanged. Everything is a
-delta to the CSS variables, so per-community `ThemeProvider` skins continue to override cleanly.
+New/clarified tokens in `globals.css :root` + `karmyq-shell.css`:
+`--measure` (one content width), `--radius-card`, `kq-headline-sm`, one canonical card primitive
+(`.kq-card`, with legacy `.card` de-emphasized), semantic status/urgency helpers in
+`src/lib/requestDisplay.ts`, and `kq-finite-state` via the shared `EmptyState` component. The
+`--texture` / motif hook did **not** ship in Sprint 105 because it had no live consumer. **No palette
+or type-family change** — the brand colors and Fraunces + Hanken pairing are unchanged.
 
-### Rollout decision (deferred to S105)
+### Implementation notes (Sprint 105)
 
-S104 is **research only — no implementation, no deploy.** S105 implements in order: a token/component
-**foundation** PR first (it unblocks the rest), then the **Request feed** (highest score delta, the
-visible proof point — reskinned onto the warm feed components or retired in favour of the dashboard
-`UnifiedFeed`), then Profile + chrome, Dashboard (incl. the carried-forward "empty Home for
-established users" altitude — the one non-styling item), and a light Community polish. The per-cluster
-change list is in `docs/design/sprint-104-ui-facelift/recommendations.md`.
+S105 shipped the foundation first, then converged the request/detail/offers/match cluster, Profile and
+global chrome, Dashboard Home, and a light Community polish. The standalone `/requests` feed route was
+retired deliberately and redirects to Dashboard Home, leaving `/requests/[id]` as the canonical request
+detail route. Dashboard Home now keeps the primary caught-up state finite and adds a quieter secondary
+path to browse communities for established members with an empty primary queue.
 
 ## Consequences
 
@@ -93,8 +88,8 @@ change list is in `docs/design/sprint-104-ui-facelift/recommendations.md`.
   cannot silently recur.
 - The two weak clusters (Request feed 2.1, Profile/chrome 2.9) rise to parity with the community page.
 - A genuine facelift from convergence alone ("make the app look like its best page"), without
-  re-opening the approved aesthetic — with the texture/motif personality held in reserve behind
-  default-off hooks (the per-community re-skin guarantee is preserved either way).
+  re-opening the approved aesthetic — with the texture/motif personality held in reserve until a
+  live surface consumes it.
 - An accessibility pass (contrast, focus, not-color-only) folds into the migration cheaply, since
   every surface is touched once.
 
@@ -105,9 +100,8 @@ change list is in `docs/design/sprint-104-ui-facelift/recommendations.md`.
 - The P8 texture must stay a whisper or it violates the "calm, library-not-poster" anchor.
 
 **Neutral:**
-- Version drift (`package.json` 11.10.0 vs handoff v11.12.0) is reconciled as part of the S105
-  release, not here.
-- This ADR ships **Proposed**; S105 advances it to **Implemented** as surfaces land.
+- Version drift is reconciled in the S105 release target: `11.13.0`.
+- Texture/motif hooks remain deferred rather than shipping unused CSS.
 
 ## Related
 

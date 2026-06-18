@@ -11,9 +11,9 @@ interface EmptyStateProps {
 
 export default function EmptyState({ icon, heading, body, ctaLabel, ctaHref, ctaOnClick }: EmptyStateProps) {
   return (
-    <div className="card p-8 text-center">
-      {icon && <div className="text-4xl mb-4">{icon}</div>}
-      <h3 className="font-semibold text-lg text-text">{heading}</h3>
+    <div className="kq-finite-state" data-testid="empty-state">
+      {icon && <div aria-hidden="true" className="text-4xl mb-4">{icon}</div>}
+      <h3 className="kq-headline-sm">{heading}</h3>
       <p className="text-text-muted text-sm mt-2 mb-6">{body}</p>
       {ctaLabel && ctaHref && (
         <Link href={ctaHref} className="btn-primary inline-flex">

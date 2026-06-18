@@ -116,7 +116,7 @@ export default function DecisionBand({ decisions, onResolved }: DecisionBandProp
           const isExpanded = expanded.has(decision.subject_id)
           const canExpand = !!decision.description || !!(decision.payload_type && decision.payload)
           return (
-            <div key={decision.subject_id} className="feed-card kq-action-band border-l-4 border-primary">
+            <div key={decision.subject_id} className="kq-card border-l-4 border-primary">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <button
                   type="button"
@@ -172,7 +172,7 @@ export default function DecisionBand({ decisions, onResolved }: DecisionBandProp
           )
         })}
       </div>
-      {error && <p className="text-xs text-red-600 mt-2">{error}</p>}
+      {error && <p className="text-xs text-error mt-2">{error}</p>}
     </section>
   )
 }

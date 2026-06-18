@@ -1,6 +1,6 @@
 /**
  * Sprint 97 / BUG-097-001: the dashboard must not flash the false
- * "You haven't joined a community yet" empty state while the membership fetch
+ * "Join a community to see requests" empty state while the membership fetch
  * is still in flight. The membership load is async; the page must stay in its
  * loading state until getMyCommunities resolves, then render the feed.
  */
@@ -44,7 +44,7 @@ jest.mock('@/components/OnboardingOverlay', () => () => null);
 import Dashboard from '@/pages/dashboard';
 import { communityService } from '@/lib/api';
 
-const NO_COMMUNITY_HEADING = "You haven't joined a community yet";
+const NO_COMMUNITY_HEADING = 'Join a community to see requests';
 
 describe('Sprint 97 dashboard community loading', () => {
   beforeEach(() => {

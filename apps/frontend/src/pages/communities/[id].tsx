@@ -133,18 +133,38 @@ export default function CommunityDetailPage() {
   if (error || !community) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="text-red-500">{error || 'Community not found'}</div>
+        <div role="alert" className="kq-card border-error bg-error-light text-error">
+          {error || 'Community not found'}
+        </div>
       </div>
     )
   }
 
   // The four warm tabs, plus a group-only Activities (ADR-068). Trust graph + Stewardship are
   // members-only; Home + People are open to everyone (including not-yet-members browsing the page).
-  const tabs: { key: CommunityTab; label: string; show: boolean; dot?: boolean }[] = [
+  const pendingMemberLabel =
+    pendingCount === 1 ? '1 pending member request' : `${pendingCount} pending member requests`
+  const stewardshipAttentionLabel = 'stewardship decision needs attention'
+  const tabs: { key: CommunityTab; label: string; show: boolean; dot?: boolean; indicatorLabel?: string }[] = [
     { key: 'home', label: 'Home', show: true },
-    { key: 'people', label: 'People', show: true, dot: isAdminOrMod && pendingCount > 0 },
+    {
+      key: 'people',
+      label: 'People',
+      show: true,
+      dot: isAdminOrMod && pendingCount > 0,
+      indicatorLabel: isAdminOrMod && pendingCount > 0 ? pendingMemberLabel : undefined,
+    },
     { key: 'connected', label: "How we're connected", show: !!isMember },
-    { key: 'stewardship', label: 'Stewardship', show: !!isMember, dot: community.active_fusion_proposal != null || community.active_split_proposal != null },
+    {
+      key: 'stewardship',
+      label: 'Stewardship',
+      show: !!isMember,
+      dot: community.active_fusion_proposal != null || community.active_split_proposal != null,
+      indicatorLabel:
+        community.active_fusion_proposal != null || community.active_split_proposal != null
+          ? stewardshipAttentionLabel
+          : undefined,
+    },
     { key: 'activities', label: 'Activities', show: community.community_type === 'group' },
   ]
 
@@ -171,11 +191,19 @@ export default function CommunityDetailPage() {
           <div className="border-b border-border mb-6">
             <nav className="kq-tabbar" aria-label="Tabs">
               {tabs.filter((t) => t.show).map((tab) => (
-                <button key={tab.key} onClick={() => setActiveTab(tab.key)} className={tabBtnClass(tab.key)}>
+                <button
+                  key={tab.key}
+                  onClick={() => setActiveTab(tab.key)}
+                  className={tabBtnClass(tab.key)}
+                  aria-label={tab.indicatorLabel ? `${tab.label}, ${tab.indicatorLabel}` : tab.label}
+                >
                   <span className="relative">
                     {tab.label}
                     {tab.dot && activeTab !== tab.key && (
-                      <span className="absolute -top-1 -right-3 w-2 h-2 bg-red-500 rounded-full" />
+                      <span
+                        aria-hidden="true"
+                        className="absolute -top-1 -right-3 h-2 w-2 rounded-full border border-surface bg-warn"
+                      />
                     )}
                   </span>
                 </button>

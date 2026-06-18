@@ -7,7 +7,8 @@ import { useTrustPath } from '@/hooks/useTrustPath'
 import { isBoostActive } from '@/utils/boost'
 import { describeMatchSignal } from '@/utils/matchSignal'
 import { getOfferActionLabel, getOfferErrorFallback } from '@/lib/requestActionCopy'
-import type { RequestCardData, RequestStatusToken, UrgencyLevel } from '@/types/unified-feed'
+import { getRequestStatusDisplay, getRequestUrgencyDisplay } from '@/lib/requestDisplay'
+import type { RequestCardData } from '@/types/unified-feed'
 
 /**
  * The ONE canonical request card (Sprint 85 / ADR-066). Used wherever a help request is shown —
@@ -15,29 +16,12 @@ import type { RequestCardData, RequestStatusToken, UrgencyLevel } from '@/types/
  * score, the polymorphic payload (commitment legibility), and the inline Offer-to-Help action.
  */
 
-const URGENCY_COLORS: Record<UrgencyLevel, string> = {
-  urgent: 'text-red-600 bg-red-50',
-  high: 'text-orange-600 bg-orange-50',
-  medium: 'text-amber-600 bg-amber-50',
-  low: 'text-text-muted bg-surface-raised',
-}
-
 const TYPE_LABELS: Record<string, string> = {
   generic: 'Everyday help',
   ride: 'Ride',
   service: 'Service',
   event: 'Event',
   borrow: 'Borrow',
-}
-
-// Member-facing status labels. 'proposed' is the awaiting-acceptance state (ADR-066 Principle 6).
-const STATUS_LABELS: Record<RequestStatusToken, string> = {
-  open: 'Open',
-  proposed: 'Awaiting response',
-  matched: 'Matched',
-  dibs_pending: 'Reserved',
-  completed: 'Completed',
-  cancelled: 'Cancelled',
 }
 
 function RequestTrustBadge({ requesterId, communityId }: { requesterId?: string; communityId?: string }) {
@@ -68,6 +52,8 @@ export default function RequestCard({ data, currentUserId, onOffered, readOnly =
   const isOwnRequest = !!currentUserId && data.requester_id === currentUserId
   const matchSignal = describeMatchSignal(data.match_score, data.match_reason)
   const askerName = data.author_name ?? 'a community member'
+  const statusDisplay = getRequestStatusDisplay(data.status)
+  const urgencyDisplay = data.urgency ? getRequestUrgencyDisplay(data.urgency) : null
 
   // Sprint 100 / F4 — the whole card opens the request detail. Interactive descendants (the Offer
   // button, the offer-sent link, the trust badge) stopPropagation so they keep their own behaviour.
@@ -91,7 +77,7 @@ export default function RequestCard({ data, currentUserId, onOffered, readOnly =
 
   return (
     <article
-      className="feed-card kq-card cursor-pointer transition-shadow hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
+      className="kq-card cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
       role="link"
       tabIndex={0}
       aria-label={`Open request: ${data.title}`}
@@ -132,8 +118,8 @@ export default function RequestCard({ data, currentUserId, onOffered, readOnly =
       </h3>
 
       {isBoostActive(data) && (
-        <span className="inline-block text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium mb-3">
-          Community pick
+        <span className="kq-pill border border-warn bg-warn-light text-warn font-medium mb-3">
+          Community Pick
         </span>
       )}
 
@@ -160,13 +146,13 @@ export default function RequestCard({ data, currentUserId, onOffered, readOnly =
               {TYPE_LABELS[data.request_type] ?? data.request_type}
             </span>
           )}
-          {data.urgency && (
-            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${URGENCY_COLORS[data.urgency] ?? 'text-text-muted bg-surface-raised'}`}>
-              {data.urgency}
+          {urgencyDisplay && (
+            <span className={`kq-pill border ${urgencyDisplay.className}`}>
+              {urgencyDisplay.label}
             </span>
           )}
-          <span className="text-xs px-2 py-0.5 rounded-full bg-surface-raised text-text-muted" title={data.status}>
-            {STATUS_LABELS[data.status] ?? data.status}
+          <span className={`kq-pill border ${statusDisplay.className}`} title={data.status}>
+            {statusDisplay.label}
           </span>
         </div>
         {!isOwnRequest && !readOnly && (
@@ -191,7 +177,7 @@ export default function RequestCard({ data, currentUserId, onOffered, readOnly =
       </div>
 
       {matchSignal && <p className="kq-quiet-meta mt-3">{matchSignal}</p>}
-      {error && <p className="text-xs text-red-600 mt-2">{error}</p>}
+      {error && <p className="text-xs text-error mt-2">{error}</p>}
     </article>
   )
 }

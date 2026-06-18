@@ -12,7 +12,9 @@ Posting a request takes 3 clicks:
 2. **Pick a type** — choose from the grid (General, Ride, Service, Event, Borrow, or custom types)
 3. **Describe your need** — fill in the description, set urgency, and post
 
-Your request will appear in the community feed straight away.
+Your request will appear in the community feed straight away. The old standalone `/requests` browsing
+page has been retired; request discovery happens on Dashboard Home and Community Home, while
+`/requests/{id}` remains the canonical detail page for a single ask.
 
 ---
 
@@ -50,6 +52,10 @@ For example: _"I need a lift to the airport on Friday morning — 7am, NW6 area.
 6. Karma transfers from your balance to the helper's
 
 Your **Asks** tab lists every request you've posted. Expand one to see its offers. The empty state is honest about the ask's lifecycle: an **open** ask with no offers reads **"No offers yet,"** but a finished ask never does — a completed ask says **"This ask is completed,"** a matched ask **"This ask is already matched,"** and a cancelled ask **"This ask was cancelled."** You'll never see "No offers yet" on an ask that has already closed.
+
+Request detail, offers, and match pages use the same warm card and semantic status language as the
+feed, so statuses like open, matched, completed, cancelled, urgent, and time-sensitive are shown as
+human-readable labels rather than raw database values.
 
 ---
 

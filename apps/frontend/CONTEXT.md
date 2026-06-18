@@ -1,10 +1,34 @@
 # Frontend CONTEXT.md
 
-**Last updated**: 2026-06-17 (Sprint 103 — governance + intake clarity)
+**Last updated**: 2026-06-17 (Sprint 105 — Visual Design System v2 implementation)
 
 ## Overview
 
 Next.js 14 web application (Pages Router) consuming all Karmyq backend services.
+
+---
+
+## Sprint 105 Visual Design System v2 Implementation (2026-06-17, ADR-079)
+
+- **Foundation tokens.** `src/styles/globals.css` now exposes `--measure` and `--radius-card`;
+  `src/styles/karmyq-shell.css` adds `kq-headline-sm`; Tailwind exposes `max-w-measure` and
+  `rounded-card`. The optional texture/motif hook was deliberately deferred because Sprint 105 had no
+  finite-state/divider consumer for it.
+- **Shared request display vocabulary.** `src/lib/requestDisplay.ts` centralizes humanized request
+  status/urgency labels plus semantic token classes. Feed cards, request detail, offers, and match
+  detail should consume it instead of rendering raw DB tokens or raw Tailwind status colors.
+- **Empty states.** `components/EmptyState.tsx` now renders the shared `kq-finite-state` treatment with
+  stable `data-testid="empty-state"` and accessible heading/body/CTA semantics.
+- **Retired standalone request feed.** `/requests` deliberately redirects to `/dashboard`; request
+  discovery lives on Dashboard Home, Community Home, and community open-asks. `/requests/[id]` remains
+  the canonical single-ask detail route.
+- **Migrated surfaces.** Request cards/detail, offers, match detail, Profile, Layout chrome, Dashboard
+  selector/caught-up states, and Community pending/error indicators now use `.kq-card`, semantic
+  tokens, and the warm finite-state language. Community pending tab dots have accessible labels; status
+  is never color-only.
+- **Dashboard Home secondary altitude.** Established members with an empty primary queue see the
+  primary "You're caught up" finite state plus a quieter "Still want to lend a hand?" community browse
+  row. No-community users see only the join-community finite state.
 
 ---
 
@@ -100,7 +124,7 @@ Findings + evidence: `docs/bugs/sprint-99-release-experience-audit.md`.
 
 The mount effect called `fetchCommunities()` (async, not awaited) and then ran `setLoading(false)`
 synchronously, so the page rendered with `loading=false` and an empty `userCommunities` before the
-membership fetch resolved — flashing the false "You haven't joined a community yet" state for users
+membership fetch resolved — flashing the false "Join a community to see requests" state for users
 who *are* in communities. Fixed by tracking membership loading separately: a new
 `communitiesLoading` state (initialised `true`) gates the loading screen
 (`!user || loading || communitiesLoading`), `fetchCommunities` toggles it instead of `loading`, and

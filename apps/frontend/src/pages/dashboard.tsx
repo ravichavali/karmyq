@@ -1,12 +1,12 @@
 import { useEffect, useLayoutEffect, useState } from 'react'
 import { useRouter } from 'next/router'
 import Head from 'next/head'
-import Link from 'next/link'
 import { communityService } from '@/lib/api'
 import Layout from '@/components/Layout'
 import WelcomeModal from '@/components/WelcomeModal'
 import TabBar, { TabId } from '@/components/TabBar'
 import UnifiedFeed from '@/components/Feed/UnifiedFeed'
+import EmptyState from '@/components/EmptyState'
 import CommitmentsTab from '@/components/CommitmentsTab'
 import MyRequestsTab from '@/components/MyRequestsTab'
 import type { BrowseMode } from '@/components/BrowseModeControl'
@@ -150,53 +150,56 @@ export default function Dashboard() {
         <WelcomeModal user={user} />
 
         {/* Community selector row */}
-        <div className="bg-surface-raised border-b border-border px-4 py-2 flex items-center gap-3">
-          <label className="text-sm font-medium text-text-muted shrink-0">Community:</label>
-          <select
-            value={activeCommunityId}
-            onChange={(e) => setActiveCommunityId(e.target.value)}
-            className="text-sm border border-border rounded-lg px-2 py-1.5 bg-surface text-text focus:outline-none focus:ring-2 focus:ring-primary"
-          >
-            <option value="">All communities</option>
-            {userCommunities.map((c) => (
-              <option key={c.id} value={c.id}>{c.name}</option>
-            ))}
-          </select>
-          {isOnDuty && (
-            <span className="ml-auto inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700 border border-amber-200">
-              On duty
-            </span>
-          )}
+        <div className="kq-page mt-3">
+          <div className="kq-card flex items-center gap-3 py-3">
+            <label className="text-sm font-medium text-text-muted shrink-0">Community:</label>
+            <select
+              value={activeCommunityId}
+              onChange={(e) => setActiveCommunityId(e.target.value)}
+              className="text-sm border border-border rounded-lg bg-surface px-2 py-1.5 text-text focus:outline-none focus:ring-2 focus:ring-primary"
+            >
+              <option value="">All communities</option>
+              {userCommunities.map((c) => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+            {isOnDuty && (
+              <span
+                aria-label="Status: On duty"
+                className="ml-auto inline-flex items-center gap-1 rounded-full border border-success bg-success-light px-2 py-0.5 text-xs font-medium text-success"
+              >
+                <span aria-hidden="true" className="h-2 w-2 rounded-full bg-success" />
+                On duty
+              </span>
+            )}
+          </div>
         </div>
         {communityLoadError && (
-          <div className="mx-4 mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 flex items-center justify-between gap-3">
-            <span>{communityLoadError}</span>
-            <button
-              type="button"
-              className="btn-ghost px-2 py-1 text-xs"
-              onClick={() => fetchCommunities(user.id)}
-            >
-              Retry
-            </button>
+          <div className="kq-page mt-3">
+            <div className="flex items-center justify-between gap-3 rounded-lg border border-warn bg-warn-light px-3 py-2 text-sm text-warn">
+              <span>{communityLoadError}</span>
+              <button
+                type="button"
+                className="btn-ghost px-2 py-1 text-xs"
+                onClick={() => fetchCommunities(user.id)}
+              >
+                Retry
+              </button>
+            </div>
           </div>
         )}
 
         {/* Zero-community state — shown only after memberships resolve to genuinely empty.
             A fetch failure surfaces the retry banner above instead of this false empty state. */}
         {!communitiesLoading && !communityLoadError && userCommunities.length === 0 ? (
-          <div className="max-w-md mx-auto px-4 py-16 text-center">
-            <div className="text-5xl mb-4">🏘️</div>
-            <h2 className="text-xl font-semibold text-text mb-2">You haven't joined a community yet</h2>
-            <p className="text-text-muted text-sm mb-8">
-              Communities are where requests, activities, and mutual aid happen.
-              Join one near you to see your feed.
-            </p>
-            <Link
-              href="/communities"
-              className="px-6 py-3 bg-primary text-white rounded-lg font-medium hover:bg-primary-dark transition-colors inline-flex"
-            >
-              Find Communities
-            </Link>
+          <div className="kq-page py-16">
+            <EmptyState
+              icon="🏘️"
+              heading="Join a community to see requests"
+              body="Communities are where requests, activities, and mutual aid happen. Join one near you to see your feed."
+              ctaLabel="Find Communities"
+              ctaHref="/communities"
+            />
           </div>
         ) : (
           <>
