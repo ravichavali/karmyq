@@ -1,234 +1,149 @@
-# Sprint 105 - UI Facelift Implementation - IMPLEMENTED / PR PENDING
+# Sprint 106 — Post-Facelift Correctness & Link-Up Clarity — READY TO EXECUTE (v11.13.0 → v11.14.0)
 
-> **STATUS (2026-06-17):** Sprint 105 implementation is complete on branch
-> `feature/sprint-105-ui-facelift-implementation`. Remaining work is PR creation/review, human
-> browser validation, Admin-authorized merge, and deploy.
->
-> **Direction is decided:** A-plus = Direction A convergence is mandatory; Direction B contributes
-> token hooks only when a S105 finite-state/divider actually consumes them; Direction C is parked. Do
-> not re-run visual exploration.
->
-> **Cross-agent review folded in:** before implementation, Task 1 must force and record the Request
-> feed fate (reskin vs retire); tests should prioritize helper behavior + accessibility over brittle
-> class assertions; unused B hooks should be deferred; and any `EmptyState` change must validate all
-> direct consumers immediately after the foundation task.
->
-> **Sprint 104 state:** Sprint 104 research is complete and produced
-> `docs/design/sprint-104-ui-facelift/`, ADR-079 Proposed, and the maintainer verdict. If the S104 PR
-> has not merged before execution, verify the research files are present on the S105 branch before
-> implementing. Do not self-merge any PR.
->
-> **LOCAL STATE:** `scripts/founding-circle-submissions.sh` remains untracked user/local work. Do not
-> stage, remove, or rewrite it unless the maintainer explicitly asks.
-
-> **EXECUTION NOTE (Codex, 2026-06-17):** Task 1 baseline confirmed the branch is correct, S104
-> research artifacts and ADR-079 are present, and frontend `.claude/README.md` is absent in this
-> checkout so `apps/frontend/CONTEXT.md` + `apps/frontend/claude.md` are the local context. Request
-> feed fate is decided: retire the standalone `/requests` feed with a deliberate redirect to Dashboard
-> Home instead of reskinning it in place. Rationale: Dashboard Home already owns the canonical warm
-> `UnifiedFeed`, `/requests/[id]` deep links remain live, and keeping a second browsable feed would
-> preserve the duplicated surface that S104 identified as the highest-risk fossil.
-> Foundation note: `--texture` / motif hooks are deferred for now because no S105 finite-state or
-> divider consumer exists yet; this avoids shipping dead Direction B plumbing while keeping A-plus
-> convergence on `--measure`, `--radius-card`, `kq-headline-sm`, and semantic display helpers.
-
-> **IMPLEMENTATION NOTE (Codex, 2026-06-17):** A-plus runtime rollout is implemented:
-> foundation tokens/helpers, shared `EmptyState`, retired `/requests` redirect, request
-> detail/offers/match convergence, Profile/Layout chrome convergence, Dashboard secondary Home
-> altitude, Community pending/error accessibility polish, docs/landing regeneration, and version
-> reconciliation to `11.13.0`. ADR-079 is advanced to Implemented. `services/registry.json` is
-> unchanged.
->
-> **VERIFICATION COMPLETED:** Sprint 105 TDD suites pass (19 tests); request-card focused regression
-> passes; dashboard/community/profile/request focused guards pass; `apps/frontend` `npx tsc --noEmit`
-> passes; frontend unit/regression passes; `apps/landing npm run generate-docs` passes;
-> `npm run feedback:check` passes (no staged changes); `git diff --check` passes; root
-> `npx turbo run test` passes when `TEMP`/`TMP` are pointed at workspace `.tmp` to avoid AppData Jest
-> EPERM. A raw full `apps/frontend` TDD sweep still has unrelated historical failures in old tests
-> (`trust-model`, old provider/admin mocks, hook fixture shape, and Sprint 85 copy drift); the S105
-> suites and affected focused tests are green.
-
-> **REVIEW FIX NOTE (Codex, 2026-06-18):** Addressed Sprint 105 review findings:
-> `settings/preferences.tsx` now routes "Back to Feed" directly to `/dashboard`; `ActivityCard`,
-> `StoryCard`, and `DecisionBand` no longer use `feed-card` shadow/padding language; request detail
-> omits the status pill when `status` is absent instead of surfacing `Unknown`; Layout's available
-> pill no longer shifts from success to primary on hover; `DecisionBand` error text now uses
-> `text-error`. Added S105 test guardrails for the retired-route consumer, feed sibling convergence,
-> and missing-status detail behavior.
->
-> **REVIEW-FIX VERIFICATION:** S105 focused suites + request-card guard pass (43 tests); Sprint 40
-> RequestCard Community Pick compatibility slice passes; frontend `npx tsc --noEmit` passes;
-> frontend unit/regression passes; `git diff --check` passes. `npm audit --package-lock-only
-> --audit-level=high` remains blocked by tenant policy because it exports private dependency metadata
-> to npm's external audit service; do not work around this in-agent.
+> **STATUS (2026-06-18):** Sprint 105 (UI Facelift Implementation, v11.13.0) is MERGED and DEPLOYED.
+> Sprint 106 is PLANNED and ready to execute. Spec + plan written; this handoff is the execution
+> entry point. Validating the deployed S105 surfaced four correctness bugs (BUG-013…016, now marked
+> `planned (Sprint 106)` in `docs/BUGS.md`) plus a standing UX confusion (community↔service-provider
+> link-up). S106 closes them and deploys v11.14.0.
 
 ---
 
 ## Quick Start
 
 1. Read this handoff.
-2. Check out branch: `git checkout feature/sprint-105-ui-facelift-implementation`.
-3. Review the diff and create the PR with `.github/pull_request_template.md`.
-4. Run browser validation for Dashboard Home, `/requests` redirect, request detail, offers, match
-   detail, Profile, and Community Home/Stewardship before Admin-authorized merge/deploy.
-5. Do not include `scripts/founding-circle-submissions.sh`; it is local untracked work.
+2. Check out branch: `git checkout -b feature/sprint-106-correctness-linkup`
+3. Open plan: `docs/superpowers/plans/2026-06-18-sprint-106-correctness-linkup.md`
+4. Run: `/execute-plan` (uses superpowers:subagent-driven-development)
+5. Do NOT stage `scripts/founding-circle-submissions.sh` — it is local untracked work.
 
 ---
 
 ## Sprint Goal
 
-Implement the Sprint 104 "A-plus" UI facelift across all frontend surface clusters so Karmyq speaks
-one warm commons design language from Dashboard to Request feed, Profile, chrome, and Community.
+Close BUG-013…016 from S105 validation and ship one bounded fix for the community↔service-provider
+link-up confusion, fixing each at its correct layer, then deploy v11.14.0.
 
 ---
 
 ## Planning Artifacts
 
-- Spec: `docs/superpowers/specs/2026-06-17-sprint-105-ui-facelift-implementation-design.md`
-- Plan: `docs/superpowers/plans/2026-06-17-sprint-105-ui-facelift-implementation.md`
-- Source research: `docs/design/sprint-104-ui-facelift/README.md`
-- Sprint 105 task source: `docs/design/sprint-104-ui-facelift/recommendations.md`
-- ADR: `docs/adr/ADR-079-visual-design-system-v2.md`
+- Spec: `docs/superpowers/specs/2026-06-18-sprint-106-correctness-linkup-design.md`
+- Plan: `docs/superpowers/plans/2026-06-18-sprint-106-correctness-linkup.md`
+- Bug log: `docs/BUGS.md` (BUG-013, BUG-014, BUG-015, BUG-016 — all `planned (Sprint 106)`)
+- Link-up idea: `docs/IDEAS.md` [2026-06-08] ux
 
 ---
 
-## Scope
+## Scope (confirmed with maintainer)
 
-### In Scope
+**In scope:** the 4 open bugs + a bounded community↔service-provider link-up cleanup (diagnose + one
+contained fix). BUG-013 starts investigate-first. BUG-015 resolved as: move "Needs your response" to
+the **Helping** tab.
 
-- Shared visual foundation:
-  - `--measure`, `--radius-card`; `--texture` only if consumed by a S105 finite-state/divider.
-  - `kq-headline-sm`, consumer-backed motif/finite-state helpers, canonical `.kq-card` usage.
-  - Humanized status/urgency display helper with semantic token classes.
-- Request feed + detail cluster:
-  - Force the reskin-or-retire decision in Task 1, then implement that known fate for
-    `apps/frontend/src/pages/requests/index.tsx`.
-  - Remove `% Match` lead, Smart Filtering chrome, match-score slider, wide fossil grid.
-  - Migrate request detail, offers, and match detail to warm card/measure/status language.
-- Profile + global chrome:
-  - Migrate Profile body cards and raw colors.
-  - Tokenize Layout title bar and availability/on-duty control.
-- Dashboard:
-  - Tokenize selector row/on-duty pill.
-  - Use warm finite states.
-  - Add secondary Home altitude for established users with an empty queue.
-- Community:
-  - Tokenize pending/error states and make pending indicators non-color-only.
-- Docs:
-  - Advance ADR-079 as implementation lands.
-  - Update UX principles, affected guides, frontend context, onboarding copy if changed.
-  - Regenerate landing docs from source.
-- Version:
-  - Reconcile root `package.json` drift from `11.10.0` to S105 target `11.13.0`.
-- Full SDLC gates and demo validation.
-
-### Out of Scope
-
-- New backend endpoints, database migrations, service registry changes.
-- New visual direction beyond A-plus.
-- App-wide texture enabled by default.
-- Reconnect CTA, Dibs relationship-routing follow-up, member forget/export, service consolidation,
-  mobile parity beyond responsive validation of touched frontend surfaces.
-- Self-merging PRs or direct commits to `master`.
+**Out of scope:** "platform forgets" visible decay; responder Home actionability for `proposed`
+matches; Dibs server-side relationship routing; member forget/export; service consolidation; mobile
+parity; any provider↔community model rework (flag for re-scope if the link-up fix needs it).
 
 ---
 
-## Critical Implementation Notes
+## The Bugs (diagnosed during planning)
 
-1. **Direction is already decided: A-plus.** Do not re-run visual exploration or pick a new aesthetic.
-   Direction A convergence is mandatory; B hooks are default-off and sparse; C is parked.
-2. **Foundation lands first.** Add the tokens/helpers/classes before touching the surfaces, so every
-   cluster consumes the same vocabulary instead of inventing local fixes.
-3. **Force the Request feed fate early.** Decide reskin vs retire during Task 1, record the decision
-   in the handoff, and write Task 4 tests against that known answer. Do not leave the highest-risk
-   route decision to mid-execution.
-4. **No unused B hooks.** `--texture` must default to off/none, and texture/motif hooks land only if a
-   S105 finite-state or divider consumes them. If there is no consumer, defer the hook instead of
-   shipping dead CSS.
-5. **One card language.** Live surfaces should migrate to `.kq-card` and border-based separation.
-   Avoid new shadows, new card radii, or nested cards.
-6. **One content measure by default.** Use the new measure token for member-facing reading surfaces.
-   Dense admin tools may opt out explicitly, but fossils must not keep `max-w-7xl` by habit.
-7. **No leading match percentage.** Match signal is qualitative quiet metadata via
-   `describeMatchSignal()`. Do not render `{matchScore}% Match` as a visual lead.
-8. **Semantic color only.** Status, urgency, errors, availability, and pending dots use tokenized
-   semantic colors plus text/aria where needed. No new raw `red-*`, `yellow-*`, `green-*`, or
-   `gray-*` status styling.
-9. **Test behavior and accessibility first.** Prefer helper output, route fate, visible copy, aria,
-   keyboard, and not-color-only assertions. Class-string assertions are allowed only as narrow
-   guardrails for fossil-pattern removal, not as the main proof of quality.
-10. **EmptyState has broader blast radius.** If `EmptyState` changes, validate all direct consumers:
-    requests, offers, communities index, CommitmentsTab, MyRequestsTab, and UnifiedFeed empty/error
-    states. Run the full frontend suite immediately after the foundation task.
-11. **Accessibility travels with the migration.** Verify contrast, visible focus, keyboard reachability,
-   mobile tap targets, and no color-only state on every touched surface.
-12. **Frontend-only unless re-scoped.** No database, service, or registry change is expected. If an
-   implementation task seems to need a backend endpoint, pause and ask for re-scope.
-13. **Version drift is part of the sprint.** Reconcile root `package.json` from `11.10.0` to the
-    correct S105 release target (`11.13.0`) and make the docs agree.
-14. **Docs are source-first.** Edit Markdown sources and generator mappings, then regenerate landing
-    JSON. Do not hand-edit generated landing docs.
-15. **Human validation is required.** This is a deploy sprint. Validate desktop and responsive mobile
-    web flows for Dashboard, Request feed/detail, Offers, Match detail, Profile, Community, and the
-    EmptyState ripple surfaces after deploy. This does not include React Native mobile parity.
+| Bug | Root cause | Fix layer | Decision |
+|-----|-----------|-----------|----------|
+| **BUG-014** "Offer help" on provider feed | `basicFeedRanker.ts:131` projects `category` (mixed-vocab) as `request_type` → service asks never read `'service'`. Helper `getOfferActionLabel` is correct. | **Backend** feed ranker | Carry persisted `request_type` enum; grep all projection sites |
+| **BUG-013** rating asymmetry | `DecisionBand.tsx:88` only unlocks rating for whoever clicks the final `mark_done`; the other party gets no `rate` affordance. Write path = reputation-service `POST /reputation/feedback` (already accepts any user; no participant/completed check) | **Backend decisions feed + frontend** (+ reputation hardening) | Surfacing-only on the write side; surface a durable `rate` decision for BOTH parties on `fully_completed`-unrated matches; harden `POST /feedback` with participant + completed-match checks |
+| **BUG-015** band placement | DecisionBand mounts in Browse `UnifiedFeed` (`dashboard.tsx:216-232`); it's commitment work | **Frontend** | Move band to top of **Helping** tab; remove from Browse |
+| **BUG-016** squished header | `kq-topbar` packs wordmark + 4 nav links + bell + availability + avatar on one row (`Layout.tsx:115-164`) | **Frontend chrome** | Breathing-room pass within A-plus tokens |
+
+**Link-up cleanup:** diagnose where provider↔community reads confusing (nav split, onboarding,
+provider-in-community discoverability); ship ONE contained legibility fix; STOP + flag if it needs a
+model/multi-flow change.
 
 ---
 
-## Implementation Tasks
+## Critical Implementation Notes (copied from spec)
 
-Follow the plan exactly:
+1. **BUG-014 is a backend seam, not a copy fix.** Helper is correct. Fix `basicFeedRanker.ts:131` to
+   carry the persisted `request_type` enum, not `category`. Grep every feed/projection site (browsable
+   filtering lives in ~4 places). Never client-side patch.
+2. **BUG-013 is investigate-first.** Task 1 reproduces the rating lifecycle (match/rating DB state →
+   decisions feed → DecisionBand) and confirms whether the rating write path already accepts both
+   roles BEFORE coding. Surfacing-only vs write-path decided by the finding.
+3. **Rating symmetric + durable.** Both participants get a rate affordance until each rates; survives
+   reload. One-sided done must not prompt.
+4. **BUG-015 relocates, doesn't duplicate.** Move to Helping, remove from Browse; preserve ranking,
+   actions, rate affordance.
+5. **BUG-016 chrome-only**, A-plus tokens, no nav-information change.
+6. **Link-up cleanup bounded** — one contained fix or flag for re-scope.
+7. **Semantic + accessible** on every touched surface: tokenized colors, focus, keyboard, tap targets,
+   not color-only.
+8. **useRouter test mock is global** (`jest.setup.js`) — no per-file router mocks.
+9. **No docs-only push to master** — fold docs into the PR. `nav.json` silently reverts; grep-verify.
+10. **Verify before claiming done** — run actual suites; deploy sprint needs human browser validation.
 
-1. Branch, baseline, surface inventory, and Request feed fate decision.
-2. TDD - foundation guardrails.
-3. Implement shared token and component foundation; run full frontend tests immediately after if
-   `EmptyState` changes.
-4. TDD - Request feed/detail/offers/match cluster.
-5. Implement Request feed + detail convergence.
-6. TDD - Profile + global chrome.
-7. Implement Profile + global chrome convergence.
-8. TDD - Dashboard Home polish.
-9. Implement Dashboard Home convergence and secondary altitude.
-10. TDD - Community light polish.
-11. Implement Community reference-surface polish.
-12. User guides, ADR, landing docs, and version reconciliation.
-13. Promote/organize tests and run frontend verification.
-14. SDLC quality gates.
-15. Final pre-push and human validation.
-16. Merge + Deploy.
+---
+
+## Implementation Tasks (see plan for detail)
+
+1. Branch, baseline, BUG-013 rating-lifecycle investigation + link-up diagnosis (record findings here).
+2. TDD — BUG-014 feed-ranker request_type.
+3. Implement BUG-014 fix.
+4. TDD — BUG-013 rating symmetry.
+5. Implement BUG-013 rating symmetry.
+6. TDD + implement BUG-015 — relocate band to Helping.
+7. TDD + implement BUG-016 header + link-up legibility fix.
+8. Docs — guides, landing, onboarding, ADR-080 (if warranted), version bump to 11.14.0.
+9. CONTEXT.md + registry.json + integration test + `feedback:check`.
+10. SDLC quality gates (`/simplify`, `/code-review`, `/security-review`).
+11. Final pre-push verification + human browser validation.
+12. Merge + Deploy (v11.14.0).
+
+---
+
+## Task 1 Findings
+
+- **Rating write path:** reputation-service `POST /reputation/feedback` (`reputation.ts:292`), via
+  `reputationService.submitFeedback()` (`apps/frontend/src/utils/completion.ts:44` → `api.ts:732`).
+  NOT a request-service route.
+- **Accepts both roles?** Yes — already accepts any authenticated user; no role gate. Double-submission
+  guard is per `(fromUserId, match_id)`, so both parties can rate the same match independently. ⇒
+  BUG-013 is **surfacing-only on the write side**; the fix is a durable `rate` decision + DecisionBand
+  rendering. **Recommended added hardening:** the handler does not check participant/completed — add
+  participant + completed-match validation while we are in this flow (`/security-review` gate).
+- **Link-up contained fix chosen:** _(name the one fix during execution, or flag re-scope)_
 
 ---
 
 ## Carry-Forward / Known Issues
 
-- **S104 PR may still be open** depending on when S105 starts. Verify S104 research artifacts are on
-  the S105 base branch.
 - **Reconnect CTA remains deferred:** restore only after real peer messaging or a directed-ask flow.
-- **Responder Home actionability** remains a functional candidate. S105 only adds secondary Home
-  altitude for empty queues; do not solve proposed-match surfacing unless explicitly re-scoped.
-- **Dibs server-side relationship routing** remains open.
+- **Responder Home actionability** ([IDEAS 2026-06-15]): `proposed` matches don't surface as
+  actionable on responder Home — bigger than S106 scope; deferred.
+- **Dibs server-side relationship routing** ([IDEAS 2026-06-09]) remains open.
+- **"Platform forgets" visible decay** ([IDEAS 2026-06-04]) remains a future multi-sprint arc.
 - **Member forget/export** privacy follow-on remains open.
-- **Pre-existing security drift:** Dependabot/CodeQL alerts follow ADR-059/ADR-060 SLA. The recurring
-  request-forgery false positive on `apps/frontend/src/lib/api.ts` is known.
+- **request-forgery FP on `apps/frontend/src/lib/api.ts`** is known/recurring — dismiss as FP.
+- **Pre-existing security drift:** Dependabot/CodeQL alerts follow ADR-059/ADR-060 SLA.
+- **BUG-004** (logo "green dot") is `cannot-reproduce`; **BUG-009/BUG-010** were S100 scope.
 
 ---
 
 ## Multi-Sprint Arc
 
-- **S100 (done):** Pulse Truth + Feed Actionability (v11.9.0).
-- **S101 (done):** Actionability + State Truth (v11.10.0).
 - **S102 (done):** Visible Memory + Re-warm First Step (v11.11.0).
 - **S103 (done):** Governance + Intake Clarity (v11.12.0).
-- **S104 (done / PR flow):** UI Facelift Research - A-plus verdict, ADR-079 Proposed, no deploy.
-- **S105 (this sprint):** UI Facelift Implementation - full A-plus rollout, ADR-079 implemented,
-  version reconciled to v11.13.0, deploy.
-- **Deferred:** reconnect CTA; responder Home actionability; Dibs relationship routing; member
-  forget/export; Service Consolidation Phase 2; mobile parity.
+- **S104 (done):** UI Facelift Research — A-plus verdict, ADR-079 Proposed, no deploy.
+- **S105 (done):** UI Facelift Implementation — A-plus rollout, ADR-079 Implemented (v11.13.0).
+- **S106 (this sprint):** Post-Facelift Correctness & Link-Up Clarity — BUG-013…016 + bounded link-up,
+  deploy v11.14.0.
+- **Deferred:** "platform forgets" visible decay; responder Home actionability; Dibs relationship
+  routing; member forget/export; Service Consolidation Phase 2; mobile parity.
 
 ---
 
 ## Persistent Context
 
-### Multi-agent PR process - live on master
+### Multi-agent PR process — live on master
 
 - `.github/pull_request_template.md` = the cross-agent PR contract.
 - Master branch protection requires CI checks, 1 approving review, and Admin merge authority.
@@ -241,24 +156,25 @@ Follow the plan exactly:
 ### Architecture Gotchas
 
 - **Frontend is Pages Router** (`apps/frontend/src/pages`), not App Router.
+- **category vs request_type seam:** `help_requests.category` is mixed-vocab (enum on new rows, skill
+  tokens on old/seed/sim rows). Never pass `category` where `request_type` (the enum) is expected —
+  this is exactly the BUG-014 root cause.
+- **Feed query surfaces:** browsable-request filtering lives in ~4 places; the feed ranker projection
+  (`basicFeedRanker.ts`) is a separate seam. Change ALL relevant sites.
 - **Design token system:** CSS-variable backed, in `apps/frontend/src/styles/globals.css` +
   `apps/frontend/tailwind.config.js`; per-community skins via `ThemeContext`/ThemeProvider.
-- **Prior design research:** `docs/design/sprint-87/` (audit, scorecard, visual-research, mockups);
-  `docs/design/sprint-84-unified-feed/`. Extend, don't restart.
-- **Landing page docs:** `apps/landing/src/data/docs/` is gitignored - `git add -f` when generated
+- **Landing page docs:** `apps/landing/src/data/docs/` is gitignored — `git add -f` when generated
   docs must be committed. Generated by `scripts/generate-docs.ts`; edit sources, never generated JSON.
-- **ADR numbering:** ADR-079 exists for visual design system v2. Next free = **080**.
+- **ADR numbering:** ADR-079 is the last; next free = **080**.
 - **JWT field** is `communities`, not `communityMemberships`.
 - **Schema is `communities.communities`** (plural schema name); auth tables are `auth.*`.
-- **API response unwrap:** `createApiClient` interceptor already unwraps the envelope - use `res.data`,
-  not `res.data.data`.
+- **API response unwrap:** `createApiClient` interceptor already unwraps — use `res.data`, not
+  `res.data.data`.
 - **Error contract (ADR-074):** `{ success:false, message:string, error:string }`.
 - **trust_edges_live is a VIEW:** never INSERT/UPDATE it.
 - **`git add` on CLAUDE.md:** tracked as lowercase `claude.md`.
-- **Solo dev - no worktrees:** work directly on feature branches.
-- **CI security gates:** dependency audit (ADR-059) + CodeQL (ADR-060) run on push.
-- **request-forgery FP on `apps/frontend/src/lib/api.ts`** is a known recurring false positive.
-- **request-service serves the feed** now (`/requests/feed`); there is no feed-service.
+- **Solo dev — no worktrees:** work directly on feature branches.
+- **request-service serves the feed** (`/requests/feed`); there is no feed-service.
 
 ### Workflow Gotchas
 
@@ -266,11 +182,13 @@ Follow the plan exactly:
 - Every sprint updates docs and landing docs.
 - No docs-only push to `master`; master push triggers a full deploy.
 - nginx.conf changes take effect on the next deploy (deploy.sh copies + reloads).
-- `nav.json` silently reverts - always grep-verify after editing.
+- `nav.json` silently reverts — always grep-verify after editing.
 - Widely-rendered components using `useRouter` need the global `apps/frontend/jest.setup.js` router
   mock.
+- `npm audit --package-lock-only --audit-level=high` is blocked by tenant policy in-agent (exports
+  private dep metadata externally); rely on the CI ADR-059 gate, don't work around it locally.
 
 ### Deploy Drift Watch
 
-`karmyq.org` live content has drifted from `master` before. Confirm the latest deploy succeeded and
-live content matches `master` before judging by live content.
+`karmyq.org` / demo live content has drifted from `master` before. Confirm the latest deploy
+succeeded and live content matches `master` before judging by live content.

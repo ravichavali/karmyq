@@ -160,3 +160,50 @@ We had a regression between offer help and offer service distinction.
 checks scattered across components.
 
 ---
+
+## BUG-013 · [2026-06-18] · planned (Sprint 106)
+
+Both requester and helper/service provider should be able to rate tasks on completion. I see some items in "Needs your response" section ask for rating some don't.
+
+**Planned (Sprint 106, investigate-first):** diagnosed root cause — `DecisionBand.tsx:88` only unlocks
+the rating prompt for whoever clicks the final `mark_done`; the other party gets no `rate` affordance.
+S106 Task 1 confirms the rating lifecycle end-to-end (incl. whether the write path already accepts both
+roles), then surfaces a durable `rate` decision for BOTH parties on `fully_completed`-unrated matches.
+See `docs/superpowers/plans/2026-06-18-sprint-106-correctness-linkup.md`.
+
+---
+
+## BUG-014 · [2026-06-18] · planned (Sprint 106)
+
+Did we regress? Now I don't see the provider feed show "Offer service" — it says "Offer help". Didn't we say it should be "Offer service"? (See BUG-003 and BUG-012.)
+
+**Planned (Sprint 106):** diagnosed root cause — the copy helper `getOfferActionLabel` is correct;
+the regression is upstream in the Dashboard feed ranker `basicFeedRanker.ts:131`, which projects the
+mixed-vocab `category` column in as `request_type`, so a service ask whose `category` holds a skill
+token never reads as `'service'` → card falls back to "Offer to Help". Fix is backend: carry the
+persisted `request_type` enum, grep all feed/projection sites. See
+`docs/superpowers/plans/2026-06-18-sprint-106-correctness-linkup.md`.
+
+---
+
+## BUG-015 · [2026-06-18] · planned (Sprint 106)
+
+"Needs your response" — should it live in the Browse or the Helping tab?
+
+**Planned (Sprint 106), resolved as Helping:** the DecisionBand currently mounts inside `UnifiedFeed`
+in the Browse tab (`dashboard.tsx:216-232`). Decisions you owe (accept/decline offers, mark done,
+rate, dibs) are commitment work, not new asks to browse → move the band to the top of the Helping
+tab and remove it from Browse. See `docs/superpowers/plans/2026-06-18-sprint-106-correctness-linkup.md`.
+
+---
+
+## BUG-016 · [2026-06-18] · planned (Sprint 106)
+
+The header seems to be too squished.
+
+**Planned (Sprint 106):** `kq-topbar` packs wordmark + four nav links + notification bell +
+availability toggle + avatar on a single row (`Layout.tsx:115-164`), which crowds at narrower desktop
+widths. S106 ships a chrome-only breathing-room pass within the existing A-plus tokens — no
+nav-information change. See `docs/superpowers/plans/2026-06-18-sprint-106-correctness-linkup.md`.
+
+---
