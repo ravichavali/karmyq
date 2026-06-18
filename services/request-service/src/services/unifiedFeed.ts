@@ -26,7 +26,10 @@ export type DecisionAction =
   | 'withdraw_offer'
   | 'accept_dibs'
   | 'decline_dibs'
-  | 'mark_done';
+  | 'mark_done'
+  // BUG-013: a durable rating affordance for a fully-completed match the member hasn't rated.
+  // Surfaced for BOTH parties independently until each rates, so it survives reload.
+  | 'rate';
 
 export type DecisionSubjectKind = 'match' | 'dibs' | 'offer';
 
@@ -69,6 +72,8 @@ const DECISION_ACTION_WEIGHT: Record<DecisionAction, number> = {
   decline_dibs: 40,
   withdraw_offer: 30,
   mark_done: 10,
+  // Rating is post-completion housekeeping — the lowest-altitude decision, below mark_done.
+  rate: 5,
 };
 
 const clamp = (n: number, lo: number, hi: number): number => Math.min(hi, Math.max(lo, n));

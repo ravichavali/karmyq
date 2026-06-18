@@ -9,6 +9,22 @@ detail. The status chip should read like plain product language, not an internal
 
 ---
 
+## The "Needs your response" band
+
+At the very top of the Helping tab is the **Needs your response** band — every decision you owe right
+now, server-ranked so the response a counterparty is waiting on rises above your own housekeeping:
+
+- **An offer on your request** — Accept it to match, or Decline it.
+- **A reserved request (Dibs)** — Accept or decline a trusted first-ask.
+- **A finished exchange** — Mark it done so both sides get credit.
+- **A completed exchange** — Rate it (see below).
+
+The band only appears when you actually owe a response — when you are all caught up, it disappears.
+It lives here, with the rest of your commitments, rather than on Dashboard Home, so browsing new asks
+stays separate from acting on the ones you've already taken on.
+
+---
+
 ## Action-Priority Ordering
 
 Commitments are sorted into three tiers, and you always see the most urgent tier first:
@@ -96,6 +112,21 @@ Completion requires **both parties** to confirm. This prevents karma from transf
    - Your trust score updates to reflect the exchange
 
 **If the other party doesn't confirm:** The exchange stays "In Progress." You can message them via the inline conversation to let them know you've marked your side done.
+
+---
+
+## Rating a Completed Exchange
+
+Once an exchange is fully completed, **both** people rate it — the requester rates the helper, and the
+helper rates the requester. Each rating is independent: the other person rating first never uses up your
+turn.
+
+- A **Rate** prompt appears in the "Needs your response" band for the completed exchange.
+- It is **durable** — it waits there until you rate (or skip), and it survives a reload. You do not lose
+  the chance to rate just because you weren't the one who clicked the final *Mark Done*.
+- Once you've rated, the prompt clears for you; the other person's prompt is unaffected.
+
+Ratings are private trust signals used to compute reputation — they're never shown back as a public score.
 
 ---
 

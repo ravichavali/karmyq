@@ -4,7 +4,7 @@ import { getCommunityTrustScore, } from '../database/communityTrustDb';
 import { calculateCommunityTrustScore } from '../services/communityTrustService';
 import { getUserBadges } from '../services/badgeService';
 import { query } from '../database/db';
-import { insertFeedback, hasSubmittedFeedback } from '../database/feedbackDb';
+import { insertFeedback, hasSubmittedFeedback, getMatchParticipation } from '../database/feedbackDb';
 import { authMiddleware, AuthenticatedRequest } from '@karmyq/shared/middleware/auth';
 import {
   evaluateUserEvolution,
@@ -307,7 +307,27 @@ router.post('/feedback', authMiddleware, async (req: AuthenticatedRequest, res: 
       return res.status(400).json({ success: false, message: 'rating must be an integer between 1 and 5' });
     }
 
-    // Prevent double-submission
+    // BUG-013 hardening: only a participant of a COMPLETED match may rate, and only the counterparty.
+    // The write path previously accepted any authenticated user rating any match.
+    const participation = await getMatchParticipation(match_id);
+    if (!participation) {
+      return res.status(404).json({ success: false, message: 'Match not found', error: 'MATCH_NOT_FOUND' });
+    }
+    const isParticipant =
+      fromUserId === participation.requesterId || fromUserId === participation.responderId;
+    if (!isParticipant) {
+      return res.status(403).json({ success: false, message: 'Only a participant of this match can rate it', error: 'NOT_A_PARTICIPANT' });
+    }
+    const counterpartyId =
+      fromUserId === participation.requesterId ? participation.responderId : participation.requesterId;
+    if (to_user_id !== counterpartyId) {
+      return res.status(400).json({ success: false, message: 'to_user_id must be the other party in this match', error: 'INVALID_RATEE' });
+    }
+    if (participation.status !== 'completed') {
+      return res.status(409).json({ success: false, message: 'Match is not completed yet', error: 'MATCH_NOT_COMPLETED' });
+    }
+
+    // Prevent double-submission (per rater + match, so both parties can rate independently)
     const alreadySubmitted = await hasSubmittedFeedback(fromUserId, match_id);
     if (alreadySubmitted) {
       return res.status(409).json({ success: false, message: 'Feedback already submitted for this match' });

@@ -7,9 +7,8 @@ import BrowseModeControl, { BrowseMode } from '@/components/BrowseModeControl'
 import RequestCard from './RequestCard'
 import ActivityCard from './ActivityCard'
 import StoryCard from './StoryCard'
-import DecisionBand from './DecisionBand'
 import OfferedAwaitingPanel from './OfferedAwaitingPanel'
-import type { ActivityData, DecisionData, OfferedAwaitingItem, RequestCardData, UnifiedFeedItem } from '@/types/unified-feed'
+import type { ActivityData, OfferedAwaitingItem, RequestCardData, UnifiedFeedItem } from '@/types/unified-feed'
 import type { StoryData } from '@/types/feed-items'
 
 /**
@@ -141,10 +140,6 @@ export default function UnifiedFeed({
 
   useEffect(() => fetchFeed(true), [communityId, view, minScore])
 
-  const decisions = items
-    .filter((i): i is Extract<UnifiedFeedItem, { kind: 'decision' }> => i.kind === 'decision')
-    .map((i) => i.data)
-
   // Texture layer (community view): server-ranked below requests; rendered in array order.
   const activityCards = (suppressActivity ? [] : items
     .filter((i): i is Extract<UnifiedFeedItem, { kind: 'activity' }> => i.kind === 'activity')
@@ -173,15 +168,9 @@ export default function UnifiedFeed({
       return typeMatch && urgencyMatch && serviceMatch
     })
 
-  // Optimistically drop a card/decision once acted on; a background refetch reconciles.
+  // Optimistically drop a card once offered on; a background refetch reconciles.
   const dropRequest = (requestId: string) =>
     setItems((prev) => prev.filter((i) => !(i.kind === 'request' && (i.data as RequestCardData).request_id === requestId)))
-  const dropDecision = (subjectId: string) =>
-    setItems((prev) => prev.filter((i) => !(i.kind === 'decision' && (i.data as DecisionData).subject_id === subjectId)))
-  const resolveDecision = (subjectId: string) => {
-    dropDecision(subjectId)
-    fetchFeed(false)
-  }
 
   // The widen-feed affordance applies only to an unfiltered feed for a user who has communities.
   // Before widening we offer "Show more"; after widening (minScore=0) we close it with a finite note.
@@ -234,7 +223,8 @@ export default function UnifiedFeed({
         </div>
       )}
 
-      {!isCommunity && <DecisionBand decisions={decisions} onResolved={resolveDecision} />}
+      {/* BUG-015: the "needs your response" DecisionBand now lives at the top of the Helping tab
+          (CommitmentsTab) — decisions you owe are commitment work, not new asks to browse. */}
 
       {/* Sprint 100 / G1 + Sprint 101 — an active helper's offers in flight aren't decisions they owe
           (they're awaiting the requester) and the curated feed hides asks they've offered on, so Home

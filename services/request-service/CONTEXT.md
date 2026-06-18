@@ -2700,6 +2700,24 @@ CREATE TABLE auth.user_interests (
 
 ### 10.4 Recent Fixes
 
+**Sprint 106 — Post-Facelift Correctness & Link-Up (v11.14.0, branch `feature/sprint-106-correctness-linkup`):**
+
+- **BUG-014 — feed ranker projected `category` as `request_type`.** `basicFeedRanker.ts` set
+  `request_type: item.request.category` (the mixed-vocab `category` column, which holds skill tokens
+  on legacy/seed rows), so a service ask was projected with a non-enum `request_type` and the
+  frontend offer-action copy fell through to "Offer help" instead of "Offer service". The ranker now
+  selects and carries the persisted `hr.request_type` enum (`generic|ride|borrow|service|event`),
+  falling back to `'generic'` for null/legacy rows — never the category token. `category` still
+  travels separately for the payload renderer. Test: `tests/tdd/sprint-106-feed-request-type.test.ts`.
+- **BUG-013 — rating was not symmetric or durable.** The decisions feed (`fetchDecisions`) only owed
+  `accept/decline/withdraw/mark_done/dibs`; a finished exchange's rating unlocked in-place only for
+  whoever clicked the final `mark_done`, so the other party (and a reload) lost the affordance.
+  `fetchDecisions` now adds a durable **`rate`** decision (`unifiedFeed.ts` `DecisionAction`, weight 5
+  — lowest altitude) for every `status='completed'` match the viewer has not yet rated, scoped by
+  `NOT EXISTS (SELECT 1 FROM feedback.feedback f WHERE f.request_match_id = m.id AND f.from_user_id = $1)`
+  (cross-schema read, shared DB), surfaced independently to both requester and responder. The band
+  moved to the Helping tab (BUG-015). Test: `tests/tdd/sprint-106-rating-decision.test.ts`.
+
 **Sprint 98 — Trust Truth Audit (v11.7.0, branch `feature/sprint-98-trust-truth-audit`):**
 
 - **BUG-098-004 — dibs candidates could be inactive members.** `getMutualAidCandidates` and `getEligibleCandidates` (`src/db/dibsDb.ts`) admitted anyone in `communities.members` of a shared community regardless of status, so a departed member could be surfaced as a first-ask candidate and labelled `community_connection`. Both selection subqueries now require `cm.status = 'active'`. This also closes the orphaned-`exchange`-connection admission path. `providers.ts` `shared_communities` already filtered active on both sides (no change). `deriveDibsReason` is now truthful by construction.

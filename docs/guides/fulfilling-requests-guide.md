@@ -13,11 +13,11 @@ Fulfilling requests is the heart of Karmyq. When you help a neighbor, you earn k
 **The Curated Feed** — Surfaces requests that match your skills, location, and past activity.
 
 **Two places, one feed** — You'll see the *same* canonical request cards on your **Dashboard Home**
-and on each **community's Home tab**. Home adds a "Needs your response" band at the top for
-decisions you owe (offers to accept, exchanges to mark done); a community's tab leaves that out
-(decisions are personal, not community-scoped) and instead adds **community texture** below the
-requests — a "this week" activity summary (exchanges completed, new members, recent helpers) and the
-occasional story of a neighbour's first exchange. Either way, each card shows the specifics of the
+and on each **community's Home tab**. The "Needs your response" band — decisions you owe (offers to
+accept, exchanges to mark done, completed exchanges to rate) — lives on the **Helping tab**, not in
+either feed, so browsing asks stays separate from acting on commitments. A community's tab adds
+**community texture** below the requests — a "this week" activity summary (exchanges completed, new
+members, recent helpers) and the occasional story of a neighbour's first exchange. Either way, each card shows the specifics of the
 ask — a ride's pickup and dropoff, a move's floors, a tech request's device — so you know what you're
 committing to before you offer.
 

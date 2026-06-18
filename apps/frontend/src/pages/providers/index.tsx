@@ -186,7 +186,9 @@ export default function ProvidersPage() {
           <div className="flex items-center justify-between mb-6">
             <div>
               <h1 className="text-2xl font-bold text-text">Neighborhood Service Providers</h1>
-              <p className="text-sm text-text-muted mt-1">Paid neighborhood services alongside mutual aid — no karma, your own arrangement.</p>
+              {/* Link-up legibility (S106): name the community↔provider relationship for everyone —
+                  providers are the same neighbours from your communities, not a separate marketplace. */}
+              <p className="text-sm text-text-muted mt-1">Neighbours from your communities offering skilled or paid help — alongside mutual aid, with no karma and your own arrangement.</p>
             </div>
             {!isProvider && (
               <div className="flex gap-2">

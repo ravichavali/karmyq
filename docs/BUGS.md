@@ -161,7 +161,14 @@ checks scattered across components.
 
 ---
 
-## BUG-013 · [2026-06-18] · planned (Sprint 106)
+## BUG-013 · [2026-06-18] · fixed (Sprint 106)
+
+**Fixed (v11.14.0):** `fetchDecisions` now surfaces a durable `rate` decision for both parties of a
+`status='completed'` match the viewer hasn't rated (`NOT EXISTS` against `feedback.feedback`);
+DecisionBand renders it as a first-class Rate action; `POST /reputation/feedback` hardened with
+participant + completed + counterparty validation. Tests: `sprint-106-rating-decision.test.ts`,
+`sprint-106-feedback-constraints.test.ts`, `sprint-106-decision-band-rating.test.tsx`.
+
 
 Both requester and helper/service provider should be able to rate tasks on completion. I see some items in "Needs your response" section ask for rating some don't.
 
@@ -173,7 +180,12 @@ See `docs/superpowers/plans/2026-06-18-sprint-106-correctness-linkup.md`.
 
 ---
 
-## BUG-014 · [2026-06-18] · planned (Sprint 106)
+## BUG-014 · [2026-06-18] · fixed (Sprint 106)
+
+**Fixed (v11.14.0):** `basicFeedRanker.ts` now selects and carries the persisted `hr.request_type`
+enum (falling back to `'generic'`), not the mixed-vocab `category`, so service asks read as
+`'service'` and the card shows "Offer service". Test: `sprint-106-feed-request-type.test.ts`.
+
 
 Did we regress? Now I don't see the provider feed show "Offer service" — it says "Offer help". Didn't we say it should be "Offer service"? (See BUG-003 and BUG-012.)
 
@@ -186,7 +198,12 @@ persisted `request_type` enum, grep all feed/projection sites. See
 
 ---
 
-## BUG-015 · [2026-06-18] · planned (Sprint 106)
+## BUG-015 · [2026-06-18] · fixed (Sprint 106)
+
+**Fixed (v11.14.0):** DecisionBand removed from Browse `UnifiedFeed` and mounted at the top of the
+Helping tab (`CommitmentsTab`), sourced from the same server-ranked decisions feed. Test:
+`sprint-106-band-placement.test.tsx`.
+
 
 "Needs your response" — should it live in the Browse or the Helping tab?
 
@@ -197,7 +214,12 @@ tab and remove it from Browse. See `docs/superpowers/plans/2026-06-18-sprint-106
 
 ---
 
-## BUG-016 · [2026-06-18] · planned (Sprint 106)
+## BUG-016 · [2026-06-18] · fixed (Sprint 106)
+
+**Fixed (v11.14.0):** chrome-only breathing-room pass on `kq-topbar` — responsive nav/action gap
+(`gap-3 md:gap-5`) and the user name defers to `lg` so the busy provider row no longer crowds at md
+widths. No nav-information change. Test: `sprint-106-header-and-linkup.test.tsx`.
+
 
 The header seems to be too squished.
 

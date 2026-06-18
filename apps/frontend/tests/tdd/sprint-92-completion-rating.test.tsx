@@ -13,6 +13,8 @@ jest.mock('@/lib/api', () => ({
   requestService: {
     getMatches: jest.fn(),
     getRequests: jest.fn(),
+    // BUG-015: CommitmentsTab now sources the "needs your response" DecisionBand from the curated feed.
+    getCuratedRequests: jest.fn().mockResolvedValue({ data: { items: [] } }),
     acceptMatch: jest.fn(),
     rejectMatch: jest.fn(),
     completeMatch: jest.fn(),

@@ -115,6 +115,9 @@ export type DecisionAction =
   | 'accept_dibs'
   | 'decline_dibs'
   | 'mark_done'
+  // BUG-013: durable rate affordance for a fully-completed match the member hasn't rated yet —
+  // surfaced for both parties independently until each rates, so it survives reload.
+  | 'rate'
 
 /** The match/dibs/offer kind a decision is about. */
 export type DecisionSubjectKind = 'match' | 'dibs' | 'offer'

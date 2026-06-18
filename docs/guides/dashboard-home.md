@@ -1,16 +1,10 @@
 # Your Dashboard Home
 
-Dashboard Home is the first thing you see when you open Karmyq. Sprint 88 gives it a warmer shell, a calmer finite queue, and one feed ordered so the things that need you most are at the top.
+Dashboard Home is the first thing you see when you open Karmyq. It gives you a warmer shell, a calmer finite queue, and a feed of the open requests you can fill — ranked so the best-fitting asks are at the top.
 
-## Needs your response
+## Decisions you owe live in the Helping tab
 
-At the very top is the **Needs your response** band — the decisions you owe right now:
-
-- **An offer on your request** — Accept it to match, or Decline it.
-- **A reserved request (Dibs)** — Accept or decline a trusted first-ask.
-- **A finished exchange** — Mark it done so both sides get credit.
-
-This band only appears when you actually owe a response — when you are all caught up, it disappears.
+The **Needs your response** band — the decisions you owe right now — lives at the top of the **Helping** tab, not on Home. Those decisions are commitment work (responding to an offer, confirming a reservation, marking an exchange done, rating a finished exchange), so they sit with the rest of your commitments rather than competing with new asks to browse. See [Managing Your Commitments](managing-commitments) for the full band.
 
 ## Requests you can fill
 
@@ -23,7 +17,7 @@ Below the band is the feed of open requests from your communities and trust netw
 - **Offer to Help** — one tap sends your offer. The card confirms with a link to track it in your Helping tab.
 - **A quiet match signal** — backend scores still rank the feed, but the card says things like "good match · 2nd-degree trust" instead of leading with a percentage or a requester Karma badge.
 
-**Tap anywhere on a card to open the full request.** Only the Offer button (and inline links) keep their own action — tapping them does not also open the request. You will not see your own requests here — those appear in your Asks tab and, when someone offers, in the Needs your response band.
+**Tap anywhere on a card to open the full request.** Only the Offer button (and inline links) keep their own action — tapping them does not also open the request. You will not see your own requests here — those appear in your Asks tab and, when someone offers, in the Needs your response band on the Helping tab.
 
 ## You’ve offered to help
 

@@ -14,6 +14,31 @@ export async function insertFeedback(
   );
 }
 
+/** The two participants of a match + its lifecycle status (BUG-013 rating-write hardening). */
+export interface MatchParticipation {
+  requesterId: string;
+  responderId: string;
+  status: string;
+}
+
+/**
+ * Look up a match's participants (requester via the help request, responder directly) and status,
+ * so the rating write path can reject non-participants and ratings on not-yet-completed matches.
+ * Returns null when the match does not exist. Cross-schema read (shared DB).
+ */
+export async function getMatchParticipation(matchId: string): Promise<MatchParticipation | null> {
+  const result = await query(
+    `SELECT hr.requester_id, m.responder_id, m.status
+     FROM requests.matches m
+     JOIN requests.help_requests hr ON hr.id = m.request_id
+     WHERE m.id = $1`,
+    [matchId],
+  );
+  const row = result.rows[0];
+  if (!row) return null;
+  return { requesterId: row.requester_id, responderId: row.responder_id, status: row.status };
+}
+
 export async function hasSubmittedFeedback(fromUserId: string, matchId: string): Promise<boolean> {
   const result = await query(
     `SELECT 1 FROM feedback.feedback WHERE from_user_id = $1 AND request_match_id = $2 LIMIT 1`,

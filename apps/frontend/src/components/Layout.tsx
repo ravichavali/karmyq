@@ -120,7 +120,9 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
                 Karmyq
               </Link>
 
-              <div className="flex gap-4 items-center">
+              {/* BUG-016: a calmer rhythm — the nav and the action cluster get their own breathing
+                  room (gap grows with viewport) so the row never crowds at narrower desktop widths. */}
+              <div className="flex items-center gap-3 md:gap-5">
                 {/* Secondary nav — desktop only */}
                 <div className="kq-topnav">
                   <Link
@@ -136,14 +138,12 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
                     Communities
                   </Link>
                   {hasProviderProfile ? (
-                    <>
-                      <Link
-                        href="/providers"
-                        className={`kq-topnav-link ${router.pathname.startsWith('/providers') ? 'active' : ''}`}
-                      >
-                        Providers
-                      </Link>
-                    </>
+                    <Link
+                      href="/providers"
+                      className={`kq-topnav-link ${router.pathname.startsWith('/providers') ? 'active' : ''}`}
+                    >
+                      Service Providers
+                    </Link>
                   ) : (
                     <Link
                       href="/providers/new"
@@ -184,7 +184,9 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
                         <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center text-white font-semibold text-sm">
                           {user.name?.charAt(0).toUpperCase()}
                         </div>
-                        <span className="text-sm font-medium text-text">{user.name}</span>
+                        {/* BUG-016: the name label defers to larger viewports so the busy provider
+                            topbar (nav + bell + availability + avatar) doesn't crowd at md widths. */}
+                        <span className="hidden lg:inline max-w-[14ch] truncate text-sm font-medium text-text">{user.name}</span>
                       </Link>
                       <button
                         onClick={handleLogout}

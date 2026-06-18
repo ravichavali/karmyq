@@ -15,12 +15,12 @@ export const WORKFLOWS: Record<string, WorkflowDef> = {
     workflowTitle: 'Your Feed',
     steps: [
       {
-        title: 'One feed, ordered by what needs you',
-        body: 'Dashboard Home is a single feed. The decisions you owe rise to the top; the requests you can fill follow, ranked by your skills, trust path, and urgency.',
+        title: 'A feed ordered by what fits you',
+        body: 'Dashboard Home shows the requests you can fill, ranked by your skills, trust path, and urgency. The decisions you owe live one tap away in the Helping tab — Home stays focused on asks you can pick up.',
       },
       {
-        title: 'Needs your response',
-        body: 'A band at the very top surfaces the responses you owe right now — an offer to accept or decline, your own offer to withdraw, a reserved request to confirm, or a finished exchange to mark done. It disappears when you are all caught up.',
+        title: 'Needs your response — in the Helping tab',
+        body: 'The Helping tab opens with a band of the responses you owe right now — an offer to accept or decline, your own offer to withdraw, a reserved request to confirm, a finished exchange to mark done, and a completed exchange to rate. Both you and the other person rate, and the prompt waits there until you do. It disappears when you are all caught up.',
       },
       {
         title: 'Requests you can fill',

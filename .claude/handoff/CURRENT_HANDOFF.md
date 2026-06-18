@@ -1,19 +1,38 @@
-# Sprint 106 — Post-Facelift Correctness & Link-Up Clarity — READY TO EXECUTE (v11.13.0 → v11.14.0)
+# Sprint 106 — Post-Facelift Correctness & Link-Up Clarity — IMPLEMENTED, PENDING VALIDATION + MERGE (v11.13.0 → v11.14.0)
 
-> **STATUS (2026-06-18):** Sprint 105 (UI Facelift Implementation, v11.13.0) is MERGED and DEPLOYED.
-> Sprint 106 is PLANNED and ready to execute. Spec + plan written; this handoff is the execution
-> entry point. Validating the deployed S105 surfaced four correctness bugs (BUG-013…016, now marked
-> `planned (Sprint 106)` in `docs/BUGS.md`) plus a standing UX confusion (community↔service-provider
-> link-up). S106 closes them and deploys v11.14.0.
+> **STATUS (2026-06-18):** Sprint 106 implementation is COMPLETE on branch
+> `feature/sprint-106-correctness-linkup`. All four bugs fixed + the bounded link-up legibility fix
+> shipped. Tasks 1–11 done; automated verification green. Remaining: **human browser validation**
+> (deploy gate), open PR, Admin-merge, CI deploy v11.14.0. Do NOT self-merge.
+>
+> **What shipped:** BUG-014 (feed ranker carries persisted `request_type` enum, not `category`);
+> BUG-013 (durable symmetric `rate` decision for both parties + `POST /reputation/feedback`
+> participant/completed/counterparty hardening); BUG-015 (DecisionBand relocated from Browse to the
+> Helping tab); BUG-016 (header breathing-room pass); link-up (nav label unified to "Service
+> Providers" + provider directory line now names the community↔provider relationship for all viewers).
+>
+> **Verification:** request-service blocking 152/152 + sprint-106 7/7; reputation-service blocking 5/5
+> + sprint-106 8/8; frontend at master baseline (38 pre-existing failures, 0 new) + sprint-106/band
+> suites green; all three `tsc --noEmit` clean. SDLC gates all run: testing, `/simplify` (1 fix),
+> `/code-review` (no findings — cross-schema grant concern refuted by single `karmyq_user` role with
+> full grants), `/security-review` (no findings; the BUG-013 hardening itself closes a pre-existing
+> rating-write IDOR).
+>
+> **Known pre-existing (NOT S106):** `apps/frontend/tests/tdd/sprint-85-unified-feed.test.tsx` →
+> "optimistically removes a card" fails on master too (stale `request_type:'service'` test data
+> expects "Offer to help" but the label is now "Offer service"). Left untouched (out of scope).
+> **Skipped per judgment:** the optional `tests/tdd/sprint-106-integration.test.ts` — a DB-dependent
+> smoke test would only fail in the no-DB agent environment; unit/component coverage across 3 layers
+> is sufficient.
 
 ---
 
-## Quick Start
+## Quick Start (remaining work)
 
 1. Read this handoff.
-2. Check out branch: `git checkout -b feature/sprint-106-correctness-linkup`
-3. Open plan: `docs/superpowers/plans/2026-06-18-sprint-106-correctness-linkup.md`
-4. Run: `/execute-plan` (uses superpowers:subagent-driven-development)
+2. Branch `feature/sprint-106-correctness-linkup` is implemented and committed.
+3. Open a PR (copy `.github/pull_request_template.md` into the body); do NOT self-merge.
+4. Human browser validation (see Task 11 in the plan), then Admin-merge → CI deploys v11.14.0.
 5. Do NOT stage `scripts/founding-circle-submissions.sh` — it is local untracked work.
 
 ---
@@ -110,7 +129,14 @@ model/multi-flow change.
   BUG-013 is **surfacing-only on the write side**; the fix is a durable `rate` decision + DecisionBand
   rendering. **Recommended added hardening:** the handler does not check participant/completed — add
   participant + completed-match validation while we are in this flow (`/security-review` gate).
-- **Link-up contained fix chosen:** _(name the one fix during execution, or flag re-scope)_
+- **Link-up contained fix chosen:** **Service Providers directory legibility.** The community↔provider
+  relationship is only stated inside the provider-only "My Provider Presence" card
+  (`providers/index.tsx`); a non-provider browsing the directory gets no cue these are the same
+  neighbours from their communities. Nav is also inconsistent — desktop says "Providers"
+  (`Layout.tsx:144`) while mobile menu + page `<title>` say "Service Providers". ONE contained fix:
+  (a) a directory-level relationship line visible to ALL viewers on the Service Providers page, and
+  (b) unify the desktop nav label to "Service Providers". No data-model or flow change. Deeper
+  facet-switching / provider-scoping work (IDEAS 2026-05-06, 2026-05-17) remains flagged for re-scope.
 
 ---
 
