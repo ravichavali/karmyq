@@ -230,3 +230,53 @@ widths. S106 ships a chrome-only breathing-room pass within the existing A-plus 
 nav-information change. See `docs/superpowers/plans/2026-06-18-sprint-106-correctness-linkup.md`.
 
 ---
+
+## BUG-017 · [2026-06-19] · fixed (S106 follow-up)
+
+Header still congested after S106; tabs left-justified while header content is centered; Home nav
+link and the wordmark both go to /dashboard (redundant).
+
+**Fixed:** removed the redundant "Home" nav link (the `kq-wordmark` already links Home) from the
+desktop topnav and the hamburger; aligned the desktop tab row to the central column (`.tab-bar` is
+now a full-width divider with an inner `.kq-page .tab-bar-row`, mirroring the topbar). Nav is
+"Communities" + "Service Providers". Tests: `sprint-106-chrome-followup.test.tsx`,
+`sprint-88-shell-fidelity.test.tsx`.
+
+---
+
+## BUG-018 · [2026-06-19] · fixed (S106 follow-up)
+
+Provider notifications appear to have vanished — a provider has no surface for provider-specific
+alerts (request matched, review received, preferred-provider selected).
+
+**Fixed:** the standalone `ProviderNotificationBell` lost its mount AND its CSS in the S105 facelift,
+so provider alerts had no surface and the main bell showed community notifications only. Rather than
+re-add a second bell (which re-congests the header), `NotificationBell` now folds the provider stream
+into the single bell for providers — merged + date-sorted list, combined unread dot. Non-providers
+are unchanged. Test: `sprint-106-chrome-followup.test.tsx`.
+
+---
+
+## BUG-019 · [2026-06-19] · fixed (S106 follow-up)
+
+The on-duty pill is redundant (especially on web) and the mobile on-duty control isn't clickable.
+
+**Fixed:** removed the read-only "On duty" status pill from the dashboard community row and the
+duplicate availability button from the hamburger menu. The single source of truth is the topbar
+toggle, relabeled **On duty / Off duty**, now shown and clickable on every viewport (was
+`hidden md:flex`). Test: `sprint-106-chrome-followup.test.tsx`,
+`sprint-105-profile-chrome-facelift.test.tsx`.
+
+---
+
+## BUG-020 · [2026-06-19] · fixed (S106 follow-up)
+
+karmyq.org landing — the hero CTAs ("Join the founding circle" / "Read the thinking →") read as
+misaligned; the justification looks wrong.
+
+**Fixed:** the hero CTA rows were `flex flex-col sm:flex-row` with no `align-items`, so the default
+`stretch` blew the CTAs to full width on the column axis (the "Read the thinking" underline spanned
+the row). Added `items-start sm:items-center` to both hero CTA rows so each CTA hugs its content.
+(`apps/landing/src/app/page.tsx`.)
+
+---

@@ -163,15 +163,8 @@ export default function Dashboard() {
                 <option key={c.id} value={c.id}>{c.name}</option>
               ))}
             </select>
-            {isOnDuty && (
-              <span
-                aria-label="Status: On duty"
-                className="ml-auto inline-flex items-center gap-1 rounded-full border border-success bg-success-light px-2 py-0.5 text-xs font-medium text-success"
-              >
-                <span aria-hidden="true" className="h-2 w-2 rounded-full bg-success" />
-                On duty
-              </span>
-            )}
+            {/* On-duty status now lives solely in the topbar On duty/Off duty toggle (clickable,
+                single source of truth) — the redundant read-only pill here was removed. */}
           </div>
         </div>
         {communityLoadError && (

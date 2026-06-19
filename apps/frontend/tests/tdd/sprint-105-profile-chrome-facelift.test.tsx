@@ -48,7 +48,7 @@ describe('Sprint 105 profile and chrome facelift', () => {
   it('renders provider availability as text plus accessible pressed state using semantic tokens', () => {
     render(<Layout>content</Layout>)
 
-    const button = screen.getByRole('button', { name: /available/i })
+    const button = screen.getByRole('button', { name: /on duty/i })
     expect(button).toHaveAttribute('aria-pressed', 'true')
     expect(button).toHaveClass('bg-success-light', 'text-success')
     expect(button.querySelector('[aria-hidden="true"]')).toHaveClass('bg-success')

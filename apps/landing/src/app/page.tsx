@@ -21,7 +21,7 @@ export default function Home() {
         </div>
         <div className={`relative z-10 ${COLUMN_CLASS} pt-28 md:pt-36 pb-12`}>
           <Blocks blocks={homeContent.hero} />
-          <div className="flex flex-col sm:flex-row gap-5 mt-8">
+          <div className="flex flex-col items-start sm:flex-row sm:items-center gap-5 mt-8">
             <PrimaryCta href={homeContent.heroCtas[0].href}>
               {homeContent.heroCtas[0].label}
             </PrimaryCta>
@@ -39,7 +39,7 @@ export default function Home() {
         </div>
         <Blocks blocks={homeContent.thinking} />
 
-        <div className="flex flex-col sm:flex-row gap-6 mt-8">
+        <div className="flex flex-col items-start sm:flex-row sm:items-center gap-6 mt-8">
           {homeContent.thinkingCtas.map((cta) => (
             <SecondaryCta key={cta.href} href={cta.href}>
               {cta.label}

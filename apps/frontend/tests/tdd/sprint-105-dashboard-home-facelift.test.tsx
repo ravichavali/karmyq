@@ -45,7 +45,9 @@ describe('Sprint 105 Dashboard Home facelift', () => {
     const dashboard = source('src/pages/dashboard.tsx')
 
     expect(dashboard).not.toMatch(/bg-amber-100|text-amber-700|You haven't joined/)
-    expect(dashboard).toMatch(/aria-label="Status: On duty"/)
+    // The on-duty status pill moved to the topbar On duty/Off duty toggle (single clickable source),
+    // so the dashboard no longer renders its own read-only status pill.
+    expect(dashboard).not.toMatch(/aria-label="Status: On duty"/)
     expect(dashboard).toMatch(/<EmptyState[\s\S]*heading="Join a community to see requests"/)
     expect(dashboard).toMatch(/className="kq-page/)
   })

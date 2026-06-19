@@ -6,7 +6,7 @@ import { useProvider } from '../contexts/ProviderContext'
 
 function HamburgerMenu() {
   const [open, setOpen] = useState(false)
-  const { hasProviderProfile, isAvailable, setAvailability, providerProfiles } = useProvider()
+  const { hasProviderProfile, providerProfiles } = useProvider()
   const myProviderId = providerProfiles[0]?.id
   return (
     <div className="relative md:hidden">
@@ -23,9 +23,6 @@ function HamburgerMenu() {
         <>
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
           <div className="absolute right-0 mt-1 w-48 bg-surface-raised border border-border rounded-xl shadow-lg z-50 py-1">
-            <Link href="/dashboard" className="block px-4 py-2 text-sm text-text hover:bg-surface transition-colors" onClick={() => setOpen(false)}>
-              Home
-            </Link>
             <Link href="/communities" className="block px-4 py-2 text-sm text-text hover:bg-surface transition-colors" onClick={() => setOpen(false)}>
               Communities
             </Link>
@@ -48,24 +45,8 @@ function HamburgerMenu() {
             <Link href="/profile" className="block px-4 py-2 text-sm text-text hover:bg-surface transition-colors" onClick={() => setOpen(false)}>
               Profile
             </Link>
-            {hasProviderProfile && (
-              <div className="px-4 py-2 border-t border-border">
-                <button
-                  onClick={() => { setAvailability(!isAvailable); setOpen(false) }}
-                  className="flex items-center gap-2 text-sm w-full"
-                  aria-pressed={isAvailable}
-                  aria-label={isAvailable ? 'Available' : 'Off duty'}
-                >
-                  <span
-                    aria-hidden="true"
-                    className={`w-2 h-2 rounded-full flex-shrink-0 ${isAvailable ? 'bg-success' : 'bg-border'}`}
-                  />
-                  <span className={isAvailable ? 'text-success' : 'text-text-muted'}>
-                    {isAvailable ? 'Available' : 'Off duty'}
-                  </span>
-                </button>
-              </div>
-            )}
+            {/* Availability lives in the topbar On duty/Off duty toggle (visible on mobile too) —
+                no duplicate here. */}
           </div>
         </>
       )}
@@ -123,14 +104,8 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
               {/* BUG-016: a calmer rhythm — the nav and the action cluster get their own breathing
                   room (gap grows with viewport) so the row never crowds at narrower desktop widths. */}
               <div className="flex items-center gap-3 md:gap-5">
-                {/* Secondary nav — desktop only */}
+                {/* Secondary nav — desktop only. The wordmark links Home, so no redundant Home link. */}
                 <div className="kq-topnav">
-                  <Link
-                    href="/dashboard"
-                    className={`kq-topnav-link ${router.pathname === '/dashboard' ? 'active' : ''}`}
-                  >
-                    Home
-                  </Link>
                   <Link
                     href="/communities"
                     className={`kq-topnav-link ${router.pathname.startsWith('/communities') ? 'active' : ''}`}
@@ -158,12 +133,14 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
                   <>
                     <div className="border-l border-border h-8 mx-2"></div>
                     <NotificationBell />
+                    {/* Single source of truth for availability — the clickable On duty/Off duty
+                        toggle, shown on every viewport (replaces the redundant dashboard pill). */}
                     {hasProviderProfile && (
                       <button
                         onClick={() => setAvailability(!isAvailable)}
                         aria-pressed={isAvailable}
-                        aria-label={isAvailable ? 'Available' : 'Off duty'}
-                        className={`hidden md:flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-full border transition-all ${
+                        aria-label={isAvailable ? 'On duty' : 'Off duty'}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-full border transition-all ${
                           isAvailable
                             ? 'bg-success-light border-success text-success hover:bg-success-light'
                             : 'bg-surface border-border text-text-muted hover:bg-surface-raised'
@@ -171,7 +148,7 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
                         title={isAvailable ? 'Click to go off duty' : 'Click to go on duty'}
                       >
                         <span aria-hidden="true" className={`w-2 h-2 rounded-full flex-shrink-0 ${isAvailable ? 'bg-success' : 'bg-border'}`} />
-                        {isAvailable ? 'Available' : 'Off duty'}
+                        {isAvailable ? 'On duty' : 'Off duty'}
                       </button>
                     )}
 

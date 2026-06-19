@@ -45,13 +45,15 @@ describe('Sprint 88 shell fidelity', () => {
     localStorage.setItem('user', JSON.stringify({ id: 'user-1', name: 'Ada' }))
   })
 
-  it('renders the warm topbar with seed wordmark and Home nav', () => {
+  it('renders the warm topbar with seed wordmark linking Home (no redundant Home nav link)', () => {
     render(<Layout>child</Layout>)
 
     expect(screen.getByRole('navigation')).toHaveClass('kq-topbar')
     expect(screen.getByText('Karmyq')).toHaveClass('kq-wordmark')
     expect(document.querySelector('.kq-wordmark-seed')).toBeTruthy()
-    expect(screen.getByRole('link', { name: 'Home' })).toHaveClass('kq-topnav-link', 'active')
+    // The wordmark is the Home affordance, so the redundant "Home" nav link was removed.
+    expect(screen.getByText('Karmyq').closest('a')).toHaveAttribute('href', '/dashboard')
+    expect(screen.queryByRole('link', { name: 'Home' })).toBeNull()
   })
 
   it('uses a quiet notification dot instead of a count badge', () => {

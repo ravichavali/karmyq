@@ -43,29 +43,31 @@ interface TabBarProps {
 export default function TabBar({ activeTab, onChange, commitmentCount, dibsCount, browseLabel }: TabBarProps) {
   return (
     <>
-      {/* Desktop horizontal tabs */}
-      <div className="tab-bar hidden md:flex" role="tablist">
-        {TABS.map((tab) => (
-          <button
-            key={tab.id}
-            role="tab"
-            aria-selected={activeTab === tab.id}
-            onClick={() => onChange(tab.id)}
-            className={`tab-bar-item ${activeTab === tab.id ? 'active' : ''}`}
-          >
-            {tab.id === 'browse' && browseLabel ? browseLabel : tab.label}
-            {tab.id === 'helping' && (dibsCount != null && dibsCount > 0) && (
-              <span className="ml-1.5 inline-flex items-center justify-center w-4 h-4 rounded-full bg-amber-500 text-white text-xs">
-                {dibsCount > 9 ? '9+' : dibsCount}
-              </span>
-            )}
-            {tab.id === 'helping' && !(dibsCount != null && dibsCount > 0) && commitmentCount != null && commitmentCount > 0 && (
-              <span className="ml-1.5 inline-flex items-center justify-center w-4 h-4 rounded-full bg-primary text-white text-xs">
-                {commitmentCount > 9 ? '9+' : commitmentCount}
-              </span>
-            )}
-          </button>
-        ))}
+      {/* Desktop horizontal tabs — full-width divider, row aligned to the central column */}
+      <div className="tab-bar hidden md:block">
+        <div className="kq-page tab-bar-row" role="tablist">
+          {TABS.map((tab) => (
+            <button
+              key={tab.id}
+              role="tab"
+              aria-selected={activeTab === tab.id}
+              onClick={() => onChange(tab.id)}
+              className={`tab-bar-item ${activeTab === tab.id ? 'active' : ''}`}
+            >
+              {tab.id === 'browse' && browseLabel ? browseLabel : tab.label}
+              {tab.id === 'helping' && (dibsCount != null && dibsCount > 0) && (
+                <span className="ml-1.5 inline-flex items-center justify-center w-4 h-4 rounded-full bg-amber-500 text-white text-xs">
+                  {dibsCount > 9 ? '9+' : dibsCount}
+                </span>
+              )}
+              {tab.id === 'helping' && !(dibsCount != null && dibsCount > 0) && commitmentCount != null && commitmentCount > 0 && (
+                <span className="ml-1.5 inline-flex items-center justify-center w-4 h-4 rounded-full bg-primary text-white text-xs">
+                  {commitmentCount > 9 ? '9+' : commitmentCount}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Mobile bottom nav */}
