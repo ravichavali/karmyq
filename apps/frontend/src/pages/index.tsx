@@ -13,65 +13,56 @@ export default function Home() {
   return (
     <>
       <Head>
-        <title>Karmyq - Community Mutual Aid Platform</title>
-        <meta name="description" content="Trust-based community mutual aid" />
+        <title>Karmyq — Community Mutual Aid Platform</title>
+        <meta name="description" content="Trust-based communities where neighbours help each other — mutual aid and trusted local service providers, side by side." />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/favicon.ico" />
       </Head>
-      <main className="min-h-screen bg-gradient-to-b from-primary-light to-surface-raised">
-        <div className="container mx-auto px-4 py-16">
-          <div className="text-center mb-12">
-            <h1 className="text-6xl font-bold font-serif text-text mb-4">
-              Welcome to Karmyq
-            </h1>
-            <p className="text-xl text-text-muted mb-8">
-              Building trust-based communities where people help each other
+      <main className="min-h-screen bg-surface">
+        <div className="kq-page py-20">
+          <div className="text-center max-w-2xl mx-auto">
+            <Link href={isLoggedIn ? '/dashboard' : '/'} className="kq-wordmark justify-center text-3xl">
+              <span className="kq-wordmark-seed" aria-hidden="true" />
+              Karmyq
+            </Link>
+            <h1 className="kq-headline mt-6">Help that runs on trust, not transactions.</h1>
+            <p className="kq-lede mt-4">
+              Karmyq is where neighbours help each other — mutual aid and trusted local service
+              providers, side by side, inside communities small enough to stay personal.
             </p>
 
             {!isLoggedIn ? (
-              <div className="flex gap-4 justify-center">
-                <Link
-                  href="/register"
-                  className="px-8 py-3 bg-primary text-white rounded-lg hover:bg-primary-dark transition"
-                >
-                  Get Started
-                </Link>
-                <Link
-                  href="/login"
-                  className="px-8 py-3 bg-surface-raised text-primary border border-primary rounded-lg hover:bg-primary-light transition"
-                >
-                  Login
-                </Link>
+              <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
+                <Link href="/register" className="btn-primary">Get started</Link>
+                <Link href="/login" className="btn-secondary">Log in</Link>
               </div>
             ) : (
-              <div className="flex gap-4 justify-center">
-                <Link
-                  href="/dashboard"
-                  className="px-8 py-3 bg-primary text-white rounded-lg hover:bg-primary-dark transition"
-                >
-                  Go to Dashboard
-                </Link>
+              <div className="mt-8 flex justify-center">
+                <Link href="/dashboard" className="btn-primary">Go to your dashboard</Link>
               </div>
             )}
           </div>
 
-          <div className="grid md:grid-cols-3 gap-8 mt-16">
-            <div className="p-6 bg-surface-raised rounded-lg shadow-md">
-              <h3 className="text-2xl font-semibold mb-3">Trust-Based</h3>
-              <p className="text-text-muted">
-                Build reputation through helping others. No money, just karma.
+          <div className="grid md:grid-cols-3 gap-5 mt-16 max-w-4xl mx-auto">
+            <div className="kq-card">
+              <h3 className="font-semibold text-text mb-2">Trust, not money</h3>
+              <p className="text-sm text-text-muted">
+                Reputation grows by helping neighbours. Karmyq never touches money — mutual aid runs
+                on karma, and any service arrangement stays between the two people.
               </p>
             </div>
-            <div className="p-6 bg-surface-raised rounded-lg shadow-md">
-              <h3 className="text-2xl font-semibold mb-3">Community-Driven</h3>
-              <p className="text-text-muted">
-                Communities are limited to 150 members (Dunbar's number) to maintain trust.
+            <div className="kq-card">
+              <h3 className="font-semibold text-text mb-2">Built for real relationships</h3>
+              <p className="text-sm text-text-muted">
+                Communities cap at around 150 members (Dunbar&apos;s number) so trust stays personal
+                and the people you meet are genuinely your neighbours.
               </p>
             </div>
-            <div className="p-6 bg-surface-raised rounded-lg shadow-md">
-              <h3 className="text-2xl font-semibold mb-3">Mutual Aid</h3>
-              <p className="text-text-muted">
-                Request help or offer your skills. Everyone contributes, everyone benefits.
+            <div className="kq-card">
+              <h3 className="font-semibold text-text mb-2">Two ways to help</h3>
+              <p className="text-sm text-text-muted">
+                Ask for a hand or offer your skills through mutual aid — or find a trusted local
+                service provider from the same circle. One community, two ways to show up.
               </p>
             </div>
           </div>

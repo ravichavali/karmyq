@@ -70,8 +70,13 @@ body {
   .section-heading { @apply text-lg font-semibold text-text mb-4; }
 
   /* ── Tab Bar (desktop horizontal tabs) ── */
+  /* Full-width divider; the tab row inside aligns to the central column (kq-page),
+     mirroring the topbar so tabs line up with the header and page content. */
   .tab-bar {
-    @apply flex border-b border-border bg-surface-raised;
+    @apply border-b border-border bg-surface-raised;
+  }
+  .tab-bar-row {
+    @apply flex;
   }
   .tab-bar-item {
     @apply px-5 py-3 text-sm font-medium text-text-muted border-b-2 border-transparent

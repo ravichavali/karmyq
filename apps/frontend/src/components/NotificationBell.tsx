@@ -1,12 +1,31 @@
-import React, { useState, useRef, useEffect } from 'react'
+import React, { useState, useRef, useEffect, useMemo } from 'react'
 import { useNotifications } from '../contexts/NotificationContext'
+import { useProvider } from '../contexts/ProviderContext'
 import NotificationDropdown from './NotificationDropdown'
 
 const NotificationBell: React.FC = () => {
-  const { communityUnreadCount } = useNotifications()
+  const notif = useNotifications()
+  // Defensive defaults: this bell mounts on every authenticated page, so tolerate a partial context
+  // (test mocks, cold start) rather than crash the whole chrome.
+  const communityNotifications = notif.communityNotifications ?? []
+  const communityUnreadCount = notif.communityUnreadCount ?? 0
+  const providerNotifications = notif.providerNotifications ?? []
+  const providerUnreadCount = notif.providerUnreadCount ?? 0
+  const { hasProviderProfile } = useProvider()
   const [isOpen, setIsOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
-  const ariaLabel = communityUnreadCount > 0 ? 'Notifications, unread' : 'Notifications'
+
+  // A provider's alerts (request matched, review received, preferred-provider) have no other surface
+  // since the facelift retired the standalone provider bell — fold them into this single bell so the
+  // header stays de-cluttered. Non-providers see only community notifications, unchanged.
+  const notifications = useMemo(() => {
+    if (!hasProviderProfile) return communityNotifications
+    return [...communityNotifications, ...providerNotifications].sort(
+      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    )
+  }, [hasProviderProfile, communityNotifications, providerNotifications])
+  const unreadCount = communityUnreadCount + (hasProviderProfile ? providerUnreadCount : 0)
+  const ariaLabel = unreadCount > 0 ? 'Notifications, unread' : 'Notifications'
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -45,12 +64,12 @@ const NotificationBell: React.FC = () => {
           <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
           <path d="M13.73 21a2 2 0 0 1-3.46 0" />
         </svg>
-        {communityUnreadCount > 0 && (
+        {unreadCount > 0 && (
           <span className="notification-dot" aria-hidden="true" />
         )}
       </button>
 
-      {isOpen && <NotificationDropdown onClose={() => setIsOpen(false)} />}
+      {isOpen && <NotificationDropdown onClose={() => setIsOpen(false)} notifications={notifications} />}
 
       <style jsx>{`
         .notification-bell-container {

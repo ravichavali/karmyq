@@ -295,7 +295,7 @@ export const principlesContent: PrinciplesContent = {
     },
     {
       name: 'No extraction',
-      body: `We don't extract value from communities. No venture capital growth mandates. No monetization of relationships. Karmyq never touches money. Built to serve, not to scale.`,
+      body: `We don't extract value from communities. No monetization of relationships. Karmyq never touches money. Built to serve, not to scale.`,
     },
   ],
   closingCta: { label: 'See how the principles become mechanics', href: '/how-it-works' },
