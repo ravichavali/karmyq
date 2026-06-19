@@ -249,11 +249,12 @@ now a full-width divider with an inner `.kq-page .tab-bar-row`, mirroring the to
 Provider notifications appear to have vanished — a provider has no surface for provider-specific
 alerts (request matched, review received, preferred-provider selected).
 
-**Fixed:** the standalone `ProviderNotificationBell` lost its mount AND its CSS in the S105 facelift,
-so provider alerts had no surface and the main bell showed community notifications only. Rather than
-re-add a second bell (which re-congests the header), `NotificationBell` now folds the provider stream
-into the single bell for providers — merged + date-sorted list, combined unread dot. Non-providers
-are unchanged. Test: `sprint-106-chrome-followup.test.tsx`.
+**Fixed:** the standalone `ProviderNotificationBell` lost its mount in the S105 facelift (it's no
+longer rendered anywhere — the component itself, including its styled-jsx CSS, still exists), so
+provider alerts had no surface and the main bell showed community notifications only. Rather than
+re-mount a second bell (which re-congests the header), `NotificationBell` now folds the provider
+stream into the single bell for providers — merged + date-sorted list, combined unread dot.
+Non-providers are unchanged. Test: `sprint-106-chrome-followup.test.tsx`.
 
 ---
 
