@@ -166,7 +166,8 @@ checks scattered across components.
 **Fixed (v11.14.0):** `fetchDecisions` now surfaces a durable `rate` decision for both parties of a
 `status='completed'` match the viewer hasn't rated (`NOT EXISTS` against `feedback.feedback`);
 DecisionBand renders it as a first-class Rate action; `POST /reputation/feedback` hardened with
-participant + completed + counterparty validation. Tests: `sprint-106-rating-decision.test.ts`,
+participant + completed + counterparty + match-community validation (cross-agent review caught the
+body-supplied `community_id` attribution gap). Tests: `sprint-106-rating-decision.test.ts`,
 `sprint-106-feedback-constraints.test.ts`, `sprint-106-decision-band-rating.test.tsx`.
 
 

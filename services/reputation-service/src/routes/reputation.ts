@@ -326,6 +326,11 @@ router.post('/feedback', authMiddleware, async (req: AuthenticatedRequest, res: 
     if (participation.status !== 'completed') {
       return res.status(409).json({ success: false, message: 'Match is not completed yet', error: 'MATCH_NOT_COMPLETED' });
     }
+    // The attribution community must be one the match's request was actually posted to — otherwise a
+    // participant could pollute any community's feedback/trust by passing an arbitrary community UUID.
+    if (!participation.communityIds.includes(community_id)) {
+      return res.status(400).json({ success: false, message: 'community_id is not associated with this match', error: 'INVALID_COMMUNITY' });
+    }
 
     // Prevent double-submission (per rater + match, so both parties can rate independently)
     const alreadySubmitted = await hasSubmittedFeedback(fromUserId, match_id);

@@ -14,29 +14,43 @@ export async function insertFeedback(
   );
 }
 
-/** The two participants of a match + its lifecycle status (BUG-013 rating-write hardening). */
+/** The two participants of a match, its lifecycle status, and the communities its request is posted
+ *  to (BUG-013 rating-write hardening — the attribution community must be one of these). */
 export interface MatchParticipation {
   requesterId: string;
   responderId: string;
   status: string;
+  communityIds: string[];
 }
 
 /**
- * Look up a match's participants (requester via the help request, responder directly) and status,
- * so the rating write path can reject non-participants and ratings on not-yet-completed matches.
- * Returns null when the match does not exist. Cross-schema read (shared DB).
+ * Look up a match's participants (requester via the help request, responder directly), its status,
+ * and the communities the underlying request is posted to, so the rating write path can reject
+ * non-participants, ratings on not-yet-completed matches, and feedback attributed to a community the
+ * match was never posted to. Returns null when the match does not exist. Cross-schema read (shared DB).
  */
 export async function getMatchParticipation(matchId: string): Promise<MatchParticipation | null> {
   const result = await query(
-    `SELECT hr.requester_id, m.responder_id, m.status
+    `SELECT hr.requester_id, m.responder_id, m.status,
+            COALESCE(
+              ARRAY_AGG(DISTINCT rc.community_id::text) FILTER (WHERE rc.community_id IS NOT NULL),
+              ARRAY[]::text[]
+            ) AS community_ids
      FROM requests.matches m
      JOIN requests.help_requests hr ON hr.id = m.request_id
-     WHERE m.id = $1`,
+     LEFT JOIN requests.request_communities rc ON rc.request_id = hr.id
+     WHERE m.id = $1
+     GROUP BY hr.requester_id, m.responder_id, m.status`,
     [matchId],
   );
   const row = result.rows[0];
   if (!row) return null;
-  return { requesterId: row.requester_id, responderId: row.responder_id, status: row.status };
+  return {
+    requesterId: row.requester_id,
+    responderId: row.responder_id,
+    status: row.status,
+    communityIds: row.community_ids ?? [],
+  };
 }
 
 export async function hasSubmittedFeedback(fromUserId: string, matchId: string): Promise<boolean> {

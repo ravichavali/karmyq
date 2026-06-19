@@ -102,6 +102,7 @@ beforeEach(() => {
     requesterId: REQUESTER,
     responderId: RESPONDER,
     status: 'completed',
+    communityIds: [COMMUNITY],
   });
   mockHasSubmittedFeedback.mockResolvedValue(false);
   mockInsertFeedback.mockResolvedValue(undefined);
@@ -169,6 +170,15 @@ describe('POST /reputation/feedback — BUG-013 participant + completed hardenin
   it('rejects a to_user_id that is not the counterparty (400)', async () => {
     // Requester tries to rate someone who is not the responder.
     const res = await request(buildApp()).post('/reputation/feedback').send(body({ to_user_id: STRANGER }));
+    expect(res.status).toBe(400);
+    expect(mockInsertFeedback).not.toHaveBeenCalled();
+  });
+
+  it('rejects a community_id the match was not posted to (400) — no cross-community attribution', async () => {
+    // Participant + completed + correct counterparty, but an arbitrary community the match never touched.
+    const res = await request(buildApp())
+      .post('/reputation/feedback')
+      .send(body({ community_id: 'community-not-on-this-match' }));
     expect(res.status).toBe(400);
     expect(mockInsertFeedback).not.toHaveBeenCalled();
   });
