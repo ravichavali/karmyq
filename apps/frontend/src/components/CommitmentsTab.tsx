@@ -8,6 +8,8 @@ import ExpandableConversation from './ExpandableConversation'
 import { TrustCard } from './TrustCard'
 import DibsCard from './commitments/DibsCard'
 import RatingPrompt from './RatingPrompt'
+import DecisionBand from './Feed/DecisionBand'
+import type { DecisionData, UnifiedFeedItem } from '@/types/unified-feed'
 import { extractCompletion, submitExchangeRating } from '../utils/completion'
 
 interface Match {
@@ -104,6 +106,9 @@ interface CommitmentsTabProps {
 }
 
 export default function CommitmentsTab({ onDibsLoaded, communityId }: CommitmentsTabProps = {}) {
+  // BUG-015: the "needs your response" DecisionBand (decisions the member owes — accept/decline,
+  // mark-done, rate, dibs) now lives at the top of the Helping tab, server-ranked across communities.
+  const [decisions, setDecisions] = useState<DecisionData[]>([])
   const [helping, setHelping] = useState<Match[]>([])
   const [requested, setRequested] = useState<Match[]>([])
   const [myOpenRequests, setMyOpenRequests] = useState<any[]>([])
@@ -132,13 +137,26 @@ export default function CommitmentsTab({ onDibsLoaded, communityId }: Commitment
     }
   }
 
-  useEffect(() => {
-    const userData = typeof window !== 'undefined' ? localStorage.getItem('user') : null
-    let currentUser = null
-    try { currentUser = userData ? JSON.parse(userData) : null } catch { currentUser = null }
-    if (!currentUser) return
-    setCurrentUserId(currentUser.id ?? '')
+  // The "needs your response" queue — same server-ranked decisions feed the Dashboard uses, scoped
+  // across communities (no community filter) so the band shows every decision the member owes.
+  // The curated feed is scoped to the caller server-side (JWT), so this needs no user id.
+  const loadDecisions = () => {
+    requestService
+      .getCuratedRequests({ view: 'home', limit: 50 })
+      .then((res) => {
+        const items = (res.data?.items ?? []) as UnifiedFeedItem[]
+        setDecisions(
+          items
+            .filter((i): i is Extract<UnifiedFeedItem, { kind: 'decision' }> => i.kind === 'decision')
+            .map((i) => i.data)
+        )
+      })
+      .catch(() => {
+        // The band is best-effort — a fetch error degrades to no band, never breaks the tab.
+      })
+  }
 
+  const loadCommitments = (userId: string) => {
     // Fetch pending dibs for provider (non-blocking — errors are silently ignored)
     dibsService.getPendingDibsForProvider().then((res) => {
       const items: any[] = res.data ?? []
@@ -155,14 +173,14 @@ export default function CommitmentsTab({ onDibsLoaded, communityId }: Commitment
       // Dibs fetch is optional; do not surface errors to the user
     })
 
-    requestService.getMatches({ user_id: currentUser.id, limit: 200 }).then((res) => {
+    requestService.getMatches({ user_id: userId, limit: 200 }).then((res) => {
       const allMatches: Match[] = res.data?.matches ?? []
-      return requestService.getRequests({ requester_id: currentUser.id, limit: 100 }).then((reqRes) => {
+      return requestService.getRequests({ requester_id: userId, limit: 100 }).then((reqRes) => {
         const myRequests: any[] = reqRes.data?.requests ?? []
         const myRequestIds = new Set(myRequests.map((r: any) => r.id))
 
         const helpingMatches = allMatches.filter(
-          (m) => m.responder_id === currentUser.id && !myRequestIds.has(m.request_id)
+          (m) => m.responder_id === userId && !myRequestIds.has(m.request_id)
         )
         const requestedMatches = allMatches.filter((m) => myRequestIds.has(m.request_id))
 
@@ -180,7 +198,27 @@ export default function CommitmentsTab({ onDibsLoaded, communityId }: Commitment
     }).finally(() => {
       setLoading(false)
     })
+  }
+
+  useEffect(() => {
+    const userData = typeof window !== 'undefined' ? localStorage.getItem('user') : null
+    let currentUser = null
+    try { currentUser = userData ? JSON.parse(userData) : null } catch { currentUser = null }
+    if (!currentUser) return
+    setCurrentUserId(currentUser.id ?? '')
+    loadDecisions()
+    loadCommitments(currentUser.id)
   }, [])
+
+  // A band action resolves against the shared decision service → drop the row and reconcile both
+  // the band and the commitment cards (a band accept/mark-done changes the cards' state too).
+  const handleDecisionResolved = (subjectId: string) => {
+    setDecisions((prev) => prev.filter((d) => d.subject_id !== subjectId))
+    loadDecisions()
+    if (currentUserId) {
+      loadCommitments(currentUserId)
+    }
+  }
 
   const handleMarkDone = async (matchId: string) => {
     setMarkingDone(matchId)
@@ -524,6 +562,8 @@ export default function CommitmentsTab({ onDibsLoaded, communityId }: Commitment
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-4 space-y-8">
+      {/* BUG-015: decisions you owe, server-ranked, at the top of Helping. */}
+      <DecisionBand decisions={decisions} onResolved={handleDecisionResolved} />
       {actionError && (
         <div className="flex items-start justify-between gap-3 px-4 py-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">
           <span>{actionError}</span>

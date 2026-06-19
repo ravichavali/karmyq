@@ -1,9 +1,12 @@
 /**
  * Sprint 85 / ADR-066 — UnifiedFeed (Dashboard Home container) tests.
  *
- * Covers the container logic the component tests don't: fetching view=home, partitioning the union
- * into the decision band + request cards, the "you're caught up" end-state, and optimistic removal of
- * a card once the member offers.
+ * Covers the container logic the component tests don't: fetching view=home, rendering request cards,
+ * the "you're caught up" end-state, and optimistic removal of a card once the member offers.
+ *
+ * BUG-015 (Sprint 106): the "needs your response" decision band moved OUT of Browse to the Helping
+ * tab (CommitmentsTab). UnifiedFeed no longer mounts it — these tests assert that, and band behavior
+ * is now covered by sprint-106-band-placement + DecisionBand component tests.
  */
 
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
@@ -61,14 +64,15 @@ beforeEach(() => {
 })
 
 describe('UnifiedFeed', () => {
-  it('partitions the union: decisions into the band, requests into cards', async () => {
+  it('renders request cards and no longer mounts the decision band (BUG-015: moved to Helping)', async () => {
     getCuratedRequests.mockResolvedValue({ data: { items: [decisionItem(), requestItem({ request_id: 'r1', title: 'Plumbing help' })] } })
 
     render(<UnifiedFeed />)
 
-    expect(await screen.findByText('Needs your response')).toBeInTheDocument()
-    expect(screen.getByText('Ride to PDX')).toBeInTheDocument() // decision row
-    expect(screen.getByText('Plumbing help')).toBeInTheDocument() // request card
+    expect(await screen.findByText('Plumbing help')).toBeInTheDocument() // request card
+    // The decision band and its rows no longer render in Browse.
+    expect(screen.queryByText('Needs your response')).toBeNull()
+    expect(screen.queryByText('Ride to PDX')).toBeNull()
     // fetched the home view
     expect(getCuratedRequests).toHaveBeenCalledWith(expect.objectContaining({ view: 'home' }))
   })
@@ -83,8 +87,8 @@ describe('UnifiedFeed', () => {
     expect(await screen.findByText(/you're caught up/i)).toBeInTheDocument()
     expect(screen.queryByText(/no top matches right now/i)).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /show more open requests/i })).not.toBeInTheDocument()
-    // the decision still shows even when there are no request cards
-    expect(screen.getByText('Ride to PDX')).toBeInTheDocument()
+    // BUG-015: a decision item no longer renders in Browse (the band moved to Helping).
+    expect(screen.queryByText('Ride to PDX')).toBeNull()
   })
 
   it('optimistically removes a card after the member offers to help', async () => {
@@ -103,38 +107,8 @@ describe('UnifiedFeed', () => {
     expect(screen.getByText('Garden help')).toBeInTheDocument() // the other card stays
   })
 
-  it('reconciles decisions after accepting one offer so rejected sibling offers disappear', async () => {
-    getCuratedRequests
-      .mockResolvedValueOnce({
-        data: {
-          items: [
-            decisionItem({
-              subject_id: 'match-accepted',
-              request_id: 'same-request',
-              title: 'Borrow a tile saw',
-              counterparty_name: 'Alex',
-            }),
-            decisionItem({
-              subject_id: 'match-rejected-by-server',
-              request_id: 'same-request',
-              title: 'Borrow a tile saw',
-              counterparty_name: 'Blair',
-            }),
-          ],
-        },
-      })
-      .mockResolvedValueOnce({ data: { items: [] } })
-
-    render(<UnifiedFeed />)
-    await screen.findByText(/Alex/)
-    expect(screen.getByText(/Blair/)).toBeInTheDocument()
-
-    fireEvent.click(screen.getAllByRole('button', { name: 'Accept' })[0])
-
-    await waitFor(() => expect(acceptMatch).toHaveBeenCalledWith('match-accepted'))
-    await waitFor(() => expect(getCuratedRequests).toHaveBeenCalledTimes(2))
-    await waitFor(() => expect(screen.queryByText(/Blair/)).toBeNull())
-  })
+  // BUG-015: decision-band reconciliation after a band action moved to the Helping tab — see
+  // sprint-106-band-placement.test.tsx ("reconciles decisions after a band action").
 
   it('renders the error state when the feed fetch fails', async () => {
     getCuratedRequests.mockRejectedValue(new Error('boom'))

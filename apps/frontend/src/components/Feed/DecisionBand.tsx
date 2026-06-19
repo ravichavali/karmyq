@@ -21,10 +21,11 @@ const ACTION_LABELS: Record<DecisionAction, string> = {
   accept_dibs: 'Accept',
   decline_dibs: 'Decline',
   mark_done: 'Mark done',
+  rate: 'Rate',
 }
 
 // Primary (filled) vs secondary (text) action styling.
-const PRIMARY_ACTIONS = new Set<DecisionAction>(['accept_offer', 'accept_dibs', 'mark_done'])
+const PRIMARY_ACTIONS = new Set<DecisionAction>(['accept_offer', 'accept_dibs', 'mark_done', 'rate'])
 
 /**
  * Relationship label before the counterparty's name. A requester sees offers/dibs/matches coming
@@ -51,6 +52,9 @@ function runDecisionAction(action: DecisionAction, subjectKind: DecisionData['su
       return dibsService.declineDibs(subjectId)
     case 'mark_done':
       return requestService.completeMatch(subjectId)
+    case 'rate':
+      // 'rate' never routes to a service call here — handle() opens the rating prompt instead.
+      throw new Error('rate is handled by the rating prompt, not a decision service call')
   }
 }
 
@@ -78,6 +82,12 @@ export default function DecisionBand({ decisions, onResolved }: DecisionBandProp
   if (decisions.length === 0) return null
 
   const handle = async (decision: DecisionData, action: DecisionAction) => {
+    // BUG-013: a durable `rate` decision opens the rating prompt in place — no service call. Both
+    // parties of a fully-completed match get this until each rates (the feed surfaces it each load).
+    if (action === 'rate') {
+      setRatingFor(decision.subject_id)
+      return
+    }
     setBusy(`${decision.subject_id}:${action}`)
     setError(null)
     try {

@@ -3,8 +3,8 @@
  *
  * Covers the new `view="community"` behavior:
  *   - fetches view=community and renders request cards + ActivityCard + StoryCard
- *   - does NOT render the decision band or the browse-mode control (those are Home-only)
- *   - view="home" still renders the decision band (no regression)
+ *   - does NOT render the decision band or the browse-mode control
+ *   - view="home" no longer renders the decision band (BUG-015: relocated to the Helping tab)
  *   - the ADR-067 seam fix: `payload_type` reaches RequestPayloadRenderer (payload detail shows)
  */
 
@@ -115,12 +115,14 @@ describe('UnifiedFeed — Community view (Sprint 86)', () => {
     expect(screen.getByText('Dropoff')).toBeInTheDocument()
   })
 
-  it('still renders the decision band in the home view (no regression)', async () => {
+  it('no longer renders the decision band in the home view (BUG-015: moved to Helping)', async () => {
     getCuratedRequests.mockResolvedValue({ data: { items: [decisionItem(), requestItem()] } })
 
     render(<UnifiedFeed view="home" />)
 
-    expect(await screen.findByText('Needs your response')).toBeInTheDocument()
+    // The request card still renders; the decision band is no longer mounted in Browse.
+    expect(await screen.findByText('Ride to the airport')).toBeInTheDocument()
+    expect(screen.queryByText('Needs your response')).toBeNull()
     expect(getCuratedRequests).toHaveBeenCalledWith(expect.objectContaining({ view: 'home' }))
   })
 })

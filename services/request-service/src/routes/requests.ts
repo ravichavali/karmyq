@@ -1031,6 +1031,58 @@ export async function fetchDecisions(req: Request, userId: string): Promise<Unif
     (req as any).logger?.error('home-feed offer decisions failed', e instanceof Error ? e : new Error(String(e)), { service: 'request-service', step: 'home-decisions-offers' });
   }
 
+  try {
+    // BUG-013: a fully-completed match (both parties marked done → status='completed') owes a
+    // RATING from each participant. Today the rating only unlocks in-place for whoever clicked the
+    // final mark_done; the other party (and a reload) lose it. Surface a durable `rate` decision for
+    // BOTH parties until each has rated — scoped to completed matches the viewer has not yet rated
+    // (NOT EXISTS against feedback.feedback, the reputation-service rating store). Same shared DB.
+    const rateRows = await query(
+      `SELECT m.id, m.request_id, m.completed_at,
+              hr.requester_id, m.responder_id, hr.title, hr.description, hr.payload, hr.category,
+              requester.name AS requester_name, responder.name AS responder_name,
+              STRING_AGG(DISTINCT c.name, ', ') AS community_name,
+              MIN(rc.community_id::text) AS community_id
+       FROM requests.matches m
+       JOIN requests.help_requests hr ON m.request_id = hr.id
+       JOIN auth.users requester ON hr.requester_id = requester.id
+       JOIN auth.users responder ON m.responder_id = responder.id
+       LEFT JOIN requests.request_communities rc ON hr.id = rc.request_id
+       LEFT JOIN communities.communities c ON rc.community_id = c.id
+       WHERE (hr.requester_id = $1 OR m.responder_id = $1)
+         AND m.status = 'completed'
+         AND NOT EXISTS (
+           SELECT 1 FROM feedback.feedback f
+           WHERE f.request_match_id = m.id AND f.from_user_id = $1
+         )
+       GROUP BY m.id, m.request_id, m.completed_at, hr.requester_id, m.responder_id,
+                hr.title, hr.description, hr.payload, hr.category, requester.name, responder.name`,
+      [userId]
+    );
+
+    for (const m of rateRows.rows) {
+      const isRequester = m.requester_id === userId;
+      decisions.push({
+        subject_id: m.id,
+        subject_kind: 'match',
+        request_id: m.request_id,
+        title: m.title,
+        description: m.description ?? '',
+        payload: m.payload ?? undefined,
+        payload_type: categoryToPayloadType(m.category),
+        community_name: m.community_name || '',
+        counterparty_name: isRequester ? m.responder_name : m.requester_name,
+        counterparty_id: isRequester ? m.responder_id : m.requester_id,
+        community_id: m.community_id ?? undefined,
+        member_role: isRequester ? 'requester' : 'responder',
+        actions: ['rate'],
+        created_at: m.completed_at,
+      });
+    }
+  } catch (e: any) {
+    (req as any).logger?.error('home-feed rate decisions failed', e instanceof Error ? e : new Error(String(e)), { service: 'request-service', step: 'home-decisions-rate' });
+  }
+
   return decisions.map(buildDecisionItem);
 }
 

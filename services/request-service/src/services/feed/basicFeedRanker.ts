@@ -23,6 +23,9 @@ interface FeedRequest {
   community_name: string;
   urgency: string;
   status: string;
+  // Persisted request_type_enum (generic|ride|borrow|service|event) — the source of truth for the
+  // coarse request type. Distinct from `category`, which is mixed-vocab (skill tokens on legacy rows).
+  request_type: string | null;
   category: string;
   created_at: string;
   offers_count: number;
@@ -128,7 +131,10 @@ export class BasicFeedRanker {
         community_name: item.request.community_name,
         urgency: item.request.urgency,
         status: item.request.status,
-        request_type: item.request.category,
+        // BUG-014: carry the persisted request_type_enum, NOT the mixed-vocab `category`. A null
+        // request_type (legacy rows) falls back to 'generic' — never the category token, so the
+        // frontend offer-action copy ("Offer service" vs "Offer help") reads the correct enum.
+        request_type: item.request.request_type || 'generic',
         category: item.request.category,
         created_at: item.request.created_at,
         offers_count: item.request.offers_count,
@@ -157,6 +163,7 @@ export class BasicFeedRanker {
         c.name as community_name,
         hr.urgency,
         hr.status,
+        hr.request_type,
         hr.category,
         hr.created_at,
         hr.is_boosted,

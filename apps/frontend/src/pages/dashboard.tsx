@@ -218,7 +218,7 @@ export default function Dashboard() {
                   <section className="kq-page-header kq-page">
                     <p className="kq-eyebrow">Home</p>
                     <h1 className="kq-headline">Good to see you, {user.name ?? 'neighbour'}.</h1>
-                    <p className="kq-lede">A calm queue of decisions and asks, led by the relationships that make help possible.</p>
+                    <p className="kq-lede">A calm queue of asks you can fill, led by the relationships that make help possible. Decisions you owe wait in the Helping tab.</p>
                   </section>
                   <UnifiedFeed
                     communityId={activeCommunityId || undefined}
