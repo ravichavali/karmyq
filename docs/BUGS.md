@@ -267,6 +267,10 @@ toggle, relabeled **On duty / Off duty**, now shown and clickable on every viewp
 `hidden md:flex`). Test: `sprint-106-chrome-followup.test.tsx`,
 `sprint-105-profile-chrome-facelift.test.tsx`.
 
+**Follow-up (cross-agent MEDIUM):** the always-visible full-text pill risked overflowing the provider
+topbar at 320–375px. Compacted to **dot-only below `md`** (full label returns at `md+`, `aria-label`
+unchanged) and hid the topbar divider on mobile, so the provider row fits on common phones.
+
 ---
 
 ## BUG-020 · [2026-06-19] · fixed (S106 follow-up)
@@ -278,5 +282,18 @@ misaligned; the justification looks wrong.
 `stretch` blew the CTAs to full width on the column axis (the "Read the thinking" underline spanned
 the row). Added `items-start sm:items-center` to both hero CTA rows so each CTA hugs its content.
 (`apps/landing/src/app/page.tsx`.)
+
+---
+
+## BUG-021 · [2026-06-19] · fixed (S106 follow-up)
+
+The karmyq.com `/` index splash is outdated — pre-facelift styling (gradient/bold) and stale copy
+("No money, just karma") that ignores the service-provider layer.
+
+**Fixed:** rebuilt the splash on the A-plus design tokens (`kq-wordmark`, `kq-headline`, `kq-lede`,
+`kq-card`, `btn-primary/secondary`, warm `bg-surface`) and refreshed the three value props to the
+current two-layer framing — trust-not-money (platform never touches money; service arrangements stay
+between people), Dunbar-150 communities, and mutual aid + trusted local service providers side by
+side. Auth-aware CTAs kept (logged-in → dashboard). (`apps/frontend/src/pages/index.tsx`.)
 
 ---

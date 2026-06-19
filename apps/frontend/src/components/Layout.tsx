@@ -131,7 +131,7 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
 
                 {user && (
                   <>
-                    <div className="border-l border-border h-8 mx-2"></div>
+                    <div className="hidden md:block border-l border-border h-8 mx-2"></div>
                     <NotificationBell />
                     {/* Single source of truth for availability — the clickable On duty/Off duty
                         toggle, shown on every viewport (replaces the redundant dashboard pill). */}
@@ -140,15 +140,17 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
                         onClick={() => setAvailability(!isAvailable)}
                         aria-pressed={isAvailable}
                         aria-label={isAvailable ? 'On duty' : 'Off duty'}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-full border transition-all ${
+                        className={`flex items-center justify-center md:gap-1.5 px-2 md:px-3 py-1.5 text-xs font-medium rounded-full border transition-all ${
                           isAvailable
                             ? 'bg-success-light border-success text-success hover:bg-success-light'
                             : 'bg-surface border-border text-text-muted hover:bg-surface-raised'
                         }`}
                         title={isAvailable ? 'Click to go off duty' : 'Click to go on duty'}
                       >
+                        {/* Dot-only below md so the provider topbar fits on 320–375px phones;
+                            the full label returns at md+. aria-label carries the state either way. */}
                         <span aria-hidden="true" className={`w-2 h-2 rounded-full flex-shrink-0 ${isAvailable ? 'bg-success' : 'bg-border'}`} />
-                        {isAvailable ? 'On duty' : 'Off duty'}
+                        <span className="hidden md:inline">{isAvailable ? 'On duty' : 'Off duty'}</span>
                       </button>
                     )}
 
