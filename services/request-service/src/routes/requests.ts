@@ -1143,6 +1143,10 @@ function mapOfferedAwaitingRow(row: any): OfferedAwaitingItem {
  * the same ask — matches has no unique (request_id, responder_id), and UNIQUE(request_id, offer_id)
  * doesn't constrain NULL offer_id), and the preview uses DISTINCT ON (request_id) to dedupe to one
  * item per ask. Fail-soft: any error degrades to an empty band rather than breaking the feed.
+ *
+ * Excludes admin_proposed matches: those are awaiting the MEMBER's accept/decline (Helping renders
+ * them under "Awaiting Acceptance"), not the requester's response — so they belong to a different
+ * surface. Including them here would double-show the row and mislabel it "waiting for the requester".
  */
 async function fetchOfferedAwaiting(
   userId: string,
@@ -1155,6 +1159,7 @@ async function fetchOfferedAwaiting(
            FROM requests.matches m
            JOIN requests.help_requests hr ON hr.id = m.request_id
           WHERE m.responder_id = $1 AND m.status = 'proposed'
+            AND m.admin_proposed = FALSE
             AND hr.status = 'open' AND hr.expired = FALSE`,
         [userId]
       ),
@@ -1176,6 +1181,7 @@ async function fetchOfferedAwaiting(
            JOIN requests.help_requests hr ON hr.id = m.request_id
            LEFT JOIN auth.users u ON u.id = hr.requester_id
           WHERE m.responder_id = $1 AND m.status = 'proposed'
+            AND m.admin_proposed = FALSE
             AND hr.status = 'open' AND hr.expired = FALSE
           ORDER BY m.request_id, m.created_at DESC
           LIMIT $2`,
@@ -1502,6 +1508,25 @@ router.get('/community/:communityId/open-asks', async (req: Request, res: Respon
     (req as any).logger?.error('community open-asks failed', e instanceof Error ? e : new Error(String(e)), { service: 'request-service', step: 'community-open-asks' });
     sendInternalError(res, 'Failed to load community open asks', e instanceof Error ? e : undefined, meta);
   }
+});
+
+/**
+ * Sprint 107 / BUG-023 — canonical offered-awaiting read.
+ * Home's summary band and Helping's explicit list must share the same backend predicate: distinct
+ * open, unexpired asks where the caller has a proposed responder match and is waiting on the
+ * requester. Route order: before `/:id`, or Express treats "offered-awaiting" as a request id.
+ */
+router.get('/offered-awaiting', async (req: Request, res: Response) => {
+  const meta = { requestId: (req as any).id };
+  const userId = (req as any).user?.userId;
+
+  if (!userId) {
+    sendError(res, 'AUTH_REQUIRED', 'Authentication required', HTTP_STATUS.UNAUTHORIZED, undefined, meta);
+    return;
+  }
+
+  const offeredAwaiting = await fetchOfferedAwaiting(userId, 50);
+  sendSuccess(res, offeredAwaiting, HTTP_STATUS.OK, meta);
 });
 
 /**

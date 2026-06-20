@@ -3,6 +3,11 @@
   @apply mx-auto px-4;
 }
 
+.kq-chrome-page {
+  max-width: var(--measure-chrome);
+  @apply mx-auto px-4;
+}
+
 .kq-page-header {
   @apply mb-6 pt-4;
 }
@@ -78,7 +83,7 @@
 }
 
 .kq-topnav {
-  @apply hidden items-center gap-5 md:flex;
+  @apply hidden items-center gap-5 xl:flex;
 }
 
 .kq-topnav-link {

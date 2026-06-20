@@ -1,10 +1,29 @@
 # Frontend CONTEXT.md
 
-**Last updated**: 2026-06-17 (Sprint 105 — Visual Design System v2 implementation)
+**Last updated**: 2026-06-20 (Sprint 107 — App Shell Clarity & Commitment Truth)
 
 ## Overview
 
 Next.js 14 web application (Pages Router) consuming all Karmyq backend services.
+
+---
+
+## Sprint 107 App Shell Clarity & Commitment Truth (2026-06-20)
+
+- **Chrome width is separate from content measure.** `src/styles/globals.css` keeps `--measure: 42rem`
+  for feed/prose content and adds `--measure-chrome: 72rem`; `src/styles/karmyq-shell.css` exposes
+  `.kq-chrome-page` for topbar/app shell chrome. Do not widen `.kq-page`.
+- **Responsive overflow is intentional.** `Layout.tsx` uses `.kq-chrome-page` for the topbar, moves
+  desktop top-level nav to `xl`, and keeps Communities, Service Providers/Become a provider, provider
+  profile management, Profile, Logout, notification bell, and provider duty toggle reachable below
+  `xl`.
+- **Pending dibs have one action surface.** `CommitmentsTab` no longer renders a separate pending
+  `DibsCard` list. The Helping tab's `DecisionBand` is the canonical surface for accept/decline dibs,
+  and the dibs badge derives from freshly mapped decision rows.
+- **Offered-awaiting truth is shared.** Home's "You've offered to help" preview and Helping's
+  **Offers awaiting requester** section use the request-service offered-awaiting predicate. The
+  frontend calls `requestService.getOfferedAwaiting()` and renders the rows under Helping so
+  `/dashboard?tab=helping` shows the same asks Home previews.
 
 ---
 

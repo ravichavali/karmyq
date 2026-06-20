@@ -1,32 +1,80 @@
-# Sprint 107 - App Shell Clarity & Commitment Truth - PLANNED / READY TO EXECUTE (v11.14.1 -> v11.15.0)
+# Sprint 107 - App Shell Clarity & Commitment Truth - IMPLEMENTED / VALIDATION PENDING (v11.14.1 -> v11.15.0)
 
-> **STATUS (2026-06-20):** Sprint 107 is planned and ready for implementation. This supersedes the
-> stale `master` handoff that still described Sprint 106 as pending. Git history shows Sprint 106
-> (`v11.14.0`, PR #102) and the v11.14.1 chrome follow-up (PR #105) are merged to `master`.
+> **STATUS (2026-06-20):** Sprint 107 has been implemented on
+> `feature/sprint-107-app-shell-clarity`. App shell chrome, responsive overflow, BUG-022, BUG-023,
+> docs, registry, and landing-doc updates are in the working tree.
 >
-> **Sprint 107 scope:** finish full app-shell clarity after the A-plus facelift: decouple topbar
-> chrome from the 42rem content measure, add responsive nav overflow, make the overflow/menu
-> intentional, tune Dashboard shell rhythm, and fold in BUG-022/BUG-023 from `docs/close-sprint-106`.
+> **Remaining before PR/merge-readiness:** run the DB-backed offered-awaiting TDD test with a
+> reachable local Postgres, perform required human browser validation at desktop/tablet/mobile
+> widths, then open the PR with the repository PR contract.
 >
-> **Important source note:** BUG-022/023 may not be visible on `master` because they were captured on
-> `docs/close-sprint-106` / PR #106 to avoid a docs-only deploy. Use that branch as evidence if
-> needed; do not require PR #106 to be merged before starting Sprint 107.
+> **Current blockers/caveats:** `services/request-service/tests/tdd/sprint-107-offered-awaiting-truth.test.ts`
+> fails before assertions with `pg-pool` `AggregateError` on the first setup query in this checkout.
+> Root `npm run test:unit` also exits before tests because Turbo cannot find `test:unit` in one
+> workspace project; changed-package unit/regression targets were run directly and passed.
 
 ---
 
 ## Quick Start
 
 1. Read this handoff.
-2. Check out branch: `git checkout -b feature/sprint-107-app-shell-clarity` (if it already exists
-   locally, use `git checkout feature/sprint-107-app-shell-clarity`).
-3. Open plan: `docs/superpowers/plans/2026-06-20-sprint-107-app-shell-clarity.md`.
-4. Run: `/execute-plan` (uses superpowers:subagent-driven-development).
+2. Check out branch: `git checkout feature/sprint-107-app-shell-clarity`.
+3. Review the diff against `docs/superpowers/plans/2026-06-20-sprint-107-app-shell-clarity.md`.
+4. Start local dependencies and rerun the DB-backed TDD test:
+   `cd services/request-service && npx jest tests/tdd/sprint-107-offered-awaiting-truth.test.ts --runInBand`.
+5. Run human browser validation for desktop, tablet, and 320-375px mobile shell plus Home -> Helping
+   offered-awaiting and dibs flows.
+6. Open the PR using `.github/pull_request_template.md`; do not self-merge.
 
 ---
 
 ## Sprint Goal
 
 Finish the app shell clarity pass and make Home/Helping commitment surfaces tell one consistent truth.
+
+---
+
+## Implementation Summary (2026-06-20)
+
+- Added `--measure-chrome` and `.kq-chrome-page` so app chrome can be wider while feed/prose content
+  keeps the 42rem `--measure` rhythm.
+- Moved the top-level nav into an `xl` breakpoint with an intentional overflow menu that keeps
+  Communities, provider links, profile, and logout reachable on narrower widths.
+- Converted the Dashboard community selector from a nested card into a chrome band aligned to the
+  shell measure.
+- Fixed **BUG-022** by removing the duplicate pending-dibs `DibsCard` surface from `CommitmentsTab`;
+  pending dibs now live in the server-ranked `DecisionBand`, and the tab badge derives from fresh
+  decision rows.
+- Fixed **BUG-023** by adding `GET /requests/offered-awaiting`, reusing the same
+  `fetchOfferedAwaiting()` predicate Home already uses, and rendering those rows explicitly in
+  Helping under **Offers awaiting requester**.
+- Review follow-up: filtered normal responder-side `proposed` matches out of Helping's card groups
+  so offered-awaiting rows do not also appear as duplicate **Awaiting Acceptance** / **Withdraw
+  Offer** cards; admin-proposed matches remain as actionable cards because the helper owes a
+  response. The offered-awaiting band now uses Next `Link` for internal request navigation.
+- Updated `docs/BUGS.md`, `apps/frontend/CONTEXT.md`, `services/request-service/CONTEXT.md`,
+  `services/registry.json`, and landing docs for Dashboard Home / Managing Commitments /
+  request-service.
+
+## Verification So Far
+
+- `apps/frontend`: Sprint 107 focused TDD passed (7 tests):
+  `sprint-107-app-shell-clarity`, `sprint-107-dibs-single-surface`,
+  `sprint-107-offered-awaiting-helping`.
+- Review follow-up verification: focused frontend Sprint 107 + adjacent commitment tests passed
+  (14 tests): `sprint-107-app-shell-clarity`, `sprint-107-dibs-single-surface`,
+  `sprint-107-offered-awaiting-helping`, `sprint-106-band-placement`,
+  `sprint-92-completion-rating`.
+- `apps/frontend`: `npx tsc --noEmit` passed.
+- `services/request-service`: `npx tsc --noEmit` passed.
+- `apps/frontend`: `npm run test:unit` passed (62 tests).
+- `services/request-service`: `npm run test:unit` passed (137 tests).
+- `apps/frontend`: `npm run test:regression` exited cleanly with no tests found.
+- `services/request-service`: `npm run test:regression` passed (152 tests).
+- `npm run feedback:check` passed, but reported no staged changes because the work is still unstaged.
+- Blocked: `services/request-service/tests/tdd/sprint-107-offered-awaiting-truth.test.ts` needs a
+  reachable Postgres; current run fails during setup with `AggregateError` from `pg-pool`.
+- Not yet done: human browser validation and PR creation.
 
 ---
 
@@ -125,7 +173,7 @@ Finish the app shell clarity pass and make Home/Helping commitment surfaces tell
 - **S104 (done):** UI Facelift Research - A-plus verdict, ADR-079 Proposed, no deploy.
 - **S105 (done):** UI Facelift Implementation - A-plus rollout, ADR-079 Implemented (v11.13.0).
 - **S106 (done):** Post-Facelift Correctness & Link-Up Clarity + v11.14.1 chrome follow-up.
-- **S107 (planned):** App Shell Clarity & Commitment Truth (v11.15.0).
+- **S107 (implemented, validation pending):** App Shell Clarity & Commitment Truth (v11.15.0).
 - **Deferred:** visible forgetting; responder Home actionability; Dibs relationship routing; member
   forget/export; Service Consolidation Phase 2; mobile parity.
 

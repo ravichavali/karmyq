@@ -4,16 +4,24 @@ import Link from 'next/link'
 import NotificationBell from './NotificationBell'
 import { useProvider } from '../contexts/ProviderContext'
 
-function HamburgerMenu() {
+interface AppMenuProps {
+  onLogout: () => void
+}
+
+function AppMenu({ onLogout }: AppMenuProps) {
   const [open, setOpen] = useState(false)
   const { hasProviderProfile, providerProfiles } = useProvider()
   const myProviderId = providerProfiles[0]?.id
+  const close = () => setOpen(false)
+
   return (
-    <div className="relative md:hidden">
+    <div className="relative xl:hidden">
       <button
         onClick={() => setOpen(!open)}
+        aria-expanded={open}
+        aria-controls="app-overflow-menu"
         className="p-2 rounded-lg text-text-muted hover:bg-surface transition-colors"
-        aria-label="Open menu"
+        aria-label={open ? 'Close menu' : 'Open menu'}
       >
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
@@ -21,32 +29,43 @@ function HamburgerMenu() {
       </button>
       {open && (
         <>
-          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 mt-1 w-48 bg-surface-raised border border-border rounded-xl shadow-lg z-50 py-1">
-            <Link href="/communities" className="block px-4 py-2 text-sm text-text hover:bg-surface transition-colors" onClick={() => setOpen(false)}>
+          <div className="fixed inset-0 z-40" onClick={close} />
+          <div
+            id="app-overflow-menu"
+            className="absolute right-0 mt-1 w-56 bg-surface-raised border border-border rounded-lg shadow-lg z-50 py-1"
+          >
+            <Link href="/communities" className="block px-4 py-2 text-sm text-text hover:bg-surface transition-colors" onClick={close}>
               Communities
             </Link>
             {hasProviderProfile ? (
               <>
-                <Link href="/providers" className="block px-4 py-2 text-sm text-text hover:bg-surface transition-colors" onClick={() => setOpen(false)}>
+                <Link href="/providers" className="block px-4 py-2 text-sm text-text hover:bg-surface transition-colors" onClick={close}>
                   Service Providers
                 </Link>
                 {myProviderId && (
-                  <Link href={`/providers/${myProviderId}`} className="block px-4 py-2 text-sm text-text-muted hover:bg-surface transition-colors" onClick={() => setOpen(false)}>
+                  <Link href={`/providers/${myProviderId}`} className="block px-4 py-2 text-sm text-text hover:bg-surface transition-colors" onClick={close}>
                     Manage my profile
                   </Link>
                 )}
               </>
             ) : (
-              <Link href="/providers/new" className="block px-4 py-2 text-sm text-text hover:bg-surface transition-colors" onClick={() => setOpen(false)}>
+              <Link href="/providers/new" className="block px-4 py-2 text-sm text-text hover:bg-surface transition-colors" onClick={close}>
                 Become a provider
               </Link>
             )}
-            <Link href="/profile" className="block px-4 py-2 text-sm text-text hover:bg-surface transition-colors" onClick={() => setOpen(false)}>
+            <Link href="/profile" className="block px-4 py-2 text-sm text-text hover:bg-surface transition-colors" onClick={close}>
               Profile
             </Link>
-            {/* Availability lives in the topbar On duty/Off duty toggle (visible on mobile too) —
-                no duplicate here. */}
+            <button
+              type="button"
+              onClick={() => {
+                close()
+                onLogout()
+              }}
+              className="block w-full px-4 py-2 text-left text-sm text-text hover:bg-surface transition-colors"
+            >
+              Logout
+            </button>
           </div>
         </>
       )}
@@ -94,7 +113,7 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
     <div className="min-h-screen bg-surface">
       {!isAuthPage && (
         <nav className="kq-topbar">
-          <div className="kq-page py-4">
+          <div className="kq-chrome-page py-4">
             <div className="flex justify-between items-center">
               <Link href="/dashboard" className="kq-wordmark">
                 <span className="kq-wordmark-seed" aria-hidden="true" />
@@ -169,7 +188,8 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
                       </Link>
                       <button
                         onClick={handleLogout}
-                        className="hidden md:flex px-4 py-2 text-sm font-medium text-text-muted hover:text-error transition-colors"
+                        aria-label="Logout"
+                        className="hidden xl:flex px-4 py-2 text-sm font-medium text-text-muted hover:text-error transition-colors"
                         title="Logout"
                       >
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -177,7 +197,7 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
                         </svg>
                       </button>
                     </div>
-                    <HamburgerMenu />
+                    <AppMenu onLogout={handleLogout} />
                   </>
                 )}
               </div>

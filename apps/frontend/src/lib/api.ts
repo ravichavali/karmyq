@@ -492,6 +492,11 @@ export const requestService = {
   getCuratedRequests: (params?: { minScore?: number; limit?: number; community_id?: string; trust_distance?: string; request_type?: string; view?: 'home' | 'community' }) =>
     requestApi.get('/requests/curated', { params }),
 
+  // Sprint 107 / BUG-023: canonical list of open asks the member offered on and awaits a requester
+  // response for. Home preview and Helping use the same backend predicate.
+  getOfferedAwaiting: () =>
+    requestApi.get('/requests/offered-awaiting'),
+
   // Sprint 89 / ADR-068: the community's weekly help-loop pulse for the warm Home hero.
   // Members-only (server gates on JWT communities). Envelope already unwrapped → read res.data.
   getCommunityPulse: (communityId: string) =>

@@ -1,15 +1,15 @@
 import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
-import { requestService, dibsService } from '@/lib/api'
+import Link from 'next/link'
+import { requestService } from '@/lib/api'
 import { getOffersForRequest, acceptOffer, declineOffer } from '@/lib/api/providerApi'
 import EmptyState from './EmptyState'
 import { sortByActionPriority } from '../utils/commitmentSort'
 import ExpandableConversation from './ExpandableConversation'
 import { TrustCard } from './TrustCard'
-import DibsCard from './commitments/DibsCard'
 import RatingPrompt from './RatingPrompt'
 import DecisionBand from './Feed/DecisionBand'
-import type { DecisionData, UnifiedFeedItem } from '@/types/unified-feed'
+import type { DecisionData, OfferedAwaitingItem, UnifiedFeedItem } from '@/types/unified-feed'
 import { extractCompletion, submitExchangeRating } from '../utils/completion'
 
 interface Match {
@@ -32,14 +32,6 @@ function completedFadeOpacity(completedAt: string | null | undefined): number {
   if (!completedAt) return 1
   const days = (Date.now() - new Date(completedAt).getTime()) / 86_400_000
   return 1 - Math.min(1, days / 30) * 0.55
-}
-
-interface PendingDibs {
-  id: string
-  requestTitle: string
-  scheduledFor: string
-  expiresAt: string
-  requesterName?: string
 }
 
 // ── Step indicator ────────────────────────────────────────────────────────────
@@ -114,7 +106,7 @@ export default function CommitmentsTab({ onDibsLoaded, communityId }: Commitment
   const [myOpenRequests, setMyOpenRequests] = useState<any[]>([])
   const [offersByRequest, setOffersByRequest] = useState<Record<string, any[]>>({})
   const [offersLoading, setOffersLoading] = useState<Record<string, boolean>>({})
-  const [pendingDibs, setPendingDibs] = useState<PendingDibs[]>([])
+  const [offeredAwaiting, setOfferedAwaiting] = useState<{ count: number; items: OfferedAwaitingItem[] }>({ count: 0, items: [] })
   const [loading, setLoading] = useState(true)
   const [markingDone, setMarkingDone] = useState<string | null>(null)
   const [pendingRatingId, setPendingRatingId] = useState<string | null>(null)
@@ -137,6 +129,17 @@ export default function CommitmentsTab({ onDibsLoaded, communityId }: Commitment
     }
   }
 
+  const loadOfferedAwaiting = () => {
+    requestService.getOfferedAwaiting().then((res) => {
+      setOfferedAwaiting({
+        count: Number(res.data?.count) || 0,
+        items: (res.data?.items ?? []) as OfferedAwaitingItem[],
+      })
+    }).catch(() => {
+      setOfferedAwaiting({ count: 0, items: [] })
+    })
+  }
+
   // The "needs your response" queue — same server-ranked decisions feed the Dashboard uses, scoped
   // across communities (no community filter) so the band shows every decision the member owes.
   // The curated feed is scoped to the caller server-side (JWT), so this needs no user id.
@@ -145,11 +148,12 @@ export default function CommitmentsTab({ onDibsLoaded, communityId }: Commitment
       .getCuratedRequests({ view: 'home', limit: 50 })
       .then((res) => {
         const items = (res.data?.items ?? []) as UnifiedFeedItem[]
-        setDecisions(
-          items
-            .filter((i): i is Extract<UnifiedFeedItem, { kind: 'decision' }> => i.kind === 'decision')
-            .map((i) => i.data)
-        )
+        const nextDecisions = items
+          .filter((i): i is Extract<UnifiedFeedItem, { kind: 'decision' }> => i.kind === 'decision')
+          .map((i) => i.data)
+        setDecisions(nextDecisions)
+        const dibsDecisionCount = nextDecisions.filter((d) => d.subject_kind === 'dibs').length
+        onDibsLoaded?.(dibsDecisionCount)
       })
       .catch(() => {
         // The band is best-effort — a fetch error degrades to no band, never breaks the tab.
@@ -157,22 +161,6 @@ export default function CommitmentsTab({ onDibsLoaded, communityId }: Commitment
   }
 
   const loadCommitments = (userId: string) => {
-    // Fetch pending dibs for provider (non-blocking — errors are silently ignored)
-    dibsService.getPendingDibsForProvider().then((res) => {
-      const items: any[] = res.data ?? []
-      const mapped = items.map((d: any) => ({
-        id: d.id,
-        requestTitle: d.request_title ?? d.requestTitle ?? 'Request',
-        scheduledFor: d.scheduled_for ?? d.scheduledFor ?? '',
-        expiresAt: d.expires_at ?? d.expiresAt ?? '',
-        requesterName: d.requester_name ?? d.requesterName ?? undefined,
-      }))
-      setPendingDibs(mapped)
-      onDibsLoaded?.(mapped.length)
-    }).catch(() => {
-      // Dibs fetch is optional; do not surface errors to the user
-    })
-
     requestService.getMatches({ user_id: userId, limit: 200 }).then((res) => {
       const allMatches: Match[] = res.data?.matches ?? []
       return requestService.getRequests({ requester_id: userId, limit: 100 }).then((reqRes) => {
@@ -207,6 +195,7 @@ export default function CommitmentsTab({ onDibsLoaded, communityId }: Commitment
     if (!currentUser) return
     setCurrentUserId(currentUser.id ?? '')
     loadDecisions()
+    loadOfferedAwaiting()
     loadCommitments(currentUser.id)
   }, [])
 
@@ -215,6 +204,7 @@ export default function CommitmentsTab({ onDibsLoaded, communityId }: Commitment
   const handleDecisionResolved = (subjectId: string) => {
     setDecisions((prev) => prev.filter((d) => d.subject_id !== subjectId))
     loadDecisions()
+    loadOfferedAwaiting()
     if (currentUserId) {
       loadCommitments(currentUserId)
     }
@@ -289,6 +279,7 @@ export default function CommitmentsTab({ onDibsLoaded, communityId }: Commitment
           prev.map((m) => (m.id === matchId ? { ...m, status: 'matched' } : m))
         )
       }
+      loadOfferedAwaiting()
     } catch (err: any) {
       setActionError(err.response?.data?.error?.message || err.response?.data?.message || 'Failed to accept offer')
     } finally {
@@ -306,6 +297,7 @@ export default function CommitmentsTab({ onDibsLoaded, communityId }: Commitment
       } else {
         setRequested((prev) => prev.filter((m) => m.id !== matchId))
       }
+      loadOfferedAwaiting()
     } catch (err: any) {
       setActionError(err.response?.data?.error?.message || err.response?.data?.message || 'Failed to decline offer')
     } finally {
@@ -334,26 +326,6 @@ export default function CommitmentsTab({ onDibsLoaded, communityId }: Commitment
       setActionError(err.response?.data?.error?.message || err.response?.data?.message || 'Failed to decline offer')
     } finally {
       setOfferActioning(null)
-    }
-  }
-
-  const handleAcceptDibs = async (dibsId: string) => {
-    try {
-      await dibsService.acceptDibs(dibsId)
-      // Optimistic: remove from list on success
-      setPendingDibs((prev) => prev.filter((d) => d.id !== dibsId))
-    } catch (err: any) {
-      setActionError(err.response?.data?.error?.message || err.response?.data?.message || 'Failed to accept dibs invitation')
-    }
-  }
-
-  const handleDeclineDibs = async (dibsId: string) => {
-    try {
-      await dibsService.declineDibs(dibsId)
-      // Optimistic: remove from list on success
-      setPendingDibs((prev) => prev.filter((d) => d.id !== dibsId))
-    } catch (err: any) {
-      setActionError(err.response?.data?.error?.message || err.response?.data?.message || 'Failed to decline dibs invitation')
     }
   }
 
@@ -557,7 +529,9 @@ export default function CommitmentsTab({ onDibsLoaded, communityId }: Commitment
     }
   }
 
-  const helpingGroups = groupAndSort(helping)
+  const helpingGroups = groupAndSort(
+    helping.filter((m) => m.status !== 'proposed' || m.admin_proposed)
+  )
   const requestedGroups = groupAndSort(requested)
 
   return (
@@ -576,30 +550,39 @@ export default function CommitmentsTab({ onDibsLoaded, communityId }: Commitment
           </button>
         </div>
       )}
-      {/* Dibs Requests — shown first so provider can't miss them */}
-      {pendingDibs.length > 0 && (
-        <section>
-          <h3 className="text-sm font-semibold text-amber-700 uppercase tracking-wide mb-3 flex items-center gap-1.5">
-            <span>⏳</span> First Dibs — Respond Before Time Runs Out
-          </h3>
-          {pendingDibs.map((dibs) => (
-            <DibsCard
-              key={dibs.id}
-              requestTitle={dibs.requestTitle}
-              scheduledFor={dibs.scheduledFor}
-              expiresAt={dibs.expiresAt}
-              requesterName={dibs.requesterName}
-              onAccept={() => handleAcceptDibs(dibs.id)}
-              onDecline={() => handleDeclineDibs(dibs.id)}
-            />
-          ))}
-        </section>
-      )}
-
       {/* I'm Helping */}
       <section>
         <h2 className="section-heading mb-3">I&apos;m Helping</h2>
-        {helping.length === 0 ? (
+        {offeredAwaiting.count > 0 && (
+          <div className="kq-action-band mb-4">
+            <h3 className="text-sm font-semibold text-text">Offers awaiting requester</h3>
+            <p className="text-sm text-text-muted mt-1">Waiting for the requester to respond.</p>
+            <ul className="mt-3 divide-y divide-border">
+              {offeredAwaiting.items.map((item) => (
+                <li key={item.match_id}>
+                  <Link
+                    href={`/requests/${item.request_id}`}
+                    className="flex items-center justify-between gap-3 py-2 hover:bg-surface-raised transition-colors rounded"
+                  >
+                    <span className="text-sm text-text truncate">{item.title}</span>
+                    {item.community_name && (
+                      <span className="text-xs text-text-muted shrink-0">{item.community_name}</span>
+                    )}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+            {offeredAwaiting.count > offeredAwaiting.items.length && (
+              <p className="text-xs text-text-muted mt-2">
+                Showing the most recent {offeredAwaiting.items.length} of {offeredAwaiting.count}.
+              </p>
+            )}
+          </div>
+        )}
+        {helpingGroups.proposed.length === 0 &&
+        helpingGroups.matched.length === 0 &&
+        helpingGroups.completed.length === 0 &&
+        offeredAwaiting.count === 0 ? (
           <EmptyState
             heading="No active commitments"
             body="Browse requests to find someone to help."
