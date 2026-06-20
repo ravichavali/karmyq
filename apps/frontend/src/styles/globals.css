@@ -27,6 +27,7 @@
   --color-surface: 250 248 243;         /* karmyq-cream     #faf8f3 */
   --color-surface-raised: 253 252 249;  /* karmyq-warmWhite #fdfcf9 */
   --measure: 42rem;                     /* one comfortable reading column */
+  --measure-chrome: 72rem;              /* app chrome width; keep --measure for content */
   --radius-card: 0.5rem;                /* 8px, shared warm card radius */
 
   /* ── Text ── */

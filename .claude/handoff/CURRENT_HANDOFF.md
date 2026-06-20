@@ -1,142 +1,153 @@
-# Sprint 106 — Post-Facelift Correctness & Link-Up Clarity — IMPLEMENTED, PENDING VALIDATION + MERGE (v11.13.0 → v11.14.0)
+# Sprint 107 - App Shell Clarity & Commitment Truth - IMPLEMENTED / VALIDATION PENDING (v11.14.1 -> v11.15.0)
 
-> **STATUS (2026-06-18):** Sprint 106 implementation is COMPLETE on branch
-> `feature/sprint-106-correctness-linkup`. All four bugs fixed + the bounded link-up legibility fix
-> shipped. Tasks 1–11 done; automated verification green. Remaining: **human browser validation**
-> (deploy gate), open PR, Admin-merge, CI deploy v11.14.0. Do NOT self-merge.
+> **STATUS (2026-06-20):** Sprint 107 has been implemented on
+> `feature/sprint-107-app-shell-clarity`. App shell chrome, responsive overflow, BUG-022, BUG-023,
+> docs, registry, and landing-doc updates are in the working tree.
 >
-> **What shipped:** BUG-014 (feed ranker carries persisted `request_type` enum, not `category`);
-> BUG-013 (durable symmetric `rate` decision for both parties + `POST /reputation/feedback`
-> participant/completed/counterparty hardening); BUG-015 (DecisionBand relocated from Browse to the
-> Helping tab); BUG-016 (header breathing-room pass); link-up (nav label unified to "Service
-> Providers" + provider directory line now names the community↔provider relationship for all viewers).
+> **Remaining before PR/merge-readiness:** run the DB-backed offered-awaiting TDD test with a
+> reachable local Postgres, perform required human browser validation at desktop/tablet/mobile
+> widths, then open the PR with the repository PR contract.
 >
-> **Verification:** request-service blocking 152/152 + sprint-106 7/7; reputation-service blocking 5/5
-> + sprint-106 8/8; frontend at master baseline (38 pre-existing failures, 0 new) + sprint-106/band
-> suites green; all three `tsc --noEmit` clean. SDLC gates all run: testing, `/simplify` (1 fix),
-> `/code-review` (no findings — cross-schema grant concern refuted by single `karmyq_user` role with
-> full grants), `/security-review` (no findings; the BUG-013 hardening itself closes a pre-existing
-> rating-write IDOR).
->
-> **Known pre-existing (NOT S106):** `apps/frontend/tests/tdd/sprint-85-unified-feed.test.tsx` →
-> "optimistically removes a card" fails on master too (stale `request_type:'service'` test data
-> expects "Offer to help" but the label is now "Offer service"). Left untouched (out of scope).
-> **Skipped per judgment:** the optional `tests/tdd/sprint-106-integration.test.ts` — a DB-dependent
-> smoke test would only fail in the no-DB agent environment; unit/component coverage across 3 layers
-> is sufficient.
+> **Current blockers/caveats:** `services/request-service/tests/tdd/sprint-107-offered-awaiting-truth.test.ts`
+> fails before assertions with `pg-pool` `AggregateError` on the first setup query in this checkout.
+> Root `npm run test:unit` also exits before tests because Turbo cannot find `test:unit` in one
+> workspace project; changed-package unit/regression targets were run directly and passed.
 
 ---
 
-## Quick Start (remaining work)
+## Quick Start
 
 1. Read this handoff.
-2. Branch `feature/sprint-106-correctness-linkup` is implemented and committed.
-3. Open a PR (copy `.github/pull_request_template.md` into the body); do NOT self-merge.
-4. Human browser validation (see Task 11 in the plan), then Admin-merge → CI deploys v11.14.0.
-5. Do NOT stage `scripts/founding-circle-submissions.sh` — it is local untracked work.
+2. Check out branch: `git checkout feature/sprint-107-app-shell-clarity`.
+3. Review the diff against `docs/superpowers/plans/2026-06-20-sprint-107-app-shell-clarity.md`.
+4. Start local dependencies and rerun the DB-backed TDD test:
+   `cd services/request-service && npx jest tests/tdd/sprint-107-offered-awaiting-truth.test.ts --runInBand`.
+5. Run human browser validation for desktop, tablet, and 320-375px mobile shell plus Home -> Helping
+   offered-awaiting and dibs flows.
+6. Open the PR using `.github/pull_request_template.md`; do not self-merge.
 
 ---
 
 ## Sprint Goal
 
-Close BUG-013…016 from S105 validation and ship one bounded fix for the community↔service-provider
-link-up confusion, fixing each at its correct layer, then deploy v11.14.0.
+Finish the app shell clarity pass and make Home/Helping commitment surfaces tell one consistent truth.
+
+---
+
+## Implementation Summary (2026-06-20)
+
+- Added `--measure-chrome` and `.kq-chrome-page` so app chrome can be wider while feed/prose content
+  keeps the 42rem `--measure` rhythm.
+- Moved the top-level nav into an `xl` breakpoint with an intentional overflow menu that keeps
+  Communities, provider links, profile, and logout reachable on narrower widths.
+- Converted the Dashboard community selector from a nested card into a chrome band aligned to the
+  shell measure.
+- Fixed **BUG-022** by removing the duplicate pending-dibs `DibsCard` surface from `CommitmentsTab`;
+  pending dibs now live in the server-ranked `DecisionBand`, and the tab badge derives from fresh
+  decision rows.
+- Fixed **BUG-023** by adding `GET /requests/offered-awaiting`, reusing the same
+  `fetchOfferedAwaiting()` predicate Home already uses, and rendering those rows explicitly in
+  Helping under **Offers awaiting requester**.
+- Review follow-up: filtered normal responder-side `proposed` matches out of Helping's card groups
+  so offered-awaiting rows do not also appear as duplicate **Awaiting Acceptance** / **Withdraw
+  Offer** cards; admin-proposed matches remain as actionable cards because the helper owes a
+  response. The offered-awaiting band now uses Next `Link` for internal request navigation.
+- Updated `docs/BUGS.md`, `apps/frontend/CONTEXT.md`, `services/request-service/CONTEXT.md`,
+  `services/registry.json`, and landing docs for Dashboard Home / Managing Commitments /
+  request-service.
+
+## Verification So Far
+
+- `apps/frontend`: Sprint 107 focused TDD passed (7 tests):
+  `sprint-107-app-shell-clarity`, `sprint-107-dibs-single-surface`,
+  `sprint-107-offered-awaiting-helping`.
+- Review follow-up verification: focused frontend Sprint 107 + adjacent commitment tests passed
+  (14 tests): `sprint-107-app-shell-clarity`, `sprint-107-dibs-single-surface`,
+  `sprint-107-offered-awaiting-helping`, `sprint-106-band-placement`,
+  `sprint-92-completion-rating`.
+- `apps/frontend`: `npx tsc --noEmit` passed.
+- `services/request-service`: `npx tsc --noEmit` passed.
+- `apps/frontend`: `npm run test:unit` passed (62 tests).
+- `services/request-service`: `npm run test:unit` passed (137 tests).
+- `apps/frontend`: `npm run test:regression` exited cleanly with no tests found.
+- `services/request-service`: `npm run test:regression` passed (152 tests).
+- `npm run feedback:check` passed, but reported no staged changes because the work is still unstaged.
+- Blocked: `services/request-service/tests/tdd/sprint-107-offered-awaiting-truth.test.ts` needs a
+  reachable Postgres; current run fails during setup with `AggregateError` from `pg-pool`.
+- Not yet done: human browser validation and PR creation.
 
 ---
 
 ## Planning Artifacts
 
-- Spec: `docs/superpowers/specs/2026-06-18-sprint-106-correctness-linkup-design.md`
-- Plan: `docs/superpowers/plans/2026-06-18-sprint-106-correctness-linkup.md`
-- Bug log: `docs/BUGS.md` (BUG-013, BUG-014, BUG-015, BUG-016 — all `planned (Sprint 106)`)
-- Link-up idea: `docs/IDEAS.md` [2026-06-08] ux
+- Spec: `docs/superpowers/specs/2026-06-20-sprint-107-app-shell-clarity-design.md`
+- Plan: `docs/superpowers/plans/2026-06-20-sprint-107-app-shell-clarity.md`
+- Evidence branch for BUG-022/023: `docs/close-sprint-106`
 
 ---
 
-## Scope (confirmed with maintainer)
+## Scope Confirmed With Maintainer
 
-**In scope:** the 4 open bugs + a bounded community↔service-provider link-up cleanup (diagnose + one
-contained fix). BUG-013 starts investigate-first. BUG-015 resolved as: move "Needs your response" to
-the **Helping** tab.
+**In scope:**
 
-**Out of scope:** "platform forgets" visible decay; responder Home actionability for `proposed`
-matches; Dibs server-side relationship routing; member forget/export; service consolidation; mobile
-parity; any provider↔community model rework (flag for re-scope if the link-up fix needs it).
+- Full app-shell clarity, not header-only.
+- Wide chrome container for topbar/app shell; keep feed/prose at 42rem.
+- Responsive overflow for top-level nav.
+- Intentional hamburger/user menu with all actions reachable.
+- Dashboard shell rhythm around community selector, tabs, and Home heading.
+- BUG-022: accepted/pending dibs must not appear in duplicate action surfaces.
+- BUG-023: Home offered-awaiting preview must point to rows findable in Helping.
+- Docs, registry, landing docs, tests, SDLC gates, human browser validation.
 
----
+**Out of scope:**
 
-## The Bugs (diagnosed during planning)
-
-| Bug | Root cause | Fix layer | Decision |
-|-----|-----------|-----------|----------|
-| **BUG-014** "Offer help" on provider feed | `basicFeedRanker.ts:131` projects `category` (mixed-vocab) as `request_type` → service asks never read `'service'`. Helper `getOfferActionLabel` is correct. | **Backend** feed ranker | Carry persisted `request_type` enum; grep all projection sites |
-| **BUG-013** rating asymmetry | `DecisionBand.tsx:88` only unlocks rating for whoever clicks the final `mark_done`; the other party gets no `rate` affordance. Write path = reputation-service `POST /reputation/feedback` (already accepts any user; no participant/completed check) | **Backend decisions feed + frontend** (+ reputation hardening) | Surfacing-only on the write side; surface a durable `rate` decision for BOTH parties on `fully_completed`-unrated matches; harden `POST /feedback` with participant + completed-match checks |
-| **BUG-015** band placement | DecisionBand mounts in Browse `UnifiedFeed` (`dashboard.tsx:216-232`); it's commitment work | **Frontend** | Move band to top of **Helping** tab; remove from Browse |
-| **BUG-016** squished header | `kq-topbar` packs wordmark + 4 nav links + bell + availability + avatar on one row (`Layout.tsx:115-164`) | **Frontend chrome** | Breathing-room pass within A-plus tokens |
-
-**Link-up cleanup:** diagnose where provider↔community reads confusing (nav split, onboarding,
-provider-in-community discoverability); ship ONE contained legibility fix; STOP + flag if it needs a
-model/multi-flow change.
+- Visible forgetting / platform-forgets arc.
+- Dibs relationship-routing redesign.
+- Responder Home actionability for `proposed` simulation matches beyond BUG-023.
+- Service request platform scope.
+- Simulation/data cleanup.
+- Mobile parity beyond responsive web shell validation.
 
 ---
 
-## Critical Implementation Notes (copied from spec)
+## Bugs Folded Into Sprint 107
 
-1. **BUG-014 is a backend seam, not a copy fix.** Helper is correct. Fix `basicFeedRanker.ts:131` to
-   carry the persisted `request_type` enum, not `category`. Grep every feed/projection site (browsable
-   filtering lives in ~4 places). Never client-side patch.
-2. **BUG-013 is investigate-first.** Task 1 reproduces the rating lifecycle (match/rating DB state →
-   decisions feed → DecisionBand) and confirms whether the rating write path already accepts both
-   roles BEFORE coding. Surfacing-only vs write-path decided by the finding.
-3. **Rating symmetric + durable.** Both participants get a rate affordance until each rates; survives
-   reload. One-sided done must not prompt.
-4. **BUG-015 relocates, doesn't duplicate.** Move to Helping, remove from Browse; preserve ranking,
-   actions, rate affordance.
-5. **BUG-016 chrome-only**, A-plus tokens, no nav-information change.
-6. **Link-up cleanup bounded** — one contained fix or flag for re-scope.
-7. **Semantic + accessible** on every touched surface: tokenized colors, focus, keyboard, tap targets,
-   not color-only.
-8. **useRouter test mock is global** (`jest.setup.js`) — no per-file router mocks.
-9. **No docs-only push to master** — fold docs into the PR. `nav.json` silently reverts; grep-verify.
-10. **Verify before claiming done** — run actual suites; deploy sprint needs human browser validation.
+| Bug | Current evidence | Likely root cause | Fix direction |
+|-----|------------------|-------------------|---------------|
+| **BUG-022** | `docs/close-sprint-106:docs/BUGS.md` says an already-accepted dibs shows in two places; accepting in one throws on the other. | Helping renders pending dibs twice: server-ranked `DecisionBand` plus separate `DibsCard` list from `getPendingDibsForProvider()`. | Make DecisionBand the canonical dibs response surface; remove duplicate DibsCard action rendering and derive tab badge count from decisions. |
+| **BUG-023** | `docs/close-sprint-106:docs/BUGS.md` says Home "You've offered to help on 3 open asks" lists asks the maintainer couldn't find in Helping. | Home uses `fetchOfferedAwaiting()` predicate while Helping uses matches/requests UI with different labeling/surfacing. | Add canonical `GET /requests/offered-awaiting`; Home and Helping share predicate; Helping renders the same awaiting rows explicitly. |
 
 ---
 
-## Implementation Tasks (see plan for detail)
+## Critical Implementation Notes
 
-1. Branch, baseline, BUG-013 rating-lifecycle investigation + link-up diagnosis (record findings here).
-2. TDD — BUG-014 feed-ranker request_type.
-3. Implement BUG-014 fix.
-4. TDD — BUG-013 rating symmetry.
-5. Implement BUG-013 rating symmetry.
-6. TDD + implement BUG-015 — relocate band to Helping.
-7. TDD + implement BUG-016 header + link-up legibility fix.
-8. Docs — guides, landing, onboarding, ADR-080 (if warranted), version bump to 11.14.0.
-9. CONTEXT.md + registry.json + integration test + `feedback:check`.
-10. SDLC quality gates (`/simplify`, `/code-review`, `/security-review`).
-11. Final pre-push verification + human browser validation.
-12. Merge + Deploy (v11.14.0).
-
----
-
-## Task 1 Findings
-
-- **Rating write path:** reputation-service `POST /reputation/feedback` (`reputation.ts:292`), via
-  `reputationService.submitFeedback()` (`apps/frontend/src/utils/completion.ts:44` → `api.ts:732`).
-  NOT a request-service route.
-- **Accepts both roles?** Yes — already accepts any authenticated user; no role gate. Double-submission
-  guard is per `(fromUserId, match_id)`, so both parties can rate the same match independently. ⇒
-  BUG-013 is **surfacing-only on the write side**; the fix is a durable `rate` decision + DecisionBand
-  rendering. **Recommended added hardening:** the handler does not check participant/completed — add
-  participant + completed-match validation while we are in this flow (`/security-review` gate).
-- **Link-up contained fix chosen:** **Service Providers directory legibility.** The community↔provider
-  relationship is only stated inside the provider-only "My Provider Presence" card
-  (`providers/index.tsx`); a non-provider browsing the directory gets no cue these are the same
-  neighbours from their communities. Nav is also inconsistent — desktop says "Providers"
-  (`Layout.tsx:144`) while mobile menu + page `<title>` say "Service Providers". ONE contained fix:
-  (a) a directory-level relationship line visible to ALL viewers on the Service Providers page, and
-  (b) unify the desktop nav label to "Service Providers". No data-model or flow change. Deeper
-  facet-switching / provider-scoping work (IDEAS 2026-05-06, 2026-05-17) remains flagged for re-scope.
+1. **Do not widen `--measure`.** The 42rem measure is intentional for feed cards and prose. Add a
+   chrome-specific container for topbar/app-shell width.
+2. **Responsive overflow is a rule, not a disappearance.** Communities, Service Providers or Become a
+   provider, Profile, provider management, duty state, notifications, and logout must remain reachable
+   on every viewport.
+3. **BUG-022 is a duplicate-surface bug.** Pending dibs should not render both in DecisionBand and in
+   a separate DibsCard list. Choose one canonical action surface; this sprint chooses DecisionBand.
+4. **BUG-023 is a truth mismatch, not just copy.** The Home offered-awaiting count/preview and the
+   Helping list must share the same backend predicate.
+5. **If Home says "View all in Helping", Helping must show those asks.** Do not leave the user to infer
+   that "Awaiting Acceptance" means the Home preview.
+6. **Keep DecisionBand in Helping.** Sprint 106 deliberately moved decisions out of Browse; do not
+   reintroduce commitment actions into Browse.
+7. **Use semantic and accessible controls.** Icon/menu buttons need labels, focus states, and keyboard
+   behavior. Status must not be color-only.
+8. **Use the global `next/router` Jest mock.** Do not add one-off router mocks for widely rendered
+   shell components unless a test needs custom query behavior.
+9. **BUG-022/023 evidence may live only on `docs/close-sprint-106`.** Do not assume PR #106 is merged;
+   copy the exact bug text into Sprint 107 docs if needed.
+10. **Human browser validation is required.** Validate desktop, tablet, and 320-375px mobile chrome,
+    plus Home -> Helping flows for pending dibs and offered-awaiting rows.
+11. **Decision-derived dibs counts must use freshly mapped rows.** `CommitmentsTab.loadDecisions()`
+    is fire-and-forget with internal state updates; derive `onDibsLoaded` from the local mapped
+    decision array inside the `.then()`, not from stale React state.
+12. **Dibs dedupe tests must use the same dibs in both mocked sources.** The BUG-022 regression only
+    proves duplicate-surface removal when `getCuratedRequests()` and `getPendingDibsForProvider()`
+    return the same pending dibs/title.
 
 ---
 
@@ -144,13 +155,14 @@ model/multi-flow change.
 
 - **Reconnect CTA remains deferred:** restore only after real peer messaging or a directed-ask flow.
 - **Responder Home actionability** ([IDEAS 2026-06-15]): `proposed` matches don't surface as
-  actionable on responder Home — bigger than S106 scope; deferred.
-- **Dibs server-side relationship routing** ([IDEAS 2026-06-09]) remains open.
+  actionable on responder Home; only BUG-023's offered-awaiting truth is in Sprint 107.
+- **Dibs server-side relationship routing** ([IDEAS 2026-06-09]) remains open and out of Sprint 107.
 - **"Platform forgets" visible decay** ([IDEAS 2026-06-04]) remains a future multi-sprint arc.
 - **Member forget/export** privacy follow-on remains open.
-- **request-forgery FP on `apps/frontend/src/lib/api.ts`** is known/recurring — dismiss as FP.
+- **request-forgery FP on `apps/frontend/src/lib/api.ts`** is known/recurring; dismiss as FP.
 - **Pre-existing security drift:** Dependabot/CodeQL alerts follow ADR-059/ADR-060 SLA.
-- **BUG-004** (logo "green dot") is `cannot-reproduce`; **BUG-009/BUG-010** were S100 scope.
+- **Pre-existing test drift:** `apps/frontend/tests/tdd/sprint-85-unified-feed.test.tsx` had a
+  stale `request_type:'service'` assertion on master during Sprint 106; baseline if it appears.
 
 ---
 
@@ -158,18 +170,18 @@ model/multi-flow change.
 
 - **S102 (done):** Visible Memory + Re-warm First Step (v11.11.0).
 - **S103 (done):** Governance + Intake Clarity (v11.12.0).
-- **S104 (done):** UI Facelift Research — A-plus verdict, ADR-079 Proposed, no deploy.
-- **S105 (done):** UI Facelift Implementation — A-plus rollout, ADR-079 Implemented (v11.13.0).
-- **S106 (this sprint):** Post-Facelift Correctness & Link-Up Clarity — BUG-013…016 + bounded link-up,
-  deploy v11.14.0.
-- **Deferred:** "platform forgets" visible decay; responder Home actionability; Dibs relationship
-  routing; member forget/export; Service Consolidation Phase 2; mobile parity.
+- **S104 (done):** UI Facelift Research - A-plus verdict, ADR-079 Proposed, no deploy.
+- **S105 (done):** UI Facelift Implementation - A-plus rollout, ADR-079 Implemented (v11.13.0).
+- **S106 (done):** Post-Facelift Correctness & Link-Up Clarity + v11.14.1 chrome follow-up.
+- **S107 (implemented, validation pending):** App Shell Clarity & Commitment Truth (v11.15.0).
+- **Deferred:** visible forgetting; responder Home actionability; Dibs relationship routing; member
+  forget/export; Service Consolidation Phase 2; mobile parity.
 
 ---
 
 ## Persistent Context
 
-### Multi-agent PR process — live on master
+### Multi-agent PR process - live on master
 
 - `.github/pull_request_template.md` = the cross-agent PR contract.
 - Master branch protection requires CI checks, 1 approving review, and Admin merge authority.
@@ -183,23 +195,22 @@ model/multi-flow change.
 
 - **Frontend is Pages Router** (`apps/frontend/src/pages`), not App Router.
 - **category vs request_type seam:** `help_requests.category` is mixed-vocab (enum on new rows, skill
-  tokens on old/seed/sim rows). Never pass `category` where `request_type` (the enum) is expected —
-  this is exactly the BUG-014 root cause.
-- **Feed query surfaces:** browsable-request filtering lives in ~4 places; the feed ranker projection
-  (`basicFeedRanker.ts`) is a separate seam. Change ALL relevant sites.
+  tokens on old/seed/sim rows). Never pass `category` where `request_type` (the enum) is expected.
+- **Feed query surfaces:** browsable-request filtering lives in multiple places; the feed ranker
+  projection (`basicFeedRanker.ts`) is a separate seam. Change all relevant sites.
 - **Design token system:** CSS-variable backed, in `apps/frontend/src/styles/globals.css` +
-  `apps/frontend/tailwind.config.js`; per-community skins via `ThemeContext`/ThemeProvider.
-- **Landing page docs:** `apps/landing/src/data/docs/` is gitignored — `git add -f` when generated
+  `apps/frontend/tailwind.config.js`; per-community skins via `ThemeContext`/`ThemeProvider`.
+- **Landing page docs:** `apps/landing/src/data/docs/` is gitignored - `git add -f` when generated
   docs must be committed. Generated by `scripts/generate-docs.ts`; edit sources, never generated JSON.
 - **ADR numbering:** ADR-079 is the last; next free = **080**.
 - **JWT field** is `communities`, not `communityMemberships`.
 - **Schema is `communities.communities`** (plural schema name); auth tables are `auth.*`.
-- **API response unwrap:** `createApiClient` interceptor already unwraps — use `res.data`, not
+- **API response unwrap:** `createApiClient` interceptor already unwraps - use `res.data`, not
   `res.data.data`.
 - **Error contract (ADR-074):** `{ success:false, message:string, error:string }`.
 - **trust_edges_live is a VIEW:** never INSERT/UPDATE it.
 - **`git add` on CLAUDE.md:** tracked as lowercase `claude.md`.
-- **Solo dev — no worktrees:** work directly on feature branches.
+- **Solo dev - no worktrees:** work directly on feature branches.
 - **request-service serves the feed** (`/requests/feed`); there is no feed-service.
 
 ### Workflow Gotchas
@@ -208,7 +219,7 @@ model/multi-flow change.
 - Every sprint updates docs and landing docs.
 - No docs-only push to `master`; master push triggers a full deploy.
 - nginx.conf changes take effect on the next deploy (deploy.sh copies + reloads).
-- `nav.json` silently reverts — always grep-verify after editing.
+- `nav.json` silently reverts - always grep-verify after editing.
 - Widely-rendered components using `useRouter` need the global `apps/frontend/jest.setup.js` router
   mock.
 - `npm audit --package-lock-only --audit-level=high` is blocked by tenant policy in-agent (exports

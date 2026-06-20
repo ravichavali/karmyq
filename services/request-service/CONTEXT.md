@@ -587,6 +587,21 @@ community_id, community_name, urgency, request_type, payload_type, status:'propo
 Shared helper `fetchOfferedAwaiting(userId, previewLimit)` returns `{ count, items }`; fail-soft to
 `{ count: 0, items: [] }`.
 
+#### GET /requests/offered-awaiting (Sprint 107 / BUG-023)
+Canonical read endpoint for the same offered-awaiting predicate. Returns up to 50 distinct open,
+unexpired asks where the authenticated member has a member-initiated (`admin_proposed = FALSE`)
+`proposed` responder match and is waiting on the requester. This backs the Helping tab's **Offers
+awaiting requester** section and uses `fetchOfferedAwaiting(userId, 50)`, so Home's preview/count and
+Helping's list cannot diverge. Admin-proposed matches are excluded: those await the *member's*
+accept/decline (Helping renders them under "Awaiting Acceptance"), not the requester's response.
+
+```json
+{ "success": true, "data": { "count": 2, "items": [{ "request_id": "uuid", "match_id": "uuid", "status": "proposed" }] } }
+```
+
+**Route order:** registered before `router.get('/:id')` so `/requests/offered-awaiting` is not
+captured as a request id.
+
 #### GET /requests/retention-policy (Sprint 90 / ADR-069)
 Backs the `/about/memory` transparency page. Returns the **resolved retention windows**
 (`completed`/`expired`/`message`, community → global → fallback via `requests.retention_config`) plus
@@ -2699,6 +2714,15 @@ CREATE TABLE auth.user_interests (
 - No breaking changes to existing API contracts
 
 ### 10.4 Recent Fixes
+
+**Sprint 107 — App Shell Clarity & Commitment Truth (v11.15.0, branch `feature/sprint-107-app-shell-clarity`):**
+
+- **BUG-023 — Home offered-awaiting rows were not findable in Helping.** Home already used
+  `fetchOfferedAwaiting()` through `GET /requests/curated?view=home`, but Helping used separate match
+  surfaces and did not list the same awaiting rows explicitly. `GET /requests/offered-awaiting` now
+  exposes the canonical predicate directly with a larger item limit for Helping. The endpoint is
+  registered before `/:id` and returns `{ count, items }` from the same distinct-open-ask helper as
+  Home. Test: `tests/tdd/sprint-107-offered-awaiting-truth.test.ts`.
 
 **Sprint 106 — Post-Facelift Correctness & Link-Up (v11.14.0, branch `feature/sprint-106-correctness-linkup`):**
 

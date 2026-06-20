@@ -150,8 +150,8 @@ export default function Dashboard() {
         <WelcomeModal user={user} />
 
         {/* Community selector row */}
-        <div className="kq-page mt-3">
-          <div className="kq-card flex items-center gap-3 py-3">
+        <div className="border-b border-border-light bg-surface-raised/60">
+          <div className="kq-chrome-page flex items-center gap-3 py-3">
             <label className="text-sm font-medium text-text-muted shrink-0">Community:</label>
             <select
               value={activeCommunityId}

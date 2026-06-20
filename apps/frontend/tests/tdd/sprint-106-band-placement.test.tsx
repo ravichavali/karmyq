@@ -18,6 +18,7 @@ jest.mock('@/lib/api', () => ({
     getCuratedRequests: (...a: any[]) => mockGetCuratedRequests(...a),
     getMatches: (...a: any[]) => mockGetMatches(...a),
     getRequests: (...a: any[]) => mockGetRequests(...a),
+    getOfferedAwaiting: jest.fn().mockResolvedValue({ data: { count: 0, items: [] } }),
     completeMatch: jest.fn(),
     acceptMatch: (...a: any[]) => mockAcceptMatch(...a),
     rejectMatch: jest.fn(),

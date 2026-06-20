@@ -298,3 +298,37 @@ between people), Dunbar-150 communities, and mutual aid + trusted local service 
 side. Auth-aware CTAs kept (logged-in → dashboard). (`apps/frontend/src/pages/index.tsx`.)
 
 ---
+
+## BUG-022 · [2026-06-19] · fixed (Sprint 107)
+
+**Fixed:** Helping now uses `DecisionBand` as the canonical pending-dibs action surface. The separate
+`DibsCard` list and `getPendingDibsForProvider()` fetch were removed from `CommitmentsTab`, so a
+pending dibs cannot render with two Accept buttons on the same page. The Helping badge count is derived
+from freshly mapped decision rows, not stale React state. Test:
+`apps/frontend/tests/tdd/sprint-107-dibs-single-surface.test.tsx`.
+
+An already-accepted dibs shows up in 2 places on the same page. Accepting it in one place causes the
+other button to throw an error message.
+
+---
+
+## BUG-023 · [2026-06-19] · fixed (Sprint 107)
+
+**Fixed:** request-service now exposes `GET /requests/offered-awaiting`, backed by the same
+`fetchOfferedAwaiting()` predicate that powers Home's `offeredAwaiting` count and preview. Helping
+loads that endpoint and renders an explicit **Offers awaiting requester** section, so Home's
+**View all in Helping** link points to rows the user can find. Tests:
+`services/request-service/tests/tdd/sprint-107-offered-awaiting-truth.test.ts` (DB-backed; local run
+blocked without PostgreSQL) and
+`apps/frontend/tests/tdd/sprint-107-offered-awaiting-helping.test.tsx`.
+
+The "You've offered to help" section seems to have wrong info — I couldn't find these asks in Helping.
+
+> You've offered to help on 3 open asks.
+> Waiting for the requester to respond.
+> - Need to borrow camping gear for weekend trip — Bay Area Mutual Aid Network
+> - Carpool to Saturday Market — Portland Tool Library & Share
+> - Carpool to Blazers game — PDX Home Repair & Trades
+> View all in Helping →
+
+---

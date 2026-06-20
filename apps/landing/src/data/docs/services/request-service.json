@@ -36,6 +36,11 @@
     },
     {
       "method": "GET",
+      "path": "/requests/offered-awaiting",
+      "description": "Canonical Sprint 107 offered-awaiting read for Helping. Returns the same distinct open asks Home previews, so View all in Helping points to rows the member can find."
+    },
+    {
+      "method": "GET",
       "path": "/requests/retention-policy (Sprint 90 / ADR-069)",
       "description": "Backs the `/about/memory` transparency page. Returns the **resolved retention windows**"
     },
