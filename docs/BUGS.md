@@ -298,3 +298,23 @@ between people), Dunbar-150 communities, and mutual aid + trusted local service 
 side. Auth-aware CTAs kept (logged-in → dashboard). (`apps/frontend/src/pages/index.tsx`.)
 
 ---
+
+## BUG-022 · [2026-06-19] · open
+
+An already-accepted dibs shows up in 2 places on the same page. Accepting it in one place causes the
+other button to throw an error message.
+
+---
+
+## BUG-023 · [2026-06-19] · open
+
+The "You've offered to help" section seems to have wrong info — I couldn't find these asks in Helping.
+
+> You've offered to help on 3 open asks.
+> Waiting for the requester to respond.
+> - Need to borrow camping gear for weekend trip — Bay Area Mutual Aid Network
+> - Carpool to Saturday Market — Portland Tool Library & Share
+> - Carpool to Blazers game — PDX Home Repair & Trades
+> View all in Helping →
+
+---

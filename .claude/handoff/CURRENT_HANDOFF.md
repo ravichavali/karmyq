@@ -1,46 +1,48 @@
-# Sprint 106 — Post-Facelift Correctness & Link-Up Clarity — IMPLEMENTED, PENDING VALIDATION + MERGE (v11.13.0 → v11.14.0)
+# Sprint 106 — Post-Facelift Correctness & Link-Up Clarity — CLOSED / DEPLOYED (v11.14.1)
 
-> **STATUS (2026-06-18):** Sprint 106 implementation is COMPLETE on branch
-> `feature/sprint-106-correctness-linkup`. All four bugs fixed + the bounded link-up legibility fix
-> shipped. Tasks 1–11 done; automated verification green. Remaining: **human browser validation**
-> (deploy gate), open PR, Admin-merge, CI deploy v11.14.0. Do NOT self-merge.
+> **STATUS (2026-06-19):** Sprint 106 and its chrome follow-up are MERGED and DEPLOYED (health-gated
+> green). Two deploys landed: **v11.14.0** (S106 — BUG-013…016 + link-up, PR #102) and **v11.14.1**
+> (post-deploy chrome cleanup — BUG-017…021 + landing copy, PR #105). A prerequisite **undici 7.28.0**
+> security PR (#103) cleared the ADR-059 high-severity gate first. Maintainer validated live.
 >
-> **What shipped:** BUG-014 (feed ranker carries persisted `request_type` enum, not `category`);
-> BUG-013 (durable symmetric `rate` decision for both parties + `POST /reputation/feedback`
-> participant/completed/counterparty hardening); BUG-015 (DecisionBand relocated from Browse to the
-> Helping tab); BUG-016 (header breathing-room pass); link-up (nav label unified to "Service
-> Providers" + provider directory line now names the community↔provider relationship for all viewers).
+> **v11.14.0 (S106):** BUG-013 durable symmetric `rate` decision for both parties + `POST
+> /reputation/feedback` participant/completed/counterparty/**community** hardening (last from review);
+> BUG-014 feed ranker carries the persisted `request_type` enum (not `category`); BUG-015 DecisionBand
+> moved Browse→Helping; BUG-016 header breathing-room; link-up = "Service Providers" label + provider
+> directory relationship line.
 >
-> **Verification:** request-service blocking 152/152 + sprint-106 7/7; reputation-service blocking 5/5
-> + sprint-106 8/8; frontend at master baseline (38 pre-existing failures, 0 new) + sprint-106/band
-> suites green; all three `tsc --noEmit` clean. SDLC gates all run: testing, `/simplify` (1 fix),
-> `/code-review` (no findings — cross-schema grant concern refuted by single `karmyq_user` role with
-> full grants), `/security-review` (no findings; the BUG-013 hardening itself closes a pre-existing
-> rating-write IDOR).
->
-> **Known pre-existing (NOT S106):** `apps/frontend/tests/tdd/sprint-85-unified-feed.test.tsx` →
-> "optimistically removes a card" fails on master too (stale `request_type:'service'` test data
-> expects "Offer to help" but the label is now "Offer service"). Left untouched (out of scope).
-> **Skipped per judgment:** the optional `tests/tdd/sprint-106-integration.test.ts` — a DB-dependent
-> smoke test would only fail in the no-DB agent environment; unit/component coverage across 3 layers
-> is sufficient.
+> **v11.14.1 (chrome follow-up):** BUG-017 removed redundant Home nav link + aligned tabs to the
+> central column; BUG-018 provider notifications folded into the single `NotificationBell` (it lost
+> its mount — not its CSS — in the facelift); BUG-019 single clickable **On duty/Off duty** toggle
+> (dot-only < md so mobile fits), redundant dashboard pill + hamburger duplicate removed; BUG-020
+> landing hero CTA alignment; BUG-021 modernized the karmyq.com `/` splash to A-plus tokens + the
+> two-layer copy.
 
 ---
 
-## Quick Start (remaining work)
+## Next Sprint (candidates — not yet planned)
 
-1. Read this handoff.
-2. Branch `feature/sprint-106-correctness-linkup` is implemented and committed.
-3. Open a PR (copy `.github/pull_request_template.md` into the body); do NOT self-merge.
-4. Human browser validation (see Task 11 in the plan), then Admin-merge → CI deploys v11.14.0.
-5. Do NOT stage `scripts/founding-circle-submissions.sh` — it is local untracked work.
+1. **Header de-congestion** (maintainer, 2026-06-19) — the topbar still reads cramped. Root cause: the
+   header shares the `--measure: 42rem` content reading-column (`Layout.tsx` wraps it in `.kq-page`).
+   Levers: **decouple the topbar width from the content column** (wider topbar container; keep
+   feed/content at 42rem — do NOT widen `--measure` globally, it's the reading measure) and/or **move
+   Communities + Service Providers into the hamburger/overflow menu**. Memory:
+   `project_header_decongestion_next_sprint`.
+2. **Open bugs to triage** (`docs/BUGS.md`):
+   - **BUG-022** — an already-accepted dibs shows in 2 places on one page; accepting in one throws an
+     error on the other (duplicate dibs surface + stale state after accept).
+   - **BUG-023** — the Home "You've offered to help on N open asks" preview lists asks the maintainer
+     couldn't find in the Helping tab (offered-awaiting predicate vs Helping list mismatch).
+3. **Carry-forward:** the pre-existing `sprint-85-unified-feed` "optimistically removes a card" failure
+   (stale `request_type:'service'` test data) — a trivial test-data fix whenever a sprint touches it.
 
 ---
 
-## Sprint Goal
+## Sprint Goal (delivered)
 
-Close BUG-013…016 from S105 validation and ship one bounded fix for the community↔service-provider
-link-up confusion, fixing each at its correct layer, then deploy v11.14.0.
+Close BUG-013…016 from S105 validation + one bounded community↔service-provider link-up fix, each at
+its correct layer, then deploy. **Done** (v11.14.0), plus a v11.14.1 chrome-cleanup follow-up from
+post-deploy maintainer feedback.
 
 ---
 
