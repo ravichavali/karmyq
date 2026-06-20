@@ -71,8 +71,8 @@ describe('Sprint 107 / BUG-023 offered-awaiting truth (integration)', () => {
     );
     requesterId = requester.rows[0].id;
     const community = await query(
-      `INSERT INTO communities.communities (name, description) VALUES ($1,$2) RETURNING id`,
-      ['S107 Offered Awaiting', 'offered awaiting truth'],
+      `INSERT INTO communities.communities (name, description, creator_id) VALUES ($1,$2,$3) RETURNING id`,
+      ['S107 Offered Awaiting', 'offered awaiting truth', requesterId],
     );
     communityId = community.rows[0].id;
     await query(
