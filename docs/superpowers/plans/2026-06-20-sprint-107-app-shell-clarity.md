@@ -85,6 +85,12 @@ Helping.
    copy the exact bug text into Sprint 107 docs if needed.
 10. **Human browser validation is required.** Validate desktop, tablet, and 320-375px mobile chrome,
     plus Home -> Helping flows for pending dibs and offered-awaiting rows.
+11. **Decision-derived dibs counts must use freshly mapped rows.** `CommitmentsTab.loadDecisions()`
+    is fire-and-forget with internal state updates; derive `onDibsLoaded` from the local mapped
+    decision array inside the `.then()`, not from stale React state.
+12. **Dibs dedupe tests must use the same dibs in both mocked sources.** The BUG-022 regression only
+    proves duplicate-surface removal when `getCuratedRequests()` and `getPendingDibsForProvider()`
+    return the same pending dibs/title.
 
 ---
 
@@ -235,6 +241,13 @@ Expected: PASS.
 `requestService.getCuratedRequests({ view:'home' })` and one pending dibs response from
 `dibsService.getPendingDibsForProvider()`.
 
+- [ ] Ensure both mocks describe the same dibs row. Use the same id/title in both sources so the test
+actually proves duplicate rendering is gone.
+
+```ts
+const sameDibsTitle = 'Need a Saturday repair visit'
+```
+
 - [ ] Assert the dibs title appears once and only one Accept button is associated with it.
 
 Example expectation:
@@ -273,11 +286,21 @@ already routes `accept_dibs` and `decline_dibs`.
 - [ ] Drive `onDibsLoaded` from DecisionBand data:
 
 ```ts
+const nextDecisions = items
+  .filter((i): i is Extract<UnifiedFeedItem, { kind: 'decision' }> => i.kind === 'decision')
+  .map((i) => i.data)
+setDecisions(nextDecisions)
 const dibsDecisionCount = nextDecisions.filter((d) => d.subject_kind === 'dibs').length
 onDibsLoaded?.(dibsDecisionCount)
 ```
 
-Call this after `loadDecisions()` maps the decision rows.
+Call this inside the `loadDecisions()` `.then()` block from the freshly mapped rows. Do not derive
+the badge count from the stale `decisions` state variable.
+
+- [ ] Preserve the current `limit: 50` decision fetch unless implementation finds real evidence that
+a higher limit is needed. This changes the badge source from `getPendingDibsForProvider().length` to
+curated dibs-decision count; both predicates are equivalent for pending, non-expired provider dibs,
+with `limit: 50` as the only theoretical divergence.
 
 - [ ] After `handleDecisionResolved`, reload decisions and commitments as the file already does.
 

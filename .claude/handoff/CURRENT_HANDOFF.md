@@ -94,6 +94,12 @@ Finish the app shell clarity pass and make Home/Helping commitment surfaces tell
    copy the exact bug text into Sprint 107 docs if needed.
 10. **Human browser validation is required.** Validate desktop, tablet, and 320-375px mobile chrome,
     plus Home -> Helping flows for pending dibs and offered-awaiting rows.
+11. **Decision-derived dibs counts must use freshly mapped rows.** `CommitmentsTab.loadDecisions()`
+    is fire-and-forget with internal state updates; derive `onDibsLoaded` from the local mapped
+    decision array inside the `.then()`, not from stale React state.
+12. **Dibs dedupe tests must use the same dibs in both mocked sources.** The BUG-022 regression only
+    proves duplicate-surface removal when `getCuratedRequests()` and `getPendingDibsForProvider()`
+    return the same pending dibs/title.
 
 ---
 
