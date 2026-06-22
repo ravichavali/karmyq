@@ -8,6 +8,7 @@ import RequestCard from './RequestCard'
 import ActivityCard from './ActivityCard'
 import StoryCard from './StoryCard'
 import OfferedAwaitingPanel from './OfferedAwaitingPanel'
+import SuggestedAsHelperPanel from './SuggestedAsHelperPanel'
 import type { ActivityData, OfferedAwaitingItem, RequestCardData, UnifiedFeedItem } from '@/types/unified-feed'
 import type { StoryData } from '@/types/feed-items'
 
@@ -77,6 +78,9 @@ export default function UnifiedFeed({
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const [offeredAwaiting, setOfferedAwaiting] = useState(0)
   const [offeredAwaitingItems, setOfferedAwaitingItems] = useState<OfferedAwaitingItem[]>([])
+  // S108: admin-proposed asks where the member was suggested as helper — Home preview, decide in Helping.
+  const [suggestedAsHelper, setSuggestedAsHelper] = useState(0)
+  const [suggestedAsHelperItems, setSuggestedAsHelperItems] = useState<OfferedAwaitingItem[]>([])
   const [showingMoreOpen, setShowingMoreOpen] = useState(false)
   const [internalBrowseMode, setInternalBrowseMode] = useState<BrowseMode>(() => {
     if (typeof window === 'undefined') return 'provider'
@@ -129,6 +133,10 @@ export default function UnifiedFeed({
         // and awaits, plus a small preview of the actual asks (count and items share one predicate).
         setOfferedAwaiting((res.data?.offeredAwaiting as number) ?? 0)
         setOfferedAwaitingItems((res.data?.offeredAwaitingItems as OfferedAwaitingItem[]) ?? [])
+        // S108 — admin-proposed responder matches preview here; the count + items share one predicate.
+        const suggested = res.data?.suggestedAsHelper as { count?: number; items?: OfferedAwaitingItem[] } | undefined
+        setSuggestedAsHelper(suggested?.count ?? 0)
+        setSuggestedAsHelperItems(suggested?.items ?? [])
       })
       .catch(() => {
         if (!isStale() && showLoading) setError(true)
@@ -232,6 +240,12 @@ export default function UnifiedFeed({
           to the Helping tab. Home-only, positive count only. */}
       {!isCommunity && offeredAwaiting > 0 && (
         <OfferedAwaitingPanel count={offeredAwaiting} items={offeredAwaitingItems} />
+      )}
+
+      {/* S108 — admin/matchmaker suggested this member as a helper; preview on Home, decide in Helping
+          (BUG-015 keeps the actionable DecisionBand off Home). Home-only, positive count only. */}
+      {!isCommunity && suggestedAsHelper > 0 && (
+        <SuggestedAsHelperPanel count={suggestedAsHelper} items={suggestedAsHelperItems} />
       )}
 
       <FilterChipRow

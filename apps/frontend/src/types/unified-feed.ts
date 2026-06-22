@@ -107,6 +107,17 @@ export interface OfferedAwaitingItem {
   offered_at?: string
 }
 
+/**
+ * Sprint 108 — the curated-home `suggestedAsHelper` payload: open asks where an admin/matchmaker
+ * proposed THIS member as helper and the member owes the accept/decline. Home previews them (calm,
+ * non-actionable) and links to Helping, where the actionable DecisionBand lives (BUG-015). Shares the
+ * OfferedAwaitingItem shape and the same distinct-open-ask predicate, so count and items can't disagree.
+ */
+export interface SuggestedAsHelper {
+  count: number
+  items: OfferedAwaitingItem[]
+}
+
 /** What a member owes on a decision item, surfaced by the decision band. */
 export type DecisionAction =
   | 'accept_offer'
