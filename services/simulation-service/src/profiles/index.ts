@@ -25,6 +25,7 @@ import {
   browseProvidersWorkflow,
   scheduleActivityWorkflow,
   joinActivityWorkflow,
+  adminProposeHelperWorkflow,
 } from '../workflows';
 
 export const ACTIVE_HELPER: UserProfile = {
@@ -103,6 +104,8 @@ export const COMMUNITY_BUILDER: UserProfile = {
     callDibs: { weight: 0.05, avgPerSession: 0.1 },
     nominateMember: { weight: 0.02, avgPerSession: 0.05 },
     ratifyNomination: { weight: 0.05, avgPerSession: 0.1 },
+    // S108: stewards suggest members as helpers, generating admin_proposed matches for the demo.
+    adminProposeHelper: { weight: 0.15, avgPerSession: 0.4 },
   },
   sessionDuration: { min: 20, max: 60, unit: 'minutes' },
   responseTime: { min: 10, max: 60, unit: 'minutes' }
@@ -186,6 +189,7 @@ export async function selectWorkflow(
   if (actions.joinCollective?.weight) candidates.push({ weight: actions.joinCollective.weight, fn: () => joinCollectiveWorkflow(ctx), name: 'joinCollective' });
   if (actions.browseProviders?.weight) candidates.push({ weight: actions.browseProviders.weight, fn: () => browseProvidersWorkflow(ctx), name: 'browseProviders' });
   if (actions.scheduleActivity?.weight) candidates.push({ weight: actions.scheduleActivity.weight, fn: () => scheduleActivityWorkflow(ctx), name: 'scheduleActivity' });
+  if (actions.adminProposeHelper?.weight) candidates.push({ weight: actions.adminProposeHelper.weight, fn: () => adminProposeHelperWorkflow(ctx), name: 'adminProposeHelper' });
   if (actions.joinActivity?.weight) candidates.push({ weight: actions.joinActivity.weight, fn: () => joinActivityWorkflow(ctx), name: 'joinActivity' });
 
   if (actions.voteOnGovernance?.weight) candidates.push({ weight: actions.voteOnGovernance.weight, fn: () => voteOnGovernanceWorkflow(user, client), name: 'voteOnGovernance' });

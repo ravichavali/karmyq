@@ -93,6 +93,18 @@ export class ApiClient {
   }
 
   /**
+   * Request API - Admin/steward proposes a community member as the helper on an open request.
+   * POST /requests/:id/propose-match creates an admin_proposed = TRUE match (the suggested helper
+   * owes the accept/decline). 400/403/409 surface to the caller, which handles them gracefully.
+   */
+  async proposeMatch(requestId: string, proposedUserId: string): Promise<any> {
+    const response = await executeWithRetry(() =>
+      this.client.post(`/requests/${requestId}/propose-match`, { user_id: proposedUserId })
+    );
+    return response.data.data;
+  }
+
+  /**
    * Request API - Get matches
    */
   async getMatches(params?: { status?: string }): Promise<any[]> {

@@ -21,3 +21,4 @@ export { voteOnGovernanceWorkflow } from './vote-on-governance-workflow';
 export { submitFeedbackWorkflow } from './submit-feedback-workflow';
 export { callDibsWorkflow, respondToDibsWorkflow } from './dibs-workflow';
 export { nominateMemberWorkflow, ratifyNominationWorkflow } from './governance-nominate-workflow';
+export { adminProposeHelperWorkflow } from './admin-propose-helper-workflow';
