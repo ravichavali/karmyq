@@ -22,10 +22,12 @@ jest.mock('next/router', () => ({
 
 const getRequest = jest.fn()
 const createMatch = jest.fn()
+const rejectMatch = jest.fn()
 jest.mock('@/lib/api', () => ({
   requestService: {
     getRequest: (...args: unknown[]) => getRequest(...args),
     createMatch: (...args: unknown[]) => createMatch(...args),
+    rejectMatch: (...args: unknown[]) => rejectMatch(...args),
   },
 }))
 jest.mock('@/hooks/useTrustPath', () => ({ useTrustPath: () => ({ trustPath: null, loading: false, error: null }) }))
@@ -57,6 +59,7 @@ beforeEach(() => {
   replace.mockClear()
   getRequest.mockReset()
   createMatch.mockReset()
+  rejectMatch.mockReset()
 })
 
 describe('Sprint 101: actionable request detail page', () => {
@@ -76,7 +79,24 @@ describe('Sprint 101: actionable request detail page', () => {
     getRequest.mockResolvedValue({ data: detail({ viewer_relation: 'already_offered', viewer_match: { id: 'm1', status: 'proposed' } }) })
     render(<RequestDetailPage />)
     expect(await screen.findByText(/waiting for the requester/i)).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /Offer/i })).not.toBeInTheDocument()
+    // No "offer to help" / "offer service" CTA — only the calm Withdraw offer affordance (S108).
+    expect(screen.queryByRole('button', { name: /Offer to Help|Offer service/i })).not.toBeInTheDocument()
+  })
+
+  it('S108: lets the viewer withdraw a pending self-offer via rejectMatch', async () => {
+    getRequest.mockResolvedValue({ data: detail({ viewer_relation: 'already_offered', viewer_match: { id: 'm1', status: 'proposed' } }) })
+    rejectMatch.mockResolvedValue({})
+    render(<RequestDetailPage />)
+    fireEvent.click(await screen.findByRole('button', { name: /withdraw offer/i }))
+    await waitFor(() => expect(rejectMatch).toHaveBeenCalledWith('m1'))
+    expect(await screen.findByText(/offer withdrawn/i)).toBeInTheDocument()
+  })
+
+  it('S108: does NOT offer withdraw once the offer is accepted (match no longer proposed)', async () => {
+    getRequest.mockResolvedValue({ data: detail({ viewer_relation: 'already_offered', viewer_match: { id: 'm1', status: 'matched' } }) })
+    render(<RequestDetailPage />)
+    expect(await screen.findByText(/waiting for the requester/i)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /withdraw/i })).not.toBeInTheDocument()
   })
 
   it('points own requests to Asks without showing Offer', async () => {

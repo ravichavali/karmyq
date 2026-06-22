@@ -450,7 +450,10 @@ export class ApiClient {
 
   async getCommunityMembers(communityId: string): Promise<any[]> {
     const res = await this.client.get(`/communities/${communityId}/members`).catch(() => null);
-    return res?.data?.data?.members || [];
+    // GET /:communityId/members returns the member array directly as `data` (members.ts), not
+    // `{ members }`. Accept either shape so callers (propose-helper, nominate, ratify) get the rows.
+    const data = res?.data?.data;
+    return Array.isArray(data) ? data : (data?.members || []);
   }
 
   async nominateMember(communityId: string, nominatedUserId: string, role: 'moderator' | 'admin'): Promise<any> {

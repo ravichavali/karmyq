@@ -68,6 +68,8 @@ export default function RequestDetailPage() {
   const [error, setError] = useState<string | null>(null)
   const [offering, setOffering] = useState(false)
   const [offered, setOffered] = useState(false)
+  const [withdrawing, setWithdrawing] = useState(false)
+  const [withdrawn, setWithdrawn] = useState(false)
 
   useEffect(() => {
     if (!router.isReady) return
@@ -108,6 +110,23 @@ export default function RequestDetailPage() {
       setError(err?.response?.data?.message ?? getOfferErrorFallback(detail.request_type))
     } finally {
       setOffering(false)
+    }
+  }
+
+  // S108: withdraw a pending self-offer from the ask itself (the offered-awaiting band and Home preview
+  // link here). rejectMatch authorizes either participant on a proposed match, so the responder can
+  // pull their own offer; once the requester has accepted (status 'matched') there is nothing to withdraw.
+  const handleWithdraw = async () => {
+    if (!detail?.viewer_match) return
+    setWithdrawing(true)
+    setError(null)
+    try {
+      await requestService.rejectMatch(detail.viewer_match.id)
+      setWithdrawn(true)
+    } catch (err: any) {
+      setError(err?.response?.data?.message ?? 'Could not withdraw your offer — try again.')
+    } finally {
+      setWithdrawing(false)
     }
   }
 
@@ -222,13 +241,28 @@ export default function RequestDetailPage() {
             )}
 
             {detail.viewer_relation === 'already_offered' && (
-              <p className="text-sm text-text">
-                You’ve offered to help. Waiting for the requester to respond.{' '}
-                <Link href="/dashboard?tab=helping" className="text-primary font-medium underline underline-offset-2">
-                  View in Helping
-                </Link>
-                .
-              </p>
+              withdrawn ? (
+                <p className="text-sm text-text">Offer withdrawn. This ask is open again.</p>
+              ) : (
+                <div className="space-y-3">
+                  <p className="text-sm text-text">
+                    You’ve offered to help. Waiting for the requester to respond.{' '}
+                    <Link href="/dashboard?tab=helping" className="text-primary font-medium underline underline-offset-2">
+                      View in Helping
+                    </Link>
+                    .
+                  </p>
+                  {detail.viewer_match?.status === 'proposed' && (
+                    <button
+                      onClick={handleWithdraw}
+                      disabled={withdrawing}
+                      className="text-sm py-1.5 px-3 text-text-muted hover:text-text disabled:opacity-50"
+                    >
+                      {withdrawing ? 'Withdrawing…' : 'Withdraw offer'}
+                    </button>
+                  )}
+                </div>
+              )
             )}
 
             {detail.viewer_relation === 'own_request' && (
