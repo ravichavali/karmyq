@@ -121,10 +121,13 @@ smoke checks.
 2. IndexedDB API cache.
 3. Backend shared geocoding cache (`NEXT_PUBLIC_GEOCODING_API_URL` or localhost/dev default).
 4. Legacy localStorage cache.
-5. Direct Nominatim fallback only if the backend is unavailable and the action is user-triggered.
+5. Direct Nominatim fallback only if the backend is clearly unreachable and the action is
+   user-triggered.
 
 The sprint should add comments/tests that make the direct fallback a last resort, not the primary
-autocomplete strategy. Do not remove the backend tier. Do not add a new map provider.
+autocomplete strategy. A slow backend response or request timeout must not silently become a
+browser-to-Nominatim autocomplete path; either wait longer for the backend or fail closed to cached/no
+results. Do not remove the backend tier. Do not add a new map provider.
 
 ---
 
@@ -181,7 +184,8 @@ Sprint 109 should:
    `User-Agent`, cache results, and throttle app-wide external requests to at most one request per
    second per process.
 4. **Per-client HTTP rate limits are not enough.** `express-rate-limit` limits inbound callers; add a
-   separate outbound throttle around `callNominatimAPI`.
+   separate outbound throttle around `callNominatimAPI`, and make the throttle resilient so one rejected
+   external call cannot poison the queue for future cache misses.
 5. **Response envelopes should match ADR-074.** Keep `/health` compatible, but use
    `{ success, data, message, error }` for API and error responses.
 6. **Fix documentation drift.** The service is not "no dependents" in practice: frontend geocoding
@@ -194,6 +198,11 @@ Sprint 109 should:
    out of scope unless proven safe.
 10. **Update ADR-071/ADR-080 coherently.** ADR-071's geocoding follow-up should point to ADR-080's
     decision to retain and harden the service.
+11. **Update the Docker image when extracting `src/`.** The current Dockerfile copies only `index.js`;
+    after extraction it must copy `services/geocoding-service/src/` into both build and production
+    stages, or the deployed container will fail with `Cannot find module './src/geocodingApp'`.
+12. **Do not add already-hoisted test dev dependencies to the service package.** Add scripts only unless
+    verification proves `jest` or `supertest` cannot resolve from the root install.
 
 ---
 

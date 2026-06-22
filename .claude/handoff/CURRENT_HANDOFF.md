@@ -94,7 +94,8 @@ fallback stays last-resort only.
    `User-Agent`, cache results, and throttle app-wide external requests to at most one request per
    second per process.
 4. **Per-client HTTP rate limits are not enough.** `express-rate-limit` limits inbound callers; add a
-   separate outbound throttle around `callNominatimAPI`.
+   separate outbound throttle around `callNominatimAPI`, and make the throttle resilient so one rejected
+   external call cannot poison the queue for future cache misses.
 5. **Response envelopes should match ADR-074.** Keep `/health` compatible, but use
    `{ success, data, message, error }` for API and error responses.
 6. **Fix documentation drift.** The service is not "no dependents" in practice: frontend geocoding
@@ -107,6 +108,13 @@ fallback stays last-resort only.
    out of scope unless proven safe.
 10. **Update ADR-071/ADR-080 coherently.** ADR-071's geocoding follow-up should point to ADR-080's
     decision to retain and harden the service.
+11. **Update the Docker image when extracting `src/`.** The current Dockerfile copies only `index.js`;
+    after extraction it must copy `services/geocoding-service/src/` into both build and production
+    stages, or the deployed container will fail with `Cannot find module './src/geocodingApp'`.
+12. **Do not add already-hoisted test dev dependencies to the service package.** Add scripts only unless
+    verification proves `jest` or `supertest` cannot resolve from the root install.
+13. **Backend timeout must not bypass the policy boundary.** Frontend timeouts from `/search` should not
+    silently fall through to direct browser-to-Nominatim calls; add the regression test from the plan.
 
 ---
 

@@ -47,9 +47,10 @@ Supertest for service tests, npm audit/overrides for dependency hygiene.
 | File | Change |
 |---|---|
 | `services/geocoding-service/index.js` | Become a thin server bootstrap around `createApp`. |
-| `services/geocoding-service/package.json` | Add Jest/Supertest scripts and dev dependencies if not already hoisted. |
-| `apps/frontend/src/lib/geocoding.ts` | Clarify backend-first external policy boundary and verify direct fallback stays last. |
-| `apps/frontend/tests/tdd/geocoding.test.ts` | Add/adjust frontend test proving backend tier is attempted before direct Nominatim fallback. |
+| `services/geocoding-service/Dockerfile` | Copy extracted `src/` into the build and production images so the container can load `./src/geocodingApp`. |
+| `services/geocoding-service/package.json` | Add Jest/Supertest scripts only; do not add already-hoisted dev dependencies unless resolution fails. |
+| `apps/frontend/src/lib/geocoding.ts` | Clarify backend-first external policy boundary, extend/adjust backend timeout behavior, and prevent slow backend timeouts from falling through to direct Nominatim. |
+| `apps/frontend/tests/tdd/geocoding.test.ts` | Add/adjust frontend tests proving backend tier is attempted before direct Nominatim and timed-out backend calls do not silently become direct Nominatim calls. |
 | `services/geocoding-service/CONTEXT.md` | Update API envelopes, dependencies, policy boundary, tests, and recent fixes. |
 | `services/geocoding-service/.claude/README.md` | Correct dependency/dependent drift and JavaScript service layout. |
 | `services/geocoding-service/README.md` | Align overview and examples with hardened API contract. |
@@ -75,7 +76,8 @@ Supertest for service tests, npm audit/overrides for dependency hygiene.
    `User-Agent`, cache results, and throttle app-wide external requests to at most one request per
    second per process.
 4. **Per-client HTTP rate limits are not enough.** `express-rate-limit` limits inbound callers; add a
-   separate outbound throttle around `callNominatimAPI`.
+   separate outbound throttle around `callNominatimAPI`, and make the throttle resilient so one rejected
+   external call cannot poison the queue for future cache misses.
 5. **Response envelopes should match ADR-074.** Keep `/health` compatible, but use
    `{ success, data, message, error }` for API and error responses.
 6. **Fix documentation drift.** The service is not "no dependents" in practice: frontend geocoding
@@ -88,6 +90,11 @@ Supertest for service tests, npm audit/overrides for dependency hygiene.
    out of scope unless proven safe.
 10. **Update ADR-071/ADR-080 coherently.** ADR-071's geocoding follow-up should point to ADR-080's
     decision to retain and harden the service.
+11. **Update the Docker image when extracting `src/`.** The current Dockerfile copies only `index.js`;
+    after extraction it must copy `services/geocoding-service/src/` into both build and production
+    stages, or the deployed container will fail with `Cannot find module './src/geocodingApp'`.
+12. **Do not add already-hoisted test dev dependencies to the service package.** Add scripts only unless
+    verification proves `jest` or `supertest` cannot resolve from the root install.
 
 ---
 
@@ -149,7 +156,7 @@ git commit -m "docs: start Sprint 109 geocoding hardening"
 - Consumes: Node.js CommonJS service files.
 - Produces: package scripts `test`, `test:unit`, `test:regression`.
 
-- [ ] Add test scripts and test dependencies.
+- [ ] Add test scripts only.
 
 Update `services/geocoding-service/package.json` scripts to:
 
@@ -163,16 +170,9 @@ Update `services/geocoding-service/package.json` scripts to:
 }
 ```
 
-Add dev dependencies if absent from the root lock:
-
-```json
-{
-  "jest": "^29.7.0",
-  "supertest": "^7.0.0"
-}
-```
-
-Use the repo's existing Jest version if `package-lock.json` already resolves a compatible version.
+Do not add `jest` or `supertest` to `services/geocoding-service/package.json` unless verification proves
+they cannot resolve from the existing root install. Planning review confirmed both are already available
+from root `node_modules`; adding duplicate service dev dependencies would force avoidable lockfile churn.
 
 - [ ] Create the initial unit test file with a failing import.
 
@@ -189,8 +189,8 @@ describe('geocodingService helpers', () => {
   })
 
   test('rejects short or unsafe queries', () => {
-    expect(validateSearchQuery('s')).toEqual({ ok: false, code: 'INVALID_QUERY' })
-    expect(validateSearchQuery('Oakland<script>')).toEqual({ ok: false, code: 'INVALID_QUERY' })
+    expect(validateSearchQuery('s')).toMatchObject({ ok: false, code: 'INVALID_QUERY' })
+    expect(validateSearchQuery('Oakland<script>')).toMatchObject({ ok: false, code: 'INVALID_QUERY' })
   })
 
   test('throttle waits before a second external call', async () => {
@@ -212,6 +212,27 @@ describe('geocodingService helpers', () => {
     expect(calls).toEqual(['first'])
     jest.advanceTimersByTime(1000)
     await second
+    expect(calls).toEqual(['first', 'second'])
+    jest.useRealTimers()
+  })
+
+  test('throttle recovers after a rejected external call', async () => {
+    jest.useFakeTimers()
+    const throttle = createExternalThrottle(1000)
+    const calls = []
+
+    await expect(throttle(() => {
+      calls.push('first')
+      return Promise.reject(new Error('temporary network failure'))
+    })).rejects.toThrow('temporary network failure')
+
+    const second = throttle(() => {
+      calls.push('second')
+      return Promise.resolve('second')
+    })
+
+    jest.advanceTimersByTime(1000)
+    await expect(second).resolves.toBe('second')
     expect(calls).toEqual(['first', 'second'])
     jest.useRealTimers()
   })
@@ -317,7 +338,7 @@ function createExternalThrottle(intervalMs) {
   let chain = Promise.resolve()
 
   return function throttled(fn) {
-    chain = chain.then(async () => {
+    const run = chain.catch(() => undefined).then(async () => {
       const elapsed = Date.now() - lastRun
       if (lastRun > 0 && elapsed < intervalMs) {
         await new Promise(resolve => setTimeout(resolve, intervalMs - elapsed))
@@ -325,7 +346,8 @@ function createExternalThrottle(intervalMs) {
       lastRun = Date.now()
       return fn()
     })
-    return chain
+    chain = run.catch(() => undefined)
+    return run
   }
 }
 
@@ -359,6 +381,7 @@ git commit -m "feat(geocoding): extract testable service helpers"
 **Files:**
 - Create: `services/geocoding-service/src/geocodingApp.js`
 - Modify: `services/geocoding-service/index.js`
+- Modify: `services/geocoding-service/Dockerfile`
 - Modify: `services/geocoding-service/tests/regression/geocodingRoutes.test.js`
 
 **Interfaces:**
@@ -481,23 +504,28 @@ function createApp({ pool, fetchImpl, logger = console, allowedOrigins = ['http:
 }
 
 async function callNominatim(fetchImpl, normalized, logger) {
-  const response = await fetchImpl(
-    `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(normalized)}&format=json&limit=5&addressdetails=1`,
-    { headers: { 'User-Agent': DEFAULT_USER_AGENT }, timeout: 5000 }
-  )
-  if (!response.ok) {
-    logger.error(`Nominatim API error: ${response.status}`)
+  try {
+    const response = await fetchImpl(
+      `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(normalized)}&format=json&limit=5&addressdetails=1`,
+      { headers: { 'User-Agent': DEFAULT_USER_AGENT }, timeout: 5000 }
+    )
+    if (!response.ok) {
+      logger.error(`Nominatim API error: ${response.status}`)
+      return []
+    }
+    const results = await response.json()
+    if (!Array.isArray(results)) return []
+    return results.map(result => ({
+      display_name: result.display_name || 'Unknown location',
+      address: result.display_name?.split(',')[0] || normalized,
+      lat: parseFloat(result.lat) || 0,
+      lng: parseFloat(result.lon) || 0,
+      type: result.type || 'place',
+    }))
+  } catch (error) {
+    logger.error('Nominatim API call failed:', error)
     return []
   }
-  const results = await response.json()
-  if (!Array.isArray(results)) return []
-  return results.map(result => ({
-    display_name: result.display_name || 'Unknown location',
-    address: result.display_name?.split(',')[0] || normalized,
-    lat: parseFloat(result.lat) || 0,
-    lng: parseFloat(result.lon) || 0,
-    type: result.type || 'place',
-  }))
 }
 
 module.exports = { createApp, callNominatim }
@@ -538,6 +566,24 @@ process.on('SIGTERM', async () => {
 })
 ```
 
+- [ ] Update `services/geocoding-service/Dockerfile` to copy the extracted `src/` directory.
+
+Builder stage:
+
+```dockerfile
+# Copy service source
+COPY services/geocoding-service/index.js ./services/geocoding-service/index.js
+COPY services/geocoding-service/src ./services/geocoding-service/src
+```
+
+Production stage:
+
+```dockerfile
+# Copy service source
+COPY --chown=node:node --from=builder /app/services/geocoding-service/index.js ./index.js
+COPY --chown=node:node --from=builder /app/services/geocoding-service/src ./src
+```
+
 - [ ] Expand route regression tests for cache hit and cache miss.
 
 ```js
@@ -558,6 +604,33 @@ test('GET /search returns cached result without calling external geocoder', asyn
 })
 ```
 
+- [ ] Add a route regression test proving one external failure does not poison future cache misses.
+
+```js
+test('GET /search recovers after a transient external geocoder rejection', async () => {
+  const pool = {
+    query: jest.fn()
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [], rowCount: 1 }),
+  }
+  const fetchImpl = jest.fn()
+    .mockRejectedValueOnce(new Error('temporary network failure'))
+    .mockResolvedValueOnce({
+      ok: true,
+      json: async () => [{ display_name: 'Berkeley, CA', lat: '37.8715', lon: '-122.2730', type: 'city' }],
+    })
+  const app = createApp({ pool, fetchImpl, logger: { error: jest.fn() } })
+
+  const first = await request(app).get('/search?q=Oakland').expect(200)
+  expect(first.body.data.results).toEqual([])
+
+  const second = await request(app).get('/search?q=Berkeley').expect(200)
+  expect(second.body.data.results[0].address).toBe('Berkeley')
+})
+```
+
 - [ ] Run route tests.
 
 ```bash
@@ -569,7 +642,7 @@ Expected: all route tests pass.
 - [ ] Commit the extraction.
 
 ```bash
-git add services/geocoding-service/index.js services/geocoding-service/src services/geocoding-service/tests/regression
+git add services/geocoding-service/index.js services/geocoding-service/src services/geocoding-service/Dockerfile services/geocoding-service/tests/regression
 git commit -m "feat(geocoding): extract hardened app routes"
 ```
 
@@ -611,12 +684,45 @@ it('tries the backend geocoding cache before direct Nominatim fallback', async (
 })
 ```
 
+- [ ] Add a frontend test proving backend timeout does not silently fall through to direct Nominatim.
+
+```ts
+it('does not call public Nominatim when the backend geocoding cache times out', async () => {
+  ;(geocodingCache.searchCommonLocations as jest.Mock).mockResolvedValue([])
+  ;(geocodingCache.getCachedResult as jest.Mock).mockResolvedValue(null)
+  ;(geocodingCache.cacheAPIResult as jest.Mock).mockResolvedValue(undefined)
+
+  const timeoutError = new DOMException('The operation timed out', 'TimeoutError')
+  const fetchMock = global.fetch as jest.Mock
+  fetchMock.mockRejectedValueOnce(timeoutError)
+
+  const results = await searchAddresses('Oakland')
+
+  expect(fetchMock).toHaveBeenCalledTimes(1)
+  expect(fetchMock.mock.calls[0][0]).toContain('/search?q=Oakland')
+  expect(results).toEqual([])
+})
+```
+
 - [ ] Add a short code comment in `geocoding.ts` above the direct external fallback.
 
 ```ts
 // Last-resort fallback only: the backend geocoding cache is the app-wide Nominatim policy boundary.
 // Keep local caches + backend cache ahead of direct public API calls.
 ```
+
+- [ ] Adjust backend timeout/fallback behavior in `geocoding.ts`.
+
+Implementation requirements:
+
+- Increase backend `/search` timeout from `2000ms` to at least `6500ms`, so normal one-per-second
+  backend throttling does not cause avoidable browser fallback.
+- Track backend errors by type.
+- Allow direct browser-to-Nominatim fallback only for clear backend reachability failures (for example,
+  connection refused or failed fetch).
+- Do **not** fall through to direct Nominatim for `AbortError`, `TimeoutError`, or other slow-backend
+  timeout signals. In that case, continue to legacy localStorage cache and return `[]` if no local cache
+  exists.
 
 - [ ] Run the focused frontend geocoding test.
 
@@ -654,20 +760,13 @@ npm audit --package-lock-only --audit-level=high --json
 npm audit --package-lock-only --audit-level=moderate --json
 ```
 
-- [ ] If a safe leaf fix is available, add or update a scoped root override and apply with `npm update`.
+- [ ] Preserve the existing exact `tar` override unless a deliberate ADR-059-compatible replacement is
+approved.
 
-Current likely candidates from the planning snapshot:
-
-```json
-{
-  "overrides": {
-    "tar": ">=7.5.16"
-  }
-}
-```
-
-Only use a version that exists in npm and does not violate existing ADR-059 tar override lessons. If no
-patched `tar` version exists yet, do not invent one.
+Root `package.json` currently pins `"tar": "7.5.15"` exactly because ADR-059 found range overrides can
+leave vulnerable nested workspace copies in place. Do not loosen this to `>=...` during Sprint 109. If
+a new patched `tar` version exists and must be adopted, use an exact version and verify `npm ci`/CI
+lockfile behavior; otherwise document the moderate alert as carry-forward.
 
 - [ ] If `js-yaml` can be fixed by a safe override without downgrading or major-changing Jest, apply it.
 
