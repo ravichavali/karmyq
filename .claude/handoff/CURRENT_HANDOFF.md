@@ -1,139 +1,128 @@
-# Sprint 108 - Responder Home Actionability & Decision Truth - IN PR REVIEW (v11.15.0 -> v11.16.0)
+# Sprint 109 - Geocoding Cache Hardening & Dependency Hygiene - READY TO EXECUTE (v11.16.0 -> v11.17.0)
 
-> **STATUS (2026-06-22):** Sprint 108 is **fully implemented** on branch
-> `feature/sprint-108-responder-home-actionability` and opened as **PR #110**
-> (https://github.com/ravichavali/karmyq/pull/110). All 11 plan tasks executed; tests green; docs done;
-> version bumped to 11.16.0. **Awaiting CI green + cross-agent review + maintainer merge.** Not merged
-> or deployed yet.
+> **STATUS (2026-06-22):** Sprint 108 is merged on local `master` as
+> `81bc8d38 Sprint 108: Responder Home Actionability & Decision Truth (v11.16.0) (#110)`.
+> Sprint 109 planning is complete. Execute from branch
+> `feature/sprint-109-geocoding-cache-hardening`.
 
 ---
 
-## Quick Start (for the next session)
+## Quick Start
 
 1. Read this handoff.
-2. Check PR #110 state: `gh pr checks 110` and `gh pr view 110`.
-3. **If CI green + approved →** merge (squash), confirm `state=MERGED`, then `/deploy` (push-to-master
-   → GitHub Actions). Reset local master after merge.
-4. **Then the one remaining human step:** browser-validate as `maria.reyes@test.karmyq.com` /
-   `password123` once the sim has generated admin-proposed matches — Home "suggested you as a helper"
-   preview → Helping DecisionBand accept → matched; offered-awaiting band actionable (Open ask →);
-   caught-up copy honest. Validate desktop + mobile.
-5. **If review surfaces findings →** address on the branch; the cross-agent reviewer is the other model
-   (Codex), per the protocol — Claude authored this PR.
-
-## What shipped (PR #110)
-
-- **Backend** (`request-service/src/routes/requests.ts`): `fetchDecisions` projects `m.admin_proposed`
-  and surfaces admin-proposed responder matches as `member_role:'responder'` match decisions
-  (accept/decline → `PUT /matches/:id/accept|reject`); ownership flips symmetrically (admin-proposed →
-  responder owes; self-offer → requester owes; requester of admin-proposed owes nothing). New
-  `suggestedAsHelper:{count,items}` home payload via shared `fetchProposedResponderAsks`.
-- **Frontend**: new `SuggestedAsHelperPanel` (Home preview, links to Helping — BUG-015 keeps the
-  actionable band off Home); `DecisionBand` labels + routes admin-proposed; `OfferedAwaitingPanel` gets
-  an explicit "Open ask →"; `CommitmentsTab` dedupe (proposed matches never render as helping cards).
-- **Sim**: `admin-propose-helper-workflow` wired into COMMUNITY_BUILDER (weight + selectWorkflow
-  candidate) generating `admin_proposed` matches.
-- **BUG-009** verified **fixed** live; **BUG-010** **cannot-reproduce** — both updated in `docs/BUGS.md`.
-- **Docs**: guides, both CONTEXT.md, registry.json, onboarding, regenerated landing docs.
+2. Check out branch: `git checkout -b feature/sprint-109-geocoding-cache-hardening`.
+3. Open plan: `docs/superpowers/plans/2026-06-22-sprint-109-geocoding-cache-hardening.md`.
+4. Run: `/execute-plan` (uses superpowers:subagent-driven-development or executing-plans).
+5. Before implementation, read local context:
+   - `services/geocoding-service/.claude/README.md`
+   - `services/geocoding-service/CONTEXT.md`
+   - `apps/frontend/.claude/README.md`
+   - `apps/frontend/CONTEXT.md`
 
 ---
 
 ## Sprint Goal
 
-Preview admin-proposed responder decisions on Home and make them actionable in Helping ("preview on
-Home, decide in Helping"), make the caught-up terminal copy
-honest, enrich the Home offered-awaiting preview into an actionable band, add a sim workflow that
-generates admin-proposed matches, and reproduce-verify BUG-009/BUG-010.
+Keep `geocoding-service` as Karmyq's shared geocoding cache and public-API policy boundary, then harden
+its tests, response contract, docs, and dependency posture.
 
 ---
 
-## The Core Defect (one paragraph)
+## Design Decision
 
-`fetchDecisions` ([services/request-service/src/routes/requests.ts:924-928](../../services/request-service/src/routes/requests.ts))
-unconditionally drops **every** responder-side `proposed` match, assuming it is always the member's
-own offer awaiting the requester. That is wrong for **admin/matchmaker-proposed** matches
-(`admin_proposed = TRUE`): there the member owes the accept/decline (the rule `matches.ts:306`
-already enforces). These owed decisions reach neither Home (decision band drops them) nor
-offered-awaiting (which excludes `admin_proposed`), appearing only as Helping cards. So an active
-helper's Home understates owed work — the root of "Maria's Home reads empty" (IDEAS 2026-06-15).
+The maintainer chose **not** to decommission `geocoding-service`. The backend exists for a real reason:
+it reduces repeated public Nominatim hits through shared PostgreSQL caching, centralizes app-wide
+external API throttling, and allows provider switching without a frontend release. Sprint 109 is a
+hardening sprint, not a service-count-reduction sprint.
 
-## Design Decision (maintainer-confirmed)
+Official Nominatim policy context checked during planning:
 
-BUG-015 deliberately moved the actionable `DecisionBand` off Home into Helping
-([UnifiedFeed.tsx:226](../../apps/frontend/src/components/Feed/UnifiedFeed.tsx)). We keep that intact.
-Admin-proposed responder matches become **canonical decisions in the Helping DecisionBand**; Home gets
-a **non-actionable preview band** ("N neighbours suggested you as a helper" → Respond in Helping), fed
-by a new additive `suggestedAsHelper` field on the curated-home payload. **Do not render
-`kind==='decision'` items in Home's UnifiedFeed.**
+- Public `nominatim.openstreetmap.org` has an app-wide maximum of 1 request/second.
+- Apps should cache results.
+- Apps should be able to switch providers when asked.
+- Client-side autocomplete against the public API is not acceptable as a primary design.
 
-## In Scope (maintainer-confirmed)
-
-1. **Admin-proposed → Helping DecisionBand + Home preview band** — surface `admin_proposed=TRUE`
-   responder matches as canonical Helping decisions; Home previews them and links to Helping. The
-   concrete fix.
-2. **"Caught up" overclaim** — never claim "That's everyone" when browsable community asks exist;
-   scope the claim to direct matches.
-3. **Richer Home offered-awaiting** — make `OfferedAwaitingPanel` previewed asks actionable (calm
-   band, not a decision).
-4. **Sim creates admin-proposed** — new workflow so the demo exercises the fixed path.
-5. **Verify BUG-009 + BUG-010** — reproduce-first; their `planned (Sprint 100)` labels predate the
-   S100 fixes, so they may already be fixed.
-
-## Out of Scope
-
-- Visible forgetting / "platform forgets" decay arc.
-- Dibs server-side relationship routing (IDEAS 2026-06-09).
-- Member forget/export; Service Consolidation Phase 2; mobile parity beyond responsive validation.
-- A true directed/paid provider-request flow (S99-004 deferral stands).
-
----
-
-## Critical Implementation Notes (copied from spec)
-
-1. **`admin_proposed` is the only discriminator.** A `proposed` responder match is a decision iff
-   `admin_proposed = TRUE`. Self-offers (`FALSE`) stay offered-awaiting — never surface them as
-   decisions (re-creates BUG-022/023 duplication).
-2. **Project `m.admin_proposed`** in the decisions SELECT (requests.ts:900-917) — not currently
-   selected.
-3. **Verify the responder decline path.** `PUT /matches/:id/accept` already authorizes the responder
-   for admin-proposed (matches.ts:306); confirm the reject/decline path does too, fix if not.
-4. **DecisionBand action handler branches on `subject_kind` + `member_role`.** Responder-role `match`
-   accept → `PUT /matches/:id/accept`; mirror the existing dibs responder path; do not use the
-   requester path. This band renders in **Helping**, not Home.
-4a. **Home gets a preview band, not the DecisionBand.** Add `suggestedAsHelper:{count,items}` to the
-   home payload and render `SuggestedAsHelperPanel`; do NOT start rendering `kind==='decision'` items
-   in `UnifiedFeed` (BUG-015).
-5. **Caught-up copy scoped to direct matches.** The non-community branch copy is already honest; the
-   residual risk is the community-view "That's everyone for now." Audit every terminal path.
-6. **OfferedAwaitingPanel stays a calm band**, visually distinct from the DecisionBand.
-7. **Sim admin-propose needs an admin/steward session** (reuse governance/admin pattern); propose only
-   eligible members with no existing live match (409s otherwise — handle gracefully).
-8. **BUG-009/010 reproduce-first** on live demo before any code.
-9. **Counts derive from freshly mapped decision rows**, not stale React state (S107 lesson).
-10. **Prove the dedupe both directions** in tests: admin-proposed → DecisionBand only; self-offer →
-    offered-awaiting only.
+Therefore frontend must remain local-cache-first and backend-cache-second; direct public Nominatim
+fallback stays last-resort only.
 
 ---
 
 ## Planning Artifacts
 
-- Spec: `docs/superpowers/specs/2026-06-22-sprint-108-responder-home-actionability-design.md`
-- Plan: `docs/superpowers/plans/2026-06-22-sprint-108-responder-home-actionability.md`
+- Spec: `docs/superpowers/specs/2026-06-22-sprint-109-geocoding-cache-hardening-design.md`
+- Plan: `docs/superpowers/plans/2026-06-22-sprint-109-geocoding-cache-hardening.md`
+
+---
+
+## In Scope
+
+1. **Keep and harden geocoding-service** — retain `/search`, `/cache`, `/stats`, `/cleanup`, and `/health`.
+2. **Central outbound throttling** — inbound `express-rate-limit` is not enough; outbound Nominatim calls
+   need an app-process throttle.
+3. **ADR-074-style route envelopes** — keep `/health` flat for infrastructure compatibility; use
+   `{ success, data, message, error }` for application routes.
+4. **Real test coverage** — add package scripts plus unit/regression tests with mocked DB/fetch.
+5. **Frontend boundary regression** — prove frontend tries backend geocoding cache before any direct
+   external fallback.
+6. **Docs and registry drift fix** — service docs currently claim no frontend consumer and Redis
+   dependency; correct to frontend consumer + PostgreSQL.
+7. **ADR-080** — record why geocoding-service is retained as an external API policy boundary and update
+   ADR-071 follow-up.
+8. **Dependency hygiene** — keep high/critical audit clean; triage moderate alerts without risky major
+   Expo/Jest churn.
+
+## Out of Scope
+
+- Deleting or folding `geocoding-service`.
+- Member forget/export controls.
+- Cleanup-service replacement.
+- Paid provider migration (Mapbox/Google/etc.).
+- Self-hosting Nominatim.
+- Reverse geocoding.
+- Address-book product work.
+- Major Expo/Jest migration solely for moderate audit alerts.
+
+---
+
+## Critical Implementation Notes
+
+1. **Do not decommission `geocoding-service`.** The backend is retained as the shared cache and external
+   API policy boundary.
+2. **Do not make browser-to-Nominatim the primary autocomplete path.** Direct external calls stay a
+   last-resort fallback after local caches and backend cache fail.
+3. **Respect the Nominatim policy.** Centralize outbound Nominatim calls, send a real Karmyq
+   `User-Agent`, cache results, and throttle app-wide external requests to at most one request per
+   second per process.
+4. **Per-client HTTP rate limits are not enough.** `express-rate-limit` limits inbound callers; add a
+   separate outbound throttle around `callNominatimAPI`.
+5. **Response envelopes should match ADR-074.** Keep `/health` compatible, but use
+   `{ success, data, message, error }` for API and error responses.
+6. **Fix documentation drift.** The service is not "no dependents" in practice: frontend geocoding
+   consumes it. It uses PostgreSQL, not Redis.
+7. **Add test scripts before relying on tests.** `services/geocoding-service/package.json` currently has
+   no `test`, `test:unit`, or `test:regression` scripts.
+8. **Mock external calls in tests.** Tests must not call public Nominatim. Use mocked `fetch` and mocked
+   `pool.query`.
+9. **Do not take risky dependency majors.** Moderate audit cleanup is bounded; Expo/Jest major churn is
+   out of scope unless proven safe.
+10. **Update ADR-071/ADR-080 coherently.** ADR-071's geocoding follow-up should point to ADR-080's
+    decision to retain and harden the service.
 
 ---
 
 ## Carry-Forward / Known Issues
 
-- **BUG-009 / BUG-010**: stale `planned (Sprint 100)` labels — verify **first** (Task 2, before any
-  fix code).
-- **Reconnect CTA** remains deferred until real peer messaging / directed-ask.
-- **Dibs server-side relationship routing** (IDEAS 2026-06-09) remains open.
-- **"Platform forgets" visible decay** remains a future multi-sprint arc.
-- **Member forget/export** privacy follow-on remains open.
-- **request-forgery FP on `apps/frontend/src/lib/api.ts`** — known/recurring; dismiss as FP.
+- **Member forget/export** privacy follow-on remains open and intentionally out of Sprint 109.
+- **Dibs server-side relationship routing** appears substantially implemented by ADR-072/S93; revisit only
+  if a fresh defect appears.
+- **Cleanup-service replacement** remains deferred because it owns non-trivial scheduled retention/memory
+  jobs.
+- **request-forgery FP on `apps/frontend/src/lib/api.ts`** — known/recurring; dismiss as FP if it recurs.
+- **Moderate dependency alerts**: planning snapshot showed `high:0`, `critical:0`, `moderate:21`, mostly
+  Expo/Jest/tooling transitives. Fix safe leaves only; document risky major churn as carry-forward.
 - **Pre-existing security drift:** Dependabot/CodeQL alerts follow ADR-059/ADR-060 SLA.
-- **Pre-existing test drift:** `apps/frontend/tests/tdd/sprint-85-unified-feed.test.tsx` had a stale
-  `request_type:'service'` assertion on master; baseline if it appears.
+- **Pre-existing test drift:** root Turbo test targets can cache or skip changed-package coverage; run
+  `npm --workspace=geocoding-service test` and focused frontend tests directly.
 
 ---
 
@@ -147,9 +136,9 @@ by a new additive `suggestedAsHelper` field on the curated-home payload. **Do no
 - **S105 (done):** UI Facelift Implementation (v11.13.0).
 - **S106 (done):** Post-Facelift Correctness & Link-Up Clarity (v11.14.0/.1).
 - **S107 (done):** App Shell Clarity & Commitment Truth (v11.15.0).
-- **S108 (planned, this sprint):** Responder Home Actionability & Decision Truth (v11.16.0).
-- **Deferred:** visible forgetting; Dibs relationship routing; member forget/export; Service
-  Consolidation Phase 2; mobile parity.
+- **S108 (done):** Responder Home Actionability & Decision Truth (v11.16.0).
+- **S109 (planned):** Geocoding Cache Hardening & Dependency Hygiene (v11.17.0).
+- **Deferred:** member forget/export; cleanup-service replacement; mobile parity.
 
 ---
 
@@ -178,7 +167,7 @@ by a new additive `suggestedAsHelper` field on the curated-home payload. **Do no
   `apps/frontend/tailwind.config.js`; per-community skins via `ThemeContext`/`ThemeProvider`.
 - **Landing page docs:** `apps/landing/src/data/docs/` is gitignored - `git add -f` when generated
   docs must be committed. Generated by `scripts/generate-docs.ts`; edit sources, never generated JSON.
-- **ADR numbering:** ADR-079 is the last; next free = **080**.
+- **ADR numbering:** Sprint 109 creates ADR-080; next free after this sprint = **081**.
 - **JWT field** is `communities`, not `communityMemberships`.
 - **Schema is `communities.communities`** (plural schema name); auth tables are `auth.*`.
 - **API response unwrap:** `createApiClient` interceptor already unwraps - use `res.data`, not
@@ -188,6 +177,8 @@ by a new additive `suggestedAsHelper` field on the curated-home payload. **Do no
 - **`git add` on CLAUDE.md:** tracked as lowercase `claude.md`.
 - **Solo dev - no worktrees:** work directly on feature branches.
 - **request-service serves the feed** (`/requests/feed`); there is no feed-service.
+- **geocoding-service stays separate in Sprint 109:** it is the backend cache and external geocoder
+  policy boundary.
 
 ### Workflow Gotchas
 
@@ -200,13 +191,12 @@ by a new additive `suggestedAsHelper` field on the curated-home payload. **Do no
   mock.
 - Root Turbo `test:unit`/`test:regression` can exit before tests (missing target in one workspace);
   run changed-package unit/regression targets directly.
-- DB-backed TDD tests need a reachable local Postgres and may need to seed `creator_id` (cf. S107
-  offered-awaiting-truth test).
-- `npm audit --package-lock-only --audit-level=high` is blocked by tenant policy in-agent; rely on the
-  CI ADR-059 gate.
+- DB-backed TDD tests need a reachable local Postgres and may need to seed `creator_id`.
+- `npm audit --package-lock-only --audit-level=high` may need network/escalated shell; CI ADR-059 gate
+  remains authoritative.
 
 ### Demo / Deploy Drift Watch
 
 `karmyq.org` / demo live content has drifted from `master` before. Confirm the latest deploy
 succeeded and live content matches `master` before judging by live content. Demo tester:
-`maria.reyes@test.karmyq.com` / `password123` (rich account, the canonical responder-Home repro).
+`maria.reyes@test.karmyq.com` / `password123`.
