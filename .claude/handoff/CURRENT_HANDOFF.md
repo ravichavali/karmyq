@@ -1,26 +1,40 @@
-# Sprint 108 - Responder Home Actionability & Decision Truth - READY TO EXECUTE (v11.15.0 -> v11.16.0)
+# Sprint 108 - Responder Home Actionability & Decision Truth - IN PR REVIEW (v11.15.0 -> v11.16.0)
 
-> **STATUS (2026-06-22):** Sprint 107 (App Shell Clarity) is **merged to master** (PRs #107, #109,
-> v11.15.0) — the prior handoff's "validation pending" was stale. Sprint 108 is planned and ready to
-> execute. Spec + plan are written; no code yet.
+> **STATUS (2026-06-22):** Sprint 108 is **fully implemented** on branch
+> `feature/sprint-108-responder-home-actionability` and opened as **PR #110**
+> (https://github.com/ravichavali/karmyq/pull/110). All 11 plan tasks executed; tests green; docs done;
+> version bumped to 11.16.0. **Awaiting CI green + cross-agent review + maintainer merge.** Not merged
+> or deployed yet.
 
 ---
 
-## Quick Start
-
-> **⚠️ The plan/spec/handoff live in a local-master commit ahead of `origin/master`.** Branching off
-> `origin/master` (correct — avoids a docs-only master push) drops them from the worktree, so Task 1
-> **cherry-picks** the planning commit onto the branch.
+## Quick Start (for the next session)
 
 1. Read this handoff.
-2. Branch + carry the planning commit (Task 1):
-   ```bash
-   git fetch origin
-   git checkout -b feature/sprint-108-responder-home-actionability origin/master
-   git cherry-pick $(git rev-parse master)   # planning commit = local-master tip
-   ```
-3. Open plan: `docs/superpowers/plans/2026-06-22-sprint-108-responder-home-actionability.md`
-4. Run: `/execute-plan` (uses superpowers:subagent-driven-development), starting at Task 2.
+2. Check PR #110 state: `gh pr checks 110` and `gh pr view 110`.
+3. **If CI green + approved →** merge (squash), confirm `state=MERGED`, then `/deploy` (push-to-master
+   → GitHub Actions). Reset local master after merge.
+4. **Then the one remaining human step:** browser-validate as `maria.reyes@test.karmyq.com` /
+   `password123` once the sim has generated admin-proposed matches — Home "suggested you as a helper"
+   preview → Helping DecisionBand accept → matched; offered-awaiting band actionable (Open ask →);
+   caught-up copy honest. Validate desktop + mobile.
+5. **If review surfaces findings →** address on the branch; the cross-agent reviewer is the other model
+   (Codex), per the protocol — Claude authored this PR.
+
+## What shipped (PR #110)
+
+- **Backend** (`request-service/src/routes/requests.ts`): `fetchDecisions` projects `m.admin_proposed`
+  and surfaces admin-proposed responder matches as `member_role:'responder'` match decisions
+  (accept/decline → `PUT /matches/:id/accept|reject`); ownership flips symmetrically (admin-proposed →
+  responder owes; self-offer → requester owes; requester of admin-proposed owes nothing). New
+  `suggestedAsHelper:{count,items}` home payload via shared `fetchProposedResponderAsks`.
+- **Frontend**: new `SuggestedAsHelperPanel` (Home preview, links to Helping — BUG-015 keeps the
+  actionable band off Home); `DecisionBand` labels + routes admin-proposed; `OfferedAwaitingPanel` gets
+  an explicit "Open ask →"; `CommitmentsTab` dedupe (proposed matches never render as helping cards).
+- **Sim**: `admin-propose-helper-workflow` wired into COMMUNITY_BUILDER (weight + selectWorkflow
+  candidate) generating `admin_proposed` matches.
+- **BUG-009** verified **fixed** live; **BUG-010** **cannot-reproduce** — both updated in `docs/BUGS.md`.
+- **Docs**: guides, both CONTEXT.md, registry.json, onboarding, regenerated landing docs.
 
 ---
 
