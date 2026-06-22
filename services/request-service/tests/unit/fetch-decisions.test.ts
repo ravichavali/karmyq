@@ -71,7 +71,7 @@ describe('fetchDecisions — provider offers are owed by the request owner', () 
 });
 
 describe('fetchDecisions — match role mapping', () => {
-  const match = (over: any) => ({ id: 'm1', request_id: 'r', requester_id: 'x', responder_id: 'y', status: 'proposed', requester_done_at: null, responder_done_at: null, title: 'T', requester_name: 'Req', responder_name: 'Resp', community_name: 'C', ...over });
+  const match = (over: any) => ({ id: 'm1', request_id: 'r', requester_id: 'x', responder_id: 'y', status: 'proposed', admin_proposed: false, requester_done_at: null, responder_done_at: null, title: 'T', requester_name: 'Req', responder_name: 'Resp', community_name: 'C', ...over });
 
   it('a proposed match: the requester accepts/declines; the responder owes nothing here (S86)', async () => {
     seq([match({ requester_id: USER })], [], []);
@@ -84,6 +84,44 @@ describe('fetchDecisions — match role mapping', () => {
     seq([match({ responder_id: USER })], [], []);
     items = await fetchDecisions(noReq, USER);
     expect(items).toHaveLength(0);
+  });
+
+  it('S108: an admin-proposed match the member responds to IS a decision the responder owes', async () => {
+    // admin_proposed = TRUE means the matchmaker suggested THIS member as helper; the member owes the
+    // accept/decline (matches.ts:306 authorizes the responder), so it must surface in the band as a
+    // responder-role match decision — unlike a self-offer (admin_proposed = FALSE), which is awaiting
+    // the requester and stays out of the band.
+    seq([match({ responder_id: USER, admin_proposed: true })], [], []);
+    const items = await fetchDecisions(noReq, USER);
+    expect(items).toHaveLength(1);
+    expect(items[0].data).toMatchObject({
+      subject_id: 'm1',
+      subject_kind: 'match',
+      member_role: 'responder',
+      actions: ['accept_offer', 'decline_offer'],
+      counterparty_name: 'Req',
+    });
+  });
+
+  it('S108: a self-offer (admin_proposed = FALSE) responder match stays out of the decision band', async () => {
+    seq([match({ responder_id: USER, admin_proposed: false })], [], []);
+    const items = await fetchDecisions(noReq, USER);
+    expect(items).toHaveLength(0);
+  });
+
+  it('S108: the REQUESTER of an admin-proposed match owes no decision (only the suggested helper can accept)', async () => {
+    // matches.ts:306 authorizes only the responder to accept an admin-proposed match — surfacing an
+    // accept/decline to the requester would be a 403 they cannot action. The requester only waits.
+    seq([match({ requester_id: USER, admin_proposed: true })], [], []);
+    const items = await fetchDecisions(noReq, USER);
+    expect(items).toHaveLength(0);
+  });
+
+  it('S108: the decisions SELECT projects m.admin_proposed (the discriminator)', async () => {
+    seq([match({ requester_id: USER })], [], []);
+    await fetchDecisions(noReq, USER);
+    const matchSql = mockQuery.mock.calls[0][0] as string;
+    expect(matchSql).toMatch(/m\.admin_proposed/);
   });
 
   it('enriches each decision with request context for the inline expand (description + payload_type)', async () => {
