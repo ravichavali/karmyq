@@ -23,6 +23,16 @@ Below the band is the feed of open requests from your communities and trust netw
 
 When you have outstanding offers — asks you've offered on that are still waiting to hear back — Dashboard Home shows a calm band near the top: **"You've offered to help on N open asks. Waiting for the requester to respond."** Below it is a short preview of the actual asks, each linking to its own detail page, with a **View all in Helping** link for the full list. The curated feed hides asks you've already offered on (so you don't re-offer), and a pending offer is awaiting the requester rather than a decision you owe — so without this band an active helper's Home would read empty even with many offers in flight. The asks are real and named, not just a count, so you can pick one up where you left off.
 
+## Someone suggested you as a helper
+
+Sometimes a community admin or matchmaker suggests *you* as the helper for an open ask. When that
+happens, Dashboard Home shows a second calm band: **"N neighbours suggested you as a helper. Accept
+or decline in Helping."** Below it is a short preview of those asks, each linking to its detail page,
+with a **Respond in Helping →** link. Like the offered-to-help band, this is a calm preview — the
+actual **accept/decline** lives in the **Needs your response** band on the Helping tab, so the
+decision sits with your other commitment work rather than competing with new asks to browse. This is
+different from an offer you made: here the matchmaker proposed you, so the next move is yours.
+
 ## Opening a request
 
 Tapping anywhere on a request card opens its **detail page** — the canonical view of that ask. The detail page always shows the one action available to *you* in the ask's current state: **Offer to Help** (or **Offer service**) when you can act, **"waiting for the requester"** when you've already offered, **"This is your ask"** when it's your own, or a plain finite note (completed, cancelled, matched, or expired) when there's nothing to do. You never see an Offer button that fails when you tap it — eligibility is decided before the page renders.

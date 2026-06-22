@@ -328,6 +328,11 @@
         },
         {
           "method": "GET",
+          "path": "/requests/offered-awaiting (Sprint 107 / BUG-023)",
+          "description": "Canonical read endpoint for the same offered-awaiting predicate. Returns up to 50 distinct open,"
+        },
+        {
+          "method": "GET",
           "path": "/requests/retention-policy (Sprint 90 / ADR-069)",
           "description": "Backs the `/about/memory` transparency page. Returns the **resolved retention windows**"
         },
