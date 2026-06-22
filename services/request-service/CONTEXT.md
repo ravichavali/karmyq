@@ -587,6 +587,20 @@ community_id, community_name, urgency, request_type, payload_type, status:'propo
 Shared helper `fetchOfferedAwaiting(userId, previewLimit)` returns `{ count, items }`; fail-soft to
 `{ count: 0, items: [] }`.
 
+**Sprint 108 — `suggestedAsHelper` + admin-proposed decisions:** the home-feed response also carries
+`suggestedAsHelper: { count, items }` (same item shape as `offeredAwaitingItems`): the open asks where
+an admin/matchmaker proposed THIS member as helper (`admin_proposed = TRUE`, `proposed` responder
+match, request open + unexpired) and the member owes the accept/decline. Home renders the calm
+`SuggestedAsHelperPanel` preview from it and links to Helping. Both bands share one private helper
+`fetchProposedResponderAsks(userId, adminProposed, previewLimit)`; `fetchOfferedAwaiting` calls it with
+`FALSE`, `fetchSuggestedAsHelper` with `TRUE`. **Separately**, `fetchDecisions` now projects
+`m.admin_proposed` and surfaces admin-proposed responder matches as `member_role:'responder'`
+`subject_kind:'match'` decisions with `accept_offer`/`decline_offer` — these render in the **Helping**
+`DecisionBand` (BUG-015 keeps the actionable band off Home), routed to `PUT /matches/:id/accept|reject`
+(the responder is authorized for both, matches.ts:306 + the reject participant check). The flip is
+symmetric: for an admin-proposed match the **responder** owes (the requester only waits); for a
+self-offer the **requester** owes (the responder's offer is offered-awaiting).
+
 #### GET /requests/offered-awaiting (Sprint 107 / BUG-023)
 Canonical read endpoint for the same offered-awaiting predicate. Returns up to 50 distinct open,
 unexpired asks where the authenticated member has a member-initiated (`admin_proposed = FALSE`)

@@ -31,10 +31,18 @@ const PRIMARY_ACTIONS = new Set<DecisionAction>(['accept_offer', 'accept_dibs', 
  * Relationship label before the counterparty's name. A requester sees offers/dibs/matches coming
  * "From" a helper; a responder sees "Your offer to" the requester — except a dib is the requester's
  * first-ask TO the provider, so it reads "First ask from".
+ *
+ * S108: a responder-role `match` still owing accept/decline is an admin/matchmaker proposal (a
+ * self-offer never reaches the band — it's offered-awaiting), so it reads as a suggestion, not the
+ * member's own offer.
  */
 function relationLabel(decision: DecisionData): string {
   if (decision.member_role === 'requester') return 'From'
-  return decision.subject_kind === 'dibs' ? 'First ask from' : 'Your offer to'
+  if (decision.subject_kind === 'dibs') return 'First ask from'
+  if (decision.subject_kind === 'match' && decision.actions.includes('accept_offer')) {
+    return 'Suggested you as a helper for'
+  }
+  return 'Your offer to'
 }
 
 /** Route a decision action to the canonical service call (shared with CommitmentsTab). */

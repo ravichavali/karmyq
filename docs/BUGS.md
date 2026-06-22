@@ -113,7 +113,7 @@ mirroring cancel.
 
 ---
 
-## BUG-009 · [2026-06-08] · planned (Sprint 100)
+## BUG-009 · [2026-06-08] · fixed (verified live Sprint 108)
 
 In the community https://karmyq.com/communities/eb32c151-9953-409f-87ad-9abed720e4f4 the pulse shows This week, "4 neighbours helped each other thanks to Andre Chen, David Park, Maria Elena Reyes". However, when I go to "How we are connected", it shows no relationships. What's going on? (Pulse reports completed help / connections but the trust graph renders empty.)
 
@@ -125,15 +125,36 @@ responders AND reconciles connections from `request_communities` at completion (
 backfill script for historical matches. See
 `docs/superpowers/plans/2026-06-15-sprint-100-pulse-truth-actionability.md`.
 
+**Fixed — verified live against the named community (Sprint 108, reproduce-first):** both root causes
+resolved. (1) Headline now counts `COUNT(DISTINCT m.responder_id)`
+([requests.ts:1251](../services/request-service/src/routes/requests.ts)); live query scoped to
+community `eb32c151…` returns **3 distinct responders / 4 completed-rows this week** — the headline now
+reads 3, matching the 3 named helpers (the old `COUNT(*)=4` overcount is gone). (2) The community trust
+graph (`/trust/graph/:communityId/full` → `social_graph.trust_edges_live`, ADR-078 reconciliation +
+`backfill-community-connections.sql`) now has **13 live edges for the community, 7 renderable among
+active members** (weights 5.9–9.9, well above any decay threshold) — "How we're connected" renders
+connections, not empty. No further code change needed.
+
 ---
 
-## BUG-010 · [2026-06-14] · planned (Sprint 100)
+## BUG-010 · [2026-06-14] · cannot-reproduce (verified live Sprint 108)
 
 Failed to execute split on this page: https://karmyq.com/communities/446c2c65-64e1-4e8e-9d87-54671939a4da
 
 **Planned (Sprint 100, fold-in G2):** reproduce-first against the live community + server logs, fix at
 the correct layer, add a regression test (or document if not reproducible). See
 `docs/superpowers/plans/2026-06-15-sprint-100-pulse-truth-actionability.md` Task 9.
+
+**Cannot reproduce — verified live (Sprint 108, reproduce-first):** splits on this community
+(`446c2c65…` "Marin Mutual Aid") now succeed. Live DB shows two split proposals, **both
+`status='executed'`** (none stuck/failed), and the executions produced child communities — "Marin
+Mutual Aid — Group A/B" created **2026-06-13** and named children ("Marin Helping Hands", "We are
+Marin Aid") created **2026-06-16**, i.e. straddling and after the 06-14 report. Two weeks of
+`karmyq-community-service` logs show **zero** split/fission execution errors. The 06-14 failure was
+most likely a transient/pre-fix state in the split-admin selection path that BUG-011 (Sprint 103,
+`fissionService.selectChildAdmin`) subsequently hardened; the 06-16 successful splits post-date that
+fix. No current defect to fix; no regression test added (nothing reproduces). Reopen if a fresh
+execution failure surfaces.
 
 ---
 

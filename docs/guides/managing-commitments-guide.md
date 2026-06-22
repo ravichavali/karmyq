@@ -2,7 +2,7 @@
 
 Your Helping tab shows every active exchange you're part of — requests you've offered to help with, matches proposed to you by an admin, and exchanges you've already completed. Cards are sorted by what needs your attention most urgently.
 
-When you've offered on open asks that are still waiting on the requester, Dashboard Home shows a short **"You've offered to help"** preview that links each ask to its detail page and points here with **View all in Helping** — so the full list of what you're waiting on always lives in this tab.
+When you've offered on open asks that are still waiting on the requester, Dashboard Home shows a short **"You've offered to help"** preview that links each ask to its detail page and points here with **View all in Helping** — so the full list of what you're waiting on always lives in this tab. When a community admin or matchmaker **suggests you as a helper**, Home shows a second **"suggested you as a helper"** preview that points here too — the actual accept/decline waits in the band below.
 
 Offers and match detail pages now use the same warm card shell and humanized status labels as request
 detail. The status chip should read like plain product language, not an internal token.
@@ -15,6 +15,7 @@ At the very top of the Helping tab is the **Needs your response** band — every
 now, server-ranked so the response a counterparty is waiting on rises above your own housekeeping:
 
 - **An offer on your request** — Accept it to match, or Decline it.
+- **A suggestion to help** — when an admin or matchmaker suggested *you* as the helper on an ask, the band reads "{requester} suggested you as a helper" with **Accept** / **Decline**. (Home only previews these; you decide here.)
 - **A reserved request (Dibs)** — Accept or decline a trusted first-ask.
 - **A finished exchange** — Mark it done so both sides get credit.
 - **A completed exchange** — Rate it (see below).
@@ -134,8 +135,8 @@ Ratings are private trust signals used to compute reputation — they're never s
 
 If you've offered to help but circumstances change **before the requester accepts**, you can withdraw your offer:
 
-1. Find the proposed commitment in the **"Awaiting Acceptance"** section of your Helping tab
-2. Click **Withdraw Offer**
+1. Find the ask in the **"Offers awaiting requester"** band of your Helping tab (or via the **You've offered to help** preview on Home) and open it with **Open ask →**
+2. On the request's detail page, withdraw your pending offer
 3. The offer is removed and the request returns to open status
 
 You can only withdraw before the requester accepts. Once a match is accepted ("In Progress"), reach out via the inline conversation instead.

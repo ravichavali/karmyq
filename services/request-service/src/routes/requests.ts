@@ -898,7 +898,7 @@ export async function fetchDecisions(req: Request, userId: string): Promise<Unif
 
   try {
     const matchRows = await query(
-      `SELECT m.id, m.request_id, m.status, m.created_at,
+      `SELECT m.id, m.request_id, m.status, m.created_at, m.admin_proposed,
               m.requester_done_at, m.responder_done_at,
               hr.requester_id, m.responder_id, hr.title, hr.description, hr.payload, hr.category,
               requester.name AS requester_name, responder.name AS responder_name,
@@ -912,7 +912,7 @@ export async function fetchDecisions(req: Request, userId: string): Promise<Unif
        LEFT JOIN communities.communities c ON rc.community_id = c.id
        WHERE (hr.requester_id = $1 OR m.responder_id = $1)
          AND m.status IN ('proposed', 'matched')
-       GROUP BY m.id, m.request_id, m.status, m.created_at, m.requester_done_at,
+       GROUP BY m.id, m.request_id, m.status, m.created_at, m.admin_proposed, m.requester_done_at,
                 m.responder_done_at, hr.requester_id, m.responder_id, hr.title,
                 hr.description, hr.payload, hr.category, requester.name, responder.name`,
       [userId]
@@ -922,10 +922,13 @@ export async function fetchDecisions(req: Request, userId: string): Promise<Unif
       const isRequester = m.requester_id === userId;
       let actions: DecisionAction[] = [];
       if (m.status === 'proposed') {
-        // Only the REQUESTER owes a response (accept/decline). A responder's own proposed offer is
-        // awaiting the requester — not a decision the responder owes — and already appears in the
-        // Helping tab with a Withdraw action, so it is no longer surfaced in the decision band (S86 UX).
-        if (!isRequester) continue;
+        // S108: who owes the accept/decline flips on admin_proposed, and so does authorization.
+        //  - admin_proposed = TRUE: the matchmaker suggested THIS member as helper, so only the
+        //    RESPONDER owes (and PUT /matches/:id/accept authorizes only the responder, matches.ts:306).
+        //    The requester just waits — surfacing a decision to them would be a 403 they can't action.
+        //  - admin_proposed = FALSE (self-offer): only the REQUESTER owes; the responder's offer is
+        //    awaiting the requester (offered-awaiting) and shows in Helping with a Withdraw action.
+        if (m.admin_proposed ? isRequester : !isRequester) continue;
         actions = ['accept_offer', 'decline_offer'];
       } else if (m.status === 'matched') {
         // Only owe a mark-done if this member hasn't already confirmed (two-phase completion).
@@ -1136,21 +1139,18 @@ function mapOfferedAwaitingRow(row: any): OfferedAwaitingItem {
 }
 
 /**
- * Sprint 100 / Sprint 101 — the open asks the member has already offered on and now awaits the
- * requester's response. Sprint 100 added the count band; Sprint 101 adds a small preview so Home can
- * show the actual asks (not just "N"). Count and items derive from the SAME predicate so they can
- * never disagree: COUNT(DISTINCT request_id) (a helper can hold more than one proposed match row on
- * the same ask — matches has no unique (request_id, responder_id), and UNIQUE(request_id, offer_id)
- * doesn't constrain NULL offer_id), and the preview uses DISTINCT ON (request_id) to dedupe to one
- * item per ask. Fail-soft: any error degrades to an empty band rather than breaking the feed.
- *
- * Excludes admin_proposed matches: those are awaiting the MEMBER's accept/decline (Helping renders
- * them under "Awaiting Acceptance"), not the requester's response — so they belong to a different
- * surface. Including them here would double-show the row and mislabel it "waiting for the requester".
+ * Sprint 100/101/108 — distinct open, unexpired asks where the caller holds a `proposed` responder match, split by the
+ * `admin_proposed` discriminator — the SAME predicate powers both Home preview bands so the count and
+ * items can never disagree. `adminProposed = FALSE` = offered-awaiting (the member's self-offer is
+ * awaiting the requester); `adminProposed = TRUE` = suggested-as-helper (the matchmaker proposed this
+ * member and the member owes the accept/decline in Helping). COUNT(DISTINCT request_id) because a
+ * helper can hold more than one proposed match row on one ask; the preview uses DISTINCT ON
+ * (request_id) to dedupe to one item per ask. Fail-soft: any error degrades to an empty band.
  */
-async function fetchOfferedAwaiting(
+async function fetchProposedResponderAsks(
   userId: string,
-  previewLimit = 3
+  adminProposed: boolean,
+  previewLimit: number
 ): Promise<{ count: number; items: OfferedAwaitingItem[] }> {
   try {
     const [countResult, itemResult] = await Promise.all([
@@ -1159,9 +1159,9 @@ async function fetchOfferedAwaiting(
            FROM requests.matches m
            JOIN requests.help_requests hr ON hr.id = m.request_id
           WHERE m.responder_id = $1 AND m.status = 'proposed'
-            AND m.admin_proposed = FALSE
+            AND m.admin_proposed = $2
             AND hr.status = 'open' AND hr.expired = FALSE`,
-        [userId]
+        [userId, adminProposed]
       ),
       query(
         // DISTINCT ON (request_id) keeps the preview one row per ask — the same dedupe the DISTINCT
@@ -1181,11 +1181,11 @@ async function fetchOfferedAwaiting(
            JOIN requests.help_requests hr ON hr.id = m.request_id
            LEFT JOIN auth.users u ON u.id = hr.requester_id
           WHERE m.responder_id = $1 AND m.status = 'proposed'
-            AND m.admin_proposed = FALSE
+            AND m.admin_proposed = $2
             AND hr.status = 'open' AND hr.expired = FALSE
           ORDER BY m.request_id, m.created_at DESC
-          LIMIT $2`,
-        [userId, previewLimit]
+          LIMIT $3`,
+        [userId, adminProposed, previewLimit]
       ),
     ]);
     return {
@@ -1197,11 +1197,26 @@ async function fetchOfferedAwaiting(
   }
 }
 
+/** Self-offers awaiting the requester's response (admin_proposed = FALSE). */
+function fetchOfferedAwaiting(userId: string, previewLimit = 3) {
+  return fetchProposedResponderAsks(userId, false, previewLimit);
+}
+
+/**
+ * Sprint 108 — admin/matchmaker-proposed asks where THIS member was suggested as helper and owes the
+ * accept/decline (admin_proposed = TRUE). Home previews them in the calm SuggestedAsHelperPanel and
+ * links to Helping, where the actionable DecisionBand lives (BUG-015 keeps decisions off Home).
+ */
+function fetchSuggestedAsHelper(userId: string, previewLimit = 3) {
+  return fetchProposedResponderAsks(userId, true, previewLimit);
+}
+
 async function respondHomeFeed(req: Request, res: Response, userId: string, scoredRequests: any[]): Promise<void> {
-  // Decisions and the offered-awaiting read are independent — fetch them concurrently.
-  const [decisionItems, offeredAwaiting] = await Promise.all([
+  // Decisions, offered-awaiting, and suggested-as-helper are independent reads — fetch concurrently.
+  const [decisionItems, offeredAwaiting, suggestedAsHelper] = await Promise.all([
     fetchDecisions(req, userId),
     fetchOfferedAwaiting(userId),
+    fetchSuggestedAsHelper(userId),
   ]);
   const requestItems = scoredRequests.map((r) => buildRequestItem(toRequestCardData(r), r.feedScore));
   const { items } = assembleHomeFeed([...decisionItems, ...requestItems]);
@@ -1213,6 +1228,8 @@ async function respondHomeFeed(req: Request, res: Response, userId: string, scor
       count: items.length,
       offeredAwaiting: offeredAwaiting.count,
       offeredAwaitingItems: offeredAwaiting.items,
+      // S108: admin-proposed responder matches preview here (Home) and are actionable in Helping.
+      suggestedAsHelper: { count: suggestedAsHelper.count, items: suggestedAsHelper.items },
     },
     HTTP_STATUS.OK,
     { requestId: (req as any).id }

@@ -1,181 +1,155 @@
-# Sprint 107 - App Shell Clarity & Commitment Truth - IMPLEMENTED / VALIDATION PENDING (v11.14.1 -> v11.15.0)
+# Sprint 108 - Responder Home Actionability & Decision Truth - IN PR REVIEW (v11.15.0 -> v11.16.0)
 
-> **STATUS (2026-06-20):** Sprint 107 has been implemented on
-> `feature/sprint-107-app-shell-clarity`. App shell chrome, responsive overflow, BUG-022, BUG-023,
-> docs, registry, and landing-doc updates are in the working tree.
->
-> **Remaining before PR/merge-readiness:** run the DB-backed offered-awaiting TDD test with a
-> reachable local Postgres, perform required human browser validation at desktop/tablet/mobile
-> widths, then open the PR with the repository PR contract.
->
-> **Current blockers/caveats:** `services/request-service/tests/tdd/sprint-107-offered-awaiting-truth.test.ts`
-> fails before assertions with `pg-pool` `AggregateError` on the first setup query in this checkout.
-> Root `npm run test:unit` also exits before tests because Turbo cannot find `test:unit` in one
-> workspace project; changed-package unit/regression targets were run directly and passed.
+> **STATUS (2026-06-22):** Sprint 108 is **fully implemented** on branch
+> `feature/sprint-108-responder-home-actionability` and opened as **PR #110**
+> (https://github.com/ravichavali/karmyq/pull/110). All 11 plan tasks executed; tests green; docs done;
+> version bumped to 11.16.0. **Awaiting CI green + cross-agent review + maintainer merge.** Not merged
+> or deployed yet.
 
 ---
 
-## Quick Start
+## Quick Start (for the next session)
 
 1. Read this handoff.
-2. Check out branch: `git checkout feature/sprint-107-app-shell-clarity`.
-3. Review the diff against `docs/superpowers/plans/2026-06-20-sprint-107-app-shell-clarity.md`.
-4. Start local dependencies and rerun the DB-backed TDD test:
-   `cd services/request-service && npx jest tests/tdd/sprint-107-offered-awaiting-truth.test.ts --runInBand`.
-5. Run human browser validation for desktop, tablet, and 320-375px mobile shell plus Home -> Helping
-   offered-awaiting and dibs flows.
-6. Open the PR using `.github/pull_request_template.md`; do not self-merge.
+2. Check PR #110 state: `gh pr checks 110` and `gh pr view 110`.
+3. **If CI green + approved →** merge (squash), confirm `state=MERGED`, then `/deploy` (push-to-master
+   → GitHub Actions). Reset local master after merge.
+4. **Then the one remaining human step:** browser-validate as `maria.reyes@test.karmyq.com` /
+   `password123` once the sim has generated admin-proposed matches — Home "suggested you as a helper"
+   preview → Helping DecisionBand accept → matched; offered-awaiting band actionable (Open ask →);
+   caught-up copy honest. Validate desktop + mobile.
+5. **If review surfaces findings →** address on the branch; the cross-agent reviewer is the other model
+   (Codex), per the protocol — Claude authored this PR.
+
+## What shipped (PR #110)
+
+- **Backend** (`request-service/src/routes/requests.ts`): `fetchDecisions` projects `m.admin_proposed`
+  and surfaces admin-proposed responder matches as `member_role:'responder'` match decisions
+  (accept/decline → `PUT /matches/:id/accept|reject`); ownership flips symmetrically (admin-proposed →
+  responder owes; self-offer → requester owes; requester of admin-proposed owes nothing). New
+  `suggestedAsHelper:{count,items}` home payload via shared `fetchProposedResponderAsks`.
+- **Frontend**: new `SuggestedAsHelperPanel` (Home preview, links to Helping — BUG-015 keeps the
+  actionable band off Home); `DecisionBand` labels + routes admin-proposed; `OfferedAwaitingPanel` gets
+  an explicit "Open ask →"; `CommitmentsTab` dedupe (proposed matches never render as helping cards).
+- **Sim**: `admin-propose-helper-workflow` wired into COMMUNITY_BUILDER (weight + selectWorkflow
+  candidate) generating `admin_proposed` matches.
+- **BUG-009** verified **fixed** live; **BUG-010** **cannot-reproduce** — both updated in `docs/BUGS.md`.
+- **Docs**: guides, both CONTEXT.md, registry.json, onboarding, regenerated landing docs.
 
 ---
 
 ## Sprint Goal
 
-Finish the app shell clarity pass and make Home/Helping commitment surfaces tell one consistent truth.
+Preview admin-proposed responder decisions on Home and make them actionable in Helping ("preview on
+Home, decide in Helping"), make the caught-up terminal copy
+honest, enrich the Home offered-awaiting preview into an actionable band, add a sim workflow that
+generates admin-proposed matches, and reproduce-verify BUG-009/BUG-010.
 
 ---
 
-## Implementation Summary (2026-06-20)
+## The Core Defect (one paragraph)
 
-- Added `--measure-chrome` and `.kq-chrome-page` so app chrome can be wider while feed/prose content
-  keeps the 42rem `--measure` rhythm.
-- Moved the top-level nav into an `xl` breakpoint with an intentional overflow menu that keeps
-  Communities, provider links, profile, and logout reachable on narrower widths.
-- Converted the Dashboard community selector from a nested card into a chrome band aligned to the
-  shell measure.
-- Fixed **BUG-022** by removing the duplicate pending-dibs `DibsCard` surface from `CommitmentsTab`;
-  pending dibs now live in the server-ranked `DecisionBand`, and the tab badge derives from fresh
-  decision rows.
-- Fixed **BUG-023** by adding `GET /requests/offered-awaiting`, reusing the same
-  `fetchOfferedAwaiting()` predicate Home already uses, and rendering those rows explicitly in
-  Helping under **Offers awaiting requester**.
-- Review follow-up: filtered normal responder-side `proposed` matches out of Helping's card groups
-  so offered-awaiting rows do not also appear as duplicate **Awaiting Acceptance** / **Withdraw
-  Offer** cards; admin-proposed matches remain as actionable cards because the helper owes a
-  response. The offered-awaiting band now uses Next `Link` for internal request navigation.
-- Updated `docs/BUGS.md`, `apps/frontend/CONTEXT.md`, `services/request-service/CONTEXT.md`,
-  `services/registry.json`, and landing docs for Dashboard Home / Managing Commitments /
-  request-service.
+`fetchDecisions` ([services/request-service/src/routes/requests.ts:924-928](../../services/request-service/src/routes/requests.ts))
+unconditionally drops **every** responder-side `proposed` match, assuming it is always the member's
+own offer awaiting the requester. That is wrong for **admin/matchmaker-proposed** matches
+(`admin_proposed = TRUE`): there the member owes the accept/decline (the rule `matches.ts:306`
+already enforces). These owed decisions reach neither Home (decision band drops them) nor
+offered-awaiting (which excludes `admin_proposed`), appearing only as Helping cards. So an active
+helper's Home understates owed work — the root of "Maria's Home reads empty" (IDEAS 2026-06-15).
 
-## Verification So Far
+## Design Decision (maintainer-confirmed)
 
-- `apps/frontend`: Sprint 107 focused TDD passed (7 tests):
-  `sprint-107-app-shell-clarity`, `sprint-107-dibs-single-surface`,
-  `sprint-107-offered-awaiting-helping`.
-- Review follow-up verification: focused frontend Sprint 107 + adjacent commitment tests passed
-  (14 tests): `sprint-107-app-shell-clarity`, `sprint-107-dibs-single-surface`,
-  `sprint-107-offered-awaiting-helping`, `sprint-106-band-placement`,
-  `sprint-92-completion-rating`.
-- `apps/frontend`: `npx tsc --noEmit` passed.
-- `services/request-service`: `npx tsc --noEmit` passed.
-- `apps/frontend`: `npm run test:unit` passed (62 tests).
-- `services/request-service`: `npm run test:unit` passed (137 tests).
-- `apps/frontend`: `npm run test:regression` exited cleanly with no tests found.
-- `services/request-service`: `npm run test:regression` passed (152 tests).
-- `npm run feedback:check` passed, but reported no staged changes because the work is still unstaged.
-- Blocked: `services/request-service/tests/tdd/sprint-107-offered-awaiting-truth.test.ts` needs a
-  reachable Postgres; current run fails during setup with `AggregateError` from `pg-pool`.
-- Not yet done: human browser validation and PR creation.
+BUG-015 deliberately moved the actionable `DecisionBand` off Home into Helping
+([UnifiedFeed.tsx:226](../../apps/frontend/src/components/Feed/UnifiedFeed.tsx)). We keep that intact.
+Admin-proposed responder matches become **canonical decisions in the Helping DecisionBand**; Home gets
+a **non-actionable preview band** ("N neighbours suggested you as a helper" → Respond in Helping), fed
+by a new additive `suggestedAsHelper` field on the curated-home payload. **Do not render
+`kind==='decision'` items in Home's UnifiedFeed.**
+
+## In Scope (maintainer-confirmed)
+
+1. **Admin-proposed → Helping DecisionBand + Home preview band** — surface `admin_proposed=TRUE`
+   responder matches as canonical Helping decisions; Home previews them and links to Helping. The
+   concrete fix.
+2. **"Caught up" overclaim** — never claim "That's everyone" when browsable community asks exist;
+   scope the claim to direct matches.
+3. **Richer Home offered-awaiting** — make `OfferedAwaitingPanel` previewed asks actionable (calm
+   band, not a decision).
+4. **Sim creates admin-proposed** — new workflow so the demo exercises the fixed path.
+5. **Verify BUG-009 + BUG-010** — reproduce-first; their `planned (Sprint 100)` labels predate the
+   S100 fixes, so they may already be fixed.
+
+## Out of Scope
+
+- Visible forgetting / "platform forgets" decay arc.
+- Dibs server-side relationship routing (IDEAS 2026-06-09).
+- Member forget/export; Service Consolidation Phase 2; mobile parity beyond responsive validation.
+- A true directed/paid provider-request flow (S99-004 deferral stands).
+
+---
+
+## Critical Implementation Notes (copied from spec)
+
+1. **`admin_proposed` is the only discriminator.** A `proposed` responder match is a decision iff
+   `admin_proposed = TRUE`. Self-offers (`FALSE`) stay offered-awaiting — never surface them as
+   decisions (re-creates BUG-022/023 duplication).
+2. **Project `m.admin_proposed`** in the decisions SELECT (requests.ts:900-917) — not currently
+   selected.
+3. **Verify the responder decline path.** `PUT /matches/:id/accept` already authorizes the responder
+   for admin-proposed (matches.ts:306); confirm the reject/decline path does too, fix if not.
+4. **DecisionBand action handler branches on `subject_kind` + `member_role`.** Responder-role `match`
+   accept → `PUT /matches/:id/accept`; mirror the existing dibs responder path; do not use the
+   requester path. This band renders in **Helping**, not Home.
+4a. **Home gets a preview band, not the DecisionBand.** Add `suggestedAsHelper:{count,items}` to the
+   home payload and render `SuggestedAsHelperPanel`; do NOT start rendering `kind==='decision'` items
+   in `UnifiedFeed` (BUG-015).
+5. **Caught-up copy scoped to direct matches.** The non-community branch copy is already honest; the
+   residual risk is the community-view "That's everyone for now." Audit every terminal path.
+6. **OfferedAwaitingPanel stays a calm band**, visually distinct from the DecisionBand.
+7. **Sim admin-propose needs an admin/steward session** (reuse governance/admin pattern); propose only
+   eligible members with no existing live match (409s otherwise — handle gracefully).
+8. **BUG-009/010 reproduce-first** on live demo before any code.
+9. **Counts derive from freshly mapped decision rows**, not stale React state (S107 lesson).
+10. **Prove the dedupe both directions** in tests: admin-proposed → DecisionBand only; self-offer →
+    offered-awaiting only.
 
 ---
 
 ## Planning Artifacts
 
-- Spec: `docs/superpowers/specs/2026-06-20-sprint-107-app-shell-clarity-design.md`
-- Plan: `docs/superpowers/plans/2026-06-20-sprint-107-app-shell-clarity.md`
-- Evidence branch for BUG-022/023: `docs/close-sprint-106`
-
----
-
-## Scope Confirmed With Maintainer
-
-**In scope:**
-
-- Full app-shell clarity, not header-only.
-- Wide chrome container for topbar/app shell; keep feed/prose at 42rem.
-- Responsive overflow for top-level nav.
-- Intentional hamburger/user menu with all actions reachable.
-- Dashboard shell rhythm around community selector, tabs, and Home heading.
-- BUG-022: accepted/pending dibs must not appear in duplicate action surfaces.
-- BUG-023: Home offered-awaiting preview must point to rows findable in Helping.
-- Docs, registry, landing docs, tests, SDLC gates, human browser validation.
-
-**Out of scope:**
-
-- Visible forgetting / platform-forgets arc.
-- Dibs relationship-routing redesign.
-- Responder Home actionability for `proposed` simulation matches beyond BUG-023.
-- Service request platform scope.
-- Simulation/data cleanup.
-- Mobile parity beyond responsive web shell validation.
-
----
-
-## Bugs Folded Into Sprint 107
-
-| Bug | Current evidence | Likely root cause | Fix direction |
-|-----|------------------|-------------------|---------------|
-| **BUG-022** | `docs/close-sprint-106:docs/BUGS.md` says an already-accepted dibs shows in two places; accepting in one throws on the other. | Helping renders pending dibs twice: server-ranked `DecisionBand` plus separate `DibsCard` list from `getPendingDibsForProvider()`. | Make DecisionBand the canonical dibs response surface; remove duplicate DibsCard action rendering and derive tab badge count from decisions. |
-| **BUG-023** | `docs/close-sprint-106:docs/BUGS.md` says Home "You've offered to help on 3 open asks" lists asks the maintainer couldn't find in Helping. | Home uses `fetchOfferedAwaiting()` predicate while Helping uses matches/requests UI with different labeling/surfacing. | Add canonical `GET /requests/offered-awaiting`; Home and Helping share predicate; Helping renders the same awaiting rows explicitly. |
-
----
-
-## Critical Implementation Notes
-
-1. **Do not widen `--measure`.** The 42rem measure is intentional for feed cards and prose. Add a
-   chrome-specific container for topbar/app-shell width.
-2. **Responsive overflow is a rule, not a disappearance.** Communities, Service Providers or Become a
-   provider, Profile, provider management, duty state, notifications, and logout must remain reachable
-   on every viewport.
-3. **BUG-022 is a duplicate-surface bug.** Pending dibs should not render both in DecisionBand and in
-   a separate DibsCard list. Choose one canonical action surface; this sprint chooses DecisionBand.
-4. **BUG-023 is a truth mismatch, not just copy.** The Home offered-awaiting count/preview and the
-   Helping list must share the same backend predicate.
-5. **If Home says "View all in Helping", Helping must show those asks.** Do not leave the user to infer
-   that "Awaiting Acceptance" means the Home preview.
-6. **Keep DecisionBand in Helping.** Sprint 106 deliberately moved decisions out of Browse; do not
-   reintroduce commitment actions into Browse.
-7. **Use semantic and accessible controls.** Icon/menu buttons need labels, focus states, and keyboard
-   behavior. Status must not be color-only.
-8. **Use the global `next/router` Jest mock.** Do not add one-off router mocks for widely rendered
-   shell components unless a test needs custom query behavior.
-9. **BUG-022/023 evidence may live only on `docs/close-sprint-106`.** Do not assume PR #106 is merged;
-   copy the exact bug text into Sprint 107 docs if needed.
-10. **Human browser validation is required.** Validate desktop, tablet, and 320-375px mobile chrome,
-    plus Home -> Helping flows for pending dibs and offered-awaiting rows.
-11. **Decision-derived dibs counts must use freshly mapped rows.** `CommitmentsTab.loadDecisions()`
-    is fire-and-forget with internal state updates; derive `onDibsLoaded` from the local mapped
-    decision array inside the `.then()`, not from stale React state.
-12. **Dibs dedupe tests must use the same dibs in both mocked sources.** The BUG-022 regression only
-    proves duplicate-surface removal when `getCuratedRequests()` and `getPendingDibsForProvider()`
-    return the same pending dibs/title.
+- Spec: `docs/superpowers/specs/2026-06-22-sprint-108-responder-home-actionability-design.md`
+- Plan: `docs/superpowers/plans/2026-06-22-sprint-108-responder-home-actionability.md`
 
 ---
 
 ## Carry-Forward / Known Issues
 
-- **Reconnect CTA remains deferred:** restore only after real peer messaging or a directed-ask flow.
-- **Responder Home actionability** ([IDEAS 2026-06-15]): `proposed` matches don't surface as
-  actionable on responder Home; only BUG-023's offered-awaiting truth is in Sprint 107.
-- **Dibs server-side relationship routing** ([IDEAS 2026-06-09]) remains open and out of Sprint 107.
-- **"Platform forgets" visible decay** ([IDEAS 2026-06-04]) remains a future multi-sprint arc.
+- **BUG-009 / BUG-010**: stale `planned (Sprint 100)` labels — verify **first** (Task 2, before any
+  fix code).
+- **Reconnect CTA** remains deferred until real peer messaging / directed-ask.
+- **Dibs server-side relationship routing** (IDEAS 2026-06-09) remains open.
+- **"Platform forgets" visible decay** remains a future multi-sprint arc.
 - **Member forget/export** privacy follow-on remains open.
-- **request-forgery FP on `apps/frontend/src/lib/api.ts`** is known/recurring; dismiss as FP.
+- **request-forgery FP on `apps/frontend/src/lib/api.ts`** — known/recurring; dismiss as FP.
 - **Pre-existing security drift:** Dependabot/CodeQL alerts follow ADR-059/ADR-060 SLA.
-- **Pre-existing test drift:** `apps/frontend/tests/tdd/sprint-85-unified-feed.test.tsx` had a
-  stale `request_type:'service'` assertion on master during Sprint 106; baseline if it appears.
+- **Pre-existing test drift:** `apps/frontend/tests/tdd/sprint-85-unified-feed.test.tsx` had a stale
+  `request_type:'service'` assertion on master; baseline if it appears.
 
 ---
 
 ## Multi-Sprint Arc
 
+- **S100 (done):** Pulse Truth & Actionability (ADR-078).
+- **S101 (done):** Actionability & State Truth.
 - **S102 (done):** Visible Memory + Re-warm First Step (v11.11.0).
 - **S103 (done):** Governance + Intake Clarity (v11.12.0).
-- **S104 (done):** UI Facelift Research - A-plus verdict, ADR-079 Proposed, no deploy.
-- **S105 (done):** UI Facelift Implementation - A-plus rollout, ADR-079 Implemented (v11.13.0).
-- **S106 (done):** Post-Facelift Correctness & Link-Up Clarity + v11.14.1 chrome follow-up.
-- **S107 (implemented, validation pending):** App Shell Clarity & Commitment Truth (v11.15.0).
-- **Deferred:** visible forgetting; responder Home actionability; Dibs relationship routing; member
-  forget/export; Service Consolidation Phase 2; mobile parity.
+- **S104 (done):** UI Facelift Research (ADR-079 Proposed, no deploy).
+- **S105 (done):** UI Facelift Implementation (v11.13.0).
+- **S106 (done):** Post-Facelift Correctness & Link-Up Clarity (v11.14.0/.1).
+- **S107 (done):** App Shell Clarity & Commitment Truth (v11.15.0).
+- **S108 (planned, this sprint):** Responder Home Actionability & Decision Truth (v11.16.0).
+- **Deferred:** visible forgetting; Dibs relationship routing; member forget/export; Service
+  Consolidation Phase 2; mobile parity.
 
 ---
 
@@ -198,6 +172,8 @@ Finish the app shell clarity pass and make Home/Helping commitment surfaces tell
   tokens on old/seed/sim rows). Never pass `category` where `request_type` (the enum) is expected.
 - **Feed query surfaces:** browsable-request filtering lives in multiple places; the feed ranker
   projection (`basicFeedRanker.ts`) is a separate seam. Change all relevant sites.
+- **`admin_proposed` discriminator:** `requests.matches.admin_proposed` distinguishes a member's
+  self-offer (FALSE, requester owes) from an admin/matchmaker proposal (TRUE, responder owes).
 - **Design token system:** CSS-variable backed, in `apps/frontend/src/styles/globals.css` +
   `apps/frontend/tailwind.config.js`; per-community skins via `ThemeContext`/`ThemeProvider`.
 - **Landing page docs:** `apps/landing/src/data/docs/` is gitignored - `git add -f` when generated
@@ -222,10 +198,15 @@ Finish the app shell clarity pass and make Home/Helping commitment surfaces tell
 - `nav.json` silently reverts - always grep-verify after editing.
 - Widely-rendered components using `useRouter` need the global `apps/frontend/jest.setup.js` router
   mock.
-- `npm audit --package-lock-only --audit-level=high` is blocked by tenant policy in-agent (exports
-  private dep metadata externally); rely on the CI ADR-059 gate, don't work around it locally.
+- Root Turbo `test:unit`/`test:regression` can exit before tests (missing target in one workspace);
+  run changed-package unit/regression targets directly.
+- DB-backed TDD tests need a reachable local Postgres and may need to seed `creator_id` (cf. S107
+  offered-awaiting-truth test).
+- `npm audit --package-lock-only --audit-level=high` is blocked by tenant policy in-agent; rely on the
+  CI ADR-059 gate.
 
-### Deploy Drift Watch
+### Demo / Deploy Drift Watch
 
 `karmyq.org` / demo live content has drifted from `master` before. Confirm the latest deploy
-succeeded and live content matches `master` before judging by live content.
+succeeded and live content matches `master` before judging by live content. Demo tester:
+`maria.reyes@test.karmyq.com` / `password123` (rich account, the canonical responder-Home repro).

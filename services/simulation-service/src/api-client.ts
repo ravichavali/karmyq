@@ -93,6 +93,18 @@ export class ApiClient {
   }
 
   /**
+   * Request API - Admin/steward proposes a community member as the helper on an open request.
+   * POST /requests/:id/propose-match creates an admin_proposed = TRUE match (the suggested helper
+   * owes the accept/decline). 400/403/409 surface to the caller, which handles them gracefully.
+   */
+  async proposeMatch(requestId: string, proposedUserId: string): Promise<any> {
+    const response = await executeWithRetry(() =>
+      this.client.post(`/requests/${requestId}/propose-match`, { user_id: proposedUserId })
+    );
+    return response.data.data;
+  }
+
+  /**
    * Request API - Get matches
    */
   async getMatches(params?: { status?: string }): Promise<any[]> {
@@ -438,7 +450,10 @@ export class ApiClient {
 
   async getCommunityMembers(communityId: string): Promise<any[]> {
     const res = await this.client.get(`/communities/${communityId}/members`).catch(() => null);
-    return res?.data?.data?.members || [];
+    // GET /:communityId/members returns the member array directly as `data` (members.ts), not
+    // `{ members }`. Accept either shape so callers (propose-helper, nominate, ratify) get the rows.
+    const data = res?.data?.data;
+    return Array.isArray(data) ? data : (data?.members || []);
   }
 
   async nominateMember(communityId: string, nominatedUserId: string, role: 'moderator' | 'admin'): Promise<any> {

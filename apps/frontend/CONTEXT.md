@@ -96,9 +96,18 @@ Every request surface now states the lifecycle truth and offers the next real ac
 
 - **Home pending-offers preview.** `Feed/OfferedAwaitingPanel.tsx` replaces the Sprint 100 count-only
   band. It renders the actual open asks the member has offered on (from `offeredAwaitingItems` on the
-  `view=home` curated response), each linking to `/requests/{request_id}`, with a trailing "View all
-  in Helping" link. Still Home-only and positive-count-only; `UnifiedFeed.tsx` reads both
-  `offeredAwaiting` (count) and `offeredAwaitingItems` (preview).
+  `view=home` curated response), each with an explicit **Open ask →** link to `/requests/{request_id}`
+  (Sprint 108), and a trailing "View all in Helping" link. Still Home-only and positive-count-only;
+  `UnifiedFeed.tsx` reads both `offeredAwaiting` (count) and `offeredAwaitingItems` (preview).
+- **Home suggested-as-helper preview (Sprint 108).** `Feed/SuggestedAsHelperPanel.tsx` is a sibling
+  calm band, rendered by `UnifiedFeed.tsx` on Home when `suggestedAsHelper.count > 0`: the open asks
+  where an admin/matchmaker proposed this member as helper. It is **non-actionable** (no inline
+  accept/decline — BUG-015 keeps the actionable `DecisionBand` in Helping) and links there with
+  **Respond in Helping →**. The actual accept/decline renders in the Helping `DecisionBand`:
+  `DecisionBand.tsx` labels a responder-role `match` decision "Suggested you as a helper for …" and
+  routes accept → `requestService.acceptMatch` (`PUT /matches/:id/accept`), decline → `rejectMatch`.
+  `CommitmentsTab.tsx` no longer renders proposed responder matches as helping cards (they live in the
+  band / offered-awaiting band) — the BUG-022 dedupe.
 - **Actionable request detail.** `src/pages/requests/[id].tsx` is no longer a redirect shim — it
   fetches `requestService.getRequest(id)` and renders the ask plus the one true next step from the
   server-derived `viewer_relation`: `can_offer` → Offer to Help / Offer service (same `createMatch`

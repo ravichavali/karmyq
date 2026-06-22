@@ -41,6 +41,7 @@ export interface UserProfile {
     acceptOrDeclineDibs?: ActionWeight;
     nominateMember?: ActionWeight;
     ratifyNomination?: ActionWeight;
+    adminProposeHelper?: ActionWeight;
   };
   sessionDuration: TimeRange;
   responseTime: TimeRange;

@@ -20,7 +20,7 @@ export const WORKFLOWS: Record<string, WorkflowDef> = {
       },
       {
         title: 'Needs your response — in the Helping tab',
-        body: 'The Helping tab opens with a band of the responses you owe right now — an offer to accept or decline, your own offer to withdraw, a reserved request to confirm, a finished exchange to mark done, and a completed exchange to rate. Both you and the other person rate, and the prompt waits there until you do. It disappears when you are all caught up.',
+        body: 'The Helping tab opens with a band of the responses you owe right now — an offer to accept or decline, a suggestion to help (when an admin proposed you as the helper) to accept or decline, a reserved request to confirm, a finished exchange to mark done, and a completed exchange to rate. Both you and the other person rate, and the prompt waits there until you do. It disappears when you are all caught up.',
       },
       {
         title: 'Requests you can fill',
@@ -28,7 +28,7 @@ export const WORKFLOWS: Record<string, WorkflowDef> = {
       },
       {
         title: "Offers you're waiting on",
-        body: "When you've offered to help on open asks, Home shows them as a small preview — the actual asks, each linking to its detail — so you can pick up where you left off. They're waiting on the requester to respond, not on you; the full list lives in the Helping tab.",
+        body: "When you've offered to help on open asks, Home shows them as a small preview — the actual asks, each linking to its detail — so you can pick up where you left off. They're waiting on the requester to respond, not on you; the full list lives in the Helping tab. When an admin suggests you as a helper, Home shows a second preview — accept or decline those in Helping.",
       },
       {
         title: "You're caught up",

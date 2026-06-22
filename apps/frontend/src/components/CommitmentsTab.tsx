@@ -261,24 +261,19 @@ export default function CommitmentsTab({ onDibsLoaded, communityId }: Commitment
     setPendingRatingId(null)
   }
 
-  const handleAccept = async (matchId: string, side: 'helping' | 'requested') => {
+  // S108: only the "I Asked For Help" (requested) cards still accept/decline inline — the helping-side
+  // proposed matches now resolve in the DecisionBand — so these act on the `requested` list only.
+  const handleAccept = async (matchId: string) => {
     setActioning(matchId)
     try {
       await requestService.acceptMatch(matchId)
-
-      if (side === 'requested') {
-        const acceptedMatch = requested.find((m) => m.id === matchId)
-        if (acceptedMatch?.request_id) {
-          setMyOpenRequests((prev) => prev.filter((r) => r.id !== acceptedMatch.request_id))
-        }
-        setRequested((prev) =>
-          prev.map((m) => (m.id === matchId ? { ...m, status: 'matched' } : m))
-        )
-      } else {
-        setHelping((prev) =>
-          prev.map((m) => (m.id === matchId ? { ...m, status: 'matched' } : m))
-        )
+      const acceptedMatch = requested.find((m) => m.id === matchId)
+      if (acceptedMatch?.request_id) {
+        setMyOpenRequests((prev) => prev.filter((r) => r.id !== acceptedMatch.request_id))
       }
+      setRequested((prev) =>
+        prev.map((m) => (m.id === matchId ? { ...m, status: 'matched' } : m))
+      )
       loadOfferedAwaiting()
     } catch (err: any) {
       setActionError(err.response?.data?.error?.message || err.response?.data?.message || 'Failed to accept offer')
@@ -287,16 +282,11 @@ export default function CommitmentsTab({ onDibsLoaded, communityId }: Commitment
     }
   }
 
-  const handleDecline = async (matchId: string, side: 'helping' | 'requested') => {
+  const handleDecline = async (matchId: string) => {
     setActioning(matchId)
     try {
       await requestService.rejectMatch(matchId)
-
-      if (side === 'helping') {
-        setHelping((prev) => prev.filter((m) => m.id !== matchId))
-      } else {
-        setRequested((prev) => prev.filter((m) => m.id !== matchId))
-      }
+      setRequested((prev) => prev.filter((m) => m.id !== matchId))
       loadOfferedAwaiting()
     } catch (err: any) {
       setActionError(err.response?.data?.error?.message || err.response?.data?.message || 'Failed to decline offer')
@@ -382,36 +372,9 @@ export default function CommitmentsTab({ onDibsLoaded, communityId }: Commitment
             currentUserId={currentUserId}
           />
         )}
-        {/* Footer actions: right-aligned */}
-        {m.status === 'proposed' && m.admin_proposed && (
-          <div className="flex justify-end gap-2 mt-3">
-            <button
-              className="text-xs py-1 px-2 rounded bg-green-100 text-green-700 hover:bg-green-200 disabled:opacity-50"
-              disabled={actioning === m.id}
-              onClick={() => handleAccept(m.id, 'helping')}
-            >
-              Accept
-            </button>
-            <button
-              className="text-xs py-1 px-2 rounded bg-red-100 text-red-700 hover:bg-red-200 disabled:opacity-50"
-              disabled={actioning === m.id}
-              onClick={() => handleDecline(m.id, 'helping')}
-            >
-              Decline
-            </button>
-          </div>
-        )}
-        {m.status === 'proposed' && !m.admin_proposed && (
-          <div className="flex justify-end mt-3">
-            <button
-              className="text-xs py-1 px-2 rounded bg-red-100 text-red-700 hover:bg-red-200 disabled:opacity-50"
-              disabled={actioning === m.id}
-              onClick={() => handleDecline(m.id, 'helping')}
-            >
-              {actioning === m.id ? 'Withdrawing…' : 'Withdraw Offer'}
-            </button>
-          </div>
-        )}
+        {/* Footer actions: right-aligned. S108: proposed responder matches no longer render as cards
+            (they live in the DecisionBand / offered-awaiting band), so a helping card only owes a
+            mark-done (matched) or a rating (completed). */}
         {m.status === 'matched' && !m.responder_done_at && (
           <div className="flex justify-end mt-3">
             <button
@@ -486,14 +449,14 @@ export default function CommitmentsTab({ onDibsLoaded, communityId }: Commitment
             <button
               className="text-xs py-1 px-2 rounded bg-green-100 text-green-700 hover:bg-green-200 disabled:opacity-50"
               disabled={actioning === m.id}
-              onClick={() => handleAccept(m.id, 'requested')}
+              onClick={() => handleAccept(m.id)}
             >
               Accept
             </button>
             <button
               className="text-xs py-1 px-2 rounded bg-red-100 text-red-700 hover:bg-red-200 disabled:opacity-50"
               disabled={actioning === m.id}
-              onClick={() => handleDecline(m.id, 'requested')}
+              onClick={() => handleDecline(m.id)}
             >
               Decline
             </button>
@@ -529,8 +492,11 @@ export default function CommitmentsTab({ onDibsLoaded, communityId }: Commitment
     }
   }
 
+  // S108 (BUG-022 dedupe): every proposed responder match now renders in a band, never as a helping
+  // card — admin-proposed ones in the DecisionBand above (accept/decline), self-offers in the
+  // "Offers awaiting requester" band below. So drop ALL proposed matches from the helping cards.
   const helpingGroups = groupAndSort(
-    helping.filter((m) => m.status !== 'proposed' || m.admin_proposed)
+    helping.filter((m) => m.status !== 'proposed')
   )
   const requestedGroups = groupAndSort(requested)
 
