@@ -407,20 +407,24 @@
       "dependencies": {
         "services": [],
         "infrastructure": [
-          "redis"
+          "postgres"
         ]
       },
       "apis": {
         "provides": [
-          "/geocode",
-          "/reverse-geocode"
+          { "method": "GET", "path": "/search", "description": "Search shared geocoding cache and, on miss, query Nominatim through the service-level policy boundary." },
+          { "method": "POST", "path": "/cache", "description": "Write geocoding results into the shared PostgreSQL cache." },
+          { "method": "GET", "path": "/stats", "description": "Return geocoding cache statistics and top active queries." },
+          { "method": "POST", "path": "/cleanup", "description": "Delete expired geocoding cache entries." }
         ],
         "consumes": []
       },
-      "database_schemas": [],
+      "database_schemas": [
+        "public"
+      ],
       "health_check": "http://localhost:3009/health",
       "criticality": "optional",
-      "notes": "CANDIDATE FOR REMOVAL: Could use browser Geolocation API instead"
+      "notes": "Sprint 109 / ADR-080: retained as shared PostgreSQL geocoding cache and external Nominatim policy boundary. Frontend consumes via apps/frontend/src/lib/geocoding.ts."
     },
     "social-graph-service": {
       "port": 3010,
@@ -511,6 +515,7 @@
         "notification-service",
         "messaging-service",
         "cleanup-service",
+        "geocoding-service",
         "social-graph-service"
       ]
     },
@@ -539,6 +544,6 @@
     "development_services": 1,
     "deprecated_services": 0,
     "critical_services": 7,
-    "candidates_for_removal": 1
+    "candidates_for_removal": 0
   }
 }

@@ -615,6 +615,14 @@
       "status": "implemented",
       "description": "**Status**: Implemented",
       "filename": "ADR-079-visual-design-system-v2.md"
+    },
+    {
+      "slug": "adr-080-geocoding-cache-policy-boundary",
+      "number": "080",
+      "title": "ADR-080: Retain Geocoding Cache as External API Policy Boundary",
+      "status": "implemented",
+      "description": "**Status:** Implemented",
+      "filename": "ADR-080-geocoding-cache-policy-boundary.md"
     }
   ]
 }

@@ -59,5 +59,6 @@ Rejected because curated request feed behavior is already tightly integrated wit
 ## Follow-Ups
 
 - Decide whether to drop or repurpose `feed.featured_stories`.
-- Revisit geocoding-service consolidation in Sprint 92 after adding a real client-side geocoder replacement path.
+- Geocoding-service was re-evaluated in Sprint 109. ADR-080 keeps it as a backend cache and external
+  API policy boundary rather than removing it.
 - Keep cleanup-service separate while it owns scheduled retention and memory jobs.

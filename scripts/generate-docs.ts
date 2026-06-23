@@ -511,6 +511,7 @@ const ADR_GROUPS: Array<{ label: string; slugs: string[] }> = [
     label: '— Infrastructure —',
     slugs: [
       'adr-071-service-consolidation-feed-service',
+      'adr-080-geocoding-cache-policy-boundary',
       'adr-028-npm-workspace-docker-build',
       'adr-029-tdd-test-framework',
       'adr-030-community-configuration-system',

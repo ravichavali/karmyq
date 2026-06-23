@@ -5,7 +5,10 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "dev": "nodemon index.js"
+    "dev": "nodemon index.js",
+    "test": "npm run test:unit && npm run test:regression",
+    "test:unit": "jest tests/unit --runInBand",
+    "test:regression": "jest tests/regression --runInBand"
   },
   "dependencies": {
     "cors": "^2.8.5",
