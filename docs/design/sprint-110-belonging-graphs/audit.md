@@ -1,7 +1,9 @@
 # Belonging Graph System — Current-State Audit (Sprint 110)
 
-**Date**: 2026-06-22  
-**Sprint**: 110 (research only — no app code changes)  
+**Date**: 2026-06-22
+
+**Sprint**: 110 (research only — no app code changes)
+
 **Status**: Verified against codebase; all claims include file:line evidence
 
 ---
@@ -113,12 +115,12 @@ The backend-facing data layer is **healthy and should not change in S110 or S111
 
 | Asset | File | Lines | Assessment |
 |-------|------|-------|------------|
-| `socialGraphClient` | `lib/socialGraphClient.ts` | 141 | Well-typed; exposes trust path, ego graph, community graph, depth graph, fission | Keep |
+| `socialGraphService` (in `api.ts`) | `lib/api.ts:L840+` | — | **The graph data layer.** Axios-backed graph fetches: `getTrustGraphAggregate()` (ego), `getFullCommunityGraph(id)` + `getTrustGraph(id)` (community), `getCommunityGraph()` (inter-community depth), `getRelationshipMemory`, `getFadingRelationships` | Keep |
+| `socialGraphClient` | `lib/socialGraphClient.ts` | 141 | **Paths + invitations only** — `getPath`/`getBatchPaths` + invitation helpers. Does **not** expose graph fetches (those are on `socialGraphService`). | Keep |
 | `socialGraphUrls` | `lib/socialGraphUrls.ts` | 8 | URL builder | Keep |
-| `socialGraphService` (in `api.ts`) | `lib/api.ts` | — | Axios-backed graph endpoints | Keep |
 | `useLazyGraphData` | `hooks/useLazyGraphData.ts` | 71 | IntersectionObserver lazy-load; prevents heavy D3 from blocking page paint | Keep |
-| `useTrustPath` | `hooks/useTrustPath.ts` | 147 | Powers `TrustPathBadge`; caching + error handling | Keep |
-| social-graph-service | port 3010 | — | Graph data contracts (nodes/links, ego/community/depth/fission, decayTier per ADR-070) | Keep |
+| `useTrustPath` | `hooks/useTrustPath.ts` | 147 | Powers `TrustPathBadge`; caching + error handling (calls `socialGraphService.getTrustPath`) | Keep |
+| social-graph-service | port 3010 | — | Graph data contracts (nodes/links, ego/community/depth/fission, decayTier per ADR-070). Routes mounted at `/trust` (file `src/routes/trustGraph.ts`): `GET /trust/graph` (ego aggregate), `GET /trust/graph/:id/full` (community), `GET /trust/communities` (inter-community depth). | Keep |
 
 This sprint is **frontend presentation + consolidation**, not a backend redesign. Any new endpoint
 need discovered during the reference study is an S111 line item, flagged in the spec.
@@ -137,7 +139,8 @@ need discovered during the reference study is an S111 line item, flagged in the 
 | Inline TrustPathBadge | 4 | 3 | 2 | 3 | 4 | **16** |
 | Fission (via TrustGraph) | 4 | 3 | 3 | 3 | 3 | **16** |
 
-Scoring key: 1 = poor, 3 = acceptable, 5 = excellent  
+Scoring key: 1 = poor, 3 = acceptable, 5 = excellent
+
 Community TrustGraphTab leads because it has the richest data, two sub-tabs, MemoryLegend, and
 ReWarmingNudge. Profile trails because it is the same widget as the dashboard with no distinct
 "belonging as identity" framing.

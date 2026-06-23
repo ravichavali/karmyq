@@ -75,7 +75,7 @@ usages into a single `<BelongingGraph mode={…} />` component backed by a singl
 
 | Mode | Former component | Data source |
 |------|-----------------|-------------|
-| `ego` | `NetworkGraph` | `socialGraphClient.getTrustGraphAggregate()` |
+| `ego` | `NetworkGraph` | `socialGraphService.getTrustGraphAggregate()` |
 | `community` | `TrustGraph mode="community"` | `socialGraphService.getFullCommunityGraph(communityId)` |
 | `communities` | `CommunityDepthGraph` (retired) | `socialGraphService.getCommunityGraph()` — response shape normalized to `TrustNode`/`TrustLink` |
 | `fission` | `TrustGraph mode="fission"` | `socialGraphService.getTrustGraph(communityId)` |
@@ -89,7 +89,7 @@ Build the page the dead "View full →" link promises. Spec:
 
 - **Full-bleed SVG canvas** — no surrounding card padding; fills the viewport.
 - **Mode switch** — toggles between `ego`, `community` (picker for which community), and `communities`.
-- **Depth control** — slider 1–3 hops; refetches with the appropriate socialGraphClient call.
+- **Depth control** — slider 1–3 hops; refetches with the appropriate `socialGraphService` graph call.
 - **Search/focus** — type a member name to center + highlight their node.
 - **Click-to-expand** — progressive neighborhood reveal (see D5 below).
 - **Zoom/pan** — D3 zoom behavior on the SVG container.
@@ -106,7 +106,8 @@ this fires jarring full-redraws. The S79 decision was correct for the card conte
 *only*. On the dashboard card and profile widget, the static HEB (click → floating detail panel)
 is unchanged. On the explorer:
 
-1. `onNodeExpand(nodeId)` calls a new `GET /graph/neighborhood/:userId` endpoint (S111 backend item)
+1. `onNodeExpand(nodeId)` calls a new `GET /trust/neighborhood/:userId` endpoint (S111 backend item —
+   added to `services/social-graph-service/src/routes/trustGraph.ts`, mounted at `/trust`)
    returning the 1-hop set for that node.
 2. The result merges into `graphData`; the cluster re-runs with `.transition().duration(400)` so
    layout changes tween rather than jump.
@@ -131,19 +132,22 @@ This is the "this is your weave" identity moment (GitHub contribution graph / Sp
 
 ## Alternatives Considered
 
-**A — Keep two idioms (`CommunityDepthGraph` as sanctioned exception)**  
+**A — Keep two idioms (`CommunityDepthGraph` as sanctioned exception)**
+
 Would avoid one consolidation task but leaves the visual inconsistency intact and means two sets
 of types, two interaction models, and two maintenance paths. Rejected: the consistency benefit of
 one idiom outweighs the migration cost, and the circular layout offers no semantic value the HEB
 cannot express.
 
-**B — Replace D3 with Cytoscape.js or react-force-graph-2d**  
+**B — Replace D3 with Cytoscape.js or react-force-graph-2d**
+
 A force-directed library might make expand/explore easier (physics simulation naturally accommodates
 node addition). Rejected: D3 HEB is already deeply integrated, has the decay-fade (ADR-070), and the
 only two callers of the dead libraries are `react-cytoscapejs.d.ts` and nothing. Pulling in a new
 runtime dependency at this scale for a capability D3 already handles is net-negative.
 
-**C — Do nothing (ship no graph changes)**  
+**C — Do nothing (ship no graph changes)**
+
 The dead `/network` link and two visual idioms are not causing user-facing failures. Rejected: the
 maintainer explicitly named graphs as "the primary way Karmyq tells a member's story" and "more
 prominent and interactive" as the goal. The dead affordances actively underdeliver that goal.
@@ -160,10 +164,11 @@ prominent and interactive" as the goal. The dead affordances actively underdeliv
 
 **Negative / risks**:
 - `CommunityDepthGraph` folding into HEB requires normalizing `DepthNode`/`DepthLink` to
-  `TrustNode`/`TrustLink` and confirming the backend `/graph/community-depth` response can supply
-  the required fields. If fields are missing, a new backend endpoint or field augmentation is needed
-  (S111 discovery task).
-- `GET /graph/neighborhood/:userId` is a new backend endpoint (not currently in social-graph-service).
+  `TrustNode`/`TrustLink` and confirming the backend `GET /trust/communities` response (in
+  `trustGraph.ts`) can supply the required fields. If fields are missing, a new backend endpoint or
+  field augmentation is needed (S111 discovery task).
+- `GET /trust/neighborhood/:userId` is a new backend endpoint (not currently in social-graph-service;
+  it would sit alongside `/trust/graph`, `/trust/communities` in `trustGraph.ts`).
   S111 must implement it; expand is blocked on that endpoint.
 - Expand performance: adding nodes to a large graph (100+ members) and running `d3.cluster()` with
   a 400ms transition may still be perceptible on low-end devices. S111 should measure with

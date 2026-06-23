@@ -13,8 +13,10 @@ altitude, dead-lib removal. Ships as v11.18.0.
 ## Overview
 
 Sprint 110 produced the audit, the reference study, and ADR-081 (Proposed). Sprint 111 implements it.
-The work is frontend-only (no backend redesign) except for one new endpoint (`GET /graph/neighborhood/:userId`)
-needed for the click-to-expand feature. No DB schema changes. No deploy-script changes.
+The work is frontend-only (no backend redesign) except for one new endpoint (`GET /trust/neighborhood/:userId`,
+added to `trustGraph.ts`, mounted at `/trust`) needed for the click-to-expand feature. No DB schema
+changes. The `BelongingPulse` profile stat reuses existing reputation/community read APIs (see §Profile
+Altitude) rather than a raw DB query. No deploy-script changes.
 
 **Core change**: Replace today's patchwork of four graph wrappers with a single `<BelongingGraph mode>` component over a canonical data model; build the full-page `/network` explorer; raise the profile graph to headline altitude.
 
@@ -27,10 +29,11 @@ needed for the click-to-expand feature. No DB schema changes. No deploy-script c
 | Asset | File | Role |
 |-------|------|------|
 | `TrustGraphHEB` | `components/graphs/TrustGraphHEB.tsx` (354 lines) | The HEB D3 engine — the single canonical renderer |
-| `socialGraphClient` | `lib/socialGraphClient.ts` (141 lines) | All graph data fetches |
+| `socialGraphService` | `lib/api.ts` (L840+) | **The graph data fetches**: `getTrustGraphAggregate()` (ego), `getFullCommunityGraph(id)`/`getTrustGraph(id)` (community), `getCommunityGraph()` (inter-community depth) |
+| `socialGraphClient` | `lib/socialGraphClient.ts` (141 lines) | **Paths + invitations only** (`getPath`/`getBatchPaths` + invitations) — NOT graph fetches |
 | `useLazyGraphData` | `hooks/useLazyGraphData.ts` (71 lines) | IntersectionObserver lazy-load for heavy D3 |
 | `useTrustPath` | `hooks/useTrustPath.ts` (147 lines) | Powers TrustPathBadge |
-| social-graph-service | port 3010 | Graph data contracts (nodes/links, ego/community/depth/fission, decayTier) |
+| social-graph-service | port 3010 | Graph data contracts (nodes/links, ego/community/depth/fission, decayTier). Routes in `src/routes/trustGraph.ts`, mounted at `/trust`: `GET /trust/graph`, `GET /trust/graph/:id/full`, `GET /trust/communities` |
 
 ### What needs to change
 
@@ -69,7 +72,7 @@ needed for the click-to-expand feature. No DB schema changes. No deploy-script c
 | `pages/profile.tsx` | Replace `TrustNetworkWidget` at L842 with `<BelongingSection>` |
 | `apps/frontend/package.json` | Remove `cytoscape`, `react-cytoscapejs`, `@types/cytoscape`, `react-force-graph-2d` |
 | `apps/frontend/src/types/react-cytoscapejs.d.ts` | Delete |
-| `lib/socialGraphClient.ts` | Add `getNeighborhood(userId: string)` method for expand endpoint |
+| `lib/api.ts` | Add `getNeighborhood(userId: string)` to `socialGraphService` (calls `GET /trust/neighborhood/:userId`) for the expand endpoint |
 | `docs/adr/ADR-081-belonging-graph-system.md` | Update status from `Proposed` → `Implemented` |
 | `scripts/generate-docs.ts` | (already wired in S110 — no change needed) |
 | `.claude/handoff/CURRENT_HANDOFF.md` | Update to S111 complete / S112 direction |
@@ -87,8 +90,8 @@ needed for the click-to-expand feature. No DB schema changes. No deploy-script c
 
 | File | Change |
 |------|--------|
-| `services/social-graph-service/src/routes/graph.ts` | Add `GET /graph/neighborhood/:userId` → returns 1-hop `TrustNode[]` + `TrustLink[]` for the given user (needed for click-to-expand on `/network`) |
-| `services/social-graph-service/src/routes/graph.ts` | Consider: can `GET /graph/community-depth` response be reshaped to emit `TrustNode`/`TrustLink` format directly? Audit in S111 Task 3 |
+| `services/social-graph-service/src/routes/trustGraph.ts` | Add `GET /trust/neighborhood/:userId` (router path `/neighborhood/:userId`, mounted at `/trust`) → returns 1-hop `TrustNode[]` + `TrustLink[]` for the given user (needed for click-to-expand on `/network`) |
+| `services/social-graph-service/src/routes/trustGraph.ts` | Consider: can the `GET /trust/communities` response (`getCommunityDepthGraph`) be reshaped to emit `TrustNode`/`TrustLink` format directly? Audit in S111 Task 3 |
 | `services/social-graph-service/.claude/CONTEXT.md` | Document new endpoint |
 | `services/registry.json` | Add new endpoint to `social-graph-service` `apis.provides` |
 
@@ -149,9 +152,10 @@ interface BelongingGraphProps {
 }
 ```
 
-`BelongingGraph` handles its own data fetching via `useLazyGraphData` + `socialGraphClient`,
-dispatches to `TrustGraphHEB`, and normalizes `communities` mode data from the `getCommunityGraph()`
-response to `TrustNode`/`TrustLink` shape.
+`BelongingGraph` handles its own data fetching via `useLazyGraphData` + `socialGraphService` (the
+graph fetches in `api.ts` — **not** `socialGraphClient`, which is paths/invitations only), dispatches
+to `TrustGraphHEB`, and normalizes `communities` mode data from the `getCommunityGraph()` response to
+`TrustNode`/`TrustLink` shape.
 
 ### `/network` page — full-page explorer
 
@@ -181,7 +185,7 @@ Page structure:
       communityId={selectedCommunityId}
       height={windowHeight - HEADER_HEIGHT}
       expandable           ← enables click-to-expand
-      onNodeExpand={async (id) => socialGraphClient.getNeighborhood(id)}
+      onNodeExpand={async (id) => socialGraphService.getNeighborhood(id)}
     />
   </main>
 </PageLayout>
@@ -210,8 +214,9 @@ to `TrustNode`/`TrustLink`:
 { source, target, weight, type } → { source, target, raw_weight: weight, effective_weight: weight, type }
 ```
 
-**Discovery task**: Does `GET /graph/community-depth` already return these fields, or does
-`member_count`/`is_member` need to be added? Audit the endpoint response in Task 3.
+**Discovery task**: Does `GET /trust/communities` (the `getCommunityDepthGraph` response) already
+return these fields, or does `member_count`/`is_member` need to be added? Audit the endpoint response
+in Task 3.
 
 ### Hover-highlight (neighborhood focus + fade)
 
@@ -247,12 +252,21 @@ Replace `pages/profile.tsx:L842 <TrustNetworkWidget>` with:
 3. `<BelongingGraph mode="ego" currentUserId height={480}>` (larger than widget's 360)
 4. `<a href="/network?mode=ego">Explore your full network →</a>`
 
-`BelongingPulse` queries:
-- Distinct `karma_awarded_to` count from `reputation.karma_records` where `user_id = userId`
-  → "You've helped N people"
-- `community.members` count for this user → "across M communities"
+`BelongingPulse` derives its two numbers from **existing read APIs — no new backend endpoint and no
+raw DB query** (`reputation.karma_records` has no `karma_awarded_to` column; the recipient *is*
+`user_id`, so "people you helped" is NOT derivable from that table):
 
-Combine: `"You've helped N people across M communities"` as a `<p>` in warm text above the graph.
+- **N people** = node count from the ego graph `BelongingSection` already fetches
+  (`socialGraphService.getTrustGraphAggregate()`). Trust-graph edges are built from helping
+  relationships, so "people you're connected to" is the honest, available version of this stat.
+  Pass the loaded `graphData.nodes.length - 1` (minus the current-user node) down to `BelongingPulse`
+  to avoid a second fetch.
+- **M communities** = `communityService.getMyCommunities(userId)` length (existing API; schema is
+  `communities.members`, plural schema name — but the component never touches SQL directly).
+
+Combine: `"You're connected to N people across M communities"` as a `<p>` in warm text above the
+graph. (Copy intentionally says "connected to," not "helped" — the graph encodes trust connections,
+and a literal "helped" count would require a new reputation aggregate the research did not scope.)
 
 ---
 
@@ -274,24 +288,30 @@ Bundle impact: cytoscape + react-cytoscapejs ≈ 1.1 MB pre-minify; react-force-
 
 ---
 
-## Backend: `GET /graph/neighborhood/:userId`
+## Backend: `GET /trust/neighborhood/:userId`
 
-In `services/social-graph-service/src/routes/graph.ts`:
+Add to `services/social-graph-service/src/routes/trustGraph.ts` (the existing graph router, mounted at
+`/trust` in `src/index.ts`). The router uses bare paths (e.g. `router.get('/graph', …)` →
+`/trust/graph`), so the new route is `router.get('/neighborhood/:userId', …)` → `/trust/neighborhood/:userId`.
+Auth is applied at the router mount (`rateLimiters.readLight` + the service's auth middleware that
+populates `req.user.userId`); follow the existing `/trust/graph` handler shape, not a per-route
+`requireAuth`.
 
 ```typescript
-// GET /graph/neighborhood/:userId
+// router.get('/neighborhood/:userId', …)  → GET /trust/neighborhood/:userId
 // Returns 1-hop TrustNode[] + TrustLink[] for the given userId
 // Used by click-to-expand on the /network explorer
-router.get('/neighborhood/:userId', requireAuth, async (req, res) => {
+router.get('/neighborhood/:userId', async (req: Request, res: Response) => {
   const { userId } = req.params
-  const { userId: currentUserId } = req.user
-  // Query: SELECT trust links where source = userId OR target = userId (1-hop)
-  // Return: { nodes: TrustNode[], links: TrustLink[] }
+  const callingUserId = (req as any).user?.userId
+  // Query trust_edges_live (the VIEW) where source = userId OR target = userId (1-hop)
+  // Return: res.json({ success: true, data: { nodes: TrustNode[], links: TrustLink[] } })
 })
 ```
 
-Authentication: same `requireAuth` middleware as other graph endpoints. The result is the 1-hop
-neighborhood (direct trust edges) of the given user — nodes the current user may not know yet.
+The result is the 1-hop neighborhood (direct trust edges) of the given user — nodes the current user
+may not know yet. Read from `trust_edges_live` (a VIEW — never INSERT/UPDATE it), mirroring how
+`getTrustGraphAggregate`/`getCommunityDepthGraph` already query.
 
 ---
 
@@ -360,8 +380,10 @@ neighborhood (direct trust edges) of the given user — nodes the current user m
 ## Critical Implementation Notes
 
 1. **No backend redesign** — social-graph-service gets one new endpoint; all existing contracts stay.
-2. **The data layer must survive** — `socialGraphClient`, `useLazyGraphData`, `useTrustPath` are
-   unchanged. `BelongingGraph` wraps them, doesn't replace them.
+2. **The data layer must survive** — `socialGraphService` (graph fetches in `api.ts`),
+   `socialGraphClient` (paths/invitations), `useLazyGraphData`, `useTrustPath` are unchanged.
+   `BelongingGraph` wraps them, doesn't replace them. (Graph fetches are on `socialGraphService`,
+   NOT `socialGraphClient` — don't conflate the two.)
 3. **`CommunityDepthGraph` data normalization** — the backend `getCommunityGraph()` response uses
    `DepthNode`/`DepthLink` shape. Normalize in `BelongingGraph`, not in `TrustGraphHEB` (keep the
    HEB engine type-clean).
