@@ -1,9 +1,9 @@
-# Sprint 109 - Geocoding Cache Hardening & Dependency Hygiene - IN PROGRESS (v11.16.0 -> v11.17.0)
+# Sprint 109 - Geocoding Cache Hardening & Dependency Hygiene - IMPLEMENTED / READY FOR REVIEW (v11.16.0 -> v11.17.0)
 
 > **STATUS (2026-06-22):** Sprint 108 is merged on local `master` as
 > `81bc8d38 Sprint 108: Responder Home Actionability & Decision Truth (v11.16.0) (#110)`.
-> Sprint 109 planning is complete. Execution started on branch
-> `feature/sprint-109-geocoding-cache-hardening`.
+> Sprint 109 planning and implementation are complete on branch
+> `feature/sprint-109-geocoding-cache-hardening`; ready for PR/review.
 > Baseline audit: high 0, critical 0, moderate 21. Baseline geocoding package test command reports
 > missing `test` script as expected before the Sprint 109 harness.
 
@@ -11,15 +11,11 @@
 
 ## Quick Start
 
-1. Read this handoff.
-2. Check out branch: `git checkout -b feature/sprint-109-geocoding-cache-hardening`.
-3. Open plan: `docs/superpowers/plans/2026-06-22-sprint-109-geocoding-cache-hardening.md`.
-4. Run: `/execute-plan` (uses superpowers:subagent-driven-development or executing-plans).
-5. Before implementation, read local context:
-   - `services/geocoding-service/.claude/README.md`
-   - `services/geocoding-service/CONTEXT.md`
-   - `apps/frontend/.claude/README.md`
-   - `apps/frontend/CONTEXT.md`
+1. Review branch: `feature/sprint-109-geocoding-cache-hardening`.
+2. Open plan: `docs/superpowers/plans/2026-06-22-sprint-109-geocoding-cache-hardening.md`.
+3. Inspect implementation commits through `6bca27c8 fix(frontend): settle nonblocking geocoding cache writes`.
+4. Create/review PR using `.github/pull_request_template.md`; do not self-merge.
+5. Note the untracked parallel-review artifact `docs/process-review-2026-06-22.md`; it is not part of Sprint 109 implementation.
 
 ---
 
@@ -53,6 +49,40 @@ fallback stays last-resort only.
 
 - Spec: `docs/superpowers/specs/2026-06-22-sprint-109-geocoding-cache-hardening-design.md`
 - Plan: `docs/superpowers/plans/2026-06-22-sprint-109-geocoding-cache-hardening.md`
+
+---
+
+## Execution Results
+
+- Retained `geocoding-service` and extracted testable modules:
+  `src/geocodingApp.js`, `src/geocodingService.js`, and `src/response.js`.
+- Added geocoding unit/regression scripts and tests with mocked DB/fetch; tests do not call public
+  Nominatim.
+- Added outbound Nominatim throttling around cache misses and preserved inbound rate limits.
+- Converted application routes to ADR-074 envelopes while keeping `/health` flat.
+- Updated frontend geocoding so backend `/search` is tried before direct public fallback; backend
+  timeouts now use local caches only instead of silently bypassing the policy boundary.
+- Updated geocoding docs, service registry, ADR-071 follow-up, new ADR-080, landing generated docs,
+  Dockerfile, and root version `11.17.0`.
+- Dependency hygiene: exact `js-yaml@4.2.0` override reduced npm audit moderates from 21 to 3;
+  high/critical remain clean. Remaining moderates are the known Expo/tar chain.
+
+## Verification
+
+- PASS: `npm --workspace=geocoding-service test`.
+- PASS: `npm test -- geocoding.test.ts` from `apps/frontend`.
+- PASS: `npx jest tests/tdd/geocoding.test.ts --runInBand` from `apps/frontend`.
+- PASS: `npx tsc --noEmit -p apps/frontend/tsconfig.json`.
+- PASS: `npm test` at repo root (`26 successful, 26 total`).
+- PASS: `npm run feedback:check` (with existing Windows warning reading user-level git ignore).
+- PASS: `npm audit --package-lock-only --audit-level=high`.
+- PASS: `npm run analyze:services` (with existing version-drift warning).
+- EXPECTED FAIL: root `npm run test:tdd` still cannot find a `test:tdd` task in every Turbo project.
+- EXPECTED FAIL: full frontend `npm --workspace=karmyq-frontend run test:tdd -- geocoding.test.ts`
+  still runs the whole frontend TDD suite and hits pre-existing unrelated trust/provider failures;
+  focused `geocoding.test.ts` passes.
+- EXPECTED FAIL: root `npx tsc --noEmit` prints TypeScript help because the repo has no root
+  `tsconfig.json`; frontend project TypeScript passes.
 
 ---
 
@@ -149,7 +179,7 @@ fallback stays last-resort only.
 - **S106 (done):** Post-Facelift Correctness & Link-Up Clarity (v11.14.0/.1).
 - **S107 (done):** App Shell Clarity & Commitment Truth (v11.15.0).
 - **S108 (done):** Responder Home Actionability & Decision Truth (v11.16.0).
-- **S109 (planned):** Geocoding Cache Hardening & Dependency Hygiene (v11.17.0).
+- **S109 (implemented / ready for review):** Geocoding Cache Hardening & Dependency Hygiene (v11.17.0).
 - **Deferred:** member forget/export; cleanup-service replacement; mobile parity.
 
 ---
