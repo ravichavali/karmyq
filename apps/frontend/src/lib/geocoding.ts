@@ -23,6 +23,7 @@ export interface AddressSuggestion {
 let lastRequestTime = 0
 const MIN_REQUEST_INTERVAL = 1000 // 1 second between requests
 const BACKEND_GEOCODING_TIMEOUT_MS = 6500
+const SAFE_ADDRESS_QUERY_PATTERN = /^[\p{L}\p{N}\s,.'\u2019#\/&()/-]+$/u
 
 function getBackendResults(responseBody: any): { results: AddressSuggestion[], cached?: boolean } {
   const payload = responseBody?.success && responseBody?.data ? responseBody.data : responseBody
@@ -57,7 +58,7 @@ export async function searchAddresses(query: string): Promise<AddressSuggestion[
 
   // Sanitize input (prevent injection attacks)
   const sanitized = query.trim().slice(0, 200) // Max 200 chars
-  if (!/^[a-zA-Z0-9\s,.-]+$/.test(sanitized)) {
+  if (!SAFE_ADDRESS_QUERY_PATTERN.test(sanitized)) {
     console.warn('Invalid characters in search query')
     return []
   }
@@ -124,6 +125,7 @@ export async function searchAddresses(query: string): Promise<AddressSuggestion[
     return []
   }
 
+  // A resolved backend response means the shared policy boundary answered, even for 429/500.
   if (backendAnswered || !allowDirectExternalFallback) {
     return []
   }

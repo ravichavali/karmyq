@@ -62,6 +62,11 @@ fallback stays last-resort only.
 - Converted application routes to ADR-074 envelopes while keeping `/health` flat.
 - Updated frontend geocoding so backend `/search` is tried before direct public fallback; backend
   timeouts now use local caches only instead of silently bypassing the policy boundary.
+- Post-review fix: widened frontend/backend geocoding validation for common real-address punctuation
+  and accents (`'`, `#`, `/`, Unicode letters) while still rejecting script/control-style input.
+- Post-review decision: resolved backend `/search` responses, including 429/500-style non-ok
+  responses, remain policy-boundary answers and do not fall through to direct public Nominatim; this
+  is covered by frontend regression tests.
 - Updated geocoding docs, service registry, ADR-071 follow-up, new ADR-080, landing generated docs,
   Dockerfile, and root version `11.17.0`.
 - Dependency hygiene: exact `js-yaml@4.2.0` override reduced npm audit moderates from 21 to 3;
@@ -69,9 +74,10 @@ fallback stays last-resort only.
 
 ## Verification
 
-- PASS: `npm --workspace=geocoding-service test`.
+- PASS: `npm --workspace=geocoding-service test` (including post-review address validation cases).
 - PASS: `npm test -- geocoding.test.ts` from `apps/frontend`.
-- PASS: `npx jest tests/tdd/geocoding.test.ts --runInBand` from `apps/frontend`.
+- PASS: `npx jest tests/tdd/geocoding.test.ts --runInBand` from `apps/frontend` (including
+  post-review punctuation/accent and 429 boundary cases).
 - PASS: `npx tsc --noEmit -p apps/frontend/tsconfig.json`.
 - PASS: `npm test` at repo root (`26 successful, 26 total`).
 - PASS: `npm run feedback:check` (with existing Windows warning reading user-level git ignore).

@@ -1,4 +1,5 @@
 const DEFAULT_USER_AGENT = 'Karmyq/1.0 (mutual aid platform; https://karmyq.com)'
+const SAFE_ADDRESS_QUERY_PATTERN = /^[\p{L}\p{N}\s,.'\u2019#\/&()/-]+$/u
 
 function normalizeQuery(query) {
   return String(query || '').toLowerCase().trim().replace(/\s+/g, ' ')
@@ -15,7 +16,7 @@ function validateSearchQuery(query) {
   }
 
   const sanitized = trimmed.slice(0, 200)
-  if (!/^[a-zA-Z0-9\s,.-]+$/.test(sanitized)) {
+  if (!SAFE_ADDRESS_QUERY_PATTERN.test(sanitized)) {
     return { ok: false, code: 'INVALID_QUERY', message: 'Query contains unsupported characters' }
   }
 
@@ -186,6 +187,7 @@ function createGeocodingService({ pool, fetchImpl, logger = console, throttleInt
 
 module.exports = {
   DEFAULT_USER_AGENT,
+  SAFE_ADDRESS_QUERY_PATTERN,
   normalizeQuery,
   validateSearchQuery,
   createExternalThrottle,

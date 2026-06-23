@@ -18,6 +18,11 @@ describe('geocodingService helpers', () => {
     expect(validateSearchQuery('Oakland<script>')).toMatchObject({ ok: false, code: 'INVALID_QUERY' })
   })
 
+  test('allows common real-address punctuation and accents', () => {
+    expect(validateSearchQuery("O'Connor Ave")).toMatchObject({ ok: true, value: "o'connor ave" })
+    expect(validateSearchQuery('Café Réveille #2/3')).toMatchObject({ ok: true, value: 'café réveille #2/3' })
+  })
+
   test('throttle waits before a second external call', async () => {
     jest.useFakeTimers()
     const throttle = createExternalThrottle(1000)

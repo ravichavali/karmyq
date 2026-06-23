@@ -36,6 +36,29 @@ describe('geocoding routes', () => {
     expect(fetchImpl).not.toHaveBeenCalled()
   })
 
+  test('GET /search checks cache for real address punctuation and accents', async () => {
+    const pool = {
+      query: jest.fn()
+        .mockResolvedValueOnce({
+          rows: [{
+            results: [{ display_name: "Café Réveille #2/3", lat: 37.8, lng: -122.2, type: 'cafe' }],
+            hit_count: 1,
+          }],
+        })
+        .mockResolvedValueOnce({ rows: [], rowCount: 1 }),
+    }
+    const fetchImpl = jest.fn()
+    const app = createApp({ pool, fetchImpl, logger: { error: jest.fn(), log: jest.fn() } })
+
+    const res = await request(app).get('/search').query({ q: "Café Réveille #2/3" }).expect(200)
+
+    expect(res.body.success).toBe(true)
+    expect(res.body.data.cached).toBe(true)
+    expect(res.body.data.results[0].display_name).toBe('Café Réveille #2/3')
+    expect(pool.query.mock.calls[0][1]).toEqual(['café réveille #2/3'])
+    expect(fetchImpl).not.toHaveBeenCalled()
+  })
+
   test('GET /search recovers after a transient external geocoder rejection', async () => {
     const pool = {
       query: jest.fn()
