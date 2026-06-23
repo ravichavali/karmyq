@@ -179,7 +179,7 @@ export async function searchAddresses(query: string): Promise<AddressSuggestion[
     }))
 
     // Cache everywhere (fire-and-forget, don't wait)
-    void Promise.all([
+    void Promise.allSettled([
       // IndexedDB (local browser cache)
       cacheAPIResult(sanitized, suggestions),
       // Backend cache (shared across all users)
