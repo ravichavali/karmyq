@@ -472,6 +472,7 @@ const ADR_GROUPS: Array<{ label: string; slugs: string[] }> = [
       'adr-070-visible-decay-model',
       'adr-077-trust-path-platform-topology',
       'adr-078-community-connection-reconciliation',
+      'adr-081-belonging-graph-system',
     ],
   },
   {
