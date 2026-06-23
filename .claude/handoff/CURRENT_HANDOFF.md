@@ -1,21 +1,28 @@
-# Sprint 109 - Geocoding Cache Hardening & Dependency Hygiene - IMPLEMENTED / READY FOR REVIEW (v11.16.0 -> v11.17.0)
+# Sprint 109 - Geocoding Cache Hardening & Dependency Hygiene - MERGED (v11.17.0)
 
-> **STATUS (2026-06-22):** Sprint 108 is merged on local `master` as
-> `81bc8d38 Sprint 108: Responder Home Actionability & Decision Truth (v11.16.0) (#110)`.
-> Sprint 109 planning and implementation are complete on branch
-> `feature/sprint-109-geocoding-cache-hardening`; ready for PR/review.
-> Baseline audit: high 0, critical 0, moderate 21. Baseline geocoding package test command reports
-> missing `test` script as expected before the Sprint 109 harness.
+> **STATUS (2026-06-22):** Sprint 109 is **merged to `master`** as
+> `a62322b7 Sprint 109: Geocoding cache hardening and dependency hygiene (#111)`. Working tree is
+> clean. **No sprint is currently in flight.**
+>
+> **Next session:** run sprint planning. Known candidate carried in memory:
+> header de-congestion (`project_header_decongestion_next_sprint` — S107 added the
+> `--measure-chrome` mechanism; verify the topbar actually adopts it). Below this status block is the
+> archived Sprint 109 record (kept for reference until the next sprint's handoff replaces it).
 
 ---
 
 ## Quick Start
 
-1. Review branch: `feature/sprint-109-geocoding-cache-hardening`.
-2. Open plan: `docs/superpowers/plans/2026-06-22-sprint-109-geocoding-cache-hardening.md`.
-3. Inspect implementation commits through `6bca27c8 fix(frontend): settle nonblocking geocoding cache writes`.
-4. Create/review PR using `.github/pull_request_template.md`; do not self-merge.
-5. Note the untracked parallel-review artifact `docs/process-review-2026-06-22.md`; it is not part of Sprint 109 implementation.
+Sprint 109 is **merged** (#111) — there is no in-flight work. Next session:
+
+1. **Run sprint planning** (use the `sprint-planning` skill) to choose and scope the next sprint.
+2. Top carried candidate: **header de-congestion** — see `project_header_decongestion_next_sprint`
+   in memory. S107 added the `--measure-chrome: 72rem` mechanism; first verify whether the topbar
+   (`apps/frontend/src/components/Layout.tsx`) actually adopts it before scoping.
+3. Other deferred items in "Carry-Forward / Known Issues" below (member forget/export,
+   cleanup-service replacement, mobile parity).
+4. The Sprint 109 record below this section is **archived for reference** until the next sprint's
+   handoff replaces it.
 
 ---
 
@@ -185,12 +192,24 @@ fallback stays last-resort only.
 - **S106 (done):** Post-Facelift Correctness & Link-Up Clarity (v11.14.0/.1).
 - **S107 (done):** App Shell Clarity & Commitment Truth (v11.15.0).
 - **S108 (done):** Responder Home Actionability & Decision Truth (v11.16.0).
-- **S109 (implemented / ready for review):** Geocoding Cache Hardening & Dependency Hygiene (v11.17.0).
+- **S109 (done):** Geocoding Cache Hardening & Dependency Hygiene (v11.17.0, #111).
 - **Deferred:** member forget/export; cleanup-service replacement; mobile parity.
 
 ---
 
 ## Persistent Context
+
+### Active Session (update on every role handoff)
+
+- **Driving agent:** _(none — between sprints; tree clean as of 2026-06-22 #111 merge)_
+- **Phase:** _(plan / code / review — n/a)_
+- **Branch + files in flight:** _(none)_
+
+> Keep this stanza current. Claude + Codex share ONE working tree (two VS Code sessions, same
+> folder, time-sliced — see AGENTS.md "Same-machine reality"). The clash safeguard is: one agent
+> edits at a time, and **the active agent commits or stashes before handing the session over**, so
+> the next agent starts from a clean tree. Never edit/commit on top of the other agent's
+> uncommitted WIP.
 
 ### Multi-agent PR process - live on master
 
