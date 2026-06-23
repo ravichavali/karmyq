@@ -92,7 +92,7 @@ Altitude) rather than a raw DB query. No deploy-script changes.
 |------|--------|
 | `services/social-graph-service/src/routes/trustGraph.ts` | Add `GET /trust/neighborhood/:userId` (router path `/neighborhood/:userId`, mounted at `/trust`) → returns 1-hop `TrustNode[]` + `TrustLink[]` for the given user (needed for click-to-expand on `/network`) |
 | `services/social-graph-service/src/routes/trustGraph.ts` | Consider: can the `GET /trust/communities` response (`getCommunityDepthGraph`) be reshaped to emit `TrustNode`/`TrustLink` format directly? Audit in S111 Task 3 |
-| `services/social-graph-service/.claude/CONTEXT.md` | Document new endpoint |
+| `services/social-graph-service/CONTEXT.md` | Document new endpoint |
 | `services/registry.json` | Add new endpoint to `social-graph-service` `apis.provides` |
 
 ---
