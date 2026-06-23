@@ -43,12 +43,13 @@ try {
   registryDate = registry.updated ?? 'unknown';
 } catch {}
 
-// Latest feature sprint from git log
-const sprintCommit = run('git log --format="%h %s" --grep="^feat" -1');
+// Latest merged sprint from git log. Squash-merges are titled "Sprint NNN: ..." —
+// the old "^feat" grep missed those and surfaced an ancient feat() commit instead.
+const sprintMerge = run('git log --format="%h %s" --grep="^Sprint [0-9]" -1');
 
 const content = `---
 name: Current project state
-description: Latest sprint, version, ADR count, and next sprint candidates — auto-refreshed by Stop hook
+description: Latest commit/branch/ADR count — auto-refreshed by the Stop hook from live git state; current & next sprint live in CURRENT_HANDOFF.md
 type: project
 ---
 
@@ -56,16 +57,17 @@ type: project
 **Latest commit**: \`${commitHash}\` — ${commitMsg}
 **Branch**: ${branch}
 **Registry updated**: ${registryDate}
-**Latest feature**: ${sprintCommit || commitMsg}
+**Latest sprint merge**: ${sprintMerge || '(none found)'}
 
 **ADR count**: ${adrFiles.length} (highest: ADR-${String(highestAdr).padStart(3, '0')}). Next ADR is **${nextAdr}**.
 
-**Sprint 52 candidates:**
-1. Trust-path visibility — show why a dibs candidate was selected (social graph path in DibsPrompt)
-2. Platform-scoped service requests — expose \`visibility_scope='platform'\` in request creation UI
-3. UI facelift — Claude Design aesthetic; research-first sprint per feedback memory
+**Current & next sprint → read \`.claude/handoff/CURRENT_HANDOFF.md\`** (the authoritative rolling
+state). This file is regenerated every session from live git/ADR/registry state ONLY; it deliberately
+does not carry a hand-maintained sprint-candidates list, because such a list fossilizes (the old
+"Sprint 52 candidates" block was ~57 sprints stale before it was removed 2026-06-22).
 
-**Note:** Git state above is auto-refreshed each session. Sprint candidates section updates when sprint planning happens.
+**Note:** Everything above is derived automatically — when it disagrees with the handoff or
+\`package.json\`, those win.
 `;
 
 if (!fs.existsSync(MEMORY_DIR)) {

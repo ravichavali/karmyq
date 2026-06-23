@@ -82,9 +82,14 @@ When code implementing an ADR is deployed, update the status from `Accepted` →
 - [ADR-043: Three-Score Model — Karma, Personal Trust, and Provider Trust](ADR-043-three-score-model.md) — **Implemented**
 - [ADR-044: Community Trust Model Questionnaire](ADR-044-community-trust-questionnaire.md) — **Implemented**
 - [ADR-045: Network Cohesion Score — Graph Topology Metrics for Community Health](ADR-045-network-cohesion-score.md) — **Implemented**
+- [ADR-046: Trust Model Evolution](ADR-046-trust-model-evolution.md) — **Implemented**
+- [ADR-047: Community Evolution Engine](ADR-047-community-evolution-engine.md) — **Implemented**
 - [ADR-048: Feed Ranking v2 — 7-Signal Formula + Interaction Logging](ADR-048-feed-ranking-v2.md) — **Implemented**
 - [ADR-049: Error Visibility — `error_type` Discriminator and `X-Request-Id` Convention](ADR-049-error-visibility.md) — **Implemented**
+- [ADR-050: Group Communities as a Distinct Community Type](ADR-050-group-communities.md) — **Implemented**
+- [ADR-051: Explore/Exploit Two-Tier Dibs Candidate Selection](ADR-051-explore-exploit-dibs.md) — **Implemented**
 - [ADR-052: Security Hardening — OWASP Top 10 Baseline](ADR-052-security-hardening.md) — **Implemented**
+- [ADR-053: Feed Design Philosophy](ADR-053-feed-design-philosophy.md) — **Accepted**
 - [ADR-054: Trust Graph Architecture](ADR-054-trust-graph-architecture.md) — **Implemented**
 - [ADR-055: Trust-Based Governance Architecture](ADR-055-trust-governance-architecture.md) — **Accepted**
 - [ADR-056: Intrinsic Trust Decay (Interaction Half-Life)](ADR-056-intrinsic-trust-decay.md) — **Implemented**

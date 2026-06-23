@@ -1,6 +1,6 @@
 # Karmyq - Mutual Aid Platform
 
-**Version**: 10.11.0 | **Status**: Demo/Development
+**Version**: see [`package.json`](package.json) (source of truth — currently 11.x) | **Status**: Demo/Development
 
 > **Multi-agent note:** [`AGENTS.md`](AGENTS.md) is the shared cross-agent bootstrap (Codex,
 > Claude, others). It points every agent at this file, the skill system, the handoff, and
@@ -177,20 +177,46 @@ Every code change that modifies behavior MUST include documentation updates:
 
 ---
 
-## Pre-Merge Checklist (MUST COMPLETE BEFORE `git push`)
+## Pre-Merge Checklist (before `git push`)
 
-Every feature branch or phase of work **must pass all items** before merging to master. This checklist exists because Phase 3 revealed a pattern: code is implemented but tests and docs are left as follow-ups that never happen.
+This checklist exists because code used to ship while tests and docs were left as
+"follow-ups that never happen." But most mechanical checks are now **automated** — so don't
+hand-verify those. Spend your attention on the **🧠 human-judgment** items; the machine catches
+the rest and tells you exactly what it found.
 
-### 1. Tests (Non-Negotiable)
+> **Three buckets:** 🤖 the build enforces · 🔔 `feedback:check` advises · 🧠 only you can judge.
 
-- [ ] **Unit/TDD tests written** for every new or changed behavior:
-  - New component rendering logic → test in `tests/tdd/`
-  - New conditional UI (show/hide based on role, state) → test the condition
-  - New API call wiring (previously stubbed with `setTimeout`) → test the call is made with correct args
-  - New hook or utility function → test its return values
-- [ ] All existing tests still pass: `npm test` (unit + regression)
-- [ ] TDD tests pass: `npm run test:tdd`
-- [ ] No tests silently skipped (`describe.skip`, `it.skip`) unless documented in a comment
+### 🤖 Automated — CI blocks the merge (do NOT re-check these by hand)
+
+These fail the build on their own. If one fires, the failure message says what to fix — fix it,
+don't `--no-verify` past it.
+
+- **Unit + regression tests** pass; TDD reported (pre-push hook + CI, [ADR-029](docs/adr/ADR-029-tdd-test-framework.md)).
+- **Dependency audit** ([ADR-059](docs/adr/ADR-059-dependency-security-gate.md), blocks at `--audit-level=high`) + **CodeQL** ([ADR-060](docs/adr/ADR-060-code-scanning-gate.md)).
+- **PR contract** headers present (`pr-contract.yml`).
+- **Doc/context drift gate** (`tests/regression/doc-context-drift-gate.test.ts`): CLAUDE.md service count matches the registry, the version line isn't a hard-coded semver, every ADR is in the `docs/adr/README.md` index, every landing concept/guide has a `nav.json` entry, and `jest.setup` mocks `next/router`.
+
+### 🔔 Advisory — `npm run feedback:check` surfaces these (read the output, act if relevant)
+
+`feedback:check` is **warn-only**: it never blocks, but its report is your to-do list for this
+diff. Don't ignore it. It flags:
+
+- `CONTEXT.md` / `services/registry.json` updates needed for changed endpoints, schema, events, or dependencies.
+- ADR index reminders; shared-package `CONTEXT.md`; migration schema docs.
+- **Tests skipped without a justification** (`describe.skip` / `it.skip` / `xit` with no comment on the same line or the line above) — remove the skip or document why. *(Warn-first heuristic line scan; it may occasionally flag a skip token inside a string — it's advisory, so just confirm and move on.)*
+
+### 🧠 Human judgment — YOU must verify (cannot be automated)
+
+The machine checks that tests *pass* and docs are *wired up*; only you can judge whether the
+*right* work was done.
+
+- [ ] **The right tests exist** for the new/changed behavior (see the coverage table below) — not just that the suite is green.
+- [ ] **User-facing guide + onboarding workflow** content updated for any behavior/UI change (`docs/guides/`, `apps/frontend/src/lib/onboarding/workflows.ts`).
+- [ ] **Landing docs authored** for new features / concepts / ADRs — the nav *wiring* is gated (🤖 above), but the *content* is yours (formats below).
+- [ ] **An ADR exists** if this is an architectural decision.
+- [ ] **`/simplify`, `/code-review`, `/security-review`** run on the branch diff; real findings resolved, false positives dismissed with written justification. (These four — with testing — are the standing SDLC quality gates.)
+- [ ] **Handoff updated** (status, next steps, success criteria).
+- [ ] **Vulnerability SLA** respected: no high/critical open > 1 week; no finding of any severity open > 2 weeks.
 
 **Minimum test coverage for UI changes:**
 | Change Type | Required Tests |
@@ -200,44 +226,14 @@ Every feature branch or phase of work **must pass all items** before merging to 
 | API call wired to user action | Mock verifies call made with correct payload |
 | Data fetch on mount | Shows fetched data, falls back gracefully on error |
 
-### 2. Documentation (Non-Negotiable)
+**Landing docs authoring** — when a change touches the public docs site (`apps/landing/`):
+add/update a **User Guide** (`guides/`) for a new feature or workflow, a **Concept page**
+(`concepts/`) for a new platform concept, an **ADR JSON** (`concepts/`) for a new ADR, and a
+**service JSON** (`services/`) for new/changed endpoints — each wired into `nav.json` (the drift
+gate verifies that wiring). File formats:
 
-- [ ] **Guide updated** if the feature has a user-facing guide in `docs/guides/`:
-  - New workflow step → add to the relevant guide
-  - New navigation path → document where to find it
-  - New integration between two features → document the connection end-to-end
-- [ ] **Onboarding content updated** if you changed a workflow's UI or behavior: update `apps/frontend/src/lib/onboarding/workflows.ts` for the affected workflow key
-- [ ] **CONTEXT.md updated** for any changed service (endpoint, schema, events)
-- [ ] **services/registry.json updated** for new endpoints or events
-- [ ] **ADR created or updated** if this is an architectural decision
-- [ ] `npm run feedback:check` passes
-
-### 3. Landing Page Docs (Non-Negotiable)
-
-The public docs site at `apps/landing/` has three doc types — keep all three in sync with every feature shipped.
-
-#### What changed → What to update
-
-| Change type | Update required |
-|---|---|
-| New user-facing feature or workflow | Add/update a **User Guide** in `apps/landing/src/data/docs/guides/` + nav.json "User Guides" |
-| New platform concept or philosophy | Add/update a **Concept page** in `apps/landing/src/data/docs/concepts/` + nav.json "Concepts" |
-| New ADR | Create ADR JSON in `apps/landing/src/data/docs/concepts/` + add to nav.json "Architecture Decisions" |
-| New/changed service endpoints | Update `apps/landing/src/data/docs/services/{service-name}.json` |
-| New service | Create service JSON + add to nav.json "Services" |
-
-#### Checklist
-- [ ] **New ADR** → `apps/landing/src/data/docs/concepts/adr-{NNN}-{slug}.json` with `slug`, `number`, `title`, `status`, `description`, `content`, `filename` fields
-- [ ] **New ADR** → add entry to nav.json "Architecture Decisions" section
-- [ ] **New user-facing feature** → add/update relevant User Guide in `apps/landing/src/data/docs/guides/{slug}.json`
-- [ ] **New user-facing feature** → add entry to nav.json "User Guides" section if new page
-- [ ] **New platform concept** → add concept page in `apps/landing/src/data/docs/concepts/{slug}.json`
-- [ ] **New platform concept** → add entry to nav.json "Concepts" section
-- [ ] **New/changed endpoints** → update `apps/landing/src/data/docs/services/{service-name}.json`
-- [ ] **Nav integrity** → every JSON file in `concepts/` and `guides/` has a nav.json entry
-
-**JSON format for ADR files:**
 ```json
+// ADR file (apps/landing/src/data/docs/concepts/adr-{NNN}-{slug}.json)
 {
   "slug": "adr-{NNN}-{slug}",
   "number": "{NNN}",
@@ -248,9 +244,8 @@ The public docs site at `apps/landing/` has three doc types — keep all three i
   "filename": "ADR-{NNN}-{slug}.md"
 }
 ```
-
-**JSON format for Concept and User Guide files:**
 ```json
+// Concept / User Guide file
 {
   "slug": "concept-or-guide-slug",
   "title": "Page Title",
@@ -258,9 +253,8 @@ The public docs site at `apps/landing/` has three doc types — keep all three i
   "content": "# Title\n\n...(full markdown content)..."
 }
 ```
-
-**JSON format for service endpoint entries:**
 ```json
+// Service endpoint entry
 {
   "method": "GET | POST | PUT | DELETE",
   "path": "/path/:param",
@@ -268,32 +262,13 @@ The public docs site at `apps/landing/` has three doc types — keep all three i
 }
 ```
 
-### 4. Handoff Updated
-
-- [ ] If this completes a phase: mark the phase complete in `CURRENT_HANDOFF.md`
-- [ ] If work continues next session: update handoff with current state and next steps
-- [ ] Success criteria in handoff are checked off
-
-### 5. Code & Security Review (Non-Negotiable)
-
-Testing, simplify, **code review**, and **security review** are the four standing SDLC quality gates — run on every sprint before merge, not just when something feels risky.
-
-- [ ] **`/simplify`** run on the branch diff (reuse, simplification, altitude) — already standard per-task; do a final pass on the whole diff
-- [ ] **`/code-review`** run on the branch diff — resolve correctness/logic findings before merge
-- [ ] **`/security-review`** run on the branch diff — resolve real findings; dismiss false positives only with a written justification
-- [ ] **Standing CI security gates pass**: dependency audit ([ADR-059](docs/adr/ADR-059-dependency-security-gate.md), blocking at `--audit-level=high`) and code scanning ([ADR-060](docs/adr/ADR-060-code-scanning-gate.md), CodeQL). These run automatically on push; `/security-review` is the human-level complement, not a replacement
-- [ ] **SLA**: no high/critical vulnerability (dependency or code scanning) open > 1 week; no finding of any severity open > 2 weeks
-
-### 6. Quick Verification
+### Quick verification before push
 
 ```bash
-# Run this before every push
-npm test                    # Must pass (unit + regression)
-npm run test:tdd            # Must pass (or document known failures)
-npm run feedback:check      # Must pass (docs complete)
-npm run analyze:services    # If service dependencies changed
-npm audit --package-lock-only --audit-level=high   # Must be clean (ADR-059 gate)
-# Then: /simplify, /code-review, /security-review on the diff before merge
+npm test                 # unit + regression (BLOCKS)
+npm run feedback:check    # advisory to-do list for this diff (never blocks)
+npm run analyze:services  # if service dependencies changed
+# then, on the diff: /simplify, /code-review, /security-review
 ```
 
 ---

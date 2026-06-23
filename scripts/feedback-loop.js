@@ -12,6 +12,47 @@ const { execSync } = require('child_process');
 
 const REGISTRY_PATH = path.join(__dirname, '../services/registry.json');
 
+// Warn-first gate (CLAUDE.md pre-merge checklist): surface tests that were skipped
+// without an obvious justification, so a silent `describe.skip` can't slip into a
+// merge. ADVISORY ONLY — this never blocks; it just lists what to confirm/remove.
+const SKIP_RE = /\b(?:describe|it|test)\.skip\b|\bxit\b|\bxdescribe\b/;
+const TEST_FILE_RE = /\.(?:test|spec)\.[tj]sx?$/;
+
+// Pure + injectable readFile so it's unit-testable without touching disk.
+function detectSkippedTests(changedFiles, readFile) {
+  const read = readFile || ((f) => fs.readFileSync(path.join(__dirname, '..', f), 'utf8'));
+  const hits = [];
+  for (const file of changedFiles) {
+    if (!TEST_FILE_RE.test(file)) continue;
+    let content;
+    try {
+      content = read(file);
+    } catch {
+      continue; // file unreadable (e.g. deleted) — nothing to warn about
+    }
+    const lines = content.split('\n');
+    lines.forEach((line, idx) => {
+      // Match against the line with string literals removed: a REAL skip has the token
+      // outside quotes (`it.skip('desc')`), while a fixture/description that merely mentions
+      // skipping has it inside quotes. Stripping quotes kills those false positives — the
+      // exact heartburn this gate must avoid (e.g. this detector's own test file).
+      const code = line
+        .replace(/"[^"]*"/g, '')
+        .replace(/'[^']*'/g, '')
+        .replace(/`[^`]*`/g, '');
+      if (!SKIP_RE.test(code)) return;
+      // Treat as documented (and stay quiet) if there's a comment on the same line
+      // or the line directly above — the common ways people justify a skip. Forgiving
+      // on purpose: this is advisory, so we'd rather under-warn than nag.
+      const sameLineComment = /\/\/|\/\*/.test(line);
+      const prevLineComment = idx > 0 && /^\s*(\/\/|\/\*|\*)/.test(lines[idx - 1]);
+      if (sameLineComment || prevLineComment) return;
+      hits.push({ file, line: idx + 1, text: line.trim() });
+    });
+  }
+  return hits;
+}
+
 function getChangedFiles() {
   try {
     // --name-status so we can drop deletions: a removed route/schema/package file
@@ -45,6 +86,7 @@ function analyzeChanges(changedFiles) {
     sharedPackageChanged: false,
     sharedPackageContextMissing: false,
     eventPatternChanges: [],
+    skippedTests: [],
   };
 
   changedFiles.forEach(file => {
@@ -163,6 +205,8 @@ function analyzeChanges(changedFiles) {
     }
   }
 
+  updates.skippedTests = detectSkippedTests(changedFiles);
+
   return updates;
 }
 
@@ -173,7 +217,8 @@ function generateFeedbackReport(updates) {
       !updates.newAdrWithoutIndex &&
       !updates.sharedPackageChanged &&
       updates.missingMigrationDocs.length === 0 &&
-      updates.eventPatternChanges.length === 0) {
+      updates.eventPatternChanges.length === 0 &&
+      (updates.skippedTests || []).length === 0) {
     return null;
   }
 
@@ -317,6 +362,16 @@ function generateFeedbackReport(updates) {
     report += `     3. Update root CLAUDE.md if global patterns changed\n\n`;
   }
 
+  // Skipped tests (warn-first — advisory only, never blocks)
+  if ((updates.skippedTests || []).length > 0) {
+    report += '⏭️  Skipped Tests Without an Obvious Justification:\n';
+    updates.skippedTests.forEach(hit => {
+      report += `  ${hit.file}:${hit.line}  ${hit.text}\n`;
+    });
+    report += `  ✅ TODO: remove the skip, or add a comment justifying it (same line or line above).\n`;
+    report += `     (Advisory — this does not block the merge.)\n\n`;
+  }
+
   report += '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n';
   report += '💡 TIP: Use git commit hooks to automate these checks\n';
   report += '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n';
@@ -346,4 +401,4 @@ if (require.main === module) {
   main();
 }
 
-module.exports = { analyzeChanges, generateFeedbackReport };
+module.exports = { analyzeChanges, generateFeedbackReport, detectSkippedTests };

@@ -143,15 +143,33 @@ agents; shared state lives in the repo, never in an agent-private memory store.
 - If two agents need the same file area, the second agent **pauses and requests reassignment**.
   Claude re-scopes/rebases; contributor agents do not resolve cross-agent conflicts themselves.
 
-### Concurrency escalation (documented, NOT active)
-While work is **serial** (one agent at a time) the default is direct contributor-PR-to-`master`
-with required review. Activate the following ONLY when **2+ agents work the same sprint
-concurrently**:
-- **File-ownership manifest per task:** orchestrator posts a per-task file-ownership list in the
-  PR/handoff; contributors edit only listed files; new files need a lock-update request first.
-- **PR layering:** contributor PRs target a Claude-maintained integration branch; Claude owns
-  the final integration PR to `master`. The integration branch needs its own branch protection
-  (else it becomes a second unprotected mainline).
+### Same-machine reality: shared working tree, time-sliced (READ THIS)
+
+The actual operating setup: **Claude and Codex run as two VS Code sessions pointed at the same
+physical project folder on the same machine**, worked **time-sliced** (one agent active at a time;
+roles rotate across plan → code → review; different parts of a sprint run by different agents).
+
+**Consequence — there is no branch isolation between the two windows.** Git allows only one
+checked-out branch per working tree, so both sessions are always on the *same* branch and **share
+one working tree**. Anything either agent writes lands in the other's live tree immediately. The
+"one agent per branch / no agent pushes to another's branch" lane model above describes *PR/identity
+ownership* and *separate-checkout* setups — it does **not** create file-level isolation here.
+
+**What actually prevents clashes (the real rules for this setup):**
+1. **One agent edits at a time.** Never edit the shared tree while the other agent has work in
+   flight in the other window.
+2. **Clean tree at every role handoff.** The active agent **commits or stashes before handing the
+   session to the other agent.** A clean tree at every switch removes almost all of the clash
+   surface. Never edit or commit on top of the other agent's *uncommitted* WIP.
+3. **Per-task file ownership.** When a sprint splits work, the orchestrator names which files each
+   agent owns (in the handoff's "Active Session" stanza or the PR body); the other agent stays out
+   of those files until handed over.
+4. **Read-only when in doubt.** A cross-cutting task (context/process cleanup, audits) stays
+   read-only until the other agent's work is committed/merged and the tree is clean.
+
+> If the maintainer ever moves to **separate checkouts / git worktrees** (not the current setup —
+> see "Solo dev, no worktrees"), then the branch-isolation lane model and PR-layering /
+> integration-branch escalation become applicable. Until then, the four rules above govern.
 
 ---
 
