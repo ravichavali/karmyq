@@ -1,9 +1,11 @@
-# Sprint 109 - Geocoding Cache Hardening & Dependency Hygiene - READY TO EXECUTE (v11.16.0 -> v11.17.0)
+# Sprint 109 - Geocoding Cache Hardening & Dependency Hygiene - IN PROGRESS (v11.16.0 -> v11.17.0)
 
 > **STATUS (2026-06-22):** Sprint 108 is merged on local `master` as
 > `81bc8d38 Sprint 108: Responder Home Actionability & Decision Truth (v11.16.0) (#110)`.
-> Sprint 109 planning is complete. Execute from branch
+> Sprint 109 planning is complete. Execution started on branch
 > `feature/sprint-109-geocoding-cache-hardening`.
+> Baseline audit: high 0, critical 0, moderate 21. Baseline geocoding package test command reports
+> missing `test` script as expected before the Sprint 109 harness.
 
 ---
 
