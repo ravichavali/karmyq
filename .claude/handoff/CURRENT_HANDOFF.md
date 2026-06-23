@@ -128,8 +128,10 @@ fallback stays last-resort only.
 - **Cleanup-service replacement** remains deferred because it owns non-trivial scheduled retention/memory
   jobs.
 - **request-forgery FP on `apps/frontend/src/lib/api.ts`** — known/recurring; dismiss as FP if it recurs.
-- **Moderate dependency alerts**: planning snapshot showed `high:0`, `critical:0`, `moderate:21`, mostly
-  Expo/Jest/tooling transitives. Fix safe leaves only; document risky major churn as carry-forward.
+- **Moderate dependency alerts**: execution baseline showed `high:0`, `critical:0`, `moderate:21`.
+  Sprint 109 safely added exact `js-yaml@4.2.0` override and refreshed the lock in place, reducing
+  moderates to 3. Remaining alerts are the `tar` -> `@expo/cli` -> `expo` chain; keep exact `tar`
+  override and carry forward unless a safe non-major Expo path is proven.
 - **Pre-existing security drift:** Dependabot/CodeQL alerts follow ADR-059/ADR-060 SLA.
 - **Pre-existing test drift:** root Turbo test targets can cache or skip changed-package coverage; run
   `npm --workspace=geocoding-service test` and focused frontend tests directly.
