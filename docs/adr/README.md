@@ -116,6 +116,7 @@ When code implementing an ADR is deployed, update the status from `Accepted` →
 - [ADR-078: Community Connection Reconciliation from `request_communities`](ADR-078-community-connection-reconciliation.md) — **Accepted**
 - [ADR-079: Karmyq Visual Design System v2 (finish the warm system + harden it into tokens)](ADR-079-visual-design-system-v2.md) — **Implemented**
 - [ADR-080: Retain Geocoding Cache as External API Policy Boundary](ADR-080-geocoding-cache-policy-boundary.md) — **Implemented**
+- [ADR-081: Belonging Graph System — One Engine, One Language, One Explorer](ADR-081-belonging-graph-system.md) — **Proposed**
 
 ## Creating a New ADR
 

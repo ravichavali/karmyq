@@ -1,199 +1,125 @@
-# Sprint 109 - Geocoding Cache Hardening & Dependency Hygiene - MERGED (v11.17.0)
+# Sprint 111 — Belonging Graph System: Implementation & Ship (v11.18.0)
 
-> **STATUS (2026-06-22):** Sprint 109 is **merged to `master`** as
-> `a62322b7 Sprint 109: Geocoding cache hardening and dependency hygiene (#111)`. Working tree is
-> clean. **No sprint is currently in flight.**
->
-> **Next session:** run sprint planning. Known candidate carried in memory:
-> header de-congestion (`project_header_decongestion_next_sprint` — S107 added the
-> `--measure-chrome` mechanism; verify the topbar actually adopts it). Below this status block is the
-> archived Sprint 109 record (kept for reference until the next sprint's handoff replaces it).
+> **STATUS (2026-06-23):** Sprint 110 is **complete and PR-ready** (`feature/sprint-110-belonging-graph-research`).
+> Research/ADR sprint — no version bump, no deploy.
+> **Sprint 111 is the implementation sprint** — executes ADR-081, ships v11.18.0.
 
 ---
 
 ## Quick Start
 
-Sprint 109 is **merged** (#111) — there is no in-flight work. Next session:
-
-1. **Run sprint planning** (use the `sprint-planning` skill) to choose and scope the next sprint.
-2. Top carried candidate: **header de-congestion** — see `project_header_decongestion_next_sprint`
-   in memory. S107 added the `--measure-chrome: 72rem` mechanism; first verify whether the topbar
-   (`apps/frontend/src/components/Layout.tsx`) actually adopts it before scoping.
-3. Other deferred items in "Carry-Forward / Known Issues" below (member forget/export,
-   cleanup-service replacement, mobile parity).
-4. The Sprint 109 record below this section is **archived for reference** until the next sprint's
-   handoff replaces it.
+1. Read this handoff.
+2. Review the S110 PR (once merged): confirm ADR-081 (Proposed) is in master.
+3. Check out branch: `git fetch origin && git checkout -b feature/sprint-111-belonging-graph-system origin/master`
+4. Open spec: `docs/superpowers/specs/2026-06-22-sprint-111-belonging-graph-system-design.md`
+5. Run: `/execute-plan` (uses superpowers:subagent-driven-development)
 
 ---
 
-## Sprint Goal
+## Sprint 111 Goal
 
-Keep `geocoding-service` as Karmyq's shared geocoding cache and public-API policy boundary, then harden
-its tests, response contract, docs, and dependency posture.
+Implement ADR-081 — one HEB engine, one client data model, one expandable full-page `/network` explorer,
+raised profile altitude, dead-lib removal. Ships as **v11.18.0**.
 
----
+## S110 Completed Deliverables
 
-## Design Decision
+- `docs/design/sprint-110-belonging-graphs/audit.md` — six-surface audit with file:line evidence
+- `docs/design/sprint-110-belonging-graphs/references.md` — reference study (Obsidian, LinkedIn, Are.na, GitHub, D3 HEB)
+- `docs/adr/ADR-081-belonging-graph-system.md` — **Status: Proposed** — records D1–D6 decisions
+- `apps/landing/src/data/docs/concepts/adr-081-belonging-graph-system.json` — generated landing concept page
+- `docs/superpowers/specs/2026-06-22-sprint-111-belonging-graph-system-design.md` — **ready-to-execute S111 spec**
 
-The maintainer chose **not** to decommission `geocoding-service`. The backend exists for a real reason:
-it reduces repeated public Nominatim hits through shared PostgreSQL caching, centralizes app-wide
-external API throttling, and allows provider switching without a frontend release. Sprint 109 is a
-hardening sprint, not a service-count-reduction sprint.
+## S111 Key Implementation Tasks
 
-Official Nominatim policy context checked during planning:
+1. `components/graphs/types.ts` — canonical `TrustNode`/`TrustLink`/`GraphData`/`BelongingMode` types
+2. `components/BelongingGraph.tsx` — single wrapper dispatching to `TrustGraphHEB` (all 4 modes)
+3. `TrustGraphHEB.tsx` extensions — `communities` mode, hover-highlight, click-to-expand, `<title>` tooltips
+4. `pages/network.tsx` — full-bleed explorable `/network` page (D4)
+5. `components/BelongingSection.tsx` + `BelongingPulse.tsx` — raised profile altitude (D6)
+6. Dead-lib removal — `cytoscape`, `react-cytoscapejs`, `@types/cytoscape`, `react-force-graph-2d`
+7. Backend: `GET /graph/neighborhood/:userId` in social-graph-service (for expand)
+8. Update callers: `TrustNetworkWidget`, `TrustGraphTab`, `FissionTab`, `profile.tsx`
+9. Update ADR-081 status → Implemented; regenerate landing docs; version bump → 11.18.0
 
-- Public `nominatim.openstreetmap.org` has an app-wide maximum of 1 request/second.
-- Apps should cache results.
-- Apps should be able to switch providers when asked.
-- Client-side autocomplete against the public API is not acceptable as a primary design.
+## S111 Spec
 
-Therefore frontend must remain local-cache-first and backend-cache-second; direct public Nominatim
-fallback stays last-resort only.
+`docs/superpowers/specs/2026-06-22-sprint-111-belonging-graph-system-design.md`
 
----
+## The audit, already established (verify in code, then formalize)
 
-## Planning Artifacts
+Six surfaces, three visual idioms:
+1. **Dashboard "Your Trust Network"** (`dashboard/TrustNetworkWidget`) — People (ego HEB) / Communities
+   (depth force) toggle; **dead `View full →` link to `/network`.**
+2. **Profile** (`pages/profile.tsx` L842) — reuses the *same* widget; belonging gets no prominent treatment.
+3. **Community page** (`community/tabs/TrustGraphTab` → `TrustGraph` → `graphs/TrustGraphHEB`) — richest surface.
+4. **Inter-community** (`graphs/CommunityDepthGraph`) — a **different D3 idiom** (force) than the HEB views.
+5. **Inline** (`TrustPathBadge` + `useTrustPath`) — in RequestCard, OfferItem, DibsPrompt, KarmaBadge, MemorySection, providers.
+6. **Fission** — HEB in `fission` mode.
 
-- Spec: `docs/superpowers/specs/2026-06-22-sprint-109-geocoding-cache-hardening-design.md`
-- Plan: `docs/superpowers/plans/2026-06-22-sprint-109-geocoding-cache-hardening.md`
+Root causes of "patchy": two D3 idioms not one; **3 dead graph libs** (`cytoscape`,
+`react-cytoscapejs`, `react-force-graph-2d` — unused); a **dead `/network` route**; **4 wrappers**
+redeclaring the same types; **expand was removed in S79** (must be reintroduced deliberately).
 
----
+Healthy, keep: `socialGraphClient`, `useLazyGraphData` (lazy D3), `useTrustPath`, social-graph-service
+(port 3010) contracts. This sprint is **frontend presentation + consolidation**, not a backend rewrite.
 
-## Execution Results
+## Proposed direction ADR-081 records (validate in research)
 
-- Retained `geocoding-service` and extracted testable modules:
-  `src/geocodingApp.js`, `src/geocodingService.js`, and `src/response.js`.
-- Added geocoding unit/regression scripts and tests with mocked DB/fetch; tests do not call public
-  Nominatim.
-- Added outbound Nominatim throttling around cache misses and preserved inbound rate limits.
-- Converted application routes to ADR-074 envelopes while keeping `/health` flat.
-- Updated frontend geocoding so backend `/search` is tried before direct public fallback; backend
-  timeouts now use local caches only instead of silently bypassing the policy boundary.
-- Post-review fix: widened frontend/backend geocoding validation for common real-address punctuation
-  and accents (`'`, `#`, `/`, Unicode letters) while still rejecting script/control-style input.
-- Post-review decision: resolved backend `/search` responses, including 429/500-style non-ok
-  responses, remain policy-boundary answers and do not fall through to direct public Nominatim; this
-  is covered by frontend regression tests.
-- Updated geocoding docs, service registry, ADR-071 follow-up, new ADR-080, landing generated docs,
-  Dockerfile, and root version `11.17.0`.
-- Dependency hygiene: exact `js-yaml@4.2.0` override reduced npm audit moderates from 21 to 3;
-  high/critical remain clean. Remaining moderates are the known Expo/tar chain.
+D1 one HEB engine (decide CommunityDepthGraph's fate) · D2 drop dead libs · D3 one client data model +
+one `<BelongingGraph mode>` wrapper · D4 a real, prominent, zoomable, expandable `/network` explorer ·
+D5 reintroduce expand deliberately (answer why S79 removed it) · D6 raise belonging's altitude on profile.
 
-## Verification
+## Critical Implementation Notes (copied from spec)
 
-- PASS: `npm --workspace=geocoding-service test` (including post-review address validation cases).
-- PASS: `npm test -- geocoding.test.ts` from `apps/frontend`.
-- PASS: `npx jest tests/tdd/geocoding.test.ts --runInBand` from `apps/frontend` (including
-  post-review punctuation/accent and 429 boundary cases).
-- PASS: `npx tsc --noEmit -p apps/frontend/tsconfig.json`.
-- PASS: `npm test` at repo root (`26 successful, 26 total`).
-- PASS: `npm run feedback:check` (with existing Windows warning reading user-level git ignore).
-- PASS: `npm audit --package-lock-only --audit-level=high`.
-- PASS: `npm run analyze:services` (with existing version-drift warning).
-- EXPECTED FAIL: root `npm run test:tdd` still cannot find a `test:tdd` task in every Turbo project.
-- EXPECTED FAIL: full frontend `npm --workspace=karmyq-frontend run test:tdd -- geocoding.test.ts`
-  still runs the whole frontend TDD suite and hits pre-existing unrelated trust/provider failures;
-  focused `geocoding.test.ts` passes.
-- EXPECTED FAIL: root `npx tsc --noEmit` prints TypeScript help because the repo has no root
-  `tsconfig.json`; frontend project TypeScript passes.
-
----
-
-## In Scope
-
-1. **Keep and harden geocoding-service** — retain `/search`, `/cache`, `/stats`, `/cleanup`, and `/health`.
-2. **Central outbound throttling** — inbound `express-rate-limit` is not enough; outbound Nominatim calls
-   need an app-process throttle.
-3. **ADR-074-style route envelopes** — keep `/health` flat for infrastructure compatibility; use
-   `{ success, data, message, error }` for application routes.
-4. **Real test coverage** — add package scripts plus unit/regression tests with mocked DB/fetch.
-5. **Frontend boundary regression** — prove frontend tries backend geocoding cache before any direct
-   external fallback.
-6. **Docs and registry drift fix** — service docs currently claim no frontend consumer and Redis
-   dependency; correct to frontend consumer + PostgreSQL.
-7. **ADR-080** — record why geocoding-service is retained as an external API policy boundary and update
-   ADR-071 follow-up.
-8. **Dependency hygiene** — keep high/critical audit clean; triage moderate alerts without risky major
-   Expo/Jest churn.
-
-## Out of Scope
-
-- Deleting or folding `geocoding-service`.
-- Member forget/export controls.
-- Cleanup-service replacement.
-- Paid provider migration (Mapbox/Google/etc.).
-- Self-hosting Nominatim.
-- Reverse geocoding.
-- Address-book product work.
-- Major Expo/Jest migration solely for moderate audit alerts.
-
----
-
-## Critical Implementation Notes
-
-1. **Do not decommission `geocoding-service`.** The backend is retained as the shared cache and external
-   API policy boundary.
-2. **Do not make browser-to-Nominatim the primary autocomplete path.** Direct external calls stay a
-   last-resort fallback after local caches and backend cache fail.
-3. **Respect the Nominatim policy.** Centralize outbound Nominatim calls, send a real Karmyq
-   `User-Agent`, cache results, and throttle app-wide external requests to at most one request per
-   second per process.
-4. **Per-client HTTP rate limits are not enough.** `express-rate-limit` limits inbound callers; add a
-   separate outbound throttle around `callNominatimAPI`, and make the throttle resilient so one rejected
-   external call cannot poison the queue for future cache misses.
-5. **Response envelopes should match ADR-074.** Keep `/health` compatible, but use
-   `{ success, data, message, error }` for API and error responses.
-6. **Fix documentation drift.** The service is not "no dependents" in practice: frontend geocoding
-   consumes it. It uses PostgreSQL, not Redis.
-7. **Add test scripts before relying on tests.** `services/geocoding-service/package.json` currently has
-   no `test`, `test:unit`, or `test:regression` scripts.
-8. **Mock external calls in tests.** Tests must not call public Nominatim. Use mocked `fetch` and mocked
-   `pool.query`.
-9. **Do not take risky dependency majors.** Moderate audit cleanup is bounded; Expo/Jest major churn is
-   out of scope unless proven safe.
-10. **Update ADR-071/ADR-080 coherently.** ADR-071's geocoding follow-up should point to ADR-080's
-    decision to retain and harden the service.
-11. **Update the Docker image when extracting `src/`.** The current Dockerfile copies only `index.js`;
-    after extraction it must copy `services/geocoding-service/src/` into both build and production
-    stages, or the deployed container will fail with `Cannot find module './src/geocodingApp'`.
-12. **Do not add already-hoisted test dev dependencies to the service package.** Add scripts only unless
-    verification proves `jest` or `supertest` cannot resolve from the root install.
-13. **Backend timeout must not bypass the policy boundary.** Frontend timeouts from `/search` should not
-    silently fall through to direct browser-to-Nominatim calls; add the regression test from the plan.
+1. **No-deploy, no version bump.** ADR-081 **Proposed**; version stays `11.17.0`; plan omits deploy. Mirror S104/ADR-079.
+2. **The audit is the deliverable — verify every claim in code** with file:line evidence before writing references/ADR.
+3. **No app-code edits in S110** (no deleting dead libs / merging wrappers — that's S111). Keep the branch docs-only.
+4. **Re-introducing expand must answer S79** (why removed; how this avoids that) — rationale into ADR-081.
+5. **Keep the data layer** (socialGraphClient, useLazyGraphData, useTrustPath, social-graph contracts).
+6. **Drift gate:** ADR-081 in `docs/adr/README.md` + landing concept wired via `ADR_GROUPS`, or CI fails.
+7. **Landing docs are GENERATED — do NOT hand-edit `nav.json`/concept JSON.** `scripts/generate-docs.ts`
+   builds them from `docs/adr` + `ADR_GROUPS` and wipes `OUT_DIR` each run (this is the real "nav.json
+   reverts" cause). Add the slug to `ADR_GROUPS`, run `cd apps/landing && npm run generate-docs`, commit.
+8. **Landing generated docs are gitignored** — `git add -f apps/landing/src/data/docs` after generating.
+9. **ADR numbering:** S110 uses **ADR-081**; next free = 082.
+10. **Decide `CommunityDepthGraph`'s fate explicitly** in ADR-081 (fold to HEB, or sanctioned exception).
+11. **Windows/PowerShell repo** — use `rg`/PowerShell verification commands, not Bash.
+12. **Pre-push gate still runs `npm test`** even for this docs sprint — run it before pushing.
+13. **Expected-dirty tree at execution start:** the planning artifacts (plan/spec) + modified handoff
+    are carried onto the S110 branch by `checkout -b` — confirm correct base + expected WIP, not clean.
 
 ---
 
 ## Carry-Forward / Known Issues
 
-- **Member forget/export** privacy follow-on remains open and intentionally out of Sprint 109.
-- **Dibs server-side relationship routing** appears substantially implemented by ADR-072/S93; revisit only
-  if a fresh defect appears.
-- **Cleanup-service replacement** remains deferred because it owns non-trivial scheduled retention/memory
-  jobs.
-- **request-forgery FP on `apps/frontend/src/lib/api.ts`** — known/recurring; dismiss as FP if it recurs.
-- **Moderate dependency alerts**: execution baseline showed `high:0`, `critical:0`, `moderate:21`.
-  Sprint 109 safely added exact `js-yaml@4.2.0` override and refreshed the lock in place, reducing
-  moderates to 3. Remaining alerts are the `tar` -> `@expo/cli` -> `expo` chain; keep exact `tar`
-  override and carry forward unless a safe non-major Expo path is proven.
-- **Pre-existing security drift:** Dependabot/CodeQL alerts follow ADR-059/ADR-060 SLA.
-- **Pre-existing test drift:** root Turbo test targets can cache or skip changed-package coverage; run
-  `npm --workspace=geocoding-service test` and focused frontend tests directly.
+- **Cleanup-service replacement** — considered in S110 planning, **deferred again**: it is the
+  platform's scheduled-job runner for real guarantees (ADR-069 forgetting cascade, dibs release every
+  5 min, reputation decay, trust-edge sweep, TTL/hard-delete). Pure plumbing risk, no user-visible
+  upside. If revisited, the choice is fold-into-owning-services (request + reputation, 10→9) vs
+  swap node-cron for durable Bull repeatable jobs; **the forgetting logic must be preserved verbatim.**
+- **Member forget/export** privacy follow-on remains open.
+- **Responder Home / sim liveliness** (IDEAS 2026-06-15) — established demo accounts read empty;
+  `proposed` matches don't surface; sim pace low. Candidate for a later sprint.
+- **request-forgery FP on `apps/frontend/src/lib/api.ts`** — known/recurring; dismiss as FP.
+- **Moderate dependency alerts**: baseline high:0/critical:0; S109 reduced moderates 21→3 (remaining =
+  `tar`→`@expo/cli`→`expo` chain; keep exact `tar` override). Pre-existing Dependabot/CodeQL alerts
+  follow ADR-059/ADR-060 SLA.
+- **Pre-existing test drift:** root Turbo test targets can cache/skip changed-package coverage; run
+  focused suites directly.
 
 ---
 
 ## Multi-Sprint Arc
 
-- **S100 (done):** Pulse Truth & Actionability (ADR-078).
-- **S101 (done):** Actionability & State Truth.
-- **S102 (done):** Visible Memory + Re-warm First Step (v11.11.0).
-- **S103 (done):** Governance + Intake Clarity (v11.12.0).
 - **S104 (done):** UI Facelift Research (ADR-079 Proposed, no deploy).
 - **S105 (done):** UI Facelift Implementation (v11.13.0).
 - **S106 (done):** Post-Facelift Correctness & Link-Up Clarity (v11.14.0/.1).
 - **S107 (done):** App Shell Clarity & Commitment Truth (v11.15.0).
 - **S108 (done):** Responder Home Actionability & Decision Truth (v11.16.0).
 - **S109 (done):** Geocoding Cache Hardening & Dependency Hygiene (v11.17.0, #111).
-- **Deferred:** member forget/export; cleanup-service replacement; mobile parity.
+- **S110 (done):** Belonging Graph System — Research & ADR-081 Proposed (no-deploy, v11.17.0 — PR open).
+- **S111 (this sprint):** Belonging Graph System — Implementation & ship (v11.18.0).
+- **Deferred:** cleanup-service replacement; member forget/export; responder-Home/sim liveliness; mobile parity.
 
 ---
 
@@ -201,9 +127,9 @@ fallback stays last-resort only.
 
 ### Active Session (update on every role handoff)
 
-- **Driving agent:** _(none — between sprints; tree clean as of 2026-06-22 #111 merge)_
-- **Phase:** _(plan / code / review — n/a)_
-- **Branch + files in flight:** _(none)_
+- **Driving agent:** Claude Sonnet 4.6 (S110 execution complete 2026-06-23)
+- **Phase:** S110 complete → PR open → waiting for merge → S111 ready to execute
+- **Branch + files in flight:** `feature/sprint-110-belonging-graph-research` (PR open, no deploy)
 
 > Keep this stanza current. Claude + Codex share ONE working tree (two VS Code sessions, same
 > folder, time-sliced — see AGENTS.md "Same-machine reality"). The clash safeguard is: one agent
@@ -224,6 +150,9 @@ fallback stays last-resort only.
 ### Architecture Gotchas
 
 - **Frontend is Pages Router** (`apps/frontend/src/pages`), not App Router.
+- **Graph engine is D3 HEB** (`graphs/TrustGraphHEB`); `CommunityDepthGraph` is a separate D3 force
+  layout; `cytoscape`/`react-cytoscapejs`/`react-force-graph-2d` are installed but **unused**.
+- **`/network` page does not exist** despite `TrustNetworkWidget` linking to it (dead link).
 - **category vs request_type seam:** `help_requests.category` is mixed-vocab (enum on new rows, skill
   tokens on old/seed/sim rows). Never pass `category` where `request_type` (the enum) is expected.
 - **Feed query surfaces:** browsable-request filtering lives in multiple places; the feed ranker
@@ -234,7 +163,7 @@ fallback stays last-resort only.
   `apps/frontend/tailwind.config.js`; per-community skins via `ThemeContext`/`ThemeProvider`.
 - **Landing page docs:** `apps/landing/src/data/docs/` is gitignored - `git add -f` when generated
   docs must be committed. Generated by `scripts/generate-docs.ts`; edit sources, never generated JSON.
-- **ADR numbering:** Sprint 109 creates ADR-080; next free after this sprint = **081**.
+- **ADR numbering:** S110 creates ADR-081; next free = **082**.
 - **JWT field** is `communities`, not `communityMemberships`.
 - **Schema is `communities.communities`** (plural schema name); auth tables are `auth.*`.
 - **API response unwrap:** `createApiClient` interceptor already unwraps - use `res.data`, not
@@ -244,18 +173,21 @@ fallback stays last-resort only.
 - **`git add` on CLAUDE.md:** tracked as lowercase `claude.md`.
 - **Solo dev - no worktrees:** work directly on feature branches.
 - **request-service serves the feed** (`/requests/feed`); there is no feed-service.
-- **geocoding-service stays separate in Sprint 109:** it is the backend cache and external geocoder
-  policy boundary.
+- **cleanup-service is the scheduled-job runner** (forgetting/dibs/decay/TTL) — load-bearing; left intact.
 
 ### Workflow Gotchas
 
-- Every sprint runs testing, `/simplify`, `/code-review`, and `/security-review`.
-- Every sprint updates docs and landing docs.
-- No docs-only push to `master`; master push triggers a full deploy.
+- Every sprint runs testing, `/simplify`, `/code-review`, and `/security-review` (for a docs sprint
+  these largely confirm no code risk — record the result, don't skip the gate).
+- Every sprint updates docs and landing docs; research sprints ship the ADR landing concept now and
+  defer user-guide updates to the implementing sprint. **Landing docs are generated** by
+  `scripts/generate-docs.ts` from `docs/adr` + `ADR_GROUPS` — wire new ADRs via `ADR_GROUPS` and
+  regenerate; never hand-edit `nav.json` or the concept JSON (the generator wipes and rebuilds them).
+- No docs-only push to `master`; master push triggers a full deploy. A research-sprint PR still merges
+  via CI but with no version bump and no manual deploy.
 - nginx.conf changes take effect on the next deploy (deploy.sh copies + reloads).
 - `nav.json` silently reverts - always grep-verify after editing.
-- Widely-rendered components using `useRouter` need the global `apps/frontend/jest.setup.js` router
-  mock.
+- Widely-rendered components using `useRouter` need the global `apps/frontend/jest.setup.js` router mock.
 - Root Turbo `test:unit`/`test:regression` can exit before tests (missing target in one workspace);
   run changed-package unit/regression targets directly.
 - DB-backed TDD tests need a reachable local Postgres and may need to seed `creator_id`.

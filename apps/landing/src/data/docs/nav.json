@@ -393,6 +393,10 @@
           "href": "/docs/concepts/adr-078-community-connection-reconciliation"
         },
         {
+          "label": "Belonging Graph System — One Engine, One Language, One Explorer",
+          "href": "/docs/concepts/adr-081-belonging-graph-system"
+        },
+        {
           "label": "— Community & Scale —",
           "href": "/docs/concepts",
           "divider": true
