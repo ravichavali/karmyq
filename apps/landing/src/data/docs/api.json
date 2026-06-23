@@ -858,27 +858,27 @@
         {
           "method": "GET",
           "path": "/health",
-          "description": "Health check endpoint."
+          "description": "Flat health check endpoint for infrastructure compatibility."
         },
         {
           "method": "GET",
           "path": "/search?q={query}",
-          "description": "Search for geocoded addresses. Returns cached results if available, otherwise calls Nominatim API and caches the result."
+          "description": "Search the shared PostgreSQL cache. On miss, calls Nominatim through the service-level throttle and"
         },
         {
           "method": "POST",
           "path": "/cache",
-          "description": "Manually cache a geocoding result (used by frontend for fire-and-forget caching)."
+          "description": "Manually cache geocoding results, used by the frontend direct fallback as a non-blocking shared-cache"
         },
         {
           "method": "GET",
           "path": "/stats",
-          "description": "Get cache statistics and analytics."
+          "description": "Returns cache statistics and top active queries."
         },
         {
           "method": "POST",
           "path": "/cleanup",
-          "description": "Remove expired cache entries (older than 30 days)."
+          "description": "Deletes expired cache entries."
         }
       ]
     },

@@ -504,6 +504,10 @@
           "href": "/docs/concepts/adr-071-service-consolidation-feed-service"
         },
         {
+          "label": "Retain Geocoding Cache as External API Policy Boundary",
+          "href": "/docs/concepts/adr-080-geocoding-cache-policy-boundary"
+        },
+        {
           "label": "NPM Workspace Package for Shared Code in Docker",
           "href": "/docs/concepts/adr-028-npm-workspace-docker-build"
         },

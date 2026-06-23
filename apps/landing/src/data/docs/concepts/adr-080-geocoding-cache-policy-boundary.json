@@ -1,0 +1,9 @@
+{
+  "slug": "adr-080-geocoding-cache-policy-boundary",
+  "number": "080",
+  "title": "ADR-080: Retain Geocoding Cache as External API Policy Boundary",
+  "status": "implemented",
+  "description": "**Status:** Implemented",
+  "content": "# ADR-080: Retain Geocoding Cache as External API Policy Boundary\n\n**Status:** Implemented\n**Date:** 2026-06-22\n**Sprint:** 109\n\n## Context\n\nADR-071 listed geocoding-service as a candidate for removal after feed-service was folded into\nrequest-service. During Sprint 109 planning, we rechecked the public Nominatim usage policy. Karmyq's\nfrontend address search is autocomplete-like and can be triggered by many users; direct browser calls\nwould weaken shared caching, app-wide throttling, provider switching, and policy compliance.\n\n## Decision\n\nKeep `geocoding-service` as a small backend cache and external geocoder policy boundary. The service\ncontinues to own shared PostgreSQL geocoding cache reads/writes, centralized outbound throttling, and\nNominatim application identification. The frontend remains local-cache-first and uses the backend cache\nbefore any direct fallback.\n\n## Consequences\n\n- Backend service count remains 10.\n- `geocoding-service` is no longer a near-term decommission candidate.\n- The service must carry tests and docs like any other production service.\n- A future provider swap can happen server-side without requiring browser code to know provider details.\n\n## Alternatives Considered\n\nDelete the backend and call Nominatim directly from the browser.\n\nRejected because it weakens app-wide policy compliance and shared caching.\n\nFold geocoding into request-service or community-service.\n\nDeferred. It would reduce service count but increase ownership ambiguity and blast radius for a small,\noptional, externally-facing utility.\n",
+  "filename": "ADR-080-geocoding-cache-policy-boundary.md"
+}
