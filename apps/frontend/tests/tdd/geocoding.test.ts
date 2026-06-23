@@ -48,6 +48,55 @@ describe('Geocoding Service', () => {
       expect(fetch).not.toHaveBeenCalled()
     })
 
+    it('tries the backend geocoding cache before direct Nominatim fallback', async () => {
+      const geocodingCache = await import('../../src/lib/geocodingCache')
+      ;(geocodingCache.searchCommonLocations as jest.Mock).mockResolvedValue([])
+      ;(geocodingCache.getCachedResult as jest.Mock).mockResolvedValue(null)
+      ;(geocodingCache.cacheAPIResult as jest.Mock).mockResolvedValue(undefined)
+
+      const fetchMock = global.fetch as jest.Mock
+      fetchMock.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          success: true,
+          data: {
+            results: [{
+              display_name: 'Oakland, CA',
+              address: 'Oakland',
+              lat: 37.8044,
+              lng: -122.2712,
+              type: 'city',
+            }],
+            cached: true,
+          },
+        }),
+      })
+
+      const results = await searchAddresses('Oakland')
+
+      expect(fetchMock.mock.calls[0][0]).toContain('/search?q=Oakland')
+      expect(fetchMock.mock.calls[0][0]).not.toContain('nominatim.openstreetmap.org')
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+      expect(results[0].address).toBe('Oakland')
+    })
+
+    it('does not call public Nominatim when the backend geocoding cache times out', async () => {
+      const geocodingCache = await import('../../src/lib/geocodingCache')
+      ;(geocodingCache.searchCommonLocations as jest.Mock).mockResolvedValue([])
+      ;(geocodingCache.getCachedResult as jest.Mock).mockResolvedValue(null)
+      ;(geocodingCache.cacheAPIResult as jest.Mock).mockResolvedValue(undefined)
+
+      const timeoutError = new DOMException('The operation timed out', 'TimeoutError')
+      const fetchMock = global.fetch as jest.Mock
+      fetchMock.mockRejectedValueOnce(timeoutError)
+
+      const results = await searchAddresses('Oakland')
+
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+      expect(fetchMock.mock.calls[0][0]).toContain('/search?q=Oakland')
+      expect(results).toEqual([])
+    })
+
     it('should return geocoded results', async () => {
       const mockResponse = [
         {
@@ -139,9 +188,11 @@ describe('Geocoding Service', () => {
         { display_name: 'Test', lat: '0', lon: '0', type: 'place' }
       ]
 
-      ;(fetch as jest.Mock).mockResolvedValue({
-        ok: true,
-        json: async () => mockResponse
+      ;(fetch as jest.Mock).mockImplementation((url: string) => {
+        if (typeof url === 'string' && url.includes('nominatim')) {
+          return Promise.resolve({ ok: true, json: async () => mockResponse })
+        }
+        return Promise.reject(new Error('Backend unavailable'))
       })
 
       const start = Date.now()

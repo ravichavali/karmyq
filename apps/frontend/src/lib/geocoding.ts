@@ -22,14 +22,34 @@ export interface AddressSuggestion {
 // Rate limiting
 let lastRequestTime = 0
 const MIN_REQUEST_INTERVAL = 1000 // 1 second between requests
+const BACKEND_GEOCODING_TIMEOUT_MS = 6500
+
+function getBackendResults(responseBody: any): { results: AddressSuggestion[], cached?: boolean } {
+  const payload = responseBody?.success && responseBody?.data ? responseBody.data : responseBody
+  return {
+    results: Array.isArray(payload?.results) ? payload.results : [],
+    cached: payload?.cached,
+  }
+}
+
+function isBackendTimeout(error: unknown): boolean {
+  if (!(error instanceof Error)) return false
+  return (
+    error.name === 'AbortError' ||
+    error.name === 'TimeoutError' ||
+    /timed?\s*out|aborted/i.test(error.message)
+  )
+}
 
 /**
- * Search for addresses using local IndexedDB first, then OpenStreetMap Nominatim
+ * Search for addresses using local IndexedDB first, then the backend geocoding boundary.
  *
  * Priority:
  * 1. Check IndexedDB common locations (instant, ~5ms)
  * 2. Check IndexedDB API cache (instant, ~5ms)
- * 3. Call Nominatim API and cache result (slow, ~500ms)
+ * 3. Check backend PostgreSQL cache / shared Nominatim boundary
+ * 4. Check localStorage cache (legacy)
+ * 5. Last-resort direct Nominatim fallback for backend reachability failures only
  */
 export async function searchAddresses(query: string): Promise<AddressSuggestion[]> {
   // Input validation (minimum 2 chars to support airport codes like "SJ")
@@ -60,27 +80,36 @@ export async function searchAddresses(query: string): Promise<AddressSuggestion[
 
   // STEP 3: Check backend PostgreSQL cache
   const geocodingApiUrl = process.env.NEXT_PUBLIC_GEOCODING_API_URL || 'http://localhost:3009'
+  let backendTimedOut = false
+  let backendAnswered = false
+  let allowDirectExternalFallback = false
+
   try {
     const backendResponse = await fetch(
       `${geocodingApiUrl}/search?q=${encodeURIComponent(sanitized)}`,
-      { signal: AbortSignal.timeout(2000) } // 2 second timeout for backend
+      { signal: AbortSignal.timeout(BACKEND_GEOCODING_TIMEOUT_MS) }
     )
 
+    backendAnswered = true
     if (backendResponse.ok) {
       const backendData = await backendResponse.json()
-      if (backendData.results && backendData.results.length > 0) {
-        console.debug(`✅ Tier 2: Backend DB ${backendData.cached ? 'CACHE HIT' : 'API call'} for: ${sanitized}`)
+      const { results, cached } = getBackendResults(backendData)
+      if (results.length > 0) {
+        console.debug(`✅ Tier 2: Backend DB ${cached ? 'CACHE HIT' : 'API call'} for: ${sanitized}`)
 
         // Cache locally in IndexedDB for next time (even if it came from backend API call)
-        await cacheAPIResult(sanitized, backendData.results)
+        await cacheAPIResult(sanitized, results)
 
         // If backend made an API call and got results, we're done (backend already cached it)
-        return backendData.results
+        return results
       }
     }
   } catch (error) {
+    backendTimedOut = isBackendTimeout(error)
+    allowDirectExternalFallback = !backendTimedOut
     const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-    console.warn(`⚠️ Backend geocoding unavailable (${errorMessage}), falling back to direct API`)
+    const fallbackAction = backendTimedOut ? 'using local caches only' : 'falling back to direct API'
+    console.warn(`⚠️ Backend geocoding unavailable (${errorMessage}), ${fallbackAction}`)
   }
 
   // STEP 4: Fallback to localStorage cache (legacy)
@@ -91,7 +120,17 @@ export async function searchAddresses(query: string): Promise<AddressSuggestion[
     return cached
   }
 
+  if (backendTimedOut) {
+    return []
+  }
+
+  if (backendAnswered || !allowDirectExternalFallback) {
+    return []
+  }
+
   // STEP 5: Direct API call (only if all tiers failed)
+  // Last-resort fallback only: the backend geocoding cache is the app-wide Nominatim policy boundary.
+  // Keep local caches + backend cache ahead of direct public API calls.
   console.debug(`⚠️ Tier 4: Calling external Nominatim API for: ${sanitized}`)
 
   // Rate limiting
@@ -140,7 +179,7 @@ export async function searchAddresses(query: string): Promise<AddressSuggestion[
     }))
 
     // Cache everywhere (fire-and-forget, don't wait)
-    Promise.all([
+    void Promise.all([
       // IndexedDB (local browser cache)
       cacheAPIResult(sanitized, suggestions),
       // Backend cache (shared across all users)
@@ -151,7 +190,7 @@ export async function searchAddresses(query: string): Promise<AddressSuggestion[
       }).catch(() => console.warn('Backend cache update failed (non-fatal)')),
       // localStorage (legacy support)
       cache.set(cacheKey, suggestions, 24 * 60 * 60 * 1000)
-    ]).then(() => console.debug(`✅ Cached "${sanitized}" to all tiers`))
+    ])
 
     return suggestions
   } catch (error) {
