@@ -115,9 +115,9 @@ collapse control. Dashboard, profile, community, communities, and fission surfac
 
 ### Active Session (update on every role handoff)
 
-- **Driving agent:** Codex (Sprint 111 planning)
-- **Phase:** Approved spec + execution plan + handoff; implementation not started
-- **Branch + files in flight:** `feature/sprint-111-belonging-graph-system`; planning artifacts only
+- **Driving agent:** Claude (Sprint 111 implementation)
+- **Phase:** Executing the approved plan task-by-task (started at Task 1)
+- **Branch + files in flight:** `feature/sprint-111-belonging-graph-system`; baseline captured (dead graph libs present, `/network` absent, root v11.17.0)
 
 > Claude and Codex share one physical working tree. One agent edits at a time. The active agent must
 > commit or stash before handing over. Never edit or commit on top of another agent's uncommitted WIP.
