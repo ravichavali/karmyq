@@ -1,10 +1,20 @@
 # Frontend CONTEXT.md
 
-**Last updated**: 2026-06-20 (Sprint 107 — App Shell Clarity & Commitment Truth)
+**Last updated**: 2026-06-22 (Sprint 109 — Geocoding Cache Boundary)
 
 ## Overview
 
 Next.js 14 web application (Pages Router) consuming all Karmyq backend services.
+
+---
+
+## Sprint 109 Geocoding Cache Boundary (2026-06-22)
+
+- **Geocoding boundary:** `src/lib/geocoding.ts` must keep IndexedDB/common-location cache first,
+  `geocoding-service` second, and direct Nominatim fallback last. The backend cache is the app-wide
+  rate-limit/provider-switching boundary.
+- Backend `/search` timeouts do not silently fall through to direct browser-to-Nominatim calls; direct
+  external fallback is reserved for clear backend reachability failures after local caches are checked.
 
 ---
 

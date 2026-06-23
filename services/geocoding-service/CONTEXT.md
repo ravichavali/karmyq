@@ -5,14 +5,25 @@
 
 ## Purpose
 
-Provides a shared backend caching layer for address geocoding to minimize external Nominatim API calls by 95%+ through intelligent multi-tier caching.
+`geocoding-service` is Karmyq's shared backend geocoding cache and external geocoder policy boundary.
+It keeps browser autocomplete local-cache-first, shares PostgreSQL cache hits across users, centralizes
+Nominatim application identification, and throttles outbound public Nominatim calls.
+
+## Sprint 109 - Geocoding Cache Hardening (2026-06-22)
+
+- `geocoding-service` is retained as Karmyq's shared geocoding cache and external API policy boundary.
+- `/search`, `/cache`, `/stats`, and `/cleanup` use ADR-074-style `{ success, data, message, error }`
+  envelopes; `/health` keeps the flat health shape for infrastructure compatibility.
+- Outbound Nominatim calls are centrally throttled and mocked in tests.
+- Frontend remains local-cache-first, backend-cache-second, direct external fallback last.
+- Dependency docs now reflect PostgreSQL, not Redis, and `apps/frontend/src/lib/geocoding.ts` as the
+  application consumer.
 
 ## Database Schema
 
 ### Tables Owned by This Service
 
 ```sql
--- Geocoding cache table (no schema prefix - service-specific)
 CREATE TABLE geocoding_cache (
     query TEXT PRIMARY KEY,
     results JSONB NOT NULL,
@@ -23,37 +34,36 @@ CREATE TABLE geocoding_cache (
     source VARCHAR(50) DEFAULT 'nominatim'
 );
 
--- Indexes
 CREATE INDEX idx_geocoding_expires_at ON geocoding_cache(expires_at);
 CREATE INDEX idx_geocoding_hit_count ON geocoding_cache(hit_count DESC);
 CREATE INDEX idx_geocoding_last_accessed ON geocoding_cache(last_accessed DESC);
 ```
 
 ### Tables Read by This Service
-- None (geocoding service is fully self-contained)
+
+- None; the cache table is service-specific and global.
 
 ## Architecture
 
-The service is Tier 2 in a three-tier caching strategy:
+The service is Tier 2 in the frontend geocoding flow:
 
-```
+```text
 User Request
-    ↓
-Tier 1: IndexedDB (Browser) → ~5ms (instant)
-    ↓ (miss)
-Tier 2: PostgreSQL (Backend) → ~50ms (this service) ✅
-    ↓ (miss)
-Tier 3: localStorage (Legacy) → ~10ms
-    ↓ (miss)
-Tier 4: Nominatim API (External) → ~500ms
+  -> Tier 1: IndexedDB common locations / API cache
+  -> Tier 2: PostgreSQL shared cache (this service)
+  -> Tier 3: localStorage legacy cache
+  -> Tier 4: direct Nominatim fallback only for backend reachability failures
 ```
+
+The backend owns the normal Nominatim path. Direct browser-to-Nominatim calls are last-resort fallback
+only and must not become the primary autocomplete path.
 
 ## API Endpoints
 
 ### GET /health
-Health check endpoint.
 
-**Response:**
+Flat health check endpoint for infrastructure compatibility.
+
 ```json
 {
   "status": "healthy",
@@ -62,52 +72,45 @@ Health check endpoint.
 }
 ```
 
-**Implementation:** `src/index.ts:25`
-
 ### GET /search?q={query}
-Search for geocoded addresses. Returns cached results if available, otherwise calls Nominatim API and caches the result.
 
-**Parameters:**
-- `q` (required): Search query (e.g., "San Francisco")
+Search the shared PostgreSQL cache. On miss, calls Nominatim through the service-level throttle and
+caches successful results.
 
-**Response (Cache Hit):**
 ```json
 {
-  "results": [
-    {
-      "display_name": "Oakland, Alameda County, California, United States",
-      "address": "Oakland",
-      "lat": 37.8044,
-      "lng": -122.2712,
-      "type": "city"
-    }
-  ],
-  "source": "cache",
-  "cached": true
+  "success": true,
+  "data": {
+    "results": [
+      {
+        "display_name": "Oakland, Alameda County, California, United States",
+        "address": "Oakland",
+        "lat": 37.8044,
+        "lng": -122.2712,
+        "type": "city"
+      }
+    ],
+    "source": "cache",
+    "cached": true
+  }
 }
 ```
 
-**Response (Cache Miss - External API):**
+Invalid queries return:
+
 ```json
 {
-  "results": [...],
-  "source": "nominatim",
-  "cached": false
+  "success": false,
+  "message": "Query must be at least 2 characters",
+  "error": "INVALID_QUERY"
 }
 ```
-
-**Implementation:** `src/index.ts:35`
-
-**Key Features:**
-- Normalizes queries (lowercase, trim whitespace)
-- Updates hit_count and last_accessed on cache hits
-- Respects Nominatim rate limit (1 req/sec)
-- Fire-and-forget caching pattern (non-blocking)
 
 ### POST /cache
-Manually cache a geocoding result (used by frontend for fire-and-forget caching).
 
-**Request:**
+Manually cache geocoding results, used by the frontend direct fallback as a non-blocking shared-cache
+write.
+
 ```json
 {
   "query": "oakland",
@@ -123,238 +126,143 @@ Manually cache a geocoding result (used by frontend for fire-and-forget caching)
 }
 ```
 
-**Response:**
+Response:
+
 ```json
 {
   "success": true,
-  "message": "Results cached successfully"
+  "data": {
+    "query": "oakland"
+  },
+  "message": "Cached results for: oakland"
 }
 ```
-
-**Implementation:** `src/index.ts:80`
 
 ### GET /stats
-Get cache statistics and analytics.
 
-**Response:**
+Returns cache statistics and top active queries.
+
 ```json
 {
-  "stats": {
-    "total_entries": "1",
-    "total_hits": "3",
-    "active_entries": "1",
-    "expired_entries": "0",
-    "avg_hit_count": 3,
-    "max_hit_count": 3
-  },
-  "top_queries": [
-    {
-      "query": "oakland",
-      "hit_count": 3,
-      "last_accessed": "2025-12-27T04:59:00.844Z"
-    }
-  ]
+  "success": true,
+  "data": {
+    "stats": {
+      "total_entries": "1",
+      "total_hits": "3",
+      "active_entries": "1",
+      "expired_entries": "0",
+      "avg_hit_count": 3,
+      "max_hit_count": 3
+    },
+    "top_queries": [
+      {
+        "query": "oakland",
+        "hit_count": 3,
+        "last_accessed": "2025-12-27T04:59:00.844Z"
+      }
+    ]
+  }
 }
 ```
-
-**Implementation:** `src/index.ts:100`
-
-**Use Cases:**
-- Monitor cache hit rates
-- Identify popular searches
-- Track cache efficiency
 
 ### POST /cleanup
-Remove expired cache entries (older than 30 days).
 
-**Response:**
+Deletes expired cache entries.
+
 ```json
 {
-  "message": "Cleanup completed",
-  "deleted_count": 5
+  "success": true,
+  "data": {
+    "deleted": 5
+  },
+  "message": "Deleted 5 expired cache entries"
 }
 ```
-
-**Implementation:** `src/index.ts:120`
-
-**Scheduled Job:** Can be called by cleanup-service on a schedule
-
-## Key Features
-
-### Shared Cache
-One user's API call benefits all users. When user A searches for "Oakland," the result is cached. When user B searches for "Oakland," they get instant results from the cache.
-
-### Hit Tracking
-- Tracks `hit_count` for each cached query
-- Updates `last_accessed` timestamp on every cache hit
-- Provides analytics via `/stats` endpoint
-
-### Auto-Expiration
-- 30-day TTL for cached results
-- Configurable via `expires_at` column
-- Manual cleanup via `/cleanup` endpoint
-
-### Rate Limiting
-- Respects Nominatim's 1 req/sec limit
-- Uses fire-and-forget pattern to avoid blocking
-
-## Integration with Frontend
-
-The frontend ([apps/frontend/src/lib/geocoding.ts](../../apps/frontend/src/lib/geocoding.ts)) implements the complete three-tier fallback logic:
-
-1. Check IndexedDB (browser-local) - ~5ms
-2. Check backend cache (this service) - ~50ms ✅
-3. Check localStorage (legacy) - ~10ms
-4. Call external API (and cache in all tiers) - ~500ms
-
-All cache layers are updated simultaneously using fire-and-forget patterns to avoid blocking the user experience.
-
-## Performance Benefits
-
-**Without Cache:**
-- Every search: ~500ms (external API)
-- Rate limited to 1 req/sec per IP
-- Network dependent
-- Costs API quota
-
-**With Three-Tier Cache:**
-- First search (any user): ~500ms (external API, cached for all users)
-- Same user, repeat search: ~5ms (IndexedDB)
-- Other users: ~50ms (PostgreSQL backend)
-- **95%+ reduction in external API calls**
 
 ## Dependencies
 
 ### External Services
-- **Nominatim API**: OSM geocoding service
-  - URL: `https://nominatim.openstreetmap.org/search`
-  - Rate Limit: 1 req/sec
-  - No API key required (public service)
 
-### Database
-- PostgreSQL 15+ (for geocoding_cache table)
+- **Nominatim API**: `https://nominatim.openstreetmap.org/search`
+  - Public policy boundary is centralized in this service.
+  - Outbound calls use Karmyq `User-Agent`.
+  - Outbound calls are throttled to at most one call per second per process.
 
-### No Dependencies on Other Karmyq Services
-- Fully independent microservice
-- No authentication required (public cache)
-- No multi-tenancy (global cache for all communities)
+### Infrastructure
 
-## Events Published
+- PostgreSQL 15+ for `geocoding_cache`.
 
-None. This service is purely request/response with no event-driven communication.
+### Application Consumers
 
-## Events Consumed
+- `apps/frontend/src/lib/geocoding.ts`
 
-None.
+### Service Dependencies
+
+- None.
+
+## Implementation
+
+- `src/geocodingApp.js`: Express app factory, middleware, rate limiters, and route registration.
+- `src/geocodingService.js`: query normalization, validation, cache reads/writes, Nominatim call
+  mapping, and outbound throttle.
+- `src/response.js`: ADR-074 response helpers.
+- `index.js`: server bootstrap and PostgreSQL connection setup.
+
+## Testing
+
+```bash
+npm --workspace=geocoding-service test
+npm --workspace=geocoding-service run test:unit
+npm --workspace=geocoding-service run test:regression
+```
+
+Current coverage:
+
+- Unit tests for normalization, validation, outbound throttling, and throttle recovery after rejection.
+- Regression tests for `/search` error envelopes, cache hit behavior without external fetch, and recovery
+  after transient external geocoder rejection.
+
+External Nominatim calls must be mocked in tests.
 
 ## Common Tasks
 
-### Check Cache Status
 ```bash
-curl http://localhost:3009/stats
-```
-
-### Search for Address
-```bash
+curl http://localhost:3009/health
 curl "http://localhost:3009/search?q=Oakland"
-```
-
-### Manually Cache Result
-```bash
-curl -X POST http://localhost:3009/cache \
-  -H "Content-Type: application/json" \
-  -d '{
-    "query": "oakland",
-    "results": [{
-      "display_name": "Oakland, CA",
-      "lat": 37.8044,
-      "lng": -122.2712,
-      "type": "city"
-    }]
-  }'
-```
-
-### Clean Up Expired Entries
-```bash
+curl http://localhost:3009/stats
 curl -X POST http://localhost:3009/cleanup
 ```
 
-### View Service Logs
+Manual cache entry:
+
 ```bash
-docker logs karmyq-geocoding-service -f
+curl -X POST http://localhost:3009/cache \
+  -H "Content-Type: application/json" \
+  -d '{"query":"oakland","results":[{"display_name":"Oakland, CA","address":"Oakland","lat":37.8044,"lng":-122.2712,"type":"city"}]}'
 ```
 
 ## Environment Variables
 
 ```bash
-# Server
 PORT=3009
-NODE_ENV=development
-
-# Database
+DATABASE_URL=postgres://user:password@host:5432/karmyq
 DB_HOST=localhost
 DB_PORT=5432
-DB_NAME=karmyq_db
+DB_NAME=karmyq
 DB_USER=karmyq_user
-DB_PASSWORD=your_password_here
-
-# Logging
-LOG_LEVEL=info
+DB_PASSWORD=karmyq_password_dev
+ALLOWED_ORIGINS=http://localhost:3000
 ```
 
-## Testing
+## Known Issues & Future Enhancements
 
-### Unit Tests
-**Status**: Not yet implemented
-**Planned Coverage**:
-- Query normalization logic
-- Cache hit/miss scenarios
-- Rate limiting behavior
-- Expiration calculations
-
-### Integration Tests
-**Status**: Not yet implemented
-**Planned Coverage**:
-- Database cache CRUD operations
-- External API fallback
-- Concurrent request handling
-
-### Manual Testing
-```bash
-# 1. Test cache miss (external API call)
-curl "http://localhost:3009/search?q=NewYorkCity"
-
-# 2. Test cache hit (should be instant)
-curl "http://localhost:3009/search?q=NewYorkCity"
-
-# 3. Check stats (should show hit_count = 2 for NewYorkCity)
-curl http://localhost:3009/stats
-```
-
-## Known Issues & TODOs
-
-### Current Limitations
-- No authentication (anyone can query the cache)
-- No rate limiting on service endpoints
-- Cache invalidation is time-based only (no manual invalidation per query)
-- No support for reverse geocoding (lat/lng → address)
-
-### Future Enhancements
-- [ ] Add reverse geocoding support
-- [ ] Implement per-IP rate limiting
-- [ ] Add cache invalidation endpoint
-- [ ] Support multiple geocoding providers (Google Maps, Mapbox)
-- [ ] Add cache warming for popular locations
-- [ ] Implement distributed cache (Redis) for horizontal scaling
-
-## Related Documentation
-
-- **Frontend Integration**: [apps/frontend/src/lib/geocoding.ts](../../apps/frontend/src/lib/geocoding.ts)
-- **Frontend Cache**: [apps/frontend/src/lib/geocodingCache.ts](../../apps/frontend/src/lib/geocodingCache.ts)
-- **Architecture**: [docs/architecture/ARCHITECTURE.md](../../docs/architecture/ARCHITECTURE.md)
+- No authentication; the cache is global and must not store user/community-specific state.
+- Cache invalidation is time-based only.
+- Reverse geocoding remains out of scope.
+- Paid provider migration and self-hosted Nominatim remain future decisions.
 
 ---
 
-**Status**: ✅ Production
-**Version**: 8.0.0
-**Last Updated**: 2025-12-27
+**Status**: Production
+**Version**: 11.17.0
+**Last Updated**: 2026-06-22

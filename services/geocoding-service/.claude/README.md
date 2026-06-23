@@ -1,13 +1,14 @@
 # geocoding-service - Local Context
 
 > **⚠️ CRITICAL**: When working in this directory, follow these steps EXACTLY.
-> This is a optional service - no dependents.
+> This is an optional service with no service dependents. The frontend application consumes it as the
+> shared geocoding cache and external geocoder policy boundary.
 
 ## Quick Facts
 
 - **Port**: 3009
 - **Health Check**: http://localhost:3009/health
-- **Database Schema**: None
+- **Database Schema**: `geocoding_cache` table in PostgreSQL
 - **Status**: production
 - **Criticality**: optional
 
@@ -17,11 +18,13 @@
 - None (foundation service)
 
 ### Infrastructure Dependencies
-- redis
+- postgres
 
 ### Services That Depend On This
 - None (leaf service)
 
+### Application Consumers
+- `apps/frontend/src/lib/geocoding.ts`
 
 
 ---
@@ -60,7 +63,7 @@ pm2 logs geocoding-service --lines 50 --nostream
 
 ### 4. Run Tests
 ```bash
-# Unit tests
+# Unit + regression tests
 npm test
 
 # Integration tests (from root)
@@ -206,20 +209,21 @@ if (!Array.isArray(data)) throw new Error('Expected array');
 ## 📋 Service-Specific Patterns
 
 ### API Response Format
-All endpoints MUST return:
+Application endpoints MUST return:
 ```typescript
 {
   success: boolean,
-  data?: T,
+  data: T,
   message?: string,
-  error?: string // Only in development
+  error?: string
 }
 ```
 
+`GET /health` keeps its flat infrastructure-compatible shape.
+
 ### Authentication
-- JWT token in `Authorization: Bearer <token>` header
-- Verified by authMiddleware from @karmyq/shared
-- Token payload: `{ userId: string, email: string, communityMemberships: [...] }`
+- Public cache API; no JWT authentication.
+- Do not add user/community-specific state to this cache without adding auth and tenancy design.
 
 ### Error Responses
 ```typescript
@@ -245,14 +249,13 @@ geocoding-service/
 ├── .claude/
 │   └── README.md          ← You are here
 ├── src/
-│   ├── index.ts           ← Express app setup
-│   ├── routes/            ← API route handlers
-│   ├── services/          ← Business logic
-│   ├── database/          ← DB queries
-│   └── middleware/        ← Custom middleware (if any)
+│   ├── geocodingApp.js    ← Express app factory and route registration
+│   ├── geocodingService.js ← Cache, validation, and outbound Nominatim policy
+│   └── response.js        ← ADR-074 response helpers
+├── index.js               ← Thin server bootstrap
 ├── tests/
 │   ├── unit/              ← Unit tests
-│   └── integration/       ← Integration tests
+│   └── regression/        ← Route regression tests
 ├── CONTEXT.md             ← Technical reference
 ├── README.md              ← Human-readable overview
 ├── package.json
