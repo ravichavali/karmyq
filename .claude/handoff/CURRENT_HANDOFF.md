@@ -116,8 +116,12 @@ collapse control. Dashboard, profile, community, communities, and fission surfac
 ### Active Session (update on every role handoff)
 
 - **Driving agent:** Claude (Sprint 111 implementation)
-- **Phase:** Executing the approved plan task-by-task (started at Task 1)
-- **Branch + files in flight:** `feature/sprint-111-belonging-graph-system`; baseline captured (dead graph libs present, `/network` absent, root v11.17.0)
+- **Phase:** Implementation complete (Tasks 1–13): backend neighborhood endpoint, canonical model +
+  `BelongingGraph`, extended HEB, `/network` explorer, caller migration, dead-lib removal, docs +
+  landing regen, registry/context, **root v11.18.0**. Remaining: SDLC gates (Task 14), human
+  validation (Task 15), PR + deploy (Task 16).
+- **Branch + files in flight:** `feature/sprint-111-belonging-graph-system` (all work committed). New
+  endpoint `GET /trust/neighborhood/:userId`; new `/network` page; ADR-081 → Implemented.
 
 > Claude and Codex share one physical working tree. One agent edits at a time. The active agent must
 > commit or stash before handing over. Never edit or commit on top of another agent's uncommitted WIP.
