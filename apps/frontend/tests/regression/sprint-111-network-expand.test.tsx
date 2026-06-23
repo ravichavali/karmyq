@@ -203,7 +203,7 @@ describe('/network ego expansion state machine', () => {
 
     fireEvent.click(screen.getByTestId('node-a'))
 
-    expect(await screen.findByText(/couldn't expand/i)).toBeInTheDocument()
+    expect(await screen.findByText(/couldn.t expand/i)).toBeInTheDocument()
     expect(screen.queryByTestId('node-a-exp')).not.toBeInTheDocument()
     expect(screen.getByTestId('node-b')).toBeInTheDocument()
   })

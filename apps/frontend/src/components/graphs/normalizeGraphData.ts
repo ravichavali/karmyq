@@ -72,7 +72,10 @@ export function mergeGraphData(...graphs: GraphData[]): GraphData {
       const a = existing.degrees_of_separation
       const b = node.degrees_of_separation
       const degrees = a == null ? b : b == null ? a : (Math.min(a, b) as 0 | 1 | 2 | 3)
-      nodeMap.set(node.id, { ...existing, ...node, degrees_of_separation: degrees })
+      // First-seen wins on identity: the baseline is passed first and is authoritative, so an
+      // expansion only ADDS new neighbors and pulls shared nodes closer (min depth) — it never
+      // relabels a node already present in the baseline.
+      nodeMap.set(node.id, { ...node, ...existing, degrees_of_separation: degrees })
     }
   }
 
