@@ -24,7 +24,9 @@ const mockQuery = (pool as any).query;
  */
 describe('sprint-111 privacy-scoped trust neighborhood', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    // mockReset (not clearAllMocks) so queued mockResolvedValueOnce values never leak between tests —
+    // the helper issues a conditional second (links) query, so consumption counts vary per test.
+    mockQuery.mockReset();
   });
 
   // getTrustNeighborhood runs the nodes (recursive) query first, then the links query.

@@ -536,6 +536,107 @@ export async function getCommunityDepthGraph(
   return { nodes, links };
 }
 
+// ─── Sprint 111: Privacy-scoped neighborhood (ADR-081) ───────────────────────────────────────────
+// Recursive ego-neighborhood read backing the `/network` explorer. The traversal is bounded three
+// ways: (1) depth (1–3), (2) the caller's allowed shared-active communities (resolved BEFORE this
+// runs — see resolveNeighborhoodScope in routes/trustGraph.ts), and (3) a hard node cap. Every node
+// carries its shortest BFS depth from the center. Reads `trust_edges_live` (the decay-adjusted VIEW)
+// strictly read-only.
+
+export type NeighborhoodDepth = 1 | 2 | 3;
+
+export interface NeighborhoodNode extends TrustNode {
+  degrees_of_separation: 0 | 1 | 2 | 3;
+}
+
+export async function getTrustNeighborhood(
+  centerUserId: string,
+  allowedCommunityIds: string[],
+  depth: NeighborhoodDepth,
+  maxNodes = 80
+): Promise<{ nodes: NeighborhoodNode[]; links: TrustLink[]; meta: { depth: NeighborhoodDepth; truncated: boolean } }> {
+  // Recursive walk from the center across live edges inside the allowed communities, joining active
+  // membership in each traversed edge's community so a departed member can never extend the frontier.
+  // `walk.depth < $3` bounds the recursion; MIN(depth) collapses each user to its shortest path.
+  // We fetch maxNodes+1 ($4) ordered closest-first so truncation can be detected and the farthest
+  // (least relevant) nodes are the ones dropped.
+  const nodesQuery = `
+    WITH RECURSIVE walk AS (
+      SELECT $1::uuid AS user_id, 0 AS depth
+      UNION ALL
+      SELECT
+        CASE WHEN tel.user_id_a = walk.user_id THEN tel.user_id_b ELSE tel.user_id_a END AS user_id,
+        walk.depth + 1 AS depth
+      FROM walk
+      JOIN social_graph.trust_edges_live tel
+        ON (tel.user_id_a = walk.user_id OR tel.user_id_b = walk.user_id)
+       AND tel.community_id = ANY($2::uuid[])
+      JOIN communities.members m
+        ON m.user_id = (CASE WHEN tel.user_id_a = walk.user_id THEN tel.user_id_b ELSE tel.user_id_a END)
+       AND m.community_id = tel.community_id
+       AND m.status = 'active'
+      WHERE walk.depth < $3
+    ),
+    min_depth AS (
+      SELECT user_id, MIN(depth) AS degrees_of_separation
+      FROM walk
+      GROUP BY user_id
+    )
+    SELECT u.id, u.name,
+      COALESCE((
+        SELECT SUM(tel.current_weight) FROM social_graph.trust_edges_live tel
+        WHERE (tel.user_id_a = u.id OR tel.user_id_b = u.id)
+          AND tel.community_id = ANY($2::uuid[])
+      ), 0) AS trust_score,
+      COALESCE((
+        SELECT SUM(kr.points) FROM reputation.karma_records kr
+        WHERE kr.user_id = u.id
+          AND kr.community_id = ANY($2::uuid[])
+      ), 0) AS karma,
+      md.degrees_of_separation
+    FROM min_depth md
+    JOIN auth.users u ON u.id = md.user_id
+    ORDER BY md.degrees_of_separation ASC, u.name ASC
+    LIMIT $4
+  `;
+
+  const nodesResult = await pool.query(nodesQuery, [centerUserId, allowedCommunityIds, depth, maxNodes + 1]);
+  const truncated = nodesResult.rows.length > maxNodes;
+  const keptRows = truncated ? nodesResult.rows.slice(0, maxNodes) : nodesResult.rows;
+  const nodeIds = keptRows.map(r => r.id as string);
+
+  // Links only between retained nodes, inside the allowed communities.
+  const linksQuery = `
+    SELECT tel.user_id_a AS source, tel.user_id_b AS target,
+           tel.raw_weight, tel.current_weight AS effective_weight
+    FROM social_graph.trust_edges_live tel
+    WHERE tel.community_id = ANY($1::uuid[])
+      AND tel.user_id_a = ANY($2::uuid[])
+      AND tel.user_id_b = ANY($2::uuid[])
+  `;
+  const linksResult = nodeIds.length > 0
+    ? await pool.query(linksQuery, [allowedCommunityIds, nodeIds])
+    : { rows: [] as any[] };
+
+  return {
+    nodes: keptRows.map(r => ({
+      id: r.id,
+      name: r.name,
+      trust_score: parseFloat(r.trust_score) || 0,
+      karma: parseFloat(r.karma) || 0,
+      isCurrentUser: false,
+      degrees_of_separation: (Number(r.degrees_of_separation) || 0) as 0 | 1 | 2 | 3,
+    })),
+    links: linksResult.rows.map(r => ({
+      source: r.source,
+      target: r.target,
+      raw_weight: parseFloat(r.raw_weight) || 0,
+      effective_weight: parseFloat(r.effective_weight) || 0,
+    })),
+    meta: { depth, truncated },
+  };
+}
+
 export async function upsertCommunityTrustEdge(communityA: string, communityB: string): Promise<void> {
   const commIdA = communityA < communityB ? communityA : communityB;
   const commIdB = communityA < communityB ? communityB : communityA;

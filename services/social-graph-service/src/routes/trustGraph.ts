@@ -1,7 +1,13 @@
 import { Router, Request, Response } from 'express';
 import { classifyDecayTier, DecayTier } from '@karmyq/shared';
 import { getTrustGraphForCommunity, getTrustGraphAggregate } from '../services/trustEdgeService';
-import { getTrustEdge, getFullCommunityGraph, getCommunityDepthGraph } from '../database/trustEdgeDb';
+import {
+  getTrustEdge,
+  getFullCommunityGraph,
+  getCommunityDepthGraph,
+  getTrustNeighborhood,
+  NeighborhoodDepth,
+} from '../database/trustEdgeDb';
 import { computeEffectiveWeight } from '../services/trustEdgeService';
 import { getDecayConfig } from '../database/trustDecayConfigDb';
 import { logger } from '../config/logger';
@@ -117,6 +123,61 @@ async function fetchRelationships(communityId: string, userId: string): Promise<
   return result.rows as RelationshipRow[];
 }
 
+// ─── Sprint 111: Privacy-scoped neighborhood (ADR-081) ───────────────────────────────────────────
+// Pure helpers shared by the /neighborhood route + its tests. Depth parsing and shared-community
+// scope resolution gate the recursive read so the explorer can never enumerate users outside the
+// caller's active shared-community visibility.
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Parse the `depth` query param to 1–3 (default 1); throw on out-of-range / non-numeric input. */
+export function parseNeighborhoodDepth(value: string | undefined): NeighborhoodDepth {
+  if (value === undefined) return 1;
+  if (value === '1' || value === '2' || value === '3') return Number(value) as NeighborhoodDepth;
+  throw new Error('depth must be between 1 and 3');
+}
+
+/**
+ * Resolve which communities a caller may traverse to read `centerUserId`'s neighborhood.
+ * - With `communityId`: caller AND center must both be active members of it → [communityId].
+ * - Without: the set of communities where both are active members (shared-active scope).
+ * Returns `null` when there is no shared active visibility — the route maps that to 404 so an
+ * inaccessible center is indistinguishable from a non-existent one (no account-existence leak).
+ */
+export async function resolveNeighborhoodScope(
+  callingUserId: string,
+  centerUserId: string,
+  communityId?: string
+): Promise<string[] | null> {
+  if (communityId) {
+    const result = await pool.query(
+      `SELECT 1
+       FROM communities.members caller
+       JOIN communities.members center ON center.community_id = caller.community_id
+       WHERE caller.user_id = $1::uuid
+         AND center.user_id = $2::uuid
+         AND caller.community_id = $3::uuid
+         AND caller.status = 'active'
+         AND center.status = 'active'
+       LIMIT 1`,
+      [callingUserId, centerUserId, communityId]
+    );
+    return result.rows.length > 0 ? [communityId] : null;
+  }
+
+  const result = await pool.query(
+    `SELECT DISTINCT caller.community_id
+     FROM communities.members caller
+     JOIN communities.members center ON center.community_id = caller.community_id
+     WHERE caller.user_id = $1::uuid
+       AND center.user_id = $2::uuid
+       AND caller.status = 'active'
+       AND center.status = 'active'`,
+    [callingUserId, centerUserId]
+  );
+  return result.rows.length > 0 ? result.rows.map(r => r.community_id as string) : null;
+}
+
 // GET /trust/graph — aggregate ego-network across all of the calling user's communities
 // MUST be declared before /:communityId to avoid param matching
 router.get('/graph', async (req: Request, res: Response) => {
@@ -211,6 +272,70 @@ router.get('/graph/:communityId', async (req: Request, res: Response) => {
     res.status(500).json({
       success: false,
       message: 'Failed to fetch trust graph',
+    });
+  }
+});
+
+/**
+ * GET /trust/neighborhood/:userId?depth=1|2|3&communityId=<uuid>
+ * Privacy-scoped recursive ego-neighborhood for the `/network` explorer (ADR-081). Auth is applied
+ * at the `/trust` router mount. Scope is resolved from shared active community membership BEFORE any
+ * traversal; an inaccessible center returns 404 (no account-existence leak). Capped at 80 nodes; each
+ * node carries `degrees_of_separation` (center = 0). `trust_edges_live` is read-only.
+ */
+router.get('/neighborhood/:userId', async (req: Request, res: Response) => {
+  try {
+    const callingUserId = (req as any).user?.userId as string;
+    const centerUserId = req.params.userId;
+
+    if (!centerUserId || !UUID_RE.test(centerUserId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'A valid userId is required',
+        error: 'INVALID_USER_ID',
+      });
+    }
+
+    let depth: NeighborhoodDepth;
+    try {
+      depth = parseNeighborhoodDepth(req.query.depth as string | undefined);
+    } catch {
+      return res.status(400).json({
+        success: false,
+        message: 'depth must be between 1 and 3',
+        error: 'INVALID_DEPTH',
+      });
+    }
+
+    const communityId = req.query.communityId as string | undefined;
+    if (communityId && !UUID_RE.test(communityId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'communityId must be a valid UUID',
+        error: 'INVALID_COMMUNITY_ID',
+      });
+    }
+
+    const scope = await resolveNeighborhoodScope(callingUserId, centerUserId, communityId);
+    if (!scope) {
+      return res.status(404).json({
+        success: false,
+        message: 'Neighborhood not found',
+        error: 'NEIGHBORHOOD_NOT_FOUND',
+      });
+    }
+
+    const result = await getTrustNeighborhood(centerUserId, scope, depth);
+    // Identity is a presentation concern: mark only the authenticated caller's own node.
+    const nodes = result.nodes.map(n => ({ ...n, isCurrentUser: n.id === callingUserId }));
+
+    res.json({ success: true, data: { ...result, nodes } });
+  } catch (error) {
+    logger.error('Error fetching trust neighborhood', error instanceof Error ? error : undefined);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch trust neighborhood',
+      error: 'NEIGHBORHOOD_FETCH_FAILED',
     });
   }
 });
