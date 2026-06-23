@@ -16,6 +16,7 @@ RUN npm install
 
 # Copy service source
 COPY services/geocoding-service/index.js ./services/geocoding-service/index.js
+COPY services/geocoding-service/src ./services/geocoding-service/src
 
 # Production stage
 FROM node:18-alpine
@@ -33,6 +34,7 @@ RUN npm install --omit=dev
 
 # Copy service source
 COPY --chown=node:node --from=builder /app/services/geocoding-service/index.js ./index.js
+COPY --chown=node:node --from=builder /app/services/geocoding-service/src ./src
 
 EXPOSE 3009
 ENTRYPOINT []
