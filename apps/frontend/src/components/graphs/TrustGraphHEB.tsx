@@ -1,22 +1,6 @@
 import { useEffect, useRef, useState, useMemo } from 'react'
 import * as d3 from 'd3'
-
-interface TrustNode {
-  id: string
-  name: string
-  trust_score: number
-  karma: number
-  isCurrentUser?: boolean
-  isIsolated?: boolean
-}
-
-interface TrustLink {
-  source: string
-  target: string
-  raw_weight: number
-  effective_weight: number
-  decayTier?: 'strong' | 'warm' | 'fading' | 'nearly_forgotten' | 'swept' // Sprint 90 / ADR-070
-}
+import type { BelongingMode, GraphData, TrustLink, TrustNode } from './types'
 
 // Sprint 90 / ADR-070 — visible decay: fade an edge's opacity by how quiet the bond has gone, so the
 // graph perceptibly fades alongside the relationship faces. `strong`/undefined = no extra fade.
@@ -28,21 +12,21 @@ const DECAY_OPACITY_FACTOR: Record<NonNullable<TrustLink['decayTier']>, number> 
   swept: 0.3,
 }
 
-interface TrustGraphData {
-  nodes: TrustNode[]
-  links: TrustLink[]
-}
-
 interface TrustGraphHEBProps {
-  graphData: TrustGraphData
+  graphData: GraphData
   currentUserId: string
-  /** community + ego share visuals (cluster color + amber your-edges); fission uses the split groups. */
-  mode: 'community' | 'fission' | 'ego'
+  /** community + ego share visuals (cluster color + amber your-edges); fission uses the split groups;
+   *  communities renders communities-as-nodes (organic/fission lineage). */
+  mode: BelongingMode
   groupMap?: Record<string, 'group_a' | 'group_b'>
   groupALabel?: string
   groupBLabel?: string
   onSwitchGroup?: (nodeId: string, currentGroup: 'group_a' | 'group_b' | null) => Promise<void>
   height?: number
+  // Sprint 111 / ADR-081 — interaction surface (behavior implemented in the renderer extension):
+  focusedNodeId?: string
+  onNodeActivate?: (nodeId: string) => void
+  enableZoom?: boolean
 }
 
 // Uniform node sizing (ADR-063): every node is the same radius so the eye reads

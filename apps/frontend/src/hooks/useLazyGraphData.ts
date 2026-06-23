@@ -12,16 +12,24 @@ import { useCallback, useEffect, useRef, useState } from 'react';
  *
  * `fetcher` should resolve to the graph payload; pass a stable reference
  * (e.g. a module-level api call) or memoize it at the call site.
+ *
+ * `immediate` (Sprint 111): the full-page /network explorer is always visible, so it opts out of
+ * lazy first-load — it starts `observed` and never constructs an IntersectionObserver. Card surfaces
+ * (dashboard/profile) keep the default lazy behavior.
  */
-export function useLazyGraphData<T>(fetcher: () => Promise<T>) {
+export function useLazyGraphData<T>(
+  fetcher: () => Promise<T>,
+  { immediate = false }: { immediate?: boolean } = {}
+) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [observed, setObserved] = useState(false);
+  const [observed, setObserved] = useState(immediate);
   const [width, setWidth] = useState(800);
   const [data, setData] = useState<T | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   // Lazy first-load: flip `observed` true the first time we scroll into view.
+  // Immediate mode starts observed=true, so this short-circuits before touching IntersectionObserver.
   useEffect(() => {
     if (!containerRef.current || observed) return;
     const observer = new IntersectionObserver(

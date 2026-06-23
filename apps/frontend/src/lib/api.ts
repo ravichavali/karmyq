@@ -889,6 +889,14 @@ export const socialGraphService = {
   getCommunityGraph: () =>
     socialGraphApi.get('/trust/communities'),
 
+  // Sprint 111 / ADR-081 — privacy-scoped recursive ego-neighborhood for the /network explorer.
+  // depth 1–3; optional communityId scopes to a single shared community. Read `res.data`; nodes carry
+  // `degrees_of_separation` and the response includes `meta: { depth, truncated }`.
+  getNeighborhood: (userId: string, options: { depth: 1 | 2 | 3; communityId?: string }) =>
+    socialGraphApi.get(`/trust/neighborhood/${encodeURIComponent(userId)}`, {
+      params: { depth: options.depth, communityId: options.communityId },
+    }),
+
   // Sprint 90 / ADR-070 — the caller's relationship memory in a community: activeCount + fading[] +
   // nearlyForgotten[] (each with decayTier). Backs the profile Memory section. Read `res.data`.
   getRelationshipMemory: (communityId: string) =>
