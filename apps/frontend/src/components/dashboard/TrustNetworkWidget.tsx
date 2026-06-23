@@ -1,9 +1,6 @@
 import React, { useState } from 'react';
-import dynamic from 'next/dynamic';
 import Link from 'next/link';
-
-const NetworkGraph = dynamic(() => import('../NetworkGraph'), { ssr: false });
-const CommunityDepthGraph = dynamic(() => import('../graphs/CommunityDepthGraph'), { ssr: false });
+import BelongingGraph from '../BelongingGraph';
 
 type NetworkView = 'people' | 'communities';
 
@@ -51,9 +48,9 @@ export default function TrustNetworkWidget({ currentUserId }: TrustNetworkWidget
       </div>
 
       {view === 'people' ? (
-        <NetworkGraph currentUserId={currentUserId} height={360} />
+        <BelongingGraph mode="ego" currentUserId={currentUserId} height={360} />
       ) : (
-        <CommunityDepthGraph height={360} />
+        <BelongingGraph mode="communities" currentUserId={currentUserId} height={360} />
       )}
     </div>
   );

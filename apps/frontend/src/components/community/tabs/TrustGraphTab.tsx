@@ -1,32 +1,10 @@
-import { useEffect, useState, useCallback } from 'react'
-import { socialGraphService } from '@/lib/api'
-import TrustGraph from '@/components/TrustGraph'
+import { useState } from 'react'
+import BelongingGraph from '@/components/BelongingGraph'
 import ReWarmingNudge from '@/components/relationships/ReWarmingNudge'
 
 interface TrustGraphTabProps {
   communityId: string
   currentUserId: string
-}
-
-interface TrustNode {
-  id: string
-  name: string
-  trust_score: number
-  karma: number
-  isCurrentUser?: boolean
-}
-
-interface TrustLink {
-  source: string
-  target: string
-  raw_weight: number
-  effective_weight: number
-  decayTier?: 'strong' | 'warm' | 'fading' | 'nearly_forgotten' | 'swept' // Sprint 90 / ADR-070
-}
-
-interface GraphData {
-  nodes: TrustNode[]
-  links: TrustLink[]
 }
 
 type SubTab = 'community' | 'ego'
@@ -59,34 +37,6 @@ function MemoryLegend() {
 
 export default function TrustGraphTab({ communityId, currentUserId }: TrustGraphTabProps) {
   const [subTab, setSubTab] = useState<SubTab>('community')
-  const [communityGraph, setCommunityGraph] = useState<GraphData | null>(null)
-  const [egoGraph, setEgoGraph] = useState<GraphData | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
-  // Fetch the full community graph once.
-  useEffect(() => {
-    setLoading(true)
-    setError(null)
-    socialGraphService.getFullCommunityGraph(communityId)
-      .then((res: any) => setCommunityGraph(res.data))
-      .catch(() => setError('Failed to load community graph.'))
-      .finally(() => setLoading(false))
-  }, [communityId])
-
-  // Fetch the ego graph (the calling user's first-degree network in this community).
-  const loadEgo = useCallback(() => {
-    setLoading(true)
-    setError(null)
-    socialGraphService.getTrustGraph(communityId)
-      .then((res: any) => setEgoGraph(res.data))
-      .catch(() => setError('Failed to load your network.'))
-      .finally(() => setLoading(false))
-  }, [communityId])
-
-  useEffect(() => {
-    if (subTab === 'ego' && !egoGraph) loadEgo()
-  }, [subTab, egoGraph, loadEgo])
 
   const tabClass = (active: boolean) =>
     `px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
@@ -120,31 +70,13 @@ export default function TrustGraphTab({ communityId, currentUserId }: TrustGraph
       <ReWarmingNudge communityId={communityId} className="mb-4" />
 
       <div className="w-full min-h-[600px] h-[calc(100vh-320px)]">
-        {error ? (
-          <div className="flex items-center justify-center py-16 text-red-500 text-sm">{error}</div>
-        ) : loading && (subTab === 'community' ? !communityGraph : !egoGraph) ? (
-          <div className="flex items-center justify-center py-16 text-text-muted text-sm">
-            Loading trust graph…
-          </div>
-        ) : subTab === 'community' ? (
-          communityGraph && (
-            <TrustGraph
-              mode="community"
-              graphData={communityGraph}
-              currentUserId={currentUserId}
-              height={560}
-            />
-          )
-        ) : (
-          egoGraph && (
-            <TrustGraph
-              mode="ego"
-              graphData={egoGraph}
-              currentUserId={currentUserId}
-              height={560}
-            />
-          )
-        )}
+        <BelongingGraph
+          mode={subTab === 'community' ? 'community' : 'ego'}
+          communityId={communityId}
+          currentUserId={currentUserId}
+          load="immediate"
+          height={560}
+        />
       </div>
     </div>
   )
