@@ -1,7 +1,7 @@
 # Sprint 111: Belonging Graph System — Implementation & Ship (Design Spec)
 
 **Date**: 2026-06-22
-**Status**: Ready to execute (follows S110 research)
+**Status**: Approved
 **Version**: v11.17.0 → v11.18.0
 **Sprint Branch**: `feature/sprint-111-belonging-graph-system`
 **ADR**: ADR-081 (Proposed in S110, implement → Implemented in S111)
@@ -13,12 +13,29 @@ altitude, dead-lib removal. Ships as v11.18.0.
 ## Overview
 
 Sprint 110 produced the audit, the reference study, and ADR-081 (Proposed). Sprint 111 implements it.
-The work is frontend-only (no backend redesign) except for one new endpoint (`GET /trust/neighborhood/:userId`,
-added to `trustGraph.ts`, mounted at `/trust`) needed for the click-to-expand feature. No DB schema
-changes. The `BelongingPulse` profile stat reuses existing reputation/community read APIs (see §Profile
-Altitude) rather than a raw DB query. No deploy-script changes.
+The work is frontend-led (no backend redesign) with one bounded social-graph read endpoint:
+`GET /trust/neighborhood/:userId`. It provides privacy-scoped, depth-limited graph reads for the
+full-page explorer. No DB schema changes. The profile pulse reuses the loaded graph plus the existing
+community-membership read rather than adding another aggregate. No deploy-script changes.
 
 **Core change**: Replace today's patchwork of four graph wrappers with a single `<BelongingGraph mode>` component over a canonical data model; build the full-page `/network` explorer; raise the profile graph to headline altitude.
+
+---
+
+## Multi-Sprint Arc
+
+### Sprint 110 — Belonging Graph Research (complete)
+
+Audited all six graph surfaces, studied reference products, and accepted ADR-081 as Proposed.
+
+### Sprint 111 — Belonging Graph Implementation (this sprint)
+
+Implement D1–D6, ship the explorer, and mark ADR-081 Implemented as v11.18.0.
+
+### Sprint 112 — Not pre-committed
+
+Use post-deploy evidence to choose the next sprint; do not pull demo-liveliness, privacy export, or
+cleanup-service work into Sprint 111.
 
 ---
 
@@ -56,24 +73,27 @@ Altitude) rather than a raw DB query. No deploy-script changes.
 | File | Responsibility |
 |------|---------------|
 | `apps/frontend/src/components/graphs/types.ts` | Canonical `TrustNode`, `TrustLink`, `GraphData` types + `BelongingMode` union |
+| `apps/frontend/src/components/graphs/normalizeGraphData.ts` | Pure `DepthNode`/`DepthLink` → canonical graph conversion |
 | `apps/frontend/src/components/BelongingGraph.tsx` | Single `<BelongingGraph mode>` wrapper dispatching to `TrustGraphHEB`; replaces `NetworkGraph` + `TrustGraph` + `CommunityDepthGraph` |
 | `apps/frontend/src/components/BelongingSection.tsx` | Profile "How you're woven into Karmyq" headline section (raised altitude) |
-| `apps/frontend/src/components/BelongingPulse.tsx` | "You've helped N people across M communities" stat line (above profile graph) |
+| `apps/frontend/src/components/BelongingPulse.tsx` | "You're connected to N people across M communities" stat line |
 | `apps/frontend/src/pages/network.tsx` | Full-page `/network` explorer: full-bleed SVG, mode switch, depth slider, search/focus, zoom/pan, click-to-expand |
 
 ### Existing files to modify
 
 | File | Change |
 |------|--------|
-| `components/graphs/TrustGraphHEB.tsx` | Add `communities` mode (port `CommunityDepthGraph` data handling); add `onNodeExpand` prop + hover-highlight; add `<title>` for node tooltips |
+| `components/graphs/TrustGraphHEB.tsx` | Add `communities` mode, hover/focus, zoom/pan, keyed transitions, node activation, and accessible tooltips |
 | `components/dashboard/TrustNetworkWidget.tsx` | Replace `NetworkGraph` import with `<BelongingGraph mode="ego">` and `<BelongingGraph mode="communities">` |
 | `components/community/tabs/TrustGraphTab.tsx` | Replace `TrustGraph` import with `<BelongingGraph mode="community">` / `mode="ego"` |
 | `components/community/tabs/FissionTab.tsx` | Replace `TrustGraph mode="fission"` with `<BelongingGraph mode="fission">` |
 | `pages/profile.tsx` | Replace `TrustNetworkWidget` at L842 with `<BelongingSection>` |
 | `apps/frontend/package.json` | Remove `cytoscape`, `react-cytoscapejs`, `@types/cytoscape`, `react-force-graph-2d` |
 | `apps/frontend/src/types/react-cytoscapejs.d.ts` | Delete |
-| `lib/api.ts` | Add `getNeighborhood(userId: string)` to `socialGraphService` (calls `GET /trust/neighborhood/:userId`) for the expand endpoint |
+| `lib/api.ts` | Add typed `getNeighborhood(userId, { depth, communityId? })` |
 | `docs/adr/ADR-081-belonging-graph-system.md` | Update status from `Proposed` → `Implemented` |
+| `docs/guides/trust-graph.md` | Update the existing guide with explorer, depth, search, zoom, and expansion behavior |
+| `docs/concepts/reading-the-trust-graph.md` | Update the existing concept page for the unified four-mode visual language |
 | `scripts/generate-docs.ts` | (already wired in S110 — no change needed) |
 | `.claude/handoff/CURRENT_HANDOFF.md` | Update to S111 complete / S112 direction |
 
@@ -90,8 +110,8 @@ Altitude) rather than a raw DB query. No deploy-script changes.
 
 | File | Change |
 |------|--------|
-| `services/social-graph-service/src/routes/trustGraph.ts` | Add `GET /trust/neighborhood/:userId` (router path `/neighborhood/:userId`, mounted at `/trust`) → returns 1-hop `TrustNode[]` + `TrustLink[]` for the given user (needed for click-to-expand on `/network`) |
-| `services/social-graph-service/src/routes/trustGraph.ts` | Consider: can the `GET /trust/communities` response (`getCommunityDepthGraph`) be reshaped to emit `TrustNode`/`TrustLink` format directly? Audit in S111 Task 3 |
+| `services/social-graph-service/src/database/trustEdgeDb.ts` | Add the privacy-scoped recursive neighborhood query (depth 1–3, maximum 80 nodes) |
+| `services/social-graph-service/src/routes/trustGraph.ts` | Add `GET /trust/neighborhood/:userId?depth=1..3&communityId=` and validate auth/scope |
 | `services/social-graph-service/CONTEXT.md` | Document new endpoint |
 | `services/registry.json` | Add new endpoint to `social-graph-service` `apis.provides` |
 
@@ -112,9 +132,10 @@ export interface TrustNode {
   isCurrentUser?: boolean
   isIsolated?: boolean
   // S111 additions (optional, from backend if available)
-  degrees_of_separation?: number  // for degree-ring encoding (stretch)
+  degrees_of_separation?: 0 | 1 | 2 | 3 // shortest BFS depth from the requested center
   member_count?: number           // for communities mode (from DepthNode)
   is_member?: boolean             // for communities mode (from DepthNode)
+  status?: string                 // community status in communities mode
 }
 
 export interface TrustLink {
@@ -129,6 +150,10 @@ export interface TrustLink {
 export interface GraphData {
   nodes: TrustNode[]
   links: TrustLink[]
+  meta?: {
+    depth?: 1 | 2 | 3
+    truncated?: boolean
+  }
 }
 ```
 
@@ -137,25 +162,28 @@ export interface GraphData {
 ```typescript
 interface BelongingGraphProps {
   mode: BelongingMode
-  // For community + ego modes:
   communityId?: string
   currentUserId: string
-  // For fission mode:
+  // Fission and explorer callers can provide already-loaded data.
+  graphData?: GraphData
+  load?: 'lazy' | 'immediate'
+  onDataLoaded?: (data: GraphData) => void
   groupMap?: Record<string, 'group_a' | 'group_b'>
   groupALabel?: string
   groupBLabel?: string
   onSwitchGroup?: (nodeId: string, group: 'group_a' | 'group_b' | null) => Promise<void>
   height?: number
-  // For expand mode (only active on /network page):
-  expandable?: boolean
-  onNodeExpand?: (nodeId: string) => Promise<GraphData>
+  focusedNodeId?: string
+  onNodeActivate?: (nodeId: string) => void
+  enableZoom?: boolean
 }
 ```
 
 `BelongingGraph` handles its own data fetching via `useLazyGraphData` + `socialGraphService` (the
 graph fetches in `api.ts` — **not** `socialGraphClient`, which is paths/invitations only), dispatches
-to `TrustGraphHEB`, and normalizes `communities` mode data from the `getCommunityGraph()` response to
-`TrustNode`/`TrustLink` shape.
+to `TrustGraphHEB`, and normalizes `communities` mode data. When `graphData` is supplied (fission and
+the full-page explorer), it renders that data without a second fetch. `onDataLoaded` lets
+`BelongingSection` derive its pulse from the same ego response rather than fetching twice.
 
 ### `/network` page — full-page explorer
 
@@ -175,23 +203,39 @@ Page structure:
     <h1>Your Network</h1>
     <ModeSwitch value={mode} onChange={setMode} />        {/* ego | community | communities */}
     {mode === 'community' && <CommunityPicker onChange={setSelectedCommunityId} />}
-    <DepthSlider value={depth} onChange={setDepth} min={1} max={3} />  {/* stretch */}
-    <SearchBox placeholder="Find a member…" onFocus={focusNode} />     {/* stretch */}
+    {mode === 'ego' && <DepthSlider value={depth} onChange={setDepth} min={1} max={3} />}
+    <SearchBox placeholder={mode === 'communities' ? 'Find a community…' : 'Find a member…'} />
   </header>
   <main style={{ flex: 1, position: 'relative' }}>
     <BelongingGraph
       mode={mode}
       currentUserId={user.id}
       communityId={selectedCommunityId}
+      graphData={mergedGraph}
+      load="immediate"
       height={windowHeight - HEADER_HEIGHT}
-      expandable           ← enables click-to-expand
-      onNodeExpand={async (id) => socialGraphService.getNeighborhood(id)}
+      focusedNodeId={focusedNodeId}
+      onNodeActivate={expandNode}
+      enableZoom
     />
   </main>
 </PageLayout>
 ```
 
-The page uses `next/dynamic` with `ssr: false` to avoid hydration issues with the D3 SVG.
+The page owns explorer state. Its baseline graph is explicit by mode:
+
+- `ego`: `getNeighborhood(currentUserId, { depth })`; node activation progressively expands a
+  depth-1 neighborhood.
+- `community`: `getFullCommunityGraph(communityId)`, matching the existing Community Trust Graph
+  tab's whole-community semantics. It is searchable and zoomable but does not progressively expand,
+  because the baseline is already the full capped community graph.
+- `communities`: `getCommunityGraph()`; searchable and zoomable, with no person-neighborhood expand.
+
+Ego expansions are stored separately from the baseline and merged deterministically; removing an
+expansion recomputes from baseline plus the remaining expansions, so shared nodes are never
+accidentally deleted. The page uses `next/dynamic` with `ssr: false` to avoid hydration issues with
+the D3 SVG. Search operates over the currently loaded node set; it focuses a result but does not
+expose a global member directory.
 
 ---
 
@@ -200,8 +244,9 @@ The page uses `next/dynamic` with `ssr: false` to avoid hydration issues with th
 ### `communities` mode (porting `CommunityDepthGraph` behavior)
 
 The `communities` mode receives `TrustNode[]` where each node represents a community. The HEB
-cluster layout remains radial but uses `member_count` for node sizing (larger member count = larger
-node) and `is_member` for the emerald ring (member communities are emphasized). Edge `type`:
+cluster layout remains radial and preserves ADR-063's uniform node sizing; `member_count` appears in
+the detail panel rather than changing radius. `is_member` adds an emerald ring so the caller's
+communities are emphasized. Edge `type`:
 `organic` → solid slate line; `fission` → dashed violet line (same semantic as `CommunityDepthGraph`'s
 color scheme, but expressed in HEB visual language).
 
@@ -214,27 +259,26 @@ to `TrustNode`/`TrustLink`:
 { source, target, weight, type } → { source, target, raw_weight: weight, effective_weight: weight, type }
 ```
 
-**Discovery task**: Does `GET /trust/communities` (the `getCommunityDepthGraph` response) already
-return these fields, or does `member_count`/`is_member` need to be added? Audit the endpoint response
-in Task 3.
+The live endpoint already returns `id`, `name`, `member_count`, `status`, and `is_member`; no backend
+shape change is required for communities mode.
 
 ### Hover-highlight (neighborhood focus + fade)
 
-Add `onMouseEnter`/`onMouseLeave` to node elements. On hover, set `activeNodeId`; in the path
-selection, apply `opacity = isNeighbor(d) || d.id === activeNodeId ? 1 : 0.15`. "Neighbor" =
-any node connected by a link where `link.source === activeNodeId || link.target === activeNodeId`.
+Add node hover/focus state. Connected edges and adjacent nodes remain fully visible; unrelated edges
+and nodes fade to `0.15`. Keyboard focus uses the same treatment.
 
-### Click-to-expand (full-page explorer only, `expandable` prop)
+### Click-to-expand (full-page explorer only)
 
-When `expandable=true` and `onNodeExpand` is provided, clicking a node (instead of showing the
-detail panel) calls `onNodeExpand(node.id)`, merges the returned neighborhood into `graphData`,
-and re-runs the cluster layout with `.transition().duration(400)`. Collapse: right-click or ✕
-button on expanded node collapses back. Cap: max 3 expanded nodes at once (FIFO).
+On `/network`, node activation calls the page's `expandNode(node.id)`. The page fetches a depth-1
+neighborhood and records it in an ordered expansion map. At most three expansions remain active;
+activating a fourth evicts the oldest. An explicit, keyboard-reachable “Collapse {name}” control
+removes an expansion. `TrustGraphHEB` uses keyed joins and a 400ms transition rather than deleting
+the entire SVG before every render.
 
 ### Node tooltips
 
-Add `<title>{node.name}</title>` inside the D3 `text` selection — native browser tooltip on
-overflow. Zero layout change.
+Each interactive node receives a `<title>`, `tabindex="0"`, an accessible label, and Enter/Space
+activation. Labels remain visually truncated where needed; the native title exposes the full name.
 
 ---
 
@@ -252,15 +296,12 @@ Replace `pages/profile.tsx:L842 <TrustNetworkWidget>` with:
 3. `<BelongingGraph mode="ego" currentUserId height={480}>` (larger than widget's 360)
 4. `<a href="/network?mode=ego">Explore your full network →</a>`
 
-`BelongingPulse` derives its two numbers from **existing read APIs — no new backend endpoint and no
-raw DB query** (`reputation.karma_records` has no `karma_awarded_to` column; the recipient *is*
-`user_id`, so "people you helped" is NOT derivable from that table):
+`BelongingPulse` derives its two numbers from **existing reads — no new backend endpoint and no raw
+DB query**:
 
 - **N people** = node count from the ego graph `BelongingSection` already fetches
-  (`socialGraphService.getTrustGraphAggregate()`). Trust-graph edges are built from helping
-  relationships, so "people you're connected to" is the honest, available version of this stat.
-  Pass the loaded `graphData.nodes.length - 1` (minus the current-user node) down to `BelongingPulse`
-  to avoid a second fetch.
+  (`socialGraphService.getTrustGraphAggregate()`). Pass `nodes.filter(n => n.id !== userId).length`
+  down from `BelongingSection` to avoid a second graph fetch.
 - **M communities** = `communityService.getMyCommunities(userId)` length (existing API; schema is
   `communities.members`, plural schema name — but the component never touches SQL directly).
 
@@ -273,9 +314,9 @@ and a literal "helped" count would require a new reputation aggregate the resear
 ## Dead Library Removal
 
 ```bash
-# In apps/frontend/
-npm uninstall cytoscape react-cytoscapejs @types/cytoscape react-force-graph-2d
-rm src/types/react-cytoscapejs.d.ts
+# From repo root; update the existing cross-platform lock in place.
+npm uninstall --workspace apps/frontend cytoscape react-cytoscapejs @types/cytoscape react-force-graph-2d
+Remove-Item apps/frontend/src/types/react-cytoscapejs.d.ts
 ```
 
 Verification:
@@ -290,28 +331,25 @@ Bundle impact: cytoscape + react-cytoscapejs ≈ 1.1 MB pre-minify; react-force-
 
 ## Backend: `GET /trust/neighborhood/:userId`
 
-Add to `services/social-graph-service/src/routes/trustGraph.ts` (the existing graph router, mounted at
-`/trust` in `src/index.ts`). The router uses bare paths (e.g. `router.get('/graph', …)` →
-`/trust/graph`), so the new route is `router.get('/neighborhood/:userId', …)` → `/trust/neighborhood/:userId`.
-Auth is applied at the router mount (`rateLimiters.readLight` + the service's auth middleware that
-populates `req.user.userId`); follow the existing `/trust/graph` handler shape, not a per-route
-`requireAuth`.
+Contract:
 
-```typescript
-// router.get('/neighborhood/:userId', …)  → GET /trust/neighborhood/:userId
-// Returns 1-hop TrustNode[] + TrustLink[] for the given userId
-// Used by click-to-expand on the /network explorer
-router.get('/neighborhood/:userId', async (req: Request, res: Response) => {
-  const { userId } = req.params
-  const callingUserId = (req as any).user?.userId
-  // Query trust_edges_live (the VIEW) where source = userId OR target = userId (1-hop)
-  // Return: res.json({ success: true, data: { nodes: TrustNode[], links: TrustLink[] } })
-})
+```http
+GET /trust/neighborhood/:userId?depth=1|2|3&communityId=<uuid>
 ```
 
-The result is the 1-hop neighborhood (direct trust edges) of the given user — nodes the current user
-may not know yet. Read from `trust_edges_live` (a VIEW — never INSERT/UPDATE it), mirroring how
-`getTrustGraphAggregate`/`getCommunityDepthGraph` already query.
+- Auth comes from the existing `/trust` router mount.
+- `depth` defaults to `1`; invalid values return `400`.
+- With `communityId`, the caller and center user must both be active members of that community.
+- Without `communityId`, the center user must share at least one active community with the caller.
+- The recursive traversal reads only `trust_edges_live` edges in those allowed communities and only
+  active members. An inaccessible center returns `404`, avoiding an account-existence leak.
+- Each returned node includes `degrees_of_separation` (`0` for the center, then shortest BFS depth
+  `1`–`3`). Results are capped at 80 nodes and return `meta: { depth, truncated }`.
+- The view is read-only: never insert into or update `trust_edges_live`.
+
+The existing `/trust/graph/:communityId?center=` compatibility path remains unchanged. The new
+endpoint is canonical for the explorer because it supports aggregate scope, explicit depth, privacy
+rules, and a hard result cap.
 
 ---
 
@@ -321,25 +359,25 @@ may not know yet. Read from `trust_edges_live` (a VIEW — never INSERT/UPDATE i
 
 | Test | File location |
 |------|--------------|
-| `BelongingGraph` renders in all four modes | `tests/unit/BelongingGraph.test.tsx` |
-| `BelongingPulse` renders correct stat copy ("N people, M communities") | `tests/unit/BelongingPulse.test.tsx` |
-| `types.ts` normalization: `DepthNode` → `TrustNode` converter produces correct shape | `tests/unit/graphTypeNormalization.test.ts` |
+| `BelongingGraph` fetches/renders all four modes and honors supplied data | `apps/frontend/tests/unit/BelongingGraph.test.tsx` |
+| `BelongingPulse` renders exact singular/plural stat copy | `apps/frontend/tests/unit/BelongingPulse.test.tsx` |
+| `DepthNode`/`DepthLink` normalization preserves member/status/type fields | `apps/frontend/tests/unit/normalizeGraphData.test.ts` |
+| Neighborhood validation and privacy scope | `services/social-graph-service/tests/unit/neighborhood.test.ts` |
 
 ### Regression tests
 
 | Test | File location |
 |------|--------------|
-| Dead libs absent from package.json | `tests/regression/dead-graph-libs.test.ts` |
-| `/network` page exists (no 404) | `tests/regression/network-page-exists.test.ts` |
-| `TrustNetworkWidget` "View full →" link points to `/network` | Existing widget tests |
+| Dead libs and retired wrappers are absent | `apps/frontend/tests/regression/belonging-graph-consolidation.test.ts` |
+| `/network` page renders from query state and the widget link reaches it | `apps/frontend/tests/regression/network-explorer.test.tsx` |
 
 ### TDD tests (can fail, promote on pass)
 
 | Test | File location |
 |------|--------------|
-| `/network` explorer renders with `mode=ego` | `services/social-graph-service/tests/tdd/network-page.test.tsx` |
-| Expand: clicking a node in expandable mode calls `onNodeExpand` with correct id | `tests/tdd/BelongingGraph-expand.test.tsx` |
-| Hover-highlight: `mouseover` reduces non-neighbor opacity | `tests/tdd/TrustGraphHEB-hover.test.tsx` |
+| Recursive neighborhood read respects depth, active membership, scope, and 80-node cap | `services/social-graph-service/tests/tdd/sprint-111-neighborhood.test.ts` |
+| Explorer expansion keeps baseline data, supports collapse, and enforces FIFO-three | `apps/frontend/tests/tdd/sprint-111-network-expand.test.tsx` |
+| Hover/focus fades unrelated topology; zoom can be enabled only by explorer | `apps/frontend/tests/tdd/sprint-111-graph-interaction.test.tsx` |
 
 ### Manual smoke test (human validation)
 
@@ -347,7 +385,8 @@ may not know yet. Read from `trust_edges_live` (a VIEW — never INSERT/UPDATE i
    HEB loads (same visual language as People tab, not the old circular layout).
 2. Dashboard → "View full →" link: navigates to `/network` (not a 404).
 3. `/network` page: full-bleed graph loads, mode switch works (ego → communities).
-4. `/network` click a node: neighborhood expands inline with transition. Right-click: collapses.
+4. `/network` click or keyboard-activate a node: its neighborhood expands inline with transition.
+   The visible collapse control removes it; a fourth expansion evicts the oldest.
 5. Profile page: `<BelongingSection>` appears with warm heading, pulse stat, and larger graph.
 6. Community page → Trust Graph tab: HEB loads for community + ego sub-tabs.
 7. `npm ls cytoscape react-cytoscapejs react-force-graph-2d`: no packages found (removed).
@@ -356,13 +395,12 @@ may not know yet. Read from `trust_edges_live` (a VIEW — never INSERT/UPDATE i
 
 ## User Guide & Landing Doc Updates (S111 obligation)
 
-- **User guide**: `docs/guides/your-belonging-graph.md` — new guide explaining the graph system,
-  what the trust path means, how to explore on `/network`, and what fading edges mean (links to
-  the ADR-070 concept). Add to `ADR_GROUPS` user guides + `nav.json`.
+- **User guide**: update `docs/guides/trust-graph.md` rather than creating a duplicate. Explain the
+  unified modes, `/network`, depth, search, zoom/pan, expansion/collapse, and fading edges.
 - **ADR-081 status**: Update from `Proposed` → `Implemented` in both `docs/adr/ADR-081-*.md` and
   the landing concept JSON (regenerate via `npm run generate-docs`).
-- **Concept page** for "Your Network Explorer" (`docs/concepts/your-network-explorer.md`) — brief
-  concept page explaining what `/network` is and why it exists.
+- **Concept page**: update the existing `docs/concepts/reading-the-trust-graph.md` with the explorer
+  and communities-mode semantics. Do not create a second overlapping graph concept.
 
 ---
 
@@ -387,16 +425,21 @@ may not know yet. Read from `trust_edges_live` (a VIEW — never INSERT/UPDATE i
 3. **`CommunityDepthGraph` data normalization** — the backend `getCommunityGraph()` response uses
    `DepthNode`/`DepthLink` shape. Normalize in `BelongingGraph`, not in `TrustGraphHEB` (keep the
    HEB engine type-clean).
-4. **Dead lib removal order** — remove from `package.json` first, then delete `.d.ts`, then run
-   `npm install`, then verify the `rg` check. Don't delete the `.d.ts` while the package is still
-   listed (TypeScript will complain the type is now unresolvable).
-5. **Expand is gated on `expandable` prop** — dashboard card, profile widget, and community tab all
-   render `<BelongingGraph>` without `expandable`; only the `/network` page passes it. This is the
-   S79 guard.
+4. **Lockfile safety** — update the existing lock in place with workspace-scoped `npm uninstall`;
+   never scratch-regenerate `package-lock.json` on Windows.
+5. **Expand is ego-explorer-only** — dashboard, profile, community, communities, and fission
+   surfaces do not pass expansion activation; only `/network?mode=ego` owns expansion state. The
+   explorer's community mode uses `getFullCommunityGraph`, matching TrustGraphTab. This is the S79
+   guard and prevents two meanings of “community graph.”
 6. **Lazy loading must survive** — `useLazyGraphData` must wrap `BelongingGraph` data fetching.
    The full-page explorer fires immediately (container is always visible); card views defer until
    scroll.
-7. **Version bump** — `package.json` root + `apps/frontend/package.json` → `11.18.0`.
+7. **Version bump** — root `package.json` and root entries in `package-lock.json` only →
+   `11.18.0`; `apps/frontend/package.json` remains package version `1.0.0`.
 8. **ADR-081 status** — update to `Implemented` after merge + deploy.
 9. **Windows/PowerShell repo** — all verification commands use `rg`/PowerShell.
 10. **`git add CLAUDE.md`** — tracked as lowercase `claude.md`; use `git add claude.md` if needed.
+11. **Neighborhood privacy** — never expose arbitrary-user neighborhoods. Center and returned nodes
+    must remain inside the caller's active shared-community scope; inaccessible centers return 404.
+12. **No duplicate docs** — update `docs/guides/trust-graph.md` and
+    `docs/concepts/reading-the-trust-graph.md`; generated landing JSON is rebuilt, not hand-edited.
