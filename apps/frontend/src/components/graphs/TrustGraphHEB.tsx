@@ -250,7 +250,7 @@ export default function TrustGraphHEB({
       .attr('tabindex', '0')
       .style('cursor', 'pointer')
       .attr('transform', nodeTransform)
-    nodeEnter.append('circle')
+    nodeEnter.append('circle').attr('class', 'node-dot')
     nodeEnter.append('title')
     nodeEnter.append('text')
       .attr('class', 'label')
@@ -262,11 +262,31 @@ export default function TrustGraphHEB({
     const nodeMerge = nodeEnter.merge(nodeSel as any)
     nodeMerge.attr('aria-label', (d: any) => nodeLabel(d.data, currentUserId))
     nodeMerge.select('title').text((d: any) => nodeLabel(d.data, currentUserId))
-    nodeMerge.select('circle')
+    nodeMerge.select('circle.node-dot')
       .attr('r', (d: any) => nodeRadius(d.data))
       .attr('fill', (d: any) => nodeColor(d.data))
       .attr('stroke', (d: any) => (ringed(d.data) ? '#fff' : 'none'))
       .attr('stroke-width', (d: any) => (ringed(d.data) ? 2 : 0))
+
+    // Fission-only: a dashed ring marks members with no trust connections yet (matches the legend's
+    // "dashed = no connections"). Managed idempotently so keyed updates add/remove it as needed.
+    nodeMerge.each(function (d: any) {
+      const sel = d3.select(this)
+      const showRing = mode === 'fission' && !!d.data.isIsolated && d.data.id !== currentUserId
+      const ring = sel.select('circle.iso-ring')
+      if (showRing && ring.empty()) {
+        sel.append('circle')
+          .attr('class', 'iso-ring')
+          .attr('r', nodeRadius(d.data) + 3)
+          .attr('fill', 'none')
+          .attr('stroke', nodeColor(d.data))
+          .attr('stroke-opacity', 0.5)
+          .attr('stroke-dasharray', '2,2')
+          .style('pointer-events', 'none')
+      } else if (!showRing && !ring.empty()) {
+        ring.remove()
+      }
+    })
     nodeMerge.select('text.label')
       .attr('x', (d: any) => (d.x < Math.PI ? 8 : -8))
       .attr('text-anchor', (d: any) => (d.x < Math.PI ? 'start' : 'end'))

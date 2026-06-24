@@ -560,10 +560,13 @@ export async function getTrustNeighborhood(
   // `walk.depth < $3` bounds the recursion; MIN(depth) collapses each user to its shortest path.
   // We fetch maxNodes+1 ($4) ordered closest-first so truncation can be detected and the farthest
   // (least relevant) nodes are the ones dropped.
+  // NB: `UNION` (NOT `UNION ALL`) — Postgres dedups (user_id, depth) rows against the working set, so a
+  // dense/cyclic graph can't generate every distinct walk through depth 3 before the cap is applied;
+  // the working set is bounded to ≤ nodes × (depth+1) rows.
   const nodesQuery = `
     WITH RECURSIVE walk AS (
       SELECT $1::uuid AS user_id, 0 AS depth
-      UNION ALL
+      UNION
       SELECT
         CASE WHEN tel.user_id_a = walk.user_id THEN tel.user_id_b ELSE tel.user_id_a END AS user_id,
         walk.depth + 1 AS depth
@@ -605,14 +608,25 @@ export async function getTrustNeighborhood(
   const keptRows = truncated ? nodesResult.rows.slice(0, maxNodes) : nodesResult.rows;
   const nodeIds = keptRows.map(r => r.id as string);
 
-  // Links only between retained nodes, inside the allowed communities.
+  // Links only between retained nodes, inside the allowed communities. trust_edges rows are stored
+  // normalized (user_id_a < user_id_b), so a pair with edges in two allowed communities yields two
+  // rows — GROUP BY the endpoint pair and SUM the weights so each rendered link is unique (no inflated
+  // connection counts). Both endpoints must be ACTIVE members of the edge's own community, matching the
+  // traversal's active-only contract (a node discovered via community Y must not surface an edge in X
+  // where it isn't active).
   const linksQuery = `
     SELECT tel.user_id_a AS source, tel.user_id_b AS target,
-           tel.raw_weight, tel.current_weight AS effective_weight
+           SUM(tel.raw_weight) AS raw_weight,
+           SUM(tel.current_weight) AS effective_weight
     FROM social_graph.trust_edges_live tel
+    JOIN communities.members ma
+      ON ma.user_id = tel.user_id_a AND ma.community_id = tel.community_id AND ma.status = 'active'
+    JOIN communities.members mb
+      ON mb.user_id = tel.user_id_b AND mb.community_id = tel.community_id AND mb.status = 'active'
     WHERE tel.community_id = ANY($1::uuid[])
       AND tel.user_id_a = ANY($2::uuid[])
       AND tel.user_id_b = ANY($2::uuid[])
+    GROUP BY tel.user_id_a, tel.user_id_b
   `;
   const linksResult = nodeIds.length > 0
     ? await pool.query(linksQuery, [allowedCommunityIds, nodeIds])

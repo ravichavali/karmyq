@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/router'
 import Layout from '@/components/Layout'
 import BelongingGraph from '@/components/BelongingGraph'
@@ -48,9 +48,26 @@ export default function NetworkPage() {
   const mode: ExplorerMode = VALID_MODES.includes(rawMode as ExplorerMode)
     ? (rawMode as ExplorerMode)
     : 'ego'
-  const queryCommunityId = (router.query.id as string | undefined) ?? undefined
-  const [selectedCommunityId, setSelectedCommunityId] = useState<string | undefined>(undefined)
-  const communityId = selectedCommunityId ?? queryCommunityId
+  // The URL is the single source of truth for the selected community, so the displayed graph always
+  // agrees with `?id=` and browser back/forward works. The picker writes to the URL (see below).
+  const communityId = (router.query.id as string | undefined) ?? undefined
+
+  // Current mode, mirrored into a ref so async ego-expansion callbacks can detect a mode switch that
+  // happened while their request was in flight (and drop the stale result).
+  const modeRef = useRef<ExplorerMode>(mode)
+  useEffect(() => {
+    modeRef.current = mode
+  }, [mode])
+
+  const selectCommunity = useCallback(
+    (id: string | undefined) => {
+      const query: Record<string, string> = { ...(router.query as Record<string, string>), mode: 'community' }
+      if (id) query.id = id
+      else delete query.id
+      router.replace({ pathname: '/network', query })
+    },
+    [router]
+  )
 
   // Normalize an absent/invalid mode in the URL to ego.
   useEffect(() => {
@@ -135,13 +152,16 @@ export default function NetworkPage() {
       setExpandError(null)
       try {
         const res = await socialGraphService.getNeighborhood(nodeId, { depth: 1 })
+        // Drop a response that arrived after the user left ego mode — otherwise an aggregate-ego
+        // neighborhood would contaminate a community/communities graph.
+        if (modeRef.current !== 'ego') return
         const data = res.data as GraphData
         setExpansions(prev => {
           const without = prev.filter(e => e.nodeId !== nodeId)
           return [...without, { nodeId, data }].slice(-MAX_EXPANSIONS)
         })
       } catch {
-        setExpandError('Couldn’t expand that node. Try again.')
+        if (modeRef.current === 'ego') setExpandError('Couldn’t expand that node. Try again.')
       }
     },
     [user]
@@ -153,8 +173,11 @@ export default function NetworkPage() {
 
   const mergedGraph = useMemo<GraphData | null>(() => {
     if (!baseline) return null
+    // Expansions are an ego-only concept; never merge them into community/communities graphs (a defence
+    // in depth alongside clearing expansions on mode change and dropping stale expansion responses).
+    if (mode !== 'ego' || expansions.length === 0) return baseline
     return mergeGraphData(baseline, ...expansions.map(e => e.data))
-  }, [baseline, expansions])
+  }, [baseline, expansions, mode])
 
   const expansionLabel = useCallback(
     (nodeId: string) => {
@@ -200,7 +223,7 @@ export default function NetworkPage() {
                 data-testid="community-picker"
                 aria-label="Choose a community"
                 value={communityId ?? ''}
-                onChange={e => setSelectedCommunityId(e.target.value || undefined)}
+                onChange={e => selectCommunity(e.target.value || undefined)}
                 className="px-3 py-1.5 rounded-md text-sm bg-surface text-text border border-border"
               >
                 <option value="">Select a community…</option>

@@ -84,6 +84,8 @@ describe('sprint-111 privacy-scoped trust neighborhood', () => {
       expect(sql).toMatch(/\$3/);
       // Each user collapses to its minimum (shortest) discovered depth.
       expect(sql).toMatch(/MIN\(/i);
+      // Frontier must dedup (UNION, not UNION ALL) so cyclic/dense graphs can't explode before the cap.
+      expect(sql).not.toMatch(/UNION ALL/i);
     });
 
     it('passes [centerUserId, allowedCommunityIds, depth, maxNodes+1] to the nodes query', async () => {
@@ -132,6 +134,12 @@ describe('sprint-111 privacy-scoped trust neighborhood', () => {
       // Both endpoints must be inside the retained node id set.
       expect(linkSql).toMatch(/user_id_a = ANY/);
       expect(linkSql).toMatch(/user_id_b = ANY/);
+      // Parallel edges across allowed communities collapse to one link (GROUP BY + SUM), and both
+      // endpoints must be ACTIVE members of the edge's own community.
+      expect(linkSql).toMatch(/GROUP BY/i);
+      expect(linkSql).toMatch(/SUM\(/i);
+      expect(linkSql).toMatch(/communities\.members/);
+      expect(linkSql).toMatch(/status = 'active'/);
     });
 
     it('does not mark any node isCurrentUser (identity is applied by the route)', async () => {

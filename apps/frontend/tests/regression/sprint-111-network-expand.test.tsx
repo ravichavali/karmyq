@@ -209,6 +209,56 @@ describe('/network ego expansion state machine', () => {
   })
 })
 
+describe('/network community selection syncs to the URL', () => {
+  it('writes the picked community to the URL (single source of truth)', async () => {
+    getMyCommunities.mockResolvedValue({
+      data: [{ id: 'c1', name: 'Comm One' }, { id: 'c2', name: 'Comm Two' }],
+    })
+    routerQuery = { mode: 'community', id: 'c1' }
+    render(<NetworkPage />)
+    const picker = await screen.findByTestId('community-picker')
+
+    fireEvent.change(picker, { target: { value: 'c2' } })
+
+    await waitFor(() =>
+      expect(mockReplace).toHaveBeenCalledWith(
+        expect.objectContaining({ pathname: '/network', query: expect.objectContaining({ mode: 'community', id: 'c2' }) })
+      )
+    )
+  })
+})
+
+describe('/network expansion race', () => {
+  it('does not contaminate a community graph with a late ego expansion', async () => {
+    let resolveExpansion: (v: any) => void = () => {}
+    getNeighborhood.mockImplementation((id: string) => {
+      if (id === 'user-1') return Promise.resolve({ data: EGO_BASELINE })
+      return new Promise(resolve => {
+        resolveExpansion = resolve
+      })
+    })
+    routerQuery = { mode: 'ego' }
+    const { rerender } = render(<NetworkPage />)
+    await screen.findByTestId('node-a')
+
+    fireEvent.click(screen.getByTestId('node-a')) // expansion now pending
+
+    // User switches to Community before the expansion resolves.
+    routerQuery = { mode: 'community', id: 'c1' }
+    rerender(<NetworkPage />)
+    await waitFor(() => expect(getFullCommunityGraph).toHaveBeenCalledWith('c1'))
+
+    // The stale ego expansion resolves — it must be dropped, not merged into the community graph.
+    resolveExpansion({
+      data: { nodes: [{ id: 'a', name: 'A' }, { id: 'a-exp', name: 'a plus' }], links: [] },
+    })
+    await new Promise(r => setTimeout(r, 0))
+
+    expect(screen.queryByTestId('node-a-exp')).not.toBeInTheDocument()
+    expect(screen.getByTestId('node-c1m')).toBeInTheDocument()
+  })
+})
+
 describe('/network auth guard', () => {
   it('redirects to /login when the stored user is missing', async () => {
     localStorage.clear()

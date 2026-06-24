@@ -1,19 +1,24 @@
 # Sprint 111 — Belonging Graph System: Implementation & Ship (v11.18.0)
 
-> **STATUS (2026-06-23):** Sprint 110 is merged to `master` (`ce62c609`, PR #113).
-> Sprint 111 design is approved and the execution plan is ready. No implementation has started.
+> **STATUS (2026-06-23):** Sprint 111 is **implemented and pushed** as PR
+> [#114](https://github.com/ravichavali/karmyq/pull/114) (branch
+> `feature/sprint-111-belonging-graph-system`, v11.18.0). All 16 plan tasks executed; automated gates
+> green; Codex cross-agent review received and its blocking findings fixed (see Quick Start). Remaining:
+> re-run full `/code-review` + `/security-review`, live human validation, and Admin-authorized merge + deploy.
 
 ---
 
 ## Quick Start
 
-1. Read this handoff.
-2. Check out the existing branch:
-   `git checkout feature/sprint-111-belonging-graph-system`
-3. Open the plan:
-   `docs/superpowers/plans/2026-06-23-sprint-111-belonging-graph-system.md`
-4. Run `/execute-plan` using `superpowers:subagent-driven-development` (recommended).
-5. Begin at **Task 1** and keep this handoff's Active Session stanza current.
+1. Read this handoff and PR #114.
+2. The branch is pushed and tracks `origin/feature/sprint-111-belonging-graph-system`.
+3. Plan: `docs/superpowers/plans/2026-06-23-sprint-111-belonging-graph-system.md` (Tasks 1–16 done).
+4. **Codex review fixes applied (round 2):** bounded recursion (`UNION`), grouped+active-membership
+   neighborhood links, ego-only expansion merge + stale-response guard, restored fission isolated ring,
+   community selection synced to the URL. CodeQL `js/request-forgery` on `api.ts` is the known
+   browser-baseURL false positive — dismiss + record in the PR.
+5. Remaining before merge: re-run `/code-review` + `/security-review` (subagent runners were
+   session-limited), live API/DB/UI validation, then Admin-authorized merge + CI/CD deploy.
 
 ## Sprint Goal
 
@@ -131,12 +136,15 @@ collapse control. Dashboard, profile, community, communities, and fission surfac
   no XSS, caller-only `isCurrentUser`, read-only view). No blocking findings. Re-run the full
   `/code-review` + `/security-review` (or `/code-review ultra`) after the session limit resets.
 
-#### Remaining (need a human / Admin)
+#### Status of remaining steps
+- **PR #114** — pushed and open. Codex cross-agent review received; its 3 P1 + 2 P2 findings are fixed
+  with tests (round-2 commit). CodeQL request-forgery FP on `api.ts` still to be dismissed + recorded
+  in the PR.
 - **Task 15 human validation** — live API smoke tests (own ego depth 1 & 3; explicit shared community;
   inaccessible center → 404; invalid depth → 400; nodes carry `degrees_of_separation`; ≤80 nodes), DB
   read checks (no schema mutation), and `/network` UI checks. Needs the running stack + a real token.
-- **Task 16** — `git push` the branch, open the PR (fill `.github/pull_request_template.md`), cross-agent
-  review, then Admin-authorized merge + CI/CD deploy of v11.18.0. Not yet pushed (awaiting authorization).
+- **Merge + deploy** — Admin-authorized merge + CI/CD deploy of v11.18.0 (not done; contributor agents
+  never self-merge). Re-run full `/code-review` + `/security-review` after the subagent session limit resets.
 
 > Claude and Codex share one physical working tree. One agent edits at a time. The active agent must
 > commit or stash before handing over. Never edit or commit on top of another agent's uncommitted WIP.

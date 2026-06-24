@@ -105,6 +105,32 @@ describe('TrustGraphHEB communities mode', () => {
   })
 })
 
+describe('TrustGraphHEB fission isolated ring', () => {
+  it('draws a dashed ring for isolated members (legend: "dashed = no connections")', () => {
+    const fissionGraph: GraphData = {
+      nodes: [
+        { id: 'me', name: 'Me', trust_score: 0, karma: 0, isCurrentUser: true },
+        { id: 'x', name: 'Loner', trust_score: 0, karma: 0, isIsolated: true },
+        { id: 'y', name: 'Connected', trust_score: 0, karma: 0 },
+      ],
+      links: [{ source: 'me', target: 'y', raw_weight: 1, effective_weight: 1 }],
+    }
+    const { container } = render(
+      <TrustGraphHEB
+        graphData={fissionGraph}
+        currentUserId="me"
+        mode="fission"
+        groupMap={{ me: 'group_a', x: 'group_b', y: 'group_a' }}
+      />
+    )
+    const ring = nodeById(container, 'x')!.querySelector('circle.iso-ring')
+    expect(ring).toBeInTheDocument()
+    expect(ring?.getAttribute('stroke-dasharray')).toBe('2,2')
+    // A connected member gets no ring.
+    expect(nodeById(container, 'y')!.querySelector('circle.iso-ring')).toBeNull()
+  })
+})
+
 describe('TrustGraphHEB keyed updates', () => {
   it('updates without a blanket SVG teardown (keyed joins keep the root group)', () => {
     const { container, rerender } = render(
