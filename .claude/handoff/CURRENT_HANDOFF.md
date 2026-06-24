@@ -158,6 +158,20 @@ prominence only after PR A contracts are available; it must not delay the privac
     dormant reputation regression tier (`karmaService.test.ts` uses an auto-mocked db and rots).
   - Re-verified green: disclosure gate 139, drift 5, reputation unit 29, social-graph/community/
     request regression+unit, frontend 115; all 5 typechecks clean.
+- **Cross-agent review round 2 (2026-06-24, fixed):** 3 residual blockers + a coverage gap, fixed in
+  `fix(privacy): close round-2 review blockers + add live-response tests`:
+  - dibs also strips the derived ranking `score` (reconstructable trustScore);
+  - curated feed removes matchBreakdown/feedBreakdown at both construction sites (the legacy raw
+    response leaked `feedBreakdown.requesterTrust.raw`);
+  - reputation `tests/regression` is now ENABLED (was silently excluded → "No tests found"); the
+    dormant bit-rotted `awardKarmaForCompletedMatch` suite (11 tests) is `describe.skip`'d with
+    justification, the other 12 karmaService tests + the boundary contract test run live.
+  - Added LIVE-RESPONSE route tests (the gate passed while missing these): real curated response,
+    dibs candidate, /stats suppression, cached-path projection, inactive-member route checks.
+  - Re-verified: reputation 128, social-graph 63, community 106, request 295, gates 144 — 0 fail.
+  - **FOLLOW-UP (out of S112 scope):** repair the quarantined `karmaService.test.ts`
+    `awardKarmaForCompletedMatch` suite — re-trace the current query order and restore its per-query
+    mock sequence (it drifted while the tier was dormant). Then remove the `describe.skip`.
 - **Tasks 5–7 added since last handoff write:**
   - T5 ✅ `fix(social-graph): project privacy-safe relationship contracts` — `disclosureProjection`
     service; graph/neighborhood → SafePersonGraph (relationship_state, no trust_score/karma/weights);
