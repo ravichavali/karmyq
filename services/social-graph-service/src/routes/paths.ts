@@ -68,12 +68,13 @@ router.get('/:targetUserId', async (req: AuthenticatedRequest, res: Response) =>
         connectionType: cached.connection_type,
       });
 
+      // Sprint 112 (ADR-082): outward responses omit the numeric path trust_score. The internal
+      // path_trust_score stays cached for feed ranking; members get degrees + topology + scope.
       return res.json({
         success: true,
         data: {
           degrees_of_separation: cached.degrees_of_separation,
           path: cached.shortest_path,
-          trust_score: cached.path_trust_score,
           connection_type: cached.connection_type || 'exchange',
           scope,
           cached: true,
@@ -141,7 +142,6 @@ router.get('/:targetUserId', async (req: AuthenticatedRequest, res: Response) =>
       data: {
         degrees_of_separation: path.degrees,
         path: path.path,
-        trust_score: path.trustScore,
         connection_type: path.connectionType,
         community_name: path.communityName,
         scope,
@@ -218,11 +218,11 @@ router.post('/batch', async (req: AuthenticatedRequest, res: Response) => {
       ])
     );
 
-    // Compute missing paths
+    // Compute missing paths. Sprint 112 (ADR-082): outward results omit the numeric path trust_score
+    // (the request-service feed ranks on degrees only); path_trust_score stays cached internally.
     const results: Array<{
       target_user_id: string;
       degrees_of_separation: number | null;
-      trust_score: number;
       connection_type: string | null;
       cached: boolean;
     }> = [];
@@ -238,7 +238,6 @@ router.post('/batch', async (req: AuthenticatedRequest, res: Response) => {
         results.push({
           target_user_id: targetUserId,
           degrees_of_separation: cached.degrees,
-          trust_score: cached.trustScore || 0,
           connection_type: cached.connectionType,
           cached: true,
         });
@@ -271,7 +270,6 @@ router.post('/batch', async (req: AuthenticatedRequest, res: Response) => {
           results.push({
             target_user_id: targetUserId,
             degrees_of_separation: path.degrees,
-            trust_score: path.trustScore,
             connection_type: path.connectionType,
             cached: false,
           });
@@ -279,7 +277,6 @@ router.post('/batch', async (req: AuthenticatedRequest, res: Response) => {
           results.push({
             target_user_id: targetUserId,
             degrees_of_separation: null,
-            trust_score: 0,
             connection_type: null,
             cached: false,
           });

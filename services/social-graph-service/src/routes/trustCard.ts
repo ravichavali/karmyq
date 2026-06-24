@@ -4,16 +4,8 @@ import { sendValidationError } from '@karmyq/shared';
 import { logger } from '../config/logger';
 import { computeTrustPath, computeInvitationPath } from '../services/pathComputation';
 import { resolveCommunityContext } from '../services/communityContext';
-import axios from 'axios';
 
 const router = Router();
-
-const TIER_THRESHOLDS = { PILLAR: 100, TRUSTED: 30 } as const;
-function getTrustTier(karma: number): 'Pillar' | 'Trusted' | 'Emerging' {
-  if (karma >= TIER_THRESHOLDS.PILLAR) return 'Pillar';
-  if (karma >= TIER_THRESHOLDS.TRUSTED) return 'Trusted';
-  return 'Emerging';
-}
 
 // Map internal connectionType to API path_type
 function mapConnectionType(connectionType: string): string {
@@ -56,21 +48,9 @@ router.get('/:targetUserId', async (req: AuthenticatedRequest, res: Response) =>
       }
     }
 
-    // Fetch target user's karma from reputation service
-    const reputationUrl = process.env.REPUTATION_API_URL || 'http://reputation-service:3004';
-    let karma = 0;
-    try {
-      const karmaRes = await axios.get(
-        `${reputationUrl}/reputation/karma/${targetUserId}`,
-        { headers: { Authorization: req.headers.authorization } }
-      );
-      karma = karmaRes.data?.data?.total_karma ?? 0;
-    } catch {
-      // karma stays 0 — trust tier will be Emerging
-    }
-
-    const trust_tier = getTrustTier(karma);
-
+    // Sprint 112 (ADR-082): the trust card shows authorized identity + path structure + a coarse
+    // path type. It no longer fetches or returns the target's karma or a karma-derived trust tier —
+    // another ordinary member's exact reputation is self-only.
     const targetNode = pathResult?.path?.at(-1);
     res.json({
       success: true,
@@ -78,8 +58,6 @@ router.get('/:targetUserId', async (req: AuthenticatedRequest, res: Response) =>
         targetUser: {
           id: targetUserId,
           name: targetNode?.name ?? 'Unknown',
-          karma,
-          trust_tier,
         },
         trustPath: pathResult?.path ?? [],
         invitationPath,
