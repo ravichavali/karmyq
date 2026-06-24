@@ -131,12 +131,40 @@ prominence only after PR A contracts are available; it must not delay the privac
 
 ### Active Session (update on every role handoff)
 
-- **Driving agent:** Codex (Sprint 112 planning)
-- **Phase:** Planning complete. Approved spec + executable two-PR plan are ready.
-- **Branch + files in flight:** `feature/sprint-112-reputation-disclosure-boundary`; planning
-  artifacts are committed as the first PR A commit. The working tree is clean.
-- **Blockers:** none. Execute PR A first; do not begin PR B until PR A is merged, deployed, and
-  validated.
+- **Driving agent:** Claude (Sprint 112 PR A execution)
+- **Phase:** PR A in progress on `feature/sprint-112-reputation-disclosure-boundary`. Tasks 1–4 of
+  10 complete and committed; Task 5 (social-graph projections) is next.
+- **PR A progress (commits on branch):**
+  - T1 ✅ `feat(shared): define reputation disclosure contracts` — strict Zod DTOs + forbidden-key
+    scanner in `packages/shared/src/schemas/reputationDisclosure.ts` (re-exported from root
+    `@karmyq/shared`; subpath `./schemas/reputation-disclosure`). 28 unit tests.
+  - T2 ✅ `test: gate reputation disclosure contracts` — `tests/fixtures/reputation-disclosure-inventory.json`
+    (46 endpoints), centralized `services/registry.json` → `reputation_disclosure` block, and
+    `tests/regression/reputation-disclosure-gate.test.ts` (131 tests, bidirectional drift +
+    fixture key-scan + ADR-074 envelope checks). Scaffolded 3 service contract-test files.
+  - T3 ✅ `fix(reputation): enforce self-only reputation boundary` — `GET /reputation/me/community-summary`
+    + `services/reputation-service/src/utils/disclosureAuth.ts`; all `:userId` reads self-only
+    (cross-user → 404 REPUTATION_NOT_FOUND, no admin exception); leaderboard → 410. 18 boundary tests.
+  - T4 ✅ `fix: gate reputation community aggregates` — community-trust/health/milestones/network-metrics
+    require active membership + ≥5 cohort (`checkAggregateAccess`), else 404 AGGREGATE_NOT_AVAILABLE.
+    24 boundary tests; full reputation suite 38 green.
+- **Key execution decisions / deviations:**
+  - Registry classification is ONE centralized `reputation_disclosure` block (registry `apis.provides`
+    is a mixed string/object array; a block keeps the diff minimal + works uniformly).
+  - Schemas imported via ROOT `@karmyq/shared` in service code/tests (service tsconfigs use
+    `moduleResolution: node`, which can't resolve the `src/`-based subpath; root resolves via dist).
+  - Contract tests stay in `tests/tdd/` during implementation; **promotion to `regression/` +
+    inventory `contract_test` path updates are deferred to Task 9** (promoting now breaks the gate's
+    hardcoded tdd paths). Do NOT run `promote-tdd-tests.js` until Task 9.
+  - decay-config (social-graph) gating moved from Task 4 → Task 5 (its contract test lives in the
+    social-graph suite).
+- **Gotchas hit:** jest backgrounds long runs here — use `npx jest … --json --outputFile=X.json
+  --silent` then parse with node. jest.each rows must match the callback arity or jest injects its
+  `done` into the extra param (broke 10 supertest cases). health.ts routes are a SEPARATE router —
+  mount it too in tests for community-health/milestones/network-metrics.
+- **Blockers:** none. Continue Task 5 → 9, then Task 10 verify+review gates and STOP for Admin
+  merge/deploy authorization (contributor agents never self-merge). Do not begin PR B until PR A is
+  merged, deployed, validated.
 
 > Claude and Codex share one physical working tree. One agent edits at a time. The active agent must
 > commit or stash before handing over. Never edit or commit on top of another agent's uncommitted WIP.
