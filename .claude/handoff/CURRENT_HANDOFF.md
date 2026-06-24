@@ -145,10 +145,19 @@ prominence only after PR A contracts are available; it must not delay the privac
 - **Task 8 deferrals → PR B:** `reputationService.getLeaderboard` removal + leaderboard UI removal
   (RightSidebar/karma.tsx) ship with PR B (removing the method now would break PR A compile; backend
   already 410s the endpoint and callers catch errors).
-- **Task 9 deferral:** the 3 service contract tests stay in `tests/tdd/` (NOT promoted to regression)
-  — promoting would break the disclosure-inventory's hardcoded tdd paths and hits a reputation-service
-  jest-config regression-tier ambiguity; the blocking disclosure gate already enforces the contract in
-  CI. Promote + update inventory `contract_test` paths as a follow-up if desired.
+- **Cross-agent review round (2026-06-24, fixed):** Codex review found 3 critical + supporting leaks
+  the contract-based inventory had missed. All fixed in `fix(privacy): close cross-agent-review
+  reputation leaks` — curated feed requesterKarma/trust, dibs neighbor trustScore, community stats
+  avg_karma/max_karma + ranking, cached-path karma projection, export ≥5-distinct-contributor
+  suppression, community-scoped self-route membership checks; plus CI-gate hardening: classified the
+  3 missed endpoints, extended gate patterns, and PROMOTED contract tests to blocking tiers.
+  - **Latent gap caught + fixed:** reputation-service `jest.config.js` `testMatch` excluded
+    `tests/regression/` → its regression tier silently never ran (incl. a dormant, bit-rotted
+    `karmaService.test.ts`, 11 failures). The S112 reputation boundary test is therefore in
+    `tests/unit/` (runs+blocks, fully mocked). **Follow-up (out of S112 scope):** repair/enable the
+    dormant reputation regression tier (`karmaService.test.ts` uses an auto-mocked db and rots).
+  - Re-verified green: disclosure gate 139, drift 5, reputation unit 29, social-graph/community/
+    request regression+unit, frontend 115; all 5 typechecks clean.
 - **Tasks 5–7 added since last handoff write:**
   - T5 ✅ `fix(social-graph): project privacy-safe relationship contracts` — `disclosureProjection`
     service; graph/neighborhood → SafePersonGraph (relationship_state, no trust_score/karma/weights);
