@@ -132,8 +132,34 @@ prominence only after PR A contracts are available; it must not delay the privac
 ### Active Session (update on every role handoff)
 
 - **Driving agent:** Claude (Sprint 112 PR A execution)
-- **Phase:** PR A in progress on `feature/sprint-112-reputation-disclosure-boundary`. Tasks 1–4 of
-  10 complete and committed; Task 5 (social-graph projections) is next.
+- **Phase:** PR A backend COMPLETE on `feature/sprint-112-reputation-disclosure-boundary`. Tasks 1–7
+  of 10 committed (all API-enforced privacy). Task 8 (frontend client alignment) is next, then
+  Task 9 (docs/ADR-082/version/promote contract tests) and Task 10 (verify + review gates +
+  merge-readiness; STOP for Admin).
+- **Tasks 5–7 added since last handoff write:**
+  - T5 ✅ `fix(social-graph): project privacy-safe relationship contracts` — `disclosureProjection`
+    service; graph/neighborhood → SafePersonGraph (relationship_state, no trust_score/karma/weights);
+    memory/fading drop currentWeight; paths drop outward trust_score (internal caching + degrees-only
+    ranking intact); trust-card drops karma+tier; `/trust/edge` 410; decay-config membership-gated;
+    request-service feed cleaned. 9 projection + 40 sg-regression + 293 request unit/regression green.
+  - T6 ✅ `fix: protect governance and invitation reputation` — governance eligible_members/role_holders
+    identity-only (internal threshold calc kept; failed nomination → 422 GOVERNANCE_ELIGIBILITY_NOT_MET,
+    no numbers); invitations drop invitee karma + avg_invitee_karma/trust_score.
+  - T7 ✅ `fix(community): remove member reputation from exports` — main export → ≥5-member
+    community_reputation_summary (no per-member karma_records/trust_scores); activity export drops
+    Total Karma/Trust Score + karma ranking. 4 governance+export tests green.
+- **Remaining for PR A:** T8 frontend (consume safe contracts: graph types/normalize/HEB,
+  TrustCard, TrustPathBadge, InviteHistory, MemorySection, ReWarmingNudge, socialGraphClient,
+  api.ts add reputationService.getMyCommunitySummary, remove getLeaderboard; update Sprint-111
+  frontend graph/path tests). T9 docs/ADR-082/ADR-081 update/guides/generate-docs/version v11.19.0 +
+  PROMOTE the 3 service contract tests tdd→regression and update inventory `contract_test` paths +
+  re-run gate. T10 full `npm test`/tsc/feedback:check + /simplify+/code-review+/security-review +
+  two-user human validation, mark ADR-082 Implemented + BUG-024 fixed, open PR, STOP for Admin.
+- **Test-run recipe (jest backgrounds here):** `npx jest <path> --runInBand --json --outputFile=X.json
+  --silent > /dev/null 2>&1` then parse X.json with node. DB integration tests (sprint-67-governance,
+  sprint-100-split-reexecute, schema-existence) fail locally with `AggregateError` (no DB) — that's
+  environmental, they pass in CI; don't chase them.
+- **OLD Tasks 1–4 status line (kept for reference):** Tasks 1–4 of 10 complete and committed.
 - **PR A progress (commits on branch):**
   - T1 ✅ `feat(shared): define reputation disclosure contracts` — strict Zod DTOs + forbidden-key
     scanner in `packages/shared/src/schemas/reputationDisclosure.ts` (re-exported from root
