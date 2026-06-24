@@ -16,12 +16,31 @@
       "path": "/reputation/me/community-summary",
       "class": "self",
       "schema": "SelfCommunityReputationSchema",
-      "contract_test": "services/reputation-service/tests/tdd/sprint-112-reputation-boundary.test.ts",
+      "contract_test": "services/reputation-service/tests/unit/sprint-112-reputation-boundary.test.ts",
       "sample_response": {
-        "scope": { "type": "community", "community_id": "cccccccc-cccc-cccc-cccc-cccccccccccc", "community_name": "Maplewood Mutual Aid" },
-        "reputation": { "score": 27, "scale_min": 0, "scale_max": 100, "tier": "active", "calculated_at": "2026-06-24T00:00:00.000Z" },
-        "karma": { "current": 40, "trend": "stable", "half_life_days": 180, "calculated_at": "2026-06-24T00:00:00.000Z" },
-        "activity": { "recent_helps": 2, "recent_requests": 1, "window_days": 30 }
+        "scope": {
+          "type": "community",
+          "community_id": "cccccccc-cccc-cccc-cccc-cccccccccccc",
+          "community_name": "Maplewood Mutual Aid"
+        },
+        "reputation": {
+          "score": 27,
+          "scale_min": 0,
+          "scale_max": 100,
+          "tier": "active",
+          "calculated_at": "2026-06-24T00:00:00.000Z"
+        },
+        "karma": {
+          "current": 40,
+          "trend": "stable",
+          "half_life_days": 180,
+          "calculated_at": "2026-06-24T00:00:00.000Z"
+        },
+        "activity": {
+          "recent_helps": 2,
+          "recent_requests": 1,
+          "window_days": 30
+        }
       }
     },
     {
@@ -30,7 +49,7 @@
       "path": "/reputation/me/karma",
       "class": "self",
       "schema": "self_only",
-      "contract_test": "services/reputation-service/tests/tdd/sprint-112-reputation-boundary.test.ts"
+      "contract_test": "services/reputation-service/tests/unit/sprint-112-reputation-boundary.test.ts"
     },
     {
       "service": "reputation-service",
@@ -38,8 +57,12 @@
       "path": "/reputation/karma/:userId",
       "class": "self",
       "schema": "self_only",
-      "contract_test": "services/reputation-service/tests/tdd/sprint-112-reputation-boundary.test.ts",
-      "denial_fixture": { "success": false, "message": "Reputation not found", "error": "REPUTATION_NOT_FOUND" }
+      "contract_test": "services/reputation-service/tests/unit/sprint-112-reputation-boundary.test.ts",
+      "denial_fixture": {
+        "success": false,
+        "message": "Reputation not found",
+        "error": "REPUTATION_NOT_FOUND"
+      }
     },
     {
       "service": "reputation-service",
@@ -47,8 +70,12 @@
       "path": "/reputation/trust/:userId",
       "class": "self",
       "schema": "self_only",
-      "contract_test": "services/reputation-service/tests/tdd/sprint-112-reputation-boundary.test.ts",
-      "denial_fixture": { "success": false, "message": "Reputation not found", "error": "REPUTATION_NOT_FOUND" }
+      "contract_test": "services/reputation-service/tests/unit/sprint-112-reputation-boundary.test.ts",
+      "denial_fixture": {
+        "success": false,
+        "message": "Reputation not found",
+        "error": "REPUTATION_NOT_FOUND"
+      }
     },
     {
       "service": "reputation-service",
@@ -56,8 +83,12 @@
       "path": "/reputation/trust/:userId/:communityId",
       "class": "self",
       "schema": "self_only",
-      "contract_test": "services/reputation-service/tests/tdd/sprint-112-reputation-boundary.test.ts",
-      "denial_fixture": { "success": false, "message": "Reputation not found", "error": "REPUTATION_NOT_FOUND" }
+      "contract_test": "services/reputation-service/tests/unit/sprint-112-reputation-boundary.test.ts",
+      "denial_fixture": {
+        "success": false,
+        "message": "Reputation not found",
+        "error": "REPUTATION_NOT_FOUND"
+      }
     },
     {
       "service": "reputation-service",
@@ -65,8 +96,12 @@
       "path": "/reputation/history/:userId",
       "class": "self",
       "schema": "self_only",
-      "contract_test": "services/reputation-service/tests/tdd/sprint-112-reputation-boundary.test.ts",
-      "denial_fixture": { "success": false, "message": "Reputation not found", "error": "REPUTATION_NOT_FOUND" }
+      "contract_test": "services/reputation-service/tests/unit/sprint-112-reputation-boundary.test.ts",
+      "denial_fixture": {
+        "success": false,
+        "message": "Reputation not found",
+        "error": "REPUTATION_NOT_FOUND"
+      }
     },
     {
       "service": "reputation-service",
@@ -74,8 +109,12 @@
       "path": "/reputation/badges/:userId",
       "class": "self",
       "schema": "self_only",
-      "contract_test": "services/reputation-service/tests/tdd/sprint-112-reputation-boundary.test.ts",
-      "denial_fixture": { "success": false, "message": "Reputation not found", "error": "REPUTATION_NOT_FOUND" }
+      "contract_test": "services/reputation-service/tests/unit/sprint-112-reputation-boundary.test.ts",
+      "denial_fixture": {
+        "success": false,
+        "message": "Reputation not found",
+        "error": "REPUTATION_NOT_FOUND"
+      }
     },
     {
       "service": "reputation-service",
@@ -83,8 +122,12 @@
       "path": "/reputation/users/:userId/badges",
       "class": "self",
       "schema": "self_only",
-      "contract_test": "services/reputation-service/tests/tdd/sprint-112-reputation-boundary.test.ts",
-      "denial_fixture": { "success": false, "message": "Reputation not found", "error": "REPUTATION_NOT_FOUND" }
+      "contract_test": "services/reputation-service/tests/unit/sprint-112-reputation-boundary.test.ts",
+      "denial_fixture": {
+        "success": false,
+        "message": "Reputation not found",
+        "error": "REPUTATION_NOT_FOUND"
+      }
     },
     {
       "service": "reputation-service",
@@ -92,8 +135,12 @@
       "path": "/reputation/leaderboard/:communityId",
       "class": "ordinary_member",
       "schema": "retired_410",
-      "contract_test": "services/reputation-service/tests/tdd/sprint-112-reputation-boundary.test.ts",
-      "denial_fixture": { "success": false, "message": "The member leaderboard has been retired; exact reputation is self-only.", "error": "REPUTATION_LEADERBOARD_RETIRED" }
+      "contract_test": "services/reputation-service/tests/unit/sprint-112-reputation-boundary.test.ts",
+      "denial_fixture": {
+        "success": false,
+        "message": "The member leaderboard has been retired; exact reputation is self-only.",
+        "error": "REPUTATION_LEADERBOARD_RETIRED"
+      }
     },
     {
       "service": "reputation-service",
@@ -101,7 +148,7 @@
       "path": "/reputation/community-trust/:communityId",
       "class": "community_aggregate",
       "schema": "community_aggregate",
-      "contract_test": "services/reputation-service/tests/tdd/sprint-112-reputation-boundary.test.ts"
+      "contract_test": "services/reputation-service/tests/unit/sprint-112-reputation-boundary.test.ts"
     },
     {
       "service": "reputation-service",
@@ -109,7 +156,7 @@
       "path": "/reputation/community-health/:communityId",
       "class": "community_aggregate",
       "schema": "community_aggregate",
-      "contract_test": "services/reputation-service/tests/tdd/sprint-112-reputation-boundary.test.ts"
+      "contract_test": "services/reputation-service/tests/unit/sprint-112-reputation-boundary.test.ts"
     },
     {
       "service": "reputation-service",
@@ -117,7 +164,7 @@
       "path": "/reputation/milestones/:communityId",
       "class": "community_aggregate",
       "schema": "community_aggregate",
-      "contract_test": "services/reputation-service/tests/tdd/sprint-112-reputation-boundary.test.ts"
+      "contract_test": "services/reputation-service/tests/unit/sprint-112-reputation-boundary.test.ts"
     },
     {
       "service": "reputation-service",
@@ -125,7 +172,7 @@
       "path": "/reputation/network-metrics/:communityId",
       "class": "community_aggregate",
       "schema": "community_aggregate",
-      "contract_test": "services/reputation-service/tests/tdd/sprint-112-reputation-boundary.test.ts"
+      "contract_test": "services/reputation-service/tests/unit/sprint-112-reputation-boundary.test.ts"
     },
     {
       "service": "reputation-service",
@@ -133,8 +180,12 @@
       "path": "/reputation/trust-config/:userId/:communityId",
       "class": "self",
       "schema": "self_only",
-      "contract_test": "services/reputation-service/tests/tdd/sprint-112-reputation-boundary.test.ts",
-      "denial_fixture": { "success": false, "message": "Reputation not found", "error": "REPUTATION_NOT_FOUND" }
+      "contract_test": "services/reputation-service/tests/unit/sprint-112-reputation-boundary.test.ts",
+      "denial_fixture": {
+        "success": false,
+        "message": "Reputation not found",
+        "error": "REPUTATION_NOT_FOUND"
+      }
     },
     {
       "service": "reputation-service",
@@ -142,8 +193,12 @@
       "path": "/reputation/trust-config/:userId/:communityId",
       "class": "self",
       "schema": "self_only",
-      "contract_test": "services/reputation-service/tests/tdd/sprint-112-reputation-boundary.test.ts",
-      "denial_fixture": { "success": false, "message": "Reputation not found", "error": "REPUTATION_NOT_FOUND" }
+      "contract_test": "services/reputation-service/tests/unit/sprint-112-reputation-boundary.test.ts",
+      "denial_fixture": {
+        "success": false,
+        "message": "Reputation not found",
+        "error": "REPUTATION_NOT_FOUND"
+      }
     },
     {
       "service": "reputation-service",
@@ -151,8 +206,12 @@
       "path": "/reputation/trust-config/:userId/:communityId/history",
       "class": "self",
       "schema": "self_only",
-      "contract_test": "services/reputation-service/tests/tdd/sprint-112-reputation-boundary.test.ts",
-      "denial_fixture": { "success": false, "message": "Reputation not found", "error": "REPUTATION_NOT_FOUND" }
+      "contract_test": "services/reputation-service/tests/unit/sprint-112-reputation-boundary.test.ts",
+      "denial_fixture": {
+        "success": false,
+        "message": "Reputation not found",
+        "error": "REPUTATION_NOT_FOUND"
+      }
     },
     {
       "service": "reputation-service",
@@ -160,8 +219,12 @@
       "path": "/reputation/users/:userId/effective-params",
       "class": "self",
       "schema": "self_only",
-      "contract_test": "services/reputation-service/tests/tdd/sprint-112-reputation-boundary.test.ts",
-      "denial_fixture": { "success": false, "message": "Reputation not found", "error": "REPUTATION_NOT_FOUND" }
+      "contract_test": "services/reputation-service/tests/unit/sprint-112-reputation-boundary.test.ts",
+      "denial_fixture": {
+        "success": false,
+        "message": "Reputation not found",
+        "error": "REPUTATION_NOT_FOUND"
+      }
     },
     {
       "service": "reputation-service",
@@ -169,8 +232,12 @@
       "path": "/reputation/users/:userId/evolution-global",
       "class": "self",
       "schema": "self_only",
-      "contract_test": "services/reputation-service/tests/tdd/sprint-112-reputation-boundary.test.ts",
-      "denial_fixture": { "success": false, "message": "Reputation not found", "error": "REPUTATION_NOT_FOUND" }
+      "contract_test": "services/reputation-service/tests/unit/sprint-112-reputation-boundary.test.ts",
+      "denial_fixture": {
+        "success": false,
+        "message": "Reputation not found",
+        "error": "REPUTATION_NOT_FOUND"
+      }
     },
     {
       "service": "reputation-service",
@@ -178,8 +245,12 @@
       "path": "/reputation/users/:userId/evolution-global",
       "class": "self",
       "schema": "self_only",
-      "contract_test": "services/reputation-service/tests/tdd/sprint-112-reputation-boundary.test.ts",
-      "denial_fixture": { "success": false, "message": "Reputation not found", "error": "REPUTATION_NOT_FOUND" }
+      "contract_test": "services/reputation-service/tests/unit/sprint-112-reputation-boundary.test.ts",
+      "denial_fixture": {
+        "success": false,
+        "message": "Reputation not found",
+        "error": "REPUTATION_NOT_FOUND"
+      }
     },
     {
       "service": "reputation-service",
@@ -187,7 +258,7 @@
       "path": "/reputation/communities/:communityId/trust-evolution",
       "class": "internal",
       "schema": "internal_admin_policy",
-      "contract_test": "services/reputation-service/tests/tdd/sprint-112-reputation-boundary.test.ts"
+      "contract_test": "services/reputation-service/tests/unit/sprint-112-reputation-boundary.test.ts"
     },
     {
       "service": "reputation-service",
@@ -195,7 +266,7 @@
       "path": "/reputation/communities/:communityId/trust-evolution",
       "class": "internal",
       "schema": "internal_admin_policy",
-      "contract_test": "services/reputation-service/tests/tdd/sprint-112-reputation-boundary.test.ts"
+      "contract_test": "services/reputation-service/tests/unit/sprint-112-reputation-boundary.test.ts"
     },
     {
       "service": "reputation-service",
@@ -203,7 +274,7 @@
       "path": "/reputation/community/:communityId/evolution/history",
       "class": "internal",
       "schema": "internal_admin_policy",
-      "contract_test": "services/reputation-service/tests/tdd/sprint-112-reputation-boundary.test.ts"
+      "contract_test": "services/reputation-service/tests/unit/sprint-112-reputation-boundary.test.ts"
     },
     {
       "service": "reputation-service",
@@ -211,7 +282,7 @@
       "path": "/reputation/community/:communityId/evolution/summary",
       "class": "internal",
       "schema": "internal_admin_policy",
-      "contract_test": "services/reputation-service/tests/tdd/sprint-112-reputation-boundary.test.ts"
+      "contract_test": "services/reputation-service/tests/unit/sprint-112-reputation-boundary.test.ts"
     },
     {
       "service": "reputation-service",
@@ -219,7 +290,7 @@
       "path": "/reputation/community/:communityId/evolution/toggle",
       "class": "internal",
       "schema": "internal_admin_policy",
-      "contract_test": "services/reputation-service/tests/tdd/sprint-112-reputation-boundary.test.ts"
+      "contract_test": "services/reputation-service/tests/unit/sprint-112-reputation-boundary.test.ts"
     },
     {
       "service": "reputation-service",
@@ -227,7 +298,7 @@
       "path": "/reputation/provider-trust/:providerId",
       "class": "provider",
       "schema": "ProviderReputationSchema",
-      "contract_test": "services/reputation-service/tests/tdd/sprint-112-reputation-boundary.test.ts"
+      "contract_test": "services/reputation-service/tests/unit/sprint-112-reputation-boundary.test.ts"
     },
     {
       "service": "reputation-service",
@@ -235,7 +306,7 @@
       "path": "/reputation/provider-reviews/:providerId",
       "class": "provider",
       "schema": "provider_public",
-      "contract_test": "services/reputation-service/tests/tdd/sprint-112-reputation-boundary.test.ts"
+      "contract_test": "services/reputation-service/tests/unit/sprint-112-reputation-boundary.test.ts"
     },
     {
       "service": "social-graph-service",
@@ -243,13 +314,30 @@
       "path": "/trust/graph",
       "class": "ordinary_member",
       "schema": "SafePersonGraphSchema",
-      "contract_test": "services/social-graph-service/tests/tdd/sprint-112-disclosure-projection.test.ts",
+      "contract_test": "services/social-graph-service/tests/regression/sprint-112-disclosure-projection.test.ts",
       "sample_response": {
         "nodes": [
-          { "user_id": "11111111-1111-1111-1111-111111111111", "name": "Maria", "is_current_user": true, "degrees_of_separation": 0 },
-          { "user_id": "22222222-2222-2222-2222-222222222222", "name": "Sam", "is_current_user": false, "degrees_of_separation": 1 }
+          {
+            "user_id": "11111111-1111-1111-1111-111111111111",
+            "name": "Maria",
+            "is_current_user": true,
+            "degrees_of_separation": 0
+          },
+          {
+            "user_id": "22222222-2222-2222-2222-222222222222",
+            "name": "Sam",
+            "is_current_user": false,
+            "degrees_of_separation": 1
+          }
         ],
-        "links": [ { "source": "11111111-1111-1111-1111-111111111111", "target": "22222222-2222-2222-2222-222222222222", "relationship_state": "warm", "type": "organic" } ]
+        "links": [
+          {
+            "source": "11111111-1111-1111-1111-111111111111",
+            "target": "22222222-2222-2222-2222-222222222222",
+            "relationship_state": "warm",
+            "type": "organic"
+          }
+        ]
       }
     },
     {
@@ -258,9 +346,15 @@
       "path": "/trust/graph/:communityId",
       "class": "ordinary_member",
       "schema": "SafePersonGraphSchema",
-      "contract_test": "services/social-graph-service/tests/tdd/sprint-112-disclosure-projection.test.ts",
+      "contract_test": "services/social-graph-service/tests/regression/sprint-112-disclosure-projection.test.ts",
       "sample_response": {
-        "nodes": [ { "user_id": "11111111-1111-1111-1111-111111111111", "name": "Maria", "is_current_user": true } ],
+        "nodes": [
+          {
+            "user_id": "11111111-1111-1111-1111-111111111111",
+            "name": "Maria",
+            "is_current_user": true
+          }
+        ],
         "links": []
       }
     },
@@ -270,13 +364,27 @@
       "path": "/trust/graph/:communityId/full",
       "class": "ordinary_member",
       "schema": "SafePersonGraphSchema",
-      "contract_test": "services/social-graph-service/tests/tdd/sprint-112-disclosure-projection.test.ts",
+      "contract_test": "services/social-graph-service/tests/regression/sprint-112-disclosure-projection.test.ts",
       "sample_response": {
         "nodes": [
-          { "user_id": "11111111-1111-1111-1111-111111111111", "name": "Maria", "is_current_user": true },
-          { "user_id": "22222222-2222-2222-2222-222222222222", "name": "Sam", "is_current_user": false }
+          {
+            "user_id": "11111111-1111-1111-1111-111111111111",
+            "name": "Maria",
+            "is_current_user": true
+          },
+          {
+            "user_id": "22222222-2222-2222-2222-222222222222",
+            "name": "Sam",
+            "is_current_user": false
+          }
         ],
-        "links": [ { "source": "11111111-1111-1111-1111-111111111111", "target": "22222222-2222-2222-2222-222222222222", "relationship_state": "strong" } ]
+        "links": [
+          {
+            "source": "11111111-1111-1111-1111-111111111111",
+            "target": "22222222-2222-2222-2222-222222222222",
+            "relationship_state": "strong"
+          }
+        ]
       }
     },
     {
@@ -285,13 +393,29 @@
       "path": "/trust/neighborhood/:userId",
       "class": "ordinary_member",
       "schema": "SafePersonGraphSchema",
-      "contract_test": "services/social-graph-service/tests/tdd/sprint-112-disclosure-projection.test.ts",
+      "contract_test": "services/social-graph-service/tests/regression/sprint-112-disclosure-projection.test.ts",
       "sample_response": {
         "nodes": [
-          { "user_id": "11111111-1111-1111-1111-111111111111", "name": "Maria", "is_current_user": true, "degrees_of_separation": 0 },
-          { "user_id": "22222222-2222-2222-2222-222222222222", "name": "Sam", "is_current_user": false, "degrees_of_separation": 2 }
+          {
+            "user_id": "11111111-1111-1111-1111-111111111111",
+            "name": "Maria",
+            "is_current_user": true,
+            "degrees_of_separation": 0
+          },
+          {
+            "user_id": "22222222-2222-2222-2222-222222222222",
+            "name": "Sam",
+            "is_current_user": false,
+            "degrees_of_separation": 2
+          }
         ],
-        "links": [ { "source": "11111111-1111-1111-1111-111111111111", "target": "22222222-2222-2222-2222-222222222222", "relationship_state": "fading" } ]
+        "links": [
+          {
+            "source": "11111111-1111-1111-1111-111111111111",
+            "target": "22222222-2222-2222-2222-222222222222",
+            "relationship_state": "fading"
+          }
+        ]
       }
     },
     {
@@ -300,13 +424,18 @@
       "path": "/trust-card/:targetUserId",
       "class": "ordinary_member",
       "schema": "SafeTrustPathSchema",
-      "contract_test": "services/social-graph-service/tests/tdd/sprint-112-disclosure-projection.test.ts",
+      "contract_test": "services/social-graph-service/tests/regression/sprint-112-disclosure-projection.test.ts",
       "sample_response": {
         "target_user_id": "22222222-2222-2222-2222-222222222222",
         "degrees_of_separation": 2,
         "connection_type": "organic",
         "relationship_state": "warm",
-        "path": [ { "user_id": "33333333-3333-3333-3333-333333333333", "name": "Bridge" } ]
+        "path": [
+          {
+            "user_id": "33333333-3333-3333-3333-333333333333",
+            "name": "Bridge"
+          }
+        ]
       }
     },
     {
@@ -315,7 +444,7 @@
       "path": "/paths/:targetUserId",
       "class": "ordinary_member",
       "schema": "SafeTrustPathSchema",
-      "contract_test": "services/social-graph-service/tests/tdd/sprint-112-disclosure-projection.test.ts",
+      "contract_test": "services/social-graph-service/tests/regression/sprint-112-disclosure-projection.test.ts",
       "sample_response": {
         "target_user_id": "22222222-2222-2222-2222-222222222222",
         "degrees_of_separation": 1,
@@ -328,9 +457,14 @@
       "path": "/paths/batch",
       "class": "ordinary_member",
       "schema": "self_only",
-      "contract_test": "services/social-graph-service/tests/tdd/sprint-112-disclosure-projection.test.ts",
+      "contract_test": "services/social-graph-service/tests/regression/sprint-112-disclosure-projection.test.ts",
       "sample_response": {
-        "paths": [ { "target_user_id": "22222222-2222-2222-2222-222222222222", "degrees_of_separation": 2 } ]
+        "paths": [
+          {
+            "target_user_id": "22222222-2222-2222-2222-222222222222",
+            "degrees_of_separation": 2
+          }
+        ]
       }
     },
     {
@@ -339,10 +473,21 @@
       "path": "/network",
       "class": "ordinary_member",
       "schema": "self_only",
-      "contract_test": "services/social-graph-service/tests/tdd/sprint-112-disclosure-projection.test.ts",
+      "contract_test": "services/social-graph-service/tests/regression/sprint-112-disclosure-projection.test.ts",
       "sample_response": {
-        "nodes": [ { "user_id": "11111111-1111-1111-1111-111111111111", "name": "Maria", "is_current_user": true } ],
-        "edges": [ { "source": "11111111-1111-1111-1111-111111111111", "target": "22222222-2222-2222-2222-222222222222" } ]
+        "nodes": [
+          {
+            "user_id": "11111111-1111-1111-1111-111111111111",
+            "name": "Maria",
+            "is_current_user": true
+          }
+        ],
+        "edges": [
+          {
+            "source": "11111111-1111-1111-1111-111111111111",
+            "target": "22222222-2222-2222-2222-222222222222"
+          }
+        ]
       }
     },
     {
@@ -351,9 +496,18 @@
       "path": "/invitations",
       "class": "ordinary_member",
       "schema": "self_only",
-      "contract_test": "services/social-graph-service/tests/tdd/sprint-112-disclosure-projection.test.ts",
+      "contract_test": "services/social-graph-service/tests/regression/sprint-112-disclosure-projection.test.ts",
       "sample_response": {
-        "invitations": [ { "invitee": { "user_id": "22222222-2222-2222-2222-222222222222", "name": "Sam" }, "status": "accepted", "accepted_at": "2026-06-24T00:00:00.000Z" } ],
+        "invitations": [
+          {
+            "invitee": {
+              "user_id": "22222222-2222-2222-2222-222222222222",
+              "name": "Sam"
+            },
+            "status": "accepted",
+            "accepted_at": "2026-06-24T00:00:00.000Z"
+          }
+        ],
         "total": 1
       }
     },
@@ -363,7 +517,7 @@
       "path": "/invitations/stats",
       "class": "ordinary_member",
       "schema": "self_only",
-      "contract_test": "services/social-graph-service/tests/tdd/sprint-112-disclosure-projection.test.ts",
+      "contract_test": "services/social-graph-service/tests/regression/sprint-112-disclosure-projection.test.ts",
       "sample_response": {
         "total_sent": 10,
         "accepted": 6,
@@ -378,11 +532,19 @@
       "path": "/trust/me/memory",
       "class": "self",
       "schema": "self_only",
-      "contract_test": "services/social-graph-service/tests/tdd/sprint-112-disclosure-projection.test.ts",
+      "contract_test": "services/social-graph-service/tests/regression/sprint-112-disclosure-projection.test.ts",
       "sample_response": {
         "communityId": "cccccccc-cccc-cccc-cccc-cccccccccccc",
         "activeCount": 5,
-        "fading": [ { "user_id": "22222222-2222-2222-2222-222222222222", "name": "Sam", "decayTier": "fading", "lastInteraction": "2026-05-01T00:00:00.000Z", "completedInteractions": 3 } ],
+        "fading": [
+          {
+            "user_id": "22222222-2222-2222-2222-222222222222",
+            "name": "Sam",
+            "decayTier": "fading",
+            "lastInteraction": "2026-05-01T00:00:00.000Z",
+            "completedInteractions": 3
+          }
+        ],
         "nearlyForgotten": []
       }
     },
@@ -392,10 +554,18 @@
       "path": "/trust/relationships/fading",
       "class": "self",
       "schema": "self_only",
-      "contract_test": "services/social-graph-service/tests/tdd/sprint-112-disclosure-projection.test.ts",
+      "contract_test": "services/social-graph-service/tests/regression/sprint-112-disclosure-projection.test.ts",
       "sample_response": {
         "communityId": "cccccccc-cccc-cccc-cccc-cccccccccccc",
-        "nearlyForgotten": [ { "user_id": "22222222-2222-2222-2222-222222222222", "name": "Sam", "decayTier": "nearly_forgotten", "lastInteraction": "2026-03-01T00:00:00.000Z", "completedInteractions": 1 } ]
+        "nearlyForgotten": [
+          {
+            "user_id": "22222222-2222-2222-2222-222222222222",
+            "name": "Sam",
+            "decayTier": "nearly_forgotten",
+            "lastInteraction": "2026-03-01T00:00:00.000Z",
+            "completedInteractions": 1
+          }
+        ]
       }
     },
     {
@@ -404,7 +574,7 @@
       "path": "/trust/communities",
       "class": "community_aggregate",
       "schema": "community_aggregate",
-      "contract_test": "services/social-graph-service/tests/tdd/sprint-112-disclosure-projection.test.ts"
+      "contract_test": "services/social-graph-service/tests/regression/sprint-112-disclosure-projection.test.ts"
     },
     {
       "service": "social-graph-service",
@@ -412,8 +582,12 @@
       "path": "/trust/edge",
       "class": "ordinary_member",
       "schema": "retired_410",
-      "contract_test": "services/social-graph-service/tests/tdd/sprint-112-disclosure-projection.test.ts",
-      "denial_fixture": { "success": false, "message": "The single-edge lookup endpoint has been retired.", "error": "TRUST_EDGE_ENDPOINT_RETIRED" }
+      "contract_test": "services/social-graph-service/tests/regression/sprint-112-disclosure-projection.test.ts",
+      "denial_fixture": {
+        "success": false,
+        "message": "The single-edge lookup endpoint has been retired.",
+        "error": "TRUST_EDGE_ENDPOINT_RETIRED"
+      }
     },
     {
       "service": "social-graph-service",
@@ -421,7 +595,7 @@
       "path": "/trust/decay-config",
       "class": "community_aggregate",
       "schema": "community_policy",
-      "contract_test": "services/social-graph-service/tests/tdd/sprint-112-disclosure-projection.test.ts"
+      "contract_test": "services/social-graph-service/tests/regression/sprint-112-disclosure-projection.test.ts"
     },
     {
       "service": "social-graph-service",
@@ -429,7 +603,7 @@
       "path": "/trust/decay-config/:communityId",
       "class": "community_aggregate",
       "schema": "community_policy",
-      "contract_test": "services/social-graph-service/tests/tdd/sprint-112-disclosure-projection.test.ts"
+      "contract_test": "services/social-graph-service/tests/regression/sprint-112-disclosure-projection.test.ts"
     },
     {
       "service": "social-graph-service",
@@ -437,7 +611,7 @@
       "path": "/trust/decay-config/:communityId",
       "class": "internal",
       "schema": "internal_admin_policy",
-      "contract_test": "services/social-graph-service/tests/tdd/sprint-112-disclosure-projection.test.ts"
+      "contract_test": "services/social-graph-service/tests/regression/sprint-112-disclosure-projection.test.ts"
     },
     {
       "service": "community-service",
@@ -445,10 +619,23 @@
       "path": "/communities/:id/governance",
       "class": "ordinary_member",
       "schema": "GovernanceStateSchema",
-      "contract_test": "services/community-service/tests/tdd/sprint-112-governance-export-privacy.test.ts",
+      "contract_test": "services/community-service/tests/regression/sprint-112-governance-export-privacy.test.ts",
       "sample_response": {
-        "eligible_members": [ { "user_id": "11111111-1111-1111-1111-111111111111", "name": "Maria", "eligible": true, "eligibility_reason": "established_community_relationships" } ],
-        "role_holders": [ { "user_id": "22222222-2222-2222-2222-222222222222", "name": "Sam", "role": "admin" } ]
+        "eligible_members": [
+          {
+            "user_id": "11111111-1111-1111-1111-111111111111",
+            "name": "Maria",
+            "eligible": true,
+            "eligibility_reason": "established_community_relationships"
+          }
+        ],
+        "role_holders": [
+          {
+            "user_id": "22222222-2222-2222-2222-222222222222",
+            "name": "Sam",
+            "role": "admin"
+          }
+        ]
       }
     },
     {
@@ -457,7 +644,7 @@
       "path": "/communities/:communityId/export",
       "class": "community_aggregate",
       "schema": "community_aggregate",
-      "contract_test": "services/community-service/tests/tdd/sprint-112-governance-export-privacy.test.ts"
+      "contract_test": "services/community-service/tests/regression/sprint-112-governance-export-privacy.test.ts"
     },
     {
       "service": "community-service",
@@ -465,7 +652,51 @@
       "path": "/communities/:communityId/export/members",
       "class": "community_aggregate",
       "schema": "community_aggregate",
-      "contract_test": "services/community-service/tests/tdd/sprint-112-governance-export-privacy.test.ts"
+      "contract_test": "services/community-service/tests/regression/sprint-112-governance-export-privacy.test.ts"
+    },
+    {
+      "service": "request-service",
+      "method": "GET",
+      "path": "/requests/curated",
+      "class": "ordinary_member",
+      "schema": "self_only",
+      "contract_test": "services/request-service/tests/regression/sprint-112-feed-dibs-privacy.test.ts",
+      "sample_response": {
+        "requests": [
+          {
+            "id": "r1",
+            "title": "Need a hand",
+            "requester_id": "22222222-2222-2222-2222-222222222222",
+            "trust_degree": 2,
+            "match_score": 80,
+            "feed_score": 72
+          }
+        ]
+      }
+    },
+    {
+      "service": "request-service",
+      "method": "GET",
+      "path": "/requests/:id/dibs-candidate",
+      "class": "ordinary_member",
+      "schema": "self_only",
+      "contract_test": "services/request-service/tests/regression/sprint-112-feed-dibs-privacy.test.ts",
+      "sample_response": {
+        "providerUserId": "22222222-2222-2222-2222-222222222222",
+        "displayName": "Sam",
+        "priorInteractions": 2,
+        "trustGraphConnection": "direct",
+        "kind": "neighbor",
+        "reason": "trusted_neighbor"
+      }
+    },
+    {
+      "service": "community-service",
+      "method": "GET",
+      "path": "/communities/:communityId/stats",
+      "class": "community_aggregate",
+      "schema": "community_aggregate",
+      "contract_test": "services/community-service/tests/regression/sprint-112-governance-export-privacy.test.ts"
     }
   ]
 }

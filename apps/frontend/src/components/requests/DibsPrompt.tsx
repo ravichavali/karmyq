@@ -10,8 +10,8 @@ import TrustPathBadge, { TrustPath } from '../TrustPathBadge'
 export interface DibsCandidate {
   providerUserId: string
   displayName: string
-  score: number
-  trustScore: number
+  // Sprint 112 (ADR-082): a neighbor candidate's exact trustScore is no longer sent or shown; the
+  // nudge conveys closeness via past interactions + relationship context.
   priorInteractions: number
   trustGraphConnection: 'direct' | 'indirect' | 'none'
   trustPath: TrustPath | null
@@ -182,11 +182,9 @@ export default function DibsPrompt({
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-2 text-sm">
-                <div className="bg-surface rounded-lg px-3 py-2">
-                  <p className="text-text-subtle text-xs mb-0.5">Trust score</p>
-                  <p className="font-semibold text-text">{Math.round(candidate.trustScore)}</p>
-                </div>
+              {/* Sprint 112 (ADR-082): the nudge shows relationship context (past interactions),
+                  never the candidate's exact reputation score. */}
+              <div className="grid grid-cols-1 gap-2 text-sm">
                 <div className="bg-surface rounded-lg px-3 py-2">
                   <p className="text-text-subtle text-xs mb-0.5">Past interactions</p>
                   <p className="font-semibold text-text">{candidate.priorInteractions}</p>

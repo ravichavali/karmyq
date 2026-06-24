@@ -237,6 +237,11 @@ describe('reputation disclosure gate — newly registered endpoints cannot ship 
     /\/trust\/relationships/i,
     /\/trust\/edge/i,
     /decay-config/i,
+    // Sprint 112 cross-agent review: feed + dibs read surfaces that disclose requester/candidate
+    // reputation must be classified. (Specific paths, not a broad `dibs`/`stats` match, so the dibs
+    // WRITE routes and provider-collective stats aren't false-flagged.)
+    /\/requests\/curated/i,
+    /dibs-candidate/i,
   ];
   // Known paths that match a sensitive pattern but are accounted for elsewhere:
   //  - the first two are abbreviated registry aliases of canonical `/reputation/...` inventory

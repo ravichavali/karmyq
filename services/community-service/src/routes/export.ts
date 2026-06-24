@@ -218,21 +218,20 @@ router.get('/:communityId/export', async (req: Request, res: Response) => {
     // a non-identifying community aggregate is included ONLY when at least five active members keep
     // it from being decomposed back to an individual; below that cohort the section is omitted.
     if (include.karma) {
-      const cohortRes = await pool.query(
-        `SELECT COUNT(*)::int AS n FROM community.memberships WHERE community_id = $1 AND status = 'active'`,
-        [communityId]
-      );
-      const cohort = cohortRes.rows[0]?.n ?? 0;
-      if (cohort >= 5) {
-        const aggRes = await pool.query(`
-          SELECT
-            COUNT(DISTINCT k.user_id)::int AS participating_members,
-            COUNT(*)::int AS transaction_count,
-            COALESCE(SUM(k.points), 0)::int AS total_karma_points
-          FROM reputation.karma_records k
-          WHERE k.community_id = $1 ${dateClause}
-        `, dateParams);
-        exportData.community_reputation_summary = aggRes.rows[0];
+      const aggRes = await pool.query(`
+        SELECT
+          COUNT(DISTINCT k.user_id)::int AS participating_members,
+          COUNT(*)::int AS transaction_count,
+          COALESCE(SUM(k.points), 0)::int AS total_karma_points
+        FROM reputation.karma_records k
+        WHERE k.community_id = $1 ${dateClause}
+      `, dateParams);
+      const agg = aggRes.rows[0];
+      // Suppress on the count of DISTINCT CONTRIBUTING members, not total active membership — a
+      // 50-member community where only one person earned karma must still be suppressed, else the
+      // totals are that one member's exact reputation.
+      if ((agg?.participating_members ?? 0) >= 5) {
+        exportData.community_reputation_summary = agg;
       }
     }
 

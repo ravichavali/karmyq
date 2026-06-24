@@ -123,7 +123,8 @@ export const socialGraphClient = {
     total_invitations_sent: number
     total_invitations_accepted: number
     acceptance_rate: number
-    avg_invitee_karma: number
+    // Sprint 112 (ADR-082): avg_invitee_karma / avg_invitee_trust_score are no longer returned —
+    // they aggregated other members' exact reputation. Counts, acceptance, network, tier remain.
     inviter_tier: string
     [key: string]: any
   } | null> {

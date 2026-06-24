@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { getUserKarma, getUserKarmaWithDecay, getUserTrustScore, getOverallTrustScore, updateTrustScore } from '../services/karmaService';
-import { getSelfCommunityReputation, checkAggregateAccess } from '../utils/disclosureAuth';
+import { getSelfCommunityReputation, checkAggregateAccess, getActiveMembership } from '../utils/disclosureAuth';
 import { getCommunityTrustScore, } from '../database/communityTrustDb';
 import { calculateCommunityTrustScore } from '../services/communityTrustService';
 import { getUserBadges } from '../services/badgeService';
@@ -142,7 +142,9 @@ router.get('/trust/:userId', authMiddleware, async (req: AuthenticatedRequest, r
 router.get('/trust/:userId/:communityId', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { userId, communityId } = req.params;
+    // Sprint 112 (ADR-082): self-only AND active-membership scoped.
     if (req.user?.userId !== userId) return denyNotFound(res);
+    if (!(await getActiveMembership(userId, communityId))) return denyNotFound(res);
 
     const trustScore = await getUserTrustScore(userId, communityId);
 
@@ -419,9 +421,10 @@ router.get('/users/:userId/badges', authMiddleware, async (req: AuthenticatedReq
 router.get('/trust-config/:userId/:communityId/history', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { userId, communityId } = req.params;
-    // Sprint 112 (ADR-082): self-only. No admin browsing exception — evolution history is personal
-    // configuration history.
+    // Sprint 112 (ADR-082): self-only + active-membership scoped. No admin browsing exception —
+    // evolution history is personal configuration history.
     if (req.user?.userId !== userId) return denyNotFound(res);
+    if (!(await getActiveMembership(userId, communityId))) return denyNotFound(res);
     const limit = Math.min(parseInt(req.query.limit as string || '50', 10), 100);
     const offset = parseInt(req.query.offset as string || '0', 10);
     const history = await getEvolutionLog(userId, communityId, limit, offset);
@@ -437,8 +440,9 @@ router.get('/trust-config/:userId/:communityId/history', authMiddleware, async (
 router.get('/trust-config/:userId/:communityId', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { userId, communityId } = req.params;
-    // Sprint 112 (ADR-082): self-only. No admin browsing exception.
+    // Sprint 112 (ADR-082): self-only + active-membership scoped. No admin browsing exception.
     if (req.user?.userId !== userId) return denyNotFound(res);
+    if (!(await getActiveMembership(userId, communityId))) return denyNotFound(res);
     const [userConfig, effectiveParams, communityEvolution] = await Promise.all([
       getUserTrustConfig(userId, communityId),
       getUserEffectiveParams(userId, communityId),
@@ -464,6 +468,7 @@ router.put('/trust-config/:userId/:communityId', authMiddleware, async (req: Aut
   try {
     const { userId, communityId } = req.params;
     if (req.user?.userId !== userId) return denyNotFound(res);
+    if (!(await getActiveMembership(userId, communityId))) return denyNotFound(res);
     const { evolution_enabled } = req.body;
     if (typeof evolution_enabled !== 'boolean') {
       return res.status(400).json({ success: false, message: 'evolution_enabled must be a boolean' });
@@ -596,6 +601,7 @@ router.get('/users/:userId/effective-params', authMiddleware, async (req: Authen
     if (!communityId) {
       return res.status(400).json({ success: false, message: 'communityId required', error: 'INVALID_COMMUNITY_ID' });
     }
+    if (!(await getActiveMembership(userId, communityId))) return denyNotFound(res);
     const params = await getCachedEffectiveParams(userId, communityId);
     return res.json({ success: true, data: params });
   } catch (err) {

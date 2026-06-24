@@ -703,10 +703,10 @@ async function handleCuratedFeed(req: Request, res: Response): Promise<void> {
         matchBreakdown: matchResult.breakdown,
         feedScore: finalFeedScore,
         feedBreakdown: feedResult.breakdown,
-        // Trust & karma data for frontend display
+        // Sprint 112 (ADR-082): the requester's exact karma/trust feed ranking INTERNALLY but are
+        // never returned — a feed must not disclose another member's reputation. Only structural
+        // proximity (degrees) is outward-facing.
         trustDegrees: degrees,
-        requesterKarma: requesterReputation.totalKarma,
-        requesterTrustScore: requesterReputation.trustScore,
         priorInteractionScore: priorInteraction,
         recencyScore: recency,
         // ADR-022: Source tier
@@ -763,8 +763,7 @@ async function handleCuratedFeed(req: Request, res: Response): Promise<void> {
         feedScore: Math.min(100, Math.round(feedResult.score * carryFactor) + boostBonus),
         feedBreakdown: feedResult.breakdown,
         trustDegrees: degrees,
-        requesterKarma: requesterReputation.totalKarma,
-        requesterTrustScore: requesterReputation.trustScore,
+        // Sprint 112 (ADR-082): requester karma/trust feed ranking internally, never returned.
         priorInteractionScore: sisterPriorInteraction,
         recencyScore: sisterRecency,
         sourceTier: 'sister_community',
@@ -881,8 +880,7 @@ function toRequestCardData(r: any): Record<string, unknown> {
     match_score: normalizeMatchScore(r.matchScore),
     match_reason: Array.isArray(r.matchReasons) ? r.matchReasons.join(' · ') : '',
     trust_degree: r.trustDegrees ?? null,
-    requesterKarma: r.requesterKarma,
-    requesterTrustScore: r.requesterTrustScore,
+    // Sprint 112 (ADR-082): requesterKarma/requesterTrustScore intentionally omitted (see above).
   };
 }
 

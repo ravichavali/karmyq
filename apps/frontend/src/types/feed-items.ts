@@ -34,8 +34,7 @@ export interface OpenRequestData {
   requirements?: Record<string, string | number | boolean>;
   preferred_start_date?: string;
   required_skills?: string[];
-  requesterKarma?: number;
-  requesterTrustScore?: number;
+  // Sprint 112 (ADR-082): the feed no longer returns the requester's exact karma/trust score.
   is_boosted?: boolean;
   boosted_expires_at?: string;
   status?: string;

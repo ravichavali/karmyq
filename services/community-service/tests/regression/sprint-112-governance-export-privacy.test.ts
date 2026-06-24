@@ -64,11 +64,13 @@ describe('getGovernanceState projection (ADR-082)', () => {
 
 // Route exports the SQL by distinctive substring so the assertions don't depend on call ordering.
 function exportMock(over: { cohort?: number } = {}) {
+  // Sprint 112 (ADR-082): suppression keys off the count of DISTINCT CONTRIBUTING members returned
+  // by the aggregate query itself, so `cohort` drives participating_members here.
+  const contributors = over.cohort ?? 5;
   return (sql: string) => {
-    if (/COUNT\(\*\)::int AS n FROM community\.memberships/.test(sql)) return Promise.resolve({ rows: [{ n: over.cohort ?? 5 }] });
     if (/SELECT role FROM community\.memberships/.test(sql)) return Promise.resolve({ rows: [{ role: 'admin' }] });
     if (/FROM community\.communities/.test(sql)) return Promise.resolve({ rows: [{ id: COMMUNITY, name: 'Maplewood' }] });
-    if (/COUNT\(DISTINCT k\.user_id\)/.test(sql)) return Promise.resolve({ rows: [{ participating_members: 5, transaction_count: 18, total_karma_points: 400 }] });
+    if (/COUNT\(DISTINCT k\.user_id\)/.test(sql)) return Promise.resolve({ rows: [{ participating_members: contributors, transaction_count: 18, total_karma_points: 400 }] });
     if (/"Helps Given"/.test(sql)) return Promise.resolve({ rows: [{ Member: 'Sam', 'Helps Given': 2, 'Helps Received': 1, 'Requests Created': 0, 'Requests Completed': 1 }] });
     if (/FROM community\.memberships m/.test(sql)) return Promise.resolve({ rows: [{ id: 'm1', user_id: U2, user_name: 'Sam', role: 'member', status: 'active' }] });
     return Promise.resolve({ rows: [] });
