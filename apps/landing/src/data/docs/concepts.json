@@ -628,8 +628,8 @@
       "slug": "adr-081-belonging-graph-system",
       "number": "081",
       "title": "ADR-081: Belonging Graph System — One Engine, One Language, One Explorer",
-      "status": "proposed",
-      "description": "**Status**: Proposed",
+      "status": "implemented",
+      "description": "**Status**: Implemented",
       "filename": "ADR-081-belonging-graph-system.md"
     }
   ]

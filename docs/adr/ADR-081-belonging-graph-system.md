@@ -1,7 +1,7 @@
 # ADR-081: Belonging Graph System — One Engine, One Language, One Explorer
 
-**Status**: Proposed
-**Date**: 2026-06-22
+**Status**: Implemented
+**Date**: 2026-06-22 (Proposed) → 2026-06-23 (Implemented)
 **Sprint**: 110 (research) → 111 (implementation)
 **Version**: 11.17.0 (Proposed) → 11.18.0 (Implemented in S111)
 
@@ -78,10 +78,13 @@ usages into a single `<BelongingGraph mode={…} />` component backed by a singl
 | `ego` | `NetworkGraph` | `socialGraphService.getTrustGraphAggregate()` |
 | `community` | `TrustGraph mode="community"` | `socialGraphService.getFullCommunityGraph(communityId)` |
 | `communities` | `CommunityDepthGraph` (retired) | `socialGraphService.getCommunityGraph()` — response shape normalized to `TrustNode`/`TrustLink` |
-| `fission` | `TrustGraph mode="fission"` | `socialGraphService.getTrustGraph(communityId)` |
+| `fission` | `TrustGraph mode="fission"` | caller-supplied `graphData` (FissionTab builds it from `getTrustGraph(communityId)` + proposal assignments); the wrapper does not fetch |
 
-`TrustGraph.tsx` and `NetworkGraph.tsx` become thin wrappers (deprecated aliases) forwarding to
-`<BelongingGraph>` during the transition; removed once callers are updated.
+**As implemented (S111):** `TrustGraph.tsx`, `NetworkGraph.tsx`, and `CommunityDepthGraph.tsx` were
+**deleted outright** — not kept as deprecated aliases — once every caller (dashboard, community Trust
+Graph tab, fission tab, profile) moved to `<BelongingGraph>`. The canonical types live in
+`components/graphs/types.ts`; `DepthNode`/`DepthLink` normalization lives in
+`components/graphs/normalizeGraphData.ts` (pure), keeping `TrustGraphHEB` canonical-type-only.
 
 ### D4 — A real, prominent full-page explorer at `/network`
 
@@ -89,10 +92,15 @@ Build the page the dead "View full →" link promises. Spec:
 
 - **Full-bleed SVG canvas** — no surrounding card padding; fills the viewport.
 - **Mode switch** — toggles between `ego`, `community` (picker for which community), and `communities`.
-- **Depth control** — slider 1–3 hops; refetches with the appropriate `socialGraphService` graph call.
-- **Search/focus** — type a member name to center + highlight their node.
-- **Click-to-expand** — progressive neighborhood reveal (see D5 below).
-- **Zoom/pan** — D3 zoom behavior on the SVG container.
+- **Depth control** — slider 1–3 hops; **ego mode only**; refetches `getNeighborhood(user.id, { depth })`.
+- **Search/focus** — type a name to focus a node **already loaded** in the current graph (not a global directory).
+- **Click-to-expand** — progressive neighborhood reveal, **ego mode only** (see D5 below).
+- **Zoom/pan** — D3 zoom behavior (scale extent `[0.5, 4]`) on the SVG.
+
+**As implemented (S111):** `community` mode in the explorer is the **whole** selected community via
+`getFullCommunityGraph(communityId)` — searchable and zoomable, but **no depth slider and no
+expansion** (the baseline is already the full community). `communities` mode is likewise static. This
+prevents two conflicting meanings of "community graph" (the S79 guard).
 
 Dashboard and profile widgets remain the compact static card; "View full →" becomes the invitation.
 
@@ -106,14 +114,16 @@ this fires jarring full-redraws. The S79 decision was correct for the card conte
 *only*. On the dashboard card and profile widget, the static HEB (click → floating detail panel)
 is unchanged. On the explorer:
 
-1. `onNodeExpand(nodeId)` calls a new `GET /trust/neighborhood/:userId` endpoint (S111 backend item —
-   added to `services/social-graph-service/src/routes/trustGraph.ts`, mounted at `/trust`)
-   returning the 1-hop set for that node.
-2. The result merges into `graphData`; the cluster re-runs with `.transition().duration(400)` so
-   layout changes tween rather than jump.
-3. A "collapse" affordance (right-click or ✕ on expanded node) restores the prior view.
-4. Growth is **capped**: you can expand up to 3 nodes at once; expanding a 4th collapses the
-   furthest-expanded first (FIFO).
+1. Activating a node calls `GET /trust/neighborhood/:userId` (implemented in S111 in
+   `services/social-graph-service/src/routes/trustGraph.ts`, mounted at `/trust`) returning the
+   depth-1 set for that node, **privacy-scoped** to the caller's shared active communities.
+2. The result merges into the graph via a pure, order-independent `mergeGraphData` (baseline is
+   authoritative on identity; expansions add neighbors and pull shared nodes closer by min depth).
+   `TrustGraphHEB` uses **keyed D3 joins + a 400ms transition** so layout changes tween rather than
+   jump — no `svg.selectAll('*').remove()` teardown per update.
+3. Each open expansion shows a keyboard-reachable **"Collapse {name}"** chip; collapsing recomputes
+   the merged graph from the baseline plus the remaining expansions.
+4. Growth is **capped**: up to 3 expansions at once; a 4th evicts the oldest (FIFO).
 
 This answers the three failure modes S79 encountered: large-canvas context (not a card), smooth
 transitions (tween), bounded growth (cap + collapse).
@@ -124,11 +134,18 @@ The belonging graph on profile must not be a reused dashboard card. It becomes a
 with:
 
 - Headline: "How you're woven into Karmyq"
-- A `BelongingPulse` stat: "You've helped N people across M communities" (from karma records + memberships)
+- A `BelongingPulse` stat: **"You're connected to N people across M communities"**
 - Larger canvas (`height=480`, vs dashboard's 360)
-- "Explore your network →" link to `/network?mode=ego`
+- "Explore your full network →" link to `/network?mode=ego`
 
 This is the "this is your weave" identity moment (GitHub contribution graph / Spotify Wrapped pattern).
+
+**As implemented (S111):** the pulse says **"connected to"**, not "helped" — the graph encodes trust
+connections, and a literal "helped" count would need a new reputation aggregate this work did not
+scope. `N` is the ego graph's node count excluding the current user, derived from the **same** ego
+response the section already loads (via `onDataLoaded`) — no duplicate graph fetch. `M` is
+`communityService.getMyCommunities(userId).length`; if that read fails, the section degrades to the
+graph-only sentence ("You're connected to N people.") rather than hiding.
 
 ## Alternatives Considered
 

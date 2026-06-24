@@ -1,11 +1,9 @@
 import { useState, useEffect, useCallback } from 'react'
-import dynamic from 'next/dynamic'
 import { communityService, socialGraphService } from '@/lib/api'
 import type { Community } from '@/hooks/useCommunityData'
+import BelongingGraph from '@/components/BelongingGraph'
 import FissionProposalModal from '@/components/FissionProposalModal'
 import FissionAssignmentView from '@/components/FissionAssignmentView'
-
-const TrustGraph = dynamic(() => import('@/components/TrustGraph'), { ssr: false })
 
 interface Props {
   community: Community
@@ -213,7 +211,7 @@ export default function FissionTab({ community, currentUserId, isAdmin, onRefres
     return (
       <div className="space-y-4">
         {fissionGraphData ? (
-          <TrustGraph
+          <BelongingGraph
             mode="fission"
             graphData={fissionGraphData}
             currentUserId={currentUserId}
@@ -292,7 +290,7 @@ export default function FissionTab({ community, currentUserId, isAdmin, onRefres
     return (
       <div className="space-y-5">
         {voteFissionGraphData ? (
-          <TrustGraph
+          <BelongingGraph
             mode="fission"
             graphData={voteFissionGraphData}
             currentUserId={currentUserId}

@@ -7,7 +7,7 @@ import { api, communityService, reputationService, userSettingsService, provider
 import InvitationChain, { InvitationChainSkeleton } from '@/components/InvitationChain'
 import dynamic from 'next/dynamic'
 
-const TrustNetworkWidget = dynamic(() => import('@/components/dashboard/TrustNetworkWidget'), {
+const BelongingSection = dynamic(() => import('@/components/BelongingSection'), {
   loading: () => <div className="card p-8 text-center text-text-muted animate-pulse">Loading network...</div>,
   ssr: false,
 })
@@ -839,7 +839,7 @@ export default function ProfilePage() {
           </div>
 
           {/* Your Network — People (ego) / Communities (depth) toggle */}
-          {user && <TrustNetworkWidget currentUserId={user.id} />}
+          {user && <BelongingSection userId={user.id} />}
 
           {/* Skills Section */}
           <div className="kq-card">

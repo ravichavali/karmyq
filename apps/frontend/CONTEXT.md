@@ -1,10 +1,49 @@
 # Frontend CONTEXT.md
 
-**Last updated**: 2026-06-22 (Sprint 109 — Geocoding Cache Boundary)
+**Last updated**: 2026-06-23 (Sprint 111 — Belonging Graph System)
 
 ## Overview
 
 Next.js 14 web application (Pages Router) consuming all Karmyq backend services.
+
+---
+
+## Sprint 111 Belonging Graph System (2026-06-23, ADR-081)
+
+One graph engine, one client model, one explorer. All belonging surfaces now render through a single
+`<BelongingGraph mode>` over the canonical `TrustGraphHEB` D3 renderer.
+
+- **Canonical model.** `components/graphs/types.ts` holds the single `TrustNode` / `TrustLink` /
+  `GraphData` / `BelongingMode` definitions. `components/graphs/normalizeGraphData.ts` (pure) holds
+  `normalizeCommunityDepthGraph` (DepthNode/DepthLink → canonical) and `mergeGraphData` (order-
+  independent merge; baseline is authoritative on identity, expansions add neighbors and keep the
+  **min** `degrees_of_separation`). `TrustGraphHEB` is canonical-type-only.
+- **`<BelongingGraph mode>`** dispatches fetching per mode via `socialGraphService` (NOT
+  `socialGraphClient`, which is paths/invitations): `ego` → `getTrustGraphAggregate`; `community` →
+  `getFullCommunityGraph(communityId)`; `communities` → `getCommunityGraph` then normalize; `fission`
+  → caller-supplied `graphData` (no fetch). `load="immediate"` opts out of lazy IntersectionObserver
+  loading (used by `/network`); card surfaces stay lazy. `onDataLoaded` lets the profile pulse reuse
+  the same ego response without a second fetch.
+- **`TrustGraphHEB` extensions.** communities mode (emerald member ring via stroke — uniform radius
+  preserved, ADR-063; organic solid-slate / fission dashed-violet edges; member count/status in
+  detail); hover/focus fade of unrelated topology; keyboard activation + full-name `<title>`; optional
+  D3 zoom (`enableZoom`, scale `[0.5,4]`); keyed joins + 400ms transitions (no per-update
+  `selectAll('*').remove()`).
+- **`/network` explorer** (`pages/network.tsx`). Modes via `?mode=ego|community|communities` (+`id=`).
+  Ego has a depth slider (1–3) and progressive expansion: activating a node fetches
+  `getNeighborhood(id, { depth: 1 })`, FIFO-capped at 3, each with a keyboard-reachable "Collapse
+  {name}" chip. Community = the whole `getFullCommunityGraph` (no depth/expansion); communities =
+  depth view. Search focuses an already-loaded node only.
+- **Profile altitude.** `BelongingSection` ("How you're woven into Karmyq", graph height 480) replaces
+  the reused dashboard widget on `profile.tsx`; `BelongingPulse` shows the honest "You're connected to
+  N people across M communities" (excludes self; degrades to graph-only copy if the membership read
+  fails).
+- **Retired.** `NetworkGraph.tsx`, `TrustGraph.tsx`, `graphs/CommunityDepthGraph.tsx`, and
+  `types/react-cytoscapejs.d.ts` deleted; `cytoscape`, `react-cytoscapejs`, `@types/cytoscape`,
+  `react-force-graph-2d` removed from `package.json`. **D3 is the only graph dependency.**
+- **Test infra.** `jest.config.js` maps `^d3$` → the UMD dist bundle (D3 v7 is ESM-only and next/jest
+  forces its own `transformIgnorePatterns`); `jest.setup.js` stubs `ResizeObserver` (IntersectionObserver
+  is left undefined so immediate-mode tests can assert it's never constructed).
 
 ---
 

@@ -4,16 +4,32 @@ Every community on karmyq builds a trust graph over time. Each completed help ex
 
 ## How to Access It
 
-Open any community you belong to and click the **Trust Graph** tab in the community navigation. You'll find two sub-tabs: **Community** and **My Network**. Your dashboard also has a **Your Trust Network** panel with a **People / Communities** toggle.
+You'll meet the trust graph in three places, all drawn in the same visual language:
 
-## One visual language (Sprint 79)
+- **Community → Trust Graph tab** — two sub-tabs, **Community** and **My Network**.
+- **Dashboard → Your Trust Network** panel — a **People / Communities** toggle, with a **View full →** link.
+- **Profile → How you're woven into Karmyq** — your belonging section, with a connection/community pulse and an **Explore your full network →** link.
+- **The full-page explorer at `/network`** — the roomy, interactive version (see below).
 
-All trust-graph views now share one look so an intuition learned in one carries to the next:
+## One visual language (Sprint 79, unified in Sprint 111)
+
+Every belonging-graph surface now renders through a single engine, so an intuition learned in one carries to the next:
 
 - **Every node is the same size.** Node size no longer encodes trust, so it can't mislead — you read *structure* (who clusters together, who bridges groups), not dot size.
 - **You are enlarged and white-ringed** as a "you are here" anchor.
 - **Your connections are amber.** Every line touching your node is highlighted so you can find yourself in the wider network.
 - **One trust number.** A node's trust score is the *decayed* current strength of its relationships — the same value in every view.
+- **Hover or focus a node** (mouse or keyboard) and unrelated people and lines fade back, so the node's own neighborhood stands out. Every node is keyboard-reachable, carries its full name as a tooltip, and activates with Enter or Space.
+
+## The full-page explorer (`/network`)
+
+`/network` is the roomy, interactive home of the graph. A mode switch at the top moves between three views, and a search box focuses any **already-loaded** node (it doesn't search the whole platform — it spotlights someone already on screen). The graph pans and zooms.
+
+- **People (`?mode=ego`)** — your trust network. A **depth** slider (1–3) controls how many hops out the starting picture reaches. Activate any node to **expand** its neighborhood inline; up to three expansions stay open at once, and a fourth quietly retires the oldest. Each open expansion gets a **Collapse {name}** chip so you can close it again; collapsing recomputes cleanly from your baseline plus whatever's still open.
+- **Community (`?mode=community&id=…`)** — the **whole** selected community, exactly like the Community sub-tab. It's searchable and zoomable but has no depth slider and no inline expansion — the picture is already the full community.
+- **Communities (`?mode=communities`)** — the inter-community depth view (organic ties and fission lineage), searchable and zoomable.
+
+Progressive expansion lives **only** in the People explorer; every other surface is a static, complete picture.
 
 ## Community View
 

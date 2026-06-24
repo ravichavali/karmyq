@@ -410,6 +410,44 @@ Implemented by `getFullCommunityGraph(communityId, callingUserId)` in `src/datab
 
 ---
 
+### GET /trust/neighborhood/:userId
+
+Sprint 111 (ADR-081) — privacy-scoped recursive ego-neighborhood backing the full-page `/network` explorer. Walks `trust_edges_live` outward from `:userId` and returns each reachable person with their shortest BFS depth.
+
+**Query params**: `depth` = `1|2|3` (default `1`); optional `communityId` (UUID).
+
+**Auth required**: Bearer JWT (mounted at `/trust`).
+
+**Visibility (resolved BEFORE any traversal — `resolveNeighborhoodScope` in `routes/trustGraph.ts`)**:
+- With `communityId`: the caller **and** the center user must both be active members of that community.
+- Without `communityId`: the caller and center must share **at least one** active community; the traversal is scoped to that shared set.
+- A center the caller can't see returns **404** (`NEIGHBORHOOD_NOT_FOUND`) — indistinguishable from a non-existent user, so it can't be used to probe account existence.
+
+**Traversal (`getTrustNeighborhood` in `src/database/trustEdgeDb.ts`)**: a recursive CTE seeds the center at depth 0 and walks either endpoint of `trust_edges_live`, constrained to `community_id = ANY(allowed)` and **active** membership in each traversed edge's community, stopping at `depth`. Each user collapses to its minimum (shortest) depth. Capped at **80 nodes** (fetched as `maxNodes+1`, ordered closest-first, to detect truncation); links are returned only between retained nodes. `trust_edges_live` is a VIEW — read-only.
+
+**Validation errors** (ADR-074 shape): `INVALID_USER_ID` / `INVALID_DEPTH` / `INVALID_COMMUNITY_ID` → 400.
+
+**Response**:
+```json
+{
+  "success": true,
+  "data": {
+    "nodes": [
+      { "id": "center", "name": "Me", "trust_score": 0, "karma": 0, "isCurrentUser": true, "degrees_of_separation": 0 },
+      { "id": "peer-1", "name": "Alice", "trust_score": 2.5, "karma": 4, "isCurrentUser": false, "degrees_of_separation": 1 }
+    ],
+    "links": [{ "source": "center", "target": "peer-1", "raw_weight": 3, "effective_weight": 2.5 }],
+    "meta": { "depth": 2, "truncated": false }
+  }
+}
+```
+
+Only the authenticated caller's own node is marked `isCurrentUser` (the route overlays it; the DB helper is identity-agnostic).
+
+**Primary consumer**: `apps/frontend/src/pages/network.tsx` (ego baseline + progressive expansion).
+
+---
+
 ### GET /trust/edge
 
 Return a single trust edge for a user pair in a community.

@@ -6,21 +6,26 @@ The trust graph turns your completed help exchanges into a picture. Each person 
 
 A node's **trust score** is the sum of the *current* (decayed) strength of all its trust relationships. Trust that isn't maintained fades, so the score reflects where a relationship stands **today** — not its all-time peak. The same person therefore shows the **same score in every view**.
 
-## One visual language
+## One engine, one visual language
 
-Across all views:
+Every belonging-graph surface renders through a **single** engine (hierarchical edge bundling). There is no second graph idiom anywhere — what you learn on the dashboard reads the same on your profile, in a community, and in the full-page explorer. Across all of it:
 
-- **Every node is the same size.** Node size doesn't encode a variable, so it can't mislead. What you read is *structure* — who clusters together, who bridges groups.
-- **You are enlarged and white-ringed** — a "you are here" anchor.
+- **Every node is the same size.** Node size doesn't encode a variable, so it can't mislead. What you read is *structure* — who clusters together, who bridges groups. (Community member counts live in the detail panel, not the dot.)
+- **You are enlarged and white-ringed** — a "you are here" anchor. In the communities view, **your** communities carry an emerald member ring.
 - **Your connections are amber.** Lines touching you stand out from everyone else's.
 - **Clusters share a color.** Within-cluster ties are indigo; cross-cluster ties are slate. A cluster is a tightly-knit pocket of people, detected from the strongest ties.
+- **Hover or focus fades the rest.** Pointing at (or keyboard-focusing) a node dims everything not in its neighborhood, so one person's connections are legible inside a dense graph.
 
-## The views
+## The four modes
 
+- **Ego** — your trust network: across one community (**My Network**), across all of them (dashboard → People, profile belonging section), or in the explorer with a depth slider.
 - **Community** — every member of a community, grouped into clusters by how closely they connect.
-- **My Network** — your first-degree network within one community, clustered.
-- **Your Network** (dashboard → People) — your trust network aggregated across all your communities.
-- **Communities** (dashboard → Communities) — the inter-community depth view: each community is a node sized by membership. **Organic ties** (solid, slate) accrue as members exchange help across communities; **fission lineage** (dashed, violet) traces parent→child links left behind when a community splits.
+- **Communities** — the inter-community depth view: each community is a node. **Organic ties** (solid, slate) accrue as members exchange help across communities; **fission lineage** (dashed, violet) traces parent→child links left behind when a community splits.
+- **Fission** — a proposed split, colored by the proposed groups.
+
+## Why expansion lives only in the full-page explorer
+
+Most surfaces are a **static, complete** picture: a community view already shows the whole community, so there is nothing to expand. Progressive **click-to-expand** — pulling in a clicked person's neighborhood, up to three at a time — only makes sense for the open-ended **ego** view, where the graph starts small and you choose where to look further. So expansion is offered only at `/network?mode=ego`; everywhere else, activating a node just opens its detail.
 
 ## How relationships form and fade
 
