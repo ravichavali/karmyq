@@ -442,7 +442,7 @@ Sprint 111 (ADR-081) — privacy-scoped recursive ego-neighborhood backing the f
 }
 ```
 
-Only the authenticated caller's own node is marked `isCurrentUser` (the route overlays it; the DB helper is identity-agnostic).
+Only the authenticated caller's own node is marked `isCurrentUser`, and (Sprint 111 privacy) only that node carries real `trust_score`/`karma` — every other node's are **zeroed at the data boundary** via `redactNodeMetrics` in `trustEdgeDb.ts`. This applies to **all** graph reads (`getTrustGraph`, `getFullCommunityGraph`, `getTrustGraphAggregate`, `getTrustNeighborhood`), so a member's reputation numbers never leave the API for anyone else — names and edges (structure) are still returned. The frontend additionally hides them in the UI, but the API is the real boundary.
 
 **Primary consumer**: `apps/frontend/src/pages/network.tsx` (ego baseline + progressive expansion).
 

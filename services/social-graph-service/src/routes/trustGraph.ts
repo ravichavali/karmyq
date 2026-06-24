@@ -325,11 +325,11 @@ router.get('/neighborhood/:userId', async (req: Request, res: Response) => {
       });
     }
 
-    const result = await getTrustNeighborhood(centerUserId, scope, depth);
-    // Identity is a presentation concern: mark only the authenticated caller's own node.
-    const nodes = result.nodes.map(n => ({ ...n, isCurrentUser: n.id === callingUserId }));
+    // The helper applies identity + reputation-metric privacy at the data boundary: only the
+    // authenticated caller's node is isCurrentUser and keeps its trust_score/karma.
+    const result = await getTrustNeighborhood(centerUserId, scope, depth, undefined, callingUserId);
 
-    res.json({ success: true, data: { ...result, nodes } });
+    res.json({ success: true, data: result });
   } catch (error) {
     logger.error('Error fetching trust neighborhood', error instanceof Error ? error : undefined);
     res.status(500).json({

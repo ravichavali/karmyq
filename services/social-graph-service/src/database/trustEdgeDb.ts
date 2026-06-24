@@ -185,6 +185,16 @@ export async function getTrustEdge(userA: string, userB: string, communityId: st
   return result.rows.length > 0 ? result.rows[0] : null;
 }
 
+// Privacy (Sprint 111 follow-up): a node's trust_score/karma is the owner's reputation and must not
+// leave the API for anyone but the authenticated caller. The graph still needs every node + edge for
+// structure, so we keep names/edges but zero the reputation numbers on every node that isn't the
+// caller. Applied at the data boundary for ALL graph reads (ego, community, full-community, neighborhood).
+export function redactNodeMetrics<T extends { isCurrentUser: boolean; trust_score: number; karma: number }>(
+  nodes: T[]
+): T[] {
+  return nodes.map(n => (n.isCurrentUser ? n : { ...n, trust_score: 0, karma: 0 }));
+}
+
 export async function getTrustGraph(
   communityId: string,
   callingUserId: string
@@ -246,13 +256,13 @@ export async function getTrustGraph(
   ]);
 
   return {
-    nodes: nodesResult.rows.map(r => ({
+    nodes: redactNodeMetrics(nodesResult.rows.map(r => ({
       id: r.id,
       name: r.name,
       trust_score: parseFloat(r.trust_score) || 0,
       karma: parseFloat(r.karma) || 0,
       isCurrentUser: r.is_current_user,
-    })),
+    }))),
     links: edgesResult.rows.map(r => ({
       source: r.source,
       target: r.target,
@@ -319,13 +329,13 @@ export async function getFullCommunityGraph(
   ]);
 
   return {
-    nodes: nodesResult.rows.map(r => ({
+    nodes: redactNodeMetrics(nodesResult.rows.map(r => ({
       id: r.id,
       name: r.name,
       trust_score: parseFloat(r.trust_score) || 0,
       karma: parseFloat(r.karma) || 0,
       isCurrentUser: r.is_current_user,
-    })),
+    }))),
     links: edgesResult.rows.map(r => ({
       source: r.source,
       target: r.target,
@@ -399,13 +409,13 @@ export async function getTrustGraphAggregate(
   ]);
 
   return {
-    nodes: nodesResult.rows.map(r => ({
+    nodes: redactNodeMetrics(nodesResult.rows.map(r => ({
       id: r.id,
       name: r.name,
       trust_score: parseFloat(r.trust_score) || 0,
       karma: parseFloat(r.karma) || 0,
       isCurrentUser: r.is_current_user,
-    })),
+    }))),
     links: edgesResult.rows.map(r => ({
       source: r.source,
       target: r.target,
@@ -553,7 +563,8 @@ export async function getTrustNeighborhood(
   centerUserId: string,
   allowedCommunityIds: string[],
   depth: NeighborhoodDepth,
-  maxNodes = 80
+  maxNodes = 80,
+  callingUserId?: string
 ): Promise<{ nodes: NeighborhoodNode[]; links: TrustLink[]; meta: { depth: NeighborhoodDepth; truncated: boolean } }> {
   // Recursive walk from the center across live edges inside the allowed communities, joining active
   // membership in each traversed edge's community so a departed member can never extend the frontier.
@@ -633,14 +644,16 @@ export async function getTrustNeighborhood(
     : { rows: [] as any[] };
 
   return {
-    nodes: keptRows.map(r => ({
+    // Identity + reputation privacy are applied here at the data boundary: only the authenticated
+    // caller's node is `isCurrentUser` and keeps its trust_score/karma; everyone else's is zeroed.
+    nodes: redactNodeMetrics(keptRows.map(r => ({
       id: r.id,
       name: r.name,
       trust_score: parseFloat(r.trust_score) || 0,
       karma: parseFloat(r.karma) || 0,
-      isCurrentUser: false,
+      isCurrentUser: callingUserId !== undefined && r.id === callingUserId,
       degrees_of_separation: (Number(r.degrees_of_separation) || 0) as 0 | 1 | 2 | 3,
-    })),
+    }))),
     links: linksResult.rows.map(r => ({
       source: r.source,
       target: r.target,
