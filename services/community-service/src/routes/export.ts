@@ -213,41 +213,27 @@ router.get('/:communityId/export', async (req: Request, res: Response) => {
       exportData.settings = settingsResult.rows[0] || null;
     }
 
-    // Export karma records
+    // Reputation export — Sprint 112 (ADR-082). Member-level karma records, trust scores, and ranks
+    // are NOT exported (no admin browsing exception for another member's exact reputation). Instead,
+    // a non-identifying community aggregate is included ONLY when at least five active members keep
+    // it from being decomposed back to an individual; below that cohort the section is omitted.
     if (include.karma) {
-      const karmaResult = await pool.query(`
-        SELECT
-          k.id,
-          k.user_id,
-          u.name as user_name,
-          k.points,
-          k.reason,
-          k.source_type,
-          k.source_id,
-          k.created_at
-        FROM reputation.karma_records k
-        JOIN auth.users u ON k.user_id = u.id
-        WHERE k.community_id = $1 ${dateClause}
-        ORDER BY k.created_at DESC
-      `, dateParams);
-      exportData.karma_records = karmaResult.rows;
-
-      // Also get aggregated trust scores
-      const trustResult = await pool.query(`
-        SELECT
-          t.user_id,
-          u.name as user_name,
-          t.total_karma,
-          t.trust_score,
-          t.helps_given,
-          t.helps_received,
-          t.updated_at
-        FROM reputation.trust_scores t
-        JOIN auth.users u ON t.user_id = u.id
-        WHERE t.community_id = $1
-        ORDER BY t.total_karma DESC
-      `, [communityId]);
-      exportData.trust_scores = trustResult.rows;
+      const cohortRes = await pool.query(
+        `SELECT COUNT(*)::int AS n FROM community.memberships WHERE community_id = $1 AND status = 'active'`,
+        [communityId]
+      );
+      const cohort = cohortRes.rows[0]?.n ?? 0;
+      if (cohort >= 5) {
+        const aggRes = await pool.query(`
+          SELECT
+            COUNT(DISTINCT k.user_id)::int AS participating_members,
+            COUNT(*)::int AS transaction_count,
+            COALESCE(SUM(k.points), 0)::int AS total_karma_points
+          FROM reputation.karma_records k
+          WHERE k.community_id = $1 ${dateClause}
+        `, dateParams);
+        exportData.community_reputation_summary = aggRes.rows[0];
+      }
     }
 
     logger.info('Community data exported', {
@@ -365,11 +351,12 @@ router.get('/:communityId/export/activity', async (req: Request, res: Response) 
       });
     }
 
+    // Sprint 112 (ADR-082): the stewardship activity report keeps per-member ACTIVITY counts
+    // (helps given/received, requests created/completed) but NOT member reputation — no Total Karma,
+    // no Trust Score, and no karma-ranked ordering (which would itself reveal relative reputation).
     const result = await pool.query(`
       SELECT
         u.name as "Member",
-        COALESCE(t.total_karma, 0) as "Total Karma",
-        COALESCE(t.trust_score, 0) as "Trust Score",
         COALESCE(t.helps_given, 0) as "Helps Given",
         COALESCE(t.helps_received, 0) as "Helps Received",
         (SELECT COUNT(*) FROM requests.help_requests r
@@ -382,7 +369,7 @@ router.get('/:communityId/export/activity', async (req: Request, res: Response) 
       JOIN auth.users u ON m.user_id = u.id
       LEFT JOIN reputation.trust_scores t ON t.user_id = m.user_id AND t.community_id = $1
       WHERE m.community_id = $1 AND m.status = 'active'
-      ORDER BY COALESCE(t.total_karma, 0) DESC
+      ORDER BY u.name ASC
     `, [communityId]);
 
     if (format === 'json') {
