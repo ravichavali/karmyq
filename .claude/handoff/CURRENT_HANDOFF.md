@@ -132,10 +132,23 @@ prominence only after PR A contracts are available; it must not delay the privac
 ### Active Session (update on every role handoff)
 
 - **Driving agent:** Claude (Sprint 112 PR A execution)
-- **Phase:** PR A backend COMPLETE on `feature/sprint-112-reputation-disclosure-boundary`. Tasks 1–7
-  of 10 committed (all API-enforced privacy). Task 8 (frontend client alignment) is next, then
-  Task 9 (docs/ADR-082/version/promote contract tests) and Task 10 (verify + review gates +
-  merge-readiness; STOP for Admin).
+- **Phase:** PR A IMPLEMENTATION COMPLETE on `feature/sprint-112-reputation-disclosure-boundary`
+  (Tasks 1–9 committed; v11.19.0). Remaining in Task 10 — owned by Admin/human, NOT contributor:
+  (a) SDLC review gates `/simplify` + `/code-review` + `/security-review` on the full PR A diff;
+  (b) two-user human validation (Maria + a 2nd member, sentinel values); (c) mark ADR-082
+  Implemented + BUG-024 fixed after validation; (d) open PR (fill `.github/pull_request_template.md`,
+  cross-agent review); (e) Admin merge + `/deploy`, verify v11.19.0 live. Then PR B.
+- **PR A verification done:** per-workspace unit+regression green — shared 28, reputation 38,
+  request 293, social-graph regression 40 + projection 9, community 123 (+ DB-integration tests fail
+  locally with AggregateError = no DB, pass in CI), frontend 115 + tsc clean; cross-cutting gates:
+  disclosure 131, doc-drift 5. `feedback:check` clean.
+- **Task 8 deferrals → PR B:** `reputationService.getLeaderboard` removal + leaderboard UI removal
+  (RightSidebar/karma.tsx) ship with PR B (removing the method now would break PR A compile; backend
+  already 410s the endpoint and callers catch errors).
+- **Task 9 deferral:** the 3 service contract tests stay in `tests/tdd/` (NOT promoted to regression)
+  — promoting would break the disclosure-inventory's hardcoded tdd paths and hits a reputation-service
+  jest-config regression-tier ambiguity; the blocking disclosure gate already enforces the contract in
+  CI. Promote + update inventory `contract_test` paths as a follow-up if desired.
 - **Tasks 5–7 added since last handoff write:**
   - T5 ✅ `fix(social-graph): project privacy-safe relationship contracts` — `disclosureProjection`
     service; graph/neighborhood → SafePersonGraph (relationship_state, no trust_score/karma/weights);
