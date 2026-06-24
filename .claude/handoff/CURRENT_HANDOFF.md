@@ -1,108 +1,118 @@
-# Sprint 111 — Belonging Graph System: Implementation & Ship (v11.18.0)
+# Sprint 112 — Belonging & Reputation Truth: Planning
 
-> **STATUS (2026-06-23):** Sprint 111 is **implemented and pushed** as PR
-> [#114](https://github.com/ravichavali/karmyq/pull/114) (branch
-> `feature/sprint-111-belonging-graph-system`, v11.18.0). All 16 plan tasks executed; automated gates
-> green; Codex cross-agent review received and its blocking findings fixed (see Quick Start). Remaining:
-> re-run full `/code-review` + `/security-review`, live human validation, and Admin-authorized merge + deploy.
+> **STATUS (2026-06-24):** Sprint 111 shipped to `master` as v11.18.0 through PRs #114, #117,
+> and #119. Sprint 112's written spec is maintainer-approved with three review locks incorporated.
+> The implementation plan is complete and ready to execute as two ordered PRs.
 
 ---
 
 ## Quick Start
 
-1. Read this handoff and PR #114.
-2. The branch is pushed and tracks `origin/feature/sprint-111-belonging-graph-system`.
-3. Plan: `docs/superpowers/plans/2026-06-23-sprint-111-belonging-graph-system.md` (Tasks 1–16 done).
-4. **Codex review fixes applied (round 2):** bounded recursion (`UNION`), grouped+active-membership
-   neighborhood links, ego-only expansion merge + stale-response guard, restored fission isolated ring,
-   community selection synced to the URL. CodeQL `js/request-forgery` on `api.ts` is the known
-   browser-baseURL false positive — dismiss + record in the PR.
-5. Remaining before merge: re-run `/code-review` + `/security-review` (subagent runners were
-   session-limited), live API/DB/UI validation, then Admin-authorized merge + CI/CD deploy.
+1. Read this handoff.
+2. Review the design spec:
+   `docs/superpowers/specs/2026-06-24-sprint-112-belonging-reputation-truth-design.md`.
+3. Open the implementation plan after it is written:
+   `docs/superpowers/plans/2026-06-24-sprint-112-belonging-reputation-truth.md`.
+4. Execute PR A first on `feature/sprint-112-reputation-disclosure-boundary`; branch PR B from
+   merged `origin/master` only after PR A deploy validation.
 
 ## Sprint Goal
 
-Implement ADR-081 as v11.18.0: one D3 HEB engine, one canonical client graph model, a real
-full-page `/network` explorer, raised profile belonging altitude, and removal of dead graph libraries.
+Make belonging prominent without making people into public scores: establish a platform-wide,
+API-enforced reputation disclosure boundary, reconcile the member's own community-scoped metrics,
+and elevate My Network in navigation and Home.
 
 ## Approved Artifacts
 
-- Design spec:
-  `docs/superpowers/specs/2026-06-22-sprint-111-belonging-graph-system-design.md`
+- Design spec (approved):
+  `docs/superpowers/specs/2026-06-24-sprint-112-belonging-reputation-truth-design.md`
 - Implementation plan:
-  `docs/superpowers/plans/2026-06-23-sprint-111-belonging-graph-system.md`
-- Decision record:
-  `docs/adr/ADR-081-belonging-graph-system.md` (currently Proposed; mark Implemented after verification)
-- Research:
-  `docs/design/sprint-110-belonging-graphs/audit.md`
-  and `docs/design/sprint-110-belonging-graphs/references.md`
+  `docs/superpowers/plans/2026-06-24-sprint-112-belonging-reputation-truth.md`
+- Decision record to create during implementation: ADR-082, Reputation Disclosure Boundary.
+- Backlog sources: BUG-024 in `docs/BUGS.md` and the 2026-06-24 UX entry in `docs/IDEAS.md`.
 
 ## Approved Scope
 
-1. Canonical `TrustNode`, `TrustLink`, `GraphData`, and `BelongingMode`.
-2. One `<BelongingGraph>` wrapper over `TrustGraphHEB`.
-3. HEB communities mode; retire `CommunityDepthGraph`.
-4. `/network` with mode switch, search/focus, zoom/pan, and ego depth/expansion.
-5. Privacy-scoped `GET /trust/neighborhood/:userId`.
-6. Raised profile `BelongingSection` and honest connection/community pulse.
-7. Migrate dashboard, community, fission, and profile callers.
-8. Remove Cytoscape/react-force-graph dependencies and retired wrappers.
-9. Update existing docs, contexts, registry, generated landing docs, ADR status, and root version.
-10. Run testing, simplify, code review, security review, human API/DB/UI validation, PR, and deploy.
+1. Exact ordinary-member reputation metrics are self-only across the platform.
+2. Other members receive authorized identity/structure and coarse explanations, not exact values.
+3. Public provider ratings and anonymous community aggregates are explicit typed exceptions.
+4. Add one canonical community-scoped self summary consumed by Profile, Home, and My Network.
+5. Governance computes exact eligibility internally but returns only eligibility + coarse reason.
+6. Remove metric leakage from graphs, trust cards/paths, invitations, leaderboards, and community
+   exports; enforce the boundary with strict shared DTO schemas and cross-user tests.
+7. Add a disclosure inventory + CI regression gate.
+8. Add My Network to primary navigation and a prominent Home preview below actionable decisions.
+9. No database migration and no reputation-math rewrite.
+10. Deliver as two ordered PRs: privacy boundary + CI gate first; My Network prominence second.
 
-## Decisions Locked During Spec Review
+## Decisions Locked During Brainstorming
 
-### Community mode means the full community
+### Reputation disclosure rule
 
-`/network?mode=community&id=<communityId>` calls
-`socialGraphService.getFullCommunityGraph(communityId)`, matching the existing Community Trust Graph
-tab. It is searchable and zoomable, but it has no depth slider or progressive expansion. Do not
-silently substitute the caller's ego-in-community neighborhood.
+Exact personal reputation is self-only. Other ordinary members may see authorized structure and a
+coarse explanation. Provider ratings and anonymous community aggregates are the only approved public
+numeric exceptions. There is no admin browsing exception.
 
-### Expansion is ego-explorer-only
+### Governance explanation
 
-`/network?mode=ego` uses `GET /trust/neighborhood/:userId?depth=1..3`; clicking a node adds a
-depth-1 expansion. Keep at most three expansions FIFO and provide an explicit keyboard-reachable
-collapse control. Dashboard, profile, community, communities, and fission surfaces remain static.
+Governance shows “Eligible for stewardship” and the reason “Eligibility threshold met through
+established community relationships.” It does not return member trust or karma values.
 
-### Neighborhood visibility and response contract
+### Belonging prominence
 
-- Explicit `communityId`: caller and center must both be active members.
-- Aggregate: caller and center must share at least one active community.
-- Traverse only `trust_edges_live` edges inside allowed communities and active membership.
-- Inaccessible center returns `404` to avoid account enumeration.
-- Maximum 80 nodes; response includes `meta: { depth, truncated }`.
-- Every node includes shortest BFS `degrees_of_separation: 0 | 1 | 2 | 3`.
-- `trust_edges_live` is a VIEW: never insert/update it.
+Add My Network to authenticated navigation and a prominent Home preview. Keep onboarding expansion
+for a later sprint. On Home, pending decisions and urgent help actions remain above the graph preview.
 
-### Release/docs details
+### Enforcement depth
 
-- Root `package.json` and root lock metadata become `11.18.0`.
-- `apps/frontend/package.json` remains package version `1.0.0`.
-- Update `docs/guides/trust-graph.md` and
-  `docs/concepts/reading-the-trust-graph.md`; do not create duplicate graph docs.
-- Update the existing package lock in place on Windows; never scratch-regenerate it.
+Use query minimization, explicit server projection, strict shared DTO schemas, cross-user sentinel
+tests, and a CI disclosure inventory. Protected fields are omitted, not zeroed.
+
+### Sensitive-root classifications
+
+Community trust/network metrics are membership-gated `community_aggregate` exceptions with
+five-member suppression. Every `:userId` trust/evolution configuration endpoint is self-only.
+Community evolution policy/history/toggle endpoints are internal community-admin surfaces and must
+not include member parameters.
+
+Community health/milestones and decay policy are aggregate/policy contracts. Retire public
+`GET /trust/edge` with an ADR-074 `410` while preserving the internal DB helper. Relationship-memory
+responses keep qualitative decay state but remove exact `currentWeight`.
+
+### Compatibility denials
+
+Cross-user reputation/config reads return ADR-074-shaped `404 REPUTATION_NOT_FOUND`. The retired
+leaderboard returns ADR-074-shaped `410 REPUTATION_LEADERBOARD_RETIRED`. Audit all repository callers
+before retiring the endpoint or helper.
+
+### Delivery sequence
+
+PR A ships the disclosure boundary independently. PR B adds navigation, Home preview, and frontend
+prominence only after PR A contracts are available; it must not delay the privacy fix.
 
 ## Critical Implementation Notes
 
-1. Graph fetches live on `socialGraphService` in `apps/frontend/src/lib/api.ts`;
-   `socialGraphClient` is paths/invitations only.
-2. Preserve `useLazyGraphData` for card/surface lazy loading; `/network` explicitly loads immediately.
-3. `BelongingSection` receives ego data through `onDataLoaded`; do not issue a duplicate graph fetch.
-4. Profile copy says “connected to,” not “helped.”
-5. Preserve ADR-063 uniform people-node sizing. Community member count belongs in detail text.
-6. Normalize `DepthNode`/`DepthLink` before the renderer; keep `TrustGraphHEB` canonical-type-only.
-7. Use keyed D3 joins and transitions for explorer updates; avoid blanket SVG teardown per update.
-8. Landing docs are generated by `scripts/generate-docs.ts`; never hand-edit generated nav/concepts.
-9. `apps/landing/src/data/docs/` is gitignored; force-add generated outputs.
-10. All changed behavior needs tests first and docs/context feedback-loop updates.
+1. The boundary is API-first; UI hiding is defense in depth.
+2. Protected DTOs omit forbidden fields entirely. Do not represent redaction with zeroes.
+3. Profile, Home, and My Network consume one canonical self summary.
+4. Reputation math, governance thresholds, vote weights, ranking, and background jobs remain intact.
+5. Graph relationship state is qualitative in outward contracts; exact edge weights remain internal.
+6. Governance and community exports receive no admin exception for another member's metrics.
+7. Provider ratings and anonymous community aggregates remain explicit typed exceptions.
+8. Cross-user tests use non-zero sentinel values and inspect the actual response shape.
+9. Trust paths, trust cards, invitations, leaderboards, and exports are in scope—not only graphs.
+10. My Network is prominent on Home but remains below pending decisions and urgent help actions.
+11. No database migration.
+12. All changed behavior needs tests first and docs/context/registry feedback-loop updates.
 
 ## Carry-Forward / Out Of Scope
 
 - Cleanup-service replacement remains deferred; it is load-bearing scheduled-job plumbing.
-- Member forget/export privacy work remains open.
+- Broader member forget/export implementation remains open; S112 only removes cross-user reputation
+  disclosure from community/stewardship exports.
 - Demo responder-Home/simulation liveliness remains a later-sprint candidate.
-- Mobile parity is not part of Sprint 111.
+- Mobile-native parity is not part of Sprint 112.
+- The onboarding graph moment remains a later UX sprint.
 - Recurring CodeQL `js/request-forgery` on `apps/frontend/src/lib/api.ts` is a known browser-baseURL
   false positive; dismiss only with written PR justification if it reappears.
 - Remaining moderate dependency alerts are the Expo `tar` chain; keep the exact override.
@@ -111,8 +121,9 @@ collapse control. Dashboard, profile, community, communities, and fission surfac
 
 - **S109 (done):** Geocoding Cache Hardening & Dependency Hygiene (v11.17.0).
 - **S110 (done):** Belonging Graph System research + ADR-081 Proposed (no deploy/version bump).
-- **S111 (current):** Belonging Graph System implementation and ship (v11.18.0).
-- **S112:** Not pre-committed; choose from post-deploy evidence.
+- **S111 (done):** Belonging Graph System implementation and ship (v11.18.0).
+- **S112 (planning):** Belonging & Reputation Truth (target v11.19.0).
+- **Later:** onboarding network moment and broader member forget/export work.
 
 ---
 
@@ -120,31 +131,12 @@ collapse control. Dashboard, profile, community, communities, and fission surfac
 
 ### Active Session (update on every role handoff)
 
-- **Driving agent:** Claude (Sprint 111 implementation)
-- **Phase:** Implementation + automated gates complete (Tasks 1–14). All work committed on the branch;
-  tree clean; **root v11.18.0**.
-- **Branch + files in flight:** `feature/sprint-111-belonging-graph-system` (all work committed). New
-  endpoint `GET /trust/neighborhood/:userId`; new `/network` page; ADR-081 → Implemented.
-
-#### Gate results (Task 14)
-- Testing: `@karmyq/social-graph-service` 34 pass (3 todo) · `apps/frontend` unit 62 + regression 48 pass ·
-  `apps/landing` build OK · doc-context drift gate 5 pass · workspace `tsc --noEmit` clean (frontend + social-graph).
-- Simplify: applied (HEB edge join key now reuses `linkKey`); otherwise clean.
-- Code-review / Security-review: the multi-agent subagent runners hit the session limit, so I ran an
-  **inline** review of the security-critical surface (neighborhood privacy/enumeration → 404, full SQL
-  parameterization with `::uuid`/`::uuid[]`, depth/UUID validation, 80-node cap, d3 `.text()` labels =
-  no XSS, caller-only `isCurrentUser`, read-only view). No blocking findings. Re-run the full
-  `/code-review` + `/security-review` (or `/code-review ultra`) after the session limit resets.
-
-#### Status of remaining steps
-- **PR #114** — pushed and open. Codex cross-agent review received; its 3 P1 + 2 P2 findings are fixed
-  with tests (round-2 commit). CodeQL request-forgery FP on `api.ts` still to be dismissed + recorded
-  in the PR.
-- **Task 15 human validation** — live API smoke tests (own ego depth 1 & 3; explicit shared community;
-  inaccessible center → 404; invalid depth → 400; nodes carry `degrees_of_separation`; ≤80 nodes), DB
-  read checks (no schema mutation), and `/network` UI checks. Needs the running stack + a real token.
-- **Merge + deploy** — Admin-authorized merge + CI/CD deploy of v11.18.0 (not done; contributor agents
-  never self-merge). Re-run full `/code-review` + `/security-review` after the subagent session limit resets.
+- **Driving agent:** Codex (Sprint 112 planning)
+- **Phase:** Planning complete. Approved spec + executable two-PR plan are ready.
+- **Branch + files in flight:** `feature/sprint-112-reputation-disclosure-boundary`; planning
+  artifacts are committed as the first PR A commit. The working tree is clean.
+- **Blockers:** none. Execute PR A first; do not begin PR B until PR A is merged, deployed, and
+  validated.
 
 > Claude and Codex share one physical working tree. One agent edits at a time. The active agent must
 > commit or stash before handing over. Never edit or commit on top of another agent's uncommitted WIP.

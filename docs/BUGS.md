@@ -353,3 +353,11 @@ The "You've offered to help" section seems to have wrong info — I couldn't fin
 > View all in Helping →
 
 ---
+
+## BUG-024 · [2026-06-24] · open
+
+Trust/karma data discrepancy for the same user+community across surfaces. As Maria (logged in), community page `/communities/dd910075-313f-40e4-b302-bd596c84770d` shows "Maria Elena Reyes trust 120 · 40 karma", but Maria's profile page for the SAME community shows Karma Points 0, Trust Score 27 (out of 100), Recent Helps 0, Recent Requests 20. Numbers don't reconcile (trust 120 vs 27/100; karma 40 vs 0). Likely different metric sources/scales: community trust graph = decayed sum of edge weights (~120, unbounded) vs profile "Trust Score out of 100" = a normalized reputation metric; karma 40 (community-scoped, from the graph node) vs 0 (profile, possibly global or a different query). Needs reconciliation or clear labeling so the same concept reads consistently.
+
+ALSO a privacy sub-question raised: on the community/governance nominee view, are OTHER nominees' trust/karma shown? The S111 privacy fix only covered the trust-graph API; governance/nominee lists may still expose member reputation numbers and should be checked against the same "only your own metrics" rule.
+
+---
