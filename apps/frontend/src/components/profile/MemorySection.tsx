@@ -8,7 +8,8 @@ type DecayTier = 'strong' | 'warm' | 'fading' | 'nearly_forgotten' | 'swept'
 interface Relationship {
   peerId: string
   peerName: string
-  currentWeight: number
+  // Sprint 112 (ADR-082): the exact edge weight (a peer metric) is no longer returned; the
+  // qualitative decayTier conveys how the bond is fading.
   decayTier: DecayTier
   lastInteractionAt: string | null
   matchCompletedCount: number

@@ -708,6 +708,13 @@ export const reputationService = {
       params: { community_id: communityId },
     }),
 
+  // Sprint 112 (ADR-082): the canonical self summary. Profile, Home, and My Network consume THIS
+  // single read instead of separately combining karma + trust-score + graph-node fields.
+  getMyCommunitySummary: (communityId: string) =>
+    reputationApi.get('/reputation/me/community-summary', {
+      params: { community_id: communityId },
+    }),
+
   getKarmaHistory: (userId: string, params?: { limit?: number; offset?: number }, communityId?: string) =>
     reputationApi.get(`/reputation/history/${userId}`, {
       params,

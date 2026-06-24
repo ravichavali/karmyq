@@ -8,8 +8,11 @@ export type BelongingMode = 'ego' | 'community' | 'communities' | 'fission'
 export interface TrustNode {
   id: string
   name: string
-  trust_score: number
-  karma: number
+  // Sprint 112 (ADR-082): person graphs no longer disclose node-level reputation. These remain only
+  // for the inter-community depth graph (which sets them to 0) and are optional/absent on person
+  // graphs; surfaces show identity + relationship structure, never node reputation numbers.
+  trust_score?: number
+  karma?: number
   isCurrentUser?: boolean
   isIsolated?: boolean
   // S111 additions (optional; populated only where the backend supplies them).
@@ -22,8 +25,11 @@ export interface TrustNode {
 export interface TrustLink {
   source: string
   target: string
-  raw_weight: number
-  effective_weight: number
+  // Sprint 112 (ADR-082): person graph links carry only a qualitative relationship state (mapped to
+  // decayTier below). Raw/effective edge weights stay internal; they remain here only for the
+  // inter-community depth graph and are optional/absent on person graphs.
+  raw_weight?: number
+  effective_weight?: number
   decayTier?: 'strong' | 'warm' | 'fading' | 'nearly_forgotten' | 'swept' // Sprint 90 / ADR-070
   type?: 'organic' | 'fission' // communities mode (from DepthLink)
 }

@@ -3,14 +3,14 @@ import { socialGraphApi } from './api'
 export interface TrustPathNode {
   id: string
   name: string
-  karma?: number
   invited_at?: string
 }
 
+// Sprint 112 (ADR-082): paths carry topology + identity only — no intermediate-node karma and no
+// outward numeric path trust_score.
 export interface TrustPath {
   degrees_of_separation: number | null
   path: TrustPathNode[] | null
-  trust_score?: number
   cached?: boolean
   computed_at?: string
   message?: string
@@ -68,7 +68,6 @@ export const socialGraphClient = {
           pathMap[item.target_user_id] = {
             degrees_of_separation: item.degrees_of_separation,
             path: item.path,
-            trust_score: item.trust_score,
             cached: item.cached,
           }
         })

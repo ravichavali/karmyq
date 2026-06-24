@@ -13,6 +13,21 @@ const DECAY_OPACITY_FACTOR: Record<NonNullable<TrustLink['decayTier']>, number> 
   swept: 0.3,
 }
 
+// Sprint 112 (ADR-082): person graphs no longer carry a numeric edge weight — only the qualitative
+// relationship state (decayTier). Derive a nominal weight from that state so edge width, opacity, and
+// clustering still reflect bond strength. The inter-community depth graph still supplies real weights.
+const STATE_WEIGHT: Record<NonNullable<TrustLink['decayTier']>, number> = {
+  strong: 4,
+  warm: 3,
+  fading: 2,
+  nearly_forgotten: 1,
+  swept: 0.5,
+}
+function linkWeight(l: TrustLink): number {
+  if (typeof l.effective_weight === 'number') return l.effective_weight
+  return l.decayTier ? STATE_WEIGHT[l.decayTier] : 1
+}
+
 interface TrustGraphHEBProps {
   graphData: GraphData
   currentUserId: string
@@ -58,7 +73,7 @@ function detectClusters(nodes: TrustNode[], links: TrustLink[]): Map<string, num
   }
 
   ;[...links]
-    .sort((a, b) => b.effective_weight - a.effective_weight)
+    .sort((a, b) => linkWeight(b) - linkWeight(a))
     .slice(0, Math.max(1, Math.floor(links.length * 0.4)))
     .forEach(l => union(l.source, l.target))
 
@@ -119,7 +134,7 @@ export default function TrustGraphHEB({
   }, [graphData, groupMap, mode])
 
   const maxWeight = useMemo(
-    () => Math.max(...graphData.links.map(l => l.effective_weight), 1),
+    () => Math.max(...graphData.links.map(linkWeight), 1),
     [graphData.links]
   )
 
@@ -173,15 +188,15 @@ export default function TrustGraphHEB({
     }
     const edgeOpacity = (l: TrustLink): number => {
       if (mode === 'communities') return l.type === 'fission' ? 0.9 : 0.55
-      const base = 0.12 + 0.7 * (l.effective_weight / maxWeight)
+      const base = 0.12 + 0.7 * (linkWeight(l) / maxWeight)
       const decay = l.decayTier ? DECAY_OPACITY_FACTOR[l.decayTier] : 1
       if (mode === 'community' && isMyEdge(l)) return Math.max(0.7, base) * decay
       if (mode === 'community' && !sameCluster(l)) return Math.min(base, 0.3) * decay
       return base * decay
     }
     const edgeWidth = (l: TrustLink): number => {
-      if (mode === 'communities') return l.type === 'fission' ? 2 : 1 + (l.effective_weight / maxWeight) * 4
-      return Math.max(0.6, Math.log1p(l.effective_weight) * 1.2)
+      if (mode === 'communities') return l.type === 'fission' ? 2 : 1 + (linkWeight(l) / maxWeight) * 4
+      return Math.max(0.6, Math.log1p(linkWeight(l)) * 1.2)
     }
 
     const nodeColor = (n: TrustNode): string => {
@@ -477,16 +492,17 @@ export default function TrustGraphHEB({
               )}
             </div>
           ) : (
-            // Privacy: another member's trust score / karma are not exposed — only the structural
-            // connection count (which is already visible as edges) shows for others. Your own node
-            // shows your full numbers.
+            // Sprint 112 (ADR-082): the graph shows relationship STRUCTURE, not reputation. No node
+            // (not even the caller's) exposes trust score or karma here — exact self metrics live only
+            // in the canonical reputation summary. Node detail shows structural context only.
             <div className="grid grid-cols-2 gap-2 text-text-muted">
               {selectedNode.id === currentUserId && (
+                <span className="col-span-2 text-indigo-500">This is you</span>
+              )}
+              {selectedNode.degrees_of_separation != null && selectedNode.id !== currentUserId && (
                 <>
-                  <span>Trust score</span>
-                  <span className="text-text">{Number(selectedNode.trust_score).toFixed(1)}</span>
-                  <span>Karma</span>
-                  <span className="text-text">{selectedNode.karma}</span>
+                  <span>Degrees away</span>
+                  <span className="text-text">{selectedNode.degrees_of_separation}</span>
                 </>
               )}
               <span>Connections</span>

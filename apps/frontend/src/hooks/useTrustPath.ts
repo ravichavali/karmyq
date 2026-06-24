@@ -87,7 +87,9 @@ export function useTrustPath(targetUserId: string | null | undefined, options: U
  * @returns Map of userId -> trust path data, loading state, and error
  */
 export function useBatchTrustPaths(targetUserIds: string[], options: UseTrustPathOptions = {}) {
-  const [trustPaths, setTrustPaths] = useState<Map<string, { degrees: number | null; trustScore: number }>>(new Map());
+  // Sprint 112 (ADR-082): batch paths carry degrees only — the numeric path trust_score is no longer
+  // returned (feed proximity ranks on degrees).
+  const [trustPaths, setTrustPaths] = useState<Map<string, { degrees: number | null }>>(new Map());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -114,11 +116,9 @@ export function useBatchTrustPaths(targetUserIds: string[], options: UseTrustPat
           response.data.forEach((item: {
             target_user_id: string;
             degrees_of_separation: number | null;
-            trust_score: number;
           }) => {
             pathsMap.set(item.target_user_id, {
               degrees: item.degrees_of_separation,
-              trustScore: item.trust_score,
             });
           });
 

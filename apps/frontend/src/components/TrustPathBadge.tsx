@@ -19,14 +19,14 @@ export function decayPresentation(decayTier?: DecayTier): { className: string; t
 
 export interface TrustPath {
   degrees_of_separation: number | null;
+  // Sprint 112 (ADR-082): path topology + identity only. No intermediate-node karma, no outward
+  // numeric path trust_score — the badge conveys closeness via degrees + relationship state.
   path?: Array<{
     id: string;
     name: string;
-    karma?: number;
     exchanged_at?: string;
     invited_at?: string;
   }>;
-  trust_score?: number;
   cached?: boolean;
   connection_type?: 'exchange' | 'community_member' | 'invitation_chain';
   community_name?: string;
@@ -45,7 +45,7 @@ export default function TrustPathBadge({ trustPath, compact = false, className =
     return null; // No connection found
   }
 
-  const { degrees_of_separation, path, trust_score, connection_type = 'exchange', community_name } = trustPath;
+  const { degrees_of_separation, path, connection_type = 'exchange', community_name } = trustPath;
 
   // Don't show badge for 4+ degree connections
   if (degrees_of_separation > 3) {
@@ -130,24 +130,6 @@ export default function TrustPathBadge({ trustPath, compact = false, className =
   };
 
   // Trust score stars (out of 5)
-  const renderTrustStars = (score: number) => {
-    const stars = Math.min(5, Math.floor((score / 100) * 5));
-    return (
-      <div className="flex items-center">
-        {[...Array(5)].map((_, i) => (
-          <svg
-            key={i}
-            className={`w-3 h-3 ${i < stars ? 'text-yellow-400' : 'text-gray-300'}`}
-            fill="currentColor"
-            viewBox="0 0 20 20"
-          >
-            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-          </svg>
-        ))}
-      </div>
-    );
-  };
-
   // Full border color for left-border decoration
   const getBorderColor = () => {
     if (isCommunityMember) return 'border-accent bg-accent-light';
@@ -191,12 +173,6 @@ export default function TrustPathBadge({ trustPath, compact = false, className =
             <span className="text-xs text-text-subtle">in {community_name}</span>
           )}
         </div>
-        {trust_score !== undefined && trust_score > 0 && (
-          <div className="flex items-center">
-            {renderTrustStars(trust_score)}
-            <span className="ml-1 text-xs text-text-muted">{trust_score}</span>
-          </div>
-        )}
       </div>
 
       {/* Connection Path */}

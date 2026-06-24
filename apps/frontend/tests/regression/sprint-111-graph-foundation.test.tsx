@@ -168,15 +168,17 @@ describe('<BelongingGraph> per-mode fetch dispatch', () => {
     await waitFor(() => expect(aggregate).toHaveBeenCalled())
   })
 
-  it('calls onDataLoaded once with the canonical payload', async () => {
+  it('calls onDataLoaded once with the canonical payload (ADR-082 safe person graph)', async () => {
+    // The API returns the privacy-safe shape (user_id / is_current_user / no node metrics);
+    // normalizePersonGraph maps it to the canonical client model.
     aggregate.mockResolvedValue({
-      data: { nodes: [{ id: 'u1', name: 'Me', trust_score: 0, karma: 0 }], links: [] },
+      data: { nodes: [{ user_id: 'u1', name: 'Me', is_current_user: true }], links: [] },
     })
     const onDataLoaded = jest.fn()
     render(<BelongingGraph mode="ego" currentUserId="u1" load="immediate" onDataLoaded={onDataLoaded} />)
     await waitFor(() => expect(onDataLoaded).toHaveBeenCalledTimes(1))
     expect(onDataLoaded.mock.calls[0][0]).toEqual({
-      nodes: [{ id: 'u1', name: 'Me', trust_score: 0, karma: 0 }],
+      nodes: [{ id: 'u1', name: 'Me', isCurrentUser: true }],
       links: [],
     })
   })
