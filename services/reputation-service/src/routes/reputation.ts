@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
-import { getUserKarma, getUserKarmaWithDecay, getUserTrustScore, getOverallTrustScore, getCommunityLeaderboard, updateTrustScore } from '../services/karmaService';
+import { getUserKarma, getUserKarmaWithDecay, getUserTrustScore, getOverallTrustScore, updateTrustScore } from '../services/karmaService';
+import { getSelfCommunityReputation } from '../utils/disclosureAuth';
 import { getCommunityTrustScore, } from '../database/communityTrustDb';
 import { calculateCommunityTrustScore } from '../services/communityTrustService';
 import { getUserBadges } from '../services/badgeService';
@@ -30,10 +31,40 @@ import {
 
 const router = Router();
 
-// GET /reputation/karma/:userId - Get user's karma
-router.get('/karma/:userId', authMiddleware, async (req: Request, res: Response) => {
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// ADR-074 denial envelope: exactly { success, message, error }. Sprint 112 (ADR-082) self-only
+// reads return 404 REPUTATION_NOT_FOUND (not 403) so we never confirm a user has reputation data.
+function denyNotFound(res: Response) {
+  return res.status(404).json({ success: false, message: 'Reputation not found', error: 'REPUTATION_NOT_FOUND' });
+}
+
+// GET /reputation/me/community-summary?community_id= — Sprint 112 (ADR-082) canonical self summary.
+// The single source Profile, Home, and My Network consume. Self-only + active-membership scoped.
+router.get('/me/community-summary', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = req.user?.userId;
+    if (!userId) {
+      return res.status(401).json({ success: false, message: 'Authentication required', error: 'UNAUTHENTICATED' });
+    }
+    const communityId = req.query.community_id as string | undefined;
+    if (!communityId || !UUID_RE.test(communityId)) {
+      return res.status(400).json({ success: false, message: 'A valid community_id is required', error: 'INVALID_COMMUNITY_ID' });
+    }
+    const summary = await getSelfCommunityReputation(userId, communityId);
+    if (!summary) return denyNotFound(res);
+    return res.json({ success: true, data: summary });
+  } catch (error: any) {
+    (req as any).logger?.error('Error building self community summary', error instanceof Error ? error : new Error(String(error)), { service: 'reputation-service' });
+    return res.status(500).json({ success: false, message: 'Failed to build community summary', error: 'INTERNAL_ERROR' });
+  }
+});
+
+// GET /reputation/karma/:userId - Get user's karma (Sprint 112: self-only)
+router.get('/karma/:userId', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { userId } = req.params;
+    if (req.user?.userId !== userId) return denyNotFound(res);
     const { community_id } = req.query;
 
     const karma = await getUserKarma(userId, community_id as string);
@@ -80,9 +111,10 @@ router.get('/karma/:userId', authMiddleware, async (req: Request, res: Response)
 });
 
 // GET /reputation/trust/:userId - Get user's overall (weighted average) trust score across all communities
-router.get('/trust/:userId', authMiddleware, async (req: Request, res: Response) => {
+router.get('/trust/:userId', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { userId } = req.params;
+    if (req.user?.userId !== userId) return denyNotFound(res);
 
     const result = await getOverallTrustScore(userId);
 
@@ -101,9 +133,10 @@ router.get('/trust/:userId', authMiddleware, async (req: Request, res: Response)
 });
 
 // GET /reputation/trust/:userId/:communityId - Get user's trust score in a community
-router.get('/trust/:userId/:communityId', authMiddleware, async (req: Request, res: Response) => {
+router.get('/trust/:userId/:communityId', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { userId, communityId } = req.params;
+    if (req.user?.userId !== userId) return denyNotFound(res);
 
     const trustScore = await getUserTrustScore(userId, communityId);
 
@@ -152,32 +185,22 @@ router.get('/community-trust/:communityId', authMiddleware, async (req: Request,
   }
 });
 
-// GET /reputation/leaderboard/:communityId - Get community leaderboard
-router.get('/leaderboard/:communityId', authMiddleware, async (req: Request, res: Response) => {
-  try {
-    const { communityId } = req.params;
-    const { limit = 10 } = req.query;
-
-    const leaderboard = await getCommunityLeaderboard(communityId, parseInt(limit as string));
-
-    res.json({
-      success: true,
-      data: leaderboard,
-    });
-  } catch (error: any) {
-    (req as any).logger?.error('Error fetching leaderboard', error instanceof Error ? error : new Error(String(error)), { service: 'reputation-service' });
-    res.status(500).json({
-      success: false,
-      message: 'Failed to fetch leaderboard',
-      error: error.message,
-    });
-  }
+// GET /reputation/leaderboard/:communityId — RETIRED (Sprint 112, ADR-082). Competitive ranking
+// contradicts exact-metrics self-only privacy. The internal getCommunityLeaderboard() helper is
+// preserved for any internal aggregate use; the member-facing endpoint returns 410 with no rows.
+router.get('/leaderboard/:communityId', authMiddleware, async (_req: Request, res: Response) => {
+  return res.status(410).json({
+    success: false,
+    message: 'The member leaderboard has been retired; exact reputation is self-only.',
+    error: 'REPUTATION_LEADERBOARD_RETIRED',
+  });
 });
 
 // GET /reputation/history/:userId - Get karma transaction history
-router.get('/history/:userId', authMiddleware, async (req: Request, res: Response) => {
+router.get('/history/:userId', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { userId } = req.params;
+    if (req.user?.userId !== userId) return denyNotFound(res);
     const { community_id, limit = 50, offset = 0 } = req.query;
 
     let queryText = `
@@ -224,9 +247,10 @@ router.get('/history/:userId', authMiddleware, async (req: Request, res: Respons
 });
 
 // GET /reputation/badges/:userId - Get user's badges
-router.get('/badges/:userId', authMiddleware, async (req: Request, res: Response) => {
+router.get('/badges/:userId', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { userId } = req.params;
+    if (req.user?.userId !== userId) return denyNotFound(res);
 
     const result = await query(
       `SELECT * FROM reputation.badges
@@ -366,9 +390,10 @@ router.post('/feedback', authMiddleware, async (req: AuthenticatedRequest, res: 
 });
 
 // GET /reputation/users/:userId/badges - Get prestige badges for a user
-router.get('/users/:userId/badges', authMiddleware, async (req: Request, res: Response) => {
+router.get('/users/:userId/badges', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { userId } = req.params;
+    if (req.user?.userId !== userId) return denyNotFound(res);
     const badges = await getUserBadges(userId);
     res.json({ success: true, data: badges });
   } catch (error: any) {
@@ -385,12 +410,9 @@ router.get('/users/:userId/badges', authMiddleware, async (req: Request, res: Re
 router.get('/trust-config/:userId/:communityId/history', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { userId, communityId } = req.params;
-    const memberships = req.user?.communities ?? [];
-    const isSelf = req.user?.userId === userId;
-    const isAdmin = memberships.some((m: any) => m.id === communityId && m.role === 'admin');
-    if (!isSelf && !isAdmin) {
-      return res.status(403).json({ success: false, message: 'Forbidden' });
-    }
+    // Sprint 112 (ADR-082): self-only. No admin browsing exception — evolution history is personal
+    // configuration history.
+    if (req.user?.userId !== userId) return denyNotFound(res);
     const limit = Math.min(parseInt(req.query.limit as string || '50', 10), 100);
     const offset = parseInt(req.query.offset as string || '0', 10);
     const history = await getEvolutionLog(userId, communityId, limit, offset);
@@ -406,12 +428,8 @@ router.get('/trust-config/:userId/:communityId/history', authMiddleware, async (
 router.get('/trust-config/:userId/:communityId', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { userId, communityId } = req.params;
-    const memberships = req.user?.communities ?? [];
-    const isSelf = req.user?.userId === userId;
-    const isAdmin = memberships.some((m: any) => m.id === communityId && m.role === 'admin');
-    if (!isSelf && !isAdmin) {
-      return res.status(403).json({ success: false, message: 'Forbidden' });
-    }
+    // Sprint 112 (ADR-082): self-only. No admin browsing exception.
+    if (req.user?.userId !== userId) return denyNotFound(res);
     const [userConfig, effectiveParams, communityEvolution] = await Promise.all([
       getUserTrustConfig(userId, communityId),
       getUserEffectiveParams(userId, communityId),
@@ -436,9 +454,7 @@ router.get('/trust-config/:userId/:communityId', authMiddleware, async (req: Aut
 router.put('/trust-config/:userId/:communityId', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { userId, communityId } = req.params;
-    if (req.user?.userId !== userId) {
-      return res.status(403).json({ success: false, message: 'Forbidden' });
-    }
+    if (req.user?.userId !== userId) return denyNotFound(res);
     const { evolution_enabled } = req.body;
     if (typeof evolution_enabled !== 'boolean') {
       return res.status(400).json({ success: false, message: 'evolution_enabled must be a boolean' });
@@ -566,12 +582,10 @@ router.put('/community/:communityId/evolution/toggle', authMiddleware, async (re
 router.get('/users/:userId/effective-params', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { userId } = req.params;
-    if (req.user?.userId !== userId) {
-      return res.status(403).json({ success: false, message: 'Forbidden' });
-    }
+    if (req.user?.userId !== userId) return denyNotFound(res);
     const { communityId } = req.query as { communityId: string };
     if (!communityId) {
-      return res.status(400).json({ success: false, message: 'communityId required' });
+      return res.status(400).json({ success: false, message: 'communityId required', error: 'INVALID_COMMUNITY_ID' });
     }
     const params = await getCachedEffectiveParams(userId, communityId);
     return res.json({ success: true, data: params });
@@ -585,9 +599,7 @@ router.get('/users/:userId/effective-params', authMiddleware, async (req: Authen
 router.get('/users/:userId/evolution-global', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { userId } = req.params;
-    if (req.user?.userId !== userId) {
-      return res.status(403).json({ success: false, message: 'Forbidden' });
-    }
+    if (req.user?.userId !== userId) return denyNotFound(res);
     const enabled = await getGlobalEvolutionPreference(userId);
     return res.json({ success: true, data: { global_evolution_enabled: enabled } });
   } catch (err) {
@@ -600,9 +612,7 @@ router.get('/users/:userId/evolution-global', authMiddleware, async (req: Authen
 router.put('/users/:userId/evolution-global', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { userId } = req.params;
-    if (req.user?.userId !== userId) {
-      return res.status(403).json({ success: false, message: 'Forbidden' });
-    }
+    if (req.user?.userId !== userId) return denyNotFound(res);
     const { global_evolution_enabled } = req.body;
     if (typeof global_evolution_enabled !== 'boolean') {
       return res.status(400).json({ success: false, message: 'global_evolution_enabled (boolean) required' });
