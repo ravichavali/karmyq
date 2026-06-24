@@ -260,7 +260,9 @@ router.get('/graph/:communityId', async (req: Request, res: Response) => {
       }
     }
 
-    const graph = await getTrustGraphForCommunity(communityId, centerUserId);
+    // Topology is centered on centerUserId (may be another member via ?center=), but identity +
+    // reputation redaction always key off the authenticated caller — never the center.
+    const graph = await getTrustGraphForCommunity(communityId, centerUserId, callingUserId);
     const threshold = await resolveThreshold(communityId);
 
     res.json({

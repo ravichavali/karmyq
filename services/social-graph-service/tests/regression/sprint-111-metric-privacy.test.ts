@@ -73,4 +73,34 @@ describe('sprint-111 reputation-metric privacy', () => {
     const graph = await getTrustGraphAggregate('me');
     assertRedacted(graph.nodes);
   });
+
+  // ?center=<other-member> expansion: topology centers on another member, but identity + redaction
+  // must still key off the authenticated caller — otherwise the center's metrics leak.
+  it('getTrustGraph keys isCurrentUser + redaction off the caller, not the center', async () => {
+    mockQuery
+      .mockResolvedValueOnce({
+        rows: [
+          { id: 'center', name: 'Center Member', trust_score: '20', karma: '9', is_current_user: false },
+          { id: 'me', name: 'Me', trust_score: '5', karma: '2', is_current_user: true },
+        ],
+      })
+      .mockResolvedValueOnce({ rows: [] });
+
+    const graph = await getTrustGraph('comm-1', 'center', 'me');
+
+    // Mocked SQL: assert the query shape + params that enforce the rule.
+    const nodesSql = mockQuery.mock.calls[0][0] as string;
+    const nodesParams = mockQuery.mock.calls[0][1] as string[];
+    expect(nodesSql).toMatch(/\(u\.id = \$3::uuid\) AS is_current_user/); // caller param, not center ($2)
+    expect(nodesParams).toEqual(['comm-1', 'center', 'me']);
+
+    // Behavioral: the center (another member) is not flagged and its reputation is zeroed.
+    const center = graph.nodes.find(n => n.id === 'center')!;
+    const me = graph.nodes.find(n => n.id === 'me')!;
+    expect(center.isCurrentUser).toBe(false);
+    expect(center.trust_score).toBe(0);
+    expect(center.karma).toBe(0);
+    expect(me.isCurrentUser).toBe(true);
+    expect(me.trust_score).toBe(5);
+  });
 });

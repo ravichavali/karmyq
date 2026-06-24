@@ -197,7 +197,11 @@ export function redactNodeMetrics<T extends { isCurrentUser: boolean; trust_scor
 
 export async function getTrustGraph(
   communityId: string,
-  callingUserId: string
+  centerUserId: string,
+  // Privacy (Sprint 111 follow-up): the ego topology can be centered on ANOTHER member (?center=… for
+  // expansion), but identity + reputation redaction must always key off the AUTHENTICATED caller — never
+  // the center. Defaults to center for the common self-centered call.
+  callingUserId: string = centerUserId
 ): Promise<{ nodes: TrustNode[]; links: TrustLink[] }> {
   // Sprint 98 (BUG-098-003): neighbors must be ACTIVE members of the requested
   // community. A trust edge can outlive membership (user completed an exchange then
@@ -227,7 +231,7 @@ export async function getTrustGraph(
         SELECT SUM(kr.points) FROM reputation.karma_records kr
         WHERE kr.user_id = u.id AND kr.community_id = $1
       ), 0) AS karma,
-      (u.id = $2::uuid) AS is_current_user
+      (u.id = $3::uuid) AS is_current_user
     FROM auth.users u
     WHERE u.id = $2::uuid
        OR u.id IN (SELECT neighbor_id FROM active_neighbors)
@@ -251,8 +255,8 @@ export async function getTrustGraph(
   `;
 
   const [nodesResult, edgesResult] = await Promise.all([
-    pool.query(nodesQuery, [communityId, callingUserId]),
-    pool.query(edgesQuery, [communityId, callingUserId]),
+    pool.query(nodesQuery, [communityId, centerUserId, callingUserId]),
+    pool.query(edgesQuery, [communityId, centerUserId]),
   ]);
 
   return {
