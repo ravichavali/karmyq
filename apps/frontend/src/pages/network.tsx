@@ -280,6 +280,13 @@ export default function NetworkPage() {
             </div>
           </div>
 
+          {/* Discoverability: the controls are not self-evident, so spell out what each does. */}
+          <p className="text-xs text-text-muted">
+            {mode === 'ego'
+              ? 'Drag Depth to 2–3 for friends-of-friends · scroll to zoom · click a person to expand their network.'
+              : 'Scroll to zoom and pan · type above to find and focus a node.'}
+          </p>
+
           {mergedGraph?.meta?.truncated && (
             <p className="text-xs text-amber-500">
               Showing the closest connections only — some distant ones are hidden.

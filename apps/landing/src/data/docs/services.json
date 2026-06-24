@@ -772,6 +772,11 @@
         },
         {
           "method": "GET",
+          "path": "/trust/neighborhood/:userId",
+          "description": "Sprint 111 (ADR-081): privacy-scoped recursive ego-neighborhood for the /network explorer. Query: depth=1|2|3 (default 1), optional communityId. Scope resolved BEFORE traversal from shared active community membership — with communityId both caller and center must be active members; without it they must share ≥1 active community. Traverses only trust_edges_live edges inside allowed communities and active members. Inaccessible center → 404 (no account-existence leak). Capped at 80 nodes; each node carries degrees_of_separation (center=0). Response: { nodes, links, meta: { depth, truncated } }; only the authenticated caller's node is isCurrentUser."
+        },
+        {
+          "method": "GET",
           "path": "/trust/edge",
           "description": "Returns a single trust edge for a user pair in a community. Returns { data: null } if no edge exists."
         },

@@ -13,7 +13,8 @@ Every belonging-graph surface renders through a **single** engine (hierarchical 
 - **Every node is the same size.** Node size doesn't encode a variable, so it can't mislead. What you read is *structure* — who clusters together, who bridges groups. (Community member counts live in the detail panel, not the dot.)
 - **You are enlarged and white-ringed** — a "you are here" anchor. In the communities view, **your** communities carry an emerald member ring.
 - **Your connections are amber.** Lines touching you stand out from everyone else's.
-- **Clusters share a color.** Within-cluster ties are indigo; cross-cluster ties are slate. A cluster is a tightly-knit pocket of people, detected from the strongest ties.
+- **Clusters share a color.** Ties inside a close-knit group are indigo; ties that bridge between groups are slate. A cluster is a tightly-knit pocket of people, detected from the strongest ties.
+- **Reputation numbers stay private.** Clicking another person shows only their name and connection count (which you can already see as edges). Trust score and karma appear only on your own node.
 - **Hover or focus fades the rest.** Pointing at (or keyboard-focusing) a node dims everything not in its neighborhood, so one person's connections are legible inside a dense graph.
 
 ## The four modes

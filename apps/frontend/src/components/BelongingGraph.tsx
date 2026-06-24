@@ -62,7 +62,12 @@ export default function BelongingGraph({
 
   const fetcher = useCallback(async (): Promise<GraphData> => {
     if (hasSuppliedData) return graphData as GraphData
-    if (mode === 'ego') return (await socialGraphService.getTrustGraphAggregate()).data as GraphData
+    if (mode === 'ego') {
+      // Community-scoped ego (the community page's "My Network" sub-tab passes communityId) vs the
+      // cross-community aggregate (dashboard / profile, no communityId).
+      if (communityId) return (await socialGraphService.getTrustGraph(communityId)).data as GraphData
+      return (await socialGraphService.getTrustGraphAggregate()).data as GraphData
+    }
     if (mode === 'community') {
       if (!communityId) return EMPTY_GRAPH
       return (await socialGraphService.getFullCommunityGraph(communityId)).data as GraphData

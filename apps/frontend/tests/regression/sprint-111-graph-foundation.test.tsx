@@ -20,6 +20,7 @@ import type { GraphData } from '@/components/graphs/types'
 jest.mock('@/lib/api', () => ({
   socialGraphService: {
     getTrustGraphAggregate: jest.fn(),
+    getTrustGraph: jest.fn(),
     getFullCommunityGraph: jest.fn(),
     getCommunityGraph: jest.fn(),
   },
@@ -40,6 +41,7 @@ jest.mock('next/dynamic', () => () => {
 })
 
 const aggregate = socialGraphService.getTrustGraphAggregate as jest.Mock
+const trustGraph = socialGraphService.getTrustGraph as jest.Mock
 const fullCommunity = socialGraphService.getFullCommunityGraph as jest.Mock
 const communityGraph = socialGraphService.getCommunityGraph as jest.Mock
 
@@ -106,11 +108,19 @@ describe('mergeGraphData', () => {
 })
 
 describe('<BelongingGraph> per-mode fetch dispatch', () => {
-  it('ego mode fetches getTrustGraphAggregate', async () => {
+  it('ego mode without communityId fetches the cross-community aggregate', async () => {
     aggregate.mockResolvedValue({ data: { nodes: [{ id: 'u1' }], links: [] } })
     render(<BelongingGraph mode="ego" currentUserId="u1" load="immediate" />)
     await waitFor(() => expect(aggregate).toHaveBeenCalledTimes(1))
+    expect(trustGraph).not.toHaveBeenCalled()
     expect(fullCommunity).not.toHaveBeenCalled()
+  })
+
+  it('ego mode WITH communityId fetches the community-scoped ego graph', async () => {
+    trustGraph.mockResolvedValue({ data: { nodes: [{ id: 'u1' }], links: [] } })
+    render(<BelongingGraph mode="ego" communityId="c1" currentUserId="u1" load="immediate" />)
+    await waitFor(() => expect(trustGraph).toHaveBeenCalledWith('c1'))
+    expect(aggregate).not.toHaveBeenCalled()
   })
 
   it('community mode fetches getFullCommunityGraph(communityId)', async () => {
