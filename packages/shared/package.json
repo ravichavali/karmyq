@@ -85,6 +85,10 @@
       "types": "./dist/src/schemas/providers/index.d.ts",
       "default": "./dist/src/schemas/providers/index.js"
     },
+    "./schemas/reputation-disclosure": {
+      "types": "./dist/src/schemas/reputationDisclosure.d.ts",
+      "default": "./dist/src/schemas/reputationDisclosure.js"
+    },
     "./trust/decayTier": {
       "types": "./dist/src/trust/decayTier.d.ts",
       "default": "./dist/src/trust/decayTier.js"

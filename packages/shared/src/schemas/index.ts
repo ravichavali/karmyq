@@ -16,6 +16,9 @@ export * from './requests';
 // Provider schemas (ADR-041/042)
 export * from './providers';
 
+// Reputation disclosure boundary (Sprint 112, ADR-082)
+export * from './reputationDisclosure';
+
 // Future: Export other schema modules as they're created
 // export * from './events';
 // export * from './users';
