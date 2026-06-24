@@ -546,5 +546,287 @@
     "deprecated_services": 0,
     "critical_services": 7,
     "candidates_for_removal": 0
+  },
+  "reputation_disclosure": {
+    "policy": "ADR-082",
+    "note": "Centralized reputation-disclosure classification (Sprint 112). Each entry mirrors tests/fixtures/reputation-disclosure-inventory.json; the disclosure CI gate (tests/regression/reputation-disclosure-gate.test.ts) cross-checks both directions.",
+    "endpoints": [
+      {
+        "service": "reputation-service",
+        "method": "GET",
+        "path": "/reputation/me/community-summary",
+        "class": "self"
+      },
+      {
+        "service": "reputation-service",
+        "method": "GET",
+        "path": "/reputation/me/karma",
+        "class": "self"
+      },
+      {
+        "service": "reputation-service",
+        "method": "GET",
+        "path": "/reputation/karma/:userId",
+        "class": "self"
+      },
+      {
+        "service": "reputation-service",
+        "method": "GET",
+        "path": "/reputation/trust/:userId",
+        "class": "self"
+      },
+      {
+        "service": "reputation-service",
+        "method": "GET",
+        "path": "/reputation/trust/:userId/:communityId",
+        "class": "self"
+      },
+      {
+        "service": "reputation-service",
+        "method": "GET",
+        "path": "/reputation/history/:userId",
+        "class": "self"
+      },
+      {
+        "service": "reputation-service",
+        "method": "GET",
+        "path": "/reputation/badges/:userId",
+        "class": "self"
+      },
+      {
+        "service": "reputation-service",
+        "method": "GET",
+        "path": "/reputation/users/:userId/badges",
+        "class": "self"
+      },
+      {
+        "service": "reputation-service",
+        "method": "GET",
+        "path": "/reputation/leaderboard/:communityId",
+        "class": "ordinary_member"
+      },
+      {
+        "service": "reputation-service",
+        "method": "GET",
+        "path": "/reputation/community-trust/:communityId",
+        "class": "community_aggregate"
+      },
+      {
+        "service": "reputation-service",
+        "method": "GET",
+        "path": "/reputation/community-health/:communityId",
+        "class": "community_aggregate"
+      },
+      {
+        "service": "reputation-service",
+        "method": "GET",
+        "path": "/reputation/milestones/:communityId",
+        "class": "community_aggregate"
+      },
+      {
+        "service": "reputation-service",
+        "method": "GET",
+        "path": "/reputation/network-metrics/:communityId",
+        "class": "community_aggregate"
+      },
+      {
+        "service": "reputation-service",
+        "method": "GET",
+        "path": "/reputation/trust-config/:userId/:communityId",
+        "class": "self"
+      },
+      {
+        "service": "reputation-service",
+        "method": "PUT",
+        "path": "/reputation/trust-config/:userId/:communityId",
+        "class": "self"
+      },
+      {
+        "service": "reputation-service",
+        "method": "GET",
+        "path": "/reputation/trust-config/:userId/:communityId/history",
+        "class": "self"
+      },
+      {
+        "service": "reputation-service",
+        "method": "GET",
+        "path": "/reputation/users/:userId/effective-params",
+        "class": "self"
+      },
+      {
+        "service": "reputation-service",
+        "method": "GET",
+        "path": "/reputation/users/:userId/evolution-global",
+        "class": "self"
+      },
+      {
+        "service": "reputation-service",
+        "method": "PUT",
+        "path": "/reputation/users/:userId/evolution-global",
+        "class": "self"
+      },
+      {
+        "service": "reputation-service",
+        "method": "GET",
+        "path": "/reputation/communities/:communityId/trust-evolution",
+        "class": "internal"
+      },
+      {
+        "service": "reputation-service",
+        "method": "PUT",
+        "path": "/reputation/communities/:communityId/trust-evolution",
+        "class": "internal"
+      },
+      {
+        "service": "reputation-service",
+        "method": "GET",
+        "path": "/reputation/community/:communityId/evolution/history",
+        "class": "internal"
+      },
+      {
+        "service": "reputation-service",
+        "method": "GET",
+        "path": "/reputation/community/:communityId/evolution/summary",
+        "class": "internal"
+      },
+      {
+        "service": "reputation-service",
+        "method": "PUT",
+        "path": "/reputation/community/:communityId/evolution/toggle",
+        "class": "internal"
+      },
+      {
+        "service": "reputation-service",
+        "method": "GET",
+        "path": "/reputation/provider-trust/:providerId",
+        "class": "provider"
+      },
+      {
+        "service": "reputation-service",
+        "method": "GET",
+        "path": "/reputation/provider-reviews/:providerId",
+        "class": "provider"
+      },
+      {
+        "service": "social-graph-service",
+        "method": "GET",
+        "path": "/trust/graph",
+        "class": "ordinary_member"
+      },
+      {
+        "service": "social-graph-service",
+        "method": "GET",
+        "path": "/trust/graph/:communityId",
+        "class": "ordinary_member"
+      },
+      {
+        "service": "social-graph-service",
+        "method": "GET",
+        "path": "/trust/graph/:communityId/full",
+        "class": "ordinary_member"
+      },
+      {
+        "service": "social-graph-service",
+        "method": "GET",
+        "path": "/trust/neighborhood/:userId",
+        "class": "ordinary_member"
+      },
+      {
+        "service": "social-graph-service",
+        "method": "GET",
+        "path": "/trust-card/:targetUserId",
+        "class": "ordinary_member"
+      },
+      {
+        "service": "social-graph-service",
+        "method": "GET",
+        "path": "/paths/:targetUserId",
+        "class": "ordinary_member"
+      },
+      {
+        "service": "social-graph-service",
+        "method": "POST",
+        "path": "/paths/batch",
+        "class": "ordinary_member"
+      },
+      {
+        "service": "social-graph-service",
+        "method": "GET",
+        "path": "/network",
+        "class": "ordinary_member"
+      },
+      {
+        "service": "social-graph-service",
+        "method": "GET",
+        "path": "/invitations",
+        "class": "ordinary_member"
+      },
+      {
+        "service": "social-graph-service",
+        "method": "GET",
+        "path": "/invitations/stats",
+        "class": "ordinary_member"
+      },
+      {
+        "service": "social-graph-service",
+        "method": "GET",
+        "path": "/trust/me/memory",
+        "class": "self"
+      },
+      {
+        "service": "social-graph-service",
+        "method": "GET",
+        "path": "/trust/relationships/fading",
+        "class": "self"
+      },
+      {
+        "service": "social-graph-service",
+        "method": "GET",
+        "path": "/trust/communities",
+        "class": "community_aggregate"
+      },
+      {
+        "service": "social-graph-service",
+        "method": "GET",
+        "path": "/trust/edge",
+        "class": "ordinary_member"
+      },
+      {
+        "service": "social-graph-service",
+        "method": "GET",
+        "path": "/trust/decay-config",
+        "class": "community_aggregate"
+      },
+      {
+        "service": "social-graph-service",
+        "method": "GET",
+        "path": "/trust/decay-config/:communityId",
+        "class": "community_aggregate"
+      },
+      {
+        "service": "social-graph-service",
+        "method": "PUT",
+        "path": "/trust/decay-config/:communityId",
+        "class": "internal"
+      },
+      {
+        "service": "community-service",
+        "method": "GET",
+        "path": "/communities/:id/governance",
+        "class": "ordinary_member"
+      },
+      {
+        "service": "community-service",
+        "method": "GET",
+        "path": "/communities/:communityId/export",
+        "class": "community_aggregate"
+      },
+      {
+        "service": "community-service",
+        "method": "GET",
+        "path": "/communities/:communityId/export/members",
+        "class": "community_aggregate"
+      }
+    ]
   }
 }
