@@ -966,6 +966,27 @@ See [ADR-056](../../docs/adr/ADR-056-intrinsic-trust-decay.md) for full decision
 
 ---
 
+## Sprint 112 — Privacy-safe relationship contracts (ADR-082, 2026-06-24)
+
+Person graph/path/card/memory contracts now carry identity + structure + a qualitative
+`relationship_state` only — never another member's exact reputation or raw edge weight. Internal
+weights and numeric path strength are unchanged (feed ranking + decay classification still use them);
+projection happens at the response boundary in `src/services/disclosureProjection.ts`.
+
+- `GET /trust/graph`, `/trust/graph/:communityId[/full]`, `/trust/neighborhood/:userId` →
+  `SafeBelongingNode` (no `trust_score`/`karma`, incl. caller's node) + `SafeBelongingLink`
+  (`relationship_state`, no `raw_weight`/`effective_weight`).
+- `GET /paths/:targetUserId`, `POST /paths/batch` → drop outward `trust_score` (degrees + topology +
+  scope only; internal `path_trust_score` caching kept). Path intermediate-node karma removed at
+  source (`pathComputation.ts`).
+- `GET /trust-card/:targetUserId` → identity + path + degrees + path_type + scope; no karma / tier.
+- `GET /trust/me/memory`, `/trust/relationships/fading` → keep peer identity + decay tier + dates +
+  counts; drop exact `currentWeight`.
+- `GET /trust/edge` → **retired** `410 TRUST_EDGE_ENDPOINT_RETIRED` (internal `getTrustEdge()` kept).
+- `GET /trust/decay-config/:communityId` → active-member gated; `PUT` stays admin-only.
+- `GET /invitations` drops invitee karma; `GET /invitations/stats` drops `avg_invitee_karma` +
+  `avg_invitee_trust_score` (counts/acceptance/network/tier kept).
+
 **Status**: ✅ MVP Complete (v9.1.0)
 **Version**: 9.1.0
-**Last Updated**: 2025-12-27
+**Last Updated**: 2026-06-24 (Sprint 112 — ADR-082 disclosure boundary)

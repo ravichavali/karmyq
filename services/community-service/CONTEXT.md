@@ -1587,3 +1587,17 @@ src/
 - Main architecture: `/docs/ARCHITECTURE.md`
 - Database schema: `/infrastructure/postgres/init.sql` (lines 33-91)
 - Federation communities: `/docs/FEDERATION_PROTOCOL.md` (section: Federated Communities)
+
+## Sprint 112 — Governance + export disclosure (ADR-082, 2026-06-24)
+
+- `GET /communities/:id/governance` — eligibility is still computed from exact trust-weight sums
+  INTERNALLY, but the response projects member rows to identity + a coarse reason only:
+  `eligible_members: { user_id, name, eligible:true, eligibility_reason:'established_community_relationships' }`
+  and `role_holders: { user_id, name, role }`. No member `trust_score`/`karma`. Community maturity
+  aggregate + configured threshold remain (not a member's personal score). A failed nomination returns
+  `422 GOVERNANCE_ELIGIBILITY_NOT_MET` with no score/threshold numbers. (`database/governanceDb.ts`)
+- `GET /communities/:communityId/export` — no per-member `karma_records`/`trust_scores`; instead a
+  non-identifying `community_reputation_summary { participating_members, transaction_count,
+  total_karma_points }` only when ≥5 active members, omitted otherwise.
+- `GET /communities/:communityId/export/activity` — keeps per-member activity counts (helps/requests)
+  but drops Total Karma, Trust Score, and karma-ranked ordering.

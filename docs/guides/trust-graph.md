@@ -107,6 +107,15 @@ The graph only shows people who are **currently active members** of the communit
 
 ## Trust-Gated Governance
 
-The trust graph powers community governance. Members with high enough trust scores become eligible for governance roles (Admin, Moderator). Eligible members can be nominated and ratified through the **Governance** tab on any community page.
+The trust graph powers community governance. Members with high enough trust scores become eligible for governance roles (Admin, Moderator). Eligible members can be nominated and ratified through the **Governance** tab on any community page. As of Sprint 112, governance shows eligible members and role holders by name with a coarse explanation — "Eligible for stewardship — eligibility threshold met through established community relationships" — and never another member's trust or karma numbers.
 
 See [Trust-Gated Governance](/docs/concepts/governance) for the full governance model.
+
+## Whose numbers you can see (Reputation Disclosure Boundary)
+
+The belonging graph shows **relationship structure**, not reputation scores. As of Sprint 112
+(ADR-082), node detail shows who you're connected to and how (degrees away, connection count, and a
+qualitative relationship state — strong, warm, fading, nearly forgotten) — but **no node shows a trust
+score or karma**, not even your own. Your own exact Reputation score and Current karma live in your
+profile and **My Network** self-summary (one canonical, community-scoped source), never on the graph
+and never on another member's card. This is enforced at the API, not just hidden in the interface.

@@ -1320,3 +1320,24 @@ Set global evolution enabled/disabled for the user. Body: `{ "global_evolution_e
 - Database schema: `/infrastructure/postgres/init.sql` (lines 140-181)
 - Karma configuration: `src/services/karmaService.ts:11-18`
 - Federation reputation: `/docs/FEDERATION_PROTOCOL.md` (section: Federated Reputation)
+
+## Sprint 112 — Reputation Disclosure Boundary (ADR-082, 2026-06-24)
+
+Exact ordinary-member reputation is now self-only at the API boundary. Math (ADR-037/038/039,
+ADR-011 decay) is unchanged; only authorization, projection, and naming changed.
+
+- **New:** `GET /reputation/me/community-summary?community_id=` → canonical `SelfCommunityReputation`
+  (scope + 0–100 reputation score/tier + decayed karma/trend + 30d activity). Self-only + active
+  membership; `400 INVALID_COMMUNITY_ID`, `404 REPUTATION_NOT_FOUND`. Built in `utils/disclosureAuth.ts`.
+- **Self-only (cross-user → `404 REPUTATION_NOT_FOUND`, no admin exception):** `/karma/:userId`,
+  `/trust/:userId`, `/trust/:userId/:communityId`, `/history/:userId`, `/badges/:userId`,
+  `/users/:userId/badges`, `/trust-config/:userId/:communityId[/history]` (GET/PUT),
+  `/users/:userId/effective-params`, `/users/:userId/evolution-global` (GET/PUT).
+- **Community aggregates (active member + ≥5 cohort, else `404 AGGREGATE_NOT_AVAILABLE`):**
+  `/community-trust/:communityId`, `/community-health/:communityId`, `/milestones/:communityId`,
+  `/network-metrics/:communityId` (`utils/disclosureAuth.checkAggregateAccess`).
+- **Retired:** `GET /reputation/leaderboard/:communityId` → `410 REPUTATION_LEADERBOARD_RETIRED`
+  (internal `getCommunityLeaderboard()` kept).
+- Disclosure classifications live in `services/registry.json#reputation_disclosure` +
+  `tests/fixtures/reputation-disclosure-inventory.json`, gated by
+  `tests/regression/reputation-disclosure-gate.test.ts`.
