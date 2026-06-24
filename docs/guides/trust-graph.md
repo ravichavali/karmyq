@@ -48,7 +48,7 @@ Groups are detected automatically from the strongest connections, so the layout 
 
 ## My Network View
 
-The My Network tab shows **your first-degree network within this community** — the people you've built trust with here — clustered by how closely they connect to each other. It's a static, structure-revealing view; click any node to open its detail panel (trust score, karma, connection count).
+The My Network tab shows **your first-degree network within this community** — the people you've built trust with here — clustered by how closely they connect to each other. It's a static, structure-revealing view; click any node to open its detail panel. For privacy, another member's panel shows only their name and connection count — your **own** node is the only one that shows your trust score and karma.
 
 ## Your Trust Network (dashboard)
 

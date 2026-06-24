@@ -40,9 +40,9 @@ export default function BelongingSection({ userId }: BelongingSectionProps) {
   const peopleCount = graph ? graph.nodes.filter(n => n.id !== userId).length : 0
 
   return (
-    <section className="bg-slate-800/50 rounded-xl p-5 border border-slate-700 space-y-4">
+    <section className="kq-card space-y-4">
       <div>
-        <h2 className="text-lg font-semibold text-slate-100">How you&apos;re woven into Karmyq</h2>
+        <h2 className="section-heading mb-1">How you&apos;re woven into Karmyq</h2>
         <BelongingPulse
           peopleCount={peopleCount}
           communityCount={membershipFailed ? undefined : communityCount ?? undefined}
@@ -51,7 +51,7 @@ export default function BelongingSection({ userId }: BelongingSectionProps) {
 
       <BelongingGraph mode="ego" currentUserId={userId} height={480} onDataLoaded={onDataLoaded} />
 
-      <Link href="/network?mode=ego" className="inline-block text-sm text-indigo-400 hover:text-indigo-300">
+      <Link href="/network?mode=ego" className="inline-block text-sm text-primary hover:underline">
         Explore your full network →
       </Link>
     </section>

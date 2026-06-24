@@ -416,8 +416,8 @@ export default function TrustGraphHEB({
             <span className="inline-block w-2.5 h-2.5 rounded-full bg-emerald-500" /> You
           </span>
           <span className="flex items-center gap-1 text-orange-500">— your connections</span>
-          <span className="flex items-center gap-1 text-indigo-500">— within-cluster</span>
-          <span className="flex items-center gap-1 text-slate-400">— cross-cluster</span>
+          <span className="flex items-center gap-1 text-indigo-500">— close-knit group</span>
+          <span className="flex items-center gap-1 text-slate-400">— bridge between groups</span>
         </div>
       )}
 
@@ -477,11 +477,18 @@ export default function TrustGraphHEB({
               )}
             </div>
           ) : (
+            // Privacy: another member's trust score / karma are not exposed — only the structural
+            // connection count (which is already visible as edges) shows for others. Your own node
+            // shows your full numbers.
             <div className="grid grid-cols-2 gap-2 text-text-muted">
-              <span>Trust score</span>
-              <span className="text-text">{Number(selectedNode.trust_score).toFixed(1)}</span>
-              <span>Karma</span>
-              <span className="text-text">{selectedNode.karma}</span>
+              {selectedNode.id === currentUserId && (
+                <>
+                  <span>Trust score</span>
+                  <span className="text-text">{Number(selectedNode.trust_score).toFixed(1)}</span>
+                  <span>Karma</span>
+                  <span className="text-text">{selectedNode.karma}</span>
+                </>
+              )}
               <span>Connections</span>
               <span className="text-text">{connectionCount(selectedNode.id)}</span>
             </div>

@@ -39,7 +39,7 @@ describe('sprint-111 privacy-scoped trust neighborhood', () => {
       mockQuery
         .mockResolvedValueOnce({
           rows: [
-            { id: 'center', name: 'Me', trust_score: '0', karma: '0', degrees_of_separation: 0 },
+            { id: 'center', name: 'Me', trust_score: '5.5', karma: '7', degrees_of_separation: 0 },
             { id: 'peer-1', name: 'Peer One', trust_score: '2.5', karma: '4', degrees_of_separation: 1 },
           ],
         })
@@ -47,7 +47,8 @@ describe('sprint-111 privacy-scoped trust neighborhood', () => {
           rows: [{ source: 'center', target: 'peer-1', raw_weight: '3', effective_weight: '2.5' }],
         });
 
-      const result = await getTrustNeighborhood('center', ['c1', 'c2'], 2);
+      // center is the authenticated caller here.
+      const result = await getTrustNeighborhood('center', ['c1', 'c2'], 2, 80, 'center');
 
       expect(result).toEqual({
         nodes: expect.arrayContaining([
@@ -57,10 +58,14 @@ describe('sprint-111 privacy-scoped trust neighborhood', () => {
         links: expect.any(Array),
         meta: { depth: 2, truncated: false },
       });
-      // Numeric fields are coerced from string rows.
+      // Caller's own numeric fields are coerced and preserved.
+      const center = result.nodes.find(n => n.id === 'center')!;
+      expect(center.trust_score).toBe(5.5);
+      expect(center.karma).toBe(7);
+      // Privacy: another member's reputation numbers are zeroed at the data boundary.
       const peer = result.nodes.find(n => n.id === 'peer-1')!;
-      expect(peer.trust_score).toBe(2.5);
-      expect(peer.karma).toBe(4);
+      expect(peer.trust_score).toBe(0);
+      expect(peer.karma).toBe(0);
       expect(result.links[0]).toEqual({
         source: 'center',
         target: 'peer-1',
@@ -142,15 +147,40 @@ describe('sprint-111 privacy-scoped trust neighborhood', () => {
       expect(linkSql).toMatch(/status = 'active'/);
     });
 
-    it('does not mark any node isCurrentUser (identity is applied by the route)', async () => {
+    it('marks only the authenticated caller isCurrentUser and zeroes everyone else\'s metrics', async () => {
       mockQuery
         .mockResolvedValueOnce({
-          rows: [{ id: 'center', name: 'Me', trust_score: '0', karma: '0', degrees_of_separation: 0 }],
+          rows: [
+            { id: 'center', name: 'Center', trust_score: '9', karma: '3', degrees_of_separation: 0 },
+            { id: 'caller', name: 'Caller', trust_score: '4', karma: '2', degrees_of_separation: 1 },
+          ],
+        })
+        .mockResolvedValueOnce({ rows: [] });
+
+      // Expansion case: the explorer fetches a clicked node's neighborhood, so the center is NOT the
+      // caller. Only the caller's node should carry identity + reputation numbers.
+      const result = await getTrustNeighborhood('center', ['c1'], 1, 80, 'caller');
+
+      const caller = result.nodes.find(n => n.id === 'caller')!;
+      const center = result.nodes.find(n => n.id === 'center')!;
+      expect(caller.isCurrentUser).toBe(true);
+      expect(caller.trust_score).toBe(4);
+      expect(caller.karma).toBe(2);
+      expect(center.isCurrentUser).toBe(false);
+      expect(center.trust_score).toBe(0);
+      expect(center.karma).toBe(0);
+    });
+
+    it('zeroes all metrics when no caller is supplied (none can be the caller)', async () => {
+      mockQuery
+        .mockResolvedValueOnce({
+          rows: [{ id: 'center', name: 'Me', trust_score: '9', karma: '3', degrees_of_separation: 0 }],
         })
         .mockResolvedValueOnce({ rows: [] });
 
       const result = await getTrustNeighborhood('center', ['c1'], 1);
       expect(result.nodes.every(n => !n.isCurrentUser)).toBe(true);
+      expect(result.nodes.every(n => n.trust_score === 0 && n.karma === 0)).toBe(true);
     });
   });
 

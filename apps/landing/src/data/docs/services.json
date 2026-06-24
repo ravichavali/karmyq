@@ -743,7 +743,7 @@
         {
           "method": "GET",
           "path": "/trust/graph",
-          "description": "Aggregate ego-network across all of calling user's communities (Sprint 67). Returns calling user + direct neighbors + edges. Used by dashboard Your Network panel."
+          "description": "Aggregate ego-network across all of calling user's communities (Sprint 67). Returns calling user + direct neighbors + edges. Used by dashboard Your Network panel. Sprint 111 privacy: only the caller's own node carries trust_score/karma; other nodes' are zeroed."
         },
         {
           "method": "GET",
@@ -753,7 +753,7 @@
         {
           "method": "GET",
           "path": "/trust/graph/:communityId/full",
-          "description": "Full community trust graph (Sprint 74) — up to 150 members ranked by trust score (top 149 + calling user) with all inter-member edges. Powers the Community sub-tab hierarchical edge bundling view. Response: { nodes, links } with isCurrentUser on nodes. Sprint 90: each edge also carries currentWeight, disappearanceThreshold, and decayTier (ADR-070)."
+          "description": "Full community trust graph (Sprint 74) — up to 150 members ranked by trust score (top 149 + calling user) with all inter-member edges. Powers the Community sub-tab hierarchical edge bundling view. Response: { nodes, links } with isCurrentUser on nodes. Sprint 90: each edge also carries currentWeight, disappearanceThreshold, and decayTier (ADR-070). Sprint 111 privacy: non-caller nodes' trust_score/karma are zeroed."
         },
         {
           "method": "GET",
@@ -769,6 +769,11 @@
           "method": "GET",
           "path": "/trust/communities",
           "description": "Inter-community depth graph (Sprint 79) — the caller's communities as nodes plus edge/lineage-reachable ones, with organic trust links (from community_trust_edges) and fission lineage links (parent→child from executed split_proposals). Response: { nodes, links } with type tags."
+        },
+        {
+          "method": "GET",
+          "path": "/trust/neighborhood/:userId",
+          "description": "Sprint 111 (ADR-081): privacy-scoped recursive ego-neighborhood for the /network explorer. Query: depth=1|2|3 (default 1), optional communityId. Scope resolved BEFORE traversal from shared active community membership — with communityId both caller and center must be active members; without it they must share ≥1 active community. Traverses only trust_edges_live edges inside allowed communities and active members. Inaccessible center → 404 (no account-existence leak). Capped at 80 nodes; each node carries degrees_of_separation (center=0). Response: { nodes, links, meta: { depth, truncated } }; only the authenticated caller's node is isCurrentUser. Privacy: trust_score/karma are returned only for the caller's own node — every other node's are zeroed at the API boundary (same rule across all graph reads)."
         },
         {
           "method": "GET",

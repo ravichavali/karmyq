@@ -24,8 +24,10 @@ describe('Sprint 74: getFullCommunityGraph', () => {
     const result = await getFullCommunityGraph('comm-1', 'ua');
 
     expect(result.nodes).toHaveLength(2);
+    // The caller's own node keeps its parsed reputation numbers...
     expect(result.nodes[0]).toEqual({ id: 'ua', name: 'Alice', trust_score: 10, karma: 50, isCurrentUser: true });
-    expect(result.nodes[1]).toEqual({ id: 'ub', name: 'Bob', trust_score: 8, karma: 30, isCurrentUser: false });
+    // ...but another member's trust_score/karma are zeroed at the API boundary (Sprint 111 privacy).
+    expect(result.nodes[1]).toEqual({ id: 'ub', name: 'Bob', trust_score: 0, karma: 0, isCurrentUser: false });
     expect(result.links).toHaveLength(1);
     expect(result.links[0]).toEqual({ source: 'ua', target: 'ub', raw_weight: 5, effective_weight: 4.2 });
   });

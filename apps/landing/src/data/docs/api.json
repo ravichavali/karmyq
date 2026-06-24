@@ -933,6 +933,11 @@
         },
         {
           "method": "GET",
+          "path": "/trust/neighborhood/:userId",
+          "description": "Sprint 111 (ADR-081) — privacy-scoped recursive ego-neighborhood backing the full-page `/network` explorer. Walks `trust_edges_live` outward from `:userId` and returns each reachable person with the"
+        },
+        {
+          "method": "GET",
           "path": "/trust/edge",
           "description": "Return a single trust edge for a user pair in a community."
         },
