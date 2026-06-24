@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useMemo } from 'react'
 import * as d3 from 'd3'
 import type { BelongingMode, GraphData, TrustLink, TrustNode } from './types'
+import { linkKey } from './normalizeGraphData'
 
 // Sprint 90 / ADR-070 — visible decay: fade an edge's opacity by how quiet the bond has gone, so the
 // graph perceptibly fades alongside the relationship faces. `strong`/undefined = no extra fade.
@@ -72,7 +73,6 @@ function detectClusters(nodes: TrustNode[], links: TrustLink[]): Map<string, num
   return result
 }
 
-const edgeKey = (l: TrustLink) => `${[l.source, l.target].sort().join('::')}::${l.type ?? 'trust'}`
 const nodeLabel = (n: TrustNode, currentUserId: string) =>
   n.id === currentUserId ? `${n.name} (you)` : n.name
 
@@ -220,7 +220,7 @@ export default function TrustGraphHEB({
       .filter((x): x is { link: TrustLink; path: d3.HierarchyPointNode<any>[] } => x !== null)
 
     const edgeSel = edgesG.selectAll<SVGPathElement, { link: TrustLink; path: any }>('path.edge')
-      .data(linkPaths, (d: any) => edgeKey(d.link))
+      .data(linkPaths, (d: any) => linkKey(d.link))
     edgeSel.exit().remove()
     const edgeMerge = edgeSel.enter()
       .append('path')
