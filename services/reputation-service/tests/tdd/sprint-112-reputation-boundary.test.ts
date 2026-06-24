@@ -66,6 +66,7 @@ jest.mock('../../src/database/communityEvolutionDb', () => ({
 }));
 
 import reputationRouter from '../../src/routes/reputation';
+import healthRouter from '../../src/routes/health';
 
 const SELF = '11111111-1111-1111-1111-111111111111';
 const OTHER = '22222222-2222-2222-2222-222222222222';
@@ -74,7 +75,10 @@ const COMMUNITY = 'cccccccc-cccc-cccc-cccc-cccccccccccc';
 function app() {
   const a = express();
   a.use(express.json());
-  a.use('/reputation', reputationRouter);
+  // healthRouter relies on mount-level auth (no per-route authMiddleware), so set req.user here.
+  const inject = (req: any, _res: any, next: any) => { req.user = currentUser; next(); };
+  a.use('/reputation', inject, reputationRouter);
+  a.use('/reputation', inject, healthRouter);
   return a;
 }
 
@@ -173,6 +177,48 @@ describe('GET /reputation/leaderboard/:communityId — retired', () => {
     expect(res.status).toBe(410);
     expectAdr074(res.body, 'REPUTATION_LEADERBOARD_RETIRED');
     expect(res.body).not.toHaveProperty('data');
+  });
+});
+
+describe('community aggregates — active member + >=5-member cohort (Task 4)', () => {
+  const member = { rows: [{ community_id: COMMUNITY, role: 'member', community_name: 'Maplewood' }] };
+
+  it('community-trust: non-member -> 404 AGGREGATE_NOT_AVAILABLE', async () => {
+    mockQuery.mockResolvedValueOnce({ rows: [] }); // getActiveMembership -> none
+    const res = await request(app()).get(`/reputation/community-trust/${COMMUNITY}`);
+    expect(res.status).toBe(404);
+    expectAdr074(res.body, 'AGGREGATE_NOT_AVAILABLE');
+  });
+
+  it('community-trust: cohort of 4 is suppressed -> 404 AGGREGATE_NOT_AVAILABLE', async () => {
+    mockQuery
+      .mockResolvedValueOnce(member) // membership
+      .mockResolvedValueOnce({ rows: [{ n: 4 }] }); // cohort < 5
+    const res = await request(app()).get(`/reputation/community-trust/${COMMUNITY}`);
+    expect(res.status).toBe(404);
+    expectAdr074(res.body, 'AGGREGATE_NOT_AVAILABLE');
+  });
+
+  it('community-trust: member + cohort of 5 succeeds', async () => {
+    const { getCommunityTrustScore } = require('../../src/database/communityTrustDb');
+    getCommunityTrustScore.mockResolvedValue({ community_id: COMMUNITY, score: 62 });
+    mockQuery
+      .mockResolvedValueOnce(member) // membership
+      .mockResolvedValueOnce({ rows: [{ n: 5 }] }); // cohort >= 5
+    const res = await request(app()).get(`/reputation/community-trust/${COMMUNITY}`);
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+  });
+
+  it.each([
+    ['community-health', `/reputation/community-health/${COMMUNITY}`],
+    ['milestones', `/reputation/milestones/${COMMUNITY}`],
+    ['network-metrics', `/reputation/network-metrics/${COMMUNITY}`],
+  ])('%s: non-member -> 404 AGGREGATE_NOT_AVAILABLE', async (_label, url) => {
+    mockQuery.mockResolvedValueOnce({ rows: [] }); // getActiveMembership -> none
+    const res = await request(app()).get(url);
+    expect(res.status).toBe(404);
+    expectAdr074(res.body, 'AGGREGATE_NOT_AVAILABLE');
   });
 });
 

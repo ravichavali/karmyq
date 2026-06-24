@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { getUserKarma, getUserKarmaWithDecay, getUserTrustScore, getOverallTrustScore, updateTrustScore } from '../services/karmaService';
-import { getSelfCommunityReputation } from '../utils/disclosureAuth';
+import { getSelfCommunityReputation, checkAggregateAccess } from '../utils/disclosureAuth';
 import { getCommunityTrustScore, } from '../database/communityTrustDb';
 import { calculateCommunityTrustScore } from '../services/communityTrustService';
 import { getUserBadges } from '../services/badgeService';
@@ -37,6 +37,12 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 // reads return 404 REPUTATION_NOT_FOUND (not 403) so we never confirm a user has reputation data.
 function denyNotFound(res: Response) {
   return res.status(404).json({ success: false, message: 'Reputation not found', error: 'REPUTATION_NOT_FOUND' });
+}
+
+// Community aggregates are membership + cohort gated (ADR-082). Non-member and undersized-cohort
+// both return the same 404 so we never reveal which — or that the community exists.
+function denyAggregate(res: Response) {
+  return res.status(404).json({ success: false, message: 'Community aggregate not available', error: 'AGGREGATE_NOT_AVAILABLE' });
 }
 
 // GET /reputation/me/community-summary?community_id= — Sprint 112 (ADR-082) canonical self summary.
@@ -155,9 +161,12 @@ router.get('/trust/:userId/:communityId', authMiddleware, async (req: Authentica
 });
 
 // GET /reputation/community-trust/:communityId - Get community trust score (ADR-040)
-router.get('/community-trust/:communityId', authMiddleware, async (req: Request, res: Response) => {
+router.get('/community-trust/:communityId', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { communityId } = req.params;
+    // Sprint 112 (ADR-082): community aggregate — active member + >=5-member cohort.
+    const access = await checkAggregateAccess(req.user?.userId, communityId);
+    if (!access.allowed) return denyAggregate(res);
     const { recalculate } = req.query;
 
     // Allow forcing a recalculation via query param (e.g. for admin use)

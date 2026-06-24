@@ -1,8 +1,15 @@
 import express, { Request, Response } from 'express';
 import { query } from '../database/db';
 import { computeNetworkCohesion } from '../services/networkCohesionService';
+import { checkAggregateAccess } from '../utils/disclosureAuth';
 
 const router = express.Router();
+
+// Sprint 112 (ADR-082): community aggregates require active membership + a >=5-member cohort.
+// Non-member and undersized cohort both return the same 404 to avoid leaking existence/size.
+function denyAggregate(res: Response) {
+  return res.status(404).json({ success: false, message: 'Community aggregate not available', error: 'AGGREGATE_NOT_AVAILABLE' });
+}
 
 /**
  * GET /reputation/community-health/:communityId
@@ -13,6 +20,8 @@ router.get('/community-health/:communityId', async (req: Request, res: Response)
   const { period = '7d' } = req.query;
 
   try {
+    const access = await checkAggregateAccess((req as any).user?.userId, communityId);
+    if (!access.allowed) return denyAggregate(res);
     // Parse period to days
     let days = 7;
     if (period === '30d') days = 30;
@@ -115,6 +124,8 @@ router.get('/milestones/:communityId', async (req: Request, res: Response) => {
   const { limit = '10' } = req.query;
 
   try {
+    const access = await checkAggregateAccess((req as any).user?.userId, communityId);
+    if (!access.allowed) return denyAggregate(res);
     const result = await query(
       `SELECT
         id,
@@ -267,6 +278,8 @@ router.get('/network-metrics/:communityId', async (req: Request, res: Response) 
   const { communityId } = req.params;
 
   try {
+    const access = await checkAggregateAccess((req as any).user?.userId, communityId);
+    if (!access.allowed) return denyAggregate(res);
     const metrics = await computeNetworkCohesion(communityId);
     res.json({ success: true, data: metrics });
   } catch (error) {

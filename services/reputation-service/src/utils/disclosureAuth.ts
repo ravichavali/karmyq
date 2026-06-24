@@ -65,6 +65,23 @@ export async function countActiveMembers(communityId: string): Promise<number> {
   return result.rows[0]?.n ?? 0;
 }
 
+/**
+ * An outward community aggregate is safe only when the caller is an active member AND the cohort has
+ * at least MIN_AGGREGATE_COHORT distinct active members (so the aggregate cannot be decomposed into
+ * an individual's value). Returns allowed=false for non-members and undersized cohorts alike — the
+ * caller is never told which, so we do not leak community existence or size.
+ */
+export async function checkAggregateAccess(
+  userId: string | undefined,
+  communityId: string,
+): Promise<{ allowed: boolean }> {
+  if (!userId) return { allowed: false };
+  const membership = await getActiveMembership(userId, communityId);
+  if (!membership) return { allowed: false };
+  const cohort = await countActiveMembers(communityId);
+  return { allowed: cohort >= MIN_AGGREGATE_COHORT };
+}
+
 /** True when the JWT memberships mark the caller as an admin of the community. */
 export function isCommunityAdmin(
   memberships: Array<{ id?: string; role?: string }> | undefined,
