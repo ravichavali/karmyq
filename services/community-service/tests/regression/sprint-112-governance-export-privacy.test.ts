@@ -116,3 +116,41 @@ describe('GET /communities/:id/export/activity — no member reputation columns'
     expect(json).toMatch(/Helps Given/);
   });
 });
+
+// GET /communities/:id/stats — community aggregate (admin). Sprint 112 (ADR-082): top-helpers carry
+// no per-member karma, and the community karma average is suppressed below 5 distinct contributors.
+function statsMock(over: { usersWithKarma?: number } = {}) {
+  const statsRow = {
+    member_stats: { total_members: 12 },
+    request_stats: {},
+    match_stats: {},
+    karma_stats: { avg_karma: 42, users_with_karma: over.usersWithKarma ?? 6 },
+    top_helpers: [{ name: 'Sam', user_id: U2, help_count: 5 }],
+    top_requesters: [],
+    daily_activity: [],
+  };
+  return (sql: string) => {
+    if (/SELECT role FROM communities\.members/.test(sql)) return Promise.resolve({ rowCount: 1, rows: [{ role: 'admin' }] });
+    if (/top_helpers|karma_stats|WITH/.test(sql)) return Promise.resolve({ rowCount: 1, rows: [statsRow] });
+    return Promise.resolve({ rowCount: 0, rows: [] }); // BEGIN / SET LOCAL / COMMIT / dbContext
+  };
+}
+
+describe('GET /communities/:id/stats — ADR-082 aggregate suppression', () => {
+  it('top-helpers carry no per-member avg_karma; karma average present with >=5 contributors', async () => {
+    mockQuery.mockImplementation(statsMock({ usersWithKarma: 6 }) as any);
+    const res = await request(app).get(`/communities/${COMMUNITY}/stats`).set('Authorization', `Bearer ${token}`);
+    expect(res.status).toBe(200);
+    expect(JSON.stringify(res.body.data.topHelpers)).not.toMatch(/avg_karma|max_karma/);
+    expect(res.body.data.topHelpers[0]).toEqual({ name: 'Sam', user_id: U2, help_count: 5 });
+    expect(res.body.data.karma.avg_karma).toBe(42);
+  });
+
+  it('suppresses the community karma average below 5 distinct contributors', async () => {
+    mockQuery.mockImplementation(statsMock({ usersWithKarma: 4 }) as any);
+    const res = await request(app).get(`/communities/${COMMUNITY}/stats`).set('Authorization', `Bearer ${token}`);
+    expect(res.status).toBe(200);
+    expect(res.body.data.karma).not.toHaveProperty('avg_karma');
+    expect(res.body.data.karma.users_with_karma).toBe(4);
+  });
+});

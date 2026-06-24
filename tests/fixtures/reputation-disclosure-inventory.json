@@ -16,7 +16,7 @@
       "path": "/reputation/me/community-summary",
       "class": "self",
       "schema": "SelfCommunityReputationSchema",
-      "contract_test": "services/reputation-service/tests/unit/sprint-112-reputation-boundary.test.ts",
+      "contract_test": "services/reputation-service/tests/regression/sprint-112-reputation-boundary.test.ts",
       "sample_response": {
         "scope": {
           "type": "community",
@@ -49,7 +49,7 @@
       "path": "/reputation/me/karma",
       "class": "self",
       "schema": "self_only",
-      "contract_test": "services/reputation-service/tests/unit/sprint-112-reputation-boundary.test.ts"
+      "contract_test": "services/reputation-service/tests/regression/sprint-112-reputation-boundary.test.ts"
     },
     {
       "service": "reputation-service",
@@ -57,7 +57,7 @@
       "path": "/reputation/karma/:userId",
       "class": "self",
       "schema": "self_only",
-      "contract_test": "services/reputation-service/tests/unit/sprint-112-reputation-boundary.test.ts",
+      "contract_test": "services/reputation-service/tests/regression/sprint-112-reputation-boundary.test.ts",
       "denial_fixture": {
         "success": false,
         "message": "Reputation not found",
@@ -70,7 +70,7 @@
       "path": "/reputation/trust/:userId",
       "class": "self",
       "schema": "self_only",
-      "contract_test": "services/reputation-service/tests/unit/sprint-112-reputation-boundary.test.ts",
+      "contract_test": "services/reputation-service/tests/regression/sprint-112-reputation-boundary.test.ts",
       "denial_fixture": {
         "success": false,
         "message": "Reputation not found",
@@ -83,7 +83,7 @@
       "path": "/reputation/trust/:userId/:communityId",
       "class": "self",
       "schema": "self_only",
-      "contract_test": "services/reputation-service/tests/unit/sprint-112-reputation-boundary.test.ts",
+      "contract_test": "services/reputation-service/tests/regression/sprint-112-reputation-boundary.test.ts",
       "denial_fixture": {
         "success": false,
         "message": "Reputation not found",
@@ -96,7 +96,7 @@
       "path": "/reputation/history/:userId",
       "class": "self",
       "schema": "self_only",
-      "contract_test": "services/reputation-service/tests/unit/sprint-112-reputation-boundary.test.ts",
+      "contract_test": "services/reputation-service/tests/regression/sprint-112-reputation-boundary.test.ts",
       "denial_fixture": {
         "success": false,
         "message": "Reputation not found",
@@ -109,7 +109,7 @@
       "path": "/reputation/badges/:userId",
       "class": "self",
       "schema": "self_only",
-      "contract_test": "services/reputation-service/tests/unit/sprint-112-reputation-boundary.test.ts",
+      "contract_test": "services/reputation-service/tests/regression/sprint-112-reputation-boundary.test.ts",
       "denial_fixture": {
         "success": false,
         "message": "Reputation not found",
@@ -122,7 +122,7 @@
       "path": "/reputation/users/:userId/badges",
       "class": "self",
       "schema": "self_only",
-      "contract_test": "services/reputation-service/tests/unit/sprint-112-reputation-boundary.test.ts",
+      "contract_test": "services/reputation-service/tests/regression/sprint-112-reputation-boundary.test.ts",
       "denial_fixture": {
         "success": false,
         "message": "Reputation not found",
@@ -135,7 +135,7 @@
       "path": "/reputation/leaderboard/:communityId",
       "class": "ordinary_member",
       "schema": "retired_410",
-      "contract_test": "services/reputation-service/tests/unit/sprint-112-reputation-boundary.test.ts",
+      "contract_test": "services/reputation-service/tests/regression/sprint-112-reputation-boundary.test.ts",
       "denial_fixture": {
         "success": false,
         "message": "The member leaderboard has been retired; exact reputation is self-only.",
@@ -148,7 +148,7 @@
       "path": "/reputation/community-trust/:communityId",
       "class": "community_aggregate",
       "schema": "community_aggregate",
-      "contract_test": "services/reputation-service/tests/unit/sprint-112-reputation-boundary.test.ts"
+      "contract_test": "services/reputation-service/tests/regression/sprint-112-reputation-boundary.test.ts"
     },
     {
       "service": "reputation-service",
@@ -156,7 +156,7 @@
       "path": "/reputation/community-health/:communityId",
       "class": "community_aggregate",
       "schema": "community_aggregate",
-      "contract_test": "services/reputation-service/tests/unit/sprint-112-reputation-boundary.test.ts"
+      "contract_test": "services/reputation-service/tests/regression/sprint-112-reputation-boundary.test.ts"
     },
     {
       "service": "reputation-service",
@@ -164,7 +164,7 @@
       "path": "/reputation/milestones/:communityId",
       "class": "community_aggregate",
       "schema": "community_aggregate",
-      "contract_test": "services/reputation-service/tests/unit/sprint-112-reputation-boundary.test.ts"
+      "contract_test": "services/reputation-service/tests/regression/sprint-112-reputation-boundary.test.ts"
     },
     {
       "service": "reputation-service",
@@ -172,7 +172,7 @@
       "path": "/reputation/network-metrics/:communityId",
       "class": "community_aggregate",
       "schema": "community_aggregate",
-      "contract_test": "services/reputation-service/tests/unit/sprint-112-reputation-boundary.test.ts"
+      "contract_test": "services/reputation-service/tests/regression/sprint-112-reputation-boundary.test.ts"
     },
     {
       "service": "reputation-service",
@@ -180,7 +180,7 @@
       "path": "/reputation/trust-config/:userId/:communityId",
       "class": "self",
       "schema": "self_only",
-      "contract_test": "services/reputation-service/tests/unit/sprint-112-reputation-boundary.test.ts",
+      "contract_test": "services/reputation-service/tests/regression/sprint-112-reputation-boundary.test.ts",
       "denial_fixture": {
         "success": false,
         "message": "Reputation not found",
@@ -193,7 +193,7 @@
       "path": "/reputation/trust-config/:userId/:communityId",
       "class": "self",
       "schema": "self_only",
-      "contract_test": "services/reputation-service/tests/unit/sprint-112-reputation-boundary.test.ts",
+      "contract_test": "services/reputation-service/tests/regression/sprint-112-reputation-boundary.test.ts",
       "denial_fixture": {
         "success": false,
         "message": "Reputation not found",
@@ -206,7 +206,7 @@
       "path": "/reputation/trust-config/:userId/:communityId/history",
       "class": "self",
       "schema": "self_only",
-      "contract_test": "services/reputation-service/tests/unit/sprint-112-reputation-boundary.test.ts",
+      "contract_test": "services/reputation-service/tests/regression/sprint-112-reputation-boundary.test.ts",
       "denial_fixture": {
         "success": false,
         "message": "Reputation not found",
@@ -219,7 +219,7 @@
       "path": "/reputation/users/:userId/effective-params",
       "class": "self",
       "schema": "self_only",
-      "contract_test": "services/reputation-service/tests/unit/sprint-112-reputation-boundary.test.ts",
+      "contract_test": "services/reputation-service/tests/regression/sprint-112-reputation-boundary.test.ts",
       "denial_fixture": {
         "success": false,
         "message": "Reputation not found",
@@ -232,7 +232,7 @@
       "path": "/reputation/users/:userId/evolution-global",
       "class": "self",
       "schema": "self_only",
-      "contract_test": "services/reputation-service/tests/unit/sprint-112-reputation-boundary.test.ts",
+      "contract_test": "services/reputation-service/tests/regression/sprint-112-reputation-boundary.test.ts",
       "denial_fixture": {
         "success": false,
         "message": "Reputation not found",
@@ -245,7 +245,7 @@
       "path": "/reputation/users/:userId/evolution-global",
       "class": "self",
       "schema": "self_only",
-      "contract_test": "services/reputation-service/tests/unit/sprint-112-reputation-boundary.test.ts",
+      "contract_test": "services/reputation-service/tests/regression/sprint-112-reputation-boundary.test.ts",
       "denial_fixture": {
         "success": false,
         "message": "Reputation not found",
@@ -258,7 +258,7 @@
       "path": "/reputation/communities/:communityId/trust-evolution",
       "class": "internal",
       "schema": "internal_admin_policy",
-      "contract_test": "services/reputation-service/tests/unit/sprint-112-reputation-boundary.test.ts"
+      "contract_test": "services/reputation-service/tests/regression/sprint-112-reputation-boundary.test.ts"
     },
     {
       "service": "reputation-service",
@@ -266,7 +266,7 @@
       "path": "/reputation/communities/:communityId/trust-evolution",
       "class": "internal",
       "schema": "internal_admin_policy",
-      "contract_test": "services/reputation-service/tests/unit/sprint-112-reputation-boundary.test.ts"
+      "contract_test": "services/reputation-service/tests/regression/sprint-112-reputation-boundary.test.ts"
     },
     {
       "service": "reputation-service",
@@ -274,7 +274,7 @@
       "path": "/reputation/community/:communityId/evolution/history",
       "class": "internal",
       "schema": "internal_admin_policy",
-      "contract_test": "services/reputation-service/tests/unit/sprint-112-reputation-boundary.test.ts"
+      "contract_test": "services/reputation-service/tests/regression/sprint-112-reputation-boundary.test.ts"
     },
     {
       "service": "reputation-service",
@@ -282,7 +282,7 @@
       "path": "/reputation/community/:communityId/evolution/summary",
       "class": "internal",
       "schema": "internal_admin_policy",
-      "contract_test": "services/reputation-service/tests/unit/sprint-112-reputation-boundary.test.ts"
+      "contract_test": "services/reputation-service/tests/regression/sprint-112-reputation-boundary.test.ts"
     },
     {
       "service": "reputation-service",
@@ -290,7 +290,7 @@
       "path": "/reputation/community/:communityId/evolution/toggle",
       "class": "internal",
       "schema": "internal_admin_policy",
-      "contract_test": "services/reputation-service/tests/unit/sprint-112-reputation-boundary.test.ts"
+      "contract_test": "services/reputation-service/tests/regression/sprint-112-reputation-boundary.test.ts"
     },
     {
       "service": "reputation-service",
@@ -298,7 +298,7 @@
       "path": "/reputation/provider-trust/:providerId",
       "class": "provider",
       "schema": "ProviderReputationSchema",
-      "contract_test": "services/reputation-service/tests/unit/sprint-112-reputation-boundary.test.ts"
+      "contract_test": "services/reputation-service/tests/regression/sprint-112-reputation-boundary.test.ts"
     },
     {
       "service": "reputation-service",
@@ -306,7 +306,7 @@
       "path": "/reputation/provider-reviews/:providerId",
       "class": "provider",
       "schema": "provider_public",
-      "contract_test": "services/reputation-service/tests/unit/sprint-112-reputation-boundary.test.ts"
+      "contract_test": "services/reputation-service/tests/regression/sprint-112-reputation-boundary.test.ts"
     },
     {
       "service": "social-graph-service",

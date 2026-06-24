@@ -12,6 +12,7 @@ import {
   projectPersonLink,
   projectMemoryResponse,
   projectMemoryRelationship,
+  projectPathNodes,
   relationshipState,
   toRelationshipState,
 } from '../../src/services/disclosureProjection';
@@ -131,5 +132,22 @@ describe('relationship-memory projection', () => {
     // The peer-only forbidden key currentWeight must be gone at every depth.
     const json = JSON.stringify(safe);
     expect(json).not.toMatch(/currentWeight/);
+  });
+});
+
+describe('cached path node projection (stale ≤7-day rows)', () => {
+  it('strips karma + trust_score from cached intermediate path nodes, keeping identity', () => {
+    // A path cached BEFORE Sprint 112 carried intermediate-node karma.
+    const cached = [
+      { id: CALLER, name: 'Me' },
+      { id: PEER, name: 'Bridge', karma: S_KARMA, trust_score: S_TRUST, exchanged_at: '2026-05-01T00:00:00.000Z' },
+    ];
+    const safe = projectPathNodes(cached);
+    expect(JSON.stringify(safe)).not.toMatch(/karma|trust_score|913|827/);
+    expect((safe as any[])[1]).toEqual({ id: PEER, name: 'Bridge', exchanged_at: '2026-05-01T00:00:00.000Z' });
+  });
+
+  it('passes non-array path through unchanged (null/no connection)', () => {
+    expect(projectPathNodes(null)).toBeNull();
   });
 });

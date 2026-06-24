@@ -6,21 +6,9 @@ import { sendValidationError } from '@karmyq/shared';
 import { computeTrustPath, TrustPath } from '../services/pathComputation';
 import { resolveCommunityContext } from '../services/communityContext';
 
-const router = express.Router();
+import { projectPathNodes } from '../services/disclosureProjection';
 
-// Sprint 112 (ADR-082): cached paths in auth.social_distances may have been written BEFORE this
-// branch, when intermediate path nodes carried `karma`. Project every cached/returned path node to
-// identity-only on read so a stale (≤7-day TTL) row can't leak another member's karma.
-function projectPathNodes(path: unknown): unknown {
-  if (!Array.isArray(path)) return path;
-  return path.map((node) => {
-    if (node && typeof node === 'object') {
-      const { karma: _omitKarma, trust_score: _omitTrust, ...safe } = node as Record<string, unknown>;
-      return safe;
-    }
-    return node;
-  });
-}
+const router = express.Router();
 
 // GET /paths/:targetUserId - Get shortest path between current user and target user
 router.get('/:targetUserId', async (req: AuthenticatedRequest, res: Response) => {

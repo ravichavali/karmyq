@@ -169,6 +169,23 @@ describe('compatibility endpoints — self-only, cross-user returns 404 REPUTATI
     expect(res.status).toBe(404);
     expectAdr074(res.body, 'REPUTATION_NOT_FOUND');
   });
+
+  // Self identity is necessary but NOT sufficient — community-scoped self reads also require an
+  // ACTIVE membership (ADR-082). A self caller who is not an active member of the community gets 404.
+  const selfButInactiveCases: Array<[string, 'get' | 'put', string, any]> = [
+    ['trust/:userId/:communityId', 'get', `/reputation/trust/${SELF}/${COMMUNITY}`, null],
+    ['trust-config', 'get', `/reputation/trust-config/${SELF}/${COMMUNITY}`, null],
+    ['trust-config history', 'get', `/reputation/trust-config/${SELF}/${COMMUNITY}/history`, null],
+    ['trust-config put', 'put', `/reputation/trust-config/${SELF}/${COMMUNITY}`, { evolution_enabled: true }],
+    ['effective-params', 'get', `/reputation/users/${SELF}/effective-params?communityId=${COMMUNITY}`, null],
+  ];
+  it.each(selfButInactiveCases)('%s for a self caller who is not an active member -> 404', async (_l, method, url, payload) => {
+    mockQuery.mockResolvedValue({ rows: [] }); // getActiveMembership -> not a member
+    const req = request(app())[method](url);
+    const res = await (payload ? req.send(payload) : req);
+    expect(res.status).toBe(404);
+    expectAdr074(res.body, 'REPUTATION_NOT_FOUND');
+  });
 });
 
 describe('GET /reputation/leaderboard/:communityId — retired', () => {

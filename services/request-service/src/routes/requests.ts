@@ -700,12 +700,13 @@ async function handleCuratedFeed(req: Request, res: Response): Promise<void> {
         ...request,
         matchScore: matchResult.score,
         matchReasons: matchResult.reasons,
-        matchBreakdown: matchResult.breakdown,
         feedScore: finalFeedScore,
-        feedBreakdown: feedResult.breakdown,
-        // Sprint 112 (ADR-082): the requester's exact karma/trust feed ranking INTERNALLY but are
-        // never returned — a feed must not disclose another member's reputation. Only structural
-        // proximity (degrees) is outward-facing.
+        // Sprint 112 (ADR-082): matchBreakdown/feedBreakdown are NOT attached — their numeric
+        // requesterTrust.raw / karma inputs are another member's exact reputation, and the legacy
+        // feed response returns these scored objects verbatim. The match_reason string + match_score
+        // are the user-facing explanation; the raw breakdowns stay internal to the ranker. The
+        // requester's exact karma/trust feed ranking INTERNALLY but are never returned; only
+        // structural proximity (degrees) is outward-facing.
         trustDegrees: degrees,
         priorInteractionScore: priorInteraction,
         recencyScore: recency,
@@ -759,11 +760,10 @@ async function handleCuratedFeed(req: Request, res: Response): Promise<void> {
         ...request,
         matchScore: matchResult.score,
         matchReasons: matchResult.reasons,
-        matchBreakdown: matchResult.breakdown,
         feedScore: Math.min(100, Math.round(feedResult.score * carryFactor) + boostBonus),
-        feedBreakdown: feedResult.breakdown,
+        // Sprint 112 (ADR-082): matchBreakdown/feedBreakdown omitted (requester karma/trust inputs);
+        // requester karma/trust feed ranking internally, never returned.
         trustDegrees: degrees,
-        // Sprint 112 (ADR-082): requester karma/trust feed ranking internally, never returned.
         priorInteractionScore: sisterPriorInteraction,
         recencyScore: sisterRecency,
         sourceTier: 'sister_community',

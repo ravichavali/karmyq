@@ -118,6 +118,23 @@ export interface RawMemoryResponse {
   nearlyForgotten: Array<{ currentWeight?: number }>;
 }
 
+/**
+ * Project trust-path nodes to identity-only. Cached paths in auth.social_distances may have been
+ * written BEFORE Sprint 112, when intermediate path nodes carried `karma`; this strips `karma` /
+ * `trust_score` from every cached/returned node so a stale (≤7-day TTL) row can't leak another
+ * member's reputation.
+ */
+export function projectPathNodes(path: unknown): unknown {
+  if (!Array.isArray(path)) return path;
+  return path.map((node) => {
+    if (node && typeof node === 'object') {
+      const { karma: _omitKarma, trust_score: _omitTrust, ...safe } = node as Record<string, unknown>;
+      return safe;
+    }
+    return node;
+  });
+}
+
 /** Project the relationship-memory response, stripping `currentWeight` from every peer entry. */
 export function projectMemoryResponse(memory: RawMemoryResponse) {
   return {

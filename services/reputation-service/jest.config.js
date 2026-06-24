@@ -8,14 +8,12 @@ module.exports = {
   rootDir: '.',
   displayName: 'reputation-service',
 
-  // Override test match for this service.
-  // NOTE (Sprint 112): tests/regression/ is intentionally NOT matched here — enabling it surfaced a
-  // pre-existing dormant, bit-rotted karmaService.test.ts (auto-mocked db, 11 failures) that is out
-  // of this sprint's scope. The disclosure boundary contract test therefore lives in tests/unit/
-  // (fully mocked, no DB) so it RUNS and BLOCKS in CI without dragging in that unrelated rot. The
-  // dormant regression tier is recorded as a follow-up in the handoff.
+  // Override test match for this service. Sprint 112 (ADR-082): regression/ was missing here, so the
+  // reputation regression tier silently never ran (`npm run test:regression` → "No tests found").
+  // It is now included so the blocking tier actually executes — matching every other service.
   testMatch: [
     '<rootDir>/tests/unit/**/*.test.ts',
+    '<rootDir>/tests/regression/**/*.test.ts',
     '<rootDir>/tests/tdd/**/*.test.ts',
     '<rootDir>/tests/integration/**/*.test.ts'
   ],
