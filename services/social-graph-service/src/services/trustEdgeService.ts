@@ -91,9 +91,10 @@ export async function reconcileMatchCompletedCommunities(params: {
 
 export async function getTrustGraphForCommunity(
   communityId: string,
-  callingUserId: string
+  centerUserId: string,
+  callingUserId: string = centerUserId
 ): Promise<{ nodes: TrustNode[]; links: TrustLink[] }> {
-  return getTrustGraph(communityId, callingUserId);
+  return getTrustGraph(communityId, centerUserId, callingUserId);
 }
 
 export { getTrustGraphAggregate };
