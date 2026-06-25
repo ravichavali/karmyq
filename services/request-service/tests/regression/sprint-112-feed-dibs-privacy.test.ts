@@ -114,14 +114,21 @@ describe('GET /requests/curated — live response carries no requester reputatio
   // Substring-keyed query mock: seed the requester's karma/trust with NON-ZERO sentinels and prove
   // they never reach the outward feed (neither as requesterKarma/requesterTrustScore nor via
   // feedBreakdown.requesterTrust.raw in the legacy raw response).
-  const makeCuratedMock = (requestCount = 1) => (sql: string) => {
+  const makeCuratedMock = (requestCount = 1, configRow: Record<string, unknown> | null = null) => (sql: string) => {
     // getUserProfile: the caller must resolve.
     if (/FROM auth\.users WHERE id/.test(sql)) {
       return Promise.resolve({ rowCount: 1, rows: [{ id: CALLER, name: 'Caller' }] });
     }
-    // Requester karma/trust batch lookup — sentinels that MUST stay internal to ranking.
+    // TRAP: requester karma/trust batch lookup. Round-6 removed this query from the handler entirely
+    // (requester reputation is no longer read for ranking). If it ever returns, the sentinels would
+    // surface and the leak assertions would catch them.
     if (/FROM reputation\.karma_records kr/.test(sql)) {
       return Promise.resolve({ rows: [{ user_id: REQUESTER, total_karma: SENTINEL_KARMA, best_trust_score: SENTINEL_TRUST }] });
+    }
+    // Founder feed-weight config (optional) — used by the adversarial/legacy tests to attempt
+    // reputation isolation via weights.
+    if (/community_configs cc/.test(sql)) {
+      return Promise.resolve({ rowCount: configRow ? 1 : 0, rows: configRow ? [configRow] : [] });
     }
     // user_request_preferences → subscribe to 'generic' so the (generic) request survives filtering.
     if (/user_request_preferences/.test(sql)) {
@@ -203,5 +210,54 @@ describe('GET /requests/curated — live response carries no requester reputatio
     const res = await request(curatedApp()).get('/requests/curated?minScore=37');
     expect(res.status).toBe(200);
     expect(res.body.data?.filters?.minMatchScore).toBe(30);
+  });
+
+  // Adversarial: a founder weight config that tries to ISOLATE reputation cannot affect the feed.
+  // Round-6 removes requester reputation from ranking entirely (signal 0 + weight 0 + renormalized),
+  // so no weight allocation can make order/threshold depend on a target's trust — and the requester
+  // karma/trust query is never even issued.
+  it('founder weights that isolate requester-trust cannot influence ordering or read reputation', async () => {
+    const isolatingConfig = {
+      community_id: 'cccccccc-cccc-cccc-cccc-cccccccccccc',
+      enabled_request_types: [],
+      feed_weight_skill_match: 0, feed_weight_trust_distance: 0, feed_weight_community_relevance: 0,
+      feed_weight_urgency: 0, feed_weight_requester_trust: 1, // the isolation attempt
+      feed_weight_prior_interaction: 0, feed_weight_recency: 0,
+    };
+    mockQuery.mockImplementation(makeCuratedMock(2, isolatingConfig) as any);
+    const res = await request(curatedApp()).get('/requests/curated?view=home&minScore=0');
+
+    expect(res.status).toBe(200); // does not throw despite a weight vector that sums to 1.0 on trust
+    const reqItems = (res.body.data?.items ?? []).filter((i: any) => i.kind === 'request');
+    expect(reqItems.length).toBe(2);
+    // Ordering follows the non-reputation signals (req-1 has high urgency), NOT requester trust.
+    expect(reqItems.map((i: any) => i.data.request_id)).toEqual(['req-curated-1', 'req-curated-2']);
+    expect(reqItems.map((i: any) => i.priority)).toEqual([1002, 1001]);
+    // The requester karma/trust query is never issued (reputation is not read for ranking)…
+    const queriedReputation = mockQuery.mock.calls.some((c) => /reputation\.karma_records|reputation\.trust_scores/.test(String(c[0])));
+    expect(queriedReputation).toBe(false);
+    // …and no trust sentinel leaks.
+    expect(JSON.stringify(res.body.data)).not.toMatch(/913|827|requesterTrust|feedScore/);
+  });
+
+  it('a legacy stored feed_weight_requester_trust=1 config neither breaks the feed nor leaks trust', async () => {
+    // A pre-branch row could have persisted requester_trust=1 (with the other defaults). The query-time
+    // normalization + signal=0 neutralize it: 200, requests present, no reputation read, no leak.
+    const legacyConfig = {
+      community_id: 'cccccccc-cccc-cccc-cccc-cccccccccccc',
+      enabled_request_types: [],
+      feed_weight_skill_match: 0.25, feed_weight_trust_distance: 0.20, feed_weight_community_relevance: 0.15,
+      feed_weight_urgency: 0.10, feed_weight_requester_trust: 1, feed_weight_prior_interaction: 0.10,
+      feed_weight_recency: 0.05,
+    };
+    mockQuery.mockImplementation(makeCuratedMock(2, legacyConfig) as any);
+    const res = await request(curatedApp()).get('/requests/curated?view=home&minScore=0');
+
+    expect(res.status).toBe(200);
+    const reqItems = (res.body.data?.items ?? []).filter((i: any) => i.kind === 'request');
+    expect(reqItems.map((i: any) => i.data.request_id)).toEqual(['req-curated-1', 'req-curated-2']);
+    const queriedReputation = mockQuery.mock.calls.some((c) => /reputation\.karma_records|reputation\.trust_scores/.test(String(c[0])));
+    expect(queriedReputation).toBe(false);
+    expect(JSON.stringify(res.body.data)).not.toMatch(/913|827|requesterTrust|feedScore/);
   });
 });
