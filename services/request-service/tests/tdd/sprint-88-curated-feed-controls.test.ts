@@ -13,12 +13,19 @@ import {
 } from '../../src/routes/requests';
 
 describe('parseMinScore', () => {
-  it('defaults missing and invalid values to 30, but preserves explicit zero', () => {
+  // Sprint 112 (ADR-082): minScore is restricted to two fixed server modes (default 30 / show-all 0)
+  // so it can't be used as a disclosure oracle. Arbitrary numeric thresholds are NOT honored — they
+  // collapse to the default — so a caller can never probe the hidden composite's inclusion boundary.
+  it('resolves only two fixed modes: 0/all → show-all, everything else → default 30', () => {
     expect(parseMinScore(undefined)).toBe(30);
     expect(parseMinScore('')).toBe(30);
     expect(parseMinScore('not-a-number')).toBe(30);
     expect(parseMinScore('0')).toBe(0);
-    expect(parseMinScore('12')).toBe(12);
+    expect(parseMinScore('all')).toBe(0);
+    // Intermediate thresholds (the oracle) collapse to the default, not the caller's value.
+    expect(parseMinScore('12')).toBe(30);
+    expect(parseMinScore('37')).toBe(30);
+    expect(parseMinScore('99')).toBe(30);
   });
 
   it('lets the show-more threshold include below-30 requests', () => {

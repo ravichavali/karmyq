@@ -60,7 +60,8 @@ function curatedApp() {
   const a = express();
   a.use(express.json());
   a.use((req: any, _res: any, next: any) => {
-    req.user = { userId: CALLER, email: 'c@test.com', communities: [] };
+    // Member of the test community so the community-view membership guard passes.
+    req.user = { userId: CALLER, email: 'c@test.com', communities: [{ id: 'cccccccc-cccc-cccc-cccc-cccccccccccc', role: 'member' }] };
     req.logger = { error: () => {} }; // handler logs via req.logger?.error; no-op in test
     next();
   });
@@ -113,7 +114,7 @@ describe('GET /requests/curated — live response carries no requester reputatio
   // Substring-keyed query mock: seed the requester's karma/trust with NON-ZERO sentinels and prove
   // they never reach the outward feed (neither as requesterKarma/requesterTrustScore nor via
   // feedBreakdown.requesterTrust.raw in the legacy raw response).
-  function curatedMock(sql: string) {
+  const makeCuratedMock = (requestCount = 1) => (sql: string) => {
     // getUserProfile: the caller must resolve.
     if (/FROM auth\.users WHERE id/.test(sql)) {
       return Promise.resolve({ rowCount: 1, rows: [{ id: CALLER, name: 'Caller' }] });
@@ -126,23 +127,22 @@ describe('GET /requests/curated — live response carries no requester reputatio
     if (/user_request_preferences/.test(sql)) {
       return Promise.resolve({ rowCount: 1, rows: [{ request_type: 'generic', subscribed: true }] });
     }
-    // The main feed query: one open, in-community request from REQUESTER (→ sourceTier 'community').
+    // The main feed query: N open, in-community requests from REQUESTER (→ sourceTier 'community').
     if (/FROM requests\.help_requests r/.test(sql)) {
-      return Promise.resolve({
-        rowCount: 1,
-        rows: [{
-          id: 'req-curated-1', requester_id: REQUESTER, request_type: 'generic', title: 'Need a hand',
-          description: 'help', urgency: 'low', payload: {}, status: 'open', created_at: new Date().toISOString(),
-          community_ids: 'cccccccc-cccc-cccc-cccc-cccccccccccc', in_user_community: true,
-          visibility_scope: 'community', visibility_max_degrees: 3,
-        }],
-      });
+      const rows = Array.from({ length: requestCount }, (_v, i) => ({
+        id: `req-curated-${i + 1}`, requester_id: REQUESTER, request_type: 'generic', title: `Need a hand ${i + 1}`,
+        description: 'help', urgency: i === 0 ? 'high' : 'low', payload: {}, status: 'open',
+        created_at: new Date().toISOString(),
+        community_ids: 'cccccccc-cccc-cccc-cccc-cccccccccccc', in_user_community: true,
+        visibility_scope: 'community', visibility_max_degrees: 3,
+      }));
+      return Promise.resolve({ rowCount: rows.length, rows });
     }
     return Promise.resolve({ rowCount: 0, rows: [] });
   }
 
   it('legacy curated response exposes no requester reputation or reconstruction-enabling score', async () => {
-    mockQuery.mockImplementation(curatedMock as any);
+    mockQuery.mockImplementation(makeCuratedMock(1) as any);
     const res = await request(curatedApp()).get('/requests/curated?minScore=0');
 
     expect(res.status).toBe(200);
@@ -164,7 +164,7 @@ describe('GET /requests/curated — live response carries no requester reputatio
   });
 
   it('view=home priority is a non-reversible rank, not the composite feedScore', async () => {
-    mockQuery.mockImplementation(curatedMock as any);
+    mockQuery.mockImplementation(makeCuratedMock(1) as any);
     const res = await request(curatedApp()).get('/requests/curated?view=home&minScore=0');
 
     expect(res.status).toBe(200);
@@ -175,5 +175,30 @@ describe('GET /requests/curated — live response carries no requester reputatio
     // NOT 1000 + round(feedScore). The exact composite never reaches the wire.
     expect(requestItem.priority).toBe(1001);
     expect(JSON.stringify(res.body.data)).not.toMatch(/913|827|requesterTrust|feedScore|"feed_score"/);
+  });
+
+  // Multi-item: priorities are distinct rank positions (1000 + rank), preserving order without
+  // encoding any score. Both home and community views go through buildRequestItem(data, rank).
+  it.each(['home', 'community'])('view=%s gives multiple requests distinct rank-based priorities', async (view) => {
+    mockQuery.mockImplementation(makeCuratedMock(3) as any);
+    const res = await request(curatedApp()).get(`/requests/curated?view=${view}&community_id=cccccccc-cccc-cccc-cccc-cccccccccccc&minScore=0`);
+
+    expect(res.status).toBe(200);
+    const reqItems = (res.body.data?.items ?? []).filter((i: any) => i.kind === 'request');
+    expect(reqItems.length).toBe(3);
+    const priorities = reqItems.map((i: any) => i.priority);
+    // Rank-based: 1000 + {3,2,1} for the 3 sorted requests — distinct, descending, within the band.
+    expect([...priorities].sort((a, b) => b - a)).toEqual([1003, 1002, 1001]);
+    priorities.forEach((p: number) => { expect(p).toBeGreaterThan(1000); expect(p).toBeLessThanOrEqual(1100); });
+    expect(JSON.stringify(res.body.data)).not.toMatch(/913|827|requesterTrust|feedScore|"feed_score"/);
+  });
+
+  it('an arbitrary minScore is NOT honored — the threshold is server-fixed (no probing oracle)', async () => {
+    mockQuery.mockImplementation(makeCuratedMock(1) as any);
+    // A caller-supplied intermediate threshold must collapse to the default; the echoed effective
+    // threshold proves the server ignored 37 — so the inclusion boundary can't be moved to probe.
+    const res = await request(curatedApp()).get('/requests/curated?minScore=37');
+    expect(res.status).toBe(200);
+    expect(res.body.data?.filters?.minMatchScore).toBe(30);
   });
 });

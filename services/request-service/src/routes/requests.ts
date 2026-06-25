@@ -90,9 +90,23 @@ export function resolveRetentionWindows(
   };
 }
 
+// The default relevance threshold for the curated feed.
+export const DEFAULT_MIN_SCORE = 30;
+
+/**
+ * Resolve the feed score gate. Sprint 112 (ADR-082): `minScore` is restricted to two FIXED
+ * server-defined modes so it cannot be used as a disclosure oracle. Because `feedScore` is hidden
+ * but still filtered against, an arbitrary caller-supplied threshold would let a caller binary-search
+ * the inclusion boundary of a known request to infer its composite — and for a community whose
+ * config sets requester-trust weight to 1.0 (every other weight 0), `feedScore = requesterTrust`, so
+ * probing would read the target's exact trust score. There is no founder exception (ADR-082).
+ *
+ * Modes: `0`/`all` → show everything (no gate); anything else or absent → the default threshold.
+ * Intermediate numeric thresholds are NOT honored, so the boundary never moves with caller input.
+ */
 export function parseMinScore(value: unknown): number {
-  const parsed = parseInt(String(value ?? ''), 10);
-  return Number.isFinite(parsed) ? parsed : 30;
+  const raw = String(value ?? '').trim().toLowerCase();
+  return raw === '0' || raw === 'all' ? 0 : DEFAULT_MIN_SCORE;
 }
 
 export function requestMeetsMinScore(request: { feedScore?: number | string | null }, minScore: number): boolean {
