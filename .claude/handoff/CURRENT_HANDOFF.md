@@ -132,11 +132,12 @@ prominence only after PR A contracts are available; it must not delay the privac
 ### Active Session (update on every role handoff)
 
 - **Driving agent:** Claude (Sprint 112 PR A execution)
-- **Phase:** PR A IMPLEMENTATION COMPLETE + 7 cross-agent-review rounds resolved on
-  `feature/sprint-112-reputation-disclosure-boundary` (v11.19.0, ~27 commits ahead of origin/master).
-  **As of review round 7 the cross-agent reviewer found NO remaining reputation-disclosure leak.** Last
-  two items were importance-only (feed-weight normalization across all paths + the docs/ADR feedback
-  loop) and are fixed. Safe to `/clear` — this handoff is the continuation point. Remaining = Task 10,
+- **Phase:** PR A IMPLEMENTATION COMPLETE + 8 cross-agent-review rounds resolved on
+  `feature/sprint-112-reputation-disclosure-boundary` (v11.19.0, 28 commits ahead of origin/master).
+  **As of review rounds 7–8 the cross-agent reviewer found NO remaining reputation-disclosure leak.**
+  Round-8 items were completion-only (stale request CONTEXT.md/landing docs + a route-level adversarial
+  regression proving both ranking call sites use the reputation-free weight vector) and are fixed.
+  Safe to `/clear` — this handoff is the continuation point. Remaining = Task 10,
   owned by Admin/human, NOT contributor:
   (a) SDLC review gates `/simplify` + `/code-review` + `/security-review` on the full PR A diff;
   (b) two-user human validation (Maria + a 2nd member, sentinel values); (c) mark ADR-082
@@ -235,6 +236,26 @@ prominence only after PR A contracts are available; it must not delay the privac
     reputation-free / rank-priority / two-mode-minScore contract; ADR-031 + ADR-048 carry an
     "Amended by ADR-082" note; landing docs regenerated.
   - Verified: doc-drift + disclosure gates 144/0; request unit+regression 301/0; tsc clean.
+- **Cross-agent review round 8 (2026-06-25, fixed) — NO LEAK REMAINS.** Two completion-only gaps in
+  `test(privacy)+docs: route-level proof both ranking branches use reputation-free weights + sync docs`:
+  - coverage was helper-only: round 7 proved `RANKING_DEFAULT_WEIGHTS` is itself normalized +
+    requester-trust-free, but no test proved the actual handler call sites pass it. New
+    `tests/regression/sprint-112-feed-weight-paths.test.ts` drives BOTH reputation-free ranking
+    branches in one request (unconfigured fallback + sister) with a controlled `calculateFeedScore`
+    mock that encodes the requester-trust WEIGHT into the score (weight 0 → 90 > threshold; 0.15 → 5 <
+    threshold). Asserts both sites receive feed_weight_requester_trust=0 and both requests survive the
+    server-fixed minScore — **verified it FAILS if either site reverts to raw DEFAULT_FEED_WEIGHTS.**
+    (Root jest `resetMocks:true` wipes jest.fn impls between tests → the scorer impl is reinstalled in
+    `beforeEach`, not the mock factory. This was also the real cause of an earlier mock-passthrough
+    "feedResult undefined" dead-end, not module resolution.)
+  - stale docs: request CONTEXT.md response example still showed feedScore/karmaScore/matchBreakdown,
+    the `1000 + feedScore` priority formula, and the removed reputation query. Fixed + regenerated the
+    landing `request-service.json` (generated from CONTEXT.md via `apps/landing` `generate-docs`);
+    feedScore/karmaScore now appear only in the ADR-082 negative-context note. (Reverted the
+    timestamp-only churn in landing architecture.json/build.json — `src/data/docs` is gitignored but
+    the per-service JSONs are tracked.)
+  - Verified: request unit+regression 302/0 (+1 new), tsc clean, doc-drift + disclosure gates 144/0,
+    feed-dibs + feed-weight-paths 9/0. Tree clean after commit.
 - **NEXT (Task 10, human/Admin): the standing SDLC gates `/code-review` + `/security-review` should be
   re-run on the full PR A diff, then two-user human validation, then mark ADR-082 Implemented +
   BUG-024 fixed, open the PR (fill template, cross-agent review), Admin merge + `/deploy` (verify
