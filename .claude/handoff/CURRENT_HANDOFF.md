@@ -172,6 +172,18 @@ prominence only after PR A contracts are available; it must not delay the privac
   - **FOLLOW-UP (out of S112 scope):** repair the quarantined `karmaService.test.ts`
     `awardKarmaForCompletedMatch` suite — re-trace the current query order and restore its per-query
     mock sequence (it drifted while the tier was dormant). Then remove the `describe.skip`.
+- **Cross-agent review round 3 (2026-06-24, fixed):** the composite feedScore was the linchpin leak —
+  `feedScore = Σ(signalᵢ·weightᵢ)` with a public formula + readable weights lets requester trust be
+  solved from the exposed components (same class as the dibs `score`). Fixed in `fix(privacy): make
+  feed ranking non-reversible`:
+  - legacy curated response projects out exact feedScore + priorInteractionScore + recencyScore
+    (feedScore stays internal for sort/minScore/impressions; server ORDER is the ranking);
+  - unified-feed `priority` now uses a non-reversible RANK (position), not `1000 + round(feedScore)`;
+  - `feedScore`/`feed_score` added to the shared FORBIDDEN_ORDINARY_MEMBER_KEYS scanner (can't be
+    re-blessed); stale `feed_score` removed from the curated inventory sample;
+  - dibs regression now seeds a distinct `score` sentinel (614) and asserts key+value absent; curated
+    test asserts feedScore/components absent (legacy) and rank-based priority (view=home).
+  - Verified: shared scanner green, request 296, disclosure gate 139, request tsc clean.
 - **Tasks 5–7 added since last handoff write:**
   - T5 ✅ `fix(social-graph): project privacy-safe relationship contracts` — `disclosureProjection`
     service; graph/neighborhood → SafePersonGraph (relationship_state, no trust_score/karma/weights);
