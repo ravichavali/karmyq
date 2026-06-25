@@ -61,8 +61,9 @@ What others *do* see is how people are **connected** — the belonging graph, tr
 eligible for a governance role — described in qualitative terms (e.g. a relationship reads as
 *strong*, *warm*, or *fading*; a member reads as *eligible*), never as another person's exact score.
 
-Because your numbers come from one shared source, the figure on your profile always matches the one
-on your sidebar and My Network — there's no second, disagreeing copy.
+Your profile reads these numbers from a single canonical source, so the profile is internally
+consistent and uses one standard vocabulary — **Reputation Score** and **Current Karma** — rather than
+the mix of "trust" and "karma" labels older surfaces showed.
 
 ---
 

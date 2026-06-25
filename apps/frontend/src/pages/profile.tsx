@@ -236,9 +236,11 @@ export default function ProfilePage() {
     }
   }, [router.query.tab, myProviders.length])
 
-  // Sprint 113 (BUG-024/026): the member's own reputation comes from ONE canonical read — the
-  // ADR-082 self community summary (GET /reputation/me/community-summary) — so Profile, Home and My
-  // Network never disagree. We map the nested summary onto the flat shape the karma card renders.
+  // Sprint 113 (BUG-024/026): the profile reads the member's own reputation from ONE canonical
+  // source — the ADR-082 self community summary (GET /reputation/me/community-summary) — instead of
+  // recombining getMyKarma + getTrustScore (the dual-source mismatch). We map the nested summary onto
+  // the flat shape the karma card renders. (Other self-views like LeftSidebar still use their own
+  // self reads; this PR only migrates the profile surface.)
   const applyCommunitySummary = async (communityId: string) => {
     try {
       setLoadingKarma(true)
