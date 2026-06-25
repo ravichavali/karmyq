@@ -209,6 +209,18 @@ prominence only after PR A contracts are available; it must not delay the privac
     new config regression proves trust-only configs rejected, other weights still configurable.
   - Verified: request 303/0, community regression 100/0, both tsc clean.
   Reviewer confirmed the two-mode minScore parser correct.
+- **Cross-agent review round 6 (2026-06-24, fixed):** fixing only the requester-trust WEIGHT was
+  insufficient — the `0.15×requesterTrust` term stayed in the founder-weightable composite, so varying
+  the other six weights + watching threshold/order recovers trust. Fixed in `fix(privacy): remove
+  requester reputation from feed ranking entirely` (reviewer option 1):
+  - DELETED the requester karma/trust lookup query (reputation no longer read for the feed);
+  - requesterTrustScore fixed to 0 in both primary + sister feed-score calls (term ≡ 0 for any weight);
+  - feed weights NORMALIZED at query time with requester-trust excluded (also fixes the latent
+    "normalized at query time" bug where founder weights ≠1.0 used to 500);
+  - tests: adversarial (isolating feed_weight_requester_trust=1 config cannot influence order AND the
+    karma/trust query is never issued) + legacy-config route test + retained exact id→priority mapping.
+  - Verified: request unit+regression+sprint-88 305/0, community regression 100/0, both tsc clean.
+  Reviewer confirmed round-5 exact id→priority tests sound.
 - **Tasks 5–7 added since last handoff write:**
   - T5 ✅ `fix(social-graph): project privacy-safe relationship contracts` — `disclosureProjection`
     service; graph/neighborhood → SafePersonGraph (relationship_state, no trust_score/karma/weights);
