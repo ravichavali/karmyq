@@ -1,8 +1,10 @@
-# Sprint 112 — Belonging & Reputation Truth: Planning
+# Sprint 113 — Belonging Truth & Prominence: Ready to Execute
 
-> **STATUS (2026-06-24):** Sprint 111 shipped to `master` as v11.18.0 through PRs #114, #117,
-> and #119. Sprint 112's written spec is maintainer-approved with three review locks incorporated.
-> The implementation plan is complete and ready to execute as two ordered PRs.
+> **STATUS (2026-06-25):** Sprint 112 PR A (ADR-082 Reputation Disclosure Boundary) is MERGED +
+> DEPLOYED as v11.19.0 (PR #120, commit `bd35619f`). The API contract is clean (8 cross-agent review
+> rounds, no leak). The post-deploy human spot-check found the UI/defense-in-depth layer is NOT clean →
+> BUG-025/026/027 filed. Sprint 113 spec + plan are written and approved; ready to execute as two
+> ordered PRs.
 
 ---
 
@@ -10,120 +12,100 @@
 
 1. Read this handoff.
 2. Review the design spec:
-   `docs/superpowers/specs/2026-06-24-sprint-112-belonging-reputation-truth-design.md`.
-3. Open the implementation plan after it is written:
-   `docs/superpowers/plans/2026-06-24-sprint-112-belonging-reputation-truth.md`.
-4. Execute PR A first on `feature/sprint-112-reputation-disclosure-boundary`; branch PR B from
-   merged `origin/master` only after PR A deploy validation.
+   `docs/superpowers/specs/2026-06-25-sprint-113-belonging-truth-prominence-design.md`.
+3. Open the implementation plan:
+   `docs/superpowers/plans/2026-06-25-sprint-113-belonging-truth-prominence.md`.
+4. Execute **PR A** first on `feature/sprint-113-belonging-truth` (branch off `origin/master`).
+   Run: `/execute-plan` (uses superpowers:subagent-driven-development).
+5. Branch **PR B** (`feature/sprint-113-belonging-prominence`) from merged `origin/master` only after
+   PR A deploys AND the two-user validation passes.
 
 ## Sprint Goal
 
-Make belonging prominent without making people into public scores: establish a platform-wide,
-API-enforced reputation disclosure boundary, reconcile the member's own community-scoped metrics,
-and elevate My Network in navigation and Home.
+Make the ADR-082 reputation boundary *true on the screen* (kill NaN renders, reconcile the member's own
+profile/community surfaces onto one canonical self-summary, restore map zoom) and validate it — then
+elevate My Network into primary nav + a prominent Home preview, with the ego-vs-community-connection
+fractal made legible.
 
-## Approved Artifacts
+## Why this sprint (the framing decided in planning)
 
-- Design spec (approved):
-  `docs/superpowers/specs/2026-06-24-sprint-112-belonging-reputation-truth-design.md`
-- Implementation plan:
-  `docs/superpowers/plans/2026-06-24-sprint-112-belonging-reputation-truth.md`
-- Decision record to create during implementation: ADR-082, Reputation Disclosure Boundary.
-- Backlog sources: BUG-024 in `docs/BUGS.md` and the 2026-06-24 UX entry in `docs/IDEAS.md`.
+PR A (ADR-082) closed the boundary in the **API contract**, but the post-deploy spot-check showed the
+**UI layer** still renders `NaN`, may still leak stale profile numbers, and the maps have no zoom. **You
+don't make a surface prominent before you've proven it's true.** So S113 = fix the fallout + validate
+(PR A), THEN ship prominence (PR B).
 
-## Approved Scope
+## The fractal metaphor (the real fix for the My-Network-vs-Community overlap)
 
-1. Exact ordinary-member reputation metrics are self-only across the platform.
-2. Other members receive authorized identity/structure and coarse explanations, not exact values.
-3. Public provider ratings and anonymous community aggregates are explicit typed exceptions.
-4. Add one canonical community-scoped self summary consumed by Profile, Home, and My Network.
-5. Governance computes exact eligibility internally but returns only eligibility + coarse reason.
-6. Remove metric leakage from graphs, trust cards/paths, invitations, leaderboards, and community
-   exports; enforce the boundary with strict shared DTO schemas and cross-user tests.
-7. Add a disclosure inventory + CI regression gate.
-8. Add My Network to primary navigation and a prominent Home preview below actionable decisions.
-9. No database migration and no reputation-math rewrite.
-10. Deliver as two ordered PRs: privacy boundary + CI gate first; My Network prominence second.
+The two views are **not** redundant — they are **two zoom levels of the same structure**, implemented
+imperfectly:
+- **My Network** = the **ego view** — *you* at the center, your people + communities (travels with you).
+- **"How we're connected"** = the **level up** — communities-as-nodes (sister-links, splits); the
+  community (group) scale.
 
-## Decisions Locked During Brainstorming
+PR B's job is to make this distinction legible in nav, labels, and entry points so they stop duplicating.
 
-### Reputation disclosure rule
+## Approved Scope (two ordered PRs)
 
-Exact personal reputation is self-only. Other ordinary members may see authorized structure and a
-coarse explanation. Provider ratings and anonymous community aggregates are the only approved public
-numeric exceptions. There is no admin browsing exception.
+**PR A — Belonging Truth (lands + deploys + validates first):**
+1. **BUG-025** — kill "trust NaN · NaN karma" in governance/stewardship (`GovernanceTab.tsx:66/80/145`
+   does `Math.round(undefined)` on now-omitted ADR-082 fields). Grep ALL readers; omit-or-coarse, no `|| 0`.
+2. **BUG-024/026** — profile reputation reads ONLY `getMyCommunitySummary(communityId)` so profile and
+   community surfaces reconcile; remove the legacy second source behind the original discrepancy.
+3. **BUG-027** — shared zoom in/out/reset + wheel/pinch on ALL map surfaces (`TrustGraphHEB.tsx` zoom is
+   currently explorer-only + wheel-only + no buttons).
+4. **Two-user validation**, then flip **ADR-082 → Implemented** + mark BUG-024/025/026/027 fixed.
 
-### Governance explanation
+**PR B — Belonging Prominence + Fractal Clarity:**
+5. My Network → primary nav + prominent Home preview (BELOW pending decisions + urgent help — locked rule).
+6. Make the ego (My Network) vs community-connection ("How we're connected") fractal legible.
 
-Governance shows “Eligible for stewardship” and the reason “Eligibility threshold met through
-established community relationships.” It does not return member trust or karma values.
+## Decisions Locked During Planning (2026-06-25)
 
-### Belonging prominence
-
-Add My Network to authenticated navigation and a prominent Home preview. Keep onboarding expansion
-for a later sprint. On Home, pending decisions and urgent help actions remain above the graph preview.
-
-### Enforcement depth
-
-Use query minimization, explicit server projection, strict shared DTO schemas, cross-user sentinel
-tests, and a CI disclosure inventory. Protected fields are omitted, not zeroed.
-
-### Sensitive-root classifications
-
-Community trust/network metrics are membership-gated `community_aggregate` exceptions with
-five-member suppression. Every `:userId` trust/evolution configuration endpoint is self-only.
-Community evolution policy/history/toggle endpoints are internal community-admin surfaces and must
-not include member parameters.
-
-Community health/milestones and decay policy are aggregate/policy contracts. Retire public
-`GET /trust/edge` with an ADR-074 `410` while preserving the internal DB helper. Relationship-memory
-responses keep qualitative decay state but remove exact `currentWeight`.
-
-### Compatibility denials
-
-Cross-user reputation/config reads return ADR-074-shaped `404 REPUTATION_NOT_FOUND`. The retired
-leaderboard returns ADR-074-shaped `410 REPUTATION_LEADERBOARD_RETIRED`. Audit all repository callers
-before retiring the endpoint or helper.
-
-### Delivery sequence
-
-PR A ships the disclosure boundary independently. PR B adds navigation, Home preview, and frontend
-prominence only after PR A contracts are available; it must not delay the privacy fix.
+- **Sprint number:** 113 (PR A already shipped as v11.19.0; fresh number for the next work).
+- **Delivery:** two ordered PRs; PR A must pass two-user validation before PR B branches.
+- **BUG-025 (NaN):** folded into PR A as the first task (not a pre-sprint hotfix — demo is QA, not prod).
+- **My Network vs Community:** resolved via the fractal metaphor (ego scale vs community/group scale),
+  per the user: "My Network as ego view and how communities are connected as community connection graph…
+  established the fractal metaphor (imperfectly)."
+- **No DB migration, no reputation-math change.** Frontend + docs only over already-shipped contracts.
+- **Target version:** v11.20.0.
 
 ## Critical Implementation Notes
 
-1. The boundary is API-first; UI hiding is defense in depth.
-2. Protected DTOs omit forbidden fields entirely. Do not represent redaction with zeroes.
-3. Profile, Home, and My Network consume one canonical self summary.
-4. Reputation math, governance thresholds, vote weights, ranking, and background jobs remain intact.
-5. Graph relationship state is qualitative in outward contracts; exact edge weights remain internal.
-6. Governance and community exports receive no admin exception for another member's metrics.
-7. Provider ratings and anonymous community aggregates remain explicit typed exceptions.
-8. Cross-user tests use non-zero sentinel values and inspect the actual response shape.
-9. Trust paths, trust cards, invitations, leaderboards, and exports are in scope—not only graphs.
-10. My Network is prominent on Home but remains below pending decisions and urgent help actions.
-11. No database migration.
-12. All changed behavior needs tests first and docs/context/registry feedback-loop updates.
+1. No `NaN` on a possibly-absent field — presence-guard, never `Math.round(undefined)` and never `|| 0`.
+2. One canonical self-summary: profile/Home/My Network read only `getMyCommunitySummary`.
+3. BUG-025: grep ALL frontend readers of now-identity-only governance payloads before editing.
+4. Never re-add a removed field to fix the UI — a missing profile value is a contract gap to escalate.
+5. Shared `GraphZoomControls` for every surface; seed `__zoom` + stub `ResizeObserver` in tests.
+6. Chrome budget: My Network nav link must not re-crowd the topbar (BUG-016/017); Home preview is the
+   primary prominence surface, nav link secondary.
+7. Fractal legibility is the PR B deliverable, not a label tweak.
+8. Two-user validation (non-zero sentinels) gates the ADR-082-Implemented + BUG-024/026-fixed claims.
+9. No DB migration; no reputation math change.
+10. Tests first (TDD); docs/context/registry feedback loop on every change.
 
 ## Carry-Forward / Out Of Scope
 
-- Cleanup-service replacement remains deferred; it is load-bearing scheduled-job plumbing.
-- Broader member forget/export implementation remains open; S112 only removes cross-user reputation
-  disclosure from community/stewardship exports.
-- Demo responder-Home/simulation liveliness remains a later-sprint candidate.
-- Mobile-native parity is not part of Sprint 112.
-- The onboarding graph moment remains a later UX sprint.
+- Cleanup-service replacement remains deferred (load-bearing scheduled-job plumbing).
+- Broader member forget/export remains open.
+- Onboarding network moment remains a later UX sprint.
+- Mobile-native parity is not in S113.
+- **Non-blocking follow-up (from S112):** repair the quarantined reputation
+  `karmaService.test.ts` `awardKarmaForCompletedMatch` suite (`describe.skip`'d; drifted while the tier
+  was dormant) — re-trace the query order and restore the mock sequence.
+- **Open cleanup (from S112):** dismiss `js/request-forgery` FP alerts #545 + #546 (api.ts:707/714) in
+  the GitHub Security UI (the API dismissal was harness-blocked).
 - Recurring CodeQL `js/request-forgery` on `apps/frontend/src/lib/api.ts` is a known browser-baseURL
-  false positive; dismiss only with written PR justification if it reappears.
+  false positive; dismiss only with written PR justification.
 - Remaining moderate dependency alerts are the Expo `tar` chain; keep the exact override.
 
 ## Multi-Sprint Arc
 
-- **S109 (done):** Geocoding Cache Hardening & Dependency Hygiene (v11.17.0).
-- **S110 (done):** Belonging Graph System research + ADR-081 Proposed (no deploy/version bump).
-- **S111 (done):** Belonging Graph System implementation and ship (v11.18.0).
-- **S112 (planning):** Belonging & Reputation Truth (target v11.19.0).
-- **Later:** onboarding network moment and broader member forget/export work.
+- **S110 (done):** Belonging Graph research + ADR-081 Proposed.
+- **S111 (done):** Belonging Graph implementation (v11.18.0).
+- **S112 PR A (done):** Reputation Disclosure Boundary / ADR-082 (v11.19.0).
+- **S113 (ready):** Belonging Truth (PR A) → Belonging Prominence (PR B). Target v11.20.0.
+- **Later:** onboarding network moment; broader member forget/export; mobile parity.
 
 ---
 
@@ -131,191 +113,25 @@ prominence only after PR A contracts are available; it must not delay the privac
 
 ### Active Session (update on every role handoff)
 
-- **Driving agent:** Claude (Sprint 112 PR A execution)
-- **Phase:** PR A IMPLEMENTATION COMPLETE + 8 cross-agent-review rounds resolved on
-  `feature/sprint-112-reputation-disclosure-boundary` (v11.19.0, 28 commits ahead of origin/master).
-  **As of review rounds 7–8 the cross-agent reviewer found NO remaining reputation-disclosure leak.**
-  Round-8 items were completion-only (stale request CONTEXT.md/landing docs + a route-level adversarial
-  regression proving both ranking call sites use the reputation-free weight vector) and are fixed.
-  Safe to `/clear` — this handoff is the continuation point. Remaining = Task 10,
-  owned by Admin/human, NOT contributor:
-  (a) SDLC review gates `/simplify` + `/code-review` + `/security-review` on the full PR A diff;
-  (b) two-user human validation (Maria + a 2nd member, sentinel values); (c) mark ADR-082
-  Implemented + BUG-024 fixed after validation; (d) open PR (fill `.github/pull_request_template.md`,
-  cross-agent review); (e) Admin merge + `/deploy`, verify v11.19.0 live. Then PR B.
-- **PR A verification done:** per-workspace unit+regression green — shared 28, reputation 38,
-  request 293, social-graph regression 40 + projection 9, community 123 (+ DB-integration tests fail
-  locally with AggregateError = no DB, pass in CI), frontend 115 + tsc clean; cross-cutting gates:
-  disclosure 131, doc-drift 5. `feedback:check` clean.
-- **Task 8 deferrals → PR B:** `reputationService.getLeaderboard` removal + leaderboard UI removal
-  (RightSidebar/karma.tsx) ship with PR B (removing the method now would break PR A compile; backend
-  already 410s the endpoint and callers catch errors).
-- **Cross-agent review round (2026-06-24, fixed):** Codex review found 3 critical + supporting leaks
-  the contract-based inventory had missed. All fixed in `fix(privacy): close cross-agent-review
-  reputation leaks` — curated feed requesterKarma/trust, dibs neighbor trustScore, community stats
-  avg_karma/max_karma + ranking, cached-path karma projection, export ≥5-distinct-contributor
-  suppression, community-scoped self-route membership checks; plus CI-gate hardening: classified the
-  3 missed endpoints, extended gate patterns, and PROMOTED contract tests to blocking tiers.
-  - **Latent gap caught + fixed:** reputation-service `jest.config.js` `testMatch` excluded
-    `tests/regression/` → its regression tier silently never ran (incl. a dormant, bit-rotted
-    `karmaService.test.ts`, 11 failures). The S112 reputation boundary test is therefore in
-    `tests/unit/` (runs+blocks, fully mocked). **Follow-up (out of S112 scope):** repair/enable the
-    dormant reputation regression tier (`karmaService.test.ts` uses an auto-mocked db and rots).
-  - Re-verified green: disclosure gate 139, drift 5, reputation unit 29, social-graph/community/
-    request regression+unit, frontend 115; all 5 typechecks clean.
-- **Cross-agent review round 2 (2026-06-24, fixed):** 3 residual blockers + a coverage gap, fixed in
-  `fix(privacy): close round-2 review blockers + add live-response tests`:
-  - dibs also strips the derived ranking `score` (reconstructable trustScore);
-  - curated feed removes matchBreakdown/feedBreakdown at both construction sites (the legacy raw
-    response leaked `feedBreakdown.requesterTrust.raw`);
-  - reputation `tests/regression` is now ENABLED (was silently excluded → "No tests found"); the
-    dormant bit-rotted `awardKarmaForCompletedMatch` suite (11 tests) is `describe.skip`'d with
-    justification, the other 12 karmaService tests + the boundary contract test run live.
-  - Added LIVE-RESPONSE route tests (the gate passed while missing these): real curated response,
-    dibs candidate, /stats suppression, cached-path projection, inactive-member route checks.
-  - Re-verified: reputation 128, social-graph 63, community 106, request 295, gates 144 — 0 fail.
-  - **FOLLOW-UP (out of S112 scope):** repair the quarantined `karmaService.test.ts`
-    `awardKarmaForCompletedMatch` suite — re-trace the current query order and restore its per-query
-    mock sequence (it drifted while the tier was dormant). Then remove the `describe.skip`.
-- **Cross-agent review round 3 (2026-06-24, fixed):** the composite feedScore was the linchpin leak —
-  `feedScore = Σ(signalᵢ·weightᵢ)` with a public formula + readable weights lets requester trust be
-  solved from the exposed components (same class as the dibs `score`). Fixed in `fix(privacy): make
-  feed ranking non-reversible`:
-  - legacy curated response projects out exact feedScore + priorInteractionScore + recencyScore
-    (feedScore stays internal for sort/minScore/impressions; server ORDER is the ranking);
-  - unified-feed `priority` now uses a non-reversible RANK (position), not `1000 + round(feedScore)`;
-  - `feedScore`/`feed_score` added to the shared FORBIDDEN_ORDINARY_MEMBER_KEYS scanner (can't be
-    re-blessed); stale `feed_score` removed from the curated inventory sample;
-  - dibs regression now seeds a distinct `score` sentinel (614) and asserts key+value absent; curated
-    test asserts feedScore/components absent (legacy) and rank-based priority (view=home).
-  - Verified: shared scanner green, request 296, disclosure gate 139, request tsc clean.
-- **Cross-agent review round 4 (2026-06-24, fixed):** the hidden feedScore was still PROBABLE via the
-  `minScore` filter (binary-search the inclusion boundary; exact for a requester-trust-weight=1.0
-  community config). Fixed in `fix(privacy): close the minScore disclosure oracle`:
-  - `parseMinScore` resolves only two FIXED server modes — `0`/`all` → show-all, anything else/absent
-    → default 30; arbitrary intermediate thresholds collapse to default so the boundary can't be moved
-    (frontend already only sends 0 or 30);
-  - hardening: `requestPriority`/`buildRequestItem` input renamed feedScore → explicit `rank`;
-  - tests: sprint-88 asserts the two-mode contract; new route tests prove minScore=37 is not honored
-    (echoed minMatchScore=30) and home+community views give multi-item rank priorities (1001/2/3).
-  - Verified: request unit+regression+sprint-88 303/0, feed-dibs 6/6, tsc clean.
-  Reviewer confirmed round-3 body projections + dibs sentinel correct.
-- **Cross-agent review round 5 (2026-06-24, fixed):** the oracle moved to mutable community feed
-  weights — each weight accepted 0..1 independently, so a founder could set
-  feed_weight_requester_trust=1 (others 0) → feedScore=requesterTrust (default threshold reveals
-  ≥30; sort becomes reputation ranking; repeated changes recover finer values). Fixed in
-  `fix(privacy): block reputation isolation via community feed weights`:
-  - config-validator `mergeAndValidateConfig` REJECTS any attempt to set feed_weight_requester_trust
-    (not founder-configurable);
-  - the curated handler FORCES feed_weight_requester_trust to the fixed server default at query time,
-    ignoring stored/legacy values (so a pre-existing isolated config has no effect);
-  - multi-item feed tests now assert EXACT request-id→priority mapping + emitted order (home AND
-    community) — a reversed rank fails; helper tests reframed feed-score inputs → explicit ranks;
-    new config regression proves trust-only configs rejected, other weights still configurable.
-  - Verified: request 303/0, community regression 100/0, both tsc clean.
-  Reviewer confirmed the two-mode minScore parser correct.
-- **Cross-agent review round 6 (2026-06-24, fixed):** fixing only the requester-trust WEIGHT was
-  insufficient — the `0.15×requesterTrust` term stayed in the founder-weightable composite, so varying
-  the other six weights + watching threshold/order recovers trust. Fixed in `fix(privacy): remove
-  requester reputation from feed ranking entirely` (reviewer option 1):
-  - DELETED the requester karma/trust lookup query (reputation no longer read for the feed);
-  - requesterTrustScore fixed to 0 in both primary + sister feed-score calls (term ≡ 0 for any weight);
-  - feed weights NORMALIZED at query time with requester-trust excluded (also fixes the latent
-    "normalized at query time" bug where founder weights ≠1.0 used to 500);
-  - tests: adversarial (isolating feed_weight_requester_trust=1 config cannot influence order AND the
-    karma/trust query is never issued) + legacy-config route test + retained exact id→priority mapping.
-  - Verified: request unit+regression+sprint-88 305/0, community regression 100/0, both tsc clean.
-  Reviewer confirmed round-5 exact id→priority tests sound.
-- **Cross-agent review round 7 (2026-06-24, fixed) — NO LEAK REMAINS.** Two importance-only items in
-  `fix(privacy)+docs: normalize feed weights across all paths + ADR-082 docs loop`:
-  - normalization bypass: the unconfigured-fallback + sister paths used raw DEFAULT_FEED_WEIGHTS, so
-    requester-trust=0 silently dropped 15% of the score (depressing ranking/threshold). Now a single
-    `RANKING_DEFAULT_WEIGHTS` (six signals, normalized to 1.0) is used by configured/unconfigured/
-    sister; `normalizeRankingWeights` always forces requester-trust to 0 then renormalizes.
-  - docs feedback loop: request CONTEXT.md + registry curated description updated to the six-signal /
-    reputation-free / rank-priority / two-mode-minScore contract; ADR-031 + ADR-048 carry an
-    "Amended by ADR-082" note; landing docs regenerated.
-  - Verified: doc-drift + disclosure gates 144/0; request unit+regression 301/0; tsc clean.
-- **Cross-agent review round 8 (2026-06-25, fixed) — NO LEAK REMAINS.** Two completion-only gaps in
-  `test(privacy)+docs: route-level proof both ranking branches use reputation-free weights + sync docs`:
-  - coverage was helper-only: round 7 proved `RANKING_DEFAULT_WEIGHTS` is itself normalized +
-    requester-trust-free, but no test proved the actual handler call sites pass it. New
-    `tests/regression/sprint-112-feed-weight-paths.test.ts` drives BOTH reputation-free ranking
-    branches in one request (unconfigured fallback + sister) with a controlled `calculateFeedScore`
-    mock that encodes the requester-trust WEIGHT into the score (weight 0 → 90 > threshold; 0.15 → 5 <
-    threshold). Asserts both sites receive feed_weight_requester_trust=0 and both requests survive the
-    server-fixed minScore — **verified it FAILS if either site reverts to raw DEFAULT_FEED_WEIGHTS.**
-    (Root jest `resetMocks:true` wipes jest.fn impls between tests → the scorer impl is reinstalled in
-    `beforeEach`, not the mock factory. This was also the real cause of an earlier mock-passthrough
-    "feedResult undefined" dead-end, not module resolution.)
-  - stale docs: request CONTEXT.md response example still showed feedScore/karmaScore/matchBreakdown,
-    the `1000 + feedScore` priority formula, and the removed reputation query. Fixed + regenerated the
-    landing `request-service.json` (generated from CONTEXT.md via `apps/landing` `generate-docs`);
-    feedScore/karmaScore now appear only in the ADR-082 negative-context note. (Reverted the
-    timestamp-only churn in landing architecture.json/build.json — `src/data/docs` is gitignored but
-    the per-service JSONs are tracked.)
-  - Verified: request unit+regression 302/0 (+1 new), tsc clean, doc-drift + disclosure gates 144/0,
-    feed-dibs + feed-weight-paths 9/0. Tree clean after commit.
-- **NEXT (Task 10, human/Admin): the standing SDLC gates `/code-review` + `/security-review` should be
-  re-run on the full PR A diff, then two-user human validation, then mark ADR-082 Implemented +
-  BUG-024 fixed, open the PR (fill template, cross-agent review), Admin merge + `/deploy` (verify
-  v11.19.0 live), then PR B.** Outstanding non-blocking follow-up: repair the quarantined
-  reputation `karmaService.test.ts` awardKarma suite (out of S112 scope).
-- **Tasks 5–7 added since last handoff write:**
-  - T5 ✅ `fix(social-graph): project privacy-safe relationship contracts` — `disclosureProjection`
-    service; graph/neighborhood → SafePersonGraph (relationship_state, no trust_score/karma/weights);
-    memory/fading drop currentWeight; paths drop outward trust_score (internal caching + degrees-only
-    ranking intact); trust-card drops karma+tier; `/trust/edge` 410; decay-config membership-gated;
-    request-service feed cleaned. 9 projection + 40 sg-regression + 293 request unit/regression green.
-  - T6 ✅ `fix: protect governance and invitation reputation` — governance eligible_members/role_holders
-    identity-only (internal threshold calc kept; failed nomination → 422 GOVERNANCE_ELIGIBILITY_NOT_MET,
-    no numbers); invitations drop invitee karma + avg_invitee_karma/trust_score.
-  - T7 ✅ `fix(community): remove member reputation from exports` — main export → ≥5-member
-    community_reputation_summary (no per-member karma_records/trust_scores); activity export drops
-    Total Karma/Trust Score + karma ranking. 4 governance+export tests green.
-- **Remaining for PR A:** T8 frontend (consume safe contracts: graph types/normalize/HEB,
-  TrustCard, TrustPathBadge, InviteHistory, MemorySection, ReWarmingNudge, socialGraphClient,
-  api.ts add reputationService.getMyCommunitySummary, remove getLeaderboard; update Sprint-111
-  frontend graph/path tests). T9 docs/ADR-082/ADR-081 update/guides/generate-docs/version v11.19.0 +
-  PROMOTE the 3 service contract tests tdd→regression and update inventory `contract_test` paths +
-  re-run gate. T10 full `npm test`/tsc/feedback:check + /simplify+/code-review+/security-review +
-  two-user human validation, mark ADR-082 Implemented + BUG-024 fixed, open PR, STOP for Admin.
-- **Test-run recipe (jest backgrounds here):** `npx jest <path> --runInBand --json --outputFile=X.json
-  --silent > /dev/null 2>&1` then parse X.json with node. DB integration tests (sprint-67-governance,
-  sprint-100-split-reexecute, schema-existence) fail locally with `AggregateError` (no DB) — that's
-  environmental, they pass in CI; don't chase them.
-- **OLD Tasks 1–4 status line (kept for reference):** Tasks 1–4 of 10 complete and committed.
-- **PR A progress (commits on branch):**
-  - T1 ✅ `feat(shared): define reputation disclosure contracts` — strict Zod DTOs + forbidden-key
-    scanner in `packages/shared/src/schemas/reputationDisclosure.ts` (re-exported from root
-    `@karmyq/shared`; subpath `./schemas/reputation-disclosure`). 28 unit tests.
-  - T2 ✅ `test: gate reputation disclosure contracts` — `tests/fixtures/reputation-disclosure-inventory.json`
-    (46 endpoints), centralized `services/registry.json` → `reputation_disclosure` block, and
-    `tests/regression/reputation-disclosure-gate.test.ts` (131 tests, bidirectional drift +
-    fixture key-scan + ADR-074 envelope checks). Scaffolded 3 service contract-test files.
-  - T3 ✅ `fix(reputation): enforce self-only reputation boundary` — `GET /reputation/me/community-summary`
-    + `services/reputation-service/src/utils/disclosureAuth.ts`; all `:userId` reads self-only
-    (cross-user → 404 REPUTATION_NOT_FOUND, no admin exception); leaderboard → 410. 18 boundary tests.
-  - T4 ✅ `fix: gate reputation community aggregates` — community-trust/health/milestones/network-metrics
-    require active membership + ≥5 cohort (`checkAggregateAccess`), else 404 AGGREGATE_NOT_AVAILABLE.
-    24 boundary tests; full reputation suite 38 green.
-- **Key execution decisions / deviations:**
-  - Registry classification is ONE centralized `reputation_disclosure` block (registry `apis.provides`
-    is a mixed string/object array; a block keeps the diff minimal + works uniformly).
-  - Schemas imported via ROOT `@karmyq/shared` in service code/tests (service tsconfigs use
-    `moduleResolution: node`, which can't resolve the `src/`-based subpath; root resolves via dist).
-  - Contract tests stay in `tests/tdd/` during implementation; **promotion to `regression/` +
-    inventory `contract_test` path updates are deferred to Task 9** (promoting now breaks the gate's
-    hardcoded tdd paths). Do NOT run `promote-tdd-tests.js` until Task 9.
-  - decay-config (social-graph) gating moved from Task 4 → Task 5 (its contract test lives in the
-    social-graph suite).
-- **Gotchas hit:** jest backgrounds long runs here — use `npx jest … --json --outputFile=X.json
-  --silent` then parse with node. jest.each rows must match the callback arity or jest injects its
-  `done` into the extra param (broke 10 supertest cases). health.ts routes are a SEPARATE router —
-  mount it too in tests for community-health/milestones/network-metrics.
-- **Blockers:** none. Continue Task 5 → 9, then Task 10 verify+review gates and STOP for Admin
-  merge/deploy authorization (contributor agents never self-merge). Do not begin PR B until PR A is
-  merged, deployed, validated.
+- **Driving agent:** Claude (Sprint 113 planning — spec + plan + handoff written, ready to execute).
+- **Phase:** PLANNING COMPLETE. Next action: execute PR A (`feature/sprint-113-belonging-truth`) from
+  the plan. PR A = BUG-025 NaN fix → BUG-024/026 profile reconciliation → BUG-027 zoom → docs → SDLC
+  gates → deploy → two-user validation → mark ADR-082 Implemented + bugs fixed. Then PR B.
+- **Key grounded findings from planning (verified against current code):**
+  - BUG-025 root cause: `GovernanceTab.tsx:66` (`avg_trust_score`), `:80` (`Math.round(rh.trust_score)`),
+    `:145` (`Math.round(m.trust_score) · Math.round(m.karma) karma`) — ADR-082 made eligible_members/
+    role_holders identity-only → `Math.round(undefined)` = NaN. Grep other readers (`StewardRequestsAdmin.tsx`,
+    `StewardshipTab.tsx`, nominee/trust-card lists).
+  - BUG-024/026: canonical self-summary already exists — `reputationService.getMyCommunitySummary` at
+    `apps/frontend/src/lib/api.ts:713` → `GET /reputation/me/community-summary` (ADR-082). Profile must
+    consume only this.
+  - BUG-027: `TrustGraphHEB.tsx:342-354` — zoom is wired but explorer-only (`svg.on('.zoom', null)` strips
+    it elsewhere), wheel-only, no visible buttons. Need shared `GraphZoomControls` + enable on all modes/
+    surfaces (BelongingGraph, dashboard TrustNetworkWidget, community TrustGraphTab).
+  - PR B: `/network` page already exists (`apps/frontend/src/pages/network.tsx`); nav lives in
+    `Layout.tsx` (desktop `kq-topnav` L127-145 = Communities + Service Providers; hamburger L37-56). Home
+    is `dashboard.tsx`.
+- **Blockers:** none. Contributor agents never self-merge; STOP for Admin merge/deploy authorization.
 
 > Claude and Codex share one physical working tree. One agent edits at a time. The active agent must
 > commit or stash before handing over. Never edit or commit on top of another agent's uncommitted WIP.
@@ -351,6 +167,7 @@ prominence only after PR A contracts are available; it must not delay the privac
 - Invoke `pre-commit-check` before every commit.
 - Unit + regression tests must pass before push.
 - Run the direct doc-context drift test after generated landing-doc changes.
+- `next/router` is globally mocked in `jest.setup`; fix the global mock, not N per-file mocks.
 - Do not create worktrees; this is a shared, time-sliced checkout.
 - Do not make a docs-only follow-up push to `master`; every master push triggers a deploy.
 
