@@ -407,11 +407,26 @@ Get requests matching user's skills from their communities (skill-based matching
 - Excludes user's own requests
 - Only includes communities user is a member of
 
-#### GET /requests/curated (v9.18 + ADR-048 Feed Ranking v2)
-Get curated feed scored on 7 signals: skill match, trust distance, community relevance, urgency, requester trust, prior interaction, and recency. Response includes `priorInteractionScore` and `recencyScore` in each request object. Request impressions are logged fire-and-forget to `requests.feed_events` on the legacy request-array path and on the `view=home` / `view=community` union paths.
+#### GET /requests/curated (v9.18 + ADR-048 Feed Ranking v2, amended by ADR-082)
+Get curated feed scored on **six** signals: skill match, trust DISTANCE (caller-relative degrees),
+community relevance, urgency, prior interaction (the caller's own decayed edge), and recency.
+
+**Sprint 112 (ADR-082) — reputation disclosure boundary:** the requester's exact reputation is
+removed from feed ranking entirely — the requester karma/trust lookup query is gone, the
+requester-trust signal is fixed to 0, and the six weights are NORMALIZED to sum 1.0 at query time
+(configured, unconfigured, AND sister paths use the same normalized vector, so none is depressed by a
+dropped signal). `feed_weight_requester_trust` is NOT founder-configurable — config writes that set it
+are rejected. The response NO LONGER exposes `requesterKarma`, `requesterTrustScore`, the composite
+`feedScore`, the component `priorInteractionScore`/`recencyScore`, or `matchBreakdown`/`feedBreakdown`
+(whose `requesterTrust.raw` was a reconstruction vector). Outward ranking is the server-sorted ORDER;
+the unified-feed `priority` is a non-reversible RANK (`1000 + position`), never `1000 + feedScore`.
+Impressions are still logged fire-and-forget to `requests.feed_events` (internal feed_score column).
 
 **Query Parameters:**
-- `minScore` (number) - Minimum match score 0-100 (default: 30). Explicit `minScore=0` is valid and widens the feed to all open asks; do not implement this as `parseInt(...) || 30`, because that coerces `0` back to `30`.
+- `minScore` - restricted to two FIXED server modes (ADR-082, anti-oracle): `0`/`all` widens to every
+  open ask; anything else/absent uses the default relevance threshold (30). Arbitrary intermediate
+  thresholds are NOT honored (they collapse to the default) so the hidden composite cannot be probed
+  via the inclusion boundary.
 - `limit` (number) - Max results (default: 20)
 - `community_id` (UUID) - Filter by specific community (optional)
 - `tier` (string) - Filter by visibility tier: `community`, `trust_network`, `platform`, `sister_community` (optional)

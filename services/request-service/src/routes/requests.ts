@@ -116,10 +116,13 @@ export function parseMinScore(value: unknown): number {
  * all-zero vector falls back to the server defaults (with requester-trust removed + renormalized).
  */
 export function normalizeRankingWeights(w: FeedScoringWeights): FeedScoringWeights {
-  const entries = Object.entries(w) as Array<[keyof FeedScoringWeights, number]>;
+  // ADR-082: requester-trust is ALWAYS forced to 0 (reputation is excluded from ranking), then the
+  // remaining six signals are renormalized to sum 1.0. A degenerate all-zero vector falls back to the
+  // six-signal defaults.
+  const sanitized = { ...w, feed_weight_requester_trust: 0 } as FeedScoringWeights;
+  const entries = Object.entries(sanitized) as Array<[keyof FeedScoringWeights, number]>;
   const sum = entries.reduce((acc, [, v]) => acc + (Number.isFinite(v) ? v : 0), 0);
   if (!(sum > 0)) {
-    // Degenerate (all weights zeroed) → default vector minus requester-trust, renormalized.
     const base = { ...DEFAULT_FEED_WEIGHTS, feed_weight_requester_trust: 0 };
     const baseSum = Object.values(base).reduce((a, b) => a + b, 0);
     const out = {} as FeedScoringWeights;
@@ -130,6 +133,18 @@ export function normalizeRankingWeights(w: FeedScoringWeights): FeedScoringWeigh
   for (const [k, v] of entries) out[k] = (Number.isFinite(v) ? v : 0) / sum;
   return out;
 }
+
+/**
+ * The single server default ranking vector (ADR-082): the seven-signal defaults with requester-trust
+ * removed (weight 0) and the remaining six renormalized to sum 1.0. Used for the configured fallback,
+ * the unconfigured path, AND sister-community requests so all three rank on the same full-budget
+ * six-signal scale — otherwise requester-trust=0 would silently drop 15% of every score, depressing
+ * ranking and default-threshold eligibility.
+ */
+export const RANKING_DEFAULT_WEIGHTS: FeedScoringWeights = normalizeRankingWeights({
+  ...DEFAULT_FEED_WEIGHTS,
+  feed_weight_requester_trust: 0,
+});
 
 export function requestMeetsMinScore(request: { feedScore?: number | string | null }, minScore: number): boolean {
   const feedScore = typeof request.feedScore === 'string' ? parseFloat(request.feedScore) : request.feedScore;
@@ -655,9 +670,11 @@ async function handleCuratedFeed(req: Request, res: Response): Promise<void> {
         userProfile
       );
 
-      // Determine which community config to use (first matching community)
+      // Determine which community config to use (first matching community). Sprint 112 (ADR-082):
+      // the unconfigured fallback uses the normalized six-signal default, not the raw seven-signal
+      // DEFAULT_FEED_WEIGHTS (which would waste 15% on the now-zero requester-trust signal).
       const requestCommunityIds = (request.community_ids || '').split(',').filter(Boolean);
-      let weights = DEFAULT_FEED_WEIGHTS;
+      let weights = RANKING_DEFAULT_WEIGHTS;
       let enabledTypes: Array<{ name: string; karma_multiplier?: number }> = [];
 
       for (const cId of requestCommunityIds) {
@@ -770,7 +787,9 @@ async function handleCuratedFeed(req: Request, res: Response): Promise<void> {
           priorInteractionScore: sisterPriorInteraction,
           recencyScore: sisterRecency,
         },
-        DEFAULT_FEED_WEIGHTS
+        // ADR-082: same normalized six-signal default as the configured/unconfigured paths (not the
+        // raw seven-signal DEFAULT_FEED_WEIGHTS) so sister requests aren't depressed by the 15% gap.
+        RANKING_DEFAULT_WEIGHTS
       );
       // Boost bonus: active admin boost floats request higher
       const boostActive = request.is_boosted &&

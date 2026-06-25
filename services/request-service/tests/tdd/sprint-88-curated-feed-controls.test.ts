@@ -10,6 +10,8 @@ import {
   buildImpressionInsert,
   parseMinScore,
   requestMeetsMinScore,
+  normalizeRankingWeights,
+  RANKING_DEFAULT_WEIGHTS,
 } from '../../src/routes/requests';
 
 describe('parseMinScore', () => {
@@ -31,6 +33,39 @@ describe('parseMinScore', () => {
   it('lets the show-more threshold include below-30 requests', () => {
     expect(requestMeetsMinScore({ feedScore: 12 }, 30)).toBe(false);
     expect(requestMeetsMinScore({ feedScore: 12 }, 0)).toBe(true);
+  });
+});
+
+describe('ranking weights (ADR-082) — full-budget six-signal vector, no requester trust', () => {
+  const sum = (w: object) => Object.values(w).reduce((a: number, b) => a + Number(b), 0);
+
+  it('RANKING_DEFAULT_WEIGHTS sums to 1.0 and gives requester-trust zero weight', () => {
+    // The single default used by configured-fallback, unconfigured, AND sister paths. Summing to 1.0
+    // means no 15% of the score is silently lost (which would depress ranking + threshold eligibility).
+    expect(RANKING_DEFAULT_WEIGHTS.feed_weight_requester_trust).toBe(0);
+    expect(sum(RANKING_DEFAULT_WEIGHTS)).toBeCloseTo(1.0, 6);
+  });
+
+  it('normalizeRankingWeights renormalizes any vector to sum 1.0 and zeroes requester trust', () => {
+    const isolating = {
+      feed_weight_skill_match: 0, feed_weight_trust_distance: 0, feed_weight_community_relevance: 0,
+      feed_weight_urgency: 0, feed_weight_requester_trust: 1, feed_weight_prior_interaction: 0, feed_weight_recency: 0,
+    };
+    const out = normalizeRankingWeights(isolating);
+    expect(out.feed_weight_requester_trust).toBe(0);
+    expect(sum(out)).toBeCloseTo(1.0, 6); // degenerate (all non-trust zero) → default fallback, still 1.0
+  });
+
+  it('a lopsided founder allocation is renormalized (cannot exceed/undershoot the budget)', () => {
+    const lopsided = {
+      feed_weight_skill_match: 5, feed_weight_trust_distance: 0, feed_weight_community_relevance: 0,
+      feed_weight_urgency: 5, feed_weight_requester_trust: 1, feed_weight_prior_interaction: 0, feed_weight_recency: 0,
+    };
+    const out = normalizeRankingWeights(lopsided);
+    expect(out.feed_weight_requester_trust).toBe(0);
+    expect(sum(out)).toBeCloseTo(1.0, 6);
+    expect(out.feed_weight_skill_match).toBeCloseTo(0.5, 6);
+    expect(out.feed_weight_urgency).toBeCloseTo(0.5, 6);
   });
 });
 
