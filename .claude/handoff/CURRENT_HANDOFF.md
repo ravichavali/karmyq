@@ -195,6 +195,20 @@ prominence only after PR A contracts are available; it must not delay the privac
     (echoed minMatchScore=30) and home+community views give multi-item rank priorities (1001/2/3).
   - Verified: request unit+regression+sprint-88 303/0, feed-dibs 6/6, tsc clean.
   Reviewer confirmed round-3 body projections + dibs sentinel correct.
+- **Cross-agent review round 5 (2026-06-24, fixed):** the oracle moved to mutable community feed
+  weights — each weight accepted 0..1 independently, so a founder could set
+  feed_weight_requester_trust=1 (others 0) → feedScore=requesterTrust (default threshold reveals
+  ≥30; sort becomes reputation ranking; repeated changes recover finer values). Fixed in
+  `fix(privacy): block reputation isolation via community feed weights`:
+  - config-validator `mergeAndValidateConfig` REJECTS any attempt to set feed_weight_requester_trust
+    (not founder-configurable);
+  - the curated handler FORCES feed_weight_requester_trust to the fixed server default at query time,
+    ignoring stored/legacy values (so a pre-existing isolated config has no effect);
+  - multi-item feed tests now assert EXACT request-id→priority mapping + emitted order (home AND
+    community) — a reversed rank fails; helper tests reframed feed-score inputs → explicit ranks;
+    new config regression proves trust-only configs rejected, other weights still configurable.
+  - Verified: request 303/0, community regression 100/0, both tsc clean.
+  Reviewer confirmed the two-mode minScore parser correct.
 - **Tasks 5–7 added since last handoff write:**
   - T5 ✅ `fix(social-graph): project privacy-safe relationship contracts` — `disclosureProjection`
     service; graph/neighborhood → SafePersonGraph (relationship_state, no trust_score/karma/weights);
