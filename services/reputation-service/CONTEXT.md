@@ -1341,3 +1341,12 @@ ADR-011 decay) is unchanged; only authorization, projection, and naming changed.
 - Disclosure classifications live in `services/registry.json#reputation_disclosure` +
   `tests/fixtures/reputation-disclosure-inventory.json`, gated by
   `tests/regression/reputation-disclosure-gate.test.ts`.
+
+### Sprint 113 (PR A) — client consumption of the boundary
+
+No API change. The frontend was reconciled onto the contract above (defense in depth — ADR-082 UI
+section): the member's own profile (`profile.tsx`) now reads **only** `/me/community-summary`
+instead of recombining `getMyKarma` + `getTrustScore` (the dual-source mismatch behind BUG-024/026),
+and governance/stewardship surfaces no longer render `NaN` for the omitted member `trust_score`/`karma`
+(BUG-025). The per-member `getTrustScore` reads on the community member-topology surface are cross-user
+and correctly receive `404 REPUTATION_NOT_FOUND`.
