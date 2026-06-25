@@ -179,17 +179,20 @@ describe('GET /requests/curated — live response carries no requester reputatio
 
   // Multi-item: priorities are distinct rank positions (1000 + rank), preserving order without
   // encoding any score. Both home and community views go through buildRequestItem(data, rank).
-  it.each(['home', 'community'])('view=%s gives multiple requests distinct rank-based priorities', async (view) => {
+  it.each(['home', 'community'])('view=%s maps each request to its exact rank priority (order preserved)', async (view) => {
+    // req-curated-1 has high urgency → top feedScore → rank 3 → priority 1003; the two low-urgency
+    // requests tie and keep input order (req-2 then req-3) → 1002, 1001. Asserting the exact
+    // id→priority mapping (not just the multiset) so a reversed rank assignment would fail.
     mockQuery.mockImplementation(makeCuratedMock(3) as any);
     const res = await request(curatedApp()).get(`/requests/curated?view=${view}&community_id=cccccccc-cccc-cccc-cccc-cccccccccccc&minScore=0`);
 
     expect(res.status).toBe(200);
     const reqItems = (res.body.data?.items ?? []).filter((i: any) => i.kind === 'request');
     expect(reqItems.length).toBe(3);
-    const priorities = reqItems.map((i: any) => i.priority);
-    // Rank-based: 1000 + {3,2,1} for the 3 sorted requests — distinct, descending, within the band.
-    expect([...priorities].sort((a, b) => b - a)).toEqual([1003, 1002, 1001]);
-    priorities.forEach((p: number) => { expect(p).toBeGreaterThan(1000); expect(p).toBeLessThanOrEqual(1100); });
+    const byId = Object.fromEntries(reqItems.map((i: any) => [i.data.request_id, i.priority]));
+    expect(byId).toEqual({ 'req-curated-1': 1003, 'req-curated-2': 1002, 'req-curated-3': 1001 });
+    // Emitted order matches descending priority (the server owns ordering; client renders as received).
+    expect(reqItems.map((i: any) => i.data.request_id)).toEqual(['req-curated-1', 'req-curated-2', 'req-curated-3']);
     expect(JSON.stringify(res.body.data)).not.toMatch(/913|827|requesterTrust|feedScore|"feed_score"/);
   });
 

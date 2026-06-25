@@ -5,7 +5,7 @@
  * Once passing, these will be moved to tests/regression/
  */
 
-import { validateCommunityConfig, ValidationError } from '../../src/services/config-validator';
+import { validateCommunityConfig, mergeAndValidateConfig, ValidationError } from '../../src/services/config-validator';
 
 describe('Community Configuration Validation', () => {
   describe('Trust Weight Validation', () => {
@@ -580,6 +580,32 @@ describe('Community Configuration Validation', () => {
       const result = validateCommunityConfig(config);
       expect(result.isValid).toBe(false);
       expect(result.errors.length).toBeGreaterThan(5); // Multiple errors
+    });
+  });
+
+  // Sprint 112 (ADR-082): reputation cannot be isolated in feed ranking. feed_weight_requester_trust
+  // is NOT founder-configurable — allowing it (weight=1, others 0) makes feedScore = requesterTrust,
+  // turning feed order + the inclusion threshold into a reputation oracle.
+  describe('Feed weight reputation isolation (ADR-082)', () => {
+    it('rejects any attempt to SET feed_weight_requester_trust (trust-only config)', () => {
+      const existing: any = { feed_weight_skill_match: 0.25, feed_weight_requester_trust: 0.15 };
+      const result = mergeAndValidateConfig(existing, { feed_weight_requester_trust: 1.0 } as any);
+      expect(result.isValid).toBe(false);
+      expect(result.errors.some((e) => e.field === 'feed_weight_requester_trust')).toBe(true);
+      expect(result.config).toBeUndefined();
+    });
+
+    it('rejects even a "balanced-looking" requester-trust weight update (no founder exception)', () => {
+      const existing: any = { feed_weight_skill_match: 0.25, feed_weight_requester_trust: 0.15 };
+      const result = mergeAndValidateConfig(existing, { feed_weight_requester_trust: 0.15 } as any);
+      expect(result.isValid).toBe(false);
+    });
+
+    it('still allows configuring OTHER feed weights without touching requester_trust', () => {
+      const existing: any = { feed_weight_skill_match: 0.25 };
+      const result = mergeAndValidateConfig(existing, { feed_weight_skill_match: 0.30 } as any);
+      expect(result.isValid).toBe(true);
+      expect(result.config?.feed_weight_skill_match).toBe(0.30);
     });
   });
 });

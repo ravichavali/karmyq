@@ -88,8 +88,9 @@ describe('action altitude — decisions you owe rank above requests you can fill
     expect(decisionPriority(['withdraw_offer'])).toBeGreaterThan(decisionPriority(['mark_done']));
   });
 
-  it('ranks higher-scoring requests above lower-scoring ones', () => {
-    expect(requestPriority(80)).toBeGreaterThan(requestPriority(40));
+  it('ranks higher-rank requests above lower-rank ones', () => {
+    // Sprint 112 (ADR-082): the input is a non-reversible RANK (position), not the feed score.
+    expect(requestPriority(2)).toBeGreaterThan(requestPriority(1));
   });
 });
 
@@ -105,10 +106,12 @@ describe('assembleHomeFeed — the assembled union', () => {
     actions,
   });
 
-  it('returns { items } with decisions first, then requests by descending feed score — exact order', () => {
+  it('returns { items } with decisions first, then requests by descending rank — exact order', () => {
+    // buildRequestItem's second arg is a non-reversible RANK (caller passes the position in the
+    // already-feedScore-sorted list), never the score itself (ADR-082). r-high has the higher rank.
     const items = [
-      buildRequestItem({ request_id: 'r-low' }, 40),
-      buildRequestItem({ request_id: 'r-high' }, 80),
+      buildRequestItem({ request_id: 'r-low' }, 1),
+      buildRequestItem({ request_id: 'r-high' }, 2),
       buildDecisionItem(decision('d-withdraw', ['withdraw_offer'], 'responder')),
       buildDecisionItem(decision('d-accept', ['accept_offer', 'decline_offer'], 'requester')),
     ];
@@ -116,19 +119,19 @@ describe('assembleHomeFeed — the assembled union', () => {
     const { items: ranked } = assembleHomeFeed(items);
 
     expect(ranked.map((i) => i.kind)).toEqual(['decision', 'decision', 'request', 'request']);
-    // accept (counterparty waiting) above withdraw (own housekeeping); high-score request above low
+    // accept (counterparty waiting) above withdraw (own housekeeping); higher-rank request above lower
     expect((ranked[0].data as { subject_id: string }).subject_id).toBe('d-accept');
     expect((ranked[1].data as { subject_id: string }).subject_id).toBe('d-withdraw');
     expect((ranked[2].data as { request_id: string }).request_id).toBe('r-high');
     expect((ranked[3].data as { request_id: string }).request_id).toBe('r-low');
-    // exact priorities
-    expect(ranked.map((i) => i.priority)).toEqual([2050, 2030, 1080, 1040]);
+    // exact priorities: decisions 2050/2030; requests base(1000)+rank 1002/1001
+    expect(ranked.map((i) => i.priority)).toEqual([2050, 2030, 1002, 1001]);
   });
 
-  it('is a stable sort — equal-priority items keep input order', () => {
+  it('is a stable sort — equal-rank items keep input order', () => {
     const { items } = assembleHomeFeed([
-      buildRequestItem({ request_id: 'a' }, 50),
-      buildRequestItem({ request_id: 'b' }, 50),
+      buildRequestItem({ request_id: 'a' }, 1),
+      buildRequestItem({ request_id: 'b' }, 1),
     ]);
     expect(items.map((i) => (i.data as { request_id: string }).request_id)).toEqual(['a', 'b']);
   });

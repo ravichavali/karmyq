@@ -389,7 +389,11 @@ async function handleCuratedFeed(req: Request, res: Response): Promise<void> {
           feed_weight_trust_distance: row.feed_weight_trust_distance != null ? parseFloat(row.feed_weight_trust_distance) : DEFAULT_FEED_WEIGHTS.feed_weight_trust_distance,
           feed_weight_community_relevance: row.feed_weight_community_relevance != null ? parseFloat(row.feed_weight_community_relevance) : DEFAULT_FEED_WEIGHTS.feed_weight_community_relevance,
           feed_weight_urgency: row.feed_weight_urgency != null ? parseFloat(row.feed_weight_urgency) : DEFAULT_FEED_WEIGHTS.feed_weight_urgency,
-          feed_weight_requester_trust: row.feed_weight_requester_trust != null ? parseFloat(row.feed_weight_requester_trust) : DEFAULT_FEED_WEIGHTS.feed_weight_requester_trust,
+          // Sprint 112 (ADR-082): the requester-trust weight is NOT founder-configurable and is forced
+          // to the fixed server default here — ignoring any stored/legacy value — so a community can
+          // never isolate reputation in the feed (which would make order + threshold a reputation
+          // oracle). Config writes that try to set it are rejected (config-validator).
+          feed_weight_requester_trust: DEFAULT_FEED_WEIGHTS.feed_weight_requester_trust,
           feed_weight_prior_interaction: row.feed_weight_prior_interaction != null ? parseFloat(row.feed_weight_prior_interaction) : DEFAULT_FEED_WEIGHTS.feed_weight_prior_interaction,
           feed_weight_recency: row.feed_weight_recency != null ? parseFloat(row.feed_weight_recency) : DEFAULT_FEED_WEIGHTS.feed_weight_recency,
         },
