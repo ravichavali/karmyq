@@ -184,6 +184,17 @@ prominence only after PR A contracts are available; it must not delay the privac
   - dibs regression now seeds a distinct `score` sentinel (614) and asserts key+value absent; curated
     test asserts feedScore/components absent (legacy) and rank-based priority (view=home).
   - Verified: shared scanner green, request 296, disclosure gate 139, request tsc clean.
+- **Cross-agent review round 4 (2026-06-24, fixed):** the hidden feedScore was still PROBABLE via the
+  `minScore` filter (binary-search the inclusion boundary; exact for a requester-trust-weight=1.0
+  community config). Fixed in `fix(privacy): close the minScore disclosure oracle`:
+  - `parseMinScore` resolves only two FIXED server modes — `0`/`all` → show-all, anything else/absent
+    → default 30; arbitrary intermediate thresholds collapse to default so the boundary can't be moved
+    (frontend already only sends 0 or 30);
+  - hardening: `requestPriority`/`buildRequestItem` input renamed feedScore → explicit `rank`;
+  - tests: sprint-88 asserts the two-mode contract; new route tests prove minScore=37 is not honored
+    (echoed minMatchScore=30) and home+community views give multi-item rank priorities (1001/2/3).
+  - Verified: request unit+regression+sprint-88 303/0, feed-dibs 6/6, tsc clean.
+  Reviewer confirmed round-3 body projections + dibs sentinel correct.
 - **Tasks 5–7 added since last handoff write:**
   - T5 ✅ `fix(social-graph): project privacy-safe relationship contracts` — `disclosureProjection`
     service; graph/neighborhood → SafePersonGraph (relationship_state, no trust_score/karma/weights);
