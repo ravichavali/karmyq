@@ -1,10 +1,32 @@
-# Sprint 113 — Belonging Truth & Prominence: Ready to Execute
+# Sprint 113 — Belonging Truth & Prominence: PR A in review
 
-> **STATUS (2026-06-25):** Sprint 112 PR A (ADR-082 Reputation Disclosure Boundary) is MERGED +
-> DEPLOYED as v11.19.0 (PR #120, commit `bd35619f`). The API contract is clean (8 cross-agent review
-> rounds, no leak). The post-deploy human spot-check found the UI/defense-in-depth layer is NOT clean →
-> BUG-025/026/027 filed. Sprint 113 spec + plan are written and approved; ready to execute as two
-> ordered PRs.
+> **STATUS (2026-06-25):** Sprint 113 **PR A (Belonging Truth) is IMPLEMENTED + COMMITTED + PUSHED** on
+> `feature/sprint-113-belonging-truth` (commit `0c308642`) and **opened as PR #121** against `master`.
+> Plan Tasks 1–6 done: BUG-025 NaN-safe governance, BUG-024/026 profile reconciliation onto the
+> canonical self-summary, BUG-027 single-owner map zoom; the three SDLC gates (`/simplify`,
+> `/code-review`, `/security-review`) ran on the diff (code-review caught + fixed a real wheel-scroll
+> hijack from default-on zoom; security-review found nothing). Verification: frontend regression+unit
+> 115/115 green, new TDD suites green, tsc clean, doc-context drift gate green.
+>
+> **GATED REMAINDER (human / cross-agent — NOT yet done):**
+> 1. **Cross-agent review** of PR #121 — Claude authored it, so **Codex reviews** (cross-agent protocol).
+> 2. **Admin merge** PR #121 → `master` (triggers the deploy).
+> 3. **`/deploy`** — confirm GitHub Actions deploy success + live content matches master.
+> 4. **Two-user validation** (Maria + a 2nd member, non-zero sentinels): exact reputation is self-only on
+>    every surface AND profile reconciles with the community view; no `NaN`; zoom works on each map.
+>    Record PASS/FAIL.
+>
+> **THEN PR B** branches from merged `origin/master`. PR B's FIRST commit records the validated status
+> closures (ADR-082 → Implemented + BUG-024/025/026/027 fixed) — they could NOT go in the already-merged
+> PR A. If validation FAILS, stop and re-open PR A instead.
+>
+> <details><summary>Original pre-execution status (reference)</summary>
+>
+> Sprint 112 PR A (ADR-082 Reputation Disclosure Boundary) is MERGED + DEPLOYED as v11.19.0 (PR #120,
+> commit `bd35619f`). API contract clean (8 cross-agent rounds, no leak). Post-deploy human spot-check
+> found the UI/defense-in-depth layer NOT clean → BUG-025/026/027 filed. Sprint 113 spec + plan written
+> and approved; ready to execute as two ordered PRs.
+> </details>
 
 ---
 
