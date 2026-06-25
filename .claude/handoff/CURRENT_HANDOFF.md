@@ -132,8 +132,12 @@ prominence only after PR A contracts are available; it must not delay the privac
 ### Active Session (update on every role handoff)
 
 - **Driving agent:** Claude (Sprint 112 PR A execution)
-- **Phase:** PR A IMPLEMENTATION COMPLETE on `feature/sprint-112-reputation-disclosure-boundary`
-  (Tasks 1–9 committed; v11.19.0). Remaining in Task 10 — owned by Admin/human, NOT contributor:
+- **Phase:** PR A IMPLEMENTATION COMPLETE + 7 cross-agent-review rounds resolved on
+  `feature/sprint-112-reputation-disclosure-boundary` (v11.19.0, ~27 commits ahead of origin/master).
+  **As of review round 7 the cross-agent reviewer found NO remaining reputation-disclosure leak.** Last
+  two items were importance-only (feed-weight normalization across all paths + the docs/ADR feedback
+  loop) and are fixed. Safe to `/clear` — this handoff is the continuation point. Remaining = Task 10,
+  owned by Admin/human, NOT contributor:
   (a) SDLC review gates `/simplify` + `/code-review` + `/security-review` on the full PR A diff;
   (b) two-user human validation (Maria + a 2nd member, sentinel values); (c) mark ADR-082
   Implemented + BUG-024 fixed after validation; (d) open PR (fill `.github/pull_request_template.md`,
@@ -221,6 +225,21 @@ prominence only after PR A contracts are available; it must not delay the privac
     karma/trust query is never issued) + legacy-config route test + retained exact id→priority mapping.
   - Verified: request unit+regression+sprint-88 305/0, community regression 100/0, both tsc clean.
   Reviewer confirmed round-5 exact id→priority tests sound.
+- **Cross-agent review round 7 (2026-06-24, fixed) — NO LEAK REMAINS.** Two importance-only items in
+  `fix(privacy)+docs: normalize feed weights across all paths + ADR-082 docs loop`:
+  - normalization bypass: the unconfigured-fallback + sister paths used raw DEFAULT_FEED_WEIGHTS, so
+    requester-trust=0 silently dropped 15% of the score (depressing ranking/threshold). Now a single
+    `RANKING_DEFAULT_WEIGHTS` (six signals, normalized to 1.0) is used by configured/unconfigured/
+    sister; `normalizeRankingWeights` always forces requester-trust to 0 then renormalizes.
+  - docs feedback loop: request CONTEXT.md + registry curated description updated to the six-signal /
+    reputation-free / rank-priority / two-mode-minScore contract; ADR-031 + ADR-048 carry an
+    "Amended by ADR-082" note; landing docs regenerated.
+  - Verified: doc-drift + disclosure gates 144/0; request unit+regression 301/0; tsc clean.
+- **NEXT (Task 10, human/Admin): the standing SDLC gates `/code-review` + `/security-review` should be
+  re-run on the full PR A diff, then two-user human validation, then mark ADR-082 Implemented +
+  BUG-024 fixed, open the PR (fill template, cross-agent review), Admin merge + `/deploy` (verify
+  v11.19.0 live), then PR B.** Outstanding non-blocking follow-up: repair the quarantined
+  reputation `karmaService.test.ts` awardKarma suite (out of S112 scope).
 - **Tasks 5–7 added since last handoff write:**
   - T5 ✅ `fix(social-graph): project privacy-safe relationship contracts` — `disclosureProjection`
     service; graph/neighborhood → SafePersonGraph (relationship_state, no trust_score/karma/weights);
