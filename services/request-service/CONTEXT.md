@@ -333,8 +333,8 @@ CREATE TABLE provider.offers (
 - `communities.communities` - Community names, details, and `default_request_scope`
 - `communities.members` - Verify community membership
 - `communities.community_configs` - Feed scoring weights (ADR-031)
-- `reputation.karma_records` - Karma scores for feed display (ADR-031)
-- `reputation.trust_scores` - Trust scores for feed display (ADR-031)
+- `reputation.trust_scores` - Trust scores for dibs candidate selection (ADR-051); no longer read for feed ranking (ADR-082 removed requester reputation from the feed)
+- `reputation.provider_trust_scores` - Public provider trust scores for provider/collective listings and dibs (ADR-082 typed provider exception)
 
 ---
 
