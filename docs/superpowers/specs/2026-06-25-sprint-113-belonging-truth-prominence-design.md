@@ -47,18 +47,24 @@ that the boundary holds where a human actually looks.
 ## The Fractal Metaphor (the design fix behind PR B)
 
 The IDEAS [2026-06-25] design note flagged that *My Network* and *Community* views "do almost the same
-thing." They are **not** redundant — they are **two zoom levels of the same fractal structure**,
-implemented imperfectly so they read as duplicates:
+thing." They are **not** redundant — they are **adjacent zoom levels of one fractal structure**,
+implemented imperfectly so the two member-graphs read as duplicates. The fix is to make all **three**
+scales legible as a zoom continuum:
 
-| Scale | View | Center | Nodes | Question it answers |
-|-------|------|--------|-------|---------------------|
-| **Ego** | **My Network** | *You* | Your people + your communities | "Where do *I* belong? Who am I connected to?" |
-| **Group (level up)** | **Community connections** ("How we're connected") | A community | Communities-as-nodes (sister-links, splits) | "How does *this community* sit in the wider web of communities?" |
+| Scale | View (graph `mode`) | Center | Nodes | Question it answers |
+|-------|---------------------|--------|-------|---------------------|
+| **1 · Ego** | **My Network** (`ego`) | *You* | You + your first-degree people | "Who am *I* connected to?" |
+| **2 · Community** | **This Community** (`community`) | A community | Every member, clustered | "Who is in *this* community, and how do they connect?" |
+| **3 · Across communities** | **Across Communities** (`communities`) | The platform | Communities-as-nodes (sister-links, splits) | "How does this community sit in the wider web of communities?" |
 
-The two stop overlapping once each owns its scale: *My Network* is person-centric and travels with the
-member across communities; the community-connection graph is group-centric and lives inside a community.
-PR B's job is not just "make My Network prominent" — it is to **make this distinction legible** in nav,
-labels, and entry points so the fractal reads cleanly.
+Today the community page surfaces #1 and #2 as two sub-tabs that look alike (both are member-node graphs
+in the same community, [TrustGraphTab.tsx:38-64](../../../apps/frontend/src/components/community/tabs/TrustGraphTab.tsx)) → the
+perceived overlap. Scale #3 (communities-as-nodes) **already exists** as the `communities` mode
+([BelongingGraph.tsx:76](../../../apps/frontend/src/components/BelongingGraph.tsx)) but is not framed as the
+level-up. PR B's job is to **make the three scales read as one zoom continuum**: *My Network* is
+person-centric and travels with the member across communities; *This Community* is the group's member
+topology; *Across Communities* is the community-of-communities. Labels, nav, and entry points should
+signal which scale you are at, so no two read as the same thing.
 
 ---
 
@@ -103,18 +109,19 @@ self-only by design.
 |------------------|--------|
 | `apps/frontend/src/components/GovernanceTab.tsx` (L66, L80, L145) | **BUG-025.** Stop rendering `Math.round(m.trust_score)` / `Math.round(m.karma)` / `Math.round(rh.trust_score)` / `avg_trust_score` — these fields are now omitted by ADR-082 → `NaN`. Render a coarse qualitative label or omit entirely; never compute from a possibly-absent numeric field. |
 | All readers of `eligible_members` / `role_holders` / `maturity` reputation fields | **BUG-025 (find ALL instances).** Grep every consumer of the now-identity-only governance/stewardship payloads (e.g. `StewardRequestsAdmin.tsx`, `StewardshipTab.tsx`, any trust-card/nominee list) and apply the same omit-or-coarse rule. |
-| `apps/frontend/src/pages/profile.tsx`, `apps/frontend/src/components/community/tabs/ProfileTab.tsx` | **BUG-024/026.** The member's own community-scoped profile reputation must read **exclusively** from `getMyCommunitySummary(communityId)` — one canonical source — so profile and community surfaces reconcile. Remove any stale/legacy reputation reads that produced the original BUG-024 discrepancy (trust 120 vs 27/100; karma 40 vs 0). |
-| `apps/frontend/src/components/graphs/TrustGraphHEB.tsx` (L342-354) | **BUG-027.** Zoom is currently explorer-only + wheel-only with no visible controls. Add visible **zoom-in / zoom-out / reset** buttons (calling `zoom.scaleBy` / a reset transform) and enable wheel + pinch on every map surface, not only the explorer. |
-| `apps/frontend/src/components/BelongingGraph.tsx`, `apps/frontend/src/components/dashboard/TrustNetworkWidget.tsx`, `apps/frontend/src/components/community/tabs/TrustGraphTab.tsx` | **BUG-027 (all map surfaces).** Ensure the shared zoom controls render on the belonging graph, the dashboard network widget, and the community trust-graph tab — not just the standalone explorer. |
+| `apps/frontend/src/pages/profile.tsx` (the `fetchKarmaData` path, L323-353) | **BUG-024/026.** The member's own community-scoped profile reputation currently reads **two** legacy sources — `reputationService.getMyKarma(communityId)` **and** `getTrustScore(user.id, communityId)` ([profile.tsx:328-330](../../../apps/frontend/src/pages/profile.tsx)) — which is the BUG-024 dual-source discrepancy (trust 120 vs 27/100; karma 40 vs 0). Route the member's own reputation through the single canonical `getMyCommunitySummary(communityId)` and delete the legacy reads. **`community/tabs/ProfileTab.tsx` is NOT the member profile** — it is the community overview/settings/providers surface; do not touch it for this. |
+| Audit: `apps/frontend/src/components/LeftSidebar.tsx` + any `/reputation/karma` self-readers | **BUG-024/026 (scope honesty).** Audit other self-facing reputation readers. Either migrate active ones to `getMyCommunitySummary`, or **narrow the spec claim** so we only assert that the surfaces we actually migrated consume the summary — do not claim "Profile, Home, and My Network all consume it" unless they verifiably do. |
+| `apps/frontend/src/components/graphs/TrustGraphHEB.tsx` (L342-354) | **BUG-027 (single owner).** Zoom is currently explorer-only + wheel-only with no visible controls. The renderer is the **one** owner: mount visible **zoom-in / zoom-out / reset** controls here (calling `zoom.scaleBy` / a reset transform) and enable wheel + pinch on all modes — gated by the existing `enableZoom` prop. |
+| `apps/frontend/src/components/BelongingGraph.tsx` (the single wrapper) | **BUG-027.** Every map surface already flows through `BelongingGraph` → `TrustGraphHEB`, and `enableZoom` is already threaded ([BelongingGraph.tsx:57,121](../../../apps/frontend/src/components/BelongingGraph.tsx)). Default `enableZoom` **on** here so all surfaces get controls without mounting anything in the three wrappers (avoids duplicate controls). |
 
 ### PR B — Belonging Prominence + Fractal Clarity
 
 | Component / file | Change |
 |------------------|--------|
 | `apps/frontend/src/components/Layout.tsx` (desktop `kq-topnav` L127-145; hamburger L37-56) | Add **My Network** → `/network` to primary nav (desktop topnav + hamburger), with `active`-state handling like the existing links. Respect the chrome budget (see Critical Notes #6). |
-| `apps/frontend/src/pages/dashboard.tsx` (Home) | Add a **prominent My Network preview** below pending decisions and urgent help actions (the locked S112 placement rule), linking to `/network`. |
-| `apps/frontend/src/pages/network.tsx`, `apps/frontend/src/components/BelongingSection.tsx` | Frame *My Network* explicitly as the **ego view** (person-centric, travels across communities). |
-| `apps/frontend/src/components/community/tabs/TrustGraphTab.tsx` and community network labels | Frame the community-connection graph explicitly as **"How we're connected"** at the **community (group) scale** — the level-up node-of-communities view — so it no longer reads as a second "My Network." |
+| `apps/frontend/src/components/Feed/UnifiedFeed.tsx` (Home render path, `!isCommunity`) | Add a **prominent My Network preview** in the Home feed. **Placement (corrected):** Home no longer contains a DecisionBand (BUG-015 moved it to Helping). The preview slot is **after the OfferedAwaiting + SuggestedAsHelper panels (L241-249) and before `FilterChipRow` (L251)** — above the request cards, below the in-flight/suggested panels. Home-only (`!isCommunity`). Links to `/network`. |
+| `apps/frontend/src/pages/network.tsx`, `apps/frontend/src/components/BelongingSection.tsx` | Frame *My Network* explicitly as **Scale 1 · the ego view** (person-centric, you + first-degree, travels across communities). |
+| `apps/frontend/src/components/community/tabs/TrustGraphTab.tsx` (sub-tabs + headings) | Make the three scales legible: **My Network** (`ego`) = Scale 1; **This Community** (`community`) = Scale 2 (whole-community member topology, group scale); surface **Across Communities** (`communities` mode) = Scale 3 (communities-as-nodes, "how communities connect"). Re-label so the two member-graphs (1 & 2) no longer read as duplicates and Scale 3 is framed as the level-up. |
 
 ---
 
@@ -122,9 +129,9 @@ self-only by design.
 
 Mandatory this sprint (every sprint ships doc updates):
 
-- **`docs/adr/ADR-082-reputation-disclosure-boundary.md`** — flip `Proposed/Accepted` → **Implemented** *only after* PR A two-user validation passes; add the defense-in-depth UI section (NaN-safe rendering, profile reconciliation on the canonical self-summary).
-- **`docs/BUGS.md`** — mark BUG-025 fixed, BUG-027 fixed, and BUG-024 + BUG-026 fixed **only after** two-user validation.
-- **User guide** — update the belonging/network guide (`docs/guides/`) and the landing concept page(s) in `apps/landing/` to describe the fractal: *My Network* (ego) vs community connections (group), and the new nav/Home entry points. Wire any new page into `apps/landing/.../nav.json` (drift gate enforces wiring).
+- **`docs/adr/ADR-082-reputation-disclosure-boundary.md`** — add the defense-in-depth UI section (NaN-safe rendering, profile reconciliation on the canonical self-summary). Flip `Proposed/Accepted` → **Implemented** as PR B's first commit, gated on PR A's two-user validation (not in PR A — it merges before validation runs).
+- **`docs/BUGS.md`** — mark BUG-024/025/026/027 fixed as PR B's first commit, **only after** two-user validation passes.
+- **User guide** — update the belonging/network guide (`docs/guides/`) and the landing concept page(s) in `apps/landing/` to describe the **three-scale fractal** — *My Network* (ego) → *This Community* (member topology) → *Across Communities* (communities-as-nodes) — and the new nav/Home entry points. Wire any new page into `apps/landing/.../nav.json` (drift gate enforces wiring).
 - **`apps/frontend/src/lib/onboarding/workflows.ts`** — update onboarding copy if the My Network nav/Home entry changes the authenticated workflow.
 - **`services/reputation-service/CONTEXT.md`** — note the profile reconciliation now consumes only `getMyCommunitySummary`.
 
@@ -136,19 +143,22 @@ Mandatory this sprint (every sprint ships doc updates):
    identity-only. Never `Math.round(x)` / `Number(x)` / `x.toFixed()` a reputation field that may now be
    `undefined`. Render a coarse qualitative label or omit the element — guard with an explicit presence
    check, not a `|| 0` (which would re-introduce a fake zero, the exact anti-pattern ADR-082 forbids).
-2. **One canonical self-summary.** The member's own profile, Home, and My Network all read reputation
-   from `getMyCommunitySummary(communityId)` — never a second/legacy query. The original BUG-024
-   discrepancy was two different sources at two different scales; reconcile to one.
+2. **One canonical self-summary — but only claim what you migrate.** Route the member's own
+   community-scoped reputation through `getMyCommunitySummary(communityId)`, never a second/legacy query
+   (the BUG-024 discrepancy was `profile.tsx` calling `getMyKarma` **and** `getTrustScore`). Audit
+   `LeftSidebar.tsx` and `/reputation/karma` self-readers; either migrate them or narrow the claim — do
+   **not** assert "Profile, Home, and My Network all consume the summary" unless each verifiably does.
 3. **Find ALL instances (BUG-025).** Grep the whole frontend for readers of the now-omitted governance
    reputation fields before touching anything — assume the same NaN pattern exists in more than one
    component (nominee lists, trust cards, stewardship admin).
 4. **Don't re-add a removed field to fix the UI.** If profile needs a value the self-summary lacks, that
    is a contract gap to escalate — never patch it by reading a cross-user reputation field. The boundary
    is self-only by design (defense in depth: UI hiding complements the API, it does not weaken it).
-5. **Zoom is shared, not per-surface bespoke.** Extract a single zoom-controls affordance used by every
-   map surface (explorer, belonging graph, dashboard widget, community trust-graph tab). jsdom does not
-   support `d3.zoom().transform`; seed `__zoom` directly and stub `ResizeObserver` in tests (see the
-   Jest + D3 ESM memory).
+5. **Zoom has ONE owner — the renderer.** Every surface flows through `BelongingGraph` → `TrustGraphHEB`,
+   and `enableZoom` is already threaded. Mount the controls inside `TrustGraphHEB` and default
+   `enableZoom` on in `BelongingGraph`; do **not** mount controls in the three wrappers (duplicate-control
+   risk). Test representative modes. jsdom does not support `d3.zoom().transform`; seed `__zoom` directly
+   and stub `ResizeObserver` in tests (see the Jest + D3 ESM memory).
 6. **Chrome budget.** The topbar is already congested (BUG-016/017); adding *My Network* to `kq-topnav`
    competes for the reading-measure chrome. Verify it does not re-crowd the header at md widths — the
    Home preview is the primary prominence surface; the nav link is secondary. Compact gracefully on
@@ -167,7 +177,11 @@ Mandatory this sprint (every sprint ships doc updates):
 
 ## Delivery Sequence
 
-- **PR A (Belonging Truth)** ships and is **deployed + two-user-validated first**; it promotes ADR-082 to
-  Implemented and closes BUG-024/025/026/027.
-- **PR B (Belonging Prominence)** branches from merged `origin/master` only after PR A deploy validation;
-  it must not delay the truth fixes.
+- **PR A (Belonging Truth)** ships the code fixes, merges, and **deploys first**. The two-user validation
+  runs against the deployed PR A.
+- **Status flips land in PR B, not PR A.** Because validation happens *after* PR A merges, you cannot add
+  the ADR-082→Implemented + BUG-024/025/026/027 closure commits to an already-merged PR A (that would be a
+  third PR). They are the **first commit of PR B**, gated on the validation passing.
+- **PR B (Belonging Prominence)** branches from merged `origin/master` after PR A deploys; its first commit
+  records the validated status closures, then it adds nav + Home preview + fractal clarity. It must not
+  delay the truth fixes.
