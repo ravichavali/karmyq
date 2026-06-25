@@ -236,7 +236,7 @@ describe('CommunityAggregateSchema (explicit aggregate exception)', () => {
 
 describe('forbidden-key scanner', () => {
   it('exposes the canonical forbidden ordinary-member keys', () => {
-    for (const k of ['trust_score', 'karma', 'total_karma', 'raw_weight', 'effective_weight', 'currentWeight']) {
+    for (const k of ['trust_score', 'karma', 'total_karma', 'raw_weight', 'effective_weight', 'currentWeight', 'feedScore', 'feed_score']) {
       expect(FORBIDDEN_ORDINARY_MEMBER_KEYS.has(k)).toBe(true);
     }
   });

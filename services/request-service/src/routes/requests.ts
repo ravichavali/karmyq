@@ -809,11 +809,20 @@ async function handleCuratedFeed(req: Request, res: Response): Promise<void> {
       return acc;
     }, {});
 
+    // Sprint 112 (ADR-082): the legacy feed returns scored objects verbatim. Strip the exact composite
+    // feedScore and its reconstruction-enabling component signals (priorInteractionScore, recencyScore)
+    // — with the public formula + readable weights they would let requester trust be solved. The
+    // server has already sorted by feedScore, so the ranked ORDER is the outward ranking signal.
+    const safeRequests = filteredRequests.map((r: any) => {
+      const { feedScore: _fs, priorInteractionScore: _pis, recencyScore: _rs, ...safe } = r;
+      return safe;
+    });
+
     sendSuccess(
       res,
       {
-        requests: filteredRequests,
-        count: filteredRequests.length,
+        requests: safeRequests,
+        count: safeRequests.length,
         filters: {
           minMatchScore,
           totalRequests: requestsResult.rowCount,
@@ -1216,7 +1225,11 @@ async function respondHomeFeed(req: Request, res: Response, userId: string, scor
     fetchOfferedAwaiting(userId),
     fetchSuggestedAsHelper(userId),
   ]);
-  const requestItems = scoredRequests.map((r) => buildRequestItem(toRequestCardData(r), r.feedScore));
+  // Sprint 112 (ADR-082): pass a non-reversible RANK (position in the already-feedScore-sorted list),
+  // not the exact composite feedScore — priority must not encode a value from which requester trust
+  // can be solved. Order is preserved (idx 0 = top); the exact feedScore stays internal.
+  const requestItems = scoredRequests.map((r, idx) =>
+    buildRequestItem(toRequestCardData(r), scoredRequests.length - idx));
   const { items } = assembleHomeFeed([...decisionItems, ...requestItems]);
 
   sendSuccess(
@@ -1352,7 +1365,9 @@ async function respondCommunityFeed(
   }
 
   // Requests the member can fill (the curated query already scoped these to this community).
-  const requestItems = scoredRequests.map((r) => buildRequestItem(toRequestCardData(r), r.feedScore));
+  // Sprint 112 (ADR-082): non-reversible rank priority, not the exact composite feedScore (see view=home).
+  const requestItems = scoredRequests.map((r, idx) =>
+    buildRequestItem(toRequestCardData(r), scoredRequests.length - idx));
 
   // Texture: best-effort + non-fatal (same pattern as fetchDecisions). Ranked below requests.
   const textureItems: UnifiedFeedItem[] = [];

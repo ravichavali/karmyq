@@ -46,6 +46,7 @@ const NEIGHBOR = '22222222-2222-2222-2222-222222222222';
 const REQUESTER = '33333333-3333-3333-3333-333333333333';
 const SENTINEL_TRUST = 827;
 const SENTINEL_KARMA = 913;
+const SENTINEL_SCORE = 614;
 
 function app() {
   const a = express();
@@ -85,6 +86,7 @@ describe('GET /requests/:id/dibs-candidate — ADR-082', () => {
       providerUserId: NEIGHBOR,
       displayName: 'Sam',
       trustScore: SENTINEL_TRUST, // sentinel — must NOT appear in the response
+      score: SENTINEL_SCORE, // derived ranking score — also reconstruction-enabling; must NOT appear
       priorInteractions: 2,
       similarPriorInteractions: 1,
       trustGraphConnection: 'direct',
@@ -100,8 +102,10 @@ describe('GET /requests/:id/dibs-candidate — ADR-082', () => {
     // The candidate identity + relationship structure survive…
     expect(res.body.data.providerUserId).toBe(NEIGHBOR);
     expect(res.body.data.priorInteractions).toBe(2);
-    // …but the neighbor's exact reputation does not, at any depth.
-    expect(JSON.stringify(res.body.data)).not.toMatch(/trustScore|"trust_score"|827/);
+    // …but neither the neighbor's exact trustScore NOR the derived ranking score does, by key OR value.
+    expect(res.body.data).not.toHaveProperty('trustScore');
+    expect(res.body.data).not.toHaveProperty('score');
+    expect(JSON.stringify(res.body.data)).not.toMatch(/trustScore|"trust_score"|"score"|827|614/);
   });
 });
 
@@ -137,7 +141,7 @@ describe('GET /requests/curated — live response carries no requester reputatio
     return Promise.resolve({ rowCount: 0, rows: [] });
   }
 
-  it('legacy curated response exposes no requester karma/trust or feedBreakdown', async () => {
+  it('legacy curated response exposes no requester reputation or reconstruction-enabling score', async () => {
     mockQuery.mockImplementation(curatedMock as any);
     const res = await request(curatedApp()).get('/requests/curated?minScore=0');
 
@@ -145,13 +149,31 @@ describe('GET /requests/curated — live response carries no requester reputatio
     const requests = res.body.data?.requests ?? [];
     expect(requests.length).toBeGreaterThan(0);
     const item = requests[0];
-    // Structural ranking signal survives…
-    expect(item).toHaveProperty('feedScore');
-    // …but the requester's exact reputation does not, by key OR by reconstructable breakdown.
+    // Identity + the request itself survive; the server-sorted ORDER is the outward ranking signal.
+    expect(item.requester_id).toBe(REQUESTER);
+    // The requester's exact reputation does not appear — neither directly (karma/trust) nor via the
+    // reconstruction-enabling composite feedScore + its component signals nor the raw breakdowns.
     expect(item).not.toHaveProperty('requesterKarma');
     expect(item).not.toHaveProperty('requesterTrustScore');
+    expect(item).not.toHaveProperty('feedScore');
+    expect(item).not.toHaveProperty('priorInteractionScore');
+    expect(item).not.toHaveProperty('recencyScore');
     expect(item).not.toHaveProperty('feedBreakdown');
     expect(item).not.toHaveProperty('matchBreakdown');
-    expect(JSON.stringify(res.body.data)).not.toMatch(/913|827|requesterTrust/);
+    expect(JSON.stringify(res.body.data)).not.toMatch(/913|827|requesterTrust|feedScore|feedBreakdown/);
+  });
+
+  it('view=home priority is a non-reversible rank, not the composite feedScore', async () => {
+    mockQuery.mockImplementation(curatedMock as any);
+    const res = await request(curatedApp()).get('/requests/curated?view=home&minScore=0');
+
+    expect(res.status).toBe(200);
+    const items = res.body.data?.items ?? [];
+    const requestItem = items.find((i: any) => i.kind === 'request');
+    expect(requestItem).toBeTruthy();
+    // With one request, the rank-based priority is PRIORITY_REQUEST_BASE(1000) + rank(1) = 1001,
+    // NOT 1000 + round(feedScore). The exact composite never reaches the wire.
+    expect(requestItem.priority).toBe(1001);
+    expect(JSON.stringify(res.body.data)).not.toMatch(/913|827|requesterTrust|feedScore|"feed_score"/);
   });
 });

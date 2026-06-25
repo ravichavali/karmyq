@@ -668,8 +668,7 @@
             "title": "Need a hand",
             "requester_id": "22222222-2222-2222-2222-222222222222",
             "trust_degree": 2,
-            "match_score": 80,
-            "feed_score": 72
+            "match_score": 80
           }
         ]
       }

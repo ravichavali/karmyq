@@ -227,6 +227,12 @@ export const FORBIDDEN_ORDINARY_MEMBER_KEYS: ReadonlySet<string> = new Set([
   'current_weight',
   'avg_invitee_karma',
   'avg_invitee_trust_score',
+  // Sprint 112 round-3 (ADR-082): the composite feed score is reconstruction-enabling — with the
+  // public weighted-sum formula and readable community weights, exposing it lets requester trust be
+  // solved. It must never appear in an ordinary-member outward contract (the feed exposes a coarse,
+  // non-reversible rank instead).
+  'feedScore',
+  'feed_score',
 ]);
 
 /**
