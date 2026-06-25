@@ -442,7 +442,7 @@ type UnifiedFeedItem =
   | { kind: 'activity'; priority: number; data: ActivityData }      // community texture (500, community only)
   | { kind: 'story';    priority: number; data: StoryData }         // community texture (100, community only)
 ```
-- **Action altitude bands**: decisions `>= 2000` > requests `1000–1100` (= `1000 + feedScore`) > activity `500` > story `100`. Within decisions, a response a counterparty awaits (accept/decline) ranks above the member's own housekeeping (withdraw/mark-done).
+- **Action altitude bands**: decisions `>= 2000` > requests `1000–1100` (= `1000 + rank`, a non-reversible position in the server's feedScore-sorted list — ADR-082, NOT `1000 + feedScore`) > activity `500` > story `100`. Within decisions, a response a counterparty awaits (accept/decline) ranks above the member's own housekeeping (withdraw/mark-done).
 - `decision` items (home only) are built from the member's proposed matches/offers (accept/decline as **requester**), matched items awaiting the member's mark-done, and pending dibs on the member's requests — the same data the Commitments tab reads. **S86 UX:** a responder's *own* proposed offer is no longer surfaced here (it's awaiting the requester, not a decision the responder owes — it lives in the Helping tab with a Withdraw action). Each decision also carries `description` + `payload`/`payload_type` so the band can expand inline to show request detail.
 - **`match_score` is normalized to one 0–100 integer scale** at the API boundary (never 0–1), with a human-readable `match_reason`.
 - **`payload_type` (Sprint 86 / ADR-067)** — each `request` item carries a fine payload subtype derived from the `category` column via `categoryToPayloadType()` (distinct from the coarse `request_type` enum); it drives the card's `RequestPayloadRenderer`. Unmapped categories → `undefined` (renderer no-ops, safe).
@@ -477,21 +477,15 @@ type UnifiedFeedItem =
         "skill_level_required": "intermediate"
       },
       "matchScore": 85,
-      "feedScore": 72,
       "is_boosted": true,
       "boosted_expires_at": "2026-03-27T12:00:00Z",
       "sourceTier": "community",
-      "trustDistance": 2,
-      "karmaScore": 150,
+      "trustDegrees": 2,
       "matchReasons": [
         "You have plumbing skill",
         "Skill level matches",
         "High urgency bonus"
       ],
-      "matchBreakdown": {
-        "skillScore": 50,
-        "urgencyBonus": 35
-      },
       "community_name": "Seattle Mutual Aid",
       "requester_name": "Alice Smith"
     }],
@@ -521,7 +515,13 @@ type UnifiedFeedItem =
 }
 ```
 
-**Algorithm (ADR-031):**
+> **Sprint 112 (ADR-082):** the example above shows the post-boundary shape. The feed no longer
+> returns `feedScore`, `karmaScore`/`requesterKarma`, `requesterTrustScore`, `priorInteractionScore`,
+> `recencyScore`, or `matchBreakdown`/`feedBreakdown` — the requester's exact reputation and the
+> reconstruction-enabling composite stay internal. `matchScore` (skill match) and `trustDegrees`
+> (caller-relative degrees) remain; outward ranking is the server-sorted order.
+
+**Algorithm (ADR-031, amended by ADR-082):**
 1. Fetch user feed preferences from `auth.user_feed_preferences`
 2. Fetch user preferences (subscribed request types from auth.user_request_preferences)
 3. Fetch user skills from auth.user_skills
@@ -529,11 +529,14 @@ type UnifiedFeedItem =
    - **Community**: Requests in user's communities
    - **Trust Network**: Requests with `visibility_scope != 'community'` within trust degree limits
    - **Platform**: Requests with `visibility_scope = 'platform'` (if user opted in)
-5. Batch-fetch trust distances from `auth.social_distances` and karma from `reputation.karma_records`
+5. Batch-fetch trust DISTANCES (caller-relative degrees) from `auth.social_distances`. **Sprint 112
+   (ADR-082): the requester karma/trust lookup from `reputation.karma_records`/`reputation.trust_scores`
+   is REMOVED — requester reputation is no longer read for ranking.**
 6. Resolve source tier per request using `resolveSourceTier()` from `@karmyq/shared/matching`
-7. Calculate feed scores using community-configurable weights (ADR-031); active boost adds +30 to feedScore (capped at 100)
-8. Sort by tier priority (community > trust_network > platform), then by feedScore
-9. Return top N results with transparency (scores, tier, trust distance, karma)
+7. Calculate feed scores from SIX signals using community-configurable weights, NORMALIZED to sum 1.0
+   at query time with requester-trust excluded (ADR-082); active boost adds +30 (capped at 100)
+8. Sort by tier priority (community > trust_network > platform), then by feedScore (internal only)
+9. Return top N in ranked order — NO scores/karma/trust exposed (ADR-082); outward signal is the order
 
 **Implementation:** `src/routes/requests.ts:194`
 

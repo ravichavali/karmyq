@@ -130,6 +130,10 @@ describe('GET /requests/curated — live response carries no requester reputatio
     if (/community_configs cc/.test(sql)) {
       return Promise.resolve({ rowCount: configRow ? 1 : 0, rows: configRow ? [configRow] : [] });
     }
+    // Sister-community links (only consulted when includeSisterCommunities=true) — one linked sister.
+    if (/community_links cl/.test(sql)) {
+      return Promise.resolve({ rowCount: 1, rows: [{ sister_community_id: 'dddddddd-dddd-dddd-dddd-dddddddddddd', trust_carry_factor: 0.40 }] });
+    }
     // user_request_preferences → subscribe to 'generic' so the (generic) request survives filtering.
     if (/user_request_preferences/.test(sql)) {
       return Promise.resolve({ rowCount: 1, rows: [{ request_type: 'generic', subscribed: true }] });
