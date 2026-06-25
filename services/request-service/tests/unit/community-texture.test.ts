@@ -56,7 +56,7 @@ describe('texture priority bands — requests > activity > story', () => {
   });
 
   it('keeps the bands separated even at their extremes', () => {
-    // request floor (feedScore 0) still outranks activity; activity outranks story.
+    // request floor (lowest rank → +0) still outranks activity; activity outranks story.
     expect(buildRequestItem({ request_id: 'r' }, 0).priority).toBeGreaterThan(PRIORITY_ACTIVITY_BASE);
     expect(PRIORITY_ACTIVITY_BASE).toBeGreaterThan(PRIORITY_STORY_BASE);
   });
@@ -64,31 +64,32 @@ describe('texture priority bands — requests > activity > story', () => {
 
 describe('assembleFeed — community union keeps requests > activity > story', () => {
   it('sorts a shuffled request+activity+story input into the right bands (exact order)', () => {
+    // buildRequestItem's second arg is a non-reversible RANK (ADR-082): r-high rank 2, r-low rank 1.
     const items = [
       buildStoryItem(story({ title: 'story-A' })),
-      buildRequestItem({ request_id: 'r-low' }, 30),
+      buildRequestItem({ request_id: 'r-low' }, 1),
       buildActivityItem(activity()),
-      buildRequestItem({ request_id: 'r-high' }, 90),
+      buildRequestItem({ request_id: 'r-high' }, 2),
       buildStoryItem(story({ title: 'story-B' })),
     ];
 
     const { items: ranked } = assembleFeed(items);
 
     expect(ranked.map((i) => i.kind)).toEqual(['request', 'request', 'activity', 'story', 'story']);
-    // requests by descending feed score within the request band
+    // requests by descending rank within the request band
     expect((ranked[0].data as { request_id: string }).request_id).toBe('r-high');
     expect((ranked[1].data as { request_id: string }).request_id).toBe('r-low');
     // stories keep input order (stable sort) — story-A before story-B
     expect((ranked[3].data as { title: string }).title).toBe('story-A');
     expect((ranked[4].data as { title: string }).title).toBe('story-B');
-    // exact priorities
-    expect(ranked.map((i) => i.priority)).toEqual([1090, 1030, 500, 100, 100]);
+    // exact priorities: requests base(1000)+rank 1002/1001; activity 500; stories 100/100
+    expect(ranked.map((i) => i.priority)).toEqual([1002, 1001, 500, 100, 100]);
   });
 
   it('handles a request-only community (no texture available) without reordering', () => {
     const { items } = assembleFeed([
-      buildRequestItem({ request_id: 'a' }, 50),
-      buildRequestItem({ request_id: 'b' }, 50),
+      buildRequestItem({ request_id: 'a' }, 1),
+      buildRequestItem({ request_id: 'b' }, 1),
     ]);
     expect(items.map((i) => (i.data as { request_id: string }).request_id)).toEqual(['a', 'b']);
   });

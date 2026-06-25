@@ -371,3 +371,9 @@ feed/surfacing gap, bigger than the Sprint 99 frozen scope). See
 `docs/bugs/sprint-99-release-experience-audit.md`.
 
 ---
+
+## [2026-06-24] ux
+
+Belonging graphs are too buried — they should be more front-and-center, not tucked into a profile section / dashboard widget / community sub-tab. The graph is "the primary way Karmyq tells a member's story" (ADR-081), so its placement should match that altitude. Possible directions: a top-level nav entry for `/network`, surfacing the belonging graph higher on the dashboard/home, or an onboarding moment that shows a new member their (growing) network. Follow-up to S111, which built the engine + explorer but kept the entry points modest.
+
+---

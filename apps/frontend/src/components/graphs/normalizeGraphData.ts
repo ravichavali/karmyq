@@ -49,6 +49,57 @@ export function normalizeCommunityDepthGraph(graph: {
   }
 }
 
+// Sprint 112 (ADR-082) — the safe person-graph API shape. Nodes carry identity + structure only;
+// links carry a qualitative relationship_state. No node trust_score/karma; no raw/effective weights.
+interface SafePersonGraphNode {
+  user_id?: string
+  id?: string
+  name: string
+  is_current_user?: boolean
+  isCurrentUser?: boolean
+  degrees_of_separation?: 0 | 1 | 2 | 3
+}
+interface SafePersonGraphLink {
+  source: string | { id?: string; user_id?: string }
+  target: string | { id?: string; user_id?: string }
+  relationship_state?: 'strong' | 'warm' | 'fading' | 'nearly_forgotten'
+  decayTier?: 'strong' | 'warm' | 'fading' | 'nearly_forgotten' | 'swept'
+  type?: 'organic' | 'fission'
+}
+
+function endpointId(value: SafePersonGraphLink['source']): string {
+  if (value && typeof value === 'object') return (value.id ?? value.user_id) as string
+  return value as string
+}
+
+/**
+ * Bridge the privacy-safe person-graph payload (`/trust/graph*`, `/trust/neighborhood`) into the
+ * canonical client model. Maps `user_id`→`id`, `is_current_user`→`isCurrentUser`, and
+ * `relationship_state`→`decayTier` (the renderer styles edges by decayTier). Node reputation is
+ * absent by design — surfaces render identity + relationship structure, never node metrics.
+ */
+export function normalizePersonGraph(graph: {
+  nodes: SafePersonGraphNode[]
+  links: SafePersonGraphLink[]
+  meta?: GraphData['meta']
+}): GraphData {
+  return {
+    nodes: (graph.nodes ?? []).map(n => ({
+      id: (n.user_id ?? n.id) as string,
+      name: n.name,
+      isCurrentUser: n.is_current_user ?? n.isCurrentUser ?? false,
+      ...(n.degrees_of_separation != null ? { degrees_of_separation: n.degrees_of_separation } : {}),
+    })),
+    links: (graph.links ?? []).map(l => ({
+      source: endpointId(l.source),
+      target: endpointId(l.target),
+      decayTier: l.relationship_state ?? l.decayTier,
+      ...(l.type ? { type: l.type } : {}),
+    })),
+    ...(graph.meta ? { meta: graph.meta } : {}),
+  }
+}
+
 /** Stable de-dup key: undirected endpoint pair + semantic link type (parallel organic/fission kept). */
 export function linkKey(link: TrustLink): string {
   return `${[link.source, link.target].sort().join('::')}::${link.type ?? 'trust'}`

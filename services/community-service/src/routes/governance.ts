@@ -50,9 +50,12 @@ router.post('/:communityId/governance/nominate', async (req: any, res: Response)
     `, [communityId, nominated_user_id]);
     const trustScore = parseFloat(trustRes.rows[0]?.trust_score) || 0;
     if (trustScore < settings.eligibility_threshold) {
+      // Sprint 112 (ADR-082): the threshold check stays internal; the denial is coarse and never
+      // reveals the nominee's trust score or the numeric threshold.
       return res.status(422).json({
         success: false,
-        message: `Nominated member's trust score (${trustScore.toFixed(1)}) is below the eligibility threshold (${settings.eligibility_threshold})`,
+        message: 'This member has not yet met the eligibility threshold through established community relationships.',
+        error: 'GOVERNANCE_ELIGIBILITY_NOT_MET',
       });
     }
 

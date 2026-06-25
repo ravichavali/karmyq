@@ -4,24 +4,19 @@ import { socialGraphApi } from '@/lib/api';
 interface TrustPathNode {
   id: string;
   name: string;
-  karma?: number;
   exchanged_at?: string;
   invited_at?: string;
 }
 
+// Sprint 112 (ADR-082): the trust card shows authorized identity + connection structure only —
+// another member's karma and karma-derived trust tier are no longer disclosed.
 interface TrustCardData {
-  targetUser: { id: string; name: string; karma: number; trust_tier: 'Emerging' | 'Trusted' | 'Pillar' };
+  targetUser: { id: string; name: string };
   trustPath: TrustPathNode[];
   invitationPath: TrustPathNode[] | null;
   degrees: number | null;
   path_type: string | null;
 }
-
-const TIER_COLORS = {
-  Emerging: 'bg-gray-100 text-gray-700',
-  Trusted: 'bg-blue-100 text-blue-700',
-  Pillar: 'bg-green-100 text-green-700',
-};
 
 const pathTypeLabel: Record<string, string> = {
   exchange: 'Connected through shared exchanges',
@@ -57,16 +52,14 @@ export function TrustCard({ userId, onClose }: { userId: string; onClose: () => 
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h2 className="font-semibold text-lg text-gray-900">{data.targetUser.name}</h2>
-                <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${TIER_COLORS[data.targetUser.trust_tier]}`}>
-                  {data.targetUser.trust_tier}
-                </span>
+                {data.degrees != null && (
+                  <span className="text-xs text-gray-500">
+                    {data.degrees === 1 ? 'Directly connected' : `${data.degrees} degrees away`}
+                  </span>
+                )}
               </div>
               <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl">×</button>
             </div>
-
-            <p className="text-sm text-gray-500 mb-4">
-              {data.targetUser.karma} karma · {data.targetUser.trust_tier}
-            </p>
 
             {data.trustPath.length > 1 ? (
               <div className="mb-3">
@@ -79,7 +72,6 @@ export function TrustCard({ userId, onClose }: { userId: string; onClose: () => 
                           {node.name.charAt(0)}
                         </span>
                         <span className="text-xs text-gray-600 max-w-[60px] truncate text-center">{node.name}</span>
-                        {node.karma != null && <span className="text-xs text-gray-400">{node.karma}</span>}
                       </span>
                       {i < data.trustPath.length - 1 && <span className="text-gray-300">→</span>}
                     </span>

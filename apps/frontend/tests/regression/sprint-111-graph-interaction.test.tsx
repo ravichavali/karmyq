@@ -106,21 +106,23 @@ describe('TrustGraphHEB communities mode', () => {
 })
 
 describe('TrustGraphHEB privacy', () => {
-  it('hides another member\'s trust score and karma, but shows your own', () => {
+  it('shows relationship structure only — never trust score or karma, not even for your own node (ADR-082)', () => {
     const { container, getByText, queryByText } = render(
       <TrustGraphHEB graphData={peopleGraph} currentUserId="me" mode="ego" />
     )
 
-    // Clicking another member shows only structural info (connections), never their reputation numbers.
+    // Clicking another member shows only structural info (connections), never reputation numbers.
     fireEvent.click(nodeById(container, 'peer-1')!)
     expect(getByText('Connections')).toBeInTheDocument() // detail panel is open
     expect(queryByText(/trust score/i)).not.toBeInTheDocument()
     expect(queryByText(/karma/i)).not.toBeInTheDocument()
 
-    // Your own node shows your full numbers.
+    // Sprint 112 (ADR-082): even your OWN node carries no reputation in the graph — exact self
+    // metrics come only from the canonical reputation summary, never the belonging graph.
     fireEvent.click(nodeById(container, 'me')!)
-    expect(getByText(/trust score/i)).toBeInTheDocument()
-    expect(getByText(/karma/i)).toBeInTheDocument()
+    expect(getByText(/this is you/i)).toBeInTheDocument()
+    expect(queryByText(/trust score/i)).not.toBeInTheDocument()
+    expect(queryByText(/karma/i)).not.toBeInTheDocument()
   })
 })
 

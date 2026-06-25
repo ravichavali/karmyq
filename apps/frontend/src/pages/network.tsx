@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/router'
 import Layout from '@/components/Layout'
 import BelongingGraph from '@/components/BelongingGraph'
-import { mergeGraphData, normalizeCommunityDepthGraph, type DepthLink, type DepthNode } from '@/components/graphs/normalizeGraphData'
+import { mergeGraphData, normalizeCommunityDepthGraph, normalizePersonGraph, type DepthLink, type DepthNode } from '@/components/graphs/normalizeGraphData'
 import type { BelongingMode, GraphData } from '@/components/graphs/types'
 import { socialGraphService, communityService } from '@/lib/api'
 
@@ -118,10 +118,10 @@ export default function NetworkPage() {
     setExpandError(null)
 
     const loadBaseline = async (): Promise<GraphData | null> => {
-      if (mode === 'ego') return (await socialGraphService.getNeighborhood(user.id, { depth })).data as GraphData
+      if (mode === 'ego') return normalizePersonGraph((await socialGraphService.getNeighborhood(user.id, { depth })).data)
       if (mode === 'community') {
         if (!communityId) return null
-        return (await socialGraphService.getFullCommunityGraph(communityId)).data as GraphData
+        return normalizePersonGraph((await socialGraphService.getFullCommunityGraph(communityId)).data)
       }
       const res = await socialGraphService.getCommunityGraph()
       return normalizeCommunityDepthGraph(res.data as { nodes: DepthNode[]; links: DepthLink[] })
@@ -155,7 +155,7 @@ export default function NetworkPage() {
         // Drop a response that arrived after the user left ego mode — otherwise an aggregate-ego
         // neighborhood would contaminate a community/communities graph.
         if (modeRef.current !== 'ego') return
-        const data = res.data as GraphData
+        const data = normalizePersonGraph(res.data)
         setExpansions(prev => {
           const without = prev.filter(e => e.nodeId !== nodeId)
           return [...without, { nodeId, data }].slice(-MAX_EXPANSIONS)

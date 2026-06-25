@@ -2,7 +2,7 @@ import React, { useCallback, useEffect } from 'react'
 import dynamic from 'next/dynamic'
 import { socialGraphService } from '../lib/api'
 import { useLazyGraphData } from '../hooks/useLazyGraphData'
-import { normalizeCommunityDepthGraph, type DepthLink, type DepthNode } from './graphs/normalizeGraphData'
+import { normalizeCommunityDepthGraph, normalizePersonGraph, type DepthLink, type DepthNode } from './graphs/normalizeGraphData'
 import type { BelongingMode, GraphData } from './graphs/types'
 
 // TrustGraphHEB uses D3 and must be client-only. The wrapper is the ONLY place that knows how each
@@ -64,13 +64,14 @@ export default function BelongingGraph({
     if (hasSuppliedData) return graphData as GraphData
     if (mode === 'ego') {
       // Community-scoped ego (the community page's "My Network" sub-tab passes communityId) vs the
-      // cross-community aggregate (dashboard / profile, no communityId).
-      if (communityId) return (await socialGraphService.getTrustGraph(communityId)).data as GraphData
-      return (await socialGraphService.getTrustGraphAggregate()).data as GraphData
+      // cross-community aggregate (dashboard / profile, no communityId). Sprint 112 (ADR-082): the
+      // safe person-graph shape is normalized to the canonical client model here.
+      if (communityId) return normalizePersonGraph((await socialGraphService.getTrustGraph(communityId)).data)
+      return normalizePersonGraph((await socialGraphService.getTrustGraphAggregate()).data)
     }
     if (mode === 'community') {
       if (!communityId) return EMPTY_GRAPH
-      return (await socialGraphService.getFullCommunityGraph(communityId)).data as GraphData
+      return normalizePersonGraph((await socialGraphService.getFullCommunityGraph(communityId)).data)
     }
     if (mode === 'communities') {
       const res = await socialGraphService.getCommunityGraph()

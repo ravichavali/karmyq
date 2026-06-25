@@ -266,35 +266,9 @@ describe('TrustPathBadge', () => {
       expect(screen.getByText('Bob')).toBeInTheDocument();
     });
 
-    it('displays trust score when provided and > 0', () => {
-      const trustPath: TrustPath = {
-        degrees_of_separation: 1,
-        path: [
-          { id: '1', name: 'You' },
-          { id: '2', name: 'Alice' },
-        ],
-        trust_score: 85,
-      };
-      render(<TrustPathBadge trustPath={trustPath} />);
-
-      expect(screen.getByText('85')).toBeInTheDocument();
-    });
-
-    it('does not display trust score when 0', () => {
-      const trustPath: TrustPath = {
-        degrees_of_separation: 1,
-        path: [
-          { id: '1', name: 'You' },
-          { id: '2', name: 'Alice' },
-        ],
-        trust_score: 0,
-      };
-      render(<TrustPathBadge trustPath={trustPath} />);
-
-      expect(screen.queryByText('0')).not.toBeInTheDocument();
-    });
-
-    it('does not display trust score when undefined', () => {
+    it('never displays a numeric path trust score (ADR-082)', () => {
+      // Sprint 112: the outward path carries no numeric trust_score; the badge conveys closeness via
+      // degrees + relationship state, never a star rating or score number.
       const trustPath: TrustPath = {
         degrees_of_separation: 1,
         path: [
@@ -304,7 +278,7 @@ describe('TrustPathBadge', () => {
       };
       render(<TrustPathBadge trustPath={trustPath} />);
 
-      // No numeric text (trust score) should appear
+      // No bare numeric score text should appear.
       expect(screen.queryByText(/^\d+$/)).not.toBeInTheDocument();
     });
 

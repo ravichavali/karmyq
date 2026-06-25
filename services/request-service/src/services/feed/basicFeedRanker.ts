@@ -36,7 +36,8 @@ interface FeedRequest {
 interface SocialProximity {
   target_user_id: string;
   degrees_of_separation: number | null;
-  trust_score?: number;
+  // Sprint 112 (ADR-082): /paths/batch no longer returns an outward numeric path trust_score.
+  // Ranking uses degrees only; the field is gone from both the contract and the feed item.
   cached?: boolean;
 }
 
@@ -63,7 +64,6 @@ interface FeedItem {
     offers_count: number;
     social_proximity?: {
       degrees: number;
-      trust_score?: number;
     };
   };
 }
@@ -139,8 +139,7 @@ export class BasicFeedRanker {
         created_at: item.request.created_at,
         offers_count: item.request.offers_count,
         social_proximity: item.proximity ? {
-          degrees: item.proximity.degrees_of_separation!,
-          trust_score: item.proximity.trust_score
+          degrees: item.proximity.degrees_of_separation!
         } : undefined
       }
     }));

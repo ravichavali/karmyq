@@ -84,3 +84,20 @@ Types exported from `./schemas/providers`:
 - `CreateProviderReviewInput` — input type for POST /reputation/provider-reviews
 - `PROVIDER_SERVICE_TYPES` — const array `['ride', 'tradesperson', 'tutor', 'other']`
 - `ProviderServiceType` — union type derived from above
+
+## Schema: reputation disclosure (added 2026-06-24, ADR-082)
+
+Strict outward DTO contracts from `./schemas/reputation-disclosure` (also re-exported from the root)
+that make an ordinary member's exact reputation self-only at the API boundary. Services compute with
+rich internal rows and explicitly project to these `.strict()` schemas before `res.json`.
+
+- `DisclosureClass` / `DisclosureClassSchema` — `self | ordinary_member | provider | community_aggregate | internal`
+- `RelationshipState` / `RelationshipStateSchema` — qualitative bond `strong | warm | fading | nearly_forgotten` (derived from the ADR-070 decay tier; `swept` is never returned outward)
+- `SelfCommunityReputationSchema` — the canonical community-scoped self summary (scope, reputation, karma, activity); consumed by `GET /reputation/me/community-summary`
+- `SafeBelongingNodeSchema` / `SafeBelongingLinkSchema` / `SafePersonGraphSchema` — identity-only graph nodes + relationship-state links (no `trust_score`/`karma`/`*_weight`)
+- `SafeTrustPathSchema` — structural path + coarse relationship band (no outward numeric trust score)
+- `GovernanceEligibleMemberSchema` / `GovernanceRoleHolderSchema` / `GovernanceStateSchema` — coarse eligibility + roles, never member numbers
+- `PublicMemberIdentitySchema` — `{ user_id, name }` only
+- `ProviderReputationSchema` — explicit public provider-rating exception (carries numeric ratings)
+- `CommunityAggregateSchema` — explicit aggregate exception (≥5-member cohort enforced in services, not the schema)
+- `FORBIDDEN_ORDINARY_MEMBER_KEYS`, `assertNoForbiddenReputationKeys`, `findForbiddenReputationKeys` — recursive defence-in-depth scanner for ordinary-member/self fixtures (NOT applied to provider/aggregate exceptions)

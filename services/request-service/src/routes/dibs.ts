@@ -99,9 +99,18 @@ router.get('/:id/dibs-candidate', authMiddleware, async (req: AuthenticatedReque
       }
     }
 
+    // Sprint 112 (ADR-082): the dibs nudge shows WHO to ask + WHY (reason + relationship context +
+    // path structure), never the candidate's exact reputation. Strip BOTH trustScore and the derived
+    // ranking `score` — since score = trustScore*0.50 + … with a public formula, returning score plus
+    // its other inputs would let trustScore be reconstructed.
+    let safeCandidate: object | null = null;
+    if (candidate) {
+      const { trustScore: _omitTrustScore, score: _omitScore, ...rest } = candidate as unknown as Record<string, unknown>;
+      safeCandidate = { ...rest, trustPath, reason, relationshipContext };
+    }
     return res.json({
       success: true,
-      data: candidate ? { ...candidate, trustPath, reason, relationshipContext } : null,
+      data: safeCandidate,
     });
   } catch (err: any) {
     (req as any).logger?.error('[dibs] Error fetching dibs candidate', err instanceof Error ? err : new Error(String(err)), { service: 'request-service' });

@@ -9,7 +9,6 @@ export interface TrustPath {
   path: Array<{
     id: string;
     name: string;
-    karma?: number;
     exchanged_at?: string;
   }>;
   trustScore: number;
@@ -126,23 +125,15 @@ export async function computeShortestPath(
 
   const degrees = pathUserIds.length - 1;
 
-  // Fetch user details and karma for the path
+  // Sprint 112 (ADR-082): fetch only identity for path nodes. Intermediate-node karma was an
+  // exact reputation leak and is never used for ranking (trustScore is edge-weight derived).
   const userDetailsResult = await pool.query(
-    `SELECT
-       u.id,
-       u.name,
-       COALESCE((
-         SELECT SUM(points)
-         FROM reputation.karma_records
-         WHERE user_id = u.id AND community_id = $1
-       ), 0) as karma
-     FROM auth.users u
-     WHERE u.id = ANY($2)`,
-    [communityId, pathUserIds]
+    `SELECT u.id, u.name FROM auth.users u WHERE u.id = ANY($1)`,
+    [pathUserIds]
   );
 
-  const userDetailsMap = new Map(
-    userDetailsResult.rows.map(row => [row.id, { name: row.name, karma: row.karma }])
+  const userDetailsMap = new Map<string, { name: string }>(
+    userDetailsResult.rows.map(row => [row.id, { name: row.name }])
   );
 
   // Fetch exchange timestamps for path edges
@@ -174,7 +165,6 @@ export async function computeShortestPath(
     const obj: {
       id: string;
       name: string;
-      karma?: number;
       exchanged_at?: string;
     } = {
       id: userId,
@@ -184,11 +174,6 @@ export async function computeShortestPath(
     if (index > 0) {
       const prevUserId = pathUserIds[index - 1];
       obj.exchanged_at = exchangeTimestamps.get(`${prevUserId}-${userId}`);
-    }
-
-    if (index > 0 && index < pathUserIds.length - 1) {
-      // Only include karma for intermediate nodes (not source or target)
-      obj.karma = details?.karma || 0;
     }
 
     return obj;

@@ -90,10 +90,61 @@ export function resolveRetentionWindows(
   };
 }
 
+// The default relevance threshold for the curated feed.
+export const DEFAULT_MIN_SCORE = 30;
+
+/**
+ * Resolve the feed score gate. Sprint 112 (ADR-082): `minScore` is restricted to two FIXED
+ * server-defined modes so it cannot be used as a disclosure oracle. Because `feedScore` is hidden
+ * but still filtered against, an arbitrary caller-supplied threshold would let a caller binary-search
+ * the inclusion boundary of a known request to infer its composite — and for a community whose
+ * config sets requester-trust weight to 1.0 (every other weight 0), `feedScore = requesterTrust`, so
+ * probing would read the target's exact trust score. There is no founder exception (ADR-082).
+ *
+ * Modes: `0`/`all` → show everything (no gate); anything else or absent → the default threshold.
+ * Intermediate numeric thresholds are NOT honored, so the boundary never moves with caller input.
+ */
 export function parseMinScore(value: unknown): number {
-  const parsed = parseInt(String(value ?? ''), 10);
-  return Number.isFinite(parsed) ? parsed : 30;
+  const raw = String(value ?? '').trim().toLowerCase();
+  return raw === '0' || raw === 'all' ? 0 : DEFAULT_MIN_SCORE;
 }
+
+/**
+ * Normalize a feed-weight vector to sum to 1.0 (ADR-082). Sprint 112: the requester-trust component
+ * is excluded from ranking (callers pass weight 0 + signal 0), and any founder-allocated weights are
+ * renormalized so no allocation can isolate a signal or push the sum off 1.0 (which would throw). An
+ * all-zero vector falls back to the server defaults (with requester-trust removed + renormalized).
+ */
+export function normalizeRankingWeights(w: FeedScoringWeights): FeedScoringWeights {
+  // ADR-082: requester-trust is ALWAYS forced to 0 (reputation is excluded from ranking), then the
+  // remaining six signals are renormalized to sum 1.0. A degenerate all-zero vector falls back to the
+  // six-signal defaults.
+  const sanitized = { ...w, feed_weight_requester_trust: 0 } as FeedScoringWeights;
+  const entries = Object.entries(sanitized) as Array<[keyof FeedScoringWeights, number]>;
+  const sum = entries.reduce((acc, [, v]) => acc + (Number.isFinite(v) ? v : 0), 0);
+  if (!(sum > 0)) {
+    const base = { ...DEFAULT_FEED_WEIGHTS, feed_weight_requester_trust: 0 };
+    const baseSum = Object.values(base).reduce((a, b) => a + b, 0);
+    const out = {} as FeedScoringWeights;
+    for (const [k, v] of Object.entries(base) as Array<[keyof FeedScoringWeights, number]>) out[k] = v / baseSum;
+    return out;
+  }
+  const out = {} as FeedScoringWeights;
+  for (const [k, v] of entries) out[k] = (Number.isFinite(v) ? v : 0) / sum;
+  return out;
+}
+
+/**
+ * The single server default ranking vector (ADR-082): the seven-signal defaults with requester-trust
+ * removed (weight 0) and the remaining six renormalized to sum 1.0. Used for the configured fallback,
+ * the unconfigured path, AND sister-community requests so all three rank on the same full-budget
+ * six-signal scale — otherwise requester-trust=0 would silently drop 15% of every score, depressing
+ * ranking and default-threshold eligibility.
+ */
+export const RANKING_DEFAULT_WEIGHTS: FeedScoringWeights = normalizeRankingWeights({
+  ...DEFAULT_FEED_WEIGHTS,
+  feed_weight_requester_trust: 0,
+});
 
 export function requestMeetsMinScore(request: { feedScore?: number | string | null }, minScore: number): boolean {
   const feedScore = typeof request.feedScore === 'string' ? parseFloat(request.feedScore) : request.feedScore;
@@ -368,17 +419,22 @@ async function handleCuratedFeed(req: Request, res: Response): Promise<void> {
 
     for (const row of communityConfigsResult.rows) {
       communityConfigs.set(row.community_id, {
-        weights: {
-          // Use ?? (not ||): 0 is a valid weight value. || treats 0 as "missing"
-          // and replaces it with a default, pushing the sum above 1.0 → 500.
+        // Sprint 112 round-6 (ADR-082): requester-trust weight is forced to 0 (reputation is excluded
+        // from ranking — the signal is also 0, see below), and the remaining six weights are
+        // NORMALIZED to sum to 1.0 at query time. Normalization (a) makes the score immune to any
+        // founder weight allocation isolating/recovering reputation, and (b) fixes a latent bug: the
+        // config-validator documents "normalized at query time" but it never was, so founder weights
+        // summing to ≠1.0 used to throw (500). All-zero → fall back to defaults.
+        weights: normalizeRankingWeights({
+          // Use ?? (not ||): 0 is a valid weight value.
           feed_weight_skill_match: row.feed_weight_skill_match != null ? parseFloat(row.feed_weight_skill_match) : DEFAULT_FEED_WEIGHTS.feed_weight_skill_match,
           feed_weight_trust_distance: row.feed_weight_trust_distance != null ? parseFloat(row.feed_weight_trust_distance) : DEFAULT_FEED_WEIGHTS.feed_weight_trust_distance,
           feed_weight_community_relevance: row.feed_weight_community_relevance != null ? parseFloat(row.feed_weight_community_relevance) : DEFAULT_FEED_WEIGHTS.feed_weight_community_relevance,
           feed_weight_urgency: row.feed_weight_urgency != null ? parseFloat(row.feed_weight_urgency) : DEFAULT_FEED_WEIGHTS.feed_weight_urgency,
-          feed_weight_requester_trust: row.feed_weight_requester_trust != null ? parseFloat(row.feed_weight_requester_trust) : DEFAULT_FEED_WEIGHTS.feed_weight_requester_trust,
+          feed_weight_requester_trust: 0,
           feed_weight_prior_interaction: row.feed_weight_prior_interaction != null ? parseFloat(row.feed_weight_prior_interaction) : DEFAULT_FEED_WEIGHTS.feed_weight_prior_interaction,
           feed_weight_recency: row.feed_weight_recency != null ? parseFloat(row.feed_weight_recency) : DEFAULT_FEED_WEIGHTS.feed_weight_recency,
-        },
+        }),
         enabledTypes: row.enabled_request_types || [],
       });
     }
@@ -562,28 +618,14 @@ async function handleCuratedFeed(req: Request, res: Response): Promise<void> {
       }
     }
 
-    // Batch karma + trust score lookup for requesters
-    const requesterKarmaMap = new Map<string, { totalKarma: number; trustScore: number }>();
-    if (requesterIds.length > 0) {
-      const karmaResult = await query(
-        `SELECT
-          kr.user_id,
-          COALESCE(SUM(kr.points), 0)::int as total_karma,
-          COALESCE(MAX(ts.score), 50)::int as best_trust_score
-        FROM reputation.karma_records kr
-        LEFT JOIN reputation.trust_scores ts
-          ON kr.user_id = ts.user_id AND kr.community_id = ts.community_id
-        WHERE kr.user_id = ANY($1::uuid[])
-        GROUP BY kr.user_id`,
-        [requesterIds]
-      );
-      for (const row of karmaResult.rows) {
-        requesterKarmaMap.set(row.user_id, {
-          totalKarma: row.total_karma,
-          trustScore: row.best_trust_score,
-        });
-      }
-    }
+    // Sprint 112 round-6 (ADR-082): the requester's ABSOLUTE reputation (karma / trust score) is no
+    // longer read or used in feed ranking. Fixing only its weight was insufficient — with the term
+    // `0.15 × requesterTrust` still in the (founder-weightable) composite, varying the other six
+    // weights and observing the inclusion threshold / emitted order yields inequalities from which the
+    // requester's trust could be recovered. Removing the signal entirely (contribution ≡ 0) closes
+    // that channel and minimizes the query. Ranking now uses only skill match, trust DISTANCE
+    // (caller-relative degrees), community relevance, urgency, prior interaction (caller's own decayed
+    // edge), and recency — none of which is another member's exact reputation.
 
     // Batch prior-interaction lookup — the DECAYED edge weight (ADR-066 "designed to forget").
     // We read social_graph.trust_edges_live.current_weight (raw_weight × e^(-Δt/(stability·half_life)),
@@ -628,9 +670,11 @@ async function handleCuratedFeed(req: Request, res: Response): Promise<void> {
         userProfile
       );
 
-      // Determine which community config to use (first matching community)
+      // Determine which community config to use (first matching community). Sprint 112 (ADR-082):
+      // the unconfigured fallback uses the normalized six-signal default, not the raw seven-signal
+      // DEFAULT_FEED_WEIGHTS (which would waste 15% on the now-zero requester-trust signal).
       const requestCommunityIds = (request.community_ids || '').split(',').filter(Boolean);
-      let weights = DEFAULT_FEED_WEIGHTS;
+      let weights = RANKING_DEFAULT_WEIGHTS;
       let enabledTypes: Array<{ name: string; karma_multiplier?: number }> = [];
 
       for (const cId of requestCommunityIds) {
@@ -656,12 +700,6 @@ async function handleCuratedFeed(req: Request, res: Response): Promise<void> {
         ? scoreTrustDistance(degrees)
         : Math.round(userEffectiveParams.cross_community_prior * 100);
 
-      // Requester karma/trust for display
-      const requesterReputation = requesterKarmaMap.get(request.requester_id) || {
-        totalKarma: 0,
-        trustScore: 50,
-      };
-
       // ADR-022: Determine source tier using shared utility
       const sourceTier = resolveSourceTier({
         inUserCommunity: request.in_user_community,
@@ -675,14 +713,17 @@ async function handleCuratedFeed(req: Request, res: Response): Promise<void> {
       const priorInteraction = scorePriorInteraction(priorWeightMap.get(request.requester_id));
       const recency = scoreRecency(request.created_at);
 
-      // Weighted feed score
+      // Weighted feed score. Sprint 112 round-6 (ADR-082): requesterTrustScore is fixed to 0 so the
+      // requester's exact reputation contributes NOTHING to the outward-affecting score/order/threshold,
+      // regardless of any founder weight config (0 × any weight = 0). It cannot be probed because it is
+      // not in the signal at all.
       const feedResult = calculateFeedScore(
         {
           skillMatchScore: matchResult.score,
           trustDistanceScore: trustDistance,
           communityRelevanceScore: communityRelevance,
           urgencyScore: urgencyVal,
-          requesterTrustScore: requesterReputation.trustScore,
+          requesterTrustScore: 0,
           priorInteractionScore: priorInteraction,
           recencyScore: recency,
         },
@@ -700,13 +741,14 @@ async function handleCuratedFeed(req: Request, res: Response): Promise<void> {
         ...request,
         matchScore: matchResult.score,
         matchReasons: matchResult.reasons,
-        matchBreakdown: matchResult.breakdown,
         feedScore: finalFeedScore,
-        feedBreakdown: feedResult.breakdown,
-        // Trust & karma data for frontend display
+        // Sprint 112 (ADR-082): matchBreakdown/feedBreakdown are NOT attached — their numeric
+        // requesterTrust.raw / karma inputs are another member's exact reputation, and the legacy
+        // feed response returns these scored objects verbatim. The match_reason string + match_score
+        // are the user-facing explanation; the raw breakdowns stay internal to the ranker. The
+        // requester's exact karma/trust feed ranking INTERNALLY but are never returned; only
+        // structural proximity (degrees) is outward-facing.
         trustDegrees: degrees,
-        requesterKarma: requesterReputation.totalKarma,
-        requesterTrustScore: requesterReputation.trustScore,
         priorInteractionScore: priorInteraction,
         recencyScore: recency,
         // ADR-022: Source tier
@@ -733,9 +775,6 @@ async function handleCuratedFeed(req: Request, res: Response): Promise<void> {
       const trustDistance = degrees !== null
         ? scoreTrustDistance(degrees)
         : Math.round(userEffectiveParams.cross_community_prior * 100);
-      const requesterReputation = requesterKarmaMap.get(request.requester_id) || {
-        totalKarma: 0, trustScore: 50,
-      };
       const sisterPriorInteraction = scorePriorInteraction(priorWeightMap.get(request.requester_id));
       const sisterRecency = scoreRecency(request.created_at);
       const feedResult = calculateFeedScore(
@@ -744,11 +783,13 @@ async function handleCuratedFeed(req: Request, res: Response): Promise<void> {
           trustDistanceScore: trustDistance,
           communityRelevanceScore: 0,
           urgencyScore: urgencyVal,
-          requesterTrustScore: requesterReputation.trustScore,
+          requesterTrustScore: 0, // ADR-082 round-6: requester reputation excluded from ranking.
           priorInteractionScore: sisterPriorInteraction,
           recencyScore: sisterRecency,
         },
-        DEFAULT_FEED_WEIGHTS
+        // ADR-082: same normalized six-signal default as the configured/unconfigured paths (not the
+        // raw seven-signal DEFAULT_FEED_WEIGHTS) so sister requests aren't depressed by the 15% gap.
+        RANKING_DEFAULT_WEIGHTS
       );
       // Boost bonus: active admin boost floats request higher
       const boostActive = request.is_boosted &&
@@ -759,12 +800,10 @@ async function handleCuratedFeed(req: Request, res: Response): Promise<void> {
         ...request,
         matchScore: matchResult.score,
         matchReasons: matchResult.reasons,
-        matchBreakdown: matchResult.breakdown,
         feedScore: Math.min(100, Math.round(feedResult.score * carryFactor) + boostBonus),
-        feedBreakdown: feedResult.breakdown,
+        // Sprint 112 (ADR-082): matchBreakdown/feedBreakdown omitted (requester karma/trust inputs);
+        // requester karma/trust feed ranking internally, never returned.
         trustDegrees: degrees,
-        requesterKarma: requesterReputation.totalKarma,
-        requesterTrustScore: requesterReputation.trustScore,
         priorInteractionScore: sisterPriorInteraction,
         recencyScore: sisterRecency,
         sourceTier: 'sister_community',
@@ -810,11 +849,20 @@ async function handleCuratedFeed(req: Request, res: Response): Promise<void> {
       return acc;
     }, {});
 
+    // Sprint 112 (ADR-082): the legacy feed returns scored objects verbatim. Strip the exact composite
+    // feedScore and its reconstruction-enabling component signals (priorInteractionScore, recencyScore)
+    // — with the public formula + readable weights they would let requester trust be solved. The
+    // server has already sorted by feedScore, so the ranked ORDER is the outward ranking signal.
+    const safeRequests = filteredRequests.map((r: any) => {
+      const { feedScore: _fs, priorInteractionScore: _pis, recencyScore: _rs, ...safe } = r;
+      return safe;
+    });
+
     sendSuccess(
       res,
       {
-        requests: filteredRequests,
-        count: filteredRequests.length,
+        requests: safeRequests,
+        count: safeRequests.length,
         filters: {
           minMatchScore,
           totalRequests: requestsResult.rowCount,
@@ -881,8 +929,7 @@ function toRequestCardData(r: any): Record<string, unknown> {
     match_score: normalizeMatchScore(r.matchScore),
     match_reason: Array.isArray(r.matchReasons) ? r.matchReasons.join(' · ') : '',
     trust_degree: r.trustDegrees ?? null,
-    requesterKarma: r.requesterKarma,
-    requesterTrustScore: r.requesterTrustScore,
+    // Sprint 112 (ADR-082): requesterKarma/requesterTrustScore intentionally omitted (see above).
   };
 }
 
@@ -1218,7 +1265,11 @@ async function respondHomeFeed(req: Request, res: Response, userId: string, scor
     fetchOfferedAwaiting(userId),
     fetchSuggestedAsHelper(userId),
   ]);
-  const requestItems = scoredRequests.map((r) => buildRequestItem(toRequestCardData(r), r.feedScore));
+  // Sprint 112 (ADR-082): pass a non-reversible RANK (position in the already-feedScore-sorted list),
+  // not the exact composite feedScore — priority must not encode a value from which requester trust
+  // can be solved. Order is preserved (idx 0 = top); the exact feedScore stays internal.
+  const requestItems = scoredRequests.map((r, idx) =>
+    buildRequestItem(toRequestCardData(r), scoredRequests.length - idx));
   const { items } = assembleHomeFeed([...decisionItems, ...requestItems]);
 
   sendSuccess(
@@ -1354,7 +1405,9 @@ async function respondCommunityFeed(
   }
 
   // Requests the member can fill (the curated query already scoped these to this community).
-  const requestItems = scoredRequests.map((r) => buildRequestItem(toRequestCardData(r), r.feedScore));
+  // Sprint 112 (ADR-082): non-reversible rank priority, not the exact composite feedScore (see view=home).
+  const requestItems = scoredRequests.map((r, idx) =>
+    buildRequestItem(toRequestCardData(r), scoredRequests.length - idx));
 
   // Texture: best-effort + non-fatal (same pattern as fetchDecisions). Ranked below requests.
   const textureItems: UnifiedFeedItem[] = [];

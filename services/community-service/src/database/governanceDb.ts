@@ -40,23 +40,12 @@ export async function getGovernanceState(communityId: string) {
     threshold: settings.eligibility_threshold,
   };
 
-  // Eligible members: active community members whose total trust raw_weight >= threshold.
-  // Trust score uses a scalar subquery so it matches the nomination validation exactly —
-  // a JOIN against both trust_edges and karma_records causes cross-product row inflation
-  // which inflates SUM(raw_weight) and makes members appear eligible when they are not.
+  // Eligible members: active community members whose total trust raw_weight >= threshold. The
+  // threshold comparison stays in SQL (internal eligibility calculation), but Sprint 112 (ADR-082)
+  // projects each row to identity + a coarse eligibility reason only — no member trust_score/karma
+  // leaves the boundary.
   const eligibleRes = await pool.query(`
-    SELECT u.id AS user_id, u.name,
-           COALESCE((
-             SELECT SUM(te.raw_weight)
-             FROM social_graph.trust_edges te
-             WHERE te.community_id = $1
-               AND (te.user_id_a = u.id OR te.user_id_b = u.id)
-           ), 0) AS trust_score,
-           COALESCE((
-             SELECT SUM(kr.points)
-             FROM reputation.karma_records kr
-             WHERE kr.user_id = u.id AND kr.community_id = $1
-           ), 0) AS karma
+    SELECT u.id AS user_id, u.name
     FROM auth.users u
     JOIN communities.members cm ON cm.user_id = u.id AND cm.community_id = $1 AND cm.status = 'active'
     WHERE COALESCE((
@@ -66,6 +55,12 @@ export async function getGovernanceState(communityId: string) {
         AND (te.user_id_a = u.id OR te.user_id_b = u.id)
     ), 0) >= $2
   `, [communityId, settings.eligibility_threshold]);
+  const eligible_members = eligibleRes.rows.map((r) => ({
+    user_id: r.user_id,
+    name: r.name,
+    eligible: true as const,
+    eligibility_reason: 'established_community_relationships' as const,
+  }));
 
   // Pending nominations with ratification counts
   const nominationsRes = await pool.query(`
@@ -104,15 +99,9 @@ export async function getGovernanceState(communityId: string) {
     })
   );
 
-  // Current governance role holders
+  // Current governance role holders — identity + role only (no member trust_score).
   const roleHoldersRes = await pool.query(`
-    SELECT u.id AS user_id, u.name, cm.role,
-           COALESCE((
-             SELECT SUM(te.raw_weight)
-             FROM social_graph.trust_edges te
-             WHERE te.community_id = $1
-               AND (te.user_id_a = u.id OR te.user_id_b = u.id)
-           ), 0) AS trust_score
+    SELECT u.id AS user_id, u.name, cm.role
     FROM communities.members cm
     JOIN auth.users u ON u.id = cm.user_id
     WHERE cm.community_id = $1 AND cm.role IN ('admin', 'moderator') AND cm.status = 'active'
@@ -121,7 +110,7 @@ export async function getGovernanceState(communityId: string) {
   return {
     settings,
     maturity,
-    eligible_members: eligibleRes.rows,
+    eligible_members,
     nominations,
     role_holders: roleHoldersRes.rows,
   };

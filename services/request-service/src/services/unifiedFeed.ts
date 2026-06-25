@@ -100,9 +100,15 @@ export function scorePriorInteraction(currentWeight: number | null | undefined):
   return clamp(Math.round(currentWeight * 10), 0, 100);
 }
 
-/** Server-side action altitude for a request the member can fill (higher feed score = higher). */
-export function requestPriority(feedScore: number): number {
-  return PRIORITY_REQUEST_BASE + clamp(Math.round(feedScore), 0, 100);
+/**
+ * Server-side action altitude for a request the member can fill. Sprint 112 (ADR-082): the within-band
+ * ordering input is a non-reversible RANK (the request's position in the already-feedScore-sorted
+ * list, higher = nearer the top), NOT the exact composite feedScore — exposing the composite (even
+ * rounded, via priority) would let requester trust be reconstructed. Callers MUST pass a rank, never
+ * a score.
+ */
+export function requestPriority(rank: number): number {
+  return PRIORITY_REQUEST_BASE + clamp(Math.round(rank), 0, 100);
 }
 
 /** Server-side action altitude for a decision the member owes. */
@@ -116,9 +122,12 @@ export function buildDecisionItem(data: DecisionData): UnifiedFeedItem<DecisionD
   return { kind: 'decision', priority: decisionPriority(data.actions), data };
 }
 
-/** Wrap a request-card payload into a ranked union item. */
-export function buildRequestItem<T>(data: T, feedScore: number): UnifiedFeedItem<T> {
-  return { kind: 'request', priority: requestPriority(feedScore), data };
+/**
+ * Wrap a request-card payload into a ranked union item. `rank` is the request's position in the
+ * server's feedScore-sorted list (non-reversible); never the exact feedScore (ADR-082).
+ */
+export function buildRequestItem<T>(data: T, rank: number): UnifiedFeedItem<T> {
+  return { kind: 'request', priority: requestPriority(rank), data };
 }
 
 /**

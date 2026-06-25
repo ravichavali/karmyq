@@ -84,23 +84,22 @@ router.get('/:communityId/stats', async (req: Request, res: Response) => {
         WHERE rc.community_id = $1
       ),
 
-      -- Top helpers this month
+      -- Top helpers this month — Sprint 112 (ADR-082): activity recognition by help COUNT only.
+      -- Per-member avg_karma (an ordinary member's reputation) is removed, as is karma-based ranking.
       top_helpers AS (
         SELECT
           u.name,
           u.id as user_id,
-          COUNT(*)::int as help_count,
-          AVG(kr.points)::int as avg_karma
+          COUNT(*)::int as help_count
         FROM requests.matches m
         JOIN requests.help_requests r ON m.request_id = r.id
         JOIN requests.request_communities rc ON r.id = rc.request_id
         JOIN auth.users u ON m.responder_id = u.id
-        LEFT JOIN reputation.karma_records kr ON kr.user_id = u.id AND kr.community_id = rc.community_id
         WHERE rc.community_id = $1
           AND m.status = 'completed'
           AND m.completed_at > NOW() - INTERVAL '30 days'
         GROUP BY u.id, u.name
-        ORDER BY help_count DESC, avg_karma DESC
+        ORDER BY help_count DESC
         LIMIT 5
       ),
 
@@ -147,11 +146,12 @@ router.get('/:communityId/stats', async (req: Request, res: Response) => {
         ORDER BY date DESC
       ),
 
-      -- Average karma in community
+      -- Community karma aggregate — Sprint 112 (ADR-082): a non-identifying community average only.
+      -- max_karma (one member's exact value) is removed; the average is suppressed below a 5-distinct-
+      -- contributor cohort in the response shaping so it cannot be traced to an individual.
       karma_stats AS (
         SELECT
           AVG(kr.points)::int as avg_karma,
-          MAX(kr.points)::int as max_karma,
           COUNT(DISTINCT kr.user_id)::int as users_with_karma
         FROM reputation.karma_records kr
         JOIN communities.members cm ON kr.user_id = cm.user_id AND kr.community_id = cm.community_id
@@ -185,13 +185,20 @@ router.get('/:communityId/stats', async (req: Request, res: Response) => {
       // Commit transaction
       await query('COMMIT');
 
+      // Sprint 112 (ADR-082): suppress the community karma average unless ≥5 distinct members
+      // contributed karma, so a small cohort can't expose (or approximate) an individual's value.
+      const karmaStats = stats.karma_stats || {};
+      const safeKarma = (karmaStats.users_with_karma ?? 0) >= 5
+        ? karmaStats
+        : { users_with_karma: karmaStats.users_with_karma ?? 0 };
+
       res.json({
         success: true,
         data: {
           members: stats.member_stats || {},
           requests: stats.request_stats || {},
           matches: stats.match_stats || {},
-          karma: stats.karma_stats || {},
+          karma: safeKarma,
           topHelpers: stats.top_helpers || [],
           topRequesters: stats.top_requesters || [],
           dailyActivity: stats.daily_activity || [],

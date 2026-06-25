@@ -2,14 +2,17 @@ import { Router, Request, Response } from 'express';
 import { classifyDecayTier, DecayTier } from '@karmyq/shared';
 import { getTrustGraphForCommunity, getTrustGraphAggregate } from '../services/trustEdgeService';
 import {
-  getTrustEdge,
   getFullCommunityGraph,
   getCommunityDepthGraph,
   getTrustNeighborhood,
   NeighborhoodDepth,
 } from '../database/trustEdgeDb';
-import { computeEffectiveWeight } from '../services/trustEdgeService';
-import { getDecayConfig } from '../database/trustDecayConfigDb';
+import { getDecayConfig, getGlobalDecayConfig } from '../database/trustDecayConfigDb';
+import {
+  projectPersonGraph,
+  projectMemoryResponse,
+  projectMemoryRelationship,
+} from '../services/disclosureProjection';
 import { logger } from '../config/logger';
 import { pool } from '../config/database';
 
@@ -88,6 +91,16 @@ export function buildMemoryResponse(rows: RelationshipRow[], threshold: number):
 async function resolveThreshold(communityId: string): Promise<number> {
   try {
     const cfg = await getDecayConfig(communityId);
+    return cfg.disappearanceThreshold ?? 0.5;
+  } catch {
+    return 0.5;
+  }
+}
+
+/** Global disappearance threshold for cross-community (aggregate/ego) relationship-state banding. */
+async function resolveGlobalThreshold(): Promise<number> {
+  try {
+    const cfg = await getGlobalDecayConfig();
     return cfg.disappearanceThreshold ?? 0.5;
   } catch {
     return 0.5;
@@ -184,7 +197,8 @@ router.get('/graph', async (req: Request, res: Response) => {
   try {
     const callingUserId = (req as any).user?.userId;
     const graph = await getTrustGraphAggregate(callingUserId);
-    res.json({ success: true, data: graph });
+    const threshold = await resolveGlobalThreshold();
+    res.json({ success: true, data: projectPersonGraph(graph, threshold, callingUserId) });
   } catch (error) {
     logger.error('Error fetching aggregate trust graph', error instanceof Error ? error : undefined);
     res.status(500).json({ success: false, message: 'Failed to fetch aggregate trust graph' });
@@ -216,7 +230,7 @@ router.get('/graph/:communityId/full', async (req: Request, res: Response) => {
 
     res.json({
       success: true,
-      data: { ...graph, links: enrichLinksWithDecay(graph.links, threshold) },
+      data: projectPersonGraph(graph, threshold, callingUserId),
     });
   } catch (error) {
     logger.error('Error fetching full community trust graph', error instanceof Error ? error : undefined);
@@ -267,7 +281,7 @@ router.get('/graph/:communityId', async (req: Request, res: Response) => {
 
     res.json({
       success: true,
-      data: { ...graph, links: enrichLinksWithDecay(graph.links, threshold) },
+      data: projectPersonGraph(graph, threshold, callingUserId),
     });
   } catch (error) {
     logger.error('Error fetching trust graph', error instanceof Error ? error : undefined);
@@ -330,8 +344,9 @@ router.get('/neighborhood/:userId', async (req: Request, res: Response) => {
     // The helper applies identity + reputation-metric privacy at the data boundary: only the
     // authenticated caller's node is isCurrentUser and keeps its trust_score/karma.
     const result = await getTrustNeighborhood(centerUserId, scope, depth, undefined, callingUserId);
+    const threshold = communityId ? await resolveThreshold(communityId) : await resolveGlobalThreshold();
 
-    res.json({ success: true, data: result });
+    res.json({ success: true, data: projectPersonGraph(result, threshold, callingUserId) });
   } catch (error) {
     logger.error('Error fetching trust neighborhood', error instanceof Error ? error : undefined);
     res.status(500).json({
@@ -342,49 +357,15 @@ router.get('/neighborhood/:userId', async (req: Request, res: Response) => {
   }
 });
 
-// GET /trust/edge?userA=X&userB=Y&communityId=Z — single edge lookup
-router.get('/edge', async (req: Request, res: Response) => {
-  try {
-    const { userA, userB, communityId } = req.query as {
-      userA: string;
-      userB: string;
-      communityId: string;
-    };
-
-    if (!userA || !userB || !communityId) {
-      return res.status(400).json({
-        success: false,
-        message: 'userA, userB, and communityId are required',
-      });
-    }
-
-    const edge = await getTrustEdge(userA, userB, communityId);
-
-    if (!edge) {
-      return res.json({ success: true, data: null });
-    }
-
-    res.json({
-      success: true,
-      data: {
-        source: edge.user_id_a,
-        target: edge.user_id_b,
-        raw_weight: edge.raw_weight,
-        effective_weight: computeEffectiveWeight(edge.raw_weight, edge.last_interaction_at),
-        match_completed_count: edge.match_completed_count,
-        endorsement_count: edge.endorsement_count,
-        karma_given_count: edge.karma_given_count,
-        event_count: edge.event_count,
-        last_interaction_at: edge.last_interaction_at,
-      },
-    });
-  } catch (error) {
-    logger.error('Error fetching trust edge', error instanceof Error ? error : undefined);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to fetch trust edge',
-    });
-  }
+// GET /trust/edge — RETIRED (Sprint 112, ADR-082). It had no runtime caller and permitted arbitrary
+// member-pair metric lookup (raw/effective edge weights). The internal getTrustEdge() DB helper
+// remains for path computation; only this public endpoint is gone.
+router.get('/edge', async (_req: Request, res: Response) => {
+  return res.status(410).json({
+    success: false,
+    message: 'The single trust-edge lookup endpoint has been retired.',
+    error: 'TRUST_EDGE_ENDPOINT_RETIRED',
+  });
 });
 
 /**
@@ -425,7 +406,7 @@ router.get('/me/memory', async (req: Request, res: Response) => {
 
     const threshold = await resolveThreshold(communityId);
     const rows = await fetchRelationships(communityId, callingUserId);
-    res.json({ success: true, data: buildMemoryResponse(rows, threshold) });
+    res.json({ success: true, data: projectMemoryResponse(buildMemoryResponse(rows, threshold)) });
   } catch (error) {
     logger.error('Error fetching relationship memory', error instanceof Error ? error : undefined);
     res.status(500).json({ success: false, message: 'Failed to fetch relationship memory' });
@@ -451,7 +432,7 @@ router.get('/relationships/fading', async (req: Request, res: Response) => {
     const threshold = await resolveThreshold(communityId);
     const rows = await fetchRelationships(communityId, callingUserId);
     const { nearlyForgotten } = buildMemoryResponse(rows, threshold);
-    res.json({ success: true, data: nearlyForgotten });
+    res.json({ success: true, data: nearlyForgotten.map(projectMemoryRelationship) });
   } catch (error) {
     logger.error('Error fetching fading relationships', error instanceof Error ? error : undefined);
     res.status(500).json({ success: false, message: 'Failed to fetch fading relationships' });

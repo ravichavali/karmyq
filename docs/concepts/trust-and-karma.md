@@ -72,3 +72,26 @@ Each score answers a specific question. Mixing them would make all three answers
 ## Living Trust Models
 
 Trust parameters are initial values, not permanent settings. Members can opt in to automatic calibration — their model adjusts gradually based on what actually happens in their exchanges. The goal is accuracy: a model that reflects lived experience, in whatever direction that experience points.
+
+## Your numbers are yours (Reputation Disclosure Boundary)
+
+As of Sprint 112 (ADR-082), your **exact** reputation is self-only. The platform standardizes on two
+self-facing terms:
+
+- **Reputation score** — the canonical 0–100 score, shown with your tier and the community it's scoped to.
+- **Current karma** — your community-scoped karma after decay, shown with the decay half-life.
+
+You can always see your own Reputation score, Current karma, and recent activity (last 30 days). What
+you **cannot** see is another ordinary member's exact numbers — not in the belonging graph, not on a
+trust card, not in invitations, governance, or community exports. Those surfaces show **belonging
+structure** and a qualitative **relationship state** (`strong · warm · fading · nearly forgotten`),
+never another person's score.
+
+Two deliberate, clearly-labelled exceptions remain public:
+
+- **Provider rating** — a service provider's stars, completion rate, and provider trust score describe
+  an opted-in service role, not a person's private mutual-aid reputation.
+- **Community health** — non-identifying community aggregates (only when at least five members keep them
+  from being traced back to an individual).
+
+Karmyq can show how people are connected; it does not turn members into public scores.

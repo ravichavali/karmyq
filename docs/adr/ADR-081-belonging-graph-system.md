@@ -5,6 +5,12 @@
 **Sprint**: 110 (research) → 111 (implementation)
 **Version**: 11.17.0 (Proposed) → 11.18.0 (Implemented in S111)
 
+> **Superseded in part by [ADR-082](ADR-082-reputation-disclosure-boundary.md) (Sprint 112):** the
+> graph-node numeric reputation contract here (nodes carrying `trust_score`/`karma`, even redacted to
+> zero for non-callers) is replaced by an API-enforced disclosure boundary. Person graph nodes now
+> carry identity + structure only, and links carry a qualitative `relationship_state` instead of raw
+> edge weights — exact reputation is self-only and comes from the canonical reputation summary.
+
 ## Context
 
 Karmyq's trust/belonging graphs are one of the platform's most important surfaces — the primary

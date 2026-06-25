@@ -210,12 +210,7 @@ router.get('/', async (req: AuthenticatedRequest, res: Response) => {
          ui.invited_at,
          ui.invitation_accepted_at,
          u.id as invitee_id,
-         u.name as invitee_name,
-         COALESCE((
-           SELECT SUM(points)
-           FROM reputation.karma_records
-           WHERE user_id = u.id AND community_id = ui.community_id
-         ), 0) as invitee_karma
+         u.name as invitee_name
        FROM auth.user_invitations ui
        LEFT JOIN auth.users u ON ui.invitee_id = u.id
        WHERE ui.inviter_id = $1 AND ui.community_id = $2
@@ -247,10 +242,10 @@ router.get('/', async (req: AuthenticatedRequest, res: Response) => {
           invitation_code: row.invitation_code,
           invited_at: row.invited_at,
           accepted_at: row.invitation_accepted_at,
+          // Sprint 112 (ADR-082): invitee identity only — no invitee karma.
           invitee: row.invitee_id ? {
             id: row.invitee_id,
             name: row.invitee_name,
-            karma: row.invitee_karma,
           } : null,
         })),
         received: receivedResult.rows.length > 0 ? {
@@ -287,13 +282,14 @@ router.get('/stats', async (req: AuthenticatedRequest, res: Response) => {
       });
     }
 
+    // Sprint 112 (ADR-082): inviter gamification stats omit avg_invitee_karma and
+    // avg_invitee_trust_score — these are aggregates of OTHER members' exact reputation. Counts,
+    // acceptance rate, network size, bridge score, and the inviter's own tier may remain.
     const statsResult = await pool.query(
       `SELECT
          total_invitations_sent,
          total_invitations_accepted,
          acceptance_rate,
-         avg_invitee_karma,
-         avg_invitee_trust_score,
          total_invitee_exchanges,
          total_network_size,
          bridge_score,
@@ -312,7 +308,6 @@ router.get('/stats', async (req: AuthenticatedRequest, res: Response) => {
           total_invitations_sent: 0,
           total_invitations_accepted: 0,
           acceptance_rate: 0,
-          avg_invitee_karma: 0,
           total_network_size: 0,
           inviter_tier: 'bronze',
         },

@@ -326,6 +326,21 @@ export function mergeAndValidateConfig(
   existingConfig: CommunityConfig,
   updates: Partial<CommunityConfig>
 ): ValidationResult & { config?: CommunityConfig } {
+  // Sprint 112 (ADR-082): feed_weight_requester_trust is NOT founder-configurable. Allowing it lets a
+  // founder ISOLATE reputation in feed ranking (set it to 1, others to 0 → feedScore = requesterTrust),
+  // turning the feed's order and the default inclusion threshold into a reputation oracle — and
+  // repeated weight changes can recover finer values. There is no founder exception (ADR-082). The
+  // feed always uses the fixed server-default requester-trust weight regardless of stored config.
+  if (updates.feed_weight_requester_trust !== undefined) {
+    return {
+      isValid: false,
+      errors: [{
+        field: 'feed_weight_requester_trust',
+        message: 'feed_weight_requester_trust is not configurable — reputation cannot be isolated in feed ranking (ADR-082)',
+      }],
+    };
+  }
+
   const merged = { ...existingConfig, ...updates };
 
   // If trust weights are updated, recalculate the other weight

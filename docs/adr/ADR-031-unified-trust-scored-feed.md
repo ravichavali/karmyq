@@ -6,6 +6,12 @@
 **Impact**: Critical — Connects trust, karma, skills, and community configuration into a cohesive user experience
 **Related**: ADR-011 (Reputation Decay), ADR-019 (Referral Chain Trust), ADR-020 (Trust-First Design), ADR-021 (Trust Path Filtering), ADR-022 (Multi-Tier Feed), ADR-030 (Community Configuration)
 
+> **Amended by [ADR-082](ADR-082-reputation-disclosure-boundary.md) (Sprint 112):** the requester's
+> exact reputation ("requester trust") is removed from feed ranking — no longer read or scored,
+> `feed_weight_requester_trust` is not founder-configurable, the remaining weights are normalized at
+> query time, and the feed no longer exposes the composite score or its components. Ranking uses six
+> non-reputation signals; the outward signal is the server-sorted order (a non-reversible rank).
+
 ---
 
 ## Context

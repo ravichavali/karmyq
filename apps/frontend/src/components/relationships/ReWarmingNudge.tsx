@@ -5,7 +5,7 @@ import { socialGraphService } from '@/lib/api'
 export interface FadingRelationship {
   peerId: string
   peerName: string
-  currentWeight: number
+  // Sprint 112 (ADR-082): exact edge weight removed; decayTier conveys the nearly-forgotten state.
   decayTier: 'nearly_forgotten'
   lastInteractionAt: string | null
   matchCompletedCount: number

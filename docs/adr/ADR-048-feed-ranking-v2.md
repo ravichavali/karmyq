@@ -4,6 +4,14 @@
 **Date**: 2026-04-03
 **Supersedes**: ADR-031 (feed scoring weights — extended, not replaced)
 
+> **Amended by [ADR-082](ADR-082-reputation-disclosure-boundary.md) (Sprint 112):** the 7-signal
+> formula's "requester trust" signal is removed from outward-affecting feed ranking (it let another
+> member's exact reputation be reconstructed from the exposed composite + weights). The feed now ranks
+> on the six remaining signals (weights normalized to sum 1.0), `feed_weight_requester_trust` is not
+> founder-configurable, and the composite score, its components, and breakdowns are no longer returned;
+> the outward ranking signal is the server-sorted order (a non-reversible rank). Interaction logging
+> (the feed_events insert) is unchanged and remains internal.
+
 ## Context
 
 Sprint 43 extends ADR-031's 4-signal feed scoring with 3 additional signals: requester trust score, prior interaction history, and request recency. It also introduces a `requests.feed_events` table to log impressions and outcomes for future weight tuning.

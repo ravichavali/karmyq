@@ -397,6 +397,10 @@
           "href": "/docs/concepts/adr-081-belonging-graph-system"
         },
         {
+          "label": "Reputation Disclosure Boundary",
+          "href": "/docs/concepts/adr-082-reputation-disclosure-boundary"
+        },
+        {
           "label": "— Community & Scale —",
           "href": "/docs/concepts",
           "divider": true
