@@ -332,7 +332,6 @@ export default function NetworkPage() {
               height={520}
               focusedNodeId={focusedNodeId}
               onNodeActivate={mode === 'ego' ? expandNode : undefined}
-              enableZoom
             />
           ) : (
             <div className="flex items-center justify-center h-full text-slate-400 text-sm">

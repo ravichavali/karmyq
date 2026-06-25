@@ -354,10 +354,28 @@ The "You've offered to help" section seems to have wrong info — I couldn't fin
 
 ---
 
-## BUG-024 · [2026-06-24] · open
+## BUG-024 · [2026-06-24] · planned (Sprint 113 PR A)
 
 Trust/karma data discrepancy for the same user+community across surfaces. As Maria (logged in), community page `/communities/dd910075-313f-40e4-b302-bd596c84770d` shows "Maria Elena Reyes trust 120 · 40 karma", but Maria's profile page for the SAME community shows Karma Points 0, Trust Score 27 (out of 100), Recent Helps 0, Recent Requests 20. Numbers don't reconcile (trust 120 vs 27/100; karma 40 vs 0). Likely different metric sources/scales: community trust graph = decayed sum of edge weights (~120, unbounded) vs profile "Trust Score out of 100" = a normalized reputation metric; karma 40 (community-scoped, from the graph node) vs 0 (profile, possibly global or a different query). Needs reconciliation or clear labeling so the same concept reads consistently.
 
 ALSO a privacy sub-question raised: on the community/governance nominee view, are OTHER nominees' trust/karma shown? The S111 privacy fix only covered the trust-graph API; governance/nominee lists may still expose member reputation numbers and should be checked against the same "only your own metrics" rule.
+
+---
+
+## BUG-025 · [2026-06-25] · planned (Sprint 113 PR A)
+
+Stewardship section renders "trust NaN · NaN karma". Reputation values come through as NaN in the stewardship/governance UI — likely a frontend regression after S112 PR A (ADR-082) removed exact member reputation from outward contracts: a component still reads now-absent numeric fields and computes NaN instead of omitting them or showing a coarse label. Should render nothing / a qualitative label, never "NaN".
+
+---
+
+## BUG-026 · [2026-06-25] · planned (Sprint 113 PR A)
+
+Cannot confirm BUG-024 is actually fixed — after the S112 PR A deploy, the profile page still appears to show the old reputation numbers for a community. The ADR-082 boundary (exact reputation self-only; surfaces reconciled) may not be fully wired on the profile frontend, or the demo is serving stale assets. Needs the two-user validation step: confirm a member's exact karma/trust is self-only AND that profile vs community surfaces reconcile (the original BUG-024 discrepancy). Until verified, do NOT mark BUG-024 fixed. Related: [[BUG-024]], BUG-025.
+
+---
+
+## BUG-027 · [2026-06-25] · planned (Sprint 113 PR A)
+
+Network/belonging maps have no zoom in/out controls. None of the network map surfaces (trust graph / belonging graph / community network views) expose zoom (or pinch/scroll-zoom) — the D3 HEB renderer seeds `__zoom` but zoom controls/affordances appear missing or non-functional in the deployed UI. Add visible zoom-in/out controls + wheel/pinch zoom across all network-map surfaces.
 
 ---

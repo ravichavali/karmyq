@@ -76,8 +76,7 @@ export default function GovernanceTab({ communityId, currentUserId }: Governance
             {role_holders.map((rh: any) => (
               <div key={rh.user_id} className="flex items-center gap-3 text-sm">
                 <span className="font-medium text-gray-900">{rh.name}</span>
-                <span className="px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded text-xs">{rh.role}</span>
-                <span className="text-gray-400 ml-auto">trust {Math.round(rh.trust_score)}</span>
+                <span className="px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded text-xs ml-auto">{rh.role}</span>
               </div>
             ))}
           </div>
@@ -142,7 +141,9 @@ export default function GovernanceTab({ communityId, currentUserId }: Governance
             {eligible_members.map((m: any) => (
               <div key={m.user_id} className="flex items-center gap-3 text-sm">
                 <span className="font-medium text-gray-900">{m.name}</span>
-                <span className="text-gray-400">trust {Math.round(m.trust_score)} · {Math.round(m.karma)} karma</span>
+                <span className="text-gray-400">
+                  Eligible{m.eligibility_reason ? ` · ${m.eligibility_reason.replace(/_/g, ' ')}` : ''}
+                </span>
                 <div className="ml-auto flex items-center gap-2">
                   {nominateTarget === m.user_id ? (
                     <>

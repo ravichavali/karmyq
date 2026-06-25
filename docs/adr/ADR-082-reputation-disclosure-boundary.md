@@ -82,6 +82,36 @@ Member-facing graph contracts expose `relationship_state` (`strong | warm | fadi
 nearly_forgotten`, derived from the ADR-070 decay tier) instead of raw/effective edge weights. Exact
 edge weights and the numeric path strength remain internal (feed ranking still uses them).
 
+### Defense in depth — UI layer (Sprint 113 / PR A)
+
+PR A (Sprint 112) closed the boundary in the API *contract*. Sprint 113 PR A makes the boundary
+*true on the screen* — the client must render the safe contract correctly, not reintroduce a leak or
+a `NaN` where a field was intentionally omitted. Three rules, all enforced by frontend TDD tests:
+
+1. **No `NaN` on a possibly-absent field (BUG-025).** Governance/stewardship payloads project each
+   member row to identity + a coarse `eligibility_reason` only — no `trust_score`/`karma`. The UI must
+   never `Math.round`/`Number`/`.toFixed` an omitted field, and never paper over absence with `|| 0`
+   (a fake zero is itself a disclosure anti-pattern). Omit the element or show a qualitative label
+   (e.g. governance eligible-members now read "Eligible · established community relationships";
+   role-holders show identity + role with no trust number). Community **aggregates** that the contract
+   still returns (e.g. `maturity.avg_trust_score`) are unaffected.
+2. **One canonical self read (BUG-024/026).** The member's own profile reads its reputation from the
+   single `GET /reputation/me/community-summary` contract — never by separately recombining
+   `getMyKarma` + `getTrustScore`, which was the dual-source mismatch that showed a member different
+   numbers on profile vs. the community view. Profile copy standardizes on **Current Karma** and
+   **Reputation Score** (0–100). *Scope of this PR:* `profile.tsx` is migrated. `LeftSidebar` keeps its
+   direct self trust read (it must also serve the no-community "overall" case the summary endpoint
+   can't); its number is consistent because it reads the same underlying trust score. The community
+   member-topology surface's per-member `getTrustScore` reads (`useCommunityData`) are cross-user and
+   now correctly receive `404 REPUTATION_NOT_FOUND` from the boundary.
+3. **Restore the map zoom, single owner (BUG-027).** Every belonging-graph surface routes through one
+   wrapper (`BelongingGraph`) → one renderer (`TrustGraphHEB`). Zoom controls (in/out/reset) mount only
+   inside the renderer and are gated by `enableZoom` (now default-on in the wrapper), so no surface
+   double-mounts controls. The zoom behavior pins an explicit `.extent()` so the button-driven
+   `scaleBy`/`transform` stay deterministic and testable in jsdom.
+
+These are validated by a two-user check (non-zero sentinels) before ADR-082 flips to **Implemented**.
+
 ## Consequences
 
 - **Positive:** one consistent, truthful self-facing language; a durable API-first privacy boundary;

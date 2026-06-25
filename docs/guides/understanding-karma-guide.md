@@ -51,6 +51,23 @@ As long as you're participating, decay doesn't apply. If you take a break and co
 
 ---
 
+## Who Can See Your Numbers
+
+Your exact reputation numbers — your **Current Karma** and your **Reputation Score** (0–100) — are
+**yours alone**. They're shown only to you, on your own profile and sidebar. No other member, and no
+community admin, can browse your exact numbers anywhere on Karmyq. (My Network and the other belonging
+graphs deliberately show *structure* only — who you're connected to — never exact numbers, even yours.)
+
+What others *do* see is how people are **connected** — the belonging graph, trust paths, who's
+eligible for a governance role — described in qualitative terms (e.g. a relationship reads as
+*strong*, *warm*, or *fading*; a member reads as *eligible*), never as another person's exact score.
+
+Your profile reads these numbers from a single canonical source, so the profile is internally
+consistent and uses one standard vocabulary — **Reputation Score** and **Current Karma** — rather than
+the mix of "trust" and "karma" labels older surfaces showed.
+
+---
+
 ## Multiple Communities
 
 Karma and trust are tracked separately in each community you belong to. Build reputation in each through participation there.

@@ -236,6 +236,37 @@ export default function ProfilePage() {
     }
   }, [router.query.tab, myProviders.length])
 
+  // Sprint 113 (BUG-024/026): the profile reads the member's own reputation from ONE canonical
+  // source — the ADR-082 self community summary (GET /reputation/me/community-summary) — instead of
+  // recombining getMyKarma + getTrustScore (the dual-source mismatch). We map the nested summary onto
+  // the flat shape the karma card renders. (Other self-views like LeftSidebar still use their own
+  // self reads; this PR only migrates the profile surface.)
+  const applyCommunitySummary = async (communityId: string) => {
+    try {
+      setLoadingKarma(true)
+      const res = await reputationService.getMyCommunitySummary(communityId)
+      const summary = res.data
+      if (summary) {
+        setKarmaData({
+          karma: summary.karma?.current ?? 0,
+          trend: summary.karma?.trend ?? null,
+          recent_helps: summary.activity?.recent_helps ?? 0,
+          recent_requests: summary.activity?.recent_requests ?? 0,
+        })
+        setTrustScore(summary.reputation?.score ?? null)
+      } else {
+        setKarmaData(null)
+        setTrustScore(null)
+      }
+    } catch (err: any) {
+      console.error('Failed to load community summary', { error: err instanceof Error ? err.message : String(err) })
+      setKarmaData(null)
+      setTrustScore(null)
+    } finally {
+      setLoadingKarma(false)
+    }
+  }
+
   const initializeKarmaData = async (userId: string) => {
     try {
       // First, load communities and get the first community ID
@@ -269,18 +300,7 @@ export default function ProfilePage() {
         // If karma display is enabled and we have a community, fetch karma data immediately
         // NOTE: We pass firstCommunityId directly and check showKarma (not state) because state updates are async
         if (showKarma && firstCommunityId) {
-          try {
-            setLoadingKarma(true)
-            const karmaResponse = await reputationService.getMyKarma(firstCommunityId)
-            // Handle nested response structure - API might return {data: {data: ...}}
-            const actualData = karmaResponse.data?.data || karmaResponse.data || karmaResponse
-            setKarmaData(actualData)
-          } catch (err: any) {
-            console.error('Failed to load karma', { error: err instanceof Error ? err.message : String(err) })
-            setKarmaData(null)
-          } finally {
-            setLoadingKarma(false)
-          }
+          await applyCommunitySummary(firstCommunityId)
         }
       } catch (err: any) {
         console.error('Failed to load privacy settings', { error: err instanceof Error ? err.message : String(err) })
@@ -322,34 +342,7 @@ export default function ProfilePage() {
 
   const fetchKarmaData = async (communityId: string) => {
     if (!communityId || !showKarmaToMe || !user?.id) return
-
-    try {
-      setLoadingKarma(true)
-      const [karmaResponse, trustResponse] = await Promise.allSettled([
-        reputationService.getMyKarma(communityId),
-        reputationService.getTrustScore(user?.id, communityId),
-      ])
-
-      if (karmaResponse.status === 'fulfilled') {
-        const actualData = karmaResponse.value.data?.data || karmaResponse.value.data || karmaResponse.value
-        setKarmaData(actualData)
-      } else {
-        setKarmaData(null)
-      }
-
-      if (trustResponse.status === 'fulfilled') {
-        const trustData = trustResponse.value.data?.data || trustResponse.value.data
-        setTrustScore(trustData?.trust_score ?? trustData?.score ?? null)
-      } else {
-        setTrustScore(null)
-      }
-    } catch (err: any) {
-      console.error('Failed to load karma', { error: err instanceof Error ? err.message : String(err) })
-      setKarmaData(null)
-      setTrustScore(null)
-    } finally {
-      setLoadingKarma(false)
-    }
+    await applyCommunitySummary(communityId)
   }
 
   const handleToggleKarmaDisplay = async () => {
@@ -680,7 +673,7 @@ export default function ProfilePage() {
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <div className="bg-primary-light rounded-lg p-4 text-center">
                       <p className="text-3xl font-bold text-primary">{karmaData.karma || 0}</p>
-                      <p className="text-sm text-text-muted mt-1">Karma Points</p>
+                      <p className="text-sm text-text-muted mt-1">Current Karma</p>
                       {karmaData.trend && (
                         <p className="text-xs text-text-subtle mt-1">
                           {karmaData.trend === 'growing' && '📈 Growing'}
@@ -703,7 +696,7 @@ export default function ProfilePage() {
                       <p className="text-3xl font-bold text-karmyq-orange-600">
                         {trustScore !== null ? trustScore : '—'}
                       </p>
-                      <p className="text-sm text-text-muted mt-1">Trust Score</p>
+                      <p className="text-sm text-text-muted mt-1">Reputation Score</p>
                       <p className="text-xs text-text-subtle mt-1">
                         {trustScore !== null ? `Out of 100` : 'No exchanges yet'}
                       </p>

@@ -18,8 +18,9 @@ Every belonging-graph surface now renders through a single engine, so an intuiti
 - **Every node is the same size.** Node size no longer encodes trust, so it can't mislead — you read *structure* (who clusters together, who bridges groups), not dot size.
 - **You are enlarged and white-ringed** as a "you are here" anchor.
 - **Your connections are amber.** Every line touching your node is highlighted so you can find yourself in the wider network.
-- **One trust number.** A node's trust score is the *decayed* current strength of its relationships — the same value in every view.
+- **Structure, not scores.** Nodes show *who connects to whom*; a node's detail panel gives degrees away and connection count, never a trust score or karma (those are private to you — see below). Edge thickness/fade reflects the *decayed* current strength of each bond, the same in every view.
 - **Hover or focus a node** (mouse or keyboard) and unrelated people and lines fade back, so the node's own neighborhood stands out. Every node is keyboard-reachable, carries its full name as a tooltip, and activates with Enter or Space.
+- **Zoom controls** (＋ / − / reset) sit in the top-right of every graph (Sprint 113) — click to zoom in, out, or recenter. Drag the background to pan, and pinch to zoom on touch. (The mouse wheel scrolls the page as usual — it no longer hijacks into zoom.)
 
 ## The full-page explorer (`/network`)
 
@@ -48,7 +49,7 @@ Groups are detected automatically from the strongest connections, so the layout 
 
 ## My Network View
 
-The My Network tab shows **your first-degree network within this community** — the people you've built trust with here — clustered by how closely they connect to each other. It's a static, structure-revealing view; click any node to open its detail panel. For privacy, another member's panel shows only their name and connection count — your **own** node is the only one that shows your trust score and karma.
+The My Network tab shows **your first-degree network within this community** — the people you've built trust with here — clustered by how closely they connect to each other. It's a static, structure-revealing view; click any node to open its detail panel. For privacy, every panel shows only structure — name, degrees away, and connection count — and **no node shows a trust score or karma**, not even your own (see [Whose numbers you can see](#whose-numbers-you-can-see-reputation-disclosure-boundary) below). Your own exact numbers live on your profile and the My Network self-summary instead.
 
 ## Your Trust Network (dashboard)
 
@@ -99,7 +100,7 @@ When your community has an active fission proposal, the trust graph shows the sa
 - **Red threads** are cross-group connections — the contested relationships that span the proposed boundary and make a split costly.
 - A **dashed ring** marks members with no trust connections yet.
 
-Click any member to see their trust score and connections. If you're an admin, you can move them between the proposed groups from the panel below the graph.
+Click any member to see their proposed group and connection count. If you're an admin, you can move them between the proposed groups from the panel below the graph.
 
 ## Who Appears in the Graph
 
