@@ -40,6 +40,8 @@ queue, `react-force-graph-2d@1.29.1`, D3 for force helpers/layout math where use
 | `apps/frontend/src/components/graphs/GraphCanvas.tsx` | Client-only canvas renderer boundary around `react-force-graph-2d`; owns force config and canvas drawing callbacks only. |
 | `apps/frontend/src/components/graphs/BelongingGraphRenderer.tsx` | React/DOM chrome around `GraphCanvas`: empty states, legend, zoom controls, selected-node detail, hover/focus state. |
 | `apps/frontend/src/components/graphs/graphCanvasModel.ts` | Pure conversion/styling helpers: clone canonical graph data, set initial/pinned layout positions, derive node/link visual styles, compute adjacency. |
+| `apps/frontend/tests/mocks/reactForceGraph2DMock.tsx` | Project-level Jest mock for `react-force-graph-2d`, including captured props and mocked `ForceGraphMethods`. |
+| `apps/frontend/tests/tdd/sprint-114-renderer-guardrails.test.ts` | Non-blocking TDD guardrails for new renderer-file existence and old renderer retirement before promotion to regression. |
 | `apps/frontend/tests/tdd/sprint-114-graph-canvas-boundary.test.tsx` | TDD tests for canvas boundary props, callbacks, zoom controls, and privacy-safe DOM chrome. |
 | `apps/frontend/tests/tdd/sprint-114-surface-consolidation.test.tsx` | TDD tests for retired surfaces and remaining profile/community/explorer homes. |
 | `docs/adr/ADR-083-belonging-graph-rendering-engine.md` | ADR recording the renderer reversal from S111 single-D3 renderer to `react-force-graph-2d`. |
@@ -52,13 +54,14 @@ queue, `react-force-graph-2d@1.29.1`, D3 for force helpers/layout math where use
 | `package.json` | Bump root version `11.20.0` -> `11.21.0`. |
 | `package-lock.json` | Lock `react-force-graph-2d@1.29.1` and version bump. |
 | `apps/frontend/package.json` | Add `react-force-graph-2d` dependency. |
+| `apps/frontend/jest.config.js` | Map `react-force-graph-2d` to the project mock so ESM/D3 submodules never hit Jest's transform wall. |
 | `apps/frontend/src/components/BelongingGraph.tsx` | Dynamic-import `BelongingGraphRenderer` instead of `TrustGraphHEB`; keep fetch/normalization contract unchanged. |
 | `apps/frontend/src/components/graphs/GraphZoomControls.tsx` | Reuse for canvas zoom; no duplicate control clusters. |
 | `apps/frontend/src/components/community/tabs/TrustGraphTab.tsx` | Retire the community `My Network` sub-tab; community page renders member topology only plus link to `/network`. |
 | `apps/frontend/src/components/Feed/UnifiedFeed.tsx` | Remove `MyNetworkPreview` import and Home preview card render. |
 | `apps/frontend/src/pages/network.tsx` | Keep explorer modes and Scale 1/2/3 framing; verify the new renderer receives `focusedNodeId` and `onNodeActivate` unchanged. |
-| `apps/frontend/src/pages/dashboard.tsx` | Remove any live dashboard graph widget call if present; Home uses nav/explorer entry, not an embedded graph card. |
-| `apps/frontend/tests/regression/belonging-graph-consolidation.test.ts` | Invert S111 dependency guardrail: `react-force-graph-2d` is now required; D3 is allowed but no longer the sole renderer. |
+| `apps/frontend/src/pages/dashboard.tsx` | Verify there is no live dashboard graph widget call; `TrustNetworkWidget` is expected to be dead code before deletion. |
+| `apps/frontend/tests/regression/belonging-graph-consolidation.test.ts` | Invert S111 dependency guardrail; promote file-existence/retirement guardrails only in the same tasks that make them green. |
 | `apps/frontend/tests/regression/sprint-111-graph-foundation.test.tsx` | Keep wrapper fetch/normalization assertions; update renderer stub name/props. |
 | `apps/frontend/tests/regression/sprint-111-graph-interaction.test.tsx` | Replace SVG node assertions with canvas-boundary and DOM-chrome assertions. |
 | `apps/frontend/tests/regression/sprint-111-belonging-surfaces.test.tsx` | Update surface expectations: no dashboard widget, no community `My Network` sub-tab, profile/community/explorer remain. |
@@ -83,19 +86,23 @@ queue, `react-force-graph-2d@1.29.1`, D3 for force helpers/layout math where use
    props.
 3. Canvas is not DOM-queryable. Tests assert boundary props, style/config helpers, callbacks, and DOM
    chrome, not `<circle>` or `<path>` nodes.
-4. `BelongingGraph` remains the only fetch/normalization wrapper. `GraphCanvas` must not call
+4. `react-force-graph-2d` is ESM and pulls D3 submodules. Add a project-level Jest
+   `moduleNameMapper` to a local mock before importing the renderer in tests; do not rely on per-file
+   `jest.mock('react-force-graph-2d')` calls.
+5. `BelongingGraph` remains the only fetch/normalization wrapper. `GraphCanvas` must not call
    `socialGraphService`.
-5. Zoom has one owner. `GraphZoomControls` calls the `react-force-graph-2d` ref (`zoom`, `centerAt`,
+6. Zoom has one owner. `GraphZoomControls` calls the `react-force-graph-2d` ref (`zoom`, `centerAt`,
    `zoomToFit`); do not also wire D3 zoom or wrapper-level controls.
-6. Keep Phase 1 chrome: legend, empty/sparse states, node-detail panel, depth readout, and Scale 1/2/3
+7. Keep Phase 1 chrome: legend, empty/sparse states, node-detail panel, depth readout, and Scale 1/2/3
    text. Removing that copy is Phase 3.
-7. Retire exactly three redundant surfaces: dashboard `TrustNetworkWidget`, Home `MyNetworkPreview`,
-   and the community `My Network` sub-tab. Keep top-nav My Network and `/network`.
-8. Fission view must remain admin-operable: proposed-group colors, isolated-member dashed ring, and
+8. Retire exactly three redundant surfaces: dead dashboard `TrustNetworkWidget`, live Home
+   `MyNetworkPreview`, and the community `My Network` sub-tab. Keep top-nav My Network and
+   `/network`.
+9. Fission view must remain admin-operable: proposed-group colors, isolated-member dashed ring, and
    move-group action still work.
-9. Supply-chain checks matter: dependency must be pinned, `npm audit --audit-level=high` must pass or
+10. Supply-chain checks matter: dependency must be pinned, `npm audit --audit-level=high` must pass or
    a blocking alert must be resolved before merge.
-10. Human validation must include the carried S113 post-deploy spot-check plus S114 renderer/consolidation
+11. Human validation must include the carried S113 post-deploy spot-check plus S114 renderer/consolidation
     checks on the demo.
 
 ---
@@ -107,10 +114,12 @@ queue, `react-force-graph-2d@1.29.1`, D3 for force helpers/layout math where use
 - Modify: `package-lock.json`
 - Modify: `package.json`
 - Modify: `apps/frontend/tests/regression/belonging-graph-consolidation.test.ts`
+- Create: `apps/frontend/tests/tdd/sprint-114-renderer-guardrails.test.ts`
 
 **Interfaces:**
 - Consumes: approved S114 spec and current branch `feature/sprint-114-belonging-graph-consolidation`.
-- Produces: pinned renderer dependency and an intentional failing guardrail until renderer files exist.
+- Produces: pinned renderer dependency, a green regression dependency guardrail, and non-blocking TDD
+  guardrails for renderer-file creation and old-renderer retirement.
 
 - [ ] **Step 1: Verify branch and clean tree**
 
@@ -143,7 +152,7 @@ Edit `package.json`:
 
 Keep all other fields unchanged.
 
-- [ ] **Step 4: Invert the S111 dependency guardrail**
+- [ ] **Step 4: Invert only the dependency guardrail in regression**
 
 In `apps/frontend/tests/regression/belonging-graph-consolidation.test.ts`, change the dependency block
 to this contract:
@@ -170,23 +179,53 @@ describe('belonging graph renderer dependencies', () => {
 })
 ```
 
-Also update the "unified surfaces exist" table to expect the new renderer files after Task 3:
+Do not add the new renderer-file existence or old-renderer deletion assertions to regression in Task
+1. Regression tests must stay green at every commit.
+
+- [ ] **Step 5: Add non-blocking TDD renderer guardrails**
+
+Create `apps/frontend/tests/tdd/sprint-114-renderer-guardrails.test.ts` for guardrails that are
+allowed to be red while implementation catches up:
 
 ```ts
-'src/components/graphs/GraphCanvas.tsx',
-'src/components/graphs/BelongingGraphRenderer.tsx',
-'src/components/graphs/graphCanvasModel.ts',
+import fs from 'fs'
+import path from 'path'
+
+const FRONTEND_ROOT = path.resolve(__dirname, '../..')
+
+const exists = (relativePath: string) => fs.existsSync(path.join(FRONTEND_ROOT, relativePath))
+
+describe('S114 renderer files', () => {
+  it.each([
+    'src/components/graphs/GraphCanvas.tsx',
+    'src/components/graphs/BelongingGraphRenderer.tsx',
+    'src/components/graphs/graphCanvasModel.ts',
+  ])('%s exists before regression promotion', relativePath => {
+    expect(exists(relativePath)).toBe(true)
+  })
+})
+
+describe('S114 retired renderers', () => {
+  it.each([
+    'src/components/graphs/TrustGraphHEB.tsx',
+    'src/components/graphs/CommunityHubGraph.tsx',
+  ])('%s is retired before regression promotion', relativePath => {
+    expect(exists(relativePath)).toBe(false)
+  })
+})
 ```
 
-- [ ] **Step 5: Run the focused guardrail and confirm the expected red**
+- [ ] **Step 6: Run the focused guardrails**
 
 ```powershell
 cd apps/frontend; npx jest tests/regression/belonging-graph-consolidation.test.ts --runInBand
+cd apps/frontend; npx jest tests/tdd/sprint-114-renderer-guardrails.test.ts --runInBand
 ```
 
-Expected now: fails because the new renderer files do not exist yet.
+Expected: the regression guardrail passes after the dependency install; the TDD guardrail fails because
+the new renderer files do not exist and the old renderers have not been deleted yet.
 
-- [ ] **Step 6: Run supply-chain audit after dependency install**
+- [ ] **Step 7: Run supply-chain audit after dependency install**
 
 ```powershell
 npm audit --audit-level=high
@@ -194,10 +233,10 @@ npm audit --audit-level=high
 
 Expected: no high/critical findings. If it fails, stop and resolve the dependency issue in this task.
 
-- [ ] **Step 7: Commit**
+- [ ] **Step 8: Commit**
 
 ```powershell
-git add package.json apps/frontend/package.json package-lock.json apps/frontend/tests/regression/belonging-graph-consolidation.test.ts
+git add package.json apps/frontend/package.json package-lock.json apps/frontend/tests/regression/belonging-graph-consolidation.test.ts apps/frontend/tests/tdd/sprint-114-renderer-guardrails.test.ts
 git commit -m "test: set S114 graph renderer dependency guardrails"
 ```
 
@@ -284,6 +323,9 @@ describe('graphCanvasModel', () => {
 })
 ```
 
+The adjacency set intentionally includes the node itself for fast highlight membership checks. UI
+connection counts must count links/neighbors, not blindly use `adjacency.get(id).size`.
+
 - [ ] **Step 2: Run the test and verify red**
 
 ```powershell
@@ -349,7 +391,11 @@ Run the mandatory `pre-commit-check` skill before this commit.
 
 **Files:**
 - Create: `apps/frontend/src/components/graphs/GraphCanvas.tsx`
+- Create: `apps/frontend/tests/mocks/reactForceGraph2DMock.tsx`
+- Modify: `apps/frontend/jest.config.js`
 - Modify: `apps/frontend/tests/tdd/sprint-114-graph-canvas-boundary.test.tsx`
+- Modify: `apps/frontend/tests/regression/belonging-graph-consolidation.test.ts`
+- Modify: `apps/frontend/tests/tdd/sprint-114-renderer-guardrails.test.ts`
 
 **Interfaces:**
 - Consumes: `toCanvasGraphData`, `GraphLayout`, canonical `GraphData`.
@@ -373,11 +419,14 @@ export interface GraphCanvasProps {
 
 - [ ] **Step 1: Mock `react-force-graph-2d` and write boundary tests**
 
-Append this mock and tests to `sprint-114-graph-canvas-boundary.test.tsx`:
+Create `apps/frontend/tests/mocks/reactForceGraph2DMock.tsx`:
 
 ```ts
-let lastForceGraphProps: any = null
-const forceGraphMethods = {
+import React from 'react'
+
+export let lastForceGraphProps: any = null
+
+export const forceGraphMethods = {
   zoom: jest.fn(),
   centerAt: jest.fn(),
   zoomToFit: jest.fn(),
@@ -385,19 +434,43 @@ const forceGraphMethods = {
   d3ReheatSimulation: jest.fn(),
 }
 
-jest.mock('react-force-graph-2d', () => ({
-  __esModule: true,
-  default: (props: any) => {
-    lastForceGraphProps = props
-    if (props.ref) props.ref.current = forceGraphMethods
-    return <canvas data-testid="force-graph" />
-  },
-}))
+export const resetForceGraphMock = () => {
+  lastForceGraphProps = null
+  jest.clearAllMocks()
+}
+
+export default function ForceGraph2DMock(props: any) {
+  lastForceGraphProps = props
+  if (props.ref) props.ref.current = forceGraphMethods
+  return <canvas data-testid="force-graph" />
+}
+```
+
+Then update `apps/frontend/jest.config.js`:
+
+```js
+moduleNameMapper: {
+  '^@/(.*)$': '<rootDir>/src/$1',
+  '^react-force-graph-2d$': '<rootDir>/tests/mocks/reactForceGraph2DMock.tsx',
+  '^d3$': '<rootDir>/../../node_modules/d3/dist/d3.min.js',
+}
+```
+
+Keep this as the only Jest mock strategy for `react-force-graph-2d`. Per-file mocks are too easy to
+forget and will reintroduce the ESM transform failure.
+
+Append these tests to `sprint-114-graph-canvas-boundary.test.tsx`:
+
+```ts
+import {
+  forceGraphMethods,
+  lastForceGraphProps,
+  resetForceGraphMock,
+} from '../mocks/reactForceGraph2DMock'
 
 describe('GraphCanvas boundary', () => {
   beforeEach(() => {
-    lastForceGraphProps = null
-    jest.clearAllMocks()
+    resetForceGraphMock()
   })
 
   it('passes cloned graph data and canvas callbacks to react-force-graph-2d', async () => {
@@ -468,10 +541,18 @@ cd apps/frontend; npx jest tests/tdd/sprint-114-graph-canvas-boundary.test.tsx -
 
 Expected: passes.
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 5: Promote the green GraphCanvas/model guardrails**
+
+Move only the now-green `GraphCanvas.tsx` and `graphCanvasModel.ts` file-existence assertions from
+`sprint-114-renderer-guardrails.test.ts` into the "unified surfaces exist" table in
+`apps/frontend/tests/regression/belonging-graph-consolidation.test.ts`. Leave
+`BelongingGraphRenderer.tsx` in TDD until Task 4 and old-renderer deletion assertions in TDD until
+Task 9, when those changes happen in the same commits.
+
+- [ ] **Step 6: Commit**
 
 ```powershell
-git add apps/frontend/src/components/graphs/GraphCanvas.tsx apps/frontend/tests/tdd/sprint-114-graph-canvas-boundary.test.tsx
+git add apps/frontend/src/components/graphs/GraphCanvas.tsx apps/frontend/tests/mocks/reactForceGraph2DMock.tsx apps/frontend/jest.config.js apps/frontend/tests/tdd/sprint-114-graph-canvas-boundary.test.tsx apps/frontend/tests/regression/belonging-graph-consolidation.test.ts apps/frontend/tests/tdd/sprint-114-renderer-guardrails.test.ts
 git commit -m "feat: add react force graph canvas boundary"
 ```
 
@@ -485,11 +566,16 @@ Run the mandatory `pre-commit-check` skill before this commit.
 - Create: `apps/frontend/src/components/graphs/BelongingGraphRenderer.tsx`
 - Modify: `apps/frontend/tests/tdd/sprint-114-graph-canvas-boundary.test.tsx`
 - Modify: `apps/frontend/tests/regression/sprint-113-graph-zoom.test.tsx`
+- Modify: `apps/frontend/tests/regression/belonging-graph-consolidation.test.ts`
+- Modify: `apps/frontend/tests/tdd/sprint-114-renderer-guardrails.test.ts`
 
 **Interfaces:**
 - Consumes: `GraphCanvas`, `GraphZoomControls`, `describeNodeDetail`, `buildAdjacency`.
 - Produces: renderer component that preserves DOM chrome and exposes the same props formerly passed to
   `TrustGraphHEB`.
+- Prop parity checklist from `BelongingGraph.tsx`: `graphData`, `currentUserId`, `mode`, `groupMap`,
+  `groupALabel`, `groupBLabel`, `onSwitchGroup`, `height`, `focusedNodeId`, `onNodeActivate`, and
+  `enableZoom`.
 
 - [ ] **Step 1: Write chrome tests for zoom, detail, and privacy**
 
@@ -542,15 +628,22 @@ cd apps/frontend; npx jest tests/tdd/sprint-114-graph-canvas-boundary.test.tsx t
 
 Expected: passes.
 
-- [ ] **Step 6: Simplify pass**
+- [ ] **Step 6: Promote the green renderer-chrome guardrail**
+
+Move the now-green `BelongingGraphRenderer.tsx` file-existence assertion from
+`sprint-114-renderer-guardrails.test.ts` into the "unified surfaces exist" table in
+`apps/frontend/tests/regression/belonging-graph-consolidation.test.ts`. Keep old-renderer deletion
+assertions in TDD until Task 9.
+
+- [ ] **Step 7: Simplify pass**
 
 Run `/simplify` for the renderer: if force drawing code appears in `BelongingGraphRenderer`, move it
 down to `GraphCanvas`; if DOM state appears in `GraphCanvas`, move it up.
 
-- [ ] **Step 7: Commit**
+- [ ] **Step 8: Commit**
 
 ```powershell
-git add apps/frontend/src/components/graphs/BelongingGraphRenderer.tsx apps/frontend/tests/tdd/sprint-114-graph-canvas-boundary.test.tsx apps/frontend/tests/regression/sprint-113-graph-zoom.test.tsx
+git add apps/frontend/src/components/graphs/BelongingGraphRenderer.tsx apps/frontend/tests/tdd/sprint-114-graph-canvas-boundary.test.tsx apps/frontend/tests/regression/sprint-113-graph-zoom.test.tsx apps/frontend/tests/regression/belonging-graph-consolidation.test.ts apps/frontend/tests/tdd/sprint-114-renderer-guardrails.test.ts
 git commit -m "feat: add belonging graph renderer chrome"
 ```
 
@@ -586,6 +679,9 @@ In `sprint-111-graph-interaction.test.tsx`, import `BelongingGraphRenderer` or `
 - `BelongingGraphRenderer` opens detail panel on callback;
 - `focusedNodeId` is passed down to `GraphCanvas`;
 - no test queries `circle`, `path`, `svg > g`, or `data-node-id`.
+
+Because Task 3 added the global `moduleNameMapper` for `react-force-graph-2d`, this test must not add
+its own per-file `jest.mock('react-force-graph-2d')`.
 
 - [ ] **Step 3: Run and verify red**
 
@@ -651,6 +747,11 @@ Add test cases covering:
 - Fission links are dashed and fission isolated members surface the dashed-ring legend.
 - Decay tiers affect link opacity/style helper output.
 
+Before writing expected values, read the current constants and branches in
+`TrustGraphHEB.tsx` and `CommunityHubGraph.tsx`. Phase 1 is parity: expected colors, dash arrays,
+node sizing, fission group styles, and hover dimming must be ported from the existing renderers, not
+invented in the new canvas boundary.
+
 - [ ] **Step 2: Run and verify red**
 
 ```powershell
@@ -662,13 +763,15 @@ Expected: new parity tests fail until style helpers are filled out.
 - [ ] **Step 3: Implement style helpers and drawing callbacks**
 
 Rules:
-- `nodeVal`: people `1`, current user `1.8`, communities `Math.max(1, Math.sqrt(member_count ?? 1))`.
-- `nodeCanvasObject`: draw a circle, ring current user/member communities, and draw labels for
-  `communities` mode.
+- `nodeVal`: port person/current-user/community sizing from the existing renderers; community sizing
+  may use `member_count` but must preserve the visual proportions users already see.
+- `nodeCanvasObject`: port current-user rings, member-community treatment, fission group styling, and
+  `communities` labels from the existing renderers.
 - `nodePointerAreaPaint`: paint a hit circle using the same radius as the visual node.
-- `linkColor`: fission `#a78bfa` for lineage, amber for current-user edges, indigo for same cluster,
-  slate for bridges.
-- `linkLineDash`: `[6, 4]` for `link.type === 'fission'`, otherwise `null`.
+- `linkColor`: port exact mode-specific link colors from `TrustGraphHEB.tsx` and
+  `CommunityHubGraph.tsx`, including current-user edges, same-cluster/bridge edges, communities
+  lineage, and fission split groups.
+- `linkLineDash`: port the existing dashed fission/isolated-member semantics.
 - `linkWidth`: derive from qualitative state or `effective_weight`, never from hidden reputation.
 - Highlight: dim unrelated nodes/links when `hoveredNodeId` or `focusedNodeId` is set.
 
@@ -709,7 +812,10 @@ Run the mandatory `pre-commit-check` skill before this commit.
 - `TrustGraphTab` renders a community graph and no `My Network` sub-tab button.
 - `TrustGraphTab` still links to `/network?mode=communities`.
 - `UnifiedFeed` no longer renders `My Network` preview copy on Home.
-- No source file imports `components/dashboard/TrustNetworkWidget` or `Feed/MyNetworkPreview`.
+- `UnifiedFeed.tsx` no longer imports `Feed/MyNetworkPreview`; this is the live red-first Home
+  surface because `MyNetworkPreview` is rendered today.
+- `TrustNetworkWidget.tsx` has no source callers before S114 and is deleted as dead code, not treated
+  as a live dashboard surface.
 
 - [ ] **Step 2: Update S111/S113 tests**
 
@@ -773,6 +879,9 @@ In `UnifiedFeed.tsx`:
 Delete:
 - `apps/frontend/src/components/Feed/MyNetworkPreview.tsx`
 - `apps/frontend/src/components/dashboard/TrustNetworkWidget.tsx`
+
+`TrustNetworkWidget.tsx` is expected to be orphaned before this task. If `rg` finds no live caller,
+keep this as a dead-code deletion; do not add dashboard behavior just to make a red test.
 
 - [ ] **Step 4: Search for dead references**
 
@@ -843,6 +952,10 @@ In `belonging-graph-consolidation.test.ts`, add old renderer files to the retire
 
 Keep `GraphZoomControls.tsx`, `types.ts`, `normalizeGraphData.ts`, `GraphCanvas.tsx`,
 `BelongingGraphRenderer.tsx`, and `graphCanvasModel.ts` in the active list.
+
+This is the moment to promote the old-renderer deletion assertions from
+`sprint-114-renderer-guardrails.test.ts` into regression. Do not add these regression assertions before
+the files are deleted.
 
 - [ ] **Step 4: Run guardrail and graph tests**
 

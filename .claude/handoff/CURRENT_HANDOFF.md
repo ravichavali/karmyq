@@ -9,6 +9,11 @@
 > **Spec:** `docs/superpowers/specs/2026-06-26-belonging-graph-consolidation-design.md`
 >
 > **Plan:** `docs/superpowers/plans/2026-06-26-sprint-114-belonging-graph-consolidation.md`
+>
+> **Plan review fixes applied:** regression tests stay green at every task commit; intentionally-red
+> renderer checks live in `tests/tdd/` until promotion; `react-force-graph-2d` uses a global Jest
+> mapper/mock; `TrustNetworkWidget` is treated as dead-code deletion; visual parity must be ported from
+> the current renderers; and `BelongingGraphRenderer` has an explicit prop-parity checklist.
 
 ---
 
@@ -56,14 +61,16 @@ Adopt `react-force-graph-2d@1.29.1` and consolidate the belonging graph to profi
    passing it to the renderer.
 3. Canvas is not DOM-queryable. Tests assert boundary props, style/config helpers, callbacks, and DOM
    chrome, not `<circle>` or `<path>` nodes.
-4. `BelongingGraph` remains the only fetch/normalization wrapper. `GraphCanvas` must not call
+4. `react-force-graph-2d` is ESM and must be mapped to a global Jest mock before renderer tests import
+   it. Do not rely on per-file mocks.
+5. `BelongingGraph` remains the only fetch/normalization wrapper. `GraphCanvas` must not call
    `socialGraphService`.
-5. Zoom has one owner. `GraphZoomControls` calls the `react-force-graph-2d` ref (`zoom`, `centerAt`,
+6. Zoom has one owner. `GraphZoomControls` calls the `react-force-graph-2d` ref (`zoom`, `centerAt`,
    `zoomToFit`); do not also wire D3 zoom or wrapper-level controls.
-6. Keep Phase 1 chrome. Removing scale framing and tabbed modes is Phase 3.
-7. Fission view must remain admin-operable: proposed-group colors, isolated-member dashed ring, and
+7. Keep Phase 1 chrome. Removing scale framing and tabbed modes is Phase 3.
+8. Fission view must remain admin-operable: proposed-group colors, isolated-member dashed ring, and
    move-group action still work.
-8. Dependency must be pinned, and `npm audit --audit-level=high` must pass or be resolved before merge.
+9. Dependency must be pinned, and `npm audit --audit-level=high` must pass or be resolved before merge.
 
 ## Open Items Carried In
 
@@ -78,9 +85,10 @@ Adopt `react-force-graph-2d@1.29.1` and consolidate the belonging graph to profi
 ## Active Session
 
 - **Driving agent:** Codex (Sprint 114 planning).
-- **Phase:** Phase 1 plan written; execution not started.
+- **Phase:** Phase 1 plan written and reviewed; execution not started.
 - **Files changed in planning:** S114 implementation plan and this handoff.
-- **Next action:** Start Task 1 in the plan: dependency pin, version bump, and S111 guardrail inversion.
+- **Next action:** Start Task 1 in the revised plan: dependency pin, version bump, green regression
+  dependency guardrail, and non-blocking TDD renderer guardrails.
 - **Blockers:** none.
 
 ## Architecture Gotchas
