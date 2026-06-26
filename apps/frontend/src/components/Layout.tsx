@@ -34,6 +34,9 @@ function AppMenu({ onLogout }: AppMenuProps) {
             id="app-overflow-menu"
             className="absolute right-0 mt-1 w-56 bg-surface-raised border border-border rounded-lg shadow-lg z-50 py-1"
           >
+            <Link href="/network" className="block px-4 py-2 text-sm text-text hover:bg-surface transition-colors" onClick={close}>
+              My Network
+            </Link>
             <Link href="/communities" className="block px-4 py-2 text-sm text-text hover:bg-surface transition-colors" onClick={close}>
               Communities
             </Link>
@@ -123,8 +126,17 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
               {/* BUG-016: a calmer rhythm — the nav and the action cluster get their own breathing
                   room (gap grows with viewport) so the row never crowds at narrower desktop widths. */}
               <div className="flex items-center gap-3 md:gap-5">
-                {/* Secondary nav — desktop only. The wordmark links Home, so no redundant Home link. */}
+                {/* Secondary nav — desktop only. The wordmark links Home, so no redundant Home link.
+                    My Network leads (Scale 1 of the belonging fractal — you + your first-degree). The
+                    nav lives in xl:flex only, so it never crowds md widths; below xl the hamburger
+                    carries it (BUG-016/017 chrome budget). The Home preview is the primary surface. */}
                 <div className="kq-topnav">
+                  <Link
+                    href="/network"
+                    className={`kq-topnav-link ${router.pathname.startsWith('/network') ? 'active' : ''}`}
+                  >
+                    My Network
+                  </Link>
                   <Link
                     href="/communities"
                     className={`kq-topnav-link ${router.pathname.startsWith('/communities') ? 'active' : ''}`}
