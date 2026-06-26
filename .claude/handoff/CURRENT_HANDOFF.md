@@ -6,10 +6,12 @@
 > `4921376d`, `c0d36c6d`, gate fixes `7cfc9a15`). Full root `npm test` green after Task 12
 > (26/26 Turbo tasks; frontend regression 11 suites / 81 tests).
 >
-> **Branch:** `feature/sprint-114-belonging-graph-consolidation`.
+> **Branch:** `feature/sprint-114-belonging-graph-consolidation` — pushed. **PR #123 open**
+> (https://github.com/ravichavali/karmyq/pull/123).
 >
-> **Working tree:** clean except this handoff. Next up is Task 13 — open the PR, request cross-agent
-> review, and **stop for Admin authorization** before merge/deploy (contributor agents never self-merge).
+> **Working tree:** clean except this handoff. Task 13 is at the **stop point**: PR open + CI running,
+> **awaiting Codex cross-agent review and Admin merge authorization** (contributor agents never
+> self-merge). Do not merge until Admin authorizes.
 >
 > **Spec:** `docs/superpowers/specs/2026-06-26-belonging-graph-consolidation-design.md`
 >
@@ -134,8 +136,13 @@ Adopt `react-force-graph-2d@1.29.1` and consolidate the belonging graph to profi
     test-surface documented.
 - **Latest full root gate:** passed after Task 12 (`npm test`, 26/26 Turbo tasks; frontend regression
   11 suites / 81 tests ran fresh).
-- **Next action:** Task 13 — push branch, open PR, cross-agent review, stop for Admin merge authorization.
-- **Blockers:** none (Admin authorization required before merge/deploy).
+- **Task 13 in progress:** branch pushed; **PR #123 open** with the filled contract template (gate
+  lines + `enableZoomInteraction` follow-up in the body). `pr-contract` check passed; rest of CI
+  running. Authoring agent = Claude → **Codex is the cross-agent reviewer**.
+- **Next action:** confirm CI green → request Codex review → **stop for Admin authorization**, then
+  `gh pr merge --squash --delete-branch` and monitor the post-merge master CI/CD `Deploy to Demo` job
+  (not the PR-level skipped deploy check). Then Task 14 post-deploy validation.
+- **Blockers:** Admin authorization required before merge/deploy.
 
 ## Architecture Gotchas
 
