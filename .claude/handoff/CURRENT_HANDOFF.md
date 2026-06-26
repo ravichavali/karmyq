@@ -1,20 +1,63 @@
-# Sprint 113 — Belonging Truth & Prominence: PR A in review
+# Sprint 113 — Belonging Truth & Prominence: PR B IMPLEMENTED, ready for review/merge
 
-> **STATUS (2026-06-25):** Sprint 113 **PR A (Belonging Truth) is IMPLEMENTED + COMMITTED + PUSHED** on
-> `feature/sprint-113-belonging-truth` (commit `0c308642`) and **opened as PR #121** against `master`.
-> Plan Tasks 1–6 done: BUG-025 NaN-safe governance, BUG-024/026 profile reconciliation onto the
-> canonical self-summary, BUG-027 single-owner map zoom; the three SDLC gates (`/simplify`,
-> `/code-review`, `/security-review`) ran on the diff (code-review caught + fixed a real wheel-scroll
-> hijack from default-on zoom; security-review found nothing). Verification: frontend regression+unit
-> 115/115 green, new TDD suites green, tsc clean, doc-context drift gate green.
+> **STATUS (2026-06-26):** Sprint 113 **PR B (Belonging Prominence + Fractal Clarity) is IMPLEMENTED on
+> branch `feature/sprint-113-belonging-prominence`** (6 commits off merged `origin/master` `81322165`),
+> all plan Tasks 8–12 complete through the SDLC gates. **Awaiting: open PR → cross-agent review → Admin
+> merge → deploy.** (Contributor agents never self-merge — stopping here for Admin authorization.)
 >
-> **GATED REMAINDER (human / cross-agent — NOT yet done):**
-> 1. **Cross-agent review** of PR #121 — Claude authored it, so **Codex reviews** (cross-agent protocol).
-> 2. **Admin merge** PR #121 → `master` (triggers the deploy).
-> 3. **`/deploy`** — confirm GitHub Actions deploy success + live content matches master.
-> 4. **Two-user validation** (Maria + a 2nd member, non-zero sentinels): exact reputation is self-only on
->    every surface AND profile reconciles with the community view; no `NaN`; zoom works on each map.
->    Record PASS/FAIL.
+> **PR B delivered (Tasks 8–12):**
+> - **Task 8a** (commit `b4570f31`): ADR-082 → Implemented (md + landing JSON), BUG-024/025/026/027 →
+>   fixed in docs/BUGS.md (validated PASS evidence), + the `/network?mode=community` crash fix + test.
+> - **Task 8b** (`aa2259e6`): My Network → primary nav (kq-topnav xl:flex + hamburger) + prominent Home
+>   preview card in UnifiedFeed (`!isCommunity`, after offered/suggested, before filter chips). TDD.
+> - **Task 9** (`68d6f1fc`): three-scale fractal legibility (Scale 1 My Network / Scale 2 This Community /
+>   Scale 3 Across Communities) in the explorer + community Trust Graph sub-tabs; **Scale 3 rebuilt as the
+>   egocentric hub** (`CommunityHubGraph.tsx` — your communities centre-anchored, connected radiate on a
+>   labelled ring, node size = membership, organic/fission edges); depth "Showing N people within D hops"
+>   readout + ego sparse state. TrustGraphHEB delegates communities mode out; dead radial branches removed.
+> - **Task 10** (`f818708f`): trust-graph guide + reading-the-trust-graph concept reframed; onboarding
+>   step added; **v11.20.0**; landing JSON regenerated; drift gate green.
+> - **Task 11** (`a0d14afe` + `9d137233`): /simplify (extracted shared `graphZoom.ts` + `useGraphContainerWidth`
+>   to de-fork the BUG-027 single-owner zoom across both renderers; small cleanups), /code-review (fixed:
+>   depth readout counted expansion nodes → now counts the depth baseline; restored hub hover/focus
+>   highlight honoring `focusedNodeId` so the communities search works), /security-review (no findings —
+>   client-side presentational only).
+>
+> **Verification (2026-06-26):** frontend `tsc --noEmit` clean; frontend unit+regression **125/125 green**;
+> sprint-113 tdd **9/9 green**; doc-context drift gate **5/5 green**.
+>
+> **Known follow-up (out of PR-B scope, noted in commit `a0d14afe`):** `getMyCommunities` is unwrapped at
+> ~9 call sites with divergent fallbacks — normalize once in `api.ts` in a later PR.
+>
+> <details><summary>PR A status (DONE — merged, deployed, validated PASS)</summary>
+>
+> Sprint 113 **PR A (Belonging Truth) is MERGED + DEPLOYED to the demo** — squash
+> commit `81322165` (PR #121). CI/CD Pipeline run `28192795236` = success, **Deploy to Demo = success**.
+> The CodeQL gate first false-blocked the deploy on a pre-existing FP (`#547 js/remote-property-injection`
+> at `requests.ts:848` — `sourceTier` is a server enum, not user input; **dismissed as false positive**),
+> then the re-run deployed clean.
+>
+> Delivered + LIVE in PR A: BUG-025 NaN-safe governance, BUG-024/026 profile reconciliation onto the
+> canonical self-summary, BUG-027 single-owner map zoom (controls in TrustGraphHEB, wheel/dblclick excluded
+> so embedded graphs don't hijack page scroll). 3 regression suites: governance-no-nan,
+> profile-reconciliation, graph-zoom. (Codex cross-agent review: 3 rounds, all fixed.)
+>
+> **TWO-USER VALIDATION: ✅ PASS (2026-06-25, Playwright against the LIVE demo).**
+> - **BUG-024/026 profile reconciliation:** each user sees their OWN distinct reconciled numbers from the
+>   canonical self-summary — Maria Reyes = Current Karma 27 / Reputation Score 20; Aisha White = 0 / 27
+>   (27/0 is the exact ADR-082 example that used to render inconsistently — now coherent). Canonical labels
+>   **Current Karma** + **Reputation Score** present on both; old "Karma Points"/"Trust Score" gone. No `NaN`.
+> - **BUG-025 governance NaN:** role holder rendered "Maria Elena Reyes · admin" with NO trailing "trust
+>   NaN" (the exact site the user reported); no `NaN` anywhere; no other member's trust/karma shown
+>   (self-only holds — governance carries identity + role + coarse eligibility only).
+> - **BUG-027 zoom:** in/out/reset controls present on the graph; clicking zoom-in drove it scale 1 → 1.2,
+>   reset returned to 1 (live `__zoom` confirmed).
+> - Known non-blockers seen: pre-existing profile skills double-unwrap console error (`Cannot destructure
+>   'skills'`), and the `/network?mode=community` crash (fix queued for PR B, not yet deployed).
+>
+> **→ GREEN-LIT FOR PR B.** Branch `feature/sprint-113-belonging-prominence` from merged `origin/master`;
+> first commit flips **ADR-082 → Implemented** + marks BUG-024/025/026/027 fixed, then carries the queued
+> PR-B work (below + the live-demo findings section).
 >
 > **THEN PR B** branches from merged `origin/master`. PR B's FIRST commit records the validated status
 > closures (ADR-082 → Implemented + BUG-024/025/026/027 fixed) — they could NOT go in the already-merged
@@ -27,23 +70,44 @@
 > found the UI/defense-in-depth layer NOT clean → BUG-025/026/027 filed. Sprint 113 spec + plan written
 > and approved; ready to execute as two ordered PRs.
 > </details>
+> </details>
 
 ---
 
-## Quick Start
+## Quick Start — PR B (PR A is DONE: merged, deployed, validated ✅)
 
-1. Read this handoff.
-2. Review the design spec:
-   `docs/superpowers/specs/2026-06-25-sprint-113-belonging-truth-prominence-design.md`.
-3. Open the implementation plan:
-   `docs/superpowers/plans/2026-06-25-sprint-113-belonging-truth-prominence.md`.
-4. Execute **PR A** on `feature/sprint-113-belonging-truth` — **the branch already exists** (created
-   during planning off commit `143366ea`, which carries the spec/plan/handoff; local `master` was reset
-   to `origin/master`, so it is NOT diverged). Confirm you're on it (Task 1), then run `/execute-plan`
-   (uses superpowers:subagent-driven-development).
-5. Branch **PR B** (`feature/sprint-113-belonging-prominence`) from merged `origin/master` only after
-   PR A deploys AND the two-user validation passes. PR B's **first commit** records the validated status
-   closures (ADR-082 → Implemented + BUG-024/025/026/027 fixed) — they cannot go in the already-merged PR A.
+1. Read this handoff (esp. the STATUS block above — PR A shipped + two-user validation PASSED).
+2. Open the implementation plan (PR B = Tasks 8–12):
+   `docs/superpowers/plans/2026-06-25-sprint-113-belonging-truth-prominence.md`. Note Task 9 was amended
+   (Egocentric hub for the communities view) and a PR-B priority-0 bug line was added — see the
+   "Live-demo feedback" section below.
+3. **Branch PR B** `feature/sprint-113-belonging-prominence` from **merged `origin/master`** (which is at
+   the PR A squash commit `81322165` + deployed). `git fetch origin && git checkout -b
+   feature/sprint-113-belonging-prominence origin/master`.
+
+### ⚠️ Working-tree state at this handoff (uncommitted — carry into PR B, do NOT redo or lose)
+
+`git status` shows these uncommitted changes on disk, all destined for PR B (they travel onto the new
+branch when you `git checkout -b` since they're working-tree):
+
+- **`apps/frontend/src/pages/network.tsx`** + **`apps/frontend/tests/regression/sprint-113-network-community-picker.test.tsx`**
+  — the `/network?mode=community` **crash fix (already written + RED→GREEN, do NOT redo)**. Fix: extract
+  the array from `getMyCommunities` (`res.data?.communities ?? res.data?.data ?? res.data`, `Array.isArray`
+  guard). **Commit these in PR B.**
+- **`docs/superpowers/plans/2026-06-25-...-prominence.md`** — Task 9 amended (Egocentric hub) + the
+  priority-0 crash/depth bug line. Already saved.
+- **`.claude/handoff/CURRENT_HANDOFF.md`** — this file (PR B status). Keep on disk (it's the carrier);
+  fold into PR B's branch.
+- **NOT yours — leave alone:** `claude.md` (pre-existing global-rules edit) and `.claude/skills/ship/`
+  (pre-existing new skill). They predate this sprint; do not stage them into PR B.
+
+### PR B first steps (in order)
+
+4. **First commit:** flip **ADR-082 → Implemented** (`docs/adr/ADR-082-...md` status line + landing JSON)
+   and mark **BUG-024/025/026/027 fixed** in `docs/BUGS.md` (validation PASSED — see STATUS). Bundle the
+   already-done network crash fix + test here too (it's the smallest, lands the crash fix fast).
+5. Then execute plan Tasks 8–12: depth-legibility readout + sparse state, **Egocentric hub** communities
+   view, My Network → primary nav + Home preview, docs, version → v11.20.0, SDLC gates, deploy.
 
 ## Sprint Goal
 
@@ -91,6 +155,39 @@ to make the three read as one zoom continuum in nav, labels, and entry points.
    offered/suggested panels (L249), before filter chips (L251)** — Home has NO DecisionBand (BUG-015).
 7. Make the **three-scale fractal** legible: My Network (ego) / This Community (member topology) / Across
    Communities (communities-as-nodes).
+
+## Live-demo feedback (2026-06-25, on the deployed S112 build) → PR B inputs
+
+Found while the user spot-checked `karmyq.com/network` (note: PR A not yet deployed; these are
+pre-existing in the explorer and land in PR B):
+
+1. **`/network?mode=community` crashed** ("Something went wrong") — **ROOT-CAUSED + FIXED (test green),
+   queued for PR B.** Console stack was `h.map is not a function`. Cause: `network.tsx` set
+   `memberships` from `res.data` of `getMyCommunities`, but that payload is `{ communities: [...], count,
+   total }` (an OBJECT, not an array) — `res.data ?? []` kept the object, so the community picker's
+   `memberships.map` threw. The picker only renders in `mode === 'community'`, which is exactly why ego /
+   communities modes didn't crash. **Fix applied (uncommitted, rides with PR B):** extract the array
+   defensively (`res.data?.communities ?? res.data?.data ?? res.data`, guard `Array.isArray`). Regression
+   test: `apps/frontend/tests/regression/sprint-113-network-community-picker.test.tsx` (RED→GREEN). Note a
+   *separate* pre-existing profile bug seen in the same console: `Cannot destructure 'skills' of
+   'e.data.data'` — a double-unwrap on the profile skills fetch; not fixed here.
+2. **`/network?mode=ego` depth slider "shows no change for Maria" — DIAGNOSED (2026-06-25, demo DB): NOT
+   a depth bug.** Replicated the endpoint's exact recursive query against the live DB: for
+   `maria.ahmed2290` it returns 2 → 3 → 8 nodes at depth 1 → 2 → 3 (depth genuinely expands). Root cause is
+   **seed-graph sparsity under the privacy scope**: after the active-membership scoping (only traverse
+   communities you're an active member of, only to neighbors active in that edge's community), the median
+   member has ~3–5 in-scope connections; avg in-scope direct degree = **4.59**, and 26/300 sampled members
+   have **0**. Per-"Maria" in-scope degree ranges 0–130 (maria.reyes = 130, maria.ahmed2290 = 1, four
+   Marias = 0). So 2→8 nodes is visually imperceptible on a big canvas → feels inert. The pruning is
+   privacy-correct (e.g. ahmed2290's 2nd edge is in a community she left, rightly dropped).
+   **PR B fix = legibility, not depth logic:** add a "Showing N people within {depth} hops" readout so
+   depth changes are legible even when tiny, + a real sparse/empty state. (To see it work today, log in as
+   `maria.reyes@test.karmyq.com` / `password123` — 130 connections.) Optional: seed denser demo trust data.
+3. **Communities (`mode=communities`) presentation is busy/unclear.** Today it's a hierarchical-edge-bundling
+   radial — pretty but dense. **DECISION (user, 2026-06-25): rebuild Scale 3 as an "Egocentric hub"** — your
+   communities anchored together in the center; connected communities radiate outward, always labeled, node
+   size = membership, edge style = organic vs fission. Legibility over prettiness. This replaces the radial
+   bundle for the `communities` mode in PR B's Task 9 (Scale 3).
 
 ## Decisions Locked During Planning (2026-06-25)
 
@@ -157,13 +254,13 @@ to make the three read as one zoom continuum in nav, labels, and entry points.
 
 ### Active Session (update on every role handoff)
 
-- **Driving agent:** Claude (Sprint 113 planning — spec + plan + handoff written + cross-reviewed; 5 plan
-  blockers fixed; ready to execute).
-- **Phase:** PLANNING COMPLETE (post-review). Branch `feature/sprint-113-belonging-truth` exists at the
-  planning commit `143366ea`; local `master` = `origin/master` (not diverged). Next action: execute PR A
-  from the plan. PR A = BUG-025 NaN fix → BUG-024/026 profile reconciliation → BUG-027 zoom (one owner) →
-  docs → SDLC gates → merge + deploy → two-user validation. PR B then opens with the status closures as
-  its first commit, then nav + Home preview + three-scale fractal.
+- **Driving agent:** Claude (Sprint 113 PR B execution — Tasks 8–12 implemented through the SDLC gates).
+- **Phase:** PR B IMPLEMENTED, awaiting Admin merge/deploy. Branch `feature/sprint-113-belonging-prominence`
+  = 6 commits off merged `origin/master` `81322165`. All Tasks 8–12 done; /simplify + /code-review +
+  /security-review run (findings fixed/none). Verified green (tsc + 125/125 frontend + 9/9 tdd + drift
+  gate). **Next action: open PR (fill template) → cross-agent review → Admin merge → `/deploy` → post-deploy
+  human check on the demo (My Network in nav + Home; three scales read as distinct; zoom on every map; no
+  NaN).** Contributor agents never self-merge.
 - **Key grounded findings from planning (verified against current code):**
   - BUG-025 root cause: `GovernanceTab.tsx:66` (`avg_trust_score`), `:80` (`Math.round(rh.trust_score)`),
     `:145` (`Math.round(m.trust_score) · Math.round(m.karma) karma`) — ADR-082 made eligible_members/
