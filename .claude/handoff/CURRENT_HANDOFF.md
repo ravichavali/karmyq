@@ -1,3 +1,37 @@
+# Sprint 114 — Belonging Graph Consolidation: SPEC APPROVED, ready to plan Phase 1
+
+> **STATUS (2026-06-26):** S113 is **DONE + DEPLOYED** (v11.20.0 — see the block below). The next
+> initiative, **Belonging Graph Consolidation**, has an **approved design spec** (Claude brainstorm +
+> Codex cross-review): `docs/superpowers/specs/2026-06-26-belonging-graph-consolidation-design.md`.
+>
+> **Make the belonging graph the platform centerpiece** — one canonical, traversable graph; profile +
+> community as its two homes; `/network` as the deep explorer; retire the dashboard widget / Home card /
+> community My-Network sub-tab. **3 phases:** Phase 1 (S114) = adopt `react-force-graph-2d` + consolidate
+> at informational/behavioral parity + **ADR-083** (reverses S111's single-D3 decision; test strategy
+> shifts DOM→canvas/state); Phase 2 (S115) = `GET /trust/explain/:targetUserId` trust-explanation view +
+> hover panel + click-to-recenter traversal + hero prominence; Phase 3 (S116) = distinct directed
+> fission-lineage channel + remove the Scale-1/2/3 text & tabbed modes + polish.
+>
+> **Branch state:** `master` = `origin/master` = `01af3f97` (clean). Branch
+> `feature/sprint-114-belonging-graph-consolidation` (LOCAL, unpushed) carries the spec (`c954fbde`) +
+> this handoff (`19263570`). Per "one chat per sprint", the **next chat** runs the `sprint-planning` /
+> `writing-plans` skill to turn the spec into the Phase 1 implementation plan, then executes.
+>
+> **Open items carried in:**
+> - **Post-deploy spot-check of v11.20.0 still owed** on the live demo (login `maria.reyes@test.karmyq.com`
+>   / `password123`, 130 connections): My Network in nav + Home; three scales read distinct; egocentric
+>   hub renders (centre-anchored, labelled, sized by membership); zoom on every map; depth readout; no NaN.
+> - **Fission-lineage conflation bug** (parent→child lineage renders as organic): root-caused — the
+>   backend emits BOTH an organic edge and a fission edge for a parent/child pair, and the S113 hub draws
+>   them as overlapping straight lines so organic visually wins. The fix is Phase 3 (distinct directed
+>   lineage channel). Documented in the spec.
+> - **Deploy-verification gotcha (reference):** the PR-level "Deploy to Demo" check shows **`skipping`**
+>   (deploy is gated to `push: master`, so it never runs on a PR); the **real** deploy is the
+>   `Deploy to Demo` job inside the post-merge **master CI/CD Pipeline** run. Check the master run, not the
+>   PR check, to confirm a deploy.
+>
+> ---
+
 # Sprint 113 — Belonging Truth & Prominence: PR B MERGED + DEPLOYED ✅ (v11.20.0)
 
 > **STATUS (2026-06-26):** Sprint 113 **PR B (Belonging Prominence + Fractal Clarity) is MERGED + DEPLOYED
