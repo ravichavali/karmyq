@@ -9,7 +9,6 @@ import ActivityCard from './ActivityCard'
 import StoryCard from './StoryCard'
 import OfferedAwaitingPanel from './OfferedAwaitingPanel'
 import SuggestedAsHelperPanel from './SuggestedAsHelperPanel'
-import MyNetworkPreview from './MyNetworkPreview'
 import type { ActivityData, OfferedAwaitingItem, RequestCardData, UnifiedFeedItem } from '@/types/unified-feed'
 import type { StoryData } from '@/types/feed-items'
 
@@ -248,11 +247,6 @@ export default function UnifiedFeed({
       {!isCommunity && suggestedAsHelper > 0 && (
         <SuggestedAsHelperPanel count={suggestedAsHelper} items={suggestedAsHelperItems} />
       )}
-
-      {/* S113 PR B — the prominent Home entry into My Network (Scale 1 of the belonging fractal).
-          Home-only, in the slot after the offered/suggested previews and before the filter chips
-          (Home has no DecisionBand — BUG-015). The primary prominence surface; nav link is secondary. */}
-      {!isCommunity && <MyNetworkPreview />}
 
       <FilterChipRow
         activeType={activeType}
