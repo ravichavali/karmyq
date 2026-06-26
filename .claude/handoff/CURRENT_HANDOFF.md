@@ -1,9 +1,30 @@
-# Sprint 113 — Belonging Truth & Prominence: PR B IMPLEMENTED, ready for review/merge
+# Sprint 113 — Belonging Truth & Prominence: PR B MERGED + DEPLOYED ✅ (v11.20.0)
 
-> **STATUS (2026-06-26):** Sprint 113 **PR B (Belonging Prominence + Fractal Clarity) is IMPLEMENTED on
-> branch `feature/sprint-113-belonging-prominence`** (6 commits off merged `origin/master` `81322165`),
-> all plan Tasks 8–12 complete through the SDLC gates. **Awaiting: open PR → cross-agent review → Admin
-> merge → deploy.** (Contributor agents never self-merge — stopping here for Admin authorization.)
+> **STATUS (2026-06-26):** Sprint 113 **PR B (Belonging Prominence + Fractal Clarity) is MERGED + DEPLOYED
+> to the demo** — squash commit `01af3f97` (PR #122), **v11.20.0**. CI/CD Pipeline run `28240119997` =
+> **success**, **Deploy to Demo = success** (6m38s, no rollback). Admin squash-merge (`--admin`, user-
+> authorized via /deploy) bypassed the required-review gate; all CI gates were green except the
+> non-blocking `@karmyq/mobile#lint` step. Codex cross-agent review: no blocking findings. Demo serving a
+> fresh build (buildId `1782480275578`).
+>
+> **→ Sprint 113 COMPLETE** (PR A v11.19.0 + PR B v11.20.0 both deployed). Multi-sprint belonging arc
+> (S110 research → S111 graph → S112 ADR-082 contract → S113 truth+prominence) is closed.
+>
+> **Post-deploy human spot-check still owed (do on the live demo, login `maria.reyes@test.karmyq.com` /
+> `password123`):** My Network reachable from the top nav + a Home preview card; the three scales (My
+> Network / This Community / Across Communities) read as distinct zoom levels; Scale 3 renders the
+> egocentric hub (your communities centre-anchored, connected radiating, labelled, sized by membership);
+> zoom +/−/reset works on every map; the depth readout shows "Showing N people within D hops"; no NaN.
+> (`maria.reyes` has 130 connections — the rich view for exercising depth.)
+>
+> **This handoff update is committed to local master but NOT pushed** (no docs-only push to master — it
+> would trigger a 2nd deploy → transient demo 502s). Fold it into the next sprint's first PR, or push only
+> if a fresh deploy is acceptable.
+>
+> <details><summary>Pre-deploy PR B status (reference)</summary>
+>
+> Sprint 113 **PR B was IMPLEMENTED on branch `feature/sprint-113-belonging-prominence`** (Tasks 8–12
+> complete through the SDLC gates) before the user authorized the admin-merge + deploy.
 >
 > **PR B delivered (Tasks 8–12):**
 > - **Task 8a** (commit `b4570f31`): ADR-082 → Implemented (md + landing JSON), BUG-024/025/026/027 →
@@ -69,6 +90,7 @@
 > commit `bd35619f`). API contract clean (8 cross-agent rounds, no leak). Post-deploy human spot-check
 > found the UI/defense-in-depth layer NOT clean → BUG-025/026/027 filed. Sprint 113 spec + plan written
 > and approved; ready to execute as two ordered PRs.
+> </details>
 > </details>
 > </details>
 
