@@ -1,10 +1,45 @@
 # Frontend CONTEXT.md
 
-**Last updated**: 2026-06-23 (Sprint 111 — Belonging Graph System)
+**Last updated**: 2026-06-26 (Sprint 114 — Belonging Graph Rendering Engine)
 
 ## Overview
 
 Next.js 14 web application (Pages Router) consuming all Karmyq backend services.
+
+---
+
+## Sprint 114 Belonging Graph Rendering Engine (2026-06-26, ADR-083)
+
+The belonging graph now renders on a **force-directed canvas** (`react-force-graph-2d@1.29.1`),
+reversing S111's "D3 is the only graph dependency" renderer decision. The canonical model, the
+`<BelongingGraph>` fetch/normalization wrapper, and the `/network` explorer are unchanged — only the
+renderer engine and the set of surfaces changed.
+
+- **Renderer boundary.** `components/graphs/GraphCanvas.tsx` is the **only** file that imports
+  `react-force-graph-2d`; it owns force config + canvas draw callbacks (`nodeCanvasObject`,
+  `nodePointerAreaPaint`, `linkCanvasObject`). `components/graphs/BelongingGraphRenderer.tsx` wraps it
+  with all DOM chrome (legend, `GraphZoomControls`, empty/sparse states, selected-node detail, depth
+  readout, fission move-group action). `components/graphs/graphCanvasModel.ts` holds the pure helpers
+  (`layoutForMode`, `toCanvasGraphData`, `buildAdjacency`, `describeNodeDetail`).
+- **`BelongingGraph` unchanged as the wrapper.** Still the only fetch/normalization owner;
+  `GraphCanvas` never calls `socialGraphService`. It now dynamic-imports `BelongingGraphRenderer`
+  (was `TrustGraphHEB`) with the same prop list. `react-force-graph-2d` mutates node objects
+  (`x/y/vx/vy/fx/fy`), so `graphCanvasModel` clones canonical data before the renderer sees it.
+- **Zoom owner moved.** `GraphZoomControls` now drives the `ForceGraphMethods` ref
+  (`zoom`/`centerAt`/`zoomToFit`) instead of `d3.zoom`; still mounted once inside the renderer, gated
+  by `enableZoom`. ADR-082 holds: node detail stays structure-only (degrees away, connections), never
+  trust_score/karma.
+- **Surface consolidation.** Three redundant homes retired — dead dashboard `TrustNetworkWidget`,
+  Home `MyNetworkPreview` card, and the community Trust Graph **My Network** sub-tab. The graph's homes
+  are now profile, community (member topology only), and `/network`, plus the top-nav My Network link.
+- **Retired files.** `graphs/TrustGraphHEB.tsx`, `graphs/CommunityHubGraph.tsx`, and the now-orphaned
+  `graphs/graphZoom.ts` (D3-zoom helper) deleted. `d3` stays a dependency for force/layout math.
+- **Canvas test strategy.** Canvas is not DOM-queryable, so tests assert **boundary props**
+  (captured `react-force-graph-2d` props), style/config helper outputs, and callbacks — never
+  `<circle>`/`<path>`. `react-force-graph-2d` is ESM + pulls D3 submodules, so it is mapped to a
+  project mock (`tests/mocks/reactForceGraph2DMock.tsx`) via `jest.config.js` `moduleNameMapper`; **no
+  per-file `jest.mock('react-force-graph-2d')`** (forgetting one reintroduces the ESM transform wall).
+  S114 regression suites: `sprint-114-graph-canvas-boundary` + `sprint-114-surface-consolidation`.
 
 ---
 
