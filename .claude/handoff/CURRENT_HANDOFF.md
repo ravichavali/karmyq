@@ -1,15 +1,15 @@
 # Sprint 114 - Belonging Graph Consolidation Phase 1: EXECUTION IN PROGRESS
 
 > **STATUS (2026-06-26):** S114 execution is underway on
-> `feature/sprint-114-belonging-graph-consolidation`. Tasks 1-11 are committed. Claude (non-authoring
-> agent) cross-agent reviewed + committed Task 8 (`07b5a965`), executed Task 9 (`2426c8bd`),
-> Task 10 (`4921376d`, ADR-083 + docs), and Task 11 (`c0d36c6d`, CONTEXT + TDD→regression promotion).
-> Full root `npm test` green after Task 11 (26/26 Turbo tasks; frontend regression 11 suites / 80 tests).
+> `feature/sprint-114-belonging-graph-consolidation`. Tasks 1-12 are committed. Claude (non-authoring
+> agent) cross-agent reviewed + committed Task 8 (`07b5a965`), executed Tasks 9-12 (`2426c8bd`,
+> `4921376d`, `c0d36c6d`, gate fixes `7cfc9a15`). Full root `npm test` green after Task 12
+> (26/26 Turbo tasks; frontend regression 11 suites / 81 tests).
 >
 > **Branch:** `feature/sprint-114-belonging-graph-consolidation`.
 >
-> **Working tree:** clean except this handoff. Next up is Task 12 (final quality gates: /simplify,
-> /code-review, /security-review, audit on the full branch diff).
+> **Working tree:** clean except this handoff. Next up is Task 13 — open the PR, request cross-agent
+> review, and **stop for Admin authorization** before merge/deploy (contributor agents never self-merge).
 >
 > **Spec:** `docs/superpowers/specs/2026-06-26-belonging-graph-consolidation-design.md`
 >
@@ -26,12 +26,11 @@
 
 1. Read this handoff.
 2. Confirm branch: `git branch --show-current` should be `feature/sprint-114-belonging-graph-consolidation`.
-3. Tasks 8-11 are committed (`07b5a965`, `2426c8bd`, `4921376d`, `c0d36c6d`). No action needed.
-4. Continue Task 12 in `docs/superpowers/plans/2026-06-26-sprint-114-belonging-graph-consolidation.md`
-   — run the SDLC quality gates on the full branch diff (`/simplify`, `/code-review`,
-   `/security-review`), plus `npm audit --audit-level=high`. Resolve real findings; dismiss false
-   positives (e.g. the recurring `js/request-forgery` FP on `apps/frontend/src/lib/api.ts`) with
-   written justification. Then Task 13 (PR + cross-agent review + admin merge/deploy).
+3. Tasks 8-12 are committed (`07b5a965`, `2426c8bd`, `4921376d`, `c0d36c6d`, `7cfc9a15`). No action needed.
+4. Task 13: push the branch, open the PR (fill the template — include the gate verification lines and
+   the `enableZoomInteraction` follow-up below), request Codex cross-agent review, then **stop for
+   Admin authorization** before `gh pr merge --squash`. Real deploy is the post-merge master CI/CD
+   `Deploy to Demo` job, not the PR-level skipped check.
 
 ## Sprint Goal
 
@@ -105,6 +104,7 @@ Adopt `react-force-graph-2d@1.29.1` and consolidate the belonging graph to profi
   - `2426c8bd` `refactor: retire old D3 graph renderers` (Task 9; Claude executed)
   - `4921376d` `docs: record S114 graph renderer decision` (Task 10; ADR-083 + guide/concept + landing)
   - `c0d36c6d` `test: promote S114 graph regression coverage` (Task 11; CONTEXT + registry wording + TDD→regression)
+  - `7cfc9a15` `fix: resolve S114 quality-gate findings` (Task 12; XSS escape + reheat-loop fix + simplify)
 - **Task 8 committed:** community `My Network` sub-tab removed, Home `MyNetworkPreview`
   import/render removed, `MyNetworkPreview.tsx` deleted, orphaned `TrustNetworkWidget.tsx` deleted.
 - **Task 9 committed:** deleted `TrustGraphHEB.tsx`, `CommunityHubGraph.tsx`, and the now-orphaned
@@ -119,10 +119,23 @@ Adopt `react-force-graph-2d@1.29.1` and consolidate the belonging graph to profi
   registry description de-HEB'd (wording only, no API change); the two S114 TDD suites promoted into
   `tests/regression/` (17 tests). `npm run generate-docs` regenerated landing `services.json` to match.
   `analyze:services` produced no dependency-graph change.
-- **Latest full root gate:** passed after Task 11 (`npm test`, 26/26 Turbo tasks; frontend regression
-  11 suites / 80 tests ran fresh).
-- **Next action:** Task 12 — SDLC quality gates on the full branch diff + `npm audit`.
-- **Blockers:** none.
+- **Task 12 committed (`7cfc9a15`):** SDLC gates run on the full branch diff.
+  - `npm audit --audit-level=high` → exit 0 (only 3 pre-existing moderate `expo` vulns, below gate).
+  - `/security-review` → **HIGH stored-XSS fixed:** `react-force-graph` renders a string `nodeLabel`
+    into its hover tooltip via `innerHTML` (force-graph → float-tooltip `.html()`); user-controlled
+    `node.name` is now `escapeHtmlLabel`-escaped + regression test added. ADR-082 disclosure boundary
+    re-confirmed (no reputation numbers in node detail/canvas).
+  - `/code-review` → **fixed** the `configureForces`/`onEngineStop` `d3ReheatSimulation` reheat loop
+    (perpetual animation). **Open follow-up (PR body):** `enableZoomInteraction={(e)=>e.type!=='wheel'}`
+    in `GraphCanvas.tsx` — `react-force-graph`'s `enableZoomInteraction` is a *boolean*, so a function
+    is always truthy → mouse-wheel may still zoom (guide promises wheel scrolls the page). Low-risk UX
+    papercut; left as-is to avoid regressing pan/pinch — verify on the demo, fix in a follow-up if real.
+  - `/simplify` → dead `enableZoom` prop removed; `fissionGroupLabel` triple-cast collapsed; `linkOpacity`
+    test-surface documented.
+- **Latest full root gate:** passed after Task 12 (`npm test`, 26/26 Turbo tasks; frontend regression
+  11 suites / 81 tests ran fresh).
+- **Next action:** Task 13 — push branch, open PR, cross-agent review, stop for Admin merge authorization.
+- **Blockers:** none (Admin authorization required before merge/deploy).
 
 ## Architecture Gotchas
 
