@@ -200,12 +200,42 @@ export default function NetworkPage() {
     return mergedGraph.nodes.filter(n => n.name.toLowerCase().includes(q)).slice(0, 8)
   }, [search, mergedGraph])
 
+  // The three explicit zoom levels of one belonging structure (S113 Task 9). Naming each scale in the
+  // header is what makes My Network (ego) and This Community (member topology) read as adjacent zoom
+  // levels rather than two near-identical "my network" tabs.
+  const SCALE_FRAMING: Record<ExplorerMode, { scale: string; blurb: string }> = {
+    ego: {
+      scale: 'Scale 1 · My Network',
+      blurb: 'You and your first-degree connections — the network that travels with you across communities.',
+    },
+    community: {
+      scale: 'Scale 2 · This Community',
+      blurb: 'The whole-community member topology — how everyone in this one community connects.',
+    },
+    communities: {
+      scale: 'Scale 3 · Across Communities',
+      blurb: 'Communities as nodes — how your communities connect to others. The level-up from people to communities.',
+    },
+  }
+
+  // ego depth-legibility readout (BUG: depth changes felt inert under the privacy scope because the
+  // seed graph is sparse — 2→8 nodes is imperceptible on a big canvas). A literal count makes even a
+  // tiny depth change legible, and a zero count drives an honest sparse/empty state. Not a depth-logic
+  // change — the recursive neighborhood query genuinely expands; this just narrates it.
+  const peopleInScope = mode === 'ego' && mergedGraph && user
+    ? mergedGraph.nodes.filter(n => n.id !== user.id).length
+    : 0
+  const egoIsSparse = mode === 'ego' && !loading && !error && mergedGraph !== null && peopleInScope === 0
+
   return (
     <Layout>
       <div className="flex flex-col h-[calc(100vh-64px)]">
         <header className="px-6 py-4 border-b border-border space-y-3">
           <div className="flex items-center justify-between gap-4 flex-wrap">
-            <h1 className="text-xl font-semibold text-text">Your Network</h1>
+            <div>
+              <h1 className="text-xl font-semibold text-text">{SCALE_FRAMING[mode].scale}</h1>
+              <p className="text-sm text-text-muted mt-0.5 max-w-[64ch]">{SCALE_FRAMING[mode].blurb}</p>
+            </div>
             <div className="flex items-center gap-2" role="tablist" aria-label="Graph mode">
               {VALID_MODES.map(m => (
                 <button
@@ -217,7 +247,7 @@ export default function NetworkPage() {
                     mode === m ? 'bg-indigo-600 text-white' : 'bg-surface text-text-muted hover:text-text'
                   }`}
                 >
-                  {m === 'ego' ? 'People' : m === 'community' ? 'Community' : 'Communities'}
+                  {m === 'ego' ? 'My Network' : m === 'community' ? 'This Community' : 'Across Communities'}
                 </button>
               ))}
             </div>
@@ -286,11 +316,21 @@ export default function NetworkPage() {
             </div>
           </div>
 
+          {/* ego depth-legibility readout — names exactly how many people the current depth surfaces so
+              a small expansion is still visible (sparse seed graph under the privacy scope). */}
+          {mode === 'ego' && mergedGraph && !egoIsSparse && (
+            <p className="text-sm text-text" data-testid="depth-readout">
+              Showing <span className="font-semibold tabular-nums">{peopleInScope}</span>{' '}
+              {peopleInScope === 1 ? 'person' : 'people'} within{' '}
+              <span className="font-semibold tabular-nums">{depth}</span> {depth === 1 ? 'hop' : 'hops'}.
+            </p>
+          )}
+
           {/* Discoverability: the controls are not self-evident, so spell out what each does. */}
           <p className="text-xs text-text-muted">
             {mode === 'ego'
-              ? 'Drag Depth to 2–3 for friends-of-friends · scroll to zoom · click a person to expand their network.'
-              : 'Scroll to zoom and pan · type above to find and focus a node.'}
+              ? 'Drag Depth to 2–3 for friends-of-friends · use the + / − controls to zoom · click a person to expand their network.'
+              : 'Use the + / − controls to zoom and drag to pan · type above to find and focus a node.'}
           </p>
 
           {mergedGraph?.meta?.truncated && (
@@ -328,6 +368,15 @@ export default function NetworkPage() {
             <div className="flex items-center justify-center h-full text-rose-400 text-sm">{error}</div>
           ) : loading && !mergedGraph ? (
             <div className="flex items-center justify-center h-full text-slate-400 text-sm">Loading network…</div>
+          ) : egoIsSparse ? (
+            <div className="flex flex-col items-center justify-center h-full gap-2 text-center px-6">
+              <p className="text-text text-sm font-medium">No connections in view yet</p>
+              <p className="text-text-muted text-sm max-w-[48ch]">
+                {depth < 3
+                  ? 'Try raising Depth to reach friends-of-friends, or come back as you complete more help exchanges — connections grow from the help you give and receive.'
+                  : 'Connections grow from the help you give and receive. As you complete more exchanges, the people you’re woven to will appear here.'}
+              </p>
+            </div>
           ) : mergedGraph && user ? (
             <BelongingGraph
               mode={mode}

@@ -25,7 +25,18 @@ export default function BelongingSection({ userId }: BelongingSectionProps) {
     communityService
       .getMyCommunities(userId)
       .then((res: any) => {
-        if (!cancelled) setCommunityCount((res.data ?? []).length)
+        // getMyCommunities returns `{ communities: [...], count, total }` (an object), not a bare
+        // array — `(res.data ?? []).length` read `.length` off the object (undefined). Use the
+        // explicit `count`, falling back to the array length. (Same shape bug as the /network crash.)
+        if (cancelled) return
+        const list = res.data?.communities ?? res.data?.data ?? res.data
+        setCommunityCount(
+          typeof res.data?.count === 'number'
+            ? res.data.count
+            : Array.isArray(list)
+              ? list.length
+              : 0
+        )
       })
       .catch(() => {
         if (!cancelled) setMembershipFailed(true)

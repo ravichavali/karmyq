@@ -3,6 +3,7 @@ import * as d3 from 'd3'
 import type { BelongingMode, GraphData, TrustLink, TrustNode } from './types'
 import { linkKey } from './normalizeGraphData'
 import GraphZoomControls from './GraphZoomControls'
+import CommunityHubGraph from './CommunityHubGraph'
 
 // Sprint 90 / ADR-070 — visible decay: fade an edge's opacity by how quiet the bond has gone, so the
 // graph perceptibly fades alongside the relationship faces. `strong`/undefined = no extra fade.
@@ -33,7 +34,7 @@ interface TrustGraphHEBProps {
   graphData: GraphData
   currentUserId: string
   /** community + ego share visuals (cluster color + amber your-edges); fission uses the split groups;
-   *  communities renders communities-as-nodes (organic/fission lineage). */
+   *  communities delegates to the egocentric-hub layout (CommunityHubGraph), not the HEB radial. */
   mode: BelongingMode
   groupMap?: Record<string, 'group_a' | 'group_b'>
   groupALabel?: string
@@ -51,10 +52,6 @@ interface TrustGraphHEBProps {
 // the current user is enlarged + white-ringed as a "you are here" anchor.
 const NODE_RADIUS = 5
 const CURRENT_USER_RADIUS = NODE_RADIUS + 3
-
-// communities-mode edge palette (HEB expression of the old CommunityDepthGraph scheme).
-const ORGANIC_SLATE = '#64748b'
-const FISSION_VIOLET = '#a78bfa'
 
 const FADE_OPACITY = 0.15
 const TRANSITION_MS = 400
@@ -145,6 +142,9 @@ export default function TrustGraphHEB({
 
   useEffect(() => {
     if (!svgRef.current || graphData.nodes.length === 0) return
+    // communities mode renders through the dedicated egocentric-hub component (S113 Task 9), not the
+    // HEB radial — skip the radial build entirely here (the component early-returns it below).
+    if (mode === 'communities') return
 
     const svg = d3.select(svgRef.current)
 
@@ -186,23 +186,19 @@ export default function TrustGraphHEB({
       (clusterOf.get(l.source) ?? -1) === (clusterOf.get(l.target) ?? -2)
 
     const edgeColor = (l: TrustLink): string => {
-      if (mode === 'communities') return l.type === 'fission' ? FISSION_VIOLET : ORGANIC_SLATE
       if (mode === 'fission') return sameCluster(l) ? '#22c55e' : '#ef4444'
       if (isMyEdge(l)) return '#fb923c'
       return sameCluster(l) ? '#6366f1' : '#94a3b8'
     }
     const edgeOpacity = (l: TrustLink): number => {
-      if (mode === 'communities') return l.type === 'fission' ? 0.9 : 0.55
       const base = 0.12 + 0.7 * (linkWeight(l) / maxWeight)
       const decay = l.decayTier ? DECAY_OPACITY_FACTOR[l.decayTier] : 1
       if (mode === 'community' && isMyEdge(l)) return Math.max(0.7, base) * decay
       if (mode === 'community' && !sameCluster(l)) return Math.min(base, 0.3) * decay
       return base * decay
     }
-    const edgeWidth = (l: TrustLink): number => {
-      if (mode === 'communities') return l.type === 'fission' ? 2 : 1 + (linkWeight(l) / maxWeight) * 4
-      return Math.max(0.6, Math.log1p(linkWeight(l)) * 1.2)
-    }
+    const edgeWidth = (l: TrustLink): number =>
+      Math.max(0.6, Math.log1p(linkWeight(l)) * 1.2)
 
     const nodeColor = (n: TrustNode): string => {
       if (mode === 'fission') {
@@ -211,14 +207,12 @@ export default function TrustGraphHEB({
         if (grp === 'group_b') return '#f97316'
         return '#94a3b8'
       }
-      if (mode === 'communities') return n.is_member ? '#10b981' : '#818cf8'
       if (n.isCurrentUser || n.id === currentUserId) return '#10b981'
       return '#818cf8'
     }
     const nodeRadius = (n: TrustNode) => (n.id === currentUserId ? CURRENT_USER_RADIUS : NODE_RADIUS)
-    // Member emphasis (communities) and the "you" anchor are STROKE rings, not larger circles, so node
-    // radius stays uniform (ADR-063).
-    const ringed = (n: TrustNode) => n.id === currentUserId || (mode === 'communities' && !!n.is_member)
+    // The "you" anchor is a STROKE ring, not a larger circle, so node radius stays uniform (ADR-063).
+    const ringed = (n: TrustNode) => n.id === currentUserId
 
     // Adjacency for hover/focus highlight (built once per render).
     const adjacency = new Map<string, Set<string>>()
@@ -422,12 +416,17 @@ export default function TrustGraphHEB({
     )
   }
 
-  if (mode === 'communities' && graphData.nodes.length < 2) {
+  // Scale 3 ("Across Communities") renders communities-as-nodes through the dedicated egocentric-hub
+  // layout (S113 Task 9) — its own empty/sparse state, legend, and zoom (single owner per surface).
+  if (mode === 'communities') {
     return (
-      <div className="flex flex-col items-center justify-center py-16 gap-2 text-center">
-        <p className="text-text-muted text-sm">Join more communities to see how they connect.</p>
-        <p className="text-text-muted text-xs">Communities link through shared trust and fission lineage.</p>
-      </div>
+      <CommunityHubGraph
+        graphData={graphData}
+        currentUserId={currentUserId}
+        height={height}
+        enableZoom={enableZoom}
+        onNodeActivate={onNodeActivate}
+      />
     )
   }
 
@@ -454,17 +453,6 @@ export default function TrustGraphHEB({
           <span className="flex items-center gap-1 text-green-600">— within-group tie</span>
           <span className="flex items-center gap-1 text-red-500">— cross-group tie</span>
           <span className="text-gray-400">white ring = you · dashed = no connections</span>
-        </div>
-      ) : mode === 'communities' ? (
-        <div className="flex flex-wrap gap-4 text-xs text-text-muted mt-2 px-1">
-          <span className="flex items-center gap-1">
-            <span className="inline-block w-2.5 h-2.5 rounded-full bg-emerald-500" /> Your community
-          </span>
-          <span className="flex items-center gap-1">
-            <span className="inline-block w-2.5 h-2.5 rounded-full bg-indigo-400" /> Connected community
-          </span>
-          <span className="flex items-center gap-1 text-slate-500">— organic trust</span>
-          <span className="flex items-center gap-1 text-violet-400">— fission lineage</span>
         </div>
       ) : (
         <div className="flex flex-wrap gap-4 text-xs text-text-muted mt-2 px-1">
@@ -520,16 +508,6 @@ export default function TrustGraphHEB({
                 >
                   {switching ? '…' : `Move to ${groupMap[selectedNode.id] === 'group_a' ? groupBLabel : groupALabel}`}
                 </button>
-              )}
-            </div>
-          ) : mode === 'communities' ? (
-            <div className="grid grid-cols-2 gap-2 text-text-muted">
-              <span>Members</span>
-              <span className="text-text">{selectedNode.member_count ?? 0}</span>
-              <span>Status</span>
-              <span className="text-text">{selectedNode.status ?? 'unknown'}</span>
-              {selectedNode.is_member && (
-                <span className="col-span-2 text-emerald-500">You&apos;re a member</span>
               )}
             </div>
           ) : (
