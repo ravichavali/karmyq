@@ -1,13 +1,15 @@
 # Sprint 114 - Belonging Graph Consolidation Phase 1: EXECUTION IN PROGRESS
 
 > **STATUS (2026-06-26):** S114 execution is underway on
-> `feature/sprint-114-belonging-graph-consolidation`. Tasks 1-9 are committed. Claude (non-authoring
-> agent) cross-agent reviewed + committed Task 8 (`07b5a965`) and executed Task 9 (`2426c8bd`), each
-> verified against the full root `npm test` (26/26 Turbo tasks green).
+> `feature/sprint-114-belonging-graph-consolidation`. Tasks 1-10 are committed. Claude (non-authoring
+> agent) cross-agent reviewed + committed Task 8 (`07b5a965`), executed Task 9 (`2426c8bd`), and
+> Task 10 (`4921376d`, ADR-083 + docs). Full root `npm test` (26/26) green through Task 9; Task 10
+> is docs-only and passed the doc-context drift gate directly.
 >
 > **Branch:** `feature/sprint-114-belonging-graph-consolidation`.
 >
-> **Working tree:** clean except this handoff. Next up is Task 10 (ADR-083 + user/landing docs).
+> **Working tree:** clean except this handoff. Next up is Task 11 (CONTEXT.md + promote S114
+> TDD→regression).
 >
 > **Spec:** `docs/superpowers/specs/2026-06-26-belonging-graph-consolidation-design.md`
 >
@@ -24,11 +26,11 @@
 
 1. Read this handoff.
 2. Confirm branch: `git branch --show-current` should be `feature/sprint-114-belonging-graph-consolidation`.
-3. Tasks 8-9 are committed (`07b5a965`, `2426c8bd`); full root `npm test` passed (26/26 Turbo tasks)
-   after each. No action needed.
-4. Continue Task 10 in `docs/superpowers/plans/2026-06-26-sprint-114-belonging-graph-consolidation.md`
-   — author ADR-083, update `docs/guides/trust-graph.md` + `docs/concepts/reading-the-trust-graph.md`,
-   mirror into landing JSON + `nav.json`, then run the doc-context drift gate directly.
+3. Tasks 8-10 are committed (`07b5a965`, `2426c8bd`, `4921376d`). No action needed.
+4. Continue Task 11 in `docs/superpowers/plans/2026-06-26-sprint-114-belonging-graph-consolidation.md`
+   — add the S114 section to `apps/frontend/CONTEXT.md`, confirm `services/registry.json` is unchanged
+   (no backend API change), and promote the passing S114 TDD suites
+   (`sprint-114-graph-canvas-boundary`, `sprint-114-surface-consolidation`) into `tests/regression/`.
 
 ## Sprint Goal
 
@@ -100,16 +102,20 @@ Adopt `react-force-graph-2d@1.29.1` and consolidate the belonging graph to profi
   - `dee06d47` `test: define S114 graph surface consolidation`
   - `07b5a965` `feat: consolidate belonging graph surfaces` (Task 8; Claude cross-agent reviewed + committed)
   - `2426c8bd` `refactor: retire old D3 graph renderers` (Task 9; Claude executed)
+  - `4921376d` `docs: record S114 graph renderer decision` (Task 10; ADR-083 + guide/concept + landing)
 - **Task 8 committed:** community `My Network` sub-tab removed, Home `MyNetworkPreview`
   import/render removed, `MyNetworkPreview.tsx` deleted, orphaned `TrustNetworkWidget.tsx` deleted.
 - **Task 9 committed:** deleted `TrustGraphHEB.tsx`, `CommunityHubGraph.tsx`, and the now-orphaned
   `graphZoom.ts`; promoted old-renderer deletion guardrails into
   `tests/regression/belonging-graph-consolidation.test.ts`; deleted the spent TDD guardrail file; and
   refreshed stale doc comments that named the retired renderers. tsc + 5 graph suites (52 tests) green.
+- **Task 10 committed:** ADR-083 markdown + README index + `ADR_GROUPS` slug; trust-graph guide and
+  reading-the-trust-graph concept updated for the canvas renderer + three-home consolidation; landing
+  JSON regenerated via `npm run generate-docs` and force-tracked (`git add -f`, the dir is gitignored).
+  Doc-context drift gate green (run directly, not via Turbo).
 - **Latest full root gate:** passed after Task 9 (`npm test`, 26/26 Turbo tasks; frontend regression
-  63/63 ran fresh, not cached).
-- **Next action:** Task 10 — author ADR-083 and update user/landing docs, then run the doc-context
-  drift gate (`cd tests; npx jest regression/doc-context-drift-gate.test.ts --runInBand`).
+  63/63 ran fresh). Task 10 was docs-only; drift gate run directly.
+- **Next action:** Task 11 — `apps/frontend/CONTEXT.md` S114 section + promote S114 TDD→regression.
 - **Blockers:** none.
 
 ## Architecture Gotchas
