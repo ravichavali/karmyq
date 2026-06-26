@@ -23,6 +23,7 @@
     "next": "^15.5.18",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "react-force-graph-2d": "1.29.1",
     "socket.io-client": "^4.6.1"
   },
   "devDependencies": {

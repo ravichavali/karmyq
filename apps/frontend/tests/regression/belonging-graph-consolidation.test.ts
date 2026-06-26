@@ -36,18 +36,22 @@ describe('the unified surfaces exist', () => {
   })
 })
 
-describe('dead graph dependencies are removed', () => {
+describe('belonging graph renderer dependencies', () => {
   const pkg = JSON.parse(fs.readFileSync(path.join(FRONTEND_ROOT, 'package.json'), 'utf8'))
   const allDeps = { ...(pkg.dependencies ?? {}), ...(pkg.devDependencies ?? {}) }
 
-  it.each(['cytoscape', 'react-cytoscapejs', '@types/cytoscape', 'react-force-graph-2d'])(
-    '%s is not a dependency',
+  it.each(['cytoscape', 'react-cytoscapejs', '@types/cytoscape'])(
+    '%s remains retired',
     dep => {
       expect(allDeps[dep]).toBeUndefined()
     }
   )
 
-  it('still depends on d3 (the only graph dependency)', () => {
+  it('uses react-force-graph-2d as the Phase 1 canvas renderer', () => {
+    expect(allDeps['react-force-graph-2d']).toBe('1.29.1')
+  })
+
+  it('keeps d3 available for force/layout helpers, but not as the sole renderer', () => {
     expect(allDeps['d3']).toBeDefined()
   })
 })
