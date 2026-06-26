@@ -83,6 +83,7 @@ export default function BelongingGraphRenderer({
         graphData={graphData}
         mode={mode}
         currentUserId={currentUserId}
+        groupMap={groupMap}
         width={width}
         height={height}
         focusedNodeId={focusedNodeId}

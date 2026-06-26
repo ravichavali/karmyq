@@ -101,6 +101,69 @@ describe('GraphCanvas boundary', () => {
     expect(onNodeHover).toHaveBeenNthCalledWith(2, null)
     expect(onNodeClick).toHaveBeenCalledWith('p2')
   })
+
+  it('keeps person node sizing uniform except the current-user anchor', async () => {
+    const { default: GraphCanvas } = await import('@/components/graphs/GraphCanvas')
+    render(<GraphCanvas graphData={graph} mode="ego" currentUserId="me" width={640} height={480} />)
+
+    const me = lastForceGraphProps.graphData.nodes.find((node: any) => node.id === 'me')
+    const peer = lastForceGraphProps.graphData.nodes.find((node: any) => node.id === 'p1')
+
+    expect(lastForceGraphProps.nodeVal(peer)).toBe(5)
+    expect(lastForceGraphProps.nodeVal(me)).toBe(8)
+  })
+
+  it('sizes community nodes by membership using the hub proportions', async () => {
+    const { default: GraphCanvas } = await import('@/components/graphs/GraphCanvas')
+    const communitiesGraph: GraphData = {
+      nodes: [
+        { id: 'c1', name: 'Garden Co-op', member_count: 12, is_member: true },
+        { id: 'c2', name: 'Tool Library', member_count: 30 },
+      ],
+      links: [{ source: 'c1', target: 'c2', type: 'organic' }],
+    }
+
+    render(<GraphCanvas graphData={communitiesGraph} mode="communities" currentUserId="me" width={640} height={480} />)
+
+    const memberCommunity = lastForceGraphProps.graphData.nodes.find((node: any) => node.id === 'c1')
+    const largerCommunity = lastForceGraphProps.graphData.nodes.find((node: any) => node.id === 'c2')
+    expect(lastForceGraphProps.nodeVal(largerCommunity)).toBe(22)
+    expect(lastForceGraphProps.nodeVal(memberCommunity)).toBeCloseTo(16.49, 2)
+  })
+
+  it('ports mode-specific link colors, dashes, and decay opacity to force-graph props', async () => {
+    const { default: GraphCanvas } = await import('@/components/graphs/GraphCanvas')
+    const fissionGraph: GraphData = {
+      nodes: [
+        { id: 'me', name: 'Maria', isCurrentUser: true },
+        { id: 'p1', name: 'Aisha' },
+        { id: 'p2', name: 'Lee' },
+      ],
+      links: [
+        { source: 'me', target: 'p1', decayTier: 'warm' },
+        { source: 'p1', target: 'p2', decayTier: 'swept', type: 'fission' },
+      ],
+    }
+
+    render(
+      <GraphCanvas
+        graphData={fissionGraph}
+        mode="fission"
+        currentUserId="me"
+        width={640}
+        height={480}
+        groupMap={{ me: 'group_a', p1: 'group_a', p2: 'group_b' }}
+      />
+    )
+
+    const myEdge = lastForceGraphProps.graphData.links[0]
+    const crossGroupFission = lastForceGraphProps.graphData.links[1]
+    expect(lastForceGraphProps.linkColor(myEdge)).toBe('#22c55e')
+    expect(lastForceGraphProps.linkColor(crossGroupFission)).toBe('#ef4444')
+    expect(lastForceGraphProps.linkLineDash(crossGroupFission)).toEqual([6, 4])
+    expect(lastForceGraphProps.linkOpacity(myEdge)).toBeCloseTo(0.7544, 4)
+    expect(lastForceGraphProps.linkOpacity(crossGroupFission)).toBeCloseTo(0.071, 3)
+  })
 })
 
 describe('BelongingGraphRenderer chrome', () => {
@@ -153,5 +216,12 @@ describe('BelongingGraphRenderer chrome', () => {
       fireEvent.click(screen.getByRole('button', { name: /move to south/i }))
     })
     expect(onSwitchGroup).toHaveBeenCalledWith('p1', 'group_a')
+  })
+
+  it('surfaces the fission isolated-member dashed-ring legend', async () => {
+    const { default: BelongingGraphRenderer } = await import('@/components/graphs/BelongingGraphRenderer')
+    render(<BelongingGraphRenderer graphData={graph} mode="fission" currentUserId="me" height={480} />)
+
+    expect(screen.getByText(/dashed = no connections/i)).toBeInTheDocument()
   })
 })

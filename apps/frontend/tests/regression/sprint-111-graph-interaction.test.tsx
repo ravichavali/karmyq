@@ -65,7 +65,7 @@ describe('BelongingGraphRenderer canvas boundary', () => {
     const ctx = mockCanvasContext()
     lastForceGraphProps.nodeCanvasObject({ id: 'me', name: 'Me Myself', x: 0, y: 0 }, ctx, 1)
     expect(ctx.globalAlpha).toBe(1)
-    expect(ctx.alphaValues).toContain(0.18)
+    expect(ctx.alphaValues).toContain(0.15)
   })
 })
 

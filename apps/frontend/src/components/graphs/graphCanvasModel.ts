@@ -17,7 +17,10 @@ export interface CanvasGraphNode extends TrustNode {
   fy?: number
 }
 
-export interface CanvasGraphLink extends TrustLink {}
+export interface CanvasGraphLink extends Omit<TrustLink, 'source' | 'target'> {
+  source: string | CanvasGraphNode
+  target: string | CanvasGraphNode
+}
 
 export interface CanvasGraphData {
   nodes: CanvasGraphNode[]

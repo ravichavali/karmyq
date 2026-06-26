@@ -13,6 +13,7 @@ export interface GraphCanvasProps {
   graphData: GraphData
   mode: BelongingMode
   currentUserId: string
+  groupMap?: Record<string, 'group_a' | 'group_b'>
   height: number
   width: number
   focusedNodeId?: string
@@ -25,11 +26,31 @@ export interface GraphCanvasProps {
 
 const NODE_RADIUS = 5
 const CURRENT_USER_RADIUS = 8
+const COMMUNITY_MIN_RADIUS = 7
+const COMMUNITY_MAX_RADIUS = 22
+const FADE_OPACITY = 0.15
+
+const DECAY_OPACITY_FACTOR: Record<NonNullable<CanvasGraphLink['decayTier']>, number> = {
+  strong: 1,
+  warm: 0.92,
+  fading: 0.7,
+  nearly_forgotten: 0.5,
+  swept: 0.3,
+}
+
+const STATE_WEIGHT: Record<NonNullable<CanvasGraphLink['decayTier']>, number> = {
+  strong: 4,
+  warm: 3,
+  fading: 2,
+  nearly_forgotten: 1,
+  swept: 0.5,
+}
 
 export default function GraphCanvas({
   graphData,
   mode,
   currentUserId,
+  groupMap,
   height,
   width,
   focusedNodeId,
@@ -46,7 +67,24 @@ export default function GraphCanvas({
     [currentUserId, graphData, height, layout, mode, width]
   )
   const adjacency = useMemo(() => buildAdjacency(graphData), [graphData])
+  const clusterOf = useMemo(
+    () => mode === 'fission'
+      ? groupClusters(graphData.nodes.map(node => node.id), groupMap)
+      : detectClusters(graphData),
+    [graphData, groupMap, mode]
+  )
+  const maxWeight = useMemo(
+    () => Math.max(...graphData.links.map(linkWeight), 1),
+    [graphData.links]
+  )
+  const maxMembers = useMemo(
+    () => Math.max(...graphData.nodes.map(node => node.member_count ?? 0), 1),
+    [graphData.nodes]
+  )
   const activeNodeId = hoveredNodeId ?? focusedNodeId ?? null
+  const parityLinkProps = {
+    linkOpacity: (link: CanvasGraphLink) => linkOpacity(link, { mode, currentUserId, clusterOf, maxWeight }),
+  }
 
   useEffect(() => {
     configureForces(forceGraphRef.current, mode)
@@ -76,22 +114,37 @@ export default function GraphCanvas({
       nodeId="id"
       linkSource="source"
       linkTarget="target"
+      {...parityLinkProps}
+      nodeVal={(node: CanvasGraphNode) => nodeRadius(node, currentUserId, mode, maxMembers)}
       nodeLabel={(node: CanvasGraphNode) => node.id === currentUserId ? `${node.name} (you)` : node.name}
       nodeCanvasObject={(node, ctx, globalScale) => {
         drawNode(node as CanvasGraphNode, ctx, globalScale, {
+          mode,
           currentUserId,
+          groupMap,
+          maxMembers,
           dimmed: isNodeDimmed(String(node.id)),
         })
       }}
       nodePointerAreaPaint={(node, paintColor, ctx) => {
-        const radius = nodeRadius(node as CanvasGraphNode, currentUserId)
+        const radius = nodeRadius(node as CanvasGraphNode, currentUserId, mode, maxMembers)
         ctx.fillStyle = paintColor
         ctx.beginPath()
         ctx.arc((node.x ?? 0), (node.y ?? 0), radius + 4, 0, 2 * Math.PI, false)
         ctx.fill()
       }}
+      linkColor={(link: CanvasGraphLink) => linkColor(link, { mode, currentUserId, clusterOf })}
+      linkLineDash={(link: CanvasGraphLink) => linkLineDash(link)}
+      linkWidth={(link: CanvasGraphLink) => linkWidth(link, mode)}
       linkCanvasObject={(link, ctx) => {
-        drawLink(link as CanvasGraphLink, ctx, isLinkDimmed(link as CanvasGraphLink))
+        drawLink(link as CanvasGraphLink, ctx, {
+          color: linkColor(link as CanvasGraphLink, { mode, currentUserId, clusterOf }),
+          dash: linkLineDash(link as CanvasGraphLink),
+          opacity: isLinkDimmed(link as CanvasGraphLink)
+            ? FADE_OPACITY
+            : linkOpacity(link as CanvasGraphLink, { mode, currentUserId, clusterOf, maxWeight }),
+          width: linkWidth(link as CanvasGraphLink, mode),
+        })
       }}
       linkCanvasObjectMode={() => 'replace'}
       onNodeHover={(node) => onNodeHover?.(node?.id != null ? String(node.id) : null)}
@@ -134,56 +187,191 @@ function drawNode(
   node: CanvasGraphNode,
   ctx: CanvasRenderingContext2D,
   globalScale: number,
-  options: { currentUserId: string; dimmed: boolean }
+  options: {
+    mode: BelongingMode
+    currentUserId: string
+    groupMap?: Record<string, 'group_a' | 'group_b'>
+    maxMembers: number
+    dimmed: boolean
+  }
 ) {
-  const radius = nodeRadius(node, options.currentUserId)
-  ctx.globalAlpha = options.dimmed ? 0.18 : 1
-  ctx.fillStyle = nodeFill(node, options.currentUserId)
+  const radius = nodeRadius(node, options.currentUserId, options.mode, options.maxMembers)
+  ctx.globalAlpha = options.dimmed ? FADE_OPACITY : 1
+  ctx.fillStyle = nodeFill(node, options)
   ctx.beginPath()
   ctx.arc(node.x ?? 0, node.y ?? 0, radius, 0, 2 * Math.PI, false)
   ctx.fill()
 
-  if (node.id === options.currentUserId || node.isCurrentUser) {
+  const ringed = node.id === options.currentUserId || node.isCurrentUser || (options.mode === 'communities' && node.is_member)
+  if (ringed) {
     ctx.strokeStyle = '#ffffff'
     ctx.lineWidth = 2 / globalScale
     ctx.stroke()
   }
+
+  if (options.mode === 'fission' && node.isIsolated && node.id !== options.currentUserId) {
+    withCanvasDash(ctx, [2, 2], () => {
+      ctx.strokeStyle = nodeFill(node, options)
+      ctx.globalAlpha = options.dimmed ? FADE_OPACITY : 0.5
+      ctx.lineWidth = 1 / globalScale
+      ctx.beginPath()
+      ctx.arc(node.x ?? 0, node.y ?? 0, radius + 3, 0, 2 * Math.PI, false)
+      ctx.stroke()
+    })
+  }
+
+  if (options.mode === 'communities') {
+    const textCtx = ctx as CanvasRenderingContext2D & { fillText?: CanvasRenderingContext2D['fillText'] }
+    if (typeof textCtx.fillText === 'function') {
+      textCtx.fillStyle = '#cbd5e1'
+      textCtx.font = `${Math.max(10, 11 / globalScale)}px sans-serif`
+      textCtx.textAlign = 'center'
+      textCtx.fillText(node.name, node.x ?? 0, (node.y ?? 0) + radius + 13)
+    }
+  }
   ctx.globalAlpha = 1
 }
 
-function drawLink(link: CanvasGraphLink, ctx: CanvasRenderingContext2D, dimmed: boolean) {
+function drawLink(
+  link: CanvasGraphLink,
+  ctx: CanvasRenderingContext2D,
+  options: { color: string; dash: number[] | null; opacity: number; width: number }
+) {
   const source = linkEndpoint(link.source)
   const target = linkEndpoint(link.target)
   if (!source || !target) return
 
-  ctx.globalAlpha = dimmed ? 0.15 : linkOpacity(link)
-  ctx.strokeStyle = link.type === 'fission' ? '#a78bfa' : '#94a3b8'
-  ctx.lineWidth = Math.max(1, Math.log1p(link.effective_weight ?? 1))
-  ctx.beginPath()
-  ctx.moveTo(source.x ?? 0, source.y ?? 0)
-  ctx.lineTo(target.x ?? 0, target.y ?? 0)
-  ctx.stroke()
+  ctx.globalAlpha = options.opacity
+  ctx.strokeStyle = options.color
+  ctx.lineWidth = options.width
+  withCanvasDash(ctx, options.dash, () => {
+    ctx.beginPath()
+    ctx.moveTo(source.x ?? 0, source.y ?? 0)
+    ctx.lineTo(target.x ?? 0, target.y ?? 0)
+    ctx.stroke()
+  })
   ctx.globalAlpha = 1
 }
 
-function nodeRadius(node: CanvasGraphNode, currentUserId: string): number {
+function nodeRadius(
+  node: CanvasGraphNode,
+  currentUserId: string,
+  mode: BelongingMode,
+  maxMembers: number
+): number {
+  if (mode === 'communities') {
+    return COMMUNITY_MIN_RADIUS
+      + (COMMUNITY_MAX_RADIUS - COMMUNITY_MIN_RADIUS) * Math.sqrt((node.member_count ?? 0) / maxMembers)
+  }
   if (node.id === currentUserId || node.isCurrentUser) return CURRENT_USER_RADIUS
-  if (typeof node.member_count === 'number') return Math.min(18, NODE_RADIUS + Math.sqrt(node.member_count))
   return NODE_RADIUS
 }
 
-function nodeFill(node: CanvasGraphNode, currentUserId: string): string {
-  if (node.id === currentUserId || node.isCurrentUser) return '#10b981'
-  if (node.is_member) return '#10b981'
-  if (node.isIsolated) return '#94a3b8'
+function nodeFill(
+  node: CanvasGraphNode,
+  options: {
+    mode: BelongingMode
+    currentUserId: string
+    groupMap?: Record<string, 'group_a' | 'group_b'>
+  }
+): string {
+  if (options.mode === 'fission') {
+    const group = options.groupMap?.[node.id]
+    if (group === 'group_a') return '#3b82f6'
+    if (group === 'group_b') return '#f97316'
+    return '#94a3b8'
+  }
+  if (node.id === options.currentUserId || node.isCurrentUser) return '#10b981'
+  if (options.mode === 'communities' && node.is_member) return '#10b981'
   return '#818cf8'
 }
 
-function linkOpacity(link: CanvasGraphLink): number {
-  if (link.decayTier === 'nearly_forgotten') return 0.45
-  if (link.decayTier === 'fading') return 0.65
-  if (link.decayTier === 'warm') return 0.82
-  return 0.9
+function linkColor(
+  link: CanvasGraphLink,
+  options: { mode: BelongingMode; currentUserId: string; clusterOf: Map<string, number> }
+): string {
+  if (options.mode === 'communities') return link.type === 'fission' ? '#a78bfa' : '#64748b'
+  if (options.mode === 'fission') return sameCluster(link, options.clusterOf) ? '#22c55e' : '#ef4444'
+  if (isCurrentUserEdge(link, options.currentUserId)) return '#fb923c'
+  return sameCluster(link, options.clusterOf) ? '#6366f1' : '#94a3b8'
+}
+
+function linkLineDash(link: CanvasGraphLink): number[] | null {
+  return link.type === 'fission' ? [6, 4] : null
+}
+
+function linkOpacity(
+  link: CanvasGraphLink,
+  options: { mode: BelongingMode; currentUserId: string; clusterOf: Map<string, number>; maxWeight: number }
+): number {
+  if (options.mode === 'communities') return link.type === 'fission' ? 0.9 : 0.55
+
+  const base = 0.12 + 0.7 * (linkWeight(link) / options.maxWeight)
+  const decay = link.decayTier ? DECAY_OPACITY_FACTOR[link.decayTier] : 1
+  if (options.mode === 'community' && isCurrentUserEdge(link, options.currentUserId)) return Math.max(0.7, base) * decay
+  if (options.mode === 'community' && !sameCluster(link, options.clusterOf)) return Math.min(base, 0.3) * decay
+  return base * decay
+}
+
+function linkWidth(link: CanvasGraphLink, mode: BelongingMode): number {
+  if (mode === 'communities') return link.type === 'fission' ? 2 : 1.5
+  return Math.max(0.6, Math.log1p(linkWeight(link)) * 1.2)
+}
+
+function detectClusters(graphData: GraphData): Map<string, number> {
+  const parent = new Map(graphData.nodes.map(node => [node.id, node.id]))
+  const find = (id: string): string => {
+    const next = parent.get(id)
+    if (next === undefined || next === id) return id
+    const root = find(next)
+    parent.set(id, root)
+    return root
+  }
+  const union = (a: string, b: string) => {
+    if (parent.has(a) && parent.has(b)) parent.set(find(a), find(b))
+  }
+
+  ;[...graphData.links]
+    .sort((a, b) => linkWeight(b) - linkWeight(a))
+    .slice(0, Math.max(1, Math.floor(graphData.links.length * 0.4)))
+    .forEach(link => union(linkEndpointId(link.source), linkEndpointId(link.target)))
+
+  const rootToCluster = new Map<string, number>()
+  const result = new Map<string, number>()
+  let nextCluster = 0
+  graphData.nodes.forEach(node => {
+    const root = find(node.id)
+    if (!rootToCluster.has(root)) rootToCluster.set(root, nextCluster++)
+    result.set(node.id, rootToCluster.get(root)!)
+  })
+  return result
+}
+
+function groupClusters(nodeIds: string[], groupMap?: Record<string, 'group_a' | 'group_b'>): Map<string, number> {
+  return new Map(nodeIds.map(nodeId => {
+    const group = groupMap?.[nodeId]
+    return [nodeId, group === 'group_a' ? 0 : group === 'group_b' ? 1 : 2]
+  }))
+}
+
+function linkWeight(link: CanvasGraphLink): number {
+  if (typeof link.effective_weight === 'number') return link.effective_weight
+  return link.decayTier ? STATE_WEIGHT[link.decayTier] : 1
+}
+
+function isCurrentUserEdge(link: CanvasGraphLink, currentUserId: string): boolean {
+  return linkEndpointId(link.source) === currentUserId || linkEndpointId(link.target) === currentUserId
+}
+
+function sameCluster(link: CanvasGraphLink, clusterOf: Map<string, number>): boolean {
+  return (clusterOf.get(linkEndpointId(link.source)) ?? -1) === (clusterOf.get(linkEndpointId(link.target)) ?? -2)
+}
+
+function withCanvasDash(ctx: CanvasRenderingContext2D, dash: number[] | null, draw: () => void) {
+  const dashedContext = ctx as CanvasRenderingContext2D & { setLineDash?: (segments: number[]) => void }
+  dashedContext.setLineDash?.(dash ?? [])
+  draw()
+  dashedContext.setLineDash?.([])
 }
 
 function linkEndpoint(value: CanvasGraphLink['source']): CanvasGraphNode | null {
