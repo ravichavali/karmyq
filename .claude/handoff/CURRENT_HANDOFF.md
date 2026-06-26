@@ -1,15 +1,15 @@
 # Sprint 114 - Belonging Graph Consolidation Phase 1: EXECUTION IN PROGRESS
 
 > **STATUS (2026-06-26):** S114 execution is underway on
-> `feature/sprint-114-belonging-graph-consolidation`. Tasks 1-10 are committed. Claude (non-authoring
-> agent) cross-agent reviewed + committed Task 8 (`07b5a965`), executed Task 9 (`2426c8bd`), and
-> Task 10 (`4921376d`, ADR-083 + docs). Full root `npm test` (26/26) green through Task 9; Task 10
-> is docs-only and passed the doc-context drift gate directly.
+> `feature/sprint-114-belonging-graph-consolidation`. Tasks 1-11 are committed. Claude (non-authoring
+> agent) cross-agent reviewed + committed Task 8 (`07b5a965`), executed Task 9 (`2426c8bd`),
+> Task 10 (`4921376d`, ADR-083 + docs), and Task 11 (`c0d36c6d`, CONTEXT + TDD→regression promotion).
+> Full root `npm test` green after Task 11 (26/26 Turbo tasks; frontend regression 11 suites / 80 tests).
 >
 > **Branch:** `feature/sprint-114-belonging-graph-consolidation`.
 >
-> **Working tree:** clean except this handoff. Next up is Task 11 (CONTEXT.md + promote S114
-> TDD→regression).
+> **Working tree:** clean except this handoff. Next up is Task 12 (final quality gates: /simplify,
+> /code-review, /security-review, audit on the full branch diff).
 >
 > **Spec:** `docs/superpowers/specs/2026-06-26-belonging-graph-consolidation-design.md`
 >
@@ -26,11 +26,12 @@
 
 1. Read this handoff.
 2. Confirm branch: `git branch --show-current` should be `feature/sprint-114-belonging-graph-consolidation`.
-3. Tasks 8-10 are committed (`07b5a965`, `2426c8bd`, `4921376d`). No action needed.
-4. Continue Task 11 in `docs/superpowers/plans/2026-06-26-sprint-114-belonging-graph-consolidation.md`
-   — add the S114 section to `apps/frontend/CONTEXT.md`, confirm `services/registry.json` is unchanged
-   (no backend API change), and promote the passing S114 TDD suites
-   (`sprint-114-graph-canvas-boundary`, `sprint-114-surface-consolidation`) into `tests/regression/`.
+3. Tasks 8-11 are committed (`07b5a965`, `2426c8bd`, `4921376d`, `c0d36c6d`). No action needed.
+4. Continue Task 12 in `docs/superpowers/plans/2026-06-26-sprint-114-belonging-graph-consolidation.md`
+   — run the SDLC quality gates on the full branch diff (`/simplify`, `/code-review`,
+   `/security-review`), plus `npm audit --audit-level=high`. Resolve real findings; dismiss false
+   positives (e.g. the recurring `js/request-forgery` FP on `apps/frontend/src/lib/api.ts`) with
+   written justification. Then Task 13 (PR + cross-agent review + admin merge/deploy).
 
 ## Sprint Goal
 
@@ -103,6 +104,7 @@ Adopt `react-force-graph-2d@1.29.1` and consolidate the belonging graph to profi
   - `07b5a965` `feat: consolidate belonging graph surfaces` (Task 8; Claude cross-agent reviewed + committed)
   - `2426c8bd` `refactor: retire old D3 graph renderers` (Task 9; Claude executed)
   - `4921376d` `docs: record S114 graph renderer decision` (Task 10; ADR-083 + guide/concept + landing)
+  - `c0d36c6d` `test: promote S114 graph regression coverage` (Task 11; CONTEXT + registry wording + TDD→regression)
 - **Task 8 committed:** community `My Network` sub-tab removed, Home `MyNetworkPreview`
   import/render removed, `MyNetworkPreview.tsx` deleted, orphaned `TrustNetworkWidget.tsx` deleted.
 - **Task 9 committed:** deleted `TrustGraphHEB.tsx`, `CommunityHubGraph.tsx`, and the now-orphaned
@@ -113,9 +115,13 @@ Adopt `react-force-graph-2d@1.29.1` and consolidate the belonging graph to profi
   reading-the-trust-graph concept updated for the canvas renderer + three-home consolidation; landing
   JSON regenerated via `npm run generate-docs` and force-tracked (`git add -f`, the dir is gitignored).
   Doc-context drift gate green (run directly, not via Turbo).
-- **Latest full root gate:** passed after Task 9 (`npm test`, 26/26 Turbo tasks; frontend regression
-  63/63 ran fresh). Task 10 was docs-only; drift gate run directly.
-- **Next action:** Task 11 — `apps/frontend/CONTEXT.md` S114 section + promote S114 TDD→regression.
+- **Task 11 committed:** `apps/frontend/CONTEXT.md` S114 renderer section added; `/trust/graph/:communityId/full`
+  registry description de-HEB'd (wording only, no API change); the two S114 TDD suites promoted into
+  `tests/regression/` (17 tests). `npm run generate-docs` regenerated landing `services.json` to match.
+  `analyze:services` produced no dependency-graph change.
+- **Latest full root gate:** passed after Task 11 (`npm test`, 26/26 Turbo tasks; frontend regression
+  11 suites / 80 tests ran fresh).
+- **Next action:** Task 12 — SDLC quality gates on the full branch diff + `npm audit`.
 - **Blockers:** none.
 
 ## Architecture Gotchas
