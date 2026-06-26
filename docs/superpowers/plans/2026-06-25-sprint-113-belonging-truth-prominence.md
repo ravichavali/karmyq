@@ -226,6 +226,14 @@ npx jest apps/frontend/tests/tdd/sprint-113-mynetwork-prominence.test.tsx --runI
 - [ ] Surface **Across Communities** (`communities` mode) as **Scale 3** — communities-as-nodes, "how
   communities connect" (the level-up). It already exists in `BelongingGraph` (`mode === 'communities'`);
   give it a clear entry/heading on the community network surface so the three scales read as one continuum.
+  **Rebuild its presentation (user decision 2026-06-25, from live-demo feedback): replace the busy
+  hierarchical-edge-bundling radial with an "Egocentric hub"** — your communities anchored together in the
+  center, connected communities radiating outward, *always labeled*, node size = membership, edge style =
+  organic vs fission. Legibility over prettiness (the current radial is "pretty but busy"). This is a
+  `communities`-mode rendering change in `TrustGraphHEB` (or a dedicated communities layout), not a heading tweak.
+- [ ] **PR B priority-0 bug (from live demo):** fix the `/network?mode=community` crash — get the browser
+  console stack first; verify whether the `/trust/neighborhood` depth slider actually expands (Maria showed
+  no change at depth 2–3) via the demo API/DB before deciding UI vs data vs server.
 - [ ] Add/extend a test asserting the three surfaces carry distinct scale framing.
 - [ ] Run `/simplify` on the diff.
 
