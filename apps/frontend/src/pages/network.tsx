@@ -222,10 +222,12 @@ export default function NetworkPage() {
   // seed graph is sparse — 2→8 nodes is imperceptible on a big canvas). A literal count makes even a
   // tiny depth change legible, and a zero count drives an honest sparse/empty state. Not a depth-logic
   // change — the recursive neighborhood query genuinely expands; this just narrates it.
-  const peopleInScope = mode === 'ego' && mergedGraph && user
-    ? mergedGraph.nodes.filter(n => n.id !== user.id).length
+  // Count the DEPTH baseline, not `mergedGraph` — click-to-expand merges in nodes beyond {depth} hops,
+  // so counting the merged graph would mis-attribute them to "within {depth} hops".
+  const peopleInScope = mode === 'ego' && baseline && user
+    ? baseline.nodes.filter(n => n.id !== user.id).length
     : 0
-  const egoIsSparse = mode === 'ego' && !loading && !error && mergedGraph !== null && peopleInScope === 0
+  const egoIsSparse = mode === 'ego' && !loading && !error && baseline !== null && peopleInScope === 0
 
   return (
     <Layout>

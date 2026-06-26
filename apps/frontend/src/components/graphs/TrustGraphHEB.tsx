@@ -388,6 +388,7 @@ export default function TrustGraphHEB({
         graphData={graphData}
         height={height}
         enableZoom={enableZoom}
+        focusedNodeId={focusedNodeId}
         onNodeActivate={onNodeActivate}
       />
     )

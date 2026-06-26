@@ -30,8 +30,12 @@ interface CommunityHubGraphProps {
   graphData: GraphData
   height?: number
   enableZoom?: boolean
+  /** Pinned highlight (the explorer search focuses a community by id); also driven by hover/keyboard focus. */
+  focusedNodeId?: string
   onNodeActivate?: (nodeId: string) => void
 }
+
+const FADE_OPACITY = 0.15
 
 interface Placed {
   node: TrustNode
@@ -44,6 +48,7 @@ export default function CommunityHubGraph({
   graphData,
   height = 560,
   enableZoom = false,
+  focusedNodeId,
   onNodeActivate,
 }: CommunityHubGraphProps) {
   const { containerRef, width } = useGraphContainerWidth()
@@ -173,6 +178,29 @@ export default function CommunityHubGraph({
       .text((d: any) => d.node.name)
     nodeMerge.transition().duration(TRANSITION_MS).attr('transform', (d: any) => `translate(${d.x},${d.y})`)
 
+    // ── hover / focus highlight: dim communities not adjacent to the focused one (and the explorer's
+    //    search focuses one by id via focusedNodeId) ───────────────────────────────────────────────────
+    const adjacency = new Map<string, Set<string>>()
+    graphData.nodes.forEach(n => adjacency.set(n.id, new Set([n.id])))
+    graphData.links.forEach(l => {
+      adjacency.get(l.source)?.add(l.target)
+      adjacency.get(l.target)?.add(l.source)
+    })
+    const applyHighlight = (focusId: string | null) => {
+      if (!focusId) {
+        nodeMerge.attr('opacity', 1)
+        edgeMerge.attr('stroke-opacity', d => (d.link.type === 'fission' ? 0.9 : 0.55))
+        return
+      }
+      const related = adjacency.get(focusId) ?? new Set([focusId])
+      nodeMerge.attr('opacity', (d: any) => (related.has(d.node.id) ? 1 : FADE_OPACITY))
+      edgeMerge.attr('stroke-opacity', d =>
+        d.link.source === focusId || d.link.target === focusId
+          ? (d.link.type === 'fission' ? 0.9 : 0.55)
+          : FADE_OPACITY
+      )
+    }
+
     nodeMerge
       .on('click', (_e: any, d: any) => activate(d.node.id))
       .on('keydown', (e: any, d: any) => {
@@ -181,6 +209,13 @@ export default function CommunityHubGraph({
           activate(d.node.id)
         }
       })
+      .on('mouseenter', (_e: any, d: any) => applyHighlight(d.node.id))
+      .on('mouseleave', () => applyHighlight(focusedNodeId ?? null))
+      .on('focus', (_e: any, d: any) => applyHighlight(d.node.id))
+      .on('blur', () => applyHighlight(focusedNodeId ?? null))
+
+    // Initial highlight: a pinned search focus, else fully visible.
+    applyHighlight(focusedNodeId ?? null)
 
     // ── pan/zoom (single owner; shared contract with TrustGraphHEB) ──────────────────────────────────
     if (enableZoom) {
@@ -191,7 +226,7 @@ export default function CommunityHubGraph({
       clearGraphZoom(svgRef.current, root, cx, cy)
       zoomBehaviorRef.current = null
     }
-  }, [graphData, placed, width, height, enableZoom, onNodeActivate])
+  }, [graphData, placed, width, height, enableZoom, focusedNodeId, onNodeActivate])
 
   useEffect(() => {
     const node = svgRef.current

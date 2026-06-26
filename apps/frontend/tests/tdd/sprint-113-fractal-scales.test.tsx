@@ -63,6 +63,18 @@ describe('Sprint 113 — Scale 3 egocentric-hub layout', () => {
     expect(screen.getByLabelText(/reset zoom/i)).toBeInTheDocument();
   });
 
+  it('dims non-adjacent communities when one is focused (drives the explorer search)', () => {
+    const { container } = render(
+      <CommunityHubGraph graphData={communitiesGraph} focusedNodeId="c2" />
+    );
+    // c2 connects only to c1 (organic). Focusing c2 keeps c1+c2 lit, dims c3.
+    const opacity = (id: string) =>
+      container.querySelector(`[data-node-id="${id}"]`)!.getAttribute('opacity');
+    expect(opacity('c2')).toBe('1');
+    expect(opacity('c1')).toBe('1');
+    expect(parseFloat(opacity('c3')!)).toBeLessThan(1);
+  });
+
   it('shows a sparse state when there are fewer than two communities', () => {
     render(
       <CommunityHubGraph
