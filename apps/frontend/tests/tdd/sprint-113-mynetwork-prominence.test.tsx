@@ -1,11 +1,8 @@
 /**
  * Sprint 113 PR B — My Network prominence.
  *
- * Two claims:
- *  1. My Network is reachable from the primary desktop nav (Layout `kq-topnav`), linking `/network`.
- *  2. On the Home feed (`view="home"`), the My Network preview renders AFTER the offered/suggested
- *     preview slot and BEFORE the filter chips (the slot at UnifiedFeed L249→L251). Home has no
- *     DecisionBand (BUG-015), so the preview is anchored by document order, not the band.
+ * S114 keeps My Network reachable from the primary desktop nav and retires the duplicate Home feed
+ * preview. Home has no DecisionBand (BUG-015); My Network now enters through top nav and `/network`.
  */
 
 import { render, screen, waitFor, within } from '@testing-library/react';
@@ -70,17 +67,11 @@ describe('Sprint 113 — My Network prominence', () => {
     expect(link).toHaveAttribute('href', '/network');
   });
 
-  it('renders the My Network Home preview before the filter chips', async () => {
+  it('does not render a duplicate My Network Home preview', async () => {
     render(<UnifiedFeed view="home" />);
 
     // Wait for the feed fetch to resolve (loading skeleton clears).
-    const preview = await waitFor(() => screen.getByRole('link', { name: /my network/i }));
-    expect(preview).toHaveAttribute('href', '/network');
-
-    // The filter chips always render an "All" type chip; the preview must come before them.
-    const allChip = screen.getByRole('button', { name: 'All' });
-    expect(
-      preview.compareDocumentPosition(allChip) & Node.DOCUMENT_POSITION_FOLLOWING
-    ).toBeTruthy();
+    await waitFor(() => screen.getByRole('button', { name: 'All' }));
+    expect(screen.queryByRole('link', { name: /my network/i })).not.toBeInTheDocument();
   });
 });
