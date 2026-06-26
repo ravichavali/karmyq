@@ -1,14 +1,13 @@
 # Sprint 114 - Belonging Graph Consolidation Phase 1: EXECUTION IN PROGRESS
 
 > **STATUS (2026-06-26):** S114 execution is underway on
-> `feature/sprint-114-belonging-graph-consolidation`. Tasks 1-8 are committed. Task 8 was
-> cross-agent reviewed by Claude (non-authoring agent), verified against the full root `npm test`
-> (26/26 Turbo tasks green), and committed as `07b5a965`.
+> `feature/sprint-114-belonging-graph-consolidation`. Tasks 1-9 are committed. Claude (non-authoring
+> agent) cross-agent reviewed + committed Task 8 (`07b5a965`) and executed Task 9 (`2426c8bd`), each
+> verified against the full root `npm test` (26/26 Turbo tasks green).
 >
 > **Branch:** `feature/sprint-114-belonging-graph-consolidation`.
 >
-> **Working tree:** clean except this handoff. Next up is Task 9 (retire old D3 renderers
-> `TrustGraphHEB.tsx` / `CommunityHubGraph.tsx`).
+> **Working tree:** clean except this handoff. Next up is Task 10 (ADR-083 + user/landing docs).
 >
 > **Spec:** `docs/superpowers/specs/2026-06-26-belonging-graph-consolidation-design.md`
 >
@@ -25,10 +24,11 @@
 
 1. Read this handoff.
 2. Confirm branch: `git branch --show-current` should be `feature/sprint-114-belonging-graph-consolidation`.
-3. Task 8 is committed (`07b5a965`); full root `npm test` passed (26/26 Turbo tasks). No action needed.
-4. Continue Task 9 in `docs/superpowers/plans/2026-06-26-sprint-114-belonging-graph-consolidation.md`
-   — delete `TrustGraphHEB.tsx` / `CommunityHubGraph.tsx`, promote the old-renderer deletion
-   guardrails into `belonging-graph-consolidation.test.ts`, and update any SVG-DOM references.
+3. Tasks 8-9 are committed (`07b5a965`, `2426c8bd`); full root `npm test` passed (26/26 Turbo tasks)
+   after each. No action needed.
+4. Continue Task 10 in `docs/superpowers/plans/2026-06-26-sprint-114-belonging-graph-consolidation.md`
+   — author ADR-083, update `docs/guides/trust-graph.md` + `docs/concepts/reading-the-trust-graph.md`,
+   mirror into landing JSON + `nav.json`, then run the doc-context drift gate directly.
 
 ## Sprint Goal
 
@@ -99,16 +99,17 @@ Adopt `react-force-graph-2d@1.29.1` and consolidate the belonging graph to profi
   - `d5f3821d` `feat: preserve belonging graph mode parity`
   - `dee06d47` `test: define S114 graph surface consolidation`
   - `07b5a965` `feat: consolidate belonging graph surfaces` (Task 8; Claude cross-agent reviewed + committed)
+  - `2426c8bd` `refactor: retire old D3 graph renderers` (Task 9; Claude executed)
 - **Task 8 committed:** community `My Network` sub-tab removed, Home `MyNetworkPreview`
   import/render removed, `MyNetworkPreview.tsx` deleted, orphaned `TrustNetworkWidget.tsx` deleted.
-- **Task 8 verification completed before block:**
-  - `cd apps/frontend; npx jest tests/tdd/sprint-114-surface-consolidation.test.tsx tests/regression/sprint-111-belonging-surfaces.test.tsx tests/tdd/sprint-113-mynetwork-prominence.test.tsx tests/tdd/sprint-113-fractal-scales.test.tsx --runInBand` passed.
-  - `cd apps/frontend; npx tsc --noEmit` passed.
-  - `npm run feedback:check` passed, with the existing warning about `C:\Users\ravic/.config/git/ignore` permission.
-- **Latest full root gate:** passed after Task 8 (`npm test`, 26/26 Turbo tasks; frontend unit 62/62 +
-  regression 61/61 ran fresh, not cached).
-- **Next action:** Task 9 — retire old D3 renderers (`TrustGraphHEB.tsx`, `CommunityHubGraph.tsx`) and
-  promote the old-renderer deletion guardrails into regression.
+- **Task 9 committed:** deleted `TrustGraphHEB.tsx`, `CommunityHubGraph.tsx`, and the now-orphaned
+  `graphZoom.ts`; promoted old-renderer deletion guardrails into
+  `tests/regression/belonging-graph-consolidation.test.ts`; deleted the spent TDD guardrail file; and
+  refreshed stale doc comments that named the retired renderers. tsc + 5 graph suites (52 tests) green.
+- **Latest full root gate:** passed after Task 9 (`npm test`, 26/26 Turbo tasks; frontend regression
+  63/63 ran fresh, not cached).
+- **Next action:** Task 10 — author ADR-083 and update user/landing docs, then run the doc-context
+  drift gate (`cd tests; npx jest regression/doc-context-drift-gate.test.ts --runInBand`).
 - **Blockers:** none.
 
 ## Architecture Gotchas
