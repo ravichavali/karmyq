@@ -1,3 +1,5 @@
+import React from 'react'
+import { render, screen } from '@testing-library/react'
 import {
   buildAdjacency,
   describeNodeDetail,
@@ -5,6 +7,10 @@ import {
   toCanvasGraphData,
 } from '@/components/graphs/graphCanvasModel'
 import type { GraphData } from '@/components/graphs/types'
+import {
+  lastForceGraphProps,
+  resetForceGraphMock,
+} from '../mocks/reactForceGraph2DMock'
 
 const graph: GraphData = {
   nodes: [
@@ -53,5 +59,45 @@ describe('graphCanvasModel', () => {
       { label: 'Connections', value: '2' },
     ])
     expect(JSON.stringify(rows)).not.toMatch(/99|88|trust|karma/i)
+  })
+})
+
+describe('GraphCanvas boundary', () => {
+  beforeEach(() => {
+    resetForceGraphMock()
+  })
+
+  it('passes cloned graph data and canvas callbacks to react-force-graph-2d', async () => {
+    const { default: GraphCanvas } = await import('@/components/graphs/GraphCanvas')
+    render(<GraphCanvas graphData={graph} mode="ego" currentUserId="me" width={640} height={480} />)
+    expect(screen.getByTestId('force-graph')).toBeInTheDocument()
+    expect(lastForceGraphProps.graphData.nodes.find((n: any) => n.id === 'me').fx).toBe(0)
+    expect(typeof lastForceGraphProps.nodeCanvasObject).toBe('function')
+    expect(typeof lastForceGraphProps.nodePointerAreaPaint).toBe('function')
+    expect(typeof lastForceGraphProps.onNodeHover).toBe('function')
+    expect(typeof lastForceGraphProps.onNodeClick).toBe('function')
+  })
+
+  it('translates force-graph hover/click callbacks to node ids', async () => {
+    const { default: GraphCanvas } = await import('@/components/graphs/GraphCanvas')
+    const onNodeHover = jest.fn()
+    const onNodeClick = jest.fn()
+    render(
+      <GraphCanvas
+        graphData={graph}
+        mode="ego"
+        currentUserId="me"
+        width={640}
+        height={480}
+        onNodeHover={onNodeHover}
+        onNodeClick={onNodeClick}
+      />
+    )
+    lastForceGraphProps.onNodeHover({ id: 'p1' }, null)
+    lastForceGraphProps.onNodeHover(null, { id: 'p1' })
+    lastForceGraphProps.onNodeClick({ id: 'p2' })
+    expect(onNodeHover).toHaveBeenNthCalledWith(1, 'p1')
+    expect(onNodeHover).toHaveBeenNthCalledWith(2, null)
+    expect(onNodeClick).toHaveBeenCalledWith('p2')
   })
 })

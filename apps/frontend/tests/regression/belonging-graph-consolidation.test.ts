@@ -30,6 +30,8 @@ describe('the unified surfaces exist', () => {
     'src/components/BelongingPulse.tsx',
     'src/components/graphs/types.ts',
     'src/components/graphs/normalizeGraphData.ts',
+    'src/components/graphs/graphCanvasModel.ts',
+    'src/components/graphs/GraphCanvas.tsx',
     'src/components/graphs/TrustGraphHEB.tsx',
   ])('%s exists', file => {
     expect(exists(file)).toBe(true)

@@ -7,9 +7,7 @@ const exists = (relativePath: string) => fs.existsSync(path.join(FRONTEND_ROOT, 
 
 describe('S114 renderer files', () => {
   it.each([
-    'src/components/graphs/GraphCanvas.tsx',
     'src/components/graphs/BelongingGraphRenderer.tsx',
-    'src/components/graphs/graphCanvasModel.ts',
   ])('%s exists before regression promotion', relativePath => {
     expect(exists(relativePath)).toBe(true)
   })
