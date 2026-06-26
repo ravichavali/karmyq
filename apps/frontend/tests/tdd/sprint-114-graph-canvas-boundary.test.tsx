@@ -1,5 +1,5 @@
 import React from 'react'
-import { render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen } from '@testing-library/react'
 import {
   buildAdjacency,
   describeNodeDetail,
@@ -8,6 +8,7 @@ import {
 } from '@/components/graphs/graphCanvasModel'
 import type { GraphData } from '@/components/graphs/types'
 import {
+  forceGraphMethods,
   lastForceGraphProps,
   resetForceGraphMock,
 } from '../mocks/reactForceGraph2DMock'
@@ -99,5 +100,58 @@ describe('GraphCanvas boundary', () => {
     expect(onNodeHover).toHaveBeenNthCalledWith(1, 'p1')
     expect(onNodeHover).toHaveBeenNthCalledWith(2, null)
     expect(onNodeClick).toHaveBeenCalledWith('p2')
+  })
+})
+
+describe('BelongingGraphRenderer chrome', () => {
+  beforeEach(() => {
+    resetForceGraphMock()
+  })
+
+  it('renders zoom controls that drive the force-graph ref', async () => {
+    const { default: BelongingGraphRenderer } = await import('@/components/graphs/BelongingGraphRenderer')
+    render(<BelongingGraphRenderer graphData={graph} mode="ego" currentUserId="me" height={480} enableZoom />)
+    fireEvent.click(screen.getByLabelText(/zoom in/i))
+    fireEvent.click(screen.getByLabelText(/zoom out/i))
+    fireEvent.click(screen.getByLabelText(/reset zoom/i))
+    expect(forceGraphMethods.zoom).toHaveBeenCalled()
+    expect(forceGraphMethods.zoomToFit).toHaveBeenCalled()
+  })
+
+  it('opens privacy-safe node detail from canvas node clicks', async () => {
+    const { default: BelongingGraphRenderer } = await import('@/components/graphs/BelongingGraphRenderer')
+    render(<BelongingGraphRenderer graphData={graph} mode="ego" currentUserId="me" height={480} />)
+    act(() => {
+      lastForceGraphProps.onNodeClick({ id: 'p1' })
+    })
+    expect(screen.getByText('Connections')).toBeInTheDocument()
+    expect(screen.queryByText(/trust score/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/karma/i)).not.toBeInTheDocument()
+  })
+
+  it('renders fission group labels and a move action when supplied', async () => {
+    const { default: BelongingGraphRenderer } = await import('@/components/graphs/BelongingGraphRenderer')
+    const onSwitchGroup = jest.fn().mockResolvedValue(undefined)
+    render(
+      <BelongingGraphRenderer
+        graphData={graph}
+        mode="fission"
+        currentUserId="me"
+        height={480}
+        groupMap={{ me: 'group_a', p1: 'group_a', p2: 'group_b' }}
+        groupALabel="North"
+        groupBLabel="South"
+        onSwitchGroup={onSwitchGroup}
+      />
+    )
+    expect(screen.getByText('North')).toBeInTheDocument()
+    expect(screen.getByText('South')).toBeInTheDocument()
+    act(() => {
+      lastForceGraphProps.onNodeClick({ id: 'p1' })
+    })
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /move to south/i }))
+    })
+    expect(onSwitchGroup).toHaveBeenCalledWith('p1', 'group_a')
   })
 })
