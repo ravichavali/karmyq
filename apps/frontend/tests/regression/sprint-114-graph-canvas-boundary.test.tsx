@@ -102,6 +102,25 @@ describe('GraphCanvas boundary', () => {
     expect(onNodeClick).toHaveBeenCalledWith('p2')
   })
 
+  it('escapes HTML in the node label so a malicious display name cannot XSS the tooltip', async () => {
+    const { default: GraphCanvas } = await import('@/components/graphs/GraphCanvas')
+    const hostileGraph: GraphData = {
+      nodes: [
+        { id: 'me', name: 'Maria', isCurrentUser: true, degrees_of_separation: 0 },
+        { id: 'x', name: '<img src=x onerror=alert(1)>', degrees_of_separation: 1 },
+      ],
+      links: [{ source: 'me', target: 'x', decayTier: 'strong' }],
+    }
+
+    render(<GraphCanvas graphData={hostileGraph} mode="ego" currentUserId="me" width={640} height={480} />)
+
+    // react-force-graph renders a string nodeLabel into its tooltip via innerHTML, so the label
+    // must be entity-escaped — no raw angle brackets reach the tooltip.
+    const label = lastForceGraphProps.nodeLabel({ id: 'x', name: '<img src=x onerror=alert(1)>' })
+    expect(label).not.toMatch(/<img/)
+    expect(label).toContain('&lt;img')
+  })
+
   it('keeps person node sizing uniform except the current-user anchor', async () => {
     const { default: GraphCanvas } = await import('@/components/graphs/GraphCanvas')
     render(<GraphCanvas graphData={graph} mode="ego" currentUserId="me" width={640} height={480} />)

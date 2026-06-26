@@ -18,7 +18,6 @@ export interface GraphCanvasProps {
   width: number
   focusedNodeId?: string
   hoveredNodeId?: string | null
-  enableZoom?: boolean
   onNodeHover?: (nodeId: string | null) => void
   onNodeClick?: (nodeId: string) => void
   graphRef?: React.MutableRefObject<ForceGraphMethods<any, any> | undefined>
@@ -82,12 +81,15 @@ export default function GraphCanvas({
     [graphData.nodes]
   )
   const activeNodeId = hoveredNodeId ?? focusedNodeId ?? null
+  // `linkOpacity` is not a real ForceGraph2D prop — the actual draw happens in `linkCanvasObject`
+  // below. It's passed through (spread to dodge the prop type) so the canvas-boundary tests can
+  // assert the ported parity opacity helper without querying the canvas.
   const parityLinkProps = {
     linkOpacity: (link: CanvasGraphLink) => linkOpacity(link, { mode, currentUserId, clusterOf, maxWeight }),
   }
 
   useEffect(() => {
-    configureForces(forceGraphRef.current, mode)
+    configureForces(forceGraphRef.current, mode, { reheat: true })
   }, [forceGraphRef, mode, canvasGraphData])
 
   const isNodeDimmed = (nodeId: string) => {
@@ -116,7 +118,7 @@ export default function GraphCanvas({
       linkTarget="target"
       {...parityLinkProps}
       nodeVal={(node: CanvasGraphNode) => nodeRadius(node, currentUserId, mode, maxMembers)}
-      nodeLabel={(node: CanvasGraphNode) => node.id === currentUserId ? `${node.name} (you)` : node.name}
+      nodeLabel={(node: CanvasGraphNode) => escapeHtmlLabel(node.id === currentUserId ? `${node.name} (you)` : node.name)}
       nodeCanvasObject={(node, ctx, globalScale) => {
         drawNode(node as CanvasGraphNode, ctx, globalScale, {
           mode,
@@ -152,13 +154,20 @@ export default function GraphCanvas({
         if (node.id != null) onNodeClick?.(String(node.id))
       }}
       onEngineStop={() => {
-        configureForces(forceGraphRef.current, mode)
+        // Re-apply force config in case the ref wasn't ready on first mount, but do NOT reheat:
+        // reheating here would restart the simulation, which stops, fires onEngineStop again → an
+        // endless reheat loop that never lets the graph settle (perpetual CPU/animation).
+        configureForces(forceGraphRef.current, mode, { reheat: false })
       }}
     />
   )
 }
 
-function configureForces(graph: ForceGraphMethods<any, any> | undefined, mode: BelongingMode) {
+function configureForces(
+  graph: ForceGraphMethods<any, any> | undefined,
+  mode: BelongingMode,
+  options: { reheat: boolean }
+) {
   if (!graph) return
 
   const linkForce = graph.d3Force('link') as ForceConfig | undefined
@@ -170,7 +179,7 @@ function configureForces(graph: ForceGraphMethods<any, any> | undefined, mode: B
   linkForce?.strength?.(config.linkStrength)
   chargeForce?.strength?.(config.chargeStrength)
   centerForce?.strength?.(config.centerStrength)
-  graph.d3ReheatSimulation()
+  if (options.reheat) graph.d3ReheatSimulation()
 }
 
 function forceConfigForMode(mode: BelongingMode) {
@@ -372,6 +381,19 @@ function withCanvasDash(ctx: CanvasRenderingContext2D, dash: number[] | null, dr
   dashedContext.setLineDash?.(dash ?? [])
   draw()
   dashedContext.setLineDash?.([])
+}
+
+// react-force-graph renders a string `nodeLabel` into its hover tooltip via innerHTML
+// (force-graph → float-tooltip `.html(content)`), so a user-controlled display name containing
+// markup would execute as stored XSS. Escape before it reaches the tooltip; the canvas `fillText`
+// path needs no escaping (canvas text is not HTML).
+function escapeHtmlLabel(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
 }
 
 function linkEndpoint(value: CanvasGraphLink['source']): CanvasGraphNode | null {

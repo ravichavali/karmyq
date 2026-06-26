@@ -88,7 +88,6 @@ export default function BelongingGraphRenderer({
         height={height}
         focusedNodeId={focusedNodeId}
         hoveredNodeId={hoveredNodeId}
-        enableZoom={enableZoom}
         onNodeHover={setHoveredNodeId}
         onNodeClick={handleNodeClick}
         graphRef={graphRef}

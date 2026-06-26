@@ -151,9 +151,8 @@ function connectionCount(nodeId: string, links: TrustLink[]): number {
 }
 
 function fissionGroupLabel(node: TrustNode): string {
-  const group = (node as TrustNode & { group?: string; group_id?: string; proposed_group?: string }).group
-    ?? (node as TrustNode & { group?: string; group_id?: string; proposed_group?: string }).group_id
-    ?? (node as TrustNode & { group?: string; group_id?: string; proposed_group?: string }).proposed_group
+  const grouped = node as TrustNode & { group?: string; group_id?: string; proposed_group?: string }
+  const group = grouped.group ?? grouped.group_id ?? grouped.proposed_group
 
   if (group === 'group_a') return 'Group A'
   if (group === 'group_b') return 'Group B'
