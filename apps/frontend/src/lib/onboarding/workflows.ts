@@ -31,6 +31,10 @@ export const WORKFLOWS: Record<string, WorkflowDef> = {
         body: "When you've offered to help on open asks, Home shows them as a small preview — the actual asks, each linking to its detail — so you can pick up where you left off. They're waiting on the requester to respond, not on you; the full list lives in the Helping tab. When an admin suggests you as a helper, Home shows a second preview — accept or decline those in Helping.",
       },
       {
+        title: 'Your network, one tap away',
+        body: "Home also carries a My Network card — your belonging graph (you and your first-degree connections) is a top-level destination, reachable from the My Network nav link too. Open it to explore three zoom levels of one structure: My Network (you), This Community (everyone here), and Across Communities (how your communities connect).",
+      },
+      {
         title: "You're caught up",
         body: "When there are no direct matches for you, the feed shows one honest, calm message — \"You're caught up\" — then offers a quieter path to browse your communities, which may still have open asks waiting. It doesn't pretend there's nothing left or push infinite-scroll urgency.",
       },
