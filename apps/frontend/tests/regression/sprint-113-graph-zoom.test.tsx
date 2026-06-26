@@ -1,10 +1,10 @@
 /**
  * Sprint 113 / BUG-027: every belonging-graph surface lost its zoom affordance.
  * Restore visible zoom controls with a SINGLE owner — mounted inside the one
- * renderer (TrustGraphHEB), gated by `enableZoom`, so no surface double-mounts.
+ * renderer (BelongingGraphRenderer), gated by `enableZoom`, so no surface double-mounts.
  *
  * Proves: controls render when zoom is enabled, are absent when disabled, and
- * clicking them drives the real d3.zoom behavior (the svg's __zoom transform).
+ * clicking them drives the react-force-graph-2d ref (zoom / zoomToFit).
  */
 
 import React from 'react';

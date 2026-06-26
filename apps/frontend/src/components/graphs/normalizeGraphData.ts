@@ -2,7 +2,7 @@ import type { GraphData, TrustLink, TrustNode } from './types'
 
 // Sprint 111 / ADR-081 — pure helpers that bridge the inter-community "depth graph" backend shape
 // into the canonical client model, and deterministically merge explorer expansions. Kept free of
-// React/D3 so they are trivially testable and so TrustGraphHEB only ever sees canonical types.
+// React/D3 so they are trivially testable and so the canvas renderer only ever sees canonical types.
 
 export interface DepthNode {
   id: string

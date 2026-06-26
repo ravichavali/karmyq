@@ -55,7 +55,7 @@ export default function BelongingGraph({
   focusedNodeId,
   onNodeActivate,
   // Sprint 113 / BUG-027 — zoom is on by default so every surface inherits the controls through this
-  // one wrapper (single owner in TrustGraphHEB). Callers can still opt out with enableZoom={false}.
+  // one wrapper (single owner in BelongingGraphRenderer). Callers can still opt out with enableZoom={false}.
   enableZoom = true,
 }: BelongingGraphProps) {
   const hasSuppliedData = graphData !== undefined

@@ -17,6 +17,11 @@ describe('retired graph wrappers are gone', () => {
     'src/components/TrustGraph.tsx',
     'src/components/graphs/CommunityDepthGraph.tsx',
     'src/types/react-cytoscapejs.d.ts',
+    // Sprint 114 (ADR-083) — the D3 SVG renderers and their zoom helper are retired now that the
+    // belonging graph renders through GraphCanvas (react-force-graph-2d).
+    'src/components/graphs/TrustGraphHEB.tsx',
+    'src/components/graphs/CommunityHubGraph.tsx',
+    'src/components/graphs/graphZoom.ts',
   ])('%s no longer exists', file => {
     expect(exists(file)).toBe(false)
   })
@@ -33,7 +38,6 @@ describe('the unified surfaces exist', () => {
     'src/components/graphs/graphCanvasModel.ts',
     'src/components/graphs/GraphCanvas.tsx',
     'src/components/graphs/BelongingGraphRenderer.tsx',
-    'src/components/graphs/TrustGraphHEB.tsx',
   ])('%s exists', file => {
     expect(exists(file)).toBe(true)
   })
