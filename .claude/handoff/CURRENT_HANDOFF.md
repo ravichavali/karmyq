@@ -9,9 +9,10 @@
 > **Branch:** `feature/sprint-114-belonging-graph-consolidation` — pushed. **PR #123 open**
 > (https://github.com/ravichavali/karmyq/pull/123).
 >
-> **Working tree:** clean except this handoff. Task 13 is at the **stop point**: PR open + CI running,
-> **awaiting Codex cross-agent review and Admin merge authorization** (contributor agents never
-> self-merge). Do not merge until Admin authorizes.
+> **Working tree:** clean before this handoff update. Task 13 PR + CI work is complete, and Codex's
+> cross-agent review is recorded at https://github.com/ravichavali/karmyq/pull/123#issuecomment-4814156431.
+> **Changes requested:** restore keyboard-focus/activation parity before merge. Admin authorization is
+> still required after re-review (contributor agents never self-merge).
 >
 > **Spec:** `docs/superpowers/specs/2026-06-26-belonging-graph-consolidation-design.md`
 >
@@ -29,10 +30,11 @@
 1. Read this handoff.
 2. Confirm branch: `git branch --show-current` should be `feature/sprint-114-belonging-graph-consolidation`.
 3. Tasks 8-12 are committed (`07b5a965`, `2426c8bd`, `4921376d`, `c0d36c6d`, `7cfc9a15`). No action needed.
-4. Task 13: push the branch, open the PR (fill the template — include the gate verification lines and
-   the `enableZoomInteraction` follow-up below), request Codex cross-agent review, then **stop for
-   Admin authorization** before `gh pr merge --squash`. Real deploy is the post-merge master CI/CD
-   `Deploy to Demo` job, not the PR-level skipped check.
+4. Fix the Codex review blocker: add a keyboard-reachable DOM/chrome interaction path for canvas
+   nodes, wire focus to graph highlighting and Enter/Space to activation, and restore regression
+   coverage. Remove the false `enableZoomInteraction` known issue from the PR body/handoff: the pinned
+   library accepts and invokes predicate functions, so the current wheel filter is valid. Re-run gates,
+   push, request Codex re-review, then stop for Admin authorization before merge.
 
 ## Sprint Goal
 
@@ -128,21 +130,27 @@ Adopt `react-force-graph-2d@1.29.1` and consolidate the belonging graph to profi
     `node.name` is now `escapeHtmlLabel`-escaped + regression test added. ADR-082 disclosure boundary
     re-confirmed (no reputation numbers in node detail/canvas).
   - `/code-review` → **fixed** the `configureForces`/`onEngineStop` `d3ReheatSimulation` reheat loop
-    (perpetual animation). **Open follow-up (PR body):** `enableZoomInteraction={(e)=>e.type!=='wheel'}`
-    in `GraphCanvas.tsx` — `react-force-graph`'s `enableZoomInteraction` is a *boolean*, so a function
-    is always truthy → mouse-wheel may still zoom (guide promises wheel scrolls the page). Low-risk UX
-    papercut; left as-is to avoid regressing pan/pinch — verify on the demo, fix in a follow-up if real.
+    (perpetual animation). Its `enableZoomInteraction` follow-up was later disproved by Codex against
+    the pinned package types/runtime: predicates are supported and the current wheel filter is valid.
   - `/simplify` → dead `enableZoom` prop removed; `fissionGroupLabel` triple-cast collapsed; `linkOpacity`
     test-surface documented.
 - **Latest full root gate:** passed after Task 12 (`npm test`, 26/26 Turbo tasks; frontend regression
   11 suites / 81 tests ran fresh).
-- **Task 13 in progress:** branch pushed; **PR #123 open** with the filled contract template (gate
-  lines + `enableZoomInteraction` follow-up in the body). `pr-contract` check passed; rest of CI
-  running. Authoring agent = Claude → **Codex is the cross-agent reviewer**.
-- **Next action:** confirm CI green → request Codex review → **stop for Admin authorization**, then
-  `gh pr merge --squash --delete-branch` and monitor the post-merge master CI/CD `Deploy to Demo` job
-  (not the PR-level skipped deploy check). Then Task 14 post-deploy validation.
-- **Blockers:** Admin authorization required before merge/deploy.
+- **Task 13 review:** all PR CI checks are green. Codex completed the cross-agent review and posted
+  changes requested at https://github.com/ravichavali/karmyq/pull/123#issuecomment-4814156431. GitHub
+  cannot record a formal changes-requested review because same-machine agents share the PR author's
+  maintainer identity.
+- **Merge blocker:** S114's approved parity checklist requires keyboard-focusable/activatable graph
+  nodes. The retired SVG renderers supplied labelled `role="button"` nodes, `tabindex`, Enter/Space,
+  and focus highlighting; the canvas replacement currently exposes pointer hover/click only, while
+  the updated guide promises keyboard focus. Restore a DOM/chrome keyboard path and regression tests.
+- **Review correction:** `enableZoomInteraction={(event) => event.type !== 'wheel'}` is valid in the
+  pinned `react-force-graph-2d@1.29.1` / `force-graph@1.51.4`; both types and runtime accept a predicate.
+  Remove the false follow-up from the PR body when applying the review fix.
+- **Next action:** author fixes keyboard parity, updates the PR contract, re-runs gates, pushes, and
+  requests Codex re-review. Only after approval + Admin authorization: squash-merge, monitor the
+  post-merge master `Deploy to Demo` job, then run Task 14 validation.
+- **Blockers:** keyboard accessibility parity, Codex re-review, then Admin authorization.
 
 ## Architecture Gotchas
 
