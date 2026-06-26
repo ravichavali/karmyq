@@ -1,10 +1,14 @@
-# Sprint 114 - Belonging Graph Consolidation Phase 1: PLAN READY
+# Sprint 114 - Belonging Graph Consolidation Phase 1: EXECUTION IN PROGRESS
 
-> **STATUS (2026-06-26):** S113 is done and deployed as v11.20.0. S114 has an approved design spec and
-> a Phase 1 implementation plan. Execution has **not** started.
+> **STATUS (2026-06-26):** S114 execution is underway on
+> `feature/sprint-114-belonging-graph-consolidation`. Tasks 1-8 are committed. Task 8 was
+> cross-agent reviewed by Claude (non-authoring agent), verified against the full root `npm test`
+> (26/26 Turbo tasks green), and committed as `07b5a965`.
 >
-> **Branch:** `feature/sprint-114-belonging-graph-consolidation` (local planning branch). The working
-> tree should be clean at handoff.
+> **Branch:** `feature/sprint-114-belonging-graph-consolidation`.
+>
+> **Working tree:** clean except this handoff. Next up is Task 9 (retire old D3 renderers
+> `TrustGraphHEB.tsx` / `CommunityHubGraph.tsx`).
 >
 > **Spec:** `docs/superpowers/specs/2026-06-26-belonging-graph-consolidation-design.md`
 >
@@ -21,10 +25,10 @@
 
 1. Read this handoff.
 2. Confirm branch: `git branch --show-current` should be `feature/sprint-114-belonging-graph-consolidation`.
-3. Open the plan: `docs/superpowers/plans/2026-06-26-sprint-114-belonging-graph-consolidation.md`.
-4. Execute task-by-task using `superpowers:subagent-driven-development` (recommended) or
-   `superpowers:executing-plans`.
-5. Before every commit, run the project `pre-commit-check` skill.
+3. Task 8 is committed (`07b5a965`); full root `npm test` passed (26/26 Turbo tasks). No action needed.
+4. Continue Task 9 in `docs/superpowers/plans/2026-06-26-sprint-114-belonging-graph-consolidation.md`
+   — delete `TrustGraphHEB.tsx` / `CommunityHubGraph.tsx`, promote the old-renderer deletion
+   guardrails into `belonging-graph-consolidation.test.ts`, and update any SVG-DOM references.
 
 ## Sprint Goal
 
@@ -84,11 +88,27 @@ Adopt `react-force-graph-2d@1.29.1` and consolidate the belonging graph to profi
 
 ## Active Session
 
-- **Driving agent:** Codex (Sprint 114 planning).
-- **Phase:** Phase 1 plan written and reviewed; execution not started.
-- **Files changed in planning:** S114 implementation plan and this handoff.
-- **Next action:** Start Task 1 in the revised plan: dependency pin, version bump, green regression
-  dependency guardrail, and non-blocking TDD renderer guardrails.
+- **Driving agent:** Codex (Sprint 114 implementation).
+- **Phase:** Phase 1 execution through Task 8 implementation.
+- **Completed commits:**
+  - `1a4c666d` `test: set S114 graph renderer dependency guardrails`
+  - `54dd586e` `feat: add belonging graph canvas model helpers`
+  - `6de63102` `feat: add react force graph canvas boundary`
+  - `4e0f23a8` `feat: add belonging graph renderer chrome`
+  - `d90466f2` `feat: route belonging graph through canvas renderer`
+  - `d5f3821d` `feat: preserve belonging graph mode parity`
+  - `dee06d47` `test: define S114 graph surface consolidation`
+  - `07b5a965` `feat: consolidate belonging graph surfaces` (Task 8; Claude cross-agent reviewed + committed)
+- **Task 8 committed:** community `My Network` sub-tab removed, Home `MyNetworkPreview`
+  import/render removed, `MyNetworkPreview.tsx` deleted, orphaned `TrustNetworkWidget.tsx` deleted.
+- **Task 8 verification completed before block:**
+  - `cd apps/frontend; npx jest tests/tdd/sprint-114-surface-consolidation.test.tsx tests/regression/sprint-111-belonging-surfaces.test.tsx tests/tdd/sprint-113-mynetwork-prominence.test.tsx tests/tdd/sprint-113-fractal-scales.test.tsx --runInBand` passed.
+  - `cd apps/frontend; npx tsc --noEmit` passed.
+  - `npm run feedback:check` passed, with the existing warning about `C:\Users\ravic/.config/git/ignore` permission.
+- **Latest full root gate:** passed after Task 8 (`npm test`, 26/26 Turbo tasks; frontend unit 62/62 +
+  regression 61/61 ran fresh, not cached).
+- **Next action:** Task 9 — retire old D3 renderers (`TrustGraphHEB.tsx`, `CommunityHubGraph.tsx`) and
+  promote the old-renderer deletion guardrails into regression.
 - **Blockers:** none.
 
 ## Architecture Gotchas
