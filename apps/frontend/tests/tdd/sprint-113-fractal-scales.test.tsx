@@ -33,7 +33,7 @@ const communitiesGraph: GraphData = {
 describe('Sprint 113 — Scale 3 egocentric-hub layout', () => {
   it('labels every community node and sizes nodes by membership', () => {
     const { container } = render(
-      <CommunityHubGraph graphData={communitiesGraph} currentUserId="" enableZoom />
+      <CommunityHubGraph graphData={communitiesGraph} enableZoom />
     );
     // Every community is labelled, always (legibility over prettiness).
     expect(within(container).getByText('Garden Co-op')).toBeInTheDocument();
@@ -50,7 +50,7 @@ describe('Sprint 113 — Scale 3 egocentric-hub layout', () => {
   });
 
   it('draws an organic and a fission edge with distinct styling', () => {
-    const { container } = render(<CommunityHubGraph graphData={communitiesGraph} currentUserId="" />);
+    const { container } = render(<CommunityHubGraph graphData={communitiesGraph} />);
     const dashed = Array.from(container.querySelectorAll('line.hub-edge')).filter(
       l => l.getAttribute('stroke-dasharray')
     );
@@ -58,7 +58,7 @@ describe('Sprint 113 — Scale 3 egocentric-hub layout', () => {
   });
 
   it('renders zoom controls (single owner) when zoom is enabled', () => {
-    render(<CommunityHubGraph graphData={communitiesGraph} currentUserId="" enableZoom />);
+    render(<CommunityHubGraph graphData={communitiesGraph} enableZoom />);
     expect(screen.getByLabelText(/zoom in/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/reset zoom/i)).toBeInTheDocument();
   });
@@ -67,7 +67,7 @@ describe('Sprint 113 — Scale 3 egocentric-hub layout', () => {
     render(
       <CommunityHubGraph
         graphData={{ nodes: [{ id: 'c1', name: 'Solo', member_count: 3, is_member: true }], links: [] }}
-        currentUserId=""
+       
       />
     );
     expect(screen.getByText(/join more communities/i)).toBeInTheDocument();

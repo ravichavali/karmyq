@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import * as d3 from 'd3'
 import type { GraphData, TrustLink, TrustNode } from './types'
+import { linkKey } from './normalizeGraphData'
 import GraphZoomControls from './GraphZoomControls'
+import { clearGraphZoom, installGraphZoom, zoomBy, zoomReset } from './graphZoom'
+import { useGraphContainerWidth } from '../../hooks/useGraphContainerWidth'
 
 /**
  * Sprint 113 PR B / Task 9 — Scale 3 of the belonging fractal ("Across Communities"): communities-as-
@@ -25,7 +28,6 @@ const TRANSITION_MS = 400
 
 interface CommunityHubGraphProps {
   graphData: GraphData
-  currentUserId: string
   height?: number
   enableZoom?: boolean
   onNodeActivate?: (nodeId: string) => void
@@ -40,27 +42,15 @@ interface Placed {
 
 export default function CommunityHubGraph({
   graphData,
-  currentUserId,
   height = 560,
   enableZoom = false,
   onNodeActivate,
 }: CommunityHubGraphProps) {
-  const containerRef = useRef<HTMLDivElement>(null)
+  const { containerRef, width } = useGraphContainerWidth()
   const svgRef = useRef<SVGSVGElement>(null)
-  const [width, setWidth] = useState(700)
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
   const zoomBehaviorRef = useRef<d3.ZoomBehavior<SVGSVGElement, unknown> | null>(null)
   const initialTransformRef = useRef<d3.ZoomTransform>(d3.zoomIdentity)
-
-  useEffect(() => {
-    if (!containerRef.current) return
-    const el = containerRef.current
-    const update = () => setWidth(el.clientWidth || 700)
-    update()
-    const observer = new ResizeObserver(update)
-    observer.observe(el)
-    return () => observer.disconnect()
-  }, [])
 
   // ── deterministic egocentric-hub placement (positions are around the origin; the root <g> is then
   //    translated to the centre, matching the zoom seed) ────────────────────────────────────────────
@@ -123,7 +113,8 @@ export default function CommunityHubGraph({
       .filter((x): x is { link: TrustLink; a: Placed; b: Placed } => x !== null)
 
     const edgeSel = edgesG.selectAll<SVGLineElement, { link: TrustLink; a: Placed; b: Placed }>('line.hub-edge')
-      .data(edgeData, (d: any) => `${d.link.source}::${d.link.target}`)
+      // linkKey distinguishes parallel organic/fission edges between the same community pair.
+      .data(edgeData, (d: any) => linkKey(d.link))
     edgeSel.exit().remove()
     const edgeMerge = edgeSel.enter()
       .append('line')
@@ -191,26 +182,16 @@ export default function CommunityHubGraph({
         }
       })
 
-    // ── pan/zoom (single owner; wheel excluded; seed transform directly) ────────────────────────────
+    // ── pan/zoom (single owner; shared contract with TrustGraphHEB) ──────────────────────────────────
     if (enableZoom) {
-      const zoom = d3.zoom<SVGSVGElement, unknown>()
-        .scaleExtent([0.5, 4])
-        .extent([[0, 0], [width, height]])
-        .filter((event: any) => event.type !== 'wheel' && !event.button)
-        .on('zoom', (event) => root.attr('transform', event.transform.toString()))
-      svg.call(zoom)
-      svg.on('dblclick.zoom', null)
-      const initial = d3.zoomIdentity.translate(cx, cy)
-      ;(svgRef.current as any).__zoom = initial
-      root.attr('transform', initial.toString())
-      zoomBehaviorRef.current = zoom
-      initialTransformRef.current = initial
+      const { behavior, initialTransform } = installGraphZoom(svgRef.current, root, { width, height, cx, cy })
+      zoomBehaviorRef.current = behavior
+      initialTransformRef.current = initialTransform
     } else {
-      svg.on('.zoom', null)
-      root.attr('transform', `translate(${cx},${cy})`)
+      clearGraphZoom(svgRef.current, root, cx, cy)
       zoomBehaviorRef.current = null
     }
-  }, [graphData, placed, width, height, enableZoom, currentUserId, onNodeActivate])
+  }, [graphData, placed, width, height, enableZoom, onNodeActivate])
 
   useEffect(() => {
     const node = svgRef.current
@@ -220,16 +201,10 @@ export default function CommunityHubGraph({
   }, [])
 
   const handleZoomBy = (factor: number) => {
-    const node = svgRef.current
-    const zoom = zoomBehaviorRef.current
-    if (!node || !zoom) return
-    zoom.scaleBy(d3.select(node), factor)
+    if (svgRef.current && zoomBehaviorRef.current) zoomBy(svgRef.current, zoomBehaviorRef.current, factor)
   }
   const handleZoomReset = () => {
-    const node = svgRef.current
-    const zoom = zoomBehaviorRef.current
-    if (!node || !zoom) return
-    zoom.transform(d3.select(node), initialTransformRef.current)
+    if (svgRef.current && zoomBehaviorRef.current) zoomReset(svgRef.current, zoomBehaviorRef.current, initialTransformRef.current)
   }
 
   const selectedNode = selectedNodeId ? graphData.nodes.find(n => n.id === selectedNodeId) : null

@@ -13,6 +13,24 @@ type ExplorerMode = Extract<BelongingMode, 'ego' | 'community' | 'communities'>
 const VALID_MODES: ExplorerMode[] = ['ego', 'community', 'communities']
 const MAX_EXPANSIONS = 3
 
+// The three explicit zoom levels of one belonging structure (S113 Task 9). Naming each scale in the
+// header is what makes My Network (ego) and This Community (member topology) read as adjacent zoom
+// levels rather than two near-identical "my network" tabs. Module-scope constant — pure copy.
+const SCALE_FRAMING: Record<ExplorerMode, { scale: string; blurb: string }> = {
+  ego: {
+    scale: 'Scale 1 · My Network',
+    blurb: 'You and your first-degree connections — the network that travels with you across communities.',
+  },
+  community: {
+    scale: 'Scale 2 · This Community',
+    blurb: 'The whole-community member topology — how everyone in this one community connects.',
+  },
+  communities: {
+    scale: 'Scale 3 · Across Communities',
+    blurb: 'Communities as nodes — how your communities connect to others. The level-up from people to communities.',
+  },
+}
+
 interface Expansion {
   nodeId: string
   data: GraphData
@@ -199,24 +217,6 @@ export default function NetworkPage() {
     if (!q || !mergedGraph) return []
     return mergedGraph.nodes.filter(n => n.name.toLowerCase().includes(q)).slice(0, 8)
   }, [search, mergedGraph])
-
-  // The three explicit zoom levels of one belonging structure (S113 Task 9). Naming each scale in the
-  // header is what makes My Network (ego) and This Community (member topology) read as adjacent zoom
-  // levels rather than two near-identical "my network" tabs.
-  const SCALE_FRAMING: Record<ExplorerMode, { scale: string; blurb: string }> = {
-    ego: {
-      scale: 'Scale 1 · My Network',
-      blurb: 'You and your first-degree connections — the network that travels with you across communities.',
-    },
-    community: {
-      scale: 'Scale 2 · This Community',
-      blurb: 'The whole-community member topology — how everyone in this one community connects.',
-    },
-    communities: {
-      scale: 'Scale 3 · Across Communities',
-      blurb: 'Communities as nodes — how your communities connect to others. The level-up from people to communities.',
-    },
-  }
 
   // ego depth-legibility readout (BUG: depth changes felt inert under the privacy scope because the
   // seed graph is sparse — 2→8 nodes is imperceptible on a big canvas). A literal count makes even a

@@ -4,6 +4,8 @@ import type { BelongingMode, GraphData, TrustLink, TrustNode } from './types'
 import { linkKey } from './normalizeGraphData'
 import GraphZoomControls from './GraphZoomControls'
 import CommunityHubGraph from './CommunityHubGraph'
+import { clearGraphZoom, installGraphZoom, zoomBy, zoomReset } from './graphZoom'
+import { useGraphContainerWidth } from '../../hooks/useGraphContainerWidth'
 
 // Sprint 90 / ADR-070 — visible decay: fade an edge's opacity by how quiet the bond has gone, so the
 // graph perceptibly fades alongside the relationship faces. `strong`/undefined = no extra fade.
@@ -102,25 +104,14 @@ export default function TrustGraphHEB({
   onNodeActivate,
   enableZoom = false,
 }: TrustGraphHEBProps) {
-  const containerRef = useRef<HTMLDivElement>(null)
+  const { containerRef, width } = useGraphContainerWidth()
   const svgRef = useRef<SVGSVGElement>(null)
-  const [width, setWidth] = useState(700)
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
   const [switching, setSwitching] = useState(false)
   // Sprint 113 / BUG-027 — the live zoom behavior + its seeded initial transform, lifted to refs so the
   // zoom control buttons can drive the SAME d3.zoom the scroll/pinch gestures use (single owner).
   const zoomBehaviorRef = useRef<d3.ZoomBehavior<SVGSVGElement, unknown> | null>(null)
   const initialTransformRef = useRef<d3.ZoomTransform>(d3.zoomIdentity)
-
-  useEffect(() => {
-    if (!containerRef.current) return
-    const el = containerRef.current
-    const update = () => setWidth(el.clientWidth || 700)
-    update()
-    const observer = new ResizeObserver(update)
-    observer.observe(el)
-    return () => observer.disconnect()
-  }, [])
 
   // Cluster assignment: fission uses the proposed groups, community detects clusters.
   const clusterOf = useMemo(() => {
@@ -338,32 +329,13 @@ export default function TrustGraphHEB({
     // Initial highlight state (pinned focus, else fully visible).
     applyHighlight(focusedNodeId ?? null)
 
-    // ── pan/zoom ─────────────────────────────────────────────────────────────────────────────────
+    // ── pan/zoom (single owner; shared contract with CommunityHubGraph) ──────────────────────────────
     if (enableZoom) {
-      const zoom = d3.zoom<SVGSVGElement, unknown>()
-        .scaleExtent([0.5, 4])
-        // Pin the extent explicitly so the button controls' scaleBy/transform don't have to read the
-        // SVG viewport via width.baseVal (unsupported in jsdom) — also makes gesture math deterministic.
-        .extent([[0, 0], [width, height]])
-        // Sprint 113: zoom is on by default on every surface now, including graphs embedded in long
-        // scrollable pages (dashboard widget, fission editor). d3.zoom's wheel handler preventDefaults,
-        // which would hijack page scroll. So exclude the wheel: zoom via the buttons, pan via drag,
-        // pinch still works on touch. (Filter out the wheel and any non-primary button.)
-        .filter((event: any) => event.type !== 'wheel' && !event.button)
-        .on('zoom', (event) => root.attr('transform', event.transform.toString()))
-      svg.call(zoom)
-      // Also drop double-click-to-zoom so rapid node clicks on interactive surfaces don't zoom.
-      svg.on('dblclick.zoom', null)
-      // Seed the initial centered transform directly on the node (rather than zoom.transform, which
-      // computes the SVG extent via width.baseVal — unsupported in jsdom). Gestures resume from here.
-      const initial = d3.zoomIdentity.translate(cx, cy)
-      ;(svgRef.current as any).__zoom = initial
-      root.attr('transform', initial.toString())
-      zoomBehaviorRef.current = zoom
-      initialTransformRef.current = initial
+      const { behavior, initialTransform } = installGraphZoom(svgRef.current, root, { width, height, cx, cy })
+      zoomBehaviorRef.current = behavior
+      initialTransformRef.current = initialTransform
     } else {
-      svg.on('.zoom', null)
-      root.attr('transform', `translate(${cx},${cy})`)
+      clearGraphZoom(svgRef.current, root, cx, cy)
       zoomBehaviorRef.current = null
     }
   }, [graphData, clusterOf, mode, groupMap, currentUserId, width, height, maxWeight, enableZoom, focusedNodeId, onNodeActivate])
@@ -376,20 +348,12 @@ export default function TrustGraphHEB({
     }
   }, [])
 
-  // Button-driven zoom: drive the SAME d3.zoom the gestures use (single owner). Applied instantly
-  // (no transition) so it's deterministic in jsdom and snappy on click; the explicit `.extent()`
-  // above keeps scaleBy/transform off the jsdom-unsupported width.baseVal path.
+  // Button-driven zoom: drive the SAME d3.zoom the gestures use (single owner; shared with the hub).
   const handleZoomBy = (factor: number) => {
-    const node = svgRef.current
-    const zoom = zoomBehaviorRef.current
-    if (!node || !zoom) return
-    zoom.scaleBy(d3.select(node), factor)
+    if (svgRef.current && zoomBehaviorRef.current) zoomBy(svgRef.current, zoomBehaviorRef.current, factor)
   }
   const handleZoomReset = () => {
-    const node = svgRef.current
-    const zoom = zoomBehaviorRef.current
-    if (!node || !zoom) return
-    zoom.transform(d3.select(node), initialTransformRef.current)
+    if (svgRef.current && zoomBehaviorRef.current) zoomReset(svgRef.current, zoomBehaviorRef.current, initialTransformRef.current)
   }
 
   const selectedNode = selectedNodeId
@@ -422,7 +386,6 @@ export default function TrustGraphHEB({
     return (
       <CommunityHubGraph
         graphData={graphData}
-        currentUserId={currentUserId}
         height={height}
         enableZoom={enableZoom}
         onNodeActivate={onNodeActivate}
