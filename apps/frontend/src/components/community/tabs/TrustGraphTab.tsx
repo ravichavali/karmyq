@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import Link from 'next/link'
 import BelongingGraph from '@/components/BelongingGraph'
 import ReWarmingNudge from '@/components/relationships/ReWarmingNudge'
 
@@ -49,18 +50,26 @@ export default function TrustGraphTab({ communityId, currentUserId }: TrustGraph
         <h3 className="text-base font-semibold text-text">Trust Graph</h3>
         <p className="text-sm text-text-muted mt-1">
           {subTab === 'community'
-            ? 'Every member, grouped by how closely they connect. Amber lines are your connections.'
-            : 'Your first-degree network, clustered by how closely your connections connect to each other. Amber lines are yours.'}
+            ? 'Scale 2 · This Community — every member, grouped by how closely they connect. Amber lines are your connections.'
+            : 'Scale 1 · My Network — your first-degree connections, clustered by how closely they connect to each other. Amber lines are yours. This view travels with you across every community.'}
         </p>
       </div>
 
-      <div className="flex gap-2 mb-3">
+      <div className="flex flex-wrap items-center gap-2 mb-3">
         <button onClick={() => setSubTab('community')} className={tabClass(subTab === 'community')}>
-          Community
+          This Community
         </button>
         <button onClick={() => setSubTab('ego')} className={tabClass(subTab === 'ego')}>
           My Network
         </button>
+        {/* The level-up: zoom out to Scale 3 (communities-as-nodes) so the three scales read as one
+            continuum (people → this community → across communities). */}
+        <Link
+          href="/network?mode=communities"
+          className="ml-auto text-sm text-primary hover:underline"
+        >
+          See how communities connect →
+        </Link>
       </div>
 
       {/* Sprint 102 / ADR-070 — explain fading before the graph, then the gentle re-warm nudge. */}

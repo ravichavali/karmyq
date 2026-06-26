@@ -334,6 +334,14 @@ const memberships = user.communities ?? [];
 const isAdmin = user.role === 'admin' || memberships.some(m => m.role === 'admin');
 ```
 
+**⚠️ Authorization vs. identity — derive membership from live data, not stale JWT claims.** The
+`communities` claim is fine for *cheap* role hints inside a single request, but **authorization
+decisions** (can this viewer see/act on this resource?) MUST be re-derived from a live membership
+lookup. A JWT is a snapshot from login time — a user removed from a community still carries the
+old `communities` claim until their token refreshes, so a claim-only check leaks access. (Caught
+as a P2 stale-JWT bug in review.) When the answer gates visibility or a write, query current
+membership; don't trust the token.
+
 **New service nginx routing checklist:**
 - Add `location ~ ^/api/{your-prefix}(/.*)?$` block to `infrastructure/nginx/nginx.conf`
 - The proxy_pass path must strip `/api` prefix: `proxy_pass http://your_service/{your-prefix}$1$is_args$args`
@@ -692,6 +700,43 @@ SKIP_TESTS=1 ./scripts/deploy.sh
 - After making changes, always verify the fix works end-to-end before committing.
 - For TypeScript projects, run `tsc --noEmit` before pushing. CI failures from type errors are avoidable.
 - For generated/build-time files, never hand-edit them — fix the source template instead.
+- **After deleting or renaming any component/section/export, `Grep` the whole repo for every
+  reference before committing** — orphaned references compile-pass locally and only blow up in CI.
+- **Don't trust a suspiciously-green local test run after deletes/renames.** Turbo's cache only
+  tracks a task's declared inputs, so cross-workspace regression tests (e.g. a `tests/regression/*`
+  test that reads files in `apps/landing`) cache a stale pass while CI fails fresh. Re-run the
+  affected suite directly (`cd tests && npx jest regression/<file>`) or bust the cache with
+  `--force` before pushing. (See memory: *Turbo cache hides cross-workspace test failures*.)
+
+---
+
+## Merge, Deploy & Security-Gate Discipline
+
+This codifies recurring merge/deploy friction so it doesn't recur. **karmyq.com is a demo env, but
+master is protected and every master push is a full deploy** — treat it accordingly.
+
+**Branch & push hygiene:**
+- **Never force-push and never direct-push to `master`** — branch protection is enforced and a
+  blocked force-push just costs a recovery detour. If a PR's branch base is broken, open a **fresh
+  replacement PR** rather than trying to force-push the fix.
+- **Branch off `origin/master`, not local `master`** — an unpushed local-master commit leaks onto
+  master via a new branch's squash-merge. Update a diverged PR branch with a **merge commit**, not
+  rebase + force (force is policy-blocked here).
+- **Keep planning commits (spec/plan/handoff) on the feature branch only** — never let them orphan
+  on master; relocating an orphaned commit requires a branch-topology reset.
+- **No docs-only pushes to master** — fold docs into the PR. A separate post-merge handoff push
+  triggers a *second* deploy → services restart → demo transiently 502s.
+
+**Security gates (ADR-059 deps audit + ADR-060 CodeQL):**
+- **Recurring CodeQL alerts on this repo are documented false positives** (e.g. `js/request-forgery`
+  on `apps/frontend/src/lib/api.ts`, an env-var-driven axios baseURL). **Surface them to the user
+  for dismissal — do not loop the dismissal API** (rate-limited; use the UI bulk-dismiss for any
+  rule class with >~50 alerts).
+- The CodeQL gate can false-block the very push that ships the fix (rescan lag + re-fingerprinted
+  alerts) — **re-run the gate after the rescan completes**, don't `--no-verify` past it.
+
+**Environment:**
+- Use the prod DB user **`karmyq_prod`** for demo-server data operations, not a default/dev user.
 
 ---
 
@@ -725,3 +770,5 @@ The handoff is the only thing that travels between conversations. If a new chat 
 ---
 
 **Remember**: This is global context. For specific areas, **read the local `.claude/README.md` first!**
+
+

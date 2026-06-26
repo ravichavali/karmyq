@@ -92,15 +92,21 @@ describe('TrustGraphHEB communities mode', () => {
     links: [{ source: 'c1', target: 'c2', raw_weight: 3, effective_weight: 3, type: 'organic' }],
   }
 
-  it('keeps uniform node radius and surfaces member count/status in the detail panel', () => {
+  // Sprint 113 PR B / Task 9 — Scale 3 ("Across Communities") now renders through the egocentric-hub
+  // layout, where node size encodes MEMBERSHIP (user decision 2026-06-25). ADR-063's uniform sizing was
+  // about not mistaking a *person* dot for importance; communities legitimately differ in size, and the
+  // legend says so ("○ size = membership"). The detail panel still surfaces member count/status.
+  it('sizes community nodes by membership and surfaces member count/status in the detail panel', () => {
     const { container, getByText } = render(
       <TrustGraphHEB graphData={communitiesGraph} currentUserId="" mode="communities" />
     )
-    const radii = Array.from(container.querySelectorAll('circle')).map(c => c.getAttribute('r'))
-    expect(new Set(radii).size).toBe(1) // uniform sizing (ADR-063)
+    // The bigger community (30 members) renders a larger dot than the smaller one (12 members).
+    const c1Dot = nodeById(container, 'c1')!.querySelector('circle')!
+    const c2Dot = nodeById(container, 'c2')!.querySelector('circle')!
+    expect(parseFloat(c2Dot.getAttribute('r')!)).toBeGreaterThan(parseFloat(c1Dot.getAttribute('r')!))
 
     fireEvent.click(nodeById(container, 'c1')!)
-    expect(getByText(/12/)).toBeInTheDocument()
+    expect(getByText('12')).toBeInTheDocument() // detail-panel member count (exact, not the tooltip)
     expect(getByText(/active/i)).toBeInTheDocument()
   })
 })

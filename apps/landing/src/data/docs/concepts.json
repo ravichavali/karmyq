@@ -636,8 +636,8 @@
       "slug": "adr-082-reputation-disclosure-boundary",
       "number": "082",
       "title": "ADR-082: Reputation Disclosure Boundary",
-      "status": "accepted",
-      "description": "**Status**: Accepted",
+      "status": "implemented",
+      "description": "**Status**: Implemented",
       "filename": "ADR-082-reputation-disclosure-boundary.md"
     }
   ]
