@@ -354,28 +354,36 @@ The "You've offered to help" section seems to have wrong info — I couldn't fin
 
 ---
 
-## BUG-024 · [2026-06-24] · planned (Sprint 113 PR A)
+## BUG-024 · [2026-06-24] · fixed (Sprint 113 PR A, validated 2026-06-25)
 
 Trust/karma data discrepancy for the same user+community across surfaces. As Maria (logged in), community page `/communities/dd910075-313f-40e4-b302-bd596c84770d` shows "Maria Elena Reyes trust 120 · 40 karma", but Maria's profile page for the SAME community shows Karma Points 0, Trust Score 27 (out of 100), Recent Helps 0, Recent Requests 20. Numbers don't reconcile (trust 120 vs 27/100; karma 40 vs 0). Likely different metric sources/scales: community trust graph = decayed sum of edge weights (~120, unbounded) vs profile "Trust Score out of 100" = a normalized reputation metric; karma 40 (community-scoped, from the graph node) vs 0 (profile, possibly global or a different query). Needs reconciliation or clear labeling so the same concept reads consistently.
 
 ALSO a privacy sub-question raised: on the community/governance nominee view, are OTHER nominees' trust/karma shown? The S111 privacy fix only covered the trust-graph API; governance/nominee lists may still expose member reputation numbers and should be checked against the same "only your own metrics" rule.
 
+**Fixed (S113 PR A):** `profile.tsx` `fetchKarmaData` now reads the single canonical `GET /reputation/me/community-summary` (ADR-082) instead of recombining `getMyKarma` + `getTrustScore`; copy standardized on **Current Karma** / **Reputation Score**. Cross-user governance/nominee reads are identity-only (no other member's trust/karma). **Two-user validation 2026-06-25 (Playwright, live demo): PASS** — Maria 27/20, Aisha 0/27; each self-only and reconciled, no NaN.
+
 ---
 
-## BUG-025 · [2026-06-25] · planned (Sprint 113 PR A)
+## BUG-025 · [2026-06-25] · fixed (Sprint 113 PR A, validated 2026-06-25)
 
 Stewardship section renders "trust NaN · NaN karma". Reputation values come through as NaN in the stewardship/governance UI — likely a frontend regression after S112 PR A (ADR-082) removed exact member reputation from outward contracts: a component still reads now-absent numeric fields and computes NaN instead of omitting them or showing a coarse label. Should render nothing / a qualitative label, never "NaN".
 
+**Fixed (S113 PR A):** `GovernanceTab.tsx` (and all other readers grepped) no longer `Math.round(undefined)` now-omitted ADR-082 fields — eligible-members show a coarse qualitative label, role-holders show identity + role only, no `|| 0` fake zeros. **Validation 2026-06-25: PASS** — "Maria Elena Reyes · admin" renders with no trailing "trust NaN", no NaN anywhere.
+
 ---
 
-## BUG-026 · [2026-06-25] · planned (Sprint 113 PR A)
+## BUG-026 · [2026-06-25] · fixed (Sprint 113 PR A, validated 2026-06-25)
 
 Cannot confirm BUG-024 is actually fixed — after the S112 PR A deploy, the profile page still appears to show the old reputation numbers for a community. The ADR-082 boundary (exact reputation self-only; surfaces reconciled) may not be fully wired on the profile frontend, or the demo is serving stale assets. Needs the two-user validation step: confirm a member's exact karma/trust is self-only AND that profile vs community surfaces reconcile (the original BUG-024 discrepancy). Until verified, do NOT mark BUG-024 fixed. Related: [[BUG-024]], BUG-025.
 
+**Verified (S113 PR A):** the two-user Playwright validation against the live demo (2026-06-25) confirmed each user sees their OWN distinct reconciled numbers from the canonical self-summary (Maria 27/20, Aisha 0/27 — the exact ADR-082 example), canonical labels present, no NaN, no stale cross-user numbers. BUG-024 confirmed fixed. Related: [[BUG-024]], [[BUG-025]].
+
 ---
 
-## BUG-027 · [2026-06-25] · planned (Sprint 113 PR A)
+## BUG-027 · [2026-06-25] · fixed (Sprint 113 PR A, validated 2026-06-25)
 
 Network/belonging maps have no zoom in/out controls. None of the network map surfaces (trust graph / belonging graph / community network views) expose zoom (or pinch/scroll-zoom) — the D3 HEB renderer seeds `__zoom` but zoom controls/affordances appear missing or non-functional in the deployed UI. Add visible zoom-in/out controls + wheel/pinch zoom across all network-map surfaces.
+
+**Fixed (S113 PR A):** `GraphZoomControls` (in/out/reset) mount inside the single renderer `TrustGraphHEB`, gated by `enableZoom` (now default-on in the `BelongingGraph` wrapper) so every surface gets one control cluster, none double-mount. **Validation 2026-06-25: PASS** — clicking zoom-in drove `__zoom` scale 1 → 1.2, reset returned to 1.
 
 ---

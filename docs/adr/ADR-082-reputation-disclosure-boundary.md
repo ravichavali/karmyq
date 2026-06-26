@@ -1,9 +1,9 @@
 # ADR-082: Reputation Disclosure Boundary
 
-**Status**: Accepted
+**Status**: Implemented
 **Date**: 2026-06-24
-**Sprint**: 112
-**Version**: 11.18.0 → 11.19.0
+**Sprint**: 112 (contract) → 113 (UI defense-in-depth + two-user validation)
+**Version**: 11.18.0 → 11.19.0 → 11.20.0
 **Supersedes (partially)**: the graph-node numeric reputation contract from ADR-081
 
 ## Context

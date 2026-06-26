@@ -104,7 +104,13 @@ export default function NetworkPage() {
     if (!user) return
     communityService
       .getMyCommunities(user.id)
-      .then((res: any) => setMemberships((res.data ?? []) as MembershipSummary[]))
+      .then((res: any) => {
+        // getMyCommunities returns `{ communities: [...], count, total }` (an object), not a bare
+        // array — `res.data ?? []` kept the object, so the community picker's `memberships.map`
+        // threw "map is not a function" and crashed `?mode=community`. Extract the array defensively.
+        const list = res.data?.communities ?? res.data?.data ?? res.data
+        setMemberships(Array.isArray(list) ? (list as MembershipSummary[]) : [])
+      })
       .catch(() => setMemberships([]))
   }, [user])
 
