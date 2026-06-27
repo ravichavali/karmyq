@@ -1,6 +1,6 @@
 // Sprint 111 / ADR-081 — the canonical client graph model. Every belonging-graph surface (dashboard,
 // profile, community, fission, and the full-page /network explorer) renders these types through the
-// single canvas renderer (GraphCanvas) via <BelongingGraph>. Before S111 four wrappers each declared their own
+// single TrustGraphHEB engine via <BelongingGraph>. Before S111 four wrappers each declared their own
 // near-identical TrustNode/TrustLink shapes; this file collapses them to one.
 
 export type BelongingMode = 'ego' | 'community' | 'communities' | 'fission'

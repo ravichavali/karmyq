@@ -1,14 +1,13 @@
 import React from 'react'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import '@testing-library/jest-dom'
 import type { GraphData } from '@/components/graphs/types'
 
 /**
  * Sprint 111 — surface migration + raised profile altitude (ADR-081).
  *
- * Community Trust Graph, fission, and profile all render through one <BelongingGraph>; the profile
- * gains a headline "belonging" section with an honest, exact connection/community pulse. Sprint 114
- * retires the dead dashboard widget and the duplicate community "My Network" sub-tab.
+ * Dashboard, community Trust Graph, fission, and profile all render through one <BelongingGraph>; the
+ * profile gains a headline "belonging" section with an honest, exact connection/community pulse.
  */
 
 // Configurable BelongingGraph stub: emits onDataLoaded (for the profile pulse) and exposes its props.
@@ -50,6 +49,7 @@ jest.mock('@/lib/api', () => {
   }
 })
 
+import TrustNetworkWidget from '@/components/dashboard/TrustNetworkWidget'
 import TrustGraphTab from '@/components/community/tabs/TrustGraphTab'
 import FissionTab from '@/components/community/tabs/FissionTab'
 import BelongingSection from '@/components/BelongingSection'
@@ -64,18 +64,27 @@ beforeEach(() => {
   getMyCommunities.mockResolvedValue({ data: [{ id: 'c1', name: 'One' }] })
 })
 
+describe('dashboard TrustNetworkWidget', () => {
+  it('renders BelongingGraph in ego then communities mode and keeps the /network link', () => {
+    render(<TrustNetworkWidget currentUserId="u1" />)
+    expect(screen.getByTestId('belonging-graph')).toHaveAttribute('data-mode', 'ego')
+
+    fireEvent.click(screen.getByRole('button', { name: /communities/i }))
+    expect(screen.getByTestId('belonging-graph')).toHaveAttribute('data-mode', 'communities')
+
+    expect(screen.getByRole('link', { name: /view full/i })).toHaveAttribute('href', '/network')
+  })
+})
+
 describe('community TrustGraphTab', () => {
-  it('renders community mode with the communityId and links up to the explorer', async () => {
+  it('renders community mode (full community) then ego mode, both with the communityId', async () => {
     render(<TrustGraphTab communityId="c1" currentUserId="u1" />)
     const graph = await screen.findByTestId('belonging-graph')
     expect(graph).toHaveAttribute('data-mode', 'community')
     expect(graph).toHaveAttribute('data-communityid', 'c1')
 
-    expect(screen.queryByRole('button', { name: /my network/i })).not.toBeInTheDocument()
-    expect(screen.getByRole('link', { name: /how communities connect/i })).toHaveAttribute(
-      'href',
-      '/network?mode=communities'
-    )
+    fireEvent.click(screen.getByRole('button', { name: /my network/i }))
+    expect(screen.getByTestId('belonging-graph')).toHaveAttribute('data-mode', 'ego')
   })
 })
 

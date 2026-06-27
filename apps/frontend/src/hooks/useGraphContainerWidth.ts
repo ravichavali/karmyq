@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 
 /**
- * Sprint 113 — the shared responsive-width tracker for the belonging-graph renderer
- * (BelongingGraphRenderer / GraphCanvas). Returns a container ref to attach and the observed pixel width, falling back to
+ * Sprint 113 — the shared responsive-width tracker for belonging-graph renderers (TrustGraphHEB,
+ * CommunityHubGraph). Returns a container ref to attach and the observed pixel width, falling back to
  * `defaultWidth` until measured. ResizeObserver is stubbed in jest.setup, so width falls back to the
  * default in tests.
  */

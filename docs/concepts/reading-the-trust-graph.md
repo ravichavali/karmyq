@@ -6,22 +6,22 @@ The trust graph turns your completed help exchanges into a picture. Each person 
 
 A node's **trust score** is the sum of the *current* (decayed) strength of all its trust relationships. Trust that isn't maintained fades, so the score reflects where a relationship stands **today** — not its all-time peak. The same person therefore shows the **same score in every view**.
 
-## One canonical graph, one canvas renderer, multiple homes
+## One engine, one visual language
 
-There is **one** canonical belonging graph — one data model, normalized once — drawn by **one** canvas renderer (`react-force-graph-2d`, ADR-083) across all of its homes: your **profile**, your **community**, and the full-page **`/network`** explorer. What you learn in one reads the same in the next. As of Sprint 114 the renderer is a force-directed canvas (it replaced the radial edge-bundle); the geometry looks different, but the meaning of every element is the same. The one deliberate variation is the *across-communities* scale, where the nodes are whole communities rather than people — your communities anchored near the centre, connected communities spread outward, always labelled. Across all of it:
+Every belonging-graph surface that draws **people** renders through a **single** engine (hierarchical edge bundling) — what you learn on the dashboard reads the same on your profile, in a community, and in the full-page explorer. The one deliberate exception is the *across-communities* scale, where the nodes are whole communities rather than people: there a dedicated **egocentric hub** layout is clearer than the bundle (your communities anchored in the centre, connected communities radiating outward, always labelled). Across all of it:
 
 - **Every *person* node is the same size.** A person's dot doesn't encode a variable, so it can't mislead. What you read is *structure* — who clusters together, who bridges groups. (The exception is a *community* node on the across-communities scale, whose size honestly encodes membership.)
 - **You are enlarged and white-ringed** — a "you are here" anchor. In the communities view, **your** communities carry an emerald member ring.
 - **Your connections are amber.** Lines touching you stand out from everyone else's.
 - **Clusters share a color.** Ties inside a close-knit group are indigo; ties that bridge between groups are slate. A cluster is a tightly-knit pocket of people, detected from the strongest ties.
-- **Reputation numbers stay private.** Node detail is **structure-only** — name, degrees away, connection count, and a qualitative relationship state — and shows **no trust score or karma**, not even your own (ADR-082). Your own exact numbers live on your profile and the My Network self-summary, never on the graph.
+- **Reputation numbers stay private.** Clicking another person shows only their name and connection count (which you can already see as edges). Trust score and karma appear only on your own node.
 - **Hover or focus fades the rest.** Pointing at (or keyboard-focusing) a node dims everything not in its neighborhood, so one person's connections are legible inside a dense graph.
 
 ## Three scales of one structure (plus fission)
 
 The belonging graph is not several unrelated views — it's **one structure at three zoom levels**. You zoom *out* from yourself, to your community, to the constellation of communities:
 
-- **Scale 1 · My Network** (`ego`) — *you* and your first-degree connections, the network that travels with you across every community. Reached from the top-nav **My Network** link, the profile belonging section, and the explorer (with a depth slider and a "Showing N people within D hops" readout that makes a small, privacy-scoped expansion legible).
+- **Scale 1 · My Network** (`ego`) — *you* and your first-degree connections, the network that travels with you across every community. Reached from the **My Network** nav link and a Home preview card, the profile belonging section, the dashboard People toggle, and the explorer (with a depth slider and a "Showing N people within D hops" readout that makes a small, privacy-scoped expansion legible).
 - **Scale 2 · This Community** (`community`) — every member of *one* community, grouped into clusters by how closely they connect. The whole-community member topology.
 - **Scale 3 · Across Communities** (`communities`) — communities-as-nodes: how your communities connect to others. Drawn as the egocentric hub, with **organic ties** (solid, slate) that accrue as members exchange help across communities and **fission lineage** (dashed, violet) tracing parent→child links left behind when a community splits.
 

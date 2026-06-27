@@ -474,7 +474,6 @@ const ADR_GROUPS: Array<{ label: string; slugs: string[] }> = [
       'adr-078-community-connection-reconciliation',
       'adr-081-belonging-graph-system',
       'adr-082-reputation-disclosure-boundary',
-      'adr-083-belonging-graph-rendering-engine',
     ],
   },
   {
