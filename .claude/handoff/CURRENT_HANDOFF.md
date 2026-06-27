@@ -11,10 +11,16 @@
 >
 > **Working tree:** clean except this handoff. Codex's two cross-agent review rounds are **resolved**:
 > the keyboard-a11y blocker (`dabdccba`) and the sighted-keyboard focus-visibility follow-up (`3a95fc45`)
-> are both fixed; the false `enableZoomInteraction` note is withdrawn. Latest re-review:
-> https://github.com/ravichavali/karmyq/pull/123#issuecomment-4814601521 → reply
-> https://github.com/ravichavali/karmyq/pull/123#issuecomment-4814631336. **Awaiting Codex re-review of
-> `3a95fc45` + Admin merge authorization** (contributor agents never self-merge).
+> are both fixed; the false `enableZoomInteraction` note is withdrawn.
+>
+> **⚠️ Stale-review note:** comment
+> https://github.com/ravichavali/karmyq/pull/123#issuecomment-4814601521 was authored against
+> `dabdccba` (topology: `dabdccba → 811ffa8a → 41d4ebfa [that review] → 3a95fc45 [the fix] → 4dda7799`).
+> All three of its claims are false on the current head `4dda7799` (= PR head): the visible "Focused:
+> \<name\>" `role="status"` chip, the `keyboardFocusedNodeId` amber canvas ring, and a `fireEvent.focus`
+> test all exist and pass. Evidence reply:
+> https://github.com/ravichavali/karmyq/pull/123#issuecomment-4815079665. **Do not re-implement — re-review
+> against `4dda7799`.** Then Admin merge authorization (contributor agents never self-merge).
 >
 > **Spec:** `docs/superpowers/specs/2026-06-26-belonging-graph-consolidation-design.md`
 >
