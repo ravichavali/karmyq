@@ -9,10 +9,11 @@
 > **Branch:** `feature/sprint-114-belonging-graph-consolidation` — pushed. **PR #123 open**
 > (https://github.com/ravichavali/karmyq/pull/123).
 >
-> **Working tree:** clean before this handoff update. Task 13 PR + CI work is complete, and Codex's
-> cross-agent review is recorded at https://github.com/ravichavali/karmyq/pull/123#issuecomment-4814156431.
-> **Changes requested:** restore keyboard-focus/activation parity before merge. Admin authorization is
-> still required after re-review (contributor agents never self-merge).
+> **Working tree:** clean except this handoff. Codex's cross-agent review
+> (https://github.com/ravichavali/karmyq/pull/123#issuecomment-4814156431) is **resolved** by Claude:
+> the keyboard-a11y merge blocker is fixed (`dabdccba`) and the false `enableZoomInteraction` note is
+> withdrawn (verified the library invokes it as a predicate). Reply posted, PR body updated, branch
+> pushed. **Awaiting Codex re-review, then Admin merge authorization** (contributor agents never self-merge).
 >
 > **Spec:** `docs/superpowers/specs/2026-06-26-belonging-graph-consolidation-design.md`
 >
@@ -29,12 +30,11 @@
 
 1. Read this handoff.
 2. Confirm branch: `git branch --show-current` should be `feature/sprint-114-belonging-graph-consolidation`.
-3. Tasks 8-12 are committed (`07b5a965`, `2426c8bd`, `4921376d`, `c0d36c6d`, `7cfc9a15`). No action needed.
-4. Fix the Codex review blocker: add a keyboard-reachable DOM/chrome interaction path for canvas
-   nodes, wire focus to graph highlighting and Enter/Space to activation, and restore regression
-   coverage. Remove the false `enableZoomInteraction` known issue from the PR body/handoff: the pinned
-   library accepts and invokes predicate functions, so the current wheel filter is valid. Re-run gates,
-   push, request Codex re-review, then stop for Admin authorization before merge.
+3. Tasks 8-12 + the review fix (`dabdccba`) are committed. No action needed.
+4. Codex review is resolved (keyboard-a11y blocker fixed in `dabdccba`; false wheel-zoom note
+   withdrawn). **Next: confirm CI green on `dabdccba`, get Codex re-review, then stop for Admin merge
+   authorization** (`gh pr merge 123 --squash --delete-branch`). Real deploy = post-merge master
+   CI/CD `Deploy to Demo` job, not the PR-level skipped check. Then Task 14 post-deploy validation.
 
 ## Sprint Goal
 
@@ -109,6 +109,7 @@ Adopt `react-force-graph-2d@1.29.1` and consolidate the belonging graph to profi
   - `4921376d` `docs: record S114 graph renderer decision` (Task 10; ADR-083 + guide/concept + landing)
   - `c0d36c6d` `test: promote S114 graph regression coverage` (Task 11; CONTEXT + registry wording + TDD→regression)
   - `7cfc9a15` `fix: resolve S114 quality-gate findings` (Task 12; XSS escape + reheat-loop fix + simplify)
+  - `dabdccba` `fix: restore keyboard a11y parity for canvas graph nodes` (Codex review blocker)
 - **Task 8 committed:** community `My Network` sub-tab removed, Home `MyNetworkPreview`
   import/render removed, `MyNetworkPreview.tsx` deleted, orphaned `TrustNetworkWidget.tsx` deleted.
 - **Task 9 committed:** deleted `TrustGraphHEB.tsx`, `CommunityHubGraph.tsx`, and the now-orphaned
@@ -140,17 +141,19 @@ Adopt `react-force-graph-2d@1.29.1` and consolidate the belonging graph to profi
   changes requested at https://github.com/ravichavali/karmyq/pull/123#issuecomment-4814156431. GitHub
   cannot record a formal changes-requested review because same-machine agents share the PR author's
   maintainer identity.
-- **Merge blocker:** S114's approved parity checklist requires keyboard-focusable/activatable graph
-  nodes. The retired SVG renderers supplied labelled `role="button"` nodes, `tabindex`, Enter/Space,
-  and focus highlighting; the canvas replacement currently exposes pointer hover/click only, while
-  the updated guide promises keyboard focus. Restore a DOM/chrome keyboard path and regression tests.
-- **Review correction:** `enableZoomInteraction={(event) => event.type !== 'wheel'}` is valid in the
-  pinned `react-force-graph-2d@1.29.1` / `force-graph@1.51.4`; both types and runtime accept a predicate.
-  Remove the false follow-up from the PR body when applying the review fix.
-- **Next action:** author fixes keyboard parity, updates the PR contract, re-runs gates, pushes, and
-  requests Codex re-review. Only after approval + Admin authorization: squash-merge, monitor the
-  post-merge master `Deploy to Demo` job, then run Task 14 validation.
-- **Blockers:** keyboard accessibility parity, Codex re-review, then Admin authorization.
+- **Merge blocker RESOLVED (`dabdccba`):** keyboard a11y restored via a parallel chrome layer in
+  `BelongingGraphRenderer` — an `sr-only` labelled list of native `<button>`s (one per node); focus
+  highlights the node's neighborhood on canvas (same `setHoveredNodeId` path as mouse hover),
+  activation opens the detail panel or fires `onNodeActivate`. 3 regression tests added. Reply posted
+  to the review thread; PR body updated.
+- **Review correction APPLIED:** the `enableZoomInteraction` follow-up was withdrawn (verified
+  `force-graph.mjs:1493` invokes it as a predicate via `accessorFn(...)(ev)`); removed from the PR body.
+- **Latest full root gate:** passed after the a11y fix (`npm test`, 26/26 Turbo tasks; frontend
+  regression 84 tests). CI re-running on `dabdccba`.
+- **Next action:** confirm CI green on `dabdccba` → Codex re-review → Admin merge authorization, then
+  `gh pr merge 123 --squash --delete-branch`, monitor the post-merge master `Deploy to Demo` job, then
+  Task 14 validation.
+- **Blockers:** Codex re-review + Admin authorization before merge.
 
 ## Architecture Gotchas
 
