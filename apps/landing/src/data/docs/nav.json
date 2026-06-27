@@ -401,10 +401,6 @@
           "href": "/docs/concepts/adr-082-reputation-disclosure-boundary"
         },
         {
-          "label": "Belonging Graph Rendering Engine",
-          "href": "/docs/concepts/adr-083-belonging-graph-rendering-engine"
-        },
-        {
           "label": "— Community & Scale —",
           "href": "/docs/concepts",
           "divider": true

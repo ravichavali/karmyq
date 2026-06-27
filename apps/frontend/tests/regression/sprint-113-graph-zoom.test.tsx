@@ -1,16 +1,15 @@
 /**
  * Sprint 113 / BUG-027: every belonging-graph surface lost its zoom affordance.
  * Restore visible zoom controls with a SINGLE owner — mounted inside the one
- * renderer (BelongingGraphRenderer), gated by `enableZoom`, so no surface double-mounts.
+ * renderer (TrustGraphHEB), gated by `enableZoom`, so no surface double-mounts.
  *
  * Proves: controls render when zoom is enabled, are absent when disabled, and
- * clicking them drives the react-force-graph-2d ref (zoom / zoomToFit).
+ * clicking them drives the real d3.zoom behavior (the svg's __zoom transform).
  */
 
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
-import BelongingGraphRenderer from '@/components/graphs/BelongingGraphRenderer';
-import { forceGraphMethods, resetForceGraphMock } from '../mocks/reactForceGraph2DMock';
+import TrustGraphHEB from '@/components/graphs/TrustGraphHEB';
 
 const graphData = {
   nodes: [
@@ -25,31 +24,36 @@ const graphData = {
 } as any;
 
 describe('Sprint 113 — BUG-027 graph zoom controls (single owner)', () => {
-  beforeEach(() => {
-    resetForceGraphMock();
-  });
-
   it('renders zoom in/out/reset controls when zoom is enabled', () => {
-    render(<BelongingGraphRenderer graphData={graphData} currentUserId="me" mode="community" enableZoom />);
+    render(<TrustGraphHEB graphData={graphData} currentUserId="me" mode="community" enableZoom />);
     expect(screen.getByLabelText(/zoom in/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/zoom out/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/reset zoom/i)).toBeInTheDocument();
   });
 
   it('does not render controls when zoom is disabled', () => {
-    render(<BelongingGraphRenderer graphData={graphData} currentUserId="me" mode="community" />);
+    render(<TrustGraphHEB graphData={graphData} currentUserId="me" mode="community" />);
     expect(screen.queryByLabelText(/zoom in/i)).not.toBeInTheDocument();
   });
 
-  it('zooming in drives the force-graph zoom method', () => {
-    render(<BelongingGraphRenderer graphData={graphData} currentUserId="me" mode="community" enableZoom />);
+  it('zooming in increases the svg zoom scale (drives the d3 zoom behavior)', () => {
+    const { container } = render(
+      <TrustGraphHEB graphData={graphData} currentUserId="me" mode="community" enableZoom />
+    );
+    const svg = container.querySelector('svg') as any;
+    const before = svg.__zoom?.k ?? 1;
     fireEvent.click(screen.getByLabelText(/zoom in/i));
-    expect(forceGraphMethods.zoom).toHaveBeenCalled();
+    expect(svg.__zoom.k).toBeGreaterThan(before);
   });
 
-  it('reset asks the force graph to fit the visible graph', () => {
-    render(<BelongingGraphRenderer graphData={graphData} currentUserId="me" mode="community" enableZoom />);
+  it('reset returns the zoom scale to its initial value', () => {
+    const { container } = render(
+      <TrustGraphHEB graphData={graphData} currentUserId="me" mode="community" enableZoom />
+    );
+    const svg = container.querySelector('svg') as any;
+    fireEvent.click(screen.getByLabelText(/zoom in/i));
+    expect(svg.__zoom.k).toBeGreaterThan(1);
     fireEvent.click(screen.getByLabelText(/reset zoom/i));
-    expect(forceGraphMethods.zoomToFit).toHaveBeenCalled();
+    expect(svg.__zoom.k).toBeCloseTo(1);
   });
 });

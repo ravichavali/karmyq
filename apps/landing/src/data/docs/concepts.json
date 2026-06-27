@@ -639,14 +639,6 @@
       "status": "implemented",
       "description": "**Status**: Implemented",
       "filename": "ADR-082-reputation-disclosure-boundary.md"
-    },
-    {
-      "slug": "adr-083-belonging-graph-rendering-engine",
-      "number": "083",
-      "title": "ADR-083: Belonging Graph Rendering Engine",
-      "status": "accepted",
-      "description": "**Status**: Accepted",
-      "filename": "ADR-083-belonging-graph-rendering-engine.md"
     }
   ]
 }

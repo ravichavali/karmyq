@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import Link from 'next/link'
 import BelongingGraph from '@/components/BelongingGraph'
 import ReWarmingNudge from '@/components/relationships/ReWarmingNudge'
@@ -6,6 +7,8 @@ interface TrustGraphTabProps {
   communityId: string
   currentUserId: string
 }
+
+type SubTab = 'community' | 'ego'
 
 /**
  * Sprint 102 / ADR-070 — explain why some lines look softer, so fading is text-legible (not just
@@ -34,16 +37,31 @@ function MemoryLegend() {
 }
 
 export default function TrustGraphTab({ communityId, currentUserId }: TrustGraphTabProps) {
+  const [subTab, setSubTab] = useState<SubTab>('community')
+
+  const tabClass = (active: boolean) =>
+    `px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+      active ? 'bg-indigo-600 text-white' : 'bg-surface text-text-muted hover:text-text'
+    }`
+
   return (
     <div>
       <div className="mb-4">
         <h3 className="text-base font-semibold text-text">Trust Graph</h3>
         <p className="text-sm text-text-muted mt-1">
-          Scale 2 · This Community — this community&apos;s member topology, every member grouped by how closely they connect.
+          {subTab === 'community'
+            ? 'Scale 2 · This Community — every member, grouped by how closely they connect. Amber lines are your connections.'
+            : 'Scale 1 · My Network — your first-degree connections, clustered by how closely they connect to each other. Amber lines are yours. This view travels with you across every community.'}
         </p>
       </div>
 
       <div className="flex flex-wrap items-center gap-2 mb-3">
+        <button onClick={() => setSubTab('community')} className={tabClass(subTab === 'community')}>
+          This Community
+        </button>
+        <button onClick={() => setSubTab('ego')} className={tabClass(subTab === 'ego')}>
+          My Network
+        </button>
         {/* The level-up: zoom out to Scale 3 (communities-as-nodes) so the three scales read as one
             continuum (people → this community → across communities). */}
         <Link
@@ -62,7 +80,7 @@ export default function TrustGraphTab({ communityId, currentUserId }: TrustGraph
 
       <div className="w-full min-h-[600px] h-[calc(100vh-320px)]">
         <BelongingGraph
-          mode="community"
+          mode={subTab === 'community' ? 'community' : 'ego'}
           communityId={communityId}
           currentUserId={currentUserId}
           load="immediate"

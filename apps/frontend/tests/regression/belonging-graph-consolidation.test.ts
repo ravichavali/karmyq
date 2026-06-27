@@ -17,11 +17,6 @@ describe('retired graph wrappers are gone', () => {
     'src/components/TrustGraph.tsx',
     'src/components/graphs/CommunityDepthGraph.tsx',
     'src/types/react-cytoscapejs.d.ts',
-    // Sprint 114 (ADR-083) — the D3 SVG renderers and their zoom helper are retired now that the
-    // belonging graph renders through GraphCanvas (react-force-graph-2d).
-    'src/components/graphs/TrustGraphHEB.tsx',
-    'src/components/graphs/CommunityHubGraph.tsx',
-    'src/components/graphs/graphZoom.ts',
   ])('%s no longer exists', file => {
     expect(exists(file)).toBe(false)
   })
@@ -35,30 +30,24 @@ describe('the unified surfaces exist', () => {
     'src/components/BelongingPulse.tsx',
     'src/components/graphs/types.ts',
     'src/components/graphs/normalizeGraphData.ts',
-    'src/components/graphs/graphCanvasModel.ts',
-    'src/components/graphs/GraphCanvas.tsx',
-    'src/components/graphs/BelongingGraphRenderer.tsx',
+    'src/components/graphs/TrustGraphHEB.tsx',
   ])('%s exists', file => {
     expect(exists(file)).toBe(true)
   })
 })
 
-describe('belonging graph renderer dependencies', () => {
+describe('dead graph dependencies are removed', () => {
   const pkg = JSON.parse(fs.readFileSync(path.join(FRONTEND_ROOT, 'package.json'), 'utf8'))
   const allDeps = { ...(pkg.dependencies ?? {}), ...(pkg.devDependencies ?? {}) }
 
-  it.each(['cytoscape', 'react-cytoscapejs', '@types/cytoscape'])(
-    '%s remains retired',
+  it.each(['cytoscape', 'react-cytoscapejs', '@types/cytoscape', 'react-force-graph-2d'])(
+    '%s is not a dependency',
     dep => {
       expect(allDeps[dep]).toBeUndefined()
     }
   )
 
-  it('uses react-force-graph-2d as the Phase 1 canvas renderer', () => {
-    expect(allDeps['react-force-graph-2d']).toBe('1.29.1')
-  })
-
-  it('keeps d3 available for force/layout helpers, but not as the sole renderer', () => {
+  it('still depends on d3 (the only graph dependency)', () => {
     expect(allDeps['d3']).toBeDefined()
   })
 })

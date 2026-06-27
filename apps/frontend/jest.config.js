@@ -11,7 +11,6 @@ const customJestConfig = {
   testEnvironment: 'jest-environment-jsdom',
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
-    '^react-force-graph-2d$': '<rootDir>/tests/mocks/reactForceGraph2DMock.tsx',
     // Sprint 111 — D3 v7 is ESM-only and next/jest forces its own transformIgnorePatterns, so jest
     // can't transpile it. Map the `d3` barrel to its UMD/CJS dist bundle so TrustGraphHEB's renderer
     // tests can run the real D3 (select/hierarchy/cluster/lineRadial/zoom) in jsdom.
