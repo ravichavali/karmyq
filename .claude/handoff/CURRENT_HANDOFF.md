@@ -9,11 +9,12 @@
 > **Branch:** `feature/sprint-114-belonging-graph-consolidation` — pushed. **PR #123 open**
 > (https://github.com/ravichavali/karmyq/pull/123).
 >
-> **Working tree:** clean except this handoff. Codex's cross-agent review
-> (https://github.com/ravichavali/karmyq/pull/123#issuecomment-4814156431) is **resolved** by Claude:
-> the keyboard-a11y merge blocker is fixed (`dabdccba`) and the false `enableZoomInteraction` note is
-> withdrawn (verified the library invokes it as a predicate). Reply posted, PR body updated, branch
-> pushed. **Awaiting Codex re-review, then Admin merge authorization** (contributor agents never self-merge).
+> **Working tree:** clean before this handoff update. CI is green on final HEAD `811ffa8a`. Codex
+> re-reviewed `dabdccba` and accepted its screen-reader labels and activation routing, but found one
+> remaining merge blocker: the entire keyboard node list is permanently `sr-only`, and the canvas draws
+> no exact-node focus indicator, so sighted keyboard users cannot identify the focused node. Re-review:
+> https://github.com/ravichavali/karmyq/pull/123#issuecomment-4814601521. Do not merge until fixed,
+> re-reviewed, and Admin-authorized (contributor agents never self-merge).
 >
 > **Spec:** `docs/superpowers/specs/2026-06-26-belonging-graph-consolidation-design.md`
 >
@@ -31,10 +32,11 @@
 1. Read this handoff.
 2. Confirm branch: `git branch --show-current` should be `feature/sprint-114-belonging-graph-consolidation`.
 3. Tasks 8-12 + the review fix (`dabdccba`) are committed. No action needed.
-4. Codex review is resolved (keyboard-a11y blocker fixed in `dabdccba`; false wheel-zoom note
-   withdrawn). **Next: confirm CI green on `dabdccba`, get Codex re-review, then stop for Admin merge
-   authorization** (`gh pr merge 123 --squash --delete-branch`). Real deploy = post-merge master
-   CI/CD `Deploy to Demo` job, not the PR-level skipped check. Then Task 14 post-deploy validation.
+4. Fix the remaining Codex re-review blocker: make keyboard focus visible on the exact canvas node (or
+   expose a visible keyboard node control), then add a regression that actually focuses/tabs to a node
+   and asserts target-specific focus treatment plus activation. Re-run gates, push, request Codex
+   re-review, then stop for Admin merge authorization. Real deploy = post-merge master CI/CD `Deploy
+   to Demo` job, not the PR-level skipped check. Then Task 14 post-deploy validation.
 
 ## Sprint Goal
 
@@ -141,19 +143,25 @@ Adopt `react-force-graph-2d@1.29.1` and consolidate the belonging graph to profi
   changes requested at https://github.com/ravichavali/karmyq/pull/123#issuecomment-4814156431. GitHub
   cannot record a formal changes-requested review because same-machine agents share the PR author's
   maintainer identity.
-- **Merge blocker RESOLVED (`dabdccba`):** keyboard a11y restored via a parallel chrome layer in
-  `BelongingGraphRenderer` — an `sr-only` labelled list of native `<button>`s (one per node); focus
+- **Original merge blocker PARTIALLY RESOLVED (`dabdccba`):** keyboard access restored via a parallel
+  chrome layer in `BelongingGraphRenderer` — an `sr-only` labelled list of native `<button>`s (one per node); focus
   highlights the node's neighborhood on canvas (same `setHoveredNodeId` path as mouse hover),
   activation opens the detail panel or fires `onNodeActivate`. 3 regression tests added. Reply posted
   to the review thread; PR body updated.
 - **Review correction APPLIED:** the `enableZoomInteraction` follow-up was withdrawn (verified
   `force-graph.mjs:1493` invokes it as a predicate via `accessorFn(...)(ev)`); removed from the PR body.
 - **Latest full root gate:** passed after the a11y fix (`npm test`, 26/26 Turbo tasks; frontend
-  regression 84 tests). CI re-running on `dabdccba`.
-- **Next action:** confirm CI green on `dabdccba` → Codex re-review → Admin merge authorization, then
-  `gh pr merge 123 --squash --delete-branch`, monitor the post-merge master `Deploy to Demo` job, then
-  Task 14 validation.
-- **Blockers:** Codex re-review + Admin authorization before merge.
+  regression 84 tests). All PR CI checks are green on final HEAD `811ffa8a`.
+- **Codex re-review:** screen-reader labels and native activation routing are correct. **Remaining
+  merge blocker:** the `<ul className="sr-only">` clips every focused button and its focus indicator;
+  `GraphCanvas` only dims unrelated nodes and draws no ring/label on the exact active node. Sighted
+  keyboard users cannot identify which node has focus or will activate. The new tests check roles and
+  click routing but never focus/tab or assert canvas focus treatment. Review comment:
+  https://github.com/ravichavali/karmyq/pull/123#issuecomment-4814601521.
+- **Next action:** author adds visible target-specific keyboard focus treatment + a real focus/tab
+  regression, re-runs gates, pushes, and requests Codex re-review. Only after approval + Admin
+  authorization: squash-merge, monitor master `Deploy to Demo`, then Task 14 validation.
+- **Blockers:** visible keyboard focus parity, Codex re-review, then Admin authorization.
 
 ## Architecture Gotchas
 
