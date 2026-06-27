@@ -9,12 +9,12 @@
 > **Branch:** `feature/sprint-114-belonging-graph-consolidation` — pushed. **PR #123 open**
 > (https://github.com/ravichavali/karmyq/pull/123).
 >
-> **Working tree:** clean before this handoff update. CI is green on final HEAD `811ffa8a`. Codex
-> re-reviewed `dabdccba` and accepted its screen-reader labels and activation routing, but found one
-> remaining merge blocker: the entire keyboard node list is permanently `sr-only`, and the canvas draws
-> no exact-node focus indicator, so sighted keyboard users cannot identify the focused node. Re-review:
-> https://github.com/ravichavali/karmyq/pull/123#issuecomment-4814601521. Do not merge until fixed,
-> re-reviewed, and Admin-authorized (contributor agents never self-merge).
+> **Working tree:** clean except this handoff. Codex's two cross-agent review rounds are **resolved**:
+> the keyboard-a11y blocker (`dabdccba`) and the sighted-keyboard focus-visibility follow-up (`3a95fc45`)
+> are both fixed; the false `enableZoomInteraction` note is withdrawn. Latest re-review:
+> https://github.com/ravichavali/karmyq/pull/123#issuecomment-4814601521 → reply
+> https://github.com/ravichavali/karmyq/pull/123#issuecomment-4814631336. **Awaiting Codex re-review of
+> `3a95fc45` + Admin merge authorization** (contributor agents never self-merge).
 >
 > **Spec:** `docs/superpowers/specs/2026-06-26-belonging-graph-consolidation-design.md`
 >
@@ -31,12 +31,12 @@
 
 1. Read this handoff.
 2. Confirm branch: `git branch --show-current` should be `feature/sprint-114-belonging-graph-consolidation`.
-3. Tasks 8-12 + the review fix (`dabdccba`) are committed. No action needed.
-4. Fix the remaining Codex re-review blocker: make keyboard focus visible on the exact canvas node (or
-   expose a visible keyboard node control), then add a regression that actually focuses/tabs to a node
-   and asserts target-specific focus treatment plus activation. Re-run gates, push, request Codex
-   re-review, then stop for Admin merge authorization. Real deploy = post-merge master CI/CD `Deploy
-   to Demo` job, not the PR-level skipped check. Then Task 14 post-deploy validation.
+3. Tasks 8-12 + both review fixes (`dabdccba`, `3a95fc45`) are committed. No action needed.
+4. Both Codex review rounds are resolved (keyboard a11y + visible focus indicator). **Next: confirm CI
+   green on `3a95fc45` → Codex re-review → Admin merge authorization**, then
+   `gh pr merge 123 --squash --delete-branch` and monitor the post-merge master CI/CD `Deploy to Demo`
+   job (not the PR-level skipped check). Then Task 14 post-deploy validation (include a keyboard pass:
+   Tab to nodes → visible "Focused: <name>" chip + amber canvas ring → Enter opens detail).
 
 ## Sprint Goal
 
@@ -111,7 +111,8 @@ Adopt `react-force-graph-2d@1.29.1` and consolidate the belonging graph to profi
   - `4921376d` `docs: record S114 graph renderer decision` (Task 10; ADR-083 + guide/concept + landing)
   - `c0d36c6d` `test: promote S114 graph regression coverage` (Task 11; CONTEXT + registry wording + TDD→regression)
   - `7cfc9a15` `fix: resolve S114 quality-gate findings` (Task 12; XSS escape + reheat-loop fix + simplify)
-  - `dabdccba` `fix: restore keyboard a11y parity for canvas graph nodes` (Codex review blocker)
+  - `dabdccba` `fix: restore keyboard a11y parity for canvas graph nodes` (Codex review blocker 1)
+  - `3a95fc45` `fix: make keyboard focus visible for sighted keyboard users` (Codex re-review blocker 2)
 - **Task 8 committed:** community `My Network` sub-tab removed, Home `MyNetworkPreview`
   import/render removed, `MyNetworkPreview.tsx` deleted, orphaned `TrustNetworkWidget.tsx` deleted.
 - **Task 9 committed:** deleted `TrustGraphHEB.tsx`, `CommunityHubGraph.tsx`, and the now-orphaned
@@ -152,16 +153,18 @@ Adopt `react-force-graph-2d@1.29.1` and consolidate the belonging graph to profi
   `force-graph.mjs:1493` invokes it as a predicate via `accessorFn(...)(ev)`); removed from the PR body.
 - **Latest full root gate:** passed after the a11y fix (`npm test`, 26/26 Turbo tasks; frontend
   regression 84 tests). All PR CI checks are green on final HEAD `811ffa8a`.
-- **Codex re-review:** screen-reader labels and native activation routing are correct. **Remaining
-  merge blocker:** the `<ul className="sr-only">` clips every focused button and its focus indicator;
-  `GraphCanvas` only dims unrelated nodes and draws no ring/label on the exact active node. Sighted
-  keyboard users cannot identify which node has focus or will activate. The new tests check roles and
-  click routing but never focus/tab or assert canvas focus treatment. Review comment:
-  https://github.com/ravichavali/karmyq/pull/123#issuecomment-4814601521.
-- **Next action:** author adds visible target-specific keyboard focus treatment + a real focus/tab
-  regression, re-runs gates, pushes, and requests Codex re-review. Only after approval + Admin
-  authorization: squash-merge, monitor master `Deploy to Demo`, then Task 14 validation.
-- **Blockers:** visible keyboard focus parity, Codex re-review, then Admin authorization.
+- **Codex re-review blocker RESOLVED (`3a95fc45`):** sighted keyboard users now get a visible, named
+  focus indicator — a `role="status"`/aria-live "Focused: <name>" chip renders (not sr-only) while a
+  node control is focused and clears on blur — plus an exact-node **canvas focus ring** (`GraphCanvas`
+  takes `keyboardFocusedNodeId` and draws a high-contrast amber halo on that node). New regression
+  test focuses a node via `fireEvent.focus` and asserts the visible named indicator appears + clears.
+  (The canvas ring itself isn't jsdom-assertable → Task 14 keyboard pass on the demo.) Reply posted:
+  https://github.com/ravichavali/karmyq/pull/123#issuecomment-4814631336.
+- **Latest full root gate:** passed after `3a95fc45` (`npm test`, 26/26 Turbo tasks; frontend
+  regression 85 tests). CI re-running on `3a95fc45`.
+- **Next action:** confirm CI green on `3a95fc45` → Codex re-review → Admin merge authorization, then
+  `gh pr merge 123 --squash --delete-branch`, monitor master `Deploy to Demo`, then Task 14 validation.
+- **Blockers:** Codex re-review + Admin authorization before merge.
 
 ## Architecture Gotchas
 
