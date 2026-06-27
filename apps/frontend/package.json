@@ -35,7 +35,7 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "autoprefixer": "^10.0.1",
+    "autoprefixer": "^10.5.2",
     "eslint": "^8.57.0",
     "eslint-config-next": "15.5.10",
     "fake-indexeddb": "^6.2.5",
