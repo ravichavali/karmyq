@@ -12,8 +12,8 @@
     "test": "jest --passWithNoTests"
   },
   "dependencies": {
-    "framer-motion": "12.40.0",
-    "motion": "12.40.0",
+    "framer-motion": "12.42.0",
+    "motion": "12.42.0",
     "next": "^15.5.18",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
