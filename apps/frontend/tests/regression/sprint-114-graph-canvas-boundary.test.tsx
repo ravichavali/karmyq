@@ -243,4 +243,47 @@ describe('BelongingGraphRenderer chrome', () => {
 
     expect(screen.getByText(/dashed = no connections/i)).toBeInTheDocument()
   })
+
+  // Parity: the old D3 renderer made every node a focusable/activatable SVG element (tabindex + Enter/Space).
+  // Canvas nodes aren't DOM-queryable, so keyboard a11y must live in the chrome layer (design spec).
+  it('exposes every graph node as a keyboard-focusable, named control', async () => {
+    const { default: BelongingGraphRenderer } = await import('@/components/graphs/BelongingGraphRenderer')
+    render(<BelongingGraphRenderer graphData={graph} mode="ego" currentUserId="me" height={480} />)
+
+    // Native <button>s are inherently keyboard-focusable and Enter/Space-activatable.
+    expect(screen.getByRole('button', { name: /aisha/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /lee/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /maria/i })).toBeInTheDocument()
+  })
+
+  it('opens the node detail panel when a node control is activated (native button = keyboard-operable)', async () => {
+    const { default: BelongingGraphRenderer } = await import('@/components/graphs/BelongingGraphRenderer')
+    render(<BelongingGraphRenderer graphData={graph} mode="ego" currentUserId="me" height={480} />)
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /aisha/i }))
+    })
+
+    expect(screen.getByText('Connections')).toBeInTheDocument()
+  })
+
+  it('routes node activation to onNodeActivate when the explorer supplies it', async () => {
+    const onNodeActivate = jest.fn()
+    const { default: BelongingGraphRenderer } = await import('@/components/graphs/BelongingGraphRenderer')
+    render(
+      <BelongingGraphRenderer
+        graphData={graph}
+        mode="ego"
+        currentUserId="me"
+        height={480}
+        onNodeActivate={onNodeActivate}
+      />
+    )
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /lee/i }))
+    })
+
+    expect(onNodeActivate).toHaveBeenCalledWith('p2')
+  })
 })

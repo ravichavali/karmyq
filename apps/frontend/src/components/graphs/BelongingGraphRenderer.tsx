@@ -92,6 +92,24 @@ export default function BelongingGraphRenderer({
         onNodeClick={handleNodeClick}
         graphRef={graphRef}
       />
+      {/* Canvas nodes are not DOM elements, so keyboard/screen-reader users reach them through this
+          parallel control layer (parity with the old D3 renderer's focusable nodes). Focusing a
+          control highlights that node's neighborhood on the canvas (same path as mouse hover);
+          activating it opens the detail panel or fires onNodeActivate. */}
+      <ul aria-label="Graph nodes — focus to highlight, activate to open detail" className="sr-only">
+        {graphData.nodes.map(node => (
+          <li key={node.id}>
+            <button
+              type="button"
+              onFocus={() => setHoveredNodeId(node.id)}
+              onBlur={() => setHoveredNodeId(null)}
+              onClick={() => handleNodeClick(node.id)}
+            >
+              {node.id === currentUserId ? `${node.name} (you)` : node.name}
+            </button>
+          </li>
+        ))}
+      </ul>
       <GraphLegend mode={mode} groupALabel={groupALabel} groupBLabel={groupBLabel} />
       {selectedNode && (
         <NodeDetailPanel
