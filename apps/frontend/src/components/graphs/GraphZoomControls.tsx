@@ -1,6 +1,7 @@
 // Sprint 113 / BUG-027 — the shared zoom affordance for every belonging-graph surface. Presentational
-// only: it renders the in/out/reset buttons and calls back. The d3.zoom wiring lives in the single
-// owner (TrustGraphHEB), so no surface ever mounts two control clusters.
+// only: it renders the in/out/reset buttons and calls back. The zoom wiring lives in the single
+// owner (BelongingGraphRenderer), which drives the react-force-graph-2d ref, so no surface ever
+// mounts two control clusters.
 interface GraphZoomControlsProps {
   onZoomIn: () => void
   onZoomOut: () => void

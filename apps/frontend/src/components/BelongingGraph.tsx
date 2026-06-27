@@ -5,12 +5,12 @@ import { useLazyGraphData } from '../hooks/useLazyGraphData'
 import { normalizeCommunityDepthGraph, normalizePersonGraph, type DepthLink, type DepthNode } from './graphs/normalizeGraphData'
 import type { BelongingMode, GraphData } from './graphs/types'
 
-// TrustGraphHEB uses D3 and must be client-only. The wrapper is the ONLY place that knows how each
+// BelongingGraphRenderer uses a canvas graph renderer and must be client-only. The wrapper is the ONLY place that knows how each
 // mode fetches/normalizes; the renderer only ever receives canonical GraphData.
-const TrustGraphHEB = dynamic(() => import('./graphs/TrustGraphHEB'), {
+const BelongingGraphRenderer = dynamic(() => import('./graphs/BelongingGraphRenderer'), {
   ssr: false,
   loading: () => (
-    <div className="flex items-center justify-center h-full text-slate-400 text-sm">Loading graph…</div>
+    <div className="flex items-center justify-center h-full text-slate-400 text-sm">Loading graph...</div>
   ),
 })
 
@@ -37,7 +37,7 @@ export interface BelongingGraphProps {
 /**
  * Sprint 111 / ADR-081 — the single belonging-graph wrapper. Dispatches per-mode fetching to
  * socialGraphService (NOT socialGraphClient, which is paths/invitations only), normalizes the
- * inter-community depth payload, and renders everything through one TrustGraphHEB. Replaces the
+ * inter-community depth payload, and renders everything through one BelongingGraphRenderer. Replaces the
  * retired NetworkGraph / TrustGraph / CommunityDepthGraph wrappers.
  */
 export default function BelongingGraph({
@@ -55,7 +55,7 @@ export default function BelongingGraph({
   focusedNodeId,
   onNodeActivate,
   // Sprint 113 / BUG-027 — zoom is on by default so every surface inherits the controls through this
-  // one wrapper (single owner in TrustGraphHEB). Callers can still opt out with enableZoom={false}.
+  // one wrapper (single owner in BelongingGraphRenderer). Callers can still opt out with enableZoom={false}.
   enableZoom = true,
 }: BelongingGraphProps) {
   const hasSuppliedData = graphData !== undefined
@@ -102,14 +102,14 @@ export default function BelongingGraph({
         </div>
       ) : !hasSuppliedData && (!observed || loading) ? (
         <div className="flex items-center justify-center h-full text-slate-400 text-sm">
-          {observed ? 'Loading graph…' : 'Scroll to load graph…'}
+          {observed ? 'Loading graph...' : 'Scroll to load graph...'}
         </div>
       ) : error ? (
         <div className="flex items-center justify-center h-full text-rose-400 text-sm">
           Couldn&apos;t load this graph.
         </div>
       ) : effectiveData ? (
-        <TrustGraphHEB
+        <BelongingGraphRenderer
           graphData={effectiveData}
           currentUserId={currentUserId}
           mode={mode}

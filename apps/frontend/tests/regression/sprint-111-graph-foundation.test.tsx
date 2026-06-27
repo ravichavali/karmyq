@@ -26,17 +26,18 @@ jest.mock('@/lib/api', () => ({
   },
 }))
 
-// Replace next/dynamic with a synchronous stub of the HEB renderer so we can assert the data/props
+// Replace next/dynamic with a synchronous stub of the renderer so we can assert the data/props
 // the wrapper hands it without exercising D3 or async dynamic loading.
-jest.mock('next/dynamic', () => () => {
+jest.mock('next/dynamic', () => (loader: any) => {
+  ;(globalThis as any).__belongingDynamicLoaderSource = loader.toString()
   const Stub = (props: any) => (
     <div
-      data-testid="heb"
+      data-testid="belonging-renderer"
       data-mode={props.mode}
       data-nodecount={props.graphData?.nodes?.length ?? 0}
     />
   )
-  Stub.displayName = 'TrustGraphHEBStub'
+  Stub.displayName = 'BelongingGraphRendererStub'
   return Stub
 })
 
@@ -108,6 +109,10 @@ describe('mergeGraphData', () => {
 })
 
 describe('<BelongingGraph> per-mode fetch dispatch', () => {
+  it('loads BelongingGraphRenderer as the client-only renderer boundary', () => {
+    expect((globalThis as any).__belongingDynamicLoaderSource).toContain('BelongingGraphRenderer')
+  })
+
   it('ego mode without communityId fetches the cross-community aggregate', async () => {
     aggregate.mockResolvedValue({ data: { nodes: [{ id: 'u1' }], links: [] } })
     render(<BelongingGraph mode="ego" currentUserId="u1" load="immediate" />)
@@ -154,7 +159,7 @@ describe('<BelongingGraph> per-mode fetch dispatch', () => {
         graphData={{ nodes: [{ id: 'a', name: 'A', trust_score: 0, karma: 0 }], links: [] }}
       />
     )
-    await screen.findByTestId('heb')
+    await screen.findByTestId('belonging-renderer')
     expect(aggregate).not.toHaveBeenCalled()
     expect(fullCommunity).not.toHaveBeenCalled()
     expect(communityGraph).not.toHaveBeenCalled()

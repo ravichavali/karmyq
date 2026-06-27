@@ -753,7 +753,7 @@
         {
           "method": "GET",
           "path": "/trust/graph/:communityId/full",
-          "description": "Full community trust graph (Sprint 74) — up to 150 members + all inter-member edges, powers the hierarchical edge bundling view. Sprint 112 (ADR-082): SafeBelongingNode/SafeBelongingLink only — no node trust_score/karma, no edge weights; links carry relationship_state."
+          "description": "Full community trust graph (Sprint 74) — up to 150 members + all inter-member edges, powers the community member-topology view. Sprint 112 (ADR-082): SafeBelongingNode/SafeBelongingLink only — no node trust_score/karma, no edge weights; links carry relationship_state."
         },
         {
           "method": "GET",
