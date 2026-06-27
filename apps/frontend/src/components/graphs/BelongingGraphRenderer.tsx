@@ -36,10 +36,13 @@ export default function BelongingGraphRenderer({
   const { containerRef, width } = useGraphContainerWidth()
   const graphRef = useRef<ForceGraphMethods<any, any> | undefined>(undefined)
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null)
+  const [keyboardFocusId, setKeyboardFocusId] = useState<string | null>(null)
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
   const [switching, setSwitching] = useState(false)
 
   const selectedNode = selectedNodeId ? graphData.nodes.find(node => node.id === selectedNodeId) : null
+  const keyboardFocusedNode = keyboardFocusId ? graphData.nodes.find(node => node.id === keyboardFocusId) : null
+  const nodeName = (node: TrustNode) => (node.id === currentUserId ? `${node.name} (you)` : node.name)
 
   if (mode === 'community' && graphData.links.length === 0 && graphData.nodes.length <= 1) {
     return <EmptyGraphState body="This community doesn't have any trust connections yet." detail="Connections appear as members complete help exchanges." />
@@ -88,24 +91,44 @@ export default function BelongingGraphRenderer({
         height={height}
         focusedNodeId={focusedNodeId}
         hoveredNodeId={hoveredNodeId}
+        keyboardFocusedNodeId={keyboardFocusId}
         onNodeHover={setHoveredNodeId}
         onNodeClick={handleNodeClick}
         graphRef={graphRef}
       />
+      {/* Sighted keyboard users get a visible, named focus indicator (canvas itself can't show a DOM
+          focus ring); screen readers get the same via aria-live. The exact focused node also gets a
+          ring drawn on the canvas (keyboardFocusedNodeId above). */}
+      {keyboardFocusedNode && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="absolute top-2 left-2 z-10 px-2 py-1 rounded-md bg-surface border border-primary text-xs font-medium text-text shadow-sm"
+        >
+          Focused: {nodeName(keyboardFocusedNode)}
+        </div>
+      )}
       {/* Canvas nodes are not DOM elements, so keyboard/screen-reader users reach them through this
           parallel control layer (parity with the old D3 renderer's focusable nodes). Focusing a
-          control highlights that node's neighborhood on the canvas (same path as mouse hover);
-          activating it opens the detail panel or fires onNodeActivate. */}
+          control highlights that node's neighborhood on the canvas (same path as mouse hover) and
+          surfaces the visible focus indicator above; activating it opens the detail panel or fires
+          onNodeActivate. */}
       <ul aria-label="Graph nodes — focus to highlight, activate to open detail" className="sr-only">
         {graphData.nodes.map(node => (
           <li key={node.id}>
             <button
               type="button"
-              onFocus={() => setHoveredNodeId(node.id)}
-              onBlur={() => setHoveredNodeId(null)}
+              onFocus={() => {
+                setHoveredNodeId(node.id)
+                setKeyboardFocusId(node.id)
+              }}
+              onBlur={() => {
+                setHoveredNodeId(null)
+                setKeyboardFocusId(null)
+              }}
               onClick={() => handleNodeClick(node.id)}
             >
-              {node.id === currentUserId ? `${node.name} (you)` : node.name}
+              {nodeName(node)}
             </button>
           </li>
         ))}

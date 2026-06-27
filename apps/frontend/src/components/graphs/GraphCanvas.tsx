@@ -18,6 +18,8 @@ export interface GraphCanvasProps {
   width: number
   focusedNodeId?: string
   hoveredNodeId?: string | null
+  /** The node a keyboard user has focused via the chrome control layer — gets a visible focus ring. */
+  keyboardFocusedNodeId?: string | null
   onNodeHover?: (nodeId: string | null) => void
   onNodeClick?: (nodeId: string) => void
   graphRef?: React.MutableRefObject<ForceGraphMethods<any, any> | undefined>
@@ -54,6 +56,7 @@ export default function GraphCanvas({
   width,
   focusedNodeId,
   hoveredNodeId,
+  keyboardFocusedNodeId,
   onNodeHover,
   onNodeClick,
   graphRef,
@@ -126,6 +129,7 @@ export default function GraphCanvas({
           groupMap,
           maxMembers,
           dimmed: isNodeDimmed(String(node.id)),
+          keyboardFocused: keyboardFocusedNodeId != null && String(node.id) === keyboardFocusedNodeId,
         })
       }}
       nodePointerAreaPaint={(node, paintColor, ctx) => {
@@ -202,6 +206,7 @@ function drawNode(
     groupMap?: Record<string, 'group_a' | 'group_b'>
     maxMembers: number
     dimmed: boolean
+    keyboardFocused: boolean
   }
 ) {
   const radius = nodeRadius(node, options.currentUserId, options.mode, options.maxMembers)
@@ -215,6 +220,17 @@ function drawNode(
   if (ringed) {
     ctx.strokeStyle = '#ffffff'
     ctx.lineWidth = 2 / globalScale
+    ctx.stroke()
+  }
+
+  // Keyboard focus ring — a high-contrast amber halo that marks the exact node a keyboard user has
+  // focused via the chrome control layer (canvas can't host a native DOM focus ring).
+  if (options.keyboardFocused) {
+    ctx.globalAlpha = 1
+    ctx.strokeStyle = '#f59e0b'
+    ctx.lineWidth = 3 / globalScale
+    ctx.beginPath()
+    ctx.arc(node.x ?? 0, node.y ?? 0, radius + 4, 0, 2 * Math.PI, false)
     ctx.stroke()
   }
 

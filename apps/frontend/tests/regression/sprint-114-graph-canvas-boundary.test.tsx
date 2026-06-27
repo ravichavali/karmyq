@@ -267,6 +267,25 @@ describe('BelongingGraphRenderer chrome', () => {
     expect(screen.getByText('Connections')).toBeInTheDocument()
   })
 
+  it('shows a visible, named focus indicator so sighted keyboard users can identify the focused node', async () => {
+    const { default: BelongingGraphRenderer } = await import('@/components/graphs/BelongingGraphRenderer')
+    render(<BelongingGraphRenderer graphData={graph} mode="ego" currentUserId="me" height={480} />)
+
+    const aisha = screen.getByRole('button', { name: /aisha/i })
+    act(() => {
+      fireEvent.focus(aisha)
+    })
+    // A visible (not sr-only) status names the exact focused node, in addition to the canvas highlight.
+    const status = screen.getByRole('status')
+    expect(status).toHaveTextContent(/aisha/i)
+    expect(status).not.toHaveClass('sr-only')
+
+    act(() => {
+      fireEvent.blur(aisha)
+    })
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+  })
+
   it('routes node activation to onNodeActivate when the explorer supplies it', async () => {
     const onNodeActivate = jest.fn()
     const { default: BelongingGraphRenderer } = await import('@/components/graphs/BelongingGraphRenderer')
