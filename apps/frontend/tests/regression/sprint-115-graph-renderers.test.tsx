@@ -1,6 +1,7 @@
 import React from 'react'
 import { fireEvent, render, screen } from '@testing-library/react'
 import CommunityRingGraph from '@/components/graphs/CommunityRingGraph'
+import EgoOrbitGraph from '@/components/graphs/EgoOrbitGraph'
 import type { GraphData } from '@/components/graphs/types'
 
 const chain: GraphData = {
@@ -219,5 +220,127 @@ describe('Sprint 115 community ring renderer', () => {
     ).toBeInTheDocument()
     expect(screen.getByText('Strong relationship')).toBeInTheDocument()
     expect(screen.getByText('Nearly forgotten relationship')).toBeInTheDocument()
+  })
+})
+
+const egoChain: GraphData = {
+  nodes: [
+    { id: 'me', name: 'Maria' },
+    { id: 'maya', name: 'Maya' },
+    { id: 'john', name: 'John' },
+  ],
+  links: [
+    { source: 'me', target: 'maya', decayTier: 'strong' },
+    { source: 'maya', target: 'john', decayTier: 'warm' },
+  ],
+}
+
+const radiusOf = (container: HTMLElement, id: string) => {
+  const transform = container.querySelector(`[data-node-id="${id}"]`)!.getAttribute('transform')!
+  const [x, y] = transform.match(/-?\d+(?:\.\d+)?/g)!.map(Number)
+  return Math.hypot(x, y)
+}
+
+describe('Sprint 115 ego orbit renderer', () => {
+  it('anchors the caller at the origin and grows orbit radius with BFS distance', () => {
+    const { container } = render(<EgoOrbitGraph graphData={egoChain} currentUserId="me" />)
+
+    expect(container.querySelector('[data-node-id="me"]')).toHaveAttribute('transform', 'translate(0,0)')
+    expect(container.querySelectorAll('g[data-node-id]')).toHaveLength(3)
+    expect(container.querySelectorAll('line[data-link-key]')).toHaveLength(2)
+    expect(radiusOf(container, 'maya')).toBeGreaterThan(0)
+    expect(radiusOf(container, 'john')).toBeGreaterThan(radiusOf(container, 'maya'))
+  })
+
+  it('derives geometry from BFS, never from response-supplied depth', () => {
+    const honest = render(<EgoOrbitGraph graphData={egoChain} currentUserId="me" />)
+    const honestMaya = honest.container.querySelector('[data-node-id="maya"]')!.getAttribute('transform')
+
+    const scrambled: GraphData = {
+      ...egoChain,
+      nodes: egoChain.nodes.map(node => ({ ...node, degrees_of_separation: 3 as const })),
+    }
+    const { container } = render(<EgoOrbitGraph graphData={scrambled} currentUserId="me" />)
+
+    expect(container.querySelector('[data-node-id="maya"]')!.getAttribute('transform')).toBe(honestMaya)
+  })
+
+  it('activates a node from Enter and Space and reports the distance in its label', () => {
+    const onNodeActivate = jest.fn()
+    const { container } = render(
+      <EgoOrbitGraph graphData={egoChain} currentUserId="me" onNodeActivate={onNodeActivate} />
+    )
+
+    expect(container.querySelector('[data-node-id="maya"]')).toHaveAttribute(
+      'aria-label',
+      'Maya, 1 degree away, 2 connections'
+    )
+    fireEvent.keyDown(container.querySelector('[data-node-id="maya"]')!, { key: 'Enter' })
+    expect(onNodeActivate).toHaveBeenCalledWith('maya')
+    fireEvent.keyDown(container.querySelector('[data-node-id="john"]')!, { key: ' ' })
+    expect(onNodeActivate).toHaveBeenLastCalledWith('john')
+    expect(onNodeActivate).toHaveBeenCalledTimes(2)
+  })
+
+  it('recolors focus without moving any node or edge endpoint', () => {
+    const { container } = render(<EgoOrbitGraph graphData={egoChain} currentUserId="me" />)
+    const endpoints = () =>
+      [...container.querySelectorAll('line[data-link-key]')].map(line =>
+        ['x1', 'y1', 'x2', 'y2'].map(attr => line.getAttribute(attr)).join(',')
+      )
+    const transforms = () =>
+      [...container.querySelectorAll('g[data-node-id]')].map(node => node.getAttribute('transform'))
+    const beforeEndpoints = endpoints()
+    const beforeTransforms = transforms()
+
+    fireEvent.focus(container.querySelector('[data-node-id="maya"]')!)
+
+    const lines = [...container.querySelectorAll('line[data-link-key]')]
+    expect(lines[0]).toHaveAttribute('stroke', '#f59e0b') // caller amber overrides teal
+    expect(lines[0]).toHaveAttribute('stroke-width', '2.5')
+    expect(lines[1]).toHaveAttribute('stroke', '#14b8a6') // focused teal
+    expect(lines[1]).toHaveAttribute('stroke-width', '2.5')
+    expect(endpoints()).toEqual(beforeEndpoints)
+    expect(transforms()).toEqual(beforeTransforms)
+  })
+
+  it('has one zoom owner and its controls drive the svg zoom transform', () => {
+    const { container } = render(<EgoOrbitGraph graphData={egoChain} currentUserId="me" enableZoom />)
+    const svg = container.querySelector('svg') as SVGSVGElement & { __zoom: { k: number } }
+    const before = svg.__zoom.k
+
+    expect(screen.getAllByLabelText(/zoom in/i)).toHaveLength(1)
+    expect(screen.getAllByLabelText(/zoom out/i)).toHaveLength(1)
+    expect(screen.getAllByLabelText(/reset zoom/i)).toHaveLength(1)
+    fireEvent.click(screen.getByLabelText(/zoom in/i))
+
+    expect(svg.__zoom.k).toBeGreaterThan(before)
+  })
+
+  it('keeps every person accessible while limiting persistent labels above 40 nodes', () => {
+    const graphData: GraphData = {
+      nodes: Array.from({ length: 41 }, (_, index) => ({
+        id: index === 0 ? 'me' : `person-${index}`,
+        name: index === 0 ? 'Maria' : `Person ${index}`,
+      })),
+      links: [],
+    }
+    const { container } = render(
+      <EgoOrbitGraph graphData={graphData} currentUserId="me" focusedNodeId="person-40" />
+    )
+
+    expect(container.querySelectorAll('g[data-node-id][role="button"][tabindex="0"]')).toHaveLength(41)
+    expect(container.querySelectorAll('g[data-node-id] > title')).toHaveLength(41)
+    expect(container.querySelectorAll('text.node-label')).toHaveLength(2)
+    expect([...container.querySelectorAll('text.node-label')].map(label => label.textContent)).toEqual(
+      expect.arrayContaining(['Maria', 'Person 40'])
+    )
+  })
+
+  it('renders an ego-specific sparse state for a lone caller', () => {
+    render(<EgoOrbitGraph graphData={{ nodes: [{ id: 'me', name: 'Maria' }], links: [] }} currentUserId="me" />)
+
+    expect(screen.getByText(/You don.t have any trust connections yet/i)).toBeInTheDocument()
+    expect(screen.getByText(/Connections grow through the help you give and receive/i)).toBeInTheDocument()
   })
 })
