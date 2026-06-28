@@ -1,4 +1,32 @@
-# Sprint 113 — Belonging Truth & Prominence: PR B IMPLEMENTED, ready for review/merge
+# Sprint 115 — Belonging Graph Earned Structure: design approved, implementation planned
+
+> **STATUS (2026-06-27):** Sprint 115 design and implementation planning are complete on branch
+> `agent/codex/sprint-115-belonging-presentation`, based on `origin/master` after the reverted Sprint 114.
+> The approved design is
+> `docs/superpowers/specs/2026-06-27-sprint-115-belonging-presentation-design.md`; the implementation plan
+> is `docs/superpowers/plans/2026-06-27-sprint-115-belonging-presentation.md` (9 TDD-ordered tasks).
+> Commits: `e16223b5` initial spec, `94901723` review corrections, `66ddde1c` implementation plan.
+>
+> **Next action:** choose plan execution mode, then implement Task 1 on this branch. Contributor agents do
+> not merge or deploy. The working tree must be clean before switching between Claude and Codex.
+>
+> **Locked product decisions:** profile/ego uses deterministic BFS orbits; community keeps every returned
+> member on one ring with direct softly curved chords; at-rest width stays constant; qualitative
+> relationship state controls intensity; caller edges are amber; focused incident edges are teal; no
+> inferred clusters, bundles, person health score, or reputation display. Across Communities and fission
+> remain on their existing dedicated renderers.
+>
+> **Scope correction found during review:** `/trust/graph/:communityId/full` currently selects top members
+> by hidden trust score. Sprint 115 changes that existing endpoint to neutral normalized-name + ID selection,
+> always includes the caller, and returns `meta: { totalActiveMembers, truncated }`. Incomplete graphs say
+> “Showing N of M” and suppress complete-community interpretation. No migration or new endpoint.
+>
+> **Deferred intentionally:** Sprint 116 named connection corridor + offer context; public profiles until an
+> API-enforced visibility contract exists; temporal fission/fusion lineage. A separate landing CTA sprint
+> should make “Try the live demo” (`karmyq.com`) the primary header/home action while retaining Founding
+> Circle as normal/secondary navigation. Do not mix that landing change into Sprint 115.
+
+## Historical Sprint 113 handoff
 
 > **STATUS (2026-06-26):** Sprint 113 **PR B (Belonging Prominence + Fractal Clarity) is IMPLEMENTED on
 > branch `feature/sprint-113-belonging-prominence`** (6 commits off merged `origin/master` `81322165`),
@@ -74,7 +102,7 @@
 
 ---
 
-## Quick Start — PR B (PR A is DONE: merged, deployed, validated ✅)
+## Historical Quick Start — Sprint 113 PR B
 
 1. Read this handoff (esp. the STATUS block above — PR A shipped + two-user validation PASSED).
 2. Open the implementation plan (PR B = Tasks 8–12):
@@ -85,7 +113,7 @@
    the PR A squash commit `81322165` + deployed). `git fetch origin && git checkout -b
    feature/sprint-113-belonging-prominence origin/master`.
 
-### ⚠️ Working-tree state at this handoff (uncommitted — carry into PR B, do NOT redo or lose)
+### Historical working-tree state at the Sprint 113 handoff
 
 `git status` shows these uncommitted changes on disk, all destined for PR B (they travel onto the new
 branch when you `git checkout -b` since they're working-tree):
@@ -101,7 +129,7 @@ branch when you `git checkout -b` since they're working-tree):
 - **NOT yours — leave alone:** `claude.md` (pre-existing global-rules edit) and `.claude/skills/ship/`
   (pre-existing new skill). They predate this sprint; do not stage them into PR B.
 
-### PR B first steps (in order)
+### Historical Sprint 113 PR B first steps
 
 4. **First commit:** flip **ADR-082 → Implemented** (`docs/adr/ADR-082-...md` status line + landing JSON)
    and mark **BUG-024/025/026/027 fixed** in `docs/BUGS.md` (validation PASSED — see STATUS). Bundle the
@@ -239,13 +267,25 @@ pre-existing in the explorer and land in PR B):
 - Recurring CodeQL `js/request-forgery` on `apps/frontend/src/lib/api.ts` is a known browser-baseURL
   false positive; dismiss only with written PR justification.
 - Remaining moderate dependency alerts are the Expo `tar` chain; keep the exact override.
+- **Sprint 116:** named person-to-person connection corridor and offer integration. Rank shortest paths
+  first, then choose the strongest complete equal-hop corridor; name mutuals and say “clearest connection,”
+  never recommendation or transferred trust.
+- **Landing CTA follow-up (separate PR/sprint):** header/home primary “Try the live demo” → `karmyq.com`;
+  Founding Circle becomes normal/secondary navigation; How It Works closes on demo, Research remains
+  Founding Circle, and the home ending offers both.
+- **Later:** public profiles only after API-enforced visibility; temporal fission/fusion only after durable
+  event/history design.
 
 ## Multi-Sprint Arc
 
 - **S110 (done):** Belonging Graph research + ADR-081 Proposed.
 - **S111 (done):** Belonging Graph implementation (v11.18.0).
 - **S112 PR A (done):** Reputation Disclosure Boundary / ADR-082 (v11.19.0).
-- **S113 (ready):** Belonging Truth (PR A) → Belonging Prominence (PR B). Target v11.20.0.
+- **S113 (done):** Belonging Truth + Prominence (v11.20.0).
+- **S114 (reverted):** force-directed belonging renderer (released/reverted before a tag).
+- **S115 (planned/approved):** Earned Structure ego orbit + direct community ring + neutral complete-data
+  contract (target v11.22.0).
+- **S116 (next):** Named Connection Corridor + offer context.
 - **Later:** onboarding network moment; broader member forget/export; mobile parity.
 
 ---
@@ -254,33 +294,24 @@ pre-existing in the explorer and land in PR B):
 
 ### Active Session (update on every role handoff)
 
-- **Driving agent:** Claude (Sprint 113 PR B execution — Tasks 8–12 implemented through the SDLC gates).
-- **Phase:** PR B IMPLEMENTED, awaiting Admin merge/deploy. Branch `feature/sprint-113-belonging-prominence`
-  = 6 commits off merged `origin/master` `81322165`. All Tasks 8–12 done; /simplify + /code-review +
-  /security-review run (findings fixed/none). Verified green (tsc + 125/125 frontend + 9/9 tdd + drift
-  gate). **Next action: open PR (fill template) → cross-agent review → Admin merge → `/deploy` → post-deploy
-  human check on the demo (My Network in nav + Home; three scales read as distinct; zoom on every map; no
-  NaN).** Contributor agents never self-merge.
-- **Key grounded findings from planning (verified against current code):**
-  - BUG-025 root cause: `GovernanceTab.tsx:66` (`avg_trust_score`), `:80` (`Math.round(rh.trust_score)`),
-    `:145` (`Math.round(m.trust_score) · Math.round(m.karma) karma`) — ADR-082 made eligible_members/
-    role_holders identity-only → `Math.round(undefined)` = NaN. Grep other readers (`StewardRequestsAdmin.tsx`,
-    `StewardshipTab.tsx`, nominee/trust-card lists).
-  - BUG-024/026: the discrepancy source is `profile.tsx` `fetchKarmaData` (L323-353) calling TWO legacy
-    reads — `reputationService.getMyKarma(communityId)` + `getTrustScore(user.id, communityId)`
-    (L328-330). Replace with the canonical `getMyCommunitySummary` (already at `api.ts:713` →
-    `GET /reputation/me/community-summary`). `ProfileTab.tsx` is the community settings surface, unrelated.
-    Audit `LeftSidebar.tsx` + `/reputation/karma` self-readers too.
-  - BUG-027: `TrustGraphHEB.tsx:342-354` — zoom is wired but explorer-only (`svg.on('.zoom', null)` strips
-    it elsewhere), wheel-only, no buttons. ONE owner: mount `GraphZoomControls` in `TrustGraphHEB`, default
-    `enableZoom` on in `BelongingGraph` (prop already threaded at L57/121). Every surface
-    (dashboard `TrustNetworkWidget`, community `TrustGraphTab`) routes through `BelongingGraph` — do not
-    mount controls in the wrappers (duplicate risk).
-  - PR B: `/network` page already exists (`apps/frontend/src/pages/network.tsx`); nav lives in `Layout.tsx`
-    (desktop `kq-topnav` L127-145; hamburger L37-56). Home feed is `Feed/UnifiedFeed.tsx` (NOT a
-    DecisionBand — preview slot is L249→L251). Three scales: `ego`/`community`/`communities` modes all
-    exist in `BelongingGraph` (L65-79).
-- **Blockers:** none. Contributor agents never self-merge; STOP for Admin merge/deploy authorization.
+- **Driving agent:** Codex (Sprint 115 design + implementation planning complete).
+- **Phase:** APPROVED DESIGN / PLAN READY. Branch `agent/codex/sprint-115-belonging-presentation`.
+  `origin/master` is the base; local-only stale handoff commits on local `master` were deliberately not
+  included. The plan has nine independently testable tasks and starts with the neutral full-community API
+  correction before visual work.
+- **Verification:** `npm run feedback:check` passes; root `npm test` passes all 26 Turbo tasks. Known
+  pre-existing warnings only: Jest open handles, obsolete Next `swcMinify`, and landing `<img>` lint.
+- **Key grounded findings:**
+  - ADR-082 outward person links expose four relationship states, while canonical client `decayTier` also
+    admits defensive `swept`; visual encoding tests all five plus unknown.
+  - `mergeGraphData` preserves response-supplied degrees, but ego geometry must ignore them and run BFS
+    from `currentUserId` after every merge.
+  - Sprint 111/113 regressions directly mount HEB for ego/community; migrate their shared contracts to
+    `EgoOrbitGraph`/`CommunityRingGraph`, retain HEB fission assertions, and update the consolidation guard.
+  - Full-community selection is currently hidden-trust-ranked (`top 149 UNION caller`) with no completeness
+    metadata; Task 1 fixes this without widening the ADR-082 disclosure boundary.
+- **Blockers:** none. Next agent must select inline vs explicitly authorized subagent-driven execution,
+  read the execution skill, and begin Task 1. Contributor agents never self-merge.
 
 > Claude and Codex share one physical working tree. One agent edits at a time. The active agent must
 > commit or stash before handing over. Never edit or commit on top of another agent's uncommitted WIP.
