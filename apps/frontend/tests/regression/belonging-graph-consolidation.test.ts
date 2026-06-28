@@ -2,10 +2,12 @@ import fs from 'fs'
 import path from 'path'
 
 /**
- * Sprint 111 — Belonging Graph consolidation guardrail (ADR-081).
+ * Sprint 111 / 115 — Belonging Graph consolidation guardrail (ADR-081, ADR-083).
  *
- * One renderer, one wrapper, no dead graph libraries. This locks the cleanup so the retired wrappers,
- * the cytoscape/react-force-graph dependencies, and the dead type shim can never quietly return.
+ * One wrapper, a canonical model, a shared visual encoding, and contextual renderers — no dead graph
+ * libraries. This locks the cleanup so the retired wrappers, the cytoscape/react-force-graph
+ * dependencies, and the dead type shim can never quietly return, while pinning the Sprint 115 split of
+ * the single universal renderer into purpose-built ego / community-ring / community-hub / fission ones.
  */
 
 const FRONTEND_ROOT = path.resolve(__dirname, '../../')
@@ -22,7 +24,7 @@ describe('retired graph wrappers are gone', () => {
   })
 })
 
-describe('the unified surfaces exist', () => {
+describe('one wrapper, canonical model, shared encoding, contextual renderers', () => {
   it.each([
     'src/pages/network.tsx',
     'src/components/BelongingGraph.tsx',
@@ -30,6 +32,10 @@ describe('the unified surfaces exist', () => {
     'src/components/BelongingPulse.tsx',
     'src/components/graphs/types.ts',
     'src/components/graphs/normalizeGraphData.ts',
+    'src/components/graphs/graphVisualEncoding.ts',
+    'src/components/graphs/EgoOrbitGraph.tsx',
+    'src/components/graphs/CommunityRingGraph.tsx',
+    'src/components/graphs/CommunityHubGraph.tsx',
     'src/components/graphs/TrustGraphHEB.tsx',
   ])('%s exists', file => {
     expect(exists(file)).toBe(true)

@@ -1,9 +1,8 @@
 import { useEffect, useRef, useState, useMemo } from 'react'
 import * as d3 from 'd3'
-import type { BelongingMode, GraphData, TrustLink, TrustNode } from './types'
+import type { GraphData, TrustLink, TrustNode } from './types'
 import { linkKey } from './normalizeGraphData'
 import GraphZoomControls from './GraphZoomControls'
-import CommunityHubGraph from './CommunityHubGraph'
 import { clearGraphZoom, installGraphZoom, zoomBy, zoomReset } from './graphZoom'
 import { useGraphContainerWidth } from '../../hooks/useGraphContainerWidth'
 
@@ -18,8 +17,8 @@ const DECAY_OPACITY_FACTOR: Record<NonNullable<TrustLink['decayTier']>, number> 
 }
 
 // Sprint 112 (ADR-082): person graphs no longer carry a numeric edge weight — only the qualitative
-// relationship state (decayTier). Derive a nominal weight from that state so edge width, opacity, and
-// clustering still reflect bond strength. The inter-community depth graph still supplies real weights.
+// relationship state (decayTier). Derive a nominal weight from that state so fission edge width and
+// opacity still reflect bond strength. The split proposal supplies real weights where it has them.
 const STATE_WEIGHT: Record<NonNullable<TrustLink['decayTier']>, number> = {
   strong: 4,
   warm: 3,
@@ -35,9 +34,9 @@ function linkWeight(l: TrustLink): number {
 interface TrustGraphHEBProps {
   graphData: GraphData
   currentUserId: string
-  /** community + ego share visuals (cluster color + amber your-edges); fission uses the split groups;
-   *  communities delegates to the egocentric-hub layout (CommunityHubGraph), not the HEB radial. */
-  mode: BelongingMode
+  /** Sprint 115 (ADR-083): the HEB radial now renders ONLY the fission group split. Person modes (ego,
+   *  community) and the across-communities hub each have their own dedicated renderer. */
+  mode: 'fission'
   groupMap?: Record<string, 'group_a' | 'group_b'>
   groupALabel?: string
   groupBLabel?: string
@@ -57,36 +56,6 @@ const CURRENT_USER_RADIUS = NODE_RADIUS + 3
 
 const FADE_OPACITY = 0.15
 const TRANSITION_MS = 400
-
-// Greedy union-find clustering: merge nodes joined by the strongest 40% of edges.
-function detectClusters(nodes: TrustNode[], links: TrustLink[]): Map<string, number> {
-  const parent = new Map(nodes.map(n => [n.id, n.id]))
-  const find = (x: string): string => {
-    const p = parent.get(x)
-    if (p === undefined || p === x) return x
-    const root = find(p)
-    parent.set(x, root)
-    return root
-  }
-  const union = (a: string, b: string) => {
-    if (parent.has(a) && parent.has(b)) parent.set(find(a), find(b))
-  }
-
-  ;[...links]
-    .sort((a, b) => linkWeight(b) - linkWeight(a))
-    .slice(0, Math.max(1, Math.floor(links.length * 0.4)))
-    .forEach(l => union(l.source, l.target))
-
-  const rootToCluster = new Map<string, number>()
-  const result = new Map<string, number>()
-  let nextId = 0
-  nodes.forEach(n => {
-    const root = find(n.id)
-    if (!rootToCluster.has(root)) rootToCluster.set(root, nextId++)
-    result.set(n.id, rootToCluster.get(root)!)
-  })
-  return result
-}
 
 const nodeLabel = (n: TrustNode, currentUserId: string) =>
   n.id === currentUserId ? `${n.name} (you)` : n.name
@@ -113,18 +82,15 @@ export default function TrustGraphHEB({
   const zoomBehaviorRef = useRef<d3.ZoomBehavior<SVGSVGElement, unknown> | null>(null)
   const initialTransformRef = useRef<d3.ZoomTransform>(d3.zoomIdentity)
 
-  // Cluster assignment: fission uses the proposed groups, community detects clusters.
+  // Fission cluster assignment: each node sits in its proposed group (a / b / unassigned).
   const clusterOf = useMemo(() => {
-    if (mode === 'fission') {
-      const m = new Map<string, number>()
-      graphData.nodes.forEach(n => {
-        const g = groupMap?.[n.id]
-        m.set(n.id, g === 'group_a' ? 0 : g === 'group_b' ? 1 : 2)
-      })
-      return m
-    }
-    return detectClusters(graphData.nodes, graphData.links)
-  }, [graphData, groupMap, mode])
+    const m = new Map<string, number>()
+    graphData.nodes.forEach(n => {
+      const g = groupMap?.[n.id]
+      m.set(n.id, g === 'group_a' ? 0 : g === 'group_b' ? 1 : 2)
+    })
+    return m
+  }, [graphData, groupMap])
 
   const maxWeight = useMemo(
     () => Math.max(...graphData.links.map(linkWeight), 1),
@@ -133,9 +99,6 @@ export default function TrustGraphHEB({
 
   useEffect(() => {
     if (!svgRef.current || graphData.nodes.length === 0) return
-    // communities mode renders through the dedicated egocentric-hub component (S113 Task 9), not the
-    // HEB radial — skip the radial build entirely here (the component early-returns it below).
-    if (mode === 'communities') return
 
     const svg = d3.select(svgRef.current)
 
@@ -172,34 +135,24 @@ export default function TrustGraphHEB({
       .radius(d => (d as any).y)
       .angle(d => (d as any).x)
 
-    const isMyEdge = (l: TrustLink) => l.source === currentUserId || l.target === currentUserId
     const sameCluster = (l: TrustLink) =>
       (clusterOf.get(l.source) ?? -1) === (clusterOf.get(l.target) ?? -2)
 
-    const edgeColor = (l: TrustLink): string => {
-      if (mode === 'fission') return sameCluster(l) ? '#22c55e' : '#ef4444'
-      if (isMyEdge(l)) return '#fb923c'
-      return sameCluster(l) ? '#6366f1' : '#94a3b8'
-    }
+    // Within-group ties are green, cross-group ties red — the split's structural tension at a glance.
+    const edgeColor = (l: TrustLink): string => (sameCluster(l) ? '#22c55e' : '#ef4444')
     const edgeOpacity = (l: TrustLink): number => {
       const base = 0.12 + 0.7 * (linkWeight(l) / maxWeight)
       const decay = l.decayTier ? DECAY_OPACITY_FACTOR[l.decayTier] : 1
-      if (mode === 'community' && isMyEdge(l)) return Math.max(0.7, base) * decay
-      if (mode === 'community' && !sameCluster(l)) return Math.min(base, 0.3) * decay
       return base * decay
     }
     const edgeWidth = (l: TrustLink): number =>
       Math.max(0.6, Math.log1p(linkWeight(l)) * 1.2)
 
     const nodeColor = (n: TrustNode): string => {
-      if (mode === 'fission') {
-        const grp = groupMap?.[n.id]
-        if (grp === 'group_a') return '#3b82f6'
-        if (grp === 'group_b') return '#f97316'
-        return '#94a3b8'
-      }
-      if (n.isCurrentUser || n.id === currentUserId) return '#10b981'
-      return '#818cf8'
+      const grp = groupMap?.[n.id]
+      if (grp === 'group_a') return '#3b82f6'
+      if (grp === 'group_b') return '#f97316'
+      return '#94a3b8'
     }
     const nodeRadius = (n: TrustNode) => (n.id === currentUserId ? CURRENT_USER_RADIUS : NODE_RADIUS)
     // The "you" anchor is a STROKE ring, not a larger circle, so node radius stays uniform (ADR-063).
@@ -273,11 +226,11 @@ export default function TrustGraphHEB({
       .attr('stroke', (d: any) => (ringed(d.data) ? '#fff' : 'none'))
       .attr('stroke-width', (d: any) => (ringed(d.data) ? 2 : 0))
 
-    // Fission-only: a dashed ring marks members with no trust connections yet (matches the legend's
-    // "dashed = no connections"). Managed idempotently so keyed updates add/remove it as needed.
+    // A dashed ring marks members with no trust connections yet (matches the legend's "dashed = no
+    // connections"). Managed idempotently so keyed updates add/remove it as needed.
     nodeMerge.each(function (d: any) {
       const sel = d3.select(this)
-      const showRing = mode === 'fission' && !!d.data.isIsolated && d.data.id !== currentUserId
+      const showRing = !!d.data.isIsolated && d.data.id !== currentUserId
       const ring = sel.select('circle.iso-ring')
       if (showRing && ring.empty()) {
         sel.append('circle')
@@ -362,38 +315,6 @@ export default function TrustGraphHEB({
   const connectionCount = (id: string) =>
     graphData.links.filter(l => l.source === id || l.target === id).length
 
-  if (mode === 'community' && graphData.links.length === 0 && graphData.nodes.length <= 1) {
-    return (
-      <div className="flex flex-col items-center justify-center py-16 gap-2 text-center">
-        <p className="text-text-muted text-sm">This community doesn&apos;t have any trust connections yet.</p>
-        <p className="text-text-muted text-xs">Connections appear as members complete help exchanges.</p>
-      </div>
-    )
-  }
-
-  if (mode === 'ego' && graphData.links.length === 0 && graphData.nodes.length <= 1) {
-    return (
-      <div className="flex flex-col items-center justify-center py-16 gap-2 text-center">
-        <p className="text-text-muted text-sm">You don&apos;t have any trust connections yet.</p>
-        <p className="text-text-muted text-xs">Connections appear as you complete help exchanges with others.</p>
-      </div>
-    )
-  }
-
-  // Scale 3 ("Across Communities") renders communities-as-nodes through the dedicated egocentric-hub
-  // layout (S113 Task 9) — its own empty/sparse state, legend, and zoom (single owner per surface).
-  if (mode === 'communities') {
-    return (
-      <CommunityHubGraph
-        graphData={graphData}
-        height={height}
-        enableZoom={enableZoom}
-        focusedNodeId={focusedNodeId}
-        onNodeActivate={onNodeActivate}
-      />
-    )
-  }
-
   return (
     <div ref={containerRef} className="relative">
       {enableZoom && graphData.nodes.length > 0 && (
@@ -405,93 +326,63 @@ export default function TrustGraphHEB({
       )}
       <svg ref={svgRef} width={width} height={height} style={{ maxWidth: '100%' }} />
 
-      {/* Legend */}
-      {mode === 'fission' ? (
-        <div className="flex flex-wrap gap-4 text-xs text-text-muted mt-2 px-1">
-          <span className="flex items-center gap-1">
-            <span className="inline-block w-2.5 h-2.5 rounded-full bg-blue-500" /> {groupALabel}
-          </span>
-          <span className="flex items-center gap-1">
-            <span className="inline-block w-2.5 h-2.5 rounded-full bg-orange-500" /> {groupBLabel}
-          </span>
-          <span className="flex items-center gap-1 text-green-600">— within-group tie</span>
-          <span className="flex items-center gap-1 text-red-500">— cross-group tie</span>
-          <span className="text-gray-400">white ring = you · dashed = no connections</span>
-        </div>
-      ) : (
-        <div className="flex flex-wrap gap-4 text-xs text-text-muted mt-2 px-1">
-          <span className="flex items-center gap-1">
-            <span className="inline-block w-2.5 h-2.5 rounded-full bg-emerald-500" /> You
-          </span>
-          <span className="flex items-center gap-1 text-orange-500">— your connections</span>
-          <span className="flex items-center gap-1 text-indigo-500">— close-knit group</span>
-          <span className="flex items-center gap-1 text-slate-400">— bridge between groups</span>
-        </div>
-      )}
+      {/* Fission legend: group colors, within/cross-group tie hues, you-anchor + isolation marks. */}
+      <div className="flex flex-wrap gap-4 text-xs text-text-muted mt-2 px-1">
+        <span className="flex items-center gap-1">
+          <span className="inline-block w-2.5 h-2.5 rounded-full bg-blue-500" /> {groupALabel}
+        </span>
+        <span className="flex items-center gap-1">
+          <span className="inline-block w-2.5 h-2.5 rounded-full bg-orange-500" /> {groupBLabel}
+        </span>
+        <span className="flex items-center gap-1 text-green-600">— within-group tie</span>
+        <span className="flex items-center gap-1 text-red-500">— cross-group tie</span>
+        <span className="text-gray-400">white ring = you · dashed = no connections</span>
+      </div>
 
       {selectedNode && (
         <div className="mt-3 p-4 bg-surface rounded-lg border border-border text-sm">
           <div className="font-semibold text-text mb-2">{selectedNode.name}</div>
-          {mode === 'fission' ? (
-            <div className="space-y-3">
-              <div className="flex items-center justify-between text-text-muted">
-                <span>Group</span>
-                {groupMap?.[selectedNode.id] === 'group_a' ? (
-                  <span className="font-medium text-blue-600">{groupALabel}</span>
-                ) : groupMap?.[selectedNode.id] === 'group_b' ? (
-                  <span className="font-medium text-orange-600">{groupBLabel}</span>
-                ) : (
-                  <span className="text-gray-400 italic">unassigned</span>
-                )}
-              </div>
-              <div className="flex items-center justify-between text-text-muted">
-                <span>Connections</span>
-                {selectedNode.isIsolated ? (
-                  <span className="text-gray-400 italic">none yet</span>
-                ) : (
-                  <span className="text-text">{connectionCount(selectedNode.id)}</span>
-                )}
-              </div>
-              {onSwitchGroup && selectedNode.id !== currentUserId && groupMap?.[selectedNode.id] && (
-                <button
-                  disabled={switching}
-                  onClick={async () => {
-                    setSwitching(true)
-                    try {
-                      await onSwitchGroup(selectedNode.id, groupMap[selectedNode.id] ?? null)
-                      setSelectedNodeId(null)
-                    } finally {
-                      setSwitching(false)
-                    }
-                  }}
-                  className={`w-full py-1.5 rounded text-sm font-medium transition-colors disabled:opacity-50 ${
-                    groupMap[selectedNode.id] === 'group_a'
-                      ? 'bg-orange-100 text-orange-700 hover:bg-orange-200'
-                      : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
-                  }`}
-                >
-                  {switching ? '…' : `Move to ${groupMap[selectedNode.id] === 'group_a' ? groupBLabel : groupALabel}`}
-                </button>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between text-text-muted">
+              <span>Group</span>
+              {groupMap?.[selectedNode.id] === 'group_a' ? (
+                <span className="font-medium text-blue-600">{groupALabel}</span>
+              ) : groupMap?.[selectedNode.id] === 'group_b' ? (
+                <span className="font-medium text-orange-600">{groupBLabel}</span>
+              ) : (
+                <span className="text-gray-400 italic">unassigned</span>
               )}
             </div>
-          ) : (
-            // Sprint 112 (ADR-082): the graph shows relationship STRUCTURE, not reputation. No node
-            // (not even the caller's) exposes trust score or karma here — exact self metrics live only
-            // in the canonical reputation summary. Node detail shows structural context only.
-            <div className="grid grid-cols-2 gap-2 text-text-muted">
-              {selectedNode.id === currentUserId && (
-                <span className="col-span-2 text-indigo-500">This is you</span>
-              )}
-              {selectedNode.degrees_of_separation != null && selectedNode.id !== currentUserId && (
-                <>
-                  <span>Degrees away</span>
-                  <span className="text-text">{selectedNode.degrees_of_separation}</span>
-                </>
-              )}
+            <div className="flex items-center justify-between text-text-muted">
               <span>Connections</span>
-              <span className="text-text">{connectionCount(selectedNode.id)}</span>
+              {selectedNode.isIsolated ? (
+                <span className="text-gray-400 italic">none yet</span>
+              ) : (
+                <span className="text-text">{connectionCount(selectedNode.id)}</span>
+              )}
             </div>
-          )}
+            {onSwitchGroup && selectedNode.id !== currentUserId && groupMap?.[selectedNode.id] && (
+              <button
+                disabled={switching}
+                onClick={async () => {
+                  setSwitching(true)
+                  try {
+                    await onSwitchGroup(selectedNode.id, groupMap[selectedNode.id] ?? null)
+                    setSelectedNodeId(null)
+                  } finally {
+                    setSwitching(false)
+                  }
+                }}
+                className={`w-full py-1.5 rounded text-sm font-medium transition-colors disabled:opacity-50 ${
+                  groupMap[selectedNode.id] === 'group_a'
+                    ? 'bg-orange-100 text-orange-700 hover:bg-orange-200'
+                    : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                }`}
+              >
+                {switching ? '…' : `Move to ${groupMap[selectedNode.id] === 'group_a' ? groupBLabel : groupALabel}`}
+              </button>
+            )}
+          </div>
         </div>
       )}
     </div>
