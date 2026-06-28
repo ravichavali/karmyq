@@ -9,6 +9,7 @@
 
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
+import CommunityRingGraph from '@/components/graphs/CommunityRingGraph';
 import TrustGraphHEB from '@/components/graphs/TrustGraphHEB';
 
 const graphData = {
@@ -55,5 +56,17 @@ describe('Sprint 113 — BUG-027 graph zoom controls (single owner)', () => {
     expect(svg.__zoom.k).toBeGreaterThan(1);
     fireEvent.click(screen.getByLabelText(/reset zoom/i));
     expect(svg.__zoom.k).toBeCloseTo(1);
+  });
+
+  it('keeps the direct community ring on the same single-owner zoom contract', () => {
+    const { container } = render(
+      <CommunityRingGraph graphData={graphData} currentUserId="me" enableZoom />
+    );
+    const svg = container.querySelector('svg') as any;
+    const before = svg.__zoom.k;
+
+    expect(screen.getAllByLabelText(/zoom in/i)).toHaveLength(1);
+    fireEvent.click(screen.getByLabelText(/zoom in/i));
+    expect(svg.__zoom.k).toBeGreaterThan(before);
   });
 });
