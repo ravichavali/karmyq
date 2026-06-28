@@ -12,6 +12,7 @@ import {
   buildCommunityRingModel,
   compareGraphNodes,
 } from '@/components/graphs/communityRingModel'
+import { buildEgoOrbitModel } from '@/components/graphs/egoOrbitModel'
 import type { GraphData, TrustLink, TrustNode } from '@/components/graphs/types'
 
 const link = (decayTier?: TrustLink['decayTier']): TrustLink => ({
@@ -237,5 +238,138 @@ describe('Sprint 115 deterministic community ring model', () => {
     const model = buildCommunityRingModel({ nodes: [], links: [] }, Number.NaN, Number.POSITIVE_INFINITY)
 
     expect(model).toEqual({ nodes: [], links: [], radius: 60 })
+  })
+})
+
+describe('Sprint 115 deterministic ego orbit model', () => {
+  // Baseline me—maya—john. The expansion of `maya` pulls in `kai`. The disclosed response is
+  // deliberately wrong about depth: it marks `maya` as distance 0 and `kai` as distance 1. The model
+  // must ignore those response-supplied depths entirely and derive distance with a local BFS from the
+  // caller: me=0, maya=1, john=2, kai=2.
+  const baselineGraph: GraphData = {
+    nodes: [
+      { id: 'me', name: 'Maria', degrees_of_separation: 0 },
+      { id: 'maya', name: 'Maya', degrees_of_separation: 1 },
+      { id: 'john', name: 'John', degrees_of_separation: 2 },
+    ],
+    links: [
+      { source: 'me', target: 'maya', decayTier: 'strong' },
+      { source: 'maya', target: 'john', decayTier: 'warm' },
+    ],
+  }
+  const expandedGraph: GraphData = {
+    nodes: [
+      { id: 'me', name: 'Maria', degrees_of_separation: 0 },
+      { id: 'maya', name: 'Maya', degrees_of_separation: 0 }, // wrong on purpose
+      { id: 'john', name: 'John', degrees_of_separation: 2 },
+      { id: 'kai', name: 'Kai', degrees_of_separation: 1 }, // wrong on purpose
+    ],
+    links: [
+      { source: 'me', target: 'maya', decayTier: 'strong' },
+      { source: 'maya', target: 'john', decayTier: 'warm' },
+      { source: 'maya', target: 'kai', decayTier: 'fading' },
+    ],
+  }
+  const ids = (graph: GraphData) => graph.nodes.map(node => node.id)
+
+  it('derives BFS distance from the caller and never reads response-supplied depth', () => {
+    const model = buildEgoOrbitModel(expandedGraph, 'me', 800, 600, {
+      baselineNodeIds: ['me', 'maya', 'john'],
+      expansionRootIds: ['maya'],
+    })
+    const distance = new Map(model.nodes.map(node => [node.id, node.displayDistance]))
+
+    expect(distance.get('me')).toBe(0)
+    expect(distance.get('maya')).toBe(1)
+    expect(distance.get('john')).toBe(2)
+    expect(distance.get('kai')).toBe(2)
+    expect(model.maxDistance).toBe(2)
+
+    const scrambled: GraphData = {
+      ...expandedGraph,
+      nodes: expandedGraph.nodes.map(node => ({ ...node, degrees_of_separation: 3 as const })),
+    }
+    const scrambledModel = buildEgoOrbitModel(scrambled, 'me', 800, 600, {
+      baselineNodeIds: ['me', 'maya', 'john'],
+      expansionRootIds: ['maya'],
+    })
+
+    expect(new Map(scrambledModel.nodes.map(node => [node.id, node.displayDistance]))).toEqual(distance)
+  })
+
+  it('anchors the caller at the origin and grows orbit radius with distance', () => {
+    const model = buildEgoOrbitModel(expandedGraph, 'me', 800, 600, {
+      baselineNodeIds: ['me', 'maya', 'john'],
+      expansionRootIds: ['maya'],
+    })
+    const byId = new Map(model.nodes.map(node => [node.id, node]))
+    const radiusOf = (id: string) => Math.hypot(byId.get(id)!.x, byId.get(id)!.y)
+
+    expect(byId.get('me')).toMatchObject({ x: 0, y: 0, displayDistance: 0 })
+    expect(radiusOf('maya')).toBeGreaterThan(0)
+    expect(radiusOf('john')).toBeGreaterThan(radiusOf('maya'))
+  })
+
+  it('keeps baseline positions stable across expansion and collapse', () => {
+    const positionsOf = (model: ReturnType<typeof buildEgoOrbitModel>) =>
+      new Map(model.nodes.map(node => [node.id, { x: node.x, y: node.y }]))
+
+    const before = positionsOf(
+      buildEgoOrbitModel(baselineGraph, 'me', 800, 600, {
+        baselineNodeIds: ['me', 'maya', 'john'],
+        expansionRootIds: [],
+      })
+    )
+    const afterExpansion = positionsOf(
+      buildEgoOrbitModel(expandedGraph, 'me', 800, 600, {
+        baselineNodeIds: ['me', 'maya', 'john'],
+        expansionRootIds: ['maya'],
+      })
+    )
+    const afterCollapse = positionsOf(
+      buildEgoOrbitModel(baselineGraph, 'me', 800, 600, {
+        baselineNodeIds: ['me', 'maya', 'john'],
+        expansionRootIds: [],
+      })
+    )
+
+    expect(afterExpansion.get('maya')).toEqual(before.get('maya'))
+    expect(afterCollapse.get('maya')).toEqual(before.get('maya'))
+    expect(afterExpansion.get('john')).toEqual(before.get('john'))
+  })
+
+  it('marks expansion nodes and defaults every input node to the baseline', () => {
+    const expansionModel = buildEgoOrbitModel(expandedGraph, 'me', 800, 600, {
+      baselineNodeIds: ['me', 'maya', 'john'],
+      expansionRootIds: ['maya'],
+    })
+    const flags = new Map(expansionModel.nodes.map(node => [node.id, node.isExpansionNode]))
+
+    expect(flags.get('me')).toBe(false)
+    expect(flags.get('maya')).toBe(false)
+    expect(flags.get('kai')).toBe(true)
+
+    const defaulted = buildEgoOrbitModel(baselineGraph, 'me', 800, 600)
+    expect(defaulted.nodes.every(node => node.isExpansionNode === false)).toBe(true)
+  })
+
+  it('emits one straight edge per valid link, drops dangling links, and stays finite', () => {
+    const danglingGraph: GraphData = {
+      ...expandedGraph,
+      links: [...expandedGraph.links, { source: 'me', target: 'ghost', decayTier: 'strong' }],
+    }
+    const model = buildEgoOrbitModel(danglingGraph, 'me', 800, 600, {
+      baselineNodeIds: ['me', 'maya', 'john'],
+      expansionRootIds: ['maya'],
+    })
+
+    expect(model.links).toHaveLength(3)
+    expect(
+      model.links.every(item =>
+        [item.x1, item.y1, item.x2, item.y2].every(value => Number.isFinite(value))
+      )
+    ).toBe(true)
+    expect(JSON.stringify(model)).not.toMatch(/NaN|Infinity/)
+    expect(ids(model)).toEqual(['me', 'maya', 'john', 'kai'])
   })
 })
