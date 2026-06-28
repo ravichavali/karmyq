@@ -40,5 +40,6 @@ export interface GraphData {
   meta?: {
     depth?: 1 | 2 | 3
     truncated?: boolean
+    totalActiveMembers?: number
   }
 }
