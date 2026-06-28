@@ -2,7 +2,7 @@
 
 **Date**: 2026-06-27
 **Status**: Approved
-**Version**: v11.20.0 → v11.21.0
+**Version**: v11.20.0 → v11.22.0
 **Sprint Branch**: `agent/codex/sprint-115-belonging-presentation`
 
 ---
@@ -22,9 +22,11 @@ cluster color, and hierarchical edge bundling. Every community edge becomes a di
 relationship chord. Line width remains constant; hue identifies whose relationship is being read;
 intensity carries only the privacy-safe qualitative relationship state.
 
-This sprint changes presentation, not trust math. It introduces no schema or API contract, exposes no
-new reputation data, and leaves the across-community and fission renderers intact. A later sprint will
-add the named person-to-person connection corridor and offer integration after its path-ranking
+This sprint changes presentation, not trust math. It introduces no schema and exposes no new
+reputation data. It makes one additive correction to the full-community graph contract: member
+selection becomes neutral rather than hidden-trust-ranked, and completeness metadata states when the
+150-member view is truncated. The across-community and fission renderers remain intact. A later sprint
+will add the named person-to-person connection corridor and offer integration after its path-ranking
 semantics are designed and tested separately.
 
 ### Core Principle: Earned Legibility
@@ -71,6 +73,8 @@ the "clearest connection," never a recommendation or transfer of trust.
 4. Keep relationship strength legible through the existing qualitative decay states.
 5. Preserve keyboard, zoom, focus, sparse-state, and progressive-expansion behavior.
 6. Prove deterministic layout and privacy-safe encoding with exact tests and 150-member validation.
+7. Remove hidden-reputation selection from the full-community graph and disclose when its 150-member
+   view is incomplete.
 
 ### Non-Goals
 
@@ -81,7 +85,8 @@ the "clearest connection," never a recommendation or transfer of trust.
 - No public member-profile route or profile-visibility model.
 - No change to the across-community `CommunityHubGraph` or current fission workflow.
 - No temporal fission/fusion history view.
-- No database migration, new endpoint, or reputation-math change.
+- No database migration, new endpoint, or reputation-math change. One existing endpoint receives
+  additive completeness metadata and neutral member selection.
 
 ---
 
@@ -131,7 +136,10 @@ state, not a metric.
 | Slate | An ordinary community relationship. |
 | Teal | A focused member's incident relationships while the rest recede. |
 
-Intensity maps the existing ADR-082 `relationship_state` contract to four discrete opacity bands:
+Intensity maps the canonical client decay tier to five discrete opacity bands. ADR-082's outward
+`relationship_state` intentionally returns the first four states (swept edges should already be
+absent), but `TrustLink.decayTier` still admits `swept`; shared encoding handles it defensively rather
+than treating it as unknown.
 
 | Relationship state | Opacity |
 |--------------------|---------|
@@ -139,6 +147,7 @@ Intensity maps the existing ADR-082 `relationship_state` contract to four discre
 | `warm` | `0.40` |
 | `fading` | `0.23` |
 | `nearly_forgotten` | `0.11` |
+| `swept` | `0.05` |
 
 Amber "your relationship" edges use the same relative ordering with a higher-contrast hue; hue does
 not override the relationship-state meaning. A missing/unknown state renders at neutral subdued
@@ -160,6 +169,8 @@ relationship state in text.
 - Radius encodes degrees of separation from the authenticated member. The layout recomputes that
   display distance with a local breadth-first traversal after graphs merge; it does not trust an
   expansion response's `degrees_of_separation`, which is relative to the clicked expansion center.
+- `egoOrbitModel` never reads `node.degrees_of_separation` for radius or ordering. That populated
+  compatibility field may still be used by textual readouts outside the layout model.
 - Progressive expansion places newly revealed neighbors on an outer arc aligned with the activated
   member.
 - Clockwise ordering is deterministic: normalized display name, then user ID as a tie-breaker.
@@ -172,11 +183,14 @@ relationship state in text.
 
 ### Community ring — This Community
 
-- Every active member occupies one equal position on a single circle.
+- Every returned active member occupies one equal position on a single circle. When the community has
+  at most 150 active members the view is complete; larger communities are explicitly marked truncated.
 - Clockwise ordering uses the same normalized-name + ID ordering as the ego aperture.
 - Each edge is a direct source-to-target relationship rendered as one quadratic Bézier curve. Its
-  control point is the chord midpoint interpolated 12% toward the ring center, producing a modest
-  deterministic inward bow. Curves have no shared hierarchy and do not merge into visual bundles.
+  control point is the chord midpoint displaced perpendicular to the chord by
+  `min(18px, chordLength × 0.08)`; direction comes from the lexicographically normalized endpoint
+  pair. This modest deterministic bow prevents near-diameter chords from all converging at the
+  center. Curves have no shared hierarchy and do not merge into visual bundles.
 - There is no cluster detection, cluster ordering, cluster hue, centrality size, or generated group.
 - Activating a member focuses their incident relationships and dims unrelated nodes/edges without
   changing any positions.
@@ -206,6 +220,7 @@ mode dispatcher instead of forcing every mode through one renderer.
 | `apps/frontend/src/components/graphs/EgoOrbitGraph.tsx` (new) | SVG ego renderer, focus/keyboard/zoom behavior, and bounded branch presentation. |
 | `apps/frontend/src/components/graphs/communityRingModel.ts` (new) | Pure deterministic ring positions and direct-curve paths. |
 | `apps/frontend/src/components/graphs/CommunityRingGraph.tsx` (new) | SVG community renderer, focus/keyboard/zoom behavior, and detail panel. |
+| `apps/frontend/src/components/graphs/types.ts` | Add `totalActiveMembers` to canonical graph metadata. |
 | `apps/frontend/src/components/graphs/TrustGraphHEB.tsx` | Remains for fission during Sprint 115; no longer handles `ego` or `community`. |
 | `apps/frontend/src/components/graphs/CommunityHubGraph.tsx` | Unchanged renderer for `communities`. |
 | `apps/frontend/src/components/graphs/GraphZoomControls.tsx` + `graphZoom.ts` | Reused; renderer remains the single zoom owner for its SVG. |
@@ -214,7 +229,9 @@ mode dispatcher instead of forcing every mode through one renderer.
 | `apps/frontend/src/components/community/tabs/TrustGraphTab.tsx` | Replace cluster/bundle copy with ring/direct-relationship/redundant-belonging language. |
 
 Pure layout models stay separate from React and D3 DOM effects so their meanings can be tested without
-jsdom geometry or screenshot inference.
+jsdom geometry or screenshot inference. Both models are `O(V + E)`. Renderers memoize coordinates and
+path geometry by graph data + viewport dimensions; changing focus may update classes/styles but must
+not recompute coordinates or SVG path `d` values. Do not use per-edge filters, blur, or glow effects.
 
 ---
 
@@ -225,22 +242,39 @@ jsdom geometry or screenshot inference.
 The canonical client `GraphData`, `TrustNode`, and `TrustLink` types remain. Person graphs continue to
 carry identity + structure on nodes and qualitative `relationship_state` normalized to `decayTier` on
 links. Optional numeric fields remain reserved for non-person community-depth data and must not be
-read by the new person renderers.
+read by the new person renderers. `GraphData.meta` adds optional `totalActiveMembers`; the existing
+optional `truncated` flag is reused by the community ring.
 
 ---
 
 ## API Endpoints
 
-**No new or modified endpoints.** Sprint 115 reuses the contracts already protected by ADR-082.
+**No new endpoints. One additive response-contract change.** Sprint 115 keeps ADR-082's strict
+person projections and modifies only the full-community graph's selection/completeness envelope.
 
 | Method | Path | Aperture | Use |
 |--------|------|----------|-----|
 | GET | `/trust/graph` | Profile ego | Aggregate baseline across the caller's communities. |
 | GET | `/trust/graph/:communityId` | Community-scoped ego | Baseline for the community My Network sub-tab. |
 | GET | `/trust/neighborhood/:userId?depth=1..3` | Ego explorer/expansion | Privacy-scoped recursive neighborhood and branch expansion. |
-| GET | `/trust/graph/:communityId/full` | Community ring | Up to 150 active members and their in-scope links. |
+| GET | `/trust/graph/:communityId/full` | Community ring | Up to 150 neutrally selected active members, in-scope links, and `meta: { totalActiveMembers, truncated }`. |
 
 `normalizePersonGraph` remains the response seam. Layout components never consume raw API rows.
+
+### Full-community selection correction
+
+The current database query selects the top 149 members by internal trust score and unions the caller.
+That hidden ranking makes low-scoring members less likely to appear and biases the visible topology.
+Sprint 115 replaces it with a neutral deterministic selection:
+
+1. Select up to 149 active members ordered by normalized display name, then user ID.
+2. Union the authenticated caller so "you are here" is guaranteed (at most 150 returned nodes).
+3. Count all active community members independently.
+4. Return `totalActiveMembers` and `truncated = totalActiveMembers > returnedNodeCount`.
+
+Internal trust weights remain available only for selecting/projecting link relationship states; they
+must not affect which people occupy the ring. The route continues to pass nodes/links through the
+ADR-082 person projection before returning them.
 
 ---
 
@@ -287,8 +321,8 @@ design and API-enforced visibility policy.
 - **Dense graph:** preserve every returned node and link. At 40 members or fewer, persist every name;
   above 40, persist only the caller and focused/searched name while focus, keyboard navigation,
   tooltip/title, and zoom recover every other member's name.
-- **Truncated response:** when response metadata says it is truncated, state that plainly and do not
-  present the visible subgraph as a complete community-health picture.
+- **Truncated response:** show "Showing N of M active members" and state that the visible subgraph is
+  incomplete. Suppress complete-community health interpretation while `truncated=true`.
 - **Small viewport:** keep the same topology, allow pan/zoom, and prefer focus labels over overlapping
   persistent labels. Do not switch to an unrelated mobile layout.
 
@@ -326,7 +360,8 @@ Tests are written first in `apps/frontend/tests/tdd/`; passing tests promote to 
 ### Encoding tests
 
 - Every at-rest person edge has width `1.35px` regardless of relationship state.
-- The four relationship states map to the exact approved opacity bands.
+- All five canonical client decay tiers map to the exact approved opacity bands, including defensive
+  `swept=0.05`; missing/unknown state maps to `0.16`.
 - Caller edges, ordinary edges, and focused-member edges use their semantic hues.
 - Forbidden person fields (`trust_score`, `karma`, raw/effective weight) are never read or rendered.
 
@@ -336,8 +371,23 @@ Tests are written first in `apps/frontend/tests/tdd/`; passing tests promote to 
 - Profile permits one expansion and preserves baseline data on failure.
 - Explorer retains three-expansion FIFO/collapse behavior.
 - Community activation focuses without changing node coordinates.
+- Full-community contract tests prove neutral name/ID selection, guaranteed caller inclusion, exact
+  `totalActiveMembers`, and correct `truncated` behavior above/below the cap.
 - Keyboard activation, focus ring, accessible labels, and reduced motion work.
 - Zoom controls mount once per graph and use the existing D3/jsdom mapping and `ResizeObserver` stubs.
+
+### Existing regression migration
+
+Sprint 111/113 regression suites currently mount `TrustGraphHEB` directly in `ego`/`community` modes
+and assert HEB-specific DOM. Implementation must inventory those assertions before changing dispatch:
+
+- Move shared accessibility, privacy, focus, keyed-update, and zoom contracts to representative
+  `EgoOrbitGraph` / `CommunityRingGraph` tests.
+- Preserve HEB-specific fission assertions against `TrustGraphHEB`.
+- Update `BelongingGraph` dispatch tests to mock all contextual renderers and assert the correct mode
+  target.
+- Update the consolidation invariant from "one renderer" to "one wrapper + canonical model + shared
+  visual encoding." Do not delete a regression merely because its old DOM selector fails.
 
 ### Structural truth fixtures
 
@@ -354,6 +404,9 @@ validation confirms the renderer does not normalize all three into the same plea
 
 - Render a 150-member fixture on desktop and mobile; verify no crash, `NaN`, missing focus path, or
   unusable zoom.
+- Exercise both a realistic sparse 150-member fixture and a high-edge stress fixture. Record initial
+  model/render and focus-update timings with `performance.mark`; focus must reuse path geometry. If the
+  stress fixture misses the interaction budget, optimize rendering rather than sampling topology.
 - Validate profile, community tab, and `/network` against real demo data, including a rich account and
   a sparse account.
 - Confirm identical data retains its mental map across reloads and expansion/collapse cycles.
@@ -372,9 +425,10 @@ Mandatory Sprint 115 documentation:
 - Update `docs/concepts/reading-the-trust-graph.md` and its landing JSON: remove trust-score and
   cluster/bundle language that no longer matches ADR-082/Sprint 115.
 - Update `apps/frontend/CONTEXT.md` with the mode-to-renderer map and testing patterns.
+- Update `services/social-graph-service/CONTEXT.md` and `services/registry.json` for the additive
+  `/trust/graph/:communityId/full` metadata and neutral selection behavior.
 - Audit `apps/frontend/src/lib/onboarding/workflows.ts`; update graph/navigation copy only where an
   existing workflow describes the changed visuals. Do not invent a new onboarding flow this sprint.
-- No `services/registry.json` change: endpoints and outward contracts are unchanged.
 
 ---
 
@@ -399,16 +453,26 @@ Mandatory Sprint 115 documentation:
 7. **Expansion is bounded by surface.** Profile holds one replaceable branch; the explorer retains its
    existing three-expansion FIFO cap and collapse chips; community focus never fetches expansion data.
 8. **Recompute ego distance after merge.** Neighborhood responses measure degrees from their requested
-   center. The ego orbit must run a local BFS from `currentUserId`; never place merged nodes directly
-   from center-relative response metadata.
+   center. The ego orbit must run a local BFS from `currentUserId` and must never read
+   `node.degrees_of_separation` for layout; never place merged nodes directly from center-relative
+   response metadata.
 9. **Public profile navigation stays deferred.** Shared-community graph access is not consent to a
    public profile. Do not add another-member links until an API-enforced visibility contract exists.
 10. **Dense and incomplete graphs stay honest.** Preserve all returned topology, disclose truncation,
-   and never claim community health from an incomplete response. Use focus/search/zoom rather than
-   silently sampling edges.
-11. **Use the repository's D3/Jest pattern.** Map `d3` to `d3/dist/d3.min.js`, stub
+    and never claim community health from an incomplete response. Use focus/search/zoom rather than
+    silently sampling edges.
+11. **Member visibility is never trust-ranked.** The full-community query selects by normalized name
+    + ID and always includes the caller. Internal trust score/weight may classify link state but must
+    not decide which members are visible.
+12. **Migrate, do not discard, HEB-era regressions.** Existing Sprint 111/113 tests directly assert
+    `TrustGraphHEB` behavior in `ego`/`community` modes. Move shared contracts to the new renderers,
+    retain fission-specific HEB tests, and update the consolidation invariant before removing old DOM
+    assertions.
+13. **Keep dense focus cheap.** Layout/path generation is `O(V + E)` and memoized by data + viewport;
+    focus changes styles only. Avoid filters/glows and never recompute Bézier paths on hover/focus.
+14. **Use the repository's D3/Jest pattern.** Map `d3` to `d3/dist/d3.min.js`, stub
     `ResizeObserver`, seed `__zoom` directly where needed, and test pure layout models outside jsdom.
-12. **All behavior changes need tests and docs in the same sprint.** Follow TDD placement, update the
+15. **All behavior changes need tests and docs in the same sprint.** Follow TDD placement, update the
     user guide/concept/landing copies, create ADR-083, and run the full SDLC gates before merge.
 
 ---
@@ -420,7 +484,10 @@ Mandatory Sprint 115 documentation:
 - No ego/community person view uses force simulation, cluster grouping/color, edge bundling, variable
   strength width, or person reputation metrics.
 - Relationship states are distinguishable by approved intensity bands and readable in text.
+- `swept` has a tested defensive encoding even though ADR-082 outward person graphs normally omit it.
 - Profile expansion, explorer expansion, community focus, keyboard behavior, and zoom work as designed.
 - Across-community and fission behavior remains unchanged.
+- Full-community member visibility is neutral rather than trust-ranked, the caller is present, and
+  truncated graphs disclose "N of M" without making a complete-community health claim.
 - Unit/regression tests pass; 150-member and real-demo human validation pass.
 - ADR, guides, concepts, landing docs, and frontend context match the shipped behavior.
