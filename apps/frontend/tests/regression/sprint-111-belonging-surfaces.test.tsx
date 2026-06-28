@@ -86,6 +86,16 @@ describe('community TrustGraphTab', () => {
     fireEvent.click(screen.getByRole('button', { name: /my network/i }))
     expect(screen.getByTestId('belonging-graph')).toHaveAttribute('data-mode', 'ego')
   })
+
+  it('describes the views as a single ring/orbit, never as inferred clusters (ADR-083)', () => {
+    const { container } = render(<TrustGraphTab communityId="c1" currentUserId="u1" />)
+    // community sub-tab default: one ring of disclosed relationships, no manufactured grouping.
+    expect(screen.getByText(/every returned member on one ring/i)).toBeInTheDocument()
+    expect(container.textContent).not.toMatch(/grouped by how closely|clustered by how closely/i)
+
+    fireEvent.click(screen.getByRole('button', { name: /my network/i }))
+    expect(screen.getByText(/you at the center, with each orbit showing another degree/i)).toBeInTheDocument()
+  })
 })
 
 describe('community FissionTab', () => {

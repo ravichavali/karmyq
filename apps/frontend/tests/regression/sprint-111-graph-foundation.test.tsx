@@ -26,8 +26,9 @@ jest.mock('@/lib/api', () => ({
   },
 }))
 
-// Replace next/dynamic with a synchronous stub of the HEB renderer so we can assert the data/props
-// the wrapper hands it without exercising D3 or async dynamic loading.
+// Sprint 115 / ADR-083 — each mode dispatches to a purpose-built renderer; only fission still loads
+// through next/dynamic. Stub every leaf renderer with a distinct test id so we can assert the wrapper's
+// per-mode dispatch and the data it hands each renderer without exercising D3 or async dynamic loading.
 jest.mock('next/dynamic', () => () => {
   const Stub = (props: any) => (
     <div
@@ -39,6 +40,25 @@ jest.mock('next/dynamic', () => () => {
   Stub.displayName = 'TrustGraphHEBStub'
   return Stub
 })
+
+jest.mock('@/components/graphs/EgoOrbitGraph', () => ({
+  __esModule: true,
+  default: (props: any) => (
+    <div data-testid="ego" data-nodecount={props.graphData?.nodes?.length ?? 0} />
+  ),
+}))
+jest.mock('@/components/graphs/CommunityRingGraph', () => ({
+  __esModule: true,
+  default: (props: any) => (
+    <div data-testid="community-ring" data-nodecount={props.graphData?.nodes?.length ?? 0} />
+  ),
+}))
+jest.mock('@/components/graphs/CommunityHubGraph', () => ({
+  __esModule: true,
+  default: (props: any) => (
+    <div data-testid="community-hub" data-nodecount={props.graphData?.nodes?.length ?? 0} />
+  ),
+}))
 
 const aggregate = socialGraphService.getTrustGraphAggregate as jest.Mock
 const trustGraph = socialGraphService.getTrustGraph as jest.Mock
@@ -108,12 +128,13 @@ describe('mergeGraphData', () => {
 })
 
 describe('<BelongingGraph> per-mode fetch dispatch', () => {
-  it('ego mode without communityId fetches the cross-community aggregate', async () => {
+  it('ego mode without communityId fetches the cross-community aggregate and dispatches to the ego orbit', async () => {
     aggregate.mockResolvedValue({ data: { nodes: [{ id: 'u1' }], links: [] } })
     render(<BelongingGraph mode="ego" currentUserId="u1" load="immediate" />)
     await waitFor(() => expect(aggregate).toHaveBeenCalledTimes(1))
     expect(trustGraph).not.toHaveBeenCalled()
     expect(fullCommunity).not.toHaveBeenCalled()
+    expect(await screen.findByTestId('ego')).toBeInTheDocument()
   })
 
   it('ego mode WITH communityId fetches the community-scoped ego graph', async () => {
@@ -123,10 +144,11 @@ describe('<BelongingGraph> per-mode fetch dispatch', () => {
     expect(aggregate).not.toHaveBeenCalled()
   })
 
-  it('community mode fetches getFullCommunityGraph(communityId)', async () => {
+  it('community mode fetches getFullCommunityGraph(communityId) and dispatches to the community ring', async () => {
     fullCommunity.mockResolvedValue({ data: { nodes: [], links: [] } })
     render(<BelongingGraph mode="community" communityId="c1" currentUserId="u1" load="immediate" />)
     await waitFor(() => expect(fullCommunity).toHaveBeenCalledWith('c1'))
+    expect(await screen.findByTestId('community-ring')).toBeInTheDocument()
   })
 
   it('communities mode fetches getCommunityGraph then normalizes the payload', async () => {
@@ -144,6 +166,7 @@ describe('<BelongingGraph> per-mode fetch dispatch', () => {
     expect(onDataLoaded.mock.calls[0][0].nodes[0]).toEqual(
       expect.objectContaining({ id: 'c1', trust_score: 0, member_count: 5 })
     )
+    expect(await screen.findByTestId('community-hub')).toBeInTheDocument()
   })
 
   it('renders supplied graphData (fission) without fetching', async () => {

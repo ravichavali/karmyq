@@ -203,6 +203,17 @@ export default function NetworkPage() {
     return mergeGraphData(baseline, ...expansions.map(e => e.data))
   }, [baseline, expansions, mode])
 
+  // Sprint 115 / ADR-083 — stable ego layout identity. Memoized so a search/focus/expansion render can
+  // never invalidate the pure orbit geometry; supplied only in ego mode.
+  const baselineNodeIds = useMemo(
+    () => (mode === 'ego' ? baseline?.nodes.map(node => node.id) : undefined),
+    [mode, baseline]
+  )
+  const expansionRootIds = useMemo(
+    () => (mode === 'ego' ? expansions.map(expansion => expansion.nodeId) : undefined),
+    [mode, expansions]
+  )
+
   const expansionLabel = useCallback(
     (nodeId: string) => {
       const fromMerged = mergedGraph?.nodes.find(n => n.id === nodeId)?.name
@@ -335,7 +346,13 @@ export default function NetworkPage() {
               : 'Use the + / − controls to zoom and drag to pan · type above to find and focus a node.'}
           </p>
 
-          {mergedGraph?.meta?.truncated && (
+          {mode === 'community' && mergedGraph?.meta?.truncated && mergedGraph.meta.totalActiveMembers != null && (
+            <p className="text-xs text-amber-500">
+              Showing {mergedGraph.nodes.length} of {mergedGraph.meta.totalActiveMembers} active members.
+              This view is incomplete.
+            </p>
+          )}
+          {mode === 'ego' && mergedGraph?.meta?.truncated && (
             <p className="text-xs text-amber-500">
               Showing the closest connections only — some distant ones are hidden.
             </p>
@@ -388,6 +405,8 @@ export default function NetworkPage() {
               load="immediate"
               height={520}
               focusedNodeId={focusedNodeId}
+              baselineNodeIds={baselineNodeIds}
+              expansionRootIds={expansionRootIds}
               onNodeActivate={mode === 'ego' ? expandNode : undefined}
             />
           ) : (

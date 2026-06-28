@@ -3,10 +3,14 @@ import dynamic from 'next/dynamic'
 import { socialGraphService } from '../lib/api'
 import { useLazyGraphData } from '../hooks/useLazyGraphData'
 import { normalizeCommunityDepthGraph, normalizePersonGraph, type DepthLink, type DepthNode } from './graphs/normalizeGraphData'
+import EgoOrbitGraph from './graphs/EgoOrbitGraph'
+import CommunityRingGraph from './graphs/CommunityRingGraph'
+import CommunityHubGraph from './graphs/CommunityHubGraph'
 import type { BelongingMode, GraphData } from './graphs/types'
 
-// TrustGraphHEB uses D3 and must be client-only. The wrapper is the ONLY place that knows how each
-// mode fetches/normalizes; the renderer only ever receives canonical GraphData.
+// Sprint 115 / ADR-083 — each mode now dispatches to a purpose-built renderer; only the fission HEB
+// engine still needs D3 + client-only loading. The wrapper remains the ONLY place that knows how each
+// mode fetches/normalizes; renderers only ever receive canonical GraphData.
 const TrustGraphHEB = dynamic(() => import('./graphs/TrustGraphHEB'), {
   ssr: false,
   loading: () => (
@@ -24,6 +28,9 @@ export interface BelongingGraphProps {
   graphData?: GraphData
   load?: 'lazy' | 'immediate'
   onDataLoaded?: (data: GraphData) => void
+  /** Ego-only: stable layout identity so a search/focus/expansion render never recomputes geometry. */
+  baselineNodeIds?: readonly string[]
+  expansionRootIds?: readonly string[]
   groupMap?: Record<string, 'group_a' | 'group_b'>
   groupALabel?: string
   groupBLabel?: string
@@ -47,6 +54,8 @@ export default function BelongingGraph({
   graphData,
   load = 'lazy',
   onDataLoaded,
+  baselineNodeIds,
+  expansionRootIds,
   groupMap,
   groupALabel,
   groupBLabel,
@@ -109,19 +118,49 @@ export default function BelongingGraph({
           Couldn&apos;t load this graph.
         </div>
       ) : effectiveData ? (
-        <TrustGraphHEB
-          graphData={effectiveData}
-          currentUserId={currentUserId}
-          mode={mode}
-          groupMap={groupMap}
-          groupALabel={groupALabel}
-          groupBLabel={groupBLabel}
-          onSwitchGroup={onSwitchGroup}
-          height={height}
-          focusedNodeId={focusedNodeId}
-          onNodeActivate={onNodeActivate}
-          enableZoom={enableZoom}
-        />
+        mode === 'ego' ? (
+          <EgoOrbitGraph
+            graphData={effectiveData}
+            currentUserId={currentUserId}
+            baselineNodeIds={baselineNodeIds}
+            expansionRootIds={expansionRootIds}
+            height={height}
+            focusedNodeId={focusedNodeId}
+            onNodeActivate={onNodeActivate}
+            enableZoom={enableZoom}
+          />
+        ) : mode === 'community' ? (
+          <CommunityRingGraph
+            graphData={effectiveData}
+            currentUserId={currentUserId}
+            height={height}
+            focusedNodeId={focusedNodeId}
+            onNodeActivate={onNodeActivate}
+            enableZoom={enableZoom}
+          />
+        ) : mode === 'communities' ? (
+          <CommunityHubGraph
+            graphData={effectiveData}
+            height={height}
+            focusedNodeId={focusedNodeId}
+            onNodeActivate={onNodeActivate}
+            enableZoom={enableZoom}
+          />
+        ) : (
+          <TrustGraphHEB
+            graphData={effectiveData}
+            currentUserId={currentUserId}
+            mode="fission"
+            groupMap={groupMap}
+            groupALabel={groupALabel}
+            groupBLabel={groupBLabel}
+            onSwitchGroup={onSwitchGroup}
+            height={height}
+            focusedNodeId={focusedNodeId}
+            onNodeActivate={onNodeActivate}
+            enableZoom={enableZoom}
+          />
+        )
       ) : null}
     </div>
   )
