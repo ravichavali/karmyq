@@ -81,13 +81,13 @@ describe('projectPersonGraph', () => {
       links: [
         { source: CALLER, target: PEER, raw_weight: S_RAW, effective_weight: S_EFF, currentWeight: S_CURRENT, decayTier: 'fading' },
       ],
-      meta: { depth: 2, truncated: false },
+      meta: { depth: 2, truncated: true, totalActiveMembers: 151 },
     };
     const safe = projectPersonGraph(internal as any, 0.5, CALLER);
     expect(() => assertNoForbiddenReputationKeys(safe)).not.toThrow();
     expect(safe.nodes.map((n) => n.user_id)).toEqual([CALLER, PEER]);
     expect(safe.links[0].relationship_state).toBe('fading');
-    expect(safe.meta).toEqual({ depth: 2, truncated: false });
+    expect(safe.meta).toEqual({ depth: 2, truncated: true, totalActiveMembers: 151 });
   });
 });
 
