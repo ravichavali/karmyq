@@ -39,6 +39,10 @@ describe('Sprint 115 community ring renderer', () => {
     expect(onNodeActivate).toHaveBeenCalledWith('peer')
     expect(screen.getByText('2 connections')).toBeInTheDocument()
     expect(screen.getByText('1 strong, 1 warm')).toBeInTheDocument()
+
+    fireEvent.keyDown(container.querySelector('[data-node-id="bridge"]')!, { key: ' ' })
+    expect(onNodeActivate).toHaveBeenLastCalledWith('bridge')
+    expect(onNodeActivate).toHaveBeenCalledTimes(2)
   })
 
   it('changes focus styling without changing any direct path geometry', () => {
@@ -59,6 +63,60 @@ describe('Sprint 115 community ring renderer', () => {
     expect(paths.map(path => path.getAttribute('d'))).toEqual(before)
   })
 
+  it('ignores an external focus ID that is not present in the graph', () => {
+    const { container } = render(
+      <CommunityRingGraph graphData={chain} currentUserId="me" focusedNodeId="missing" />
+    )
+
+    expect(
+      [...container.querySelectorAll('g[data-node-id]')].every(
+        node => node.getAttribute('opacity') === '1'
+      )
+    ).toBe(true)
+    expect(container.querySelectorAll('path[stroke-opacity="0.05"]')).toHaveLength(0)
+  })
+
+  it('drops an internal selection focus when graph replacement removes that member', () => {
+    const replacement: GraphData = {
+      nodes: [
+        { id: 'me', name: 'Maria' },
+        { id: 'new-peer', name: 'New Peer' },
+      ],
+      links: [{ source: 'me', target: 'new-peer', decayTier: 'strong' }],
+    }
+    const { container, rerender } = render(
+      <CommunityRingGraph graphData={chain} currentUserId="me" />
+    )
+    fireEvent.click(container.querySelector('[data-node-id="peer"]')!)
+
+    rerender(<CommunityRingGraph graphData={replacement} currentUserId="me" />)
+
+    expect(
+      [...container.querySelectorAll('g[data-node-id]')].every(
+        node => node.getAttribute('opacity') === '1'
+      )
+    ).toBe(true)
+    expect(container.querySelector('path[data-link-key]')).toHaveAttribute('stroke-opacity', '0.62')
+  })
+
+  it('counts relationship states only from links with two rendered endpoints', () => {
+    const graphData: GraphData = {
+      ...chain,
+      links: [
+        ...chain.links,
+        { source: 'peer', target: 'missing', decayTier: 'nearly_forgotten' },
+      ],
+    }
+    const { container } = render(
+      <CommunityRingGraph graphData={graphData} currentUserId="me" />
+    )
+
+    fireEvent.click(container.querySelector('[data-node-id="peer"]')!)
+
+    expect(container.querySelectorAll('path[data-link-key]')).toHaveLength(3)
+    expect(screen.getByText('1 strong, 1 warm')).toBeInTheDocument()
+  })
+
   it('has one zoom owner and its controls drive the svg zoom transform', () => {
     const { container } = render(
       <CommunityRingGraph graphData={chain} currentUserId="me" enableZoom />
@@ -72,6 +130,29 @@ describe('Sprint 115 community ring renderer', () => {
     fireEvent.click(screen.getByLabelText(/zoom in/i))
 
     expect(svg.__zoom.k).toBeGreaterThan(before)
+  })
+
+  it('measures and installs centered zoom when a sparse graph becomes populated', () => {
+    const width = jest.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(640)
+    try {
+      const sparse: GraphData = { nodes: [{ id: 'me', name: 'Maria' }], links: [] }
+      const { container, rerender } = render(
+        <CommunityRingGraph graphData={sparse} currentUserId="me" enableZoom />
+      )
+
+      rerender(<CommunityRingGraph graphData={chain} currentUserId="me" enableZoom />)
+
+      const svg = container.querySelector('svg') as SVGSVGElement & { __zoom: { k: number } }
+      expect(svg).toHaveAttribute('width', '640')
+      expect(container.querySelector('svg > g')?.getAttribute('transform')).toMatch(
+        /^translate\(320,280\)/
+      )
+      const before = svg.__zoom?.k
+      fireEvent.click(screen.getByLabelText(/zoom in/i))
+      expect(svg.__zoom.k).toBeGreaterThan(before)
+    } finally {
+      width.mockRestore()
+    }
   })
 
   it('keeps every person accessible while limiting persistent labels above 40 nodes', () => {

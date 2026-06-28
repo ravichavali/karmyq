@@ -51,6 +51,7 @@ export default function CommunityRingGraph({
   const initialTransformRef = useRef<d3.ZoomTransform>(d3.zoomIdentity)
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
   const [transientFocusId, setTransientFocusId] = useState<string | null>(null)
+  const isSparse = graphData.links.length === 0 && graphData.nodes.length <= 1
 
   const model = useMemo(
     () => buildCommunityRingModel(graphData, width, height),
@@ -60,7 +61,8 @@ export default function CommunityRingGraph({
     () => buildAdjacency(graphData),
     [graphData.nodes, graphData.links]
   )
-  const activeFocus = transientFocusId ?? focusedNodeId ?? selectedNodeId ?? undefined
+  const candidateFocus = transientFocusId ?? focusedNodeId ?? selectedNodeId ?? undefined
+  const activeFocus = candidateFocus && adjacency.has(candidateFocus) ? candidateFocus : undefined
   const related = activeFocus ? adjacency.get(activeFocus) ?? new Set([activeFocus]) : null
   const connectionsFor = (nodeId: string) => Math.max(0, (adjacency.get(nodeId)?.size ?? 1) - 1)
 
@@ -84,7 +86,7 @@ export default function CommunityRingGraph({
     return () => {
       d3.select(svg).on('.zoom', null)
     }
-  }, [width, height, enableZoom])
+  }, [width, height, enableZoom, isSparse])
 
   const handleZoomBy = (factor: number) => {
     if (svgRef.current && zoomBehaviorRef.current) {
@@ -97,15 +99,17 @@ export default function CommunityRingGraph({
     }
   }
 
-  if (graphData.links.length === 0 && graphData.nodes.length <= 1) {
+  if (isSparse) {
     return (
-      <div className="flex flex-col items-center justify-center gap-2 py-16 text-center">
-        <p className="text-sm text-text-muted">
-          This community doesn&apos;t have any trust connections yet.
-        </p>
-        <p className="text-xs text-text-muted">
-          Connections appear after completed help, when neighbours have shown up for one another.
-        </p>
+      <div ref={containerRef} className="relative">
+        <div className="flex flex-col items-center justify-center gap-2 py-16 text-center">
+          <p className="text-sm text-text-muted">
+            This community doesn&apos;t have any trust connections yet.
+          </p>
+          <p className="text-xs text-text-muted">
+            Connections appear after completed help, when neighbours have shown up for one another.
+          </p>
+        </div>
       </div>
     )
   }
@@ -115,7 +119,7 @@ export default function CommunityRingGraph({
     : undefined
   const selectedConnections = selectedNode ? connectionsFor(selectedNode.id) : 0
   const selectedRelationships = selectedNode
-    ? relationshipSummary(graphData.links, selectedNode.id)
+    ? relationshipSummary(model.links.map(item => item.link), selectedNode.id)
     : ''
 
   return (
