@@ -229,9 +229,11 @@ mode dispatcher instead of forcing every mode through one renderer.
 | `apps/frontend/src/components/community/tabs/TrustGraphTab.tsx` | Replace cluster/bundle copy with ring/direct-relationship/redundant-belonging language. |
 
 Pure layout models stay separate from React and D3 DOM effects so their meanings can be tested without
-jsdom geometry or screenshot inference. Both models are `O(V + E)`. Renderers memoize coordinates and
-path geometry by graph data + viewport dimensions; changing focus may update classes/styles but must
-not recompute coordinates or SVG path `d` values. Do not use per-edge filters, blur, or glow effects.
+jsdom geometry or screenshot inference. Deterministic normalized-name + ID ordering is `O(V log V)`;
+geometry, adjacency, and path generation after ordering are `O(V + E)`; total end-to-end model
+construction is `O(V log V + E)`. Renderers memoize coordinates and path geometry by graph data +
+viewport dimensions; changing focus may update classes/styles but must not recompute coordinates or SVG
+path `d` values. Do not use per-edge filters, blur, or glow effects.
 
 ---
 
@@ -468,8 +470,10 @@ Mandatory Sprint 115 documentation:
     `TrustGraphHEB` behavior in `ego`/`community` modes. Move shared contracts to the new renderers,
     retain fission-specific HEB tests, and update the consolidation invariant before removing old DOM
     assertions.
-13. **Keep dense focus cheap.** Layout/path generation is `O(V + E)` and memoized by data + viewport;
-    focus changes styles only. Avoid filters/glows and never recompute Bézier paths on hover/focus.
+13. **Keep dense focus cheap.** Deterministic normalized-name + ID ordering is `O(V log V)`; geometry,
+    adjacency, and path generation after ordering are `O(V + E)`; total end-to-end model construction is
+    `O(V log V + E)` and memoized by data + viewport. Focus changes styles only. Avoid filters/glows and
+    never recompute Bézier paths on hover/focus.
 14. **Use the repository's D3/Jest pattern.** Map `d3` to `d3/dist/d3.min.js`, stub
     `ResizeObserver`, seed `__zoom` directly where needed, and test pure layout models outside jsdom.
 15. **All behavior changes need tests and docs in the same sprint.** Follow TDD placement, update the

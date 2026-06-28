@@ -4,7 +4,7 @@
 
 **Goal:** Replace renderer-invented person-graph structure with deterministic ego orbits and direct community-ring chords, while making the 150-member community response neutral and explicitly incomplete when truncated.
 
-**Architecture:** `BelongingGraph` remains the only fetch/normalization wrapper and dispatches the canonical `GraphData` contract to purpose-built renderers. Pure `O(V + E)` models compute ego/ring geometry; React SVG components render that geometry and reuse the existing D3 zoom helper without allowing focus to recompute paths. The existing full-community endpoint keeps its ADR-082 projection but selects members neutrally and adds structural completeness metadata.
+**Architecture:** `BelongingGraph` remains the only fetch/normalization wrapper and dispatches the canonical `GraphData` contract to purpose-built renderers. Pure models use deterministic normalized-name + ID ordering in `O(V log V)`, then compute geometry, adjacency, and paths in `O(V + E)`, for total end-to-end model construction of `O(V log V + E)`; React SVG components render that geometry and reuse the existing D3 zoom helper without allowing focus to recompute paths. The existing full-community endpoint keeps its ADR-082 projection but selects members neutrally and adds structural completeness metadata.
 
 **Tech Stack:** TypeScript, React 19, Next.js Pages Router, SVG, D3 7 zoom only, Express, PostgreSQL, Jest, Testing Library, Turborepo.
 
