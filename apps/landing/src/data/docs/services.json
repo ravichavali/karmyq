@@ -753,7 +753,7 @@
         {
           "method": "GET",
           "path": "/trust/graph/:communityId/full",
-          "description": "Full community trust graph (Sprint 74) — up to 150 members + all inter-member edges, powers the hierarchical edge bundling view. Sprint 112 (ADR-082): SafeBelongingNode/SafeBelongingLink only — no node trust_score/karma, no edge weights; links carry relationship_state."
+          "description": "Full community trust graph (Sprint 74) — up to 150 neutrally selected active members (by normalized name + ID, never by trust score), caller always included, plus all inter-member edges; powers the community ring view. Sprint 115 (ADR-083): adds structural completeness metadata meta: { totalActiveMembers, truncated }. Sprint 112 (ADR-082): SafeBelongingNode/SafeBelongingLink only — no node trust_score/karma, no edge weights; links carry relationship_state."
         },
         {
           "method": "GET",

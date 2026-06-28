@@ -389,24 +389,27 @@ Ego-network for the calling user in a specific community — calling user + dire
 
 ### GET /trust/graph/:communityId/full
 
-Full community trust graph (Sprint 74) — the top 149 members ranked by trust score, UNION the calling user (always included), plus every edge between that member set. Unlike `/trust/graph/:communityId` (which returns only the caller's ego-network), this returns the whole community topology, capped at 150 nodes. Reads decay-adjusted weights from the `trust_edges_live` VIEW.
+Full community trust graph (Sprint 74) — up to 149 **neutrally selected** non-caller active members, UNION the calling user (always included), plus every edge between that member set. Sprint 115 (ADR-083): selection is by normalized name + ID (`ORDER BY LOWER(BTRIM(u.name)), user_id LIMIT 149`), **never** by trust score — so the member set carries no ranking. The response adds structural completeness metadata so an incomplete graph can say so. Unlike `/trust/graph/:communityId` (which returns only the caller's ego-network), this returns the whole community topology, capped at 150 nodes. Reads decay-adjusted weights from the `trust_edges_live` VIEW.
 
 Implemented by `getFullCommunityGraph(communityId, callingUserId)` in `src/database/trustEdgeDb.ts`. Registered **before** `/trust/graph/:communityId` so Express doesn't match `full` as a communityId.
 
 **Auth required**: Bearer JWT. Caller must be an active member of the community.
 
-**Response**:
+**Response** (Sprint 112 ADR-082 safe projection — no node `trust_score`/`karma`, no edge weights; Sprint 115 adds `meta`):
 ```json
 {
   "success": true,
   "data": {
-    "nodes": [{ "id": "uuid", "name": "Alice", "trust_score": 42.5, "karma": 180, "isCurrentUser": true }],
-    "links": [{ "source": "uuid-a", "target": "uuid-b", "raw_weight": 12, "effective_weight": 8.4 }]
+    "nodes": [{ "id": "uuid", "name": "Alice", "isCurrentUser": true }],
+    "links": [{ "source": "uuid-a", "target": "uuid-b", "relationship_state": "warm" }],
+    "meta": { "totalActiveMembers": 151, "truncated": true }
   }
 }
 ```
 
-**Primary consumer**: `apps/frontend/src/components/community/tabs/TrustGraphTab.tsx` (Community sub-tab — hierarchical edge bundling)
+`meta.totalActiveMembers` is the community's full active-member count (independent of the 150 cap); `truncated` is `totalActiveMembers > nodes.length`. The frontend uses this to render "Showing N of M active members. This view is incomplete." and to suppress whole-community structural interpretation when the view is partial.
+
+**Primary consumer**: `apps/frontend/src/components/community/tabs/TrustGraphTab.tsx` (This Community sub-tab — the `CommunityRingGraph` single-ring renderer)
 
 ---
 

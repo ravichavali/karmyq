@@ -1,10 +1,43 @@
 # Frontend CONTEXT.md
 
-**Last updated**: 2026-06-23 (Sprint 111 — Belonging Graph System)
+**Last updated**: 2026-06-27 (Sprint 115 — Belonging Graph Earned Structure)
 
 ## Overview
 
 Next.js 14 web application (Pages Router) consuming all Karmyq backend services.
+
+---
+
+## Sprint 115 Belonging Graph — Earned Structure (2026-06-27, ADR-083)
+
+One wrapper + one canonical model + one shared visual encoding, dispatched to **purpose-built,
+deterministic renderers** (no force/HEB layout for person modes — position and edges are earned from
+disclosed topology, never invented by a layout or cluster detection).
+
+- **Mode map.** `<BelongingGraph mode>` still owns all fetch/normalize, then dispatches:
+  `ego` → `EgoOrbitGraph` (you at origin; concentric orbits by **local BFS distance**, never
+  `node.degrees_of_separation`; stable baseline + expansion-arc layout via `baselineNodeIds` /
+  `expansionRootIds`); `community` → `CommunityRingGraph` (every member on one ring, one direct
+  quadratic chord per disclosed link, incomplete `N of M` copy); `communities` → `CommunityHubGraph`
+  (unchanged); `fission` → `TrustGraphHEB` (now **fission-only**, `mode: 'fission'`).
+- **Shared encoding.** `components/graphs/graphVisualEncoding.ts` owns the single source of person-node
+  colors, edge hues (caller amber > focused teal > ordinary slate), constant `1.35px` at-rest /
+  `2.5px` focused widths, the five decay-tier opacity bands (+ `0.16` unknown), adjacency, and
+  accessible labels. `communityRingModel.ts` / `egoOrbitModel.ts` are **pure** (no React/DOM) and
+  return geometry only.
+- **Pure-model + memoization test pattern.** Geometry lives in pure model functions tested directly
+  (`tests/regression/sprint-115-graph-models.test.ts` asserts exact coordinates, path strings, BFS
+  distances, and the "ignore response-supplied depth" invariant). Renderers memoize the model on
+  `[graphData.nodes, graphData.links, …dimensions, baselineNodeIds, expansionRootIds]` and **exclude
+  focus** from those deps, so hover/focus/search recolors without recomputing geometry — asserted by
+  `sprint-115-graph-renderers.test.tsx` (path `d`/endpoints unchanged on focus) and
+  `sprint-115-structural-truth.test.ts` (topology, no health metric).
+- **Full-community contract.** `getFullCommunityGraph` selects up to 149 non-caller members neutrally
+  (normalized name + ID, never trust score), unions the caller, and returns
+  `meta: { totalActiveMembers, truncated }`; `normalizePersonGraph`/`GraphData.meta` carry it through.
+- **Consolidation guard.** `tests/regression/belonging-graph-consolidation.test.ts` now requires all
+  four renderers + `graphVisualEncoding` to exist ("one wrapper, canonical model, shared visual
+  encoding, contextual renderers").
 
 ---
 

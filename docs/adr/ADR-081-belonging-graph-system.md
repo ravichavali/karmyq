@@ -10,6 +10,14 @@
 > zero for non-callers) is replaced by an API-enforced disclosure boundary. Person graph nodes now
 > carry identity + structure only, and links carry a qualitative `relationship_state` instead of raw
 > edge weights — exact reputation is self-only and comes from the canonical reputation summary.
+>
+> **Amended by [ADR-083](ADR-083-contextual-belonging-graph-rendering.md) (Sprint 115):** the "one
+> universal renderer" decision here (every mode through `TrustGraphHEB`) is partially superseded.
+> Person modes no longer use the HEB radial or cluster detection — `ego` renders deterministic BFS
+> orbits (`EgoOrbitGraph`) and `community` renders one direct-chord ring (`CommunityRingGraph`), so
+> position and edges are *earned* from disclosed topology rather than invented by a layout. The
+> canonical data model, the one-wrapper architecture, and uniform person-node sizing are preserved;
+> HEB is retained only for the fission group split.
 
 ## Context
 
