@@ -318,8 +318,8 @@ pre-existing in the explorer and land in PR B):
 - **S112 PR A (done):** Reputation Disclosure Boundary / ADR-082 (v11.19.0).
 - **S113 (done):** Belonging Truth + Prominence (v11.20.0).
 - **S114 (reverted):** force-directed belonging renderer (released/reverted before a tag).
-- **S115 (planned/approved):** Earned Structure ego orbit + direct community ring + neutral complete-data
-  contract (target v11.22.0).
+- **S115 (implemented, PR #125):** Earned Structure ego orbit + direct community ring + neutral
+  complete-data contract (v11.22.0).
 - **S116 (next):** Named Connection Corridor + offer context.
 - **Later:** onboarding network moment; broader member forget/export; mobile parity.
 
@@ -329,24 +329,20 @@ pre-existing in the explorer and land in PR B):
 
 ### Active Session (update on every role handoff)
 
-- **Driving agent:** Codex (Sprint 115 design + implementation planning complete).
-- **Phase:** APPROVED DESIGN / PLAN READY. Branch `agent/codex/sprint-115-belonging-presentation`.
-  `origin/master` is the base; local-only stale handoff commits on local `master` were deliberately not
-  included. The plan has nine independently testable tasks and starts with the neutral full-community API
-  correction before visual work.
-- **Verification:** `npm run feedback:check` passes; root `npm test` passes all 26 Turbo tasks. Known
-  pre-existing warnings only: Jest open handles, obsolete Next `swcMinify`, and landing `<img>` lint.
-- **Key grounded findings:**
-  - ADR-082 outward person links expose four relationship states, while canonical client `decayTier` also
-    admits defensive `swept`; visual encoding tests all five plus unknown.
-  - `mergeGraphData` preserves response-supplied degrees, but ego geometry must ignore them and run BFS
-    from `currentUserId` after every merge.
-  - Sprint 111/113 regressions directly mount HEB for ego/community; migrate their shared contracts to
-    `EgoOrbitGraph`/`CommunityRingGraph`, retain HEB fission assertions, and update the consolidation guard.
-  - Full-community selection is currently hidden-trust-ranked (`top 149 UNION caller`) with no completeness
-    metadata; Task 1 fixes this without widening the ADR-082 disclosure boundary.
-- **Blockers:** none. Next agent must select inline vs explicitly authorized subagent-driven execution,
-  read the execution skill, and begin Task 1. Contributor agents never self-merge.
+- **Driving agent:** Claude (implemented Tasks 4–9 on Codex's plan; Codex did Tasks 1–3).
+- **Phase:** IMPLEMENTED — all 9 tasks done, **PR #125 open** against `master` (MERGEABLE), CI green.
+  Branch `agent/codex/sprint-115-belonging-presentation` off `origin/master`. See the completion header
+  at the top of this file for the full commit list, gate results, and remaining human validation.
+- **Review status:** Admin (you) requested changes on the PR — two behavioral defects, both **fixed**:
+  (1) nested/replaced ego-expansion roots landed on the orphan ring → `egoOrbitModel` now layers
+  expansion nodes by BFS distance and anchors each through a *placed predecessor* (nested-expansion
+  regression added); (2) `mergeGraphData` dropped `meta` → now preserves the authoritative baseline's
+  metadata so a truncated ego baseline keeps its warning after expansion (merge + `/network` regressions
+  added). Stale handoff stanza (this one) refreshed.
+- **Verification (post-fix):** frontend `tsc` clean; frontend unit+regression **194/194**; the three new
+  regressions cover both defects (RED→GREEN).
+- **Blockers:** none. Next: Codex cross-agent review of the PR → Admin merge/deploy → human density +
+  live-demo validation (see completion header). Contributor agents never self-merge.
 
 > Claude and Codex share one physical working tree. One agent edits at a time. The active agent must
 > commit or stash before handing over. Never edit or commit on top of another agent's uncommitted WIP.

@@ -125,6 +125,21 @@ describe('mergeGraphData', () => {
     // Inputs are untouched.
     expect(base).toEqual(baseSnapshot)
   })
+
+  it('preserves the authoritative baseline metadata so an expansion cannot drop truncation', () => {
+    const base: GraphData = {
+      nodes: [{ id: 'a', name: 'A' }],
+      links: [],
+      meta: { depth: 1, truncated: true, totalActiveMembers: 99 },
+    }
+    const expansion: GraphData = { nodes: [{ id: 'b', name: 'B' }], links: [] }
+
+    expect(mergeGraphData(base, expansion).meta).toEqual({
+      depth: 1,
+      truncated: true,
+      totalActiveMembers: 99,
+    })
+  })
 })
 
 describe('<BelongingGraph> per-mode fetch dispatch', () => {

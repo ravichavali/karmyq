@@ -137,53 +137,56 @@ export function buildEgoOrbitModel(
     })
   }
 
-  // Expansion reachable nodes (non-baseline) fan across an arc centered on their clicked root.
-  const expansionNodes = graph.nodes.filter(
-    node => node.id !== currentUserId && !baselineSet.has(node.id) && distance.get(node.id) != null
+  // Expansion reachable nodes (non-baseline) layer outward by BFS distance. Each anchors on a small arc
+  // around an already-placed neighbor one hop closer to the caller — its BFS predecessor — so a node
+  // revealed by expanding a baseline node OR a previously-revealed (nested) node still lands on its true
+  // BFS ring near where it was opened, never on the orphan ring. An expansion ROOT is itself non-baseline
+  // and is never adjacent to itself, so it must anchor through its placed predecessor, not a root id.
+  const remaining = new Set(
+    graph.nodes
+      .filter(
+        node => node.id !== currentUserId && !baselineSet.has(node.id) && distance.get(node.id) != null
+      )
+      .map(node => node.id)
   )
-  const chooseRoot = (node: TrustNode): string | undefined => {
-    const adjacent = adjacency.get(node.id) ?? new Set<string>()
-    return expansionRootIds.find(rootId => adjacent.has(rootId))
-  }
-  const byRoot = new Map<string, TrustNode[]>()
-  const orphans: TrustNode[] = []
-  for (const node of expansionNodes) {
-    const root = chooseRoot(node)
-    if (root) {
-      if (!byRoot.has(root)) byRoot.set(root, [])
-      byRoot.get(root)!.push(node)
-    } else {
-      orphans.push(node)
+  for (let depth = 1; depth <= maxDistance && remaining.size > 0; depth++) {
+    const layer = [...remaining]
+      .map(id => nodeById.get(id)!)
+      .filter(node => distance.get(node.id) === depth)
+    const byAnchor = new Map<string, TrustNode[]>()
+    for (const node of layer) {
+      const placedNeighbors = [...(adjacency.get(node.id) ?? [])].filter(id => angleById.has(id))
+      if (placedNeighbors.length === 0) continue
+      // BFS guarantees a placed neighbor one hop closer. Prefer an adjacent expansion root so the arc
+      // stays centered on the member the user activated, else the closest placed predecessor.
+      const anchor =
+        placedNeighbors.find(id => expansionRootIds.includes(id)) ??
+        placedNeighbors.reduce((best, id) =>
+          (distance.get(id) ?? Infinity) < (distance.get(best) ?? Infinity) ? id : best
+        )
+      if (!byAnchor.has(anchor)) byAnchor.set(anchor, [])
+      byAnchor.get(anchor)!.push(node)
     }
-  }
-  // A root may itself be an expansion node placed in another group, so resolve angles to a fixed point.
-  const pendingRoots = [...byRoot.keys()]
-  let progressed = true
-  while (pendingRoots.length > 0 && progressed) {
-    progressed = false
-    for (let i = pendingRoots.length - 1; i >= 0; i--) {
-      const rootId = pendingRoots[i]
-      const rootAngle = angleById.get(rootId)
-      if (rootAngle == null) continue
-      const members = [...byRoot.get(rootId)!].sort(compareGraphNodes)
-      members.forEach((node, index) => {
-        const count = members.length
+    for (const [anchorId, members] of byAnchor) {
+      const anchorAngle = angleById.get(anchorId)!
+      const ordered = members.sort(compareGraphNodes)
+      ordered.forEach((node, index) => {
+        const count = ordered.length
         const angle =
-          count === 1 ? rootAngle : rootAngle - EXPANSION_ARC + (2 * EXPANSION_ARC * index) / (count - 1)
-        place(node.id, angle, radiusForDistance(distance.get(node.id)!))
+          count === 1 ? anchorAngle : anchorAngle - EXPANSION_ARC + (2 * EXPANSION_ARC * index) / (count - 1)
+        place(node.id, angle, radiusForDistance(depth))
+        remaining.delete(node.id)
       })
-      pendingRoots.splice(i, 1)
-      progressed = true
     }
   }
-  for (const rootId of pendingRoots) orphans.push(...byRoot.get(rootId)!)
 
-  // Orphan expansion nodes and unreachable nodes share a stable outermost ring.
+  // Anything still unplaced (truly unreachable) shares a stable outermost ring.
+  const leftovers = [...remaining].map(id => nodeById.get(id)!)
   const unreachable = graph.nodes.filter(
     node => node.id !== currentUserId && distance.get(node.id) == null
   )
   const outerNodes = [
-    ...new Map([...orphans, ...unreachable].map(node => [node.id, node])).values(),
+    ...new Map([...leftovers, ...unreachable].map(node => [node.id, node])).values(),
   ].sort(compareGraphNodes)
   outerNodes.forEach((node, index) => {
     const angle = -Math.PI / 2 + (2 * Math.PI * index) / Math.max(outerNodes.length, 1)

@@ -372,4 +372,47 @@ describe('Sprint 115 deterministic ego orbit model', () => {
     expect(JSON.stringify(model)).not.toMatch(/NaN|Infinity/)
     expect(ids(model)).toEqual(['me', 'maya', 'john', 'kai'])
   })
+
+  it('anchors a nested expansion root and its child on their BFS rings, not the orphan ring', () => {
+    // me—maya (baseline). Expanding maya reveals kai (depth 2); expanding kai (a newly revealed,
+    // non-baseline node that is itself the next expansion root) reveals kaiFriend (depth 3).
+    const nested: GraphData = {
+      nodes: [
+        { id: 'me', name: 'Maria' },
+        { id: 'maya', name: 'Maya' },
+        { id: 'kai', name: 'Kai' },
+        { id: 'kaiFriend', name: 'Kai Friend' },
+      ],
+      links: [
+        { source: 'me', target: 'maya', decayTier: 'strong' },
+        { source: 'maya', target: 'kai', decayTier: 'warm' },
+        { source: 'kai', target: 'kaiFriend', decayTier: 'fading' },
+      ],
+    }
+    const width = 800
+    const height = 600
+    const base = Math.min(width, height)
+    const radiusForDistance = (d: number) => base * (0.19 + (d - 1) * 0.13)
+    const model = buildEgoOrbitModel(nested, 'me', width, height, {
+      baselineNodeIds: ['me', 'maya'],
+      expansionRootIds: ['maya', 'kai'],
+    })
+    const byId = new Map(model.nodes.map(node => [node.id, node]))
+    const radiusOf = (id: string) => Math.hypot(byId.get(id)!.x, byId.get(id)!.y)
+    const outerRadius = radiusForDistance(model.maxDistance + 1)
+
+    expect(byId.get('kai')!.displayDistance).toBe(2)
+    expect(byId.get('kaiFriend')!.displayDistance).toBe(3)
+    expect(byId.get('kai')!.isExpansionNode).toBe(true)
+    expect(byId.get('kaiFriend')!.isExpansionNode).toBe(true)
+    // On their true BFS rings — not both collapsed onto the orphan/outer ring at the same radius.
+    expect(radiusOf('kai')).toBeCloseTo(radiusForDistance(2), 1)
+    expect(radiusOf('kaiFriend')).toBeCloseTo(radiusForDistance(3), 1)
+    expect(radiusOf('kai')).toBeLessThan(outerRadius)
+    expect(radiusOf('kaiFriend')).toBeLessThan(outerRadius)
+    // Each lone child sits on its anchor's radial (arc aligned with the activated member), never flung
+    // to the opposite side of the canvas.
+    expect(byId.get('kai')!.angle).toBeCloseTo(byId.get('maya')!.angle, 6)
+    expect(byId.get('kaiFriend')!.angle).toBeCloseTo(byId.get('kai')!.angle, 6)
+  })
 })

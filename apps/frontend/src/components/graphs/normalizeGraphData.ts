@@ -138,5 +138,14 @@ export function mergeGraphData(...graphs: GraphData[]): GraphData {
     }
   }
 
-  return { nodes: [...nodeMap.values()], links: [...linkMap.values()] }
+  // The baseline (first graph) is authoritative for completeness metadata — e.g. a truncated ego
+  // baseline must keep `meta.truncated` so the "incomplete network" warning survives an expansion.
+  // Expansion neighborhoods don't carry community-scoped truncation, so first-with-meta wins.
+  const meta = graphs.find(graph => graph.meta)?.meta
+
+  return {
+    nodes: [...nodeMap.values()],
+    links: [...linkMap.values()],
+    ...(meta ? { meta } : {}),
+  }
 }

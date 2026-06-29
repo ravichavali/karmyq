@@ -309,6 +309,42 @@ describe('/network stable identity and completeness copy', () => {
     expect(screen.getByTestId('ego')).toHaveAttribute('data-expansion', 'a,b,c')
   })
 
+  it('keeps the ego incomplete-network warning after an expansion (merged meta survives)', async () => {
+    getNeighborhood.mockImplementation((id: string) => {
+      if (id === 'user-1') {
+        return Promise.resolve({
+          data: {
+            nodes: [
+              { user_id: 'user-1', name: 'Me', is_current_user: true },
+              { user_id: 'a', name: 'Alice' },
+            ],
+            links: [],
+            meta: { depth: 1, truncated: true },
+          },
+        })
+      }
+      return Promise.resolve({
+        data: {
+          nodes: [
+            { user_id: id, name: id },
+            { user_id: `${id}-exp`, name: `${id} plus` },
+          ],
+          links: [{ source: id, target: `${id}-exp` }],
+        },
+      })
+    })
+    routerQuery = { mode: 'ego' }
+    render(<NetworkPage />)
+    await screen.findByTestId('ego-node-a')
+    expect(screen.getByText(/closest connections only/i)).toBeInTheDocument()
+
+    fireEvent.click(screen.getByTestId('ego-node-a'))
+    await screen.findByTestId('ego-node-a-exp')
+
+    // The expansion neighborhood carries no truncation; the merged graph must keep the baseline's.
+    expect(screen.getByText(/closest connections only/i)).toBeInTheDocument()
+  })
+
   it('states exact incompleteness for a truncated community graph', async () => {
     fullCommunity.mockResolvedValue({
       data: {
