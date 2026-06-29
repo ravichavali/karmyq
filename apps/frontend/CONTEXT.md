@@ -43,6 +43,11 @@ disclosed topology, never invented by a layout or cluster detection).
 
 ## Sprint 111 Belonging Graph System (2026-06-23, ADR-081)
 
+> **Partly superseded by Sprint 115 (ADR-083) — see the section above.** The "single `TrustGraphHEB`
+> renderer for every mode" claim below is historical: person modes now render through `EgoOrbitGraph` /
+> `CommunityRingGraph` and `communities` through `CommunityHubGraph`; `TrustGraphHEB` is fission-only.
+> The one-wrapper architecture, canonical model, and fetch dispatch described here still hold.
+
 One graph engine, one client model, one explorer. All belonging surfaces now render through a single
 `<BelongingGraph mode>` over the canonical `TrustGraphHEB` D3 renderer.
 

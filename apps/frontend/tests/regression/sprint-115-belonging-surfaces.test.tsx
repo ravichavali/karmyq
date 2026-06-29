@@ -205,6 +205,40 @@ describe('profile BelongingSection one replaceable expansion', () => {
     expect(screen.getByTestId('ego')).toHaveAttribute('data-expansion', '')
   })
 
+  it('shows the last-clicked expansion even when an earlier request resolves later', async () => {
+    const resolvers: Record<string, () => void> = {}
+    getNeighborhood.mockImplementation(
+      (id: string) =>
+        new Promise(resolve => {
+          resolvers[id] = () =>
+            resolve({
+              data: {
+                nodes: [
+                  { user_id: id, name: id },
+                  { user_id: `${id}-friend`, name: `${id} friend` },
+                ],
+                links: [{ source: id, target: `${id}-friend` }],
+              },
+            })
+        })
+    )
+    render(<BelongingSection userId="me" />)
+    await screen.findByTestId('ego-node-maya')
+
+    fireEvent.click(screen.getByTestId('ego-node-maya')) // request A (slow)
+    fireEvent.click(screen.getByTestId('ego-node-john')) // request B — the user's real intent
+
+    resolvers['john']() // B resolves first
+    await screen.findByTestId('ego-node-john-friend')
+    resolvers['maya']() // A resolves LATER — must be discarded as stale
+
+    await waitFor(() =>
+      expect(screen.queryByTestId('ego-node-maya-friend')).not.toBeInTheDocument()
+    )
+    expect(screen.getByTestId('ego-node-john-friend')).toBeInTheDocument()
+    expect(screen.getByTestId('ego')).toHaveAttribute('data-expansion', 'john')
+  })
+
   it('keeps the prior branch and offers retry/dismiss when an expansion fails', async () => {
     render(<BelongingSection userId="me" />)
     await screen.findByTestId('ego-node-maya')

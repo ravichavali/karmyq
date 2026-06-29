@@ -24,6 +24,20 @@ export function relationshipLabel(tier: TrustLink['decayTier']): string {
   return tier ? tier.replaceAll('_', ' ') : 'relationship state unavailable'
 }
 
+/**
+ * Count a node's incident links by qualitative relationship state, e.g. "1 strong, 2 warm". Shared by
+ * the ego and community renderers' selected-node detail panels.
+ */
+export function relationshipSummary(links: TrustLink[], nodeId: string): string {
+  const counts = new Map<string, number>()
+  for (const link of links) {
+    if (link.source !== nodeId && link.target !== nodeId) continue
+    const label = relationshipLabel(link.decayTier)
+    counts.set(label, (counts.get(label) ?? 0) + 1)
+  }
+  return [...counts].map(([label, count]) => `${count} ${label}`).join(', ')
+}
+
 export function edgeVisual(link: TrustLink, currentUserId: string, focusedNodeId?: string) {
   const caller = link.source === currentUserId || link.target === currentUserId
   const focused = !!focusedNodeId && (link.source === focusedNodeId || link.target === focusedNodeId)

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import BelongingGraph from './BelongingGraph'
 import BelongingPulse from './BelongingPulse'
@@ -33,6 +33,10 @@ export default function BelongingSection({ userId }: BelongingSectionProps) {
   const [expandError, setExpandError] = useState<{ nodeId: string; message: string } | null>(null)
   const [communityCount, setCommunityCount] = useState<number | null>(null)
   const [membershipFailed, setMembershipFailed] = useState(false)
+  // The node whose expansion the user most recently asked for. Used to discard out-of-order responses
+  // so the single replaceable expansion always reflects the LAST click, not whichever fetch resolves
+  // last (mirrors the modeRef stale-response guard in the /network explorer).
+  const pendingExpandRef = useRef<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -70,18 +74,29 @@ export default function BelongingSection({ userId }: BelongingSectionProps) {
       if (nodeId === userId) return
       // Clicking the currently open root collapses it.
       if (expansion?.nodeId === nodeId) {
+        pendingExpandRef.current = null
         setExpansion(null)
         setExpandError(null)
         return
       }
+      pendingExpandRef.current = nodeId
       setExpandingNodeId(nodeId)
       setExpandError(null)
-      // Do not clear the current expansion before the request — a failure must leave it visible.
+      // Do not clear the current expansion before the request — a failure must leave it visible. Drop a
+      // response whose node is no longer the pending one (a newer click superseded it).
       socialGraphService
         .getNeighborhood(nodeId, { depth: 1 })
-        .then((res: any) => setExpansion({ nodeId, data: normalizePersonGraph(res.data) }))
-        .catch(() => setExpandError({ nodeId, message: 'Couldn’t expand that connection.' }))
-        .finally(() => setExpandingNodeId(null))
+        .then((res: any) => {
+          if (pendingExpandRef.current !== nodeId) return
+          setExpansion({ nodeId, data: normalizePersonGraph(res.data) })
+        })
+        .catch(() => {
+          if (pendingExpandRef.current !== nodeId) return
+          setExpandError({ nodeId, message: 'Couldn’t expand that connection.' })
+        })
+        .finally(() => {
+          if (pendingExpandRef.current === nodeId) setExpandingNodeId(null)
+        })
     },
     [userId, expansion]
   )

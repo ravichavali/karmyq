@@ -8,11 +8,11 @@ import {
   buildAdjacency,
   edgeVisual,
   personNodeAriaLabel,
-  relationshipLabel,
+  relationshipSummary,
 } from './graphVisualEncoding'
 import GraphZoomControls from './GraphZoomControls'
 import { clearGraphZoom, installGraphZoom, zoomBy, zoomReset } from './graphZoom'
-import type { GraphData, TrustLink } from './types'
+import type { GraphData } from './types'
 
 interface CommunityRingGraphProps {
   graphData: GraphData
@@ -25,16 +25,6 @@ interface CommunityRingGraphProps {
 
 const NODE_RADIUS = 6
 const NODE_LABEL_LIMIT = 40
-
-const relationshipSummary = (links: TrustLink[], nodeId: string) => {
-  const counts = new Map<string, number>()
-  for (const link of links) {
-    if (link.source !== nodeId && link.target !== nodeId) continue
-    const label = relationshipLabel(link.decayTier)
-    counts.set(label, (counts.get(label) ?? 0) + 1)
-  }
-  return [...counts].map(([label, count]) => `${count} ${label}`).join(', ')
-}
 
 export default function CommunityRingGraph({
   graphData,
