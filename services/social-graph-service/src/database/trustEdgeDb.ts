@@ -276,45 +276,56 @@ export async function getTrustGraph(
   };
 }
 
-// Full community graph: top 149 members by trust score UNION the calling user
-// (always included), plus every edge between that member set. Reads from the
-// trust_edges_live VIEW for decay-adjusted current_weight.
+// Full community graph: first 149 active members by normalized name/id UNION the
+// calling user (when active), plus every edge between that member set. Reads from
+// the trust_edges_live VIEW for decay-adjusted current_weight.
 export async function getFullCommunityGraph(
   communityId: string,
   callingUserId: string
-): Promise<{ nodes: TrustNode[]; links: TrustLink[] }> {
+): Promise<{
+  nodes: TrustNode[];
+  links: TrustLink[];
+  meta: { totalActiveMembers: number; truncated: boolean };
+}> {
   const memberCTE = `
     WITH active_members AS (
-      SELECT user_id FROM communities.members
-      WHERE community_id = $1 AND status = 'active'
+      SELECT m.user_id,
+             LOWER(BTRIM(u.name)) COLLATE "C" AS normalized_name
+      FROM communities.members m
+      JOIN auth.users u ON u.id = m.user_id
+      WHERE m.community_id = $1 AND m.status = 'active'
     ),
-    member_scores AS (
-      SELECT am.user_id, COALESCE(SUM(tel.current_weight), 0) AS trust_score
-      FROM active_members am
-      LEFT JOIN social_graph.trust_edges_live tel
-        ON (tel.user_id_a = am.user_id OR tel.user_id_b = am.user_id)
-        AND tel.community_id = $1
-      GROUP BY am.user_id
+    neutral_members AS (
+      SELECT user_id
+      FROM active_members
+      WHERE user_id <> $2::uuid
+      ORDER BY normalized_name, user_id
+      LIMIT 149
     ),
-    top_members AS (
-      (SELECT user_id FROM member_scores ORDER BY trust_score DESC LIMIT 149)
+    selected_members AS (
+      SELECT user_id FROM neutral_members
       UNION
-      (SELECT $2::uuid)
+      SELECT user_id FROM active_members WHERE user_id = $2::uuid
     )
   `;
 
   const nodesQuery = `
     ${memberCTE}
     SELECT u.id, u.name,
-      COALESCE(ms.trust_score, 0) AS trust_score,
+      COALESCE((
+        SELECT SUM(tel.current_weight)
+        FROM social_graph.trust_edges_live tel
+        WHERE (tel.user_id_a = u.id OR tel.user_id_b = u.id)
+          AND tel.community_id = $1
+      ), 0) AS trust_score,
       COALESCE((
         SELECT SUM(kr.points) FROM reputation.karma_records kr
         WHERE kr.user_id = u.id AND kr.community_id = $1
       ), 0) AS karma,
-      (u.id = $2::uuid) AS is_current_user
-    FROM top_members tm
-    JOIN auth.users u ON u.id = tm.user_id
-    LEFT JOIN member_scores ms ON ms.user_id = tm.user_id
+      (u.id = $2::uuid) AS is_current_user,
+      (SELECT COUNT(*) FROM active_members) AS total_active_members
+    FROM selected_members sm
+    JOIN auth.users u ON u.id = sm.user_id
   `;
 
   const edgesQuery = `
@@ -323,8 +334,8 @@ export async function getFullCommunityGraph(
            tel.raw_weight, tel.current_weight AS effective_weight
     FROM social_graph.trust_edges_live tel
     WHERE tel.community_id = $1
-      AND tel.user_id_a IN (SELECT user_id FROM top_members)
-      AND tel.user_id_b IN (SELECT user_id FROM top_members)
+      AND tel.user_id_a IN (SELECT user_id FROM selected_members)
+      AND tel.user_id_b IN (SELECT user_id FROM selected_members)
   `;
 
   const [nodesResult, edgesResult] = await Promise.all([
@@ -332,20 +343,27 @@ export async function getFullCommunityGraph(
     pool.query(edgesQuery, [communityId, callingUserId]),
   ]);
 
+  const nodes = redactNodeMetrics(nodesResult.rows.map(r => ({
+    id: r.id,
+    name: r.name,
+    trust_score: parseFloat(r.trust_score) || 0,
+    karma: parseFloat(r.karma) || 0,
+    isCurrentUser: r.is_current_user,
+  })));
+  const totalActiveMembers = Number(nodesResult.rows[0]?.total_active_members ?? nodes.length);
+
   return {
-    nodes: redactNodeMetrics(nodesResult.rows.map(r => ({
-      id: r.id,
-      name: r.name,
-      trust_score: parseFloat(r.trust_score) || 0,
-      karma: parseFloat(r.karma) || 0,
-      isCurrentUser: r.is_current_user,
-    }))),
+    nodes,
     links: edgesResult.rows.map(r => ({
       source: r.source,
       target: r.target,
       raw_weight: parseFloat(r.raw_weight) || 0,
       effective_weight: parseFloat(r.effective_weight) || 0,
     })),
+    meta: {
+      totalActiveMembers,
+      truncated: totalActiveMembers > nodes.length,
+    },
   };
 }
 

@@ -639,6 +639,14 @@
       "status": "implemented",
       "description": "**Status**: Implemented",
       "filename": "ADR-082-reputation-disclosure-boundary.md"
+    },
+    {
+      "slug": "adr-083-contextual-belonging-graph-rendering",
+      "number": "083",
+      "title": "ADR-083: Contextual Belonging Graph Rendering (Earned Structure)",
+      "status": "accepted",
+      "description": "**Status**: Accepted",
+      "filename": "ADR-083-contextual-belonging-graph-rendering.md"
     }
   ]
 }

@@ -401,6 +401,10 @@
           "href": "/docs/concepts/adr-082-reputation-disclosure-boundary"
         },
         {
+          "label": "Contextual Belonging Graph Rendering (Earned Structure)",
+          "href": "/docs/concepts/adr-083-contextual-belonging-graph-rendering"
+        },
+        {
           "label": "— Community & Scale —",
           "href": "/docs/concepts",
           "divider": true

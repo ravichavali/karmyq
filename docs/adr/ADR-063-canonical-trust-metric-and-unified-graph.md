@@ -4,6 +4,13 @@
 **Date**: 2026-05-31
 **Deciders**: Engineering
 
+> **Amended by [ADR-083](ADR-083-contextual-belonging-graph-rendering.md) (Sprint 115):** the unified
+> *single-renderer* visualization is partially superseded — person graphs now render through
+> deterministic, context-specific renderers (ego orbits, community ring) instead of one HEB radial,
+> because force/HEB layouts and greedy cluster detection manufacture structure the data doesn't
+> contain. The canonical decayed trust metric, the privacy boundary, and uniform person-node sizing
+> from this ADR are preserved; only the one-universal-renderer choice changes.
+
 ## Context
 
 Karmyq accumulated several trust-graph views that drifted apart on two axes:

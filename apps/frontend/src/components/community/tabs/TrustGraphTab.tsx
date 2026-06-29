@@ -50,8 +50,8 @@ export default function TrustGraphTab({ communityId, currentUserId }: TrustGraph
         <h3 className="text-base font-semibold text-text">Trust Graph</h3>
         <p className="text-sm text-text-muted mt-1">
           {subTab === 'community'
-            ? 'Scale 2 · This Community — every member, grouped by how closely they connect. Amber lines are your connections.'
-            : 'Scale 1 · My Network — your first-degree connections, clustered by how closely they connect to each other. Amber lines are yours. This view travels with you across every community.'}
+            ? 'Scale 2 · This Community — every returned member on one ring. Each chord is a disclosed relationship; amber lines are yours, and brighter lines are more active.'
+            : 'Scale 1 · My Network — you at the center, with each orbit showing another degree of connection. Amber lines are yours. This view travels with you across communities.'}
         </p>
       </div>
 
