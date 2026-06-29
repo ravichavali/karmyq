@@ -333,14 +333,16 @@ pre-existing in the explorer and land in PR B):
 - **Phase:** IMPLEMENTED — all 9 tasks done, **PR #125 open** against `master` (MERGEABLE), CI green.
   Branch `agent/codex/sprint-115-belonging-presentation` off `origin/master`. See the completion header
   at the top of this file for the full commit list, gate results, and remaining human validation.
-- **Review status:** Admin (you) requested changes on the PR — two behavioral defects, both **fixed**:
-  (1) nested/replaced ego-expansion roots landed on the orphan ring → `egoOrbitModel` now layers
-  expansion nodes by BFS distance and anchors each through a *placed predecessor* (nested-expansion
-  regression added); (2) `mergeGraphData` dropped `meta` → now preserves the authoritative baseline's
-  metadata so a truncated ego baseline keeps its warning after expansion (merge + `/network` regressions
-  added). Stale handoff stanza (this one) refreshed.
-- **Verification (post-fix):** frontend `tsc` clean; frontend unit+regression **194/194**; the three new
-  regressions cover both defects (RED→GREEN).
+- **Review status:** Admin (you) requested changes across two rounds — all **fixed**:
+  (round 1) (1) nested/replaced ego-expansion roots landed on the orphan ring → `egoOrbitModel` now layers
+  expansion nodes by BFS distance and anchors each through a *placed predecessor*; (2) `mergeGraphData`
+  dropped `meta` → now preserves the authoritative baseline's metadata so a truncated ego baseline keeps
+  its warning after expansion. (round 2) (3) expansion anchoring depended on adjacency/edge-row order →
+  anchor is now deterministic (adjacent expansion root in `expansionRootIds` order, else closest placed
+  predecessor tie-broken by normalized name+ID), so reloads can't flip the mental map. Each fix has a
+  RED→GREEN regression. Stale handoff stanza (this one) refreshed.
+- **Verification (post-fix):** frontend `tsc` clean; frontend unit+regression **195/195**; the four new
+  regressions cover all three defects.
 - **Blockers:** none. Next: Codex cross-agent review of the PR → Admin merge/deploy → human density +
   live-demo validation (see completion header). Contributor agents never self-merge.
 

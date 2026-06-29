@@ -415,4 +415,54 @@ describe('Sprint 115 deterministic ego orbit model', () => {
     expect(byId.get('kai')!.angle).toBeCloseTo(byId.get('maya')!.angle, 6)
     expect(byId.get('kaiFriend')!.angle).toBeCloseTo(byId.get('kai')!.angle, 6)
   })
+
+  it('places an expansion node identically regardless of backend edge-row order', () => {
+    // x (depth 2) is adjacent to two equivalent placed predecessors (amy and bob). The anchor — and so
+    // x's coordinates — must not depend on which link row the backend returns first.
+    const nodes: TrustNode[] = [
+      { id: 'me', name: 'Me' },
+      { id: 'amy', name: 'Amy' },
+      { id: 'bob', name: 'Bob' },
+      { id: 'x', name: 'Xander' },
+    ]
+    const baseLinks: TrustLink[] = [
+      { source: 'me', target: 'amy', decayTier: 'strong' },
+      { source: 'me', target: 'bob', decayTier: 'strong' },
+    ]
+    const options = { baselineNodeIds: ['me', 'amy', 'bob'], expansionRootIds: [] }
+    const forward = buildEgoOrbitModel(
+      {
+        nodes,
+        links: [
+          ...baseLinks,
+          { source: 'x', target: 'amy', decayTier: 'warm' },
+          { source: 'x', target: 'bob', decayTier: 'warm' },
+        ],
+      },
+      'me',
+      800,
+      600,
+      options
+    )
+    const reversed = buildEgoOrbitModel(
+      {
+        nodes,
+        links: [
+          ...baseLinks,
+          { source: 'bob', target: 'x', decayTier: 'warm' },
+          { source: 'amy', target: 'x', decayTier: 'warm' },
+        ],
+      },
+      'me',
+      800,
+      600,
+      options
+    )
+    const xy = (model: ReturnType<typeof buildEgoOrbitModel>, id: string) => {
+      const node = model.nodes.find(n => n.id === id)!
+      return { x: node.x, y: node.y }
+    }
+
+    expect(xy(reversed, 'x')).toEqual(xy(forward, 'x'))
+  })
 })

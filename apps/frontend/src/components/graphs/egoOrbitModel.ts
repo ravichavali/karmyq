@@ -157,13 +157,17 @@ export function buildEgoOrbitModel(
     for (const node of layer) {
       const placedNeighbors = [...(adjacency.get(node.id) ?? [])].filter(id => angleById.has(id))
       if (placedNeighbors.length === 0) continue
-      // BFS guarantees a placed neighbor one hop closer. Prefer an adjacent expansion root so the arc
-      // stays centered on the member the user activated, else the closest placed predecessor.
+      // BFS guarantees a placed neighbor one hop closer. The anchor MUST NOT depend on adjacency
+      // insertion order (backend edge rows have no guaranteed order, and the layout must be identical
+      // across reloads): pick the adjacent expansion root that comes first in expansionRootIds (the
+      // click order), else the closest placed predecessor tie-broken by stable normalized name + ID.
       const anchor =
-        placedNeighbors.find(id => expansionRootIds.includes(id)) ??
-        placedNeighbors.reduce((best, id) =>
-          (distance.get(id) ?? Infinity) < (distance.get(best) ?? Infinity) ? id : best
-        )
+        expansionRootIds.find(rootId => placedNeighbors.includes(rootId)) ??
+        [...placedNeighbors].sort((a, b) => {
+          const da = distance.get(a) ?? Infinity
+          const db = distance.get(b) ?? Infinity
+          return da !== db ? da - db : compareGraphNodes(nodeById.get(a)!, nodeById.get(b)!)
+        })[0]
       if (!byAnchor.has(anchor)) byAnchor.set(anchor, [])
       byAnchor.get(anchor)!.push(node)
     }
