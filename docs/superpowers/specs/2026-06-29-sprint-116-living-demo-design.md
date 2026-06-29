@@ -1,36 +1,39 @@
-# Sprint 116: Living Demo — Earned Relationships and Guided Entry — Design Spec
+# Sprint 116: Connected Help and Guided Entry — Design Spec
 
 **Date**: 2026-06-29
 **Status**: Approved
-**Version**: v11.22.0 → v11.24.0 (PR A: v11.23.0; PR B: v11.24.0)
+**Version**: v11.22.0 → v11.25.0 (PR A: v11.23.0; PR B: v11.24.0; PR C: v11.25.0)
 **PR A Branch**: `agent/codex/sprint-116-relationship-shape`
-**PR B Branch**: `agent/codex/sprint-116-guided-entry` (from merged PR A)
+**PR B Branch**: `agent/codex/sprint-116-offer-context` (from merged PR A)
+**PR C Branch**: `agent/codex/sprint-116-guided-entry` (from merged PR B)
 
 ---
 
 ## Overview
 
-Sprint 115 made the belonging graphs structurally honest: deterministic layouts, equal person nodes,
-direct disclosed relationships, no inferred clusters, and no hidden reputation ranking. Human review
-then exposed the next truth. The live demo data does not yet carry enough social structure for that
-honest renderer to tell the intended story. In a read-only sample on 2026-06-29, Maria's aggregate ego
-graph contained 144 links but 143 were classified `strong`; Aisha's 25 links were all `strong`.
-Meanwhile, several 110–150 member community graphs contained only 10–42 relationships. The simulation
-creates substantial activity, but its random actor, community, request, and offer choices create
-activity volume rather than repeated relationships, overlapping circles, bridges, or dependency.
+Sprint 115 made the standalone belonging graphs structurally honest, but live validation exposed a
+more important product gap. The renderer changed while the dominant picture remained a ring of people
+and lines. Maria's one-hop ego data collapses the new orbit model to one ring, and sparse community
+graphs remain sparse circles. Data shape amplifies the problem, but the deeper issue is placement: a
+large network explorer asks people to interpret structure without giving them a decision or a story.
 
-This sprint makes the demo's relationship story earned from end to end. It adds one coarse,
-privacy-safe measure of repeated shared history (`bond_depth`), maps that measure to bounded edge
-thickness, teaches the ongoing simulation to remember prior partners while still exploring, and adds
-an idempotent rehearsal that produces two contrasting community structures through the ordinary
-request/match APIs. It then gives visitors a safe guided entrance: karmyq.org leads to a short-lived,
-read-only Maria demo session, while registration and the Founding Circle remain distinct paths.
+Karmyq already promises to explain how people are connected when help crosses from one person to
+another. The current request and offer surfaces do not fulfill that promise. A member who is deciding
+whether to offer sees the requester's name and perhaps a compact path badge. A requester reviewing a
+helper or provider sees little more. Provider identity, the two people's surrounding networks, and the
+mutual nature of the connection are absent.
 
-### Core Principle: Guide attention; never fabricate structure
+Sprint 116 moves the relationship picture to the moment of choice. A compact reciprocal dual-ego lens
+appears only when a visible request or existing offer brings two people together. It shows their
+platform-wide path, their named one-hop networks, and where those networks overlap. Providers remain
+people in the same topology, decorated with an opted-in service role. A guided read-only Maria story
+demonstrates both an ordinary helper and a provider, while karmyq.org preserves three explicit paths:
+Explore the demo, Join the Platform, and Join the Founding Circle.
 
-A demo may choose which truthful communities to show, but every visible person and relationship must
-come from ordinary platform membership and completed exchanges; no layout coordinate, trust edge, or
-health verdict is seeded for presentation.
+### Core Principle: Show relationship when help asks for trust
+
+Connection context is a reciprocal helping hand at a real decision, never a directory for browsing
+people and never a substitute reputation score.
 
 ---
 
@@ -38,109 +41,117 @@ health verdict is seeded for presentation.
 
 ### Sprint 115 — Earned Structure (complete)
 
-Replaced the universal person renderer with deterministic ego orbits and one-ring community chords,
-removed inferred clusters/bundles, and made full-community selection neutral and explicit about
-truncation.
+Replaced the universal person renderer with deterministic ego and community layouts, equal person
+nodes, direct disclosed relationships, and neutral full-community selection.
 
-### Sprint 116 — Living Demo (this sprint)
+### Sprint 116 — Connected Help and Guided Entry (this sprint)
 
-Make repeated relationship depth legible, generate plausible social topology through normal behavior,
-and create a guided read-only entry from karmyq.org into Maria's two contrasting communities.
+Add request-scoped reciprocal relationship context, integrate it for ordinary and provider help, and
+give visitors a read-only Maria path plus a distinct Join the Platform path.
 
-### Sprint 117 — Named Connection Corridor (upcoming)
+### Sprint 117 — Standalone Graph Narrative (upcoming)
 
-Add shortest-first, best-supported equal-hop named paths to profiles and offers. This remains separate
-so path semantics are built on a graph whose relationship data is already legible.
+Use evidence from the contextual lens to decide whether the full Network page needs a constellation,
+connected-island community layout, or a smaller supporting role. Do not redesign it speculatively in
+Sprint 116.
 
 ---
 
 ## Approaches Considered
 
-### 1. Wait for current edges to decay
+### 1. Improve simulation data and keep iterating on the full Network page
 
-Rejected. A fresh completed match has weight 10 while `strong` begins at current weight 1.5. Under the
-default decay configuration, one completion remains `strong` for roughly 68 days. Waiting may create
-more faint lines, but random pair selection still will not create meaningful topology.
+Rejected for this sprint. More varied data could improve line contrast, but it would not fix the
+circular silhouette or explain why a member should study the graph.
 
-### 2. Seed or rewrite `social_graph.trust_edges`
+### 2. Replace the graph with a connection story card
 
-Rejected. This would manufacture the desired picture below the product boundary and violate Sprint
-115's earned-structure rule. It would also bypass requests, matches, events, karma, and every invariant
-that real help must traverse.
+Not selected as the primary treatment. Text is clear and remains the accessibility/mobile fallback,
+but by itself it cannot show two surrounding networks, overlap, and provider belonging at a glance.
 
-### 3. Coarse bond depth + relationship-shaped behavior + API rehearsal (selected)
+### 3. Request-scoped reciprocal relationship lens (selected)
 
-Expose only a coarse repeated-history band, change future partner selection probabilistically, and
-bring the current demo to a useful state by executing real request → offer → accept → two-sided
-completion flows. This is slower than inserting rows but keeps the graph and the rest of the product
-consistent.
+Show a small dual-ego view before an offer and while an offer is reviewed. It is bounded enough to be
+legible, attached to a real act of help, and capable of showing ordinary and professional help through
+the same social structure.
+
+### 4. Searchable member relationship explorer
+
+Rejected. Karmyq connections are visible to authenticated members when a real request or offer creates
+the context; the platform does not provide user search for inspecting arbitrary networks.
 
 ---
 
-## Delivery: Two Ordered PRs
+## Delivery: Three Ordered PRs
 
-### PR A — Relationship Shape (v11.23.0)
+### PR A — Reciprocal Relationship Context (v11.23.0)
 
-1. Add the privacy-safe `bond_depth` outward contract and server-side classifier.
-2. Project it from every person-graph endpoint without exposing counts or weights.
-3. Change person-edge rendering so bounded thickness represents bond depth and opacity represents
-   decay state.
-4. Add relationship-aware ongoing simulation selection.
-5. Add the dry-run-first, additive scenario rehearsal and deploy-time verification.
+1. Add the request/offer-scoped authorization boundary and internal social-graph projection.
+2. Add a coarse, privacy-safe `bond_depth` for contextual edges.
+3. Build the deterministic reciprocal model and compact dual-ego renderer.
+4. Prove platform-wide, cross-community, direct, indirect, and no-path behavior.
 
-PR A must merge and its scenario rehearsal must pass structural verification before PR B can advertise
-the guided experience.
+### PR B — Helping Decision Surfaces (v11.24.0)
 
-### PR B — Guided Entry (v11.24.0)
+1. Show the lens to an eligible member or provider before they offer.
+2. Show the same relationship truth to the requester reviewing an ordinary helper.
+3. Show it to the requester reviewing a provider offer, with service-role decoration.
+4. Rehearse two deterministic Maria stories through ordinary request and offer APIs.
 
-1. Add fail-closed read-only demo sessions for one configured synthetic persona.
-2. Add `karmyq.com/demo` and the compact Maria guide.
-3. Reframe karmyq.org navigation and calls to action around Explore / Join / Shape.
-4. Run the full live Maria journey against the verified PR-A scenario.
+### PR C — Guided Entry and Join the Platform (v11.25.0)
+
+1. Add fail-closed read-only demo sessions for Maria.
+2. Guide the demo directly to Maria's ordinary-helper and provider decisions.
+3. Add and test the distinct karmyq.org paths: Explore, Join the Platform, and Founding Circle.
+4. Validate the complete desktop, mobile, keyboard, and read-only journeys after deployment.
 
 ---
 
 ## New Concepts
 
+### Relationship lens
+
+A compact dual-ego view with two anchors:
+
+- **You** — always the authenticated viewer, regardless of whether they are requester, helper, or
+  provider.
+- **Counterpart** — derived by the server from the authorized request, match, or provider offer.
+
+The visual contains three independent truths:
+
+1. how the two people are connected to each other;
+2. how the viewer is connected to their network;
+3. how the counterpart is connected to their network.
+
+It does not assume that the two people share a community. Request visibility may be community,
+sister-community, trust-network, or platform-wide. Trust-path topology remains platform-wide under
+ADR-077.
+
+### Reciprocal orientation
+
+The underlying topology is identical for both participants. The renderer orients the authenticated
+viewer as “you” and the other participant as the counterpart. When roles reverse, names move sides but
+the path, edge semantics, and disclosed network structure do not change. Provider metadata is the only
+role-specific decoration.
+
+### Context-bound public connection
+
+Named topology is public within authenticated Karmyq, but this feature has no arbitrary user lookup.
+The public route derives both people from a request or offer the caller is authorized to act on or
+review. A client cannot submit a target user ID.
+
 ### Bond depth
 
-`bond_depth` describes repeated recorded interaction, not trustworthiness, endorsement, reputation, or
-recency:
+`bond_depth` describes repeated recorded interaction, not trustworthiness or endorsement:
 
-| Outward value | Internal interaction count | Meaning | At-rest width |
+| Value | Internal interaction count | Meaning | Width |
 |---|---:|---|---:|
 | `forming` | 1 | A relationship exists | 1.2px |
 | `growing` | 2–3 | The pair has interacted repeatedly | 1.9px |
-| `established` | 4+ | The pair has sustained repeated history | 2.8px |
+| `established` | 4+ | The pair has sustained shared history | 2.8px |
 
-The server computes the band from the sum of the edge's recorded interaction counters. The exact count,
-raw/effective weight, and counter breakdown never cross the disclosure boundary. `bond_depth` is not
-configurable per community in this sprint; one shared pure classifier is the source of truth.
-
-### Relationship state remains temporal
-
-The existing `relationship_state` (`strong | warm | fading | nearly_forgotten`) continues to describe
-how alive the relationship is after decay. It controls opacity only. Bond depth and relationship state
-are independent axes:
-
-- thickness: how much repeated history exists;
-- opacity: how quiet that history has become.
-
-Focus changes hue and dims unrelated edges. It does not change width, because width now always carries
-data.
-
-### Scenario rehearsal
-
-A versioned simulation command that plans and executes ordinary API interactions until two demo
-communities satisfy approved structural invariants. It is additive, dry-run by default, resumable from
-database state, and safe to rerun. It does not write product-owned relationship, request, match, karma,
-or membership rows directly.
-
-### Read-only demo session
-
-A short-lived JWT for one configured synthetic persona. It carries `sessionMode: 'demo_read_only'`,
-has no refresh token, and is rejected by shared authentication middleware for every method except
-`GET`, `HEAD`, and `OPTIONS`.
+Exact counts and weights remain internal. Brightness carries no relationship meaning in the lens.
+Plain-language labels communicate direct, indirect, shared-network, and no-path states.
 
 ---
 
@@ -148,350 +159,300 @@ has no refresh token, and is rejected by shared authentication middleware for ev
 
 ### Persistent schema
 
-No new product table or column is required. Existing trust-edge interaction counters remain the source
-of truth. Scenario progress is inferred from existing membership, request, match, and trust-edge state;
-the rehearsal does not create a second ledger.
+No product migration is required. Existing completed matches, trust edges, active memberships,
+community links, request visibility, ordinary matches, provider offers, provider profiles, and
+collective memberships remain authoritative.
 
-### Internal graph link
+### Internal context request
 
-Social-graph database reads add an internal-only total interaction count to person links. Aggregate
-ego reads sum the count across shared active communities, matching their existing sum of raw/current
-weights. This field exists only long enough for projection.
+After public authorization, request-service sends social-graph-service only the derived viewer ID,
+counterpart ID, and bounded context parameters through an internal-only service route. That route is
+protected by the existing `X-Internal-Secret` pattern and is not exposed through the public gateway.
+It fails closed when the secret is missing or misconfigured.
 
-### Outward graph link
+### Outward relationship context
 
-`SafeBelongingLink` becomes:
+The request-service projection contains:
 
 ```ts
 {
-  source: string
-  target: string
-  relationship_state: 'strong' | 'warm' | 'fading' | 'nearly_forgotten'
-  bond_depth: 'forming' | 'growing' | 'established'
-  type?: 'organic' | 'fission'
+  viewer: { id: string; name: string }
+  counterpart: {
+    id: string
+    name: string
+    role: 'member' | 'provider'
+    provider?: { serviceType: string; collectiveName?: string }
+  }
+  request: {
+    id: string
+    visibilityScope: 'community' | 'trust_network' | 'platform'
+    reachability: 'same_community' | 'sister_community' | 'trust_network' | 'platform'
+  }
+  path: {
+    scope: 'platform'
+    degrees: number | null
+    nodes: Array<{ id: string; name: string }>
+  }
+  networks: {
+    viewer: ContextNode[]
+    counterpart: ContextNode[]
+    shared: ContextNode[]
+    truncated: boolean
+  }
+  links: Array<{
+    source: string
+    target: string
+    relationship_state: 'strong' | 'warm' | 'fading' | 'nearly_forgotten'
+    bond_depth: 'forming' | 'growing' | 'established'
+  }>
+  summary: string
 }
 ```
 
-`match_completed_count`, `total_interaction_count`, and all numeric weights remain forbidden outward
-keys. ADR-082 is amended to permit only this coarse band and to state explicitly that it is not an
-endorsement.
+`ContextNode` carries identity and visible community affiliation only. It never carries karma,
+reputation, exchange text, request history, exact counts, raw/effective weights, or timestamps.
 
-### JWT payload
+### Bounded network selection
 
-The shared JWT type gains optional:
-
-```ts
-sessionMode?: 'demo_read_only'
-```
-
-Ordinary tokens omit it and retain existing behavior.
+The projection preserves both anchors, every disclosed path node, and shared direct connections first.
+It then fills each one-hop side to the same fixed cap using stable ID ordering, never reputation,
+weight, recency, or activity ranking. The response reports truncation. This creates a reproducible
+picture without implying that omitted people matter less.
 
 ---
 
 ## API Endpoints
 
-| Method | Path | Change | Auth |
+### Public request-service routes
+
+| Method | Path | Pair derived by server | Authorization |
 |---|---|---|---|
-| GET | `/trust/graph` | Every link adds `bond_depth` | Existing member JWT |
-| GET | `/trust/graph/:communityId` | Every link adds `bond_depth` | Existing live-membership rules |
-| GET | `/trust/graph/:communityId/full` | Every link adds `bond_depth`; completeness metadata unchanged | Existing live-membership rules |
-| GET | `/trust/neighborhood/:userId` | Every link adds `bond_depth` | Existing shared-active visibility rules |
-| POST | `/auth/demo-session` | Create one configured short-lived read-only persona session | Public, auth-rate-limited, explicit environment gate |
+| GET | `/requests/:requestId/relationship-context` | caller ↔ requester | Existing request reachability; own request returns no counterpart context |
+| GET | `/requests/:requestId/matches/:matchId/relationship-context` | requester ↔ ordinary responder | Caller must be one of the two match participants |
+| GET | `/requests/:requestId/provider-offers/:offerId/relationship-context` | requester ↔ provider user | Caller must own the request or the provider offer |
+| POST | `/auth/demo-session` | configured Maria persona | Public rate-limited entry; explicit environment gate; returns read-only authenticated session |
 
-### `POST /auth/demo-session`
+There is no route shaped as `/relationship-context/:userId`, no member search, and no public target-ID
+parameter. Request lifecycle actions retain their existing authorization and are not coupled to graph
+availability.
 
-The route accepts no account identifier. Configuration supplies the only persona email and the exact
-names/locations of the two scenario communities. Before issuing a token it verifies:
+### Internal social-graph route
 
-1. `DEMO_SESSION_ENABLED === 'true'`;
-2. the configured account exists, is active, and ends in `@test.karmyq.com`;
-3. both configured communities are active;
-4. the persona is an active, non-admin member of both.
+`POST /internal/relationship-context` accepts the two server-derived IDs only from request-service.
+It returns a strict identity-and-structure projection. It is inaccessible through the public gateway,
+requires `X-Internal-Secret`, rejects missing/invalid configuration, and has cross-user forbidden-key
+tests under ADR-082.
 
-Success returns the normal public user shape plus `token` and:
+### Demo session
 
-```json
-{
-  "demo": {
-    "persona": "Maria",
-    "expiresInMinutes": 30,
-    "communities": [
-      { "id": "...", "name": "Cedar Grove Neighbors" },
-      { "id": "...", "name": "Harbor Mutual Aid" }
-    ]
-  }
-}
-```
-
-It returns no refresh token. Disabled or incomplete configuration returns `503 DEMO_UNAVAILABLE`
-without revealing which configured resource is missing. It never accepts an arbitrary email, user ID,
-community ID, or redirect target.
-
----
-
-## Simulation Design
-
-### Ongoing request selection
-
-Actor selection remains uniform across the synthetic actor pool. `offerHelpWorkflow` changes only how
-an eligible request is selected after existing guards (not own request, open, not already offered,
-provider-type preference) have run.
-
-A pure selector groups eligible requests by the helper's relationship to the requester and makes a
-weighted choice using an injected random source:
-
-| Bucket | Target share | Definition |
-|---|---:|---|
-| prior partner | 50% | At least one completed exchange between helper and requester in the request community |
-| local circle | 30% | At least one shared active neighbor in that community, but no prior completed exchange |
-| exploration | 20% | Neither prior-partner nor local-circle condition |
-
-If the selected bucket is empty, its probability falls through to the next non-empty bucket; the
-workflow never fails merely because a relationship category is unavailable. Existing provider
-preference remains a first-stage eligibility preference, so relationship memory cannot route a tutor
-to an incompatible request.
-
-This sprint does not introduce a universal health optimizer. The probabilities create memory,
-triadic closure, and exploration; actual community shape remains emergent from available requests.
-
-### Rehearsal communities
-
-The rehearsal owns two neutral identities, created/joined through existing community APIs:
-
-| Community | Location | Members | Presentation label |
-|---|---|---:|---|
-| Cedar Grove Neighbors | Demo District, Portland, OR | 24 | none |
-| Harbor Mutual Aid | Demo District, Portland, OR | 24 | none |
-
-Maria is an ordinary member of both, never the designated coordinator. Each scenario receives the
-same member count, 36 unique relationship edges, and 72 completed-exchange budget. This controls the
-quantity while allowing partner choice to change the shape.
-
-Structural stop conditions:
-
-- **Cedar Grove**: no isolates; minimum degree ≥2; maximum degree ≤5; no articulation point; at least
-  four cross-circle bridge edges.
-- **Harbor**: one non-Maria coordinator has degree ≥16; median non-coordinator degree ≤2; removing the
-  coordinator yields at least four components.
-- **Both**: all links come from completed matches; all three bond-depth bands are present; member,
-  edge, and completed-exchange budgets remain equal.
-
-For planning only, each 24-member roster is partitioned deterministically into four six-person cohorts.
-The cohorts define which relationships count as cross-circle bridges; they are never returned by an
-API, named in the UI, or passed to the renderer. The planner produces deterministic pair/exchange
-targets from a fixed scenario seed, but it never produces coordinates. The executor checks current
-counts and creates only each pair's remaining completed exchanges. A dry run prints proposed actions
-and expected invariants. `--apply` is required for mutations. After interruption, a rerun recomputes
-deficits from authoritative rows and converges on the same target rather than duplicating completed
-exchanges.
-
-### Rehearsal execution boundary
-
-All product mutations use authenticated APIs:
-
-1. create or resolve community;
-2. join members;
-3. create a realistic request;
-4. offer help;
-5. accept the offer;
-6. confirm completion as both parties.
-
-Direct database reads are permitted for planning, deficit detection, and verification because the
-simulation service already reads the demo database. Direct inserts/updates/deletes into product-owned
-tables are forbidden.
+`POST /auth/demo-session` accepts no account identifier. Configuration supplies one active synthetic
+Maria account and the two approved demo request IDs. The token carries
+`sessionMode: 'demo_read_only'`, expires after 30 minutes, has no refresh token, and shared auth
+middleware rejects every non-safe HTTP method.
 
 ---
 
 ## Frontend Changes
 
-### Person graphs
+### Compact reciprocal renderer
 
-`graphVisualEncoding` owns the exact bond-depth widths. `CommunityRingGraph` and `EgoOrbitGraph` read
-only the shared encoding result. Caller relationships remain amber; ordinary relationships remain
-slate; focused incident relationships remain teal unless caller amber has precedence. Focus dims
-unrelated edges/nodes but adds no width. Titles and selected-node summaries describe both axes in
-plain language without counts (for example, `established · fading`).
+The viewer appears on the left and the counterpart on the right. The shortest disclosed path occupies
+the middle. Named one-hop connections fan behind each anchor; mutual connections occupy the overlap.
+Community labels describe where visible nodes belong without enclosing the pair in a false single-
+community boundary.
 
-Unknown/missing `bond_depth` falls back to the narrow `forming` width so old/cache-skewed payloads can
-never overstate depth. Unknown relationship state retains the existing neutral opacity.
+Visual semantics are intentionally narrow:
+
+- equal person nodes — no person is larger because of reputation, degree, or provider status;
+- line thickness — coarse repeated shared history only;
+- position — role in this particular reciprocal picture;
+- solid lines — recorded person-to-person relationships;
+- provider badge — opted-in service role, not a higher-status node;
+- no brightness encoding, inferred clusters, health score, or recommendation claim.
+
+The component always renders the server-provided summary beneath the SVG, for example: “You and Dev
+are connected through Elena. Your networks overlap through Marin Helping Hands.” The summary is the
+mobile/accessibility fallback and must remain useful when the SVG cannot load.
+
+### Before offering
+
+The canonical request detail page loads context only after the request response says the caller can
+offer. The provider matching-request surface links to that same detail/context rather than building a
+second interpretation. The lens is explanatory; the Offer action remains usable if it fails.
+
+### Reviewing offers
+
+Ordinary match cards and provider-offer review cards use their participant-scoped context routes.
+Both requester and offerer receive the same topology oriented around themselves. Provider offers add
+service type and collective name from the existing public provider contract.
+
+### No browsing surface
+
+The lens does not appear on provider profiles, member profiles, search, or the standalone Network page.
+Provider directories retain their existing compact trust-path/shared-community information.
+
+---
+
+## Maria Rehearsal
+
+The rehearsal creates or resolves two deterministic stories through ordinary APIs:
+
+1. Maria reviews an ordinary community member's offer.
+2. Maria reviews a professional provider's offer.
+
+At least one story is cross-community under the requester's configured visibility policy. Together
+the stories exercise direct or short-path connection, visible surrounding networks, provider role,
+and a truthful no-path or low-overlap contrast. The rehearsal creates requests, offers, acceptance,
+and any completed history through normal product APIs; it never inserts or rewrites trust edges.
+
+The command is additive, dry-run by default, resumable from authoritative state, and requires
+`--apply` for mutations. It verifies the expected request IDs and structural conditions before PR C
+can enable the public guide.
+
+---
+
+## Guided Entry and Join the Platform
 
 ### `karmyq.com/demo`
 
-The unauthenticated page contains:
-
-- a clear “shared synthetic persona” disclosure;
-- one **Explore as Maria** action;
-- ordinary **Join the platform** and **Log in** alternatives;
-- an honest unavailable state when the server returns `503`.
-
-On success it stores the access token and user/demo context, stores no refresh token, and navigates to
-`/network?mode=ego&demo=1`.
-
-### Guided network context
-
-When valid demo context exists, `/network` shows a compact dismissible guide above the existing graph:
-
-1. Maria's network — notice repeated vs forming relationships;
-2. Cedar Grove — compare alternate routes and bridges;
-3. Harbor — consider what changes if the coordinator disappears.
-
-The guide uses the two IDs returned by `/auth/demo-session`; no production UUID is hard-coded into the
-frontend. It does not calculate, display, or persist a health score. If a graph fetch fails, the guide
-keeps the last successful view, offers retry, and never claims the scenario is complete.
+The page discloses that Maria is a shared synthetic persona, creates the short-lived read-only session,
+and opens the guided offer-comparison story. Visitors can switch between the ordinary helper and
+provider and see the relationship lens for each. My Network may be linked as supporting context, but
+is not the entry destination.
 
 ### Karmyq.org entry hierarchy
-
-The public site distinguishes three intentions:
 
 | Intention | Label | Destination | Prominence |
 |---|---|---|---|
 | See it | Explore the live demo | `https://karmyq.com/demo` | Primary header/home action |
-| Use it | Join the platform | `https://karmyq.com/register` | Secondary header/home action |
-| Shape it | Join the founding circle | `/join` | Normal navigation; Research closing action |
+| Use it | Join the Platform | `https://karmyq.com/register` | Secondary header/home action |
+| Shape it | Join the Founding Circle | `/join` | Normal navigation; research/founding action |
 
-The logo already returns home, so the redundant `Story` item is removed from desktop and mobile
-navigation. This keeps the two explicit external actions legible at the existing breakpoint. Mobile
-navigation must show all three paths without hiding either registration or the Founding Circle behind
-the demo action.
-
-How It Works closes with **Explore the live demo**. Research continues to close with **Join the
-founding circle**. The home ending presents Explore + Join platform, with the Founding Circle as a
-quieter text path.
+All three paths appear in desktop and mobile navigation. The home closing section and demo page show
+Explore plus Join the Platform, with Founding Circle as the distinct participation path. Automated
+route tests prevent Join the Platform from drifting to `/join` or being hidden behind Explore.
 
 ---
 
 ## Safety and Failure Behavior
 
-1. **Demo sessions fail closed.** The endpoint is absent in effect unless explicitly enabled and fully
-   configured. It discloses no configuration detail on failure.
-2. **Demo sessions are read-only at the server.** Shared `authMiddleware` rejects non-safe HTTP methods
-   whenever `sessionMode === 'demo_read_only'`. Hiding buttons is only supplementary UX, never the
-   enforcement boundary.
-3. **The persona is constrained.** It must be a synthetic ordinary member of both scenario communities;
-   an admin persona prevents session issuance.
-4. **No refresh token.** Demo sessions expire after 30 minutes and require re-entry through `/demo`.
-5. **Scenario mutations are explicit.** Dry-run is the default; `--apply` and the exact environment are
-   printed before any API action. No automatic execution occurs during service startup or deploy.
-6. **Existing history is preserved.** No wipe, trust-edge rewrite, or broad demo repair is permitted.
-7. **Partial runs are honest.** PR B is not enabled until rehearsal verification passes. Missing graphs
-   show unavailable/retry states, never a health interpretation.
-8. **No evaluative person claims.** Bond depth describes shared history only. Copy must not say that a
-   person is trusted, recommended, generous, extractive, central, healthy, or unhealthy.
+1. **Context, not search.** Public routes derive both participants from an authorized request or offer.
+2. **Authenticated visibility.** Named connection topology is available inside Karmyq, not as an
+   open-web endpoint.
+3. **No reputation disclosure.** Exact karma, trust/reputation scores, weights, counts, histories, and
+   timestamps never cross the context boundary.
+4. **Reciprocal truth.** Reversing caller and counterpart changes orientation only, not topology.
+5. **Cross-community truth.** The response never claims a path is community-local; path scope is
+   platform-wide and request reachability is labeled separately.
+6. **Non-blocking enhancement.** Timeout, 404, or 5xx leaves request/offer copy and actions intact.
+7. **Honest absence.** No path reads “No recorded connection path yet”; it never invents membership,
+   endorsement, or distrust.
+8. **Internal route fails closed.** Missing or invalid internal secret returns 403; missing production
+   configuration prevents startup or disables the internal route explicitly.
+9. **Demo sessions fail closed.** Only the configured synthetic non-admin persona can receive a
+   read-only token, with no refresh token and server-side write rejection.
+10. **No graph-derived decision.** The server's existing eligibility and offer authorization remain
+    authoritative; the renderer does not calculate eligibility.
 
 ---
 
 ## Verification Strategy
 
-### Contract and privacy
+### Authorization and privacy
 
-- Boundary tests for `forming` (1), `growing` (2–3), and `established` (4+).
-- Strict outward-schema tests accept `bond_depth` and reject exact counters/weights.
-- Projection tests prove every person-graph endpoint emits the coarse band and no numeric source.
-- ADR-082 forbidden-key scanner adds all interaction-count spellings.
+- Reachable community, sister-community, trust-network, and platform requests return context.
+- Unreachable, nonexistent, closed-as-ineligible, or own requests do not expose a counterpart network.
+- Match/provider-offer routes accept only their two participants.
+- No route accepts an arbitrary target user ID.
+- Internal-secret tests cover missing, wrong, and correct values.
+- Strict schemas and sentinel tests reject every ADR-082 forbidden metric at any depth.
 
-### Rendering
+### Reciprocity and topology
 
-- Exact widths are locked for all three bands.
-- Opacity changes do not change width; bond depth changes do not change opacity.
-- Focus changes hue/dimming without changing width.
-- Missing runtime bond depth falls back to `forming`.
-- Dense 150-member fixture remains within the existing render budget and focus reuses geometry.
+- Swapping authenticated participants produces the same node/link/path sets with reversed orientation.
+- Direct, 2–6 degree, and no-path fixtures produce truthful summaries.
+- Cross-community paths remain `scope: platform`; request reachability remains separate metadata.
+- Shared nodes occupy the overlap; one-sided nodes remain on their owner's side.
+- Stable input produces byte-stable model coordinates and selection.
+- Path/shared nodes survive caps; other nodes use stable non-evaluative ordering; truncation is explicit.
 
-### Simulation
+### Rendering and accessibility
 
-- Seeded selector tests lock the 50/30/20 policy, provider precedence, fallthrough, and empty inputs.
-- Scenario planner tests lock equal budgets and the structural stop conditions.
-- Executor tests prove dry-run default, `--apply` requirement, deficit-only reruns, and no direct product
-  table writes.
-- Database-backed TDD test runs a minimal two-pair rehearsal through API client mocks/contracts and
-  proves a second plan contains no completed-exchange work.
+- Exact widths are locked for all bond-depth bands.
+- Brightness/opacity does not encode relationship value.
+- Provider decoration never changes node size.
+- Summary text is present with and without SVG support.
+- Keyboard focus, screen-reader names, reduced motion, and narrow mobile layouts remain usable.
 
-### Demo session and entry
+### Decision surfaces
 
-- Endpoint disabled/missing config/non-synthetic/admin persona all fail closed.
-- Success returns one configured persona, two configured communities, a 30-minute demo claim, and no
-  refresh token.
-- Shared auth middleware permits GET/HEAD/OPTIONS and rejects POST/PUT/PATCH/DELETE for demo tokens.
-- `/demo` handles success, rate-limit/error, and unavailable states without leaking credentials.
-- Karmyq.org route/nav tests lock Explore / Join platform / Founding Circle destinations on desktop
-  and mobile contracts.
+- Eligible ordinary helper and provider see context before offering.
+- Requester sees reciprocal context for ordinary and provider offers.
+- Context failure does not disable offer, accept, decline, or withdraw actions.
+- Provider metadata is present only for provider offers.
 
-### Post-deploy human validation
+### Entry and joining
 
-1. Run rehearsal dry-run; inspect budget and target evidence.
-2. Admin explicitly authorizes `--apply`; run against the demo API and record completion evidence.
-3. Verify both community graphs from Maria's ordinary account and capture node/edge/degree,
-   articulation, and bond-depth distributions.
-4. Enter through karmyq.org → Explore the live demo → Maria → both communities.
-5. Confirm demo writes receive 403 server-side, registration remains independent, and the Founding
-   Circle path still submits normally.
-6. Confirm desktop/mobile keyboard operation, visible focus, reduced motion, no graph layout movement,
-   and no health/endorsement claim.
+- Demo session is synthetic-only, 30-minute, non-refreshable, and server-side read-only.
+- Maria guide opens the offer comparison rather than the standalone Network page.
+- Desktop/mobile navigation and closing CTAs preserve Explore, Join the Platform, and Founding Circle.
+- Join the Platform always resolves to ordinary registration; Founding Circle remains `/join`.
+
+### Post-deploy five-second validation
+
+Using Maria and both rehearsed offers, a viewer has five seconds to answer:
+
+1. How are these two people connected?
+2. Where does each person belong?
+3. Which offerer is acting as a provider?
+
+If the answers are not apparent without explaining the implementation, the sprint is not complete.
 
 ---
 
 ## User Guide and Documentation Updates
 
-- **ADR-084 (new):** coarse bond depth, relationship-shaped simulation, API-earned rehearsal, and
-  read-only guided demo boundary.
-- **ADR-082:** explicitly permit the three-value `bond_depth`; retain exact counter/weight prohibition.
-- **ADR-083:** replace constant-width/intensity-only decision with bounded depth width + temporal opacity.
-- **`docs/guides/trust-graph.md`:** explain thickness vs fading and the non-endorsement boundary.
-- **`docs/concepts/reading-the-trust-graph.md`:** explain why data shape, not renderer shape, carries the
-  community story.
-- **`docs/guides/demo-data.md`:** explain Maria, the two rehearsal communities, shared read-only access,
-  and API-earned scenario data.
-- **`docs/guides/getting-started-guide.md`:** distinguish Explore, Join platform, and Join Founding Circle.
-- Regenerate/update matching landing docs JSON and nav entries.
-- Update `packages/shared/CONTEXT.md`, `services/social-graph-service/CONTEXT.md`,
-  `services/simulation-service/CONTEXT.md`, `services/auth-service/CONTEXT.md`, and
-  `apps/frontend/CONTEXT.md`.
-- Update `services/registry.json` for the modified person-graph responses and new auth endpoint.
-- Update onboarding workflow copy if it describes constant-width edges or manual demo credentials.
+- **ADR-077:** retain platform-wide trust-path topology and document request-scoped reciprocal context.
+- **ADR-082:** permit coarse `bond_depth` and named authenticated topology while retaining the exact-
+  metric prohibition.
+- **New ADR:** record context-bound connection visibility, internal authorization boundary, and the
+  explicit rejection of arbitrary member browsing.
+- **`docs/concepts/trust-path.md`:** explain reciprocal offer context and cross-community paths.
+- **`docs/concepts/unified-feed.md`:** describe the lens as a pre-offer helping aid.
+- **Provider guide:** explain that providers remain community people with an added public service role.
+- **Getting started guide:** distinguish Explore, Join the Platform, and Join the Founding Circle.
+- **Landing docs/content:** update the live product story to show relationship at the moment of help.
+- **Service contexts and registry:** add public request routes, internal dependency/route, demo session,
+  disclosure class, environment variables, and version changes.
 
 ---
 
 ## Critical Implementation Notes
 
-1. `bond_depth` is repeated-history context, never trustworthiness or endorsement. No UI or guide may
-   call an established edge “more trustworthy.”
-2. Exact interaction counts, count breakdowns, raw/effective/current weights, and numeric path strength
-   remain forbidden in every ordinary-member response. Project at the final response boundary.
-3. Thickness and opacity are independent. Focus must not alter width after this sprint.
-4. Actor selection stays uniform. Only eligible-request choice becomes relationship-aware, and provider
-   compatibility remains the first-stage preference.
-5. The 50/30/20 policy uses an injected random source and deterministic ordering before selection so
-   tests and reloads cannot depend on database row order.
-6. The scenario runner is dry-run by default, requires `--apply`, mutates only through existing APIs,
-   and computes deficits from authoritative state. Never insert/update/delete product rows directly.
-7. Both scenarios use equal member, unique-edge, and completed-exchange budgets. Do not tune one until
-   it merely looks prettier; enforce structural invariants without coordinates.
-8. Maria must be an ordinary member of both scenario communities and must not be the Harbor
-   coordinator. Demo-session issuance fails if that is untrue.
-9. Demo configuration is server-only. The endpoint accepts no persona/community/redirect input and
-   returns `503 DEMO_UNAVAILABLE` without naming missing resources.
-10. `demo_read_only` is enforced in shared auth middleware for all non-safe methods. Client-side hidden
-    controls are not a security boundary.
-11. PR B remains disabled until PR A's live rehearsal verification passes. Never advertise an
-    incomplete scenario.
-12. Preserve every existing demo account, community, match, and trust edge. This sprint is additive;
-    there is no wipe or bulk repair.
-13. Update ADR-082 and ADR-083 rather than creating competing disclosure/rendering rules; ADR-084
-    records only the new cross-cutting decision.
-14. The named connection corridor and offer integration are Sprint 117 scope and must not leak into
-    either Sprint 116 PR.
-
----
-
-## Explicitly Out of Scope
-
-- Named person-to-person corridors, path ranking, or offer integration.
-- Public profile visibility changes.
-- Raw relationship weights or exact interaction counts in the client.
-- A community health score, recommendation, ranking, or automated verdict.
-- Direct trust-edge seeding, database wipe/reseed, or rewriting existing history.
-- Temporal fission/fusion lineage.
-- Mobile-native parity beyond ensuring the responsive web demo remains usable.
+1. The lens is request/offer-scoped. Do not add a public route that accepts an arbitrary target user.
+2. Relationship topology is reciprocal. Reversing participants may change orientation and role copy,
+   but never the disclosed node/link/path sets.
+3. Trust paths are platform-wide under ADR-077. Never label an exchange path as belonging to the
+   request's source community.
+4. Request reachability is the existing visibility boundary, including sister-community,
+   trust-network, and platform scope. Do not replace it with a shared-membership check.
+5. Named connections are visible to authenticated Karmyq members in this context; exact ordinary-
+   member reputation, weights, counts, history text, and timestamps remain forbidden under ADR-082.
+6. Request-service owns public context authorization and derives both IDs. Social-graph-service only
+   receives them over the fail-closed internal boundary.
+7. Preserve path nodes and shared connections before applying caps. Fill remaining slots with stable,
+   non-evaluative ordering and disclose truncation.
+8. Thickness carries coarse repeated history only. Brightness carries no relationship meaning.
+9. Providers use equal person nodes. Service type/collective are role decorations, never rank.
+10. The relationship lens is non-blocking. Existing offer and acceptance actions must work through
+    timeout, no-path, and service failure.
+11. Rehearsal mutations use ordinary APIs, are dry-run by default, additive, resumable, and require
+    explicit `--apply`; never seed trust edges or coordinates.
+12. Demo write protection is server-side shared middleware. Hiding controls is defense in depth only.
+13. Join the Platform is ordinary registration and must remain distinct from `/join`, the Founding
+    Circle path, on desktop, mobile, home, and demo surfaces.
+14. Update existing ADRs and docs rather than creating competing definitions of path scope,
+    disclosure, provider identity, or request eligibility.
 
 ---
 
@@ -499,15 +460,15 @@ quieter text path.
 
 Sprint 116 is complete only when:
 
-1. All person graphs expose privacy-safe bond depth and render depth by bounded width plus decay by
-   opacity.
-2. Ongoing simulation produces relationship memory with tested fallback behavior.
-3. The rehearsal creates/verifies both equal-budget scenarios through ordinary APIs without changing
-   existing history.
-4. A visitor can enter from karmyq.org, obtain a short-lived read-only Maria session, and traverse the
-   ego plus both scenario communities.
-5. Registration and Founding Circle paths remain explicit and independently usable.
-6. Demo-token writes are rejected server-side.
-7. Unit/regression/TDD suites, type checks, build, feedback check, dependency audit, CodeQL,
-   `/simplify`, `/code-review`, and `/security-review` are green.
-8. Documentation, contexts, registry, landing docs, versions, PR contracts, and handoff are current.
+1. A helper or provider can see how they connect to a requester before offering.
+2. A requester can see the same relationship truth when reviewing that helper or provider.
+3. Cross-community requests show two truthful surrounding networks without assuming shared membership.
+4. Direct, indirect, and no-path states are legible; repeated history uses thickness, not brightness.
+5. The feature cannot search for or inspect an arbitrary member outside a request/offer context.
+6. Context failure never blocks offer or acceptance actions.
+7. Maria's read-only demo shows ordinary and provider offer stories and rejects writes server-side.
+8. Explore, Join the Platform, and Join the Founding Circle remain distinct and usable on desktop and
+   mobile.
+9. Five-second live validation answers how the pair connects, where each belongs, and who is a provider.
+10. Unit, regression, TDD, type, build, feedback, audit, CodeQL, simplify, code-review, and security-
+    review gates are green, with docs, contexts, registry, versions, PR contracts, and handoff current.
