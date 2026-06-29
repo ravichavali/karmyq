@@ -1,30 +1,65 @@
-# Sprint 115 — Belonging Graph Earned Structure: design approved, implementation planned
+# Sprint 115 — Belonging Graph Earned Structure: IMPLEMENTED (all 9 tasks), gates green, awaiting PR review/merge
 
-> **STATUS (2026-06-27):** Sprint 115 design and implementation planning are complete on branch
-> `agent/codex/sprint-115-belonging-presentation`, based on `origin/master` after the reverted Sprint 114.
-> The approved design is
-> `docs/superpowers/specs/2026-06-27-sprint-115-belonging-presentation-design.md`; the implementation plan
-> is `docs/superpowers/plans/2026-06-27-sprint-115-belonging-presentation.md` (9 TDD-ordered tasks).
-> Commits: `e16223b5` initial spec, `94901723` review corrections, `66ddde1c` implementation plan.
+> **STATUS (2026-06-28):** Sprint 115 is **fully implemented on branch
+> `agent/codex/sprint-115-belonging-presentation`** (all 9 plan tasks). Codex did Tasks 1–3; Claude
+> picked up and completed Tasks 4–9. **Awaiting: open PR → cross-agent review → Admin merge → deploy →
+> human validation.** Contributor agents do not self-merge or deploy.
 >
-> **Next action:** choose plan execution mode, then implement Task 1 on this branch. Contributor agents do
-> not merge or deploy. The working tree must be clean before switching between Claude and Codex.
+> **Commits (origin/master..HEAD):** `72cd9d4f` T1 neutral full-community selection · `818f44c6`/`9f06d95f`
+> T2 shared encoding + community geometry · `ed79c2eb`/`e03f1198` T3 CommunityRingGraph · `0bbfbfe2` T4
+> egoOrbitModel · `a9268d8b` T5 EgoOrbitGraph (+ promoted suites) · `80807a41` T6 contextual dispatch +
+> profile/network/community integration · `15ff866d` T7 HEB fission-only + migrated regressions +
+> structural-truth fixtures · `27564948` T8 ADR-083 + docs rewrite + CONTEXT/registry + **v11.22.0** ·
+> `f783548d` T9 review-findings fix.
 >
-> **Locked product decisions:** profile/ego uses deterministic BFS orbits; community keeps every returned
-> member on one ring with direct softly curved chords; at-rest width stays constant; qualitative
-> relationship state controls intensity; caller edges are amber; focused incident edges are teal; no
-> inferred clusters, bundles, person health score, or reputation display. Across Communities and fission
-> remain on their existing dedicated renderers.
+> **What shipped:** one wrapper (`BelongingGraph`) + canonical model + shared `graphVisualEncoding`,
+> dispatching to purpose-built deterministic renderers — `EgoOrbitGraph` (BFS orbits, stable across
+> expand/collapse), `CommunityRingGraph` (one ring + direct chords, incomplete `N of M`), unchanged
+> `CommunityHubGraph` (communities) and `TrustGraphHEB` (now **fission-only**, `mode: 'fission'`). The
+> full-community endpoint now selects neutrally (name+ID, never trust score), unions the caller, and
+> returns `meta: { totalActiveMembers, truncated }`. ADR-083 records the decision (partially supersedes
+> ADR-063/081); guide + concept rewritten off the cluster/bundle model.
 >
-> **Scope correction found during review:** `/trust/graph/:communityId/full` currently selects top members
-> by hidden trust score. Sprint 115 changes that existing endpoint to neutral normalized-name + ID selection,
-> always includes the caller, and returns `meta: { totalActiveMembers, truncated }`. Incomplete graphs say
-> “Showing N of M” and suppress complete-community interpretation. No migration or new endpoint.
+> **Gates (all green unless noted):** frontend `tsc` clean; social-graph `tsc` clean; frontend
+> unit+regression **191/191**; social-graph regression **54 pass** (3 todo); doc-context drift gate
+> **5/5**; `npm run build` **12/12**; `npm audit --audit-level=high` passes (1 **moderate** node-tar
+> advisory GHSA-vmf3-w455-68vh — below the high blocking threshold; within the 2-week SLA, fixable via
+> `npm audit fix` in a separate dep PR). `analyze:services` produced no diff (only an endpoint
+> *description* changed). **Pre-existing, NOT introduced here:** `npm run lint` fails on
+> `src/utils/admin-auth.ts:69,81` (`no-explicit-any`) — that file is byte-identical to `origin/master`
+> and `next build` tolerates it; out of Sprint 115 scope.
 >
-> **Deferred intentionally:** Sprint 116 named connection corridor + offer context; public profiles until an
-> API-enforced visibility contract exists; temporal fission/fusion lineage. A separate landing CTA sprint
-> should make “Try the live demo” (`karmyq.com`) the primary header/home action while retaining Founding
-> Circle as normal/secondary navigation. Do not mix that landing change into Sprint 115.
+> **SDLC review (done by Claude as implementer):** `/code-review` found one real bug — the profile's
+> single-replaceable expansion could show the **wrong** node when two click-fetches resolved out of order
+> (no stale-response guard, unlike `/network`'s `modeRef`); **fixed** in `f783548d` with a
+> `pendingExpandRef` guard + RED→GREEN regression test. `/security-review` **clean** (full-community SQL
+> is parameterized; live-membership auth gate unchanged; ADR-082 redact→project pipeline holds — `meta`
+> is two integers; no unsafe DOM/SVG/URL sinks). `/simplify` extracted the duplicated `relationshipSummary`
+> into `graphVisualEncoding`.
+>
+> **REMAINING — human validation (post-merge, needs running app / live demo; Admin authorizes deploy):**
+> 1. **150-member density** (plan T9 Step 3): load deterministic sparse + high-edge 150-member fixtures in
+>    a dev harness / the renderer regression fixture (do NOT commit a production route); record initial
+>    model/render + focus-update durations and confirm focus reuses every path string and does NOT
+>    re-invoke the pure model; no crash/NaN/Infinity/duplicate-zoom; desktop + mobile, `prefers-reduced-motion`
+>    off and on.
+> 2. **Real surfaces** (plan T9 Step 4) with a rich (`maria.reyes`) and a sparse demo account: profile,
+>    community Trust Graph, `/network` — stable reload coordinates; one replaceable profile expansion with
+>    retry retaining the old graph; three FIFO explorer expansions + collapse; community focus without
+>    layout movement; complete vs truncated copy; full keyboard reach + visible focus + titles; no person
+>    reputation/cluster/endorsement claim; unchanged Across-Communities + fission admin.
+>
+> **Cross-agent review:** Codex authored the plan + Tasks 1–3; Claude implemented Tasks 4–9. Per the
+> cross-agent protocol, **Codex should review this branch/PR** before Admin merge.
+>
+> **Locked product decisions (delivered):** deterministic BFS orbits; one community ring with direct softly
+> curved chords; constant at-rest width; qualitative intensity; amber caller / teal focused edges; no
+> inferred clusters, bundles, health score, or reputation display.
+>
+> **Deferred intentionally (future sprints):** Sprint 116 named connection corridor + offer context;
+> public profiles until an API-enforced visibility contract exists; temporal fission/fusion lineage; a
+> separate landing CTA sprint making “Try the live demo” (`karmyq.com`) the primary header/home action.
+> Do not mix those into Sprint 115.
 
 ## Historical Sprint 113 handoff
 
