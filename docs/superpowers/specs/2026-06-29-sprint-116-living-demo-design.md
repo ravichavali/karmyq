@@ -87,7 +87,7 @@ the context; the platform does not provide user search for inspecting arbitrary 
 ### PR A — Reciprocal Relationship Context (v11.23.0)
 
 1. Add the request/offer-scoped authorization boundary and internal social-graph projection.
-2. Add a coarse, privacy-safe `bond_depth` for contextual edges.
+2. Add a coarse, deliberately ordinal `bond_depth` for contextual edges.
 3. Build the deterministic reciprocal model and compact dual-ego renderer.
 4. Prove platform-wide, cross-community, direct, indirect, and no-path behavior.
 
@@ -152,6 +152,12 @@ review. A client cannot submit a target user ID.
 
 Exact counts and weights remain internal. Brightness carries no relationship meaning in the lens.
 Plain-language labels communicate direct, indirect, shared-network, and no-path states.
+
+The three public thresholds intentionally disclose ordinal history: `growing` means at least two
+recorded interactions, and `established` means at least four. This is an accepted, bounded disclosure
+because the product is making repeated relationship visible rather than publishing a reputation score;
+the exact count, timing, content, direction, and value of those exchanges remain private. ADR-082 must
+record this trade-off explicitly rather than describing `bond_depth` as non-disclosing.
 
 ---
 
@@ -230,7 +236,6 @@ picture without implying that omitted people matter less.
 | GET | `/requests/:requestId/relationship-context` | caller ↔ requester | Existing request reachability; own request returns no counterpart context |
 | GET | `/requests/:requestId/matches/:matchId/relationship-context` | requester ↔ ordinary responder | Caller must be one of the two match participants |
 | GET | `/requests/:requestId/provider-offers/:offerId/relationship-context` | requester ↔ provider user | Caller must own the request or the provider offer |
-| POST | `/auth/demo-session` | configured Maria persona | Public rate-limited entry; explicit environment gate; returns read-only authenticated session |
 
 There is no route shaped as `/relationship-context/:userId`, no member search, and no public target-ID
 parameter. Request lifecycle actions retain their existing authorization and are not coupled to graph
@@ -243,10 +248,18 @@ It returns a strict identity-and-structure projection. It is inaccessible throug
 requires `X-Internal-Secret`, rejects missing/invalid configuration, and has cross-user forbidden-key
 tests under ADR-082.
 
+### Public auth-service route
+
+| Method | Path | Persona | Authorization |
+|---|---|---|---|
+| POST | `/auth/demo-session` | one configured Maria identity | Public auth-rate-limited entry; explicit environment gate; returns a read-only authenticated session |
+
 ### Demo session
 
-`POST /auth/demo-session` accepts no account identifier. Configuration supplies one active synthetic
-Maria account and the two approved demo request IDs. The token carries
+`POST /auth/demo-session` accepts no account identifier. `DEMO_PERSONA_EMAIL` supplies the only
+permitted identity, and that configured account must independently be active, non-admin, and end in
+`@test.karmyq.com`; configuration cannot make an ordinary account eligible. Configuration also
+supplies the two approved demo request/offer IDs. The token carries
 `sessionMode: 'demo_read_only'`, expires after 30 minutes, has no refresh token, and shared auth
 middleware rejects every non-safe HTTP method.
 
@@ -300,10 +313,13 @@ The rehearsal creates or resolves two deterministic stories through ordinary API
 1. Maria reviews an ordinary community member's offer.
 2. Maria reviews a professional provider's offer.
 
-At least one story is cross-community under the requester's configured visibility policy. Together
-the stories exercise direct or short-path connection, visible surrounding networks, provider role,
-and a truthful no-path or low-overlap contrast. The rehearsal creates requests, offers, acceptance,
-and any completed history through normal product APIs; it never inserts or rewrites trust edges.
+At least one story is cross-community under the requester's configured visibility policy. The
+ordinary story is the rich perceptual control: it must have a direct or two-degree path, at least three
+named shared one-hop connections, and at least four visible one-hop nodes on each side after mandatory
+path/shared nodes are preserved. The planner reads current degree/overlap before choosing the
+counterpart and creates any missing completed history only through ordinary APIs. The provider story
+may supply the truthful no-path or low-overlap contrast. Together the stories exercise visible
+surrounding networks, overlap, provider role, and contrast without inserting or rewriting trust edges.
 
 The command is additive, dry-run by default, resumable from authoritative state, and requires
 `--apply` for mutations. It verifies the expected request IDs and structural conditions before PR C
@@ -442,16 +458,21 @@ If the answers are not apparent without explaining the implementation, the sprin
    receives them over the fail-closed internal boundary.
 7. Preserve path nodes and shared connections before applying caps. Fill remaining slots with stable,
    non-evaluative ordering and disclose truncation.
-8. Thickness carries coarse repeated history only. Brightness carries no relationship meaning.
-9. Providers use equal person nodes. Service type/collective are role decorations, never rank.
-10. The relationship lens is non-blocking. Existing offer and acceptance actions must work through
+8. `bond_depth` intentionally discloses an ordinal floor (`growing` ≥2, `established` ≥4); document
+   that accepted trade-off while keeping exact count, timing, content, direction, and value private.
+9. Thickness carries coarse repeated history only. Brightness carries no relationship meaning.
+10. The compact lens uses pure TypeScript geometry and React SVG with zero D3 imports.
+11. Providers use equal person nodes. Service type/collective are role decorations, never rank.
+12. The relationship lens is non-blocking. Existing offer and acceptance actions must work through
     timeout, no-path, and service failure.
-11. Rehearsal mutations use ordinary APIs, are dry-run by default, additive, resumable, and require
+13. The ordinary Maria story must meet the rich-overlap floor (≤2-degree path, ≥3 shared one-hop
+    connections, ≥4 visible one-hop nodes per side); do not validate two sparse pictures.
+14. Rehearsal mutations use ordinary APIs, are dry-run by default, additive, resumable, and require
     explicit `--apply`; never seed trust edges or coordinates.
-12. Demo write protection is server-side shared middleware. Hiding controls is defense in depth only.
-13. Join the Platform is ordinary registration and must remain distinct from `/join`, the Founding
+15. Demo write protection is server-side shared middleware. Hiding controls is defense in depth only.
+16. Join the Platform is ordinary registration and must remain distinct from `/join`, the Founding
     Circle path, on desktop, mobile, home, and demo surfaces.
-14. Update existing ADRs and docs rather than creating competing definitions of path scope,
+17. Update existing ADRs and docs rather than creating competing definitions of path scope,
     disclosure, provider identity, or request eligibility.
 
 ---
@@ -466,7 +487,8 @@ Sprint 116 is complete only when:
 4. Direct, indirect, and no-path states are legible; repeated history uses thickness, not brightness.
 5. The feature cannot search for or inspect an arbitrary member outside a request/offer context.
 6. Context failure never blocks offer or acceptance actions.
-7. Maria's read-only demo shows ordinary and provider offer stories and rejects writes server-side.
+7. Maria's read-only demo shows one verified rich-overlap ordinary story plus a contrasting provider
+   story and rejects writes server-side.
 8. Explore, Join the Platform, and Join the Founding Circle remain distinct and usable on desktop and
    mobile.
 9. Five-second live validation answers how the pair connects, where each belongs, and who is a provider.
