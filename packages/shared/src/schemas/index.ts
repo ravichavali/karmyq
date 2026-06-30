@@ -19,6 +19,9 @@ export * from './providers';
 // Reputation disclosure boundary (Sprint 112, ADR-082)
 export * from './reputationDisclosure';
 
+// Reciprocal request/offer relationship context (Sprint 116)
+export * from './relationshipContext';
+
 // Future: Export other schema modules as they're created
 // export * from './events';
 // export * from './users';

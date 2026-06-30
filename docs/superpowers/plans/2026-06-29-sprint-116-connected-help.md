@@ -77,6 +77,9 @@ Jest/Testing Library, Turbo, Bull queue infrastructure.
 | File | Change |
 |---|---|
 | `packages/shared/src/schemas/index.ts` | Export reciprocal context schemas/types |
+| `packages/shared/index.ts` | Re-export reciprocal context from the package root |
+| `packages/shared/src/schemas/reputationDisclosure.ts` | Treat exact interaction-counter names as forbidden outward keys |
+| `packages/shared/CONTEXT.md` | Document reciprocal context types, ordinal disclosure, and root exports |
 | `packages/shared/middleware/auth.ts` | Add `sessionMode` claim and reject unsafe demo-token methods |
 | `services/social-graph-service/src/index.ts` | Mount internal route before member auth middleware |
 | `services/request-service/src/index.ts` | Mount relationship-context routes and record dependency |
@@ -152,6 +155,9 @@ Jest/Testing Library, Turbo, Bull queue infrastructure.
 - Create: `packages/shared/src/schemas/relationshipContext.ts`
 - Create: `tests/tdd/sprint-116-relationship-context-contract.test.ts`
 - Modify: `packages/shared/src/schemas/index.ts`
+- Modify: `packages/shared/src/schemas/reputationDisclosure.ts`
+- Modify: `packages/shared/index.ts`
+- Modify: `packages/shared/CONTEXT.md`
 
 **Interfaces:**
 - Produces: `BondDepth`, `ContextNode`, `ContextLink`, `RelationshipContext`,

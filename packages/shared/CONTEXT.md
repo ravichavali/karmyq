@@ -1,6 +1,6 @@
 # @karmyq/shared — Context
 
-**Last Updated**: 2026-06-04
+**Last Updated**: 2026-06-29 (Sprint 116 reciprocal relationship-context contract)
 
 Shared TypeScript library consumed by all Karmyq services and frontend apps.
 
@@ -101,3 +101,19 @@ rich internal rows and explicitly project to these `.strict()` schemas before `r
 - `ProviderReputationSchema` — explicit public provider-rating exception (carries numeric ratings)
 - `CommunityAggregateSchema` — explicit aggregate exception (≥5-member cohort enforced in services, not the schema)
 - `FORBIDDEN_ORDINARY_MEMBER_KEYS`, `assertNoForbiddenReputationKeys`, `findForbiddenReputationKeys` — recursive defence-in-depth scanner for ordinary-member/self fixtures (NOT applied to provider/aggregate exceptions)
+
+## Schema: reciprocal relationship context (added 2026-06-29, Sprint 116)
+
+Root exports from `@karmyq/shared` define the strict request/offer relationship-context boundary:
+
+- `RelationshipContextSchema` / `relationshipContextSchema` and `RelationshipContext` — reciprocal
+  viewer/counterpart identity, platform-wide path, bounded one-hop networks, qualitative links, and
+  plain-language summary.
+- `ContextNode`, `ContextLink`, `ContextCounterpart`, and related strict schemas — reject unknown keys
+  at every outward nesting level.
+- `BondDepthSchema` / `BondDepth` / `classifyBondDepth()` — intentionally ordinal shared-history bands:
+  `forming` (defensive default/one interaction), `growing` (2–3), and `established` (4+). The band
+  reveals an accepted floor, never an exact count, timestamp, exchange content, weight, karma, or
+  reputation value.
+- The ADR-082 forbidden-key scanner now also rejects `match_completed_count`,
+  `total_interaction_count`, and `interaction_count` in disclosure-protected payloads.
