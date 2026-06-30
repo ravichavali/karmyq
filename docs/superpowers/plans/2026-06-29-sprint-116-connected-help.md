@@ -228,10 +228,13 @@ git commit -m "feat: define reciprocal relationship context contract"
 - Create: `services/social-graph-service/src/database/relationshipContextDb.ts`
 - Create: `services/social-graph-service/src/services/relationshipContextService.ts`
 - Create: `services/social-graph-service/tests/tdd/sprint-116-relationship-context.test.ts`
+- Create: `services/social-graph-service/tests/tdd/sprint-116-relationship-context-db.test.ts`
 
 **Interfaces:**
-- Consumes: `RelationshipContext`, `classifyBondDepth`, existing platform-wide shortest-path logic.
-- Produces: `buildRelationshipContext(viewerId, counterpartId, options): Promise<RelationshipContext>`.
+- Consumes: shared context identity/link primitives, `classifyBondDepth`, and platform-wide completed-
+  help topology.
+- Produces: `buildRelationshipContext(viewerId, counterpartId, options):
+  Promise<RelationshipContextProjection>` — identity + topology only, with no request/provider data.
 
 - [ ] **Step 1: Write failing projection tests**
 
@@ -276,6 +279,11 @@ Always include anchors, path, then mutual direct connections. Fill each side by 
 same unordered edge-key function in both orientations, and build summary facts without evaluative
 language.
 
+`RelationshipContextProjection` intentionally stops before the full outward shared contract:
+social-graph-service cannot truthfully derive request reachability or provider role from two user IDs.
+Task 4 decorates this projection with its authorized `ContextPair`, then parses the final
+`RelationshipContextSchema` before returning it.
+
 - [ ] **Step 5: Run focused tests and type-check**
 
 Run: `npm --workspace @karmyq/social-graph-service exec -- jest tests/tdd/sprint-116-relationship-context.test.ts --runInBand`
@@ -306,8 +314,8 @@ git commit -m "feat: build reciprocal relationship context projection"
 - [ ] **Step 1: Add RED route/security tests**
 
 Assert missing `INTERNAL_SECRET` configuration returns 503, missing/wrong header returns 403, correct
-header plus two UUIDs returns strict context, malformed IDs return 400, and the route is not behind
-member JWT auth.
+header plus two UUIDs returns the strict provider-free topology projection, malformed IDs return 400,
+and the route is not behind member JWT auth.
 
 - [ ] **Step 2: Implement constant-time internal-secret middleware**
 
