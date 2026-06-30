@@ -71,6 +71,14 @@ async function respondWithContext(
     return res.json({ success: true, data: composeRelationshipContext(resolution.pair, topology) });
   } catch (error) {
     if (error instanceof RelationshipContextUnavailableError) {
+      const logger = (req as any).logger;
+      const cause = error.cause instanceof Error ? error.cause : error;
+      const context = { service: 'request-service', failureKind: error.kind };
+      if (error.kind === 'contract' || error.kind === 'configuration') {
+        logger?.error('Relationship context dependency contract failure', cause, context);
+      } else {
+        logger?.warn('Relationship context dependency unavailable', context);
+      }
       return res.status(503).json({
         success: false,
         message: 'Relationship context is temporarily unavailable',

@@ -100,16 +100,21 @@ app.use(
   feedRouter
 );
 
-// Reciprocal connection context is read-only and request/offer scoped; both participant IDs are
-// derived server-side before the internal social-graph call.
-app.use(
-  '/requests',
+// Apply the context-specific rate/auth/tenant/DB chain only to the three relationship reads. The
+// router remains mounted at /requests for its relative paths, but unrelated request traffic no
+// longer pays this chain before entering requestsRouter's standard chain.
+app.get(
+  [
+    '/requests/:requestId/relationship-context',
+    '/requests/:requestId/matches/:matchId/relationship-context',
+    '/requests/:requestId/provider-offers/:offerId/relationship-context',
+  ],
   rateLimiters.readLight,
   authMiddleware,
   optionalTenantMiddleware,
   dbContextMiddleware(pool),
-  relationshipContextRouter,
 );
+app.use('/requests', relationshipContextRouter);
 
 app.use(
   '/requests',

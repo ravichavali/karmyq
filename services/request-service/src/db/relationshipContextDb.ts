@@ -87,7 +87,9 @@ export async function resolveMatchPair(
   const helperReachability = await getRequestReachability(requestId, row.responder_id);
   const scope = visibilityScope(helperReachability.visibilityScope ?? row.visibility_scope);
   const reachability = reachabilityFor(helperReachability, scope);
-  if (!reachability) return { kind: 'unavailable' };
+  // The participant remains authorized, but the historical same-vs-sister source tier was not
+  // persisted. No context is more truthful than a fabricated tier or a transient-looking 503.
+  if (!reachability) return { kind: 'no_context' };
   return {
     kind: 'ok',
     pair: {
@@ -121,7 +123,7 @@ export async function resolveProviderOfferPair(
   const providerReachability = await getRequestReachability(requestId, row.provider_user_id);
   const scope = visibilityScope(providerReachability.visibilityScope ?? row.visibility_scope);
   const reachability = reachabilityFor(providerReachability, scope);
-  if (!reachability) return { kind: 'unavailable' };
+  if (!reachability) return { kind: 'no_context' };
   const requesterIsViewing = viewerId === row.requester_id;
   return {
     kind: 'ok',

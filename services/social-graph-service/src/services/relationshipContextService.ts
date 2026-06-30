@@ -153,7 +153,7 @@ export async function buildRelationshipContext(
   ]);
   const stableSelectedIds = [...selectedIds].sort();
   const [identities, communities, internalLinks] = await Promise.all([
-    getPublicIdentities(stableSelectedIds),
+    getPublicIdentities(stableSelectedIds, [viewerId, counterpartId]),
     getVisibleCommunities(stableSelectedIds),
     getContextLinks(stableSelectedIds),
   ]);

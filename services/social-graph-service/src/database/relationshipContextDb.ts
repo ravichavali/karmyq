@@ -174,19 +174,28 @@ export async function getPlatformShortestPath(
   return requestedSource === sourceId ? path : path.reverse();
 }
 
-/** Identity is visible only for users who still have at least one active platform membership. */
-export async function getPublicIdentities(userIds: string[]): Promise<PublicIdentity[]> {
+/**
+ * Identity is visible for active members, plus the two request-service-authorized anchors. The
+ * anchor exception never applies to surrounding/path people and therefore cannot become a browser.
+ */
+export async function getPublicIdentities(
+  userIds: string[],
+  authorizedAnchorIds: string[] = [],
+): Promise<PublicIdentity[]> {
   if (userIds.length === 0) return [];
   const result = await pool.query(
     `SELECT u.id, u.name
      FROM auth.users u
      WHERE u.id = ANY($1::uuid[])
-       AND EXISTS (
-         SELECT 1 FROM communities.members m
-         WHERE m.user_id = u.id AND m.status = 'active'
+       AND (
+         u.id = ANY($2::uuid[])
+         OR EXISTS (
+           SELECT 1 FROM communities.members m
+           WHERE m.user_id = u.id AND m.status = 'active'
+         )
        )
      ORDER BY u.id`,
-    [userIds],
+    [userIds, authorizedAnchorIds],
   );
   return result.rows.map(row => ({ id: row.id, name: row.name }));
 }

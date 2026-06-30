@@ -1020,6 +1020,12 @@ or provider role; request-service owns those after authorizing a concrete reques
 The projection is exposed only through `POST /internal/relationship-context`; no public member-search
 or arbitrary-target route is introduced.
 
+The two request-service-authorized anchor identities may be projected even when one currently has no
+active community membership (for example, a platform-scoped request participant). That exception is
+passed explicitly to the identity query and applies only to those two server-derived IDs. Path and
+surrounding-network identities remain active-membership-only, so this cannot become an inactive-user
+browse surface; memberless anchors truthfully receive empty affiliations/topology when applicable.
+
 Request-service is the only intended consumer. It owns public request/offer authorization, verifies
 the returned anchor IDs, and treats timeout/unavailability as a non-blocking 503 for the context panel.
 

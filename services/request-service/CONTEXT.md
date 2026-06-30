@@ -59,6 +59,17 @@ calls social-graph-service with only the derived pair and `X-Internal-Secret` (2
 validates both the internal topology and final strict response, and returns retryable 503 on graph
 failure. Existing offer/accept/decline/withdraw actions do not depend on this read.
 
+Participant reads distinguish permanent absence from dependency failure. If a historical
+community-scoped match/provider offer remains participant-authorized but its original same-vs-sister
+reachability tier can no longer be reconstructed after membership changes, the route returns `204`
+rather than inventing a tier or reporting a transient `503`. A real social-graph/configuration/
+contract failure remains `503`; the internal client preserves a failure kind and cause so contract
+drift/configuration is error-logged and transport/upstream failures are warning-logged.
+
+The `readLight` + auth + tenant + DB-context middleware chain is mounted only on the three context
+route patterns. Other `/requests/*` traffic enters the existing standard request chain once and does
+not pay duplicate JWT verification, rate-limit accounting, or `set_config` work.
+
 `getRequestReachability` now reports the most local truthful tier (`same_community`,
 `sister_community`, `trust_network`, or `platform`). Provider-offer eligibility uses this same
 visibility boundary instead of requiring shared community membership, so eligible intercommunity

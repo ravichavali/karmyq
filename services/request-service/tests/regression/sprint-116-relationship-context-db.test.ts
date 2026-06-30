@@ -106,7 +106,7 @@ describe('participant-bound offer resolvers', () => {
     await expect(resolveMatchPair(REQUEST, MATCH, OUTSIDER)).resolves.toEqual({ kind: 'forbidden' });
   });
 
-  it('does not invent same-community history when a community participant is no longer reachable', async () => {
+  it('returns permanent no-context rather than inventing history after membership changes', async () => {
     mockQuery.mockResolvedValue({
       rows: [{ requester_id: REQUESTER, responder_id: HELPER, visibility_scope: 'community' }],
       rowCount: 1,
@@ -117,7 +117,7 @@ describe('participant-bound offer resolvers', () => {
       reachability: null,
     });
 
-    await expect(resolveMatchPair(REQUEST, MATCH, REQUESTER)).resolves.toEqual({ kind: 'unavailable' });
+    await expect(resolveMatchPair(REQUEST, MATCH, REQUESTER)).resolves.toEqual({ kind: 'no_context' });
   });
 
   it('decorates only the requester-facing provider counterpart', async () => {
