@@ -15,6 +15,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as Disclosure from '../../packages/shared/src/schemas/reputationDisclosure';
+import * as RelationshipContext from '../../packages/shared/src/schemas/relationshipContext';
 
 const ROOT = path.resolve(__dirname, '..', '..');
 const registry = JSON.parse(fs.readFileSync(path.join(ROOT, 'services/registry.json'), 'utf8'));
@@ -34,6 +35,7 @@ type Entry = {
 };
 
 const entries: Entry[] = inventory.endpoints;
+const SCHEMA_EXPORTS: Record<string, unknown> = { ...Disclosure, ...RelationshipContext };
 const key = (e: { service: string; method: string; path: string }) =>
   `${e.service} ${e.method.toUpperCase()} ${e.path}`;
 
@@ -70,13 +72,14 @@ describe('reputation disclosure gate — schema binding', () => {
     'community_aggregate',
     'community_policy',
     'internal_admin_policy',
+    'internal_identity_projection',
     'retired_410',
   ]);
 
   it.each(entries.map((e) => [key(e), e] as const))(
     '%s names a real shared schema or an approved sentinel',
     (_k, entry) => {
-      const isRealExport = Object.prototype.hasOwnProperty.call(Disclosure, entry.schema);
+      const isRealExport = Object.prototype.hasOwnProperty.call(SCHEMA_EXPORTS, entry.schema);
       const isSentinel = SENTINEL_SCHEMAS.has(entry.schema);
       expect(isRealExport || isSentinel).toBe(true);
     },
@@ -84,7 +87,7 @@ describe('reputation disclosure gate — schema binding', () => {
 
   it('binds ordinary_member graph/path/governance endpoints to a strict shared schema', () => {
     const ordinaryWithRealSchema = entries.filter(
-      (e) => e.class === 'ordinary_member' && Object.prototype.hasOwnProperty.call(Disclosure, e.schema),
+      (e) => e.class === 'ordinary_member' && Object.prototype.hasOwnProperty.call(SCHEMA_EXPORTS, e.schema),
     );
     // At least the graph, path, and governance contracts must use a real strict schema.
     expect(ordinaryWithRealSchema.length).toBeGreaterThanOrEqual(3);
@@ -153,7 +156,7 @@ describe('reputation disclosure gate — protected fixtures carry no forbidden k
 
   it('sample_response conforms to its named strict schema when one is bound', () => {
     for (const entry of [...ordinaryProtected, ...selfProtected]) {
-      const schema = (Disclosure as Record<string, unknown>)[entry.schema];
+      const schema = SCHEMA_EXPORTS[entry.schema];
       if (schema && typeof (schema as { parse?: unknown }).parse === 'function') {
         expect(() => (schema as { parse: (v: unknown) => unknown }).parse(entry.sample_response)).not.toThrow();
       }

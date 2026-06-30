@@ -225,6 +225,9 @@ export const FORBIDDEN_ORDINARY_MEMBER_KEYS: ReadonlySet<string> = new Set([
   'effective_weight',
   'currentWeight',
   'current_weight',
+  'match_completed_count',
+  'total_interaction_count',
+  'interaction_count',
   'avg_invitee_karma',
   'avg_invitee_trust_score',
   // Sprint 112 round-3 (ADR-082): the composite feed score is reconstruction-enabling — with the

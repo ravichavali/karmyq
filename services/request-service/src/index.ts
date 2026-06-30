@@ -18,6 +18,7 @@ import collectivesRouter from './routes/collectives';
 import adminSchemasRouter from './routes/admin-schemas';
 import adminActionsRouter from './routes/adminActions';
 import dibsRouter from './routes/dibs';
+import relationshipContextRouter from './routes/relationshipContext';
 import { adminAuth } from './middleware/adminAuth';
 import { createLogger, requestLoggingMiddleware } from '@karmyq/shared/utils/logger';
 import {
@@ -98,6 +99,22 @@ app.use(
   dbContextMiddleware(pool),
   feedRouter
 );
+
+// Apply the context-specific rate/auth/tenant/DB chain only to the three relationship reads. The
+// router remains mounted at /requests for its relative paths, but unrelated request traffic no
+// longer pays this chain before entering requestsRouter's standard chain.
+app.get(
+  [
+    '/requests/:requestId/relationship-context',
+    '/requests/:requestId/matches/:matchId/relationship-context',
+    '/requests/:requestId/provider-offers/:offerId/relationship-context',
+  ],
+  rateLimiters.readLight,
+  authMiddleware,
+  optionalTenantMiddleware,
+  dbContextMiddleware(pool),
+);
+app.use('/requests', relationshipContextRouter);
 
 app.use(
   '/requests',

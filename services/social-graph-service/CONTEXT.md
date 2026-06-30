@@ -82,6 +82,11 @@ See [migration 009_social_graph.sql](../../infrastructure/postgres/migrations/00
 - `auth.users` - User information for path display
 - `communities.members` - Community membership for RLS
 - `reputation.karma_records` - Karma scores for trust path calculation
+- `requests.matches` + `requests.help_requests` - completed-help topology for reciprocal relationship
+  context (Sprint 116; platform-wide under ADR-077)
+
+Sprint 116 adds no table, column, view, or migration. `relationshipContextDb.ts` reads the existing
+completed-match, active-membership, trust-edge-live, and decay-config sources above.
 
 ## Architecture
 
@@ -114,6 +119,16 @@ Cache Miss:
 ```
 
 ## API Endpoints
+
+### POST /internal/relationship-context
+
+Service-to-service only. Request-service supplies two participant UUIDs that it derived from an
+authorized request, match, or provider offer. Requires `X-Internal-Secret`, fails closed with 503 when
+`INTERNAL_SECRET` is not configured, and is mounted before member JWT auth. Returns the strict
+provider-free `RelationshipContextProjection` (identity, platform path, bounded one-hop networks,
+qualitative links, factual summary). It never accepts request/provider metadata or arbitrary public
+member lookup. All deployed Nginx variants return 404 for the corresponding public
+`/api/social[-graph]/internal/` prefix; only direct service-network traffic can reach the secret check.
 
 ### POST /invitations/generate
 
@@ -946,7 +961,6 @@ See [ADR-056](../../docs/adr/ADR-056-intrinsic-trust-decay.md) for full decision
 - No rate limiting on invitation generation
 - No detection of "invitation farms" (fake accounts)
 - Cache invalidation is time-based only (no manual purge)
-- No support for cross-community paths (yet)
 
 ### Future Enhancements
 
@@ -954,7 +968,6 @@ See [ADR-056](../../docs/adr/ADR-056-intrinsic-trust-decay.md) for full decision
 - [ ] Single-use vs. multi-use invitation codes
 - [ ] Detect and flag suspicious invitation patterns
 - [ ] Precompute paths for active users (background job)
-- [ ] Support cross-community trust paths
 - [ ] Network visualization API (graph view)
 - [ ] "Introduce me" feature (request introduction through mutual connection)
 - [ ] Trust endorsements (let users vouch for connections)
@@ -990,6 +1003,32 @@ projection happens at the response boundary in `src/services/disclosureProjectio
 - `GET /invitations` drops invitee karma; `GET /invitations/stats` drops `avg_invitee_karma` +
   `avg_invitee_trust_score` (counts/acceptance/network/tier kept).
 
+## Sprint 116 — Reciprocal relationship projection (2026-06-30, ADR-084)
+
+`src/services/relationshipContextService.ts` builds a deterministic, reciprocal dual-ego projection
+from platform-wide completed-help topology. It preserves a path up to six degrees, prioritizes mutual
+and path-adjacent one-hop nodes under an eight-per-side default cap, fills by stable UUID order, and
+reports truncation. Reversing the two anchors swaps orientation without changing the disclosed path,
+shared-node, or unordered-link sets.
+
+`src/database/relationshipContextDb.ts` reads active identities and active community affiliations,
+uses completed `requests.matches` as topology truth, and aggregates community trust rows only long
+enough to derive `relationship_state` and `bond_depth`. Exact counts, weights, timestamps, karma, and
+reputation never leave the projection. The projection deliberately contains no request reachability
+or provider role; request-service owns those after authorizing a concrete request/offer context.
+
+The projection is exposed only through `POST /internal/relationship-context`; no public member-search
+or arbitrary-target route is introduced.
+
+The two request-service-authorized anchor identities may be projected even when one currently has no
+active community membership (for example, a platform-scoped request participant). That exception is
+passed explicitly to the identity query and applies only to those two server-derived IDs. Path and
+surrounding-network identities remain active-membership-only, so this cannot become an inactive-user
+browse surface; memberless anchors truthfully receive empty affiliations/topology when applicable.
+
+Request-service is the only intended consumer. It owns public request/offer authorization, verifies
+the returned anchor IDs, and treats timeout/unavailability as a non-blocking 503 for the context panel.
+
 **Status**: ✅ MVP Complete (v9.1.0)
 **Version**: 9.1.0
-**Last Updated**: 2026-06-24 (Sprint 112 — ADR-082 disclosure boundary)
+**Last Updated**: 2026-06-30 (Sprint 116 reciprocal projection complete)

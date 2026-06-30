@@ -116,6 +116,8 @@ services:
       DATABASE_URL: postgresql://karmyq_user:${POSTGRES_PASSWORD:-karmyq_password_qa}@postgres:5432/karmyq_db
       REDIS_URL: redis://redis:6379
       JWT_SECRET: ${JWT_SECRET}
+      INTERNAL_SECRET: ${INTERNAL_SECRET}
+      SOCIAL_GRAPH_API_URL: http://social-graph-service:3010
     ports:
       - "3003:3003"
     depends_on:

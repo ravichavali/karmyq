@@ -405,6 +405,10 @@
           "href": "/docs/concepts/adr-083-contextual-belonging-graph-rendering"
         },
         {
+          "label": "Context-Bound Connection Visibility",
+          "href": "/docs/concepts/adr-084-context-bound-connection-visibility"
+        },
+        {
           "label": "— Community & Scale —",
           "href": "/docs/concepts",
           "divider": true

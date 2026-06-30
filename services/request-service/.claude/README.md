@@ -16,6 +16,7 @@
 ### This Service Depends On
 - auth-service
 - community-service
+- social-graph-service (bounded request/offer relationship context; failure is non-blocking)
 
 ### Infrastructure Dependencies
 - postgres

@@ -65,6 +65,7 @@ services:
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-https://karmyq.com}
       REPUTATION_API_URL: http://reputation-service:3004
       SOCIAL_GRAPH_API_URL: http://social-graph-service:3010
+      INTERNAL_SECRET: ${INTERNAL_SECRET}
     deploy:
       resources:
         limits:
@@ -176,6 +177,7 @@ services:
       DATABASE_URL: ${DATABASE_URL}
       REDIS_URL: ${REDIS_URL}
       JWT_SECRET: ${JWT_SECRET}
+      INTERNAL_SECRET: ${INTERNAL_SECRET}
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-https://karmyq.com}
     deploy:
       resources:

@@ -11,6 +11,8 @@ import networkRoutes from './routes/network';
 import trustCardRoutes from './routes/trustCard';
 import trustGraphRoutes from './routes/trustGraph';
 import trustDecayConfigRoutes from './routes/trustDecayConfig';
+import internalRelationshipContextRoutes from './routes/internalRelationshipContext';
+import { internalAuth } from './middleware/internalAuth';
 import { initEventSubscriber } from './events/subscriber';
 
 const app = express();
@@ -114,6 +116,15 @@ app.get('/invitations/validate/:code', rateLimiters.auth, async (req: Request, r
     });
   }
 });
+
+// Service-to-service only: request-service derives both IDs after public request/offer authorization.
+// This must remain before member JWT auth and fails closed when INTERNAL_SECRET is unavailable.
+app.use(
+  '/internal/relationship-context',
+  rateLimiters.readLight,
+  internalAuth,
+  internalRelationshipContextRoutes,
+);
 
 // All routes require authentication (except public endpoints above)
 app.use(authMiddleware);

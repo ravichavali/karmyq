@@ -18,3 +18,6 @@ export type { DecayTier } from './src/trust/decayTier';
 
 // Reputation disclosure boundary (Sprint 112 — ADR-082)
 export * from './src/schemas/reputationDisclosure';
+
+// Reciprocal request/offer relationship context (Sprint 116)
+export * from './src/schemas/relationshipContext';

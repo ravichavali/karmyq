@@ -888,6 +888,11 @@
       "endpoints": [
         {
           "method": "POST",
+          "path": "/internal/relationship-context",
+          "description": "Service-to-service only. Request-service supplies two participant UUIDs that it derived from an"
+        },
+        {
+          "method": "POST",
           "path": "/invitations/generate",
           "description": "Generate a new invitation code for current user."
         },

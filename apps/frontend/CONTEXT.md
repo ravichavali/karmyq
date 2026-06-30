@@ -1,10 +1,24 @@
 # Frontend CONTEXT.md
 
-**Last updated**: 2026-06-27 (Sprint 115 — Belonging Graph Earned Structure)
+**Last updated**: 2026-06-30 (Sprint 116 — Context-Bound Relationship Lens)
 
 ## Overview
 
 Next.js 14 web application (Pages Router) consuming all Karmyq backend services.
+
+---
+
+## Sprint 116 Relationship Lens — PR A Foundation (2026-06-30, ADR-084)
+
+- `components/relationships/relationshipLensModel.ts` is the pure deterministic dual-ego geometry:
+  equal mirrored anchors, disclosed path through the center, shared one-hop people in the overlap,
+  and stable-ID one-sided fans behind each anchor. It has no D3/force layout or inferred clustering.
+- `RelationshipLens.tsx` renders accessible SVG plus the server summary as normal text. Every person
+  has the same radius; provider status is an external service badge. Only coarse `bond_depth` maps to
+  line widths (`forming` 1.2, `growing` 1.9, `established` 2.8). Relationship state remains in text
+  and `<title>`; brightness/opacity encodes nothing.
+- PR A intentionally does not mount the lens on a browsing surface. PR B will fetch it only from the
+  request/ordinary-match/provider-offer routes at the corresponding helping decision boundary.
 
 ---
 

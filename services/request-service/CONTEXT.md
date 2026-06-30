@@ -1,6 +1,6 @@
 # Request Service - Complete Context Documentation
 
-> **Last Updated:** 2026-06-05
+> **Last Updated:** 2026-06-30
 > **Version:** v10.12.0
 > **Port:** 3003
 > **Status:** Production (Polymorphic Request System + Curated Feed)
@@ -39,6 +39,46 @@ The Request Service manages polymorphic help requests (v9.0), help offers, and m
 - **Privacy Controls** - Social Karma v2.0 privacy and consent management
 - **Interaction Feedback** - Collect exchange quality ratings (not person ratings)
 - **Event Publishing** - Emit domain events for request lifecycle
+- **Context-bound Connections** - Authorize reciprocal relationship context only for reachable
+  requests and their ordinary/provider offers; derive both participant IDs server-side
+
+### Sprint 116: Request-scoped reciprocal relationship context
+
+Three authenticated read routes expose the strict `RelationshipContext` contract:
+
+- `GET /requests/:requestId/relationship-context` — eligible helper ↔ requester before offering;
+  the requester receives 204 for their own ask.
+- `GET /requests/:requestId/matches/:matchId/relationship-context` — either ordinary match
+  participant, with both IDs verified against the route request in one query.
+- `GET /requests/:requestId/provider-offers/:offerId/relationship-context` — either requester or
+  provider-offer owner; provider service metadata is attached only when the provider is the viewed
+  counterpart.
+
+There is no arbitrary target-user route. Request-service owns every public authorization decision,
+calls social-graph-service with only the derived pair and `X-Internal-Secret` (2.5-second timeout),
+validates both the internal topology and final strict response, and returns retryable 503 on graph
+failure. Existing offer/accept/decline/withdraw actions do not depend on this read.
+
+The internal topology call accepts only the deployment's explicit service origins
+(`social-graph-service:3010`, the integration-test service name, or local port 3010). An unrecognized
+`SOCIAL_GRAPH_API_URL` fails as a configuration error before Axios runs, so request data can never
+redirect this privileged service-to-service call to another host.
+
+Participant reads distinguish permanent absence from dependency failure. If a historical
+community-scoped match/provider offer remains participant-authorized but its original same-vs-sister
+reachability tier can no longer be reconstructed after membership changes, the route returns `204`
+rather than inventing a tier or reporting a transient `503`. A real social-graph/configuration/
+contract failure remains `503`; the internal client preserves a failure kind and cause so contract
+drift/configuration is error-logged and transport/upstream failures are warning-logged.
+
+The `readLight` + auth + tenant + DB-context middleware chain is mounted only on the three context
+route patterns. Other `/requests/*` traffic enters the existing standard request chain once and does
+not pay duplicate JWT verification, rate-limit accounting, or `set_config` work.
+
+`getRequestReachability` now reports the most local truthful tier (`same_community`,
+`sister_community`, `trust_network`, or `platform`). Provider-offer eligibility uses this same
+visibility boundary instead of requiring shared community membership, so eligible intercommunity
+requests work for providers too.
 
 ### 1.3 NOT Responsible For
 - **Karma Calculation** - Handled by Reputation Service
@@ -2142,6 +2182,8 @@ return res.status(201).json({
 ### 6.1 Upstream Services (This service calls)
 - **Community Service** (via database) - Verify community membership
 - **Auth Service** (via database) - Get user details and skills
+- **Social Graph Service** (internal HTTP) - Strict reciprocal identity/topology for an authorized
+  request/offer pair; 2.5-second timeout and fail-soft read only
 
 ### 6.2 Downstream Services (This service is called by)
 - **Gateway** - All client requests route through gateway

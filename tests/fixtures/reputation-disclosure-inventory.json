@@ -310,6 +310,14 @@
     },
     {
       "service": "social-graph-service",
+      "method": "POST",
+      "path": "/internal/relationship-context",
+      "class": "internal",
+      "schema": "internal_identity_projection",
+      "contract_test": "services/social-graph-service/tests/regression/sprint-116-internal-relationship-context.test.ts"
+    },
+    {
+      "service": "social-graph-service",
       "method": "GET",
       "path": "/trust/graph",
       "class": "ordinary_member",
@@ -687,6 +695,65 @@
         "trustGraphConnection": "direct",
         "kind": "neighbor",
         "reason": "trusted_neighbor"
+      }
+    },
+    {
+      "service": "request-service",
+      "method": "GET",
+      "path": "/requests/:requestId/relationship-context",
+      "class": "ordinary_member",
+      "schema": "RelationshipContextSchema",
+      "contract_test": "services/request-service/tests/regression/sprint-116-relationship-context.test.ts",
+      "sample_response": {
+        "viewer": { "id": "11111111-1111-1111-1111-111111111111", "name": "Maria" },
+        "counterpart": { "id": "22222222-2222-2222-2222-222222222222", "name": "Sam", "role": "member" },
+        "request": { "id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa", "visibilityScope": "community", "reachability": "sister_community" },
+        "path": { "scope": "platform", "degrees": null, "nodes": [] },
+        "networks": { "viewer": [], "counterpart": [], "shared": [], "truncated": false },
+        "links": [],
+        "summary": "No completed-help path is visible within 6 degrees."
+      }
+    },
+    {
+      "service": "request-service",
+      "method": "GET",
+      "path": "/requests/:requestId/matches/:matchId/relationship-context",
+      "class": "ordinary_member",
+      "schema": "RelationshipContextSchema",
+      "contract_test": "services/request-service/tests/regression/sprint-116-relationship-context.test.ts",
+      "sample_response": {
+        "viewer": { "id": "11111111-1111-1111-1111-111111111111", "name": "Maria" },
+        "counterpart": { "id": "22222222-2222-2222-2222-222222222222", "name": "Sam", "role": "member" },
+        "request": { "id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa", "visibilityScope": "trust_network", "reachability": "trust_network" },
+        "path": { "scope": "platform", "degrees": 1, "nodes": [
+          { "id": "11111111-1111-1111-1111-111111111111", "name": "Maria" },
+          { "id": "22222222-2222-2222-2222-222222222222", "name": "Sam" }
+        ] },
+        "networks": { "viewer": [], "counterpart": [], "shared": [], "truncated": false },
+        "links": [],
+        "summary": "Maria and Sam have completed help directly."
+      }
+    },
+    {
+      "service": "request-service",
+      "method": "GET",
+      "path": "/requests/:requestId/provider-offers/:offerId/relationship-context",
+      "class": "ordinary_member",
+      "schema": "RelationshipContextSchema",
+      "contract_test": "services/request-service/tests/regression/sprint-116-relationship-context.test.ts",
+      "sample_response": {
+        "viewer": { "id": "11111111-1111-1111-1111-111111111111", "name": "Maria" },
+        "counterpart": {
+          "id": "22222222-2222-2222-2222-222222222222",
+          "name": "Sam",
+          "role": "provider",
+          "provider": { "serviceType": "tutor" }
+        },
+        "request": { "id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa", "visibilityScope": "platform", "reachability": "platform" },
+        "path": { "scope": "platform", "degrees": null, "nodes": [] },
+        "networks": { "viewer": [], "counterpart": [], "shared": [], "truncated": false },
+        "links": [],
+        "summary": "No completed-help path is visible within 6 degrees."
       }
     },
     {

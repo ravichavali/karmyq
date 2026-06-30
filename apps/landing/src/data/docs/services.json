@@ -288,6 +288,21 @@
         "/requests",
         {
           "method": "GET",
+          "path": "/requests/:requestId/relationship-context",
+          "description": "Authenticated pre-offer reciprocal identity/topology for an eligible helper and requester. Both IDs are server-derived; own request returns 204; no arbitrary target lookup."
+        },
+        {
+          "method": "GET",
+          "path": "/requests/:requestId/matches/:matchId/relationship-context",
+          "description": "Authenticated reciprocal context for either ordinary match participant; match and request IDs are verified together. Returns 204, not transient 503, when a historical community participant's original same-vs-sister reachability tier can no longer be reconstructed."
+        },
+        {
+          "method": "GET",
+          "path": "/requests/:requestId/provider-offers/:offerId/relationship-context",
+          "description": "Authenticated reciprocal context for requester or provider-offer owner; provider role metadata appears only when the provider is the counterpart. Returns 204 when historical community reachability cannot be reconstructed truthfully."
+        },
+        {
+          "method": "GET",
           "path": "/requests/:id",
           "description": "Canonical viewer-aware request detail read. Sprint 101: derives viewer_relation server-side (own_request | already_offered | can_offer | not_actionable) so the UI never guesses eligibility — can_offer requires the ask open+unexpired, not the viewer's own, no live proposed/matched responder match, AND within the viewer's feed-VISIBILITY audience (shared getRequestReachability: member OR trust_network/platform scope OR sister-reachable). A reachable cross-community ask is can_offer; a community-scoped ask the viewer can't see is not_actionable (not eligible by direct id). Also returns viewer_match ({id,status}) when already_offered, and payload_type (ADR-067, from category). Expired-open asks return (finite-state display) rather than 404."
         },
@@ -448,7 +463,8 @@
       ],
       "dependencies": [
         "auth-service",
-        "community-service"
+        "community-service",
+        "social-graph-service"
       ],
       "infrastructure": [
         "postgres",
@@ -700,6 +716,11 @@
       "owner": "core",
       "path": "services/social-graph-service",
       "apis": [
+        {
+          "method": "POST",
+          "path": "/internal/relationship-context",
+          "description": "Internal-secret-only reciprocal identity/topology projection for two request-service-derived participant IDs; the authorized anchors may be memberless while all surrounding/path identities remain active-member-only; no request/provider metadata or exact reputation metrics."
+        },
         {
           "method": "POST",
           "path": "/invitations/generate",

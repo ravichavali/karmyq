@@ -82,6 +82,24 @@ Member-facing graph contracts expose `relationship_state` (`strong | warm | fadi
 nearly_forgotten`, derived from the ADR-070 decay tier) instead of raw/effective edge weights. Exact
 edge weights and the numeric path strength remain internal (feed ranking still uses them).
 
+### Context-bound connection visibility (Sprint 116 / ADR-084)
+
+An authenticated member may see another person's **named connection topology** only while deciding
+whether to help on a reachable request, or while either participant reviews an ordinary/provider
+offer on that request. The request and offer records derive both participant IDs server-side; there
+is no arbitrary target-user route, member search, profile graph, or administrator bypass.
+
+This `ordinary_member` contract adds a coarse `bond_depth` on disclosed edges:
+
+- `forming` — fewer than two recorded completed interactions;
+- `growing` — at least two recorded completed interactions;
+- `established` — at least four recorded completed interactions.
+
+Those bands intentionally disclose ordinal floors (`growing` ≥2, `established` ≥4). That is a real,
+documented privacy trade-off made to give line thickness a legible history meaning. Exact counts,
+raw/effective weights, timestamps, karma, reputation, exchange content, and numeric path strength
+remain forbidden. Brightness carries no relationship meaning.
+
 ### Defense in depth — UI layer (Sprint 113 / PR A)
 
 PR A (Sprint 112) closed the boundary in the API *contract*. Sprint 113 PR A makes the boundary
