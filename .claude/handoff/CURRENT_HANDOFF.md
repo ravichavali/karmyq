@@ -1,18 +1,18 @@
-# Sprint 116 — Connected Help and Guided Entry: PLANNED, READY FOR PR A EXECUTION
+# Sprint 116 — Connected Help and Guided Entry: PR A OPEN (#128)
 
-> **STATUS (2026-06-29):** Sprint 115 is merged, deployed, and live-validated. Sprint 116 design was
-> approved after live diagnosis showed the graph problem is primarily contextual placement, not merely
-> simulation data. The approved spec and implementation plan are committed/planned on
-> `agent/codex/sprint-116-relationship-shape`. No production implementation has started.
+> **STATUS (2026-06-30):** PR A is implemented, pushed, and open as
+> [#128](https://github.com/ravichavali/karmyq/pull/128) from
+> `agent/codex/sprint-116-relationship-shape`. Contract, projection, authorization, deterministic
+> renderer, ADR-084, regression promotion, generated docs, and v11.23.0 are complete. Do not start
+> PR B until Admin merges #128 and the branch is recreated from updated `origin/master`.
 
 ## Quick Start
 
-1. Read this handoff and the approved spec.
-2. Check out branch: `git switch agent/codex/sprint-116-relationship-shape`.
-3. Open plan: `docs/superpowers/plans/2026-06-29-sprint-116-connected-help.md`.
-4. Start at **PR A / Task 1** and run `/execute-plan` (uses
-   `superpowers:subagent-driven-development`) or execute inline with `superpowers:executing-plans`.
-5. Do not start PR B until PR A is merged; do not start PR C until PR B is merged.
+1. Review PR [#128](https://github.com/ravichavali/karmyq/pull/128) and its checks; do not self-merge.
+2. Admin/Claude decides merge readiness and Admin authorizes merge/deploy.
+3. After #128 merges, update `origin/master`, create `agent/codex/sprint-116-offer-context`, and begin
+   **PR B / Task 7** in `docs/superpowers/plans/2026-06-29-sprint-116-connected-help.md`.
+4. Do not start PR C until PR B is merged. PR C still owns the distinct **Join the Platform** path.
 
 ## Sprint Goal
 
@@ -26,6 +26,9 @@ Platform distinct from the Founding Circle.
 - Plan: `docs/superpowers/plans/2026-06-29-sprint-116-connected-help.md`
 - Current branch: `agent/codex/sprint-116-relationship-shape`
 - Design commits: `ea149c5e` (initial) and `1fb3f22e` (approved reciprocal/contextual revision)
+- PR A: [#128](https://github.com/ravichavali/karmyq/pull/128)
+- PR A implementation commits: `ed3ba8d8`, `4e5cd8a1`, `d8dd5615`, `a2a2db52`, `4112fcf7`
+- PR A release/docs commit: `89624290`
 
 ## Cross-Agent Plan Review
 
@@ -59,11 +62,15 @@ reviewing that helper or provider.
 
 ### PR A — Reciprocal Relationship Context (v11.23.0)
 
-- Strict privacy-safe contract and coarse `bond_depth`.
-- Platform-wide reciprocal two-ego projection.
-- Fail-closed internal social-graph route.
-- Request/ordinary-match/provider-offer-scoped public authorization.
-- Deterministic compact renderer and ADR-084.
+**Implemented and open for review in #128.**
+
+- Strict privacy-safe contract and coarse `bond_depth` complete.
+- Platform-wide reciprocal two-ego projection complete.
+- Fail-closed internal social-graph route complete and blocked at public Nginx prefixes.
+- Request/ordinary-match/provider-offer-scoped public authorization complete.
+- Deterministic compact renderer, ADR-084, v11.23.0, and regression promotion complete.
+- Live audit: 0 high / 0 critical; three moderate Expo/tar advisories below the blocking threshold.
+- Local limitation: Docker is unavailable, so compose interpolation received manual review only.
 
 ### PR B — Helping Decision Surfaces (v11.24.0)
 
@@ -140,8 +147,8 @@ offer/accept/decline actions still work. Validate the same topology from both pa
 
 - **S115 (done):** Earned Structure — deterministic ego orbit + direct community ring + neutral
   complete-data contract (v11.22.0).
-- **S116 (planned):** Connected Help and Guided Entry — reciprocal request-scoped context, provider
-  role, Maria story, and Join the Platform (v11.23.0 → v11.25.0).
+- **S116 (in progress):** PR A reciprocal request-scoped foundation is open in #128; PR B helping
+  surfaces and PR C Maria story + Join the Platform remain (v11.23.0 → v11.25.0).
 - **S117 (upcoming):** Standalone Graph Narrative — decide the full Network page's role/layout from
   S116 perceptual evidence.
 
@@ -151,11 +158,11 @@ offer/accept/decline actions still work. Validate the same topology from both pa
 
 ### Active Session (update on every role handoff)
 
-- **Driving agent:** Codex (planning); implementation owner not yet assigned.
-- **Phase:** Approved design + detailed plan complete. PR A implementation has not started.
+- **Driving agent:** Codex (PR A contributor); Claude/Admin own merge-readiness and merge authority.
+- **Phase:** PR A implemented and open as #128; waiting for review/checks/authorized merge.
 - **Branch:** `agent/codex/sprint-116-relationship-shape` from merged S115 `origin/master`.
-- **Working tree expectation:** clean after the plan/handoff commit.
-- **Blockers:** none. Next action is PR A Task 1.
+- **Working tree expectation:** clean after this handoff commit and push.
+- **Blockers:** PR B is intentionally blocked on #128 merge. No technical PR A blocker is known.
 - **Authorization:** Contributor agents do not merge or deploy. Admin owns both decisions.
 
 > Claude and Codex share one physical working tree. One agent edits at a time. The active agent must
