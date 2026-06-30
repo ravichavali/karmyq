@@ -40,21 +40,37 @@ function requiredInternalSecret(): string {
   return secret;
 }
 
+function relationshipContextUrl(): string {
+  const configured = (process.env.SOCIAL_GRAPH_API_URL || 'http://social-graph-service:3010')
+    .replace(/\/+$/, '');
+
+  switch (configured) {
+    case 'http://social-graph-service:3010':
+      return 'http://social-graph-service:3010/internal/relationship-context';
+    case 'http://social-graph-service-test:3010':
+      return 'http://social-graph-service-test:3010/internal/relationship-context';
+    case 'http://localhost:3010':
+      return 'http://localhost:3010/internal/relationship-context';
+    default:
+      throw new RelationshipContextUnavailableError(
+        'configuration',
+        new Error('SOCIAL_GRAPH_API_URL is not a supported internal social-graph origin'),
+      );
+  }
+}
+
 /** Strict, timeout-bounded service call. Browser auth is intentionally not accepted or forwarded. */
 export async function fetchRelationshipTopology(
   viewerId: string,
   counterpartId: string,
 ): Promise<RelationshipTopology> {
   const secret = requiredInternalSecret();
-  const baseUrl = (process.env.SOCIAL_GRAPH_API_URL || 'http://social-graph-service:3010')
-    .replace(/\/$/, '');
+  const endpoint = relationshipContextUrl();
 
   let response;
   try {
-    // The origin is deployment configuration, never request input.
-    // lgtm[js/request-forgery] Trusted service-discovery URL; neither path nor origin uses user data.
     response = await axios.post(
-      `${baseUrl}/internal/relationship-context`,
+      endpoint,
       { viewerId, counterpartId },
       {
         timeout: 2500,

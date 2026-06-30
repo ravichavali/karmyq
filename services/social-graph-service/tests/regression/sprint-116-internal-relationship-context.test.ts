@@ -145,7 +145,8 @@ describe('public gateway boundary', () => {
   ])('%s blocks the internal social-graph prefix', (file, publicPrefix) => {
     const root = path.resolve(__dirname, '..', '..', '..', '..');
     const config = fs.readFileSync(path.join(root, 'infrastructure', 'nginx', file), 'utf8');
+    const normalizedConfig = config.replace(/\s+/g, ' ');
     expect(config).toContain(`location ^~ ${publicPrefix}`);
-    expect(config).toMatch(new RegExp(`location \\^~ ${publicPrefix.replace(/\//g, '\\/')} \\{[^}]*return 404;`, 's'));
+    expect(normalizedConfig).toContain(`location ^~ ${publicPrefix} { return 404;`);
   });
 });

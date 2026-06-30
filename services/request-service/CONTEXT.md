@@ -59,6 +59,11 @@ calls social-graph-service with only the derived pair and `X-Internal-Secret` (2
 validates both the internal topology and final strict response, and returns retryable 503 on graph
 failure. Existing offer/accept/decline/withdraw actions do not depend on this read.
 
+The internal topology call accepts only the deployment's explicit service origins
+(`social-graph-service:3010`, the integration-test service name, or local port 3010). An unrecognized
+`SOCIAL_GRAPH_API_URL` fails as a configuration error before Axios runs, so request data can never
+redirect this privileged service-to-service call to another host.
+
 Participant reads distinguish permanent absence from dependency failure. If a historical
 community-scoped match/provider offer remains participant-authorized but its original same-vs-sister
 reachability tier can no longer be reconstructed after membership changes, the route returns `204`
