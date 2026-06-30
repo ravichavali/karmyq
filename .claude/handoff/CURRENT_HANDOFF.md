@@ -1,20 +1,28 @@
-# Sprint 116 — Connected Help and Guided Entry: PR A OPEN (#128)
+# Sprint 116 — Connected Help and Guided Entry: PR A MERGED & DEPLOYED → PR B NEXT
 
-> **STATUS (2026-06-30):** PR A is implemented, pushed, and open as
-> [#128](https://github.com/ravichavali/karmyq/pull/128) from
-> `agent/codex/sprint-116-relationship-shape`. Contract, projection, authorization, deterministic
-> renderer, ADR-084, regression promotion, generated docs, and v11.23.0 are complete. Claude's four
-> review findings were resolved in `476bd5ec`; affected service suites and documentation gates pass.
-> Do not start PR B until Admin merges #128 and the branch is recreated from updated `origin/master`.
+> **STATUS (2026-06-30):** PR A is **merged and deployed**. [#128](https://github.com/ravichavali/karmyq/pull/128)
+> squash-merged to `master` as `89ccf4d7` (admin override — branch protection requires a review the
+> solo-dev repo can't self-satisfy; all CI was green), and the demo deploy completed successfully.
+> Contract, projection, authorization, deterministic renderer, ADR-084, regression promotion, generated
+> docs, and v11.23.0 shipped. Claude's four review findings were resolved (`476bd5ec`); a follow-up
+> CodeQL scan then flagged two more, both fixed and squashed into the merge: the social-graph client
+> URL now comes from a hard origin **allowlist** (replacing the `js/request-forgery` suppression) and
+> `RelationshipContextUnavailableError` carries a `configuration|transport|upstream|contract` failure
+> kind + cause. **PR B is now unblocked.** The `agent/codex/sprint-116-relationship-shape` branch is
+> deleted; this handoff lives on the new `agent/codex/sprint-116-offer-context` branch.
 
 ## Quick Start
 
-1. Re-review PR [#128](https://github.com/ravichavali/karmyq/pull/128) at `476bd5ec` and confirm its
-   checks; do not self-merge. The four prior review findings are addressed as summarized below.
-2. Admin/Claude decides merge readiness and Admin authorizes merge/deploy.
-3. After #128 merges, update `origin/master`, create `agent/codex/sprint-116-offer-context`, and begin
+1. Confirm `origin/master` is at `89ccf4d7` (PR A) and the demo deploy is healthy
+   (`gh run list --branch master`; live check with `maria.reyes@test.karmyq.com` / `password123`).
+2. You are on `agent/codex/sprint-116-offer-context` (branched off the merged `origin/master`). Begin
    **PR B / Task 7** in `docs/superpowers/plans/2026-06-29-sprint-116-connected-help.md`.
+3. PR B targets v11.24.0 — the helping-decision surfaces (helper sees requester context before
+   offering; requester sees reciprocal context on an ordinary match; provider/requester reciprocal
+   context on offers) plus the deterministic API-only Maria story rehearsal.
 4. Do not start PR C until PR B is merged. PR C still owns the distinct **Join the Platform** path.
+5. Cross-agent review: PR B's author is reviewed by the *other* agent before merge; Admin authorizes
+   merge/deploy. The admin-override merge path applies again unless a second reviewer is available.
 
 ## Sprint Goal
 
@@ -63,9 +71,9 @@ reviewing that helper or provider.
 
 ## Delivery: Three Ordered PRs
 
-### PR A — Reciprocal Relationship Context (v11.23.0)
+### PR A — Reciprocal Relationship Context (v11.23.0) ✅ MERGED & DEPLOYED
 
-**Implemented and open for review in #128.**
+**Merged to `master` as `89ccf4d7` (#128) and deployed to demo on 2026-06-30.**
 
 - Strict privacy-safe contract and coarse `bond_depth` complete.
 - Platform-wide reciprocal two-ego projection complete.
@@ -80,6 +88,16 @@ reviewing that helper or provider.
   unit 12/12 and regression 76 passed / 3 todo; both TypeScript checks, disclosure 150/150, doc drift
   5/5, landing docs 21/21, service analysis, generated docs, and `git diff --check` pass.
 - Live audit: 0 high / 0 critical; three moderate Expo/tar advisories below the blocking threshold.
+- Post-review CodeQL follow-up (squashed into the merge, `b50f23e8` on the source branch): replaced the
+  `js/request-forgery` suppression in `services/request-service/src/services/socialGraphContextClient.ts`
+  with a fixed origin allowlist (only `social-graph-service:3010`, `social-graph-service-test:3010`,
+  `localhost:3010` — all server-side env values verified to match), and added the
+  `configuration|transport|upstream|contract` failure-kind taxonomy + `cause` to
+  `RelationshipContextUnavailableError`. New regression `sprint-116-internal-origin.test.ts` asserts an
+  unrecognized origin is rejected before any network call. Full CI (CodeQL, Code Scanning Gate,
+  Security Audit, all backend/frontend/integration suites, pr-contract) was green at merge.
+- Merge path: branch protection `REVIEW_REQUIRED` could not be self-satisfied on this solo-dev repo, so
+  the merge used `gh pr merge --squash --admin --delete-branch` with explicit Admin authorization.
 - Local limitation: Docker is unavailable, so compose interpolation received manual review only.
 
 ### PR B — Helping Decision Surfaces (v11.24.0)
@@ -157,8 +175,8 @@ offer/accept/decline actions still work. Validate the same topology from both pa
 
 - **S115 (done):** Earned Structure — deterministic ego orbit + direct community ring + neutral
   complete-data contract (v11.22.0).
-- **S116 (in progress):** PR A reciprocal request-scoped foundation is open in #128; PR B helping
-  surfaces and PR C Maria story + Join the Platform remain (v11.23.0 → v11.25.0).
+- **S116 (in progress):** PR A reciprocal request-scoped foundation merged & deployed (#128, v11.23.0);
+  PR B helping surfaces (v11.24.0) and PR C Maria story + Join the Platform (v11.25.0) remain.
 - **S117 (upcoming):** Standalone Graph Narrative — decide the full Network page's role/layout from
   S116 perceptual evidence.
 
@@ -168,13 +186,15 @@ offer/accept/decline actions still work. Validate the same topology from both pa
 
 ### Active Session (update on every role handoff)
 
-- **Driving agent:** Codex (PR A contributor); Claude/Admin own merge-readiness and merge authority.
-- **Phase:** PR A review findings resolved and open as #128; waiting for re-review/checks/authorized
-  merge.
-- **Branch:** `agent/codex/sprint-116-relationship-shape` from merged S115 `origin/master`.
-- **Working tree expectation:** clean after this handoff commit and push.
-- **Blockers:** PR B is intentionally blocked on #128 merge. No technical PR A blocker is known.
-- **Authorization:** Contributor agents do not merge or deploy. Admin owns both decisions.
+- **Driving agent:** open for PR B — Codex is the planned contributor; the other agent reviews.
+- **Phase:** PR A merged (`89ccf4d7`, #128) and deployed to demo. PR B / Task 7 is ready to begin.
+- **Branch:** `agent/codex/sprint-116-offer-context`, branched off the merged `origin/master`
+  (`89ccf4d7`); the prior `agent/codex/sprint-116-relationship-shape` branch is deleted.
+- **Working tree expectation:** clean after this handoff commit. `master` was left untouched (no
+  docs-only push to master — it would trigger a second deploy).
+- **Blockers:** none. PR B is unblocked; PR C stays blocked on PR B.
+- **Authorization:** Contributor agents do not merge or deploy. Admin owns both decisions; the
+  admin-override merge path applies while no second reviewer account exists.
 
 > Claude and Codex share one physical working tree. One agent edits at a time. The active agent must
 > commit or stash before handing over. Never edit or commit on top of another agent's uncommitted WIP.
