@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { requestService } from '@/lib/api'
 import EmptyState from './EmptyState'
+import RelationshipContextPanel from './relationships/RelationshipContextPanel'
 
 interface Offer {
   id: string
@@ -180,29 +181,36 @@ export default function MyRequestsTab({ onNewRequest }: MyRequestsTabProps) {
                     <p className="text-sm text-text-muted">{emptyOfferCopy(r.status)}</p>
                   ) : (
                     r.offers.map((offer) => (
-                      <div key={offer.id} className="flex items-center justify-between">
-                        <span className="text-sm text-text">{offer.helper_name}</span>
+                      <div key={offer.id} className="space-y-2">
+                        <span className="text-sm text-text block">{offer.helper_name}</span>
+                        {/* S116/ADR-084: how you (the requester) connect to this helper, shown before the
+                            decision. Reciprocal of the helper's pre-offer view; never gates the action. */}
                         {r.status === 'open' && offer.status === 'proposed' && (
-                          <div className="flex gap-2">
-                            <button
-                              className="btn-primary text-sm py-1 px-3 disabled:opacity-50"
-                              disabled={acting === offer.id}
-                              onClick={() => handleAccept(offer.id, r.id)}
-                            >
-                              Accept
-                            </button>
-                            <button
-                              className="btn-ghost text-sm py-1 px-3 disabled:opacity-50"
-                              disabled={acting === offer.id}
-                              onClick={() => handleDecline(offer.id)}
-                            >
-                              Decline
-                            </button>
-                          </div>
+                          <RelationshipContextPanel kind="match" requestId={r.id} matchId={offer.id} />
                         )}
-                        {offer.status !== 'proposed' && (
-                          <span className="text-xs text-text-muted capitalize">{offer.status}</span>
-                        )}
+                        <div className="flex items-center justify-end">
+                          {r.status === 'open' && offer.status === 'proposed' && (
+                            <div className="flex gap-2">
+                              <button
+                                className="btn-primary text-sm py-1 px-3 disabled:opacity-50"
+                                disabled={acting === offer.id}
+                                onClick={() => handleAccept(offer.id, r.id)}
+                              >
+                                Accept
+                              </button>
+                              <button
+                                className="btn-ghost text-sm py-1 px-3 disabled:opacity-50"
+                                disabled={acting === offer.id}
+                                onClick={() => handleDecline(offer.id)}
+                              >
+                                Decline
+                              </button>
+                            </div>
+                          )}
+                          {offer.status !== 'proposed' && (
+                            <span className="text-xs text-text-muted capitalize">{offer.status}</span>
+                          )}
+                        </div>
                       </div>
                     ))
                   )}
