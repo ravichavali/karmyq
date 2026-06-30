@@ -647,6 +647,14 @@
       "status": "accepted",
       "description": "**Status**: Accepted",
       "filename": "ADR-083-contextual-belonging-graph-rendering.md"
+    },
+    {
+      "slug": "adr-084-context-bound-connection-visibility",
+      "number": "084",
+      "title": "ADR-084: Context-Bound Connection Visibility",
+      "status": "accepted",
+      "description": "**Date**: 2026-06-30",
+      "filename": "ADR-084-context-bound-connection-visibility.md"
     }
   ]
 }

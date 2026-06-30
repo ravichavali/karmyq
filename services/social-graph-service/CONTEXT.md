@@ -1003,7 +1003,7 @@ projection happens at the response boundary in `src/services/disclosureProjectio
 - `GET /invitations` drops invitee karma; `GET /invitations/stats` drops `avg_invitee_karma` +
   `avg_invitee_trust_score` (counts/acceptance/network/tier kept).
 
-## Sprint 116 — Reciprocal relationship projection (in progress, 2026-06-29)
+## Sprint 116 — Reciprocal relationship projection (2026-06-30, ADR-084)
 
 `src/services/relationshipContextService.ts` builds a deterministic, reciprocal dual-ego projection
 from platform-wide completed-help topology. It preserves a path up to six degrees, prioritizes mutual
@@ -1025,4 +1025,4 @@ the returned anchor IDs, and treats timeout/unavailability as a non-blocking 503
 
 **Status**: ✅ MVP Complete (v9.1.0)
 **Version**: 9.1.0
-**Last Updated**: 2026-06-29 (Sprint 116 reciprocal projection in progress)
+**Last Updated**: 2026-06-30 (Sprint 116 reciprocal projection complete)

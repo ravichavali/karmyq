@@ -42,6 +42,9 @@ Two facts forced the answer:
 - Every path/trust-card/batch response carries an explicit `scope` field: `'community'` when a
   real community UUID was supplied, `'platform'` otherwise. The frontend labels paths
   accordingly and passes the visible surface's community where one exists.
+- Sprint 116's request-scoped relationship lens also computes its disclosed shortest path over this
+  platform-wide completed-help topology. Request visibility remains a separate request-service
+  authorization decision; a platform-wide path never makes an otherwise unreachable request visible.
 
 ## Consequences
 
@@ -51,6 +54,8 @@ Two facts forced the answer:
 - Community-scoped graph **membership** is a separate concern (ADR-unchanged, Sprint 98 fix):
   ego/aggregate graphs filter neighbors through active `communities.members`; trust paths do not
   claim community membership of intermediate nodes.
+- The reciprocal lens may label active community affiliations around either participant, but it does
+  not reinterpret the platform path as belonging to one community or use community labels as edges.
 
 ## Alternatives considered
 

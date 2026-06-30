@@ -202,7 +202,8 @@
         "consumes": [
           "/auth/verify",
           "/communities/validate",
-          "/paths/batch"
+          "/paths/batch",
+          "/internal/relationship-context"
         ]
       },
       "database_schemas": [

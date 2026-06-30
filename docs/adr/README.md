@@ -119,6 +119,7 @@ When code implementing an ADR is deployed, update the status from `Accepted` →
 - [ADR-081: Belonging Graph System — One Engine, One Language, One Explorer](ADR-081-belonging-graph-system.md) — **Proposed**
 - [ADR-082: Reputation Disclosure Boundary](ADR-082-reputation-disclosure-boundary.md) — **Accepted**
 - [ADR-083: Contextual Belonging Graph Rendering (Earned Structure)](ADR-083-contextual-belonging-graph-rendering.md) — **Accepted**
+- [ADR-084: Context-Bound Connection Visibility](ADR-084-context-bound-connection-visibility.md) — **Accepted**
 
 ## Creating a New ADR
 
