@@ -3,12 +3,14 @@
 > **STATUS (2026-06-30):** PR A is implemented, pushed, and open as
 > [#128](https://github.com/ravichavali/karmyq/pull/128) from
 > `agent/codex/sprint-116-relationship-shape`. Contract, projection, authorization, deterministic
-> renderer, ADR-084, regression promotion, generated docs, and v11.23.0 are complete. Do not start
-> PR B until Admin merges #128 and the branch is recreated from updated `origin/master`.
+> renderer, ADR-084, regression promotion, generated docs, and v11.23.0 are complete. Claude's four
+> review findings were resolved in `476bd5ec`; affected service suites and documentation gates pass.
+> Do not start PR B until Admin merges #128 and the branch is recreated from updated `origin/master`.
 
 ## Quick Start
 
-1. Review PR [#128](https://github.com/ravichavali/karmyq/pull/128) and its checks; do not self-merge.
+1. Re-review PR [#128](https://github.com/ravichavali/karmyq/pull/128) at `476bd5ec` and confirm its
+   checks; do not self-merge. The four prior review findings are addressed as summarized below.
 2. Admin/Claude decides merge readiness and Admin authorizes merge/deploy.
 3. After #128 merges, update `origin/master`, create `agent/codex/sprint-116-offer-context`, and begin
    **PR B / Task 7** in `docs/superpowers/plans/2026-06-29-sprint-116-connected-help.md`.
@@ -29,6 +31,7 @@ Platform distinct from the Founding Circle.
 - PR A: [#128](https://github.com/ravichavali/karmyq/pull/128)
 - PR A implementation commits: `ed3ba8d8`, `4e5cd8a1`, `d8dd5615`, `a2a2db52`, `4112fcf7`
 - PR A release/docs commit: `89624290`
+- PR A review-fix commit: `476bd5ec`
 
 ## Cross-Agent Plan Review
 
@@ -69,6 +72,13 @@ reviewing that helper or provider.
 - Fail-closed internal social-graph route complete and blocked at public Nginx prefixes.
 - Request/ordinary-match/provider-offer-scoped public authorization complete.
 - Deterministic compact renderer, ADR-084, v11.23.0, and regression promotion complete.
+- Claude review follow-up complete: historical participants with no reconstructable current context
+  receive truthful `204`; only the two request-authorized anchors may be memberless; context
+  middleware runs only on the three exact GET routes; upstream failure kinds and causes survive for
+  useful diagnostics while the public response remains safe.
+- Review-fix validation: request-service unit 141/141 and regression 202/202; social-graph-service
+  unit 12/12 and regression 76 passed / 3 todo; both TypeScript checks, disclosure 150/150, doc drift
+  5/5, landing docs 21/21, service analysis, generated docs, and `git diff --check` pass.
 - Live audit: 0 high / 0 critical; three moderate Expo/tar advisories below the blocking threshold.
 - Local limitation: Docker is unavailable, so compose interpolation received manual review only.
 
@@ -159,7 +169,8 @@ offer/accept/decline actions still work. Validate the same topology from both pa
 ### Active Session (update on every role handoff)
 
 - **Driving agent:** Codex (PR A contributor); Claude/Admin own merge-readiness and merge authority.
-- **Phase:** PR A implemented and open as #128; waiting for review/checks/authorized merge.
+- **Phase:** PR A review findings resolved and open as #128; waiting for re-review/checks/authorized
+  merge.
 - **Branch:** `agent/codex/sprint-116-relationship-shape` from merged S115 `origin/master`.
 - **Working tree expectation:** clean after this handoff commit and push.
 - **Blockers:** PR B is intentionally blocked on #128 merge. No technical PR A blocker is known.
