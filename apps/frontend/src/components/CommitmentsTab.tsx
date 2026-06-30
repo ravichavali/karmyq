@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { requestService } from '@/lib/api'
 import { getOffersForRequest, acceptOffer, declineOffer } from '@/lib/api/providerApi'
 import EmptyState from './EmptyState'
+import RelationshipContextPanel from './relationships/RelationshipContextPanel'
 import { sortByActionPriority } from '../utils/commitmentSort'
 import ExpandableConversation from './ExpandableConversation'
 import { TrustCard } from './TrustCard'
@@ -605,8 +606,8 @@ export default function CommitmentsTab({ onDibsLoaded, communityId }: Commitment
                   <p className="text-xs text-text-muted">Loading offers…</p>
                 ) : (
                   pendingOffers.map((offer: any) => (
-                    <div key={offer.id} className="flex items-start justify-between gap-4 py-2 border-t border-border first:border-t-0">
-                      <div className="flex-1 min-w-0">
+                    <div key={offer.id} className="py-2 border-t border-border first:border-t-0 space-y-2">
+                      <div className="min-w-0">
                         <p className="text-sm text-text">{offer.provider_email}</p>
                         <p className="text-xs text-text-muted">
                           {offer.price ? `$${offer.price}` : 'Price TBD'}
@@ -615,7 +616,10 @@ export default function CommitmentsTab({ onDibsLoaded, communityId }: Commitment
                           <p className="text-xs text-text-muted mt-0.5 italic">{offer.note}</p>
                         )}
                       </div>
-                      <div className="flex gap-2 shrink-0">
+                      {/* S116/ADR-084: who this provider is and how they connect to you, before you
+                          decide. Reciprocal of the provider's pre-submit view; never gates the action. */}
+                      <RelationshipContextPanel kind="provider-offer" requestId={req.id} offerId={offer.id} />
+                      <div className="flex gap-2 justify-end">
                         <button
                           className="text-xs py-1 px-2 rounded bg-green-100 text-green-700 hover:bg-green-200 disabled:opacity-50"
                           disabled={offerActioning === offer.id}

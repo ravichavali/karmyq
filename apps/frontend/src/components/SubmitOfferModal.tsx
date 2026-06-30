@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { submitOffer } from '@/lib/api/providerApi'
+import RelationshipContextPanel from './relationships/RelationshipContextPanel'
 
 interface SubmitOfferModalProps {
   requestId: string
@@ -46,6 +47,10 @@ export default function SubmitOfferModal({
       <div className="card p-6 max-w-md w-full mx-4 relative z-10">
         <h2 className="text-lg font-semibold text-text mb-1">Make an Offer</h2>
         <p className="text-sm text-text-muted mb-4">{requestTitle}</p>
+
+        {/* S116/ADR-084: show the provider how they connect to this requester before submitting.
+            Non-blocking — Submit never waits on it. */}
+        <RelationshipContextPanel kind="request" requestId={requestId} />
 
         <div className="mb-4">
           <label className="block text-sm font-medium text-text mb-1">

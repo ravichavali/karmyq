@@ -108,7 +108,13 @@ export async function resolveProviderOfferPair(
   viewerId: string,
 ): Promise<ContextResolution> {
   const offer = await query(
-    `SELECT hr.requester_id, o.provider_user_id, hr.visibility_scope, pp.service_type
+    `SELECT hr.requester_id, o.provider_user_id, hr.visibility_scope, pp.service_type,
+            (SELECT pc.name
+               FROM requests.provider_collective_members pcm
+               JOIN requests.provider_collectives pc ON pc.id = pcm.collective_id
+              WHERE pcm.provider_id = o.provider_id AND pc.is_active = true
+              ORDER BY pc.name ASC
+              LIMIT 1) AS collective_name
      FROM provider.offers o
      JOIN requests.help_requests hr ON hr.id = o.request_id
      JOIN requests.provider_profiles pp
@@ -134,7 +140,11 @@ export async function resolveProviderOfferPair(
       visibilityScope: scope,
       reachability,
       ...(requesterIsViewing && {
-        provider: { serviceType: row.service_type as ProviderServiceType },
+        provider: {
+          serviceType: row.service_type as ProviderServiceType,
+          // Disclose the collective only when the provider acts under one; a solo provider has none.
+          ...(row.collective_name ? { collectiveName: row.collective_name as string } : {}),
+        },
       }),
     },
   };
