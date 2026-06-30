@@ -1020,6 +1020,9 @@ or provider role; request-service owns those after authorizing a concrete reques
 The projection is exposed only through `POST /internal/relationship-context`; no public member-search
 or arbitrary-target route is introduced.
 
+Request-service is the only intended consumer. It owns public request/offer authorization, verifies
+the returned anchor IDs, and treats timeout/unavailability as a non-blocking 503 for the context panel.
+
 **Status**: ✅ MVP Complete (v9.1.0)
 **Version**: 9.1.0
 **Last Updated**: 2026-06-29 (Sprint 116 reciprocal projection in progress)

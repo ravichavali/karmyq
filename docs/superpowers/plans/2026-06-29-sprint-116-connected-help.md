@@ -364,7 +364,19 @@ git commit -m "feat: expose fail-closed internal relationship context"
 - Create: `services/request-service/src/services/socialGraphContextClient.ts`
 - Create: `services/request-service/src/routes/relationshipContext.ts`
 - Create: `services/request-service/tests/tdd/sprint-116-relationship-context.test.ts`
+- Create: `services/request-service/tests/tdd/sprint-116-relationship-context-db.test.ts`
+- Create: `services/request-service/tests/tdd/sprint-116-social-graph-context-client.test.ts`
+- Create: `services/request-service/tests/tdd/sprint-116-reachability-tier.test.ts`
 - Modify: `services/request-service/src/index.ts`
+- Modify: `services/request-service/src/db/eligibility.ts`
+- Modify: `services/request-service/src/db/providerOffersDb.ts`
+- Modify: `services/request-service/CONTEXT.md`
+- Modify: `services/request-service/.claude/README.md`
+- Modify: `services/registry.json`
+- Modify: `tests/fixtures/reputation-disclosure-inventory.json`
+- Modify: `tests/regression/reputation-disclosure-gate.test.ts`
+- Modify: `.env.example`, `.env.qa.example`, `.env.demo.example`
+- Modify: `infrastructure/docker/docker-compose.yml`, `docker-compose.prod.yml`, `docker-compose.qa.yml`
 
 **Interfaces:**
 - Consumes: internal social route and strict shared schema.
@@ -401,11 +413,12 @@ const response = await axios.post(url, { viewerId, counterpartId }, {
   timeout: 2500,
   headers: { 'x-internal-secret': requiredInternalSecret() },
 })
-return relationshipContextSchema.parse(response.data.data)
+return relationshipTopologySchema.parse(response.data.data)
 ```
 
 Never forward the browser Authorization header to the internal endpoint. Map timeout/unavailable to
-503 `RELATIONSHIP_CONTEXT_UNAVAILABLE`; never fabricate an empty strong relationship.
+503 `RELATIONSHIP_CONTEXT_UNAVAILABLE`; never fabricate an empty strong relationship. Request-service
+then adds its authorized request/provider metadata and parses the final `RelationshipContextSchema`.
 
 - [ ] **Step 4: Add the three GET routes and strict role decoration**
 

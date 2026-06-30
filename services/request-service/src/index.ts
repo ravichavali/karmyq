@@ -18,6 +18,7 @@ import collectivesRouter from './routes/collectives';
 import adminSchemasRouter from './routes/admin-schemas';
 import adminActionsRouter from './routes/adminActions';
 import dibsRouter from './routes/dibs';
+import relationshipContextRouter from './routes/relationshipContext';
 import { adminAuth } from './middleware/adminAuth';
 import { createLogger, requestLoggingMiddleware } from '@karmyq/shared/utils/logger';
 import {
@@ -97,6 +98,17 @@ app.use(
   optionalTenantMiddleware,
   dbContextMiddleware(pool),
   feedRouter
+);
+
+// Reciprocal connection context is read-only and request/offer scoped; both participant IDs are
+// derived server-side before the internal social-graph call.
+app.use(
+  '/requests',
+  rateLimiters.readLight,
+  authMiddleware,
+  optionalTenantMiddleware,
+  dbContextMiddleware(pool),
+  relationshipContextRouter,
 );
 
 app.use(

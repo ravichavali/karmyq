@@ -141,6 +141,7 @@ services:
       RATE_LIMIT_DISABLED: true
       REPUTATION_API_URL: http://reputation-service:3004
       SOCIAL_GRAPH_API_URL: http://social-graph-service:3010
+      INTERNAL_SECRET: ${INTERNAL_SECRET:-dev_internal_secret_change_in_production}
     ports:
       - "127.0.0.1:3003:3003"
     depends_on:
@@ -296,6 +297,7 @@ services:
       DB_USER: karmyq_user
       DB_PASSWORD: karmyq_password_dev
       JWT_SECRET: dev_jwt_secret_change_in_production
+      INTERNAL_SECRET: ${INTERNAL_SECRET:-dev_internal_secret_change_in_production}
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
       LOG_LEVEL: info
     ports:

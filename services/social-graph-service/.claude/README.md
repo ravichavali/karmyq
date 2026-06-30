@@ -1,7 +1,7 @@
 # social-graph-service - Local Context
 
 > **⚠️ CRITICAL**: When working in this directory, follow these steps EXACTLY.
-> This is a critical service - no dependents.
+> This is a critical service; request-service consumes its internal context projection fail-soft.
 
 ## Quick Facts
 
@@ -22,7 +22,7 @@
 - redis
 
 ### Services That Depend On This
-- None (leaf service)
+- request-service (internal reciprocal relationship-context projection; non-blocking read)
 
 
 

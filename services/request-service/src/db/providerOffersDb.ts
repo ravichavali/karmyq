@@ -1,4 +1,5 @@
 import { query } from '../database/db';
+import { getRequestReachability } from './eligibility';
 
 /**
  * Validate that a request exists in at least one of the provider's communities and is still open.
@@ -8,23 +9,18 @@ export async function validateRequestForOffer(
   requestId: string,
   providerUserId: string
 ): Promise<{ valid: boolean; reason?: string }> {
-  const result = await query(
-    `SELECT hr.id, hr.status
-     FROM requests.help_requests hr
-     JOIN requests.request_communities rc ON rc.request_id = hr.id
-     JOIN communities.members m ON m.community_id = rc.community_id
-     WHERE hr.id = $1
-       AND m.user_id = $2
-       AND m.status = 'active'
-     LIMIT 1`,
-    [requestId, providerUserId]
-  );
-
-  if (result.rows.length === 0) {
-    return { valid: false, reason: 'Request not found in your communities' };
+  const result = await getRequestReachability(requestId, providerUserId);
+  if (!result.exists) {
+    return { valid: false, reason: 'Request not found' };
   }
-  if (result.rows[0].status !== 'open') {
+  if (result.requesterId === providerUserId) {
+    return { valid: false, reason: 'You cannot offer on your own request' };
+  }
+  if (result.status !== 'open' || result.expired === true) {
     return { valid: false, reason: 'Request is no longer open' };
+  }
+  if (!result.reachable) {
+    return { valid: false, reason: 'Request is outside your available network' };
   }
   return { valid: true };
 }

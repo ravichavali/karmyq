@@ -29,6 +29,8 @@ export interface RequestReachability {
   visibilityScope: string | null;
   /** Viewer is within the request's visibility audience (member OR wide-scope OR sister-reachable). */
   reachable: boolean;
+  /** Why the viewer is currently inside that audience; never inferred from feed ranking. */
+  reachability: 'same_community' | 'sister_community' | 'trust_network' | 'platform' | null;
 }
 
 export async function getRequestReachability(requestId: string, userId: string | null): Promise<RequestReachability> {
@@ -62,11 +64,28 @@ export async function getRequestReachability(requestId: string, userId: string |
   );
 
   if (result.rowCount === 0) {
-    return { exists: false, requesterId: null, status: null, expired: null, visibilityScope: null, reachable: false };
+    return {
+      exists: false,
+      requesterId: null,
+      status: null,
+      expired: null,
+      visibilityScope: null,
+      reachable: false,
+      reachability: null,
+    };
   }
 
   const row = result.rows[0];
   const wideScope = row.visibility_scope === 'trust_network' || row.visibility_scope === 'platform';
+  const reachability = row.is_member === true
+    ? 'same_community'
+    : row.sister_reachable === true
+      ? 'sister_community'
+      : row.visibility_scope === 'trust_network'
+        ? 'trust_network'
+        : row.visibility_scope === 'platform'
+          ? 'platform'
+          : null;
   return {
     exists: true,
     requesterId: row.requester_id,
@@ -74,5 +93,6 @@ export async function getRequestReachability(requestId: string, userId: string |
     expired: row.expired,
     visibilityScope: row.visibility_scope,
     reachable: row.is_member === true || wideScope || row.sister_reachable === true,
+    reachability,
   };
 }
