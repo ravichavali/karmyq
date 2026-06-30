@@ -70,6 +70,7 @@ describe('reputation disclosure gate — schema binding', () => {
     'community_aggregate',
     'community_policy',
     'internal_admin_policy',
+    'internal_identity_projection',
     'retired_410',
   ]);
 

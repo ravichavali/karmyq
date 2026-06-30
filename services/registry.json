@@ -443,6 +443,7 @@
       },
       "apis": {
         "provides": [
+          { "method": "POST", "path": "/internal/relationship-context", "description": "Internal-secret-only reciprocal identity/topology projection for two request-service-derived participant IDs; no request/provider metadata or exact reputation metrics." },
           { "method": "POST", "path": "/invitations/generate", "description": "Generate a new invitation code for current user." },
           { "method": "POST", "path": "/invitations/accept", "description": "Accept an invitation code during user signup." },
           { "method": "GET", "path": "/invitations", "description": "Get invitation history for current user." },
@@ -706,6 +707,12 @@
         "method": "GET",
         "path": "/reputation/provider-reviews/:providerId",
         "class": "provider"
+      },
+      {
+        "service": "social-graph-service",
+        "method": "POST",
+        "path": "/internal/relationship-context",
+        "class": "internal"
       },
       {
         "service": "social-graph-service",

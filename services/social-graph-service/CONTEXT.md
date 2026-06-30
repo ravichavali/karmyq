@@ -120,6 +120,16 @@ Cache Miss:
 
 ## API Endpoints
 
+### POST /internal/relationship-context
+
+Service-to-service only. Request-service supplies two participant UUIDs that it derived from an
+authorized request, match, or provider offer. Requires `X-Internal-Secret`, fails closed with 503 when
+`INTERNAL_SECRET` is not configured, and is mounted before member JWT auth. Returns the strict
+provider-free `RelationshipContextProjection` (identity, platform path, bounded one-hop networks,
+qualitative links, factual summary). It never accepts request/provider metadata or arbitrary public
+member lookup. All deployed Nginx variants return 404 for the corresponding public
+`/api/social[-graph]/internal/` prefix; only direct service-network traffic can reach the secret check.
+
 ### POST /invitations/generate
 
 Generate a new invitation code for current user.
@@ -1007,7 +1017,8 @@ enough to derive `relationship_state` and `bond_depth`. Exact counts, weights, t
 reputation never leave the projection. The projection deliberately contains no request reachability
 or provider role; request-service owns those after authorizing a concrete request/offer context.
 
-No public endpoint is introduced by this slice. The fail-closed internal route is the next task.
+The projection is exposed only through `POST /internal/relationship-context`; no public member-search
+or arbitrary-target route is introduced.
 
 **Status**: ✅ MVP Complete (v9.1.0)
 **Version**: 9.1.0

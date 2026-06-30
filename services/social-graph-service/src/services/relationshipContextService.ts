@@ -1,5 +1,7 @@
 import {
   classifyBondDepth,
+  ContextIdentitySchema,
+  RelationshipContextSchema,
   type ContextIdentity,
   type ContextLink,
   type ContextNode,
@@ -39,6 +41,12 @@ export interface RelationshipContextProjection {
 export interface RelationshipContextOptions {
   capPerSide?: number;
 }
+
+/** Runtime boundary for the internal service response; request-service adds request/provider data. */
+export const RelationshipContextProjectionSchema = RelationshipContextSchema
+  .omit({ request: true, counterpart: true })
+  .extend({ counterpart: ContextIdentitySchema })
+  .strict();
 
 export function unorderedLinkKey(source: string, target: string): string {
   return source < target ? `${source}:${target}` : `${target}:${source}`;

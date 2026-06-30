@@ -304,8 +304,16 @@ git commit -m "feat: build reciprocal relationship context projection"
 **Files:**
 - Create: `services/social-graph-service/src/middleware/internalAuth.ts`
 - Create: `services/social-graph-service/src/routes/internalRelationshipContext.ts`
+- Create: `services/social-graph-service/tests/tdd/sprint-116-internal-relationship-context.test.ts`
 - Modify: `services/social-graph-service/src/index.ts`
-- Modify: `services/social-graph-service/tests/tdd/sprint-116-relationship-context.test.ts`
+- Modify: `services/social-graph-service/src/services/relationshipContextService.ts`
+- Modify: `services/social-graph-service/CONTEXT.md`
+- Modify: `services/registry.json`
+- Modify: `tests/fixtures/reputation-disclosure-inventory.json`
+- Modify: `tests/regression/reputation-disclosure-gate.test.ts`
+- Modify: `infrastructure/nginx/nginx.conf`
+- Modify: `infrastructure/nginx/karmyq.com.conf`
+- Modify: `infrastructure/nginx/karmyq.com-http-only.conf`
 
 **Interfaces:**
 - Consumes: `buildRelationshipContext(viewerId, counterpartId, { capPerSide: 8 })`.

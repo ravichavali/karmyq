@@ -310,6 +310,14 @@
     },
     {
       "service": "social-graph-service",
+      "method": "POST",
+      "path": "/internal/relationship-context",
+      "class": "internal",
+      "schema": "internal_identity_projection",
+      "contract_test": "services/social-graph-service/tests/tdd/sprint-116-internal-relationship-context.test.ts"
+    },
+    {
+      "service": "social-graph-service",
       "method": "GET",
       "path": "/trust/graph",
       "class": "ordinary_member",
