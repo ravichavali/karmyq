@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
-import { sendUnauthorized, sendInternalError } from '../utils/response';
+import { sendUnauthorized, sendForbidden, sendInternalError } from '../utils/response';
 
 /**
  * Enhanced JWT Payload with multi-community support
@@ -14,8 +14,34 @@ export interface JWTPayload {
     name: string;
   }>;
   currentCommunityId?: string; // Last active community
+  /**
+   * Session mode (Sprint 116, ADR-084). When `demo_read_only`, the shared auth
+   * middleware rejects any non-read HTTP method server-side, so a short-lived Maria
+   * demo session physically cannot mutate data even if the client attempts it.
+   * Absent on all ordinary sessions.
+   */
+  sessionMode?: 'demo_read_only';
   iat?: number;
   exp?: number;
+}
+
+// HTTP methods a read-only demo session may use. Everything else is rejected 403.
+const DEMO_READONLY_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
+
+/**
+ * Server-side write guard for read-only demo sessions.
+ * Returns true (and sends a 403) when the decoded token is a demo session attempting
+ * a mutating method; returns false otherwise. Ordinary sessions are never affected.
+ */
+function blocksDemoWrite(
+  decoded: JWTPayload,
+  req: AuthenticatedRequest,
+  res: Response
+): boolean {
+  if (decoded.sessionMode !== 'demo_read_only') return false;
+  if (DEMO_READONLY_METHODS.has(req.method)) return false;
+  sendForbidden(res, 'This demo session is read-only', { requestId: (req as any).id });
+  return true;
 }
 
 /**
@@ -99,6 +125,11 @@ export function authMiddleware(
     // Verify token with rotation support
     const decoded = verifyTokenWithRotation(token);
 
+    // Read-only demo sessions cannot mutate — enforce before attaching req.user.
+    if (blocksDemoWrite(decoded, req, res)) {
+      return;
+    }
+
     // Attach user to request
     req.user = decoded;
 
@@ -136,7 +167,7 @@ export function authMiddleware(
  */
 export function optionalAuthMiddleware(
   req: AuthenticatedRequest,
-  _res: Response,
+  res: Response,
   next: NextFunction
 ): void {
   try {
@@ -151,6 +182,12 @@ export function optionalAuthMiddleware(
 
     // Verify token with rotation support
     const decoded = verifyTokenWithRotation(token);
+
+    // Read-only demo sessions cannot mutate, even on optional-auth routes.
+    if (blocksDemoWrite(decoded, req, res)) {
+      return;
+    }
+
     req.user = decoded;
 
     next();
