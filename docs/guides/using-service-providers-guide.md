@@ -132,3 +132,12 @@ After creating any request, Karmyq may suggest a person you've worked with befor
 **If no prompt appears:** no eligible candidate was found — no prior completed interactions and no community connection. The request posts publicly as usual.
 
 See [Dibs: Trusted First-Ask Before Broadcasting](provider-dibs) for the full guide, including the provider side of the workflow.
+
+## Seeing how you're connected (Sprint 116)
+
+When a provider submits an offer, both sides now see a small, reciprocal relationship picture at the
+moment help is considered. Before submitting, the provider sees how they connect to the requester;
+when reviewing the offer, the requester sees the same topology plus the provider's service type and,
+if they belong to one, their collective (for example "Marin Helping Hands"). Everyone is drawn as an
+equal person node — being a provider is a role badge, never a bigger or higher-ranked dot. The picture
+never blocks the offer: if it can't load, Submit / Accept / Decline still work exactly as before.

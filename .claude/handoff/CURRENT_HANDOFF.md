@@ -186,7 +186,9 @@ offer/accept/decline actions still work. Validate the same topology from both pa
 
 ### Active Session (update on every role handoff)
 
-- **Driving agent:** open for PR B — Codex is the planned contributor; the other agent reviews.
+- **Driving agent:** **Claude authors PR B** (Admin decision, 2026-06-30, overriding the original
+  "Codex contributes / Claude reviews" plan). Independent cross-agent review is waived for PR B unless
+  Codex reviews after the fact.
 - **Phase:** PR A merged (`89ccf4d7`, #128) and deployed to demo. PR B / Task 7 is ready to begin.
 - **Branch:** `agent/codex/sprint-116-offer-context`, branched off the merged `origin/master`
   (`89ccf4d7`); the prior `agent/codex/sprint-116-relationship-shape` branch is deleted.

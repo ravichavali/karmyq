@@ -40,3 +40,9 @@ open, fillable requests.
 The feed is not a permanent ledger of everything you have done. It surfaces *current* requests and decisions, and the relationship signal it uses to rank them is **time-decayed** — a recent exchange counts; a long-dormant one fades toward nothing. The feed reflects the shape of your relationships now, not a scoreboard of your history. It never broadcasts your past acts to others; the only thing it explains is the *connection* between two people.
 
 See [ADR-066: Unified Feed Model](/docs/concepts/adr-066-unified-feed-model) and [ADR-067: request_type vs payload_type](/docs/concepts/adr-067-request-type-payload-vocabulary) for the architecture, and [Your Dashboard Home](/docs/guides/dashboard-home) for the walkthrough.
+
+## The relationship lens as a helping aid (Sprint 116)
+
+Beyond ranking, Karmyq answers "how do I know this person?" at the decision point. A compact,
+non-blocking relationship lens appears where help is considered — a request before offering, an offer
+under review — so trust is explained in context rather than inferred from a number.

@@ -206,3 +206,16 @@ Ride providers include `ride_details` (vehicle_type, max_passengers, advance_boo
 - Added 6 new API client methods for collectives and provider browsing
 - Increased match completion rate from 10% to 50%
 - Offer workflow now deduplicates (no same-user double offers) and routes providers to matching request types
+
+## Sprint 116 (PR B): Maria relationship-story rehearsal
+
+`src/scenarios/mariaRelationshipStory.ts` is a PURE planner + API-only apply for standing up two
+contrasting demo stories: a rich, cross-community ORDINARY helper story and a low-overlap PROVIDER
+story. `planMariaRelationshipStory(state)` selects personas deterministically, emits only the missing
+ordinary request/offer actions (idempotent), and enforces the rich-overlap floor
+(`≤2`-degree path, `≥3` shared, `≥4` one-hop per side) so a sparse picture is never rehearsed.
+`applyMariaRelationshipStory` refuses a sub-floor story and mutates only through ordinary APIs — it
+imports no DB pool and seeds no trust edges. The CLI
+(`npm --workspace @karmyq/simulation-service run rehearse:maria-relationship`) is dry-run by default
+and applies only with `-- --apply`. New api-client methods: `submitProviderOffer`,
+`getOffersForRequest`, `getNeighborhood`.
