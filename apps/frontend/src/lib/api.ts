@@ -518,6 +518,18 @@ export const requestService = {
   getRequest: (id: string) =>
     requestApi.get(`/requests/${id}`),
 
+  // Sprint 116 / ADR-084 — reciprocal, request/offer-scoped relationship context. The server derives
+  // both participant IDs from the authorized resource; these never accept a free-form target user.
+  // Routes answer 200 (context), 204 (no context → suppress), 403/404 (suppress), or 503 (unavailable).
+  getRequestRelationshipContext: (requestId: string) =>
+    requestApi.get(`/requests/${encodeURIComponent(requestId)}/relationship-context`),
+
+  getMatchRelationshipContext: (requestId: string, matchId: string) =>
+    requestApi.get(`/requests/${encodeURIComponent(requestId)}/matches/${encodeURIComponent(matchId)}/relationship-context`),
+
+  getProviderOfferRelationshipContext: (requestId: string, offerId: string) =>
+    requestApi.get(`/requests/${encodeURIComponent(requestId)}/provider-offers/${encodeURIComponent(offerId)}/relationship-context`),
+
   createRequest: (data: {
     community_id?: string;
     post_to_all_communities?: boolean;

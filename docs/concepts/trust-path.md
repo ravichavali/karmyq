@@ -25,3 +25,10 @@ Karma at each step in the path shows the strength of intermediate connections.
 ## Philosophy
 
 Trust paths make the invisible visible — you can see *why* a match feels safe, not just *that* it does. The platform never shows you a stranger; it shows you how close a connection already exists.
+
+## Reciprocal request/offer context (Sprint 116)
+
+The same platform-wide trust path also powers a request/offer-scoped **relationship lens**: when a
+member is about to offer help (or review an offer), Karmyq shows how the two people connect —
+mirrored so each side sees the identical node/link/path sets from their own orientation. The path is
+platform-wide (ADR-077); it is never relabelled as belonging to the request's source community.

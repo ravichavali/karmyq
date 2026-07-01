@@ -73,3 +73,16 @@ cached `social_distances` rows with valid community context, provider shared-com
 both sides, and dibs candidates that share an active community. Run it the same way (swap the
 filename). Findings and dispositions live in
 [`docs/bugs/sprint-98-trust-truth-audit.md`](../bugs/sprint-98-trust-truth-audit.md).
+
+## Maria's two guided stories (Sprint 116)
+
+The demo rehearses two contrasting relationship stories for Maria through ordinary APIs only:
+
+- **Ordinary story** — a richly connected, cross-community helper (a short trust path, several shared
+  people) so the reciprocal lens reads as a real neighbourhood, not an empty ring.
+- **Provider story** — a low-overlap provider, shown as a deliberate contrast.
+
+Rehearse with `npm --workspace @karmyq/simulation-service run rehearse:maria-relationship` (dry-run by
+default; add `-- --apply` to mutate). It refuses to apply a story that falls below the rich-overlap
+floor, seeds no trust edges, and prints the verified request/match/offer IDs used to configure the
+read-only demo session.

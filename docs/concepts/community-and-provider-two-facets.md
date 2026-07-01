@@ -65,3 +65,10 @@ help-loop, one source of truth.
 Treating community and provider as two facets of one person — rather than two separate systems —
 keeps trust portable and keeps the platform legible. You don't manage two identities; you show up as
 yourself, and Karmyq adjusts the framing to fit what's being asked.
+
+## Provider identity in the relationship lens (Sprint 116)
+
+In the reciprocal relationship lens a provider is the same person node as anyone else. Their service
+type and collective appear as a decoration/badge on that equal node — a facet of one identity, never a
+size or rank. The requester sees this provider role while reviewing the offer; the provider never sees
+their own collective label reflected back.

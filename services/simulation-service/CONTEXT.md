@@ -206,3 +206,52 @@ Ride providers include `ride_details` (vehicle_type, max_passengers, advance_boo
 - Added 6 new API client methods for collectives and provider browsing
 - Increased match completion rate from 10% to 50%
 - Offer workflow now deduplicates (no same-user double offers) and routes providers to matching request types
+
+## Sprint 116 (PR B): Maria relationship-story rehearsal
+
+`src/scenarios/mariaRelationshipStory.ts` is a PURE planner + API-only apply for standing up two
+contrasting demo stories: a rich, cross-community ORDINARY helper story and a low-overlap PROVIDER
+story.
+
+The rich floor splits into two parts. **Structural** overlap (`≥3` shared, `≥4` one-hop per side)
+can only come from the real graph — `planMariaRelationshipStory` selects only structurally-rich
+helpers and never synthesizes shared people. The **path** degree, by contrast, is repairable: when a
+structurally-rich helper is more than two hops from Maria, the plan emits a single Maria↔helper
+`request → offer → accept → two-sided-completion` exchange (`create_repair_request` … `complete_repair`
+×2) to create the direct bond. A helper with no structural overlap cannot be repaired by one exchange,
+so the plan warns and `applyMariaRelationshipStory` refuses (`floor.achievable === false`) rather than
+validate a sparse picture.
+
+Discovery is **selection-aware and lifecycle-aware**: a pre-existing match/offer only counts as
+"already done" when it belongs to the selected helper/provider (matched by `responderId` /
+`providerUserId`) **and is still reviewable** (`proposed` match, `pending` offer, on an `open`
+request) — a terminal row never masks the story. Matches are fetched with the API's `request_id`
+filter (not a latest-N system-wide window, which drops older stories on a busy demo). Candidate
+one-hop overlap is measured with the **candidate's own token** (the neighborhood endpoint 404s on a
+non-shared-community target, so Maria's token would abort gather for exactly the cross-community
+helper). **Cross-community** is community-set disjointness (not first-community equality).
+
+Selection-time overlap is a pre-match heuristic (`overlapFromNeighborhoods`) that counts only true
+one-hop neighbours (`degrees_of_separation === 1`) and excludes **both anchors** — otherwise each ego's
+own center and the post-repair direct edge would leak in as fake shared connections. Requests are
+created at **platform** visibility scope (`STORY_REQUEST_SCOPE`) so a cross-community helper/provider
+can actually reach and offer on them; the **provider** request is a valid `service` request carrying
+the required `payload.service_category`. The repair exchange is **resumable and lifecycle-aware**: prior
+repair request/match/completion state is gathered (the repair request is looked up regardless of
+status, since accepting its match closes it), only a still-live (`proposed`/`matched`) repair match is
+resumed — a rejected/cancelled one triggers a fresh exchange, a fully-completed one emits nothing — and
+only the missing steps are re-emitted.
+
+Apply mutates only through ordinary APIs, then verifies in two stages: it **re-reads authoritative
+state** to derive the demo IDs from the server (never from mutation responses) — requiring an **open**
+request with a still-live decision (`proposed` match / `pending` offer), so a concurrent transition to
+rejected/declined/closed fails verification instead of being printed as "verified" — and then confirms
+the rich floor by **re-measuring from the platform-wide match relationship-context** (the same contract
+the demo renders), polling with bounded retries to tolerate the asynchronous `match_completed` trust
+projection. Community-scoped neighborhoods are deliberately NOT used for verification: a repaired
+cross-community edge is stored under Maria's request community and is invisible to a neighborhood walk
+that requires the disjoint helper's active membership there. It imports no DB pool and seeds no trust
+edges. The CLI
+(`npm --workspace @karmyq/simulation-service run rehearse:maria-relationship`) is dry-run by default
+and applies only with `-- --apply`. New api-client methods: `submitProviderOffer`,
+`getOffersForRequest`, `getNeighborhood`.

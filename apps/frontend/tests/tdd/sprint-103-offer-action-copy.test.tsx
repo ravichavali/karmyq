@@ -8,6 +8,8 @@ jest.mock('@/lib/api', () => ({
   requestService: {
     getRequest: jest.fn(),
     createMatch: jest.fn(),
+    // S116: the can_offer detail mounts a relationship-context panel; suppress it here (404).
+    getRequestRelationshipContext: () => Promise.reject({ response: { status: 404 } }),
   },
 }));
 

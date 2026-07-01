@@ -4,6 +4,7 @@ import Head from 'next/head'
 import Link from 'next/link'
 import { requestService } from '@/lib/api'
 import RequestPayloadRenderer from '@/components/Feed/RequestPayloadRenderer'
+import RelationshipContextPanel from '@/components/relationships/RelationshipContextPanel'
 import EmptyState from '@/components/EmptyState'
 import { getOfferActionLabel, getOfferErrorFallback } from '@/lib/requestActionCopy'
 import { getRequestStatusDisplay, getRequestUrgencyDisplay } from '@/lib/requestDisplay'
@@ -220,6 +221,12 @@ export default function RequestDetailPage() {
               requirements={detail.requirements}
               className="mb-4"
             />
+          )}
+
+          {/* S116/ADR-084: before the offer decision, show how this viewer connects to the requester.
+              Non-blocking and only for eligible non-owners — the action below never waits on it. */}
+          {detail.viewer_relation === 'can_offer' && (
+            <RelationshipContextPanel kind="request" requestId={detail.id} />
           )}
 
           {/* The one true next step for this member, in this state — derived server-side. */}

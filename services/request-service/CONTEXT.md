@@ -52,7 +52,10 @@ Three authenticated read routes expose the strict `RelationshipContext` contract
   participant, with both IDs verified against the route request in one query.
 - `GET /requests/:requestId/provider-offers/:offerId/relationship-context` — either requester or
   provider-offer owner; provider service metadata is attached only when the provider is the viewed
-  counterpart.
+  counterpart. Sprint 116 PR B enriches this: the requester's view also carries the provider's
+  `collectiveName` (via an intra-`requests`-schema join on `provider_collective_members` →
+  `provider_collectives`, active collectives only, deterministic single pick). A solo provider
+  discloses no collective, and the provider viewing their own offer never sees a collective label.
 
 There is no arbitrary target-user route. Request-service owns every public authorization decision,
 calls social-graph-service with only the derived pair and `X-Internal-Secret` (2.5-second timeout),

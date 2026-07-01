@@ -570,3 +570,30 @@ These warnings exist in the codebase and were NOT introduced in Sprint 33:
 - `fetchUserCommunities` / `fetchPrivacySettings` declared but never read (profile.tsx)
 - `FormEvent` deprecated (login.tsx, register.tsx, communities/[id].tsx, communities/new.tsx)
 - `InlineChat` unused import
+
+---
+
+## Sprint 116 (PR B): Reciprocal relationship context on helping surfaces
+
+`RelationshipContextPanel` (`src/components/relationships/RelationshipContextPanel.tsx`) is the one
+non-blocking wrapper that renders the deterministic `RelationshipLens` on all four decision surfaces.
+It takes a discriminated `kind` prop — `request` | `match` | `provider-offer` — and fetches through
+`useRelationshipContext` (`src/hooks/useRelationshipContext.ts`), a cancel-safe hook that ignores
+stale resolutions after the target changes.
+
+State → presentation:
+- `200` with context → render the lens.
+- `204` / `403` / `404` → suppress the panel entirely (no error, no layout jump).
+- `5xx` / timeout → a small "Connection context isn't available right now." note.
+
+Wired surfaces (the decision action is NEVER gated on the fetch):
+- `requests/[id].tsx` — request-scoped panel, shown only when `viewer_relation === 'can_offer'`.
+- `MyRequestsTab.tsx` — match-scoped panel inside each expanded proposed offer, before Accept/Decline.
+- `SubmitOfferModal.tsx` — request-scoped panel above price/note (provider sees the requester).
+- `CommitmentsTab.tsx` — provider-offer-scoped panel in each pending offer, before Accept/Decline
+  (requester sees the provider role + collective badge).
+
+API methods live on `requestService` in `src/lib/api.ts`:
+`getRequestRelationshipContext`, `getMatchRelationshipContext`, `getProviderOfferRelationshipContext`.
+Any test that mounts one of the surfaces above must include the relevant method in its `@/lib/api`
+mock (a missing method throws synchronously in the hook).
