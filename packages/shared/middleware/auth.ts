@@ -29,6 +29,20 @@ export interface JWTPayload {
 const DEMO_READONLY_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 
 /**
+ * True when the decoded token is a read-only demo session (Sprint 116, ADR-084).
+ *
+ * The method-based write guard below only covers HTTP consumers that go through this
+ * shared middleware. Non-shared JWT consumers (Socket.IO handshakes, custom `jwt.verify`
+ * middlewares) and side-effecting GET routes must call this directly to reject demo tokens,
+ * since a demo session must never mutate data through ANY path.
+ */
+export function isDemoReadOnlySession(
+  user?: { sessionMode?: string } | null
+): boolean {
+  return user?.sessionMode === 'demo_read_only';
+}
+
+/**
  * Server-side write guard for read-only demo sessions.
  * Returns true (and sends a 403) when the decoded token is a demo session attempting
  * a mutating method; returns false otherwise. Ordinary sessions are never affected.
@@ -38,7 +52,7 @@ function blocksDemoWrite(
   req: AuthenticatedRequest,
   res: Response
 ): boolean {
-  if (decoded.sessionMode !== 'demo_read_only') return false;
+  if (!isDemoReadOnlySession(decoded)) return false;
   if (DEMO_READONLY_METHODS.has(req.method)) return false;
   sendForbidden(res, 'This demo session is read-only', { requestId: (req as any).id });
   return true;

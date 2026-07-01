@@ -7,14 +7,19 @@
 
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
+import { isDemoReadOnlySession } from '@karmyq/shared/middleware/auth';
 
 interface JWTPayload {
   userId: string;
   email: string;
   role?: string;
+  sessionMode?: string;
   communities?: Array<{ id: string; name: string; role: string }>;
   communityMemberships?: Array<{ id: string; name: string; role: string }>; // legacy alias
 }
+
+// HTTP methods a read-only demo session may use through this non-shared verifier.
+const DEMO_READONLY_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 
 /**
  * Verify JWT token middleware
@@ -45,6 +50,16 @@ export function verifyToken(req: Request, res: Response, next: NextFunction) {
     }
 
     const decoded = jwt.verify(token, secret) as JWTPayload;
+
+    // Read-only demo sessions cannot mutate through this non-shared verifier either
+    // (Sprint 116, ADR-084).
+    if (isDemoReadOnlySession(decoded) && !DEMO_READONLY_METHODS.has(req.method)) {
+      return res.status(403).json({
+        success: false,
+        message: 'This demo session is read-only',
+        error: 'FORBIDDEN',
+      });
+    }
 
     // Attach user info to request
     (req as any).user = decoded;

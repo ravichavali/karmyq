@@ -28,21 +28,24 @@ interface DemoContext {
 
 const REGISTER_URL = 'https://karmyq.com/register'
 
-// Decode a JWT expiry (seconds) without verifying — used only to skip rehydrating a dead token.
-function decodeExp(token: string): number | null {
+// Decode a JWT payload (no verification) — used only to decide whether to rehydrate.
+function decodePayload(token: string): { exp?: number; sessionMode?: string } | null {
   try {
     const base64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')
-    const payload = JSON.parse(atob(base64))
-    return typeof payload.exp === 'number' ? payload.exp : null
+    return JSON.parse(atob(base64))
   } catch {
     return null
   }
 }
 
-function tokenValid(token: string | null): boolean {
+// Only rehydrate a token that is BOTH a demo session and unexpired. Requiring
+// sessionMode prevents an ordinary logged-in token (plus stale demoContext) from
+// masquerading as a read-only demo session on this page.
+function isValidDemoToken(token: string | null): boolean {
   if (!token) return false
-  const exp = decodeExp(token)
-  return exp != null && exp * 1000 > Date.now()
+  const payload = decodePayload(token)
+  if (!payload || payload.sessionMode !== 'demo_read_only') return false
+  return typeof payload.exp === 'number' && payload.exp * 1000 > Date.now()
 }
 
 export default function DemoPage() {
@@ -51,10 +54,10 @@ export default function DemoPage() {
   const [starting, setStarting] = useState(false)
 
   useEffect(() => {
-    // Rehydrate a still-valid demo session so a refresh doesn't drop the tour.
+    // Rehydrate only a still-valid *demo* session so a refresh doesn't drop the tour.
     const token = localStorage.getItem('token')
     const raw = localStorage.getItem('demoContext')
-    if (tokenValid(token) && raw) {
+    if (isValidDemoToken(token) && raw) {
       try {
         const parsed = JSON.parse(raw) as DemoContext
         if (parsed?.stories?.length) {

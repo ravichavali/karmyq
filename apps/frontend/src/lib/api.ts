@@ -126,6 +126,7 @@ const errorInterceptor = async (error: any) => {
     if (!storedRefreshToken) {
       localStorage.removeItem('token')
       localStorage.removeItem('user')
+      localStorage.removeItem('demoContext')
       window.location.href = '/login'
       return Promise.reject(error)
     }
@@ -157,6 +158,7 @@ const errorInterceptor = async (error: any) => {
       localStorage.removeItem('token')
       localStorage.removeItem('refreshToken')
       localStorage.removeItem('user')
+      localStorage.removeItem('demoContext')
       window.location.href = '/login'
       return Promise.reject(error)
     } finally {

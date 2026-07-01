@@ -107,6 +107,7 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
     localStorage.removeItem('token')
     localStorage.removeItem('refreshToken')
     localStorage.removeItem('user')
+    localStorage.removeItem('demoContext')
     router.push('/')
   }
 

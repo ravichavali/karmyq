@@ -28,9 +28,9 @@ const ORD_MATCH = 'aaaaaaaa-0000-0000-0000-000000000002'
 const PROV_REQ = 'bbbbbbbb-0000-0000-0000-000000000001'
 const PROV_OFFER = 'bbbbbbbb-0000-0000-0000-000000000002'
 
-// Minimal decodable JWT: header.payloadBase64Url.sig
-function makeToken(expEpochSeconds: number): string {
-  const payload = Buffer.from(JSON.stringify({ userId: 'maria', exp: expEpochSeconds }))
+// Minimal decodable JWT: header.payloadBase64Url.sig — real demo tokens carry sessionMode.
+function makeToken(expEpochSeconds: number, sessionMode: string = 'demo_read_only'): string {
+  const payload = Buffer.from(JSON.stringify({ userId: 'maria', exp: expEpochSeconds, sessionMode }))
     .toString('base64')
     .replace(/=/g, '')
     .replace(/\+/g, '-')
@@ -118,6 +118,27 @@ describe('Sprint 116 — guided Maria demo page (/demo)', () => {
 
     await waitFor(() => expect(screen.getAllByTestId('rel-panel')).toHaveLength(2))
     expect(mockStart).not.toHaveBeenCalled()
+  })
+
+  it('does NOT rehydrate an ordinary (non-demo) token even with a stale demoContext', async () => {
+    // An ordinary logged-in token must never be treated as a read-only demo session.
+    localStorage.setItem('token', makeToken(Math.floor(Date.now() / 1000) + 1800, 'ordinary'))
+    localStorage.setItem(
+      'demoContext',
+      JSON.stringify({
+        expiresInMinutes: 30,
+        stories: [
+          { kind: 'ordinary', requestId: ORD_REQ, matchId: ORD_MATCH },
+          { kind: 'provider', requestId: PROV_REQ, offerId: PROV_OFFER },
+        ],
+      })
+    )
+
+    render(<DemoPage />)
+
+    // Stays on the disclosure screen; no story panels are activated.
+    expect(screen.getByText(/read-only/i)).toBeInTheDocument()
+    expect(screen.queryAllByTestId('rel-panel')).toHaveLength(0)
   })
 
   it('shows an unavailable state when the session cannot be issued', async () => {

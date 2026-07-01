@@ -1,6 +1,6 @@
 import { NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
-import { authMiddleware } from '../../../middleware/auth';
+import { authMiddleware, optionalAuthMiddleware, isDemoReadOnlySession } from '../../../middleware/auth';
 
 // verifyTokenWithRotation reads JWT_SECRET at call time, so setting it here is enough.
 const secret = 'test-jwt-secret';
@@ -80,5 +80,55 @@ describe('authMiddleware — demo_read_only write guard (Sprint 116)', () => {
     expect(res.status).not.toHaveBeenCalled();
     expect(req.user?.userId).toBe('real-user');
     expect(req.user?.sessionMode).toBeUndefined();
+  });
+});
+
+describe('optionalAuthMiddleware — demo_read_only write guard (Sprint 116)', () => {
+  let next: NextFunction;
+
+  beforeEach(() => {
+    next = jest.fn();
+  });
+
+  it('allows a demo GET and attaches req.user', () => {
+    const req = makeReq('GET', demoPayload);
+    const res = makeResMock();
+
+    optionalAuthMiddleware(req, res, next);
+
+    expect(next).toHaveBeenCalled();
+    expect(res.status).not.toHaveBeenCalled();
+    expect(req.user?.sessionMode).toBe('demo_read_only');
+  });
+
+  it('rejects a demo POST with 403 FORBIDDEN and does not attach req.user', () => {
+    const req = makeReq('POST', demoPayload);
+    const res = makeResMock();
+
+    optionalAuthMiddleware(req, res, next);
+
+    expect(next).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(403);
+    expect(req.user).toBeUndefined();
+  });
+
+  it('leaves a no-token request untouched (still optional)', () => {
+    const req: any = { method: 'POST', headers: {} };
+    const res = makeResMock();
+
+    optionalAuthMiddleware(req, res, next);
+
+    expect(next).toHaveBeenCalled();
+    expect(res.status).not.toHaveBeenCalled();
+  });
+});
+
+describe('isDemoReadOnlySession', () => {
+  it('is true only for the demo_read_only session mode', () => {
+    expect(isDemoReadOnlySession({ sessionMode: 'demo_read_only' })).toBe(true);
+    expect(isDemoReadOnlySession({ sessionMode: 'something_else' })).toBe(false);
+    expect(isDemoReadOnlySession({})).toBe(false);
+    expect(isDemoReadOnlySession(null)).toBe(false);
+    expect(isDemoReadOnlySession(undefined)).toBe(false);
   });
 });
