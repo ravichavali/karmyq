@@ -70,16 +70,35 @@ export const ROUTES: RouteMeta[] = [
 /** Generated docs site — unchanged in Sprint 95, reachable from every page. */
 export const DOCS_LINK = { label: 'Docs', href: '/docs' } as const;
 
-/** The single founding-circle call to action, rendered as the nav button. */
-export const CTA_LINK = { label: 'Join the circle', href: '/join' } as const;
+/**
+ * Sprint 116 / ADR-084 — three DISTINCT entry paths. These must never collapse into
+ * one another. Join the Platform is ordinary registration; the Founding Circle (/join)
+ * is the separate invitation path; Explore opens the read-only live demo. Explore and
+ * Join the Platform are cross-site absolute URLs to the app (karmyq.com); the Founding
+ * Circle stays an internal karmyq.org route.
+ */
+export const EXPLORE_LINK = { label: 'Explore the live demo', href: 'https://karmyq.com/demo' } as const;
+export const JOIN_PLATFORM_LINK = { label: 'Join the Platform', href: 'https://karmyq.com/register' } as const;
+export const FOUNDING_CIRCLE_LINK = { label: 'Join the Founding Circle', href: '/join' } as const;
 
 /**
- * Plain-text nav links shown on every page: the non-CTA routes plus Docs.
- * Join the circle is intentionally excluded here — it is the CTA button only,
- * never duplicated as a plain nav item.
+ * The ordered primary call-to-action set rendered on desktop and mobile: Explore first
+ * (lowest-commitment), then Join the Platform, then the quieter Founding Circle. The
+ * home logo owns the Story/home route, so it is intentionally absent here.
+ */
+export const PRIMARY_CTAS: ReadonlyArray<{ label: string; href: string }> = [
+  EXPLORE_LINK,
+  JOIN_PLATFORM_LINK,
+  FOUNDING_CIRCLE_LINK,
+];
+
+/**
+ * Plain-text nav links shown on every page: the essay routes plus Docs.
+ * The founding-circle route (/join) is intentionally excluded here — it is a primary
+ * CTA only, never duplicated as a plain nav item.
  */
 export const NAV_LINKS: { label: string; href: string }[] = [
-  ...ROUTES.filter((r) => r.path !== CTA_LINK.href).map((r) => ({
+  ...ROUTES.filter((r) => r.path !== FOUNDING_CIRCLE_LINK.href).map((r) => ({
     label: r.navLabel,
     href: r.path,
   })),

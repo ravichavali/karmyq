@@ -14,7 +14,7 @@
 import {
   ROUTES,
   NAV_LINKS,
-  CTA_LINK,
+  FOUNDING_CIRCLE_LINK,
   DOCS_LINK,
   ALL_ROUTE_PATHS,
   routeByPath,
@@ -98,11 +98,10 @@ describe('nav contract', () => {
     expect(DOCS_LINK.href).toBe('/docs');
   });
 
-  test('Join the circle is the CTA button to /join, not a plain nav item', () => {
-    expect(CTA_LINK.label).toBe('Join the circle');
-    expect(CTA_LINK.href).toBe('/join');
-    // The CTA must not be duplicated as a plain text nav link.
-    expect(NAV_LINKS.some((l) => l.label === 'Join the circle')).toBe(false);
+  test('the Founding Circle path is /join and never a plain nav item', () => {
+    // Sprint 116: the single "Join the circle" CTA became three distinct entry paths;
+    // the founding-circle destination is still /join and still not a plain nav item.
+    expect(FOUNDING_CIRCLE_LINK.href).toBe('/join');
     expect(NAV_LINKS.some((l) => l.href === '/join')).toBe(false);
   });
 });
