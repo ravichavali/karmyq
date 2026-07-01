@@ -250,8 +250,12 @@ export function planMariaRelationshipStory(state: MariaStoryState): MariaStoryPl
   const needsRepair = achievable && !pathWithinFloor;
   const homeCommunity = state.maria.communityIds[0];
   const repair: ExistingRepair = existing.repair ?? { matches: [] };
-  // The repair match, if any, is the one whose responder is the SELECTED helper.
-  const repairMatch = repair.matches.find(m => m.responderId === helper.id);
+  // Only a still-live (proposed/matched) repair match may be resumed; a rejected/cancelled one must
+  // NOT be reused (emitting completions against it would fail). A fully-completed exchange already
+  // built the edge, so no repair actions are needed.
+  const forHelper = repair.matches.filter(m => m.responderId === helper.id);
+  const liveRepairMatch = forHelper.find(m => m.status === 'proposed' || m.status === 'matched');
+  const repairAlreadyDone = forHelper.some(m => m.status === 'completed' && m.requesterDone && m.responderDone);
 
   const actions: StoryAction[] = [];
   if (!existing.ordinaryRequestId) {
@@ -266,12 +270,13 @@ export function planMariaRelationshipStory(state: MariaStoryState): MariaStoryPl
   if (!providerOfferId) {
     actions.push({ type: 'submit_provider_offer', actor: 'provider', providerId: provider.id });
   }
-  if (needsRepair) {
+  if (needsRepair && !repairAlreadyDone) {
     // Resumable: emit only the repair steps not already done by a prior (possibly partial) run.
     if (!repair.requestId) {
       actions.push({ type: 'create_repair_request', actor: 'maria', communityId: homeCommunity, title: REPAIR_REQUEST_TITLE, visibilityScope: STORY_REQUEST_SCOPE });
     }
-    if (!repairMatch) {
+    if (!liveRepairMatch) {
+      // No resumable match (none, or only rejected/cancelled): build a fresh exchange.
       actions.push(
         { type: 'offer_repair', actor: 'helper', helperId: helper.id },
         { type: 'accept_repair', actor: 'maria' },
@@ -279,9 +284,9 @@ export function planMariaRelationshipStory(state: MariaStoryState): MariaStoryPl
         { type: 'complete_repair', actor: 'helper' },
       );
     } else {
-      if (repairMatch.status === 'proposed') actions.push({ type: 'accept_repair', actor: 'maria' });
-      if (!repairMatch.requesterDone) actions.push({ type: 'complete_repair', actor: 'maria' });
-      if (!repairMatch.responderDone) actions.push({ type: 'complete_repair', actor: 'helper' });
+      if (liveRepairMatch.status === 'proposed') actions.push({ type: 'accept_repair', actor: 'maria' });
+      if (!liveRepairMatch.requesterDone) actions.push({ type: 'complete_repair', actor: 'maria' });
+      if (!liveRepairMatch.responderDone) actions.push({ type: 'complete_repair', actor: 'helper' });
     }
   }
 
@@ -313,7 +318,7 @@ export function planMariaRelationshipStory(state: MariaStoryState): MariaStoryPl
     },
     repair: {
       ...(repair.requestId && { requestId: repair.requestId }),
-      ...(repairMatch?.id && { matchId: repairMatch.id }),
+      ...(liveRepairMatch?.id && { matchId: liveRepairMatch.id }),
     },
     floor: { achievable, needsRepair, met: achievable && !needsRepair, helperOverlap: helper.overlap },
     warnings,
@@ -331,7 +336,7 @@ export interface StoryResult {
  */
 export interface StoryClients {
   maria: {
-    createRequest(data: { community_id: string; title: string; description: string; request_type: string; visibility_scope: VisibilityScope }): Promise<any>;
+    createRequest(data: { community_id: string; title: string; description: string; request_type: string; visibility_scope: VisibilityScope; payload?: Record<string, unknown> }): Promise<any>;
     acceptMatch(matchId: string): Promise<any>;
     completeMatch(matchId: string): Promise<any>;
   };
@@ -347,10 +352,11 @@ export interface StoryClients {
     getMatchesForRequest(requestId: string): Promise<ExistingMatch[]>;
     getOffersForRequest(requestId: string): Promise<ExistingOffer[]>;
     /**
-     * Re-measure the SELECTED helper's overlap with Maria from authoritative graph state. Used after
-     * a repair exchange to confirm the trust projection actually landed within the rich floor.
+     * Re-measure the ordinary helper's overlap from the PLATFORM-WIDE match relationship-context — the
+     * same contract the demo renders. Community-scoped neighborhoods can't see a repaired
+     * cross-community edge, so verification must read the request/offer-scoped context instead.
      */
-    measureHelperOverlap(): Promise<StoryOverlap>;
+    measureFloor(requestId: string, matchId: string): Promise<StoryOverlap>;
   };
 }
 
@@ -445,24 +451,26 @@ export async function applyMariaRelationshipStory(
     result.provider = { requestId: requestId.provider, offerId: offer.id };
   }
 
-  // Structural verification: confirm the ordinary helper actually reaches the rich floor now. A repair
-  // exchange only lands in the graph after the asynchronous match_completed projection, so re-measure
-  // with bounded retries and fail loudly rather than print "verified" for a relationship that is not
-  // yet (or never) rich enough.
-  const attempts = Math.max(1, options.verifyAttempts ?? 6);
-  const delayMs = options.verifyDelayMs ?? 2000;
-  const sleep = options.sleep ?? ((ms: number) => new Promise<void>(r => setTimeout(r, ms)));
-  let overlap: StoryOverlap | undefined;
-  for (let attempt = 0; attempt < attempts; attempt++) {
-    overlap = await clients.readback.measureHelperOverlap();
-    if (meetsRichFloor(overlap)) break;
-    if (attempt < attempts - 1) await sleep(delayMs);
-  }
-  if (!overlap || !meetsRichFloor(overlap)) {
-    throw new Error(
-      'Verification failed: the ordinary helper did not reach the rich floor after repair/projection ' +
-        `(${JSON.stringify(overlap)}).`,
-    );
+  // Structural verification: confirm the ordinary helper actually reaches the rich floor now, measured
+  // from the PLATFORM-WIDE match relationship-context (the same contract the demo renders). A repair
+  // exchange only lands after the asynchronous match_completed projection, so re-measure with bounded
+  // retries and fail loudly rather than print "verified" for a relationship that is not yet rich enough.
+  if (result.ordinary.requestId && result.ordinary.matchId) {
+    const attempts = Math.max(1, options.verifyAttempts ?? 6);
+    const delayMs = options.verifyDelayMs ?? 2000;
+    const sleep = options.sleep ?? ((ms: number) => new Promise<void>(r => setTimeout(r, ms)));
+    let overlap: StoryOverlap | undefined;
+    for (let attempt = 0; attempt < attempts; attempt++) {
+      overlap = await clients.readback.measureFloor(result.ordinary.requestId, result.ordinary.matchId);
+      if (meetsRichFloor(overlap)) break;
+      if (attempt < attempts - 1) await sleep(delayMs);
+    }
+    if (!overlap || !meetsRichFloor(overlap)) {
+      throw new Error(
+        'Verification failed: the ordinary helper did not reach the rich floor after repair/projection ' +
+          `(${JSON.stringify(overlap)}).`,
+      );
+    }
   }
 
   return result;
@@ -479,11 +487,14 @@ function requestBody(action: CreateRequestAction) {
     create_provider_request: 'Need a tradesperson to quote and fix a leaking kitchen tap.',
     create_repair_request: 'A small mutual exchange to establish direct rehearsal history.',
   };
+  const isProvider = action.type === 'create_provider_request';
   return {
     community_id: action.communityId,
     title: action.title,
     description: descriptions[action.type] ?? action.title,
-    request_type: action.type === 'create_provider_request' ? 'service' : 'generic',
+    request_type: isProvider ? 'service' : 'generic',
+    // A `service` request must carry a valid ServicePayloadSchema payload, or the server rejects it 400.
+    ...(isProvider ? { payload: { service_category: 'plumbing' as const } } : {}),
     // Platform scope so a cross-community helper/provider can actually reach and offer on the request.
     visibility_scope: action.visibilityScope,
   };

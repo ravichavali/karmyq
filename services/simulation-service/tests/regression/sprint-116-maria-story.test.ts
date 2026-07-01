@@ -176,6 +176,43 @@ describe('Sprint 116 — repair is resumable after a partial prior run', () => {
     expect(plan.actions.map(a => a.type)).toEqual(['offer_repair', 'accept_repair', 'complete_repair', 'complete_repair']);
     expect(plan.actions.some(a => a.type === 'create_repair_request')).toBe(false);
   });
+
+  it('does not resume a rejected/cancelled repair match — it builds a fresh exchange', () => {
+    const plan = planMariaRelationshipStory(baseState({
+      helperCandidates: [{ id: 'h-far', communityIds: [C3], overlap: farPath }],
+      existing: {
+        ordinaryRequestId: 'req-o',
+        ordinaryMatches: [{ id: 'match-o', responderId: 'h-far', status: 'proposed' }],
+        providerRequestId: 'req-p',
+        providerOffers: [{ id: 'offer-p', providerUserId: 'p-contrast', status: 'pending' }],
+        repair: {
+          requestId: 'req-repair',
+          matches: [{ id: 'dead-repair', responderId: 'h-far', status: 'rejected', requesterDone: false, responderDone: false }],
+        },
+      },
+    }));
+    // A rejected repair match is not resumed (no complete-only) — a fresh offer→accept→complete×2 runs,
+    // and plan.repair carries no dead match id.
+    expect(plan.actions.map(a => a.type)).toEqual(['offer_repair', 'accept_repair', 'complete_repair', 'complete_repair']);
+    expect(plan.repair.matchId).toBeUndefined();
+  });
+
+  it('emits no repair actions when a completed repair exchange already built the edge', () => {
+    const plan = planMariaRelationshipStory(baseState({
+      helperCandidates: [{ id: 'h-far', communityIds: [C3], overlap: farPath }],
+      existing: {
+        ordinaryRequestId: 'req-o',
+        ordinaryMatches: [{ id: 'match-o', responderId: 'h-far', status: 'proposed' }],
+        providerRequestId: 'req-p',
+        providerOffers: [{ id: 'offer-p', providerUserId: 'p-contrast', status: 'pending' }],
+        repair: {
+          requestId: 'req-repair',
+          matches: [{ id: 'done-repair', responderId: 'h-far', status: 'completed', requesterDone: true, responderDone: true }],
+        },
+      },
+    }));
+    expect(plan.actions).toEqual([]);
+  });
 });
 
 describe('Sprint 116 — selection-aware existing-state reconciliation', () => {
@@ -249,7 +286,7 @@ describe('Sprint 116 — apply re-reads authoritative state and verifies before 
       getRequest: jest.fn(async (id: string) => ({ id, status: 'open' })),
       getMatchesForRequest: jest.fn(async () => [{ id: 'match-authoritative', responderId: 'h-cross', status: 'proposed' }]),
       getOffersForRequest: jest.fn(async () => [{ id: 'offer-authoritative', providerUserId: 'p-contrast', status: 'pending' }]),
-      measureHelperOverlap: jest.fn(async () => richPath),
+      measureFloor: jest.fn(async () => richPath),
       ...overrides,
     };
   }
@@ -259,14 +296,28 @@ describe('Sprint 116 — apply re-reads authoritative state and verifies before 
   it('derives the demo IDs from re-read (not the mutation responses) and confirms the request exists', async () => {
     const plan = planMariaRelationshipStory(baseState());
     const readback = confirmingReadback();
-    const result = await applyMariaRelationshipStory(plan, fakeClients(readback), { sleep: noSleep });
+    const clients = fakeClients(readback);
+    const result = await applyMariaRelationshipStory(plan, clients, { sleep: noSleep });
 
     expect(readback.getMatchesForRequest).toHaveBeenCalledWith('req-o');
     expect(readback.getOffersForRequest).toHaveBeenCalledWith('req-p');
+    // The provider request is a valid `service` request — it carries the required payload.
+    const providerCreate = (clients.maria.createRequest.mock.calls as any[][])
+      .map(c => c[0])
+      .find(d => d.request_type === 'service');
+    expect(providerCreate.payload).toEqual({ service_category: 'plumbing' });
     expect(result).toEqual({
       ordinary: { requestId: 'req-o', matchId: 'match-authoritative' },
       provider: { requestId: 'req-p', offerId: 'offer-authoritative' },
     });
+  });
+
+  it('measures the floor from the platform-wide match relationship-context, not a neighborhood', async () => {
+    const plan = planMariaRelationshipStory(baseState());
+    const readback = confirmingReadback();
+    await applyMariaRelationshipStory(plan, fakeClients(readback), { sleep: noSleep });
+    // Verification reads the ordinary match's relationship-context by (requestId, matchId).
+    expect(readback.measureFloor).toHaveBeenCalledWith('req-o', 'match-authoritative');
   });
 
   it('throws when re-read cannot confirm the selected helper’s match', async () => {
@@ -296,22 +347,22 @@ describe('Sprint 116 — apply re-reads authoritative state and verifies before 
   it('throws when the helper overlap never reaches the rich floor (projection failed)', async () => {
     const plan = planMariaRelationshipStory(baseState());
     // Structural people are present but the path never lands within the floor → not verified.
-    const readback = confirmingReadback({ measureHelperOverlap: jest.fn(async () => farPath) });
+    const readback = confirmingReadback({ measureFloor: jest.fn(async () => farPath) });
     await expect(
       applyMariaRelationshipStory(plan, fakeClients(readback), { sleep: noSleep, verifyAttempts: 3 }),
     ).rejects.toThrow(/rich floor|did not reach/i);
-    expect(readback.measureHelperOverlap).toHaveBeenCalledTimes(3);
+    expect(readback.measureFloor).toHaveBeenCalledTimes(3);
   });
 
   it('polls past asynchronous projection lag and verifies once the overlap lands', async () => {
     const plan = planMariaRelationshipStory(baseState());
     let calls = 0;
     const readback = confirmingReadback({
-      measureHelperOverlap: jest.fn(async () => (++calls < 3 ? farPath : richPath)),
+      measureFloor: jest.fn(async () => (++calls < 3 ? farPath : richPath)),
     });
     const sleep = jest.fn(async () => {});
     const result = await applyMariaRelationshipStory(plan, fakeClients(readback), { sleep, verifyAttempts: 5 });
-    expect(readback.measureHelperOverlap).toHaveBeenCalledTimes(3);
+    expect(readback.measureFloor).toHaveBeenCalledTimes(3);
     expect(sleep).toHaveBeenCalledTimes(2);
     expect(result.ordinary.matchId).toBe('match-authoritative');
   });

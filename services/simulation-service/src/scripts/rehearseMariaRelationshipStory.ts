@@ -74,13 +74,6 @@ async function overlap(
   return overlapFromNeighborhoods(mariaOneHopNodes, candidateNodes, mariaId, candidate.userId, pathDegree);
 }
 
-/** Fresh overlap measurement (re-reads Maria's neighborhoods) — used to poll past projection lag. */
-async function measureOverlap(maria: Persona, candidate: Persona): Promise<StoryOverlap> {
-  const mariaDepth2Nodes = nodesOf(await maria.client.getNeighborhood(maria.userId, 2));
-  const mariaOneHopNodes = nodesOf(await maria.client.getNeighborhood(maria.userId, 1));
-  return overlap(maria.userId, mariaOneHopNodes, mariaDepth2Nodes, candidate);
-}
-
 async function findRequestByTitle(maria: Persona, title: string): Promise<string | undefined> {
   const mine = await maria.client.browseRequests({ requester_id: maria.userId, limit: 100 });
   // Only an OPEN request is a live story anchor; a stale completed/cancelled one must not be reused.
@@ -236,11 +229,23 @@ async function main() {
       submitProviderOffer: (rid) => provider.client.submitProviderOffer(rid, null, 'Available this weekend.'),
     },
     readback: {
-      getRequest: async (rid) => (await maria.client.getRequest(rid)) ?? null,
+      getRequest: async (rid) => {
+        const r = await maria.client.getRequest(rid);
+        return r ? { id: r.id, status: r.status } : null;
+      },
       getMatchesForRequest: (rid) => matchesForRequest(maria, rid),
       getOffersForRequest: (rid) => offersForRequest(maria, rid),
-      // Re-measured fresh each poll so the structural check sees the post-projection graph.
-      measureHelperOverlap: () => measureOverlap(maria, helper),
+      // Measure the floor from the PLATFORM-WIDE match relationship-context — the demo's own contract —
+      // so a repaired cross-community edge is actually visible (community neighborhoods can't see it).
+      measureFloor: async (rid, mid) => {
+        const ctx = await maria.client.getMatchRelationshipContext(rid, mid);
+        return {
+          pathDegree: typeof ctx?.path?.degrees === 'number' ? ctx.path.degrees : null,
+          sharedConnections: (ctx?.networks?.shared ?? []).length,
+          mariaOneHop: (ctx?.networks?.viewer ?? []).length,
+          helperOneHop: (ctx?.networks?.counterpart ?? []).length,
+        };
+      },
     },
   });
 

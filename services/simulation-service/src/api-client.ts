@@ -76,9 +76,22 @@ export class ApiClient {
     urgency?: string;
     request_type?: string;
     visibility_scope?: 'community' | 'trust_network' | 'platform';
+    payload?: Record<string, unknown>;
   }): Promise<any> {
     const response = await executeWithRetry(() =>
       this.client.post('/requests', data)
+    );
+    return response.data.data;
+  }
+
+  /**
+   * Request API - Reciprocal relationship context for an ordinary match (Sprint 116). This is the
+   * platform-wide contract the demo renders; the rehearsal verifies the rich floor against it rather
+   * than against a community-scoped neighborhood (which can't see a repaired cross-community edge).
+   */
+  async getMatchRelationshipContext(requestId: string, matchId: string): Promise<any> {
+    const response = await executeWithRetry(() =>
+      this.client.get(`/requests/${requestId}/matches/${matchId}/relationship-context`)
     );
     return response.data.data;
   }

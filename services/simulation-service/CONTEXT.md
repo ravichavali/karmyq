@@ -231,22 +231,27 @@ one-hop overlap is measured with the **candidate's own token** (the neighborhood
 non-shared-community target, so Maria's token would abort gather for exactly the cross-community
 helper). **Cross-community** is community-set disjointness (not first-community equality).
 
-Overlap is measured with `overlapFromNeighborhoods`, which counts only true one-hop neighbours
-(`degrees_of_separation === 1`) and excludes **both anchors** — otherwise each ego's own center and the
-post-repair direct edge would leak in as fake shared connections and inflate one-hop breadth, letting a
-thin story falsely clear the floor. Requests are created at **platform** visibility scope
-(`STORY_REQUEST_SCOPE`) so a cross-community helper/provider can actually reach and offer on them (the
-server otherwise falls back to the community's default scope). The repair exchange is **resumable**:
-prior repair request/match/completion state is gathered (the repair request is looked up regardless of
-status, since accepting its match closes it) and only the missing steps are re-emitted.
+Selection-time overlap is a pre-match heuristic (`overlapFromNeighborhoods`) that counts only true
+one-hop neighbours (`degrees_of_separation === 1`) and excludes **both anchors** — otherwise each ego's
+own center and the post-repair direct edge would leak in as fake shared connections. Requests are
+created at **platform** visibility scope (`STORY_REQUEST_SCOPE`) so a cross-community helper/provider
+can actually reach and offer on them; the **provider** request is a valid `service` request carrying
+the required `payload.service_category`. The repair exchange is **resumable and lifecycle-aware**: prior
+repair request/match/completion state is gathered (the repair request is looked up regardless of
+status, since accepting its match closes it), only a still-live (`proposed`/`matched`) repair match is
+resumed — a rejected/cancelled one triggers a fresh exchange, a fully-completed one emits nothing — and
+only the missing steps are re-emitted.
 
 Apply mutates only through ordinary APIs, then verifies in two stages: it **re-reads authoritative
 state** to derive the demo IDs from the server (never from mutation responses) — requiring an **open**
 request with a still-live decision (`proposed` match / `pending` offer), so a concurrent transition to
-rejected/declined/closed fails verification instead of being printed as "verified" — and then
-**re-measures the helper overlap** and confirms it clears the rich floor, polling with bounded retries
-to tolerate the asynchronous `match_completed` trust projection. It imports no DB pool and seeds no
-trust edges. The CLI
+rejected/declined/closed fails verification instead of being printed as "verified" — and then confirms
+the rich floor by **re-measuring from the platform-wide match relationship-context** (the same contract
+the demo renders), polling with bounded retries to tolerate the asynchronous `match_completed` trust
+projection. Community-scoped neighborhoods are deliberately NOT used for verification: a repaired
+cross-community edge is stored under Maria's request community and is invisible to a neighborhood walk
+that requires the disjoint helper's active membership there. It imports no DB pool and seeds no trust
+edges. The CLI
 (`npm --workspace @karmyq/simulation-service run rehearse:maria-relationship`) is dry-run by default
 and applies only with `-- --apply`. New api-client methods: `submitProviderOffer`,
 `getOffersForRequest`, `getNeighborhood`.
