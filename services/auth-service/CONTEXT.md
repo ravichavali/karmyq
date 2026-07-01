@@ -252,6 +252,41 @@ Issue a new access token using a refresh token. Rotates the refresh token on eac
 
 **Implementation:** `src/routes/auth.ts` (ADR-052, Sprint 54)
 
+### POST /auth/demo-session
+Issue a short-lived (30-minute) **read-only** Maria demo session for the guided `karmyq.com/demo`
+story (Sprint 116, ADR-084). No refresh token is ever issued. The signed JWT carries
+`sessionMode: 'demo_read_only'`; the shared auth middleware rejects any non-`GET/HEAD/OPTIONS`
+method server-side, so the session physically cannot mutate data.
+
+Gated entirely by environment (`DEMO_SESSION_ENABLED`, `DEMO_PERSONA_EMAIL`,
+`DEMO_ORDINARY_REQUEST_ID`, `DEMO_ORDINARY_MATCH_ID`, `DEMO_PROVIDER_REQUEST_ID`,
+`DEMO_PROVIDER_OFFER_ID`). Before signing, the service verifies the resolved persona is an active,
+non-admin `@test.karmyq.com` account and that both stories are coherent (Maria owns each request; the
+match/offer hang off the correct request). **Every** config/state failure — disabled, missing IDs,
+wrong persona, incoherent rows, or an unexpected error — collapses to a single opaque
+`503 DEMO_UNAVAILABLE` so resource existence is never leaked.
+
+**Response (200):**
+```json
+{
+  "success": true,
+  "data": {
+    "user": { "id": "…", "email": "maria.reyes@test.karmyq.com", "name": "Maria Reyes", "communities": [] },
+    "token": "demo-jwt (30 min, sessionMode=demo_read_only)",
+    "demo": {
+      "expiresInMinutes": 30,
+      "stories": [
+        { "kind": "ordinary", "requestId": "…", "matchId": "…" },
+        { "kind": "provider", "requestId": "…", "offerId": "…" }
+      ]
+    }
+  }
+}
+```
+
+**Implementation:** `src/services/demoSessionService.ts` + `src/routes/auth.ts`; read-only write guard in
+`packages/shared/middleware/auth.ts` (Sprint 116, ADR-084).
+
 ### GET /verify
 Verify JWT token and return user info.
 

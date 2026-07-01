@@ -35,6 +35,11 @@
           "description": "Issue a new access token using a refresh token. Rotates the refresh token on each call (old token revoked, new one issued). Replay attack protection: if an already-used token is presented, all tokens"
         },
         {
+          "method": "POST",
+          "path": "/auth/demo-session",
+          "description": "Issue a short-lived (30-minute) **read-only** Maria demo session for the guided `karmyq.com/demo`"
+        },
+        {
           "method": "GET",
           "path": "/verify",
           "description": "Verify JWT token and return user info."

@@ -31,7 +31,8 @@
           { "method": "POST", "path": "/auth/logout", "description": "Logout user, revoke access token session and optional refresh token." },
           { "method": "POST", "path": "/founding-circle/submissions", "description": "Public (no auth) founding-circle intake from the karmyq.org/join form. Honeypot-screened, validated, persist-only (ADR-076)." },
           { "method": "GET", "path": "/founding-circle/submissions", "description": "Authenticated founding-circle reviewer list endpoint. Filters by status and returns paginated submissions for review." },
-          { "method": "PATCH", "path": "/founding-circle/submissions/:id/status", "description": "Authenticated founding-circle reviewer endpoint to mark a submission new, reviewed, contacted, or archived." }
+          { "method": "PATCH", "path": "/founding-circle/submissions/:id/status", "description": "Authenticated founding-circle reviewer endpoint to mark a submission new, reviewed, contacted, or archived." },
+          { "method": "POST", "path": "/auth/demo-session", "description": "Issue a short-lived (30 min) read-only Maria demo session (Sprint 116, ADR-084). No refresh token; token carries sessionMode='demo_read_only'. Every config/state failure returns one opaque 503 DEMO_UNAVAILABLE." }
         ],
         "consumes": []
       },
