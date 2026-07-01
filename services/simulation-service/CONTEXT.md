@@ -211,11 +211,24 @@ Ride providers include `ride_details` (vehicle_type, max_passengers, advance_boo
 
 `src/scenarios/mariaRelationshipStory.ts` is a PURE planner + API-only apply for standing up two
 contrasting demo stories: a rich, cross-community ORDINARY helper story and a low-overlap PROVIDER
-story. `planMariaRelationshipStory(state)` selects personas deterministically, emits only the missing
-ordinary request/offer actions (idempotent), and enforces the rich-overlap floor
-(`≤2`-degree path, `≥3` shared, `≥4` one-hop per side) so a sparse picture is never rehearsed.
-`applyMariaRelationshipStory` refuses a sub-floor story and mutates only through ordinary APIs — it
-imports no DB pool and seeds no trust edges. The CLI
+story.
+
+The rich floor splits into two parts. **Structural** overlap (`≥3` shared, `≥4` one-hop per side)
+can only come from the real graph — `planMariaRelationshipStory` selects only structurally-rich
+helpers and never synthesizes shared people. The **path** degree, by contrast, is repairable: when a
+structurally-rich helper is more than two hops from Maria, the plan emits a single Maria↔helper
+`request → offer → accept → two-sided-completion` exchange (`create_repair_request` … `complete_repair`
+×2) to create the direct bond. A helper with no structural overlap cannot be repaired by one exchange,
+so the plan warns and `applyMariaRelationshipStory` refuses (`floor.achievable === false`) rather than
+validate a sparse picture.
+
+Discovery is **selection-aware**: a pre-existing match/offer only counts as "already done" when it
+belongs to the selected helper/provider (matched by `responderId` / `providerUserId`), so the demo is
+never configured with another participant's IDs. **Cross-community** is community-set disjointness
+(not first-community equality), so multi-community users are classified correctly. Apply mutates only
+through ordinary APIs, then **re-reads authoritative state** and derives the demo IDs from the server
+(never from mutation responses), throwing if the selected helper's match / selected provider's offer
+can't be confirmed. It imports no DB pool and seeds no trust edges. The CLI
 (`npm --workspace @karmyq/simulation-service run rehearse:maria-relationship`) is dry-run by default
 and applies only with `-- --apply`. New api-client methods: `submitProviderOffer`,
 `getOffersForRequest`, `getNeighborhood`.

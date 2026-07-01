@@ -1,12 +1,19 @@
 /**
  * Sprint 116 — deterministic Maria relationship-story rehearsal (PR B, Task 10).
  *
- * This module is PURE planning + API-only application. It never seeds trust edges, graph coordinates,
- * or product-table rows directly (no DB pool import). It reads the current world, selects truthful
- * personas, and emits the minimum ordinary request/offer actions needed to stand up two contrasting
- * helping-decision stories for the demo:
- *   - an ORDINARY story that meets the rich-overlap floor (a visibly connected helper), and
+ * PURE planning + API-only application. It never seeds trust edges, graph coordinates, or
+ * product-table rows directly (no DB pool import). It reads the current world, selects truthful
+ * personas, and emits the minimum ordinary request/offer/exchange actions needed to stand up two
+ * contrasting helping-decision stories for the demo:
+ *   - an ORDINARY story whose helper clears the rich-overlap floor, and
  *   - a PROVIDER story used as a low-overlap contrast.
+ *
+ * The rich floor has two parts. STRUCTURAL overlap (≥3 shared people, ≥4 one-hop per side) can only
+ * come from the real graph — it is never synthesized. The PATH degree, by contrast, is repairable: if
+ * a structurally-rich helper is more than two hops from Maria, we plan a single Maria↔helper
+ * request→offer→accept→two-sided-completion exchange to create the direct bond. A helper without
+ * structural overlap cannot be repaired by one exchange, so the plan warns and apply refuses rather
+ * than validate a sparse picture.
  *
  * Application is gated by the caller: the CLI is dry-run by default and only invokes
  * applyMariaRelationshipStory when the operator passes --apply.
@@ -28,26 +35,41 @@ export interface StoryOverlap {
 
 export interface HelperCandidate {
   id: string;
-  communityId: string;
+  /** All communities the candidate belongs to (not just the first). */
+  communityIds: string[];
   overlap: StoryOverlap;
 }
 
 export interface ProviderCandidate {
   id: string;
-  communityId: string;
+  communityIds: string[];
   serviceType: string;
   overlap: StoryOverlap;
 }
 
+/** A match already present on the ordinary request, tied to its responder. */
+export interface ExistingMatch {
+  id: string;
+  responderId: string;
+  status: string;
+}
+
+/** A provider offer already present on the provider request, tied to its provider. */
+export interface ExistingOffer {
+  id: string;
+  providerUserId: string;
+  status: string;
+}
+
 export interface MariaStoryState {
-  maria: { id: string; communityId: string };
+  maria: { id: string; communityIds: string[] };
   helperCandidates: HelperCandidate[];
   providerCandidates: ProviderCandidate[];
   existing: {
     ordinaryRequestId?: string;
-    ordinaryMatchId?: string;
+    ordinaryMatches: ExistingMatch[];
     providerRequestId?: string;
-    providerOfferId?: string;
+    providerOffers: ExistingOffer[];
   };
 }
 
@@ -55,7 +77,23 @@ export type StoryAction =
   | { type: 'create_ordinary_request'; actor: 'maria'; communityId: string; title: string }
   | { type: 'create_ordinary_offer'; actor: 'helper'; helperId: string }
   | { type: 'create_provider_request'; actor: 'maria'; communityId: string; title: string }
-  | { type: 'submit_provider_offer'; actor: 'provider'; providerId: string };
+  | { type: 'submit_provider_offer'; actor: 'provider'; providerId: string }
+  // Repair: a single Maria↔helper completed exchange that creates the direct bond so the trust path
+  // falls within the floor. request → offer → accept → two-sided completion.
+  | { type: 'create_repair_request'; actor: 'maria'; communityId: string; title: string }
+  | { type: 'offer_repair'; actor: 'helper'; helperId: string }
+  | { type: 'accept_repair'; actor: 'maria' }
+  | { type: 'complete_repair'; actor: 'maria' | 'helper' };
+
+export interface StoryFloor {
+  /** Structural overlap present, so the floor can be reached (repairing the path if needed). */
+  achievable: boolean;
+  /** A repair exchange is planned because the path is currently too far. */
+  needsRepair: boolean;
+  /** Floor already met with no repair required. */
+  met: boolean;
+  helperOverlap: StoryOverlap;
+}
 
 export interface MariaStoryPlan {
   selection: { ordinaryHelperId: string; providerId: string; ordinaryCrossCommunity: boolean };
@@ -64,39 +102,55 @@ export interface MariaStoryPlan {
     ordinary: { requestId?: string; matchId?: string };
     provider: { requestId?: string; offerId?: string };
   };
-  floor: { met: boolean; helperOverlap: StoryOverlap };
+  floor: StoryFloor;
   warnings: string[];
 }
 
 export const ORDINARY_REQUEST_TITLE = 'Help moving a couch this weekend';
 export const PROVIDER_REQUEST_TITLE = 'Provider quote: fix a leaking kitchen tap';
+export const REPAIR_REQUEST_TITLE = 'Repair-history exchange (rehearsal bootstrap)';
 
-export function meetsRichFloor(o: StoryOverlap): boolean {
+/** Structural overlap — shared people + one-hop breadth. This cannot be synthesized by an exchange. */
+export function hasStructuralOverlap(o: StoryOverlap): boolean {
   return (
-    o.pathDegree !== null &&
-    o.pathDegree <= RICH_FLOOR.maxPathDegree &&
     o.sharedConnections >= RICH_FLOOR.minShared &&
     o.mariaOneHop >= RICH_FLOOR.minOneHopPerSide &&
     o.helperOneHop >= RICH_FLOOR.minOneHopPerSide
   );
 }
 
+/** The full floor: structural overlap AND a close-enough path. */
+export function meetsRichFloor(o: StoryOverlap): boolean {
+  return (
+    hasStructuralOverlap(o) &&
+    o.pathDegree !== null &&
+    o.pathDegree <= RICH_FLOOR.maxPathDegree
+  );
+}
+
+function intersects(a: string[], b: string[]): boolean {
+  const set = new Set(a);
+  return b.some(id => set.has(id));
+}
+
 /**
- * Deterministically pick the ordinary helper. Prefer a candidate that BOTH clears the rich floor and
- * lives in a different community (so the story also demonstrates cross-community reach), then rank by
- * shared overlap desc and id asc for stability. If none clear the floor, return the best-overlap
- * candidate but flag the floor unmet — we never silently validate a sparse story.
+ * Deterministically pick the ordinary helper. Only structurally-rich candidates are eligible (their
+ * shared/one-hop overlap is real and unsynthesizable); among those, prefer a cross-community candidate,
+ * then higher shared overlap, then id for stability. If none are structurally rich, return the best
+ * available and flag the floor unachievable — a single exchange cannot manufacture shared people.
  */
-function selectHelper(state: MariaStoryState): { helper: HelperCandidate; met: boolean } {
-  const byRichness = (a: HelperCandidate, b: HelperCandidate) =>
-    b.overlap.sharedConnections - a.overlap.sharedConnections || a.id.localeCompare(b.id);
-  const qualifying = state.helperCandidates.filter(c => meetsRichFloor(c.overlap)).sort(byRichness);
-  const crossCommunity = qualifying.filter(c => c.communityId !== state.maria.communityId);
-  const chosen = crossCommunity[0] ?? qualifying[0];
-  if (chosen) return { helper: chosen, met: true };
-  // Nothing qualifies — surface the best available so the operator can see how far short it falls.
-  const fallback = [...state.helperCandidates].sort(byRichness)[0];
-  return { helper: fallback, met: false };
+function selectHelper(
+  state: MariaStoryState,
+): { helper: HelperCandidate; achievable: boolean } {
+  const crossScore = (c: HelperCandidate) => (intersects(c.communityIds, state.maria.communityIds) ? 0 : 1);
+  const rank = (a: HelperCandidate, b: HelperCandidate) =>
+    crossScore(b) - crossScore(a) ||
+    b.overlap.sharedConnections - a.overlap.sharedConnections ||
+    a.id.localeCompare(b.id);
+
+  const structural = state.helperCandidates.filter(c => hasStructuralOverlap(c.overlap)).sort(rank);
+  if (structural.length) return { helper: structural[0], achievable: true };
+  return { helper: [...state.helperCandidates].sort(rank)[0], achievable: false };
 }
 
 /** Pick the lowest-overlap provider so the provider story reads as a deliberate contrast. */
@@ -107,30 +161,48 @@ function selectProvider(state: MariaStoryState): ProviderCandidate {
 }
 
 export function planMariaRelationshipStory(state: MariaStoryState): MariaStoryPlan {
-  const { helper, met } = selectHelper(state);
+  const { helper, achievable } = selectHelper(state);
   const provider = selectProvider(state);
   const { existing } = state;
 
+  // Selection-aware reconciliation: a pre-existing match/offer only counts when it belongs to the
+  // SELECTED helper/provider — otherwise this story still needs its own offer, and reusing another
+  // participant's ID would configure the demo with the wrong story.
+  const ordinaryMatchId = existing.ordinaryMatches.find(m => m.responderId === helper.id)?.id;
+  const providerOfferId = existing.providerOffers.find(o => o.providerUserId === provider.id)?.id;
+
+  const pathWithinFloor = helper.overlap.pathDegree !== null && helper.overlap.pathDegree <= RICH_FLOOR.maxPathDegree;
+  const needsRepair = achievable && !pathWithinFloor;
+
   const actions: StoryAction[] = [];
   if (!existing.ordinaryRequestId) {
-    actions.push({ type: 'create_ordinary_request', actor: 'maria', communityId: state.maria.communityId, title: ORDINARY_REQUEST_TITLE });
+    actions.push({ type: 'create_ordinary_request', actor: 'maria', communityId: state.maria.communityIds[0], title: ORDINARY_REQUEST_TITLE });
   }
-  if (!existing.ordinaryMatchId) {
+  if (!ordinaryMatchId) {
     actions.push({ type: 'create_ordinary_offer', actor: 'helper', helperId: helper.id });
   }
   if (!existing.providerRequestId) {
-    actions.push({ type: 'create_provider_request', actor: 'maria', communityId: state.maria.communityId, title: PROVIDER_REQUEST_TITLE });
+    actions.push({ type: 'create_provider_request', actor: 'maria', communityId: state.maria.communityIds[0], title: PROVIDER_REQUEST_TITLE });
   }
-  if (!existing.providerOfferId) {
+  if (!providerOfferId) {
     actions.push({ type: 'submit_provider_offer', actor: 'provider', providerId: provider.id });
+  }
+  if (needsRepair) {
+    actions.push(
+      { type: 'create_repair_request', actor: 'maria', communityId: state.maria.communityIds[0], title: REPAIR_REQUEST_TITLE },
+      { type: 'offer_repair', actor: 'helper', helperId: helper.id },
+      { type: 'accept_repair', actor: 'maria' },
+      { type: 'complete_repair', actor: 'maria' },
+      { type: 'complete_repair', actor: 'helper' },
+    );
   }
 
   const warnings: string[] = [];
-  if (!met) {
+  if (!achievable) {
     warnings.push(
-      `Selected ordinary helper ${helper.id} does not clear the rich floor ` +
-        `(need ≤${RICH_FLOOR.maxPathDegree}-degree path, ≥${RICH_FLOOR.minShared} shared, ` +
-        `≥${RICH_FLOOR.minOneHopPerSide} one-hop per side). Add real shared history before applying.`,
+      `No candidate clears the structural rich floor (need ≥${RICH_FLOOR.minShared} shared and ` +
+        `≥${RICH_FLOOR.minOneHopPerSide} one-hop per side). Best available helper is ${helper.id}. ` +
+        `Shared connections cannot be synthesized by an exchange — add real shared history first.`,
     );
   }
 
@@ -138,20 +210,20 @@ export function planMariaRelationshipStory(state: MariaStoryState): MariaStoryPl
     selection: {
       ordinaryHelperId: helper.id,
       providerId: provider.id,
-      ordinaryCrossCommunity: helper.communityId !== state.maria.communityId,
+      ordinaryCrossCommunity: !intersects(helper.communityIds, state.maria.communityIds),
     },
     actions,
     expected: {
       ordinary: {
         ...(existing.ordinaryRequestId && { requestId: existing.ordinaryRequestId }),
-        ...(existing.ordinaryMatchId && { matchId: existing.ordinaryMatchId }),
+        ...(ordinaryMatchId && { matchId: ordinaryMatchId }),
       },
       provider: {
         ...(existing.providerRequestId && { requestId: existing.providerRequestId }),
-        ...(existing.providerOfferId && { offerId: existing.providerOfferId }),
+        ...(providerOfferId && { offerId: providerOfferId }),
       },
     },
-    floor: { met, helperOverlap: helper.overlap },
+    floor: { achievable, needsRepair, met: achievable && !needsRepair, helperOverlap: helper.overlap },
     warnings,
   };
 }
@@ -161,76 +233,126 @@ export interface StoryResult {
   provider: { requestId?: string; offerId?: string };
 }
 
-/** The minimal client surface the apply step needs — each method maps to an ordinary HTTP API. */
+/**
+ * The minimal client surface apply needs. Mutations go through ordinary HTTP APIs; `readback` re-reads
+ * authoritative state so the demo IDs come from the server, not from mutation responses.
+ */
 export interface StoryClients {
   maria: {
     createRequest(data: { community_id: string; title: string; description: string; request_type: string }): Promise<any>;
+    acceptMatch(matchId: string): Promise<any>;
+    completeMatch(matchId: string): Promise<any>;
   };
   helper: {
-    offerHelp(requestId: string, responderId: string): Promise<any>;
+    offerHelp(requestId: string): Promise<any>;
+    completeMatch(matchId: string): Promise<any>;
   };
   provider: {
-    submitProviderOffer(requestId: string, price: number | null, note: string | null): Promise<any>;
+    submitProviderOffer(requestId: string): Promise<any>;
+  };
+  readback: {
+    getRequest(requestId: string): Promise<{ id: string } | null>;
+    getMatchesForRequest(requestId: string): Promise<ExistingMatch[]>;
+    getOffersForRequest(requestId: string): Promise<ExistingOffer[]>;
   };
 }
 
 const idOf = (res: any): string | undefined => res?.id ?? res?.data?.id ?? res?.data?.data?.id;
+function need(id: string | undefined, what: string): string {
+  if (!id) throw new Error(`${what} must exist before the next action`);
+  return id;
+}
 
 /**
- * Apply the plan through ordinary APIs only. Refuses to run a sparse story so the demo never shows two
- * thin pictures. Resumable: an empty plan (everything already exists) is a no-op that returns the
- * already-verified IDs.
+ * Apply the plan through ordinary APIs, then VERIFY by re-reading authoritative state and deriving the
+ * demo IDs from the server (never from mutation responses). Refuses to run a story whose structural
+ * overlap is missing, so the demo never shows a sparse picture. Resumable: an empty plan re-reads and
+ * verifies the already-existing IDs.
  */
 export async function applyMariaRelationshipStory(
   plan: MariaStoryPlan,
   clients: StoryClients,
 ): Promise<StoryResult> {
-  if (!plan.floor.met) {
+  if (!plan.floor.achievable) {
     throw new Error(
-      `Refusing to apply: ordinary story does not clear the rich floor. ${plan.warnings.join(' ')}`,
+      `Refusing to apply: the ordinary helper lacks structural rich-floor overlap. ${plan.warnings.join(' ')}`,
     );
   }
-  const result: StoryResult = {
-    ordinary: { ...plan.expected.ordinary },
-    provider: { ...plan.expected.provider },
-  };
+
+  const requestId = { ordinary: plan.expected.ordinary.requestId, provider: plan.expected.provider.requestId };
+  let repairRequestId: string | undefined;
+  let repairMatchId: string | undefined;
 
   for (const action of plan.actions) {
     switch (action.type) {
-      case 'create_ordinary_request': {
-        const res = await clients.maria.createRequest({
-          community_id: action.communityId,
-          title: action.title,
-          description: 'Looking for a hand moving a couch on Saturday afternoon.',
-          request_type: 'generic',
-        });
-        result.ordinary.requestId = idOf(res);
+      case 'create_ordinary_request':
+        requestId.ordinary = idOf(await clients.maria.createRequest(requestBody(action)));
         break;
-      }
-      case 'create_ordinary_offer': {
-        if (!result.ordinary.requestId) throw new Error('Ordinary request must exist before offering');
-        const res = await clients.helper.offerHelp(result.ordinary.requestId, action.helperId);
-        result.ordinary.matchId = idOf(res);
+      case 'create_ordinary_offer':
+        await clients.helper.offerHelp(need(requestId.ordinary, 'Ordinary request'));
         break;
-      }
-      case 'create_provider_request': {
-        const res = await clients.maria.createRequest({
-          community_id: action.communityId,
-          title: action.title,
-          description: 'Need a tradesperson to quote and fix a leaking kitchen tap.',
-          request_type: 'service',
-        });
-        result.provider.requestId = idOf(res);
+      case 'create_provider_request':
+        requestId.provider = idOf(await clients.maria.createRequest(requestBody(action)));
         break;
-      }
-      case 'submit_provider_offer': {
-        if (!result.provider.requestId) throw new Error('Provider request must exist before submitting an offer');
-        const res = await clients.provider.submitProviderOffer(result.provider.requestId, 40, 'Available this weekend.');
-        result.provider.offerId = idOf(res);
+      case 'submit_provider_offer':
+        await clients.provider.submitProviderOffer(need(requestId.provider, 'Provider request'));
         break;
-      }
+      case 'create_repair_request':
+        repairRequestId = idOf(await clients.maria.createRequest(requestBody(action)));
+        break;
+      case 'offer_repair':
+        repairMatchId = idOf(await clients.helper.offerHelp(need(repairRequestId, 'Repair request')));
+        break;
+      case 'accept_repair':
+        await clients.maria.acceptMatch(need(repairMatchId, 'Repair match'));
+        break;
+      case 'complete_repair':
+        await (action.actor === 'maria' ? clients.maria : clients.helper).completeMatch(
+          need(repairMatchId, 'Repair match'),
+        );
+        break;
     }
   }
 
+  // Verify by authoritative re-read: the demo IDs are whatever the server now reports for the SELECTED
+  // helper/provider — not the transient mutation responses.
+  const result: StoryResult = { ordinary: {}, provider: {} };
+  if (requestId.ordinary) {
+    const req = await clients.readback.getRequest(requestId.ordinary);
+    if (!req) throw new Error('Verification failed: ordinary request not found on re-read');
+    const match = (await clients.readback.getMatchesForRequest(requestId.ordinary)).find(
+      m => m.responderId === plan.selection.ordinaryHelperId,
+    );
+    if (!match) throw new Error('Verification failed: ordinary match for the selected helper not found on re-read');
+    result.ordinary = { requestId: requestId.ordinary, matchId: match.id };
+  }
+  if (requestId.provider) {
+    const req = await clients.readback.getRequest(requestId.provider);
+    if (!req) throw new Error('Verification failed: provider request not found on re-read');
+    const offer = (await clients.readback.getOffersForRequest(requestId.provider)).find(
+      o => o.providerUserId === plan.selection.providerId,
+    );
+    if (!offer) throw new Error('Verification failed: provider offer for the selected provider not found on re-read');
+    result.provider = { requestId: requestId.provider, offerId: offer.id };
+  }
   return result;
+}
+
+type CreateRequestAction = Extract<
+  StoryAction,
+  { type: 'create_ordinary_request' | 'create_provider_request' | 'create_repair_request' }
+>;
+
+function requestBody(action: CreateRequestAction) {
+  const descriptions: Record<string, string> = {
+    create_ordinary_request: 'Looking for a hand moving a couch on Saturday afternoon.',
+    create_provider_request: 'Need a tradesperson to quote and fix a leaking kitchen tap.',
+    create_repair_request: 'A small mutual exchange to establish direct rehearsal history.',
+  };
+  return {
+    community_id: action.communityId,
+    title: action.title,
+    description: descriptions[action.type] ?? action.title,
+    request_type: action.type === 'create_provider_request' ? 'service' : 'generic',
+  };
 }

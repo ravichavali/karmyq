@@ -4,6 +4,7 @@ import {
   planMariaRelationshipStory,
   applyMariaRelationshipStory,
   meetsRichFloor,
+  hasStructuralOverlap,
   RICH_FLOOR,
   PROVIDER_REQUEST_TITLE,
   type MariaStoryState,
@@ -13,72 +14,118 @@ import {
 const MARIA = '11111111-1111-1111-1111-111111111111';
 const C1 = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
 const C2 = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
+const C3 = 'cccccccc-cccc-cccc-cccc-cccccccccccc';
 
-const rich: StoryOverlap = { pathDegree: 2, sharedConnections: 4, mariaOneHop: 6, helperOneHop: 5 };
-const sparse: StoryOverlap = { pathDegree: 4, sharedConnections: 1, mariaOneHop: 2, helperOneHop: 2 };
+// Structural overlap present (shared people + one-hop breadth) — cannot be synthesized.
+const richPath: StoryOverlap = { pathDegree: 2, sharedConnections: 4, mariaOneHop: 6, helperOneHop: 5 };
+// Same structural overlap but the direct path is too far — repairable via a Maria↔helper exchange.
+const farPath: StoryOverlap = { pathDegree: 5, sharedConnections: 4, mariaOneHop: 6, helperOneHop: 5 };
+// No structural overlap — a single exchange cannot manufacture 3 shared people.
+const sparse: StoryOverlap = { pathDegree: null, sharedConnections: 1, mariaOneHop: 2, helperOneHop: 2 };
+const lowOverlap: StoryOverlap = { pathDegree: null, sharedConnections: 0, mariaOneHop: 5, helperOneHop: 1 };
 
 function baseState(overrides: Partial<MariaStoryState> = {}): MariaStoryState {
   return {
-    maria: { id: MARIA, communityId: C1 },
+    maria: { id: MARIA, communityIds: [C1] },
     helperCandidates: [
-      { id: 'h-cross', communityId: C2, overlap: rich },          // cross-community + rich → preferred
-      { id: 'h-same', communityId: C1, overlap: rich },           // rich but same community
-      { id: 'h-sparse', communityId: C2, overlap: sparse },
+      { id: 'h-cross', communityIds: [C2], overlap: richPath },       // structural + path ok + cross
+      { id: 'h-same', communityIds: [C1], overlap: richPath },        // structural + path ok, same community
     ],
     providerCandidates: [
-      { id: 'p-overlap', communityId: C1, serviceType: 'tradesperson', overlap: { ...rich, sharedConnections: 3 } },
-      { id: 'p-contrast', communityId: C2, serviceType: 'tradesperson', overlap: { pathDegree: null, sharedConnections: 0, mariaOneHop: 5, helperOneHop: 1 } },
+      { id: 'p-overlap', communityIds: [C1], serviceType: 'tradesperson', overlap: { ...richPath, sharedConnections: 3 } },
+      { id: 'p-contrast', communityIds: [C2], serviceType: 'tradesperson', overlap: lowOverlap },
     ],
-    existing: {},
+    existing: { ordinaryMatches: [], providerOffers: [] },
     ...overrides,
   };
 }
 
-describe('Sprint 116 — meetsRichFloor invariant', () => {
-  it('encodes ≤2-degree path, ≥3 shared, ≥4 one-hop per side', () => {
+describe('Sprint 116 — floor invariants', () => {
+  it('separates structural overlap (unsynthesizable) from the full rich floor (path repairable)', () => {
     expect(RICH_FLOOR).toEqual({ maxPathDegree: 2, minShared: 3, minOneHopPerSide: 4 });
-    expect(meetsRichFloor(rich)).toBe(true);
-    expect(meetsRichFloor({ ...rich, sharedConnections: 2 })).toBe(false);
-    expect(meetsRichFloor({ ...rich, pathDegree: 3 })).toBe(false);
-    expect(meetsRichFloor({ ...rich, pathDegree: null })).toBe(false);
-    expect(meetsRichFloor({ ...rich, mariaOneHop: 3 })).toBe(false);
-    expect(meetsRichFloor({ ...rich, helperOneHop: 3 })).toBe(false);
+    expect(hasStructuralOverlap(richPath)).toBe(true);
+    expect(hasStructuralOverlap(farPath)).toBe(true);        // shared/one-hop present; only the path is far
+    expect(hasStructuralOverlap(sparse)).toBe(false);
+    expect(meetsRichFloor(richPath)).toBe(true);
+    expect(meetsRichFloor(farPath)).toBe(false);             // path degree 5 > 2
   });
 });
 
-describe('Sprint 116 — planMariaRelationshipStory selection', () => {
-  it('selects a rich, cross-community ordinary helper and a low-overlap provider contrast', () => {
+describe('Sprint 116 — selection', () => {
+  it('prefers a structurally-rich, cross-community helper and a low-overlap provider contrast', () => {
     const plan = planMariaRelationshipStory(baseState());
     expect(plan.selection.ordinaryHelperId).toBe('h-cross');
     expect(plan.selection.ordinaryCrossCommunity).toBe(true);
     expect(plan.selection.providerId).toBe('p-contrast');
-    expect(plan.floor.met).toBe(true);
-    expect(plan.warnings).toEqual([]);
+    expect(plan.floor).toMatchObject({ met: true, achievable: true, needsRepair: false });
   });
 
-  it('scaffolds both stories with ordinary APIs when nothing exists yet', () => {
-    const plan = planMariaRelationshipStory(baseState());
+  it('classifies cross-community by community-set disjointness, not the first community', () => {
+    // helper's first community differs from Maria's, but the sets still intersect (both include C1).
+    const plan = planMariaRelationshipStory(baseState({
+      helperCandidates: [{ id: 'h-multi', communityIds: [C2, C1], overlap: richPath }],
+    }));
+    expect(plan.selection.ordinaryHelperId).toBe('h-multi');
+    expect(plan.selection.ordinaryCrossCommunity).toBe(false);
+  });
+});
+
+describe('Sprint 116 — repair vs refuse', () => {
+  it('repairs a far path with request→offer→accept→two-sided-completion actions', () => {
+    const plan = planMariaRelationshipStory(baseState({
+      helperCandidates: [{ id: 'h-far', communityIds: [C3], overlap: farPath }],
+    }));
+    expect(plan.floor).toMatchObject({ achievable: true, needsRepair: true, met: false });
+    expect(plan.warnings).toEqual([]);
     expect(plan.actions.map(a => a.type)).toEqual([
       'create_ordinary_request',
       'create_ordinary_offer',
       'create_provider_request',
       'submit_provider_offer',
+      'create_repair_request',
+      'offer_repair',
+      'accept_repair',
+      'complete_repair',
+      'complete_repair',
     ]);
-    // The ordinary request is Maria's own, placed in her home community (the cross-community reach
-    // comes from the helper living elsewhere, not from posting into the helper's community).
-    const ordinaryReq = plan.actions.find(a => a.type === 'create_ordinary_request') as any;
-    expect(ordinaryReq.actor).toBe('maria');
-    expect(ordinaryReq.communityId).toBe(C1);
-    expect(plan.expected).toEqual({ ordinary: {}, provider: {} });
+    // two-sided completion: one completion by each participant
+    const completions = plan.actions.filter(a => a.type === 'complete_repair') as Array<{ actor: string }>;
+    expect(completions.map(c => c.actor).sort()).toEqual(['helper', 'maria']);
   });
 
-  it('is idempotent: a fully-realized story plans zero mutations', () => {
+  it('refuses (warns, no repair, apply throws) when no candidate has structural overlap', () => {
+    const plan = planMariaRelationshipStory(baseState({
+      helperCandidates: [{ id: 'h-sparse', communityIds: [C3], overlap: sparse }],
+    }));
+    expect(plan.floor).toMatchObject({ achievable: false });
+    expect(plan.warnings.join(' ')).toMatch(/rich floor|structural/i);
+    expect(plan.actions.some(a => a.type === 'create_repair_request')).toBe(false);
+  });
+});
+
+describe('Sprint 116 — selection-aware existing-state reconciliation', () => {
+  it('only treats a match/offer as existing when it belongs to the SELECTED helper/provider', () => {
     const plan = planMariaRelationshipStory(baseState({
       existing: {
         ordinaryRequestId: 'req-o',
-        ordinaryMatchId: 'match-o',
+        // a match exists, but from a DIFFERENT responder → the selected helper still needs to offer
+        ordinaryMatches: [{ id: 'match-other', responderId: 'someone-else', status: 'proposed' }],
         providerRequestId: 'req-p',
-        providerOfferId: 'offer-p',
+        // an offer exists, but from a DIFFERENT provider → the selected provider still needs to submit
+        providerOffers: [{ id: 'offer-other', providerUserId: 'other-provider', status: 'pending' }],
+      },
+    }));
+    expect(plan.actions.map(a => a.type)).toEqual(['create_ordinary_offer', 'submit_provider_offer']);
+    expect(plan.expected).toEqual({ ordinary: { requestId: 'req-o' }, provider: { requestId: 'req-p' } });
+  });
+
+  it('is idempotent when the selected helper/provider already have their match/offer and the path is close', () => {
+    const plan = planMariaRelationshipStory(baseState({
+      existing: {
+        ordinaryRequestId: 'req-o',
+        ordinaryMatches: [{ id: 'match-o', responderId: 'h-cross', status: 'proposed' }],
+        providerRequestId: 'req-p',
+        providerOffers: [{ id: 'offer-p', providerUserId: 'p-contrast', status: 'pending' }],
       },
     }));
     expect(plan.actions).toEqual([]);
@@ -87,59 +134,77 @@ describe('Sprint 116 — planMariaRelationshipStory selection', () => {
       provider: { requestId: 'req-p', offerId: 'offer-p' },
     });
   });
-
-  it('plans only the missing half when one story already exists', () => {
-    const plan = planMariaRelationshipStory(baseState({
-      existing: { ordinaryRequestId: 'req-o', ordinaryMatchId: 'match-o' },
-    }));
-    expect(plan.actions.map(a => a.type)).toEqual(['create_provider_request', 'submit_provider_offer']);
-    expect(plan.expected.ordinary).toEqual({ requestId: 'req-o', matchId: 'match-o' });
-  });
-
-  it('refuses to validate a sparse picture: warns and marks the floor unmet when no helper qualifies', () => {
-    const plan = planMariaRelationshipStory(baseState({
-      helperCandidates: [{ id: 'h-sparse', communityId: C2, overlap: sparse }],
-    }));
-    expect(plan.floor.met).toBe(false);
-    expect(plan.warnings.join(' ')).toMatch(/rich floor/i);
-  });
 });
 
-describe('Sprint 116 — applyMariaRelationshipStory (API-only, dry-run gated by caller)', () => {
-  function fakeClients() {
+describe('Sprint 116 — apply re-reads authoritative state and verifies before reporting IDs', () => {
+  function fakeClients(readback: any) {
     return {
       maria: {
-        createRequest: jest.fn(async (d: any) => ({ id: d.title === PROVIDER_REQUEST_TITLE ? 'req-p' : 'req-o' })),
+        createRequest: jest.fn(async (d: any) => ({ id: d.title === PROVIDER_REQUEST_TITLE ? 'req-p' : d.title.startsWith('Repair') ? 'req-repair' : 'req-o' })),
+        acceptMatch: jest.fn(async () => ({})),
+        completeMatch: jest.fn(async () => ({})),
       },
       helper: {
-        offerHelp: jest.fn(async () => ({ id: 'match-o' })),
+        offerHelp: jest.fn(async () => ({ id: 'match-mutation-resp' })),
+        completeMatch: jest.fn(async () => ({})),
       },
       provider: {
-        submitProviderOffer: jest.fn(async () => ({ id: 'offer-p' })),
+        submitProviderOffer: jest.fn(async () => ({ id: 'offer-mutation-resp' })),
       },
+      readback,
     } as any;
   }
 
-  it('executes scaffolding through ordinary API methods and fills the verified IDs', async () => {
+  it('derives the demo IDs from re-read (not the mutation responses) and confirms the request exists', async () => {
     const plan = planMariaRelationshipStory(baseState());
-    const clients = fakeClients();
+    // Re-read reports the authoritative rows tied to the selected personas.
+    const readback = {
+      getRequest: jest.fn(async (id: string) => ({ id })),
+      getMatchesForRequest: jest.fn(async () => [{ id: 'match-authoritative', responderId: 'h-cross', status: 'proposed' }]),
+      getOffersForRequest: jest.fn(async () => [{ id: 'offer-authoritative', providerUserId: 'p-contrast', status: 'pending' }]),
+    };
+    const clients = fakeClients(readback);
 
     const result = await applyMariaRelationshipStory(plan, clients);
 
-    expect(clients.maria.createRequest).toHaveBeenCalledTimes(2);
-    expect(clients.helper.offerHelp).toHaveBeenCalledTimes(1);
-    expect(clients.provider.submitProviderOffer).toHaveBeenCalledTimes(1);
+    expect(readback.getMatchesForRequest).toHaveBeenCalledWith('req-o');
+    expect(readback.getOffersForRequest).toHaveBeenCalledWith('req-p');
     expect(result).toEqual({
-      ordinary: { requestId: 'req-o', matchId: 'match-o' },
-      provider: { requestId: 'req-p', offerId: 'offer-p' },
+      ordinary: { requestId: 'req-o', matchId: 'match-authoritative' },
+      provider: { requestId: 'req-p', offerId: 'offer-authoritative' },
     });
   });
 
-  it('never applies a sparse story', async () => {
-    const plan = planMariaRelationshipStory(baseState({
-      helperCandidates: [{ id: 'h-sparse', communityId: C2, overlap: sparse }],
+  it('throws when re-read cannot confirm the selected helper’s match', async () => {
+    const plan = planMariaRelationshipStory(baseState());
+    const readback = {
+      getRequest: jest.fn(async (id: string) => ({ id })),
+      getMatchesForRequest: jest.fn(async () => [{ id: 'match-x', responderId: 'someone-else', status: 'proposed' }]),
+      getOffersForRequest: jest.fn(async () => [{ id: 'offer-authoritative', providerUserId: 'p-contrast', status: 'pending' }]),
+    };
+    await expect(applyMariaRelationshipStory(plan, fakeClients(readback))).rejects.toThrow(/verif|not found/i);
+  });
+
+  it('executes the repair exchange and never applies a story without structural overlap', async () => {
+    const repairPlan = planMariaRelationshipStory(baseState({
+      helperCandidates: [{ id: 'h-far', communityIds: [C3], overlap: farPath }],
     }));
-    await expect(applyMariaRelationshipStory(plan, fakeClients())).rejects.toThrow(/rich floor/i);
+    const readback = {
+      getRequest: jest.fn(async (id: string) => ({ id })),
+      getMatchesForRequest: jest.fn(async () => [{ id: 'match-authoritative', responderId: 'h-far', status: 'proposed' }]),
+      getOffersForRequest: jest.fn(async () => [{ id: 'offer-authoritative', providerUserId: 'p-contrast', status: 'pending' }]),
+    };
+    const clients = fakeClients(readback);
+    await applyMariaRelationshipStory(repairPlan, clients);
+    // repair = one accept + two completions
+    expect(clients.maria.acceptMatch).toHaveBeenCalledTimes(1);
+    expect(clients.maria.completeMatch).toHaveBeenCalledTimes(1);
+    expect(clients.helper.completeMatch).toHaveBeenCalledTimes(1);
+
+    const sparsePlan = planMariaRelationshipStory(baseState({
+      helperCandidates: [{ id: 'h-sparse', communityIds: [C3], overlap: sparse }],
+    }));
+    await expect(applyMariaRelationshipStory(sparsePlan, fakeClients(readback))).rejects.toThrow(/rich floor|structural/i);
   });
 });
 
