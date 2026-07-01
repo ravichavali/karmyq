@@ -1,28 +1,29 @@
-# Sprint 116 — Connected Help and Guided Entry: PR A MERGED & DEPLOYED → PR B NEXT
+# Sprint 116 — Connected Help and Guided Entry: PR A & PR B MERGED → PR C OPEN (#131), AWAITING ADMIN MERGE
 
-> **STATUS (2026-06-30):** PR A is **merged and deployed**. [#128](https://github.com/ravichavali/karmyq/pull/128)
-> squash-merged to `master` as `89ccf4d7` (admin override — branch protection requires a review the
-> solo-dev repo can't self-satisfy; all CI was green), and the demo deploy completed successfully.
-> Contract, projection, authorization, deterministic renderer, ADR-084, regression promotion, generated
-> docs, and v11.23.0 shipped. Claude's four review findings were resolved (`476bd5ec`); a follow-up
-> CodeQL scan then flagged two more, both fixed and squashed into the merge: the social-graph client
-> URL now comes from a hard origin **allowlist** (replacing the `js/request-forgery` suppression) and
-> `RelationshipContextUnavailableError` carries a `configuration|transport|upstream|contract` failure
-> kind + cause. **PR B is now unblocked.** The `agent/codex/sprint-116-relationship-shape` branch is
-> deleted; this handoff lives on the new `agent/codex/sprint-116-offer-context` branch.
+> **STATUS (2026-07-01):** PR A (#128, `89ccf4d7`, v11.23.0) and PR B (#130, `057663eb`, v11.24.0) are
+> **merged and deployed**. **PR C is implemented and open as [#131](https://github.com/ravichavali/karmyq/pull/131)**
+> on branch `agent/claude/sprint-116-guided-entry` (v11.25.0, 4 commits off `057663eb`). PR C delivers
+> Tasks 12–18: the fail-closed read-only Maria demo session (`POST /auth/demo-session`,
+> `sessionMode:'demo_read_only'` enforced in shared auth middleware), the public guided `/demo` page,
+> and three distinct karmyq.org entry paths (Explore / Join the Platform / Founding Circle). All four
+> SDLC gates ran green (testing, /simplify, /code-review → 1 accepted finding, /security-review → no
+> HIGH/MEDIUM). **Awaiting Admin merge + deploy, then the Admin-authorized rehearsal `--apply` + live
+> five-second validation.** Contributor agents do not merge.
 
 ## Quick Start
 
-1. Confirm `origin/master` is at `89ccf4d7` (PR A) and the demo deploy is healthy
+1. Confirm `origin/master` is at `057663eb` (PR B) and the demo deploy is healthy
    (`gh run list --branch master`; live check with `maria.reyes@test.karmyq.com` / `password123`).
-2. You are on `agent/codex/sprint-116-offer-context` (branched off the merged `origin/master`). Begin
-   **PR B / Task 7** in `docs/superpowers/plans/2026-06-29-sprint-116-connected-help.md`.
-3. PR B targets v11.24.0 — the helping-decision surfaces (helper sees requester context before
-   offering; requester sees reciprocal context on an ordinary match; provider/requester reciprocal
-   context on offers) plus the deterministic API-only Maria story rehearsal.
-4. Do not start PR C until PR B is merged. PR C still owns the distinct **Join the Platform** path.
-5. Cross-agent review: PR B's author is reviewed by the *other* agent before merge; Admin authorizes
-   merge/deploy. The admin-override merge path applies again unless a second reviewer is available.
+2. **PR C (#131) is open and merge-ready** on `agent/claude/sprint-116-guided-entry`. Review it, then
+   (Admin) merge via `gh pr merge 131 --squash --admin --delete-branch` once CI is green.
+3. **Post-merge (Admin), required before live validation:** deploy, then run
+   `npm --workspace @karmyq/simulation-service run rehearse:maria-relationship -- --apply` against the
+   deployed demo (Docker is unavailable locally). Set `DEMO_SESSION_ENABLED=true`, `DEMO_PERSONA_EMAIL`,
+   and the four verified `DEMO_ORDINARY_REQUEST_ID` / `DEMO_ORDINARY_MATCH_ID` /
+   `DEMO_PROVIDER_REQUEST_ID` / `DEMO_PROVIDER_OFFER_ID` IDs in `.env.demo`. Then run the three
+   five-second validations + the server-side demo-write 403 check.
+4. PR C is the final PR of Sprint 116. On merge+validate, the sprint closes; S117 is the standalone
+   Network-page decision from the contextual-lens evidence.
 
 ## Sprint Goal
 
@@ -186,21 +187,23 @@ offer/accept/decline actions still work. Validate the same topology from both pa
 
 ### Active Session (update on every role handoff)
 
-- **Driving agent:** **Claude authors PR B** (Admin decision, 2026-06-30, overriding the original
-  "Codex contributes / Claude reviews" plan). Independent cross-agent review is waived for PR B unless
-  Codex reviews after the fact.
-- **Phase:** PR B (Tasks 7–11) implemented and reviewed — **Codex review converged (merge-ready)**;
-  awaiting Admin merge + deploy, then Admin-authorized rehearsal `--apply` and live validation (plan
-  Task 11 Step 3). Codex's explicit recommendation: merge PR B and validate `--apply` post-deploy; no
-  further broad static-review cycle. Tasks 7–10 are the four helping-decision surfaces + the
-  deterministic Maria rehearsal; Task 11 is docs/version/gates/PR. v11.24.0.
-- **Branch:** `agent/codex/sprint-116-offer-context`, branched off the merged `origin/master`
-  (`89ccf4d7`); the prior `agent/codex/sprint-116-relationship-shape` branch is deleted.
-- **Gates (all green on the branch diff):** frontend regression 158, request-service unit 141 +
-  regression 207, simulation-service 51; per-workspace `tsc --noEmit` clean; doc-context drift 5/5;
-  `/simplify`, `/code-review`, `/security-review` run — one persona-reuse cleanup applied, no
-  correctness/security findings. CodeQL: 8 `js/request-forgery` FPs dismissed (env-var baseURL); 0 open.
-  (Test Docker Build flaked once on a transient npm-install error; cleared on re-run.)
+- **Driving agent:** **Claude authored PR C** (continuing from the PR B authorship decision).
+  Independent cross-agent review by Codex is optional/after-the-fact; Admin authorizes merge/deploy.
+- **Phase:** PR C (Tasks 12–18) implemented, all gates green, **open as #131 — awaiting Admin merge +
+  deploy**, then Admin-authorized rehearsal `--apply` + live five-second validation (plan Task 17–18).
+  Tasks 12–14 are the demo session / demo page / three entry paths; Task 15 is docs/version/promotion;
+  Tasks 16–18 are gates/PR. v11.25.0.
+- **Branch:** `agent/claude/sprint-116-guided-entry`, 4 commits off the merged `origin/master`
+  (`057663eb`, PR B). Pushed; PR #131 open against `master`.
+- **Gates (green in isolation on the branch diff):** shared middleware 13, auth-service unit 25 +
+  regression 24, frontend sprint-116 regression 32, landing regression 61, community-service 100
+  (unaffected); per-workspace `tsc`/build clean; landing `next build` clean; doc-context drift 5/5;
+  `npm audit --audit-level=high` clean (3 known moderate Expo advisories); `feedback:check` clean;
+  `git diff --check` clean. `/simplify` (no findings), `/code-review` (1 accepted finding — demo
+  session-overwrite, see PR #131 body: dropping refreshToken is load-bearing for read-only),
+  `/security-review` (no HIGH/MEDIUM). **Known env flake:** the full `npm test` turbo run fails on a
+  *different unrelated* service each run under Windows parallelism (auth-service, then community-service),
+  but every workspace passes when run directly — not a regression.
 - **Cross-agent review (Codex) — four rounds, all addressed on Task 10 (Maria rehearsal):** R1 —
   repair-not-reject, selection-aware discovery, verified apply (re-read), cross-community by community
   set. R2 — candidate-token neighborhood measurement, structural re-verification with projection-lag
@@ -216,10 +219,13 @@ offer/accept/decline actions still work. Validate the same topology from both pa
   `--apply` remains un-runnable locally (no Docker); the rehearsal's live correctness is ultimately
   validated only in the Admin-authorized post-deploy run.
 - **Working tree expectation:** clean. `master` untouched (no docs-only push to master).
-- **Blockers:** none for PR B (awaiting Admin merge/deploy). PR C stays blocked on PR B.
-- **Post-merge (Admin):** authorize demo deploy, then set `DEMO_ORDINARY_REQUEST_ID` /
-  `DEMO_ORDINARY_MATCH_ID` / `DEMO_PROVIDER_REQUEST_ID` / `DEMO_PROVIDER_OFFER_ID` from the verified
-  IDs printed by `rehearse:maria-relationship -- --apply`; run the three five-second validations.
+- **Blockers:** none for PR C (open as #131, awaiting Admin merge/deploy). PR C is the final PR of S116.
+- **Post-merge (Admin):** authorize demo deploy, then run
+  `rehearse:maria-relationship -- --apply` on the deployed demo and set `DEMO_SESSION_ENABLED=true`,
+  `DEMO_PERSONA_EMAIL`, and the four verified `DEMO_ORDINARY_REQUEST_ID` / `DEMO_ORDINARY_MATCH_ID` /
+  `DEMO_PROVIDER_REQUEST_ID` / `DEMO_PROVIDER_OFFER_ID` IDs in `.env.demo`; run the three five-second
+  validations + the server-side demo-write 403 check. (Docker unavailable locally → `--apply` and live
+  validation can only run post-deploy.)
 - **Authorization:** Contributor agents do not merge or deploy. Admin owns both decisions; the
   admin-override merge path applies while no second reviewer account exists.
 
