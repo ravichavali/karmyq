@@ -28,6 +28,8 @@ jest.mock('@/lib/api', () => ({
     getRequest: (...args: unknown[]) => getRequest(...args),
     createMatch: (...args: unknown[]) => createMatch(...args),
     rejectMatch: (...args: unknown[]) => rejectMatch(...args),
+    // S116: the can_offer detail now mounts a relationship-context panel; suppress it here (404).
+    getRequestRelationshipContext: () => Promise.reject({ response: { status: 404 } }),
   },
 }))
 jest.mock('@/hooks/useTrustPath', () => ({ useTrustPath: () => ({ trustPath: null, loading: false, error: null }) }))
