@@ -189,14 +189,15 @@ offer/accept/decline actions still work. Validate the same topology from both pa
 - **Driving agent:** **Claude authors PR B** (Admin decision, 2026-06-30, overriding the original
   "Codex contributes / Claude reviews" plan). Independent cross-agent review is waived for PR B unless
   Codex reviews after the fact.
-- **Phase:** PR B (Tasks 7–11) implemented on the branch and opened as a PR — awaiting Admin
-  merge + deploy, then Admin-authorized rehearsal `--apply` and live validation (plan Task 11 Step 3).
-  Tasks 7–10 are the four helping-decision surfaces + the deterministic Maria rehearsal; Task 11 is
-  docs/version/gates/PR. v11.24.0.
+- **Phase:** PR B (Tasks 7–11) implemented and reviewed — **Codex review converged (merge-ready)**;
+  awaiting Admin merge + deploy, then Admin-authorized rehearsal `--apply` and live validation (plan
+  Task 11 Step 3). Codex's explicit recommendation: merge PR B and validate `--apply` post-deploy; no
+  further broad static-review cycle. Tasks 7–10 are the four helping-decision surfaces + the
+  deterministic Maria rehearsal; Task 11 is docs/version/gates/PR. v11.24.0.
 - **Branch:** `agent/codex/sprint-116-offer-context`, branched off the merged `origin/master`
   (`89ccf4d7`); the prior `agent/codex/sprint-116-relationship-shape` branch is deleted.
 - **Gates (all green on the branch diff):** frontend regression 158, request-service unit 141 +
-  regression 207, simulation-service 49; per-workspace `tsc --noEmit` clean; doc-context drift 5/5;
+  regression 207, simulation-service 51; per-workspace `tsc --noEmit` clean; doc-context drift 5/5;
   `/simplify`, `/code-review`, `/security-review` run — one persona-reuse cleanup applied, no
   correctness/security findings. CodeQL: 8 `js/request-forgery` FPs dismissed (env-var baseURL); 0 open.
   (Test Docker Build flaked once on a transient npm-install error; cleared on re-run.)
@@ -209,8 +210,11 @@ offer/accept/decline actions still work. Validate the same topology from both pa
   structural verification measures from the **platform-wide match relationship-context** (not a
   community-scoped neighborhood, which can't see a repaired cross-community edge); repair reconciliation
   is lifecycle-aware (resume only live matches, fresh on rejected/cancelled, nothing on completed).
-  49-test regression suite. **Note:** `--apply` remains un-runnable locally (no Docker); the rehearsal's
-  live correctness is ultimately validated only in the Admin-authorized post-deploy run.
+  R5 (localized) — `floorFromRelationshipContext` adds `networks.shared` to each side's EXCLUSIVE
+  one-hop count (`viewer`/`counterpart` don't include shared), fixing a per-side undercount; pure
+  mapping test added. **Review converged — no sixth cycle.** 51-test regression suite. **Note:**
+  `--apply` remains un-runnable locally (no Docker); the rehearsal's live correctness is ultimately
+  validated only in the Admin-authorized post-deploy run.
 - **Working tree expectation:** clean. `master` untouched (no docs-only push to master).
 - **Blockers:** none for PR B (awaiting Admin merge/deploy). PR C stays blocked on PR B.
 - **Post-merge (Admin):** authorize demo deploy, then set `DEMO_ORDINARY_REQUEST_ID` /
