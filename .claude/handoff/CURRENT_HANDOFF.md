@@ -196,15 +196,18 @@ offer/accept/decline actions still work. Validate the same topology from both pa
 - **Branch:** `agent/codex/sprint-116-offer-context`, branched off the merged `origin/master`
   (`89ccf4d7`); the prior `agent/codex/sprint-116-relationship-shape` branch is deleted.
 - **Gates (all green on the branch diff):** frontend regression 158, request-service unit 141 +
-  regression 207, simulation-service 39; per-workspace `tsc --noEmit` clean; doc-context drift 5/5;
+  regression 207, simulation-service 46; per-workspace `tsc --noEmit` clean; doc-context drift 5/5;
   `/simplify`, `/code-review`, `/security-review` run — one persona-reuse cleanup applied, no
   correctness/security findings. CodeQL: 6 `js/request-forgery` FPs dismissed (env-var baseURL); 0 open.
-- **Cross-agent review (Codex) — two rounds, both addressed on Task 10 (Maria rehearsal):** R1 —
-  repair-not-reject (structural overlap vs repairable path), selection-aware discovery, verified apply
-  (re-read), cross-community by community set. R2 — cross-community candidates measured with the
-  candidate's own token (neighborhood 404s on non-shared community), structural re-verification with
-  bounded projection-lag polling, lifecycle-aware reconciliation (proposed/pending/open only),
-  `request_id`-filtered match discovery. All covered by the 14-test regression suite.
+  (Test Docker Build flaked once on a transient npm-install error; cleared on re-run.)
+- **Cross-agent review (Codex) — three rounds, all addressed on Task 10 (Maria rehearsal):** R1 —
+  repair-not-reject, selection-aware discovery, verified apply (re-read), cross-community by community
+  set. R2 — candidate-token neighborhood measurement (neighborhood 404s on non-shared community),
+  structural re-verification with projection-lag polling, lifecycle-aware reconciliation,
+  `request_id`-filtered match discovery. R3 — overlap excludes ego centers + both anchors
+  (`overlapFromNeighborhoods`), platform-scoped requests so a cross-community helper can reach,
+  lifecycle-safe final verification (open request + proposed/pending), resumable repair (gathers prior
+  repair request/match/completion state, re-emits only missing steps). 46-test regression suite.
 - **Working tree expectation:** clean. `master` untouched (no docs-only push to master).
 - **Blockers:** none for PR B (awaiting Admin merge/deploy). PR C stays blocked on PR B.
 - **Post-merge (Admin):** authorize demo deploy, then set `DEMO_ORDINARY_REQUEST_ID` /
