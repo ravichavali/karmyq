@@ -166,10 +166,15 @@ export function planMariaRelationshipStory(state: MariaStoryState): MariaStoryPl
   const { existing } = state;
 
   // Selection-aware reconciliation: a pre-existing match/offer only counts when it belongs to the
-  // SELECTED helper/provider — otherwise this story still needs its own offer, and reusing another
-  // participant's ID would configure the demo with the wrong story.
-  const ordinaryMatchId = existing.ordinaryMatches.find(m => m.responderId === helper.id)?.id;
-  const providerOfferId = existing.providerOffers.find(o => o.providerUserId === provider.id)?.id;
+  // SELECTED helper/provider AND is still reviewable. A rejected/completed match or a
+  // declined/accepted offer is not the reviewable story, so the story still needs a fresh one —
+  // reusing a terminal row would configure the demo with a dead decision.
+  const ordinaryMatchId = existing.ordinaryMatches.find(
+    m => m.responderId === helper.id && m.status === 'proposed',
+  )?.id;
+  const providerOfferId = existing.providerOffers.find(
+    o => o.providerUserId === provider.id && o.status === 'pending',
+  )?.id;
 
   const pathWithinFloor = helper.overlap.pathDegree !== null && helper.overlap.pathDegree <= RICH_FLOOR.maxPathDegree;
   const needsRepair = achievable && !pathWithinFloor;
@@ -254,7 +259,19 @@ export interface StoryClients {
     getRequest(requestId: string): Promise<{ id: string } | null>;
     getMatchesForRequest(requestId: string): Promise<ExistingMatch[]>;
     getOffersForRequest(requestId: string): Promise<ExistingOffer[]>;
+    /**
+     * Re-measure the SELECTED helper's overlap with Maria from authoritative graph state. Used after
+     * a repair exchange to confirm the trust projection actually landed within the rich floor.
+     */
+    measureHelperOverlap(): Promise<StoryOverlap>;
   };
+}
+
+export interface ApplyOptions {
+  /** Attempts to re-measure the helper overlap, tolerating async trust-projection lag. */
+  verifyAttempts?: number;
+  verifyDelayMs?: number;
+  sleep?: (ms: number) => Promise<void>;
 }
 
 const idOf = (res: any): string | undefined => res?.id ?? res?.data?.id ?? res?.data?.data?.id;
@@ -272,6 +289,7 @@ function need(id: string | undefined, what: string): string {
 export async function applyMariaRelationshipStory(
   plan: MariaStoryPlan,
   clients: StoryClients,
+  options: ApplyOptions = {},
 ): Promise<StoryResult> {
   if (!plan.floor.achievable) {
     throw new Error(
@@ -335,6 +353,27 @@ export async function applyMariaRelationshipStory(
     if (!offer) throw new Error('Verification failed: provider offer for the selected provider not found on re-read');
     result.provider = { requestId: requestId.provider, offerId: offer.id };
   }
+
+  // Structural verification: confirm the ordinary helper actually reaches the rich floor now. A repair
+  // exchange only lands in the graph after the asynchronous match_completed projection, so re-measure
+  // with bounded retries and fail loudly rather than print "verified" for a relationship that is not
+  // yet (or never) rich enough.
+  const attempts = Math.max(1, options.verifyAttempts ?? 6);
+  const delayMs = options.verifyDelayMs ?? 2000;
+  const sleep = options.sleep ?? ((ms: number) => new Promise<void>(r => setTimeout(r, ms)));
+  let overlap: StoryOverlap | undefined;
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    overlap = await clients.readback.measureHelperOverlap();
+    if (meetsRichFloor(overlap)) break;
+    if (attempt < attempts - 1) await sleep(delayMs);
+  }
+  if (!overlap || !meetsRichFloor(overlap)) {
+    throw new Error(
+      'Verification failed: the ordinary helper did not reach the rich floor after repair/projection ' +
+        `(${JSON.stringify(overlap)}).`,
+    );
+  }
+
   return result;
 }
 

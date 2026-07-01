@@ -222,13 +222,21 @@ structurally-rich helper is more than two hops from Maria, the plan emits a sing
 so the plan warns and `applyMariaRelationshipStory` refuses (`floor.achievable === false`) rather than
 validate a sparse picture.
 
-Discovery is **selection-aware**: a pre-existing match/offer only counts as "already done" when it
-belongs to the selected helper/provider (matched by `responderId` / `providerUserId`), so the demo is
-never configured with another participant's IDs. **Cross-community** is community-set disjointness
-(not first-community equality), so multi-community users are classified correctly. Apply mutates only
-through ordinary APIs, then **re-reads authoritative state** and derives the demo IDs from the server
-(never from mutation responses), throwing if the selected helper's match / selected provider's offer
-can't be confirmed. It imports no DB pool and seeds no trust edges. The CLI
+Discovery is **selection-aware and lifecycle-aware**: a pre-existing match/offer only counts as
+"already done" when it belongs to the selected helper/provider (matched by `responderId` /
+`providerUserId`) **and is still reviewable** (`proposed` match, `pending` offer, on an `open`
+request) — a terminal row never masks the story. Matches are fetched with the API's `request_id`
+filter (not a latest-N system-wide window, which drops older stories on a busy demo). Candidate
+one-hop overlap is measured with the **candidate's own token** (the neighborhood endpoint 404s on a
+non-shared-community target, so Maria's token would abort gather for exactly the cross-community
+helper). **Cross-community** is community-set disjointness (not first-community equality).
+
+Apply mutates only through ordinary APIs, then verifies in two stages: it **re-reads authoritative
+state** to derive the demo IDs from the server (never from mutation responses), and then **re-measures
+the helper overlap** and confirms it clears the rich floor, polling with bounded retries to tolerate
+the asynchronous `match_completed` trust projection. It throws — rather than print "verified" — if the
+selected helper's match / provider's offer is missing or the structural floor is never reached. It
+imports no DB pool and seeds no trust edges. The CLI
 (`npm --workspace @karmyq/simulation-service run rehearse:maria-relationship`) is dry-run by default
 and applies only with `-- --apply`. New api-client methods: `submitProviderOffer`,
 `getOffersForRequest`, `getNeighborhood`.

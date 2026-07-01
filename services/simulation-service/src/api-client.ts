@@ -107,7 +107,7 @@ export class ApiClient {
   /**
    * Request API - Get matches
    */
-  async getMatches(params?: { status?: string }): Promise<any[]> {
+  async getMatches(params?: { status?: string; request_id?: string; limit?: number }): Promise<any[]> {
     const response = await executeWithRetry(() =>
       this.client.get('/matches', { params })
     );

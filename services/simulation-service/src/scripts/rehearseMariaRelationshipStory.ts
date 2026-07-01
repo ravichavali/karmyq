@@ -47,17 +47,25 @@ async function loginPersona(baseUrl: string, email: string): Promise<Persona> {
 const idSet = (neighborhood: any): Set<string> =>
   new Set<string>(((neighborhood?.nodes ?? []) as any[]).map(n => n.id));
 
-/** Measure overlap between Maria and a candidate using privacy-scoped ego neighborhoods. */
+/**
+ * Measure overlap between Maria and a candidate using privacy-scoped ego neighborhoods.
+ *
+ * The candidate's one-hop is fetched with the CANDIDATE's own token — Maria's token 404s on a
+ * genuinely cross-community candidate (the neighborhood scope requires a shared active community), so
+ * asking with Maria's token would abort the whole gather for exactly the cross-community helper we
+ * want. Shared connections are the intersection of the two self-ego one-hops; path degree comes from
+ * Maria's own depth-2 walk (null when there is no path within her communities' edge graph, which the
+ * repair exchange then establishes).
+ */
 async function overlap(
-  maria: Persona,
   mariaOneHop: Set<string>,
   mariaDepth2: any,
-  candidateId: string,
+  candidate: Persona,
 ): Promise<StoryOverlap> {
-  const candidateOneHop = idSet(await maria.client.getNeighborhood(candidateId, 1));
+  const candidateOneHop = idSet(await candidate.client.getNeighborhood(candidate.userId, 1));
   let shared = 0;
   for (const id of candidateOneHop) if (mariaOneHop.has(id)) shared += 1;
-  const reached = ((mariaDepth2?.nodes ?? []) as any[]).find(n => n.id === candidateId);
+  const reached = ((mariaDepth2?.nodes ?? []) as any[]).find(n => n.id === candidate.userId);
   const pathDegree =
     typeof reached?.degrees_of_separation === 'number' ? reached.degrees_of_separation : null;
   return {
@@ -68,15 +76,26 @@ async function overlap(
   };
 }
 
+/** Fresh overlap measurement (re-reads Maria's neighborhoods) — used to poll past projection lag. */
+async function measureOverlap(maria: Persona, candidate: Persona): Promise<StoryOverlap> {
+  const mariaDepth2 = await maria.client.getNeighborhood(maria.userId, 2);
+  const mariaOneHop = idSet(await maria.client.getNeighborhood(maria.userId, 1));
+  return overlap(mariaOneHop, mariaDepth2, candidate);
+}
+
 async function findRequestByTitle(maria: Persona, title: string): Promise<string | undefined> {
   const mine = await maria.client.browseRequests({ requester_id: maria.userId, limit: 100 });
-  return mine.find(r => r.title === title)?.id;
+  // Only an OPEN request is a live story anchor; a stale completed/cancelled one must not be reused.
+  return mine.find(r => r.title === title && r.status === 'open')?.id;
 }
 
 const matchesForRequest = async (maria: Persona, requestId: string): Promise<ExistingMatch[]> =>
-  (await maria.client.getMatches())
-    .filter(m => m.request_id === requestId)
-    .map(m => ({ id: m.id, responderId: m.responder_id, status: m.status }));
+  // Query by request_id (not the latest-N system-wide window) so an older story never falls off.
+  (await maria.client.getMatches({ request_id: requestId })).map(m => ({
+    id: m.id,
+    responderId: m.responder_id,
+    status: m.status,
+  }));
 
 const offersForRequest = async (maria: Persona, requestId: string): Promise<ExistingOffer[]> =>
   (await maria.client.getOffersForRequest(requestId)).map(o => ({
@@ -103,7 +122,7 @@ async function gatherState(maria: Persona, baseUrl: string): Promise<GatheredWor
     helperCandidates.push({
       id: persona.userId,
       communityIds: persona.communityIds,
-      overlap: await overlap(maria, mariaOneHop, mariaDepth2, persona.userId),
+      overlap: await overlap(mariaOneHop, mariaDepth2, persona),
     });
   }
 
@@ -116,7 +135,7 @@ async function gatherState(maria: Persona, baseUrl: string): Promise<GatheredWor
       id: persona.userId,
       communityIds: persona.communityIds,
       serviceType: profiles?.[0]?.service_type ?? 'other',
-      overlap: await overlap(maria, mariaOneHop, mariaDepth2, persona.userId),
+      overlap: await overlap(mariaOneHop, mariaDepth2, persona),
     });
   }
 
@@ -195,6 +214,8 @@ async function main() {
       getRequest: async (rid) => (await maria.client.getRequest(rid)) ?? null,
       getMatchesForRequest: (rid) => matchesForRequest(maria, rid),
       getOffersForRequest: (rid) => offersForRequest(maria, rid),
+      // Re-measured fresh each poll so the structural check sees the post-projection graph.
+      measureHelperOverlap: () => measureOverlap(maria, helper),
     },
   });
 

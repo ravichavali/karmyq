@@ -119,6 +119,19 @@ describe('Sprint 116 — selection-aware existing-state reconciliation', () => {
     expect(plan.expected).toEqual({ ordinary: { requestId: 'req-o' }, provider: { requestId: 'req-p' } });
   });
 
+  it('ignores terminal-status rows: a rejected match / declined offer is not the reviewable story', () => {
+    const plan = planMariaRelationshipStory(baseState({
+      existing: {
+        ordinaryRequestId: 'req-o',
+        ordinaryMatches: [{ id: 'match-dead', responderId: 'h-cross', status: 'rejected' }],
+        providerRequestId: 'req-p',
+        providerOffers: [{ id: 'offer-dead', providerUserId: 'p-contrast', status: 'declined' }],
+      },
+    }));
+    expect(plan.actions.map(a => a.type)).toEqual(['create_ordinary_offer', 'submit_provider_offer']);
+    expect(plan.expected).toEqual({ ordinary: { requestId: 'req-o' }, provider: { requestId: 'req-p' } });
+  });
+
   it('is idempotent when the selected helper/provider already have their match/offer and the path is close', () => {
     const plan = planMariaRelationshipStory(baseState({
       existing: {
@@ -155,17 +168,23 @@ describe('Sprint 116 — apply re-reads authoritative state and verifies before 
     } as any;
   }
 
-  it('derives the demo IDs from re-read (not the mutation responses) and confirms the request exists', async () => {
-    const plan = planMariaRelationshipStory(baseState());
-    // Re-read reports the authoritative rows tied to the selected personas.
-    const readback = {
+  // Re-read reports the authoritative rows tied to the selected personas; overlap already at the floor.
+  function confirmingReadback(overrides: any = {}) {
+    return {
       getRequest: jest.fn(async (id: string) => ({ id })),
       getMatchesForRequest: jest.fn(async () => [{ id: 'match-authoritative', responderId: 'h-cross', status: 'proposed' }]),
       getOffersForRequest: jest.fn(async () => [{ id: 'offer-authoritative', providerUserId: 'p-contrast', status: 'pending' }]),
+      measureHelperOverlap: jest.fn(async () => richPath),
+      ...overrides,
     };
-    const clients = fakeClients(readback);
+  }
 
-    const result = await applyMariaRelationshipStory(plan, clients);
+  const noSleep = async () => {};
+
+  it('derives the demo IDs from re-read (not the mutation responses) and confirms the request exists', async () => {
+    const plan = planMariaRelationshipStory(baseState());
+    const readback = confirmingReadback();
+    const result = await applyMariaRelationshipStory(plan, fakeClients(readback), { sleep: noSleep });
 
     expect(readback.getMatchesForRequest).toHaveBeenCalledWith('req-o');
     expect(readback.getOffersForRequest).toHaveBeenCalledWith('req-p');
@@ -177,25 +196,43 @@ describe('Sprint 116 — apply re-reads authoritative state and verifies before 
 
   it('throws when re-read cannot confirm the selected helper’s match', async () => {
     const plan = planMariaRelationshipStory(baseState());
-    const readback = {
-      getRequest: jest.fn(async (id: string) => ({ id })),
+    const readback = confirmingReadback({
       getMatchesForRequest: jest.fn(async () => [{ id: 'match-x', responderId: 'someone-else', status: 'proposed' }]),
-      getOffersForRequest: jest.fn(async () => [{ id: 'offer-authoritative', providerUserId: 'p-contrast', status: 'pending' }]),
-    };
-    await expect(applyMariaRelationshipStory(plan, fakeClients(readback))).rejects.toThrow(/verif|not found/i);
+    });
+    await expect(applyMariaRelationshipStory(plan, fakeClients(readback), { sleep: noSleep })).rejects.toThrow(/verif|not found/i);
+  });
+
+  it('throws when the helper overlap never reaches the rich floor (projection failed)', async () => {
+    const plan = planMariaRelationshipStory(baseState());
+    // Structural people are present but the path never lands within the floor → not verified.
+    const readback = confirmingReadback({ measureHelperOverlap: jest.fn(async () => farPath) });
+    await expect(
+      applyMariaRelationshipStory(plan, fakeClients(readback), { sleep: noSleep, verifyAttempts: 3 }),
+    ).rejects.toThrow(/rich floor|did not reach/i);
+    expect(readback.measureHelperOverlap).toHaveBeenCalledTimes(3);
+  });
+
+  it('polls past asynchronous projection lag and verifies once the overlap lands', async () => {
+    const plan = planMariaRelationshipStory(baseState());
+    let calls = 0;
+    const readback = confirmingReadback({
+      measureHelperOverlap: jest.fn(async () => (++calls < 3 ? farPath : richPath)),
+    });
+    const sleep = jest.fn(async () => {});
+    const result = await applyMariaRelationshipStory(plan, fakeClients(readback), { sleep, verifyAttempts: 5 });
+    expect(readback.measureHelperOverlap).toHaveBeenCalledTimes(3);
+    expect(sleep).toHaveBeenCalledTimes(2);
+    expect(result.ordinary.matchId).toBe('match-authoritative');
   });
 
   it('executes the repair exchange and never applies a story without structural overlap', async () => {
     const repairPlan = planMariaRelationshipStory(baseState({
       helperCandidates: [{ id: 'h-far', communityIds: [C3], overlap: farPath }],
     }));
-    const readback = {
-      getRequest: jest.fn(async (id: string) => ({ id })),
+    const clients = fakeClients(confirmingReadback({
       getMatchesForRequest: jest.fn(async () => [{ id: 'match-authoritative', responderId: 'h-far', status: 'proposed' }]),
-      getOffersForRequest: jest.fn(async () => [{ id: 'offer-authoritative', providerUserId: 'p-contrast', status: 'pending' }]),
-    };
-    const clients = fakeClients(readback);
-    await applyMariaRelationshipStory(repairPlan, clients);
+    }));
+    await applyMariaRelationshipStory(repairPlan, clients, { sleep: noSleep });
     // repair = one accept + two completions
     expect(clients.maria.acceptMatch).toHaveBeenCalledTimes(1);
     expect(clients.maria.completeMatch).toHaveBeenCalledTimes(1);
@@ -204,7 +241,7 @@ describe('Sprint 116 — apply re-reads authoritative state and verifies before 
     const sparsePlan = planMariaRelationshipStory(baseState({
       helperCandidates: [{ id: 'h-sparse', communityIds: [C3], overlap: sparse }],
     }));
-    await expect(applyMariaRelationshipStory(sparsePlan, fakeClients(readback))).rejects.toThrow(/rich floor|structural/i);
+    await expect(applyMariaRelationshipStory(sparsePlan, fakeClients(confirmingReadback()), { sleep: noSleep })).rejects.toThrow(/rich floor|structural/i);
   });
 });
 
