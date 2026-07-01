@@ -189,10 +189,18 @@ offer/accept/decline actions still work. Validate the same topology from both pa
 
 - **Driving agent:** **Claude authored PR C** (continuing from the PR B authorship decision).
   Independent cross-agent review by Codex is optional/after-the-fact; Admin authorizes merge/deploy.
-- **Phase:** PR C (Tasks 12–18) implemented, all gates green, **open as #131 — awaiting Admin merge +
-  deploy**, then Admin-authorized rehearsal `--apply` + live five-second validation (plan Task 17–18).
-  Tasks 12–14 are the demo session / demo page / three entry paths; Task 15 is docs/version/promotion;
-  Tasks 16–18 are gates/PR. v11.25.0.
+- **Phase:** PR C (Tasks 12–18) implemented, all gates green, **cross-agent review round 1 resolved**
+  (`6c948741`), **open as #131 — awaiting Admin merge + deploy**, then Admin-authorized rehearsal
+  `--apply` + live five-second validation (plan Task 17–18). Tasks 12–14 are the demo session / demo
+  page / three entry paths; Task 15 is docs/version/promotion; Tasks 16–18 are gates/PR. v11.25.0.
+- **Cross-agent review round 1 (resolved, `6c948741`):** (1) *Critical* — the method-based demo guard
+  only covered shared HTTP middleware, so demo tokens could mutate via non-shared JWT consumers +
+  side-effecting GETs; added shared `isDemoReadOnlySession()` and rejected demo tokens in messaging
+  socket auth, messaging HTTP routes (`GET /match/:matchId` creates a conversation), and request-service
+  `adminAuth`. (2) `/demo` rehydration now requires `sessionMode==='demo_read_only'` + clears
+  `demoContext` on ordinary auth transitions. (3) *Pushed back* — `auth.users` has no status column, so
+  the membership-based liveness check stands. CodeQL `js/request-forgery` #560 (api.ts baseURL) dismissed
+  as the documented FP and recorded in the PR body.
 - **Branch:** `agent/claude/sprint-116-guided-entry`, 4 commits off the merged `origin/master`
   (`057663eb`, PR B). Pushed; PR #131 open against `master`.
 - **Gates (green in isolation on the branch diff):** shared middleware 13, auth-service unit 25 +
