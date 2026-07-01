@@ -475,4 +475,37 @@ export class ApiClient {
     );
     return response.data.data;
   }
+
+  /**
+   * Provider API - Submit a provider offer on a request (Sprint 116 Maria provider story).
+   * Mirrors the frontend providerApi.submitOffer call; the server derives the provider from the JWT.
+   */
+  async submitProviderOffer(requestId: string, price: number | null, note: string | null): Promise<any> {
+    const response = await executeWithRetry(() =>
+      this.client.post('/providers/offers', { request_id: requestId, price, note })
+    );
+    return response.data.data;
+  }
+
+  /**
+   * Request API - List provider offers on one request (Sprint 116 scenario verification).
+   */
+  async getOffersForRequest(requestId: string): Promise<any[]> {
+    const response = await executeWithRetry(() =>
+      this.client.get(`/requests/${requestId}/offers`)
+    );
+    const offers = response.data.data?.offers ?? response.data.data ?? [];
+    return Array.isArray(offers) ? offers : [];
+  }
+
+  /**
+   * Social-graph API - Recursive ego-neighborhood (Sprint 116 overlap verification). Returns the
+   * caller-relative nodes with degrees_of_separation so the rehearsal can measure path/overlap.
+   */
+  async getNeighborhood(userId: string, depth: 1 | 2 | 3, communityId?: string): Promise<any> {
+    const response = await executeWithRetry(() =>
+      this.client.get(`/trust/neighborhood/${userId}`, { params: { depth, communityId } })
+    );
+    return response.data.data;
+  }
 }

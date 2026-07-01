@@ -8,6 +8,7 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "simulate": "ts-node src/index.ts",
+    "rehearse:maria-relationship": "ts-node src/scripts/rehearseMariaRelationshipStory.ts",
     "test": "jest --passWithNoTests"
   },
   "dependencies": {
