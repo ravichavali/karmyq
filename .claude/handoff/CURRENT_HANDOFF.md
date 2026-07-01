@@ -1,22 +1,22 @@
-# Sprint 116 — Connected Help and Guided Entry: PR A & PR B MERGED → PR C OPEN (#131), AWAITING ADMIN MERGE
+# Sprint 116 — PRs A–C MERGED & DEPLOYED → rehearsal node-shape hotfix in progress
 
-> **STATUS (2026-07-01):** PR A (#128, `89ccf4d7`, v11.23.0) and PR B (#130, `057663eb`, v11.24.0) are
-> **merged and deployed**. **PR C is implemented and open as [#131](https://github.com/ravichavali/karmyq/pull/131)**
-> on branch `agent/claude/sprint-116-guided-entry` (v11.25.0, 4 commits off `057663eb`). PR C delivers
+> **STATUS (2026-07-01):** PR A (#128), PR B (#130), and PR C (#131, merged as `6f56a5b2`, v11.25.0)
+> are **merged and deployed**. PR C delivers
 > Tasks 12–18: the fail-closed read-only Maria demo session (`POST /auth/demo-session`,
 > `sessionMode:'demo_read_only'` enforced in shared auth middleware), the public guided `/demo` page,
 > and three distinct karmyq.org entry paths (Explore / Join the Platform / Founding Circle). All four
 > SDLC gates ran green (testing, /simplify, /code-review → 1 accepted finding, /security-review → no
-> HIGH/MEDIUM). **Awaiting Admin merge + deploy, then the Admin-authorized rehearsal `--apply` + live
-> five-second validation.** Contributor agents do not merge.
+> HIGH/MEDIUM). Post-deploy rehearsal exposed a fail-closed node-identity mismatch: the privacy-safe
+> neighborhood API returns `user_id`, while the rehearsal read `id`, collapsing overlap to `1/1/1`.
+> No apply mutation occurred. Fix-forward branch `agent/codex/sprint-116-rehearsal-node-shape`
+> normalizes both shapes and adds a real-contract regression; v11.25.1. Live rehearsal remains paused.
 
 ## Quick Start
 
-1. Confirm `origin/master` is at `057663eb` (PR B) and the demo deploy is healthy
-   (`gh run list --branch master`; live check with `maria.reyes@test.karmyq.com` / `password123`).
-2. **PR C (#131) is open and merge-ready** on `agent/claude/sprint-116-guided-entry`. Review it, then
-   (Admin) merge via `gh pr merge 131 --squash --admin --delete-branch` once CI is green.
-3. **Post-merge (Admin), required before live validation:** deploy, then run
+1. Finish and review `agent/codex/sprint-116-rehearsal-node-shape`; merge/deploy only after CI is green.
+2. Rerun the rehearsal dry-run with the already-discovered candidate lists and require an achievable
+   rich floor. Do not use `--apply` if the dry-run refuses.
+3. **After hotfix deploy (Admin), required before live validation:** run
    `npm --workspace @karmyq/simulation-service run rehearse:maria-relationship -- --apply` against the
    deployed demo (Docker is unavailable locally). Set `DEMO_SESSION_ENABLED=true`, `DEMO_PERSONA_EMAIL`,
    and the four verified `DEMO_ORDINARY_REQUEST_ID` / `DEMO_ORDINARY_MATCH_ID` /
@@ -187,12 +187,11 @@ offer/accept/decline actions still work. Validate the same topology from both pa
 
 ### Active Session (update on every role handoff)
 
-- **Driving agent:** **Claude authored PR C** (continuing from the PR B authorship decision).
-  Independent cross-agent review by Codex is optional/after-the-fact; Admin authorizes merge/deploy.
-- **Phase:** PR C (Tasks 12–18) implemented, all gates green, **cross-agent review round 1 resolved**
-  (`6c948741`), **open as #131 — awaiting Admin merge + deploy**, then Admin-authorized rehearsal
-  `--apply` + live five-second validation (plan Task 17–18). Tasks 12–14 are the demo session / demo
-  page / three entry paths; Task 15 is docs/version/promotion; Tasks 16–18 are gates/PR. v11.25.0.
+- **Driving agent:** **Codex owns the post-deploy rehearsal node-shape hotfix.** Admin authorizes
+  merge/deploy; Claude remains the sprint-completion authority.
+- **Phase:** PR C merged/deployed as `6f56a5b2`. Live dry-run correctly refused and exposed the
+  `user_id` vs `id` normalization bug before any mutation. Hotfix v11.25.1 is in TDD/verification;
+  rehearsal `--apply` and five-second validation remain paused until it deploys.
 - **Cross-agent review round 1 (resolved, `6c948741`):** (1) *Critical* — the method-based demo guard
   only covered shared HTTP middleware, so demo tokens could mutate via non-shared JWT consumers +
   side-effecting GETs; added shared `isDemoReadOnlySession()` and rejected demo tokens in messaging
@@ -201,8 +200,7 @@ offer/accept/decline actions still work. Validate the same topology from both pa
   `demoContext` on ordinary auth transitions. (3) *Pushed back* — `auth.users` has no status column, so
   the membership-based liveness check stands. CodeQL `js/request-forgery` #560 (api.ts baseURL) dismissed
   as the documented FP and recorded in the PR body.
-- **Branch:** `agent/claude/sprint-116-guided-entry`, 4 commits off the merged `origin/master`
-  (`057663eb`, PR B). Pushed; PR #131 open against `master`.
+- **Branch:** `agent/codex/sprint-116-rehearsal-node-shape`, from deployed `master` `6f56a5b2`.
 - **Gates (green in isolation on the branch diff):** shared middleware 13, auth-service unit 25 +
   regression 24, frontend sprint-116 regression 32, landing regression 61, community-service 100
   (unaffected); per-workspace `tsc`/build clean; landing `next build` clean; doc-context drift 5/5;
@@ -226,9 +224,11 @@ offer/accept/decline actions still work. Validate the same topology from both pa
   mapping test added. **Review converged — no sixth cycle.** 51-test regression suite. **Note:**
   `--apply` remains un-runnable locally (no Docker); the rehearsal's live correctness is ultimately
   validated only in the Admin-authorized post-deploy run.
-- **Working tree expectation:** clean. `master` untouched (no docs-only push to master).
-- **Blockers:** none for PR C (open as #131, awaiting Admin merge/deploy). PR C is the final PR of S116.
-- **Post-merge (Admin):** authorize demo deploy, then run
+- **Working tree expectation:** hotfix changes in progress on the Codex-owned branch; do not edit from
+  the other VS Code session until committed and handed off.
+- **Blocker:** hotfix must merge/deploy, then the dry-run must report `floor.achievable === true` before
+  Admin may authorize `--apply`.
+- **Post-hotfix deploy (Admin):** authorize demo deploy, then run
   `rehearse:maria-relationship -- --apply` on the deployed demo and set `DEMO_SESSION_ENABLED=true`,
   `DEMO_PERSONA_EMAIL`, and the four verified `DEMO_ORDINARY_REQUEST_ID` / `DEMO_ORDINARY_MATCH_ID` /
   `DEMO_PROVIDER_REQUEST_ID` / `DEMO_PROVIDER_OFFER_ID` IDs in `.env.demo`; run the three five-second

@@ -255,3 +255,12 @@ edges. The CLI
 (`npm --workspace @karmyq/simulation-service run rehearse:maria-relationship`) is dry-run by default
 and applies only with `-- --apply`. New api-client methods: `submitProviderOffer`,
 `getOffersForRequest`, `getNeighborhood`.
+
+### Sprint 116 post-deploy fix (2026-07-01) — neighborhood node identity normalization
+
+The privacy-safe `GET /trust/neighborhood/:userId` contract identifies nodes with `user_id`, while
+older simulation fixtures used the internal `id` field. The rehearsal now resolves either shape
+through `neighborhoodNodeId()` before measuring one-hop overlap or path degree. Without this
+normalization, every projected node collapsed to `undefined`, producing the misleading live floor
+`sharedConnections: 1, mariaOneHop: 1, helperOneHop: 1` regardless of the actual graph. Regression
+coverage uses the real outward `{ user_id, degrees_of_separation }` shape.
