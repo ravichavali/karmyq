@@ -71,13 +71,21 @@ async function findRequestByTitle(maria: Persona, title: string): Promise<string
   return mine.find(r => r.title === title)?.id;
 }
 
-async function gatherState(maria: Persona, baseUrl: string): Promise<MariaStoryState> {
+interface GatheredWorld {
+  state: MariaStoryState;
+  /** Logged-in candidate personas keyed by user id, so apply reuses them without a second login. */
+  personas: Map<string, Persona>;
+}
+
+async function gatherState(maria: Persona, baseUrl: string): Promise<GatheredWorld> {
   const mariaDepth2 = await maria.client.getNeighborhood(maria.userId, 2);
   const mariaOneHop = idSet(await maria.client.getNeighborhood(maria.userId, 1));
+  const personas = new Map<string, Persona>();
 
   const helperCandidates: HelperCandidate[] = [];
   for (const email of csv(process.env.DEMO_HELPER_EMAILS)) {
     const persona = await loginPersona(baseUrl, email);
+    personas.set(persona.userId, persona);
     helperCandidates.push({
       id: persona.userId,
       communityId: persona.communityId,
@@ -88,6 +96,7 @@ async function gatherState(maria: Persona, baseUrl: string): Promise<MariaStoryS
   const providerCandidates: ProviderCandidate[] = [];
   for (const email of csv(process.env.DEMO_PROVIDER_EMAILS)) {
     const persona = await loginPersona(baseUrl, email);
+    personas.set(persona.userId, persona);
     const profiles = await persona.client.getMyProviderProfiles();
     providerCandidates.push({
       id: persona.userId,
@@ -107,14 +116,17 @@ async function gatherState(maria: Persona, baseUrl: string): Promise<MariaStoryS
     : undefined;
 
   return {
-    maria: { id: maria.userId, communityId: maria.communityId },
-    helperCandidates,
-    providerCandidates,
-    existing: {
-      ordinaryRequestId,
-      ordinaryMatchId: ordinaryMatch?.id,
-      providerRequestId,
-      providerOfferId: providerOffer?.id,
+    personas,
+    state: {
+      maria: { id: maria.userId, communityId: maria.communityId },
+      helperCandidates,
+      providerCandidates,
+      existing: {
+        ordinaryRequestId,
+        ordinaryMatchId: ordinaryMatch?.id,
+        providerRequestId,
+        providerOfferId: providerOffer?.id,
+      },
     },
   };
 }
@@ -132,7 +144,7 @@ async function main() {
   console.log(`Environment: ${baseUrl}  Persona: ${mariaEmail}\n`);
 
   const maria = await loginPersona(baseUrl, mariaEmail);
-  const state = await gatherState(maria, baseUrl);
+  const { state, personas } = await gatherState(maria, baseUrl);
   const plan = planMariaRelationshipStory(state);
 
   console.log('Selection:', plan.selection);
@@ -151,27 +163,20 @@ async function main() {
     return process.exit(1);
   }
 
-  const helper = await loginPersona(baseUrl, csvEmailFor(plan.selection.ordinaryHelperId, state, 'helper'));
-  const provider = await loginPersona(baseUrl, csvEmailFor(plan.selection.providerId, state, 'provider'));
+  const helper = personas.get(plan.selection.ordinaryHelperId);
+  const provider = personas.get(plan.selection.providerId);
+  if (!helper || !provider) {
+    console.error('\nSelected personas were not logged in during gather — cannot apply.\n');
+    return process.exit(1);
+  }
   const result = await applyMariaRelationshipStory(plan, {
     maria: maria.client,
-    helper: { offerHelp: (rid, _resp) => helper.client.offerHelp(rid, helper.userId) },
+    helper: { offerHelp: (rid) => helper.client.offerHelp(rid, helper.userId) },
     provider: { submitProviderOffer: (rid, price, note) => provider.client.submitProviderOffer(rid, price, note) },
   });
 
   console.log('\nApplied. Configure the demo session with these verified IDs:');
   console.log(JSON.stringify(result, null, 2));
-}
-
-/**
- * Re-resolve the email for a selected persona id. The gather step logged personas in candidate order,
- * so we re-walk the configured csv lists and match by user id via a fresh login.
- */
-function csvEmailFor(_userId: string, _state: MariaStoryState, kind: 'helper' | 'provider'): string {
-  const list = csv(kind === 'helper' ? process.env.DEMO_HELPER_EMAILS : process.env.DEMO_PROVIDER_EMAILS);
-  // The apply path re-logs in; selection ids were derived from these same emails, so the first
-  // configured email of the kind is a safe deterministic fallback when a 1:1 map is not retained.
-  return list[0];
 }
 
 main().catch(err => {
