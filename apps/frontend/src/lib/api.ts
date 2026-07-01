@@ -126,6 +126,7 @@ const errorInterceptor = async (error: any) => {
     if (!storedRefreshToken) {
       localStorage.removeItem('token')
       localStorage.removeItem('user')
+      localStorage.removeItem('demoContext')
       window.location.href = '/login'
       return Promise.reject(error)
     }
@@ -157,6 +158,7 @@ const errorInterceptor = async (error: any) => {
       localStorage.removeItem('token')
       localStorage.removeItem('refreshToken')
       localStorage.removeItem('user')
+      localStorage.removeItem('demoContext')
       window.location.href = '/login'
       return Promise.reject(error)
     } finally {
@@ -199,6 +201,13 @@ export const messagingApi = createApiClient(MESSAGING_API_URL)
 
 // Social Graph Service API
 export const socialGraphApi = createApiClient(SOCIAL_GRAPH_API_URL)
+
+// Demo Session API (Sprint 116, ADR-084)
+// Issues a short-lived, server-side read-only Maria session for the guided /demo story.
+// The response carries a token + user + demo stories, but NEVER a refresh token.
+export const demoService = {
+  startSession: () => api.post('/auth/demo-session'),
+}
 
 // Community API Methods
 export const communityService = {

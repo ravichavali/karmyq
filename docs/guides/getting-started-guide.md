@@ -4,6 +4,19 @@ Welcome to Karmyq — a place where neighbours help each other out. This guide s
 
 ---
 
+## Three ways in from karmyq.org
+
+The public site offers three distinct doors — pick the one that matches how ready you are:
+
+- **Explore the live demo** → opens `karmyq.com/demo`, a **read-only** 30-minute guided tour as Maria,
+  a synthetic neighbour. No account, and nothing you do changes real data. Best for a first look.
+- **Join the Platform** → ordinary registration at `karmyq.com/register`. This is the normal way to
+  create your own account and start helping. It is **not** the Founding Circle.
+- **Join the Founding Circle** → the separate `/join` invitation path for people who want to help
+  shape the platform before communities depend on it. It does not create a platform account.
+
+---
+
 ## 1. Create Your Account
 
 Go to [karmyq.com](https://karmyq.com) and click **Register**.

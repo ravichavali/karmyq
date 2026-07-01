@@ -1,6 +1,6 @@
 # Frontend CONTEXT.md
 
-**Last updated**: 2026-06-30 (Sprint 116 — Context-Bound Relationship Lens)
+**Last updated**: 2026-07-01 (Sprint 116 — Context-Bound Relationship Lens, PR C)
 
 ## Overview
 
@@ -19,6 +19,20 @@ Next.js 14 web application (Pages Router) consuming all Karmyq backend services.
   and `<title>`; brightness/opacity encodes nothing.
 - PR A intentionally does not mount the lens on a browsing surface. PR B will fetch it only from the
   request/ordinary-match/provider-offer routes at the corresponding helping decision boundary.
+
+### PR C — Guided read-only demo (`/demo`, 2026-07-01)
+
+- `src/pages/demo.tsx` is a public, standalone page (no app `Layout`, no auth required) that walks a
+  read-only Maria story. It discloses the read-only 30-minute synthetic tour, then `demoService`
+  `startSession()` (`POST /auth/demo-session`) issues the demo token. The page stores
+  `token`/`user`/`demoContext` and **explicitly `removeItem('refreshToken')`** — a demo session never
+  keeps a refresh token, so it simply expires. On mount it rehydrates an unexpired session so a refresh
+  doesn't drop the tour.
+- It renders both stories through the same `RelationshipContextPanel`: the ordinary story as
+  `kind="match"` and the provider story as `kind="provider-offer"`. It shows **no** mutating controls
+  (Accept/Decline/Submit/Withdraw/Complete) — defense in depth on top of the server-side read-only
+  guard. Join the Platform (`https://karmyq.com/register`) and Log in are always reachable, including
+  in the unavailable state.
 
 ---
 

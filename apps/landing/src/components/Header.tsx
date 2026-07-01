@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'motion/react';
-import { NAV_LINKS, CTA_LINK } from '../lib/landingRoutes';
+import { NAV_LINKS, EXPLORE_LINK, JOIN_PLATFORM_LINK, FOUNDING_CIRCLE_LINK } from '../lib/landingRoutes';
 
 export default function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -41,14 +41,27 @@ export default function Header() {
               {link.label}
             </Link>
           ))}
-          <Link
-            href={CTA_LINK.href}
+          {/* Three distinct entry paths (Sprint 116): Explore, Join the Platform, Founding Circle. */}
+          <a
+            href={EXPLORE_LINK.href}
             className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-karmyq-green-600 text-white text-sm font-medium hover:bg-karmyq-green-700 transition-colors"
           >
-            {CTA_LINK.label}
+            {EXPLORE_LINK.label}
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
             </svg>
+          </a>
+          <a
+            href={JOIN_PLATFORM_LINK.href}
+            className="inline-flex items-center px-5 py-2.5 rounded-full border border-karmyq-green-600 text-karmyq-green-700 text-sm font-medium hover:bg-karmyq-green-50 transition-colors"
+          >
+            {JOIN_PLATFORM_LINK.label}
+          </a>
+          <Link
+            href={FOUNDING_CIRCLE_LINK.href}
+            className="text-sm font-medium text-karmyq-brown-700 hover:text-karmyq-green-600 transition-colors"
+          >
+            {FOUNDING_CIRCLE_LINK.label}
           </Link>
         </div>
 
@@ -88,15 +101,31 @@ export default function Header() {
                   {link.label}
                 </Link>
               ))}
-              <Link
-                href={CTA_LINK.href}
+              {/* All three entry paths stay separately visible on mobile — never hidden
+                  behind a single primary action. */}
+              <a
+                href={EXPLORE_LINK.href}
                 className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-full bg-karmyq-green-600 text-white text-base font-medium mt-2"
                 onClick={() => setMenuOpen(false)}
               >
-                {CTA_LINK.label}
+                {EXPLORE_LINK.label}
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
                 </svg>
+              </a>
+              <a
+                href={JOIN_PLATFORM_LINK.href}
+                className="inline-flex items-center justify-center px-5 py-3 rounded-full border border-karmyq-green-600 text-karmyq-green-700 text-base font-medium"
+                onClick={() => setMenuOpen(false)}
+              >
+                {JOIN_PLATFORM_LINK.label}
+              </a>
+              <Link
+                href={FOUNDING_CIRCLE_LINK.href}
+                className="text-base font-medium text-karmyq-brown-700 hover:text-karmyq-green-600 transition-colors py-2"
+                onClick={() => setMenuOpen(false)}
+              >
+                {FOUNDING_CIRCLE_LINK.label}
               </Link>
             </div>
           </motion.div>

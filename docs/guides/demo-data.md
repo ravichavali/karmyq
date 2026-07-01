@@ -86,3 +86,17 @@ Rehearse with `npm --workspace @karmyq/simulation-service run rehearse:maria-rel
 default; add `-- --apply` to mutate). It refuses to apply a story that falls below the rich-overlap
 floor, seeds no trust edges, and prints the verified request/match/offer IDs used to configure the
 read-only demo session.
+
+### The read-only demo session (PR C)
+
+`karmyq.com/demo` walks these two stories with **no account and no writes**. `POST /auth/demo-session`
+issues a 30-minute token that carries `sessionMode: 'demo_read_only'`; the shared auth middleware
+rejects any mutating HTTP method server-side, and the `/demo` page shows no Accept/Decline/Submit
+controls. No refresh token is issued — the tour simply expires.
+
+To enable it, set the four IDs printed by the `--apply` run plus the persona into the demo
+environment (see `.env.demo.example`): `DEMO_SESSION_ENABLED=true`, `DEMO_PERSONA_EMAIL`,
+`DEMO_ORDINARY_REQUEST_ID`, `DEMO_ORDINARY_MATCH_ID`, `DEMO_PROVIDER_REQUEST_ID`,
+`DEMO_PROVIDER_OFFER_ID`. The persona must be an active, non-admin `@test.karmyq.com` account, and both
+stories must be coherent (Maria owns each request; the match/offer hang off the correct request) — any
+mismatch returns one opaque `503 DEMO_UNAVAILABLE`.

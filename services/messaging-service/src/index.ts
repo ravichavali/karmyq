@@ -9,8 +9,8 @@ import pool from './database/db';
 import messageRoutes from './routes/messages';
 import { initializeMessageSocket } from './socket/messageHandler';
 import { createLogger, requestLoggingMiddleware } from '@karmyq/shared/utils/logger';
-import { authMiddleware, globalRateLimiter, rateLimiters } from '@karmyq/shared/middleware';
-import { requestIdMiddleware, sendSuccess, sendInternalError } from '@karmyq/shared/utils/response';
+import { authMiddleware, globalRateLimiter, rateLimiters, isDemoReadOnlySession, AuthenticatedRequest } from '@karmyq/shared/middleware';
+import { requestIdMiddleware, sendSuccess, sendInternalError, sendForbidden } from '@karmyq/shared/utils/response';
 
 dotenv.config();
 
@@ -51,7 +51,13 @@ io.use((socket, next) => {
   }
 
   try {
-    const decoded = jwt.verify(token as string, JWT_SECRET) as { userId: string; email: string };
+    const decoded = jwt.verify(token as string, JWT_SECRET) as { userId: string; email: string; sessionMode?: string };
+    // Read-only demo sessions must never open a realtime socket — send_message writes
+    // (Sprint 116, ADR-084). Reject before attaching any user data.
+    if (isDemoReadOnlySession(decoded)) {
+      logger.warn('Socket connection rejected - read-only demo session', { socketId: socket.id });
+      return next(new Error('Demo sessions cannot use realtime messaging'));
+    }
     // Attach verified user data to socket
     socket.data.userId = decoded.userId;
     socket.data.email = decoded.email;
@@ -85,12 +91,23 @@ app.get('/health', (req: any, res) => {
   sendSuccess(res, { status: 'healthy', service: 'messaging-service' }, 200, { requestId: req.id });
 });
 
+// Read-only demo sessions have no messaging use case, and some GET routes here have
+// write side effects (GET /match/:matchId creates a conversation), so the method-based
+// shared guard is not enough. Reject demo tokens from every messaging route (Sprint 116).
+function rejectDemoSession(req: AuthenticatedRequest, res: express.Response, next: express.NextFunction) {
+  if (isDemoReadOnlySession(req.user)) {
+    return sendForbidden(res, 'Demo sessions cannot access messaging', { requestId: (req as any).id });
+  }
+  next();
+}
+
 // Routes with authentication (no tenant context required for messaging)
 // Messaging is user-scoped, not community-scoped
 app.use(
   '/',
   rateLimiters.standard,
   authMiddleware,
+  rejectDemoSession,
   messageRoutes
 );
 

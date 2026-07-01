@@ -75,6 +75,7 @@ export default function Dashboard() {
     if (!userData) {
       localStorage.removeItem('token')
       localStorage.removeItem('refreshToken')
+      localStorage.removeItem('demoContext')
       router.push('/login')
       setLoading(false)
       return
@@ -91,6 +92,7 @@ export default function Dashboard() {
       localStorage.removeItem('token')
       localStorage.removeItem('refreshToken')
       localStorage.removeItem('user')
+      localStorage.removeItem('demoContext')
       router.push('/login')
       setLoading(false)
       return

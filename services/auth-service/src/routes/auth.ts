@@ -10,6 +10,7 @@ import {
   sendUnauthorized,
   sendConflict,
   sendInternalError,
+  sendError,
   HTTP_STATUS
 } from '@karmyq/shared/utils/response';
 import {
@@ -19,6 +20,7 @@ import {
   revokeRefreshToken,
   getUserIdFromRefreshToken,
 } from '../utils/refreshToken';
+import { createDemoSession, DemoSessionUnavailableError } from '../services/demoSessionService';
 
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -236,6 +238,31 @@ router.post('/login', async (req: any, res) => {
   } catch (error: any) {
     req.logger?.error('Login failed', error instanceof Error ? error : new Error(String(error)));
     sendInternalError(res, 'Failed to login', error, { requestId: req.id });
+  }
+});
+
+// POST /auth/demo-session - Issue a short-lived read-only Maria demo session (Sprint 116, ADR-084)
+router.post('/demo-session', async (req: any, res) => {
+  try {
+    const session = await createDemoSession();
+    return sendSuccess(res, session, HTTP_STATUS.OK, { requestId: req.id });
+  } catch (error) {
+    // Every failure collapses to one opaque 503 so resource existence is never leaked.
+    // Only unexpected (non-DemoSessionUnavailableError) failures are logged.
+    if (!(error instanceof DemoSessionUnavailableError)) {
+      req.logger?.error(
+        'Demo session issuance failed unexpectedly',
+        error instanceof Error ? error : new Error(String(error))
+      );
+    }
+    return sendError(
+      res,
+      'DEMO_UNAVAILABLE',
+      'Demo session is unavailable',
+      HTTP_STATUS.SERVICE_UNAVAILABLE,
+      undefined,
+      { requestId: req.id }
+    );
   }
 });
 

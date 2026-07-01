@@ -85,6 +85,14 @@ services:
       REDIS_URL: redis://redis:6379
       JWT_SECRET: dev_jwt_secret_change_in_production
       RATE_LIMIT_DISABLED: true
+      # Read-only Maria demo session (Sprint 116, ADR-084). Disabled unless every value
+      # is set; the four story IDs come from the verified `rehearse:maria-relationship --apply` run.
+      DEMO_SESSION_ENABLED: ${DEMO_SESSION_ENABLED:-false}
+      DEMO_PERSONA_EMAIL: ${DEMO_PERSONA_EMAIL:-}
+      DEMO_ORDINARY_REQUEST_ID: ${DEMO_ORDINARY_REQUEST_ID:-}
+      DEMO_ORDINARY_MATCH_ID: ${DEMO_ORDINARY_MATCH_ID:-}
+      DEMO_PROVIDER_REQUEST_ID: ${DEMO_PROVIDER_REQUEST_ID:-}
+      DEMO_PROVIDER_OFFER_ID: ${DEMO_PROVIDER_OFFER_ID:-}
     ports:
       - "127.0.0.1:3001:3001"
     depends_on:

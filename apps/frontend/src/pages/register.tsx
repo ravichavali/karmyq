@@ -42,6 +42,8 @@ export default function Register() {
       localStorage.setItem('token', response.data.token)
       localStorage.setItem('refreshToken', response.data.refreshToken)
       localStorage.setItem('user', JSON.stringify(response.data.user))
+      // Clear any leftover read-only demo state when registering a real account.
+      localStorage.removeItem('demoContext')
 
       router.push('/communities?welcome=true')
     } catch (err: any) {

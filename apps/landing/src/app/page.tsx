@@ -4,7 +4,12 @@ import { Blocks } from '../components/landing/Blocks';
 import { PrimaryCta, SecondaryCta, LayerLabel } from '../components/landing/primitives';
 import { COLUMN_CLASS } from '../components/landing/styles';
 import NetworkVisualization from '../components/NetworkVisualization';
-import { buildRouteMetadata } from '../lib/landingRoutes';
+import {
+  buildRouteMetadata,
+  EXPLORE_LINK,
+  JOIN_PLATFORM_LINK,
+  FOUNDING_CIRCLE_LINK,
+} from '../lib/landingRoutes';
 import { homeContent } from '../lib/landingContent';
 
 export const metadata: Metadata = buildRouteMetadata('home');
@@ -90,8 +95,14 @@ export default function Home() {
           ))}
         </div>
 
-        <div className="flex justify-center mt-10">
-          <PrimaryCta href="/join">Join the founding circle</PrimaryCta>
+        {/* Three distinct entry paths (Sprint 116): Explore + Join the Platform are the
+            primary actions; the Founding Circle is the quieter invitation beneath them. */}
+        <div className="flex flex-col items-center gap-4 mt-10">
+          <div className="flex flex-col items-center gap-4 sm:flex-row">
+            <PrimaryCta href={EXPLORE_LINK.href}>{EXPLORE_LINK.label}</PrimaryCta>
+            <PrimaryCta href={JOIN_PLATFORM_LINK.href}>{JOIN_PLATFORM_LINK.label}</PrimaryCta>
+          </div>
+          <SecondaryCta href={FOUNDING_CIRCLE_LINK.href}>{FOUNDING_CIRCLE_LINK.label}</SecondaryCta>
         </div>
       </EssayColumn>
     </PageShell>

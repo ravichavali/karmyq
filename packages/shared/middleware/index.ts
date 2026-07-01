@@ -8,6 +8,7 @@ export {
   authMiddleware,
   optionalAuthMiddleware,
   verifyTokenWithRotation,
+  isDemoReadOnlySession,
   JWTPayload,
   AuthenticatedRequest,
 } from './auth';
