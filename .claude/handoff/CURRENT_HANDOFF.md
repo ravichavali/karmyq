@@ -1,4 +1,4 @@
-# Sprint 116 — PRs A–C MERGED & DEPLOYED → rehearsal node-shape hotfix in progress
+# Sprint 116 — PRs A–C MERGED & DEPLOYED → rehearsal node-shape hotfix PR #132 open
 
 > **STATUS (2026-07-01):** PR A (#128), PR B (#130), and PR C (#131, merged as `6f56a5b2`, v11.25.0)
 > are **merged and deployed**. PR C delivers
@@ -8,12 +8,12 @@
 > SDLC gates ran green (testing, /simplify, /code-review → 1 accepted finding, /security-review → no
 > HIGH/MEDIUM). Post-deploy rehearsal exposed a fail-closed node-identity mismatch: the privacy-safe
 > neighborhood API returns `user_id`, while the rehearsal read `id`, collapsing overlap to `1/1/1`.
-> No apply mutation occurred. Fix-forward branch `agent/codex/sprint-116-rehearsal-node-shape`
+> No apply mutation occurred. Fix-forward PR [#132](https://github.com/ravichavali/karmyq/pull/132)
 > normalizes both shapes and adds a real-contract regression; v11.25.1. Live rehearsal remains paused.
 
 ## Quick Start
 
-1. Finish and review `agent/codex/sprint-116-rehearsal-node-shape`; merge/deploy only after CI is green.
+1. Review PR #132 and wait for CI; merge/deploy only with explicit Admin authorization after all gates are green.
 2. Rerun the rehearsal dry-run with the already-discovered candidate lists and require an achievable
    rich floor. Do not use `--apply` if the dry-run refuses.
 3. **After hotfix deploy (Admin), required before live validation:** run
@@ -35,7 +35,7 @@ Platform distinct from the Founding Circle.
 
 - Design: `docs/superpowers/specs/2026-06-29-sprint-116-living-demo-design.md`
 - Plan: `docs/superpowers/plans/2026-06-29-sprint-116-connected-help.md`
-- Current branch: `agent/codex/sprint-116-relationship-shape`
+- Current branch: `agent/codex/sprint-116-rehearsal-node-shape` (PR #132)
 - Design commits: `ea149c5e` (initial) and `1fb3f22e` (approved reciprocal/contextual revision)
 - PR A: [#128](https://github.com/ravichavali/karmyq/pull/128)
 - PR A implementation commits: `ed3ba8d8`, `4e5cd8a1`, `d8dd5615`, `a2a2db52`, `4112fcf7`
@@ -190,8 +190,8 @@ offer/accept/decline actions still work. Validate the same topology from both pa
 - **Driving agent:** **Codex owns the post-deploy rehearsal node-shape hotfix.** Admin authorizes
   merge/deploy; Claude remains the sprint-completion authority.
 - **Phase:** PR C merged/deployed as `6f56a5b2`. Live dry-run correctly refused and exposed the
-  `user_id` vs `id` normalization bug before any mutation. Hotfix v11.25.1 is in TDD/verification;
-  rehearsal `--apply` and five-second validation remain paused until it deploys.
+  `user_id` vs `id` normalization bug before any mutation. Hotfix v11.25.1 is open as PR #132;
+  rehearsal `--apply` and five-second validation remain paused until it merges and deploys.
 - **Cross-agent review round 1 (resolved, `6c948741`):** (1) *Critical* — the method-based demo guard
   only covered shared HTTP middleware, so demo tokens could mutate via non-shared JWT consumers +
   side-effecting GETs; added shared `isDemoReadOnlySession()` and rejected demo tokens in messaging
@@ -201,6 +201,12 @@ offer/accept/decline actions still work. Validate the same topology from both pa
   the membership-based liveness check stands. CodeQL `js/request-forgery` #560 (api.ts baseURL) dismissed
   as the documented FP and recorded in the PR body.
 - **Branch:** `agent/codex/sprint-116-rehearsal-node-shape`, from deployed `master` `6f56a5b2`.
+- **Hotfix commit/PR:** `d2f459de`, [#132](https://github.com/ravichavali/karmyq/pull/132).
+- **Hotfix verification:** simulation-service 52/52 and `tsc --noEmit`; root unit 95/95 and
+  regression 176/176 in isolated runs; landing production build (160 pages); doc drift 5/5;
+  staged `feedback:check` and diff check clean; npm audit security gate 3/3. Root Turbo again hit the
+  known Windows parallel cache race (`EPERM` writing Jest's shared temp performance cache) after the
+  affected assertions passed.
 - **Gates (green in isolation on the branch diff):** shared middleware 13, auth-service unit 25 +
   regression 24, frontend sprint-116 regression 32, landing regression 61, community-service 100
   (unaffected); per-workspace `tsc`/build clean; landing `next build` clean; doc-context drift 5/5;
@@ -224,8 +230,7 @@ offer/accept/decline actions still work. Validate the same topology from both pa
   mapping test added. **Review converged — no sixth cycle.** 51-test regression suite. **Note:**
   `--apply` remains un-runnable locally (no Docker); the rehearsal's live correctness is ultimately
   validated only in the Admin-authorized post-deploy run.
-- **Working tree expectation:** hotfix changes in progress on the Codex-owned branch; do not edit from
-  the other VS Code session until committed and handed off.
+- **Working tree expectation:** clean after the PR #132 handoff update is committed and pushed.
 - **Blocker:** hotfix must merge/deploy, then the dry-run must report `floor.achievable === true` before
   Admin may authorize `--apply`.
 - **Post-hotfix deploy (Admin):** authorize demo deploy, then run
