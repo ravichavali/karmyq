@@ -189,12 +189,21 @@ offer/accept/decline actions still work. Validate the same topology from both pa
 - **Driving agent:** **Claude authors PR B** (Admin decision, 2026-06-30, overriding the original
   "Codex contributes / Claude reviews" plan). Independent cross-agent review is waived for PR B unless
   Codex reviews after the fact.
-- **Phase:** PR A merged (`89ccf4d7`, #128) and deployed to demo. PR B / Task 7 is ready to begin.
+- **Phase:** PR B (Tasks 7–11) implemented on the branch and opened as a PR — awaiting Admin
+  merge + deploy, then Admin-authorized rehearsal `--apply` and live validation (plan Task 11 Step 3).
+  Tasks 7–10 are the four helping-decision surfaces + the deterministic Maria rehearsal; Task 11 is
+  docs/version/gates/PR. v11.24.0.
 - **Branch:** `agent/codex/sprint-116-offer-context`, branched off the merged `origin/master`
   (`89ccf4d7`); the prior `agent/codex/sprint-116-relationship-shape` branch is deleted.
-- **Working tree expectation:** clean after this handoff commit. `master` was left untouched (no
-  docs-only push to master — it would trigger a second deploy).
-- **Blockers:** none. PR B is unblocked; PR C stays blocked on PR B.
+- **Gates (all green on the branch diff):** frontend regression 158, request-service unit 141 +
+  regression 207, simulation-service 34; per-workspace `tsc --noEmit` clean; doc-context drift 5/5;
+  `/simplify`, `/code-review`, `/security-review` run — one persona-reuse cleanup applied, no
+  correctness/security findings.
+- **Working tree expectation:** clean. `master` untouched (no docs-only push to master).
+- **Blockers:** none for PR B (awaiting Admin merge/deploy). PR C stays blocked on PR B.
+- **Post-merge (Admin):** authorize demo deploy, then set `DEMO_ORDINARY_REQUEST_ID` /
+  `DEMO_ORDINARY_MATCH_ID` / `DEMO_PROVIDER_REQUEST_ID` / `DEMO_PROVIDER_OFFER_ID` from the verified
+  IDs printed by `rehearse:maria-relationship -- --apply`; run the three five-second validations.
 - **Authorization:** Contributor agents do not merge or deploy. Admin owns both decisions; the
   admin-override merge path applies while no second reviewer account exists.
 
