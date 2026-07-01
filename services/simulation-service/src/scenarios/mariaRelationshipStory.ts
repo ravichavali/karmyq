@@ -118,8 +118,15 @@ export type StoryAction =
 
 /** A neighborhood node as returned by the social-graph ego endpoint (center is degree 0). */
 export interface NeighborhoodNode {
-  id: string;
+  /** Internal fixtures historically use `id`; privacy-safe API responses use `user_id`. */
+  id?: string;
+  user_id?: string;
   degrees_of_separation?: number;
+}
+
+/** Resolve the canonical identity from either internal or outward neighborhood node shapes. */
+export function neighborhoodNodeId(node: NeighborhoodNode): string | undefined {
+  return node.id ?? node.user_id;
 }
 
 /**
@@ -136,7 +143,12 @@ export function overlapFromNeighborhoods(
   pathDegree: number | null,
 ): StoryOverlap {
   const oneHop = (nodes: NeighborhoodNode[]) =>
-    new Set(nodes.filter(n => n.degrees_of_separation === 1).map(n => n.id));
+    new Set(
+      nodes
+        .filter(n => n.degrees_of_separation === 1)
+        .map(neighborhoodNodeId)
+        .filter((id): id is string => id !== undefined),
+    );
   const mariaHop = oneHop(mariaNodes);
   const candidateHop = oneHop(candidateNodes);
   let shared = 0;

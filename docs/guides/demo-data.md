@@ -87,6 +87,10 @@ default; add `-- --apply` to mutate). It refuses to apply a story that falls bel
 floor, seeds no trust edges, and prints the verified request/match/offer IDs used to configure the
 read-only demo session.
 
+The rehearsal consumes the privacy-safe neighborhood API, whose nodes use `user_id` (not the
+internal graph field `id`). It normalizes both shapes before measuring overlap; a dry run that reports
+an unachievable floor must never be followed by `--apply`.
+
 ### The read-only demo session (PR C)
 
 `karmyq.com/demo` walks these two stories with **no account and no writes**. `POST /auth/demo-session`

@@ -17,6 +17,7 @@ import {
   applyMariaRelationshipStory,
   overlapFromNeighborhoods,
   floorFromRelationshipContext,
+  neighborhoodNodeId,
   ORDINARY_REQUEST_TITLE,
   PROVIDER_REQUEST_TITLE,
   REPAIR_REQUEST_TITLE,
@@ -69,7 +70,7 @@ async function overlap(
   candidate: Persona,
 ): Promise<StoryOverlap> {
   const candidateNodes = nodesOf(await candidate.client.getNeighborhood(candidate.userId, 1));
-  const reached = mariaDepth2Nodes.find(n => n.id === candidate.userId);
+  const reached = mariaDepth2Nodes.find(n => neighborhoodNodeId(n) === candidate.userId);
   const pathDegree =
     typeof reached?.degrees_of_separation === 'number' ? reached.degrees_of_separation : null;
   return overlapFromNeighborhoods(mariaOneHopNodes, candidateNodes, mariaId, candidate.userId, pathDegree);
