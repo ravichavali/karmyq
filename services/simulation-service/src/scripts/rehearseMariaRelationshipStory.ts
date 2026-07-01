@@ -16,6 +16,7 @@ import {
   planMariaRelationshipStory,
   applyMariaRelationshipStory,
   overlapFromNeighborhoods,
+  floorFromRelationshipContext,
   ORDINARY_REQUEST_TITLE,
   PROVIDER_REQUEST_TITLE,
   REPAIR_REQUEST_TITLE,
@@ -237,15 +238,9 @@ async function main() {
       getOffersForRequest: (rid) => offersForRequest(maria, rid),
       // Measure the floor from the PLATFORM-WIDE match relationship-context — the demo's own contract —
       // so a repaired cross-community edge is actually visible (community neighborhoods can't see it).
-      measureFloor: async (rid, mid) => {
-        const ctx = await maria.client.getMatchRelationshipContext(rid, mid);
-        return {
-          pathDegree: typeof ctx?.path?.degrees === 'number' ? ctx.path.degrees : null,
-          sharedConnections: (ctx?.networks?.shared ?? []).length,
-          mariaOneHop: (ctx?.networks?.viewer ?? []).length,
-          helperOneHop: (ctx?.networks?.counterpart ?? []).length,
-        };
-      },
+      // floorFromRelationshipContext adds shared to each side's exclusive one-hop list (see its docs).
+      measureFloor: async (rid, mid) =>
+        floorFromRelationshipContext(await maria.client.getMatchRelationshipContext(rid, mid)),
     },
   });
 

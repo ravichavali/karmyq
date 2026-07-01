@@ -4,6 +4,7 @@ import {
   planMariaRelationshipStory,
   applyMariaRelationshipStory,
   overlapFromNeighborhoods,
+  floorFromRelationshipContext,
   meetsRichFloor,
   hasStructuralOverlap,
   RICH_FLOOR,
@@ -76,6 +77,31 @@ describe('Sprint 116 — overlap measurement excludes ego centers and both ancho
     const o = overlapFromNeighborhoods(mariaNodes, helperNodes, M, H, 1);
     expect(o.sharedConnections).toBe(1);   // only x; anchors excluded
     expect(meetsRichFloor(o)).toBe(false);
+  });
+});
+
+describe('Sprint 116 — floor from the relationship-context contract', () => {
+  const cn = (id: string) => ({ id, name: id, communities: [] });
+
+  it('adds shared to each side’s exclusive one-hop list: 3 shared + 1 exclusive per side → 4 per side', () => {
+    // networks.viewer/counterpart are EXCLUSIVE; mutual neighbours live only in networks.shared.
+    const context = {
+      path: { scope: 'platform', degrees: 2, nodes: [] },
+      networks: {
+        viewer: [cn('m-only')],
+        counterpart: [cn('h-only')],
+        shared: [cn('s1'), cn('s2'), cn('s3')],
+        truncated: false,
+      },
+    };
+    const floor = floorFromRelationshipContext(context);
+    expect(floor).toEqual({ pathDegree: 2, sharedConnections: 3, mariaOneHop: 4, helperOneHop: 4 });
+    expect(meetsRichFloor(floor)).toBe(true);
+  });
+
+  it('maps a null path degree (no path) and empty networks safely', () => {
+    const floor = floorFromRelationshipContext({ path: { degrees: null }, networks: { viewer: [], counterpart: [], shared: [] } });
+    expect(floor).toEqual({ pathDegree: null, sharedConnections: 0, mariaOneHop: 0, helperOneHop: 0 });
   });
 });
 

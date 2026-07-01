@@ -153,6 +153,28 @@ export function overlapFromNeighborhoods(
   };
 }
 
+/** The subset of the reciprocal relationship-context this rehearsal reads to measure the floor. */
+export interface RelationshipContextShape {
+  path?: { degrees?: number | null };
+  networks?: { viewer?: unknown[]; counterpart?: unknown[]; shared?: unknown[] };
+}
+
+/**
+ * Derive the floor from the platform-wide match relationship-context. `networks.viewer` /
+ * `networks.counterpart` hold each side's EXCLUSIVE one-hop neighbours; mutual neighbours live in
+ * `networks.shared`. So each side's true one-hop breadth is its exclusive count PLUS the shared count —
+ * counting only the exclusive lists would undercount (e.g. 3 shared + 1 exclusive reads as 1, not 4).
+ */
+export function floorFromRelationshipContext(context: RelationshipContextShape): StoryOverlap {
+  const shared = context.networks?.shared?.length ?? 0;
+  return {
+    pathDegree: typeof context.path?.degrees === 'number' ? context.path.degrees : null,
+    sharedConnections: shared,
+    mariaOneHop: (context.networks?.viewer?.length ?? 0) + shared,
+    helperOneHop: (context.networks?.counterpart?.length ?? 0) + shared,
+  };
+}
+
 export interface StoryFloor {
   /** Structural overlap present, so the floor can be reached (repairing the path if needed). */
   achievable: boolean;
