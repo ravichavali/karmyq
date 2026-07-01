@@ -196,9 +196,15 @@ offer/accept/decline actions still work. Validate the same topology from both pa
 - **Branch:** `agent/codex/sprint-116-offer-context`, branched off the merged `origin/master`
   (`89ccf4d7`); the prior `agent/codex/sprint-116-relationship-shape` branch is deleted.
 - **Gates (all green on the branch diff):** frontend regression 158, request-service unit 141 +
-  regression 207, simulation-service 34; per-workspace `tsc --noEmit` clean; doc-context drift 5/5;
+  regression 207, simulation-service 39; per-workspace `tsc --noEmit` clean; doc-context drift 5/5;
   `/simplify`, `/code-review`, `/security-review` run — one persona-reuse cleanup applied, no
-  correctness/security findings.
+  correctness/security findings. CodeQL: 6 `js/request-forgery` FPs dismissed (env-var baseURL); 0 open.
+- **Cross-agent review (Codex) — two rounds, both addressed on Task 10 (Maria rehearsal):** R1 —
+  repair-not-reject (structural overlap vs repairable path), selection-aware discovery, verified apply
+  (re-read), cross-community by community set. R2 — cross-community candidates measured with the
+  candidate's own token (neighborhood 404s on non-shared community), structural re-verification with
+  bounded projection-lag polling, lifecycle-aware reconciliation (proposed/pending/open only),
+  `request_id`-filtered match discovery. All covered by the 14-test regression suite.
 - **Working tree expectation:** clean. `master` untouched (no docs-only push to master).
 - **Blockers:** none for PR B (awaiting Admin merge/deploy). PR C stays blocked on PR B.
 - **Post-merge (Admin):** authorize demo deploy, then set `DEMO_ORDINARY_REQUEST_ID` /
