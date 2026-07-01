@@ -61,6 +61,24 @@ export interface ExistingOffer {
   status: string;
 }
 
+/** A repair-exchange match, with two-sided completion flags. */
+export interface RepairMatch {
+  id: string;
+  responderId: string;
+  status: string;
+  requesterDone: boolean;
+  responderDone: boolean;
+}
+
+/**
+ * State of a prior (possibly partial) repair exchange, for resumable planning. `matches` are all the
+ * matches on the repair request; the planner picks the one whose responder is the SELECTED helper.
+ */
+export interface ExistingRepair {
+  requestId?: string;
+  matches: RepairMatch[];
+}
+
 export interface MariaStoryState {
   maria: { id: string; communityIds: string[] };
   helperCandidates: HelperCandidate[];
@@ -70,20 +88,70 @@ export interface MariaStoryState {
     ordinaryMatches: ExistingMatch[];
     providerRequestId?: string;
     providerOffers: ExistingOffer[];
+    /** A prior repair exchange for the selected helper (matched by responder), if any. */
+    repair?: ExistingRepair;
   };
 }
 
+export type VisibilityScope = 'community' | 'trust_network' | 'platform';
+
+/**
+ * Requests the rehearsal creates are platform-scoped: the selected ordinary helper and provider may
+ * live in a different community, and the server otherwise falls back to the community's default scope
+ * (usually `community`), which would leave a disjoint helper unable to reach — and therefore offer on
+ * — Maria's request. Platform scope guarantees reachability for the deliberately cross-community story.
+ */
+export const STORY_REQUEST_SCOPE: VisibilityScope = 'platform';
+
 export type StoryAction =
-  | { type: 'create_ordinary_request'; actor: 'maria'; communityId: string; title: string }
+  | { type: 'create_ordinary_request'; actor: 'maria'; communityId: string; title: string; visibilityScope: VisibilityScope }
   | { type: 'create_ordinary_offer'; actor: 'helper'; helperId: string }
-  | { type: 'create_provider_request'; actor: 'maria'; communityId: string; title: string }
+  | { type: 'create_provider_request'; actor: 'maria'; communityId: string; title: string; visibilityScope: VisibilityScope }
   | { type: 'submit_provider_offer'; actor: 'provider'; providerId: string }
   // Repair: a single Maria↔helper completed exchange that creates the direct bond so the trust path
-  // falls within the floor. request → offer → accept → two-sided completion.
-  | { type: 'create_repair_request'; actor: 'maria'; communityId: string; title: string }
+  // falls within the floor. request → offer → accept → two-sided completion. Resumable: only the
+  // missing steps are emitted when a prior run partially built the exchange.
+  | { type: 'create_repair_request'; actor: 'maria'; communityId: string; title: string; visibilityScope: VisibilityScope }
   | { type: 'offer_repair'; actor: 'helper'; helperId: string }
   | { type: 'accept_repair'; actor: 'maria' }
   | { type: 'complete_repair'; actor: 'maria' | 'helper' };
+
+/** A neighborhood node as returned by the social-graph ego endpoint (center is degree 0). */
+export interface NeighborhoodNode {
+  id: string;
+  degrees_of_separation?: number;
+}
+
+/**
+ * Compute overlap from two ego neighborhoods, counting ONLY true one-hop neighbours
+ * (`degrees_of_separation === 1`) and excluding both anchors. Without this, each ego's own center
+ * (degree 0) and — after a direct repair — the opposite anchor leak in as fake shared connections and
+ * inflate one-hop breadth, letting a thin story falsely clear the ≥3 shared / ≥4 one-hop floor.
+ */
+export function overlapFromNeighborhoods(
+  mariaNodes: NeighborhoodNode[],
+  candidateNodes: NeighborhoodNode[],
+  mariaId: string,
+  candidateId: string,
+  pathDegree: number | null,
+): StoryOverlap {
+  const oneHop = (nodes: NeighborhoodNode[]) =>
+    new Set(nodes.filter(n => n.degrees_of_separation === 1).map(n => n.id));
+  const mariaHop = oneHop(mariaNodes);
+  const candidateHop = oneHop(candidateNodes);
+  let shared = 0;
+  for (const id of mariaHop) {
+    if (candidateHop.has(id) && id !== mariaId && id !== candidateId) shared += 1;
+  }
+  const sizeExcluding = (set: Set<string>, exclude: string) =>
+    [...set].filter(id => id !== exclude).length;
+  return {
+    pathDegree,
+    sharedConnections: shared,
+    mariaOneHop: sizeExcluding(mariaHop, candidateId), // surrounding network, minus the helper anchor
+    helperOneHop: sizeExcluding(candidateHop, mariaId), // minus Maria anchor
+  };
+}
 
 export interface StoryFloor {
   /** Structural overlap present, so the floor can be reached (repairing the path if needed). */
@@ -102,6 +170,8 @@ export interface MariaStoryPlan {
     ordinary: { requestId?: string; matchId?: string };
     provider: { requestId?: string; offerId?: string };
   };
+  /** Existing repair-exchange IDs so apply can resume mid-exchange without recreating rows. */
+  repair: { requestId?: string; matchId?: string };
   floor: StoryFloor;
   warnings: string[];
 }
@@ -178,28 +248,41 @@ export function planMariaRelationshipStory(state: MariaStoryState): MariaStoryPl
 
   const pathWithinFloor = helper.overlap.pathDegree !== null && helper.overlap.pathDegree <= RICH_FLOOR.maxPathDegree;
   const needsRepair = achievable && !pathWithinFloor;
+  const homeCommunity = state.maria.communityIds[0];
+  const repair: ExistingRepair = existing.repair ?? { matches: [] };
+  // The repair match, if any, is the one whose responder is the SELECTED helper.
+  const repairMatch = repair.matches.find(m => m.responderId === helper.id);
 
   const actions: StoryAction[] = [];
   if (!existing.ordinaryRequestId) {
-    actions.push({ type: 'create_ordinary_request', actor: 'maria', communityId: state.maria.communityIds[0], title: ORDINARY_REQUEST_TITLE });
+    actions.push({ type: 'create_ordinary_request', actor: 'maria', communityId: homeCommunity, title: ORDINARY_REQUEST_TITLE, visibilityScope: STORY_REQUEST_SCOPE });
   }
   if (!ordinaryMatchId) {
     actions.push({ type: 'create_ordinary_offer', actor: 'helper', helperId: helper.id });
   }
   if (!existing.providerRequestId) {
-    actions.push({ type: 'create_provider_request', actor: 'maria', communityId: state.maria.communityIds[0], title: PROVIDER_REQUEST_TITLE });
+    actions.push({ type: 'create_provider_request', actor: 'maria', communityId: homeCommunity, title: PROVIDER_REQUEST_TITLE, visibilityScope: STORY_REQUEST_SCOPE });
   }
   if (!providerOfferId) {
     actions.push({ type: 'submit_provider_offer', actor: 'provider', providerId: provider.id });
   }
   if (needsRepair) {
-    actions.push(
-      { type: 'create_repair_request', actor: 'maria', communityId: state.maria.communityIds[0], title: REPAIR_REQUEST_TITLE },
-      { type: 'offer_repair', actor: 'helper', helperId: helper.id },
-      { type: 'accept_repair', actor: 'maria' },
-      { type: 'complete_repair', actor: 'maria' },
-      { type: 'complete_repair', actor: 'helper' },
-    );
+    // Resumable: emit only the repair steps not already done by a prior (possibly partial) run.
+    if (!repair.requestId) {
+      actions.push({ type: 'create_repair_request', actor: 'maria', communityId: homeCommunity, title: REPAIR_REQUEST_TITLE, visibilityScope: STORY_REQUEST_SCOPE });
+    }
+    if (!repairMatch) {
+      actions.push(
+        { type: 'offer_repair', actor: 'helper', helperId: helper.id },
+        { type: 'accept_repair', actor: 'maria' },
+        { type: 'complete_repair', actor: 'maria' },
+        { type: 'complete_repair', actor: 'helper' },
+      );
+    } else {
+      if (repairMatch.status === 'proposed') actions.push({ type: 'accept_repair', actor: 'maria' });
+      if (!repairMatch.requesterDone) actions.push({ type: 'complete_repair', actor: 'maria' });
+      if (!repairMatch.responderDone) actions.push({ type: 'complete_repair', actor: 'helper' });
+    }
   }
 
   const warnings: string[] = [];
@@ -228,6 +311,10 @@ export function planMariaRelationshipStory(state: MariaStoryState): MariaStoryPl
         ...(providerOfferId && { offerId: providerOfferId }),
       },
     },
+    repair: {
+      ...(repair.requestId && { requestId: repair.requestId }),
+      ...(repairMatch?.id && { matchId: repairMatch.id }),
+    },
     floor: { achievable, needsRepair, met: achievable && !needsRepair, helperOverlap: helper.overlap },
     warnings,
   };
@@ -244,7 +331,7 @@ export interface StoryResult {
  */
 export interface StoryClients {
   maria: {
-    createRequest(data: { community_id: string; title: string; description: string; request_type: string }): Promise<any>;
+    createRequest(data: { community_id: string; title: string; description: string; request_type: string; visibility_scope: VisibilityScope }): Promise<any>;
     acceptMatch(matchId: string): Promise<any>;
     completeMatch(matchId: string): Promise<any>;
   };
@@ -256,7 +343,7 @@ export interface StoryClients {
     submitProviderOffer(requestId: string): Promise<any>;
   };
   readback: {
-    getRequest(requestId: string): Promise<{ id: string } | null>;
+    getRequest(requestId: string): Promise<{ id: string; status: string } | null>;
     getMatchesForRequest(requestId: string): Promise<ExistingMatch[]>;
     getOffersForRequest(requestId: string): Promise<ExistingOffer[]>;
     /**
@@ -298,8 +385,9 @@ export async function applyMariaRelationshipStory(
   }
 
   const requestId = { ordinary: plan.expected.ordinary.requestId, provider: plan.expected.provider.requestId };
-  let repairRequestId: string | undefined;
-  let repairMatchId: string | undefined;
+  // Resume a partial repair: reuse any request/match a prior run already created.
+  let repairRequestId: string | undefined = plan.repair.requestId;
+  let repairMatchId: string | undefined = plan.repair.matchId;
 
   for (const action of plan.actions) {
     switch (action.type) {
@@ -334,23 +422,26 @@ export async function applyMariaRelationshipStory(
 
   // Verify by authoritative re-read: the demo IDs are whatever the server now reports for the SELECTED
   // helper/provider — not the transient mutation responses.
+  // Lifecycle-aware verification: the reviewable story requires an OPEN request with a still-live
+  // decision (a proposed match / pending offer). A concurrent transition to rejected/declined/closed
+  // must fail verification rather than be printed as "verified".
   const result: StoryResult = { ordinary: {}, provider: {} };
   if (requestId.ordinary) {
     const req = await clients.readback.getRequest(requestId.ordinary);
-    if (!req) throw new Error('Verification failed: ordinary request not found on re-read');
+    if (!req || req.status !== 'open') throw new Error('Verification failed: ordinary request is not open on re-read');
     const match = (await clients.readback.getMatchesForRequest(requestId.ordinary)).find(
-      m => m.responderId === plan.selection.ordinaryHelperId,
+      m => m.responderId === plan.selection.ordinaryHelperId && m.status === 'proposed',
     );
-    if (!match) throw new Error('Verification failed: ordinary match for the selected helper not found on re-read');
+    if (!match) throw new Error('Verification failed: no proposed ordinary match for the selected helper on re-read');
     result.ordinary = { requestId: requestId.ordinary, matchId: match.id };
   }
   if (requestId.provider) {
     const req = await clients.readback.getRequest(requestId.provider);
-    if (!req) throw new Error('Verification failed: provider request not found on re-read');
+    if (!req || req.status !== 'open') throw new Error('Verification failed: provider request is not open on re-read');
     const offer = (await clients.readback.getOffersForRequest(requestId.provider)).find(
-      o => o.providerUserId === plan.selection.providerId,
+      o => o.providerUserId === plan.selection.providerId && o.status === 'pending',
     );
-    if (!offer) throw new Error('Verification failed: provider offer for the selected provider not found on re-read');
+    if (!offer) throw new Error('Verification failed: no pending provider offer for the selected provider on re-read');
     result.provider = { requestId: requestId.provider, offerId: offer.id };
   }
 
@@ -393,5 +484,7 @@ function requestBody(action: CreateRequestAction) {
     title: action.title,
     description: descriptions[action.type] ?? action.title,
     request_type: action.type === 'create_provider_request' ? 'service' : 'generic',
+    // Platform scope so a cross-community helper/provider can actually reach and offer on the request.
+    visibility_scope: action.visibilityScope,
   };
 }

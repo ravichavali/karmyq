@@ -75,6 +75,7 @@ export class ApiClient {
     category?: string;
     urgency?: string;
     request_type?: string;
+    visibility_scope?: 'community' | 'trust_network' | 'platform';
   }): Promise<any> {
     const response = await executeWithRetry(() =>
       this.client.post('/requests', data)

@@ -15,13 +15,17 @@ import { ApiClient } from '../api-client';
 import {
   planMariaRelationshipStory,
   applyMariaRelationshipStory,
+  overlapFromNeighborhoods,
   ORDINARY_REQUEST_TITLE,
   PROVIDER_REQUEST_TITLE,
+  REPAIR_REQUEST_TITLE,
   type HelperCandidate,
   type ProviderCandidate,
   type ExistingMatch,
   type ExistingOffer,
+  type ExistingRepair,
   type MariaStoryState,
+  type NeighborhoodNode,
   type StoryOverlap,
 } from '../scenarios/mariaRelationshipStory';
 
@@ -44,8 +48,7 @@ async function loginPersona(baseUrl: string, email: string): Promise<Persona> {
   return { email, client, userId: user.id, communityIds };
 }
 
-const idSet = (neighborhood: any): Set<string> =>
-  new Set<string>(((neighborhood?.nodes ?? []) as any[]).map(n => n.id));
+const nodesOf = (neighborhood: any): NeighborhoodNode[] => (neighborhood?.nodes ?? []) as NeighborhoodNode[];
 
 /**
  * Measure overlap between Maria and a candidate using privacy-scoped ego neighborhoods.
@@ -53,34 +56,29 @@ const idSet = (neighborhood: any): Set<string> =>
  * The candidate's one-hop is fetched with the CANDIDATE's own token — Maria's token 404s on a
  * genuinely cross-community candidate (the neighborhood scope requires a shared active community), so
  * asking with Maria's token would abort the whole gather for exactly the cross-community helper we
- * want. Shared connections are the intersection of the two self-ego one-hops; path degree comes from
- * Maria's own depth-2 walk (null when there is no path within her communities' edge graph, which the
- * repair exchange then establishes).
+ * want. `overlapFromNeighborhoods` filters strictly to `degrees_of_separation === 1` and excludes both
+ * anchors, so neither ego's own center nor the direct repair edge leaks in as fake overlap. Path
+ * degree comes from Maria's own depth-2 walk (null when there is no in-community path, which the repair
+ * exchange then establishes).
  */
 async function overlap(
-  mariaOneHop: Set<string>,
-  mariaDepth2: any,
+  mariaId: string,
+  mariaOneHopNodes: NeighborhoodNode[],
+  mariaDepth2Nodes: NeighborhoodNode[],
   candidate: Persona,
 ): Promise<StoryOverlap> {
-  const candidateOneHop = idSet(await candidate.client.getNeighborhood(candidate.userId, 1));
-  let shared = 0;
-  for (const id of candidateOneHop) if (mariaOneHop.has(id)) shared += 1;
-  const reached = ((mariaDepth2?.nodes ?? []) as any[]).find(n => n.id === candidate.userId);
+  const candidateNodes = nodesOf(await candidate.client.getNeighborhood(candidate.userId, 1));
+  const reached = mariaDepth2Nodes.find(n => n.id === candidate.userId);
   const pathDegree =
     typeof reached?.degrees_of_separation === 'number' ? reached.degrees_of_separation : null;
-  return {
-    pathDegree,
-    sharedConnections: shared,
-    mariaOneHop: mariaOneHop.size,
-    helperOneHop: candidateOneHop.size,
-  };
+  return overlapFromNeighborhoods(mariaOneHopNodes, candidateNodes, mariaId, candidate.userId, pathDegree);
 }
 
 /** Fresh overlap measurement (re-reads Maria's neighborhoods) — used to poll past projection lag. */
 async function measureOverlap(maria: Persona, candidate: Persona): Promise<StoryOverlap> {
-  const mariaDepth2 = await maria.client.getNeighborhood(maria.userId, 2);
-  const mariaOneHop = idSet(await maria.client.getNeighborhood(maria.userId, 1));
-  return overlap(mariaOneHop, mariaDepth2, candidate);
+  const mariaDepth2Nodes = nodesOf(await maria.client.getNeighborhood(maria.userId, 2));
+  const mariaOneHopNodes = nodesOf(await maria.client.getNeighborhood(maria.userId, 1));
+  return overlap(maria.userId, mariaOneHopNodes, mariaDepth2Nodes, candidate);
 }
 
 async function findRequestByTitle(maria: Persona, title: string): Promise<string | undefined> {
@@ -88,6 +86,25 @@ async function findRequestByTitle(maria: Persona, title: string): Promise<string
   // Only an OPEN request is a live story anchor; a stale completed/cancelled one must not be reused.
   return mine.find(r => r.title === title && r.status === 'open')?.id;
 }
+
+/** Find one of Maria's requests by title regardless of status (used for the repair request). */
+async function findMyRequestAnyStatus(
+  maria: Persona,
+  title: string,
+): Promise<{ id: string; status: string } | undefined> {
+  const mine = await maria.client.browseRequests({ requester_id: maria.userId, limit: 100 });
+  const row = mine.find(r => r.title === title);
+  return row ? { id: row.id, status: row.status } : undefined;
+}
+
+const repairMatchesForRequest = async (maria: Persona, requestId: string) =>
+  (await maria.client.getMatches({ request_id: requestId })).map(m => ({
+    id: m.id,
+    responderId: m.responder_id,
+    status: m.status,
+    requesterDone: !!m.requester_done_at,
+    responderDone: !!m.responder_done_at,
+  }));
 
 const matchesForRequest = async (maria: Persona, requestId: string): Promise<ExistingMatch[]> =>
   // Query by request_id (not the latest-N system-wide window) so an older story never falls off.
@@ -111,8 +128,8 @@ interface GatheredWorld {
 }
 
 async function gatherState(maria: Persona, baseUrl: string): Promise<GatheredWorld> {
-  const mariaDepth2 = await maria.client.getNeighborhood(maria.userId, 2);
-  const mariaOneHop = idSet(await maria.client.getNeighborhood(maria.userId, 1));
+  const mariaDepth2Nodes = nodesOf(await maria.client.getNeighborhood(maria.userId, 2));
+  const mariaOneHopNodes = nodesOf(await maria.client.getNeighborhood(maria.userId, 1));
   const personas = new Map<string, Persona>();
 
   const helperCandidates: HelperCandidate[] = [];
@@ -122,7 +139,7 @@ async function gatherState(maria: Persona, baseUrl: string): Promise<GatheredWor
     helperCandidates.push({
       id: persona.userId,
       communityIds: persona.communityIds,
-      overlap: await overlap(mariaOneHop, mariaDepth2, persona),
+      overlap: await overlap(maria.userId, mariaOneHopNodes, mariaDepth2Nodes, persona),
     });
   }
 
@@ -135,12 +152,19 @@ async function gatherState(maria: Persona, baseUrl: string): Promise<GatheredWor
       id: persona.userId,
       communityIds: persona.communityIds,
       serviceType: profiles?.[0]?.service_type ?? 'other',
-      overlap: await overlap(mariaOneHop, mariaDepth2, persona),
+      overlap: await overlap(maria.userId, mariaOneHopNodes, mariaDepth2Nodes, persona),
     });
   }
 
   const ordinaryRequestId = await findRequestByTitle(maria, ORDINARY_REQUEST_TITLE);
   const providerRequestId = await findRequestByTitle(maria, PROVIDER_REQUEST_TITLE);
+  // The repair request is looked up regardless of status — accepting its match closes the request, so
+  // an open-only filter would lose it mid-exchange and break resumability.
+  const repairRequest = await findMyRequestAnyStatus(maria, REPAIR_REQUEST_TITLE);
+  const repair: ExistingRepair = {
+    requestId: repairRequest?.id,
+    matches: repairRequest ? await repairMatchesForRequest(maria, repairRequest.id) : [],
+  };
 
   return {
     personas,
@@ -153,6 +177,7 @@ async function gatherState(maria: Persona, baseUrl: string): Promise<GatheredWor
         ordinaryMatches: ordinaryRequestId ? await matchesForRequest(maria, ordinaryRequestId) : [],
         providerRequestId,
         providerOffers: providerRequestId ? await offersForRequest(maria, providerRequestId) : [],
+        repair,
       },
     },
   };

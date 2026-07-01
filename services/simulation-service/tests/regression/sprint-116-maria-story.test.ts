@@ -3,9 +3,11 @@ import path from 'path';
 import {
   planMariaRelationshipStory,
   applyMariaRelationshipStory,
+  overlapFromNeighborhoods,
   meetsRichFloor,
   hasStructuralOverlap,
   RICH_FLOOR,
+  STORY_REQUEST_SCOPE,
   PROVIDER_REQUEST_TITLE,
   type MariaStoryState,
   type StoryOverlap,
@@ -48,6 +50,32 @@ describe('Sprint 116 — floor invariants', () => {
     expect(hasStructuralOverlap(sparse)).toBe(false);
     expect(meetsRichFloor(richPath)).toBe(true);
     expect(meetsRichFloor(farPath)).toBe(false);             // path degree 5 > 2
+  });
+});
+
+describe('Sprint 116 — overlap measurement excludes ego centers and both anchors', () => {
+  const M = 'maria', H = 'helper';
+  const node = (id: string, deg: number) => ({ id, degrees_of_separation: deg });
+
+  it('counts only degrees_of_separation === 1 and never the two anchors', () => {
+    // Both egos include their own center (deg 0) and, post-repair, the opposite anchor at deg 1,
+    // plus three genuine mutual friends and one private neighbour each.
+    const mariaNodes = [node(M, 0), node(H, 1), node('a', 1), node('b', 1), node('c', 1), node('m-only', 1), node('far', 2)];
+    const helperNodes = [node(H, 0), node(M, 1), node('a', 1), node('b', 1), node('c', 1), node('h-only', 1)];
+
+    const o = overlapFromNeighborhoods(mariaNodes, helperNodes, M, H, 1);
+    expect(o.sharedConnections).toBe(3);   // a, b, c — NOT Maria/helper
+    expect(o.mariaOneHop).toBe(4);         // a, b, c, m-only — the helper anchor and deg-2 excluded
+    expect(o.helperOneHop).toBe(4);        // a, b, c, h-only — Maria anchor excluded
+    expect(o.pathDegree).toBe(1);
+  });
+
+  it('does not let the two anchors alone satisfy the floor (one true shared → fails)', () => {
+    const mariaNodes = [node(M, 0), node(H, 1), node('x', 1), node('m1', 1), node('m2', 1)];
+    const helperNodes = [node(H, 0), node(M, 1), node('x', 1), node('h1', 1), node('h2', 1)];
+    const o = overlapFromNeighborhoods(mariaNodes, helperNodes, M, H, 1);
+    expect(o.sharedConnections).toBe(1);   // only x; anchors excluded
+    expect(meetsRichFloor(o)).toBe(false);
   });
 });
 
@@ -99,6 +127,53 @@ describe('Sprint 116 — repair vs refuse', () => {
     }));
     expect(plan.floor).toMatchObject({ achievable: false });
     expect(plan.warnings.join(' ')).toMatch(/rich floor|structural/i);
+    expect(plan.actions.some(a => a.type === 'create_repair_request')).toBe(false);
+  });
+
+  it('creates every request at platform scope so a cross-community helper can reach it', () => {
+    const plan = planMariaRelationshipStory(baseState({
+      helperCandidates: [{ id: 'h-far', communityIds: [C3], overlap: farPath }],
+    }));
+    const creates = plan.actions.filter(a => a.type.endsWith('_request')) as Array<{ visibilityScope: string }>;
+    expect(creates).toHaveLength(3); // ordinary, provider, repair
+    expect(creates.every(a => a.visibilityScope === STORY_REQUEST_SCOPE)).toBe(true);
+    expect(STORY_REQUEST_SCOPE).toBe('platform');
+  });
+});
+
+describe('Sprint 116 — repair is resumable after a partial prior run', () => {
+  it('re-uses an accepted repair match and only completes the missing side', () => {
+    const plan = planMariaRelationshipStory(baseState({
+      helperCandidates: [{ id: 'h-far', communityIds: [C3], overlap: farPath }],
+      existing: {
+        ordinaryRequestId: 'req-o',
+        ordinaryMatches: [{ id: 'match-o', responderId: 'h-far', status: 'proposed' }],
+        providerRequestId: 'req-p',
+        providerOffers: [{ id: 'offer-p', providerUserId: 'p-contrast', status: 'pending' }],
+        repair: {
+          requestId: 'req-repair',
+          matches: [{ id: 'repair-match', responderId: 'h-far', status: 'matched', requesterDone: true, responderDone: false }],
+        },
+      },
+    }));
+    // Only the helper's completion remains — no new repair request, offer, accept, or Maria completion.
+    expect(plan.actions.map(a => a.type)).toEqual(['complete_repair']);
+    expect((plan.actions[0] as any).actor).toBe('helper');
+    expect(plan.repair).toEqual({ requestId: 'req-repair', matchId: 'repair-match' });
+  });
+
+  it('re-uses an existing repair request (no match yet) instead of creating a duplicate', () => {
+    const plan = planMariaRelationshipStory(baseState({
+      helperCandidates: [{ id: 'h-far', communityIds: [C3], overlap: farPath }],
+      existing: {
+        ordinaryRequestId: 'req-o',
+        ordinaryMatches: [{ id: 'match-o', responderId: 'h-far', status: 'proposed' }],
+        providerRequestId: 'req-p',
+        providerOffers: [{ id: 'offer-p', providerUserId: 'p-contrast', status: 'pending' }],
+        repair: { requestId: 'req-repair', matches: [] },
+      },
+    }));
+    expect(plan.actions.map(a => a.type)).toEqual(['offer_repair', 'accept_repair', 'complete_repair', 'complete_repair']);
     expect(plan.actions.some(a => a.type === 'create_repair_request')).toBe(false);
   });
 });
@@ -171,7 +246,7 @@ describe('Sprint 116 — apply re-reads authoritative state and verifies before 
   // Re-read reports the authoritative rows tied to the selected personas; overlap already at the floor.
   function confirmingReadback(overrides: any = {}) {
     return {
-      getRequest: jest.fn(async (id: string) => ({ id })),
+      getRequest: jest.fn(async (id: string) => ({ id, status: 'open' })),
       getMatchesForRequest: jest.fn(async () => [{ id: 'match-authoritative', responderId: 'h-cross', status: 'proposed' }]),
       getOffersForRequest: jest.fn(async () => [{ id: 'offer-authoritative', providerUserId: 'p-contrast', status: 'pending' }]),
       measureHelperOverlap: jest.fn(async () => richPath),
@@ -199,7 +274,23 @@ describe('Sprint 116 — apply re-reads authoritative state and verifies before 
     const readback = confirmingReadback({
       getMatchesForRequest: jest.fn(async () => [{ id: 'match-x', responderId: 'someone-else', status: 'proposed' }]),
     });
-    await expect(applyMariaRelationshipStory(plan, fakeClients(readback), { sleep: noSleep })).rejects.toThrow(/verif|not found/i);
+    await expect(applyMariaRelationshipStory(plan, fakeClients(readback), { sleep: noSleep })).rejects.toThrow(/verif|not found|no proposed/i);
+  });
+
+  it('throws when the match transitioned out of proposed between apply and readback', async () => {
+    const plan = planMariaRelationshipStory(baseState());
+    const readback = confirmingReadback({
+      getMatchesForRequest: jest.fn(async () => [{ id: 'match-authoritative', responderId: 'h-cross', status: 'rejected' }]),
+    });
+    await expect(applyMariaRelationshipStory(plan, fakeClients(readback), { sleep: noSleep })).rejects.toThrow(/no proposed/i);
+  });
+
+  it('throws when the ordinary request is no longer open on readback', async () => {
+    const plan = planMariaRelationshipStory(baseState());
+    const readback = confirmingReadback({
+      getRequest: jest.fn(async (id: string) => ({ id, status: 'matched' })),
+    });
+    await expect(applyMariaRelationshipStory(plan, fakeClients(readback), { sleep: noSleep })).rejects.toThrow(/not open/i);
   });
 
   it('throws when the helper overlap never reaches the rich floor (projection failed)', async () => {
