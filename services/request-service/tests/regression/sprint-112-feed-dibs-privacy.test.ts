@@ -47,6 +47,10 @@ const REQUESTER = '33333333-3333-3333-3333-333333333333';
 const SENTINEL_TRUST = 827;
 const SENTINEL_KARMA = 913;
 const SENTINEL_SCORE = 614;
+// Fixed, non-colliding fixture timestamp. A live `new Date()` millisecond field can equal a
+// sentinel (827/913/614) and make the leak scans below false-fire on the timestamp itself rather
+// than on a real reputation leak. Keep this deterministic and free of those digit runs. (PR #135 review.)
+const FIXED_CREATED_AT = '2025-05-05T05:05:05.505Z';
 
 function app() {
   const a = express();
@@ -143,7 +147,7 @@ describe('GET /requests/curated — live response carries no requester reputatio
       const rows = Array.from({ length: requestCount }, (_v, i) => ({
         id: `req-curated-${i + 1}`, requester_id: REQUESTER, request_type: 'generic', title: `Need a hand ${i + 1}`,
         description: 'help', urgency: i === 0 ? 'high' : 'low', payload: {}, status: 'open',
-        created_at: new Date().toISOString(),
+        created_at: FIXED_CREATED_AT,
         community_ids: 'cccccccc-cccc-cccc-cccc-cccccccccccc', in_user_community: true,
         visibility_scope: 'community', visibility_max_degrees: 3,
       }));

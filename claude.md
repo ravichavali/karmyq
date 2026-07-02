@@ -33,11 +33,10 @@ Sprint planning produces the spec + plan + handoff (via the `sprint-planning` sk
 chat; the **next** chat executes from the handoff. Don't open a new chat for every small PR
 comment.
 
-> **Token cost note (long sprints):** each turn re-bills the whole transcript plus every
-> always-resident doc. Split a large plan into per-PR files so the executor carries only the
-> active PR's section, and for a long (many-task) sprint prefer a fresh chat per PR to bound
-> accumulation. Agents without an `executing-plans` skill (e.g. Codex) run inline, so their cost
-> = transcript growth × resident weight — keep this file and the plan lean.
+> **Long-sprint context note:** a long sprint accumulates a lot of working context. Split a large
+> plan into per-PR files so the executor loads only the active PR's section, and keep this file and
+> the plan lean. For an unusually long, multi-PR sprint, a fresh chat per PR is a reasonable
+> **exception** to the one-chat-per-sprint default above.
 
 ### Bootstrap — do this BEFORE any work, in order
 
