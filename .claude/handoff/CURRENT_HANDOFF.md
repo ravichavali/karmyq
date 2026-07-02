@@ -40,8 +40,9 @@ preserving a mutable ambient simulation population.
 
 - A typed manifest is authoritative for a compact 36-person, six-community historical baseline.
 - Historical UUIDs derive from semantic keys; all timestamps derive from one UTC reset anchor.
-- Completed exchange projections are rebuilt through shared timestamp-aware domain functions, not
-  hand-authored trust edges or scores.
+- Completed exchange projections are rebuilt through fixture-only timestamp-aware functions, not
+  hand-authored trust edges or scores. Cross-workspace regressions pin raw-weight and karma-allocation
+  equivalence to production without refactoring live event handlers.
 - The guarded reset is dry-run by default and requires an explicit demo fingerprint, advisory lock,
   paused simulator/cleanup, verified backup, and one PostgreSQL transaction.
 - Live Maria requests/match/provider offer are created through ordinary APIs and accepted only after
@@ -51,6 +52,21 @@ preserving a mutable ambient simulation population.
 - Time continues normally. Durable history supports the story; aging examples transition naturally;
   finite live stories rotate explicitly before their 60-day request TTL becomes unsafe.
 - Health is read-only. Rotation is explicit. Neither auto-repairs nor triggers a full reset.
+- Reset coverage includes federation base tables; only `federation.local_instance` is preserved.
+  Views are inventoried separately and never classified/truncated.
+
+### Cross-agent plan review (approved with fixes; folded in)
+
+- **Fixed:** added `federation.*` to managed-table coverage with explicit preserve/reset policy.
+- **Fixed:** catalog query is base-table-only; views such as `trust_edges_live` are excluded.
+- **Fixed:** added raw-weight equivalence against production `computeRawWeight` plus multi-community
+  karma allocation equivalence against production `allocateKarma`.
+- **Risk reduction accepted:** removed the planned production trust/karma/request event refactor.
+  Historical projection stays fixture-only, so Sprint 117 remains one cohesive PR without changing
+  live reputation/event behavior.
+- **Fixed:** the destructive twice-applied reset integration test is blocking in CI's migrated
+  PostgreSQL job and promotes before deploy; the live demo is not its first execution.
+- **Planned docs fix:** correct stale `community.*` schema examples in `claude.md` during Task 11.
 
 ### Fixture behavior matrix
 
@@ -70,12 +86,12 @@ preserving a mutable ambient simulation population.
 2. Manifest/compiler implementation.
 3. Reset-safety RED tests.
 4. Guarded reset/table policy implementation.
-5. Timestamp projection RED tests.
-6. Shared projection replay + live event adaptation.
+5. Fixture projection/equivalence RED tests.
+6. Fixture-only projection replay (live event handlers unchanged).
 7. API verifier/story operations RED tests.
 8. Verifier, story lifecycle, health, rotation, config publication.
 9. Full protected-core simulator exclusion + legacy reset replacement.
-10. Migrated-DB double-reset integration proof.
+10. Migrated-DB double-reset integration proof + blocking CI promotion.
 11. Operator/ADR/context/landing docs + v11.26.0.
 12. Testing/simplify/code-review/security-review gates.
 13. Final type/test/feedback/pre-push verification.

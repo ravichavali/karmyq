@@ -8,9 +8,10 @@
 age-aware curated fixtures, server-generated Maria story IDs, and privacy-scoped API verification.
 
 **Architecture:** A typed fixture manifest compiles semantic keys and reset-relative ages into a
-transactional PostgreSQL baseline. Shared pure projection rules keep historical trust/reputation
-state aligned with live event behavior; ordinary APIs create the finite live Maria decisions, and a
-non-admin verifier is the only authority that can publish demo configuration or resume mutation.
+transactional PostgreSQL baseline. Fixture-only pure projection rules are locked to production
+`computeRawWeight` and `allocateKarma` by cross-workspace equivalence tests without changing live event
+handlers; ordinary APIs create the finite live Maria decisions, and a non-admin verifier is the only
+authority that can publish demo configuration or resume mutation.
 
 **Tech Stack:** Node.js/TypeScript, PostgreSQL 15, `pg`, Express service APIs, Bull/Redis event
 projection, Jest, Next.js 14/15 workspace, Bash/PowerShell operator wrappers.
@@ -23,6 +24,10 @@ projection, Jest, Next.js 14/15 workspace, Bash/PowerShell operator wrappers.
 - Planned demo downtime is approved, but merge and deploy still require explicit Admin authorization.
 - Reset is dry-run by default. Mutation requires `--apply`, demo fingerprint, advisory lock, paused
   mutation jobs, and a completed restorable backup.
+- Catalog coverage includes `federation.*`; `federation.local_instance` is preserved as infrastructure
+  identity and all other federation base tables are explicitly reset.
+- Only `information_schema.tables.table_type = 'BASE TABLE'` is classifiable/truncatable. Views such as
+  `social_graph.trust_edges_live` are discovered separately and never enter the truncate set.
 - One UTC reset anchor drives all ages; fixed calendar dates and frozen clocks are forbidden.
 - Maria Reyes is synthetic, active, member-only, never admin/moderator, and excluded from simulation.
 - Every protected story dependency is excluded from simulation, not only `DEMO_PERSONA_EMAIL`.
@@ -61,13 +66,12 @@ projection, Jest, Next.js 14/15 workspace, Bash/PowerShell operator wrappers.
 | `services/simulation-service/src/scripts/resetDemoData.ts` | Dry-run-by-default full-reset CLI. |
 | `services/simulation-service/src/scripts/verifyDemoData.ts` | Read-only fixture-health CLI. |
 | `services/simulation-service/src/scripts/rotateMariaStories.ts` | Explicit live-story rotation CLI. |
-| `packages/shared/src/projections/completedExchange.ts` | Pure timestamp-aware trust/karma projection rules shared by live handlers and fixture compiler. |
+| `packages/shared/src/projections/completedExchange.ts` | Fixture-only timestamp-aware trust/karma projection rules, equivalence-locked to production math. |
 | `packages/shared/src/projections/index.ts` | Projection exports. |
 | `services/simulation-service/tests/tdd/sprint-117-manifest-compiler.test.ts` | Manifest/UUID/age/invariant TDD contract. |
 | `services/simulation-service/tests/tdd/sprint-117-reset-safety.test.ts` | Environment, table policy, backup, lock, transaction, and dry-run TDD contract. |
 | `packages/shared/src/projections/__tests__/completedExchange.test.ts` | Pure chronological projection contract. |
-| `services/social-graph-service/tests/tdd/sprint-117-projection-time.test.ts` | Live social projection honors source event time. |
-| `services/reputation-service/tests/tdd/sprint-117-projection-time.test.ts` | Live karma projection honors source event time. |
+| `tests/tdd/sprint-117-projection-equivalence.test.ts` | Cross-workspace raw-weight and karma-allocation equivalence gate. |
 | `services/simulation-service/tests/tdd/sprint-117-api-verifier.test.ts` | API privacy, reciprocal topology, story coherence, and health TDD contract. |
 | `services/simulation-service/tests/tdd/sprint-117-story-operations.test.ts` | Rotation, env publication, and fail-closed operations TDD contract. |
 | `services/simulation-service/tests/tdd/sprint-117-protected-core.test.ts` | Every protected fixture identity is absent from simulator queries. |
@@ -83,13 +87,6 @@ projection, Jest, Next.js 14/15 workspace, Bash/PowerShell operator wrappers.
 | `services/simulation-service/src/db-user-loader.ts` | Exclude the manifest's full protected email set from actor selection/counts. |
 | `services/simulation-service/package.json` | Add reset/verify/rotate scripts and explicit `@karmyq/shared` dependency. |
 | `packages/shared/package.json`, `packages/shared/index.ts` | Export `./projections/completed-exchange`. |
-| `services/social-graph-service/src/database/trustEdgeDb.ts` | Use shared projection math and optional source timestamp/queryable context. |
-| `services/social-graph-service/src/services/trustEdgeService.ts` | Thread completion timestamp through community reconciliation. |
-| `services/social-graph-service/src/events/subscriber.ts` | Read additive `completed_at` and project connections at source time. |
-| `services/reputation-service/src/services/karmaAllocation.ts` | Re-export shared allocation logic for compatibility. |
-| `services/reputation-service/src/services/karmaService.ts` | Use shared projection allocation and optional source timestamp/queryable context. |
-| `services/reputation-service/src/events/subscriber.ts` | Thread additive `completed_at` into karma projection. |
-| `services/request-service/src/routes/matches.ts` | Publish `completed_at` on `match_completed`. |
 | `scripts/truncate-database.sh`, `scripts/truncate-database.bat`, `scripts/truncate-database.sql` | Replace unsafe legacy behavior with the single guarded CLI path/refusal message. |
 | `scripts/deploy.sh` | Pass no implicit reset; add safe post-deploy operator hints and protected-fixture verification. |
 | `scripts/README.md`, `docs/README.md` | Document the only supported reset, verify, rotate, and recovery commands. |
@@ -102,9 +99,10 @@ projection, Jest, Next.js 14/15 workspace, Bash/PowerShell operator wrappers.
 | `apps/landing/src/data/docs/services/simulation-service.json` | Reset/health/rotation operating model. |
 | `apps/landing/src/data/docs/nav.json` | Verify existing guide/ADR links remain present after generation. |
 | `services/simulation-service/CONTEXT.md`, `services/auth-service/CONTEXT.md` | Operational contracts and verified-ID/non-admin requirements. |
-| `services/social-graph-service/CONTEXT.md`, `services/reputation-service/CONTEXT.md`, `services/request-service/CONTEXT.md` | Add source-time event projection behavior. |
-| `services/registry.json` | Update simulation notes and `match_completed.completed_at` event contract if represented. |
+| `services/registry.json` | Update simulation-service notes for protected-core/ambient reset ownership. |
 | `package.json`, `package-lock.json` | Version `11.26.0` and workspace dependency lock update. |
+| `.github/workflows/ci.yml` | Run the migrated-PostgreSQL Sprint 117 reset integration test before deploy eligibility. |
+| `claude.md` | Correct the stale singular `community.*` schema names to `communities.*`. |
 | `.claude/handoff/CURRENT_HANDOFF.md` | Execution/deploy state throughout the sprint. |
 
 ---
@@ -120,27 +118,28 @@ projection, Jest, Next.js 14/15 workspace, Bash/PowerShell operator wrappers.
 4. Use a single `pg.PoolClient` for truncate, baseline source inserts, and projection inserts so the
    database portion is atomic.
 5. Semantic UUIDs apply only to historical baseline rows. Do not force IDs into ordinary API creates.
-6. Projection functions take `occurredAt` explicitly and sort exchanges chronologically. Defaulting to
-   `new Date()` is allowed only for live events that genuinely lack the additive timestamp.
-7. `match_completed` remains backward compatible: `completed_at` is optional for old queued events.
-8. The fixture manifest declares completed exchanges and feedback, never raw trust edges or exact
-   trust scores. Pure shared functions derive projection rows.
-9. `@karmyq/shared` subpath imports require a package export and explicit workspace dependencies before
+6. Fixture projection functions take `occurredAt` explicitly and sort exchanges chronologically.
+   Live event handlers remain unchanged in this sprint.
+7. The fixture manifest declares completed exchanges and feedback, never raw trust edges or exact
+   trust scores. Fixture-only pure functions derive projection rows, and a cross-workspace regression
+   proves their raw-weight and karma-allocation outputs equal production functions for the supported
+   completed-exchange inputs.
+8. `@karmyq/shared` subpath imports require a package export and explicit workspace dependencies before
    Turbo/CI can build in the correct order.
-10. Maria/helper/provider/shared-neighbor protection comes from the manifest's semantic classification,
+9. Maria/helper/provider/shared-neighbor protection comes from the manifest's semantic classification,
     not a hand-maintained second email list.
-11. `ApiClient` response methods consume interceptor-unwrapped `res.data`, not `res.data.data`.
-12. The verifier authenticates each candidate with that candidate's token where privacy scope requires
+10. `ApiClient` response methods consume interceptor-unwrapped `res.data`, not `res.data.data`.
+11. The verifier authenticates each candidate with that candidate's token where privacy scope requires
     it. Maria cannot inspect an arbitrary cross-community neighborhood.
-13. Verify response keys recursively against ADR-082 forbidden sets while allowing `bond_depth` and the
+12. Verify response keys recursively against ADR-082 forbidden sets while allowing `bond_depth` and the
     provider-rating exception.
-14. Configuration publication touches only `DEMO_PERSONA_EMAIL` and the four story ID variables. It
+13. Configuration publication touches only `DEMO_PERSONA_EMAIL` and the four story ID variables. It
     creates a timestamped `.env.demo` backup and uses same-directory atomic rename.
-15. Do not auto-reset or auto-rotate in deploy, cron, PM2, or health checks.
-16. Replace the old truncate entry points; do not leave a second destructive path behind.
-17. Docker is unavailable in the local Windows environment. DB-backed apply and full API validation
-    remain TDD until the Admin-authorized deployed rehearsal, but pure/unit/regression gates must pass.
-18. Fixture credentials come only from `DEMO_PERSONA_PASSWORD` at apply time. Hash once with
+14. Do not auto-reset or auto-rotate in deploy, cron, PM2, or health checks.
+15. Replace the old truncate entry points; do not leave a second destructive path behind.
+16. Docker is unavailable in the local Windows environment, but the DB-backed reset test must run in
+    CI's migrated PostgreSQL environment before merge; the live demo is not its first execution.
+17. Fixture credentials come only from `DEMO_PERSONA_PASSWORD` at apply time. Hash once with
     `bcryptjs` cost 12, pass the hash into `baselineWriter`, and never place plaintext/hash in the
     manifest, dry-run plan, logs, verification report, backup name, or committed files.
 
@@ -405,8 +404,24 @@ import { classifyTables, MANAGED_SCHEMAS } from '../../src/fixtures/curatedDemo/
 import { buildResetPlan, executeReset } from '../../src/fixtures/curatedDemo/resetCoordinator';
 
 describe('Sprint 117 reset safety', () => {
+  it('classifies federation base tables and preserves only local instance identity', () => {
+    const result = classifyTables(federationCatalogFixture());
+    expect(result.preserve).toContain('federation.local_instance');
+    expect(result.reset).toContain('federation.federated_users');
+    expect(result.reset).toContain('federation.inbox');
+  });
+
+  it('excludes views from classification and truncate statements', () => {
+    const result = classifyTables([
+      { schema: 'social_graph', table: 'trust_edges', tableType: 'BASE TABLE' },
+      { schema: 'social_graph', table: 'trust_edges_live', tableType: 'VIEW' },
+    ]);
+    expect(result.reset).toContain('social_graph.trust_edges');
+    expect([...result.reset, ...result.reseed, ...result.preserve]).not.toContain('social_graph.trust_edges_live');
+  });
+
   it('fails when a managed application table is unclassified', () => {
-    expect(() => classifyTables([{ schema: 'requests', table: 'new_table' }]))
+    expect(() => classifyTables([{ schema: 'requests', table: 'new_table', tableType: 'BASE TABLE' }]))
       .toThrow(/unclassified table requests\.new_table/i);
   });
 
@@ -477,7 +492,7 @@ git commit -m "test: define fail-closed demo reset safety"
 ```ts
 export const MANAGED_SCHEMAS = [
   'auth', 'communities', 'requests', 'provider', 'reputation', 'messaging',
-  'notifications', 'feedback', 'governance', 'events', 'feed', 'social_graph',
+  'notifications', 'feedback', 'governance', 'events', 'feed', 'social_graph', 'federation',
 ] as const;
 
 export const TABLE_POLICY: Record<string, 'reset'|'reseed'|'preserve'> = {
@@ -491,12 +506,40 @@ export const TABLE_POLICY: Record<string, 'reset'|'reseed'|'preserve'> = {
   'requests.request_communities': 'reset',
   'requests.retention_config': 'reseed',
   'social_graph.trust_decay_config': 'reseed',
+  'federation.local_instance': 'preserve',
+  'federation.instances': 'reset',
+  'federation.federation_links': 'reset',
+  'federation.blocked_instances': 'reset',
+  'federation.federated_users': 'reset',
+  'federation.federated_user_mappings': 'reset',
+  'federation.federated_requests': 'reset',
+  'federation.federated_communities': 'reset',
+  'federation.inbox': 'reset',
+  'federation.outbox': 'reset',
+  'federation.reputation_attestations': 'reset',
+  'federation.user_migrations': 'reset',
 };
 ```
 
 Complete the object for every catalog table returned from the managed schemas. Preserve only migration
 bookkeeping and immutable schema/UI catalogs with a written reason. Include the public geocoding cache
 in a separate explicit `reset` entry even though it is outside the schema list.
+
+The catalog query is base-table-only:
+
+```ts
+const catalog = await db.query<CatalogTable>(`
+  SELECT table_schema AS schema, table_name AS table
+  FROM information_schema.tables
+  WHERE table_schema = ANY($1::text[])
+    AND table_type = 'BASE TABLE'
+  ORDER BY table_schema, table_name
+`, [MANAGED_SCHEMAS]);
+```
+
+Query `information_schema.views` separately for diagnostics. Assert that
+`social_graph.trust_edges_live` is reported as a view and absent from every reset/reseed/preserve set;
+never issue `TRUNCATE`, `DELETE`, or `INSERT` against a discovered view.
 
 - [ ] **Step 2: Implement dry-run planning and the demo fingerprint**
 
@@ -573,79 +616,78 @@ git commit -m "feat: add guarded transactional demo reset"
 
 ---
 
-## Task 5: Lock Timestamp-Faithful Projection Behavior with Failing Tests
+## Task 5: Lock Fixture Projection Fidelity with Failing Tests
 
 **Files:**
 - Create: `packages/shared/src/projections/__tests__/completedExchange.test.ts`
-- Create: `services/social-graph-service/tests/tdd/sprint-117-projection-time.test.ts`
-- Create: `services/reputation-service/tests/tdd/sprint-117-projection-time.test.ts`
+- Create: `tests/tdd/sprint-117-projection-equivalence.test.ts`
 
 **Interfaces:**
-- Consumes: compiled chronological exchange inputs from Task 2.
-- Produces: projection signatures and optional `completed_at` behavior implemented in Task 6.
+- Consumes: compiled chronological exchange inputs from Task 2 and production
+  `computeRawWeight`/`allocateKarma` functions as test oracles.
+- Produces: fixture projection signatures and a permanent drift gate implemented in Task 6.
 
-- [ ] **Step 1: Write pure chronological projection tests**
+- [ ] **Step 1: Write chronological age/stability tests**
 
 ```ts
 import { projectCompletedExchanges } from '../completedExchange';
 
-it('derives count, stability, last interaction, and karma from chronological source events', () => {
-  const events = [
+it('derives count, stability, last interaction, and timestamped karma chronologically', () => {
+  const result = projectCompletedExchanges([
     exchange('exchange.old', '2026-01-01T00:00:00Z'),
     exchange('exchange.new', '2026-06-29T00:00:00Z'),
-  ];
-  const result = projectCompletedExchanges(events, projectionConfig({ growthRate: 0.2 }));
+  ], projectionConfig({ growthRate: 0.2, matchCompletedWeight: 1 }));
   expect(result.trustEdges[0]).toMatchObject({
     matchCompletedCount: 2,
+    rawWeight: 2,
     stability: 1.44,
     lastInteractionAt: new Date('2026-06-29T00:00:00Z'),
   });
-  expect(result.karmaRecords.map(x => x.createdAt)).toEqual([
-    new Date('2026-01-01T00:00:00Z'),
-    new Date('2026-01-01T00:00:00Z'),
-    new Date('2026-01-01T00:00:00Z'), // first-help bonus
-    new Date('2026-06-29T00:00:00Z'),
-    new Date('2026-06-29T00:00:00Z'),
-  ]);
+  expect(result.karmaRecords).toHaveLength(5); // two role awards per exchange + first-help bonus
+  expect(result.karmaRecords[0].createdAt).toEqual(new Date('2026-01-01T00:00:00Z'));
 });
 ```
 
-- [ ] **Step 2: Write live-handler source-time tests**
-
-Assert social-graph connection/trust-edge SQL receives `2026-06-29T00:00:00Z`, reputation karma
-inserts receive the same time, and payloads without `completed_at` still use an injected current time.
+- [ ] **Step 2: Write the cross-workspace production-equivalence gate**
 
 ```ts
-await handleMatchCompleted({
-  request_id: REQUEST_ID,
-  requester_id: MARIA_ID,
-  responder_id: HELPER_ID,
-  completed_at: '2026-06-29T00:00:00.000Z',
+import { projectCompletedExchanges } from '../../packages/shared/src/projections/completedExchange';
+import { computeRawWeight } from '../../services/social-graph-service/src/database/trustEdgeDb';
+import { allocateKarma } from '../../services/reputation-service/src/services/karmaAllocation';
+
+it('matches production raw-weight and karma allocation for completed-only history', () => {
+  const weights = { match_completed: 1.75, endorsement: 0.6, karma_given: 0.25, event: 0.1 };
+  const configs = [communityProjectionConfig('community-a', weights.match_completed, 60, 40)];
+  const projected = projectCompletedExchanges(twoCompletedEvents('community-a'), projectionConfig({ configs }));
+  expect(projected.trustEdges[0].rawWeight).toBe(computeRawWeight({
+    match_completed: 2, endorsement: 0, karma_given: 0, event: 0,
+  }, weights));
+  expect(projected.allocationsByMatch[0]).toEqual(allocateKarma(configs, 100, 'generic'));
 });
-expect(mockQuery).toHaveBeenCalledWith(expect.stringContaining('last_interaction_at'),
-  expect.arrayContaining([new Date('2026-06-29T00:00:00.000Z')]));
 ```
+
+Add a second case with two communities and unequal helper/requester splits so largest-remainder
+rounding is pinned, not merely the single-community happy path.
 
 - [ ] **Step 3: Run and prove RED**
 
 ```powershell
 npm --workspace @karmyq/shared test -- --runInBand completedExchange.test.ts
-npm --workspace @karmyq/social-graph-service test -- --runInBand sprint-117-projection-time.test.ts
-npm --workspace karmyq-reputation-service test -- --runInBand sprint-117-projection-time.test.ts
+npx jest tests/tdd/sprint-117-projection-equivalence.test.ts --runInBand --forceExit
 ```
 
-Expected: FAIL because shared projection exports and source-time parameters do not exist.
+Expected: FAIL because fixture projection exports do not exist.
 
 - [ ] **Step 4: Run `/pre-commit-check` and commit RED tests**
 
 ```powershell
-git add packages/shared/src/projections/__tests__ services/social-graph-service/tests/tdd/sprint-117-projection-time.test.ts services/reputation-service/tests/tdd/sprint-117-projection-time.test.ts
-git commit -m "test: define timestamp-faithful exchange projections"
+git add packages/shared/src/projections/__tests__/completedExchange.test.ts tests/tdd/sprint-117-projection-equivalence.test.ts
+git commit -m "test: define curated projection equivalence"
 ```
 
 ---
 
-## Task 6: Implement Shared Projection Replay and Adapt Live Events
+## Task 6: Implement Fixture-Only Projection Replay
 
 **Files:**
 - Create: `packages/shared/src/projections/completedExchange.ts`
@@ -653,189 +695,62 @@ git commit -m "test: define timestamp-faithful exchange projections"
 - Modify: `packages/shared/package.json`
 - Modify: `packages/shared/index.ts`
 - Modify: `services/simulation-service/package.json`
-- Modify: `services/social-graph-service/src/database/trustEdgeDb.ts`
-- Modify: `services/social-graph-service/src/services/trustEdgeService.ts`
-- Modify: `services/social-graph-service/src/events/subscriber.ts`
-- Modify: `services/reputation-service/src/services/karmaAllocation.ts`
-- Modify: `services/reputation-service/src/services/karmaService.ts`
-- Modify: `services/reputation-service/src/events/subscriber.ts`
-- Modify: `services/request-service/src/routes/matches.ts`
 - Modify: `services/simulation-service/src/fixtures/curatedDemo/baselineWriter.ts`
 - Test: Task 5 test files
 
 **Interfaces:**
 - Consumes: Task 5 contracts and `CompiledDemoBaseline.projectionEvents`.
-- Produces:
-  - `projectCompletedExchanges(events, config): CompletedExchangeProjection`
-  - optional `completed_at` in `MatchCompletedPayload`
-  - live projection contexts accepting `occurredAt` and an optional `Queryable`
-  - baseline writer inserts projection output inside the reset transaction.
+- Produces `projectCompletedExchanges(events, config): CompletedExchangeProjection`; baseline writer
+  inserts its output inside the reset transaction. Production event subscribers/routes are unchanged.
 
-- [ ] **Step 1: Implement the shared pure projector**
+- [ ] **Step 1: Implement a deterministic chronological projector**
 
-```ts
-export interface CompletedExchangeEvent {
-  key: string;
-  matchId: string;
-  requestId: string;
-  requesterId: string;
-  responderId: string;
-  communityIds: string[];
-  requestType: string;
-  completedAt: Date;
-}
+Define `CompletedExchangeEvent`, `ProjectedTrustEdge`, `ProjectedConnection`,
+`ProjectedKarmaRecord`, and `CompletedExchangeProjectionConfig`. Sort by `completedAt` then semantic
+key. For each event:
 
-function normalizeProjectionPair(userA: string, userB: string): { userIdA: string; userIdB: string } {
-  return userA.localeCompare(userB) <= 0
-    ? { userIdA: userA, userIdB: userB }
-    : { userIdA: userB, userIdB: userA };
-}
+1. normalize the person pair and maintain first/last connection times;
+2. increment completed count per person-pair/community;
+3. set raw weight to `count × matchCompletedWeight` (the equivalence test proves this equals production
+   `computeRawWeight` for completed-only fixture history);
+4. multiply stability by `1 + stabilityGrowthRate` for every completed interaction;
+5. call the fixture allocation implementation using the exact production pool/split/largest-remainder
+   rules pinned by Task 5;
+6. emit Provided/Received records plus 15/25/50/100-point first-help/milestone records at source time.
 
-function karma(
-  userId: string,
-  communityId: string,
-  points: number,
-  reason: ProjectedKarmaRecord['reason'],
-  event: CompletedExchangeEvent,
-): ProjectedKarmaRecord {
-  return { userId, communityId, points, reason, relatedEntityId: event.matchId, createdAt: event.completedAt };
-}
+Export the subpath exactly:
 
-export function projectCompletedExchanges(
-  input: CompletedExchangeEvent[],
-  config: CompletedExchangeProjectionConfig,
-): CompletedExchangeProjection {
-  const events = [...input].sort((a, b) => a.completedAt.getTime() - b.completedAt.getTime() || a.key.localeCompare(b.key));
-  const trustEdges = new Map<string, ProjectedTrustEdge>();
-  const connections = new Map<string, ProjectedConnection>();
-  const karmaRecords: ProjectedKarmaRecord[] = [];
-  const helperCounts = new Map<string, number>();
-  for (const event of events) {
-    const pair = normalizeProjectionPair(event.requesterId, event.responderId);
-    const connectionKey = `${pair.userIdA}:${pair.userIdB}`;
-    const connection = connections.get(connectionKey);
-    connections.set(connectionKey, {
-      userIdA: pair.userIdA,
-      userIdB: pair.userIdB,
-      firstConnectedAt: connection?.firstConnectedAt ?? event.completedAt,
-      lastInteractionAt: event.completedAt,
-    });
-    const communityConfigs = event.communityIds.slice(0, 3).map(config.forCommunity);
-    for (const community of communityConfigs) {
-      const edgeKey = `${connectionKey}:${community.communityId}`;
-      const previous = trustEdges.get(edgeKey);
-      const matchCompletedCount = (previous?.matchCompletedCount ?? 0) + 1;
-      trustEdges.set(edgeKey, {
-        userIdA: pair.userIdA,
-        userIdB: pair.userIdB,
-        communityId: community.communityId,
-        matchCompletedCount,
-        rawWeight: matchCompletedCount * community.matchCompletedWeight,
-        stability: (previous?.stability ?? 1) * (1 + community.stabilityGrowthRate),
-        firstInteractionAt: previous?.firstInteractionAt ?? event.completedAt,
-        lastInteractionAt: event.completedAt,
-      });
-    }
-    for (const allocation of allocateKarma(communityConfigs, config.baseKarmaPool, event.requestType)) {
-      karmaRecords.push(
-        karma(event.responderId, allocation.community_id, allocation.helperPoints, 'Provided help', event),
-        karma(event.requesterId, allocation.community_id, allocation.requesterPoints, 'Received help', event),
-      );
-      const helperKey = `${event.responderId}:${allocation.community_id}`;
-      const count = (helperCounts.get(helperKey) ?? 0) + 1;
-      helperCounts.set(helperKey, count);
-      if (count === 1) karmaRecords.push(karma(event.responderId, allocation.community_id, 15, 'First help in community', event));
-      if (count === 10) karmaRecords.push(karma(event.responderId, allocation.community_id, 25, '10 exchanges milestone', event));
-      if (count === 50) karmaRecords.push(karma(event.responderId, allocation.community_id, 50, '50 exchanges milestone', event));
-      if (count === 100) karmaRecords.push(karma(event.responderId, allocation.community_id, 100, '100 exchanges milestone', event));
-    }
-  }
-  return { trustEdges: [...trustEdges.values()], connections: [...connections.values()], karmaRecords };
+```json
+"./projections/completed-exchange": {
+  "types": "./dist/src/projections/completedExchange.d.ts",
+  "default": "./dist/src/projections/completedExchange.js"
 }
 ```
 
-Move the pure `allocateKarma` implementation into this shared projection module (or an adjacent shared
-file exported from the same subpath). Keep `services/reputation-service/src/services/karmaAllocation.ts`
-as a compatibility re-export so existing imports/tests do not churn.
-
-- [ ] **Step 2: Make live social projection timestamp-aware**
-
-```ts
-export interface ProjectionContext {
-  db?: Pick<Pool, 'query'> | Pick<PoolClient, 'query'>;
-  occurredAt?: Date;
-}
-
-const COUNT_COLUMN: Record<InteractionType, string> = {
-  match_completed: 'match_completed_count',
-  endorsement: 'endorsement_count',
-  karma_given: 'karma_given_count',
-  event: 'event_count',
-};
-
-export async function upsertTrustEdge(params: TrustEdgeParams, context: ProjectionContext = {}): Promise<void> {
-  const db = context.db ?? pool;
-  const occurredAt = context.occurredAt ?? new Date();
-  const { userIdA, userIdB } = normalizePair(params.userA, params.userB);
-  const countColumn = COUNT_COLUMN[params.interactionType];
-  await db.query(`INSERT INTO social_graph.trust_edges
-    (user_id_a, user_id_b, community_id, ${countColumn}, raw_weight, last_interaction_at)
-    VALUES ($1, $2, $3, 1, 0, $4)
-    ON CONFLICT (user_id_a, user_id_b, community_id) DO UPDATE SET
-      ${countColumn} = social_graph.trust_edges.${countColumn} + 1,
-      last_interaction_at = GREATEST(social_graph.trust_edges.last_interaction_at, $4)`,
-    [userIdA, userIdB, params.communityId, occurredAt]);
-}
-```
-
-Thread `occurredAt` through `processMatchCompleted` and `reconcileMatchCompletedCommunities`. Update
-`social_graph.connections.first_connected_at` with `LEAST` and `last_interaction_at` with `GREATEST`.
-
-- [ ] **Step 3: Make live karma projection timestamp-aware**
-
-Extend `MatchCompletionData` with `completed_at?: string|Date`, inject a `Queryable`, and insert
-`created_at` explicitly for Provided/Received/bonus records. Keep live default behavior unchanged.
-Do not let old out-of-order events move `last_interaction_at` backward.
-
-- [ ] **Step 4: Publish the authoritative completion timestamp**
-
-In `matches.ts`, include the DB-returned completion value:
-
-```ts
-await publishEvent('match_completed', {
-  match_id: id,
-  request_id: match.request_id,
-  requester_id: match.requester_id,
-  responder_id: match.responder_id,
-  completed_at: completedMatch.completed_at,
-});
-```
-
-Use the actual local variable names from the route; do not issue a second timestamp query.
-
-- [ ] **Step 5: Insert batch projections inside the baseline transaction**
+- [ ] **Step 2: Insert projections inside the baseline transaction**
 
 `baselineWriter` calls `projectCompletedExchanges`, then inserts connections, trust edges, karma
-records, and trust-score inputs through its `PoolClient`. It never imports another service's source.
+records, and trust-score inputs through its existing `PoolClient`. It never imports another service's
+source at runtime and never calls or modifies Bull subscribers.
 
-- [ ] **Step 6: Run focused and cross-workspace GREEN checks**
+- [ ] **Step 3: Run focused and cross-workspace GREEN checks**
 
 ```powershell
 npm --workspace @karmyq/shared test -- --runInBand completedExchange.test.ts
-npm --workspace @karmyq/social-graph-service test -- --runInBand sprint-117-projection-time.test.ts
-npm --workspace karmyq-reputation-service test -- --runInBand sprint-117-projection-time.test.ts
-npm --workspace karmyq-request-service test -- --runInBand
+npx jest tests/tdd/sprint-117-projection-equivalence.test.ts --runInBand --forceExit
 npx tsc --noEmit -p packages/shared/tsconfig.json
 npx tsc --noEmit -p services/simulation-service/tsconfig.json
 ```
 
-Expected: all focused suites PASS; both type checks exit 0.
+Expected: projector and both equivalence cases PASS; both type checks exit 0. Run this root equivalence
+test directly after any future production raw-weight/allocation change because Turbo does not track its
+cross-workspace source inputs reliably.
 
-- [ ] **Step 7: Run `/simplify`, `/pre-commit-check`, and commit**
+- [ ] **Step 4: Run `/simplify`, `/pre-commit-check`, and commit**
 
 ```powershell
-git add packages/shared services/social-graph-service services/reputation-service services/request-service services/simulation-service/src/fixtures/curatedDemo/baselineWriter.ts services/simulation-service/package.json
-git commit -m "feat: replay completed exchanges at source time"
+git add packages/shared services/simulation-service/src/fixtures/curatedDemo/baselineWriter.ts services/simulation-service/package.json tests/tdd/sprint-117-projection-equivalence.test.ts
+git commit -m "feat: derive historical demo projections"
 ```
 
 ---
@@ -1115,6 +1030,7 @@ git commit -m "fix: protect curated fixtures from ambient mutation"
 - Modify: `services/simulation-service/src/fixtures/curatedDemo/baselineWriter.ts`
 - Modify: `services/simulation-service/src/fixtures/curatedDemo/resetCoordinator.ts`
 - Modify: `services/simulation-service/src/fixtures/curatedDemo/manifest.ts`
+- Modify: `.github/workflows/ci.yml`
 
 **Interfaces:**
 - Consumes: reset/compiler/projection modules and current migrations.
@@ -1147,7 +1063,7 @@ npm --workspace @karmyq/tests run test:tdd -- --runInBand sprint-117-demo-reset.
 ```
 
 Expected locally without Docker: suite reports its existing documented DB prerequisite and remains in
-TDD. In CI/deployed test infrastructure: FAIL on the first missing insert/table classification.
+TDD. In CI's migrated PostgreSQL job: FAIL on the first missing insert/table classification.
 
 - [ ] **Step 3: Complete dependency-ordered baseline inserts**
 
@@ -1163,7 +1079,25 @@ Assert fresh requests are unexpired, expired examples have `expired=true`, >180-
 already carries `[forgotten]`/`{}` sentinels, near-threshold trust examples are not story dependencies,
 and Maria live-story prerequisites remain above floor.
 
-- [ ] **Step 5: Run available checks**
+- [ ] **Step 5: Make the migrated-DB test a blocking CI check**
+
+In `.github/workflows/ci.yml`'s existing `test-integration` job, add the reset test immediately after
+`Run integration tests`. Docker Compose has already migrated/started PostgreSQL, and placing the full
+wipe last prevents the curated baseline from perturbing the existing integration suite:
+
+```yaml
+- name: Sprint 117 curated reset integration
+  run: npm --workspace @karmyq/tests run test:tdd -- --runInBand sprint-117-demo-reset.integration.test.ts --forceExit
+  env:
+    NODE_ENV: test
+    DOCKER_ENV: test
+    DEMO_RESET_MARKER: karmyq-demo-reset-v1
+```
+
+Reuse that job's existing database URL/credentials; do not add secrets or point at the deployed demo.
+The PR cannot merge until this step has executed the destructive path twice and passed.
+
+- [ ] **Step 6: Run available checks**
 
 ```powershell
 npm --workspace @karmyq/simulation-service test -- --runInBand
@@ -1172,13 +1106,25 @@ npm --workspace @karmyq/tests run test:tdd -- --runInBand sprint-117-demo-reset.
 ```
 
 Expected: pure/service tests PASS; DB suite PASS where PostgreSQL is available or remains explicitly
-TDD with the documented environment prerequisite locally.
+TDD with the documented environment prerequisite locally. Push the branch and confirm the new CI step
+passes before proceeding to Task 11; the live demo must not be the reset path's first execution.
 
-- [ ] **Step 6: Run `/simplify`, `/pre-commit-check`, and commit**
+- [ ] **Step 7: Run `/simplify`, `/pre-commit-check`, and commit the CI-bound TDD test**
 
 ```powershell
-git add tests/tdd/sprint-117-demo-reset.integration.test.ts services/simulation-service/src/fixtures/curatedDemo
+git add tests/tdd/sprint-117-demo-reset.integration.test.ts services/simulation-service/src/fixtures/curatedDemo .github/workflows/ci.yml
 git commit -m "test: prove curated demo reset determinism"
+```
+
+- [ ] **Step 8: Push, require the CI database pass, then promote**
+
+After the CI PostgreSQL job passes the twice-applied reset, move the test to
+`tests/regression/sprint-117-demo-reset.integration.test.ts`, update the workflow path, run
+`/pre-commit-check`, and commit:
+
+```powershell
+git add tests/tdd/sprint-117-demo-reset.integration.test.ts tests/regression/sprint-117-demo-reset.integration.test.ts .github/workflows/ci.yml
+git commit -m "test: promote curated reset integration regression"
 ```
 
 ---
@@ -1193,10 +1139,8 @@ git commit -m "test: prove curated demo reset determinism"
 - Modify: `docs/README.md`
 - Modify: `services/simulation-service/CONTEXT.md`
 - Modify: `services/auth-service/CONTEXT.md`
-- Modify: `services/social-graph-service/CONTEXT.md`
-- Modify: `services/reputation-service/CONTEXT.md`
-- Modify: `services/request-service/CONTEXT.md`
 - Modify: `services/registry.json`
+- Modify: `claude.md`
 - Modify: `apps/landing/src/data/docs/guides/demo-data.json`
 - Modify: `apps/landing/src/data/docs/concepts/adr-024-synthetic-user-simulation.json`
 - Modify: `apps/landing/src/data/docs/concepts/adr-084-context-bound-connection-visibility.json`
@@ -1243,10 +1187,11 @@ running raw `truncate-database.sql`.
 
 - [ ] **Step 4: Update service contexts and registry**
 
-Document protected/ambient ownership, source-time projection, `completed_at` compatibility, verifier
-classes, and story-ID publication. Update simulation-service notes plus request/social-graph/reputation
-service notes in `services/registry.json` to describe optional `match_completed.completed_at`; do not
-invent CLI endpoints in `apis.provides`.
+Document protected/ambient ownership, fixture-only historical projection, verifier classes, and
+story-ID publication. State explicitly that live `match_completed` behavior is unchanged. Update only
+the simulation-service note in `services/registry.json`; do not invent CLI endpoints in
+`apis.provides`. Correct `claude.md`'s database-schema examples from `community.communities` /
+`community.members` to `communities.communities` / `communities.members`.
 
 - [ ] **Step 5: Set version and regenerate landing docs**
 
@@ -1273,7 +1218,7 @@ Expected: landing tests/build, doc drift 5/5, feedback, and whitespace checks PA
 - [ ] **Step 7: Run `/simplify`, `/pre-commit-check`, and commit**
 
 ```powershell
-git add docs scripts/README.md services/simulation-service/CONTEXT.md services/auth-service/CONTEXT.md services/social-graph-service/CONTEXT.md services/reputation-service/CONTEXT.md services/request-service/CONTEXT.md services/registry.json apps/landing/src/data/docs package.json package-lock.json
+git add docs scripts/README.md services/simulation-service/CONTEXT.md services/auth-service/CONTEXT.md services/registry.json apps/landing/src/data/docs package.json package-lock.json claude.md
 git commit -m "docs: publish curated demo reset operating model"
 ```
 
@@ -1463,11 +1408,10 @@ Capture backup path, reset anchor, stable historical fixture checksum, server-ge
 API report, expiry runway, config backup, auth restart, cleanup resume, and simulator resume. Any failure
 keeps the demo disabled; follow the printed rerun/restore path.
 
-- [ ] **Step 7: Promote the deployed DB integration test**
+- [ ] **Step 7: Re-run the promoted DB integration regression on the deployed database**
 
-Run `sprint-117-demo-reset.integration.test.ts` against the reset environment. It must pass twice/reset-
-anchor behavior before moving from TDD to regression in the final PR update. If promotion needs a code
-commit, repeat CI and deploy before public enablement.
+Run the already-CI-green `sprint-117-demo-reset.integration.test.ts` against the reset environment as
+post-deploy confirmation. It must not be the test's first successful execution.
 
 - [ ] **Step 8: Run the human validation contract**
 

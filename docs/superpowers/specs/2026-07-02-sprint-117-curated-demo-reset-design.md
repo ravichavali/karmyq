@@ -119,6 +119,10 @@ The reset command is destructive only with an explicit `--apply` flag and all of
 4. A timestamped restorable backup is required before truncate. Backup failure aborts the reset.
 5. Every table in the managed application schemas is classified as `reset`, `reseed`, or `preserve`.
    An unclassified table fails preflight so schema growth cannot silently escape cleanup.
+   `federation.*` is included: `federation.local_instance` is preserved as infrastructure identity;
+   every other federation base table is explicitly reset.
+   Catalog discovery includes only `table_type = 'BASE TABLE'`. Views are inventoried separately and
+   excluded from classification/truncate; `social_graph.trust_edges_live` must never be mutated.
 6. Schema definitions, extensions, migration bookkeeping, and explicitly immutable catalogs are
    preserved. Mutable application data and configuration are reset; required global/community
    defaults are recreated from the manifest.
@@ -236,6 +240,11 @@ Completed exchanges and feedback are then replayed through application-owned pro
 rebuild connections, community trust edges, relationship stability/last-interaction time, and
 reputation aggregates. Those functions accept the source event time explicitly. The manifest never
 contains arbitrary trust-edge weights or private reputation scores.
+
+The replay is fixture-only and does not refactor live event subscribers. A permanent cross-workspace
+regression compares fixture raw-weight and karma-allocation results to production `computeRawWeight`
+and `allocateKarma`, including non-default interaction weights and multi-community rounding. Any later
+production-math change must update or deliberately reject the fixture projection in the same PR.
 
 The manifest may be tuned after live observation, but its schema version and expectation set make
 changes reviewable rather than becoming an opaque SQL dump.
@@ -370,7 +379,8 @@ weaken the API acceptance floors.
    classification drift, backup requirement, transaction rollback, and safe rerun.
 3. **Database integration tests**: apply to an ephemeral migrated PostgreSQL database twice; assert
    referential integrity, stable historical IDs, regenerated anchor-relative times, and current table
-   coverage.
+   coverage. This test runs as a blocking PostgreSQL-backed CI step before deploy eligibility; the
+   deployed demo is never the destructive path's first execution.
 4. **Age/cleanup tests**: expiry, retention sentinels, karma/trust decay bands, pulse windows, and no
    guided-story dependency on volatile near-threshold rows.
 5. **API/privacy tests**: ordinary/self/provider/aggregate classes, reciprocal topology, inaccessible
