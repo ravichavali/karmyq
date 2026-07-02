@@ -1,4 +1,4 @@
-# Sprint 116 — PRs A–C + #132 MERGED → provider-offer false-500 hotfix in progress
+# Sprint 116 — PRs A–C + #132 MERGED → provider-offer false-500 hotfix PR #133 open
 
 > **STATUS (2026-07-01):** PR A (#128), PR B (#130), and PR C (#131, merged as `6f56a5b2`, v11.25.0)
 > are **merged and deployed**. PR C delivers
@@ -11,11 +11,12 @@
 > Fix-forward PR [#132](https://github.com/ravichavali/karmyq/pull/132) merged as `4a0f83b4` and the
 > corrected dry-run cleared the rich floor. The apply created and reconciled all four story records,
 > then exposed a separate provider-offer false 500 after insert (`help_requests.user_id` instead of
-> `requester_id`). v11.25.2 fixes that route; live demo enablement remains paused pending deploy.
+> `requester_id`). v11.25.2 fixes that route in [PR #133](https://github.com/ravichavali/karmyq/pull/133);
+> live demo enablement remains paused pending CI, merge, and deploy.
 
 ## Quick Start
 
-1. Finish/review `agent/codex/provider-offer-requester-column`; merge/deploy only after CI is green and
+1. Review PR #133; merge/deploy only after CI is green and
    explicit Admin authorization.
 2. Set `DEMO_SESSION_ENABLED=true`, `DEMO_PERSONA_EMAIL`, and the four verified story IDs in `.env.demo`.
 3. After deploy, rerun the now-idempotent rehearsal verification, then run the three five-second
@@ -200,6 +201,10 @@ offer/accept/decline actions still work. Validate the same topology from both pa
   the membership-based liveness check stands. CodeQL `js/request-forgery` #560 (api.ts baseURL) dismissed
   as the documented FP and recorded in the PR body.
 - **Branch:** `agent/codex/provider-offer-requester-column`, from merged `master` `4a0f83b4`.
+- **Provider-offer hotfix commit/PR:** `e0b2a6c4`, [#133](https://github.com/ravichavali/karmyq/pull/133).
+- **Provider-offer hotfix verification:** request-service unit 141/141, regression 208/208,
+  `tsc --noEmit`, landing build, doc drift 5/5, staged feedback/diff checks green. The focused TDD
+  regression failed 500→201 before the fix and passes after it.
 - **Hotfix commit/PR:** `d2f459de`, [#132](https://github.com/ravichavali/karmyq/pull/132).
 - **Hotfix verification:** simulation-service 52/52 and `tsc --noEmit`; root unit 95/95 and
   regression 176/176 in isolated runs; landing production build (160 pages); doc drift 5/5;
@@ -232,7 +237,7 @@ offer/accept/decline actions still work. Validate the same topology from both pa
 - **Verified live story IDs:** ordinary request `f412e2cf-177d-4192-978f-8e7d0ab01ec1`, match
   `89b3eba1-1c8f-4e77-9333-910bad0a647a`; provider request
   `3e4fe821-9d5d-4da5-aa25-33a6649d92d4`, offer `e5bee77e-f361-4d2f-bc7f-0a48faa884a0`.
-- **Working tree expectation:** v11.25.2 hotfix in progress on the Codex-owned branch.
+- **Working tree expectation:** clean after the PR #133 handoff update is committed and pushed.
 - **Blocker:** provider-offer false-500 hotfix must merge/deploy before demo enablement and validation.
 - **Post-hotfix deploy (Admin):** authorize demo deploy, then run
   `rehearse:maria-relationship -- --apply` on the deployed demo and set `DEMO_SESSION_ENABLED=true`,
