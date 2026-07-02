@@ -53,7 +53,7 @@ router.post('/offers', authMiddleware, async (req: AuthenticatedRequest, res: Re
 
     // Notify the requester via event queue
     const reqResult = await query(
-      `SELECT user_id FROM requests.help_requests WHERE id = $1`,
+      `SELECT requester_id FROM requests.help_requests WHERE id = $1`,
       [request_id]
     );
     // Fire-and-forget notification event (Redis outage should not fail the offer creation)
@@ -62,7 +62,7 @@ router.post('/offers', authMiddleware, async (req: AuthenticatedRequest, res: Re
         await publishEvent('offer_submitted', {
           offerId: offer.id,
           requestId: request_id,
-          requesterUserId: reqResult.rows[0].user_id,
+          requesterUserId: reqResult.rows[0].requester_id,
           providerName: req.user!.email,
           price: offer.price,
         });

@@ -91,6 +91,10 @@ The rehearsal consumes the privacy-safe neighborhood API, whose nodes use `user_
 internal graph field `id`). It normalizes both shapes before measuring overlap; a dry run that reports
 an unachievable floor must never be followed by `--apply`.
 
+An apply run is resumable: always rerun dry-run after an error before retrying mutations. In the
+Sprint 116 live rehearsal, all four story records committed before a post-insert provider-notification
+lookup returned a false 500; reconciliation recovered the authoritative IDs without duplicating data.
+
 ### The read-only demo session (PR C)
 
 `karmyq.com/demo` walks these two stories with **no account and no writes**. `POST /auth/demo-session`

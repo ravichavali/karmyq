@@ -3087,6 +3087,14 @@ Update urgency priority calculation in skill matching query (see Section 5.2)
 
 *This document is the gold standard for service documentation. All other services should follow this structure.*
 
+### Sprint 116 post-deploy fix (2026-07-01) — provider-offer requester lookup
+
+`POST /providers/offers` previously inserted the offer successfully and then queried
+`requests.help_requests.user_id` while preparing the requester notification. The request table owns
+that identity as `requester_id`, so PostgreSQL raised `column "user_id" does not exist` and the route
+returned a misleading 500 after the write had already committed. The notification lookup now reads
+`requester_id`; regression coverage requires a 201 response and the correct requester event payload.
+
 ---
 
 ### Admin Schema API (Server-Driven UI - Phase 2)
