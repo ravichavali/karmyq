@@ -28,6 +28,8 @@ preserving a mutable ambient simulation population.
 - Plan: `docs/superpowers/plans/2026-07-02-sprint-117-curated-demo-reset.md`
 - Branch: `agent/codex/sprint-117-curated-demo-reset`
 - Design commit: `da3dc15e`
+- Latest `origin/master` incorporated: `91ad5260` (#135) via merge commit `ad76a585`.
+- Plan + handoff commit: `6ed5b024`
 - Version target: `v11.25.3 → v11.26.0`
 - Planned demo downtime: approved.
 - Full deployed reset: in scope, but merge/deploy still require explicit Admin authorization.
