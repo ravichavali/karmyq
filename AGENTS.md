@@ -1,20 +1,15 @@
 # AGENTS.md — Cross-Agent Bootstrap (Codex, Claude, others)
 
-This is the **shared entry point for every AI coding agent** working in the Karmyq
-monorepo. Claude Code, Codex, and any other agent MUST load this context before doing
-any work. The full rulebook is [`CLAUDE.md`](CLAUDE.md) — this file points every agent at
-it plus the skill system, handoff, and memory so no agent starts blind.
+This is the **shared entry point for every AI coding agent** working in the Karmyq monorepo.
+Claude Code auto-loads `CLAUDE.md`; Codex and others auto-load this file — every agent MUST load
+this context before any work.
 
-> **Why this exists:** Claude Code auto-loads `CLAUDE.md`; Codex auto-loads `AGENTS.md`.
-> This file makes both converge on the same context. **`CLAUDE.md` is the source of
-> truth** — when this file and `CLAUDE.md` ever disagree, `CLAUDE.md` wins.
->
-> **This file is a one-way bridge:** it adapts non-Claude agents *into* the canonical
-> **Sprint Session Bootstrap** defined in [`CLAUDE.md`](CLAUDE.md) ("🚀 Starting a New
-> Conversation?") — including the *one-chat-per-sprint* cadence. It does **not** define a
-> separate process. The STEP 1–4 sequence below is how a non-Claude agent *executes* that
-> canonical bootstrap (with the tool-name mapping Claude doesn't need); the rule itself lives in
-> `CLAUDE.md`. Claude reaches the bootstrap by auto-loading `CLAUDE.md` and need not read this file.
+> This is a **one-way bridge**: it adapts non-Claude agents *into* the canonical **Sprint Session
+> Bootstrap** in [`CLAUDE.md`](CLAUDE.md) ("🚀 Starting a New Conversation?", including the
+> *one-chat-per-sprint* cadence), adding the tool-name mapping Claude doesn't need. It does **not**
+> define a separate process. **`CLAUDE.md` is the source of truth — if the two ever disagree,
+> `CLAUDE.md` wins.** The STEP 1–4 sequence below is how a non-Claude agent *executes* that
+> bootstrap; Claude reaches it by auto-loading `CLAUDE.md` and need not read this file.
 
 ---
 
@@ -104,18 +99,13 @@ agents; shared state lives in the repo, never in an agent-private memory store.
 - Agent lane: `agent/<agent-name>/<slug>` (e.g. `agent/codex/dashboard-retry`).
 - Human lanes: `feature/`, `fix/`, `docs/`, `refactor/`, `chore/`.
 
-> **Enforcement reality (read this):** `master` branch protection enforces by **authenticated
-> GitHub identity, not by folder, agent, or commit author.** Because protection is set with
-> `enforce_admins: false` (so the solo maintainer isn't locked out of their own PRs), any push
-> using the maintainer's **admin** credentials **bypasses** the rules — and on the maintainer's
-> machine, *every* agent (Claude, Codex, …) shares those same `gh`/git credentials. So for
-> same-machine agents, "no direct commits to `master`" is a **convention enforced by this
-> document, not a hard gate** — GitHub will let an admin-credentialed push through (it did once,
-> on purpose, leaving an empty marker commit on `master`). The gate is only *hard* for non-admin
-> identities (a write-only bot account/PAT, or external fork contributors). To hard-enforce it
-> for agents, give them a non-admin identity; flipping `enforce_admins: true` would also bind the
-> maintainer and remove self-merge. Until then: **agents MUST honor the branch/PR rules by
-> discipline.**
+> **Enforcement reality (read this):** `master` protection enforces by **authenticated GitHub
+> identity, not folder/agent/author**, and is set `enforce_admins: false` so the solo maintainer
+> can merge their own PRs. On the maintainer's machine every agent shares those **admin**
+> `gh`/git credentials, so a push *can* bypass the rules — "no direct commits to `master`" is a
+> **convention enforced by this document, not a hard gate** (it's only hard for a non-admin
+> bot/PAT or external forks). Until agents get a non-admin identity: **honor the branch/PR rules
+> by discipline.**
 
 ### The PR contract — templates are known
 - Every task = one branch = one PR carrying the contract in [`.github/pull_request_template.md`](.github/pull_request_template.md).
