@@ -33,6 +33,12 @@ Sprint planning produces the spec + plan + handoff (via the `sprint-planning` sk
 chat; the **next** chat executes from the handoff. Don't open a new chat for every small PR
 comment.
 
+> **Token cost note (long sprints):** each turn re-bills the whole transcript plus every
+> always-resident doc. Split a large plan into per-PR files so the executor carries only the
+> active PR's section, and for a long (many-task) sprint prefer a fresh chat per PR to bound
+> accumulation. Agents without an `executing-plans` skill (e.g. Codex) run inline, so their cost
+> = transcript growth × resident weight — keep this file and the plan lean.
+
 ### Bootstrap — do this BEFORE any work, in order
 
 1. **This file (`CLAUDE.md`)** — global rules; they OVERRIDE your defaults.
@@ -50,26 +56,11 @@ recommended first action. **Do not start implementation until that summary is co
 
 ### Handoffs
 
-**What is a handoff?**
-- A detailed implementation plan left by the previous conversation
-- Contains context, file paths, code patterns, and a ready-to-execute plan
-- Enables seamless continuation of work across conversations
-
-**If a handoff exists:**
-1. Read the handoff document (you'll find everything you need)
-2. Follow the "Quick Start" section to begin implementation
-3. Update the handoff as you make progress
-4. When feature is complete, archive or delete it
-
-**If no handoff exists:**
-- Proceed with normal development workflow (see below)
-
-**Creating a handoff for the next conversation:**
-- Ask: "Create a handoff document for the next conversation"
-- Include: context, current state, implementation plan, success criteria
-- Use template: `.claude/handoff/TEMPLATE.md`
-
-See [`.claude/handoff/README.md`](.claude/handoff/README.md) for complete handoff framework documentation.
+A handoff is the previous session's ready-to-execute plan (context, file paths, patterns,
+success criteria) — the ONLY doc that carries state between sessions. If one exists, follow its
+Quick Start and update it as you progress; archive or delete it when the feature ships. To create
+one, use the `handoff` / `update-handoff` skill or `.claude/handoff/TEMPLATE.md`. Full framework:
+[`.claude/handoff/README.md`](.claude/handoff/README.md).
 
 ---
 
@@ -126,14 +117,12 @@ SKIP_PREPUSH=1 git push # Skip pre-push checks only
 
 > **⚠️ Hooks no longer auto-install on `npm install`.** `.npmrc` sets `ignore-scripts=true` (supply-chain hardening, [ADR-061](docs/adr/ADR-061-supply-chain-and-secrets-hardening.md)), which disables all lifecycle scripts including the root `postinstall`. After cloning, run `npm run hooks:install` once to wire up the git hooks.
 
-See [Testing section](#testing-tdd-framework) below for complete TDD workflow.
-
 ### 4. Fix Forward, Not Around
 - BAD: Create workaround (seed-v3.sh)
 - GOOD: Fix the original script
 - Document why in ADR if architectural
 
-### 5. Feedback Loops (NEW)
+### 5. Feedback Loops
 Changes trigger documentation updates:
 - New endpoint → Update CONTEXT.md + registry.json
 - New dependency → Update registry.json + run analyze:services
@@ -230,37 +219,11 @@ The machine checks that tests *pass* and docs are *wired up*; only you can judge
 add/update a **User Guide** (`guides/`) for a new feature or workflow, a **Concept page**
 (`concepts/`) for a new platform concept, an **ADR JSON** (`concepts/`) for a new ADR, and a
 **service JSON** (`services/`) for new/changed endpoints — each wired into `nav.json` (the drift
-gate verifies that wiring). File formats:
+gate verifies that wiring). Compact JSON shapes (full field list — kept in-repo, don't rely on memory):
 
-```json
-// ADR file (apps/landing/src/data/docs/concepts/adr-{NNN}-{slug}.json)
-{
-  "slug": "adr-{NNN}-{slug}",
-  "number": "{NNN}",
-  "title": "ADR-{NNN}: Title",
-  "status": "proposed | accepted | implemented | superseded | deprecated",
-  "description": "**Status**: Implemented",
-  "content": "# ADR-{NNN}: Title\n\n...(full markdown content)...",
-  "filename": "ADR-{NNN}-{slug}.md"
-}
-```
-```json
-// Concept / User Guide file
-{
-  "slug": "concept-or-guide-slug",
-  "title": "Page Title",
-  "description": "One-sentence summary shown in nav and previews.",
-  "content": "# Title\n\n...(full markdown content)..."
-}
-```
-```json
-// Service endpoint entry
-{
-  "method": "GET | POST | PUT | DELETE",
-  "path": "/path/:param",
-  "description": "One-sentence description of what the endpoint does."
-}
-```
+- **ADR** — `apps/landing/src/data/docs/concepts/adr-{NNN}-{slug}.json`: `{ slug, number, title, status: proposed|accepted|implemented|superseded|deprecated, description, content, filename }`.
+- **Concept / User Guide** — `{ slug, title, description, content }`.
+- **Service endpoint entry** — `{ method, path, description }`.
 
 ### Quick verification before push
 
@@ -388,298 +351,80 @@ See [services/registry.json](services/registry.json) for event publishers/subscr
 
 ## Development Commands
 
-### Infrastructure
-```bash
-# Start PostgreSQL + Redis
-cd infrastructure/docker && docker-compose up -d postgres redis
+All commands are npm scripts — see [`package.json`](package.json) for the full list. The ones you'll reach for:
 
-# View all service health
-npm run dashboard
+| Command | Purpose |
+|---------|---------|
+| `npm test` | Unit + regression (**blocks push if it fails** — [ADR-029](docs/adr/ADR-029-tdd-test-framework.md)) |
+| `npm run test:tdd` | WIP tests (can fail, never blocks) |
+| `npm run test:integration` | Integration tests (require a DB) |
+| `npm run feedback:check` | Advisory doc/context to-do list for the diff |
+| `npm run analyze:services` | Regenerate dependency graph + impact analysis |
+| `npm run dashboard` / `npm run health:check` | Service health |
+| `npm run hooks:install` | Wire up git hooks (run once after clone) |
+| `npm run dev` / `npm run build` | Start / build all services |
 
-# Check critical services
-npm run health:check
-```
+**Test tiers** live in each workspace's `tests/`: `unit/` + `regression/` MUST pass; `tdd/` is
+work-in-progress (can fail; auto-promotes to `regression/` when green via
+`scripts/promote-tdd-tests.js`); `integration/` needs a DB. New sprint tests start in the changed
+workspace's `tests/tdd/` (e.g. `services/request-service/tests/tdd/`), **not** root. Pre-push runs
+unit+regression (blocks), TDD (reports only), and integration (blocks, only if a DB is available).
 
-### Building
-```bash
-# Build all services
-npm run build
-
-# Build specific service
-cd services/auth-service && npm run build
-```
-
-### Testing (TDD Framework)
-
-**Core Tenant**: Unit + regression tests MUST ALWAYS pass. See [ADR-029](docs/adr/ADR-029-tdd-test-framework.md).
-
-#### Test Directory Structure
-
-Every service/app has three test tiers:
-```
-tests/
-  ├── unit/         # Unit tests (mocked, fast, must pass)
-  ├── regression/   # Locked-in behavior (must pass)
-  ├── tdd/          # Work-in-progress (can fail)
-  └── integration/  # Integration tests (require DB)
-```
-
-#### Test Commands
-
-```bash
-# Run unit + regression (MUST pass before push)
-npm test
-
-# Run individual tiers
-npm run test:unit        # Unit tests only
-npm run test:regression  # Regression tests only
-npm run test:tdd         # TDD/WIP tests (can fail)
-
-# Integration tests (requires database)
-npm run test:integration
-
-# E2E tests
-cd tests && npm run test:e2e
-
-# Coverage
-npm run test:coverage
-
-# Auto-promote passing TDD tests to regression
-node scripts/promote-tdd-tests.js
-```
-
-#### TDD Workflow
-
-**Writing new tests**:
-1. Create test in `tests/tdd/` directory
-2. Write test first (TDD approach)
-3. Implement feature until test passes
-4. Test auto-promotes to `regression/` (or move manually)
-5. Now test MUST pass forever (locked in)
-
-**Test states**:
-- `tdd/` → Can fail, won't block commits/pushes
-- `regression/` → Must pass, blocks push if fails
-- `unit/` → Must pass, fast isolated tests
-
-**Pre-push hook behavior**:
-1. ✅ Runs unit + regression → **BLOCKS if fails**
-2. ✅ Runs TDD tests → Reports but **NEVER blocks**
-3. ✅ Runs integration tests → **BLOCKS if fails** (only if DB available)
-
-See [ADR-029](docs/adr/ADR-029-tdd-test-framework.md) for complete framework details.
-
-### Git Hooks
-```bash
-# Install git hooks (runs automatically on npm install)
-npm run hooks:install
-
-# Hooks run automatically on commit/push
-# Pre-commit: Service analysis & documentation checks
-# Pre-push: Unit tests (+ integration tests if DB available)
-
-# Skip hooks when needed
-git commit --no-verify
-git push --no-verify
-SKIP_PREPUSH=1 git push
-```
-
-### Service Governance
-```bash
-# Generate dependency graph + impact analysis
-npm run analyze:services
-
-# Interactive health dashboard
-npm run dashboard
-
-# Check for context updates needed
-npm run feedback:check
-
-# Generate .claude/README.md for services
-node scripts/generate-service-context.js
-```
+**Infrastructure:** `cd infrastructure/docker && docker-compose up -d postgres redis`.
 
 ---
 
 ## Documentation Structure
 
-```
-CLAUDE.md                           ← You are here (global context)
-
-services/
-  registry.json                     ← Single source of truth for services
-  dependency-graph.md               ← Generated dependency diagram
-  impact-analysis.md                ← Generated impact radius report
-  {service-name}/
-    .claude/README.md               ← LOCAL CONTEXT (read first!)
-    CONTEXT.md                      ← Technical reference
-    README.md                       ← Human-readable overview
-
-apps/
-  frontend/.claude/README.md        ← Frontend-specific context
-  mobile/.claude/README.md          ← Mobile-specific context
-
-docs/
-  README.md                         ← Documentation index
-  ARCHITECTURE.md                   ← System architecture
-  SERVICE_GOVERNANCE.md             ← Governance framework
-  CONTEXT_MANAGEMENT.md             ← This context system
-  adr/                              ← Architecture Decision Records
-```
+- **[services/registry.json](services/registry.json)** — single source of truth for services, ports, endpoints, events.
+- **`services/{name}/.claude/README.md`** (LOCAL context, read first) + `CONTEXT.md` (technical reference) + `README.md` (human overview).
+- **`apps/{frontend,mobile}/.claude/README.md`** — app-specific context.
+- **[docs/](docs/)** — `ARCHITECTURE.md`, `SERVICE_GOVERNANCE.md`, `CONTEXT_MANAGEMENT.md`, `adr/` (ADRs).
+- **Generated, never hand-edit:** `services/dependency-graph.md`, `services/impact-analysis.md` (a hook blocks edits).
 
 ---
 
 ## Creating New Services
 
-**MANDATORY Checklist** (enforced by pre-commit):
-
-1. [ ] Add entry to `services/registry.json`
-2. [ ] Run `npm run analyze:services` (check for circular deps)
-3. [ ] Run `node scripts/generate-service-context.js`
-4. [ ] Create service using generated `.claude/README.md` template
-5. [ ] **Configure TypeScript correctly** (see ADR-028):
-   - [ ] Set `"rootDir": "./src"` in tsconfig.json
-   - [ ] Set `"include": ["src/**/*"]` (exclude tests)
-   - [ ] Verify build produces `dist/index.js` not `dist/src/index.js`
-6. [ ] **Configure Dockerfile** (copy from existing TypeScript service):
-   - [ ] Build shared package before service
-   - [ ] Copy shared/dist BEFORE npm install in production stage
-   - [ ] Use multi-stage build pattern
-7. [ ] Add health check endpoint `/health`
-8. [ ] Add to `docker-compose.yml`
-9. [ ] Add database schema to `infrastructure/postgres/init.sql` (if needed)
-10. [ ] Update simulation service to test new endpoints
-11. [ ] Run `npm run health:check` to verify
-12. [ ] Document in ADR if architectural decision
-
-See:
-- [docs/SERVICE_GOVERNANCE.md](docs/SERVICE_GOVERNANCE.md)
-- [docs/adr/ADR-028-npm-workspace-docker-build.md](docs/adr/ADR-028-npm-workspace-docker-build.md)
+The pre-commit hook enforces the full checklist; follow [docs/SERVICE_GOVERNANCE.md](docs/SERVICE_GOVERNANCE.md)
+and [ADR-028](docs/adr/ADR-028-npm-workspace-docker-build.md). The non-obvious must-dos: add the
+service to `services/registry.json` first (then `npm run analyze:services` to check for circular
+deps + `node scripts/generate-service-context.js` for the `.claude/README.md`); set
+`"rootDir": "./src"` + `"include": ["src/**/*"]` so the build emits `dist/index.js` (not
+`dist/src/index.js`); copy the multi-stage Dockerfile from an existing TS service (build
+`@karmyq/shared` before the service, copy `shared/dist` before `npm install` in the prod stage);
+add a `/health` endpoint; wire nginx routing (see Global Patterns); add to `docker-compose.yml`;
+update the simulation service; and document in an ADR if it's an architectural decision.
 
 ---
 
 ## Deployment
 
-### Development
-```bash
-# Start all services
-npm run dev
+**Dev:** `npm run dev` (all services); `pm2 restart karmyq-{service}` / `pm2 logs karmyq-{service}`.
 
-# Restart specific service (pm2)
-pm2 restart karmyq-{service-name}
-
-# View logs
-pm2 logs karmyq-{service-name}
-```
-
-### Demo Environment (ARM64 / Oracle Cloud)
-
-> **Note:** karmyq.com is a **demo/QA environment**, not production. Treat it accordingly.
-
-**Option 1: Automatic Deployment (Recommended)**
-```bash
-# Simply push to master - GitHub Actions handles deployment
-git push origin master
-```
-
-GitHub Actions automatically:
-1. Runs tests + builds images
-2. SSH to karmyq.com
-3. Runs `./scripts/deploy.sh`
-4. Verifies health
-5. **Rolls back on any failure**
-
-**Setup:** See [docs/GITHUB_ACTIONS_SETUP.md](docs/GITHUB_ACTIONS_SETUP.md)
-
-**Option 2: Manual Deployment**
-```bash
-# SSH to demo server:
-ssh ubuntu@karmyq.com
-cd ~/karmyq
-./scripts/deploy.sh
-
-# Skip tests for emergency deploys
-SKIP_TESTS=1 ./scripts/deploy.sh
-```
-
-**Deployment Script Automatically:**
-1. Saves current commit for rollback
-2. Pulls latest code from master
-3. Installs git hooks
-4. **Runs integration tests** (with auto-rollback on failure)
-5. Loads `.env.demo`
-6. Builds Docker images (ARM64)
-7. Deploys via docker-compose
-8. Verifies health
-
-**Safety Features:**
-- ✅ Integration tests run against demo DB before deployment
-- ✅ Auto-rollback to previous commit if tests fail
-- ✅ `SKIP_TESTS=1` flag for emergency deploys
-- ✅ Hooks installed automatically on server
-- ✅ GitHub Actions runs full test suite before deployment
+**Demo (karmyq.com — a demo/QA env on ARM64/Oracle Cloud, *not* production):** deploy by pushing
+to `master` → GitHub Actions runs tests, builds ARM64 images, SSHes to the host, runs
+`./scripts/deploy.sh`, verifies health, and **rolls back on any failure** (setup:
+[docs/GITHUB_ACTIONS_SETUP.md](docs/GITHUB_ACTIONS_SETUP.md)). Manual fallback:
+`ssh ubuntu@karmyq.com && cd ~/karmyq && ./scripts/deploy.sh` (`SKIP_TESTS=1` for emergency
+deploys). deploy.sh saves the current commit for rollback, runs integration tests against the demo
+DB with auto-rollback, loads `.env.demo`, builds, and verifies health.
 
 ---
 
 ## Common Workflows
 
-### Adding a New Endpoint
-1. Read service's `.claude/README.md`
-2. Update `src/routes/{name}.ts`
-3. Update `CONTEXT.md` "API Endpoints" section
-4. Update `services/registry.json` "apis.provides"
-5. Run `npm run analyze:services`
-6. Run tests
-7. Document in frontend if consumed
-
-### Fixing a Bug
-1. Document bug in service `CONTEXT.md` "Known Issues"
-2. Write failing test
-3. Fix bug
-4. Verify test passes
-5. Remove from "Known Issues", add to "Recent Fixes"
-6. Commit with reference to issue
-
-### Changing Database Schema
-1. Update `infrastructure/postgres/init.sql`
-2. Create migration in `infrastructure/postgres/migrations/`
-3. Update service `CONTEXT.md` "Database Schema"
-4. Document in ADR if significant
-5. Test migration locally
-6. Deploy with migration
+- **New endpoint:** update the route → service `CONTEXT.md` "API Endpoints" → `registry.json` "apis.provides"; run `npm run analyze:services`; wire the frontend if consumed. (See Development Disciplines §6.)
+- **Bug fix:** follow the **Bug Fixing** rules below (identify the layer, grep ALL instances, trace end-to-end); document in `CONTEXT.md` "Known Issues" → "Recent Fixes".
+- **Schema change:** edit `infrastructure/postgres/init.sql` + add a migration in `infrastructure/postgres/migrations/`; update the service `CONTEXT.md` "Database Schema"; ADR if significant.
 
 ---
 
 ## Reference
 
-### Key Documents
-- **Service Registry**: [services/registry.json](services/registry.json)
-- **Architecture**: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
-- **Governance**: [docs/SERVICE_GOVERNANCE.md](docs/SERVICE_GOVERNANCE.md)
-- **Context System**: [docs/CONTEXT_MANAGEMENT.md](docs/CONTEXT_MANAGEMENT.md)
-- **Roadmap**: [docs/archive/gemini-review/roadmap.md](docs/archive/gemini-review/roadmap.md)
-
-### ADRs (Architecture Decision Records)
-- [ADR-001](docs/adr/ADR-001-postgresql-schemas.md): PostgreSQL Schemas
-- [ADR-004](docs/adr/ADR-004-microservices-event-driven.md): Microservices + Event-Driven
-- [ADR-011](docs/adr/ADR-011-reputation-decay.md): Reputation Decay System
-- [Full list](docs/adr/)
-
----
-
-## Getting Help
-
-### Debugging
-1. Check service health: `npm run dashboard`
-2. View logs: `pm2 logs {service-name}`
-3. Check dependencies: `npm run analyze:services`
-4. Read service `.claude/README.md` for troubleshooting
-
-### Understanding the System
-1. Start with [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
-2. View dependency graph: [services/dependency-graph.md](services/dependency-graph.md)
-3. Check impact analysis: [services/impact-analysis.md](services/impact-analysis.md)
-4. Read service-specific docs in `services/{name}/.claude/README.md`
+- **Key docs:** [services/registry.json](services/registry.json), [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/SERVICE_GOVERNANCE.md](docs/SERVICE_GOVERNANCE.md), [docs/CONTEXT_MANAGEMENT.md](docs/CONTEXT_MANAGEMENT.md), [ADRs](docs/adr/).
+- **Debugging:** `npm run dashboard` (health) → `pm2 logs {service}` → `npm run analyze:services` (deps) → the service's `.claude/README.md`.
+- **Understanding the system:** start at [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), then [services/dependency-graph.md](services/dependency-graph.md) + [services/impact-analysis.md](services/impact-analysis.md).
 
 ---
 
@@ -770,5 +515,3 @@ The handoff is the only thing that travels between conversations. If a new chat 
 ---
 
 **Remember**: This is global context. For specific areas, **read the local `.claude/README.md` first!**
-
-
