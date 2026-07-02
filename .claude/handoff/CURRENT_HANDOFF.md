@@ -1,4 +1,4 @@
-# Sprint 116 — PRs A–C + #132/#133 MERGED & DEPLOYED → simulator exclusion hotfix in progress
+# Sprint 116 — PRs A–C + #132/#133 MERGED & DEPLOYED → simulator exclusion PR #134 open
 
 > **STATUS (2026-07-01):** PR A (#128), PR B (#130), and PR C (#131, merged as `6f56a5b2`, v11.25.0)
 > are **merged and deployed**. PR C delivers
@@ -14,11 +14,12 @@
 > `requester_id`). PR #133 merged/deployed as `b6bdb67b`. Post-deploy reconciliation then proved the
 > continuous simulator consumed both story requests: Maria accepted competing responders, moving the
 > requests to `matched` and rejecting the configured match. v11.25.3 excludes `DEMO_PERSONA_EMAIL`
-> from the actor pool; live demo enablement remains paused pending that deploy and one final rehearsal.
+> from the actor pool in [PR #134](https://github.com/ravichavali/karmyq/pull/134); live demo enablement
+> remains paused pending CI, deploy, and one final rehearsal.
 
 ## Quick Start
 
-1. Finish/review `agent/codex/demo-persona-simulation-exclusion`; merge/deploy only after CI is green
+1. Review PR #134; merge/deploy only after CI is green
    and explicit Admin authorization.
 2. After deploy, create one final replacement story; the old IDs are terminal and must not be reused.
 3. Set `DEMO_SESSION_ENABLED=true`, `DEMO_PERSONA_EMAIL`, and the new verified story IDs in `.env.demo`.
@@ -205,6 +206,10 @@ offer/accept/decline actions still work. Validate the same topology from both pa
   the membership-based liveness check stands. CodeQL `js/request-forgery` #560 (api.ts baseURL) dismissed
   as the documented FP and recorded in the PR body.
 - **Branch:** `agent/codex/demo-persona-simulation-exclusion`, from deployed `master` `b6bdb67b`.
+- **Simulator-exclusion commit/PR:** `56f24cf7`, [#134](https://github.com/ravichavali/karmyq/pull/134).
+- **Simulator-exclusion verification:** simulation-service 54/54, `tsc --noEmit`, deploy script syntax,
+  landing build, doc drift 5/5, staged feedback/diff checks green. Both focused TDD assertions failed
+  before implementation and pass after it.
 - **Provider-offer hotfix commit/PR:** `e0b2a6c4`, [#133](https://github.com/ravichavali/karmyq/pull/133).
 - **Provider-offer hotfix verification:** request-service unit 141/141, regression 208/208,
   `tsc --noEmit`, landing build, doc drift 5/5, staged feedback/diff checks green. The focused TDD
@@ -241,7 +246,7 @@ offer/accept/decline actions still work. Validate the same topology from both pa
 - **Terminal story IDs (do not configure):** ordinary request `f412e2cf-177d-4192-978f-8e7d0ab01ec1`, match
   `89b3eba1-1c8f-4e77-9333-910bad0a647a`; provider request
   `3e4fe821-9d5d-4da5-aa25-33a6649d92d4`, offer `e5bee77e-f361-4d2f-bc7f-0a48faa884a0`.
-- **Working tree expectation:** v11.25.3 exclusion hotfix in progress on the Codex-owned branch.
+- **Working tree expectation:** clean after the PR #134 handoff update is committed and pushed.
 - **Blocker:** simulator exclusion must merge/deploy before creating the final replacement story.
 - **Post-hotfix deploy (Admin):** authorize demo deploy, then run
   `rehearse:maria-relationship -- --apply` on the deployed demo and set `DEMO_SESSION_ENABLED=true`,
