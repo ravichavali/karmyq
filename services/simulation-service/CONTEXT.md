@@ -264,3 +264,11 @@ through `neighborhoodNodeId()` before measuring one-hop overlap or path degree. 
 normalization, every projected node collapsed to `undefined`, producing the misleading live floor
 `sharedConnections: 1, mariaOneHop: 1, helperOneHop: 1` regardless of the actual graph. Regression
 coverage uses the real outward `{ user_id, degrees_of_separation }` shape.
+
+### Sprint 116 post-deploy fix (2026-07-01) — stable guided-demo persona
+
+The continuous simulator now excludes the configured `DEMO_PERSONA_EMAIL` from both random actor
+selection and actor counts. Without that boundary, Maria could randomly accept a competing proposal
+on her rehearsed request, moving the request to `matched` and automatically rejecting the configured
+demo match. `scripts/deploy.sh` propagates the same value from `.env.demo` into the PM2 simulation
+environment; all other `@test.karmyq.com` actors continue driving the living demo.

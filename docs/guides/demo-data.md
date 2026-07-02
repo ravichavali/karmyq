@@ -95,6 +95,10 @@ An apply run is resumable: always rerun dry-run after an error before retrying m
 Sprint 116 live rehearsal, all four story records committed before a post-insert provider-notification
 lookup returned a false 500; reconciliation recovered the authoritative IDs without duplicating data.
 
+`DEMO_PERSONA_EMAIL` also excludes Maria from random simulation workflows. This keeps the surrounding
+synthetic community alive while preventing the simulator from accepting a competing proposal and
+invalidating the stable guided story.
+
 ### The read-only demo session (PR C)
 
 `karmyq.com/demo` walks these two stories with **no account and no writes**. `POST /auth/demo-session`

@@ -376,6 +376,7 @@ if command -v pm2 &>/dev/null; then
         {
             echo "DATABASE_URL=${DATABASE_URL/karmyq-postgres/localhost}"
             echo "JWT_SECRET=${JWT_SECRET}"
+            echo "DEMO_PERSONA_EMAIL=${DEMO_PERSONA_EMAIL:-}"
         } > "$SIM_DIR/.env"
         log_info "Simulation .env generated (localhost DB)"
 

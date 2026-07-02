@@ -1,4 +1,4 @@
-# Sprint 116 — PRs A–C + #132 MERGED → provider-offer false-500 hotfix PR #133 open
+# Sprint 116 — PRs A–C + #132/#133 MERGED & DEPLOYED → simulator exclusion hotfix in progress
 
 > **STATUS (2026-07-01):** PR A (#128), PR B (#130), and PR C (#131, merged as `6f56a5b2`, v11.25.0)
 > are **merged and deployed**. PR C delivers
@@ -11,15 +11,18 @@
 > Fix-forward PR [#132](https://github.com/ravichavali/karmyq/pull/132) merged as `4a0f83b4` and the
 > corrected dry-run cleared the rich floor. The apply created and reconciled all four story records,
 > then exposed a separate provider-offer false 500 after insert (`help_requests.user_id` instead of
-> `requester_id`). v11.25.2 fixes that route in [PR #133](https://github.com/ravichavali/karmyq/pull/133);
-> live demo enablement remains paused pending CI, merge, and deploy.
+> `requester_id`). PR #133 merged/deployed as `b6bdb67b`. Post-deploy reconciliation then proved the
+> continuous simulator consumed both story requests: Maria accepted competing responders, moving the
+> requests to `matched` and rejecting the configured match. v11.25.3 excludes `DEMO_PERSONA_EMAIL`
+> from the actor pool; live demo enablement remains paused pending that deploy and one final rehearsal.
 
 ## Quick Start
 
-1. Review PR #133; merge/deploy only after CI is green and
-   explicit Admin authorization.
-2. Set `DEMO_SESSION_ENABLED=true`, `DEMO_PERSONA_EMAIL`, and the four verified story IDs in `.env.demo`.
-3. After deploy, rerun the now-idempotent rehearsal verification, then run the three five-second
+1. Finish/review `agent/codex/demo-persona-simulation-exclusion`; merge/deploy only after CI is green
+   and explicit Admin authorization.
+2. After deploy, create one final replacement story; the old IDs are terminal and must not be reused.
+3. Set `DEMO_SESSION_ENABLED=true`, `DEMO_PERSONA_EMAIL`, and the new verified story IDs in `.env.demo`.
+4. Run the three five-second
    validations + the server-side demo-write 403 check.
 4. PR C is the final PR of Sprint 116. On merge+validate, the sprint closes; S117 is the standalone
    Network-page decision from the contextual-lens evidence.
@@ -186,12 +189,13 @@ offer/accept/decline actions still work. Validate the same topology from both pa
 
 ### Active Session (update on every role handoff)
 
-- **Driving agent:** **Codex owns the provider-offer false-500 hotfix.** Admin authorizes
+- **Driving agent:** **Codex owns the demo-persona simulator-exclusion hotfix.** Admin authorizes
   merge/deploy; Claude remains the sprint-completion authority.
-- **Phase:** PR #132 merged as `4a0f83b4`; corrected rehearsal floor is achievable/met. The apply
-  created all story records, but provider-offer notification lookup returned a false 500 after the
-  insert committed. Dry-run reconciliation reports no actions and recovered all four IDs. v11.25.2
-  fixes `help_requests.user_id` → `requester_id`; demo enablement remains paused until deploy.
+- **Phase:** PR #133 merged/deployed as `b6bdb67b`; provider-offer false 500 is fixed. The simulator
+  subsequently created over 100 competing proposals and Maria accepted different responders, moving
+  both story requests to `matched` and rejecting the configured ordinary match. v11.25.3 excludes the
+  configured demo persona from random simulation workflows; enablement remains paused until deploy
+  and one final replacement rehearsal.
 - **Cross-agent review round 1 (resolved, `6c948741`):** (1) *Critical* — the method-based demo guard
   only covered shared HTTP middleware, so demo tokens could mutate via non-shared JWT consumers +
   side-effecting GETs; added shared `isDemoReadOnlySession()` and rejected demo tokens in messaging
@@ -200,7 +204,7 @@ offer/accept/decline actions still work. Validate the same topology from both pa
   `demoContext` on ordinary auth transitions. (3) *Pushed back* — `auth.users` has no status column, so
   the membership-based liveness check stands. CodeQL `js/request-forgery` #560 (api.ts baseURL) dismissed
   as the documented FP and recorded in the PR body.
-- **Branch:** `agent/codex/provider-offer-requester-column`, from merged `master` `4a0f83b4`.
+- **Branch:** `agent/codex/demo-persona-simulation-exclusion`, from deployed `master` `b6bdb67b`.
 - **Provider-offer hotfix commit/PR:** `e0b2a6c4`, [#133](https://github.com/ravichavali/karmyq/pull/133).
 - **Provider-offer hotfix verification:** request-service unit 141/141, regression 208/208,
   `tsc --noEmit`, landing build, doc drift 5/5, staged feedback/diff checks green. The focused TDD
@@ -234,11 +238,11 @@ offer/accept/decline actions still work. Validate the same topology from both pa
   mapping test added. **Review converged — no sixth cycle.** 51-test regression suite. **Note:**
   `--apply` remains un-runnable locally (no Docker); the rehearsal's live correctness is ultimately
   validated only in the Admin-authorized post-deploy run.
-- **Verified live story IDs:** ordinary request `f412e2cf-177d-4192-978f-8e7d0ab01ec1`, match
+- **Terminal story IDs (do not configure):** ordinary request `f412e2cf-177d-4192-978f-8e7d0ab01ec1`, match
   `89b3eba1-1c8f-4e77-9333-910bad0a647a`; provider request
   `3e4fe821-9d5d-4da5-aa25-33a6649d92d4`, offer `e5bee77e-f361-4d2f-bc7f-0a48faa884a0`.
-- **Working tree expectation:** clean after the PR #133 handoff update is committed and pushed.
-- **Blocker:** provider-offer false-500 hotfix must merge/deploy before demo enablement and validation.
+- **Working tree expectation:** v11.25.3 exclusion hotfix in progress on the Codex-owned branch.
+- **Blocker:** simulator exclusion must merge/deploy before creating the final replacement story.
 - **Post-hotfix deploy (Admin):** authorize demo deploy, then run
   `rehearse:maria-relationship -- --apply` on the deployed demo and set `DEMO_SESSION_ENABLED=true`,
   `DEMO_PERSONA_EMAIL`, and the four verified `DEMO_ORDINARY_REQUEST_ID` / `DEMO_ORDINARY_MATCH_ID` /
