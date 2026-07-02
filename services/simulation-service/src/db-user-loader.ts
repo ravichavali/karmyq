@@ -46,6 +46,15 @@ export function getPool(): Pool {
 export const SIM_ACTOR_POOL_FILTER =
   "email LIKE '%@test.karmyq.com' AND email NOT LIKE '%@karmyq.test'";
 
+function actorPoolQuery(): { where: string; params: string[] } {
+  const demoPersonaEmail = process.env.DEMO_PERSONA_EMAIL?.trim();
+  if (!demoPersonaEmail) return { where: SIM_ACTOR_POOL_FILTER, params: [] };
+  return {
+    where: `${SIM_ACTOR_POOL_FILTER} AND LOWER(email) <> LOWER($1)`,
+    params: [demoPersonaEmail],
+  };
+}
+
 interface DbUser {
   id: string;
   email: string;
@@ -62,8 +71,10 @@ interface CommunityMembership {
  * Get a random user from the database
  */
 export async function getRandomUser(): Promise<DbUser> {
+  const actorPool = actorPoolQuery();
   const result = await pool.query(
-    `SELECT id, email, name FROM auth.users WHERE ${SIM_ACTOR_POOL_FILTER} ORDER BY RANDOM() LIMIT 1`
+    `SELECT id, email, name FROM auth.users WHERE ${actorPool.where} ORDER BY RANDOM() LIMIT 1`,
+    actorPool.params,
   );
 
   if (result.rows.length === 0) {
@@ -77,8 +88,10 @@ export async function getRandomUser(): Promise<DbUser> {
  * Get total count of simulated users (those with @test.karmyq.com emails)
  */
 export async function getUserCount(): Promise<number> {
+  const actorPool = actorPoolQuery();
   const result = await pool.query(
-    `SELECT COUNT(*) as count FROM auth.users WHERE ${SIM_ACTOR_POOL_FILTER}`
+    `SELECT COUNT(*) as count FROM auth.users WHERE ${actorPool.where}`,
+    actorPool.params,
   );
   return parseInt(result.rows[0].count, 10);
 }
