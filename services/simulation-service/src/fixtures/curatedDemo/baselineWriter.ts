@@ -108,6 +108,11 @@ export async function writeBaseline(
        VALUES ($1, $2, $3, $4, $5, $6, 'active', $7, $7)`,
       [community.id, community.name, community.name, community.category, community.communityType, community.creatorId, baseline.anchor],
     );
+    // Reseed per-community settings (TTLs/half-life) using platform defaults.
+    await client.query(
+      `INSERT INTO communities.settings (community_id, created_at, updated_at) VALUES ($1, $2, $2)`,
+      [community.id, baseline.anchor],
+    );
   }
 
   // 3. Memberships
@@ -176,13 +181,18 @@ export async function writeBaseline(
     );
   }
 
-  // 8. Global reseed: default interaction weights (community-agnostic rows).
+  // 8. Global reseed: default interaction weights and trust-decay config (community-agnostic).
   await client.query(
     `INSERT INTO social_graph.interaction_weights (community_id, interaction_type, weight) VALUES
        (NULL, 'match_completed', 10.0),
        (NULL, 'endorsement', 5.0),
        (NULL, 'karma_given', 3.0),
        (NULL, 'event', 2.0)
+     ON CONFLICT DO NOTHING`,
+  );
+  await client.query(
+    `INSERT INTO social_graph.trust_decay_config (community_id, base_half_life_days, stability_growth_rate, disappearance_threshold)
+     VALUES (NULL, 30.0, 0.20, 0.5)
      ON CONFLICT DO NOTHING`,
   );
 

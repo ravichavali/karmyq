@@ -200,6 +200,20 @@ jobs:
         env:
           DOCKER_ENV: test
 
+      # Sprint 117: the curated full-reset destructive path must execute (twice) in migrated
+      # Postgres before it can ever run against the live demo. Placed LAST so the full wipe does
+      # not perturb the integration suite above. Runs the single file directly (not the whole tdd
+      # tier) so unrelated WIP tests cannot mask or fail this gate.
+      - name: Sprint 117 curated reset integration
+        run: |
+          cd tests
+          npx jest tdd/sprint-117-demo-reset.integration.test.ts --runInBand --forceExit
+        env:
+          NODE_ENV: test
+          DOCKER_ENV: test
+          DEMO_RESET_MARKER: karmyq-demo-reset-v1
+          DATABASE_URL: postgresql://karmyq_test:test_password@localhost:5433/karmyq_test
+
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v7
