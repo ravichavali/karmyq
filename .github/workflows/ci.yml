@@ -200,6 +200,16 @@ jobs:
         env:
           DOCKER_ENV: test
 
+      # Sprint 117: the reset writes social_graph.trust_decay_config and trust_edges.stability, which
+      # the consolidated init.sql predates. Apply the one idempotent migration that adds them (the
+      # rest of the migration chain is raw/incremental and would collide with init.sql, e.g. an
+      # unguarded CREATE TYPE, so we do NOT replay the whole chain). This also creates the
+      # trust_edges_live VIEW, exercising the reset's view-exclusion. Uses the test container's psql.
+      - name: Bring test DB to the reset's required schema (interaction half-life)
+        run: |
+          docker exec -i karmyq-postgres-test psql -U karmyq_test -d karmyq_test -v ON_ERROR_STOP=1 \
+            < infrastructure/postgres/migrations/20260526-interaction-halflife.sql
+
       # Sprint 117: the curated full-reset destructive path must execute (twice) in migrated
       # Postgres before it can ever run against the live demo. Placed LAST so the full wipe does
       # not perturb the integration suite above. Runs the single file directly (not the whole tdd
