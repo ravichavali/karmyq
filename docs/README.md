@@ -122,3 +122,11 @@ Historical documentation preserved in [archive/](archive/):
 2. **Architecture** → [ARCHITECTURE.md](ARCHITECTURE.md)
 3. **Data flow** → [DATA_FLOWS.md](DATA_FLOWS.md)
 4. **Decisions** → [adr/](adr/)
+
+## Demo environment reset
+
+The demo/QA environment (karmyq.com) is refreshed with the guarded curated reset owned by the
+simulation service — see [`scripts/README.md`](../scripts/README.md) and
+[ADR-024](adr/ADR-024-synthetic-user-simulation.md). It is dry-run by default; `verify:demo` is a
+read-only health check; `rotate:demo-stories` replaces only the finite live persona stories and never
+triggers a full reset. Legacy `truncate-database.*` is superseded.

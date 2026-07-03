@@ -272,3 +272,30 @@ selection and actor counts. Without that boundary, Maria could randomly accept a
 on her rehearsed request, moving the request to `matched` and automatically rejecting the configured
 demo match. `scripts/deploy.sh` propagates the same value from `.env.demo` into the PM2 simulation
 environment; all other `@test.karmyq.com` actors continue driving the living demo.
+
+## Sprint 117: Curated Demo Reset & Protected Core
+
+The simulation service now owns two distinct populations:
+
+- **Protected core** — a deterministic, curated historical baseline (`src/fixtures/curatedDemo/`):
+  a typed manifest → compiler (semantic-key UUIDs, one-anchor relative ages) → guarded transactional
+  reset. Trust/karma history is **derived**, not authored: the manifest declares completed exchanges
+  and `packages/shared` `projectCompletedExchanges` rebuilds edges/karma using the same math as
+  production (`computeRawWeight`/`allocateKarma`), locked by a cross-workspace equivalence test. Live
+  `match_completed` behaviour is **unchanged** — this is fixture-only replay.
+- **Ambient population** — the existing continuous simulation, which evolves everyone *except* the
+  protected core. Actor selection excludes the entire manifest-protected email set
+  (`getProtectedFixtureEmails()`), not just `DEMO_PERSONA_EMAIL`.
+
+**Operator commands (all dry-run/read-only by default):**
+
+| Command | Purpose |
+|---|---|
+| `npm --workspace @karmyq/simulation-service run reset:demo` | Print the reset plan (no mutation). |
+| `npm --workspace @karmyq/simulation-service run reset:demo -- --apply` | Guarded destructive reset (fingerprint + backup + lock + txn; approved downtime). |
+| `npm --workspace @karmyq/simulation-service run verify:demo` | Read-only outward-API health + privacy verification. |
+| `npm --workspace @karmyq/simulation-service run rotate:demo-stories` | Explicit finite live-story rotation (never a full reset). |
+
+The verifier is the only authority that publishes the four server-generated story IDs, and only after
+authoritative privacy-scoped readback. Health is read-only; rotation replaces only finite live stories.
+The legacy `scripts/truncate-database.*` paths now delegate to `reset:demo` or refuse.

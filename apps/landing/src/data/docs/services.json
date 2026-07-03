@@ -859,7 +859,7 @@
         "subscribes": []
       },
       "healthCheck": null,
-      "notes": "Development/testing tool only - not deployed to production",
+      "notes": "Development/demo tool only - not deployed to production. Sprint 117: owns the curated demo reset (deterministic protected-core baseline via a guarded transactional reset) plus the ambient synthetic population. Trust/karma history is fixture-only replay locked to production math; live match_completed behaviour is unchanged. Operator CLIs reset:demo/verify:demo/rotate:demo-stories are dry-run/read-only by default.",
       "databaseSchemas": []
     }
   ],

@@ -187,9 +187,9 @@
     {
       "slug": "adr-024-synthetic-user-simulation",
       "number": "024",
-      "title": "ADR-006: Synthetic User Simulation for Demo Environment",
-      "status": "proposed",
-      "description": "**Status**: Proposed",
+      "title": "ADR-024: Synthetic User Simulation for Demo Environment",
+      "status": "implemented",
+      "description": "**Status**: Implemented (amended Sprint 117 — hybrid deterministic baseline + ambient simulation)",
       "filename": "ADR-024-synthetic-user-simulation.md"
     },
     {

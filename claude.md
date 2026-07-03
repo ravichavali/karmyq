@@ -312,7 +312,7 @@ membership; don't trust the token.
 ### Database Schema
 Tables use schema prefixes:
 - `auth.users`, `auth.sessions`
-- `community.communities`, `community.members`
+- `communities.communities`, `communities.members`
 - `requests.help_requests`, `requests.matches`
 - `reputation.karma_records`
 - `notifications.notifications`
