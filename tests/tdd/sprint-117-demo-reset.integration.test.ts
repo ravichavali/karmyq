@@ -55,8 +55,11 @@ async function applyToTestDb(anchor: Date): Promise<ResetProbe> {
       'SELECT created_at FROM requests.help_requests WHERE id = $1',
       [semanticUuid('request.fresh-open')],
     );
+    // "Overdue unprocessed" means a still-active request past its TTL that cleanup failed to flag.
+    // Terminal statuses (completed/declined/cancelled/rejected/forgotten) legitimately keep a past
+    // expiry with expired=false, so they are excluded.
     const overdue = await pool.query<{ n: string }>(
-      "SELECT COUNT(*) AS n FROM requests.help_requests WHERE expires_at < $1 AND expired = FALSE",
+      "SELECT COUNT(*) AS n FROM requests.help_requests WHERE status IN ('open','proposed','matched') AND expires_at < $1 AND expired = FALSE",
       [anchor],
     );
     const expiredFlagged = await pool.query<{ n: string }>(

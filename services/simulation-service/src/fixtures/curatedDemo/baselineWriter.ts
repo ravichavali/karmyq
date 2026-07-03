@@ -41,16 +41,18 @@ function assertIdent(table: string): string {
 }
 
 /**
- * Clear every reset/reseed table. `DELETE FROM auth.users` cascades through the user-rooted
- * graph; a savepoint fixpoint then clears any remaining/independent tables in an order it
- * discovers, retrying FK-blocked deletes until the set stops shrinking.
+ * Clear every reset/reseed table with a savepoint fixpoint: attempt each DELETE, roll back the
+ * ones an FK still blocks, and repeat until the set stops shrinking. This discovers a valid
+ * child→parent order without a hand-ranked list and without relying on cascades — many FKs into
+ * `auth.users` (e.g. `requests.help_requests.requester_id`) are the default `NO ACTION`, so a
+ * naive `DELETE FROM auth.users` first would be FK-blocked and abort the whole transaction.
+ * `ON DELETE SET NULL` audit columns on preserved catalogs keep their rows (only nulled) because
+ * those catalog tables are never in the managed set.
  */
 export async function resetData(client: PoolClient, tables: ClassifiedTableSet): Promise<void> {
   const managed = [...tables.reset, ...tables.reseed].map(assertIdent);
 
-  await client.query('DELETE FROM auth.users');
-
-  let remaining = managed.filter(t => t !== 'auth.users');
+  let remaining = [...managed];
   let previousCount = remaining.length + 1;
   while (remaining.length > 0 && remaining.length < previousCount) {
     previousCount = remaining.length;
