@@ -17,8 +17,21 @@
  */
 
 import type { PoolClient } from 'pg';
+import {
+  projectCompletedExchanges,
+  type CommunityProjectionConfig,
+  type CompletedExchangeEvent,
+} from '@karmyq/shared';
 import type { ClassifiedTableSet } from './tablePolicy';
 import type { CompiledDemoBaseline } from './types';
+
+// Platform defaults (config_templates seed + trust_decay_config default). The demo baseline uses
+// the same values the live platform seeds, so projected trust/karma are truthful, not tuned.
+const DEFAULT_MATCH_COMPLETED_WEIGHT = 10.0;
+const DEFAULT_KARMA_SPLIT_HELPER = 60;
+const DEFAULT_KARMA_SPLIT_REQUESTER = 40;
+const DEFAULT_BASE_KARMA_POOL = 100;
+const DEFAULT_STABILITY_GROWTH_RATE = 0.2;
 
 const IDENT = /^[a-z_]+\.[a-z_]+$/;
 
@@ -178,10 +191,70 @@ export async function writeBaseline(
 }
 
 /**
- * Insert the derived trust/karma projection. Implemented in Task 6 via the fixture-only
- * `projectCompletedExchanges` rules that are equivalence-locked to production math. Kept as a
- * seam here so the source-insert path builds and is reviewable independently.
+ * Insert the derived trust/karma projection using the fixture-only, equivalence-locked
+ * `projectCompletedExchanges`. Events are grouped by community and each group is projected with
+ * that community's config, so an exchange's karma stays in the community where the help happened
+ * (demo exchanges are single-community and no pair spans communities). Connections are deduped by
+ * the normalized-pair unique index. This never calls or mutates a live Bull subscriber.
  */
-async function insertProjections(_client: PoolClient, _baseline: CompiledDemoBaseline): Promise<void> {
-  // Intentionally empty until Task 6 wires in projectCompletedExchanges().
+async function insertProjections(client: PoolClient, baseline: CompiledDemoBaseline): Promise<void> {
+  const eventsByCommunity = new Map<string, CompletedExchangeEvent[]>();
+  for (const exchange of baseline.projectionEvents) {
+    const event: CompletedExchangeEvent = {
+      key: exchange.key,
+      requesterId: exchange.requesterId,
+      helperId: exchange.helperId,
+      communityId: exchange.communityId,
+      completedAt: exchange.completedAt,
+      requestType: 'generic',
+    };
+    const bucket = eventsByCommunity.get(exchange.communityId);
+    if (bucket) bucket.push(event);
+    else eventsByCommunity.set(exchange.communityId, [event]);
+  }
+
+  for (const [communityId, events] of eventsByCommunity) {
+    const communityConfigs: CommunityProjectionConfig[] = [{
+      community_id: communityId,
+      matchCompletedWeight: DEFAULT_MATCH_COMPLETED_WEIGHT,
+      karma_split_helper: DEFAULT_KARMA_SPLIT_HELPER,
+      karma_split_requestor: DEFAULT_KARMA_SPLIT_REQUESTER,
+    }];
+    const projection = projectCompletedExchanges(events, {
+      stabilityGrowthRate: DEFAULT_STABILITY_GROWTH_RATE,
+      basePool: DEFAULT_BASE_KARMA_POOL,
+      communityConfigs,
+    });
+
+    for (const conn of projection.connections) {
+      await client.query(
+        `INSERT INTO social_graph.connections (user_a_id, user_b_id, type, first_connected_at, last_interaction_at)
+         VALUES ($1, $2, 'exchange', $3, $4)
+         ON CONFLICT DO NOTHING`,
+        [conn.userAId, conn.userBId, conn.firstConnectedAt, conn.lastInteractionAt],
+      );
+    }
+
+    for (const edge of projection.trustEdges) {
+      await client.query(
+        `INSERT INTO social_graph.trust_edges
+           (user_id_a, user_id_b, community_id, match_completed_count, raw_weight, stability, last_interaction_at, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $7)
+         ON CONFLICT (user_id_a, user_id_b, community_id) DO UPDATE SET
+           match_completed_count = EXCLUDED.match_completed_count,
+           raw_weight = EXCLUDED.raw_weight,
+           stability = EXCLUDED.stability,
+           last_interaction_at = EXCLUDED.last_interaction_at`,
+        [edge.userIdA, edge.userIdB, edge.communityId, edge.matchCompletedCount, edge.rawWeight, edge.stability, edge.lastInteractionAt, edge.firstInteractionAt],
+      );
+    }
+
+    for (const record of projection.karmaRecords) {
+      await client.query(
+        `INSERT INTO reputation.karma_records (user_id, community_id, points, reason, related_entity_id, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6)`,
+        [record.userId, record.communityId, record.points, record.reason, record.relatedEntityId, record.createdAt],
+      );
+    }
+  }
 }
