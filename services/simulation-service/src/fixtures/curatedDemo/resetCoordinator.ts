@@ -221,9 +221,16 @@ export function createResetDependencies(config: RuntimeResetConfig): ResetDepend
       const path = `${config.backupDir.replace(/[/\\]$/, '')}/karmyq-demo-${stamp}.dump`;
       // Connection comes via PG* env vars (not argv), so the password never appears in `ps`.
       await config.runProcess('pg_dump', ['--format=custom', `--file=${path}`], { env: pgEnvFromUrl(config.databaseUrl) });
-      // Verify the dump was actually produced and is non-empty before it is trusted as restorable.
+      // Prove the dump is actually restorable: `pg_restore --list` parses the custom-format archive
+      // and fails on a truncated/corrupt file. A non-empty stat is necessary but not sufficient.
       const info = await stat(path).catch(() => null);
-      return { verified: info !== null && info.size > 0, path };
+      if (info === null || info.size === 0) return { verified: false, path };
+      try {
+        await config.runProcess('pg_restore', ['--list', path]);
+        return { verified: true, path };
+      } catch {
+        return { verified: false, path };
+      }
     },
     async acquireLock() {
       // Session-scoped advisory lock MUST be taken and released on the SAME connection, so hold a

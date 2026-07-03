@@ -43,8 +43,7 @@ async function createLiveStories(env: ReturnType<typeof readEnv>): Promise<Verif
   }
 
   const maria = new ApiClient(env.baseUrl);
-  const mariaAuth = await maria.login(env.mariaEmail, env.password);
-  const mariaId = mariaAuth.user?.id as string;
+  await maria.login(env.mariaEmail, env.password);
   const helper = new ApiClient(env.baseUrl);
   const helperAuth = await helper.login(helperEmail, env.password);
   const helperId = helperAuth.user?.id as string;
@@ -57,11 +56,11 @@ async function createLiveStories(env: ReturnType<typeof readEnv>): Promise<Verif
     category: 'moving',
     visibility_scope: 'platform',
   });
-  // The helper offering help IS the match creation (POST /matches, proposed). Maria (a plain member)
-  // then accepts it — she must NOT call the admin-only propose-match endpoint.
+  // The helper offering help IS the match creation (POST /matches, proposed). Leave it PROPOSED —
+  // the guided story is a live, pending decision Maria has not yet accepted. Do NOT accept it here
+  // (that would close the story), and Maria (a plain member) must not call admin propose-match.
   const proposedMatch = await helper.offerHelp(ordinaryRequest.id, helperId);
   const ordinaryMatchId = proposedMatch?.id as string;
-  await maria.acceptMatch(ordinaryMatchId, mariaId);
 
   const providerRequest = await maria.createRequest({
     title: 'Provider quote: fix a leaking kitchen tap',
@@ -110,9 +109,17 @@ export function buildRotationDeps(publishConfigEnabled: boolean): RotationDeps {
       await execFileAsync('pm2', ['restart', 'karmyq-auth-service']);
     },
     async verifyDemoSession() {
-      const deps = await buildDeps({ ...env, storyIds: created ?? env.storyIds });
-      const report = await verifyCuratedDemo(deps);
-      return { ok: report.ready };
+      // Validate the PUBLISHED config end-to-end: after restart, the public /auth/demo-session must
+      // resolve a coherent session (it collapses to 503 on missing/incoherent config). A normal
+      // login would not exercise the published story configuration.
+      try {
+        const session = await new ApiClient(env.baseUrl).createDemoSession();
+        const ids = created ?? env.storyIds;
+        const idMatches = !session?.ordinaryRequestId || session.ordinaryRequestId === ids.ordinaryRequestId;
+        return { ok: Boolean(session?.token) && idMatches };
+      } catch {
+        return { ok: false };
+      }
     },
     async retireOld() {
       // Old stories expire naturally via the request TTL; nothing destructive is required here.

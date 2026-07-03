@@ -43,6 +43,19 @@ export class ApiClient {
   }
 
   /**
+   * Auth API - Issue the public read-only Maria demo session (Sprint 116/117, ADR-084). Takes no
+   * body: the server resolves the persona + story IDs from the PUBLISHED config and returns a
+   * coherent session, or a single opaque 503 if that config is missing/incoherent. Used to verify
+   * that a freshly-published demo config actually resolves.
+   */
+  async createDemoSession(): Promise<any> {
+    const response = await executeWithRetry(() =>
+      this.client.post('/auth/demo-session', {})
+    );
+    return response.data.data;
+  }
+
+  /**
    * Request API - Browse requests
    */
   async browseRequests(params?: { limit?: number; offset?: number; requester_id?: string; status?: string }): Promise<any[]> {

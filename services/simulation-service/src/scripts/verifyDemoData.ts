@@ -23,6 +23,7 @@ import {
 export interface VerifyEnv {
   baseUrl: string;
   mariaEmail: string;
+  helperEmail: string;
   unrelatedEmail: string;
   password: string;
   storyIds: {
@@ -42,6 +43,7 @@ export function readEnv(): VerifyEnv {
   const required = {
     baseUrl: process.env.API_BASE_URL,
     mariaEmail: process.env.DEMO_MARIA_EMAIL ?? process.env.DEMO_PERSONA_EMAIL,
+    helperEmail: process.env.DEMO_HELPER_EMAIL,
     unrelatedEmail: process.env.DEMO_UNRELATED_EMAIL,
     password: process.env.DEMO_PERSONA_PASSWORD,
   };
@@ -52,6 +54,7 @@ export function readEnv(): VerifyEnv {
   return {
     baseUrl: required.baseUrl!,
     mariaEmail: required.mariaEmail!,
+    helperEmail: required.helperEmail!,
     unrelatedEmail: required.unrelatedEmail!,
     password: required.password!,
     storyIds: {
@@ -83,15 +86,23 @@ export async function buildDeps(env: VerifyEnv): Promise<DemoVerificationDeps> {
   const mariaAuth = await maria.login(env.mariaEmail, env.password);
   const mariaId = mariaAuth.user?.id as string;
 
+  // The helper reads the SAME ordinary match from their own side, so reciprocity is verified from
+  // both orientations rather than by re-inspecting Maria's single response.
+  const helper = new ApiClient(env.baseUrl);
+  await helper.login(env.helperEmail, env.password);
+
   const unrelated = new ApiClient(env.baseUrl);
   await unrelated.login(env.unrelatedEmail, env.password);
 
   const context = await maria
     .getMatchRelationshipContext(env.storyIds.ordinaryRequestId, env.storyIds.ordinaryMatchId)
     .catch(() => null);
-  const providerContext = await maria
-    .getMatchRelationshipContext(env.storyIds.providerRequestId, env.storyIds.providerOfferId)
+  const helperContext = await helper
+    .getMatchRelationshipContext(env.storyIds.ordinaryRequestId, env.storyIds.ordinaryMatchId)
     .catch(() => null);
+  // Provider privacy is scanned on the provider request's actual offers (a real endpoint), not on
+  // the match relationship-context endpoint, which does not take a provider-offer id.
+  const providerOffers = await maria.getOffersForRequest(env.storyIds.providerRequestId).catch(() => null);
 
   return {
     async getMariaMemberships() {
@@ -112,10 +123,17 @@ export async function buildDeps(env: VerifyEnv): Promise<DemoVerificationDeps> {
       };
     },
     async getReciprocalTopology() {
-      if (!context) return false;
-      const overlap = floorFromRelationshipContext(context);
-      // A reciprocal edge shows a finite path plus visible one-hop neighbours on both sides.
-      return overlap.pathDegree !== null && overlap.mariaOneHop > 0 && overlap.helperOneHop > 0;
+      // Both viewpoints must independently show a finite path with visible one-hop neighbours, and
+      // agree on the shared-neighbour count. A missing helper context fails closed.
+      if (!context || !helperContext) return false;
+      const mine = floorFromRelationshipContext(context);
+      const theirs = floorFromRelationshipContext(helperContext);
+      return (
+        mine.pathDegree !== null && theirs.pathDegree !== null &&
+        mine.mariaOneHop > 0 && theirs.mariaOneHop > 0 &&
+        mine.helperOneHop > 0 && theirs.helperOneHop > 0 &&
+        mine.sharedConnections === theirs.sharedConnections
+      );
     },
     async getUnrelatedContextStatus() {
       try {
@@ -137,7 +155,12 @@ export async function buildDeps(env: VerifyEnv): Promise<DemoVerificationDeps> {
       return (context ?? {}) as Record<string, unknown>;
     },
     async getProviderContext() {
-      return (providerContext ?? {}) as Record<string, unknown>;
+      // Fail closed: if the provider offers could not be read, return a sentinel that trips the
+      // forbidden-key scan so readiness is denied rather than passing vacuously on an empty object.
+      if (providerOffers === null) {
+        return { trust_score: '__provider_context_unavailable__' } as Record<string, unknown>;
+      }
+      return providerOffers as unknown as Record<string, unknown>;
     },
     async getDemoWriteStatus() {
       // A demo-session write must be rejected with 403. Probe a create; a transport error (status 0)

@@ -62,19 +62,18 @@ async function runProcess(command: string, commandArgs: string[], options?: { en
   await execFileAsync(command, commandArgs, options?.env ? { env: { ...process.env, ...options.env } } : undefined);
 }
 
-/** PM2 process names whose mutation must be paused during the reset. */
-function pauseProcesses(): string[] {
-  return (process.env.DEMO_PAUSE_PROCESSES ?? 'karmyq-simulation-service,karmyq-cleanup-service')
-    .split(',').map(s => s.trim()).filter(Boolean);
+// On the demo host the ambient simulator runs under PM2 (`karmyq-simulation`) while the cleanup
+// worker is a Docker container (`karmyq-cleanup-service`) — two different process managers. Both are
+// overridable via env for other environments.
+const SIM_PM2_NAME = process.env.DEMO_SIM_PM2_NAME ?? 'karmyq-simulation';
+const CLEANUP_CONTAINER = process.env.DEMO_CLEANUP_CONTAINER ?? 'karmyq-cleanup-service';
+
+async function setMutation(running: boolean): Promise<void> {
+  await runProcess('pm2', [running ? 'start' : 'stop', SIM_PM2_NAME]);
+  await runProcess('docker', [running ? 'start' : 'stop', CLEANUP_CONTAINER]);
 }
 
-async function pm2(action: 'stop' | 'start', names: string[]): Promise<void> {
-  for (const name of names) {
-    await runProcess('pm2', [action, name]);
-  }
-}
-
-async function runOptionalCommand(raw: string | undefined): Promise<boolean> {
+async function runConfiguredCommand(raw: string | undefined): Promise<boolean> {
   if (!raw || raw.trim() === '') return false;
   const [command, ...commandArgs] = raw.trim().split(/\s+/);
   await runProcess(command, commandArgs);
@@ -86,14 +85,18 @@ type OperatorHooks = Pick<ResetDependencies, 'pauseMutation' | 'resumeMutation' 
 /** Real runtime hooks so the coordinator's safety gates are not no-ops. */
 function operatorHooks(): OperatorHooks {
   return {
-    pauseMutation: () => pm2('stop', pauseProcesses()),
-    resumeMutation: () => pm2('start', pauseProcesses()),
+    pauseMutation: () => setMutation(false),
+    resumeMutation: () => setMutation(true),
     async disableDemo() {
-      const ran = await runOptionalCommand(process.env.DEMO_DISABLE_CMD);
-      if (!ran) console.warn('[reset:demo] no DEMO_DISABLE_CMD set — relying on the operator\'s planned maintenance window to gate demo traffic.');
+      // Disabling public demo traffic during the wipe is a REQUIRED gate — fail closed if the
+      // operator has not wired the environment-specific command rather than proceeding uncovered.
+      const ran = await runConfiguredCommand(process.env.DEMO_DISABLE_CMD);
+      if (!ran) {
+        throw new Error('Refusing reset: DEMO_DISABLE_CMD is not set — cannot gate public demo traffic during the wipe.');
+      }
     },
     async enableDemo() {
-      const ran = await runOptionalCommand(process.env.DEMO_ENABLE_CMD);
+      const ran = await runConfiguredCommand(process.env.DEMO_ENABLE_CMD);
       if (!ran) console.warn('[reset:demo] no DEMO_ENABLE_CMD set — re-enable demo traffic via your maintenance window.');
     },
   };
