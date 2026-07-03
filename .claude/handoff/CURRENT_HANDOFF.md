@@ -99,6 +99,17 @@
 > 6. Backup verified by `pg_restore --list` (restorable), not just non-empty file.
 > New deploy env: `DEMO_DISABLE_CMD` (required for apply), `DEMO_HELPER_EMAIL`, `DEMO_PROVIDER_EMAIL`.
 > Re-verified: sim 86/86, build clean.
+>
+> **Cross-agent review round 3 (Codex) — 3 findings + a testing-gap, ALL FIXED in commit `6121a5bb`:**
+> Root cause of all three was untested API-response mapping. Extracted the logic into pure functions
+> (`demoVerificationLogic.ts`) with 12 unit tests against real response shapes (98/98 total):
+> 1. Provider readiness passed vacuously → new `providerStory` verifier check (`getProviderStoryValid`)
+>    requires the configured offer to exist, be pending, and belong to the provider; empty fails closed.
+> 2. Demo-session ID check was always-true (read `session.ordinaryRequestId`; IDs actually live under
+>    `session.demo.stories`) → `demoSessionMatchesPublished` requires all four to match.
+> 3. Reciprocity strengthened to canonicalized reversed-orientation node-set match (shared identical,
+>    viewer↔counterpart swapped, equal path degree) instead of shared-count equality.
+> New verify env: `DEMO_PROVIDER_EMAIL`.
 > - T1/T2: deterministic curated manifest + compiler (`services/simulation-service/src/fixtures/curatedDemo/{types,manifest,compiler}.ts`) — 36 people, 6 communities, semantic-key UUIDs, one-anchor ages, fail-closed validation. 3/3 green.
 > - T3/T4: complete fail-closed `tablePolicy.ts` (every managed base table + public.geocoding_cache classified; views excluded) and guarded `resetCoordinator.ts` (dry-run default; ordered fingerprint→disable→pause→backup→lock→txn) + `baselineWriter.ts` (savepoint-fixpoint DELETE reset that honors ON DELETE SET NULL; FK-ordered source inserts) + `resetDemoData.ts` CLI. 8/8 green.
 > - T5/T6: fixture-only `packages/shared/src/projections/completedExchange.ts` — equivalence-locked to production `computeRawWeight` + `allocateKarma` (cross-workspace gate `tests/tdd/sprint-117-projection-equivalence.test.ts`). Exported from `@karmyq/shared` (main + subpath); baseline writer inserts projections grouped by community. 4/4 green.
