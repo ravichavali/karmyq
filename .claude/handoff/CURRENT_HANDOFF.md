@@ -110,6 +110,32 @@
 > 3. Reciprocity strengthened to canonicalized reversed-orientation node-set match (shared identical,
 >    viewer↔counterpart swapped, equal path degree) instead of shared-count equality.
 > New verify env: `DEMO_PROVIDER_EMAIL`.
+>
+> **LIVE DEPLOY + RESET ATTEMPT (2026-07-03):** v11.26.0 + deploy-fix #137 + orchestration #138 are
+> MERGED and DEPLOYED (demo healthy). Host wiring set up: `~/demo-scripts/{demo-disable,demo-enable,
+> demo-restart-auth}.sh` (toggle `DEMO_SESSION_ENABLED` + `docker compose ... up -d --force-recreate
+> auth-service`); auth-recreate mechanism validated. Manual backup:
+> `/home/ubuntu/pre-sprint117-reset-20260703T162302Z.dump` (+ the reset's own backups in
+> `/home/ubuntu/demo-backups`). Dry-run vs the LIVE DB: valid fingerprint (demo/karmyq_prod/marker),
+> 100 tables classified (no drift), fixtures compile.
+> - **First `--apply` REFUSED in-transaction → rolled back atomically → DB unchanged (513 users).**
+>   Cause: live `chk_help_requests_status` allows only open|dibs_pending|matched|completed|cancelled;
+>   baseline used declined/expired/forgotten. Migration-added constraint absent from the CI init.sql
+>   schema. Fix = PR #139 `toDbRequestStatus()` mapper (unit-tested). Verified it's the ONLY
+>   CHECK-constraint gap across all insert-target tables on the live DB.
+> - Operational state RECOVERED after the refusal (demo re-enabled, auth restarted, sim+cleanup
+>   resumed). The pre-existing demo is already broken (`/auth/demo-session` → 503 from stale S116
+>   stories) — the reason for the reset.
+> - **Run command (host):** `cd ~/karmyq; set -a; source services/simulation-service/.env; set +a;`
+>   then export `DEMO_ENV=demo DEMO_RESET_MARKER=karmyq-demo-reset-v1 DEMO_PERSONA_PASSWORD=password123`,
+>   `DEMO_PERSONA_EMAIL/DEMO_MARIA_EMAIL=maria.reyes@`, `DEMO_HELPER_EMAIL=elena.torres@`,
+>   `DEMO_PROVIDER_EMAIL=noah.williams@`, `DEMO_UNRELATED_EMAIL=marcus.lee@` (all `test.karmyq.com`),
+>   `API_BASE_URL=https://karmyq.com/api`, `DEMO_BACKUP_DIR=/home/ubuntu/demo-backups`,
+>   `DEMO_ENV_FILE=/home/ubuntu/karmyq/.env.demo`, and the three `DEMO_*_CMD=/home/ubuntu/demo-scripts/*.sh`,
+>   then `npm --workspace @karmyq/simulation-service run reset:demo -- --apply --publish-config`.
+> - **NEXT:** merge+deploy #139, then re-run the reset (dry-run → apply). Expect it to clear the DB
+>   phase and reach the story-creation/verify/publish orchestration (hardened in #138) — watch there
+>   for the first real exercise of createStories/verify/publish/enable/restart on the live API.
 > - T1/T2: deterministic curated manifest + compiler (`services/simulation-service/src/fixtures/curatedDemo/{types,manifest,compiler}.ts`) — 36 people, 6 communities, semantic-key UUIDs, one-anchor ages, fail-closed validation. 3/3 green.
 > - T3/T4: complete fail-closed `tablePolicy.ts` (every managed base table + public.geocoding_cache classified; views excluded) and guarded `resetCoordinator.ts` (dry-run default; ordered fingerprint→disable→pause→backup→lock→txn) + `baselineWriter.ts` (savepoint-fixpoint DELETE reset that honors ON DELETE SET NULL; FK-ordered source inserts) + `resetDemoData.ts` CLI. 8/8 green.
 > - T5/T6: fixture-only `packages/shared/src/projections/completedExchange.ts` — equivalence-locked to production `computeRawWeight` + `allocateKarma` (cross-workspace gate `tests/tdd/sprint-117-projection-equivalence.test.ts`). Exported from `@karmyq/shared` (main + subpath); baseline writer inserts projections grouped by community. 4/4 green.
