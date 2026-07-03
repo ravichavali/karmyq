@@ -52,17 +52,29 @@ async function createLiveStories(env: ReturnType<typeof readEnv>): Promise<Verif
   }
 
   const maria = new ApiClient(env.baseUrl);
-  await maria.login(env.mariaEmail, env.password);
+  const mariaAuth = await maria.login(env.mariaEmail, env.password);
   const helper = new ApiClient(env.baseUrl);
   const helperAuth = await helper.login(helperEmail, env.password);
   const helperId = helperAuth.user?.id as string;
   const provider = new ApiClient(env.baseUrl);
   await provider.login(providerEmail, env.password);
 
+  // A request MUST be posted to a community (request-service returns 400 otherwise). Use a community
+  // Maria AND the helper both belong to, so the match + relationship floor resolve. Maria posts the
+  // provider request to the same community but platform-visible, so the provider (in a different
+  // community) can still see and offer on it.
+  const mariaCommunities: Array<{ id?: string }> = mariaAuth.user?.communities ?? [];
+  const helperCommunities: Array<{ id?: string }> = helperAuth.user?.communities ?? [];
+  const sharedCommunityId = mariaCommunities.find(mc => helperCommunities.some(hc => hc.id === mc.id))?.id;
+  if (!sharedCommunityId) {
+    throw new Error('Refusing rotation: no community shared by Maria and the helper for the ordinary story');
+  }
+
   const ordinaryRequest = await maria.createRequest({
+    community_id: sharedCommunityId,
     title: 'Help moving a couch this weekend',
     description: 'Looking for a hand moving a couch to a new place.',
-    category: 'moving',
+    request_type: 'generic',
     visibility_scope: 'platform',
   });
   // The helper offering help IS the match creation (POST /matches, proposed). Leave it PROPOSED —
@@ -72,9 +84,9 @@ async function createLiveStories(env: ReturnType<typeof readEnv>): Promise<Verif
   const ordinaryMatchId = proposedMatch?.id as string;
 
   const providerRequest = await maria.createRequest({
+    community_id: sharedCommunityId,
     title: 'Provider quote: fix a leaking kitchen tap',
     description: 'Need a quote to fix a slow leak under the sink.',
-    category: 'service',
     request_type: 'service',
     visibility_scope: 'platform',
     payload: { service_category: 'plumbing' },
