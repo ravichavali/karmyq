@@ -24,7 +24,30 @@ import {
 } from '@karmyq/shared';
 import { exchangeMatchId } from './compiler';
 import type { ClassifiedTableSet } from './tablePolicy';
-import type { CompiledDemoBaseline } from './types';
+import type { CompiledDemoBaseline, RequestLifecycle } from './types';
+
+/**
+ * Map the rich fixture lifecycle to the DB-allowed `requests.help_requests.status` set
+ * (`chk_help_requests_status`: open | dibs_pending | matched | completed | cancelled). Lifecycle
+ * nuance not representable in `status` is carried by other columns — expiry by the `expired`
+ * boolean, forgetting by the `[forgotten]` redaction — so those lanes map to a valid status while
+ * keeping their real behaviour. Exhaustive over RequestLifecycle so a new value is a compile error.
+ */
+export const DB_REQUEST_STATUS: Record<RequestLifecycle, string> = {
+  open: 'open',
+  proposed: 'matched',
+  matched: 'matched',
+  completed: 'completed',
+  rejected: 'cancelled',
+  declined: 'cancelled',
+  cancelled: 'cancelled',
+  expired: 'open', // expiry is carried by the `expired` boolean column
+  forgotten: 'cancelled',
+};
+
+export function toDbRequestStatus(lifecycle: RequestLifecycle): string {
+  return DB_REQUEST_STATUS[lifecycle];
+}
 
 // Platform defaults (config_templates seed + trust_decay_config default). The demo baseline uses
 // the same values the live platform seeds, so projected trust/karma are truthful, not tuned.
@@ -146,7 +169,7 @@ export async function writeBaseline(
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::request_type_enum, $10::visibility_scope_enum, $11, $11)`,
       [
         request.id, request.requesterId, request.title, request.description, request.category,
-        request.status, request.expired, request.expiresAt, request.requestType, request.visibility,
+        toDbRequestStatus(request.status), request.expired, request.expiresAt, request.requestType, request.visibility,
         request.createdAt,
       ],
     );

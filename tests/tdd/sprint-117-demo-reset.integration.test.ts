@@ -63,8 +63,10 @@ async function applyToTestDb(anchor: Date): Promise<ResetProbe> {
       "SELECT COUNT(*) AS n FROM requests.help_requests WHERE status IN ('open','proposed','matched') AND expires_at < $1 AND expired = FALSE",
       [anchor],
     );
+    // Expiry is carried by the `expired` boolean, not a 'expired' status (which chk_help_requests_status
+    // does not allow — the lifecycle maps to 'open' with expired=TRUE).
     const expiredFlagged = await pool.query<{ n: string }>(
-      "SELECT COUNT(*) AS n FROM requests.help_requests WHERE status = 'expired' AND expired = TRUE",
+      "SELECT COUNT(*) AS n FROM requests.help_requests WHERE expired = TRUE",
     );
     const forgotten = await pool.query<{ n: string }>(
       "SELECT COUNT(*) AS n FROM requests.help_requests WHERE title = '[forgotten]'",
