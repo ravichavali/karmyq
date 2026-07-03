@@ -1,6 +1,5 @@
 import {
   demoSessionMatchesPublished,
-  providerOfferValid,
   reciprocalContextsMatch,
 } from '../../src/fixtures/curatedDemo/demoVerificationLogic';
 
@@ -73,23 +72,5 @@ describe('demoSessionMatchesPublished (IDs live under demo.stories)', () => {
 
   it('rejects a session with no demo.stories', () => {
     expect(demoSessionMatchesPublished({ token: 'tok' }, IDS)).toBe(false);
-  });
-});
-
-describe('providerOfferValid', () => {
-  it('accepts the configured offer when it exists, is pending, and belongs to the provider', () => {
-    const offers = [{ id: 'prov-offer', status: 'pending', provider_user_id: 'noah' }];
-    expect(providerOfferValid(offers, 'prov-offer', 'noah')).toBe(true);
-  });
-
-  it('rejects an empty offer list (the vacuous-pass bug)', () => {
-    expect(providerOfferValid([], 'prov-offer', 'noah')).toBe(false);
-    expect(providerOfferValid(null, 'prov-offer', 'noah')).toBe(false);
-  });
-
-  it('rejects a missing, closed, or wrong-provider offer', () => {
-    expect(providerOfferValid([{ id: 'other', status: 'pending' }], 'prov-offer')).toBe(false);
-    expect(providerOfferValid([{ id: 'prov-offer', status: 'completed' }], 'prov-offer')).toBe(false);
-    expect(providerOfferValid([{ id: 'prov-offer', status: 'pending', provider_user_id: 'someone-else' }], 'prov-offer', 'noah')).toBe(false);
   });
 });

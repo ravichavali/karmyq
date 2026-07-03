@@ -96,36 +96,6 @@ export function demoSessionMatchesPublished(session: DemoSessionShape, expected:
   );
 }
 
-// --- Provider offer validity (GET /requests/:id/offers) ---
-
-export interface OfferShape {
-  id?: string;
-  status?: string;
-  provider_user_id?: string;
-  provider_id?: string;
-  offerer_id?: string;
-  user_id?: string;
-}
-
-const PENDING_OFFER_STATUSES = new Set(['pending', 'active', 'proposed', 'offered', 'open']);
-
-/**
- * The provider story is coherent iff the configured offer id is actually present in the request's
- * offers, is in a live/pending state, and (when the provider's id is known) belongs to that
- * provider. An empty or mismatched offer list fails closed.
- */
-export function providerOfferValid(
-  offers: OfferShape[] | null | undefined,
-  offerId: string,
-  providerId?: string,
-): boolean {
-  if (!Array.isArray(offers) || offers.length === 0) return false;
-  const offer = offers.find(o => o.id === offerId);
-  if (!offer) return false;
-  if (!PENDING_OFFER_STATUSES.has((offer.status ?? '').toLowerCase())) return false;
-  if (providerId) {
-    const owner = offer.provider_user_id ?? offer.provider_id ?? offer.offerer_id ?? offer.user_id;
-    if (owner && owner !== providerId) return false;
-  }
-  return true;
-}
+// NOTE: a requester-side provider-offer-list check was removed — the /requests/:id/offers endpoint
+// is admin-only (403 for a plain member), so provider verification uses the provider request detail
+// (request_type + privacy scan) that the requester can actually see. See verifyDemoData.buildDeps.

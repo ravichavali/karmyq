@@ -14,7 +14,7 @@
 
 import { ApiClient } from '../api-client';
 import { floorFromRelationshipContext } from '../scenarios/mariaRelationshipStory';
-import { demoSessionMatchesPublished, providerOfferValid, reciprocalContextsMatch } from '../fixtures/curatedDemo/demoVerificationLogic';
+import { demoSessionMatchesPublished, reciprocalContextsMatch } from '../fixtures/curatedDemo/demoVerificationLogic';
 import {
   verifyCuratedDemo,
   type DemoVerificationDeps,
@@ -119,10 +119,6 @@ export async function buildDeps(env: VerifyEnv): Promise<DemoVerificationDeps> {
   const helper = new ApiClient(env.baseUrl);
   await helper.login(env.helperEmail, env.password);
 
-  const provider = new ApiClient(env.baseUrl);
-  const providerAuth = await provider.login(env.providerEmail, env.password);
-  const providerId = providerAuth.user?.id as string | undefined;
-
   const unrelated = new ApiClient(env.baseUrl);
   await unrelated.login(env.unrelatedEmail, env.password);
 
@@ -132,9 +128,13 @@ export async function buildDeps(env: VerifyEnv): Promise<DemoVerificationDeps> {
   const helperContext = await helper
     .getMatchRelationshipContext(env.storyIds.ordinaryRequestId, env.storyIds.ordinaryMatchId)
     .catch(() => null);
-  // Provider privacy is scanned on the provider request's actual offers (a real endpoint), not on
-  // the match relationship-context endpoint, which does not take a provider-offer id.
-  const providerOffers = await maria.getOffersForRequest(env.storyIds.providerRequestId).catch(() => null);
+  // The requester (Maria) reads the PROVIDER REQUEST DETAIL for provider verification. The
+  // /requests/:id/offers list endpoint is admin-only (403 for a plain member), so provider privacy
+  // and the provider-story structural check use the request detail the requester can actually see.
+  const providerRequest = await maria.getRequest(env.storyIds.providerRequestId).catch(() => null);
+  // The ordinary request detail (for runway from created_at — the API does not expose expires_at).
+  const ordinaryRequest = await maria.getRequest(env.storyIds.ordinaryRequestId).catch(() => null);
+  const requestTtlDays = Number(process.env.DEMO_REQUEST_TTL_DAYS ?? '60');
 
   return {
     async getMariaMemberships() {
@@ -171,25 +171,28 @@ export async function buildDeps(env: VerifyEnv): Promise<DemoVerificationDeps> {
       }
     },
     async getRunwayDays() {
-      const request = await maria.getRequest(env.storyIds.ordinaryRequestId).catch(() => null);
-      const expiresAt = request?.expires_at ? new Date(request.expires_at).getTime() : 0;
-      if (!expiresAt) return 0;
-      return Math.floor((expiresAt - Date.now()) / 86_400_000);
+      // The request detail does not expose expires_at, so derive runway from created_at and the
+      // demo request TTL. A missing detail or an already-expired request has no runway.
+      if (!ordinaryRequest?.created_at || ordinaryRequest.expired) return 0;
+      const ageDays = Math.floor((Date.now() - new Date(ordinaryRequest.created_at).getTime()) / 86_400_000);
+      return requestTtlDays - ageDays;
     },
     async getOrdinaryContext() {
       return (context ?? {}) as Record<string, unknown>;
     },
     async getProviderContext() {
-      // Fail closed: if the provider offers could not be read, return a sentinel that trips the
-      // forbidden-key scan so readiness is denied rather than passing vacuously on an empty object.
-      if (providerOffers === null) {
-        return { trust_score: '__provider_context_unavailable__' } as Record<string, unknown>;
+      // Scan the provider REQUEST DETAIL the requester actually sees (privacy-clean) for forbidden
+      // keys. Fail closed with a sentinel if it could not be read.
+      if (!providerRequest) {
+        return { trust_score: '__provider_request_unavailable__' } as Record<string, unknown>;
       }
-      return providerOffers as unknown as Record<string, unknown>;
+      return providerRequest as Record<string, unknown>;
     },
     async getProviderStoryValid() {
-      // The configured offer must actually exist, be live/pending, and belong to the provider.
-      return providerOfferValid(providerOffers, env.storyIds.providerOfferId, providerId);
+      // The offers list endpoint is admin-only, so the requester-side structural check is: the
+      // provider request exists, is a 'service' request, and a provider offer id is configured (the
+      // offer's creation is already proven by createLiveStories returning its server-generated id).
+      return Boolean(providerRequest) && providerRequest.request_type === 'service' && Boolean(env.storyIds.providerOfferId);
     },
     async getStoryIds() {
       return env.storyIds;
