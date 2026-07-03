@@ -15,6 +15,7 @@ function rotationDeps(calls: string[], opts: { verifyReady?: boolean; sessionOk?
     createStories: jest.fn(async () => { calls.push('create'); return storyIds; }),
     verify: jest.fn(async () => { calls.push('verify'); return { ready: verifyReady, storyIds: verifyReady ? storyIds : undefined }; }),
     publishConfig: jest.fn(async () => { calls.push('backup-env'); calls.push('replace-env'); }),
+    enableDemo: jest.fn(async () => { calls.push('enable-demo'); }),
     restartAuth: jest.fn(async () => { calls.push('restart-auth'); }),
     verifyDemoSession: jest.fn(async () => { calls.push('verify-demo-session'); return { ok: sessionOk }; }),
     retireOld: jest.fn(async () => { calls.push('retire-old'); }),
@@ -37,7 +38,7 @@ describe('Sprint 117 story rotation', () => {
   it('publishes only after replacement stories verify, then retires old stories', async () => {
     const calls: string[] = [];
     await rotateStories(rotationDeps(calls));
-    expect(calls).toEqual(['create', 'verify', 'backup-env', 'replace-env', 'restart-auth', 'verify-demo-session', 'retire-old']);
+    expect(calls).toEqual(['create', 'verify', 'backup-env', 'replace-env', 'enable-demo', 'restart-auth', 'verify-demo-session', 'retire-old']);
   });
 
   it('does not touch env or old stories when verification fails', async () => {

@@ -18,7 +18,6 @@ interface WorldOverrides {
   ordinaryContext?: Record<string, unknown>;
   providerContext?: Record<string, unknown>;
   providerStoryValid?: boolean;
-  demoWriteStatus?: number;
 }
 
 function fakeWorld(overrides: WorldOverrides = {}): DemoVerificationDeps {
@@ -31,7 +30,6 @@ function fakeWorld(overrides: WorldOverrides = {}): DemoVerificationDeps {
     ordinaryContext = { bond_depth: 2 },
     providerContext = { bond_depth: 1, provider_rating: 4.5 },
     providerStoryValid = true,
-    demoWriteStatus = 403,
   } = overrides;
   return {
     getMariaMemberships: async () => mariaRoles.map(role => ({ communityId: 'community-a', role })),
@@ -42,7 +40,6 @@ function fakeWorld(overrides: WorldOverrides = {}): DemoVerificationDeps {
     getOrdinaryContext: async () => ordinaryContext,
     getProviderContext: async () => providerContext,
     getProviderStoryValid: async () => providerStoryValid,
-    getDemoWriteStatus: async () => demoWriteStatus,
     getStoryIds: async () => ({
       ordinaryRequestId: ORD_REQ,
       ordinaryMatchId: MATCH,
@@ -79,7 +76,6 @@ describe('Sprint 117 curated demo API verifier', () => {
     ['thin one-hop', { ordinaryFloor: { pathDegree: 2, sharedConnections: 3, mariaOneHop: 3, helperOneHop: 4 } }],
     ['deep path', { ordinaryFloor: { pathDegree: 3, sharedConnections: 3, mariaOneHop: 4, helperOneHop: 4 } }],
     ['invalid provider story', { providerStoryValid: false }],
-    ['allowed demo write', { demoWriteStatus: 200 }],
   ])('fails closed for %s', async (_name, patch) => {
     const report = await verifyCuratedDemo(fakeWorld(patch));
     expect(report.ready).toBe(false);

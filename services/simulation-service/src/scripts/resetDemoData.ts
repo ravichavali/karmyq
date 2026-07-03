@@ -142,10 +142,10 @@ async function main(): Promise<void> {
 
     console.log(`  backup:   ${result.backupPath}`);
     // DB baseline is applied; now create + verify live stories through ordinary APIs. Rotation
-    // publishes config only when --publish-config is set, and throws (leaving the demo disabled)
-    // if the replacement stories do not verify.
+    // publishes config only when --publish-config is set, re-enables the demo (which the reset
+    // disabled) BEFORE the demo-session re-check, and throws (leaving the demo disabled) if the
+    // replacement stories do not verify. Mutation resumes only after a successful rotation.
     const rotation = await rotateStories(buildRotationDeps(args.publishConfig));
-    await deps.enableDemo();
     await deps.resumeMutation();
     console.log(`  stories:  ${JSON.stringify(rotation.storyIds)}`);
     console.log(`  status:   applied, verified, ${args.publishConfig ? 'config published, ' : ''}demo re-enabled, mutation resumed.`);
