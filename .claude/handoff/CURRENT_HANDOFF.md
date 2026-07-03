@@ -1,9 +1,22 @@
-# Sprint 117 — Controlled Demo Reset and Curated Fixtures — PLANNED
+# Sprint 117 — Controlled Demo Reset and Curated Fixtures — IN PROGRESS
 
-> **STATUS (2026-07-02):** Sprint 116 PRs #128, #130, #131, hotfixes #132/#133, and simulator
-> exclusion #134 are merged on `master` (`f02f736e`, v11.25.3). Sprint 117 design is approved and
-> committed on `agent/codex/sprint-117-curated-demo-reset` as `da3dc15e`. The implementation plan is
-> written and ready for cross-agent review/execution. No Sprint 117 implementation has started.
+> **STATUS (2026-07-02):** Sprint 116 merged on `master` (`f02f736e`, v11.25.3). Sprint 117
+> execution is underway on `agent/codex/sprint-117-curated-demo-reset` (Claude executing the
+> Codex-authored plan via `superpowers:executing-plans`).
+>
+> **Tasks 1–6 of 14 COMPLETE, committed, all green.** Latest commit `886c70f6`.
+> - T1/T2: deterministic curated manifest + compiler (`services/simulation-service/src/fixtures/curatedDemo/{types,manifest,compiler}.ts`) — 36 people, 6 communities, semantic-key UUIDs, one-anchor ages, fail-closed validation. 3/3 green.
+> - T3/T4: complete fail-closed `tablePolicy.ts` (every managed base table + public.geocoding_cache classified; views excluded) and guarded `resetCoordinator.ts` (dry-run default; ordered fingerprint→disable→pause→backup→lock→txn) + `baselineWriter.ts` (savepoint-fixpoint DELETE reset that honors ON DELETE SET NULL; FK-ordered source inserts) + `resetDemoData.ts` CLI. 8/8 green.
+> - T5/T6: fixture-only `packages/shared/src/projections/completedExchange.ts` — equivalence-locked to production `computeRawWeight` + `allocateKarma` (cross-workspace gate `tests/tdd/sprint-117-projection-equivalence.test.ts`). Exported from `@karmyq/shared` (main + subpath); baseline writer inserts projections grouped by community. 4/4 green.
+>
+> **KEY DECISIONS MADE DURING EXECUTION (carry forward):**
+> - `SemanticKey` is a plain `string` (not a template literal) so the compiler — not the type system — rejects dangling refs at runtime (the RED contract passes literal `'missing'`).
+> - Reset uses **DELETE + savepoint fixpoint**, NOT `TRUNCATE CASCADE`: UI-schema/config catalogs carry `ON DELETE SET NULL` audit FKs to `auth.users`, so CASCADE would wipe seed data. `preserve` = `federation.local_instance`, `communities.config_templates`, `requests.ui_schemas`/`ui_schema_versions`/`validation_rules`. `feedback_categories`→reset, `interaction_weights`→reseed (community-scoped child).
+> - `bcryptjs` is lazy-`require`d in the default deps factory (it is hoisted via auth-service) to avoid cross-platform lock churn; unit tests inject a fake hasher.
+> - The equivalence test must run via the tests workspace: `cd tests && npx jest tdd/<file>` (root `npx jest tests/tdd/...` is NOT discovered by root testMatch).
+> - Projection allocates each match across ALL `communityConfigs` passed (locked contract); baseline writer therefore groups events by community so demo karma stays in the community where help happened.
+>
+> **REMAINING: Tasks 7–14.** T7/T8 (API verifier + story lifecycle + configPublisher + rotation + health + api-client reads + rehearse wrapper) are the largest. T9 (protected-core simulator exclusion via `getProtectedFixtureEmails()` + legacy reset replacement). T10 (migrated-DB double-reset integration test + CI wiring — Docker-less locally, CI-only). T11 (docs + v11.26.0). T12/T13 (SDLC gates + final verify). **T14 (PR/merge/deploy/controlled reset) STOPS for explicit Admin authorization — do not self-merge or self-deploy.**
 
 ## Quick Start
 
