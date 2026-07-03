@@ -380,6 +380,10 @@ if command -v pm2 &>/dev/null; then
         } > "$SIM_DIR/.env"
         log_info "Simulation .env generated (localhost DB)"
 
+        # Build @karmyq/shared first: simulation-service now imports the fixture-only projection
+        # from it (Sprint 117), and this host build resolves shared's dist (not a source mapper),
+        # so a stale shared dist would fail the simulation build (TS2305 no exported member).
+        npm run build --workspace=@karmyq/shared
         # Build using workspace root's node_modules (tsc is a devDep at root)
         npm run build --workspace=services/simulation-service
         # startOrRestart: starts if not running, restarts if already registered
