@@ -57,6 +57,15 @@ export function semanticUuid(key: SemanticKey): string {
   return uuidFrom(key);
 }
 
+/**
+ * The match UUID an exchange materializes as. The projection carries exchange keys in its karma
+ * records' `relatedEntityId`; the baseline writer maps them back to this UUID so the value is a
+ * real UUID (matching the completed match row), not a semantic key string.
+ */
+export function exchangeMatchId(exchangeKey: string): string {
+  return uuidFrom(`match:${exchangeKey}`);
+}
+
 function durationMs(age: FixtureAge): number {
   const match = /^(?:P(?:(\d+)D)|PT(\d+)H)$/.exec(age);
   if (!match) throw new Error(`Invalid fixture age: ${age}`);
@@ -170,7 +179,7 @@ export function compileManifest(manifest: DemoFixtureManifest, anchor: Date): Co
     const completedAt = ageFrom(anchor, e.completedAge);
     const createdAt = new Date(completedAt.getTime() - 2 * DAY_MS);
     const match: CompiledMatch = {
-      id: uuidFrom(`match:${e.key}`),
+      id: exchangeMatchId(e.key),
       requestId,
       responderId: personIdByKey.get(e.helper)!,
       status: 'completed',

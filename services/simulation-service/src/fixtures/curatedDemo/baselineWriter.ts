@@ -22,6 +22,7 @@ import {
   type CommunityProjectionConfig,
   type CompletedExchangeEvent,
 } from '@karmyq/shared';
+import { exchangeMatchId } from './compiler';
 import type { ClassifiedTableSet } from './tablePolicy';
 import type { CompiledDemoBaseline } from './types';
 
@@ -262,10 +263,12 @@ async function insertProjections(client: PoolClient, baseline: CompiledDemoBasel
     }
 
     for (const record of projection.karmaRecords) {
+      // The projection carries the exchange's semantic key in relatedEntityId; map it back to the
+      // completed match's UUID so the value is valid for the UUID column.
       await client.query(
         `INSERT INTO reputation.karma_records (user_id, community_id, points, reason, related_entity_id, created_at)
          VALUES ($1, $2, $3, $4, $5, $6)`,
-        [record.userId, record.communityId, record.points, record.reason, record.relatedEntityId, record.createdAt],
+        [record.userId, record.communityId, record.points, record.reason, exchangeMatchId(record.relatedEntityId), record.createdAt],
       );
     }
   }
