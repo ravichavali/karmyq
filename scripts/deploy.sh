@@ -415,5 +415,10 @@ echo "  View one service: docker compose $COMPOSE_FILES logs -f auth-service"
 echo "  Restart all:      docker compose $COMPOSE_FILES restart"
 echo "  Stop all:         docker compose $COMPOSE_FILES down"
 echo ""
+echo "Curated demo (Sprint 117) — deploy never resets or rotates automatically:"
+echo "  Read-only health:  npm --workspace @karmyq/simulation-service run verify:demo"
+echo "  Read-only plan:    npm --workspace @karmyq/simulation-service run reset:demo"
+echo "  (Destructive reset is a deliberate, separately-authorized operator step with downtime.)"
+echo ""
 
 exit $FAILED

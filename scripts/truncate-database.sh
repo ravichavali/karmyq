@@ -1,42 +1,19 @@
 #!/bin/bash
-
-# Truncate Database Script
-# WARNING: This deletes ALL data from the database
+#
+# Sprint 117: the legacy full-truncate has been replaced by the single guarded demo reset.
+# The old script disabled constraints and truncated a stale, incomplete table list, with no
+# fingerprint, backup, advisory lock, or transaction. It is no longer a supported path.
+#
+# This wrapper now delegates to the guarded, dry-run-by-default reset. Pass --apply (plus the
+# required demo fingerprint, backup dir, and DEMO_PERSONA_PASSWORD) to actually mutate data.
+#
+#   ./scripts/truncate-database.sh                 # dry-run plan
+#   ./scripts/truncate-database.sh --apply         # guarded destructive reset (approved downtime)
 
 set -e
 
-echo ""
-echo "========================================"
-echo "  DATABASE TRUNCATION"
-echo "========================================"
-echo ""
-echo "⚠️  WARNING: This will DELETE ALL DATA!"
-echo ""
-echo "Press Ctrl+C to cancel, or Enter to continue..."
-read -p ""
-
-# Load environment variables if .env exists
-if [ -f .env ]; then
-  export $(cat .env | grep -v '^#' | xargs)
-fi
-
-# Default database connection
-DB_HOST=${DB_HOST:-localhost}
-DB_PORT=${DB_PORT:-5432}
-DB_NAME=${DB_NAME:-karmyq_db}
-DB_USER=${DB_USER:-karmyq_user}
-
-echo ""
-echo "Running truncation script..."
+echo "⚠️  truncate-database.sh is deprecated — delegating to the guarded curated demo reset."
+echo "    Read-only plan by default; add --apply for the destructive path."
 echo ""
 
-# Run the truncate script
-PGPASSWORD=${DB_PASSWORD} psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -f scripts/truncate-database.sql
-
-echo ""
-echo "✅ Database truncated successfully!"
-echo ""
-echo "You can now seed fresh data:"
-echo "  ./scripts/seed-test-data.sh        # Small test dataset"
-echo "  ./scripts/seed-realistic-data.sh   # Large realistic dataset"
-echo ""
+exec npm --workspace @karmyq/simulation-service run reset:demo -- "$@"

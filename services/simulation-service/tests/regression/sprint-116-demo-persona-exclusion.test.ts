@@ -26,6 +26,9 @@ describe('Sprint 116 demo persona simulation exclusion', () => {
   });
 
   it('excludes the configured demo persona from random actors and actor counts', async () => {
+    // Sprint 117 broadened the exclusion from the single DEMO_PERSONA_EMAIL to the full
+    // manifest-derived protected set (Maria + helper + provider + every story dependency),
+    // applied as one `<> ALL($1::text[])` array. Maria remains excluded from actors and counts.
     mockQuery
       .mockResolvedValueOnce({ rows: [{ id: 'u1', email: 'other@test.karmyq.com', name: 'Other' }] })
       .mockResolvedValueOnce({ rows: [{ count: '41' }] });
@@ -34,8 +37,8 @@ describe('Sprint 116 demo persona simulation exclusion', () => {
     await expect(getUserCount()).resolves.toBe(41);
 
     for (const [sql, params] of mockQuery.mock.calls) {
-      expect(sql).toContain('LOWER(email) <> LOWER($1)');
-      expect(params).toEqual([MARIA]);
+      expect(sql).toContain('lower(email) <> ALL');
+      expect((params[0] as string[])).toContain(MARIA.toLowerCase());
     }
   });
 
