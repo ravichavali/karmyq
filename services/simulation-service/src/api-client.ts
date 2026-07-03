@@ -522,4 +522,15 @@ export class ApiClient {
     );
     return response.data.data;
   }
+
+  /**
+   * Request API — the community's retention/forgetting policy (Sprint 117 curated-demo
+   * verification of retention transparency). Read-only.
+   */
+  async getRetentionPolicy(communityId: string): Promise<any> {
+    const response = await executeWithRetry(() =>
+      this.client.get('/requests/retention-policy', { params: { communityId } })
+    );
+    return response.data.data;
+  }
 }

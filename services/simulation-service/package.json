@@ -10,6 +10,8 @@
     "simulate": "ts-node src/index.ts",
     "rehearse:maria-relationship": "ts-node src/scripts/rehearseMariaRelationshipStory.ts",
     "reset:demo": "ts-node src/scripts/resetDemoData.ts",
+    "verify:demo": "ts-node src/scripts/verifyDemoData.ts",
+    "rotate:demo-stories": "ts-node src/scripts/rotateMariaStories.ts",
     "test": "jest --passWithNoTests"
   },
   "dependencies": {
