@@ -65,6 +65,22 @@
 >
 > **CodeQL:** expect `js/request-forgery` on the new CLIs' `API_BASE_URL`→axios base — documented FP;
 > dismiss via the Security UI (do not loop the API), then re-run the Code Scanning gate.
+>
+> **CI iteration (integration test's first real DB execution surfaced two more real bugs, both fixed):**
+> - The CI test DB is seeded from the CONSOLIDATED `init.sql`, which predates
+>   `social_graph.trust_decay_config` + `trust_edges.stability`. Replaying all 64 migrations is NOT
+>   viable (raw/incremental, they collide with init.sql — e.g. migration 009's unguarded
+>   `CREATE TYPE request_type_enum`). Fix (`d6cd595b`): CI applies ONLY the idempotent
+>   `20260526-interaction-halflife.sql` before the reset test (adds exactly the two objects + the
+>   `trust_edges_live` view). **Implication for deploy:** the CI DB is init.sql + that one migration,
+>   NOT the full 64-migration demo schema — so the deployed rehearsal (Task 14) is still the first
+>   execution against the TRUE demo schema. Watch for any migration-added NOT NULL-no-default column
+>   on a baseline-writer target table (none found in init.sql; low risk since PG requires a default
+>   for NOT NULL adds on populated tables).
+> - Fix (`f23aacf9`): karma `relatedEntityId` carried the exchange semantic key into the UUID column
+>   `reputation.karma_records.related_entity_id` → mapped to the match UUID via exported
+>   `exchangeMatchId()`.
+> All baseline-writer inserts were re-audited for non-UUID→UUID and missing-NOT-NULL: only these two.
 > - T1/T2: deterministic curated manifest + compiler (`services/simulation-service/src/fixtures/curatedDemo/{types,manifest,compiler}.ts`) — 36 people, 6 communities, semantic-key UUIDs, one-anchor ages, fail-closed validation. 3/3 green.
 > - T3/T4: complete fail-closed `tablePolicy.ts` (every managed base table + public.geocoding_cache classified; views excluded) and guarded `resetCoordinator.ts` (dry-run default; ordered fingerprint→disable→pause→backup→lock→txn) + `baselineWriter.ts` (savepoint-fixpoint DELETE reset that honors ON DELETE SET NULL; FK-ordered source inserts) + `resetDemoData.ts` CLI. 8/8 green.
 > - T5/T6: fixture-only `packages/shared/src/projections/completedExchange.ts` — equivalence-locked to production `computeRawWeight` + `allocateKarma` (cross-workspace gate `tests/tdd/sprint-117-projection-equivalence.test.ts`). Exported from `@karmyq/shared` (main + subpath); baseline writer inserts projections grouped by community. 4/4 green.
