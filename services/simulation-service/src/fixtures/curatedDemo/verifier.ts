@@ -58,7 +58,6 @@ export interface DemoVerificationDeps {
   getProviderContext(): Promise<Record<string, unknown>>;
   /** True only if the configured provider offer exists, is live/pending, and belongs to the provider. */
   getProviderStoryValid(): Promise<boolean>;
-  getDemoWriteStatus(): Promise<number>;
   getStoryIds(): Promise<VerifiedStoryIds>;
 }
 
@@ -73,7 +72,6 @@ export interface DemoVerificationReport {
     ordinaryPrivacy: boolean;
     providerPrivacy: boolean;
     providerStory: boolean;
-    demoWriteRejected: boolean;
   };
   forbiddenKeyPaths: string[];
   runwayDays: number;
@@ -109,12 +107,13 @@ export async function verifyCuratedDemo(deps: DemoVerificationDeps): Promise<Dem
   const providerPrivacy = findForbiddenKeys(providerContext).length === 0;
   const providerStory = await deps.getProviderStoryValid();
 
-  const demoWriteStatus = await deps.getDemoWriteStatus();
-  const demoWriteRejected = demoWriteStatus === 403;
-
+  // NOTE: the demo-session read-only (403 write) check is NOT here — it requires an actual
+  // /auth/demo-session token, which only exists after the demo is (re-)enabled. It is asserted by
+  // the demo-session verification step (rotateStories.verifyDemoSession), not this data readback,
+  // which authenticates as ordinary members and can run while the demo is temporarily disabled.
   const checks = {
     mariaMemberOnly, richFloor, reciprocalTopology, unrelatedDenied,
-    runway, ordinaryPrivacy, providerPrivacy, providerStory, demoWriteRejected,
+    runway, ordinaryPrivacy, providerPrivacy, providerStory,
   };
   const ready = Object.values(checks).every(Boolean);
 

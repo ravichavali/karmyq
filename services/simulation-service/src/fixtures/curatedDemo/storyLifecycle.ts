@@ -20,9 +20,11 @@ export interface RotationDeps {
   verify(): Promise<{ ready: boolean; storyIds?: VerifiedStoryIds }>;
   /** Back up and atomically replace the allowlisted demo config variables. */
   publishConfig(): Promise<void>;
-  /** Restart auth so refreshed configuration takes effect. */
+  /** (Re-)enable public demo traffic BEFORE the demo-session re-check can pass. Idempotent. */
+  enableDemo(): Promise<void>;
+  /** Restart auth so the refreshed configuration AND enabled state take effect. */
   restartAuth(): Promise<void>;
-  /** Confirm the published demo session resolves the new stories. */
+  /** Confirm the published demo session resolves the new stories and is read-only. */
   verifyDemoSession(): Promise<{ ok: boolean }>;
   /** Retire the now-replaced old stories. */
   retireOld(): Promise<void>;
@@ -33,8 +35,10 @@ export interface RotationResult {
 }
 
 /**
- * Rotate the finite live Maria stories. Order is fixed and fail-closed: create → verify →
- * publish (backup + replace) → restart auth → re-verify demo session → retire old.
+ * Rotate the finite live Maria stories. Order is fixed and fail-closed: create → verify (data
+ * readback) → publish (backup + replace) → enable demo → restart auth → re-verify demo session →
+ * retire old. Enabling BEFORE the restart+demo-session re-check is essential: during a full reset
+ * the demo is disabled up front, so the session check can only pass once it is re-enabled.
  */
 export async function rotateStories(deps: RotationDeps): Promise<RotationResult> {
   await deps.createStories();
@@ -45,6 +49,7 @@ export async function rotateStories(deps: RotationDeps): Promise<RotationResult>
   }
 
   await deps.publishConfig();
+  await deps.enableDemo();
   await deps.restartAuth();
 
   const session = await deps.verifyDemoSession();

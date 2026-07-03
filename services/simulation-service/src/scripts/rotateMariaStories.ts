@@ -22,10 +22,18 @@ import {
   type RotationDeps,
 } from '../fixtures/curatedDemo/storyLifecycle';
 import { verifyCuratedDemo, type VerifiedStoryIds } from '../fixtures/curatedDemo/verifier';
-import { demoSessionMatchesPublished } from '../fixtures/curatedDemo/demoVerificationLogic';
-import { buildDeps, readEnv } from './verifyDemoData';
+import { buildDeps, readEnv, verifyDemoSessionReadOnly } from './verifyDemoData';
 
 const execFileAsync = promisify(execFile);
+
+/** Run an operator-provided, host-specific command; fail closed if it is not configured. */
+async function runRequiredCommand(name: string, raw: string | undefined): Promise<void> {
+  if (!raw || raw.trim() === '') {
+    throw new Error(`Refusing rotation: ${name} is not set — this host-specific step must be wired.`);
+  }
+  const [command, ...args] = raw.trim().split(/\s+/);
+  await execFileAsync(command, args);
+}
 
 const nodeFsDeps: ConfigFsDeps = {
   readFile: path => readFile(path, 'utf8'),
@@ -106,20 +114,20 @@ export function buildRotationDeps(publishConfigEnabled: boolean): RotationDeps {
         DEMO_PROVIDER_OFFER_ID: created.providerOfferId,
       }, nodeFsDeps);
     },
+    async enableDemo() {
+      // Re-enable public demo traffic (e.g. set DEMO_SESSION_ENABLED=true) so the demo-session
+      // re-check can pass. Host-specific, so it MUST be wired; fail closed if not.
+      await runRequiredCommand('DEMO_ENABLE_CMD', process.env.DEMO_ENABLE_CMD);
+    },
     async restartAuth() {
-      await execFileAsync('pm2', ['restart', 'karmyq-auth-service']);
+      // auth-service is a Docker container on the demo host (NOT pm2), and it must be RECREATED to
+      // re-read the republished .env.demo (new story IDs + enabled flag). The exact command is
+      // host-specific (compose file paths), so it is operator-provided and fail-closed.
+      await runRequiredCommand('DEMO_RESTART_AUTH_CMD', process.env.DEMO_RESTART_AUTH_CMD);
     },
     async verifyDemoSession() {
-      // Validate the PUBLISHED config end-to-end: after restart, the public /auth/demo-session must
-      // resolve a coherent session whose demo.stories match exactly the four published IDs (a normal
-      // login would not exercise the published story configuration; the IDs live under demo.stories,
-      // not the top level).
-      try {
-        const session = await new ApiClient(env.baseUrl).createDemoSession();
-        return { ok: demoSessionMatchesPublished(session, created ?? env.storyIds) };
-      } catch {
-        return { ok: false };
-      }
+      // The published /auth/demo-session must resolve the new stories AND be read-only (write→403).
+      return { ok: await verifyDemoSessionReadOnly(env.baseUrl, created ?? env.storyIds) };
     },
     async retireOld() {
       // Old stories expire naturally via the request TTL; nothing destructive is required here.

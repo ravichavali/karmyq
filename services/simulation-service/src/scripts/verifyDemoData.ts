@@ -14,7 +14,7 @@
 
 import { ApiClient } from '../api-client';
 import { floorFromRelationshipContext } from '../scenarios/mariaRelationshipStory';
-import { providerOfferValid, reciprocalContextsMatch } from '../fixtures/curatedDemo/demoVerificationLogic';
+import { demoSessionMatchesPublished, providerOfferValid, reciprocalContextsMatch } from '../fixtures/curatedDemo/demoVerificationLogic';
 import {
   verifyCuratedDemo,
   type DemoVerificationDeps,
@@ -83,6 +83,30 @@ const NO_PATH_FLOOR: OrdinaryFloor = { pathDegree: Number.POSITIVE_INFINITY, sha
 function statusOf(error: unknown): number {
   const status = (error as { response?: { status?: number } })?.response?.status;
   return typeof status === 'number' ? status : 0;
+}
+
+/**
+ * Verify the PUBLIC demo session end-to-end: POST /auth/demo-session must resolve a coherent
+ * session whose `demo.stories` match the expected IDs, and that session token must be READ-ONLY
+ * (a write attempt is rejected 403). Requires the demo to be enabled. Fails closed on any error.
+ */
+export async function verifyDemoSessionReadOnly(baseUrl: string, expected: VerifyEnv['storyIds']): Promise<boolean> {
+  try {
+    const session = await new ApiClient(baseUrl).createDemoSession();
+    if (!demoSessionMatchesPublished(session, expected)) return false;
+    const token = (session as { token?: string }).token;
+    if (!token) return false;
+    const probe = new ApiClient(baseUrl);
+    probe.setToken(token);
+    try {
+      await probe.createRequest({ title: 'demo-write-probe', description: 'demo-write-probe', category: 'errand' });
+      return false; // a demo-session write MUST NOT succeed
+    } catch (error) {
+      return statusOf(error) === 403;
+    }
+  } catch {
+    return false;
+  }
 }
 
 export async function buildDeps(env: VerifyEnv): Promise<DemoVerificationDeps> {
@@ -167,16 +191,6 @@ export async function buildDeps(env: VerifyEnv): Promise<DemoVerificationDeps> {
       // The configured offer must actually exist, be live/pending, and belong to the provider.
       return providerOfferValid(providerOffers, env.storyIds.providerOfferId, providerId);
     },
-    async getDemoWriteStatus() {
-      // A demo-session write must be rejected with 403. Probe a create; a transport error (status 0)
-      // is NOT a valid rejection and must fail the readiness check.
-      try {
-        await maria.createRequest({ title: 'verify-probe', description: 'verify-probe', category: 'errand' });
-        return 200;
-      } catch (error) {
-        return statusOf(error);
-      }
-    },
     async getStoryIds() {
       return env.storyIds;
     },
@@ -195,8 +209,11 @@ async function main(): Promise<void> {
 
   const deps = await buildDeps(env);
   const report = await verifyCuratedDemo(deps);
-  console.log(JSON.stringify(report, null, 2));
-  if (!report.ready) process.exitCode = 1;
+  // Also verify the public demo session is coherent and read-only (needs the demo enabled).
+  const demoSessionReadOnly = await verifyDemoSessionReadOnly(env.baseUrl, env.storyIds);
+  const overallReady = report.ready && demoSessionReadOnly;
+  console.log(JSON.stringify({ ...report, demoSessionReadOnly, ready: overallReady }, null, 2));
+  if (!overallReady) process.exitCode = 1;
 }
 
 if (require.main === module) {
