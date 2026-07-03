@@ -43,6 +43,28 @@
 > deployed reset and add those reseeds if a surface needs them.
 >
 > **Tasks 1–6 (foundational) commit `886c70f6`; full run committed through `832b2189`.**
+>
+> **Cross-agent review round 1 (Codex) — 6 blockers, ALL FIXED in commit `b07c537c` (pushed to PR #136):**
+> 1. CI blocker — tests workspace couldn't resolve `@karmyq/shared` from baselineWriter under ts-jest
+>    → added `moduleNameMapper` to source in `tests/jest.config.js` (integration test now runs).
+> 2. Runtime safety gates were no-ops → `resetDemoData` wires real `pauseMutation`/`resumeMutation`
+>    (pm2 stop/start of `DEMO_PAUSE_PROCESSES`, default simulation+cleanup) + disable/enable hooks;
+>    the coordinator now THROWS if pause/disable are unwired instead of substituting no-ops.
+> 3. Lock/backup soundness → advisory lock holds a dedicated client (same-session unlock, no leak);
+>    `pg_dump` gets full connection via PG* env (password never in argv); backup verified by non-empty
+>    dump-file stat.
+> 4. Verifier no longer fails open → transport errors return the real status (0), so a network error
+>    can't masquerade as a 403 denial/rejection.
+> 5. Rotation usable → non-admin Maria accepts the helper's `offerHelp` match (not admin
+>    propose-match); provider request sends `request_type=service` + `payload.service_category`.
+> 6. `reset:demo --apply --publish-config` now actually publishes → post-apply creates+verifies live
+>    stories and publishes via the shared rotation flow, then re-enables demo + resumes mutation.
+> Also: `readEnv` story IDs are optional (reset/rotate create their own) with a verify-only
+> `assertStoryIds` guard. Local re-verify after fixes: sim 86/86, root unit+regression 271/271,
+> shared projection 2/2, typechecks clean; integration test now resolves and reaches DB (CI-gated).
+>
+> **CodeQL:** expect `js/request-forgery` on the new CLIs' `API_BASE_URL`→axios base — documented FP;
+> dismiss via the Security UI (do not loop the API), then re-run the Code Scanning gate.
 > - T1/T2: deterministic curated manifest + compiler (`services/simulation-service/src/fixtures/curatedDemo/{types,manifest,compiler}.ts`) — 36 people, 6 communities, semantic-key UUIDs, one-anchor ages, fail-closed validation. 3/3 green.
 > - T3/T4: complete fail-closed `tablePolicy.ts` (every managed base table + public.geocoding_cache classified; views excluded) and guarded `resetCoordinator.ts` (dry-run default; ordered fingerprint→disable→pause→backup→lock→txn) + `baselineWriter.ts` (savepoint-fixpoint DELETE reset that honors ON DELETE SET NULL; FK-ordered source inserts) + `resetDemoData.ts` CLI. 8/8 green.
 > - T5/T6: fixture-only `packages/shared/src/projections/completedExchange.ts` — equivalence-locked to production `computeRawWeight` + `allocateKarma` (cross-workspace gate `tests/tdd/sprint-117-projection-equivalence.test.ts`). Exported from `@karmyq/shared` (main + subpath); baseline writer inserts projections grouped by community. 4/4 green.
