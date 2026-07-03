@@ -1,10 +1,48 @@
-# Sprint 117 — Controlled Demo Reset and Curated Fixtures — IN PROGRESS
+# Sprint 117 — Controlled Demo Reset and Curated Fixtures — IMPLEMENTED (awaiting Admin merge/deploy)
 
 > **STATUS (2026-07-02):** Sprint 116 merged on `master` (`f02f736e`, v11.25.3). Sprint 117
-> execution is underway on `agent/codex/sprint-117-curated-demo-reset` (Claude executing the
-> Codex-authored plan via `superpowers:executing-plans`).
+> **Tasks 1–13 of 14 are COMPLETE** on `agent/codex/sprint-117-curated-demo-reset` (Claude executed
+> the Codex-authored plan via `superpowers:executing-plans`). Latest commit `832b2189`. Working tree
+> clean. **Only Task 14 remains: PR → cross-agent review → Admin-authorized merge → deploy →
+> controlled reset → human validation. This STOPS for explicit Admin authorization — do not
+> self-merge or self-deploy.**
 >
-> **Tasks 1–6 of 14 COMPLETE, committed, all green.** Latest commit `886c70f6`.
+> **Quality gates (Task 12) — all green:**
+> - Testing: simulation 86/86, shared 156/156, root unit+regression 271/271, projection equivalence
+>   2/2, all sprint-117 suites green. The DB double-reset integration test is Docker-less locally
+>   (TDD, fails fast on connection) and runs as a **blocking CI step** in the migrated-Postgres job.
+> - TypeScript: shared + simulation + social-graph + reputation + request all `tsc --noEmit` clean.
+> - `/simplify`: run inline per task. `npm audit --audit-level=high`: 0 vulnerabilities. Disclosure
+>   gate + doc-context drift gate (5/5): green. `feedback:check`/`git diff --check`: clean.
+> - `/security-review`: no HIGH/MEDIUM. Watch for the recurring CodeQL `js/request-forgery` FP on the
+>   new CLIs' `API_BASE_URL`→axios base (documented false positive — dismiss).
+> - `/code-review`: found and fixed TWO real bugs (commit `832b2189`): (1) `resetData` deleted
+>   `auth.users` first outside the fixpoint, but NO ACTION FKs (e.g. `help_requests.requester_id`)
+>   would FK-block it and abort the txn → now `auth.users` is inside the order-independent savepoint
+>   fixpoint; (2) the integration test's overdue-unprocessed invariant counted terminal completed
+>   rows with legitimately-past expiry → scoped to open/proposed/matched. Both would only have
+>   surfaced in the CI DB run.
+>
+> **Task 14 next steps (require Admin):** push branch → open PR (fill `.github/pull_request_template.md`)
+> → get cross-agent review (Codex, as the non-author of the *implementation*) → confirm the new CI
+> integration step goes green (first real DB execution of the reset) → **Admin authorizes** squash
+> merge (`gh pr merge --squash --admin`) → deploy via GitHub Actions → begin approved maintenance →
+> run `reset:demo` dry-run, review, then `reset:demo -- --apply --publish-config` → re-run the promoted
+> integration regression on the deployed DB → human validation (verify:demo ready, privacy denials,
+> 403 demo write, ≥14-day runway, desktop/mobile UI) → then promote the TDD integration test to
+> `tests/regression/` and update this handoff to COMPLETE. Deployment env needed:
+> `DATABASE_URL`, `DEMO_ENV=demo`, `DEMO_RESET_MARKER=karmyq-demo-reset-v1`, `DEMO_PERSONA_PASSWORD`,
+> `DEMO_BACKUP_DIR`, and (for verify/rotate) `API_BASE_URL`, `DEMO_MARIA_EMAIL`, `DEMO_UNRELATED_EMAIL`,
+> `DEMO_HELPER_EMAIL`, `DEMO_PROVIDER_EMAIL`.
+>
+> **Deployment-validated (could not run locally without Docker/live API):** the DB reset execution
+> path (validated by the CI integration test), and the verify/rotate CLIs' API→deps mapping (built on
+> the proven rehearse machinery; validated in the deployed rehearsal). Reseed of per-community
+> `community_configs`/`retention_config` is NOT written by the baseline (only `settings` +
+> `trust_decay_config` + global `interaction_weights` are) — confirm the demo renders correctly on the
+> deployed reset and add those reseeds if a surface needs them.
+>
+> **Tasks 1–6 (foundational) commit `886c70f6`; full run committed through `832b2189`.**
 > - T1/T2: deterministic curated manifest + compiler (`services/simulation-service/src/fixtures/curatedDemo/{types,manifest,compiler}.ts`) — 36 people, 6 communities, semantic-key UUIDs, one-anchor ages, fail-closed validation. 3/3 green.
 > - T3/T4: complete fail-closed `tablePolicy.ts` (every managed base table + public.geocoding_cache classified; views excluded) and guarded `resetCoordinator.ts` (dry-run default; ordered fingerprint→disable→pause→backup→lock→txn) + `baselineWriter.ts` (savepoint-fixpoint DELETE reset that honors ON DELETE SET NULL; FK-ordered source inserts) + `resetDemoData.ts` CLI. 8/8 green.
 > - T5/T6: fixture-only `packages/shared/src/projections/completedExchange.ts` — equivalence-locked to production `computeRawWeight` + `allocateKarma` (cross-workspace gate `tests/tdd/sprint-117-projection-equivalence.test.ts`). Exported from `@karmyq/shared` (main + subpath); baseline writer inserts projections grouped by community. 4/4 green.
