@@ -56,6 +56,8 @@ export interface DemoVerificationDeps {
   getRunwayDays(): Promise<number>;
   getOrdinaryContext(): Promise<Record<string, unknown>>;
   getProviderContext(): Promise<Record<string, unknown>>;
+  /** True only if the configured provider offer exists, is live/pending, and belongs to the provider. */
+  getProviderStoryValid(): Promise<boolean>;
   getDemoWriteStatus(): Promise<number>;
   getStoryIds(): Promise<VerifiedStoryIds>;
 }
@@ -70,6 +72,7 @@ export interface DemoVerificationReport {
     runway: boolean;
     ordinaryPrivacy: boolean;
     providerPrivacy: boolean;
+    providerStory: boolean;
     demoWriteRejected: boolean;
   };
   forbiddenKeyPaths: string[];
@@ -104,13 +107,14 @@ export async function verifyCuratedDemo(deps: DemoVerificationDeps): Promise<Dem
   ];
   const ordinaryPrivacy = findForbiddenKeys(ordinaryContext).length === 0;
   const providerPrivacy = findForbiddenKeys(providerContext).length === 0;
+  const providerStory = await deps.getProviderStoryValid();
 
   const demoWriteStatus = await deps.getDemoWriteStatus();
   const demoWriteRejected = demoWriteStatus === 403;
 
   const checks = {
     mariaMemberOnly, richFloor, reciprocalTopology, unrelatedDenied,
-    runway, ordinaryPrivacy, providerPrivacy, demoWriteRejected,
+    runway, ordinaryPrivacy, providerPrivacy, providerStory, demoWriteRejected,
   };
   const ready = Object.values(checks).every(Boolean);
 

@@ -14,6 +14,7 @@
 
 import { ApiClient } from '../api-client';
 import { floorFromRelationshipContext } from '../scenarios/mariaRelationshipStory';
+import { providerOfferValid, reciprocalContextsMatch } from '../fixtures/curatedDemo/demoVerificationLogic';
 import {
   verifyCuratedDemo,
   type DemoVerificationDeps,
@@ -24,6 +25,7 @@ export interface VerifyEnv {
   baseUrl: string;
   mariaEmail: string;
   helperEmail: string;
+  providerEmail: string;
   unrelatedEmail: string;
   password: string;
   storyIds: {
@@ -44,6 +46,7 @@ export function readEnv(): VerifyEnv {
     baseUrl: process.env.API_BASE_URL,
     mariaEmail: process.env.DEMO_MARIA_EMAIL ?? process.env.DEMO_PERSONA_EMAIL,
     helperEmail: process.env.DEMO_HELPER_EMAIL,
+    providerEmail: process.env.DEMO_PROVIDER_EMAIL,
     unrelatedEmail: process.env.DEMO_UNRELATED_EMAIL,
     password: process.env.DEMO_PERSONA_PASSWORD,
   };
@@ -55,6 +58,7 @@ export function readEnv(): VerifyEnv {
     baseUrl: required.baseUrl!,
     mariaEmail: required.mariaEmail!,
     helperEmail: required.helperEmail!,
+    providerEmail: required.providerEmail!,
     unrelatedEmail: required.unrelatedEmail!,
     password: required.password!,
     storyIds: {
@@ -91,6 +95,10 @@ export async function buildDeps(env: VerifyEnv): Promise<DemoVerificationDeps> {
   const helper = new ApiClient(env.baseUrl);
   await helper.login(env.helperEmail, env.password);
 
+  const provider = new ApiClient(env.baseUrl);
+  const providerAuth = await provider.login(env.providerEmail, env.password);
+  const providerId = providerAuth.user?.id as string | undefined;
+
   const unrelated = new ApiClient(env.baseUrl);
   await unrelated.login(env.unrelatedEmail, env.password);
 
@@ -123,17 +131,10 @@ export async function buildDeps(env: VerifyEnv): Promise<DemoVerificationDeps> {
       };
     },
     async getReciprocalTopology() {
-      // Both viewpoints must independently show a finite path with visible one-hop neighbours, and
-      // agree on the shared-neighbour count. A missing helper context fails closed.
+      // Canonicalized reversed-orientation match of the node/path sets (see reciprocalContextsMatch).
+      // A missing context on either side fails closed.
       if (!context || !helperContext) return false;
-      const mine = floorFromRelationshipContext(context);
-      const theirs = floorFromRelationshipContext(helperContext);
-      return (
-        mine.pathDegree !== null && theirs.pathDegree !== null &&
-        mine.mariaOneHop > 0 && theirs.mariaOneHop > 0 &&
-        mine.helperOneHop > 0 && theirs.helperOneHop > 0 &&
-        mine.sharedConnections === theirs.sharedConnections
-      );
+      return reciprocalContextsMatch(context, helperContext);
     },
     async getUnrelatedContextStatus() {
       try {
@@ -161,6 +162,10 @@ export async function buildDeps(env: VerifyEnv): Promise<DemoVerificationDeps> {
         return { trust_score: '__provider_context_unavailable__' } as Record<string, unknown>;
       }
       return providerOffers as unknown as Record<string, unknown>;
+    },
+    async getProviderStoryValid() {
+      // The configured offer must actually exist, be live/pending, and belong to the provider.
+      return providerOfferValid(providerOffers, env.storyIds.providerOfferId, providerId);
     },
     async getDemoWriteStatus() {
       // A demo-session write must be rejected with 403. Probe a create; a transport error (status 0)

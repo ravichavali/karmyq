@@ -22,6 +22,7 @@ import {
   type RotationDeps,
 } from '../fixtures/curatedDemo/storyLifecycle';
 import { verifyCuratedDemo, type VerifiedStoryIds } from '../fixtures/curatedDemo/verifier';
+import { demoSessionMatchesPublished } from '../fixtures/curatedDemo/demoVerificationLogic';
 import { buildDeps, readEnv } from './verifyDemoData';
 
 const execFileAsync = promisify(execFile);
@@ -110,13 +111,12 @@ export function buildRotationDeps(publishConfigEnabled: boolean): RotationDeps {
     },
     async verifyDemoSession() {
       // Validate the PUBLISHED config end-to-end: after restart, the public /auth/demo-session must
-      // resolve a coherent session (it collapses to 503 on missing/incoherent config). A normal
-      // login would not exercise the published story configuration.
+      // resolve a coherent session whose demo.stories match exactly the four published IDs (a normal
+      // login would not exercise the published story configuration; the IDs live under demo.stories,
+      // not the top level).
       try {
         const session = await new ApiClient(env.baseUrl).createDemoSession();
-        const ids = created ?? env.storyIds;
-        const idMatches = !session?.ordinaryRequestId || session.ordinaryRequestId === ids.ordinaryRequestId;
-        return { ok: Boolean(session?.token) && idMatches };
+        return { ok: demoSessionMatchesPublished(session, created ?? env.storyIds) };
       } catch {
         return { ok: false };
       }

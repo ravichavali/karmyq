@@ -17,6 +17,7 @@ interface WorldOverrides {
   runwayDays?: number;
   ordinaryContext?: Record<string, unknown>;
   providerContext?: Record<string, unknown>;
+  providerStoryValid?: boolean;
   demoWriteStatus?: number;
 }
 
@@ -29,6 +30,7 @@ function fakeWorld(overrides: WorldOverrides = {}): DemoVerificationDeps {
     runwayDays = 59,
     ordinaryContext = { bond_depth: 2 },
     providerContext = { bond_depth: 1, provider_rating: 4.5 },
+    providerStoryValid = true,
     demoWriteStatus = 403,
   } = overrides;
   return {
@@ -39,6 +41,7 @@ function fakeWorld(overrides: WorldOverrides = {}): DemoVerificationDeps {
     getRunwayDays: async () => runwayDays,
     getOrdinaryContext: async () => ordinaryContext,
     getProviderContext: async () => providerContext,
+    getProviderStoryValid: async () => providerStoryValid,
     getDemoWriteStatus: async () => demoWriteStatus,
     getStoryIds: async () => ({
       ordinaryRequestId: ORD_REQ,
@@ -75,6 +78,7 @@ describe('Sprint 117 curated demo API verifier', () => {
     ['non-reciprocal topology', { reciprocalTopology: false }],
     ['thin one-hop', { ordinaryFloor: { pathDegree: 2, sharedConnections: 3, mariaOneHop: 3, helperOneHop: 4 } }],
     ['deep path', { ordinaryFloor: { pathDegree: 3, sharedConnections: 3, mariaOneHop: 4, helperOneHop: 4 } }],
+    ['invalid provider story', { providerStoryValid: false }],
     ['allowed demo write', { demoWriteStatus: 200 }],
   ])('fails closed for %s', async (_name, patch) => {
     const report = await verifyCuratedDemo(fakeWorld(patch));
