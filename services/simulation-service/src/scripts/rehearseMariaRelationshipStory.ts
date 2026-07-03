@@ -187,7 +187,12 @@ async function main() {
     return process.exit(1);
   }
 
-  console.log(`\nMaria relationship-story rehearsal — ${apply ? 'APPLY (mutating)' : 'DRY RUN'}`);
+  console.warn('\n⚠️  DEPRECATED (Sprint 117): additive rehearsal is superseded by the curated demo reset.');
+  console.warn('    Use `reset:demo` for the guarded full baseline, `verify:demo` for read-only health,');
+  console.warn('    and `rotate:demo-stories` for explicit finite-story rotation. This script remains only');
+  console.warn('    as a compatibility shim for the legacy additive flow.\n');
+
+  console.log(`Maria relationship-story rehearsal — ${apply ? 'APPLY (mutating)' : 'DRY RUN'}`);
   console.log(`Environment: ${baseUrl}  Persona: ${mariaEmail}\n`);
 
   const maria = await loginPersona(baseUrl, mariaEmail);

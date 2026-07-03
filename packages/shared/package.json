@@ -92,6 +92,10 @@
     "./trust/decayTier": {
       "types": "./dist/src/trust/decayTier.d.ts",
       "default": "./dist/src/trust/decayTier.js"
+    },
+    "./projections/completed-exchange": {
+      "types": "./dist/src/projections/completedExchange.d.ts",
+      "default": "./dist/src/projections/completedExchange.js"
     }
   },
   "scripts": {

@@ -43,6 +43,19 @@ export class ApiClient {
   }
 
   /**
+   * Auth API - Issue the public read-only Maria demo session (Sprint 116/117, ADR-084). Takes no
+   * body: the server resolves the persona + story IDs from the PUBLISHED config and returns a
+   * coherent session, or a single opaque 503 if that config is missing/incoherent. Used to verify
+   * that a freshly-published demo config actually resolves.
+   */
+  async createDemoSession(): Promise<any> {
+    const response = await executeWithRetry(() =>
+      this.client.post('/auth/demo-session', {})
+    );
+    return response.data.data;
+  }
+
+  /**
    * Request API - Browse requests
    */
   async browseRequests(params?: { limit?: number; offset?: number; requester_id?: string; status?: string }): Promise<any[]> {
@@ -519,6 +532,17 @@ export class ApiClient {
   async getNeighborhood(userId: string, depth: 1 | 2 | 3, communityId?: string): Promise<any> {
     const response = await executeWithRetry(() =>
       this.client.get(`/trust/neighborhood/${userId}`, { params: { depth, communityId } })
+    );
+    return response.data.data;
+  }
+
+  /**
+   * Request API — the community's retention/forgetting policy (Sprint 117 curated-demo
+   * verification of retention transparency). Read-only.
+   */
+  async getRetentionPolicy(communityId: string): Promise<any> {
+    const response = await executeWithRetry(() =>
+      this.client.get('/requests/retention-policy', { params: { communityId } })
     );
     return response.data.data;
   }

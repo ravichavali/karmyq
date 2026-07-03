@@ -150,3 +150,28 @@ chmod +x scripts/create-github-issues.sh
 1. View: https://github.com/ravichavali/karmyq/issues
 2. Add to your Project board
 3. Start working!
+
+## Demo data reset (Sprint 117 — the ONLY supported path)
+
+The curated demo reset replaces the old `truncate-database.*` scripts (which now delegate here or
+refuse). It is **dry-run by default**; a destructive apply requires an explicit demo fingerprint
+(`DEMO_RESET_MARKER=karmyq-demo-reset-v1`), a completed verified backup, an advisory lock, paused
+mutation jobs, and one transaction.
+
+```bash
+# Read-only plan (no mutation)
+npm --workspace @karmyq/simulation-service run reset:demo
+
+# Read-only outward-API health + privacy verification
+npm --workspace @karmyq/simulation-service run verify:demo
+
+# Destructive full reset — approved downtime only (backup written to --backup-dir)
+npm --workspace @karmyq/simulation-service run reset:demo -- --apply --publish-config
+
+# Explicit finite live-story rotation — NOT a full reset
+npm --workspace @karmyq/simulation-service run rotate:demo-stories -- --apply --publish-config
+```
+
+**Recovery:** an apply that fails after the DB transaction leaves the demo disabled and prints a
+bounded restore/rerun path; restore from the timestamped `pg_dump` backup in `--backup-dir`. Never run
+`scripts/truncate-database.sql` directly — it is disabled because it cannot guarantee these controls.

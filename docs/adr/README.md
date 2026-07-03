@@ -53,7 +53,7 @@ When code implementing an ADR is deployed, update the status from `Accepted` →
 - [ADR-014: Testing Strategy (Integration + E2E + Unit)](ADR-014-testing-strategy.md) — Accepted
 - [ADR-015: Observability Stack (Grafana/Loki/Prometheus)](ADR-015-observability-stack.md) — Implemented
 - [ADR-023: Infrastructure Standardization and Environment Management](ADR-023-infrastructure-standardization.md) — Accepted
-- [ADR-024: Synthetic User Simulation for Demo Environment](ADR-024-synthetic-user-simulation.md) — Proposed
+- [ADR-024: Synthetic User Simulation for Demo Environment](ADR-024-synthetic-user-simulation.md) — **Implemented** (Sprint 117: hybrid deterministic baseline + guarded reset)
 - [ADR-027: Docker Image Size Optimization (Deferred Technical Debt)](ADR-027-docker-image-optimization-deferred.md) — Accepted
 - [ADR-028: NPM Workspace Docker Build Pattern](ADR-028-npm-workspace-docker-build.md) — Accepted
 - [ADR-029: TDD Test Framework](ADR-029-tdd-test-framework.md) — Accepted
@@ -119,7 +119,7 @@ When code implementing an ADR is deployed, update the status from `Accepted` →
 - [ADR-081: Belonging Graph System — One Engine, One Language, One Explorer](ADR-081-belonging-graph-system.md) — **Proposed**
 - [ADR-082: Reputation Disclosure Boundary](ADR-082-reputation-disclosure-boundary.md) — **Accepted**
 - [ADR-083: Contextual Belonging Graph Rendering (Earned Structure)](ADR-083-contextual-belonging-graph-rendering.md) — **Accepted**
-- [ADR-084: Context-Bound Connection Visibility](ADR-084-context-bound-connection-visibility.md) — **Accepted**
+- [ADR-084: Context-Bound Connection Visibility](ADR-084-context-bound-connection-visibility.md) — **Accepted** (amended Sprint 117: curated historical floor + API verification)
 
 ## Creating a New ADR
 

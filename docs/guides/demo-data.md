@@ -112,3 +112,28 @@ environment (see `.env.demo.example`): `DEMO_SESSION_ENABLED=true`, `DEMO_PERSON
 `DEMO_PROVIDER_OFFER_ID`. The persona must be an active, non-admin `@test.karmyq.com` account, and both
 stories must be coherent (Maria owns each request; the match/offer hang off the correct request) — any
 mismatch returns one opaque `503 DEMO_UNAVAILABLE`.
+
+## How the Demo Is Built (Sprint 117)
+
+The demo now begins from a **deterministic, age-aware synthetic baseline** rather than pure
+open-ended simulation. A single guarded reset establishes a compact, curated history — a set of
+Portland communities and neighbours whose completed exchanges, trust connections, and karma are
+*derived from the same rules the live platform uses*, aged relative to one reset moment (some
+exchanges days old, some months old). After the baseline is in place, ambient synthetic activity
+continues to evolve the wider population.
+
+A small **protected core** of people — including the narrative persona and her closest connections —
+is held stable so the guided story stays coherent and is never altered by ongoing simulation. The
+persona is an ordinary active member (never an administrator).
+
+Because the platform models real time, demo content behaves like the real product:
+
+- **Fresh vs. aging:** recent requests are open; older ones expire on the normal 60-day schedule.
+- **Designed to forget:** content past the retention window is redacted to a `[forgotten]` sentinel,
+  exactly as it would be for real users — the demo demonstrates the forgetting behaviour, it does not
+  hide it.
+- **Finite live stories:** the guided persona's live decisions are real, finite, and rotated
+  explicitly before they age out.
+
+Everything you see is illustrative synthetic data — real numbers and names would belong to real
+people. It is not a frozen screenshot; it is the actual product running on curated, truthful history.

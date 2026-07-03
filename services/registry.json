@@ -25,14 +25,46 @@
           "/preferences/feed",
           "/auth/profile/tags",
           "/auth/profile/tags/suggestions",
-          { "method": "POST", "path": "/auth/push-tokens", "description": "Register an Expo push token for the authenticated user" },
-          { "method": "DELETE", "path": "/auth/push-tokens", "description": "Remove an Expo push token for the authenticated user" },
-          { "method": "POST", "path": "/auth/refresh", "description": "Issue new access token using refresh token (ADR-052). Rotates refresh token on each call." },
-          { "method": "POST", "path": "/auth/logout", "description": "Logout user, revoke access token session and optional refresh token." },
-          { "method": "POST", "path": "/founding-circle/submissions", "description": "Public (no auth) founding-circle intake from the karmyq.org/join form. Honeypot-screened, validated, persist-only (ADR-076)." },
-          { "method": "GET", "path": "/founding-circle/submissions", "description": "Authenticated founding-circle reviewer list endpoint. Filters by status and returns paginated submissions for review." },
-          { "method": "PATCH", "path": "/founding-circle/submissions/:id/status", "description": "Authenticated founding-circle reviewer endpoint to mark a submission new, reviewed, contacted, or archived." },
-          { "method": "POST", "path": "/auth/demo-session", "description": "Issue a short-lived (30 min) read-only Maria demo session (Sprint 116, ADR-084). No refresh token; token carries sessionMode='demo_read_only'. Every config/state failure returns one opaque 503 DEMO_UNAVAILABLE." }
+          {
+            "method": "POST",
+            "path": "/auth/push-tokens",
+            "description": "Register an Expo push token for the authenticated user"
+          },
+          {
+            "method": "DELETE",
+            "path": "/auth/push-tokens",
+            "description": "Remove an Expo push token for the authenticated user"
+          },
+          {
+            "method": "POST",
+            "path": "/auth/refresh",
+            "description": "Issue new access token using refresh token (ADR-052). Rotates refresh token on each call."
+          },
+          {
+            "method": "POST",
+            "path": "/auth/logout",
+            "description": "Logout user, revoke access token session and optional refresh token."
+          },
+          {
+            "method": "POST",
+            "path": "/founding-circle/submissions",
+            "description": "Public (no auth) founding-circle intake from the karmyq.org/join form. Honeypot-screened, validated, persist-only (ADR-076)."
+          },
+          {
+            "method": "GET",
+            "path": "/founding-circle/submissions",
+            "description": "Authenticated founding-circle reviewer list endpoint. Filters by status and returns paginated submissions for review."
+          },
+          {
+            "method": "PATCH",
+            "path": "/founding-circle/submissions/:id/status",
+            "description": "Authenticated founding-circle reviewer endpoint to mark a submission new, reviewed, contacted, or archived."
+          },
+          {
+            "method": "POST",
+            "path": "/auth/demo-session",
+            "description": "Issue a short-lived (30 min) read-only Maria demo session (Sprint 116, ADR-084). No refresh token; token carries sessionMode='demo_read_only'. Every config/state failure returns one opaque 503 DEMO_UNAVAILABLE."
+          }
         ],
         "consumes": []
       },
@@ -63,8 +95,16 @@
       },
       "apis": {
         "provides": [
-          {"method": "GET", "path": "/communities", "description": "List communities with filtering and sorting (sort: activity, newest, members, alphabetical)"},
-          {"method": "POST", "path": "/communities", "description": "Create a community — idempotent on identity (name+location, case-insensitive, ADR-062). Joins the existing active community if one matches (returns existing:true, HTTP 200); otherwise creates it (existing:false, HTTP 201)."},
+          {
+            "method": "GET",
+            "path": "/communities",
+            "description": "List communities with filtering and sorting (sort: activity, newest, members, alphabetical)"
+          },
+          {
+            "method": "POST",
+            "path": "/communities",
+            "description": "Create a community \u2014 idempotent on identity (name+location, case-insensitive, ADR-062). Joins the existing active community if one matches (returns existing:true, HTTP 200); otherwise creates it (existing:false, HTTP 201)."
+          },
           "/communities/join",
           "/communities/my/communities",
           "/communities/:id/config",
@@ -75,37 +115,161 @@
           "/norms",
           "/communities/:id/links",
           "/communities/:id/links/:linkId",
-          {"method": "GET", "path": "/communities/tags", "description": "Get all distinct community tags for interest-based discovery"},
-          {"method": "PUT", "path": "/communities/:id/tags", "description": "Update community interest tags (admin only)"},
-          {"method": "PUT", "path": "/communities/:id/location", "description": "Update community geographic coordinates (admin only)"},
-          {"method": "GET", "path": "/communities/trust-questions", "description": "List active trust questionnaire questions with choices"},
-          {"method": "POST", "path": "/communities/trust-questions", "description": "Create a trust question (platform admin)"},
-          {"method": "PUT", "path": "/communities/trust-questions/:id", "description": "Update a trust question (platform admin)"},
-          {"method": "DELETE", "path": "/communities/trust-questions/:id", "description": "Deactivate a trust question (platform admin)"},
-          {"method": "POST", "path": "/communities/trust-questions/:id/choices", "description": "Add a choice to a trust question (platform admin)"},
-          {"method": "PUT", "path": "/communities/trust-questions/:id/choices/:choiceId", "description": "Update a trust question choice (platform admin)"},
-          {"method": "DELETE", "path": "/communities/trust-questions/:id/choices/:choiceId", "description": "Remove a trust question choice (platform admin)"},
-          {"method": "GET", "path": "/communities/:id/activities", "description": "List upcoming open activities for a group community with is_joined flag."},
-          {"method": "POST", "path": "/communities/:id/activities", "description": "Create a new activity in a group community (admin only)."},
-          {"method": "GET", "path": "/communities/:id/activities/:activityId", "description": "Get activity detail with participant list."},
-          {"method": "POST", "path": "/communities/:id/activities/:activityId/join", "description": "Join an activity (returns 400 if full, 409 if already joined)."},
-          {"method": "DELETE", "path": "/communities/:id/activities/:activityId/leave", "description": "Leave an activity."},
-          {"method": "GET", "path": "/communities/:id/governance", "description": "Get governance state: settings, maturity, eligible members, pending nominations with ratifier counts, and current role holders."},
-          {"method": "POST", "path": "/communities/:id/governance/nominate", "description": "Nominate an eligible member (trust score >= threshold) for Admin or Moderator role. Returns 409 if pending nomination already exists."},
-          {"method": "POST", "path": "/communities/:id/governance/ratify/:nominationId", "description": "Ratify an open nomination (role-holders only). Auto-grants role when quorum is reached."},
-          {"method": "POST", "path": "/communities/:id/splits", "description": "Admin creates a split proposal; runs trust-graph clustering and seeds member assignments."},
-          {"method": "GET", "path": "/communities/:id/splits/:splitId", "description": "Get proposal detail, member assignments, and prestige-weighted vote tally."},
-          {"method": "PUT", "path": "/communities/:id/splits/:splitId/assignments", "description": "Admin bulk-updates member group assignments."},
-          {"method": "POST", "path": "/communities/:id/splits/:splitId/start-vote", "description": "Admin transitions proposal from discussion to voting phase."},
-          {"method": "POST", "path": "/communities/:id/splits/:splitId/vote", "description": "Member casts a prestige-weighted vote (yes/no/abstain) on a split proposal."},
-          {"method": "POST", "path": "/communities/:id/splits/:splitId/execute", "description": "Admin executes an approved split: creates two child communities, moves members, creates split_origin link, marks parent as split."},
-          {"method": "POST", "path": "/communities/:id/fusions", "description": "Admin A creates a fusion proposal targeting another community."},
-          {"method": "POST", "path": "/communities/:id/fusions/:fusionId/accept", "description": "Admin B accepts the fusion proposal, moving it to discussion."},
-          {"method": "POST", "path": "/communities/:id/fusions/:fusionId/reject", "description": "Admin B rejects the fusion proposal."},
-          {"method": "GET", "path": "/communities/:id/fusions/:fusionId", "description": "Get proposal detail, both community vote tallies, and my_vote."},
-          {"method": "POST", "path": "/communities/:id/fusions/:fusionId/start-vote", "description": "Either admin opens the parallel community vote."},
-          {"method": "POST", "path": "/communities/:id/fusions/:fusionId/vote", "description": "Member casts a prestige-weighted vote (yes/no/abstain) for their community."},
-          {"method": "POST", "path": "/communities/:id/fusions/:fusionId/execute", "description": "Either admin executes an approved fusion: creates merged community, migrates members + trust (×0.70) + karma, creates fusion_origin links, archives originals."}
+          {
+            "method": "GET",
+            "path": "/communities/tags",
+            "description": "Get all distinct community tags for interest-based discovery"
+          },
+          {
+            "method": "PUT",
+            "path": "/communities/:id/tags",
+            "description": "Update community interest tags (admin only)"
+          },
+          {
+            "method": "PUT",
+            "path": "/communities/:id/location",
+            "description": "Update community geographic coordinates (admin only)"
+          },
+          {
+            "method": "GET",
+            "path": "/communities/trust-questions",
+            "description": "List active trust questionnaire questions with choices"
+          },
+          {
+            "method": "POST",
+            "path": "/communities/trust-questions",
+            "description": "Create a trust question (platform admin)"
+          },
+          {
+            "method": "PUT",
+            "path": "/communities/trust-questions/:id",
+            "description": "Update a trust question (platform admin)"
+          },
+          {
+            "method": "DELETE",
+            "path": "/communities/trust-questions/:id",
+            "description": "Deactivate a trust question (platform admin)"
+          },
+          {
+            "method": "POST",
+            "path": "/communities/trust-questions/:id/choices",
+            "description": "Add a choice to a trust question (platform admin)"
+          },
+          {
+            "method": "PUT",
+            "path": "/communities/trust-questions/:id/choices/:choiceId",
+            "description": "Update a trust question choice (platform admin)"
+          },
+          {
+            "method": "DELETE",
+            "path": "/communities/trust-questions/:id/choices/:choiceId",
+            "description": "Remove a trust question choice (platform admin)"
+          },
+          {
+            "method": "GET",
+            "path": "/communities/:id/activities",
+            "description": "List upcoming open activities for a group community with is_joined flag."
+          },
+          {
+            "method": "POST",
+            "path": "/communities/:id/activities",
+            "description": "Create a new activity in a group community (admin only)."
+          },
+          {
+            "method": "GET",
+            "path": "/communities/:id/activities/:activityId",
+            "description": "Get activity detail with participant list."
+          },
+          {
+            "method": "POST",
+            "path": "/communities/:id/activities/:activityId/join",
+            "description": "Join an activity (returns 400 if full, 409 if already joined)."
+          },
+          {
+            "method": "DELETE",
+            "path": "/communities/:id/activities/:activityId/leave",
+            "description": "Leave an activity."
+          },
+          {
+            "method": "GET",
+            "path": "/communities/:id/governance",
+            "description": "Get governance state: settings, maturity, eligible members, pending nominations with ratifier counts, and current role holders."
+          },
+          {
+            "method": "POST",
+            "path": "/communities/:id/governance/nominate",
+            "description": "Nominate an eligible member (trust score >= threshold) for Admin or Moderator role. Returns 409 if pending nomination already exists."
+          },
+          {
+            "method": "POST",
+            "path": "/communities/:id/governance/ratify/:nominationId",
+            "description": "Ratify an open nomination (role-holders only). Auto-grants role when quorum is reached."
+          },
+          {
+            "method": "POST",
+            "path": "/communities/:id/splits",
+            "description": "Admin creates a split proposal; runs trust-graph clustering and seeds member assignments."
+          },
+          {
+            "method": "GET",
+            "path": "/communities/:id/splits/:splitId",
+            "description": "Get proposal detail, member assignments, and prestige-weighted vote tally."
+          },
+          {
+            "method": "PUT",
+            "path": "/communities/:id/splits/:splitId/assignments",
+            "description": "Admin bulk-updates member group assignments."
+          },
+          {
+            "method": "POST",
+            "path": "/communities/:id/splits/:splitId/start-vote",
+            "description": "Admin transitions proposal from discussion to voting phase."
+          },
+          {
+            "method": "POST",
+            "path": "/communities/:id/splits/:splitId/vote",
+            "description": "Member casts a prestige-weighted vote (yes/no/abstain) on a split proposal."
+          },
+          {
+            "method": "POST",
+            "path": "/communities/:id/splits/:splitId/execute",
+            "description": "Admin executes an approved split: creates two child communities, moves members, creates split_origin link, marks parent as split."
+          },
+          {
+            "method": "POST",
+            "path": "/communities/:id/fusions",
+            "description": "Admin A creates a fusion proposal targeting another community."
+          },
+          {
+            "method": "POST",
+            "path": "/communities/:id/fusions/:fusionId/accept",
+            "description": "Admin B accepts the fusion proposal, moving it to discussion."
+          },
+          {
+            "method": "POST",
+            "path": "/communities/:id/fusions/:fusionId/reject",
+            "description": "Admin B rejects the fusion proposal."
+          },
+          {
+            "method": "GET",
+            "path": "/communities/:id/fusions/:fusionId",
+            "description": "Get proposal detail, both community vote tallies, and my_vote."
+          },
+          {
+            "method": "POST",
+            "path": "/communities/:id/fusions/:fusionId/start-vote",
+            "description": "Either admin opens the parallel community vote."
+          },
+          {
+            "method": "POST",
+            "path": "/communities/:id/fusions/:fusionId/vote",
+            "description": "Member casts a prestige-weighted vote (yes/no/abstain) for their community."
+          },
+          {
+            "method": "POST",
+            "path": "/communities/:id/fusions/:fusionId/execute",
+            "description": "Either admin executes an approved fusion: creates merged community, migrates members + trust (\u00d70.70) + karma, creates fusion_origin links, archives originals."
+          }
         ],
         "consumes": [
           "/auth/verify"
@@ -127,7 +291,7 @@
         ],
         "subscribes": []
       },
-      "notes": "Sprint 47: Group Communities — community_type field, activities + activity_participants tables, activities API endpoints, activity_joined event"
+      "notes": "Sprint 47: Group Communities \u2014 community_type field, activities + activity_participants tables, activities API endpoints, activity_joined event"
     },
     "request-service": {
       "port": 3003,
@@ -149,17 +313,57 @@
       "apis": {
         "provides": [
           "/requests",
-          {"method": "GET", "path": "/requests/:requestId/relationship-context", "description": "Authenticated pre-offer reciprocal identity/topology for an eligible helper and requester. Both IDs are server-derived; own request returns 204; no arbitrary target lookup."},
-          {"method": "GET", "path": "/requests/:requestId/matches/:matchId/relationship-context", "description": "Authenticated reciprocal context for either ordinary match participant; match and request IDs are verified together. Returns 204, not transient 503, when a historical community participant's original same-vs-sister reachability tier can no longer be reconstructed."},
-          {"method": "GET", "path": "/requests/:requestId/provider-offers/:offerId/relationship-context", "description": "Authenticated reciprocal context for requester or provider-offer owner; provider role metadata appears only when the provider is the counterpart. Returns 204 when historical community reachability cannot be reconstructed truthfully."},
-          {"method": "GET", "path": "/requests/:id", "description": "Canonical viewer-aware request detail read. Sprint 101: derives viewer_relation server-side (own_request | already_offered | can_offer | not_actionable) so the UI never guesses eligibility — can_offer requires the ask open+unexpired, not the viewer's own, no live proposed/matched responder match, AND within the viewer's feed-VISIBILITY audience (shared getRequestReachability: member OR trust_network/platform scope OR sister-reachable). A reachable cross-community ask is can_offer; a community-scoped ask the viewer can't see is not_actionable (not eligible by direct id). Also returns viewer_match ({id,status}) when already_offered, and payload_type (ADR-067, from category). Expired-open asks return (finite-state display) rather than 404."},
-          {"method": "GET", "path": "/requests/curated", "description": "Curated feed scored on SIX signals (skill match, trust distance, community relevance, urgency, prior interaction, recency). Sprint 112 ADR-082: the requester's exact reputation is removed from ranking — requester karma/trust is not read, the requester-trust signal is 0, weights are normalized to sum 1.0 (configured/unconfigured/sister), feed_weight_requester_trust is not founder-configurable, and the response omits requesterKarma/requesterTrustScore/feedScore/priorInteractionScore/recencyScore/matchBreakdown/feedBreakdown. minScore is restricted to two fixed modes (0/all = show-all; else default 30) so it can't probe the hidden composite; the unified-feed priority is a non-reversible rank (1000+position), not 1000+feedScore. Sprint 85/86 ADR-066: view=home returns the UnifiedFeedItem union ({ items }) of decisions+requests; view=community returns the community-scoped union of requests+activity+story texture (no decisions), requires community_id (400) + caller membership (403), assembled from request-service's own DB reads (no feed-service call), texture best-effort. Action altitude bands: decisions>=2000 > requests 1000-1100 > activity 500 > story 100. Each request item carries payload_type (ADR-067, from category via categoryToPayloadType). view absent keeps the legacy request-array shape. Prior-interaction signal reads the decayed trust_edges_live.current_weight. Sprint 88: minScore defaults to 30, explicit minScore=0 is valid for show-more/all-open expansion, and request impressions are logged for legacy and union request items. Sprint 100/G1: view=home response also carries offeredAwaiting (count of open asks the member offered on and awaits a response), powering the Home 'You've offered to help' band (fail-soft to 0). Sprint 101: view=home also carries offeredAwaitingItems, a small preview list (deduped by request_id from the same distinct-open-ask predicate as offeredAwaiting) so Home can render the actual awaiting asks, each linking to its detail page. Sprint 106/BUG-013: the home decisions union now also includes a durable 'rate' DecisionAction (altitude weight 5) for each status='completed' match the viewer has not yet rated (NOT EXISTS against feedback.feedback), surfaced independently to both parties; the decision band renders in the Helping tab (BUG-015), not Browse. Sprint 108: view=home also carries suggestedAsHelper { count, items } — distinct open admin-proposed (admin_proposed=TRUE) responder asks where the member was suggested as helper — powering the Home SuggestedAsHelperPanel preview (shared fetchProposedResponderAsks predicate with offeredAwaiting); and fetchDecisions now projects m.admin_proposed and surfaces admin-proposed responder matches as member_role:'responder' match decisions (accept_offer/decline_offer, routed to PUT /matches/:id/accept|reject), while a self-offer responder match stays offered-awaiting and the requester of an admin-proposed match owes nothing."},
-          {"method": "GET", "path": "/requests/offered-awaiting", "description": "Sprint 107 / BUG-023: canonical offered-awaiting read for Helping. Returns { count, items } from the same distinct open+unexpired proposed-responder-match predicate as /requests/curated?view=home offeredAwaiting/offeredAwaitingItems, with a larger item limit so Home's View all in Helping points to findable rows."},
-          {"method": "GET", "path": "/requests/community/:communityId/pulse", "description": "Sprint 89 / ADR-068: the community's weekly help-loop pulse for the warm community Home hero (helpedThisWeek, openAsks, timeSensitive, recentJoins, recentHelpers, windowDays:7). Reuses the exact S86 texture aggregation (shared fetchCommunityPulse helper that also builds the in-feed activity card, so the two never diverge) + one new timeSensitive count. openAsks/timeSensitive count only status=open AND expired=FALSE. Members-only: gated on the JWT communities claim (not communityMemberships) -> 403 for non-members; unknown community -> 404. Read-only, no schema change. Sprint 100/F1: helpedThisWeek is COUNT(DISTINCT responder_id), not raw match rows, so the headline never outruns recentHelpers."},
-          {"method": "GET", "path": "/requests/community/:communityId/open-asks", "description": "Sprint 100 / F2: reachable read-only list behind the pulse 'N open asks across the community' row. Returns every open+unexpired ask attached to the community (incl. the caller's own and already-offered), identical predicate to the pulse openAsks count so rows===count. Browse-only (frontend renders read-only, no Offer). Members-only (JWT communities claim -> 403). Returns { items, count } of canonical request-card data scoped to this community."},
-          {"method": "GET", "path": "/requests/retention-policy", "description": "Sprint 90 / ADR-069: resolved retention windows (completed/expired/message, community->global->fallback via requests.retention_config) + the member's own held vs forgotten request counts. Backs the /about/memory transparency page. Read-only, no PII. Membership-gated on the JWT communities claim when ?communityId= is supplied (non-member -> 403). MUST be registered before /requests/:id (route-order)."},
+          {
+            "method": "GET",
+            "path": "/requests/:requestId/relationship-context",
+            "description": "Authenticated pre-offer reciprocal identity/topology for an eligible helper and requester. Both IDs are server-derived; own request returns 204; no arbitrary target lookup."
+          },
+          {
+            "method": "GET",
+            "path": "/requests/:requestId/matches/:matchId/relationship-context",
+            "description": "Authenticated reciprocal context for either ordinary match participant; match and request IDs are verified together. Returns 204, not transient 503, when a historical community participant's original same-vs-sister reachability tier can no longer be reconstructed."
+          },
+          {
+            "method": "GET",
+            "path": "/requests/:requestId/provider-offers/:offerId/relationship-context",
+            "description": "Authenticated reciprocal context for requester or provider-offer owner; provider role metadata appears only when the provider is the counterpart. Returns 204 when historical community reachability cannot be reconstructed truthfully."
+          },
+          {
+            "method": "GET",
+            "path": "/requests/:id",
+            "description": "Canonical viewer-aware request detail read. Sprint 101: derives viewer_relation server-side (own_request | already_offered | can_offer | not_actionable) so the UI never guesses eligibility \u2014 can_offer requires the ask open+unexpired, not the viewer's own, no live proposed/matched responder match, AND within the viewer's feed-VISIBILITY audience (shared getRequestReachability: member OR trust_network/platform scope OR sister-reachable). A reachable cross-community ask is can_offer; a community-scoped ask the viewer can't see is not_actionable (not eligible by direct id). Also returns viewer_match ({id,status}) when already_offered, and payload_type (ADR-067, from category). Expired-open asks return (finite-state display) rather than 404."
+          },
+          {
+            "method": "GET",
+            "path": "/requests/curated",
+            "description": "Curated feed scored on SIX signals (skill match, trust distance, community relevance, urgency, prior interaction, recency). Sprint 112 ADR-082: the requester's exact reputation is removed from ranking \u2014 requester karma/trust is not read, the requester-trust signal is 0, weights are normalized to sum 1.0 (configured/unconfigured/sister), feed_weight_requester_trust is not founder-configurable, and the response omits requesterKarma/requesterTrustScore/feedScore/priorInteractionScore/recencyScore/matchBreakdown/feedBreakdown. minScore is restricted to two fixed modes (0/all = show-all; else default 30) so it can't probe the hidden composite; the unified-feed priority is a non-reversible rank (1000+position), not 1000+feedScore. Sprint 85/86 ADR-066: view=home returns the UnifiedFeedItem union ({ items }) of decisions+requests; view=community returns the community-scoped union of requests+activity+story texture (no decisions), requires community_id (400) + caller membership (403), assembled from request-service's own DB reads (no feed-service call), texture best-effort. Action altitude bands: decisions>=2000 > requests 1000-1100 > activity 500 > story 100. Each request item carries payload_type (ADR-067, from category via categoryToPayloadType). view absent keeps the legacy request-array shape. Prior-interaction signal reads the decayed trust_edges_live.current_weight. Sprint 88: minScore defaults to 30, explicit minScore=0 is valid for show-more/all-open expansion, and request impressions are logged for legacy and union request items. Sprint 100/G1: view=home response also carries offeredAwaiting (count of open asks the member offered on and awaits a response), powering the Home 'You've offered to help' band (fail-soft to 0). Sprint 101: view=home also carries offeredAwaitingItems, a small preview list (deduped by request_id from the same distinct-open-ask predicate as offeredAwaiting) so Home can render the actual awaiting asks, each linking to its detail page. Sprint 106/BUG-013: the home decisions union now also includes a durable 'rate' DecisionAction (altitude weight 5) for each status='completed' match the viewer has not yet rated (NOT EXISTS against feedback.feedback), surfaced independently to both parties; the decision band renders in the Helping tab (BUG-015), not Browse. Sprint 108: view=home also carries suggestedAsHelper { count, items } \u2014 distinct open admin-proposed (admin_proposed=TRUE) responder asks where the member was suggested as helper \u2014 powering the Home SuggestedAsHelperPanel preview (shared fetchProposedResponderAsks predicate with offeredAwaiting); and fetchDecisions now projects m.admin_proposed and surfaces admin-proposed responder matches as member_role:'responder' match decisions (accept_offer/decline_offer, routed to PUT /matches/:id/accept|reject), while a self-offer responder match stays offered-awaiting and the requester of an admin-proposed match owes nothing."
+          },
+          {
+            "method": "GET",
+            "path": "/requests/offered-awaiting",
+            "description": "Sprint 107 / BUG-023: canonical offered-awaiting read for Helping. Returns { count, items } from the same distinct open+unexpired proposed-responder-match predicate as /requests/curated?view=home offeredAwaiting/offeredAwaitingItems, with a larger item limit so Home's View all in Helping points to findable rows."
+          },
+          {
+            "method": "GET",
+            "path": "/requests/community/:communityId/pulse",
+            "description": "Sprint 89 / ADR-068: the community's weekly help-loop pulse for the warm community Home hero (helpedThisWeek, openAsks, timeSensitive, recentJoins, recentHelpers, windowDays:7). Reuses the exact S86 texture aggregation (shared fetchCommunityPulse helper that also builds the in-feed activity card, so the two never diverge) + one new timeSensitive count. openAsks/timeSensitive count only status=open AND expired=FALSE. Members-only: gated on the JWT communities claim (not communityMemberships) -> 403 for non-members; unknown community -> 404. Read-only, no schema change. Sprint 100/F1: helpedThisWeek is COUNT(DISTINCT responder_id), not raw match rows, so the headline never outruns recentHelpers."
+          },
+          {
+            "method": "GET",
+            "path": "/requests/community/:communityId/open-asks",
+            "description": "Sprint 100 / F2: reachable read-only list behind the pulse 'N open asks across the community' row. Returns every open+unexpired ask attached to the community (incl. the caller's own and already-offered), identical predicate to the pulse openAsks count so rows===count. Browse-only (frontend renders read-only, no Offer). Members-only (JWT communities claim -> 403). Returns { items, count } of canonical request-card data scoped to this community."
+          },
+          {
+            "method": "GET",
+            "path": "/requests/retention-policy",
+            "description": "Sprint 90 / ADR-069: resolved retention windows (completed/expired/message, community->global->fallback via requests.retention_config) + the member's own held vs forgotten request counts. Backs the /about/memory transparency page. Read-only, no PII. Membership-gated on the JWT communities claim when ?communityId= is supplied (non-member -> 403). MUST be registered before /requests/:id (route-order)."
+          },
           "/offers",
-          {"method": "POST", "path": "/matches", "description": "Create a member's offer to help (proposed match). Responder is the verified JWT identity (ADR-064; body responder_id ignored). Eligibility = the request's feed-VISIBILITY boundary (shared getRequestReachability helper, also used by GET /:id can_offer): member of a request community OR trust_network/platform scope OR sister-reachable. Out-of-audience (e.g. community-scoped ask the viewer can't see) -> 403 REQUEST_NOT_REACHABLE. Plus invariants: open+unexpired (400 REQUEST_NOT_OPEN), not own (400 OWN_REQUEST), no existing live offer (409 ALREADY_OFFERED). Admin-proposed matches use POST /requests/:id/propose-match instead."},
+          {
+            "method": "POST",
+            "path": "/matches",
+            "description": "Create a member's offer to help (proposed match). Responder is the verified JWT identity (ADR-064; body responder_id ignored). Eligibility = the request's feed-VISIBILITY boundary (shared getRequestReachability helper, also used by GET /:id can_offer): member of a request community OR trust_network/platform scope OR sister-reachable. Out-of-audience (e.g. community-scoped ask the viewer can't see) -> 403 REQUEST_NOT_REACHABLE. Plus invariants: open+unexpired (400 REQUEST_NOT_OPEN), not own (400 OWN_REQUEST), no existing live offer (409 ALREADY_OFFERED). Admin-proposed matches use POST /requests/:id/propose-match instead."
+          },
           "/matches/:id/complete",
           "/schemas",
           "/schemas/:type",
@@ -170,7 +374,11 @@
           "/admin/schemas/:id/versions",
           "/admin/schemas/:id/rollback/:version",
           "/admin/schemas/:id/variants",
-          {"method": "GET", "path": "/providers", "description": "Browse active providers (public, optional ?service_type). When called WITH a token, each provider is annotated with shared_communities — the communities the provider and viewer both belong to (ADR-073, Sprint 93); unauthenticated responses are unchanged"},
+          {
+            "method": "GET",
+            "path": "/providers",
+            "description": "Browse active providers (public, optional ?service_type). When called WITH a token, each provider is annotated with shared_communities \u2014 the communities the provider and viewer both belong to (ADR-073, Sprint 93); unauthenticated responses are unchanged"
+          },
           "/providers/my",
           "/providers/:id",
           "/collectives/my",
@@ -179,26 +387,106 @@
           "/requests/:id/admin-triage",
           "/providers/:id/rate-cards",
           "/providers/:id/rate-cards/:cardId",
-          {"method": "POST", "path": "/requests/:id/boost", "description": "Boost a request for 48h; active boost adds +30 to feedScore (capped at 100) and returns is_boosted + boosted_expires_at in curated feed (admin only)"},
-          {"method": "DELETE", "path": "/requests/:id/boost", "description": "Remove active boost from a request (admin only)"},
-          {"method": "POST", "path": "/requests/:id/propose-match", "description": "Admin proposes a specific community member as a helper (creates proposed match with admin_proposed=TRUE on requests.matches)"},
-          {"method": "PATCH", "path": "/requests/:id/urgent", "description": "Toggle request urgency between urgent and medium (admin only)"},
-          {"method": "GET", "path": "/requests/:id/offers", "description": "List provider offers on a request (requester only)"},
-          {"method": "PUT", "path": "/requests/offers/:id/accept", "description": "Accept a pending provider offer and create a match"},
-          {"method": "PUT", "path": "/requests/offers/:id/decline", "description": "Decline a pending provider offer"},
-          {"method": "POST", "path": "/providers/offers", "description": "Submit a provider offer on an open help request"},
-          {"method": "GET", "path": "/providers/offers", "description": "List offers submitted by the authenticated provider"},
-          {"method": "PUT", "path": "/providers/offers/:id/withdraw", "description": "Withdraw a pending provider offer"},
-          {"method": "GET", "path": "/requests/:id/dibs-candidate", "description": "Returns the top-scored first-ask candidate with server-computed kind (neighbor|provider), reason (prior_similar_success|trusted_neighbor|provider_match|community_connection — the last labels a zero-history community neighbour, Sprint 93), and relationshipContext (priorCompletedMatches/lastInteractionAt/similarCategory). Facet derives from the persisted request_type; the ?type= param is ignored (ADR-072)"},
-          {"method": "POST", "path": "/requests/:id/dibs", "description": "Send dibs to a specific provider or community member — works for all request types (scheduled and ASAP)"},
-          {"method": "PUT", "path": "/requests/dibs/:id/accept", "description": "Provider accepts dibs — creates matches record and sets request status to matched"},
-          {"method": "PUT", "path": "/requests/dibs/:id/decline", "description": "Provider declines dibs — request reverts to open"},
-          {"method": "GET", "path": "/requests/dibs/pending-for-provider", "description": "Returns authenticated provider's pending dibs"},
-          {"method": "GET", "path": "/requests/feed", "description": "Sprint 91 / ADR-071: ranked personalized feed (absorbed from feed-service). Returns { items, count }. Social-proximity scored via social-graph /paths/batch (caller Authorization forwarded). Mounted before generic /requests so it isn't swallowed by /requests/:id."},
-          {"method": "GET", "path": "/requests/feed/preferences", "description": "Sprint 91 / ADR-071: the caller's feed preferences (absorbed from feed-service). Returns defaults when no row exists."},
-          {"method": "PUT", "path": "/requests/feed/preferences", "description": "Sprint 91 / ADR-071: upsert the caller's feed preferences (absorbed from feed-service). Round-trips with GET."},
-          {"method": "POST", "path": "/requests/feed/dismiss/:itemId", "description": "Sprint 91 / ADR-071: dismiss a feed item (writes feed.dismissed_items); dismissed items are excluded from the next GET /requests/feed. itemId is <item_type>_<id>. Canonical dismiss path (old frontend /feed/:itemId/dismiss retired)."},
-          {"method": "GET", "path": "/requests/feed/community-health", "description": "Sprint 91 / ADR-071: community health hero metrics (absorbed from feed-service). Requires community_id (400) and returns 404 for unknown community."}
+          {
+            "method": "POST",
+            "path": "/requests/:id/boost",
+            "description": "Boost a request for 48h; active boost adds +30 to feedScore (capped at 100) and returns is_boosted + boosted_expires_at in curated feed (admin only)"
+          },
+          {
+            "method": "DELETE",
+            "path": "/requests/:id/boost",
+            "description": "Remove active boost from a request (admin only)"
+          },
+          {
+            "method": "POST",
+            "path": "/requests/:id/propose-match",
+            "description": "Admin proposes a specific community member as a helper (creates proposed match with admin_proposed=TRUE on requests.matches)"
+          },
+          {
+            "method": "PATCH",
+            "path": "/requests/:id/urgent",
+            "description": "Toggle request urgency between urgent and medium (admin only)"
+          },
+          {
+            "method": "GET",
+            "path": "/requests/:id/offers",
+            "description": "List provider offers on a request (requester only)"
+          },
+          {
+            "method": "PUT",
+            "path": "/requests/offers/:id/accept",
+            "description": "Accept a pending provider offer and create a match"
+          },
+          {
+            "method": "PUT",
+            "path": "/requests/offers/:id/decline",
+            "description": "Decline a pending provider offer"
+          },
+          {
+            "method": "POST",
+            "path": "/providers/offers",
+            "description": "Submit a provider offer on an open help request"
+          },
+          {
+            "method": "GET",
+            "path": "/providers/offers",
+            "description": "List offers submitted by the authenticated provider"
+          },
+          {
+            "method": "PUT",
+            "path": "/providers/offers/:id/withdraw",
+            "description": "Withdraw a pending provider offer"
+          },
+          {
+            "method": "GET",
+            "path": "/requests/:id/dibs-candidate",
+            "description": "Returns the top-scored first-ask candidate with server-computed kind (neighbor|provider), reason (prior_similar_success|trusted_neighbor|provider_match|community_connection \u2014 the last labels a zero-history community neighbour, Sprint 93), and relationshipContext (priorCompletedMatches/lastInteractionAt/similarCategory). Facet derives from the persisted request_type; the ?type= param is ignored (ADR-072)"
+          },
+          {
+            "method": "POST",
+            "path": "/requests/:id/dibs",
+            "description": "Send dibs to a specific provider or community member \u2014 works for all request types (scheduled and ASAP)"
+          },
+          {
+            "method": "PUT",
+            "path": "/requests/dibs/:id/accept",
+            "description": "Provider accepts dibs \u2014 creates matches record and sets request status to matched"
+          },
+          {
+            "method": "PUT",
+            "path": "/requests/dibs/:id/decline",
+            "description": "Provider declines dibs \u2014 request reverts to open"
+          },
+          {
+            "method": "GET",
+            "path": "/requests/dibs/pending-for-provider",
+            "description": "Returns authenticated provider's pending dibs"
+          },
+          {
+            "method": "GET",
+            "path": "/requests/feed",
+            "description": "Sprint 91 / ADR-071: ranked personalized feed (absorbed from feed-service). Returns { items, count }. Social-proximity scored via social-graph /paths/batch (caller Authorization forwarded). Mounted before generic /requests so it isn't swallowed by /requests/:id."
+          },
+          {
+            "method": "GET",
+            "path": "/requests/feed/preferences",
+            "description": "Sprint 91 / ADR-071: the caller's feed preferences (absorbed from feed-service). Returns defaults when no row exists."
+          },
+          {
+            "method": "PUT",
+            "path": "/requests/feed/preferences",
+            "description": "Sprint 91 / ADR-071: upsert the caller's feed preferences (absorbed from feed-service). Round-trips with GET."
+          },
+          {
+            "method": "POST",
+            "path": "/requests/feed/dismiss/:itemId",
+            "description": "Sprint 91 / ADR-071: dismiss a feed item (writes feed.dismissed_items); dismissed items are excluded from the next GET /requests/feed. itemId is <item_type>_<id>. Canonical dismiss path (old frontend /feed/:itemId/dismiss retired)."
+          },
+          {
+            "method": "GET",
+            "path": "/requests/feed/community-health",
+            "description": "Sprint 91 / ADR-071: community health hero metrics (absorbed from feed-service). Requires community_id (400) and returns 404 for unknown community."
+          }
         ],
         "consumes": [
           "/auth/verify",
@@ -312,10 +600,22 @@
       "apis": {
         "provides": [
           "/notifications",
-          { "method": "GET", "path": "/notifications/stream", "description": "Authenticated SSE stream. Uses JWT identity from Authorization header or access_token query param (EventSource-compatible)." },
-          { "method": "GET", "path": "/notifications/stream/:userId", "description": "Legacy compatibility SSE route. Requires JWT auth and rejects if route userId does not match token userId." },
+          {
+            "method": "GET",
+            "path": "/notifications/stream",
+            "description": "Authenticated SSE stream. Uses JWT identity from Authorization header or access_token query param (EventSource-compatible)."
+          },
+          {
+            "method": "GET",
+            "path": "/notifications/stream/:userId",
+            "description": "Legacy compatibility SSE route. Requires JWT auth and rejects if route userId does not match token userId."
+          },
           "/notifications/preferences",
-          { "method": "POST", "path": "/notifications/push/send", "description": "Internal: send Expo push notifications to a list of users" }
+          {
+            "method": "POST",
+            "path": "/notifications/push/send",
+            "description": "Internal: send Expo push notifications to a list of users"
+          }
         ],
         "consumes": [
           "/auth/verify"
@@ -388,7 +688,11 @@
       },
       "apis": {
         "provides": [
-          {"method": "POST", "path": "/jobs/forget-content", "description": "Sprint 90 / ADR-069: admin-triggered run of the memory retention job (memoryRetentionJob.forgetExchangeContent). Anonymizes aged completed-request free-text + cascade-forgets messages, hard-deletes expired/unmatched requests, backstops old messages. Returns per-branch counts. Also runs daily at 3:30 AM via cron."}
+          {
+            "method": "POST",
+            "path": "/jobs/forget-content",
+            "description": "Sprint 90 / ADR-069: admin-triggered run of the memory retention job (memoryRetentionJob.forgetExchangeContent). Anonymizes aged completed-request free-text + cascade-forgets messages, hard-deletes expired/unmatched requests, backstops old messages. Returns per-branch counts. Also runs daily at 3:30 AM via cron."
+          }
         ],
         "consumes": []
       },
@@ -403,7 +707,7 @@
         ],
         "subscribes": []
       },
-      "notes": "CANDIDATE FOR REPLACEMENT: Could be replaced with pg_cron scheduled jobs. Scheduled jobs: dibs expiry (5m), match reminders (15m), mark-expired (hourly), hard-delete (2am), reputation decay (3am), memoryRetentionJob (3:30am, Sprint 90/ADR-069 — anonymizes completed-exchange free-text to '[forgotten]' sentinels + cascade-forgets messages, hard-deletes expired/unmatched requests; karma_records left untouched; per-community retention windows via request_communities → retention_config), trust edge sweep (4:30am), activity log cleanup (weekly), decay report (weekly). Sprint 90 RETIRED requestTtlSweepJob (it hard-deleted completed+rated exchanges at 30d, destroying aggregates before the anonymize window — superseded by memoryRetentionJob). Governed by requests.retention_config."
+      "notes": "CANDIDATE FOR REPLACEMENT: Could be replaced with pg_cron scheduled jobs. Scheduled jobs: dibs expiry (5m), match reminders (15m), mark-expired (hourly), hard-delete (2am), reputation decay (3am), memoryRetentionJob (3:30am, Sprint 90/ADR-069 \u2014 anonymizes completed-exchange free-text to '[forgotten]' sentinels + cascade-forgets messages, hard-deletes expired/unmatched requests; karma_records left untouched; per-community retention windows via request_communities \u2192 retention_config), trust edge sweep (4:30am), activity log cleanup (weekly), decay report (weekly). Sprint 90 RETIRED requestTtlSweepJob (it hard-deleted completed+rated exchanges at 30d, destroying aggregates before the anonymize window \u2014 superseded by memoryRetentionJob). Governed by requests.retention_config."
     },
     "geocoding-service": {
       "port": 3009,
@@ -418,10 +722,26 @@
       },
       "apis": {
         "provides": [
-          { "method": "GET", "path": "/search", "description": "Search shared geocoding cache and, on miss, query Nominatim through the service-level policy boundary." },
-          { "method": "POST", "path": "/cache", "description": "Write geocoding results into the shared PostgreSQL cache." },
-          { "method": "GET", "path": "/stats", "description": "Return geocoding cache statistics and top active queries." },
-          { "method": "POST", "path": "/cleanup", "description": "Delete expired geocoding cache entries." }
+          {
+            "method": "GET",
+            "path": "/search",
+            "description": "Search shared geocoding cache and, on miss, query Nominatim through the service-level policy boundary."
+          },
+          {
+            "method": "POST",
+            "path": "/cache",
+            "description": "Write geocoding results into the shared PostgreSQL cache."
+          },
+          {
+            "method": "GET",
+            "path": "/stats",
+            "description": "Return geocoding cache statistics and top active queries."
+          },
+          {
+            "method": "POST",
+            "path": "/cleanup",
+            "description": "Delete expired geocoding cache entries."
+          }
         ],
         "consumes": []
       },
@@ -449,26 +769,106 @@
       },
       "apis": {
         "provides": [
-          { "method": "POST", "path": "/internal/relationship-context", "description": "Internal-secret-only reciprocal identity/topology projection for two request-service-derived participant IDs; the authorized anchors may be memberless while all surrounding/path identities remain active-member-only; no request/provider metadata or exact reputation metrics." },
-          { "method": "POST", "path": "/invitations/generate", "description": "Generate a new invitation code for current user." },
-          { "method": "POST", "path": "/invitations/accept", "description": "Accept an invitation code during user signup." },
-          { "method": "GET", "path": "/invitations", "description": "Get invitation history for current user." },
-          { "method": "GET", "path": "/invitations/stats", "description": "Get inviter statistics for current user (gamification metrics)." },
-          { "method": "GET", "path": "/paths/:targetUserId", "description": "Get shortest path between current user and target user." },
-          { "method": "POST", "path": "/paths/batch", "description": "Get paths for multiple target users (optimized for feed ranking)." },
-          { "method": "GET", "path": "/network", "description": "Returns the current user's local network graph (nodes + edges) from social_graph.connections and community co-membership." },
-          { "method": "GET", "path": "/trust-card/:targetUserId", "description": "Sprint 112 (ADR-082): authorized identity + trust path + degrees + path type + invitation chain for a target user relative to the caller. NO target karma or karma-derived trust tier." },
-          { "method": "GET", "path": "/trust/graph", "description": "Aggregate ego-network across all of calling user's communities (Sprint 67). Returns calling user + direct neighbors + edges. Used by dashboard Your Network panel. Sprint 112 (ADR-082): SafeBelongingNode (identity only, no trust_score/karma on ANY node incl. caller) + SafeBelongingLink (relationship_state, no edge weights)." },
-          { "method": "GET", "path": "/trust/graph/:communityId", "description": "Ego-network for calling user in a community. Sprint 112 (ADR-082): { nodes: SafeBelongingNode[], links: SafeBelongingLink[] } — identity + relationship_state only." },
-          { "method": "GET", "path": "/trust/graph/:communityId/full", "description": "Full community trust graph (Sprint 74) — up to 150 neutrally selected active members (by normalized name + ID, never by trust score), caller always included, plus all inter-member edges; powers the community ring view. Sprint 115 (ADR-083): adds structural completeness metadata meta: { totalActiveMembers, truncated }. Sprint 112 (ADR-082): SafeBelongingNode/SafeBelongingLink only — no node trust_score/karma, no edge weights; links carry relationship_state." },
-          { "method": "GET", "path": "/trust/me/memory", "description": "Sprint 90 (ADR-070): the calling member's relationship memory in a community (?communityId=) — { activeCount, fading[], nearlyForgotten[] } with per-peer decayTier. Backs the profile Memory section. Members-only." },
-          { "method": "GET", "path": "/trust/relationships/fading", "description": "Sprint 90 (ADR-070): nearly-forgotten bonds (?communityId=) for the re-warming nudge (decayTier === 'nearly_forgotten'). Members-only." },
-          { "method": "GET", "path": "/trust/communities", "description": "Inter-community depth graph (Sprint 79) — the caller's communities as nodes plus edge/lineage-reachable ones, with organic trust links (from community_trust_edges) and fission lineage links (parent→child from executed split_proposals). Response: { nodes, links } with type tags." },
-          { "method": "GET", "path": "/trust/neighborhood/:userId", "description": "Sprint 111 (ADR-081): privacy-scoped recursive ego-neighborhood for the /network explorer. Query: depth=1|2|3 (default 1), optional communityId. Scope resolved BEFORE traversal from shared active community membership. Inaccessible center → 404. Capped at 80 nodes; each node carries degrees_of_separation (center=0). Sprint 112 (ADR-082): SafeBelongingNode/SafeBelongingLink only — identity + relationship_state, no node trust_score/karma on ANY node, no raw edge weights." },
-          { "method": "GET", "path": "/trust/edge", "description": "RETIRED (Sprint 112, ADR-082) — returns 410 TRUST_EDGE_ENDPOINT_RETIRED. It permitted arbitrary member-pair metric lookup; the internal getTrustEdge() DB helper remains for path computation." },
-          { "method": "GET", "path": "/trust/decay-config", "description": "Returns global Ebbinghaus decay config (base_half_life_days, stability_growth_rate, disappearance_threshold)." },
-          { "method": "GET", "path": "/trust/decay-config/:communityId", "description": "Returns decay config for a community (falls back to global if no community-specific config exists)." },
-          { "method": "PUT", "path": "/trust/decay-config/:communityId", "description": "Admin-only: update decay parameters for a specific community." }
+          {
+            "method": "POST",
+            "path": "/internal/relationship-context",
+            "description": "Internal-secret-only reciprocal identity/topology projection for two request-service-derived participant IDs; the authorized anchors may be memberless while all surrounding/path identities remain active-member-only; no request/provider metadata or exact reputation metrics."
+          },
+          {
+            "method": "POST",
+            "path": "/invitations/generate",
+            "description": "Generate a new invitation code for current user."
+          },
+          {
+            "method": "POST",
+            "path": "/invitations/accept",
+            "description": "Accept an invitation code during user signup."
+          },
+          {
+            "method": "GET",
+            "path": "/invitations",
+            "description": "Get invitation history for current user."
+          },
+          {
+            "method": "GET",
+            "path": "/invitations/stats",
+            "description": "Get inviter statistics for current user (gamification metrics)."
+          },
+          {
+            "method": "GET",
+            "path": "/paths/:targetUserId",
+            "description": "Get shortest path between current user and target user."
+          },
+          {
+            "method": "POST",
+            "path": "/paths/batch",
+            "description": "Get paths for multiple target users (optimized for feed ranking)."
+          },
+          {
+            "method": "GET",
+            "path": "/network",
+            "description": "Returns the current user's local network graph (nodes + edges) from social_graph.connections and community co-membership."
+          },
+          {
+            "method": "GET",
+            "path": "/trust-card/:targetUserId",
+            "description": "Sprint 112 (ADR-082): authorized identity + trust path + degrees + path type + invitation chain for a target user relative to the caller. NO target karma or karma-derived trust tier."
+          },
+          {
+            "method": "GET",
+            "path": "/trust/graph",
+            "description": "Aggregate ego-network across all of calling user's communities (Sprint 67). Returns calling user + direct neighbors + edges. Used by dashboard Your Network panel. Sprint 112 (ADR-082): SafeBelongingNode (identity only, no trust_score/karma on ANY node incl. caller) + SafeBelongingLink (relationship_state, no edge weights)."
+          },
+          {
+            "method": "GET",
+            "path": "/trust/graph/:communityId",
+            "description": "Ego-network for calling user in a community. Sprint 112 (ADR-082): { nodes: SafeBelongingNode[], links: SafeBelongingLink[] } \u2014 identity + relationship_state only."
+          },
+          {
+            "method": "GET",
+            "path": "/trust/graph/:communityId/full",
+            "description": "Full community trust graph (Sprint 74) \u2014 up to 150 neutrally selected active members (by normalized name + ID, never by trust score), caller always included, plus all inter-member edges; powers the community ring view. Sprint 115 (ADR-083): adds structural completeness metadata meta: { totalActiveMembers, truncated }. Sprint 112 (ADR-082): SafeBelongingNode/SafeBelongingLink only \u2014 no node trust_score/karma, no edge weights; links carry relationship_state."
+          },
+          {
+            "method": "GET",
+            "path": "/trust/me/memory",
+            "description": "Sprint 90 (ADR-070): the calling member's relationship memory in a community (?communityId=) \u2014 { activeCount, fading[], nearlyForgotten[] } with per-peer decayTier. Backs the profile Memory section. Members-only."
+          },
+          {
+            "method": "GET",
+            "path": "/trust/relationships/fading",
+            "description": "Sprint 90 (ADR-070): nearly-forgotten bonds (?communityId=) for the re-warming nudge (decayTier === 'nearly_forgotten'). Members-only."
+          },
+          {
+            "method": "GET",
+            "path": "/trust/communities",
+            "description": "Inter-community depth graph (Sprint 79) \u2014 the caller's communities as nodes plus edge/lineage-reachable ones, with organic trust links (from community_trust_edges) and fission lineage links (parent\u2192child from executed split_proposals). Response: { nodes, links } with type tags."
+          },
+          {
+            "method": "GET",
+            "path": "/trust/neighborhood/:userId",
+            "description": "Sprint 111 (ADR-081): privacy-scoped recursive ego-neighborhood for the /network explorer. Query: depth=1|2|3 (default 1), optional communityId. Scope resolved BEFORE traversal from shared active community membership. Inaccessible center \u2192 404. Capped at 80 nodes; each node carries degrees_of_separation (center=0). Sprint 112 (ADR-082): SafeBelongingNode/SafeBelongingLink only \u2014 identity + relationship_state, no node trust_score/karma on ANY node, no raw edge weights."
+          },
+          {
+            "method": "GET",
+            "path": "/trust/edge",
+            "description": "RETIRED (Sprint 112, ADR-082) \u2014 returns 410 TRUST_EDGE_ENDPOINT_RETIRED. It permitted arbitrary member-pair metric lookup; the internal getTrustEdge() DB helper remains for path computation."
+          },
+          {
+            "method": "GET",
+            "path": "/trust/decay-config",
+            "description": "Returns global Ebbinghaus decay config (base_half_life_days, stability_growth_rate, disappearance_threshold)."
+          },
+          {
+            "method": "GET",
+            "path": "/trust/decay-config/:communityId",
+            "description": "Returns decay config for a community (falls back to global if no community-specific config exists)."
+          },
+          {
+            "method": "PUT",
+            "path": "/trust/decay-config/:communityId",
+            "description": "Admin-only: update decay parameters for a specific community."
+          }
         ],
         "consumes": [
           "/auth/verify"
@@ -485,7 +885,7 @@
           "match_completed"
         ]
       },
-      "notes": "Trust-first design foundation. Sprint 27: match_completed → social_graph.connections. Sprint 65: match_completed → social_graph.trust_edges. Sprint 67: ego-network rewrite — GET /trust/graph (aggregate) + GET /trust/graph/:communityId (community ego-network). Sprint 68: intrinsic Ebbinghaus decay via trust_edges_live view + decay config endpoints. Sprint 90: visible decay (ADR-070) — graph edges carry decayTier; new /trust/me/memory + /trust/relationships/fading endpoints; classifyDecayTier lives in @karmyq/shared. Governance endpoints are in community-service."
+      "notes": "Trust-first design foundation. Sprint 27: match_completed \u2192 social_graph.connections. Sprint 65: match_completed \u2192 social_graph.trust_edges. Sprint 67: ego-network rewrite \u2014 GET /trust/graph (aggregate) + GET /trust/graph/:communityId (community ego-network). Sprint 68: intrinsic Ebbinghaus decay via trust_edges_live view + decay config endpoints. Sprint 90: visible decay (ADR-070) \u2014 graph edges carry decayTier; new /trust/me/memory + /trust/relationships/fading endpoints; classifyDecayTier lives in @karmyq/shared. Governance endpoints are in community-service."
     },
     "simulation-service": {
       "port": null,
@@ -507,7 +907,7 @@
       "database_schemas": [],
       "health_check": null,
       "criticality": "optional",
-      "notes": "Development/testing tool only - not deployed to production"
+      "notes": "Development/demo tool only - not deployed to production. Sprint 117: owns the curated demo reset (deterministic protected-core baseline via a guarded transactional reset) plus the ambient synthetic population. Trust/karma history is fixture-only replay locked to production math; live match_completed behaviour is unchanged. Operator CLIs reset:demo/verify:demo/rotate:demo-stories are dry-run/read-only by default."
     }
   },
   "infrastructure": {

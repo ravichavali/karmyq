@@ -28,6 +28,13 @@ module.exports = {
     }
   },
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],
+  // Resolve workspace packages to their TypeScript source so cross-workspace imports (e.g.
+  // simulation-service's baselineWriter importing @karmyq/shared) work under ts-jest without a
+  // prior build step. Fixes the Sprint 117 integration test failing to resolve @karmyq/shared.
+  moduleNameMapper: {
+    '^@karmyq/shared/projections/completed-exchange$': '<rootDir>/../packages/shared/src/projections/completedExchange.ts',
+    '^@karmyq/shared$': '<rootDir>/../packages/shared/index.ts',
+  },
   verbose: true,
   testTimeout: 30000, // 30 seconds for integration tests
   setupFilesAfterEnv: ['<rootDir>/setup.ts'],

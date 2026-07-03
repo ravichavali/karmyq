@@ -98,3 +98,29 @@ Rejected under ADR-082. Coarse documented floors provide a narrower history sign
 - Public authorization: `services/request-service/src/routes/relationshipContext.ts`
 - Deterministic renderer: `apps/frontend/src/components/relationships/RelationshipLens.tsx`
 - No database migration is required.
+
+---
+
+## Sprint 117 amendment (2026-07-02): curated historical floor, not additive rehearsal
+
+Earlier demo runs reached the required relationship contrast by *additive rehearsal* — repeatedly
+discovering candidate helpers and layering new exchanges until the floor happened to be met. That was
+fragile and non-reproducible.
+
+Sprint 117 replaces additive candidate discovery with a **curated historical floor plus an
+API-created live story verified through ordinary APIs**:
+
+- The deterministic curated baseline (ADR-024, amended) already contains the truthful repeated
+  completed exchanges that make Maria's neighbourhood satisfy the rich floor: a ≤2-degree path to her
+  helper, ≥3 shared named neighbours, and ≥4 visible one-hop people per side. The provider contrast is
+  truthfully lower-overlap via a bridge. No trust edges or scores are invented.
+- The finite live Maria decisions (ordinary request + match, provider request + offer) are created
+  through ordinary APIs with server-generated IDs.
+- A non-admin **verifier** is the only authority that may declare the demo ready and publish story
+  IDs. It re-reads the context as the appropriate viewer and asserts, through outward APIs, the rich
+  floor, reciprocal topology, an unrelated-viewer denial, and the ADR-082 privacy boundary (no raw
+  `trust_score`/`karma`/`raw_weight`/interaction counts; `bond_depth` and the provider-rating
+  exception remain allowed). Story IDs are withheld unless every check passes.
+
+This keeps the ADR-084 contract (named, context-bound, privacy-respecting connection visibility) while
+making the demo that demonstrates it reproducible and self-verifying.

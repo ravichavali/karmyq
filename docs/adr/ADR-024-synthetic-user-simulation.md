@@ -1,9 +1,15 @@
-# ADR-006: Synthetic User Simulation for Demo Environment
+# ADR-024: Synthetic User Simulation for Demo Environment
 
-**Status**: Proposed
-**Date**: 2026-01-02
+**Status**: Implemented (amended Sprint 117 — hybrid deterministic baseline + ambient simulation)
+**Date**: 2026-01-02 (amended 2026-07-02)
 **Deciders**: Product Team
-**Tags**: #demo #testing #automation #future
+**Tags**: #demo #testing #automation
+
+> **Sprint 117 amendment (2026-07-02).** The purely-continuous, purely-additive model below is
+> superseded by a **hybrid**: a deterministic, age-aware *curated baseline* established by a single
+> **guarded full reset**, on top of which ambient synthetic activity continues to evolve a mutable
+> population. See "Sprint 117: Hybrid Baseline + Guarded Reset" at the end of this document. The
+> original continuous-only vision is retained for historical context.
 
 ## Context
 
@@ -457,3 +463,42 @@ Record real user sessions, replay them.
 
 **Last Updated**: 2026-01-02
 **Next Review**: After production seeding completion
+
+---
+
+## Sprint 117: Hybrid Baseline + Guarded Reset (2026-07-02)
+
+The continuous-only model produced fragile, non-reproducible demo state: topology drifted, the
+narrative persona's story could not be reliably reproduced, and refreshing meant additive rehearsal
+that layered new rows onto old ones. Sprint 117 replaces the refresh path with a **guarded full
+reset to a deterministic curated baseline**, then lets ambient simulation continue.
+
+**Decision:**
+
+- A typed **manifest** is the authoritative source for a compact 36-person, six-community historical
+  baseline. Historical UUIDs derive from semantic keys; every timestamp derives from one UTC reset
+  anchor (relative ages `P3D`/`P12D`/`P45D`/`P120D`/`P179D`, never fixed calendar dates or a frozen
+  clock).
+- Completed trust/karma history is **not** hand-authored. The manifest declares completed exchanges;
+  fixture-only pure functions rebuild trust edges and karma using the same math as production
+  (`computeRawWeight`, `allocateKarma`), pinned by a cross-workspace equivalence test. Live event
+  handlers are unchanged.
+- The reset is **dry-run by default**. A destructive apply requires an explicit demo fingerprint
+  (`DEMO_RESET_MARKER`), paused mutation jobs, a completed verified backup, an advisory lock, and one
+  PostgreSQL transaction. Table coverage is derived from the catalog and fails closed on schema drift;
+  only migration/schema/UI-catalog rows and `federation.local_instance` are preserved.
+- The narrative persona (Maria Reyes) is synthetic, active, member-only (never admin), and — with her
+  helper, the provider, and every story dependency — excluded from the ambient simulator actor pool.
+- Live Maria stories are created through ordinary APIs, verified by authoritative privacy-scoped
+  readback, and rotated explicitly before their request TTL becomes unsafe. Health is read-only;
+  rotation replaces only finite live stories and never triggers a reset.
+
+**Alternatives rejected:**
+
+- *Opaque manual SQL reset* — cannot guarantee fingerprint/backup/lock/transaction/coverage, and the
+  legacy `truncate-database.sql` disabled constraints and used a stale table list.
+- *API-only replay of all history* — ordinary APIs cannot express historical time, so trust aging and
+  designed-to-forget lanes could not be reproduced. Historical source rows are loaded directly; only
+  the live finite stories go through ordinary APIs, which remain the completion authority.
+- *Purely continuous simulation* (the original vision) — non-reproducible and unable to guarantee the
+  narrative persona's rich relationship floor.

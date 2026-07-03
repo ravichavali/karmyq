@@ -848,3 +848,13 @@ src/
 - Main architecture: `/docs/ARCHITECTURE.md`
 - Database schema: `/infrastructure/postgres/init.sql` (lines 1-50)
 - Federation auth: `/docs/FEDERATION_PROTOCOL.md` (section: User Identity)
+
+## Sprint 117: Curated Demo Persona (non-admin, verified)
+
+The demo narrative persona (Maria Reyes, `@test.karmyq.com`) is created by the curated demo baseline
+as an **active, member-only** user — never an admin or moderator in any community. Authorization for
+demo flows must be re-derived from live membership, not the JWT `communities` claim (a snapshot from
+login). The curated reset seeds `auth.users` password hashes from `DEMO_PERSONA_PASSWORD` at apply
+time (bcrypt cost 12); no plaintext or hash is ever committed, logged, or placed in the manifest.
+Live Maria story IDs are server-generated and published to the demo session only after the non-admin
+verifier confirms them by authoritative readback.

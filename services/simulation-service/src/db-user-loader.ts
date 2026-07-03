@@ -7,6 +7,7 @@
 
 import { Pool } from 'pg';
 import jwt from 'jsonwebtoken';
+import { getProtectedFixtureEmails } from './fixtures/curatedDemo/manifest';
 
 let pool: Pool;
 let jwtSecret: string;
@@ -46,12 +47,22 @@ export function getPool(): Pool {
 export const SIM_ACTOR_POOL_FILTER =
   "email LIKE '%@test.karmyq.com' AND email NOT LIKE '%@karmyq.test'";
 
-function actorPoolQuery(): { where: string; params: string[] } {
-  const demoPersonaEmail = process.env.DEMO_PERSONA_EMAIL?.trim();
-  if (!demoPersonaEmail) return { where: SIM_ACTOR_POOL_FILTER, params: [] };
+/**
+ * Actor-pool predicate for simulation selection and counts. Excludes the ENTIRE protected
+ * fixture core — Maria, her helper, the provider, and every story dependency — derived from the
+ * manifest classification (not a hand-maintained second email list). A configured
+ * `DEMO_PERSONA_EMAIL` outside the manifest is folded in defensively. One `<> ALL($1::text[])`
+ * array keeps a single parameter regardless of how many identities are protected.
+ */
+export function buildActorPoolPredicate(): { where: string; params: string[][] } {
+  const protectedEmails = getProtectedFixtureEmails().map(email => email.toLowerCase());
+  const demoPersona = process.env.DEMO_PERSONA_EMAIL?.trim().toLowerCase();
+  const exclusions = demoPersona && !protectedEmails.includes(demoPersona)
+    ? [...protectedEmails, demoPersona]
+    : protectedEmails;
   return {
-    where: `${SIM_ACTOR_POOL_FILTER} AND LOWER(email) <> LOWER($1)`,
-    params: [demoPersonaEmail],
+    where: `${SIM_ACTOR_POOL_FILTER} AND lower(email) <> ALL($1::text[])`,
+    params: [exclusions],
   };
 }
 
@@ -71,7 +82,7 @@ interface CommunityMembership {
  * Get a random user from the database
  */
 export async function getRandomUser(): Promise<DbUser> {
-  const actorPool = actorPoolQuery();
+  const actorPool = buildActorPoolPredicate();
   const result = await pool.query(
     `SELECT id, email, name FROM auth.users WHERE ${actorPool.where} ORDER BY RANDOM() LIMIT 1`,
     actorPool.params,
@@ -88,7 +99,7 @@ export async function getRandomUser(): Promise<DbUser> {
  * Get total count of simulated users (those with @test.karmyq.com emails)
  */
 export async function getUserCount(): Promise<number> {
-  const actorPool = actorPoolQuery();
+  const actorPool = buildActorPoolPredicate();
   const result = await pool.query(
     `SELECT COUNT(*) as count FROM auth.users WHERE ${actorPool.where}`,
     actorPool.params,
