@@ -39,7 +39,11 @@ export class ApiClient {
     const response = await executeWithRetry(() =>
       this.client.post('/auth/login', { email, password })
     );
-    return response.data.data;
+    const result = response.data.data;
+    // Set the auth header so subsequent authenticated calls on this client are authorized.
+    // (Callers previously had to remember setToken(); missing it caused 401s in the reset flow.)
+    if (result?.token) this.setToken(result.token);
+    return result;
   }
 
   /**
@@ -270,7 +274,9 @@ export class ApiClient {
     const response = await executeWithRetry(() =>
       this.client.post('/auth/register', data)
     );
-    return response.data.data;
+    const result = response.data.data;
+    if (result?.token) this.setToken(result.token);
+    return result;
   }
 
   /**
