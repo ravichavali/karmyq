@@ -29,6 +29,7 @@ function testDeps(pool: Pool): ResetDependencies {
   const base = createResetDependencies({
     pool,
     databaseName: 'karmyq_test',
+    databaseUrl: DATABASE_URL,
     backupDir: '/tmp',
     runProcess: async () => undefined,
   });

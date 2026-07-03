@@ -10,6 +10,7 @@
  * database, a shell, or real password hashing.
  */
 
+import { stat } from 'node:fs/promises';
 import type { Pool, PoolClient } from 'pg';
 import { compileManifest } from './compiler';
 import { CURATED_DEMO_MANIFEST } from './manifest';
@@ -167,10 +168,15 @@ export async function executeReset(options: ResetOptions, deps: ResetDependencie
 export interface RuntimeResetConfig {
   pool: Pool;
   databaseName: string;
+  /** Full connection string; parsed into PG* env vars for pg_dump so credentials never hit argv. */
+  databaseUrl: string;
   backupDir: string;
-  /** Injected argument-array process runner (never a concatenated shell string). */
-  runProcess: (command: string, args: string[]) => Promise<void>;
-  /** Optional hooks for pausing/resuming and toggling the demo; default to no-ops. */
+  /**
+   * Injected argument-array process runner (never a concatenated shell string). The optional
+   * `env` is merged over the process environment so credentials can be passed out-of-band.
+   */
+  runProcess: (command: string, args: string[], options?: { env?: NodeJS.ProcessEnv }) => Promise<void>;
+  /** Hooks for pausing/resuming mutation and toggling the demo. Required in production wiring. */
   pauseMutation?: () => Promise<void>;
   resumeMutation?: () => Promise<void>;
   disableDemo?: () => Promise<void>;
@@ -179,9 +185,20 @@ export interface RuntimeResetConfig {
 
 const ADVISORY_LOCK_KEY = 811_7000; // Sprint 117 curated reset advisory lock.
 
+/** Parse a Postgres URL into the PG* env vars pg_dump reads, keeping the password out of argv. */
+function pgEnvFromUrl(databaseUrl: string): NodeJS.ProcessEnv {
+  const url = new URL(databaseUrl);
+  return {
+    PGHOST: url.hostname,
+    PGPORT: url.port || '5432',
+    PGUSER: decodeURIComponent(url.username),
+    PGPASSWORD: decodeURIComponent(url.password),
+    PGDATABASE: url.pathname.replace(/^\//, ''),
+  };
+}
+
 export function createResetDependencies(config: RuntimeResetConfig): ResetDependencies {
   const { pool } = config;
-  const noop = async (): Promise<void> => undefined;
 
   return {
     async getCatalog() {
@@ -195,21 +212,30 @@ export function createResetDependencies(config: RuntimeResetConfig): ResetDepend
         marker: process.env.DEMO_RESET_MARKER ?? null,
       };
     },
-    disableDemo: config.disableDemo ?? noop,
-    enableDemo: config.enableDemo ?? noop,
-    pauseMutation: config.pauseMutation ?? noop,
-    resumeMutation: config.resumeMutation ?? noop,
+    disableDemo: config.disableDemo ?? (() => { throw new Error('Refusing reset: no disableDemo hook wired — live demo would stay enabled during the reset'); }),
+    enableDemo: config.enableDemo ?? (async () => undefined),
+    pauseMutation: config.pauseMutation ?? (() => { throw new Error('Refusing reset: no pauseMutation hook wired — the simulator would keep mutating during the reset'); }),
+    resumeMutation: config.resumeMutation ?? (async () => undefined),
     async backup() {
       const stamp = new Date().toISOString().replace(/[:.]/g, '').replace(/-/g, '');
       const path = `${config.backupDir.replace(/[/\\]$/, '')}/karmyq-demo-${stamp}.dump`;
-      // Argument array only — never interpolate secrets or the database URL into a shell string.
-      await config.runProcess('pg_dump', ['--format=custom', `--file=${path}`, config.databaseName]);
-      return { verified: true, path };
+      // Connection comes via PG* env vars (not argv), so the password never appears in `ps`.
+      await config.runProcess('pg_dump', ['--format=custom', `--file=${path}`], { env: pgEnvFromUrl(config.databaseUrl) });
+      // Verify the dump was actually produced and is non-empty before it is trusted as restorable.
+      const info = await stat(path).catch(() => null);
+      return { verified: info !== null && info.size > 0, path };
     },
     async acquireLock() {
-      await pool.query('SELECT pg_advisory_lock($1)', [ADVISORY_LOCK_KEY]);
+      // Session-scoped advisory lock MUST be taken and released on the SAME connection, so hold a
+      // dedicated client for the lock's lifetime rather than borrowing arbitrary pooled sessions.
+      const client = await pool.connect();
+      await client.query('SELECT pg_advisory_lock($1)', [ADVISORY_LOCK_KEY]);
       return async () => {
-        await pool.query('SELECT pg_advisory_unlock($1)', [ADVISORY_LOCK_KEY]);
+        try {
+          await client.query('SELECT pg_advisory_unlock($1)', [ADVISORY_LOCK_KEY]);
+        } finally {
+          client.release();
+        }
       };
     },
     readSecret(name: string) {
@@ -238,6 +264,7 @@ export function createResetDependencies(config: RuntimeResetConfig): ResetDepend
       }
     },
     writeBaseline,
-    rollback: noop,
+    // The default withTransaction issues the SQL ROLLBACK itself; this hook is an observation point.
+    rollback: async () => undefined,
   };
 }

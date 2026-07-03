@@ -56,18 +56,21 @@ async function createLiveStories(env: ReturnType<typeof readEnv>): Promise<Verif
     description: 'Looking for a hand moving a couch to a new place.',
     category: 'moving',
     visibility_scope: 'platform',
-  } as never);
-  await helper.offerHelp(ordinaryRequest.id, helperId);
-  const proposed = await maria.proposeMatch(ordinaryRequest.id, helperId);
-  const ordinaryMatchId = proposed?.id as string;
+  });
+  // The helper offering help IS the match creation (POST /matches, proposed). Maria (a plain member)
+  // then accepts it — she must NOT call the admin-only propose-match endpoint.
+  const proposedMatch = await helper.offerHelp(ordinaryRequest.id, helperId);
+  const ordinaryMatchId = proposedMatch?.id as string;
   await maria.acceptMatch(ordinaryMatchId, mariaId);
 
   const providerRequest = await maria.createRequest({
     title: 'Provider quote: fix a leaking kitchen tap',
     description: 'Need a quote to fix a slow leak under the sink.',
     category: 'service',
+    request_type: 'service',
     visibility_scope: 'platform',
-  } as never);
+    payload: { service_category: 'plumbing' },
+  });
   const offer = await provider.submitProviderOffer(providerRequest.id, null, 'Available this weekend.');
 
   return {
@@ -78,7 +81,7 @@ async function createLiveStories(env: ReturnType<typeof readEnv>): Promise<Verif
   };
 }
 
-function buildRotationDeps(publishConfigEnabled: boolean): RotationDeps {
+export function buildRotationDeps(publishConfigEnabled: boolean): RotationDeps {
   const env = readEnv();
   let created: VerifiedStoryIds | undefined;
 
@@ -137,7 +140,9 @@ async function main(): Promise<void> {
   console.log(JSON.stringify({ mode: 'applied', storyIds: result.storyIds }, null, 2));
 }
 
-main().catch((error: unknown) => {
-  console.error(`[rotate:demo-stories] refused: ${error instanceof Error ? error.message : String(error)}`);
-  process.exitCode = 1;
-});
+if (require.main === module) {
+  main().catch((error: unknown) => {
+    console.error(`[rotate:demo-stories] refused: ${error instanceof Error ? error.message : String(error)}`);
+    process.exitCode = 1;
+  });
+}

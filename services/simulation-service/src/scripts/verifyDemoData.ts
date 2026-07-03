@@ -33,16 +33,17 @@ export interface VerifyEnv {
   };
 }
 
+/**
+ * Read connection/persona env. Story IDs are OPTIONAL here: `verify:demo` requires them (and calls
+ * {@link assertStoryIds}), but the reset/rotate flows create fresh stories and override the IDs, so
+ * they must not force those flows to fail when the previous IDs are absent.
+ */
 export function readEnv(): VerifyEnv {
   const required = {
     baseUrl: process.env.API_BASE_URL,
     mariaEmail: process.env.DEMO_MARIA_EMAIL ?? process.env.DEMO_PERSONA_EMAIL,
     unrelatedEmail: process.env.DEMO_UNRELATED_EMAIL,
     password: process.env.DEMO_PERSONA_PASSWORD,
-    ordinaryRequestId: process.env.DEMO_ORDINARY_REQUEST_ID,
-    ordinaryMatchId: process.env.DEMO_ORDINARY_MATCH_ID,
-    providerRequestId: process.env.DEMO_PROVIDER_REQUEST_ID,
-    providerOfferId: process.env.DEMO_PROVIDER_OFFER_ID,
   };
   const missing = Object.entries(required).filter(([, v]) => !v).map(([k]) => k);
   if (missing.length > 0) {
@@ -54,12 +55,20 @@ export function readEnv(): VerifyEnv {
     unrelatedEmail: required.unrelatedEmail!,
     password: required.password!,
     storyIds: {
-      ordinaryRequestId: required.ordinaryRequestId!,
-      ordinaryMatchId: required.ordinaryMatchId!,
-      providerRequestId: required.providerRequestId!,
-      providerOfferId: required.providerOfferId!,
+      ordinaryRequestId: process.env.DEMO_ORDINARY_REQUEST_ID ?? '',
+      ordinaryMatchId: process.env.DEMO_ORDINARY_MATCH_ID ?? '',
+      providerRequestId: process.env.DEMO_PROVIDER_REQUEST_ID ?? '',
+      providerOfferId: process.env.DEMO_PROVIDER_OFFER_ID ?? '',
     },
   };
+}
+
+/** verify:demo needs configured story IDs to read back; the reset/rotate flows create their own. */
+export function assertStoryIds(env: VerifyEnv): void {
+  const missing = Object.entries(env.storyIds).filter(([, v]) => !v).map(([k]) => k);
+  if (missing.length > 0) {
+    throw new Error(`verify:demo unavailable — missing story IDs: ${missing.join(', ')}`);
+  }
 }
 
 const NO_PATH_FLOOR: OrdinaryFloor = { pathDegree: Number.POSITIVE_INFINITY, sharedConnections: 0, mariaOneHop: 0, helperOneHop: 0 };
@@ -113,7 +122,9 @@ export async function buildDeps(env: VerifyEnv): Promise<DemoVerificationDeps> {
         await unrelated.getMatchRelationshipContext(env.storyIds.ordinaryRequestId, env.storyIds.ordinaryMatchId);
         return 200;
       } catch (error) {
-        return statusOf(error) || 403;
+        // Return the ACTUAL HTTP status. A transport error (status 0) is NOT a valid denial and
+        // must fail the readiness check rather than masquerade as a 403.
+        return statusOf(error);
       }
     },
     async getRunwayDays() {
@@ -129,12 +140,13 @@ export async function buildDeps(env: VerifyEnv): Promise<DemoVerificationDeps> {
       return (providerContext ?? {}) as Record<string, unknown>;
     },
     async getDemoWriteStatus() {
-      // A demo-session write must be rejected. Probe a create and expect 403.
+      // A demo-session write must be rejected with 403. Probe a create; a transport error (status 0)
+      // is NOT a valid rejection and must fail the readiness check.
       try {
-        await maria.createRequest({ title: 'verify-probe', description: 'verify-probe', category: 'errand' } as never);
+        await maria.createRequest({ title: 'verify-probe', description: 'verify-probe', category: 'errand' });
         return 200;
       } catch (error) {
-        return statusOf(error) || 403;
+        return statusOf(error);
       }
     },
     async getStoryIds() {
@@ -147,6 +159,7 @@ async function main(): Promise<void> {
   let env: VerifyEnv;
   try {
     env = readEnv();
+    assertStoryIds(env);
   } catch (error) {
     console.log(JSON.stringify({ ready: false, unavailable: true, reason: error instanceof Error ? error.message : String(error) }, null, 2));
     return;
