@@ -81,6 +81,24 @@
 >   `reputation.karma_records.related_entity_id` → mapped to the match UUID via exported
 >   `exchangeMatchId()`.
 > All baseline-writer inserts were re-audited for non-UUID→UUID and missing-NOT-NULL: only these two.
+>
+> **Cross-agent review round 2 (Codex) — 6 findings, ALL FIXED in commit `9d0d816e`:**
+> 1. CodeQL alerts ARE from this PR (not geocoding): `js/request-forgery` on `api-client.ts`,
+>    `js/uncontrolled-path` on the reset backup path, `js/command-line-injection` on the reset
+>    process runner. All are FPs (trusted env/CLI inputs; `execFile` arg-arrays, no shell) — justified
+>    in the PR "Security dismissals" section; **dismiss via the Security UI** then re-run CodeQL.
+> 2. Pause/disable corrected to the real demo host: PM2 `karmyq-simulation` (not `-service`) +
+>    `docker stop/start karmyq-cleanup-service` (cleanup is Docker-managed), env-overridable.
+>    `reset:demo --apply` now REQUIRES `DEMO_DISABLE_CMD` (fail-closed) instead of only warning.
+> 3. Provider privacy scans the provider request's real offers (`getOffersForRequest`), not the match
+>    relationship-context endpoint; a failed fetch fails closed.
+> 4. Reciprocal reads the ordinary match from the HELPER's viewpoint too and requires both
+>    orientations to agree; `verifyDemoSession` calls real `POST /auth/demo-session` and validates it
+>    resolves the published config.
+> 5. Rotation leaves the ordinary match PROPOSED (live pending decision) — no longer auto-accepts.
+> 6. Backup verified by `pg_restore --list` (restorable), not just non-empty file.
+> New deploy env: `DEMO_DISABLE_CMD` (required for apply), `DEMO_HELPER_EMAIL`, `DEMO_PROVIDER_EMAIL`.
+> Re-verified: sim 86/86, build clean.
 > - T1/T2: deterministic curated manifest + compiler (`services/simulation-service/src/fixtures/curatedDemo/{types,manifest,compiler}.ts`) — 36 people, 6 communities, semantic-key UUIDs, one-anchor ages, fail-closed validation. 3/3 green.
 > - T3/T4: complete fail-closed `tablePolicy.ts` (every managed base table + public.geocoding_cache classified; views excluded) and guarded `resetCoordinator.ts` (dry-run default; ordered fingerprint→disable→pause→backup→lock→txn) + `baselineWriter.ts` (savepoint-fixpoint DELETE reset that honors ON DELETE SET NULL; FK-ordered source inserts) + `resetDemoData.ts` CLI. 8/8 green.
 > - T5/T6: fixture-only `packages/shared/src/projections/completedExchange.ts` — equivalence-locked to production `computeRawWeight` + `allocateKarma` (cross-workspace gate `tests/tdd/sprint-117-projection-equivalence.test.ts`). Exported from `@karmyq/shared` (main + subpath); baseline writer inserts projections grouped by community. 4/4 green.
