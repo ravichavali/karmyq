@@ -1,5 +1,60 @@
-# Sprint 117 — Controlled Demo Reset and Curated Fixtures — IMPLEMENTED (awaiting Admin merge/deploy)
+# Sprint 117 — Controlled Demo Reset and Curated Fixtures — ✅ COMPLETE & DEPLOYED
 
+> **STATUS (2026-07-03):** **SPRINT 117 COMPLETE.** All 14 tasks done; merged to `master` and
+> deployed to karmyq.com (v11.26.0). The controlled demo reset ran successfully on the live demo and
+> is **fully validated**: `verify:demo` → `ready: true` (all 8 checks green + `demoSessionReadOnly`,
+> 60-day runway, no ADR-082 privacy leaks); the public `/auth/demo-session` returns **200** with the
+> coherent curated Maria story (was 503 from stale Sprint-116 stories); DB holds the curated baseline
+> (36 users, 6 communities, 14 trust edges, 59 karma records); simulator + cleanup resumed.
+>
+> **Published live story IDs (in `~/karmyq/.env.demo` on the host):**
+> `DEMO_ORDINARY_REQUEST_ID=29989631-8035-4466-bd5a-c4bf7eb01e09`,
+> `DEMO_ORDINARY_MATCH_ID=12e69a18-48c7-4e0e-bee9-682ced59c8d7`,
+> `DEMO_PROVIDER_REQUEST_ID=5327f89a-bfb2-4d67-9f62-8031ad039db0`,
+> `DEMO_PROVIDER_OFFER_ID=8c10c4be-9b61-4832-8678-1c6c9313bf6e`.
+> Pre-reset backup: `~/pre-sprint117-reset-20260703T162302Z.dump`; reset backups in `~/demo-backups/`.
+>
+> **Merged PRs:** #136 (sprint), #137 (deploy: build shared first), #138 (reset orchestration
+> hardening), #139 (help_requests status mapper), #140 (ApiClient.login sets token), #141 (story
+> community_id), #142 (verifier outward checks). CodeQL FPs (request-forgery/command-line/path on the
+> operator CLIs) dismissed with justification each time; ADR-060 gate green.
+>
+> **Live-run bugs found + fixed (the CI schema couldn't surface these — the CI test DB is init.sql +
+> one migration, not the full 64-migration schema):** (1) missing `trust_decay_config`/`stability`;
+> (2) `chk_help_requests_status` rejects declined/expired/forgotten → `toDbRequestStatus` mapper;
+> (3) `ApiClient.login` didn't set the auth token; (4) story requests need `community_id`;
+> (5) verifier read `expires_at` (not exposed) + hit the admin-only offers endpoint → use created_at
+> + the request detail. Each failure was caught safely (atomic rollback or clean refusal); the demo
+> was never left worse than its pre-existing broken state.
+>
+> **Host reset runbook (for future resets/rotations):** `~/demo-scripts/{demo-disable,demo-enable,
+> demo-restart-auth}.sh` wire `DEMO_DISABLE_CMD`/`DEMO_ENABLE_CMD`/`DEMO_RESTART_AUTH_CMD` (toggle
+> `DEMO_SESSION_ENABLED` + `docker compose ... up -d --force-recreate auth-service`). Run command:
+> `cd ~/karmyq; set -a; source services/simulation-service/.env; set +a;` then export
+> `DEMO_ENV=demo DEMO_RESET_MARKER=karmyq-demo-reset-v1 DEMO_PERSONA_PASSWORD=password123`,
+> the four persona emails (`maria.reyes`/`elena.torres`/`noah.williams`/`marcus.lee@test.karmyq.com`),
+> `API_BASE_URL=https://karmyq.com/api`, `DEMO_BACKUP_DIR=/home/ubuntu/demo-backups`,
+> `DEMO_ENV_FILE=/home/ubuntu/karmyq/.env.demo`, the three `DEMO_*_CMD` script paths, then
+> `npm --workspace @karmyq/simulation-service run reset:demo -- --apply --publish-config`
+> (dry-run without `--apply`; `verify:demo` for read-only health; `rotate:demo-stories` to refresh
+> finite live stories before their TTL without a full reset).
+>
+> **Follow-up (2026-07-07, branch `ci/full-migrated-schema`):** ✅ **CI now runs on the full
+> migrated schema.** The integration job applies EVERY migration up front via
+> `scripts/ci-apply-full-schema.sh` (each migration in its own psql with `ON_ERROR_STOP=0`, so
+> init.sql-redundant ones skip and missing ones apply), then asserts sentinel objects
+> (`chk_help_requests_status`, `social_graph.trust_decay_config`, `trust_edges.stability`,
+> `federation.instances`, `requests.retention_config`). This closes the gap that made Sprint 117's
+> reset fail live — those five bugs would now surface in CI. Also logged **BUG-028** (offer says two
+> people are "connected" but the network graph finds no direct path — likely a relationship-context
+> vs trust-graph-path data mismatch; possibly surfaced by the curated baseline — investigate later).
+>
+> **Next-sprint candidates:** investigate BUG-028; desktop/mobile UI five-second-test pass on the
+> fresh demo; the belonging-graph presentation + onboarding-join threads in memory.
+>
+> ---
+> **[Original Task-14-pending status preserved below for history.]**
+>
 > **STATUS (2026-07-02):** Sprint 116 merged on `master` (`f02f736e`, v11.25.3). Sprint 117
 > **Tasks 1–13 of 14 are COMPLETE** on `agent/codex/sprint-117-curated-demo-reset` (Claude executed
 > the Codex-authored plan via `superpowers:executing-plans`). Latest commit `832b2189`. Working tree
