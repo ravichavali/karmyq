@@ -30,6 +30,19 @@
 # drop every later, genuinely-new statement in that same file. `ON_ERROR_STOP=0` lets psql skip only
 # the colliding statement and keep applying the rest of the file.
 #
+# ON_ERROR_STOP=0 alone is NOT enough for the 10 files that wrap themselves in their own explicit
+# `BEGIN;...COMMIT;`: once ONE statement inside that block fails (even an expected, allowlisted
+# collision with something init.sql already has), Postgres marks the WHOLE transaction aborted and
+# every later statement in that same file — including genuinely new content init.sql lacks — silently
+# no-ops with "current transaction is aborted" until the file's own COMMIT (confirmed live: this
+# exact failure mode hit 001_request_community_junction.sql and 009_social_graph.sql in CI). So
+# before applying, strip a file's own top-level BEGIN;/COMMIT; lines (apply_migration below) UNLESS
+# the file self-manages its transaction (a real ROLLBACK statement or a psql `\if`/`\set` meta-command
+# outside comments — e.g. 20260530-community-dedup.sql's dry-run-by-default repair script, which MUST
+# keep its own transaction control intact). Stripping makes every statement autocommit independently,
+# exactly like the 15 files that never had a wrapper — a colliding statement is skipped, everything
+# else in the file still gets its own chance to apply.
+#
 # Because ON_ERROR_STOP=0 hides errors from psql's own exit code, this script inspects the captured
 # output itself: any ERROR line matching the redundancy allowlist (already exists / does not exist /
 # etc.) is expected drift-closing noise and is skipped; anything else is a genuinely unexpected
@@ -52,6 +65,21 @@ MIG_DIR="${MIG_DIR:-infrastructure/postgres/migrations}"
 
 pg() { docker exec -i "$CONTAINER" psql -U "$PGUSER" -d "$PGDB" "$@"; }
 
+# Feed a migration file to psql. If it wraps itself in a plain BEGIN;/COMMIT; (no ROLLBACK, no psql
+# `\if`/`\set` meta-command outside comments), strip those two lines so statements autocommit
+# independently instead of a single collision poisoning the whole file's transaction. Otherwise the
+# file manages its own transaction control deliberately — apply it verbatim.
+apply_migration() {
+  local f="$1" exec_lines
+  exec_lines="$(grep -v '^\s*--' "$f")"
+  if printf '%s\n' "$exec_lines" | grep -qE '^\s*BEGIN\s*;\s*$' \
+     && ! printf '%s\n' "$exec_lines" | grep -qiE '\bROLLBACK\b|^\s*\\(if|set)\b'; then
+    grep -vE '^\s*(BEGIN|COMMIT)\s*;\s*$' "$f" | pg -v ON_ERROR_STOP=0 -q 2>&1 || true
+  else
+    pg -v ON_ERROR_STOP=0 -q < "$f" 2>&1 || true
+  fi
+}
+
 pg -v ON_ERROR_STOP=1 -q <<'SQL'
 CREATE TABLE IF NOT EXISTS public.schema_migrations (
     migration_name VARCHAR(255) PRIMARY KEY,
@@ -64,7 +92,7 @@ echo "== Applying full migrated schema to ${CONTAINER}/${PGDB} =="
 for f in $(ls "${MIG_DIR}"/*.sql | sort); do
   name="$(basename "$f")"
   # ON_ERROR_STOP=0: redundant objects already in init.sql collide-and-skip; missing ones apply.
-  out="$(pg -v ON_ERROR_STOP=0 -q < "$f" 2>&1 || true)"
+  out="$(apply_migration "$f")"
   # Anything NOT matching expected redundancy noise is a genuinely unexpected failure — fail the job.
   real="$(printf '%s\n' "$out" \
     | grep -iE 'ERROR' \

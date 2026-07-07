@@ -333,4 +333,9 @@ COMMENT ON TABLE reputation.activity_log IS 'Log of user activities for reputati
 COMMENT ON COLUMN reputation.trust_scores.last_activity_at IS 'Last time user performed a counted activity in this community';
 
 COMMENT ON FUNCTION communities.calculate_expires_at IS 'Calculate expiration timestamp based on community TTL settings';
-COMMENT ON FUNCTION reputation.calculate_decayed_karma IS 'Calculate user karma with exponential time-based decay';
+-- Argument types are required here: init.sql independently defines a DIFFERENT overload of this
+-- name (original_karma INTEGER, earned_date TIMESTAMPTZ, half_life_months INTEGER) for a per-record
+-- decay calc, while this migration's version (p_user_id UUID, p_community_id UUID) computes a
+-- per-user aggregate. A bare COMMENT ON FUNCTION is ambiguous once both overloads exist in the same
+-- database — "function name ... is not unique" — so it must target this migration's own signature.
+COMMENT ON FUNCTION reputation.calculate_decayed_karma(UUID, UUID) IS 'Calculate user karma with exponential time-based decay';
