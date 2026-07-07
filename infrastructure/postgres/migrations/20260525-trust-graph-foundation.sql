@@ -33,13 +33,19 @@ CREATE TABLE IF NOT EXISTS social_graph.interaction_weights (
   UNIQUE(community_id, interaction_type)
 );
 
--- Platform default weights
+-- Platform default weights. A bare UNIQUE(community_id, interaction_type) does NOT dedupe rows with
+-- community_id = NULL (Postgres treats NULLs as distinct), so a bare ON CONFLICT DO NOTHING would
+-- silently re-insert duplicate global rows on every re-run. A partial unique index on the NULL rows
+-- gives ON CONFLICT a real target (same pattern as 20260607-designed-to-forget.sql).
+CREATE UNIQUE INDEX IF NOT EXISTS uq_interaction_weights_global
+  ON social_graph.interaction_weights (interaction_type) WHERE community_id IS NULL;
+
 INSERT INTO social_graph.interaction_weights (community_id, interaction_type, weight) VALUES
   (NULL, 'match_completed', 10.0),
   (NULL, 'endorsement',      5.0),
   (NULL, 'karma_given',      3.0),
   (NULL, 'event',            2.0)
-ON CONFLICT DO NOTHING;
+ON CONFLICT (interaction_type) WHERE community_id IS NULL DO NOTHING;
 
 -- Community-to-community trust edges (fractal level 2)
 CREATE TABLE IF NOT EXISTS social_graph.community_trust_edges (

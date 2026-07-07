@@ -34,8 +34,8 @@
 # output itself: any ERROR line matching the redundancy allowlist (already exists / does not exist /
 # etc.) is expected drift-closing noise and is skipped; anything else is a genuinely unexpected
 # failure and FAILS THE JOB (see FAILED below) — this is the real, general gate, not just log noise.
-# The five sentinel assertions at the end are an additional, narrower belt-and-suspenders check for
-# the specific objects Sprint 117's reset needs.
+# The sentinel assertions at the end are an additional, narrower belt-and-suspenders check for the
+# specific objects Sprint 117's reset needs.
 #
 # After applying, this script also backfills `public.schema_migrations` (the same tracking table
 # `scripts/apply-migrations.sh` uses in prod/demo) for every migration file, so the CI DB's tracking
@@ -74,11 +74,15 @@ for f in $(ls "${MIG_DIR}"/*.sql | sort); do
     echo "  ! ${name}: unexpected error — will fail this job:"
     printf '    %s\n' "$real"
     FAILED=1
+    continue
   fi
-  # Backfill the tracking row regardless of branch, so schema_migrations converges with a from-scratch
-  # apply-migrations.sh run (applied-cleanly and confirmed-redundant both end in "this file is current").
+  # Backfill the tracking row only for a file that applied cleanly or was confirmed redundant, so
+  # schema_migrations converges with what a from-scratch apply-migrations.sh run would leave behind
+  # (a real apply-migrations.sh run never records a tracking row for a migration whose content
+  # errored — the INSERT is inside the same failed transaction).
+  name_sql="${name//\'/\'\'}"
   pg -v ON_ERROR_STOP=1 -q -c \
-    "INSERT INTO public.schema_migrations (migration_name) VALUES ('${name}') ON CONFLICT DO NOTHING;" \
+    "INSERT INTO public.schema_migrations (migration_name) VALUES ('${name_sql}') ON CONFLICT DO NOTHING;" \
     >/dev/null
 done
 
@@ -90,7 +94,7 @@ fi
 echo "== Verifying sentinel objects landed =="
 assert() {
   local desc="$1" sql="$2" got
-  got="$(pg -tAc "$sql" | tr -d '[:space:]')"
+  got="$(pg -tAc "$sql" | tr -d '[:space:]' || true)"
   if [ "$got" != "t" ]; then
     echo "  MISSING: ${desc}  (query returned '${got}')"
     echo "FAILED: the full migrated schema did not fully materialize in the CI test DB." >&2
@@ -107,6 +111,8 @@ assert "social_graph.trust_decay_config table" \
   "SELECT (to_regclass('social_graph.trust_decay_config') IS NOT NULL)"
 assert "social_graph.trust_edges.stability column" \
   "SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='social_graph' AND table_name='trust_edges' AND column_name='stability')"
+assert "social_graph.trust_edges_live view" \
+  "SELECT (to_regclass('social_graph.trust_edges_live') IS NOT NULL)"
 # A whole migration init.sql never had (001_federation_schema) — proves fully-missing chains apply.
 assert "federation.instances table" \
   "SELECT (to_regclass('federation.instances') IS NOT NULL)"
