@@ -210,7 +210,13 @@ CREATE POLICY inviter_stats_select_policy ON auth.inviter_stats
 -- PART 6: Helper Functions
 -- ============================================================================
 
--- Function to generate invitation codes
+-- Function to generate invitation codes. DROP first: a stale init.sql snapshot independently
+-- defines the same (TEXT, INTEGER) overload as auth.generate_invitation_code(user_name, year), and
+-- Postgres's CREATE OR REPLACE refuses to rename parameters on an existing signature. That stale
+-- version also only strips spaces (not all punctuation) from the name, so a name with an apostrophe
+-- or hyphen could violate the invitation_code_format CHECK — the DROP+CREATE here converges to this
+-- migration's REGEXP_REPLACE version regardless of which definition was already present.
+DROP FUNCTION IF EXISTS auth.generate_invitation_code(TEXT, INTEGER);
 CREATE OR REPLACE FUNCTION auth.generate_invitation_code(
     p_inviter_name TEXT,
     p_year INTEGER DEFAULT EXTRACT(YEAR FROM NOW())::INTEGER
