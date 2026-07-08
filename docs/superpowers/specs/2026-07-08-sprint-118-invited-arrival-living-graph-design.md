@@ -10,8 +10,9 @@
 ## Overview
 
 Joining Karmyq today is transactional. Open registration is a bare form that dumps the new member
-onto a community list to shop from; the invitation path — the one moment where a real trust edge is
-*born* — renders that birth as another registration form and never shows the relationship. Meanwhile
+onto a community list to shop from; the invitation path — the one moment where a real relationship
+(the invitation bond, the seed that *becomes* trust through exchanges — never a trust edge itself)
+enters the platform — renders that moment as another registration form and never shows it. Meanwhile
 the belonging graph, "the primary way Karmyq tells a member's story" (ADR-081), is only met long
 after the join moment, when a new member opening `/network` sees the sparse-ego empty state.
 
