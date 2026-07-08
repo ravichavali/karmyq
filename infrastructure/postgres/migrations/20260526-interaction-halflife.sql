@@ -18,11 +18,17 @@ CREATE TABLE IF NOT EXISTS social_graph.trust_decay_config (
   UNIQUE(community_id)
 );
 
--- Global default row (community_id = NULL)
+-- Enforce a single global (NULL) row — bare UNIQUE(community_id) can't (Postgres treats NULLs as
+-- distinct, so a bare ON CONFLICT DO NOTHING would silently re-insert a duplicate global row on
+-- every re-run). Same pattern as 20260607-designed-to-forget.sql's retention_config.
+CREATE UNIQUE INDEX IF NOT EXISTS uq_trust_decay_config_global
+  ON social_graph.trust_decay_config ((community_id IS NULL)) WHERE community_id IS NULL;
+
+-- Seed the global default row, idempotently (ON CONFLICT can't target the NULL row).
 INSERT INTO social_graph.trust_decay_config
   (community_id, base_half_life_days, stability_growth_rate, disappearance_threshold)
-VALUES (NULL, 30.0, 0.20, 0.5)
-ON CONFLICT DO NOTHING;
+SELECT NULL, 30.0, 0.20, 0.5
+WHERE NOT EXISTS (SELECT 1 FROM social_graph.trust_decay_config WHERE community_id IS NULL);
 
 -- 3. Live view: current_weight computed at every read
 -- Formula: current_weight = raw_weight × e^(-days_since_last_interaction / (stability × half_life))

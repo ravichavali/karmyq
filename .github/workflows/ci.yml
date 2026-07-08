@@ -193,22 +193,23 @@ jobs:
           cd tests
           docker compose -f docker-compose.test.yml ps
 
+      # Bring the test DB to the FULL migrated schema BEFORE any integration test, so the whole job
+      # runs against the same constraints/tables the demo host has — not the drifted init.sql
+      # snapshot. init.sql lags the migration chain (missing federation/governance/ui_schemas and
+      # recent constraint migrations like chk_help_requests_status), which is why Sprint 117's reset
+      # only failed live. The script applies every migration idempotently (ON_ERROR_STOP=0:
+      # init.sql-redundant migrations skip, missing ones apply) and then ASSERTS the sentinel objects
+      # landed. The integration suite drives the real services, which emit constraint-valid data, so
+      # the fuller (superset) schema is safe for it. See scripts/ci-apply-full-schema.sh.
+      - name: Bring test DB to the full migrated schema
+        run: bash scripts/ci-apply-full-schema.sh
+
       - name: Run integration tests
         run: |
           cd tests
           npm run test:integration
         env:
           DOCKER_ENV: test
-
-      # Sprint 117: the reset writes social_graph.trust_decay_config and trust_edges.stability, which
-      # the consolidated init.sql predates. Apply the one idempotent migration that adds them (the
-      # rest of the migration chain is raw/incremental and would collide with init.sql, e.g. an
-      # unguarded CREATE TYPE, so we do NOT replay the whole chain). This also creates the
-      # trust_edges_live VIEW, exercising the reset's view-exclusion. Uses the test container's psql.
-      - name: Bring test DB to the reset's required schema (interaction half-life)
-        run: |
-          docker exec -i karmyq-postgres-test psql -U karmyq_test -d karmyq_test -v ON_ERROR_STOP=1 \
-            < infrastructure/postgres/migrations/20260526-interaction-halflife.sql
 
       # Sprint 117: the curated full-reset destructive path must execute (twice) in migrated
       # Postgres before it can ever run against the live demo. Placed LAST so the full wipe does
