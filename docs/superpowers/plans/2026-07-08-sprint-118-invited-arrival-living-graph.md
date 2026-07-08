@@ -6,14 +6,16 @@
 > worktrees) — use superpowers:executing-plans inline unless told otherwise.
 
 **Goal:** Rework the join funnel invite-primary with a dedicated `/welcome` arrival moment that
-renders the new member's first belonging graph; add a growing/fading edge-lifecycle encoding to the
-ego graph; fix BUG-028 so the connected-badge and the graph share one connection derivation.
+renders the new member's first belonging graph (invitation bond + community ring); complete the
+ego graph's growing/fading story with a qualitative `formedRecently` flag; fix BUG-028 so the
+connected-badge and the graph agree.
 
-**Architecture:** A new qualitative `lifecycle` field on disclosed neighborhood links (derived in
-`disclosureProjection.ts` from ADR-070 decay tiers + edge age) drives edge rendering in
-`EgoOrbitGraph`; the join surfaces (`/invite/[code]`, `/register`, `/communities` welcome flow) are
-rewired to converge on a new `/welcome` page that composes the existing graph components. No schema
-changes; no new services.
+**Architecture:** Disclosed neighborhood links gain `formedRecently: boolean` (links query adds
+`MIN(created_at)` per pair; derived in `disclosureProjection.ts`), supplementing the existing
+`decayTier` contract whose fading encoding already ships; the join surfaces (`/invite/[code]`,
+`/register`, `/communities` welcome flow) converge on a new `/welcome` page rendering a
+purpose-built `ArrivalGraph` (ring primitives, no sparse short-circuit; the invitation bond comes
+from funnel context, never a manufactured trust edge). No schema changes; no new services.
 
 **Tech Stack:** Node.js/Express/TypeScript, Next.js 14 (Pages Router), PostgreSQL 15, Bull queue.
 
@@ -27,24 +29,26 @@ changes; no new services.
 ### New files to create
 | File | Responsibility |
 |------|---------------|
-| `apps/frontend/src/pages/welcome.tsx` | Arrival-moment route (both join paths) |
-| `apps/frontend/src/components/graphs/EgoMemoryLegend.tsx` | "How memory fades" legend for ego view (adapted from community view) |
+| `apps/frontend/src/pages/welcome.tsx` | Arrival-moment route (both join paths); writes the user-scoped onboarded key on completion/skip |
+| `apps/frontend/src/components/graphs/ArrivalGraph.tsx` | Purpose-built arrival presentation (ring primitives + invitation-bond chord; no sparse short-circuit) |
 | `docs/adr/ADR-085-invited-arrival-and-edge-lifecycle.md` | Architectural decision |
 | `apps/landing/src/data/docs/guides/joining-karmyq.json` | New user guide |
 | `apps/landing/src/data/docs/concepts/adr-085-invited-arrival-and-edge-lifecycle.json` | ADR landing JSON |
-| `services/social-graph-service/tests/tdd/sprint-118-*.test.ts` | Lifecycle + BUG-028 TDD tests |
+| `services/social-graph-service/tests/tdd/sprint-118-*.test.ts` | `formedRecently` + BUG-028 TDD tests |
 | `apps/frontend/tests/tdd/sprint-118-*.test.tsx` | Funnel/arrival/encoding TDD tests |
 
 ### Existing files to modify
 | File | Change |
 |------|--------|
-| `services/social-graph-service/src/services/disclosureProjection.ts` | Derive + expose `lifecycle` per link |
-| `services/social-graph-service/src/routes/trustGraph.ts` | Thread lifecycle through `/neighborhood`; BUG-028 layer fix if server-side |
-| `apps/frontend/src/pages/invite/[code].tsx` | Invitation-as-landing redesign; success → `/welcome` |
+| `services/social-graph-service/src/database/trustEdgeDb.ts` | Links query gains `MIN(tel.created_at) AS formed_at` per grouped pair |
+| `services/social-graph-service/src/services/disclosureProjection.ts` | Derive `formedRecently: boolean` (30-day window constant); `decayTier` untouched |
+| `services/social-graph-service/src/routes/trustGraph.ts` (+ `paths.ts` if BUG-028 lands there) | Thread `formedRecently` through `/neighborhood`; BUG-028 layer fix if server-side |
+| Shared link types (`apps/frontend/src/components/graphs/types.ts` + service/shared `TrustLink`) | Add optional `formedRecently` |
+| `apps/frontend/src/pages/invite/[code].tsx` | Invitation-as-landing redesign; success → `/welcome` with invite context |
 | `apps/frontend/src/pages/register.tsx` | Invite-primary nudge |
-| `apps/frontend/src/pages/communities/index.tsx` | Welcome-flow first join → `/welcome` |
-| `apps/frontend/src/components/WelcomeModal.tsx` | Suppress when arrival ran |
-| `apps/frontend/src/components/graphs/EgoOrbitGraph.tsx`, `graphVisualEncoding.ts` | Lifecycle edge rendering |
+| `apps/frontend/src/pages/communities/index.tsx` | Welcome-flow first join → `/welcome`; STOP pre-setting the onboarded key |
+| `apps/frontend/src/components/WelcomeModal.tsx` | User-scoped onboarded key (honor legacy global); suppress when arrival ran |
+| `apps/frontend/src/components/graphs/EgoOrbitGraph.tsx`, `graphVisualEncoding.ts` | "New" emphasis layered on existing decayTier bands; "New" entry added to the EXISTING inline legend |
 | `apps/frontend/src/components/requests/ConnectionBadge.tsx` (+ any surface grep finds) | BUG-028 unified derivation |
 | `apps/frontend/src/lib/onboarding/workflows.ts` | Arrival/joining step |
 | `apps/landing/src/data/docs/nav.json` | Wire new guide + ADR (grep-verify: it silently reverts) |
@@ -56,40 +60,62 @@ changes; no new services.
 
 1. **Fix BUG-028 before building the arrival moment.** The arrival celebrates a connection; it must
    not celebrate one the graph can't substantiate. Follow the Bug Fixing discipline: reproduce on
-   the curated demo baseline, identify the layer (the badge uses `GET /paths/:id`; the graph uses
-   disclosed trust edges via `/neighborhood`), grep ALL surfaces consuming each derivation, fix at
-   the source — never a client-side patch.
-2. **Lifecycle is qualitative and server-derived (ADR-082).** The outward projection may say
-   `fading`, never `weight: 0.23`. Do the derivation in `disclosureProjection.ts` where decay
-   classification already lives; the frontend only maps labels to styles.
-3. **No layout changes to the ego graph (ADR-083).** Orbits, ring placement, expansion arcs stay
+   the curated demo baseline, identify the layer — the badge uses `GET /paths/:id`
+   (`computeTrustPath` + the `auth.social_distances` cache; platform-wide exchange topology), the
+   graph uses community-scoped disclosed `trust_edges_live` with active-membership joins via
+   `/trust/neighborhood` — grep ALL surfaces consuming each derivation, fix at the source, never a
+   client-side patch.
+2. **The inviter bond is an invitation relationship, NOT a trust edge.** Invitation acceptance
+   writes `auth.user_invitations` / `users.invited_by` / membership only; `/trust/neighborhood`
+   traverses `trust_edges_live` exclusively — no inviter edge exists in the belonging graph. The
+   arrival renders the invitation bond from the invite-funnel context (validate/accept responses),
+   visually distinct from trust edges, with "this bond becomes trust when you help each other"
+   copy. **Never manufacture a trust edge from an invitation** (earned-structure principle,
+   ADR-070/077/083). The ego graph does not gain invitation edges this sprint.
+3. **`formedRecently` supplements the existing `decayTier` contract — it does not replace it.**
+   Links already carry `decayTier` (strong/warm/fading/nearly_forgotten) rendered via the OPACITY
+   bands in `graphVisualEncoding.ts` plus an inline ego legend — leave both exactly as they are and
+   pin them with regression assertions. Server-side: the links query gains
+   `MIN(tel.created_at) AS formed_at` per grouped pair (first formation across communities = the
+   relationship's age; a long-standing pair adding a new community edge is NOT new); the projection
+   derives `formedRecently: boolean` against one 30-day window constant. No timestamp or numeric
+   leaves the server (ADR-082).
+4. **No layout changes to the ego graph (ADR-083).** Orbits, ring placement, expansion arcs stay
    exactly as S115 shipped them. This sprint changes edge *rendering* only.
-4. **The one-edge arrival graph is the design, not an empty state.** Do not reuse the sparse-ego
-   empty-state copy on `/welcome`; a single bright new edge with the community ring is the intended
-   picture. Open-path arrivals (no inviter edge) show you + the community ring and must also read
-   as intentional.
-5. **Do not break the curated demo.** `/auth/demo-session` and the Maria story flows must be
-   untouched; protected demo personas are excluded from any manual smoke-test signups. New encoding
-   will change how the demo's fading edges LOOK — that's expected and desirable; verify Maria's
-   rich story still reads (`maria.reyes` is the rich view; most sim users are sparse).
-6. **Registration side effects must be preserved on the redesigned invite page:** store `token`,
+5. **The arrival graph must bypass the sparse short-circuit — it is the design, not an empty
+   state.** `EgoOrbitGraph` (and the ring renderer) early-return an empty state on sparse graphs
+   (`EgoOrbitGraph.tsx:102`); the new purpose-built `ArrivalGraph` reuses the ring primitives but
+   is never gated on edge count. A zero-trust-edge open-path arrival (you among your new neighbors
+   on the community ring) and a one-bond invite arrival must both read as intentional.
+6. **Do not break the curated demo.** `/auth/demo-session` and the Maria story flows must be
+   untouched; protected demo personas are excluded from any manual smoke-test signups. New-bond
+   emphasis will change how recent demo edges LOOK — expected; verify Maria's rich story still
+   reads (`maria.reyes` is the rich view; most sim users are sparse).
+7. **Registration side effects must be preserved on the redesigned invite page:** store `token`,
    `refreshToken`, `user`, clear `demoContext` (see `register.tsx`), and remember
    `ApiClient.login/register` set the auth token automatically since #140. On join, refresh
    membership state by decoding the new JWT — never hand-construct `communities`.
-7. **`getMyCommunities` returns `{communities,count,total}`, not an array** — extract defensively
+8. **`getMyCommunities` returns `{communities,count,total}`, not an array** — extract defensively
    anywhere the funnel or arrival reads it (S113 crash pattern).
-8. **jsdom/D3 test gotchas apply to the graph work:** map `^d3$` → `d3/dist/d3.min.js`, stub
+9. **jsdom/D3 test gotchas apply to the graph work:** map `^d3$` → `d3/dist/d3.min.js`, stub
    ResizeObserver, seed `node.__zoom` directly; `next/router` is globally mocked in `jest.setup`.
-9. **`nav.json` silently reverts** — grep-verify the wiring after editing; re-apply if needed.
-10. **New TDD tests start in the changed workspace's `tests/tdd/`** (social-graph-service, frontend,
+10. **`nav.json` silently reverts** — grep-verify the wiring after editing; re-apply if needed.
+11. **New TDD tests start in the changed workspace's `tests/tdd/`** (social-graph-service, frontend,
     root `tests/` for cross-workspace) and promote when green. Run cross-workspace suites directly
     (`cd tests && npx jest ...`) — Turbo's cache hides cross-workspace failures.
-11. **Arrival is once-per-account and skippable.** Gate on first community join; a skip must be as
-    graceful as completion (both mark `karmyq_onboarded`, both land on the guided destination).
-    Deep-linking `/welcome` with no joined community redirects harmlessly to `/dashboard`.
-12. **Keep the funnel rework bounded to the join surfaces named above.** No auth-service contract
+12. **Arrival is once per account — use a user-scoped key, written only at the end.**
+    `karmyq_onboarded` today is a browser-global localStorage key set BEFORE the arrival would run
+    (`communities/index.tsx` sets it at join). Switch the gate to `karmyq_onboarded:<userId>`,
+    written ONLY when `/welcome` completes or is skipped; `WelcomeModal` and the arrival gate also
+    honor the legacy global key so existing users see nothing new. Skip must be as graceful as
+    completion (both write the key, both land on the guided destination). Deep-linking `/welcome`
+    with no joined community redirects harmlessly to `/dashboard`.
+13. **Keep the funnel rework bounded to the join surfaces named above.** No auth-service contract
     changes; if the invitation-validate payload lacks something the new landing needs, extend the
     projection, don't invent a parallel endpoint (Update, Don't Create).
+14. **Post-deploy bookkeeping rides the NEXT PR.** Flipping ADR-085 → `Implemented` and marking the
+    handoff COMPLETE happen after deploy, which is after merge — leave those edits uncommitted (no
+    docs-only master push; S117 precedent) so they ride the next PR.
 
 ---
 
@@ -138,35 +164,39 @@ cd services/social-graph-service && npx jest tests/tdd/sprint-118-connection-con
 npx tsc --noEmit -p services/social-graph-service
 ```
 
-## Task 3: Edge-lifecycle projection — RED tests
+## Task 3: `formedRecently` projection — RED tests
 
 **Files:**
-- Create: `services/social-graph-service/tests/tdd/sprint-118-edge-lifecycle.test.ts`
+- Create: `services/social-graph-service/tests/tdd/sprint-118-formed-recently.test.ts`
 
-- [ ] **Unit tests against `disclosureProjection` (real function, no stubs of logic under test):**
-  - decay tier → `active` / `fading` / `nearlyForgotten` mapping, exact expected values per tier;
-  - recent edge (age under the `new` window) → `new`, regardless of tier being healthy;
-  - `swept` edges still not returned at all (existing behavior preserved);
-  - **no numeric weight appears anywhere in the outward link shape** (ADR-082 scan).
+- [ ] **Unit tests against `disclosureProjection` + the links-query row mapping (real functions, no
+  stubs of logic under test):**
+  - pair whose `formed_at` is inside the 30-day window → `formedRecently: true`; outside → `false`;
+    missing/undefined `formed_at` → `false` (fail closed, never `true` by accident);
+  - multi-community pair: `formed_at` = MIN(created_at) — a fixture with an old edge in one
+    community and a fresh edge in another is NOT `formedRecently`;
+  - **regression pins:** existing `decayTier` mapping unchanged (exact tier per fixture); `swept`
+    edges still not returned;
+  - **no timestamp and no numeric weight appears anywhere in the outward link shape** (ADR-082 scan).
 - [ ] Tests fail (field doesn't exist yet).
 
 - [ ] **Verification:**
 ```bash
-cd services/social-graph-service && npx jest tests/tdd/sprint-118-edge-lifecycle.test.ts  # RED
+cd services/social-graph-service && npx jest tests/tdd/sprint-118-formed-recently.test.ts  # RED
 ```
 
-## Task 4: Edge-lifecycle projection — implementation
+## Task 4: `formedRecently` projection — implementation
 
 **Files:**
-- Modify: `services/social-graph-service/src/services/disclosureProjection.ts`,
-  `src/routes/trustGraph.ts` (thread through `/neighborhood`), shared types if links are typed in
-  `@karmyq/shared`
+- Modify: `services/social-graph-service/src/database/trustEdgeDb.ts` (links query:
+  `MIN(tel.created_at) AS formed_at` added to the GROUP BY aggregation),
+  `src/services/disclosureProjection.ts` (derive the boolean; one exported window constant),
+  `src/routes/trustGraph.ts` (thread through `/neighborhood`), shared/frontend `TrustLink` types
 
-- [ ] **Derive `lifecycle` where decay classification already happens** (`classifyDecayTier`
-  call sites). `new` = edge created within the window (define one constant, e.g. 30 days, in the
-  projection — document it in the ADR); otherwise map tier → `active|fading|nearlyForgotten`.
-- [ ] **Expose on `/neighborhood` links** (ego is the consumer this sprint; other graph endpoints
-  gain it only if free — do not expand scope).
+- [ ] **Derive `formedRecently` where decay classification already happens**; `formed_at` stays
+  internal — only the boolean is projected outward. Document the window + MIN semantics in ADR-085.
+- [ ] **Expose on `/neighborhood` links only** (ego is the consumer this sprint; other graph
+  endpoints gain it only if free — do not expand scope).
 - [ ] Tests from Task 3 green. **/simplify** on the diff.
 
 - [ ] **Verification:**
@@ -175,35 +205,36 @@ cd services/social-graph-service && npx jest   # full service suite green
 npx tsc --noEmit -p services/social-graph-service
 ```
 
-## Task 5: Ego lifecycle encoding + legend — RED tests
+## Task 5: New-bond emphasis + legend entry — RED tests
 
 **Files:**
-- Create: `apps/frontend/tests/tdd/sprint-118-ego-lifecycle-encoding.test.tsx`
+- Create: `apps/frontend/tests/tdd/sprint-118-new-bond-encoding.test.tsx`
 
-- [ ] **Component tests (D3/jsdom gotchas per note 8):**
-  - `graphVisualEncoding` maps each lifecycle label to a distinct edge treatment (exact class/attr
-    assertions; `new` emphasized, `fading` reduced, `nearlyForgotten` ghosted, `active` = current
-    bands unchanged);
-  - `EgoOrbitGraph` renders edges with the treatment for the lifecycle in fixture data;
+- [ ] **Component tests (D3/jsdom gotchas per note 9):**
+  - `edgeVisual` gives `formedRecently` links a distinct "new" emphasis (exact attr assertions)
+    **layered on top of** the decayTier opacity — the OPACITY band values for
+    strong/warm/fading/nearly_forgotten are pinned exactly as they are today (regression);
+  - `EgoOrbitGraph` renders a `formedRecently` fixture link with the emphasis and a non-new link
+    without it;
   - layout unchanged: orbit radii/positions for a fixed fixture identical before/after (ADR-083
     regression pin);
-  - `EgoMemoryLegend` renders all four states + copy, only on ego mode.
+  - the EXISTING inline legend gains a "New" entry alongside Strong/Warm/Fading/Nearly forgotten.
 
 - [ ] **Verification:**
 ```bash
-cd apps/frontend && npx jest tests/tdd/sprint-118-ego-lifecycle-encoding.test.tsx  # RED
+cd apps/frontend && npx jest tests/tdd/sprint-118-new-bond-encoding.test.tsx  # RED
 ```
 
-## Task 6: Ego lifecycle encoding + legend — implementation
+## Task 6: New-bond emphasis + legend entry — implementation
 
 **Files:**
-- Create: `apps/frontend/src/components/graphs/EgoMemoryLegend.tsx`
-- Modify: `apps/frontend/src/components/graphs/EgoOrbitGraph.tsx`,
-  `graphVisualEncoding.ts`, `apps/frontend/src/pages/network.tsx` (mount legend in ego mode)
+- Modify: `apps/frontend/src/components/graphs/graphVisualEncoding.ts` (emphasis in `edgeVisual`),
+  `apps/frontend/src/components/graphs/EgoOrbitGraph.tsx` (legend entry),
+  `apps/frontend/src/components/graphs/types.ts` (`formedRecently?: boolean`)
 
-- [ ] Implement encoding + legend (adapt the community "How memory fades" legend copy/pattern —
-  Update, Don't Create: extract/share rather than fork if feasible).
-- [ ] Tasks 5 tests green; existing graph suites green. **/simplify** on the diff.
+- [ ] Implement the emphasis + legend entry (Update, Don't Create — no new legend component; the
+  inline legend at `EgoOrbitGraph.tsx:246` is extended).
+- [ ] Task 5 tests green; existing graph suites green. **/simplify** on the diff.
 
 - [ ] **Verification:**
 ```bash
@@ -222,13 +253,16 @@ npx tsc --noEmit -p apps/frontend
     `demoContext`, routes to `/welcome`;
   - register page: invite-primary nudge renders; open-path submit still routes to
     `/communities?welcome=true`;
-  - communities welcome flow: first public join routes to `/welcome` (not `/dashboard`), sets
-    `karmyq_onboarded`;
-  - `/welcome`: invite arrival shows the inviter edge + community ring; open arrival shows
-    community ring only; both render the single CTA to the community's open asks; skip works and
-    lands the same place; no joined community → redirect `/dashboard`; graph fetch failure falls
-    back gracefully (CTA still works);
-  - WelcomeModal suppressed when arrival ran.
+  - communities welcome flow: first public join routes to `/welcome` (not `/dashboard`) and does
+    NOT pre-set any onboarded key;
+  - `/welcome`: invite arrival shows the invitation bond (distinct from trust-edge styling, with
+    the becomes-trust copy) + community ring via `ArrivalGraph`; open arrival shows you on the
+    community ring (zero trust edges renders intentionally — no sparse empty state); both render
+    the single CTA to the community's open asks; completion AND skip both write the user-scoped
+    `karmyq_onboarded:<userId>` key and land the same place; no joined community → redirect
+    `/dashboard`; graph fetch failure falls back gracefully (CTA still works);
+  - WelcomeModal: gates on the user-scoped key, honors the legacy global key (existing users see
+    no modal), suppressed when arrival ran.
 
 - [ ] **Verification:**
 ```bash
@@ -241,7 +275,7 @@ cd apps/frontend && npx jest tests/tdd/sprint-118-invited-arrival.test.tsx  # RE
 - Modify: `apps/frontend/src/pages/invite/[code].tsx`, `apps/frontend/src/pages/register.tsx`
 
 - [ ] Redesign `/invite/[code]` as the landing (context card + inline form; preserve every
-  registration side effect — note 6). Success → `/welcome` with the invite context.
+  registration side effect — note 7). Success → `/welcome` with the invite context.
 - [ ] Add the invite-primary nudge to `/register`.
 - [ ] Task 7's invite/register tests green. **/simplify** on the diff.
 
@@ -253,13 +287,14 @@ cd apps/frontend && npx jest tests/tdd/sprint-118-invited-arrival.test.tsx -t "i
 ## Task 9: `/welcome` arrival moment — implementation
 
 **Files:**
-- Create: `apps/frontend/src/pages/welcome.tsx`
+- Create: `apps/frontend/src/pages/welcome.tsx`, `apps/frontend/src/components/graphs/ArrivalGraph.tsx`
 - Modify: `apps/frontend/src/pages/communities/index.tsx`, `apps/frontend/src/components/WelcomeModal.tsx`
 
-- [ ] Build the arrival route (full-screen, unhurried, skippable; one-edge graph is the design —
-  note 4; compose `EgoOrbitGraph`/`CommunityRingGraph`, defensive `getMyCommunities` extraction —
-  note 7).
-- [ ] Rewire the welcome-flow first join; suppress WelcomeModal post-arrival.
+- [ ] Build `ArrivalGraph` (reuse ring primitives; invitation-bond chord from funnel context —
+  notes 2 and 5; never gated on edge count) and the arrival route (full-screen, unhurried,
+  skippable; defensive `getMyCommunities` extraction — note 8).
+- [ ] Rewire the welcome-flow first join (stop pre-setting the onboarded key); switch WelcomeModal
+  to the user-scoped key honoring the legacy global one (note 12).
 - [ ] All Task 7 tests green. **/simplify** on the diff.
 
 - [ ] **Verification:**
@@ -273,8 +308,8 @@ cd apps/frontend && npx jest && npx tsc --noEmit -p apps/frontend
 - Create: `docs/adr/ADR-085-invited-arrival-and-edge-lifecycle.md`,
   `apps/landing/src/data/docs/guides/joining-karmyq.json`,
   `apps/landing/src/data/docs/concepts/adr-085-invited-arrival-and-edge-lifecycle.json`
-- Modify: `docs/adr/README.md`, `apps/landing/src/data/docs/nav.json` (grep-verify after — note 9),
-  network guide/concept JSON (lifecycle encoding + legend),
+- Modify: `docs/adr/README.md`, `apps/landing/src/data/docs/nav.json` (grep-verify after — note 10),
+  network guide/concept JSON (completed growing/fading story; invitation bond vs trust),
   `apps/frontend/src/lib/onboarding/workflows.ts`, `docs/BUGS.md` (BUG-028 → resolved),
   `package.json` → `11.27.0`
 
@@ -282,7 +317,7 @@ cd apps/frontend && npx jest && npx tsc --noEmit -p apps/frontend
 - [ ] **Verification:**
 ```bash
 grep -c "adr-085\|joining-karmyq" apps/landing/src/data/docs/nav.json   # both wired
-cd tests && npx jest regression/doc-context-drift-gate.test.ts          # direct run (Turbo cache — note 10)
+cd tests && npx jest regression/doc-context-drift-gate.test.ts          # direct run (Turbo cache — note 11)
 ```
 
 ## Task 11: CONTEXT.md + registry.json + integration test
@@ -328,7 +363,7 @@ npx tsc --noEmit -p services/social-graph-service && npx tsc --noEmit -p apps/fr
 npm test && npm run feedback:check && git diff --check
 ```
 - [ ] Direct (non-Turbo) rerun of cross-workspace regression suites touched by doc/landing changes
-  (note 10).
+  (note 11).
 - [ ] Promote green TDD suites per `scripts/promote-tdd-tests.js` policy (or leave for CI promotion
   if that's the current flow — check the script).
 
@@ -341,12 +376,15 @@ npm test && npm run feedback:check && git diff --check
 - [ ] Merge → GitHub Actions deploys to karmyq.com; monitor; use the `/deploy` skill.
 - [ ] **Human validation (mandatory — API smoke + DB check + UI check):**
   - `/auth/demo-session` still 200 with the curated Maria story;
-  - register a throwaway account via the OPEN path on demo → arrival moment renders (community
-    ring, CTA works, skip works);
+  - register a throwaway account via the OPEN path on demo → arrival moment renders (you on the
+    community ring with ZERO trust edges — no empty state; CTA works, skip works);
   - generate an invite from a non-protected persona → accept it via `/invite/[code]` → arrival
-    shows the newborn edge; DB: the trust/invitation edge exists for the pair;
-  - `/network?mode=ego` as `maria.reyes` → lifecycle encoding + legend visible, orbits unchanged;
+    shows the invitation bond (distinct from trust styling); DB: `auth.user_invitations` row +
+    `users.invited_by` link the pair (NO trust edge is expected — note 2);
+  - `/network?mode=ego` as `maria.reyes` → decayTier bands unchanged, "New" legend entry present,
+    any recently formed curated edge shows the emphasis, orbits unchanged;
   - the BUG-028 surface: connected-badge and graph now agree on the curated baseline;
   - desktop + mobile viewport pass on the funnel pages.
-- [ ] Flip ADR-085 → `Implemented`; resolve BUG-028 in `docs/BUGS.md` (if not already); update
-  handoff to COMPLETE (rides with the PR or the next one — no docs-only master push).
+- [ ] **Post-deploy bookkeeping (note 14):** flip ADR-085 → `Implemented` and update the handoff to
+  COMPLETE, but leave these edits UNCOMMITTED to ride the next PR — deploy happens after merge, and
+  a docs-only master push is forbidden (S117 precedent).
