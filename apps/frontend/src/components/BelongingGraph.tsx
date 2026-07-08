@@ -43,7 +43,7 @@ export interface BelongingGraphProps {
 
 /**
  * Sprint 111 / ADR-081 — the single belonging-graph wrapper. Dispatches per-mode fetching to
- * socialGraphService (NOT socialGraphClient, which is paths/invitations only), normalizes the
+ * socialGraphService, normalizes the
  * inter-community depth payload, and renders everything through one TrustGraphHEB. Replaces the
  * retired NetworkGraph / TrustGraph / CommunityDepthGraph wrappers.
  */

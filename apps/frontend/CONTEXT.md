@@ -84,8 +84,8 @@ One graph engine, one client model, one explorer. All belonging surfaces now ren
   `normalizeCommunityDepthGraph` (DepthNode/DepthLink → canonical) and `mergeGraphData` (order-
   independent merge; baseline is authoritative on identity, expansions add neighbors and keep the
   **min** `degrees_of_separation`). `TrustGraphHEB` is canonical-type-only.
-- **`<BelongingGraph mode>`** dispatches fetching per mode via `socialGraphService` (NOT
-  `socialGraphClient`, which is paths/invitations): `ego` → `getTrustGraphAggregate`; `community` →
+- **`<BelongingGraph mode>`** dispatches fetching per mode via `socialGraphService`:
+  `ego` → `getTrustGraphAggregate`; `community` →
   `getFullCommunityGraph(communityId)`; `communities` → `getCommunityGraph` then normalize; `fission`
   → caller-supplied `graphData` (no fetch). `load="immediate"` opts out of lazy IntersectionObserver
   loading (used by `/network`); card surfaces stay lazy. `onDataLoaded` lets the profile pulse reuse

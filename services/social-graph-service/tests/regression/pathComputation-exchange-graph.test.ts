@@ -1,11 +1,13 @@
 /**
- * TDD tests for exchange-based trust graph in pathComputation.ts
+ * TDD tests for the trust-path adjacency graph in pathComputation.ts
  *
- * Trust paths are built from completed exchanges (requests.matches),
+ * Trust paths are built from LIVE trust edges (social_graph.trust_edges_live — the same
+ * decay-adjusted edge set the belonging graph discloses; Sprint 118 / BUG-028),
  * NOT from invitation links (auth.user_invitations).
  *
- * Graph edges: requester_id <-> responder_id for each completed match
- * Graph scope: platform-wide (not community-scoped)
+ * Graph edges: user_id_a <-> user_id_b for each live trust edge with both endpoints
+ * active members of the edge's community
+ * Graph scope: platform-wide (not community-scoped) — ADR-077
  */
 
 jest.mock('../../src/config/database', () => ({
@@ -32,11 +34,11 @@ describe('pathComputation - exchange-based trust graph', () => {
     jest.clearAllMocks();
   });
 
-  it('builds graph from completed exchanges, not invitations', async () => {
-    // Two users connected by a completed match (user-a helped user-b)
+  it('builds graph from live trust edges, not invitations', async () => {
+    // Two users connected by a live trust edge (user-a helped user-b)
     pool.query
       .mockResolvedValueOnce({
-        rows: [{ user_a: 'user-a', user_b: 'user-b' }], // exchange graph
+        rows: [{ user_a: 'user-a', user_b: 'user-b' }], // live-edge adjacency
       })
       .mockResolvedValueOnce({
         rows: [
@@ -51,9 +53,9 @@ describe('pathComputation - exchange-based trust graph', () => {
     expect(result).not.toBeNull();
     expect(result?.degrees).toBe(1);
 
-    // The first query must reference requests.matches and NOT auth.user_invitations
+    // The adjacency must come from the graph's edge set and NOT auth.user_invitations
     const firstCallSql = pool.query.mock.calls[0][0] as string;
-    expect(firstCallSql).toContain('requests.matches');
+    expect(firstCallSql).toContain('social_graph.trust_edges_live');
     expect(firstCallSql).not.toContain('user_invitations');
   });
 

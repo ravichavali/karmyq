@@ -23,10 +23,10 @@ interface GraphNode {
 }
 
 /**
- * Compute shortest path between two users using bidirectional BFS
- * Max depth: 4 degrees of separation
+ * Compute shortest path between two users using BFS over live trust edges.
+ * Max depth: 3 degrees of separation.
  *
- * Returns null if no path found within 4 degrees
+ * Returns null if no path found within 3 degrees
  */
 export async function computeShortestPath(
   sourceUserId: string,
@@ -35,13 +35,19 @@ export async function computeShortestPath(
 ): Promise<TrustPath | null> {
   const MAX_DEPTH = 3;
 
-  // Build adjacency list from completed exchanges (platform-wide, not community-scoped)
-  // Trust paths emerge from actual exchanges, not invitation links
+  // Sprint 118 (BUG-028): the adjacency is the SAME edge set the belonging graph discloses —
+  // decay-adjusted `trust_edges_live` with both endpoints active members of the edge's community
+  // (mirrors getTrustNeighborhood's links query). Raw all-time `requests.matches` diverged: a
+  // completed match whose trust edge never existed (legacy seeds) or has decayed away produced a
+  // "connected" badge the graph couldn't substantiate. Topology stays platform-wide (union across
+  // communities, ADR-077); DISTINCT collapses a pair's per-community edges to one hop.
   const graphResult = await pool.query(
-    `SELECT hr.requester_id as user_a, m.responder_id as user_b
-     FROM requests.matches m
-     JOIN requests.help_requests hr ON hr.id = m.request_id
-     WHERE m.status = 'completed'`,
+    `SELECT DISTINCT tel.user_id_a AS user_a, tel.user_id_b AS user_b
+     FROM social_graph.trust_edges_live tel
+     JOIN communities.members ma
+       ON ma.user_id = tel.user_id_a AND ma.community_id = tel.community_id AND ma.status = 'active'
+     JOIN communities.members mb
+       ON mb.user_id = tel.user_id_b AND mb.community_id = tel.community_id AND mb.status = 'active'`,
     []
   );
 
@@ -75,16 +81,17 @@ export async function computeShortestPath(
   while (queue.length > 0 && !found) {
     const current = queue.shift()!;
 
-    // Stop if we've exceeded max depth
-    if (current.distance >= MAX_DEPTH) {
-      continue;
-    }
-
-    // Check if we've reached the target
+    // Check if we've reached the target BEFORE the depth gate — a target discovered at exactly
+    // MAX_DEPTH is a valid 3° connection (the pre-Sprint-118 order silently dropped it).
     if (current.userId === targetUserId) {
       found = true;
       meetingPoint = targetUserId;
       break;
+    }
+
+    // Stop expanding past max depth
+    if (current.distance >= MAX_DEPTH) {
+      continue;
     }
 
     // Explore neighbors

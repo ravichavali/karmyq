@@ -574,30 +574,37 @@ SELECT auth.generate_invitation_code('Mike Chen', 2024);
 
 ---
 
-### 2. Bidirectional BFS Path Computation
+### 2. BFS Path Computation
 
 **Algorithm**: `computeShortestPath(sourceUserId, targetUserId, communityId)`
 
-**Steps**:
-1. Build adjacency list from `auth.user_invitations`
+**Steps** (Sprint 118 / BUG-028 — the adjacency is the SAME edge set the belonging graph
+discloses, so every "connected" claim is substantiated by the graph):
+1. Build adjacency list from `social_graph.trust_edges_live` (decay-adjusted view), requiring
+   BOTH endpoints to be active members of the edge's community — mirrors the neighborhood links
+   query. Platform-wide union across communities (ADR-077); `DISTINCT` collapses a pair's
+   per-community edges to one hop.
 2. Treat graph as bidirectional (trust flows both ways)
-3. BFS from source to target
+3. BFS from source to target (target check runs before the depth gate, so an exactly-3° target
+   is found)
 4. Max depth: 3 degrees
 5. Return `null` if no path found
 
-**Optimization**: Bidirectional search reduces search space from O(b^d) to O(2 * b^(d/2))
+Fallbacks when no live-edge path exists: `computeCommunityPath` (shared active community, worded
+as membership — not a trust connection) then `computeInvitationPath` (accepted-invitation chain).
 
-**Example Output**:
+**Example Output** (ADR-082: identity + topology only — no karma on path nodes):
 ```typescript
 {
   degrees: 2,
   userIds: ['user-a', 'user-b', 'user-c'],
   path: [
     { id: 'user-a', name: 'You' },
-    { id: 'user-b', name: 'Mike', karma: 87, invited_at: '2024-11-15' },
+    { id: 'user-b', name: 'Mike', exchanged_at: '2026-05-15' },
     { id: 'user-c', name: 'Sarah' }
   ],
-  trustScore: 87 // Sum of intermediate karma (87 for Mike)
+  trustScore: 3.2, // internal ranking only (sum of community-scoped effective edge weights); never returned outward
+  connectionType: 'exchange'
 }
 ```
 
