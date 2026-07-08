@@ -72,14 +72,23 @@ pg() { docker exec -i "$CONTAINER" psql -U "$PGUSER" -d "$PGDB" "$@"; }
 apply_migration() {
   local f="$1" exec_lines
   exec_lines="$(grep -v '^\s*--' "$f")"
-  if printf '%s\n' "$exec_lines" | grep -qE '^\s*BEGIN\s*;\s*$' \
-     && ! printf '%s\n' "$exec_lines" | grep -qiE '\bROLLBACK\b|^\s*\\(if|set)\b'; then
-    grep -vE '^\s*(BEGIN|COMMIT)\s*;\s*$' "$f" | pg -v ON_ERROR_STOP=0 -q 2>&1 || true
+  # Always drop \connect lines first: one migration (001-add-polymorphic-requests.sql) opens with
+  # `\c karmyq_prod;`, and in NON-interactive psql a failed \connect terminates the whole session —
+  # every later statement in the file silently never applies, and the FATAL "database ... does not
+  # exist" text matches the redundancy allowlist below, so nothing flags it. CI is already connected
+  # to the right DB; a \connect is never needed here. (`\b` keeps `\copy` etc. unaffected.)
+  # NOTE: a literal backslash in these ERE patterns must be written as [\\] — GNU grep silently
+  # fails to match `\\c` / `\\(` here (verified empirically; the `\\(if|set)` form never matched).
+  local strip_connect='^\s*[\\]c(onnect)?\b'
+  if printf '%s\n' "$exec_lines" | grep -qiE '^\s*BEGIN\s*;\s*(--.*)?$' \
+     && ! printf '%s\n' "$exec_lines" | grep -qiE '\bROLLBACK\b|^\s*[\\](if|set)\b'; then
+    grep -vE "$strip_connect" "$f" | grep -viE '^\s*(BEGIN|COMMIT)\s*;\s*(--.*)?$' | pg -v ON_ERROR_STOP=0 -q 2>&1 || true
   else
-    pg -v ON_ERROR_STOP=0 -q < "$f" 2>&1 || true
+    grep -vE "$strip_connect" "$f" | pg -v ON_ERROR_STOP=0 -q 2>&1 || true
   fi
 }
 
+# Same DDL as scripts/apply-migrations.sh's tracking table — keep the two in sync.
 pg -v ON_ERROR_STOP=1 -q <<'SQL'
 CREATE TABLE IF NOT EXISTS public.schema_migrations (
     migration_name VARCHAR(255) PRIMARY KEY,
@@ -88,15 +97,21 @@ CREATE TABLE IF NOT EXISTS public.schema_migrations (
 SQL
 
 FAILED=0
+APPLIED_VALUES=""
 echo "== Applying full migrated schema to ${CONTAINER}/${PGDB} =="
-for f in $(ls "${MIG_DIR}"/*.sql | sort); do
+for f in "${MIG_DIR}"/*.sql; do
+  [ -e "$f" ] || { echo "FAILED: no migration files found in ${MIG_DIR}" >&2; exit 1; }
   name="$(basename "$f")"
   # ON_ERROR_STOP=0: redundant objects already in init.sql collide-and-skip; missing ones apply.
   out="$(apply_migration "$f")"
-  # Anything NOT matching expected redundancy noise is a genuinely unexpected failure — fail the job.
+  # Anything NOT matching expected redundancy noise is a genuinely unexpected failure — fail the
+  # job. Deliberately NOT allowlisted: bare "violates" — benign re-run dup-key noise already reads
+  # "duplicate key value violates unique constraint" (caught by 'duplicate'), so any other
+  # constraint violation (FK/CHECK/NOT NULL in a data backfill) is a real failure that would
+  # otherwise be silently skipped here and then hard-fail live in apply-migrations.sh.
   real="$(printf '%s\n' "$out" \
     | grep -iE 'ERROR' \
-    | grep -viE 'already exists|does not exist|duplicate|multiple primary keys|cannot (drop|alter)|is not a|violates|no partition' \
+    | grep -viE 'already exists|does not exist|duplicate|multiple primary keys|cannot (drop|alter)|is not a|no partition' \
     || true)"
   if [ -n "$real" ]; then
     echo "  ! ${name}: unexpected error — will fail this job:"
@@ -104,15 +119,22 @@ for f in $(ls "${MIG_DIR}"/*.sql | sort); do
     FAILED=1
     continue
   fi
-  # Backfill the tracking row only for a file that applied cleanly or was confirmed redundant, so
+  # Queue the tracking row only for a file that applied cleanly or was confirmed redundant, so
   # schema_migrations converges with what a from-scratch apply-migrations.sh run would leave behind
   # (a real apply-migrations.sh run never records a tracking row for a migration whose content
   # errored — the INSERT is inside the same failed transaction).
   name_sql="${name//\'/\'\'}"
-  pg -v ON_ERROR_STOP=1 -q -c \
-    "INSERT INTO public.schema_migrations (migration_name) VALUES ('${name_sql}') ON CONFLICT DO NOTHING;" \
-    >/dev/null
+  APPLIED_VALUES="${APPLIED_VALUES}${APPLIED_VALUES:+,}('${name_sql}')"
 done
+
+# One batched backfill instead of a docker-exec round-trip per file. Runs BEFORE the fail-exit so
+# a failed run still records its cleanly-applied files, matching apply-migrations.sh's
+# record-each-success-as-you-go semantics for anyone inspecting the failed CI DB.
+if [ -n "$APPLIED_VALUES" ]; then
+  pg -v ON_ERROR_STOP=1 -q -c \
+    "INSERT INTO public.schema_migrations (migration_name) VALUES ${APPLIED_VALUES} ON CONFLICT DO NOTHING;" \
+    >/dev/null
+fi
 
 if [ "$FAILED" -ne 0 ]; then
   echo "FAILED: one or more migrations produced an unexpected error (see above)." >&2
@@ -147,5 +169,10 @@ assert "federation.instances table" \
 # designed-to-forget (20260607) retention config.
 assert "requests.retention_config table" \
   "SELECT (to_regclass('requests.retention_config') IS NOT NULL)"
+# 001-add-polymorphic-requests applied past its (stripped) \connect line: it sets DEFAULT true,
+# while the later 006_social_karma_v2 would set DEFAULT false — the default value proves WHICH
+# migration created the column, i.e. that the \connect-bearing file really ran.
+assert "help_requests.is_public default true (001-add-polymorphic applied)" \
+  "SELECT (column_default = 'true') FROM information_schema.columns WHERE table_schema='requests' AND table_name='help_requests' AND column_name='is_public'"
 
 echo "== Full migrated schema applied and verified =="

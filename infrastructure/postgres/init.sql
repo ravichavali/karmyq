@@ -120,37 +120,35 @@ CREATE TABLE auth.inviter_stats (
 CREATE INDEX idx_inviter_stats_tier ON auth.inviter_stats(inviter_tier);
 CREATE INDEX idx_inviter_stats_community ON auth.inviter_stats(community_id);
 
--- Function to generate unique invitation codes
+-- Function to generate unique invitation codes. Kept identical to migration 009_social_graph.sql's
+-- REGEXP_REPLACE version (which strips ALL punctuation, not just spaces — a space-only strip lets a
+-- name with an apostrophe or hyphen violate the invitation_code_format CHECK).
 CREATE OR REPLACE FUNCTION auth.generate_invitation_code(
-    user_name TEXT,
-    year INTEGER
+    p_inviter_name TEXT,
+    p_year INTEGER DEFAULT EXTRACT(YEAR FROM NOW())::INTEGER
 )
 RETURNS TEXT AS $$
 DECLARE
-    random_suffix TEXT;
-    new_invitation_code TEXT;
-    code_exists BOOLEAN;
+    v_code TEXT;
+    v_random_suffix TEXT;
+    v_exists BOOLEAN;
 BEGIN
+    -- Generate random 4-character alphanumeric suffix
     LOOP
-        -- Generate random 4-character suffix
-        random_suffix := upper(substring(md5(random()::text) from 1 for 4));
-
-        -- Format: KARMYQ-NAME-YEAR-XXXX
-        new_invitation_code := 'KARMYQ-' ||
-                          upper(substring(replace(user_name, ' ', '') from 1 for 8)) ||
-                          '-' || year || '-' || random_suffix;
+        v_random_suffix := UPPER(SUBSTRING(MD5(RANDOM()::TEXT) FROM 1 FOR 4));
+        v_code := FORMAT('KARMYQ-%s-%s-%s',
+            UPPER(REGEXP_REPLACE(p_inviter_name, '[^A-Za-z0-9]', '', 'g')),
+            p_year,
+            v_random_suffix
+        );
 
         -- Check if code already exists
-        SELECT EXISTS(
-            SELECT 1 FROM auth.user_invitations
-            WHERE invitation_code = new_invitation_code
-        ) INTO code_exists;
+        SELECT EXISTS(SELECT 1 FROM auth.user_invitations WHERE invitation_code = v_code) INTO v_exists;
 
-        -- Exit loop if unique code found
-        EXIT WHEN NOT code_exists;
+        EXIT WHEN NOT v_exists;
     END LOOP;
 
-    RETURN new_invitation_code;
+    RETURN v_code;
 END;
 $$ LANGUAGE plpgsql;
 
@@ -1338,12 +1336,18 @@ CREATE TABLE IF NOT EXISTS social_graph.interaction_weights (
   UNIQUE(community_id, interaction_type)
 );
 
+-- Same NULL-dedup guard as 20260525-trust-graph-foundation.sql: a bare UNIQUE(community_id,
+-- interaction_type) does NOT dedupe rows with community_id = NULL (Postgres treats NULLs as
+-- distinct), so a bare ON CONFLICT DO NOTHING would silently re-insert duplicate global rows.
+CREATE UNIQUE INDEX IF NOT EXISTS uq_interaction_weights_global
+  ON social_graph.interaction_weights (interaction_type) WHERE community_id IS NULL;
+
 INSERT INTO social_graph.interaction_weights (community_id, interaction_type, weight) VALUES
   (NULL, 'match_completed', 10.0),
   (NULL, 'endorsement',      5.0),
   (NULL, 'karma_given',      3.0),
   (NULL, 'event',            2.0)
-ON CONFLICT DO NOTHING;
+ON CONFLICT (interaction_type) WHERE community_id IS NULL DO NOTHING;
 
 CREATE TABLE IF NOT EXISTS social_graph.community_trust_edges (
   id                      UUID PRIMARY KEY DEFAULT gen_random_uuid(),
