@@ -52,6 +52,10 @@ export interface TrustLink {
   target: string;
   raw_weight: number;
   effective_weight: number;
+  /** Sprint 118 (ADR-085): pair's FIRST edge formation (MIN(created_at) across the pair's
+   *  per-community edges). Internal only — the projection derives a boolean; the timestamp
+   *  never leaves the service. Populated by the neighborhood links query. */
+  formed_at?: Date | string;
 }
 
 export type InteractionType = 'match_completed' | 'endorsement' | 'karma_given' | 'event';
@@ -647,10 +651,13 @@ export async function getTrustNeighborhood(
   // connection counts). Both endpoints must be ACTIVE members of the edge's own community, matching the
   // traversal's active-only contract (a node discovered via community Y must not surface an edge in X
   // where it isn't active).
+  // MIN(created_at) = the pair's FIRST formation across communities (Sprint 118 / ADR-085): a
+  // long-standing pair adding an edge in a new community is NOT a new bond. Internal only.
   const linksQuery = `
     SELECT tel.user_id_a AS source, tel.user_id_b AS target,
            SUM(tel.raw_weight) AS raw_weight,
-           SUM(tel.current_weight) AS effective_weight
+           SUM(tel.current_weight) AS effective_weight,
+           MIN(tel.created_at) AS formed_at
     FROM social_graph.trust_edges_live tel
     JOIN communities.members ma
       ON ma.user_id = tel.user_id_a AND ma.community_id = tel.community_id AND ma.status = 'active'
@@ -681,6 +688,7 @@ export async function getTrustNeighborhood(
       target: r.target,
       raw_weight: parseFloat(r.raw_weight) || 0,
       effective_weight: parseFloat(r.effective_weight) || 0,
+      formed_at: r.formed_at,
     })),
     meta: { depth, truncated },
   };
