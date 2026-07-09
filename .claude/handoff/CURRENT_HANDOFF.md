@@ -57,14 +57,20 @@ revert, recorded as ADR-086.
    proximity ranking preserved — assert it doesn't move). Client: `TrustPathBadge.tsx` has TWO
    render sites naming the admin (~L88, ~L112) — fix both, grep for any other consumer of
    community_member path nodes. Cached rows become harmless via the renderer; no cache purge.
+   BUT cache-hit responses omit `community_name` today (`paths.ts` cache-hit branch) — enrich
+   community_member cache hits with the name on BOTH single + batch routes, prove it with a
+   ROUTE-level cached-row test, and give the badge a "Fellow community member" fallback.
 2. **`computeInvitationPath` wording is a review, not a rewrite** — "Joined through {inviter}" is
    factual provenance; change only if a surface renders it as a live trust route.
 3. **Arrival gap: reuse the exact S118 pattern with its gates** (`communities/index.tsx:355-362`):
    fires only on a FIRST public join (`karmyq_onboarded:<userId>` AND legacy global key absent);
    invite-funnel joins already route; `/welcome` handles the no-membership deep link.
-4. **`setAuthSession` preserves exact side effects**: store `token`/`refreshToken`/`user`, clear
-   `demoContext`, nothing more; `ApiClient.login/register` already set the token (#140); decode
-   the JWT for membership (`communities`, never `communityMemberships`).
+4. **`setAuthSession` scope = real-auth sites ONLY (login, register, invite).** `demo.tsx` is
+   intentionally NOT migrated — it stores `demoContext` and REMOVES `refreshToken` by design
+   (the tour must expire; `apps/frontend/CONTEXT.md`); `dashboard.tsx` only CLEARS → use a
+   sibling `clearAuthSession`. Setter side effects exact: store `token`/`refreshToken`/`user`,
+   clear `demoContext`, nothing more; `ApiClient.login/register` already set the token (#140);
+   decode the JWT for membership (`communities`, never `communityMemberships`).
 5. **Header: lever 1 is DONE** (`kq-page` already carries `--measure-chrome: 72rem`,
    `karmyq-shell.css:7`); this sprint is lever 2 only (move Communities/Service Providers into
    overflow). `kq-topnav` is xl-only (BUG-016) — audit md–xl first; don't regress the rhythm.
@@ -76,7 +82,10 @@ revert, recorded as ADR-086.
    community scale and NOT chosen; `formed_recently` stays fail-closed false there.
 8. **Bridge aliveness is server-derived, fail-closed, qualitative (ADR-082):** `active_recently` =
    `community_trust_edges.last_interaction_at` within the SAME exported 30-day constant S118
-   introduced (no second window constant); the raw timestamp never leaves the server.
+   introduced (no second window constant); the raw timestamp never leaves the server. Client-side
+   it must survive the normalization hop (`normalizeCommunityDepthGraph`:
+   `DepthLink.active_recently` → `TrustLink.activeRecently`) and the hub tests must exercise a
+   RAW depth-graph payload through that hop, not only hand-built `TrustLink`s.
 9. **Demo look: check bridge/degree data before judging surfaces** — the demo graph is sparse
    (avg ~4.6 connections; `community_trust_edges` may be thin); `maria.reyes` is the rich view;
    protected story core (maria.reyes / elena.torres / noah.williams / marcus.lee@test.karmyq.com)

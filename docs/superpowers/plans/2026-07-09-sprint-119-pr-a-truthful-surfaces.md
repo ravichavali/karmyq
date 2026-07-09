@@ -24,7 +24,7 @@ No schema changes, no new endpoints.
 ### New files to create
 | File | Responsibility |
 |------|---------------|
-| `apps/frontend/src/lib/session.ts` | `setAuthSession` — the single auth-session write sequence |
+| `apps/frontend/src/lib/session.ts` | `setAuthSession` (real-auth write sequence) + `clearAuthSession` (invalid-session cleanup) |
 | `services/social-graph-service/tests/tdd/sprint-119-community-path-shape.test.ts` | BUG-029 server: community_member path = endpoints only |
 | `apps/frontend/tests/tdd/sprint-119-trust-path-badge-truthful.test.tsx` | BUG-029 client: no "via {person}" for community_member |
 | `apps/frontend/tests/tdd/sprint-119-community-page-arrival.test.tsx` | First join from community page routes to /welcome |
@@ -36,7 +36,9 @@ No schema changes, no new endpoints.
 | `services/social-graph-service/src/services/pathComputation.ts` | `computeCommunityPath` (L281): endpoints + community_name only; drop the earliest-admin lookup; keep `connection_type`, `degrees: 2` |
 | `apps/frontend/src/components/TrustPathBadge.tsx` | community_member: "Fellow member of {community}" / "in {community}"; never "via {person}" (both render sites, ~L88 + ~L112); review invitation wording |
 | `apps/frontend/src/pages/communities/[id].tsx` | `handleJoinCommunity` (L88): first-public-join gate → user-stamped `karmyq_arrival` + `/welcome` (mirror `communities/index.tsx:355-362`) |
-| `apps/frontend/src/pages/{login,register,demo,dashboard}.tsx`, `apps/frontend/src/pages/invite/[code].tsx` | Replace inline session writes with `setAuthSession` |
+| `apps/frontend/src/pages/{login,register}.tsx`, `apps/frontend/src/pages/invite/[code].tsx` | Replace inline session writes with `setAuthSession` |
+| `apps/frontend/src/pages/dashboard.tsx` | Replace inline invalid-session cleanup with `clearAuthSession` (dashboard only CLEARS; it never sets) |
+| `services/social-graph-service/src/routes/paths.ts` | Cache-hit `community_member` responses (single + batch) enriched with `community_name` — fresh computes include it, cache hits currently don't |
 | `apps/frontend/src/components/Layout.tsx` | Lever 2: move Communities/Service Providers (+ provider links) out of `kq-topnav` into overflow |
 | `docs/BUGS.md` | BUG-029 → fixed |
 | `services/social-graph-service/CONTEXT.md`, `services/registry.json` | Paths shape change documented |
@@ -52,15 +54,23 @@ Spec notes 1–5, 11–15 apply to this PR verbatim — the load-bearing ones:
 1. **BUG-029 both ends:** server returns endpoints + `community_name` only (admin lookup deleted);
    **keep `degrees: 2`** (feed ranking preserved — assert it doesn't move); client fixes BOTH
    badge render sites and greps for any other `community_member` path-node consumer. Cached rows
-   become harmless via the renderer — no cache purge.
+   become harmless via the renderer — no cache purge. **BUT cache-hit responses omit
+   `community_name` today** (`paths.ts` cache-hit branch vs fresh-compute branch) — enrich
+   `community_member` cache hits with the name (the `communityId` is already in scope; one name
+   lookup) on BOTH the single and batch routes, prove it with a ROUTE-level cached-row test, and
+   give the badge a graceful "Fellow community member" fallback for an absent name.
 2. **Invitation wording is a review, not a rewrite** — "Joined through {inviter}" is factual
    provenance; change only if a surface renders it as a live trust route.
 3. **Arrival gap:** copy the `communities/index.tsx:355-362` pattern with its EXACT gates (first
    public join only: `karmyq_onboarded:<userId>` AND legacy global key absent); invite-funnel
    joins already route; `/welcome` handles the no-membership deep link.
-4. **`setAuthSession`:** token + refreshToken + user stored, `demoContext` cleared, nothing more;
-   `ApiClient.login/register` already set the token (#140) — don't double-manage; decode the JWT
-   for membership (`communities`, never `communityMemberships`); `getMyCommunities` returns
+4. **`setAuthSession` scope: real-auth sites ONLY (login, register, invite).** `demo.tsx` is
+   intentionally OUT — it stores `demoContext` and explicitly REMOVES `refreshToken` (the tour
+   must expire; documented in `apps/frontend/CONTEXT.md`) — migrating it breaks `/demo`.
+   `dashboard.tsx` only CLEARS session state → use `clearAuthSession`. The setter: token +
+   refreshToken + user stored, `demoContext` cleared, nothing more; `ApiClient.login/register`
+   already set the token (#140) — don't double-manage; decode the JWT for membership
+   (`communities`, never `communityMemberships`); `getMyCommunities` returns
    `{communities,count,total}`, not an array.
 5. **Header lever 1 is DONE** (`kq-page` → `--measure-chrome: 72rem`); this PR is lever 2 only.
    `kq-topnav` is xl-only (BUG-016) — audit md–xl first; don't regress the topbar rhythm.
@@ -82,6 +92,11 @@ Spec notes 1–5, 11–15 apply to this PR verbatim — the load-bearing ones:
       EXACTLY the two endpoints (no third node), `community_name` present,
       `connection_type: 'community_member'`, `degrees_of_separation === 2`. Add a regression-style
       assertion that no admin/member lookup result appears anywhere in the returned path array.
+- [ ] **Route-level cache-hit test**: with a pre-seeded `auth.social_distances`
+      `community_member` row (old 3-node `shortest_path` shape), `GET /paths/:targetUserId` and
+      `POST /paths/batch` respond with `community_name` present and a `path` the badge can render
+      truthfully — this is the case component tests with mocked `community_name` cannot catch
+      (cache hits omit the name today).
 - [ ] **Client test**: render `TrustPathBadge` with a `community_member` path (both old 3-node
       cached shape AND new 2-node shape): full variant shows "Fellow member of {community}",
       compact shows "in {community}"; assert `via` does NOT appear for either input shape; assert
@@ -106,6 +121,9 @@ cd apps/frontend && npx jest tests/tdd/sprint-119-trust-path-badge-truthful --no
 - [ ] Grep the service for every consumer of community_member `path_data` (cache write/read in
       `paths.ts` single + batch, internal relationship context) — confirm none assumes a 3-node
       path; fix any that does.
+- [ ] **Enrich cache-hit responses with `community_name`** for `community_member` rows on BOTH
+      routes (`paths.ts` cache-hit branch responds without it today; `communityId` is already in
+      scope — one name lookup, reuse an existing helper if present).
 - [ ] Confirm feed-ranking inputs unchanged: grep request-service for `degrees_of_separation` /
       proximity usage and assert only the `path` array shape changed.
 - [ ] Run `/simplify` on the touched files.
@@ -123,7 +141,9 @@ cd services/social-graph-service && npx jest tests/tdd/sprint-119-community-path
 
 - [ ] community_member full variant → "Fellow member of {community}"; feed-compact → "in
       {community}"; remove both "via {admin}" branches (~L88, ~L112) and the person-chain row for
-      this type. Tolerate old cached 3-node shapes (render as if 2-node).
+      this type. Tolerate old cached 3-node shapes (render as if 2-node) and an ABSENT
+      `community_name` (graceful "Fellow community member" fallback — belt-and-braces under the
+      Task 2 cache-hit enrichment).
 - [ ] Review `invitation_chain` wording per spec note 2 — record keep/change decision in the PR
       description.
 - [ ] Grep frontend + mobile for any other renderer of community_member paths (`Fellow member`,
@@ -161,13 +181,18 @@ cd apps/frontend && npx jest tests/tdd/sprint-119-community-page-arrival --no-co
 
 **Files:**
 - Create: `apps/frontend/src/lib/session.ts`, `apps/frontend/tests/tdd/sprint-119-set-auth-session.test.ts`
-- Modify: `login.tsx`, `register.tsx`, `demo.tsx`, `dashboard.tsx`, `invite/[code].tsx`
+- Modify: `login.tsx`, `register.tsx`, `invite/[code].tsx` (setter), `dashboard.tsx` (clear)
 
-- [ ] **TDD first**: helper stores `token`/`refreshToken`/`user`, clears `demoContext`, does NOT
-      call ApiClient token setters (they're already set by login/register per #140), handles a
-      missing refreshToken gracefully.
-- [ ] Implement `setAuthSession`; migrate the five call sites; diff each site's before/after side
-      effects — byte-identical storage state per site (register's extra effects stay at the site).
+- [ ] **TDD first**: `setAuthSession` stores `token`/`refreshToken`/`user`, clears `demoContext`,
+      does NOT call ApiClient token setters (already set by login/register per #140), handles a
+      missing refreshToken gracefully; `clearAuthSession` removes
+      token/refreshToken/user/demoContext. Add a guard assertion that `demo.tsx` still contains
+      its explicit `removeItem('refreshToken')` + `demoContext` write (it must NOT be migrated —
+      the demo tour intentionally inverts the helper contract, see `apps/frontend/CONTEXT.md`).
+- [ ] Implement both helpers; migrate the three real-auth sites to `setAuthSession` and
+      dashboard's invalid-session cleanup to `clearAuthSession`; diff each site's before/after
+      side effects — byte-identical storage state per site (register's extra effects stay at the
+      site). **Leave `demo.tsx` untouched.**
 - [ ] Run `/simplify`.
 
 - [ ] **Verification: helper suite green + all five pages' existing suites green**
@@ -258,7 +283,8 @@ cd tests && npx jest regression --no-coverage
       (`/requests/707137aa-…`, viewer maria.reyes) now reads "in Southeast PDX Helpers" / "Fellow
       member of…" with no "via Nadia Ito" and graph agreement; a throwaway account's first join
       from a community DETAIL page lands on `/welcome`; login/register/invite still authenticate
-      (session helper); topbar at md/lg/xl reads calmer, moved links reachable. Do not mutate
-      protected personas.
+      (session helper) AND the `/demo` tour still starts and survives a refresh (no
+      refreshToken kept — its inline writes must be untouched); topbar at md/lg/xl reads calmer,
+      moved links reachable. Do not mutate protected personas.
 - [ ] Update handoff: PR A shipped; PR B is next. **Leave post-deploy bookkeeping uncommitted to
       ride PR B.**

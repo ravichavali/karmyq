@@ -90,8 +90,8 @@ Desktop/mobile five-second-test UX pass; init.sql regeneration (own sprint); doc
 
 | Method | Path | Change | PR |
 |--------|------|--------|----|
-| GET | `/paths/:targetUserId` (social-graph) | `community_member` paths: `path` = `[source, target]` endpoints only + `community_name`; **no admin node**. `connection_type` and `degrees: 2` unchanged (feed-ranking proximity preserved — maintainer decision). | A |
-| POST | `/paths/batch` (social-graph) | Same shape change for `community_member` entries. | A |
+| GET | `/paths/:targetUserId` (social-graph) | `community_member` paths: `path` = `[source, target]` endpoints only + `community_name`; **no admin node**. `connection_type` and `degrees: 2` unchanged (feed-ranking proximity preserved — maintainer decision). **Cache-hit responses currently omit `community_name`** (only fresh computes include it) — cache hits for `community_member` must be enriched with the name (the `communityId` is already in scope at the cache-hit site; one name lookup), or the badge renders "Fellow member of undefined" until TTL. | A |
+| POST | `/paths/batch` (social-graph) | Same shape change for `community_member` entries, including the same cache-hit `community_name` enrichment. | A |
 | GET | `/trust/communities` (social-graph) | Organic links gain `active_recently: boolean` (fail-closed from `last_interaction_at` vs the shared 30-day constant). Fission links unchanged. No other fields added. | B |
 | GET | `/trust/graph/:communityId/full` | **Unchanged.** "Where do you fit?" is client-side viewer emphasis; do NOT add `formed_at` to community queries (weaving/fraying was considered and not chosen). | — |
 
@@ -109,8 +109,12 @@ Desktop/mobile five-second-test UX pass; init.sql regeneration (own sprint); doc
   `communities/index.tsx` (only when `karmyq_onboarded:<userId>` and the legacy global key are
   both absent; otherwise current behavior).
 - **`lib/session.ts` (new)** — `setAuthSession({ token, refreshToken, user })` extracts the
-  repeated write sequence (store token/refreshToken/user, clear `demoContext`); migrate the five
-  call sites: `login.tsx`, `register.tsx`, `invite/[code].tsx`, `demo.tsx`, `dashboard.tsx`.
+  repeated REAL-auth write sequence (store token/refreshToken/user, clear `demoContext`); migrate
+  the three real-auth sites: `login.tsx`, `register.tsx`, `invite/[code].tsx`. A sibling
+  `clearAuthSession()` covers `dashboard.tsx`'s invalid-session cleanup (removes
+  token/refreshToken/user/demoContext). **`demo.tsx` is intentionally NOT migrated**: it stores
+  `demoContext` and explicitly REMOVES `refreshToken` (a demo session must never keep one —
+  documented in `apps/frontend/CONTEXT.md`); it keeps its explicit inline writes.
 - **`Layout.tsx` topbar** — lever 2 of header de-congestion: audit md–xl widths first, then move
   Communities / Service Providers (+ "Become a provider") from `kq-topnav` into an overflow ("More")
   affordance or the existing avatar menu, keeping Network in the topnav. Lever 1
@@ -128,6 +132,12 @@ Desktop/mobile five-second-test UX pass; init.sql regeneration (own sprint); doc
   `is_member`) render emphasized; bridges to periphery quieter; `active_recently` bridges get an
   aliveness treatment (reuse the S118 new-bond green family for consistency); legend entries
   ("Woven bridge — recent exchange", "Dormant bridge").
+- **`graphs/normalizeGraphData.ts` + `graphs/types.ts`** — the live data path for the hub is
+  `BelongingGraph` (mode `communities`) → `normalizeCommunityDepthGraph` → `DepthLink` →
+  `TrustLink`; `DepthLink` gains `active_recently?: boolean`, mapped to
+  `TrustLink.activeRecently?: boolean` (mirroring the `formed_recently` → `formedRecently`
+  pattern). Without this hop the renderer never sees aliveness in live data even though
+  hand-built renderer tests pass.
 - **`graphs/graphVisualEncoding.ts`** — the new constants/helpers live here (single source of
   encoding truth); shipped contracts (decayTier bands, new > caller > focused stroke precedence)
   untouched and pinned by regression assertions.
@@ -170,7 +180,11 @@ Mandatory, per PR:
    TWO render sites that name the admin (full ~line 88, feed-compact ~line 112) — fix both, and
    grep for any other consumer of `community_member` path nodes before declaring done (Bug Fixing
    discipline: find ALL instances). Existing cached rows become harmless via the renderer; do not
-   write a cache purge.
+   write a cache purge. **But the cache-hit RESPONSE path needs work too**: `paths.ts` cache hits
+   respond without `community_name` (fresh computes include it) — enrich `community_member` cache
+   hits with the name on both the single and batch routes, and cover this with a ROUTE-level
+   cached-row test (a component test with a mocked `community_name` cannot catch it). The badge
+   must still fall back gracefully ("Fellow community member") if the name is ever absent.
 2. **`computeInvitationPath` wording is provenance, likely fine — review, don't rewrite.**
    "Joined through {inviter}" states a fact (`invited_by`). Only change it if a surface renders it
    in a way that reads as a live trust route.
@@ -180,11 +194,14 @@ Mandatory, per PR:
    global key absent), never for invite-funnel joins (those already route), never for existing
    members. `/welcome` deep-link with no membership already redirects to `/dashboard` — don't
    re-implement.
-4. **`setAuthSession` must preserve exact side effects and nothing more.** Store `token`,
-   `refreshToken`, `user`; clear `demoContext`. `ApiClient.login/register` already set the auth
-   token since #140 — the helper must tolerate that, not double-manage it. Membership state comes
-   from decoding the new JWT — never hand-construct `communities`. The JWT field is `communities`,
-   not `communityMemberships`.
+4. **`setAuthSession` must preserve exact side effects and nothing more — and `demo.tsx` is out
+   of scope.** Store `token`, `refreshToken`, `user`; clear `demoContext`. `demo.tsx` does the
+   INVERSE on purpose (stores `demoContext`, removes `refreshToken` — the tour must expire;
+   `apps/frontend/CONTEXT.md` documents this contract) — leave it explicit, never migrate it.
+   `dashboard.tsx` only CLEARS session state — that's `clearAuthSession()`, not the setter.
+   `ApiClient.login/register` already set the auth token since #140 — the helper must tolerate
+   that, not double-manage it. Membership state comes from decoding the new JWT — never
+   hand-construct `communities`. The JWT field is `communities`, not `communityMemberships`.
 5. **Header: lever 1 is DONE — only lever 2 remains.** `kq-page` already carries
    `--measure-chrome: 72rem` (`karmyq-shell.css:7`). The desktop `kq-topnav` is `xl`-only by
    design (BUG-016). Audit md–xl before moving anything; the change is relocating
@@ -197,10 +214,13 @@ Mandatory, per PR:
 7. **Do NOT add `formed_at` to community graph queries.** "Weaving or fraying?" was considered for
    the community scale and NOT chosen. `projectPersonGraph` fail-closes `formed_recently` to false
    without it — leave it that way on community endpoints.
-8. **Bridge aliveness is server-derived and fail-closed (ADR-082).** `active_recently` = boolean
-   from `last_interaction_at` against the SAME 30-day window constant S118 introduced (share the
-   constant, don't mint a second window). No timestamps, weights beyond the existing field, or
-   counts added to the projection.
+8. **Bridge aliveness is server-derived and fail-closed (ADR-082) — and must survive the client
+   normalization hop.** `active_recently` = boolean from `last_interaction_at` against the SAME
+   30-day window constant S118 introduced (share the constant, don't mint a second window). No
+   timestamps, weights beyond the existing field, or counts added to the projection. Client-side,
+   the flag must be threaded through `normalizeCommunityDepthGraph` (`DepthLink.active_recently`
+   → `TrustLink.activeRecently`); at least one test must exercise the normalization path with a
+   raw depth-graph payload, not only hand-built `TrustLink`s.
 9. **Demo look: check bridge data before judging the hub.** The demo trust graph is sparse (avg
    ~4.6 in-scope connections) and `community_trust_edges` may be thin on the curated baseline —
    verify degree/bridge counts in the DB before debugging an "inert" hub. `maria.reyes` is the

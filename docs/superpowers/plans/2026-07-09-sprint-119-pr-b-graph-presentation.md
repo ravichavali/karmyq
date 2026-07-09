@@ -40,6 +40,8 @@ renderers), PostgreSQL 15.
 | `services/social-graph-service/src/routes/trustGraph.ts` (or the projection module) | Derive `active_recently: boolean` on organic links; strip the timestamp before responding |
 | `services/social-graph-service/src/services/disclosureProjection.ts` | Share the 30-day window constant (export, don't duplicate) |
 | `apps/frontend/src/components/graphs/graphVisualEncoding.ts` | Viewer-emphasis + bridge constants/helpers |
+| `apps/frontend/src/components/graphs/normalizeGraphData.ts` | `DepthLink` gains `active_recently?: boolean`; `normalizeCommunityDepthGraph` maps it to `activeRecently` |
+| `apps/frontend/src/components/graphs/types.ts` | `TrustLink` gains `activeRecently?: boolean` (mirrors the `formed_recently` → `formedRecently` pattern) |
 | `apps/frontend/src/components/graphs/communityRingModel.ts` | Rotation so the caller sits at 12 o'clock |
 | `apps/frontend/src/components/graphs/CommunityRingGraph.tsx` | Default viewer-chord emphasis, place summary line, "You" legend, honest no-bonds state |
 | `apps/frontend/src/components/graphs/CommunityHubGraph.tsx` | Member↔member bridge emphasis, `active_recently` aliveness treatment, legend entries |
@@ -66,6 +68,12 @@ Spec notes 6–15 apply to this PR verbatim — the load-bearing ones:
 4. **Bridge aliveness is server-derived, fail-closed, qualitative (ADR-082):** `active_recently` =
    `last_interaction_at` within the SAME exported 30-day constant S118 introduced (never a second
    window constant); the raw timestamp must NOT appear in the response.
+4b. **The flag must survive the client normalization hop or the live hub never sees it.** The
+   real data path is `BelongingGraph` (mode `communities`) → `normalizeCommunityDepthGraph` →
+   `DepthLink` → `TrustLink` (`normalizeGraphData.ts`, `types.ts`). Thread
+   `active_recently` → `activeRecently` through it, and make the hub TDD suite exercise the
+   normalization with a RAW depth-graph payload — hand-built `TrustLink` fixtures alone can go
+   green while live data shows nothing.
 5. **`/trust/communities` responds with `getCommunityDepthGraph` output directly** (no
    projectPersonGraph pass) — add the boolean at the derivation/route seam and keep fission links
    untouched.
@@ -100,7 +108,10 @@ Spec notes 6–15 apply to this PR verbatim — the load-bearing ones:
 - [ ] **Hub test**: an organic bridge with both endpoints `is_member` renders emphasized vs a
       periphery bridge; `active_recently` bridge gets the aliveness treatment; dormant
       member↔member bridge does not; legend lists the new entries; fission lineage rendering
-      unchanged.
+      unchanged. **Feed the renderer through `normalizeCommunityDepthGraph` with a RAW
+      depth-graph payload** (raw `active_recently` in, `activeRecently` out, aliveness visible) —
+      not only hand-built `TrustLink` fixtures — so the live `BelongingGraph` data path is what's
+      proven.
 
 - [ ] **Verification: all three suites RED for the right reason**
 
@@ -163,8 +174,12 @@ cd apps/frontend && npx jest tests/tdd/sprint-119-ring-where-you-fit --no-covera
 ## Task 5: CommunityHubGraph — "Which are woven together?"
 
 **Files:**
-- Modify: `CommunityHubGraph.tsx`
+- Modify: `CommunityHubGraph.tsx`, `normalizeGraphData.ts` (`DepthLink.active_recently` +
+  mapping), `types.ts` (`TrustLink.activeRecently`)
 
+- [ ] Thread the flag through the normalization hop: `DepthLink` gains
+      `active_recently?: boolean`; `normalizeCommunityDepthGraph` maps it to
+      `TrustLink.activeRecently` (mirror the `formed_recently` → `formedRecently` pattern).
 - [ ] Member↔member organic bridges emphasized; periphery + dormant quieted; `active_recently`
       aliveness treatment; legend entries ("Woven bridge — recent exchange", "Dormant bridge");
       fission lineage untouched. Aria labels name woven vs dormant.
