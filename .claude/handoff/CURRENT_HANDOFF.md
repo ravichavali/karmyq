@@ -1,21 +1,48 @@
-# Sprint 118 — Invited Arrival & the Living Graph — 📋 PLANNED, READY TO EXECUTE
+# Sprint 118 — Invited Arrival & the Living Graph — ✅ IMPLEMENTED, PR PENDING MERGE AUTHORIZATION
 
-> **STATUS (2026-07-08):** Sprint 117 is COMPLETE & DEPLOYED (v11.26.0; curated demo live and
-> healthy; full record archived at
-> `.claude/handoff/archive/2026-07-08-sprint-117-curated-demo-reset-COMPLETE.md` — the host reset
-> runbook, published story IDs, and recovery paths live there). Sprint 118 is planned and approved;
-> spec + plan are committed on the sprint branch. **Nothing has been implemented yet.**
+> **STATUS (2026-07-08):** All 13 implementation/verification tasks are COMPLETE on
+> `feature/sprint-118-invited-arrival-living-graph` (Tasks 1–13 of the plan; all quality gates run,
+> review findings applied, full blocking test tier green, TDD suites promoted). **Remaining: Task
+> 14** — push branch, open PR, cross-agent review (Codex), then **STOP for Admin merge
+> authorization** (`gh pr merge --squash --admin` needs explicit authorization), deploy via CI/CD,
+> and the mandatory human validation checklist (plan Task 14). Post-deploy bookkeeping (ADR-085 →
+> `Implemented`, this handoff → COMPLETE) stays UNCOMMITTED and rides the NEXT PR (note 14).
+>
+> Sprint 117 record: `.claude/handoff/archive/2026-07-08-sprint-117-curated-demo-reset-COMPLETE.md`.
 
-## Quick Start
+## What shipped on the branch (v11.26.0 → v11.27.0, ADR-085)
 
-1. Read this handoff
-2. Check out branch: `git switch feature/sprint-118-invited-arrival-living-graph` (already exists —
-   it carries the spec/plan/handoff planning commit)
-3. Open plan: `docs/superpowers/plans/2026-07-08-sprint-118-invited-arrival-living-graph.md`
-4. Run: `/execute-plan` (uses superpowers:subagent-driven-development — but this repo's standing
-   preference is INLINE execution via superpowers:executing-plans; no subagents/worktrees unless the
-   maintainer asks)
-5. Run `/simplify` after every implementation task and `/pre-commit-check` before every commit.
+- **BUG-028 fixed at the derivation layer**: `computeShortestPath` BFS-walks
+  `social_graph.trust_edges_live` with active-membership joins (the edge set the graph discloses)
+  instead of all-time `requests.matches`; depth-gate ordering fixed in BOTH BFS functions (3°
+  paths were silently dropped); dead `ConnectionBadge`/`socialGraphClient` deleted; stale
+  invitation-era integration test removed. Root cause + demo evidence in `docs/BUGS.md` BUG-028.
+- **`formed_recently`** on `/trust/neighborhood` links (MIN(created_at) per pair, 30-day window,
+  fail-closed boolean; ADR-082 preserved) + client new-bond emphasis (stroke #4ade80 + width,
+  layered on untouched decayTier opacity bands) + "New bond" legend entry. No layout changes.
+- **Invite-primary funnel**: `/invite/[code]` is the landing (context hero + inline form; all
+  register side effects preserved); `/register` nudge; first public join → **`/welcome`** arrival
+  (purpose-built `ArrivalGraph`, never sparse-gated; invitation bond = dashed distinct chord from
+  funnel context, never a trust edge); user-scoped `karmyq_onboarded:<userId>` written only on
+  completion/skip (legacy global key honored); `karmyq_arrival` sessionStorage is user-stamped
+  (stale cross-account contexts dropped).
+- **Docs**: ADR-085, Joining Karmyq guide, trust-graph guide updates, onboarding workflow step,
+  CONTEXT.md/registry.json, landing regenerated via `scripts/generate-docs.ts`.
+- **Quality gates run**: per-task /simplify; 3-reviewer code review (findings applied in
+  f1e82823); security review (no action findings; watch the recurring CodeQL `js/request-forgery`
+  FP on push); `npm audit --audit-level=high` exit 0 (3 pre-existing moderates); TDD promotion ran
+  (32 service suites + 2 frontend sprint-118 suites moved to regression).
+
+## Quick Start (next session)
+
+1. `git switch feature/sprint-118-invited-arrival-living-graph`
+2. If the PR is not yet open: push + `gh pr create` (fill `.github/pull_request_template.md`;
+   Lane: claude), request Codex cross-agent review.
+3. **Get explicit Admin authorization before any merge.** Then merge (squash), watch the deploy,
+   and run the human validation checklist from plan Task 14 (demo-session 200, open-path arrival,
+   invite arrival + DB check, maria.reyes ego view, BUG-028 surface, viewport pass).
+4. After deploy validation: flip ADR-085 → Implemented + mark this handoff COMPLETE, but leave
+   those edits uncommitted to ride the next PR.
 
 ## Sprint Goal
 
