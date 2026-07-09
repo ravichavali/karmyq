@@ -30,6 +30,18 @@ Every belonging-graph surface shares the same encoding, so an intuition learned 
   | Nearly forgotten | faint |
   | Swept | barely visible (about to leave active memory) |
 
+- **Newly formed bonds read as new.** A bond whose relationship first formed within the last month
+  carries a bright green **New bond** emphasis (a distinct hue and a slightly stronger line),
+  layered on top of its intensity band, and the legend names it. It's qualitative on purpose —
+  Karmyq never shows dates or counts on the graph — and it applies to the *relationship*, not to
+  each community copy of it: a long-standing pair connecting in a second community is not "new".
+  Together with the fading bands, this completes the graph's living story — bonds are visibly
+  born, strengthen, and fade.
+
+- **An invitation is not a bond.** When you join through an invitation, the arrival screen draws
+  a dashed **invitation bond** to your inviter — that's provenance, shown once at arrival. It
+  never appears in these graphs as a trust line; it becomes one only through real exchanges.
+
 - **Hover or focus a node** (mouse or keyboard) and its incident lines brighten while everything unrelated recedes. A focused line thickens slightly as an *interaction cue only* — it never means more data. Every node is keyboard-reachable, carries its full name as a tooltip, and activates with Enter or Space.
 - **Above ~40 people, only key names stay printed** (you, the focused node, and anything you've searched) so the canvas stays legible; every other person keeps a tooltip and is still focusable — focus or search to reveal a name.
 - **Zoom controls** (＋ / − / reset) sit in the top-right of every graph — click to zoom, drag the background to pan, pinch to zoom on touch. (The mouse wheel scrolls the page as usual.)

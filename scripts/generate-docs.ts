@@ -311,6 +311,7 @@ interface GuidePage {
 // Ordered list controls sidebar display order
 const GUIDE_ORDER = [
   'getting-started-guide',
+  'joining-karmyq-guide',
   'dashboard-home',
   'making-requests-guide',
   'fulfilling-requests-guide',
@@ -340,6 +341,7 @@ const GUIDE_ORDER = [
 
 const GUIDE_LABELS: Record<string, string> = {
   'getting-started-guide': 'Getting Started',
+  'joining-karmyq-guide': 'Joining Karmyq',
   'dashboard-home': 'Your Dashboard Home',
   'making-requests-guide': 'Asking for Help',
   'fulfilling-requests-guide': 'Helping Others',
@@ -369,6 +371,7 @@ const GUIDE_LABELS: Record<string, string> = {
 
 const GUIDE_SLUGS: Record<string, string> = {
   'getting-started-guide': 'getting-started',
+  'joining-karmyq-guide': 'joining-karmyq',
   'making-requests-guide': 'making-requests',
   'fulfilling-requests-guide': 'fulfilling-requests',
   'managing-commitments-guide': 'managing-commitments',
@@ -476,6 +479,7 @@ const ADR_GROUPS: Array<{ label: string; slugs: string[] }> = [
       'adr-082-reputation-disclosure-boundary',
       'adr-083-contextual-belonging-graph-rendering',
       'adr-084-context-bound-connection-visibility',
+      'adr-085-invited-arrival-and-edge-lifecycle',
     ],
   },
   {

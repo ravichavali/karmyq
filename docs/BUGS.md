@@ -387,7 +387,7 @@ Network/belonging maps have no zoom in/out controls. None of the network map sur
 **Fixed (S113 PR A):** `GraphZoomControls` (in/out/reset) mount inside the single renderer `TrustGraphHEB`, gated by `enableZoom` (now default-on in the `BelongingGraph` wrapper) so every surface gets one control cluster, none double-mount. **Validation 2026-06-25: PASS** — clicking zoom-in drove `__zoom` scale 1 → 1.2, reset returned to 1.
 
 ---
-## BUG-028 · [2026-07-03] · open (root cause identified 2026-07-08, Sprint 118)
+## BUG-028 · [2026-07-03] · fixed (Sprint 118, ADR-085)
 
 Offer-as-response relationship: the offer/context says two people are "connected" but the network graph can't find a direct path between them — the "connected" badge and the graph disagree. Looks off; likely a data/derivation mismatch between the relationship-context connection signal and the trust-graph path query (possibly surfaced by the Sprint 117 curated baseline). Investigate whether the connection shown for an offer response is backed by an actual trust-graph edge/path.
 
