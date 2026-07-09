@@ -419,3 +419,30 @@ RequestCard, providers/[id] (frontend `useTrustPath`); request-service feed rank
 (`/paths/batch`, `/paths/:id`); trust card (`computeTrustPath`).
 
 ---
+
+## BUG-029 · [2026-07-09] · open
+
+Request tile claims a person-to-person connection that is only shared community membership. On
+`/requests/707137aa-f783-49b3-95ef-a4c8e30da831` the tile says "connected via Nadia Ito" while the
+graph correctly shows no path between the viewer and the requester.
+
+**Diagnosis (verified read-only on the live demo, 2026-07-09):** NOT a BUG-028 regression — the
+S118 exchange derivation + cache revalidation are working. This is the **`community_member`
+fallback** that S118 deliberately preserved: `computeCommunityPath` (`pathComputation.ts`)
+**manufactures a 2° path through the community's earliest-joined admin**. Viewer Maria Reyes and
+requester Destiny Baptiste share **Southeast PDX Helpers**, whose first admin is **Nadia Ito** →
+cached row `community_member / 2°` → `TrustPathBadge` renders "Fellow member via Nadia Ito" (full)
+and just "**via Nadia Ito**" (feed-compact) — which reads as a real person route. Nadia is not an
+intermediary of anything; she was drafted into an invented path. This violates the ADR-083/085
+principle the rest of S118 enforced: surfaces must not claim structure the data doesn't contain.
+
+**Proposed fix layer — both ends, presentation-truthful:** (1) server `computeCommunityPath` stops
+inserting the admin as a path node — return the two endpoints + `community_name` only (keep
+`connection_type: 'community_member'`; decide whether `degrees` stays 2 for feed-ranking proximity
+or becomes null — ranking impact); (2) frontend `TrustPathBadge` renders community_member as
+"Fellow member of {community}" / "in {community}" with NO "via {person}" and no person-chain row.
+Existing cached community_member rows become harmless once the renderer stops naming the admin.
+Same review question applies to `computeInvitationPath` wording ("Joined through {inviter}" is
+factual provenance — likely fine).
+
+---

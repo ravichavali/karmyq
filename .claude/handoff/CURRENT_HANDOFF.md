@@ -1,171 +1,112 @@
-# Sprint 118 — Invited Arrival & the Living Graph — ✅ IMPLEMENTED, PR PENDING MERGE AUTHORIZATION
+# Sprint 119 — Truthful Surfaces & the Fractal Story — PLANNED (ready to execute)
 
-> **STATUS (2026-07-08):** All 13 implementation/verification tasks are COMPLETE on
-> `feature/sprint-118-invited-arrival-living-graph` (Tasks 1–13 of the plan; all quality gates run,
-> review findings applied, full blocking test tier green, TDD suites promoted). Codex cross-agent
-> review found one merge-blocking follow-up: pre-fix `auth.social_distances` exchange cache rows
-> could preserve BUG-028 until TTL expiry. Fixed on this branch by revalidating cached exchange
-> paths against `trust_edges_live` + active endpoint membership before return; stale/malformed
-> exchange rows are deleted and recomputed in both single and batch path routes. **Remaining: Task
-> 14** — push branch/update PR, then **STOP for Admin merge authorization**
-> (`gh pr merge --squash --admin` needs explicit authorization), deploy via CI/CD, and the mandatory
-> human validation checklist (plan Task 14). Post-deploy bookkeeping (ADR-085 → `Implemented`, this
-> handoff → COMPLETE) stays UNCOMMITTED and rides the NEXT PR (note 14).
+> **STATUS (2026-07-09):** Planning complete (spec + two per-PR plans approved by the maintainer
+> this session). PR A branch `feature/sprint-119-truthful-surfaces` exists off `origin/master`
+> and carries the S118 post-deploy bookkeeping (ADR-085 → Implemented, BUGS.md BUG-029 entry,
+> archived S118 handoff) — per S118 note 14 those edits ride this PR. Execute PR A first; PR B
+> branches off `origin/master` only after PR A merges + deploys.
 >
-> Sprint 117 record: `.claude/handoff/archive/2026-07-08-sprint-117-curated-demo-reset-COMPLETE.md`.
+> Sprint 118 record: `.claude/handoff/archive/2026-07-09-sprint-118-invited-arrival-living-graph-COMPLETE.md`.
 
-## What shipped on the branch (v11.26.0 → v11.27.0, ADR-085)
+## Quick Start
 
-- **BUG-028 fixed at the derivation layer**: `computeShortestPath` BFS-walks
-  `social_graph.trust_edges_live` with active-membership joins (the edge set the graph discloses)
-  instead of all-time `requests.matches`; depth-gate ordering fixed in BOTH BFS functions (3°
-  paths were silently dropped); dead `ConnectionBadge`/`socialGraphClient` deleted; stale
-  invitation-era integration test removed. Codex review follow-up also revalidates cached
-  `exchange` rows against the same live edge set on read and deletes/recomputes stale rows, so
-  pre-fix cache entries cannot preserve BUG-028. Root cause + demo evidence in `docs/BUGS.md`
-  BUG-028.
-- **`formed_recently`** on `/trust/neighborhood` links (MIN(created_at) per pair, 30-day window,
-  fail-closed boolean; ADR-082 preserved) + client new-bond emphasis (stroke #4ade80 + width,
-  layered on untouched decayTier opacity bands) + "New bond" legend entry. No layout changes.
-- **Invite-primary funnel**: `/invite/[code]` is the landing (context hero + inline form; all
-  register side effects preserved); `/register` nudge; first public join → **`/welcome`** arrival
-  (purpose-built `ArrivalGraph`, never sparse-gated; invitation bond = dashed distinct chord from
-  funnel context, never a trust edge); user-scoped `karmyq_onboarded:<userId>` written only on
-  completion/skip (legacy global key honored); `karmyq_arrival` sessionStorage is user-stamped
-  (stale cross-account contexts dropped).
-- **Docs**: ADR-085, Joining Karmyq guide, trust-graph guide updates, onboarding workflow step,
-  CONTEXT.md/registry.json, landing regenerated via `scripts/generate-docs.ts`.
-- **Quality gates run**: per-task /simplify; 3-reviewer code review (findings applied in
-  f1e82823); security review (no action findings; watch the recurring CodeQL `js/request-forgery`
-  FP on push); `npm audit --audit-level=high` exit 0 (3 pre-existing moderates); TDD promotion ran
-  (32 service suites + 2 frontend sprint-118 suites moved to regression).
-
-## Quick Start (next session)
-
-1. `git switch feature/sprint-118-invited-arrival-living-graph`
-2. If the PR is not yet open: push + `gh pr create` (fill `.github/pull_request_template.md`;
-   Lane: claude). If it is open, confirm PR #146 includes the Codex stale-cache follow-up commit.
-3. **Get explicit Admin authorization before any merge.** Then merge (squash), watch the deploy,
-   and run the human validation checklist from plan Task 14 (demo-session 200, open-path arrival,
-   invite arrival + DB check, maria.reyes ego view, BUG-028 surface, viewport pass).
-4. After deploy validation: flip ADR-085 → Implemented + mark this handoff COMPLETE, but leave
-   those edits uncommitted to ride the next PR.
+1. Read this handoff
+2. Check out branch: `git checkout feature/sprint-119-truthful-surfaces` (already created)
+3. Open plan: `docs/superpowers/plans/2026-07-09-sprint-119-pr-a-truthful-surfaces.md`
+4. Run: `/execute-plan` (uses superpowers:subagent-driven-development)
+5. After PR A merges + deploys: branch `feature/sprint-119-graph-presentation` off
+   `origin/master`, open `docs/superpowers/plans/2026-07-09-sprint-119-pr-b-graph-presentation.md`,
+   run `/execute-plan` again (fresh chat per PR is the sanctioned exception for this two-PR sprint).
 
 ## Sprint Goal
 
-Rework the join funnel invite-primary with a dedicated `/welcome` arrival moment where a new member
-sees their first belonging graph (the invitation bond — provenance, NOT a trust edge — plus the
-joined community's ring); complete the ego graph's growing/fading story with a qualitative
-`formedRecently` flag supplementing the existing `decayTier` encoding (whose fading half already
-ships); fix BUG-028 so the connected-badge and the graph agree.
+No surface claims structure the data doesn't contain (PR A: BUG-029 fix at both ends + arrival
+gap + setAuthSession helper + header lever 2), then give the two remaining graph scales their
+at-a-glance answers (PR B: community ring = "where do you fit?", across-communities hub = "which
+of your communities are woven together?") — closing the presentation question opened by the S114
+revert, recorded as ADR-086.
 
 ## Arc Context
 
-- S115 (ADR-083) made graph *position* earned; S118 makes edge *state* lived ("The Graph Is Alive").
-  Ego's at-a-glance answer chosen by the maintainer: **"your web is growing/fading."** Community and
-  across-communities at-a-glance answers remain open threads for a future presentation session.
-- The "join the platform" change the maintainer had in the pipe = **full funnel rework,
-  invite-primary** (decided this session): invitation is the celebrated path, registration happens
-  inside the community/inviter context, both paths converge on the arrival moment (dedicated route,
-  not a modal).
+- S115 (ADR-083) made position earned; S118 (ADR-085) made ego edge state lived ("your web is
+  growing/fading"). S119 PR B completes the fractal: one question per zoom level. Community-scale
+  answer chosen by the maintainer this session: **"where do you fit?"** (viewer-centric, NOT
+  weaving/fraying — that option was explicitly not chosen). Across-communities answer: **"which
+  are woven together?"** (bridge emphasis + aliveness).
+- BUG-029 fold-in was decided by the maintainer at S118 close; fix shape recorded there and in
+  `docs/BUGS.md` (server endpoints-only path, badge "Fellow member of {community}", keep
+  `degrees: 2` for ranking).
 
 ## Approved Artifacts
 
-- Design: `docs/superpowers/specs/2026-07-08-sprint-118-invited-arrival-living-graph-design.md`
-- Plan: `docs/superpowers/plans/2026-07-08-sprint-118-invited-arrival-living-graph.md` (14 tasks)
-- Branch: `feature/sprint-118-invited-arrival-living-graph` (off `origin/master` = `b75790a5`)
-- Version target: `v11.26.0 → v11.27.0` · ADR: **ADR-085**
-- Scope decisions (maintainer, this session): invite-primary funnel; arrival = dedicated skippable
-  `/welcome` route; ego encoding = complete the growing/fading story (fading already ships via
-  `decayTier` bands + inline legend; this sprint adds `formedRecently` new-bond emphasis + a "New"
-  legend entry), NO layout change; BUG-028 in scope with fix (not investigate-only); ships
-  end-to-end (merge + deploy).
-- **Cross-agent review of the plan (Codex, 2026-07-08): 7 findings, ALL folded into spec + plan.**
-  The load-bearing ones: (1) no inviter edge exists in the belonging graph — arrival renders the
-  INVITATION BOND from funnel context, never a manufactured trust edge; (2) the neighborhood links
-  query returns no timestamps — Task 4 adds `MIN(created_at)` per pair, `formedRecently` derived
-  fail-closed; (3) `karmyq_onboarded` is browser-global and pre-set at join — switch to a
-  user-scoped key written only on `/welcome` completion/skip; (4) no parallel `lifecycle` enum —
-  supplement the existing `decayTier` contract; (5) arrival needs a purpose-built `ArrivalGraph`
-  (existing renderers short-circuit sparse graphs); (6) post-deploy bookkeeping rides the NEXT PR;
-  (7) the paths endpoint is `/paths/:targetUserId`, not under `/trust`.
+- Design: `docs/superpowers/specs/2026-07-09-sprint-119-truthful-surfaces-fractal-story-design.md`
+- Plan PR A (10 tasks): `docs/superpowers/plans/2026-07-09-sprint-119-pr-a-truthful-surfaces.md`
+- Plan PR B (9 tasks): `docs/superpowers/plans/2026-07-09-sprint-119-pr-b-graph-presentation.md`
+- Branches: `feature/sprint-119-truthful-surfaces` (PR A, exists) →
+  `feature/sprint-119-graph-presentation` (PR B, after PR A merges)
+- Version: v11.27.0 → v11.28.0 (PR A) → v11.29.0 (PR B) · ADR: **ADR-086** (rides PR B)
+- Scope decisions (maintainer, this session): theme = graph presentation phase 2 + all four
+  ride-alongs (arrival gap, setAuthSession, header lever 2, invitation-wording review); two PRs,
+  one sprint, per-PR plan files; each PR merges + deploys independently.
 
-## Critical Implementation Notes (from the spec — read before Task 2)
+## Critical Implementation Notes (from the spec — read before implementing)
 
-1. **Fix BUG-028 before building the arrival moment.** The arrival celebrates a connection; it must
-   not celebrate one the graph can't substantiate. Follow the Bug Fixing discipline: reproduce on
-   the curated demo baseline, identify the layer — the badge uses `GET /paths/:id`
-   (`computeTrustPath` + the `auth.social_distances` cache; platform-wide exchange topology), the
-   graph uses community-scoped disclosed `trust_edges_live` with active-membership joins via
-   `/trust/neighborhood` — grep ALL surfaces consuming each derivation, fix at the source, never a
-   client-side patch.
-2. **The inviter bond is an invitation relationship, NOT a trust edge.** Invitation acceptance
-   writes `auth.user_invitations` / `users.invited_by` / membership only; `/trust/neighborhood`
-   traverses `trust_edges_live` exclusively — no inviter edge exists in the belonging graph. The
-   arrival renders the invitation bond from the invite-funnel context (validate/accept responses),
-   visually distinct from trust edges, with "this bond becomes trust when you help each other"
-   copy. **Never manufacture a trust edge from an invitation** (earned-structure principle,
-   ADR-070/077/083). The ego graph does not gain invitation edges this sprint.
-3. **`formedRecently` supplements the existing `decayTier` contract — it does not replace it.**
-   Links already carry `decayTier` (strong/warm/fading/nearly_forgotten) rendered via the OPACITY
-   bands in `graphVisualEncoding.ts` plus an inline ego legend — leave both exactly as they are and
-   pin them with regression assertions. Server-side: the links query gains
-   `MIN(tel.created_at) AS formed_at` per grouped pair (first formation across communities = the
-   relationship's age; a long-standing pair adding a new community edge is NOT new); the projection
-   derives `formedRecently: boolean` against one 30-day window constant. No timestamp or numeric
-   leaves the server (ADR-082).
-4. **No layout changes to the ego graph (ADR-083).** Orbits, ring placement, expansion arcs stay
-   exactly as S115 shipped them. This sprint changes edge *rendering* only.
-5. **The arrival graph must bypass the sparse short-circuit — it is the design, not an empty
-   state.** `EgoOrbitGraph` (and the ring renderer) early-return an empty state on sparse graphs
-   (`EgoOrbitGraph.tsx:102`); the new purpose-built `ArrivalGraph` reuses the ring primitives but
-   is never gated on edge count. A zero-trust-edge open-path arrival (you among your new neighbors
-   on the community ring) and a one-bond invite arrival must both read as intentional.
-6. **Do not break the curated demo.** `/auth/demo-session` and the Maria story flows must be
-   untouched; protected demo personas are excluded from any manual smoke-test signups. New-bond
-   emphasis will change how recent demo edges LOOK — expected; verify Maria's rich story still
-   reads (`maria.reyes` is the rich view; most sim users are sparse).
-7. **Registration side effects must be preserved on the redesigned invite page:** store `token`,
-   `refreshToken`, `user`, clear `demoContext` (see `register.tsx`), and remember
-   `ApiClient.login/register` set the auth token automatically since #140. On join, refresh
-   membership state by decoding the new JWT — never hand-construct `communities`.
-8. **`getMyCommunities` returns `{communities,count,total}`, not an array** — extract defensively
-   anywhere the funnel or arrival reads it (S113 crash pattern).
-9. **jsdom/D3 test gotchas apply to the graph work:** map `^d3$` → `d3/dist/d3.min.js`, stub
-   ResizeObserver, seed `node.__zoom` directly; `next/router` is globally mocked in `jest.setup`.
-10. **`nav.json` silently reverts** — grep-verify the wiring after editing; re-apply if needed.
-11. **New TDD tests start in the changed workspace's `tests/tdd/`** (social-graph-service, frontend,
-    root `tests/` for cross-workspace) and promote when green. Run cross-workspace suites directly
-    (`cd tests && npx jest ...`) — Turbo's cache hides cross-workspace failures.
-12. **Arrival is once per account — use a user-scoped key, written only at the end.**
-    `karmyq_onboarded` today is a browser-global localStorage key set BEFORE the arrival would run
-    (`communities/index.tsx` sets it at join). Switch the gate to `karmyq_onboarded:<userId>`,
-    written ONLY when `/welcome` completes or is skipped; `WelcomeModal` and the arrival gate also
-    honor the legacy global key so existing users see nothing new. Skip must be as graceful as
-    completion (both write the key, both land on the guided destination). Deep-linking `/welcome`
-    with no joined community redirects harmlessly to `/dashboard`.
-13. **Keep the funnel rework bounded to the join surfaces named above.** No auth-service contract
-    changes; if the invitation-validate payload lacks something the new landing needs, extend the
-    projection, don't invent a parallel endpoint (Update, Don't Create).
-14. **Post-deploy bookkeeping rides the NEXT PR.** Flipping ADR-085 → `Implemented` and marking the
-    handoff COMPLETE happen after deploy, which is after merge — leave those edits uncommitted (no
-    docs-only master push; S117 precedent) so they ride the next PR.
+1. **BUG-029 is fixed at BOTH ends, presentation-truthful.** Server: `computeCommunityPath`
+   (`pathComputation.ts:281`) returns endpoints + `community_name` only — the earliest-joined-admin
+   lookup goes away. Keep `connection_type: 'community_member'` and **keep `degrees: 2`** (feed
+   proximity ranking preserved — assert it doesn't move). Client: `TrustPathBadge.tsx` has TWO
+   render sites naming the admin (~L88, ~L112) — fix both, grep for any other consumer of
+   community_member path nodes. Cached rows become harmless via the renderer; no cache purge.
+2. **`computeInvitationPath` wording is a review, not a rewrite** — "Joined through {inviter}" is
+   factual provenance; change only if a surface renders it as a live trust route.
+3. **Arrival gap: reuse the exact S118 pattern with its gates** (`communities/index.tsx:355-362`):
+   fires only on a FIRST public join (`karmyq_onboarded:<userId>` AND legacy global key absent);
+   invite-funnel joins already route; `/welcome` handles the no-membership deep link.
+4. **`setAuthSession` preserves exact side effects**: store `token`/`refreshToken`/`user`, clear
+   `demoContext`, nothing more; `ApiClient.login/register` already set the token (#140); decode
+   the JWT for membership (`communities`, never `communityMemberships`).
+5. **Header: lever 1 is DONE** (`kq-page` already carries `--measure-chrome: 72rem`,
+   `karmyq-shell.css:7`); this sprint is lever 2 only (move Communities/Service Providers into
+   overflow). `kq-topnav` is xl-only (BUG-016) — audit md–xl first; don't regress the rhythm.
+6. **Ring: rotation only — no layout invention (ADR-083).** Ring membership/order/geometry stay as
+   S115 shipped; the viewer anchor rotates the existing order to 12 o'clock. decayTier opacity
+   bands + `new > caller > focused` stroke precedence are shipped contracts — pin with regression
+   assertions BEFORE touching emphasis.
+7. **Do NOT add `formed_at` to community graph queries** — weaving/fraying was considered for the
+   community scale and NOT chosen; `formed_recently` stays fail-closed false there.
+8. **Bridge aliveness is server-derived, fail-closed, qualitative (ADR-082):** `active_recently` =
+   `community_trust_edges.last_interaction_at` within the SAME exported 30-day constant S118
+   introduced (no second window constant); the raw timestamp never leaves the server.
+9. **Demo look: check bridge/degree data before judging surfaces** — the demo graph is sparse
+   (avg ~4.6 connections; `community_trust_edges` may be thin); `maria.reyes` is the rich view;
+   protected story core (maria.reyes / elena.torres / noah.williams / marcus.lee@test.karmyq.com)
+   is never signed up or mutated in smoke tests.
+10. **jsdom/D3 gotchas**: `^d3$` → `d3/dist/d3.min.js`, stub ResizeObserver, seed `node.__zoom`
+    directly; `next/router` globally mocked in `jest.setup`.
+11. **`getMyCommunities` returns `{communities,count,total}`, not an array** — extract defensively.
+12. **TDD placement + turbo cache**: workspace `tests/tdd/`; run cross-workspace suites directly
+    (`cd tests && npx jest ...`).
+13. **`nav.json` silently reverts** — grep-verify after every landing regen.
+14. **Two-PR sequencing**: PR A carries the S118 bookkeeping; PR B branches off `origin/master`
+    after PR A merges; each PR merges via admin-authorized squash (explicit authorization required
+    every time) and deploys via CI/CD; no docs-only master pushes. PR B's post-deploy bookkeeping
+    (ADR-086 → Implemented, handoff COMPLETE) rides the NEXT sprint's first PR.
+15. **Feed-ranking regression check for BUG-029**: only the `path` array shape changes; ranking
+    inputs (`degrees_of_separation`) must not move.
 
 ## Carry-Forward / Known State
 
-- **BUG-028** (`docs/BUGS.md`): offer relationship context said "connected" while the graph found
-  no path — fixed in S118 at the derivation layer and cache-read layer. `GET /paths/:id` and
-  `/paths/batch` now derive exchange paths from live disclosed edges and revalidate existing cached
-  `exchange` rows before returning them; stale/malformed exchange rows are deleted and recomputed.
-  Graph disclosure remains `/trust/neighborhood` over `trust_edges_live` + active-membership joins.
-- **Demo state:** curated baseline live (36 users, 6 communities, 14 trust edges); protected story
-  core = maria.reyes / elena.torres / noah.williams / marcus.lee@test.karmyq.com — never sign up /
-  mutate these in smoke tests. Live story IDs + reset/rotate runbook: see the archived S117 handoff.
-- **Deferred next-sprint candidates** (not in S118): desktop/mobile UI five-second-test pass;
-  init.sql regeneration from fully-migrated schema (docs/IDEAS.md 2026-07-08, own sprint);
-  docs-token cleanup on CLAUDE.md/AGENTS.md (memory: *Docs token cleanup post-S116*).
-- Docker is unavailable locally; DB-backed assertions ride CI (which now runs the FULL migrated
-  schema via `scripts/ci-apply-full-schema.sh`, PR #143 — new migrations may need a sentinel there).
+- **BUG-029** (`docs/BUGS.md`): open, diagnosed, fix shape agreed — fixed by PR A of this sprint.
+- **Demo state:** curated baseline live (36 users, 6 communities, 14 trust edges) + two harmless
+  S118 validation throwaways (both in SE Portland Running Club; remove via the S117 runbook if
+  desired). Protected story core: see note 9.
+- **Deferred candidates (not in S119):** desktop/mobile five-second-test UX pass; init.sql
+  regeneration from fully-migrated schema (own sprint, docs/IDEAS.md 2026-07-08); docs-token
+  cleanup on CLAUDE.md/AGENTS.md; community-pulse-adjacent open design question (governance
+  ratification quorum) — see memory index.
+- Docker unavailable locally; DB-backed assertions ride CI (full migrated schema via
+  `scripts/ci-apply-full-schema.sh`, PR #143 — new migrations may need a sentinel there; this
+  sprint has none).
 - Root Turbo on Windows can hit Jest temp-cache `EPERM`; rerun isolated with unique caches under
   `C:\tmp` — assertion failures are not cache races.
 
