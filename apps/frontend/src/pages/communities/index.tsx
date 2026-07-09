@@ -352,9 +352,14 @@ export default function CommunitiesPage() {
       }))
 
       if (isFirstJoin && accessType === 'public') {
-        // Suppress WelcomeModal (they got their welcome experience here)
-        localStorage.setItem('karmyq_onboarded', '1')
-        router.push('/dashboard')
+        // Sprint 118 (ADR-085): the first join lands on the /welcome arrival moment, which owns
+        // writing the (user-scoped) onboarded key on completion/skip — never pre-set it here.
+        const joined = communitiesRef.current.find(c => c.id === communityId)
+        sessionStorage.setItem(
+          'karmyq_arrival',
+          JSON.stringify({ path: 'open', communityId, communityName: joined?.name })
+        )
+        router.push('/welcome')
         return
       }
 

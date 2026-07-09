@@ -24,7 +24,14 @@ export default function WelcomeModal({ user }: WelcomeModalProps) {
   const [step, setStep] = useState<1 | 2 | 3>(1)
 
   useEffect(() => {
-    if (user && !localStorage.getItem('karmyq_onboarded')) {
+    // Sprint 118 (ADR-085): the gate is user-scoped (written by the /welcome arrival moment or by
+    // closing this modal). The legacy browser-global key is still honored so existing users see
+    // nothing new.
+    if (
+      user &&
+      !localStorage.getItem(`karmyq_onboarded:${user.id}`) &&
+      !localStorage.getItem('karmyq_onboarded')
+    ) {
       setVisible(true)
     }
   }, [user])
@@ -39,7 +46,7 @@ export default function WelcomeModal({ user }: WelcomeModalProps) {
   }
 
   function handleClose() {
-    localStorage.setItem('karmyq_onboarded', '1')
+    if (user) localStorage.setItem(`karmyq_onboarded:${user.id}`, '1')
     setVisible(false)
   }
 

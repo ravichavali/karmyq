@@ -11,6 +11,12 @@ interface InvitationInfo {
   community_id: string;
 }
 
+/**
+ * Sprint 118 (ADR-085) — invitation is the celebrated join path. This page IS the landing: the
+ * inviter and community are the context, and account creation happens inside it. Success hands the
+ * invitation-bond context to the /welcome arrival moment via sessionStorage (`karmyq_arrival`) —
+ * the bond is provenance from the funnel, never a manufactured trust edge.
+ */
 export default function InviteAcceptance() {
   const router = useRouter();
   const { code } = router.query;
@@ -75,6 +81,14 @@ export default function InviteAcceptance() {
     const invitationCode = code as string; // Type narrowing
     setLoading(true);
 
+    // Same registration side effects as register.tsx: token, refreshToken, user, auth header.
+    const persistSession = (data: { token: string; refreshToken?: string; user: unknown }) => {
+      localStorage.setItem('token', data.token);
+      if (data.refreshToken) localStorage.setItem('refreshToken', data.refreshToken);
+      localStorage.setItem('user', JSON.stringify(data.user));
+      api.defaults.headers.common['Authorization'] = `Bearer ${data.token}`;
+    };
+
     try {
       // Register the user
       const registerResponse = await api.post('/auth/register', {
@@ -83,41 +97,43 @@ export default function InviteAcceptance() {
         password: formData.password,
       });
 
-      const token = registerResponse.data.token;
-      const user = registerResponse.data.user;
+      persistSession(registerResponse.data);
+      // Clear any leftover read-only demo state when registering a real account.
+      localStorage.removeItem('demoContext');
 
-      // Store token and user
-      localStorage.setItem('token', token);
-      localStorage.setItem('user', JSON.stringify(user));
-
-      // Set token for next request
-      api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-
-      // Accept the invitation
+      // Accept the invitation, then refresh the session so the JWT carries the new membership.
       try {
-        await socialGraphService.acceptInvitationCode(invitationCode);
+        const acceptResponse = await socialGraphService.acceptInvitationCode(invitationCode);
+        const inviterId = acceptResponse?.data?.inviter_id;
 
         // Re-login to get updated JWT with community memberships
         const loginResponse = await api.post('/auth/login', {
           email: formData.email,
           password: formData.password,
         });
+        persistSession(loginResponse.data);
 
-        const newToken = loginResponse.data.token;
-        const updatedUser = loginResponse.data.user;
+        // Hand the invitation-bond context to the arrival moment.
+        sessionStorage.setItem(
+          'karmyq_arrival',
+          JSON.stringify({
+            path: 'invite',
+            inviterId,
+            inviterName: invitationInfo?.inviter_name,
+            communityId: invitationInfo?.community_id,
+            communityName: invitationInfo?.community_name,
+          })
+        );
 
-        // Update stored token and user with community membership
-        localStorage.setItem('token', newToken);
-        localStorage.setItem('user', JSON.stringify(updatedUser));
-        api.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
+        router.push('/welcome');
+        return;
       } catch (acceptErr) {
         console.error('Failed to accept invitation or refresh session', { error: acceptErr instanceof Error ? acceptErr.message : String(acceptErr) });
-        // Don't fail the signup if invitation acceptance fails
-        // User is already registered at this point
+        // Don't fail the signup if invitation acceptance fails — the account exists; land them on
+        // the open discovery path instead of a broken arrival.
+        router.push('/communities?welcome=true');
+        return;
       }
-
-      // Redirect to dashboard
-      router.push('/dashboard');
     } catch (err: any) {
       setError(getErrorMessage(err, 'Registration failed'));
     } finally {
@@ -169,125 +185,132 @@ export default function InviteAcceptance() {
     );
   }
 
-  // Success state - show signup form
+  // The landing: the invitation IS the page — community + inviter context first, account form inside.
   return (
     <>
       <Head>
         <title>Join {invitationInfo?.community_name || 'Karmyq'}</title>
       </Head>
-      <div className="min-h-screen bg-gradient-to-b from-primary-light to-surface-raised flex items-center justify-center px-4 py-8">
-        <div className="max-w-md w-full bg-surface-raised rounded-lg shadow-lg p-8">
-          {/* Invitation Info Banner */}
-          <div className="bg-gradient-to-r from-primary-light to-accent-light rounded-lg p-4 mb-6 border border-primary-medium">
-            <div className="flex items-center mb-2">
-              <svg className="w-6 h-6 text-primary mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
-              </svg>
-              <h2 className="text-lg font-semibold text-text">You've been invited!</h2>
+      <div className="min-h-screen bg-gradient-to-b from-primary-light to-surface-raised flex items-center justify-center px-4 py-10">
+        <div className="max-w-lg w-full">
+          {/* Context hero — who is bringing you in, and to where */}
+          <div className="text-center mb-8">
+            <div className="mx-auto mb-4 w-14 h-14 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-white text-xl font-semibold">
+              {invitationInfo?.inviter_name?.charAt(0).toUpperCase() || '✦'}
             </div>
-            <p className="text-sm text-text-muted">
-              <span className="font-medium text-primary">{invitationInfo?.inviter_name}</span>
-              {' '}has invited you to join{' '}
-              <span className="font-medium text-accent">{invitationInfo?.community_name}</span>
+            <h1 className="text-3xl font-bold font-serif text-text mb-2">
+              <span className="text-primary">{invitationInfo?.inviter_name}</span> invited you to
+              join <span className="text-accent">{invitationInfo?.community_name}</span>
+            </h1>
+            <p className="text-text-muted">
+              A community of neighbours who help each other. Your invitation is where your story
+              here begins.
             </p>
           </div>
 
-          <h1 className="text-3xl font-bold font-serif text-center mb-2">Create Your Account</h1>
-          <p className="text-center text-text-muted mb-8">
-            Join the community and start helping others
-          </p>
+          <div className="bg-surface-raised rounded-xl shadow-lg border border-border p-8">
+            <h2 className="text-lg font-semibold text-text mb-1">Create your account</h2>
+            <p className="text-sm text-text-muted mb-6">
+              You&apos;ll arrive in {invitationInfo?.community_name} with{' '}
+              {invitationInfo?.inviter_name} at your side.
+            </p>
 
-          {error && (
-            <div className="bg-error-light border border-error/20 text-error px-4 py-3 rounded mb-4">
-              {error}
+            {error && (
+              <div className="bg-error-light border border-error/20 text-error px-4 py-3 rounded mb-4">
+                {error}
+              </div>
+            )}
+
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label htmlFor="invite-name" className="block text-sm font-medium text-text mb-2">
+                  Full Name
+                </label>
+                <input
+                  id="invite-name"
+                  type="text"
+                  required
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  className="w-full px-4 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                  placeholder="John Doe"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="invite-email" className="block text-sm font-medium text-text mb-2">
+                  Email Address
+                </label>
+                <input
+                  id="invite-email"
+                  type="email"
+                  required
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  className="w-full px-4 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                  placeholder="john@example.com"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="invite-password" className="block text-sm font-medium text-text mb-2">
+                  Password
+                </label>
+                <input
+                  id="invite-password"
+                  type="password"
+                  required
+                  value={formData.password}
+                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                  className="w-full px-4 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                  placeholder="At least 8 characters"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="invite-confirm-password" className="block text-sm font-medium text-text mb-2">
+                  Confirm Password
+                </label>
+                <input
+                  id="invite-confirm-password"
+                  type="password"
+                  required
+                  value={formData.confirmPassword}
+                  onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+                  className="w-full px-4 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                  placeholder="Re-enter your password"
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full py-3 bg-gradient-to-r from-primary to-accent text-white rounded-lg hover:from-primary-dark hover:to-accent-dark transition disabled:opacity-50 font-medium"
+              >
+                {loading ? 'Creating Account...' : `Join ${invitationInfo?.community_name || 'the community'}`}
+              </button>
+            </form>
+
+            <div className="mt-6 pt-6 border-t border-border">
+              <p className="text-center text-sm text-text-muted">
+                By creating an account, you agree to our{' '}
+                <Link href="/terms" className="text-primary hover:underline">
+                  Terms of Service
+                </Link>{' '}
+                and{' '}
+                <Link href="/privacy" className="text-primary hover:underline">
+                  Privacy Policy
+                </Link>
+              </p>
             </div>
-          )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-text mb-2">
-                Full Name
-              </label>
-              <input
-                type="text"
-                required
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                className="w-full px-4 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-                placeholder="John Doe"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-text mb-2">
-                Email Address
-              </label>
-              <input
-                type="email"
-                required
-                value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                className="w-full px-4 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-                placeholder="john@example.com"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-text mb-2">
-                Password
-              </label>
-              <input
-                type="password"
-                required
-                value={formData.password}
-                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                className="w-full px-4 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-                placeholder="At least 8 characters"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-text mb-2">
-                Confirm Password
-              </label>
-              <input
-                type="password"
-                required
-                value={formData.confirmPassword}
-                onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-                className="w-full px-4 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-                placeholder="Re-enter your password"
-              />
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-3 bg-gradient-to-r from-primary to-accent text-white rounded-lg hover:from-primary-dark hover:to-accent-dark transition disabled:opacity-50 font-medium"
-            >
-              {loading ? 'Creating Account...' : 'Join Community'}
-            </button>
-          </form>
-
-          <div className="mt-6 pt-6 border-t border-border">
-            <p className="text-center text-sm text-text-muted">
-              By creating an account, you agree to our{' '}
-              <Link href="/terms" className="text-primary hover:underline">
-                Terms of Service
-              </Link>{' '}
-              and{' '}
-              <Link href="/privacy" className="text-primary hover:underline">
-                Privacy Policy
+            <p className="text-center mt-4 text-text-muted">
+              Already have an account?{' '}
+              <Link href="/login" className="text-primary hover:underline font-medium">
+                Login
               </Link>
             </p>
           </div>
-
-          <p className="text-center mt-4 text-text-muted">
-            Already have an account?{' '}
-            <Link href="/login" className="text-primary hover:underline font-medium">
-              Login
-            </Link>
-          </p>
         </div>
       </div>
     </>
