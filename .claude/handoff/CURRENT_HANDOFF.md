@@ -2,11 +2,15 @@
 
 > **STATUS (2026-07-08):** All 13 implementation/verification tasks are COMPLETE on
 > `feature/sprint-118-invited-arrival-living-graph` (Tasks 1–13 of the plan; all quality gates run,
-> review findings applied, full blocking test tier green, TDD suites promoted). **Remaining: Task
-> 14** — push branch, open PR, cross-agent review (Codex), then **STOP for Admin merge
-> authorization** (`gh pr merge --squash --admin` needs explicit authorization), deploy via CI/CD,
-> and the mandatory human validation checklist (plan Task 14). Post-deploy bookkeeping (ADR-085 →
-> `Implemented`, this handoff → COMPLETE) stays UNCOMMITTED and rides the NEXT PR (note 14).
+> review findings applied, full blocking test tier green, TDD suites promoted). Codex cross-agent
+> review found one merge-blocking follow-up: pre-fix `auth.social_distances` exchange cache rows
+> could preserve BUG-028 until TTL expiry. Fixed on this branch by revalidating cached exchange
+> paths against `trust_edges_live` + active endpoint membership before return; stale/malformed
+> exchange rows are deleted and recomputed in both single and batch path routes. **Remaining: Task
+> 14** — push branch/update PR, then **STOP for Admin merge authorization**
+> (`gh pr merge --squash --admin` needs explicit authorization), deploy via CI/CD, and the mandatory
+> human validation checklist (plan Task 14). Post-deploy bookkeeping (ADR-085 → `Implemented`, this
+> handoff → COMPLETE) stays UNCOMMITTED and rides the NEXT PR (note 14).
 >
 > Sprint 117 record: `.claude/handoff/archive/2026-07-08-sprint-117-curated-demo-reset-COMPLETE.md`.
 
@@ -16,7 +20,10 @@
   `social_graph.trust_edges_live` with active-membership joins (the edge set the graph discloses)
   instead of all-time `requests.matches`; depth-gate ordering fixed in BOTH BFS functions (3°
   paths were silently dropped); dead `ConnectionBadge`/`socialGraphClient` deleted; stale
-  invitation-era integration test removed. Root cause + demo evidence in `docs/BUGS.md` BUG-028.
+  invitation-era integration test removed. Codex review follow-up also revalidates cached
+  `exchange` rows against the same live edge set on read and deletes/recomputes stale rows, so
+  pre-fix cache entries cannot preserve BUG-028. Root cause + demo evidence in `docs/BUGS.md`
+  BUG-028.
 - **`formed_recently`** on `/trust/neighborhood` links (MIN(created_at) per pair, 30-day window,
   fail-closed boolean; ADR-082 preserved) + client new-bond emphasis (stroke #4ade80 + width,
   layered on untouched decayTier opacity bands) + "New bond" legend entry. No layout changes.
@@ -37,7 +44,7 @@
 
 1. `git switch feature/sprint-118-invited-arrival-living-graph`
 2. If the PR is not yet open: push + `gh pr create` (fill `.github/pull_request_template.md`;
-   Lane: claude), request Codex cross-agent review.
+   Lane: claude). If it is open, confirm PR #146 includes the Codex stale-cache follow-up commit.
 3. **Get explicit Admin authorization before any merge.** Then merge (squash), watch the deploy,
    and run the human validation checklist from plan Task 14 (demo-session 200, open-path arrival,
    invite arrival + DB check, maria.reyes ego view, BUG-028 surface, viewport pass).
@@ -146,12 +153,11 @@ ships); fix BUG-028 so the connected-badge and the graph agree.
 
 ## Carry-Forward / Known State
 
-- **BUG-028** (`docs/BUGS.md`): offer relationship context says "connected" but the graph finds no
-  path — verified divergence candidates: badge = `GET /paths/:id` → `computeTrustPath` + cached
-  `auth.social_distances` (platform-wide exchange topology, cache can be stale); graph =
-  community-scoped disclosed `trust_edges_live` + active-membership joins via `/trust/neighborhood`.
-  Possibly surfaced by the S117 curated baseline. Task 1 investigates on the live curated demo
-  (read-only; access per memory *Demo UX-audit access*).
+- **BUG-028** (`docs/BUGS.md`): offer relationship context said "connected" while the graph found
+  no path — fixed in S118 at the derivation layer and cache-read layer. `GET /paths/:id` and
+  `/paths/batch` now derive exchange paths from live disclosed edges and revalidate existing cached
+  `exchange` rows before returning them; stale/malformed exchange rows are deleted and recomputed.
+  Graph disclosure remains `/trust/neighborhood` over `trust_edges_live` + active-membership joins.
 - **Demo state:** curated baseline live (36 users, 6 communities, 14 trust edges); protected story
   core = maria.reyes / elena.torres / noah.williams / marcus.lee@test.karmyq.com — never sign up /
   mutate these in smoke tests. Live story IDs + reset/rotate runbook: see the archived S117 handoff.

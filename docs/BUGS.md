@@ -410,7 +410,9 @@ platform-wide topology, ADR-077 preserved) with the same active-membership join 
 links query uses — the path derivation and the graph then substantiate "connected" from the same
 edge set with the same liveness filter. Community/invitation fallbacks stay (they're worded
 truthfully in `TrustPathBadge`: "Fellow member…" / "Joined through…"); the exchange trustScore
-and cache semantics are unchanged. `ConnectionBadge.tsx` (which mislabels every path type as
+is still cached internally, but cached `exchange` rows are revalidated against the same live,
+active-membership edge set before they can be returned; stale pre-fix rows are deleted and
+recomputed, so the old completed-match derivation cannot survive behind the cache. `ConnectionBadge.tsx` (which mislabels every path type as
 "Direct connection/Connected through…") is dead production code — only its own test imports it —
 and is removed. Consumers inheriting the fix via `/paths/*`: OfferItem→TrustPathBadge,
 RequestCard, providers/[id] (frontend `useTrustPath`); request-service feed ranker + dibs

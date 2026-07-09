@@ -3,12 +3,30 @@ import { pool } from '../config/database';
 import { logger } from '../config/logger';
 import { AuthenticatedRequest } from '@karmyq/shared/middleware/auth';
 import { sendValidationError } from '@karmyq/shared';
-import { computeTrustPath, TrustPath } from '../services/pathComputation';
+import { computeTrustPath, isCachedExchangePathLive } from '../services/pathComputation';
 import { resolveCommunityContext } from '../services/communityContext';
 
 import { projectPathNodes } from '../services/disclosureProjection';
 
 const router = express.Router();
+
+async function deleteCachedPath(userA: string, userB: string, communityId: string): Promise<void> {
+  await pool.query(
+    `DELETE FROM auth.social_distances
+     WHERE community_id = $3
+       AND ((user_a_id = $1 AND user_b_id = $2)
+         OR (user_a_id = $2 AND user_b_id = $1))`,
+    [userA, userB, communityId]
+  );
+}
+
+async function isReturnableCachedPath(cached: {
+  connection_type?: string | null;
+  shortest_path?: unknown;
+}): Promise<boolean> {
+  const connectionType = cached.connection_type || 'exchange';
+  return connectionType !== 'exchange' || await isCachedExchangePathLive(cached.shortest_path);
+}
 
 // GET /paths/:targetUserId - Get shortest path between current user and target user
 router.get('/:targetUserId', async (req: AuthenticatedRequest, res: Response) => {
@@ -61,28 +79,38 @@ router.get('/:targetUserId', async (req: AuthenticatedRequest, res: Response) =>
 
     if (cacheResult.rows.length > 0) {
       const cached = cacheResult.rows[0];
+      const connectionType = cached.connection_type || 'exchange';
 
-      logger.info('Path retrieved from cache', {
-        currentUserId,
-        targetUserId,
-        communityId,
-        degrees: cached.degrees_of_separation,
-        connectionType: cached.connection_type,
-      });
+      if (!(await isReturnableCachedPath(cached))) {
+        await deleteCachedPath(currentUserId, targetUserId, communityId);
+        logger.info('Deleted stale cached exchange path after live-edge revalidation failed', {
+          currentUserId,
+          targetUserId,
+          communityId,
+        });
+      } else {
+        logger.info('Path retrieved from cache', {
+          currentUserId,
+          targetUserId,
+          communityId,
+          degrees: cached.degrees_of_separation,
+          connectionType,
+        });
 
-      // Sprint 112 (ADR-082): outward responses omit the numeric path trust_score. The internal
-      // path_trust_score stays cached for feed ranking; members get degrees + topology + scope.
-      return res.json({
-        success: true,
-        data: {
-          degrees_of_separation: cached.degrees_of_separation,
-          path: projectPathNodes(cached.shortest_path),
-          connection_type: cached.connection_type || 'exchange',
-          scope,
-          cached: true,
-          computed_at: cached.computed_at,
-        },
-      });
+        // Sprint 112 (ADR-082): outward responses omit the numeric path trust_score. The internal
+        // path_trust_score stays cached for feed ranking; members get degrees + topology + scope.
+        return res.json({
+          success: true,
+          data: {
+            degrees_of_separation: cached.degrees_of_separation,
+            path: projectPathNodes(cached.shortest_path),
+            connection_type: connectionType,
+            scope,
+            cached: true,
+            computed_at: cached.computed_at,
+          },
+        });
+      }
     }
 
     // Compute path — tries exchange, then community membership, then invitation chain
@@ -102,6 +130,7 @@ router.get('/:targetUserId', async (req: AuthenticatedRequest, res: Response) =>
           path: null,
           connection_type: null,
           scope,
+          cached: false,
           message: 'No connection found',
         },
       });
@@ -236,7 +265,10 @@ router.post('/batch', async (req: AuthenticatedRequest, res: Response) => {
 
       const cached = cachedPaths.get(targetUserId);
 
-      if (cached) {
+      if (cached && await isReturnableCachedPath({
+        connection_type: cached.connectionType,
+        shortest_path: cached.path,
+      })) {
         results.push({
           target_user_id: targetUserId,
           degrees_of_separation: cached.degrees,
@@ -244,6 +276,15 @@ router.post('/batch', async (req: AuthenticatedRequest, res: Response) => {
           cached: true,
         });
       } else {
+        if (cached) {
+          await deleteCachedPath(currentUserId, targetUserId, communityId);
+          logger.info('Deleted stale cached batch exchange path after live-edge revalidation failed', {
+            currentUserId,
+            targetUserId,
+            communityId,
+          });
+        }
+
         const path = await computeTrustPath(currentUserId, targetUserId, communityId);
 
         if (path) {

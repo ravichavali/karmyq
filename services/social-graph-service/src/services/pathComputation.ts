@@ -22,6 +22,62 @@ interface GraphNode {
   parent: string | null;
 }
 
+function cachedPathUserIds(path: unknown): string[] {
+  let parsed = path;
+  if (typeof path === 'string') {
+    try {
+      parsed = JSON.parse(path);
+    } catch {
+      return [];
+    }
+  }
+
+  if (!Array.isArray(parsed)) return [];
+
+  const ids = parsed.map((node) => {
+    if (typeof node === 'string') return node;
+    if (node && typeof node === 'object') {
+      const obj = node as { id?: unknown; user_id?: unknown };
+      const id = obj.id ?? obj.user_id;
+      return typeof id === 'string' ? id : null;
+    }
+    return null;
+  });
+
+  return ids.every((id): id is string => typeof id === 'string' && id.length > 0) ? ids : [];
+}
+
+/**
+ * A cached exchange path is returnable only if each cached hop is still present in the live,
+ * active-membership edge set the belonging graph discloses. This self-heals pre-Sprint-118 cache
+ * rows that were computed from all-time completed matches and could otherwise preserve BUG-028
+ * until TTL expiry.
+ */
+export async function isCachedExchangePathLive(path: unknown): Promise<boolean> {
+  const userIds = cachedPathUserIds(path);
+  if (userIds.length < 2) return false;
+
+  for (let i = 0; i < userIds.length - 1; i++) {
+    const userA = userIds[i];
+    const userB = userIds[i + 1];
+    const result = await pool.query(
+      `SELECT 1 AS ok
+       FROM social_graph.trust_edges_live tel
+       JOIN communities.members ma
+         ON ma.user_id = tel.user_id_a AND ma.community_id = tel.community_id AND ma.status = 'active'
+       JOIN communities.members mb
+         ON mb.user_id = tel.user_id_b AND mb.community_id = tel.community_id AND mb.status = 'active'
+       WHERE ((tel.user_id_a::text = $1 AND tel.user_id_b::text = $2)
+           OR (tel.user_id_a::text = $2 AND tel.user_id_b::text = $1))
+       LIMIT 1`,
+      [userA, userB]
+    );
+    if (result.rows.length === 0) return false;
+  }
+
+  return true;
+}
+
 /**
  * Compute shortest path between two users using BFS over live trust edges.
  * Max depth: 3 degrees of separation.

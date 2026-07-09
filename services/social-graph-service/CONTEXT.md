@@ -300,6 +300,8 @@ Get shortest path between current user and target user.
   "data": {
     "degrees_of_separation": null,
     "path": null,
+    "connection_type": null,
+    "cached": false,
     "message": "No connection found (4+ degrees or unconnected)"
   }
 }
@@ -313,6 +315,8 @@ Get shortest path between current user and target user.
 - Cache hit: ~50ms
 - Cache miss: ~500ms (first computation)
 - Cache TTL: 7 days
+- Cached `exchange` rows are revalidated against live graph edges before return; stale or
+  malformed rows are deleted and recomputed.
 
 ---
 
@@ -353,6 +357,7 @@ Get paths for multiple target users (optimized for feed ranking).
 **Limits**:
 - Max 50 users per request
 - Automatically caches newly computed paths
+- Revalidates cached `exchange` rows against live graph edges before returning batch cache hits.
 
 **Use Case**: Feed Service calls this endpoint to get social proximity scores for all requesters in the feed, then ranks requests accordingly.
 
@@ -622,7 +627,12 @@ as membership — not a trust connection) then `computeInvitationPath` (accepted
 
 **Invalidation**:
 - Automatic (expires_at timestamp)
-- No manual invalidation (yet)
+- `match_completed` clears cache rows for the two participants
+- Sprint 118 / BUG-028: cached `exchange` rows are revalidated on read against
+  `trust_edges_live` with active endpoint membership for every cached hop. A stale or malformed
+  exchange cache row is deleted and recomputed, so pre-fix completed-match paths cannot survive
+  behind the 7-day TTL. Non-exchange fallback rows (`community_member`, `invitation_chain`) keep
+  the normal TTL semantics.
 
 **Cache Hit Rate Target**: >95% (most paths precomputed)
 
@@ -896,7 +906,7 @@ See [ADR-056](../../docs/adr/ADR-056-intrinsic-trust-decay.md) for full decision
 ## Recent Changes
 
 ### Sprint 118: Invited Arrival & the Living Graph (2026-07-08, ADR-085)
-- **FIX (BUG-028)**: `computeShortestPath` (`pathComputation.ts`) now builds its BFS adjacency from `social_graph.trust_edges_live` with active-membership joins on BOTH endpoints — the same edge set `/trust/neighborhood` discloses — instead of all-time completed `requests.matches`. On the curated demo, 742 of 2103 completed-match pairs had no trust edge at all (seeded matches bypassed the `match_completed` event), so badges claimed connections the graph couldn't show. Topology stays platform-wide (ADR-077); community/invitation fallbacks unchanged. Also fixed: the BFS target check now runs before the depth gate, so exactly-3° paths are found. Note: `auth.social_distances` rows cached pre-fix can serve a stale exchange claim for ≤7 days (TTL) — self-healing.
+- **FIX (BUG-028)**: `computeShortestPath` (`pathComputation.ts`) now builds its BFS adjacency from `social_graph.trust_edges_live` with active-membership joins on BOTH endpoints — the same edge set `/trust/neighborhood` discloses — instead of all-time completed `requests.matches`. On the curated demo, 742 of 2103 completed-match pairs had no trust edge at all (seeded matches bypassed the `match_completed` event), so badges claimed connections the graph couldn't show. Topology stays platform-wide (ADR-077); community/invitation fallbacks unchanged. Also fixed: the BFS target check now runs before the depth gate, so exactly-3° paths are found. Cached `exchange` rows are revalidated against live graph edges on read; stale pre-fix rows are deleted and recomputed instead of surviving for the 7-day TTL.
 - **NEW**: `/trust/neighborhood` links carry `formed_recently: boolean` (see the endpoint section) — links query gains `MIN(tel.created_at) AS formed_at` (internal), projection derives the boolean fail-closed against `FORMED_RECENTLY_WINDOW_DAYS = 30`. `SafeBelongingLinkSchema` (shared) gains the optional field.
 
 ### Sprint 98: Trust Truth Audit (2026-06-14, ADR-077)

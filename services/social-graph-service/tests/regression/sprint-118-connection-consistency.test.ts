@@ -29,7 +29,11 @@ jest.mock('../../src/config/logger', () => ({
 }));
 
 const { pool } = require('../../src/config/database');
-import { computeInvitationPath, computeShortestPath } from '../../src/services/pathComputation';
+import {
+  computeInvitationPath,
+  computeShortestPath,
+  isCachedExchangePathLive,
+} from '../../src/services/pathComputation';
 
 describe('Sprint 118 / BUG-028: exchange-path adjacency = the edge set the graph discloses', () => {
   const communityId = 'community-123';
@@ -201,5 +205,43 @@ describe('Sprint 118 / BUG-028: exchange-path adjacency = the edge set the graph
     expect(result?.degrees).toBe(1);
     const adjacencySql = pool.query.mock.calls[0][0] as string;
     expect(adjacencySql).toContain('DISTINCT');
+  });
+});
+
+describe('Sprint 118 / BUG-028: cached exchange paths are revalidated against live edges', () => {
+  beforeEach(() => {
+    pool.query.mockReset();
+  });
+
+  it('returns false when any cached hop is absent from trust_edges_live with active endpoints', async () => {
+    pool.query
+      .mockResolvedValueOnce({ rows: [{ ok: 1 }] })
+      .mockResolvedValueOnce({ rows: [] });
+
+    await expect(isCachedExchangePathLive(['a', 'b', 'c'])).resolves.toBe(false);
+
+    expect(pool.query).toHaveBeenCalledTimes(2);
+    const sql = pool.query.mock.calls[0][0] as string;
+    expect(sql).toContain('social_graph.trust_edges_live');
+    expect(sql).toContain('communities.members');
+    expect(sql).toContain(`'active'`);
+  });
+
+  it('returns true only when every cached hop is a currently disclosed live edge', async () => {
+    pool.query
+      .mockResolvedValueOnce({ rows: [{ ok: 1 }] })
+      .mockResolvedValueOnce({ rows: [{ ok: 1 }] });
+
+    await expect(isCachedExchangePathLive([
+      { id: 'a', name: 'A' },
+      { id: 'b', name: 'B' },
+      { id: 'c', name: 'C' },
+    ])).resolves.toBe(true);
+  });
+
+  it('fails closed for missing or malformed cached paths', async () => {
+    await expect(isCachedExchangePathLive(null)).resolves.toBe(false);
+    await expect(isCachedExchangePathLive([{ name: 'No id' }])).resolves.toBe(false);
+    expect(pool.query).not.toHaveBeenCalled();
   });
 });

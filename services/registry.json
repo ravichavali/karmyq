@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "updated": "2026-06-30",
+  "updated": "2026-07-08",
   "services": {
     "auth-service": {
       "port": 3001,
@@ -797,12 +797,12 @@
           {
             "method": "GET",
             "path": "/paths/:targetUserId",
-            "description": "Get shortest path between current user and target user."
+            "description": "Get shortest path between current user and target user. Sprint 118 / BUG-028: cached exchange paths are revalidated against live trust_edges_live edges with active endpoint membership before return; stale rows are deleted and recomputed."
           },
           {
             "method": "POST",
             "path": "/paths/batch",
-            "description": "Get paths for multiple target users (optimized for feed ranking)."
+            "description": "Get paths for multiple target users (optimized for feed ranking). Sprint 118 / BUG-028: cached exchange paths are revalidated against live trust_edges_live edges with active endpoint membership before batch cache hits are returned."
           },
           {
             "method": "GET",
