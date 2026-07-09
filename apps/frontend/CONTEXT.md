@@ -484,11 +484,14 @@ Props: `icon?` (emoji), `heading`, `body`, `ctaLabel?`, `ctaHref?`, `ctaOnClick?
 
 ### `WelcomeModal.tsx`
 **Path**: `src/components/WelcomeModal.tsx`
-3-step first-time onboarding modal. Controlled by `karmyq_onboarded` localStorage key.
+3-step first-time onboarding modal. Sprint 118 (ADR-085): gates on the **user-scoped**
+`karmyq_onboarded:<userId>` key, honoring the legacy global `karmyq_onboarded` (existing users see
+nothing new).
 
 - Hydration-safe: `visible` initialises `false`; set `true` only inside `useEffect` after checking localStorage
-- On close/done: writes `karmyq_onboarded = '1'` to localStorage
+- On close/done: writes `karmyq_onboarded:<userId> = '1'` to localStorage
 - Rendered inside `dashboard.tsx` `<Layout>`, above the main grid
+- Suppressed for members who passed through the `/welcome` arrival (it writes the same key)
 
 ---
 
@@ -503,8 +506,20 @@ Used for components that reference browser APIs (`window`, `canvas`, `document`)
 | `CommunityConfigEditor` | `communities/new.tsx`, `communities/[id].tsx` |
 | `SchemaCanvas` | `admin/schemas/[id]/edit.tsx` |
 
-### `karmyq_onboarded` localStorage flag
-Absence of this key triggers the `WelcomeModal`. Set to `'1'` on first close. Checked in `useEffect` (never at render time).
+### Join funnel + arrival gate (Sprint 118, ADR-085)
+Invite-primary funnel: `/invite/[code]` is the landing (context card + inline account form;
+preserves the register side effects: `token`, `refreshToken`, `user`, `demoContext` clear) →
+accept → re-login → `/welcome`. Open path: `/register` (invite nudge) →
+`/communities?welcome=true` → first public join → `/welcome`. Both paths stash the arrival
+context in **sessionStorage `karmyq_arrival`** (`{path, inviterId?, inviterName?, communityId,
+communityName}`); `/welcome` renders `ArrivalGraph` (ring primitives, never sparse-gated; the
+invitation bond is a distinct dashed chord from funnel context — NEVER a trust edge) and writes
+the user-scoped onboarded key on completion/skip.
+
+### `karmyq_onboarded:<userId>` localStorage flag
+Absence of this key (and of the legacy global `karmyq_onboarded`) triggers the `WelcomeModal`.
+Written `'1'` when the `/welcome` arrival completes or is skipped, or on modal close. Checked in
+`useEffect` (never at render time). The legacy global key is read but no longer written.
 
 ### Canonical CSS classes (`globals.css @layer components`)
 Sprint 33 added canonical utility classes. Use these instead of raw Tailwind on buttons, inputs, and cards:

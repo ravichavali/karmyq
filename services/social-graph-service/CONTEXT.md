@@ -443,6 +443,8 @@ Sprint 111 (ADR-081) — privacy-scoped recursive ego-neighborhood backing the f
 
 **Traversal (`getTrustNeighborhood` in `src/database/trustEdgeDb.ts`)**: a recursive CTE seeds the center at depth 0 and walks either endpoint of `trust_edges_live`, constrained to `community_id = ANY(allowed)` and **active** membership in each traversed edge's community, stopping at `depth`. Each user collapses to its minimum (shortest) depth. Capped at **80 nodes** (fetched as `maxNodes+1`, ordered closest-first, to detect truncation); links are returned only between retained nodes. `trust_edges_live` is a VIEW — read-only.
 
+**`formed_recently` (Sprint 118, ADR-085)**: each outward link carries a qualitative boolean — the pair's **first** edge formation (`MIN(tel.created_at)` across the pair's per-community edges, aggregated in the links query) falls within the projection's 30-day window (`FORMED_RECENTLY_WINDOW_DAYS` in `disclosureProjection.ts`). Derived fail-closed at the response boundary (`isFormedRecently`); the timestamp itself never leaves the service (ADR-082). A long-standing pair adding an edge in a new community is NOT "new" (MIN semantics). Supplements — never replaces — `relationship_state`.
+
 **Validation errors** (ADR-074 shape): `INVALID_USER_ID` / `INVALID_DEPTH` / `INVALID_COMMUNITY_ID` → 400.
 
 **Response**:
@@ -454,7 +456,7 @@ Sprint 111 (ADR-081) — privacy-scoped recursive ego-neighborhood backing the f
       { "id": "center", "name": "Me", "trust_score": 0, "karma": 0, "isCurrentUser": true, "degrees_of_separation": 0 },
       { "id": "peer-1", "name": "Alice", "trust_score": 2.5, "karma": 4, "isCurrentUser": false, "degrees_of_separation": 1 }
     ],
-    "links": [{ "source": "center", "target": "peer-1", "raw_weight": 3, "effective_weight": 2.5 }],
+    "links": [{ "source": "center", "target": "peer-1", "relationship_state": "warm", "formed_recently": false }],
     "meta": { "depth": 2, "truncated": false }
   }
 }
@@ -892,6 +894,10 @@ See [ADR-056](../../docs/adr/ADR-056-intrinsic-trust-decay.md) for full decision
 ---
 
 ## Recent Changes
+
+### Sprint 118: Invited Arrival & the Living Graph (2026-07-08, ADR-085)
+- **FIX (BUG-028)**: `computeShortestPath` (`pathComputation.ts`) now builds its BFS adjacency from `social_graph.trust_edges_live` with active-membership joins on BOTH endpoints — the same edge set `/trust/neighborhood` discloses — instead of all-time completed `requests.matches`. On the curated demo, 742 of 2103 completed-match pairs had no trust edge at all (seeded matches bypassed the `match_completed` event), so badges claimed connections the graph couldn't show. Topology stays platform-wide (ADR-077); community/invitation fallbacks unchanged. Also fixed: the BFS target check now runs before the depth gate, so exactly-3° paths are found. Note: `auth.social_distances` rows cached pre-fix can serve a stale exchange claim for ≤7 days (TTL) — self-healing.
+- **NEW**: `/trust/neighborhood` links carry `formed_recently: boolean` (see the endpoint section) — links query gains `MIN(tel.created_at) AS formed_at` (internal), projection derives the boolean fail-closed against `FORMED_RECENTLY_WINDOW_DAYS = 30`. `SafeBelongingLinkSchema` (shared) gains the optional field.
 
 ### Sprint 98: Trust Truth Audit (2026-06-14, ADR-077)
 - **NEW**: `src/services/communityContext.ts` — `resolveCommunityContext(header, jwtCurrentCommunityId)` + `PLATFORM_COMMUNITY_ID` sentinel + `isUuid`. Single resolver used by `/paths/:id`, `/paths/batch`, `/trust-card/:id`. Fixes BUG-098-002: the routes no longer pass the literal string `'platform'` into the UUID `auth.social_distances.community_id` column (which 500'd for users with no `currentCommunityId`); a malformed `X-Community-ID` is now a 400, missing context falls back to the platform sentinel. Each response carries `scope: 'community' | 'platform'`.

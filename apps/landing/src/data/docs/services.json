@@ -799,7 +799,7 @@
         {
           "method": "GET",
           "path": "/trust/neighborhood/:userId",
-          "description": "Sprint 111 (ADR-081): privacy-scoped recursive ego-neighborhood for the /network explorer. Query: depth=1|2|3 (default 1), optional communityId. Scope resolved BEFORE traversal from shared active community membership. Inaccessible center → 404. Capped at 80 nodes; each node carries degrees_of_separation (center=0). Sprint 112 (ADR-082): SafeBelongingNode/SafeBelongingLink only — identity + relationship_state, no node trust_score/karma on ANY node, no raw edge weights."
+          "description": "Sprint 111 (ADR-081): privacy-scoped recursive ego-neighborhood for the /network explorer. Query: depth=1|2|3 (default 1), optional communityId. Scope resolved BEFORE traversal from shared active community membership. Inaccessible center → 404. Capped at 80 nodes; each node carries degrees_of_separation (center=0). Sprint 112 (ADR-082): SafeBelongingNode/SafeBelongingLink only — identity + relationship_state, no node trust_score/karma on ANY node, no raw edge weights. Sprint 118 (ADR-085): each link also carries formed_recently (qualitative boolean; pair first formation within a 30-day window, MIN across communities; timestamp never exposed)."
         },
         {
           "method": "GET",
