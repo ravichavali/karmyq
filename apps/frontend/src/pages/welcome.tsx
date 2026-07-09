@@ -8,6 +8,9 @@ import type { GraphData } from '@/components/graphs/types'
 
 interface ArrivalContext {
   path: 'invite' | 'open'
+  /** The account this arrival belongs to — a stale context from another login on the same tab
+   *  must never be replayed (sessionStorage survives logout). */
+  userId?: string
   inviterId?: string
   inviterName?: string
   communityId: string
@@ -25,10 +28,16 @@ function readStoredUser(): { id: string; name?: string } | null {
   }
 }
 
-function readArrivalContext(): ArrivalContext | null {
+function readArrivalContext(expectedUserId: string): ArrivalContext | null {
   try {
     const stored = JSON.parse(sessionStorage.getItem(ARRIVAL_KEY) || 'null')
-    return stored?.communityId ? stored : null
+    if (!stored?.communityId) return null
+    // A context stamped for a different account (or an unstamped legacy one) is stale — drop it.
+    if (stored.userId !== expectedUserId) {
+      sessionStorage.removeItem(ARRIVAL_KEY)
+      return null
+    }
+    return stored
   } catch {
     return null
   }
@@ -58,7 +67,7 @@ export default function WelcomePage() {
         return
       }
 
-      let context = readArrivalContext()
+      let context = readArrivalContext(storedUser.id)
       if (!context) {
         // Deep link — an already-onboarded member has nothing to arrive at.
         if (

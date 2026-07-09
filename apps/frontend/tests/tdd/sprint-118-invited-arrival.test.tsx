@@ -255,6 +255,7 @@ describe('/welcome arrival moment', () => {
       ARRIVAL_KEY,
       JSON.stringify({
         path: 'invite',
+        userId: USER.id,
         inviterId: 'inviter-9',
         inviterName: 'Maria Reyes',
         communityId: 'comm-1',
@@ -269,7 +270,7 @@ describe('/welcome arrival moment', () => {
     localStorage.setItem('user', JSON.stringify(USER))
     sessionStorage.setItem(
       ARRIVAL_KEY,
-      JSON.stringify({ path: 'open', communityId: 'comm-1', communityName: 'Berkeley Community Care' })
+      JSON.stringify({ path: 'open', userId: USER.id, communityId: 'comm-1', communityName: 'Berkeley Community Care' })
     )
     socialGraphService.getFullCommunityGraph.mockResolvedValue(RING_GRAPH)
   }
@@ -316,6 +317,28 @@ describe('/welcome arrival moment', () => {
     await waitFor(() =>
       expect(mockRouter.push).toHaveBeenCalledWith(expect.stringContaining('/communities/comm-1'))
     )
+  })
+
+  it("another account's stale arrival context on the same tab is dropped, never replayed", async () => {
+    // User A left a context behind (sessionStorage survives logout); User B is now signed in and
+    // already onboarded — B must see nothing of A's arrival.
+    localStorage.setItem('token', 'tok')
+    localStorage.setItem('user', JSON.stringify(USER))
+    localStorage.setItem(onboardedKeyFor(USER.id), '1')
+    sessionStorage.setItem(
+      ARRIVAL_KEY,
+      JSON.stringify({
+        path: 'invite',
+        userId: 'someone-else',
+        inviterId: 'inviter-9',
+        inviterName: 'Maria Reyes',
+        communityId: 'comm-1',
+        communityName: 'Berkeley Community Care',
+      })
+    )
+    render(<WelcomePage />)
+    await waitFor(() => expect(mockRouter.replace).toHaveBeenCalledWith('/dashboard'))
+    expect(sessionStorage.getItem(ARRIVAL_KEY)).toBeNull()
   })
 
   it('deep-linking /welcome with no joined community redirects harmlessly to /dashboard', async () => {

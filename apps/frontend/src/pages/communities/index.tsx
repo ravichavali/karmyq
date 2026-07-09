@@ -357,7 +357,7 @@ export default function CommunitiesPage() {
         const joined = communitiesRef.current.find(c => c.id === communityId)
         sessionStorage.setItem(
           'karmyq_arrival',
-          JSON.stringify({ path: 'open', communityId, communityName: joined?.name })
+          JSON.stringify({ path: 'open', userId: user.id, communityId, communityName: joined?.name })
         )
         router.push('/welcome')
         return

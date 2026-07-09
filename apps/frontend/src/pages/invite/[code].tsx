@@ -113,11 +113,13 @@ export default function InviteAcceptance() {
         });
         persistSession(loginResponse.data);
 
-        // Hand the invitation-bond context to the arrival moment.
+        // Hand the invitation-bond context to the arrival moment (stamped with the account it
+        // belongs to — /welcome drops a context left behind by another login on this tab).
         sessionStorage.setItem(
           'karmyq_arrival',
           JSON.stringify({
             path: 'invite',
+            userId: loginResponse.data.user?.id,
             inviterId,
             inviterName: invitationInfo?.inviter_name,
             communityId: invitationInfo?.community_id,

@@ -112,7 +112,7 @@ export async function computeShortestPath(
   }
 
   if (!found || !meetingPoint) {
-    logger.debug('No path found within 4 degrees', {
+    logger.debug('No path found within 3 degrees', {
       sourceUserId,
       targetUserId,
       communityId,
@@ -320,8 +320,10 @@ export async function computeInvitationPath(
 
   while (queue.length > 0 && !found) {
     const current = queue.shift()!;
-    if (current.distance >= MAX_DEPTH) continue;
+    // Target check before the depth gate — same ordering fix as computeShortestPath (Sprint 118):
+    // a target popped at exactly MAX_DEPTH is a valid 3° chain.
     if (current.userId === targetUserId) { found = true; break; }
+    if (current.distance >= MAX_DEPTH) continue;
 
     for (const neighborId of (graph.get(current.userId) || new Set())) {
       if (!visited.has(neighborId)) {

@@ -30,13 +30,13 @@ Every belonging-graph surface shares the same encoding, so an intuition learned 
   | Nearly forgotten | faint |
   | Swept | barely visible (about to leave active memory) |
 
-- **Newly formed bonds read as new.** A bond whose relationship first formed within the last month
-  carries a bright green **New bond** emphasis (a distinct hue and a slightly stronger line),
-  layered on top of its intensity band, and the legend names it. It's qualitative on purpose —
-  Karmyq never shows dates or counts on the graph — and it applies to the *relationship*, not to
-  each community copy of it: a long-standing pair connecting in a second community is not "new".
-  Together with the fading bands, this completes the graph's living story — bonds are visibly
-  born, strengthen, and fade.
+- **Newly formed bonds read as new — on the My Network view.** In the ego (My Network) view, a
+  bond whose relationship first formed within the last month carries a bright green **New bond**
+  emphasis (a distinct hue and a slightly stronger line), layered on top of its intensity band,
+  and the legend names it. It's qualitative on purpose — Karmyq never shows dates or counts on
+  the graph — and it applies to the *relationship*, not to each community copy of it: a
+  long-standing pair connecting in a second community is not "new". Together with the fading
+  bands, this completes the graph's living story — bonds are visibly born, strengthen, and fade.
 
 - **An invitation is not a bond.** When you join through an invitation, the arrival screen draws
   a dashed **invitation bond** to your inviter — that's provenance, shown once at arrival. It

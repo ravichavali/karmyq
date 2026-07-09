@@ -29,7 +29,7 @@ jest.mock('../../src/config/logger', () => ({
 }));
 
 const { pool } = require('../../src/config/database');
-import { computeShortestPath } from '../../src/services/pathComputation';
+import { computeInvitationPath, computeShortestPath } from '../../src/services/pathComputation';
 
 describe('Sprint 118 / BUG-028: exchange-path adjacency = the edge set the graph discloses', () => {
   const communityId = 'community-123';
@@ -153,6 +153,33 @@ describe('Sprint 118 / BUG-028: exchange-path adjacency = the edge set the graph
     const result = await computeShortestPath('alice', 'bob', communityId);
 
     expect(result).toBeNull();
+  });
+
+  it('computeInvitationPath finds a full 3-degree chain (same depth-gate ordering fix)', async () => {
+    // a→b→c→d accepted invitations is exactly 3°; the old ordering continued past the target
+    // when it popped at distance === MAX_DEPTH — the same bug fixed in computeShortestPath.
+    pool.query
+      .mockResolvedValueOnce({
+        rows: [
+          { user_a: 'a', user_b: 'b' },
+          { user_a: 'b', user_b: 'c' },
+          { user_a: 'c', user_b: 'd' },
+        ],
+      })
+      .mockResolvedValueOnce({
+        rows: [
+          { id: 'a', name: 'A' },
+          { id: 'b', name: 'B' },
+          { id: 'c', name: 'C' },
+          { id: 'd', name: 'D' },
+        ],
+      });
+
+    const result = await computeInvitationPath('a', 'd');
+
+    expect(result).not.toBeNull();
+    expect(result?.degrees).toBe(3);
+    expect(result?.connectionType).toBe('invitation_chain');
   });
 
   it('deduplicates a multi-community pair to a single hop', async () => {
