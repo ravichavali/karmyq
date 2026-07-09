@@ -130,6 +130,10 @@
           "href": "/docs/guides/getting-started"
         },
         {
+          "label": "Joining Karmyq",
+          "href": "/docs/guides/joining-karmyq"
+        },
+        {
           "label": "Your Dashboard Home",
           "href": "/docs/guides/dashboard-home"
         },
@@ -407,6 +411,10 @@
         {
           "label": "Context-Bound Connection Visibility",
           "href": "/docs/concepts/adr-084-context-bound-connection-visibility"
+        },
+        {
+          "label": "Invited Arrival & the Edge Lifecycle",
+          "href": "/docs/concepts/adr-085-invited-arrival-and-edge-lifecycle"
         },
         {
           "label": "— Community & Scale —",

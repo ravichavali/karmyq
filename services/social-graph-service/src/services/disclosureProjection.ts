@@ -40,6 +40,22 @@ interface RawLink {
   currentWeight?: number;
   decayTier?: DecayTier;
   type?: string;
+  /** Pair's first edge formation (MIN(created_at) across communities). Internal only. */
+  formed_at?: unknown;
+}
+
+// Sprint 118 (ADR-085): a bond reads as "new" when the pair's FIRST formation is inside this
+// window. One constant for every consumer; the boolean is the only thing projected outward.
+export const FORMED_RECENTLY_WINDOW_DAYS = 30;
+const FORMED_RECENTLY_WINDOW_MS = FORMED_RECENTLY_WINDOW_DAYS * 24 * 60 * 60 * 1000;
+
+/** Fail closed: a missing or unparseable formation date is never "new". */
+export function isFormedRecently(formedAt: unknown, now: Date = new Date()): boolean {
+  if (formedAt == null) return false;
+  const formed = formedAt instanceof Date ? formedAt : new Date(String(formedAt));
+  const ms = formed.getTime();
+  if (Number.isNaN(ms)) return false;
+  return now.getTime() - ms <= FORMED_RECENTLY_WINDOW_MS;
 }
 
 function endpointId(value: unknown): string {
@@ -66,13 +82,14 @@ export function projectPersonNode(node: RawNode, callerId?: string): SafeBelongi
 }
 
 /** Project a person graph link to source/target + qualitative relationship state (no raw weights). */
-export function projectPersonLink(link: RawLink, threshold: number): SafeBelongingLink {
+export function projectPersonLink(link: RawLink, threshold: number, now?: Date): SafeBelongingLink {
   const tier =
     link.decayTier ?? classifyDecayTier(Number(link.currentWeight ?? link.effective_weight ?? 0), threshold);
   const safe: SafeBelongingLink = {
     source: endpointId(link.source),
     target: endpointId(link.target),
     relationship_state: toRelationshipState(tier),
+    formed_recently: isFormedRecently(link.formed_at, now),
   };
   if (link.type === 'organic' || link.type === 'fission') safe.type = link.type;
   return safe;
@@ -92,10 +109,11 @@ export function projectPersonGraph(
   graph: RawPersonGraph,
   threshold: number,
   callerId?: string,
+  now: Date = new Date(),
 ): { nodes: SafeBelongingNode[]; links: SafeBelongingLink[]; meta?: unknown } {
   const safe: { nodes: SafeBelongingNode[]; links: SafeBelongingLink[]; meta?: unknown } = {
     nodes: graph.nodes.map((n) => projectPersonNode(n, callerId)),
-    links: graph.links.map((l) => projectPersonLink(l, threshold)),
+    links: graph.links.map((l) => projectPersonLink(l, threshold, now)),
   };
   if (graph.meta !== undefined) safe.meta = graph.meta;
   return safe;

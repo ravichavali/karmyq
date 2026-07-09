@@ -3,6 +3,7 @@ import * as d3 from 'd3'
 import { useGraphContainerWidth } from '../../hooks/useGraphContainerWidth'
 import { buildEgoOrbitModel } from './egoOrbitModel'
 import {
+  NEW_BOND_COLOR,
   PERSON_COLORS,
   UNRELATED_OPACITY,
   buildAdjacency,
@@ -244,6 +245,7 @@ export default function EgoOrbitGraph({
       </svg>
 
       <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 px-1 text-xs text-text-muted">
+        <span style={{ color: NEW_BOND_COLOR }}>New bond</span>
         <span>Strong relationship</span>
         <span>Warm relationship</span>
         <span>Fading relationship</span>

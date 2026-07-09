@@ -60,7 +60,14 @@ export default function Register() {
       </Head>
       <div className="min-h-screen bg-gradient-to-b from-primary-light to-surface-raised flex items-center justify-center px-4">
         <div className="max-w-md w-full bg-surface-raised rounded-lg shadow-lg p-8">
-          <h1 className="text-3xl font-bold font-serif text-center mb-8">Create Account</h1>
+          <h1 className="text-3xl font-bold font-serif text-center mb-6">Create Account</h1>
+
+          {/* Sprint 118 (ADR-085): invitation is the celebrated join path. */}
+          <div className="bg-accent-light/60 border border-accent/30 rounded-lg px-4 py-3 mb-6 text-sm text-text-muted">
+            <span className="font-medium text-text">Have an invitation?</span> Your invite link is
+            the best way in — it connects you with the person who invited you from your very first
+            day. Open it to join their community directly.
+          </div>
 
           {error && (
             <div className="bg-error-light border border-error/20 text-error px-4 py-3 rounded mb-4">
@@ -70,10 +77,11 @@ export default function Register() {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-text mb-2">
+              <label htmlFor="register-name" className="block text-sm font-medium text-text mb-2">
                 Name
               </label>
               <input
+                id="register-name"
                 type="text"
                 required
                 value={formData.name}
@@ -83,10 +91,11 @@ export default function Register() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-text mb-2">
+              <label htmlFor="register-email" className="block text-sm font-medium text-text mb-2">
                 Email
               </label>
               <input
+                id="register-email"
                 type="email"
                 required
                 value={formData.email}
@@ -96,10 +105,11 @@ export default function Register() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-text mb-2">
+              <label htmlFor="register-password" className="block text-sm font-medium text-text mb-2">
                 Password
               </label>
               <input
+                id="register-password"
                 type="password"
                 required
                 value={formData.password}
@@ -109,10 +119,11 @@ export default function Register() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-text mb-2">
+              <label htmlFor="register-confirm-password" className="block text-sm font-medium text-text mb-2">
                 Confirm Password
               </label>
               <input
+                id="register-confirm-password"
                 type="password"
                 required
                 value={formData.confirmPassword}

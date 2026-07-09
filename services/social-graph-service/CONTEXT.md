@@ -300,6 +300,8 @@ Get shortest path between current user and target user.
   "data": {
     "degrees_of_separation": null,
     "path": null,
+    "connection_type": null,
+    "cached": false,
     "message": "No connection found (4+ degrees or unconnected)"
   }
 }
@@ -313,6 +315,8 @@ Get shortest path between current user and target user.
 - Cache hit: ~50ms
 - Cache miss: ~500ms (first computation)
 - Cache TTL: 7 days
+- Cached `exchange` rows are revalidated against live graph edges before return; stale or
+  malformed rows are deleted and recomputed.
 
 ---
 
@@ -353,6 +357,7 @@ Get paths for multiple target users (optimized for feed ranking).
 **Limits**:
 - Max 50 users per request
 - Automatically caches newly computed paths
+- Revalidates cached `exchange` rows against live graph edges before returning batch cache hits.
 
 **Use Case**: Feed Service calls this endpoint to get social proximity scores for all requesters in the feed, then ranks requests accordingly.
 
@@ -443,6 +448,8 @@ Sprint 111 (ADR-081) — privacy-scoped recursive ego-neighborhood backing the f
 
 **Traversal (`getTrustNeighborhood` in `src/database/trustEdgeDb.ts`)**: a recursive CTE seeds the center at depth 0 and walks either endpoint of `trust_edges_live`, constrained to `community_id = ANY(allowed)` and **active** membership in each traversed edge's community, stopping at `depth`. Each user collapses to its minimum (shortest) depth. Capped at **80 nodes** (fetched as `maxNodes+1`, ordered closest-first, to detect truncation); links are returned only between retained nodes. `trust_edges_live` is a VIEW — read-only.
 
+**`formed_recently` (Sprint 118, ADR-085)**: each outward link carries a qualitative boolean — the pair's **first** edge formation (`MIN(tel.created_at)` across the pair's per-community edges, aggregated in the links query) falls within the projection's 30-day window (`FORMED_RECENTLY_WINDOW_DAYS` in `disclosureProjection.ts`). Derived fail-closed at the response boundary (`isFormedRecently`); the timestamp itself never leaves the service (ADR-082). A long-standing pair adding an edge in a new community is NOT "new" (MIN semantics). Supplements — never replaces — `relationship_state`.
+
 **Validation errors** (ADR-074 shape): `INVALID_USER_ID` / `INVALID_DEPTH` / `INVALID_COMMUNITY_ID` → 400.
 
 **Response**:
@@ -454,7 +461,7 @@ Sprint 111 (ADR-081) — privacy-scoped recursive ego-neighborhood backing the f
       { "id": "center", "name": "Me", "trust_score": 0, "karma": 0, "isCurrentUser": true, "degrees_of_separation": 0 },
       { "id": "peer-1", "name": "Alice", "trust_score": 2.5, "karma": 4, "isCurrentUser": false, "degrees_of_separation": 1 }
     ],
-    "links": [{ "source": "center", "target": "peer-1", "raw_weight": 3, "effective_weight": 2.5 }],
+    "links": [{ "source": "center", "target": "peer-1", "relationship_state": "warm", "formed_recently": false }],
     "meta": { "depth": 2, "truncated": false }
   }
 }
@@ -574,30 +581,37 @@ SELECT auth.generate_invitation_code('Mike Chen', 2024);
 
 ---
 
-### 2. Bidirectional BFS Path Computation
+### 2. BFS Path Computation
 
 **Algorithm**: `computeShortestPath(sourceUserId, targetUserId, communityId)`
 
-**Steps**:
-1. Build adjacency list from `auth.user_invitations`
+**Steps** (Sprint 118 / BUG-028 — the adjacency is the SAME edge set the belonging graph
+discloses, so every "connected" claim is substantiated by the graph):
+1. Build adjacency list from `social_graph.trust_edges_live` (decay-adjusted view), requiring
+   BOTH endpoints to be active members of the edge's community — mirrors the neighborhood links
+   query. Platform-wide union across communities (ADR-077); `DISTINCT` collapses a pair's
+   per-community edges to one hop.
 2. Treat graph as bidirectional (trust flows both ways)
-3. BFS from source to target
+3. BFS from source to target (target check runs before the depth gate, so an exactly-3° target
+   is found)
 4. Max depth: 3 degrees
 5. Return `null` if no path found
 
-**Optimization**: Bidirectional search reduces search space from O(b^d) to O(2 * b^(d/2))
+Fallbacks when no live-edge path exists: `computeCommunityPath` (shared active community, worded
+as membership — not a trust connection) then `computeInvitationPath` (accepted-invitation chain).
 
-**Example Output**:
+**Example Output** (ADR-082: identity + topology only — no karma on path nodes):
 ```typescript
 {
   degrees: 2,
   userIds: ['user-a', 'user-b', 'user-c'],
   path: [
     { id: 'user-a', name: 'You' },
-    { id: 'user-b', name: 'Mike', karma: 87, invited_at: '2024-11-15' },
+    { id: 'user-b', name: 'Mike', exchanged_at: '2026-05-15' },
     { id: 'user-c', name: 'Sarah' }
   ],
-  trustScore: 87 // Sum of intermediate karma (87 for Mike)
+  trustScore: 3.2, // internal ranking only (sum of community-scoped effective edge weights); never returned outward
+  connectionType: 'exchange'
 }
 ```
 
@@ -613,7 +627,12 @@ SELECT auth.generate_invitation_code('Mike Chen', 2024);
 
 **Invalidation**:
 - Automatic (expires_at timestamp)
-- No manual invalidation (yet)
+- `match_completed` clears cache rows for the two participants
+- Sprint 118 / BUG-028: cached `exchange` rows are revalidated on read against
+  `trust_edges_live` with active endpoint membership for every cached hop. A stale or malformed
+  exchange cache row is deleted and recomputed, so pre-fix completed-match paths cannot survive
+  behind the 7-day TTL. Non-exchange fallback rows (`community_member`, `invitation_chain`) keep
+  the normal TTL semantics.
 
 **Cache Hit Rate Target**: >95% (most paths precomputed)
 
@@ -885,6 +904,10 @@ See [ADR-056](../../docs/adr/ADR-056-intrinsic-trust-decay.md) for full decision
 ---
 
 ## Recent Changes
+
+### Sprint 118: Invited Arrival & the Living Graph (2026-07-08, ADR-085)
+- **FIX (BUG-028)**: `computeShortestPath` (`pathComputation.ts`) now builds its BFS adjacency from `social_graph.trust_edges_live` with active-membership joins on BOTH endpoints — the same edge set `/trust/neighborhood` discloses — instead of all-time completed `requests.matches`. On the curated demo, 742 of 2103 completed-match pairs had no trust edge at all (seeded matches bypassed the `match_completed` event), so badges claimed connections the graph couldn't show. Topology stays platform-wide (ADR-077); community/invitation fallbacks unchanged. Also fixed: the BFS target check now runs before the depth gate, so exactly-3° paths are found. Cached `exchange` rows are revalidated against live graph edges on read; stale pre-fix rows are deleted and recomputed instead of surviving for the 7-day TTL.
+- **NEW**: `/trust/neighborhood` links carry `formed_recently: boolean` (see the endpoint section) — links query gains `MIN(tel.created_at) AS formed_at` (internal), projection derives the boolean fail-closed against `FORMED_RECENTLY_WINDOW_DAYS = 30`. `SafeBelongingLinkSchema` (shared) gains the optional field.
 
 ### Sprint 98: Trust Truth Audit (2026-06-14, ADR-077)
 - **NEW**: `src/services/communityContext.ts` — `resolveCommunityContext(header, jwtCurrentCommunityId)` + `PLATFORM_COMMUNITY_ID` sentinel + `isUuid`. Single resolver used by `/paths/:id`, `/paths/batch`, `/trust-card/:id`. Fixes BUG-098-002: the routes no longer pass the literal string `'platform'` into the UUID `auth.social_distances.community_id` column (which 500'd for users with no `currentCommunityId`); a malformed `X-Community-ID` is now a 400, missing context falls back to the platform sentinel. Each response carries `scope: 'community' | 'platform'`.

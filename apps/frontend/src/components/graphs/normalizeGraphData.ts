@@ -64,6 +64,7 @@ interface SafePersonGraphLink {
   target: string | { id?: string; user_id?: string }
   relationship_state?: 'strong' | 'warm' | 'fading' | 'nearly_forgotten'
   decayTier?: 'strong' | 'warm' | 'fading' | 'nearly_forgotten' | 'swept'
+  formed_recently?: boolean // Sprint 118 / ADR-085
   type?: 'organic' | 'fission'
 }
 
@@ -94,6 +95,7 @@ export function normalizePersonGraph(graph: {
       source: endpointId(l.source),
       target: endpointId(l.target),
       decayTier: l.relationship_state ?? l.decayTier,
+      ...(l.formed_recently != null ? { formedRecently: l.formed_recently } : {}),
       ...(l.type ? { type: l.type } : {}),
     })),
     ...(graph.meta ? { meta: graph.meta } : {}),

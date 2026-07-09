@@ -22,11 +22,67 @@ interface GraphNode {
   parent: string | null;
 }
 
+function cachedPathUserIds(path: unknown): string[] {
+  let parsed = path;
+  if (typeof path === 'string') {
+    try {
+      parsed = JSON.parse(path);
+    } catch {
+      return [];
+    }
+  }
+
+  if (!Array.isArray(parsed)) return [];
+
+  const ids = parsed.map((node) => {
+    if (typeof node === 'string') return node;
+    if (node && typeof node === 'object') {
+      const obj = node as { id?: unknown; user_id?: unknown };
+      const id = obj.id ?? obj.user_id;
+      return typeof id === 'string' ? id : null;
+    }
+    return null;
+  });
+
+  return ids.every((id): id is string => typeof id === 'string' && id.length > 0) ? ids : [];
+}
+
 /**
- * Compute shortest path between two users using bidirectional BFS
- * Max depth: 4 degrees of separation
+ * A cached exchange path is returnable only if each cached hop is still present in the live,
+ * active-membership edge set the belonging graph discloses. This self-heals pre-Sprint-118 cache
+ * rows that were computed from all-time completed matches and could otherwise preserve BUG-028
+ * until TTL expiry.
+ */
+export async function isCachedExchangePathLive(path: unknown): Promise<boolean> {
+  const userIds = cachedPathUserIds(path);
+  if (userIds.length < 2) return false;
+
+  for (let i = 0; i < userIds.length - 1; i++) {
+    const userA = userIds[i];
+    const userB = userIds[i + 1];
+    const result = await pool.query(
+      `SELECT 1 AS ok
+       FROM social_graph.trust_edges_live tel
+       JOIN communities.members ma
+         ON ma.user_id = tel.user_id_a AND ma.community_id = tel.community_id AND ma.status = 'active'
+       JOIN communities.members mb
+         ON mb.user_id = tel.user_id_b AND mb.community_id = tel.community_id AND mb.status = 'active'
+       WHERE ((tel.user_id_a::text = $1 AND tel.user_id_b::text = $2)
+           OR (tel.user_id_a::text = $2 AND tel.user_id_b::text = $1))
+       LIMIT 1`,
+      [userA, userB]
+    );
+    if (result.rows.length === 0) return false;
+  }
+
+  return true;
+}
+
+/**
+ * Compute shortest path between two users using BFS over live trust edges.
+ * Max depth: 3 degrees of separation.
  *
- * Returns null if no path found within 4 degrees
+ * Returns null if no path found within 3 degrees
  */
 export async function computeShortestPath(
   sourceUserId: string,
@@ -35,13 +91,19 @@ export async function computeShortestPath(
 ): Promise<TrustPath | null> {
   const MAX_DEPTH = 3;
 
-  // Build adjacency list from completed exchanges (platform-wide, not community-scoped)
-  // Trust paths emerge from actual exchanges, not invitation links
+  // Sprint 118 (BUG-028): the adjacency is the SAME edge set the belonging graph discloses —
+  // decay-adjusted `trust_edges_live` with both endpoints active members of the edge's community
+  // (mirrors getTrustNeighborhood's links query). Raw all-time `requests.matches` diverged: a
+  // completed match whose trust edge never existed (legacy seeds) or has decayed away produced a
+  // "connected" badge the graph couldn't substantiate. Topology stays platform-wide (union across
+  // communities, ADR-077); DISTINCT collapses a pair's per-community edges to one hop.
   const graphResult = await pool.query(
-    `SELECT hr.requester_id as user_a, m.responder_id as user_b
-     FROM requests.matches m
-     JOIN requests.help_requests hr ON hr.id = m.request_id
-     WHERE m.status = 'completed'`,
+    `SELECT DISTINCT tel.user_id_a AS user_a, tel.user_id_b AS user_b
+     FROM social_graph.trust_edges_live tel
+     JOIN communities.members ma
+       ON ma.user_id = tel.user_id_a AND ma.community_id = tel.community_id AND ma.status = 'active'
+     JOIN communities.members mb
+       ON mb.user_id = tel.user_id_b AND mb.community_id = tel.community_id AND mb.status = 'active'`,
     []
   );
 
@@ -75,16 +137,17 @@ export async function computeShortestPath(
   while (queue.length > 0 && !found) {
     const current = queue.shift()!;
 
-    // Stop if we've exceeded max depth
-    if (current.distance >= MAX_DEPTH) {
-      continue;
-    }
-
-    // Check if we've reached the target
+    // Check if we've reached the target BEFORE the depth gate — a target discovered at exactly
+    // MAX_DEPTH is a valid 3° connection (the pre-Sprint-118 order silently dropped it).
     if (current.userId === targetUserId) {
       found = true;
       meetingPoint = targetUserId;
       break;
+    }
+
+    // Stop expanding past max depth
+    if (current.distance >= MAX_DEPTH) {
+      continue;
     }
 
     // Explore neighbors
@@ -105,7 +168,7 @@ export async function computeShortestPath(
   }
 
   if (!found || !meetingPoint) {
-    logger.debug('No path found within 4 degrees', {
+    logger.debug('No path found within 3 degrees', {
       sourceUserId,
       targetUserId,
       communityId,
@@ -313,8 +376,10 @@ export async function computeInvitationPath(
 
   while (queue.length > 0 && !found) {
     const current = queue.shift()!;
-    if (current.distance >= MAX_DEPTH) continue;
+    // Target check before the depth gate — same ordering fix as computeShortestPath (Sprint 118):
+    // a target popped at exactly MAX_DEPTH is a valid 3° chain.
     if (current.userId === targetUserId) { found = true; break; }
+    if (current.distance >= MAX_DEPTH) continue;
 
     for (const neighborId of (graph.get(current.userId) || new Set())) {
       if (!visited.has(neighborId)) {

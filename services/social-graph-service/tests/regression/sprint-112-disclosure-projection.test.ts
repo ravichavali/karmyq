@@ -59,7 +59,9 @@ describe('projectPersonLink', () => {
       { source: CALLER, target: PEER, raw_weight: S_RAW, effective_weight: S_EFF, currentWeight: S_CURRENT, decayTier: 'warm', type: 'organic' } as any,
       0.5,
     );
-    expect(safe).toEqual({ source: CALLER, target: PEER, relationship_state: 'warm', type: 'organic' });
+    // Sprint 118 (ADR-085): links also carry the qualitative formed_recently boolean (false when
+    // no formed_at was supplied — fail closed). Still no weights, no timestamps.
+    expect(safe).toEqual({ source: CALLER, target: PEER, relationship_state: 'warm', formed_recently: false, type: 'organic' });
     expect(() => SafeBelongingLinkSchema.parse(safe)).not.toThrow();
     expect(() => assertNoForbiddenReputationKeys(safe)).not.toThrow();
   });

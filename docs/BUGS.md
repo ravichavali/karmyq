@@ -387,8 +387,35 @@ Network/belonging maps have no zoom in/out controls. None of the network map sur
 **Fixed (S113 PR A):** `GraphZoomControls` (in/out/reset) mount inside the single renderer `TrustGraphHEB`, gated by `enableZoom` (now default-on in the `BelongingGraph` wrapper) so every surface gets one control cluster, none double-mount. **Validation 2026-06-25: PASS** — clicking zoom-in drove `__zoom` scale 1 → 1.2, reset returned to 1.
 
 ---
-## BUG-028 · [2026-07-03] · open
+## BUG-028 · [2026-07-03] · fixed (Sprint 118, ADR-085)
 
 Offer-as-response relationship: the offer/context says two people are "connected" but the network graph can't find a direct path between them — the "connected" badge and the graph disagree. Looks off; likely a data/derivation mismatch between the relationship-context connection signal and the trust-graph path query (possibly surfaced by the Sprint 117 curated baseline). Investigate whether the connection shown for an offer response is backed by an actual trust-graph edge/path.
+
+**Root cause (verified on the live curated demo, 2026-07-08):** the badge and the graph read
+**different edge sources**. The badge path (`GET /paths/:targetUserId` → `computeTrustPath` →
+`computeShortestPath`, `pathComputation.ts`) BFS-walks **all-time completed `requests.matches`**
+(no decay, no liveness, no membership filter), then falls back to shared-community and
+invitation-chain paths; results are cached 7 days in `auth.social_distances`. The graph
+(`/trust/neighborhood` → `getTrustNeighborhood`, `trustEdgeDb.ts`) discloses only
+`social_graph.trust_edges_live` (decay-adjusted view) with active-membership joins on both
+endpoints. Demo evidence: **742 of 2103 completed-match pairs have NO trust-edge row at all**
+(seeded matches bypassed the `match_completed` → `upsertTrustEdge` event flow), including
+`maria.reyes ↔ priya.sharma` (1 completed match, no live edge) — badge says "Direct connection",
+ego graph shows nothing. All 61 live cache rows are `community_member` fallbacks (2° "via admin"
+paths with no trust edge behind them).
+
+**Chosen fix layer — server, `computeShortestPath` (social-graph-service):** rebuild the exchange
+BFS adjacency from `social_graph.trust_edges_live` (union across communities = still
+platform-wide topology, ADR-077 preserved) with the same active-membership join the neighborhood
+links query uses — the path derivation and the graph then substantiate "connected" from the same
+edge set with the same liveness filter. Community/invitation fallbacks stay (they're worded
+truthfully in `TrustPathBadge`: "Fellow member…" / "Joined through…"); the exchange trustScore
+is still cached internally, but cached `exchange` rows are revalidated against the same live,
+active-membership edge set before they can be returned; stale pre-fix rows are deleted and
+recomputed, so the old completed-match derivation cannot survive behind the cache. `ConnectionBadge.tsx` (which mislabels every path type as
+"Direct connection/Connected through…") is dead production code — only its own test imports it —
+and is removed. Consumers inheriting the fix via `/paths/*`: OfferItem→TrustPathBadge,
+RequestCard, providers/[id] (frontend `useTrustPath`); request-service feed ranker + dibs
+(`/paths/batch`, `/paths/:id`); trust card (`computeTrustPath`).
 
 ---

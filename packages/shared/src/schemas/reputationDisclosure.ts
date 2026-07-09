@@ -158,6 +158,9 @@ export const SafeBelongingLinkSchema = z
     source: z.string(),
     target: z.string(),
     relationship_state: RelationshipStateSchema,
+    // Sprint 118 (ADR-085): qualitative "new bond" flag — the pair's FIRST edge formation falls
+    // within the projection's 30-day window. Boolean only; the timestamp never leaves the server.
+    formed_recently: z.boolean().optional(),
     type: z.enum(['organic', 'fission']).optional(),
   })
   .strict();

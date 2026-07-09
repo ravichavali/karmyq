@@ -655,6 +655,14 @@
       "status": "accepted",
       "description": "**Date**: 2026-06-30",
       "filename": "ADR-084-context-bound-connection-visibility.md"
+    },
+    {
+      "slug": "adr-085-invited-arrival-and-edge-lifecycle",
+      "number": "085",
+      "title": "ADR-085: Invited Arrival & the Edge Lifecycle",
+      "status": "accepted",
+      "description": "**Status**: Accepted",
+      "filename": "ADR-085-invited-arrival-and-edge-lifecycle.md"
     }
   ]
 }

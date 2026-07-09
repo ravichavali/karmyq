@@ -61,6 +61,10 @@ export const WORKFLOWS: Record<string, WorkflowDef> = {
         body: 'Join a public community instantly, or request access to a private one. You can also create your own and invite people you trust.',
       },
       {
+        title: 'Your arrival',
+        body: "Your first join lands on a welcome moment showing your first belonging graph — you on the ring of the community you just entered. Arrive through an invitation and you'll also see your invitation bond to the person who brought you in; it becomes trust when you help each other. One button takes you straight to the community's open asks.",
+      },
+      {
         title: 'Finding your way around',
         body: "A community opens on warm Home — its hero, the weekly pulse, and the open asks. People shows who's here and the trust between you; How we're connected is the trust graph; Stewardship is where shared decisions, splits, merges, and (for admins) the management tools live.",
       },

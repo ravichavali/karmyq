@@ -31,6 +31,7 @@ export interface TrustLink {
   raw_weight?: number
   effective_weight?: number
   decayTier?: 'strong' | 'warm' | 'fading' | 'nearly_forgotten' | 'swept' // Sprint 90 / ADR-070
+  formedRecently?: boolean // Sprint 118 / ADR-085 — pair's first formation within the server's 30-day window
   type?: 'organic' | 'fission' // communities mode (from DepthLink)
 }
 

@@ -2,6 +2,10 @@ import type { GraphData, TrustLink, TrustNode } from './types'
 
 export const PERSON_EDGE_WIDTH = 1.35
 export const FOCUSED_EDGE_WIDTH = 2.5
+// Sprint 118 / ADR-085 — new-bond emphasis: color + width channel only, layered on top of the
+// decayTier opacity bands (which stay exactly as ADR-070 shipped them). Focus still wins.
+export const NEW_BOND_COLOR = '#4ade80'
+export const NEW_BOND_EDGE_WIDTH = 2.1
 export const UNRELATED_OPACITY = 0.05
 export const PERSON_COLORS = {
   callerNode: '#10b981',
@@ -41,15 +45,22 @@ export function relationshipSummary(links: TrustLink[], nodeId: string): string 
 export function edgeVisual(link: TrustLink, currentUserId: string, focusedNodeId?: string) {
   const caller = link.source === currentUserId || link.target === currentUserId
   const focused = !!focusedNodeId && (link.source === focusedNodeId || link.target === focusedNodeId)
+  const isNew = link.formedRecently === true
+  // Stroke precedence: new bond > caller amber > focused teal > ordinary. State colors beat the
+  // transient focus hue (the shipped S115 contract — caller already beat focus), and a brand-new
+  // bond is usually the caller's own edge, so new must beat amber or the emphasis would never show.
+  // Width keeps its shipped focus-first rule; a non-focused new bond gets a gentle bump.
   return {
-    stroke: caller
-      ? PERSON_COLORS.callerEdge
-      : focused
-        ? PERSON_COLORS.focusedEdge
-        : PERSON_COLORS.ordinaryEdge,
+    stroke: isNew
+      ? NEW_BOND_COLOR
+      : caller
+        ? PERSON_COLORS.callerEdge
+        : focused
+          ? PERSON_COLORS.focusedEdge
+          : PERSON_COLORS.ordinaryEdge,
     opacity: link.decayTier ? OPACITY[link.decayTier] ?? 0.16 : 0.16,
-    width: focused ? FOCUSED_EDGE_WIDTH : PERSON_EDGE_WIDTH,
-    label: relationshipLabel(link.decayTier),
+    width: focused ? FOCUSED_EDGE_WIDTH : isNew ? NEW_BOND_EDGE_WIDTH : PERSON_EDGE_WIDTH,
+    label: isNew ? `${relationshipLabel(link.decayTier)} · new bond` : relationshipLabel(link.decayTier),
   }
 }
 
