@@ -48,8 +48,10 @@
 > documentation findings fixed. Three Sprint 119 TDD suites promoted to regression. Full root
 > `npm test` is green (26/26 Turbo tasks); staged feedback + process review pass; direct feature,
 > doc, privacy, and dependency-security regressions pass (`npm audit`: zero high/critical).
-> **NEXT:** commit, push, open PR, and stop for explicit Admin merge authorization. Do not fold
-> BUG-030 into this PR.
+> Commit `73d7f8c8` pushed; **draft PR #150 OPEN**:
+> https://github.com/ravichavali/karmyq/pull/150. PR contract check is green; CI/CD, Tests, and
+> CodeQL are in progress. **NEXT:** verify all PR checks green, mark ready for review, then stop for
+> explicit Admin merge authorization. Do not fold BUG-030 into this PR.
 >
 > Sprint 118 record: `.claude/handoff/archive/2026-07-09-sprint-118-invited-arrival-living-graph-COMPLETE.md`.
 
@@ -58,11 +60,10 @@
 1. Stay on `feature/sprint-119-graph-presentation`; do not recreate or reset the branch.
 2. Open `docs/superpowers/plans/2026-07-09-sprint-119-pr-b-graph-presentation.md`; Tasks 1–7 are
    complete and the three Sprint 119 suites now live under each workspace's `tests/regression/`.
-3. Finish Task 8: staged `npm run feedback:check`, process-reviewer, root `npm test`, direct root
-   regression, touched-workspace `tsc --noEmit`, and final nav grep. Resolve any real failure.
-4. Run `pre-commit-check`, commit the whole scoped diff (including this handoff and BUG-030's
-   already-logged discovery), push, and open a template-complete PR. Stop before merge until the
-   maintainer explicitly authorizes `gh pr merge --squash --admin`.
+3. PR #150 is open as a draft with a template-complete contract. Verify CI/CD Pipeline, Tests,
+   CodeQL, and PR Contract all green, then mark it ready for review.
+4. Stop before merge until the maintainer explicitly authorizes
+   `gh pr merge 150 --squash --admin`.
 5. After deploy, run Task 9 live validation for Maria's ring, a sparse user's no-bonds state,
    woven/dormant community bridges (confirm rows exist first), unchanged ego/welcome, and 375px.
    Remaining PR A browser checks may be completed in the same pass. Never mutate protected personas.
