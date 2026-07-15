@@ -3,6 +3,7 @@ import Link from 'next/link'
 import Head from 'next/head'
 import { api } from '@/lib/api'
 import { getErrorMessage } from '@/lib/errors'
+import { setAuthSession } from '@/lib/session'
 
 export default function Login() {
   const [formData, setFormData] = useState({
@@ -31,11 +32,7 @@ export default function Login() {
         return
       }
 
-      localStorage.setItem('token', response.data.token)
-      localStorage.setItem('refreshToken', response.data.refreshToken)
-      localStorage.setItem('user', JSON.stringify(response.data.user))
-      // Clear any leftover read-only demo state when signing in as a real user.
-      localStorage.removeItem('demoContext')
+      setAuthSession(response.data)
 
       // Hard redirect so ProviderContext (and other auth-gated contexts) re-mount with the token in place
       window.location.href = '/dashboard'

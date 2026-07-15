@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { hasOnboarded } from '@/lib/session'
 
 interface WelcomeModalProps {
   user: { id: string; name?: string } | null
@@ -25,13 +26,9 @@ export default function WelcomeModal({ user }: WelcomeModalProps) {
 
   useEffect(() => {
     // Sprint 118 (ADR-085): the gate is user-scoped (written by the /welcome arrival moment or by
-    // closing this modal). The legacy browser-global key is still honored so existing users see
-    // nothing new.
-    if (
-      user &&
-      !localStorage.getItem(`karmyq_onboarded:${user.id}`) &&
-      !localStorage.getItem('karmyq_onboarded')
-    ) {
+    // closing this modal); hasOnboarded also honors the legacy browser-global key so existing
+    // users see nothing new.
+    if (user && !hasOnboarded(user.id)) {
       setVisible(true)
     }
   }, [user])

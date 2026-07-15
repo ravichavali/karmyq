@@ -4,6 +4,7 @@ import Head from 'next/head';
 import Link from 'next/link';
 import { api, socialGraphService } from '@/lib/api';
 import { getErrorMessage } from '@/lib/errors';
+import { setAuthSession, beginArrival } from '@/lib/session';
 
 interface InvitationInfo {
   inviter_name: string;
@@ -81,14 +82,6 @@ export default function InviteAcceptance() {
     const invitationCode = code as string; // Type narrowing
     setLoading(true);
 
-    // Same registration side effects as register.tsx: token, refreshToken, user, auth header.
-    const persistSession = (data: { token: string; refreshToken?: string; user: unknown }) => {
-      localStorage.setItem('token', data.token);
-      if (data.refreshToken) localStorage.setItem('refreshToken', data.refreshToken);
-      localStorage.setItem('user', JSON.stringify(data.user));
-      api.defaults.headers.common['Authorization'] = `Bearer ${data.token}`;
-    };
-
     try {
       // Register the user
       const registerResponse = await api.post('/auth/register', {
@@ -97,9 +90,9 @@ export default function InviteAcceptance() {
         password: formData.password,
       });
 
-      persistSession(registerResponse.data);
-      // Clear any leftover read-only demo state when registering a real account.
-      localStorage.removeItem('demoContext');
+      // Same registration side effects as register.tsx (the request interceptor picks the
+      // token up from localStorage — no manual auth-header write needed).
+      setAuthSession(registerResponse.data);
 
       // Accept the invitation, then refresh the session so the JWT carries the new membership.
       try {
@@ -111,21 +104,18 @@ export default function InviteAcceptance() {
           email: formData.email,
           password: formData.password,
         });
-        persistSession(loginResponse.data);
+        setAuthSession(loginResponse.data);
 
         // Hand the invitation-bond context to the arrival moment (stamped with the account it
         // belongs to — /welcome drops a context left behind by another login on this tab).
-        sessionStorage.setItem(
-          'karmyq_arrival',
-          JSON.stringify({
-            path: 'invite',
-            userId: loginResponse.data.user?.id,
-            inviterId,
-            inviterName: invitationInfo?.inviter_name,
-            communityId: invitationInfo?.community_id,
-            communityName: invitationInfo?.community_name,
-          })
-        );
+        beginArrival({
+          path: 'invite',
+          userId: loginResponse.data.user?.id,
+          inviterId,
+          inviterName: invitationInfo?.inviter_name,
+          communityId: invitationInfo?.community_id,
+          communityName: invitationInfo?.community_name,
+        });
 
         router.push('/welcome');
         return;

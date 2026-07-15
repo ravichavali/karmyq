@@ -4,6 +4,7 @@ import Link from 'next/link'
 import Head from 'next/head'
 import { api } from '@/lib/api'
 import { getErrorMessage } from '@/lib/errors'
+import { setAuthSession } from '@/lib/session'
 
 export default function Register() {
   const router = useRouter()
@@ -39,11 +40,7 @@ export default function Register() {
         password: formData.password
       })
 
-      localStorage.setItem('token', response.data.token)
-      localStorage.setItem('refreshToken', response.data.refreshToken)
-      localStorage.setItem('user', JSON.stringify(response.data.user))
-      // Clear any leftover read-only demo state when registering a real account.
-      localStorage.removeItem('demoContext')
+      setAuthSession(response.data)
 
       router.push('/communities?welcome=true')
     } catch (err: any) {

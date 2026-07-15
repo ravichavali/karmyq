@@ -1,9 +1,15 @@
-import express, { Request, Response } from 'express';
+import express, { Response } from 'express';
 import { pool } from '../config/database';
 import { logger } from '../config/logger';
 import { AuthenticatedRequest } from '@karmyq/shared/middleware/auth';
 import { sendValidationError } from '@karmyq/shared';
-import { computeTrustPath, isCachedExchangePathLive } from '../services/pathComputation';
+import {
+  computeTrustPath,
+  isCachedExchangePathLive,
+  getSharedCommunityName,
+  getSharedCommunityNames,
+  gateCachedPathIdentities,
+} from '../services/pathComputation';
 import { resolveCommunityContext } from '../services/communityContext';
 
 import { projectPathNodes } from '../services/disclosureProjection';
@@ -20,12 +26,36 @@ async function deleteCachedPath(userA: string, userB: string, communityId: strin
   );
 }
 
+/** Node count of a cached shortest_path (0 when missing/unparseable). */
+function cachedPathNodeCount(path: unknown): number {
+  let parsed = path;
+  if (typeof path === 'string') {
+    try {
+      parsed = JSON.parse(path);
+    } catch {
+      return 0;
+    }
+  }
+  return Array.isArray(parsed) ? parsed.length : 0;
+}
+
 async function isReturnableCachedPath(cached: {
   connection_type?: string | null;
   shortest_path?: unknown;
+  degrees_of_separation?: number | null;
 }): Promise<boolean> {
   const connectionType = cached.connection_type || 'exchange';
-  return connectionType !== 'exchange' || await isCachedExchangePathLive(cached.shortest_path);
+  if (connectionType === 'exchange') {
+    return isCachedExchangePathLive(cached.shortest_path);
+  }
+  if (connectionType === 'community_member') {
+    // Sprint 119 (BUG-029): rows written before the fix carry a manufactured admin node
+    // (3-node path) or the old 1° admin special case — shapes current computation can no longer
+    // produce, and they'd leak the admin as a person route to every consumer. Recompute instead
+    // of serving them (same read-time revalidation pattern as S118 exchange rows).
+    return cachedPathNodeCount(cached.shortest_path) === 2 && cached.degrees_of_separation === 2;
+  }
+  return true;
 }
 
 // GET /paths/:targetUserId - Get shortest path between current user and target user
@@ -81,12 +111,23 @@ router.get('/:targetUserId', async (req: AuthenticatedRequest, res: Response) =>
       const cached = cacheResult.rows[0];
       const connectionType = cached.connection_type || 'exchange';
 
-      if (!(await isReturnableCachedPath(cached))) {
+      let returnable = await isReturnableCachedPath(cached);
+      // Sprint 119 (BUG-029): cached community_member rows don't carry the community name —
+      // enrich from live shared membership (scope-preferred). An empty lookup means the pair no
+      // longer shares ANY community: the cached claim itself is stale, not just the name.
+      let communityName: string | undefined;
+      if (returnable && connectionType === 'community_member') {
+        communityName = await getSharedCommunityName(currentUserId, targetUserId, communityId);
+        if (communityName === undefined) returnable = false;
+      }
+
+      if (!returnable) {
         await deleteCachedPath(currentUserId, targetUserId, communityId);
-        logger.info('Deleted stale cached exchange path after live-edge revalidation failed', {
+        logger.info('Deleted stale cached path after revalidation failed', {
           currentUserId,
           targetUserId,
           communityId,
+          connectionType,
         });
       } else {
         logger.info('Path retrieved from cache', {
@@ -99,12 +140,19 @@ router.get('/:targetUserId', async (req: AuthenticatedRequest, res: Response) =>
 
         // Sprint 112 (ADR-082): outward responses omit the numeric path trust_score. The internal
         // path_trust_score stays cached for feed ranking; members get degrees + topology + scope.
+        // Sprint 119: cached invitation_chain names re-project through the identity gate — a
+        // departed chain member must not stay disclosed for the TTL. (Exchange and
+        // community_member rows only survive revalidation with active members, so their cached
+        // names are already disclosable.)
         return res.json({
           success: true,
           data: {
             degrees_of_separation: cached.degrees_of_separation,
-            path: projectPathNodes(cached.shortest_path),
+            path: connectionType === 'invitation_chain'
+              ? await gateCachedPathIdentities(projectPathNodes(cached.shortest_path))
+              : projectPathNodes(cached.shortest_path),
             connection_type: connectionType,
+            community_name: communityName,
             scope,
             cached: true,
             computed_at: cached.computed_at,
@@ -249,12 +297,25 @@ router.post('/batch', async (req: AuthenticatedRequest, res: Response) => {
       ])
     );
 
+    // Sprint 119 (BUG-029): cached community_member rows don't carry the community name —
+    // enrich them from live shared membership (scope-preferred), one set-based query for the
+    // whole batch. A target missing from the map no longer shares ANY community with the
+    // viewer: that cached claim is stale and is recomputed below.
+    const communityNamesByTarget = await getSharedCommunityNames(
+      currentUserId,
+      limitedTargets.filter(
+        (id: string) => cachedPaths.get(id)?.connectionType === 'community_member'
+      ),
+      communityId
+    );
+
     // Compute missing paths. Sprint 112 (ADR-082): outward results omit the numeric path trust_score
     // (the request-service feed ranks on degrees only); path_trust_score stays cached internally.
     const results: Array<{
       target_user_id: string;
       degrees_of_separation: number | null;
       connection_type: string | null;
+      community_name?: string;
       cached: boolean;
     }> = [];
 
@@ -265,23 +326,31 @@ router.post('/batch', async (req: AuthenticatedRequest, res: Response) => {
 
       const cached = cachedPaths.get(targetUserId);
 
-      if (cached && await isReturnableCachedPath({
-        connection_type: cached.connectionType,
-        shortest_path: cached.path,
-      })) {
+      const cachedIsReturnable = cached
+        ? (await isReturnableCachedPath({
+            connection_type: cached.connectionType,
+            shortest_path: cached.path,
+            degrees_of_separation: cached.degrees,
+          })) &&
+          !(cached.connectionType === 'community_member' && !communityNamesByTarget.has(targetUserId))
+        : false;
+
+      if (cached && cachedIsReturnable) {
         results.push({
           target_user_id: targetUserId,
           degrees_of_separation: cached.degrees,
           connection_type: cached.connectionType,
+          community_name: communityNamesByTarget.get(targetUserId),
           cached: true,
         });
       } else {
         if (cached) {
           await deleteCachedPath(currentUserId, targetUserId, communityId);
-          logger.info('Deleted stale cached batch exchange path after live-edge revalidation failed', {
+          logger.info('Deleted stale cached batch path after revalidation failed', {
             currentUserId,
             targetUserId,
             communityId,
+            connectionType: cached.connectionType,
           });
         }
 
@@ -314,6 +383,7 @@ router.post('/batch', async (req: AuthenticatedRequest, res: Response) => {
             target_user_id: targetUserId,
             degrees_of_separation: path.degrees,
             connection_type: path.connectionType,
+            community_name: path.communityName,
             cached: false,
           });
         } else {

@@ -63,6 +63,8 @@ router.get('/:targetUserId', async (req: AuthenticatedRequest, res: Response) =>
         invitationPath,
         degrees: pathResult?.degrees ?? null,
         path_type: pathResult ? mapConnectionType(pathResult.connectionType) : null,
+        // Sprint 119 (BUG-029): community paths name the community, never a person.
+        community_name: pathResult?.communityName,
         scope,
       },
     });

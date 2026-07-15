@@ -275,7 +275,7 @@ Get shortest path between current user and target user.
 **Parameters**:
 - `targetUserId` (URL param): UUID of target user
 
-**Response** (path found):
+**Response** (exchange path found — identity + topology only, ADR-082; no karma, no numeric trust_score):
 ```json
 {
   "success": true,
@@ -283,15 +283,42 @@ Get shortest path between current user and target user.
     "degrees_of_separation": 2,
     "path": [
       { "id": "user-123", "name": "You" },
-      { "id": "user-456", "name": "Mike Chen", "karma": 87, "invited_at": "2024-11-15" },
+      { "id": "user-456", "name": "Mike Chen", "exchanged_at": "2024-11-15" },
       { "id": "user-789", "name": "Sarah Rodriguez" }
     ],
-    "trust_score": 87,
+    "connection_type": "exchange",
+    "scope": "community",
     "cached": true,
     "computed_at": "2025-12-27T10:00:00Z"
   }
 }
 ```
+
+**Response** (community_member path — Sprint 119 / BUG-029: two endpoints + `community_name` only;
+no third person is ever inserted into the path; `degrees_of_separation` is uniformly 2, a
+proximity signal for ranking, never a claimed direct bond):
+```json
+{
+  "success": true,
+  "data": {
+    "degrees_of_separation": 2,
+    "path": [
+      { "id": "user-123", "name": "You" },
+      { "id": "user-789", "name": "Sarah Rodriguez" }
+    ],
+    "connection_type": "community_member",
+    "community_name": "Southeast PDX Helpers",
+    "scope": "community",
+    "cached": false
+  }
+}
+```
+Cache hits for `community_member` rows are enriched with `community_name` from live shared
+membership (cached rows don't store it; the resolved request scope is preferred when the pair
+shares several communities, with a deterministic fallback). Cached `community_member` rows are
+also **revalidated on read** (same pattern as S118 exchange rows): a pre-fix shape (3-node path
+or 1° degrees) or a pair that no longer shares any community is deleted and recomputed instead
+of served.
 
 **Response** (no path):
 ```json
@@ -331,7 +358,8 @@ Get paths for multiple target users (optimized for feed ranking).
 }
 ```
 
-**Response**:
+**Response** (degrees + type only, ADR-082 — no numeric trust_score; `community_name` present on
+`community_member` entries, Sprint 119):
 ```json
 {
   "success": true,
@@ -339,16 +367,18 @@ Get paths for multiple target users (optimized for feed ranking).
     {
       "target_user_id": "uuid-1",
       "degrees_of_separation": 1,
-      "trust_score": 92,
+      "connection_type": "exchange",
       "cached": true
     },
     {
       "target_user_id": "uuid-2",
       "degrees_of_separation": 2,
-      "trust_score": 179,
+      "connection_type": "community_member",
+      "community_name": "Southeast PDX Helpers",
       "cached": false
     }
-  ]
+  ],
+  "scope": "community"
 }
 ```
 
@@ -631,8 +661,11 @@ as membership — not a trust connection) then `computeInvitationPath` (accepted
 - Sprint 118 / BUG-028: cached `exchange` rows are revalidated on read against
   `trust_edges_live` with active endpoint membership for every cached hop. A stale or malformed
   exchange cache row is deleted and recomputed, so pre-fix completed-match paths cannot survive
-  behind the 7-day TTL. Non-exchange fallback rows (`community_member`, `invitation_chain`) keep
-  the normal TTL semantics.
+  behind the 7-day TTL.
+- Sprint 119 / BUG-029: cached `community_member` rows are ALSO revalidated on read — a pre-fix
+  shape (3-node path or 1° degrees) or a pair that no longer shares any active community is
+  deleted and recomputed. Cached `invitation_chain` rows keep normal TTL semantics for topology,
+  but their node names are re-projected through the ADR-082 identity gate on read.
 
 **Cache Hit Rate Target**: >95% (most paths precomputed)
 
@@ -904,6 +937,24 @@ See [ADR-056](../../docs/adr/ADR-056-intrinsic-trust-decay.md) for full decision
 ---
 
 ## Recent Changes
+
+### Sprint 119: Truthful Surfaces (2026-07-10)
+- **FIX (BUG-029)**: `computeCommunityPath` (`pathComputation.ts`) no longer manufactures a path
+  through the community's earliest-joined admin — a `community_member` path is now EXACTLY the two
+  endpoints + `community_name` (new `getSharedCommunityName`/`getSharedCommunityNames` helpers,
+  scope-preferred + deterministically ordered). `connection_type` and `degrees: 2` are unchanged
+  (feed proximity ranking reads `degrees_of_separation` only — now uniformly 2, including the
+  former 1° admin special case). Cache-hit responses on `GET /paths/:targetUserId` +
+  `POST /paths/batch` are enriched with `community_name` from live shared membership (one
+  set-based query for the whole batch). Cached `community_member` rows are revalidated on read:
+  pre-fix shapes (3-node path / 1° degrees) and pairs that no longer share any community are
+  deleted and recomputed (extends the S118 read-time revalidation; closes the stale-claim and
+  mixed-ranking TTL windows). `GET /trust-card/:targetUserId` now returns `community_name` for
+  community paths so the card can name the community instead of drawing a person route.
+  Identity lookups reuse `getPublicIdentities` (ADR-082 disclosure gate) — including
+  `computeInvitationPath` (cross-agent review decision), and cached `invitation_chain` node
+  names re-project through the gate on read (`gateCachedPathIdentities`) so a departed chain
+  member never stays disclosed for the TTL.
 
 ### Sprint 118: Invited Arrival & the Living Graph (2026-07-08, ADR-085)
 - **FIX (BUG-028)**: `computeShortestPath` (`pathComputation.ts`) now builds its BFS adjacency from `social_graph.trust_edges_live` with active-membership joins on BOTH endpoints — the same edge set `/trust/neighborhood` discloses — instead of all-time completed `requests.matches`. On the curated demo, 742 of 2103 completed-match pairs had no trust edge at all (seeded matches bypassed the `match_completed` event), so badges claimed connections the graph couldn't show. Topology stays platform-wide (ADR-077); community/invitation fallbacks unchanged. Also fixed: the BFS target check now runs before the depth gate, so exactly-3° paths are found. Cached `exchange` rows are revalidated against live graph edges on read; stale pre-fix rows are deleted and recomputed instead of surviving for the 7-day TTL.

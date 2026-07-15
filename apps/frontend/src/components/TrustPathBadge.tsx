@@ -83,11 +83,10 @@ export default function TrustPathBadge({ trustPath, compact = false, className =
   // Get connection text based on type and degree
   const getConnectionText = () => {
     if (isCommunityMember) {
-      const adminName = path.length >= 2 ? path[1]?.name : null;
-      if (adminName && degrees_of_separation === 2) {
-        return `Fellow member via ${adminName}`;
-      }
-      return community_name ? `Member of ${community_name}` : 'Fellow community member';
+      // Sprint 119 (BUG-029): co-membership names the community, never a person — the old
+      // "via {admin}" manufactured a relationship that doesn't exist. Old cached paths may
+      // still carry a middle node; ignore it.
+      return community_name ? `Fellow member of ${community_name}` : 'Fellow community member';
     }
 
     if (isInvitationChain) {
@@ -108,8 +107,7 @@ export default function TrustPathBadge({ trustPath, compact = false, className =
 
   const getFeedConnectionText = () => {
     if (isCommunityMember) {
-      const adminName = path.length >= 2 ? path[1]?.name : null;
-      if (adminName && degrees_of_separation === 2) return `via ${adminName}`;
+      // Sprint 119 (BUG-029): never "via {person}" for co-membership.
       return community_name ? `in ${community_name}` : 'fellow member';
     }
 
@@ -125,7 +123,9 @@ export default function TrustPathBadge({ trustPath, compact = false, className =
   };
 
   const getFeedAvatarLabel = () => {
-    if (degrees_of_separation === 1) return path[path.length - 1]?.name ?? 'Connection';
+    // Community membership shows the fellow member themselves — path[1] can be a manufactured
+    // admin node in old cached rows (BUG-029), never someone to surface.
+    if (isCommunityMember || degrees_of_separation === 1) return path[path.length - 1]?.name ?? 'Connection';
     return path[1]?.name ?? path[path.length - 1]?.name ?? 'Connection';
   };
 
@@ -163,36 +163,34 @@ export default function TrustPathBadge({ trustPath, compact = false, className =
   return (
     <div className={`border-l-4 ${getBorderColor()} rounded-md p-3 ${className}${decay.className}`} title={decay.title}>
       {/* Header */}
-      <div className="flex items-center justify-between mb-2">
-        <div className="flex items-center gap-2">
-          <span className="text-base" aria-hidden="true">{getIcon()}</span>
-          <span className={`text-sm font-semibold px-2.5 py-1 rounded-md border ${badgeColor}`}>
-            {getConnectionText()}
-          </span>
-          {isCommunityMember && community_name && (
-            <span className="text-xs text-text-subtle">in {community_name}</span>
-          )}
+      <div className="flex items-center gap-2 mb-2">
+        <span className="text-base" aria-hidden="true">{getIcon()}</span>
+        <span className={`text-sm font-semibold px-2.5 py-1 rounded-md border ${badgeColor}`}>
+          {getConnectionText()}
+        </span>
+      </div>
+
+      {/* Connection Path — person-to-person routes only. Co-membership has no route to draw
+          (BUG-029: old cached paths carry a manufactured admin node; never render it). */}
+      {!isCommunityMember && (
+        <div className="flex items-center text-sm text-text-muted">
+          {path.map((node, index) => (
+            <React.Fragment key={node.id}>
+              {index === 0 ? (
+                <span className="font-semibold text-primary-dark">You</span>
+              ) : (
+                <span className="font-medium">{node.name}</span>
+              )}
+
+              {index < path.length - 1 && (
+                <svg className="w-4 h-4 mx-1.5 text-text-subtle" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              )}
+            </React.Fragment>
+          ))}
         </div>
-      </div>
-
-      {/* Connection Path */}
-      <div className="flex items-center text-sm text-text-muted">
-        {path.map((node, index) => (
-          <React.Fragment key={node.id}>
-            {index === 0 ? (
-              <span className="font-semibold text-primary-dark">You</span>
-            ) : (
-              <span className="font-medium">{node.name}</span>
-            )}
-
-            {index < path.length - 1 && (
-              <svg className="w-4 h-4 mx-1.5 text-text-subtle" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
-            )}
-          </React.Fragment>
-        ))}
-      </div>
+      )}
 
       {/* Exchange timestamp (for exchange-based paths) */}
       {!isCommunityMember && !isInvitationChain && path.length > 1 && path[1].exchanged_at && (

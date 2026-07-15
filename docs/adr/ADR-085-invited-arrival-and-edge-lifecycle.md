@@ -1,7 +1,7 @@
 # ADR-085: Invited Arrival & the Edge Lifecycle
 
-**Status**: Accepted
-**Date**: 2026-07-08
+**Status**: Implemented
+**Date**: 2026-07-08 (Accepted) → 2026-07-09 (Implemented — PR #146 deployed `b0267c8f`, demo validation passed)
 **Sprint**: 118
 **Version**: 11.27.0
 **Builds on**: [ADR-070](ADR-070-trust-edge-decay.md) (decay tiers), [ADR-077](ADR-077-trust-path-platform-topology.md) (platform-wide path topology), [ADR-082](ADR-082-reputation-disclosure-boundary.md) (disclosure boundary), [ADR-083](ADR-083-contextual-belonging-graph-rendering.md) (earned structure)

@@ -16,6 +16,7 @@ interface TrustCardData {
   invitationPath: TrustPathNode[] | null;
   degrees: number | null;
   path_type: string | null;
+  community_name?: string;
 }
 
 const pathTypeLabel: Record<string, string> = {
@@ -61,7 +62,19 @@ export function TrustCard({ userId, onClose }: { userId: string; onClose: () => 
               <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl">×</button>
             </div>
 
-            {data.trustPath.length > 1 ? (
+            {data.path_type === 'community' ? (
+              // Sprint 119 (BUG-029): co-membership has no person-to-person route to draw —
+              // drawing You → Them as a chain would claim a direct bond the data doesn't contain.
+              <div className="mb-3">
+                <p className="text-xs text-gray-400 uppercase tracking-wide mb-2">Connection</p>
+                <p className="text-sm text-gray-600">
+                  {data.community_name
+                    ? `Fellow members of ${data.community_name}`
+                    : 'Fellow community members'}
+                </p>
+                <p className="text-xs text-gray-400 mt-2">{pathTypeLabel.community}</p>
+              </div>
+            ) : data.trustPath.length > 1 ? (
               <div className="mb-3">
                 <p className="text-xs text-gray-400 uppercase tracking-wide mb-2">Connection path</p>
                 <div className="flex items-center gap-1 flex-wrap">

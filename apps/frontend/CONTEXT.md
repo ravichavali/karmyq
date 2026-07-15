@@ -128,10 +128,11 @@ One graph engine, one client model, one explorer. All belonging surfaces now ren
 - **Chrome width is separate from content measure.** `src/styles/globals.css` keeps `--measure: 42rem`
   for feed/prose content and adds `--measure-chrome: 72rem`; `src/styles/karmyq-shell.css` exposes
   `.kq-chrome-page` for topbar/app shell chrome. Do not widen `.kq-page`.
-- **Responsive overflow is intentional.** `Layout.tsx` uses `.kq-chrome-page` for the topbar, moves
-  desktop top-level nav to `xl`, and keeps Communities, Service Providers/Become a provider, provider
-  profile management, Profile, Logout, notification bell, and provider duty toggle reachable below
-  `xl`.
+- **Responsive overflow is intentional.** `Layout.tsx` uses `.kq-chrome-page` for the topbar. Since
+  Sprint 119 (header lever 2) the overflow menu is the one home for Communities, Service
+  Providers/Become a provider, provider profile management, and Profile at EVERY viewport — only
+  My Network keeps a topnav slot (xl+). Logout, notification bell, and the provider duty toggle
+  stay in the topbar; the menu also carries Logout.
 - **Pending dibs have one action surface.** `CommitmentsTab` no longer renders a separate pending
   `DibsCard` list. The Helping tab's `DecisionBand` is the canonical surface for accept/decline dibs,
   and the dibs badge derives from freshly mapped decision rows.

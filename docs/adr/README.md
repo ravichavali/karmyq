@@ -120,7 +120,7 @@ When code implementing an ADR is deployed, update the status from `Accepted` →
 - [ADR-082: Reputation Disclosure Boundary](ADR-082-reputation-disclosure-boundary.md) — **Accepted**
 - [ADR-083: Contextual Belonging Graph Rendering (Earned Structure)](ADR-083-contextual-belonging-graph-rendering.md) — **Accepted**
 - [ADR-084: Context-Bound Connection Visibility](ADR-084-context-bound-connection-visibility.md) — **Accepted** (amended Sprint 117: curated historical floor + API verification)
-- [ADR-085: Invited Arrival & the Edge Lifecycle](ADR-085-invited-arrival-and-edge-lifecycle.md) — **Accepted**
+- [ADR-085: Invited Arrival & the Edge Lifecycle](ADR-085-invited-arrival-and-edge-lifecycle.md) — **Implemented**
 
 ## Creating a New ADR
 

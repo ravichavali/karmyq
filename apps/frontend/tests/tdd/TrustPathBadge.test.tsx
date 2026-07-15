@@ -183,7 +183,7 @@ describe('TrustPathBadge', () => {
   });
 
   describe('Compact Mode — Community and invitation text', () => {
-    it('renders "Fellow member via [Admin]" for 2° community connection', () => {
+    it('renders "Fellow member of [Community]" for 2° community connection (never via a person — BUG-029)', () => {
       const trustPath: TrustPath = {
         degrees_of_separation: 2,
         path: [{ id: '1', name: 'You' }, { id: '2', name: 'Admin' }, { id: '3', name: 'Other' }],
@@ -192,19 +192,8 @@ describe('TrustPathBadge', () => {
       };
       render(<TrustPathBadge trustPath={trustPath} compact />);
 
-      expect(screen.getByText('Fellow member via Admin')).toBeInTheDocument();
-    });
-
-    it('renders "Member of [Community]" for 1° community connection', () => {
-      const trustPath: TrustPath = {
-        degrees_of_separation: 1,
-        path: [{ id: '1', name: 'You' }, { id: '2', name: 'Admin' }],
-        connection_type: 'community_member',
-        community_name: 'Test Community',
-      };
-      render(<TrustPathBadge trustPath={trustPath} compact />);
-
-      expect(screen.getByText('Member of Test Community')).toBeInTheDocument();
+      expect(screen.getByText('Fellow member of Test Community')).toBeInTheDocument();
+      expect(screen.queryByText(/via/i)).not.toBeInTheDocument();
     });
 
     it('renders "Joined through [Name]" for invitation_chain connection', () => {

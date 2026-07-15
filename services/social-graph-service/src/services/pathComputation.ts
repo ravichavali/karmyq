@@ -1,6 +1,7 @@
 import { pool } from '../config/database';
 import { logger } from '../config/logger';
 import { getTrustEdge } from '../database/trustEdgeDb';
+import { getPublicIdentities } from '../database/relationshipContextDb';
 import { computeEffectiveWeight } from './trustEdgeService';
 
 export interface TrustPath {
@@ -274,67 +275,73 @@ export async function computeShortestPath(
 }
 
 /**
+ * For each target, the name of one community it actively shares with the viewer (absent from
+ * the map if none). One set-based query — the paths batch route enriches up to 50 cached
+ * community_member rows per feed render. The name comes from live shared membership (never the
+ * cache-key community_id, which can be the platform sentinel; the live lookup also self-heals a
+ * rename mid-TTL). When the pair shares several communities, the resolved request scope wins if
+ * it is one of them; otherwise the ordering is deterministic (name, then id) so the badge never
+ * flaps between renders.
+ */
+export async function getSharedCommunityNames(
+  viewerId: string,
+  targetUserIds: string[],
+  preferredCommunityId?: string
+): Promise<Map<string, string>> {
+  if (targetUserIds.length === 0) return new Map();
+  const result = await pool.query(
+    `SELECT DISTINCT ON (cm2.user_id) cm2.user_id, c.name as community_name
+     FROM communities.members cm1
+     JOIN communities.members cm2 ON cm2.community_id = cm1.community_id
+     JOIN communities.communities c ON c.id = cm1.community_id
+     WHERE cm1.user_id = $1 AND cm2.user_id = ANY($2)
+       AND cm1.status = 'active' AND cm2.status = 'active'
+     ORDER BY cm2.user_id, (c.id::text = $3) DESC, c.name, c.id`,
+    [viewerId, targetUserIds, preferredCommunityId ?? null]
+  );
+  return new Map(result.rows.map(r => [r.user_id, r.community_name]));
+}
+
+/** Single-target convenience over getSharedCommunityNames. */
+export async function getSharedCommunityName(
+  userA: string,
+  userB: string,
+  preferredCommunityId?: string
+): Promise<string | undefined> {
+  return (await getSharedCommunityNames(userA, [userB], preferredCommunityId)).get(userB);
+}
+
+/**
  * Compute trust path via shared community membership.
- * Returns a 2° path through the community admin, or 1° if one user IS the admin.
+ *
+ * Sprint 119 (BUG-029): the path is the two endpoints plus the community name — no third
+ * person is ever manufactured into it. (Previously the earliest-joined admin was inserted as
+ * a middle node, and the badge rendered "Fellow member via {admin}" for people the viewer
+ * never exchanged with.) degrees stays 2: co-membership is a proximity signal for feed
+ * ranking, never a claimed direct bond — uniformly, even when one endpoint administers the
+ * community.
+ *
  * Returns null if users share no community.
  */
 export async function computeCommunityPath(
   sourceUserId: string,
-  targetUserId: string
+  targetUserId: string,
+  preferredCommunityId?: string
 ): Promise<TrustPath | null> {
-  const result = await pool.query(
-    `SELECT cm1.community_id,
-            c.name as community_name,
-            COALESCE(
-              (SELECT cm.user_id FROM communities.members cm
-               WHERE cm.community_id = cm1.community_id AND cm.role = 'admin'
-               ORDER BY cm.joined_at LIMIT 1),
-              c.creator_id
-            ) as admin_id
-     FROM communities.members cm1
-     JOIN communities.members cm2 ON cm2.community_id = cm1.community_id
-     JOIN communities.communities c ON c.id = cm1.community_id
-     WHERE cm1.user_id = $1 AND cm2.user_id = $2
-       AND cm1.status = 'active' AND cm2.status = 'active'
-     LIMIT 1`,
-    [sourceUserId, targetUserId]
-  );
+  const communityName = await getSharedCommunityName(sourceUserId, targetUserId, preferredCommunityId);
+  if (communityName === undefined) return null;
 
-  if (result.rows.length === 0) return null;
+  const pathUserIds = [sourceUserId, targetUserId];
+  const identities = await getPublicIdentities(pathUserIds);
+  const nameMap = new Map(identities.map(u => [u.id, u.name]));
 
-  const { admin_id, community_name } = result.rows[0];
-
-  // Fetch user names
-  const userIds = [sourceUserId, targetUserId, admin_id].filter(
-    (id, idx, arr) => arr.indexOf(id) === idx
-  );
-  const usersResult = await pool.query(
-    `SELECT id, name FROM auth.users WHERE id = ANY($1)`,
-    [userIds]
-  );
-  const nameMap = new Map(usersResult.rows.map(r => [r.id, r.name]));
-
-  // If one of the users IS the admin, it's a 1° connection
-  if (admin_id === sourceUserId || admin_id === targetUserId) {
-    const pathUserIds = [sourceUserId, targetUserId];
-    return {
-      degrees: 1,
-      userIds: pathUserIds,
-      path: pathUserIds.map(id => ({ id, name: nameMap.get(id) || 'Unknown' })),
-      trustScore: 0,
-      connectionType: 'community_member',
-      communityName: community_name,
-    };
-  }
-
-  const pathUserIds = [sourceUserId, admin_id, targetUserId];
   return {
     degrees: 2,
     userIds: pathUserIds,
     path: pathUserIds.map(id => ({ id, name: nameMap.get(id) || 'Unknown' })),
     trustScore: 0,
     connectionType: 'community_member',
-    communityName: community_name,
+    communityName,
   };
 }
 
@@ -401,11 +408,10 @@ export async function computeInvitationPath(
     currentId = node?.parent || null;
   }
 
-  const usersResult = await pool.query(
-    `SELECT id, name FROM auth.users WHERE id = ANY($1)`,
-    [pathUserIds]
-  );
-  const nameMap = new Map(usersResult.rows.map(r => [r.id, r.name]));
+  // Sprint 119: names resolve through the ADR-082 identity gate — a chain member who is no
+  // longer an active member anywhere renders as 'Unknown' rather than staying disclosed.
+  const identities = await getPublicIdentities(pathUserIds);
+  const nameMap = new Map(identities.map(u => [u.id, u.name]));
 
   return {
     degrees: pathUserIds.length - 1,
@@ -414,6 +420,42 @@ export async function computeInvitationPath(
     trustScore: 0,
     connectionType: 'invitation_chain',
   };
+}
+
+/**
+ * Re-project a CACHED path's node names through the ADR-082 identity gate (Sprint 119). Cached
+ * invitation_chain rows can carry names written before the gate applied to invitation paths —
+ * without this, a departed member's name would stay visible for up to the 7-day TTL. Topology
+ * (ids, timestamps) is untouched; only undisclosable names become 'Unknown'.
+ */
+export async function gateCachedPathIdentities(path: unknown): Promise<unknown> {
+  let parsed = path;
+  if (typeof path === 'string') {
+    try {
+      parsed = JSON.parse(path);
+    } catch {
+      return path;
+    }
+  }
+  if (!Array.isArray(parsed)) return parsed;
+
+  const ids = parsed
+    .map((node) => (node && typeof node === 'object' ? (node as { id?: unknown }).id : undefined))
+    .filter((id): id is string => typeof id === 'string');
+  if (ids.length === 0) return parsed;
+
+  const identities = await getPublicIdentities(ids);
+  const nameMap = new Map(identities.map(u => [u.id, u.name]));
+
+  return parsed.map((node) => {
+    if (node && typeof node === 'object') {
+      const obj = node as { id?: unknown };
+      if (typeof obj.id === 'string') {
+        return { ...node, name: nameMap.get(obj.id) ?? 'Unknown' };
+      }
+    }
+    return node;
+  });
 }
 
 /**
@@ -429,7 +471,7 @@ export async function computeTrustPath(
   const exchangePath = await computeShortestPath(sourceUserId, targetUserId, communityId);
   if (exchangePath) return exchangePath; // connectionType: 'exchange' already set
 
-  const communityPath = await computeCommunityPath(sourceUserId, targetUserId);
+  const communityPath = await computeCommunityPath(sourceUserId, targetUserId, communityId);
   if (communityPath) return communityPath;
 
   return computeInvitationPath(sourceUserId, targetUserId);

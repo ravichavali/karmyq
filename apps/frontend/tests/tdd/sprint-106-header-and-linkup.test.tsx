@@ -9,7 +9,7 @@
  * topbar contract — wordmark + nav + actions on one row — is asserted here so it can't silently
  * regress.)
  */
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import Layout from '@/components/Layout'
 
 const mockRouter = { pathname: '/dashboard', push: jest.fn(), back: jest.fn(), query: {} }
@@ -44,7 +44,9 @@ describe('Sprint 106 — provider link-up legibility', () => {
   it('labels the provider directory "Service Providers" consistently (no bare "Providers")', () => {
     render(<Layout>child</Layout>)
 
-    // Both the desktop topnav and the mobile menu use the self-describing label.
+    // Sprint 119 (header lever 2): the link lives in the overflow menu only — open it first.
+    fireEvent.click(screen.getByRole('button', { name: /open menu/i }))
+
     expect(screen.getAllByRole('link', { name: 'Service Providers' }).length).toBeGreaterThanOrEqual(1)
     // The ambiguous bare "Providers" label is gone.
     expect(screen.queryByRole('link', { name: 'Providers' })).toBeNull()
