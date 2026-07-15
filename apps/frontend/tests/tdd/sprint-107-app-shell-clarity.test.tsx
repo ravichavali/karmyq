@@ -71,17 +71,18 @@ describe('Sprint 107 app shell clarity', () => {
   })
 
   it('keeps primary nav actions reachable through the overflow menu', () => {
+    // Sprint 119 (header lever 2): the overflow menu is the SINGLE home for Communities and the
+    // provider links at every viewport — they no longer duplicate into kq-topnav at xl.
     render(<Layout>child</Layout>)
 
-    expect(screen.getByRole('link', { name: 'Communities' })).toBeInTheDocument()
-    expect(screen.getAllByRole('link', { name: /Service Providers|Become a provider/ })).toHaveLength(1)
+    expect(screen.queryByRole('link', { name: 'Communities' })).toBeNull()
     expect(screen.getByRole('button', { name: /menu/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /off duty|on duty/i })).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: /menu/i }))
 
-    expect(screen.getAllByRole('link', { name: 'Communities' }).length).toBeGreaterThan(1)
-    expect(screen.getAllByRole('link', { name: /Service Providers|Become a provider/ }).length).toBeGreaterThan(1)
+    expect(screen.getAllByRole('link', { name: 'Communities' })).toHaveLength(1)
+    expect(screen.getAllByRole('link', { name: 'Service Providers' })).toHaveLength(1)
     expect(screen.getByRole('link', { name: 'Manage my profile' })).toHaveAttribute('href', '/providers/provider-1')
     expect(screen.getAllByRole('link', { name: 'Profile' }).length).toBeGreaterThan(0)
     expect(screen.getAllByRole('button', { name: 'Logout' }).length).toBeGreaterThan(1)
@@ -95,7 +96,7 @@ describe('Sprint 107 app shell clarity', () => {
     fireEvent.click(screen.getByRole('button', { name: /menu/i }))
 
     const providerLinks = screen.getAllByRole('link', { name: 'Become a provider' })
-    expect(providerLinks.length).toBeGreaterThan(1)
+    expect(providerLinks).toHaveLength(1)
     expect(providerLinks[providerLinks.length - 1]).toHaveAttribute('href', '/providers/new')
     expect(screen.queryByRole('link', { name: 'Manage my profile' })).toBeNull()
   })

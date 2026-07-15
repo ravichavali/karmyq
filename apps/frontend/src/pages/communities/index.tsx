@@ -3,6 +3,7 @@ import { useRouter } from 'next/router'
 import Head from 'next/head'
 import Link from 'next/link'
 import { communityService, reputationService } from '@/lib/api'
+import { isFirstEverJoin, beginArrival } from '@/lib/session'
 import Layout from '@/components/Layout'
 import EmptyState from '@/components/EmptyState'
 import DiscoveryToggle, { type DiscoveryMode, readDiscoveryMode } from '@/components/DiscoveryToggle'
@@ -323,7 +324,9 @@ export default function CommunitiesPage() {
   const handleJoinCommunity = async (communityId: string, accessType: 'public' | 'private') => {
     if (!user) return
 
-    const isFirstJoin = (user.communities ?? []).length === 0
+    // Sprint 119: shared first-join predicate (adds the onboarded-key gates this site was
+    // missing — an already-onboarded member who left every community no longer re-arrives).
+    const isFirstJoin = isFirstEverJoin(user)
 
     try {
       setJoiningId(communityId)
@@ -352,13 +355,9 @@ export default function CommunitiesPage() {
       }))
 
       if (isFirstJoin && accessType === 'public') {
-        // Sprint 118 (ADR-085): the first join lands on the /welcome arrival moment, which owns
-        // writing the (user-scoped) onboarded key on completion/skip — never pre-set it here.
+        // Sprint 118 (ADR-085): the first join lands on the /welcome arrival moment.
         const joined = communitiesRef.current.find(c => c.id === communityId)
-        sessionStorage.setItem(
-          'karmyq_arrival',
-          JSON.stringify({ path: 'open', userId: user.id, communityId, communityName: joined?.name })
-        )
+        beginArrival({ path: 'open', userId: user.id, communityId, communityName: joined?.name })
         router.push('/welcome')
         return
       }

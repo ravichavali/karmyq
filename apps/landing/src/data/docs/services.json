@@ -749,12 +749,12 @@
         {
           "method": "GET",
           "path": "/paths/:targetUserId",
-          "description": "Get shortest path between current user and target user."
+          "description": "Get shortest path between current user and target user. Sprint 118 / BUG-028: cached exchange paths are revalidated against live trust_edges_live edges with active endpoint membership before return; stale rows are deleted and recomputed. Sprint 119 / BUG-029: community_member paths are the two endpoints + community_name only (no manufactured admin node); degrees stays 2; cache hits are enriched with community_name from live shared membership."
         },
         {
           "method": "POST",
           "path": "/paths/batch",
-          "description": "Get paths for multiple target users (optimized for feed ranking)."
+          "description": "Get paths for multiple target users (optimized for feed ranking). Sprint 118 / BUG-028: cached exchange paths are revalidated against live trust_edges_live edges with active endpoint membership before batch cache hits are returned. Sprint 119 / BUG-029: community_member entries carry community_name (cached and fresh); ranking input degrees_of_separation unchanged."
         },
         {
           "method": "GET",
@@ -764,7 +764,7 @@
         {
           "method": "GET",
           "path": "/trust-card/:targetUserId",
-          "description": "Sprint 112 (ADR-082): authorized identity + trust path + degrees + path type + invitation chain for a target user relative to the caller. NO target karma or karma-derived trust tier."
+          "description": "Sprint 112 (ADR-082): authorized identity + trust path + degrees + path type + invitation chain for a target user relative to the caller. NO target karma or karma-derived trust tier. Sprint 119 (BUG-029): community paths carry community_name; the card names the community, never a person route."
         },
         {
           "method": "GET",
@@ -907,5 +907,5 @@
       ]
     }
   },
-  "updated": "2026-06-30"
+  "updated": "2026-07-08"
 }

@@ -23,8 +23,8 @@ Karmyq makes these invisible social connections visible so you can make more inf
 ### 👥 Connected through [Name] → [Name]
 **Gray badge.** Two steps removed. You share a network connection but haven't had a direct exchange.
 
-### 🏘 Fellow member / Member of [Community]
-**Purple badge.** You're both active members of the same community. You haven't exchanged yet, but you've both been welcomed into the same space.
+### 🏘 Fellow member of [Community]
+**Purple badge.** You're both active members of the same community. You haven't exchanged yet, but you've both been welcomed into the same space. This badge names the community, never a person — there's no individual route between you to show.
 
 ### 🤝 Joined through [Name]
 **Yellow badge.** This person joined the community through the same invitation tree as you.

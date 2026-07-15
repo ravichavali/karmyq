@@ -420,7 +420,7 @@ RequestCard, providers/[id] (frontend `useTrustPath`); request-service feed rank
 
 ---
 
-## BUG-029 · [2026-07-09] · open
+## BUG-029 · [2026-07-09] · fixed (Sprint 119 PR A, v11.28.0)
 
 Request tile claims a person-to-person connection that is only shared community membership. On
 `/requests/707137aa-f783-49b3-95ef-a4c8e30da831` the tile says "connected via Nadia Ito" while the
@@ -436,13 +436,19 @@ and just "**via Nadia Ito**" (feed-compact) — which reads as a real person rou
 intermediary of anything; she was drafted into an invented path. This violates the ADR-083/085
 principle the rest of S118 enforced: surfaces must not claim structure the data doesn't contain.
 
-**Proposed fix layer — both ends, presentation-truthful:** (1) server `computeCommunityPath` stops
-inserting the admin as a path node — return the two endpoints + `community_name` only (keep
-`connection_type: 'community_member'`; decide whether `degrees` stays 2 for feed-ranking proximity
-or becomes null — ranking impact); (2) frontend `TrustPathBadge` renders community_member as
-"Fellow member of {community}" / "in {community}" with NO "via {person}" and no person-chain row.
-Existing cached community_member rows become harmless once the renderer stops naming the admin.
-Same review question applies to `computeInvitationPath` wording ("Joined through {inviter}" is
-factual provenance — likely fine).
+**Fix (Sprint 119 PR A) — both ends, presentation-truthful.** Root cause: `computeCommunityPath`
+manufactured an admin path node the data doesn't contain. Fix layers: (1) **server** —
+`computeCommunityPath` returns the two endpoints + `community_name` only; the earliest-joined-admin
+lookup is deleted; `connection_type: 'community_member'` and **`degrees: 2` kept** (feed proximity
+ranking reads `degrees_of_separation`, unchanged — now uniformly 2 even when one endpoint is the
+admin). Cache-hit responses (single + batch `/paths` routes) are enriched with `community_name`
+from live shared membership (cached rows never stored it). (2) **client** — `TrustPathBadge`
+renders community_member as "Fellow member of {community}" (full) / "in {community}"
+(feed-compact), never "via {person}", no person-chain row; falls back to "Fellow community member"
+when the name is absent. Existing cached 3-node rows are inert — the renderer never reads the
+middle node; no cache purge needed (7-day TTL). `computeInvitationPath` wording reviewed and kept:
+"Joined through {inviter}" is factual provenance, pinned by test. Tests (promoted to regression):
+`services/social-graph-service/tests/regression/sprint-119-community-path-shape.test.ts`,
+`apps/frontend/tests/regression/sprint-119-trust-path-badge-truthful.test.tsx`.
 
 ---

@@ -17,9 +17,10 @@ the first time you help each other.
 
 ## The open path
 
-No invitation? Register from the sign-up page, then pick a community to join from the discovery
-list. You can search by location or interests. Your first join works exactly like an invited
-arrival — minus the inviter.
+No invitation? Register from the sign-up page, then pick a community to join — from the discovery
+list, or from a community's own page if you followed a link straight there. You can search by
+location or interests. Your first join works exactly like an invited arrival — minus the inviter —
+whichever page you join from.
 
 ## The arrival moment
 

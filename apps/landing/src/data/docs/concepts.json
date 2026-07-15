@@ -660,8 +660,8 @@
       "slug": "adr-085-invited-arrival-and-edge-lifecycle",
       "number": "085",
       "title": "ADR-085: Invited Arrival & the Edge Lifecycle",
-      "status": "accepted",
-      "description": "**Status**: Accepted",
+      "status": "implemented",
+      "description": "**Status**: Implemented",
       "filename": "ADR-085-invited-arrival-and-edge-lifecycle.md"
     }
   ]

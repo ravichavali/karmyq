@@ -1,10 +1,28 @@
-# Sprint 119 — Truthful Surfaces & the Fractal Story — PLANNED (ready to execute)
+# Sprint 119 — Truthful Surfaces & the Fractal Story — PR A GATES PASSED (awaiting merge authorization)
 
-> **STATUS (2026-07-09):** Planning complete (spec + two per-PR plans approved by the maintainer
-> this session). PR A branch `feature/sprint-119-truthful-surfaces` exists off `origin/master`
-> and carries the S118 post-deploy bookkeeping (ADR-085 → Implemented, BUGS.md BUG-029 entry,
-> archived S118 handoff) — per S118 note 14 those edits ride this PR. Execute PR A first; PR B
-> branches off `origin/master` only after PR A merges + deploys.
+> **STATUS (2026-07-10, execution session):** PR A Tasks 1–9 COMPLETE on
+> `feature/sprint-119-truthful-surfaces` (staged, ready to commit+push). All four SDLC gates run:
+> two /simplify passes (8 agents, applied), /code-review at HIGH effort (8 finder angles; all
+> confirmed findings FIXED — see below), /security-review (NO findings), full blocking tier green.
+> BUG-029 fixed both ends + hardened by review: endpoints-only `computeCommunityPath`;
+> scope-preferred deterministic `community_name` enrichment (single+batch, one set-based query);
+> **cached community_member rows now revalidated on read** (pre-fix 3-node/1° shapes and
+> departed-membership pairs are deleted + recomputed — closes the admin-node leak, stale-claim,
+> and mixed-ranking TTL windows); `setAuthSession` removes a leftover refreshToken (cross-account
+> refresh bleed found by review, test-pinned); **TrustCard** (missed consumer found by review) now
+> names the community, never draws a person route (server passes community_name). Arrival:
+> `beginArrival` is the ONE writer (open + invite paths), `hasOnboarded` adopted in
+> welcome/WelcomeModal, both join surfaces share `isFirstEverJoin`. Header lever 2 shipped
+> (overflow menu = one home for Communities/provider links; My Network keeps topnav). v11.28.0,
+> BUGS.md BUG-029 → fixed, CONTEXT/registry/guides/landing updated (nav.json verified twice).
+> Sprint-119 suites PROMOTED to regression (frontend 25 suites/223 tests; social-graph 22 suites).
+> Known-accepted: batch community_name has no consumer yet (spec-mandated parity); PLAUSIBLE
+> pre-existing edge (localStorage communities snapshot can route a stale-snapshot member to
+> /welcome). Deferred follow-ups: computeInvitationPath disclosure-gate question, api.ts
+> interceptor clearAuthSession adoption, cold-cache batch enrichment.
+> **NEXT (Task 10): commit + push + PR, then STOP for explicit Admin merge authorization**
+> (`gh pr merge --squash --admin` is never self-authorized), CI/CD deploy, human validation
+> checklist (plan Task 10). PR B branches off `origin/master` only after PR A merges + deploys.
 >
 > Sprint 118 record: `.claude/handoff/archive/2026-07-09-sprint-118-invited-arrival-living-graph-COMPLETE.md`.
 

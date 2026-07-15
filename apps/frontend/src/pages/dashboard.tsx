@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useState } from 'react'
 import { useRouter } from 'next/router'
 import Head from 'next/head'
 import { communityService } from '@/lib/api'
+import { clearAuthSession } from '@/lib/session'
 import Layout from '@/components/Layout'
 import WelcomeModal from '@/components/WelcomeModal'
 import TabBar, { TabId } from '@/components/TabBar'
@@ -73,9 +74,7 @@ export default function Dashboard() {
     }
 
     if (!userData) {
-      localStorage.removeItem('token')
-      localStorage.removeItem('refreshToken')
-      localStorage.removeItem('demoContext')
+      clearAuthSession()
       router.push('/login')
       setLoading(false)
       return
@@ -89,10 +88,7 @@ export default function Dashboard() {
       setUser(parsedUser)
       fetchCommunities(parsedUser.id)
     } catch {
-      localStorage.removeItem('token')
-      localStorage.removeItem('refreshToken')
-      localStorage.removeItem('user')
-      localStorage.removeItem('demoContext')
+      clearAuthSession()
       router.push('/login')
       setLoading(false)
       return

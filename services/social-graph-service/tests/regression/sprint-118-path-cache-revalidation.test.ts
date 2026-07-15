@@ -20,6 +20,9 @@ jest.mock('../../src/config/logger', () => ({
 jest.mock('../../src/services/pathComputation', () => ({
   computeTrustPath: jest.fn(),
   isCachedExchangePathLive: jest.fn(),
+  // Sprint 119: batch route pre-fetches community names for cached community_member rows.
+  getSharedCommunityName: jest.fn().mockResolvedValue(undefined),
+  getSharedCommunityNames: jest.fn().mockResolvedValue(new Map()),
 }));
 
 const { pool } = require('../../src/config/database');

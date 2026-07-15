@@ -12,6 +12,7 @@ import StewardshipTab from '@/components/community/tabs/StewardshipTab'
 import { useCommunityData } from '@/hooks/useCommunityData'
 import { useCommunityPulse } from '@/hooks/useCommunityPulse'
 import { communityService } from '@/lib/api'
+import { isFirstEverJoin, beginArrival } from '@/lib/session'
 import { resolveCommunityTab, resolveStewardshipSection, type CommunityTab, type StewardshipSection } from '@/lib/communityTabs'
 import { canViewCommunityStats } from '@/lib/community/statsVisibility'
 
@@ -87,6 +88,9 @@ export default function CommunityDetailPage() {
 
   const handleJoinCommunity = async () => {
     if (!currentUser || !communityId || !community) return
+    // Sprint 119: same first-join arrival as the communities index (S118/ADR-085) — the shared
+    // helpers keep the two join surfaces from drifting.
+    const isFirstJoin = isFirstEverJoin(currentUser)
     setJoiningCommunity(true)
     try {
       const joinRes = await communityService.joinCommunity(communityId, { user_id: currentUser.id })
@@ -107,6 +111,12 @@ export default function CommunityDetailPage() {
         } catch {
           // Non-fatal: token decode failed, communities list stays stale until next login
         }
+      }
+
+      if (isFirstJoin && community.access_type === 'public') {
+        beginArrival({ path: 'open', userId: currentUser.id, communityId, communityName: community.name })
+        router.push('/welcome')
+        return
       }
 
       await refetchCommunity()

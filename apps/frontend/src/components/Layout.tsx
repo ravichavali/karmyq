@@ -3,6 +3,7 @@ import { useRouter } from 'next/router'
 import Link from 'next/link'
 import NotificationBell from './NotificationBell'
 import { useProvider } from '../contexts/ProviderContext'
+import { clearAuthSession } from '../lib/session'
 
 interface AppMenuProps {
   onLogout: () => void
@@ -10,12 +11,23 @@ interface AppMenuProps {
 
 function AppMenu({ onLogout }: AppMenuProps) {
   const [open, setOpen] = useState(false)
+  const router = useRouter()
   const { hasProviderProfile, providerProfiles } = useProvider()
   const myProviderId = providerProfiles[0]?.id
   const close = () => setOpen(false)
 
+  // Sprint 119 (header lever 2): this overflow is now the one home for Communities + the
+  // provider links at every viewport (it was xl:hidden while kq-topnav duplicated them at xl);
+  // My Network also keeps its topnav slot. SECTION items carry the active-route emphasis the
+  // topnav links used to; action items (Manage my profile, Become a provider) don't claim one.
+  const plainItemClass = 'block px-4 py-2 text-sm transition-colors hover:bg-surface text-text'
+  const itemClass = (activePrefix: string) =>
+    router.pathname.startsWith(activePrefix)
+      ? 'block px-4 py-2 text-sm transition-colors hover:bg-surface font-semibold text-primary-dark'
+      : plainItemClass
+
   return (
-    <div className="relative xl:hidden">
+    <div className="relative">
       <button
         onClick={() => setOpen(!open)}
         aria-expanded={open}
@@ -34,29 +46,29 @@ function AppMenu({ onLogout }: AppMenuProps) {
             id="app-overflow-menu"
             className="absolute right-0 mt-1 w-56 bg-surface-raised border border-border rounded-lg shadow-lg z-50 py-1"
           >
-            <Link href="/network" className="block px-4 py-2 text-sm text-text hover:bg-surface transition-colors" onClick={close}>
+            <Link href="/network" className={itemClass('/network')} onClick={close}>
               My Network
             </Link>
-            <Link href="/communities" className="block px-4 py-2 text-sm text-text hover:bg-surface transition-colors" onClick={close}>
+            <Link href="/communities" className={itemClass('/communities')} onClick={close}>
               Communities
             </Link>
             {hasProviderProfile ? (
               <>
-                <Link href="/providers" className="block px-4 py-2 text-sm text-text hover:bg-surface transition-colors" onClick={close}>
+                <Link href="/providers" className={itemClass('/providers')} onClick={close}>
                   Service Providers
                 </Link>
                 {myProviderId && (
-                  <Link href={`/providers/${myProviderId}`} className="block px-4 py-2 text-sm text-text hover:bg-surface transition-colors" onClick={close}>
+                  <Link href={`/providers/${myProviderId}`} className={plainItemClass} onClick={close}>
                     Manage my profile
                   </Link>
                 )}
               </>
             ) : (
-              <Link href="/providers/new" className="block px-4 py-2 text-sm text-text hover:bg-surface transition-colors" onClick={close}>
+              <Link href="/providers/new" className={plainItemClass} onClick={close}>
                 Become a provider
               </Link>
             )}
-            <Link href="/profile" className="block px-4 py-2 text-sm text-text hover:bg-surface transition-colors" onClick={close}>
+            <Link href="/profile" className={itemClass('/profile')} onClick={close}>
               Profile
             </Link>
             <button
@@ -104,10 +116,7 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
   }, [])
 
   const handleLogout = () => {
-    localStorage.removeItem('token')
-    localStorage.removeItem('refreshToken')
-    localStorage.removeItem('user')
-    localStorage.removeItem('demoContext')
+    clearAuthSession()
     router.push('/')
   }
 
@@ -127,10 +136,11 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
               {/* BUG-016: a calmer rhythm — the nav and the action cluster get their own breathing
                   room (gap grows with viewport) so the row never crowds at narrower desktop widths. */}
               <div className="flex items-center gap-3 md:gap-5">
-                {/* Secondary nav — desktop only. The wordmark links Home, so no redundant Home link.
-                    My Network leads (Scale 1 of the belonging fractal — you + your first-degree). The
-                    nav lives in xl:flex only, so it never crowds md widths; below xl the hamburger
-                    carries it (BUG-016/017 chrome budget). The Home preview is the primary surface. */}
+                {/* Secondary nav — desktop only (xl:flex, BUG-016/017 chrome budget). The wordmark
+                    links Home, so no redundant Home link. My Network keeps the one topnav slot
+                    (Scale 1 of the belonging fractal — you + your first-degree); Sprint 119
+                    (header lever 2) moved Communities + the provider links into the overflow
+                    menu, their one home at every viewport. */}
                 <div className="kq-topnav">
                   <Link
                     href="/network"
@@ -138,27 +148,6 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
                   >
                     My Network
                   </Link>
-                  <Link
-                    href="/communities"
-                    className={`kq-topnav-link ${router.pathname.startsWith('/communities') ? 'active' : ''}`}
-                  >
-                    Communities
-                  </Link>
-                  {hasProviderProfile ? (
-                    <Link
-                      href="/providers"
-                      className={`kq-topnav-link ${router.pathname.startsWith('/providers') ? 'active' : ''}`}
-                    >
-                      Service Providers
-                    </Link>
-                  ) : (
-                    <Link
-                      href="/providers/new"
-                      className="kq-topnav-link"
-                    >
-                      Become a provider
-                    </Link>
-                  )}
                 </div>
 
                 {user && (

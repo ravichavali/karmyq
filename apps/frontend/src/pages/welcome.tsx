@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/router'
 import Head from 'next/head'
 import { communityService, socialGraphService } from '@/lib/api'
+import { ARRIVAL_KEY, hasOnboarded } from '@/lib/session'
 import ArrivalGraph from '@/components/graphs/ArrivalGraph'
 import { normalizePersonGraph } from '@/components/graphs/normalizeGraphData'
 import type { GraphData } from '@/components/graphs/types'
@@ -16,8 +17,6 @@ interface ArrivalContext {
   communityId: string
   communityName?: string
 }
-
-const ARRIVAL_KEY = 'karmyq_arrival'
 
 function readStoredUser(): { id: string; name?: string } | null {
   try {
@@ -70,10 +69,7 @@ export default function WelcomePage() {
       let context = readArrivalContext(storedUser.id)
       if (!context) {
         // Deep link — an already-onboarded member has nothing to arrive at.
-        if (
-          localStorage.getItem(`karmyq_onboarded:${storedUser.id}`) ||
-          localStorage.getItem('karmyq_onboarded')
-        ) {
+        if (hasOnboarded(storedUser.id)) {
           router.replace('/dashboard')
           return
         }
