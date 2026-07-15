@@ -1,4 +1,4 @@
-# Sprint 119 — Truthful Surfaces & the Fractal Story — PR A GATES PASSED (awaiting merge authorization)
+# Sprint 119 — Truthful Surfaces & the Fractal Story — PR A SHIPPED · PR B IN PROGRESS
 
 > **STATUS (2026-07-10, execution session):** PR A Tasks 1–9 COMPLETE on
 > `feature/sprint-119-truthful-surfaces` (staged, ready to commit+push). All four SDLC gates run:
@@ -20,25 +20,52 @@
 > pre-existing edge (localStorage communities snapshot can route a stale-snapshot member to
 > /welcome). Deferred follow-ups: computeInvitationPath disclosure-gate question, api.ts
 > interceptor clearAuthSession adoption, cold-cache batch enrichment.
-> **PR OPEN: https://github.com/ravichavali/karmyq/pull/149** (branch pushed, pre-push hook
-> green, PR contract filled, gates recorded). **NEXT: cross-agent review if Codex available,
-> verify PR CI green, then STOP for explicit Admin merge authorization**
-> (`gh pr merge --squash --admin` is never self-authorized), CI/CD deploy, human validation
-> checklist (plan Task 10). Post-merge: handoff status + PR B branches off `origin/master`.
-> NOTE: this handoff edit is intentionally uncommitted — no docs-only push; it rides the next
-> commit on a feature branch.
+> **PR #149 MERGED by Admin 2026-07-15 (16:34Z)** — merge commit `b5b9a09`; CI/CD Pipeline,
+> Tests, and CodeQL all green on master; deploy verified live (frontend/login/communities 200).
+> **Post-deploy API validation of BUG-029 PASSED**: scanned all 149 fellow-member paths as
+> maria.reyes — `community_member` paths are endpoints-only (pathLen 2), `community_name`
+> populated, `degrees: 2` preserved; Nadia Ito no longer appears as an intermediate node; cache
+> revalidation observed working (stale rows deleted + recomputed live). One finding:
+> **BUG-030 logged** (docs/BUGS.md) — fractional exchange-path trust score (Ebbinghaus decay)
+> fails the INTEGER `path_trust_score` cache column → 500 on /paths for affected pairs (1/149 on
+> demo: maria.reyes → Fatima Alhassan); PRE-EXISTING since S90, surfaced by PR A's forced
+> recomputes; batch route has no per-target catch so one bad pair can 500 a whole /paths/batch.
+> Fix NOT in PR B scope (approved plan unchanged) — needs a planning decision (migrate column to
+> DOUBLE PRECISION vs round at 3 write sites; consider per-target isolation in batch loop).
+> Remaining Task 10 HUMAN validation (browser-only, not yet done): throwaway first-join from a
+> community DETAIL page lands on /welcome; `/demo` tour survives refresh; topbar calm at
+> md/lg/xl.
+>
+> **PR B STATUS (2026-07-15, Codex recovery session): Tasks 1–7 COMPLETE; Task 8 final gate in
+> progress** on `feature/sprint-119-graph-presentation`. Claude's uncommitted Tasks 1–5 WIP was
+> recovered without overwrite and verified: focused Sprint 119 suites 3/3 (39 tests), social-graph
+> unit+regression 22/22 (158 pass, 3 todo), frontend unit+regression 31/31 (288 pass), and both
+> touched workspace typechecks green. Server adds fail-closed `active_recently` from the shared
+> 30-day window; ring anchors the viewer at 12 o'clock + truthful N-of-M summary; hub distinguishes
+> recent woven/dormant/periphery bridges through the raw-payload normalization hop. ADR-086 is
+> Accepted, guide/onboarding/CONTEXT/registry/landing docs updated, nav re-applied after generator
+> reversion, version v11.29.0. Simplify/code/security review passes found no production-code issue;
+> documentation findings fixed. Three Sprint 119 TDD suites promoted to regression. Full root
+> `npm test` is green (26/26 Turbo tasks); staged feedback + process review pass; direct feature,
+> doc, privacy, and dependency-security regressions pass (`npm audit`: zero high/critical).
+> **NEXT:** commit, push, open PR, and stop for explicit Admin merge authorization. Do not fold
+> BUG-030 into this PR.
 >
 > Sprint 118 record: `.claude/handoff/archive/2026-07-09-sprint-118-invited-arrival-living-graph-COMPLETE.md`.
 
-## Quick Start
+## Quick Start (PR B final verification / PR creation)
 
-1. Read this handoff
-2. Check out branch: `git checkout feature/sprint-119-truthful-surfaces` (already created)
-3. Open plan: `docs/superpowers/plans/2026-07-09-sprint-119-pr-a-truthful-surfaces.md`
-4. Run: `/execute-plan` (uses superpowers:subagent-driven-development)
-5. After PR A merges + deploys: branch `feature/sprint-119-graph-presentation` off
-   `origin/master`, open `docs/superpowers/plans/2026-07-09-sprint-119-pr-b-graph-presentation.md`,
-   run `/execute-plan` again (fresh chat per PR is the sanctioned exception for this two-PR sprint).
+1. Stay on `feature/sprint-119-graph-presentation`; do not recreate or reset the branch.
+2. Open `docs/superpowers/plans/2026-07-09-sprint-119-pr-b-graph-presentation.md`; Tasks 1–7 are
+   complete and the three Sprint 119 suites now live under each workspace's `tests/regression/`.
+3. Finish Task 8: staged `npm run feedback:check`, process-reviewer, root `npm test`, direct root
+   regression, touched-workspace `tsc --noEmit`, and final nav grep. Resolve any real failure.
+4. Run `pre-commit-check`, commit the whole scoped diff (including this handoff and BUG-030's
+   already-logged discovery), push, and open a template-complete PR. Stop before merge until the
+   maintainer explicitly authorizes `gh pr merge --squash --admin`.
+5. After deploy, run Task 9 live validation for Maria's ring, a sparse user's no-bonds state,
+   woven/dormant community bridges (confirm rows exist first), unchanged ego/welcome, and 375px.
+   Remaining PR A browser checks may be completed in the same pass. Never mutate protected personas.
 
 ## Sprint Goal
 

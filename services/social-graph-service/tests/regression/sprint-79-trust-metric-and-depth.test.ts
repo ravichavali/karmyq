@@ -99,9 +99,12 @@ describe('sprint-79 trust metric + community depth', () => {
       });
       expect(result.nodes[2].is_member).toBe(false);
 
-      // Organic link tagged 'organic', weight coerced to number.
+      // Organic link tagged 'organic', weight coerced to number. Sprint 119 (ADR-086) added the
+      // fail-closed active_recently boolean — false here because the row has no last_interaction_at.
       const organic = result.links.filter((l) => l.type === 'organic');
-      expect(organic).toEqual([{ source: 'cA', target: 'cB', weight: 3.5, type: 'organic' }]);
+      expect(organic).toEqual([
+        { source: 'cA', target: 'cB', weight: 3.5, type: 'organic', active_recently: false },
+      ]);
 
       // Fission: directed parent→child, weight 1, type 'fission'. cZ is NOT in the
       // node set so the cA→cZ link is dropped; only cA→cC survives.

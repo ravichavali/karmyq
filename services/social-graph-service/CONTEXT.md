@@ -521,7 +521,10 @@ trust or fission lineage): `{ id, name, member_count, status, is_member }`. Link
 come in two types:
 
 - `organic` — undirected ties from `social_graph.community_trust_edges` (accrued
-  as members exchange help across communities); `weight` = interaction strength.
+  as members exchange help across communities); `weight` = interaction strength and
+  `active_recently` is a fail-closed qualitative boolean derived from `last_interaction_at`
+  against the shared 30-day `FORMED_RECENTLY_WINDOW_DAYS` window. The raw timestamp never
+  leaves the service (Sprint 119, ADR-086).
 - `fission` — directed parent→child lineage from executed
   `communities.split_proposals`; `weight` = 1.
 
@@ -531,7 +534,9 @@ by `getCommunityDepthGraph(callingUserId)` in `src/database/trustEdgeDb.ts`.
 
 **Auth required**: Bearer JWT.
 
-**Primary consumer**: `apps/frontend/src/components/graphs/CommunityDepthGraph.tsx` (dashboard "Your Trust Network" → Communities).
+**Primary consumer**: `apps/frontend/src/components/graphs/BelongingGraph.tsx` →
+`CommunityHubGraph.tsx` (My Network → Communities). The client normalizes
+`active_recently` to `activeRecently` before rendering woven-vs-dormant bridge emphasis.
 
 ---
 
@@ -939,6 +944,10 @@ See [ADR-056](../../docs/adr/ADR-056-intrinsic-trust-decay.md) for full decision
 ## Recent Changes
 
 ### Sprint 119: Truthful Surfaces (2026-07-10)
+- **NEW (ADR-086)**: `GET /trust/communities` organic links now carry `active_recently`, derived
+  fail-closed from `community_trust_edges.last_interaction_at` against the shared 30-day window.
+  The timestamp remains internal. The frontend normalizes the boolean to `activeRecently` and uses
+  it to distinguish recently active woven bridges from dormant ones; fission lineage is unchanged.
 - **FIX (BUG-029)**: `computeCommunityPath` (`pathComputation.ts`) no longer manufactures a path
   through the community's earliest-joined admin — a `community_member` path is now EXACTLY the two
   endpoints + `community_name` (new `getSharedCommunityName`/`getSharedCommunityNames` helpers,

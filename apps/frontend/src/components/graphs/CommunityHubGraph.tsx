@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import * as d3 from 'd3'
 import type { GraphData, TrustLink, TrustNode } from './types'
 import { linkKey } from './normalizeGraphData'
+import { hubBridgeVisual } from './graphVisualEncoding'
 import GraphZoomControls from './GraphZoomControls'
 import { clearGraphZoom, installGraphZoom, zoomBy, zoomReset } from './graphZoom'
 import { useGraphContainerWidth } from '../../hooks/useGraphContainerWidth'
@@ -20,8 +21,6 @@ import { useGraphContainerWidth } from '../../hooks/useGraphContainerWidth'
  * zoom.transform's width.baseVal path).
  */
 
-const ORGANIC_SLATE = '#64748b'
-const FISSION_VIOLET = '#a78bfa'
 const MIN_NODE_R = 7
 const MAX_NODE_R = 22
 const TRANSITION_MS = 400
@@ -117,6 +116,12 @@ export default function CommunityHubGraph({
       })
       .filter((x): x is { link: TrustLink; a: Placed; b: Placed } => x !== null)
 
+    // Sprint 119 / ADR-086 — bridge encoding comes from the shared single source of truth:
+    // member↔member organic bridges emphasized, alive ones in the S118 green family, periphery and
+    // dormant quieted, fission lineage untouched.
+    const isMember = (id: string) => placed.get(id)?.node.is_member === true
+    const visualOf = (link: TrustLink) => hubBridgeVisual(link, isMember)
+
     const edgeSel = edgesG.selectAll<SVGLineElement, { link: TrustLink; a: Placed; b: Placed }>('line.hub-edge')
       // linkKey distinguishes parallel organic/fission edges between the same community pair.
       .data(edgeData, (d: any) => linkKey(d.link))
@@ -126,10 +131,11 @@ export default function CommunityHubGraph({
       .attr('class', 'hub-edge')
       .merge(edgeSel as any)
     edgeMerge
-      .attr('stroke', d => (d.link.type === 'fission' ? FISSION_VIOLET : ORGANIC_SLATE))
-      .attr('stroke-width', d => (d.link.type === 'fission' ? 2 : 1.5))
-      .attr('stroke-opacity', d => (d.link.type === 'fission' ? 0.9 : 0.55))
-      .attr('stroke-dasharray', d => (d.link.type === 'fission' ? '6,4' : null))
+      .attr('stroke', d => visualOf(d.link).stroke)
+      .attr('stroke-width', d => visualOf(d.link).width)
+      .attr('stroke-opacity', d => visualOf(d.link).opacity)
+      .attr('stroke-dasharray', d => visualOf(d.link).dasharray)
+      .attr('aria-label', d => `${visualOf(d.link).label} between ${d.a.node.name} and ${d.b.node.name}`)
     edgeMerge.transition().duration(TRANSITION_MS)
       .attr('x1', d => d.a.x).attr('y1', d => d.a.y)
       .attr('x2', d => d.b.x).attr('y2', d => d.b.y)
@@ -189,14 +195,14 @@ export default function CommunityHubGraph({
     const applyHighlight = (focusId: string | null) => {
       if (!focusId) {
         nodeMerge.attr('opacity', 1)
-        edgeMerge.attr('stroke-opacity', d => (d.link.type === 'fission' ? 0.9 : 0.55))
+        edgeMerge.attr('stroke-opacity', d => visualOf(d.link).opacity)
         return
       }
       const related = adjacency.get(focusId) ?? new Set([focusId])
       nodeMerge.attr('opacity', (d: any) => (related.has(d.node.id) ? 1 : FADE_OPACITY))
       edgeMerge.attr('stroke-opacity', d =>
         d.link.source === focusId || d.link.target === focusId
-          ? (d.link.type === 'fission' ? 0.9 : 0.55)
+          ? visualOf(d.link).opacity
           : FADE_OPACITY
       )
     }
@@ -273,6 +279,8 @@ export default function CommunityHubGraph({
         </span>
         <span className="flex items-center gap-1 text-slate-500">— organic trust</span>
         <span className="flex items-center gap-1 text-violet-400">— fission lineage</span>
+        <span className="flex items-center gap-1 text-green-400">Woven bridge — recent exchange</span>
+        <span className="flex items-center gap-1 text-slate-500">Dormant bridge</span>
         <span className="text-text-muted">○ size = membership</span>
       </div>
 

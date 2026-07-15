@@ -417,6 +417,10 @@
           "href": "/docs/concepts/adr-085-invited-arrival-and-edge-lifecycle"
         },
         {
+          "label": "Scale Answers — One Question per Zoom Level",
+          "href": "/docs/concepts/adr-086-scale-answers-one-question-per-zoom-level"
+        },
+        {
           "label": "— Community & Scale —",
           "href": "/docs/concepts",
           "divider": true

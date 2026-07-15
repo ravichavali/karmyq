@@ -60,6 +60,13 @@ This is the view that travels with you across every community.
 
 The This Community view arranges **every returned member on a single ring**, in a stable order, with **one gently curved chord per disclosed relationship**. There are no clusters, no bundles, and no automatic grouping — the shape you see is just who is connected to whom.
 
+Its at-a-glance question is **“Where do you fit?”** When you belong to the community, your node is
+anchored at 12 o'clock, your chords keep their full relationship intensity, and the other chords
+quiet slightly until you focus them. A plain-language line below the ring says how many of the other
+members you're bonded with. If you have no bonds there yet, it says so honestly and points to the
+first real way to become woven in: helping someone. This emphasis rotates and quiets the existing
+picture; it never changes who is present or invents a relationship.
+
 Reading it is structural, by eye:
 
 - **Multiple routes between two people** mean redundant belonging — the community doesn't depend on any single link.
@@ -75,9 +82,17 @@ Click any member for a structural detail panel — their connection count and th
 
 The across-communities view (`?mode=communities`) draws **communities as nodes** so you can see how your communities connect to others. It is an **egocentric hub**: your communities are anchored together in the centre, and the communities they connect to radiate outward on a labelled ring.
 
+Its at-a-glance question is **“Which of your communities are woven together?”** Solid bridges
+between two communities you belong to come forward. A recently active bridge uses the same living
+green family as a new personal bond; a dormant bridge remains visible but quiet. Bridges from your
+communities to the surrounding periphery stay in the picture with less emphasis. “Recent” is a
+server-derived, fail-closed qualitative state from the last month of exchange activity — no date,
+count, or raw weight is exposed.
+
 - **Node size = membership.** A bigger community is a bigger dot — the one place a node's size is meaningful, because here a node is a whole community, not a person.
 - **Colour.** Your own communities are emerald and white-ringed; communities you can see but aren't a member of are indigo.
-- **Organic ties (solid, slate)** accrue as members exchange help *across* community lines.
+- **Organic ties (solid)** accrue as members exchange help *across* community lines. The legend
+  distinguishes a recently active woven bridge from a dormant one.
 - **Fission lineage (dashed, violet)** are parent → child links left behind when a community splits.
 
 Click any community for its member count and status. Reach this scale from the **See how communities connect →** link on any community's Trust Graph tab.

@@ -35,9 +35,16 @@ const finiteCoordinate = (value: number) =>
 export function buildCommunityRingModel(
   graph: GraphData,
   width: number,
-  height: number
+  height: number,
+  currentUserId?: string
 ): CommunityRingModel {
   const ordered = [...graph.nodes].sort(compareGraphNodes)
+  // Sprint 119 / ADR-086 — the viewer anchors the ring at 12 o'clock. Rotation ONLY (ADR-083):
+  // membership, cyclic order, radius, and chord geometry stay exactly as S115 shipped.
+  if (currentUserId) {
+    const anchor = ordered.findIndex(node => node.id === currentUserId)
+    if (anchor > 0) ordered.push(...ordered.splice(0, anchor))
+  }
   const minimumDimension = Math.min(width, height)
   const radius = Number.isFinite(minimumDimension)
     ? Math.max(60, minimumDimension / 2 - 72)
