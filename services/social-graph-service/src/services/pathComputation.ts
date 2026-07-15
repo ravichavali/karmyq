@@ -408,11 +408,10 @@ export async function computeInvitationPath(
     currentId = node?.parent || null;
   }
 
-  const usersResult = await pool.query(
-    `SELECT id, name FROM auth.users WHERE id = ANY($1)`,
-    [pathUserIds]
-  );
-  const nameMap = new Map(usersResult.rows.map(r => [r.id, r.name]));
+  // Sprint 119: names resolve through the ADR-082 identity gate — a chain member who is no
+  // longer an active member anywhere renders as 'Unknown' rather than staying disclosed.
+  const identities = await getPublicIdentities(pathUserIds);
+  const nameMap = new Map(identities.map(u => [u.id, u.name]));
 
   return {
     degrees: pathUserIds.length - 1,
@@ -421,6 +420,42 @@ export async function computeInvitationPath(
     trustScore: 0,
     connectionType: 'invitation_chain',
   };
+}
+
+/**
+ * Re-project a CACHED path's node names through the ADR-082 identity gate (Sprint 119). Cached
+ * invitation_chain rows can carry names written before the gate applied to invitation paths —
+ * without this, a departed member's name would stay visible for up to the 7-day TTL. Topology
+ * (ids, timestamps) is untouched; only undisclosable names become 'Unknown'.
+ */
+export async function gateCachedPathIdentities(path: unknown): Promise<unknown> {
+  let parsed = path;
+  if (typeof path === 'string') {
+    try {
+      parsed = JSON.parse(path);
+    } catch {
+      return path;
+    }
+  }
+  if (!Array.isArray(parsed)) return parsed;
+
+  const ids = parsed
+    .map((node) => (node && typeof node === 'object' ? (node as { id?: unknown }).id : undefined))
+    .filter((id): id is string => typeof id === 'string');
+  if (ids.length === 0) return parsed;
+
+  const identities = await getPublicIdentities(ids);
+  const nameMap = new Map(identities.map(u => [u.id, u.name]));
+
+  return parsed.map((node) => {
+    if (node && typeof node === 'object') {
+      const obj = node as { id?: unknown };
+      if (typeof obj.id === 'string') {
+        return { ...node, name: nameMap.get(obj.id) ?? 'Unknown' };
+      }
+    }
+    return node;
+  });
 }
 
 /**

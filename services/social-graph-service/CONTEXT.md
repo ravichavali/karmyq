@@ -661,8 +661,11 @@ as membership — not a trust connection) then `computeInvitationPath` (accepted
 - Sprint 118 / BUG-028: cached `exchange` rows are revalidated on read against
   `trust_edges_live` with active endpoint membership for every cached hop. A stale or malformed
   exchange cache row is deleted and recomputed, so pre-fix completed-match paths cannot survive
-  behind the 7-day TTL. Non-exchange fallback rows (`community_member`, `invitation_chain`) keep
-  the normal TTL semantics.
+  behind the 7-day TTL.
+- Sprint 119 / BUG-029: cached `community_member` rows are ALSO revalidated on read — a pre-fix
+  shape (3-node path or 1° degrees) or a pair that no longer shares any active community is
+  deleted and recomputed. Cached `invitation_chain` rows keep normal TTL semantics for topology,
+  but their node names are re-projected through the ADR-082 identity gate on read.
 
 **Cache Hit Rate Target**: >95% (most paths precomputed)
 
@@ -948,7 +951,10 @@ See [ADR-056](../../docs/adr/ADR-056-intrinsic-trust-decay.md) for full decision
   deleted and recomputed (extends the S118 read-time revalidation; closes the stale-claim and
   mixed-ranking TTL windows). `GET /trust-card/:targetUserId` now returns `community_name` for
   community paths so the card can name the community instead of drawing a person route.
-  Identity lookups reuse `getPublicIdentities` (ADR-082 disclosure gate).
+  Identity lookups reuse `getPublicIdentities` (ADR-082 disclosure gate) — including
+  `computeInvitationPath` (cross-agent review decision), and cached `invitation_chain` node
+  names re-project through the gate on read (`gateCachedPathIdentities`) so a departed chain
+  member never stays disclosed for the TTL.
 
 ### Sprint 118: Invited Arrival & the Living Graph (2026-07-08, ADR-085)
 - **FIX (BUG-028)**: `computeShortestPath` (`pathComputation.ts`) now builds its BFS adjacency from `social_graph.trust_edges_live` with active-membership joins on BOTH endpoints — the same edge set `/trust/neighborhood` discloses — instead of all-time completed `requests.matches`. On the curated demo, 742 of 2103 completed-match pairs had no trust edge at all (seeded matches bypassed the `match_completed` event), so badges claimed connections the graph couldn't show. Topology stays platform-wide (ADR-077); community/invitation fallbacks unchanged. Also fixed: the BFS target check now runs before the depth gate, so exactly-3° paths are found. Cached `exchange` rows are revalidated against live graph edges on read; stale pre-fix rows are deleted and recomputed instead of surviving for the 7-day TTL.

@@ -20,9 +20,13 @@
 > pre-existing edge (localStorage communities snapshot can route a stale-snapshot member to
 > /welcome). Deferred follow-ups: computeInvitationPath disclosure-gate question, api.ts
 > interceptor clearAuthSession adoption, cold-cache batch enrichment.
-> **NEXT (Task 10): commit + push + PR, then STOP for explicit Admin merge authorization**
+> **PR OPEN: https://github.com/ravichavali/karmyq/pull/149** (branch pushed, pre-push hook
+> green, PR contract filled, gates recorded). **NEXT: cross-agent review if Codex available,
+> verify PR CI green, then STOP for explicit Admin merge authorization**
 > (`gh pr merge --squash --admin` is never self-authorized), CI/CD deploy, human validation
-> checklist (plan Task 10). PR B branches off `origin/master` only after PR A merges + deploys.
+> checklist (plan Task 10). Post-merge: handoff status + PR B branches off `origin/master`.
+> NOTE: this handoff edit is intentionally uncommitted — no docs-only push; it rides the next
+> commit on a feature branch.
 >
 > Sprint 118 record: `.claude/handoff/archive/2026-07-09-sprint-118-invited-arrival-living-graph-COMPLETE.md`.
 

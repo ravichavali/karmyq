@@ -445,8 +445,12 @@ admin). Cache-hit responses (single + batch `/paths` routes) are enriched with `
 from live shared membership (cached rows never stored it). (2) **client** — `TrustPathBadge`
 renders community_member as "Fellow member of {community}" (full) / "in {community}"
 (feed-compact), never "via {person}", no person-chain row; falls back to "Fellow community member"
-when the name is absent. Existing cached 3-node rows are inert — the renderer never reads the
-middle node; no cache purge needed (7-day TTL). `computeInvitationPath` wording reviewed and kept:
+when the name is absent. (3) **cache** — cached `community_member` rows are revalidated on READ
+(extending the S118 pattern; no offline purge job): a pre-fix shape (3-node path / 1° degrees) or
+a pair that no longer shares any community is deleted and recomputed, so the manufactured admin
+node, the stale-claim case, and the mixed-ranking window all die at the source instead of waiting
+out the 7-day TTL. The renderer additionally never reads the middle node (belt-and-braces).
+`computeInvitationPath` wording reviewed and kept:
 "Joined through {inviter}" is factual provenance, pinned by test. Tests (promoted to regression):
 `services/social-graph-service/tests/regression/sprint-119-community-path-shape.test.ts`,
 `apps/frontend/tests/regression/sprint-119-trust-path-badge-truthful.test.tsx`.

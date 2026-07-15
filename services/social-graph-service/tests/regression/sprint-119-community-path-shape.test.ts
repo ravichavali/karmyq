@@ -106,6 +106,44 @@ describe('Sprint 119 / BUG-029: computeCommunityPath endpoints-only shape', () =
   });
 });
 
+describe('Sprint 119: computeInvitationPath names resolve through the ADR-082 identity gate', () => {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const { computeInvitationPath } = require('../../src/services/pathComputation');
+
+  it('renders a departed chain member as Unknown, keeping active members named', async () => {
+    pool.query.mockReset();
+    pool.query.mockImplementation((sql: string) => {
+      if (sql.includes('auth.user_invitations')) {
+        return Promise.resolve({
+          rows: [
+            { user_a: SOURCE, user_b: ADMIN },
+            { user_a: ADMIN, user_b: TARGET },
+          ],
+        });
+      }
+      if (sql.includes('FROM auth.users')) {
+        // ADMIN is no longer an active member anywhere — the gate excludes them.
+        return Promise.resolve({
+          rows: [
+            { id: SOURCE, name: 'Maria Reyes' },
+            { id: TARGET, name: 'Ben Okafor' },
+          ],
+        });
+      }
+      return Promise.resolve({ rows: [] });
+    });
+
+    const result = await computeInvitationPath(SOURCE, TARGET);
+
+    expect(result).not.toBeNull();
+    expect(result!.path.map((n: { name: string }) => n.name)).toEqual([
+      'Maria Reyes',
+      'Unknown',
+      'Ben Okafor',
+    ]);
+  });
+});
+
 describe('Sprint 119 / BUG-029: cache-hit responses carry community_name and stale rows recompute', () => {
   // Route-level: pre-seeded community_member auth.social_distances rows. Component tests with a
   // mocked community_name cannot catch these — the cache-hit branch responded without the name
@@ -282,6 +320,46 @@ describe('Sprint 119 / BUG-029: cache-hit responses carry community_name and sta
         cached: false,
       }),
     ]);
+  });
+
+  it('GET: cached invitation_chain names re-project through the identity gate (departed member → Unknown)', async () => {
+    // ADR-082 adoption (Sprint 119 review decision): a cached chain written before the gate can
+    // carry a departed member's name — it must not stay disclosed for the 7-day TTL.
+    pool.query.mockImplementation((sql: string) => {
+      if (sql.includes('auth.social_distances')) {
+        return Promise.resolve({
+          rows: [{
+            user_b_id: TARGET,
+            degrees_of_separation: 2,
+            shortest_path: OLD_CACHED_PATH, // includes ADMIN ("Nadia Ito"), who has departed
+            path_trust_score: 0,
+            connection_type: 'invitation_chain',
+            computed_at: '2026-07-01T00:00:00.000Z',
+          }],
+        });
+      }
+      if (sql.includes('FROM auth.users')) {
+        // Identity gate: only SOURCE and TARGET are still active members anywhere.
+        return Promise.resolve({
+          rows: [
+            { id: SOURCE, name: 'Maria Reyes' },
+            { id: TARGET, name: 'Ben Okafor' },
+          ],
+        });
+      }
+      return Promise.resolve({ rows: [] });
+    });
+
+    const response = await request(app).get(`/paths/${TARGET}`).expect(200);
+
+    expect(response.body.data).toMatchObject({
+      degrees_of_separation: 2,
+      connection_type: 'invitation_chain',
+      cached: true,
+    });
+    const names = response.body.data.path.map((n: { name: string }) => n.name);
+    expect(names).toEqual(['Maria Reyes', 'Unknown', 'Ben Okafor']);
+    expect(JSON.stringify(response.body.data)).not.toContain('Nadia Ito');
   });
 
   it('POST /paths/batch includes community_name on FRESH community_member computes too', async () => {

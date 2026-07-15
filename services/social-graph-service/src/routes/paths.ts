@@ -8,6 +8,7 @@ import {
   isCachedExchangePathLive,
   getSharedCommunityName,
   getSharedCommunityNames,
+  gateCachedPathIdentities,
 } from '../services/pathComputation';
 import { resolveCommunityContext } from '../services/communityContext';
 
@@ -139,11 +140,17 @@ router.get('/:targetUserId', async (req: AuthenticatedRequest, res: Response) =>
 
         // Sprint 112 (ADR-082): outward responses omit the numeric path trust_score. The internal
         // path_trust_score stays cached for feed ranking; members get degrees + topology + scope.
+        // Sprint 119: cached invitation_chain names re-project through the identity gate — a
+        // departed chain member must not stay disclosed for the TTL. (Exchange and
+        // community_member rows only survive revalidation with active members, so their cached
+        // names are already disclosable.)
         return res.json({
           success: true,
           data: {
             degrees_of_separation: cached.degrees_of_separation,
-            path: projectPathNodes(cached.shortest_path),
+            path: connectionType === 'invitation_chain'
+              ? await gateCachedPathIdentities(projectPathNodes(cached.shortest_path))
+              : projectPathNodes(cached.shortest_path),
             connection_type: connectionType,
             community_name: communityName,
             scope,
