@@ -66,7 +66,7 @@ export const WORKFLOWS: Record<string, WorkflowDef> = {
       },
       {
         title: 'Finding your way around',
-        body: "A community opens on warm Home — its hero, the weekly pulse, and the open asks. People shows who's here and the trust between you; How we're connected is the trust graph; Stewardship is where shared decisions, splits, merges, and (for admins) the management tools live.",
+        body: "A community opens on warm Home — its hero, the weekly pulse, and the open asks. People shows who's here and the trust between you. How we're connected anchors you at the top of the community ring so you can see where you fit; zoom out to Communities to see which of yours are woven together. Stewardship is where shared decisions, splits, merges, and (for admins) the management tools live.",
       },
       {
         title: 'Relationships that fade — and how to keep them',

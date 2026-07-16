@@ -17,6 +17,7 @@ export interface DepthLink {
   target: string
   weight: number
   type: 'organic' | 'fission'
+  active_recently?: boolean // Sprint 119 / ADR-086 — organic bridges only; server-derived, fail-closed
 }
 
 /**
@@ -45,6 +46,7 @@ export function normalizeCommunityDepthGraph(graph: {
       raw_weight: l.weight,
       effective_weight: l.weight,
       type: l.type,
+      ...(l.active_recently != null ? { activeRecently: l.active_recently } : {}),
     })),
   }
 }

@@ -456,3 +456,20 @@ out the 7-day TTL. The renderer additionally never reads the middle node (belt-a
 `apps/frontend/tests/regression/sprint-119-trust-path-badge-truthful.test.tsx`.
 
 ---
+## BUG-030 · [2026-07-15] · open
+
+GET /paths/:targetUserId returns 500 "Failed to compute path" when the computed exchange-path
+trust score is fractional — `auth.social_distances.path_trust_score` is INTEGER (init.sql:85,
+migrations/009_social_graph.sql:57) but `computeEffectiveWeight` (Ebbinghaus decay, S90) produces
+fractional sums; the cache INSERT fails with `invalid input syntax for type integer:
+"18.2445981519795"`. Pre-existing since S90 decay, mostly hidden by the sparse demo trust graph
+(most path sums are 0/integral); surfaced by S119 PR A's read-time cache revalidation forcing
+recomputes. Found post-deploy validating BUG-029 on demo (maria.reyes → Fatima Alhassan, 1 of 149
+targets). Three raw write sites: `routes/paths.ts:189` (single), `routes/paths.ts:361` (batch —
+INSERT is inside the per-target loop with no per-target catch, so ONE bad pair can 500 the whole
+/paths/batch call feed ranking uses), `services/pathComputation.ts:525` (precompute). Fix shape:
+column type should match the S90 semantics (fractional decayed sum) — migrate to DOUBLE
+PRECISION — or round at all three writes; also consider per-target error isolation in the batch
+loop.
+
+---

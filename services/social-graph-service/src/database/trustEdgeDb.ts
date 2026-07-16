@@ -1,4 +1,5 @@
 import { pool } from '../config/database';
+import { isFormedRecently } from '../services/disclosureProjection';
 
 export interface TrustEdgeRow {
   id: string;
@@ -464,6 +465,12 @@ export interface CommunityDepthLink {
   target: string;
   weight: number;
   type: 'organic' | 'fission';
+  /**
+   * Sprint 119 (ADR-086): organic links only — the pair exchanged within the same fail-closed
+   * 30-day window S118 shipped (isFormedRecently, applied here to last_interaction_at; the raw
+   * timestamp never leaves the server, ADR-082). Absent on fission lineage.
+   */
+  active_recently?: boolean;
 }
 
 // Inter-community depth graph for a user: their active communities plus any
@@ -529,7 +536,8 @@ export async function getCommunityDepthGraph(
   const idSet = new Set(nodeIds);
 
   const organicQuery = `
-    SELECT cte.community_id_a AS source, cte.community_id_b AS target, cte.weight AS weight
+    SELECT cte.community_id_a AS source, cte.community_id_b AS target, cte.weight AS weight,
+           cte.last_interaction_at AS last_interaction_at
     FROM social_graph.community_trust_edges cte
     WHERE cte.community_id_a = ANY($1::uuid[]) AND cte.community_id_b = ANY($1::uuid[])
   `;
@@ -551,12 +559,14 @@ export async function getCommunityDepthGraph(
   const links: CommunityDepthLink[] = [];
 
   // organicQuery already constrains both endpoints to nodeIds via `= ANY($1)`.
+  const now = new Date();
   for (const r of organicResult.rows) {
     links.push({
       source: r.source,
       target: r.target,
       weight: parseFloat(r.weight) || 0,
       type: 'organic',
+      active_recently: isFormedRecently(r.last_interaction_at, now),
     });
   }
 

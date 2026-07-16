@@ -842,7 +842,7 @@
           {
             "method": "GET",
             "path": "/trust/communities",
-            "description": "Inter-community depth graph (Sprint 79) \u2014 the caller's communities as nodes plus edge/lineage-reachable ones, with organic trust links (from community_trust_edges) and fission lineage links (parent\u2192child from executed split_proposals). Response: { nodes, links } with type tags."
+            "description": "Inter-community depth graph (Sprint 79) \u2014 the caller's communities as nodes plus edge/lineage-reachable ones, with organic trust links (from community_trust_edges) and fission lineage links (parent\u2192child from executed split_proposals). Sprint 119 (ADR-086): organic links also carry active_recently, a fail-closed qualitative boolean derived from last_interaction_at within the shared 30-day window; the raw timestamp is never exposed. Fission links are unchanged."
           },
           {
             "method": "GET",

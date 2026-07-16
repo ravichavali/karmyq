@@ -64,6 +64,74 @@ export function edgeVisual(link: TrustLink, currentUserId: string, focusedNodeId
   }
 }
 
+// Sprint 119 / ADR-086 — "where do you fit?": the viewer's chords keep their full decayTier band
+// presence; every other chord is quieted by ONE shared factor layered on top of the bands (relative
+// band ordering preserved). Applied only when the viewer is actually in the ring, so steward and
+// explorer views of a community the viewer isn't part of stay whole.
+export const NON_VIEWER_CHORD_QUIET_FACTOR = 0.5
+
+export function ringChordOpacity(
+  bandOpacity: number,
+  isViewerChord: boolean,
+  viewerInRing: boolean
+): number {
+  return viewerInRing && !isViewerChord ? bandOpacity * NON_VIEWER_CHORD_QUIET_FACTOR : bandOpacity
+}
+
+// Sprint 119 / ADR-086 — hub bridges: a member↔member organic bridge answers "which of your
+// communities are woven together?", so it renders emphasized. Aliveness is server-derived and
+// fail-closed (`activeRecently`, same 30-day window as new bonds) and reuses the S118 new-bond
+// green family; dormant and periphery bridges are quieted. Fission lineage keeps its shipped look.
+export const ORGANIC_SLATE = '#64748b'
+export const FISSION_VIOLET = '#a78bfa'
+export const WOVEN_BRIDGE_WIDTH = 2.5
+export const WOVEN_ALIVE_OPACITY = 0.85
+export const WOVEN_DORMANT_OPACITY = 0.35
+export const PERIPHERY_BRIDGE_WIDTH = 1.5
+export const PERIPHERY_BRIDGE_OPACITY = 0.25
+
+export interface HubBridgeVisual {
+  stroke: string
+  width: number
+  opacity: number
+  dasharray: string | null
+  label: string
+}
+
+export function hubBridgeVisual(
+  link: TrustLink,
+  isMember: (communityId: string) => boolean
+): HubBridgeVisual {
+  if (link.type === 'fission') {
+    return { stroke: FISSION_VIOLET, width: 2, opacity: 0.9, dasharray: '6,4', label: 'Fission lineage' }
+  }
+  if (!isMember(link.source) || !isMember(link.target)) {
+    return {
+      stroke: ORGANIC_SLATE,
+      width: PERIPHERY_BRIDGE_WIDTH,
+      opacity: PERIPHERY_BRIDGE_OPACITY,
+      dasharray: null,
+      label: 'Organic trust',
+    }
+  }
+  if (link.activeRecently === true) {
+    return {
+      stroke: NEW_BOND_COLOR,
+      width: WOVEN_BRIDGE_WIDTH,
+      opacity: WOVEN_ALIVE_OPACITY,
+      dasharray: null,
+      label: 'Woven bridge — recent exchange',
+    }
+  }
+  return {
+    stroke: ORGANIC_SLATE,
+    width: WOVEN_BRIDGE_WIDTH,
+    opacity: WOVEN_DORMANT_OPACITY,
+    dasharray: null,
+    label: 'Dormant bridge',
+  }
+}
+
 export function buildAdjacency(graph: GraphData): Map<string, Set<string>> {
   const adjacency = new Map(graph.nodes.map(node => [node.id, new Set([node.id])]))
   for (const link of graph.links) {

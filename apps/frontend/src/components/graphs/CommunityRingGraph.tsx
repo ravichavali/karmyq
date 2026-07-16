@@ -9,6 +9,7 @@ import {
   edgeVisual,
   personNodeAriaLabel,
   relationshipSummary,
+  ringChordOpacity,
 } from './graphVisualEncoding'
 import GraphZoomControls from './GraphZoomControls'
 import { clearGraphZoom, installGraphZoom, zoomBy, zoomReset } from './graphZoom'
@@ -44,8 +45,8 @@ export default function CommunityRingGraph({
   const isSparse = graphData.links.length === 0 && graphData.nodes.length <= 1
 
   const model = useMemo(
-    () => buildCommunityRingModel(graphData, width, height),
-    [graphData.nodes, graphData.links, width, height]
+    () => buildCommunityRingModel(graphData, width, height, currentUserId),
+    [graphData.nodes, graphData.links, width, height, currentUserId]
   )
   const adjacency = useMemo(
     () => buildAdjacency(graphData),
@@ -55,6 +56,11 @@ export default function CommunityRingGraph({
   const activeFocus = candidateFocus && adjacency.has(candidateFocus) ? candidateFocus : undefined
   const related = activeFocus ? adjacency.get(activeFocus) ?? new Set([activeFocus]) : null
   const connectionsFor = (nodeId: string) => Math.max(0, (adjacency.get(nodeId)?.size ?? 1) - 1)
+  // Sprint 119 / ADR-086 — "where do you fit?" is only answerable when the viewer is in this ring;
+  // steward/explorer views of a community the viewer isn't part of render whole and summary-free.
+  const viewerInRing = graphData.nodes.some(node => node.id === currentUserId)
+  const bondedNeighbours = viewerInRing ? connectionsFor(currentUserId) : 0
+  const otherMembers = graphData.nodes.length - 1
 
   useEffect(() => {
     if (!svgRef.current || !rootRef.current) return
@@ -127,7 +133,11 @@ export default function CommunityRingGraph({
         width={width}
         height={height}
         style={{ maxWidth: '100%' }}
-        aria-label="Community trust connections"
+        aria-label={
+          viewerInRing
+            ? 'Community trust connections — where you fit'
+            : 'Community trust connections'
+        }
       >
         <g ref={rootRef}>
           <g fill="none" aria-label="Relationships">
@@ -136,6 +146,8 @@ export default function CommunityRingGraph({
               const incident =
                 !!activeFocus &&
                 (item.link.source === activeFocus || item.link.target === activeFocus)
+              const isViewerChord =
+                item.link.source === currentUserId || item.link.target === currentUserId
               return (
                 <path
                   key={item.key}
@@ -144,7 +156,13 @@ export default function CommunityRingGraph({
                   fill="none"
                   stroke={visual.stroke}
                   strokeWidth={visual.width}
-                  strokeOpacity={activeFocus && !incident ? UNRELATED_OPACITY : visual.opacity}
+                  strokeOpacity={
+                    activeFocus
+                      ? incident
+                        ? visual.opacity
+                        : UNRELATED_OPACITY
+                      : ringChordOpacity(visual.opacity, isViewerChord, viewerInRing)
+                  }
                   className="transition-opacity motion-reduce:transition-none"
                 >
                   <title>{visual.label}</title>
@@ -230,11 +248,26 @@ export default function CommunityRingGraph({
       </svg>
 
       <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 px-1 text-xs text-text-muted">
+        {viewerInRing && (
+          <span className="flex items-center gap-1">
+            <span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-500" /> You
+          </span>
+        )}
         <span>Strong relationship</span>
         <span>Warm relationship</span>
         <span>Fading relationship</span>
         <span>Nearly forgotten relationship</span>
       </div>
+
+      {viewerInRing && (
+        <p className="mt-3 text-sm text-text">
+          {bondedNeighbours > 0
+            ? `You're bonded with ${bondedNeighbours} of ${otherMembers} ${
+                otherMembers === 1 ? 'member' : 'members'
+              } here.`
+            : 'No bonds here yet — help someone to start weaving in.'}
+        </p>
+      )}
 
       {graphData.meta?.truncated && graphData.meta.totalActiveMembers ? (
         <p className="mt-3 text-sm text-text-muted">
