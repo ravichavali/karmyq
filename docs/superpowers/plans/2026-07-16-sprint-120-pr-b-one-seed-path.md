@@ -9,7 +9,8 @@
 fresh install (local docker-compose, CI, new envs) gets ONE converged seed path; record as ADR-087.
 
 **Architecture:** A scripted, repeatable regeneration (`scripts/regenerate-init-sql.sh`) run via a
-manual-dispatch GitHub Actions workflow (Docker is unavailable locally): scratch postgres →
+GitHub Actions workflow — `pull_request` path-filtered for the initial in-PR run,
+`workflow_dispatch` for post-merge regens (Docker is unavailable locally): scratch postgres →
 current init.sql → full migration chain → `pg_dump --schema-only` → post-process → splice curated
 seed section + `schema_migrations` backfill → artifact. `ci-apply-full-schema.sh` inverts from
 convergence workaround to drift guard.
@@ -27,10 +28,11 @@ convergence workaround to drift guard.
 | File | Responsibility |
 |------|---------------|
 | `scripts/regenerate-init-sql.sh` | The regeneration pipeline (dump, post-process, splice, backfill) |
-| `.github/workflows/regenerate-init-sql.yml` | Manual-dispatch workflow: postgres service, run script, upload artifact |
+| `infrastructure/postgres/seed-data.sql` | Curated seed rows extracted from init.sql — the single reviewable home the regen script splices back in |
+| `.github/workflows/regenerate-init-sql.yml` | Regen workflow: `pull_request` (path-filtered, for the initial in-PR run) + `workflow_dispatch` (post-merge regens); postgres service, run script, upload artifact |
 | `docs/adr/ADR-087-one-seed-path-init-sql-regeneration.md` | The decision record |
 | `apps/landing/src/data/docs/concepts/adr-087-one-seed-path-init-sql-regeneration.json` | Landing ADR JSON |
-| `tests/regression/sprint-120-init-sql-drift-gate.test.ts` | Textual sentinels on init.sql (see Task 6) |
+| `tests/tdd/sprint-120-init-sql-drift-gate.test.ts` | Textual sentinels on init.sql (see Task 6); promoted to `tests/regression/` when green |
 
 ### Existing files to modify
 | File | Change |
@@ -49,8 +51,9 @@ convergence workaround to drift guard.
 
 Copied from the spec — items 6–9, 11 apply to this PR:
 
-1. **Docker is unavailable locally** — the regen runs in a manual-dispatch GitHub Actions
-   workflow (postgres service container), artifact downloaded and committed. Do NOT dump the
+1. **Docker is unavailable locally** — the regen runs in a GitHub Actions workflow (postgres
+   service container; `pull_request`-triggered for the initial in-PR run per note 7,
+   `workflow_dispatch` post-merge), artifact downloaded and committed. Do NOT dump the
    demo DB: demo lacks PR #143's `uq_*_global` guard indexes (tracked-migration edits never
    reached it) — it is not a valid schema source.
 2. **The regenerated init.sql MUST seed `public.schema_migrations`** (one row per migration file,
@@ -70,8 +73,16 @@ Copied from the spec — items 6–9, 11 apply to this PR:
 6. **`apply-migrations.sh` compatibility**: verify how it detects/records applied migrations and
    make the backfill rows match its format EXACTLY (filename key, checksum column if any). A
    mismatched backfill silently re-runs migrations — test this path in the workflow (fresh
-   container: new init.sql, then `apply-migrations.sh` must report all 69 as already applied,
-   including PR A's `20260716` migration).
+   container: new init.sql, then `apply-migrations.sh` must report EVERY file in
+   `infrastructure/postgres/migrations/*.sql` as already applied — assert by comparing
+   `schema_migrations` rows against the sorted file listing (zero missing, zero extra), never a
+   hard-coded count; the chain includes PR A's `20260716-path-trust-score-double-precision.sql`
+   and keeps growing).
+7. **Workflow first-run constraint**: `workflow_dispatch` only works for workflows that already
+   exist on the DEFAULT branch — the initial run can NOT be dispatched from this feature branch.
+   The workflow therefore also carries a `pull_request` trigger path-filtered to
+   `.github/workflows/regenerate-init-sql.yml` + `scripts/regenerate-init-sql.sh`, so the initial
+   regen runs automatically inside this PR. `workflow_dispatch` covers post-merge regens.
 
 ---
 
@@ -102,25 +113,33 @@ cd tests && npx jest regression/doc-context-drift-gate --no-coverage
 
 **Files:**
 - Create: `scripts/regenerate-init-sql.sh`
+- Create: `infrastructure/postgres/seed-data.sql`
 
+- [ ] Extract the curated seed rows (Task 2 inventory) into
+  `infrastructure/postgres/seed-data.sql` — the maintained, independently reviewable source the
+  script splices back in (decision resolved 2026-07-16: dedicated file, not an inline fence)
 - [ ] Pipeline: scratch DB → apply CURRENT init.sql → apply full chain with
   ci-apply-full-schema.sh's collision-tolerant semantics (reuse/source it, don't reimplement) →
   `pg_dump --schema-only --no-owner` → post-process (ownership/GRANT normalization, deterministic
-  ordering, strip dump noise) → emit fenced GENERATED section + curated seed section (from a
-  maintained `infrastructure/postgres/seed-data.sql` extracted in this task, or inline fence) +
-  `schema_migrations` backfill INSERTs (Task 2 format)
+  ordering, strip dump noise) → emit fenced GENERATED section + curated seed section (spliced
+  from `infrastructure/postgres/seed-data.sql`) + `schema_migrations` backfill INSERTs (Task 2
+  format)
 - [ ] Idempotent + deterministic: running twice on the same chain produces byte-identical output
 - [ ] **Verification:** `bash -n scripts/regenerate-init-sql.sh`; shellcheck if available
 
 ## Task 4: Workflow `.github/workflows/regenerate-init-sql.yml`
 
-- [ ] `workflow_dispatch`; postgres:15 service; runs the script; **validates before uploading**:
+- [ ] Triggers: `pull_request` path-filtered to this workflow file +
+  `scripts/regenerate-init-sql.sh` (initial in-PR run — see critical note 7: dispatch is
+  impossible before the file reaches master) AND `workflow_dispatch` (post-merge regens);
+  postgres:15 service; runs the script; **validates before uploading**:
   (a) boots a SECOND fresh postgres from the regenerated init.sql alone, (b) runs
-  `apply-migrations.sh` against it — must report ALL migrations already applied, (c) runs
-  `ci-apply-full-schema.sh` against it — zero genuinely-new statements, all sentinels pass;
-  uploads `init.sql` artifact
-- [ ] **Verification:** trigger the workflow on the branch (`gh workflow run`), download the
-  artifact, all three validation steps green in the run log
+  `apply-migrations.sh` against it — `schema_migrations` rows must match the sorted
+  `migrations/*.sql` file listing exactly (zero missing, zero extra; no hard-coded count),
+  (c) runs `ci-apply-full-schema.sh` against it — zero genuinely-new statements, all sentinels
+  pass; uploads `init.sql` artifact
+- [ ] **Verification:** the `pull_request`-triggered run on this PR is green (all three
+  validation steps in the run log); download the artifact from that run
 
 ## Task 5: Land the regenerated init.sql
 
@@ -134,12 +153,17 @@ cd tests && npx jest regression/doc-context-drift-gate --no-coverage
 ## Task 6: Drift-gate regression test
 
 **Files:**
-- Create: `tests/regression/sprint-120-init-sql-drift-gate.test.ts`
+- Create: `tests/tdd/sprint-120-init-sql-drift-gate.test.ts` (TDD tier first, per repo policy;
+  promote to `tests/regression/` in this task once green)
 
+- [ ] Write the test in `tests/tdd/` BEFORE Task 5 lands the new init.sql (red against the old
+  file — sentinels like the GENERATED fence and the backfill section don't exist yet), then
+  confirm green after Task 5
 - [ ] Textual sentinels on init.sql: contains `chk_help_requests_status`,
   `trust_decay_config`, `trust_edges.stability`-related DDL, a `uq_*_global` guard index,
   `path_trust_score DOUBLE PRECISION`, and a `schema_migrations` backfill section; contains the
   GENERATED fence header
+- [ ] Promote the green test to `tests/regression/sprint-120-init-sql-drift-gate.test.ts`
 - [ ] **Verification:**
 
 ```bash

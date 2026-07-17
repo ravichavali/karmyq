@@ -3,6 +3,9 @@
 > **STATUS (2026-07-16, planning session):** Sprint 119 is fully SHIPPED — PR #150 merged by Admin
 > 2026-07-16 14:47Z (squash `6cf8f2d`), CI/CD deployed. Sprint 120 planned this session
 > (maintainer scope decisions recorded below): three PRs, each merges + deploys independently.
+> **Cross-agent review processed 2026-07-16 (later session):** PR A confirmed ready unchanged;
+> PR B + PR C plans AMENDED in place (see notes 6, 7, 9 deltas) — re-read the plan files, the
+> review findings are folded in.
 > S119 close-out bookkeeping (ADR-086 → Implemented, S119 handoff → archive) rides PR A Task 1.
 > S119's remaining live validation (Maria's ring, sparse no-bonds state, woven/dormant bridges,
 > 375px; plus PR A leftovers: throwaway first-join from a community DETAIL page → /welcome,
@@ -70,19 +73,31 @@ clarity fixes (PR C).
    `graphVisualEncoding.ts`; run promoted S118/S119 suites directly after.
 5. **One 30-day window** (ADR-082/S118): `isActiveRecently` alias delegates to
    `isFormedRecently` — no second constant.
-6. **init.sql regen needs real postgres; Docker unavailable locally** → manual-dispatch GitHub
-   Actions workflow, artifact committed. NEVER dump the demo DB (missing PR #143 `uq_*_global`
+6. **init.sql regen needs real postgres; Docker unavailable locally** → GitHub Actions workflow.
+   AMENDED per review: `workflow_dispatch` can't run a workflow that isn't on master yet, so the
+   workflow ALSO carries a path-filtered `pull_request` trigger for the initial in-PR run;
+   dispatch covers post-merge regens. NEVER dump the demo DB (missing PR #143 `uq_*_global`
    guard indexes — not a valid schema source).
 7. **Regenerated init.sql MUST seed `public.schema_migrations`** (match apply-migrations.sh's
    row format EXACTLY) or fresh installs replay the chain — the load-bearing detail of ADR-087.
    Workflow validates: fresh container from new init.sql → apply-migrations.sh reports ALL
-   already applied → ci-apply-full-schema.sh applies zero genuinely-new statements.
-8. **Preserve curated seed data** through the regen (schema-only dump drops it); reconcile RLS,
-   ownership/GRANTs, extensions, schema order. `ci-apply-full-schema.sh` is KEPT as drift guard.
+   already applied (AMENDED: assert `schema_migrations` rows == sorted `migrations/*.sql`
+   listing, zero missing/extra — never a hard-coded count) → ci-apply-full-schema.sh applies
+   zero genuinely-new statements. Drift-gate test starts in root `tests/tdd/`, promotes to
+   regression when green (was planned straight into regression — corrected).
+8. **Preserve curated seed data** through the regen (schema-only dump drops it) — DECIDED: seed
+   rows live in a dedicated `infrastructure/postgres/seed-data.sql` the script splices in (not
+   an inline fence); reconcile RLS, ownership/GRANTs, extensions, schema order.
+   `ci-apply-full-schema.sh` is KEPT as drift guard.
 9. **PR C is research-FIRST**: audit doc + maintainer fix selection (Task 4 checkpoint) BEFORE
-   any implementation. Audit read-only on demo; protected personas (maria.reyes / elena.torres /
-   noah.williams / marcus.lee@test.karmyq.com) never mutated; maria.reyes = rich view; demo graph
-   is sparse (avg ~4.6) — check DB degree before judging a graph surface.
+   any implementation. AMENDED per review: (a) audit by STATE (unauthenticated / first-arrival
+   if a read-only DB check finds one / sparse sim account picked by degree query / maria.reyes),
+   each surface only in states where reachable — no blanket persona×surface cross-product;
+   (b) at the Task 4 checkpoint the plan file itself is rewritten with concrete files/tests for
+   the selected fixes before Tasks 5–7 execute. Audit read-only on demo; protected personas
+   (maria.reyes / elena.torres / noah.williams / marcus.lee@test.karmyq.com) never mutated;
+   maria.reyes = rich view; demo graph is sparse (avg ~4.6) — check DB degree before judging a
+   graph surface. Screenshots stay in session scratchpad; audit doc stands alone textually.
 10. **Standing mechanics**: each PR branches off `origin/master` after the previous merges;
     admin-authorized squash merge, EXPLICIT authorization every time; no docs-only master pushes;
     TDD in the changed workspace's `tests/tdd/`; cross-workspace suites run directly

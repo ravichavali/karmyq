@@ -54,8 +54,19 @@ Copied from the spec — items 10–11 apply, plus audit mechanics:
    `--measure-chrome: 72rem` shipped as header lever 1 — don't re-litigate S119's header work.
 4. **Five-second protocol per surface**: screenshot cold, then answer (a) what is this page?
    (b) what can I do here? (c) what should I do next? — noting time-to-answer and what visual
-   element answered it. Audit as TWO personas: a newcomer (sparse account) and maria.reyes
-   (established).
+   element answered it. Audit by STATE, not a blanket persona cross-product — each surface is
+   audited only in the states where it is actually reachable:
+   - **Unauthenticated**: login, register, landing site home (logged out, cold).
+   - **First-arrival**: only if a read-only DB check finds an existing sim account still in the
+     arrival state — NEVER sign up a new user to manufacture one; if none exists, mark the
+     surface "not auditable this pass" in the doc and move on.
+   - **Sparse established member**: pick a low-degree sim account via a read-only psql degree
+     query (demo avg ~4.6 connections; record WHICH account in the audit doc). This is the
+     "newcomer-ish" view.
+   - **Rich established member**: maria.reyes.
+   The audit doc opens with the surface × state applicability matrix. Screenshots live in the
+   session scratchpad (not committed); the audit doc must stand alone textually — findings name
+   the visual element, not just the screenshot file.
 5. **Standing mechanics**: branch off `origin/master` after PR B merges; admin-authorized squash
    merge (explicit, every time); TDD in `apps/frontend/tests/tdd/`; grep-verify `nav.json` after
    landing regen; `getMyCommunities` returns `{communities,count,total}`; jsdom/D3 gotchas if a
@@ -74,8 +85,8 @@ Copied from the spec — items 10–11 apply, plus audit mechanics:
 
 ## Task 2: Run the five-second audit (Playwright, demo, read-only)
 
-- [ ] For each surface × {1440px, 375px} × {newcomer persona, maria.reyes}: screenshot cold,
-  apply the protocol (note 4), record findings with severity (blocker / friction / polish)
+- [ ] For each surface × {1440px, 375px} × each APPLICABLE state (note 4's matrix): screenshot
+  cold, apply the protocol, record findings with severity (blocker / friction / polish)
 - [ ] Record console errors / broken states seen in passing (log bugs via `docs/BUGS.md`, do not
   fix inline)
 - [ ] **Verification:** audit doc has an entry per surface×viewport with screenshots referenced
@@ -93,8 +104,11 @@ Copied from the spec — items 10–11 apply, plus audit mechanics:
 
 - [ ] Present the ranked findings (AskUserQuestion): which quick wins ship in this PR?
 - [ ] Record the selection + rationale in the audit doc and `CURRENT_HANDOFF.md`
-- [ ] **Verification:** explicit selection recorded; File Map updated with the concrete files.
-  **Do not proceed past this line without it.**
+- [ ] **Amend THIS plan file**: rewrite Tasks 5–7 with the exact files, test cases, expected
+  behavior, and verification steps for each selected fix (Tasks 5–7 below are templates, not an
+  executable plan, until this amendment is committed)
+- [ ] **Verification:** explicit selection recorded; File Map + Tasks 5–7 updated with the
+  concrete files and committed. **Do not proceed past this line without it.**
 
 ## Task 5: TDD tests for selected fixes (before implementation)
 
