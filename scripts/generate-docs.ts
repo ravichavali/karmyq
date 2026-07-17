@@ -480,6 +480,7 @@ const ADR_GROUPS: Array<{ label: string; slugs: string[] }> = [
       'adr-083-contextual-belonging-graph-rendering',
       'adr-084-context-bound-connection-visibility',
       'adr-085-invited-arrival-and-edge-lifecycle',
+      'adr-086-scale-answers-one-question-per-zoom-level',
     ],
   },
   {

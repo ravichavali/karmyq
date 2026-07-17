@@ -262,9 +262,13 @@ export default function CommunityRingGraph({
       {viewerInRing && (
         <p className="mt-3 text-sm text-text">
           {bondedNeighbours > 0
-            ? `You're bonded with ${bondedNeighbours} of ${otherMembers} ${
-                otherMembers === 1 ? 'member' : 'members'
-              } here.`
+            ? graphData.meta?.truncated
+              ? `You're bonded with ${bondedNeighbours} of the ${otherMembers} ${
+                  otherMembers === 1 ? 'member' : 'members'
+                } shown.`
+              : `You're bonded with ${bondedNeighbours} of ${otherMembers} ${
+                  otherMembers === 1 ? 'member' : 'members'
+                } here.`
             : 'No bonds here yet — help someone to start weaving in.'}
         </p>
       )}

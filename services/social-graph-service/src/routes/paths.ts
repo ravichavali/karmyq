@@ -324,76 +324,90 @@ router.post('/batch', async (req: AuthenticatedRequest, res: Response) => {
         continue;
       }
 
-      const cached = cachedPaths.get(targetUserId);
+      try {
+        const cached = cachedPaths.get(targetUserId);
 
-      const cachedIsReturnable = cached
-        ? (await isReturnableCachedPath({
-            connection_type: cached.connectionType,
-            shortest_path: cached.path,
+        const cachedIsReturnable = cached
+          ? (await isReturnableCachedPath({
+              connection_type: cached.connectionType,
+              shortest_path: cached.path,
+              degrees_of_separation: cached.degrees,
+            })) &&
+            !(cached.connectionType === 'community_member' && !communityNamesByTarget.has(targetUserId))
+          : false;
+
+        if (cached && cachedIsReturnable) {
+          results.push({
+            target_user_id: targetUserId,
             degrees_of_separation: cached.degrees,
-          })) &&
-          !(cached.connectionType === 'community_member' && !communityNamesByTarget.has(targetUserId))
-        : false;
-
-      if (cached && cachedIsReturnable) {
-        results.push({
-          target_user_id: targetUserId,
-          degrees_of_separation: cached.degrees,
-          connection_type: cached.connectionType,
-          community_name: communityNamesByTarget.get(targetUserId),
-          cached: true,
-        });
-      } else {
-        if (cached) {
-          await deleteCachedPath(currentUserId, targetUserId, communityId);
-          logger.info('Deleted stale cached batch path after revalidation failed', {
-            currentUserId,
-            targetUserId,
-            communityId,
-            connectionType: cached.connectionType,
+            connection_type: cached.connectionType,
+            community_name: communityNamesByTarget.get(targetUserId),
+            cached: true,
           });
-        }
-
-        const path = await computeTrustPath(currentUserId, targetUserId, communityId);
-
-        if (path) {
-          await pool.query(
-            `INSERT INTO auth.social_distances
-             (user_a_id, user_b_id, community_id, degrees_of_separation, shortest_path, path_trust_score, connection_type)
-             VALUES ($1, $2, $3, $4, $5, $6, $7)
-             ON CONFLICT (user_a_id, user_b_id, community_id) DO UPDATE
-             SET degrees_of_separation = EXCLUDED.degrees_of_separation,
-                 shortest_path = EXCLUDED.shortest_path,
-                 path_trust_score = EXCLUDED.path_trust_score,
-                 connection_type = EXCLUDED.connection_type,
-                 computed_at = NOW(),
-                 expires_at = NOW() + INTERVAL '7 days'`,
-            [
+        } else {
+          if (cached) {
+            await deleteCachedPath(currentUserId, targetUserId, communityId);
+            logger.info('Deleted stale cached batch path after revalidation failed', {
               currentUserId,
               targetUserId,
               communityId,
-              path.degrees,
-              JSON.stringify(path.path),
-              path.trustScore,
-              path.connectionType,
-            ]
-          );
+              connectionType: cached.connectionType,
+            });
+          }
 
-          results.push({
-            target_user_id: targetUserId,
-            degrees_of_separation: path.degrees,
-            connection_type: path.connectionType,
-            community_name: path.communityName,
-            cached: false,
-          });
-        } else {
-          results.push({
-            target_user_id: targetUserId,
-            degrees_of_separation: null,
-            connection_type: null,
-            cached: false,
-          });
+          const path = await computeTrustPath(currentUserId, targetUserId, communityId);
+
+          if (path) {
+            await pool.query(
+              `INSERT INTO auth.social_distances
+               (user_a_id, user_b_id, community_id, degrees_of_separation, shortest_path, path_trust_score, connection_type)
+               VALUES ($1, $2, $3, $4, $5, $6, $7)
+               ON CONFLICT (user_a_id, user_b_id, community_id) DO UPDATE
+               SET degrees_of_separation = EXCLUDED.degrees_of_separation,
+                   shortest_path = EXCLUDED.shortest_path,
+                   path_trust_score = EXCLUDED.path_trust_score,
+                   connection_type = EXCLUDED.connection_type,
+                   computed_at = NOW(),
+                   expires_at = NOW() + INTERVAL '7 days'`,
+              [
+                currentUserId,
+                targetUserId,
+                communityId,
+                path.degrees,
+                JSON.stringify(path.path),
+                path.trustScore,
+                path.connectionType,
+              ]
+            );
+
+            results.push({
+              target_user_id: targetUserId,
+              degrees_of_separation: path.degrees,
+              connection_type: path.connectionType,
+              community_name: path.communityName,
+              cached: false,
+            });
+          } else {
+            results.push({
+              target_user_id: targetUserId,
+              degrees_of_separation: null,
+              connection_type: null,
+              cached: false,
+            });
+          }
         }
+      } catch (error) {
+        logger.error(
+          'Error computing batch path for target',
+          error instanceof Error ? error : undefined,
+          { currentUserId, targetUserId, communityId }
+        );
+        results.push({
+          target_user_id: targetUserId,
+          degrees_of_separation: null,
+          connection_type: null,
+          cached: false,
+        });
       }
     }
 

@@ -65,17 +65,23 @@ export function edgeVisual(link: TrustLink, currentUserId: string, focusedNodeId
 }
 
 // Sprint 119 / ADR-086 — "where do you fit?": the viewer's chords keep their full decayTier band
-// presence; every other chord is quieted by ONE shared factor layered on top of the bands (relative
-// band ordering preserved). Applied only when the viewer is actually in the ring, so steward and
-// explorer views of a community the viewer isn't part of stay whole.
+// presence; every other chord is quieted by ONE shared factor layered on top of the bands, with a
+// small floor so related content never collapses into the unrelated-focus treatment. Applied only
+// when the viewer is actually in the ring, so steward and explorer views stay whole.
 export const NON_VIEWER_CHORD_QUIET_FACTOR = 0.5
+export const QUIETED_RELATED_OPACITY_FLOOR = 0.12
 
 export function ringChordOpacity(
   bandOpacity: number,
   isViewerChord: boolean,
   viewerInRing: boolean
 ): number {
-  return viewerInRing && !isViewerChord ? bandOpacity * NON_VIEWER_CHORD_QUIET_FACTOR : bandOpacity
+  return viewerInRing && !isViewerChord
+    ? Math.max(
+        bandOpacity * NON_VIEWER_CHORD_QUIET_FACTOR,
+        QUIETED_RELATED_OPACITY_FLOOR
+      )
+    : bandOpacity
 }
 
 // Sprint 119 / ADR-086 — hub bridges: a member↔member organic bridge answers "which of your

@@ -668,8 +668,8 @@
       "slug": "adr-086-scale-answers-one-question-per-zoom-level",
       "number": "086",
       "title": "ADR-086: Scale Answers — One Question per Zoom Level",
-      "status": "accepted",
-      "description": "**Status**: Accepted",
+      "status": "implemented",
+      "description": "**Status**: Implemented",
       "filename": "ADR-086-scale-answers-one-question-per-zoom-level.md"
     }
   ]

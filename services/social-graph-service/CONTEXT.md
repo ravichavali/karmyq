@@ -388,6 +388,8 @@ Get paths for multiple target users (optimized for feed ranking).
 - Max 50 users per request
 - Automatically caches newly computed paths
 - Revalidates cached `exchange` rows against live graph edges before returning batch cache hits.
+- Isolates compute/cache failures per target: a failed target returns the existing no-connection
+  entry while the remaining targets and their `degrees_of_separation` ranking inputs still return.
 
 **Use Case**: Feed Service calls this endpoint to get social proximity scores for all requesters in the feed, then ranks requests accordingly.
 
@@ -457,7 +459,7 @@ Implemented by `getFullCommunityGraph(communityId, callingUserId)` in `src/datab
 }
 ```
 
-`meta.totalActiveMembers` is the community's full active-member count (independent of the 150 cap); `truncated` is `totalActiveMembers > nodes.length`. The frontend uses this to render "Showing N of M active members. This view is incomplete." and to suppress whole-community structural interpretation when the view is partial.
+`meta.totalActiveMembers` is the community's full active-member count (independent of the 150 cap); `truncated` is `totalActiveMembers > nodes.length`. The frontend uses this to render "Showing N of M active members. Bond counts describe only the members shown." and to suppress whole-community structural interpretation when the view is partial.
 
 **Primary consumer**: `apps/frontend/src/components/community/tabs/TrustGraphTab.tsx` (This Community sub-tab — the `CommunityRingGraph` single-ring renderer)
 
@@ -523,7 +525,8 @@ come in two types:
 - `organic` — undirected ties from `social_graph.community_trust_edges` (accrued
   as members exchange help across communities); `weight` = interaction strength and
   `active_recently` is a fail-closed qualitative boolean derived from `last_interaction_at`
-  against the shared 30-day `FORMED_RECENTLY_WINDOW_DAYS` window. The raw timestamp never
+  against the shared 30-day `FORMED_RECENTLY_WINDOW_DAYS` window via the semantic
+  `isActiveRecently` alias (which delegates to `isFormedRecently`). The raw timestamp never
   leaves the service (Sprint 119, ADR-086).
 - `fission` — directed parent→child lineage from executed
   `communities.split_proposals`; `weight` = 1.
@@ -657,6 +660,9 @@ as membership — not a trust connection) then `computeInvitationPath` (accepted
 ### 3. Path Caching
 
 **Cache Table**: `auth.social_distances`
+
+`path_trust_score` is `DOUBLE PRECISION` (Sprint 120 / BUG-030), preserving the fractional
+Ebbinghaus-decay score written by single, batch, and precomputed paths without rounding.
 
 **TTL**: 7 days
 
@@ -942,6 +948,13 @@ See [ADR-056](../../docs/adr/ADR-056-intrinsic-trust-decay.md) for full decision
 ---
 
 ## Recent Changes
+
+### Sprint 120: True Scores & Graph Polish (2026-07-17)
+- **FIX (BUG-030)**: `auth.social_distances.path_trust_score` is now `DOUBLE PRECISION`, matching
+  fractional decay-derived trust scores without rounding. Batch path computation isolates failures
+  per target, logs the target id, and preserves all other results and ranking degrees.
+- **CLARITY**: interaction recency uses `isActiveRecently`, an alias over the same single 30-day
+  formation window; outward `active_recently` behavior is unchanged.
 
 ### Sprint 119: Truthful Surfaces (2026-07-10)
 - **NEW (ADR-086)**: `GET /trust/communities` organic links now carry `active_recently`, derived

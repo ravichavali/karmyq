@@ -120,7 +120,8 @@ export default function CommunityHubGraph({
     // member↔member organic bridges emphasized, alive ones in the S118 green family, periphery and
     // dormant quieted, fission lineage untouched.
     const isMember = (id: string) => placed.get(id)?.node.is_member === true
-    const visualOf = (link: TrustLink) => hubBridgeVisual(link, isMember)
+    const visuals = new Map(edgeData.map(({ link }) => [link, hubBridgeVisual(link, isMember)]))
+    const visualOf = (link: TrustLink) => visuals.get(link)!
 
     const edgeSel = edgesG.selectAll<SVGLineElement, { link: TrustLink; a: Placed; b: Placed }>('line.hub-edge')
       // linkKey distinguishes parallel organic/fission edges between the same community pair.
@@ -129,6 +130,7 @@ export default function CommunityHubGraph({
     const edgeMerge = edgeSel.enter()
       .append('line')
       .attr('class', 'hub-edge')
+      .attr('role', 'img')
       .merge(edgeSel as any)
     edgeMerge
       .attr('stroke', d => visualOf(d.link).stroke)
@@ -277,7 +279,6 @@ export default function CommunityHubGraph({
         <span className="flex items-center gap-1">
           <span className="inline-block w-2.5 h-2.5 rounded-full bg-indigo-400" /> Connected community
         </span>
-        <span className="flex items-center gap-1 text-slate-500">— organic trust</span>
         <span className="flex items-center gap-1 text-violet-400">— fission lineage</span>
         <span className="flex items-center gap-1 text-green-400">Woven bridge — recent exchange</span>
         <span className="flex items-center gap-1 text-slate-500">Dormant bridge</span>
