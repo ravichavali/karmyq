@@ -1,24 +1,23 @@
-# Sprint 120 — True Scores, One Seed Path & Five-Second Clarity — PR A CI GREEN, AWAITING ADMIN MERGE AUTHORIZATION
+# Sprint 120 — True Scores, One Seed Path & Five-Second Clarity — PR A SHIPPED & DEPLOYED; PR B NEXT
 
-> **STATUS (2026-07-17, PR A execution):** PR
-> [#152](https://github.com/ravichavali/karmyq/pull/152) is open from
-> `feature/sprint-120-true-scores-polish` at v11.30.0 (implementation commit `08b2b32e`).
-> BUG-030 has a DOUBLE PRECISION migration,
-> per-target batch isolation, and promoted regression coverage; all six graph-polish findings,
-> ADR-086 close-out, service/registry/guide docs, and generated landing docs are in the working
-> tree. Migration-validator reported no findings; focused social-graph and frontend suites,
-> TypeScript, and the direct doc drift gate are green. Docker remains unavailable, so the live
-> PostgreSQL migration exercise passed in CI. Tasks 9–10 are complete: final `npm test` passed
-> 26/26 Turbo tasks (frontend 29 suites / 266 tests; social-graph 23 suites / 154 pass + 3 todo),
-> both touched workspaces compile, feedback exits 0, and the process-reviewer passed the clean
-> staged snapshot. All PR checks are green, including the full-schema migration integration test,
-> CodeQL/security, contract, frontend/backend suites, and all Docker image builds. **Next: obtain
-> explicit Admin authorization, squash-merge PR #152, monitor its deploy, then branch PR B from
-> fresh `origin/master`.**
-> Quality gates (2026-07-17): one full-diff simplify pass found no worthwhile reduction beyond the
-> per-link visual Map already introduced; medium correctness review found and fixed two stale copy
-> contracts (the Sprint 115 assertion and generated-doc source/nav); security review found no new
-> auth, injection, secret, disclosure, or destructive-SQL surface. No findings remain open.
+> **STATUS (2026-07-17, PR A shipped):** PR
+> [#152](https://github.com/ravichavali/karmyq/pull/152) is **MERGED** (admin-override squash
+> `31fdcd54`, 2026-07-17 19:58Z) and **DEPLOYED** to karmyq.com at v11.30.0. The CI/CD pipeline
+> (run `29609505205`) went fully green including **Deploy to Demo = success with no rollback** —
+> `deploy.sh` applies migrations idempotently and rolls back on failure, so the DOUBLE PRECISION
+> migration landed and server-side health verification passed. Post-deploy smoke test: frontend
+> root serves the live Karmyq landing; social-graph API responds with the correct ADR-074 error
+> contract. **One follow-up for the maintainer:** the authenticated BUG-030 repro (as
+> `maria.reyes` → Fatima Alhassan single path + a `/paths/batch` sweep; expect 200s, fractional
+> score cached, `degrees` unchanged) still wants a manual pass — it needs demo login creds / SSH,
+> which the auto-mode classifier gates. Deploy evidence is otherwise strong.
+> **PR B is active on `feature/sprint-120-one-seed-path`, branched from fresh `origin/master`;
+> ADR-087 begins Accepted and becomes Implemented only after PR B deploys.**
+> Quality gates (2026-07-17, folded into the merged PR): one full-diff simplify pass found no
+> worthwhile reduction beyond the per-link visual Map already introduced; medium correctness
+> review found and fixed two stale copy contracts (the Sprint 115 assertion and generated-doc
+> source/nav); security review found no new auth, injection, secret, disclosure, or
+> destructive-SQL surface. No findings remain open.
 
 > **STATUS (2026-07-16, planning session):** Sprint 119 is fully SHIPPED — PR #150 merged by Admin
 > 2026-07-16 14:47Z (squash `6cf8f2d`), CI/CD deployed. Sprint 120 planned this session
@@ -34,17 +33,20 @@
 > `/demo` tour survives refresh, topbar calm at md/lg/xl) can fold into PR C's audit pass —
 > read-only, never mutate protected personas.
 
-## Quick Start
+## Quick Start (PR B)
 
 1. Read this handoff
-2. Check out branch: `git fetch origin && git checkout -b feature/sprint-120-true-scores-polish origin/master`
-   (if the planning commit is already on this branch, just `git checkout feature/sprint-120-true-scores-polish`)
-3. Open plan: `docs/superpowers/plans/2026-07-16-sprint-120-pr-a-true-scores-polish.md`
-4. Run: `/execute-plan` with superpowers:executing-plans, working INLINE (see efficiency note 12
-   — subagents only for genuinely large independent tasks)
+2. Continue on `feature/sprint-120-one-seed-path` (branched from fresh `origin/master`)
+3. Open plan: `docs/superpowers/plans/2026-07-16-sprint-120-pr-b-one-seed-path.md` (9 tasks) and
+   re-read critical notes 6–8 + 10 below (real `--drift-check` mechanism, Task 4 opens a draft PR,
+   drift-test/land reorder, `schema_migrations` seeding)
+4. ADR-087 starts Accepted in PR B; after PR B deploys, its Implemented status rides PR C's first
+   commit. Archive this Sprint 120 handoff only after the full sprint ships.
+5. Run: `/execute-plan` with superpowers:executing-plans, working INLINE (see efficiency note 12);
+   PR B stays `/code-review` HIGH (risky migration/schema work)
 
-PR B and PR C follow the same pattern with their own plan files, each branching off fresh
-`origin/master` after the previous PR merges.
+PR C follows the same pattern with its own plan file, branching off fresh `origin/master` after
+PR B merges.
 
 ## Sprint Goal
 
@@ -147,8 +149,9 @@ clarity fixes (PR C).
 
 ## Carry-Forward / Known State
 
-- **BUG-030** (`docs/BUGS.md`): open, diagnosed — fixed by PR A. Demo repro:
-  maria.reyes → Fatima Alhassan (1/149 pairs); batch route can 500 whole feed-ranking calls.
+- **BUG-030** (`docs/BUGS.md`): FIXED by PR A (DOUBLE PRECISION migration + per-target batch
+  isolation), merged `31fdcd54` and deployed 2026-07-17. Live-repro confirmation still pending a
+  maintainer pass (maria.reyes → Fatima Alhassan single + `/paths/batch` sweep).
 - **PLAUSIBLE pre-existing edge** (S119 PR A review): localStorage communities snapshot can route
   a stale-snapshot member to /welcome. Deferred; candidate for PR C audit attention.
 - **Deferred S119 follow-ups**: computeInvitationPath disclosure-gate question, api.ts
