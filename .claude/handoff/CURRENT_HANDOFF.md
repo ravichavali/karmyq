@@ -3,9 +3,11 @@
 > **STATUS (2026-07-16, planning session):** Sprint 119 is fully SHIPPED — PR #150 merged by Admin
 > 2026-07-16 14:47Z (squash `6cf8f2d`), CI/CD deployed. Sprint 120 planned this session
 > (maintainer scope decisions recorded below): three PRs, each merges + deploys independently.
-> **Cross-agent review processed 2026-07-16 (later session):** PR A confirmed ready unchanged;
-> PR B + PR C plans AMENDED in place (see notes 6, 7, 9 deltas) — re-read the plan files, the
-> review findings are folded in.
+> **Cross-agent review processed 2026-07-16, RE-REVIEW folded in 2026-07-17:** PR A confirmed
+> ready unchanged; PR B + PR C plans AND the design spec AMENDED in place (notes 6–9 deltas —
+> real `--drift-check` mechanism, Task 4 opens a draft PR, drift-test/land reorder, state-based
+> PR C audit). Re-read the plan files + spec; all review findings are folded in. Spec, plans,
+> and handoff now agree.
 > S119 close-out bookkeeping (ADR-086 → Implemented, S119 handoff → archive) rides PR A Task 1.
 > S119's remaining live validation (Maria's ring, sparse no-bonds state, woven/dormant bridges,
 > 375px; plus PR A leftovers: throwaway first-join from a community DETAIL page → /welcome,
@@ -81,14 +83,20 @@ clarity fixes (PR C).
 7. **Regenerated init.sql MUST seed `public.schema_migrations`** (match apply-migrations.sh's
    row format EXACTLY) or fresh installs replay the chain — the load-bearing detail of ADR-087.
    Workflow validates: fresh container from new init.sql → apply-migrations.sh reports ALL
-   already applied (AMENDED: assert `schema_migrations` rows == sorted `migrations/*.sql`
-   listing, zero missing/extra — never a hard-coded count) → ci-apply-full-schema.sh applies
-   zero genuinely-new statements. Drift-gate test starts in root `tests/tdd/`, promotes to
-   regression when green (was planned straight into regression — corrected).
+   already applied (assert `schema_migrations` rows == sorted `migrations/*.sql` listing, zero
+   missing/extra — never a hard-coded count) → `ci-apply-full-schema.sh --drift-check` shows an
+   empty before/after schema diff. **AMENDED 2026-07-17 (re-review):** the current script CANNOT
+   detect clean drift (fails only on unexpected ERROR lines + a fixed sentinel list; a
+   genuinely-new object applies silently and passes) — add a real `--drift-check` mode
+   (normalized `pg_dump --schema-only` before vs after the chain replay, fail on any diff). Task
+   order fixed: drift-gate TEST is Task 5 (RED against old init.sql), landing the artifact +
+   `--drift-check` mode + promote-to-regression is Task 6 (GREEN). Task 4 now PUSHES and opens a
+   contract-compliant DRAFT PR before waiting on the `pull_request` workflow (its artifact can't
+   be downloaded until the PR exists); Task 9 marks that same PR ready.
 8. **Preserve curated seed data** through the regen (schema-only dump drops it) — DECIDED: seed
    rows live in a dedicated `infrastructure/postgres/seed-data.sql` the script splices in (not
    an inline fence); reconcile RLS, ownership/GRANTs, extensions, schema order.
-   `ci-apply-full-schema.sh` is KEPT as drift guard.
+   `ci-apply-full-schema.sh` is KEPT (repurposed to the drift guard).
 9. **PR C is research-FIRST**: audit doc + maintainer fix selection (Task 4 checkpoint) BEFORE
    any implementation. AMENDED per review: (a) audit by STATE (unauthenticated / first-arrival
    if a read-only DB check finds one / sparse sim account picked by degree query / maria.reyes),

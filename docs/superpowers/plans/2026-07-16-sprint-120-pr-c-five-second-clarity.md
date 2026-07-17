@@ -89,7 +89,9 @@ Copied from the spec — items 10–11 apply, plus audit mechanics:
   cold, apply the protocol, record findings with severity (blocker / friction / polish)
 - [ ] Record console errors / broken states seen in passing (log bugs via `docs/BUGS.md`, do not
   fix inline)
-- [ ] **Verification:** audit doc has an entry per surface×viewport with screenshots referenced
+- [ ] **Verification:** audit doc has a self-contained entry per surface × viewport × state —
+  each names the visual element behind its finding in words (screenshots are inspected session
+  evidence in the scratchpad, not durable references the doc depends on)
 
 ## Task 3: Reference comparison + ranked recommendations
 
