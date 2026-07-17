@@ -456,7 +456,7 @@ out the 7-day TTL. The renderer additionally never reads the middle node (belt-a
 `apps/frontend/tests/regression/sprint-119-trust-path-badge-truthful.test.tsx`.
 
 ---
-## BUG-030 · [2026-07-15] · open
+## BUG-030 · [2026-07-15] · fixed
 
 GET /paths/:targetUserId returns 500 "Failed to compute path" when the computed exchange-path
 trust score is fractional — `auth.social_distances.path_trust_score` is INTEGER (init.sql:85,
@@ -471,5 +471,12 @@ INSERT is inside the per-target loop with no per-target catch, so ONE bad pair c
 column type should match the S90 semantics (fractional decayed sum) — migrate to DOUBLE
 PRECISION — or round at all three writes; also consider per-target error isolation in the batch
 loop.
+
+**Fixed (Sprint 120, 2026-07-17):** migration
+`20260716-path-trust-score-double-precision.sql` changes the cache column to `DOUBLE PRECISION`
+without rounding any of the three score writes. `POST /paths/batch` now isolates failures inside
+each target's compute/cache operation: the failed target uses the existing no-connection shape,
+the other targets and their `degrees_of_separation` ranking inputs still return, and the target id
+is logged. Covered by `sprint-120-bug-030-fractional-score.test.ts`.
 
 ---

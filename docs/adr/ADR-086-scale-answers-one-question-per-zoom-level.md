@@ -1,6 +1,6 @@
 # ADR-086: Scale Answers — One Question per Zoom Level
 
-**Status**: Accepted
+**Status**: Implemented
 **Date**: 2026-07-15
 **Sprint**: 119
 **Version**: 11.29.0

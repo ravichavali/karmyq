@@ -802,7 +802,7 @@
           {
             "method": "POST",
             "path": "/paths/batch",
-            "description": "Get paths for multiple target users (optimized for feed ranking). Sprint 118 / BUG-028: cached exchange paths are revalidated against live trust_edges_live edges with active endpoint membership before batch cache hits are returned. Sprint 119 / BUG-029: community_member entries carry community_name (cached and fresh); ranking input degrees_of_separation unchanged."
+            "description": "Get paths for multiple target users (optimized for feed ranking). Sprint 118 / BUG-028: cached exchange paths are revalidated against live trust_edges_live edges with active endpoint membership before batch cache hits are returned. Sprint 119 / BUG-029: community_member entries carry community_name (cached and fresh). Sprint 120 / BUG-030: compute/cache failures are isolated per target as the existing no-connection shape; other results and ranking input degrees_of_separation remain unchanged."
           },
           {
             "method": "GET",

@@ -349,7 +349,7 @@ export default function NetworkPage() {
           {mode === 'community' && mergedGraph?.meta?.truncated && mergedGraph.meta.totalActiveMembers != null && (
             <p className="text-xs text-amber-500">
               Showing {mergedGraph.nodes.length} of {mergedGraph.meta.totalActiveMembers} active members.
-              This view is incomplete.
+              Bond counts describe only the members shown.
             </p>
           )}
           {mode === 'ego' && mergedGraph?.meta?.truncated && (

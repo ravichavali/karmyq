@@ -62,8 +62,9 @@ The This Community view arranges **every returned member on a single ring**, in 
 
 Its at-a-glance question is **“Where do you fit?”** When you belong to the community, your node is
 anchored at 12 o'clock, your chords keep their full relationship intensity, and the other chords
-quiet slightly until you focus them. A plain-language line below the ring says how many of the other
-members you're bonded with. If you have no bonds there yet, it says so honestly and points to the
+quiet slightly until you focus them, with even the faintest related chord kept visibly distinct
+from unrelated content. A plain-language line below the ring says how many of the other members
+you're bonded with. If you have no bonds there yet, it says so honestly and points to the
 first real way to become woven in: helping someone. This emphasis rotates and quiets the existing
 picture; it never changes who is present or invents a relationship.
 
@@ -74,7 +75,10 @@ Reading it is structural, by eye:
 - **Few isolates** mean most members are woven in.
 - **One person every chord runs through** means the community leans on an indispensable member.
 
-If the community is larger than the view can show, it says **"Showing N of M active members. This view is incomplete."** and deliberately withholds the whole-community reading above — you can't judge redundancy from a partial picture. The members shown are selected **neutrally** (by name), never by any score.
+If the community is larger than the view can show, it says **"Showing N of M active members"** and
+scopes the bond summary to **"the N members shown"** — never to the whole community. You can't judge
+redundancy from a partial picture. The members shown are selected **neutrally** (by name), never by
+any score.
 
 Click any member for a structural detail panel — their connection count and the qualitative states of their relationships. No member's trust score or karma appears here (see [Whose numbers you can see](#whose-numbers-you-can-see-reputation-disclosure-boundary)).
 
@@ -91,8 +95,9 @@ count, or raw weight is exposed.
 
 - **Node size = membership.** A bigger community is a bigger dot — the one place a node's size is meaningful, because here a node is a whole community, not a person.
 - **Colour.** Your own communities are emerald and white-ringed; communities you can see but aren't a member of are indigo.
-- **Organic ties (solid)** accrue as members exchange help *across* community lines. The legend
-  distinguishes a recently active woven bridge from a dormant one.
+- **Organic ties (solid)** accrue as members exchange help *across* community lines. The concise
+  legend names the useful distinction directly: **Woven bridge — recent exchange** or
+  **Dormant bridge**.
 - **Fission lineage (dashed, violet)** are parent → child links left behind when a community splits.
 
 Click any community for its member count and status. Reach this scale from the **See how communities connect →** link on any community's Trust Graph tab.

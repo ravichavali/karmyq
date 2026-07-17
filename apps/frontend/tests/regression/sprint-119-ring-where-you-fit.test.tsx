@@ -5,8 +5,8 @@
  *    geometry stay exactly as S115 shipped); the sorted order rotates so the caller sits at
  *    12 o'clock. Deterministic: same input → same picture.
  *  - Default state: viewer chords keep full presence; non-viewer chords are quieted by one
- *    shared factor layered ON TOP of the decayTier opacity bands (band ordering preserved).
- *    Focus/selection behavior is unchanged on top.
+ *    shared factor, with Sprint 120's visibility floor keeping them distinct from unrelated
+ *    content. Focus/selection behavior is unchanged on top.
  *  - A place summary line answers the question in words ("bonded with N of M"), with an honest
  *    no-bonds state; the legend gains a "You" entry.
  *  - PINNED shipped contracts: decayTier band values and the new > caller > focused stroke
@@ -21,6 +21,7 @@ import {
   NEW_BOND_COLOR,
   NON_VIEWER_CHORD_QUIET_FACTOR,
   PERSON_COLORS,
+  QUIETED_RELATED_OPACITY_FLOOR,
   UNRELATED_OPACITY,
   edgeVisual,
   ringChordOpacity,
@@ -128,12 +129,13 @@ describe('Sprint 119: ringChordOpacity layers viewer emphasis on the untouched b
     expect(ringChordOpacity(0.62, false, true)).toBeCloseTo(0.62 * NON_VIEWER_CHORD_QUIET_FACTOR, 10)
   })
 
-  it('preserves relative band ordering within the quieted group', () => {
+  it('preserves stronger band ordering until the shared visibility floor', () => {
     const strong = ringChordOpacity(0.62, false, true)
     const warm = ringChordOpacity(0.4, false, true)
     const fading = ringChordOpacity(0.23, false, true)
     expect(strong).toBeGreaterThan(warm)
     expect(warm).toBeGreaterThan(fading)
+    expect(fading).toBe(QUIETED_RELATED_OPACITY_FLOOR)
   })
 
   it('applies no quieting when the viewer is not in the ring (steward/explorer views stay whole)', () => {
@@ -159,7 +161,7 @@ describe('Sprint 119: default ring state — your chords forward, others quiet',
     )
     expect(paths[2]).toHaveAttribute(
       'stroke-opacity',
-      String(0.23 * NON_VIEWER_CHORD_QUIET_FACTOR)
+      String(QUIETED_RELATED_OPACITY_FLOOR)
     )
   })
 

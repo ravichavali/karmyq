@@ -163,6 +163,9 @@ assert "social_graph.trust_edges.stability column" \
   "SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='social_graph' AND table_name='trust_edges' AND column_name='stability')"
 assert "social_graph.trust_edges_live view" \
   "SELECT (to_regclass('social_graph.trust_edges_live') IS NOT NULL)"
+# BUG-030: decay-derived path scores are fractional and must remain lossless in cache.
+assert "auth.social_distances.path_trust_score double precision" \
+  "SELECT (data_type = 'double precision') FROM information_schema.columns WHERE table_schema='auth' AND table_name='social_distances' AND column_name='path_trust_score'"
 # A whole migration init.sql never had (001_federation_schema) — proves fully-missing chains apply.
 assert "federation.instances table" \
   "SELECT (to_regclass('federation.instances') IS NOT NULL)"

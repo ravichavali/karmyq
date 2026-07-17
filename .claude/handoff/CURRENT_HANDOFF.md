@@ -1,4 +1,19 @@
-# Sprint 120 — True Scores, One Seed Path & Five-Second Clarity — PLANNED, READY TO EXECUTE
+# Sprint 120 — True Scores, One Seed Path & Five-Second Clarity — PR A IMPLEMENTED, GATES IN PROGRESS
+
+> **STATUS (2026-07-17, PR A execution):** Tasks 1–8 implemented on
+> `feature/sprint-120-true-scores-polish` at v11.30.0. BUG-030 has a DOUBLE PRECISION migration,
+> per-target batch isolation, and promoted regression coverage; all six graph-polish findings,
+> ADR-086 close-out, service/registry/guide docs, and generated landing docs are in the working
+> tree. Migration-validator reported no findings; focused social-graph and frontend suites,
+> TypeScript, and the direct doc drift gate are green. Docker remains unavailable, so the live
+> PostgreSQL migration exercise stays in CI. Tasks 9–10 are complete: final `npm test` passed
+> 26/26 Turbo tasks (frontend 29 suites / 266 tests; social-graph 23 suites / 154 pass + 3 todo),
+> both touched workspaces compile, feedback exits 0, and the process-reviewer passed the clean
+> staged snapshot. Next: commit, open PR, then wait for explicit Admin merge authorization.
+> Quality gates (2026-07-17): one full-diff simplify pass found no worthwhile reduction beyond the
+> per-link visual Map already introduced; medium correctness review found and fixed two stale copy
+> contracts (the Sprint 115 assertion and generated-doc source/nav); security review found no new
+> auth, injection, secret, disclosure, or destructive-SQL surface. No findings remain open.
 
 > **STATUS (2026-07-16, planning session):** Sprint 119 is fully SHIPPED — PR #150 merged by Admin
 > 2026-07-16 14:47Z (squash `6cf8f2d`), CI/CD deployed. Sprint 120 planned this session

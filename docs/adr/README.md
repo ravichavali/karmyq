@@ -121,7 +121,7 @@ When code implementing an ADR is deployed, update the status from `Accepted` →
 - [ADR-083: Contextual Belonging Graph Rendering (Earned Structure)](ADR-083-contextual-belonging-graph-rendering.md) — **Accepted**
 - [ADR-084: Context-Bound Connection Visibility](ADR-084-context-bound-connection-visibility.md) — **Accepted** (amended Sprint 117: curated historical floor + API verification)
 - [ADR-085: Invited Arrival & the Edge Lifecycle](ADR-085-invited-arrival-and-edge-lifecycle.md) — **Implemented**
-- [ADR-086: Scale Answers — One Question per Zoom Level](ADR-086-scale-answers-one-question-per-zoom-level.md) — **Accepted**
+- [ADR-086: Scale Answers — One Question per Zoom Level](ADR-086-scale-answers-one-question-per-zoom-level.md) — **Implemented**
 
 ## Creating a New ADR
 

@@ -82,7 +82,7 @@ CREATE TABLE auth.social_distances (
     degrees_of_separation INTEGER NOT NULL CHECK (degrees_of_separation >= 1 AND degrees_of_separation <= 4),
     shortest_path JSONB NOT NULL,
     highest_trust_path JSONB,
-    path_trust_score INTEGER,
+    path_trust_score DOUBLE PRECISION,
     connection_type VARCHAR(50) DEFAULT 'exchange',
     computed_at TIMESTAMP NOT NULL DEFAULT NOW(),
     expires_at TIMESTAMP NOT NULL DEFAULT NOW() + INTERVAL '7 days',

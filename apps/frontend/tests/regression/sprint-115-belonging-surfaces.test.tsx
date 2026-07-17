@@ -361,7 +361,9 @@ describe('/network stable identity and completeness copy', () => {
     render(<NetworkPage />)
 
     expect(
-      await screen.findByText('Showing 150 of 151 active members. This view is incomplete.')
+      await screen.findByText(
+        'Showing 150 of 151 active members. Bond counts describe only the members shown.'
+      )
     ).toBeInTheDocument()
   })
 })

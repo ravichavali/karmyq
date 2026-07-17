@@ -1,5 +1,5 @@
 import { pool } from '../config/database';
-import { isFormedRecently } from '../services/disclosureProjection';
+import { isActiveRecently } from '../services/disclosureProjection';
 
 export interface TrustEdgeRow {
   id: string;
@@ -467,7 +467,7 @@ export interface CommunityDepthLink {
   type: 'organic' | 'fission';
   /**
    * Sprint 119 (ADR-086): organic links only — the pair exchanged within the same fail-closed
-   * 30-day window S118 shipped (isFormedRecently, applied here to last_interaction_at; the raw
+   * 30-day window S118 shipped (isActiveRecently delegates to that same window; the raw
    * timestamp never leaves the server, ADR-082). Absent on fission lineage.
    */
   active_recently?: boolean;
@@ -566,7 +566,7 @@ export async function getCommunityDepthGraph(
       target: r.target,
       weight: parseFloat(r.weight) || 0,
       type: 'organic',
-      active_recently: isFormedRecently(r.last_interaction_at, now),
+      active_recently: isActiveRecently(r.last_interaction_at, now),
     });
   }
 

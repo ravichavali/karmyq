@@ -58,6 +58,11 @@ export function isFormedRecently(formedAt: unknown, now: Date = new Date()): boo
   return now.getTime() - ms <= FORMED_RECENTLY_WINDOW_MS;
 }
 
+/** Interaction-recency wording over the same single ADR-082/S118 30-day window. */
+export function isActiveRecently(lastInteractionAt: unknown, now: Date = new Date()): boolean {
+  return isFormedRecently(lastInteractionAt, now);
+}
+
 function endpointId(value: unknown): string {
   if (value && typeof value === 'object') {
     const o = value as { id?: string; user_id?: string };
