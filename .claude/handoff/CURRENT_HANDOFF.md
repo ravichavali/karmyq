@@ -15,7 +15,8 @@
 2. Check out branch: `git fetch origin && git checkout -b feature/sprint-120-true-scores-polish origin/master`
    (if the planning commit is already on this branch, just `git checkout feature/sprint-120-true-scores-polish`)
 3. Open plan: `docs/superpowers/plans/2026-07-16-sprint-120-pr-a-true-scores-polish.md`
-4. Run: `/execute-plan` (uses superpowers:subagent-driven-development)
+4. Run: `/execute-plan` with superpowers:executing-plans, working INLINE (see efficiency note 12
+   — subagents only for genuinely large independent tasks)
 
 PR B and PR C follow the same pattern with their own plan files, each branching off fresh
 `origin/master` after the previous PR merges.
@@ -92,6 +93,14 @@ clarity fixes (PR C).
     (`archive/2026-07-16-sprint-119-truthful-surfaces-fractal-story-COMPLETE.md`); ADR-086 →
     Implemented (ADR file + landing JSON) rides PR A Task 1. ADR-087 → Implemented + this
     handoff's archive ride the NEXT sprint's first commit.
+12. **Token-efficiency decisions (maintainer, 2026-07-16 — standing, recorded in memory):**
+    (a) all four SDLC gates remain mandatory, but EFFORT is calibrated to diff size — one
+    `/simplify` pass per PR for small diffs (per-task only on substantial tasks); `/code-review`
+    MEDIUM for small well-specified PRs, HIGH for risky/large ones (PR B stays HIGH);
+    (b) execute small plan tasks INLINE, subagents only for genuinely large independent tasks;
+    (c) fresh chat per PR, handoff stays pointers + deltas; (d) CLAUDE.md/AGENTS.md/MEMORY.md
+    trimmed at planning (docs-token cleanup, was backlogged since S116) — keep them lean, mind
+    the doc-context-drift gate when touching CLAUDE.md.
 
 ## Carry-Forward / Known State
 

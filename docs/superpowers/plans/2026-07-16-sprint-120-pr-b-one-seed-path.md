@@ -1,7 +1,9 @@
 # Sprint 120 PR B: One Seed Path (init.sql Regeneration) — Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development
-> (recommended) or superpowers:executing-plans to implement this plan task-by-task.
+> **For agentic workers:** Use superpowers:executing-plans; work inline except where a task is
+> genuinely large and independent (maintainer token-efficiency decision, 2026-07-16).
+> Gate calibration for this PR: `/code-review` stays at HIGH effort — the regen script rewrites
+> the seed path for every fresh install and warrants it; one `/simplify` pass on the branch diff.
 
 **Goal:** Regenerate `infrastructure/postgres/init.sql` from the fully-migrated schema so every
 fresh install (local docker-compose, CI, new envs) gets ONE converged seed path; record as ADR-087.
@@ -155,9 +157,10 @@ cd tests && npx jest regression/sprint-120-init-sql-drift-gate --no-coverage
 ## Task 8: Version bump + SDLC quality gates
 
 - [ ] v11.31.0
-- [ ] `/simplify` — final pass on the branch diff (script + workflow readability included)
+- [ ] `/simplify` — the ONE pass for this PR, on the branch diff (script + workflow readability
+  included)
 - [ ] **Verification:** findings applied or dismissed with note
-- [ ] `/code-review` — branch diff
+- [ ] `/code-review` at HIGH effort — branch diff (seed-path rewrite warrants it)
 - [ ] **Verification:** zero unresolved confirmed findings
 - [ ] `/security-review` — branch diff (shell injection surface in the script, workflow perms)
 - [ ] **Verification:** zero unresolved findings; dismissals justified

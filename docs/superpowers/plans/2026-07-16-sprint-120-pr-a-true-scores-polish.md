@@ -1,7 +1,10 @@
 # Sprint 120 PR A: True Scores & Graph Polish — Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development
-> (recommended) or superpowers:executing-plans to implement this plan task-by-task.
+> **For agentic workers:** Use superpowers:executing-plans and work INLINE — this PR's tasks are
+> small, well-specified edits where subagent cold-starts cost more than the work (maintainer
+> token-efficiency decision, 2026-07-16). Reserve subagents for genuinely large independent tasks.
+> Gate calibration for this PR: ONE `/simplify` pass on the branch diff (no per-task passes);
+> `/code-review` at MEDIUM effort.
 
 **Goal:** Fix BUG-030 (fractional trust scores vs INTEGER cache column + batch blast radius),
 land the six PR #150 polish findings, and carry the S119 close-out bookkeeping.
@@ -118,8 +121,6 @@ cd services/social-graph-service && npx jest tests/tdd/sprint-120-bug-030 --no-c
 npx tsc --noEmit
 ```
 
-- [ ] Run `/simplify` on the diff
-
 ## Task 4: isActiveRecently alias
 
 **Files:**
@@ -163,8 +164,6 @@ npx jest tests/regression --no-coverage                                        #
 npx tsc --noEmit
 ```
 
-- [ ] Run `/simplify` on the diff
-
 ## Task 7: Docs — guides, landing, BUGS, CONTEXT, registry
 
 - [ ] `docs/BUGS.md`: BUG-030 → fixed (migration + isolation, date)
@@ -185,11 +184,11 @@ cd tests && npx jest regression/doc-context-drift-gate --no-coverage
   `scripts/promote-tdd-tests.js`)
 - [ ] **Verification:** `npm test` green at root (rerun any turbo-suspect failure directly)
 
-## Task 9: SDLC quality gates
+## Task 9: SDLC quality gates (calibrated — see plan header)
 
-- [ ] `/simplify` — final pass on the full branch diff
+- [ ] `/simplify` — the ONE pass for this PR, on the full branch diff
 - [ ] **Verification:** applied or explicitly dismissed findings, noted in handoff
-- [ ] `/code-review` — branch diff; resolve correctness findings before merge
+- [ ] `/code-review` at MEDIUM effort — branch diff; resolve correctness findings before merge
 - [ ] **Verification:** zero unresolved confirmed findings
 - [ ] `/security-review` — branch diff; resolve real findings, written justification for dismissals
 - [ ] **Verification:** zero unresolved findings; dismissals justified in handoff

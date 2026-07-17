@@ -1,7 +1,9 @@
 # Sprint 120 PR C: Five-Second Clarity (UX Pass) — Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development
-> (recommended) or superpowers:executing-plans to implement this plan task-by-task.
+> **For agentic workers:** Use superpowers:executing-plans; work inline except for genuinely
+> large independent tasks (maintainer token-efficiency decision, 2026-07-16). Gate calibration:
+> `/code-review` at MEDIUM effort unless the selected fix list turns out large; one `/simplify`
+> pass on the branch diff (plus per-task only on substantial fixes).
 > **This PR is research-FIRST: Tasks 1–3 produce an audit; NO implementation happens before the
 > maintainer selects the fix list at the Task 4 checkpoint.**
 
@@ -120,8 +122,9 @@ npx jest tests/regression --no-coverage && npx tsc --noEmit
 ## Task 8: Version bump + SDLC quality gates
 
 - [ ] v11.32.0; promote green TDD suite to regression
-- [ ] `/simplify` — final pass on branch diff → **Verification:** applied/dismissed with note
-- [ ] `/code-review` — branch diff → **Verification:** zero unresolved confirmed findings
+- [ ] `/simplify` — the ONE pass for this PR, on branch diff → **Verification:** applied/dismissed with note
+- [ ] `/code-review` at MEDIUM effort (raise to HIGH only if the fix list grew large) — branch
+  diff → **Verification:** zero unresolved confirmed findings
 - [ ] `/security-review` — branch diff → **Verification:** zero unresolved findings; dismissals
   justified
 

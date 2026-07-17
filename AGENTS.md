@@ -1,171 +1,89 @@
 # AGENTS.md — Cross-Agent Bootstrap (Codex, Claude, others)
 
-This is the **shared entry point for every AI coding agent** working in the Karmyq monorepo.
-Claude Code auto-loads `CLAUDE.md`; Codex and others auto-load this file — every agent MUST load
-this context before any work.
+Shared entry point for every AI coding agent in the Karmyq monorepo. Claude Code auto-loads
+`CLAUDE.md`; Codex and others auto-load this file. This is a **one-way bridge** into the
+canonical Session Bootstrap in [`CLAUDE.md`](CLAUDE.md) — it does not define a separate process.
+**`CLAUDE.md` is the source of truth; if the two disagree, `CLAUDE.md` wins.** Claude need not
+read this file.
 
-> This is a **one-way bridge**: it adapts non-Claude agents *into* the canonical **Sprint Session
-> Bootstrap** in [`CLAUDE.md`](CLAUDE.md) ("🚀 Starting a New Conversation?", including the
-> *one-chat-per-sprint* cadence), adding the tool-name mapping Claude doesn't need. It does **not**
-> define a separate process. **`CLAUDE.md` is the source of truth — if the two ever disagree,
-> `CLAUDE.md` wins.** The STEP 1–4 sequence below is how a non-Claude agent *executes* that
-> bootstrap; Claude reaches it by auto-loading `CLAUDE.md` and need not read this file.
+## STEP 1 — Load context, in order
 
----
-
-## STEP 1 — Load global + state context (read these first, in order)
-
-1. **[`CLAUDE.md`](CLAUDE.md)** — global rules. These OVERRIDE your defaults. Note especially:
-   the Pre-Merge Checklist, the TDD framework (unit + regression MUST pass before push),
-   "Update don't create", "Fix forward not around", and the documentation feedback loops.
-2. **[`.claude/handoff/CURRENT_HANDOFF.md`](.claude/handoff/CURRENT_HANDOFF.md)** — what the
-   last session did, current blockers, next steps. If a handoff exists, follow its Quick
-   Start. This is the ONLY doc that carries state between sessions.
+1. **[`CLAUDE.md`](CLAUDE.md)** — global rules; they OVERRIDE your defaults.
+2. **[`.claude/handoff/CURRENT_HANDOFF.md`](.claude/handoff/CURRENT_HANDOFF.md)** — the only doc
+   carrying state between sessions; follow its Quick Start.
 3. **Persistent memory** — `~/.claude/projects/c--Users-ravic-development-karmyq/memory/MEMORY.md`
-   (the index) plus any individual memory file whose description matches the task. These are
-   hard-won project gotchas and workflow preferences. Verify any file/flag/function a memory
-   names still exists before relying on it. *(Machine-local to the maintainer's checkout; may
-   be absent in a sandbox or on another machine — that's expected.)*
-4. **[`services/registry.json`](services/registry.json)** — source of truth for services,
-   ports, endpoints, events, and dependencies.
+   + matching memory files (advisory; maintainer-machine-local, may be absent elsewhere; verify
+   anything named still exists).
+4. **[`services/registry.json`](services/registry.json)** — services, ports, endpoints, events.
 
-## STEP 2 — Load the skill system
+Then summarize (sprint, branch, blockers, recommended first action) BEFORE coding. New sprint =
+fresh chat; same-PR follow-ups stay in the current one (cadence table in `CLAUDE.md`).
 
-Skills are markdown playbooks (`SKILL.md`). Read the matching skill and **follow it exactly**
-before acting. **If there's even a 1% chance a skill applies, read it first.** Process skills
-(brainstorming, debugging, TDD) come BEFORE implementation skills. A user's explicit
-instruction always outranks a skill.
+## STEP 2 — The skill system
 
-**Claude Code:** use the `Skill` tool. **Codex / others:** skills don't auto-load — open the
-`SKILL.md` and follow it. First read the tool-name mapping so you translate Claude tool names
-to your own (`Read`→your read tool, `Bash`→your shell, `TodoWrite`→`update_plan`,
-`Task`→`spawn_agent`, etc.):
+Skills are markdown playbooks (`SKILL.md`). If there's even a 1% chance one applies, read it and
+follow it exactly; process skills (brainstorming, debugging, TDD) come before implementation
+skills. A user's explicit instruction outranks any skill.
 
-```
-~/.claude/plugins/cache/claude-plugins-official/superpowers/*/skills/using-superpowers/references/codex-tools.md
-```
+**Claude:** `Skill` tool. **Codex/others:** skills don't auto-load — open the `SKILL.md` directly.
+Tool-name mapping (`Read`→your read tool, `Bash`→your shell, `TodoWrite`→`update_plan`, etc.):
+`~/.claude/plugins/cache/claude-plugins-official/superpowers/*/skills/using-superpowers/references/codex-tools.md`
 
-**Project skills** — [`.claude/skills/<name>/SKILL.md`](.claude/skills/):
+**Project skills** ([`.claude/skills/`](.claude/skills/)): `sprint-planning`,
+`pre-commit-check` (**mandatory before every commit**), `deploy`, `ship`,
+`update-handoff`/`handoff`, `bug`, `capture`.
+**Superpowers skills** (same plugin cache, `superpowers/*/skills/`): `brainstorming`,
+`test-driven-development`, `systematic-debugging`, `writing-plans`, `executing-plans`,
+`verification-before-completion`, code-review skills, and more.
 
-| Skill | Use when |
-|-------|----------|
-| `sprint-planning` | Planning a new sprint (produces spec + plan + handoff) |
-| `pre-commit-check` | **MANDATORY before every `git commit`** — runs the pre-merge checklist + process-reviewer agent |
-| `deploy` | Deploying to the karmyq.com demo environment |
-| `update-handoff` / `handoff` | Updating `CURRENT_HANDOFF.md` |
-| `arch-review`, `capture` | Architecture review / capturing a transient idea |
+## STEP 3 — Local context + agents
 
-**Superpowers skills** — `~/.claude/plugins/cache/claude-plugins-official/superpowers/*/skills/<name>/SKILL.md`:
-`brainstorming` (before any feature/creative work), `test-driven-development`,
-`systematic-debugging`, `writing-plans`, `executing-plans`, `verification-before-completion`,
-`requesting-code-review`, `receiving-code-review`, `finishing-a-development-branch`,
-`using-git-worktrees`, and more.
+Working in a service → `services/<name>/.claude/README.md` AND `CONTEXT.md` first. Custom review
+agents live in [`.claude/agents/`](.claude/agents/) (`migration-validator`, `process-reviewer`).
 
-## STEP 3 — When working in a specific area, read the LOCAL context first
+## STEP 4 — Standing rules
 
-- **A service** → `services/<name>/.claude/README.md` AND `services/<name>/CONTEXT.md`
-- **Custom review agents** live in [`.claude/agents/`](.claude/agents/)
-  (`migration-validator`, `process-reviewer`) — their `.md` files describe checks to run for
-  migrations and before commit.
-
-## STEP 4 — Honor the standing rules
-
-- **TDD:** new tests go in `tests/tdd/` (or `services/<name>/tests/tdd/`), promote to
-  `regression/` when green. unit + regression MUST pass before push.
-- **Docs feedback loop:** every behavior change updates the service `CONTEXT.md`,
-  `services/registry.json`, an ADR if architectural, and the `apps/landing/` docs site
-  (see `CLAUDE.md` → "Landing Page Docs").
-- **Quality gates before merge:** tests, `/simplify`, `/code-review`, `/security-review`.
-- **Solo dev, no git worktrees** unless asked. Work on feature branches.
-- **Host is Windows / PowerShell.** Use PowerShell syntax (`$null`, `$env:VAR`).
-- **End of session: UPDATE the handoff** before stopping.
+- **TDD:** new tests in the changed workspace's `tests/tdd/`; promote to `regression/` when
+  green; unit + regression MUST pass before push.
+- **Docs feedback loop:** every behavior change updates `CONTEXT.md`, `registry.json`, an ADR if
+  architectural, and the `apps/landing/` docs (see `CLAUDE.md` → Pre-Merge Checklist, "Landing
+  docs authoring").
+- **Quality gates before merge:** tests, `/simplify`, `/code-review`, `/security-review` —
+  effort calibrated to diff size (see `CLAUDE.md` Pre-Merge Checklist).
+- **Solo dev, no git worktrees.** Feature branches only.
+- **Host is Windows/PowerShell** (`$null`, `$env:VAR`).
+- **Update the handoff before stopping.**
 
 ## Lanes & Merge Authority
 
-This repo runs an **enforced multi-agent PR process**. The PR is the contract between
-agents; shared state lives in the repo, never in an agent-private memory store.
+Enforced multi-agent PR process; shared state lives in the repo, never in agent-private memory.
 
-### Roles
-- **Admin (maintainer):** owns scope approval, **merge authority**, and deploy. The merge
-  decision and deploy authorization are the Admin's.
-- **Claude (orchestrator):** assigns scoped work, validates gates, owns **merge-readiness
-  validation and the merge recommendation**, and may *execute* a merge only once the Admin has
-  authorized it (e.g. "pull it in"). Claude is the **only** agent that marks a sprint complete.
-- **Contributor agents (Codex / others):** implement scoped tasks only; open PRs; never
-  self-merge; never resolve cross-agent conflicts independently.
+- **Admin (maintainer):** owns scope approval, merge authority, deploy authorization.
+- **Claude (orchestrator):** merge-readiness validation + recommendation; executes a merge only
+  after explicit Admin authorization; the only agent that marks a sprint complete.
+- **Contributor agents:** implement scoped tasks; open PRs; never self-merge; never resolve
+  cross-agent conflicts (pause and request reassignment).
+- One agent per branch; no pushes to another agent's branch; no direct commits to `master`.
+  Agent lane `agent/<name>/<slug>`; human lanes `feature/`, `fix/`, `docs/`, `refactor/`, `chore/`.
+- **Enforcement reality:** on this machine every agent shares the maintainer's admin
+  credentials, so branch rules are convention enforced by this document, not a hard gate —
+  honor them by discipline.
 
-### Branch ownership (non-overlap)
-- One agent per branch. No agent pushes to another agent's branch. No direct commits to `master`.
-- Agent lane: `agent/<agent-name>/<slug>` (e.g. `agent/codex/dashboard-retry`).
-- Human lanes: `feature/`, `fix/`, `docs/`, `refactor/`, `chore/`.
+**PR contract:** every task = one branch = one PR. `gh pr create` does NOT auto-apply the
+template — copy [`.github/pull_request_template.md`](.github/pull_request_template.md) into
+`--body` and fill every section (the `pr-contract` check fails otherwise). Out-of-band actions
+(e.g. alert dismissals) go in the PR body's "Security dismissals" with justification. No merge
+without all gates green. PR body = per-task detail; handoff = rolling cross-session state; don't
+duplicate one into the other.
 
-> **Enforcement reality (read this):** `master` protection enforces by **authenticated GitHub
-> identity, not folder/agent/author**, and is set `enforce_admins: false` so the solo maintainer
-> can merge their own PRs. On the maintainer's machine every agent shares those **admin**
-> `gh`/git credentials, so a push *can* bypass the rules — "no direct commits to `master`" is a
-> **convention enforced by this document, not a hard gate** (it's only hard for a non-admin
-> bot/PAT or external forks). Until agents get a non-admin identity: **honor the branch/PR rules
-> by discipline.**
+## Same-machine reality: shared working tree, time-sliced
 
-### The PR contract — templates are known
-- Every task = one branch = one PR carrying the contract in [`.github/pull_request_template.md`](.github/pull_request_template.md).
-- **GitHub only auto-injects the template in the web "create PR" UI.** When you open a PR with
-  `gh pr create` or the API, the template is **NOT** applied — you MUST copy
-  `.github/pull_request_template.md` into your `--body` and fill every section. The
-  `pr-contract` CI check fails the PR if the required headers are missing.
-- Issue templates live under [`.github/ISSUE_TEMPLATE/`](.github/ISSUE_TEMPLATE/).
-- **Out-of-band actions** (e.g. dismissing a CodeQL/audit alert) MUST be recorded in the PR
-  body's "Security dismissals" section with a justification + link.
-- **No merge without all gates green:** `tsc --noEmit`, unit/regression tests, docs updates,
-  `/code-review`, `/security-review`, and the required status checks.
+Claude and Codex are two VS Code sessions on the SAME folder — one working tree, one checked-out
+branch, **no file-level isolation**. The real clash rules:
 
-### Handoff vs PR body (no duplication)
-- The **PR body** carries per-task detail (what changed, files, tests, risks).
-- **`CURRENT_HANDOFF.md`** carries rolling cross-session state + the active branch/ownership.
-- Do not copy the full PR contract into the handoff — they drift.
-
-### Shared state lives in-repo
-- Claude's persistent memory is **advisory only** (maintainer-local convenience). Any decision
-  or process state another agent must honor MUST be written to repo docs, `CURRENT_HANDOFF.md`,
-  an ADR, or the PR body.
-
-### Conflict policy
-- If two agents need the same file area, the second agent **pauses and requests reassignment**.
-  Claude re-scopes/rebases; contributor agents do not resolve cross-agent conflicts themselves.
-
-### Same-machine reality: shared working tree, time-sliced (READ THIS)
-
-The actual operating setup: **Claude and Codex run as two VS Code sessions pointed at the same
-physical project folder on the same machine**, worked **time-sliced** (one agent active at a time;
-roles rotate across plan → code → review; different parts of a sprint run by different agents).
-
-**Consequence — there is no branch isolation between the two windows.** Git allows only one
-checked-out branch per working tree, so both sessions are always on the *same* branch and **share
-one working tree**. Anything either agent writes lands in the other's live tree immediately. The
-"one agent per branch / no agent pushes to another's branch" lane model above describes *PR/identity
-ownership* and *separate-checkout* setups — it does **not** create file-level isolation here.
-
-**What actually prevents clashes (the real rules for this setup):**
-1. **One agent edits at a time.** Never edit the shared tree while the other agent has work in
-   flight in the other window.
-2. **Clean tree at every role handoff.** The active agent **commits or stashes before handing the
-   session to the other agent.** A clean tree at every switch removes almost all of the clash
-   surface. Never edit or commit on top of the other agent's *uncommitted* WIP.
-3. **Per-task file ownership.** When a sprint splits work, the orchestrator names which files each
-   agent owns (in the handoff's "Active Session" stanza or the PR body); the other agent stays out
-   of those files until handed over.
-4. **Read-only when in doubt.** A cross-cutting task (context/process cleanup, audits) stays
-   read-only until the other agent's work is committed/merged and the tree is clean.
-
-> If the maintainer ever moves to **separate checkouts / git worktrees** (not the current setup —
-> see "Solo dev, no worktrees"), then the branch-isolation lane model and PR-layering /
-> integration-branch escalation become applicable. Until then, the four rules above govern.
-
----
-
-**At session start, execute the canonical Sprint Session Bootstrap from
-[`CLAUDE.md`](CLAUDE.md) → "🚀 Starting a New Conversation?":** confirm you have loaded
-`CLAUDE.md`, the current handoff, and `MEMORY.md`, then summarize what the last session left,
-current blockers, and what you recommend tackling first. Do not start coding until then. (A new
-sprint warrants a fresh chat; same-PR follow-ups stay in the current one — see the cadence table
-in `CLAUDE.md`.)
+1. **One agent edits at a time** — never edit while the other has work in flight.
+2. **Clean tree at every role handoff** — commit or stash before switching agents; never build on
+   the other agent's uncommitted WIP.
+3. **Per-task file ownership** — the orchestrator names which files each agent owns (handoff or
+   PR body); stay out of the other's files.
+4. **Read-only when in doubt** — cross-cutting audits stay read-only until the tree is clean.
