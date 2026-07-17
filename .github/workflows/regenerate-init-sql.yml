@@ -1,0 +1,114 @@
+name: Regenerate init.sql
+
+on:
+  pull_request:
+    branches: [master]
+    paths:
+      - '.github/workflows/regenerate-init-sql.yml'
+      - 'scripts/regenerate-init-sql.sh'
+      - 'scripts/ci-apply-full-schema.sh'
+      - 'infrastructure/postgres/seed-data.sql'
+      - 'infrastructure/postgres/migrations/**.sql'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  regenerate-and-verify:
+    name: Regenerate and verify init.sql
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: karmyq_regen
+          POSTGRES_PASSWORD: regen_password
+          POSTGRES_DB: scratch_seed
+        options: >-
+          --health-cmd "pg_isready -U karmyq_regen -d scratch_seed"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Validate shell scripts
+        run: |
+          bash -n scripts/regenerate-init-sql.sh
+          shellcheck scripts/regenerate-init-sql.sh scripts/ci-apply-full-schema.sh
+
+      - name: Regenerate init.sql twice (determinism check)
+        env:
+          REGEN_PG_CONTAINER: ${{ job.services.postgres.id }}
+          REGEN_PG_USER: karmyq_regen
+          REGEN_PG_DB: karmyq_regen
+        run: |
+          bash scripts/regenerate-init-sql.sh
+          cp infrastructure/postgres/init.sql.generated /tmp/init.sql.first
+          bash scripts/regenerate-init-sql.sh
+          cmp /tmp/init.sql.first infrastructure/postgres/init.sql.generated
+
+      - name: Boot a fresh database from regenerated init.sql
+        run: |
+          docker run -d --name karmyq-init-verify \
+            -e POSTGRES_USER=karmyq_verify \
+            -e POSTGRES_PASSWORD=verify_password \
+            -e POSTGRES_DB=karmyq_verify \
+            -v "$PWD/infrastructure/postgres/init.sql.generated:/docker-entrypoint-initdb.d/init.sql:ro" \
+            postgres:15-alpine
+          for attempt in $(seq 1 30); do
+            if docker exec karmyq-init-verify pg_isready -U karmyq_verify -d karmyq_verify; then
+              exit 0
+            fi
+            if [ "$(docker inspect -f '{{.State.Running}}' karmyq-init-verify)" != "true" ]; then
+              docker logs karmyq-init-verify
+              exit 1
+            fi
+            sleep 2
+          done
+          docker logs karmyq-init-verify
+          exit 1
+
+      - name: Prove migrations are already recorded
+        env:
+          POSTGRES_CONTAINER: karmyq-init-verify
+          POSTGRES_USER: karmyq_verify
+          POSTGRES_DB: karmyq_verify
+        run: |
+          output=$(bash scripts/apply-migrations.sh)
+          printf '%s\n' "$output"
+          grep -Fq 'All migrations already applied. Database is up to date.' <<<"$output"
+
+          find infrastructure/postgres/migrations -maxdepth 1 -type f -name '*.sql' \
+            -printf '%f\n' | LC_ALL=C sort > /tmp/expected-migrations
+          docker exec karmyq-init-verify psql -U karmyq_verify -d karmyq_verify -tAc \
+            'SELECT migration_name FROM public.schema_migrations ORDER BY migration_name' \
+            | LC_ALL=C sort > /tmp/actual-migrations
+          diff -u /tmp/expected-migrations /tmp/actual-migrations
+
+      - name: Prove migration replay causes no schema drift
+        env:
+          TEST_PG_CONTAINER: karmyq-init-verify
+          TEST_PG_USER: karmyq_verify
+          TEST_PG_DB: karmyq_verify
+        run: |
+          bash scripts/ci-apply-full-schema.sh --drift-check | tee /tmp/drift-check.log
+          grep -Fq 'Schema drift check passed: no changes after migration replay.' /tmp/drift-check.log
+
+      - name: Upload regenerated init.sql
+        uses: actions/upload-artifact@v7
+        with:
+          name: regenerated-init-sql
+          path: infrastructure/postgres/init.sql.generated
+          if-no-files-found: error
+
+      - name: Show verification database logs on failure
+        if: failure()
+        run: docker logs karmyq-init-verify 2>/dev/null || true
+
+      - name: Remove verification database
+        if: always()
+        run: docker rm -f karmyq-init-verify 2>/dev/null || true

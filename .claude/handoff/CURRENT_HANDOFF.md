@@ -19,6 +19,20 @@
 > source/nav); security review found no new auth, injection, secret, disclosure, or
 > destructive-SQL surface. No findings remain open.
 
+> **PR B execution (2026-07-17):** Task 1 is committed as `b685c062`; ADR-087 is Accepted and
+> the direct ADR-index gate passed. Task 2 inventory: `public.schema_migrations` is keyed by the
+> bare SQL filename in `migration_name VARCHAR(255) PRIMARY KEY`, with
+> `applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP`; the generated backfill must contain the sorted
+> `migrations/*.sql` names exactly. Curated rows are the three
+> `communities.config_templates` starter templates and four global
+> `social_graph.interaction_weights` rows. The generated path must also preserve/reconcile the
+> `uuid-ossp` extension, dumped RLS policies, development-role/grant behavior, and schema ordering.
+> Task 3 is implemented: the sourceable normalizer + regeneration pipeline passes Git Bash syntax,
+> its ledger helper emits all 65 sorted migrations, and curated rows now live in dedicated
+> `seed-data.sql` (`shellcheck` unavailable locally). Task 4 workflow is authored and YAML-parsed;
+> push/open the draft PR next. Its first run is expected to expose the planned RED dependency on
+> Task 6's not-yet-implemented `--drift-check` success marker before the final artifact can land.
+
 > **STATUS (2026-07-16, planning session):** Sprint 119 is fully SHIPPED — PR #150 merged by Admin
 > 2026-07-16 14:47Z (squash `6cf8f2d`), CI/CD deployed. Sprint 120 planned this session
 > (maintainer scope decisions recorded below): three PRs, each merges + deploys independently.
