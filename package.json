@@ -63,7 +63,7 @@
   },
   "overrides": {
     "esbuild": "0.28.1",
-    "tar": "7.5.15",
+    "tar": "7.5.20",
     "minimatch": ">=9.0.5",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
