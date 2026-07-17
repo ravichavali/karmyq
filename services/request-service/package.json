@@ -16,8 +16,8 @@
   },
   "dependencies": {
     "@karmyq/shared": "*",
-    "axios": "^1.16.0",
-    "helmet": "^8.1.0"
+    "axios": "^1.18.1",
+    "helmet": "^8.3.0"
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",
