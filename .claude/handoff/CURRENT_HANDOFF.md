@@ -29,9 +29,13 @@
 > `uuid-ossp` extension, dumped RLS policies, development-role/grant behavior, and schema ordering.
 > Task 3 is implemented: the sourceable normalizer + regeneration pipeline passes Git Bash syntax,
 > its ledger helper emits all 65 sorted migrations, and curated rows now live in dedicated
-> `seed-data.sql` (`shellcheck` unavailable locally). Task 4 workflow is authored and YAML-parsed;
-> push/open the draft PR next. Its first run is expected to expose the planned RED dependency on
-> Task 6's not-yet-implemented `--drift-check` success marker before the final artifact can land.
+> `seed-data.sql` (`shellcheck` unavailable locally). Draft PR #153 is open. Initial regeneration
+> run `29613483083` passed Linux shellcheck, double-run byte determinism, fresh generated-DB boot,
+> and exact 65-row ledger parity; it failed only on the deliberately absent drift-success marker,
+> so no artifact uploaded. Task 5 is RED as intended (five stale-init sentinels fail; the shipped
+> global-index and DOUBLE PRECISION sentinels pass). Task 6's source-shared `--drift-check` mode and
+> CI integration invocation are implemented locally; validate, commit, and push them next so the
+> workflow can publish the artifact.
 
 > **STATUS (2026-07-16, planning session):** Sprint 119 is fully SHIPPED — PR #150 merged by Admin
 > 2026-07-16 14:47Z (squash `6cf8f2d`), CI/CD deployed. Sprint 120 planned this session

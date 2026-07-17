@@ -1,25 +1,13 @@
 #!/usr/bin/env bash
 #
-# Bring the CI integration test DB up to the FULL migrated schema.
+# Apply the full migration chain and, in --drift-check mode, prove schema convergence.
 #
 # WHY THIS EXISTS
 # ---------------
-# The CI integration DB is seeded from the consolidated `infrastructure/postgres/init.sql`, a
-# fresh-install snapshot that has DRIFTED behind the migration chain. init.sql is missing whole
-# migrations (federation, governance, ui_schemas, provider-collectives) AND recent constraint /
-# column migrations (e.g. `chk_help_requests_status` from 20260603, `social_graph.trust_decay_config`
-# + `trust_edges.stability` from 20260526). Because init.sql lags, DB CHECK-constraint and
-# column-shape gaps were invisible to CI and only surfaced against the live demo — Sprint 117's
-# reset took five live attempts for exactly this reason.
-#
-# KNOWN LIMITATION — this is a CI-only convergence workaround, not the root-cause fix. init.sql
-# itself remains stale after this script runs; a fresh local `docker-compose up` still gets the
-# drifted schema, and every migration that adds something CI needs to catch requires a maintainer to
-# notice and (optionally) add another sentinel assertion below. The actual fix-forward move is
-# regenerating init.sql from a fully-migrated schema (e.g. `pg_dump --schema-only` against a DB that
-# has had `scripts/apply-migrations.sh` run against it) so there is only ONE seed path everywhere.
-# That is a separate, higher-risk task (dump artifacts, RLS/ownership statements, hand-written
-# comments in init.sql to reconcile) — tracked as a follow-up, deliberately not attempted here.
+# ADR-087 makes init.sql the generated product of the migration chain. This script is its drift
+# guard: --drift-check takes a normalized schema-only dump before replay, applies every migration,
+# takes the same normalized dump afterward, and fails on any difference. A migration that adds a
+# genuinely new object is therefore visible even when PostgreSQL emits no ERROR line.
 #
 # We cannot naively replay the whole chain on top of init.sql: the two overlap, and unguarded
 # statements collide (e.g. migration 009's `CREATE TYPE request_type_enum`, which init.sql already
@@ -47,21 +35,51 @@
 # output itself: any ERROR line matching the redundancy allowlist (already exists / does not exist /
 # etc.) is expected drift-closing noise and is skipped; anything else is a genuinely unexpected
 # failure and FAILS THE JOB (see FAILED below) — this is the real, general gate, not just log noise.
-# The sentinel assertions at the end are an additional, narrower belt-and-suspenders check for the
-# specific objects Sprint 117's reset needs.
+# The error inspection and sentinel assertions remain belt-and-suspenders checks. Running without
+# --drift-check preserves the legacy converge-and-verify behavior for callers that intentionally
+# start from an older snapshot; generated-seed CI must use --drift-check.
 #
 # After applying, this script also backfills `public.schema_migrations` (the same tracking table
 # `scripts/apply-migrations.sh` uses in prod/demo) for every migration file, so the CI DB's tracking
 # state converges with what a from-scratch `apply-migrations.sh` run would leave behind.
 #
-# This is CI-only. Production/demo builds still use `scripts/apply-migrations.sh` (strict, tracked).
+# Production/demo builds still use `scripts/apply-migrations.sh` (strict, tracked).
 #
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CONTAINER="${TEST_PG_CONTAINER:-karmyq-postgres-test}"
 PGUSER="${TEST_PG_USER:-karmyq_test}"
 PGDB="${TEST_PG_DB:-karmyq_test}"
 MIG_DIR="${MIG_DIR:-infrastructure/postgres/migrations}"
+DRIFT_CHECK=0
+DRIFT_TEMP_DIR=""
+
+case "${1:-}" in
+  "") ;;
+  --drift-check) DRIFT_CHECK=1 ;;
+  *) echo "Usage: $0 [--drift-check]" >&2; exit 2 ;;
+esac
+if [ "$#" -gt 1 ]; then
+  echo "Usage: $0 [--drift-check]" >&2
+  exit 2
+fi
+
+cleanup_drift_temp() {
+  if [ -n "$DRIFT_TEMP_DIR" ] && [ -d "$DRIFT_TEMP_DIR" ]; then
+    rm -rf -- "$DRIFT_TEMP_DIR"
+  fi
+}
+
+if [ "$DRIFT_CHECK" -eq 1 ]; then
+  # Keep normalization identical to the generator; otherwise formatting noise could masquerade as
+  # drift or hide it behind two subtly different post-processors.
+  # shellcheck source=regenerate-init-sql.sh
+  source "$SCRIPT_DIR/regenerate-init-sql.sh"
+  DRIFT_TEMP_DIR="$(mktemp -d)"
+  trap cleanup_drift_temp EXIT
+  dump_normalized_schema "$CONTAINER" "$PGUSER" "$PGDB" "$DRIFT_TEMP_DIR/before.sql"
+fi
 
 pg() { docker exec -i "$CONTAINER" psql -U "$PGUSER" -d "$PGDB" "$@"; }
 
@@ -177,5 +195,16 @@ assert "requests.retention_config table" \
 # migration created the column, i.e. that the \connect-bearing file really ran.
 assert "help_requests.is_public default true (001-add-polymorphic applied)" \
   "SELECT (column_default = 'true') FROM information_schema.columns WHERE table_schema='requests' AND table_name='help_requests' AND column_name='is_public'"
+
+if [ "$DRIFT_CHECK" -eq 1 ]; then
+  echo "== Comparing schema before and after migration replay =="
+  dump_normalized_schema "$CONTAINER" "$PGUSER" "$PGDB" "$DRIFT_TEMP_DIR/after.sql"
+  if ! diff -u "$DRIFT_TEMP_DIR/before.sql" "$DRIFT_TEMP_DIR/after.sql" >"$DRIFT_TEMP_DIR/schema.diff"; then
+    cat "$DRIFT_TEMP_DIR/schema.diff"
+    echo "FAILED: init.sql schema drifted from the migration chain." >&2
+    exit 1
+  fi
+  echo "Schema drift check passed: no changes after migration replay."
+fi
 
 echo "== Full migrated schema applied and verified =="
