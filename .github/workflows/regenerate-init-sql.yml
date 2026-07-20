@@ -60,7 +60,9 @@ jobs:
             -v "$PWD/infrastructure/postgres/init.sql.generated:/docker-entrypoint-initdb.d/init.sql:ro" \
             postgres:15-alpine
           for attempt in $(seq 1 30); do
-            if docker exec karmyq-init-verify pg_isready -U karmyq_verify -d karmyq_verify; then
+            if docker logs karmyq-init-verify 2>&1 \
+                | grep -Fq 'PostgreSQL init process complete; ready for start up.' \
+              && docker exec karmyq-init-verify pg_isready -U karmyq_verify -d karmyq_verify; then
               exit 0
             fi
             if [ "$(docker inspect -f '{{.State.Running}}' karmyq-init-verify)" != "true" ]; then
