@@ -74,7 +74,7 @@ cleanup_drift_temp() {
 if [ "$DRIFT_CHECK" -eq 1 ]; then
   # Keep normalization identical to the generator; otherwise formatting noise could masquerade as
   # drift or hide it behind two subtly different post-processors.
-  # shellcheck source=regenerate-init-sql.sh
+  # shellcheck source=scripts/regenerate-init-sql.sh
   source "$SCRIPT_DIR/regenerate-init-sql.sh"
   DRIFT_TEMP_DIR="$(mktemp -d)"
   trap cleanup_drift_temp EXIT
