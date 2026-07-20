@@ -40,15 +40,18 @@ jobs:
           bash -n scripts/regenerate-init-sql.sh
           shellcheck -x scripts/regenerate-init-sql.sh scripts/ci-apply-full-schema.sh
 
-      - name: Regenerate init.sql twice (determinism check)
+      - name: Regenerate init.sql to convergence and prove determinism
         env:
           REGEN_PG_CONTAINER: ${{ job.services.postgres.id }}
           REGEN_PG_USER: karmyq_regen
           REGEN_PG_DB: karmyq_regen
         run: |
           bash scripts/regenerate-init-sql.sh
+          SOURCE_INIT_SQL="$PWD/infrastructure/postgres/init.sql.generated" \
+            bash scripts/regenerate-init-sql.sh
           cp infrastructure/postgres/init.sql.generated /tmp/init.sql.first
-          bash scripts/regenerate-init-sql.sh
+          SOURCE_INIT_SQL="$PWD/infrastructure/postgres/init.sql.generated" \
+            bash scripts/regenerate-init-sql.sh
           cmp /tmp/init.sql.first infrastructure/postgres/init.sql.generated
 
       - name: Boot a fresh database from regenerated init.sql
