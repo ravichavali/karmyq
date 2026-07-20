@@ -38,7 +38,7 @@ jobs:
       - name: Validate shell scripts
         run: |
           bash -n scripts/regenerate-init-sql.sh
-          shellcheck scripts/regenerate-init-sql.sh scripts/ci-apply-full-schema.sh
+          shellcheck -x scripts/regenerate-init-sql.sh scripts/ci-apply-full-schema.sh
 
       - name: Regenerate init.sql twice (determinism check)
         env:
