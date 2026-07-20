@@ -47,7 +47,7 @@
   },
   "dependencies": {
     "@alloc/quick-lru": "^5.2.0",
-    "axios": "^1.16.0",
+    "axios": "^1.18.1",
     "bcryptjs": "^2.4.3",
     "bull": "^4.11.5",
     "cors": "^2.8.5",
