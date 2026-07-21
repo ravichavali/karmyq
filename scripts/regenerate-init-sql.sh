@@ -23,7 +23,9 @@ cleanup_temp_dir() {
 
 normalize_schema_dump() {
   # PostgreSQL 15 emits stable object ordering. Remove version/session noise and trailing spaces so
-  # regeneration and drift checks compare the schema itself rather than pg_dump metadata.
+  # regeneration and drift checks compare the schema itself rather than pg_dump metadata. A
+  # restored varchar IN-list CHECK and the equivalent migration-authored CHECK dump with different
+  # cast placement; canonicalize that representation while preserving every literal value.
   awk '
     /^-- Dumped from database version / { next }
     /^-- Dumped by pg_dump version / { next }
@@ -37,7 +39,10 @@ normalize_schema_dump() {
       next
     }
     { blank = 0; print }
-  '
+  ' | sed -E "/CONSTRAINT chk_help_requests_(status|urgency) CHECK/ {
+    s/\(('[^']*'::character varying)\)::text/\1/g
+    s/ANY \(ARRAY\[(.*)\]\)/ANY ((ARRAY[\1])::text[])/
+  }"
 }
 
 dump_normalized_schema() {
