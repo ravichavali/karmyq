@@ -4,6 +4,7 @@ import Head from 'next/head'
 import { api } from '@/lib/api'
 import { getErrorMessage } from '@/lib/errors'
 import { setAuthSession } from '@/lib/session'
+import AuthBrandHeader from '@/components/AuthBrandHeader'
 
 export default function Login() {
   const [formData, setFormData] = useState({
@@ -55,15 +56,7 @@ export default function Login() {
       </Head>
       <div className="min-h-screen bg-gradient-to-b from-primary-light to-surface-raised flex items-center justify-center px-4">
         <div className="max-w-md w-full">
-          {/* Sprint 120 PR C (F-7): a cold arrival from a shared link used to land on an unbranded
-              form. The wordmark names the product and is the only route back to the front door. */}
-          <div className="text-center mb-6">
-            <Link href="/" className="kq-wordmark justify-center text-2xl">
-              <span className="kq-wordmark-seed" aria-hidden="true" />
-              Karmyq
-            </Link>
-            <p className="text-sm text-text-muted mt-2">Help that runs on trust, not transactions.</p>
-          </div>
+          <AuthBrandHeader />
           <div className="bg-surface-raised rounded-lg shadow-lg p-8">
           <h1 className="text-3xl font-bold font-serif text-center mb-8">Login</h1>
 

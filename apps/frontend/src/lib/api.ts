@@ -1,6 +1,6 @@
 import axios, { InternalAxiosRequestConfig } from 'axios'
 import { buildValidateInvitationUrl } from './socialGraphUrls'
-import { decodeJwtPayload as decodeJwtPayloadUtf8 } from './jwt'
+import { decodeJwtPayload } from './jwt'
 
 // Module-level refresh state — MUST be outside interceptor function body.
 // If declared inside, they reset on every request and the queue never works.
@@ -41,9 +41,7 @@ function authInterceptor(config: InternalAxiosRequestConfig) {
   return config
 }
 
-// Decode JWT payload without verification (for extracting community context client-side).
-// UTF-8 safe — see lib/jwt.ts (BUG-032).
-const decodeJwtPayload = decodeJwtPayloadUtf8
+// JWT payload decoding (no verification, UTF-8 safe) lives in lib/jwt.ts — see BUG-032.
 
 // Inject X-Community-ID into every reputation request.
 // Reads from stored user object first; falls back to JWT payload.
