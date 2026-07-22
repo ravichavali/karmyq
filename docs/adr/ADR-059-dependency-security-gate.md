@@ -65,6 +65,22 @@ These are recorded because they cost real debugging time and will recur:
 5. **`ts-jest` is pinned to `29.4.6`.** The re-float bumped it to `29.4.11`, which changed how its inline-`tsconfig` object merges with the project tsconfig — dropping `moduleResolution: node16` and breaking `@karmyq/shared/schemas/ui` subpath resolution in `request-service` tests (TS2307).
 6. **`apps/mobile` type-check was already red on master** (pre-existing `FlatList`/`refreshControl` overload errors) and is **not** in the CI gate. The expo-internal version churn from the re-float lands in that already-broken, non-web-deployed workspace and does not regress any gated check.
 
+### 2026-07-21 advisory refresh (v11.30.1)
+
+New registry disclosures blocked the standing gate with seven high and one critical finding. The
+follow-up hotfix retained the leaf-override strategy and again rejected `npm audit fix --force`:
+
+- direct Axios consumers now require `^1.18.1`;
+- exact/surgical overrides move `tar` to `7.5.21`, `brace-expansion` to `5.0.7`, `body-parser` to
+  `1.20.6`, `shell-quote` to `1.10.0`, `js-yaml` to `4.3.0`, and `fast-uri` to `4.1.1`;
+- Next.js remains on 15.5, while its optional image-processing leaf is overridden to
+  `sharp@0.35.3`; because that release requires Node 20.9+, only the frontend build/runtime images
+  move from Node 18 Alpine to Node 20 Alpine and declare the matching engine floor.
+
+`npm audit --audit-level=high` returns zero vulnerabilities after the lockfile refresh. The Sharp
+override is intentionally compatibility-tested through the frontend production build and Docker
+build gate rather than accepting npm's suggested breaking Next.js downgrade.
+
 ---
 
 ## Consequences
