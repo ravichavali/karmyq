@@ -18,7 +18,7 @@
     "@expo/metro-runtime": "~4.0.1",
     "@expo/vector-icons": "~14.0.4",
     "@react-native-picker/picker": "2.11.4",
-    "axios": "^1.15.2",
+    "axios": "^1.18.1",
     "expo": "~54.0.0",
     "expo-camera": "*",
     "expo-constants": "*",

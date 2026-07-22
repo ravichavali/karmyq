@@ -1,10 +1,19 @@
 # Frontend CONTEXT.md
 
-**Last updated**: 2026-07-01 (Sprint 116 — Context-Bound Relationship Lens, PR C)
+**Last updated**: 2026-07-21 (v11.30.1 dependency-security hotfix)
 
 ## Overview
 
-Next.js 14 web application (Pages Router) consuming all Karmyq backend services.
+Next.js 15 web application (Pages Router) consuming all Karmyq backend services.
+
+## v11.30.1 dependency-security runtime floor (2026-07-21)
+
+- Frontend build and runtime containers use Node 20 Alpine; `apps/frontend/package.json` requires
+  Node `>=20.9.0`. This is the minimum supported by patched `sharp@0.35.x`.
+- Root dependency overrides keep Next.js on the existing 15.5 line while replacing its vulnerable
+  optional Sharp/libvips leaf. Frontend behavior and public API contracts are unchanged.
+- Axios is pinned to the patched `^1.18.1` floor across direct consumers. Do not lower these floors
+  without rerunning the ADR-059 high/critical audit gate.
 
 ---
 

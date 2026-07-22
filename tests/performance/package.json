@@ -8,7 +8,7 @@
     "test:light": "ts-node api-performance.test.ts --light"
   },
   "dependencies": {
-    "axios": "^1.6.0"
+    "axios": "^1.18.1"
   },
   "devDependencies": {
     "@types/node": "^20.10.6",
