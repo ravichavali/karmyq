@@ -497,7 +497,7 @@ request for the visible cards.
 
 ---
 
-## BUG-032 · [2026-07-22] · open
+## BUG-032 · [2026-07-22] · fixed (Sprint 120 PR C, v11.32.0)
 
 Community names render mojibaked in the "Your Communities" chips on `/communities` — "Southeast PDX
 Helpers **â□□** Group B" where the name is "Southeast PDX Helpers — Group B" (observed on demo as
@@ -510,5 +510,12 @@ characters. Five decode sites: `apps/frontend/src/lib/api.ts:47`,
 `apps/frontend/src/pages/communities/[id].tsx:103`, `apps/frontend/src/pages/demo.tsx:35`. Affects
 any non-ASCII character in a JWT-sourced community or person name. Fix shape: one shared
 base64url → `TextDecoder('utf-8')` helper adopted at all five sites.
+
+**Fixed (Sprint 120 PR C, v11.32.0):** `apps/frontend/src/lib/jwt.ts` exports `decodeJwtPayload`,
+which normalizes base64url, reads the `atob` output back as bytes, and decodes them with
+`TextDecoder('utf-8', { fatal: true })` — so the result is either the real characters or `null`,
+never a U+FFFD-corrupted payload that still parses as JSON. Adopted at all five decode sites.
+Covered by `apps/frontend/tests/regression/sprint-120-five-second-fixes.test.tsx` (em dash,
+non-Latin scripts and accents, both base64url substitutions, malformed token, invalid UTF-8).
 
 ---

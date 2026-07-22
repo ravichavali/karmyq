@@ -1,10 +1,48 @@
 # Frontend CONTEXT.md
 
-**Last updated**: 2026-07-21 (v11.30.1 dependency-security hotfix)
+**Last updated**: 2026-07-22 (v11.32.0 Sprint 120 PR C — five-second clarity)
 
 ## Overview
 
 Next.js 15 web application (Pages Router) consuming all Karmyq backend services.
+
+---
+
+## Sprint 120 PR C Five-Second Clarity (2026-07-22, v11.32.0)
+
+Presentation-layer outcomes of the five-second audit
+(`docs/superpowers/research/2026-07-16-sprint-120-five-second-audit.md`). All pinned by
+`tests/regression/sprint-120-five-second-fixes.test.tsx`.
+
+- **JWT payloads decode as UTF-8 — `src/lib/jwt.ts` is the ONLY decode path** (BUG-032). Bare
+  `atob()` returns one character per byte, so any non-ASCII in a JWT-sourced name (community names
+  carry em dashes) arrived as Latin-1 mojibake. `decodeJwtPayload` normalizes base64url, re-reads the
+  bytes through `TextDecoder('utf-8', { fatal: true })`, and returns `null` on any failure — the
+  contract is "the real characters or null", never a U+FFFD-corrupted payload that still parses.
+  Adopted at all five former `atob` sites (`lib/api.ts`, `pages/communities/index.tsx` ×2,
+  `pages/communities/[id].tsx`, `pages/demo.tsx`). **Do not reintroduce a local `atob` decode.**
+  The payload remains unverified and display-only; authorization still re-derives membership server-side.
+- **Onboarding overlays never stack.** `useOnboarding(workflowId, { suppressed })` reads
+  `suppressed` ONCE at mount (a `useRef` snapshot) — deliberately, so that dismissing the other
+  overlay mid-visit cannot raise a second one. `pages/dashboard.tsx` computes
+  `welcomeModalOwnsThisVisit` from storage (not from the `user` state, which arrives in a later
+  effect) and passes it in; the workflow is not marked seen, so its tour appears on the next visit.
+- **The create action is labelled and no longer rests on the feed.** `SpeedDialFab` renders a visible
+  short label ("Ask") with the full action name as the accessible name. The visible word is kept
+  short on purpose: the control is fixed over the feed at 375px. Tab content carries
+  `.kq-fab-safe-bottom` (`pb-44 md:pb-0`) — measured at 375×812, the FAB band runs 112–156px above the
+  viewport bottom, so the previous `pb-20` (80px) left content permanently underneath it.
+- **The dashboard community `<select>` cannot set page width.** It sits in a `min-w-0 flex-1
+  sm:max-w-xs` wrapper with `w-full max-w-full`. Without this, the longest option name drove the
+  intrinsic width and pushed the 375px document to 470px (a horizontal page scrollbar).
+- **`/network` speaks to a sparse member.** With ≤1 first-degree connection the page renders a
+  prompt linking `/dashboard` (`data-testid="sparse-network-cta"`); the graph itself still renders at
+  exactly 1. The active mode pill uses the green primary (the page's indigo accents are gone).
+- **Entry points:** the logged-out app root offers a third CTA to `/demo`; `/login` and `/register`
+  share `components/AuthBrandHeader` (wordmark linking `/` + product line).
+- **jsdom note:** `jest.setup.js` polyfills `TextEncoder`/`TextDecoder` (jsdom ships neither,
+  browsers do) — required by `lib/jwt.ts`. jsdom also has no layout engine, so FAB/overflow geometry
+  is pinned by class contract in tests and verified in a real browser.
 
 ## v11.30.1 dependency-security runtime floor (2026-07-21)
 

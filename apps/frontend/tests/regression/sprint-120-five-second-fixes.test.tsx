@@ -142,11 +142,36 @@ describe('R-1 · JWT payloads decode as UTF-8 (BUG-032)', () => {
     expect(decodeJwtPayload(token).name).toBe('José Álvarez · 東京の隣人')
   })
 
+  it('handles both base64url substitutions, proven on a payload that needs each one', () => {
+    const { decodeJwtPayload } = require('@/lib/jwt')
+    // '>' and '?' next to the two-byte U+00FF (C3 BF) align the 6-bit groups so standard base64
+    // emits BOTH '+' (62) and '/' (63), which base64url replaces with '-' and '_'. The two asserts
+    // below keep this a proof: if a future edit changes the payload and loses either character, the
+    // test fails instead of silently covering only one substitution.
+    const payload = { a: '?ÿ>', b: 'ÿ?>' }
+    const segment = makeToken(payload).split('.')[1]
+
+    expect(segment).toMatch(/-/)
+    expect(segment).toMatch(/_/)
+    expect(decodeJwtPayload(makeToken(payload))).toEqual(payload)
+  })
+
   it('returns null for a malformed token rather than throwing', () => {
     const { decodeJwtPayload } = require('@/lib/jwt')
 
     expect(decodeJwtPayload('not-a-token')).toBeNull()
     expect(decodeJwtPayload('a.!!!not-base64!!!.c')).toBeNull()
+  })
+
+  it('returns null for invalid UTF-8 rather than smuggling U+FFFD into a valid-looking payload', () => {
+    const { decodeJwtPayload } = require('@/lib/jwt')
+    // A lone 0x80 continuation byte inside an otherwise well-formed JSON string. Non-fatal decoding
+    // would yield {"name":"a�"} — parseable, and silently wrong.
+    const bytes = [...'{"name":"a'].map((c) => c.charCodeAt(0)).concat([0x80, 0x22, 0x7d])
+    const binary = String.fromCharCode(...bytes)
+    const token = `header.${btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')}.sig`
+
+    expect(decodeJwtPayload(token)).toBeNull()
   })
 })
 
@@ -217,13 +242,17 @@ describe('R-4 · the auth pages carry the brand and a route home (F-7)', () => {
 
 // ---------------------------------------------------------------- R-5
 
-describe('R-5 · the create action is labelled, not a bare +', () => {
-  it('labels the single-action FAB visibly', () => {
+describe('R-5 · the create action is labelled AND stops resting on the feed at 375px', () => {
+  it('labels the single-action FAB visibly while naming the action for assistive tech', () => {
     const SpeedDialFab = require('@/components/SpeedDialFab').default
 
     render(<SpeedDialFab activeTab="asks" onGetHelp={jest.fn()} onGetService={jest.fn()} />)
 
-    expect(screen.getByRole('button', { name: /get help/i })).toHaveTextContent(/get help/i)
+    const fab = screen.getByRole('button', { name: 'Get Help' })
+    expect(fab).toHaveTextContent(/ask/i)
+    // The visible word stays short on purpose — this control is fixed over the feed at 375px, so
+    // every extra character covers more content. Guard against the label growing back.
+    expect(fab.textContent?.replace(/[+×]/g, '').trim().length).toBeLessThanOrEqual(12)
   })
 
   it('labels the speed-dial trigger visibly on the browse tab', () => {
@@ -233,6 +262,24 @@ describe('R-5 · the create action is labelled, not a bare +', () => {
 
     const trigger = screen.getByRole('button', { expanded: false })
     expect(trigger).toHaveTextContent(/ask/i)
+    expect(trigger.textContent?.replace(/[+×]/g, '').trim().length).toBeLessThanOrEqual(12)
+  })
+
+  it('reserves scroll space under the tab content so the FAB never rests on a card', async () => {
+    signIn()
+    const Dashboard = require('@/pages/dashboard').default
+
+    const { container } = render(<Dashboard />)
+
+    // jsdom has no layout engine (every getBoundingClientRect is 0×0), so the pixel geometry cannot
+    // be asserted here — it was measured in a real browser at 375×812 on the demo: the FAB band runs
+    // 112px–156px above the viewport bottom, and the previous pb-20 (80px) left content underneath
+    // it. What this test CAN pin is that the tab content keeps the reservation class that encodes
+    // that clearance (.kq-fab-safe-bottom → pb-44 md:pb-0), so a future edit cannot silently drop it.
+    await waitFor(() => {
+      expect(container.querySelector('.kq-fab-safe-bottom')).toBeInTheDocument()
+    })
+    expect(container.querySelector('.pb-20')).toBeNull()
   })
 })
 
@@ -271,7 +318,36 @@ describe('R-6 · onboarding overlays never stack (F-1)', () => {
     expect(result.current.shouldShow).toBe(false)
   })
 
-  it('the dashboard suppresses the feed tour for a user who has not seen the welcome modal', async () => {
+  it('never renders the welcome modal and a workflow tour at the same time', async () => {
+    signIn() // no karmyq_onboarded key → the welcome modal owns this visit
+    const Dashboard = require('@/pages/dashboard').default
+
+    render(<Dashboard />)
+
+    // The real WelcomeModal and OnboardingOverlay both mount here (neither is stubbed), so this
+    // asserts the invariant itself rather than the wiring: exactly one first-run overlay is on
+    // screen. The feed tour's own heading must be absent while the welcome copy is up.
+    await waitFor(() => {
+      expect(screen.getByText('Welcome to Karmyq!')).toBeInTheDocument()
+    })
+    expect(screen.queryByRole('dialog', { name: 'Your Feed' })).toBeNull()
+    expect(screen.queryByText(/A feed ordered by what fits you/i)).toBeNull()
+  })
+
+  it('shows the feed tour on a later visit, once the welcome modal is done', async () => {
+    signIn()
+    localStorage.setItem(`karmyq_onboarded:${signedInUser.id}`, '1')
+    const Dashboard = require('@/pages/dashboard').default
+
+    render(<Dashboard />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('dialog', { name: 'Your Feed' })).toBeInTheDocument()
+    })
+    expect(screen.queryByText('Welcome to Karmyq!')).toBeNull()
+  })
+
+  it('passes the suppression decision down to the hook', async () => {
     signIn()
     const { useOnboarding } = require('@/hooks/useOnboarding')
     const Dashboard = require('@/pages/dashboard').default

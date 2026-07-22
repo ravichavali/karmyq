@@ -1,7 +1,9 @@
 # Sprint 120 PR C — Five-Second Clarity Audit
 
-**Status:** AUDIT COMPLETE for the states/surfaces listed under Coverage (Tasks 2–3); awaiting the
-Task 4 maintainer selection
+**Status:** COMPLETE. Audit done for the states/surfaces listed under Coverage (Tasks 2–3); the
+maintainer selected **R-1…R-8** at the Task 4 checkpoint (see the selection section at the foot of
+this doc) and those fixes shipped in PR
+[#158](https://github.com/ravichavali/karmyq/pull/158) at v11.32.0.
 **Sprint:** 120 · **PR:** C · **Branch:** `feature/sprint-120-five-second-clarity`
 **Plan:** [`docs/superpowers/plans/2026-07-16-sprint-120-pr-c-five-second-clarity.md`](../plans/2026-07-16-sprint-120-pr-c-five-second-clarity.md)
 **Spec:** [`docs/superpowers/specs/2026-07-16-sprint-120-true-scores-one-seed-clarity-design.md`](../specs/2026-07-16-sprint-120-true-scores-one-seed-clarity-design.md)

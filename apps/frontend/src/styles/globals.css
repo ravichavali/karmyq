@@ -110,6 +110,15 @@ body {
            md:bottom-8;
   }
 
+  /* Sprint 120 PR C (R-5): scroll space reserved under tab content so the fixed FAB never comes to
+     rest on top of a card. Measured at 375x812 on the demo: the FAB band runs 112px–156px above the
+     viewport bottom (bottom-28 + a 44px-tall control), and the previous pb-20 (80px) left ~76px of
+     content permanently underneath it. pb-44 (176px) clears the whole band with margin. Desktop
+     needs none — the FAB moves to bottom-8 and the bottom tab bar is gone. */
+  .kq-fab-safe-bottom {
+    @apply pb-44 md:pb-0;
+  }
+
   /* ── Status Badges (commitment state) ── */
   .status-badge {
     @apply inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium;

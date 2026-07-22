@@ -223,7 +223,7 @@ export default function Dashboard() {
             />
 
             {/* Tab content */}
-            <div className="pb-20 md:pb-0">
+            <div className="kq-fab-safe-bottom">
               {activeTab === 'browse' && (
                 <div key="browse">
                   <section className="kq-page-header kq-page">

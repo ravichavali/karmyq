@@ -1,6 +1,36 @@
-# Sprint 120 — True Scores, One Seed Path & Five-Second Clarity — PR C IN PROGRESS
+# Sprint 120 — True Scores, One Seed Path & Five-Second Clarity — PR C IN REVIEW (PR #158)
 
-> **STATUS (2026-07-22, PR C session):** Branch `feature/sprint-120-five-second-clarity` is cut from
+> **STATUS (2026-07-22, PR C session — CURRENT):** **Tasks 1–8 are DONE and PR
+> [#158](https://github.com/ravichavali/karmyq/pull/158) — `Sprint 120 PR C: Five-Second Clarity
+> (v11.32.0)` — is OPEN, CI fully green (20 checks; `Deploy to Demo` skipped until master), state
+> `MERGEABLE` / `BLOCKED` on review.** Cross-agent review by Codex returned **request-changes: no
+> critical defects, two important gaps**, both now addressed on the branch:
+> 1. **R-5 was only half-done** — the label shipped but not the 375px overlap the selected item
+>    called for. Measured in a real browser at 375×812: the FAB band runs **112–156px** above the
+>    viewport bottom while tab content reserved only `pb-20` (80px), so content rested under it, and
+>    the new label made the control wider. Fixed: visible label shortened to "Ask" (full action name
+>    moved to the accessible name) and tab content now carries **`.kq-fab-safe-bottom`
+>    (`pb-44 md:pb-0`)**. jsdom has no layout engine, so the test pins the class contract and the
+>    geometry is browser-verified — do NOT expect a real bounding-box assertion in jest.
+> 2. **Canonical docs were stale** — this handoff, the audit doc's status line, `BUG-032`'s status,
+>    and `apps/frontend/CONTEXT.md` all now reflect shipped state.
+>
+> Also from the review: `lib/jwt.ts` now decodes with **`TextDecoder('utf-8', { fatal: true })`** (a
+> non-fatal decode could smuggle U+FFFD into a payload that still parses); the onboarding test now
+> asserts the **real invariant** (WelcomeModal and OnboardingOverlay never coexist — verified to fail
+> when the suppression is reverted) instead of only hook arguments; and the base64url test proves
+> **both** `-` and `_` substitutions on a payload that provably needs each.
+>
+> **Quality gates:** `/simplify` applied, `/security-review` clean (no HIGH/MEDIUM), `/code-review`
+> was delegated to Codex (this review). Suite: 24 tests in
+> `apps/frontend/tests/regression/sprint-120-five-second-fixes.test.tsx`.
+> **NEXT:** push the review fixes, confirm CI, then **PAUSE for explicit admin merge authorization**
+> (`gh pr merge --squash --admin`), monitor deploy, smoke-test demo, then sprint close-out: this
+> handoff → COMPLETE and archived to
+> `.claude/handoff/archive/2026-07-22-sprint-120-...-COMPLETE.md`.
+
+> **STATUS (2026-07-22, PR C session — earlier, superseded by the block above):** Branch
+> `feature/sprint-120-five-second-clarity` is cut from
 > fresh `origin/master` (`3623dc89`). **Task 1 DONE:** the deferred bookkeeping rides this first
 > commit — **ADR-087 → Implemented** (ADR md + `docs/adr/README.md` index + regenerated landing
 > `concepts.json`; the per-ADR `concepts/*.json` files are gitignored/generated at build) — this
@@ -26,8 +56,8 @@
 > create action; stop stacked onboarding overlays; sparse-`/network` CTA; green active mode pill).
 > Deferred to IDEAS: R-9/R-10/R-12. Logged as bugs, not fixed inline: **BUG-031** (32× 404
 > `community-trust` console noise on `/communities`) and **BUG-032** (the JWT `atob` mojibake that
-> R-1 fixes). Plan Tasks 5–7 are rewritten in place with concrete files/tests. **NEXT: Task 5**
-> (TDD tests in `apps/frontend/tests/tdd/sprint-120-five-second-fixes.test.tsx`, RED first).
+> R-1 fixes; BUG-032 is now marked fixed). Plan Tasks 5–7 were rewritten in place with concrete files/tests. **Task 5 followed**
+> (TDD tests in `apps/frontend/tests/tdd/sprint-120-five-second-fixes.test.tsx`, RED first; since promoted to `tests/regression/`).
 
 > **STATUS (2026-07-22, this session): PR B is SHIPPED.** PR
 > [#153](https://github.com/ravichavali/karmyq/pull/153) — `Sprint 120: generate init.sql from one

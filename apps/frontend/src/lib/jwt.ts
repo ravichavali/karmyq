@@ -17,7 +17,10 @@ export function decodeJwtPayload<T = any>(token: string): T | null {
     const base64 = segment.replace(/-/g, '+').replace(/_/g, '/')
     const binary = atob(base64)
     const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0))
-    return JSON.parse(new TextDecoder('utf-8').decode(bytes)) as T
+    // `fatal: true` on purpose: without it, invalid UTF-8 is replaced with U+FFFD and a corrupt
+    // payload can still parse as JSON — trading one silent corruption for another. Throwing lands in
+    // the catch below, so the contract is "the real characters, or null".
+    return JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes)) as T
   } catch {
     return null
   }
