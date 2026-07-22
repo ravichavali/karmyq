@@ -34,8 +34,17 @@
 > and exact 65-row ledger parity; it failed only on the deliberately absent drift-success marker,
 > so no artifact uploaded. Task 5 is RED as intended (five stale-init sentinels fail; the shipped
 > global-index and DOUBLE PRECISION sentinels pass). Task 6's source-shared `--drift-check` mode and
-> CI integration invocation are implemented locally; validate, commit, and push them next so the
-> workflow can publish the artifact.
+> CI integration invocation are committed. Regeneration run `29875351593` is fully green: Linux
+> shellcheck, double-run determinism, fresh generated-DB boot, exact 65-row ledger parity, strict
+> empty before/after drift diff, and artifact upload all passed. Verified artifact SHA-256
+> `64BB19A73ACF2E379785ABD7CBAD2506D3C5D1E9ED7BD01BE6F1EF23011DBCC8` is installed locally as
+> `infrastructure/postgres/init.sql`; curated seed SQL is byte-preserved, and the promoted
+> regression drift gate passes 7/7. The artifact commit is staged but BLOCKED by newly disclosed
+> registry advisories: full `npm test` now fails only the ADR-059 audit gate (7 high + 1 critical),
+> and PR #153 independently shows Security Audit + Backend Services failures while regeneration,
+> auth, frontend, lint, CodeQL, and Docker build pass. Mandatory process review says DO NOT COMMIT.
+> Admin must choose a separate dependency-security PR (preferred by the one-task/one-PR contract)
+> or explicitly expand PR B scope before artifact work can continue.
 
 > **STATUS (2026-07-16, planning session):** Sprint 119 is fully SHIPPED — PR #150 merged by Admin
 > 2026-07-16 14:47Z (squash `6cf8f2d`), CI/CD deployed. Sprint 120 planned this session

@@ -671,6 +671,14 @@
       "status": "implemented",
       "description": "**Status**: Implemented",
       "filename": "ADR-086-scale-answers-one-question-per-zoom-level.md"
+    },
+    {
+      "slug": "adr-087-one-seed-path-init-sql-regeneration",
+      "number": "087",
+      "title": "ADR-087: One Seed Path — init.sql Regeneration",
+      "status": "accepted",
+      "description": "**Status**: Accepted",
+      "filename": "ADR-087-one-seed-path-init-sql-regeneration.md"
     }
   ]
 }

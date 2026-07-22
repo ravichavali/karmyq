@@ -528,6 +528,10 @@
           "divider": true
         },
         {
+          "label": "One Seed Path — init.sql Regeneration",
+          "href": "/docs/concepts/adr-087-one-seed-path-init-sql-regeneration"
+        },
+        {
           "label": "Fold Feed Service Into Request Service",
           "href": "/docs/concepts/adr-071-service-consolidation-feed-service"
         },
