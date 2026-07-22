@@ -92,14 +92,17 @@ describe('Community Membership & Feed Schema Contract (ADR-031)', () => {
 
   describe('Database schema defines required columns', () => {
     it('init.sql must define visibility_scope_enum type', () => {
-      expect(initSql).toContain("CREATE TYPE visibility_scope_enum");
+      // init.sql is generated from the migration seed path (ADR-087); the
+      // generator emits schema-qualified DDL (public.visibility_scope_enum),
+      // so assert the enum's presence without pinning the qualification form.
+      expect(initSql).toMatch(/CREATE TYPE (?:public\.)?visibility_scope_enum/);
       expect(initSql).toContain("'community'");
       expect(initSql).toContain("'trust_network'");
       expect(initSql).toContain("'platform'");
     });
 
     it('init.sql must define visibility_scope column on help_requests', () => {
-      expect(initSql).toContain('visibility_scope visibility_scope_enum');
+      expect(initSql).toMatch(/visibility_scope (?:public\.)?visibility_scope_enum/);
     });
 
     it('init.sql must define visibility_max_degrees column on help_requests', () => {
@@ -107,7 +110,7 @@ describe('Community Membership & Feed Schema Contract (ADR-031)', () => {
     });
 
     it('init.sql must define default_request_scope on communities', () => {
-      expect(initSql).toContain('default_request_scope visibility_scope_enum');
+      expect(initSql).toMatch(/default_request_scope (?:public\.)?visibility_scope_enum/);
     });
 
     it('init.sql must define user_feed_preferences table', () => {
@@ -128,7 +131,7 @@ describe('Community Membership & Feed Schema Contract (ADR-031)', () => {
       // This was a real bug: the enum was defined in the requests section
       // but referenced in the communities table (communities comes first in init.sql).
       // PostgreSQL processes sequentially, so the enum must come first.
-      const enumPos = initSql.indexOf('CREATE TYPE visibility_scope_enum');
+      const enumPos = initSql.search(/CREATE TYPE (?:public\.)?visibility_scope_enum/);
       const communitiesPos = initSql.indexOf('CREATE TABLE communities.communities');
       expect(enumPos).toBeGreaterThan(-1);
       expect(communitiesPos).toBeGreaterThan(-1);
