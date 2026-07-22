@@ -1,4 +1,47 @@
-# Sprint 120 — True Scores, One Seed Path & Five-Second Clarity — PR A SHIPPED & DEPLOYED; PR B NEXT
+# Sprint 120 — True Scores, One Seed Path & Five-Second Clarity — PR B CI-GREEN; 3 PLAN GAPS + CODE-REVIEW BEFORE MERGE
+
+> **STATUS (2026-07-21, this session):** The dependency-security blocker is RESOLVED and PR B's
+> artifact work is UNBLOCKED, committed, and CI-green. Sequence of events:
+> 1. **Security hotfix shipped separately** (the one-task/one-PR path the prior handoff called for):
+>    PR [#156](https://github.com/ravichavali/karmyq/pull/156) — `security: dependency vulnerability
+>    remediation hotfix (v11.30.1)` — **MERGED** (`791255f8`) and deployed. Default-branch vulns
+>    dropped 8 (high/mod) → 1 (low). Axios `^1.18.1`, surgical overrides (tar/brace-expansion/
+>    body-parser/shell-quote/js-yaml/fast-uri), Next.js stays 15.5 with `sharp@0.35.3` leaf override;
+>    frontend images moved node:18→20-alpine (engine floor >=20.9.0), backends stay 18. Audit gate = 0.
+> 2. **PR B WIP restored from stash** onto `feature/sprint-120-one-seed-path`: drift gate PROMOTED
+>    `tdd/ → regression/`, `init.sql` regenerated artifact landed, landing ADR-087 docs + handoff.
+>    Committed `cef3fa1d`; then merged `origin/master` in (`ea38a3f9`) to pick up the security fix.
+> 3. **CI caught a real failure**, now fixed (`c4fedbbe`): the ADR-031 contract test
+>    (`services/request-service/tests/regression/community-membership-feed.test.ts`) hard-coded
+>    UNQUALIFIED DDL strings, but the ADR-087 generator emits SCHEMA-QUALIFIED
+>    (`public.visibility_scope_enum`). Enum/columns/ordering were all present & correct — only the
+>    string form differed. Fix: qualification-tolerant regex (`/CREATE TYPE (?:public\.)?…/`) +
+>    `.search()` for the ordering check. Preserves contract intent; do NOT revert to `toContain`.
+> **PR [#153](https://github.com/ravichavali/karmyq/pull/153) is now fully CI-GREEN (all 21 checks),
+> MERGEABLE, blocked only on REVIEW_REQUIRED.** `/security-review` ran on the branch = CLEAN (tooling
+> only: workflow uses `pull_request` not `pull_request_target`, read-only perms, no untrusted
+> interpolation; scripts escape SQL identifiers/literals + consume only repo/env inputs).
+>
+> **⚠️ NEXT SESSION — close 3 plan gaps + the mandated HIGH review, then merge (Task 8/9):**
+> 1. **Bump version `11.30.1 → v11.31.0`** in `package.json` (Task 8; currently still 11.30.1,
+>    inherited from the security merge).
+> 2. **Run `/simplify`** on THIS branch diff (Task 8 — the one PR-B pass; the earlier simplify ran on
+>    the security branch, NOT this one). Scope: `scripts/regenerate-init-sql.sh`,
+>    `scripts/ci-apply-full-schema.sh`, the workflow. Skip the 8k-line generated `init.sql`.
+> 3. **Run `/code-review` at HIGH effort** (Task 8 — plan MANDATES high for this seed-path rewrite).
+> 4. Minor doc-loop: add an "addressed-by ADR-087 / PR #153" note to the `docs/IDEAS.md`
+>    `[2026-07-08] infra` entry (line ~393). (Task 7's MIGRATION_STRATEGY/README "how to re-run" is
+>    already covered inside ADR-087's Decision section — treat as satisfied.)
+> Then Task 9: `npm test` + `pre-commit-check`, `gh pr ready` is moot (already non-draft), **PAUSE for
+> explicit Admin merge authorization** (`gh pr merge --squash --admin`), monitor deploy (demo does
+> NOT re-seed from init.sql — existing DB, deploy impact is fresh-install/CI paths only), ADR-087 →
+> Implemented rides PR C / next sprint's first commit (no docs-only master push).
+>
+> **Housekeeping:** `git stash@{0}` (`sprint-120-pr153-artifact-wip`) is still intact as a backup —
+> it is FULLY captured in commits `cef3fa1d`/`c4fedbbe`; **drop it after PR #153 merges**
+> (`git stash drop stash@{0}`). Two ancient v9.x stashes (`stash@{1}` S36, `stash@{2}` S34) are stale
+> cruft — clear when convenient.
+
 
 > **STATUS (2026-07-17, PR A shipped):** PR
 > [#152](https://github.com/ravichavali/karmyq/pull/152) is **MERGED** (admin-override squash
@@ -60,20 +103,28 @@
 > `/demo` tour survives refresh, topbar calm at md/lg/xl) can fold into PR C's audit pass —
 > read-only, never mutate protected personas.
 
-## Quick Start (PR B)
+## Quick Start (PR B — finishing gaps, then merge)
 
-1. Read this handoff
-2. Continue on `feature/sprint-120-one-seed-path` (branched from fresh `origin/master`)
-3. Open plan: `docs/superpowers/plans/2026-07-16-sprint-120-pr-b-one-seed-path.md` (9 tasks) and
-   re-read critical notes 6–8 + 10 below (real `--drift-check` mechanism, Task 4 opens a draft PR,
-   drift-test/land reorder, `schema_migrations` seeding)
-4. ADR-087 starts Accepted in PR B; after PR B deploys, its Implemented status rides PR C's first
-   commit. Archive this Sprint 120 handoff only after the full sprint ships.
-5. Run: `/execute-plan` with superpowers:executing-plans, working INLINE (see efficiency note 12);
-   PR B stays `/code-review` HIGH (risky migration/schema work)
+PR B Tasks 1–7 are DONE and CI-green on `feature/sprint-120-one-seed-path` (PR #153). Only Task 8
+gaps + Task 9 remain. Plan: `docs/superpowers/plans/2026-07-16-sprint-120-pr-b-one-seed-path.md`.
 
-PR C follows the same pattern with its own plan file, branching off fresh `origin/master` after
-PR B merges.
+1. Read this handoff (top status block has the full sequence + the exact fix already applied).
+2. `git checkout feature/sprint-120-one-seed-path` (already 0 behind `origin/master`; security fix
+   #156 merged in). Working tree should be clean.
+3. **Close Task 8 gaps:** bump `package.json` `11.30.1 → 11.31.0`; `/simplify` on the branch diff
+   (scripts + workflow only, skip generated `init.sql`); `/code-review` at **HIGH** effort (plan
+   mandate). `/security-review` already ran = clean.
+4. **Task 7 minor:** add "addressed-by ADR-087 / PR #153" note to `docs/IDEAS.md` `[2026-07-08]`
+   entry (~line 393). MIGRATION_STRATEGY/README re-run docs already live in ADR-087 Decision §.
+5. **Task 9:** commit gaps, `npm test` + `pre-commit-check` green, push (updates #153), then **PAUSE
+   for explicit Admin merge authorization** (`gh pr merge --squash --admin`). Monitor deploy (demo
+   does NOT re-seed init.sql). ADR-087 → Implemented rides PR C / next sprint (no docs-only push).
+6. **After merge:** `git stash drop stash@{0}` (WIP fully captured in commits); optionally clear the
+   two ancient v9.x stashes.
+
+Do NOT revert the ADR-031 contract-test regex fix to `toContain` — the generator emits qualified DDL.
+
+PR C follows with its own plan file, branching off fresh `origin/master` after PR B merges.
 
 ## Sprint Goal
 
