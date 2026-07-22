@@ -4,6 +4,15 @@ Welcome to Karmyq — a place where neighbours help each other out. This guide s
 
 ---
 
+## Landing on karmyq.com
+
+If you arrive at the app itself rather than the public site, the front door offers the same three
+choices in one row: **Get started** (register), **Log in**, and **See how it works** — which opens
+the same read-only `/demo` tour described below. The Karmyq wordmark at the top of the login and
+registration pages always takes you back to that front door.
+
+---
+
 ## Three ways in from karmyq.org
 
 The public site offers three distinct doors — pick the one that matches how ready you are:
