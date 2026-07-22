@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import Head from 'next/head'
 import Link from 'next/link'
 import { demoService } from '@/lib/api'
+import { decodeJwtPayload } from '@/lib/jwt'
 import RelationshipContextPanel from '@/components/relationships/RelationshipContextPanel'
 
 /**
@@ -29,14 +30,8 @@ interface DemoContext {
 const REGISTER_URL = 'https://karmyq.com/register'
 
 // Decode a JWT payload (no verification) — used only to decide whether to rehydrate.
-function decodePayload(token: string): { exp?: number; sessionMode?: string } | null {
-  try {
-    const base64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')
-    return JSON.parse(atob(base64))
-  } catch {
-    return null
-  }
-}
+const decodePayload = (token: string) =>
+  decodeJwtPayload<{ exp?: number; sessionMode?: string }>(token)
 
 // Only rehydrate a token that is BOTH a demo session and unexpired. Requiring
 // sessionMode prevents an ordinary logged-in token (plus stale demoContext) from

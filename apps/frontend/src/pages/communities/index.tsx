@@ -4,6 +4,7 @@ import Head from 'next/head'
 import Link from 'next/link'
 import { communityService, reputationService } from '@/lib/api'
 import { isFirstEverJoin, beginArrival } from '@/lib/session'
+import { decodeJwtPayload } from '@/lib/jwt'
 import Layout from '@/components/Layout'
 import EmptyState from '@/components/EmptyState'
 import DiscoveryToggle, { type DiscoveryMode, readDiscoveryMode } from '@/components/DiscoveryToggle'
@@ -229,9 +230,7 @@ export default function CommunitiesPage() {
         const stored = JSON.parse(userData)
         // Heal user.communities from JWT — the token always has complete {id, name, role}.
         // Guards against a prior optimistic update that wrote {id, role} without name.
-        const payload = token
-          ? JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')))
-          : null
+        const payload = token ? decodeJwtPayload<any>(token) : null
         if (payload?.communities?.length) {
           const healed = { ...stored, communities: payload.communities }
           localStorage.setItem('user', JSON.stringify(healed))
@@ -338,7 +337,7 @@ export default function CommunitiesPage() {
         localStorage.setItem('token', newToken)
         try {
           // Decode the new JWT to get the complete community list (id + name + role)
-          const payload = JSON.parse(atob(newToken.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')))
+          const payload = decodeJwtPayload<any>(newToken)
           if (payload?.communities) {
             const updatedUser = { ...user, communities: payload.communities }
             localStorage.setItem('user', JSON.stringify(updatedUser))

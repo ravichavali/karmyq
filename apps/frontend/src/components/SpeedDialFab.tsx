@@ -31,15 +31,17 @@ export default function SpeedDialFab({ activeTab, onGetHelp, onGetService }: Spe
 
   if (actions.length === 0) return null
 
-  // Single action — plain FAB, no expansion needed
+  // Single action — plain FAB, no expansion needed.
+  // Sprint 120 PR C (R-5): the label is VISIBLE, not just an aria-label. A bare "+" circle was the
+  // only affordance for the product's primary action, and screenshots of the fold read as decoration.
   if (actions.length === 1) {
     return (
       <button
-        className="fab"
+        className="fab whitespace-nowrap"
         onClick={onGetHelp}
-        aria-label="Get Help"
       >
-        +
+        <span aria-hidden="true">+</span>
+        <span>Get Help</span>
       </button>
     )
   }
@@ -77,12 +79,12 @@ export default function SpeedDialFab({ activeTab, onGetHelp, onGetService }: Spe
       )}
 
       <button
-        className="fab-trigger focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+        className="fab-trigger whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
         onClick={() => setExpanded(!expanded)}
-        aria-label={expanded ? 'Close actions' : 'Open actions'}
         aria-expanded={expanded}
       >
-        {expanded ? '×' : '+'}
+        <span aria-hidden="true">{expanded ? '×' : '+'}</span>
+        <span>{expanded ? 'Close' : 'Ask'}</span>
       </button>
     </div>
   )

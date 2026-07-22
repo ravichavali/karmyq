@@ -35,6 +35,9 @@ export default function Home() {
               <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
                 <Link href="/register" className="btn-primary">Get started</Link>
                 <Link href="/login" className="btn-secondary">Log in</Link>
+                {/* Sprint 120 PR C (F-8): /demo answers "what is this?" faster than any copy on
+                    this page, and nothing used to link to it from the front door. */}
+                <Link href="/demo" className="btn-ghost">See how it works</Link>
               </div>
             ) : (
               <div className="mt-8 flex justify-center">

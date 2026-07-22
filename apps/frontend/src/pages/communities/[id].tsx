@@ -10,6 +10,7 @@ import ActiveTab from '@/components/community/tabs/ActiveTab'
 import TrustGraphTab from '@/components/community/tabs/TrustGraphTab'
 import StewardshipTab from '@/components/community/tabs/StewardshipTab'
 import { useCommunityData } from '@/hooks/useCommunityData'
+import { decodeJwtPayload } from '@/lib/jwt'
 import { useCommunityPulse } from '@/hooks/useCommunityPulse'
 import { communityService } from '@/lib/api'
 import { isFirstEverJoin, beginArrival } from '@/lib/session'
@@ -100,7 +101,7 @@ export default function CommunityDetailPage() {
       if (newToken && community.access_type === 'public') {
         localStorage.setItem('token', newToken)
         try {
-          const payload = JSON.parse(atob(newToken.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')))
+          const payload = decodeJwtPayload<any>(newToken)
           if (payload?.communities) {
             const stored = localStorage.getItem('user')
             if (stored) {
