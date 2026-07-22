@@ -5,13 +5,18 @@
 > (v11.32.0)` — is OPEN, CI fully green (20 checks; `Deploy to Demo` skipped until master), state
 > `MERGEABLE` / `BLOCKED` on review.** Cross-agent review by Codex returned **request-changes: no
 > critical defects, two important gaps**, both now addressed on the branch:
-> 1. **R-5 was only half-done** — the label shipped but not the 375px overlap the selected item
->    called for. Measured in a real browser at 375×812: the FAB band runs **112–156px** above the
->    viewport bottom while tab content reserved only `pb-20` (80px), so content rested under it, and
->    the new label made the control wider. Fixed: visible label shortened to "Ask" (full action name
->    moved to the accessible name) and tab content now carries **`.kq-fab-safe-bottom`
->    (`pb-44 md:pb-0`)**. jsdom has no layout engine, so the test pins the class contract and the
->    geometry is browser-verified — do NOT expect a real bounding-box assertion in jest.
+> 1. **R-5 first fix was wrong, now correct.** The first attempt (short label + `pb-44`) did NOT stop
+>    the overlap — `pb-44` only lets the LAST card scroll clear; a fixed corner FAB still rests on
+>    whatever card is in its band at scroll 0. Browser-verified on the live build at 375×812: the FAB
+>    `[288–336]` intersects the "Explore →" link `[259–323]`, and ANY right-corner FAB (left edge
+>    ≥303) clips right-aligned card actions that end at x≈323 — a floating corner button cannot reach
+>    zero-overlap on a 375px column. **Correct fix (reviewer's option A, non-overlay placement):**
+>    `SpeedDialFab` now renders a **docked opaque full-width bar** on `< md` (`.kq-create-bar`,
+>    `bottom-16` above a deterministic `h-16` `.bottom-nav` — prototyped live, sits flush, reads as
+>    chrome content scrolls behind) and keeps the **floating labelled FAB on `md+`** (no bottom nav,
+>    room to spare). `.kq-fab-safe-bottom` (`pb-44`) keeps the last card reachable above both bars.
+>    jsdom has no layout engine, so tests pin the layout/class contract
+>    (`create-bar-mobile` / `create-fab-desktop`) and the geometry is browser-verified.
 > 2. **Canonical docs were stale** — this handoff, the audit doc's status line, `BUG-032`'s status,
 >    and `apps/frontend/CONTEXT.md` all now reflect shipped state.
 >
@@ -22,8 +27,8 @@
 > **both** `-` and `_` substitutions on a payload that provably needs each.
 >
 > **Quality gates:** `/simplify` applied, `/security-review` clean (no HIGH/MEDIUM), `/code-review`
-> was delegated to Codex (this review). Suite: 24 tests in
-> `apps/frontend/tests/regression/sprint-120-five-second-fixes.test.tsx`.
+> was delegated to Codex (this review). Suite: **24 tests** in
+> `apps/frontend/tests/regression/sprint-120-five-second-fixes.test.tsx` (frontend 352/352 overall).
 > **NEXT:** push the review fixes, confirm CI, then **PAUSE for explicit admin merge authorization**
 > (`gh pr merge --squash --admin`), monitor deploy, smoke-test demo, then sprint close-out: this
 > handoff → COMPLETE and archived to

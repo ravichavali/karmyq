@@ -27,11 +27,17 @@ Presentation-layer outcomes of the five-second audit
   overlay mid-visit cannot raise a second one. `pages/dashboard.tsx` computes
   `welcomeModalOwnsThisVisit` from storage (not from the `user` state, which arrives in a later
   effect) and passes it in; the workflow is not marked seen, so its tour appears on the next visit.
-- **The create action is labelled and no longer rests on the feed.** `SpeedDialFab` renders a visible
-  short label ("Ask") with the full action name as the accessible name. The visible word is kept
-  short on purpose: the control is fixed over the feed at 375px. Tab content carries
-  `.kq-fab-safe-bottom` (`pb-44 md:pb-0`) — measured at 375×812, the FAB band runs 112–156px above the
-  viewport bottom, so the previous `pb-20` (80px) left content permanently underneath it.
+- **The create action is labelled and never overlays the feed.** A right-corner floating FAB cannot
+  avoid a 375px column: cards carry right-aligned actions ("Explore →", "Offer to Help") reaching
+  x≈323, and any bottom-right button reaches x≥303, so they intersect at rest (measured on the live
+  build: FAB `[288–336]` ∩ "Explore →" `[259–323]`). So `SpeedDialFab` renders **two layouts**: on
+  `< md` a **docked, opaque, full-width bar** (`.kq-create-bar`, anchored `bottom-16` above the now
+  deterministic `h-16` `.bottom-nav`) — bottom chrome content scrolls behind, like the nav; on `md+`
+  the labelled floating corner FAB (no bottom nav there, wide viewport has room). Tab content keeps
+  `.kq-fab-safe-bottom` (`pb-44 md:pb-0`) so the last card clears both bottom bars. **Do not revert to
+  a single floating FAB on mobile** — it reintroduces the overlap. jsdom has no layout engine, so the
+  geometry is browser-verified and the tests pin the layout/class contract
+  (`data-testid=create-bar-mobile` / `create-fab-desktop`).
 - **The dashboard community `<select>` cannot set page width.** It sits in a `min-w-0 flex-1
   sm:max-w-xs` wrapper with `w-full max-w-full`. Without this, the longest option name drove the
   intrinsic width and pushed the 375px document to 470px (a horizontal page scrollbar).

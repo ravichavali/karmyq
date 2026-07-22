@@ -13,7 +13,7 @@
  *   R-8 (F-6)  the active /network mode pill uses the green primary, not indigo
  */
 import React from 'react'
-import { render, screen, waitFor, act } from '@testing-library/react'
+import { render, screen, waitFor, act, within, fireEvent } from '@testing-library/react'
 import { renderHook } from '@testing-library/react'
 
 // ---------------------------------------------------------------- shared mocks
@@ -242,40 +242,55 @@ describe('R-4 · the auth pages carry the brand and a route home (F-7)', () => {
 
 // ---------------------------------------------------------------- R-5
 
-describe('R-5 · the create action is labelled AND stops resting on the feed at 375px', () => {
-  it('labels the single-action FAB visibly while naming the action for assistive tech', () => {
-    const SpeedDialFab = require('@/components/SpeedDialFab').default
+describe('R-5 · the create action is labelled AND does not overlay the feed at 375px', () => {
+  const SpeedDialFab = () => require('@/components/SpeedDialFab').default
 
-    render(<SpeedDialFab activeTab="asks" onGetHelp={jest.fn()} onGetService={jest.fn()} />)
+  it('labels the mobile create action, in a docked full-width bar (not a floating corner FAB)', () => {
+    const Fab = SpeedDialFab()
+    render(<Fab activeTab="asks" onGetHelp={jest.fn()} onGetService={jest.fn()} />)
 
-    const fab = screen.getByRole('button', { name: 'Get Help' })
-    expect(fab).toHaveTextContent(/ask/i)
-    // The visible word stays short on purpose — this control is fixed over the feed at 375px, so
-    // every extra character covers more content. Guard against the label growing back.
-    expect(fab.textContent?.replace(/[+×]/g, '').trim().length).toBeLessThanOrEqual(12)
+    const bar = screen.getByTestId('create-bar-mobile')
+    // The non-overlay mechanism is the class contract: full-width (inset-x-0) opaque chrome docked
+    // above the nav (.kq-create-bar). A right-corner FAB provably clips right-aligned card actions
+    // on a 375px column — measured on the live build, FAB [288–336] ∩ "Explore →" [259–323].
+    expect(bar).toHaveClass('kq-create-bar')
+    expect(within(bar).getByRole('button')).toHaveAccessibleName('Get Help')
+    expect(within(bar).getByRole('button')).toHaveTextContent(/ask for help/i)
   })
 
-  it('labels the speed-dial trigger visibly on the browse tab', () => {
-    const SpeedDialFab = require('@/components/SpeedDialFab').default
+  it('keeps a labelled floating FAB on desktop, where there is no bottom nav to dock to', () => {
+    const Fab = SpeedDialFab()
+    render(<Fab activeTab="asks" onGetHelp={jest.fn()} onGetService={jest.fn()} />)
 
-    render(<SpeedDialFab activeTab="browse" onGetHelp={jest.fn()} onGetService={jest.fn()} />)
-
-    const trigger = screen.getByRole('button', { expanded: false })
-    expect(trigger).toHaveTextContent(/ask/i)
-    expect(trigger.textContent?.replace(/[+×]/g, '').trim().length).toBeLessThanOrEqual(12)
+    const desktop = screen.getByTestId('create-fab-desktop')
+    expect(desktop.className).toMatch(/\bfixed\b/)
+    expect(within(desktop).getByRole('button')).toHaveAccessibleName('Get Help')
   })
 
-  it('reserves scroll space under the tab content so the FAB never rests on a card', async () => {
+  it('opens the two options from the browse-tab trigger in the docked bar', () => {
+    const Fab = SpeedDialFab()
+    const onGetService = jest.fn()
+    render(<Fab activeTab="browse" onGetHelp={jest.fn()} onGetService={onGetService} />)
+
+    const bar = screen.getByTestId('create-bar-mobile')
+    const trigger = within(bar).getByRole('button', { expanded: false })
+    expect(trigger).toHaveTextContent(/ask for help/i)
+
+    fireEvent.click(trigger)
+    fireEvent.click(within(bar).getByRole('button', { name: /Get Service/ }))
+    expect(onGetService).toHaveBeenCalled()
+  })
+
+  it('reserves scroll space so the last card clears the docked bar + nav', async () => {
     signIn()
     const Dashboard = require('@/pages/dashboard').default
 
     const { container } = render(<Dashboard />)
 
-    // jsdom has no layout engine (every getBoundingClientRect is 0×0), so the pixel geometry cannot
-    // be asserted here — it was measured in a real browser at 375×812 on the demo: the FAB band runs
-    // 112px–156px above the viewport bottom, and the previous pb-20 (80px) left content underneath
-    // it. What this test CAN pin is that the tab content keeps the reservation class that encodes
-    // that clearance (.kq-fab-safe-bottom → pb-44 md:pb-0), so a future edit cannot silently drop it.
+    // jsdom has no layout engine, so geometry is browser-verified (375×812, live build): the docked
+    // create bar is full-width opaque chrome above the 64px nav, so no card sits over it at any
+    // scroll position; this padding (.kq-fab-safe-bottom → pb-44) keeps the final card reachable
+    // above both bars. The class contract is what a future edit cannot silently drop.
     await waitFor(() => {
       expect(container.querySelector('.kq-fab-safe-bottom')).toBeInTheDocument()
     })

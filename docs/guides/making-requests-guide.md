@@ -8,9 +8,10 @@ Posting a request is how you ask your community for help. It takes about a minut
 
 Posting a request takes 3 clicks:
 
-1. **Tap the "+ Ask" button** — the labelled button in the bottom-right corner. On Dashboard Home's
-   Browse tab it expands to show "Get Help" and "Get Service"; on the Helping and Asks tabs it is a
-   single "+ Get Help" button that opens the request form directly.
+1. **Tap the labelled create button** — on mobile it's the "＋ Ask for help" bar docked just above
+   the bottom tabs; on desktop it's the labelled button in the bottom-right corner. On Dashboard
+   Home's Browse tab it opens "Get Help" and "Get Service"; on the Helping and Asks tabs it opens the
+   request form directly.
 2. **Pick a type** — choose from the grid (General, Ride, Service, Event, Borrow, or custom types)
 3. **Describe your need** — fill in the description, set urgency, and post
 

@@ -71,7 +71,7 @@ The best first move is to **help someone**.
 
 Find a request you can fulfil and offer to help. It takes about 30 seconds to respond. Once you follow through, you'll earn karma and start building a real connection with that person.
 
-Or if you need something, post a request. Tap the **+ Ask** button at the bottom right — it expands into **Get Help** (for community requests) and **Get Service** (to hire a provider). Pick your request type, describe what you need, and post. It takes about 30 seconds.
+Or if you need something, post a request. Tap the **＋ Ask for help** button (a docked bar above the tabs on mobile, or the labelled button at the bottom right on desktop) — it opens **Get Help** (for community requests) and **Get Service** (to hire a provider). Pick your request type, describe what you need, and post. It takes about 30 seconds.
 
 ---
 
