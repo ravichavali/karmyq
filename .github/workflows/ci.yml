@@ -193,16 +193,11 @@ jobs:
           cd tests
           docker compose -f docker-compose.test.yml ps
 
-      # Bring the test DB to the FULL migrated schema BEFORE any integration test, so the whole job
-      # runs against the same constraints/tables the demo host has — not the drifted init.sql
-      # snapshot. init.sql lags the migration chain (missing federation/governance/ui_schemas and
-      # recent constraint migrations like chk_help_requests_status), which is why Sprint 117's reset
-      # only failed live. The script applies every migration idempotently (ON_ERROR_STOP=0:
-      # init.sql-redundant migrations skip, missing ones apply) and then ASSERTS the sentinel objects
-      # landed. The integration suite drives the real services, which emit constraint-valid data, so
-      # the fuller (superset) schema is safe for it. See scripts/ci-apply-full-schema.sh.
-      - name: Bring test DB to the full migrated schema
-        run: bash scripts/ci-apply-full-schema.sh
+      # ADR-087: init.sql is generated from the migration chain. Replay the chain before integration
+      # tests and fail if a normalized schema-only dump changes at all; sentinels remain defense in
+      # depth. This catches new cleanly-applied objects as well as unexpected migration errors.
+      - name: Prove init.sql matches the full migrated schema
+        run: bash scripts/ci-apply-full-schema.sh --drift-check
 
       - name: Run integration tests
         run: |
