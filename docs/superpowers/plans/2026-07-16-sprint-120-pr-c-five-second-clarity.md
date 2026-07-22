@@ -32,7 +32,17 @@ or new endpoints goes back through planning.
 ### Existing files to modify
 | File | Change |
 |------|--------|
-| (determined by the Task 4 checkpoint) | Selected fixes only |
+| `apps/frontend/src/lib/jwt.ts` (NEW) | R-1: shared UTF-8-safe base64url JWT payload decoder |
+| `apps/frontend/src/lib/api.ts` | R-1: `decodeJwtPayload` delegates to the shared helper |
+| `apps/frontend/src/pages/communities/index.tsx` | R-1: two `atob` sites → shared helper |
+| `apps/frontend/src/pages/communities/[id].tsx` | R-1: one `atob` site → shared helper |
+| `apps/frontend/src/pages/demo.tsx` | R-1: one `atob` site → shared helper |
+| `apps/frontend/src/pages/dashboard.tsx` | R-2: constrain the community `<select>`; R-6: pass the welcome-modal suppression flag to `useOnboarding` |
+| `apps/frontend/src/pages/index.tsx` | R-3: third CTA linking `/demo` |
+| `apps/frontend/src/pages/login.tsx`, `register.tsx` | R-4: wordmark + one-line product statement above the card |
+| `apps/frontend/src/components/SpeedDialFab.tsx` | R-5: visible label on the create action |
+| `apps/frontend/src/hooks/useOnboarding.ts` | R-6: mount-time `suppressed` option (no stacked overlays) |
+| `apps/frontend/src/pages/network.tsx` | R-7: CTA in the sparse/zero-connection state; R-8: green active mode pill |
 | `docs/guides/` + landing guide JSON | Guide updates for every shipped visible change (mandatory) |
 | `apps/frontend/src/lib/onboarding/workflows.ts` | If any audited flow changes |
 | `package.json` | v11.32.0 |
@@ -112,15 +122,58 @@ Copied from the spec — items 10–11 apply, plus audit mechanics:
 - [ ] **Verification:** explicit selection recorded; File Map + Tasks 5–7 updated with the
   concrete files and committed. **Do not proceed past this line without it.**
 
+## Task 4 result — MAINTAINER SELECTION (2026-07-22)
+
+Selected: **R-1, R-2, R-3, R-4, R-5, R-6, R-7, R-8** (everything ranked as a quick win).
+Deferred to `docs/IDEAS.md`: R-9 (fold hierarchy), R-10 (sparse-member first-run path), R-12
+(graph label contrast). Out of scope, logged as bugs: R-11 (`BUG-031`). `BUG-032` is the bug
+record for the R-1 fix.
+Coverage decision: **proceed on the audited surfaces**; the seven unaudited surfaces (request
+detail, create-request wizard, community detail + steward tabs, profile, notifications, messaging
+thread, md→lg topbar) are recorded in the audit doc and carried to a future pass.
+
 ## Task 5: TDD tests for selected fixes (before implementation)
 
-- [ ] Per selected fix, tests per the UI coverage table (renders, role/state gates, API-call
-  payloads, fetch fallbacks) in `apps/frontend/tests/tdd/sprint-120-five-second-fixes.test.tsx`
-- [ ] **Verification:** tests exist and fail against current code
+All in `apps/frontend/tests/tdd/sprint-120-five-second-fixes.test.tsx` unless noted.
+
+- [ ] **R-1** `decodeJwtPayload` on a token whose payload contains `Southeast PDX Helpers — Group B`
+  (em dash, UTF-8) returns the exact string — the current `atob` path yields `â€"`. Also: base64url
+  (`-`/`_`) input decodes; malformed token returns `null`.
+- [ ] **R-2** the dashboard community `<select>` carries width-constraining classes
+  (`max-w-full` + a `min-w-0` flex parent) so a long option cannot set page width.
+- [ ] **R-3** `/` (logged out) renders a link to `/demo`; it is absent when logged in.
+- [ ] **R-4** `/login` and `/register` each render the Karmyq wordmark linking `/` plus the product
+  line, above the form.
+- [ ] **R-5** the single-action FAB and the speed-dial trigger expose a visible text label (not just
+  `aria-label`) naming the action.
+- [ ] **R-6** `useOnboarding(id, { suppressed: true })` never sets `shouldShow`, even when the flag
+  flips to false after mount; with `suppressed: false` and no stored seen-flag it shows.
+  Dashboard-level: with an un-onboarded user, `OnboardingOverlay` is NOT rendered alongside
+  `WelcomeModal`.
+- [ ] **R-7** in ego mode with 0 connections the empty state renders a link to `/dashboard`; with
+  exactly 1 connection the graph still renders AND the same CTA appears; with ≥2 it does not.
+- [ ] **R-8** the active mode tab uses the green primary class, not `bg-indigo-600`.
+- [ ] **Verification:** `cd apps/frontend && npx jest tests/tdd/sprint-120-five-second-fixes
+  --no-coverage` fails on every assertion above before implementation.
 
 ## Task 6: Implement selected fixes
 
-- [ ] Implement each selected fix; run `/simplify` after each substantial one
+- [ ] R-1 `apps/frontend/src/lib/jwt.ts`: `decodeJwtPayload(token)` — base64url normalize →
+  `atob` → byte array → `TextDecoder('utf-8')` → `JSON.parse`; returns `null` on any failure.
+  Adopt at all five call sites (`lib/api.ts:47`, `communities/index.tsx:233` + `:341`,
+  `communities/[id].tsx:103`, `demo.tsx:35`).
+- [ ] R-2 `dashboard.tsx:154` — wrap the select in `min-w-0` and give it `max-w-full` (truncation
+  comes from the intrinsic `<select>` behaviour once width is capped).
+- [ ] R-3 `index.tsx` — third CTA "See how it works" → `/demo` in the logged-out CTA row.
+- [ ] R-4 `login.tsx` / `register.tsx` — wordmark (linking `/`) + one-line product statement above
+  the card.
+- [ ] R-5 `SpeedDialFab.tsx` — visible label on both the single-action FAB and the trigger.
+- [ ] R-6 `useOnboarding.ts` — second `suppressed` argument read once at mount; `dashboard.tsx`
+  passes "the welcome modal is about to show for this user".
+- [ ] R-7 `network.tsx` — CTA link into `/dashboard` in the `egoIsSparse` block, plus the same
+  prompt when `peopleInScope === 1`.
+- [ ] R-8 `network.tsx` — active mode tab → green primary (also the two other `indigo` accents on
+  the page if they read as the same control family).
 - [ ] **Verification:**
 
 ```bash
@@ -130,10 +183,13 @@ npx jest tests/regression --no-coverage && npx tsc --noEmit
 
 ## Task 7: Docs — guides, onboarding, landing
 
-- [ ] Update the user guide + landing guide JSON for every visible change; onboarding workflows
-  if a flow changed; capture deferred structural findings in `docs/IDEAS.md`
-- [ ] **Verification:** `npm run feedback:check` clean; grep-verify nav.json; doc-context drift
-  gate direct run green
+- [ ] User guide: note the `/demo` tour entry point and the create-action label change; regenerate
+  landing guide JSON
+- [ ] `apps/frontend/src/lib/onboarding/workflows.ts` — only if R-6 changes what a tour says (the
+  fix changes WHEN it shows, not its content; expect no edit)
+- [ ] `docs/IDEAS.md` — capture deferred R-9, R-10, R-12 with a pointer to the audit doc
+- [ ] **Verification:** `npm run feedback:check`; grep-verify nav.json; doc-context drift gate
+  direct run green
 
 ## Task 8: Version bump + SDLC quality gates
 

@@ -12,6 +12,22 @@
 > credentials: S1/S2/S3 states need demo sim login + a read-only psql degree query over SSH.
 > Sprint close (handoff archive to
 > `.claude/handoff/archive/2026-07-22-sprint-120-...-COMPLETE.md`) still rides the END of PR C.
+>
+> **Tasks 2–4 DONE (same session).** Audit lives at
+> `docs/superpowers/research/2026-07-16-sprint-120-five-second-audit.md`: 10 findings, a 4-product
+> reference comparison, a 12-row ranked table. States resolved by read-only psql — **S1
+> first-arrival is NOT auditable (0 users without a membership; no account manufactured)**, S2 =
+> `takeshi.osei6315@test.karmyq.com` (degree 1), S3 = `maria.reyes@test.karmyq.com` (degree 4 —
+> note the designated "rich" persona is below the demo's own median; max degree is 62). Seven
+> surfaces went unaudited (request detail, create-request wizard, community detail, profile,
+> notifications, messaging, md→lg topbar) — maintainer chose to proceed anyway; carried forward.
+> **Task 4 CHECKPOINT PASSED — maintainer selected R-1…R-8** (UTF-8-safe JWT decode; constrain the
+> dashboard community `<select>`; link `/demo` from the app root; brand login/register; label the
+> create action; stop stacked onboarding overlays; sparse-`/network` CTA; green active mode pill).
+> Deferred to IDEAS: R-9/R-10/R-12. Logged as bugs, not fixed inline: **BUG-031** (32× 404
+> `community-trust` console noise on `/communities`) and **BUG-032** (the JWT `atob` mojibake that
+> R-1 fixes). Plan Tasks 5–7 are rewritten in place with concrete files/tests. **NEXT: Task 5**
+> (TDD tests in `apps/frontend/tests/tdd/sprint-120-five-second-fixes.test.tsx`, RED first).
 
 > **STATUS (2026-07-22, this session): PR B is SHIPPED.** PR
 > [#153](https://github.com/ravichavali/karmyq/pull/153) — `Sprint 120: generate init.sql from one

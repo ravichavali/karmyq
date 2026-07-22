@@ -239,9 +239,21 @@ symptom, and the two worst first-impression gaps, with no risk to any pinned gra
 contract. Add **R-5** and **R-6** if the maintainer wants the first-impression story properly
 closed this sprint; both are still presentation-layer but each carries real test surface.
 
-## Maintainer selection (Task 4 checkpoint)
+## Maintainer selection (Task 4 checkpoint) — 2026-07-22
 
-> Task 4: the explicit selection + rationale, mirrored into `CURRENT_HANDOFF.md`, before the plan
-> file's Tasks 5–7 are rewritten with concrete files and tests.
+**Selected for PR C: R-1, R-2, R-3, R-4, R-5, R-6, R-7, R-8** — the maintainer took the recommended
+five plus both judgement-call items (R-5 labelled create action, R-6 no stacked tours) and R-7
+(purposeful sparse `/network` state). Rationale: every selected item is presentation-layer, none
+touches a pinned S115/S118/S119 graph or header contract, and together they close the whole
+first-impression story rather than only the two hard defects.
 
-_(pending)_
+**Deferred to `docs/IDEAS.md`:** R-9 (raise content above the fold — needs its own design pass over
+shipped S119 hierarchy), R-10 (sparse-member first-run path), R-12 (graph label contrast/collision).
+
+**Out of scope, logged as bugs:** R-11 → `BUG-031`. `BUG-032` is the bug record for R-1.
+
+**Coverage decision:** proceed on the audited surfaces. The seven unaudited surfaces listed above
+carry forward to a future pass rather than blocking this PR.
+
+Concrete files, tests, and verification for each selected fix are written into
+[the PR C plan](../plans/2026-07-16-sprint-120-pr-c-five-second-clarity.md), Tasks 5–7.
