@@ -394,4 +394,9 @@ Community tab: "My Network" and "Community" views do almost the same thing — o
 
 Regenerate `infrastructure/postgres/init.sql` from a fully-migrated schema so there is ONE seed path everywhere. Today init.sql is a drifted fresh-install snapshot: it lags the 64-migration chain (missing federation/governance/ui_schemas, `chk_help_requests_status`, `trust_decay_config`, `trust_edges.stability`, ...), which is why CI needed `scripts/ci-apply-full-schema.sh` (PR #143) — an explicitly-acknowledged CI-only convergence workaround, not the root-cause fix. The fix-forward move: `pg_dump --schema-only` against a DB that has had `scripts/apply-migrations.sh` run to completion, then reconcile RLS/ownership statements and init.sql's hand-written comments/seed data. Higher-risk task (touches every fresh-install path: local docker-compose, CI, any new env) — deserves its own sprint/PR with the CI full-schema job as its safety net. Until then, every new migration that CI must catch may need a sentinel added to ci-apply-full-schema.sh. Related smaller follow-up: demo never receives edits made to already-tracked migration files (apply-migrations.sh skips them) — the uq_*_global guard indexes from PR #143 exist only in CI/fresh installs; verify demo's `auth.generate_invitation_code` is the REGEXP_REPLACE version (it should be, via 009's original run) and ship a small NEW convergence migration if any of this is ever needed live.
 
+> **Addressed by ADR-087 / PR #153 (Sprint 120 PR B, 2026-07-21).** `init.sql` is now the generated
+> product of the migration chain (`scripts/regenerate-init-sql.sh`), seeded with `public.schema_migrations`
+> so fresh installs don't replay; a real `--drift-check` mode in `scripts/ci-apply-full-schema.sh` +
+> a promoted regression gate guard against future drift. See ADR-087.
+
 ---
