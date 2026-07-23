@@ -26,6 +26,20 @@
 > when the suppression is reverted) instead of only hook arguments; and the base64url test proves
 > **both** `-` and `_` substitutions on a payload that provably needs each.
 >
+> **⚠️ Next.js advisory folded into PR C (maintainer decision, 2026-07-23).** Mid-review a fresh
+> `GHSA-m99w-x7hq-7vfj` batch (8 highs, `next 12.0.0 – 15.5.20`) was published and turned BOTH the
+> `Security Audit` gate and the `sprint-75-security-gate` regression test red on a frontend-only
+> commit — not caused by PR C (the same checks passed 30 min earlier). Maintainer chose to fold the
+> bump in rather than ship a separate hotfix PR. Fix: `next` floor `^15.5.18 → ^15.5.21` in frontend
+> + landing, **plus `next` added to the ROOT `package.json` dependencies**. That root entry is
+> LOAD-BEARING: without it npm de-hoists `next` into `apps/*/node_modules`, and the root override
+> `sharp@<0.35.0 → 0.35.3` **does not reach `apps/*` subtrees** (the known workspace-overrides
+> gotcha), so `sharp` lands on the vulnerable `0.34.5` and the gate stays red. Confirmed by
+> experiment: an unconditional root `sharp` override still did NOT reach the subtrees; only hoisting
+> `next` fixed it. Lockfile updated **in place** (`npm install --package-lock-only`), never
+> scratch-regenerated on Windows. Verified `npm audit --package-lock-only --audit-level=high` →
+> `found 0 vulnerabilities`.
+>
 > **Quality gates:** `/simplify` applied, `/security-review` clean (no HIGH/MEDIUM), `/code-review`
 > was delegated to Codex (this review). Suite: **24 tests** in
 > `apps/frontend/tests/regression/sprint-120-five-second-fixes.test.tsx` (frontend 352/352 overall).

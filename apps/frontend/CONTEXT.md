@@ -50,6 +50,21 @@ Presentation-layer outcomes of the five-second audit
   browsers do) — required by `lib/jwt.ts`. jsdom also has no layout engine, so FAB/overflow geometry
   is pinned by class contract in tests and verified in a real browser.
 
+## v11.32.0 Next.js advisory floor (2026-07-23)
+
+- **`next` floor is `^15.5.21`** (frontend + landing), raised from `^15.5.18` for the
+  `GHSA-m99w-x7hq-7vfj` batch (8 high-severity advisories affecting `next 12.0.0 – 15.5.20`).
+- **`next` is ALSO declared in the ROOT `package.json` dependencies** — deliberately, and do not
+  remove it. Without it npm de-hoists `next` into `apps/frontend/node_modules` and
+  `apps/landing/node_modules`, and the root `overrides` entry `sharp@<0.35.0 → 0.35.3` **does not
+  reach `apps/*` subtrees**, so `sharp` silently resolves to the vulnerable `0.34.5` there and the
+  ADR-059 audit gate goes red. Keeping `next` hoisted at root keeps its optional `sharp` under the
+  override. Verified: `npm audit --package-lock-only --audit-level=high` → `found 0 vulnerabilities`.
+- The lockfile was updated **in place** (`npm install --package-lock-only`), never regenerated from
+  scratch on Windows.
+
+---
+
 ## v11.30.1 dependency-security runtime floor (2026-07-21)
 
 - Frontend build and runtime containers use Node 20 Alpine; `apps/frontend/package.json` requires
