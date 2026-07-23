@@ -52,16 +52,23 @@ Presentation-layer outcomes of the five-second audit
 
 ## v11.32.0 Next.js advisory floor (2026-07-23)
 
-- **`next` floor is `^15.5.21`** (frontend + landing), raised from `^15.5.18` for the
-  `GHSA-m99w-x7hq-7vfj` batch (8 high-severity advisories affecting `next 12.0.0 – 15.5.20`).
-- **`next` is ALSO declared in the ROOT `package.json` dependencies** — deliberately, and do not
-  remove it. Without it npm de-hoists `next` into `apps/frontend/node_modules` and
-  `apps/landing/node_modules`, and the root `overrides` entry `sharp@<0.35.0 → 0.35.3` **does not
-  reach `apps/*` subtrees**, so `sharp` silently resolves to the vulnerable `0.34.5` there and the
-  ADR-059 audit gate goes red. Keeping `next` hoisted at root keeps its optional `sharp` under the
-  override. Verified: `npm audit --package-lock-only --audit-level=high` → `found 0 vulnerabilities`.
-- The lockfile was updated **in place** (`npm install --package-lock-only`), never regenerated from
-  scratch on Windows.
+- **`next` floor is `^15.5.21`** (frontend + landing only), raised from `^15.5.18` for the
+  `GHSA-m99w-x7hq-7vfj` batch (8 high-severity advisories affecting `next 12.0.0 – 15.5.20`). Root
+  `package.json` is unchanged — `next` is NOT a root dependency.
+- **`next` must stay HOISTED to root `node_modules` in the lockfile.** The root `overrides` entry
+  `sharp@<0.35.0 → 0.35.3` does not reach `apps/*` subtrees (a known npm workspace-overrides
+  limitation), so if `next` de-hoists into `apps/*/node_modules` its optional `sharp` resolves to the
+  vulnerable `0.34.5` there and the ADR-059 audit gate goes red. Bumping the floor with a plain
+  `npm install --package-lock-only` DOES de-hoist it (minimal-change resolution nests the new
+  version). The floor bump was therefore followed by **`npm dedupe --package-lock-only`**, which
+  re-hoists a single `next@15.5.21` + `sharp@0.35.3` to root — `next` stays reachable only through the
+  app workspaces, so backend `--omit=dev` images (which copy only the root manifest, not the apps) are
+  byte-identical to before (169 top-level packages, no `next`/`sharp`/`@swc`). Verified:
+  `npm audit --package-lock-only --audit-level=high` → `found 0 vulnerabilities`.
+- If a future `next` bump de-hoists it again (check `node_modules/next` is at ROOT, not under
+  `apps/*`, in the lockfile), re-run `npm dedupe --package-lock-only`. Do NOT "fix" it by adding
+  `next` to root `dependencies` — that pins next/swc/sharp into every backend production image.
+- The lockfile was updated **in place**, never regenerated from scratch on Windows.
 
 ---
 

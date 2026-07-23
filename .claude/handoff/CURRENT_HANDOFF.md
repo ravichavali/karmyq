@@ -26,19 +26,24 @@
 > when the suppression is reverted) instead of only hook arguments; and the base64url test proves
 > **both** `-` and `_` substitutions on a payload that provably needs each.
 >
-> **⚠️ Next.js advisory folded into PR C (maintainer decision, 2026-07-23).** Mid-review a fresh
-> `GHSA-m99w-x7hq-7vfj` batch (8 highs, `next 12.0.0 – 15.5.20`) was published and turned BOTH the
-> `Security Audit` gate and the `sprint-75-security-gate` regression test red on a frontend-only
-> commit — not caused by PR C (the same checks passed 30 min earlier). Maintainer chose to fold the
-> bump in rather than ship a separate hotfix PR. Fix: `next` floor `^15.5.18 → ^15.5.21` in frontend
-> + landing, **plus `next` added to the ROOT `package.json` dependencies**. That root entry is
-> LOAD-BEARING: without it npm de-hoists `next` into `apps/*/node_modules`, and the root override
-> `sharp@<0.35.0 → 0.35.3` **does not reach `apps/*` subtrees** (the known workspace-overrides
-> gotcha), so `sharp` lands on the vulnerable `0.34.5` and the gate stays red. Confirmed by
-> experiment: an unconditional root `sharp` override still did NOT reach the subtrees; only hoisting
-> `next` fixed it. Lockfile updated **in place** (`npm install --package-lock-only`), never
-> scratch-regenerated on Windows. Verified `npm audit --package-lock-only --audit-level=high` →
-> `found 0 vulnerabilities`.
+> **⚠️ Next.js advisory folded into PR C (maintainer decision, 2026-07-23) — TWO review rounds.**
+> Mid-review a fresh `GHSA-m99w-x7hq-7vfj` batch (8 highs, `next 12.0.0 – 15.5.20`) was published and
+> turned BOTH the `Security Audit` gate and the `sprint-75-security-gate` regression test red on a
+> frontend-only commit — not caused by PR C (same checks passed 30 min earlier). Maintainer chose to
+> fold the bump in rather than ship a separate hotfix PR.
+> - **First fix (WRONG, commit `eb42348e`):** floor `^15.5.18 → ^15.5.21` + `next` added to ROOT
+>   `package.json` dependencies to force hoisting. Codex flagged it: 9 backend Dockerfiles copy the
+>   root manifest and `npm install --omit=dev`, so a root `next` prod dep pins next/swc/sharp (~289MB)
+>   into every backend image, and `sharp@0.35.3` wants Node ≥20.9 while backends run Node 18.
+> - **Correct fix (this commit):** root `package.json` reverted to baseline (NO root `next` dep).
+>   Floor stays `^15.5.21` in the two apps; the de-hoist that the floor bump caused is repaired with
+>   **`npm dedupe --package-lock-only`**, re-hoisting a single `next@15.5.21` + `sharp@0.35.3` to root
+>   reachable only via the app workspaces. **Proven by simulating the backend `--omit=dev` install
+>   (root manifest only, apps absent): byte-identical to baseline — 169 packages, `next`/`sharp`/`@swc`
+>   all absent.** The `sharp@<0.35.0 → 0.35.3` override still does not reach `apps/*` subtrees, so
+>   `next` must stay hoisted; if a future bump de-hoists it, re-run `npm dedupe`, do NOT re-add a root
+>   `next` dep. Lockfile updated in place, never scratch-regenerated on Windows. Audit gate green
+>   (`found 0 vulnerabilities`); `sprint-75-security-gate` 3/3.
 >
 > **Quality gates:** `/simplify` applied, `/security-review` clean (no HIGH/MEDIUM), `/code-review`
 > was delegated to Codex (this review). Suite: **24 tests** in
