@@ -400,3 +400,30 @@ Regenerate `infrastructure/postgres/init.sql` from a fully-migrated schema so th
 > a promoted regression gate guard against future drift. See ADR-087.
 
 ---
+
+## [2026-07-22] ux
+
+**Deferred structural findings from the Sprint 120 PR C five-second audit**
+(`docs/superpowers/research/2026-07-16-sprint-120-five-second-audit.md`; the audit's quick wins
+R-1…R-8 shipped in PR C at v11.32.0).
+
+- **R-9 — raise content above the fold.** On `/dashboard` at 1440 the first actual ask starts at
+  ~60% of the viewport height; at 375px it is entirely below the fold. Everything above it is
+  chrome, greeting, lede, and the "My Network / Explore →" promo card. Reference products (Nextdoor,
+  Buy Nothing) put evidence first and explanation second. Fix shape: collapse the greeting/lede block
+  and demote the promo below the first two asks. Deferred because it re-opens the S119 hierarchy work
+  and deserves its own design pass.
+- **R-10 — a real first-run path for a sparse member.** A degree-1 member sees the same "led by the
+  relationships that make help possible" lede, the same feed shape, and the same promo as a rich
+  member. PR C's R-7 adds a prompt on `/network`; the deeper answer is a guided "get your first
+  connection" flow. Note the demo's own trust graph is sparse — 19 users sit at degree 1 and the
+  designated "rich" persona `maria.reyes` has only 4 connections.
+- **R-12 — graph label legibility at 375px.** Node labels on `/network` are pale grey on cream and
+  "Maria Reyes"/"James Okafor" visually collide at mobile width. Deferred because label styling sits
+  inside the pinned S115/S118/S119 visual-encoding contracts and needs regression pinning first.
+
+Also unaudited this pass and worth a future five-second run: request detail, the create-request
+wizard, community detail + steward tabs, profile, notifications, the messaging thread, and the
+md→lg topbar rhythm.
+
+---

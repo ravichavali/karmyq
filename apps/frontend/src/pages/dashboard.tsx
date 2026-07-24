@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useState } from 'react'
 import { useRouter } from 'next/router'
 import Head from 'next/head'
 import { communityService } from '@/lib/api'
-import { clearAuthSession } from '@/lib/session'
+import { clearAuthSession, hasOnboarded } from '@/lib/session'
 import Layout from '@/components/Layout'
 import WelcomeModal from '@/components/WelcomeModal'
 import TabBar, { TabId } from '@/components/TabBar'
@@ -56,7 +56,21 @@ export default function Dashboard() {
 
   const { hasProviderProfile, isAvailable, providerServiceTypes } = useProvider()
   const isOnDuty = hasProviderProfile && isAvailable
-  const { shouldShow: showFeedOnboarding, markSeen: markFeedSeen } = useOnboarding('feed')
+  // Sprint 120 PR C (F-1): the WelcomeModal owns the visit for a user who has never onboarded, so
+  // the feed workflow tour must not stack behind it. Read from storage rather than the `user` state
+  // (which is populated in a later effect) so the decision is available at mount.
+  const [welcomeModalOwnsThisVisit] = useState(() => {
+    if (typeof window === 'undefined') return false
+    try {
+      const stored = JSON.parse(localStorage.getItem('user') || 'null')
+      return !!stored?.id && !hasOnboarded(stored.id)
+    } catch {
+      return false
+    }
+  })
+  const { shouldShow: showFeedOnboarding, markSeen: markFeedSeen } = useOnboarding('feed', {
+    suppressed: welcomeModalOwnsThisVisit,
+  })
 
   useEffect(() => {
     // Only run on client-side (not during SSR)
@@ -151,16 +165,22 @@ export default function Dashboard() {
         <div className="border-b border-border-light bg-surface-raised/60">
           <div className="kq-chrome-page flex items-center gap-3 py-3">
             <label className="text-sm font-medium text-text-muted shrink-0">Community:</label>
-            <select
-              value={activeCommunityId}
-              onChange={(e) => setActiveCommunityId(e.target.value)}
-              className="text-sm border border-border rounded-lg bg-surface px-2 py-1.5 text-text focus:outline-none focus:ring-2 focus:ring-primary"
-            >
-              <option value="">All communities</option>
-              {userCommunities.map((c) => (
-                <option key={c.id} value={c.id}>{c.name}</option>
-              ))}
-            </select>
+            {/* Sprint 120 PR C (F-3): an unconstrained <select> takes its intrinsic width from the
+                longest option, so a churned community name ("… — Group B — Group B") pushed the
+                375px page to 470px and gave the whole document a horizontal scrollbar. min-w-0 on
+                the flex parent + max-w-full caps it; the option text truncates instead. */}
+            <div className="min-w-0 flex-1 sm:max-w-xs">
+              <select
+                value={activeCommunityId}
+                onChange={(e) => setActiveCommunityId(e.target.value)}
+                className="w-full max-w-full text-sm border border-border rounded-lg bg-surface px-2 py-1.5 text-text focus:outline-none focus:ring-2 focus:ring-primary"
+              >
+                <option value="">All communities</option>
+                {userCommunities.map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+            </div>
             {/* On-duty status now lives solely in the topbar On duty/Off duty toggle (clickable,
                 single source of truth) — the redundant read-only pill here was removed. */}
           </div>
@@ -203,7 +223,7 @@ export default function Dashboard() {
             />
 
             {/* Tab content */}
-            <div className="pb-20 md:pb-0">
+            <div className="kq-fab-safe-bottom">
               {activeTab === 'browse' && (
                 <div key="browse">
                   <section className="kq-page-header kq-page">

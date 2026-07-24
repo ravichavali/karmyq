@@ -89,7 +89,9 @@ body {
 
   /* ── Bottom Nav (mobile sticky footer) ── */
   .bottom-nav {
-    @apply fixed bottom-0 left-0 right-0 z-50 flex bg-surface-raised border-t border-border
+    /* h-16 (64px) is deterministic so the docked create bar (.kq-create-bar, bottom-16) sits flush
+       above it regardless of item content (Sprint 120 PR C, R-5). */
+    @apply fixed bottom-0 left-0 right-0 z-50 flex h-16 bg-surface-raised border-t border-border
            md:hidden;
   }
   .bottom-nav-item {
@@ -108,6 +110,21 @@ body {
     @apply fixed bottom-28 right-6 z-40 btn-primary shadow-lg rounded-full
            px-5 py-3 flex items-center gap-2 text-sm font-semibold
            md:bottom-8;
+  }
+
+  /* Sprint 120 PR C (R-5): the mobile create action is docked bottom chrome, not a floating FAB.
+     It sits directly above the bottom nav (both fixed, full-width, opaque). Anchored at bottom-16
+     to match the deterministic .bottom-nav height (h-16) so the two are flush with no gap/overlap. */
+  .kq-create-bar {
+    @apply fixed inset-x-0 bottom-16 z-40 px-4 py-2.5 bg-surface-raised border-t border-border;
+  }
+
+  /* Scroll space under tab content so the last card clears BOTH bottom bars (nav 64px + create bar
+     ~60px). Content scrolls behind the opaque bars at rest — the non-overlay guarantee comes from
+     the docked bar being full-width chrome, this padding just keeps the final card reachable.
+     Desktop needs none: no bottom nav, and the create FAB floats in the empty corner. */
+  .kq-fab-safe-bottom {
+    @apply pb-44 md:pb-0;
   }
 
   /* ── Status Badges (commitment state) ── */

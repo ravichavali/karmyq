@@ -1,6 +1,6 @@
 # ADR-087: One Seed Path — init.sql Regeneration
 
-**Status**: Accepted
+**Status**: Implemented
 **Date**: 2026-07-17
 **Sprint**: 120
 **Version**: 11.31.0

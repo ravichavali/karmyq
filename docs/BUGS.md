@@ -480,3 +480,42 @@ the other targets and their `degrees_of_separation` ranking inputs still return,
 is logged. Covered by `sprint-120-bug-030-fractional-score.test.ts`.
 
 ---
+
+## BUG-031 · [2026-07-22] · open
+
+`/communities` fires one `GET /api/reputation/community-trust/{id}` per community card and every one
+returns **404**, producing **32 console errors on a single page load** (observed on demo as
+`maria.reyes`, 1440px, Sprint 120 PR C five-second audit). The response is a well-formed ADR-074
+envelope — `{"success":false,"message":"Community aggregate not available","error":"AGGREGATE_NOT_AVAILABLE"}`
+— so this is an ordinary "no aggregate computed yet" empty state being transported as a 404, per
+card. Nothing renders broken; the costs are a red console for anyone inspecting the demo and an
+N+1 request pattern on a list page. Route is
+`services/reputation-service/src/routes/reputation.ts:166`; caller is
+`apps/frontend/src/lib/api.ts:754`. Fix shape: return 200 with a null/empty aggregate for the
+"not computed yet" case (404 should mean "no such community"), and/or batch the lookup into one
+request for the visible cards.
+
+---
+
+## BUG-032 · [2026-07-22] · fixed (Sprint 120 PR C, v11.32.0)
+
+Community names render mojibaked in the "Your Communities" chips on `/communities` — "Southeast PDX
+Helpers **â□□** Group B" where the name is "Southeast PDX Helpers — Group B" (observed on demo as
+`maria.reyes`, 1440px, Sprint 120 PR C five-second audit). The database is clean
+(`encode(convert_to(name,'UTF8'),'hex')` shows a proper `e28094` em dash) and the same community
+renders correctly in the dashboard feed card, so the corruption is client-side: those chips come
+from the JWT payload, decoded with bare `atob()`, which yields Latin-1 bytes instead of UTF-8
+characters. Five decode sites: `apps/frontend/src/lib/api.ts:47`,
+`apps/frontend/src/pages/communities/index.tsx:233` and `:341`,
+`apps/frontend/src/pages/communities/[id].tsx:103`, `apps/frontend/src/pages/demo.tsx:35`. Affects
+any non-ASCII character in a JWT-sourced community or person name. Fix shape: one shared
+base64url → `TextDecoder('utf-8')` helper adopted at all five sites.
+
+**Fixed (Sprint 120 PR C, v11.32.0):** `apps/frontend/src/lib/jwt.ts` exports `decodeJwtPayload`,
+which normalizes base64url, reads the `atob` output back as bytes, and decodes them with
+`TextDecoder('utf-8', { fatal: true })` — so the result is either the real characters or `null`,
+never a U+FFFD-corrupted payload that still parses as JSON. Adopted at all five decode sites.
+Covered by `apps/frontend/tests/regression/sprint-120-five-second-fixes.test.tsx` (em dash,
+non-Latin scripts and accents, both base64url substitutions, malformed token, invalid UTF-8).
+
+---

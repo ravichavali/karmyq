@@ -122,7 +122,7 @@ When code implementing an ADR is deployed, update the status from `Accepted` →
 - [ADR-084: Context-Bound Connection Visibility](ADR-084-context-bound-connection-visibility.md) — **Accepted** (amended Sprint 117: curated historical floor + API verification)
 - [ADR-085: Invited Arrival & the Edge Lifecycle](ADR-085-invited-arrival-and-edge-lifecycle.md) — **Implemented**
 - [ADR-086: Scale Answers — One Question per Zoom Level](ADR-086-scale-answers-one-question-per-zoom-level.md) — **Implemented**
-- [ADR-087: One Seed Path — init.sql Regeneration](ADR-087-one-seed-path-init-sql-regeneration.md) — **Accepted**
+- [ADR-087: One Seed Path — init.sql Regeneration](ADR-087-one-seed-path-init-sql-regeneration.md) — **Implemented**
 
 ## Creating a New ADR
 

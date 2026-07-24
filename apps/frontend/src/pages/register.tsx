@@ -5,6 +5,7 @@ import Head from 'next/head'
 import { api } from '@/lib/api'
 import { getErrorMessage } from '@/lib/errors'
 import { setAuthSession } from '@/lib/session'
+import AuthBrandHeader from '@/components/AuthBrandHeader'
 
 export default function Register() {
   const router = useRouter()
@@ -56,7 +57,9 @@ export default function Register() {
         <title>Register - Karmyq</title>
       </Head>
       <div className="min-h-screen bg-gradient-to-b from-primary-light to-surface-raised flex items-center justify-center px-4">
-        <div className="max-w-md w-full bg-surface-raised rounded-lg shadow-lg p-8">
+        <div className="max-w-md w-full">
+          <AuthBrandHeader />
+          <div className="bg-surface-raised rounded-lg shadow-lg p-8">
           <h1 className="text-3xl font-bold font-serif text-center mb-6">Create Account</h1>
 
           {/* Sprint 118 (ADR-085): invitation is the celebrated join path. */}
@@ -144,6 +147,7 @@ export default function Register() {
               Login
             </Link>
           </p>
+          </div>
         </div>
       </div>
     </>

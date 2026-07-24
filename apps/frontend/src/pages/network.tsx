@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/router'
+import Link from 'next/link'
 import Layout from '@/components/Layout'
 import BelongingGraph from '@/components/BelongingGraph'
 import { mergeGraphData, normalizeCommunityDepthGraph, normalizePersonGraph, type DepthLink, type DepthNode } from '@/components/graphs/normalizeGraphData'
@@ -239,6 +240,10 @@ export default function NetworkPage() {
     ? baseline.nodes.filter(n => n.id !== user.id).length
     : 0
   const egoIsSparse = mode === 'ego' && !loading && !error && baseline !== null && peopleInScope === 0
+  // Sprint 120 PR C (F-5): a member with zero or one connection got an empty canvas and no next
+  // step. The prompt names the one thing that actually grows the graph and links to where it happens.
+  const egoNeedsGrowthPrompt =
+    mode === 'ego' && !loading && !error && baseline !== null && peopleInScope <= 1
 
   return (
     <Layout>
@@ -257,7 +262,8 @@ export default function NetworkPage() {
                   aria-selected={mode === m}
                   onClick={() => router.replace({ pathname: '/network', query: { ...router.query, mode: m } })}
                   className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                    mode === m ? 'bg-indigo-600 text-white' : 'bg-surface text-text-muted hover:text-text'
+                    // Sprint 120 PR C (F-6): the active pill was the only indigo in a green product.
+                    mode === m ? 'bg-primary text-white' : 'bg-surface text-text-muted hover:text-text'
                   }`}
                 >
                   {m === 'ego' ? 'My Network' : m === 'community' ? 'This Community' : 'Across Communities'}
@@ -318,7 +324,7 @@ export default function NetworkPage() {
                           setFocusedNodeId(n.id)
                           setSearch('')
                         }}
-                        className="block w-full px-3 py-1.5 text-left text-sm text-text hover:bg-indigo-600 hover:text-white"
+                        className="block w-full px-3 py-1.5 text-left text-sm text-text hover:bg-primary hover:text-white"
                       >
                         {n.name}
                       </button>
@@ -336,6 +342,19 @@ export default function NetworkPage() {
               Showing <span className="font-semibold tabular-nums">{peopleInScope}</span>{' '}
               {peopleInScope === 1 ? 'person' : 'people'} within{' '}
               <span className="font-semibold tabular-nums">{depth}</span> {depth === 1 ? 'hop' : 'hops'}.
+            </p>
+          )}
+
+          {egoNeedsGrowthPrompt && (
+            <p className="text-sm text-text">
+              Your network grows from the help you give and receive.{' '}
+              <Link
+                href="/dashboard"
+                data-testid="sparse-network-cta"
+                className="text-primary font-medium hover:underline"
+              >
+                Browse asks you can fill →
+              </Link>
             </p>
           )}
 
@@ -373,7 +392,7 @@ export default function NetworkPage() {
                 <button
                   key={e.nodeId}
                   onClick={() => collapseNode(e.nodeId)}
-                  className="px-2.5 py-1 rounded-full text-xs bg-indigo-600/20 text-indigo-300 hover:bg-indigo-600/30"
+                  className="px-2.5 py-1 rounded-full text-xs bg-primary/15 text-primary hover:bg-primary/25"
                 >
                   Collapse {expansionLabel(e.nodeId)} ✕
                 </button>

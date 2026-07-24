@@ -4,6 +4,7 @@ import Head from 'next/head'
 import { api } from '@/lib/api'
 import { getErrorMessage } from '@/lib/errors'
 import { setAuthSession } from '@/lib/session'
+import AuthBrandHeader from '@/components/AuthBrandHeader'
 
 export default function Login() {
   const [formData, setFormData] = useState({
@@ -54,7 +55,9 @@ export default function Login() {
         <title>Login - Karmyq</title>
       </Head>
       <div className="min-h-screen bg-gradient-to-b from-primary-light to-surface-raised flex items-center justify-center px-4">
-        <div className="max-w-md w-full bg-surface-raised rounded-lg shadow-lg p-8">
+        <div className="max-w-md w-full">
+          <AuthBrandHeader />
+          <div className="bg-surface-raised rounded-lg shadow-lg p-8">
           <h1 className="text-3xl font-bold font-serif text-center mb-8">Login</h1>
 
           {error && (
@@ -105,6 +108,7 @@ export default function Login() {
               Register
             </Link>
           </p>
+          </div>
         </div>
       </div>
     </>
