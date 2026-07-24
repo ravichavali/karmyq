@@ -35,15 +35,19 @@
 >   `package.json` dependencies to force hoisting. Codex flagged it: 9 backend Dockerfiles copy the
 >   root manifest and `npm install --omit=dev`, so a root `next` prod dep pins next/swc/sharp (~289MB)
 >   into every backend image, and `sharp@0.35.3` wants Node ≥20.9 while backends run Node 18.
-> - **Correct fix (this commit):** root `package.json` reverted to baseline (NO root `next` dep).
->   Floor stays `^15.5.21` in the two apps; the de-hoist that the floor bump caused is repaired with
->   **`npm dedupe --package-lock-only`**, re-hoisting a single `next@15.5.21` + `sharp@0.35.3` to root
->   reachable only via the app workspaces. **Proven by simulating the backend `--omit=dev` install
->   (root manifest only, apps absent): byte-identical to baseline — 169 packages, `next`/`sharp`/`@swc`
->   all absent.** The `sharp@<0.35.0 → 0.35.3` override still does not reach `apps/*` subtrees, so
->   `next` must stay hoisted; if a future bump de-hoists it, re-run `npm dedupe`, do NOT re-add a root
->   `next` dep. Lockfile updated in place, never scratch-regenerated on Windows. Audit gate green
->   (`found 0 vulnerabilities`); `sprint-75-security-gate` 3/3.
+> - **Second fix (commit `88d5f4fc`, ALSO flagged):** dropped the root `next` dep and re-hoisted with
+>   whole-tree `npm dedupe`. Codex flagged that dedupe re-resolved the entire tree — ~71 unrelated
+>   transitive bumps (Expo/React/express-rate-limit/…) CI doesn't fully build.
+> - **Final fix (this commit):** root `package.json` stays baseline (NO root `next` dep); the lockfile
+>   is bumped **surgically** — only the `next` + `@next/*` nodes go 15.5.18 → 15.5.21 in place (next
+>   stays hoisted, `sharp` untouched at 0.35.3). Total lockfile churn vs the pre-advisory baseline is
+>   **11 version changes** (10 next-tree + the root-version heal 11.30.1→11.32.0) + the two app
+>   `^15.5.21` edges — zero unrelated packages. npm re-reads it as consistent (no re-resolve). Backend
+>   `--omit=dev` sim (root manifest only, apps absent) is byte-identical to baseline (169 packages,
+>   `next`/`sharp`/`@swc` absent). The `sharp@<0.35.0 → 0.35.3` override still can't reach `apps/*`, so
+>   `next` must stay hoisted; if a future bump de-hoists it, re-bump the `next`/`@next/*` nodes in
+>   place — NOT a whole-tree `npm dedupe`, NOT a root `next` dep. Audit gate green
+>   (`found 0 vulnerabilities`); `sprint-75-security-gate` 3/3; frontend 352/352.
 >
 > **Quality gates:** `/simplify` applied, `/security-review` clean (no HIGH/MEDIUM), `/code-review`
 > was delegated to Codex (this review). Suite: **24 tests** in
