@@ -6,8 +6,9 @@
 > but its master run failed the security gates before `Deploy to Demo`, so **v11.32.0's clarity
 > fixes are merged but NOT live** — the PR 1 hotfix below is what deploys them.
 >
-> This sprint clears the entire open-PR backlog: **18 open PRs** triaged 2026-07-24 into six
-> PRs of work. Maintainer scope decisions this session: (a) safe bumps land as ONE consolidated
+> This sprint clears the entire open-PR backlog: **18 open PRs** triaged 2026-07-24 into **six
+> PRs of work plus two closed unmerged** — see the Plan of Record table, which accounts for all
+> 18 by number. Maintainer scope decisions this session: (a) safe bumps land as ONE consolidated
 > PR, not 12 individual merges — every master merge is a full deploy; (b) **all 7 breaking
 > majors are IN SCOPE** (maintainer overrode the recommendation to defer them); (c) stale
 > PR #106 closes — BUG-022/023 are already in `docs/BUGS.md`, fixed in Sprint 107.
@@ -32,26 +33,47 @@ individually-scoped migrations.
 | PR | Scope | Supersedes | Version |
 |---|---|---|---|
 | **1** | postcss advisory hotfix + Sprint 120 close-out | #159 | v11.32.1 |
-| **2** | consolidated safe deps | #157, #126, #85, #145, #144, #147, #118, #53 | v11.33.0 |
+| **2** | consolidated safe deps | #157, #126, #85, **#55**, #145, #144, #147, #118, #53 | v11.33.0 |
 | **3** | lint toolchain majors | #40, #35, #36 | TBD |
 | **4** | mobile/Expo majors | #37, #39 | TBD |
 | **5** | tailwindcss 3 → 4 | #41 | TBD |
 | **6** | express 4 → 5 | #34 | TBD |
+| — | closed unmerged | #106 (stale docs, closed 2026-07-24) | — |
+
+**Accounting (all 18 open PRs at triage):** 1 superseded by PR 1 (#159) + 9 in PR 2 (#157, #126,
+#85, #55, #145, #144, #147, #118, #53) + 3 in PR 3 (#40, #35, #36) + 2 in PR 4 (#37, #39) +
+1 in PR 5 (#41) + 1 in PR 6 (#34) + 1 closed unmerged (#106) = **18**. No PR is unassigned.
 
 **PR 1 (in flight).** `GHSA-r28c-9q8g-f849` — postcss ≤ 8.5.17 path traversal, high, 5 findings
 via the single hoisted `node_modules/postcss` that both `next` and `@expo/metro-config` resolve.
 Fix: root `overrides.postcss` `^8.5.10` → `^8.5.18`, matching devDep ranges in
 `apps/frontend` + `apps/landing`, and a **surgical in-place lockfile bump** of exactly two nodes
-(`postcss` 8.5.15 → 8.5.23; its new peer `nanoid` 3.3.12 → 3.3.16 — 8.5.23 requires `^3.3.16`).
+(`postcss` 8.5.15 → 8.5.23; plus its newly required **dependency** `nanoid` 3.3.12 → 3.3.16 —
+8.5.23 declares `nanoid ^3.3.16` under `dependencies`, not as a peer).
 Verified: `npm audit` = `found 0 vulnerabilities`; `sprint-75-security-gate` 3/3;
 `npm install --package-lock-only` reproduces the hand edit byte-identically (zero churn).
+**After merge: confirm `Deploy to Demo` succeeds with no rollback, then smoke-test R-1…R-8 on
+karmyq.com** — PR C's merge run is the standing proof that green checks ≠ a deploy.
 
 **PR 2 contents.** #157 production-deps ×10 (ioredis 5.11.0→5.11.1, pg 8.21→8.22,
 framer-motion/motion 12.40→12.42, react-native 0.85.3→**0.86.0**, react-native-maps 1.27→1.29,
 reanimated 4.4→4.5.3, rn-screens 4.25→4.26, helmet 8.2→8.3, uuid 14.0.0→14.0.1) · #126 dev-deps
-×9 **minus ts-jest** · #85 esbuild/tsx in `/scripts` · action bumps #145, #144, #147, #118, #53.
+×9 **minus ts-jest** · #85 esbuild/tsx in `/scripts` · **#55 supertest 6.3.4→7.2.2 +
+@types/supertest 6.0.3→7.2.0** · action bumps #145, #144, #147, #118, #53.
+
+**#55 is a MAJOR, deliberately placed in PR 2** rather than with the other majors. Rationale: it
+is a devDependency used only by backend test suites, so its entire blast radius is the test
+tier — a break fails loudly and immediately in the gate rather than reaching runtime or UI. It is
+the one major whose verification is fully automated. Condition of inclusion: the backend suites
+must be run **directly** (`cd tests && npx jest`, plus each affected service workspace), not via
+a Turbo run that could serve a cached pass. If supertest 7 needs source changes to test helpers,
+pull it OUT of PR 2 into its own PR rather than growing the consolidated diff.
 
 **PRs 3–6 are genuine migrations, not merges** — see Critical Notes 4–7.
+
+**Disposition is now complete: 18 open PRs → 6 PRs of work + 2 closed unmerged** (#106 stale
+docs, closed 2026-07-24; #159 superseded by PR 1, closes on merge). Every open PR is accounted
+for; if a new Dependabot PR arrives mid-sprint, add it to this table before starting work.
 
 ## Critical Implementation Notes
 
@@ -98,9 +120,13 @@ reanimated 4.4→4.5.3, rn-screens 4.25→4.26, helmet 8.2→8.3, uuid 14.0.0→
 
 ## Carry-Forward / Known State
 
-- **v11.32.0 is merged but undeployed** until PR 1 ships. Demo runs v11.31.0.
-- **PR #106** (Sprint 106 docs) closes unmerged — superseded by 14 sprints, and a docs-only
-  master merge would trigger a pointless deploy. BUG-022/023 verified present in `docs/BUGS.md`.
+- **v11.32.0 is merged but undeployed** until PR 1 ships. Demo runs v11.31.0. **Every PR in this
+  sprint ends with the same two-step verification, not with a green PR:** confirm the master
+  CI/CD run reached **`Deploy to Demo` = success with no rollback**, then smoke-test the live
+  site. PR C's merge run is the standing counterexample — 20 green checks and no deploy.
+- **PR #106** (Sprint 106 docs) was **closed unmerged 2026-07-24** — superseded by 14 sprints,
+  and a docs-only master merge would trigger a pointless deploy. BUG-022/023 verified present in
+  `docs/BUGS.md` (lines 323, 336, both `fixed (Sprint 107)`) before closing; nothing was lost.
 - **BUG-031** — 32× 404 `community-trust` console noise on `/communities`. Logged, not fixed.
 - **BUG-030** live-repro confirmation still pending a maintainer pass (maria.reyes → Fatima
   Alhassan single + `/paths/batch` sweep). Deploy evidence is otherwise strong.

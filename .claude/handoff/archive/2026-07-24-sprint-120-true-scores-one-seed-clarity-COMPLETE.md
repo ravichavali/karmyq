@@ -1,24 +1,37 @@
 # Sprint 120 — True Scores, One Seed Path & Five-Second Clarity — COMPLETE
 
-> **SPRINT CLOSED (2026-07-24).** All three PRs merged and deployed:
+> **SPRINT CLOSED (2026-07-24) — all three PRs merged; A and B deployed, C's deploy pending
+> through v11.32.1:**
 > - **PR A** [#152](https://github.com/ravichavali/karmyq/pull/152) — true scores (BUG-030
->   DOUBLE PRECISION + batch isolation) — merged `31fdcd54`, deployed v11.30.0 (2026-07-17).
+>   DOUBLE PRECISION + batch isolation) — merged `31fdcd54`, **deployed** v11.30.0 (2026-07-17).
 > - **PR B** [#153](https://github.com/ravichavali/karmyq/pull/153) — one seed path (ADR-087,
->   generated init.sql) — merged `3623dc89`, deployed v11.31.0 (2026-07-22).
+>   generated init.sql) — merged `3623dc89`, **deployed** v11.31.0 (2026-07-22).
 > - **PR C** [#158](https://github.com/ravichavali/karmyq/pull/158) — five-second clarity
->   (R-1…R-8) — merged `caca85fb` 2026-07-24 17:34Z at v11.32.0.
+>   (R-1…R-8) — merged `caca85fb` 2026-07-24 17:34Z at v11.32.0, **NOT yet deployed** — its code
+>   is on master but dark on karmyq.com until the v11.32.1 hotfix deploys.
 >
 > **⚠️ PR C's merge run did NOT deploy.** Master CI/CD run `30113559476` failed on the
 > `Security Audit` + `sprint-75-security-gate` gates before `Deploy to Demo` — a fresh advisory
 > (`GHSA-r28c-9q8g-f849`, postcss ≤ 8.5.17 path traversal, 5 highs) published between PR C going
 > green and the merge landing. Not caused by PR C; the same time-of-publication pattern as the
 > `next` GHSA during PR C's review. Cleared by hotfix **v11.32.1**
-> (`hotfix/postcss-advisory-v11.32.1`), which carries this archive — that hotfix's deploy is what
-> puts PR C's clarity fixes on karmyq.com.
+> (`hotfix/postcss-advisory-v11.32.1`, PR
+> [#160](https://github.com/ravichavali/karmyq/pull/160)), which carries this archive — that
+> hotfix's deploy is what puts PR C's clarity fixes on karmyq.com.
+>
+> **⚠️ SPRINT 120 IS NOT VERIFIED SHIPPED UNTIL v11.32.1 DEPLOYS.** Remaining, explicitly:
+> (1) watch the master CI/CD run after #160 merges and confirm **`Deploy to Demo` = success with
+> no rollback** — PR C's own merge run is exactly why a green PR is not evidence of a deploy;
+> (2) smoke-test **R-1…R-8** on karmyq.com (UTF-8-safe JWT decode, constrained dashboard
+> community `<select>`, `/demo` link from the app root, branded login/register, labelled create
+> action, no stacked onboarding overlays, sparse-`/network` CTA, green active mode pill), plus
+> the docked mobile create bar at 375×812 that the R-5 fix rebuilt as non-overlay chrome;
+> (3) only then is this archive's "CLOSED" accurate.
 >
 > **Surgical-bump precedent reinforced (third time):** root `overrides.postcss` floor raised to
-> `^8.5.18` and the two affected lockfile nodes (`postcss` 8.5.15→8.5.23, its new peer
-> `nanoid` 3.3.12→3.3.16) bumped IN PLACE. 11 changed lockfile lines, zero unrelated packages;
+> `^8.5.18` and the two affected lockfile nodes (`postcss` 8.5.15→8.5.23, plus its newly required
+> **dependency** `nanoid` 3.3.12→3.3.16 — `nanoid` is listed under `postcss.dependencies` in the
+> lockfile, not as a peer) bumped IN PLACE. 11 changed lockfile lines, zero unrelated packages;
 > `npm install --package-lock-only` reproduces the edit byte-identically. Do NOT whole-tree
 > `npm dedupe`, do NOT add a root prod dep to force hoisting, do NOT scratch-regen on Windows.
 >
