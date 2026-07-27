@@ -1,330 +1,184 @@
-# Sprint 120 — True Scores, One Seed Path & Five-Second Clarity — PR C IN REVIEW (PR #158)
+# Sprint 121 — Dependency Backlog Cleanup — PR 1 (postcss hotfix) IN FLIGHT
 
-> **STATUS (2026-07-22, PR C session — CURRENT):** **Tasks 1–8 are DONE and PR
-> [#158](https://github.com/ravichavali/karmyq/pull/158) — `Sprint 120 PR C: Five-Second Clarity
-> (v11.32.0)` — is OPEN, CI fully green (20 checks; `Deploy to Demo` skipped until master), state
-> `MERGEABLE` / `BLOCKED` on review.** Cross-agent review by Codex returned **request-changes: no
-> critical defects, two important gaps**, both now addressed on the branch:
-> 1. **R-5 first fix was wrong, now correct.** The first attempt (short label + `pb-44`) did NOT stop
->    the overlap — `pb-44` only lets the LAST card scroll clear; a fixed corner FAB still rests on
->    whatever card is in its band at scroll 0. Browser-verified on the live build at 375×812: the FAB
->    `[288–336]` intersects the "Explore →" link `[259–323]`, and ANY right-corner FAB (left edge
->    ≥303) clips right-aligned card actions that end at x≈323 — a floating corner button cannot reach
->    zero-overlap on a 375px column. **Correct fix (reviewer's option A, non-overlay placement):**
->    `SpeedDialFab` now renders a **docked opaque full-width bar** on `< md` (`.kq-create-bar`,
->    `bottom-16` above a deterministic `h-16` `.bottom-nav` — prototyped live, sits flush, reads as
->    chrome content scrolls behind) and keeps the **floating labelled FAB on `md+`** (no bottom nav,
->    room to spare). `.kq-fab-safe-bottom` (`pb-44`) keeps the last card reachable above both bars.
->    jsdom has no layout engine, so tests pin the layout/class contract
->    (`create-bar-mobile` / `create-fab-desktop`) and the geometry is browser-verified.
-> 2. **Canonical docs were stale** — this handoff, the audit doc's status line, `BUG-032`'s status,
->    and `apps/frontend/CONTEXT.md` all now reflect shipped state.
+> **STATUS (2026-07-24, updated 2026-07-27):** Sprint 120 is **development-complete and merged**,
+> archived to
+> `.claude/handoff/archive/2026-07-24-sprint-120-true-scores-one-seed-clarity-COMPLETE.md`.
+> That archive's "COMPLETE" means *all scoped work merged to `master`* — it deliberately does
+> **not** claim the work is live. **PR C's deploy verification is still OWED and is tracked
+> here**, not in the archive: PR C ([#158](https://github.com/ravichavali/karmyq/pull/158),
+> v11.32.0) merged as `caca85fb` but its master run failed the security gates before
+> `Deploy to Demo`, so **v11.32.0's clarity fixes are merged but NOT live**. The PR 1 hotfix
+> below is what deploys them, and the R-1…R-8 smoke test rides its deploy.
 >
-> Also from the review: `lib/jwt.ts` now decodes with **`TextDecoder('utf-8', { fatal: true })`** (a
-> non-fatal decode could smuggle U+FFFD into a payload that still parses); the onboarding test now
-> asserts the **real invariant** (WelcomeModal and OnboardingOverlay never coexist — verified to fail
-> when the suppression is reverted) instead of only hook arguments; and the base64url test proves
-> **both** `-` and `_` substitutions on a payload that provably needs each.
->
-> **⚠️ Next.js advisory folded into PR C (maintainer decision, 2026-07-23) — TWO review rounds.**
-> Mid-review a fresh `GHSA-m99w-x7hq-7vfj` batch (8 highs, `next 12.0.0 – 15.5.20`) was published and
-> turned BOTH the `Security Audit` gate and the `sprint-75-security-gate` regression test red on a
-> frontend-only commit — not caused by PR C (same checks passed 30 min earlier). Maintainer chose to
-> fold the bump in rather than ship a separate hotfix PR.
-> - **First fix (WRONG, commit `eb42348e`):** floor `^15.5.18 → ^15.5.21` + `next` added to ROOT
->   `package.json` dependencies to force hoisting. Codex flagged it: 9 backend Dockerfiles copy the
->   root manifest and `npm install --omit=dev`, so a root `next` prod dep pins next/swc/sharp (~289MB)
->   into every backend image, and `sharp@0.35.3` wants Node ≥20.9 while backends run Node 18.
-> - **Second fix (commit `88d5f4fc`, ALSO flagged):** dropped the root `next` dep and re-hoisted with
->   whole-tree `npm dedupe`. Codex flagged that dedupe re-resolved the entire tree — ~71 unrelated
->   transitive bumps (Expo/React/express-rate-limit/…) CI doesn't fully build.
-> - **Final fix (this commit):** root `package.json` stays baseline (NO root `next` dep); the lockfile
->   is bumped **surgically** — only the `next` + `@next/*` nodes go 15.5.18 → 15.5.21 in place (next
->   stays hoisted, `sharp` untouched at 0.35.3). Total lockfile churn vs the pre-advisory baseline is
->   **11 version changes** (10 next-tree + the root-version heal 11.30.1→11.32.0) + the two app
->   `^15.5.21` edges — zero unrelated packages. npm re-reads it as consistent (no re-resolve). Backend
->   `--omit=dev` sim (root manifest only, apps absent) is byte-identical to baseline (169 packages,
->   `next`/`sharp`/`@swc` absent). The `sharp@<0.35.0 → 0.35.3` override still can't reach `apps/*`, so
->   `next` must stay hoisted; if a future bump de-hoists it, re-bump the `next`/`@next/*` nodes in
->   place — NOT a whole-tree `npm dedupe`, NOT a root `next` dep. Audit gate green
->   (`found 0 vulnerabilities`); `sprint-75-security-gate` 3/3; frontend 352/352.
->
-> **Quality gates:** `/simplify` applied, `/security-review` clean (no HIGH/MEDIUM), `/code-review`
-> was delegated to Codex (this review). Suite: **24 tests** in
-> `apps/frontend/tests/regression/sprint-120-five-second-fixes.test.tsx` (frontend 352/352 overall).
-> **NEXT:** push the review fixes, confirm CI, then **PAUSE for explicit admin merge authorization**
-> (`gh pr merge --squash --admin`), monitor deploy, smoke-test demo, then sprint close-out: this
-> handoff → COMPLETE and archived to
-> `.claude/handoff/archive/2026-07-22-sprint-120-...-COMPLETE.md`.
+> This sprint clears the entire open-PR backlog: **18 open PRs** triaged 2026-07-24 into **six
+> PRs of work, one closed unmerged (#106), and one closing on PR 1's merge (#159)** — see the
+> Plan of Record table, which accounts for all 18 by number. Maintainer scope decisions this
+> session: (a) safe bumps land as ONE consolidated PR, not 12 individual merges — every master
+> merge is a full deploy; (b) **all 7 breaking majors are IN SCOPE** (maintainer overrode the
+> recommendation to defer them); (c) stale PR #106 closes — BUG-022/023 are already in
+> `docs/BUGS.md`, fixed in Sprint 107.
 
-> **STATUS (2026-07-22, PR C session — earlier, superseded by the block above):** Branch
-> `feature/sprint-120-five-second-clarity` is cut from
-> fresh `origin/master` (`3623dc89`). **Task 1 DONE:** the deferred bookkeeping rides this first
-> commit — **ADR-087 → Implemented** (ADR md + `docs/adr/README.md` index + regenerated landing
-> `concepts.json`; the per-ADR `concepts/*.json` files are gitignored/generated at build) — this
-> handoff is re-synced from the merged PR B branch, and the audit scaffold exists at
-> `docs/superpowers/research/2026-07-16-sprint-120-five-second-audit.md` with the surface × state
-> applicability matrix (17 surfaces × 4 states). Generated timestamp/HEAD-sha churn
-> (`architecture.json`, `build.json`) and the out-of-scope `adr-059` content drift were reverted,
-> as in PR B. **NEXT: Task 2** — the read-only Playwright five-second audit on demo. Its blocker is
-> credentials: S1/S2/S3 states need demo sim login + a read-only psql degree query over SSH.
-> Sprint close (handoff archive to
-> `.claude/handoff/archive/2026-07-22-sprint-120-...-COMPLETE.md`) still rides the END of PR C.
->
-> **Tasks 2–4 DONE (same session).** Audit lives at
-> `docs/superpowers/research/2026-07-16-sprint-120-five-second-audit.md`: 10 findings, a 4-product
-> reference comparison, a 12-row ranked table. States resolved by read-only psql — **S1
-> first-arrival is NOT auditable (0 users without a membership; no account manufactured)**, S2 =
-> `takeshi.osei6315@test.karmyq.com` (degree 1), S3 = `maria.reyes@test.karmyq.com` (degree 4 —
-> note the designated "rich" persona is below the demo's own median; max degree is 62). Seven
-> surfaces went unaudited (request detail, create-request wizard, community detail, profile,
-> notifications, messaging, md→lg topbar) — maintainer chose to proceed anyway; carried forward.
-> **Task 4 CHECKPOINT PASSED — maintainer selected R-1…R-8** (UTF-8-safe JWT decode; constrain the
-> dashboard community `<select>`; link `/demo` from the app root; brand login/register; label the
-> create action; stop stacked onboarding overlays; sparse-`/network` CTA; green active mode pill).
-> Deferred to IDEAS: R-9/R-10/R-12. Logged as bugs, not fixed inline: **BUG-031** (32× 404
-> `community-trust` console noise on `/communities`) and **BUG-032** (the JWT `atob` mojibake that
-> R-1 fixes; BUG-032 is now marked fixed). Plan Tasks 5–7 were rewritten in place with concrete files/tests. **Task 5 followed**
-> (TDD tests in `apps/frontend/tests/tdd/sprint-120-five-second-fixes.test.tsx`, RED first; since promoted to `tests/regression/`).
+## Quick Start
 
-> **STATUS (2026-07-22, this session): PR B is SHIPPED.** PR
-> [#153](https://github.com/ravichavali/karmyq/pull/153) — `Sprint 120: generate init.sql from one
-> seed path` — was admin-override squash-merged (`3623dc89`, 2026-07-22 04:21Z) at **v11.31.0** and
-> **DEPLOYED** to karmyq.com. CI/CD run `29890827056` went fully green including **Deploy to Demo =
-> success with no rollback** (SSH + ARM64 build + `deploy.sh` + server-side health check all passed,
-> ~7 min). Post-deploy smoke test: frontend root serves live Karmyq HTML; social-graph API returns
-> the correct ADR-074 error contract. Demo did NOT re-seed from init.sql (existing DB), as expected —
-> the generated init.sql only affects fresh-install/CI paths.
->
-> This session closed the Task 8/9 gaps on top of the already-green PR B artifact work and merged:
-> - **Version bump `11.30.1 → 11.31.0`** + **Task 7 doc-loop** (ADR-087/PR#153 note on the
->   `docs/IDEAS.md` `[2026-07-08] infra` entry) — commit `d4b30e50`.
-> - **`/simplify`** (branch diff, scripts+workflow) = clean, no worthwhile reduction. The 3
->   migration-enum idioms across YAML+shell are a false-positive reuse flag (different needs).
-> - **`/code-review` HIGH** = no correctness defects. Verified `apply_migration`'s transaction-wrapper
->   detection against **all 65 migration files**: comment-only ROLLBACKs (009/011/013) are correctly
->   stripped because the check runs on comment-stripped `exec_lines`; the real `ROLLBACK;` in
->   `20260530-community-dedup.sql` is correctly preserved. Drift-check before/after, `'`-escaping, and
->   the ADR-031 qualified-DDL regex all sound.
-> - **`/security-review`** = clean (prior session, tooling-only surface).
-> - Caught & reverted 3 landing JSONs that `npm test`'s landing `prebuild` auto-regenerated
->   (`architecture.json`/`build.json` = pure timestamp+HEAD-sha churn; `adr-059.json` = real content
->   drift from #156's ADR edit) — all auto-regenerate at deploy, out of PR B scope, and CI does NOT
->   gate committed-JSON-vs-source (`docs-generation.test.ts` validates structure only). Kept PR focused.
-> - **Do NOT** revert the ADR-031 contract-test regex to `toContain` — the generator emits qualified DDL.
->
-> **⚠️ RIDES PR C's FIRST COMMIT (no docs-only master push):** (1) **ADR-087 → Implemented** in
-> `docs/adr/ADR-087-*.md` AND its landing JSON (`apps/landing/src/data/docs/concepts/adr-087-*.json`);
-> (2) **archive THIS handoff** to `.claude/handoff/archive/2026-07-22-sprint-120-...-COMPLETE.md` once
-> the whole sprint (through PR C) ships. NOTE: origin/master's committed handoff is now one step stale
-> vs the accurate copy committed on the merged `feature/sprint-120-one-seed-path` branch — PR C should
-> re-sync from here.
->
-> **Housekeeping (deferred — auto-mode classifier blocked git stash/fetch this session):**
-> `git stash@{0}` (`sprint-120-pr153-artifact-wip`) is FULLY captured in the merged commits — safe to
-> `git stash drop stash@{0}` now that #153 merged. Two ancient v9.x stashes (`stash@{1}` S36,
-> `stash@{2}` S34) are stale cruft — clear when convenient. Local master fetch/ff also pending.
-
-
-> **STATUS (2026-07-17, PR A shipped):** PR
-> [#152](https://github.com/ravichavali/karmyq/pull/152) is **MERGED** (admin-override squash
-> `31fdcd54`, 2026-07-17 19:58Z) and **DEPLOYED** to karmyq.com at v11.30.0. The CI/CD pipeline
-> (run `29609505205`) went fully green including **Deploy to Demo = success with no rollback** —
-> `deploy.sh` applies migrations idempotently and rolls back on failure, so the DOUBLE PRECISION
-> migration landed and server-side health verification passed. Post-deploy smoke test: frontend
-> root serves the live Karmyq landing; social-graph API responds with the correct ADR-074 error
-> contract. **One follow-up for the maintainer:** the authenticated BUG-030 repro (as
-> `maria.reyes` → Fatima Alhassan single path + a `/paths/batch` sweep; expect 200s, fractional
-> score cached, `degrees` unchanged) still wants a manual pass — it needs demo login creds / SSH,
-> which the auto-mode classifier gates. Deploy evidence is otherwise strong.
-> **PR B is active on `feature/sprint-120-one-seed-path`, branched from fresh `origin/master`;
-> ADR-087 begins Accepted and becomes Implemented only after PR B deploys.**
-> Quality gates (2026-07-17, folded into the merged PR): one full-diff simplify pass found no
-> worthwhile reduction beyond the per-link visual Map already introduced; medium correctness
-> review found and fixed two stale copy contracts (the Sprint 115 assertion and generated-doc
-> source/nav); security review found no new auth, injection, secret, disclosure, or
-> destructive-SQL surface. No findings remain open.
-
-> **PR B execution (2026-07-17):** Task 1 is committed as `b685c062`; ADR-087 is Accepted and
-> the direct ADR-index gate passed. Task 2 inventory: `public.schema_migrations` is keyed by the
-> bare SQL filename in `migration_name VARCHAR(255) PRIMARY KEY`, with
-> `applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP`; the generated backfill must contain the sorted
-> `migrations/*.sql` names exactly. Curated rows are the three
-> `communities.config_templates` starter templates and four global
-> `social_graph.interaction_weights` rows. The generated path must also preserve/reconcile the
-> `uuid-ossp` extension, dumped RLS policies, development-role/grant behavior, and schema ordering.
-> Task 3 is implemented: the sourceable normalizer + regeneration pipeline passes Git Bash syntax,
-> its ledger helper emits all 65 sorted migrations, and curated rows now live in dedicated
-> `seed-data.sql` (`shellcheck` unavailable locally). Draft PR #153 is open. Initial regeneration
-> run `29613483083` passed Linux shellcheck, double-run byte determinism, fresh generated-DB boot,
-> and exact 65-row ledger parity; it failed only on the deliberately absent drift-success marker,
-> so no artifact uploaded. Task 5 is RED as intended (five stale-init sentinels fail; the shipped
-> global-index and DOUBLE PRECISION sentinels pass). Task 6's source-shared `--drift-check` mode and
-> CI integration invocation are committed. Regeneration run `29875351593` is fully green: Linux
-> shellcheck, double-run determinism, fresh generated-DB boot, exact 65-row ledger parity, strict
-> empty before/after drift diff, and artifact upload all passed. Verified artifact SHA-256
-> `64BB19A73ACF2E379785ABD7CBAD2506D3C5D1E9ED7BD01BE6F1EF23011DBCC8` is installed locally as
-> `infrastructure/postgres/init.sql`; curated seed SQL is byte-preserved, and the promoted
-> regression drift gate passes 7/7. The artifact commit is staged but BLOCKED by newly disclosed
-> registry advisories: full `npm test` now fails only the ADR-059 audit gate (7 high + 1 critical),
-> and PR #153 independently shows Security Audit + Backend Services failures while regeneration,
-> auth, frontend, lint, CodeQL, and Docker build pass. Mandatory process review says DO NOT COMMIT.
-> Admin must choose a separate dependency-security PR (preferred by the one-task/one-PR contract)
-> or explicitly expand PR B scope before artifact work can continue.
-
-> **STATUS (2026-07-16, planning session):** Sprint 119 is fully SHIPPED — PR #150 merged by Admin
-> 2026-07-16 14:47Z (squash `6cf8f2d`), CI/CD deployed. Sprint 120 planned this session
-> (maintainer scope decisions recorded below): three PRs, each merges + deploys independently.
-> **Cross-agent review processed 2026-07-16, RE-REVIEW folded in 2026-07-17:** PR A confirmed
-> ready unchanged; PR B + PR C plans AND the design spec AMENDED in place (notes 6–9 deltas —
-> real `--drift-check` mechanism, Task 4 opens a draft PR, drift-test/land reorder, state-based
-> PR C audit). Re-read the plan files + spec; all review findings are folded in. Spec, plans,
-> and handoff now agree.
-> S119 close-out bookkeeping (ADR-086 → Implemented, S119 handoff → archive) rides PR A Task 1.
-> S119's remaining live validation (Maria's ring, sparse no-bonds state, woven/dormant bridges,
-> 375px; plus PR A leftovers: throwaway first-join from a community DETAIL page → /welcome,
-> `/demo` tour survives refresh, topbar calm at md/lg/xl) can fold into PR C's audit pass —
-> read-only, never mutate protected personas.
-
-## Quick Start (PR C — five-second clarity, research-FIRST)
-
-PR A + PR B are SHIPPED. PR C is the last leg of Sprint 120. Plan:
-`docs/superpowers/plans/2026-07-16-sprint-120-pr-c-five-second-clarity.md`. Design spec:
-`docs/superpowers/specs/2026-07-16-sprint-120-true-scores-one-seed-clarity-design.md`.
-
-1. Read this handoff (top block = PR B shipped + what rides PR C's first commit) + the PR C plan.
-2. **Branch off fresh `origin/master`:** `git fetch origin && git checkout -b
-   feature/sprint-120-five-second-clarity origin/master`. Target version **v11.32.0**.
-3. **First commit carries the deferred bookkeeping** (no docs-only master push): ADR-087 →
-   Implemented (ADR md + landing JSON); re-sync THIS handoff onto the new branch (origin/master's
-   copy is one step stale — take the accurate copy from the merged `feature/sprint-120-one-seed-path`).
-4. **PR C is research-FIRST (spec note 9):** audit doc + maintainer fix selection at the Task 4
-   checkpoint BEFORE any implementation. Audit BY STATE (unauth / first-arrival if a read-only DB
-   check finds one / sparse sim account by degree query / maria.reyes), each surface only where
-   reachable. Read-only on demo; NEVER mutate protected personas
-   (maria.reyes/elena.torres/noah.williams/marcus.lee@test.karmyq.com). At the checkpoint, rewrite
-   the plan file itself with concrete files/tests for the selected fixes before Tasks 5–7 execute.
-5. Fold in S119's remaining live validation + PR A leftovers (see the 2026-07-16 planning block
-   below) during PR C's audit pass.
-
-Do NOT revert the ADR-031 contract-test regex fix to `toContain` — the generator emits qualified DDL.
+1. Read this handoff. The triage table below is the plan of record.
+2. **PR 1 is on `hotfix/postcss-advisory-v11.32.1`**, cut from `origin/master` (`caca85fb`).
+   Verify state with `git log --oneline -3` before continuing.
+3. Each subsequent PR branches off **fresh `origin/master`** after the previous one merges.
+4. Every merge needs **EXPLICIT admin authorization** (`gh pr merge --squash --admin`), every
+   time. Never self-merge.
 
 ## Sprint Goal
 
-Fix the source, not the symptom, three ways: BUG-030's trust-score cache column adopts the score's
-real type (DOUBLE PRECISION + batch per-target isolation) with the six PR #150 polish findings
-(PR A); init.sql becomes the generated product of the migration chain — one seed path everywhere,
-ADR-087 (PR B); and a research-first five-second-test UX audit ships only maintainer-selected
-clarity fixes (PR C).
+Take the open-PR count from 18 to 0: ship the security hotfix that unblocks the v11.32.0 deploy,
+land the safe dependency backlog in one consolidated PR, then work the seven breaking majors as
+individually-scoped migrations.
 
-## Multi-Sprint Arc
+## Plan of Record — 6 PRs
 
-- S115 (ADR-083) position earned → S118 (ADR-085) ego edges lived → S119 (ADR-086) ring + hub
-  scale answers: the graph-presentation arc is CLOSED. S120 is hardening + first impressions.
-- Candidates for S121+: governance ratification quorum design question; sim pace / demo
-  liveliness (IDEAS 2026-06-15); docs-token cleanup (CLAUDE.md/AGENTS.md); PR C's deferred
-  structural findings.
+| PR | Scope | Supersedes | Version |
+|---|---|---|---|
+| **1** | postcss advisory hotfix + Sprint 120 close-out | #159 | v11.32.1 |
+| **2** | consolidated safe deps | #157, #126, #85, **#55**, #145, #144, #147, #118, #53 | v11.33.0 |
+| **3** | lint toolchain majors | #40, #35, #36 | TBD |
+| **4** | mobile/Expo majors | #37, #39 | TBD |
+| **5** | tailwindcss 3 → 4 | #41 | TBD |
+| **6** | express 4 → 5 | #34 | TBD |
+| — | closed unmerged | #106 (stale docs) — **CLOSED 2026-07-24** | — |
 
-## Approved Artifacts
+**Accounting (all 18 open PRs at triage):** 1 superseded by PR 1 (#159) + 9 in PR 2 (#157, #126,
+#85, #55, #145, #144, #147, #118, #53) + 3 in PR 3 (#40, #35, #36) + 2 in PR 4 (#37, #39) +
+1 in PR 5 (#41) + 1 in PR 6 (#34) + 1 closed unmerged (#106) = **18**. No PR is unassigned.
 
-- Design: `docs/superpowers/specs/2026-07-16-sprint-120-true-scores-one-seed-clarity-design.md`
-- Plan PR A (11 tasks): `docs/superpowers/plans/2026-07-16-sprint-120-pr-a-true-scores-polish.md`
-- Plan PR B (9 tasks): `docs/superpowers/plans/2026-07-16-sprint-120-pr-b-one-seed-path.md`
-- Plan PR C (9 tasks): `docs/superpowers/plans/2026-07-16-sprint-120-pr-c-five-second-clarity.md`
-- Branches: `feature/sprint-120-true-scores-polish` → `feature/sprint-120-one-seed-path` →
-  `feature/sprint-120-five-second-clarity` (each off `origin/master` after the previous merges)
-- Version: v11.29.0 → v11.30.0 (A) → v11.31.0 (B) → v11.32.0 (C) · ADR: **ADR-087** rides PR B
-- Scope decisions (maintainer, this session): ALL FOUR candidates in scope (BUG-030 fix, six
-  PR #150 polish findings, five-second-test UX pass, init.sql regeneration); BUG-030 fix shape =
-  **DOUBLE PRECISION migration**, not rounding at write sites.
+**Closure status:** only **#106** is closed so far (2026-07-24). **#159 is still OPEN** — it
+closes as superseded when PR 1 merges, not before, so that the fix is actually on `master`
+before its Dependabot PR is dismissed. The nine PR 2 supersessions close the same way, after
+PR 2 merges.
 
-## Critical Implementation Notes (from the spec — read before implementing)
+**PR 1 (in flight).** `GHSA-r28c-9q8g-f849` — postcss ≤ 8.5.17 path traversal, high, 5 findings
+via the single hoisted `node_modules/postcss` that both `next` and `@expo/metro-config` resolve.
+Fix: root `overrides.postcss` `^8.5.10` → `^8.5.18`, matching devDep ranges in
+`apps/frontend` + `apps/landing`, and a **surgical in-place lockfile bump** of exactly two nodes
+(`postcss` 8.5.15 → 8.5.23; plus its newly required **dependency** `nanoid` 3.3.12 → 3.3.16 —
+8.5.23 declares `nanoid ^3.3.16` under `dependencies`, not as a peer).
+**Second advisory folded in (2026-07-27):** `GHSA-mh99-v99m-4gvg` — brace-expansion DoS via
+unbounded expansion, high, 1 finding — published while #160 sat awaiting merge authorization and
+turned the same two gates red again on an unchanged dependency diff. Same surgical treatment:
+the exact override `brace-expansion` `5.0.7` → `5.0.8` and the one hoisted lockfile node bumped
+in place. `balanced-match@4.0.4` already satisfies 5.0.8's `^4.0.2`, so no second node moved —
+4 changed lines total.
 
-1. **BUG-030 = DOUBLE PRECISION migration** (decided), NOT rounding. Three raw write sites stay
-   unrounded: `services/social-graph-service/src/routes/paths.ts:189` (single), `paths.ts:361`
-   (batch), `services/pathComputation.ts:525` (precompute). Grep `path_trust_score` consumers for
-   integer-type assumptions after.
-2. **Batch isolation**: try/catch INSIDE the per-target loop; failure degrades to the existing
-   "no connection" per-target shape (no new error shape), logged with target id. TDD: one target
-   throws → 200 with other targets present. Feed-ranking guard: `degrees_of_separation` must not
-   move.
-3. **Migration hygiene**: date-named `20260716-path-trust-score-double-precision.sql`; run
-   `migration-validator` before commit; add a column-type sentinel to
-   `scripts/ci-apply-full-schema.sh`; update init.sql:85 minimally; NEVER edit
-   `009_social_graph.sql` (tracked-migration edits never reach demo).
-4. **Don't disturb shipped graph contracts while polishing**: ring rotation/anchor, decayTier
-   bands, `new > caller > focused` precedence, fail-closed `active_recently`, truthful legend
-   colors are pinned S115/S118/S119 contracts — pin with regression assertions BEFORE touching
-   `graphVisualEncoding.ts`; run promoted S118/S119 suites directly after.
-5. **One 30-day window** (ADR-082/S118): `isActiveRecently` alias delegates to
-   `isFormedRecently` — no second constant.
-6. **init.sql regen needs real postgres; Docker unavailable locally** → GitHub Actions workflow.
-   AMENDED per review: `workflow_dispatch` can't run a workflow that isn't on master yet, so the
-   workflow ALSO carries a path-filtered `pull_request` trigger for the initial in-PR run;
-   dispatch covers post-merge regens. NEVER dump the demo DB (missing PR #143 `uq_*_global`
-   guard indexes — not a valid schema source).
-7. **Regenerated init.sql MUST seed `public.schema_migrations`** (match apply-migrations.sh's
-   row format EXACTLY) or fresh installs replay the chain — the load-bearing detail of ADR-087.
-   Workflow validates: fresh container from new init.sql → apply-migrations.sh reports ALL
-   already applied (assert `schema_migrations` rows == sorted `migrations/*.sql` listing, zero
-   missing/extra — never a hard-coded count) → `ci-apply-full-schema.sh --drift-check` shows an
-   empty before/after schema diff. **AMENDED 2026-07-17 (re-review):** the current script CANNOT
-   detect clean drift (fails only on unexpected ERROR lines + a fixed sentinel list; a
-   genuinely-new object applies silently and passes) — add a real `--drift-check` mode
-   (normalized `pg_dump --schema-only` before vs after the chain replay, fail on any diff). Task
-   order fixed: drift-gate TEST is Task 5 (RED against old init.sql), landing the artifact +
-   `--drift-check` mode + promote-to-regression is Task 6 (GREEN). Task 4 now PUSHES and opens a
-   contract-compliant DRAFT PR before waiting on the `pull_request` workflow (its artifact can't
-   be downloaded until the PR exists); Task 9 marks that same PR ready.
-8. **Preserve curated seed data** through the regen (schema-only dump drops it) — DECIDED: seed
-   rows live in a dedicated `infrastructure/postgres/seed-data.sql` the script splices in (not
-   an inline fence); reconcile RLS, ownership/GRANTs, extensions, schema order.
-   `ci-apply-full-schema.sh` is KEPT (repurposed to the drift guard).
-9. **PR C is research-FIRST**: audit doc + maintainer fix selection (Task 4 checkpoint) BEFORE
-   any implementation. AMENDED per review: (a) audit by STATE (unauthenticated / first-arrival
-   if a read-only DB check finds one / sparse sim account picked by degree query / maria.reyes),
-   each surface only in states where reachable — no blanket persona×surface cross-product;
-   (b) at the Task 4 checkpoint the plan file itself is rewritten with concrete files/tests for
-   the selected fixes before Tasks 5–7 execute. Audit read-only on demo; protected personas
-   (maria.reyes / elena.torres / noah.williams / marcus.lee@test.karmyq.com) never mutated;
-   maria.reyes = rich view; demo graph is sparse (avg ~4.6) — check DB degree before judging a
-   graph surface. Screenshots stay in session scratchpad; audit doc stands alone textually.
-10. **Standing mechanics**: each PR branches off `origin/master` after the previous merges;
-    admin-authorized squash merge, EXPLICIT authorization every time; no docs-only master pushes;
-    TDD in the changed workspace's `tests/tdd/`; cross-workspace suites run directly
-    (`cd tests && npx jest ...`); grep-verify `nav.json` after every landing regen;
-    `getMyCommunities` returns `{communities,count,total}`; JWT field is `communities`; jsdom/D3
-    gotchas (`^d3$` → `d3/dist/d3.min.js`, stub ResizeObserver, seed `node.__zoom`).
-11. **S119 bookkeeping**: handoff archive DONE at planning
-    (`archive/2026-07-16-sprint-119-truthful-surfaces-fractal-story-COMPLETE.md`); ADR-086 →
-    Implemented (ADR file + landing JSON) rides PR A Task 1. ADR-087 → Implemented + this
-    handoff's archive ride the NEXT sprint's first commit.
-12. **Token-efficiency decisions (maintainer, 2026-07-16 — standing, recorded in memory):**
-    (a) all four SDLC gates remain mandatory, but EFFORT is calibrated to diff size — one
-    `/simplify` pass per PR for small diffs (per-task only on substantial tasks); `/code-review`
-    MEDIUM for small well-specified PRs, HIGH for risky/large ones (PR B stays HIGH);
-    (b) execute small plan tasks INLINE, subagents only for genuinely large independent tasks;
-    (c) fresh chat per PR, handoff stays pointers + deltas; (d) CLAUDE.md/AGENTS.md/MEMORY.md
-    trimmed at planning (docs-token cleanup, was backlogged since S116) — keep them lean, mind
-    the doc-context-drift gate when touching CLAUDE.md.
+Verified (after both advisories): `npm audit` = `found 0 vulnerabilities`;
+`sprint-75-security-gate` 3/3 run directly; `npm install --package-lock-only` reproduces the
+hand edits byte-identically (zero churn); installed tree confirmed at `postcss 8.5.23`,
+`nanoid 3.3.16`, `brace-expansion 5.0.8`.
+**After merge: confirm `Deploy to Demo` succeeds with no rollback, then smoke-test R-1…R-8 on
+karmyq.com** — PR C's merge run is the standing proof that green checks ≠ a deploy.
+
+**PR 2 contents.** #157 production-deps ×10 (ioredis 5.11.0→5.11.1, pg 8.21→8.22,
+framer-motion/motion 12.40→12.42, react-native 0.85.3→**0.86.0**, react-native-maps 1.27→1.29,
+reanimated 4.4→4.5.3, rn-screens 4.25→4.26, helmet 8.2→8.3, uuid 14.0.0→14.0.1) · #126 dev-deps
+×9 **minus ts-jest** · #85 esbuild/tsx in `/scripts` · **#55 supertest 6.3.4→7.2.2 +
+@types/supertest 6.0.3→7.2.0** · action bumps #145, #144, #147, #118, #53.
+
+**#55 is a MAJOR, deliberately placed in PR 2** rather than with the other majors. Rationale: it
+is a devDependency used only by backend test suites, so its entire blast radius is the test
+tier — a break fails loudly and immediately in the gate rather than reaching runtime or UI. It is
+the one major whose verification is fully automated. Condition of inclusion: the backend suites
+must be run **directly** (`cd tests && npx jest`, plus each affected service workspace), not via
+a Turbo run that could serve a cached pass. If supertest 7 needs source changes to test helpers,
+pull it OUT of PR 2 into its own PR rather than growing the consolidated diff.
+
+**PRs 3–6 are genuine migrations, not merges** — see Critical Notes 4–7.
+
+**Disposition is now complete: 18 open PRs → 6 PRs of work + 1 closed unmerged + 1 closing on
+PR 1's merge** (#106 stale docs, **already closed** 2026-07-24; #159 superseded by PR 1, **still
+open** until that merge lands). Every open PR is accounted for; if a new Dependabot PR arrives
+mid-sprint, add it to this table before starting work.
+
+## Critical Implementation Notes
+
+1. **Surgical lockfile bumps only** (now established three times — `next` twice, `postcss` once).
+   Bump the affected nodes IN PLACE, then prove it with `npm install --package-lock-only` +
+   `git diff` = no additional churn. **NEVER** whole-tree `npm dedupe` (re-resolves ~71 unrelated
+   transitives CI doesn't build), **NEVER** a root prod dep to force hoisting (9 backend
+   Dockerfiles copy the root manifest and `npm install --omit=dev` — a root `next` pins
+   next/swc/sharp ~289MB into every backend image, and `sharp@0.35.3` needs Node ≥20.9 while
+   backends run Node 18), **NEVER** a scratch lockfile regen on Windows.
+2. **`ts-jest` stays pinned at 29.4.6** — hold it back out of PR 2. 29.4.11+ stops merging the
+   project tsconfig's `moduleResolution: node16` into the root jest inline tsconfig → TS2307 on
+   the `@karmyq/shared/schemas/ui` subpath in request-service tests.
+3. **`uuid` is fine to bump in PR 2.** The root override pins the hoisted node at `^11.1.1`
+   (bull's `require('uuid')` needs CJS; uuid@14 is ESM-only). #157 only moves the
+   `packages/shared` + `cleanup-service` copies, which are already on 14 by direct declaration.
+4. **PR 5 / tailwindcss 4** is a config rewrite, not a bump: v4 is CSS-first, so both
+   `apps/frontend/tailwind.config.js` and `apps/landing/tailwind.config.ts` are
+   deleted/reexpressed. Highest visual-regression risk in the sprint — every surface. Verify
+   against the S115/S118/S119 graph-presentation contracts and the S120 R-1…R-8 clarity fixes.
+5. **PR 6 / express 5** touches root, `packages/shared` (imported by all 10 services), and
+   `geocoding-service`. Breaking: routing, error handling, `req.query` getter. #34 is already
+   `CONFLICTING` — rebuild from scratch off master rather than rebasing that branch.
+6. **PR 3 / lint majors:** `@typescript-eslint/eslint-plugin` 6→8 needs the parser bumped in
+   lockstep. `eslint-config-next` 16 targets Next 16 while we run `^15.5.21` — confirm the skew
+   is tolerable or hold that one. `eslint-config-expo` 8.0.1→57.0.0 is a versioning-scheme jump
+   tied to the Expo SDK.
+7. **PR 4 / mobile:** `apps/mobile` type-check is already red on master (FlatList/refreshControl
+   overloads) and mobile lint is non-blocking in CI — don't chase mobile green as a gate, but
+   don't regress it either. Mobile uses **Expo Router**, not `@react-navigation`.
+8. **Advisories publish mid-flight — expect this, it is not a defect in your diff.** Four
+   occurrences across Sprints 120–121, each on a diff that had not changed:
+   - **2026-07-21, during PR B execution** — a batch of registry disclosures (7 high + 1
+     critical) blocked PR B's artifact commit. Remediated as its own hotfix, PR
+     [#156](https://github.com/ravichavali/karmyq/pull/156) (v11.30.1).
+   - **2026-07-23, during PR C's review** — `GHSA-m99w-x7hq-7vfj` (`next` 12.0.0–15.5.20,
+     8 highs). Folded into PR C by maintainer decision; took three attempts before the surgical
+     in-place bump was the accepted shape.
+   - **2026-07-24, between PR C going green and its merge landing** —
+     `GHSA-r28c-9q8g-f849` (postcss ≤ 8.5.17, 5 highs). Stopped PR C's own deploy; remediated by
+     PR [#160](https://github.com/ravichavali/karmyq/pull/160) (v11.32.1).
+   - **2026-07-27, while #160 awaited merge authorization** — `GHSA-mh99-v99m-4gvg`
+     (brace-expansion ≤ 5.0.7, 1 high). Folded into #160.
+
+   **Signature:** `Security Audit` and `sprint-75-security-gate` go red *together* on a diff that
+   touches no dependencies. Check for a newly published advisory before debugging anything. The
+   remedy is always the same surgical bump; never bypass the gate. **Corollary: the longer a PR
+   waits for merge authorization, the more likely it needs another bump before it can land** —
+   re-check the gate immediately before merging, not just when CI last ran.
+9. **Standing mechanics**: branch off `origin/master` (never local master); admin-authorized
+   squash merge with EXPLICIT authorization each time; no docs-only master pushes (fold docs
+   into the PR); TDD in the changed workspace's `tests/tdd/`; run cross-workspace suites
+   directly (`cd tests && npx jest regression/<file>`) — Turbo caches stale cross-workspace
+   passes; grep-verify `nav.json` after any landing regen; `npm test` regenerates landing docs,
+   so revert timestamp/HEAD-sha churn before committing.
+10. **Gate effort is calibrated to diff size** (standing since S120): one `/simplify` per PR;
+    `/code-review` medium for small well-specified PRs, high for risky/large ones (PRs 5 and 6
+    are HIGH). All four gates run every sprint regardless.
 
 ## Carry-Forward / Known State
 
-- **BUG-030** (`docs/BUGS.md`): FIXED by PR A (DOUBLE PRECISION migration + per-target batch
-  isolation), merged `31fdcd54` and deployed 2026-07-17. Live-repro confirmation still pending a
-  maintainer pass (maria.reyes → Fatima Alhassan single + `/paths/batch` sweep).
-- **PLAUSIBLE pre-existing edge** (S119 PR A review): localStorage communities snapshot can route
-  a stale-snapshot member to /welcome. Deferred; candidate for PR C audit attention.
+- **v11.32.0 is merged but undeployed** until PR 1 ships. Demo runs v11.31.0. **Every PR in this
+  sprint ends with the same two-step verification, not with a green PR:** confirm the master
+  CI/CD run reached **`Deploy to Demo` = success with no rollback**, then smoke-test the live
+  site. PR C's merge run is the standing counterexample — 20 green checks and no deploy.
+- **PR #106** (Sprint 106 docs) was **closed unmerged 2026-07-24** — superseded by 14 sprints,
+  and a docs-only master merge would trigger a pointless deploy. BUG-022/023 verified present in
+  `docs/BUGS.md` (lines 323, 336, both `fixed (Sprint 107)`) before closing; nothing was lost.
+- **BUG-031** — 32× 404 `community-trust` console noise on `/communities`. Logged, not fixed.
+- **BUG-030** live-repro confirmation still pending a maintainer pass (maria.reyes → Fatima
+  Alhassan single + `/paths/batch` sweep). Deploy evidence is otherwise strong.
+- **S120 deferred findings** R-9/R-10/R-12 are in `docs/IDEAS.md`. Seven surfaces went unaudited
+  in the five-second pass (request detail, create-request wizard, community detail, profile,
+  notifications, messaging, md→lg topbar) — carried forward.
+- **PLAUSIBLE pre-existing edge**: localStorage communities snapshot can route a stale-snapshot
+  member to `/welcome`. Still deferred.
 - **Deferred S119 follow-ups**: computeInvitationPath disclosure-gate question, api.ts
   interceptor clearAuthSession adoption, cold-cache batch enrichment.
-- **Demo state:** curated baseline (36 users, 6 communities, 14 trust edges) + two harmless S118
-  throwaways (SE Portland Running Club). Protected story core per note 9.
-- Docker unavailable locally; DB-backed assertions ride CI (full migrated schema via
-  `scripts/ci-apply-full-schema.sh`; PR A's new migration needs its sentinel — in plan).
+- **Untracked in the working tree** (not from this sprint, not mine to commit):
+  `.github/copilot-instructions.md`, `.github/instructions/`.
+- **Housekeeping**: `git stash@{0}` (`sprint-120-pr153-artifact-wip`) is fully captured in merged
+  commits — safe to drop. Two ancient v9.x stashes (`stash@{1}` S36, `stash@{2}` S34) are cruft.
+- Docker unavailable locally; DB-backed assertions ride CI.
 - Root Turbo on Windows can hit Jest temp-cache `EPERM`; rerun isolated with unique caches under
   `C:\tmp` — assertion failures are not cache races.
-- Sprint 119 record: `.claude/handoff/archive/2026-07-09-sprint-118-invited-arrival-living-graph-COMPLETE.md`
-  (S118) + PR A archive due in PR A Task 1 (S119).
 
 ## Persistent Context
 
