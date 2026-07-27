@@ -50,8 +50,17 @@ Fix: root `overrides.postcss` `^8.5.10` → `^8.5.18`, matching devDep ranges in
 `apps/frontend` + `apps/landing`, and a **surgical in-place lockfile bump** of exactly two nodes
 (`postcss` 8.5.15 → 8.5.23; plus its newly required **dependency** `nanoid` 3.3.12 → 3.3.16 —
 8.5.23 declares `nanoid ^3.3.16` under `dependencies`, not as a peer).
-Verified: `npm audit` = `found 0 vulnerabilities`; `sprint-75-security-gate` 3/3;
-`npm install --package-lock-only` reproduces the hand edit byte-identically (zero churn).
+**Second advisory folded in (2026-07-27):** `GHSA-mh99-v99m-4gvg` — brace-expansion DoS via
+unbounded expansion, high, 1 finding — published while #160 sat awaiting merge authorization and
+turned the same two gates red again on an unchanged dependency diff. Same surgical treatment:
+the exact override `brace-expansion` `5.0.7` → `5.0.8` and the one hoisted lockfile node bumped
+in place. `balanced-match@4.0.4` already satisfies 5.0.8's `^4.0.2`, so no second node moved —
+4 changed lines total.
+
+Verified (after both advisories): `npm audit` = `found 0 vulnerabilities`;
+`sprint-75-security-gate` 3/3 run directly; `npm install --package-lock-only` reproduces the
+hand edits byte-identically (zero churn); installed tree confirmed at `postcss 8.5.23`,
+`nanoid 3.3.16`, `brace-expansion 5.0.8`.
 **After merge: confirm `Deploy to Demo` succeeds with no rollback, then smoke-test R-1…R-8 on
 karmyq.com** — PR C's merge run is the standing proof that green checks ≠ a deploy.
 
@@ -104,10 +113,16 @@ for; if a new Dependabot PR arrives mid-sprint, add it to this table before star
 7. **PR 4 / mobile:** `apps/mobile` type-check is already red on master (FlatList/refreshControl
    overloads) and mobile lint is non-blocking in CI — don't chase mobile green as a gate, but
    don't regress it either. Mobile uses **Expo Router**, not `@react-navigation`.
-8. **Advisories publish mid-flight.** Twice in Sprint 120 a fresh GHSA turned `Security Audit` +
-   `sprint-75-security-gate` red on an unrelated diff between PR-green and merge. If both go red
-   together on a diff that touches no deps, check for a newly published advisory before
-   debugging. Re-run the gate after rescan; never bypass.
+8. **Advisories publish mid-flight — expect this, it is not a defect in your diff.** It has now
+   happened **four times**: twice in Sprint 120 (the `next` GHSA during PR C's review, then
+   `GHSA-r28c-9q8g-f849` postcss between PR C going green and merging) and again on PR #160
+   itself (`GHSA-mh99-v99m-4gvg` brace-expansion, published while the PR awaited merge
+   authorization and re-reddening an unchanged dependency diff). **Signature:** `Security Audit`
+   and `sprint-75-security-gate` go red *together* on a diff that touches no dependencies. Check
+   for a newly published advisory before debugging anything. The remedy is always the same
+   surgical bump; never bypass the gate. **Corollary: the longer a PR waits for merge
+   authorization, the more likely it needs another bump before it can land** — re-check the gate
+   immediately before merging, not just when CI last ran.
 9. **Standing mechanics**: branch off `origin/master` (never local master); admin-authorized
    squash merge with EXPLICIT authorization each time; no docs-only master pushes (fold docs
    into the PR); TDD in the changed workspace's `tests/tdd/`; run cross-workspace suites
