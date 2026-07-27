@@ -39,9 +39,9 @@ individually-scoped migrations.
 | PR | Scope | Supersedes | Version |
 |---|---|---|---|
 | **1** | postcss advisory hotfix + Sprint 120 close-out | #159 | v11.32.1 — **SHIPPED** |
-| **2** | consolidated safe deps | #157, **#161**, #85, **#55**, #145, #144, #147, #118, #53 | v11.33.0 |
+| **2** | consolidated safe deps | #157 (**minus mobile**), **#161**, #85, **#55**, #145, #144, #147, #118, #53 | v11.33.0 |
 | **3** | lint toolchain majors | #40, #35, #36 | TBD |
-| **4** | mobile/Expo majors | #37, #39 | TBD |
+| **4** | mobile/Expo majors | #37, #39, **#157's 4 react-native bumps** | TBD |
 | **5** | tailwindcss 3 → 4 | #41 | TBD |
 | **6** | express 4 → 5 | #34 | TBD |
 | — | closed unmerged | #106 (stale docs) — **CLOSED 2026-07-24** | — |
@@ -96,6 +96,36 @@ notes): #157 production-deps (ioredis ^5.3.2→^5.11.1, pg ^8.11.3→^8.22.0, fr
 `29.4.6`, so accepting #161's `^29.4.12` ranges would leave every manifest declaring a range the
 override contradicts. Leave the ranges alone (Critical Note 2).
 
+**#157's four `apps/mobile` bumps moved to PR 4** (react-native 0.85.3→0.86.2, react-native-maps
+1.27.2→1.29.0, reanimated ~4.4.0→~4.5.3, react-native-screens ~4.25.2→~4.26.2). Reason, verified
+not assumed: **npm will not resolve them.** After editing the ranges, `npm install
+--package-lock-only` leaves `apps/mobile/node_modules/react-native` at 0.85.3 while the
+`apps/mobile` edge reads 0.86.2 — the manifest would claim a version the lockfile never installs.
+`npm update --package-lock-only --workspace apps/mobile` changes nothing, and `npm ci --dry-run`
+does *not* error on the mismatch, so CI would go green on a tree that never upgraded. **This is
+not a Windows artifact**: Dependabot's own #157 lockfile has the identical half-resolution — it
+only hoists `react-native-screens` out of `expo-router` and adds no 0.86.x nodes at all. PR 4
+already owns mobile, and #37 (gesture-handler 2→3) is part of the same upgrade anyway, so the
+whole mobile surface gets one resolution attempt and one verification pass instead of two.
+
+**Undeclared-dependency fallout — the real work in this PR.** De-hoisting is the mechanism to
+watch. Bumping `supertest` in the 4 workspaces that declared it removed the hoisted
+`node_modules/supertest@6.3.4` that 4 *other* workspaces had been importing without declaring:
+`geocoding-service` (the one that failed CI), `reputation-service`, `request-service` and
+`packages/shared`. Fixed at the layer — `supertest`/`@types/supertest` are now declared where they
+are imported — not by pinning to preserve the hoist. Same cross-check was run for the other
+de-hoisted packages (`helmet` 9 importers = 9 declarers, `autoprefixer` 2 = 2,
+`@playwright/test`/`@faker-js/faker` in `tests` only): no other gaps. Rule promoted to CLAUDE.md
+Global Patterns + AGENTS.md standing rules.
+
+**Expect ~570 lines of lockfile churn and don't try to shrink it.** `helmet`, `autoprefixer`,
+`@playwright/test` and `@faker-js/faker` end up de-hoisted into per-workspace `node_modules`
+even though every consumer agrees on the range — npm's minimal-change resolver deletes the
+hoisted node and writes copies. It is stable (two consecutive `--package-lock-only` runs are
+byte-identical), a real `npm install` reproduces it exactly, and the 9 backend Dockerfiles copy
+their own service manifest, so nested placement still installs. Do **not** reach for `npm dedupe`
+to tidy it (Critical Note 1).
+
 **#55 is a MAJOR, deliberately placed in PR 2** rather than with the other majors. Rationale: it
 is a devDependency used only by backend test suites, so its entire blast radius is the test
 tier — a break fails loudly and immediately in the gate rather than reaching runtime or UI. It is
@@ -140,6 +170,13 @@ mid-sprint, add it to this table before starting work.
 7. **PR 4 / mobile:** `apps/mobile` type-check is already red on master (FlatList/refreshControl
    overloads) and mobile lint is non-blocking in CI — don't chase mobile green as a gate, but
    don't regress it either. Mobile uses **Expo Router**, not `@react-navigation`.
+   **Now also carries #157's four react-native bumps** (moved out of PR 2 — see "PR 2 contents").
+   Budget for a real resolution fight: neither `npm install --package-lock-only` nor
+   `npm update --workspace apps/mobile` will place the 0.86.x nodes, and Dependabot can't either.
+   Expect to need `npm install --workspace apps/mobile <pkg>@<version>` with explicit specs, or an
+   Expo-SDK-aligned upgrade of the whole mobile set at once. **Verify the resolved tree, not the
+   manifest** — `apps/mobile/node_modules/react-native/package.json` must actually read 0.86.x
+   before the PR is real, because `npm ci` will not catch the mismatch for you.
 8. **Advisories publish mid-flight — expect this, it is not a defect in your diff.** Four
    occurrences across Sprints 120–121, each on a diff that had not changed:
    - **2026-07-21, during PR B execution** — a batch of registry disclosures (7 high + 1
