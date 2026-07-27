@@ -1,17 +1,22 @@
 # Sprint 121 — Dependency Backlog Cleanup — PR 1 (postcss hotfix) IN FLIGHT
 
-> **STATUS (2026-07-24, this session):** Sprint 120 is CLOSED and archived to
+> **STATUS (2026-07-24, updated 2026-07-27):** Sprint 120 is **development-complete and merged**,
+> archived to
 > `.claude/handoff/archive/2026-07-24-sprint-120-true-scores-one-seed-clarity-COMPLETE.md`.
-> PR C ([#158](https://github.com/ravichavali/karmyq/pull/158), v11.32.0) merged as `caca85fb`
-> but its master run failed the security gates before `Deploy to Demo`, so **v11.32.0's clarity
-> fixes are merged but NOT live** — the PR 1 hotfix below is what deploys them.
+> That archive's "COMPLETE" means *all scoped work merged to `master`* — it deliberately does
+> **not** claim the work is live. **PR C's deploy verification is still OWED and is tracked
+> here**, not in the archive: PR C ([#158](https://github.com/ravichavali/karmyq/pull/158),
+> v11.32.0) merged as `caca85fb` but its master run failed the security gates before
+> `Deploy to Demo`, so **v11.32.0's clarity fixes are merged but NOT live**. The PR 1 hotfix
+> below is what deploys them, and the R-1…R-8 smoke test rides its deploy.
 >
 > This sprint clears the entire open-PR backlog: **18 open PRs** triaged 2026-07-24 into **six
-> PRs of work plus two closed unmerged** — see the Plan of Record table, which accounts for all
-> 18 by number. Maintainer scope decisions this session: (a) safe bumps land as ONE consolidated
-> PR, not 12 individual merges — every master merge is a full deploy; (b) **all 7 breaking
-> majors are IN SCOPE** (maintainer overrode the recommendation to defer them); (c) stale
-> PR #106 closes — BUG-022/023 are already in `docs/BUGS.md`, fixed in Sprint 107.
+> PRs of work, one closed unmerged (#106), and one closing on PR 1's merge (#159)** — see the
+> Plan of Record table, which accounts for all 18 by number. Maintainer scope decisions this
+> session: (a) safe bumps land as ONE consolidated PR, not 12 individual merges — every master
+> merge is a full deploy; (b) **all 7 breaking majors are IN SCOPE** (maintainer overrode the
+> recommendation to defer them); (c) stale PR #106 closes — BUG-022/023 are already in
+> `docs/BUGS.md`, fixed in Sprint 107.
 
 ## Quick Start
 
@@ -38,11 +43,16 @@ individually-scoped migrations.
 | **4** | mobile/Expo majors | #37, #39 | TBD |
 | **5** | tailwindcss 3 → 4 | #41 | TBD |
 | **6** | express 4 → 5 | #34 | TBD |
-| — | closed unmerged | #106 (stale docs, closed 2026-07-24) | — |
+| — | closed unmerged | #106 (stale docs) — **CLOSED 2026-07-24** | — |
 
 **Accounting (all 18 open PRs at triage):** 1 superseded by PR 1 (#159) + 9 in PR 2 (#157, #126,
 #85, #55, #145, #144, #147, #118, #53) + 3 in PR 3 (#40, #35, #36) + 2 in PR 4 (#37, #39) +
 1 in PR 5 (#41) + 1 in PR 6 (#34) + 1 closed unmerged (#106) = **18**. No PR is unassigned.
+
+**Closure status:** only **#106** is closed so far (2026-07-24). **#159 is still OPEN** — it
+closes as superseded when PR 1 merges, not before, so that the fix is actually on `master`
+before its Dependabot PR is dismissed. The nine PR 2 supersessions close the same way, after
+PR 2 merges.
 
 **PR 1 (in flight).** `GHSA-r28c-9q8g-f849` — postcss ≤ 8.5.17 path traversal, high, 5 findings
 via the single hoisted `node_modules/postcss` that both `next` and `@expo/metro-config` resolve.
@@ -80,9 +90,10 @@ pull it OUT of PR 2 into its own PR rather than growing the consolidated diff.
 
 **PRs 3–6 are genuine migrations, not merges** — see Critical Notes 4–7.
 
-**Disposition is now complete: 18 open PRs → 6 PRs of work + 2 closed unmerged** (#106 stale
-docs, closed 2026-07-24; #159 superseded by PR 1, closes on merge). Every open PR is accounted
-for; if a new Dependabot PR arrives mid-sprint, add it to this table before starting work.
+**Disposition is now complete: 18 open PRs → 6 PRs of work + 1 closed unmerged + 1 closing on
+PR 1's merge** (#106 stale docs, **already closed** 2026-07-24; #159 superseded by PR 1, **still
+open** until that merge lands). Every open PR is accounted for; if a new Dependabot PR arrives
+mid-sprint, add it to this table before starting work.
 
 ## Critical Implementation Notes
 
@@ -113,16 +124,25 @@ for; if a new Dependabot PR arrives mid-sprint, add it to this table before star
 7. **PR 4 / mobile:** `apps/mobile` type-check is already red on master (FlatList/refreshControl
    overloads) and mobile lint is non-blocking in CI — don't chase mobile green as a gate, but
    don't regress it either. Mobile uses **Expo Router**, not `@react-navigation`.
-8. **Advisories publish mid-flight — expect this, it is not a defect in your diff.** It has now
-   happened **four times**: twice in Sprint 120 (the `next` GHSA during PR C's review, then
-   `GHSA-r28c-9q8g-f849` postcss between PR C going green and merging) and again on PR #160
-   itself (`GHSA-mh99-v99m-4gvg` brace-expansion, published while the PR awaited merge
-   authorization and re-reddening an unchanged dependency diff). **Signature:** `Security Audit`
-   and `sprint-75-security-gate` go red *together* on a diff that touches no dependencies. Check
-   for a newly published advisory before debugging anything. The remedy is always the same
-   surgical bump; never bypass the gate. **Corollary: the longer a PR waits for merge
-   authorization, the more likely it needs another bump before it can land** — re-check the gate
-   immediately before merging, not just when CI last ran.
+8. **Advisories publish mid-flight — expect this, it is not a defect in your diff.** Four
+   occurrences across Sprints 120–121, each on a diff that had not changed:
+   - **2026-07-21, during PR B execution** — a batch of registry disclosures (7 high + 1
+     critical) blocked PR B's artifact commit. Remediated as its own hotfix, PR
+     [#156](https://github.com/ravichavali/karmyq/pull/156) (v11.30.1).
+   - **2026-07-23, during PR C's review** — `GHSA-m99w-x7hq-7vfj` (`next` 12.0.0–15.5.20,
+     8 highs). Folded into PR C by maintainer decision; took three attempts before the surgical
+     in-place bump was the accepted shape.
+   - **2026-07-24, between PR C going green and its merge landing** —
+     `GHSA-r28c-9q8g-f849` (postcss ≤ 8.5.17, 5 highs). Stopped PR C's own deploy; remediated by
+     PR [#160](https://github.com/ravichavali/karmyq/pull/160) (v11.32.1).
+   - **2026-07-27, while #160 awaited merge authorization** — `GHSA-mh99-v99m-4gvg`
+     (brace-expansion ≤ 5.0.7, 1 high). Folded into #160.
+
+   **Signature:** `Security Audit` and `sprint-75-security-gate` go red *together* on a diff that
+   touches no dependencies. Check for a newly published advisory before debugging anything. The
+   remedy is always the same surgical bump; never bypass the gate. **Corollary: the longer a PR
+   waits for merge authorization, the more likely it needs another bump before it can land** —
+   re-check the gate immediately before merging, not just when CI last ran.
 9. **Standing mechanics**: branch off `origin/master` (never local master); admin-authorized
    squash merge with EXPLICIT authorization each time; no docs-only master pushes (fold docs
    into the PR); TDD in the changed workspace's `tests/tdd/`; run cross-workspace suites

@@ -1,7 +1,14 @@
-# Sprint 120 — True Scores, One Seed Path & Five-Second Clarity — COMPLETE
+# Sprint 120 — True Scores, One Seed Path & Five-Second Clarity — DEVELOPMENT COMPLETE
 
-> **SPRINT CLOSED (2026-07-24) — all three PRs merged; A and B deployed, C's deploy pending
-> through v11.32.1:**
+> **What "COMPLETE" means in this archive — read this before citing it.** Closure here is
+> **development-complete**: every scoped task is implemented, reviewed, gated, and **merged to
+> `master`**. It does **NOT** assert that all of it is live on karmyq.com. Deploy verification is
+> tracked as an open item in `CURRENT_HANDOFF.md`, not here, because a deploy can fail or roll
+> back days after the development work is finished — which is exactly what happened to PR C.
+> The archive is written once at merge; the live state moves independently.
+>
+> **Status: MERGED 2026-07-24 · DEPLOY VERIFICATION PENDING for PR C (through v11.32.1).**
+> All three PRs merged; A and B deployed and verified; C merged but not yet live:
 > - **PR A** [#152](https://github.com/ravichavali/karmyq/pull/152) — true scores (BUG-030
 >   DOUBLE PRECISION + batch isolation) — merged `31fdcd54`, **deployed** v11.30.0 (2026-07-17).
 > - **PR B** [#153](https://github.com/ravichavali/karmyq/pull/153) — one seed path (ADR-087,
@@ -19,20 +26,22 @@
 > [#160](https://github.com/ravichavali/karmyq/pull/160)), which carries this archive — that
 > hotfix's deploy is what puts PR C's clarity fixes on karmyq.com.
 >
-> **⚠️ SPRINT 120 IS NOT VERIFIED SHIPPED UNTIL v11.32.1 DEPLOYS.** Remaining, explicitly:
-> (1) watch the master CI/CD run after #160 merges and confirm **`Deploy to Demo` = success with
+> **⚠️ DEPLOY VERIFICATION OWED FOR PR C — tracked in `CURRENT_HANDOFF.md`, not closed here:**
+> (1) after #160 merges, confirm the master CI/CD run reaches **`Deploy to Demo` = success with
 > no rollback** — PR C's own merge run is exactly why a green PR is not evidence of a deploy;
 > (2) smoke-test **R-1…R-8** on karmyq.com (UTF-8-safe JWT decode, constrained dashboard
 > community `<select>`, `/demo` link from the app root, branded login/register, labelled create
 > action, no stacked onboarding overlays, sparse-`/network` CTA, green active mode pill), plus
-> the docked mobile create bar at 375×812 that the R-5 fix rebuilt as non-overlay chrome;
-> (3) only then is this archive's "CLOSED" accurate.
+> the docked mobile create bar at 375×812 that the R-5 fix rebuilt as non-overlay chrome.
+> Until both pass, treat PR C's user-facing behavior as unverified in production.
 >
 > **Surgical-bump precedent reinforced (third time):** root `overrides.postcss` floor raised to
 > `^8.5.18` and the two affected lockfile nodes (`postcss` 8.5.15→8.5.23, plus its newly required
 > **dependency** `nanoid` 3.3.12→3.3.16 — `nanoid` is listed under `postcss.dependencies` in the
-> lockfile, not as a peer) bumped IN PLACE. 11 changed lockfile lines, zero unrelated packages;
-> `npm install --package-lock-only` reproduces the edit byte-identically. Do NOT whole-tree
+> lockfile, not as a peer) bumped IN PLACE. 11 changed lockfile lines for that bump, zero
+> unrelated packages; `npm install --package-lock-only` reproduces the edit byte-identically.
+> (v11.32.1 later grew a second advisory fix — `brace-expansion` 5.0.7→5.0.8 — bringing the
+> hotfix's total lockfile churn to 14 lines; see `CURRENT_HANDOFF.md`.) Do NOT whole-tree
 > `npm dedupe`, do NOT add a root prod dep to force hoisting, do NOT scratch-regen on Windows.
 >
 > Historical status blocks from the sprint follow, newest first.
