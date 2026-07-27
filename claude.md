@@ -164,15 +164,11 @@ Bull queue `karmyq-events`: `match_completed` → Reputation, Notification; `kar
 `request_created`, `user_joined_community` → Notification. Publishers/subscribers in
 [services/registry.json](services/registry.json).
 
-### Workspace dependencies — declare what you import
-**Every workspace declares every package it imports.** Hoisting is npm's private optimization,
-not a contract: a package can resolve today from the root `node_modules` and vanish tomorrow when
-an unrelated bump de-hoists it into the workspaces that *do* declare it. Sprint 121 hit this —
-bumping `supertest` in the 4 workspaces that declared it broke `geocoding-service`,
-`reputation-service`, `request-service` and `packages/shared`, which had imported it for sprints
-without declaring it. Before shipping a bump, cross-check importers against declarers
-(`grep -rl "from 'pkg'"` vs `grep -rln '"pkg"' --include=package.json`) and add the missing
-declarations rather than pinning to preserve a hoist.
+### Workspace dependencies
+**Every workspace declares every package it imports.** Hoisting is npm's private optimization, not
+a contract — bumping a package in the workspaces that declare it de-hoists it out from under the
+ones that don't, breaking them. Before any bump, cross-check importers against declarers and add
+the missing declarations; never pin to preserve a hoist.
 
 ---
 
