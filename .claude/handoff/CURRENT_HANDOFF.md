@@ -1,4 +1,4 @@
-# Sprint 121 — Dependency Backlog Cleanup — PRs 1 & 2 SHIPPED, PR 3 NEXT
+# Sprint 121 — Dependency Backlog Cleanup — PRs 1 & 2 SHIPPED, PR 3 OPEN (awaiting merge authorization)
 
 > **STATUS (2026-07-24, updated 2026-07-28):** **PR 2 ([#162](https://github.com/ravichavali/karmyq/pull/162),
 > v11.33.0) merged as `d7ddd146` and deployed 2026-07-28** — master run `30325538212`,
@@ -15,8 +15,8 @@
 > **not** claim the work is live. PR C ([#158](https://github.com/ravichavali/karmyq/pull/158),
 > v11.32.0) merged as `caca85fb` but its master run failed the security gates before
 > `Deploy to Demo`; **PR 1 (#160, v11.32.1) shipped that deploy on 2026-07-27**, so v11.32.0's
-> clarity fixes are now live. **The R-1…R-8 visual smoke test on karmyq.com is still OWED** —
-> it needs demo login credentials and was never run.
+> clarity fixes are now live. (The R-1…R-8 debt this paragraph used to carry was **discharged on
+> 2026-07-28** — see the top of this block and Carry-Forward; do not re-open it.)
 >
 > This sprint clears the entire open-PR backlog: **18 open PRs** triaged 2026-07-24 into **six
 > PRs of work, one closed unmerged (#106), and one closed as superseded on PR 1's merge (#159)** —
@@ -29,10 +29,15 @@
 ## Quick Start
 
 1. Read this handoff. The triage table below is the plan of record.
-2. **PRs 1 and 2 are shipped and live** (`ffe5f756` v11.32.1, `d7ddd146` v11.33.0). **PR 3 (lint
-   toolchain majors) is next** — branch off fresh `origin/master`. Verify with
-   `git log --oneline -3` before continuing.
-3. Each subsequent PR branches off **fresh `origin/master`** after the previous one merges.
+2. **PRs 1 and 2 are shipped and live** (`ffe5f756` v11.32.1, `d7ddd146` v11.33.0). **PR 3 is
+   ALREADY OPEN as [#164](https://github.com/ravichavali/karmyq/pull/164)** on branch
+   `deps/sprint-121-pr3-lint-majors` (`6ffa7f06` + `a73c4cba`) — **do NOT start it fresh off
+   master.** It is code-complete and awaiting **merge authorization**; `mergeStateStatus` is
+   `BLOCKED` / `REVIEW_REQUIRED`, which is the branch-protection review requirement, not a
+   failing gate. Before merging: **re-run the checks on the current head and re-check the audit
+   gate** (Critical Note 8 — advisories have published mid-flight four times this sprint).
+3. **PR 4 (mobile/Expo majors + the Expo SDK upgrade) is what starts next** — and only *after*
+   #164 merges, branched off **fresh `origin/master`**. Same for PRs 5 and 6.
 4. Every merge needs **EXPLICIT admin authorization** (`gh pr merge --squash --admin`), every
    time. Never self-merge.
 5. **Before pushing any multi-workspace bump, run the edge-vs-node lockfile check** (see the
@@ -231,6 +236,13 @@ mid-sprint, add it to this table before starting work.
      `services/cleanup-service/.eslintrc.js`) and all must convert to flat `eslint.config.*`.
    - **Lint is non-blocking in CI everywhere** (`|| echo` on every invocation in `ci.yml` and
      `test.yml`), so CI cannot validate this PR. **Verify by running each linter directly.**
+     **Follow-up worth doing (raised in review of PR 3, not done in it):** add a *blocking*
+     regression test that runs `eslint --print-config <probe file>` per linted workspace and
+     asserts it exits 0 with a non-empty resolved rule set. Because CI swallows lint failures,
+     a **broken** flat config today fails silently and indistinguishably from the existing lint
+     debt; a print-config smoke test separates "config is broken" from "code has lint findings"
+     without requiring the ~677 outstanding findings to be cleaned up first. Deliberately kept
+     out of PR 3 to hold the migration diff reviewable.
      Pre-migration baselines captured to diff against — the bar is *no regression*, not green:
      `cleanup-service` **0** · `apps/frontend` **525 (456 err / 69 warn)** — 410 of them
      `@typescript-eslint/no-explicit-any` · `apps/landing` **1 warn** · `apps/mobile`
