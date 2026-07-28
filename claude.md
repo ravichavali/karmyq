@@ -164,6 +164,12 @@ Bull queue `karmyq-events`: `match_completed` → Reputation, Notification; `kar
 `request_created`, `user_joined_community` → Notification. Publishers/subscribers in
 [services/registry.json](services/registry.json).
 
+### Workspace dependencies
+**Every workspace declares every package it imports.** Hoisting is npm's private optimization, not
+a contract — bumping a package in the workspaces that declare it de-hoists it out from under the
+ones that don't, breaking them. Before any bump, cross-check importers against declarers and add
+the missing declarations; never pin to preserve a hoist.
+
 ---
 
 ## Development Commands

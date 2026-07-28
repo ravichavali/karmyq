@@ -50,6 +50,8 @@ agents live in [`.claude/agents/`](.claude/agents/) (`migration-validator`, `pro
   docs authoring").
 - **Quality gates before merge:** tests, `/simplify`, `/code-review`, `/security-review` —
   effort calibrated to diff size (see `CLAUDE.md` Pre-Merge Checklist).
+- **Declare what you import:** every workspace declares every package it imports; hoisting is not
+  a contract (see `CLAUDE.md` → Global Patterns).
 - **Solo dev, no git worktrees.** Feature branches only.
 - **Host is Windows/PowerShell** (`$null`, `$env:VAR`).
 - **Update the handoff before stopping.**
