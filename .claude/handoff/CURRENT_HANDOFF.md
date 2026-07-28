@@ -1,12 +1,21 @@
-# Sprint 121 — Dependency Backlog Cleanup — PRs 1 & 2 SHIPPED, PR 3 OPEN (awaiting merge authorization)
+# Sprint 121 — Dependency Backlog Cleanup — PRs 1–3 SHIPPED, PR 4 IN FLIGHT
 
-> **STATUS (2026-07-24, updated 2026-07-28):** **PR 2 ([#162](https://github.com/ravichavali/karmyq/pull/162),
-> v11.33.0) merged as `d7ddd146` and deployed 2026-07-28** — master run `30325538212`,
-> `Deploy to Demo` = success, `✅ All services healthy`, no rollback, 15m53s. Demo now runs
-> **v11.33.0**. Eight of the nine superseded Dependabot PRs are closed (#157 and #161 auto-closed
-> when their versions landed). **The R-1…R-8 visual smoke test is DONE — all 8 PASS on live
-> karmyq.com at v11.33.0 (2026-07-28).** Sprint 120 PR C's deploy-verification debt is now fully
-> closed; per-check evidence and the working demo credentials are in Carry-Forward below.
+> **STATUS (2026-07-24, updated 2026-07-28):** **PR 3 ([#164](https://github.com/ravichavali/karmyq/pull/164))
+> merged as `e7bc6cc5` and deployed 2026-07-28** — master run `30383717067`, `Deploy to Demo` =
+> success, `🎉 Demo Deployment Successful` with service health verification, **no rollback**.
+> Superseded PRs **#40, #35 and #36 are closed** (#36 with a note that it landed at 10.0.0, not
+> its proposed 57.0.0). **PR 4 is the current work.**
+>
+> **⚠️ PR 3 shipped WITHOUT a version bump — `master` still reads `11.33.0`.** The Plan of Record
+> left PR 3's version "TBD" and it was never set, so the demo reports v11.33.0 while running PR 3's
+> code. **Do not fix this with a version-only push to `master`** — that triggers a second full
+> deploy. **Fold the bump into PR 4** (suggest `11.34.0`, since PR 4 carries breaking majors).
+>
+> PR 2 ([#162](https://github.com/ravichavali/karmyq/pull/162), v11.33.0) merged as `d7ddd146` and
+> deployed 2026-07-28 — master run `30325538212`, `✅ All services healthy`, no rollback, 15m53s.
+> **The R-1…R-8 visual smoke test is DONE — all 8 PASS on live karmyq.com at v11.33.0
+> (2026-07-28).** Sprint 120 PR C's deploy-verification debt is fully closed; per-check evidence
+> and the working demo credentials are in Carry-Forward below.
 >
 > Sprint 120 is **development-complete and merged**,
 > archived to
@@ -29,27 +38,42 @@
 ## Quick Start
 
 1. Read this handoff. The triage table below is the plan of record.
-2. **PRs 1 and 2 are shipped and live** (`ffe5f756` v11.32.1, `d7ddd146` v11.33.0). **PR 3 is
-   ALREADY OPEN as [#164](https://github.com/ravichavali/karmyq/pull/164)** on branch
-   `deps/sprint-121-pr3-lint-majors` (`6ffa7f06` + `a73c4cba`) — **do NOT start it fresh off
-   master.** It is code-complete and awaiting **merge authorization**; `mergeStateStatus` is
-   `BLOCKED` / `REVIEW_REQUIRED`, which is the branch-protection review requirement, not a
-   failing gate. Before merging: **re-run the checks on the current head and re-check the audit
-   gate** (Critical Note 8 — advisories have published mid-flight four times this sprint).
-3. **PR 4 (mobile/Expo majors + the Expo SDK upgrade) is what starts next** — and only *after*
-   #164 merges, branched off **fresh `origin/master`**. Same for PRs 5 and 6.
+2. **PRs 1, 2 and 3 are shipped and live** (`ffe5f756` v11.32.1, `d7ddd146` v11.33.0,
+   `e7bc6cc5` — version bump missed, see the warning above).
+3. **PR 4 (mobile/Expo majors + the Expo SDK upgrade) is the current work.** Branch
+   **`deps/sprint-121-pr4-mobile-expo` already exists**, cut from fresh `origin/master`
+   (`e7bc6cc5`) — check it out, do not re-cut it. See Critical Note 7 for the full scope; it is
+   the largest PR of the sprint and **needs an SDK-target decision before code changes start**.
+4. PRs 5 and 6 each branch off **fresh `origin/master`** after the previous one merges.
 4. Every merge needs **EXPLICIT admin authorization** (`gh pr merge --squash --admin`), every
    time. Never self-merge.
 5. **Before pushing any multi-workspace bump, run the edge-vs-node lockfile check** (see the
    `apps/landing` note below). Local `npm audit` + `npm ci --dry-run` + full test/build runs all
    pass on a half-resolved tree; only `npm ci` in CI catches it.
 
+## Open PR roster after PR 3 (4 open)
+
+| PR | Disposition |
+|---|---|
+| #37, #39 | **PR 4 — mobile/Expo majors + Expo SDK upgrade. CURRENT WORK.** |
+| #41 | PR 5 — tailwindcss 3 → 4 |
+| #34 | PR 6 — express 4 → 5 |
+
+**Dependabot has NOT re-raised the four `apps/mobile` react-native bumps** that #157 took with it
+when it auto-closed on PR 2's merge (checked 2026-07-28, one open-PR list later). **PR 4 must
+apply them by hand** — or, more likely, let the chosen Expo SDK dictate them, since the SDK pins
+the react-native line. The hand-targets recorded at triage were react-native 0.86.2,
+react-native-maps 1.29.0, reanimated ~4.5.3, react-native-screens ~4.26.2.
+
+<details>
+<summary>Historical roster after PR 2 (8 open) — all now resolved</summary>
+
 ## Open PR roster after PR 2 (8 open)
 
 | PR | Disposition |
 |---|---|
 | ~~**#163** ts-jest 29.4.6 → 29.4.12~~ | **CLOSED 2026-07-27** — the bump PR 2 deliberately excluded. Root `overrides` pins 29.4.6 because 29.4.11+ drops tsconfig `moduleResolution: node16` inheritance → TS2307 in request-service tests. Closed with that rationale on the PR; **no Dependabot ignore rule set**, so a fixed ts-jest can still be raised later. See Critical Note 2. |
-| #40, #35, #36 | PR 3 — lint toolchain majors (**OPEN: [#164](https://github.com/ravichavali/karmyq/pull/164)**, commit `6ffa7f06` — an ESLint 8 → 9 flat-config migration, not three bumps; see Critical Note 6). Close #40/#35/#36 **after** it merges. |
+| ~~#40, #35, #36~~ | **ALL CLOSED 2026-07-28** — superseded by #164 (`e7bc6cc5`), an ESLint 8 → 9 flat-config migration rather than three bumps; see Critical Note 6. |
 | #37, #39 | PR 4 — mobile/Expo majors (**+ Expo SDK upgrade**, see Critical Note 7) |
 | #41 | PR 5 — tailwindcss 3 → 4 |
 | #34 | PR 6 — express 4 → 5 |
@@ -58,6 +82,8 @@
 it.** Dependabot will re-raise them on its next run; fold that new PR into PR 4 when it appears. If
 it hasn't appeared by the time PR 4 starts, apply the bumps by hand — the targets are react-native
 0.86.2, react-native-maps 1.29.0, reanimated ~4.5.3, react-native-screens ~4.26.2.
+
+</details>
 
 ## Sprint Goal
 
@@ -71,8 +97,8 @@ individually-scoped migrations.
 |---|---|---|---|
 | **1** | postcss advisory hotfix + Sprint 120 close-out | #159 | v11.32.1 — **SHIPPED** |
 | **2** | consolidated safe deps | #157 (**minus mobile**), **#161**, #85, **#55**, #145, #144, #147, #118, #53 | v11.33.0 — **SHIPPED & DEPLOYED** (`d7ddd146`) |
-| **3** | lint toolchain majors | #40, #35, #36 | TBD |
-| **4** | mobile/Expo majors | #37, #39, **#157's 4 react-native bumps** | TBD |
+| **3** | lint toolchain majors → became an **ESLint 8 → 9 flat-config migration** | #40, #35, #36 (**all closed**) | **SHIPPED & DEPLOYED** (`e7bc6cc5`) — ⚠️ **no version bump; master still reads 11.33.0** |
+| **4** | mobile/Expo majors **+ Expo SDK upgrade** | #37, #39, **#157's 4 react-native bumps** (never re-raised — apply by hand or via the SDK) | TBD — **carry PR 3's missed bump here** |
 | **5** | tailwindcss 3 → 4 | #41 | TBD |
 | **6** | express 4 → 5 | #34 | TBD |
 | — | closed unmerged | #106 (stale docs) — **CLOSED 2026-07-24** | — |
