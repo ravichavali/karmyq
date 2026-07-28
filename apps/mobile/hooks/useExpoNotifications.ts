@@ -50,13 +50,11 @@ export function useExpoNotifications() {
 
       // expo-modules-core may not be fully resolved in this workspace — cast to any
       // to handle both string and object permission response shapes (matches notifications.ts pattern)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const existingPerm = (await Notifications.getPermissionsAsync()) as any;
       let isGranted: boolean =
         existingPerm?.granted || existingPerm?.status === "granted";
 
       if (!isGranted) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const newPerm = (await Notifications.requestPermissionsAsync()) as any;
         isGranted = newPerm?.granted || newPerm?.status === "granted";
       }
