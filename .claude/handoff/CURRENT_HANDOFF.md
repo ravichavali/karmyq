@@ -4,8 +4,9 @@
 > v11.33.0) merged as `d7ddd146` and deployed 2026-07-28** — master run `30325538212`,
 > `Deploy to Demo` = success, `✅ All services healthy`, no rollback, 15m53s. Demo now runs
 > **v11.33.0**. Eight of the nine superseded Dependabot PRs are closed (#157 and #161 auto-closed
-> when their versions landed). **The R-1…R-8 visual smoke test is STILL OWED** — it has now
-> outlived two deploys because it needs demo login credentials nobody has supplied.
+> when their versions landed). **The R-1…R-8 visual smoke test is DONE — all 8 PASS on live
+> karmyq.com at v11.33.0 (2026-07-28).** Sprint 120 PR C's deploy-verification debt is now fully
+> closed; per-check evidence and the working demo credentials are in Carry-Forward below.
 >
 > Sprint 120 is **development-complete and merged**,
 > archived to
@@ -252,10 +253,36 @@ mid-sprint, add it to this table before starting work.
   sprint ends with the same two-step verification, not with a green PR:** confirm the master CI/CD
   run reached **`Deploy to Demo` = success with no rollback**, then smoke-test the live site. PR C's
   merge run is the standing counterexample — 20 green checks and no deploy.
-- **The R-1…R-8 visual pass owed from Sprint 120 PR C has now outlived two deploys.** It is blocked
-  on demo login credentials, not on deploy state — the fixes have been live since v11.32.1. Ask for
-  credentials at the START of the next session rather than carrying this a third time. Note that
-  `curl -o /dev/null -w "%{http_code}"` returns `000` against karmyq.com from this Windows host (a
+- **R-1…R-8 visual pass: DONE 2026-07-28 on live karmyq.com at v11.33.0 — all 8 PASS.** No longer
+  owed; the debt opened in Sprint 120 PR C is closed. Evidence per check:
+  - **R-1** (UTF-8 JWT decode) — 102 em dashes render correctly across the dashboard, **zero**
+    mojibake sequences. Proven positive, not just absent: the live JWT's community names contain
+    U+2014 and a naive `atob` of that same payload demonstrably differs from the UTF-8-safe decode.
+  - **R-2** — dashboard community `<select>` measures 320px on a 1440px viewport (22%).
+  - **R-3** — logged-out root offers "See how it works" → `/demo`; the signed-in root correctly
+    does **not** (both halves of the spec).
+  - **R-4** — `/login` and `/register` both carry the wordmark + seed glyph linking `/`, the
+    tagline, and brand-green actions.
+  - **R-5** — at 375×812 the create action is a **full-width docked bar** ("+Ask for help",
+    x=16 w=328) seated directly above the fixed bottom nav (y=748), not a corner FAB. At maximum
+    scroll the last card clears it by 146px and **zero** interactive elements are overlapped —
+    the exact S120 failure mode (FAB clipping "Explore →") is gone. Desktop keeps a labelled FAB.
+  - **R-6** — exactly **one** overlay at each onboarding step (1→2→3) and **zero** after dismiss;
+    the feed tour appears only on a later visit, never stacked on the welcome modal.
+  - **R-7** — all three branches: degree 0 (`priya.sharma`) gets the CTA + a guiding empty state;
+    degree 1 (`fatima.alhassan`) keeps the graph **and** shows the CTA; degree ≥2 (`maria.reyes` 4,
+    `takeshi.osei6315` 2) correctly gets no nag.
+  - **R-8** — active `/network` mode pill is `bg-primary` `rgb(45,110,40)` with white text, not
+    indigo; dashboard filter chips match.
+- **Credentials that actually work (2026-07-28).** The S89 account in memory
+  (`aisha.white6964@…`) **401s — it did not survive the S117 curated reset.** Live: `maria.reyes@`
+  (degree 4), `takeshi.osei6315@` (2), `fatima.alhassan@` (1), `priya.sharma@` (0), all
+  `password123`. Find more by degree with `social_graph.trust_edges_live` — its columns are
+  `user_id_a`/`user_id_b`, **not** `from_user_id`/`to_user_id`.
+- **BUG-031 is still live and slightly worse: 33× 404** on
+  `/api/reputation/community-trust/{id}` when loading `/communities` (was 32). Still console-only
+  noise, still unfixed, still out of R-1…R-8 scope.
+- `curl -o /dev/null -w "%{http_code}"` returns `000` against karmyq.com from this Windows host (a
   schannel TLS-renegotiation quirk, not an outage) — check the response body instead.
 - **PR #106** (Sprint 106 docs) was **closed unmerged 2026-07-24** — superseded by 14 sprints,
   and a docs-only master merge would trigger a pointless deploy. BUG-022/023 verified present in
