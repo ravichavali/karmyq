@@ -1,11 +1,22 @@
 # Sprint 121 — Dependency Backlog Cleanup — PRs 1–3 SHIPPED, PR 4 CODE-COMPLETE (unpushed)
 
-> **PR 4 STATUS (2026-07-28): code-complete on `deps/sprint-121-pr4-mobile-expo`, staged but
-> NOT committed, NOT pushed, no PR opened.** The resolution fight is **won** and **all four
-> quality gates have run** — `/code-review high` found 2 P1s (a silent native-splash regression
-> and an undeclared `@types/jest`), both fixed and re-verified. See "PR 4 execution results" in
-> Critical Note 7. Remaining: commit, push, open PR, then the standing two-step deploy
-> verification. Version bumped to **11.34.0**, carrying PR 3's missed bump.
+> **PR 4 STATUS (2026-07-28): OPEN as [#165](https://github.com/ravichavali/karmyq/pull/165),
+> commit `930d532f`, ALL 21 CHECKS GREEN — awaiting merge authorization.**
+> `mergeStateStatus: BLOCKED` is the branch-protection review requirement, not a failing gate.
+> The resolution fight is **won** and all four quality gates ran; `/code-review high` found 2 P1s
+> (a silent native-splash regression and an undeclared `@types/jest`), both fixed and re-verified.
+> **`Test Docker Build` passed — it runs a real `npm ci`, which is precisely where PR 2's
+> `apps/landing` half-resolution was caught, so the lockfile is confirmed genuinely resolved.**
+> All 7 Docker image builds passed on `node:18-alpine`, confirming RN 0.86's Node floor does not
+> reach the backend builds (the basis for leaving root `engines` at `>=18.0.0`).
+> Version **11.34.0**, carrying PR 3's missed bump. See "PR 4 execution results" in Critical
+> Note 7.
+>
+> **Next:** explicit merge authorization → `gh pr merge 165 --squash --admin` → then the standing
+> two-step verification (master run reaches `Deploy to Demo` = success with no rollback, then
+> smoke-test live karmyq.com at v11.34.0). **Close #37 and #39 only AFTER the merge lands** —
+> #37 must be closed with the rationale that it proposed gesture-handler 3.0.2, which no Expo SDK
+> 54–57 bundles.
 
 > **STATUS (2026-07-24, updated 2026-07-28):** **PR 3 ([#164](https://github.com/ravichavali/karmyq/pull/164))
 > merged as `e7bc6cc5` and deployed 2026-07-28** — master run `30383717067`, `Deploy to Demo` =
