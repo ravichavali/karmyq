@@ -1,6 +1,13 @@
-# Sprint 121 — Dependency Backlog Cleanup — PR 1 SHIPPED, PR 2 IN FLIGHT
+# Sprint 121 — Dependency Backlog Cleanup — PRs 1 & 2 SHIPPED, PR 3 NEXT
 
-> **STATUS (2026-07-24, updated 2026-07-27):** Sprint 120 is **development-complete and merged**,
+> **STATUS (2026-07-24, updated 2026-07-28):** **PR 2 ([#162](https://github.com/ravichavali/karmyq/pull/162),
+> v11.33.0) merged as `d7ddd146` and deployed 2026-07-28** — master run `30325538212`,
+> `Deploy to Demo` = success, `✅ All services healthy`, no rollback, 15m53s. Demo now runs
+> **v11.33.0**. Eight of the nine superseded Dependabot PRs are closed (#157 and #161 auto-closed
+> when their versions landed). **The R-1…R-8 visual smoke test is STILL OWED** — it has now
+> outlived two deploys because it needs demo login credentials nobody has supplied.
+>
+> Sprint 120 is **development-complete and merged**,
 > archived to
 > `.claude/handoff/archive/2026-07-24-sprint-120-true-scores-one-seed-clarity-COMPLETE.md`.
 > That archive's "COMPLETE" means *all scoped work merged to `master`* — it deliberately does
@@ -21,12 +28,30 @@
 ## Quick Start
 
 1. Read this handoff. The triage table below is the plan of record.
-2. **PR 1 merged as `ffe5f756` (v11.32.1) and deployed.** PR 2 is on
-   `deps/sprint-121-pr2-safe-deps`, cut from `origin/master` (`ffe5f756`). Verify state with
+2. **PRs 1 and 2 are shipped and live** (`ffe5f756` v11.32.1, `d7ddd146` v11.33.0). **PR 3 (lint
+   toolchain majors) is next** — branch off fresh `origin/master`. Verify with
    `git log --oneline -3` before continuing.
 3. Each subsequent PR branches off **fresh `origin/master`** after the previous one merges.
 4. Every merge needs **EXPLICIT admin authorization** (`gh pr merge --squash --admin`), every
    time. Never self-merge.
+5. **Before pushing any multi-workspace bump, run the edge-vs-node lockfile check** (see the
+   `apps/landing` note below). Local `npm audit` + `npm ci --dry-run` + full test/build runs all
+   pass on a half-resolved tree; only `npm ci` in CI catches it.
+
+## Open PR roster after PR 2 (8 open)
+
+| PR | Disposition |
+|---|---|
+| **#163** ts-jest 29.4.6 → 29.4.12 | **HOLD — do not merge.** New since PR 2; commented with the rationale. See Critical Note 2. |
+| #40, #35, #36 | PR 3 — lint toolchain majors |
+| #37, #39 | PR 4 — mobile/Expo majors |
+| #41 | PR 5 — tailwindcss 3 → 4 |
+| #34 | PR 6 — express 4 → 5 |
+
+**#157 auto-closed on PR 2's merge, taking its four unmerged `apps/mobile` react-native bumps with
+it.** Dependabot will re-raise them on its next run; fold that new PR into PR 4 when it appears. If
+it hasn't appeared by the time PR 4 starts, apply the bumps by hand — the targets are react-native
+0.86.2, react-native-maps 1.29.0, reanimated ~4.5.3, react-native-screens ~4.26.2.
 
 ## Sprint Goal
 
@@ -39,7 +64,7 @@ individually-scoped migrations.
 | PR | Scope | Supersedes | Version |
 |---|---|---|---|
 | **1** | postcss advisory hotfix + Sprint 120 close-out | #159 | v11.32.1 — **SHIPPED** |
-| **2** | consolidated safe deps | #157 (**minus mobile**), **#161**, #85, **#55**, #145, #144, #147, #118, #53 | v11.33.0 — **[#162](https://github.com/ravichavali/karmyq/pull/162), 21/21 green, awaiting merge authorization** |
+| **2** | consolidated safe deps | #157 (**minus mobile**), **#161**, #85, **#55**, #145, #144, #147, #118, #53 | v11.33.0 — **SHIPPED & DEPLOYED** (`d7ddd146`) |
 | **3** | lint toolchain majors | #40, #35, #36 | TBD |
 | **4** | mobile/Expo majors | #37, #39, **#157's 4 react-native bumps** | TBD |
 | **5** | tailwindcss 3 → 4 | #41 | TBD |
@@ -223,11 +248,15 @@ mid-sprint, add it to this table before starting work.
 
 ## Carry-Forward / Known State
 
-- **Demo runs v11.32.1** as of PR 1's deploy (2026-07-27). **Every PR in this sprint ends with the
-  same two-step verification, not with a green PR:** confirm the master CI/CD run reached
-  **`Deploy to Demo` = success with no rollback**, then smoke-test the live site. PR C's merge run
-  is the standing counterexample — 20 green checks and no deploy. **The R-1…R-8 pass owed from
-  Sprint 120 PR C is still unrun** and should ride PR 2's deploy if credentials are available.
+- **Demo runs v11.33.0** as of PR 2's deploy (2026-07-28, run `30325538212`). **Every PR in this
+  sprint ends with the same two-step verification, not with a green PR:** confirm the master CI/CD
+  run reached **`Deploy to Demo` = success with no rollback**, then smoke-test the live site. PR C's
+  merge run is the standing counterexample — 20 green checks and no deploy.
+- **The R-1…R-8 visual pass owed from Sprint 120 PR C has now outlived two deploys.** It is blocked
+  on demo login credentials, not on deploy state — the fixes have been live since v11.32.1. Ask for
+  credentials at the START of the next session rather than carrying this a third time. Note that
+  `curl -o /dev/null -w "%{http_code}"` returns `000` against karmyq.com from this Windows host (a
+  schannel TLS-renegotiation quirk, not an outage) — check the response body instead.
 - **PR #106** (Sprint 106 docs) was **closed unmerged 2026-07-24** — superseded by 14 sprints,
   and a docs-only master merge would trigger a pointless deploy. BUG-022/023 verified present in
   `docs/BUGS.md` (lines 323, 336, both `fixed (Sprint 107)`) before closing; nothing was lost.
