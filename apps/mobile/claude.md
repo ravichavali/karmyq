@@ -37,8 +37,10 @@ React Native + Expo application for iOS and Android.
 ## Development
 
 ### Prerequisites
-- Node.js 20.19.4+ (React Native 0.86 engine floor; CI runs 24.x)
-- Expo CLI: `npm install -g expo-cli`
+- Node.js `^22.13.0 || ^24.3.0 || >=25.0.0` — supported lines only (CI runs 24.x).
+  Odd-numbered releases and early 22.x/24.x patches are not supported.
+- Expo CLI: use `npx expo <command>` — the global `expo-cli` package is deprecated
+  and must not be installed
 - iOS: Xcode (Mac only)
 - Android: Android Studio with emulator
 

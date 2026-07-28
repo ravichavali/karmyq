@@ -534,6 +534,56 @@ mid-sprint, add it to this table before starting work.
      contains only entries that do something. `expo-status-bar` remains a declared dependency
      (used as a component, not a plugin).
 
+   **MAINTAINER REVIEW ROUND 2 (2026-07-28) — Expo compatibility validator + Node engine.**
+   Merge authorization was withheld pending `npx expo install --check` compliance. **It now
+   passes: `Dependencies are up to date`, exit 0.** Three of the four flagged packages were
+   ALIGNED rather than excluded; only `typescript` is excluded, with evidence.
+
+   - **`react` / `react-dom` → exactly `19.2.3`** (SDK 57's pin). This could not be done in
+     `apps/mobile` alone: the **root `overrides.react` was `^19.0.0`, which rewrites every react
+     edge tree-wide** and was forcing 19.2.6 (npm even rejects a mismatched override with
+     `EOVERRIDE: Override for react@^19.0.0 conflicts with direct dependency`). Fixed at the root
+     — `overrides.react`/`react-dom` **and** the root's own devDependency declaration both pinned
+     to `19.2.3`, so the whole monorepo now runs one React version.
+     **Cross-app risk was verified, not assumed** (this downgrades the two Next.js apps from
+     19.2.6): `apps/frontend` blocking tiers **35 suites / 352 tests pass**, frontend `tsc` **0
+     errors**, and the **`apps/landing` production build succeeds**. The `apps/frontend`
+     `tests/tdd/` tier is red (58 `answersToConfig is not a function` + 2 unmapped
+     `@/components/TrustGraph`) — **pre-existing WIP-tier debt, not React-related**, and
+     non-blocking by design.
+   - **`@types/react` → `~19.2.4`.** It was `~19.1.0`, i.e. typings a minor behind the runtime
+     React. Needed the same surgical stale-node removal as the SDK packages to actually move.
+   - **`typescript` EXCLUDED, not aligned** — via `expo.install.exclude` in
+     **`apps/mobile/package.json`** (see gotcha below). Rationale: SDK 57 wants `~6.0.3`, a
+     **major**, while all 16 workspaces run TS 5 (`^5` / `^5.3.0`); mobile-only TS 6 would
+     de-hoist TypeScript and compile mobile against a different major than the rest of the repo.
+     That is its own migration, not an SDK-upgrade side effect.
+     **Evidence the exclusion is safe on SDK 57:** `npx expo export --platform ios` **succeeds on
+     TS 5.9.3**, producing a **3.1MB Hermes bytecode bundle** (`.hbc`) through the real
+     Metro + `babel-preset-expo@57` + Hermes pipeline — i.e. the actual native JS build. Plus
+     `tsc --noEmit` 0 errors and tests green.
+   - **⚠️ GOTCHA: `expo.install.exclude` must live in `package.json`, NOT `app.json`.**
+     Placing it in `app.json` *looks* right and `npx expo config --json` even resolves it, but
+     `@expo/cli`'s `checkPackages.js` reads **`pkg.expo.install.exclude`** — the package manifest.
+     In `app.json` it is silently ignored and `--check` still fails.
+   - **Node engine tightened to `^22.13.0 || ^24.3.0 || >=25.0.0`.** The previous `>=20.19.4`
+     admitted unsupported lines (21, 23, early 22.x/24.x). Note **no Expo 57 package declares an
+     `engines` field**, so this range comes from the Expo SDK 57 compatibility table, and is
+     deliberately *stricter* than react-native 0.86's own `^20.19.4 || ^22.13.0 || ^24.3.0 ||
+     >=25.0.0`. Root `engines` still says `>=18.0.0` — unchanged on purpose, because the 9 backend
+     services genuinely run `node:18-alpine` (all 7 Docker image builds passed on it).
+   - **Test moved `tests/unit/` → `tests/regression/`** per repo policy (it guards against a
+     known upgrade regression).
+   - **Deprecated global `expo-cli` instruction removed** from `apps/mobile/claude.md` **and**
+     `apps/mobile/README.md` (grep-all-instances). Two further hits are deliberately out of
+     scope: `docs/archive/getting-started/MOBILE_DEVELOPMENT.md` (archived) and `mobile/README.md`
+     (the legacy non-workspace `/mobile` project).
+   - **ADR-059 generated artifact REVERTED** to `origin/master` — the scope expansion was not
+     accepted. `apps/landing/src/data/docs/` now differs from master by `architecture.json` only.
+     **Consequence to expect:** that artifact is genuinely stale against `docs/adr/ADR-059.md`
+     (missing a Sprint 120 "2026-07-21 advisory refresh" section), so any landing regen will
+     re-dirty it until it is refreshed in its own PR.
+
    **Re-verified after all review fixes:** mobile `tsc` **0 errors** · mobile lint **24 (12/12)**,
    unchanged · mobile tests **2/2** · root regression+unit **278/278** · `npm audit` **0
    vulnerabilities** · **all 45** declared ranges satisfied · edge-vs-node **0 new mismatches vs

@@ -35,9 +35,9 @@ React Native mobile application for KarmyQ mutual aid platform, built with Expo.
 
 ## Prerequisites
 
-- Node.js 18+
+- Node.js `^22.13.0 || ^24.3.0 || >=25.0.0` (supported lines only)
 - npm or yarn
-- Expo CLI (`npm install -g expo-cli`)
+- Expo CLI: use `npx expo <command>` (the global `expo-cli` package is deprecated)
 - For iOS development: macOS with Xcode
 - For Android development: Android Studio
 
