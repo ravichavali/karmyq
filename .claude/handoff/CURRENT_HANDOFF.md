@@ -362,6 +362,31 @@ mid-sprint, add it to this table before starting work.
    manifest** — `apps/mobile/node_modules/react-native/package.json` must actually read 0.86.x
    before the PR is real, because `npm ci` will not catch the mismatch for you.
 
+   **PR 4 TARGET DECIDED 2026-07-28: Expo SDK 57, and PR 4 carries the version bump to
+   `11.34.0`** (covering PR 3's missed bump too — see the status block). The SDK pins the whole
+   native-module set, so these are consequences of that choice, not separate decisions.
+   `expo` `~54.0.0` → `~57.0.0` · `react-native` `0.85.3` → `0.86.0` ·
+   `react-native-gesture-handler` `~2.22.0` → **`~2.32.0`** · `@expo/vector-icons` `~14.0.4` →
+   `^15.0.2` · `react-native-reanimated` `~4.4.0` → `4.5.0` · `react-native-screens` `~4.25.2` →
+   `~4.26.0` · `@expo/metro-runtime` **`~4.0.1` → `~57.0.7`** (the stalest entry by far) ·
+   `react-native-maps` **stays `1.27.2`** and `react-native-web` **stays `~0.21.0`** — SDK 57
+   pins exactly what we already declare. `eslint-config-expo` **10.0.0 → 57.0.0**, which is the
+   version Dependabot's #36 originally proposed; PR 3 parked it at 10.0.0 deliberately.
+
+   **⚠️ #37 must NOT be merged as filed.** It proposes `react-native-gesture-handler` 3.0.2, but
+   **no Expo SDK from 54 to 57 bundles a 3.x** — SDK 57 wants `~2.32.0`. Retarget it to the SDK's
+   version and close #37 with that rationale (same class of error as #36's 57.0.0-on-SDK-54).
+   **#39 is correct as filed** — every SDK ≥54 wants `@expo/vector-icons` ^15.x.
+
+   **Watch `react-native-safe-area-context`: we declare `5.8.0` but SDK 57 pins `~5.7.0`** — we
+   are *ahead*, so aligning is a downgrade. Decide deliberately rather than letting
+   `expo install --fix` silently roll it back.
+
+   **The manifest was already incoherent before this PR** and that is why the state was confusing:
+   `expo ~54.0.0` sat alongside `react-native 0.85.3` and `react-native-maps 1.27.2`, which are
+   **SDK 56's** pins, not SDK 54's (0.81.5 / 1.20.1). Landing on 57 makes it internally consistent
+   for the first time.
+
    **PR 4 now also owns the Expo SDK upgrade itself** (maintainer raised it during PR 3 scoping,
    2026-07-27). It lands here rather than in PR 3 for three reasons: PR 4 already owns the mobile
    surface, so the tree gets one resolution fight instead of two; an SDK bump *is* this note's
