@@ -39,7 +39,7 @@ individually-scoped migrations.
 | PR | Scope | Supersedes | Version |
 |---|---|---|---|
 | **1** | postcss advisory hotfix + Sprint 120 close-out | #159 | v11.32.1 — **SHIPPED** |
-| **2** | consolidated safe deps | #157 (**minus mobile**), **#161**, #85, **#55**, #145, #144, #147, #118, #53 | v11.33.0 |
+| **2** | consolidated safe deps | #157 (**minus mobile**), **#161**, #85, **#55**, #145, #144, #147, #118, #53 | v11.33.0 — **[#162](https://github.com/ravichavali/karmyq/pull/162), 21/21 green, awaiting merge authorization** |
 | **3** | lint toolchain majors | #40, #35, #36 | TBD |
 | **4** | mobile/Expo majors | #37, #39, **#157's 4 react-native bumps** | TBD |
 | **5** | tailwindcss 3 → 4 | #41 | TBD |
@@ -117,6 +117,21 @@ are imported — not by pinning to preserve the hoist. Same cross-check was run 
 de-hoisted packages (`helmet` 9 importers = 9 declarers, `autoprefixer` 2 = 2,
 `@playwright/test`/`@faker-js/faker` in `tests` only): no other gaps. Rule promoted to CLAUDE.md
 Global Patterns + AGENTS.md standing rules.
+
+**`apps/landing` hit the SAME half-resolution and CI is what caught it.** The manifest edit moved
+`framer-motion`/`motion` to 12.42.2, only the hoisted `motion-dom` transitive followed, and the
+nested `apps/landing/node_modules/*` nodes stayed at 12.40.0 — so `npm ci` failed the first push
+with `Missing: framer-motion@12.42.2 from lock file` while every local check (audit, per-package
+spot checks, `npm ci --dry-run`, full test + build runs) was green. **`npm install --workspace
+apps/landing framer-motion@12.42.2` does not fix it — it reports "up to date" and rewrites the
+manifest's exact pins DOWN to `^12.40.0`.** The fix was the surgical in-place lockfile edit
+(Critical Note 1): both nested nodes plus the two workspace edges, `resolved`/`integrity` from the
+registry, `motion-dom` range → `^12.42.2`.
+**Standing lesson — verify edges against nodes before pushing any multi-workspace bump.** Walk
+every declared range up the `node_modules` chain and assert the node it lands on satisfies it, and
+diff the result against `origin/master` so the ~26 deliberate `overrides` mismatches (minimatch,
+postcss, uuid, ws, sharp, js-yaml, fast-uri, @xmldom/xmldom) don't drown the real finding. On this
+diff that check reported *exactly* master's 26 and nothing more.
 
 **Expect ~570 lines of lockfile churn and don't try to shrink it.** `helmet`, `autoprefixer`,
 `@playwright/test` and `@faker-js/faker` end up de-hoisted into per-workspace `node_modules`
