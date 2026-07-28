@@ -387,6 +387,41 @@ mid-sprint, add it to this table before starting work.
    **SDK 56's** pins, not SDK 54's (0.81.5 / 1.20.1). Landing on 57 makes it internally consistent
    for the first time.
 
+   **FIRST RESOLUTION ATTEMPT RUN 2026-07-28 — `expo install --fix` is NOT sufficient. Critical
+   Note 7's prediction is confirmed.** Sequence tried: set `expo` to `~57.0.0` → `npm install`
+   (clean, 0 vulnerabilities) → `cd apps/mobile && npx expo install --fix`. It rewrote the
+   manifest to every SDK 57 pin and reported success, **but the resolved tree did not follow**:
+
+   | package | manifest after --fix | tree actually has | placed? |
+   |---|---|---|---|
+   | `expo` | `~57.0.0` | 57.0.8 | ✓ |
+   | `react-native` | `0.86.0` | **0.85.3** | ✗ |
+   | `react-native-reanimated` | `4.5.0` | **4.4.0** | ✗ |
+   | `react-native-screens` | `~4.26.0` | **4.25.2** | ✗ |
+   | `react-native-safe-area-context` | `~5.7.0` | **5.8.0** | ✗ (still ahead) |
+   | `react-native-gesture-handler` | `~2.32.0` | 2.32.0 | ✓ |
+   | `@expo/vector-icons` | `^15.0.2` | 15.1.1 | ✓ |
+   | `@expo/metro-runtime` | `~57.0.7` | 57.0.7 | ✓ |
+
+   So the manifest would claim four versions the lockfile never installs, and **`npm ci` does not
+   error on it** — the exact half-resolution that shipped a broken `apps/landing` in PR 2. **The
+   working tree was reverted to `fcda349a`; none of this is committed.** Next attempt should try
+   explicit specs (`npm install --workspace apps/mobile react-native@0.86.0 …`) and **verify
+   `apps/mobile/node_modules/react-native/package.json` actually reads 0.86.0 before believing
+   it.** The `.npmrc` `hoist-pattern[]=!react-native*` lines are worth understanding first —
+   note those are pnpm/yarn syntax that **npm does not implement**, so they may be inert.
+
+   **Two side effects `expo install --fix` introduces that were NOT asked for** — decide
+   deliberately, do not just accept them: it bumps **`typescript` `^5.3.0` → `~6.0.3`, a MAJOR**
+   (every other workspace is on TS 5; `@typescript-eslint` 8's peer allows `<6.1.0`, so it is
+   permitted but unvetted), and **`react`/`react-dom` `19.1.0` → exact `19.2.3`**, which
+   de-hoists React (root resolves 19.2.6, mobile 19.2.3). It also leaves **`expo-constants` and
+   `expo-font` still declared `*`** — 10 of the 12 bare deps get real ranges, those two do not.
+   It also edits **`apps/mobile/app.json`**, appending `expo-secure-store`, `expo-splash-screen`
+   and `expo-status-bar` to the `plugins` array. That edit is legitimate and should be **kept**
+   when PR 4 lands for real (it was only reverted here to leave a clean tree) — but it means
+   `app.json` is part of this PR's surface, not just the manifest and lockfile.
+
    **PR 4 now also owns the Expo SDK upgrade itself** (maintainer raised it during PR 3 scoping,
    2026-07-27). It lands here rather than in PR 3 for three reasons: PR 4 already owns the mobile
    surface, so the tree gets one resolution fight instead of two; an SDK bump *is* this note's
