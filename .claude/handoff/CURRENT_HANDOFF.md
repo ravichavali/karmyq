@@ -44,7 +44,7 @@
 | PR | Disposition |
 |---|---|
 | ~~**#163** ts-jest 29.4.6 → 29.4.12~~ | **CLOSED 2026-07-27** — the bump PR 2 deliberately excluded. Root `overrides` pins 29.4.6 because 29.4.11+ drops tsconfig `moduleResolution: node16` inheritance → TS2307 in request-service tests. Closed with that rationale on the PR; **no Dependabot ignore rule set**, so a fixed ts-jest can still be raised later. See Critical Note 2. |
-| #40, #35, #36 | PR 3 — lint toolchain majors (**IN FLIGHT** — now an ESLint 8 → 9 flat-config migration; see Critical Note 6) |
+| #40, #35, #36 | PR 3 — lint toolchain majors (**OPEN: [#164](https://github.com/ravichavali/karmyq/pull/164)**, commit `6ffa7f06` — an ESLint 8 → 9 flat-config migration, not three bumps; see Critical Note 6). Close #40/#35/#36 **after** it merges. |
 | #37, #39 | PR 4 — mobile/Expo majors (**+ Expo SDK upgrade**, see Critical Note 7) |
 | #41 | PR 5 — tailwindcss 3 → 4 |
 | #34 | PR 6 — express 4 → 5 |
