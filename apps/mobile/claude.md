@@ -37,8 +37,9 @@ React Native + Expo application for iOS and Android.
 ## Development
 
 ### Prerequisites
-- Node.js `^22.13.0 || ^24.3.0 || >=25.0.0` — supported lines only (CI runs 24.x).
-  Odd-numbered releases and early 22.x/24.x patches are not supported.
+- Node.js `^22.13.0 || ^24.3.0 || >=25.0.0` — i.e. 22.13.0+, 24.3.0+, or any release
+  from 25 onward (CI runs 24.x). Node 20, 21 and 23, and 22.x/24.x below those
+  patch floors, are excluded.
 - Expo CLI: use `npx expo <command>` — the global `expo-cli` package is deprecated
   and must not be installed
 - iOS: Xcode (Mac only)
