@@ -1,4 +1,11 @@
-# Sprint 121 — Dependency Backlog Cleanup — PRs 1–3 SHIPPED, PR 4 IN FLIGHT
+# Sprint 121 — Dependency Backlog Cleanup — PRs 1–3 SHIPPED, PR 4 CODE-COMPLETE (unpushed)
+
+> **PR 4 STATUS (2026-07-28): code-complete on `deps/sprint-121-pr4-mobile-expo`, staged but
+> NOT committed, NOT pushed, no PR opened.** The resolution fight is **won** and **all four
+> quality gates have run** — `/code-review high` found 2 P1s (a silent native-splash regression
+> and an undeclared `@types/jest`), both fixed and re-verified. See "PR 4 execution results" in
+> Critical Note 7. Remaining: commit, push, open PR, then the standing two-step deploy
+> verification. Version bumped to **11.34.0**, carrying PR 3's missed bump.
 
 > **STATUS (2026-07-24, updated 2026-07-28):** **PR 3 ([#164](https://github.com/ravichavali/karmyq/pull/164))
 > merged as `e7bc6cc5` and deployed 2026-07-28** — master run `30383717067`, `Deploy to Demo` =
@@ -98,7 +105,7 @@ individually-scoped migrations.
 | **1** | postcss advisory hotfix + Sprint 120 close-out | #159 | v11.32.1 — **SHIPPED** |
 | **2** | consolidated safe deps | #157 (**minus mobile**), **#161**, #85, **#55**, #145, #144, #147, #118, #53 | v11.33.0 — **SHIPPED & DEPLOYED** (`d7ddd146`) |
 | **3** | lint toolchain majors → became an **ESLint 8 → 9 flat-config migration** | #40, #35, #36 (**all closed**) | **SHIPPED & DEPLOYED** (`e7bc6cc5`) — ⚠️ **no version bump; master still reads 11.33.0** |
-| **4** | mobile/Expo majors **+ Expo SDK upgrade** | #37, #39, **#157's 4 react-native bumps** (never re-raised — apply by hand or via the SDK) | TBD — **carry PR 3's missed bump here** |
+| **4** | mobile/Expo majors **+ Expo SDK 54 → 57 upgrade** | #37, #39, **#157's 4 react-native bumps** (never re-raised — applied via the SDK) | **v11.34.0 — CODE-COMPLETE, unpushed** (carries PR 3's missed bump) |
 | **5** | tailwindcss 3 → 4 | #41 | TBD |
 | **6** | express 4 → 5 | #34 | TBD |
 | — | closed unmerged | #106 (stale docs) — **CLOSED 2026-07-24** | — |
@@ -421,6 +428,145 @@ mid-sprint, add it to this table before starting work.
    and `expo-status-bar` to the `plugins` array. That edit is legitimate and should be **kept**
    when PR 4 lands for real (it was only reverted here to leave a clean tree) — but it means
    `app.json` is part of this PR's surface, not just the manifest and lockfile.
+
+   **PR 4 EXECUTION RESULTS (2026-07-28) — RESOLUTION FIGHT WON.** The tree genuinely moved.
+
+   **Root cause of the half-resolution, and the fix.** `npm install` from the ROOT (not
+   `expo install --fix` from `apps/mobile`) moved 12 `expo-*` packages, gesture-handler,
+   metro-runtime and vector-icons correctly, but **7 packages refused to re-resolve**: `react`,
+   `react-dom`, `react-native`, `react-native-reanimated`, `react-native-safe-area-context`,
+   `react-native-screens`, `eslint-config-expo`. Every one of them **already existed in the tree
+   at the old version** — npm's minimal-change resolver reused the physical nodes. It wrote an
+   **internally inconsistent lockfile**: the `apps/mobile` edge read `react-native: 0.86.0` while
+   the node it resolved to was `0.85.3`. `npm ci` does not error on this.
+   **The fix that worked: delete the stale lockfile nodes AND their physical directories, then
+   `npm install`** — with nothing to reuse, npm re-resolves correctly. This is not a scratch
+   lockfile regen (Critical Note 1 still holds); it is surgical removal of 10 nodes.
+
+   **Verified after the fix** — this is the bar Critical Note 7 set, now met:
+   `apps/mobile/node_modules/react-native/package.json` **actually reads 0.86.0** ·
+   all **44** declared ranges satisfied by the resolved tree · **44/44 disk and lockfile agree on
+   both path AND version** · `npm audit` **0 vulnerabilities** · edge-vs-node vs `origin/master`
+   = **0 new mismatches, 2 of master's pre-existing ones resolved** · `npm ci --dry-run` clean ·
+   two consecutive `--package-lock-only` runs byte-identical, and the real install reproduces the
+   lockfile exactly (zero churn).
+
+   **Decisions taken on the three open questions.**
+   - **`react-native-safe-area-context` aligned DOWN to `~5.7.0`.** The `5.8.0` exact pin was not
+     deliberate — it dates to `593f2d0d` (v4.0.0, the original mobile scaffold) and the package is
+     imported by **zero** files in mobile source. Aligning removes drift at no cost.
+   - **`react`/`react-dom` declared `^19.2.0`, NOT the SDK's exact `19.2.3`.** RN 0.86 needs React
+     19.2; `^19.2.0` is satisfied by the hoisted 19.2.6 and **avoids the React de-hoist** that
+     `expo install --fix` would have caused.
+   - **`typescript` stays `^5.3.0`.** The TS 6 major that `--fix` wanted was rejected — out of
+     scope and every other workspace is on TS 5.
+
+   **`react-native-worklets@0.10.0` added — a genuinely MISSING dependency, not a bump.**
+   reanimated 4.x declares `react-native-worklets` as a hard peer (4.4.0 wanted `0.9.x`) and it
+   was **not installed at all**. `.npmrc` `legacy-peer-deps=true` is why nobody noticed;
+   reanimated 4 needs it at runtime.
+
+   **Two breaks the SDK introduced, both fixed.**
+   - `expo-notifications` made `shouldShowBanner`/`shouldShowList` required and deprecated
+     `shouldShowAlert`. Fixed in `apps/mobile/services/notifications.ts` (both `true` preserves
+     the old behaviour). Grep-verified: exactly one call site repo-wide.
+   - **`apps/mobile` type-check is now GREEN (0 errors)** — it was RED on master
+     (FlatList/refreshControl overloads, fixed by RN 0.86's own types). Mobile lint is unchanged
+     at **24 (12 err / 12 warn)**, identical to PR 3's post-migration baseline.
+
+   **PR 3's react-hooks workaround was DELETED, not ported.** `eslint-config-expo@57` depends on
+   `eslint-plugin-react-hooks ^7` — the same major this workspace declares, one shared instance —
+   so it registers the plugin itself. The 20-line `expoWithoutReactHooks` transform is gone and
+   all three v7-only rules survive.
+
+   **The `.npmrc` `hoist-pattern[]` lines were DELETED — confirmed inert.** They are pnpm/yarn
+   syntax npm never implemented; removing them produces **zero lockfile churn**. `ignore-scripts=true`
+   (ADR-061) is untouched and its regression assertion still passes. They had already cost this PR
+   and the previous attempt real investigation time.
+
+   **Gates — ALL FOUR RUN.** `/simplify` — 8 fixes applied, 6 skipped with reasons.
+   `/security-review` — **no findings at confidence ≥ 8**; it also audited the lockfile
+   independently (223 added `resolved` URLs **all** `registry.npmjs.org`, all
+   `hasInstallScript: false`). `/code-review high` — **6 findings, 3 fixed, 3 dispositioned**:
+
+   - **P1 FIXED — silent splash regression.** SDK 57 moved `splash` **out of top-level
+     `ExpoConfig` into `interface Web`** (verified in `@expo/config-types`), and
+     `withSplashScreen` **returns config untouched when `props == null`** — so the bare
+     `"expo-splash-screen"` plugin entry was a no-op AND `app.json`'s top-level `splash` block was
+     dead. Native builds would have shipped a blank splash. Fix: native config moved into the
+     plugin's props, PWA config moved to its type-correct `web.splash` home, dead top-level key
+     removed. **Proven, not assumed:** `npx expo config --type prebuild --json` now resolves
+     `["expo-splash-screen",{image,resizeMode,backgroundColor}]` and `web.splash`, with
+     `top-level splash: undefined`.
+   - **P1 FIXED — `@types/jest` undeclared.** The new test is inside mobile's `tsconfig` include
+     and uses jest globals, but `apps/mobile` never declared `@types/jest` — it type-checked only
+     via a root hoist from the 9 workspaces that do declare it. Direct violation of the
+     "declare what you import" rule this sprint promoted to CLAUDE.md. Added at `^29.5.11`
+     (the range every other workspace uses).
+   - **P2 FIXED — stale generated landing artifact.** `apps/landing/src/data/docs/architecture.json`
+     still read "Expo SDK 52"; it is generated from the `docs/ARCHITECTURE.md` this PR edited, so a
+     landing build would have dirtied the tree. Regenerated. **Note:** the regen also swept up
+     `adr-059-dependency-security-gate.json`, which was **pre-existing drift** (ADR-059.md gained a
+     "2026-07-21 advisory refresh" section in Sprint 120 that was never regenerated) — kept,
+     because reverting it just re-dirties on the next build. `build.json` was reverted: pure
+     timestamp/HEAD-sha churn, per the standing convention.
+   - **P2 FIXED at a different altitude — Node engine floor.** RN 0.86 needs
+     `^20.19.4 || ^22.13.0 || ^24.3.0`, while root `engines.node` says `>=18.0.0`. **Root was
+     deliberately NOT raised** — the 9 backend services genuinely run `node:18-alpine` in Docker,
+     so raising the root floor would misrepresent them. Instead `engines.node: ">=20.19.4"` was
+     declared on `apps/mobile`, following the precedent `apps/frontend` already sets.
+   - **Dispositioned, no change — `react`/`react-dom` `^19.2.0`.** Resolves to 19.2.6, which
+     satisfies RN 0.86's `react: ^19.2.3` peer; `@types/react@19.1.17` satisfies RN's `^19.1.1`
+     peer and type-check is clean. The caret is the deliberate de-hoist-avoidance decision above.
+   - **Dispositioned, removed as cleanup — bare `"expo-status-bar"` plugin entry.** Confirmed a
+     no-op (`resolveProps` returns `undefined` for empty props); dropped so the `plugins` array
+     contains only entries that do something. `expo-status-bar` remains a declared dependency
+     (used as a component, not a plugin).
+
+   **Re-verified after all review fixes:** mobile `tsc` **0 errors** · mobile lint **24 (12/12)**,
+   unchanged · mobile tests **2/2** · root regression+unit **278/278** · `npm audit` **0
+   vulnerabilities** · **all 45** declared ranges satisfied · edge-vs-node **0 new mismatches vs
+   master** · `npm ci --dry-run` clean.
+
+   **Follow-ups deliberately NOT done in PR 4** (each verified real, each out of scope):
+   - **`react-native-vector-icons` is dead weight** — zero imports repo-wide, and Expo's metro
+     config aliases it to `@expo/vector-icons` so it can never reach the bundle. Belongs in a
+     dependency-pruning pass.
+   - **CI never type-checks `apps/mobile`** (`ci.yml` enumerates only `packages/shared`,
+     `auth-service`, `community-service`; mobile lint is `|| echo`). Mobile is green for the first
+     time, so this is now *possible* — but the standing maintainer decision is "don't chase mobile
+     green as a gate", so it was not added unilaterally.
+   - **An SDK-alignment regression gate** in `tests/regression/` (no dep declared `*`; every
+     `expo-*` major equals `expo`'s major; lockfile satisfies manifest). Idiomatic here — PR 3
+     deferred exactly this class of gate to keep the migration diff reviewable, so this follows
+     that precedent. This is the mechanism that would prevent the drift that caused this PR.
+   - **`scripts/promote-tdd-tests.js` declares `APPS_DIR` (line 18) but only walks `SERVICES_DIR`
+     (line 63)**, so an `apps/*/tests/tdd/` test blocks pushes forever and is never promoted. The
+     new test was placed in `apps/mobile/tests/unit/` for that reason.
+   - `apps/mobile/hooks/useExpoNotifications.ts` duplicates `services/notifications.ts` (Android
+     channel setup verbatim); `app.json` plugin list is half-populated and duplicates permission
+     strings with `infoPlist`.
+   - **⚠️ `turbo.json`'s `test` task hashes the WRONG inputs, so the new mobile test is
+     permanently cache-stale.** `inputs` is `src/**/*.ts(x)` + `test/**/*.ts(x)`, but
+     `apps/mobile` has neither directory — its code is in `app/`, `services/`, `components/`,
+     `hooks/`, `store/`, `utils/` and its tests in `tests/` (**plural**). `turbo run test --dry`
+     confirms `@karmyq/mobile#test` hashes **exactly 1 input: `package.json`**. So once the cache
+     is warm, editing `services/notifications.ts` or the test itself never invalidates it and root
+     `npm test` reports a stale green for mobile forever. **`@karmyq/tests#test` hashes 1 input
+     too — this is the mechanical root cause of the documented "Turbo cache hides cross-workspace
+     failures" gotcha.** Pre-existing and repo-wide, so NOT changed here (a build-config change
+     affecting all 16 workspaces does not belong in an SDK-upgrade PR, and PRs 5–6 are in flight).
+     Fix: add `$TURBO_DEFAULT$` to the `test` task's `inputs`. **Until then, always run mobile
+     jest directly** — `cd apps/mobile && npx jest`.
+   - `apps/mobile/jest.config.js` still says `passWithNoTests: true` with the comment
+     "until we write mobile tests". That comment is now false, and the flag would silently mask a
+     future `testMatch` mistake that drops the suite entirely.
+   - **`CLAUDE.md` § "Context Follows Directory Scope" points at `apps/mobile/.claude/README.md`,
+     which does not exist** — there is no `apps/mobile/.claude/` directory at all. The mobile local
+     context is `apps/mobile/claude.md`. The bootstrap instruction is unsatisfiable as written.
+   - **`apps/landing/src/data/docs/` is gitignored but its files are tracked**, so regenerated
+     artifacts need `git add -f`. Worth deciding whether these generated files should be tracked
+     at all.
 
    **PR 4 now also owns the Expo SDK upgrade itself** (maintainer raised it during PR 3 scoping,
    2026-07-27). It lands here rather than in PR 3 for three reasons: PR 4 already owns the mobile

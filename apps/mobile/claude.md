@@ -28,7 +28,7 @@ React Native + Expo application for iOS and Android.
 - Other screens: Pending
 
 ## Tech Stack
-- Expo SDK 50+
+- Expo SDK 57 (React Native 0.86)
 - Expo Router (file-based routing)
 - Redux Toolkit for state
 - Axios for API calls
@@ -37,7 +37,7 @@ React Native + Expo application for iOS and Android.
 ## Development
 
 ### Prerequisites
-- Node.js 18+
+- Node.js 20.19.4+ (React Native 0.86 engine floor; CI runs 24.x)
 - Expo CLI: `npm install -g expo-cli`
 - iOS: Xcode (Mac only)
 - Android: Android Studio with emulator
