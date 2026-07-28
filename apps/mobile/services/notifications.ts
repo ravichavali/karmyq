@@ -4,7 +4,10 @@ import { Platform } from "react-native";
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
-    shouldShowAlert: true,
+    // SDK 57 splits the deprecated `shouldShowAlert` into banner + list; both true
+    // preserves the previous behaviour (heads-up banner and an entry in the tray).
+    shouldShowBanner: true,
+    shouldShowList: true,
     shouldPlaySound: true,
     shouldSetBadge: true,
   }),

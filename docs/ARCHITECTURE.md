@@ -707,7 +707,7 @@ import { logger } from '@shared/utils';
 
 ### Mobile
 - **Framework**: React Native
-- **Platform**: Expo SDK 52
+- **Platform**: Expo SDK 57 (see `apps/mobile/package.json` for the pinned set)
 - **Navigation**: Expo Router
 - **Storage**: Async Storage
 
